@@ -7,7 +7,7 @@
 */
 module app;
 
-import dub.vpm;
+import dub.dub;
 import dub.registry;
 
 import vibe.core.file;

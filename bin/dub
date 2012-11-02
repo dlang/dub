@@ -2,12 +2,14 @@
 set -e
 
 # delete old dub.d if another run left it in /tmp
-rm -f /tmp/dub.d
+rm -f /tmp/app.d
 
 # find the executable location (note: must stay mac compatible here)
-VIBEBINARY=$(readlink "$0" || true)
-if [ ! -n "$VIBEBINARY" ]; then VIBEBINARY="$0"; fi
-VIBEPATH=$(dirname "$VIBEBINARY")
+DUB_BINARY=$(readlink "$0" || true)
+if [ ! -n "$DUB_BINARY" ]; then DUB_BINARY="$0"; fi
+DUB_BIN=$(dirname "$DUB_BINARY")
+DUB_SOURCE=$DUB_BIN/../source
+VIBE_SOURCE=$DUB_SOURCE/../../vibe.d/source
 
 # use pkg-config if possible or fallback to default flags
 LIBS=$(pkg-config --libs libevent libevent_pthreads libssl 2>/dev/null || echo "-levent_pthreads -levent -lssl -lcrypto")
@@ -18,12 +20,12 @@ export LIBS
 START_SCRIPT=`mktemp -t dub.start.XXXXXXXX`
 
 # copy dub.d to /tmp and make it deletable by anyone
-cp -p "$VIBEPATH"/dub.d /tmp/dub.d
-chmod 666 /tmp/dub.d
+cp -p "$DUB_BIN"/app.d /tmp/app.d
+chmod 666 /tmp/app.d
 
 # run VPM and delete the dub.d file again, VPM will output the compile/run script
-rdmd -g -w -property -I"$VIBEPATH"/../source $LIBS -Jviews -Isource /tmp/dub.d "$VIBEPATH" "$START_SCRIPT" $1 $2 $3 $4 $5 $6 $7 $8 $9
-rm /tmp/dub.d
+rdmd -g -w -property -I"$DUB_SOURCE" -I"$VIBE_SOURCE" $LIBS -Jviews -Isource /tmp/app.d "$VIBE_SOURCE" "$START_SCRIPT" $1 $2 $3 $4 $5 $6 $7 $8 $9
+rm /tmp/app.d
 
 # compile/run the application
 chmod +x "$START_SCRIPT"
