@@ -5,13 +5,13 @@
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
 */
-module vpm;
+module dub;
 
 import vibe.core.file;
 import vibe.core.log;
 import vibe.inet.url;
-import vibe.vpm.vpm;
-import vibe.vpm.registry;
+import vibe.dub.dub;
+import vibe.dub.registry;
 import vibe.utils.string;
 
 import std.algorithm;
@@ -83,7 +83,7 @@ int main(string[] args)
 		auto appPath = getcwd();
 		string appStartScript;
 		Url registryUrl = Url.parse("http://registry.vibed.org/");
-		logDebug("Using vpm registry url '%s'", registryUrl);
+		logDebug("Using dub registry url '%s'", registryUrl);
 
 		// handle the command
 		switch( cmd ){
@@ -97,16 +97,16 @@ int main(string[] args)
 				break;
 			case "run":
 			case "build":
-				Vpm vpm = new Vpm(Path(appPath), new RegistryPS(registryUrl));
+				Vpm dub = new Vpm(Path(appPath), new RegistryPS(registryUrl));
 				if( !nodeps ){
 					logInfo("Checking dependencies in '%s'", appPath);
-					logDebug("vpm initialized");
-					vpm.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
+					logDebug("dub initialized");
+					dub.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
 				}
 
 				//Added check for existance of [AppNameInPackagejson].d
 				//If exists, use that as the starting file.
-				string binName = getBinName(vpm);
+				string binName = getBinName(dub);
 				version(Windows) { string appName = binName[0..$-4]; 	}
 				version(Posix)   { string appName = binName; 			}
 
@@ -124,9 +124,9 @@ int main(string[] args)
 				flags ~= "-I" ~ (vibedDir ~ ".." ~ "source").toNativeString();
 				flags ~= "-Isource";
 				flags ~= "-Jviews";
-				flags ~= vpm.dflags;
+				flags ~= dub.dflags;
 				flags ~= getLibs(vibedDir);
-				flags ~= getPackagesAsVersion(vpm);
+				flags ~= getPackagesAsVersion(dub);
 				flags ~= (Path("source") ~ appName).toNativeString();
 				flags ~= args[1 .. $];
 
@@ -134,9 +134,9 @@ int main(string[] args)
 				break;
 			case "upgrade":
 				logInfo("Upgrading application in '%s'", appPath);
-				Vpm vpm = new Vpm(Path(appPath), new RegistryPS(registryUrl));
-				logDebug("vpm initialized");
-				vpm.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
+				Vpm dub = new Vpm(Path(appPath), new RegistryPS(registryUrl));
+				logDebug("dub initialized");
+				dub.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
 				break;
 		}
 
@@ -159,9 +159,9 @@ int main(string[] args)
 private void showHelp(string command)
 {
 	// This help is actually a mixup of help for this application and the
-	// supporting vibe script / .cmd file.
+	// supporting dub script / .cmd file.
 	logInfo(
-"Usage: vibe [<command>] [<vibe options...>] [-- <application options...>]
+"Usage: dub [<command>] [<vibe options...>] [-- <application options...>]
 
 Manages the vibe.d application in the current directory. A single -- can be used
 to separate vibe options from options passed to the application.
@@ -217,20 +217,20 @@ private string stripDlangSpecialChars(string s)
 	return to!string(ret);
 }
 
-private string[] getPackagesAsVersion(const Vpm vpm)
+private string[] getPackagesAsVersion(const Vpm dub)
 {
 	string[] ret;
-	string[string] pkgs = vpm.installedPackages();
+	string[string] pkgs = dub.installedPackages();
 	foreach(id, vers; pkgs)
 		ret ~= "-version=VPM_package_" ~ stripDlangSpecialChars(id);
 	return ret;
 }
 
-private string getBinName(const Vpm vpm)
+private string getBinName(const Vpm dub)
 {
 	string ret;
-	if(existsFile(Path("source") ~ (vpm.packageName() ~ ".d")))
-		ret = vpm.packageName();
+	if(existsFile(Path("source") ~ (dub.packageName() ~ ".d")))
+		ret = dub.packageName();
 	//Otherwise fallback to source/app.d
 	else
 		ret = (Path(".") ~ "app").toNativeString();
