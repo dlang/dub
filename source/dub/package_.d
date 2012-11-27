@@ -12,10 +12,12 @@ import dub.utils;
 
 import std.array;
 import std.conv;
+import std.file;
+import std.exception;
+
 import vibe.core.file;
 import vibe.data.json;
 import vibe.inet.url;
-
 
 /// Representing an installed package
 // Json file example:
@@ -39,11 +41,13 @@ class Package {
 	private {
 		Json m_meta;
 		Dependency[string] m_dependencies;
+		Path m_root;
 	}
 	
 	this(Path root) {
 		m_meta = jsonFromFile(root ~ "package.json");
 		m_dependencies = .dependencies(m_meta);
+		m_root = root;
 	}
 	this(Json json) {
 		m_meta = json;
@@ -60,6 +64,15 @@ class Package {
 		auto ret = appender!(string[])();
 		foreach( f; flags ) ret.put(f.get!string);
 		return ret.data;
+	}
+	
+	@property const(Path[]) sources() const {
+		enforce(m_root != Path(), "Cannot assemble sources from package, m_root == Path().");
+		Path[] allSources;
+		foreach(DirEntry d; dirEntries(to!string(m_root ~ Path("source")), "*.d", SpanMode.depth)) {
+			allSources ~= Path(d.name);
+		}	
+		return allSources;
 	}
 	
 	string info() const {

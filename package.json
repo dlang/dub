@@ -2,8 +2,12 @@
 	"name": "dub",
 	"description": "Package manager for D packages",
 	"copyright": "Copyright 2012 rejectedsoftware e.K.",
+	"version": "0.0.1",
 	"authors": [
 		"Matthias Dondorff",
 		"Sönke Ludwig"
-	]
+	],
+	"dependencies": {
+		"vibe.d" : ">=0.0.0"
+	}
 }

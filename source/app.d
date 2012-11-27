@@ -57,7 +57,6 @@ int main(string[] args)
 		setLogLevel(loglevel);
 		if( loglevel >= LogLevel.Info ) setPlainLogging(true);
 
-
 		// extract the destination paths
 		enforce(isDir(args[1]), "Specified binary path is not a directory.");
 		Path vibedDir = Path(args[1]);
@@ -148,6 +147,19 @@ int main(string[] args)
 				logDebug("vpm initialized");
 				vpm.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
 				break;
+			case "generate":
+				string ide;
+				if( args.length >= 2 ) ide = args[1];
+				if(ide.empty) {
+					logInfo("Usage: dub generate <ide_identifier>");
+					return -1;
+				}
+				
+				Vpm vpm = new Vpm(Path(appPath), new RegistryPS(registryUrl));
+				logDebug("vpm initialized, calling generate");
+				vpm.generateProject(ide);
+				logDebug("Project files generated.");
+				return 0;
 		}
 
 		auto script = openFile(to!string(dstScript), FileMode.CreateTrunc);
@@ -181,6 +193,7 @@ Possible commands:
     run                  Compiles and runs the application
     build                Just compiles the application in the project directory
     upgrade              Forces an upgrade of all dependencies
+    generate <ide>       Generates project files for a specified IDE.
 
 Options:
     -v  --verbose        Also output debug messages
@@ -260,7 +273,19 @@ private void initDirectory(string fName)
     //Otherwise use the current directory.
     else 
         cwd = Path("."); 
-    
+  
+	//Make sure we do not overwrite anything accidentally
+	if( (existsFile(cwd ~ "package.json"))        ||
+		(existsFile(cwd ~ "source"      ))        ||
+		(existsFile(cwd ~ "views"       ))        || 
+		(existsFile(cwd ~ "public"     )))
+	{
+		logInfo("The current directory is not empty.\n"
+				"vibe init aborted.");
+		//Exit Immediately. 
+		return;
+	}
+	
     //raw strings must be unindented. 
     immutable packageJson = 
 `{
@@ -284,17 +309,7 @@ static this()
     logInfo("Edit source/app.d to start your project.");
 }
 `;
-	//Make sure we do not overwrite anything accidentally
-	if( (existsFile(cwd ~ "package.json"))        ||
-		(existsFile(cwd ~ "source"      ))        ||
-		(existsFile(cwd ~ "views"       ))        || 
-		(existsFile(cwd ~ "public"     )))
-	{
-		logInfo("The current directory is not empty.\n"
-				"vibe init aborted.");
-		//Exit Immediately. 
-		return;
-	}
+
 	//Create the common directories.
 	createDirectory(cwd ~ "source");
 	createDirectory(cwd ~ "views" );

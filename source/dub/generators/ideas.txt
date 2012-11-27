@@ -1,0 +1,12 @@
+
+
+
+Startup project
+
+packages -> projects
+
+libraries
+
+source files
+
+packages, which are installed globally

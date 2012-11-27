@@ -1,5 +1,5 @@
 /**
-	A package manager.
+	A package supplier, able to get some packages to the local FS.
 
 	Copyright: © 2012 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.

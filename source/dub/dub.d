@@ -13,6 +13,8 @@ import dub.utils;
 import dub.registry;
 import dub.package_;
 import dub.packagesupplier;
+import dub.packagestore;
+import dub.generators.generator;
 
 import vibe.core.file;
 import vibe.core.log;
@@ -81,13 +83,21 @@ private class Application {
 	}
 
 	/// Gets all installed packages as a "packageId" = "version" associative array
-	string[string] installedPackages() const {
+	string[string] installedPackagesIDs() const {
 		string[string] pkgs;
 		foreach(k, p; m_packages)
 			pkgs[k] = p.vers;
 		return pkgs;
 	}
 
+	const(Package[string]) installedPackages() const {
+		return m_packages;
+	}
+	
+	const (Package) mainPackage() const {
+		return m_main;
+	}
+	
 	/// Writes the application's metadata to the package.json file
 	/// in it's root folder.
 	void writeMetadata() const {
@@ -270,108 +280,110 @@ private class Application {
 		*/
 	}
 
-	private bool gatherMissingDependencies(PackageSupplier packageSupplier, DependencyGraph graph) {
-		RequestedDependency[string] missing = graph.missing();
-		RequestedDependency[string] oldMissing;
-		while( missing.length > 0 ) {
-			if(missing.length == oldMissing.length) {
-				bool different = false;
+	private { 
+		bool gatherMissingDependencies(PackageSupplier packageSupplier, DependencyGraph graph) {
+			RequestedDependency[string] missing = graph.missing();
+			RequestedDependency[string] oldMissing;
+			while( missing.length > 0 ) {
+				if(missing.length == oldMissing.length) {
+					bool different = false;
+					foreach(string pkg, reqDep; missing) {
+						auto o = pkg in oldMissing;
+						if(o && reqDep.dependency != o.dependency) {
+							different = true;
+							break;
+						}
+					}
+					if(!different) {
+						logWarn("Could not resolve dependencies");
+						return false;
+					}
+				}
+
+				oldMissing = missing.dup;
+				logTrace("There are %s packages missing.", missing.length);
 				foreach(string pkg, reqDep; missing) {
-					auto o = pkg in oldMissing;
-					if(o && reqDep.dependency != o.dependency) {
-						different = true;
-						break;
+					if(!reqDep.dependency.valid()) {
+						logTrace("Dependency to "~pkg~" is invalid. Trying to fix by modifying others.");
+						continue;
 					}
+
+					// TODO: auto update and update interval by time
+					logTrace("Adding package to graph: "~pkg);
+					Package p = null;
+
+					// Try an already installed package first
+					if(!needsUpToDateCheck(pkg)) {
+						try {
+							auto json = jsonFromFile( m_root ~ Path("modules") ~ Path(pkg) ~ "package.json");
+							auto vers = Version(json["version"].get!string);
+							if( reqDep.dependency.matches( vers ) )
+								p = new Package(json);
+							logTrace("Using already installed package with version: %s", vers);
+						}
+						catch(Throwable e) {
+							// not yet installed, try the supplied PS
+							logTrace("An installed package was not found");
+						}
+					}
+					if(!p) {
+						try {
+							p = new Package(packageSupplier.packageJson(pkg, reqDep.dependency));
+							logTrace("using package from registry");
+							markUpToDate(pkg);
+						}
+						catch(Throwable e) {
+							logError("Geting package metadata for %s failed, exception: %s", pkg, e.toString());
+						}
+					}
+
+					if(p)
+						graph.insert(p);
 				}
-				if(!different) {
-					logWarn("Could not resolve dependencies");
-					return false;
-				}
+				graph.clearUnused();
+				missing = graph.missing();
 			}
 
-			oldMissing = missing.dup;
-			logTrace("There are %s packages missing.", missing.length);
-			foreach(string pkg, reqDep; missing) {
-				if(!reqDep.dependency.valid()) {
-					logTrace("Dependency to "~pkg~" is invalid. Trying to fix by modifying others.");
-					continue;
-				}
-
-				// TODO: auto update and update interval by time
-				logTrace("Adding package to graph: "~pkg);
-				Package p = null;
-
-				// Try an already installed package first
-				if(!needsUpToDateCheck(pkg)) {
-					try {
-						auto json = jsonFromFile( m_root ~ Path("modules") ~ Path(pkg) ~ "package.json");
-						auto vers = Version(json["version"].get!string);
-						if( reqDep.dependency.matches( vers ) )
-							p = new Package(json);
-						logTrace("Using already installed package with version: %s", vers);
-					}
-					catch(Throwable e) {
-						// not yet installed, try the supplied PS
-						logTrace("An installed package was not found");
-					}
-				}
-				if(!p) {
-					try {
-						p = new Package(packageSupplier.packageJson(pkg, reqDep.dependency));
-						logTrace("using package from registry");
-						markUpToDate(pkg);
-					}
-					catch(Throwable e) {
-						logError("Geting package metadata for %s failed, exception: %s", pkg, e.toString());
-					}
-				}
-
-				if(p)
-					graph.insert(p);
-			}
-			graph.clearUnused();
-			missing = graph.missing();
-		}
-
-		return true;
-	}
-
-	private bool needsUpToDateCheck(string packageId) {
-		try {
-			auto time = m_json["vpm"]["lastUpdate"][packageId].to!string;
-			return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
-		}
-		catch(Throwable t) {
 			return true;
 		}
-	}
 
-	private void markUpToDate(string packageId) {
-		logTrace("markUpToDate(%s)", packageId);
-		Json create(ref Json json, string object) {
-			if( object !in json ) json[object] = Json.EmptyObject;
-			return json[object];
+		bool needsUpToDateCheck(string packageId) {
+			try {
+				auto time = m_json["vpm"]["lastUpdate"][packageId].to!string;
+				return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
+			}
+			catch(Throwable t) {
+				return true;
+			}
 		}
-		create(m_json, "vpm");
-		create(m_json["vpm"], "lastUpdate");
-		m_json["vpm"]["lastUpdate"][packageId] = Json( Clock.currTime().toISOExtString() );
 
-		writeVpmJson();
-	}
+		void markUpToDate(string packageId) {
+			logTrace("markUpToDate(%s)", packageId);
+			Json create(ref Json json, string object) {
+				if( object !in json ) json[object] = Json.EmptyObject;
+				return json[object];
+			}
+			create(m_json, "vpm");
+			create(m_json["vpm"], "lastUpdate");
+			m_json["vpm"]["lastUpdate"][packageId] = Json( Clock.currTime().toISOExtString() );
 
-	private void writeVpmJson() {
-		// don't bother to write an empty file
-		if( m_json.length == 0 ) return;
+			writeVpmJson();
+		}
 
-		try {
-			logTrace("writeVpmJson");
-			auto dstFile = openFile((m_root~"vpm.json").toString(), FileMode.CreateTrunc);
-			scope(exit) dstFile.close();
-			Appender!string js;
-			toPrettyJson(js, m_json);
-			dstFile.write( js.data );
-		} catch( Exception e ){
-			logWarn("Could not write vpm.json.");
+		void writeVpmJson() {
+			// don't bother to write an empty file
+			if( m_json.length == 0 ) return;
+
+			try {
+				logTrace("writeVpmJson");
+				auto dstFile = openFile((m_root~"vpm.json").toString(), FileMode.CreateTrunc);
+				scope(exit) dstFile.close();
+				Appender!string js;
+				toPrettyJson(js, m_json);
+				dstFile.write( js.data );
+			} catch( Exception e ){
+				logWarn("Could not write vpm.json.");
+			}
 		}
 	}
 }
@@ -392,12 +404,13 @@ enum UpdateOptions
 };
 
 /// The Vpm or Vibe Package Manager helps in getting the applications
-/// dependencies up and running.
+/// dependencies up and running. An instance manages one application.
 class Vpm {
 	private {
 		Path m_root;
 		Application m_app;
 		PackageSupplier m_packageSupplier;
+		PackageStore m_packageStore;
 	}
 
 	/// Initiales the package manager for the vibe application
@@ -406,7 +419,12 @@ class Vpm {
 		enforce(root.absolute, "Specify an absolute path for the VPM");
 		m_root = root;
 		m_packageSupplier = ps;
+		m_packageStore = new PackageStore();
 		m_app = new Application(root);
+		
+		/// HACK
+		m_packageStore.includePath(Path("E:\\dev\\"));
+		m_packageStore.includePath(Path("E:\\dev\\dub\\modules"));
 	}
 
 	/// Returns the name listed in the package.json of the current
@@ -483,7 +501,7 @@ class Vpm {
 	}
 
 	/// Gets all installed packages as a "packageId" = "version" associative array
-	string[string] installedPackages() const { return m_app.installedPackages(); }
+	string[string] installedPackages() const { return m_app.installedPackagesIDs(); }
 
 	/// Installs the package matching the dependency into the application.
 	/// @param addToApplication if true, this will also add an entry in the
@@ -627,5 +645,17 @@ class Vpm {
 
 		rmdir(to!string(packagePath));
 		logInfo("Uninstalled package: '"~packageId~"'");
+	}
+	
+	/// Generate project files for a specified IDE.
+	/// Any existing project files will be overridden.
+	void generateProject(string ide) {
+		auto generator = createProjectGenerator(ide, m_app, m_packageStore);
+		if(null is generator)
+			throw new Exception("Unsupported IDE, there is no generator available for '"~ide~"'");
+			
+		// Q: update before generating?
+		
+		generator.generateProject();
 	}
 }
