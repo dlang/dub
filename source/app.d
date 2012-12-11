@@ -138,8 +138,8 @@ int main(string[] args)
 				flags ~= (Path("source") ~ appName).toNativeString();
 				flags ~= args[1 .. $];
 
-				appStartScript = "rdmd " ~ getDflags() ~ " " ~ join(flags, " ") ~ "\r\n";
-				if( del_exe_file.length ) appStartScript ~= "del \""~del_exe_file~"\"";
+				appStartScript = "rdmd " ~ getDflags() ~ " " ~ join(flags, " ");
+				if( del_exe_file.length ) appStartScript ~= "\r\ndel \""~del_exe_file~"\"";
 				break;
 			case "upgrade":
 				logInfo("Upgrading application in '%s'", appPath);
