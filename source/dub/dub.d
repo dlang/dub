@@ -100,15 +100,15 @@ private class Application {
 		m_packages.clear();
 		m_main = null;
 
-		try m_json = jsonFromFile(m_root ~ "vpm.json");
-		catch(Exception t) logDebug("Could not open vpm.json: %s", t.msg);
+		try m_json = jsonFromFile(m_root ~ ".dub/dub.json");
+		catch(Exception t) logDebug("Could not open .dub/dub.json: %s", t.msg);
 
 		if(!exists(to!string(m_root~"package.json"))) {
 			logWarn("There was no 'package.json' found for the application in '%s'.", m_root);
 		} else {
 			m_main = new Package(m_root);
-			if(exists(to!string(m_root~"modules"))) {
-				foreach( string pkg; dirEntries(to!string(m_root ~ "modules"), SpanMode.shallow) ) {
+			if(exists(to!string(m_root~".dub/modules"))) {
+				foreach( string pkg; dirEntries(to!string(m_root ~ ".dub/modules"), SpanMode.shallow) ) {
 					if( !isDir(pkg) ) continue;
 					try {
 						auto p = new Package( Path(pkg) );
@@ -135,7 +135,7 @@ private class Application {
 		ret.put("-Jviews");
 		foreach( string s, pkg; m_packages ){
 			void addPath(string prefix, string name){
-				auto path = "modules/"~pkg.name~"/"~name;
+				auto path = ".dub/modules/"~pkg.name~"/"~name;
 				if( exists(path) )
 					ret.put(prefix ~ path);
 			}
@@ -239,7 +239,7 @@ private class Application {
 			ignores ~= ".hg/*";
 			logDebug("The '%s' file was not found, defaulting to ignore:", ignoreFile);
 		}
-		ignores ~= "modules/*"; // modules will not be included
+		ignores ~= ".dub/*"; // .dub will not be included
 		foreach(string i; ignores)
 			logDebug(" " ~ i);
 
@@ -304,7 +304,7 @@ private class Application {
 				// Try an already installed package first
 				if(!needsUpToDateCheck(pkg)) {
 					try {
-						auto json = jsonFromFile( m_root ~ Path("modules") ~ Path(pkg) ~ "package.json");
+						auto json = jsonFromFile( m_root ~ Path(".dub/modules") ~ Path(pkg) ~ "package.json");
 						auto vers = Version(json["version"].get!string);
 						if( reqDep.dependency.matches( vers ) )
 							p = new Package(json);
@@ -365,13 +365,13 @@ private class Application {
 
 		try {
 			logTrace("writeVpmJson");
-			auto dstFile = openFile((m_root~"vpm.json").toString(), FileMode.CreateTrunc);
+			auto dstFile = openFile((m_root~".dub/dub.json").toString(), FileMode.CreateTrunc);
 			scope(exit) dstFile.close();
 			Appender!string js;
 			toPrettyJson(js, m_json);
 			dstFile.write( js.data );
 		} catch( Exception e ){
-			logWarn("Could not write vpm.json.");
+			logWarn("Could not write .dub/dub.json.");
 		}
 	}
 }
@@ -490,7 +490,7 @@ class Vpm {
 	/// list of dependencies in the application's package.json
 	void install(string packageId, const Dependency dep, bool addToApplication = false) {
 		logInfo("Installing "~packageId~"...");
-		auto destination = m_root ~ "modules" ~ packageId;
+		auto destination = m_root ~ ".dub/modules" ~ packageId;
 		if(exists(to!string(destination)))
 			throw new Exception(packageId~" needs to be uninstalled prior installation.");
 
@@ -498,10 +498,10 @@ class Vpm {
 		ZipArchive archive;
 		{
 			logDebug("Aquiring package zip file");
-			auto dload = m_root ~ "temp/downloads";
+			auto dload = m_root ~ ".dub/temp/downloads";
 			if(!exists(to!string(dload)))
 				mkdirRecurse(to!string(dload));
-			auto tempFile = m_root ~ ("temp/downloads/"~packageId~".zip");
+			auto tempFile = m_root ~ (".dub/temp/downloads/"~packageId~".zip");
 			string sTempFile = to!string(tempFile);
 			if(exists(sTempFile)) remove(sTempFile);
 			m_packageSupplier.storePackage(tempFile, packageId, dep); // Q: continue on fail?
@@ -597,11 +597,11 @@ class Vpm {
 	void uninstall(const string packageId, bool removeFromApplication = false) {
 		logInfo("Uninstalling " ~ packageId);
 
-		auto journalFile = m_root~"modules"~packageId~"journal.json";
+		auto journalFile = m_root~".dub/modules"~packageId~"journal.json";
 		if( !exists(to!string(journalFile)) )
 			throw new Exception("Uninstall failed, no journal found for '"~packageId~"'. Please uninstall manually.");
 
-		auto packagePath = m_root~"modules"~packageId;
+		auto packagePath = m_root~".dub/modules"~packageId;
 		auto journal = new Journal(journalFile);
 		logDebug("Erasing files");
 		foreach( Journal.Entry e; filter!((Journal.Entry a) => a.type == Journal.Type.RegularFile)(journal.entries)) {
