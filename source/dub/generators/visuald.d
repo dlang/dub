@@ -261,7 +261,7 @@ EndGlobal");
     <quiet>0</quiet>
     <verbose>0</verbose>
     <vtls>0</vtls>
-    <symdebug>0</symdebug>
+    <symdebug>1</symdebug>
     <optimize>0</optimize>
     <cpu>0</cpu>
     <isX86_64>0</isX86_64>
