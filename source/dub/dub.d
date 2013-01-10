@@ -128,9 +128,10 @@ private class Application {
 	@property string name() const { return m_main ? m_main.name : "app"; }
 
 	/// Returns the DFLAGS
-	@property string[] dflags() const {
+	@property string[] getDflags(string platform, string architecture)
+	const {
 		auto ret = appender!(string[])();
-		if( m_main ) ret.put(m_main.dflags());
+		if( m_main ) ret.put(m_main.getDflags(platform, architecture));
 		ret.put("-Isource");
 		ret.put("-Jviews");
 		foreach( string s, pkg; m_packages ){
@@ -139,7 +140,7 @@ private class Application {
 				if( exists(path) )
 					ret.put(prefix ~ path);
 			}
-			ret.put(pkg.dflags());
+			ret.put(pkg.getDflags(platform, architecture));
 			addPath("-I", "source");
 			addPath("-J", "views");
 		}
@@ -415,7 +416,7 @@ class Vpm {
 
 	/// Returns a list of flags which the application needs to be compiled
 	/// properly.
-	@property string[] dflags() { return m_app.dflags; }
+	string[] getDflags(string platform, string architecture) { return m_app.getDflags(platform, architecture); }
 
 	/// Lists all installed modules
 	void list() {

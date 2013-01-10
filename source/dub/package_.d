@@ -54,11 +54,24 @@ class Package {
 	@property string vers() const { return cast(string)m_meta["version"]; }
 	@property const(Url) url() const { return Url.parse(cast(string)m_meta["url"]); }
 	@property const(Dependency[string]) dependencies() const { return m_dependencies; }
-	@property string[] dflags() const {
-		if( "dflags" !in m_meta ) return null;
-		auto flags = m_meta["dflags"].get!(Json[]);
+
+	string[] getDflags(string platform, string architecture)
+	const {
 		auto ret = appender!(string[])();
-		foreach( f; flags ) ret.put(f.get!string);
+		foreach( j; m_meta["dflags"].opt!(Json[]) ) ret.put(j.get!string);
+		foreach( j; m_meta["dflags-"~platform].opt!(Json[]) ) ret.put(j.get!string);
+		foreach( j; m_meta["dflags-"~architecture].opt!(Json[]) ) ret.put(j.get!string);
+		foreach( j; m_meta["dflags-"~platform~"-"~architecture].opt!(Json[]) ) ret.put(j.get!string);
+		return ret.data;
+	}
+
+	string[] getLibs(string platform, string architecture)
+	const {
+		auto ret = appender!(string[])();
+		foreach( j; m_meta["libs"].opt!(Json[]) ) ret.put(j.get!string);
+		foreach( j; m_meta["libs-"~platform].opt!(Json[]) ) ret.put(j.get!string);
+		foreach( j; m_meta["libs-"~architecture].opt!(Json[]) ) ret.put(j.get!string);
+		foreach( j; m_meta["libs-"~platform~"-"~architecture].opt!(Json[]) ) ret.put(j.get!string);
 		return ret.data;
 	}
 	

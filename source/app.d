@@ -70,6 +70,10 @@ int main(string[] args)
 		Url registryUrl = Url.parse("http://registry.vibed.org/");
 		logDebug("Using vpm registry url '%s'", registryUrl);
 
+		// FIXME: determine from version() and command line flags
+		auto platform = "windows";
+		auto architecture = "x86";
+
 		// handle the command
 		switch( cmd ){
 			default:
@@ -112,7 +116,7 @@ int main(string[] args)
 					}
 				}
 				flags ~= "-g";
-				flags ~= vpm.dflags;
+				flags ~= vpm.getDflags(platform, architecture);
 				flags ~= getPackagesAsVersion(vpm);
 				flags ~= (mainsrc).toNativeString();
 				flags ~= args[1 .. $];
