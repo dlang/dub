@@ -107,11 +107,10 @@ int main(string[] args)
 
 				//Added check for existance of [AppNameInPackagejson].d
 				//If exists, use that as the starting file.
-				string binName = getBinName(vpm);
-				version(Windows) { string appName = binName[0..$-4]; 	}
-				version(Posix)   { string appName = binName; 			}
+				auto outfile = getBinName(vpm);
+				auto mainsrc = getMainSourceFile(vpm);
 
-				logDebug("Application Name is '%s'", binName);
+				logDebug("Application output name is '%s'", outfile);
 
 				// Create start script, which will be used by the calling bash/cmd script.
 				// build "rdmd --force %DFLAGS% -I%~dp0..\source -Jviews -Isource @deps.txt %LIBS% source\app.d" ~ application arguments
@@ -119,12 +118,12 @@ int main(string[] args)
 				string[] flags = ["--force"];
 				if( cmd == "build" ){
 					flags ~= "--build-only";
-					flags ~= "-of"~binName;
+					flags ~= "-of"~outfile;
 				} else {
 					version(Windows){
 						import std.random;
 						auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
-						del_exe_file = environment.get("TEMP")~"\\.rdmd\\source\\"~rnd~binName;
+						del_exe_file = environment.get("TEMP")~"\\.rdmd\\source\\"~rnd~outfile;
 						flags ~= "-of"~del_exe_file;
 					}
 				}
@@ -135,7 +134,7 @@ int main(string[] args)
 				flags ~= vpm.dflags;
 				flags ~= getLibs(vibedDir);
 				flags ~= getPackagesAsVersion(vpm);
-				flags ~= (Path("source") ~ appName).toNativeString();
+				flags ~= (mainsrc).toNativeString();
 				flags ~= args[1 .. $];
 
 				appStartScript = "rdmd " ~ getDflags() ~ " " ~ join(flags, " ");
@@ -252,7 +251,7 @@ private string[] getPackagesAsVersion(const Vpm vpm)
 private string getBinName(const Vpm vpm)
 {
 	string ret;
-	if(existsFile(Path("source") ~ (vpm.packageName() ~ ".d")))
+	if( vpm.packageName.length > 0 )
 		ret = vpm.packageName();
 	//Otherwise fallback to source/app.d
 	else ret ="app";
@@ -260,6 +259,14 @@ private string getBinName(const Vpm vpm)
 
 	return ret;
 } 
+
+private Path getMainSourceFile(const Vpm vpm)
+{
+	auto p = Path("source") ~ (vpm.packageName() ~ ".d");
+	return existsFile(p) ? p : Path("source/app.d");
+
+
+}
 
 private void initDirectory(string fName)
 { 
