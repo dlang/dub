@@ -518,7 +518,7 @@ class Vpm {
 		Path getPrefix(ZipArchive a) {
 			foreach(ArchiveMember am; a.directory)
 				if( Path(am.name).head == PathEntry("package.json") )
-					return Path(am.name).parentPath;
+					return Path(am.name)[0 .. 1];
 
 			// not correct zip packages HACK
 			Path minPath;
@@ -533,6 +533,7 @@ class Vpm {
 
 		// In a github zip, the actual contents are in a subfolder
 		auto prefixInPackage = getPrefix(archive);
+		logDebug("zip root folder: %s", prefixInPackage);
 
 		Path getCleanedPath(string fileName) {
 			auto path = Path(fileName);
@@ -573,6 +574,12 @@ class Vpm {
 			scope(exit) dstFile.close();
 			dstFile.write(archive.expand(a));
 			journal.add(Journal.Entry(Journal.Type.RegularFile, cleanedPath));
+		}
+
+		{ // write package.json (this one includes a version field)
+			auto pj = openFile(to!string(destination~"package.json"), FileMode.CreateTrunc);
+			scope(exit) pj.close();
+			pj.write(m_packageSupplier.packageJson(packageId, dep).toString());
 		}
 
 		// Write journal

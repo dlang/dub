@@ -21,7 +21,7 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.getopt;
-import std.process;
+import stdx.process;
 
 
 int main(string[] args)
@@ -29,13 +29,6 @@ int main(string[] args)
 	string cmd;
 
 	try {
-		if( args.length < 3 ){
-			logError("Usage: %s <vibe-binary-path> <start-script-output-file> [<command>] [args...] [-- [applicatio args]]\n", args[0]);
-			// vibe-binary-path: the installation folder of the vibe installation
-			// start-script-output-file: destination of the script, which can be used to run the app
-			return 1;
-		}
-
 		// parse general options
 		bool verbose, vverbose, quiet, vquiet;
 		bool help, nodeps, annotate;
@@ -57,20 +50,11 @@ int main(string[] args)
 		setLogLevel(loglevel);
 		if( loglevel >= LogLevel.Info ) setPlainLogging(true);
 
-
-		// extract the destination paths
-		enforce(isDir(args[1]), "Specified binary path is not a directory.");
-		Path vibedDir = Path(args[1]);
-		Path dstScript = Path(args[2]);
-
 		// extract the command
-		if( args.length > 3 && !args[3].startsWith("-") ){
-			cmd = args[3];
-			args = args[0] ~ args[4 .. $];
-		} else {
-			cmd = "run";
-			args = args[0] ~ args[3 .. $];
-		}
+		if( args.length > 1 && !args[1].startsWith("-") ){
+			cmd = args[1];
+			args = args[0] ~ args[2 .. $];
+		} else cmd = "run";
 
 		// contrary to the documentation, getopt does not remove --
 		if( args.length >= 2 && args[1] == "--" ) args = args[0] ~ args[2 .. $];
@@ -83,7 +67,6 @@ int main(string[] args)
 
 		auto appPath = getcwd();
 		string del_exe_file;
-		string appStartScript;
 		Url registryUrl = Url.parse("http://registry.vibed.org/");
 		logDebug("Using vpm registry url '%s'", registryUrl);
 
@@ -129,17 +112,16 @@ int main(string[] args)
 					}
 				}
 				flags ~= "-g";
-				flags ~= "-I" ~ (vibedDir ~ ".." ~ "source").toNativeString();
-				flags ~= "-Isource";
-				flags ~= "-Jviews";
 				flags ~= vpm.dflags;
-				flags ~= getLibs(vibedDir);
 				flags ~= getPackagesAsVersion(vpm);
 				flags ~= (mainsrc).toNativeString();
 				flags ~= args[1 .. $];
 
-				appStartScript = "rdmd " ~ getDflags() ~ " " ~ join(flags, " ");
-				if( del_exe_file.length ) appStartScript ~= "\r\ndel \""~del_exe_file~"\"";
+				logInfo("Running %s", "rdmd " ~ getDflags() ~ " " ~ join(flags, " "));
+				auto rdmd_pid = spawnProcess("rdmd " ~ getDflags() ~ " " ~ join(flags, " "));
+				rdmd_pid.wait();
+
+				if( del_exe_file.length ) remove(del_exe_file);
 				break;
 			case "upgrade":
 				logInfo("Upgrading application in '%s'", appPath);
@@ -148,10 +130,6 @@ int main(string[] args)
 				vpm.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
 				break;
 		}
-
-		auto script = openFile(to!string(dstScript), FileMode.CreateTrunc);
-		scope(exit) script.close();
-		script.write(appStartScript);
 
 		return 0;
 	}
@@ -199,22 +177,6 @@ private string getDflags()
 	if(globVibedDflags == null)
 		globVibedDflags = "-debug -g -w -property";
 	return globVibedDflags;
-}
-
-private string[] getLibs(Path vibedDir)
-{
-	version(Windows)
-	{
-		auto libDir = vibedDir ~ "..\\lib\\win-i386";
-		return ["ws2_32.lib",
-			(libDir ~ "event2.lib").toNativeString(),
-			(libDir ~ "eay.lib").toNativeString(),
-			(libDir ~ "ssl.lib").toNativeString()];
-	}
-	version(Posix)
-	{
-		return split(environment.get("LIBS", "-L-levent_openssl -L-levent"));
-	}
 }
 
 private string stripDlangSpecialChars(string s) 
