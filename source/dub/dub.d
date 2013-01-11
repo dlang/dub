@@ -148,21 +148,22 @@ private class Application {
 					ret.put(prefix ~ path);
 			}
 			processVars(ret, pack_path, pkg.getDflags(platform));
-			libs ~= m_main.getLibs(platform);
+			libs ~= pkg.getLibs(platform);
 			addPath("-I", "source");
 			addPath("-J", "views");
 		}
 
-
-		try {
-			logDebug("Trying to use pkg-config to resolve library flags for %s.", libs);
-			auto libflags = execute("pkg-config", "--libs" ~ libs.map!(l => "lib"~l)().array());
-			enforce(libflags.status == 0);
-			ret.put(libflags.output.split(" ").map!(f => "-L"~f)().array());
-		} catch( Exception e ){
-			logDebug("pkg-config failed: %s", e.msg);
-			logDebug("Falling back to direct -lxyz flags.");
-			ret.put(libs.map!(l => "-L-l"~l)().array());
+		if( libs.length ){
+			try {
+				logDebug("Trying to use pkg-config to resolve library flags for %s.", libs);
+				auto libflags = execute("pkg-config", "--libs" ~ libs.map!(l => "lib"~l)().array());
+				enforce(libflags.status == 0, "pkg-config exited with error code "~to!string(libflags.status));
+				ret.put(libflags.output.split(" ").map!(f => "-L"~f)().array());
+			} catch( Exception e ){
+				logDebug("pkg-config failed: %s", e.msg);
+				logDebug("Falling back to direct -lxyz flags.");
+				ret.put(libs.map!(l => "-L-l"~l)().array());
+			}
 		}
 
 		return ret.data();
