@@ -129,8 +129,10 @@ private class Application {
 	/// Returns the applications name.
 	@property string name() const { return m_main ? m_main.name : "app"; }
 
+	@property string[] configurations() const { return m_main ? m_main.configurations : null; }
+
 	/// Returns the DFLAGS
-	@property string[] getDflags(BuildPlatform platform)
+	string[] getDflags(BuildPlatform platform)
 	const {
 		auto ret = appender!(string[])();
 		string[] libs;
@@ -437,6 +439,8 @@ class Dub {
 	/// Returns the name listed in the package.json of the current
 	/// application.
 	@property string packageName() const { return m_app.name; }
+
+	@property string[] configurations() const { return m_app.configurations; }
 
 	/// Returns a list of flags which the application needs to be compiled
 	/// properly.

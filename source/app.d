@@ -35,8 +35,8 @@ int main(string[] args)
 		bool verbose, vverbose, quiet, vquiet;
 		bool help, nodeps, annotate;
 		LogLevel loglevel = LogLevel.Info;
-		string build_config = "debug";
-		bool print_platform;
+		string build_type = "debug", build_config;
+		bool print_platform, print_builds, print_configs;
 		getopt(args,
 			"v|verbose", &verbose,
 			"vverbose", &vverbose,
@@ -45,7 +45,10 @@ int main(string[] args)
 			"h|help", &help, // obsolete
 			"nodeps", &nodeps,
 			"annotate", &annotate,
-			"build", &build_config,
+			"build", &build_type,
+			"config", &build_config,
+			"print-builds", &print_builds,
+			"print-configs", &print_configs,
 			"print-platform", &print_platform
 			);
 
@@ -84,8 +87,9 @@ int main(string[] args)
 		if( print_platform ){
 			logInfo("Build platform:");
 			logInfo("  Compiler: %s", build_platform.compiler);
-			logInfo("  System: %s", build_platform.platform);
-			logInfo("  Architecture: %s", build_platform.architecture);
+			logInfo("  System: %s", build_platform.platform.join(" "));
+			logInfo("  Architecture: %s", build_platform.architecture.join(" "));
+			logInfo("");
 		}
 
 		// handle the command
@@ -104,11 +108,28 @@ int main(string[] args)
 			case "run":
 			case "build":
 				Dub dub = new Dub(Path(appPath), new RegistryPS(registryUrl));
+
+				if( print_builds ){
+					logInfo("Available build types:");
+					foreach( tp; ["debug", "release", "unittest", "profile"] )
+						logInfo("  %s", tp);
+					logInfo("");
+				}
+
+				if( print_configs ){
+					logInfo("Available configurations:");
+					foreach( tp; dub.configurations )
+						logInfo("  %s", tp);
+					logInfo("");
+				}
+
 				if( !nodeps ){
 					logInfo("Checking dependencies in '%s'", appPath);
 					logDebug("dub initialized");
 					dub.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
 				}
+
+				assert(build_config.length == 0, "Build configurations not yet supported.");
 
 				//Added check for existance of [AppNameInPackagejson].d
 				//If exists, use that as the starting file.
@@ -141,10 +162,10 @@ int main(string[] args)
 
 				string dflags = environment.get("DFLAGS");
 				if( dflags ){
-					build_config = "$DFLAGS";
+					build_type = "$DFLAGS";
 				} else {
-					switch( build_config ){
-						default: throw new Exception("Unknown build configuration: "~build_config);
+					switch( build_type ){
+						default: throw new Exception("Unknown build configuration: "~build_type);
 						case "debug": dflags = "-g -debug"; break;
 						case "release": dflags = "-release -O -inline"; break;
 						case "unittest": dflags = "-g -unittest"; break;
@@ -152,7 +173,7 @@ int main(string[] args)
 					}
 				}
 
-				if( build_config.length ) logInfo("Building configuration "~build_config);
+				if( build_type.length ) logInfo("Building configuration "~build_type);
 				logInfo("Running %s", "rdmd " ~ dflags ~ " " ~ join(flags, " "));
 				auto rdmd_pid = spawnProcess("rdmd " ~ dflags ~ " " ~ join(flags, " "));
 				auto result = rdmd_pid.wait();
@@ -204,12 +225,16 @@ Possible commands:
     upgrade              Forces an upgrade of all dependencies
 
 Options:
-        --build=NAME     Builds the specified configuration. Valid names:
+        --build=NAME     Specifies the type of build to perform. Valid names:
                          debug (default), release, unittest, profile, docgen
+        --config=NAME    Builds the specified configuration. Configurations can
+                         be defined in package.json
         --nodeps         Do not check dependencies for 'run' or 'build'
         --annotate       Do not execute dependency installations, just print
-        --print-platform Prints the platform identifiers for the current build
-                         platform as used for the dflags field in package.json
+        --print-builds   Prints the list of available build types
+        --print-configs  Prints the list of available configurations
+        --print-platform Prints the identifiers for the current build platform
+                         as used for the build fields in package.json
     -v  --verbose        Also output debug messages
         --vverbose       Also output trace messages (produces a lot of output)
     -q  --quiet          Only output warnings and errors

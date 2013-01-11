@@ -59,6 +59,15 @@ class Package {
 	@property string vers() const { return cast(string)m_meta["version"]; }
 	@property const(Url) url() const { return Url.parse(cast(string)m_meta["url"]); }
 	@property const(Dependency[string]) dependencies() const { return m_dependencies; }
+	@property string[] configurations()
+	const {
+		auto pv = "configurations" in m_meta;
+		if( !pv ) return null;
+		auto ret = appender!(string[])();
+		foreach( string k, _; *pv )
+			ret.put(k);
+		return ret.data;
+	}
 
 	string[] getPlatformField(string name, BuildPlatform platform)
 	const {
