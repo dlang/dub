@@ -3,11 +3,13 @@
 
 	Copyright: © 2012 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
-	Authors: Matthias Dondorff
+	Authors: Matthias Dondorff, Sönke Ludwig
 */
 module app;
 
 import dub.dub;
+import dub.platform;
+import dub.package_;
 import dub.registry;
 
 import vibe.core.file;
@@ -33,14 +35,18 @@ int main(string[] args)
 		bool verbose, vverbose, quiet, vquiet;
 		bool help, nodeps, annotate;
 		LogLevel loglevel = LogLevel.Info;
+		string build_config = "debug";
+		bool print_platform;
 		getopt(args,
 			"v|verbose", &verbose,
 			"vverbose", &vverbose,
 			"q|quiet", &quiet,
 			"vquiet", &vquiet,
-			"h|help", &help,
+			"h|help", &help, // obsolete
 			"nodeps", &nodeps,
-			"annotate", &annotate
+			"annotate", &annotate,
+			"build", &build_config,
+			"print-platform", &print_platform
 			);
 
 		if( vverbose ) loglevel = LogLevel.Trace;
@@ -59,7 +65,7 @@ int main(string[] args)
 		// contrary to the documentation, getopt does not remove --
 		if( args.length >= 2 && args[1] == "--" ) args = args[0] ~ args[2 .. $];
 
-		// display help if requested
+		// display help if requested (obsolete)
 		if( help ){
 			showHelp(cmd);
 			return 0;
@@ -68,17 +74,29 @@ int main(string[] args)
 		auto appPath = getcwd();
 		string del_exe_file;
 		Url registryUrl = Url.parse("http://registry.vibed.org/");
-		logDebug("Using vpm registry url '%s'", registryUrl);
+		logDebug("Using dub registry url '%s'", registryUrl);
 
-		// FIXME: determine from version() and command line flags
-		auto platform = "windows";
-		auto architecture = "x86";
+		// FIXME: take into account command line flags
+		BuildPlatform build_platform;
+		build_platform.platform = determinePlatform();
+		build_platform.architecture = determineArchitecture();
+		build_platform.compiler = "dmd";
+
+		if( print_platform ){
+			logInfo("Build platform:");
+			logInfo("  Compiler: %s", build_platform.compiler);
+			logInfo("  System: %s", build_platform.platform);
+			logInfo("  Architecture: %s", build_platform.architecture);
+		}
 
 		// handle the command
 		switch( cmd ){
 			default:
 				enforce(false, "Command is unknown.");
 				assert(false);
+			case "help":
+				showHelp(cmd);
+				break;
 			case "init":
 				string dir = ".";
 				if( args.length >= 2 ) dir = args[1];
@@ -86,17 +104,17 @@ int main(string[] args)
 				break;
 			case "run":
 			case "build":
-				Vpm vpm = new Vpm(Path(appPath), new RegistryPS(registryUrl));
+				Dub dub = new Dub(Path(appPath), new RegistryPS(registryUrl));
 				if( !nodeps ){
 					logInfo("Checking dependencies in '%s'", appPath);
-					logDebug("vpm initialized");
-					vpm.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
+					logDebug("dub initialized");
+					dub.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
 				}
 
 				//Added check for existance of [AppNameInPackagejson].d
 				//If exists, use that as the starting file.
-				auto outfile = getBinName(vpm);
-				auto mainsrc = getMainSourceFile(vpm);
+				auto outfile = getBinName(dub);
+				auto mainsrc = getMainSourceFile(dub);
 
 				logDebug("Application output name is '%s'", outfile);
 
@@ -116,11 +134,12 @@ int main(string[] args)
 					}
 				}
 				flags ~= "-g";
-				flags ~= vpm.getDflags(platform, architecture);
-				flags ~= getPackagesAsVersion(vpm);
+				flags ~= dub.getDflags(build_platform);
+				flags ~= getPackagesAsVersion(dub);
 				flags ~= (mainsrc).toNativeString();
 				flags ~= args[1 .. $];
 
+				if( build_config.length ) logInfo("Building configuration "~build_config);
 				logInfo("Running %s", "rdmd " ~ getDflags() ~ " " ~ join(flags, " "));
 				auto rdmd_pid = spawnProcess("rdmd " ~ getDflags() ~ " " ~ join(flags, " "));
 				rdmd_pid.wait();
@@ -129,9 +148,9 @@ int main(string[] args)
 				break;
 			case "upgrade":
 				logInfo("Upgrading application in '%s'", appPath);
-				Vpm vpm = new Vpm(Path(appPath), new RegistryPS(registryUrl));
-				logDebug("vpm initialized");
-				vpm.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
+				Dub dub = new Dub(Path(appPath), new RegistryPS(registryUrl));
+				logDebug("dub initialized");
+				dub.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
 				break;
 		}
 
@@ -152,26 +171,30 @@ private void showHelp(string command)
 	// This help is actually a mixup of help for this application and the
 	// supporting vibe script / .cmd file.
 	logInfo(
-"Usage: vibe [<command>] [<vibe options...>] [-- <application options...>]
+`Usage: vibe [<command>] [<vibe options...>] [-- <application options...>]
 
-Manages the vibe.d application in the current directory. A single -- can be used
-to separate vibe options from options passed to the application.
+Manages the vibe.d application in the current directory. "--" can be used to
+separate vibe options from options passed to the application.
 
 Possible commands:
+    help                 Prints this help screen
     init [<directory>]   Initializes an empy project in the specified directory
-    run                  Compiles and runs the application
+    run                  Compiles and runs the application (default command)
     build                Just compiles the application in the project directory
     upgrade              Forces an upgrade of all dependencies
 
 Options:
+        --build=NAME     Builds the specified configuration. Valid names:
+                         debug (default), release, unittest, profile, docgen
+        --nodeps         Do not check dependencies for 'run' or 'build'
+        --annotate       Do not execute dependency installations, just print
+        --print-platform Prints the platform identifiers for the current build
+                         platform as used for the dflags field in package.json
     -v  --verbose        Also output debug messages
         --vverbose       Also output trace messages (produces a lot of output)
     -q  --quiet          Only output warnings and errors
         --vquiet         No output
-    -h  --help           Print this help screen
-        --nodeps         Do not check dependencies for 'run' or 'build'
-        --annotate       Do not execute dependency installations, just print
-");
+`);
 }
 
 
@@ -192,20 +215,20 @@ private string stripDlangSpecialChars(string s)
 	return to!string(ret);
 }
 
-private string[] getPackagesAsVersion(const Vpm vpm)
+private string[] getPackagesAsVersion(const Dub dub)
 {
 	string[] ret;
-	string[string] pkgs = vpm.installedPackages();
+	string[string] pkgs = dub.installedPackages();
 	foreach(id, vers; pkgs)
 		ret ~= "-version=VPM_package_" ~ stripDlangSpecialChars(id);
 	return ret;
 }
 
-private string getBinName(const Vpm vpm)
+private string getBinName(const Dub dub)
 {
 	string ret;
-	if( vpm.packageName.length > 0 )
-		ret = vpm.packageName();
+	if( dub.packageName.length > 0 )
+		ret = dub.packageName();
 	//Otherwise fallback to source/app.d
 	else ret ="app";
 	version(Windows) { ret ~= ".exe"; }
@@ -213,12 +236,10 @@ private string getBinName(const Vpm vpm)
 	return ret;
 } 
 
-private Path getMainSourceFile(const Vpm vpm)
+private Path getMainSourceFile(const Dub dub)
 {
-	auto p = Path("source") ~ (vpm.packageName() ~ ".d");
+	auto p = Path("source") ~ (dub.packageName() ~ ".d");
 	return existsFile(p) ? p : Path("source/app.d");
-
-
 }
 
 private void initDirectory(string fName)

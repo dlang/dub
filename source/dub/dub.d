@@ -31,7 +31,7 @@ import std.string;
 import std.typecons;
 import std.zip;
 
-/// Actions to be performed by the vpm
+/// Actions to be performed by the dub
 private struct Action {
 	enum ActionId {
 		InstallUpdate,
@@ -150,7 +150,7 @@ private class Application {
 
 	/// Actions which can be performed to update the application.
 	Action[] actions(PackageSupplier packageSupplier, int option) {
-		scope(exit) writeVpmJson();
+		scope(exit) writeDubJson();
 
 		if(!m_main) {
 			Action[] a;
@@ -227,7 +227,7 @@ private class Application {
 		assert(false); // not properly implemented
 		/*
 		string[] ignores;
-		auto ignoreFile = to!string(m_root~"vpm.ignore.txt");
+		auto ignoreFile = to!string(m_root~"dub.ignore.txt");
 		if(exists(ignoreFile)){
 			auto iFile = openFile(ignoreFile);
 			scope(exit) iFile.close();
@@ -340,7 +340,7 @@ private class Application {
 
 	private bool needsUpToDateCheck(string packageId) {
 		try {
-			auto time = m_json["vpm"]["lastUpdate"][packageId].to!string;
+			auto time = m_json["dub"]["lastUpdate"][packageId].to!string;
 			return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
 		}
 		catch(Throwable t) {
@@ -354,19 +354,19 @@ private class Application {
 			if( object !in json ) json[object] = Json.EmptyObject;
 			return json[object];
 		}
-		create(m_json, "vpm");
-		create(m_json["vpm"], "lastUpdate");
-		m_json["vpm"]["lastUpdate"][packageId] = Json( Clock.currTime().toISOExtString() );
+		create(m_json, "dub");
+		create(m_json["dub"], "lastUpdate");
+		m_json["dub"]["lastUpdate"][packageId] = Json( Clock.currTime().toISOExtString() );
 
-		writeVpmJson();
+		writeDubJson();
 	}
 
-	private void writeVpmJson() {
+	private void writeDubJson() {
 		// don't bother to write an empty file
 		if( m_json.length == 0 ) return;
 
 		try {
-			logTrace("writeVpmJson");
+			logTrace("writeDubJson");
 			auto dstFile = openFile((m_root~".dub/dub.json").toString(), FileMode.CreateTrunc);
 			scope(exit) dstFile.close();
 			Appender!string js;
@@ -393,9 +393,9 @@ enum UpdateOptions
 	Reinstall = 1<<1
 };
 
-/// The Vpm or Vibe Package Manager helps in getting the applications
+/// The Dub class helps in getting the applications
 /// dependencies up and running.
-class Vpm {
+class Dub {
 	private {
 		Path m_root;
 		Application m_app;
