@@ -367,7 +367,9 @@ private class Application {
 
 		try {
 			logTrace("writeDubJson");
-			auto dstFile = openFile((m_root~".dub/dub.json").toString(), FileMode.CreateTrunc);
+			auto dubpath = m_root~".dub";
+			if( !exists(dubpath.toNativeString()) ) mkdir(dubpath.toNativeString());
+			auto dstFile = openFile((dubpath~"dub.json").toString(), FileMode.CreateTrunc);
 			scope(exit) dstFile.close();
 			Appender!string js;
 			toPrettyJson(js, m_json);
