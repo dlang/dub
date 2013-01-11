@@ -133,15 +133,30 @@ int main(string[] args)
 						flags ~= "-of"~del_exe_file;
 					}
 				}
-				flags ~= "-g";
+
+				flags ~= "-w";
+				flags ~= "-property";
 				flags ~= dub.getDflags(build_platform);
 				flags ~= getPackagesAsVersion(dub);
 				flags ~= (mainsrc).toNativeString();
 				flags ~= args[1 .. $];
 
+				string dflags = environment.get("DFLAGS");
+				if( dflags ){
+					build_config = "$DFLAGS";
+				} else {
+					switch( build_config ){
+						default: throw new Exception("Unknown build configuration: "~build_config);
+						case "debug": dflags = "-g -debug"; break;
+						case "release": dflags = "-release -O -inline"; break;
+						case "unittest": dflags = "-g -unittest"; break;
+						case "profile": dflags = "-g -O -inline -profile"; break;
+					}
+				}
+
 				if( build_config.length ) logInfo("Building configuration "~build_config);
-				logInfo("Running %s", "rdmd " ~ getDflags() ~ " " ~ join(flags, " "));
-				auto rdmd_pid = spawnProcess("rdmd " ~ getDflags() ~ " " ~ join(flags, " "));
+				logInfo("Running %s", "rdmd " ~ dflags ~ " " ~ join(flags, " "));
+				auto rdmd_pid = spawnProcess("rdmd " ~ dflags ~ " " ~ join(flags, " "));
 				rdmd_pid.wait();
 
 				if( del_exe_file.length ) remove(del_exe_file);
@@ -160,8 +175,8 @@ int main(string[] args)
 	{
 		logError("Error executing command '%s': %s\n", cmd, e.msg);
 		logDebug("Full exception: %s", sanitizeUTF8(cast(ubyte[])e.toString()));
-		showHelp(cmd);
-		return -1;
+		logInfo("Run 'dub help' for usage information.");
+		return 1;
 	}
 }
 
@@ -195,15 +210,6 @@ Options:
     -q  --quiet          Only output warnings and errors
         --vquiet         No output
 `);
-}
-
-
-private string getDflags()
-{
-	auto globVibedDflags = environment.get("DFLAGS");
-	if(globVibedDflags == null)
-		globVibedDflags = "-debug -g -w -property";
-	return globVibedDflags;
 }
 
 private string stripDlangSpecialChars(string s) 
