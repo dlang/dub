@@ -72,7 +72,6 @@ int main(string[] args)
 		}
 
 		auto appPath = getcwd();
-		string del_exe_file;
 		Url registryUrl = Url.parse("http://registry.vibed.org/");
 		logDebug("Using dub registry url '%s'", registryUrl);
 
@@ -121,16 +120,16 @@ int main(string[] args)
 				// Create start script, which will be used by the calling bash/cmd script.
 				// build "rdmd --force %DFLAGS% -I%~dp0..\source -Jviews -Isource @deps.txt %LIBS% source\app.d" ~ application arguments
 				// or with "/" instead of "\"
-				string[] flags = ["--force"];
+				string[] flags = ["--force", "--build-only"];
+				string run_exe_file;
 				if( cmd == "build" ){
-					flags ~= "--build-only";
 					flags ~= "-of"~outfile;
 				} else {
 					version(Windows){
 						import std.random;
 						auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
-						del_exe_file = environment.get("TEMP")~"\\.rdmd\\source\\"~rnd~outfile;
-						flags ~= "-of"~del_exe_file;
+						run_exe_file = environment.get("TEMP")~"\\.rdmd\\source\\"~rnd~outfile;
+						flags ~= "-of"~run_exe_file;
 					}
 				}
 
@@ -139,7 +138,6 @@ int main(string[] args)
 				flags ~= dub.getDflags(build_platform);
 				flags ~= getPackagesAsVersion(dub);
 				flags ~= (mainsrc).toNativeString();
-				flags ~= args[1 .. $];
 
 				string dflags = environment.get("DFLAGS");
 				if( dflags ){
@@ -160,7 +158,13 @@ int main(string[] args)
 				auto result = rdmd_pid.wait();
 				enforce(result == 0, "Build command failed with exit code "~to!string(result));
 
-				if( del_exe_file.length ) remove(del_exe_file);
+				if( cmd == "run" ){
+					auto prg_pid = spawnProcess(run_exe_file, args[1 .. $]);
+					result = prg_pid.wait();
+					remove(run_exe_file);
+					enforce(result == 0, "Program exited with code "~to!string("result"));
+				}
+
 				break;
 			case "upgrade":
 				logInfo("Upgrading application in '%s'", appPath);
