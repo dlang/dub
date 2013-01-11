@@ -16,6 +16,11 @@ import vibe.core.file;
 import vibe.data.json;
 import vibe.inet.url;
 
+struct BuildPlatform {
+	string[] platform;
+	string[] architecture;
+	string compiler;
+}
 
 /// Representing an installed package
 // Json file example:
@@ -55,25 +60,28 @@ class Package {
 	@property const(Url) url() const { return Url.parse(cast(string)m_meta["url"]); }
 	@property const(Dependency[string]) dependencies() const { return m_dependencies; }
 
-	string[] getDflags(string platform, string architecture)
+	string[] getPlatformField(string name, BuildPlatform platform)
 	const {
+		auto c = platform.compiler;
+
 		auto ret = appender!(string[])();
-		foreach( j; m_meta["dflags"].opt!(Json[]) ) ret.put(j.get!string);
-		foreach( j; m_meta["dflags-"~platform].opt!(Json[]) ) ret.put(j.get!string);
-		foreach( j; m_meta["dflags-"~architecture].opt!(Json[]) ) ret.put(j.get!string);
-		foreach( j; m_meta["dflags-"~platform~"-"~architecture].opt!(Json[]) ) ret.put(j.get!string);
+		// TODO: turn these loops around and iterate over m_metas fields instead for efficiency reason
+		foreach( j; m_meta[name].opt!(Json[]) ) ret.put(j.get!string);
+		foreach( j; m_meta[name~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
+		foreach( p; platform.platform ){
+			foreach( j; m_meta[name~"-"~p].opt!(Json[]) ) ret.put(j.get!string);
+			foreach( j; m_meta[name~"-"~p~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
+			foreach( a; platform.architecture ){
+				foreach( j; m_meta[name~"-"~p~"-"~a].opt!(Json[]) ) ret.put(j.get!string);
+				foreach( j; m_meta[name~"-"~p~"-"~a~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
+			}
+		}
 		return ret.data;
+
 	}
 
-	string[] getLibs(string platform, string architecture)
-	const {
-		auto ret = appender!(string[])();
-		foreach( j; m_meta["libs"].opt!(Json[]) ) ret.put(j.get!string);
-		foreach( j; m_meta["libs-"~platform].opt!(Json[]) ) ret.put(j.get!string);
-		foreach( j; m_meta["libs-"~architecture].opt!(Json[]) ) ret.put(j.get!string);
-		foreach( j; m_meta["libs-"~platform~"-"~architecture].opt!(Json[]) ) ret.put(j.get!string);
-		return ret.data;
-	}
+	string[] getDflags(BuildPlatform platform) const { return getPlatformField("dflags", platform); }
+	string[] getLibs(BuildPlatform platform) const { return getPlatformField("libs", platform); }
 	
 	string info() const {
 		string s;

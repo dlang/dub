@@ -128,19 +128,20 @@ private class Application {
 	@property string name() const { return m_main ? m_main.name : "app"; }
 
 	/// Returns the DFLAGS
-	@property string[] getDflags(string platform, string architecture)
+	@property string[] getDflags(BuildPlatform platform)
 	const {
 		auto ret = appender!(string[])();
-		if( m_main ) ret.put(m_main.getDflags(platform, architecture));
+		if( m_main ) processVars(ret, ".", m_main.getDflags(platform));
 		ret.put("-Isource");
 		ret.put("-Jviews");
 		foreach( string s, pkg; m_packages ){
+			auto pack_path = ".dub/modules/"~pkg.name;
 			void addPath(string prefix, string name){
-				auto path = ".dub/modules/"~pkg.name~"/"~name;
+				auto path = pack_path~"/"~name;
 				if( exists(path) )
 					ret.put(prefix ~ path);
 			}
-			ret.put(pkg.getDflags(platform, architecture));
+			processVars(ret, pack_path, pkg.getDflags(platform));
 			addPath("-I", "source");
 			addPath("-J", "views");
 		}
@@ -416,7 +417,7 @@ class Vpm {
 
 	/// Returns a list of flags which the application needs to be compiled
 	/// properly.
-	string[] getDflags(string platform, string architecture) { return m_app.getDflags(platform, architecture); }
+	string[] getDflags(BuildPlatform platform) { return m_app.getDflags(platform); }
 
 	/// Lists all installed modules
 	void list() {
@@ -636,4 +637,41 @@ class Vpm {
 		rmdir(to!string(packagePath));
 		logInfo("Uninstalled package: '"~packageId~"'");
 	}
+}
+
+private void processVars(ref Appender!(string[]) dst, string project_path, string[] vars)
+{
+	foreach( var; vars ){
+		auto idx = std.string.indexOf(var, '$');
+		if( idx < 0 ) dst.put(var);
+		else {
+			auto vres = appender!string();
+			while( idx >= 0 ){
+				if( idx+1 >= var.length ) break;
+				if( var[idx+1] == '$' ){
+					vres.put(var[0 .. idx+1]);
+					var = var[idx+2 .. $];
+				} else {
+					vres.put(var[0 .. idx]);
+					var = var[idx+1 .. $];
+
+					size_t idx2 = 0;
+					while( idx2 < var.length && isIdentChar(var[idx2]) ) idx2++;
+					auto varname = var[0 .. idx2];
+					var = var[idx2 .. $];
+
+					if( varname == "PACKAGE_DIR" ) vres.put(project_path);
+					else enforce(false, "Invalid variable: "~varname);
+				}
+				idx = std.string.indexOf(var, '$');
+			}
+			vres.put(var);
+			dst.put(vres.data);
+		}
+	}
+}
+
+private bool isIdentChar(char ch)
+{
+	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
 }
