@@ -157,7 +157,8 @@ int main(string[] args)
 				if( build_config.length ) logInfo("Building configuration "~build_config);
 				logInfo("Running %s", "rdmd " ~ dflags ~ " " ~ join(flags, " "));
 				auto rdmd_pid = spawnProcess("rdmd " ~ dflags ~ " " ~ join(flags, " "));
-				rdmd_pid.wait();
+				auto result = rdmd_pid.wait();
+				enforce(result == 0, "Build command failed with exit code "~to!string(result));
 
 				if( del_exe_file.length ) remove(del_exe_file);
 				break;
