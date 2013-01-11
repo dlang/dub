@@ -76,7 +76,7 @@ struct Version {
 	const {
 		foreach( i; 0 .. min(v.length, other.v.length) )
 			if( v[i] != other.v[i] )
-				return v[i] - other.v[i];
+				return cast(int)v[i] - cast(int)other.v[i];
 		return cast(int)v.length - cast(int)other.v.length;
 	}
 	
