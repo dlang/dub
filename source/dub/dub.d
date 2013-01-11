@@ -155,12 +155,13 @@ private class Application {
 
 
 		try {
-			logDebug("Trying to use pkg-config to resolve library flags.");
+			logDebug("Trying to use pkg-config to resolve library flags for %s.", libs);
 			auto libflags = execute("pkg-config", "--libs" ~ libs.map!(l => "lib"~l)().array());
 			enforce(libflags.status == 0);
 			ret.put(libflags.output.split(" ").map!(f => "-L"~f)().array());
 		} catch( Exception e ){
-			logDebug("pkg-config failed. Falling back to direct -lxyz flags.");
+			logDebug("pkg-config failed: %s", e.msg);
+			logDebug("Falling back to direct -lxyz flags.");
 			ret.put(libs.map!(l => "-L-l"~l)().array());
 		}
 
