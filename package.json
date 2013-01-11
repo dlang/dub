@@ -5,5 +5,8 @@
 	"authors": [
 		"Matthias Dondorff",
 		"Sönke Ludwig"
-	]
+	],
+	"dependencies": {
+		"vibe.d": "~master"
+	}
 }
