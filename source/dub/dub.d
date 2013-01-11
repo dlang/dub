@@ -3,7 +3,7 @@
 
 	Copyright: © 2012 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
-	Authors: Matthias Dondorff
+	Authors: Matthias Dondorff, Sönke Ludwig
 */
 module dub.dub;
 
@@ -201,7 +201,7 @@ private class Application {
 				logDebug("Required package '"~pkg~"' found with version '"~p.vers~"'");
 				if( option & UpdateOptions.Reinstall ) {
 					Dependency[string] em;
-					uninstalls ~= Action( Action.ActionId.Uninstall, pkg, new Dependency("==" ~ p.vers), em);
+					uninstalls ~= Action( Action.ActionId.Uninstall, pkg, new Dependency("==", p.vers), em);
 					actions ~= Action(Action.ActionId.InstallUpdate, pkg, d.dependency, d.packages);
 				}
 
@@ -214,7 +214,7 @@ private class Application {
 		foreach( string pkg, p; unused ) {
 			logDebug("Superfluous package found: '"~pkg~"', version '"~p.vers~"'");
 			Dependency[string] em;
-			uninstalls ~= Action( Action.ActionId.Uninstall, pkg, new Dependency("==" ~ p.vers), em);
+			uninstalls ~= Action( Action.ActionId.Uninstall, pkg, new Dependency("==", p.vers), em);
 		}
 
 		// Ugly "uninstall" comes first
