@@ -30,6 +30,8 @@ import std.path;
 import std.string;
 import std.typecons;
 import std.zip;
+import stdx.process;
+
 
 /// Actions to be performed by the dub
 private struct Action {
@@ -131,7 +133,11 @@ private class Application {
 	@property string[] getDflags(BuildPlatform platform)
 	const {
 		auto ret = appender!(string[])();
-		if( m_main ) processVars(ret, ".", m_main.getDflags(platform));
+		string[] libs;
+		if( m_main ){
+			processVars(ret, ".", m_main.getDflags(platform));
+			libs ~= m_main.getLibs(platform);
+		}
 		ret.put("-Isource");
 		ret.put("-Jviews");
 		foreach( string s, pkg; m_packages ){
@@ -142,9 +148,22 @@ private class Application {
 					ret.put(prefix ~ path);
 			}
 			processVars(ret, pack_path, pkg.getDflags(platform));
+			libs ~= m_main.getLibs(platform);
 			addPath("-I", "source");
 			addPath("-J", "views");
 		}
+
+
+		try {
+			logDebug("Trying to use pkg-config to resolve library flags.");
+			auto libflags = execute("pkg-config", "--libs" ~ libs.map!(l => "lib"~l)().array());
+			enforce(libflags.status == 0);
+			ret.put(libflags.output.split(" ").map!(f => "-L"~f)().array());
+		} catch( Exception e ){
+			logDebug("pkg-config failed. Falling back to direct -lxyz flags.");
+			ret.put(libs.map!(l => "-L-l"~l)().array());
+		}
+
 		return ret.data();
 	}
 
