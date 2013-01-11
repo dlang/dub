@@ -158,7 +158,7 @@ private class Application {
 				logDebug("Trying to use pkg-config to resolve library flags for %s.", libs);
 				auto libflags = execute("pkg-config", "--libs" ~ libs.map!(l => "lib"~l)().array());
 				enforce(libflags.status == 0, "pkg-config exited with error code "~to!string(libflags.status));
-				ret.put(libflags.output.split(" ").map!(f => "-L"~f)().array());
+				ret.put(libflags.output.split().map!(f => "-L"~f)().array());
 			} catch( Exception e ){
 				logDebug("pkg-config failed: %s", e.msg);
 				logDebug("Falling back to direct -lxyz flags.");
