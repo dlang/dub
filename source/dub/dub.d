@@ -667,7 +667,7 @@ private void processVars(ref BuildSettings dst, string project_path, BuildSettin
 	dst.addDFlags(processVars(project_path, settings.dflags));
 	dst.addLFlags(processVars(project_path, settings.lflags));
 	dst.addLibs(processVars(project_path, settings.libs));
-	dst.addFiles(processVars(project_path, settings.libs)); // TODO: resolve folders to a recursive search?
+	dst.addFiles(processVars(project_path, settings.files)); // TODO: resolve folders to a recursive search?
 	dst.addVersions(processVars(project_path, settings.versions));
 	dst.addImportDirs(processVars(project_path, settings.importPath)); // TODO: prepend project_path to relative paths here
 	dst.addStringImportDirs(processVars(project_path, settings.stringImportPath)); // TODO: prepend project_path to relative paths here
