@@ -129,7 +129,7 @@ int main(string[] args)
 					dub.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
 				}
 
-				assert(build_config.length == 0, "Build configurations not yet supported.");
+				enforce(build_config.length == 0 || dub.configurations.canFind(build_config), "Unknown build configuration: "~build_config);
 
 				//Added check for existance of [AppNameInPackagejson].d
 				//If exists, use that as the starting file.
@@ -154,10 +154,31 @@ int main(string[] args)
 					}
 				}
 
-				flags ~= "-w";
-				flags ~= "-property";
-				flags ~= dub.getDflags(build_platform);
-				flags ~= getPackagesAsVersion(dub);
+				auto settings = dub.getBuildSettings(build_platform, build_config);
+				settings.addDFlags(["-w", "-property"]);
+				settings.addVersions(getPackagesAsVersion(dub));
+
+				// TODO: this belongs to the builder/generator
+				if( settings.libs.length ){
+					try {
+						logDebug("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
+						auto libflags = execute("pkg-config", "--libs" ~ settings.libs.map!(l => "lib"~l)().array());
+						enforce(libflags.status == 0, "pkg-config exited with error code "~to!string(libflags.status));
+						settings.addLFlags(libflags.output.split());
+						settings.libs = null;
+					} catch( Exception e ){
+						logDebug("pkg-config failed: %s", e.msg);
+						logDebug("Falling back to direct -lxyz flags.");
+						settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
+						settings.libs = null;
+					}
+				}
+
+				flags ~= settings.dflags;
+				flags ~= settings.lflags.map!(f => "-L"~f)().array();
+				flags ~= settings.importPath.map!(f => "-I"~f)().array();
+				flags ~= settings.stringImportPath.map!(f => "-J"~f)().array();
+				flags ~= settings.versions.map!(f => "-version="~f)().array();
 				flags ~= (mainsrc).toNativeString();
 
 				string dflags = environment.get("DFLAGS");
@@ -173,7 +194,9 @@ int main(string[] args)
 					}
 				}
 
-				if( build_type.length ) logInfo("Building configuration "~build_type);
+				if( build_config.length ) logInfo("Building configuration "~build_config~", build type "~build_type);
+				else logInfo("Building default configuration, build type "~build_type);
+
 				logInfo("Running %s", "rdmd " ~ dflags ~ " " ~ join(flags, " "));
 				auto rdmd_pid = spawnProcess("rdmd " ~ dflags ~ " " ~ join(flags, " "));
 				auto result = rdmd_pid.wait();
@@ -199,7 +222,7 @@ int main(string[] args)
 	}
 	catch(Throwable e)
 	{
-		logError("Error executing command '%s': %s\n", cmd, e.msg);
+		logError("Error: %s\n", e.msg);
 		logDebug("Full exception: %s", sanitizeUTF8(cast(ubyte[])e.toString()));
 		logInfo("Run 'dub help' for usage information.");
 		return 1;
@@ -256,7 +279,7 @@ private string[] getPackagesAsVersion(const Dub dub)
 	string[] ret;
 	string[string] pkgs = dub.installedPackages();
 	foreach(id, vers; pkgs)
-		ret ~= "-version=VPM_package_" ~ stripDlangSpecialChars(id);
+		ret ~= "VPM_package_" ~ stripDlangSpecialChars(id);
 	return ret;
 }
 

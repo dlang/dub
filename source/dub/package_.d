@@ -22,6 +22,65 @@ struct BuildPlatform {
 	string compiler;
 }
 
+struct BuildSettings {
+	string[] dflags;
+	string[] lflags;
+	string[] libs;
+	string[] versions;
+	string[] importPath;
+	string[] stringImportPath;
+
+	void parse(in Json root, BuildPlatform platform)
+	{
+		addDFlags(getPlatformField(root, "dflags", platform));
+		addLFlags(getPlatformField(root, "lflags", platform));
+		addLibs(getPlatformField(root, "libs", platform));
+		addVersions(getPlatformField(root, "versions", platform));
+		addImportDirs(getPlatformField(root, "importPath", platform));
+		addStringImportDirs(getPlatformField(root, "stringImportPath", platform));
+	}
+
+	void addDFlags(string[] value) { add(dflags, value); }
+	void addLFlags(string[] value) { add(lflags, value); }
+	void addLibs(string[] value) { add(libs, value); }
+	void addVersions(string[] value) { add(versions, value); }
+	void addImportDirs(string[] value) { add(importPath, value); }
+	void addStringImportDirs(string[] value) { add(stringImportPath, value); }
+
+	private void add(ref string[] arr, string[] vals)
+	{
+		foreach( v; vals ){
+			bool found = false;
+			foreach( i; 0 .. arr.length )
+				if( arr[i] == v ){
+					found = true;
+					break;
+				}
+			if( !found ) arr ~= v;
+		}
+	}
+
+	private string[] getPlatformField(in Json json, string name, BuildPlatform platform)
+	const {
+		auto c = platform.compiler;
+
+		auto ret = appender!(string[])();
+		// TODO: turn these loops around and iterate over m_metas fields instead for efficiency reason
+		foreach( j; json[name].opt!(Json[]) ) ret.put(j.get!string);
+		foreach( j; json[name~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
+		foreach( p; platform.platform ){
+			foreach( j; json[name~"-"~p].opt!(Json[]) ) ret.put(j.get!string);
+			foreach( j; json[name~"-"~p~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
+			foreach( a; platform.architecture ){
+				foreach( j; json[name~"-"~p~"-"~a].opt!(Json[]) ) ret.put(j.get!string);
+				foreach( j; json[name~"-"~p~"-"~a~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
+			}
+		}
+		return ret.data;
+
+	}
+}
+
 /// Representing an installed package
 // Json file example:
 // {
@@ -69,28 +128,19 @@ class Package {
 		return ret.data;
 	}
 
-	string[] getPlatformField(string name, BuildPlatform platform)
+	BuildSettings getBuildSettings(BuildPlatform platform, string config)
 	const {
-		auto c = platform.compiler;
-
-		auto ret = appender!(string[])();
-		// TODO: turn these loops around and iterate over m_metas fields instead for efficiency reason
-		foreach( j; m_meta[name].opt!(Json[]) ) ret.put(j.get!string);
-		foreach( j; m_meta[name~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
-		foreach( p; platform.platform ){
-			foreach( j; m_meta[name~"-"~p].opt!(Json[]) ) ret.put(j.get!string);
-			foreach( j; m_meta[name~"-"~p~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
-			foreach( a; platform.architecture ){
-				foreach( j; m_meta[name~"-"~p~"-"~a].opt!(Json[]) ) ret.put(j.get!string);
-				foreach( j; m_meta[name~"-"~p~"-"~a~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
-			}
+		BuildSettings ret;
+		ret.parse(m_meta, platform);
+		if( config.length ){
+			auto pcs = "configurations" in m_meta;
+			if( !pcs ) return ret;
+			auto pc = config in *pcs;
+			if( !pc ) return ret;
+			ret.parse(*pc, platform);
 		}
-		return ret.data;
-
+		return ret;
 	}
-
-	string[] getDflags(BuildPlatform platform) const { return getPlatformField("dflags", platform); }
-	string[] getLibs(BuildPlatform platform) const { return getPlatformField("libs", platform); }
 	
 	string info() const {
 		string s;

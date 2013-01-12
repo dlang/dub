@@ -129,46 +129,42 @@ private class Application {
 	/// Returns the applications name.
 	@property string name() const { return m_main ? m_main.name : "app"; }
 
-	@property string[] configurations() const { return m_main ? m_main.configurations : null; }
+	@property string[] configurations()
+	const {
+		string[] ret;
+		if( m_main ) ret = m_main.configurations;
+		foreach( p; m_packages ){
+			auto cfgs = p.configurations;
+			foreach( c; cfgs )
+				if( !ret.canFind(c) ) ret ~= c;
+		}
+		return ret;
+	}
 
 	/// Returns the DFLAGS
-	string[] getDflags(BuildPlatform platform)
+	BuildSettings getBuildSettings(BuildPlatform platform, string config)
 	const {
-		auto ret = appender!(string[])();
-		string[] libs;
-		if( m_main ){
-			processVars(ret, ".", m_main.getDflags(platform));
-			libs ~= m_main.getLibs(platform);
+		BuildSettings ret;
+
+		void addImportPath(string path, bool src)
+		{
+			if( !exists(path) ) return;
+			if( src ) ret.addImportDirs([path]);
+			else ret.addStringImportDirs([path]);
 		}
-		ret.put("-Isource");
-		ret.put("-Jviews");
+
+		if( m_main ) processVars(ret, ".", m_main.getBuildSettings(platform, config));
+		addImportPath("source", true);
+		addImportPath("views", false);
+
 		foreach( string s, pkg; m_packages ){
 			auto pack_path = ".dub/modules/"~pkg.name;
-			void addPath(string prefix, string name){
-				auto path = pack_path~"/"~name;
-				if( exists(path) )
-					ret.put(prefix ~ path);
-			}
-			processVars(ret, pack_path, pkg.getDflags(platform));
-			libs ~= pkg.getLibs(platform);
-			addPath("-I", "source");
-			addPath("-J", "views");
+			processVars(ret, pack_path, pkg.getBuildSettings(platform, config));
+			addImportPath(pack_path ~ "/source", true);
+			addImportPath(pack_path ~ "/views", false);
 		}
 
-		if( libs.length ){
-			try {
-				logDebug("Trying to use pkg-config to resolve library flags for %s.", libs);
-				auto libflags = execute("pkg-config", "--libs" ~ libs.map!(l => "lib"~l)().array());
-				enforce(libflags.status == 0, "pkg-config exited with error code "~to!string(libflags.status));
-				ret.put(libflags.output.split().map!(f => "-L"~f)().array());
-			} catch( Exception e ){
-				logDebug("pkg-config failed: %s", e.msg);
-				logDebug("Falling back to direct -lxyz flags.");
-				ret.put(libs.map!(l => "-L-l"~l)().array());
-			}
-		}
-
-		return ret.data();
+		return ret;
 	}
 
 	/// Actions which can be performed to update the application.
@@ -444,7 +440,7 @@ class Dub {
 
 	/// Returns a list of flags which the application needs to be compiled
 	/// properly.
-	string[] getDflags(BuildPlatform platform) { return m_app.getDflags(platform); }
+	BuildSettings getBuildSettings(BuildPlatform platform, string config) { return m_app.getBuildSettings(platform, config); }
 
 	/// Lists all installed modules
 	void list() {
@@ -666,6 +662,23 @@ class Dub {
 	}
 }
 
+private void processVars(ref BuildSettings dst, string project_path, BuildSettings settings)
+{
+	dst.addDFlags(processVars(project_path, settings.dflags));
+	dst.addLFlags(processVars(project_path, settings.lflags));
+	dst.addLibs(processVars(project_path, settings.libs));
+	dst.addVersions(processVars(project_path, settings.versions));
+	dst.addImportDirs(processVars(project_path, settings.importPath)); // TODO: prepend project_path to relative paths here
+	dst.addStringImportDirs(processVars(project_path, settings.stringImportPath)); // TODO: prepend project_path to relative paths here
+}
+
+private string[] processVars(string project_path, string[] vars)
+{
+	auto ret = appender!(string[])();
+	processVars(ret, project_path, vars);
+	return ret.data;
+
+}
 private void processVars(ref Appender!(string[]) dst, string project_path, string[] vars)
 {
 	foreach( var; vars ){
