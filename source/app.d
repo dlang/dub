@@ -179,6 +179,7 @@ int main(string[] args)
 				flags ~= settings.importPath.map!(f => "-I"~f)().array();
 				flags ~= settings.stringImportPath.map!(f => "-J"~f)().array();
 				flags ~= settings.versions.map!(f => "-version="~f)().array();
+				flags ~= settings.files;
 				flags ~= (mainsrc).toNativeString();
 
 				string dflags = environment.get("DFLAGS");
@@ -187,10 +188,12 @@ int main(string[] args)
 				} else {
 					switch( build_type ){
 						default: throw new Exception("Unknown build configuration: "~build_type);
+						case "plain": dflags = ""; break;
 						case "debug": dflags = "-g -debug"; break;
 						case "release": dflags = "-release -O -inline"; break;
 						case "unittest": dflags = "-g -unittest"; break;
 						case "profile": dflags = "-g -O -inline -profile"; break;
+						case "docs": assert(false, "docgen not implemented");
 					}
 				}
 
@@ -206,7 +209,7 @@ int main(string[] args)
 					auto prg_pid = spawnProcess(run_exe_file, args[1 .. $]);
 					result = prg_pid.wait();
 					remove(run_exe_file);
-					enforce(result == 0, "Program exited with code "~to!string("result"));
+					enforce(result == 0, "Program exited with code "~to!string(result));
 				}
 
 				break;
@@ -249,7 +252,8 @@ Possible commands:
 
 Options:
         --build=NAME     Specifies the type of build to perform. Valid names:
-                         debug (default), release, unittest, profile, docgen
+                         debug (default), release, unittest, profile, docs,
+                         plain
         --config=NAME    Builds the specified configuration. Configurations can
                          be defined in package.json
         --nodeps         Do not check dependencies for 'run' or 'build'

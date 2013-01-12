@@ -26,6 +26,7 @@ struct BuildSettings {
 	string[] dflags;
 	string[] lflags;
 	string[] libs;
+	string[] files;
 	string[] versions;
 	string[] importPath;
 	string[] stringImportPath;
@@ -35,6 +36,7 @@ struct BuildSettings {
 		addDFlags(getPlatformField(root, "dflags", platform));
 		addLFlags(getPlatformField(root, "lflags", platform));
 		addLibs(getPlatformField(root, "libs", platform));
+		addFiles(getPlatformField(root, "files", platform));
 		addVersions(getPlatformField(root, "versions", platform));
 		addImportDirs(getPlatformField(root, "importPath", platform));
 		addStringImportDirs(getPlatformField(root, "stringImportPath", platform));
@@ -43,6 +45,7 @@ struct BuildSettings {
 	void addDFlags(string[] value) { add(dflags, value); }
 	void addLFlags(string[] value) { add(lflags, value); }
 	void addLibs(string[] value) { add(libs, value); }
+	void addFiles(string[] value) { add(files, value); }
 	void addVersions(string[] value) { add(versions, value); }
 	void addImportDirs(string[] value) { add(importPath, value); }
 	void addStringImportDirs(string[] value) { add(stringImportPath, value); }
@@ -75,6 +78,10 @@ struct BuildSettings {
 				foreach( j; json[name~"-"~p~"-"~a].opt!(Json[]) ) ret.put(j.get!string);
 				foreach( j; json[name~"-"~p~"-"~a~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
 			}
+		}
+		foreach( a; platform.architecture ){
+			foreach( j; json[name~"-"~a].opt!(Json[]) ) ret.put(j.get!string);
+			foreach( j; json[name~"-"~a~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
 		}
 		return ret.data;
 
