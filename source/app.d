@@ -7,6 +7,7 @@
 */
 module app;
 
+import dub.dependency;
 import dub.dub;
 import dub.platform;
 import dub.package_;
@@ -37,6 +38,8 @@ int main(string[] args)
 		LogLevel loglevel = LogLevel.Info;
 		string build_type = "debug", build_config;
 		bool print_platform, print_builds, print_configs;
+		bool install_system = false, install_local = false;
+		string install_version;
 		getopt(args,
 			"v|verbose", &verbose,
 			"vverbose", &vverbose,
@@ -49,7 +52,10 @@ int main(string[] args)
 			"config", &build_config,
 			"print-builds", &print_builds,
 			"print-configs", &print_configs,
-			"print-platform", &print_platform
+			"print-platform", &print_platform,
+			"system", &install_system,
+			"local", &install_local,
+			"version", &install_version
 			);
 
 		if( vverbose ) loglevel = LogLevel.Trace;
@@ -74,7 +80,6 @@ int main(string[] args)
 			return 0;
 		}
 
-		auto appPath = getcwd();
 		Url registryUrl = Url.parse("http://registry.vibed.org/");
 		logDebug("Using dub registry url '%s'", registryUrl);
 
@@ -92,6 +97,8 @@ int main(string[] args)
 			logInfo("");
 		}
 
+		Dub dub = new Dub(new RegistryPS(registryUrl));
+
 		// handle the command
 		switch( cmd ){
 			default:
@@ -107,8 +114,7 @@ int main(string[] args)
 				break;
 			case "run":
 			case "build":
-				Dub dub = new Dub(Path(appPath), new RegistryPS(registryUrl));
-
+				dub.loadPackagefromCwd();
 				if( print_builds ){
 					logInfo("Available build types:");
 					foreach( tp; ["debug", "release", "unittest", "profile"] )
@@ -124,7 +130,7 @@ int main(string[] args)
 				}
 
 				if( !nodeps ){
-					logInfo("Checking dependencies in '%s'", appPath);
+					logInfo("Checking dependencies in '%s'", dub.projectPath);
 					logDebug("dub initialized");
 					dub.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
 				}
@@ -214,10 +220,34 @@ int main(string[] args)
 
 				break;
 			case "upgrade":
-				logInfo("Upgrading application in '%s'", appPath);
-				Dub dub = new Dub(Path(appPath), new RegistryPS(registryUrl));
+				dub.loadPackagefromCwd();
+				logInfo("Upgrading project in '%s'", dub.projectPath);
 				logDebug("dub initialized");
 				dub.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
+				break;
+			case "install":
+				enforce(args.length >= 2, "Missing package name.");
+				auto location = InstallLocation.UserWide;
+				auto name = args[1];
+				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
+				if( install_local ) location = InstallLocation.Local;
+				else if( install_system ) location = InstallLocation.SystemWide;
+				if( install_version.length ) dub.install(name, new Dependency(install_version), location);
+				else {
+					try dub.install(name, new Dependency(">=0.0.0"), location);
+					catch(Exception) dub.install(name, new Dependency("~master"), location);
+				}
+				break;
+			case "uninstall":
+				enforce("Not implemented.");
+				break;
+			case "add-local":
+				enforce(args.length >= 3, "Missing arguments.");
+				dub.addLocalPackage(args[1], args[2], install_system);
+				break;
+			case "remove-local":
+				enforce(args.length >= 2, "Missing path to package.");
+				dub.removeLocalPackage(args[1], install_system);
 				break;
 		}
 
@@ -231,7 +261,6 @@ int main(string[] args)
 		return 1;
 	}
 }
-
 
 private void showHelp(string command)
 {
@@ -249,23 +278,36 @@ Possible commands:
     run                  Compiles and runs the application (default command)
     build                Just compiles the application in the project directory
     upgrade              Forces an upgrade of all dependencies
+    install <name>       Manually installs a package
+    uninstall            Uninstalls a package
+    add-local <dir> <version>
+                         Adds a local package directory (e.g. a git repository)
+    remove-local <dir>   Removes a local package directory
 
-Options:
+General options:
+        --annotate       Do not execute dependency installations, just print
+    -v  --verbose        Also output debug messages
+        --vverbose       Also output trace messages (produces a lot of output)
+    -q  --quiet          Only output warnings and errors
+        --vquiet         No output
+
+Build/run options:
         --build=NAME     Specifies the type of build to perform. Valid names:
                          debug (default), release, unittest, profile, docs,
                          plain
         --config=NAME    Builds the specified configuration. Configurations can
                          be defined in package.json
         --nodeps         Do not check dependencies for 'run' or 'build'
-        --annotate       Do not execute dependency installations, just print
         --print-builds   Prints the list of available build types
         --print-configs  Prints the list of available configurations
         --print-platform Prints the identifiers for the current build platform
                          as used for the build fields in package.json
-    -v  --verbose        Also output debug messages
-        --vverbose       Also output trace messages (produces a lot of output)
-    -q  --quiet          Only output warnings and errors
-        --vquiet         No output
+
+Install options:
+        --version        Use the specified version/branch instead of the latest
+        --system         Install system wide instead of user local
+        --local          Install as in a sub folder of the current directory
+
 `);
 }
 
@@ -289,19 +331,16 @@ private string[] getPackagesAsVersion(const Dub dub)
 
 private string getBinName(const Dub dub)
 {
-	string ret;
-	if( dub.packageName.length > 0 )
-		ret = dub.packageName();
-	//Otherwise fallback to source/app.d
-	else ret ="app";
+	// take the project name as the base or fall back to "app"
+	string ret = dub.projectName;
+	if( ret.length == 0 ) ret ="app";
 	version(Windows) { ret ~= ".exe"; }
-
 	return ret;
 } 
 
 private Path getMainSourceFile(const Dub dub)
 {
-	auto p = Path("source") ~ (dub.packageName() ~ ".d");
+	auto p = Path("source") ~ (dub.projectName ~ ".d");
 	return existsFile(p) ? p : Path("source/app.d");
 }
 
@@ -342,7 +381,7 @@ static this()
 }
 `;
 	//Make sure we do not overwrite anything accidentally
-	if( (existsFile(cwd ~ "package.json"))        ||
+	if( (existsFile(cwd ~ PackageJsonFilename))        ||
 		(existsFile(cwd ~ "source"      ))        ||
 		(existsFile(cwd ~ "views"       ))        || 
 		(existsFile(cwd ~ "public"     )))
@@ -357,7 +396,7 @@ static this()
 	createDirectory(cwd ~ "views" );
 	createDirectory(cwd ~ "public");
 	//Create the common files. 
-	openFile(cwd ~ "package.json", FileMode.Append).write(packageJson);
+	openFile(cwd ~ PackageJsonFilename, FileMode.Append).write(packageJson);
 	openFile(cwd ~ "source/app.d", FileMode.Append).write(appFile);     
 	//Act smug to the user. 
 	logInfo("Successfully created empty project.");

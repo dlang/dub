@@ -16,6 +16,8 @@ import vibe.core.file;
 import vibe.data.json;
 import vibe.inet.url;
 
+enum PackageJsonFilename = "package.json";
+
 struct BuildPlatform {
 	string[] platform;
 	string[] architecture;
@@ -118,7 +120,7 @@ class Package {
 	{
 		m_location = location;
 		m_path = root;
-		m_meta = jsonFromFile(root ~ "package.json");
+		m_meta = jsonFromFile(root ~ PackageJsonFilename);
 		m_dependencies = .dependencies(m_meta);
 	}
 
@@ -176,7 +178,7 @@ class Package {
 	
 	/// Writes the json file back to the filesystem
 	void writeJson(Path path) {
-		auto dstFile = openFile((path~"package.json").toString(), FileMode.CreateTrunc);
+		auto dstFile = openFile((path~PackageJsonFilename).toString(), FileMode.CreateTrunc);
 		scope(exit) dstFile.close();
 		Appender!string js;
 		toPrettyJson(js, m_meta);

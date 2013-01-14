@@ -13,6 +13,7 @@ import dub.package_;
 import dub.utils;
 
 import std.algorithm : countUntil, filter, sort;
+import std.conv;
 import std.exception;
 import std.file;
 import std.zip;
@@ -23,7 +24,8 @@ import vibe.inet.path;
 import vibe.stream.operations;
 
 
-enum PackageJsonFileName = "package.json";
+enum JournalJsonFilename = "journal.json";
+enum LocalPackagesFilename = "local-packages.json";
 
 
 class PackageManager {
@@ -34,16 +36,20 @@ class PackageManager {
 		Package[][string] m_systemPackages;
 		Package[][string] m_userPackages;
 		Package[string] m_projectPackages;
-		Package[] m_localPackages;
+		Package[] m_localUserPackages;
+		Package[] m_localSystemPackages;
 	}
 
-	this(Path system_package_path, Path user_package_path, Path project_package_path)
+	this(Path system_package_path, Path user_package_path, Path project_package_path = Path())
 	{
 		m_systemPackagePath = system_package_path;
 		m_userPackagePath = user_package_path;
 		m_projectPackagePath = project_package_path;
 		refresh();
 	}
+
+	@property Path projectPackagePath() const { return m_projectPackagePath; }
+	@property void projectPackagePath(Path path) { m_projectPackagePath = path; refresh(); }
 
 	Package getPackage(string name, Version ver)
 	{
@@ -76,7 +82,12 @@ class PackageManager {
 				if( auto ret = del(*pp) ) return ret;
 
 			// then local packages
-			foreach( p; m_localPackages )
+			foreach( p; m_localUserPackages )
+				if( p.name == name )
+					if( auto ret = del(p) ) return ret;
+
+			// then local packages
+			foreach( p; m_localSystemPackages )
 				if( p.name == name )
 					if( auto ret = del(p) ) return ret;
 
@@ -106,7 +117,7 @@ class PackageManager {
 		Path destination;
 		final switch( location ){
 			case InstallLocation.Local: destination = Path(package_name); break;
-			case InstallLocation.ProjectLocal: destination = m_projectPackagePath ~ package_name; break;
+			case InstallLocation.ProjectLocal: enforce(!m_projectPackagePath.empty, "no project path set."); destination = m_projectPackagePath ~ package_name; break;
 			case InstallLocation.UserWide: destination = m_userPackagePath ~ (package_name ~ "/" ~ package_version); break;
 			case InstallLocation.SystemWide: destination = m_systemPackagePath ~ (package_name ~ "/" ~ package_version); break;
 		}
@@ -127,7 +138,7 @@ class PackageManager {
 		// In a github zip, the actual contents are in a subfolder
 		Path zip_prefix;
 		foreach(ArchiveMember am; archive.directory)
-			if( Path(am.name).head == PathEntry("package.json") ){
+			if( Path(am.name).head == PathEntry(PackageJsonFilename) ){
 				zip_prefix = Path(am.name)[0 .. 1];
 				break;
 			}
@@ -171,20 +182,17 @@ class PackageManager {
 			}
 		}
 
-		{ // overwrite package.json (this one includes a version field)
-			Json pi = jsonFromFile(destination~"package.json");
-			auto pj = openFile(destination~"package.json", FileMode.CreateTrunc);
-			scope(exit) pj.close();
-			pi["version"] = package_info["version"];
-			toPrettyJson(pj, pi);
-		}
+		// overwrite package.json (this one includes a version field)
+		Json pi = jsonFromFile(destination~PackageJsonFilename);
+		pi["version"] = package_info["version"];
+		writeJsonFile(destination~PackageJsonFilename, pi);
 
 		// Write journal
 		logTrace("Saving installation journal...");
-		journal.add(Journal.Entry(Journal.Type.RegularFile, Path("journal.json")));
-		journal.save(destination ~ "journal.json");
+		journal.add(Journal.Entry(Journal.Type.RegularFile, Path(JournalJsonFilename)));
+		journal.save(destination ~ JournalJsonFilename);
 
-		if( existsFile(destination~"package.json") )
+		if( existsFile(destination~PackageJsonFilename) )
 			logInfo("%s has been installed with version %s", package_name, package_version);
 
 		auto pack = new Package(location, destination);
@@ -227,7 +235,7 @@ class PackageManager {
 		}
 
 		// delete package files physically
-		auto journalFile = pack.path~"journal.json";
+		auto journalFile = pack.path~JournalJsonFilename;
 		if( !existsFile(journalFile) )
 			throw new Exception("Uninstall failed, no journal found for '"~pack.name~"'. Please uninstall manually.");
 
@@ -266,65 +274,89 @@ class PackageManager {
 		logInfo("Uninstalled package: '"~pack.name~"'");
 	}
 
+	void addLocalPackage(Path path, Version ver, bool system)
+	{
+		Package[]* packs = system ? &m_localSystemPackages : &m_localUserPackages;
+		auto info = jsonFromFile(path ~ PackageJsonFilename, false);
+		string name;
+		if( "name" !in info ) info["name"] = path.head.toString();
+		info["version"] = ver.toString();
+
+		*packs ~= new Package(info, InstallLocation.Local, path);
+
+		writeLocalPackageList(system);
+	}
+
+	void removeLocalPackage(Path path, bool system)
+	{
+		Package[]* packs = system ? &m_localSystemPackages : &m_localUserPackages;
+		size_t[] to_remove;
+		foreach( i, entry; *packs )
+			if( entry.path == path )
+				to_remove ~= i;
+		enforce(to_remove.length > 0, "No "~(system?"system":"user")~" package found at "~path.toNativeString());
+
+		foreach_reverse( i; to_remove )
+			*packs = (*packs)[0 .. i] ~ (*packs)[i+1 .. $];
+
+		writeLocalPackageList(system);
+	}
+
+	void writeLocalPackageList(bool system)
+	{
+		Package[]* packs = system ? &m_localSystemPackages : &m_localUserPackages;
+		Json[] newlist;
+		foreach( p; *packs ){
+			auto entry = Json.EmptyObject;
+			entry["name"] = p.name;
+			entry["version"] = p.ver.toString();
+			entry["path"] = p.path.toNativeString();
+			newlist ~= entry;
+		}
+		writeJsonFile((system ? m_systemPackagePath : m_userPackagePath) ~ LocalPackagesFilename, Json(newlist));
+	}
+
 	void refresh()
 	{
-		// rescan the system package folder
-		m_systemPackages = null;
-		if( m_systemPackagePath.existsDirectory() ){
-			logDebug("iterating dir %s", m_systemPackagePath.toNativeString());
-			try foreach( pdir; iterateDirectory(m_systemPackagePath) ){
-				logDebug("iterating dir %s entry %s", m_systemPackagePath.toNativeString(), pdir.name);
-				if( !pdir.isDirectory ) continue;
-				Package[] vers;
-				auto pack_path = m_systemPackagePath ~ pdir.name;
-				foreach( vdir; iterateDirectory(pack_path) ){
-					if( !vdir.isDirectory ) continue;
-					auto ver_path = pack_path ~ vdir.name;
-					if( !existsFile(ver_path ~ PackageJsonFileName) ) continue;
-					try {
-						auto p = new Package(InstallLocation.SystemWide, ver_path);
-						vers ~= p;
-					} catch( Exception e ){
-						logError("Failed to load package in %s: %s", ver_path, e.msg);
+		// rescan the system and user package folder
+		void scanPackageFolder(Path path, ref Package[][string] packs, InstallLocation location)
+		{
+			packs = null;
+			if( path.existsDirectory() ){
+				logDebug("iterating dir %s", path.toNativeString());
+				try foreach( pdir; iterateDirectory(path) ){
+					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
+					if( !pdir.isDirectory ) continue;
+					Package[] vers;
+					auto pack_path = path ~ pdir.name;
+					foreach( vdir; iterateDirectory(pack_path) ){
+						if( !vdir.isDirectory ) continue;
+						auto ver_path = pack_path ~ vdir.name;
+						if( !existsFile(ver_path ~ PackageJsonFilename) ) continue;
+						try {
+							auto p = new Package(location, ver_path);
+							vers ~= p;
+						} catch( Exception e ){
+							logError("Failed to load package in %s: %s", ver_path, e.msg);
+						}
 					}
+					packs[pdir.name] = vers;
 				}
-				m_systemPackages[pdir.name] = vers;
+				catch(Exception e) logDebug("Failed to enumerate %s packages: %s", to!string(location), e.toString());
 			}
-			catch(Exception e) logDebug("Failed to enumerate system packages: %s", e.toString());
 		}
+		scanPackageFolder(m_systemPackagePath, m_systemPackages, InstallLocation.SystemWide);
+		scanPackageFolder(m_userPackagePath, m_userPackages, InstallLocation.UserWide);
 
-		// rescan the user package folder
-		m_userPackages = null;
-		if( m_systemPackagePath.existsDirectory() ){
-			logDebug("iterating dir %s", m_userPackagePath.toNativeString());
-			try foreach( pdir; m_userPackagePath.iterateDirectory() ){
-				if( !pdir.isDirectory ) continue;
-				Package[] vers;
-				auto pack_path = m_userPackagePath ~ pdir.name;
-				foreach( vdir; pack_path.iterateDirectory() ){
-					if( !vdir.isDirectory ) continue;
-					auto ver_path = pack_path ~ vdir.name;
-					if( !existsFile(ver_path ~ PackageJsonFileName) ) continue;
-					try {
-						auto p = new Package(InstallLocation.UserWide, ver_path);
-						vers ~= p;
-					} catch( Exception e ){
-						logError("Failed to load package in %s: %s", ver_path, e.msg);
-					}
-				}
-				m_userPackages[pdir.name] = vers;
-			}
-			catch(Exception e) logDebug("Failed to enumerate user packages: %s", e.toString());
-		}
 
 		// rescan the project package folder
 		m_projectPackages = null;
-		if( m_projectPackagePath.existsDirectory() ){
+		if( !m_projectPackagePath.empty && m_projectPackagePath.existsDirectory() ){
 			logDebug("iterating dir %s", m_projectPackagePath.toNativeString());
 			try foreach( pdir; m_projectPackagePath.iterateDirectory() ){
 				if( !pdir.isDirectory ) continue;
 				auto pack_path = m_projectPackagePath ~ pdir.name;
-				if( !existsFile(pack_path ~ PackageJsonFileName) ) continue;
+				if( !existsFile(pack_path ~ PackageJsonFilename) ) continue;
 
 				try {
 					auto p = new Package(InstallLocation.ProjectLocal, pack_path);
@@ -337,26 +369,26 @@ class PackageManager {
 		}
 
 		// load locally defined packages
-		foreach( list_path; [m_systemPackagePath, m_userPackagePath] ){
+		void scanLocalPackages(Path list_path, ref Package[] packs){
 			try {
 				logDebug("Looking for local package map at %s", list_path.toNativeString());
-				if( !existsFile(list_path ~ "local-packages.json") ) continue;
+				if( !existsFile(list_path ~ LocalPackagesFilename) ) return;
 				logDebug("Try to load local package map at %s", list_path.toNativeString());
-				auto packlist = jsonFromFile(list_path ~ "local-packages.json");
-				enforce(packlist.type == Json.Type.Array, "local-packages.json must contain an array.");
+				auto packlist = jsonFromFile(list_path ~ LocalPackagesFilename);
+				enforce(packlist.type == Json.Type.Array, LocalPackagesFilename~" must contain an array.");
 				foreach( pentry; packlist ){
 					try {
 						auto name = pentry.name.get!string();
 						auto ver = pentry["version"].get!string();
 						auto path = Path(pentry.path.get!string());
 						auto info = Json.EmptyObject;
-						if( existsFile(path ~ "package.json") ) info = jsonFromFile(path ~ "package.json");
+						if( existsFile(path ~ PackageJsonFilename) ) info = jsonFromFile(path ~ PackageJsonFilename);
 						if( "name" in info && info.name.get!string() != name )
 							logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, info.name.get!string());
 						info.name = name;
 						info["version"] = ver;
 						auto pp = new Package(info, InstallLocation.Local, path);
-						m_localPackages ~= pp;
+						packs ~= pp;
 					} catch( Exception e ){
 						logWarn("Error adding local package: %s", e.msg);
 					}
@@ -365,5 +397,7 @@ class PackageManager {
 				logDebug("Loading of local package list at %s failed: %s", list_path.toNativeString(), e.msg);
 			}
 		}
+		scanLocalPackages(m_systemPackagePath, m_localSystemPackages);
+		scanLocalPackages(m_userPackagePath, m_localUserPackages);
 	}
 }

@@ -127,8 +127,8 @@ private class Application {
 		try m_json = jsonFromFile(m_root ~ ".dub/dub.json", true);
 		catch(Exception t) logDebug("Failed to read .dub/dub.json: %s", t.msg);
 
-		if(!exists(to!string(m_root~"package.json"))) {
-			logWarn("There was no 'package.json' found for the application in '%s'.", m_root);
+		if(!exists(to!string(m_root~PackageJsonFilename))) {
+			logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root);
 		} else {
 			m_main = new Package(InstallLocation.Local, m_root);
 			foreach( name, vspec; m_main.dependencies ){
@@ -422,6 +422,7 @@ enum UpdateOptions
 /// dependencies up and running.
 class Dub {
 	private {
+		Path m_cwd, m_tempPath;
 		Path m_root;
 		PackageSupplier m_packageSupplier;
 		Path m_userDubPath, m_systemDubPath;
@@ -432,32 +433,41 @@ class Dub {
 
 	/// Initiales the package manager for the vibe application
 	/// under root.
-	this(Path root, PackageSupplier ps = defaultPackageSupplier())
+	this(PackageSupplier ps = defaultPackageSupplier())
 	{
-		assert(root.absolute, "Need an absolute path for the DUB package.");
-		m_root = root;
+		m_cwd = Path(getcwd());
 
 		version(Windows){
 			m_systemDubPath = Path(environment.get("ProgramData")) ~ "dub/";
 			m_userDubPath = Path(environment.get("APPDATA")) ~ "dub/";
+			m_tempPath = Path(environment.get("TEMP"));
 		} else version(Posix){
 			m_systemDubPath = Path("/etc/dub/");
 			m_userDubPath = Path(environment.get("HOME")) ~ ".dub/";
+			m_tempPath = Path("/tmp");
 		}
 		
 		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
 
-		m_packageManager = new PackageManager(m_systemDubPath ~ "packages/", m_userDubPath ~ "packages/", root ~ ".dub/packages/");
-		m_app = new Application(m_packageManager, root);
 		m_packageSupplier = ps;
+		m_packageManager = new PackageManager(m_systemDubPath ~ "packages/", m_userDubPath ~ "packages/");
 	}
 
 	/// Returns the name listed in the package.json of the current
 	/// application.
-	@property string packageName() const { return m_app.name; }
+	@property string projectName() const { return m_app.name; }
+
+	@property Path projectPath() const { return m_root; }
 
 	@property string[] configurations() const { return m_app.configurations; }
+
+	void loadPackagefromCwd()
+	{
+		m_root = m_cwd;
+		m_packageManager.projectPackagePath = m_root ~ ".dub/packages/";
+		m_app = new Application(m_packageManager, m_root);
+	}
 
 	/// Returns a list of flags which the application needs to be compiled
 	/// properly.
@@ -545,9 +555,7 @@ class Dub {
 
 		logDebug("Aquiring package zip file");
 		auto dload = m_root ~ ".dub/temp/downloads";
-		if(!exists(to!string(dload)))
-			mkdirRecurse(to!string(dload));
-		auto tempFile = m_root ~ (".dub/temp/downloads/"~packageId~".zip");
+		auto tempFile = m_tempPath ~ ("dub-download-"~packageId~"-"~ver~".zip");
 		string sTempFile = to!string(tempFile);
 		if(exists(sTempFile)) remove(sTempFile);
 		m_packageSupplier.storePackage(tempFile, packageId, dep); // Q: continue on fail?
@@ -564,6 +572,20 @@ class Dub {
 		logInfo("Uninstalling %s in %s", pack.name, pack.path.toNativeString());
 
 		m_packageManager.uninstall(pack);
+	}
+
+	void addLocalPackage(string path, string ver, bool system)
+	{
+		auto abs_path = Path(path);
+		if( !abs_path.absolute ) abs_path = m_cwd ~ abs_path;
+		m_packageManager.addLocalPackage(abs_path, Version(ver), system);
+	}
+
+	void removeLocalPackage(string path, bool system)
+	{
+		auto abs_path = Path(path);
+		if( !abs_path.absolute ) abs_path = m_cwd ~ abs_path;
+		m_packageManager.removeLocalPackage(abs_path, system);
 	}
 }
 
