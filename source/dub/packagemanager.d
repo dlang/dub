@@ -313,7 +313,9 @@ class PackageManager {
 			entry["path"] = p.path.toNativeString();
 			newlist ~= entry;
 		}
-		writeJsonFile((system ? m_systemPackagePath : m_userPackagePath) ~ LocalPackagesFilename, Json(newlist));
+		auto path = system ? m_systemPackagePath : m_userPackagePath;
+		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
+		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
 	}
 
 	void refresh()
