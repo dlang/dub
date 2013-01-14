@@ -30,7 +30,8 @@ package bool isEmptyDir(Path p) {
 	return true;
 }
 
-package Json jsonFromFile(Path file) {
+package Json jsonFromFile(Path file, bool silent_fail = false) {
+	if( silent_fail && !existsFile(file) ) return Json.EmptyObject;
 	auto f = openFile(to!string(file), FileMode.Read);
 	scope(exit) f.close();
 	auto text = stripUTF8Bom(cast(string)f.readAll());
@@ -50,4 +51,10 @@ package Json jsonFromZip(string zip, string filename) {
 package bool isPathFromZip(string p) {
 	enforce(p.length > 0);
 	return p[$-1] == '/';
+}
+
+package bool existsDirectory(Path path) {
+	if( !existsFile(path) ) return false;
+	auto fi = getFileInfo(path);
+	return fi.isDirectory;
 }

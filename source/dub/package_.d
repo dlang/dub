@@ -108,23 +108,36 @@ struct BuildSettings {
 // }
 class Package {
 	private {
+		InstallLocation m_location;
+		Path m_path;
 		Json m_meta;
 		Dependency[string] m_dependencies;
 	}
 	
-	this(Path root) {
+	this(InstallLocation location, Path root)
+	{
+		m_location = location;
+		m_path = root;
 		m_meta = jsonFromFile(root ~ "package.json");
 		m_dependencies = .dependencies(m_meta);
 	}
-	this(Json json) {
+
+	this(Json json, InstallLocation location = InstallLocation.Local, Path root = Path())
+	{
+		m_location = location;
+		m_path = root;
 		m_meta = json;
 		m_dependencies = .dependencies(m_meta);
 	}
 	
 	@property string name() const { return cast(string)m_meta["name"]; }
 	@property string vers() const { return cast(string)m_meta["version"]; }
+	@property Version ver() const { return Version(m_meta["version"].get!string); }
+	@property installLocation() const { return m_location; }
+	@property Path path() const { return m_path; }
 	@property const(Url) url() const { return Url.parse(cast(string)m_meta["url"]); }
 	@property const(Dependency[string]) dependencies() const { return m_dependencies; }
+
 	@property string[] configurations()
 	const {
 		auto pv = "configurations" in m_meta;
@@ -169,4 +182,11 @@ class Package {
 		toPrettyJson(js, m_meta);
 		dstFile.write( js.data );
 	}
+}
+
+enum InstallLocation {
+	Local,
+	ProjectLocal,
+	UserWide,
+	SystemWide
 }

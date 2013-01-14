@@ -71,6 +71,7 @@ struct Version {
 	}
 	
 	bool opEquals(ref const Version oth) const { return v == oth.v; }
+	bool opEquals(const Version oth) const { return v == oth.v; }
 	
 	int opCmp(ref const Version other)
 	const {
@@ -79,6 +80,7 @@ struct Version {
 				return cast(int)v[i] - cast(int)other.v[i];
 		return cast(int)v.length - cast(int)other.v.length;
 	}
+	int opCmp(in Version other) const { return opCmp(other); }
 	
 	string toString()
 	const {
