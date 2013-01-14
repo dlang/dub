@@ -267,10 +267,10 @@ private void showHelp(string command)
 	// This help is actually a mixup of help for this application and the
 	// supporting vibe script / .cmd file.
 	logInfo(
-`Usage: vibe [<command>] [<vibe options...>] [-- <application options...>]
+`Usage: dub [<command>] [<vibe options...>] [-- <application options...>]
 
-Manages the vibe.d application in the current directory. "--" can be used to
-separate vibe options from options passed to the application.
+Manages the DUB project in the current directory. "--" can be used to separate
+DUB options from options passed to the application.
 
 Possible commands:
     help                 Prints this help screen
@@ -325,7 +325,7 @@ private string[] getPackagesAsVersion(const Dub dub)
 	string[] ret;
 	string[string] pkgs = dub.installedPackages();
 	foreach(id, vers; pkgs)
-		ret ~= "VPM_package_" ~ stripDlangSpecialChars(id);
+		ret ~= "Have_" ~ stripDlangSpecialChars(id);
 	return ret;
 }
 
