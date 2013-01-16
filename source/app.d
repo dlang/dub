@@ -249,6 +249,13 @@ int main(string[] args)
 				enforce(args.length >= 2, "Missing path to package.");
 				dub.removeLocalPackage(args[1], install_system);
 				break;
+			case "list-locals":
+				logInfo("Locals:");
+				foreach( p; dub.packageManager.getPackageIterator() )
+					if( p.installLocation == InstallLocation.Local )
+						logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
+				logInfo("");
+				break;
 		}
 
 		return 0;
@@ -283,6 +290,7 @@ Possible commands:
     add-local <dir> <version>
                          Adds a local package directory (e.g. a git repository)
     remove-local <dir>   Removes a local package directory
+    list-locals          Prints a list of all locals
 
 General options:
         --annotate       Do not execute dependency installations, just print

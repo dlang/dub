@@ -73,6 +73,40 @@ class PackageManager {
 		return ret;
 	}
 
+	int delegate(int delegate(ref Package)) getPackageIterator()
+	{
+		int iterator(int delegate(ref Package) del)
+		{
+			// first search project local packages
+			foreach( p; m_projectPackages )
+				if( auto ret = del(p) ) return ret;
+
+			// then local packages
+			foreach( p; m_localUserPackages )
+				if( auto ret = del(p) ) return ret;
+
+			// then local packages
+			foreach( p; m_localSystemPackages )
+				if( auto ret = del(p) ) return ret;
+
+			// then user installed packages
+			foreach( pl; m_userPackages )
+				foreach( v; pl )
+					if( auto ret = del(v) )
+						return ret;
+
+			// finally system-wide installed packages
+			foreach( pl; m_systemPackages )
+				foreach( v; pl )
+					if( auto ret = del(v) )
+						return ret;
+
+			return 0;
+		}
+
+		return &iterator;
+	}
+
 	int delegate(int delegate(ref Package)) getPackageIterator(string name)
 	{
 		int iterator(int delegate(ref Package) del)

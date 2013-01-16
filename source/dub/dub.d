@@ -461,6 +461,8 @@ class Dub {
 
 	@property string[] configurations() const { return m_app.configurations; }
 
+	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
+
 	void loadPackagefromCwd()
 	{
 		m_root = m_cwd;
