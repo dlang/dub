@@ -7,6 +7,6 @@
 		"Sönke Ludwig"
 	],
 	"dependencies": {
-		"vibe.d": "~master"
+		"vibe-d": "~master"
 	}
 }
