@@ -230,10 +230,14 @@ private class Application {
 			} else {
 				logDebug("Required package '"~pkg~"' found with version '"~p.vers~"'");
 				if( option & UpdateOptions.Reinstall ) {
-					Dependency[string] em;
-					if( p.installLocation == InstallLocation.ProjectLocal )
-						uninstalls ~= Action(Action.ActionId.Uninstall, *p, em);
-					actions ~= Action(Action.ActionId.InstallUpdate, pkg, d.dependency, d.packages);
+					if( p.installLocation != InstallLocation.Local ){
+						Dependency[string] em;
+						if( p.installLocation == InstallLocation.ProjectLocal )
+							uninstalls ~= Action(Action.ActionId.Uninstall, *p, em);
+						actions ~= Action(Action.ActionId.InstallUpdate, pkg, d.dependency, d.packages);
+					} else {
+						logInfo("Skipping local package %s at %s", p.name, p.path.toNativeString());
+					}
 				}
 
 				if( (pkg in unused) !is null )
