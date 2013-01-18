@@ -25,17 +25,6 @@ import std.conv;
 static import std.compiler;
 
 
-Dependency[string] dependencies(const Json json)
-{
-	if( "dependencies" !in json ) return null;
-	Dependency[string] dep;
-	foreach( string pkg, ref const Json vers; json["dependencies"] ) {
-		enforce( pkg !in dep, "The dependency '"~pkg~"' is specified more than once." );
-		dep[pkg] = new Dependency(cast(string)vers);
-	}
-	return dep;
-}
-
 /**
 	A version in the format "major.update.bugfix".
 */

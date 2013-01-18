@@ -27,6 +27,12 @@ import vibe.stream.operations;
 enum JournalJsonFilename = "journal.json";
 enum LocalPackagesFilename = "local-packages.json";
 
+enum LocalPackageType {
+	temporary,
+	user,
+	system
+}
+
 
 class PackageManager {
 	private {
@@ -36,6 +42,7 @@ class PackageManager {
 		Package[][string] m_systemPackages;
 		Package[][string] m_userPackages;
 		Package[string] m_projectPackages;
+		Package[] m_localTemporaryPackages;
 		Package[] m_localUserPackages;
 		Package[] m_localSystemPackages;
 	}
@@ -78,6 +85,8 @@ class PackageManager {
 		int iterator(int delegate(ref Package) del)
 		{
 			// first search project local packages
+			foreach( p; m_localTemporaryPackages )
+				if( auto ret = del(p) ) return ret;
 			foreach( p; m_projectPackages )
 				if( auto ret = del(p) ) return ret;
 
@@ -112,6 +121,9 @@ class PackageManager {
 		int iterator(int delegate(ref Package) del)
 		{
 			// first search project local packages
+			foreach( p; m_localTemporaryPackages )
+				if( p.name == name )
+					if( auto ret = del(p) ) return ret;
 			if( auto pp = name in m_projectPackages )
 				if( auto ret = del(*pp) ) return ret;
 
@@ -308,48 +320,40 @@ class PackageManager {
 		logInfo("Uninstalled package: '"~pack.name~"'");
 	}
 
-	void addLocalPackage(Path path, Version ver, bool system)
+	void addLocalPackage(in Path path, in Version ver, LocalPackageType type)
 	{
-		Package[]* packs = system ? &m_localSystemPackages : &m_localUserPackages;
+		Package[]* packs = getLocalPackageList(type);
 		auto info = jsonFromFile(path ~ PackageJsonFilename, false);
 		string name;
 		if( "name" !in info ) info["name"] = path.head.toString();
 		info["version"] = ver.toString();
 
+		// don't double-add packages
+		foreach( p; *packs ){
+			if( p.path == path ){
+				enforce(p.ver == ver, "Adding local twice with different versions is not allowed.");
+				return;
+			}
+		}
+
 		*packs ~= new Package(info, InstallLocation.Local, path);
 
-		writeLocalPackageList(system);
+		writeLocalPackageList(type);
 	}
 
-	void removeLocalPackage(Path path, bool system)
+	void removeLocalPackage(in Path path, LocalPackageType type)
 	{
-		Package[]* packs = system ? &m_localSystemPackages : &m_localUserPackages;
+		Package[]* packs = getLocalPackageList(type);
 		size_t[] to_remove;
 		foreach( i, entry; *packs )
 			if( entry.path == path )
 				to_remove ~= i;
-		enforce(to_remove.length > 0, "No "~(system?"system":"user")~" package found at "~path.toNativeString());
+		enforce(to_remove.length > 0, "No "~type.to!string()~" package found at "~path.toNativeString());
 
 		foreach_reverse( i; to_remove )
 			*packs = (*packs)[0 .. i] ~ (*packs)[i+1 .. $];
 
-		writeLocalPackageList(system);
-	}
-
-	void writeLocalPackageList(bool system)
-	{
-		Package[]* packs = system ? &m_localSystemPackages : &m_localUserPackages;
-		Json[] newlist;
-		foreach( p; *packs ){
-			auto entry = Json.EmptyObject;
-			entry["name"] = p.name;
-			entry["version"] = p.ver.toString();
-			entry["path"] = p.path.toNativeString();
-			newlist ~= entry;
-		}
-		auto path = system ? m_systemPackagePath : m_userPackagePath;
-		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
-		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
+		writeLocalPackageList(type);
 	}
 
 	void refresh()
@@ -435,5 +439,36 @@ class PackageManager {
 		}
 		scanLocalPackages(m_systemPackagePath, m_localSystemPackages);
 		scanLocalPackages(m_userPackagePath, m_localUserPackages);
+	}
+
+	private Package[]* getLocalPackageList(LocalPackageType type)
+	{
+		final switch(type){
+			case LocalPackageType.user: return &m_localUserPackages;
+			case LocalPackageType.system: return &m_localSystemPackages;
+			case LocalPackageType.temporary: return &m_localTemporaryPackages;
+		}
+	}
+
+	private void writeLocalPackageList(LocalPackageType type)
+	{
+		Package[]* packs = getLocalPackageList(type);
+		Json[] newlist;
+		foreach( p; *packs ){
+			auto entry = Json.EmptyObject;
+			entry["name"] = p.name;
+			entry["version"] = p.ver.toString();
+			entry["path"] = p.path.toNativeString();
+			newlist ~= entry;
+		}
+
+		Path path;
+		final switch(type){
+			case LocalPackageType.user: path = m_userPackagePath;
+			case LocalPackageType.system: path = m_systemPackagePath;
+			case LocalPackageType.temporary: return;
+		}
+		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
+		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
 	}
 }

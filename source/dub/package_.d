@@ -12,6 +12,7 @@ import dub.utils;
 
 import std.array;
 import std.conv;
+import std.exception;
 import vibe.core.file;
 import vibe.data.json;
 import vibe.inet.url;
@@ -102,34 +103,45 @@ struct BuildSettings {
 // 		"dependencies": {
 // 			"black-sabbath": ">=1.0.0",
 // 			"CowboysFromHell": "<1.0.0",
-// 			"BeneathTheRemains": ">=1.0.3"
+// 			"BeneathTheRemains": {"version": "0.4.1", "path": "./beneath-0.4.1"}
 // 		}
 //		"licenses": {
 //			...
 //		}
 // }
 class Package {
+	static struct LocalPacageDef { string name; Version version_; Path path; }
+
 	private {
 		InstallLocation m_location;
 		Path m_path;
 		Json m_meta;
 		Dependency[string] m_dependencies;
-	}
-	
-	this(InstallLocation location, Path root)
-	{
-		m_location = location;
-		m_path = root;
-		m_meta = jsonFromFile(root ~ PackageJsonFilename);
-		m_dependencies = .dependencies(m_meta);
+		LocalPacageDef[] m_localPackageDefs;
 	}
 
-	this(Json json, InstallLocation location = InstallLocation.Local, Path root = Path())
+	this(InstallLocation location, Path root)
+	{
+		this(jsonFromFile(root ~ PackageJsonFilename), location, root);
+	}
+
+	this(Json package_info, InstallLocation location = InstallLocation.Local, Path root = Path())
 	{
 		m_location = location;
 		m_path = root;
-		m_meta = json;
-		m_dependencies = .dependencies(m_meta);
+		m_meta = package_info;
+
+		// extract dependencies and local package definitions
+		if( auto pd = "dependencies" in package_info ){
+			foreach( string pkg, verspec; *pd ) {
+				enforce(pkg !in m_dependencies, "The dependency '"~pkg~"' is specified more than once." );
+				if( verspec.type == Json.Type.Object ){
+					auto ver = verspec["version"].get!string;
+					m_dependencies[pkg] = new Dependency("==", ver);
+					m_localPackageDefs ~= LocalPacageDef(pkg, Version(ver), Path(verspec.path.get!string()));
+				} else m_dependencies[pkg] = new Dependency(verspec.get!string());
+			}
+		}
 	}
 	
 	@property string name() const { return cast(string)m_meta["name"]; }
@@ -139,6 +151,7 @@ class Package {
 	@property Path path() const { return m_path; }
 	@property const(Url) url() const { return Url.parse(cast(string)m_meta["url"]); }
 	@property const(Dependency[string]) dependencies() const { return m_dependencies; }
+	@property const(LocalPacageDef)[] localPackageDefs() const { return m_localPackageDefs; }
 
 	@property string[] configurations()
 	const {

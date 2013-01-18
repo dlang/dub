@@ -122,20 +122,42 @@ private class Application {
 	void reinit() {
 		m_dependencies = null;
 		m_main = null;
+		m_packageManager.refresh();
 
 		try m_json = jsonFromFile(m_root ~ ".dub/dub.json", true);
 		catch(Exception t) logDebug("Failed to read .dub/dub.json: %s", t.msg);
 
-		if(!exists(to!string(m_root~PackageJsonFilename))) {
+		if( !exists(to!string(m_root~PackageJsonFilename)) ){
 			logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root);
-		} else {
-			m_main = new Package(InstallLocation.Local, m_root);
-			foreach( name, vspec; m_main.dependencies ){
+			return;
+		}
+
+		m_main = new Package(InstallLocation.Local, m_root);
+
+		// TODO: compute the set of mutual dependencies first
+		// (i.e. ">=0.0.1 <=0.0.5" and "<= 0.0.4" get ">=0.0.1 <=0.0.4")
+		// conflicts would then also be detected.
+		void collectDependenciesRec(Package pack)
+		{
+			logDebug("Collecting dependencies for %s", pack.name);
+			foreach( ldef; pack.localPackageDefs ){
+				logDebug("Adding local %s %s", ldef.name, ldef.version_);
+				m_packageManager.addLocalPackage(ldef.path, ldef.version_, LocalPackageType.temporary);
+			}
+
+			foreach( name, vspec; pack.dependencies ){
 				auto p = m_packageManager.getBestPackage(name, vspec);
+				if( !m_dependencies.canFind(p) ){
+					logDebug("Found dependency %s %s: %s", name, vspec.toString(), p !is null);
+					if( p ){
+						m_dependencies ~= p;
+						collectDependenciesRec(p);
+					}
+				}
 				//enforce(p !is null, "Failed to resolve dependency "~name~" "~vspec.toString());
-				if( p ) m_dependencies ~= p;
 			}
 		}
+		collectDependenciesRec(m_main);
 	}
 
 	/// Returns the applications name.
@@ -179,7 +201,7 @@ private class Application {
 	}
 
 	/// Actions which can be performed to update the application.
-	Action[] actions(PackageSupplier packageSupplier, int option) {
+	Action[] determineActions(PackageSupplier packageSupplier, int option) {
 		scope(exit) writeDubJson();
 
 		if(!m_main) {
@@ -487,7 +509,7 @@ class Dub {
 	/// the application.
 	/// @param options bit combination of UpdateOptions
 	bool update(UpdateOptions options) {
-		Action[] actions = m_app.actions(m_packageSupplier, options);
+		Action[] actions = m_app.determineActions(m_packageSupplier, options);
 		if( actions.length == 0 ) return true;
 
 		logInfo("The following changes could be performed:");
@@ -522,7 +544,7 @@ class Dub {
 				install(a.packageId, a.vers);
 
 		m_app.reinit();
-		Action[] newActions = m_app.actions(m_packageSupplier, 0);
+		Action[] newActions = m_app.determineActions(m_packageSupplier, 0);
 		if(newActions.length > 0) {
 			logInfo("There are still some actions to perform:");
 			foreach(Action a; newActions)
@@ -583,14 +605,14 @@ class Dub {
 	{
 		auto abs_path = Path(path);
 		if( !abs_path.absolute ) abs_path = m_cwd ~ abs_path;
-		m_packageManager.addLocalPackage(abs_path, Version(ver), system);
+		m_packageManager.addLocalPackage(abs_path, Version(ver), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
 	void removeLocalPackage(string path, bool system)
 	{
 		auto abs_path = Path(path);
 		if( !abs_path.absolute ) abs_path = m_cwd ~ abs_path;
-		m_packageManager.removeLocalPackage(abs_path, system);
+		m_packageManager.removeLocalPackage(abs_path, system ? LocalPackageType.system : LocalPackageType.user);
 	}
 }
 
