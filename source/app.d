@@ -175,7 +175,8 @@ int main(string[] args)
 					} catch( Exception e ){
 						logDebug("pkg-config failed: %s", e.msg);
 						logDebug("Falling back to direct -lxyz flags.");
-						settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
+						version(Windows) settings.addDFlags(settings.libs.map!(l => l~".lib")().array());
+						else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
 						settings.libs = null;
 					}
 				}
