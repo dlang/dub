@@ -212,10 +212,22 @@ int main(string[] args)
 				auto result = rdmd_pid.wait();
 				enforce(result == 0, "Build command failed with exit code "~to!string(result));
 
+				if( settings.copyFiles.length ){
+					logInfo("Copying files...");
+					foreach( f; settings.copyFiles ){
+						auto src = Path(f);
+						auto dst = (run_exe_file ? Path(run_exe_file).parentPath : Path("./")) ~ Path(f).head;
+						logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
+						copyFile(src, dst, true);
+					}
+				}
+
 				if( cmd == "run" ){
 					auto prg_pid = spawnProcess(run_exe_file, args[1 .. $]);
 					result = prg_pid.wait();
 					remove(run_exe_file);
+					foreach( f; settings.copyFiles )
+						remove((Path(run_exe_file).parentPath ~ Path(f).head).toNativeString());
 					enforce(result == 0, "Program exited with code "~to!string(result));
 				}
 

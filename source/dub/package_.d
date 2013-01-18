@@ -30,6 +30,7 @@ struct BuildSettings {
 	string[] lflags;
 	string[] libs;
 	string[] files;
+	string[] copyFiles;
 	string[] versions;
 	string[] importPath;
 	string[] stringImportPath;
@@ -40,6 +41,7 @@ struct BuildSettings {
 		addLFlags(getPlatformField(root, "lflags", platform));
 		addLibs(getPlatformField(root, "libs", platform));
 		addFiles(getPlatformField(root, "files", platform));
+		addCopyFiles(getPlatformField(root, "copyFiles", platform));
 		addVersions(getPlatformField(root, "versions", platform));
 		addImportDirs(getPlatformField(root, "importPath", platform));
 		addStringImportDirs(getPlatformField(root, "stringImportPath", platform));
@@ -49,6 +51,7 @@ struct BuildSettings {
 	void addLFlags(string[] value) { add(lflags, value); }
 	void addLibs(string[] value) { add(libs, value); }
 	void addFiles(string[] value) { add(files, value); }
+	void addCopyFiles(string[] value) { add(copyFiles, value); }
 	void addVersions(string[] value) { add(versions, value); }
 	void addImportDirs(string[] value) { add(importPath, value); }
 	void addStringImportDirs(string[] value) { add(stringImportPath, value); }

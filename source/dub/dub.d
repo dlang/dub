@@ -622,9 +622,10 @@ private void processVars(ref BuildSettings dst, string project_path, BuildSettin
 	dst.addLFlags(processVars(project_path, settings.lflags));
 	dst.addLibs(processVars(project_path, settings.libs));
 	dst.addFiles(processVars(project_path, settings.files, true));
+	dst.addCopyFiles(processVars(project_path, settings.copyFiles, true));
 	dst.addVersions(processVars(project_path, settings.versions));
-	dst.addImportDirs(processVars(project_path, settings.importPath)); // TODO: prepend project_path to relative paths here
-	dst.addStringImportDirs(processVars(project_path, settings.stringImportPath)); // TODO: prepend project_path to relative paths here
+	dst.addImportDirs(processVars(project_path, settings.importPath, true));
+	dst.addStringImportDirs(processVars(project_path, settings.stringImportPath, true));
 }
 
 private string[] processVars(string project_path, string[] vars, bool are_paths = false)
