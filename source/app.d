@@ -150,7 +150,7 @@ int main(string[] args)
 				string[] flags = ["--force", "--build-only"];
 				string run_exe_file;
 				if( cmd == "build" ){
-					flags ~= "-of"~outfile;
+					flags ~= "-of"~(dub.binaryPath~outfile).toNativeString();
 				} else {
 					version(Windows){
 						import std.random;
@@ -216,7 +216,7 @@ int main(string[] args)
 					logInfo("Copying files...");
 					foreach( f; settings.copyFiles ){
 						auto src = Path(f);
-						auto dst = (run_exe_file ? Path(run_exe_file).parentPath : Path("./")) ~ Path(f).head;
+						auto dst = (run_exe_file ? Path(run_exe_file).parentPath : dub.binaryPath) ~ Path(f).head;
 						logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
 						copyFile(src, dst, true);
 					}

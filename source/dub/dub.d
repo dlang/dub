@@ -91,6 +91,8 @@ private class Application {
 		reinit();
 	}
 
+	@property Path binaryPath() const { auto p = m_main.binaryPath; return p.length ? Path(p) : Path("./"); }
+
 	/// Gathers information
 	string info() const {
 		if(!m_main)
@@ -488,6 +490,8 @@ class Dub {
 	@property string[] configurations() const { return m_app.configurations; }
 
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
+
+	@property Path binaryPath() const { return m_app.binaryPath; }
 
 	void loadPackagefromCwd()
 	{

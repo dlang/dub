@@ -155,6 +155,7 @@ class Package {
 	@property const(Url) url() const { return Url.parse(cast(string)m_meta["url"]); }
 	@property const(Dependency[string]) dependencies() const { return m_dependencies; }
 	@property const(LocalPacageDef)[] localPackageDefs() const { return m_localPackageDefs; }
+	@property string binaryPath() const { return m_meta.binaryPath.opt!string; }
 
 	@property string[] configurations()
 	const {
