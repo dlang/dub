@@ -464,8 +464,8 @@ class PackageManager {
 
 		Path path;
 		final switch(type){
-			case LocalPackageType.user: path = m_userPackagePath;
-			case LocalPackageType.system: path = m_systemPackagePath;
+			case LocalPackageType.user: path = m_userPackagePath; break;
+			case LocalPackageType.system: path = m_systemPackagePath; break;
 			case LocalPackageType.temporary: return;
 		}
 		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
