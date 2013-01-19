@@ -31,6 +31,13 @@ int main(string[] args)
 {
 	string cmd;
 
+	version(Windows){
+		// rdmd uses $TEMP to compute a temporary path. since cygwin substitutes backslashes
+		// with slashes, this causes OPTLINK to fail (it thinks path segments are options)
+		// we substitute the other way around here to fix this.
+		environment["TEMP"] = environment["TEMP"].replace("/", "\\");
+	}
+
 	try {
 		// parse general options
 		bool verbose, vverbose, quiet, vquiet;
