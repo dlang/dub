@@ -163,7 +163,10 @@ int main(string[] args)
 					auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
 					auto tmp = environment.get("TEMP");
 					if( !tmp.length ) tmp = environment.get("TMP");
-					if( !tmp.length ) tmp = ".";
+					if( !tmp.length ){
+						version(Posix) tmp = "/tmp";
+						else tmp = ".";
+					}
 					run_exe_file = tmp~"\\.rdmd\\source\\"~rnd~outfile;
 					flags ~= "-of"~run_exe_file;
 				}
