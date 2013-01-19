@@ -335,7 +335,8 @@ private class Application {
 		RequestedDependency[string] missing = graph.missing();
 		RequestedDependency[string] oldMissing;
 		while( missing.length > 0 ) {
-			if(missing.length == oldMissing.length) {
+			logTrace("Try to resolve %s", missing.keys);
+			if( missing.keys == oldMissing.keys ){
 				bool different = false;
 				foreach(string pkg, reqDep; missing) {
 					auto o = pkg in oldMissing;
@@ -360,19 +361,19 @@ private class Application {
 
 				// TODO: auto update and update interval by time
 				logTrace("Adding package to graph: "~pkg);
-				Package p = null;
+				Package p = m_packageManager.getBestPackage(pkg, reqDep.dependency);
+				if( p ) logTrace("Found installed package %s %s", pkg, p.ver);
 
 				// Try an already installed package first
-				if( !needsUpToDateCheck(pkg) ){
-					p = m_packageManager.getBestPackage(pkg, reqDep.dependency);
-					if( p ) logTrace("Using already installed package with version: %s", p.vers);
-					else logTrace("An installed package was not found");
+				if( p && p.installLocation != InstallLocation.Local && needsUpToDateCheck(pkg) ){
+					logInfo("Triggering update of package %s", pkg);
+					p = null;
 				}
 
 				if( !p ){
 					try {
+						logDebug("using package from registry");
 						p = new Package(packageSupplier.packageJson(pkg, reqDep.dependency));
-						logTrace("using package from registry");
 						markUpToDate(pkg);
 					}
 					catch(Throwable e) {
