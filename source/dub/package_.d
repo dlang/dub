@@ -71,27 +71,38 @@ struct BuildSettings {
 
 	private string[] getPlatformField(in Json json, string name, BuildPlatform platform)
 	const {
-		auto c = platform.compiler;
-
 		auto ret = appender!(string[])();
-		// TODO: turn these loops around and iterate over m_metas fields instead for efficiency reason
-		foreach( j; json[name].opt!(Json[]) ) ret.put(j.get!string);
-		foreach( j; json[name~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
+		foreach( suffix; getPlatformSuffixIterator(platform) ){
+			foreach( j; json[name~suffix].opt!(Json[]) )
+				ret.put(j.get!string);
+		}
+		return ret.data;
+	}
+}
+
+int delegate(scope int delegate(ref string)) getPlatformSuffixIterator(BuildPlatform platform)
+{
+	int iterator(scope int delegate(ref string s) del)
+	{
+		auto c = platform.compiler;
+		int delwrap(string s) { return del(s); }
+		if( auto ret = delwrap(null) ) return ret;
+		if( auto ret = delwrap("-"~c) ) return ret;
 		foreach( p; platform.platform ){
-			foreach( j; json[name~"-"~p].opt!(Json[]) ) ret.put(j.get!string);
-			foreach( j; json[name~"-"~p~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
+			if( auto ret = delwrap("-"~p) ) return ret;
+			if( auto ret = delwrap("-"~p~"-"~c) ) return ret;
 			foreach( a; platform.architecture ){
-				foreach( j; json[name~"-"~p~"-"~a].opt!(Json[]) ) ret.put(j.get!string);
-				foreach( j; json[name~"-"~p~"-"~a~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
+				if( auto ret = delwrap("-"~p~"-"~a) ) return ret;
+				if( auto ret = delwrap("-"~p~"-"~a~"-"~c) ) return ret;
 			}
 		}
 		foreach( a; platform.architecture ){
-			foreach( j; json[name~"-"~a].opt!(Json[]) ) ret.put(j.get!string);
-			foreach( j; json[name~"-"~a~"-"~c].opt!(Json[]) ) ret.put(j.get!string);
+			if( auto ret = delwrap("-"~a) ) return ret;
+			if( auto ret = delwrap("-"~a~"-"~c) ) return ret;
 		}
-		return ret.data;
-
+		return 0;
 	}
+	return &iterator;
 }
 
 /// Representing an installed package
@@ -156,7 +167,7 @@ class Package {
 	@property const(Dependency[string]) dependencies() const { return m_dependencies; }
 	@property const(LocalPacageDef)[] localPackageDefs() const { return m_localPackageDefs; }
 	@property string binaryPath() const { return m_meta["binaryPath"].opt!string; }
-
+	
 	@property string[] configurations()
 	const {
 		auto pv = "configurations" in m_meta;
@@ -181,6 +192,16 @@ class Package {
 		return ret;
 	}
 	
+	string getDefaultConfiguration(BuildPlatform platform)
+	const {
+		string ret;
+		auto cfgs = m_meta["configurations"].opt!(Json[string]);
+		foreach( suffix; getPlatformSuffixIterator(platform) )
+			if( auto pv = ("default"~suffix) in cfgs )
+				ret = pv.get!string();
+		return ret;
+	}
+
 	string info() const {
 		string s;
 		s ~= cast(string)m_meta["name"] ~ ", version '" ~ cast(string)m_meta["version"] ~ "'";

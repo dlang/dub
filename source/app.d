@@ -122,6 +122,9 @@ int main(string[] args)
 			case "run":
 			case "build":
 				dub.loadPackagefromCwd();
+				auto def_config = dub.getDefaultConfiguration(build_platform);
+				if( !build_config.length ) build_config = def_config;
+
 				if( print_builds ){
 					logInfo("Available build types:");
 					foreach( tp; ["debug", "release", "unittest", "profile"] )
@@ -132,7 +135,7 @@ int main(string[] args)
 				if( print_configs ){
 					logInfo("Available configurations:");
 					foreach( tp; dub.configurations )
-						logInfo("  %s", tp);
+						logInfo("  %s%s", tp, tp == def_config ? " [deault]" : null);
 					logInfo("");
 				}
 

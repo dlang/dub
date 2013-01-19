@@ -93,6 +93,18 @@ private class Application {
 
 	@property Path binaryPath() const { auto p = m_main.binaryPath; return p.length ? Path(p) : Path("./"); }
 
+	string getDefaultConfiguration(BuildPlatform platform)
+	const {
+		string ret;
+		foreach( p; m_dependencies ){
+			auto c = p.getDefaultConfiguration(platform);
+			if( c.length ) ret = c;
+		}
+		auto c = m_main.getDefaultConfiguration(platform);
+		if( c ) ret = c;
+		return ret;
+	}
+
 	/// Gathers information
 	string info() const {
 		if(!m_main)
@@ -336,7 +348,7 @@ private class Application {
 		RequestedDependency[string] oldMissing;
 		while( missing.length > 0 ) {
 			logTrace("Try to resolve %s", missing.keys);
-			if( missing.keys == oldMissing.keys ){
+			if( missing.keys == oldMissing.keys ){ // FIXME: should actually compare the complete AA here
 				bool different = false;
 				foreach(string pkg, reqDep; missing) {
 					auto o = pkg in oldMissing;
@@ -504,6 +516,8 @@ class Dub {
 	/// Returns a list of flags which the application needs to be compiled
 	/// properly.
 	BuildSettings getBuildSettings(BuildPlatform platform, string config) { return m_app.getBuildSettings(platform, config); }
+
+	string getDefaultConfiguration(BuildPlatform platform) const { return m_app.getDefaultConfiguration(platform); }
 
 	/// Lists all installed modules
 	void list() {
