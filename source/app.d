@@ -155,7 +155,7 @@ int main(string[] args)
 				// build "rdmd --force %DFLAGS% -I%~dp0..\source -Jviews -Isource @deps.txt %LIBS% source\app.d" ~ application arguments
 				// or with "/" instead of "\"
 				string[] flags = ["--force", "--build-only"];
-				string run_exe_file;
+				Path run_exe_file;
 				if( cmd == "build" ){
 					flags ~= "-of"~(dub.binaryPath~outfile).toNativeString();
 				} else {
@@ -167,8 +167,8 @@ int main(string[] args)
 						version(Posix) tmp = "/tmp";
 						else tmp = ".";
 					}
-					run_exe_file = tmp~"\\.rdmd\\source\\"~rnd~outfile;
-					flags ~= "-of"~run_exe_file;
+					run_exe_file = Path(tmp~"/.rdmd/source/"~rnd~outfile);
+					flags ~= "-of"~run_exe_file.toNativeString();
 				}
 
 				auto settings = dub.getBuildSettings(build_platform, build_config);
@@ -227,18 +227,18 @@ int main(string[] args)
 					logInfo("Copying files...");
 					foreach( f; settings.copyFiles ){
 						auto src = Path(f);
-						auto dst = (run_exe_file ? Path(run_exe_file).parentPath : dub.binaryPath) ~ Path(f).head;
+						auto dst = (run_exe_file.empty ? dub.binaryPath : run_exe_file.parentPath) ~ Path(f).head;
 						logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
 						copyFile(src, dst, true);
 					}
 				}
 
 				if( cmd == "run" ){
-					auto prg_pid = spawnProcess(run_exe_file, args[1 .. $]);
+					auto prg_pid = spawnProcess(run_exe_file.toNativeString(), args[1 .. $]);
 					result = prg_pid.wait();
-					remove(run_exe_file);
+					remove(run_exe_file.toNativeString());
 					foreach( f; settings.copyFiles )
-						remove((Path(run_exe_file).parentPath ~ Path(f).head).toNativeString());
+						remove((run_exe_file.parentPath ~ Path(f).head).toNativeString());
 					enforce(result == 0, "Program exited with code "~to!string(result));
 				}
 
