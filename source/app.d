@@ -159,12 +159,10 @@ int main(string[] args)
 				if( cmd == "build" ){
 					flags ~= "-of"~(dub.binaryPath~outfile).toNativeString();
 				} else {
-					version(Windows){
-						import std.random;
-						auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
-						run_exe_file = environment.get("TEMP")~"\\.rdmd\\source\\"~rnd~outfile;
-						flags ~= "-of"~run_exe_file;
-					}
+					import std.random;
+					auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
+					run_exe_file = environment.get("TEMP")~"\\.rdmd\\source\\"~rnd~outfile;
+					flags ~= "-of"~run_exe_file;
 				}
 
 				auto settings = dub.getBuildSettings(build_platform, build_config);
