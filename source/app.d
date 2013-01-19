@@ -161,7 +161,10 @@ int main(string[] args)
 				} else {
 					import std.random;
 					auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
-					run_exe_file = environment.get("TEMP")~"\\.rdmd\\source\\"~rnd~outfile;
+					auto tmp = environment.get("TEMP");
+					if( !tmp.length ) tmp = environment.get("TMP");
+					if( !tmp.length ) tmp = ".";
+					run_exe_file = tmp~"\\.rdmd\\source\\"~rnd~outfile;
 					flags ~= "-of"~run_exe_file;
 				}
 
