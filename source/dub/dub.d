@@ -155,8 +155,10 @@ private class Application {
 		{
 			logDebug("Collecting dependencies for %s", pack.name);
 			foreach( ldef; pack.localPackageDefs ){
-				logDebug("Adding local %s %s", ldef.name, ldef.version_);
-				m_packageManager.addLocalPackage(ldef.path, ldef.version_, LocalPackageType.temporary);
+				Path path = ldef.path;
+				if( !path.absolute ) path = pack.path ~ path;
+				logDebug("Adding local %s %s", path, ldef.version_);
+				m_packageManager.addLocalPackage(path, ldef.version_, LocalPackageType.temporary);
 			}
 
 			foreach( name, vspec; pack.dependencies ){
@@ -245,7 +247,12 @@ private class Application {
 		Package[string] installed;
 		installed[m_main.name] = m_main;
 		foreach(ref Package p; m_dependencies) {
-			enforce( p.name !in installed, "The package '"~p.name~"' is installed more than once." );
+			if( auto ppo = p.name in installed ){
+				logError("The same package is referenced in different paths:");
+				logError("  %s %s: %s", ppo.name, ppo.vers, ppo.path.toNativeString());
+				logError("  %s %s: %s", p.name, p.vers, p.path.toNativeString());
+				throw new Exception("Conflicting package multi-references.");
+			}
 			installed[p.name] = p;
 		}
 
