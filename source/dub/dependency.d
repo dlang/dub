@@ -235,12 +235,14 @@ class Dependency {
 	}
 	
 	private static bool doCmp(string mthd, ref const Version a, ref const Version b) {
-		enforce( mthd==">=" || mthd==">" || mthd=="<=" || mthd=="<");
 		//logTrace("Calling %s%s%s", a, mthd, b);
 		switch(mthd) {
-			case ">=": return a>=b; case ">": return a>b;
-			case "<=": return a<=b; case "<": return a<b;
-			default: enforce(false); return false;
+			default: throw new Exception("Unknown comparison operator: "~mthd);
+			case ">": return a>b;
+			case ">=": return a>=b;
+			case "==": return a==b;
+			case "<=": return a<=b;
+			case "<": return a<b;
 		}
 	}
 }
