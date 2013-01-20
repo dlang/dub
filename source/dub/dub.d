@@ -650,8 +650,8 @@ private void processVars(ref BuildSettings dst, string project_path, BuildSettin
 	dst.addFiles(processVars(project_path, settings.files, true));
 	dst.addCopyFiles(processVars(project_path, settings.copyFiles, true));
 	dst.addVersions(processVars(project_path, settings.versions));
-	dst.addImportDirs(processVars(project_path, settings.importPath, true));
-	dst.addStringImportDirs(processVars(project_path, settings.stringImportPath, true));
+	dst.addImportDirs(processVars(project_path, settings.importPaths, true));
+	dst.addStringImportDirs(processVars(project_path, settings.stringImportPaths, true));
 }
 
 private string[] processVars(string project_path, string[] vars, bool are_paths = false)
@@ -691,7 +691,10 @@ private void processVars(ref Appender!(string[]) dst, string project_path, strin
 		}
 		if( are_paths ){
 			auto p = Path(var);
-			if( !p.absolute ) p = Path(project_path) ~ p;
+			if( !p.absolute ){
+				logTrace("Fixing relative path: %s ~ %s", project_path, p.toNativeString());
+				p = Path(project_path) ~ p;
+			}
 			dst.put(p.toNativeString());
 		} else dst.put(var);
 	}

@@ -197,8 +197,8 @@ int main(string[] args)
 
 				flags ~= settings.dflags;
 				flags ~= settings.lflags.map!(f => "-L"~f)().array();
-				flags ~= settings.importPath.map!(f => "-I"~f)().array();
-				flags ~= settings.stringImportPath.map!(f => "-J"~f)().array();
+				flags ~= settings.importPaths.map!(f => "-I"~f)().array();
+				flags ~= settings.stringImportPaths.map!(f => "-J"~f)().array();
 				flags ~= settings.versions.map!(f => "-version="~f)().array();
 				flags ~= settings.files;
 				flags ~= (mainsrc).toNativeString();

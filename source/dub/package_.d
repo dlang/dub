@@ -32,8 +32,8 @@ struct BuildSettings {
 	string[] files;
 	string[] copyFiles;
 	string[] versions;
-	string[] importPath;
-	string[] stringImportPath;
+	string[] importPaths;
+	string[] stringImportPaths;
 
 	void parse(in Json root, BuildPlatform platform)
 	{
@@ -43,8 +43,8 @@ struct BuildSettings {
 		addFiles(getPlatformField(root, "files", platform));
 		addCopyFiles(getPlatformField(root, "copyFiles", platform));
 		addVersions(getPlatformField(root, "versions", platform));
-		addImportDirs(getPlatformField(root, "importPath", platform));
-		addStringImportDirs(getPlatformField(root, "stringImportPath", platform));
+		addImportDirs(getPlatformField(root, "importPaths", platform));
+		addStringImportDirs(getPlatformField(root, "stringImportPaths", platform));
 	}
 
 	void addDFlags(string[] value) { add(dflags, value); }
@@ -53,8 +53,8 @@ struct BuildSettings {
 	void addFiles(string[] value) { add(files, value); }
 	void addCopyFiles(string[] value) { add(copyFiles, value); }
 	void addVersions(string[] value) { add(versions, value); }
-	void addImportDirs(string[] value) { add(importPath, value); }
-	void addStringImportDirs(string[] value) { add(stringImportPath, value); }
+	void addImportDirs(string[] value) { add(importPaths, value); }
+	void addStringImportDirs(string[] value) { add(stringImportPaths, value); }
 
 	private void add(ref string[] arr, string[] vals)
 	{
