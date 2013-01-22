@@ -3,7 +3,7 @@
 
 	Copyright: © 2012 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
-	Authors: Matthias Dondorff
+	Authors: Matthias Dondorff, Sönke Ludwig
 */
 module dub.dub;
 
@@ -12,6 +12,7 @@ import dub.installation;
 import dub.utils;
 import dub.registry;
 import dub.package_;
+import dub.packagemanager;
 import dub.packagesupplier;
 import dub.packagestore;
 import dub.generators.generator;
@@ -28,12 +29,13 @@ import std.conv;
 import std.datetime;
 import std.exception;
 import std.file;
-import std.path;
 import std.string;
 import std.typecons;
 import std.zip;
+import stdx.process;
 
-/// Actions to be performed by the vpm
+
+/// Actions to be performed by the dub
 private struct Action {
 	enum ActionId {
 		InstallUpdate,
@@ -42,13 +44,30 @@ private struct Action {
 		Failure
 	}
 
-	this( ActionId id, string pkg, const Dependency d, Dependency[string] issue) {
-		action = id; packageId = pkg; vers = new Dependency(d); issuer = issue;
+	immutable {
+		ActionId action;
+		string packageId;
+		Dependency vers;
 	}
-	const ActionId action;
-	const string packageId;
-	const Dependency vers;
+	const Package pack;
 	const Dependency[string] issuer;
+
+	this(ActionId id, string pkg, in Dependency d, Dependency[string] issue)
+	{
+		action = id;
+		packageId = pkg;
+		vers = new immutable(Dependency)(d);
+		issuer = issue;
+	}
+
+	this(ActionId id, Package pkg, Dependency[string] issue)
+	{
+		pack = pkg;
+		action = id;
+		packageId = pkg.name;
+		vers = new immutable(Dependency)("==", pkg.vers);
+		issuer = issue;
+	}
 
 	string toString() const {
 		return to!string(action) ~ ": " ~ packageId ~ ", " ~ to!string(vers);
@@ -59,15 +78,33 @@ private struct Action {
 private class Application {
 	private {
 		Path m_root;
+		PackageManager m_packageManager;
 		Json m_json;
 		Package m_main;
-		Package[string] m_packages;
+		//Package[string] m_packages;
+		Package[] m_dependencies;
 	}
 
-	this(Path rootFolder) {
-		m_root = rootFolder;
+	this(PackageManager package_manager, Path project_path)
+	{
+		m_root = project_path;
+		m_packageManager = package_manager;
 		m_json = Json.EmptyObject;
 		reinit();
+	}
+
+	@property Path binaryPath() const { auto p = m_main.binaryPath; return p.length ? Path(p) : Path("./"); }
+
+	string getDefaultConfiguration(BuildPlatform platform)
+	const {
+		string ret;
+		foreach( p; m_dependencies ){
+			auto c = p.getDefaultConfiguration(platform);
+			if( c.length ) ret = c;
+		}
+		auto c = m_main.getDefaultConfiguration(platform);
+		if( c ) ret = c;
+		return ret;
 	}
 
 	/// Gathers information
@@ -76,8 +113,8 @@ private class Application {
 			return "-Unregocgnized application in '"~to!string(m_root)~"' (properly no package.json in this directory)";
 		string s = "-Application identifier: " ~ m_main.name;
 		s ~= "\n" ~ m_main.info();
-		s ~= "\n-Installed modules:";
-		foreach(string k, p; m_packages)
+		s ~= "\n-Installed dependencies:";
+		foreach(p; m_dependencies)
 			s ~= "\n" ~ p.info();
 		return s;
 	}
@@ -85,8 +122,8 @@ private class Application {
 	/// Gets all installed packages as a "packageId" = "version" associative array
 	string[string] installedPackagesIDs() const {
 		string[string] pkgs;
-		foreach(k, p; m_packages)
-			pkgs[k] = p.vers;
+		foreach(p; m_dependencies)
+			pkgs[p.name] = p.vers;
 		return pkgs;
 	}
 
@@ -107,58 +144,91 @@ private class Application {
 
 	/// Rereads the applications state.
 	void reinit() {
-		m_packages.clear();
+		m_dependencies = null;
 		m_main = null;
+		m_packageManager.refresh();
 
-		try m_json = jsonFromFile(m_root ~ "vpm.json");
-		catch(Exception t) logDebug("Could not open vpm.json: %s", t.msg);
+		try m_json = jsonFromFile(m_root ~ ".dub/dub.json", true);
+		catch(Exception t) logDebug("Failed to read .dub/dub.json: %s", t.msg);
 
-		if(!exists(to!string(m_root~"package.json"))) {
-			logWarn("There was no 'package.json' found for the application in '%s'.", m_root);
-		} else {
-			m_main = new Package(m_root);
-			if(exists(to!string(m_root~"modules"))) {
-				foreach( string pkg; dirEntries(to!string(m_root ~ "modules"), SpanMode.shallow) ) {
-					if( !isDir(pkg) ) continue;
-					try {
-						auto p = new Package( Path(pkg) );
-						enforce( p.name !in m_packages, "Duplicate package: " ~ p.name );
-						m_packages[p.name] = p;
-					}
-					catch(Throwable e) {
-						logWarn("The module '%s' in '%s' was not identified as a vibe package.", Path(pkg).head, pkg);
-						continue;
+		if( !exists(to!string(m_root~PackageJsonFilename)) ){
+			logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root);
+			return;
+		}
+
+		m_main = new Package(InstallLocation.Local, m_root);
+
+		// TODO: compute the set of mutual dependencies first
+		// (i.e. ">=0.0.1 <=0.0.5" and "<= 0.0.4" get ">=0.0.1 <=0.0.4")
+		// conflicts would then also be detected.
+		void collectDependenciesRec(Package pack)
+		{
+			logDebug("Collecting dependencies for %s", pack.name);
+			foreach( ldef; pack.localPackageDefs ){
+				Path path = ldef.path;
+				if( !path.absolute ) path = pack.path ~ path;
+				logDebug("Adding local %s %s", path, ldef.version_);
+				m_packageManager.addLocalPackage(path, ldef.version_, LocalPackageType.temporary);
+			}
+
+			foreach( name, vspec; pack.dependencies ){
+				auto p = m_packageManager.getBestPackage(name, vspec);
+				if( !m_dependencies.canFind(p) ){
+					logDebug("Found dependency %s %s: %s", name, vspec.toString(), p !is null);
+					if( p ){
+						m_dependencies ~= p;
+						collectDependenciesRec(p);
 					}
 				}
+				//enforce(p !is null, "Failed to resolve dependency "~name~" "~vspec.toString());
 			}
 		}
+		collectDependenciesRec(m_main);
 	}
 
 	/// Returns the applications name.
 	@property string name() const { return m_main ? m_main.name : "app"; }
 
-	/// Returns the DFLAGS
-	@property string[] dflags() const {
-		auto ret = appender!(string[])();
-		if( m_main ) ret.put(m_main.dflags());
-		ret.put("-Isource");
-		ret.put("-Jviews");
-		foreach( string s, pkg; m_packages ){
-			void addPath(string prefix, string name){
-				auto path = "modules/"~pkg.name~"/"~name;
-				if( exists(path) )
-					ret.put(prefix ~ path);
-			}
-			ret.put(pkg.dflags());
-			addPath("-I", "source");
-			addPath("-J", "views");
+	@property string[] configurations()
+	const {
+		string[] ret;
+		if( m_main ) ret = m_main.configurations;
+		foreach( p; m_dependencies ){
+			auto cfgs = p.configurations;
+			foreach( c; cfgs )
+				if( !ret.canFind(c) ) ret ~= c;
 		}
-		return ret.data();
+		return ret;
+	}
+
+	/// Returns the DFLAGS
+	BuildSettings getBuildSettings(BuildPlatform platform, string config)
+	const {
+		BuildSettings ret;
+
+		void addImportPath(string path, bool src)
+		{
+			if( !exists(path) ) return;
+			if( src ) ret.addImportDirs([path]);
+			else ret.addStringImportDirs([path]);
+		}
+
+		if( m_main ) processVars(ret, ".", m_main.getBuildSettings(platform, config));
+		addImportPath("source", true);
+		addImportPath("views", false);
+
+		foreach( pkg; m_dependencies ){
+			processVars(ret, pkg.path.toNativeString(), pkg.getBuildSettings(platform, config));
+			addImportPath((pkg.path ~ "source").toNativeString(), true);
+			addImportPath((pkg.path ~ "views").toNativeString(), false);
+		}
+
+		return ret;
 	}
 
 	/// Actions which can be performed to update the application.
-	Action[] actions(PackageSupplier packageSupplier, int option) {
-		scope(exit) writeVpmJson();
+	Action[] determineActions(PackageSupplier packageSupplier, int option) {
+		scope(exit) writeDubJson();
 
 		if(!m_main) {
 			Action[] a;
@@ -186,14 +256,19 @@ private class Application {
 		// Gather installed
 		Package[string] installed;
 		installed[m_main.name] = m_main;
-		foreach(string pkg, ref Package p; m_packages) {
-			enforce( pkg !in installed, "The package '"~pkg~"' is installed more than once." );
-			installed[pkg] = p;
+		foreach(ref Package p; m_dependencies) {
+			if( auto ppo = p.name in installed ){
+				logError("The same package is referenced in different paths:");
+				logError("  %s %s: %s", ppo.name, ppo.vers, ppo.path.toNativeString());
+				logError("  %s %s: %s", p.name, p.vers, p.path.toNativeString());
+				throw new Exception("Conflicting package multi-references.");
+			}
+			installed[p.name] = p;
 		}
 
 		// To see, which could be uninstalled
 		Package[string] unused = installed.dup;
-		unused.remove( m_main.name );
+		unused.remove(m_main.name);
 
 		// Check against installed and add install actions
 		Action[] actions;
@@ -208,9 +283,14 @@ private class Application {
 			} else {
 				logDebug("Required package '"~pkg~"' found with version '"~p.vers~"'");
 				if( option & UpdateOptions.Reinstall ) {
-					Dependency[string] em;
-					uninstalls ~= Action( Action.ActionId.Uninstall, pkg, new Dependency("==" ~ p.vers), em);
-					actions ~= Action(Action.ActionId.InstallUpdate, pkg, d.dependency, d.packages);
+					if( p.installLocation != InstallLocation.Local ){
+						Dependency[string] em;
+						if( p.installLocation == InstallLocation.ProjectLocal )
+							uninstalls ~= Action(Action.ActionId.Uninstall, *p, em);
+						actions ~= Action(Action.ActionId.InstallUpdate, pkg, d.dependency, d.packages);
+					} else {
+						logInfo("Skipping local package %s at %s", p.name, p.path.toNativeString());
+					}
 				}
 
 				if( (pkg in unused) !is null )
@@ -222,7 +302,7 @@ private class Application {
 		foreach( string pkg, p; unused ) {
 			logDebug("Superfluous package found: '"~pkg~"', version '"~p.vers~"'");
 			Dependency[string] em;
-			uninstalls ~= Action( Action.ActionId.Uninstall, pkg, new Dependency("==" ~ p.vers), em);
+			uninstalls ~= Action( Action.ActionId.Uninstall, pkg, new Dependency("==", p.vers), em);
 		}
 
 		// Ugly "uninstall" comes first
@@ -235,7 +315,7 @@ private class Application {
 		assert(false); // not properly implemented
 		/*
 		string[] ignores;
-		auto ignoreFile = to!string(m_root~"vpm.ignore.txt");
+		auto ignoreFile = to!string(m_root~"dub.ignore.txt");
 		if(exists(ignoreFile)){
 			auto iFile = openFile(ignoreFile);
 			scope(exit) iFile.close();
@@ -249,7 +329,7 @@ private class Application {
 			ignores ~= ".hg/*";
 			logDebug("The '%s' file was not found, defaulting to ignore:", ignoreFile);
 		}
-		ignores ~= "modules/*"; // modules will not be included
+		ignores ~= ".dub/*"; // .dub will not be included
 		foreach(string i; ignores)
 			logDebug(" " ~ i);
 
@@ -280,19 +360,18 @@ private class Application {
 		*/
 	}
 
-	private { 
-		bool gatherMissingDependencies(PackageSupplier packageSupplier, DependencyGraph graph) {
-			RequestedDependency[string] missing = graph.missing();
-			RequestedDependency[string] oldMissing;
-			while( missing.length > 0 ) {
-				if(missing.length == oldMissing.length) {
-					bool different = false;
-					foreach(string pkg, reqDep; missing) {
-						auto o = pkg in oldMissing;
-						if(o && reqDep.dependency != o.dependency) {
-							different = true;
-							break;
-						}
+	private bool gatherMissingDependencies(PackageSupplier packageSupplier, DependencyGraph graph) {
+		RequestedDependency[string] missing = graph.missing();
+		RequestedDependency[string] oldMissing;
+		while( missing.length > 0 ) {
+			logTrace("Try to resolve %s", missing.keys);
+			if( missing.keys == oldMissing.keys ){ // FIXME: should actually compare the complete AA here
+				bool different = false;
+				foreach(string pkg, reqDep; missing) {
+					auto o = pkg in oldMissing;
+					if(o && reqDep.dependency != o.dependency) {
+						different = true;
+						break;
 					}
 					if(!different) {
 						logWarn("Could not resolve dependencies");
@@ -308,82 +387,68 @@ private class Application {
 						continue;
 					}
 
-					// TODO: auto update and update interval by time
-					logTrace("Adding package to graph: "~pkg);
-					Package p = null;
+				// TODO: auto update and update interval by time
+				logTrace("Adding package to graph: "~pkg);
+				Package p = m_packageManager.getBestPackage(pkg, reqDep.dependency);
+				if( p ) logTrace("Found installed package %s %s", pkg, p.ver);
 
-					// Try an already installed package first
-					if(!needsUpToDateCheck(pkg)) {
-						try {
-							auto json = jsonFromFile( m_root ~ Path("modules") ~ Path(pkg) ~ "package.json");
-							auto vers = Version(json["version"].get!string);
-							if( reqDep.dependency.matches( vers ) )
-								p = new Package(json);
-							logTrace("Using already installed package with version: %s", vers);
-						}
-						catch(Throwable e) {
-							// not yet installed, try the supplied PS
-							logTrace("An installed package was not found");
-						}
-					}
-					if(!p) {
-						try {
-							p = new Package(packageSupplier.packageJson(pkg, reqDep.dependency));
-							logTrace("using package from registry");
-							markUpToDate(pkg);
-						}
-						catch(Throwable e) {
-							logError("Geting package metadata for %s failed, exception: %s", pkg, e.toString());
-						}
-					}
+				// Try an already installed package first
+				if( p && p.installLocation != InstallLocation.Local && needsUpToDateCheck(pkg) ){
+					logInfo("Triggering update of package %s", pkg);
+					p = null;
 
 					if(p)
 						graph.insert(p);
 				}
-				graph.clearUnused();
-				missing = graph.missing();
+
+				if( !p ){
+					try {
+						logDebug("using package from registry");
+						p = new Package(packageSupplier.packageJson(pkg, reqDep.dependency));
+						markUpToDate(pkg);
+					}
+					catch(Throwable e) {
+						logError("Geting package metadata for %s failed, exception: %s", pkg, e.toString());
+					}
+				}
+
+				if(p)
+					graph.insert(p);
 			}
 
-			return true;
+		return true;
+	}
+
+	private bool needsUpToDateCheck(string packageId) {
+		try {
+			auto time = m_json["lastUpdate"].opt!(Json[string]).get(packageId, Json("")).get!string;
+			if( !time.length ) return true;
+			return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
+		} catch(Exception t) return true;
+
 		}
+		create(m_json, "dub");
+		create(m_json["dub"], "lastUpdate");
+		m_json["dub"]["lastUpdate"][packageId] = Json( Clock.currTime().toISOExtString() );
 
-		bool needsUpToDateCheck(string packageId) {
-			try {
-				auto time = m_json["vpm"]["lastUpdate"][packageId].to!string;
-				return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
-			}
-			catch(Throwable t) {
-				return true;
-			}
-		}
+		writeDubJson();
+	}
 
-		void markUpToDate(string packageId) {
-			logTrace("markUpToDate(%s)", packageId);
-			Json create(ref Json json, string object) {
-				if( object !in json ) json[object] = Json.EmptyObject;
-				return json[object];
-			}
-			create(m_json, "vpm");
-			create(m_json["vpm"], "lastUpdate");
-			m_json["vpm"]["lastUpdate"][packageId] = Json( Clock.currTime().toISOExtString() );
+	private void writeDubJson() {
+		// don't bother to write an empty file
+		if( m_json.length == 0 ) return;
 
-			writeVpmJson();
-		}
-
-		void writeVpmJson() {
-			// don't bother to write an empty file
-			if( m_json.length == 0 ) return;
-
-			try {
-				logTrace("writeVpmJson");
-				auto dstFile = openFile((m_root~"vpm.json").toString(), FileMode.CreateTrunc);
-				scope(exit) dstFile.close();
-				Appender!string js;
-				toPrettyJson(js, m_json);
-				dstFile.write( js.data );
-			} catch( Exception e ){
-				logWarn("Could not write vpm.json.");
-			}
+		try {
+			logTrace("writeDubJson");
+			auto dubpath = m_root~".dub";
+			if( !exists(dubpath.toNativeString()) ) mkdir(dubpath.toNativeString());
+			auto dstFile = openFile((dubpath~"dub.json").toString(), FileMode.CreateTrunc);
+			scope(exit) dstFile.close();
+			Appender!string js;
+			toPrettyJson(js, m_json);
+			dstFile.write( js.data );
+		} catch( Exception e ){
+			logWarn("Could not write .dub/dub.json.");
 		}
 	}
 }
@@ -403,24 +468,41 @@ enum UpdateOptions
 	Reinstall = 1<<1
 };
 
-/// The Vpm or Vibe Package Manager helps in getting the applications
+/// The Dub class helps in getting the applications
 /// dependencies up and running. An instance manages one application.
-class Vpm {
+class Dub {
 	private {
+		Path m_cwd, m_tempPath;
 		Path m_root;
-		Application m_app;
 		PackageSupplier m_packageSupplier;
+		Path m_userDubPath, m_systemDubPath;
+		Json m_systemConfig, m_userConfig;
+		PackageManager m_packageManager;
+		Application m_app;
 		PackageStore m_packageStore;
 	}
 
 	/// Initiales the package manager for the vibe application
 	/// under root.
-	this(Path root, PackageSupplier ps = defaultPackageSupplier()) {
-		enforce(root.absolute, "Specify an absolute path for the VPM");
-		m_root = root;
+	this(PackageSupplier ps = defaultPackageSupplier())
+	{
+		m_cwd = Path(getcwd());
+
+		version(Windows){
+			m_systemDubPath = Path(environment.get("ProgramData")) ~ "dub/";
+			m_userDubPath = Path(environment.get("APPDATA")) ~ "dub/";
+			m_tempPath = Path(environment.get("TEMP"));
+		} else version(Posix){
+			m_systemDubPath = Path("/etc/dub/");
+			m_userDubPath = Path(environment.get("HOME")) ~ ".dub/";
+			m_tempPath = Path("/tmp");
+		}
+		
+		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
+		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
+
 		m_packageSupplier = ps;
-		m_packageStore = new PackageStore();
-		m_app = new Application(root);
+		m_packageManager = new PackageManager(m_systemDubPath ~ "packages/", m_userDubPath ~ "packages/");
 		
 		/// HACK
 		m_packageStore.includePath(Path("E:\\dev\\"));
@@ -429,11 +511,28 @@ class Vpm {
 
 	/// Returns the name listed in the package.json of the current
 	/// application.
-	@property string packageName() const { return m_app.name; }
+	@property string projectName() const { return m_app.name; }
+
+	@property Path projectPath() const { return m_root; }
+
+	@property string[] configurations() const { return m_app.configurations; }
+
+	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
+
+	@property Path binaryPath() const { return m_app.binaryPath; }
+
+	void loadPackagefromCwd()
+	{
+		m_root = m_cwd;
+		m_packageManager.projectPackagePath = m_root ~ ".dub/packages/";
+		m_app = new Application(m_packageManager, m_root);
+	}
 
 	/// Returns a list of flags which the application needs to be compiled
 	/// properly.
-	@property string[] dflags() { return m_app.dflags; }
+	BuildSettings getBuildSettings(BuildPlatform platform, string config) { return m_app.getBuildSettings(platform, config); }
+
+	string getDefaultConfiguration(BuildPlatform platform) const { return m_app.getDefaultConfiguration(platform); }
 
 	/// Lists all installed modules
 	void list() {
@@ -444,7 +543,7 @@ class Vpm {
 	/// the application.
 	/// @param options bit combination of UpdateOptions
 	bool update(UpdateOptions options) {
-		Action[] actions = m_app.actions(m_packageSupplier, options);
+		Action[] actions = m_app.determineActions(m_packageSupplier, options);
 		if( actions.length == 0 ) return true;
 
 		logInfo("The following changes could be performed:");
@@ -470,14 +569,16 @@ class Vpm {
 		// foreach(Action a; filter!((Action a) => a.action == Action.ActionId.InstallUpdate)(actions))
 			// install(a.packageId, a.vers);
 		foreach(Action a; actions)
-			if(a.action == Action.ActionId.Uninstall)
-				uninstall(a.packageId);
+			if(a.action == Action.ActionId.Uninstall){
+				assert(a.pack !is null, "No package specified for uninstall.");
+				uninstall(a.pack);
+			}
 		foreach(Action a; actions)
 			if(a.action == Action.ActionId.InstallUpdate)
 				install(a.packageId, a.vers);
 
 		m_app.reinit();
-		Action[] newActions = m_app.actions(m_packageSupplier, 0);
+		Action[] newActions = m_app.determineActions(m_packageSupplier, 0);
 		if(newActions.length > 0) {
 			logInfo("There are still some actions to perform:");
 			foreach(Action a; newActions)
@@ -506,145 +607,104 @@ class Vpm {
 	/// Installs the package matching the dependency into the application.
 	/// @param addToApplication if true, this will also add an entry in the
 	/// list of dependencies in the application's package.json
-	void install(string packageId, const Dependency dep, bool addToApplication = false) {
-		logInfo("Installing "~packageId~"...");
-		auto destination = m_root ~ "modules" ~ packageId;
-		if(exists(to!string(destination)))
-			throw new Exception(packageId~" needs to be uninstalled prior installation.");
+	void install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.ProjectLocal)
+	{
+		auto pinfo = m_packageSupplier.packageJson(packageId, dep);
+		string ver = pinfo["version"].get!string;
 
-		// download
-		ZipArchive archive;
-		{
-			logDebug("Aquiring package zip file");
-			auto dload = m_root ~ "temp/downloads";
-			if(!exists(to!string(dload)))
-				mkdirRecurse(to!string(dload));
-			auto tempFile = m_root ~ ("temp/downloads/"~packageId~".zip");
-			string sTempFile = to!string(tempFile);
-			if(exists(sTempFile)) remove(sTempFile);
-			m_packageSupplier.storePackage(tempFile, packageId, dep); // Q: continue on fail?
-			scope(exit) remove(sTempFile);
+		logInfo("Installing %s %s...", packageId, ver);
 
-			// unpack
-			auto f = openFile(to!string(tempFile), FileMode.Read);
-			scope(exit) f.close();
-			ubyte[] b = new ubyte[cast(uint)f.leastSize];
-			f.read(b);
-			archive = new ZipArchive(b);
-		}
+		logDebug("Aquiring package zip file");
+		auto dload = m_root ~ ".dub/temp/downloads";
+		auto tempFile = m_tempPath ~ ("dub-download-"~packageId~"-"~ver~".zip");
+		string sTempFile = to!string(tempFile);
+		if(exists(sTempFile)) remove(sTempFile);
+		m_packageSupplier.storePackage(tempFile, packageId, dep); // Q: continue on fail?
+		scope(exit) remove(sTempFile);
 
-		Path getPrefix(ZipArchive a) {
-			foreach(ArchiveMember am; a.directory)
-				if( Path(am.name).head == PathEntry("package.json") )
-					return Path(am.name).parentPath;
-
-			// not correct zip packages HACK
-			Path minPath;
-			foreach(ArchiveMember am; a.directory)
-				if( isPathFromZip(am.name) && (minPath == Path() || minPath.startsWith(Path(am.name))) )
-					minPath = Path(am.name);
-
-			return minPath;
-		}
-
-		logDebug("Installing from zip.");
-
-		// In a github zip, the actual contents are in a subfolder
-		auto prefixInPackage = getPrefix(archive);
-
-		Path getCleanedPath(string fileName) {
-			auto path = Path(fileName);
-			if(prefixInPackage != Path() && !path.startsWith(prefixInPackage)) return Path();
-			return path[prefixInPackage.length..path.length];
-		}
-
-		// install
-		mkdirRecurse(to!string(destination));
-		Journal journal = new Journal;
-		foreach(ArchiveMember a; archive.directory) {
-			if(!isPathFromZip(a.name)) continue;
-
-			auto cleanedPath = getCleanedPath(a.name);
-			if(cleanedPath.empty) continue;
-			auto fileName = to!string(destination~cleanedPath);
-
-			if( exists(fileName) && isDir(fileName) ) continue;
-
-			logDebug("Creating %s", fileName);
-			mkdirRecurse(fileName);
-			auto subPath = cleanedPath;
-			for(size_t i=0; i<subPath.length; ++i)
-				journal.add(Journal.Entry(Journal.Type.Directory, subPath[0..i+1]));
-		}
-
-		foreach(ArchiveMember a; archive.directory) {
-			if(isPathFromZip(a.name)) continue;
-
-			auto cleanedPath = getCleanedPath(a.name);
-			if(cleanedPath.empty) continue;
-
-			auto fileName = destination~cleanedPath;
-
-			logDebug("Creating %s", fileName.head);
-			enforce(exists(to!string(fileName.parentPath)));
-			auto dstFile = openFile(to!string(fileName), FileMode.CreateTrunc);
-			scope(exit) dstFile.close();
-			dstFile.write(archive.expand(a));
-			journal.add(Journal.Entry(Journal.Type.RegularFile, cleanedPath));
-		}
-
-		// Write journal
-		logTrace("Saving installation journal...");
-		journal.add(Journal.Entry(Journal.Type.RegularFile, Path("journal.json")));
-		journal.save(destination ~ "journal.json");
-
-		if(exists( to!string(destination~"package.json")))
-			logInfo(packageId ~ " has been installed with version %s", (new Package(destination)).vers);
+		m_packageManager.install(tempFile, pinfo, location);
 	}
 
 	/// Uninstalls a given package from the list of installed modules.
 	/// @removeFromApplication: if true, this will also remove an entry in the
 	/// list of dependencies in the application's package.json
-	void uninstall(const string packageId, bool removeFromApplication = false) {
-		logInfo("Uninstalling " ~ packageId);
+	void uninstall(in Package pack)
+	{
+		logInfo("Uninstalling %s in %s", pack.name, pack.path.toNativeString());
 
-		auto journalFile = m_root~"modules"~packageId~"journal.json";
-		if( !exists(to!string(journalFile)) )
-			throw new Exception("Uninstall failed, no journal found for '"~packageId~"'. Please uninstall manually.");
+		m_packageManager.uninstall(pack);
+	}
 
-		auto packagePath = m_root~"modules"~packageId;
-		auto journal = new Journal(journalFile);
-		logDebug("Erasing files");
-		foreach( Journal.Entry e; filter!((Journal.Entry a) => a.type == Journal.Type.RegularFile)(journal.entries)) {
-			logTrace("Deleting file '%s'", e.relFilename);
-			auto absFile = packagePath~e.relFilename;
-			if(!exists(to!string(absFile))) {
-				logWarn("Previously installed file not found for uninstalling: '%s'", absFile);
-				continue;
+	void addLocalPackage(string path, string ver, bool system)
+	{
+		auto abs_path = Path(path);
+		if( !abs_path.absolute ) abs_path = m_cwd ~ abs_path;
+		m_packageManager.addLocalPackage(abs_path, Version(ver), system ? LocalPackageType.system : LocalPackageType.user);
+	}
+
+	void removeLocalPackage(string path, bool system)
+	{
+		auto abs_path = Path(path);
+		if( !abs_path.absolute ) abs_path = m_cwd ~ abs_path;
+		m_packageManager.removeLocalPackage(abs_path, system ? LocalPackageType.system : LocalPackageType.user);
+	}
+}
+
+private void processVars(ref BuildSettings dst, string project_path, BuildSettings settings)
+{
+	dst.addDFlags(processVars(project_path, settings.dflags));
+	dst.addLFlags(processVars(project_path, settings.lflags));
+	dst.addLibs(processVars(project_path, settings.libs));
+	dst.addFiles(processVars(project_path, settings.files, true));
+	dst.addCopyFiles(processVars(project_path, settings.copyFiles, true));
+	dst.addVersions(processVars(project_path, settings.versions));
+	dst.addImportDirs(processVars(project_path, settings.importPaths, true));
+	dst.addStringImportDirs(processVars(project_path, settings.stringImportPaths, true));
+}
+
+private string[] processVars(string project_path, string[] vars, bool are_paths = false)
+{
+	auto ret = appender!(string[])();
+	processVars(ret, project_path, vars, are_paths);
+	return ret.data;
+
+}
+private void processVars(ref Appender!(string[]) dst, string project_path, string[] vars, bool are_paths = false)
+{
+	foreach( var; vars ){
+		auto idx = std.string.indexOf(var, '$');
+		if( idx >= 0 ){
+			auto vres = appender!string();
+			while( idx >= 0 ){
+				if( idx+1 >= var.length ) break;
+				if( var[idx+1] == '$' ){
+					vres.put(var[0 .. idx+1]);
+					var = var[idx+2 .. $];
+				} else {
+					vres.put(var[0 .. idx]);
+					var = var[idx+1 .. $];
+
+					size_t idx2 = 0;
+					while( idx2 < var.length && isIdentChar(var[idx2]) ) idx2++;
+					auto varname = var[0 .. idx2];
+					var = var[idx2 .. $];
+
+					if( varname == "PACKAGE_DIR" ) vres.put(project_path);
+					else enforce(false, "Invalid variable: "~varname);
+				}
+				idx = std.string.indexOf(var, '$');
 			}
-
-			remove(to!string(absFile));
+			vres.put(var);
+			var = vres.data;
 		}
-
-		logDebug("Erasing directories");
-		Path[] allPaths;
-		foreach(Journal.Entry e; filter!((Journal.Entry a) => a.type == Journal.Type.Directory)(journal.entries))
-			allPaths ~= packagePath~e.relFilename;
-		sort!("a.length>b.length")(allPaths); // sort to erase deepest paths first
-		foreach(Path p; allPaths) {
-			logTrace("Deleting folder '%s'", p);
-			if( !exists(to!string(p)) || !isDir(to!string(p)) || !isEmptyDir(p) ) {
-				logError("Alien files found, directory is not empty or is not a directory: '%s'", p);
-				continue;
+		if( are_paths ){
+			auto p = Path(var);
+			if( !p.absolute ){
+				logTrace("Fixing relative path: %s ~ %s", project_path, p.toNativeString());
+				p = Path(project_path) ~ p;
 			}
-			rmdir( to!string(p) );
-		}
-
-		if(!isEmptyDir(packagePath))
-			throw new Exception("Alien files found in '"~to!string(packagePath)~"', manual uninstallation needed.");
-
-		rmdir(to!string(packagePath));
-		logInfo("Uninstalled package: '"~packageId~"'");
+			dst.put(p.toNativeString());
+		} else dst.put(var);
 	}
 	
 	/// Generate project files for a specified IDE.
@@ -658,4 +718,9 @@ class Vpm {
 		
 		generator.generateProject();
 	}
+}
+
+private bool isIdentChar(char ch)
+{
+	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
 }

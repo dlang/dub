@@ -3,7 +3,7 @@
 
 	Copyright: © 2012 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
-	Authors: Matthias Dondorff
+	Authors: Matthias Dondorff, Sönke Ludwig
 */
 module dub.dependency;
 
@@ -25,17 +25,6 @@ import std.conv;
 static import std.compiler;
 
 
-Dependency[string] dependencies(const Json json)
-{
-	if( "dependencies" !in json ) return null;
-	Dependency[string] dep;
-	foreach( string pkg, ref const Json vers; json["dependencies"] ) {
-		enforce( pkg !in dep, "The dependency '"~pkg~"' is specified more than once." );
-		dep[pkg] = new Dependency(cast(string)vers);
-	}
-	return dep;
-}
-
 /**
 	A version in the format "major.update.bugfix".
 */
@@ -52,45 +41,38 @@ struct Version {
 		size_t[] v; 
 	}
 	
-	this(string vers) {
-		enforce( vers == MASTER_STRING || count(vers, ".") == 2);
+	this(string vers)
+	{
+		enforce(vers == MASTER_STRING || count(vers, ".") == 2);
 		if(vers == MASTER_STRING) {
-			v = new size_t[3];
-			v[0] = v[1] = v[2] = MASTER_VERS;
-		}			
-		else {
-			string[] tkns = split(vers, ".");
-			v = new size_t[tkns.length];
-			for(size_t i=0; i<tkns.length; ++i)
-				v[i] = to!size_t(tkns[i]);
+			v = [MASTER_VERS, MASTER_VERS, MASTER_VERS];
+		} else {
+			auto toks = split(vers, ".");
+			v.length = toks.length;
+			foreach( i, t; toks ) v[i] = t.to!size_t();
 		}
 	}
 	
-	this(const Version o) {
+	this(const Version o)
+	{
 		foreach(size_t vers; o.v)
 			v ~= vers;
 	}
 	
-	bool opEquals(ref const Version oth) const {
-		Version o = cast(Version)oth;
-		if(v.length != o.v.length) return false;
-		for(size_t i=0; i<v.length; i++)
-			if( v[i] != o.v[i]) return false;
-		return true;
-	}
+	bool opEquals(ref const Version oth) const { return v == oth.v; }
+	bool opEquals(const Version oth) const { return v == oth.v; }
 	
-	int opCmp(ref const Version other) const {
-		//logTrace("vers_opCmp: a=%s_b=%s", this, other);
-		enforce(v.length == other.v.length);
-		for(size_t i=0; i<v.length; i++)
-			if( v[i] < other.v[i] )
-				return -1;
-			else if( v[i] > other.v[i] )
-				return 1;
-		return 0;
+	int opCmp(ref const Version other)
+	const {
+		foreach( i; 0 .. min(v.length, other.v.length) )
+			if( v[i] != other.v[i] )
+				return cast(int)v[i] - cast(int)other.v[i];
+		return cast(int)v.length - cast(int)other.v.length;
 	}
+	int opCmp(in Version other) const { return opCmp(other); }
 	
-	string toString() const {
+	string toString()
+	const {
 		enforce( v.length == 3 && (v[0] != MASTER_VERS || v[1] == v[2] && v[1] == MASTER_VERS) );
 		if(v[0] == MASTER_VERS) 
 			return MASTER_STRING;
@@ -107,6 +89,13 @@ struct Version {
 /// compare methode, e.g. '>=1.0.0 <2.0.0' (i.e. a space separates the two
 /// version numbers)
 class Dependency {
+	private {
+		string m_cmpA;
+		Version m_versA;
+		string m_cmpB;
+		Version m_versB;
+	}
+
 	this( string ves ) {
 		enforce( ves.length > 0);
 		string orig = ves;
@@ -137,9 +126,9 @@ class Dependency {
 					m_cmpB = "<=";
 				}
 			} else {
-				enforce( ves[idx2+1] == ' ' );
+				assert(ves[idx2] == ' ');
 				m_versA = Version(ves[0..idx2]);
-				string v2 = ves[idx2+2..$];
+				string v2 = ves[idx2+1..$];
 				m_cmpB = skipComp(v2);
 				m_versB = Version(v2);
 				
@@ -150,6 +139,13 @@ class Dependency {
 				enforce( m_cmpA != "==" && m_cmpB != "==", "For equality, please specify a single version.");
 			}
 		}
+	}
+
+	this(string cmp, string ver)
+	{
+		m_cmpA = cmp;
+		m_versB = m_versA = Version(ver);
+		m_cmpB = "==";
 	}
 	
 	this(const Dependency o) {
@@ -162,8 +158,10 @@ class Dependency {
 	override string toString() const {
 		string r;
 		// Special "==" case
-		if( m_versA == m_versB && m_cmpA == ">=" && m_cmpB == "<=" ) r = "==" ~ to!string(m_versA);
-		else {
+		if( m_versA == m_versB && m_cmpA == ">=" && m_cmpB == "<=" ){
+			if( m_versA == Version.MASTER ) r = "~master";
+			else r = "==" ~ to!string(m_versA);
+		} else {
 			if( m_versA != Version.RELEASE ) r = m_cmpA ~ to!string(m_versA);
 			if( m_versB != Version.HEAD ) r ~= (r.length==0?"" : " ") ~ m_cmpB ~ to!string(m_versB);
 			if( m_versA == Version.RELEASE && m_versB == Version.HEAD ) r = ">=0.0.0";
@@ -225,7 +223,7 @@ class Dependency {
 	private static string skipComp(ref string c) {
 		size_t idx = 0;
 		while( idx < c.length && !isDigit(c[idx]) ) idx++;
-		enforce( idx < c.length );
+		enforce(idx < c.length, "Expected version number in version spec: "~c);
 		string cmp = idx==c.length-1||idx==0? ">=" : c[0..idx];
 		c = c[idx..$];
 		switch(cmp) {
@@ -237,20 +235,15 @@ class Dependency {
 	}
 	
 	private static bool doCmp(string mthd, ref const Version a, ref const Version b) {
-		enforce( mthd==">=" || mthd==">" || mthd=="<=" || mthd=="<");
 		//logTrace("Calling %s%s%s", a, mthd, b);
 		switch(mthd) {
-			case ">=": return a>=b; case ">": return a>b;
-			case "<=": return a<=b; case "<": return a<b;
-			default: enforce(false); return false;
+			default: throw new Exception("Unknown comparison operator: "~mthd);
+			case ">": return a>b;
+			case ">=": return a>=b;
+			case "==": return a==b;
+			case "<=": return a<=b;
+			case "<": return a<b;
 		}
-	}
-	
-	private {
-		string m_cmpA;
-		Version m_versA;
-		string m_cmpB;
-		Version m_versB;
 	}
 }
 
