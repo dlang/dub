@@ -19,7 +19,7 @@ import vibe.core.log;
 
 import dub.dub;
 import dub.package_;
-import dub.packagestore;
+import dub.packagemanager;
 import dub.generators.generator;
 
 // version = VISUALD_SEPERATE_PROJECT_FILES;
@@ -28,14 +28,14 @@ version = VISUALD_SINGLE_PROJECT_FILE;
 class VisualDGenerator : ProjectGenerator {
 	private {
 		Application m_app;
-		PackageStore m_store;
+		PackageManager m_pkgMgr;
 		string[string] m_projectUuids;
 		bool[string] m_generatedProjects;
 	}
 	
-	this(Application app, PackageStore store) {
+	this(Application app, PackageManager mgr) {
 		m_app = app;
-		m_store = store;
+		m_pkgMgr = mgr;
 	}
 	
 	override void generateProject() {
@@ -347,8 +347,8 @@ EndGlobal");
 			// TODO: cyclic check
 
 			foreach(id, dependency; main.dependencies) {
-				logDebug("Retrieving package %s from store.", id);
-				auto pack = m_store.package_(id, dependency);
+				logDebug("Retrieving package %s from package manager.", id);
+				auto pack = m_pkgMgr.getBestPackage(id, dependency);
 				if(pack is null) {
 				 	logWarn("Package %s (%s) could not be retrieved continuing...", id, to!string(dependency));
 					continue;

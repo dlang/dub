@@ -14,7 +14,6 @@ import dub.registry;
 import dub.package_;
 import dub.packagemanager;
 import dub.packagesupplier;
-import dub.packagestore;
 import dub.generators.generator;
 
 import vibe.core.file;
@@ -127,8 +126,8 @@ private class Application {
 		return pkgs;
 	}
 
-	const(Package[string]) installedPackages() const {
-		return m_packages;
+	const(Package[]) installedPackages() const {
+		return m_dependencies;
 	}
 	
 	const (Package) mainPackage() const {
@@ -373,32 +372,30 @@ private class Application {
 						different = true;
 						break;
 					}
-					if(!different) {
-						logWarn("Could not resolve dependencies");
-						return false;
-					}
 				}
+				if(!different) {
+					logWarn("Could not resolve dependencies");
+					return false;
+				}
+			}
 
-				oldMissing = missing.dup;
-				logTrace("There are %s packages missing.", missing.length);
-				foreach(string pkg, reqDep; missing) {
-					if(!reqDep.dependency.valid()) {
-						logTrace("Dependency to "~pkg~" is invalid. Trying to fix by modifying others.");
-						continue;
-					}
-
+			oldMissing = missing.dup;
+			logTrace("There are %s packages missing.", missing.length);
+			foreach(string pkg, reqDep; missing) {
+				if(!reqDep.dependency.valid()) {
+					logTrace("Dependency to "~pkg~" is invalid. Trying to fix by modifying others.");
+					continue;
+				}
+					
 				// TODO: auto update and update interval by time
 				logTrace("Adding package to graph: "~pkg);
 				Package p = m_packageManager.getBestPackage(pkg, reqDep.dependency);
 				if( p ) logTrace("Found installed package %s %s", pkg, p.ver);
-
+				
 				// Try an already installed package first
 				if( p && p.installLocation != InstallLocation.Local && needsUpToDateCheck(pkg) ){
 					logInfo("Triggering update of package %s", pkg);
 					p = null;
-
-					if(p)
-						graph.insert(p);
 				}
 
 				if( !p ){
@@ -415,7 +412,9 @@ private class Application {
 				if(p)
 					graph.insert(p);
 			}
-
+			graph.clearUnused();
+			missing = graph.missing();
+		}
 		return true;
 	}
 
@@ -425,7 +424,13 @@ private class Application {
 			if( !time.length ) return true;
 			return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
 		} catch(Exception t) return true;
-
+	}
+		
+	void markUpToDate(string packageId) {
+		logTrace("markUpToDate(%s)", packageId);
+		Json create(ref Json json, string object) {
+			if( object !in json ) json[object] = Json.EmptyObject;
+			return json[object];
 		}
 		create(m_json, "dub");
 		create(m_json["dub"], "lastUpdate");
@@ -479,7 +484,6 @@ class Dub {
 		Json m_systemConfig, m_userConfig;
 		PackageManager m_packageManager;
 		Application m_app;
-		PackageStore m_packageStore;
 	}
 
 	/// Initiales the package manager for the vibe application
@@ -503,10 +507,6 @@ class Dub {
 
 		m_packageSupplier = ps;
 		m_packageManager = new PackageManager(m_systemDubPath ~ "packages/", m_userDubPath ~ "packages/");
-		
-		/// HACK
-		m_packageStore.includePath(Path("E:\\dev\\"));
-		m_packageStore.includePath(Path("E:\\dev\\dub\\modules"));
 	}
 
 	/// Returns the name listed in the package.json of the current
@@ -590,6 +590,18 @@ class Dub {
 		return newActions.length == 0;
 	}
 
+	/// Generate project files for a specified IDE.
+	/// Any existing project files will be overridden.
+	void generateProject(string ide) {
+		auto generator = createProjectGenerator(ide, m_app, m_packageManager);
+		if(null is generator)
+			throw new Exception("Unsupported IDE, there is no generator available for '"~ide~"'");
+			
+		// Q: update before generating?
+		
+		generator.generateProject();
+	}
+	
 	/// Creates a zip from the application.
 	void createZip(string zipFile) {
 		m_app.createZip(zipFile);
@@ -705,18 +717,6 @@ private void processVars(ref Appender!(string[]) dst, string project_path, strin
 			}
 			dst.put(p.toNativeString());
 		} else dst.put(var);
-	}
-	
-	/// Generate project files for a specified IDE.
-	/// Any existing project files will be overridden.
-	void generateProject(string ide) {
-		auto generator = createProjectGenerator(ide, m_app, m_packageStore);
-		if(null is generator)
-			throw new Exception("Unsupported IDE, there is no generator available for '"~ide~"'");
-			
-		// Q: update before generating?
-		
-		generator.generateProject();
 	}
 }
 

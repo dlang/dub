@@ -13,6 +13,7 @@ import dub.utils;
 import std.array;
 import std.conv;
 import std.exception;
+import std.file;
 import vibe.core.file;
 import vibe.data.json;
 import vibe.inet.url;
@@ -124,20 +125,19 @@ int delegate(scope int delegate(ref string)) getPlatformSuffixIterator(BuildPlat
 //		}
 // }
 class Package {
-	static struct LocalPacageDef { string name; Version version_; Path path; }
+	static struct LocalPackageDef { string name; Version version_; Path path; }
 
 	private {
 		InstallLocation m_location;
 		Path m_path;
 		Json m_meta;
 		Dependency[string] m_dependencies;
-		LocalPacageDef[] m_localPackageDefs;
+		LocalPackageDef[] m_localPackageDefs;
 	}
 
 	this(InstallLocation location, Path root)
 	{
 		this(jsonFromFile(root ~ PackageJsonFilename), location, root);
-		m_root = root;
 	}
 
 	this(Json package_info, InstallLocation location = InstallLocation.Local, Path root = Path())
@@ -153,7 +153,7 @@ class Package {
 				if( verspec.type == Json.Type.Object ){
 					auto ver = verspec["version"].get!string;
 					m_dependencies[pkg] = new Dependency("==", ver);
-					m_localPackageDefs ~= LocalPacageDef(pkg, Version(ver), Path(verspec.path.get!string()));
+					m_localPackageDefs ~= LocalPackageDef(pkg, Version(ver), Path(verspec.path.get!string()));
 				} else m_dependencies[pkg] = new Dependency(verspec.get!string());
 			}
 		}
@@ -166,7 +166,7 @@ class Package {
 	@property Path path() const { return m_path; }
 	@property const(Url) url() const { return Url.parse(cast(string)m_meta["url"]); }
 	@property const(Dependency[string]) dependencies() const { return m_dependencies; }
-	@property const(LocalPacageDef)[] localPackageDefs() const { return m_localPackageDefs; }
+	@property const(LocalPackageDef)[] localPackageDefs() const { return m_localPackageDefs; }
 	@property string binaryPath() const { return m_meta["binaryPath"].opt!string; }
 	
 	@property string[] configurations()
@@ -194,11 +194,9 @@ class Package {
 	}
 	
 	@property const(Path[]) sources() const {
-		enforce(m_root != Path(), "Cannot assemble sources from package, m_root == Path().");
 		Path[] allSources;
-		foreach(DirEntry d; dirEntries(to!string(m_root ~ Path("source")), "*.d", SpanMode.depth)) {
+		foreach(DirEntry d; dirEntries(to!string(m_path ~ Path("source")), "*.d", SpanMode.depth))
 			allSources ~= Path(d.name);
-		}	
 		return allSources;
 	}
 	

@@ -8,7 +8,7 @@
 module dub.generators.generator;
 
 import dub.dub;
-import dub.packagestore;
+import dub.packagemanager;
 import dub.generators.visuald;
 
 /// A project generator generates projects :-/
@@ -18,7 +18,7 @@ interface ProjectGenerator
 }
 
 /// Creates a project generator.
-ProjectGenerator createProjectGenerator(string projectType, Application app, PackageStore store) {
+ProjectGenerator createProjectGenerator(string projectType, Application app, PackageManager store) {
 	switch(projectType) { 
 		default: return null;
 		case "VisualD": return new VisualDGenerator(app, store);

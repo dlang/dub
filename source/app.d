@@ -109,7 +109,7 @@ int main(string[] args)
 		// handle the command
 		switch( cmd ){
 			default:
-				enforce(false, "Command is unknown.");
+				enforce(false, "Command is unknown: " ~ cmd);
 				assert(false);
 			case "help":
 				showHelp(cmd);
@@ -291,11 +291,9 @@ int main(string[] args)
 					return -1;
 				}
 				
-				Vpm vpm = new Vpm(Path(appPath), new RegistryPS(registryUrl));
-				logDebug("vpm initialized, calling generate");
-				vpm.generateProject(ide);
+				dub.generateProject(ide);
 				logDebug("Project files generated.");
-				return 0;
+				break;
 		}
 
 		return 0;
