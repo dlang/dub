@@ -10,6 +10,8 @@ module dub.generators.generator;
 import dub.dub;
 import dub.packagemanager;
 import dub.generators.visuald;
+import vibe.core.log;
+import std.exception;
 
 /// A project generator generates projects :-/
 interface ProjectGenerator
@@ -18,9 +20,13 @@ interface ProjectGenerator
 }
 
 /// Creates a project generator.
-ProjectGenerator createProjectGenerator(string projectType, Application app, PackageManager store) {
+ProjectGenerator createProjectGenerator(string projectType, Application app, PackageManager mgr) {
+	enforce(app !is null, "app==null, Need an application to work on!");
+	enforce(mgr !is null, "mgr==null, Need a package manager to work on!");
 	switch(projectType) { 
 		default: return null;
-		case "VisualD": return new VisualDGenerator(app, store);
+		case "VisualD": 
+			logTrace("Generating VisualD generator.");
+			return new VisualDGenerator(app, mgr);
 	}
 }

@@ -121,7 +121,7 @@ int main(string[] args)
 				break;
 			case "run":
 			case "build":
-				dub.loadPackagefromCwd();
+				dub.loadPackageFromCwd();
 				auto def_config = dub.getDefaultConfiguration(build_platform);
 				if( !build_config.length ) build_config = def_config;
 
@@ -229,6 +229,7 @@ int main(string[] args)
 				if( settings.copyFiles.length ){
 					logInfo("Copying files...");
 					foreach( f; settings.copyFiles ){
+						logInfo("Blah", f);
 						auto src = Path(f);
 						auto dst = (run_exe_file.empty ? dub.binaryPath : run_exe_file.parentPath) ~ Path(f).head;
 						logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
@@ -247,7 +248,7 @@ int main(string[] args)
 
 				break;
 			case "upgrade":
-				dub.loadPackagefromCwd();
+				dub.loadPackageFromCwd();
 				logInfo("Upgrading project in '%s'", dub.projectPath);
 				logDebug("dub initialized");
 				dub.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
@@ -290,7 +291,7 @@ int main(string[] args)
 					logInfo("Usage: dub generate <ide_identifier>");
 					return -1;
 				}
-				
+				dub.loadPackageFromCwd();
 				dub.generateProject(ide);
 				logDebug("Project files generated.");
 				break;

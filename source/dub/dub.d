@@ -521,7 +521,7 @@ class Dub {
 
 	@property Path binaryPath() const { return m_app.binaryPath; }
 
-	void loadPackagefromCwd()
+	void loadPackageFromCwd()
 	{
 		m_root = m_cwd;
 		m_packageManager.projectPackagePath = m_root ~ ".dub/packages/";
@@ -594,9 +594,11 @@ class Dub {
 	/// Any existing project files will be overridden.
 	void generateProject(string ide) {
 		auto generator = createProjectGenerator(ide, m_app, m_packageManager);
-		if(null is generator)
+		if(generator is null ) {
+			logError("Unsupported IDE, there is no generator available for '"~ide~"'");
 			throw new Exception("Unsupported IDE, there is no generator available for '"~ide~"'");
-			
+		}
+		
 		// Q: update before generating?
 		
 		generator.generateProject();
