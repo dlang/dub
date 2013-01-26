@@ -20,12 +20,18 @@ import vibe.inet.url;
 
 enum PackageJsonFilename = "package.json";
 
+/// Represents a platform a package can be build upon.
 struct BuildPlatform {
+	/// e.g. ["posix", "windows"]
 	string[] platform;
+	/// e.g. ["x86", "x64"]
 	string[] architecture;
+	/// e.g. "dmd"
 	string compiler;
 }
 
+/// BuildPlatform specific settings, like needed libraries or additional
+/// include paths.
 struct BuildSettings {
 	string[] dflags;
 	string[] lflags;
@@ -57,6 +63,7 @@ struct BuildSettings {
 	void addImportDirs(string[] value) { add(importPaths, value); }
 	void addStringImportDirs(string[] value) { add(stringImportPaths, value); }
 
+	// Adds vals to arr without adding duplicates.
 	private void add(ref string[] arr, string[] vals)
 	{
 		foreach( v; vals ){
@@ -70,6 +77,8 @@ struct BuildSettings {
 		}
 	}
 
+	// Parses json and returns the values of the corresponding field 
+	// by the platform.
 	private string[] getPlatformField(in Json json, string name, BuildPlatform platform)
 	const {
 		auto ret = appender!(string[])();
@@ -81,6 +90,17 @@ struct BuildSettings {
 	}
 }
 
+/// Based on the BuildPlatform, creates an iterator with all suffixes.
+///
+/// Suffixes are build upon the following scheme, where each component
+/// is optional (indicated by []), but the order is obligatory.
+/// "[-platform][-architecture][-compiler]"
+///
+/// So the following strings are valid suffixes:
+/// "-windows-x86-dmd"
+/// "-dmd"
+/// "-arm"
+///
 int delegate(scope int delegate(ref string)) getPlatformSuffixIterator(BuildPlatform platform)
 {
 	int iterator(scope int delegate(ref string s) del)
@@ -106,24 +126,50 @@ int delegate(scope int delegate(ref string)) getPlatformSuffixIterator(BuildPlat
 	return &iterator;
 }
 
-/// Representing an installed package
-// Json file example:
-// {
-// 		"name": "MetalCollection",
-// 		"author": "VariousArtists",
-// 		"version": "1.0.0",
-//		"url": "https://github.org/...",
-//		"keywords": "a,b,c",
-//		"category": "music.best",
-// 		"dependencies": {
-// 			"black-sabbath": ">=1.0.0",
-// 			"CowboysFromHell": "<1.0.0",
-// 			"BeneathTheRemains": {"version": "0.4.1", "path": "./beneath-0.4.1"}
-// 		}
-//		"licenses": {
-//			...
-//		}
-// }
+/// Indicates where a package has been or should be installed to.
+enum InstallLocation {
+	Local,
+	ProjectLocal,
+	UserWide,
+	SystemWide
+}
+
+/// Representing an installed package, usually constructed from a json object.
+/// 
+/// Json file example:
+/// {
+/// 		"name": "MetalCollection",
+/// 		"author": "VariousArtists",
+/// 		"version": "1.0.0",
+///		"url": "https://github.org/...",
+///		"keywords": "a,b,c",
+///		"category": "music.best",
+/// 		"dependencies": {
+/// 			"black-sabbath": ">=1.0.0",
+/// 			"CowboysFromHell": "<1.0.0",
+/// 			"BeneathTheRemains": {"version": "0.4.1", "path": "./beneath-0.4.1"}
+/// 		}
+///		"licenses": {
+///			...
+///		}
+///		"configurations": {
+// TODO: what and how?
+///		}
+// TODO: plain like this or packed together?
+///			"
+///			"dflags-X"
+///			"lflags-X"
+///			"libs-X"
+///			"files-X"
+///			"copyFiles-X"
+///			"versions-X"
+///			"importPaths-X"
+///			"stringImportPaths-X"	
+///
+/// 	}
+///	}
+///
+/// TODO: explain configurations
 class Package {
 	static struct LocalPackageDef { string name; Version version_; Path path; }
 
@@ -140,14 +186,14 @@ class Package {
 		this(jsonFromFile(root ~ PackageJsonFilename), location, root);
 	}
 
-	this(Json package_info, InstallLocation location = InstallLocation.Local, Path root = Path())
+	this(Json packageInfo, InstallLocation location = InstallLocation.Local, Path root = Path())
 	{
 		m_location = location;
 		m_path = root;
-		m_meta = package_info;
+		m_meta = packageInfo;
 
 		// extract dependencies and local package definitions
-		if( auto pd = "dependencies" in package_info ){
+		if( auto pd = "dependencies" in packageInfo ){
 			foreach( string pkg, verspec; *pd ) {
 				enforce(pkg !in m_dependencies, "The dependency '"~pkg~"' is specified more than once." );
 				if( verspec.type == Json.Type.Object ){
@@ -179,6 +225,7 @@ class Package {
 		return ret.data;
 	}
 
+	/// Returns all BuildSettings for the given platform and config.
 	BuildSettings getBuildSettings(BuildPlatform platform, string config)
 	const {
 		BuildSettings ret;
@@ -193,6 +240,7 @@ class Package {
 		return ret;
 	}
 	
+	/// Returns all sources as absolute paths.
 	@property const(Path[]) sources() const {
 		Path[] allSources;
 		foreach(DirEntry d; dirEntries(to!string(m_path ~ Path("source")), "*.d", SpanMode.depth))
@@ -200,6 +248,7 @@ class Package {
 		return allSources;
 	}
 	
+	/// TODO: what is the defaul configuration?
 	string getDefaultConfiguration(BuildPlatform platform)
 	const {
 		string ret;
@@ -210,6 +259,7 @@ class Package {
 		return ret;
 	}
 
+	/// Humanly readible information of this package and its dependencies.
 	string info() const {
 		string s;
 		s ~= cast(string)m_meta["name"] ~ ", version '" ~ cast(string)m_meta["version"] ~ "'";
@@ -230,11 +280,4 @@ class Package {
 		toPrettyJson(js, m_meta);
 		dstFile.write( js.data );
 	}
-}
-
-enum InstallLocation {
-	Local,
-	ProjectLocal,
-	UserWide,
-	SystemWide
 }

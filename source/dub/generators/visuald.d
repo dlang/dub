@@ -186,6 +186,7 @@ EndGlobal");
 					logDebug("pkg file: %s", source);
 				}
 			}
+			
 			version(VISUALD_SINGLE_PROJECT_FILE) {
 				// gather all sources
 				enforce(pack == m_app.mainPackage(), "Some setup has gone wrong in VisualD.generateProj()");
@@ -248,8 +249,53 @@ EndGlobal");
 		}
 		
 		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, Config type) {
-			ret.formattedWrite(
-"\n  <Config name=\"%s\" platform=\"Win32\">
+		
+		
+			string[] getSettingsHelper(BuildSettings bs, in string setting) {
+				// TODO: make nice, compile time string stuff?
+				switch(setting) {
+				case "dflags": return bs.dflags;
+				case "lflags": return bs.lflags;
+				case "libs": return bs.libs;
+				case "files": return bs.files;
+				case "copyFiles": return bs.copyFiles;
+				case "versions": return bs.versions;
+				case "importPaths": return bs.importPaths;
+				case "stringImportPaths": return bs.stringImportPaths;
+				default: assert(false);
+				}
+			}
+			string[] getSettings(in Package pack, in string setting, bool prefixPath) {
+				BuildPlatform platform;
+				platform.platform ~= "windows";
+				platform.architecture ~= "x86";
+				platform.compiler = "dmd";
+				version(VISUALD_SEPERATE_PROJECT_FILES) {
+					assert(false, "Not implemented");
+				}
+				version(VISUALD_SINGLE_PROJECT_FILE) {
+					string[] ret;
+					performOnDependencies(pack, (const Package dep) { ret ~= getSettings(dep, setting, prefixPath); } );
+					if(prefixPath) {
+						string[] itms = getSettingsHelper(pack.getBuildSettings(platform, ""), setting);
+						foreach(i; itms)
+							ret ~= to!string(pack.path) ~ "\\" ~ i;
+					}
+					else
+						ret ~= getSettingsHelper(pack.getBuildSettings(platform, ""), setting);
+					return ret;
+				}
+			}
+			
+			string combine(string seperator)(string[] vals) {
+				return reduce!("a~'"~seperator~"'~b")("", vals);
+			}
+			
+			// Specify build configuration name
+			ret.formattedWrite("
+  <Config name=\"%s\" platform=\"Win32\">", to!string(type));
+			
+			ret.formattedWrite("
     <obj>0</obj>
     <link>0</link>
     <lib>0</lib>
@@ -293,7 +339,10 @@ EndGlobal");
     <Dversion>2</Dversion>
     <ignoreUnsupportedPragmas>0</ignoreUnsupportedPragmas>
     <compiler>0</compiler>
-    <otherDMD>0</otherDMD>
+    <otherDMD>0</otherDMD>");
+	
+			// Compiler ?
+			ret.formattedWrite("
     <program>$(DMDInstallDir)windows\\bin\\dmd.exe</program>
     <imppath />
     <fileImppath />
@@ -313,8 +362,14 @@ EndGlobal");
     <xfilename>$(IntDir)\\$(TargetName).json</xfilename>
     <debuglevel>0</debuglevel>
     <debugids />
-    <versionlevel>0</versionlevel>
-    <versionids>DerelictGL_ALL HostWin32</versionids>
+    <versionlevel>0</versionlevel>");
+	
+			// Add version identifiers
+			string versions = combine!(" ")(getSettings(pack, "versions", false));
+			ret.formattedWrite("
+    <versionids>%s</versionids>", versions);
+			
+			ret.formattedWrite("
     <dump_source>0</dump_source>
     <mapverbosity>0</mapverbosity>
     <createImplib>0</createImplib>
@@ -322,7 +377,10 @@ EndGlobal");
     <debuglibname />
     <moduleDepsFile />
     <run>0</run>
-    <runargs />
+    <runargs />");
+			
+			// TODO: Mago? Debugger settings!
+			ret.formattedWrite("
     <runCv2pdb>1</runCv2pdb>
     <pathCv2pdb>$(VisualDInstallDir)cv2pdb\\cv2pdb.exe</pathCv2pdb>
     <cv2pdbPre2043>0</cv2pdbPre2043>
@@ -330,17 +388,30 @@ EndGlobal");
     <cv2pdbEnumType>0</cv2pdbEnumType>
     <cv2pdbOptions />
     <objfiles />
-    <linkswitches />
-    <libfiles>ws2_32.lib gdi32.lib winmm.lib ..\\vibe.d\\lib\\win-i386\\event2.lib ..\\vibe.d\\lib\\win-i386\\eay.lib ..\\vibe.d\\lib\\win-i386\\ssl.lib</libfiles>
+    <linkswitches />");
+			
+			// Add libraries.
+			string linkLibs = combine!(" ")(getSettings(pack, "libs", false));
+			string addLinkFiles = combine!(" ")(getSettings(pack, "files", true));
+			ret.formattedWrite("
+    <libfiles>%s</libfiles>", linkLibs ~ " " ~ addLinkFiles);
+			
+			// Add library paths ( not necessary, libraries have absolute path )
+			ret.formattedWrite("
     <libpaths />
     <deffile />
     <resfile />
     <exefile>bin\\$(ProjectName)_d.exe</exefile>
     <additionalOptions />
-    <preBuildCommand />
-    <postBuildCommand />
+    <preBuildCommand />");
+			
+			// Add a post build command to copy files
+			ret.formattedWrite("
+    <postBuildCommand />");
+			
+			ret.formattedWrite("
     <filesToClean>*.obj;*.cmd;*.build;*.json;*.dep</filesToClean>
-  </Config>", to!string(type));
+  </Config>");
 		}
 		
 		void performOnDependencies(const Package main, void delegate(const Package pack) op) {
@@ -366,6 +437,10 @@ EndGlobal");
 			if(projectName !in m_projectUuids)
 				m_projectUuids[projectName] = generateUUID();
 			return m_projectUuids[projectName];
+		}
+		
+		string libfiles(const Package pack) {
+			return "";
 		}
 	}
 }
