@@ -17,7 +17,7 @@ import std.exception;
 import vibe.core.file;
 import vibe.core.log;
 
-import dub.dub;
+import dub.project;
 import dub.package_;
 import dub.packagemanager;
 import dub.generators.generator;
@@ -27,13 +27,13 @@ version = VISUALD_SINGLE_PROJECT_FILE;
 
 class VisualDGenerator : ProjectGenerator {
 	private {
-		Application m_app;
+		Project m_app;
 		PackageManager m_pkgMgr;
 		string[string] m_projectUuids;
 		bool[string] m_generatedProjects;
 	}
 	
-	this(Application app, PackageManager mgr) {
+	this(Project app, PackageManager mgr) {
 		m_app = app;
 		m_pkgMgr = mgr;
 	}
@@ -238,43 +238,14 @@ EndGlobal");
 		}
 		
 		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, Config type) {
+			BuildPlatform platform;
+			platform.platform ~= "windows";
+			platform.architecture ~= "x86";
+			platform.compiler = "dmd";
 		
-			// Helper functions used within.
-			string[] getSettingsFromBuildSettings(BuildSettings bs, in string setting) {
-				// TODO: make nice, compile time string stuff?
-				switch(setting) {
-				case "dflags": return bs.dflags;
-				case "lflags": return bs.lflags;
-				case "libs": return bs.libs;
-				case "files": return bs.files;
-				case "copyFiles": return bs.copyFiles;
-				case "versions": return bs.versions;
-				case "importPaths": return bs.importPaths;
-				case "stringImportPaths": return bs.stringImportPaths;
-				default: assert(false);
-				}
-			}
-			string[] getSettings(in Package pack, in string setting, bool prefixPath) {
-				BuildPlatform platform;
-				platform.platform ~= "windows";
-				platform.architecture ~= "x86";
-				platform.compiler = "dmd";
-				version(VISUALD_SEPERATE_PROJECT_FILES) {
-					assert(false, "Not implemented");
-				}
-				version(VISUALD_SINGLE_PROJECT_FILE) {
-					string[] ret;
-					performOnDependencies(pack, (const Package dep) { ret ~= getSettings(dep, setting, prefixPath); } );
-					if(prefixPath) {
-						string[] itms = getSettingsFromBuildSettings(pack.getBuildSettings(platform, ""), setting);
-						foreach(i; itms)
-							ret ~= to!string(pack.path) ~ "\\" ~ i;
-					}
-					else
-						ret ~= getSettingsFromBuildSettings(pack.getBuildSettings(platform, ""), setting);
-					return ret;
-				}
-			}
+			auto settings = m_app.getBuildSettings(platform, m_app.getDefaultConfiguration(platform));
+
+			string[] getSettings(string setting)(){ return __traits(getMember, settings, setting); }
 			
 			// Specify build configuration name
 			ret.formattedWrite("
@@ -360,7 +331,7 @@ EndGlobal");
     <debugids />"); // version ids ?
 	
 			// Add version identifiers
-			string versions = join(getSettings(pack, "versions", false), " ");
+			string versions = join(getSettings!"versions"(), " ");
 			ret.formattedWrite("
     <versionids>%s</versionids>", versions);
 	
@@ -386,8 +357,8 @@ EndGlobal");
     <linkswitches />");
 			
 			// Add libraries.
-			string linkLibs = join(getSettings(pack, "libs", false), " ");
-			string addLinkFiles = join(getSettings(pack, "files", true), " ");
+			string linkLibs = join(getSettings!"libs"(), " ");
+			string addLinkFiles = join(getSettings!"files"(), " ");
 			ret.formattedWrite("
     <libfiles>%s</libfiles>", linkLibs ~ " " ~ addLinkFiles);
 			

@@ -9,8 +9,9 @@ module app;
 
 import dub.dependency;
 import dub.dub;
-import dub.platform;
 import dub.package_;
+import dub.platform;
+import dub.project;
 import dub.registry;
 
 import vibe.core.file;
