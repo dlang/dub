@@ -229,11 +229,11 @@ int main(string[] args)
 				if( settings.copyFiles.length ){
 					logInfo("Copying files...");
 					foreach( f; settings.copyFiles ){
-						logInfo("Blah", f);
 						auto src = Path(f);
 						auto dst = (run_exe_file.empty ? dub.binaryPath : run_exe_file.parentPath) ~ Path(f).head;
 						logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
-						copyFile(src, dst, true);
+						try copyFile(src, dst, true);
+						catch logWarn("Failed to copy to %s", dst.toNativeString());
 					}
 				}
 

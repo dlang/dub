@@ -150,8 +150,8 @@ private class Application {
 		try m_json = jsonFromFile(m_root ~ ".dub/dub.json", true);
 		catch(Exception t) logDebug("Failed to read .dub/dub.json: %s", t.msg);
 
-		if( !exists(to!string(m_root~PackageJsonFilename)) ){
-			logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root);
+		if( !existsFile(m_root~PackageJsonFilename) ){
+			logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root.toNativeString());
 			return;
 		}
 
