@@ -247,7 +247,7 @@ class Package {
 	/// Returns all sources as absolute paths.
 	@property const(Path[]) sources() const {
 		Path[] allSources;
-		foreach(DirEntry d; dirEntries(to!string(m_path ~ Path("source")), "*.d", SpanMode.depth))
+		foreach(d; dirEntries((m_path ~ Path("source")).toNativeString(), "*.d", SpanMode.depth))
 			allSources ~= Path(d.name);
 		return allSources;
 	}
