@@ -381,7 +381,7 @@ class Project {
 
 	private bool needsUpToDateCheck(string packageId) {
 		try {
-			auto time = m_json["lastUpdate"].opt!(Json[string]).get(packageId, Json("")).get!string;
+			auto time = m_json["dub"]["lastUpdate"].opt!(Json[string]).get(packageId, Json("")).get!string;
 			if( !time.length ) return true;
 			return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
 		} catch(Exception t) return true;
