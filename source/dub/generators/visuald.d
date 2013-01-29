@@ -250,8 +250,8 @@ EndGlobal");
 		
 		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, Config type) {
 		
-		
-			string[] getSettingsHelper(BuildSettings bs, in string setting) {
+			// Helper functions used within.
+			string[] getSettingsFromBuildSettings(BuildSettings bs, in string setting) {
 				// TODO: make nice, compile time string stuff?
 				switch(setting) {
 				case "dflags": return bs.dflags;
@@ -277,18 +277,14 @@ EndGlobal");
 					string[] ret;
 					performOnDependencies(pack, (const Package dep) { ret ~= getSettings(dep, setting, prefixPath); } );
 					if(prefixPath) {
-						string[] itms = getSettingsHelper(pack.getBuildSettings(platform, ""), setting);
+						string[] itms = getSettingsFromBuildSettings(pack.getBuildSettings(platform, ""), setting);
 						foreach(i; itms)
 							ret ~= to!string(pack.path) ~ "\\" ~ i;
 					}
 					else
-						ret ~= getSettingsHelper(pack.getBuildSettings(platform, ""), setting);
+						ret ~= getSettingsFromBuildSettings(pack.getBuildSettings(platform, ""), setting);
 					return ret;
 				}
-			}
-			
-			string combine(string seperator)(string[] vals) {
-				return reduce!("a~'"~seperator~"'~b")("", vals);
 			}
 			
 			// Specify build configuration name
@@ -306,9 +302,14 @@ EndGlobal");
     <trace>0</trace>
     <quiet>0</quiet>
     <verbose>0</verbose>
-    <vtls>0</vtls>
-    <symdebug>1</symdebug>
-    <optimize>0</optimize>
+    <vtls>0</vtls>");
+	
+			// debug and optimize setting
+			ret.formattedWrite("			
+    <symdebug>%s</symdebug>
+    <optimize>%s</optimize>", type != Config.Release? "1":"0", type != Config.Debug? "1":"0");
+			
+			ret.formattedWrite("
     <cpu>0</cpu>
     <isX86_64>0</isX86_64>
     <isLinux>0</isLinux>
@@ -341,11 +342,16 @@ EndGlobal");
     <compiler>0</compiler>
     <otherDMD>0</otherDMD>");
 	
-			// Compiler ?
+			// include paths and string imports
+			string imports;
+			string stringImports;
+			ret.formattedWrite("
+    <imppath>%s</imppath>
+    <fileImppath>%s</fileImppath>", imports, stringImports);
+	
+			// Compiler?
 			ret.formattedWrite("
     <program>$(DMDInstallDir)windows\\bin\\dmd.exe</program>
-    <imppath />
-    <fileImppath />
     <outdir>$(ConfigurationName)</outdir>
     <objdir>$(OutDir)</objdir>
     <objname />
@@ -361,14 +367,14 @@ EndGlobal");
     <doXGeneration>1</doXGeneration>
     <xfilename>$(IntDir)\\$(TargetName).json</xfilename>
     <debuglevel>0</debuglevel>
-    <debugids />
-    <versionlevel>0</versionlevel>");
+    <versionlevel>0</versionlevel>
+    <debugids />"); // version ids ?
 	
 			// Add version identifiers
-			string versions = combine!(" ")(getSettings(pack, "versions", false));
+			string versions = join(getSettings(pack, "versions", false), " ");
 			ret.formattedWrite("
     <versionids>%s</versionids>", versions);
-			
+	
 			ret.formattedWrite("
     <dump_source>0</dump_source>
     <mapverbosity>0</mapverbosity>
@@ -391,8 +397,8 @@ EndGlobal");
     <linkswitches />");
 			
 			// Add libraries.
-			string linkLibs = combine!(" ")(getSettings(pack, "libs", false));
-			string addLinkFiles = combine!(" ")(getSettings(pack, "files", true));
+			string linkLibs = join(getSettings(pack, "libs", false), " ");
+			string addLinkFiles = join(getSettings(pack, "files", true), " ");
 			ret.formattedWrite("
     <libfiles>%s</libfiles>", linkLibs ~ " " ~ addLinkFiles);
 			

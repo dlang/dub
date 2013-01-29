@@ -197,10 +197,14 @@ class Package {
 			foreach( string pkg, verspec; *pd ) {
 				enforce(pkg !in m_dependencies, "The dependency '"~pkg~"' is specified more than once." );
 				if( verspec.type == Json.Type.Object ){
+					// full blown specifier
 					auto ver = verspec["version"].get!string;
 					m_dependencies[pkg] = new Dependency("==", ver);
 					m_localPackageDefs ~= LocalPackageDef(pkg, Version(ver), Path(verspec.path.get!string()));
-				} else m_dependencies[pkg] = new Dependency(verspec.get!string());
+				} else {
+					// canonical "package-id": "version"
+					m_dependencies[pkg] = new Dependency(verspec.get!string());
+				}
 			}
 		}
 	}
