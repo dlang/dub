@@ -8,6 +8,7 @@
 module dub.generators.generator;
 
 import dub.project;
+import dub.package_;
 import dub.packagemanager;
 import dub.generators.monod;
 import dub.generators.visuald;
@@ -17,14 +18,14 @@ import std.exception;
 /// A project generator generates projects :-/
 interface ProjectGenerator
 {
-	void generateProject();
+	void generateProject(BuildPlatform build_platform);
 }
 
 /// Creates a project generator.
 ProjectGenerator createProjectGenerator(string projectType, Project app, PackageManager mgr) {
 	enforce(app !is null, "app==null, Need an application to work on!");
 	enforce(mgr !is null, "mgr==null, Need a package manager to work on!");
-	switch(projectType) { 
+	switch(projectType) {
 		default: return null;
 		case "MonoD":
 			logTrace("Generating MonoD generator.");

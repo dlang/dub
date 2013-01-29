@@ -38,9 +38,9 @@ class VisualDGenerator : ProjectGenerator {
 		m_pkgMgr = mgr;
 	}
 	
-	void generateProject() {
+	void generateProject(BuildPlatform buildPlatform) {
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, to!string(m_app.mainPackage().dependencies().length));
-		generateProjects(m_app.mainPackage());
+		generateProjects(m_app.mainPackage(), buildPlatform);
 		generateSolution();
 	}
 	
@@ -137,11 +137,11 @@ EndGlobal");
 					formattedWrite(ret, "\n\t\t%s.%s.%s = %s", to!string(projectUuid), c, s, c);
 		}
 		
-		void generateProjects(const Package main) {
+		void generateProjects(const Package main, BuildPlatform buildPlatform) {
 		
 			// TODO: cyclic check
 			
-			generateProj(main);
+			generateProj(main, buildPlatform);
 			
 			version(VISUALD_SEPERATE_PROJECT_FILES) 
 			{
@@ -149,12 +149,12 @@ EndGlobal");
 				performOnDependencies(main, (const Package dependency) {
 					if(dependency.name in m_generatedProjects)
 						return;
-					generateProjects(dependency);
+					generateProjects(dependency, buildPlatform);
 				} );
 			}
 		}
 		
-		void generateProj(const Package pack) {
+		void generateProj(const Package pack, BuildPlatform buildPlatform) {
 			int i = 0;
 			auto ret = appender!(char[])();
 			
@@ -164,8 +164,8 @@ EndGlobal");
   <ProjectGuid>%s</ProjectGuid>", guid(projName));
 	
 			// Several configurations (debug, release, unittest)
-			generateProjectConfiguration(ret, pack, Config.Debug);
-			generateProjectConfiguration(ret, pack, Config.Release);
+			generateProjectConfiguration(ret, pack, Config.Debug, buildPlatform);
+			generateProjectConfiguration(ret, pack, Config.Release, buildPlatform);
 	//		generateProjectConfiguration(ret, pack, Config.Unittest);
 
 			// Add all files
@@ -237,14 +237,8 @@ EndGlobal");
 			sln.flush();
 		}
 		
-		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, Config type) {
-			BuildPlatform platform;
-			platform.platform ~= "windows";
-			platform.architecture ~= "x86";
-			platform.compiler = "dmd";
-		
+		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, Config type, BuildPlatform platform) {
 			auto settings = m_app.getBuildSettings(platform, m_app.getDefaultConfiguration(platform));
-
 			string[] getSettings(string setting)(){ return __traits(getMember, settings, setting); }
 			
 			// Specify build configuration name
@@ -356,8 +350,8 @@ EndGlobal");
     <objfiles />
     <linkswitches />");
 			
-			// Add libraries.
-			string linkLibs = join(getSettings!"libs"(), " ");
+			// Add libraries, system libs need to be suffixed by ".lib".
+			string linkLibs = join(map!("a~\".lib\"")(getSettings!"libs"()), " ");
 			string addLinkFiles = join(getSettings!"files"(), " ");
 			ret.formattedWrite("
     <libfiles>%s</libfiles>", linkLibs ~ " " ~ addLinkFiles);

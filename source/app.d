@@ -293,7 +293,7 @@ int main(string[] args)
 					return -1;
 				}
 				dub.loadPackageFromCwd();
-				dub.generateProject(ide);
+				dub.generateProject(ide, build_platform);
 				logDebug("Project files generated.");
 				break;
 		}
