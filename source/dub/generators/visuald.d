@@ -208,38 +208,27 @@ EndGlobal");
 			
 			// Create folders and files
 			// TODO: nice foldering
+			ret.formattedWrite("\n  <Folder name=\"%s\">", pack.name);
 			version(VISUALD_SINGLE_PROJECT_FILE) {
 				SourceFile[] files = sourceFiles.keys;
 				sort!("a.pkg > b.pkg")(files);
 				string last = "";
-				ret.formattedWrite("
-  <Folder name=\"sources\">");
 				foreach(source; files) {
 					if(last != source.pkg) {
 						if(!last.empty)
-							ret.formattedWrite("  
-    </Folder>");
-						ret.formattedWrite("
-    <Folder name=\"%s\">", source.pkg);
+							ret.put("\n    </Folder>");
+						ret.formattedWrite("\n    <Folder name=\"%s\">", source.pkg);
 						last = source.pkg;
 					}
-					ret.formattedWrite("
-      <File path=\"%s\" />",  source.filePath.toString());
+					ret.formattedWrite("\n      <File path=\"%s\" />",  source.filePath.toString());
 				}
-				ret.formattedWrite("
-    </Folder>
-  </Folder>");
+				ret.put("\n    </Folder>");
 			}
 			version(VISUALD_SEPERATE_PROJECT_FILES) {
-				formattedWrite(ret, "
-  <Folder name=\"%s\">", projName);			
 				foreach(source, dummy; sourceFiles)
 					ret.formattedWrite("\n  <File path=\"%s\" />",  source.filePath.toString());
-				ret.formattedWrite("
-  </Folder>");
 			}
-			ret.formattedWrite("
-</DProject>");
+			ret.put("\n  </Folder>\n</DProject>");
 
 			logTrace("About to write to '%s.visualdproj' file %s bytes", pack.name, to!string(ret.data().length));
 			auto sln = openFile(pack.name ~ ".visualdproj", FileMode.CreateTrunc);
