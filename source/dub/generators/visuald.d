@@ -220,17 +220,17 @@ EndGlobal");
 						ret.formattedWrite("\n    <Folder name=\"%s\">", source.pkg);
 						last = source.pkg;
 					}
-					ret.formattedWrite("\n      <File path=\"%s\" />",  source.filePath.toString());
+					ret.formattedWrite("\n      <File path=\"%s\" />",  source.filePath.toNativeString());
 				}
 				ret.put("\n    </Folder>");
 			}
 			version(VISUALD_SEPERATE_PROJECT_FILES) {
 				foreach(source, dummy; sourceFiles)
-					ret.formattedWrite("\n  <File path=\"%s\" />",  source.filePath.toString());
+					ret.formattedWrite("\n  <File path=\"%s\" />",  source.filePath.toNativeString());
 			}
 			ret.put("\n  </Folder>\n</DProject>");
 
-			logTrace("About to write to '%s.visualdproj' file %s bytes", pack.name, to!string(ret.data().length));
+			logTrace("About to write to '%s.visualdproj' file %s bytes", pack.name, ret.data().length);
 			auto sln = openFile(pack.name ~ ".visualdproj", FileMode.CreateTrunc);
 			scope(exit) sln.close();
 			sln.write(ret.data());
