@@ -247,7 +247,11 @@ class Package {
 	/// Returns all sources as absolute paths.
 	@property const(Path[]) sources() const {
 		Path[] allSources;
-		foreach(d; dirEntries((m_path ~ Path("source")).toNativeString(), "*.d", SpanMode.depth))
+		autp sourcePath = Path("source");
+		auto customSourcePath = "sourcePath" in m_meta;
+		if(customSourcePath)
+			sourcePath = customSourcePath.get!string();
+		foreach(d; dirEntries((m_path ~ sourcePath).toNativeString(), "*.d", SpanMode.depth))
 			allSources ~= Path(d.name);
 		return allSources;
 	}
