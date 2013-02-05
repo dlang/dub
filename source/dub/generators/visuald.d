@@ -22,8 +22,8 @@ import dub.package_;
 import dub.packagemanager;
 import dub.generators.generator;
 
-// version = VISUALD_SEPERATE_PROJECT_FILES;
-version = VISUALD_SINGLE_PROJECT_FILE;
+version = VISUALD_SEPERATE_PROJECT_FILES;
+//version = VISUALD_SINGLE_PROJECT_FILE;
 
 // Dubbing is developing dub...
 //version = DUBBING;
@@ -33,7 +33,6 @@ class VisualDGenerator : ProjectGenerator {
 		Project m_app;
 		PackageManager m_pkgMgr;
 		string[string] m_projectUuids;
-		bool[string] m_generatedProjects;
 	}
 	
 	this(Project app, PackageManager mgr) {
@@ -148,9 +147,10 @@ EndGlobal");
 			
 			version(VISUALD_SEPERATE_PROJECT_FILES) 
 			{
-				m_generatedProjects[main.name] = true;
+				bool[string] generatedProjects;
+				generatedProjects[main.name] = true;
 				performOnDependencies(main, (const Package dependency) {
-					if(dependency.name in m_generatedProjects)
+					if(dependency.name in generatedProjects)
 						return;
 					generateProjects(dependency, buildPlatform);
 				} );
@@ -169,17 +169,16 @@ EndGlobal");
 			// Several configurations (debug, release, unittest)
 			generateProjectConfiguration(ret, pack, Config.Debug, buildPlatform);
 			generateProjectConfiguration(ret, pack, Config.Release, buildPlatform);
-	//		generateProjectConfiguration(ret, pack, Config.Unittest);
+			generateProjectConfiguration(ret, pack, Config.Unittest, buildPlatform);
 
 			// Add all files
 			bool[SourceFile] sourceFiles;
-			void gatherSources(const(Package) pack, string prefix) {
-				logDebug("Gather sources for %s", pack.name);
-				if(prefix != "") prefix = "|" ~ prefix ~ "|";
+			void gatherSources(const(Package) pack, bool prefixPkgId) {
+				logTrace("Gathering sources for %s", pack.name);
 				foreach(source; pack.sources) {
-					SourceFile f = { pack.name, Path(pack.name)~source, pack.path ~ source };
+					SourceFile f = { pack.name, prefixPkgId? Path(pack.name)~source : source, pack.path ~ source };
 					sourceFiles[f] = true;
-					logDebug("pkg file: %s", source);
+					logTrace(" pkg file: %s", source);
 				}
 			}
 			
@@ -192,14 +191,14 @@ EndGlobal");
 					if(package_.name in gathered)
 						return;
 					gathered[package_.name] = true;
-					gatherSources(package_, ""/*package_.name*/);
+					gatherSources(package_, true);
 					performOnDependencies(package_, (const Package dependency) { gatherAll(dependency); });
 				}
 				gatherAll(pack);
 			}
 			version(VISUALD_SEPERATE_PROJECT_FILES) {
 				// gather sources for this package only
-				gatherSources(pack, "");
+				gatherSources(pack, false);
 			}
 			
 			// Create folders and files
@@ -240,14 +239,63 @@ EndGlobal");
 			auto settings = m_app.getBuildSettings(platform, m_app.getDefaultConfiguration(platform));
 			string[] getSettings(string setting)(){ return __traits(getMember, settings, setting); }
 			
-			// Specify build configuration name
-			ret.formattedWrite("
-  <Config name=\"%s\" platform=\"Win32\">", to!string(type));
+			foreach(architecture; platform.architecture) {
+				string arch;
+				switch(architecture) {
+					default: logWarn("Unsupported platform('%s'), defaulting to x86", architecture);
+					case "x86": arch = "Win32"; break;
+					case "x64": arch = "x64"; break;
+				}
+				ret.formattedWrite("
+  <Config name=\"%s\" platform=\"%s\">", to!string(type), arch);
 			
-			ret.formattedWrite("
+				// debug and optimize setting
+				ret.formattedWrite("			
+    <symdebug>%s</symdebug>
+    <optimize>%s</optimize>", type != Config.Release? "1":"0", type != Config.Debug? "1":"0");
+
+				// Lib or exe?
+				bool createLib = pack != m_app.mainPackage();
+				string libIdentifier = createLib? "1" : "0";
+				string debugSuffix = type == Config.Debug? "_d" : "";
+				string extension = createLib? "lib" : "exe";
+				ret.formattedWrite("
+    <lib>%s</lib>
+    <exefile>bin\\$(ProjectName)%s.%s</exefile>", libIdentifier, debugSuffix, extension);
+
+				// include paths and string imports
+				string imports = join(getSettings!"importPaths"(), " ");
+				string stringImports = join(getSettings!"stringImportPaths"(), " ");
+				ret.formattedWrite("
+    <imppath>%s</imppath>
+    <fileImppath>%s</fileImppath>", imports, stringImports);
+
+				// Compiler?
+				string compiler = "$(DMDInstallDir)windows\\bin\\dmd.exe";
+				string dflags = join(getSettings!"dflags"(), " ");
+				ret.formattedWrite("
+    <program>%s</program>
+    <additionalOptions>%s</additionalOptions>", compiler, dflags);
+
+				// Add version identifiers
+				string versions = join(getSettings!"versions"(), " ");
+				ret.formattedWrite("
+    <versionids>%s</versionids>", versions);
+
+				// Add libraries, system libs need to be suffixed by ".lib".
+				string linkLibs = join(map!(a => a~".lib")(getSettings!"libs"()), " ");
+				string addLinkFiles = join(getSettings!"files"(), " ");
+				ret.formattedWrite("
+    <libfiles>%s</libfiles>", linkLibs ~ " " ~ addLinkFiles);
+
+				// Unittests
+				ret.formattedWrite("
+				<useUnitTests>%s</useUnitTests>", type == Config.Unittest? "1" : "0");
+		
+				// Not yet dynamic stuff
+				ret.formattedWrite("
     <obj>0</obj>
     <link>0</link>
-    <lib>0</lib>
     <subsystem>0</subsystem>
     <multiobj>0</multiobj>
     <singleFileCompilation>0</singleFileCompilation>
@@ -255,14 +303,7 @@ EndGlobal");
     <trace>0</trace>
     <quiet>0</quiet>
     <verbose>0</verbose>
-    <vtls>0</vtls>");
-	
-			// debug and optimize setting
-			ret.formattedWrite("			
-    <symdebug>%s</symdebug>
-    <optimize>%s</optimize>", type != Config.Release? "1":"0", type != Config.Debug? "1":"0");
-			
-			ret.formattedWrite("
+    <vtls>0</vtls>
     <cpu>0</cpu>
     <isX86_64>0</isX86_64>
     <isLinux>0</isLinux>
@@ -279,7 +320,6 @@ EndGlobal");
     <useArrayBounds>0</useArrayBounds>
     <noboundscheck>0</noboundscheck>
     <useSwitchError>0</useSwitchError>
-    <useUnitTests>0</useUnitTests>
     <useInline>0</useInline>
     <release>0</release>
     <preservePaths>0</preservePaths>
@@ -293,23 +333,7 @@ EndGlobal");
     <Dversion>2</Dversion>
     <ignoreUnsupportedPragmas>0</ignoreUnsupportedPragmas>
     <compiler>0</compiler>
-    <otherDMD>0</otherDMD>");
-	
-			// include paths and string imports
-			string imports = join(getSettings!"importPaths"(), " ");
-			string stringImports = join(getSettings!"stringImportPaths"(), " ");
-			ret.formattedWrite("
-    <imppath>%s</imppath>
-    <fileImppath>%s</fileImppath>", imports, stringImports);
-	
-			// Compiler?
-			string compiler = "$(DMDInstallDir)windows\\bin\\dmd.exe";
-			string dflags = join(getSettings!"dflags"(), " ");
-			ret.formattedWrite("
-    <program>%s</program>
-	<additionalOptions>%s</additionalOptions>", compiler, dflags);
-			
-			ret.formattedWrite("
+    <otherDMD>0</otherDMD>
     <outdir>$(ConfigurationName)</outdir>
     <objdir>$(OutDir)</objdir>
     <objname />
@@ -326,14 +350,7 @@ EndGlobal");
     <xfilename>$(IntDir)\\$(TargetName).json</xfilename>
     <debuglevel>0</debuglevel>
     <versionlevel>0</versionlevel>
-    <debugids />"); // version ids ?
-	
-			// Add version identifiers
-			string versions = join(getSettings!"versions"(), " ");
-			ret.formattedWrite("
-    <versionids>%s</versionids>", versions);
-	
-			ret.formattedWrite("
+    <debugids />
     <dump_source>0</dump_source>
     <mapverbosity>0</mapverbosity>
     <createImplib>0</createImplib>
@@ -341,10 +358,7 @@ EndGlobal");
     <debuglibname />
     <moduleDepsFile />
     <run>0</run>
-    <runargs />");
-			
-			// TODO: Mago? Debugger settings!
-			ret.formattedWrite("
+    <runargs />
     <runCv2pdb>1</runCv2pdb>
     <pathCv2pdb>$(VisualDInstallDir)cv2pdb\\cv2pdb.exe</pathCv2pdb>
     <cv2pdbPre2043>0</cv2pdbPre2043>
@@ -352,29 +366,15 @@ EndGlobal");
     <cv2pdbEnumType>0</cv2pdbEnumType>
     <cv2pdbOptions />
     <objfiles />
-    <linkswitches />");
-			
-			// Add libraries, system libs need to be suffixed by ".lib".
-			string linkLibs = join(map!(a => a~".lib")(getSettings!"libs"()), " ");
-			string addLinkFiles = join(getSettings!"files"(), " ");
-			ret.formattedWrite("
-    <libfiles>%s</libfiles>", linkLibs ~ " " ~ addLinkFiles);
-			
-			// Add library paths ( not necessary, libraries have absolute path )
-			ret.formattedWrite("
+    <linkswitches />
     <libpaths />
     <deffile />
     <resfile />
-    <exefile>bin\\$(ProjectName)_d.exe</exefile>
-    <preBuildCommand />");
-			
-			// Add a post build command to copy files
-			ret.formattedWrite("
-    <postBuildCommand />");
-			
-			ret.formattedWrite("
+    <preBuildCommand />
+    <postBuildCommand />
     <filesToClean>*.obj;*.cmd;*.build;*.json;*.dep</filesToClean>
   </Config>");
+			} // foreach(architecture)
 		}
 		
 		void performOnDependencies(const Package main, void delegate(const Package pack) op) {
