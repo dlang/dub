@@ -242,7 +242,7 @@ EndGlobal");
 			foreach(architecture; platform.architecture) {
 				string arch;
 				switch(architecture) {
-					default: logWarn("Unsupported platform('%s'), defaulting to x86", architecture);
+					default: logWarn("Unsupported platform('%s'), defaulting to x86", architecture); goto case;
 					case "x86": arch = "Win32"; break;
 					case "x64": arch = "x64"; break;
 				}
