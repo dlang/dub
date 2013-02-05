@@ -169,9 +169,6 @@ class Dub {
 			logError("Unsupported IDE, there is no generator available for '"~ide~"'");
 			throw new Exception("Unsupported IDE, there is no generator available for '"~ide~"'");
 		}
-		
-		// Q: update before generating?
-		
 		generator.generateProject(build_platform);
 	}
 	

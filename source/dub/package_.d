@@ -244,15 +244,20 @@ class Package {
 		return ret;
 	}
 	
-	/// Returns all sources as absolute paths.
+	/// Returns all sources as relative paths, prepend each with 
+	/// path() to get the absolute one.
 	@property const(Path[]) sources() const {
 		Path[] allSources;
 		auto sourcePath = Path("source");
 		auto customSourcePath = "sourcePath" in m_meta;
 		if(customSourcePath)
 			sourcePath = Path(customSourcePath.get!string());
-		foreach(d; dirEntries((m_path ~ sourcePath).toNativeString(), "*.d", SpanMode.depth))
-			allSources ~= Path(d.name);
+		foreach(d; dirEntries((m_path ~ sourcePath).toNativeString(), "*.d", SpanMode.depth)) {
+			// direct assignment allSources ~= Path(d.name)[...] spawns internal compiler/linker error
+			if(isDir(d.name)) continue;
+			auto p = Path(d.name);
+			allSources ~= p[m_path.length..$];
+		}
 		return allSources;
 	}
 	

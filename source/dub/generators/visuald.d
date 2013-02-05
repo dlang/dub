@@ -25,6 +25,9 @@ import dub.generators.generator;
 // version = VISUALD_SEPERATE_PROJECT_FILES;
 version = VISUALD_SINGLE_PROJECT_FILE;
 
+// Dubbing is developing dub...
+//version = DUBBING;
+
 class VisualDGenerator : ProjectGenerator {
 	private {
 		Project m_app;
@@ -83,7 +86,7 @@ EndGlobal");
 
 			// Writing solution file
 			logTrace("About to write to .sln file with %s bytes", to!string(ret.data().length));
-			auto sln = openFile(m_app.mainPackage().name ~ ".sln", FileMode.CreateTrunc);
+			auto sln = openFile(solutionFileName(), FileMode.CreateTrunc);
 			scope(exit) sln.close();
 			sln.write(ret.data());
 			sln.flush();
@@ -102,7 +105,7 @@ EndGlobal");
 		void generateSolutionEntry(Appender!(char[]) ret, const Package pack) {
 			auto projUuid = generateUUID();
 			auto projName = pack.name;
-			auto projPath = pack.name ~ ".visualdproj";
+			auto projPath = projFileName(pack);
 			auto projectUuid = guid(projName);
 			
 			// Write project header, like so
@@ -169,19 +172,12 @@ EndGlobal");
 	//		generateProjectConfiguration(ret, pack, Config.Unittest);
 
 			// Add all files
-			// TODO: nice folders
-			struct SourceFile {
-				string pkg;
-				Path structurePath;
-				Path filePath;
-				int opCmp(ref const SourceFile rhs) const { return filePath.opCmp(rhs.filePath); }
-			}
 			bool[SourceFile] sourceFiles;
-			void gatherSources(const(Package) package_, string prefix) {
-				logDebug("Gather sources for %s", package_.name);
+			void gatherSources(const(Package) pack, string prefix) {
+				logDebug("Gather sources for %s", pack.name);
 				if(prefix != "") prefix = "|" ~ prefix ~ "|";
-				foreach(source; package_.sources) {
-					SourceFile f = { package_.name, source, source };
+				foreach(source; pack.sources) {
+					SourceFile f = { pack.name, Path(pack.name)~source, pack.path ~ source };
 					sourceFiles[f] = true;
 					logDebug("pkg file: %s", source);
 				}
@@ -207,34 +203,37 @@ EndGlobal");
 			}
 			
 			// Create folders and files
-			// TODO: nice foldering
 			ret.formattedWrite("\n  <Folder name=\"%s\">", pack.name);
-			version(VISUALD_SINGLE_PROJECT_FILE) {
-				SourceFile[] files = sourceFiles.keys;
-				sort!("a.pkg > b.pkg")(files);
-				string last = "";
-				foreach(source; files) {
-					if(last != source.pkg) {
-						if(!last.empty)
-							ret.put("\n    </Folder>");
-						ret.formattedWrite("\n    <Folder name=\"%s\">", source.pkg);
-						last = source.pkg;
-					}
-					ret.formattedWrite("\n      <File path=\"%s\" />",  source.filePath.toNativeString());
+			Path lastFolder;
+			foreach(source; sortedSources(sourceFiles.keys)) {
+				auto cur = source.structurePath[0..$-1];
+				if(lastFolder != cur) {
+					int same = 0;
+					foreach(int idx; 0..min(lastFolder.length, cur.length))
+						if(lastFolder[idx] != cur[idx]) break;
+						else same = idx+1;
+
+					const int decrease = max(0, lastFolder.length - same);
+					const int increase = max(0, cur.length - same);
+
+					foreach(unused; 0..decrease)
+						ret.put("\n    </Folder>");
+					foreach(idx; 0..increase)
+						ret.formattedWrite("\n    <Folder name=\"%s\">", cur[same + idx].toString());
+					lastFolder = cur;
 				}
+				ret.formattedWrite("\n      <File path=\"%s\" />",  source.filePath.toNativeString());
+			}
+			// Finalize all open folders
+			foreach(unused; 0..lastFolder.length)
 				ret.put("\n    </Folder>");
-			}
-			version(VISUALD_SEPERATE_PROJECT_FILES) {
-				foreach(source, dummy; sourceFiles)
-					ret.formattedWrite("\n  <File path=\"%s\" />",  source.filePath.toNativeString());
-			}
 			ret.put("\n  </Folder>\n</DProject>");
 
 			logTrace("About to write to '%s.visualdproj' file %s bytes", pack.name, ret.data().length);
-			auto sln = openFile(pack.name ~ ".visualdproj", FileMode.CreateTrunc);
-			scope(exit) sln.close();
-			sln.write(ret.data());
-			sln.flush();
+			auto proj = openFile(projFileName(pack), FileMode.CreateTrunc);
+			scope(exit) proj.close();
+			proj.write(ret.data());
+			proj.flush();
 		}
 		
 		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, Config type, BuildPlatform platform) {
@@ -297,15 +296,20 @@ EndGlobal");
     <otherDMD>0</otherDMD>");
 	
 			// include paths and string imports
-			string imports;
-			string stringImports;
+			string imports = join(getSettings!"importPaths"(), " ");
+			string stringImports = join(getSettings!"stringImportPaths"(), " ");
 			ret.formattedWrite("
     <imppath>%s</imppath>
     <fileImppath>%s</fileImppath>", imports, stringImports);
 	
 			// Compiler?
+			string compiler = "$(DMDInstallDir)windows\\bin\\dmd.exe";
+			string dflags = join(getSettings!"dflags"(), " ");
 			ret.formattedWrite("
-    <program>$(DMDInstallDir)windows\\bin\\dmd.exe</program>
+    <program>%s</program>
+	<additionalOptions>%s</additionalOptions>", compiler, dflags);
+			
+			ret.formattedWrite("
     <outdir>$(ConfigurationName)</outdir>
     <objdir>$(OutDir)</objdir>
     <objname />
@@ -351,7 +355,7 @@ EndGlobal");
     <linkswitches />");
 			
 			// Add libraries, system libs need to be suffixed by ".lib".
-			string linkLibs = join(map!("a~\".lib\"")(getSettings!"libs"()), " ");
+			string linkLibs = join(map!(a => a~".lib")(getSettings!"libs"()), " ");
 			string addLinkFiles = join(getSettings!"files"(), " ");
 			ret.formattedWrite("
     <libfiles>%s</libfiles>", linkLibs ~ " " ~ addLinkFiles);
@@ -362,7 +366,6 @@ EndGlobal");
     <deffile />
     <resfile />
     <exefile>bin\\$(ProjectName)_d.exe</exefile>
-    <additionalOptions />
     <preBuildCommand />");
 			
 			// Add a post build command to copy files
@@ -398,9 +401,74 @@ EndGlobal");
 				m_projectUuids[projectName] = generateUUID();
 			return m_projectUuids[projectName];
 		}
-		
-		string libfiles(const Package pack) {
-			return "";
+
+		auto solutionFileName() const {
+			version(DUBBING) return m_app.mainPackage().name ~ ".dubbed.sln";
+			else return m_app.mainPackage().name ~ ".sln";
 		}
+
+		auto projFileName(ref const Package pack) const {
+			version(DUBBING) return pack.name ~ ".dubbed.visualdproj";
+			else return pack.name ~ ".visualdproj";
+		}
+	}
+
+	// TODO: nice folders
+	struct SourceFile {
+		string pkg;
+		Path structurePath;
+		Path filePath;
+
+		int opCmp(ref const SourceFile rhs) const { return sortOrder(this, rhs); }
+		// "a < b" for folder structures (deepest folder first, else lexical)
+		private final static int sortOrder(ref const SourceFile a, ref const SourceFile b) {
+			enforce(!a.structurePath.empty());
+			enforce(!b.structurePath.empty());
+			auto as = a.structurePath;
+			auto bs = b.structurePath;
+
+			// Check for different folders, compare folders only (omit last one).
+			for(uint idx=0; idx<min(as.length-1, bs.length-1); ++idx)
+				if(as[idx] != bs[idx])
+					return as[idx].opCmp(bs[idx]);
+
+			if(as.length != bs.length) {
+				// If length differ, the longer one is "smaller", that is more 
+				// specialized and will be put out first.
+				return as.length > bs.length? -1 : 1;
+			}
+			else {
+				// Both paths indicate files in the same directory, use lexical
+				// ordering for those.
+				return as.head.opCmp(bs.head);
+			}
+		}
+	}
+
+	auto sortedSources(SourceFile[] sources) {
+		return sort(sources);
+	}
+
+	unittest {
+		SourceFile[] sfs = [
+			{ "", Path("b/file.d"), Path("") },
+			{ "", Path("b/b/fileA.d"), Path("") },
+			{ "", Path("a/file.d"), Path("") },
+			{ "", Path("b/b/fileB.d"), Path("") },
+			{ "", Path("b/b/b/fileA.d"), Path("") },
+			{ "", Path("b/c/fileA.d"), Path("") },
+		];
+		auto sorted = sort(sfs);
+		SourceFile[] sortedSfs;
+		foreach(sr; sorted) {
+			logInfo("%s", sr.structurePath.toNativeString());
+			sortedSfs ~= sr;
+		}
+		assert(sortedSfs[0].structurePath == Path("a/file.d"), "1");
+		assert(sortedSfs[1].structurePath == Path("b/b/b/fileA.d"), "2");
+		assert(sortedSfs[2].structurePath == Path("b/b/fileA.d"), "3");
+		assert(sortedSfs[3].structurePath == Path("b/b/fileB.d"), "4");
+		assert(sortedSfs[4].structurePath == Path("b/c/fileA.d"), "5");
+		assert(sortedSfs[5].structurePath == Path("b/file.d"), "6");
 	}
 }
