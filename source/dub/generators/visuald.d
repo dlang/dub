@@ -207,13 +207,13 @@ EndGlobal");
 			foreach(source; sortedSources(sourceFiles.keys)) {
 				auto cur = source.structurePath[0..$-1];
 				if(lastFolder != cur) {
-					int same = 0;
-					foreach(int idx; 0..min(lastFolder.length, cur.length))
+					size_t same = 0;
+					foreach(idx; 0..min(lastFolder.length, cur.length))
 						if(lastFolder[idx] != cur[idx]) break;
 						else same = idx+1;
 
-					const int decrease = max(0, lastFolder.length - same);
-					const int increase = max(0, cur.length - same);
+					const decrease = lastFolder.length - min(lastFolder.length, same);
+					const increase = cur.length - min(cur.length, same);
 
 					foreach(unused; 0..decrease)
 						ret.put("\n    </Folder>");
