@@ -199,7 +199,7 @@ class Dub {
 		logDebug("Aquiring package zip file");
 		auto dload = m_root ~ ".dub/temp/downloads";
 		auto tempFile = m_tempPath ~ ("dub-download-"~packageId~"-"~ver~".zip");
-		string sTempFile = to!string(tempFile);
+		string sTempFile = tempFile.toNativeString();
 		if(exists(sTempFile)) remove(sTempFile);
 		m_packageSupplier.storePackage(tempFile, packageId, dep); // Q: continue on fail?
 		scope(exit) remove(sTempFile);
