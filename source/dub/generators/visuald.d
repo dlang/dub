@@ -205,6 +205,7 @@ EndGlobal");
 			ret.formattedWrite("\n  <Folder name=\"%s\">", pack.name);
 			Path lastFolder;
 			foreach(source; sortedSources(sourceFiles.keys)) {
+				logTrace("source looking at %s", source.structurePath);
 				auto cur = source.structurePath[0..$-1];
 				if(lastFolder != cur) {
 					size_t same = 0;

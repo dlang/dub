@@ -14,6 +14,7 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.file;
+import vibe.core.log;
 import vibe.core.file;
 import vibe.data.json;
 import vibe.inet.url;
@@ -252,6 +253,7 @@ class Package {
 		auto customSourcePath = "sourcePath" in m_meta;
 		if(customSourcePath)
 			sourcePath = Path(customSourcePath.get!string());
+		logTrace("Parsing directory for sources: %s", m_path ~ sourcePath);
 		foreach(d; dirEntries((m_path ~ sourcePath).toNativeString(), "*.d", SpanMode.depth)) {
 			// direct assignment allSources ~= Path(d.name)[...] spawns internal compiler/linker error
 			if(isDir(d.name)) continue;
