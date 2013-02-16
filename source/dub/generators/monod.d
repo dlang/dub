@@ -28,22 +28,24 @@ class MonoDGenerator : ProjectGenerator {
 		PackageManager m_pkgMgr;
 		string[string] m_projectUuids;
 		bool m_singleProject = true;
+		Config[] m_allConfigs;
 	}
 	
 	this(Project app, PackageManager mgr)
 	{
 		m_app = app;
 		m_pkgMgr = mgr;
+		m_allConfigs ~= Config("Debug", "AnyCPU", "Any CPU");
 	}
 	
 	void generateProject(BuildPlatform build_platform)
 	{
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, to!string(m_app.mainPackage().dependencies().length));
-		/+generateProjects(m_app.mainPackage());
-		generateSolution();+/
+		generateProjects(m_app.mainPackage());
+		generateSolution();
 	}
 	
-	/+private void generateSolution()
+	private void generateSolution()
 	{
 		auto sln = openFile(m_app.mainPackage().name ~ ".sln", FileMode.CreateTrunc);
 		scope(exit) sln.close();
@@ -56,27 +58,27 @@ class MonoDGenerator : ProjectGenerator {
 		sln.put("Microsoft Visual Studio Solution File, Format Version 11.00\n");
 		sln.put("# Visual Studio 2010\n");
 
-		generateSolutionEntry(sln, main);
-		if( m_singleProject ) enforce(main == m_app.mainPackage());
-		else performOnDependencies(main, (const Package pack) { generateSolutionEntries(sln, pack); } );
+		generateSolutionEntry(sln, m_app.mainPackage);
+		if( !m_singleProject )
+			performOnDependencies(m_app.mainPackage, pack => generateSolutionEntry(sln, pack));
 		
 		sln.put("Global\n");
 
 		// configuration platforms
 		sln.put("\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n");
-		foreach(config; allconfigs)
-			sln.formattedWrite("\t\t%s|%s = %s|%s\n", config.configName, config.plaformName);
+		foreach(config; m_allConfigs)
+			sln.formattedWrite("\t\t%s|%s = %s|%s\n", config.configName, config.platformName2,
+				config.configName, config.platformName2);
 		sln.put("\tEndGlobalSection\n");
 
 		// configuration platforms per project
 		sln.put("\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n");
-		generateSolutionConfig(sln, m_app.mainPackage());
-		auto projectUuid = guid(pack.name());
-		foreach(config; allconfigs)
+		auto projectUuid = guid(m_app.mainPackage.name);
+		foreach(config; m_allConfigs)
 			foreach(s; ["ActiveCfg", "Build.0"])
-				sln.formattedWrite("\n\t\t%s.%s|%s.%s = %s|%s",
-					projectUuid, config.configName, config.platformName, s,
-					config.configName, config.platformName);
+				sln.formattedWrite("\t\t%s.%s|%s.%s = %s|%s\n",
+					projectUuid, config.configName, config.platformName2, s,
+					config.configName, config.platformName2);
 		// TODO: for all dependencies
 		sln.put("\tEndGlobalSection\n");
 		
@@ -97,30 +99,27 @@ class MonoDGenerator : ProjectGenerator {
 	{
 		auto projUuid = generateUUID();
 		auto projName = pack.name;
-		auto projPath = pack.name ~ ".visualdproj";
+		auto projPath = pack.name ~ ".dproj";
 		auto projectUuid = guid(projName);
 		
 		// Write project header, like so
 		// Project("{002A2DE9-8BB6-484D-9802-7E4AD4084715}") = "derelict", "..\inbase\source\derelict.visualdproj", "{905EF5DA-649E-45F9-9C15-6630AA815ACB}"
-		ret.formattedWrite("\nProject(\"%s\") = \"%s\", \"%s\", \"%s\"",
+		ret.formattedWrite("Project(\"%s\") = \"%s\", \"%s\", \"%s\"\n",
 			projUuid, projName, projPath, projectUuid);
 
 		if( !m_singleProject ){
 			if(pack.dependencies.length > 0) {
-				ret.formattedWrite("
-	ProjectSection(ProjectDependencies) = postProject");
+				ret.put("	ProjectSection(ProjectDependencies) = postProject\n");
 				foreach(id, dependency; pack.dependencies) {
 					// TODO: clarify what "uuid = uuid" should mean
 					auto uuid = guid(id);
-					ret.formattedWrite("
-		%s = %s", uuid, uuid);
+					ret.formattedWrite("		%s = %s\n", uuid, uuid);
 				}
-				ret.formattedWrite("
-	EndProjectSection");
+				ret.put("	EndProjectSection\n");
 			}
 		}
-		
-		ret.formattedWrite("\nEndProject");
+
+		ret.put("EndProject\n");
 	}
 
 	private void generateProjects(in Package pack)
@@ -136,6 +135,7 @@ class MonoDGenerator : ProjectGenerator {
 			if( !m_singleProject )
 				performOnDependencies(p, &generateRec);
 		}
+		generateRec(pack);
 	}
 		
 	private void generateProject(in Package pack) {
@@ -149,16 +149,37 @@ class MonoDGenerator : ProjectGenerator {
 
 		auto projName = pack.name;
 
-		void generateProperties(Configuration config)
+		sln.put("  <PropertyGroup>\n");
+	    sln.put("    <Configuration Condition=\" '$(Configuration)' == '' \">Debug</Configuration>\n");
+    	sln.put("    <Platform Condition=\" '$(Platform)' == '' \">AnyCPU</Platform>\n");
+    	sln.put("    <ProductVersion>10.0.0</ProductVersion>\n");
+    	sln.put("    <SchemaVersion>2.0</SchemaVersion>\n");
+    	sln.formattedWrite("    <ProjectGuid>%s</ProjectGuid>\n", guid(pack.name));
+    	sln.put("    <PreferOneStepBuild>True</PreferOneStepBuild>\n");
+    	sln.put("    <UseDefaultCompiler>True</UseDefaultCompiler>\n");
+    	sln.put("    <IncrementalLinking>True</IncrementalLinking>\n");
+    	sln.put("    <Compiler>DMD2</Compiler>\n");
+		sln.put("  </PropertyGroup>\n");
+
+		void generateProperties(Config config)
 		{
-			sln.formattedWrite("\t<PropertyGroup> Condition=\" '$(Configuration)|$(Platform)' == '%s|%s' \"\n",
+			sln.formattedWrite("  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == '%s|%s' \">\n",
 				config.configName, config.platformName);
 			
-			// TODO!
-			sln.put("\n</PropertyGroup>\n");
+    		sln.put("    <DebugSymbols>True</DebugSymbols>\n");
+			sln.formattedWrite("    <OutputPath>bin/%s</OutputPath>\n", config.configName);
+			sln.put("    <Externalconsole>True</Externalconsole>\n");
+ 			sln.put("    <Target>Executable</Target>\n");
+    		sln.formattedWrite("    <OutputName>%s</OutputName>\n", pack.name);
+			sln.put("    <UnittestMode>False</UnittestMode>\n");
+			sln.formattedWrite("    <ObjectsDirectory>obj/%s</ObjectsDirectory>\n", config.configName);
+			sln.put("    <DebugLevel>0</DebugLevel>\n");
+			sln.put("    <ExtraCompilerArguments></ExtraCompilerArguments>\n");
+			sln.put("    <ExtraLinkerArguments></ExtraLinkerArguments>\n");
+			sln.put("  </PropertyGroup>\n");
 		}
 
-		foreach(config; allconfigs)
+		foreach(config; m_allConfigs)
 			generateProperties(config);
 
 
@@ -169,18 +190,16 @@ class MonoDGenerator : ProjectGenerator {
 			visited[p] = true;
 
 			foreach( s; p.sources )
-				sln.formattedWrite("\t\t<Compile Include=\"%s\" />\n", s);
-
-			if( m_singleProject ){
-				foreach( dep; p.dependencies )
-					generateSources(dep);
-			}
+				sln.formattedWrite("    <Compile Include=\"%s\" />\n", (p.path.relativeTo(pack.path) ~ s).toNativeString());
 		}
 
 
-		sln.put("\t<ItemGroup>\n");
+		sln.put("  <ItemGroup>\n");
 		generateSources(pack);
-		sln.put("\t</ItemGroup>\n");
+		if( m_singleProject )
+			foreach(dep; m_app.installedPackages)
+				generateSources(dep);
+		sln.put("  </ItemGroup>\n");
 		sln.put("</Project>");
 	}
 		
@@ -208,5 +227,11 @@ class MonoDGenerator : ProjectGenerator {
 		if(projectName !in m_projectUuids)
 			m_projectUuids[projectName] = generateUUID();
 		return m_projectUuids[projectName];
-	}+/
+	}
+}
+
+struct Config {
+	string configName;
+	string platformName;
+	string platformName2;
 }
