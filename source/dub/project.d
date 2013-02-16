@@ -55,6 +55,31 @@ class Project {
 
 	@property Path binaryPath() const { auto p = m_main.binaryPath; return p.length ? Path(p) : Path("./"); }
 
+	/// Gathers information
+	@property string info()
+	const {
+		if(!m_main)
+			return "-Unregocgnized application in '"~to!string(m_root)~"' (properly no package.json in this directory)";
+		string s = "-Application identifier: " ~ m_main.name;
+		s ~= "\n" ~ m_main.info();
+		s ~= "\n-Installed dependencies:";
+		foreach(p; m_dependencies)
+			s ~= "\n" ~ p.info();
+		return s;
+	}
+
+	/// Gets all installed packages as a "packageId" = "version" associative array
+	@property string[string] installedPackagesIDs() const {
+		string[string] pkgs;
+		foreach(p; m_dependencies)
+			pkgs[p.name] = p.vers;
+		return pkgs;
+	}
+
+	@property const(Package[]) installedPackages() const { return m_dependencies; }
+	
+	@property const (Package) mainPackage() const { return m_main; }
+
 	string getDefaultConfiguration(BuildPlatform platform)
 	const {
 		string ret;
@@ -67,34 +92,7 @@ class Project {
 		return ret;
 	}
 
-	/// Gathers information
-	string info() const {
-		if(!m_main)
-			return "-Unregocgnized application in '"~to!string(m_root)~"' (properly no package.json in this directory)";
-		string s = "-Application identifier: " ~ m_main.name;
-		s ~= "\n" ~ m_main.info();
-		s ~= "\n-Installed dependencies:";
-		foreach(p; m_dependencies)
-			s ~= "\n" ~ p.info();
-		return s;
-	}
 
-	/// Gets all installed packages as a "packageId" = "version" associative array
-	string[string] installedPackagesIDs() const {
-		string[string] pkgs;
-		foreach(p; m_dependencies)
-			pkgs[p.name] = p.vers;
-		return pkgs;
-	}
-
-	const(Package[]) installedPackages() const {
-		return m_dependencies;
-	}
-	
-	const (Package) mainPackage() const {
-		return m_main;
-	}
-	
 	/// Writes the application's metadata to the package.json file
 	/// in it's root folder.
 	void writeMetadata() const {
