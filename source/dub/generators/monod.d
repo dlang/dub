@@ -41,7 +41,7 @@ class MonoDGenerator : ProjectGenerator {
 	void generateProject(BuildPlatform build_platform)
 	{
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, to!string(m_app.mainPackage().dependencies().length));
-		generateProjects(m_app.mainPackage());
+		generateProjects(m_app.mainPackage(), build_platform);
 		generateSolution();
 	}
 	
@@ -122,7 +122,7 @@ class MonoDGenerator : ProjectGenerator {
 		ret.put("EndProject\n");
 	}
 
-	private void generateProjects(in Package pack)
+	private void generateProjects(in Package pack, BuildPlatform build_platform)
 	{
 		bool[const(Package)] visited;
 
@@ -130,7 +130,7 @@ class MonoDGenerator : ProjectGenerator {
 			if( p in visited ) return;
 			visited[p] = true;
 
-			generateProject(p);
+			generateProject(p, build_platform);
 
 			if( !m_singleProject )
 				performOnDependencies(p, &generateRec);
@@ -138,7 +138,8 @@ class MonoDGenerator : ProjectGenerator {
 		generateRec(pack);
 	}
 		
-	private void generateProject(in Package pack) {
+	private void generateProject(in Package pack, BuildPlatform build_platform)
+	{
 		logTrace("About to write to '%s.dproj' file", pack.name);
 		auto sln = openFile(pack.name ~ ".dproj", FileMode.CreateTrunc);
 		scope(exit) sln.close();
@@ -148,6 +149,8 @@ class MonoDGenerator : ProjectGenerator {
 		// TODO: property groups
 
 		auto projName = pack.name;
+
+		auto buildsettings = m_app.getBuildSettings(build_platform, m_app.getDefaultConfiguration(build_platform));
 
 		sln.put("  <PropertyGroup>\n");
 	    sln.put("    <Configuration Condition=\" '$(Configuration)' == '' \">Debug</Configuration>\n");
@@ -159,6 +162,32 @@ class MonoDGenerator : ProjectGenerator {
     	sln.put("    <UseDefaultCompiler>True</UseDefaultCompiler>\n");
     	sln.put("    <IncrementalLinking>True</IncrementalLinking>\n");
     	sln.put("    <Compiler>DMD2</Compiler>\n");
+    	if( !buildsettings.versions.empty ){
+			sln.put("    <VersionIds>\n");
+			sln.put("      <VersionIds>\n");
+			sln.formattedWrite("        <String>%s</String>\n", buildsettings.versions.join(", "));
+			sln.put("      </VersionIds>\n");
+			sln.put("    </VersionIds>\n");
+		}
+		if( !buildsettings.importPaths.empty ){
+	    	sln.put("    <Includes>\n");
+	    	sln.put("      <Includes>\n");
+	    	foreach(dir; buildsettings.importPaths)
+	    		sln.formattedWrite("        <Path>%s</Path>\n", dir);
+	    	sln.put("      </Includes>\n");
+	    	sln.put("    </Includes>\n");
+	    }
+	    if( !buildsettings.libs.empty ){
+	    	sln.put("    <Libs>\n");
+	    	sln.put("      <Libs>\n");
+	    	foreach(dir; buildsettings.libs)
+	    		sln.formattedWrite("        <Lib>%s</Lib>\n", build_platform.platform.canFind("windows") ? dir ~ ".lib" : dir);
+	    	sln.put("      </Libs>\n");
+	    	sln.put("    </Libs>\n");
+	    }
+    	buildsettings.dflags ~= buildsettings.stringImportPaths.map!(p => "-J"~p)().array();
+		sln.formattedWrite("    <ExtraCompilerArguments>%s</ExtraCompilerArguments>\n", buildsettings.dflags.join(" "));
+		sln.formattedWrite("    <ExtraLinkerArguments>%s</ExtraLinkerArguments>\n", buildsettings.lflags.join(" "));
 		sln.put("  </PropertyGroup>\n");
 
 		void generateProperties(Config config)
@@ -167,15 +196,13 @@ class MonoDGenerator : ProjectGenerator {
 				config.configName, config.platformName);
 			
     		sln.put("    <DebugSymbols>True</DebugSymbols>\n");
-			sln.formattedWrite("    <OutputPath>bin/%s</OutputPath>\n", config.configName);
+			sln.formattedWrite("    <OutputPath>bin\\%s</OutputPath>\n", config.configName);
 			sln.put("    <Externalconsole>True</Externalconsole>\n");
  			sln.put("    <Target>Executable</Target>\n");
     		sln.formattedWrite("    <OutputName>%s</OutputName>\n", pack.name);
 			sln.put("    <UnittestMode>False</UnittestMode>\n");
-			sln.formattedWrite("    <ObjectsDirectory>obj/%s</ObjectsDirectory>\n", config.configName);
+			sln.formattedWrite("    <ObjectsDirectory>obj\\%s</ObjectsDirectory>\n", config.configName);
 			sln.put("    <DebugLevel>0</DebugLevel>\n");
-			sln.put("    <ExtraCompilerArguments></ExtraCompilerArguments>\n");
-			sln.put("    <ExtraLinkerArguments></ExtraLinkerArguments>\n");
 			sln.put("  </PropertyGroup>\n");
 		}
 
@@ -191,6 +218,8 @@ class MonoDGenerator : ProjectGenerator {
 
 			foreach( s; p.sources )
 				sln.formattedWrite("    <Compile Include=\"%s\" />\n", (p.path.relativeTo(pack.path) ~ s).toNativeString());
+			foreach( s; buildsettings.files )
+				sln.formattedWrite("    <Compile Include=\"%s\" />\n", s);
 		}
 
 
