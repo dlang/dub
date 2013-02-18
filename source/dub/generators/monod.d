@@ -43,11 +43,11 @@ class MonoDGenerator : ProjectGenerator {
 	void generateProject(GeneratorSettings settings)
 	{
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, to!string(m_app.mainPackage().dependencies().length));
-		generateProjects(m_app.mainPackage(), settings.platform);
-		generateSolution();
+		generateProjects(m_app.mainPackage(), settings);
+		generateSolution(settings);
 	}
 	
-	private void generateSolution()
+	private void generateSolution(GeneratorSettings settings)
 	{
 		auto sln = openFile(m_app.mainPackage().name ~ ".sln", FileMode.CreateTrunc);
 		scope(exit) sln.close();
@@ -60,9 +60,9 @@ class MonoDGenerator : ProjectGenerator {
 		sln.put("Microsoft Visual Studio Solution File, Format Version 11.00\n");
 		sln.put("# Visual Studio 2010\n");
 
-		generateSolutionEntry(sln, m_app.mainPackage);
+		generateSolutionEntry(sln, settings, m_app.mainPackage);
 		if( !m_singleProject )
-			performOnDependencies(m_app.mainPackage, pack => generateSolutionEntry(sln, pack));
+			performOnDependencies(m_app.mainPackage, pack => generateSolutionEntry(sln, settings, pack));
 		
 		sln.put("Global\n");
 
@@ -97,7 +97,7 @@ class MonoDGenerator : ProjectGenerator {
 		sln.put("EndGlobal\n");
 	}
 	
-	private void generateSolutionEntry(OutputStream ret, const Package pack)
+	private void generateSolutionEntry(OutputStream ret, GeneratorSettings settings, const Package pack)
 	{
 		auto projUuid = generateUUID();
 		auto projName = pack.name;
@@ -124,7 +124,7 @@ class MonoDGenerator : ProjectGenerator {
 		ret.put("EndProject\n");
 	}
 
-	private void generateProjects(in Package pack, BuildPlatform build_platform)
+	private void generateProjects(in Package pack, GeneratorSettings settings)
 	{
 		bool[const(Package)] visited;
 
@@ -132,7 +132,7 @@ class MonoDGenerator : ProjectGenerator {
 			if( p in visited ) return;
 			visited[p] = true;
 
-			generateProject(p, build_platform);
+			generateProject(p, settings);
 
 			if( !m_singleProject )
 				performOnDependencies(p, &generateRec);
@@ -140,7 +140,7 @@ class MonoDGenerator : ProjectGenerator {
 		generateRec(pack);
 	}
 		
-	private void generateProject(in Package pack, BuildPlatform build_platform)
+	private void generateProject(in Package pack, GeneratorSettings settings)
 	{
 		logTrace("About to write to '%s.dproj' file", pack.name);
 		auto sln = openFile(pack.name ~ ".dproj", FileMode.CreateTrunc);
@@ -152,7 +152,10 @@ class MonoDGenerator : ProjectGenerator {
 
 		auto projName = pack.name;
 
-		auto buildsettings = m_app.getBuildSettings(build_platform, m_app.getDefaultConfiguration(build_platform));
+		auto buildsettings = m_app.getBuildSettings(settings.platform, m_app.getDefaultConfiguration(settings.platform));
+
+		// Mono-D does not have a setting for string import paths
+	    settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.all & ~BuildSetting.stringImportPaths);
 
 		sln.put("  <PropertyGroup>\n");
 	    sln.put("    <Configuration Condition=\" '$(Configuration)' == '' \">Debug</Configuration>\n");
@@ -167,7 +170,8 @@ class MonoDGenerator : ProjectGenerator {
     	if( !buildsettings.versions.empty ){
 			sln.put("    <VersionIds>\n");
 			sln.put("      <VersionIds>\n");
-			sln.formattedWrite("        <String>%s</String>\n", buildsettings.versions.join(", "));
+			foreach(ver; buildsettings.versions)
+				sln.formattedWrite("        <String>%s</String>\n", ver);
 			sln.put("      </VersionIds>\n");
 			sln.put("    </VersionIds>\n");
 		}
@@ -183,11 +187,10 @@ class MonoDGenerator : ProjectGenerator {
 	    	sln.put("    <Libs>\n");
 	    	sln.put("      <Libs>\n");
 	    	foreach(dir; buildsettings.libs)
-	    		sln.formattedWrite("        <Lib>%s</Lib>\n", build_platform.platform.canFind("windows") ? dir ~ ".lib" : dir);
+	    		sln.formattedWrite("        <Lib>%s</Lib>\n", settings.platform.platform.canFind("windows") ? dir ~ ".lib" : dir);
 	    	sln.put("      </Libs>\n");
 	    	sln.put("    </Libs>\n");
 	    }
-    	buildsettings.dflags ~= buildsettings.stringImportPaths.map!(p => "-J"~p)().array();
 		sln.formattedWrite("    <ExtraCompilerArguments>%s</ExtraCompilerArguments>\n", buildsettings.dflags.join(" "));
 		sln.formattedWrite("    <ExtraLinkerArguments>%s</ExtraLinkerArguments>\n", buildsettings.lflags.join(" "));
 		sln.put("  </PropertyGroup>\n");
@@ -218,8 +221,11 @@ class MonoDGenerator : ProjectGenerator {
 			if( p in visited ) return;
 			visited[p] = true;
 
-			foreach( s; p.sources )
+			foreach( s; p.sources ){
+				if( p !is m_app.mainPackage && s == Path("source/app.d") )
+					continue;
 				sln.formattedWrite("    <Compile Include=\"%s\" />\n", (p.path.relativeTo(pack.path) ~ s).toNativeString());
+			}
 			foreach( s; buildsettings.files )
 				sln.formattedWrite("    <Compile Include=\"%s\" />\n", s);
 		}
@@ -236,16 +242,24 @@ class MonoDGenerator : ProjectGenerator {
 		
 	void performOnDependencies(const Package main, void delegate(const Package pack) op)
 	{
-		foreach(id, dependency; main.dependencies){
-			logDebug("Retrieving package %s from package manager.", id);
-			auto pack = m_pkgMgr.getBestPackage(id, dependency);
-			if(pack is null) {
-			 	logWarn("Package %s (%s) could not be retrieved continuing...", id, to!string(dependency));
-				continue;
+		bool[const(Package)] visited;
+		void perform_rec(const Package parent_pack){
+			foreach(id, dependency; parent_pack.dependencies){
+				logDebug("Retrieving package %s from package manager.", id);
+				auto pack = m_pkgMgr.getBestPackage(id, dependency);
+				if( pack in visited ) continue;
+				visited[pack] = true;
+				if(pack is null) {
+				 	logWarn("Package %s (%s) could not be retrieved continuing...", id, to!string(dependency));
+					continue;
+				}
+				logDebug("Performing on retrieved package %s", pack.name);
+				op(pack);
+				perform_rec(pack);
 			}
-			logDebug("Performing on retrieved package %s", pack.name);
-			op(pack);
 		}
+
+		perform_rec(main);
 	}
 	
 	string generateUUID()

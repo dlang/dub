@@ -62,7 +62,13 @@ class VisualDGenerator : ProjectGenerator {
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010");
 
-			generateSolutionEntries(ret, m_app.mainPackage());
+			generateSolutionEntry(ret, m_app.mainPackage);
+			version(VISUALD_SEPERATE_PROJECT_FILES)
+			{
+				performOnDependencies(m_app.mainPackage, (pack){
+					generateSolutionEntry(ret, pack);
+				});
+			}
 			
 			// Global section contains configurations
 			ret.formattedWrite("
@@ -91,17 +97,7 @@ EndGlobal");
 			sln.write(ret.data());
 			sln.flush();
 		}
-		
-		void generateSolutionEntries(Appender!(char[]) ret, const Package main) {
-			generateSolutionEntry(ret, main);
-			version(VISUALD_SEPERATE_PROJECT_FILES) {
-				performOnDependencies(main, (const Package pack) { generateSolutionEntries(ret, pack); } );
-			}
-			version(VISUALD_SINGLE_PROJECT_FILE) {
-				enforce(main == m_app.mainPackage());
-			}
-		}
-		
+
 		void generateSolutionEntry(Appender!(char[]) ret, const Package pack) {
 			auto projUuid = generateUUID();
 			auto projName = pack.name;
@@ -153,7 +149,7 @@ EndGlobal");
 				performOnDependencies(main, (const Package dependency) {
 					if(dependency.name in generatedProjects)
 						return;
-					generateProjects(dependency, buildPlatform);
+					generateProj(dependency, buildPlatform);
 				} );
 			}
 		}
@@ -175,9 +171,15 @@ EndGlobal");
 			// Add all files
 			bool[SourceFile] sourceFiles;
 			void gatherSources(const(Package) pack, bool prefixPkgId) {
-				logTrace("Gathering sources for %s", pack.name);
+				logTrace("Gathering sources for %s (%s)", pack.name, pack is m_app.mainPackage);
 				foreach(source; pack.sources) {
-					SourceFile f = { pack.name, prefixPkgId? Path(pack.name)~source : source, pack.path ~ source };
+					if( pack !is m_app.mainPackage && source == Path("source/app.d") )
+						continue;
+					SourceFile f = {
+						pack.name,
+						prefixPkgId ? Path(pack.name)~source : source,
+						(pack.path ~ source).relativeTo(m_app.mainPackage.path)
+					};
 					sourceFiles[f] = true;
 					logTrace(" pkg file: %s", source);
 				}
@@ -186,16 +188,8 @@ EndGlobal");
 			version(VISUALD_SINGLE_PROJECT_FILE) {
 				// gather all sources
 				enforce(pack == m_app.mainPackage(), "Some setup has gone wrong in VisualD.generateProj()");
-				bool[string] gathered;
-				void gatherAll(const Package package_) {
-					logDebug("Looking at %s", package_.name);
-					if(package_.name in gathered)
-						return;
-					gathered[package_.name] = true;
-					gatherSources(package_, true);
-					performOnDependencies(package_, (const Package dependency) { gatherAll(dependency); });
-				}
-				gatherAll(pack);
+				gatherSources(pack, true);
+				performOnDependencies(pack, (dependency) { gatherSources(dependency, true); });
 			}
 			version(VISUALD_SEPERATE_PROJECT_FILES) {
 				// gather sources for this package only
@@ -207,7 +201,7 @@ EndGlobal");
 			Path lastFolder;
 			foreach(source; sortedSources(sourceFiles.keys)) {
 				logTrace("source looking at %s", source.structurePath);
-				auto cur = source.structurePath[0..$-1];
+				auto cur = source.structurePath[0 .. source.structurePath.length-1];
 				if(lastFolder != cur) {
 					size_t same = 0;
 					foreach(idx; 0..min(lastFolder.length, cur.length))
@@ -380,18 +374,24 @@ EndGlobal");
 		}
 		
 		void performOnDependencies(const Package main, void delegate(const Package pack) op) {
-			// TODO: cyclic check
-
-			foreach(id, dependency; main.dependencies) {
-				logDebug("Retrieving package %s from package manager.", id);
-				auto pack = m_pkgMgr.getBestPackage(id, dependency);
-				if(pack is null) {
-				 	logWarn("Package %s (%s) could not be retrieved continuing...", id, to!string(dependency));
-					continue;
+			bool[const(Package)] visited;
+			void perform_rec(const Package parent_pack){
+				foreach(id, dependency; parent_pack.dependencies){
+					logDebug("Retrieving package %s from package manager.", id);
+					auto pack = m_pkgMgr.getBestPackage(id, dependency);
+					if( pack in visited ) continue;
+					visited[pack] = true;
+					if(pack is null) {
+					 	logWarn("Package %s (%s) could not be retrieved continuing...", id, to!string(dependency));
+						continue;
+					}
+					logDebug("Performing on retrieved package %s", pack.name);
+					op(pack);
+					perform_rec(pack);
 				}
-				logDebug("Performing on retrieved package %s", pack.name);
-				op(pack);
 			}
+
+			perform_rec(main);
 		}
 		
 		string generateUUID() const {

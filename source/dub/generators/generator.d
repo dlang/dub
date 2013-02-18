@@ -58,10 +58,10 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 		case "rdmd":
 			logTrace("Generating rdmd generator.");
 			return new RdmdGenerator(app, mgr);
-		case "MonoD":
+		case "mono-d":
 			logTrace("Generating MonoD generator.");
 			return new MonoDGenerator(app, mgr);
-		case "VisualD": 
+		case "visuald": 
 			logTrace("Generating VisualD generator.");
 			return new VisualDGenerator(app, mgr);
 	}

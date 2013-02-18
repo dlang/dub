@@ -262,7 +262,7 @@ Possible commands:
     remove-local <dir>   Removes a local package directory
     list-locals          Prints a list of all locals
     generate <name>      Generates project files using the specified generator:
-                         VisualD, MonoD, build, rdmd
+                         visuald, mono-d, build, rdmd
 
 General options:
         --annotate       Do not execute dependency installations, just print
