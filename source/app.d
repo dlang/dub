@@ -191,7 +191,7 @@ int main(string[] args)
 				}
 
 				auto settings = dub.getBuildSettings(build_platform, build_config);
-				settings.addDFlags(["-w", "-property"]);
+				settings.addDFlags(["-w"/*, "-property"*/]);
 				settings.addVersions(getPackagesAsVersion(dub));
 				string dflags = environment.get("DFLAGS");
 				if( dflags ){
@@ -341,7 +341,7 @@ Build/run options:
         --config=NAME    Builds the specified configuration. Configurations can
                          be defined in package.json
         --compiler=NAME  Uses one of the supported compilers:
-                         dmd (default), gcc, ldc
+                         dmd (default), gcc, ldc, gdmd, ldmd
         --nodeps         Do not check dependencies for 'run' or 'build'
         --print-builds   Prints the list of available build types
         --print-configs  Prints the list of available configurations

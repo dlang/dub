@@ -8,6 +8,7 @@
 module dub.compilers.compiler;
 
 import dub.compilers.dmd;
+import dub.compilers.gdc;
 
 import std.array;
 import vibe.data.json;
@@ -16,11 +17,13 @@ import vibe.data.json;
 static this()
 {
 	registerCompiler(new DmdCompiler);
+	registerCompiler(new GdcCompiler);
 }
 
 
 Compiler getCompiler(string name)
 {
+	if( name == "gdmd" || name == "ldmd" ) name = "dmd";
 	foreach( c; s_compilers )
 		if( c.name == name )
 			return c;
