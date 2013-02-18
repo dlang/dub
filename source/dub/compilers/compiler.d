@@ -9,7 +9,9 @@ module dub.compilers.compiler;
 
 import dub.compilers.dmd;
 import dub.compilers.gdc;
+import dub.compilers.ldc;
 
+import std.algorithm;
 import std.array;
 import vibe.data.json;
 
@@ -18,15 +20,21 @@ static this()
 {
 	registerCompiler(new DmdCompiler);
 	registerCompiler(new GdcCompiler);
+	registerCompiler(new LdcCompiler);
 }
 
 
 Compiler getCompiler(string name)
 {
-	if( name == "gdmd" || name == "ldmd" ) name = "dmd";
 	foreach( c; s_compilers )
 		if( c.name == name )
 			return c;
+
+	// try to match names like gdmd or gdc-2.61
+	if( name.canFind("dmd") ) return getCompiler("dmd");
+	if( name.canFind("gdc") ) return getCompiler("gdc");
+	if( name.canFind("ldc") ) return getCompiler("ldc");
+			
 	throw new Exception("Unknown compiler: "~name);
 }
 
