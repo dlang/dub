@@ -164,13 +164,9 @@ class Dub {
 
 	/// Generate project files for a specified IDE.
 	/// Any existing project files will be overridden.
-	void generateProject(string ide, BuildPlatform build_platform) {
+	void generateProject(string ide, GeneratorSettings settings) {
 		auto generator = createProjectGenerator(ide, m_app, m_packageManager);
-		if(generator is null ) {
-			logError("Unsupported IDE, there is no generator available for '"~ide~"'");
-			throw new Exception("Unsupported IDE, there is no generator available for '"~ide~"'");
-		}
-		generator.generateProject(build_platform);
+		generator.generateProject(settings);
 	}
 	
 	/// Creates a zip from the application.

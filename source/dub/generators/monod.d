@@ -40,10 +40,10 @@ class MonoDGenerator : ProjectGenerator {
 		m_allConfigs ~= Config("Debug", "AnyCPU", "Any CPU");
 	}
 	
-	void generateProject(BuildPlatform build_platform)
+	void generateProject(GeneratorSettings settings)
 	{
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, to!string(m_app.mainPackage().dependencies().length));
-		generateProjects(m_app.mainPackage(), build_platform);
+		generateProjects(m_app.mainPackage(), settings.platform);
 		generateSolution();
 	}
 	

@@ -9,6 +9,7 @@ module dub.generators.generator;
 
 import dub.compilers.compiler;
 import dub.generators.monod;
+import dub.generators.rdmd;
 import dub.generators.visuald;
 import dub.package_;
 import dub.packagemanager;
@@ -18,18 +19,41 @@ import std.exception;
 import vibe.core.log;
 
 
-/// A project generator generates projects :-/
+/**
+	Common interface for project generators/builders.
+*/
 interface ProjectGenerator
 {
-	void generateProject(BuildPlatform build_platform);
+	void generateProject(GeneratorSettings settings);
 }
 
-/// Creates a project generator.
-ProjectGenerator createProjectGenerator(string projectType, Project app, PackageManager mgr) {
+
+struct GeneratorSettings {
+	BuildPlatform platform;
+	string config;
+	Compiler compiler;
+	string compilerBinary; // compiler executable name
+
+	// only used for generator "rdmd"
+	bool run;
+	string[] runArgs;
+	string buildType;
+}
+
+
+/**
+	Creates a project generator of the given type for the specified project.
+*/
+ProjectGenerator createProjectGenerator(string generator_type, Project app, PackageManager mgr)
+{
 	enforce(app !is null, "app==null, Need an application to work on!");
 	enforce(mgr !is null, "mgr==null, Need a package manager to work on!");
-	switch(projectType) {
-		default: return null;
+	switch(generator_type) {
+		default:
+			throw new Exception("Unknown project generator: "~generator_type);
+		case "rdmd":
+			logTrace("Generating rdmd generator.");
+			return new RdmdGenerator(app, mgr);
 		case "MonoD":
 			logTrace("Generating MonoD generator.");
 			return new MonoDGenerator(app, mgr);

@@ -41,9 +41,9 @@ class VisualDGenerator : ProjectGenerator {
 		m_pkgMgr = mgr;
 	}
 	
-	void generateProject(BuildPlatform buildPlatform) {
+	void generateProject(GeneratorSettings settings) {
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, to!string(m_app.mainPackage().dependencies().length));
-		generateProjects(m_app.mainPackage(), buildPlatform);
+		generateProjects(m_app.mainPackage(), settings.platform);
 		generateSolution();
 	}
 	

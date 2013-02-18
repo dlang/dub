@@ -185,6 +185,10 @@ class Project {
 			addImportPath((pkg.path ~ "views").toNativeString(), false);
 		}
 
+		// add version identifiers for available packages
+		foreach(pack; this.installedPackages)
+			ret.addVersions(["Have_" ~ stripDlangSpecialChars(pack.name)]);
+
 		return ret;
 	}
 
@@ -526,7 +530,17 @@ private void processVars(ref Appender!(string[]) dst, string project_path, strin
 	}
 }
 
-private bool isIdentChar(char ch)
+private bool isIdentChar(dchar ch)
 {
 	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
+}
+
+private string stripDlangSpecialChars(string s) 
+{
+	import std.array;
+	import std.uni;
+	auto ret = appender!string();
+	foreach(ch; s)
+		ret.put(isIdentChar(ch) ? ch : '_');
+	return ret.data;
 }

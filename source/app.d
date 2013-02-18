@@ -10,6 +10,7 @@ module app;
 import dub.compilers.compiler;
 import dub.dependency;
 import dub.dub;
+import dub.generators.generator;
 import dub.package_;
 import dub.platform;
 import dub.project;
@@ -94,11 +95,13 @@ int main(string[] args)
 		Url registryUrl = Url.parse("http://registry.vibed.org/");
 		logDebug("Using dub registry url '%s'", registryUrl);
 
+		auto compiler = getCompiler(compiler_name);
+
 		// FIXME: take into account command line flags
 		BuildPlatform build_platform;
 		build_platform.platform = determinePlatform();
 		build_platform.architecture = determineArchitecture();
-		build_platform.compiler = "dmd";
+		build_platform.compiler = compiler.name;
 
 		if( print_platform ){
 			logInfo("Build platform:");
@@ -117,137 +120,18 @@ int main(string[] args)
 				assert(false);
 			case "help":
 				showHelp(cmd);
-				break;
+				return 0;
 			case "init":
 				string dir = ".";
 				if( args.length >= 2 ) dir = args[1];
 				initDirectory(dir);
-				break;
-			case "run":
-			case "build":
-				if( !existsFile("package.json") && !existsFile("source/app.d") ){
-					logInfo("");
-					logInfo("Neither package.json, nor source/app.d was found in the current directory.");
-					logInfo("Please run dub from the root directory of an existing package, or create a new");
-					logInfo("package using \"dub init <name>\".");
-					logInfo("");
-					showHelp(null);
-					return 1;
-				}
-
-				dub.loadPackageFromCwd();
-				auto def_config = dub.getDefaultConfiguration(build_platform);
-				if( !build_config.length ) build_config = def_config;
-
-				auto compiler = getCompiler(compiler_name);
-
-				if( print_builds ){
-					logInfo("Available build types:");
-					foreach( tp; ["debug", "release", "unittest", "profile"] )
-						logInfo("  %s", tp);
-					logInfo("");
-				}
-
-				if( print_configs ){
-					logInfo("Available configurations:");
-					foreach( tp; dub.configurations )
-						logInfo("  %s%s", tp, tp == def_config ? " [deault]" : null);
-					logInfo("");
-				}
-
-				if( !nodeps ){
-					logInfo("Checking dependencies in '%s'", dub.projectPath);
-					logDebug("dub initialized");
-					dub.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
-				}
-
-				enforce(build_config.length == 0 || dub.configurations.canFind(build_config), "Unknown build configuration: "~build_config);
-
-				//Added check for existance of [AppNameInPackagejson].d
-				//If exists, use that as the starting file.
-				auto outfile = getBinName(dub);
-				auto mainsrc = getMainSourceFile(dub);
-
-				logDebug("Application output name is '%s'", outfile);
-
-				// Create start script, which will be used by the calling bash/cmd script.
-				// build "rdmd --force %DFLAGS% -I%~dp0..\source -Jviews -Isource @deps.txt %LIBS% source\app.d" ~ application arguments
-				// or with "/" instead of "\"
-				string[] flags = ["--force", "--build-only", "--compiler="~compiler_name];
-				Path run_exe_file;
-				if( cmd == "build" ){
-					flags ~= "-of"~(dub.binaryPath~outfile).toNativeString();
-				} else {
-					import std.random;
-					auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
-					auto tmp = environment.get("TEMP");
-					if( !tmp.length ) tmp = environment.get("TMP");
-					if( !tmp.length ){
-						version(Posix) tmp = "/tmp";
-						else tmp = ".";
-					}
-					run_exe_file = Path(tmp~"/.rdmd/source/"~rnd~outfile);
-					flags ~= "-of"~run_exe_file.toNativeString();
-				}
-
-				auto settings = dub.getBuildSettings(build_platform, build_config);
-				settings.addDFlags(["-w"/*, "-property"*/]);
-				settings.addVersions(getPackagesAsVersion(dub));
-				string dflags = environment.get("DFLAGS");
-				if( dflags ){
-					build_type = "$DFLAGS";
-				} else {
-					switch( build_type ){
-						default: throw new Exception("Unknown build configuration: "~build_type);
-						case "plain": dflags = ""; break;
-						case "debug": dflags = "-g -debug"; break;
-						case "release": dflags = "-release -O -inline"; break;
-						case "unittest": dflags = "-g -unittest"; break;
-						case "profile": dflags = "-g -O -inline -profile"; break;
-						case "docs": assert(false, "docgen not implemented");
-					}
-				}
-				settings.addDFlags(dflags.split());
-
-				compiler.prepareBuildSettings(settings, BuildSetting.commandLine);
-				flags ~= settings.dflags;
-				flags ~= (mainsrc).toNativeString();
-
-				if( build_config.length ) logInfo("Building configuration "~build_config~", build type "~build_type);
-				else logInfo("Building default configuration, build type "~build_type);
-
-				logInfo("Running %s", "rdmd " ~ join(flags, " "));
-				auto rdmd_pid = spawnProcess("rdmd", flags);
-				auto result = rdmd_pid.wait();
-				enforce(result == 0, "Build command failed with exit code "~to!string(result));
-
-				if( settings.copyFiles.length ){
-					logInfo("Copying files...");
-					foreach( f; settings.copyFiles ){
-						auto src = Path(f);
-						auto dst = (run_exe_file.empty ? dub.binaryPath : run_exe_file.parentPath) ~ Path(f).head;
-						logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
-						try copyFile(src, dst, true);
-						catch logWarn("Failed to copy to %s", dst.toNativeString());
-					}
-				}
-
-				if( cmd == "run" ){
-					auto prg_pid = spawnProcess(run_exe_file.toNativeString(), args[1 .. $]);
-					result = prg_pid.wait();
-					remove(run_exe_file.toNativeString());
-					foreach( f; settings.copyFiles )
-						remove((run_exe_file.parentPath ~ Path(f).head).toNativeString());
-					enforce(result == 0, "Program exited with code "~to!string(result));
-				}
-
-				break;
+				return 0;
 			case "upgrade":
 				dub.loadPackageFromCwd();
 				logInfo("Upgrading project in '%s'", dub.projectPath);
 				logDebug("dub initialized");
 				dub.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
-				break;
+				return 0;
 			case "install":
 				enforce(args.length >= 2, "Missing package name.");
 				auto location = InstallLocation.UserWide;
@@ -279,16 +163,67 @@ int main(string[] args)
 						logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
 				logInfo("");
 				break;
+			case "run":
+			case "build":
 			case "generate":
-				string ide;
-				if( args.length >= 2 ) ide = args[1];
-				if(ide.empty) {
-					logInfo("Usage: dub generate <ide_identifier>");
-					return -1;
+				if( !existsFile("package.json") && !existsFile("source/app.d") ){
+					logInfo("");
+					logInfo("Neither package.json, nor source/app.d was found in the current directory.");
+					logInfo("Please run dub from the root directory of an existing package, or create a new");
+					logInfo("package using \"dub init <name>\".");
+					logInfo("");
+					showHelp(null);
+					return 1;
 				}
+
 				dub.loadPackageFromCwd();
-				dub.generateProject(ide, build_platform);
-				logDebug("Project files generated.");
+
+				string ide;
+				if( cmd == "run" || cmd == "build" ) ide = "rdmd";
+				else {
+					if( args.length >= 2 ) ide = args[1];
+					if(ide.empty) {
+						logInfo("Usage: dub generate <ide_identifier>");
+						return 1;
+					}
+				}
+
+
+				auto def_config = dub.getDefaultConfiguration(build_platform);
+				if( !build_config.length ) build_config = def_config;
+
+				if( print_builds ){
+					logInfo("Available build types:");
+					foreach( tp; ["debug", "release", "unittest", "profile"] )
+						logInfo("  %s", tp);
+					logInfo("");
+				}
+
+				if( print_configs ){
+					logInfo("Available configurations:");
+					foreach( tp; dub.configurations )
+						logInfo("  %s%s", tp, tp == def_config ? " [default]" : null);
+					logInfo("");
+				}
+
+				if( !nodeps ){
+					logInfo("Checking dependencies in '%s'", dub.projectPath);
+					logDebug("dub initialized");
+					dub.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
+				}
+
+				enforce(build_config.length == 0 || dub.configurations.canFind(build_config), "Unknown build configuration: "~build_config);
+
+				GeneratorSettings gensettings;
+				gensettings.platform = build_platform;
+				gensettings.config = build_config;
+				gensettings.buildType = build_type;
+				gensettings.compiler = compiler;
+				gensettings.compilerBinary = compiler_name;
+				gensettings.run = cmd == "run";
+				gensettings.runArgs = args[1 .. $];
+
+				dub.generateProject("rdmd", gensettings);
 				break;
 		}
 
@@ -354,39 +289,6 @@ Install options:
         --local          Install as in a sub folder of the current directory
 
 `);
-}
-
-private string stripDlangSpecialChars(string s) 
-{
-	char[] ret = s.dup;
-	for(int i=0; i<ret.length; ++i)
-		if(!isAlpha(ret[i]))
-			ret[i] = '_';
-	return to!string(ret);
-}
-
-private string[] getPackagesAsVersion(const Dub dub)
-{
-	string[] ret;
-	string[string] pkgs = dub.installedPackages();
-	foreach(id, vers; pkgs)
-		ret ~= "Have_" ~ stripDlangSpecialChars(id);
-	return ret;
-}
-
-private string getBinName(const Dub dub)
-{
-	// take the project name as the base or fall back to "app"
-	string ret = dub.projectName;
-	if( ret.length == 0 ) ret ="app";
-	version(Windows) { ret ~= ".exe"; }
-	return ret;
-} 
-
-private Path getMainSourceFile(const Dub dub)
-{
-	auto p = Path("source") ~ (dub.projectName ~ ".d");
-	return existsFile(p) ? p : Path("source/app.d");
 }
 
 private void initDirectory(string fName)
