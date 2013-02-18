@@ -332,11 +332,11 @@ private void initDirectory(string fName)
 }
 `;
     immutable appFile =
-`import vibe.d;
+`import std.stdio;
 
-static this()
+void main()
 { 
-    logInfo("Edit source/app.d to start your project.");
+    writeln("Edit source/app.d to start your project.");
 }
 `;
 	//Make sure we do not overwrite anything accidentally
