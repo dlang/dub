@@ -193,11 +193,6 @@ int main(string[] args)
 				auto settings = dub.getBuildSettings(build_platform, build_config);
 				settings.addDFlags(["-w", "-property"]);
 				settings.addVersions(getPackagesAsVersion(dub));
-
-				compiler.prepareBuildSettings(settings, BuildSetting.commandLine);
-				flags ~= settings.dflags;
-				flags ~= (mainsrc).toNativeString();
-
 				string dflags = environment.get("DFLAGS");
 				if( dflags ){
 					build_type = "$DFLAGS";
@@ -212,12 +207,17 @@ int main(string[] args)
 						case "docs": assert(false, "docgen not implemented");
 					}
 				}
+				settings.addDFlags(dflags.split());
+
+				compiler.prepareBuildSettings(settings, BuildSetting.commandLine);
+				flags ~= settings.dflags;
+				flags ~= (mainsrc).toNativeString();
 
 				if( build_config.length ) logInfo("Building configuration "~build_config~", build type "~build_type);
 				else logInfo("Building default configuration, build type "~build_type);
 
-				logInfo("Running %s", "rdmd " ~ dflags ~ " " ~ join(flags, " "));
-				auto rdmd_pid = spawnProcess("rdmd " ~ dflags ~ " " ~ join(flags, " "));
+				logInfo("Running %s", "rdmd " ~ join(flags, " "));
+				auto rdmd_pid = spawnProcess("rdmd", flags);
 				auto result = rdmd_pid.wait();
 				enforce(result == 0, "Build command failed with exit code "~to!string(result));
 
