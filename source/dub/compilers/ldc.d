@@ -46,7 +46,7 @@ class LdcCompiler : Compiler {
 		}
 
 		if( !(fields & BuildSetting.versions) ){
-			settings.addDFlags(settings.versions.map!(s => "-fversion="~s)().array());
+			settings.addDFlags(settings.versions.map!(s => "-d-version="~s)().array());
 			settings.versions = null;
 		}
 
@@ -66,8 +66,7 @@ class LdcCompiler : Compiler {
 		}
 
 		if( !(fields & BuildSetting.lflags) ){
-			foreach( f; settings.lflags )
-				settings.addDFlags(["-Xlinker", f]);
+			settings.addDFlags(settings.stringImportPaths.map!(s => "-L="~s)().array());
 			settings.lflags = null;
 		}
 
