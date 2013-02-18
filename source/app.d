@@ -122,6 +122,16 @@ int main(string[] args)
 				break;
 			case "run":
 			case "build":
+				if( !existsFile("package.json") && !existsFile("source/app.d") ){
+					logInfo("");
+					logInfo("Neither package.json, nor source/app.d was found in the current directory.");
+					logInfo("Please run dub from the root directory of an existing package, or create a new");
+					logInfo("package using \"dub init <name>\".");
+					logInfo("");
+					showHelp(null);
+					return 1;
+				}
+
 				dub.loadPackageFromCwd();
 				auto def_config = dub.getDefaultConfiguration(build_platform);
 				if( !build_config.length ) build_config = def_config;
