@@ -7,13 +7,16 @@
 */
 module dub.generators.generator;
 
-import dub.project;
-import dub.package_;
-import dub.packagemanager;
+import dub.compilers.compiler;
 import dub.generators.monod;
 import dub.generators.visuald;
-import vibe.core.log;
+import dub.package_;
+import dub.packagemanager;
+import dub.project;
+
 import std.exception;
+import vibe.core.log;
+
 
 /// A project generator generates projects :-/
 interface ProjectGenerator

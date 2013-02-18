@@ -7,6 +7,7 @@
 */
 module app;
 
+import dub.compilers.compiler;
 import dub.dependency;
 import dub.dub;
 import dub.package_;
@@ -45,6 +46,7 @@ int main(string[] args)
 		bool help, nodeps, annotate;
 		LogLevel loglevel = LogLevel.Info;
 		string build_type = "debug", build_config;
+		string compiler_name = "dmd";
 		bool print_platform, print_builds, print_configs;
 		bool install_system = false, install_local = false;
 		string install_version;
@@ -57,6 +59,7 @@ int main(string[] args)
 			"nodeps", &nodeps,
 			"annotate", &annotate,
 			"build", &build_type,
+			"compiler", &compiler_name,
 			"config", &build_config,
 			"print-builds", &print_builds,
 			"print-configs", &print_configs,
@@ -136,6 +139,8 @@ int main(string[] args)
 				auto def_config = dub.getDefaultConfiguration(build_platform);
 				if( !build_config.length ) build_config = def_config;
 
+				auto compiler = getCompiler(compiler_name);
+
 				if( print_builds ){
 					logInfo("Available build types:");
 					foreach( tp; ["debug", "release", "unittest", "profile"] )
@@ -168,7 +173,7 @@ int main(string[] args)
 				// Create start script, which will be used by the calling bash/cmd script.
 				// build "rdmd --force %DFLAGS% -I%~dp0..\source -Jviews -Isource @deps.txt %LIBS% source\app.d" ~ application arguments
 				// or with "/" instead of "\"
-				string[] flags = ["--force", "--build-only"];
+				string[] flags = ["--force", "--build-only", "--compiler="~compiler_name];
 				Path run_exe_file;
 				if( cmd == "build" ){
 					flags ~= "-of"~(dub.binaryPath~outfile).toNativeString();
@@ -189,29 +194,8 @@ int main(string[] args)
 				settings.addDFlags(["-w", "-property"]);
 				settings.addVersions(getPackagesAsVersion(dub));
 
-				// TODO: this belongs to the builder/generator
-				if( settings.libs.length ){
-					try {
-						logDebug("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
-						auto libflags = execute("pkg-config", "--libs" ~ settings.libs.map!(l => "lib"~l)().array());
-						enforce(libflags.status == 0, "pkg-config exited with error code "~to!string(libflags.status));
-						settings.addLFlags(libflags.output.split());
-						settings.libs = null;
-					} catch( Exception e ){
-						logDebug("pkg-config failed: %s", e.msg);
-						logDebug("Falling back to direct -lxyz flags.");
-						version(Windows) settings.addDFlags(settings.libs.map!(l => l~".lib")().array());
-						else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
-						settings.libs = null;
-					}
-				}
-
+				compiler.prepareBuildSettings(settings, BuildSetting.commandLine);
 				flags ~= settings.dflags;
-				flags ~= settings.lflags.map!(f => "-L"~f)().array();
-				flags ~= settings.importPaths.map!(f => "-I"~f)().array();
-				flags ~= settings.stringImportPaths.map!(f => "-J"~f)().array();
-				flags ~= settings.versions.map!(f => "-version="~f)().array();
-				flags ~= settings.files;
 				flags ~= (mainsrc).toNativeString();
 
 				string dflags = environment.get("DFLAGS");
@@ -356,6 +340,8 @@ Build/run options:
                          plain
         --config=NAME    Builds the specified configuration. Configurations can
                          be defined in package.json
+        --compiler=NAME  Uses one of the supported compilers:
+                         dmd (default), gcc, ldc
         --nodeps         Do not check dependencies for 'run' or 'build'
         --print-builds   Prints the list of available build types
         --print-configs  Prints the list of available configurations

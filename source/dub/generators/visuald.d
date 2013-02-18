@@ -7,6 +7,12 @@
 */
 module dub.generators.visuald;
 
+import dub.compilers.compiler;
+import dub.generators.generator;
+import dub.package_;
+import dub.packagemanager;
+import dub.project;
+
 import std.algorithm;
 import std.array;
 import std.conv;
@@ -16,11 +22,6 @@ import std.exception;
 
 import vibe.core.file;
 import vibe.core.log;
-
-import dub.project;
-import dub.package_;
-import dub.packagemanager;
-import dub.generators.generator;
 
 version = VISUALD_SEPERATE_PROJECT_FILES;
 //version = VISUALD_SINGLE_PROJECT_FILE;

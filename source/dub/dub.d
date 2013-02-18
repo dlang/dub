@@ -7,6 +7,7 @@
 */
 module dub.dub;
 
+import dub.compilers.compiler;
 import dub.dependency;
 import dub.installation;
 import dub.utils;
