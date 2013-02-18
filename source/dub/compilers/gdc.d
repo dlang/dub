@@ -15,6 +15,7 @@ import std.conv;
 import std.exception;
 import stdx.process;
 import vibe.core.log;
+import vibe.inet.path;
 
 
 class GdcCompiler : Compiler {
@@ -116,5 +117,10 @@ class GdcCompiler : Compiler {
 
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
+	}
+
+	void setTarget(ref BuildSettings settings, Path binary_path)
+	{
+		settings.addDFlags("-o", binary_path.toNativeString());
 	}
 }

@@ -15,6 +15,7 @@ import std.conv;
 import std.exception;
 import stdx.process;
 import vibe.core.log;
+import vibe.inet.path;
 
 
 class LdcCompiler : Compiler {
@@ -72,5 +73,10 @@ class LdcCompiler : Compiler {
 
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
+	}
+
+	void setTarget(ref BuildSettings settings, Path binary_path)
+	{
+		settings.addDFlags("-of"~binary_path.toNativeString());
 	}
 }

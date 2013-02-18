@@ -178,12 +178,12 @@ int main(string[] args)
 
 				dub.loadPackageFromCwd();
 
-				string ide;
-				if( cmd == "run" || cmd == "build" ) ide = "rdmd";
+				string generator;
+				if( cmd == "run" || cmd == "build" ) generator = "rdmd";
 				else {
-					if( args.length >= 2 ) ide = args[1];
-					if(ide.empty) {
-						logInfo("Usage: dub generate <ide_identifier>");
+					if( args.length >= 2 ) generator = args[1];
+					if(generator.empty) {
+						logInfo("Usage: dub generate <generator_name>");
 						return 1;
 					}
 				}
@@ -223,7 +223,8 @@ int main(string[] args)
 				gensettings.run = cmd == "run";
 				gensettings.runArgs = args[1 .. $];
 
-				dub.generateProject("rdmd", gensettings);
+				logDebug("Generating using %s", generator);
+				dub.generateProject(generator, gensettings);
 				break;
 		}
 
@@ -260,7 +261,8 @@ Possible commands:
                          Adds a local package directory (e.g. a git repository)
     remove-local <dir>   Removes a local package directory
     list-locals          Prints a list of all locals
-    generate <ide>       Generates project files for a specified IDE.
+    generate <name>      Generates project files using the specified generator:
+                         VisualD, MonoD, build, rdmd
 
 General options:
         --annotate       Do not execute dependency installations, just print

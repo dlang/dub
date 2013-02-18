@@ -8,6 +8,7 @@
 module dub.generators.generator;
 
 import dub.compilers.compiler;
+import dub.generators.build;
 import dub.generators.monod;
 import dub.generators.rdmd;
 import dub.generators.visuald;
@@ -51,6 +52,9 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 	switch(generator_type) {
 		default:
 			throw new Exception("Unknown project generator: "~generator_type);
+		case "build":
+			logTrace("Generating build generator.");
+			return new BuildGenerator(app, mgr);
 		case "rdmd":
 			logTrace("Generating rdmd generator.");
 			return new RdmdGenerator(app, mgr);

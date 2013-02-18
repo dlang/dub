@@ -14,6 +14,7 @@ import dub.compilers.ldc;
 import std.algorithm;
 import std.array;
 import vibe.data.json;
+import vibe.inet.path;
 
 
 static this()
@@ -50,6 +51,9 @@ interface Compiler {
 	/// Replaces high level fields with low level fields and converts
 	/// dmd flags to compiler-specific flags
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting supported_fields = BuildSetting.all);
+
+	/// Adds the appropriate flag to set a target path
+	void setTarget(ref BuildSettings settings, Path binary_path);
 }
 
 
@@ -77,14 +81,14 @@ struct BuildSettings {
 		addStringImportDirs(getPlatformField(root, "stringImportPaths", platform));
 	}
 
-	void addDFlags(string[] value) { add(dflags, value); }
-	void addLFlags(string[] value) { add(lflags, value); }
-	void addLibs(string[] value) { add(libs, value); }
-	void addFiles(string[] value) { add(files, value); }
-	void addCopyFiles(string[] value) { add(copyFiles, value); }
-	void addVersions(string[] value) { add(versions, value); }
-	void addImportDirs(string[] value) { add(importPaths, value); }
-	void addStringImportDirs(string[] value) { add(stringImportPaths, value); }
+	void addDFlags(string[] value...) { add(dflags, value); }
+	void addLFlags(string[] value...) { add(lflags, value); }
+	void addLibs(string[] value...) { add(libs, value); }
+	void addFiles(string[] value...) { add(files, value); }
+	void addCopyFiles(string[] value...) { add(copyFiles, value); }
+	void addVersions(string[] value...) { add(versions, value); }
+	void addImportDirs(string[] value...) { add(importPaths, value); }
+	void addStringImportDirs(string[] value...) { add(stringImportPaths, value); }
 
 	// Adds vals to arr without adding duplicates.
 	private void add(ref string[] arr, string[] vals)
