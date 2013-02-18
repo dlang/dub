@@ -48,6 +48,7 @@ int main(string[] args)
 		LogLevel loglevel = LogLevel.Info;
 		string build_type = "debug", build_config;
 		string compiler_name = "dmd";
+		bool rdmd = false;
 		bool print_platform, print_builds, print_configs;
 		bool install_system = false, install_local = false;
 		string install_version;
@@ -61,6 +62,7 @@ int main(string[] args)
 			"annotate", &annotate,
 			"build", &build_type,
 			"compiler", &compiler_name,
+			"rdmd", &rdmd,
 			"config", &build_config,
 			"print-builds", &print_builds,
 			"print-configs", &print_configs,
@@ -179,7 +181,7 @@ int main(string[] args)
 				dub.loadPackageFromCwd();
 
 				string generator;
-				if( cmd == "run" || cmd == "build" ) generator = "rdmd";
+				if( cmd == "run" || cmd == "build" ) generator = rdmd ? "rdmd" : "build";
 				else {
 					if( args.length >= 2 ) generator = args[1];
 					if(generator.empty) {
@@ -284,6 +286,7 @@ Build/run options:
         --print-configs  Prints the list of available configurations
         --print-platform Prints the identifiers for the current build platform
                          as used for the build fields in package.json
+        --rdmd           Use rdmd instead of directly invoking the compiler
 
 Install options:
         --version        Use the specified version/branch instead of the latest
