@@ -122,9 +122,9 @@ int main(string[] args)
 				showHelp(cmd);
 				return 0;
 			case "init":
-				string dir = ".";
+				string dir;
 				if( args.length >= 2 ) dir = args[1];
-				initDirectory(dir);
+				dub.createEmptyPackage(Path(dir));
 				return 0;
 			case "upgrade":
 				dub.loadPackageFromCwd();
@@ -289,74 +289,4 @@ Install options:
         --local          Install as in a sub folder of the current directory
 
 `);
-}
-
-private void initDirectory(string fName)
-{ 
-    Path cwd; 
-    //Check to see if a target directory is specified.
-    if(fName != ".") {
-        if(!existsFile(fName))  
-            createDirectory(fName);
-        cwd = Path(fName);  
-    } 
-    //Otherwise use the current directory.
-    else 
-        cwd = Path("."); 
-  
-	//Make sure we do not overwrite anything accidentally
-	if( (existsFile(cwd ~ "package.json"))        ||
-		(existsFile(cwd ~ "source"      ))        ||
-		(existsFile(cwd ~ "views"       ))        || 
-		(existsFile(cwd ~ "public"     )))
-	{
-		logInfo("The current directory is not empty.\n"
-				"vibe init aborted.");
-		//Exit Immediately. 
-		return;
-	}
-	
-    //raw strings must be unindented. 
-    immutable packageJson = 
-`{
-    "name": "`~(fName == "." ? "my-project" : fName)~`",
-    "version": "0.0.1",
-    "description": "An example project skeleton",
-    "homepage": "http://example.org",
-    "copyright": "Copyright © 2000, Edit Me",
-    "authors": [
-        "Your Name"
-    ],
-    "dependencies": {
-    }
-}
-`;
-    immutable appFile =
-`import std.stdio;
-
-void main()
-{ 
-    writeln("Edit source/app.d to start your project.");
-}
-`;
-	//Make sure we do not overwrite anything accidentally
-	if( (existsFile(cwd ~ PackageJsonFilename))        ||
-		(existsFile(cwd ~ "source"      ))        ||
-		(existsFile(cwd ~ "views"       ))        || 
-		(existsFile(cwd ~ "public"     )))
-	{
-		logInfo("The current directory is not empty.\n"
-				"vibe init aborted.");
-		//Exit Immediately. 
-		return;
-	}
-	//Create the common directories.
-	createDirectory(cwd ~ "source");
-	createDirectory(cwd ~ "views" );
-	createDirectory(cwd ~ "public");
-	//Create the common files. 
-	openFile(cwd ~ PackageJsonFilename, FileMode.Append).write(packageJson);
-	openFile(cwd ~ "source/app.d", FileMode.Append).write(appFile);     
-	//Act smug to the user. 
-	logInfo("Successfully created empty project.");
 }

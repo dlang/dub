@@ -227,4 +227,59 @@ class Dub {
 		if( !abs_path.absolute ) abs_path = m_cwd ~ abs_path;
 		m_packageManager.removeLocalPackage(abs_path, system ? LocalPackageType.system : LocalPackageType.user);
 	}
+
+	void createEmptyPackage(Path path)
+	{
+		path.normalize();
+
+		//Check to see if a target directory needs to be created
+		if( !path.empty ){
+			if( !existsFile(path) )
+				createDirectory(path);
+		} 
+
+		//Make sure we do not overwrite anything accidentally
+		if( existsFile(path ~ PackageJsonFilename) ||
+			existsFile(path ~ "source") ||
+			existsFile(path ~ "views") ||
+			existsFile(path ~ "public") )
+		{
+			throw new Exception("The current directory is not empty.\n");
+		}
+
+		//raw strings must be unindented. 
+		immutable packageJson = 
+`{
+	"name": "`~(path.empty ? "my-project" : path.head.toString())~`",
+	"description": "An example project skeleton",
+	"homepage": "http://example.org",
+	"copyright": "Copyright © 2000, Your Name",
+	"authors": [
+		"Your Name"
+	],
+	"dependencies": {
+	}
+}
+`;
+		immutable appFile =
+`import std.stdio;
+
+void main()
+{ 
+	writeln("Edit source/app.d to start your project.");
+}
+`;
+
+		//Create the common directories.
+		createDirectory(path ~ "source");
+		createDirectory(path ~ "views");
+		createDirectory(path ~ "public");
+
+		//Create the common files. 
+		openFile(path ~ PackageJsonFilename, FileMode.Append).write(packageJson);
+		openFile(path ~ "source/app.d", FileMode.Append).write(appFile);     
+
+		//Act smug to the user. 
+		logInfo("Successfully created an empty project in '"~path.toNativeString()~"'.");
+	}
 }
