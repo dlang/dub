@@ -16,6 +16,7 @@ import std.algorithm : countUntil, filter, sort;
 import std.conv;
 import std.exception;
 import std.file;
+import std.string;
 import std.zip;
 import vibe.core.file;
 import vibe.core.log;
@@ -169,7 +170,7 @@ class PackageManager {
 		}
 
 		if( existsFile(destination) )
-			throw new Exception(package_name~" needs to be uninstalled prior installation.");
+			throw new Exception(format("%s %s needs to be uninstalled prior installation.", package_name, package_version));
 
 		// open zip file
 		ZipArchive archive;

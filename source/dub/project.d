@@ -416,9 +416,7 @@ class Project {
 			if( !exists(dubpath.toNativeString()) ) mkdir(dubpath.toNativeString());
 			auto dstFile = openFile((dubpath~"dub.json").toString(), FileMode.CreateTrunc);
 			scope(exit) dstFile.close();
-			Appender!string js;
-			toPrettyJson(js, m_json);
-			dstFile.write( js.data );
+			dstFile.writePrettyJsonString(m_json);
 		} catch( Exception e ){
 			logWarn("Could not write .dub/dub.json.");
 		}

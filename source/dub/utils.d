@@ -38,7 +38,7 @@ package Json jsonFromFile(Path file, bool silent_fail = false) {
 	return parseJson(text);
 }
 
-package Json jsonFromZip(string zip, string filename) {
+package Json jsonFromZip(Path zip, string filename) {
 	auto f = openFile(zip, FileMode.Read);
 	ubyte[] b = new ubyte[cast(uint)f.leastSize];
 	f.read(b);
@@ -52,7 +52,7 @@ package void writeJsonFile(Path path, Json json)
 {
 	auto f = openFile(path, FileMode.CreateTrunc);
 	scope(exit) f.close();
-	toPrettyJson(f, json);
+	f.writePrettyJsonString(json);
 }
 
 package bool isPathFromZip(string p) {

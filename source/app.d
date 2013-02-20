@@ -144,11 +144,25 @@ int main(string[] args)
 				if( install_version.length ) dub.install(name, new Dependency(install_version), location);
 				else {
 					try dub.install(name, new Dependency(">=0.0.0"), location);
-					catch(Exception) dub.install(name, new Dependency("~master"), location);
+					catch(Exception e){
+						logInfo("Installing a release version failed: %s", e.msg);
+						logInfo("Retry with ~master...");
+						dub.install(name, new Dependency("~master"), location);
+					}
 				}
 				break;
 			case "uninstall":
-				enforce("Not implemented.");
+				enforce(args.length >= 2, "Missing package name.");
+				/*auto location = InstallLocation.UserWide;
+				auto name = args[1];
+				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
+				if( install_local ) location = InstallLocation.Local;
+				else if( install_system ) location = InstallLocation.SystemWide;
+				if( install_version.length ) dub.uninstall(name, new Dependency(install_version), location);
+				else {
+					assert(false);
+				}*/
+				enforce(false, "Not implemented.");
 				break;
 			case "add-local":
 				enforce(args.length >= 3, "Missing arguments.");

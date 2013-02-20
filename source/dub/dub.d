@@ -191,16 +191,17 @@ class Dub {
 		auto pinfo = m_packageSupplier.packageJson(packageId, dep);
 		string ver = pinfo["version"].get!string;
 
-		logInfo("Installing %s %s...", packageId, ver);
+		logInfo("Downloading %s %s...", packageId, ver);
 
-		logDebug("Aquiring package zip file");
+		logDebug("Acquiring package zip file");
 		auto dload = m_root ~ ".dub/temp/downloads";
-		auto tempFile = m_tempPath ~ ("dub-download-"~packageId~"-"~ver~".zip");
-		string sTempFile = to!string(tempFile);
-		if(exists(sTempFile)) remove(sTempFile);
+		auto tempfname = packageId ~ "-" ~ (ver.startsWith('~') ? ver[1 .. $] : ver) ~ ".zip";
+		auto tempFile = m_tempPath ~ tempfname;
+		if( existsFile(tempFile) ) removeFile(tempFile);
 		m_packageSupplier.storePackage(tempFile, packageId, dep); // Q: continue on fail?
-		scope(exit) remove(sTempFile);
+		scope(exit) removeFile(tempFile);
 
+		logInfo("Installing %s %s...", packageId, ver);
 		m_packageManager.install(tempFile, pinfo, location);
 	}
 
