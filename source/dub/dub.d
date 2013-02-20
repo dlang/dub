@@ -69,7 +69,7 @@ class Dub {
 			m_userDubPath = Path(environment.get("APPDATA")) ~ "dub/";
 			m_tempPath = Path(environment.get("TEMP"));
 		} else version(Posix){
-			m_systemDubPath = Path("/etc/dub/");
+			m_systemDubPath = Path("/var/lib/dub/");
 			m_userDubPath = Path(environment.get("HOME")) ~ ".dub/";
 			m_tempPath = Path("/tmp");
 		}
