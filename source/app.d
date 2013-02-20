@@ -263,7 +263,8 @@ private void showHelp(string command)
 `Usage: dub [<command>] [<vibe options...>] [-- <application options...>]
 
 Manages the DUB project in the current directory. "--" can be used to separate
-DUB options from options passed to the application.
+DUB options from options passed to the application. If the command is omitted,
+dub will default to "run".
 
 Possible commands:
     help                 Prints this help screen
