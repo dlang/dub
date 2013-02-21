@@ -8,6 +8,7 @@
 module dub.compilers.gdc;
 
 import dub.compilers.compiler;
+import dub.platform;
 
 import std.algorithm;
 import std.array;
@@ -20,6 +21,18 @@ import vibe.inet.path;
 
 class GdcCompiler : Compiler {
 	@property string name() const { return "gdc"; }
+
+	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
+	{
+		// TODO: determine platform by invoking the compiler instead
+		BuildPlatform build_platform;
+		build_platform.platform = .determinePlatform();
+		build_platform.architecture = .determineArchitecture();
+		build_platform.compiler = this.name;
+
+		enforce(arch_override.length == 0, "Architecture override not implemented for GDC.");
+		return build_platform;
+	}
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all)
 	{

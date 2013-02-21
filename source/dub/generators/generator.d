@@ -34,6 +34,7 @@ struct GeneratorSettings {
 	string config;
 	Compiler compiler;
 	string compilerBinary; // compiler executable name
+	BuildSettings buildSettings;
 
 	// only used for generator "rdmd"
 	bool run;
@@ -64,5 +65,18 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 		case "visuald": 
 			logTrace("Generating VisualD generator.");
 			return new VisualDGenerator(app, mgr);
+	}
+}
+
+void addBuildTypeFlags(ref BuildSettings dst, string build_type)
+{
+	switch(build_type){
+		default: throw new Exception("Unknown build type: "~build_type);
+		case "plain": break;
+		case "debug": dst.addDFlags("-g", "-debug"); break;
+		case "release": dst.addDFlags("-release", "-O", "-inline"); break;
+		case "unittest": dst.addDFlags("-g", "-unittest"); break;
+		case "profile": dst.addDFlags("-g", "-O", "-inline", "-profile"); break;
+		case "docs": dst.addDFlags("-c", "-o-", "-D", "-Dfdocs", "-Xfdocs.json"); break;
 	}
 }

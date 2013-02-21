@@ -164,32 +164,28 @@ class Project {
 	}
 
 	/// Returns the DFLAGS
-	BuildSettings getBuildSettings(BuildPlatform platform, string config)
+	void addBuildSettings(ref BuildSettings dst, BuildPlatform platform, string config)
 	const {
-		BuildSettings ret;
-
 		void addImportPath(string path, bool src)
 		{
 			if( !exists(path) ) return;
-			if( src ) ret.addImportDirs([path]);
-			else ret.addStringImportDirs([path]);
+			if( src ) dst.addImportDirs([path]);
+			else dst.addStringImportDirs([path]);
 		}
 
-		if( m_main ) processVars(ret, ".", m_main.getBuildSettings(platform, config));
+		if( m_main ) processVars(dst, ".", m_main.getBuildSettings(platform, config));
 		addImportPath("source", true);
 		addImportPath("views", false);
 
 		foreach( pkg; m_dependencies ){
-			processVars(ret, pkg.path.toNativeString(), pkg.getBuildSettings(platform, config));
+			processVars(dst, pkg.path.toNativeString(), pkg.getBuildSettings(platform, config));
 			addImportPath((pkg.path ~ "source").toNativeString(), true);
 			addImportPath((pkg.path ~ "views").toNativeString(), false);
 		}
 
 		// add version identifiers for available packages
 		foreach(pack; this.installedPackages)
-			ret.addVersions(["Have_" ~ stripDlangSpecialChars(pack.name)]);
-
-		return ret;
+			dst.addVersions(["Have_" ~ stripDlangSpecialChars(pack.name)]);
 	}
 
 	/// Actions which can be performed to update the application.

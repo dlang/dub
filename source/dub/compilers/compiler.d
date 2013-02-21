@@ -48,6 +48,8 @@ void registerCompiler(Compiler c)
 interface Compiler {
 	@property string name() const;
 
+	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override = null);
+
 	/// Replaces high level fields with low level fields and converts
 	/// dmd flags to compiler-specific flags
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting supported_fields = BuildSetting.all);

@@ -100,10 +100,6 @@ class Dub {
 		m_app = new Project(m_packageManager, m_root);
 	}
 
-	/// Returns a list of flags which the application needs to be compiled
-	/// properly.
-	BuildSettings getBuildSettings(BuildPlatform platform, string config) { return m_app.getBuildSettings(platform, config); }
-
 	string getDefaultConfiguration(BuildPlatform platform) const { return m_app.getDefaultConfiguration(platform); }
 
 	/// Lists all installed modules

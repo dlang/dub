@@ -152,7 +152,8 @@ class MonoDGenerator : ProjectGenerator {
 
 		auto projName = pack.name;
 
-		auto buildsettings = m_app.getBuildSettings(settings.platform, m_app.getDefaultConfiguration(settings.platform));
+		auto buildsettings = settings.buildSettings;
+		m_app.addBuildSettings(buildsettings, settings.platform, m_app.getDefaultConfiguration(settings.platform));
 
 		// Mono-D does not have a setting for string import paths
 	    settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.all & ~BuildSetting.stringImportPaths);

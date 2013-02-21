@@ -12,7 +12,6 @@ import dub.dependency;
 import dub.dub;
 import dub.generators.generator;
 import dub.package_;
-import dub.platform;
 import dub.project;
 import dub.registry;
 
@@ -48,6 +47,7 @@ int main(string[] args)
 		LogLevel loglevel = LogLevel.Info;
 		string build_type = "debug", build_config;
 		string compiler_name = "dmd";
+		string arch;
 		bool rdmd = false;
 		bool print_platform, print_builds, print_configs;
 		bool install_system = false, install_local = false;
@@ -62,6 +62,7 @@ int main(string[] args)
 			"annotate", &annotate,
 			"build", &build_type,
 			"compiler", &compiler_name,
+			"arch", &arch,
 			"rdmd", &rdmd,
 			"config", &build_config,
 			"print-builds", &print_builds,
@@ -97,13 +98,9 @@ int main(string[] args)
 		Url registryUrl = Url.parse("http://registry.vibed.org/");
 		logDebug("Using dub registry url '%s'", registryUrl);
 
+		BuildSettings build_settings;
 		auto compiler = getCompiler(compiler_name);
-
-		// FIXME: take into account command line flags
-		BuildPlatform build_platform;
-		build_platform.platform = determinePlatform();
-		build_platform.architecture = determineArchitecture();
-		build_platform.compiler = compiler.name;
+		auto build_platform = compiler.determinePlatform(build_settings, compiler_name, arch);
 
 		if( print_platform ){
 			logInfo("Build platform:");
@@ -236,6 +233,7 @@ int main(string[] args)
 				gensettings.buildType = build_type;
 				gensettings.compiler = compiler;
 				gensettings.compilerBinary = compiler_name;
+				gensettings.buildSettings = build_settings;
 				gensettings.run = cmd == "run";
 				gensettings.runArgs = args[1 .. $];
 
@@ -296,6 +294,7 @@ Build/run options:
                          be defined in package.json
         --compiler=NAME  Uses one of the supported compilers:
                          dmd (default), gcc, ldc, gdmd, ldmd
+        --arch=NAME      Force a different architecture (e.g. x86 or x86_64)
         --nodeps         Do not check dependencies for 'run' or 'build'
         --print-builds   Prints the list of available build types
         --print-configs  Prints the list of available configurations

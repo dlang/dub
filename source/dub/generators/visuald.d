@@ -43,7 +43,7 @@ class VisualDGenerator : ProjectGenerator {
 	
 	void generateProject(GeneratorSettings settings) {
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, to!string(m_app.mainPackage().dependencies().length));
-		generateProjects(m_app.mainPackage(), settings.platform);
+		generateProjects(m_app.mainPackage(), settings);
 		generateSolution();
 	}
 	
@@ -136,11 +136,11 @@ EndGlobal");
 					formattedWrite(ret, "\n\t\t%s.%s.%s = %s", to!string(projectUuid), c, s, c);
 		}
 		
-		void generateProjects(const Package main, BuildPlatform buildPlatform) {
+		void generateProjects(const Package main, GeneratorSettings settings) {
 		
 			// TODO: cyclic check
 			
-			generateProj(main, buildPlatform);
+			generateProj(main, settings);
 			
 			version(VISUALD_SEPERATE_PROJECT_FILES) 
 			{
@@ -149,12 +149,13 @@ EndGlobal");
 				performOnDependencies(main, (const Package dependency) {
 					if(dependency.name in generatedProjects)
 						return;
-					generateProj(dependency, buildPlatform);
+					generateProj(dependency, settings);
 				} );
 			}
 		}
 		
-		void generateProj(const Package pack, BuildPlatform buildPlatform) {
+		void generateProj(const Package pack, GeneratorSettings settings)
+		{
 			int i = 0;
 			auto ret = appender!(char[])();
 			
@@ -164,9 +165,9 @@ EndGlobal");
   <ProjectGuid>%s</ProjectGuid>", guid(projName));
 	
 			// Several configurations (debug, release, unittest)
-			generateProjectConfiguration(ret, pack, Config.Debug, buildPlatform);
-			generateProjectConfiguration(ret, pack, Config.Release, buildPlatform);
-			generateProjectConfiguration(ret, pack, Config.Unittest, buildPlatform);
+			generateProjectConfiguration(ret, pack, Config.Debug, settings);
+			generateProjectConfiguration(ret, pack, Config.Release, settings);
+			generateProjectConfiguration(ret, pack, Config.Unittest, settings);
 
 			// Add all files
 			bool[SourceFile] sourceFiles;
@@ -231,16 +232,18 @@ EndGlobal");
 			proj.flush();
 		}
 		
-		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, Config type, BuildPlatform platform) {
-			auto settings = m_app.getBuildSettings(platform, m_app.getDefaultConfiguration(platform));
-			string[] getSettings(string setting)(){ return __traits(getMember, settings, setting); }
+		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, Config type, GeneratorSettings settings)
+		{
+			auto buildsettings = settings.buildSettings;
+			m_app.addBuildSettings(buildsettings, settings.platform, m_app.getDefaultConfiguration(settings.platform));
+			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
 			
-			foreach(architecture; platform.architecture) {
+			foreach(architecture; settings.platform.architecture) {
 				string arch;
 				switch(architecture) {
 					default: logWarn("Unsupported platform('%s'), defaulting to x86", architecture); goto case;
 					case "x86": arch = "Win32"; break;
-					case "x64": arch = "x64"; break;
+					case "x86_64": arch = "x64"; break;
 				}
 				ret.formattedWrite("
   <Config name=\"%s\" platform=\"%s\">", to!string(type), arch);

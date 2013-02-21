@@ -27,13 +27,13 @@ import vibe.inet.path;
 
 class RdmdGenerator : ProjectGenerator {
 	private {
-		Project m_app;
+		Project m_project;
 		PackageManager m_pkgMgr;
 	}
 	
 	this(Project app, PackageManager mgr)
 	{
-		m_app = app;
+		m_project = app;
 		m_pkgMgr = mgr;
 	}
 	
@@ -42,8 +42,8 @@ class RdmdGenerator : ProjectGenerator {
 
 		//Added check for existance of [AppNameInPackagejson].d
 		//If exists, use that as the starting file.
-		auto outfile = getBinName(m_app);
-		auto mainsrc = getMainSourceFile(m_app);
+		auto outfile = getBinName(m_project);
+		auto mainsrc = getMainSourceFile(m_project);
 
 		logDebug("Application output name is '%s'", outfile);
 
@@ -53,7 +53,7 @@ class RdmdGenerator : ProjectGenerator {
 		string[] flags = ["--force", "--build-only", "--compiler="~settings.compilerBinary];
 		Path run_exe_file;
 		if( !settings.run ){
-			flags ~= "-of"~(m_app.binaryPath~outfile).toNativeString();
+			flags ~= "-of"~(m_project.binaryPath~outfile).toNativeString();
 		} else {
 			import std.random;
 			auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
@@ -67,23 +67,16 @@ class RdmdGenerator : ProjectGenerator {
 			flags ~= "-of"~run_exe_file.toNativeString();
 		}
 
-		auto buildsettings = m_app.getBuildSettings(settings.platform, settings.config);
+		auto buildsettings = settings.buildSettings;
+		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
 		buildsettings.addDFlags(["-w"/*, "-property"*/]);
 		string dflags = environment.get("DFLAGS");
 		if( dflags ){
 			settings.buildType = "$DFLAGS";
+			buildsettings.addDFlags(dflags.split());
 		} else {
-			switch(settings.buildType){
-				default: throw new Exception("Unknown build configuration: "~settings.buildType);
-				case "plain": dflags = ""; break;
-				case "debug": dflags = "-g -debug"; break;
-				case "release": dflags = "-release -O -inline"; break;
-				case "unittest": dflags = "-g -unittest"; break;
-				case "profile": dflags = "-g -O -inline -profile"; break;
-				case "docs": assert(false, "docgen not implemented");
-			}
+			addBuildTypeFlags(buildsettings, settings.buildType);
 		}
-		buildsettings.addDFlags(dflags.split());
 
 		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 		flags ~= buildsettings.dflags;
@@ -102,7 +95,7 @@ class RdmdGenerator : ProjectGenerator {
 			logInfo("Copying files...");
 			foreach( f; buildsettings.copyFiles ){
 				auto src = Path(f);
-				auto dst = (run_exe_file.empty ? m_app.binaryPath : run_exe_file.parentPath) ~ Path(f).head;
+				auto dst = (run_exe_file.empty ? m_project.binaryPath : run_exe_file.parentPath) ~ Path(f).head;
 				logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
 				try copyFile(src, dst, true);
 				catch logWarn("Failed to copy to %s", dst.toNativeString());

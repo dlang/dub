@@ -8,6 +8,7 @@
 module dub.compilers.dmd;
 
 import dub.compilers.compiler;
+import dub.platform;
 
 import std.algorithm;
 import std.array;
@@ -20,6 +21,29 @@ import vibe.inet.path;
 
 class DmdCompiler : Compiler {
 	@property string name() const { return "dmd"; }
+
+	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
+	{
+		// TODO: determine platform by invoking the compiler instead
+		BuildPlatform build_platform;
+		build_platform.platform = .determinePlatform();
+		build_platform.architecture = .determineArchitecture();
+		build_platform.compiler = this.name;
+
+		switch(arch_override){
+			default: throw new Exception("Unsupported architecture: "~arch_override);
+			case "": break;
+			case "x86":
+				build_platform.architecture = ["x86"];
+				settings.addDFlags("-m32");
+				break;
+			case "x86_64":
+				build_platform.architecture = ["x86_64"];
+				settings.addDFlags("-m64");
+				break;
+		}
+		return build_platform;
+	}
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all)
 	{
