@@ -6,6 +6,6 @@
 		"Matthias Dondorff",
 		"Sönke Ludwig"
 	],
-	"dependencies": {
-	}
+	"libs": ["curl"],
+	"files-windows": ["curllib.dll", "libeay32.dll", "openldap.dll", "ssleay32.dll"]
 }
