@@ -85,6 +85,7 @@ RangeFile createTempFile(string suffix = null)
 		logDebug("tmp %s", tmpname);
 		return openFile(tmpname, FileMode.CreateTrunc);
 	} else {
+		import core.sys.posix.stdio;
 		enum pattern ="/tmp/vtmp.XXXXXX";
 		scope templ = new char[pattern.length+suffix.length+1];
 		templ[0 .. pattern.length] = pattern;
@@ -93,7 +94,8 @@ RangeFile createTempFile(string suffix = null)
 		assert(suffix.length <= int.max);
 		auto fd = mkstemps(templ.ptr, cast(int)suffix.length);
 		enforce(fd >= 0, "Failed to create temporary file.");
-		return File.wrapFile(fdopen(fd));
+		auto ret = File.wrapFile(fdopen(fd, "wb+"));
+		return RangeFile(ret);
 	}
 }
 
