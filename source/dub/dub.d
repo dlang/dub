@@ -117,7 +117,7 @@ class Dub {
 		logInfo("The following changes could be performed:");
 		bool conflictedOrFailed = false;
 		foreach(Action a; actions) {
-			logInfo(capitalize(to!string(a.type)) ~ ": " ~ a.packageId ~ ", version %s", a.vers);
+			logInfo("%s %s %s, %s", capitalize(to!string(a.type)), a.packageId, a.vers, a.location);
 			if( a.type == Action.Type.conflict || a.type == Action.Type.failure ) {
 				logInfo("Issued by: ");
 				conflictedOrFailed = true;
@@ -182,10 +182,16 @@ class Dub {
 	/// Installs the package matching the dependency into the application.
 	/// @param addToApplication if true, this will also add an entry in the
 	/// list of dependencies in the application's package.json
-	void install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.ProjectLocal)
+	void install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.projectLocal)
 	{
 		auto pinfo = m_packageSupplier.packageJson(packageId, dep);
 		string ver = pinfo["version"].get!string;
+
+		if( m_packageManager.hasPackage(packageId, ver, location) ){
+			logInfo("Package %s %s (%s) is already installed with the latest version, skipping upgrade.",
+				packageId, ver, location);
+			return;
+		}
 
 		logInfo("Downloading %s %s...", packageId, ver);
 

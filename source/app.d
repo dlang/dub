@@ -133,11 +133,11 @@ int main(string[] args)
 				return 0;
 			case "install":
 				enforce(args.length >= 2, "Missing package name.");
-				auto location = InstallLocation.UserWide;
+				auto location = InstallLocation.userWide;
 				auto name = args[1];
 				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
-				if( install_local ) location = InstallLocation.Local;
-				else if( install_system ) location = InstallLocation.SystemWide;
+				if( install_local ) location = InstallLocation.local;
+				else if( install_system ) location = InstallLocation.systemWide;
 				if( install_version.length ) dub.install(name, new Dependency(install_version), location);
 				else {
 					try dub.install(name, new Dependency(">=0.0.0"), location);
@@ -150,11 +150,11 @@ int main(string[] args)
 				break;
 			case "uninstall":
 				enforce(args.length >= 2, "Missing package name.");
-				/*auto location = InstallLocation.UserWide;
+				/*auto location = InstallLocation.userWide;
 				auto name = args[1];
 				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
-				if( install_local ) location = InstallLocation.Local;
-				else if( install_system ) location = InstallLocation.SystemWide;
+				if( install_local ) location = InstallLocation.local;
+				else if( install_system ) location = InstallLocation.systemWide;
 				if( install_version.length ) dub.uninstall(name, new Dependency(install_version), location);
 				else {
 					assert(false);
@@ -172,7 +172,7 @@ int main(string[] args)
 			case "list-locals":
 				logInfo("Locals:");
 				foreach( p; dub.packageManager.getPackageIterator() )
-					if( p.installLocation == InstallLocation.Local )
+					if( p.installLocation == InstallLocation.local )
 						logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
 				logInfo("");
 				break;

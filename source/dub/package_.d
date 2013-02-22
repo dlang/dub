@@ -25,10 +25,10 @@ enum PackageJsonFilename = "package.json";
 
 /// Indicates where a package has been or should be installed to.
 enum InstallLocation {
-	Local,
-	ProjectLocal,
-	UserWide,
-	SystemWide
+	local,
+	projectLocal,
+	userWide,
+	systemWide
 }
 
 /// Representing an installed package, usually constructed from a json object.
@@ -83,7 +83,7 @@ class Package {
 		this(jsonFromFile(root ~ PackageJsonFilename), location, root);
 	}
 
-	this(Json packageInfo, InstallLocation location = InstallLocation.Local, Path root = Path())
+	this(Json packageInfo, InstallLocation location = InstallLocation.local, Path root = Path())
 	{
 		m_location = location;
 		m_path = root;

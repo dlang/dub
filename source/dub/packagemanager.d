@@ -66,6 +66,15 @@ class PackageManager {
 		return null;
 	}
 
+	bool hasPackage(string name, string ver, InstallLocation location)
+	{
+		foreach(ep; getPackageIterator()){
+			if( ep.installLocation == location && ep.name == name && ep.vers == ver )
+				return true;
+		}
+		return false;
+	}
+
 	Package getBestPackage(string name, string version_spec)
 	{
 		return getBestPackage(name, new Dependency(version_spec));
@@ -157,25 +166,15 @@ class PackageManager {
 
 	Package install(Path zip_file_path, Json package_info, InstallLocation location)
 	{
-		foreach(ep; getPackageIterator()){
-			if( ep.installLocation == location && ep.name == package_info.name.get!string
-				&& ep.vers == package_info["version"].get!string() )
-			{
-				logInfo("Skipping installation of already existing %s package %s %s.",
-					location, ep.name, ep.vers);
-				return ep;
-			}
-		}
-
 		auto package_name = package_info.name.get!string();
 		auto package_version = package_info["version"].get!string();
 
 		Path destination;
 		final switch( location ){
-			case InstallLocation.Local: destination = Path(package_name); break;
-			case InstallLocation.ProjectLocal: enforce(!m_projectPackagePath.empty, "no project path set."); destination = m_projectPackagePath ~ package_name; break;
-			case InstallLocation.UserWide: destination = m_userPackagePath ~ (package_name ~ "/" ~ package_version); break;
-			case InstallLocation.SystemWide: destination = m_systemPackagePath ~ (package_name ~ "/" ~ package_version); break;
+			case InstallLocation.local: destination = Path(package_name); break;
+			case InstallLocation.projectLocal: enforce(!m_projectPackagePath.empty, "no project path set."); destination = m_projectPackagePath ~ package_name; break;
+			case InstallLocation.userWide: destination = m_userPackagePath ~ (package_name ~ "/" ~ package_version); break;
+			case InstallLocation.systemWide: destination = m_systemPackagePath ~ (package_name ~ "/" ~ package_version); break;
 		}
 
 		if( existsFile(destination) ){
@@ -254,10 +253,10 @@ class PackageManager {
 
 		auto pack = new Package(location, destination);
 		final switch( location ){
-			case InstallLocation.Local: break;
-			case InstallLocation.ProjectLocal: m_projectPackages[package_name] = pack; break;
-			case InstallLocation.UserWide: m_userPackages[package_name] ~= pack; break;
-			case InstallLocation.SystemWide: m_systemPackages[package_name] ~= pack; break;
+			case InstallLocation.local: break;
+			case InstallLocation.projectLocal: m_projectPackages[package_name] = pack; break;
+			case InstallLocation.userWide: m_userPackages[package_name] ~= pack; break;
+			case InstallLocation.systemWide: m_systemPackages[package_name] ~= pack; break;
 		}
 		return pack;
 	}
@@ -268,21 +267,21 @@ class PackageManager {
 
 		// remove package from package list
 		final switch(pack.installLocation){
-			case InstallLocation.Local: assert(false, "Cannot uninstall locally installed package.");
-			case InstallLocation.ProjectLocal:
+			case InstallLocation.local: assert(false, "Cannot uninstall locally installed package.");
+			case InstallLocation.projectLocal:
 				auto pp = pack.name in m_projectPackages;
 				assert(pp !is null, "Package "~pack.name~" at "~pack.path.toNativeString()~" is not installed in project.");
 				assert(*pp is pack);
 				m_projectPackages.remove(pack.name);
 				break;
-			case InstallLocation.UserWide:
+			case InstallLocation.userWide:
 				auto pv = pack.name in m_systemPackages;
 				assert(pv !is null, "Package "~pack.name~" at "~pack.path.toNativeString()~" is not installed in user repository.");
 				auto idx = countUntil(*pv, pack);
 				assert(idx < 0 || (*pv)[idx] is pack);
 				if( idx >= 0 ) *pv = (*pv)[0 .. idx] ~ (*pv)[idx+1 .. $];
 				break;
-			case InstallLocation.SystemWide:
+			case InstallLocation.systemWide:
 				auto pv = pack.name in m_userPackages;
 				assert(pv !is null, "Package "~pack.name~" at "~pack.path.toNativeString()~" is not installed system repository.");
 				auto idx = countUntil(*pv, pack);
@@ -347,7 +346,7 @@ class PackageManager {
 			}
 		}
 
-		*packs ~= new Package(info, InstallLocation.Local, path);
+		*packs ~= new Package(info, InstallLocation.local, path);
 
 		writeLocalPackageList(type);
 	}
@@ -396,8 +395,8 @@ class PackageManager {
 				catch(Exception e) logDebug("Failed to enumerate %s packages: %s", location, e.toString());
 			}
 		}
-		scanPackageFolder(m_systemPackagePath, m_systemPackages, InstallLocation.SystemWide);
-		scanPackageFolder(m_userPackagePath, m_userPackages, InstallLocation.UserWide);
+		scanPackageFolder(m_systemPackagePath, m_systemPackages, InstallLocation.systemWide);
+		scanPackageFolder(m_userPackagePath, m_userPackages, InstallLocation.userWide);
 
 
 		// rescan the project package folder
@@ -410,7 +409,7 @@ class PackageManager {
 				if( !existsFile(pack_path ~ PackageJsonFilename) ) continue;
 
 				try {
-					auto p = new Package(InstallLocation.ProjectLocal, pack_path);
+					auto p = new Package(InstallLocation.projectLocal, pack_path);
 					m_projectPackages[pdir.name] = p;
 				} catch( Exception e ){
 					logError("Failed to load package in %s: %s", pack_path, e.msg);
@@ -438,7 +437,7 @@ class PackageManager {
 							logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, info.name.get!string());
 						info.name = name;
 						info["version"] = ver;
-						auto pp = new Package(info, InstallLocation.Local, path);
+						auto pp = new Package(info, InstallLocation.local, path);
 						packs ~= pp;
 					} catch( Exception e ){
 						logWarn("Error adding local package: %s", e.msg);

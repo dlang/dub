@@ -114,11 +114,11 @@ class Project {
 			logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root.toNativeString());
 			auto json = Json.EmptyObject;
 			json.name = "";
-			m_main = new Package(json, InstallLocation.Local, m_root);
+			m_main = new Package(json, InstallLocation.local, m_root);
 			return;
 		}
 
-		m_main = new Package(InstallLocation.Local, m_root);
+		m_main = new Package(InstallLocation.local, m_root);
 
 		// TODO: compute the set of mutual dependencies first
 		// (i.e. ">=0.0.1 <=0.0.5" and "<= 0.0.4" get ">=0.0.1 <=0.0.4")
@@ -241,14 +241,14 @@ class Project {
 			if(!p || (!d.dependency.matches(p.vers) && !d.dependency.matches(Version.MASTER))) {
 				if(!p) logDebug("Application not complete, required package '"~pkg~"', which was not found.");
 				else logDebug("Application not complete, required package '"~pkg~"', invalid version. Required '%s', available '%s'.", d.dependency, p.vers);
-				actions ~= Action.install(pkg, InstallLocation.ProjectLocal, d.dependency, d.packages);
+				actions ~= Action.install(pkg, InstallLocation.projectLocal, d.dependency, d.packages);
 			} else {
 				logDebug("Required package '"~pkg~"' found with version '"~p.vers~"'");
 				if( option & UpdateOptions.Reinstall ) {
-					if( p.installLocation != InstallLocation.Local ){
+					if( p.installLocation != InstallLocation.local ){
 						Dependency[string] em;
 						// user and system packages are not uninstalled (could be needed by other projects)
-						if( p.installLocation == InstallLocation.ProjectLocal )
+						if( p.installLocation == InstallLocation.projectLocal )
 							uninstalls ~= Action.uninstall(*p, em);
 						actions ~= Action.install(pkg, p.installLocation, d.dependency, d.packages);
 					} else {
@@ -263,7 +263,7 @@ class Project {
 
 		// Add uninstall actions
 		foreach( pname, pkg; unused ){
-			if( pkg.installLocation != InstallLocation.ProjectLocal )
+			if( pkg.installLocation != InstallLocation.projectLocal )
 				continue;
 			logDebug("Superfluous package found: '"~pname~"', version '"~pkg.vers~"'");
 			Dependency[string] em;
@@ -359,7 +359,7 @@ class Project {
 				if( p ) logTrace("Found installed package %s %s", pkg, p.ver);
 				
 				// Try an already installed package first
-				if( p && p.installLocation != InstallLocation.Local && needsUpToDateCheck(pkg) ){
+				if( p && p.installLocation != InstallLocation.local && needsUpToDateCheck(pkg) ){
 					logInfo("Triggering update of package %s", pkg);
 					p = null;
 				}
@@ -452,12 +452,12 @@ struct Action {
 
 	static Action conflict(string pkg, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.conflict, pkg, InstallLocation.ProjectLocal, dep, context);
+		return Action(Type.conflict, pkg, InstallLocation.projectLocal, dep, context);
 	}
 
 	static Action failure(string pkg, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.failure, pkg, InstallLocation.ProjectLocal, dep, context);
+		return Action(Type.failure, pkg, InstallLocation.projectLocal, dep, context);
 	}
 
 	private this(Type id, string pkg, InstallLocation location, in Dependency d, Dependency[string] issue)
