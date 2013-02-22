@@ -7,21 +7,22 @@
 */
 module app;
 
+import dub.compilers.compiler;
 import dub.dependency;
 import dub.dub;
+import dub.generators.generator;
 import dub.package_;
-import dub.platform;
 import dub.project;
 import dub.registry;
 
-import vibe.core.file;
-import vibe.core.log;
-import vibe.inet.url;
-import vibe.utils.string;
+import vibecompat.core.file;
+import vibecompat.core.log;
+import vibecompat.inet.url;
 
 import std.algorithm;
 import std.array;
 import std.conv;
+import std.encoding;
 import std.exception;
 import std.file;
 import std.getopt;
@@ -45,6 +46,9 @@ int main(string[] args)
 		bool help, nodeps, annotate;
 		LogLevel loglevel = LogLevel.Info;
 		string build_type = "debug", build_config;
+		string compiler_name = "dmd";
+		string arch;
+		bool rdmd = false;
 		bool print_platform, print_builds, print_configs;
 		bool install_system = false, install_local = false;
 		string install_version;
@@ -57,6 +61,9 @@ int main(string[] args)
 			"nodeps", &nodeps,
 			"annotate", &annotate,
 			"build", &build_type,
+			"compiler", &compiler_name,
+			"arch", &arch,
+			"rdmd", &rdmd,
 			"config", &build_config,
 			"print-builds", &print_builds,
 			"print-configs", &print_configs,
@@ -91,11 +98,9 @@ int main(string[] args)
 		Url registryUrl = Url.parse("http://registry.vibed.org/");
 		logDebug("Using dub registry url '%s'", registryUrl);
 
-		// FIXME: take into account command line flags
-		BuildPlatform build_platform;
-		build_platform.platform = determinePlatform();
-		build_platform.architecture = determineArchitecture();
-		build_platform.compiler = "dmd";
+		BuildSettings build_settings;
+		auto compiler = getCompiler(compiler_name);
+		auto build_platform = compiler.determinePlatform(build_settings, compiler_name, arch);
 
 		if( print_platform ){
 			logInfo("Build platform:");
@@ -114,15 +119,89 @@ int main(string[] args)
 				assert(false);
 			case "help":
 				showHelp(cmd);
-				break;
+				return 0;
 			case "init":
-				string dir = ".";
+				string dir;
 				if( args.length >= 2 ) dir = args[1];
-				initDirectory(dir);
+				dub.createEmptyPackage(Path(dir));
+				return 0;
+			case "upgrade":
+				dub.loadPackageFromCwd();
+				logInfo("Upgrading project in %s", dub.projectPath.toNativeString);
+				logDebug("dub initialized");
+				dub.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
+				return 0;
+			case "install":
+				enforce(args.length >= 2, "Missing package name.");
+				auto location = InstallLocation.userWide;
+				auto name = args[1];
+				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
+				if( install_local ) location = InstallLocation.local;
+				else if( install_system ) location = InstallLocation.systemWide;
+				if( install_version.length ) dub.install(name, new Dependency(install_version), location);
+				else {
+					try dub.install(name, new Dependency(">=0.0.0"), location);
+					catch(Exception e){
+						logInfo("Installing a release version failed: %s", e.msg);
+						logInfo("Retry with ~master...");
+						dub.install(name, new Dependency("~master"), location);
+					}
+				}
+				break;
+			case "uninstall":
+				enforce(args.length >= 2, "Missing package name.");
+				/*auto location = InstallLocation.userWide;
+				auto name = args[1];
+				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
+				if( install_local ) location = InstallLocation.local;
+				else if( install_system ) location = InstallLocation.systemWide;
+				if( install_version.length ) dub.uninstall(name, new Dependency(install_version), location);
+				else {
+					assert(false);
+				}*/
+				enforce(false, "Not implemented.");
+				break;
+			case "add-local":
+				enforce(args.length >= 3, "Missing arguments.");
+				dub.addLocalPackage(args[1], args[2], install_system);
+				break;
+			case "remove-local":
+				enforce(args.length >= 2, "Missing path to package.");
+				dub.removeLocalPackage(args[1], install_system);
+				break;
+			case "list-locals":
+				logInfo("Locals:");
+				foreach( p; dub.packageManager.getPackageIterator() )
+					if( p.installLocation == InstallLocation.local )
+						logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
+				logInfo("");
 				break;
 			case "run":
 			case "build":
+			case "generate":
+				if( !existsFile("package.json") && !existsFile("source/app.d") ){
+					logInfo("");
+					logInfo("Neither package.json, nor source/app.d was found in the current directory.");
+					logInfo("Please run dub from the root directory of an existing package, or create a new");
+					logInfo("package using \"dub init <name>\".");
+					logInfo("");
+					showHelp(null);
+					return 1;
+				}
+
 				dub.loadPackageFromCwd();
+
+				string generator;
+				if( cmd == "run" || cmd == "build" ) generator = rdmd ? "rdmd" : "build";
+				else {
+					if( args.length >= 2 ) generator = args[1];
+					if(generator.empty) {
+						logInfo("Usage: dub generate <generator_name>");
+						return 1;
+					}
+				}
+
+
 				auto def_config = dub.getDefaultConfiguration(build_platform);
 				if( !build_config.length ) build_config = def_config;
 
@@ -136,7 +215,7 @@ int main(string[] args)
 				if( print_configs ){
 					logInfo("Available configurations:");
 					foreach( tp; dub.configurations )
-						logInfo("  %s%s", tp, tp == def_config ? " [deault]" : null);
+						logInfo("  %s%s", tp, tp == def_config ? " [default]" : null);
 					logInfo("");
 				}
 
@@ -148,153 +227,18 @@ int main(string[] args)
 
 				enforce(build_config.length == 0 || dub.configurations.canFind(build_config), "Unknown build configuration: "~build_config);
 
-				//Added check for existance of [AppNameInPackagejson].d
-				//If exists, use that as the starting file.
-				auto outfile = getBinName(dub);
-				auto mainsrc = getMainSourceFile(dub);
+				GeneratorSettings gensettings;
+				gensettings.platform = build_platform;
+				gensettings.config = build_config;
+				gensettings.buildType = build_type;
+				gensettings.compiler = compiler;
+				gensettings.compilerBinary = compiler_name;
+				gensettings.buildSettings = build_settings;
+				gensettings.run = cmd == "run";
+				gensettings.runArgs = args[1 .. $];
 
-				logDebug("Application output name is '%s'", outfile);
-
-				// Create start script, which will be used by the calling bash/cmd script.
-				// build "rdmd --force %DFLAGS% -I%~dp0..\source -Jviews -Isource @deps.txt %LIBS% source\app.d" ~ application arguments
-				// or with "/" instead of "\"
-				string[] flags = ["--force", "--build-only"];
-				Path run_exe_file;
-				if( cmd == "build" ){
-					flags ~= "-of"~(dub.binaryPath~outfile).toNativeString();
-				} else {
-					import std.random;
-					auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
-					auto tmp = environment.get("TEMP");
-					if( !tmp.length ) tmp = environment.get("TMP");
-					if( !tmp.length ){
-						version(Posix) tmp = "/tmp";
-						else tmp = ".";
-					}
-					run_exe_file = Path(tmp~"/.rdmd/source/"~rnd~outfile);
-					flags ~= "-of"~run_exe_file.toNativeString();
-				}
-
-				auto settings = dub.getBuildSettings(build_platform, build_config);
-				settings.addDFlags(["-w", "-property"]);
-				settings.addVersions(getPackagesAsVersion(dub));
-
-				// TODO: this belongs to the builder/generator
-				if( settings.libs.length ){
-					try {
-						logDebug("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
-						auto libflags = execute("pkg-config", "--libs" ~ settings.libs.map!(l => "lib"~l)().array());
-						enforce(libflags.status == 0, "pkg-config exited with error code "~to!string(libflags.status));
-						settings.addLFlags(libflags.output.split());
-						settings.libs = null;
-					} catch( Exception e ){
-						logDebug("pkg-config failed: %s", e.msg);
-						logDebug("Falling back to direct -lxyz flags.");
-						version(Windows) settings.addDFlags(settings.libs.map!(l => l~".lib")().array());
-						else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
-						settings.libs = null;
-					}
-				}
-
-				flags ~= settings.dflags;
-				flags ~= settings.lflags.map!(f => "-L"~f)().array();
-				flags ~= settings.importPaths.map!(f => "-I"~f)().array();
-				flags ~= settings.stringImportPaths.map!(f => "-J"~f)().array();
-				flags ~= settings.versions.map!(f => "-version="~f)().array();
-				flags ~= settings.files;
-				flags ~= (mainsrc).toNativeString();
-
-				string dflags = environment.get("DFLAGS");
-				if( dflags ){
-					build_type = "$DFLAGS";
-				} else {
-					switch( build_type ){
-						default: throw new Exception("Unknown build configuration: "~build_type);
-						case "plain": dflags = ""; break;
-						case "debug": dflags = "-g -debug"; break;
-						case "release": dflags = "-release -O -inline"; break;
-						case "unittest": dflags = "-g -unittest"; break;
-						case "profile": dflags = "-g -O -inline -profile"; break;
-						case "docs": assert(false, "docgen not implemented");
-					}
-				}
-
-				if( build_config.length ) logInfo("Building configuration "~build_config~", build type "~build_type);
-				else logInfo("Building default configuration, build type "~build_type);
-
-				logInfo("Running %s", "rdmd " ~ dflags ~ " " ~ join(flags, " "));
-				auto rdmd_pid = spawnProcess("rdmd " ~ dflags ~ " " ~ join(flags, " "));
-				auto result = rdmd_pid.wait();
-				enforce(result == 0, "Build command failed with exit code "~to!string(result));
-
-				if( settings.copyFiles.length ){
-					logInfo("Copying files...");
-					foreach( f; settings.copyFiles ){
-						auto src = Path(f);
-						auto dst = (run_exe_file.empty ? dub.binaryPath : run_exe_file.parentPath) ~ Path(f).head;
-						logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
-						try copyFile(src, dst, true);
-						catch logWarn("Failed to copy to %s", dst.toNativeString());
-					}
-				}
-
-				if( cmd == "run" ){
-					auto prg_pid = spawnProcess(run_exe_file.toNativeString(), args[1 .. $]);
-					result = prg_pid.wait();
-					remove(run_exe_file.toNativeString());
-					foreach( f; settings.copyFiles )
-						remove((run_exe_file.parentPath ~ Path(f).head).toNativeString());
-					enforce(result == 0, "Program exited with code "~to!string(result));
-				}
-
-				break;
-			case "upgrade":
-				dub.loadPackageFromCwd();
-				logInfo("Upgrading project in '%s'", dub.projectPath);
-				logDebug("dub initialized");
-				dub.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
-				break;
-			case "install":
-				enforce(args.length >= 2, "Missing package name.");
-				auto location = InstallLocation.UserWide;
-				auto name = args[1];
-				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
-				if( install_local ) location = InstallLocation.Local;
-				else if( install_system ) location = InstallLocation.SystemWide;
-				if( install_version.length ) dub.install(name, new Dependency(install_version), location);
-				else {
-					try dub.install(name, new Dependency(">=0.0.0"), location);
-					catch(Exception) dub.install(name, new Dependency("~master"), location);
-				}
-				break;
-			case "uninstall":
-				enforce("Not implemented.");
-				break;
-			case "add-local":
-				enforce(args.length >= 3, "Missing arguments.");
-				dub.addLocalPackage(args[1], args[2], install_system);
-				break;
-			case "remove-local":
-				enforce(args.length >= 2, "Missing path to package.");
-				dub.removeLocalPackage(args[1], install_system);
-				break;
-			case "list-locals":
-				logInfo("Locals:");
-				foreach( p; dub.packageManager.getPackageIterator() )
-					if( p.installLocation == InstallLocation.Local )
-						logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
-				logInfo("");
-				break;
-			case "generate":
-				string ide;
-				if( args.length >= 2 ) ide = args[1];
-				if(ide.empty) {
-					logInfo("Usage: dub generate <ide_identifier>");
-					return -1;
-				}
-				dub.loadPackageFromCwd();
-				dub.generateProject(ide, build_platform);
-				logDebug("Project files generated.");
+				logDebug("Generating using %s", generator);
+				dub.generateProject(generator, gensettings);
 				break;
 		}
 
@@ -303,7 +247,7 @@ int main(string[] args)
 	catch(Throwable e)
 	{
 		logError("Error: %s\n", e.msg);
-		logDebug("Full exception: %s", sanitizeUTF8(cast(ubyte[])e.toString()));
+		logDebug("Full exception: %s", sanitize(e.toString()));
 		logInfo("Run 'dub help' for usage information.");
 		return 1;
 	}
@@ -317,7 +261,8 @@ private void showHelp(string command)
 `Usage: dub [<command>] [<vibe options...>] [-- <application options...>]
 
 Manages the DUB project in the current directory. "--" can be used to separate
-DUB options from options passed to the application.
+DUB options from options passed to the application. If the command is omitted,
+dub will default to "run".
 
 Possible commands:
     help                 Prints this help screen
@@ -331,7 +276,8 @@ Possible commands:
                          Adds a local package directory (e.g. a git repository)
     remove-local <dir>   Removes a local package directory
     list-locals          Prints a list of all locals
-    generate <ide>       Generates project files for a specified IDE.
+    generate <name>      Generates project files using the specified generator:
+                         visuald, mono-d, build, rdmd
 
 General options:
         --annotate       Do not execute dependency installations, just print
@@ -346,11 +292,15 @@ Build/run options:
                          plain
         --config=NAME    Builds the specified configuration. Configurations can
                          be defined in package.json
+        --compiler=NAME  Uses one of the supported compilers:
+                         dmd (default), gcc, ldc, gdmd, ldmd
+        --arch=NAME      Force a different architecture (e.g. x86 or x86_64)
         --nodeps         Do not check dependencies for 'run' or 'build'
         --print-builds   Prints the list of available build types
         --print-configs  Prints the list of available configurations
         --print-platform Prints the identifiers for the current build platform
                          as used for the build fields in package.json
+        --rdmd           Use rdmd instead of directly invoking the compiler
 
 Install options:
         --version        Use the specified version/branch instead of the latest
@@ -358,107 +308,4 @@ Install options:
         --local          Install as in a sub folder of the current directory
 
 `);
-}
-
-private string stripDlangSpecialChars(string s) 
-{
-	char[] ret = s.dup;
-	for(int i=0; i<ret.length; ++i)
-		if(!isAlpha(ret[i]))
-			ret[i] = '_';
-	return to!string(ret);
-}
-
-private string[] getPackagesAsVersion(const Dub dub)
-{
-	string[] ret;
-	string[string] pkgs = dub.installedPackages();
-	foreach(id, vers; pkgs)
-		ret ~= "Have_" ~ stripDlangSpecialChars(id);
-	return ret;
-}
-
-private string getBinName(const Dub dub)
-{
-	// take the project name as the base or fall back to "app"
-	string ret = dub.projectName;
-	if( ret.length == 0 ) ret ="app";
-	version(Windows) { ret ~= ".exe"; }
-	return ret;
-} 
-
-private Path getMainSourceFile(const Dub dub)
-{
-	auto p = Path("source") ~ (dub.projectName ~ ".d");
-	return existsFile(p) ? p : Path("source/app.d");
-}
-
-private void initDirectory(string fName)
-{ 
-    Path cwd; 
-    //Check to see if a target directory is specified.
-    if(fName != ".") {
-        if(!existsFile(fName))  
-            createDirectory(fName);
-        cwd = Path(fName);  
-    } 
-    //Otherwise use the current directory.
-    else 
-        cwd = Path("."); 
-  
-	//Make sure we do not overwrite anything accidentally
-	if( (existsFile(cwd ~ "package.json"))        ||
-		(existsFile(cwd ~ "source"      ))        ||
-		(existsFile(cwd ~ "views"       ))        || 
-		(existsFile(cwd ~ "public"     )))
-	{
-		logInfo("The current directory is not empty.\n"
-				"vibe init aborted.");
-		//Exit Immediately. 
-		return;
-	}
-	
-    //raw strings must be unindented. 
-    immutable packageJson = 
-`{
-    "name": "`~(fName == "." ? "my-project" : fName)~`",
-    "version": "0.0.1",
-    "description": "An example project skeleton",
-    "homepage": "http://example.org",
-    "copyright": "Copyright © 2000, Edit Me",
-    "authors": [
-        "Your Name"
-    ],
-    "dependencies": {
-    }
-}
-`;
-    immutable appFile =
-`import vibe.d;
-
-static this()
-{ 
-    logInfo("Edit source/app.d to start your project.");
-}
-`;
-	//Make sure we do not overwrite anything accidentally
-	if( (existsFile(cwd ~ PackageJsonFilename))        ||
-		(existsFile(cwd ~ "source"      ))        ||
-		(existsFile(cwd ~ "views"       ))        || 
-		(existsFile(cwd ~ "public"     )))
-	{
-		logInfo("The current directory is not empty.\n"
-				"vibe init aborted.");
-		//Exit Immediately. 
-		return;
-	}
-	//Create the common directories.
-	createDirectory(cwd ~ "source");
-	createDirectory(cwd ~ "views" );
-	createDirectory(cwd ~ "public");
-	//Create the common files. 
-	openFile(cwd ~ PackageJsonFilename, FileMode.Append).write(packageJson);
-	openFile(cwd ~ "source/app.d", FileMode.Append).write(appFile);     
-	//Act smug to the user. 
-	logInfo("Successfully created empty project.");
 }

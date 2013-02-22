@@ -10,10 +10,10 @@ module dub.dependency;
 import dub.utils;
 import dub.package_;
 
-import vibe.core.log;
-import vibe.core.file;
-import vibe.data.json;
-import vibe.inet.url;
+import vibecompat.core.log;
+import vibecompat.core.file;
+import vibecompat.data.json;
+import vibecompat.inet.url;
 
 // todo: cleanup imports
 import std.array;

@@ -7,6 +7,7 @@
 */
 module dub.project;
 
+import dub.compilers.compiler;
 import dub.dependency;
 import dub.installation;
 import dub.utils;
@@ -16,10 +17,10 @@ import dub.packagemanager;
 import dub.packagesupplier;
 import dub.generators.generator;
 
-import vibe.core.file;
-import vibe.core.log;
-import vibe.data.json;
-import vibe.inet.url;
+import vibecompat.core.file;
+import vibecompat.core.log;
+import vibecompat.data.json;
+import vibecompat.inet.url;
 
 // todo: cleanup imports.
 import std.algorithm;
@@ -55,6 +56,31 @@ class Project {
 
 	@property Path binaryPath() const { auto p = m_main.binaryPath; return p.length ? Path(p) : Path("./"); }
 
+	/// Gathers information
+	@property string info()
+	const {
+		if(!m_main)
+			return "-Unregocgnized application in '"~m_root.toNativeString()~"' (properly no package.json in this directory)";
+		string s = "-Application identifier: " ~ m_main.name;
+		s ~= "\n" ~ m_main.info();
+		s ~= "\n-Installed dependencies:";
+		foreach(p; m_dependencies)
+			s ~= "\n" ~ p.info();
+		return s;
+	}
+
+	/// Gets all installed packages as a "packageId" = "version" associative array
+	@property string[string] installedPackagesIDs() const {
+		string[string] pkgs;
+		foreach(p; m_dependencies)
+			pkgs[p.name] = p.vers;
+		return pkgs;
+	}
+
+	@property const(Package[]) installedPackages() const { return m_dependencies; }
+	
+	@property const (Package) mainPackage() const { return m_main; }
+
 	string getDefaultConfiguration(BuildPlatform platform)
 	const {
 		string ret;
@@ -67,34 +93,7 @@ class Project {
 		return ret;
 	}
 
-	/// Gathers information
-	string info() const {
-		if(!m_main)
-			return "-Unregocgnized application in '"~to!string(m_root)~"' (properly no package.json in this directory)";
-		string s = "-Application identifier: " ~ m_main.name;
-		s ~= "\n" ~ m_main.info();
-		s ~= "\n-Installed dependencies:";
-		foreach(p; m_dependencies)
-			s ~= "\n" ~ p.info();
-		return s;
-	}
 
-	/// Gets all installed packages as a "packageId" = "version" associative array
-	string[string] installedPackagesIDs() const {
-		string[string] pkgs;
-		foreach(p; m_dependencies)
-			pkgs[p.name] = p.vers;
-		return pkgs;
-	}
-
-	const(Package[]) installedPackages() const {
-		return m_dependencies;
-	}
-	
-	const (Package) mainPackage() const {
-		return m_main;
-	}
-	
 	/// Writes the application's metadata to the package.json file
 	/// in it's root folder.
 	void writeMetadata() const {
@@ -113,10 +112,13 @@ class Project {
 
 		if( !existsFile(m_root~PackageJsonFilename) ){
 			logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root.toNativeString());
+			auto json = Json.EmptyObject;
+			json.name = "";
+			m_main = new Package(json, InstallLocation.local, m_root);
 			return;
 		}
 
-		m_main = new Package(InstallLocation.Local, m_root);
+		m_main = new Package(InstallLocation.local, m_root);
 
 		// TODO: compute the set of mutual dependencies first
 		// (i.e. ">=0.0.1 <=0.0.5" and "<= 0.0.4" get ">=0.0.1 <=0.0.4")
@@ -162,28 +164,28 @@ class Project {
 	}
 
 	/// Returns the DFLAGS
-	BuildSettings getBuildSettings(BuildPlatform platform, string config)
+	void addBuildSettings(ref BuildSettings dst, BuildPlatform platform, string config)
 	const {
-		BuildSettings ret;
-
 		void addImportPath(string path, bool src)
 		{
 			if( !exists(path) ) return;
-			if( src ) ret.addImportDirs([path]);
-			else ret.addStringImportDirs([path]);
+			if( src ) dst.addImportDirs([path]);
+			else dst.addStringImportDirs([path]);
 		}
 
-		if( m_main ) processVars(ret, ".", m_main.getBuildSettings(platform, config));
+		if( m_main ) processVars(dst, ".", m_main.getBuildSettings(platform, config));
 		addImportPath("source", true);
 		addImportPath("views", false);
 
 		foreach( pkg; m_dependencies ){
-			processVars(ret, pkg.path.toNativeString(), pkg.getBuildSettings(platform, config));
+			processVars(dst, pkg.path.toNativeString(), pkg.getBuildSettings(platform, config));
 			addImportPath((pkg.path ~ "source").toNativeString(), true);
 			addImportPath((pkg.path ~ "views").toNativeString(), false);
 		}
 
-		return ret;
+		// add version identifiers for available packages
+		foreach(pack; this.installedPackages)
+			dst.addVersions(["Have_" ~ stripDlangSpecialChars(pack.name)]);
 	}
 
 	/// Actions which can be performed to update the application.
@@ -200,7 +202,7 @@ class Project {
 			logError("The dependency graph could not be filled.");
 			Action[] actions;
 			foreach( string pkg, rdp; graph.missing())
-				actions ~= Action(Action.ActionId.Failure, pkg, rdp.dependency, rdp.packages);
+				actions ~= Action.failure(pkg, rdp.dependency, rdp.packages);
 			return actions;
 		}
 
@@ -209,7 +211,7 @@ class Project {
 			logDebug("Conflicts found");
 			Action[] actions;
 			foreach( string pkg, dbp; conflicts)
-				actions ~= Action(Action.ActionId.Conflict, pkg, dbp.dependency, dbp.packages);
+				actions ~= Action.conflict(pkg, dbp.dependency, dbp.packages);
 			return actions;
 		}
 
@@ -239,15 +241,16 @@ class Project {
 			if(!p || (!d.dependency.matches(p.vers) && !d.dependency.matches(Version.MASTER))) {
 				if(!p) logDebug("Application not complete, required package '"~pkg~"', which was not found.");
 				else logDebug("Application not complete, required package '"~pkg~"', invalid version. Required '%s', available '%s'.", d.dependency, p.vers);
-				actions ~= Action(Action.ActionId.InstallUpdate, pkg, d.dependency, d.packages);
+				actions ~= Action.install(pkg, InstallLocation.projectLocal, d.dependency, d.packages);
 			} else {
 				logDebug("Required package '"~pkg~"' found with version '"~p.vers~"'");
 				if( option & UpdateOptions.Reinstall ) {
-					if( p.installLocation != InstallLocation.Local ){
+					if( p.installLocation != InstallLocation.local ){
 						Dependency[string] em;
-						if( p.installLocation == InstallLocation.ProjectLocal )
-							uninstalls ~= Action(Action.ActionId.Uninstall, *p, em);
-						actions ~= Action(Action.ActionId.InstallUpdate, pkg, d.dependency, d.packages);
+						// user and system packages are not uninstalled (could be needed by other projects)
+						if( p.installLocation == InstallLocation.projectLocal )
+							uninstalls ~= Action.uninstall(*p, em);
+						actions ~= Action.install(pkg, p.installLocation, d.dependency, d.packages);
 					} else {
 						logInfo("Skipping local package %s at %s", p.name, p.path.toNativeString());
 					}
@@ -259,10 +262,12 @@ class Project {
 		}
 
 		// Add uninstall actions
-		foreach( string pkg, p; unused ) {
-			logDebug("Superfluous package found: '"~pkg~"', version '"~p.vers~"'");
+		foreach( pname, pkg; unused ){
+			if( pkg.installLocation != InstallLocation.projectLocal )
+				continue;
+			logDebug("Superfluous package found: '"~pname~"', version '"~pkg.vers~"'");
 			Dependency[string] em;
-			uninstalls ~= Action( Action.ActionId.Uninstall, pkg, new Dependency("==", p.vers), em);
+			uninstalls ~= Action.uninstall(pkg, em);
 		}
 
 		// Ugly "uninstall" comes first
@@ -354,7 +359,7 @@ class Project {
 				if( p ) logTrace("Found installed package %s %s", pkg, p.ver);
 				
 				// Try an already installed package first
-				if( p && p.installLocation != InstallLocation.Local && needsUpToDateCheck(pkg) ){
+				if( p && p.installLocation != InstallLocation.local && needsUpToDateCheck(pkg) ){
 					logInfo("Triggering update of package %s", pkg);
 					p = null;
 				}
@@ -410,9 +415,7 @@ class Project {
 			if( !exists(dubpath.toNativeString()) ) mkdir(dubpath.toNativeString());
 			auto dstFile = openFile((dubpath~"dub.json").toString(), FileMode.CreateTrunc);
 			scope(exit) dstFile.close();
-			Appender!string js;
-			toPrettyJson(js, m_json);
-			dstFile.write( js.data );
+			dstFile.writePrettyJsonString(m_json);
 		} catch( Exception e ){
 			logWarn("Could not write .dub/dub.json.");
 		}
@@ -421,40 +424,62 @@ class Project {
 
 /// Actions to be performed by the dub
 struct Action {
-	enum ActionId {
-		InstallUpdate,
-		Uninstall,
-		Conflict,
-		Failure
+	enum Type {
+		install,
+		uninstall,
+		conflict,
+		failure
 	}
 
 	immutable {
-		ActionId action;
+		Type type;
 		string packageId;
+		InstallLocation location;
 		Dependency vers;
 	}
 	const Package pack;
 	const Dependency[string] issuer;
 
-	this(ActionId id, string pkg, in Dependency d, Dependency[string] issue)
+	static Action install(string pkg, InstallLocation location, in Dependency dep, Dependency[string] context)
 	{
-		action = id;
-		packageId = pkg;
-		vers = new immutable(Dependency)(d);
-		issuer = issue;
+		return Action(Type.install, pkg, location, dep, context);
 	}
 
-	this(ActionId id, Package pkg, Dependency[string] issue)
+	static Action uninstall(Package pkg, Dependency[string] context)
+	{
+		return Action(Type.uninstall, pkg, context);
+	}
+
+	static Action conflict(string pkg, in Dependency dep, Dependency[string] context)
+	{
+		return Action(Type.conflict, pkg, InstallLocation.projectLocal, dep, context);
+	}
+
+	static Action failure(string pkg, in Dependency dep, Dependency[string] context)
+	{
+		return Action(Type.failure, pkg, InstallLocation.projectLocal, dep, context);
+	}
+
+	private this(Type id, string pkg, InstallLocation location, in Dependency d, Dependency[string] issue)
+	{
+		this.type = id;
+		this.packageId = pkg;
+		this.location = location;
+		this.vers = new immutable(Dependency)(d);
+		this.issuer = issue;
+	}
+
+	private this(Type id, Package pkg, Dependency[string] issue)
 	{
 		pack = pkg;
-		action = id;
+		type = id;
 		packageId = pkg.name;
 		vers = new immutable(Dependency)("==", pkg.vers);
 		issuer = issue;
 	}
 
 	string toString() const {
-		return to!string(action) ~ ": " ~ packageId ~ ", " ~ to!string(vers);
+		return to!string(type) ~ ": " ~ packageId ~ ", " ~ to!string(vers);
 	}
 }
 
@@ -524,7 +549,17 @@ private void processVars(ref Appender!(string[]) dst, string project_path, strin
 	}
 }
 
-private bool isIdentChar(char ch)
+private bool isIdentChar(dchar ch)
 {
 	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
+}
+
+private string stripDlangSpecialChars(string s) 
+{
+	import std.array;
+	import std.uni;
+	auto ret = appender!string();
+	foreach(ch; s)
+		ret.put(isIdentChar(ch) ? ch : '_');
+	return ret.data;
 }

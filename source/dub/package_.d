@@ -7,6 +7,7 @@
 */
 module dub.package_;
 
+import dub.compilers.compiler;
 import dub.dependency;
 import dub.utils;
 
@@ -14,124 +15,20 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.file;
-import vibe.core.file;
-import vibe.data.json;
-import vibe.inet.url;
+import vibecompat.core.log;
+import vibecompat.core.file;
+import vibecompat.data.json;
+import vibecompat.inet.url;
 
 enum PackageJsonFilename = "package.json";
 
-/// Represents a platform a package can be build upon.
-struct BuildPlatform {
-	/// e.g. ["posix", "windows"]
-	string[] platform;
-	/// e.g. ["x86", "x64"]
-	string[] architecture;
-	/// e.g. "dmd"
-	string compiler;
-}
-
-/// BuildPlatform specific settings, like needed libraries or additional
-/// include paths.
-struct BuildSettings {
-	string[] dflags;
-	string[] lflags;
-	string[] libs;
-	string[] files;
-	string[] copyFiles;
-	string[] versions;
-	string[] importPaths;
-	string[] stringImportPaths;
-
-	void parse(in Json root, BuildPlatform platform)
-	{
-		addDFlags(getPlatformField(root, "dflags", platform));
-		addLFlags(getPlatformField(root, "lflags", platform));
-		addLibs(getPlatformField(root, "libs", platform));
-		addFiles(getPlatformField(root, "files", platform));
-		addCopyFiles(getPlatformField(root, "copyFiles", platform));
-		addVersions(getPlatformField(root, "versions", platform));
-		addImportDirs(getPlatformField(root, "importPaths", platform));
-		addStringImportDirs(getPlatformField(root, "stringImportPaths", platform));
-	}
-
-	void addDFlags(string[] value) { add(dflags, value); }
-	void addLFlags(string[] value) { add(lflags, value); }
-	void addLibs(string[] value) { add(libs, value); }
-	void addFiles(string[] value) { add(files, value); }
-	void addCopyFiles(string[] value) { add(copyFiles, value); }
-	void addVersions(string[] value) { add(versions, value); }
-	void addImportDirs(string[] value) { add(importPaths, value); }
-	void addStringImportDirs(string[] value) { add(stringImportPaths, value); }
-
-	// Adds vals to arr without adding duplicates.
-	private void add(ref string[] arr, string[] vals)
-	{
-		foreach( v; vals ){
-			bool found = false;
-			foreach( i; 0 .. arr.length )
-				if( arr[i] == v ){
-					found = true;
-					break;
-				}
-			if( !found ) arr ~= v;
-		}
-	}
-
-	// Parses json and returns the values of the corresponding field 
-	// by the platform.
-	private string[] getPlatformField(in Json json, string name, BuildPlatform platform)
-	const {
-		auto ret = appender!(string[])();
-		foreach( suffix; getPlatformSuffixIterator(platform) ){
-			foreach( j; json[name~suffix].opt!(Json[]) )
-				ret.put(j.get!string);
-		}
-		return ret.data;
-	}
-}
-
-/// Based on the BuildPlatform, creates an iterator with all suffixes.
-///
-/// Suffixes are build upon the following scheme, where each component
-/// is optional (indicated by []), but the order is obligatory.
-/// "[-platform][-architecture][-compiler]"
-///
-/// So the following strings are valid suffixes:
-/// "-windows-x86-dmd"
-/// "-dmd"
-/// "-arm"
-///
-int delegate(scope int delegate(ref string)) getPlatformSuffixIterator(BuildPlatform platform)
-{
-	int iterator(scope int delegate(ref string s) del)
-	{
-		auto c = platform.compiler;
-		int delwrap(string s) { return del(s); }
-		if( auto ret = delwrap(null) ) return ret;
-		if( auto ret = delwrap("-"~c) ) return ret;
-		foreach( p; platform.platform ){
-			if( auto ret = delwrap("-"~p) ) return ret;
-			if( auto ret = delwrap("-"~p~"-"~c) ) return ret;
-			foreach( a; platform.architecture ){
-				if( auto ret = delwrap("-"~p~"-"~a) ) return ret;
-				if( auto ret = delwrap("-"~p~"-"~a~"-"~c) ) return ret;
-			}
-		}
-		foreach( a; platform.architecture ){
-			if( auto ret = delwrap("-"~a) ) return ret;
-			if( auto ret = delwrap("-"~a~"-"~c) ) return ret;
-		}
-		return 0;
-	}
-	return &iterator;
-}
 
 /// Indicates where a package has been or should be installed to.
 enum InstallLocation {
-	Local,
-	ProjectLocal,
-	UserWide,
-	SystemWide
+	local,
+	projectLocal,
+	userWide,
+	systemWide
 }
 
 /// Representing an installed package, usually constructed from a json object.
@@ -186,7 +83,7 @@ class Package {
 		this(jsonFromFile(root ~ PackageJsonFilename), location, root);
 	}
 
-	this(Json packageInfo, InstallLocation location = InstallLocation.Local, Path root = Path())
+	this(Json packageInfo, InstallLocation location = InstallLocation.local, Path root = Path())
 	{
 		m_location = location;
 		m_path = root;
@@ -252,6 +149,7 @@ class Package {
 		auto customSourcePath = "sourcePath" in m_meta;
 		if(customSourcePath)
 			sourcePath = Path(customSourcePath.get!string());
+		logTrace("Parsing directory for sources: %s", m_path ~ sourcePath);
 		foreach(d; dirEntries((m_path ~ sourcePath).toNativeString(), "*.d", SpanMode.depth)) {
 			// direct assignment allSources ~= Path(d.name)[...] spawns internal compiler/linker error
 			if(isDir(d.name)) continue;
@@ -289,8 +187,6 @@ class Package {
 	void writeJson(Path path) {
 		auto dstFile = openFile((path~PackageJsonFilename).toString(), FileMode.CreateTrunc);
 		scope(exit) dstFile.close();
-		Appender!string js;
-		toPrettyJson(js, m_meta);
-		dstFile.write( js.data );
+		dstFile.writePrettyJsonString(m_meta);
 	}
 }

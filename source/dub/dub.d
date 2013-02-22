@@ -7,6 +7,7 @@
 */
 module dub.dub;
 
+import dub.compilers.compiler;
 import dub.dependency;
 import dub.installation;
 import dub.utils;
@@ -17,10 +18,10 @@ import dub.packagesupplier;
 import dub.project;
 import dub.generators.generator;
 
-import vibe.core.file;
-import vibe.core.log;
-import vibe.data.json;
-import vibe.inet.url;
+import vibecompat.core.file;
+import vibecompat.core.log;
+import vibecompat.data.json;
+import vibecompat.inet.url;
 
 // todo: cleanup imports.
 import std.algorithm;
@@ -68,7 +69,7 @@ class Dub {
 			m_userDubPath = Path(environment.get("APPDATA")) ~ "dub/";
 			m_tempPath = Path(environment.get("TEMP"));
 		} else version(Posix){
-			m_systemDubPath = Path("/etc/dub/");
+			m_systemDubPath = Path("/var/lib/dub/");
 			m_userDubPath = Path(environment.get("HOME")) ~ ".dub/";
 			m_tempPath = Path("/tmp");
 		}
@@ -99,10 +100,6 @@ class Dub {
 		m_app = new Project(m_packageManager, m_root);
 	}
 
-	/// Returns a list of flags which the application needs to be compiled
-	/// properly.
-	BuildSettings getBuildSettings(BuildPlatform platform, string config) { return m_app.getBuildSettings(platform, config); }
-
 	string getDefaultConfiguration(BuildPlatform platform) const { return m_app.getDefaultConfiguration(platform); }
 
 	/// Lists all installed modules
@@ -120,8 +117,8 @@ class Dub {
 		logInfo("The following changes could be performed:");
 		bool conflictedOrFailed = false;
 		foreach(Action a; actions) {
-			logInfo(capitalize( to!string( a.action ) ) ~ ": " ~ a.packageId ~ ", version %s", a.vers);
-			if( a.action == Action.ActionId.Conflict || a.action == Action.ActionId.Failure ) {
+			logInfo("%s %s %s, %s", capitalize(to!string(a.type)), a.packageId, a.vers, a.location);
+			if( a.type == Action.Type.conflict || a.type == Action.Type.failure ) {
 				logInfo("Issued by: ");
 				conflictedOrFailed = true;
 				foreach(string pkg, d; a.issuer)
@@ -135,18 +132,18 @@ class Dub {
 		// Uninstall first
 
 		// ??
-		// foreach(Action a	   ; filter!((Action a)        => a.action == Action.ActionId.Uninstall)(actions))
+		// foreach(Action a	   ; filter!((Action a)        => a.type == Action.Type.Uninstall)(actions))
 			// uninstall(a.packageId);
-		// foreach(Action a; filter!((Action a) => a.action == Action.ActionId.InstallUpdate)(actions))
+		// foreach(Action a; filter!((Action a) => a.type == Action.Type.InstallUpdate)(actions))
 			// install(a.packageId, a.vers);
 		foreach(Action a; actions)
-			if(a.action == Action.ActionId.Uninstall){
+			if(a.type == Action.Type.uninstall){
 				assert(a.pack !is null, "No package specified for uninstall.");
 				uninstall(a.pack);
 			}
 		foreach(Action a; actions)
-			if(a.action == Action.ActionId.InstallUpdate)
-				install(a.packageId, a.vers);
+			if(a.type == Action.Type.install)
+				install(a.packageId, a.vers, a.location);
 
 		m_app.reinit();
 		Action[] newActions = m_app.determineActions(m_packageSupplier, 0);
@@ -163,13 +160,9 @@ class Dub {
 
 	/// Generate project files for a specified IDE.
 	/// Any existing project files will be overridden.
-	void generateProject(string ide, BuildPlatform build_platform) {
+	void generateProject(string ide, GeneratorSettings settings) {
 		auto generator = createProjectGenerator(ide, m_app, m_packageManager);
-		if(generator is null ) {
-			logError("Unsupported IDE, there is no generator available for '"~ide~"'");
-			throw new Exception("Unsupported IDE, there is no generator available for '"~ide~"'");
-		}
-		generator.generateProject(build_platform);
+		generator.generateProject(settings);
 	}
 	
 	/// Creates a zip from the application.
@@ -189,21 +182,29 @@ class Dub {
 	/// Installs the package matching the dependency into the application.
 	/// @param addToApplication if true, this will also add an entry in the
 	/// list of dependencies in the application's package.json
-	void install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.ProjectLocal)
+	void install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.projectLocal)
 	{
 		auto pinfo = m_packageSupplier.packageJson(packageId, dep);
 		string ver = pinfo["version"].get!string;
 
-		logInfo("Installing %s %s...", packageId, ver);
+		if( m_packageManager.hasPackage(packageId, ver, location) ){
+			logInfo("Package %s %s (%s) is already installed with the latest version, skipping upgrade.",
+				packageId, ver, location);
+			return;
+		}
 
-		logDebug("Aquiring package zip file");
+		logInfo("Downloading %s %s...", packageId, ver);
+
+		logDebug("Acquiring package zip file");
 		auto dload = m_root ~ ".dub/temp/downloads";
-		auto tempFile = m_tempPath ~ ("dub-download-"~packageId~"-"~ver~".zip");
+		auto tempfname = packageId ~ "-" ~ (ver.startsWith('~') ? ver[1 .. $] : ver) ~ ".zip";
+		auto tempFile = m_tempPath ~ tempfname;
 		string sTempFile = tempFile.toNativeString();
 		if(exists(sTempFile)) remove(sTempFile);
 		m_packageSupplier.storePackage(tempFile, packageId, dep); // Q: continue on fail?
 		scope(exit) remove(sTempFile);
 
+		logInfo("Installing %s %s...", packageId, ver);
 		m_packageManager.install(tempFile, pinfo, location);
 	}
 
@@ -229,5 +230,60 @@ class Dub {
 		auto abs_path = Path(path);
 		if( !abs_path.absolute ) abs_path = m_cwd ~ abs_path;
 		m_packageManager.removeLocalPackage(abs_path, system ? LocalPackageType.system : LocalPackageType.user);
+	}
+
+	void createEmptyPackage(Path path)
+	{
+		path.normalize();
+
+		//Check to see if a target directory needs to be created
+		if( !path.empty ){
+			if( !existsFile(path) )
+				createDirectory(path);
+		} 
+
+		//Make sure we do not overwrite anything accidentally
+		if( existsFile(path ~ PackageJsonFilename) ||
+			existsFile(path ~ "source") ||
+			existsFile(path ~ "views") ||
+			existsFile(path ~ "public") )
+		{
+			throw new Exception("The current directory is not empty.\n");
+		}
+
+		//raw strings must be unindented. 
+		immutable packageJson = 
+`{
+	"name": "`~(path.empty ? "my-project" : path.head.toString())~`",
+	"description": "An example project skeleton",
+	"homepage": "http://example.org",
+	"copyright": "Copyright © 2000, Your Name",
+	"authors": [
+		"Your Name"
+	],
+	"dependencies": {
+	}
+}
+`;
+		immutable appFile =
+`import std.stdio;
+
+void main()
+{ 
+	writeln("Edit source/app.d to start your project.");
+}
+`;
+
+		//Create the common directories.
+		createDirectory(path ~ "source");
+		createDirectory(path ~ "views");
+		createDirectory(path ~ "public");
+
+		//Create the common files. 
+		openFile(path ~ PackageJsonFilename, FileMode.Append).write(packageJson);
+		openFile(path ~ "source/app.d", FileMode.Append).write(appFile);     
+
+		//Act smug to the user. 
+		logInfo("Successfully created an empty project in '"~path.toNativeString()~"'.");
 	}
 }

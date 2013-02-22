@@ -7,12 +7,10 @@
 */
 module dub.utils;
 
-import vibe.core.file;
-import vibe.core.log;
-import vibe.data.json;
-import vibe.inet.url;
-import vibe.stream.operations;
-import vibe.utils.string;
+import vibecompat.core.file;
+import vibecompat.core.log;
+import vibecompat.data.json;
+import vibecompat.inet.url;
 
 // todo: cleanup imports.
 import std.array;
@@ -25,23 +23,23 @@ import std.conv;
 
 
 package bool isEmptyDir(Path p) {
-	foreach(DirEntry e; dirEntries(to!string(p), SpanMode.shallow))
+	foreach(DirEntry e; dirEntries(p.toNativeString(), SpanMode.shallow))
 		return false;
 	return true;
 }
 
 package Json jsonFromFile(Path file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.EmptyObject;
-	auto f = openFile(to!string(file), FileMode.Read);
+	auto f = openFile(file.toNativeString(), FileMode.Read);
 	scope(exit) f.close();
 	auto text = stripUTF8Bom(cast(string)f.readAll());
 	return parseJson(text);
 }
 
-package Json jsonFromZip(string zip, string filename) {
+package Json jsonFromZip(Path zip, string filename) {
 	auto f = openFile(zip, FileMode.Read);
-	ubyte[] b = new ubyte[cast(uint)f.leastSize];
-	f.read(b);
+	ubyte[] b = new ubyte[cast(size_t)f.size];
+	f.rawRead(b);
 	f.close();
 	auto archive = new ZipArchive(b);
 	auto text = stripUTF8Bom(cast(string)archive.expand(archive.directory[filename]));
@@ -52,7 +50,7 @@ package void writeJsonFile(Path path, Json json)
 {
 	auto f = openFile(path, FileMode.CreateTrunc);
 	scope(exit) f.close();
-	toPrettyJson(f, json);
+	f.writePrettyJsonString(json);
 }
 
 package bool isPathFromZip(string p) {
@@ -64,4 +62,11 @@ package bool existsDirectory(Path path) {
 	if( !existsFile(path) ) return false;
 	auto fi = getFileInfo(path);
 	return fi.isDirectory;
+}
+
+private string stripUTF8Bom(string str)
+{
+	if( str.length >= 3 && str[0 .. 3] == [0xEF, 0xBB, 0xBF] )
+		return str[3 ..$];
+	return str;
 }
