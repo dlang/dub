@@ -32,14 +32,17 @@ version(Posix){
 struct RangeFile {
 	File file;
 	alias file this;
+
 	void put(in char[] str) { file.write(str); }
 	void put(char ch) { file.write(cast(ubyte)ch); }
 	void put(dchar ch) { char[4] chars; put(chars[0 .. encode(chars, ch)]); }
 	
 	ubyte[] readAll()
 	{
-		auto sz = file.size;
+		file.seek(0, SEEK_END);
+		auto sz = file.tell();
 		enforce(sz <= size_t.max, "File is too big to read to memory.");
+		file.seek(0, SEEK_SET);
 		auto ret = new ubyte[cast(size_t)sz];
 		return file.rawRead(ret);
 	}
@@ -58,7 +61,9 @@ RangeFile openFile(Path path, FileMode mode = FileMode.Read)
 		case FileMode.CreateTrunc: strmode = "wb+"; break;
 		case FileMode.Append: strmode = "ab"; break;
 	}
-	return RangeFile(File(path.toNativeString(), strmode));
+	auto ret = File(path.toNativeString(), strmode);
+	assert(ret.isOpen());
+	return RangeFile(ret);
 }
 /// ditto
 RangeFile openFile(string path, FileMode mode = FileMode.Read)

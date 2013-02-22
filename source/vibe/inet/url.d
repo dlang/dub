@@ -163,7 +163,7 @@ struct Url {
 	const { 
 		auto str = appender!string();
 		str.reserve(m_pathString.length + 2 + queryString.length + anchor.length);
-		str.put(encodeComponent(path.toString()));
+		str.put(encode(path.toString()));
 		if( queryString.length ) {
 			str.put("?");
 			str.put(queryString);
@@ -190,7 +190,7 @@ struct Url {
 		}
 
 		m_pathString = str;
-		m_path = Path(decodeComponent(str));
+		m_path = Path(decode(str));
 	}
 
 	/// The URL to the parent path with query string and anchor stripped.
