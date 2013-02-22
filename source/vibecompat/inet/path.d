@@ -128,6 +128,14 @@ struct Path {
 	
 	/// Computes the relative path from `parentPath` to this path.
 	Path relativeTo(const Path parentPath) const {
+		version(Windows){
+			// a path such as ..\C:\windows is not valid, so force the path to stay absolute in this case
+			if( this.absolute && !this.empty && m_nodes[0].toString().endsWith(":") &&
+				!parentPath.startsWith(this[0 .. 1]) )
+			{
+				return this;
+			}
+		}
 		int nup = 0;
 		while( parentPath.length > nup && !startsWith(parentPath[0 .. parentPath.length-nup]) ){
 			nup++;
