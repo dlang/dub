@@ -157,6 +157,16 @@ class PackageManager {
 
 	Package install(Path zip_file_path, Json package_info, InstallLocation location)
 	{
+		foreach(ep; getPackageIterator()){
+			if( ep.installLocation == location && ep.name == package_info.name.get!string
+				&& ep.vers == package_info["version"].get!string() )
+			{
+				logInfo("Skipping installation of already existing %s package %s %s.",
+					location, ep.name, ep.vers);
+				return ep;
+			}
+		}
+
 		auto package_name = package_info.name.get!string();
 		auto package_version = package_info["version"].get!string();
 
@@ -168,8 +178,9 @@ class PackageManager {
 			case InstallLocation.SystemWide: destination = m_systemPackagePath ~ (package_name ~ "/" ~ package_version); break;
 		}
 
-		if( existsFile(destination) )
+		if( existsFile(destination) ){
 			throw new Exception(format("%s %s needs to be uninstalled prior installation.", package_name, package_version));
+		}
 
 		// open zip file
 		ZipArchive archive;

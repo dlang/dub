@@ -117,8 +117,8 @@ class Dub {
 		logInfo("The following changes could be performed:");
 		bool conflictedOrFailed = false;
 		foreach(Action a; actions) {
-			logInfo(capitalize( to!string( a.action ) ) ~ ": " ~ a.packageId ~ ", version %s", a.vers);
-			if( a.action == Action.ActionId.Conflict || a.action == Action.ActionId.Failure ) {
+			logInfo(capitalize(to!string(a.type)) ~ ": " ~ a.packageId ~ ", version %s", a.vers);
+			if( a.type == Action.Type.conflict || a.type == Action.Type.failure ) {
 				logInfo("Issued by: ");
 				conflictedOrFailed = true;
 				foreach(string pkg, d; a.issuer)
@@ -132,18 +132,18 @@ class Dub {
 		// Uninstall first
 
 		// ??
-		// foreach(Action a	   ; filter!((Action a)        => a.action == Action.ActionId.Uninstall)(actions))
+		// foreach(Action a	   ; filter!((Action a)        => a.type == Action.Type.Uninstall)(actions))
 			// uninstall(a.packageId);
-		// foreach(Action a; filter!((Action a) => a.action == Action.ActionId.InstallUpdate)(actions))
+		// foreach(Action a; filter!((Action a) => a.type == Action.Type.InstallUpdate)(actions))
 			// install(a.packageId, a.vers);
 		foreach(Action a; actions)
-			if(a.action == Action.ActionId.Uninstall){
+			if(a.type == Action.Type.uninstall){
 				assert(a.pack !is null, "No package specified for uninstall.");
 				uninstall(a.pack);
 			}
 		foreach(Action a; actions)
-			if(a.action == Action.ActionId.InstallUpdate)
-				install(a.packageId, a.vers);
+			if(a.type == Action.Type.install)
+				install(a.packageId, a.vers, a.location);
 
 		m_app.reinit();
 		Action[] newActions = m_app.determineActions(m_packageSupplier, 0);

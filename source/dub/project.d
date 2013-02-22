@@ -202,7 +202,7 @@ class Project {
 			logError("The dependency graph could not be filled.");
 			Action[] actions;
 			foreach( string pkg, rdp; graph.missing())
-				actions ~= Action(Action.ActionId.Failure, pkg, rdp.dependency, rdp.packages);
+				actions ~= Action.failure(pkg, rdp.dependency, rdp.packages);
 			return actions;
 		}
 
@@ -211,7 +211,7 @@ class Project {
 			logDebug("Conflicts found");
 			Action[] actions;
 			foreach( string pkg, dbp; conflicts)
-				actions ~= Action(Action.ActionId.Conflict, pkg, dbp.dependency, dbp.packages);
+				actions ~= Action.conflict(pkg, dbp.dependency, dbp.packages);
 			return actions;
 		}
 
@@ -241,15 +241,16 @@ class Project {
 			if(!p || (!d.dependency.matches(p.vers) && !d.dependency.matches(Version.MASTER))) {
 				if(!p) logDebug("Application not complete, required package '"~pkg~"', which was not found.");
 				else logDebug("Application not complete, required package '"~pkg~"', invalid version. Required '%s', available '%s'.", d.dependency, p.vers);
-				actions ~= Action(Action.ActionId.InstallUpdate, pkg, d.dependency, d.packages);
+				actions ~= Action.install(pkg, InstallLocation.ProjectLocal, d.dependency, d.packages);
 			} else {
 				logDebug("Required package '"~pkg~"' found with version '"~p.vers~"'");
 				if( option & UpdateOptions.Reinstall ) {
 					if( p.installLocation != InstallLocation.Local ){
 						Dependency[string] em;
+						// user and system packages are not uninstalled (could be needed by other projects)
 						if( p.installLocation == InstallLocation.ProjectLocal )
-							uninstalls ~= Action(Action.ActionId.Uninstall, *p, em);
-						actions ~= Action(Action.ActionId.InstallUpdate, pkg, d.dependency, d.packages);
+							uninstalls ~= Action.uninstall(*p, em);
+						actions ~= Action.install(pkg, p.installLocation, d.dependency, d.packages);
 					} else {
 						logInfo("Skipping local package %s at %s", p.name, p.path.toNativeString());
 					}
@@ -261,10 +262,12 @@ class Project {
 		}
 
 		// Add uninstall actions
-		foreach( string pkg, p; unused ) {
-			logDebug("Superfluous package found: '"~pkg~"', version '"~p.vers~"'");
+		foreach( pname, pkg; unused ){
+			if( pkg.installLocation != InstallLocation.ProjectLocal )
+				continue;
+			logDebug("Superfluous package found: '"~pname~"', version '"~pkg.vers~"'");
 			Dependency[string] em;
-			uninstalls ~= Action( Action.ActionId.Uninstall, pkg, new Dependency("==", p.vers), em);
+			uninstalls ~= Action.uninstall(pkg, em);
 		}
 
 		// Ugly "uninstall" comes first
@@ -421,40 +424,62 @@ class Project {
 
 /// Actions to be performed by the dub
 struct Action {
-	enum ActionId {
-		InstallUpdate,
-		Uninstall,
-		Conflict,
-		Failure
+	enum Type {
+		install,
+		uninstall,
+		conflict,
+		failure
 	}
 
 	immutable {
-		ActionId action;
+		Type type;
 		string packageId;
+		InstallLocation location;
 		Dependency vers;
 	}
 	const Package pack;
 	const Dependency[string] issuer;
 
-	this(ActionId id, string pkg, in Dependency d, Dependency[string] issue)
+	static Action install(string pkg, InstallLocation location, in Dependency dep, Dependency[string] context)
 	{
-		action = id;
-		packageId = pkg;
-		vers = new immutable(Dependency)(d);
-		issuer = issue;
+		return Action(Type.install, pkg, location, dep, context);
 	}
 
-	this(ActionId id, Package pkg, Dependency[string] issue)
+	static Action uninstall(Package pkg, Dependency[string] context)
+	{
+		return Action(Type.uninstall, pkg, context);
+	}
+
+	static Action conflict(string pkg, in Dependency dep, Dependency[string] context)
+	{
+		return Action(Type.conflict, pkg, InstallLocation.ProjectLocal, dep, context);
+	}
+
+	static Action failure(string pkg, in Dependency dep, Dependency[string] context)
+	{
+		return Action(Type.failure, pkg, InstallLocation.ProjectLocal, dep, context);
+	}
+
+	private this(Type id, string pkg, InstallLocation location, in Dependency d, Dependency[string] issue)
+	{
+		this.type = id;
+		this.packageId = pkg;
+		this.location = location;
+		this.vers = new immutable(Dependency)(d);
+		this.issuer = issue;
+	}
+
+	private this(Type id, Package pkg, Dependency[string] issue)
 	{
 		pack = pkg;
-		action = id;
+		type = id;
 		packageId = pkg.name;
 		vers = new immutable(Dependency)("==", pkg.vers);
 		issuer = issue;
 	}
 
 	string toString() const {
-		return to!string(action) ~ ": " ~ packageId ~ ", " ~ to!string(vers);
+		return to!string(type) ~ ": " ~ packageId ~ ", " ~ to!string(vers);
 	}
 }
 
