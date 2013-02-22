@@ -15,9 +15,9 @@ import dub.package_;
 import dub.project;
 import dub.registry;
 
-import vibe.core.file;
-import vibe.core.log;
-import vibe.inet.url;
+import vibecompat.core.file;
+import vibecompat.core.log;
+import vibecompat.inet.url;
 
 import std.algorithm;
 import std.array;

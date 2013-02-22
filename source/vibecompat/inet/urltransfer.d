@@ -5,11 +5,11 @@
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
-module vibe.inet.urltransfer;
+module vibecompat.inet.urltransfer;
 
-import vibe.core.log;
-import vibe.core.file;
-import vibe.inet.url;
+import vibecompat.core.log;
+import vibecompat.core.file;
+import vibecompat.inet.url;
 
 import std.exception;
 import std.net.curl;

@@ -15,10 +15,10 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.file;
-import vibe.core.log;
-import vibe.core.file;
-import vibe.data.json;
-import vibe.inet.url;
+import vibecompat.core.log;
+import vibecompat.core.file;
+import vibecompat.data.json;
+import vibecompat.inet.url;
 
 enum PackageJsonFilename = "package.json";
 

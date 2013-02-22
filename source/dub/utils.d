@@ -7,10 +7,10 @@
 */
 module dub.utils;
 
-import vibe.core.file;
-import vibe.core.log;
-import vibe.data.json;
-import vibe.inet.url;
+import vibecompat.core.file;
+import vibecompat.core.log;
+import vibecompat.data.json;
+import vibecompat.inet.url;
 
 // todo: cleanup imports.
 import std.array;

@@ -37,9 +37,9 @@
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
-module vibe.data.json;
+module vibecompat.data.json;
 
-import vibe.data.utils;
+import vibecompat.data.utils;
 
 import std.array;
 import std.conv;
@@ -715,7 +715,7 @@ Json parseJson(R)(ref R range, int* line = null)
 	skipWhitespace(range, line);
 
 	version(JsonLineNumbers){
-		import vibe.core.log;
+		import vibecompat.core.log;
 		int curline = line ? *line : 0;
 		scope(failure) logError("Error in line: %d", curline);
 	}

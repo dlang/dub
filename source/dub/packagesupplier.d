@@ -15,11 +15,11 @@ import std.exception;
 import std.zip;
 import std.conv;
 
-import vibe.core.log;
-import vibe.core.file;
-import vibe.data.json;
-import vibe.inet.url;
-import vibe.inet.urltransfer;
+import vibecompat.core.log;
+import vibecompat.core.file;
+import vibecompat.data.json;
+import vibecompat.inet.url;
+import vibecompat.inet.urltransfer;
 
 /// Supplies packages, this is done by supplying the latest possible version
 /// which is available.

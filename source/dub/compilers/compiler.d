@@ -13,8 +13,8 @@ import dub.compilers.ldc;
 
 import std.algorithm;
 import std.array;
-import vibe.data.json;
-import vibe.inet.path;
+import vibecompat.data.json;
+import vibecompat.inet.path;
 
 
 static this()

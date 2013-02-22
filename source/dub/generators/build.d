@@ -21,9 +21,9 @@ import std.file;
 import std.string;
 import stdx.process;
 
-import vibe.core.file;
-import vibe.core.log;
-import vibe.inet.path;
+import vibecompat.core.file;
+import vibecompat.core.log;
+import vibecompat.inet.path;
 
 
 class BuildGenerator : ProjectGenerator {

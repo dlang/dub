@@ -5,7 +5,7 @@
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
-module vibe.core.log;
+module vibecompat.core.log;
 
 import std.array;
 import std.datetime;

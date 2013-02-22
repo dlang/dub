@@ -18,10 +18,10 @@ import std.exception;
 import std.file;
 import std.string;
 import std.zip;
-import vibe.core.file;
-import vibe.core.log;
-import vibe.data.json;
-import vibe.inet.path;
+import vibecompat.core.file;
+import vibecompat.core.log;
+import vibecompat.data.json;
+import vibecompat.inet.path;
 
 
 enum JournalJsonFilename = "journal.json";

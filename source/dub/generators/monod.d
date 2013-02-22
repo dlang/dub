@@ -20,8 +20,8 @@ import std.format;
 import std.uuid;
 import std.exception;
 
-import vibe.core.file;
-import vibe.core.log;
+import vibecompat.core.file;
+import vibecompat.core.log;
 
 
 class MonoDGenerator : ProjectGenerator {

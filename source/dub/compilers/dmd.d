@@ -15,8 +15,8 @@ import std.array;
 import std.conv;
 import std.exception;
 import stdx.process;
-import vibe.core.log;
-import vibe.inet.path;
+import vibecompat.core.log;
+import vibecompat.inet.path;
 
 
 class DmdCompiler : Compiler {

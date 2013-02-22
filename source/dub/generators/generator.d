@@ -17,7 +17,7 @@ import dub.packagemanager;
 import dub.project;
 
 import std.exception;
-import vibe.core.log;
+import vibecompat.core.log;
 
 
 /**
