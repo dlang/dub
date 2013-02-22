@@ -25,7 +25,8 @@ import std.string;
 void download(string url, string filename)
 {
 	auto conn = HTTP();
-	conn.verifyPeer = false;
+	static if( is(typeof(&conn.verifyPeer)) )
+		conn.verifyPeer = false;
 	std.net.curl.download(url, filename, conn);
 }
 
