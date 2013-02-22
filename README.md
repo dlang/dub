@@ -37,14 +37,11 @@ To make things as flexible as they need to be for certain projects, it is planne
 Installation
 ------------
 
-DUB comes [precompiled](http://registry.vibed.org/download) for Windows, Mac OS, Linux and FreeBSD. It needs to have the following dependencies installed (except on Windows):
-
- - libevent 2.0.x
- - OpenSSL
+DUB comes [precompiled](http://registry.vibed.org/download) for Windows, Mac OS, Linux and FreeBSD. It needs to have libcurl with SSL support installed (except on Windows).
 
 The `dub` executable then just needs to be accessible from `PATH` and can be invoked from the root folder of any DUB enabled project to build and run it.
 
-If you want to build for yourself, you need to install [vibe.d](http://vibed.org/download) and run `vibe build` from DUB's main folder and rename the resulting "app" file to "dub".
+If you want to build for yourself, just install [DMD](http://dlang.org/download.html) and libcurl development headers and run `./build.sh`. On Windows you can simply run `build.cmd` without installing anything besides DMD.
 
 ### Arch Linux
 
