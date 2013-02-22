@@ -130,16 +130,8 @@ void moveFile(string from, string to)
 */
 void copyFile(Path from, Path to, bool overwrite = false)
 {
-	{
-		auto src = openFile(from, FileMode.Read);
-		scope(exit) src.close();
-		enforce(overwrite || !existsFile(to), "Destination file already exists.");
-		auto dst = openFile(to, FileMode.CreateTrunc);
-		scope(exit) dst.close();
-		dst.write(src);
-	}
-
-	// TODO: retain attributes and time stamps
+	enforce(overwrite || !existsFile(to), "Destination file already exists.");
+	.copy(from.toNativeString(), to.toNativeString());
 }
 /// ditto
 void copyFile(string from, string to)
