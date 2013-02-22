@@ -22,7 +22,6 @@ import vibe.core.file;
 import vibe.core.log;
 import vibe.data.json;
 import vibe.inet.path;
-import vibe.stream.operations;
 
 
 enum JournalJsonFilename = "journal.json";

@@ -97,7 +97,7 @@ class MonoDGenerator : ProjectGenerator {
 		sln.put("EndGlobal\n");
 	}
 	
-	private void generateSolutionEntry(OutputStream ret, GeneratorSettings settings, const Package pack)
+	private void generateSolutionEntry(RangeFile ret, GeneratorSettings settings, const Package pack)
 	{
 		auto projUuid = generateUUID();
 		auto projName = pack.name;

@@ -11,8 +11,6 @@ import vibe.core.file;
 import vibe.core.log;
 import vibe.data.json;
 import vibe.inet.url;
-import vibe.stream.operations;
-import vibe.utils.string;
 
 // todo: cleanup imports.
 import std.array;
@@ -40,8 +38,8 @@ package Json jsonFromFile(Path file, bool silent_fail = false) {
 
 package Json jsonFromZip(Path zip, string filename) {
 	auto f = openFile(zip, FileMode.Read);
-	ubyte[] b = new ubyte[cast(uint)f.leastSize];
-	f.read(b);
+	ubyte[] b = new ubyte[cast(size_t)f.size];
+	f.rawRead(b);
 	f.close();
 	auto archive = new ZipArchive(b);
 	auto text = stripUTF8Bom(cast(string)archive.expand(archive.directory[filename]));
@@ -64,4 +62,11 @@ package bool existsDirectory(Path path) {
 	if( !existsFile(path) ) return false;
 	auto fi = getFileInfo(path);
 	return fi.isDirectory;
+}
+
+private string stripUTF8Bom(string str)
+{
+	if( str.length >= 3 && str[0 .. 3] == [0xEF, 0xBB, 0xBF] )
+		return str[3 ..$];
+	return str;
 }

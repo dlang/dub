@@ -18,11 +18,11 @@ import dub.registry;
 import vibe.core.file;
 import vibe.core.log;
 import vibe.inet.url;
-import vibe.utils.string;
 
 import std.algorithm;
 import std.array;
 import std.conv;
+import std.encoding;
 import std.exception;
 import std.file;
 import std.getopt;
@@ -247,7 +247,7 @@ int main(string[] args)
 	catch(Throwable e)
 	{
 		logError("Error: %s\n", e.msg);
-		logDebug("Full exception: %s", sanitizeUTF8(cast(ubyte[])e.toString()));
+		logDebug("Full exception: %s", sanitize(e.toString()));
 		logInfo("Run 'dub help' for usage information.");
 		return 1;
 	}
