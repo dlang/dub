@@ -47,5 +47,5 @@ If you want to build for yourself, just install [DMD](http://dlang.org/download.
 
 Moritz Maxeiner has created a PKGBUILD file for Arch:
 
-<https://aur.archlinux.org/packages/dub/>
-
+ - Latest release: <https://aur.archlinux.org/packages/dub/>
+ - GIT master: <https://aur.archlinux.org/packages/dub-git/>
