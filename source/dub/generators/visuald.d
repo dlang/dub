@@ -94,7 +94,7 @@ EndGlobal");
 			logTrace("About to write to .sln file with %s bytes", to!string(ret.data().length));
 			auto sln = openFile(solutionFileName(), FileMode.CreateTrunc);
 			scope(exit) sln.close();
-			sln.write(ret.data());
+			sln.put(ret.data());
 			sln.flush();
 		}
 
@@ -228,7 +228,7 @@ EndGlobal");
 			logTrace("About to write to '%s.visualdproj' file %s bytes", pack.name, ret.data().length);
 			auto proj = openFile(projFileName(pack), FileMode.CreateTrunc);
 			scope(exit) proj.close();
-			proj.write(ret.data());
+			proj.put(ret.data());
 			proj.flush();
 		}
 		

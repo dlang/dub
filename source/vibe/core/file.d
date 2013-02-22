@@ -33,8 +33,9 @@ struct RangeFile {
 	File file;
 	alias file this;
 
-	void put(in char[] str) { file.write(str); }
-	void put(char ch) { file.write(cast(ubyte)ch); }
+	void put(in ubyte[] bytes) { file.rawWrite(bytes); }
+	void put(in char[] str) { put(cast(ubyte[])str); }
+	void put(char ch) { put((&ch)[0 .. 1]); }
 	void put(dchar ch) { char[4] chars; put(chars[0 .. encode(chars, ch)]); }
 	
 	ubyte[] readAll()

@@ -223,7 +223,7 @@ class PackageManager {
 					mkdirRecurse(dst_path.parentPath.toNativeString());
 				auto dstFile = openFile(dst_path, FileMode.CreateTrunc);
 				scope(exit) dstFile.close();
-				dstFile.write(archive.expand(a));
+				dstFile.put(archive.expand(a));
 				journal.add(Journal.Entry(Journal.Type.RegularFile, cleanedPath));
 			}
 		}

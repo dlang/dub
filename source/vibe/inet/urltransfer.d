@@ -24,7 +24,9 @@ import std.string;
 */
 void download(string url, string filename)
 {
-	std.net.curl.download(url, filename);
+	auto conn = HTTP();
+	conn.verifyPeer = false;
+	std.net.curl.download(url, filename, conn);
 }
 
 /// ditto

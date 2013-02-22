@@ -45,3 +45,10 @@ DUB comes [precompiled](http://registry.vibed.org/download) for Windows, Mac OS,
 The `dub` executable then just needs to be accessible from `PATH` and can be invoked from the root folder of any DUB enabled project to build and run it.
 
 If you want to build for yourself, you need to install [vibe.d](http://vibed.org/download) and run `vibe build` from DUB's main folder and rename the resulting "app" file to "dub".
+
+### Arch Linux
+
+Moritz Maxeiner has created a PKGBUILD file for Arch:
+
+<https://aur.archlinux.org/packages/dub/>
+
