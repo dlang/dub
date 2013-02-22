@@ -60,7 +60,7 @@ class Project {
 	@property string info()
 	const {
 		if(!m_main)
-			return "-Unregocgnized application in '"~to!string(m_root)~"' (properly no package.json in this directory)";
+			return "-Unregocgnized application in '"~m_root.toNativeString()~"' (properly no package.json in this directory)";
 		string s = "-Application identifier: " ~ m_main.name;
 		s ~= "\n" ~ m_main.info();
 		s ~= "\n-Installed dependencies:";

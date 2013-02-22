@@ -382,7 +382,7 @@ class PackageManager {
 					}
 					packs[pdir.name] = vers;
 				}
-				catch(Exception e) logDebug("Failed to enumerate %s packages: %s", to!string(location), e.toString());
+				catch(Exception e) logDebug("Failed to enumerate %s packages: %s", location, e.toString());
 			}
 		}
 		scanPackageFolder(m_systemPackagePath, m_systemPackages, InstallLocation.SystemWide);

@@ -42,7 +42,7 @@ class VisualDGenerator : ProjectGenerator {
 	}
 	
 	void generateProject(GeneratorSettings settings) {
-		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, to!string(m_app.mainPackage().dependencies().length));
+		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
 		generateProjects(m_app.mainPackage(), settings);
 		generateSolution();
 	}

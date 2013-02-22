@@ -50,7 +50,7 @@ class FSPackageSupplier : PackageSupplier {
 	
 	private Path bestPackageFile( const string packageId, const Dependency dep) const {
 		Version bestVersion = Version(Version.RELEASE);
-		foreach(DirEntry d; dirEntries(to!string(m_path), packageId~"*", SpanMode.shallow)) {
+		foreach(DirEntry d; dirEntries(m_path.toNativeString(), packageId~"*", SpanMode.shallow)) {
 			Path p = Path(d.name);
 			logTrace("Entry: %s", p);
 			enforce(to!string(p.head)[$-4..$] == ".zip");

@@ -23,14 +23,14 @@ import std.conv;
 
 
 package bool isEmptyDir(Path p) {
-	foreach(DirEntry e; dirEntries(to!string(p), SpanMode.shallow))
+	foreach(DirEntry e; dirEntries(p.toNativeString(), SpanMode.shallow))
 		return false;
 	return true;
 }
 
 package Json jsonFromFile(Path file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.EmptyObject;
-	auto f = openFile(to!string(file), FileMode.Read);
+	auto f = openFile(file.toNativeString(), FileMode.Read);
 	scope(exit) f.close();
 	auto text = stripUTF8Bom(cast(string)f.readAll());
 	return parseJson(text);
