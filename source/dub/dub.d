@@ -234,6 +234,7 @@ class Dub {
 
 	void createEmptyPackage(Path path)
 	{
+		if( !path.absolute() ) path = m_cwd ~ path;
 		path.normalize();
 
 		//Check to see if a target directory needs to be created
