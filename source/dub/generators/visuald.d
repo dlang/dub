@@ -45,6 +45,7 @@ class VisualDGenerator : ProjectGenerator {
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
 		generateProjects(m_app.mainPackage(), settings);
 		generateSolution();
+		logInfo("VisualD project generated.");
 	}
 	
 	private {
@@ -249,9 +250,10 @@ EndGlobal");
   <Config name=\"%s\" platform=\"%s\">", to!string(type), arch);
 			
 				// debug and optimize setting
-				ret.formattedWrite("			
-    <symdebug>%s</symdebug>
-    <optimize>%s</optimize>", type != Config.Release? "1":"0", type != Config.Debug? "1":"0");
+				ret.formattedWrite("
+    <symdebug>%s</symdebug>", type != Config.Release? "1":"0");
+				ret.formattedWrite("
+    <optimize>%s</optimize>", type == Config.Release? "1":"0");
 
 				// Lib or exe?
 				bool createLib = pack != m_app.mainPackage();
@@ -278,6 +280,7 @@ EndGlobal");
 
 				// Add version identifiers
 				string versions = join(getSettings!"versions"(), " ");
+				if(type == Config.Unittest) versions ~= " " ~ "Unittest";
 				ret.formattedWrite("
     <versionids>%s</versionids>", versions);
 
