@@ -204,6 +204,11 @@ struct Json {
 	inout(Json[]) opSlice(size_t from, size_t to) inout { checkType!(Json[])(); return m_array[from .. to]; }
 
 	/**
+		Removes an entry from an object.
+	*/
+	void remove(string item) { checkType!(Json[string])(); m_object.remove(item); }
+
+	/**
 		Returns the number of entries of string, array or object typed JSON values.
 	*/
 	@property size_t length()

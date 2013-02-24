@@ -133,18 +133,19 @@ int main(string[] args)
 				return 0;
 			case "install":
 				enforce(args.length >= 2, "Missing package name.");
+				dub.loadPackageFromCwd();
 				auto location = InstallLocation.userWide;
 				auto name = args[1];
 				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
 				if( install_local ) location = InstallLocation.local;
 				else if( install_system ) location = InstallLocation.systemWide;
-				if( install_version.length ) dub.install(name, new Dependency(install_version), location);
+				if( install_version.length ) dub.install(name, new Dependency(install_version), location, true);
 				else {
-					try dub.install(name, new Dependency(">=0.0.0"), location);
+					try dub.install(name, new Dependency(">=0.0.0"), location, true);
 					catch(Exception e){
 						logInfo("Installing a release version failed: %s", e.msg);
 						logInfo("Retry with ~master...");
-						dub.install(name, new Dependency("~master"), location);
+						dub.install(name, new Dependency("~master"), location, true);
 					}
 				}
 				break;

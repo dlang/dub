@@ -62,7 +62,7 @@ enum InstallLocation {
 ///			"versions-X"
 ///			"importPaths-X"
 ///			"stringImportPaths-X"	
-///
+///			"sourcePath"
 /// 	}
 ///	}
 ///
@@ -189,4 +189,26 @@ class Package {
 		scope(exit) dstFile.close();
 		dstFile.writePrettyJsonString(m_meta);
 	}
-}
+
+	/// Adds an dependency, if the package is already a dependency and it cannot be
+	/// merged with the supplied dependency, an exception will be generated.
+	void addDependency(string packageId, const Dependency dependency) {
+		Dependency dep = new Dependency(dependency);
+		if(packageId in m_dependencies) { 
+			dep = dependency.merge(m_dependencies[packageId]);
+			if(!dep.valid()) throw new Exception("Cannot merge with existing dependency.");
+		}
+		m_dependencies[packageId] = dep;
+		Json[string] empty;
+		if("dependencies" !in m_meta) m_meta["dependencies"] = empty;
+		m_meta["dependencies"][packageId] = Json(to!string(dep));
+	}
+
+	/// Removes a dependecy.
+	void removeDependency(string packageId) {
+		if(packageId !in m_dependencies)
+			return;
+		m_dependencies.remove(packageId);
+		m_meta.remove(packageId);
+	}
+} 

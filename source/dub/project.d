@@ -1,5 +1,5 @@
 /**
-	A package manager.
+	Representing a full project, with a root Package and several dependencies.
 
 	Copyright: © 2012 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
@@ -35,7 +35,7 @@ import std.zip;
 import stdx.process;
 
 
-/// During check to build task list, which can then be executed.
+/// Representing a full project, with a root Package and several dependencies.
 class Project {
 	private {
 		Path m_root;
@@ -54,7 +54,10 @@ class Project {
 		reinit();
 	}
 
-	@property Path binaryPath() const { auto p = m_main.binaryPath; return p.length ? Path(p) : Path("./"); }
+	@property Path binaryPath() const 
+	{
+		return m_main.binaryPath.length ? Path(m_main.binaryPath) : Path("./"); 
+	}
 
 	/// Gathers information
 	@property string info()
@@ -77,8 +80,10 @@ class Project {
 		return pkgs;
 	}
 
+	/// List of installed Packages
 	@property const(Package[]) installedPackages() const { return m_dependencies; }
 	
+	/// Main package.
 	@property const (Package) mainPackage() const { return m_main; }
 
 	string getDefaultConfiguration(BuildPlatform platform)
@@ -325,6 +330,23 @@ class Project {
 		*/
 	}
 
+	/// Tries to add the specified dependency.
+	/// If an existing dependencies is already current, this one is compared to
+	///	the supplied one, in order to check if these are compatible.
+	///	@return true, if the dependency was succesfully added, false if the
+	///	new dependency cannot be added because of current settings.
+	bool tryAddDependency(string packageId, const Dependency dependency) {
+		try {
+			m_main.addDependency(packageId, dependency);
+			m_main.writeJson(m_root);
+			return true;
+		}
+		catch(Exception e) {
+			logError("The dependency '%s' '%s' could not be added. Try to check the package.json of your project if this is a conflict with an existing dependency.", packageId, dependency);
+			return false;
+		}
+	}
+
 	private bool gatherMissingDependencies(PackageSupplier packageSupplier, DependencyGraph graph) {
 		RequestedDependency[string] missing = graph.missing();
 		RequestedDependency[string] oldMissing;
@@ -392,7 +414,7 @@ class Project {
 		} catch(Exception t) return true;
 	}
 		
-	void markUpToDate(string packageId) {
+	private void markUpToDate(string packageId) {
 		logTrace("markUpToDate(%s)", packageId);
 		Json create(ref Json json, string object) {
 			if( object !in json ) json[object] = Json.EmptyObject;

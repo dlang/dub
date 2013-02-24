@@ -169,6 +169,9 @@ class PackageManager {
 		auto package_name = package_info.name.get!string();
 		auto package_version = package_info["version"].get!string();
 
+		logDebug("Installing package '%s' version '%s' to location '%s' from file '%s'", 
+			package_name, package_version, to!string(location), zip_file_path.toNativeString());
+
 		Path destination;
 		final switch( location ){
 			case InstallLocation.local: destination = Path(package_name); break;
@@ -184,12 +187,13 @@ class PackageManager {
 		// open zip file
 		ZipArchive archive;
 		{
+			logTrace("Opening file %s", zip_file_path);
 			auto f = openFile(zip_file_path, FileMode.Read);
 			scope(exit) f.close();
 			archive = new ZipArchive(f.readAll());
 		}
 
-		logDebug("Installing from zip.");
+		logTrace("Installing from zip.");
 
 		// In a github zip, the actual contents are in a subfolder
 		Path zip_prefix;
@@ -207,7 +211,7 @@ class PackageManager {
 					zip_prefix = Path(am.name);
 		}
 
-		logDebug("zip root folder: %s", zip_prefix);
+		logTrace("zip root folder: %s", zip_prefix);
 
 		Path getCleanedPath(string fileName) {
 			auto path = Path(fileName);
@@ -218,12 +222,14 @@ class PackageManager {
 		// install
 		mkdirRecurse(destination.toNativeString());
 		auto journal = new Journal;
+		logDebug("Copying all files...");
+		int countFiles = 0;
 		foreach(ArchiveMember a; archive.directory) {
 			auto cleanedPath = getCleanedPath(a.name);
 			if(cleanedPath.empty) continue;
 			auto dst_path = destination~cleanedPath;
 
-			logDebug("Creating %s", cleanedPath);
+			logTrace("Creating %s", cleanedPath);
 			if( dst_path.endsWithSlash ){
 				if( !existsDirectory(dst_path) )
 					mkdirRecurse(dst_path.toNativeString());
@@ -235,8 +241,10 @@ class PackageManager {
 				scope(exit) dstFile.close();
 				dstFile.put(archive.expand(a));
 				journal.add(Journal.Entry(Journal.Type.RegularFile, cleanedPath));
+				++countFiles;
 			}
 		}
+		logDebug("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite package.json (this one includes a version field)
 		Json pi = jsonFromFile(destination~PackageJsonFilename);
@@ -252,12 +260,14 @@ class PackageManager {
 			logInfo("%s has been installed with version %s", package_name, package_version);
 
 		auto pack = new Package(location, destination);
+
 		final switch( location ){
 			case InstallLocation.local: break;
 			case InstallLocation.projectLocal: m_projectPackages[package_name] = pack; break;
 			case InstallLocation.userWide: m_userPackages[package_name] ~= pack; break;
 			case InstallLocation.systemWide: m_systemPackages[package_name] ~= pack; break;
 		}
+
 		return pack;
 	}
 

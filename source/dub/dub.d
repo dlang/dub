@@ -55,7 +55,7 @@ class Dub {
 		Path m_userDubPath, m_systemDubPath;
 		Json m_systemConfig, m_userConfig;
 		PackageManager m_packageManager;
-		Project m_app;
+		Project m_project;
 	}
 
 	/// Initiales the package manager for the vibe application
@@ -83,35 +83,35 @@ class Dub {
 
 	/// Returns the name listed in the package.json of the current
 	/// application.
-	@property string projectName() const { return m_app.name; }
+	@property string projectName() const { return m_project.name; }
 
 	@property Path projectPath() const { return m_root; }
 
-	@property string[] configurations() const { return m_app.configurations; }
+	@property string[] configurations() const { return m_project.configurations; }
 
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
 
-	@property Path binaryPath() const { return m_app.binaryPath; }
+	@property Path binaryPath() const { return m_project.binaryPath; }
 
 	void loadPackageFromCwd()
 	{
 		m_root = m_cwd;
 		m_packageManager.projectPackagePath = m_root ~ ".dub/packages/";
-		m_app = new Project(m_packageManager, m_root);
+		m_project = new Project(m_packageManager, m_root);
 	}
 
-	string getDefaultConfiguration(BuildPlatform platform) const { return m_app.getDefaultConfiguration(platform); }
+	string getDefaultConfiguration(BuildPlatform platform) const { return m_project.getDefaultConfiguration(platform); }
 
 	/// Lists all installed modules
 	void list() {
-		logInfo(m_app.info());
+		logInfo(m_project.info());
 	}
 
 	/// Performs installation and uninstallation as necessary for
 	/// the application.
 	/// @param options bit combination of UpdateOptions
 	bool update(UpdateOptions options) {
-		Action[] actions = m_app.determineActions(m_packageSupplier, options);
+		Action[] actions = m_project.determineActions(m_packageSupplier, options);
 		if( actions.length == 0 ) return true;
 
 		logInfo("The following changes could be performed:");
@@ -145,8 +145,8 @@ class Dub {
 			if(a.type == Action.Type.install)
 				install(a.packageId, a.vers, a.location);
 
-		m_app.reinit();
-		Action[] newActions = m_app.determineActions(m_packageSupplier, 0);
+		m_project.reinit();
+		Action[] newActions = m_project.determineActions(m_packageSupplier, 0);
 		if(newActions.length > 0) {
 			logInfo("There are still some actions to perform:");
 			foreach(Action a; newActions)
@@ -161,31 +161,37 @@ class Dub {
 	/// Generate project files for a specified IDE.
 	/// Any existing project files will be overridden.
 	void generateProject(string ide, GeneratorSettings settings) {
-		auto generator = createProjectGenerator(ide, m_app, m_packageManager);
+		auto generator = createProjectGenerator(ide, m_project, m_packageManager);
 		generator.generateProject(settings);
 	}
 	
 	/// Creates a zip from the application.
 	void createZip(string zipFile) {
-		m_app.createZip(zipFile);
+		m_project.createZip(zipFile);
 	}
 
 	/// Prints some information to the log.
 	void info() {
 		logInfo("Status for %s", m_root);
-		logInfo("\n" ~ m_app.info());
+		logInfo("\n" ~ m_project.info());
 	}
 
 	/// Gets all installed packages as a "packageId" = "version" associative array
-	string[string] installedPackages() const { return m_app.installedPackagesIDs(); }
+	string[string] installedPackages() const { return m_project.installedPackagesIDs(); }
 
 	/// Installs the package matching the dependency into the application.
 	/// @param addToApplication if true, this will also add an entry in the
 	/// list of dependencies in the application's package.json
-	void install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.projectLocal)
+	void install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.projectLocal, bool addToApplication = false)
 	{
 		auto pinfo = m_packageSupplier.packageJson(packageId, dep);
 		string ver = pinfo["version"].get!string;
+
+		// Perform addToApplication
+		if(addToApplication && !m_project.tryAddDependency(packageId, dep)) {
+			logError("Installation of '%s' failed.", packageId);
+			return;
+		}
 
 		if( m_packageManager.hasPackage(packageId, ver, location) ){
 			logInfo("Package %s %s (%s) is already installed with the latest version, skipping upgrade.",
