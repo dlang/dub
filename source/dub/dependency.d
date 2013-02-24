@@ -15,18 +15,19 @@ import vibecompat.core.file;
 import vibecompat.data.json;
 import vibecompat.inet.url;
 
-// todo: cleanup imports
 import std.array;
+import std.string;
 import std.exception;
 import std.algorithm;
-import std.zip;
 import std.typecons;
 import std.conv;
 static import std.compiler;
 
 
 /**
-	A version in the format "major.update.bugfix".
+	A version in the format "major.update.bugfix" or "~master", to identify trunk,
+	or "~branch_name" to identify a branch. Both Version types starting with "~"
+	refer to the head revision of the corresponding branch.
 */
 struct Version {
 	static const Version RELEASE = Version("0.0.0");
@@ -34,16 +35,20 @@ struct Version {
 	static const Version INVALID = Version();
 	static const Version MASTER = Version(MASTER_STRING);
 	static const string MASTER_STRING = "~master";
+	static immutable char BRANCH_IDENT = '~';
 	
 	private { 
 		static const size_t MAX_VERS = 9999;
 		static const size_t MASTER_VERS = cast(size_t)(-1);
-		size_t[] v; 
+		string sVersion;
 	}
 	
 	this(string vers)
 	{
-		enforce(vers == MASTER_STRING || count(vers, ".") == 2);
+		enforce(vers.length > 1);
+		enforce(vers[0] == BRANCH_IDENT || count(vers, ".") == 2);
+		sVersion = vers;
+		/*
 		if(vers == MASTER_STRING) {
 			v = [MASTER_VERS, MASTER_VERS, MASTER_VERS];
 		} else {
@@ -51,38 +56,92 @@ struct Version {
 			v.length = toks.length;
 			foreach( i, t; toks ) v[i] = t.to!size_t();
 		}
+		*/
 	}
-	
+
 	this(const Version o)
 	{
-		foreach(size_t vers; o.v)
-			v ~= vers;
+		sVersion = o.sVersion;
 	}
 	
-	bool opEquals(ref const Version oth) const { return v == oth.v; }
-	bool opEquals(const Version oth) const { return v == oth.v; }
+	bool opEquals(ref const Version oth) const { return sVersion == oth.sVersion; }
+	bool opEquals(const Version oth) const { return sVersion == oth.sVersion; }
 	
+	/// Returns true, if this version indicates a branch, which is not the trunk.
+	@property bool isBranch() const { return sVersion[0] == BRANCH_IDENT && sVersion != MASTER_STRING; }
+
+	/** 
+		Comparing Versions is generally possible, but comparing Versions 
+		identifying branches other than master will fail.
+	*/
 	int opCmp(ref const Version other)
 	const {
-		foreach( i; 0 .. min(v.length, other.v.length) )
-			if( v[i] != other.v[i] )
-				return cast(int)v[i] - cast(int)other.v[i];
-		return cast(int)v.length - cast(int)other.v.length;
+		if(isBranch || other.isBranch) 
+			throw new Exception("Can't compare branch versions! (this: %s, other: %s)".format(this, other));
+
+		size_t v[] = toArray();
+		size_t ov[] = other.toArray();
+
+		foreach( i; 0 .. min(v.length, ov.length) )
+			if( v[i] != ov[i] )
+				return cast(int)v[i] - cast(int)ov[i];
+		return cast(int)v.length - cast(int)ov.length;
 	}
 	int opCmp(in Version other) const { return opCmp(other); }
 	
-	string toString()
-	const {
-		enforce( v.length == 3 && (v[0] != MASTER_VERS || v[1] == v[2] && v[1] == MASTER_VERS) );
-		if(v[0] == MASTER_VERS) 
-			return MASTER_STRING;
-		string r;
-		for(size_t i=0; i<v.length; ++i) {
-			if(i!=0) r ~= ".";
-			r ~= to!string(v[i]);
+	string toString() const { return sVersion; }
+
+	private size_t[] toArray() const { 
+		enforce(!isBranch, "Cannot convert a branch an array representation (%s)", sVersion);
+
+		size_t v[];
+		if(sVersion == MASTER_STRING) {
+			v = [MASTER_VERS, MASTER_VERS, MASTER_VERS];
+		} else {
+			auto toks = split(sVersion, ".");
+			v.length = toks.length;
+			foreach( i, t; toks ) v[i] = t.to!size_t();
 		}
-		return r;
+		return v;
 	}
+}
+
+unittest {
+	Version a, b;
+
+	try a = Version("1.0.0");
+	catch assert(false, "Constructing Version('1.0.0') failed");
+	assert(!a.isBranch, "Error: '1.0.0' treated as branch");
+	size_t[] arrRepr = [ 1, 0, 0 ];
+	assert(a.toArray == arrRepr, "Array representation of '1.0.0' is wrong.");
+	assert(a == a, "a == a failed");
+
+	try a = Version(Version.MASTER_STRING);
+	catch assert(false, "Constructing Version("~Version.MASTER_STRING~"') failed");
+	assert(!a.isBranch, "Error: '"~Version.MASTER_STRING~"' treated as branch");
+	arrRepr = [ Version.MASTER_VERS, Version.MASTER_VERS, Version.MASTER_VERS ];
+	assert(a.toArray == arrRepr, "Array representation of '"~Version.MASTER_STRING~"' is wrong.");
+	assert(a == Version.MASTER, "Constructed master version != default master version.");
+
+	try a = Version("~BRANCH");
+	catch assert(false, "Construction of branch Version failed.");
+	assert(a.isBranch, "Error: '~BRANCH' not treated as branch'");
+	try {
+		a.toArray();
+		assert(false, "Error: Converting branch version to array succeded.");
+	}
+	catch { /* exception expected */ }
+	assert(a == a, "a == a with branch failed");
+
+	// opCmp
+	a = Version("1.0.0");
+	b = Version("1.0.0");
+	assert(a == b, "a == b with a:'1.0.0', b:'1.0.0' failed");
+	b = Version("2.0.0");
+	assert(a != b, "a != b with a:'1.0.0', b:'2.0.0' failed");
+	a = Version(Version.MASTER_STRING);
+	b = Version("~BRANCH");
+	assert(a != b, "a != b with a:MASTER, b:'~branch' failed");
 }
 
 /// Representing a dependency, which is basically a version string and a 
@@ -99,10 +158,10 @@ class Dependency {
 	this( string ves ) {
 		enforce( ves.length > 0);
 		string orig = ves;
-		if(ves == Version.MASTER_STRING) {
+		if(ves[0] == Version.BRANCH_IDENT) {
 			m_cmpA = ">=";
 			m_cmpB = "<=";
-			m_versA = m_versB = Version(Version.MASTER);
+			m_versA = m_versB = Version(ves);
 		}
 		else {
 			m_cmpA = skipComp(ves);
@@ -131,7 +190,10 @@ class Dependency {
 				string v2 = ves[idx2+1..$];
 				m_cmpB = skipComp(v2);
 				m_versB = Version(v2);
-				
+
+				enforce(!m_versA.isBranch, "Partly a branch (A): %s", ves);
+				enforce(!m_versB.isBranch, "Partly a branch (B): %s", ves);
+
 				if( m_versB < m_versA ) {
 					swap(m_versA, m_versB);
 					swap(m_cmpA, m_cmpB);
@@ -186,6 +248,12 @@ class Dependency {
 	bool matches(ref const(Version) v) const {
 		//logTrace(" try match: %s with: %s", v, this);
 		// Master only matches master
+		if(m_versA == Version.MASTER || m_versA.isBranch) {
+			enforce(m_versA == m_versB);
+			return m_versA == v;
+		}
+		if(v.isBranch)
+			return m_versA == v;
 		if(m_versA == Version.MASTER || v == Version.MASTER)
 			return m_versA == v;
 		if( !doCmp(m_cmpA, v, m_versA) )
@@ -202,8 +270,10 @@ class Dependency {
 		if(!o.valid())
 			return new Dependency(o);
 		
-		Version a = m_versA > o.m_versA? Version(m_versA) : Version(o.m_versA);
-		Version b = m_versB < o.m_versB? Version(m_versB) : Version(o.m_versB);
+/// TODO: continue porting Version / Dependency to use branches and string
+
+		Version a = m_versA > o.m_versA? m_versA : o.m_versA;
+		Version b = m_versB < o.m_versB? m_versB : o.m_versB;
 		
 		//logTrace(" this : %s", this);
 		//logTrace(" other: %s", o);
@@ -281,6 +351,73 @@ unittest {
 	assert( m.matches( Version("1.0.0") ) );
 	assert( !m.matches( Version("1.1.0") ) );
 	assert( !m.matches( Version("0.0.1") ) );
+
+
+	// branches / head revisions
+	a = new Dependency(Version.MASTER_STRING);
+	assert(a.valid());
+	assert(a.matches(Version.MASTER));
+	b = new Dependency(Version.MASTER_STRING);
+	m = a.merge(b);
+	assert(m.matches(Version.MASTER));
+
+	try {
+		a = new Dependency(Version.MASTER_STRING ~ " <=1.0.0");
+		assert(false, "Construction invalid");
+	} catch { /*expected*/ }
+
+	try {
+		a = new Dependency(">=1.0.0 " ~ Version.MASTER_STRING);
+		assert(false, "Construction invalid");
+	} catch { /*expected*/ }
+
+	a = new Dependency(">=1.0.0");
+	b = new Dependency(Version.MASTER_STRING);
+
+	//// support crazy stuff like this?
+	//m = a.merge(b);
+	//assert(m.valid());
+	//assert(m.matches(Version.MASTER));
+
+	//b = new Dependency("~not_the_master");
+	//m = a.merge(b);
+//	assert(!m.valid());
+
+	immutable string branch1 = Version.BRANCH_IDENT ~ "Branch1";
+	immutable string branch2 = Version.BRANCH_IDENT ~ "Branch2";
+
+	try { 
+		a = new Dependency(branch1 ~ " " ~ branch2);
+		assert(false, "Error: '" ~ branch1 ~ " " ~ branch2 ~ "' succeeded");
+	} catch { /*expected*/ }
+	try { 
+		a = new Dependency(Version.MASTER_STRING ~ " " ~ branch1);
+		assert(false, "Error: '" ~ Version.MASTER_STRING ~ " " ~ branch1 ~ "' succeeded");
+	} catch { /*expected*/ }
+
+	a = new Dependency(branch1);
+	b = new Dependency(branch2);
+	try {
+		a.merge(b);
+		assert(false, "Shouldn't be able to merge to different branches");
+	} catch { /*expected*/ }
+	try {
+		b = a.merge(a);
+		assert(a == b);
+	}
+	catch assert(false, "Should be able to merge the same branches. (?)");
+
+
+	a = new Dependency(branch1);
+	assert(a.matches(branch1), "Dependency(branch1) does not match 'branch1'");
+	assert(a.matches(Version(branch1)), "Dependency(branch1) does not match Version('branch1')");
+	assert(!a.matches(Version.MASTER), "Dependency(branch1) matches Version.MASTER");
+	assert(!a.matches(branch2), "Dependency(branch1) matches 'branch2'");
+	assert(!a.matches(Version("1.0.0")), "Dependency(branch1) matches '1.0.0'");
+	a = new Dependency(">=1.0.0");
+	assert(!a.matches(Version(branch1)), "Dependency(1.0.0) matches 'branch1'");
+
+	logTrace("Dependency Unittest sucess.");
 }
 
 struct RequestedDependency {
@@ -378,4 +515,11 @@ class DependencyGraph {
 		const Package m_root;
 		PkgType[string] m_packages;
 	}
+}
+
+unittest {
+	/*
+		
+	*/
+
 }
