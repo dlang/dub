@@ -17,6 +17,7 @@ import dub.packagemanager;
 import dub.project;
 
 import std.exception;
+import std.string;
 import vibecompat.core.log;
 
 
@@ -46,13 +47,14 @@ struct GeneratorSettings {
 /**
 	Creates a project generator of the given type for the specified project.
 */
-ProjectGenerator createProjectGenerator(string generator_type, Project app, PackageManager mgr)
+ProjectGenerator createProjectGenerator(string generatorType, Project app, PackageManager mgr)
 {
 	enforce(app !is null, "app==null, Need an application to work on!");
 	enforce(mgr !is null, "mgr==null, Need a package manager to work on!");
-	switch(generator_type) {
+	generatorType = generatorType.toLower();
+	switch(generatorType) {
 		default:
-			throw new Exception("Unknown project generator: "~generator_type);
+			throw new Exception("Unknown project generator: "~generatorType);
 		case "build":
 			logTrace("Generating build generator.");
 			return new BuildGenerator(app, mgr);
