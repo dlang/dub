@@ -76,8 +76,10 @@ struct Version {
 	*/
 	int opCmp(ref const Version other)
 	const {
-		if(isBranch || other.isBranch) 
-			throw new Exception("Can't compare branch versions! (this: %s, other: %s)".format(this, other));
+		if(isBranch || other.isBranch) {
+			if(sVersion == other.sVersion) return 0;
+			else throw new Exception("Can't compare branch versions! (this: %s, other: %s)".format(this, other));
+		}
 
 		size_t v[] = toArray();
 		size_t ov[] = other.toArray();
