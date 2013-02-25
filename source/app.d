@@ -127,7 +127,7 @@ int main(string[] args)
 				return 0;
 			case "upgrade":
 				dub.loadPackageFromCwd();
-				logInfo("Upgrading project in %s", dub.projectPath.toNativeString);
+				logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
 				logDebug("dub initialized");
 				dub.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
 				return 0;
