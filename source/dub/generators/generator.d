@@ -47,14 +47,14 @@ struct GeneratorSettings {
 /**
 	Creates a project generator of the given type for the specified project.
 */
-ProjectGenerator createProjectGenerator(string generatorType, Project app, PackageManager mgr)
+ProjectGenerator createProjectGenerator(string generator_type, Project app, PackageManager mgr)
 {
 	enforce(app !is null, "app==null, Need an application to work on!");
 	enforce(mgr !is null, "mgr==null, Need a package manager to work on!");
-	generatorType = generatorType.toLower();
-	switch(generatorType) {
+	generator_type = generator_type.toLower();
+	switch(generator_type) {
 		default:
-			throw new Exception("Unknown project generator: "~generatorType);
+			throw new Exception("Unknown project generator: "~generator_type);
 		case "build":
 			logTrace("Generating build generator.");
 			return new BuildGenerator(app, mgr);
