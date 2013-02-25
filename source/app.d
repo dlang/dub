@@ -221,7 +221,7 @@ int main(string[] args)
 				}
 
 				if( !nodeps ){
-					logInfo("Checking dependencies in '%s'", dub.projectPath);
+					logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
 					logDebug("dub initialized");
 					dub.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
 				}
