@@ -217,6 +217,18 @@ class MonoDGenerator : ProjectGenerator {
 
 
 		bool[const(Package)] visited;
+		void generateSourceEntry(Path path, Path base_path)
+		{
+			auto rel_path = path.relativeTo(pack.path);
+			if( base_path == pack.path || path.relativeTo(base_path).external ){
+				sln.formattedWrite("    <Compile Include=\"%s\" />\n", rel_path.toNativeString());
+			} else {
+				sln.formattedWrite("    <Compile Include=\"%s\">\n", rel_path.toNativeString());
+				sln.formattedWrite("      <Link>%s</Link>\n", path.relativeTo(base_path).toNativeString());
+				sln.formattedWrite("    </Compile>\n");
+			}
+		}
+
 		void generateSources(in Package p)
 		{
 			if( p in visited ) return;
@@ -225,10 +237,10 @@ class MonoDGenerator : ProjectGenerator {
 			foreach( s; p.sources ){
 				if( p !is m_app.mainPackage && s == Path("source/app.d") )
 					continue;
-				sln.formattedWrite("    <Compile Include=\"%s\" />\n", (p.path.relativeTo(pack.path) ~ s).toNativeString());
+				generateSourceEntry(p.path ~s, p.path);
 			}
 			foreach( s; buildsettings.files )
-				sln.formattedWrite("    <Compile Include=\"%s\" />\n", s);
+				generateSourceEntry(Path(s), p.path);
 		}
 
 
