@@ -111,28 +111,21 @@ struct Version {
 unittest {
 	Version a, b;
 
-	try a = Version("1.0.0");
-	catch assert(false, "Constructing Version('1.0.0') failed");
+	assertNotThrown(a = Version("1.0.0"), "Constructing Version('1.0.0') failed");
 	assert(!a.isBranch, "Error: '1.0.0' treated as branch");
 	size_t[] arrRepr = [ 1, 0, 0 ];
 	assert(a.toArray == arrRepr, "Array representation of '1.0.0' is wrong.");
 	assert(a == a, "a == a failed");
 
-	try a = Version(Version.MASTER_STRING);
-	catch assert(false, "Constructing Version("~Version.MASTER_STRING~"') failed");
+	assertNotThrown(a = Version(Version.MASTER_STRING), "Constructing Version("~Version.MASTER_STRING~"') failed");
 	assert(!a.isBranch, "Error: '"~Version.MASTER_STRING~"' treated as branch");
 	arrRepr = [ Version.MASTER_VERS, Version.MASTER_VERS, Version.MASTER_VERS ];
 	assert(a.toArray == arrRepr, "Array representation of '"~Version.MASTER_STRING~"' is wrong.");
 	assert(a == Version.MASTER, "Constructed master version != default master version.");
 
-	try a = Version("~BRANCH");
-	catch assert(false, "Construction of branch Version failed.");
+	assertNotThrown(a = Version("~BRANCH"), "Construction of branch Version failed.");
 	assert(a.isBranch, "Error: '~BRANCH' not treated as branch'");
-	try {
-		a.toArray();
-		assert(false, "Error: Converting branch version to array succeded.");
-	}
-	catch { /* exception expected */ }
+	assertThrown(a.toArray(), "Error: Converting branch version to array succeded.");
 	assert(a == a, "a == a with branch failed");
 
 	// opCmp
@@ -329,10 +322,7 @@ unittest {
 	a = new Dependency(">=1.0.0 <=5.0.0"), b = new Dependency(">=2.0.0");
 	assert( a.merge(b).valid() && to!string(a.merge(b)) == ">=2.0.0 <=5.0.0", to!string(a.merge(b)) );
 	
-	try {
-		a = new Dependency(">1.0.0 ==5.0.0");
-		assert( false, "Construction is invalid");
-	} catch( Exception ) {}
+	assertThrown(a = new Dependency(">1.0.0 ==5.0.0"), "Construction is invalid");
 	
 	a = new Dependency(">1.0.0"), b = new Dependency("<2.0.0");
 	assert( a.merge(b).valid(), to!string(a.merge(b)));
@@ -363,15 +353,8 @@ unittest {
 	m = a.merge(b);
 	assert(m.matches(Version.MASTER));
 
-	try {
-		a = new Dependency(Version.MASTER_STRING ~ " <=1.0.0");
-		assert(false, "Construction invalid");
-	} catch { /*expected*/ }
-
-	try {
-		a = new Dependency(">=1.0.0 " ~ Version.MASTER_STRING);
-		assert(false, "Construction invalid");
-	} catch { /*expected*/ }
+	assertThrown(a = new Dependency(Version.MASTER_STRING ~ " <=1.0.0"), "Construction invalid");
+	assertThrown(a = new Dependency(">=1.0.0 " ~ Version.MASTER_STRING), "Construction invalid");
 
 	a = new Dependency(">=1.0.0");
 	b = new Dependency(Version.MASTER_STRING);
@@ -388,27 +371,14 @@ unittest {
 	immutable string branch1 = Version.BRANCH_IDENT ~ "Branch1";
 	immutable string branch2 = Version.BRANCH_IDENT ~ "Branch2";
 
-	try { 
-		a = new Dependency(branch1 ~ " " ~ branch2);
-		assert(false, "Error: '" ~ branch1 ~ " " ~ branch2 ~ "' succeeded");
-	} catch { /*expected*/ }
-	try { 
-		a = new Dependency(Version.MASTER_STRING ~ " " ~ branch1);
-		assert(false, "Error: '" ~ Version.MASTER_STRING ~ " " ~ branch1 ~ "' succeeded");
-	} catch { /*expected*/ }
+	assertThrown(a = new Dependency(branch1 ~ " " ~ branch2), "Error: '" ~ branch1 ~ " " ~ branch2 ~ "' succeeded");
+	assertThrown(a = new Dependency(Version.MASTER_STRING ~ " " ~ branch1), "Error: '" ~ Version.MASTER_STRING ~ " " ~ branch1 ~ "' succeeded");
 
 	a = new Dependency(branch1);
 	b = new Dependency(branch2);
-	try {
-		a.merge(b);
-		assert(false, "Shouldn't be able to merge to different branches");
-	} catch { /*expected*/ }
-	try {
-		b = a.merge(a);
-		assert(a == b);
-	}
-	catch assert(false, "Should be able to merge the same branches. (?)");
-
+	assertThrown(a.merge(b), "Shouldn't be able to merge to different branches");
+	assertNotThrown(b = a.merge(a), "Should be able to merge the same branches. (?)");
+	assert(a == b);
 
 	a = new Dependency(branch1);
 	assert(a.matches(branch1), "Dependency(branch1) does not match 'branch1'");
