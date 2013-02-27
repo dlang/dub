@@ -168,6 +168,7 @@ class PackageManager {
 	{
 		auto package_name = package_info.name.get!string();
 		auto package_version = package_info["version"].get!string();
+		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
 
 		logDebug("Installing package '%s' version '%s' to location '%s' from file '%s'", 
 			package_name, package_version, to!string(location), zip_file_path.toNativeString());
@@ -176,8 +177,8 @@ class PackageManager {
 		final switch( location ){
 			case InstallLocation.local: destination = Path(package_name); break;
 			case InstallLocation.projectLocal: enforce(!m_projectPackagePath.empty, "no project path set."); destination = m_projectPackagePath ~ package_name; break;
-			case InstallLocation.userWide: destination = m_userPackagePath ~ (package_name ~ "/" ~ package_version); break;
-			case InstallLocation.systemWide: destination = m_systemPackagePath ~ (package_name ~ "/" ~ package_version); break;
+			case InstallLocation.userWide: destination = m_userPackagePath ~ (package_name ~ "/" ~ clean_package_version); break;
+			case InstallLocation.systemWide: destination = m_systemPackagePath ~ (package_name ~ "/" ~ clean_package_version); break;
 		}
 
 		if( existsFile(destination) ){
