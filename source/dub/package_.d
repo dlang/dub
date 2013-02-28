@@ -11,10 +11,12 @@ import dub.compilers.compiler;
 import dub.dependency;
 import dub.utils;
 
+import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
 import std.file;
+import std.range;
 import vibecompat.core.log;
 import vibecompat.core.file;
 import vibecompat.data.json;
@@ -145,18 +147,45 @@ class Package {
 	/// path() to get the absolute one.
 	@property const(Path[]) sources() const {
 		Path[] allSources;
-		auto sourcePath = Path("source");
-		auto customSourcePath = "sourcePath" in m_meta;
-		if(customSourcePath)
-			sourcePath = Path(customSourcePath.get!string());
-		logTrace("Parsing directory for sources: %s", m_path ~ sourcePath);
-		foreach(d; dirEntries((m_path ~ sourcePath).toNativeString(), "*.d", SpanMode.depth)) {
-			// direct assignment allSources ~= Path(d.name)[...] spawns internal compiler/linker error
-			if(isDir(d.name)) continue;
-			auto p = Path(d.name);
-			allSources ~= p[m_path.length..$];
+
+		auto spaths = sourcePaths.map!(p => (m_path ~ p).toNativeString()).array;
+
+		foreach(sourcePath; spaths) {
+			logTrace("Parsing directories for source path: %s", sourcePath);
+
+			if (sourcePath.isDir) {
+				foreach(d; dirEntries(sourcePath, "*d", SpanMode.depth))
+				{
+					// direct assignment allSources ~= Path(d.name)[...] 
+					// spawns internal compiler/linker error
+					if(isDir(d.name)) continue;
+					auto p = Path(d.name);
+					allSources ~= p[m_path.length..$];
+				}
+			} else {
+				auto p = Path(dirEntry(sourcePath).name);
+				allSources ~= p[m_path.length..$];
+			}
 		}
+		logTrace("allSources: %s", allSources);
 		return allSources;
+	}
+
+	// Every path specified to include as sources
+	@property Path[] sourcePaths() const {
+		Path[] spaths;
+
+		if (auto singleSourcePath = "sourcePath" in m_meta) {
+			spaths ~=  Path(singleSourcePath.get!string());
+		}
+		if (auto multipleSourcePaths = "sourcePaths" in m_meta) {
+			spaths ~= map!(p => Path(p.get!string()))((*multipleSourcePaths)[]).array;
+		}
+		if (spaths.empty) {
+			spaths ~= Path("source");
+		}
+
+		return spaths;
 	}
 	
 	/// TODO: what is the defaul configuration?
