@@ -21,7 +21,7 @@
 Name "dub Package Manager ${Version}"
 
 ; Name of the output file of the installer
-OutFile "dub-install-${Version}.exe"
+OutFile "dub-${Version}-setup.exe"
 
 ; Where the program will be installed
 InstallDir "$PROGRAMFILES\dub"
