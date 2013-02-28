@@ -45,7 +45,9 @@ RequestExecutionLevel admin
 ; Installer pages
 ;--------------------------------------------------------
 
-;!define MUI_WELCOMEFINISHPAGE_BITMAP "installer_image.bmp"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "banner.bmp"
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP "header.bmp"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
