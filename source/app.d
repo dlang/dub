@@ -118,6 +118,7 @@ int main(string[] args)
 				enforce(false, "Command is unknown: " ~ cmd);
 				assert(false);
 			case "help":
+				if(args.length >= 2) cmd = args[1];
 				showHelp(cmd);
 				return 0;
 			case "init":
