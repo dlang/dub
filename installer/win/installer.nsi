@@ -4,7 +4,7 @@
 
 ; Options
 !define Version "0.9.9"
-!define DubExecPath "..\..\dub.exe"
+!define DubExecPath "..\.."
 
 ;--------------------------------------------------------
 ; Includes
@@ -18,7 +18,7 @@
 ;--------------------------------------------------------
 
 ; Name of the installer
-Name "dub Package Manager ${Version}"
+Name "DUB Package Manager ${Version}"
 
 ; Name of the output file of the installer
 OutFile "dub-${Version}-setup.exe"
@@ -81,7 +81,10 @@ Section "dub" DubFiles
     ; Create installation directory
     CreateDirectory "$INSTDIR"
     
-	File "${DubExecPath}"
+	File "${DubExecPath}\dub.exe"
+    File "${DubExecPath}\libcurl.dll"
+    File "${DubExecPath}\libeay32.dll"
+    File "${DubExecPath}\ssleay32.dll"
     
     ; Create command line batch file
     FileOpen $0 "$INSTDIR\dubvars.bat" w
@@ -94,7 +97,7 @@ Section "dub" DubFiles
     WriteRegStr HKLM SOFTWARE\dub "Install_Dir" "$INSTDIR"
 
     ; Write registry keys to make uninstall from Windows
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\dub" "DisplayName" "dub"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\dub" "DisplayName" "DUB package manager"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\dub" "UninstallString" '"$INSTDIR\uninstall.exe"'
     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\dub" "NoModify" 1
     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\dub" "NoRepair" 1
@@ -109,13 +112,13 @@ Section "Add to PATH" AddDubToPath
 
 SectionEnd
 
-Section /o "Start Menu shortcuts" StartMenuShortcuts
-    CreateDirectory "$SMPROGRAMS\dub"
+Section /o "Start menu shortcuts" StartMenuShortcuts
+    CreateDirectory "$SMPROGRAMS\DUB"
 
     ; install dub command prompt
-	CreateShortCut "$SMPROGRAMS\dub\dub Command Prompt.lnk" '%comspec%' '/k ""$INSTDIR\dubvars.bat""' "" "" SW_SHOWNORMAL "" "Open dub Command Prompt"
+	CreateShortCut "$SMPROGRAMS\DUB\DUB Command Prompt.lnk" '%comspec%' '/k ""$INSTDIR\dubvars.bat""' "" "" SW_SHOWNORMAL "" "Open DUB Command Prompt"
 
-    CreateShortCut "$SMPROGRAMS\dub\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
+    CreateShortCut "$SMPROGRAMS\DUB\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
 SectionEnd
 
 ;--------------------------------------------------------
