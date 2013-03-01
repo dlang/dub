@@ -68,8 +68,8 @@ class PackageManager {
 
 	bool hasPackage(string name, string ver, InstallLocation location)
 	{
-		foreach(ep; getPackageIterator()){
-			if( ep.installLocation == location && ep.name == name && ep.vers == ver )
+		foreach(ep; getPackageIterator(name)){
+			if( ep.installLocation == location && ep.vers == ver )
 				return true;
 		}
 		return false;
@@ -274,26 +274,32 @@ class PackageManager {
 
 	void uninstall(in Package pack)
 	{
+		logTrace("Uninstall %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
 		enforce(!pack.path.empty, "Cannot uninstall package "~pack.name~" without a path.");
 
 		// remove package from package list
 		final switch(pack.installLocation){
-			case InstallLocation.local: assert(false, "Cannot uninstall locally installed package.");
+			case InstallLocation.local: 
+				logTrace("Uninstall local");
+				break;
 			case InstallLocation.projectLocal:
+				logTrace("Uninstall projectLocal");
 				auto pp = pack.name in m_projectPackages;
 				assert(pp !is null, "Package "~pack.name~" at "~pack.path.toNativeString()~" is not installed in project.");
 				assert(*pp is pack);
 				m_projectPackages.remove(pack.name);
 				break;
 			case InstallLocation.userWide:
-				auto pv = pack.name in m_systemPackages;
+				logTrace("Uninstall userWide");
+				auto pv = pack.name in m_userPackages;
 				assert(pv !is null, "Package "~pack.name~" at "~pack.path.toNativeString()~" is not installed in user repository.");
 				auto idx = countUntil(*pv, pack);
 				assert(idx < 0 || (*pv)[idx] is pack);
 				if( idx >= 0 ) *pv = (*pv)[0 .. idx] ~ (*pv)[idx+1 .. $];
 				break;
 			case InstallLocation.systemWide:
-				auto pv = pack.name in m_userPackages;
+				logTrace("Uninstall systemWide");
+				auto pv = pack.name in m_systemPackages;
 				assert(pv !is null, "Package "~pack.name~" at "~pack.path.toNativeString()~" is not installed system repository.");
 				auto idx = countUntil(*pv, pack);
 				assert(idx < 0 || (*pv)[idx] is pack);
@@ -302,13 +308,14 @@ class PackageManager {
 		}
 
 		// delete package files physically
+		logTrace("Looking up journal");
 		auto journalFile = pack.path~JournalJsonFilename;
 		if( !existsFile(journalFile) )
-			throw new Exception("Uninstall failed, no journal found for '"~pack.name~"'. Please uninstall manually.");
+			throw new Exception("Uninstall failed, no installation journal found for '"~pack.name~"'. Please uninstall manually.");
 
 		auto packagePath = pack.path;
 		auto journal = new Journal(journalFile);
-		logDebug("Erasing files");
+		logTrace("Erasing files");
 		foreach( Journal.Entry e; filter!((Journal.Entry a) => a.type == Journal.Type.RegularFile)(journal.entries)) {
 			logTrace("Deleting file '%s'", e.relFilename);
 			auto absFile = pack.path~e.relFilename;
@@ -334,6 +341,15 @@ class PackageManager {
 			rmdir(p.toNativeString());
 		}
 
+		// Erase .dub folder, this is completely erased.
+		auto dubDir = (pack.path ~ ".dub/").toNativeString();
+		enforce(!existsFile(dubDir) || isDir(dubDir), ".dub should be a directory, but is a file.");
+		if(existsFile(dubDir) && isDir(dubDir)) {
+			logTrace(".dub directory found, removing directory including content.");
+			rmdirRecurse(dubDir);
+		}
+
+		logTrace("About to delete root folder for package '%s'.", pack.path);
 		if(!isEmptyDir(pack.path))
 			throw new Exception("Alien files found in '"~pack.path.toNativeString()~"', needs to be deleted manually.");
 

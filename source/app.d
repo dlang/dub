@@ -139,28 +139,25 @@ int main(string[] args)
 				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
 				if( install_local ) location = InstallLocation.local;
 				else if( install_system ) location = InstallLocation.systemWide;
-				if( install_version.length ) dub.install(name, new Dependency(install_version), location, true);
+				if( install_version.length ) dub.install(name, new Dependency(install_version), location);
 				else {
-					try dub.install(name, new Dependency(">=0.0.0"), location, true);
+					try dub.install(name, new Dependency(">=0.0.0"), location);
 					catch(Exception e){
 						logInfo("Installing a release version failed: %s", e.msg);
 						logInfo("Retry with ~master...");
-						dub.install(name, new Dependency("~master"), location, true);
+						dub.install(name, new Dependency("~master"), location);
 					}
 				}
 				break;
 			case "uninstall":
 				enforce(args.length >= 2, "Missing package name.");
-				/*auto location = InstallLocation.userWide;
-				auto name = args[1];
+				auto location = InstallLocation.userWide;
+				auto package_id = args[1];
 				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
 				if( install_local ) location = InstallLocation.local;
 				else if( install_system ) location = InstallLocation.systemWide;
-				if( install_version.length ) dub.uninstall(name, new Dependency(install_version), location);
-				else {
-					assert(false);
-				}*/
-				enforce(false, "Not implemented.");
+				try dub.uninstall(package_id, install_version, location);
+				catch logError("Please specify a individual version or use the wildcard identifier '%s' (without quotes).", Dub.UninstallVersionWildcard);
 				break;
 			case "add-local":
 				enforce(args.length >= 3, "Missing arguments.");
@@ -256,8 +253,40 @@ int main(string[] args)
 
 private void showHelp(string command)
 {
-	// This help is actually a mixup of help for this application and the
-	// supporting vibe script / .cmd file.
+	if(command == "uninstall" || command == "install") {
+		logInfo(
+`Usage: dub <install|uninstall> <package> [<options>]
+
+Note: use dependencies (package.json) if you want to add a dependency, you
+      don't have to fiddle with installation stuff.
+
+(Un)Installation of packages is only needed when you want to put packages to a 
+place where several applications can share these. If you just have an 
+dependency to a package, just add it to your package.json, dub will do the rest
+for you.
+
+Without specified options, (un)installation will default to a user wide shared
+location.
+
+Complete applications can be installed and run easily by e.g.
+        dub install vibelog --local
+        cd vibelog
+        dub
+This will grab all needed dependencies and compile and run the application.
+
+Install options:
+        --version        Use the specified version/branch instead of the latest
+                         For the uninstall command, this may be a wildcard 
+                         string: "*", which will remove all packages from the
+                         specified location.
+        --system         Install system wide instead of user local
+        --local          Install as in a sub folder of the current directory
+                         Note that system and local cannot be mixed.
+`);
+		return;
+	}
+
+	// No specific help, show general help.
 	logInfo(
 `Usage: dub [<command>] [<vibe options...>] [-- <application options...>]
 
@@ -271,8 +300,8 @@ Possible commands:
     run                  Compiles and runs the application (default command)
     build                Just compiles the application in the project directory
     upgrade              Forces an upgrade of all dependencies
-    install <name>       Manually installs a package
-    uninstall            Uninstalls a package
+    install <name>       Manually installs a package. See 'dub help install'.
+    uninstall <name>     Uninstalls a package. See 'dub help uninstall'.
     add-local <dir> <version>
                          Adds a local package directory (e.g. a git repository)
     remove-local <dir>   Removes a local package directory

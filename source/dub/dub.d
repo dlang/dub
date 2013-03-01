@@ -180,18 +180,10 @@ class Dub {
 	string[string] installedPackages() const { return m_project.installedPackagesIDs(); }
 
 	/// Installs the package matching the dependency into the application.
-	/// @param addToApplication if true, this will also add an entry in the
-	/// list of dependencies in the application's package.json
-	void install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.projectLocal, bool addToApplication = false)
+	void install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.projectLocal)
 	{
 		auto pinfo = m_packageSupplier.packageJson(packageId, dep);
 		string ver = pinfo["version"].get!string;
-
-		// Perform addToApplication
-		if(addToApplication && !m_project.tryAddDependency(packageId, dep)) {
-			logError("Installation of '%s' failed.", packageId);
-			return;
-		}
 
 		if( m_packageManager.hasPackage(packageId, ver, location) ){
 			logInfo("Package %s %s (%s) is already installed with the latest version, skipping upgrade.",
@@ -220,8 +212,68 @@ class Dub {
 	void uninstall(in Package pack)
 	{
 		logInfo("Uninstalling %s in %s", pack.name, pack.path.toNativeString());
-
 		m_packageManager.uninstall(pack);
+	}
+
+	/// @see uninstall(string, string, InstallLocation)
+	immutable string UninstallVersionWildcard = "*";
+
+	/// This will uninstall a given package with a specified version from the 
+	/// location.
+	/// It will remove at most one package, unless @param version_ is 
+	/// specified as wildcard "*". 
+	/// @param package_id Package to be removed
+	/// @param version_ Identifying a version or a wild card. An empty string
+	/// may be passed into. In this case the package will be removed from the
+	/// location, if there is only one version installed. This will throw an
+	/// exception, if there are multiple versions installed.
+	/// Note: as wildcard string only "*" is supported.
+	/// @param location_
+	void uninstall(string package_id, string version_, InstallLocation location_) {
+		enforce(!package_id.empty);
+		Package[] packages;
+		const bool wildcardOrEmpty = version_ == UninstallVersionWildcard || version_.empty;
+		if(location_ == InstallLocation.local) {
+			// Try folder named like the package_id in the cwd.
+			try {
+				Package pack = new Package(InstallLocation.local, Path(package_id));
+				if(!wildcardOrEmpty && to!string(pack.vers) != version_) {
+					logError("Installed package is of different version, uninstallation aborted.");
+					logError("Installed: %s, provided %s@", pack.vers, version_);
+					throw new Exception("Found package locally, but the versions don't match!");
+				}
+				packages ~= pack;
+			} catch {/* noop */}
+		} else {
+			// Use package manager
+			foreach(pack; m_packageManager.getPackageIterator(package_id)){
+				if( pack.installLocation == location_ && (wildcardOrEmpty || pack.vers == version_ )) {
+					packages ~= pack;
+				}
+			}
+		}
+
+		if(packages.empty) {
+			logError("Cannot find package to uninstall. (id:%s, version:%s, location:%s)", package_id, version_, location_);
+			return;
+		}
+
+		if(version_.empty && packages.length > 1) {
+			logError("Cannot uninstall package '%s', there multiple possibilities at location '%s'.", package_id, location_);
+			logError("Installed versions:");
+			foreach(pack; packages) 
+				logError(to!string(pack.vers()));
+			throw new Exception("Failed to uninstall package.");
+		}
+
+		logTrace("Uninstalling %s packages.", packages.length);
+		foreach(pack; packages) {
+			try {
+				uninstall(pack);
+				logInfo("Uninstalled %s, version %s.", package_id, pack.vers);
+			}
+			catch logError("Failed to uninstall %s, version %s. Continuing with other packages (if any).", package_id, pack.vers);
+		}
 	}
 
 	void addLocalPackage(string path, string ver, bool system)

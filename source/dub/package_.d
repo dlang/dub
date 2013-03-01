@@ -28,12 +28,10 @@ enum PackageJsonFilename = "package.json";
 /// Indicates where a package has been or should be installed to.
 enum InstallLocation {
 	/// Packages installed with 'local' will be placed in the current folder 
-	/// using the package name as destination. To uninstall just remove this
-	/// folder, but take care for your own files.
+	/// using the package name as destination.
 	local,
 	/// Packages with 'projectLocal' will be placed in a folder managed by
-	/// dub (i.e. inside the .dub subfolder). These can be uninstalled by
-	/// dub.
+	/// dub (i.e. inside the .dub subfolder). 
 	projectLocal,
 	/// Packages with 'userWide' will be placed in a folder accessible by
 	/// all of the applications from the current user.
