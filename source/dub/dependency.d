@@ -72,7 +72,8 @@ struct Version {
 
 	/** 
 		Comparing Versions is generally possible, but comparing Versions 
-		identifying branches other than master will fail.
+		identifying branches other than master will fail. Only equality
+		can be tested for these.
 	*/
 	int opCmp(ref const Version other)
 	const {
@@ -265,8 +266,6 @@ class Dependency {
 		if(!o.valid())
 			return new Dependency(o);
 		
-/// TODO: continue porting Version / Dependency to use branches and string
-
 		Version a = m_versA > o.m_versA? m_versA : o.m_versA;
 		Version b = m_versB < o.m_versB? m_versB : o.m_versB;
 		
