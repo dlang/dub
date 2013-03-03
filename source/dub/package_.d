@@ -142,80 +142,75 @@ class Package {
 	}
 
 	/// Returns all BuildSettings for the given platform and config.
-	BuildSettings getBuildSettings(BuildPlatform platform, string config)
+	BuildSettings getBuildSettings(BuildPlatform platform, string config, bool app = false)
 	const {
 		BuildSettings ret;
 		ret.parse(m_meta, platform);
 		if( config.length ){
-			auto pcs = "configurations" in m_meta;
-			if( !pcs ) return ret;
-			auto pc = config in *pcs;
-			if( !pc ) return ret;
-			ret.parse(*pc, platform);
-		}
-
-		// TODO: add all sources and "source"/"src" as import paths
-		// TODO: add "views" as string import path
-		return ret;
-	}
-	
-	/// Returns all sources as relative paths, prepend each with 
-	/// path() to get the absolute one.
-	@property const(Path[]) sources() const {
-		Path[] allSources;
-
-		auto spaths = sourcePaths.map!(p => (m_path ~ p).toNativeString()).array;
-
-		foreach(sourcePath; spaths) {
-			logTrace("Parsing directories for source path: %s", sourcePath);
-
-			if (sourcePath.isDir) {
-				foreach(d; dirEntries(sourcePath, "*d", SpanMode.depth))
-				{
-					// direct assignment allSources ~= Path(d.name)[...] 
-					// spawns internal compiler/linker error
-					if(isDir(d.name)) continue;
-					auto p = Path(d.name);
-					allSources ~= p[m_path.length..$];
+			if( auto pcs = "configurations" in m_meta ){
+				if( auto pc = config in *pcs ){
+					ret.parse(*pc, platform);
 				}
-			} else {
-				auto p = Path(dirEntry(sourcePath).name);
-				allSources ~= p[m_path.length..$];
 			}
 		}
-		logTrace("allSources: %s", allSources);
-		return allSources;
-	}
 
-	// Every path specified to include as sources
-	@property Path[] sourcePaths() const {
-		Path[] spaths;
-
-		if (auto singleSourcePath = "sourcePath" in m_meta) {
-			spaths ~=  Path(singleSourcePath.get!string());
-		}
-		if (auto multipleSourcePaths = "sourcePaths" in m_meta) {
-			spaths ~= map!(p => Path(p.get!string()))((*multipleSourcePaths)[]).array;
-		}
-		if (spaths.empty) {
-			if( existsFile(path ~ "source") ) spaths ~= Path("source");
-			else if( existsFile(path ~ "src") ) spaths ~= Path("src");
+		// check for default string import folders
+		if( ret.stringImportPaths.empty ){
+			foreach(defvf; ["views"]){
+				auto p = this.path ~ defvf;
+				if( existsFile(p) ){
+					ret.addStringImportPaths(defvf);
+				}
+			}
 		}
 
-		return spaths;
-	}
-	
-	@property const(Path[]) appSources()
-	const {
-		Path[] ret;
-		if( auto as = "appSources" in m_meta ){
-			foreach(src; *as)
-				ret ~= Path(src.get!string());
-		} else {
-			if( existsFile(m_path ~ "source/app.d") ) ret ~= Path("source/app.d");
-			else if( existsFile(m_path ~ ("source/"~name()~".d")) ) ret ~= Path("source/"~name()~".d");
+
+		// determine all source folders
+		Path[] source_paths;
+		if( auto psp = "sourcePath" in m_meta )
+			source_paths ~= this.path ~ Path(psp.get!string());
+		
+		if( auto psps = "sourcePaths" in m_meta ){
+			foreach(p; *psps)
+				source_paths ~= this.path ~ p.get!string();
+		} else if( source_paths.empty ){
+			foreach(defsf; ["source", "src"]){
+				auto p = this.path ~ defsf;
+				if( existsFile(p) ){
+					source_paths ~= p;
+					ret.addImportPaths(defsf);
+				}
+			}
 		}
+		logTrace("Source paths for %s: %s", this.name, source_paths);
+
+		// gather all source files
+		string[] sources;
+		foreach(sourcePath; source_paths.map!(p => p.toNativeString())()) {
+			logTrace("Parsing directories for source path: %s", sourcePath);
+
+			foreach(d; dirEntries(sourcePath, "*d", SpanMode.depth))
+			{
+				// direct assignment allSources ~= Path(d.name)[...] 
+				// spawns internal compiler/linker error
+				if(isDir(d.name)) continue;
+				auto p = Path(d.name);
+				auto src = p.relativeTo(this.path).toNativeString();
+				if( app || !isAppSource(src) )
+					sources ~= src;
+			}
+		}
+		logTrace("allSources: %s", sources);
+		ret.addSourceFiles(sources);
+
 		return ret;
+	}
+
+	bool isAppSource(string src)
+	const {
+		auto ps = Path(src);
+		if( ps.absolute ) ps = ps.relativeTo(this.path);
+		return ps == Path("source/app.d") || ps == Path("src/app.d");
 	}
 	
 	/// TODO: what is the defaul configuration?

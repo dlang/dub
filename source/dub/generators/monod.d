@@ -236,35 +236,30 @@ class MonoDGenerator : ProjectGenerator {
 		void generateSourceEntry(Path path, Path base_path)
 		{
 			auto rel_path = path.relativeTo(pack.path);
-			if( base_path == pack.path || path.relativeTo(base_path).external ){
+			rel_path.normalize();
+
+			Path pretty_path;
+			foreach( i; 0 .. rel_path.length )
+				if( rel_path[i] != ".." ){
+					pretty_path = rel_path[i .. $];
+					break;
+				}
+
+			if( base_path == pretty_path ){
 				sln.formattedWrite("    <Compile Include=\"%s\" />\n", rel_path.toNativeString());
 			} else {
 				sln.formattedWrite("    <Compile Include=\"%s\">\n", rel_path.toNativeString());
-				sln.formattedWrite("      <Link>%s</Link>\n", path.relativeTo(base_path).toNativeString());
+				sln.formattedWrite("      <Link>%s</Link>\n", pretty_path.toNativeString());
 				sln.formattedWrite("    </Compile>\n");
 			}
 		}
 
-		void generateSources(in Package p)
-		{
-			if( p in visited ) return;
-			visited[p] = true;
-
-			foreach( s; p.sources ){
-				if( p !is m_app.mainPackage && s == Path("source/app.d") )
-					continue;
-				generateSourceEntry(p.path ~s, p.path);
-			}
-			foreach( s; buildsettings.sourceFiles )
-				generateSourceEntry(Path(s), p.path);
-		}
-
-
 		sln.put("  <ItemGroup>\n");
-		generateSources(pack);
-		if( m_singleProject )
-			foreach(dep; m_app.dependencies)
-				generateSources(dep);
+		foreach( s; buildsettings.sourceFiles ){
+			auto sp = Path(s);
+			if( !sp.absolute ) sp = pack.path ~ sp;
+			generateSourceEntry(sp, pack.path);
+		}
 		sln.put("  </ItemGroup>\n");
 		sln.put("</Project>");
 	}

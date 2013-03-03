@@ -60,20 +60,14 @@ class BuildGenerator : ProjectGenerator {
 			addBuildTypeFlags(buildsettings, settings.buildType);
 		}
 
-		// add all .d files
-		void addPackageFiles(in Package pack){
-			foreach(s; pack.sources){
-				if( pack !is m_project.mainPackage && s == Path("source/app.d") )
-					continue;
-				auto relpath = (pack.path ~ s).relativeTo(cwd);
-				buildsettings.addSourceFiles(relpath.toNativeString());
-			}
-		}
-		addPackageFiles(m_project.mainPackage);
-		foreach(dep; m_project.dependencies)
-			addPackageFiles(dep);
-
 		auto generate_binary = !buildsettings.dflags.canFind("-o-");
+
+		// make paths relative to shrink the command line
+		foreach(ref f; buildsettings.sourceFiles){
+			auto fp = Path(f);
+			if( fp.absolute ) fp = fp.relativeTo(Path(getcwd));
+			f = fp.toNativeString();
+		}
 
 		// setup for command line
 		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);

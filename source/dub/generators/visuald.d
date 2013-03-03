@@ -187,33 +187,36 @@ EndGlobal");
 			generateProjectConfiguration(ret, pack, Config.Unittest, settings);
 
 			// Add all files
-			bool[SourceFile] sourceFiles;
-			void gatherSources(const(Package) pack, bool prefixPkgId) {
-				logTrace("Gathering sources for %s (%s)", pack.name, pack is m_app.mainPackage);
-				foreach(source; pack.sources) {
-					if( pack !is m_app.mainPackage && source == Path("source/app.d") )
-						continue;
-					SourceFile f = {
-						pack.name,
-						prefixPkgId ? Path(pack.name)~source : source,
-						(pack.path ~ source).relativeTo(m_app.mainPackage.path)
-					};
-					sourceFiles[f] = true;
-					logTrace(" pkg file: %s", source);
+			version(VISUALD_SINGLE_PROJECT_FILE){
+				auto files = settings.buildSettings;
+
+				bool[SourceFile] sourceFiles;
+				foreach(s; files.sourceFiles){
+					auto sp = Path(s);
+					if( !sp.absolute ) sp = m_app.mainPackage.path ~ sp;
+					SourceFile sf;
+					sf.pkg = pack.name;
+					sf.filePath = sp.relativeTo(m_app.mainPackage.path);
+					sf.structurePath = Path(pack.name) ~ sp.relativeTo(pack.path);
+					sourceFiles[sf] = true;
 				}
 			}
-			
-			version(VISUALD_SINGLE_PROJECT_FILE) {
-				// gather all sources
-				enforce(pack == m_app.mainPackage(), "Some setup has gone wrong in VisualD.generateProj()");
-				gatherSources(pack, true);
-				performOnDependencies(pack, (dependency) { gatherSources(dependency, true); });
+
+			version(VISUALD_SEPERATE_PROJECT_FILES){
+				auto files = pack.getBuildSettings(settings.platform, settings.config, pack is m_app.mainPackage);
+
+				bool[SourceFile] sourceFiles;
+				foreach(s; files.sourceFiles){
+					auto sp = Path(s);
+					if( !sp.absolute ) sp = pack.path ~ sp;
+					SourceFile sf;
+					sf.pkg = pack.name;
+					sf.filePath = sp.relativeTo(m_app.mainPackage.path);
+					sf.structurePath = sp.relativeTo(pack.path);
+					sourceFiles[sf] = true;
+				}
 			}
-			version(VISUALD_SEPERATE_PROJECT_FILES) {
-				// gather sources for this package only
-				gatherSources(pack, false);
-			}
-			
+
 			// Create folders and files
 			ret.formattedWrite("\n  <Folder name=\"%s\">", pack.name);
 			Path lastFolder;

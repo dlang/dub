@@ -200,17 +200,8 @@ class Project {
 	/// Returns the DFLAGS
 	void addBuildSettings(ref BuildSettings dst, BuildPlatform platform, string config)
 	const {
-		void addImportPath(string path, bool src)
-		{
-			if( !exists(path) ) return;
-			if( src ) dst.addImportPaths([path]);
-			else dst.addStringImportPaths([path]);
-		}
-
 		foreach(pkg; this.topologicalPackageList){
-			processVars(dst, pkg.path.toNativeString(), pkg.getBuildSettings(platform, config));
-			addImportPath((pkg.path ~ "source").toNativeString(), true);
-			addImportPath((pkg.path ~ "views").toNativeString(), false);
+			processVars(dst, pkg.path.toNativeString(), pkg.getBuildSettings(platform, config, pkg is m_main));
 		}
 
 		// add version identifiers for available packages

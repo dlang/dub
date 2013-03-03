@@ -50,6 +50,8 @@ class RdmdGenerator : ProjectGenerator {
 
 		auto buildsettings = settings.buildSettings;
 		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
+		// do not pass all source files to RDMD, only the main source file
+		buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(s => !s.endsWith(".d"))().array();
 		buildsettings.addDFlags(["-w"/*, "-property"*/]);
 		string dflags = environment.get("DFLAGS");
 		if( dflags ){
@@ -152,7 +154,13 @@ private string getBinName(in Project prj)
 
 private Path getMainSourceFile(in Project prj)
 {
-	auto p = Path("source") ~ (prj.name ~ ".d");
-	return existsFile(p) ? p : Path("source/app.d");
+	foreach(p; ["source", "src", "."]){
+		foreach(f; [prj.name, "app"]){
+			auto fp = Path(p) ~ (f ~ ".d");
+			if( existsFile(fp) )
+				return fp;
+		}
+	}
+	return Path("app.d");
 }
 
