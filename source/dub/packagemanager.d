@@ -66,13 +66,13 @@ class PackageManager {
 		return null;
 	}
 
-	bool hasPackage(string name, string ver, InstallLocation location)
+	Package getPackage(string name, string ver, InstallLocation location)
 	{
 		foreach(ep; getPackageIterator(name)){
 			if( ep.installLocation == location && ep.vers == ver )
-				return true;
+				return ep;
 		}
-		return false;
+		return null;
 	}
 
 	Package getBestPackage(string name, string version_spec)

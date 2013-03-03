@@ -20,6 +20,7 @@ import std.algorithm;
 import std.zip;
 import std.typecons;
 import std.conv;
+import stdx.process;
 
 
 package bool isEmptyDir(Path p) {
@@ -69,4 +70,14 @@ private string stripUTF8Bom(string str)
 	if( str.length >= 3 && str[0 .. 3] == [0xEF, 0xBB, 0xBF] )
 		return str[3 ..$];
 	return str;
+}
+
+void runCommands(string[] commands)
+{
+	foreach(cmd; commands){
+		logDebug("Running %s", cmd);
+		auto pipes = pipeShell(cmd, Redirect.none);
+		auto exitcode = pipes.pid.wait();
+		enforce(exitcode == 0, "Command failed with exit code "~to!string(exitcode));
+	}
 }

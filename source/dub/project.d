@@ -54,10 +54,7 @@ class Project {
 		reinit();
 	}
 
-	@property Path binaryPath() const 
-	{
-		return m_main.binaryPath.length ? Path(m_main.binaryPath) : Path("./"); 
-	}
+	@property Path binaryPath() const { return m_main.binaryPath; }
 
 	/// Gathers information
 	@property string info()
@@ -81,20 +78,47 @@ class Project {
 	}
 
 	/// List of installed Packages
-	@property const(Package[]) installedPackages() const { return m_dependencies; }
+	@property const(Package[]) dependencies() const { return m_dependencies; }
 	
 	/// Main package.
 	@property const (Package) mainPackage() const { return m_main; }
 
+	/** Allows iteration of the dependency tree in topological order (children first)
+	*/
+	@property int delegate(int delegate(ref const Package)) topologicalPackageList()
+	const {
+		int iterator(int delegate(ref const Package) del)
+		{
+			int ret = 0;
+			bool[const(Package)] visited;
+			void perform_rec(in Package p){
+				if( p in visited ) return;
+				visited[p] = true;
+
+				foreach(d; p.dependencies.byKey)
+					foreach(dp; m_dependencies)
+						if( dp.name == d ){
+							perform_rec(dp);
+							if( ret ) return;
+							break;
+						}
+
+				ret = del(p);
+				if( ret ) return;
+			}
+			perform_rec(m_main);
+			return ret;
+		}
+		return &iterator;
+	}
+
 	string getDefaultConfiguration(BuildPlatform platform)
 	const {
 		string ret;
-		foreach( p; m_dependencies ){
+		foreach(p; topologicalPackageList){
 			auto c = p.getDefaultConfiguration(platform);
 			if( c.length ) ret = c;
 		}
-		auto c = m_main.getDefaultConfiguration(platform);
-		if( c ) ret = c;
 		return ret;
 	}
 
@@ -108,6 +132,11 @@ class Project {
 
 	/// Rereads the applications state.
 	void reinit() {
+		scope(failure){
+			logDebug("Failed to parse package.json. Assuming defaults.");
+			m_main = new Package(serializeToJson(["name": ""]), InstallLocation.local, m_root);
+		}
+
 		m_dependencies = null;
 		m_main = null;
 		m_packageManager.refresh();
@@ -174,24 +203,21 @@ class Project {
 		void addImportPath(string path, bool src)
 		{
 			if( !exists(path) ) return;
-			if( src ) dst.addImportDirs([path]);
-			else dst.addStringImportDirs([path]);
+			if( src ) dst.addImportPaths([path]);
+			else dst.addStringImportPaths([path]);
 		}
 
-		if( m_main ) processVars(dst, ".", m_main.getBuildSettings(platform, config));
-		addImportPath("source", true);
-		addImportPath("views", false);
-
-		foreach( pkg; m_dependencies ){
+		foreach(pkg; this.topologicalPackageList){
 			processVars(dst, pkg.path.toNativeString(), pkg.getBuildSettings(platform, config));
 			addImportPath((pkg.path ~ "source").toNativeString(), true);
 			addImportPath((pkg.path ~ "views").toNativeString(), false);
 		}
 
 		// add version identifiers for available packages
-		foreach(pack; this.installedPackages)
+		foreach(pack; this.dependencies)
 			dst.addVersions(["Have_" ~ stripDlangSpecialChars(pack.name)]);
 	}
+
 
 	/// Actions which can be performed to update the application.
 	Action[] determineActions(PackageSupplier packageSupplier, int option) {
@@ -518,11 +544,15 @@ private void processVars(ref BuildSettings dst, string project_path, BuildSettin
 	dst.addDFlags(processVars(project_path, settings.dflags));
 	dst.addLFlags(processVars(project_path, settings.lflags));
 	dst.addLibs(processVars(project_path, settings.libs));
-	dst.addFiles(processVars(project_path, settings.files, true));
+	dst.addSourceFiles(processVars(project_path, settings.sourceFiles, true));
 	dst.addCopyFiles(processVars(project_path, settings.copyFiles, true));
 	dst.addVersions(processVars(project_path, settings.versions));
-	dst.addImportDirs(processVars(project_path, settings.importPaths, true));
-	dst.addStringImportDirs(processVars(project_path, settings.stringImportPaths, true));
+	dst.addImportPaths(processVars(project_path, settings.importPaths, true));
+	dst.addStringImportPaths(processVars(project_path, settings.stringImportPaths, true));
+	dst.addPreGenerateCommands(processVars(project_path, settings.preGenerateCommands));
+	dst.addPostGenerateCommands(processVars(project_path, settings.postGenerateCommands));
+	dst.addPreBuildCommands(processVars(project_path, settings.preBuildCommands));
+	dst.addPostBuildCommands(processVars(project_path, settings.postBuildCommands));
 }
 
 private string[] processVars(string project_path, string[] vars, bool are_paths = false)

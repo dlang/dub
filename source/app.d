@@ -238,6 +238,7 @@ int main(string[] args)
 
 				logDebug("Generating using %s", generator);
 				dub.generateProject(generator, gensettings);
+				if( build_type == "ddox" ) dub.runDdox();
 				break;
 		}
 
@@ -308,7 +309,7 @@ Possible commands:
     remove-local <dir>   Removes a local package directory
     list-locals          Prints a list of all locals
     generate <name>      Generates project files using the specified generator:
-                         visuald, mono-d, build, rdmd
+                           visuald, mono-d, build, rdmd
 
 General options:
         --annotate       Do not execute dependency installations, just print
@@ -318,13 +319,16 @@ General options:
         --vquiet         No output
 
 Build/run options:
-        --build=NAME     Specifies the type of build to perform. Valid names:
-                         debug (default), release, unittest, profile, docs,
-                         plain
+        --build=NAME     Specifies the type of build to perform. Note that
+                         setting the DFLAGS environment variable will override
+                         the build type with custom flags.
+                         Possible names:
+                           debug (default), plain, release, unittest, profile,
+                           docs, ddox
         --config=NAME    Builds the specified configuration. Configurations can
                          be defined in package.json
         --compiler=NAME  Uses one of the supported compilers:
-                         dmd (default), gcc, ldc, gdmd, ldmd
+                           dmd (default), gcc, ldc, gdmd, ldmd
         --arch=NAME      Force a different architecture (e.g. x86 or x86_64)
         --nodeps         Do not check dependencies for 'run' or 'build'
         --print-builds   Prints the list of available build types

@@ -117,9 +117,9 @@ class GdcCompiler : Compiler {
 			settings.stringImportPaths = null;
 		}
 
-		if( !(fields & BuildSetting.files) ){
-			settings.addDFlags(settings.files);
-			settings.files = null;
+		if( !(fields & BuildSetting.sourceFiles) ){
+			settings.addDFlags(settings.sourceFiles);
+			settings.sourceFiles = null;
 		}
 
 		if( !(fields & BuildSetting.lflags) ){

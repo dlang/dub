@@ -12,6 +12,7 @@ import dub.generators.generator;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
+import dub.utils;
 
 import std.algorithm;
 import std.array;
@@ -29,6 +30,9 @@ version = VISUALD_SEPERATE_PROJECT_FILES;
 // Dubbing is developing dub...
 //version = DUBBING;
 
+// TODO: handle pre/post build commands
+
+
 class VisualDGenerator : ProjectGenerator {
 	private {
 		Project m_app;
@@ -42,10 +46,22 @@ class VisualDGenerator : ProjectGenerator {
 	}
 	
 	void generateProject(GeneratorSettings settings) {
+		auto buildsettings = settings.buildSettings;
+
+		if( buildsettings.preGenerateCommands.length ){
+			logInfo("Running pre-generate commands...");
+			runCommands(buildsettings.preGenerateCommands);
+		}
+
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
 		generateProjects(m_app.mainPackage(), settings);
 		generateSolution();
 		logInfo("VisualD project generated.");
+
+		if( buildsettings.postGenerateCommands.length ){
+			logInfo("Running post-generate commands...");
+			runCommands(buildsettings.postGenerateCommands);
+		}
 	}
 	
 	private {
@@ -286,7 +302,7 @@ EndGlobal");
 
 				// Add libraries, system libs need to be suffixed by ".lib".
 				string linkLibs = join(map!(a => a~".lib")(getSettings!"libs"()), " ");
-				string addLinkFiles = join(getSettings!"files"(), " ");
+				string addLinkFiles = join(getSettings!"sourceFiles"(), " ");
 				ret.formattedWrite("
     <libfiles>%s</libfiles>", linkLibs ~ " " ~ addLinkFiles);
 

@@ -12,6 +12,7 @@ import dub.generators.generator;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
+import dub.utils;
 
 import std.algorithm;
 import std.array;
@@ -23,6 +24,8 @@ import std.exception;
 import vibecompat.core.file;
 import vibecompat.core.log;
 
+
+// TODO: handle pre/post build commands
 
 class MonoDGenerator : ProjectGenerator {
 	private {
@@ -42,9 +45,21 @@ class MonoDGenerator : ProjectGenerator {
 	
 	void generateProject(GeneratorSettings settings)
 	{
+		auto buildsettings = settings.buildSettings;
+		
+		if( buildsettings.preGenerateCommands.length ){
+			logInfo("Running pre-generate commands...");
+			runCommands(buildsettings.preGenerateCommands);
+		}
+
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
 		generateProjects(m_app.mainPackage(), settings);
 		generateSolution(settings);
+
+		if( buildsettings.postGenerateCommands.length ){
+			logInfo("Running post-generate commands...");
+			runCommands(buildsettings.postGenerateCommands);
+		}
 	}
 	
 	private void generateSolution(GeneratorSettings settings)
@@ -239,7 +254,7 @@ class MonoDGenerator : ProjectGenerator {
 					continue;
 				generateSourceEntry(p.path ~s, p.path);
 			}
-			foreach( s; buildsettings.files )
+			foreach( s; buildsettings.sourceFiles )
 				generateSourceEntry(Path(s), p.path);
 		}
 
@@ -247,7 +262,7 @@ class MonoDGenerator : ProjectGenerator {
 		sln.put("  <ItemGroup>\n");
 		generateSources(pack);
 		if( m_singleProject )
-			foreach(dep; m_app.installedPackages)
+			foreach(dep; m_app.dependencies)
 				generateSources(dep);
 		sln.put("  </ItemGroup>\n");
 		sln.put("</Project>");

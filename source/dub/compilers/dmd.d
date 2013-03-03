@@ -56,7 +56,7 @@ class DmdCompiler : Compiler {
 			} catch( Exception e ){
 				logDebug("pkg-config failed: %s", e.msg);
 				logDebug("Falling back to direct -lxyz flags.");
-				version(Windows) settings.addFiles(settings.libs.map!(l => l~".lib")().array());
+				version(Windows) settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
 				else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
 			}
 			settings.libs = null;
@@ -77,9 +77,9 @@ class DmdCompiler : Compiler {
 			settings.stringImportPaths = null;
 		}
 
-		if( !(fields & BuildSetting.files) ){
-			settings.addDFlags(settings.files);
-			settings.files = null;
+		if( !(fields & BuildSetting.sourceFiles) ){
+			settings.addDFlags(settings.sourceFiles);
+			settings.sourceFiles = null;
 		}
 
 		if( !(fields & BuildSetting.lflags) ){

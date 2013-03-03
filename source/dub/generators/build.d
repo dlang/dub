@@ -12,6 +12,7 @@ import dub.generators.generator;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
+import dub.utils;
 
 import std.algorithm;
 import std.array;
@@ -40,11 +41,11 @@ class BuildGenerator : ProjectGenerator {
 	
 	void generateProject(GeneratorSettings settings)
 	{
-
 		//Added check for existance of [AppNameInPackagejson].d
 		//If exists, use that as the starting file.
 		auto outfile = getBinName(m_project);
 		auto mainsrc = getMainSourceFile(m_project);
+		auto cwd = Path(getcwd());
 
 		logDebug("Application output name is '%s'", outfile);
 
@@ -64,31 +65,35 @@ class BuildGenerator : ProjectGenerator {
 			foreach(s; pack.sources){
 				if( pack !is m_project.mainPackage && s == Path("source/app.d") )
 					continue;
-				auto relpath = (pack.path ~ s).relativeTo(m_project.mainPackage.path);
-				buildsettings.addFiles(relpath.toNativeString());
+				auto relpath = (pack.path ~ s).relativeTo(cwd);
+				buildsettings.addSourceFiles(relpath.toNativeString());
 			}
 		}
 		addPackageFiles(m_project.mainPackage);
-		foreach(dep; m_project.installedPackages)
+		foreach(dep; m_project.dependencies)
 			addPackageFiles(dep);
+
+		auto generate_binary = !buildsettings.dflags.canFind("-o-");
 
 		// setup for command line
 		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 		Path run_exe_file;
-		if( !settings.run ){
-			settings.compiler.setTarget(buildsettings, m_project.binaryPath~outfile);
-		} else {
-			import std.random;
-			auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
-			auto tmp = environment.get("TEMP");
-			if( !tmp.length ) tmp = environment.get("TMP");
-			if( !tmp.length ){
-				version(Posix) tmp = "/tmp";
-				else tmp = ".";
+		if( generate_binary ){
+			if( !settings.run ){
+				settings.compiler.setTarget(buildsettings, m_project.binaryPath~outfile);
+			} else {
+				import std.random;
+				auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
+				auto tmp = environment.get("TEMP");
+				if( !tmp.length ) tmp = environment.get("TMP");
+				if( !tmp.length ){
+					version(Posix) tmp = "/tmp";
+					else tmp = ".";
+				}
+				run_exe_file = Path(tmp~"/.rdmd/source/"~rnd~outfile);
+				settings.compiler.setTarget(buildsettings, run_exe_file);
 			}
-			run_exe_file = Path(tmp~"/.rdmd/source/"~rnd~outfile);
-			settings.compiler.setTarget(buildsettings, run_exe_file);
 		}
 
 		string[] flags = buildsettings.dflags;
@@ -96,30 +101,53 @@ class BuildGenerator : ProjectGenerator {
 		if( settings.config.length ) logInfo("Building configuration "~settings.config~", build type "~settings.buildType);
 		else logInfo("Building default configuration, build type "~settings.buildType);
 
-		logInfo("Running %s", settings.compilerBinary ~ " " ~ join(flags, " "));
+		if( buildsettings.preGenerateCommands.length ){
+			logInfo("Running pre-generate commands...");
+			runCommands(buildsettings.preGenerateCommands);
+		}
+
+		if( buildsettings.postGenerateCommands.length ){
+			logInfo("Running post-generate commands...");
+			runCommands(buildsettings.postGenerateCommands);
+		}
+
+		if( buildsettings.preBuildCommands.length ){
+			logInfo("Running pre-build commands...");
+			runCommands(buildsettings.preBuildCommands);
+		}
+
+		logInfo("Running %s...", settings.compilerBinary);
+		logDebug("%s %s", settings.compilerBinary, join(flags, " "));
 		auto compiler_pid = spawnProcess(settings.compilerBinary, flags);
 		auto result = compiler_pid.wait();
 		enforce(result == 0, "Build command failed with exit code "~to!string(result));
 
-		// TODO: move to a common place - this is not generator specific
-		if( buildsettings.copyFiles.length ){
-			logInfo("Copying files...");
-			foreach( f; buildsettings.copyFiles ){
-				auto src = Path(f);
-				auto dst = (run_exe_file.empty ? m_project.binaryPath : run_exe_file.parentPath) ~ Path(f).head;
-				logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
-				try copyFile(src, dst, true);
-				catch logWarn("Failed to copy to %s", dst.toNativeString());
-			}
+		if( buildsettings.postBuildCommands.length ){
+			logInfo("Running post-build commands...");
+			runCommands(buildsettings.postBuildCommands);
 		}
 
-		if( settings.run ){
-			auto prg_pid = spawnProcess(run_exe_file.toNativeString(), settings.runArgs);
-			result = prg_pid.wait();
-			remove(run_exe_file.toNativeString());
-			foreach( f; buildsettings.copyFiles )
-				remove((run_exe_file.parentPath ~ Path(f).head).toNativeString());
-			enforce(result == 0, "Program exited with code "~to!string(result));
+		if( generate_binary ){
+			// TODO: move to a common place - this is not generator specific
+			if( buildsettings.copyFiles.length ){
+				logInfo("Copying files...");
+				foreach( f; buildsettings.copyFiles ){
+					auto src = Path(f);
+					auto dst = (run_exe_file.empty ? m_project.binaryPath : run_exe_file.parentPath) ~ Path(f).head;
+					logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
+					try copyFile(src, dst, true);
+					catch logWarn("Failed to copy to %s", dst.toNativeString());
+				}
+			}
+
+			if( settings.run ){
+				auto prg_pid = spawnProcess(run_exe_file.toNativeString(), settings.runArgs);
+				result = prg_pid.wait();
+				remove(run_exe_file.toNativeString());
+				foreach( f; buildsettings.copyFiles )
+					remove((run_exe_file.parentPath ~ Path(f).head).toNativeString());
+				enforce(result == 0, "Program exited with code "~to!string(result));
+			}
 		}
 	}
 }

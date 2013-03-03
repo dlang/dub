@@ -95,17 +95,17 @@ class Dub {
 
 	void loadPackageFromCwd()
 	{
-		m_root = m_cwd;
+		loadPackage(m_cwd);
+	}
+
+	void loadPackage(Path path)
+	{
+		m_root = path;
 		m_packageManager.projectPackagePath = m_root ~ ".dub/packages/";
 		m_project = new Project(m_packageManager, m_root);
 	}
 
 	string getDefaultConfiguration(BuildPlatform platform) const { return m_project.getDefaultConfiguration(platform); }
-
-	/// Lists all installed modules
-	void list() {
-		logInfo(m_project.info());
-	}
 
 	/// Performs installation and uninstallation as necessary for
 	/// the application.
@@ -170,25 +170,20 @@ class Dub {
 		m_project.createZip(zipFile);
 	}
 
-	/// Prints some information to the log.
-	void info() {
-		logInfo("Status for %s", m_root);
-		logInfo("\n" ~ m_project.info());
-	}
 
 	/// Gets all installed packages as a "packageId" = "version" associative array
 	string[string] installedPackages() const { return m_project.installedPackagesIDs(); }
 
 	/// Installs the package matching the dependency into the application.
-	void install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.projectLocal)
+	Package install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.projectLocal)
 	{
 		auto pinfo = m_packageSupplier.packageJson(packageId, dep);
 		string ver = pinfo["version"].get!string;
 
-		if( m_packageManager.hasPackage(packageId, ver, location) ){
+		if( auto pack = m_packageManager.getPackage(packageId, ver, location) ){
 			logInfo("Package %s %s (%s) is already installed with the latest version, skipping upgrade.",
 				packageId, ver, location);
-			return;
+			return pack;
 		}
 
 		logInfo("Downloading %s %s...", packageId, ver);
@@ -203,7 +198,7 @@ class Dub {
 		scope(exit) remove(sTempFile);
 
 		logInfo("Installing %s %s...", packageId, ver);
-		m_packageManager.install(tempFile, pinfo, location);
+		return m_packageManager.install(tempFile, pinfo, location);
 	}
 
 	/// Uninstalls a given package from the list of installed modules.
@@ -344,5 +339,44 @@ void main()
 
 		//Act smug to the user. 
 		logInfo("Successfully created an empty project in '"~path.toNativeString()~"'.");
+	}
+
+	void runDdox()
+	{
+		auto ddox_pack = m_packageManager.getBestPackage("ddox", ">=0.0.0");
+		if( !ddox_pack ){
+			logInfo("DDOX is not installed, performing user wide installation.");
+			ddox_pack = install("ddox", new Dependency(">=0.0.0"), InstallLocation.userWide);
+		}
+
+		version(Windows) auto ddox_exe = "ddox.exe";
+		else auto ddox_exe = "ddox";
+
+		if( !existsFile(ddox_pack.path~ddox_exe) ){
+			logInfo("DDOX in %s is not built, performing build now.", ddox_pack.path.toNativeString());
+
+			auto ddox_dub = new Dub(m_packageSupplier);
+			ddox_dub.loadPackage(ddox_pack.path);
+
+			GeneratorSettings settings;
+			settings.compilerBinary = "dmd";
+			settings.compiler = getCompiler(settings.compilerBinary);
+			settings.platform = settings.compiler.determinePlatform(settings.buildSettings, settings.compilerBinary);
+			settings.buildType = "debug";
+			ddox_dub.generateProject("build", settings);
+
+			//runCommands(["cd "~ddox_pack.path.toNativeString()~" && dub build -v"]);
+		}
+
+		auto p = ddox_pack.path;
+		p.endsWithSlash = true;
+		auto dub_path = p.toNativeString();
+
+		string[] commands;
+		commands ~= dub_path~"ddox filter --min-protection=Protected docs.json";
+		commands ~= dub_path~"ddox generate-html docs.json docs";
+		version(Windows) commands ~= "xcopy /S /D "~dub_path~"public\\* docs\\";
+		else commands ~= "cp -r "~dub_path~"public/* docs/";
+		runCommands(commands);
 	}
 }

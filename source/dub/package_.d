@@ -124,7 +124,12 @@ class Package {
 	@property const(Url) url() const { return Url.parse(cast(string)m_meta["url"]); }
 	@property const(Dependency[string]) dependencies() const { return m_dependencies; }
 	@property const(LocalPackageDef)[] localPackageDefs() const { return m_localPackageDefs; }
-	@property string binaryPath() const { return m_meta["binaryPath"].opt!string; }
+	@property Path binaryPath()
+	const {
+		auto p = m_meta["binaryPath"].opt!string;
+		if( !p.length ) return this.path;
+		return this.path ~ Path(p);
+	}
 	
 	@property string[] configurations()
 	const {
@@ -148,6 +153,9 @@ class Package {
 			if( !pc ) return ret;
 			ret.parse(*pc, platform);
 		}
+
+		// TODO: add all sources and "source"/"src" as import paths
+		// TODO: add "views" as string import path
 		return ret;
 	}
 	
@@ -190,10 +198,24 @@ class Package {
 			spaths ~= map!(p => Path(p.get!string()))((*multipleSourcePaths)[]).array;
 		}
 		if (spaths.empty) {
-			spaths ~= Path("source");
+			if( existsFile(path ~ "source") ) spaths ~= Path("source");
+			else if( existsFile(path ~ "src") ) spaths ~= Path("src");
 		}
 
 		return spaths;
+	}
+	
+	@property const(Path[]) appSources()
+	const {
+		Path[] ret;
+		if( auto as = "appSources" in m_meta ){
+			foreach(src; *as)
+				ret ~= Path(src.get!string());
+		} else {
+			if( existsFile(m_path ~ "source/app.d") ) ret ~= Path("source/app.d");
+			else if( existsFile(m_path ~ ("source/"~name()~".d")) ) ret ~= Path("source/"~name()~".d");
+		}
+		return ret;
 	}
 	
 	/// TODO: what is the defaul configuration?
