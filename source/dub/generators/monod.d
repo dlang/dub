@@ -46,7 +46,7 @@ class MonoDGenerator : ProjectGenerator {
 	void generateProject(GeneratorSettings settings)
 	{
 		auto buildsettings = settings.buildSettings;
-		
+
 		if( buildsettings.preGenerateCommands.length ){
 			logInfo("Running pre-generate commands...");
 			runCommands(buildsettings.preGenerateCommands);
@@ -217,12 +217,13 @@ class MonoDGenerator : ProjectGenerator {
 				config.configName, config.platformName);
 			
     		sln.put("    <DebugSymbols>True</DebugSymbols>\n");
-			sln.formattedWrite("    <OutputPath>bin\\%s</OutputPath>\n", config.configName);
+    		auto outpath = pack.binaryPath.relativeTo(pack.path).toNativeString();
+			sln.formattedWrite("    <OutputPath>%s</OutputPath>\n", outpath.length ? outpath : ".");
 			sln.put("    <Externalconsole>True</Externalconsole>\n");
  			sln.put("    <Target>Executable</Target>\n");
     		sln.formattedWrite("    <OutputName>%s</OutputName>\n", pack.name);
 			sln.put("    <UnittestMode>False</UnittestMode>\n");
-			sln.formattedWrite("    <ObjectsDirectory>obj\\%s</ObjectsDirectory>\n", config.configName);
+			sln.formattedWrite("    <ObjectsDirectory>%s</ObjectsDirectory>\n", (Path("obj/")~config.configName).toNativeString());
 			sln.put("    <DebugLevel>0</DebugLevel>\n");
 			sln.put("  </PropertyGroup>\n");
 		}
