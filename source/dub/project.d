@@ -83,9 +83,9 @@ class Project {
 	/// Main package.
 	@property const (Package) mainPackage() const { return m_main; }
 
-	/** Allows iteration of the dependency tree in topological order (children first)
+	/** Allows iteration of the dependency tree in topological order
 	*/
-	@property int delegate(int delegate(ref const Package)) topologicalPackageList()
+	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false)
 	const {
 		int iterator(int delegate(ref const Package) del)
 		{
@@ -95,6 +95,11 @@ class Project {
 				if( p in visited ) return;
 				visited[p] = true;
 
+				if( !children_first ){
+					ret = del(p);
+					if( ret ) return;
+				}
+
 				foreach(d; p.dependencies.byKey)
 					foreach(dp; m_dependencies)
 						if( dp.name == d ){
@@ -103,8 +108,10 @@ class Project {
 							break;
 						}
 
-				ret = del(p);
-				if( ret ) return;
+				if( children_first ){
+					ret = del(p);
+					if( ret ) return;
+				}
 			}
 			perform_rec(m_main);
 			return ret;
@@ -115,7 +122,7 @@ class Project {
 	string getDefaultConfiguration(BuildPlatform platform)
 	const {
 		string ret;
-		foreach(p; topologicalPackageList){
+		foreach(p; getTopologicalPackageList(true)){
 			auto c = p.getDefaultConfiguration(platform);
 			if( c.length ) ret = c;
 		}
@@ -200,7 +207,7 @@ class Project {
 	/// Returns the DFLAGS
 	void addBuildSettings(ref BuildSettings dst, BuildPlatform platform, string config)
 	const {
-		foreach(pkg; this.topologicalPackageList){
+		foreach(pkg; this.getTopologicalPackageList()){
 			processVars(dst, pkg.path.toNativeString(), pkg.getBuildSettings(platform, config, pkg is m_main));
 		}
 
