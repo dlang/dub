@@ -164,6 +164,7 @@ class Package {
 	@property Version ver() const { return Version(m_info.version_); }
 	@property installLocation() const { return m_location; }
 	@property Path path() const { return m_path; }
+	@property Path packageInfoFile() const { return m_path ~ "package.json"; }
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
 	@property Path binaryPath()
 	const {
@@ -183,6 +184,7 @@ class Package {
 	/// Returns all BuildSettings for the given platform and config.
 	BuildSettings getBuildSettings(BuildPlatform platform, string config)
 	const {
+		assert(config in m_info.configurations, "Unknown configuration for "~m_info.name~": "~config);
 		BuildSettings ret;
 		m_info.buildSettings.getPlatformSettings(ret, platform);
 		m_info.configurations[config].getPlatformSettings(ret, platform);
@@ -203,7 +205,7 @@ class Package {
 		foreach(suffix; getPlatformSuffixIterator(platform))
 			if( auto pc = suffix in m_info.defaultConfiguration )
 				return *pc;
-		return is_app ? "application" : "library";
+		return is_app && "application" in m_info.configurations ? "application" : "library";
 	}
 
 	/// Humanly readible information of this package and its dependencies.
