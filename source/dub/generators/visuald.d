@@ -190,6 +190,10 @@ EndGlobal");
 			version(VISUALD_SINGLE_PROJECT_FILE){
 				auto files = settings.buildSettings;
 
+				// add all package.json files to the project
+				foreach(prj; m_app.getTopologicalPackageList())
+					files.sourceFiles ~= prj.packageInfoFile.toNativeString();
+
 				bool[SourceFile] sourceFiles;
 				foreach(s; files.sourceFiles){
 					auto sp = Path(s);
@@ -204,6 +208,8 @@ EndGlobal");
 
 			version(VISUALD_SEPERATE_PROJECT_FILES){
 				auto files = pack.getBuildSettings(settings.platform, m_app.getPackageConfig(pack, settings.config));
+
+				files.sourceFiles ~= pack.packageInfoFile.toNativeString();
 
 				bool[SourceFile] sourceFiles;
 				foreach(s; files.sourceFiles){

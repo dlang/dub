@@ -254,6 +254,9 @@ class MonoDGenerator : ProjectGenerator {
 			}
 		}
 
+		foreach( p; m_app.getTopologicalPackageList() )
+			buildsettings.sourceFiles ~= p.packageInfoFile.toNativeString();
+
 		sln.put("  <ItemGroup>\n");
 		foreach( s; buildsettings.sourceFiles ){
 			auto sp = Path(s);
