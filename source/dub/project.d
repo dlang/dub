@@ -121,12 +121,7 @@ class Project {
 
 	string getDefaultConfiguration(BuildPlatform platform)
 	const {
-		string ret;
-		foreach(p; getTopologicalPackageList(true)){
-			auto c = p.getDefaultConfiguration(platform);
-			if( c.length ) ret = c;
-		}
-		return ret;
+		return m_main.getDefaultConfiguration(platform, true);
 	}
 
 
@@ -167,20 +162,20 @@ class Project {
 		void collectDependenciesRec(Package pack)
 		{
 			logDebug("Collecting dependencies for %s", pack.name);
-			foreach( ldef; pack.localPackageDefs ){
-				Path path = ldef.path;
-				if( !path.absolute ) path = pack.path ~ path;
-				logDebug("Adding local %s %s", path, ldef.version_);
-				m_packageManager.addLocalPackage(path, ldef.version_, LocalPackageType.temporary);
-			}
-
 			foreach( name, vspec; pack.dependencies ){
-				auto p = m_packageManager.getBestPackage(name, vspec);
-				if( !m_dependencies.canFind(p) ){
-					logDebug("Found dependency %s %s: %s", name, vspec.toString(), p !is null);
-					if( p ){
-						m_dependencies ~= p;
-						collectDependenciesRec(p);
+				if( !vspec.path.empty ){
+					Path path = vspec.path;
+					if( !path.absolute ) path = pack.path ~ path;
+					logDebug("Adding local %s %s", path, vspec.version_);
+					m_packageManager.addLocalPackage(path, vspec.version_, LocalPackageType.temporary);
+				} else {
+					auto p = m_packageManager.getBestPackage(name, vspec);
+					if( !m_dependencies.canFind(p) ){
+						logDebug("Found dependency %s %s: %s", name, vspec.toString(), p !is null);
+						if( p ){
+							m_dependencies ~= p;
+							collectDependenciesRec(p);
+						}
 					}
 				}
 				//enforce(p !is null, "Failed to resolve dependency "~name~" "~vspec.toString());
@@ -192,23 +187,19 @@ class Project {
 	/// Returns the applications name.
 	@property string name() const { return m_main ? m_main.name : "app"; }
 
-	@property string[] configurations()
+	@property string[] configurations() const { return m_main.configurations; }
+
+	string getPackageConfig(in Package pack, string config)
 	const {
-		string[] ret;
-		if( m_main ) ret = m_main.configurations;
-		foreach( p; m_dependencies ){
-			auto cfgs = p.configurations;
-			foreach( c; cfgs )
-				if( !ret.canFind(c) ) ret ~= c;
-		}
-		return ret;
+		if( pack is m_main ) return config;
+		else return "library"; // TODO: determine user choices
 	}
 
 	/// Returns the DFLAGS
 	void addBuildSettings(ref BuildSettings dst, BuildPlatform platform, string config)
 	const {
 		foreach(pkg; this.getTopologicalPackageList()){
-			processVars(dst, pkg.path.toNativeString(), pkg.getBuildSettings(platform, config, pkg is m_main));
+			processVars(dst, pkg.path.toNativeString(), pkg.getBuildSettings(platform, getPackageConfig(pkg, config)));
 		}
 
 		// add version identifiers for available packages
@@ -520,7 +511,7 @@ struct Action {
 		pack = pkg;
 		type = id;
 		packageId = pkg.name;
-		vers = new immutable(Dependency)("==", pkg.vers);
+		vers = new immutable(Dependency)(pkg.ver);
 		issuer = issue;
 	}
 

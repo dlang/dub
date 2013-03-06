@@ -203,7 +203,7 @@ EndGlobal");
 			}
 
 			version(VISUALD_SEPERATE_PROJECT_FILES){
-				auto files = pack.getBuildSettings(settings.platform, settings.config, pack is m_app.mainPackage);
+				auto files = pack.getBuildSettings(settings.platform, m_app.getPackageConfig(pack, settings.config));
 
 				bool[SourceFile] sourceFiles;
 				foreach(s; files.sourceFiles){

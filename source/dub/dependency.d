@@ -149,6 +149,8 @@ class Dependency {
 		Version m_versA;
 		string m_cmpB;
 		Version m_versB;
+		Path m_path;
+		string m_configuration = "library";
 	}
 
 	this( string ves ) {
@@ -199,19 +201,27 @@ class Dependency {
 		}
 	}
 
-	this(string cmp, string ver)
+	this(in Version ver)
 	{
-		m_cmpA = cmp;
-		m_versB = m_versA = Version(ver);
-		m_cmpB = "==";
+		m_cmpA = ">=";
+		m_cmpB = "<=";
+		m_versA = ver;
+		m_versB = ver;
 	}
-	
+
 	this(const Dependency o) {
 		m_cmpA = o.m_cmpA; m_versA = Version(o.m_versA);
 		m_cmpB = o.m_cmpB; m_versB = Version(o.m_versB);
 		enforce( m_cmpA != "==" || m_cmpB == "==");
 		enforce(m_versA <= m_versB);
+		m_path = o.m_path;
+		m_configuration = o.m_configuration;
 	}
+
+	@property void path(Path value) { m_path = value; }
+	@property Path path() const { return m_path; }
+
+	@property Version version_() const { assert(m_versA == m_versB); return m_versA; }
 	
 	override string toString() const {
 		string r;
@@ -231,7 +241,7 @@ class Dependency {
 	{
 		if (this is b) return true; if (b is null) return false; if (typeid(this) != typeid(b)) return false;
 		Dependency o = cast(Dependency) b;
-		return o.m_cmpA == m_cmpA && o.m_cmpB == m_cmpB && o.m_versA == m_versA && o.m_versB == m_versB;
+		return o.m_cmpA == m_cmpA && o.m_cmpB == m_cmpB && o.m_versA == m_versA && o.m_versB == m_versB && o.m_configuration == m_configuration;
 	}
 	
 	bool valid() const {
@@ -265,6 +275,8 @@ class Dependency {
 			return new Dependency(this);
 		if(!o.valid())
 			return new Dependency(o);
+		if( m_configuration != o.m_configuration )
+			return new Dependency(">=1.0.0 <=0.0.0");
 		
 		Version a = m_versA > o.m_versA? m_versA : o.m_versA;
 		Version b = m_versB < o.m_versB? m_versB : o.m_versB;

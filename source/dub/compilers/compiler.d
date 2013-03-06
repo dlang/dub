@@ -76,37 +76,6 @@ struct BuildSettings {
 	string[] preBuildCommands;
 	string[] postBuildCommands;
 
-	void parse(in Json root, BuildPlatform platform)
-	{
-		foreach(string name, value; root){
-			auto components = name.split("-");
-			if( !matchesPlatform(components[1 .. $], platform) )
-				continue;
-			
-			const(string[]) entries(){
-				enforce(value.type == Json.Type.Array, "Field "~name~" must be of type string[].");
-				return value.get!(Json[]).map!(j => j.get!string).array();
-			}
-
-			switch(components[0]){
-				default: break;
-				case "dflags": addDFlags(entries()); break;
-				case "lflags": addLFlags(entries()); break;
-				case "libs": addLibs(entries()); break;
-				case "sourceFiles":
-				case "files": addSourceFiles(entries()); break;
-				case "copyFiles": addCopyFiles(entries()); break;
-				case "versions": addVersions(entries()); break;
-				case "importPaths": addImportPaths(entries()); break;
-				case "stringImportPaths": addStringImportPaths(entries()); break;
-				case "preGenerateCommands": addPreGenerateCommands(entries()); break;
-				case "postGenerateCommands": addPostGenerateCommands(entries()); break;
-				case "preBuildCommands": addPreBuildCommands(entries()); break;
-				case "postBuildCommands": addPostBuildCommands(entries()); break;
-			}
-		}
-	}
-
 	void addDFlags(in string[] value...) { add(dflags, value); }
 	void addLFlags(in string[] value...) { add(lflags, value); }
 	void addLibs(in string[] value...) { add(libs, value); }
@@ -138,16 +107,6 @@ struct BuildSettings {
 			if( !found ) arr ~= v;
 		}
 	}
-
-	bool matchesPlatform(string[] platform_parts, BuildPlatform platform)
-	{
-		if( platform_parts.length == 0 ) return true;
-		// TODO: optimize
-		foreach( suffix; getPlatformSuffixIterator(platform) )
-			if( suffix == "-"~platform_parts.join("-") )
-				return true;
-		return false;
-	}
 }
 
 /// Represents a platform a package can be build upon.
@@ -177,40 +136,4 @@ enum BuildSetting {
 
 private {
 	Compiler[] s_compilers;
-}
-
-/// Based on the BuildPlatform, creates an iterator with all suffixes.
-///
-/// Suffixes are build upon the following scheme, where each component
-/// is optional (indicated by []), but the order is obligatory.
-/// "[-platform][-architecture][-compiler]"
-///
-/// So the following strings are valid suffixes:
-/// "-windows-x86-dmd"
-/// "-dmd"
-/// "-arm"
-///
-int delegate(scope int delegate(ref string)) getPlatformSuffixIterator(BuildPlatform platform)
-{
-	int iterator(scope int delegate(ref string s) del)
-	{
-		auto c = platform.compiler;
-		int delwrap(string s) { return del(s); }
-		if( auto ret = delwrap(null) ) return ret;
-		if( auto ret = delwrap("-"~c) ) return ret;
-		foreach( p; platform.platform ){
-			if( auto ret = delwrap("-"~p) ) return ret;
-			if( auto ret = delwrap("-"~p~"-"~c) ) return ret;
-			foreach( a; platform.architecture ){
-				if( auto ret = delwrap("-"~p~"-"~a) ) return ret;
-				if( auto ret = delwrap("-"~p~"-"~a~"-"~c) ) return ret;
-			}
-		}
-		foreach( a; platform.architecture ){
-			if( auto ret = delwrap("-"~a) ) return ret;
-			if( auto ret = delwrap("-"~a~"-"~c) ) return ret;
-		}
-		return 0;
-	}
-	return &iterator;
 }
