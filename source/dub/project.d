@@ -199,7 +199,9 @@ class Project {
 	void addBuildSettings(ref BuildSettings dst, BuildPlatform platform, string config)
 	const {
 		foreach(pkg; this.getTopologicalPackageList()){
-			processVars(dst, pkg.path.toNativeString(), pkg.getBuildSettings(platform, getPackageConfig(pkg, config)));
+			auto psettings = pkg.getBuildSettings(platform, getPackageConfig(pkg, config));
+			processVars(dst, pkg.path.toNativeString(), psettings);
+			if( pkg is m_main ) dst.targetType = psettings.targetType;
 		}
 
 		// add version identifiers for available packages

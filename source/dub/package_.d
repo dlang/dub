@@ -60,9 +60,9 @@ enum InstallLocation {
 ///		"licenses": {
 ///			...
 ///		}
-///		"configurations": {
+///		"configurations": [
 // TODO: what and how?
-///		}
+///		]
 // TODO: plain like this or packed together?
 ///			"
 ///			"dflags-X"
@@ -126,20 +126,20 @@ class Package {
 			if( m_info.buildSettings.targetType == TargetType.executable ){
 				BuildSettingsTemplate app_settings;
 				app_settings.targetType = TargetType.executable;
-				m_info.configurations["application"] = ConfigurationInfo(app_settings);
+				m_info.configurations ~= ConfigurationInfo("application", app_settings);
 			} else {
 				if( m_info.buildSettings.targetType == TargetType.autodetect ){
 					if( app_files.length ){
 						BuildSettingsTemplate app_settings;
 						app_settings.targetType = TargetType.executable;
 						app_settings.sourceFiles[""] = app_files;
-						m_info.configurations["application"] = ConfigurationInfo(app_settings);
+						m_info.configurations ~= ConfigurationInfo("application", app_settings);
 					}
 				}
 
 				BuildSettingsTemplate lib_settings;
 				lib_settings.targetType = TargetType.library;
-				m_info.configurations["library"] = ConfigurationInfo(lib_settings);
+				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
 
@@ -186,19 +186,22 @@ class Package {
 	@property string[] configurations()
 	const {
 		auto ret = appender!(string[])();
-		foreach( config; m_info.configurations.byKey )
-			ret.put(config);
+		foreach( ref config; m_info.configurations )
+			ret.put(config.name);
 		return ret.data;
 	}
 
 	/// Returns all BuildSettings for the given platform and config.
 	BuildSettings getBuildSettings(BuildPlatform platform, string config)
 	const {
-		assert(config in m_info.configurations, "Unknown configuration for "~m_info.name~": "~config);
-		BuildSettings ret;
-		m_info.buildSettings.getPlatformSettings(ret, platform);
-		m_info.configurations[config].buildSettings.getPlatformSettings(ret, platform);
-		return ret;
+		foreach(ref conf; m_info.configurations){
+			if( conf.name != config ) continue;
+			BuildSettings ret;
+			m_info.buildSettings.getPlatformSettings(ret, platform);
+			conf.buildSettings.getPlatformSettings(ret, platform);
+			return ret;
+		}
+		assert(false, "Unknown configuration for "~m_info.name~": "~config);
 	}
 
 	bool isAppSource(string src)
@@ -209,13 +212,14 @@ class Package {
 	}
 	
 	/// Returns the default configuration to build for the given platform
-	string getDefaultConfiguration(BuildPlatform platform, bool is_app = false)
+	string getDefaultConfiguration(BuildPlatform platform, bool is_main_package = false)
 	const {
-		string ret;
-		foreach(suffix; getPlatformSuffixIterator(platform))
-			if( auto pc = suffix in m_info.defaultConfiguration )
-				return *pc;
-		return is_app && "application" in m_info.configurations ? "application" : "library";
+		foreach(ref conf; m_info.configurations){
+			if( !conf.matchesPlatform(platform) ) continue;
+			if( !is_main_package && conf.buildSettings.targetType == TargetType.executable ) continue;
+			return conf.name;
+		}
+		throw new Exception(format("Found no suitable configuration for %s on this platform.", this.name));
 	}
 
 	/// Humanly readible information of this package and its dependencies.
@@ -266,21 +270,20 @@ struct PackageInfo {
 	Dependency[string] dependencies;
 	string[] sourcePaths;
 	BuildSettingsTemplate buildSettings;
-	string[string] defaultConfiguration;
-	ConfigurationInfo[string] configurations;
+	ConfigurationInfo[] configurations;
 
 	void parseJson(Json json)
 	{
 		foreach( string field, value; json ){
 			switch(field){
 				default:
-					auto didx = std.string.indexOf(field, "-");
+					/*auto didx = std.string.indexOf(field, "-");
 					string basename, suffix;
 					if( didx >= 0 ) basename = field[0 .. didx], suffix = field[didx .. $];
 					else basename = field;
 					if( basename == "defaultConfiguration" ){
 						this.defaultConfiguration[suffix] = value.get!string();
-					}
+					}*/
 					break;
 				case "name": this.name = value.get!string; break;
 				case "version": this.version_ = value.get!string; break;
@@ -310,10 +313,10 @@ struct PackageInfo {
 				case "sourcePath": this.sourcePaths = [value.get!string()]; break; // deprecated
 				case "sourcePaths": this.sourcePaths = deserializeJson!(string[])(value); break;
 				case "configurations":
-					foreach( string config, settings; value ){
+					foreach( settings; value ){
 						ConfigurationInfo ci;
 						ci.parseJson(settings);
-						this.configurations[config] = ci;
+						this.configurations ~= ci;
 					}
 					break;
 			}
@@ -327,7 +330,7 @@ struct PackageInfo {
 
 	Json toJson()
 	const {
-		auto ret = Json.EmptyObject;
+		auto ret = buildSettings.toJson();
 		ret.name = this.name;
 		if( !this.version_.empty ) ret["version"] = this.version_;
 		if( !this.description.empty ) ret.description = this.description;
@@ -346,11 +349,9 @@ struct PackageInfo {
 		}
 		if( !this.sourcePaths.empty ) ret.sourcePaths = serializeToJson(this.sourcePaths);
 		if( this.configurations ){
-			auto configs = Json.EmptyObject;
-			foreach( suffix, conf; defaultConfiguration )
-				configs["default"~suffix] = conf;
-			foreach(config, settings; this.configurations)
-				configs[config] = settings.buildSettings.toJson();
+			Json[] configs;
+			foreach(config; this.configurations)
+				configs ~= config.toJson();
 			ret.configurations = configs;
 		}
 		return ret;
@@ -358,19 +359,52 @@ struct PackageInfo {
 }
 
 struct ConfigurationInfo {
+	string name;
+	string[] platforms;
 	BuildSettingsTemplate buildSettings;
+
+	this(string name, BuildSettingsTemplate build_settings)
+	{
+		this.name = name;
+		this.buildSettings = build_settings;
+	}
 
 	void parseJson(Json json)
 	{
+		this.buildSettings.targetType = TargetType.library;
 
 		foreach(string name, value; json){
 			switch(name){
 				default: break;
+				case "name":
+					this.name = value.get!string();
+					enforce(!this.name.empty, "Configurations must have a non-empty name.");
+					break;
+				case "platforms": this.platforms = deserializeJson!(string[])(value); break;
 			}
 		}
 
+		enforce(!this.name.empty, "Configuration is missing a name.");
+
 		BuildSettingsTemplate bs;
 		this.buildSettings.parseJson(json);
+	}
+
+	Json toJson()
+	const {
+		auto ret = buildSettings.toJson();
+		ret.name = name;
+		if( this.platforms.length ) ret.platforms = serializeToJson(platforms);
+		return ret;
+	}
+
+	bool matchesPlatform(BuildPlatform platform)
+	const {
+		if( platforms.empty ) return true;
+		foreach(p; platforms)
+			if( .matchesPlatform("-"~p, platform) )
+				return true;
+		return false;
 	}
 }
 
