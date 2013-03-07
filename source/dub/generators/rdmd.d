@@ -60,17 +60,17 @@ class RdmdGenerator : ProjectGenerator {
 		} else {
 			addBuildTypeFlags(buildsettings, settings.buildType);
 		}
+		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 		auto generate_binary = !buildsettings.dflags.canFind("-o-");
 
 		// Create start script, which will be used by the calling bash/cmd script.
 		// build "rdmd --force %DFLAGS% -I%~dp0..\source -Jviews -Isource @deps.txt %LIBS% source\app.d" ~ application arguments
 		// or with "/" instead of "\"
-		string[] flags = ["--force", "--build-only", "--compiler="~settings.compilerBinary];
 		Path run_exe_file;
 		if( generate_binary ){
 			if( !settings.run ){
-				flags ~= "-of"~(m_project.binaryPath~outfile).toNativeString();
+				settings.compiler.setTarget(buildsettings, m_project.binaryPath~outfile);
 			} else {
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
@@ -81,11 +81,11 @@ class RdmdGenerator : ProjectGenerator {
 					else tmp = ".";
 				}
 				run_exe_file = Path(tmp~"/.rdmd/source/"~rnd~outfile);
-				flags ~= "-of"~run_exe_file.toNativeString();
+				settings.compiler.setTarget(buildsettings, run_exe_file);
 			}
 		}
 
-		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
+		string[] flags = ["--force", "--build-only", "--compiler="~settings.compilerBinary];
 		flags ~= buildsettings.dflags;
 		flags ~= (mainsrc).toNativeString();
 
