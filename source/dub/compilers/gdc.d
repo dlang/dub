@@ -134,6 +134,19 @@ class GdcCompiler : Compiler {
 
 	void setTarget(ref BuildSettings settings, Path binary_path)
 	{
+		final switch(settings.targetType){
+			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
+			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
+			case TargetType.executable: break;
+			case TargetType.library:
+			case TargetType.staticLibrary:
+				settings.addDFlags("-c");
+				break;
+			case TargetType.dynamicLibrary:
+				settings.addDFlags("-shared", "-fPIC");
+				break;
+		}
+
 		settings.addDFlags("-o", binary_path.toNativeString());
 	}
 }

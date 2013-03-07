@@ -90,6 +90,19 @@ class LdcCompiler : Compiler {
 
 	void setTarget(ref BuildSettings settings, Path binary_path)
 	{
+		final switch(settings.targetType){
+			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
+			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
+			case TargetType.executable: break;
+			case TargetType.library:
+			case TargetType.staticLibrary:
+				assert(false, "No LDC static libraries supported");
+				break;
+			case TargetType.dynamicLibrary:
+				assert(false, "No LDC dynamic libraries supported");
+				break;
+		}
+
 		settings.addDFlags("-of"~binary_path.toNativeString());
 	}
 }

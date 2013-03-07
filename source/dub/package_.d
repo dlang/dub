@@ -123,14 +123,24 @@ class Package {
 
 		// generate default configurations if none are defined
 		if( m_info.configurations.length == 0 ){
-			if( app_files.length ){
+			if( m_info.buildSettings.targetType == TargetType.executable ){
 				BuildSettingsTemplate app_settings;
-				app_settings.sourceFiles[""] = app_files;
-				m_info.configurations["application"] = app_settings;
-			}
+				app_settings.targetType = TargetType.executable;
+				m_info.configurations["application"] = ConfigurationInfo(app_settings);
+			} else {
+				if( m_info.buildSettings.targetType == TargetType.autodetect ){
+					if( app_files.length ){
+						BuildSettingsTemplate app_settings;
+						app_settings.targetType = TargetType.executable;
+						app_settings.sourceFiles[""] = app_files;
+						m_info.configurations["application"] = ConfigurationInfo(app_settings);
+					}
+				}
 
-			BuildSettingsTemplate lib_settings;
-			m_info.configurations["library"] = lib_settings;
+				BuildSettingsTemplate lib_settings;
+				lib_settings.targetType = TargetType.library;
+				m_info.configurations["library"] = ConfigurationInfo(lib_settings);
+			}
 		}
 
 		// determine all source folders
@@ -151,7 +161,7 @@ class Package {
 				if(isDir(d.name)) continue;
 				auto p = Path(d.name);
 				auto src = p.relativeTo(this.path);
-				if( !app_files.map!(p => Path(p))().canFind(src) )
+				if( m_info.buildSettings.targetType != TargetType.autodetect || !app_files.map!(p => Path(p))().canFind(src) )
 					sources ~= src.toNativeString();
 			}
 		}
@@ -187,7 +197,7 @@ class Package {
 		assert(config in m_info.configurations, "Unknown configuration for "~m_info.name~": "~config);
 		BuildSettings ret;
 		m_info.buildSettings.getPlatformSettings(ret, platform);
-		m_info.configurations[config].getPlatformSettings(ret, platform);
+		m_info.configurations[config].buildSettings.getPlatformSettings(ret, platform);
 		return ret;
 	}
 
@@ -257,7 +267,7 @@ struct PackageInfo {
 	string[] sourcePaths;
 	BuildSettingsTemplate buildSettings;
 	string[string] defaultConfiguration;
-	BuildSettingsTemplate[string] configurations;
+	ConfigurationInfo[string] configurations;
 
 	void parseJson(Json json)
 	{
@@ -301,9 +311,9 @@ struct PackageInfo {
 				case "sourcePaths": this.sourcePaths = deserializeJson!(string[])(value); break;
 				case "configurations":
 					foreach( string config, settings; value ){
-						BuildSettingsTemplate bs;
-						bs.parseJson(settings);
-						this.configurations[config] = bs;
+						ConfigurationInfo ci;
+						ci.parseJson(settings);
+						this.configurations[config] = ci;
 					}
 					break;
 			}
@@ -340,14 +350,32 @@ struct PackageInfo {
 			foreach( suffix, conf; defaultConfiguration )
 				configs["default"~suffix] = conf;
 			foreach(config, settings; this.configurations)
-				configs[config] = settings.toJson();
+				configs[config] = settings.buildSettings.toJson();
 			ret.configurations = configs;
 		}
 		return ret;
 	}
 }
 
+struct ConfigurationInfo {
+	BuildSettingsTemplate buildSettings;
+
+	void parseJson(Json json)
+	{
+
+		foreach(string name, value; json){
+			switch(name){
+				default: break;
+			}
+		}
+
+		BuildSettingsTemplate bs;
+		this.buildSettings.parseJson(json);
+	}
+}
+
 struct BuildSettingsTemplate {
+	TargetType targetType = TargetType.autodetect;
 	string[][string] dflags;
 	string[][string] lflags;
 	string[][string] libs;
@@ -371,9 +399,14 @@ struct BuildSettingsTemplate {
 			else basename = name;
 			switch(basename){
 				default: break;
+				case "targetType":
+					enforce(suffix.empty, "targetType does not support platform customization.");
+					targetType = value.get!string().to!TargetType();
+					break;
 				case "dflags": this.dflags[suffix] = deserializeJson!(string[])(value); break;
 				case "lflags": this.lflags[suffix] = deserializeJson!(string[])(value); break;
 				case "libs": this.libs[suffix] = deserializeJson!(string[])(value); break;
+				case "files": logWarn(`The "files" field has been deprecated, please use "sourceFiles" instad.`); goto case;
 				case "sourceFiles": this.sourceFiles[suffix] = deserializeJson!(string[])(value); break;
 				case "copyFiles": this.copyFiles[suffix] = deserializeJson!(string[])(value); break;
 				case "versions": this.versions[suffix] = deserializeJson!(string[])(value); break;
@@ -407,6 +440,7 @@ struct BuildSettingsTemplate {
 
 	void getPlatformSettings(ref BuildSettings dst, BuildPlatform platform)
 	const {
+		dst.targetType = this.targetType;
 		getPlatformSetting!("dflags", "addDFlags")(dst, platform);
 		getPlatformSetting!("lflags", "addLFlags")(dst, platform);
 		getPlatformSetting!("libs", "addLibs")(dst, platform);
@@ -429,6 +463,7 @@ struct BuildSettingsTemplate {
 		}
 	}
 }
+
 
 private bool matchesPlatform(string suffix, BuildPlatform platform)
 {

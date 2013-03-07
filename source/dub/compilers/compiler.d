@@ -63,6 +63,7 @@ interface Compiler {
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
 struct BuildSettings {
+	TargetType targetType;
 	string[] dflags;
 	string[] lflags;
 	string[] libs;
@@ -133,6 +134,16 @@ enum BuildSetting {
 	commandLineSeparate = commandLine|lflags,
 	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|importPaths|stringImportPaths
 }
+
+enum TargetType {
+	autodetect,
+	executable,
+	library,
+	sourceLibrary,
+	dynamicLibrary,
+	staticLibrary
+}
+
 
 private {
 	Compiler[] s_compilers;
