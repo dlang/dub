@@ -85,7 +85,7 @@ class RdmdGenerator : ProjectGenerator {
 			}
 		}
 
-		string[] flags = ["--force", "--build-only", "--compiler="~settings.compilerBinary];
+		string[] flags = ["--build-only", "--compiler="~settings.compilerBinary];
 		flags ~= buildsettings.dflags;
 		flags ~= (mainsrc).toNativeString();
 
