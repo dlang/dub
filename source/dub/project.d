@@ -54,8 +54,6 @@ class Project {
 		reinit();
 	}
 
-	@property Path binaryPath() const { return m_main.binaryPath; }
-
 	/// Gathers information
 	@property string info()
 	const {
@@ -205,7 +203,11 @@ class Project {
 			auto pkgconf = getPackageConfig(pkg, platform, config);
 			auto psettings = pkg.getBuildSettings(platform, pkgconf);
 			processVars(dst, pkg.path.toNativeString(), psettings);
-			if( pkg is m_main ) dst.targetType = psettings.targetType;
+			if( pkg is m_main ){
+				dst.targetType = psettings.targetType;
+				dst.targetPath = psettings.targetPath;
+				dst.targetName = psettings.targetName;
+			}
 		}
 
 		// add version identifiers for available packages

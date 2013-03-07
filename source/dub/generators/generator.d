@@ -49,23 +49,23 @@ struct GeneratorSettings {
 */
 ProjectGenerator createProjectGenerator(string generator_type, Project app, PackageManager mgr)
 {
-	enforce(app !is null, "app==null, Need an application to work on!");
-	enforce(mgr !is null, "mgr==null, Need a package manager to work on!");
+	assert(app !is null && mgr !is null, "Project and package manager needed to create a generator.");
+
 	generator_type = generator_type.toLower();
 	switch(generator_type) {
 		default:
 			throw new Exception("Unknown project generator: "~generator_type);
 		case "build":
-			logTrace("Generating build generator.");
+			logTrace("Creating build generator.");
 			return new BuildGenerator(app, mgr);
 		case "rdmd":
-			logTrace("Generating rdmd generator.");
+			logTrace("Creating rdmd generator.");
 			return new RdmdGenerator(app, mgr);
 		case "mono-d":
-			logTrace("Generating MonoD generator.");
+			logTrace("Creating MonoD generator.");
 			return new MonoDGenerator(app, mgr);
 		case "visuald": 
-			logTrace("Generating VisualD generator.");
+			logTrace("Creating VisualD generator.");
 			return new VisualDGenerator(app, mgr);
 	}
 }

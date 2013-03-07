@@ -91,8 +91,6 @@ class Dub {
 
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
 
-	@property Path binaryPath() const { return m_project.binaryPath; }
-
 	void loadPackageFromCwd()
 	{
 		loadPackage(m_cwd);

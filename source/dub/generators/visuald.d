@@ -281,13 +281,13 @@ EndGlobal");
     <optimize>%s</optimize>", type == Config.Release? "1":"0");
 
 				// Lib or exe?
-				bool createLib = pack != m_app.mainPackage();
-				string libIdentifier = createLib? "1" : "0";
+				bool is_lib = buildsettings.targetType == TargetType.executable;
 				string debugSuffix = type == Config.Debug? "_d" : "";
-				string extension = createLib? "lib" : "exe";
+				auto bin_path = Path(buildsettings.targetPath);
+				bin_path.endsWithSlash = true;
 				ret.formattedWrite("
     <lib>%s</lib>
-    <exefile>bin\\$(ProjectName)%s.%s</exefile>", libIdentifier, debugSuffix, extension);
+    <exefile>%s%s%s.%s</exefile>", is_lib ? "1" : "0", bin_path.toNativeString(), buildsettings.targetName, debugSuffix, is_lib ? "lib" : "exe");
 
 				// include paths and string imports
 				string imports = join(getSettings!"importPaths"(), " ");

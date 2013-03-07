@@ -43,10 +43,7 @@ class RdmdGenerator : ProjectGenerator {
 	{
 		//Added check for existance of [AppNameInPackagejson].d
 		//If exists, use that as the starting file.
-		auto outfile = getBinName(m_project);
 		auto mainsrc = getMainSourceFile(m_project);
-
-		logDebug("Application output name is '%s'", outfile);
 
 		auto buildsettings = settings.buildSettings;
 		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
@@ -69,9 +66,7 @@ class RdmdGenerator : ProjectGenerator {
 		// or with "/" instead of "\"
 		Path run_exe_file;
 		if( generate_binary ){
-			if( !settings.run ){
-				settings.compiler.setTarget(buildsettings, m_project.binaryPath~outfile);
-			} else {
+			if( settings.run ){
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
 				auto tmp = environment.get("TEMP");
@@ -80,10 +75,14 @@ class RdmdGenerator : ProjectGenerator {
 					version(Posix) tmp = "/tmp";
 					else tmp = ".";
 				}
-				run_exe_file = Path(tmp~"/.rdmd/source/"~rnd~outfile);
-				settings.compiler.setTarget(buildsettings, run_exe_file);
+				buildsettings.targetPath = (Path(tmp)~"/.rdmd/source/").toNativeString();
+				buildsettings.targetName = rnd ~ buildsettings.targetName;
+				run_exe_file = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 			}
+			settings.compiler.setTarget(buildsettings, settings.platform);
 		}
+
+		logDebug("Application output name is '%s'", getTargetFileName(buildsettings, settings.platform));
 
 		string[] flags = ["--build-only", "--compiler="~settings.compilerBinary];
 		flags ~= buildsettings.dflags;
@@ -124,7 +123,7 @@ class RdmdGenerator : ProjectGenerator {
 				logInfo("Copying files...");
 				foreach( f; buildsettings.copyFiles ){
 					auto src = Path(f);
-					auto dst = (run_exe_file.empty ? m_project.binaryPath : run_exe_file.parentPath) ~ Path(f).head;
+					auto dst = (run_exe_file.empty ? Path(buildsettings.targetPath) : run_exe_file.parentPath) ~ Path(f).head;
 					logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
 					try copyFile(src, dst, true);
 					catch logWarn("Failed to copy to %s", dst.toNativeString());
@@ -143,24 +142,10 @@ class RdmdGenerator : ProjectGenerator {
 	}
 }
 
-private string getBinName(in Project prj)
-{
-	// take the project name as the base or fall back to "app"
-	string ret = prj.name;
-	if( ret.length == 0 ) ret ="app";
-	version(Windows) { ret ~= ".exe"; }
-	return ret;
-} 
-
 private Path getMainSourceFile(in Project prj)
 {
-	foreach(p; ["source", "src", "."]){
-		foreach(f; [prj.name, "app"]){
-			auto fp = Path(p) ~ (f ~ ".d");
-			if( existsFile(fp) )
-				return fp;
-		}
-	}
-	return Path("app.d");
+	foreach( f; ["source/app.d", "src/app.d", "source/"~prj.name~".d", "src/"~prj.name~".d"])
+		if( exists(f) )
+			return Path(f);
+	return Path("source/app.d");
 }
-

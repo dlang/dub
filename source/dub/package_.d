@@ -151,12 +151,6 @@ class Package {
 	@property Path path() const { return m_path; }
 	@property Path packageInfoFile() const { return m_path ~ "package.json"; }
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
-	@property Path binaryPath()
-	const {
-		auto p = m_info.binaryPath;
-		if( !p.length ) return this.path;
-		return this.path ~ Path(p);
-	}
 	
 	@property string[] configurations()
 	const {
@@ -175,6 +169,7 @@ class Package {
 			BuildSettings ret;
 			m_info.buildSettings.getPlatformSettings(ret, platform, this.path);
 			conf.buildSettings.getPlatformSettings(ret, platform, this.path);
+			if( ret.targetName.empty ) ret.targetName = this.name;
 			return ret;
 		}
 		assert(false, "Unknown configuration for "~m_info.name~": "~config);
@@ -230,7 +225,6 @@ class Package {
 struct PackageInfo {
 	string name;
 	string version_;
-	string binaryPath;
 	string description;
 	string homepage;
 	string[] authors;
@@ -244,18 +238,9 @@ struct PackageInfo {
 	{
 		foreach( string field, value; json ){
 			switch(field){
-				default:
-					/*auto didx = std.string.indexOf(field, "-");
-					string basename, suffix;
-					if( didx >= 0 ) basename = field[0 .. didx], suffix = field[didx .. $];
-					else basename = field;
-					if( basename == "defaultConfiguration" ){
-						this.defaultConfiguration[suffix] = value.get!string();
-					}*/
-					break;
+				default: break;
 				case "name": this.name = value.get!string; break;
 				case "version": this.version_ = value.get!string; break;
-				case "binaryPath": this.binaryPath = value.get!string; break;
 				case "description": this.description = value.get!string; break;
 				case "homepage": this.homepage = value.get!string; break;
 				case "authors": this.authors = deserializeJson!(string[])(value); break;
@@ -375,6 +360,8 @@ struct ConfigurationInfo {
 
 struct BuildSettingsTemplate {
 	TargetType targetType = TargetType.autodetect;
+	string targetPath;
+	string targetName;
 	string[][string] dflags;
 	string[][string] lflags;
 	string[][string] libs;
@@ -404,6 +391,14 @@ struct BuildSettingsTemplate {
 					enforce(suffix.empty, "targetType does not support platform customization.");
 					targetType = value.get!string().to!TargetType();
 					break;
+				case "targetPath":
+					enforce(suffix.empty, "targetPath does not support platform customization.");
+					this.targetPath = value.get!string;
+					break;
+				case "targetName":
+					enforce(suffix.empty, "targetName does not support platform customization.");
+					this.targetName = value.get!string;
+					break;
 				case "dflags": this.dflags[suffix] = deserializeJson!(string[])(value); break;
 				case "lflags": this.lflags[suffix] = deserializeJson!(string[])(value); break;
 				case "libs": this.libs[suffix] = deserializeJson!(string[])(value); break;
@@ -427,6 +422,9 @@ struct BuildSettingsTemplate {
 	Json toJson()
 	const {
 		auto ret = Json.EmptyObject;
+		if( targetType != TargetType.autodetect ) ret["targetType"] = targetType.to!string();
+		if( !targetPath.empty ) ret["targetPath"] = targetPath;
+		if( !targetName.empty ) ret["targetName"] = targetPath;
 		foreach(suffix, arr; dflags) ret["dflags"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; lflags) ret["lflags"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; libs) ret["libs"~suffix] = serializeToJson(arr);
@@ -447,6 +445,8 @@ struct BuildSettingsTemplate {
 	void getPlatformSettings(ref BuildSettings dst, BuildPlatform platform, Path base_path)
 	const {
 		dst.targetType = this.targetType;
+		dst.targetPath = this.targetPath;
+		dst.targetName = this.targetName;
 
 		// collect source files from all source folders
 		foreach(suffix, paths; sourcePaths){

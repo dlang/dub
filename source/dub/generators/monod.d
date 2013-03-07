@@ -217,11 +217,11 @@ class MonoDGenerator : ProjectGenerator {
 				config.configName, config.platformName);
 			
     		sln.put("    <DebugSymbols>True</DebugSymbols>\n");
-    		auto outpath = pack.binaryPath.relativeTo(pack.path).toNativeString();
+    		auto outpath = Path(buildsettings.targetPath).toNativeString();
 			sln.formattedWrite("    <OutputPath>%s</OutputPath>\n", outpath.length ? outpath : ".");
 			sln.put("    <Externalconsole>True</Externalconsole>\n");
  			sln.put("    <Target>Executable</Target>\n");
-    		sln.formattedWrite("    <OutputName>%s</OutputName>\n", pack.name);
+    		sln.formattedWrite("    <OutputName>%s</OutputName>\n", buildsettings.targetName);
 			sln.put("    <UnittestMode>False</UnittestMode>\n");
 			sln.formattedWrite("    <ObjectsDirectory>%s</ObjectsDirectory>\n", (Path("obj/")~config.configName).toNativeString());
 			sln.put("    <DebugLevel>0</DebugLevel>\n");

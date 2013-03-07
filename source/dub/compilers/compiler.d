@@ -56,7 +56,7 @@ interface Compiler {
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting supported_fields = BuildSetting.all);
 
 	/// Adds the appropriate flag to set a target path
-	void setTarget(ref BuildSettings settings, Path binary_path);
+	void setTarget(ref BuildSettings settings, in BuildPlatform platform);
 }
 
 
@@ -64,6 +64,8 @@ interface Compiler {
 /// include paths.
 struct BuildSettings {
 	TargetType targetType;
+	string targetPath;
+	string targetName;
 	string[] dflags;
 	string[] lflags;
 	string[] libs;
@@ -81,7 +83,7 @@ struct BuildSettings {
 	void addLFlags(in string[] value...) { add(lflags, value); }
 	void addLibs(in string[] value...) { add(libs, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
-	void removeSourceFiles(in string[] value...) { remove(sourceFiles, value); }
+	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
 	void addVersions(in string[] value...) { add(versions, value); }
 	void addImportPaths(in string[] value...) { add(importPaths, value); }
@@ -110,9 +112,15 @@ struct BuildSettings {
 		}
 	}
 
-	private void remove(ref string[] arr, in string[] vals)
+	private void removePaths(ref string[] arr, in string[] vals)
 	{
-		arr = arr.filter!(s => !vals.canFind(s))().array();
+		bool matches(string s){
+			foreach( p; vals )
+				if( Path(s) == Path(p) )
+					return true;
+			return false;
+		}
+		arr = arr.filter!(s => !matches(s))().array();
 	}
 }
 
@@ -149,6 +157,29 @@ enum TargetType {
 	dynamicLibrary,
 	staticLibrary
 }
+
+string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
+{
+	assert(settings.targetName.length > 0, "No target name set.");
+	final switch(settings.targetType){
+		case TargetType.autodetect: assert(false);
+		case TargetType.sourceLibrary: return null;
+		case TargetType.executable:
+			if( platform.platform.canFind("windows") )
+				return settings.targetName ~ ".exe";
+			else return settings.targetName;
+		case TargetType.library:
+		case TargetType.staticLibrary:
+			if( platform.platform.canFind("windows") )
+				return settings.targetName ~ ".lib";
+			else return "lib" ~ settings.targetName ~ ".a";
+		case TargetType.dynamicLibrary:
+			if( platform.platform.canFind("windows") )
+				return settings.targetName ~ ".dll";
+			else return "lib" ~ settings.targetName ~ ".so";
+	}
+} 
+
 
 
 private {

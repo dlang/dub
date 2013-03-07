@@ -91,7 +91,7 @@ class DmdCompiler : Compiler {
 		assert(fields & BuildSetting.copyFiles);
 	}
 
-	void setTarget(ref BuildSettings settings, Path binary_path)
+	void setTarget(ref BuildSettings settings, in BuildPlatform platform)
 	{
 		final switch(settings.targetType){
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
@@ -105,6 +105,7 @@ class DmdCompiler : Compiler {
 				break;
 		}
 
-		settings.addDFlags("-of"~binary_path.toNativeString());
+		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
+		settings.addDFlags("-of"~tpath.toNativeString());
 	}
 }
