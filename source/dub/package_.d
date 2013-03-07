@@ -440,7 +440,7 @@ struct BuildSettingsTemplate {
 				case "dflags": this.dflags[suffix] = deserializeJson!(string[])(value); break;
 				case "lflags": this.lflags[suffix] = deserializeJson!(string[])(value); break;
 				case "libs": this.libs[suffix] = deserializeJson!(string[])(value); break;
-				case "files": logWarn(`The "files" field has been deprecated, please use "sourceFiles" instad.`); goto case;
+				case "files":
 				case "sourceFiles": this.sourceFiles[suffix] = deserializeJson!(string[])(value); break;
 				case "copyFiles": this.copyFiles[suffix] = deserializeJson!(string[])(value); break;
 				case "versions": this.versions[suffix] = deserializeJson!(string[])(value); break;

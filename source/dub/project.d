@@ -189,17 +189,21 @@ class Project {
 
 	@property string[] configurations() const { return m_main.configurations; }
 
-	string getPackageConfig(in Package pack, string config)
+	string getPackageConfig(in Package pack, BuildPlatform platform, string config)
 	const {
 		if( pack is m_main ) return config;
-		else return "library"; // TODO: determine user choices
+		else {
+			// TODO: check the dependees for special wishes in terms on the configuration
+			return pack.getDefaultConfiguration(platform, false);
+		}
 	}
 
 	/// Returns the DFLAGS
 	void addBuildSettings(ref BuildSettings dst, BuildPlatform platform, string config)
 	const {
 		foreach(pkg; this.getTopologicalPackageList()){
-			auto psettings = pkg.getBuildSettings(platform, getPackageConfig(pkg, config));
+			auto pkgconf = getPackageConfig(pkg, platform, config);
+			auto psettings = pkg.getBuildSettings(platform, pkgconf);
 			processVars(dst, pkg.path.toNativeString(), psettings);
 			if( pkg is m_main ) dst.targetType = psettings.targetType;
 		}
