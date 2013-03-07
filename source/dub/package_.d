@@ -113,8 +113,8 @@ class Package {
 			if( existsFile(p) ){
 				m_info.sourcePaths ~= defsf;
 				m_info.buildSettings.importPaths[""] ~= defsf;
-				if( existsFile(p ~ "app.d") ) app_files ~= defsf ~ "/app.d";
-				else if( existsFile(p ~ (pkg_name~".d")) ) app_files ~= defsf ~ "/"~pkg_name~".d";
+				if( existsFile(p ~ "app.d") ) app_files ~= Path(defsf ~ "/app.d").toNativeString();
+				else if( existsFile(p ~ (pkg_name~".d")) ) app_files ~= Path(defsf ~ "/"~pkg_name~".d").toNativeString();
 			}
 		}
 
@@ -132,13 +132,13 @@ class Package {
 					if( app_files.length ){
 						BuildSettingsTemplate app_settings;
 						app_settings.targetType = TargetType.executable;
-						app_settings.sourceFiles[""] = app_files;
 						m_info.configurations ~= ConfigurationInfo("application", app_settings);
 					}
 				}
 
 				BuildSettingsTemplate lib_settings;
 				lib_settings.targetType = TargetType.library;
+				lib_settings.excludedSourceFiles[""] = app_files;
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
@@ -161,8 +161,7 @@ class Package {
 				if(isDir(d.name)) continue;
 				auto p = Path(d.name);
 				auto src = p.relativeTo(this.path);
-				if( m_info.buildSettings.targetType != TargetType.autodetect || !app_files.map!(p => Path(p))().canFind(src) )
-					sources ~= src.toNativeString();
+				sources ~= src.toNativeString();
 			}
 		}
 		logTrace("allSources: %s", sources);
@@ -194,6 +193,7 @@ class Package {
 	/// Returns all BuildSettings for the given platform and config.
 	BuildSettings getBuildSettings(BuildPlatform platform, string config)
 	const {
+		logDebug("Using config %s for %s", config, this.name);
 		foreach(ref conf; m_info.configurations){
 			if( conf.name != config ) continue;
 			BuildSettings ret;
@@ -204,13 +204,6 @@ class Package {
 		assert(false, "Unknown configuration for "~m_info.name~": "~config);
 	}
 
-	bool isAppSource(string src)
-	const {
-		auto ps = Path(src);
-		if( ps.absolute ) ps = ps.relativeTo(this.path);
-		return ps == Path("source/app.d") || ps == Path("src/app.d");
-	}
-	
 	/// Returns the default configuration to build for the given platform
 	string getDefaultConfiguration(BuildPlatform platform, bool is_main_package = false)
 	const {
@@ -414,6 +407,7 @@ struct BuildSettingsTemplate {
 	string[][string] lflags;
 	string[][string] libs;
 	string[][string] sourceFiles;
+	string[][string] excludedSourceFiles;
 	string[][string] copyFiles;
 	string[][string] versions;
 	string[][string] importPaths;
@@ -442,6 +436,7 @@ struct BuildSettingsTemplate {
 				case "libs": this.libs[suffix] = deserializeJson!(string[])(value); break;
 				case "files":
 				case "sourceFiles": this.sourceFiles[suffix] = deserializeJson!(string[])(value); break;
+				case "excludedSourceFiles": this.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
 				case "copyFiles": this.copyFiles[suffix] = deserializeJson!(string[])(value); break;
 				case "versions": this.versions[suffix] = deserializeJson!(string[])(value); break;
 				case "importPaths": this.importPaths[suffix] = deserializeJson!(string[])(value); break;
@@ -461,6 +456,7 @@ struct BuildSettingsTemplate {
 		foreach(suffix, arr; lflags) ret["lflags"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; libs) ret["libs"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; sourceFiles) ret["sourceFiles"~suffix] = serializeToJson(arr);
+		foreach(suffix, arr; excludedSourceFiles) ret["excludedSourceFiles"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; copyFiles) ret["copyFiles"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; versions) ret["versions"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; importPaths) ret["importPaths"~suffix] = serializeToJson(arr);
@@ -479,6 +475,7 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("lflags", "addLFlags")(dst, platform);
 		getPlatformSetting!("libs", "addLibs")(dst, platform);
 		getPlatformSetting!("sourceFiles", "addSourceFiles")(dst, platform);
+		getPlatformSetting!("excludedSourceFiles", "removeSourceFiles")(dst, platform);
 		getPlatformSetting!("copyFiles", "addCopyFiles")(dst, platform);
 		getPlatformSetting!("versions", "addVersions")(dst, platform);
 		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);

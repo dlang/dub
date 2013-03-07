@@ -81,6 +81,7 @@ struct BuildSettings {
 	void addLFlags(in string[] value...) { add(lflags, value); }
 	void addLibs(in string[] value...) { add(libs, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
+	void removeSourceFiles(in string[] value...) { remove(sourceFiles, value); }
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
 	void addVersions(in string[] value...) { add(versions, value); }
 	void addImportPaths(in string[] value...) { add(importPaths, value); }
@@ -107,6 +108,11 @@ struct BuildSettings {
 				}
 			if( !found ) arr ~= v;
 		}
+	}
+
+	private void remove(ref string[] arr, in string[] vals)
+	{
+		arr = arr.filter!(s => !vals.canFind(s))().array();
 	}
 }
 
