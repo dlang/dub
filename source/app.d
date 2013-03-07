@@ -134,7 +134,6 @@ int main(string[] args)
 				return 0;
 			case "install":
 				enforce(args.length >= 2, "Missing package name.");
-				dub.loadPackageFromCwd();
 				auto location = InstallLocation.userWide;
 				auto name = args[1];
 				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
@@ -149,6 +148,11 @@ int main(string[] args)
 						dub.install(name, new Dependency("~master"), location);
 					}
 				}
+				/*if( add_dependency ){
+					dub.loadPackageFromCwd();
+					dub.addDependency(...);
+				}
+				*/
 				break;
 			case "uninstall":
 				enforce(args.length >= 2, "Missing package name.");
