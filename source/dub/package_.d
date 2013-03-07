@@ -111,7 +111,7 @@ class Package {
 		foreach(defsf; ["source", "src"]){
 			auto p = m_path ~ defsf;
 			if( existsFile(p) ){
-				m_info.sourcePaths ~= defsf;
+				m_info.buildSettings.sourcePaths[""] ~= defsf;
 				m_info.buildSettings.importPaths[""] ~= defsf;
 				if( existsFile(p ~ "app.d") ) app_files ~= Path(defsf ~ "/app.d").toNativeString();
 				else if( existsFile(p ~ (pkg_name~".d")) ) app_files ~= Path(defsf ~ "/"~pkg_name~".d").toNativeString();
@@ -142,30 +142,6 @@ class Package {
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
-
-		// determine all source folders
-		Path[] source_paths;
-		foreach(p; m_info.sourcePaths)
-			source_paths ~= this.path ~ p;
-		logTrace("Source paths for %s: %s", this.name, source_paths);
-
-		// gather all source files
-		string[] sources;
-		foreach(sourcePath; source_paths.map!(p => p.toNativeString())()) {
-			logTrace("Parsing directories for source path: %s", sourcePath);
-
-			foreach(d; dirEntries(sourcePath, "*d", SpanMode.depth))
-			{
-				// direct assignment allSources ~= Path(d.name)[...] 
-				// spawns internal compiler/linker error
-				if(isDir(d.name)) continue;
-				auto p = Path(d.name);
-				auto src = p.relativeTo(this.path);
-				sources ~= src.toNativeString();
-			}
-		}
-		logTrace("allSources: %s", sources);
-		m_info.buildSettings.sourceFiles[""] ~= sources;
 	}
 	
 	@property string name() const { return m_info.name; }
@@ -197,8 +173,8 @@ class Package {
 		foreach(ref conf; m_info.configurations){
 			if( conf.name != config ) continue;
 			BuildSettings ret;
-			m_info.buildSettings.getPlatformSettings(ret, platform);
-			conf.buildSettings.getPlatformSettings(ret, platform);
+			m_info.buildSettings.getPlatformSettings(ret, platform, this.path);
+			conf.buildSettings.getPlatformSettings(ret, platform, this.path);
 			return ret;
 		}
 		assert(false, "Unknown configuration for "~m_info.name~": "~config);
@@ -215,7 +191,7 @@ class Package {
 		throw new Exception(format("Found no suitable configuration for %s on this platform.", this.name));
 	}
 
-	/// Humanly readible information of this package and its dependencies.
+	/// Human readable information of this package and its dependencies.
 	string info() const {
 		string s;
 		s ~= m_info.name ~ ", version '" ~ m_info.version_ ~ "'";
@@ -261,7 +237,6 @@ struct PackageInfo {
 	string copyright;
 	string license;
 	Dependency[string] dependencies;
-	string[] sourcePaths;
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
 
@@ -303,8 +278,6 @@ struct PackageInfo {
 						this.dependencies[pkg] = dep;
 					}
 					break;
-				case "sourcePath": this.sourcePaths = [value.get!string()]; break; // deprecated
-				case "sourcePaths": this.sourcePaths = deserializeJson!(string[])(value); break;
 				case "configurations":
 					foreach( settings; value ){
 						ConfigurationInfo ci;
@@ -340,7 +313,6 @@ struct PackageInfo {
 			}
 			ret.dependencies = deps;
 		}
-		if( !this.sourcePaths.empty ) ret.sourcePaths = serializeToJson(this.sourcePaths);
 		if( this.configurations ){
 			Json[] configs;
 			foreach(config; this.configurations)
@@ -407,6 +379,7 @@ struct BuildSettingsTemplate {
 	string[][string] lflags;
 	string[][string] libs;
 	string[][string] sourceFiles;
+	string[][string] sourcePaths;
 	string[][string] excludedSourceFiles;
 	string[][string] copyFiles;
 	string[][string] versions;
@@ -436,6 +409,8 @@ struct BuildSettingsTemplate {
 				case "libs": this.libs[suffix] = deserializeJson!(string[])(value); break;
 				case "files":
 				case "sourceFiles": this.sourceFiles[suffix] = deserializeJson!(string[])(value); break;
+				case "sourcePaths": this.sourcePaths[suffix] = deserializeJson!(string[])(value); break;
+				case "sourcePath": this.sourcePaths[suffix] ~= [value.get!string()]; break; // deprecated
 				case "excludedSourceFiles": this.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
 				case "copyFiles": this.copyFiles[suffix] = deserializeJson!(string[])(value); break;
 				case "versions": this.versions[suffix] = deserializeJson!(string[])(value); break;
@@ -456,6 +431,7 @@ struct BuildSettingsTemplate {
 		foreach(suffix, arr; lflags) ret["lflags"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; libs) ret["libs"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; sourceFiles) ret["sourceFiles"~suffix] = serializeToJson(arr);
+		foreach(suffix, arr; sourcePaths) ret["sourcePaths"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; excludedSourceFiles) ret["excludedSourceFiles"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; copyFiles) ret["copyFiles"~suffix] = serializeToJson(arr);
 		foreach(suffix, arr; versions) ret["versions"~suffix] = serializeToJson(arr);
@@ -468,9 +444,30 @@ struct BuildSettingsTemplate {
 		return ret;
 	}
 
-	void getPlatformSettings(ref BuildSettings dst, BuildPlatform platform)
+	void getPlatformSettings(ref BuildSettings dst, BuildPlatform platform, Path base_path)
 	const {
 		dst.targetType = this.targetType;
+
+		// collect source files from all source folders
+		foreach(suffix, paths; sourcePaths){
+			if( !matchesPlatform(suffix, platform) )
+				continue;
+
+			foreach(spath; paths){
+				auto path = base_path ~ spath;
+				if( !existsFile(path) || !isDir(path.toNativeString()) ){
+					logWarn("Invalid source path: %s", path.toNativeString());
+					continue;
+				}
+
+				foreach(d; dirEntries(path.toNativeString(), "*d", SpanMode.depth)){
+					if (isDir(d.name)) continue;
+					auto src = Path(d.name).relativeTo(base_path);
+					dst.addSourceFiles(src.toNativeString());
+				}
+			}
+		}
+
 		getPlatformSetting!("dflags", "addDFlags")(dst, platform);
 		getPlatformSetting!("lflags", "addLFlags")(dst, platform);
 		getPlatformSetting!("libs", "addLibs")(dst, platform);
