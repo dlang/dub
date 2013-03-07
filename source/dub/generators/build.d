@@ -66,19 +66,20 @@ class BuildGenerator : ProjectGenerator {
 		// setup for command line
 		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
+		// find the temp directory
+		auto tmp = environment.get("TEMP");
+		if( !tmp.length ) tmp = environment.get("TMP");
+		if( !tmp.length ){
+			version(Posix) tmp = "/tmp";
+			else tmp = ".";
+		}
+
 		Path exe_file_path;
 		if( generate_binary ){
 			if( settings.run ){
 				import std.random;
-				auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
-				auto tmp = environment.get("TEMP");
-				if( !tmp.length ) tmp = environment.get("TMP");
-				if( !tmp.length ){
-					version(Posix) tmp = "/tmp";
-					else tmp = ".";
-				}
-				buildsettings.targetPath = Path(tmp~"/.rdmd/source/").toNativeString();
-				buildsettings.targetName = rnd ~ buildsettings.targetName;
+				auto rnd = to!string(uniform(uint.min, uint.max));
+				buildsettings.targetPath = (Path(tmp)~"dub/"~rnd).toNativeString();
 			}
 			exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 			settings.compiler.setTarget(buildsettings, settings.platform);
@@ -105,17 +106,36 @@ class BuildGenerator : ProjectGenerator {
 			runCommands(buildsettings.preBuildCommands);
 		}
 
+		// assure that we clean up after ourselves
+		Path[] cleanup_files;
+		scope(exit){
+			foreach(f; cleanup_files)
+				if( existsFile(f) )
+					remove(f.toNativeString());
+			rmdir(buildsettings.targetPath);
+		}
+		mkdirRecurse(buildsettings.targetPath);
+
+		// write response file instead of passing flags directly to the compiler
+		auto res_file = Path(buildsettings.targetPath) ~ ".dmd-response-file.txt";
+		cleanup_files ~= res_file;
+		std.file.write(res_file.toNativeString(), join(flags, "\n"));
+
+		// invoke the compiler
 		logInfo("Running %s...", settings.compilerBinary);
 		logDebug("%s %s", settings.compilerBinary, join(flags, " "));
-		auto compiler_pid = spawnProcess(settings.compilerBinary, flags);
+		if( settings.run ) cleanup_files ~= exe_file_path;
+		auto compiler_pid = spawnProcess(settings.compilerBinary, ["@"~res_file.toNativeString()]);
 		auto result = compiler_pid.wait();
 		enforce(result == 0, "Build command failed with exit code "~to!string(result));
 
+		// run post-build commands
 		if( buildsettings.postBuildCommands.length ){
 			logInfo("Running post-build commands...");
 			runCommands(buildsettings.postBuildCommands);
 		}
 
+		// copy files and run the executable
 		if( generate_binary ){
 			// TODO: move to a common place - this is not generator specific
 			if( buildsettings.copyFiles.length ){
@@ -124,8 +144,10 @@ class BuildGenerator : ProjectGenerator {
 					auto src = Path(f);
 					auto dst = exe_file_path.parentPath ~ Path(f).head;
 					logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
-					try copyFile(src, dst, true);
-					catch logWarn("Failed to copy to %s", dst.toNativeString());
+					try {
+						cleanup_files ~= dst;
+						copyFile(src, dst, true);
+					} catch logWarn("Failed to copy to %s", dst.toNativeString());
 				}
 			}
 
@@ -133,9 +155,6 @@ class BuildGenerator : ProjectGenerator {
 				logDebug("Running %s...", exe_file_path.toNativeString());
 				auto prg_pid = spawnProcess(exe_file_path.toNativeString(), settings.runArgs);
 				result = prg_pid.wait();
-				remove(exe_file_path.toNativeString());
-				foreach( f; buildsettings.copyFiles )
-					remove((exe_file_path.parentPath ~ Path(f).head).toNativeString());
 				enforce(result == 0, "Program exited with code "~to!string(result));
 			}
 		}
