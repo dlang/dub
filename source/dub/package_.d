@@ -188,7 +188,7 @@ class Package {
 				break;
 			}
 		}
-		assert(found, "Invliad configuration "~config~" for "~this.name);
+		assert(found, "Invliad configuration \""~config~"\" for "~this.name);
 		if( auto pv = dependency.name in m_info.buildSettings.subConfigurations ) return *pv;
 		return null;
 	}

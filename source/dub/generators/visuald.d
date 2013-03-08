@@ -261,7 +261,9 @@ EndGlobal");
 		
 		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, Config type, GeneratorSettings settings)
 		{
+			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
 			auto buildsettings = settings.buildSettings;
+			auto pbuildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
 			m_app.addBuildSettings(buildsettings, settings.platform, m_app.getDefaultConfiguration(settings.platform));
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
 			
@@ -282,13 +284,13 @@ EndGlobal");
     <optimize>%s</optimize>", type == Config.Release? "1":"0");
 
 				// Lib or exe?
-				bool is_lib = buildsettings.targetType != TargetType.executable;
+				bool is_lib = pbuildsettings.targetType != TargetType.executable;
 				string debugSuffix = type == Config.Debug? "_d" : "";
-				auto bin_path = Path(buildsettings.targetPath);
+				auto bin_path = Path(pbuildsettings.targetPath);
 				bin_path.endsWithSlash = true;
 				ret.formattedWrite("
     <lib>%s</lib>
-    <exefile>%s%s%s.%s</exefile>", is_lib ? "1" : "0", bin_path.toNativeString(), buildsettings.targetName, debugSuffix, is_lib ? "lib" : "exe");
+    <exefile>%s%s%s.%s</exefile>", is_lib ? "1" : "0", bin_path.toNativeString(), pbuildsettings.targetName, debugSuffix, is_lib ? "lib" : "exe");
 
 				// include paths and string imports
 				string imports = join(getSettings!"importPaths"(), " ");
