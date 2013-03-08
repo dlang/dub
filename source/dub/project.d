@@ -250,7 +250,7 @@ class Project {
 
 
 	/// Actions which can be performed to update the application.
-	Action[] determineActions(PackageSupplier packageSupplier, int option) {
+	Action[] determineActions(PackageSupplier[] packageSuppliers, int option) {
 		scope(exit) writeDubJson();
 
 		if(!m_main) {
@@ -259,7 +259,7 @@ class Project {
 		}
 
 		auto graph = new DependencyGraph(m_main);
-		if(!gatherMissingDependencies(packageSupplier, graph)  || graph.missing().length > 0) {
+		if(!gatherMissingDependencies(packageSuppliers, graph)  || graph.missing().length > 0) {
 			logError("The dependency graph could not be filled.");
 			Action[] actions;
 			foreach( string pkg, rdp; graph.missing())
@@ -403,7 +403,7 @@ class Project {
 		}
 	}
 
-	private bool gatherMissingDependencies(PackageSupplier packageSupplier, DependencyGraph graph) {
+	private bool gatherMissingDependencies(PackageSupplier[] packageSuppliers, DependencyGraph graph) {
 		RequestedDependency[string] missing = graph.missing();
 		RequestedDependency[string] oldMissing;
 		while( missing.length > 0 ) {
@@ -445,7 +445,13 @@ class Project {
 				if( !p ){
 					try {
 						logDebug("using package from registry");
-						p = new Package(packageSupplier.packageJson(pkg, reqDep.dependency));
+						foreach(ps; packageSuppliers){
+							try {
+								p = new Package(ps.getPackageDescription(pkg, reqDep.dependency));
+								break;
+							} catch(Exception) {}
+						}
+						enforce(p !is null, "Could not find package candidate for "~pkg~" "~reqDep.dependency.toString());
 						markUpToDate(pkg);
 					}
 					catch(Throwable e) {

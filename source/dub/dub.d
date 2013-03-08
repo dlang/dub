@@ -39,10 +39,11 @@ import stdx.process;
 
 /// The default supplier for packages, which is the registry
 /// hosted by vibed.org.
-PackageSupplier defaultPackageSupplier() {
+PackageSupplier[] defaultPackageSuppliers()
+{
 	Url url = Url.parse("http://registry.vibed.org/");
-	logDebug("Using the registry from %s", url);
-	return new RegistryPS(url);
+	logDebug("Using dub registry url '%s'", url);
+	return [new RegistryPS(url)];
 }
 
 /// The Dub class helps in getting the applications
@@ -51,7 +52,7 @@ class Dub {
 	private {
 		Path m_cwd, m_tempPath;
 		Path m_root;
-		PackageSupplier m_packageSupplier;
+		PackageSupplier[] m_packageSuppliers;
 		Path m_userDubPath, m_systemDubPath;
 		Json m_systemConfig, m_userConfig;
 		PackageManager m_packageManager;
@@ -60,7 +61,7 @@ class Dub {
 
 	/// Initiales the package manager for the vibe application
 	/// under root.
-	this(PackageSupplier ps = defaultPackageSupplier())
+	this(PackageSupplier[] ps = defaultPackageSuppliers())
 	{
 		m_cwd = Path(getcwd());
 
@@ -77,7 +78,7 @@ class Dub {
 		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
 
-		m_packageSupplier = ps;
+		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_systemDubPath ~ "packages/", m_userDubPath ~ "packages/");
 	}
 
@@ -109,7 +110,7 @@ class Dub {
 	/// the application.
 	/// @param options bit combination of UpdateOptions
 	bool update(UpdateOptions options) {
-		Action[] actions = m_project.determineActions(m_packageSupplier, options);
+		Action[] actions = m_project.determineActions(m_packageSuppliers, options);
 		if( actions.length == 0 ) return true;
 
 		logInfo("The following changes could be performed:");
@@ -144,7 +145,7 @@ class Dub {
 				install(a.packageId, a.vers, a.location);
 
 		m_project.reinit();
-		Action[] newActions = m_project.determineActions(m_packageSupplier, 0);
+		Action[] newActions = m_project.determineActions(m_packageSuppliers, 0);
 		if(newActions.length > 0) {
 			logInfo("There are still some actions to perform:");
 			foreach(Action a; newActions)
@@ -175,7 +176,16 @@ class Dub {
 	/// Installs the package matching the dependency into the application.
 	Package install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.projectLocal)
 	{
-		auto pinfo = m_packageSupplier.packageJson(packageId, dep);
+		Json pinfo;
+		PackageSupplier supplier;
+		foreach(ps; m_packageSuppliers){
+			try {
+				pinfo = ps.getPackageDescription(packageId, dep);
+				supplier = ps;
+				break;
+			} catch(Exception) {}
+		}
+		enforce(pinfo.type != Json.Type.Null, "No package "~packageId~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
 
 		if( auto pack = m_packageManager.getPackage(packageId, ver, location) ){
@@ -192,7 +202,7 @@ class Dub {
 		auto tempFile = m_tempPath ~ tempfname;
 		string sTempFile = tempFile.toNativeString();
 		if(exists(sTempFile)) remove(sTempFile);
-		m_packageSupplier.storePackage(tempFile, packageId, dep); // Q: continue on fail?
+		supplier.retrievePackage(tempFile, packageId, dep); // Q: continue on fail?
 		scope(exit) remove(sTempFile);
 
 		logInfo("Installing %s %s...", packageId, ver);
@@ -353,7 +363,7 @@ void main()
 		if( !existsFile(ddox_pack.path~ddox_exe) ){
 			logInfo("DDOX in %s is not built, performing build now.", ddox_pack.path.toNativeString());
 
-			auto ddox_dub = new Dub(m_packageSupplier);
+			auto ddox_dub = new Dub(m_packageSuppliers);
 			ddox_dub.loadPackage(ddox_pack.path);
 
 			GeneratorSettings settings;

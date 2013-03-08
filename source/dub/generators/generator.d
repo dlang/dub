@@ -83,3 +83,20 @@ void addBuildTypeFlags(ref BuildSettings dst, string build_type)
 		case "ddox": dst.addDFlags("-c", "-o-", "-D", "-Df__dummy.html", "-Xfdocs.json"); break;
 	}
 }
+
+void runBuildCommands(string[] commands, in BuildSettings build_settings)
+{
+	import stdx.process;
+	import dub.utils;
+
+	string[string] env = environment.toAA();
+	// TODO: do more elaborate things here
+	// TODO: escape/quote individual items appropriately
+	env["DFLAGS"] = join(cast(string[])build_settings.dflags, " ");
+	env["LFLAGS"] = join(cast(string[])build_settings.lflags," ");
+	env["VERSIONS"] = join(cast(string[])build_settings.versions," ");
+	env["LIBS"] = join(cast(string[])build_settings.libs," ");
+	env["IMPORT_PATHS"] = join(cast(string[])build_settings.importPaths," ");
+	env["STRING_IMPORT_PATHS"] = join(cast(string[])build_settings.stringImportPaths," ");
+	runCommands(commands, env);
+}

@@ -108,7 +108,7 @@ class RdmdGenerator : ProjectGenerator {
 
 		logInfo("Running rdmd...");
 		logDebug("rdmd %s", join(flags, " "));
-		auto rdmd_pid = spawnProcess("rdmd", flags);
+		auto rdmd_pid = spawnProcess("rdmd" ~ flags);
 		auto result = rdmd_pid.wait();
 		enforce(result == 0, "Build command failed with exit code "~to!string(result));
 
@@ -131,7 +131,7 @@ class RdmdGenerator : ProjectGenerator {
 			}
 
 			if( settings.run ){
-				auto prg_pid = spawnProcess(run_exe_file.toNativeString(), settings.runArgs);
+				auto prg_pid = spawnProcess(run_exe_file.toNativeString() ~ settings.runArgs);
 				result = prg_pid.wait();
 				remove(run_exe_file.toNativeString());
 				foreach( f; buildsettings.copyFiles )

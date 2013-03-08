@@ -125,7 +125,7 @@ class BuildGenerator : ProjectGenerator {
 		logInfo("Running %s...", settings.compilerBinary);
 		logDebug("%s %s", settings.compilerBinary, join(flags, " "));
 		if( settings.run ) cleanup_files ~= exe_file_path;
-		auto compiler_pid = spawnProcess(settings.compilerBinary, ["@"~res_file.toNativeString()]);
+		auto compiler_pid = spawnProcess([settings.compilerBinary, "@"~res_file.toNativeString()]);
 		auto result = compiler_pid.wait();
 		enforce(result == 0, "Build command failed with exit code "~to!string(result));
 
@@ -153,7 +153,7 @@ class BuildGenerator : ProjectGenerator {
 
 			if( settings.run ){
 				logDebug("Running %s...", exe_file_path.toNativeString());
-				auto prg_pid = spawnProcess(exe_file_path.toNativeString(), settings.runArgs);
+				auto prg_pid = spawnProcess(exe_file_path.toNativeString() ~ settings.runArgs);
 				result = prg_pid.wait();
 				enforce(result == 0, "Program exited with code "~to!string(result));
 			}

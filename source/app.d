@@ -95,9 +95,6 @@ int main(string[] args)
 			return 0;
 		}
 
-		Url registryUrl = Url.parse("http://registry.vibed.org/");
-		logDebug("Using dub registry url '%s'", registryUrl);
-
 		BuildSettings build_settings;
 		auto compiler = getCompiler(compiler_name);
 		auto build_platform = compiler.determinePlatform(build_settings, compiler_name, arch);
@@ -110,7 +107,7 @@ int main(string[] args)
 			logInfo("");
 		}
 
-		Dub dub = new Dub(new RegistryPS(registryUrl));
+		Dub dub = new Dub;
 
 		// handle the command
 		switch( cmd ){

@@ -25,17 +25,17 @@ import vibecompat.inet.urltransfer;
 /// which is available.
 interface PackageSupplier {
 	/// path: absolute path to store the package (usually in a zip format)
-	void storePackage(const Path path, const string packageId, const Dependency dep);
+	void retrievePackage(const Path path, const string packageId, const Dependency dep);
 	
 	/// returns the metadata for the package
-	Json packageJson(const string packageId, const Dependency dep);
+	Json getPackageDescription(const string packageId, const Dependency dep);
 }
 
 class FSPackageSupplier : PackageSupplier {
 	private { Path m_path; }
 	this(Path root) { m_path = root; }
 	
-	void storePackage(const Path path, const string packageId, const Dependency dep) {
+	void retrievePackage(const Path path, const string packageId, const Dependency dep) {
 		enforce(path.absolute);
 		logInfo("Storing package '"~packageId~"', version requirements: %s", dep);
 		auto filename = bestPackageFile(packageId, dep);
@@ -43,7 +43,7 @@ class FSPackageSupplier : PackageSupplier {
 		copyFile(filename, path);
 	}
 	
-	Json packageJson(const string packageId, const Dependency dep) {
+	Json getPackageDescription(const string packageId, const Dependency dep) {
 		auto filename = bestPackageFile(packageId, dep);
 		return jsonFromZip(filename, "package.json");
 	}

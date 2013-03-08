@@ -72,12 +72,14 @@ private string stripUTF8Bom(string str)
 	return str;
 }
 
-void runCommands(string[] commands)
+void runCommands(string[] commands, string[string] env = null)
 {
 	foreach(cmd; commands){
 		logDebug("Running %s", cmd);
-		auto pipes = pipeShell(cmd, Redirect.none);
-		auto exitcode = pipes.pid.wait();
+		Pid pid;
+		if( env ) pid = spawnShell(cmd, env);
+		else pid = spawnShell(cmd);
+		auto exitcode = pid.wait();
 		enforce(exitcode == 0, "Command failed with exit code "~to!string(exitcode));
 	}
 }

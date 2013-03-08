@@ -49,7 +49,8 @@ class MonoDGenerator : ProjectGenerator {
 
 		if( buildsettings.preGenerateCommands.length ){
 			logInfo("Running pre-generate commands...");
-			runCommands(buildsettings.preGenerateCommands);
+			// TODO: pass full build settings for current configuration instead?
+			runBuildCommands(buildsettings.preGenerateCommands, buildsettings);
 		}
 
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
@@ -58,7 +59,8 @@ class MonoDGenerator : ProjectGenerator {
 
 		if( buildsettings.postGenerateCommands.length ){
 			logInfo("Running post-generate commands...");
-			runCommands(buildsettings.postGenerateCommands);
+			// TODO: pass full build settings for current configuration instead?
+			runBuildCommands(buildsettings.postGenerateCommands, buildsettings);
 		}
 	}
 	

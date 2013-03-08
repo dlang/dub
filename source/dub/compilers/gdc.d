@@ -91,7 +91,7 @@ class GdcCompiler : Compiler {
 		if( !(fields & BuildSetting.libs) ){
 			try {
 				logDebug("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
-				auto libflags = execute("pkg-config", "--libs" ~ settings.libs.map!(l => "lib"~l)().array());
+				auto libflags = execute(["pkg-config", "--libs"] ~ settings.libs.map!(l => "lib"~l)().array());
 				enforce(libflags.status == 0, "pkg-config exited with error code "~to!string(libflags.status));
 				settings.addLFlags(libflags.output.split());
 			} catch( Exception e ){
