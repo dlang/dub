@@ -63,9 +63,6 @@ class BuildGenerator : ProjectGenerator {
 			f = fp.toNativeString();
 		}
 
-		// setup for command line
-		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
-
 		// find the temp directory
 		auto tmp = environment.get("TEMP");
 		if( !tmp.length ) tmp = environment.get("TMP");
@@ -73,20 +70,6 @@ class BuildGenerator : ProjectGenerator {
 			version(Posix) tmp = "/tmp";
 			else tmp = ".";
 		}
-
-		Path exe_file_path;
-		if( generate_binary ){
-			if( settings.run ){
-				import std.random;
-				auto rnd = to!string(uniform(uint.min, uint.max));
-				buildsettings.targetPath = (Path(tmp)~"dub/"~rnd).toNativeString();
-			}
-			exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
-			settings.compiler.setTarget(buildsettings, settings.platform);
-		}
-		logDebug("Application output name is '%s'", exe_file_path.toNativeString());
-
-		string[] flags = buildsettings.dflags;
 
 		if( settings.config.length ) logInfo("Building configuration "~settings.config~", build type "~settings.buildType);
 		else logInfo("Building default configuration, build type "~settings.buildType);
@@ -106,28 +89,62 @@ class BuildGenerator : ProjectGenerator {
 			runBuildCommands(buildsettings.preBuildCommands, buildsettings);
 		}
 
+		Path exe_file_path;
+		if( generate_binary ){
+			if( settings.run ){
+				import std.random;
+				auto rnd = to!string(uniform(uint.min, uint.max));
+				buildsettings.targetPath = (Path(tmp)~"dub/"~rnd).toNativeString();
+			}
+			exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
+			settings.compiler.setTarget(buildsettings, settings.platform);
+		}
+		logDebug("Application output name is '%s'", exe_file_path.toNativeString());
+
 		// assure that we clean up after ourselves
 		Path[] cleanup_files;
 		scope(exit){
 			foreach(f; cleanup_files)
 				if( existsFile(f) )
 					remove(f.toNativeString());
-			rmdir(buildsettings.targetPath);
+			if( generate_binary && settings.run ) rmdir(buildsettings.targetPath);
 		}
 		mkdirRecurse(buildsettings.targetPath);
+
+		// setup for command line
+		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 		// write response file instead of passing flags directly to the compiler
 		auto res_file = Path(buildsettings.targetPath) ~ ".dmd-response-file.txt";
 		cleanup_files ~= res_file;
-		std.file.write(res_file.toNativeString(), join(flags, "\n"));
+		std.file.write(res_file.toNativeString(), join(buildsettings.dflags, "\n"));
 
 		// invoke the compiler
 		logInfo("Running %s...", settings.compilerBinary);
-		logDebug("%s %s", settings.compilerBinary, join(flags, " "));
+		logDebug("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
 		if( settings.run ) cleanup_files ~= exe_file_path;
 		auto compiler_pid = spawnProcess([settings.compilerBinary, "@"~res_file.toNativeString()]);
 		auto result = compiler_pid.wait();
 		enforce(result == 0, "Build command failed with exit code "~to!string(result));
+		/*} else {
+			// setup for command line
+			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLineSeparate);
+			buildsettings.addDFlags("-c");
+
+			// write response file instead of passing flags directly to the compiler
+			auto res_file = Path(buildsettings.targetPath) ~ ".dmd-response-file.txt";
+			cleanup_files ~= res_file;
+			std.file.write(res_file.toNativeString(), join(buildsettings.dflags, "\n"));
+
+			logInfo("Running %s (compile)...", settings.compilerBinary);
+			logDebug("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
+			if( settings.run ) cleanup_files ~= exe_file_path;
+			auto compiler_pid = spawnProcess([settings.compilerBinary, "@"~res_file.toNativeString()]);
+			auto result = compiler_pid.wait();
+			enforce(result == 0, "Build command failed with exit code "~to!string(result));
+
+			logInfo("Running %s (link)...", settings.compilerBinary);
+		}*/
 
 		// run post-build commands
 		if( buildsettings.postBuildCommands.length ){
