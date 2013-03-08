@@ -282,7 +282,7 @@ EndGlobal");
     <optimize>%s</optimize>", type == Config.Release? "1":"0");
 
 				// Lib or exe?
-				bool is_lib = buildsettings.targetType == TargetType.executable;
+				bool is_lib = buildsettings.targetType != TargetType.executable;
 				string debugSuffix = type == Config.Debug? "_d" : "";
 				auto bin_path = Path(buildsettings.targetPath);
 				bin_path.endsWithSlash = true;
