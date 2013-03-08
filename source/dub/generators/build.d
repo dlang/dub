@@ -93,17 +93,17 @@ class BuildGenerator : ProjectGenerator {
 
 		if( buildsettings.preGenerateCommands.length ){
 			logInfo("Running pre-generate commands...");
-			runCommands(buildsettings.preGenerateCommands);
+			runBuildCommands(buildsettings.preGenerateCommands, buildsettings);
 		}
 
 		if( buildsettings.postGenerateCommands.length ){
 			logInfo("Running post-generate commands...");
-			runCommands(buildsettings.postGenerateCommands);
+			runBuildCommands(buildsettings.postGenerateCommands, buildsettings);
 		}
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
-			runCommands(buildsettings.preBuildCommands);
+			runBuildCommands(buildsettings.preBuildCommands, buildsettings);
 		}
 
 		// assure that we clean up after ourselves
@@ -132,7 +132,7 @@ class BuildGenerator : ProjectGenerator {
 		// run post-build commands
 		if( buildsettings.postBuildCommands.length ){
 			logInfo("Running post-build commands...");
-			runCommands(buildsettings.postBuildCommands);
+			runBuildCommands(buildsettings.postBuildCommands, buildsettings);
 		}
 
 		// copy files and run the executable
