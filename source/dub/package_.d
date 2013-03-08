@@ -161,7 +161,7 @@ class Package {
 	}
 
 	/// Returns all BuildSettings for the given platform and config.
-	BuildSettings getBuildSettings(BuildPlatform platform, string config)
+	BuildSettings getBuildSettings(in BuildPlatform platform, string config)
 	const {
 		logDebug("Using config %s for %s", config, this.name);
 		foreach(ref conf; m_info.configurations){
@@ -175,8 +175,23 @@ class Package {
 		assert(false, "Unknown configuration for "~m_info.name~": "~config);
 	}
 
+	string getSubConfiguration(string config, in Package dependency, in BuildPlatform platform)
+	const {
+		bool found = false;
+		foreach(ref c; m_info.configurations){
+			if( c.name == config ){
+				if( auto pv = dependency.name in c.buildSettings.subConfigurations ) return *pv;
+				found = true;
+				break;
+			}
+		}
+		assert(found, "Invliad configuration "~config~" for "~this.name);
+		if( auto pv = dependency.name in m_info.buildSettings.subConfigurations ) return *pv;
+		return null;
+	}
+
 	/// Returns the default configuration to build for the given platform
-	string getDefaultConfiguration(BuildPlatform platform, bool is_main_package = false)
+	string getDefaultConfiguration(in BuildPlatform platform, bool is_main_package = false)
 	const {
 		foreach(ref conf; m_info.configurations){
 			if( !conf.matchesPlatform(platform) ) continue;
@@ -348,7 +363,7 @@ struct ConfigurationInfo {
 		return ret;
 	}
 
-	bool matchesPlatform(BuildPlatform platform)
+	bool matchesPlatform(in BuildPlatform platform)
 	const {
 		if( platforms.empty ) return true;
 		foreach(p; platforms)
@@ -362,6 +377,7 @@ struct BuildSettingsTemplate {
 	TargetType targetType = TargetType.autodetect;
 	string targetPath;
 	string targetName;
+	string[string] subConfigurations;
 	string[][string] dflags;
 	string[][string] lflags;
 	string[][string] libs;
@@ -398,6 +414,10 @@ struct BuildSettingsTemplate {
 				case "targetName":
 					enforce(suffix.empty, "targetName does not support platform customization.");
 					this.targetName = value.get!string;
+					break;
+				case "subConfigurations":
+					enforce(suffix.empty, "subConfigurations does not support platform customization.");
+					this.subConfigurations = deserializeJson!(string[string])(value);
 					break;
 				case "dflags": this.dflags[suffix] = deserializeJson!(string[])(value); break;
 				case "lflags": this.lflags[suffix] = deserializeJson!(string[])(value); break;
@@ -442,7 +462,7 @@ struct BuildSettingsTemplate {
 		return ret;
 	}
 
-	void getPlatformSettings(ref BuildSettings dst, BuildPlatform platform, Path base_path)
+	void getPlatformSettings(ref BuildSettings dst, in BuildPlatform platform, Path base_path)
 	const {
 		dst.targetType = this.targetType;
 		dst.targetPath = this.targetPath;
@@ -483,7 +503,7 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("postBuildCommands", "addPostBuildCommands")(dst, platform);
 	}
 
-	void getPlatformSetting(string name, string addname)(ref BuildSettings dst, BuildPlatform platform)
+	void getPlatformSetting(string name, string addname)(ref BuildSettings dst, in BuildPlatform platform)
 	const {
 		foreach(suffix, values; __traits(getMember, this, name)){
 			if( matchesPlatform(suffix, platform) )
@@ -493,7 +513,7 @@ struct BuildSettingsTemplate {
 }
 
 
-private bool matchesPlatform(string suffix, BuildPlatform platform)
+private bool matchesPlatform(string suffix, in BuildPlatform platform)
 {
 	if( suffix.length == 0 ) return true;
 	// TODO: optimize
@@ -514,7 +534,7 @@ private bool matchesPlatform(string suffix, BuildPlatform platform)
 /// "-dmd"
 /// "-arm"
 ///
-private int delegate(scope int delegate(ref string)) getPlatformSuffixIterator(BuildPlatform platform)
+private int delegate(scope int delegate(ref string)) getPlatformSuffixIterator(in BuildPlatform platform)
 {
 	int iterator(scope int delegate(ref string s) del)
 	{

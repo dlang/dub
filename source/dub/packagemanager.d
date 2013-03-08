@@ -357,7 +357,7 @@ class PackageManager {
 		logInfo("Uninstalled package: '"~pack.name~"'");
 	}
 
-	void addLocalPackage(in Path path, in Version ver, LocalPackageType type)
+	Package addLocalPackage(in Path path, in Version ver, LocalPackageType type)
 	{
 		Package[]* packs = getLocalPackageList(type);
 		auto info = jsonFromFile(path ~ PackageJsonFilename, false);
@@ -369,13 +369,17 @@ class PackageManager {
 		foreach( p; *packs ){
 			if( p.path == path ){
 				enforce(p.ver == ver, "Adding local twice with different versions is not allowed.");
-				return;
+				return p;
 			}
 		}
 
-		*packs ~= new Package(info, InstallLocation.local, path);
+		auto pack = new Package(info, InstallLocation.local, path);
+
+		*packs ~= pack;
 
 		writeLocalPackageList(type);
+
+		return pack;
 	}
 
 	void removeLocalPackage(in Path path, LocalPackageType type)

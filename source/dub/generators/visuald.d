@@ -207,7 +207,8 @@ EndGlobal");
 			}
 
 			version(VISUALD_SEPERATE_PROJECT_FILES){
-				auto files = pack.getBuildSettings(settings.platform, m_app.getPackageConfig(pack, settings.platform, settings.config));
+				auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
+				auto files = pack.getBuildSettings(settings.platform, configs[pack.name]);
 
 				files.sourceFiles ~= pack.packageInfoFile.toNativeString();
 

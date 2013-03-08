@@ -44,6 +44,7 @@ class Project {
 		Package m_main;
 		//Package[string] m_packages;
 		Package[] m_dependencies;
+		Package[][Package] m_dependees;
 	}
 
 	this(PackageManager package_manager, Path project_path)
@@ -98,13 +99,10 @@ class Project {
 					if( ret ) return;
 				}
 
-				foreach(d; p.dependencies.byKey)
-					foreach(dp; m_dependencies)
-						if( dp.name == d ){
-							perform_rec(dp);
-							if( ret ) return;
-							break;
-						}
+				foreach(d; p.dependencies.byKey){
+					perform_rec(getDependency(d));
+					if( ret ) return;
+				}
 
 				if( children_first ){
 					ret = del(p);
@@ -115,6 +113,14 @@ class Project {
 			return ret;
 		}
 		return &iterator;
+	}
+
+	inout(Package) getDependency(string name)
+	inout {
+		foreach(dp; m_dependencies)
+			if( dp.name == name )
+				return dp;
+		assert(false, "Unknown dependency");
 	}
 
 	string getDefaultConfiguration(BuildPlatform platform)
@@ -161,21 +167,23 @@ class Project {
 		{
 			logDebug("Collecting dependencies for %s", pack.name);
 			foreach( name, vspec; pack.dependencies ){
+				Package p;
 				if( !vspec.path.empty ){
 					Path path = vspec.path;
 					if( !path.absolute ) path = pack.path ~ path;
 					logDebug("Adding local %s %s", path, vspec.version_);
-					m_packageManager.addLocalPackage(path, vspec.version_, LocalPackageType.temporary);
+					p = m_packageManager.addLocalPackage(path, vspec.version_, LocalPackageType.temporary);
 				} else {
-					auto p = m_packageManager.getBestPackage(name, vspec);
-					if( !m_dependencies.canFind(p) ){
-						logDebug("Found dependency %s %s: %s", name, vspec.toString(), p !is null);
-						if( p ){
-							m_dependencies ~= p;
-							collectDependenciesRec(p);
-						}
+					p = m_packageManager.getBestPackage(name, vspec);
+				}
+				if( !m_dependencies.canFind(p) ){
+					logDebug("Found dependency %s %s: %s", name, vspec.toString(), p !is null);
+					if( p ){
+						m_dependencies ~= p;
+						collectDependenciesRec(p);
 					}
 				}
+				m_dependees[p] ~= pack;
 				//enforce(p !is null, "Failed to resolve dependency "~name~" "~vspec.toString());
 			}
 		}
@@ -187,21 +195,46 @@ class Project {
 
 	@property string[] configurations() const { return m_main.configurations; }
 
-	string getPackageConfig(in Package pack, BuildPlatform platform, string config)
+	/// Returns a map with the configuration for all packages in the dependency tree. 
+	string[string] getPackageConfigs(in BuildPlatform platform, string config)
 	const {
-		if( pack is m_main ) return config;
-		else {
-			// TODO: check the dependees for special wishes in terms on the configuration
-			return pack.getDefaultConfiguration(platform, false);
+		string[string] configs;
+		void determineConfigsRec(in Package p, bool use_default){
+			if( p.name !in configs ){
+				if( use_default ) configs[p.name] = p.getDefaultConfiguration(platform);
+				else return;
+			}
+			auto pconf = configs[p.name];
+			foreach(dn; p.dependencies.byKey){
+				auto dep = getDependency(dn);
+				auto conf = p.getSubConfiguration(config, dep, platform);
+				if( !conf.empty ){
+					if( auto pc = dn in configs ){
+						enforce(*pc == conf, format("Conflicting configurations detected for %s: %s vs. %s", dn, *pc, conf));
+					} else {
+						configs[dn] = conf;
+						determineConfigsRec(dep, use_default);
+					}
+				} else if( use_default && dn !in configs ){
+					configs[dn] = dep.getDefaultConfiguration(platform);
+					determineConfigsRec(dep, use_default);
+				}
+			}
 		}
+
+		configs[m_main.name] = config;
+		determineConfigsRec(m_main, false); // first only match all explicit selections
+		determineConfigsRec(m_main, true); // then fill up the rest with default configurations
+		return configs;
 	}
 
 	/// Returns the DFLAGS
-	void addBuildSettings(ref BuildSettings dst, BuildPlatform platform, string config)
+	void addBuildSettings(ref BuildSettings dst, in BuildPlatform platform, string config)
 	const {
+		auto configs = getPackageConfigs(platform, config);
+
 		foreach(pkg; this.getTopologicalPackageList()){
-			auto pkgconf = getPackageConfig(pkg, platform, config);
-			auto psettings = pkg.getBuildSettings(platform, pkgconf);
+			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
 			processVars(dst, pkg.path.toNativeString(), psettings);
 			if( pkg is m_main ){
 				dst.targetType = psettings.targetType;
