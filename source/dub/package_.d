@@ -119,7 +119,10 @@ class Package {
 		}
 
 		// parse the JSON description
-		m_info.parseJson(packageInfo);
+		{
+			scope(failure) logError("Failed to parse package description in %s", root.toNativeString());
+			m_info.parseJson(packageInfo);
+		}
 
 		// generate default configurations if none are defined
 		if( m_info.configurations.length == 0 ){

@@ -139,8 +139,8 @@ class Project {
 	/// Rereads the applications state.
 	void reinit() {
 		scope(failure){
-			logDebug("Failed to parse package.json. Assuming defaults.");
-			m_main = new Package(serializeToJson(["name": ""]), InstallLocation.local, m_root);
+			logDebug("Failed to initialize project. Assuming defaults.");
+			m_main = new Package(serializeToJson(["name": "unknown"]), InstallLocation.local, m_root);
 		}
 
 		m_dependencies = null;
@@ -207,7 +207,7 @@ class Project {
 			auto pconf = configs[p.name];
 			foreach(dn; p.dependencies.byKey){
 				auto dep = getDependency(dn);
-				auto conf = p.getSubConfiguration(config, dep, platform);
+				auto conf = p.getSubConfiguration(pconf, dep, platform);
 				if( !conf.empty ){
 					if( auto pc = dn in configs ){
 						enforce(*pc == conf, format("Conflicting configurations detected for %s: %s vs. %s", dn, *pc, conf));
