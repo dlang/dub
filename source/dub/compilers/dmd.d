@@ -119,7 +119,7 @@ class DmdCompiler : Compiler {
 			logDebug("link.exe %s", arg);
 			auto res = spawnProcess(["link.exe", arg]).wait();
 		} else {
-			auto res = spawnProcess(["g++", "-o", tpath.toNativeString(), objects, settings.lflags]).wait();
+			auto res = spawnProcess(["g++", "-o", tpath.toNativeString()] ~ objects ~ settings.lflags).wait();
 		}
 		enforce(res == 0, "Link command failed with exit code "~to!string(res));
 	}
