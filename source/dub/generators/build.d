@@ -140,7 +140,7 @@ class BuildGenerator : ProjectGenerator {
 			lbuildsettings.stringImportPaths = null;
 			lbuildsettings.versions = null;
 			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => f.endsWith(".lib"))().array();
-			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLineSeparate);
+			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate);
 
 			// setup compiler command line
 			buildsettings.libs = null;
