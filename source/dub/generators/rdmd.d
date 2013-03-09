@@ -75,7 +75,7 @@ class RdmdGenerator : ProjectGenerator {
 					version(Posix) tmp = "/tmp";
 					else tmp = ".";
 				}
-				buildsettings.targetPath = (Path(tmp)~"/.rdmd/source/").toNativeString();
+				buildsettings.targetPath = (Path(tmp)~".rdmd/source/").toNativeString();
 				buildsettings.targetName = rnd ~ buildsettings.targetName;
 				run_exe_file = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 			}

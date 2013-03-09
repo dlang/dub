@@ -71,7 +71,7 @@ class BuildGenerator : ProjectGenerator {
 			else tmp = ".";
 		}
 
-		if( settings.config.length ) logInfo("Building configuration "~settings.config~", build type "~settings.buildType);
+		if( settings.config.length ) logInfo("Building configuration \""~settings.config~"\", build type "~settings.buildType);
 		else logInfo("Building default configuration, build type "~settings.buildType);
 
 		if( buildsettings.preGenerateCommands.length ){
