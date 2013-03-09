@@ -57,6 +57,9 @@ interface Compiler {
 
 	/// Adds the appropriate flag to set a target path
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform);
+
+	/// Invokes the underlying linker directly
+	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects);
 }
 
 

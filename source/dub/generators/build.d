@@ -97,7 +97,6 @@ class BuildGenerator : ProjectGenerator {
 				buildsettings.targetPath = (Path(tmp)~"dub/"~rnd).toNativeString();
 			}
 			exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
-			settings.compiler.setTarget(buildsettings, settings.platform);
 		}
 		logDebug("Application output name is '%s'", exe_file_path.toNativeString());
 
@@ -111,25 +110,43 @@ class BuildGenerator : ProjectGenerator {
 		}
 		mkdirRecurse(buildsettings.targetPath);
 
-		// setup for command line
-		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
-
-		// write response file instead of passing flags directly to the compiler
-		auto res_file = Path(buildsettings.targetPath) ~ ".dmd-response-file.txt";
-		cleanup_files ~= res_file;
-		std.file.write(res_file.toNativeString(), join(buildsettings.dflags, "\n"));
-
-		// invoke the compiler
-		logInfo("Running %s...", settings.compilerBinary);
-		logDebug("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
-		if( settings.run ) cleanup_files ~= exe_file_path;
-		auto compiler_pid = spawnProcess([settings.compilerBinary, "@"~res_file.toNativeString()]);
-		auto result = compiler_pid.wait();
-		enforce(result == 0, "Build command failed with exit code "~to!string(result));
-		/*} else {
+		/*
+			NOTE: for DMD experimental separate compile/link is used, but this is not yet implemented
+			      on the other compilers. Later this should be integrated somehow in the build process
+			      (either in the package.json, or using a command line flag)
+		*/
+		if( settings.compiler.name != "dmd" ){
 			// setup for command line
+			settings.compiler.setTarget(buildsettings, settings.platform);
+			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
+
+			// write response file instead of passing flags directly to the compiler
+			auto res_file = Path(buildsettings.targetPath) ~ ".dmd-response-file.txt";
+			cleanup_files ~= res_file;
+			std.file.write(res_file.toNativeString(), join(buildsettings.dflags, "\n"));
+
+			// invoke the compiler
+			logInfo("Running %s...", settings.compilerBinary);
+			logDebug("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
+			if( settings.run ) cleanup_files ~= exe_file_path;
+			auto compiler_pid = spawnProcess([settings.compilerBinary, "@"~res_file.toNativeString()]);
+			auto result = compiler_pid.wait();
+			enforce(result == 0, "Build command failed with exit code "~to!string(result));
+		} else {
+			// setup linker command line
+			auto lbuildsettings = buildsettings;
+			lbuildsettings.dflags = ["temp.lib"];
+			lbuildsettings.importPaths = null;
+			lbuildsettings.stringImportPaths = null;
+			lbuildsettings.versions = null;
+			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => f.endsWith(".lib"))().array();
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLineSeparate);
-			buildsettings.addDFlags("-c");
+
+			// setup compiler command line
+			buildsettings.libs = null;
+			buildsettings.lflags = null;
+			buildsettings.addDFlags("-c", "-oftemp.o");
+			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			// write response file instead of passing flags directly to the compiler
 			auto res_file = Path(buildsettings.targetPath) ~ ".dmd-response-file.txt";
@@ -138,13 +155,13 @@ class BuildGenerator : ProjectGenerator {
 
 			logInfo("Running %s (compile)...", settings.compilerBinary);
 			logDebug("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
-			if( settings.run ) cleanup_files ~= exe_file_path;
-			auto compiler_pid = spawnProcess([settings.compilerBinary, "@"~res_file.toNativeString()]);
-			auto result = compiler_pid.wait();
+			auto result = spawnProcess([settings.compilerBinary, "@"~res_file.toNativeString()]).wait();
 			enforce(result == 0, "Build command failed with exit code "~to!string(result));
 
-			logInfo("Running %s (link)...", settings.compilerBinary);
-		}*/
+			logInfo("Linking...", settings.compilerBinary);
+			if( settings.run ) cleanup_files ~= exe_file_path;
+			settings.compiler.invokeLinker(lbuildsettings, settings.platform, ["temp.o"]);
+		}
 
 		// run post-build commands
 		if( buildsettings.postBuildCommands.length ){
@@ -171,7 +188,7 @@ class BuildGenerator : ProjectGenerator {
 			if( settings.run ){
 				logDebug("Running %s...", exe_file_path.toNativeString());
 				auto prg_pid = spawnProcess(exe_file_path.toNativeString() ~ settings.runArgs);
-				result = prg_pid.wait();
+				auto result = prg_pid.wait();
 				enforce(result == 0, "Program exited with code "~to!string(result));
 			}
 		}

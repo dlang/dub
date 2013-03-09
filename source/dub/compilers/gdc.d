@@ -150,4 +150,9 @@ class GdcCompiler : Compiler {
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
 		settings.addDFlags("-o", tpath.toNativeString());
 	}
+
+	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects)
+	{
+		assert(false, "Separate linking not implemented for GDC");
+	}
 }
