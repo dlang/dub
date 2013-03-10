@@ -59,7 +59,7 @@ class BuildGenerator : ProjectGenerator {
 		// make paths relative to shrink the command line
 		foreach(ref f; buildsettings.sourceFiles){
 			auto fp = Path(f);
-			if( fp.absolute ) fp = fp.relativeTo(Path(getcwd));
+			if( fp.absolute ) fp = fp.relativeTo(Path(getcwd()));
 			f = fp.toNativeString();
 		}
 

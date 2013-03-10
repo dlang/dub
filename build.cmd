@@ -1,1 +1,1 @@
-rdmd --build-only -ofdub.exe -g -debug -Isource curl.lib %* source\app.d
+rdmd --force --build-only -ofdub.exe -g -debug -w -property -Isource curl.lib %* source\app.d
