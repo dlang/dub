@@ -179,7 +179,7 @@ class BuildGenerator : ProjectGenerator {
 					auto dst = exe_file_path.parentPath ~ Path(f).head;
 					logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
 					try {
-						cleanup_files ~= dst;
+						if( settings.run ) cleanup_files ~= dst;
 						copyFile(src, dst, true);
 					} catch logWarn("Failed to copy to %s", dst.toNativeString());
 				}

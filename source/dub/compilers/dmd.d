@@ -114,7 +114,7 @@ class DmdCompiler : Compiler {
 		import std.string;
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
 		version(Windows){
-			string[] libs = settings.libs.map!(l => l~".lib")().array() ~ settings.sourceFiles;
+			string[] libs = settings.dflags.dup.filter!(l => l.endsWith(".lib"))().array() ~ settings.sourceFiles;
 			string arg = format("%s,%s,,%s", objects.join("+"), tpath.toNativeString(), libs.join("+"));
 			logDebug("link.exe %s", arg);
 			auto res = spawnProcess(["link.exe", arg]).wait();
