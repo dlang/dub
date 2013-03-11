@@ -219,7 +219,7 @@ class Dub {
 	}
 
 	/// @see uninstall(string, string, InstallLocation)
-	immutable string UninstallVersionWildcard = "*";
+	enum UninstallVersionWildcard = "*";
 
 	/// This will uninstall a given package with a specified version from the 
 	/// location.
