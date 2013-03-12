@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.9.11 - 2013-02-05
+v0.9.11 - 2013-03-05
 --------------------
 
 ### Features and improvements ###
@@ -23,7 +23,7 @@ v0.9.11 - 2013-02-05
 [issue35]: https://github.com/rejectedsoftware/dub/issues/35
 
 
-v0.9.10 - 2013-02-04
+v0.9.10 - 2013-03-04
 --------------------
 
 ### Features and improvements ###
