@@ -89,6 +89,10 @@ class BuildGenerator : ProjectGenerator {
 			runBuildCommands(buildsettings.preBuildCommands, buildsettings);
 		}
 
+		// determine the absolute target path
+		if( !Path(buildsettings.targetPath).absolute )
+			buildsettings.targetPath = (m_project.mainPackage.path ~ Path(buildsettings.targetPath)).toNativeString();
+
 		Path exe_file_path;
 		if( generate_binary ){
 			if( settings.run ){
@@ -108,7 +112,8 @@ class BuildGenerator : ProjectGenerator {
 					remove(f.toNativeString());
 			if( generate_binary && settings.run ) rmdir(buildsettings.targetPath);
 		}
-		mkdirRecurse(buildsettings.targetPath);
+		if( !exists(buildsettings.targetPath) )
+			mkdirRecurse(buildsettings.targetPath);
 
 		/*
 			NOTE: for DMD experimental separate compile/link is used, but this is not yet implemented
