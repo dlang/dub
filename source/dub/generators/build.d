@@ -115,9 +115,9 @@ class BuildGenerator : ProjectGenerator {
 			      on the other compilers. Later this should be integrated somehow in the build process
 			      (either in the package.json, or using a command line flag)
 		*/
-		if( settings.compiler.name != "dmd" ){
+		if( settings.compiler.name != "dmd" || !generate_binary ){
 			// setup for command line
-			settings.compiler.setTarget(buildsettings, settings.platform);
+			if( generate_binary ) settings.compiler.setTarget(buildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			// write response file instead of passing flags directly to the compiler

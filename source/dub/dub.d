@@ -368,6 +368,7 @@ void main()
 
 			GeneratorSettings settings;
 			settings.compilerBinary = "dmd";
+			settings.config = "application";
 			settings.compiler = getCompiler(settings.compilerBinary);
 			settings.platform = settings.compiler.determinePlatform(settings.buildSettings, settings.compilerBinary);
 			settings.buildType = "debug";
