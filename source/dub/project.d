@@ -153,7 +153,7 @@ class Project {
 		if( !existsFile(m_root~PackageJsonFilename) ){
 			logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root.toNativeString());
 			auto json = Json.EmptyObject;
-			json.name = "";
+			json.name = "unknown";
 			m_main = new Package(json, InstallLocation.local, m_root);
 			return;
 		}
