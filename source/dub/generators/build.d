@@ -140,7 +140,7 @@ class BuildGenerator : ProjectGenerator {
 		} else {
 			// setup linker command line
 			auto lbuildsettings = buildsettings;
-			lbuildsettings.dflags = ["temp.lib"];
+			lbuildsettings.dflags = null;
 			lbuildsettings.importPaths = null;
 			lbuildsettings.stringImportPaths = null;
 			lbuildsettings.versions = null;
