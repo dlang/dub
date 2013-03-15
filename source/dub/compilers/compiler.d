@@ -131,10 +131,65 @@ struct BuildSettings {
 struct BuildPlatform {
 	/// e.g. ["posix", "windows"]
 	string[] platform;
-	/// e.g. ["x86", "x64"]
+	/// e.g. ["x86", "x86_64"]
 	string[] architecture;
 	/// e.g. "dmd"
 	string compiler;
+
+	/// Build platforms can be specified via a string specification.
+	///
+	/// Specifications are build upon the following scheme, where each component
+	/// is optional (indicated by []), but the order is obligatory.
+	/// "[-platform][-architecture][-compiler]"
+	///
+	/// So the following strings are valid specifications:
+	/// "-windows-x86-dmd"
+	/// "-dmd"
+	/// "-arm"
+	/// "-arm-dmd"
+	/// "-windows-dmd"
+	///
+	/// Params:
+	///     specification = The specification being matched. It must be the empty string or start with a dash.  
+	///
+	/// Returns: 
+	///     true if the given specification matches this BuildPlatform, false otherwise. (The empty string matches)
+	///
+	bool matchesSpecification(const(char)[] specification) const {
+		if(specification.empty)
+			return true;
+		auto splitted=specification.splitter('-');
+		assert(!splitted.empty, "No valid platform specification! The leading hyphen is required!");
+		splitted.popFront(); // Drop leading empty match.
+		enforce(!splitted.empty, "Platform specification if present, must not be empty!");
+		if(platform.canFind(splitted.front)) {
+			splitted.popFront();
+			if(splitted.empty)
+			    return true;
+		}
+		if(architecture.canFind(splitted.front)) {
+			splitted.popFront();
+			if(splitted.empty)
+			    return true;
+		}
+		if(compiler==splitted.front) {
+			splitted.popFront();
+			enforce(splitted.empty, "No valid specification! The compiler has to be the last element!");
+			return true;
+		}
+		return false;
+	}
+	unittest {
+		auto platform=BuildPlatform(["posix", "linux"], ["x86_64"], "dmd");
+		assert(platform.matchesSpecification("-posix"));
+		assert(platform.matchesSpecification("-linux"));
+		assert(platform.matchesSpecification("-linux-dmd"));
+		assert(platform.matchesSpecification("-linux-x86_64-dmd"));
+		assert(platform.matchesSpecification("-x86_64"));
+		assert(!platform.matchesSpecification("-windows"));
+		assert(!platform.matchesSpecification("-ldc"));
+		assert(!platform.matchesSpecification("-windows-dmd"));
+	}
 }
 
 enum BuildSetting {
