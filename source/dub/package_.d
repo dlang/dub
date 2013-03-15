@@ -483,7 +483,7 @@ struct BuildSettingsTemplate {
 					continue;
 				}
 
-				foreach(d; dirEntries(path.toNativeString(), "*d", SpanMode.depth)){
+				foreach(d; dirEntries(path.toNativeString(), "*.d", SpanMode.depth)){
 					if (isDir(d.name)) continue;
 					auto src = Path(d.name).relativeTo(base_path);
 					dst.addSourceFiles(src.toNativeString());
