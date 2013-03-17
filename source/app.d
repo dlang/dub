@@ -325,7 +325,7 @@ Build/run options:
                          the build type with custom flags.
                          Possible names:
                            debug (default), plain, release, unittest, profile,
-                           docs, ddox
+                           docs, ddox, cov, unittest-cov
         --config=NAME    Builds the specified configuration. Configurations can
                          be defined in package.json
         --compiler=NAME  Uses one of the supported compilers:
