@@ -115,7 +115,7 @@ class DmdCompiler : Compiler {
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
 		version(Windows){
 			string[] libs = settings.dflags.dup.filter!(l => l.endsWith(".lib"))().array() ~ settings.sourceFiles;
-			string arg = format("%s,%s,,%s", objects.join("+"), tpath.toNativeString(), libs.join("+"));
+			string arg = format("%s,%s,,%s/co/noi", objects.join("+"), tpath.toNativeString(), libs.join("+"));
 			logDebug("link.exe %s", arg);
 			auto res = spawnProcess(["link.exe", arg]).wait();
 		} else {
