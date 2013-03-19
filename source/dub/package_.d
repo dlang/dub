@@ -468,8 +468,8 @@ struct BuildSettingsTemplate {
 	void getPlatformSettings(ref BuildSettings dst, in BuildPlatform platform, Path base_path)
 	const {
 		dst.targetType = this.targetType;
-		dst.targetPath = this.targetPath;
-		dst.targetName = this.targetName;
+		if (!this.targetPath.empty) dst.targetPath = this.targetPath;
+		if (!this.targetName.empty) dst.targetName = this.targetName;
 
 		// collect source files from all source folders
 		foreach(suffix, paths; sourcePaths){
