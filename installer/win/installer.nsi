@@ -6,7 +6,7 @@ SetCompressor /SOLID lzma
 
 ; Options
 !define Version "0.9.9"
-!define DubExecPath "..\.."
+!define DubExecPath "..\..\bin"
 
 ;--------------------------------------------------------
 ; Includes
@@ -20,7 +20,7 @@ SetCompressor /SOLID lzma
 ;--------------------------------------------------------
 
 ; Name of the installer
-Name "DUB Package Manager ${Version}"
+Name "dub Package Manager ${Version}"
 
 ; Name of the output file of the installer
 OutFile "dub-${Version}-setup.exe"
@@ -99,7 +99,7 @@ Section "dub" DubFiles
     WriteRegStr HKLM SOFTWARE\dub "Install_Dir" "$INSTDIR"
 
     ; Write registry keys to make uninstall from Windows
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\dub" "DisplayName" "DUB package manager"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\dub" "DisplayName" "dub package manager"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\dub" "UninstallString" '"$INSTDIR\uninstall.exe"'
     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\dub" "NoModify" 1
     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\dub" "NoRepair" 1

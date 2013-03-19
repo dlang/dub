@@ -7,5 +7,6 @@
 		"Sönke Ludwig"
 	],
 	"libs": ["curl"],
-	"copyFiles-windows": ["curllib.dll", "libeay32.dll", "openldap.dll", "ssleay32.dll"]
+	"copyFiles-windows": ["curllib.dll", "libeay32.dll", "openldap.dll", "ssleay32.dll"],
+	"targetPath": "bin"
 }
