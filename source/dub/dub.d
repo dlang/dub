@@ -185,7 +185,7 @@ class Dub {
 				break;
 			} catch(Exception) {}
 		}
-		enforce(pinfo.type != Json.Type.Null, "No package "~packageId~" was found matching the dependency "~dep.toString());
+		enforce(pinfo.type != Json.Type.Undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
 
 		if( auto pack = m_packageManager.getPackage(packageId, ver, location) ){

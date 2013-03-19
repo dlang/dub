@@ -78,9 +78,11 @@ void addBuildTypeFlags(ref BuildSettings dst, string build_type)
 		case "debug": dst.addDFlags("-g", "-debug"); break;
 		case "release": dst.addDFlags("-release", "-O", "-inline"); break;
 		case "unittest": dst.addDFlags("-g", "-unittest"); break;
-		case "profile": dst.addDFlags("-g", "-O", "-inline", "-profile"); break;
 		case "docs": dst.addDFlags("-c", "-o-", "-D", "-Dddocs"); break;
 		case "ddox": dst.addDFlags("-c", "-o-", "-D", "-Df__dummy.html", "-Xfdocs.json"); break;
+		case "profile": dst.addDFlags("-g", "-O", "-inline", "-profile"); break;
+		case "cov": dst.addDFlags("-g", "-cov"); break;
+		case "unittest-cov": dst.addDFlags("-g", "-unittest", "-cov"); break;
 	}
 }
 

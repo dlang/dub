@@ -145,6 +145,11 @@ class Package {
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
+
+		// warn about use of special flags
+		m_info.buildSettings.warnOnSpecialCompilerFlags(m_info.name);
+		foreach (ref config; m_info.configurations)
+			config.buildSettings.warnOnSpecialCompilerFlags(m_info.name);
 	}
 	
 	@property string name() const { return m_info.name; }
@@ -370,7 +375,7 @@ struct ConfigurationInfo {
 	const {
 		if( platforms.empty ) return true;
 		foreach(p; platforms)
-			if( .matchesPlatform("-"~p, platform) )
+			if( platform.matchesSpecification("-"~p) )
 				return true;
 		return false;
 	}
@@ -468,12 +473,12 @@ struct BuildSettingsTemplate {
 	void getPlatformSettings(ref BuildSettings dst, in BuildPlatform platform, Path base_path)
 	const {
 		dst.targetType = this.targetType;
-		dst.targetPath = this.targetPath;
-		dst.targetName = this.targetName;
+		if (!this.targetPath.empty) dst.targetPath = this.targetPath;
+		if (!this.targetName.empty) dst.targetName = this.targetName;
 
 		// collect source files from all source folders
 		foreach(suffix, paths; sourcePaths){
-			if( !matchesPlatform(suffix, platform) )
+			if( !platform.matchesSpecification(suffix) )
 				continue;
 
 			foreach(spath; paths){
@@ -483,7 +488,7 @@ struct BuildSettingsTemplate {
 					continue;
 				}
 
-				foreach(d; dirEntries(path.toNativeString(), "*d", SpanMode.depth)){
+				foreach(d; dirEntries(path.toNativeString(), "*.d", SpanMode.depth)){
 					if (isDir(d.name)) continue;
 					auto src = Path(d.name).relativeTo(base_path);
 					dst.addSourceFiles(src.toNativeString());
@@ -509,55 +514,16 @@ struct BuildSettingsTemplate {
 	void getPlatformSetting(string name, string addname)(ref BuildSettings dst, in BuildPlatform platform)
 	const {
 		foreach(suffix, values; __traits(getMember, this, name)){
-			if( matchesPlatform(suffix, platform) )
+			if( platform.matchesSpecification(suffix) )
 				__traits(getMember, dst, addname)(values);
 		}
 	}
-}
 
-
-private bool matchesPlatform(string suffix, in BuildPlatform platform)
-{
-	if( suffix.length == 0 ) return true;
-	// TODO: optimize
-	foreach( psuffix; getPlatformSuffixIterator(platform) )
-		if( psuffix == suffix )
-			return true;
-	return false;
-}
-
-/// Based on the BuildPlatform, creates an iterator with all suffixes.
-///
-/// Suffixes are build upon the following scheme, where each component
-/// is optional (indicated by []), but the order is obligatory.
-/// "[-platform][-architecture][-compiler]"
-///
-/// So the following strings are valid suffixes:
-/// "-windows-x86-dmd"
-/// "-dmd"
-/// "-arm"
-///
-private int delegate(scope int delegate(ref string)) getPlatformSuffixIterator(in BuildPlatform platform)
-{
-	int iterator(scope int delegate(ref string s) del)
+	void warnOnSpecialCompilerFlags(string package_name)
 	{
-		auto c = platform.compiler;
-		int delwrap(string s) { return del(s); }
-		if( auto ret = delwrap(null) ) return ret;
-		if( auto ret = delwrap("-"~c) ) return ret;
-		foreach( p; platform.platform ){
-			if( auto ret = delwrap("-"~p) ) return ret;
-			if( auto ret = delwrap("-"~p~"-"~c) ) return ret;
-			foreach( a; platform.architecture ){
-				if( auto ret = delwrap("-"~p~"-"~a) ) return ret;
-				if( auto ret = delwrap("-"~p~"-"~a~"-"~c) ) return ret;
-			}
-		}
-		foreach( a; platform.architecture ){
-			if( auto ret = delwrap("-"~a) ) return ret;
-			if( auto ret = delwrap("-"~a~"-"~c) ) return ret;
-		}
-		return 0;
+		foreach (flags; this.dflags)
+			.warnOnSpecialCompilerFlags(flags, package_name);
 	}
-	return &iterator;
 }
+
+
