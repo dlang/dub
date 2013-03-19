@@ -45,6 +45,60 @@ void registerCompiler(Compiler c)
 	s_compilers ~= c;
 }
 
+void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name)
+{
+	import vibecompat.core.log;
+	struct SpecialFlag {
+		string[] flags;
+		string alternative;
+	}
+	static immutable SpecialFlag[] s_specialFlags = [
+		{["-c", "-o-", "-w", "-property"], "Managed by DUB, do not specify in package.json"},
+		{["-of"], `Use "targetPath" and "targetName" to customize the output file`},
+		{["-debug", "-fdebug", "-g"], "Call dub with --build=debug"},
+		{["-release", "-frelease", "-O", "-inline"], "Call dub with --build=release"},
+		{["-unittest", "-funittest"], "Call dub with --build=unittest"},
+		{["-lib"], `Use {"targetType": "staticLibrary"} or let dub manage this`},
+		{["-D"], "Call dub with --build=docs or --build=ddox"},
+		{["-X"], "Call dub with --build=ddox"},
+		{["-cov"], "Call dub with --build=cov or --build=unittest-cox"},
+		{["-profile"], "Call dub with --build=profile"},
+		{["-version="], `Use "versions" to specify version constants in a compiler independent way`},
+		//{["-debug=", `Use "debugVersions" to specify version constants in a compiler independent way`]},
+		{["-I"], `Use "importPaths" to specify import paths in a compiler independent way`},
+		{["-J"], `Use "stringImportPaths" to specify import paths in a compiler independent way`},
+	];
+
+	bool got_preamble = false;
+	void outputPreamble()
+	{
+		if (got_preamble) return;
+		got_preamble = true;
+		logWarn("");
+		logWarn("Warning");
+		logWarn("=======");
+		logWarn("");
+		logWarn("The following compiler flags have been specified in %s's", package_name);
+		logWarn("package description file. They are handled by DUB and direct use in packages is");
+		logWarn("discouraged.");
+		logWarn("Alternatively, you can set the DFLAGS environment variable to pass custom flags");
+		logWarn("to the compiler, or use one of the suggestions below:");
+		logWarn("");
+	}
+
+	foreach (f; compiler_flags) {
+		foreach (sf; s_specialFlags) {
+			if (sf.flags.canFind!(sff => f.startsWith(sff))()) {
+				outputPreamble();
+				logWarn("%s: %s", f, sf.alternative);
+				break;
+			}
+		}
+	}
+
+	if (got_preamble) logWarn("");
+}
+
 
 interface Compiler {
 	@property string name() const;
