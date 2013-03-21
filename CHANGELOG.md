@@ -8,7 +8,7 @@ v0.9.12 - 2013-03-21
 
  - Implemented separate compile/link building when using DMD
  - Optimized platform field matching (by Robert Klotzner) - [pull #47][issue47]
- - Added build types for coverage analysis
+ - Added build types for coverage analysis - [issue #45][issue45]
  - Wrong use of `"dflags"` now triggers a warning with suggestion for an alternative approach - [issue #37][issue37]
  - The "dub" binary is now in "bin/" instead of the root directory
 
@@ -25,6 +25,7 @@ v0.9.12 - 2013-03-21
 [issue37]: https://github.com/rejectedsoftware/dub/issues/37
 [issue42]: https://github.com/rejectedsoftware/dub/issues/42
 [issue44]: https://github.com/rejectedsoftware/dub/issues/44
+[issue45]: https://github.com/rejectedsoftware/dub/issues/45
 [issue46]: https://github.com/rejectedsoftware/dub/issues/46
 [issue47]: https://github.com/rejectedsoftware/dub/issues/47
 [issue48]: https://github.com/rejectedsoftware/dub/issues/48
