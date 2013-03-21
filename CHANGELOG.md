@@ -1,6 +1,35 @@
 Changelog
 =========
 
+v0.9.12 - 2013-03-21
+--------------------
+
+### Features and improvements ###
+
+ - Implemented separate compile/link building when using DMD
+ - Optimized platform field matching (by Robert Klotzner) - [pull #47][issue47]
+ - Added build types for coverage analysis
+ - Wrong use of `"dflags"` now triggers a warning with suggestion for an alternative approach - [issue #37][issue37]
+ - The "dub" binary is now in "bin/" instead of the root directory
+
+### Bug fixes ###
+
+ - Fixed an assertion that triggered when appending an absolute path
+ - Fixed `--build=ddox` when DDOX was not yet installed/built - [issue #42][issue42]
+ - Fixed the build script to work on Ubuntu
+ - Fixed building in a project directory that contains no "package.json" file
+ - Fixed the error message for non-existent dependency versions - [issue #44][issue44]
+ - Fixed matching of (only) D source files (by Robert Klotzner) - [pull #46][issue46]
+ - Fixed `"targetName"` and `"targetPath"` fields - [issue #48][issue48]
+
+[issue37]: https://github.com/rejectedsoftware/dub/issues/37
+[issue42]: https://github.com/rejectedsoftware/dub/issues/42
+[issue44]: https://github.com/rejectedsoftware/dub/issues/44
+[issue46]: https://github.com/rejectedsoftware/dub/issues/46
+[issue47]: https://github.com/rejectedsoftware/dub/issues/47
+[issue48]: https://github.com/rejectedsoftware/dub/issues/48
+
+
 v0.9.11 - 2013-03-05
 --------------------
 
