@@ -145,11 +145,6 @@ class Package {
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
-
-		// warn about use of special flags
-		m_info.buildSettings.warnOnSpecialCompilerFlags(m_info.name);
-		foreach (ref config; m_info.configurations)
-			config.buildSettings.warnOnSpecialCompilerFlags(m_info.name);
 	}
 	
 	@property string name() const { return m_info.name; }
@@ -166,6 +161,14 @@ class Package {
 		foreach( ref config; m_info.configurations )
 			ret.put(config.name);
 		return ret.data;
+	}
+
+	void warnOnSpecialCompilerFlags()
+	{
+		// warn about use of special flags
+		m_info.buildSettings.warnOnSpecialCompilerFlags(m_info.name, null);
+		foreach (ref config; m_info.configurations)
+			config.buildSettings.warnOnSpecialCompilerFlags(m_info.name, config.name);
 	}
 
 	/// Returns all BuildSettings for the given platform and config.
@@ -519,10 +522,12 @@ struct BuildSettingsTemplate {
 		}
 	}
 
-	void warnOnSpecialCompilerFlags(string package_name)
+	void warnOnSpecialCompilerFlags(string package_name, string config_name)
 	{
+		string[] all_dflags;
 		foreach (flags; this.dflags)
-			.warnOnSpecialCompilerFlags(flags, package_name);
+			all_dflags ~= flags;
+		.warnOnSpecialCompilerFlags(all_dflags, package_name, config_name);
 	}
 }
 

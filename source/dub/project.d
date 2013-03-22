@@ -137,7 +137,8 @@ class Project {
 	}
 
 	/// Rereads the applications state.
-	void reinit() {
+	void reinit()
+	{
 		scope(failure){
 			logDebug("Failed to initialize project. Assuming defaults.");
 			m_main = new Package(serializeToJson(["name": "unknown"]), InstallLocation.local, m_root);
@@ -159,6 +160,7 @@ class Project {
 		}
 
 		m_main = new Package(InstallLocation.local, m_root);
+		m_main.warnOnSpecialCompilerFlags();
 
 		// TODO: compute the set of mutual dependencies first
 		// (i.e. ">=0.0.1 <=0.0.5" and "<= 0.0.4" get ">=0.0.1 <=0.0.4")
@@ -180,6 +182,7 @@ class Project {
 					logDebug("Found dependency %s %s: %s", name, vspec.toString(), p !is null);
 					if( p ){
 						m_dependencies ~= p;
+						p.warnOnSpecialCompilerFlags();
 						collectDependenciesRec(p);
 					}
 				}

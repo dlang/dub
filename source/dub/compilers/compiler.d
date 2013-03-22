@@ -45,7 +45,7 @@ void registerCompiler(Compiler c)
 	s_compilers ~= c;
 }
 
-void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name)
+void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, string config_name)
 {
 	import vibecompat.core.log;
 	struct SpecialFlag {
@@ -75,12 +75,11 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name)
 		if (got_preamble) return;
 		got_preamble = true;
 		logWarn("");
-		logWarn("Warning");
-		logWarn("=======");
+		if (config_name.empty) logWarn("## Warning for package %s ##", package_name);
+		else logWarn("## Warning for package %s, configuration %s ##", package_name, config_name);
 		logWarn("");
-		logWarn("The following compiler flags have been specified in %s's", package_name);
-		logWarn("package description file. They are handled by DUB and direct use in packages is");
-		logWarn("discouraged.");
+		logWarn("The following compiler flags have been specified in the package description");
+		logWarn("file. They are handled by DUB and direct use in packages is discouraged.");
 		logWarn("Alternatively, you can set the DFLAGS environment variable to pass custom flags");
 		logWarn("to the compiler, or use one of the suggestions below:");
 		logWarn("");

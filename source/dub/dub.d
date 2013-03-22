@@ -144,7 +144,8 @@ class Dub {
 			if(a.type == Action.Type.install)
 				install(a.packageId, a.vers, a.location);
 
-		m_project.reinit();
+		if (!actions.empty) m_project.reinit();
+		
 		Action[] newActions = m_project.determineActions(m_packageSuppliers, 0);
 		if(newActions.length > 0) {
 			logInfo("There are still some actions to perform:");
