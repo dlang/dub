@@ -309,7 +309,7 @@ class Project {
 					if( p.installLocation != InstallLocation.local ){
 						Dependency[string] em;
 						// user and system packages are not uninstalled (could be needed by other projects)
-						if( p.installLocation == InstallLocation.projectLocal )
+						if (p.installLocation == InstallLocation.projectLocal || p.ver.isBranch)
 							uninstalls ~= Action.uninstall(*p, em);
 						actions ~= Action.install(pkg, p.installLocation, d.dependency, d.packages);
 					} else {
