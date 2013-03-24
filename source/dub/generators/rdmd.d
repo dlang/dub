@@ -131,6 +131,7 @@ class RdmdGenerator : ProjectGenerator {
 			}
 
 			if( settings.run ){
+				logInfo("Running %s...", run_exe_file.toNativeString());
 				auto prg_pid = spawnProcess(run_exe_file.toNativeString() ~ settings.runArgs);
 				result = prg_pid.wait();
 				remove(run_exe_file.toNativeString());

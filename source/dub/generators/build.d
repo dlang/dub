@@ -191,7 +191,7 @@ class BuildGenerator : ProjectGenerator {
 			}
 
 			if( settings.run ){
-				logDebug("Running %s...", exe_file_path.toNativeString());
+				logInfo("Running %s...", exe_file_path.toNativeString());
 				auto prg_pid = spawnProcess(exe_file_path.toNativeString() ~ settings.runArgs);
 				auto result = prg_pid.wait();
 				enforce(result == 0, "Program exited with code "~to!string(result));
