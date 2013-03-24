@@ -353,7 +353,8 @@ void main()
 	void runDdox()
 	{
 		auto ddox_pack = m_packageManager.getBestPackage("ddox", ">=0.0.0");
-		if( !ddox_pack ){
+		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
+		if (!ddox_pack) {
 			logInfo("DDOX is not installed, performing user wide installation.");
 			ddox_pack = install("ddox", new Dependency(">=0.0.0"), InstallLocation.userWide);
 		}
@@ -383,7 +384,9 @@ void main()
 		auto dub_path = p.toNativeString();
 
 		string[] commands;
-		commands ~= dub_path~"ddox filter --min-protection=Protected docs.json";
+		string[] filterargs = m_project.mainPackage.info.ddoxFilterArgs.dup;
+		if (filterargs.empty) filterargs = ["--min-protection=Protected", "--only-documented"];
+		commands ~= dub_path~"ddox filter "~filterargs.join(" ")~" docs.json";
 		commands ~= dub_path~"ddox generate-html docs.json docs";
 		version(Windows) commands ~= "xcopy /S /D "~dub_path~"public\\* docs\\";
 		else commands ~= "cp -r "~dub_path~"public/* docs/";

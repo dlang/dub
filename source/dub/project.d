@@ -61,10 +61,10 @@ class Project {
 		if(!m_main)
 			return "-Unrecognized application in '"~m_root.toNativeString()~"' (probably no package.json in this directory)";
 		string s = "-Application identifier: " ~ m_main.name;
-		s ~= "\n" ~ m_main.info();
+		s ~= "\n" ~ m_main.generateInfoString();
 		s ~= "\n-Installed dependencies:";
 		foreach(p; m_dependencies)
-			s ~= "\n" ~ p.info();
+			s ~= "\n" ~ p.generateInfoString();
 		return s;
 	}
 

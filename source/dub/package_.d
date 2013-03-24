@@ -150,6 +150,7 @@ class Package {
 	@property string name() const { return m_info.name; }
 	@property string vers() const { return m_info.version_; }
 	@property Version ver() const { return Version(m_info.version_); }
+	@property const(PackageInfo) info() const { return m_info; }
 	@property installLocation() const { return m_location; }
 	@property Path path() const { return m_path; }
 	@property Path packageInfoFile() const { return m_path ~ "package.json"; }
@@ -213,7 +214,7 @@ class Package {
 	}
 
 	/// Human readable information of this package and its dependencies.
-	string info() const {
+	string generateInfoString() const {
 		string s;
 		s ~= m_info.name ~ ", version '" ~ m_info.version_ ~ "'";
 		s ~= "\n  Dependencies:";
@@ -256,6 +257,7 @@ struct PackageInfo {
 	string[] authors;
 	string copyright;
 	string license;
+	string[] ddoxFilterArgs;
 	Dependency[string] dependencies;
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
@@ -272,6 +274,7 @@ struct PackageInfo {
 				case "authors": this.authors = deserializeJson!(string[])(value); break;
 				case "copyright": this.copyright = value.get!string; break;
 				case "license": this.license = value.get!string; break;
+				case "-ddoxFilterArgs": this.ddoxFilterArgs = deserializeJson!(string[])(value); break;
 				case "dependencies":
 					foreach( string pkg, verspec; value ) {
 						enforce(pkg !in this.dependencies, "The dependency '"~pkg~"' is specified more than once." );
@@ -315,6 +318,7 @@ struct PackageInfo {
 		if( !this.authors.empty ) ret.authors = serializeToJson(this.authors);
 		if( !this.copyright.empty ) ret.copyright = this.copyright;
 		if( !this.license.empty ) ret.license = this.license;
+		if( !this.ddoxFilterArgs.empty ) ret["-ddoxFilterArgs"] = this.ddoxFilterArgs.serializeToJson();
 		if( this.dependencies ){
 			auto deps = Json.EmptyObject;
 			foreach( pack, d; this.dependencies ){
