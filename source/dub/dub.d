@@ -387,7 +387,7 @@ void main()
 		string[] filterargs = m_project.mainPackage.info.ddoxFilterArgs.dup;
 		if (filterargs.empty) filterargs = ["--min-protection=Protected", "--only-documented"];
 		commands ~= dub_path~"ddox filter "~filterargs.join(" ")~" docs.json";
-		commands ~= dub_path~"ddox generate-html docs.json docs";
+		commands ~= dub_path~"ddox generate-html --navigation-type=ModuleTree docs.json docs";
 		version(Windows) commands ~= "xcopy /S /D "~dub_path~"public\\* docs\\";
 		else commands ~= "cp -r "~dub_path~"public/* docs/";
 		runCommands(commands);
