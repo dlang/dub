@@ -314,7 +314,7 @@ EndGlobal");
 
 				// Add libraries, system libs need to be suffixed by ".lib".
 				string linkLibs = join(map!(a => a~".lib")(getSettings!"libs"()), " ");
-				string addLinkFiles = join(getSettings!"sourceFiles"(), " ");
+				string addLinkFiles = join(getSettings!"sourceFiles"().filter!(s => s.endsWith(".lib"))(), " ");
 				ret.formattedWrite("
     <libfiles>%s</libfiles>", linkLibs ~ " " ~ addLinkFiles);
 
