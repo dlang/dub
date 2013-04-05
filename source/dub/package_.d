@@ -293,9 +293,13 @@ struct PackageInfo {
 					}
 					break;
 				case "configurations":
+					TargetType deftargettp = TargetType.library;
+					if (this.buildSettings.targetType != TargetType.autodetect)
+						deftargettp = this.buildSettings.targetType;
+
 					foreach( settings; value ){
 						ConfigurationInfo ci;
-						ci.parseJson(settings);
+						ci.parseJson(settings, deftargettp);
 						this.configurations ~= ci;
 					}
 					break;
@@ -349,9 +353,9 @@ struct ConfigurationInfo {
 		this.buildSettings = build_settings;
 	}
 
-	void parseJson(Json json)
+	void parseJson(Json json, TargetType default_target_type = TargetType.library)
 	{
-		this.buildSettings.targetType = TargetType.library;
+		this.buildSettings.targetType = default_target_type;
 
 		foreach(string name, value; json){
 			switch(name){
