@@ -235,36 +235,38 @@ class MonoDGenerator : ProjectGenerator {
 
 
 		bool[const(Package)] visited;
-		void generateSourceEntry(Path path, Path base_path)
+		void generateSourceEntry(Path path, Path base_path, bool compile = true)
 		{
 			auto rel_path = path.relativeTo(pack.path);
 			rel_path.normalize();
 
 			Path pretty_path;
-			foreach( i; 0 .. rel_path.length )
-				if( rel_path[i] != ".." ){
+			foreach (i; 0 .. rel_path.length)
+				if (rel_path[i] != "..") {
 					pretty_path = rel_path[i .. $];
 					break;
 				}
+			string kind = compile ? "Compile" : "None";
 
-			if( base_path == pretty_path ){
-				sln.formattedWrite("    <Compile Include=\"%s\" />\n", rel_path.toNativeString());
+			if (base_path == pretty_path) {
+				sln.formattedWrite("    <%s Include=\"%s\" />\n", kind, rel_path.toNativeString());
 			} else {
-				sln.formattedWrite("    <Compile Include=\"%s\">\n", rel_path.toNativeString());
+				sln.formattedWrite("    <%s Include=\"%s\">\n", kind, rel_path.toNativeString());
 				sln.formattedWrite("      <Link>%s</Link>\n", pretty_path.toNativeString());
-				sln.formattedWrite("    </Compile>\n");
+				sln.formattedWrite("    </%s>\n", kind);
 			}
 		}
 
-		foreach( p; m_app.getTopologicalPackageList() )
-			buildsettings.sourceFiles ~= p.packageInfoFile.toNativeString();
-
 		sln.put("  <ItemGroup>\n");
-		foreach( s; buildsettings.sourceFiles ){
+		// add source files
+		foreach (s; buildsettings.sourceFiles) {
 			auto sp = Path(s);
-			if( !sp.absolute ) sp = pack.path ~ sp;
+			if (!sp.absolute) sp = pack.path ~ sp;
 			generateSourceEntry(sp, pack.path);
 		}
+		// add package.json files
+		foreach (p; m_app.getTopologicalPackageList())
+			generateSourceEntry(p.packageInfoFile, pack.path, false);
 		sln.put("  </ItemGroup>\n");
 		sln.put("</Project>");
 	}
