@@ -43,9 +43,10 @@ class BuildGenerator : ProjectGenerator {
 	{
 		auto cwd = Path(getcwd());
 
+		// force halt on warning by default - must be before using config to allow overriding
+		buildsettings.addDFlags(["-w"/*, "-property"*/]);
 		auto buildsettings = settings.buildSettings;
 		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
-		buildsettings.addDFlags(["-w"/*, "-property"*/]);
 		string dflags = environment.get("DFLAGS");
 		if( dflags.length ){
 			settings.buildType = "$DFLAGS";
