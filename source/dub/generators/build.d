@@ -100,11 +100,12 @@ class BuildGenerator : ProjectGenerator {
 
 		// assure that we clean up after ourselves
 		Path[] cleanup_files;
-		scope(exit){
-			foreach(f; cleanup_files)
-				if( existsFile(f) )
+		scope (exit) {
+			foreach (f; cleanup_files)
+				if (existsFile(f))
 					remove(f.toNativeString());
-			if( generate_binary && settings.run ) rmdir(buildsettings.targetPath);
+			if (generate_binary && settings.run)
+				rmdirRecurse(buildsettings.targetPath);
 		}
 
 		/*
