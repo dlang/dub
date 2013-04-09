@@ -53,7 +53,9 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 		string alternative;
 	}
 	static immutable SpecialFlag[] s_specialFlags = [
-		{["-c", "-o-", "-w", "-property"], "Managed by DUB, do not specify in package.json"},
+		{["-c", "-o-", "-property", "-fproperty", "-w", "-Wall", "-Werr"], "Automatically issued by DUB, do not specify in package.json"},
+		{["-wi"], `Use the "buildRequirements" field to control warning behavior`},
+		{["-d", "-de", "-dw"], `Use the "buildRequirements" field to control deprecation behavior`},
 		{["-of"], `Use "targetPath" and "targetName" to customize the output file`},
 		{["-debug", "-fdebug", "-g"], "Call dub with --build=debug"},
 		{["-release", "-frelease", "-O", "-inline"], "Call dub with --build=release"},
