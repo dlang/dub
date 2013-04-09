@@ -87,6 +87,16 @@ class DmdCompiler : Compiler {
 			settings.lflags = null;
 		}
 
+		if (settings.requirements & BuildRequirements.allowWarnings) { settings.removeDFlags("-w"); settings.addDFlags("-wi"); }
+		if (settings.requirements & BuildRequirements.silenceWarnings) { settings.removeDFlags("-w", "-wi"); }
+		if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.removeDFlags("-dw", "-d"); settings.addDFlags("-de"); }
+		if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.removeDFlags("-dw", "-de"); settings.addDFlags("-d"); }
+		if (settings.requirements & BuildRequirements.disallowInlining) { settings.removeDFlags("-inline"); }
+		if (settings.requirements & BuildRequirements.disallowOptimization) { settings.removeDFlags("-O"); }
+		if (settings.requirements & BuildRequirements.requireBoundsCheck) { settings.removeDFlags("-noboundscheck"); }
+		if (settings.requirements & BuildRequirements.requireContracts) { settings.removeDFlags("-release"); }
+		if (settings.requirements & BuildRequirements.relaxProperties) { settings.removeDFlags("-property"); }
+
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
 	}

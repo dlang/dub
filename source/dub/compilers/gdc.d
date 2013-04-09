@@ -128,6 +128,16 @@ class GdcCompiler : Compiler {
 			settings.lflags = null;
 		}
 
+		if (settings.requirements & BuildRequirements.allowWarnings) { settings.removeDFlags("-Werror"); settings.addDFlags("-Wall"); }
+		if (settings.requirements & BuildRequirements.silenceWarnings) { settings.removeDFlags("-Werror", "-Wall"); }
+		if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.addDFlags("-fdeprecated"); }
+		if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.addDFlags("-fdeprecated"); }
+		if (settings.requirements & BuildRequirements.disallowInlining) { settings.removeDFlags("-finline-functions"); }
+		if (settings.requirements & BuildRequirements.disallowOptimization) { settings.removeDFlags("-O3"); }
+		if (settings.requirements & BuildRequirements.requireBoundsCheck) { settings.removeDFlags("-fno-bounds-check"); }
+		if (settings.requirements & BuildRequirements.requireContracts) { settings.removeDFlags("-frelease"); }
+		if (settings.requirements & BuildRequirements.relaxProperties) { settings.removeDFlags("-fproperty"); }
+
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
 	}

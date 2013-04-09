@@ -134,8 +134,10 @@ struct BuildSettings {
 	string[] postGenerateCommands;
 	string[] preBuildCommands;
 	string[] postBuildCommands;
+	BuildRequirements requirements;
 
 	void addDFlags(in string[] value...) { add(dflags, value); }
+	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { add(lflags, value); }
 	void addLibs(in string[] value...) { add(libs, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
@@ -148,31 +150,45 @@ struct BuildSettings {
 	void addPostGenerateCommands(in string[] value...) { add(postGenerateCommands, value, false); }
 	void addPreBuildCommands(in string[] value...) { add(preBuildCommands, value, false); }
 	void addPostBuildCommands(in string[] value...) { add(postBuildCommands, value, false); }
+	void addRequirements(in BuildRequirements[] value...) { foreach (v; value) this.requirements |= v; }
 
 	// Adds vals to arr without adding duplicates.
 	private void add(ref string[] arr, in string[] vals, bool no_duplicates = true)
 	{
-		if( !no_duplicates ){
+		if (!no_duplicates) {
 			arr ~= vals;
 			return;
 		}
 
-		foreach( v; vals ){
+		foreach (v; vals) {
 			bool found = false;
-			foreach( i; 0 .. arr.length )
-				if( arr[i] == v ){
+			foreach (i; 0 .. arr.length)
+				if (arr[i] == v) {
 					found = true;
 					break;
 				}
-			if( !found ) arr ~= v;
+			if (!found) arr ~= v;
 		}
 	}
 
 	private void removePaths(ref string[] arr, in string[] vals)
 	{
-		bool matches(string s){
-			foreach( p; vals )
-				if( Path(s) == Path(p) )
+		bool matches(string s)
+		{
+			foreach (p; vals)
+				if (Path(s) == Path(p))
+					return true;
+			return false;
+		}
+		arr = arr.filter!(s => !matches(s))().array();
+	}
+
+	private void remove(ref string[] arr, in string[] vals)
+	{
+		bool matches(string s)
+		{
+			foreach (p; vals)
+				if (s == p)
 					return true;
 			return false;
 		}
@@ -267,6 +283,19 @@ enum TargetType {
 	sourceLibrary,
 	dynamicLibrary,
 	staticLibrary
+}
+
+enum BuildRequirements {
+	none = 0,                     /// No special requirements
+	allowWarnings        = 1<<0,  /// Warnings do not abort compilation
+	silenceWarnings      = 1<<1,  /// Don't show warnings
+	disallowDeprecations = 1<<2,  /// Using deprecated features aborts compilation
+	silenceDeprecations  = 1<<3,  /// Don't show deprecation warnings
+	disallowInlining     = 1<<4,  /// Avoid function inlining, even in release builds
+	disallowOptimization = 1<<5,  /// Avoid optimizations, even in release builds
+	requireBoundsCheck   = 1<<6,  /// Always perform bounds checks
+	requireContracts     = 1<<7,  /// Leave assertions and contracts enabled in release builds
+	relaxProperties      = 1<<8,  /// Do not enforce strict property handling (-property)
 }
 
 string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)

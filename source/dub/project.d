@@ -592,6 +592,7 @@ private void processVars(ref BuildSettings dst, string project_path, BuildSettin
 	dst.addPostGenerateCommands(processVars(project_path, settings.postGenerateCommands));
 	dst.addPreBuildCommands(processVars(project_path, settings.preBuildCommands));
 	dst.addPostBuildCommands(processVars(project_path, settings.postBuildCommands));
+	dst.addRequirements(settings.requirements);
 }
 
 private string[] processVars(string project_path, string[] vars, bool are_paths = false)

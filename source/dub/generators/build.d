@@ -45,7 +45,7 @@ class BuildGenerator : ProjectGenerator {
 
 		auto buildsettings = settings.buildSettings;
 		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
-		buildsettings.addDFlags(["-w"/*, "-property"*/]);
+		buildsettings.addDFlags(["-w", "-property"]);
 		string dflags = environment.get("DFLAGS");
 		if( dflags.length ){
 			settings.buildType = "$DFLAGS";

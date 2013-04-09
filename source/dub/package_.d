@@ -18,6 +18,7 @@ import std.exception;
 import std.file;
 import std.range;
 import std.string;
+import std.traits : EnumMembers;
 import vibecompat.core.log;
 import vibecompat.core.file;
 import vibecompat.data.json;
@@ -411,6 +412,7 @@ struct BuildSettingsTemplate {
 	string[][string] postGenerateCommands;
 	string[][string] preBuildCommands;
 	string[][string] postBuildCommands;
+	BuildRequirements[string] buildRequirements;
 
 	void parseJson(Json json)
 	{
@@ -454,6 +456,12 @@ struct BuildSettingsTemplate {
 				case "postGenerateCommands": this.postGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
 				case "preBuildCommands": this.preBuildCommands[suffix] = deserializeJson!(string[])(value); break;
 				case "postBuildCommands": this.postBuildCommands[suffix] = deserializeJson!(string[])(value); break;
+				case "buildRequirements":
+					BuildRequirements reqs;
+					foreach (req; deserializeJson!(string[])(value))
+						reqs |= to!BuildRequirements(req);
+					this.buildRequirements[suffix] = reqs;
+					break;
 			}
 		}
 	}
@@ -461,23 +469,29 @@ struct BuildSettingsTemplate {
 	Json toJson()
 	const {
 		auto ret = Json.EmptyObject;
-		if( targetType != TargetType.autodetect ) ret["targetType"] = targetType.to!string();
-		if( !targetPath.empty ) ret["targetPath"] = targetPath;
-		if( !targetName.empty ) ret["targetName"] = targetPath;
-		foreach(suffix, arr; dflags) ret["dflags"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; lflags) ret["lflags"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; libs) ret["libs"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; sourceFiles) ret["sourceFiles"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; sourcePaths) ret["sourcePaths"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; excludedSourceFiles) ret["excludedSourceFiles"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; copyFiles) ret["copyFiles"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; versions) ret["versions"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; importPaths) ret["importPaths"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; stringImportPaths) ret["stringImportPaths"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; preGenerateCommands) ret["preGenerateCommands"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; postGenerateCommands) ret["postGenerateCommands"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; preBuildCommands) ret["preBuildCommands"~suffix] = serializeToJson(arr);
-		foreach(suffix, arr; postBuildCommands) ret["postBuildCommands"~suffix] = serializeToJson(arr);
+		if (targetType != TargetType.autodetect) ret["targetType"] = targetType.to!string();
+		if (!targetPath.empty) ret["targetPath"] = targetPath;
+		if (!targetName.empty) ret["targetName"] = targetPath;
+		foreach (suffix, arr; dflags) ret["dflags"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; lflags) ret["lflags"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; libs) ret["libs"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; sourceFiles) ret["sourceFiles"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; sourcePaths) ret["sourcePaths"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; excludedSourceFiles) ret["excludedSourceFiles"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; copyFiles) ret["copyFiles"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; versions) ret["versions"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; importPaths) ret["importPaths"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; stringImportPaths) ret["stringImportPaths"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; preGenerateCommands) ret["preGenerateCommands"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; postGenerateCommands) ret["postGenerateCommands"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; preBuildCommands) ret["preBuildCommands"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; postBuildCommands) ret["postBuildCommands"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; buildRequirements) {
+			string[] val;
+			foreach (i; [EnumMembers!BuildRequirements])
+				if (arr & i) val ~= to!string(i);
+			ret["buildRequirements"~suffix] = serializeToJson(val);
+		}
 		return ret;
 	}
 
@@ -520,6 +534,7 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("postGenerateCommands", "addPostGenerateCommands")(dst, platform);
 		getPlatformSetting!("preBuildCommands", "addPreBuildCommands")(dst, platform);
 		getPlatformSetting!("postBuildCommands", "addPostBuildCommands")(dst, platform);
+		getPlatformSetting!("buildRequirements", "addRequirements")(dst, platform);
 	}
 
 	void getPlatformSetting(string name, string addname)(ref BuildSettings dst, in BuildPlatform platform)
