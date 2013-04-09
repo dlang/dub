@@ -74,20 +74,7 @@ class BuildGenerator : ProjectGenerator {
 		if( settings.config.length ) logInfo("Building configuration \""~settings.config~"\", build type "~settings.buildType);
 		else logInfo("Building default configuration, build type "~settings.buildType);
 
-		if( buildsettings.preGenerateCommands.length ){
-			logInfo("Running pre-generate commands...");
-			runBuildCommands(buildsettings.preGenerateCommands, buildsettings);
-		}
-
-		if( buildsettings.postGenerateCommands.length ){
-			logInfo("Running post-generate commands...");
-			runBuildCommands(buildsettings.postGenerateCommands, buildsettings);
-		}
-
-		if( buildsettings.preBuildCommands.length ){
-			logInfo("Running pre-build commands...");
-			runBuildCommands(buildsettings.preBuildCommands, buildsettings);
-		}
+		prepareGeneration(buildsettings);
 
 		// determine the absolute target path
 		if( !Path(buildsettings.targetPath).absolute )
@@ -104,6 +91,13 @@ class BuildGenerator : ProjectGenerator {
 		}
 		logDebug("Application output name is '%s'", exe_file_path.toNativeString());
 
+		finalizeGeneration(buildsettings, generate_binary);
+
+		if( buildsettings.preBuildCommands.length ){
+			logInfo("Running pre-build commands...");
+			runBuildCommands(buildsettings.preBuildCommands, buildsettings);
+		}
+
 		// assure that we clean up after ourselves
 		Path[] cleanup_files;
 		scope(exit){
@@ -112,8 +106,6 @@ class BuildGenerator : ProjectGenerator {
 					remove(f.toNativeString());
 			if( generate_binary && settings.run ) rmdir(buildsettings.targetPath);
 		}
-		if( !exists(buildsettings.targetPath) )
-			mkdirRecurse(buildsettings.targetPath);
 
 		/*
 			NOTE: for DMD experimental separate compile/link is used, but this is not yet implemented
@@ -176,20 +168,6 @@ class BuildGenerator : ProjectGenerator {
 
 		// copy files and run the executable
 		if( generate_binary ){
-			// TODO: move to a common place - this is not generator specific
-			if( buildsettings.copyFiles.length ){
-				logInfo("Copying files...");
-				foreach( f; buildsettings.copyFiles ){
-					auto src = Path(f);
-					auto dst = exe_file_path.parentPath ~ Path(f).head;
-					logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
-					try {
-						if( settings.run ) cleanup_files ~= dst;
-						copyFile(src, dst, true);
-					} catch logWarn("Failed to copy to %s", dst.toNativeString());
-				}
-			}
-
 			if( settings.run ){
 				logInfo("Running %s...", exe_file_path.toNativeString());
 				auto prg_pid = spawnProcess(exe_file_path.toNativeString() ~ settings.runArgs);

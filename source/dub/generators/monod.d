@@ -46,22 +46,15 @@ class MonoDGenerator : ProjectGenerator {
 	void generateProject(GeneratorSettings settings)
 	{
 		auto buildsettings = settings.buildSettings;
+		m_app.addBuildSettings(buildsettings, settings.platform, settings.config);
 
-		if( buildsettings.preGenerateCommands.length ){
-			logInfo("Running pre-generate commands...");
-			// TODO: pass full build settings for current configuration instead?
-			runBuildCommands(buildsettings.preGenerateCommands, buildsettings);
-		}
+		prepareGeneration(buildsettings);
 
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
 		generateProjects(m_app.mainPackage(), settings);
 		generateSolution(settings);
 
-		if( buildsettings.postGenerateCommands.length ){
-			logInfo("Running post-generate commands...");
-			// TODO: pass full build settings for current configuration instead?
-			runBuildCommands(buildsettings.postGenerateCommands, buildsettings);
-		}
+		finalizeGeneration(buildsettings, true);
 	}
 	
 	private void generateSolution(GeneratorSettings settings)
@@ -264,6 +257,7 @@ class MonoDGenerator : ProjectGenerator {
 			if (!sp.absolute) sp = pack.path ~ sp;
 			generateSourceEntry(sp, pack.path);
 		}
+		// TODO: add all files in stringImportFolders
 		// add package.json files
 		foreach (p; m_app.getTopologicalPackageList())
 			generateSourceEntry(p.packageInfoFile, pack.path, false);

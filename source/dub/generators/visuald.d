@@ -47,21 +47,16 @@ class VisualDGenerator : ProjectGenerator {
 	
 	void generateProject(GeneratorSettings settings) {
 		auto buildsettings = settings.buildSettings;
-
-		if( buildsettings.preGenerateCommands.length ){
-			logInfo("Running pre-generate commands...");
-			runCommands(buildsettings.preGenerateCommands);
-		}
+		m_app.addBuildSettings(buildsettings, settings.platform, settings.config);
+		
+		prepareGeneration(buildsettings);
 
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
 		generateProjects(m_app.mainPackage(), settings);
 		generateSolution();
 		logInfo("VisualD project generated.");
 
-		if( buildsettings.postGenerateCommands.length ){
-			logInfo("Running post-generate commands...");
-			runCommands(buildsettings.postGenerateCommands);
-		}
+		finalizeGeneration(buildsettings, true);
 	}
 	
 	private {

@@ -88,15 +88,8 @@ class RdmdGenerator : ProjectGenerator {
 		flags ~= buildsettings.dflags;
 		flags ~= (mainsrc).toNativeString();
 
-		if( buildsettings.preGenerateCommands.length ){
-			logInfo("Running pre-generate commands...");
-			runCommands(buildsettings.preGenerateCommands);
-		}
-
-		if( buildsettings.postGenerateCommands.length ){
-			logInfo("Running post-generate commands...");
-			runCommands(buildsettings.postGenerateCommands);
-		}
+		prepareGeneration(buildsettings);
+		finalizeGeneration(buildsettings, generate_binary);
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
@@ -118,18 +111,6 @@ class RdmdGenerator : ProjectGenerator {
 		}
 
 		if( generate_binary ){
-			// TODO: move to a common place - this is not generator specific
-			if( buildsettings.copyFiles.length ){
-				logInfo("Copying files...");
-				foreach( f; buildsettings.copyFiles ){
-					auto src = Path(f);
-					auto dst = (run_exe_file.empty ? Path(buildsettings.targetPath) : run_exe_file.parentPath) ~ Path(f).head;
-					logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
-					try copyFile(src, dst, true);
-					catch logWarn("Failed to copy to %s", dst.toNativeString());
-				}
-			}
-
 			if( settings.run ){
 				logInfo("Running %s...", run_exe_file.toNativeString());
 				auto prg_pid = spawnProcess(run_exe_file.toNativeString() ~ settings.runArgs);

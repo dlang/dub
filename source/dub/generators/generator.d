@@ -17,8 +17,11 @@ import dub.packagemanager;
 import dub.project;
 
 import std.exception;
+import std.file;
 import std.string;
+import vibecompat.core.file;
 import vibecompat.core.log;
+import vibecompat.inet.path;
 
 
 /**
@@ -83,6 +86,43 @@ void addBuildTypeFlags(ref BuildSettings dst, string build_type)
 		case "profile": dst.addDFlags("-g", "-O", "-inline", "-profile"); break;
 		case "cov": dst.addDFlags("-g", "-cov"); break;
 		case "unittest-cov": dst.addDFlags("-g", "-unittest", "-cov"); break;
+	}
+}
+
+
+/**
+	Runs pre-build commands and performs an other required setup before project files are generated.
+*/
+void prepareGeneration(BuildSettings buildsettings)
+{
+	if( buildsettings.preGenerateCommands.length ){
+		logInfo("Running pre-generate commands...");
+		runBuildCommands(buildsettings.preGenerateCommands, buildsettings);
+	}
+}
+
+/**
+	Runs post-build commands and copies required files to the binary directory.
+*/
+void finalizeGeneration(BuildSettings buildsettings, bool generate_binary)
+{
+	if (buildsettings.postGenerateCommands.length) {
+		logInfo("Running post-generate commands...");
+		runBuildCommands(buildsettings.postGenerateCommands, buildsettings);
+	}
+
+	if (generate_binary && buildsettings.copyFiles.length) {
+		logInfo("Copying files...");
+		if (!exists(buildsettings.targetPath))
+			mkdirRecurse(buildsettings.targetPath);
+		foreach (f; buildsettings.copyFiles) {
+			auto src = Path(f);
+			auto dst = Path(buildsettings.targetPath) ~ Path(f).head;
+			logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
+			try {
+				copyFile(src, dst, true);
+			} catch logWarn("Failed to copy to %s", dst.toNativeString());
+		}
 	}
 }
 
