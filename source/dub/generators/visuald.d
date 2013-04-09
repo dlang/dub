@@ -311,7 +311,7 @@ EndGlobal");
 				string linkLibs = join(map!(a => a~".lib")(getSettings!"libs"()), " ");
 				string addLinkFiles = join(getSettings!"sourceFiles"().filter!(s => s.endsWith(".lib"))(), " ");
 				ret.formattedWrite("
-    <libfiles>%s</libfiles>", linkLibs ~ " " ~ addLinkFiles);
+    <libfiles>%s %s phobos.lib</libfiles>", linkLibs, addLinkFiles);
 
 				// Unittests
 				ret.formattedWrite("
