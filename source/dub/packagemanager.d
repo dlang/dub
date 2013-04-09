@@ -12,8 +12,9 @@ import dub.installation;
 import dub.package_;
 import dub.utils;
 
-import std.algorithm : countUntil, filter, sort;
+import std.algorithm : countUntil, filter, sort, canFind;
 import std.conv;
+import std.digest.sha;
 import std.exception;
 import std.file;
 import std.string;
@@ -480,6 +481,36 @@ class PackageManager {
 		}
 		scanLocalPackages(m_systemPackagePath, m_localSystemPackages);
 		scanLocalPackages(m_userPackagePath, m_localUserPackages);
+	}
+
+	alias ubyte[] Hash;
+	/// Generates a hash value for a given package.
+	/// Some files or folders are ignored during the generation (like .dub and
+	/// .svn folders)
+	Hash hashPackage(Package pack) 
+	{
+		string[] ignored_directories = [".git", ".dub", ".svn"];
+		// something from .dub_ignore or what?
+		string[] ignored_files = [];
+		SHA1 sha1;
+		foreach(file; dirEntries(pack.path.toNativeString(), SpanMode.depth)) {
+			if(file.isDir && ignored_directories.canFind(Path(file.name).head.toString()))
+				continue;
+			else if(ignored_files.canFind(Path(file.name).head.toString()))
+				continue;
+
+			sha1.put(cast(ubyte[])Path(file.name).head.toString());
+			if(file.isDir) {
+				logTrace("Hashed directory name %s", Path(file.name).head);
+			}
+			else {
+				sha1.put(openFile(Path(file.name)).readAll());
+				logTrace("Hashed file contents from %s", Path(file.name).head);
+			}
+		}
+		auto hash = sha1.finish();
+		logTrace("Project hash: %s", hash);
+		return hash[0..$];
 	}
 
 	private Package[]* getLocalPackageList(LocalPackageType type)

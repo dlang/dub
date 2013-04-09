@@ -47,17 +47,17 @@ enum InstallLocation {
 /// 
 /// Json file example:
 /// {
-/// 		"name": "MetalCollection",
-/// 		"author": "VariousArtists",
-/// 		"version": "1.0.0",
+/// 	"name": "MetalCollection",
+/// 	"author": "VariousArtists",
+/// 	"version": "1.0.0",
 ///		"url": "https://github.org/...",
 ///		"keywords": "a,b,c",
 ///		"category": "music.best",
-/// 		"dependencies": {
-/// 			"black-sabbath": ">=1.0.0",
-/// 			"CowboysFromHell": "<1.0.0",
-/// 			"BeneathTheRemains": {"version": "0.4.1", "path": "./beneath-0.4.1"}
-/// 		}
+/// 	"dependencies": {
+/// 		"black-sabbath": ">=1.0.0",
+/// 		"CowboysFromHell": "<1.0.0",
+/// 		"BeneathTheRemains": {"version": "0.4.1", "path": "./beneath-0.4.1"}
+/// 	}
 ///		"licenses": {
 ///			...
 ///		}
