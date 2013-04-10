@@ -261,6 +261,7 @@ EndGlobal");
 			auto pbuildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
 			m_app.addBuildSettings(buildsettings, settings.platform, m_app.getDefaultConfiguration(settings.platform));
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
+			string[] getPathSettings(string setting)(){ return getSettings!setting().map!(p => (Path(p).relativeTo(pack.path)).toNativeString())().array(); }
 			
 			foreach(architecture; settings.platform.architecture) {
 				string arch;
@@ -288,8 +289,8 @@ EndGlobal");
     <exefile>%s%s%s.%s</exefile>", is_lib ? "1" : "0", bin_path.toNativeString(), pbuildsettings.targetName, debugSuffix, is_lib ? "lib" : "exe");
 
 				// include paths and string imports
-				string imports = join(getSettings!"importPaths"(), " ");
-				string stringImports = join(getSettings!"stringImportPaths"(), " ");
+				string imports = join(getPathSettings!"importPaths"(), " ");
+				string stringImports = join(getPathSettings!"stringImportPaths"(), " ");
 				ret.formattedWrite("
     <imppath>%s</imppath>
     <fileImppath>%s</fileImppath>", imports, stringImports);
