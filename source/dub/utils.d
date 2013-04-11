@@ -7,10 +7,11 @@
 */
 module dub.utils;
 
-import vibecompat.core.file;
-import vibecompat.core.log;
-import vibecompat.data.json;
-import vibecompat.inet.url;
+import dub.internal.std.process;
+import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.data.json;
+import dub.internal.vibecompat.inet.url;
 
 // todo: cleanup imports.
 import std.array;
@@ -20,7 +21,6 @@ import std.algorithm;
 import std.zip;
 import std.typecons;
 import std.conv;
-import stdx.process;
 
 
 package bool isEmptyDir(Path p) {

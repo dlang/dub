@@ -37,9 +37,9 @@
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
-module vibecompat.data.json;
+module dub.internal.vibecompat.data.json;
 
-import vibecompat.data.utils;
+import dub.internal.vibecompat.data.utils;
 
 import std.array;
 import std.conv;

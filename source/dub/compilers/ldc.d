@@ -8,15 +8,15 @@
 module dub.compilers.ldc;
 
 import dub.compilers.compiler;
+import dub.internal.std.process;
+import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.inet.path;
 import dub.platform;
 
 import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
-import stdx.process;
-import vibecompat.core.log;
-import vibecompat.inet.path;
 
 
 class LdcCompiler : Compiler {

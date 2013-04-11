@@ -5,9 +5,9 @@
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
-module vibecompat.inet.url;
+module dub.internal.vibecompat.inet.url;
 
-public import vibecompat.inet.path;
+public import dub.internal.vibecompat.inet.path;
 
 import std.algorithm;
 import std.array;

@@ -9,6 +9,10 @@ module dub.generators.build;
 
 import dub.compilers.compiler;
 import dub.generators.generator;
+import dub.internal.std.process;
+import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
@@ -20,11 +24,6 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.string;
-import stdx.process;
-
-import vibecompat.core.file;
-import vibecompat.core.log;
-import vibecompat.inet.path;
 
 
 class BuildGenerator : ProjectGenerator {

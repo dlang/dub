@@ -10,6 +10,11 @@ module dub.dub;
 import dub.compilers.compiler;
 import dub.dependency;
 import dub.installation;
+import dub.internal.std.process;
+import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.data.json;
+import dub.internal.vibecompat.inet.url;
 import dub.utils;
 import dub.registry;
 import dub.package_;
@@ -18,10 +23,6 @@ import dub.packagesupplier;
 import dub.project;
 import dub.generators.generator;
 
-import vibecompat.core.file;
-import vibecompat.core.log;
-import vibecompat.data.json;
-import vibecompat.inet.url;
 
 // todo: cleanup imports.
 import std.algorithm;
@@ -33,7 +34,6 @@ import std.file;
 import std.string;
 import std.typecons;
 import std.zip;
-import stdx.process;
 
 
 

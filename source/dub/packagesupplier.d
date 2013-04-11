@@ -7,19 +7,18 @@
 */
 module dub.packagesupplier;
 
-import dub.utils;
 import dub.dependency;
+import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.data.json;
+import dub.internal.vibecompat.inet.url;
+import dub.internal.vibecompat.inet.urltransfer;
+import dub.utils;
 
 import std.file;
 import std.exception;
 import std.zip;
 import std.conv;
-
-import vibecompat.core.log;
-import vibecompat.core.file;
-import vibecompat.data.json;
-import vibecompat.inet.url;
-import vibecompat.inet.urltransfer;
 
 /// Supplies packages, this is done by supplying the latest possible version
 /// which is available.

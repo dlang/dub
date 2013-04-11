@@ -63,7 +63,7 @@ Macros:
     WIKI=Phobos/StdProcess
     OBJECTREF=$(D $(LINK2 object.html#$0,$0))
 */
-module stdx.process;
+module dub.internal.std.process;
 
 version (Posix)
 {

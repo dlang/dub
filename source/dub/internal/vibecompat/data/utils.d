@@ -5,7 +5,7 @@
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
-module vibecompat.data.utils;
+module dub.internal.vibecompat.data.utils;
 
 public import std.traits;
 

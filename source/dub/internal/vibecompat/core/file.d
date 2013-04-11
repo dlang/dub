@@ -5,12 +5,12 @@
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
-module vibecompat.core.file;
+module dub.internal.vibecompat.core.file;
 
-public import vibecompat.inet.url;
+public import dub.internal.vibecompat.inet.url;
 public import std.stdio;
 
-import vibecompat.core.log;
+import dub.internal.vibecompat.core.log;
 
 import std.conv;
 import std.c.stdio;

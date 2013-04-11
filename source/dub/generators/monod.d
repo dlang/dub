@@ -9,6 +9,8 @@ module dub.generators.monod;
 
 import dub.compilers.compiler;
 import dub.generators.generator;
+import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.core.log;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
@@ -20,9 +22,6 @@ import std.conv;
 import std.format;
 import std.uuid;
 import std.exception;
-
-import vibecompat.core.file;
-import vibecompat.core.log;
 
 
 // TODO: handle pre/post build commands

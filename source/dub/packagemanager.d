@@ -9,6 +9,10 @@ module dub.packagemanager;
 
 import dub.dependency;
 import dub.installation;
+import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.data.json;
+import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.utils;
 
@@ -19,10 +23,6 @@ import std.exception;
 import std.file;
 import std.string;
 import std.zip;
-import vibecompat.core.file;
-import vibecompat.core.log;
-import vibecompat.data.json;
-import vibecompat.inet.path;
 
 
 enum JournalJsonFilename = "journal.json";

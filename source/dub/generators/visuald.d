@@ -9,6 +9,8 @@ module dub.generators.visuald;
 
 import dub.compilers.compiler;
 import dub.generators.generator;
+import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.core.log;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
@@ -21,8 +23,6 @@ import std.format;
 import std.uuid;
 import std.exception;
 
-import vibecompat.core.file;
-import vibecompat.core.log;
 
 version = VISUALD_SEPERATE_PROJECT_FILES;
 //version = VISUALD_SINGLE_PROJECT_FILE;

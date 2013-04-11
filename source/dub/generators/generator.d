@@ -12,6 +12,9 @@ import dub.generators.build;
 import dub.generators.monod;
 import dub.generators.rdmd;
 import dub.generators.visuald;
+import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
@@ -19,9 +22,6 @@ import dub.project;
 import std.exception;
 import std.file;
 import std.string;
-import vibecompat.core.file;
-import vibecompat.core.log;
-import vibecompat.inet.path;
 
 
 /**
@@ -128,7 +128,7 @@ void finalizeGeneration(BuildSettings buildsettings, bool generate_binary)
 
 void runBuildCommands(string[] commands, in BuildSettings build_settings)
 {
-	import stdx.process;
+	import dub.internal.std.process;
 	import dub.utils;
 
 	string[string] env = environment.toAA();

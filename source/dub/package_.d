@@ -9,6 +9,10 @@ module dub.package_;
 
 import dub.compilers.compiler;
 import dub.dependency;
+import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.data.json;
+import dub.internal.vibecompat.inet.url;
 import dub.utils;
 
 import std.algorithm;
@@ -19,10 +23,6 @@ import std.file;
 import std.range;
 import std.string;
 import std.traits : EnumMembers;
-import vibecompat.core.log;
-import vibecompat.core.file;
-import vibecompat.data.json;
-import vibecompat.inet.url;
 
 enum PackageJsonFilename = "package.json";
 

@@ -10,12 +10,12 @@ module dub.compilers.compiler;
 import dub.compilers.dmd;
 import dub.compilers.gdc;
 import dub.compilers.ldc;
+import dub.internal.vibecompat.data.json;
+import dub.internal.vibecompat.inet.path;
 
 import std.algorithm;
 import std.array;
 import std.exception;
-import vibecompat.data.json;
-import vibecompat.inet.path;
 
 
 static this()
@@ -47,7 +47,8 @@ void registerCompiler(Compiler c)
 
 void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, string config_name)
 {
-	import vibecompat.core.log;
+	import dub.internal.vibecompat.core.log;
+	
 	struct SpecialFlag {
 		string[] flags;
 		string alternative;
