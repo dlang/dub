@@ -325,7 +325,7 @@ EndGlobal");
     <link>0</link>
     <subsystem>0</subsystem>
     <multiobj>0</multiobj>
-    <singleFileCompilation>0</singleFileCompilation>
+    <singleFileCompilation>2</singleFileCompilation>
     <oneobj>0</oneobj>
     <trace>0</trace>
     <quiet>0</quiet>
@@ -349,7 +349,7 @@ EndGlobal");
     <useSwitchError>0</useSwitchError>
     <useInline>0</useInline>
     <release>0</release>
-    <preservePaths>0</preservePaths>
+    <preservePaths>1</preservePaths>
     <warnings>0</warnings>
     <infowarnings>0</infowarnings>
     <checkProperty>0</checkProperty>
