@@ -84,8 +84,10 @@ class Project {
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
-	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false)
+	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null)
 	const {
+		const(Package) rootpack = root_package ? root_package : m_main;
+	
 		int iterator(int delegate(ref const Package) del)
 		{
 			int ret = 0;
@@ -109,9 +111,10 @@ class Project {
 					if( ret ) return;
 				}
 			}
-			perform_rec(m_main);
+			perform_rec(rootpack);
 			return ret;
 		}
+		
 		return &iterator;
 	}
 
@@ -232,11 +235,11 @@ class Project {
 	}
 
 	/// Returns the DFLAGS
-	void addBuildSettings(ref BuildSettings dst, in BuildPlatform platform, string config)
+	void addBuildSettings(ref BuildSettings dst, in BuildPlatform platform, string config, in Package root_package = null)
 	const {
 		auto configs = getPackageConfigs(platform, config);
 
-		foreach(pkg; this.getTopologicalPackageList()){
+		foreach(pkg; this.getTopologicalPackageList(false, root_package)){
 			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
 			processVars(dst, pkg.path.toNativeString(), psettings);
 			if( pkg is m_main ){

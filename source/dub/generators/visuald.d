@@ -259,9 +259,10 @@ EndGlobal");
 			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
 			auto buildsettings = settings.buildSettings;
 			auto pbuildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
-			m_app.addBuildSettings(buildsettings, settings.platform, m_app.getDefaultConfiguration(settings.platform));
+			m_app.addBuildSettings(buildsettings, settings.platform, m_app.getDefaultConfiguration(settings.platform), pack);
+			
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
-			string[] getPathSettings(string setting)(){ return getSettings!setting().map!(p => (Path(p).relativeTo(pack.path)).toNativeString())().array(); }
+			string[] getPathSettings(string setting)(){ return getSettings!setting().map!(p => (Path(p).relativeTo(m_app.mainPackage.path)).toNativeString())().array(); }
 			
 			foreach(architecture; settings.platform.architecture) {
 				string arch;
