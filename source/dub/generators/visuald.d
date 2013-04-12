@@ -318,6 +318,13 @@ EndGlobal");
 				// Unittests
 				ret.formattedWrite("
 				<useUnitTests>%s</useUnitTests>", type == Config.Unittest? "1" : "0");
+
+				// compute directory for intermediate files (need dummy/ because of how -op determines the resulting path)
+				auto relpackpath = pack.path.relativeTo(m_app.mainPackage.path);
+				uint ndummy = 0;
+				foreach (i; 0 .. relpackpath.length)
+					if (pack.path[i] == "..") ndummy++;
+				string intersubdir = (ndummy*2 > relpackpath.length ? replicate("dummy/", ndummy*2-relpackpath.length) : "") ~ "/" ~ pack.name;
 		
 				// Not yet dynamic stuff
 				ret.formattedWrite("
@@ -362,8 +369,10 @@ EndGlobal");
     <compiler>0</compiler>
     <otherDMD>0</otherDMD>
     <outdir>$(ConfigurationName)</outdir>
-    <objdir>$(OutDir)</objdir>
-    <objname />
+");
+			ret.formattedWrite("    <objdir>.dub/obj/%s</objdir>\n", intersubdir);
+			ret.formattedWrite("%s",
+"    <objname />
     <libname />
     <doDocComments>0</doDocComments>
     <docdir />
