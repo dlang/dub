@@ -16,19 +16,12 @@ import core.thread;
 private {
 	shared LogLevel s_minLevel = LogLevel.Info;
 	shared LogLevel s_logFileLevel;
-	shared bool s_plainLogging = false;
 }
 
 /// Sets the minimum log level to be printed.
 void setLogLevel(LogLevel level) nothrow
 {
 	s_minLevel = level;
-}
-
-/// Disables output of thread/task ids with each log message
-void setPlainLogging(bool enable)
-{
-	s_plainLogging = enable;
 }
 
 /**
@@ -74,8 +67,7 @@ nothrow {
 		fiberid ^= fiberid >> 32;
 
 		if( level >= s_minLevel ){
-			if( s_plainLogging ) writeln(txt.data());
-			else writefln("[%08X:%08X %s] %s", threadid, fiberid, pref, txt.data());
+			writeln(txt.data());
 			stdout.flush();
 		}
 	} catch( Exception e ){

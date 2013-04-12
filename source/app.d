@@ -77,7 +77,6 @@ int main(string[] args)
 		else if( vquiet ) loglevel = LogLevel.None;
 		else if( quiet ) loglevel = LogLevel.Warn;
 		setLogLevel(loglevel);
-		if( loglevel >= LogLevel.Info ) setPlainLogging(true);
 
 		// extract the command
 		if( args.length > 1 && !args[1].startsWith("-") ){
