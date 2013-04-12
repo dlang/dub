@@ -1,6 +1,35 @@
 Changelog
 =========
 
+v0.9.13 - 2013-04-
+--------------------
+
+### Features and improvements ###
+
+ - Implemented `"buildRequirements"` to allow packages to specify certain build requirements (e.g. avoiding function inlining or warnings)
+ - Experimental support to specify flags to pass to "ddox filter" for --build=ddox
+ - Configurations inherit the global `"targetType"` by default now
+ - Import paths in VisualD projects are now relative
+ - Cleaner console output for -v (no thread/fiber ID is printed anymore)
+
+### Bug fixes ###
+
+ - Fix upgrading of branch based dependencies - [issue #55][issue55]
+ - Fix wording and repetition of the reserved compiler flag warning message - [issue #54][issue54]
+ - Fix erroneous inclusion of .d files in the import libraries field of generated VisualD projects
+ - Fix passing "package.json" to the compiler in generated Mono-D projects - [issue #60][issue60]
+ - Fix the Mono-D and VisualD generators to properly copy `"copyFiles"` - [issue #58][issue58]
+ - Fix removing of temporary files in case of unexpected folder contents - [issue #41][issue41]
+ - Fix invocation of the linker on Windows in case of another "link.exe" being in PATH - [issue #57][issue57]
+
+[issue41]: https://github.com/rejectedsoftware/dub/issues/41
+[issue54]: https://github.com/rejectedsoftware/dub/issues/54
+[issue55]: https://github.com/rejectedsoftware/dub/issues/55
+[issue57]: https://github.com/rejectedsoftware/dub/issues/57
+[issue58]: https://github.com/rejectedsoftware/dub/issues/58
+[issue60]: https://github.com/rejectedsoftware/dub/issues/60
+
+
 v0.9.12 - 2013-03-21
 --------------------
 
