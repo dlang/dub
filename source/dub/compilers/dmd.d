@@ -123,16 +123,9 @@ class DmdCompiler : Compiler {
 	{
 		import std.string;
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		version(Windows){
-			string[] libs = settings.dflags.dup.filter!(l => l.endsWith(".lib"))().array() ~ settings.sourceFiles;
-			string arg = format("%s,%s,,%s/co/noi", objects.join("+"), tpath.toNativeString(), libs.join("+"));
-			logDebug("link.exe %s", arg);
-			auto res = spawnProcess(["link.exe", arg]).wait();
-		} else {
-			auto args = ["dmd", "-of"~tpath.toNativeString()] ~ objects ~ settings.lflags.map!(l => "-L"~l)().array();
-			logDebug("%s", args.join(" "));
-			auto res = spawnProcess(args).wait();
-		}
+		auto args = ["dmd", "-of"~tpath.toNativeString()] ~ objects ~ settings.lflags.map!(l => "-L"~l)().array() ~ settings.sourceFiles;
+		logDebug("%s", args.join(" "));
+		auto res = spawnProcess(args).wait();
 		enforce(res == 0, "Link command failed with exit code "~to!string(res));
 	}
 }

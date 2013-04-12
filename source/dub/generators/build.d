@@ -130,6 +130,11 @@ class BuildGenerator : ProjectGenerator {
 			auto result = compiler_pid.wait();
 			enforce(result == 0, "Build command failed with exit code "~to!string(result));
 		} else {
+			// determine path for the temporary object file
+			version(Windows) enum tempobjname = "temp.obj";
+			else enum tempobjname = "temp.o";
+			Path tempobj = Path(buildsettings.targetPath) ~ tempobjname;
+
 			// setup linker command line
 			auto lbuildsettings = buildsettings;
 			lbuildsettings.dflags = null;
@@ -137,17 +142,19 @@ class BuildGenerator : ProjectGenerator {
 			lbuildsettings.stringImportPaths = null;
 			lbuildsettings.versions = null;
 			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => f.endsWith(".lib"))().array();
-			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate);
+			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
 
 			// setup compiler command line
 			buildsettings.libs = null;
 			buildsettings.lflags = null;
-			buildsettings.addDFlags("-c", "-oftemp.o");
+			buildsettings.addDFlags("-c", "-of"~tempobj.toNativeString());
+			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !f.endsWith(".lib"))().array();
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			// write response file instead of passing flags directly to the compiler
 			auto res_file = Path(buildsettings.targetPath) ~ ".dmd-response-file.txt";
 			cleanup_files ~= res_file;
+			cleanup_files ~= tempobj;
 			std.file.write(res_file.toNativeString(), join(buildsettings.dflags, "\n"));
 
 			logInfo("Running %s (compile)...", settings.compilerBinary);
@@ -157,7 +164,7 @@ class BuildGenerator : ProjectGenerator {
 
 			logInfo("Linking...", settings.compilerBinary);
 			if( settings.run ) cleanup_files ~= exe_file_path;
-			settings.compiler.invokeLinker(lbuildsettings, settings.platform, ["temp.o"]);
+			settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()]);
 		}
 
 		// run post-build commands
