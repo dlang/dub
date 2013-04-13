@@ -283,7 +283,7 @@ EndGlobal");
 				// Lib or exe?
 				bool is_lib = pbuildsettings.targetType != TargetType.executable;
 				string debugSuffix = type == Config.Debug? "_d" : "";
-				auto bin_path = Path(pbuildsettings.targetPath);
+				auto bin_path = pack is m_app.mainPackage ? Path(pbuildsettings.targetPath) : Path(".dub/lib/");
 				bin_path.endsWithSlash = true;
 				ret.formattedWrite("
     <lib>%s</lib>
@@ -324,7 +324,7 @@ EndGlobal");
 				uint ndummy = 0;
 				foreach (i; 0 .. relpackpath.length)
 					if (pack.path[i] == "..") ndummy++;
-				string intersubdir = (ndummy*2 > relpackpath.length ? replicate("dummy/", ndummy*2-relpackpath.length) : "") ~ "/" ~ pack.name;
+				string intersubdir = (ndummy*2 > relpackpath.length ? replicate("dummy/", ndummy*2-relpackpath.length) : "") ~ pack.name;
 		
 				// Not yet dynamic stuff
 				ret.formattedWrite("
@@ -368,8 +368,8 @@ EndGlobal");
     <ignoreUnsupportedPragmas>0</ignoreUnsupportedPragmas>
     <compiler>0</compiler>
     <otherDMD>0</otherDMD>
-    <outdir>$(ConfigurationName)</outdir>
 ");
+			ret.formattedWrite("    <outdir>%s</outdir>\n", bin_path.toNativeString());
 			ret.formattedWrite("    <objdir>.dub/obj/%s</objdir>\n", intersubdir);
 			ret.formattedWrite("%s",
 "    <objname />
