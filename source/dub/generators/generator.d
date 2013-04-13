@@ -111,17 +111,20 @@ void finalizeGeneration(BuildSettings buildsettings, bool generate_binary)
 		runBuildCommands(buildsettings.postGenerateCommands, buildsettings);
 	}
 
-	if (generate_binary && buildsettings.copyFiles.length) {
-		logInfo("Copying files...");
+	if (generate_binary) {
 		if (!exists(buildsettings.targetPath))
 			mkdirRecurse(buildsettings.targetPath);
-		foreach (f; buildsettings.copyFiles) {
-			auto src = Path(f);
-			auto dst = Path(buildsettings.targetPath) ~ Path(f).head;
-			logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
-			try {
-				copyFile(src, dst, true);
-			} catch logWarn("Failed to copy to %s", dst.toNativeString());
+		
+		if (buildsettings.copyFiles.length) {
+			logInfo("Copying files...");
+			foreach (f; buildsettings.copyFiles) {
+				auto src = Path(f);
+				auto dst = Path(buildsettings.targetPath) ~ Path(f).head;
+				logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
+				try {
+					copyFile(src, dst, true);
+				} catch logWarn("Failed to copy to %s", dst.toNativeString());
+			}
 		}
 	}
 }
