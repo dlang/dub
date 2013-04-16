@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.9.13 - 2013-04-
+v0.9.13 - 2013-04-16
 --------------------
 
 ### Features and improvements ###
@@ -11,6 +11,8 @@ v0.9.13 - 2013-04-
  - Configurations inherit the global `"targetType"` by default now
  - Import paths in VisualD projects are now relative
  - Cleaner console output for -v (no thread/fiber ID is printed anymore)
+ - Build settings for VisualD projects are tuned to avoid common linker/compiler bugs by default
+ - Generated VisualD projects put intermediate files to ".dub/obj/&lt;projectname&gt;" now
 
 ### Bug fixes ###
 
@@ -21,6 +23,7 @@ v0.9.13 - 2013-04-
  - Fix the Mono-D and VisualD generators to properly copy `"copyFiles"` - [issue #58][issue58]
  - Fix removing of temporary files in case of unexpected folder contents - [issue #41][issue41]
  - Fix invocation of the linker on Windows in case of another "link.exe" being in PATH - [issue #57][issue57]
+ - Fix computation of build settings for VisualD projects (inheritance works only bottom to top now)
 
 [issue41]: https://github.com/rejectedsoftware/dub/issues/41
 [issue54]: https://github.com/rejectedsoftware/dub/issues/54
