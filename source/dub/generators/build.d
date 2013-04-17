@@ -138,10 +138,6 @@ class BuildGenerator : ProjectGenerator {
 
 			// setup linker command line
 			auto lbuildsettings = buildsettings;
-			lbuildsettings.dflags = null;
-			lbuildsettings.importPaths = null;
-			lbuildsettings.stringImportPaths = null;
-			lbuildsettings.versions = null;
 			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => f.endsWith(".lib"))().array();
 			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
 
