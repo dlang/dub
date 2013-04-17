@@ -54,6 +54,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		auto generate_binary = !buildsettings.dflags.canFind("-o-");
+		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
 
 		// make paths relative to shrink the command line
 		foreach(ref f; buildsettings.sourceFiles){
@@ -115,7 +116,7 @@ class BuildGenerator : ProjectGenerator {
 			      on the other compilers. Later this should be integrated somehow in the build process
 			      (either in the package.json, or using a command line flag)
 		*/
-		if( settings.compiler.name != "dmd" || !generate_binary ){
+		if (settings.compiler.name != "dmd" || !generate_binary || is_static_library) {
 			// setup for command line
 			if( generate_binary ) settings.compiler.setTarget(buildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
