@@ -109,8 +109,8 @@ class RdmdGenerator : ProjectGenerator {
 			runCommands(buildsettings.postBuildCommands);
 		}
 
-		if( generate_binary ){
-			if( settings.run ){
+		if (generate_binary && settings.run) {
+			if (buildsettings.targetType == TargetType.executable) {
 				logInfo("Running %s...", run_exe_file.toNativeString());
 				auto prg_pid = spawnProcess(run_exe_file.toNativeString() ~ settings.runArgs);
 				result = prg_pid.wait();
@@ -118,7 +118,7 @@ class RdmdGenerator : ProjectGenerator {
 				foreach( f; buildsettings.copyFiles )
 					remove((run_exe_file.parentPath ~ Path(f).head).toNativeString());
 				enforce(result == 0, "Program exited with code "~to!string(result));
-			}
+			} else logInfo("Target is a library. Skipping execution.");
 		}
 	}
 }

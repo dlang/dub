@@ -107,9 +107,6 @@ class BuildGenerator : ProjectGenerator {
 			if (generate_binary && settings.run)
 				rmdirRecurse(buildsettings.targetPath);
 		}
-		
-		if (buildsettings.targetType == TargetType.library || buildsettings.targetType == TargetType.staticLibrary)
-			settings.run = false; // fix default command for libraries - replace run with build
 
 		/*
 			NOTE: for DMD experimental separate compile/link is used, but this is not yet implemented
@@ -178,13 +175,13 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		// copy files and run the executable
-		if( generate_binary ){
-			if( settings.run ){
+		if (generate_binary && settings.run) {
+			if (buildsettings.targetType == TargetType.executable) {
 				logInfo("Running %s...", exe_file_path.toNativeString());
 				auto prg_pid = spawnProcess(exe_file_path.toNativeString() ~ settings.runArgs);
 				auto result = prg_pid.wait();
 				enforce(result == 0, "Program exited with code "~to!string(result));
-			}
+			} else logInfo("Target is a library. Skipping execution.");
 		}
 	}
 }
