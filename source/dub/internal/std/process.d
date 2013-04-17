@@ -1133,7 +1133,7 @@ private File encapPipeAsFile(FILE* fil)
     auto f = File.wrapFile(fil);
     auto imp = *cast(Impl**)&f;
     imp.refs = 1;
-    imp.isPipe = true;
+    imp.isPipe = false;
     return f;
 } 
 
