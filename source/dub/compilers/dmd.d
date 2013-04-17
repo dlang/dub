@@ -123,7 +123,8 @@ class DmdCompiler : Compiler {
 	{
 		import std.string;
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		auto args = ["dmd", "-of"~tpath.toNativeString()] ~ objects ~ settings.lflags.map!(l => "-L"~l)().array() ~ settings.sourceFiles;
+		string[] dflags = settings.targetType == TargetType.library || settings.targetType == TargetType.staticLibrary ? ["-lib"] : [];
+		auto args = ["dmd", "-of"~tpath.toNativeString()] ~ objects ~ dflags ~ settings.lflags.map!(l => "-L"~l)().array() ~ settings.sourceFiles;
 		logDebug("%s", args.join(" "));
 		auto res = spawnProcess(args).wait();
 		enforce(res == 0, "Link command failed with exit code "~to!string(res));

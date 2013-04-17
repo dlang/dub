@@ -106,6 +106,9 @@ class BuildGenerator : ProjectGenerator {
 			if (generate_binary && settings.run)
 				rmdirRecurse(buildsettings.targetPath);
 		}
+		
+		if (buildsettings.targetType == TargetType.library || buildsettings.targetType == TargetType.staticLibrary)
+			settings.run = false; // fix default command for libraries - replace run with build
 
 		/*
 			NOTE: for DMD experimental separate compile/link is used, but this is not yet implemented
