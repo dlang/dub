@@ -245,6 +245,10 @@ class Project {
 				dst.targetType = psettings.targetType;
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
+				if (config.length) {
+					auto conf = pkg.info.findConfiguration(config);
+					conf.applyBuildSettings(dst);
+				}
 			}
 		}
 
