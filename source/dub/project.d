@@ -219,12 +219,11 @@ class Project {
 						enforce(*pc == conf, format("Conflicting configurations detected for %s: %s vs. %s", dn, *pc, conf));
 					} else {
 						configs[dn] = conf;
-						determineConfigsRec(dep, use_default);
 					}
 				} else if( use_default && dn !in configs ){
 					configs[dn] = dep.getDefaultConfiguration(platform);
-					determineConfigsRec(dep, use_default);
 				}
+				determineConfigsRec(dep, use_default);
 			}
 		}
 
