@@ -262,6 +262,15 @@ struct PackageInfo {
 	Dependency[string] dependencies;
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
+	
+	const (ConfigurationInfo) findConfiguration(string config) const {
+		foreach(conf; configurations) {
+			if (conf.name != config)
+				continue;
+			return conf;
+		}
+		return ConfigurationInfo();
+	}
 
 	void parseJson(Json json)
 	{
@@ -354,18 +363,71 @@ struct ConfigurationInfo {
 		this.buildSettings = build_settings;
 	}
 
+	void applyBuildSettings(ref BuildSettings ret) const {
+		if (buildSettings.targetType != TargetType.autodetect) {
+			logDebug("applying target type %d", buildSettings.targetType);
+			ret.targetType = buildSettings.targetType;
+		}
+		// TODO: apply more options here
+	}
+	
 	void parseJson(Json json, TargetType default_target_type = TargetType.library)
 	{
 		this.buildSettings.targetType = default_target_type;
 
 		foreach(string name, value; json){
-			switch(name){
+			auto idx = std.string.indexOf(name, "-");
+			string basename, suffix;
+			if( idx >= 0 ) 
+				basename = name[0 .. idx], suffix = name[idx .. $];
+			else 
+				basename = name;			
+			switch(basename){
 				default: break;
 				case "name":
 					this.name = value.get!string();
 					enforce(!this.name.empty, "Configurations must have a non-empty name.");
 					break;
 				case "platforms": this.platforms = deserializeJson!(string[])(value); break;
+					break;
+				case "targetType":
+					enforce(suffix.empty, "targetType does not support platform customization.");
+					this.buildSettings.targetType = value.get!string().to!TargetType();
+					break;
+				case "targetPath":
+					enforce(suffix.empty, "targetPath does not support platform customization.");
+					this.buildSettings.targetPath = value.get!string;
+					break;
+				case "targetName":
+					enforce(suffix.empty, "targetName does not support platform customization.");
+					this.buildSettings.targetName = value.get!string;
+					break;
+				case "subConfigurations":
+					enforce(suffix.empty, "subConfigurations does not support platform customization.");
+					this.buildSettings.subConfigurations = deserializeJson!(string[string])(value);
+					break;
+				case "dflags": this.buildSettings.dflags[suffix] = deserializeJson!(string[])(value); break;
+				case "lflags": this.buildSettings.lflags[suffix] = deserializeJson!(string[])(value); break;
+				case "libs": this.buildSettings.libs[suffix] = deserializeJson!(string[])(value); break;
+				case "files":
+				case "sourceFiles": this.buildSettings.sourceFiles[suffix] = deserializeJson!(string[])(value); break;
+				case "sourcePaths": this.buildSettings.sourcePaths[suffix] = deserializeJson!(string[])(value); break;
+				case "sourcePath": this.buildSettings.sourcePaths[suffix] ~= [value.get!string()]; break; // deprecated
+				case "excludedSourceFiles": this.buildSettings.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
+				case "copyFiles": this.buildSettings.copyFiles[suffix] = deserializeJson!(string[])(value); break;
+				case "versions": this.buildSettings.versions[suffix] = deserializeJson!(string[])(value); break;
+				case "importPaths": this.buildSettings.importPaths[suffix] = deserializeJson!(string[])(value); break;
+				case "stringImportPaths": this.buildSettings.stringImportPaths[suffix] = deserializeJson!(string[])(value); break;
+				case "preGenerateCommands": this.buildSettings.preGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
+				case "postGenerateCommands": this.buildSettings.postGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
+				case "preBuildCommands": this.buildSettings.preBuildCommands[suffix] = deserializeJson!(string[])(value); break;
+				case "postBuildCommands": this.buildSettings.postBuildCommands[suffix] = deserializeJson!(string[])(value); break;
+				case "buildRequirements":
+					BuildRequirements reqs;
+					foreach (req; deserializeJson!(string[])(value))
+						reqs |= to!BuildRequirements(req);
+					this.buildSettings.buildRequirements[suffix] = reqs;
+					break;
 			}
 		}
 

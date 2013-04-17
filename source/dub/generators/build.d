@@ -53,7 +53,7 @@ class BuildGenerator : ProjectGenerator {
 			addBuildTypeFlags(buildsettings, settings.buildType);
 		}
 
-		auto generate_binary = !buildsettings.dflags.canFind("-o-");
+		auto generate_binary = buildsettings.targetType == TargetType.executable && !buildsettings.dflags.canFind("-o-");
 
 		// make paths relative to shrink the command line
 		foreach(ref f; buildsettings.sourceFiles){
@@ -70,7 +70,7 @@ class BuildGenerator : ProjectGenerator {
 			else tmp = ".";
 		}
 
-		if( settings.config.length ) logInfo("Building configuration \""~settings.config~"\", build type "~settings.buildType);
+		if( settings.config.length ) logInfo("Building configuration \""~settings.config~"\", build type "~settings.buildType ~ ", target type " ~ to!string(buildsettings.targetType));
 		else logInfo("Building default configuration, build type "~settings.buildType);
 
 		prepareGeneration(buildsettings);
@@ -114,7 +114,8 @@ class BuildGenerator : ProjectGenerator {
 		*/
 		if( settings.compiler.name != "dmd" || !generate_binary ){
 			// setup for command line
-			if( generate_binary ) settings.compiler.setTarget(buildsettings, settings.platform);
+			//if( generate_binary ) 
+			settings.compiler.setTarget(buildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			// write response file instead of passing flags directly to the compiler
@@ -143,7 +144,7 @@ class BuildGenerator : ProjectGenerator {
 			lbuildsettings.versions = null;
 			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => f.endsWith(".lib"))().array();
 			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
-
+			
 			// setup compiler command line
 			buildsettings.libs = null;
 			buildsettings.lflags = null;
@@ -164,6 +165,7 @@ class BuildGenerator : ProjectGenerator {
 
 			logInfo("Linking...", settings.compilerBinary);
 			if( settings.run ) cleanup_files ~= exe_file_path;
+			settings.compiler.setTarget(lbuildsettings, settings.platform);
 			settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()]);
 		}
 
