@@ -246,6 +246,9 @@ class Project {
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
 			}
+			else if(psettings.targetType == TargetType.executable) {
+				dst.binPaths ~= (pkg.path~PathEntry(psettings.targetPath)).toNativeString();
+			}
 		}
 
 		// add version identifiers for available packages

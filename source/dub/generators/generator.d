@@ -22,7 +22,7 @@ import dub.project;
 import std.exception;
 import std.file;
 import std.string;
-
+import std.array;
 
 /**
 	Common interface for project generators/builders.
@@ -143,5 +143,14 @@ void runBuildCommands(string[] commands, in BuildSettings build_settings)
 	env["LIBS"] = join(cast(string[])build_settings.libs," ");
 	env["IMPORT_PATHS"] = join(cast(string[])build_settings.importPaths," ");
 	env["STRING_IMPORT_PATHS"] = join(cast(string[])build_settings.stringImportPaths," ");
+	/// FIXME , this should be dependent on the target
+	version(Posix) string sep=":";
+	else version(Windows) string sep=";";
+	else static assert(0, "Unsupported platform!");
+	if(!env["PATH"].empty && !build_settings.binPaths.empty)
+		env["PATH"] ~= sep;
+	env["PATH"] ~= join(cast(string[])build_settings.binPaths, sep);
+	writeln("binPaths: ", build_settings.binPaths);
+	writeln("Path: ", env["PATH"]);
 	runCommands(commands, env);
 }

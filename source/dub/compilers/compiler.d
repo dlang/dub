@@ -132,6 +132,7 @@ struct BuildSettings {
 	string[] copyFiles;
 	string[] versions;
 	string[] importPaths;
+	string[] binPaths; // Where to search for executables (for the following commands environment)
 	string[] stringImportPaths;
 	string[] preGenerateCommands;
 	string[] postGenerateCommands;
