@@ -208,7 +208,8 @@ class Package {
 	const {
 		foreach(ref conf; m_info.configurations){
 			if( !conf.matchesPlatform(platform) ) continue;
-			if( !is_main_package && conf.buildSettings.targetType == TargetType.executable ) continue;
+		// FIXME Is this really necessary? What about application dependencies?
+		//	if( !is_main_package && conf.buildSettings.targetType == TargetType.executable ) continue;
 			return conf.name;
 		}
 		throw new Exception(format("Found no suitable configuration for %s on this platform.", this.name));
