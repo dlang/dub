@@ -450,6 +450,9 @@ class Project {
 				logTrace("Adding package to graph: "~pkg);
 				Package p = m_packageManager.getBestPackage(pkg, reqDep.dependency);
 				if( p ) logTrace("Found installed package %s %s", pkg, p.ver);
+
+				// Don't bother with not available optional packages.
+				if( !p && reqDep.dependency.optional ) continue;
 				
 				// Try an already installed package first
 				if( p && p.installLocation != InstallLocation.local && needsUpToDateCheck(pkg) ){
@@ -457,7 +460,7 @@ class Project {
 					p = null;
 				}
 
-				if( !reqDep.dependency.optional && !p ){
+				if( !p ){
 					try {
 						logDebug("using package from registry");
 						foreach(ps; packageSuppliers){
