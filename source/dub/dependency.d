@@ -150,6 +150,7 @@ class Dependency {
 		Version m_versB;
 		Path m_path;
 		string m_configuration = "library";
+		bool m_optional = false;
 	}
 
 	this( string ves ) {
@@ -215,10 +216,13 @@ class Dependency {
 		enforce(m_versA <= m_versB);
 		m_path = o.m_path;
 		m_configuration = o.m_configuration;
+		m_optional = o.m_optional;
 	}
 
 	@property void path(Path value) { m_path = value; }
 	@property Path path() const { return m_path; }
+	@property bool optional() const { return m_optional; }
+	@property void optional(bool optional) { m_optional = optional; }
 
 	@property Version version_() const { assert(m_versA == m_versB); return m_versA; }
 	
@@ -233,6 +237,7 @@ class Dependency {
 			if( m_versB != Version.HEAD ) r ~= (r.length==0?"" : " ") ~ m_cmpB ~ to!string(m_versB);
 			if( m_versA == Version.RELEASE && m_versB == Version.HEAD ) r = ">=0.0.0";
 		}
+		// TODO(mdondorff): add information to path and optionality.
 		return r;
 	}
 
@@ -240,7 +245,11 @@ class Dependency {
 	{
 		if (this is b) return true; if (b is null) return false; if (typeid(this) != typeid(b)) return false;
 		Dependency o = cast(Dependency) b;
-		return o.m_cmpA == m_cmpA && o.m_cmpB == m_cmpB && o.m_versA == m_versA && o.m_versB == m_versB && o.m_configuration == m_configuration;
+		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
+		return o.m_cmpA == m_cmpA && o.m_cmpB == m_cmpB 
+			&& o.m_versA == m_versA && o.m_versB == m_versB 
+			&& o.m_configuration == m_configuration
+			&& o.m_optional == m_optional;
 	}
 	
 	bool valid() const {
@@ -288,6 +297,7 @@ class Dependency {
 		d.m_versA = a;
 		d.m_cmpB = !doCmp(m_cmpB, b,b)? m_cmpB : o.m_cmpB;
 		d.m_versB = b;
+		d.m_optional = m_optional && o.m_optional;
 		
 		//logTrace(" merged: %s", d);
 		
@@ -399,6 +409,16 @@ unittest {
 	a = new Dependency(">=1.0.0");
 	assert(!a.matches(Version(branch1)), "Dependency(1.0.0) matches 'branch1'");
 
+	// Testing optional dependencies.
+	a = new Dependency(">=1.0.0");
+	assert(!a.optional, "Default is not optional.");
+	b = new Dependency(a);
+	assert(!a.merge(b).optional, "Merging two not optional dependencies wrong.");
+	a.optional = true;
+	assert(!a.merge(b).optional, "Merging optional with not optional wrong.");
+	b.optional = true;
+	assert(a.merge(b).optional, "Merging two optional dependencies wrong.");
+
 	logTrace("Dependency Unittest sucess.");
 }
 
@@ -458,7 +478,7 @@ class DependencyGraph {
 	RequestedDependency[string] missing() const {
 		RequestedDependency[string] deps;
 		forAllDependencies( (const PkgType* avail, string pkgId, const Dependency d, const Package issuer) {
-			if(!avail || !d.matches(avail.vers))
+			if(!d.optional || !avail || !d.matches(avail.vers))
 				addDependency(deps, pkgId, d, issuer);
 		});
 		return deps;
@@ -467,7 +487,8 @@ class DependencyGraph {
 	RequestedDependency[string] needed() const {
 		RequestedDependency[string] deps;
 		forAllDependencies( (const PkgType* avail, string pkgId, const Dependency d, const Package issuer) {
-			addDependency(deps, pkgId, d, issuer);
+			if(!d.optional)
+				addDependency(deps, pkgId, d, issuer);
 		});
 		return deps;
 	}

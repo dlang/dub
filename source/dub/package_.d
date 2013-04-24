@@ -44,41 +44,8 @@ enum InstallLocation {
 }
 
 /// Representing an installed package, usually constructed from a json object.
-/// 
-/// Json file example:
-/// {
-/// 	"name": "MetalCollection",
-/// 	"author": "VariousArtists",
-/// 	"version": "1.0.0",
-///		"url": "https://github.org/...",
-///		"keywords": "a,b,c",
-///		"category": "music.best",
-/// 	"dependencies": {
-/// 		"black-sabbath": ">=1.0.0",
-/// 		"CowboysFromHell": "<1.0.0",
-/// 		"BeneathTheRemains": {"version": "0.4.1", "path": "./beneath-0.4.1"}
-/// 	}
-///		"licenses": {
-///			...
-///		}
-///		"configurations": [
-// TODO: what and how?
-///		]
-// TODO: plain like this or packed together?
-///			"
-///			"dflags-X"
-///			"lflags-X"
-///			"libs-X"
-///			"files-X"
-///			"copyFiles-X"
-///			"versions-X"
-///			"importPaths-X"
-///			"stringImportPaths-X"	
-///			"sourcePath"
-/// 	}
-///	}
-///
-/// TODO: explain configurations
+/// Documentation of the package.json can be found at 
+/// http://registry.vibed.org/package-format
 class Package {
 	static struct LocalPackageDef { string name; Version version_; Path path; }
 
@@ -250,6 +217,8 @@ class Package {
 	}
 } 
 
+/// Specifying package information without any connection to a certain 
+/// installed package, like Package class is doing.
 struct PackageInfo {
 	string name;
 	string version_;
@@ -281,11 +250,20 @@ struct PackageInfo {
 						enforce(pkg !in this.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 						Dependency dep;
 						if( verspec.type == Json.Type.Object ){
+							enforce("version" in verspec, "Package information provided for package " ~ pkg ~ " is missing a version field.");
 							auto ver = verspec["version"].get!string;
-							if( auto pp = "path" in verspec ){
+							if( auto pp = "path" in verspec ) {
+								// This enforces the "version" specifier to be a simple version, 
+								// without additional range specifiers.
 								dep = new Dependency(Version(ver));
 								dep.path = Path(verspec.path.get!string());
-							} else dep = new Dependency(ver);
+							} else {
+								// Using the string to be able to specifiy a range of versions.
+								dep = new Dependency(ver);
+							}
+							if( auto po = "optional" in verspec ) {
+								dep.optional = verspec.optional.get!bool();
+							}
 						} else {
 							// canonical "package-id": "version"
 							dep = new Dependency(verspec.get!string());
@@ -327,9 +305,14 @@ struct PackageInfo {
 		if( this.dependencies ){
 			auto deps = Json.EmptyObject;
 			foreach( pack, d; this.dependencies ){
-				if( d.path.empty ){
+				if( d.path.empty && !d.optional ){
 					deps[pack] = d.toString();
-				} else deps[pack] = serializeToJson(["version": d.version_.toString(), "path": d.path.toString()]);
+				} else {
+					auto toJson = ["version": d.version_.toString()];
+					if(!d.path.empty) toJson["path"] = d.path.toString();
+					if(d.optional) toJson["optional"] = to!string(d.optional);
+					deps[pack] = serializeToJson(toJson);
+				}
 			}
 			ret.dependencies = deps;
 		}
