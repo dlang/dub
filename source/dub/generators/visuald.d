@@ -417,15 +417,24 @@ EndGlobal");
 			bool[const(Package)] visited;
 			void perform_rec(const Package parent_pack){
 				foreach(id, dependency; parent_pack.dependencies){
-					logDebug("Retrieving package %s from package manager.", id);
+					logTrace("Retrieving package %s from package manager.", id);
 					auto pack = m_pkgMgr.getBestPackage(id, dependency);
 					if( pack in visited ) continue;
-					visited[pack] = true;
-					if(pack is null) {
-					 	logWarn("Package %s (%s) could not be retrieved continuing...", id, to!string(dependency));
+					if( pack is null && dependency.optional ) {
+						// Do not mark this pack as visited, as other packages
+						// may define this as not optional, in which case we
+						// want to spawn an error (an finally mark it as 
+						// visited).
+						// TODO: should this information be posted to the user?
+						logDebug("An optional dependency was not found: %s, %s", id, dependency);
 						continue;
 					}
-					logDebug("Performing on retrieved package %s", pack.name);
+					visited[pack] = true;
+					if(pack is null) {
+						logWarn("Package %s (%s) could not be retrieved continuing...", id, to!string(dependency));
+						continue;
+					}
+					logTrace("Performing on retrieved package %s", pack.name);
 					op(pack);
 					perform_rec(pack);
 				}
