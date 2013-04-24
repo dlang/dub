@@ -478,7 +478,7 @@ class DependencyGraph {
 	RequestedDependency[string] missing() const {
 		RequestedDependency[string] deps;
 		forAllDependencies( (const PkgType* avail, string pkgId, const Dependency d, const Package issuer) {
-			if(!d.optional || !avail || !d.matches(avail.vers))
+			if(!d.optional && (!avail || !d.matches(avail.vers)))
 				addDependency(deps, pkgId, d, issuer);
 		});
 		return deps;
@@ -491,6 +491,17 @@ class DependencyGraph {
 				addDependency(deps, pkgId, d, issuer);
 		});
 		return deps;
+	}
+
+	RequestedDependency[string] optional() const {
+		RequestedDependency[string] allDeps;
+		forAllDependencies( (const PkgType* avail, string pkgId, const Dependency d, const Package issuer) {
+			addDependency(allDeps, pkgId, d, issuer);
+		});
+		RequestedDependency[string] optionalDeps;
+		foreach(id, req; allDeps)
+			if(req.dependency) optionalDeps[id] = req;
+		return optionalDeps;
 	}
 	
 	private void forAllDependencies(void delegate (const PkgType* avail, string pkgId, const Dependency d, const Package issuer) dg) const {

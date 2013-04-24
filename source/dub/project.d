@@ -430,7 +430,14 @@ class Project {
 
 			oldMissing = missing.dup;
 			logTrace("There are %s packages missing.", missing.length);
-			foreach(string pkg, reqDep; missing) {
+
+			auto toLookup = missing;
+			foreach(id, dep; graph.optional()) {
+				enforce(id !in toLookup, "A missing dependency in the graph seems to be optional, which is an error.");
+				toLookup[id] = dep;
+			}
+
+			foreach(string pkg, reqDep; toLookup) {
 				if(!reqDep.dependency.valid()) {
 					logTrace("Dependency to "~pkg~" is invalid. Trying to fix by modifying others.");
 					continue;
@@ -447,7 +454,7 @@ class Project {
 					p = null;
 				}
 
-				if( !p ){
+				if( !reqDep.dependency.optional && !p ){
 					try {
 						logDebug("using package from registry");
 						foreach(ps; packageSuppliers){
