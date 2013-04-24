@@ -168,9 +168,14 @@ int main(string[] args)
 				dub.removeLocalPackage(args[1], install_system);
 				break;
 			case "list-locals":
-				logInfo("Locals:");
+			case "list-system":
+			case "list-user":
+				auto toList = cmd == "list-locals"? InstallLocation.local
+					: cmd == "list-system"? InstallLocation.systemWide
+					: InstallLocation.userWide;
+				logInfo(cmd == "list-locals"? "Locals:" : cmd == "list-system"? "System:" : "User:");
 				foreach( p; dub.packageManager.getPackageIterator() )
-					if( p.installLocation == InstallLocation.local )
+					if( p.installLocation == toList)
 						logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
 				logInfo("");
 				break;
@@ -307,6 +312,8 @@ Possible commands:
                          Adds a local package directory (e.g. a git repository)
     remove-local <dir>   Removes a local package directory
     list-locals          Prints a list of all locals
+    list-system          Prints a list of all system wide installed packages.
+    list-user            Prints a list of all user installed packages.
     generate <name>      Generates project files using the specified generator:
                            visuald, mono-d, build, rdmd
 
