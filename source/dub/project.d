@@ -101,8 +101,9 @@ class Project {
 					if( ret ) return;
 				}
 
-				foreach(d; p.dependencies.byKey){
-					perform_rec(getDependency(d));
+				foreach(dn, dv; p.dependencies){
+					auto dependency = getDependency(dn, dv.optional);
+					if(dependency) perform_rec(dependency);
 					if( ret ) return;
 				}
 
@@ -118,12 +119,13 @@ class Project {
 		return &iterator;
 	}
 
-	inout(Package) getDependency(string name)
+	private inout(Package) getDependency(string name, bool isOptional)
 	inout {
 		foreach(dp; m_dependencies)
 			if( dp.name == name )
 				return dp;
-		assert(false, "Unknown dependency");
+		if(!isOptional) assert(false, "Unknown dependency: "~name);
+		else return null;
 	}
 
 	string getDefaultConfiguration(BuildPlatform platform)
@@ -211,8 +213,9 @@ class Project {
 				else return;
 			}
 			auto pconf = configs[p.name];
-			foreach(dn; p.dependencies.byKey){
-				auto dep = getDependency(dn);
+			foreach(dn, dv; p.dependencies){
+				auto dep = getDependency(dn, dv.optional);
+				if( dep is null ) continue;
 				auto conf = p.getSubConfiguration(pconf, dep, platform);
 				if( !conf.empty ){
 					if( auto pc = dn in configs ){

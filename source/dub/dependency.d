@@ -500,7 +500,7 @@ class DependencyGraph {
 		});
 		RequestedDependency[string] optionalDeps;
 		foreach(id, req; allDeps)
-			if(req.dependency) optionalDeps[id] = req;
+			if(req.dependency.optional) optionalDeps[id] = req;
 		return optionalDeps;
 	}
 	
