@@ -14,13 +14,14 @@ import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 
 // todo: cleanup imports.
-import std.array;
-import std.file;
-import std.exception;
 import std.algorithm;
-import std.zip;
-import std.typecons;
+import std.array;
 import std.conv;
+import std.exception;
+import std.file;
+import std.net.curl;
+import std.typecons;
+import std.zip;
 
 
 package bool isEmptyDir(Path p) {
@@ -82,4 +83,25 @@ void runCommands(string[] commands, string[string] env = null)
 		auto exitcode = pid.wait();
 		enforce(exitcode == 0, "Command failed with exit code "~to!string(exitcode));
 	}
+}
+
+/**
+	Downloads a file from the specified URL.
+
+	Any redirects will be followed until the actual file resource is reached or if the redirection
+	limit of 10 is reached. Note that only HTTP(S) is currently supported.
+*/
+void download(string url, string filename)
+{
+	auto conn = HTTP();
+	static if( is(typeof(&conn.verifyPeer)) )
+		conn.verifyPeer = false;
+	conn.addRequestHeader("User-Agent", "dub/0.7.13 (std.net.curl; +https://github.com/rejectedsoftware/dub)");
+	std.net.curl.download(url, filename, conn);
+}
+
+/// ditto
+void download(Url url, Path filename)
+{
+	download(url.toString(), filename.toNativeString());
 }
