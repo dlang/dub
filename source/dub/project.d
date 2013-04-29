@@ -567,7 +567,7 @@ struct Action {
 		this.type = id;
 		this.packageId = pkg;
 		this.location = location;
-		this.vers = new immutable(Dependency)(d);
+		this.vers = cast(immutable)new Dependency(d);
 		this.issuer = issue;
 	}
 
@@ -576,7 +576,7 @@ struct Action {
 		pack = pkg;
 		type = id;
 		packageId = pkg.name;
-		vers = new immutable(Dependency)(pkg.ver);
+		vers = cast(immutable)new Dependency(pkg.ver);
 		issuer = issue;
 	}
 
