@@ -45,7 +45,8 @@ class VisualDGenerator : ProjectGenerator {
 		m_pkgMgr = mgr;
 	}
 	
-	void generateProject(GeneratorSettings settings) {
+	void generateProject(GeneratorSettings settings)
+	{
 		auto buildsettings = settings.buildSettings;
 		m_app.addBuildSettings(buildsettings, settings.platform, settings.config);
 		
@@ -53,7 +54,7 @@ class VisualDGenerator : ProjectGenerator {
 
 		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
 		generateProjects(m_app.mainPackage(), settings);
-		generateSolution();
+		generateSolution(settings);
 		logInfo("VisualD project generated.");
 
 		finalizeGeneration(buildsettings, true);
@@ -66,7 +67,8 @@ class VisualDGenerator : ProjectGenerator {
 			Unittest
 		}
 		
-		void generateSolution() {
+		void generateSolution(GeneratorSettings settings)
+		{
 			auto ret = appender!(char[])();
 			
 			// Solution header
@@ -74,11 +76,11 @@ class VisualDGenerator : ProjectGenerator {
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010");
 
-			generateSolutionEntry(ret, m_app.mainPackage);
+			generateSolutionEntry(ret, m_app.mainPackage, settings);
 			version(VISUALD_SEPERATE_PROJECT_FILES)
 			{
 				performOnDependencies(m_app.mainPackage, (pack){
-					generateSolutionEntry(ret, pack);
+					generateSolutionEntry(ret, pack, settings);
 				});
 			}
 			
@@ -110,7 +112,8 @@ EndGlobal");
 			sln.flush();
 		}
 
-		void generateSolutionEntry(Appender!(char[]) ret, const Package pack) {
+		void generateSolutionEntry(Appender!(char[]) ret, const Package pack, GeneratorSettings settings)
+		{
 			auto projUuid = generateUUID();
 			auto projName = pack.name;
 			auto projPath = projFileName(pack);
@@ -126,6 +129,9 @@ EndGlobal");
 					ret.formattedWrite("
 		ProjectSection(ProjectDependencies) = postProject");
 					foreach(id, dependency; pack.dependencies) {
+						auto deppack = m_app.getDependency(id, true);
+						if (!deppack || isHeaderOnlyPackage(deppack, settings))
+							continue;
 						// TODO: clarify what "uuid = uuid" should mean
 						auto uuid = guid(id);
 						ret.formattedWrite("
@@ -164,6 +170,15 @@ EndGlobal");
 					generateProj(dependency, settings);
 				} );
 			}
+		}
+
+		bool isHeaderOnlyPackage(in Package pack, in GeneratorSettings settings)
+		const {
+			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
+			auto pbuildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
+			if (!pbuildsettings.sourceFiles.any!(f => f.endsWith(".d"))())
+				return true;
+			return false;
 		}
 		
 		void generateProj(const Package pack, GeneratorSettings settings)
@@ -339,8 +354,10 @@ EndGlobal");
     <verbose>0</verbose>
     <vtls>0</vtls>
     <cpu>0</cpu>
-    <isX86_64>0</isX86_64>
-    <isLinux>0</isLinux>
+");
+				ret.formattedWrite("    <isX86_64>%s</isX86_64>\n", arch == "x64" ? 1 : 0);
+ret.formattedWrite(
+"    <isLinux>0</isLinux>
     <isOSX>0</isOSX>
     <isWindows>0</isWindows>
     <isFreeBSD>0</isFreeBSD>

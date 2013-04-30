@@ -119,7 +119,7 @@ class Project {
 		return &iterator;
 	}
 
-	private inout(Package) getDependency(string name, bool isOptional)
+	inout(Package) getDependency(string name, bool isOptional)
 	inout {
 		foreach(dp; m_dependencies)
 			if( dp.name == name )
