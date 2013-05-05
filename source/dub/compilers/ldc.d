@@ -45,6 +45,9 @@ class LdcCompiler : Compiler {
 			}
 		}
 		settings.dflags = newdflags;
+
+		// since LDC always outputs multiple object files, avoid conflicts by default
+		settings.addDFlags("-oq", "-od=.dub/obj");
 	
 		if (!(fields & BuildSetting.libs))
 			resolveLibs(settings);
@@ -70,7 +73,7 @@ class LdcCompiler : Compiler {
 		}
 
 		if( !(fields & BuildSetting.lflags) ){
-			settings.addDFlags(settings.stringImportPaths.map!(s => "-L="~s)().array());
+			settings.addDFlags(settings.lflags.map!(s => "-L="~s)().array());
 			settings.lflags = null;
 		}
 
