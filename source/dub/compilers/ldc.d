@@ -41,6 +41,7 @@ class LdcCompiler : Compiler {
 		foreach(f; settings.dflags){
 			switch(f){
 				default: newdflags ~= f; break;
+				case "-debug": newdflags ~= "-d-debug"; break;
 			}
 		}
 		settings.dflags = newdflags;
