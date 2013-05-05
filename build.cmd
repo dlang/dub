@@ -1,7 +1,8 @@
 @echo off
+if "%DC%"=="" set DC=dmd
 
-echo Executing rdmd ...
-rdmd --force --build-only -ofbin\dub.exe -g -debug -w -property -Isource curl.lib %* source\app.d
+echo Executing %DC%...
+%DC% -ofbin\dub.exe -g -debug -w -property -Isource curl.lib %* @build-files.txt
 if errorlevel 1 exit /b 1
 
 echo DUB has been built. You probably also want to add the following entry to your
