@@ -88,19 +88,8 @@ class GdcCompiler : Compiler {
 		}
 		settings.dflags = newdflags;
 	
-		if( !(fields & BuildSetting.libs) ){
-			try {
-				logDebug("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
-				auto libflags = execute(["pkg-config", "--libs"] ~ settings.libs.map!(l => "lib"~l)().array());
-				enforce(libflags.status == 0, "pkg-config exited with error code "~to!string(libflags.status));
-				settings.addLFlags(libflags.output.split());
-			} catch( Exception e ){
-				logDebug("pkg-config failed: %s", e.msg);
-				logDebug("Falling back to direct -lxyz flags.");
-				settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
-			}
-			settings.libs = null;
-		}
+		if (!(fields & BuildSetting.libs))
+			resolveLibs(settings);
 
 		if( !(fields & BuildSetting.versions) ){
 			settings.addDFlags(settings.versions.map!(s => "-fversion="~s)().array());

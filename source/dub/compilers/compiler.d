@@ -10,11 +10,14 @@ module dub.compilers.compiler;
 import dub.compilers.dmd;
 import dub.compilers.gdc;
 import dub.compilers.ldc;
+import dub.internal.std.process;
+import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 
 import std.algorithm;
 import std.array;
+import std.conv;
 import std.exception;
 
 
@@ -47,8 +50,6 @@ void registerCompiler(Compiler c)
 
 void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, string config_name)
 {
-	import dub.internal.vibecompat.core.log;
-	
 	struct SpecialFlag {
 		string[] flags;
 		string alternative;
@@ -99,6 +100,32 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 	}
 
 	if (got_preamble) logWarn("");
+}
+
+
+/**
+	Replaces each referenced import library by the appropriate linker flags.
+
+	This function tries to invoke "pkg-config" if possible and falls back to
+	direct flag translation if that fails.
+*/
+void resolveLibs(ref BuildSettings settings)
+{
+	try {
+		logDebug("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
+		auto libflags = execute(["pkg-config", "--libs"] ~ settings.libs.map!(l => "lib"~l)().array());
+		enforce(libflags.status == 0, "pkg-config exited with error code "~to!string(libflags.status));
+		foreach (f; libflags.output.split()) {
+			if (f.startsWith("-Wl,")) settings.addLFlags(f[4 .. $].split(","));
+			else settings.addLFlags(f);
+		}
+	} catch( Exception e ){
+		logDebug("pkg-config failed: %s", e.msg);
+		logDebug("Falling back to direct -lxyz flags.");
+		version(Windows) settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
+		else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
+	}
+	settings.libs = null;
 }
 
 
