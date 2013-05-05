@@ -302,7 +302,7 @@ struct PackageInfo {
 		if( !this.copyright.empty ) ret.copyright = this.copyright;
 		if( !this.license.empty ) ret.license = this.license;
 		if( !this.ddoxFilterArgs.empty ) ret["-ddoxFilterArgs"] = this.ddoxFilterArgs.serializeToJson();
-		if( this.dependencies ){
+		if( this.dependencies !is null ){
 			auto deps = Json.EmptyObject;
 			foreach( pack, d; this.dependencies ){
 				if( d.path.empty && !d.optional ){

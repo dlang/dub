@@ -78,7 +78,7 @@ void runCommands(string[] commands, string[string] env = null)
 	foreach(cmd; commands){
 		logDebug("Running %s", cmd);
 		Pid pid;
-		if( env ) pid = spawnShell(cmd, env);
+		if( env !is null ) pid = spawnShell(cmd, env);
 		else pid = spawnShell(cmd);
 		auto exitcode = pid.wait();
 		enforce(exitcode == 0, "Command failed with exit code "~to!string(exitcode));
