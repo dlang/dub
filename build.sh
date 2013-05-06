@@ -1,13 +1,13 @@
 #!/bin/sh
 set -e
 
-if [ "$DC" == "" ]; then
+if [ "$DC" = "" ]; then
 	command -v gdmd >/dev/null 2>&1 && DC=gdmd || true
 	command -v ldmd2 >/dev/null 2>&1 && DC=ldmd2 || true
 	command -v dmd >/dev/null 2>&1 && DC=dmd || true
 fi
 
-if [ "$DC" == "" ]; then
+if [ "$DC" = "" ]; then
 	echo >&2 "Failed to detect D compiler. Use DC=... to set a dmd compatible binary manually."
 	exit 1
 fi
