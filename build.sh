@@ -18,7 +18,7 @@ LIBS=`echo "$LIBS" | sed 's/^-L/-L-L/; s/ -L/ -L-L/g; s/^-l/-L-l/; s/ -l/ -L-l/g
 # HACK to work around (r)dmd placing -lcurl before the object files - which is wrong if --as-needed is used
 # On newer Ubuntu versions this is the default, though
 if [ -f /etc/lsb-release ]; then
-	lsb_release -i | grep "Ubuntu" 2> /dev/null && LIBS="-L--no-as-needed $LIBS"
+	lsb_release -i | grep -q "Ubuntu" 2> /dev/null && LIBS="-L--no-as-needed $LIBS"
 fi
 
 echo Running $DC...
