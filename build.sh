@@ -12,14 +12,16 @@ if [ "$DC" = "" ]; then
 	exit 1
 fi
 
+# link against libcurl
 LIBS=`pkg-config --libs libcurl 2>/dev/null || echo "-lcurl"`
-LIBS=`echo "$LIBS" | sed 's/^-L/-L-L/; s/ -L/ -L-L/g; s/^-l/-L-l/; s/ -l/ -L-l/g'`
 
-# HACK to work around (r)dmd placing -lcurl before the object files - which is wrong if --as-needed is used
-# On newer Ubuntu versions this is the default, though
-if [ -f /etc/lsb-release ]; then
-	lsb_release -i | grep -q "Ubuntu" 2> /dev/null && LIBS="-L--no-as-needed $LIBS"
+# fix for modern GCC versions with --as-needed by default
+if [ "$DC" = "dmd" ]; then
+	LIBS="-lphobos2 $LIBS"
 fi
+
+# adjust linker flags for dmd command line
+LIBS=`echo "$LIBS" | sed 's/^-L/-L-L/; s/ -L/ -L-L/g; s/^-l/-L-l/; s/ -l/ -L-l/g'`
 
 echo Running $DC...
 $DC -ofbin/dub -g -debug -w -property -Isource $* $LIBS @build-files.txt
