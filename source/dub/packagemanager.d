@@ -250,6 +250,7 @@ class PackageManager {
 
 		// overwrite package.json (this one includes a version field)
 		Json pi = jsonFromFile(destination~PackageJsonFilename);
+		pi["name"] = toLower(pi["name"].get!string());
 		pi["version"] = package_info["version"];
 		writeJsonFile(destination~PackageJsonFilename, pi);
 

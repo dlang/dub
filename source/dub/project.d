@@ -166,6 +166,10 @@ class Project {
 
 		m_main = new Package(InstallLocation.local, m_root);
 		m_main.warnOnSpecialCompilerFlags();
+		if (m_main.name != m_main.name.toLower()) {
+			logWarn("Package names should always be lower case, please change from '%s' to '%s'!",
+				m_main.name, m_main.name.toLower());
+		}
 
 		// TODO: compute the set of mutual dependencies first
 		// (i.e. ">=0.0.1 <=0.0.5" and "<= 0.0.4" get ">=0.0.1 <=0.0.4")
