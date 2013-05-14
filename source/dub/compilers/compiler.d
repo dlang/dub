@@ -326,6 +326,7 @@ enum BuildRequirements {
 	requireBoundsCheck   = 1<<6,  /// Always perform bounds checks
 	requireContracts     = 1<<7,  /// Leave assertions and contracts enabled in release builds
 	relaxProperties      = 1<<8,  /// Do not enforce strict property handling (-property)
+	noDefaultFlags       = 1<<9,  /// Do not issue any of the default build flags (e.g. -debug, -w, -property etc.) - use only for development purposes
 }
 
 string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)

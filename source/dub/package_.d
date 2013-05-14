@@ -531,10 +531,20 @@ struct BuildSettingsTemplate {
 
 	void warnOnSpecialCompilerFlags(string package_name, string config_name)
 	{
-		string[] all_dflags;
-		foreach (flags; this.dflags)
-			all_dflags ~= flags;
-		.warnOnSpecialCompilerFlags(all_dflags, package_name, config_name);
+		auto nodef = false;
+		foreach (req; this.buildRequirements)
+			if (req & BuildRequirements.noDefaultFlags)
+				nodef = true;
+
+		if (nodef) {
+			logWarn("Warning: This package uses the \"noDefaultFlags\" build requirement. Please use only for development purposes and not for released packages.");
+			logWarn("");
+		} else {
+			string[] all_dflags;
+			foreach (flags; this.dflags)
+				all_dflags ~= flags;
+			.warnOnSpecialCompilerFlags(all_dflags, package_name, config_name);
+		}
 	}
 }
 

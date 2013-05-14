@@ -46,14 +46,15 @@ class RdmdGenerator : ProjectGenerator {
 
 		auto buildsettings = settings.buildSettings;
 		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
+		bool usedefflags = !(buildsettings.requirements & BuildRequirements.noDefaultFlags);
 		// do not pass all source files to RDMD, only the main source file
 		buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(s => !s.endsWith(".d"))().array();
-		buildsettings.addDFlags(["-w"/*, "-property"*/]);
+		if (usedefflags) buildsettings.addDFlags(["-w", "-property"]);
 		string dflags = environment.get("DFLAGS");
 		if( dflags ){
 			settings.buildType = "$DFLAGS";
 			buildsettings.addDFlags(dflags.split());
-		} else {
+		} else if (usedefflags) {
 			addBuildTypeFlags(buildsettings, settings.buildType);
 		}
 		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);

@@ -44,12 +44,13 @@ class BuildGenerator : ProjectGenerator {
 
 		auto buildsettings = settings.buildSettings;
 		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
-		buildsettings.addDFlags(["-w", "-property"]);
+		bool usedefflags = !(buildsettings.requirements & BuildRequirements.noDefaultFlags);
+		if (usedefflags) buildsettings.addDFlags(["-w", "-property"]);
 		string dflags = environment.get("DFLAGS");
 		if( dflags.length ){
 			settings.buildType = "$DFLAGS";
 			buildsettings.addDFlags(dflags.split());
-		} else {
+		} else if (usedefflags) {
 			addBuildTypeFlags(buildsettings, settings.buildType);
 		}
 
