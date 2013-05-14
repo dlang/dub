@@ -308,10 +308,11 @@ struct PackageInfo {
 				if( d.path.empty && !d.optional ){
 					deps[pack] = d.toString();
 				} else {
-					auto toJson = ["version": d.version_.toString()];
-					if(!d.path.empty) toJson["path"] = d.path.toString();
-					if(d.optional) toJson["optional"] = to!string(d.optional);
-					deps[pack] = serializeToJson(toJson);
+					auto vjson = Json.EmptyObject;
+					vjson["version"] = d.version_.toString();
+					if (!d.path.empty) vjson["path"] = d.path.toString();
+					if (d.optional) vjson["optional"] = true;
+					deps[pack] = vjson;
 				}
 			}
 			ret.dependencies = deps;
