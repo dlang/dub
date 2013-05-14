@@ -67,8 +67,13 @@ nothrow {
 		fiberid ^= fiberid >> 32;
 
 		if( level >= s_minLevel ){
-			writeln(txt.data());
-			stdout.flush();
+			if (level == LogLevel.Info) {
+				stdout.writeln(txt.data());
+				stdout.flush();
+			} else {
+				stderr.writeln(txt.data());
+				stderr.flush();
+			}
 		}
 	} catch( Exception e ){
 		// this is bad but what can we do..
