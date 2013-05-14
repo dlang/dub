@@ -215,7 +215,31 @@ class Package {
 		if (packageId in m_info.dependencies)
 			m_info.dependencies.remove(packageId);
 	}
-} 
+
+	void describe(ref Json dst, BuildPlatform platform, string config)
+	{
+		dst.path = m_path.toNativeString();
+		dst.name = m_info.name;
+		dst["version"] = m_info.version_;
+		dst.description = m_info.description;
+		dst.homepage = m_info.homepage;
+		dst.authors = m_info.authors.serializeToJson();
+		dst.copyright = m_info.copyright;
+		dst.license = m_info.license;
+		dst.dependencies = m_info.dependencies.keys.serializeToJson();
+
+		auto jconfig = Json.EmptyObject;
+		Json[string] files;
+		BuildSettings bs = getBuildSettings(platform, config);
+		foreach (f; bs.sourceFiles) {
+			auto jf = Json.EmptyObject;
+			jf.path = f;
+			jf["type"] = "source";
+			files[f] = jf;
+		}
+		dst.files = Json(files);
+	}
+}
 
 /// Specifying package information without any connection to a certain 
 /// installed package, like Package class is doing.

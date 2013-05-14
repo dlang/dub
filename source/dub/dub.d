@@ -170,6 +170,19 @@ class Dub {
 		m_project.createZip(zipFile);
 	}
 
+	/// Outputs a JSON description of the project, including its deoendencies.
+	void describeProject(BuildPlatform platform, string config)
+	{
+		auto dst = Json.EmptyObject;
+		dst.configuration = config;
+		dst.compiler = platform.compiler;
+		dst.architecture = platform.architecture.serializeToJson();
+		dst.platform = platform.platform.serializeToJson();
+
+		m_project.describe(dst, platform, config);
+		logInfo("%s", dst.toPrettyString());
+	}
+
 
 	/// Gets all installed packages as a "packageId" = "version" associative array
 	string[string] installedPackages() const { return m_project.installedPackagesIDs(); }

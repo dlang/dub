@@ -106,6 +106,27 @@ int main(string[] args)
 		}
 
 		Dub dub = new Dub;
+		string def_config;
+
+		bool loadCwdPackage()
+		{
+			if( !existsFile("package.json") && !existsFile("source/app.d") ){
+				logInfo("");
+				logInfo("Neither package.json, nor source/app.d was found in the current directory.");
+				logInfo("Please run dub from the root directory of an existing package, or create a new");
+				logInfo("package using \"dub init <name>\".");
+				logInfo("");
+				showHelp(null);
+				return false;
+			}
+
+			dub.loadPackageFromCwd();
+
+			def_config = dub.getDefaultConfiguration(build_platform);
+			if( !build_config.length ) build_config = def_config;
+
+			return true;
+		}
 
 		// handle the command
 		switch( cmd ){
@@ -182,17 +203,7 @@ int main(string[] args)
 			case "run":
 			case "build":
 			case "generate":
-				if( !existsFile("package.json") && !existsFile("source/app.d") ){
-					logInfo("");
-					logInfo("Neither package.json, nor source/app.d was found in the current directory.");
-					logInfo("Please run dub from the root directory of an existing package, or create a new");
-					logInfo("package using \"dub init <name>\".");
-					logInfo("");
-					showHelp(null);
-					return 1;
-				}
-
-				dub.loadPackageFromCwd();
+				if (!loadCwdPackage()) return 1;
 
 				string generator;
 				if( cmd == "run" || cmd == "build" ) generator = rdmd ? "rdmd" : "build";
@@ -203,10 +214,6 @@ int main(string[] args)
 						return 1;
 					}
 				}
-
-
-				auto def_config = dub.getDefaultConfiguration(build_platform);
-				if( !build_config.length ) build_config = def_config;
 
 				if( print_builds ){
 					logInfo("Available build types:");
@@ -243,6 +250,10 @@ int main(string[] args)
 				logDebug("Generating using %s", generator);
 				dub.generateProject(generator, gensettings);
 				if( build_type == "ddox" ) dub.runDdox();
+				break;
+			case "describe":
+				if (!loadCwdPackage()) return 1;
+				dub.describeProject(build_platform, build_config);				
 				break;
 		}
 
@@ -300,7 +311,7 @@ Manages the DUB project in the current directory. "--" can be used to separate
 DUB options from options passed to the application. If the command is omitted,
 dub will default to "run".
 
-Possible commands:
+Available commands:
     help                 Prints this help screen
     init [<directory>]   Initializes an empy project in the specified directory
     run                  Compiles and runs the application (default command)
@@ -316,6 +327,8 @@ Possible commands:
     list-user            Prints a list of all user installed packages.
     generate <name>      Generates project files using the specified generator:
                            visuald, mono-d, build, rdmd
+    describe             Prints a JSON description of the project and its
+                         dependencies
 
 General options:
         --annotate       Do not execute dependency installations, just print

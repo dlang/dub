@@ -398,6 +398,24 @@ class Project {
 		*/
 	}
 
+	/// Outputs a JSON description of the project, including its deoendencies.
+	void describe(ref Json dst, BuildPlatform platform, string config)
+	{
+		dst.mainPackage = m_main.name;
+
+		auto configs = getPackageConfigs(platform, config);
+
+		auto mp = Json.EmptyObject;
+		m_main.describe(mp, platform, config);
+		dst.packages = Json([mp]);
+
+		foreach (dep; m_dependencies) {
+			auto dp = Json.EmptyObject;
+			dep.describe(dp, platform, configs[dep.name]);
+			dst.packages = dst.packages.get!(Json[]) ~ dp;
+		}
+	}
+
 	/// Tries to add the specified dependency.
 	/// If an existing dependencies is already current, this one is compared to
 	///	the supplied one, in order to check if these are compatible.
