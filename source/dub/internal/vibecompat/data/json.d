@@ -539,7 +539,11 @@ struct Json {
 	/// ditto
 	Json opBinary(string op)(string other) const { checkType!string(); mixin("return Json(m_string "~op~" other);"); }
 	/// ditto
-	Json opBinary(string op)(Json[] other) { checkType!(Json[])(); mixin("return Json(m_array "~op~" other);"); }
+	Json opBinary(string op)(Json other)
+	if (op == "~") {
+		if (m_type == Type.Array) return Json(m_array ~ other);
+		else return Json(this ~ other);
+	}
 	/// ditto
 	Json opBinaryRight(string op)(bool other) const { checkType!bool(); mixin("return Json(other "~op~" m_bool);"); }
 	/// ditto
@@ -556,8 +560,6 @@ struct Json {
 		if( pv.type == Type.Undefined ) return null;
 		return pv;
 	}
-	/// ditto
-	Json opBinaryRight(string op)(Json[] other) { checkType!(Json[])(); mixin("return Json(other "~op~" m_array);"); }
 
 	/**
 		Allows to access existing fields of a JSON object using dot syntax.
@@ -1112,12 +1114,12 @@ void writePrettyJsonString(R)(ref R dst, in Json json, int level = 0)
 				if( !first ) dst.put(",");
 				first = false;
 				dst.put("\n");
-				foreach( tab; 0 .. level ) dst.put('\t');
+				foreach( tab; 0 .. level+1 ) dst.put('\t');
 				writePrettyJsonString(dst, e, level+1);
 			}
 			if( json.length > 0 ) {
 				dst.put('\n');
-				foreach( tab; 0 .. (level-1) ) dst.put('\t');
+				foreach( tab; 0 .. level ) dst.put('\t');
 			}
 			dst.put("]");
 			break;
@@ -1129,7 +1131,7 @@ void writePrettyJsonString(R)(ref R dst, in Json json, int level = 0)
 				if( !first ) dst.put(",");
 				dst.put("\n");
 				first = false;
-				foreach( tab; 0 .. level ) dst.put('\t');
+				foreach( tab; 0 .. level+1 ) dst.put('\t');
 				dst.put("\"");
 				jsonEscape(dst, k);
 				dst.put("\": ");
@@ -1137,7 +1139,7 @@ void writePrettyJsonString(R)(ref R dst, in Json json, int level = 0)
 			}
 			if( json.length > 0 ) {
 				dst.put('\n');
-				foreach( tab; 0 .. (level-1) ) dst.put('\t');
+				foreach( tab; 0 .. level ) dst.put('\t');
 			}
 			dst.put("}");
 			break;
