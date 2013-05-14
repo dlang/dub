@@ -229,13 +229,13 @@ class Package {
 		dst.dependencies = m_info.dependencies.keys.serializeToJson();
 
 		auto jconfig = Json.EmptyObject;
-		Json[string] files;
+		Json[] files;
 		BuildSettings bs = getBuildSettings(platform, config);
 		foreach (f; bs.sourceFiles) {
 			auto jf = Json.EmptyObject;
 			jf.path = f;
 			jf["type"] = "source";
-			files[f] = jf;
+			files ~= jf;
 		}
 		dst.files = Json(files);
 	}
