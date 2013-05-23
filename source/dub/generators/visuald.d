@@ -187,6 +187,7 @@ EndGlobal");
 			auto ret = appender!(char[])();
 			
 			auto projName = pack.name;
+			auto project_file_dir = m_app.mainPackage.path ~ projFileName(pack).parentPath;
 			ret.formattedWrite(
 "<DProject>
   <ProjectGuid>%s</ProjectGuid>", guid(projName));
@@ -210,7 +211,7 @@ EndGlobal");
 					if( !sp.absolute ) sp = m_app.mainPackage.path ~ sp;
 					SourceFile sf;
 					sf.pkg = pack.name;
-					sf.filePath = sp.relativeTo(m_app.mainPackage.path);
+					sf.filePath = sp.relativeTo(project_file_dir);
 					sf.structurePath = Path(pack.name) ~ sp.relativeTo(pack.path);
 					sourceFiles[sf] = true;
 				}
@@ -228,7 +229,7 @@ EndGlobal");
 					if( !sp.absolute ) sp = pack.path ~ sp;
 					SourceFile sf;
 					sf.pkg = pack.name;
-					sf.filePath = sp.relativeTo(m_app.mainPackage.path);
+					sf.filePath = sp.relativeTo(project_file_dir);
 					sf.structurePath = sp.relativeTo(pack.path);
 					sourceFiles[sf] = true;
 				}
@@ -271,13 +272,14 @@ EndGlobal");
 		
 		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, Config type, GeneratorSettings settings)
 		{
+			auto project_file_dir = m_app.mainPackage.path ~ projFileName(pack).parentPath;
 			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
 			auto buildsettings = settings.buildSettings;
 			auto pbuildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
 			m_app.addBuildSettings(buildsettings, settings.platform, m_app.getDefaultConfiguration(settings.platform), pack);
 			
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
-			string[] getPathSettings(string setting)(){ return getSettings!setting().map!(p => (Path(p).relativeTo(m_app.mainPackage.path)).toNativeString())().array(); }
+			string[] getPathSettings(string setting)(){ return getSettings!setting().map!(p => (Path(p).relativeTo(project_file_dir)).toNativeString())().array(); }
 			
 			foreach(architecture; settings.platform.architecture) {
 				string arch;
@@ -335,10 +337,10 @@ EndGlobal");
 				<useUnitTests>%s</useUnitTests>", type == Config.Unittest? "1" : "0");
 
 				// compute directory for intermediate files (need dummy/ because of how -op determines the resulting path)
-				auto relpackpath = pack.path.relativeTo(m_app.mainPackage.path);
+				auto relpackpath = pack.path.relativeTo(project_file_dir);
 				uint ndummy = 0;
 				foreach (i; 0 .. relpackpath.length)
-					if (pack.path[i] == "..") ndummy++;
+					if (relpackpath[i] == "..") ndummy++;
 				string intersubdir = (ndummy*2 > relpackpath.length ? replicate("dummy/", ndummy*2-relpackpath.length) : "") ~ pack.name;
 		
 				// Not yet dynamic stuff
@@ -387,7 +389,7 @@ ret.formattedWrite(
     <otherDMD>0</otherDMD>
 ");
 			ret.formattedWrite("    <outdir>%s</outdir>\n", bin_path.toNativeString());
-			ret.formattedWrite("    <objdir>.dub/obj/%s</objdir>\n", intersubdir);
+			ret.formattedWrite("    <objdir>.dub/obj/%s/%s</objdir>\n", to!string(type), intersubdir);
 			ret.formattedWrite("%s",
 "    <objname />
     <libname />
@@ -475,9 +477,10 @@ ret.formattedWrite(
 			else return m_app.mainPackage().name ~ ".sln";
 		}
 
-		auto projFileName(ref const Package pack) const {
-			version(DUBBING) return pack.name ~ ".dubbed.visualdproj";
-			else return pack.name ~ ".visualdproj";
+		Path projFileName(ref const Package pack) const {
+			auto basepath = Path(".");//Path(".dub/");
+			version(DUBBING) return basepath ~ (pack.name ~ ".dubbed.visualdproj");
+			else return basepath ~ (pack.name ~ ".visualdproj");
 		}
 	}
 
