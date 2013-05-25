@@ -240,7 +240,7 @@ struct PathEntry {
 	
 	this(string str)
 	{
-		assert(str.countUntil('/') < 0 && str.countUntil('\\') < 0);
+		assert(str.countUntil('/') < 0 && (str.countUntil('\\') < 0 || str.length == 1));
 		m_name = str;
 	}
 	
@@ -273,11 +273,7 @@ string joinPath(string basepath, string subpath)
 /// Splits up a path string into its elements/folders
 PathEntry[] splitPath(string path)
 {
-	if( path.startsWith("/") || path.startsWith("\\") ) 
-	{
-		if( path.startsWith("\\") ) path = path[2 .. $];
-		else path = path[1 .. $];
-	}
+	if( path.startsWith("/") || path.startsWith("\\") ) path = path[1 .. $];
 	if( path.empty ) return null;
 	if( path.endsWith("/") || path.endsWith("\\") ) path = path[0 .. $-1];
 
@@ -287,13 +283,20 @@ PathEntry[] splitPath(string path)
 		if( ch == '\\' || ch == '/' )
 			nelements++;
 	nelements++;
-	
+
 	// reserve space for the elements
 	auto elements = new PathEntry[nelements];
+	size_t eidx = 0;
+
+	// detect UNC path
+	if(path.startsWith("\\"))
+	{
+		elements[eidx++] = PathEntry(path[0 .. 1]);
+		path = path[1 .. $];
+	}
 
 	// read and return the elements
 	size_t startidx = 0;
-	size_t eidx = 0;
 	foreach( i, char ch; path )
 		if( ch == '\\' || ch == '/' ){
 			enforce(i - startidx > 0, "Empty path entries not allowed.");
@@ -304,4 +307,10 @@ PathEntry[] splitPath(string path)
 	enforce(path.length - startidx > 0, "Empty path entries not allowed.");
 	assert(eidx == nelements);
 	return elements;
+}
+
+unittest
+{
+    auto unc = "\\\\server\\share\\path";
+    assert(Path(unc).toNativeString() == unc); 
 }
