@@ -240,7 +240,7 @@ struct PathEntry {
 	
 	this(string str)
 	{
-		assert(str.countUntil('/') < 0 && str.countUntil('\\') < 0);
+		assert(str.countUntil('/') < 0 && (str.countUntil('\\') < 0 || str.length == 1));
 		m_name = str;
 	}
 	
@@ -283,13 +283,20 @@ PathEntry[] splitPath(string path)
 		if( ch == '\\' || ch == '/' )
 			nelements++;
 	nelements++;
-	
+
 	// reserve space for the elements
 	auto elements = new PathEntry[nelements];
+	size_t eidx = 0;
+
+	// detect UNC path
+	if(path.startsWith("\\"))
+	{
+		elements[eidx++] = PathEntry(path[0 .. 1]);
+		path = path[1 .. $];
+	}
 
 	// read and return the elements
 	size_t startidx = 0;
-	size_t eidx = 0;
 	foreach( i, char ch; path )
 		if( ch == '\\' || ch == '/' ){
 			enforce(i - startidx > 0, "Empty path entries not allowed.");
@@ -300,4 +307,10 @@ PathEntry[] splitPath(string path)
 	enforce(path.length - startidx > 0, "Empty path entries not allowed.");
 	assert(eidx == nelements);
 	return elements;
+}
+
+unittest
+{
+    auto unc = "\\\\server\\share\\path";
+    assert(Path(unc).toNativeString() == unc); 
 }
