@@ -49,7 +49,7 @@ class RdmdGenerator : ProjectGenerator {
 		bool usedefflags = !(buildsettings.requirements & BuildRequirements.noDefaultFlags);
 		// do not pass all source files to RDMD, only the main source file
 		buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(s => !s.endsWith(".d"))().array();
-		if (usedefflags) buildsettings.addDFlags(["-w", "-property"]);
+		if (usedefflags) buildsettings.addDFlags(["-w"]);
 		string dflags = environment.get("DFLAGS");
 		if( dflags ){
 			settings.buildType = "$DFLAGS";

@@ -55,7 +55,9 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 		string alternative;
 	}
 	static immutable SpecialFlag[] s_specialFlags = [
-		{["-c", "-o-", "-property", "-fproperty", "-w", "-Wall", "-Werr"], "Automatically issued by DUB, do not specify in package.json"},
+		{["-c", "-o-"], "Automatically issued by DUB, do not specify in package.json"},
+		{[ "-w", "-Wall", "-Werr"], `Use "buildRequirements" to control warning behavior`},
+		{["-property", "-fproperty"], "Using this flag may break building of dependencies and it will probably be removed from DMD in the future"},
 		{["-wi"], `Use the "buildRequirements" field to control warning behavior`},
 		{["-d", "-de", "-dw"], `Use the "buildRequirements" field to control deprecation behavior`},
 		{["-of"], `Use "targetPath" and "targetName" to customize the output file`},
@@ -325,7 +327,7 @@ enum BuildRequirements {
 	disallowOptimization = 1<<5,  /// Avoid optimizations, even in release builds
 	requireBoundsCheck   = 1<<6,  /// Always perform bounds checks
 	requireContracts     = 1<<7,  /// Leave assertions and contracts enabled in release builds
-	relaxProperties      = 1<<8,  /// Do not enforce strict property handling (-property)
+	relaxProperties      = 1<<8,  /// DEPRECATED: Do not enforce strict property handling (-property)
 	noDefaultFlags       = 1<<9,  /// Do not issue any of the default build flags (e.g. -debug, -w, -property etc.) - use only for development purposes
 }
 
