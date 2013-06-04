@@ -279,7 +279,13 @@ EndGlobal");
 			m_app.addBuildSettings(buildsettings, settings.platform, m_app.getDefaultConfiguration(settings.platform), pack);
 			
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
-			string[] getPathSettings(string setting)(){ return getSettings!setting().map!(p => (Path(p).relativeTo(project_file_dir)).toNativeString())().array(); }
+			string[] getPathSettings(string setting)()
+			{
+				auto settings = getSettings!setting();
+				auto ret = new string[settings.length];
+				foreach (i; 0 .. settings.length) ret[i] = (Path(settings[i]).relativeTo(project_file_dir)).toNativeString();
+				return ret;
+			}
 			
 			foreach(architecture; settings.platform.architecture) {
 				string arch;
