@@ -44,8 +44,8 @@ struct Version {
 	
 	this(string vers)
 	{
-		enforce(vers.length > 1);
-		enforce(vers[0] == BRANCH_IDENT || count(vers, ".") == 2);
+		enforce(vers.length > 1, "Version strings must not be empty.");
+		enforce(vers[0] == BRANCH_IDENT || count(vers, ".") == 2, "Invalid version string: "~vers);
 		sVersion = vers;
 		/*
 		if(vers == MASTER_STRING) {
