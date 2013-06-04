@@ -25,6 +25,11 @@ fi
 # adjust linker flags for dmd command line
 LIBS=`echo "$LIBS" | sed 's/^-L/-L-L/; s/ -L/ -L-L/g; s/^-l/-L-l/; s/ -l/ -L-l/g'`
 
+echo Generating version file...
+GITVER=$(git describe) || GITVER=unknown
+echo enum dubVersion = "$GITVER"; > source/dub/version_.d
+
+
 echo Running $DC...
 $DC -ofbin/dub -g -debug -w -property -Isource $* $LIBS @build-files.txt
 echo DUB has been built as bin/dub.

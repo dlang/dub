@@ -12,6 +12,7 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
+import dub.version_;
 
 // todo: cleanup imports.
 import std.algorithm;
@@ -96,7 +97,7 @@ void download(string url, string filename)
 	auto conn = HTTP();
 	static if( is(typeof(&conn.verifyPeer)) )
 		conn.verifyPeer = false;
-	conn.addRequestHeader("User-Agent", "dub/0.7.13 (std.net.curl; +https://github.com/rejectedsoftware/dub)");
+	conn.addRequestHeader("User-Agent", "dub/"~dubVersion~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
 	std.net.curl.download(url, filename, conn);
 }
 

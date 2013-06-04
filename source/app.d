@@ -18,6 +18,7 @@ import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.project;
 import dub.registry;
+import dub.version_;
 
 import std.algorithm;
 import std.array;
@@ -362,4 +363,5 @@ Install options:
         --local          Install as in a sub folder of the current directory
 
 `);
+	logInfo("DUB version %s", dubVersion);
 }
