@@ -50,12 +50,12 @@ PackageSupplier[] defaultPackageSuppliers()
 /// dependencies up and running. An instance manages one application.
 class Dub {
 	private {
-		Path m_cwd, m_tempPath;
-		Path m_root;
+		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
+		Path m_cwd, m_tempPath;
 		Path m_userDubPath, m_systemDubPath;
 		Json m_systemConfig, m_userConfig;
-		PackageManager m_packageManager;
+		Path m_projectPath;
 		Project m_project;
 	}
 
@@ -79,14 +79,15 @@ class Dub {
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
 
 		m_packageSuppliers = ps;
-		m_packageManager = new PackageManager(m_systemDubPath ~ "packages/", m_userDubPath ~ "packages/");
+		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
+		updatePackageSearchPath();
 	}
 
 	/// Returns the name listed in the package.json of the current
 	/// application.
 	@property string projectName() const { return m_project.name; }
 
-	@property Path projectPath() const { return m_root; }
+	@property Path projectPath() const { return m_projectPath; }
 
 	@property string[] configurations() const { return m_project.configurations; }
 
@@ -99,9 +100,9 @@ class Dub {
 
 	void loadPackage(Path path)
 	{
-		m_root = path;
-		m_packageManager.projectPackagePath = m_root ~ ".dub/packages/";
-		m_project = new Project(m_packageManager, m_root);
+		m_projectPath = path;
+		updatePackageSearchPath();
+		m_project = new Project(m_packageManager, m_projectPath);
 	}
 
 	string getDefaultConfiguration(BuildPlatform platform) const { return m_project.getDefaultConfiguration(platform); }
@@ -202,16 +203,24 @@ class Dub {
 		enforce(pinfo.type != Json.Type.Undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
 
-		if( auto pack = m_packageManager.getPackage(packageId, ver, location) ){
+		Path install_path;
+		final switch (location) {
+			case InstallLocation.local: install_path = m_cwd; break;
+			case InstallLocation.projectLocal: install_path = m_project.mainPackage.path ~ ".dub/packages/"; break;
+			case InstallLocation.userWide: install_path = m_userDubPath ~ "packages/"; break;
+			case InstallLocation.systemWide: install_path = m_systemDubPath ~ "packages/"; break;
+		}
+
+		if( auto pack = m_packageManager.getPackage(packageId, ver, install_path) ){
 			logInfo("Package %s %s (%s) is already installed with the latest version, skipping upgrade.",
-				packageId, ver, location);
+				packageId, ver, install_path);
 			return pack;
 		}
 
 		logInfo("Downloading %s %s...", packageId, ver);
 
 		logDebug("Acquiring package zip file");
-		auto dload = m_root ~ ".dub/temp/downloads";
+		auto dload = m_projectPath ~ ".dub/temp/downloads";
 		auto tempfname = packageId ~ "-" ~ (ver.startsWith('~') ? ver[1 .. $] : ver) ~ ".zip";
 		auto tempFile = m_tempPath ~ tempfname;
 		string sTempFile = tempFile.toNativeString();
@@ -220,7 +229,10 @@ class Dub {
 		scope(exit) remove(sTempFile);
 
 		logInfo("Installing %s %s...", packageId, ver);
-		return m_packageManager.install(tempFile, pinfo, location);
+		auto clean_package_version = ver[ver.startsWith("~") ? 1 : 0 .. $];
+		Path dstpath = install_path ~ (packageId ~ "-" ~ clean_package_version);
+
+		return m_packageManager.install(tempFile, pinfo, dstpath);
 	}
 
 	/// Uninstalls a given package from the list of installed modules.
@@ -247,7 +259,7 @@ class Dub {
 	/// Note: as wildcard string only "*" is supported.
 	/// @param location_
 	void uninstall(string package_id, string version_, InstallLocation location_) {
-		enforce(!package_id.empty);
+		/+enforce(!package_id.empty);
 		Package[] packages;
 		const bool wildcardOrEmpty = version_ == UninstallVersionWildcard || version_.empty;
 		if(location_ == InstallLocation.local) {
@@ -290,21 +302,27 @@ class Dub {
 				logInfo("Uninstalled %s, version %s.", package_id, pack.vers);
 			}
 			catch logError("Failed to uninstall %s, version %s. Continuing with other packages (if any).", package_id, pack.vers);
-		}
+		}+/
 	}
 
 	void addLocalPackage(string path, string ver, bool system)
 	{
-		auto abs_path = Path(path);
-		if( !abs_path.absolute ) abs_path = m_cwd ~ abs_path;
-		m_packageManager.addLocalPackage(abs_path, Version(ver), system ? LocalPackageType.system : LocalPackageType.user);
+		m_packageManager.addLocalPackage(makeAbsolute(path), Version(ver), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
 	void removeLocalPackage(string path, bool system)
 	{
-		auto abs_path = Path(path);
-		if( !abs_path.absolute ) abs_path = m_cwd ~ abs_path;
-		m_packageManager.removeLocalPackage(abs_path, system ? LocalPackageType.system : LocalPackageType.user);
+		m_packageManager.removeLocalPackage(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
+	}
+
+	void addSearchPath(string path, bool system)
+	{
+		m_packageManager.addSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
+	}
+
+	void removeSearchPath(string path, bool system)
+	{
+		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
 	void createEmptyPackage(Path path)
@@ -405,4 +423,16 @@ void main()
 		else commands ~= "cp -r "~dub_path~"public/* docs/";
 		runCommands(commands);
 	}
+
+	private void updatePackageSearchPath()
+	{
+		auto p = environment.get("DUBPATH");
+		Path[] paths;
+		version(Windows) if (p.length) paths ~= p.split(":").map!(p => Path(p))().array();
+		else if (p.length) paths ~= p.split(";").map!(p => Path(p))().array();
+		m_packageManager.searchPath = paths;
+	}
+
+	private Path makeAbsolute(Path p) const { return p.absolute ? p : m_cwd ~ p; }
+	private Path makeAbsolute(string p) const { return makeAbsolute(Path(p)); }
 }

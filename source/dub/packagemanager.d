@@ -17,6 +17,7 @@ import dub.package_;
 import dub.utils;
 
 import std.algorithm : countUntil, filter, sort, canFind;
+import std.array;
 import std.conv;
 import std.digest.sha;
 import std.exception;
@@ -28,8 +29,21 @@ import std.zip;
 enum JournalJsonFilename = "journal.json";
 enum LocalPackagesFilename = "local-packages.json";
 
+
+private struct Repository {
+	Path path;
+	Path packagePath;
+	Path[] searchPath;
+	Package[] localPackages;
+
+	this(Path path)
+	{
+		this.path = path;
+		this.packagePath = path ~"packages/";
+	}
+}
+
 enum LocalPackageType {
-	temporary,
 	user,
 	system
 }
@@ -37,27 +51,32 @@ enum LocalPackageType {
 
 class PackageManager {
 	private {
-		Path m_systemPackagePath;
-		Path m_userPackagePath;
-		Path m_projectPackagePath;
-		Package[][string] m_systemPackages;
-		Package[][string] m_userPackages;
-		Package[string] m_projectPackages;
-		Package[] m_localTemporaryPackages;
-		Package[] m_localUserPackages;
-		Package[] m_localSystemPackages;
+		Repository[LocalPackageType] m_repositories;
+		Path[] m_searchPath;
+		Package[][string] m_packages;
+		Package[] m_temporaryPackages;
 	}
 
-	this(Path system_package_path, Path user_package_path, Path project_package_path = Path())
+	this(Path user_path, Path system_path)
 	{
-		m_systemPackagePath = system_package_path;
-		m_userPackagePath = user_package_path;
-		m_projectPackagePath = project_package_path;
+		m_repositories[LocalPackageType.user] = Repository(user_path);
+		m_repositories[LocalPackageType.system] = Repository(system_path);
 		refresh();
 	}
 
-	@property Path projectPackagePath() const { return m_projectPackagePath; }
-	@property void projectPackagePath(Path path) { m_projectPackagePath = path; refresh(); }
+	@property void searchPath(Path[] paths) { m_searchPath = paths.dup; refresh(); }
+	@property const(Path)[] searchPath() const { return m_searchPath; }
+
+	@property const(Path)[] completeSearchPath()
+	const {
+		auto ret = appender!(Path[])();
+		ret.put(m_searchPath);
+		ret.put(m_repositories[LocalPackageType.user].searchPath);
+		ret.put(m_repositories[LocalPackageType.user].packagePath);
+		ret.put(m_repositories[LocalPackageType.system].searchPath);
+		ret.put(m_repositories[LocalPackageType.system].packagePath);
+		return ret.data;
+	}
 
 	Package getPackage(string name, Version ver)
 	{
@@ -67,10 +86,22 @@ class PackageManager {
 		return null;
 	}
 
-	Package getPackage(string name, string ver, InstallLocation location)
+	Package getPackage(string name, string ver, Path in_path)
 	{
-		foreach(ep; getPackageIterator(name)){
-			if( ep.installLocation == location && ep.vers == ver )
+		return getPackage(name, Version(ver), in_path);
+	}
+	Package getPackage(string name, Version ver, Path in_path)
+	{
+		foreach( p; getPackageIterator(name) )
+			if (p.ver == ver && p.path.startsWith(in_path))
+				return p;
+		return null;
+	}
+
+	Package getPackage(string name, string ver)
+	{
+		foreach (ep; getPackageIterator(name)) {
+			if (ep.vers == ver)
 				return ep;
 		}
 		return null;
@@ -94,32 +125,19 @@ class PackageManager {
 	{
 		int iterator(int delegate(ref Package) del)
 		{
-			// first search project local packages
-			foreach( p; m_localTemporaryPackages )
-				if( auto ret = del(p) ) return ret;
-			foreach( p; m_projectPackages )
-				if( auto ret = del(p) ) return ret;
+			foreach (tp; m_temporaryPackages)
+				if (auto ret = del(tp)) return ret;
 
-			// then local packages
-			foreach( p; m_localUserPackages )
-				if( auto ret = del(p) ) return ret;
+			// first search local packages
+			foreach (tp; LocalPackageType.min .. LocalPackageType.max+1)
+				foreach (p; m_repositories[cast(LocalPackageType)tp].localPackages)
+					if (auto ret = del(p)) return ret;
 
-			// then local packages
-			foreach( p; m_localSystemPackages )
-				if( auto ret = del(p) ) return ret;
-
-			// then user installed packages
-			foreach( pl; m_userPackages )
+			// and then all packages gathered from the search path
+			foreach( pl; m_packages )
 				foreach( v; pl )
 					if( auto ret = del(v) )
 						return ret;
-
-			// finally system-wide installed packages
-			foreach( pl; m_systemPackages )
-				foreach( v; pl )
-					if( auto ret = del(v) )
-						return ret;
-
 			return 0;
 		}
 
@@ -130,57 +148,23 @@ class PackageManager {
 	{
 		int iterator(int delegate(ref Package) del)
 		{
-			// first search project local packages
-			foreach( p; m_localTemporaryPackages )
-				if( p.name == name )
-					if( auto ret = del(p) ) return ret;
-			if( auto pp = name in m_projectPackages )
-				if( auto ret = del(*pp) ) return ret;
-
-			// then local packages
-			foreach( p; m_localUserPackages )
-				if( p.name == name )
-					if( auto ret = del(p) ) return ret;
-
-			// then local packages
-			foreach( p; m_localSystemPackages )
-				if( p.name == name )
-					if( auto ret = del(p) ) return ret;
-
-			// then user installed packages
-			if( auto pp = name in m_userPackages )
-				foreach( v; *pp )
-					if( auto ret = del(v) )
-						return ret;
-
-			// finally system-wide installed packages
-			if( auto pp = name in m_systemPackages )
-				foreach( v; *pp )
-					if( auto ret = del(v) )
-						return ret;
-
+			foreach (p; getPackageIterator())
+				if (p.name == name)
+					if (auto ret = del(p)) return ret;
 			return 0;
 		}
 
 		return &iterator;
 	}
 
-	Package install(Path zip_file_path, Json package_info, InstallLocation location)
+	Package install(Path zip_file_path, Json package_info, /*InstallLocation location*/Path destination)
 	{
 		auto package_name = package_info.name.get!string();
 		auto package_version = package_info["version"].get!string();
 		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
 
 		logDebug("Installing package '%s' version '%s' to location '%s' from file '%s'", 
-			package_name, package_version, to!string(location), zip_file_path.toNativeString());
-
-		Path destination;
-		final switch( location ){
-			case InstallLocation.local: destination = Path(package_name); break;
-			case InstallLocation.projectLocal: enforce(!m_projectPackagePath.empty, "no project path set."); destination = m_projectPackagePath ~ package_name; break;
-			case InstallLocation.userWide: destination = m_userPackagePath ~ (package_name ~ "/" ~ clean_package_version); break;
-			case InstallLocation.systemWide: destination = m_systemPackagePath ~ (package_name ~ "/" ~ clean_package_version); break;
-		}
+			package_name, package_version, destination.toNativeString(), zip_file_path.toNativeString());
 
 		if( existsFile(destination) ){
 			throw new Exception(format("%s %s needs to be uninstalled prior installation.", package_name, package_version));
@@ -262,21 +246,16 @@ class PackageManager {
 		if( existsFile(destination~PackageJsonFilename) )
 			logInfo("%s has been installed with version %s", package_name, package_version);
 
-		auto pack = new Package(location, destination);
+		auto pack = new Package(destination);
 
-		final switch( location ){
-			case InstallLocation.local: break;
-			case InstallLocation.projectLocal: m_projectPackages[package_name] = pack; break;
-			case InstallLocation.userWide: m_userPackages[package_name] ~= pack; break;
-			case InstallLocation.systemWide: m_systemPackages[package_name] ~= pack; break;
-		}
+		m_packages[package_name] ~= pack;
 
 		return pack;
 	}
 
 	void uninstall(in Package pack)
 	{
-		logTrace("Uninstall %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
+		/+logTrace("Uninstall %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
 		enforce(!pack.path.empty, "Cannot uninstall package "~pack.name~" without a path.");
 
 		// remove package from package list
@@ -356,12 +335,12 @@ class PackageManager {
 			throw new Exception("Alien files found in '"~pack.path.toNativeString()~"', needs to be deleted manually.");
 
 		rmdir(pack.path.toNativeString());
-		logInfo("Uninstalled package: '"~pack.name~"'");
+		logInfo("Uninstalled package: '"~pack.name~"'");+/
 	}
 
 	Package addLocalPackage(in Path path, in Version ver, LocalPackageType type)
 	{
-		Package[]* packs = getLocalPackageList(type);
+		Package[]* packs = &m_repositories[type].localPackages;
 		auto info = jsonFromFile(path ~ PackageJsonFilename, false);
 		string name;
 		if( "name" !in info ) info["name"] = path.head.toString();
@@ -375,7 +354,7 @@ class PackageManager {
 			}
 		}
 
-		auto pack = new Package(info, InstallLocation.local, path);
+		auto pack = new Package(info, path);
 
 		*packs ~= pack;
 
@@ -386,7 +365,7 @@ class PackageManager {
 
 	void removeLocalPackage(in Path path, LocalPackageType type)
 	{
-		Package[]* packs = getLocalPackageList(type);
+		Package[]* packs = &m_repositories[type].localPackages;
 		size_t[] to_remove;
 		foreach( i, entry; *packs )
 			if( entry.path == path )
@@ -399,60 +378,38 @@ class PackageManager {
 		writeLocalPackageList(type);
 	}
 
+	Package addTemporaryPackage(Path path, Version ver)
+	{
+		auto info = jsonFromFile(path ~ PackageJsonFilename, false);
+		string name;
+		if( "name" !in info ) info["name"] = path.head.toString();
+		info["version"] = ver.toString();
+
+		auto pack = new Package(info, path);
+		m_temporaryPackages ~= pack;
+		return pack;
+	}
+
+	void addSearchPath(Path path, LocalPackageType type)
+	{
+		m_repositories[type].searchPath ~= path;
+		writeLocalPackageList(type);
+	}
+
+	void removeSearchPath(Path path, LocalPackageType type)
+	{
+		m_repositories[type].searchPath = m_repositories[type].searchPath.filter!(p => p != path)().array();
+		writeLocalPackageList(type);
+	}
+
 	void refresh()
 	{
-		// rescan the system and user package folder
-		void scanPackageFolder(Path path, ref Package[][string] packs, InstallLocation location)
-		{
-			packs = null;
-			if( path.existsDirectory() ){
-				logDebug("iterating dir %s", path.toNativeString());
-				try foreach( pdir; iterateDirectory(path) ){
-					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
-					if( !pdir.isDirectory ) continue;
-					Package[] vers;
-					auto pack_path = path ~ pdir.name;
-					foreach( vdir; iterateDirectory(pack_path) ){
-						if( !vdir.isDirectory ) continue;
-						auto ver_path = pack_path ~ vdir.name;
-						if( !existsFile(ver_path ~ PackageJsonFilename) ) continue;
-						try {
-							auto p = new Package(location, ver_path);
-							vers ~= p;
-						} catch( Exception e ){
-							logError("Failed to load package in %s: %s", ver_path, e.msg);
-						}
-					}
-					packs[pdir.name] = vers;
-				}
-				catch(Exception e) logDebug("Failed to enumerate %s packages: %s", location, e.toString());
-			}
-		}
-		scanPackageFolder(m_systemPackagePath, m_systemPackages, InstallLocation.systemWide);
-		scanPackageFolder(m_userPackagePath, m_userPackages, InstallLocation.userWide);
-
-
-		// rescan the project package folder
-		m_projectPackages = null;
-		if( !m_projectPackagePath.empty && m_projectPackagePath.existsDirectory() ){
-			logDebug("iterating dir %s", m_projectPackagePath.toNativeString());
-			try foreach( pdir; m_projectPackagePath.iterateDirectory() ){
-				if( !pdir.isDirectory ) continue;
-				auto pack_path = m_projectPackagePath ~ pdir.name;
-				if( !existsFile(pack_path ~ PackageJsonFilename) ) continue;
-
-				try {
-					auto p = new Package(InstallLocation.projectLocal, pack_path);
-					m_projectPackages[pdir.name] = p;
-				} catch( Exception e ){
-					logError("Failed to load package in %s: %s", pack_path, e.msg);
-				}
-			}
-			catch(Exception e) logDebug("Failed to enumerate project packages: %s", e.toString());
-		}
-
 		// load locally defined packages
-		void scanLocalPackages(Path list_path, ref Package[] packs){
+		void scanLocalPackages(LocalPackageType type)
+		{
+			Path list_path = m_repositories[type].packagePath;
+			Package[] packs;
+			Path[] paths;
 			try {
 				logDebug("Looking for local package map at %s", list_path.toNativeString());
 				if( !existsFile(list_path ~ LocalPackagesFilename) ) return;
@@ -462,16 +419,20 @@ class PackageManager {
 				foreach( pentry; packlist ){
 					try {
 						auto name = pentry.name.get!string();
-						auto ver = pentry["version"].get!string();
 						auto path = Path(pentry.path.get!string());
-						auto info = Json.EmptyObject;
-						if( existsFile(path ~ PackageJsonFilename) ) info = jsonFromFile(path ~ PackageJsonFilename);
-						if( "name" in info && info.name.get!string() != name )
-							logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, info.name.get!string());
-						info.name = name;
-						info["version"] = ver;
-						auto pp = new Package(info, InstallLocation.local, path);
-						packs ~= pp;
+						if (name == "*") {
+							paths ~= path;
+						} else {
+							auto ver = pentry["version"].get!string();
+							auto info = Json.EmptyObject;
+							if( existsFile(path ~ PackageJsonFilename) ) info = jsonFromFile(path ~ PackageJsonFilename);
+							if( "name" in info && info.name.get!string() != name )
+								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, info.name.get!string());
+							info.name = name;
+							info["version"] = ver;
+							auto pp = new Package(info, path);
+							packs ~= pp;
+						}
 					} catch( Exception e ){
 						logWarn("Error adding local package: %s", e.msg);
 					}
@@ -479,9 +440,37 @@ class PackageManager {
 			} catch( Exception e ){
 				logDebug("Loading of local package list at %s failed: %s", list_path.toNativeString(), e.msg);
 			}
+			m_repositories[type].localPackages = packs;
+			m_repositories[type].searchPath = paths;
 		}
-		scanLocalPackages(m_systemPackagePath, m_localSystemPackages);
-		scanLocalPackages(m_userPackagePath, m_localUserPackages);
+		scanLocalPackages(LocalPackageType.system);
+		scanLocalPackages(LocalPackageType.user);
+
+		// rescan the system and user package folder
+		void scanPackageFolder(Path path)
+		{
+			if( path.existsDirectory() ){
+				logTrace("iterating dir %s", path.toNativeString());
+				try foreach( pdir; iterateDirectory(path) ){
+					logTrace("iterating dir %s entry %s", path.toNativeString(), pdir.name);
+					if( !pdir.isDirectory ) continue;
+					auto pack_path = path ~ pdir.name;
+					if( !existsFile(pack_path ~ PackageJsonFilename) ) continue;
+					Package p;
+					try {
+						p = new Package(pack_path);
+						m_packages[p.name] ~= p;
+					} catch( Exception e ){
+						logError("Failed to load package in %s: %s", pack_path, e.msg);
+					}
+				}
+				catch(Exception e) logDebug("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
+			}
+		}
+
+		m_packages = null;
+		foreach (p; this.completeSearchPath)
+			scanPackageFolder(p);
 	}
 
 	alias ubyte[] Hash;
@@ -514,20 +503,17 @@ class PackageManager {
 		return hash[0..$];
 	}
 
-	private Package[]* getLocalPackageList(LocalPackageType type)
-	{
-		final switch(type){
-			case LocalPackageType.user: return &m_localUserPackages;
-			case LocalPackageType.system: return &m_localSystemPackages;
-			case LocalPackageType.temporary: return &m_localTemporaryPackages;
-		}
-	}
-
 	private void writeLocalPackageList(LocalPackageType type)
 	{
-		Package[]* packs = getLocalPackageList(type);
 		Json[] newlist;
-		foreach( p; *packs ){
+		foreach (p; m_repositories[type].searchPath) {
+			auto entry = Json.EmptyObject;
+			entry.name = "*";
+			entry.path = p.toNativeString();
+			newlist ~= entry;
+		}
+
+		foreach (p; m_repositories[type].localPackages) {
 			auto entry = Json.EmptyObject;
 			entry["name"] = p.name;
 			entry["version"] = p.ver.toString();
@@ -535,12 +521,7 @@ class PackageManager {
 			newlist ~= entry;
 		}
 
-		Path path;
-		final switch(type){
-			case LocalPackageType.user: path = m_userPackagePath; break;
-			case LocalPackageType.system: path = m_systemPackagePath; break;
-			case LocalPackageType.temporary: return;
-		}
+		Path path = m_repositories[type].packagePath;
 		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
 		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
 	}

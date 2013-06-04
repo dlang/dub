@@ -146,7 +146,7 @@ int main(string[] args)
 				dub.loadPackageFromCwd();
 				logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
 				logDebug("dub initialized");
-				dub.update(UpdateOptions.Reinstall | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
+				dub.update(UpdateOptions.Upgrade | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
 				return 0;
 			case "install":
 				enforce(args.length >= 2, "Missing package name.");
@@ -188,16 +188,18 @@ int main(string[] args)
 				enforce(args.length >= 2, "Missing path to package.");
 				dub.removeLocalPackage(args[1], install_system);
 				break;
-			case "list-locals":
-			case "list-system":
-			case "list-user":
-				auto toList = cmd == "list-locals"? InstallLocation.local
-					: cmd == "list-system"? InstallLocation.systemWide
-					: InstallLocation.userWide;
-				logInfo(cmd == "list-locals"? "Locals:" : cmd == "list-system"? "System:" : "User:");
-				foreach( p; dub.packageManager.getPackageIterator() )
-					if( p.installLocation == toList)
-						logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
+			case "add-path":
+				enforce(args.length >= 2, "Missing search path.");
+				dub.addSearchPath(args[1], install_system);
+				break;
+			case "remove-path":
+				enforce(args.length >= 2, "Missing search path.");
+				dub.removeSearchPath(args[1], install_system);
+				break;
+			case "list-installed":
+				logInfo("Installed packages:");
+				foreach (p; dub.packageManager.getPackageIterator())
+					logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
 				logInfo("");
 				break;
 			case "run":
@@ -322,9 +324,7 @@ Available commands:
     add-local <dir> <version>
                          Adds a local package directory (e.g. a git repository)
     remove-local <dir>   Removes a local package directory
-    list-locals          Prints a list of all locals
-    list-system          Prints a list of all system wide installed packages.
-    list-user            Prints a list of all user installed packages.
+    list-installed       Prints a list of all installed packages
     generate <name>      Generates project files using the specified generator:
                            visuald, mono-d, build, rdmd
     describe             Prints a JSON description of the project and its

@@ -50,19 +50,17 @@ class Package {
 	static struct LocalPackageDef { string name; Version version_; Path path; }
 
 	private {
-		InstallLocation m_location;
 		Path m_path;
 		PackageInfo m_info;
 	}
 
-	this(InstallLocation location, Path root)
+	this(Path root)
 	{
-		this(jsonFromFile(root ~ PackageJsonFilename), location, root);
+		this(jsonFromFile(root ~ PackageJsonFilename), root);
 	}
 
-	this(Json packageInfo, InstallLocation location = InstallLocation.local, Path root = Path())
+	this(Json packageInfo, Path root = Path())
 	{
-		m_location = location;
 		m_path = root;
 
 		// check for default string import folders
@@ -90,6 +88,28 @@ class Package {
 		{
 			scope(failure) logError("Failed to parse package description in %s", root.toNativeString());
 			m_info.parseJson(packageInfo);
+
+			// try to run git to determine the version of the package if no explicit version was given
+			if (m_info.version_.length == 0) {
+				import dub.internal.std.process;
+				try {
+					auto branch = execute(["git", "--git-dir="~(root~".git").toNativeString(), "rev-parse", "--abbrev-ref", "HEAD"]);
+					enforce(branch.status == 0, "git rev-parse failed: " ~ branch.output);
+					if (branch.output.strip() == "HEAD") {
+						//auto ver = execute("git",)
+						enforce(false, "oops");
+					} else {
+						m_info.version_ = "~" ~ branch.output.strip();
+					}
+				} catch (Exception e) {
+					logDebug("Failed to run git: %s", e.msg);
+				}
+
+				if (m_info.version_.length == 0) {
+					logDebug("Failed to determine version of package %s at %s. Assuming ~master.", m_info.name, this.path.toNativeString());
+					m_info.version_ = "~master";
+				} else logDebug("Determined package version using GIT: %s %s", m_info.name, m_info.version_);
+			}
 		}
 
 		// generate default configurations if none are defined
@@ -119,7 +139,6 @@ class Package {
 	@property string vers() const { return m_info.version_; }
 	@property Version ver() const { return Version(m_info.version_); }
 	@property const(PackageInfo) info() const { return m_info; }
-	@property installLocation() const { return m_location; }
 	@property Path path() const { return m_path; }
 	@property Path packageInfoFile() const { return m_path ~ "package.json"; }
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }

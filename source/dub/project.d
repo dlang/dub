@@ -146,7 +146,7 @@ class Project {
 	{
 		scope(failure){
 			logDebug("Failed to initialize project. Assuming defaults.");
-			m_main = new Package(serializeToJson(["name": "unknown"]), InstallLocation.local, m_root);
+			m_main = new Package(serializeToJson(["name": "unknown"]), m_root);
 		}
 
 		m_dependencies = null;
@@ -160,11 +160,11 @@ class Project {
 			logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root.toNativeString());
 			auto json = Json.EmptyObject;
 			json.name = "unknown";
-			m_main = new Package(json, InstallLocation.local, m_root);
+			m_main = new Package(json, m_root);
 			return;
 		}
 
-		m_main = new Package(InstallLocation.local, m_root);
+		m_main = new Package(m_root);
 		m_main.warnOnSpecialCompilerFlags();
 		if (m_main.name != m_main.name.toLower()) {
 			logWarn("Package names should always be lower case, please change from '%s' to '%s'!",
@@ -183,7 +183,7 @@ class Project {
 					Path path = vspec.path;
 					if( !path.absolute ) path = pack.path ~ path;
 					logDebug("Adding local %s %s", path, vspec.version_);
-					p = m_packageManager.addLocalPackage(path, vspec.version_, LocalPackageType.temporary);
+					p = m_packageManager.addTemporaryPackage(path, vspec.version_);
 				} else {
 					p = m_packageManager.getBestPackage(name, vspec);
 				}
@@ -262,7 +262,8 @@ class Project {
 
 
 	/// Actions which can be performed to update the application.
-	Action[] determineActions(PackageSupplier[] packageSuppliers, int option) {
+	Action[] determineActions(PackageSupplier[] packageSuppliers, int option)
+	{
 		scope(exit) writeDubJson();
 
 		if(!m_main) {
@@ -301,50 +302,22 @@ class Project {
 			installed[p.name] = p;
 		}
 
-		// To see, which could be uninstalled
-		Package[string] unused = installed.dup;
-		unused.remove(m_main.name);
 
 		// Check against installed and add install actions
 		Action[] actions;
-		Action[] uninstalls;
 		foreach( string pkg, d; graph.needed() ) {
 			auto p = pkg in installed;
 			// TODO: auto update to latest head revision
 			if(!p || (!d.dependency.matches(p.vers) && !d.dependency.matches(Version.MASTER))) {
-				if(!p) logDebug("Application not complete, required package '"~pkg~"', which was not found.");
-				else logDebug("Application not complete, required package '"~pkg~"', invalid version. Required '%s', available '%s'.", d.dependency, p.vers);
-				actions ~= Action.install(pkg, InstallLocation.projectLocal, d.dependency, d.packages);
+				if(!p) logDebug("Triggering installation of required package '"~pkg~"', which is not installed.");
+				else logDebug("Triggering installation of required package '"~pkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
+				actions ~= Action.install(pkg, InstallLocation.userWide, d.dependency, d.packages);
 			} else {
 				logDebug("Required package '"~pkg~"' found with version '"~p.vers~"'");
-				if( option & UpdateOptions.Reinstall ) {
-					if( p.installLocation != InstallLocation.local ){
-						Dependency[string] em;
-						// user and system packages are not uninstalled (could be needed by other projects)
-						if (p.installLocation == InstallLocation.projectLocal || p.ver.isBranch)
-							uninstalls ~= Action.uninstall(*p, em);
-						actions ~= Action.install(pkg, p.installLocation, d.dependency, d.packages);
-					} else {
-						logInfo("Skipping local package %s at %s", p.name, p.path.toNativeString());
-					}
-				}
-
-				if( (pkg in unused) !is null )
-					unused.remove(pkg);
+				if( option & UpdateOptions.Upgrade )
+					actions ~= Action.install(pkg, InstallLocation.userWide, d.dependency, d.packages);
 			}
 		}
-
-		// Add uninstall actions
-		foreach( pname, pkg; unused ){
-			if( pkg.installLocation != InstallLocation.projectLocal )
-				continue;
-			logDebug("Superfluous package found: '"~pname~"', version '"~pkg.vers~"'");
-			Dependency[string] em;
-			uninstalls ~= Action.uninstall(pkg, em);
-		}
-
-		// Ugly "uninstall" comes first
-		actions = uninstalls ~ actions;
 
 		return actions;
 	}
@@ -433,7 +406,8 @@ class Project {
 		}
 	}
 
-	private bool gatherMissingDependencies(PackageSupplier[] packageSuppliers, DependencyGraph graph) {
+	private bool gatherMissingDependencies(PackageSupplier[] packageSuppliers, DependencyGraph graph)
+	{
 		RequestedDependency[string] missing = graph.missing();
 		RequestedDependency[string] oldMissing;
 		while( missing.length > 0 ) {
@@ -477,7 +451,7 @@ class Project {
 				if( !p && reqDep.dependency.optional ) continue;
 				
 				// Try an already installed package first
-				if( p && p.installLocation != InstallLocation.local && needsUpToDateCheck(pkg) ){
+				if( p && needsUpToDateCheck(pkg) ){
 					logInfo("Triggering update of package %s", pkg);
 					p = null;
 				}
@@ -611,7 +585,7 @@ enum UpdateOptions
 {
 	None = 0,
 	JustAnnotate = 1<<0,
-	Reinstall = 1<<1
+	Upgrade = 1<<1
 };
 
 
