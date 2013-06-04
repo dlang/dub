@@ -273,19 +273,24 @@ class Project {
 
 		auto graph = new DependencyGraph(m_main);
 		if(!gatherMissingDependencies(packageSuppliers, graph)  || graph.missing().length > 0) {
-			logError("The dependency graph could not be filled.");
+			// Check the conflicts first.
+			auto conflicts = graph.conflicted();
+			if(conflicts.length > 0) {
+				logError("The dependency graph could not be filled, there are conflicts.");
+				Action[] actions;
+				foreach( string pkg, dbp; graph.conflicted())
+					actions ~= Action.conflict(pkg, dbp.dependency, dbp.packages);
+				// Missing dependencies could have some bogus results, therefore
+				// return only the conflicts.
+				return actions;
+			}
+
+			// Then check unresolved dependencies.
+			logError("The dependency graph could not be filled, there are unresolved dependencies.");
 			Action[] actions;
 			foreach( string pkg, rdp; graph.missing())
 				actions ~= Action.failure(pkg, rdp.dependency, rdp.packages);
-			return actions;
-		}
 
-		auto conflicts = graph.conflicted();
-		if(conflicts.length > 0) {
-			logDebug("Conflicts found");
-			Action[] actions;
-			foreach( string pkg, dbp; conflicts)
-				actions ~= Action.conflict(pkg, dbp.dependency, dbp.packages);
 			return actions;
 		}
 
@@ -301,7 +306,6 @@ class Project {
 			}
 			installed[p.name] = p;
 		}
-
 
 		// Check against installed and add install actions
 		Action[] actions;
@@ -477,8 +481,17 @@ class Project {
 					graph.insert(p);
 			}
 			graph.clearUnused();
+			
+			// As the dependencies are filled in starting from the outermost 
+			// packages, resolving those conflicts won't happen (?).
+			if(graph.conflicted().length > 0) {
+				logInfo("There are conflicts in the dependency graph.");
+				return false;
+			}
+
 			missing = graph.missing();
 		}
+
 		return true;
 	}
 
