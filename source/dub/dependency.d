@@ -212,8 +212,6 @@ class Dependency {
 	this(const Dependency o) {
 		m_cmpA = o.m_cmpA; m_versA = Version(o.m_versA);
 		m_cmpB = o.m_cmpB; m_versB = Version(o.m_versB);
-		enforce( m_cmpA != "==" || m_cmpB == "==");
-		enforce(m_versA <= m_versB);
 		m_path = o.m_path;
 		m_configuration = o.m_configuration;
 		m_optional = o.m_optional;
@@ -288,9 +286,6 @@ class Dependency {
 		
 		Version a = m_versA > o.m_versA? m_versA : o.m_versA;
 		Version b = m_versB < o.m_versB? m_versB : o.m_versB;
-		
-		//logTrace(" this : %s", this);
-		//logTrace(" other: %s", o);
 	
 		Dependency d = new Dependency(this);
 		d.m_cmpA = !doCmp(m_cmpA, a,a)? m_cmpA : o.m_cmpA;
@@ -298,8 +293,6 @@ class Dependency {
 		d.m_cmpB = !doCmp(m_cmpB, b,b)? m_cmpB : o.m_cmpB;
 		d.m_versB = b;
 		d.m_optional = m_optional && o.m_optional;
-		
-		//logTrace(" merged: %s", d);
 		
 		return d;
 	}
