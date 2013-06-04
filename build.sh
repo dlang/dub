@@ -27,7 +27,7 @@ LIBS=`echo "$LIBS" | sed 's/^-L/-L-L/; s/ -L/ -L-L/g; s/^-l/-L-l/; s/ -l/ -L-l/g
 
 echo Generating version file...
 GITVER=$(git describe) || GITVER=unknown
-echo enum dubVersion = "$GITVER"; > source/dub/version_.d
+echo "enum dubVersion = \"$GITVER\";" > source/dub/version_.d
 
 
 echo Running $DC...
