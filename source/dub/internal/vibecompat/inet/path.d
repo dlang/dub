@@ -32,7 +32,7 @@ struct Path {
 	this(string pathstr)
 	{
 		m_nodes = cast(immutable)splitPath(pathstr);
-		m_absolute = (pathstr.startsWith("/") || m_nodes.length > 0 && m_nodes[0].toString().countUntil(':')>0);
+		m_absolute = (pathstr.startsWith("/") || m_nodes.length > 0 && (m_nodes[0].toString().countUntil(':')>0 || m_nodes[0] == "\\"));
 		m_endsWithSlash = pathstr.endsWith("/");
 		foreach( e; m_nodes ) assert(e.toString().length > 0);
 	}
@@ -311,6 +311,58 @@ PathEntry[] splitPath(string path)
 
 unittest
 {
-    auto unc = "\\\\server\\share\\path";
-    assert(Path(unc).toNativeString() == unc); 
+	{
+		auto unc = "\\\\server\\share\\path";
+		auto uncp = Path(unc);
+		version(Windows) assert(uncp.toNativeString() == unc);
+		assert(uncp.absolute);
+		assert(!uncp.endsWithSlash);
+	}
+
+	{
+		auto abspath = "/test/path/";
+		auto abspathp = Path(abspath);
+		assert(abspathp.toString() == abspath);
+		version(Windows) {} else assert(abspathp.toNativeString() == abspath);
+		assert(abspathp.absolute);
+		assert(abspathp.endsWithSlash);
+		assert(abspathp.length == 2);
+		assert(abspathp[0] == "test");
+		assert(abspathp[1] == "path");
+	}
+
+	{
+		auto relpath = "test/path/";
+		auto relpathp = Path(relpath);
+		assert(relpathp.toString() == relpath);
+		version(Windows) assert(relpathp.toNativeString() == "test\\path\\");
+		else assert(relpathp.toNativeString() == relpath);
+		assert(!relpathp.absolute);
+		assert(relpathp.endsWithSlash);
+		assert(relpathp.length == 2);
+		assert(relpathp[0] == "test");
+		assert(relpathp[1] == "path");
+	}
+
+	{
+		auto winpath = "C:\\windows\\test";
+		auto winpathp = Path(winpath);
+		assert(winpathp.toString() == "/C:/windows/test");
+		version(Windows) assert(winpathp.toNativeString() == winpath);
+		else assert(winpathp.toNativeString() == "/C:/windows/test");
+		assert(winpathp.absolute);
+		assert(!winpathp.endsWithSlash);
+		assert(winpathp.length == 3);
+		assert(winpathp[0] == "C:");
+		assert(winpathp[1] == "windows");
+		assert(winpathp[2] == "test");
+	}
+
+	{
+		auto dotpath = "/test/../test2/././x/y";
+		auto dotpathp = Path(dotpath);
+		assert(dotpathp.toString() == "/test/../test2/././x/y");
+		dotpathp.normalize();
+		assert(dotpathp.toString() == "/test2/x/y");
+	}
 }
