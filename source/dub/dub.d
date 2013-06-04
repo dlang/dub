@@ -428,8 +428,10 @@ void main()
 	{
 		auto p = environment.get("DUBPATH");
 		Path[] paths;
-		version(Windows) if (p.length) paths ~= p.split(":").map!(p => Path(p))().array();
-		else if (p.length) paths ~= p.split(";").map!(p => Path(p))().array();
+
+		version(Windows) enum pathsep = ":";
+		else enum pathsep = ";";
+		if (p.length) paths ~= p.split(pathsep).map!(p => Path(p))().array();
 		m_packageManager.searchPath = paths;
 	}
 
