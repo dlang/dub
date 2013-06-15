@@ -113,6 +113,8 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 */
 void resolveLibs(ref BuildSettings settings)
 {
+	if (settings.libs.length == 0) return;
+	
 	try {
 		logDebug("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
 		auto libflags = execute(["pkg-config", "--libs"] ~ settings.libs.map!(l => "lib"~l)().array());
