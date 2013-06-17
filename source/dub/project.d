@@ -565,12 +565,12 @@ struct Action {
 
 	static Action conflict(string pkg, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.conflict, pkg, InstallLocation.projectLocal, dep, context);
+		return Action(Type.conflict, pkg, InstallLocation.userWide, dep, context);
 	}
 
 	static Action failure(string pkg, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.failure, pkg, InstallLocation.projectLocal, dep, context);
+		return Action(Type.failure, pkg, InstallLocation.userWide, dep, context);
 	}
 
 	private this(Type id, string pkg, InstallLocation location, in Dependency d, Dependency[string] issue)

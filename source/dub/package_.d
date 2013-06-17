@@ -32,9 +32,6 @@ enum InstallLocation {
 	/// Packages installed with 'local' will be placed in the current folder 
 	/// using the package name as destination.
 	local,
-	/// Packages with 'projectLocal' will be placed in a folder managed by
-	/// dub (i.e. inside the .dub subfolder). 
-	projectLocal,
 	/// Packages with 'userWide' will be placed in a folder accessible by
 	/// all of the applications from the current user.
 	userWide,

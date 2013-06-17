@@ -189,7 +189,7 @@ class Dub {
 	string[string] installedPackages() const { return m_project.installedPackagesIDs(); }
 
 	/// Installs the package matching the dependency into the application.
-	Package install(string packageId, const Dependency dep, InstallLocation location = InstallLocation.projectLocal)
+	Package install(string packageId, const Dependency dep, InstallLocation location)
 	{
 		Json pinfo;
 		PackageSupplier supplier;
@@ -206,7 +206,6 @@ class Dub {
 		Path install_path;
 		final switch (location) {
 			case InstallLocation.local: install_path = m_cwd; break;
-			case InstallLocation.projectLocal: install_path = m_project.mainPackage.path ~ ".dub/packages/"; break;
 			case InstallLocation.userWide: install_path = m_userDubPath ~ "packages/"; break;
 			case InstallLocation.systemWide: install_path = m_systemDubPath ~ "packages/"; break;
 		}
@@ -259,13 +258,13 @@ class Dub {
 	/// Note: as wildcard string only "*" is supported.
 	/// @param location_
 	void uninstall(string package_id, string version_, InstallLocation location_) {
-		/+enforce(!package_id.empty);
+		enforce(!package_id.empty);
 		Package[] packages;
 		const bool wildcardOrEmpty = version_ == UninstallVersionWildcard || version_.empty;
 		if(location_ == InstallLocation.local) {
 			// Try folder named like the package_id in the cwd.
 			try {
-				Package pack = new Package(InstallLocation.local, Path(package_id));
+				Package pack = new Package(Path(package_id));
 				if(!wildcardOrEmpty && to!string(pack.vers) != version_) {
 					logError("Installed package is of different version, uninstallation aborted.");
 					logError("Installed: %s, provided %s@", pack.vers, version_);
@@ -275,8 +274,8 @@ class Dub {
 			} catch {/* noop */}
 		} else {
 			// Use package manager
-			foreach(pack; m_packageManager.getPackageIterator(package_id)){
-				if( pack.installLocation == location_ && (wildcardOrEmpty || pack.vers == version_ )) {
+			foreach(pack; m_packageManager.getPackageIterator(package_id)) {
+				if( wildcardOrEmpty || pack.vers == version_ ) {
 					packages ~= pack;
 				}
 			}
@@ -302,7 +301,7 @@ class Dub {
 				logInfo("Uninstalled %s, version %s.", package_id, pack.vers);
 			}
 			catch logError("Failed to uninstall %s, version %s. Continuing with other packages (if any).", package_id, pack.vers);
-		}+/
+		}
 	}
 
 	void addLocalPackage(string path, string ver, bool system)

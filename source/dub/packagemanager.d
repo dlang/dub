@@ -157,7 +157,7 @@ class PackageManager {
 		return &iterator;
 	}
 
-	Package install(Path zip_file_path, Json package_info, /*InstallLocation location*/Path destination)
+	Package install(Path zip_file_path, Json package_info, Path destination)
 	{
 		auto package_name = package_info.name.get!string();
 		auto package_version = package_info["version"].get!string();
@@ -183,11 +183,12 @@ class PackageManager {
 
 		// In a github zip, the actual contents are in a subfolder
 		Path zip_prefix;
-		foreach(ArchiveMember am; archive.directory)
+		foreach(ArchiveMember am; archive.directory) {
 			if( Path(am.name).head == PathEntry(PackageJsonFilename) ){
 				zip_prefix = Path(am.name)[0 .. 1];
 				break;
 			}
+		}
 
 		if( zip_prefix.empty ){
 			// not correct zip packages HACK
@@ -255,38 +256,34 @@ class PackageManager {
 
 	void uninstall(in Package pack)
 	{
-		/+logTrace("Uninstall %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
+		logTrace("Uninstall %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
 		enforce(!pack.path.empty, "Cannot uninstall package "~pack.name~" without a path.");
 
-		// remove package from package list
-		final switch(pack.installLocation){
-			case InstallLocation.local: 
-				logTrace("Uninstall local");
-				break;
-			case InstallLocation.projectLocal:
-				logTrace("Uninstall projectLocal");
-				auto pp = pack.name in m_projectPackages;
-				assert(pp !is null, "Package "~pack.name~" at "~pack.path.toNativeString()~" is not installed in project.");
-				assert(*pp is pack);
-				m_projectPackages.remove(pack.name);
-				break;
-			case InstallLocation.userWide:
-				logTrace("Uninstall userWide");
-				auto pv = pack.name in m_userPackages;
-				assert(pv !is null, "Package "~pack.name~" at "~pack.path.toNativeString()~" is not installed in user repository.");
-				auto idx = countUntil(*pv, pack);
-				assert(idx < 0 || (*pv)[idx] is pack);
-				if( idx >= 0 ) *pv = (*pv)[0 .. idx] ~ (*pv)[idx+1 .. $];
-				break;
-			case InstallLocation.systemWide:
-				logTrace("Uninstall systemWide");
-				auto pv = pack.name in m_systemPackages;
-				assert(pv !is null, "Package "~pack.name~" at "~pack.path.toNativeString()~" is not installed system repository.");
-				auto idx = countUntil(*pv, pack);
-				assert(idx < 0 || (*pv)[idx] is pack);
-				if( idx >= 0 ) *pv = (*pv)[0 .. idx] ~ (*pv)[idx+1 .. $];
-				break;
+		// remove package from repositories' list
+		bool found = false;
+		bool removeFrom(Package[] packs, in Package pack) {
+			auto packPos = countUntil!("a.path == b.path")(packs, pack);
+			if(packPos != -1) {
+				packs = std.algorithm.remove(packs, packPos);
+				return true;
+			}
+			return false;
 		}
+		foreach(repo; m_repositories) {
+			if(removeFrom(repo.localPackages, pack)) {
+				found = true;
+				break;
+			}
+		}
+		if(!found) {
+			foreach(packsOfId; m_packages) {
+				if(removeFrom(packsOfId, pack)) {
+					found = true;
+					break;
+				}
+			}
+		}
+		enforce(found, "Cannot uninstall, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
 
 		// delete package files physically
 		logTrace("Looking up journal");
@@ -335,7 +332,7 @@ class PackageManager {
 			throw new Exception("Alien files found in '"~pack.path.toNativeString()~"', needs to be deleted manually.");
 
 		rmdir(pack.path.toNativeString());
-		logInfo("Uninstalled package: '"~pack.name~"'");+/
+		logInfo("Uninstalled package: '"~pack.name~"'");
 	}
 
 	Package addLocalPackage(in Path path, in Version ver, LocalPackageType type)
