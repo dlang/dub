@@ -155,7 +155,7 @@ class Project {
 
 		m_dependencies = null;
 		m_main = null;
-		m_packageManager.refresh();
+		m_packageManager.refresh(false);
 
 		try m_json = jsonFromFile(m_root ~ ".dub/dub.json", true);
 		catch(Exception t) logDebug("Failed to read .dub/dub.json: %s", t.msg);
@@ -457,7 +457,7 @@ class Project {
 				if( !p && reqDep.dependency.optional ) continue;
 				
 				// Try an already installed package first
-				if( p && needsUpToDateCheck(pkg) ){
+				if( p && needsUpToDateCheck(p) ){
 					logInfo("Triggering update of package %s", pkg);
 					p = null;
 				}
@@ -497,12 +497,14 @@ class Project {
 		return true;
 	}
 
-	private bool needsUpToDateCheck(string packageId) {
-		try {
-			auto time = m_json["dub"]["lastUpdate"].opt!(Json[string]).get(packageId, Json("")).get!string;
-			if( !time.length ) return true;
-			return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
-		} catch(Exception t) return true;
+	private bool needsUpToDateCheck(Package pack) {
+		version (none) { // needs to be updated for the new package system (where no project local packages exist)
+			try {
+				auto time = m_json["dub"]["lastUpdate"].opt!(Json[string]).get(pack.name, Json("")).get!string;
+				if( !time.length ) return true;
+				return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
+			} catch(Exception t) return true;
+		} else return false;
 	}
 		
 	private void markUpToDate(string packageId) {

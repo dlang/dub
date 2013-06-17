@@ -111,7 +111,7 @@ class DmdCompiler : Compiler {
 	{
 		import std.string;
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		auto args = ["dmd", "-of"~tpath.toNativeString()] ~ objects ~ settings.lflags.map!(l => "-L"~l)().array() ~ settings.sourceFiles;
+		auto args = [platform.compiler, "-of"~tpath.toNativeString()] ~ objects ~ settings.lflags.map!(l => "-L"~l)().array() ~ settings.sourceFiles;
 		args ~= settings.dflags.filter!(f => f == "-g" || f == "-gc")().array();
 		logDebug("%s", args.join(" "));
 		auto res = spawnProcess(args).wait();
