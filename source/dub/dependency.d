@@ -14,25 +14,31 @@ import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.utils;
 
-import std.array;
-import std.string;
-import std.exception;
 import std.algorithm;
-import std.typecons;
+import std.array;
 import std.conv;
+import std.exception;
+import std.regex;
+import std.string;
+import std.typecons;
 static import std.compiler;
 
-
 /**
-	A version in the format "major.update.bugfix" or "~master", to identify trunk,
-	or "~branch_name" to identify a branch. Both Version types starting with "~"
-	refer to the head revision of the corresponding branch.
+	A version in the format "major.update.bugfix-pre-release+build-metadata" or
+	"~master", to identify trunk, or "~branch_name" to identify a branch. Both 
+	Version types starting with "~"	refer to the head revision of the 
+	corresponding branch.
+	
+	Except for the "~branch" Version format, this follows the Semantic Versioning
+	Specification (SemVer) 2.0.0-rc.2.
 */
 struct Version {
-	static const Version RELEASE = Version("0.0.0");
-	static const Version HEAD = Version(to!string(MAX_VERS)~"."~to!string(MAX_VERS)~"."~to!string(MAX_VERS));
-	static const Version INVALID = Version();
-	static const Version MASTER = Version(MASTER_STRING);
+	private enum NoCheck = 0;
+	private this(string vers, int noCheck){ sVersion = vers; }
+	static const Version RELEASE = Version("0.0.0", NoCheck);
+	static const Version HEAD = Version(to!string(MAX_VERS)~"."~to!string(MAX_VERS)~"."~to!string(MAX_VERS), NoCheck);
+	static const Version INVALID = Version("", NoCheck);
+	static const Version MASTER = Version(MASTER_STRING, NoCheck);
 	static const string MASTER_STRING = "~master";
 	static immutable char BRANCH_IDENT = '~';
 	
@@ -43,19 +49,51 @@ struct Version {
 	}
 	
 	this(string vers)
-	{
+	in {
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		enforce(vers[0] == BRANCH_IDENT || count(vers, ".") == 2, "Invalid version string: "~vers);
-		sVersion = vers;
-		/*
-		if(vers == MASTER_STRING) {
-			v = [MASTER_VERS, MASTER_VERS, MASTER_VERS];
-		} else {
-			auto toks = split(vers, ".");
-			v.length = toks.length;
-			foreach( i, t; toks ) v[i] = t.to!size_t();
+		if(vers[0] == BRANCH_IDENT) {
+			// branch style, ok
 		}
-		*/
+		else {
+			// Check valid SemVer style
+			// 1.2.3-pre.release-version+build-meta.data.3
+			//enum semVerRegEx = ctRegex!(`yadda_malloc cannot be interpreted at compile time`);
+			//assert(match(vers, 
+			//  `^[0-9]+\.[0-9]+\.[0-9]+\-{0,1}(?:[0-9A-Za-z-]+\.{0,1})*\+{0,1}(?:[0-9A-Za-z-]+\.{0,1})*$`));
+			bool isNumericChar(char x) { return x >= '0' && x <= '9'; }
+			bool isIdentChar(char x) { return isNumericChar(x) || (x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z') || x == '-'; }
+			// 1-3 (version), 4 (prebuild), 5 (build), negative: substate
+			int state = 1; 
+			foreach(c; vers) {
+				switch(state) {
+				default: enforce(false, "Messed up"); break;
+				case 1: case 2: case 3: case 4: case 5:
+					enforce(0
+						|| (state <= 3 && isNumericChar(c))
+						|| (state >= 4 && isIdentChar(c)), "State #"~to!string(state)~", Char "~c~", Version: "~vers);
+					state = -state;
+					break;
+				case -1: case -2: case -3: case -4: case -5:
+					enforce(0
+						|| (state >= -2 && (c == '.' || isNumericChar(c)))
+						|| (state == -3 && (c == '-' || c == '+' || isNumericChar(c)))
+						|| (state == -4 && (c == '+' || c == '.' || isIdentChar(c)))
+						|| (state == -5 && isIdentChar(c)), "State #"~to!string(state)~", Char "~c~", Version: "~vers);
+					if(0
+						|| state >= -2 && c == '.'
+						|| state == -3 && c == '-'
+						|| state == -4 && c == '+')
+						state = -state + 1;
+					if(state == -3 && c == '+')
+						state = 5;
+					break;
+				}
+			}
+			enforce(state <= -3, "The version string is invalid: '" ~ vers ~ "'");
+		}
+	}
+	body {
+		sVersion = vers;
 	}
 
 	this(const Version o)
@@ -81,29 +119,60 @@ struct Version {
 			else throw new Exception("Can't compare branch versions! (this: %s, other: %s)".format(this, other));
 		}
 
-		size_t v[] = toArray();
-		size_t ov[] = other.toArray();
+		// Compare two SemVer versions
+		string v[] = this.toComparableArray();
+		string ov[] = other.toComparableArray();
 
-		foreach( i; 0 .. min(v.length, ov.length) )
-			if( v[i] != ov[i] )
-				return cast(int)v[i] - cast(int)ov[i];
-		return cast(int)v.length - cast(int)ov.length;
+		foreach( i; 0 .. min(v.length, ov.length) ) {
+			if( v[i] != ov[i] ) {
+				if(isNumeric(v[i]) && isNumeric(ov[i]))
+					return to!int(v[i]) < to!int(ov[i])? -1 : 1;
+				else 
+					return v[i] < ov[i]? -1 : 1;
+			}
+		}
+		if(v.length == 3)
+			return ov.length == 3? 0 : 1;
+		else if(ov.length == 3)
+			return -1;
+		else
+			return cast(int)v.length - cast(int)ov.length;
 	}
 	int opCmp(in Version other) const { return opCmp(other); }
 	
 	string toString() const { return sVersion; }
 
-	private size_t[] toArray() const { 
+	private string[] toComparableArray() const 
+	out(result) {
+		assert(result.length >= 3);
+	}
+	body { 
 		enforce(!isBranch, "Cannot convert a branch an array representation (%s)", sVersion);
 
-		size_t v[];
-		if(sVersion == MASTER_STRING) {
-			v = [MASTER_VERS, MASTER_VERS, MASTER_VERS];
-		} else {
-			auto toks = split(sVersion, ".");
-			v.length = toks.length;
-			foreach( i, t; toks ) v[i] = t.to!size_t();
+		// Master has to compare to the other regular versions, therefore a special
+		// representation is returned for this case.
+		if(sVersion == MASTER_STRING)
+			return [ to!string(Version.MASTER_VERS), to!string(Version.MASTER_VERS), to!string(Version.MASTER_VERS) ];
+		
+		// Split and discard possible build metadata, this is not compared.
+		string vers = split(sVersion, "+")[0];
+		
+		// Split prerelease data (may be empty)
+		auto dashIdx = std.string.indexOf(vers, "-");
+		string prerelease;
+		if(dashIdx != -1) {
+			prerelease = vers[dashIdx+1..$];
+			vers = vers[0..dashIdx];
 		}
+		auto toksV = split(vers, ".");
+		auto toksP = split(prerelease, ".");
+		
+		string v[];
+		v.length = toksV.length + toksP.length;
+		int i=-1;
+		foreach( token; toksV ) v[++i] = token;
+		foreach( token; toksP ) v[++i] = token;
+		
 		return v;
 	}
 }
@@ -113,19 +182,19 @@ unittest {
 
 	assertNotThrown(a = Version("1.0.0"), "Constructing Version('1.0.0') failed");
 	assert(!a.isBranch, "Error: '1.0.0' treated as branch");
-	size_t[] arrRepr = [ 1, 0, 0 ];
-	assert(a.toArray() == arrRepr, "Array representation of '1.0.0' is wrong.");
+	string[] arrRepr = [ "1", "0", "0" ];
+	assert(a.toComparableArray() == arrRepr, "Array representation of '1.0.0' is wrong.");
 	assert(a == a, "a == a failed");
 
 	assertNotThrown(a = Version(Version.MASTER_STRING), "Constructing Version("~Version.MASTER_STRING~"') failed");
 	assert(!a.isBranch, "Error: '"~Version.MASTER_STRING~"' treated as branch");
-	arrRepr = [ Version.MASTER_VERS, Version.MASTER_VERS, Version.MASTER_VERS ];
-	assert(a.toArray() == arrRepr, "Array representation of '"~Version.MASTER_STRING~"' is wrong.");
+	arrRepr = [ to!string(Version.MASTER_VERS), to!string(Version.MASTER_VERS), to!string(Version.MASTER_VERS) ];
+	assert(a.toComparableArray() == arrRepr, "'"~Version.MASTER_STRING~"' has a array representation.");
 	assert(a == Version.MASTER, "Constructed master version != default master version.");
 
 	assertNotThrown(a = Version("~BRANCH"), "Construction of branch Version failed.");
 	assert(a.isBranch, "Error: '~BRANCH' not treated as branch'");
-	assertThrown(a.toArray(), "Error: Converting branch version to array succeded.");
+	assertThrown(a.toComparableArray(), "Error: Converting branch version to array succeded.");
 	assert(a == a, "a == a with branch failed");
 
 	// opCmp
@@ -137,6 +206,33 @@ unittest {
 	a = Version(Version.MASTER_STRING);
 	b = Version("~BRANCH");
 	assert(a != b, "a != b with a:MASTER, b:'~branch' failed");
+	
+	// SemVer 2.0.0-rc.2
+	a = Version("2.0.0-rc.2");
+	b = Version("2.0.0-rc.3");
+	arrRepr = [ "2","0","0","rc","2" ];
+	assert(a.toComparableArray() == arrRepr, "Array representation of 2.0.0-rc.2 is wrong.");
+	assert(a < b, "Failed: 2.0.0-rc.2 < 2.0.0-rc.3");
+	
+	a = Version("2.0.0-rc.2+build-metadata");
+	arrRepr = [ "2","0","0","rc","2" ];
+	assert(a.toComparableArray() == arrRepr, "Array representation of 2.0.0-rc.2 is wrong.");
+	b = Version("2.0.0+build-metadata");
+	arrRepr = [ "2","0","0" ];
+	assert(b.toComparableArray() == arrRepr, "Array representation of 2.0.0+build-metadata is wrong.");  
+	assert(a < b, "Failed: "~to!string(a)~"<"~to!string(b));
+	
+	// 1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta.2 < 1.0.0-beta.11 < 1.0.0-rc.1 < 1.0.0
+	Version[] versions;
+	versions ~= Version("1.0.0-alpha");
+	versions ~= Version("1.0.0-alpha.1");
+	versions ~= Version("1.0.0-beta.2");
+	versions ~= Version("1.0.0-beta.11");
+	versions ~= Version("1.0.0-rc.1");
+	versions ~= Version("1.0.0");
+	for(int i=1; i<versions.length; ++i)
+		for(int j=i-1; j>=0; --j)
+			assert(versions[j] < versions[i], "Failed: " ~ to!string(versions[j]) ~ "<" ~ to!string(versions[i]));
 }
 
 /// Representing a dependency, which is basically a version string and a 
