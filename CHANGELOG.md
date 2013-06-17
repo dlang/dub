@@ -1,6 +1,44 @@
 Changelog
 =========
 
+v0.9.14 - 2013-06-
+--------------------
+
+### Features and improvements ###
+
+ - Library packages are now only built when running "dub" instead of trying to execute them - partially [pull #66][issue66] by Vadim Lopatin and [issue #53][issue53]
+ - Add support for optional dependencies (picked up only if already installed) - [issue #5][issue5]
+ - Compiles on DMD 2.063
+ - The build script now directly calls the compiler instead of relying an rdmd and supports ldmd and gdmd in addition to dmd
+ - Outputs a warning for package names with upper-case letters and treats package names case insensitive
+ - Added `"buildRequirements": ["noDefaultFlags"]` for testing manual sets of command line flags - [issue #68][issue68]
+ - Errors and diagnostic messages are now written to `stderr` instead of `stdout`
+ - Added "dub describe" to output a build description of the whole dependency tree for external tools given a configuration/compiler/platform combination
+ - Removed the -property switch and deprecated `"buildRequirements": ["relaxProperties"]`
+ - Added support for a `DUBPATH` environment variable and support for adding a directory with multiple packages using "dub add-local" to search for dependencies in local directories other than the predefined ones
+ - Replaced --list-locals/--list-user/--list-system with a single --list-installed switch
+ - The version of DUB is now inferred using "git describe" and output on the help screen and in the user agent string for HTTP requests
+
+### Bug fixes ###
+
+ - Fixed recursive inferring of configurations
+ - Fixed including debug information for separate compile/link builds
+ - Fixed VisualD generator for x64 builds and avoid building header-only dependencies
+ - Fixed handling of "-Wl" flags returned by pkg-config
+ - Fixed LDC builds for projects with multiple modules of the same name (but in different packages) using the -oq switch
+ - Fixed the linker workaround in the build script to work on non-Ubuntu systems - [issue #71][issue71]
+ - Fixed handling of Windows UNC paths (by Lutger Blijdestijn) - [pull #75][issue75]
+ - Fixed a possible infinite update loop - [issue #72][issue72]
+
+[issue5]: https://github.com/rejectedsoftware/dub/issues/5
+[issue53]: https://github.com/rejectedsoftware/dub/issues/53
+[issue66]: https://github.com/rejectedsoftware/dub/issues/66
+[issue68]: https://github.com/rejectedsoftware/dub/issues/68
+[issue71]: https://github.com/rejectedsoftware/dub/issues/71
+[issue72]: https://github.com/rejectedsoftware/dub/issues/72
+[issue75]: https://github.com/rejectedsoftware/dub/issues/75
+
+
 v0.9.13 - 2013-04-16
 --------------------
 
@@ -16,14 +54,14 @@ v0.9.13 - 2013-04-16
 
 ### Bug fixes ###
 
- - Fix upgrading of branch based dependencies - [issue #55][issue55]
- - Fix wording and repetition of the reserved compiler flag warning message - [issue #54][issue54]
- - Fix erroneous inclusion of .d files in the import libraries field of generated VisualD projects
- - Fix passing "package.json" to the compiler in generated Mono-D projects - [issue #60][issue60]
- - Fix the Mono-D and VisualD generators to properly copy `"copyFiles"` - [issue #58][issue58]
- - Fix removing of temporary files in case of unexpected folder contents - [issue #41][issue41]
- - Fix invocation of the linker on Windows in case of another "link.exe" being in PATH - [issue #57][issue57]
- - Fix computation of build settings for VisualD projects (inheritance works only bottom to top now)
+ - Fixed upgrading of branch based dependencies - [issue #55][issue55]
+ - Fixed wording and repetition of the reserved compiler flag warning message - [issue #54][issue54]
+ - Fixed erroneous inclusion of .d files in the import libraries field of generated VisualD projects
+ - Fixed passing "package.json" to the compiler in generated Mono-D projects - [issue #60][issue60]
+ - Fixed the Mono-D and VisualD generators to properly copy `"copyFiles"` - [issue #58][issue58]
+ - Fixed removing of temporary files in case of unexpected folder contents - [issue #41][issue41]
+ - Fixed invocation of the linker on Windows in case of another "link.exe" being in PATH - [issue #57][issue57]
+ - Fixed computation of build settings for VisualD projects (inheritance works only bottom to top now)
 
 [issue41]: https://github.com/rejectedsoftware/dub/issues/41
 [issue54]: https://github.com/rejectedsoftware/dub/issues/54
