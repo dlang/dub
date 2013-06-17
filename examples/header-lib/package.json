@@ -1,0 +1,6 @@
+{
+	"name": "header-lib-example",
+	"description": "A simple D header library (C binding to libmylib.so)",
+	"targetType": "sourceLibrary",
+	"libs": "mylib"
+}

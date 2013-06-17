@@ -1,0 +1,5 @@
+{
+	"name": "lib-example",
+	"description": "A simple D library",
+	"targetType": "library"
+}

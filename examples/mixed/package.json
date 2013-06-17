@@ -1,0 +1,4 @@
+{
+	"name": "mixed-example",
+	"description": "A package usable as both, an application and a library"
+}

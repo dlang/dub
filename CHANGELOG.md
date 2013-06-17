@@ -6,6 +6,8 @@ v0.9.14 - 2013-06-
 
 ### Features and improvements ###
 
+ - Dependencies can now be specified per-configuration in addition to globally
+ - Version numbers are now handled according to [SemVer](http://semver.org/)
  - Library packages are now only built when running "dub" instead of trying to execute them - partially [pull #66][issue66] by Vadim Lopatin and [issue #53][issue53]
  - Add support for optional dependencies (picked up only if already installed) - [issue #5][issue5]
  - Compiles on DMD 2.063
@@ -29,6 +31,7 @@ v0.9.14 - 2013-06-
  - Fixed the linker workaround in the build script to work on non-Ubuntu systems - [issue #71][issue71]
  - Fixed handling of Windows UNC paths (by Lutger Blijdestijn) - [pull #75][issue75]
  - Fixed a possible infinite update loop - [issue #72][issue72]
+ - Fixed handling of multiple compiler/linker arguments with the same content (e.g. "--framework A --framework B" on OS X)
 
 [issue5]: https://github.com/rejectedsoftware/dub/issues/5
 [issue53]: https://github.com/rejectedsoftware/dub/issues/53
