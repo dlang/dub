@@ -126,7 +126,7 @@ struct Version {
 		foreach( i; 0 .. min(v.length, ov.length) ) {
 			if( v[i] != ov[i] ) {
 				if(isNumeric(v[i]) && isNumeric(ov[i]))
-					return to!int(v[i]) < to!int(ov[i])? -1 : 1;
+					return to!size_t(v[i]) < to!size_t(ov[i])? -1 : 1;
 				else 
 					return v[i] < ov[i]? -1 : 1;
 			}
