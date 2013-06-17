@@ -7,7 +7,7 @@ v0.9.14 - 2013-06-
 ### Features and improvements ###
 
  - Dependencies can now be specified per-configuration in addition to globally
- - Version numbers are now handled according to [SemVer](http://semver.org/)
+ - Version numbers are now handled according to [SemVer](http://semver.org/) ('~branch' are not defined by this, but work as before)
  - Library packages are now only built when running "dub" instead of trying to execute them - partially [pull #66][issue66] by Vadim Lopatin and [issue #53][issue53]
  - Add support for optional dependencies (picked up only if already installed) - [issue #5][issue5]
  - Compiles on DMD 2.063
