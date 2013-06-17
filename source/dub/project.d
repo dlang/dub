@@ -84,7 +84,7 @@ class Project {
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
-	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null)
+	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[string] configs = null)
 	const {
 		const(Package) rootpack = root_package ? root_package : m_main;
 	
@@ -101,7 +101,11 @@ class Project {
 					if( ret ) return;
 				}
 
-				foreach(dn, dv; p.dependencies){
+				auto cfg = configs.get(p.name, null);
+
+				foreach (dn, dv; p.dependencies) {
+					// filter out dependencies not in the current configuration set
+					if (!p.hasDependency(dn, cfg)) continue;
 					auto dependency = getDependency(dn, dv.optional);
 					if(dependency) perform_rec(dependency);
 					if( ret ) return;
@@ -245,7 +249,9 @@ class Project {
 	const {
 		auto configs = getPackageConfigs(platform, config);
 
-		foreach(pkg; this.getTopologicalPackageList(false, root_package)){
+		foreach (pkg; this.getTopologicalPackageList(false, root_package, configs)) {
+			dst.addVersions(["Have_" ~ stripDlangSpecialChars(pkg.name)]);
+
 			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
 			processVars(dst, pkg.path.toNativeString(), psettings);
 			if( pkg is m_main ){
@@ -254,10 +260,6 @@ class Project {
 				dst.targetName = psettings.targetName;
 			}
 		}
-
-		// add version identifiers for available packages
-		foreach(pack; this.dependencies)
-			dst.addVersions(["Have_" ~ stripDlangSpecialChars(pack.name)]);
 	}
 
 

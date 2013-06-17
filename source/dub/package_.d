@@ -221,18 +221,29 @@ class Package {
 	/// Adds an dependency, if the package is already a dependency and it cannot be
 	/// merged with the supplied dependency, an exception will be generated.
 	void addDependency(string packageId, const Dependency dependency) {
-		Dependency dep = new Dependency(dependency);
+		/*Dependency dep = new Dependency(dependency);
 		if(packageId in m_info.dependencies) { 
 			dep = dependency.merge(m_info.dependencies[packageId]);
 			if(!dep.valid()) throw new Exception("Cannot merge with existing dependency.");
 		}
-		m_info.dependencies[packageId] = dep;
+		m_info.dependencies[packageId] = dep;*/
+		assert(false);
 	}
 
 	/// Removes a dependecy.
 	void removeDependency(string packageId) {
-		if (packageId in m_info.dependencies)
-			m_info.dependencies.remove(packageId);
+		/*if (packageId in m_info.dependencies)
+			m_info.dependencies.remove(packageId);*/
+		assert(false);
+	}
+
+	bool hasDependency(string depname, string config)
+	const {
+		if (depname in m_info.buildSettings.dependencies) return true;
+		foreach (ref c; m_info.configurations)
+			if (c.name == config && depname in c.buildSettings.dependencies)
+				return true;
+		return false;
 	}
 
 	void describe(ref Json dst, BuildPlatform platform, string config)
@@ -271,9 +282,19 @@ struct PackageInfo {
 	string copyright;
 	string license;
 	string[] ddoxFilterArgs;
-	Dependency[string] dependencies;
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
+
+	@property const(Dependency)[string] dependencies()
+	const {
+		const(Dependency)[string] ret;
+		foreach (n, d; this.buildSettings.dependencies)
+			ret[n] = d;
+		foreach (ref c; configurations)
+			foreach (n, d; c.buildSettings.dependencies)
+				ret[n] = d;
+		return ret;
+	}
 
 	void parseJson(Json json)
 	{
@@ -288,32 +309,6 @@ struct PackageInfo {
 				case "copyright": this.copyright = value.get!string; break;
 				case "license": this.license = value.get!string; break;
 				case "-ddoxFilterArgs": this.ddoxFilterArgs = deserializeJson!(string[])(value); break;
-				case "dependencies":
-					foreach( string pkg, verspec; value ) {
-						enforce(pkg !in this.dependencies, "The dependency '"~pkg~"' is specified more than once." );
-						Dependency dep;
-						if( verspec.type == Json.Type.Object ){
-							enforce("version" in verspec, "Package information provided for package " ~ pkg ~ " is missing a version field.");
-							auto ver = verspec["version"].get!string;
-							if( auto pp = "path" in verspec ) {
-								// This enforces the "version" specifier to be a simple version, 
-								// without additional range specifiers.
-								dep = new Dependency(Version(ver));
-								dep.path = Path(verspec.path.get!string());
-							} else {
-								// Using the string to be able to specifiy a range of versions.
-								dep = new Dependency(ver);
-							}
-							if( auto po = "optional" in verspec ) {
-								dep.optional = verspec.optional.get!bool();
-							}
-						} else {
-							// canonical "package-id": "version"
-							dep = new Dependency(verspec.get!string());
-						}
-						this.dependencies[pkg] = dep;
-					}
-					break;
 				case "configurations":
 					TargetType deftargettp = TargetType.library;
 					if (this.buildSettings.targetType != TargetType.autodetect)
@@ -345,21 +340,6 @@ struct PackageInfo {
 		if( !this.copyright.empty ) ret.copyright = this.copyright;
 		if( !this.license.empty ) ret.license = this.license;
 		if( !this.ddoxFilterArgs.empty ) ret["-ddoxFilterArgs"] = this.ddoxFilterArgs.serializeToJson();
-		if( this.dependencies !is null ){
-			auto deps = Json.EmptyObject;
-			foreach( pack, d; this.dependencies ){
-				if( d.path.empty && !d.optional ){
-					deps[pack] = d.toString();
-				} else {
-					auto vjson = Json.EmptyObject;
-					vjson["version"] = d.version_.toString();
-					if (!d.path.empty) vjson["path"] = d.path.toString();
-					if (d.optional) vjson["optional"] = true;
-					deps[pack] = vjson;
-				}
-			}
-			ret.dependencies = deps;
-		}
 		if( this.configurations ){
 			Json[] configs;
 			foreach(config; this.configurations)
@@ -421,6 +401,7 @@ struct ConfigurationInfo {
 }
 
 struct BuildSettingsTemplate {
+	Dependency[string] dependencies;
 	TargetType targetType = TargetType.autodetect;
 	string targetPath;
 	string targetName;
@@ -451,6 +432,32 @@ struct BuildSettingsTemplate {
 			else basename = name;
 			switch(basename){
 				default: break;
+				case "dependencies":
+					foreach( string pkg, verspec; value ) {
+						enforce(pkg !in this.dependencies, "The dependency '"~pkg~"' is specified more than once." );
+						Dependency dep;
+						if( verspec.type == Json.Type.Object ){
+							enforce("version" in verspec, "Package information provided for package " ~ pkg ~ " is missing a version field.");
+							auto ver = verspec["version"].get!string;
+							if( auto pp = "path" in verspec ) {
+								// This enforces the "version" specifier to be a simple version, 
+								// without additional range specifiers.
+								dep = new Dependency(Version(ver));
+								dep.path = Path(verspec.path.get!string());
+							} else {
+								// Using the string to be able to specifiy a range of versions.
+								dep = new Dependency(ver);
+							}
+							if( auto po = "optional" in verspec ) {
+								dep.optional = verspec.optional.get!bool();
+							}
+						} else {
+							// canonical "package-id": "version"
+							dep = new Dependency(verspec.get!string());
+						}
+						this.dependencies[pkg] = dep;
+					}
+					break;
 				case "targetType":
 					enforce(suffix.empty, "targetType does not support platform customization.");
 					targetType = value.get!string().to!TargetType();
@@ -496,6 +503,21 @@ struct BuildSettingsTemplate {
 	Json toJson()
 	const {
 		auto ret = Json.EmptyObject;
+		if( this.dependencies !is null ){
+			auto deps = Json.EmptyObject;
+			foreach( pack, d; this.dependencies ){
+				if( d.path.empty && !d.optional ){
+					deps[pack] = d.toString();
+				} else {
+					auto vjson = Json.EmptyObject;
+					vjson["version"] = d.version_.toString();
+					if (!d.path.empty) vjson["path"] = d.path.toString();
+					if (d.optional) vjson["optional"] = true;
+					deps[pack] = vjson;
+				}
+			}
+			ret.dependencies = deps;
+		}
 		if (targetType != TargetType.autodetect) ret["targetType"] = targetType.to!string();
 		if (!targetPath.empty) ret["targetPath"] = targetPath;
 		if (!targetName.empty) ret["targetName"] = targetPath;

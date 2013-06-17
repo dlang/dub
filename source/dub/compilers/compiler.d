@@ -170,9 +170,9 @@ struct BuildSettings {
 	string[] postBuildCommands;
 	BuildRequirements requirements;
 
-	void addDFlags(in string[] value...) { add(dflags, value); }
+	void addDFlags(in string[] value...) { dflags ~= value; }
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
-	void addLFlags(in string[] value...) { add(lflags, value); }
+	void addLFlags(in string[] value...) { lflags ~= value; }
 	void addLibs(in string[] value...) { add(libs, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
