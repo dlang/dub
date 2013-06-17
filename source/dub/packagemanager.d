@@ -125,18 +125,26 @@ class PackageManager {
 	{
 		int iterator(int delegate(ref Package) del)
 		{
+			int handlePackage(Package p) {
+				if (auto ret = del(p)) return ret;
+				foreach (sp; p.subPackages)
+					if (auto ret = del(sp))
+						return ret;
+				return 0;
+			}
+
 			foreach (tp; m_temporaryPackages)
-				if (auto ret = del(tp)) return ret;
+				if (auto ret = handlePackage(tp)) return ret;
 
 			// first search local packages
 			foreach (tp; LocalPackageType.min .. LocalPackageType.max+1)
 				foreach (p; m_repositories[cast(LocalPackageType)tp].localPackages)
-					if (auto ret = del(p)) return ret;
+					if (auto ret = handlePackage(p)) return ret;
 
 			// and then all packages gathered from the search path
 			foreach( pl; m_packages )
 				foreach( v; pl )
-					if( auto ret = del(v) )
+					if( auto ret = handlePackage(v) )
 						return ret;
 			return 0;
 		}

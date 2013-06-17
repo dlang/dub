@@ -49,15 +49,18 @@ class Package {
 	private {
 		Path m_path;
 		PackageInfo m_info;
+		Package m_parentPackage;
+		Package[] m_subPackages;
 	}
 
-	this(Path root)
+	this(Path root, Package parent = null)
 	{
-		this(jsonFromFile(root ~ PackageJsonFilename), root);
+		this(jsonFromFile(root ~ PackageJsonFilename), root, parent);
 	}
 
-	this(Json packageInfo, Path root = Path())
+	this(Json packageInfo, Path root = Path(), Package parent = null)
 	{
+		m_parentPackage = parent;
 		m_path = root;
 
 		// check for default string import folders
@@ -87,7 +90,7 @@ class Package {
 			m_info.parseJson(packageInfo);
 
 			// try to run git to determine the version of the package if no explicit version was given
-			if (m_info.version_.length == 0) {
+			if (m_info.version_.length == 0 && !parent) {
 				import dub.internal.std.process;
 				try {
 					auto branch = execute(["git", "--git-dir="~(root~".git").toNativeString(), "rev-parse", "--abbrev-ref", "HEAD"]);
@@ -130,22 +133,47 @@ class Package {
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
+
+		// load all sub packages defined in the package description
+		foreach (p; packageInfo.subPackages.opt!(Json[])) {
+			auto subpack = new Package(p, root, this);
+			m_subPackages ~= subpack;
+		}
+
+		// load all sub packages defined by stand-alone package.json files
+		foreach (de; dirEntries(path.toNativeString(), "package.json", SpanMode.depth)) {
+			auto spath = Path(de.name).parentPath;
+			if (spath != path) m_subPackages ~= new Package(spath, this);
+		}
 	}
 	
-	@property string name() const { return m_info.name; }
-	@property string vers() const { return m_info.version_; }
-	@property Version ver() const { return Version(m_info.version_); }
+	@property string name()
+	const {
+		if (m_parentPackage) return m_parentPackage.name ~ ":" ~ m_info.name;
+		else return m_info.name;
+	}
+	@property string vers() const { return m_parentPackage ? m_parentPackage.vers : m_info.version_; }
+	@property Version ver() const { return Version(this.vers); }
 	@property const(PackageInfo) info() const { return m_info; }
 	@property Path path() const { return m_path; }
 	@property Path packageInfoFile() const { return m_path ~ "package.json"; }
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
-	
+	@property inout(Package) parentPackage() inout { return m_parentPackage; }
+	@property inout(Package)[] subPackages() inout { return m_subPackages; }
+
 	@property string[] configurations()
 	const {
 		auto ret = appender!(string[])();
 		foreach( ref config; m_info.configurations )
 			ret.put(config.name);
 		return ret.data;
+	}
+
+	inout(Package) getSubPackage(string name) inout {
+		foreach (p; m_subPackages)
+			if (p.name == name)
+				return p;
+		throw new Exception(format("Unknown sub package: %s:%s", this.name, name));
 	}
 
 	void warnOnSpecialCompilerFlags()
@@ -246,7 +274,7 @@ class Package {
 	void describe(ref Json dst, BuildPlatform platform, string config)
 	{
 		dst.path = m_path.toNativeString();
-		dst.name = m_info.name;
+		dst.name = this.name;
 		dst["version"] = m_info.version_;
 		dst.description = m_info.description;
 		dst.homepage = m_info.homepage;
