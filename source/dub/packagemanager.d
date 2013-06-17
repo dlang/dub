@@ -61,10 +61,10 @@ class PackageManager {
 	{
 		m_repositories[LocalPackageType.user] = Repository(user_path);
 		m_repositories[LocalPackageType.system] = Repository(system_path);
-		refresh();
+		refresh(true);
 	}
 
-	@property void searchPath(Path[] paths) { m_searchPath = paths.dup; refresh(); }
+	@property void searchPath(Path[] paths) { m_searchPath = paths.dup; refresh(false); }
 	@property const(Path)[] searchPath() const { return m_searchPath; }
 
 	@property const(Path)[] completeSearchPath()
@@ -399,7 +399,7 @@ class PackageManager {
 		writeLocalPackageList(type);
 	}
 
-	void refresh()
+	void refresh(bool refresh_existing_packages)
 	{
 		// load locally defined packages
 		void scanLocalPackages(LocalPackageType type)
@@ -427,7 +427,15 @@ class PackageManager {
 								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, info.name.get!string());
 							info.name = name;
 							info["version"] = ver;
-							auto pp = new Package(info, path);
+
+							Package pp;
+							if (!refresh_existing_packages)
+								foreach (p; m_repositories[type].localPackages)
+									if (p.path == path) {
+										pp = p;
+										break;
+									}
+							if (!pp) pp = new Package(info, path);
 							packs ~= pp;
 						}
 					} catch( Exception e ){
@@ -443,6 +451,8 @@ class PackageManager {
 		scanLocalPackages(LocalPackageType.system);
 		scanLocalPackages(LocalPackageType.user);
 
+		Package[][string] old_packages = m_packages;
+
 		// rescan the system and user package folder
 		void scanPackageFolder(Path path)
 		{
@@ -455,7 +465,14 @@ class PackageManager {
 					if( !existsFile(pack_path ~ PackageJsonFilename) ) continue;
 					Package p;
 					try {
-						p = new Package(pack_path);
+						if (!refresh_existing_packages)
+							foreach (plist; old_packages)
+								foreach (pp; plist)
+									if (pp.path == pack_path) {
+										p = pp;
+										break;
+									}
+						if (!p) p = new Package(pack_path);
 						m_packages[p.name] ~= p;
 					} catch( Exception e ){
 						logError("Failed to load package in %s: %s", pack_path, e.msg);

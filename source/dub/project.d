@@ -155,7 +155,7 @@ class Project {
 
 		m_dependencies = null;
 		m_main = null;
-		m_packageManager.refresh();
+		m_packageManager.refresh(false);
 
 		try m_json = jsonFromFile(m_root ~ ".dub/dub.json", true);
 		catch(Exception t) logDebug("Failed to read .dub/dub.json: %s", t.msg);
