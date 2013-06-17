@@ -259,25 +259,19 @@ class Dub {
 	/// @param location_
 	void uninstall(string package_id, string version_, InstallLocation location_) {
 		enforce(!package_id.empty);
+		if(location_ == InstallLocation.local) {
+			logInfo("To uninstall a locally installed package, make sure you don't have any data"
+					~ "\nleft in it's directory and then simply remove the whole directory.");
+			return;
+		}
+
 		Package[] packages;
 		const bool wildcardOrEmpty = version_ == UninstallVersionWildcard || version_.empty;
-		if(location_ == InstallLocation.local) {
-			// Try folder named like the package_id in the cwd.
-			try {
-				Package pack = new Package(Path(package_id));
-				if(!wildcardOrEmpty && to!string(pack.vers) != version_) {
-					logError("Installed package is of different version, uninstallation aborted.");
-					logError("Installed: %s, provided %s@", pack.vers, version_);
-					throw new Exception("Found package locally, but the versions don't match!");
-				}
+
+		// Use package manager
+		foreach(pack; m_packageManager.getPackageIterator(package_id)) {
+			if( wildcardOrEmpty || pack.vers == version_ ) {
 				packages ~= pack;
-			} catch {/* noop */}
-		} else {
-			// Use package manager
-			foreach(pack; m_packageManager.getPackageIterator(package_id)) {
-				if( wildcardOrEmpty || pack.vers == version_ ) {
-					packages ~= pack;
-				}
 			}
 		}
 
