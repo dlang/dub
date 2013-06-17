@@ -537,10 +537,8 @@ ret.formattedWrite(
 		];
 		auto sorted = sort(sfs);
 		SourceFile[] sortedSfs;
-		foreach(sr; sorted) {
-			logInfo("%s", sr.structurePath.toNativeString());
+		foreach(sr; sorted)
 			sortedSfs ~= sr;
-		}
 		assert(sortedSfs[0].structurePath == Path("a/file.d"), "1");
 		assert(sortedSfs[1].structurePath == Path("b/b/b/fileA.d"), "2");
 		assert(sortedSfs[2].structurePath == Path("b/b/fileA.d"), "3");
