@@ -135,10 +135,8 @@ class Package {
 		}
 
 		// load all sub packages defined in the package description
-		foreach (p; packageInfo.subPackages.opt!(Json[])) {
-			auto subpack = new Package(p, root, this);
-			m_subPackages ~= subpack;
-		}
+		foreach (p; packageInfo.subPackages.opt!(Json[]))
+			m_subPackages ~= new Package(p, root, this);
 
 		// load all sub packages defined by stand-alone package.json files
 		foreach (de; dirEntries(path.toNativeString(), "package.json", SpanMode.depth)) {

@@ -20,6 +20,7 @@ import std.algorithm : countUntil, filter, sort, canFind;
 import std.array;
 import std.conv;
 import std.digest.sha;
+import std.encoding : sanitize;
 import std.exception;
 import std.file;
 import std.string;
@@ -484,6 +485,7 @@ class PackageManager {
 						m_packages[p.name] ~= p;
 					} catch( Exception e ){
 						logError("Failed to load package in %s: %s", pack_path, e.msg);
+						logDebug("Full error: %s", e.toString().sanitize());
 					}
 				}
 				catch(Exception e) logDebug("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
