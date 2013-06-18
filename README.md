@@ -11,7 +11,7 @@ Introduction
 
 DUB emerged as a more general replacement for [vibe.d's](http://vibed.org/) package manager. It does not imply a dependecy to vibe.d for packages and was extended to not only directly build projects, but also to generate project files (currently [VisualD](https://github.com/rainers/visuald) and [Mono-D](http://mono-d.alexanderbothe.com/)).
 
-The project's pilosophy is to keep things as simple as possible. All that is needed to make a project a dub package is to write a short [package.json](http://registry.vibed.org/publish) file and put the source code into a `source` subfolder. It *can* then be registered on the public [package registry](http://registry.vibed.org) to be made available for everyone. Any dependencies specified in `package.json` are automatically downloaded and made available to the project during the build process.
+The project's philosophy is to keep things as simple as possible. All that is needed to make a project a dub package is to write a short [package.json](http://registry.vibed.org/publish) file and put the source code into a `source` subfolder. It *can* then be registered on the public [package registry](http://registry.vibed.org) to be made available for everyone. Any dependencies specified in `package.json` are automatically downloaded and made available to the project during the build process.
 
 
 Key features
