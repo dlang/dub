@@ -44,6 +44,8 @@ class MonoDGenerator : ProjectGenerator {
 	
 	void generateProject(GeneratorSettings settings)
 	{
+		logWarn("Note that the latest Mono-D has direct support for building DUB projects. It is recommended to directly open package.json instead of generating a Mono-D project.");
+
 		auto buildsettings = settings.buildSettings;
 		m_app.addBuildSettings(buildsettings, settings.platform, settings.config);
 
