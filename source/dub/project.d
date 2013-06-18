@@ -470,7 +470,7 @@ class Project {
 								p = new Package(ps.getPackageDescription(pkg, reqDep.dependency));
 								break;
 							} catch(Exception e) {
-								logDebug("No metadata for %s: %s", typeid(ps).name, e.msg);
+								logDebug("No metadata for %s: %s", ps.classinfo.name, e.msg);
 							}
 						}
 						enforce(p !is null, "Could not find package candidate for "~pkg~" "~reqDep.dependency.toString());

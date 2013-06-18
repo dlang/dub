@@ -139,9 +139,11 @@ class Package {
 			m_subPackages ~= new Package(p, root, this);
 
 		// load all sub packages defined by stand-alone package.json files
-		foreach (de; dirEntries(path.toNativeString(), "package.json", SpanMode.depth)) {
-			auto spath = Path(de.name).parentPath;
-			if (spath != path) m_subPackages ~= new Package(spath, this);
+		if (existsFile(path)) {
+			foreach (de; dirEntries(path.toNativeString(), "package.json", SpanMode.depth)) {
+				auto spath = Path(de.name).parentPath;
+				if (spath != path) m_subPackages ~= new Package(spath, this);
+			}
 		}
 	}
 	
