@@ -1,17 +1,18 @@
 Changelog
 =========
 
-v0.9.14 - 2013-06-
+v0.9.14 - 2013-06-18
 --------------------
 
 ### Features and improvements ###
 
+ - Implemented support for multiple packages per directory and accessing sub-packages as dependencies - [issue #67][issue67]
  - Dependencies can now be specified per-configuration in addition to globally
- - Version numbers are now handled according to [SemVer](http://semver.org/) ('~branch' are not defined by this, but work as before)
+ - Version numbers are now handled according to [SemVer](http://semver.org/) ("~master" style branch specifiers are independent of this and work as before)
  - Library packages are now only built when running "dub" instead of trying to execute them - partially [pull #66][issue66] by Vadim Lopatin and [issue #53][issue53]
  - Add support for optional dependencies (picked up only if already installed) - [issue #5][issue5]
  - Compiles on DMD 2.063
- - The build script now directly calls the compiler instead of relying an rdmd and supports ldmd and gdmd in addition to dmd
+ - The build script now directly calls the compiler instead of relying an rdmd and supports ldmd and gdmd in addition to dmd (automatically detected)
  - Outputs a warning for package names with upper-case letters and treats package names case insensitive
  - Added `"buildRequirements": ["noDefaultFlags"]` for testing manual sets of command line flags - [issue #68][issue68]
  - Errors and diagnostic messages are now written to `stderr` instead of `stdout`
@@ -19,7 +20,9 @@ v0.9.14 - 2013-06-
  - Removed the -property switch and deprecated `"buildRequirements": ["relaxProperties"]`
  - Added support for a `DUBPATH` environment variable and support for adding a directory with multiple packages using "dub add-local" to search for dependencies in local directories other than the predefined ones
  - Replaced --list-locals/--list-user/--list-system with a single --list-installed switch
- - The version of DUB is now inferred using "git describe" and output on the help screen and in the user agent string for HTTP requests
+ - The version of DUB is now inferred using "git describe" and output on the help screen and in the user agent string of HTTP requests
+ - Added some minimal example projects for several use cases
+ - Temporarily disabled automatic package upgrading (was only working for the now removed project locally installed packages)
 
 ### Bug fixes ###
 
@@ -36,6 +39,7 @@ v0.9.14 - 2013-06-
 [issue5]: https://github.com/rejectedsoftware/dub/issues/5
 [issue53]: https://github.com/rejectedsoftware/dub/issues/53
 [issue66]: https://github.com/rejectedsoftware/dub/issues/66
+[issue67]: https://github.com/rejectedsoftware/dub/issues/67
 [issue68]: https://github.com/rejectedsoftware/dub/issues/68
 [issue71]: https://github.com/rejectedsoftware/dub/issues/71
 [issue72]: https://github.com/rejectedsoftware/dub/issues/72
