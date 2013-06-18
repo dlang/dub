@@ -212,7 +212,7 @@ EndGlobal");
 					SourceFile sf;
 					sf.pkg = pack.name;
 					sf.filePath = sp.relativeTo(project_file_dir);
-					sf.structurePath = Path(pack.name) ~ sp.relativeTo(pack.path);
+					sf.structurePath = Path(getPackageFileName(pack)) ~ sp.relativeTo(pack.path);
 					sourceFiles[sf] = true;
 				}
 			}
@@ -236,7 +236,7 @@ EndGlobal");
 			}
 
 			// Create folders and files
-			ret.formattedWrite("\n  <Folder name=\"%s\">", pack.name);
+			ret.formattedWrite("\n  <Folder name=\"%s\">", getPackageFileName(pack));
 			Path lastFolder;
 			foreach(source; sortedSources(sourceFiles.keys)) {
 				logTrace("source looking at %s", source.structurePath);
@@ -263,7 +263,7 @@ EndGlobal");
 				ret.put("\n    </Folder>");
 			ret.put("\n  </Folder>\n</DProject>");
 
-			logTrace("About to write to '%s.visualdproj' file %s bytes", pack.name, ret.data().length);
+			logTrace("About to write to '%s.visualdproj' file %s bytes", getPackageFileName(pack), ret.data().length);
 			auto proj = openFile(projFileName(pack), FileMode.CreateTrunc);
 			scope(exit) proj.close();
 			proj.put(ret.data());
@@ -347,7 +347,7 @@ EndGlobal");
 				uint ndummy = 0;
 				foreach (i; 0 .. relpackpath.length)
 					if (relpackpath[i] == "..") ndummy++;
-				string intersubdir = (ndummy*2 > relpackpath.length ? replicate("dummy/", ndummy*2-relpackpath.length) : "") ~ pack.name;
+				string intersubdir = (ndummy*2 > relpackpath.length ? replicate("dummy/", ndummy*2-relpackpath.length) : "") ~ getPackageFileName(pack);
 		
 				// Not yet dynamic stuff
 				ret.formattedWrite("
@@ -479,14 +479,14 @@ ret.formattedWrite(
 		}
 
 		auto solutionFileName() const {
-			version(DUBBING) return m_app.mainPackage().name ~ ".dubbed.sln";
-			else return m_app.mainPackage().name ~ ".sln";
+			version(DUBBING) return getPackageFileName(m_app.mainPackage()) ~ ".dubbed.sln";
+			else return getPackageFileName(m_app.mainPackage()) ~ ".sln";
 		}
 
 		Path projFileName(ref const Package pack) const {
 			auto basepath = Path(".");//Path(".dub/");
-			version(DUBBING) return basepath ~ (pack.name ~ ".dubbed.visualdproj");
-			else return basepath ~ (pack.name ~ ".visualdproj");
+			version(DUBBING) return basepath ~ (getPackageFileName(pack) ~ ".dubbed.visualdproj");
+			else return basepath ~ (getPackageFileName(pack) ~ ".visualdproj");
 		}
 	}
 
@@ -546,4 +546,9 @@ ret.formattedWrite(
 		assert(sortedSfs[4].structurePath == Path("b/c/fileA.d"), "5");
 		assert(sortedSfs[5].structurePath == Path("b/file.d"), "6");
 	}
+}
+
+private string getPackageFileName(in Package pack)
+{
+	return pack.name.replace(":", "_");
 }

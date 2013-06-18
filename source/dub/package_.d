@@ -193,7 +193,7 @@ class Package {
 			BuildSettings ret;
 			m_info.buildSettings.getPlatformSettings(ret, platform, this.path);
 			conf.buildSettings.getPlatformSettings(ret, platform, this.path);
-			if( ret.targetName.empty ) ret.targetName = this.name;
+			if( ret.targetName.empty ) ret.targetName = this.name.replace(":", "_");
 			return ret;
 		}
 		assert(false, "Unknown configuration for "~m_info.name~": "~config);
