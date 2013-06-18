@@ -94,15 +94,33 @@ void runCommands(string[] commands, string[string] env = null)
 */
 void download(string url, string filename)
 {
-	auto conn = HTTP();
-	static if( is(typeof(&conn.verifyPeer)) )
-		conn.verifyPeer = false;
-	conn.addRequestHeader("User-Agent", "dub/"~dubVersion~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
+	auto conn = setupHTTPClient();
+	logTrace("Storing %s...", url);
 	std.net.curl.download(url, filename, conn);
 }
-
 /// ditto
 void download(Url url, Path filename)
 {
 	download(url.toString(), filename.toNativeString());
+}
+/// ditto
+ubyte[] download(string url)
+{
+	auto conn = setupHTTPClient();
+	logTrace("Getting %s...", url);
+	return get(url, conn);
+}
+/// ditto
+ubyte[] download(Url url)
+{
+	return download(url.toString());
+}
+
+private HTTP setupHTTPClient()
+{
+	auto conn = HTTP();
+	static if( is(typeof(&conn.verifyPeer)) )
+		conn.verifyPeer = false;
+	conn.addRequestHeader("User-Agent", "dub/"~dubVersion~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
+	return conn;
 }
