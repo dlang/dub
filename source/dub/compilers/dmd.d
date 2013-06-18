@@ -112,7 +112,8 @@ class DmdCompiler : Compiler {
 		import std.string;
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
 		auto args = [platform.compiler, "-of"~tpath.toNativeString()] ~ objects ~ settings.lflags.map!(l => "-L"~l)().array() ~ settings.sourceFiles;
-		args ~= settings.dflags.filter!(f => f == "-g" || f == "-gc")().array();
+		static linkerargs = ["-g", "-gc", "-m32", "-m64"];
+		args ~= settings.dflags.filter!(f => linkerargs.canFind(f))().array();
 		logDebug("%s", args.join(" "));
 		auto res = spawnProcess(args).wait();
 		enforce(res == 0, "Link command failed with exit code "~to!string(res));
