@@ -104,14 +104,14 @@ void download(Url url, Path filename)
 	download(url.toString(), filename.toNativeString());
 }
 /// ditto
-ubyte[] download(string url)
+char[] download(string url)
 {
 	auto conn = setupHTTPClient();
 	logTrace("Getting %s...", url);
 	return get(url, conn);
 }
 /// ditto
-ubyte[] download(Url url)
+char[] download(Url url)
 {
 	return download(url.toString());
 }
