@@ -171,7 +171,7 @@ class Package {
 
 	inout(Package) getSubPackage(string name) inout {
 		foreach (p; m_subPackages)
-			if (p.name == name)
+			if (p.name == this.name ~ ":" ~ name)
 				return p;
 		throw new Exception(format("Unknown sub package: %s:%s", this.name, name));
 	}
@@ -646,3 +646,7 @@ struct BuildSettingsTemplate {
 }
 
 
+string[] getSubPackagePath(string package_name)
+{
+	return package_name.split(":");
+}

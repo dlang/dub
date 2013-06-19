@@ -312,16 +312,17 @@ class Project {
 		// Check against installed and add install actions
 		Action[] actions;
 		foreach( string pkg, d; graph.needed() ) {
-			auto p = pkg in installed;
+			auto basepkg = pkg.getSubPackagePath()[0];
+			auto p = basepkg in installed;
 			// TODO: auto update to latest head revision
 			if(!p || (!d.dependency.matches(p.vers) && !d.dependency.matches(Version.MASTER))) {
-				if(!p) logDebug("Triggering installation of required package '"~pkg~"', which is not installed.");
-				else logDebug("Triggering installation of required package '"~pkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
-				actions ~= Action.install(pkg, InstallLocation.userWide, d.dependency, d.packages);
+				if(!p) logDebug("Triggering installation of required package '"~basepkg~"', which is not installed.");
+				else logDebug("Triggering installation of required package '"~basepkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
+				actions ~= Action.install(basepkg, InstallLocation.userWide, d.dependency, d.packages);
 			} else {
-				logDebug("Required package '"~pkg~"' found with version '"~p.vers~"'");
+				logDebug("Required package '"~basepkg~"' found with version '"~p.vers~"'");
 				if( option & UpdateOptions.Upgrade )
-					actions ~= Action.install(pkg, InstallLocation.userWide, d.dependency, d.packages);
+					actions ~= Action.install(basepkg, InstallLocation.userWide, d.dependency, d.packages);
 			}
 		}
 
@@ -448,6 +449,8 @@ class Project {
 					continue;
 				}
 					
+				auto ppath = pkg.split(":");
+
 				// TODO: auto update and update interval by time
 				logTrace("Adding package to graph: "~pkg);
 				Package p = m_packageManager.getBestPackage(pkg, reqDep.dependency);
@@ -467,14 +470,16 @@ class Project {
 						logDebug("using package from registry");
 						foreach(ps; packageSuppliers){
 							try {
-								p = new Package(ps.getPackageDescription(pkg, reqDep.dependency));
+								p = new Package(ps.getPackageDescription(ppath[0], reqDep.dependency));
+								foreach (spn; ppath[1 .. $])
+									p = p.getSubPackage(spn);
 								break;
 							} catch(Exception e) {
 								logDebug("No metadata for %s: %s", ps.classinfo.name, e.msg);
 							}
 						}
 						enforce(p !is null, "Could not find package candidate for "~pkg~" "~reqDep.dependency.toString());
-						markUpToDate(pkg);
+						markUpToDate(ppath[0]);
 					}
 					catch(Throwable e) {
 						logError("Geting package metadata for %s failed, exception: %s", pkg, e.toString());
