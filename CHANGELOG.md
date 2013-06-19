@@ -7,6 +7,7 @@ v0.9.15 - 2013-06-19
 ### Features and improvements ###
 
  - Added `"targetType": "none"` for packages which don't contain sources and don't generate a binary output
+ - Added build settings to the "dub describe" output
 
 ### Bug fixes ###
 
@@ -14,6 +15,7 @@ v0.9.15 - 2013-06-19
  - Remove half-broken support for sub-packages defined in sub-directories (needs to be determined if this feature is worth the trade-offs)
  - Fixed bogus re-installations of packages referenced by a sub-package
  - Fixed handling of dependencies of header-only (or target type "none") dependencies in the VisualD generator
+ - Fixed the reported version of sub-packages in the output of "dub describe"
 
 
 v0.9.14 - 2013-06-18
