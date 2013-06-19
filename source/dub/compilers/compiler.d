@@ -312,6 +312,7 @@ enum BuildSetting {
 
 enum TargetType {
 	autodetect,
+	none,
 	executable,
 	library,
 	sourceLibrary,
@@ -338,6 +339,7 @@ string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 	assert(settings.targetName.length > 0, "No target name set.");
 	final switch(settings.targetType){
 		case TargetType.autodetect: assert(false);
+		case TargetType.none: return null;
 		case TargetType.sourceLibrary: return null;
 		case TargetType.executable:
 			if( platform.platform.canFind("windows") )

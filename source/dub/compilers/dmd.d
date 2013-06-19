@@ -93,6 +93,7 @@ class DmdCompiler : Compiler {
 	{
 		final switch(settings.targetType){
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
+			case TargetType.none: assert(false, "Invalid target type: none");
 			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
 			case TargetType.executable: break;
 			case TargetType.library:

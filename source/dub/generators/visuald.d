@@ -125,18 +125,25 @@ EndGlobal");
 				projUuid, projName, projPath, projectUuid);
 
 			version(VISUALD_SEPERATE_PROJECT_FILES) {
+				void addDepsRec(in Package p)
+				{
+					foreach(id, dependency; p.dependencies) {
+						auto deppack = m_app.getDependency(id, true);
+						if (!deppack) continue;
+						if (isHeaderOnlyPackage(deppack, settings)) {
+							addDepsRec(deppack);
+						} else {
+							// TODO: clarify what "uuid = uuid" should mean
+							auto uuid = guid(id);
+							ret.formattedWrite("\n			%s = %s", uuid, uuid);
+						}
+					}
+				}
+
 				if(pack.dependencies.length > 0) {
 					ret.formattedWrite("
 		ProjectSection(ProjectDependencies) = postProject");
-					foreach(id, dependency; pack.dependencies) {
-						auto deppack = m_app.getDependency(id, true);
-						if (!deppack || isHeaderOnlyPackage(deppack, settings))
-							continue;
-						// TODO: clarify what "uuid = uuid" should mean
-						auto uuid = guid(id);
-						ret.formattedWrite("
-			%s = %s", uuid, uuid);
-					}
+					addDepsRec(pack);
 					ret.formattedWrite("
 		EndProjectSection");
 				}

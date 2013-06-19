@@ -106,7 +106,7 @@ class Package {
 				}
 
 				if (m_info.version_.length == 0) {
-					logDiagnostic("Failed to determine version of package %s at %s. Assuming ~master.", m_info.name, this.path.toNativeString());
+					logDiagnostic("Note: Failed to determine version of package %s at %s. Assuming ~master.", m_info.name, this.path.toNativeString());
 					m_info.version_ = "~master";
 				} else logDiagnostic("Determined package version using GIT: %s %s", m_info.name, m_info.version_);
 			}
@@ -118,7 +118,7 @@ class Package {
 				BuildSettingsTemplate app_settings;
 				app_settings.targetType = TargetType.executable;
 				m_info.configurations ~= ConfigurationInfo("application", app_settings);
-			} else {
+			} else if (m_info.buildSettings.targetType != TargetType.none) {
 				if( m_info.buildSettings.targetType == TargetType.autodetect ){
 					if( app_files.length ){
 						BuildSettingsTemplate app_settings;
@@ -150,6 +150,7 @@ class Package {
 	@property Path path() const { return m_path; }
 	@property Path packageInfoFile() const { return m_path ~ "package.json"; }
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
+	@property inout(Package) basePackage() inout { return m_parentPackage ? m_parentPackage.basePackage : this; }
 	@property inout(Package) parentPackage() inout { return m_parentPackage; }
 	@property inout(Package)[] subPackages() inout { return m_subPackages; }
 
@@ -179,16 +180,17 @@ class Package {
 	/// Returns all BuildSettings for the given platform and config.
 	BuildSettings getBuildSettings(in BuildPlatform platform, string config)
 	const {
+		BuildSettings ret;
 		logDiagnostic("Using config %s for %s", config, this.name);
 		foreach(ref conf; m_info.configurations){
 			if( conf.name != config ) continue;
-			BuildSettings ret;
 			m_info.buildSettings.getPlatformSettings(ret, platform, this.path);
 			conf.buildSettings.getPlatformSettings(ret, platform, this.path);
 			if( ret.targetName.empty ) ret.targetName = this.name.replace(":", "_");
 			return ret;
 		}
-		assert(false, "Unknown configuration for "~m_info.name~": "~config);
+		assert(config is null, "Unknown configuration for "~m_info.name~": "~config);
+		return ret;
 	}
 
 	string getSubConfiguration(string config, in Package dependency, in BuildPlatform platform)
@@ -201,7 +203,7 @@ class Package {
 				break;
 			}
 		}
-		assert(found, "Invliad configuration \""~config~"\" for "~this.name);
+		assert(found || config is null, "Invalid configuration \""~config~"\" for "~this.name);
 		if( auto pv = dependency.name in m_info.buildSettings.subConfigurations ) return *pv;
 		return null;
 	}
@@ -214,7 +216,7 @@ class Package {
 			if( !is_main_package && conf.buildSettings.targetType == TargetType.executable ) continue;
 			return conf.name;
 		}
-		throw new Exception(format("Found no suitable configuration for %s on this platform.", this.name));
+		return null;
 	}
 
 	/// Human readable information of this package and its dependencies.

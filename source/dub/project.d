@@ -253,8 +253,10 @@ class Project {
 			dst.addVersions(["Have_" ~ stripDlangSpecialChars(pkg.name)]);
 
 			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
-			processVars(dst, pkg.path.toNativeString(), psettings);
-			if( pkg is m_main ){
+			if (psettings.targetType != TargetType.none)
+				processVars(dst, pkg.path.toNativeString(), psettings);
+			if (pkg is m_main) {
+				enforce(psettings.targetType != TargetType.none, "Main package has target type \"none\" - stopping build.");
 				dst.targetType = psettings.targetType;
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
@@ -300,13 +302,15 @@ class Project {
 		Package[string] installed;
 		installed[m_main.name] = m_main;
 		foreach(ref Package p; m_dependencies) {
-			if( auto ppo = p.name in installed ){
+			auto pbase = p.basePackage;
+			auto pexist = installed.get(pbase.name, null);
+			if (pexist && pexist !is pbase){
 				logError("The same package is referenced in different paths:");
-				logError("  %s %s: %s", ppo.name, ppo.vers, ppo.path.toNativeString());
-				logError("  %s %s: %s", p.name, p.vers, p.path.toNativeString());
+				logError("  %s %s: %s", pexist.name, pexist.vers, pexist.path.toNativeString());
+				logError("  %s %s: %s", pbase.name, pbase.vers, pbase.path.toNativeString());
 				throw new Exception("Conflicting package multi-references.");
 			}
-			installed[p.name] = p;
+			installed[pbase.name] = pbase;
 		}
 
 		// Check against installed and add install actions
