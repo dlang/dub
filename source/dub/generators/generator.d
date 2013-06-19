@@ -59,16 +59,16 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 		default:
 			throw new Exception("Unknown project generator: "~generator_type);
 		case "build":
-			logTrace("Creating build generator.");
+			logDebug("Creating build generator.");
 			return new BuildGenerator(app, mgr);
 		case "rdmd":
-			logTrace("Creating rdmd generator.");
+			logDebug("Creating rdmd generator.");
 			return new RdmdGenerator(app, mgr);
 		case "mono-d":
-			logTrace("Creating MonoD generator.");
+			logDebug("Creating MonoD generator.");
 			return new MonoDGenerator(app, mgr);
 		case "visuald": 
-			logTrace("Creating VisualD generator.");
+			logDebug("Creating VisualD generator.");
 			return new VisualDGenerator(app, mgr);
 	}
 }
@@ -120,7 +120,7 @@ void finalizeGeneration(BuildSettings buildsettings, bool generate_binary)
 			foreach (f; buildsettings.copyFiles) {
 				auto src = Path(f);
 				auto dst = Path(buildsettings.targetPath) ~ Path(f).head;
-				logDebug("  %s to %s", src.toNativeString(), dst.toNativeString());
+				logDiagnostic("  %s to %s", src.toNativeString(), dst.toNativeString());
 				try {
 					copyFile(src, dst, true);
 				} catch logWarn("Failed to copy to %s", dst.toNativeString());

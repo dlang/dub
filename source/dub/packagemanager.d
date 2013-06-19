@@ -172,7 +172,7 @@ class PackageManager {
 		auto package_version = package_info["version"].get!string();
 		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
 
-		logDebug("Installing package '%s' version '%s' to location '%s' from file '%s'", 
+		logDiagnostic("Installing package '%s' version '%s' to location '%s' from file '%s'", 
 			package_name, package_version, destination.toNativeString(), zip_file_path.toNativeString());
 
 		if( existsFile(destination) ){
@@ -182,13 +182,13 @@ class PackageManager {
 		// open zip file
 		ZipArchive archive;
 		{
-			logTrace("Opening file %s", zip_file_path);
+			logDebug("Opening file %s", zip_file_path);
 			auto f = openFile(zip_file_path, FileMode.Read);
 			scope(exit) f.close();
 			archive = new ZipArchive(f.readAll());
 		}
 
-		logTrace("Installing from zip.");
+		logDebug("Installing from zip.");
 
 		// In a github zip, the actual contents are in a subfolder
 		Path zip_prefix;
@@ -207,7 +207,7 @@ class PackageManager {
 					zip_prefix = Path(am.name);
 		}
 
-		logTrace("zip root folder: %s", zip_prefix);
+		logDebug("zip root folder: %s", zip_prefix);
 
 		Path getCleanedPath(string fileName) {
 			auto path = Path(fileName);
@@ -218,14 +218,14 @@ class PackageManager {
 		// install
 		mkdirRecurse(destination.toNativeString());
 		auto journal = new Journal;
-		logDebug("Copying all files...");
+		logDiagnostic("Copying all files...");
 		int countFiles = 0;
 		foreach(ArchiveMember a; archive.directory) {
 			auto cleanedPath = getCleanedPath(a.name);
 			if(cleanedPath.empty) continue;
 			auto dst_path = destination~cleanedPath;
 
-			logTrace("Creating %s", cleanedPath);
+			logDebug("Creating %s", cleanedPath);
 			if( dst_path.endsWithSlash ){
 				if( !existsDirectory(dst_path) )
 					mkdirRecurse(dst_path.toNativeString());
@@ -240,7 +240,7 @@ class PackageManager {
 				++countFiles;
 			}
 		}
-		logDebug("%s file(s) copied.", to!string(countFiles));
+		logDiagnostic("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite package.json (this one includes a version field)
 		Json pi = jsonFromFile(destination~PackageJsonFilename);
@@ -249,7 +249,7 @@ class PackageManager {
 		writeJsonFile(destination~PackageJsonFilename, pi);
 
 		// Write journal
-		logTrace("Saving installation journal...");
+		logDebug("Saving installation journal...");
 		journal.add(Journal.Entry(Journal.Type.RegularFile, Path(JournalJsonFilename)));
 		journal.save(destination ~ JournalJsonFilename);
 
@@ -265,7 +265,7 @@ class PackageManager {
 
 	void uninstall(in Package pack)
 	{
-		logTrace("Uninstall %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
+		logDebug("Uninstall %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
 		enforce(!pack.path.empty, "Cannot uninstall package "~pack.name~" without a path.");
 
 		// remove package from repositories' list
@@ -295,16 +295,16 @@ class PackageManager {
 		enforce(found, "Cannot uninstall, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
 
 		// delete package files physically
-		logTrace("Looking up journal");
+		logDebug("Looking up journal");
 		auto journalFile = pack.path~JournalJsonFilename;
 		if( !existsFile(journalFile) )
 			throw new Exception("Uninstall failed, no installation journal found for '"~pack.name~"'. Please uninstall manually.");
 
 		auto packagePath = pack.path;
 		auto journal = new Journal(journalFile);
-		logTrace("Erasing files");
+		logDebug("Erasing files");
 		foreach( Journal.Entry e; filter!((Journal.Entry a) => a.type == Journal.Type.RegularFile)(journal.entries)) {
-			logTrace("Deleting file '%s'", e.relFilename);
+			logDebug("Deleting file '%s'", e.relFilename);
 			auto absFile = pack.path~e.relFilename;
 			if(!existsFile(absFile)) {
 				logWarn("Previously installed file not found for uninstalling: '%s'", absFile);
@@ -314,13 +314,13 @@ class PackageManager {
 			removeFile(absFile);
 		}
 
-		logDebug("Erasing directories");
+		logDiagnostic("Erasing directories");
 		Path[] allPaths;
 		foreach(Journal.Entry e; filter!((Journal.Entry a) => a.type == Journal.Type.Directory)(journal.entries))
 			allPaths ~= pack.path~e.relFilename;
 		sort!("a.length>b.length")(allPaths); // sort to erase deepest paths first
 		foreach(Path p; allPaths) {
-			logTrace("Deleting folder '%s'", p);
+			logDebug("Deleting folder '%s'", p);
 			if( !existsFile(p) || !isDir(p.toNativeString()) || !isEmptyDir(p) ) {
 				logError("Alien files found, directory is not empty or is not a directory: '%s'", p);
 				continue;
@@ -332,11 +332,11 @@ class PackageManager {
 		auto dubDir = (pack.path ~ ".dub/").toNativeString();
 		enforce(!existsFile(dubDir) || isDir(dubDir), ".dub should be a directory, but is a file.");
 		if(existsFile(dubDir) && isDir(dubDir)) {
-			logTrace(".dub directory found, removing directory including content.");
+			logDebug(".dub directory found, removing directory including content.");
 			rmdirRecurse(dubDir);
 		}
 
-		logTrace("About to delete root folder for package '%s'.", pack.path);
+		logDebug("About to delete root folder for package '%s'.", pack.path);
 		if(!isEmptyDir(pack.path))
 			throw new Exception("Alien files found in '"~pack.path.toNativeString()~"', needs to be deleted manually.");
 
@@ -417,9 +417,9 @@ class PackageManager {
 			Package[] packs;
 			Path[] paths;
 			try {
-				logDebug("Looking for local package map at %s", list_path.toNativeString());
+				logDiagnostic("Looking for local package map at %s", list_path.toNativeString());
 				if( !existsFile(list_path ~ LocalPackagesFilename) ) return;
-				logDebug("Try to load local package map at %s", list_path.toNativeString());
+				logDiagnostic("Try to load local package map at %s", list_path.toNativeString());
 				auto packlist = jsonFromFile(list_path ~ LocalPackagesFilename);
 				enforce(packlist.type == Json.Type.Array, LocalPackagesFilename~" must contain an array.");
 				foreach( pentry; packlist ){
@@ -452,7 +452,7 @@ class PackageManager {
 					}
 				}
 			} catch( Exception e ){
-				logDebug("Loading of local package list at %s failed: %s", list_path.toNativeString(), e.msg);
+				logDiagnostic("Loading of local package list at %s failed: %s", list_path.toNativeString(), e.msg);
 			}
 			m_repositories[type].localPackages = packs;
 			m_repositories[type].searchPath = paths;
@@ -466,9 +466,9 @@ class PackageManager {
 		void scanPackageFolder(Path path)
 		{
 			if( path.existsDirectory() ){
-				logTrace("iterating dir %s", path.toNativeString());
+				logDebug("iterating dir %s", path.toNativeString());
 				try foreach( pdir; iterateDirectory(path) ){
-					logTrace("iterating dir %s entry %s", path.toNativeString(), pdir.name);
+					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 					if( !pdir.isDirectory ) continue;
 					auto pack_path = path ~ pdir.name;
 					if( !existsFile(pack_path ~ PackageJsonFilename) ) continue;
@@ -485,10 +485,10 @@ class PackageManager {
 						m_packages[p.name] ~= p;
 					} catch( Exception e ){
 						logError("Failed to load package in %s: %s", pack_path, e.msg);
-						logDebug("Full error: %s", e.toString().sanitize());
+						logDiagnostic("Full error: %s", e.toString().sanitize());
 					}
 				}
-				catch(Exception e) logDebug("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
+				catch(Exception e) logDiagnostic("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
 			}
 		}
 
@@ -515,15 +515,15 @@ class PackageManager {
 
 			sha1.put(cast(ubyte[])Path(file.name).head.toString());
 			if(file.isDir) {
-				logTrace("Hashed directory name %s", Path(file.name).head);
+				logDebug("Hashed directory name %s", Path(file.name).head);
 			}
 			else {
 				sha1.put(openFile(Path(file.name)).readAll());
-				logTrace("Hashed file contents from %s", Path(file.name).head);
+				logDebug("Hashed file contents from %s", Path(file.name).head);
 			}
 		}
 		auto hash = sha1.finish();
-		logTrace("Project hash: %s", hash);
+		logDebug("Project hash: %s", hash);
 		return hash[0..$];
 	}
 

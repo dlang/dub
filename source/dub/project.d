@@ -149,7 +149,7 @@ class Project {
 	void reinit()
 	{
 		scope(failure){
-			logDebug("Failed to initialize project. Assuming defaults.");
+			logDiagnostic("Failed to initialize project. Assuming defaults.");
 			m_main = new Package(serializeToJson(["name": "unknown"]), m_root);
 		}
 
@@ -158,7 +158,7 @@ class Project {
 		m_packageManager.refresh(false);
 
 		try m_json = jsonFromFile(m_root ~ ".dub/dub.json", true);
-		catch(Exception t) logDebug("Failed to read .dub/dub.json: %s", t.msg);
+		catch(Exception t) logDiagnostic("Failed to read .dub/dub.json: %s", t.msg);
 
 		if( !existsFile(m_root~PackageJsonFilename) ){
 			logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root.toNativeString());
@@ -180,19 +180,19 @@ class Project {
 		// conflicts would then also be detected.
 		void collectDependenciesRec(Package pack)
 		{
-			logDebug("Collecting dependencies for %s", pack.name);
+			logDiagnostic("Collecting dependencies for %s", pack.name);
 			foreach( name, vspec; pack.dependencies ){
 				Package p;
 				if( !vspec.path.empty ){
 					Path path = vspec.path;
 					if( !path.absolute ) path = pack.path ~ path;
-					logDebug("Adding local %s %s", path, vspec.version_);
+					logDiagnostic("Adding local %s %s", path, vspec.version_);
 					p = m_packageManager.addTemporaryPackage(path, vspec.version_);
 				} else {
 					p = m_packageManager.getBestPackage(name, vspec);
 				}
 				if( !m_dependencies.canFind(p) ){
-					logDebug("Found dependency %s %s: %s", name, vspec.toString(), p !is null);
+					logDiagnostic("Found dependency %s %s: %s", name, vspec.toString(), p !is null);
 					if( p ){
 						m_dependencies ~= p;
 						p.warnOnSpecialCompilerFlags();
@@ -316,11 +316,11 @@ class Project {
 			auto p = basepkg in installed;
 			// TODO: auto update to latest head revision
 			if(!p || (!d.dependency.matches(p.vers) && !d.dependency.matches(Version.MASTER))) {
-				if(!p) logDebug("Triggering installation of required package '"~basepkg~"', which is not installed.");
-				else logDebug("Triggering installation of required package '"~basepkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
+				if(!p) logDiagnostic("Triggering installation of required package '"~basepkg~"', which is not installed.");
+				else logDiagnostic("Triggering installation of required package '"~basepkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
 				actions ~= Action.install(basepkg, InstallLocation.userWide, d.dependency, d.packages);
 			} else {
-				logDebug("Required package '"~basepkg~"' found with version '"~p.vers~"'");
+				logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"'");
 				if( option & UpdateOptions.Upgrade )
 					actions ~= Action.install(basepkg, InstallLocation.userWide, d.dependency, d.packages);
 			}
@@ -339,19 +339,19 @@ class Project {
 			scope(exit) iFile.close();
 			while(!iFile.empty)
 				ignores ~= to!string(cast(char[])iFile.readLine());
-			logDebug("Using '%s' found by the application.", ignoreFile);
+			logDiagnostic("Using '%s' found by the application.", ignoreFile);
 		}
 		else {
 			ignores ~= ".svn/*";
 			ignores ~= ".git/*";
 			ignores ~= ".hg/*";
-			logDebug("The '%s' file was not found, defaulting to ignore:", ignoreFile);
+			logDiagnostic("The '%s' file was not found, defaulting to ignore:", ignoreFile);
 		}
 		ignores ~= ".dub/*"; // .dub will not be included
 		foreach(string i; ignores)
-			logDebug(" " ~ i);
+			logDiagnostic(" " ~ i);
 
-		logDebug("Creating zip file from application: " ~ m_main.name);
+		logDiagnostic("Creating zip file from application: " ~ m_main.name);
 		auto archive = new ZipArchive();
 		foreach( string file; dirEntries(to!string(m_root), SpanMode.depth) ) {
 			enforce( Path(file).startsWith(m_root) );
@@ -362,7 +362,7 @@ class Project {
 				if(globMatch(file, ignore))
 					would work, as I see it;
 					continue;
-			logDebug(" Adding member: %s", p);
+			logDiagnostic(" Adding member: %s", p);
 			ArchiveMember am = new ArchiveMember();
 			am.name = to!string(p);
 			auto f = openFile(file);
@@ -371,7 +371,7 @@ class Project {
 			archive.addMember(am);
 		}
 
-		logDebug(" Writing zip: %s", destination);
+		logDiagnostic(" Writing zip: %s", destination);
 		auto dst = openFile(destination, FileMode.CreateTrunc);
 		scope(exit) dst.close();
 		dst.write(cast(ubyte[])archive.build());
@@ -418,7 +418,7 @@ class Project {
 		RequestedDependency[string] missing = graph.missing();
 		RequestedDependency[string] oldMissing;
 		while( missing.length > 0 ) {
-			logTrace("Try to resolve %s", missing.keys);
+			logDebug("Try to resolve %s", missing.keys);
 			if( missing.keys == oldMissing.keys ){ // FIXME: should actually compare the complete AA here
 				bool different = false;
 				foreach(string pkg, reqDep; missing) {
@@ -435,7 +435,7 @@ class Project {
 			}
 
 			oldMissing = missing.dup;
-			logTrace("There are %s packages missing.", missing.length);
+			logDebug("There are %s packages missing.", missing.length);
 
 			auto toLookup = missing;
 			foreach(id, dep; graph.optional()) {
@@ -445,16 +445,16 @@ class Project {
 
 			foreach(string pkg, reqDep; toLookup) {
 				if(!reqDep.dependency.valid()) {
-					logTrace("Dependency to "~pkg~" is invalid. Trying to fix by modifying others.");
+					logDebug("Dependency to "~pkg~" is invalid. Trying to fix by modifying others.");
 					continue;
 				}
 					
 				auto ppath = pkg.split(":");
 
 				// TODO: auto update and update interval by time
-				logTrace("Adding package to graph: "~pkg);
+				logDebug("Adding package to graph: "~pkg);
 				Package p = m_packageManager.getBestPackage(pkg, reqDep.dependency);
-				if( p ) logTrace("Found installed package %s %s", pkg, p.ver);
+				if( p ) logDebug("Found installed package %s %s", pkg, p.ver);
 
 				// Don't bother with not available optional packages.
 				if( !p && reqDep.dependency.optional ) continue;
@@ -467,7 +467,7 @@ class Project {
 
 				if( !p ){
 					try {
-						logDebug("using package from registry");
+						logDiagnostic("using package from registry");
 						foreach(ps; packageSuppliers){
 							try {
 								p = new Package(ps.getPackageDescription(ppath[0], reqDep.dependency));
@@ -475,7 +475,7 @@ class Project {
 									p = p.getSubPackage(spn);
 								break;
 							} catch(Exception e) {
-								logDebug("No metadata for %s: %s", ps.classinfo.name, e.msg);
+								logDiagnostic("No metadata for %s: %s", ps.classinfo.name, e.msg);
 							}
 						}
 						enforce(p !is null, "Could not find package candidate for "~pkg~" "~reqDep.dependency.toString());
@@ -515,7 +515,7 @@ class Project {
 	}
 		
 	private void markUpToDate(string packageId) {
-		logTrace("markUpToDate(%s)", packageId);
+		logDebug("markUpToDate(%s)", packageId);
 		Json create(ref Json json, string object) {
 			if( object !in json ) json[object] = Json.EmptyObject;
 			return json[object];
@@ -532,7 +532,7 @@ class Project {
 		if( m_json.length == 0 ) return;
 
 		try {
-			logTrace("writeDubJson");
+			logDebug("writeDubJson");
 			auto dubpath = m_root~".dub";
 			if( !exists(dubpath.toNativeString()) ) mkdir(dubpath.toNativeString());
 			auto dstFile = openFile((dubpath~"dub.json").toString(), FileMode.CreateTrunc);
@@ -668,7 +668,7 @@ private void processVars(ref Appender!(string[]) dst, string project_path, strin
 		if( are_paths ){
 			auto p = Path(var);
 			if( !p.absolute ){
-				logTrace("Fixing relative path: %s ~ %s", project_path, p.toNativeString());
+				logDebug("Fixing relative path: %s ~ %s", project_path, p.toNativeString());
 				p = Path(project_path) ~ p;
 			}
 			dst.put(p.toNativeString());

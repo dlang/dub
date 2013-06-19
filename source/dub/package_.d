@@ -102,13 +102,13 @@ class Package {
 						m_info.version_ = "~" ~ branch.output.strip();
 					}
 				} catch (Exception e) {
-					logDebug("Failed to run git: %s", e.msg);
+					logDiagnostic("Failed to run git: %s", e.msg);
 				}
 
 				if (m_info.version_.length == 0) {
-					logDebug("Failed to determine version of package %s at %s. Assuming ~master.", m_info.name, this.path.toNativeString());
+					logDiagnostic("Failed to determine version of package %s at %s. Assuming ~master.", m_info.name, this.path.toNativeString());
 					m_info.version_ = "~master";
-				} else logDebug("Determined package version using GIT: %s %s", m_info.name, m_info.version_);
+				} else logDiagnostic("Determined package version using GIT: %s %s", m_info.name, m_info.version_);
 			}
 		}
 
@@ -187,7 +187,7 @@ class Package {
 	/// Returns all BuildSettings for the given platform and config.
 	BuildSettings getBuildSettings(in BuildPlatform platform, string config)
 	const {
-		logDebug("Using config %s for %s", config, this.name);
+		logDiagnostic("Using config %s for %s", config, this.name);
 		foreach(ref conf; m_info.configurations){
 			if( conf.name != config ) continue;
 			BuildSettings ret;

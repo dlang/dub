@@ -44,7 +44,7 @@ int main(string[] args)
 		// parse general options
 		bool verbose, vverbose, quiet, vquiet;
 		bool help, nodeps, annotate;
-		LogLevel loglevel = LogLevel.Info;
+		LogLevel loglevel = LogLevel.info;
 		string build_type = "debug", build_config;
 		string compiler_name = "dmd";
 		string arch;
@@ -73,10 +73,10 @@ int main(string[] args)
 			"version", &install_version
 			);
 
-		if( vverbose ) loglevel = LogLevel.Trace;
-		else if( verbose ) loglevel = LogLevel.Debug;
-		else if( vquiet ) loglevel = LogLevel.None;
-		else if( quiet ) loglevel = LogLevel.Warn;
+		if( vverbose ) loglevel = LogLevel.debug_;
+		else if( verbose ) loglevel = LogLevel.diagnostic;
+		else if( vquiet ) loglevel = LogLevel.none;
+		else if( quiet ) loglevel = LogLevel.warn;
 		setLogLevel(loglevel);
 
 		// extract the command
@@ -146,7 +146,7 @@ int main(string[] args)
 			case "upgrade":
 				dub.loadPackageFromCwd();
 				logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
-				logDebug("dub initialized");
+				logDiagnostic("dub initialized");
 				dub.update(UpdateOptions.Upgrade | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
 				return 0;
 			case "install":
@@ -234,7 +234,7 @@ int main(string[] args)
 
 				if( !nodeps ){
 					logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
-					logDebug("dub initialized");
+					logDiagnostic("dub initialized");
 					dub.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
 				}
 
@@ -250,7 +250,7 @@ int main(string[] args)
 				gensettings.run = cmd == "run";
 				gensettings.runArgs = args[1 .. $];
 
-				logDebug("Generating using %s", generator);
+				logDiagnostic("Generating using %s", generator);
 				dub.generateProject(generator, gensettings);
 				if( build_type == "ddox" ) dub.runDdox();
 				break;
@@ -265,7 +265,7 @@ int main(string[] args)
 	catch(Throwable e)
 	{
 		logError("Error: %s\n", e.msg);
-		logDebug("Full exception: %s", sanitize(e.toString()));
+		logDiagnostic("Full exception: %s", sanitize(e.toString()));
 		logInfo("Run 'dub help' for usage information.");
 		return 1;
 	}

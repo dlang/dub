@@ -90,7 +90,7 @@ class BuildGenerator : ProjectGenerator {
 			}
 			exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 		}
-		logDebug("Application output name is '%s'", exe_file_path.toNativeString());
+		logDiagnostic("Application output name is '%s'", exe_file_path.toNativeString());
 
 		finalizeGeneration(buildsettings, generate_binary);
 
@@ -126,7 +126,7 @@ class BuildGenerator : ProjectGenerator {
 
 			// invoke the compiler
 			logInfo("Running %s...", settings.compilerBinary);
-			logDebug("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
+			logDiagnostic("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
 			if( settings.run ) cleanup_files ~= exe_file_path;
 			auto compiler_pid = spawnProcess([settings.compilerBinary, "@"~res_file.toNativeString()]);
 			auto result = compiler_pid.wait();
@@ -156,7 +156,7 @@ class BuildGenerator : ProjectGenerator {
 			std.file.write(res_file.toNativeString(), join(buildsettings.dflags, "\n"));
 
 			logInfo("Running %s (compile)...", settings.compilerBinary);
-			logDebug("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
+			logDiagnostic("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
 			auto result = spawnProcess([settings.compilerBinary, "@"~res_file.toNativeString()]).wait();
 			enforce(result == 0, "Build command failed with exit code "~to!string(result));
 

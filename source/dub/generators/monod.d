@@ -51,7 +51,7 @@ class MonoDGenerator : ProjectGenerator {
 
 		prepareGeneration(buildsettings);
 
-		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
+		logDebug("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
 		generateProjects(m_app.mainPackage(), settings);
 		generateSolution(settings);
 
@@ -64,7 +64,7 @@ class MonoDGenerator : ProjectGenerator {
 		scope(exit) sln.close();
 
 		// Writing solution file
-		logTrace("About to write to .sln file.");
+		logDebug("About to write to .sln file.");
 
 		// Solution header
 		sln.put('\n');
@@ -153,7 +153,7 @@ class MonoDGenerator : ProjectGenerator {
 		
 	private void generateProject(in Package pack, GeneratorSettings settings)
 	{
-		logTrace("About to write to '%s.dproj' file", pack.name);
+		logDebug("About to write to '%s.dproj' file", pack.name);
 		auto sln = openFile(pack.name ~ ".dproj", FileMode.CreateTrunc);
 		scope(exit) sln.close();
 
@@ -271,7 +271,7 @@ class MonoDGenerator : ProjectGenerator {
 		bool[const(Package)] visited;
 		void perform_rec(const Package parent_pack){
 			foreach(id, dependency; parent_pack.dependencies){
-				logDebug("Retrieving package %s from package manager.", id);
+				logDiagnostic("Retrieving package %s from package manager.", id);
 				auto pack = m_pkgMgr.getBestPackage(id, dependency);
 				if( pack in visited ) continue;
 				visited[pack] = true;
@@ -279,7 +279,7 @@ class MonoDGenerator : ProjectGenerator {
 				 	logWarn("Package %s (%s) could not be retrieved continuing...", id, to!string(dependency));
 					continue;
 				}
-				logDebug("Performing on retrieved package %s", pack.name);
+				logDiagnostic("Performing on retrieved package %s", pack.name);
 				op(pack);
 				perform_rec(pack);
 			}

@@ -83,7 +83,7 @@ RangeFile createTempFile(string suffix = null)
 		auto tmpname = to!string(tmp.ptr);
 		if( tmpname.startsWith("\\") ) tmpname = tmpname[1 .. $];
 		tmpname ~= suffix;
-		logDebug("tmp %s", tmpname);
+		logDiagnostic("tmp %s", tmpname);
 		return openFile(tmpname, FileMode.CreateTrunc);
 	} else {
 		import core.sys.posix.stdio;

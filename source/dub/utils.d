@@ -77,7 +77,7 @@ private string stripUTF8Bom(string str)
 void runCommands(string[] commands, string[string] env = null)
 {
 	foreach(cmd; commands){
-		logDebug("Running %s", cmd);
+		logDiagnostic("Running %s", cmd);
 		Pid pid;
 		if( env !is null ) pid = spawnShell(cmd, env);
 		else pid = spawnShell(cmd);
@@ -95,7 +95,7 @@ void runCommands(string[] commands, string[string] env = null)
 void download(string url, string filename)
 {
 	auto conn = setupHTTPClient();
-	logTrace("Storing %s...", url);
+	logDebug("Storing %s...", url);
 	std.net.curl.download(url, filename, conn);
 }
 /// ditto
@@ -107,7 +107,7 @@ void download(Url url, Path filename)
 char[] download(string url)
 {
 	auto conn = setupHTTPClient();
-	logTrace("Getting %s...", url);
+	logDebug("Getting %s...", url);
 	return get(url, conn);
 }
 /// ditto

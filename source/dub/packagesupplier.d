@@ -50,10 +50,10 @@ class FSPackageSupplier : PackageSupplier {
 		Version bestVersion = Version(Version.RELEASE);
 		foreach(DirEntry d; dirEntries(m_path.toNativeString(), packageId~"*", SpanMode.shallow)) {
 			Path p = Path(d.name);
-			logTrace("Entry: %s", p);
+			logDebug("Entry: %s", p);
 			enforce(to!string(p.head)[$-4..$] == ".zip");
 			string vers = to!string(p.head)[packageId.length+1..$-4];
-			logTrace("Version string: "~vers);
+			logDebug("Version string: "~vers);
 			Version v = Version(vers);
 			if(v > bestVersion && dep.matches(v) ) {
 				bestVersion = v;
@@ -65,7 +65,7 @@ class FSPackageSupplier : PackageSupplier {
 		if(bestVersion == Version.RELEASE || !existsFile(fileName))
 			throw new Exception("No matching package found");
 		
-		logDebug("Found best matching package: '%s'", fileName);
+		logDiagnostic("Found best matching package: '%s'", fileName);
 		return fileName;
 	}
 }

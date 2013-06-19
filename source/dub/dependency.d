@@ -354,7 +354,7 @@ class Dependency {
 	bool matches(string vers) const { return matches(Version(vers)); }
 	bool matches(const(Version) v) const { return matches(v); }
 	bool matches(ref const(Version) v) const {
-		//logTrace(" try match: %s with: %s", v, this);
+		//logDebug(" try match: %s with: %s", v, this);
 		// Master only matches master
 		if(m_versA == Version.MASTER || m_versA.isBranch) {
 			enforce(m_versA == m_versB);
@@ -409,7 +409,7 @@ class Dependency {
 	}
 	
 	private static bool doCmp(string mthd, ref const Version a, ref const Version b) {
-		//logTrace("Calling %s%s%s", a, mthd, b);
+		//logDebug("Calling %s%s%s", a, mthd, b);
 		switch(mthd) {
 			default: throw new Exception("Unknown comparison operator: "~mthd);
 			case ">": return a>b;
@@ -508,7 +508,7 @@ unittest {
 	b.optional = true;
 	assert(a.merge(b).optional, "Merging two optional dependencies wrong.");
 
-	logTrace("Dependency Unittest sucess.");
+	logDebug("Dependency Unittest sucess.");
 }
 
 struct RequestedDependency {
@@ -550,7 +550,7 @@ class DependencyGraph {
 				unused.remove(avail.name);
 		});
 		foreach(string unusedPkg, d; unused) {
-			logTrace("Removed unused package: "~unusedPkg);
+			logDebug("Removed unused package: "~unusedPkg);
 			m_packages.remove(unusedPkg);
 		}
 	}
@@ -603,7 +603,7 @@ class DependencyGraph {
 	}
 	
 	private static void addDependency(ref RequestedDependency[string] deps, string packageId, const Dependency d, const Package issuer) {
-		logTrace("addDependency "~packageId~", '%s'", d);
+		logDebug("addDependency "~packageId~", '%s'", d);
 		auto d2 = packageId in deps;
 		if(!d2) {
 			deps[packageId] = RequestedDependency(issuer.name, d);

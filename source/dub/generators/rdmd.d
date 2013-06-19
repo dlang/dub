@@ -82,7 +82,7 @@ class RdmdGenerator : ProjectGenerator {
 			settings.compiler.setTarget(buildsettings, settings.platform);
 		}
 
-		logDebug("Application output name is '%s'", getTargetFileName(buildsettings, settings.platform));
+		logDiagnostic("Application output name is '%s'", getTargetFileName(buildsettings, settings.platform));
 
 		string[] flags = ["--build-only", "--compiler="~settings.compilerBinary];
 		flags ~= buildsettings.dflags;
@@ -100,7 +100,7 @@ class RdmdGenerator : ProjectGenerator {
 		else logInfo("Building default configuration, build type "~settings.buildType);
 
 		logInfo("Running rdmd...");
-		logDebug("rdmd %s", join(flags, " "));
+		logDiagnostic("rdmd %s", join(flags, " "));
 		auto rdmd_pid = spawnProcess("rdmd" ~ flags);
 		auto result = rdmd_pid.wait();
 		enforce(result == 0, "Build command failed with exit code "~to!string(result));

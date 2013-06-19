@@ -116,7 +116,7 @@ void resolveLibs(ref BuildSettings settings)
 	if (settings.libs.length == 0) return;
 	
 	try {
-		logDebug("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
+		logDiagnostic("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
 		auto libflags = execute(["pkg-config", "--libs"] ~ settings.libs.map!(l => "lib"~l)().array());
 		enforce(libflags.status == 0, "pkg-config exited with error code "~to!string(libflags.status));
 		foreach (f; libflags.output.split()) {
@@ -124,8 +124,8 @@ void resolveLibs(ref BuildSettings settings)
 			else settings.addLFlags(f);
 		}
 	} catch( Exception e ){
-		logDebug("pkg-config failed: %s", e.msg);
-		logDebug("Falling back to direct -lxyz flags.");
+		logDiagnostic("pkg-config failed: %s", e.msg);
+		logDiagnostic("Falling back to direct -lxyz flags.");
 		version(Windows) settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
 		else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
 	}

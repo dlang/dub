@@ -14,7 +14,7 @@ import std.stdio;
 import core.thread;
 
 private {
-	shared LogLevel s_minLevel = LogLevel.Info;
+	shared LogLevel s_minLevel = LogLevel.info;
 	shared LogLevel s_logFileLevel;
 }
 
@@ -31,15 +31,15 @@ void setLogLevel(LogLevel level) nothrow
 		level = The log level for the logged message
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
-void logTrace(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.Trace, fmt, args); }
+void logDebug(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.debug_, fmt, args); }
 /// ditto
-void logDebug(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.Debug, fmt, args); }
+void logDiagnostic(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.diagnostic, fmt, args); }
 /// ditto
-void logInfo(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.Info, fmt, args); }
+void logInfo(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.info, fmt, args); }
 /// ditto
-void logWarn(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.Warn, fmt, args); }
+void logWarn(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.warn, fmt, args); }
 /// ditto
-void logError(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.Error, fmt, args); }
+void logError(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.error, fmt, args); }
 
 /// ditto
 void log(T...)(LogLevel level, string fmt, auto ref T args)
@@ -47,13 +47,13 @@ nothrow {
 	if( level < s_minLevel ) return;
 	string pref;
 	final switch( level ){
-		case LogLevel.Trace: pref = "trc"; break;
-		case LogLevel.Debug: pref = "dbg"; break;
-		case LogLevel.Info: pref = "INF"; break;
-		case LogLevel.Warn: pref = "WRN"; break;
-		case LogLevel.Error: pref = "ERR"; break;
-		case LogLevel.Fatal: pref = "FATAL"; break;
-		case LogLevel.None: assert(false);
+		case LogLevel.debug_: pref = "trc"; break;
+		case LogLevel.diagnostic: pref = "dbg"; break;
+		case LogLevel.info: pref = "INF"; break;
+		case LogLevel.warn: pref = "WRN"; break;
+		case LogLevel.error: pref = "ERR"; break;
+		case LogLevel.fatal: pref = "FATAL"; break;
+		case LogLevel.none: assert(false);
 	}
 
 	try {
@@ -67,7 +67,7 @@ nothrow {
 		fiberid ^= fiberid >> 32;
 
 		if( level >= s_minLevel ){
-			if (level == LogLevel.Info) {
+			if (level == LogLevel.info) {
 				stdout.writeln(txt.data());
 				stdout.flush();
 			} else {
@@ -83,12 +83,12 @@ nothrow {
 
 /// Specifies the log level for a particular log message.
 enum LogLevel {
-	Trace,
-	Debug,
-	Info,
-	Warn,
-	Error,
-	Fatal,
-	None
+	debug_,
+	diagnostic,
+	info,
+	warn,
+	error,
+	fatal,
+	none
 }
 

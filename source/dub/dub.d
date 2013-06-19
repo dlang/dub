@@ -42,7 +42,7 @@ import std.zip;
 PackageSupplier[] defaultPackageSuppliers()
 {
 	Url url = Url.parse("http://registry.vibed.org/");
-	logDebug("Using dub registry url '%s'", url);
+	logDiagnostic("Using dub registry url '%s'", url);
 	return [new RegistryPS(url)];
 }
 
@@ -218,7 +218,7 @@ class Dub {
 
 		logInfo("Downloading %s %s...", packageId, ver);
 
-		logDebug("Acquiring package zip file");
+		logDiagnostic("Acquiring package zip file");
 		auto dload = m_projectPath ~ ".dub/temp/downloads";
 		auto tempfname = packageId ~ "-" ~ (ver.startsWith('~') ? ver[1 .. $] : ver) ~ ".zip";
 		auto tempFile = m_tempPath ~ tempfname;
@@ -288,7 +288,7 @@ class Dub {
 			throw new Exception("Failed to uninstall package.");
 		}
 
-		logTrace("Uninstalling %s packages.", packages.length);
+		logDebug("Uninstalling %s packages.", packages.length);
 		foreach(pack; packages) {
 			try {
 				uninstall(pack);

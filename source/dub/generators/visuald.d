@@ -52,7 +52,7 @@ class VisualDGenerator : ProjectGenerator {
 		
 		prepareGeneration(buildsettings);
 
-		logTrace("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
+		logDebug("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
 		generateProjects(m_app.mainPackage(), settings);
 		generateSolution(settings);
 		logInfo("VisualD project generated.");
@@ -105,7 +105,7 @@ Global
 EndGlobal");
 
 			// Writing solution file
-			logTrace("About to write to .sln file with %s bytes", to!string(ret.data().length));
+			logDebug("About to write to .sln file with %s bytes", to!string(ret.data().length));
 			auto sln = openFile(solutionFileName(), FileMode.CreateTrunc);
 			scope(exit) sln.close();
 			sln.put(ret.data());
@@ -239,7 +239,7 @@ EndGlobal");
 			ret.formattedWrite("\n  <Folder name=\"%s\">", getPackageFileName(pack));
 			Path lastFolder;
 			foreach(source; sortedSources(sourceFiles.keys)) {
-				logTrace("source looking at %s", source.structurePath);
+				logDebug("source looking at %s", source.structurePath);
 				auto cur = source.structurePath[0 .. source.structurePath.length-1];
 				if(lastFolder != cur) {
 					size_t same = 0;
@@ -263,7 +263,7 @@ EndGlobal");
 				ret.put("\n    </Folder>");
 			ret.put("\n  </Folder>\n</DProject>");
 
-			logTrace("About to write to '%s.visualdproj' file %s bytes", getPackageFileName(pack), ret.data().length);
+			logDebug("About to write to '%s.visualdproj' file %s bytes", getPackageFileName(pack), ret.data().length);
 			auto proj = openFile(projFileName(pack), FileMode.CreateTrunc);
 			scope(exit) proj.close();
 			proj.put(ret.data());
@@ -442,7 +442,7 @@ ret.formattedWrite(
 			bool[const(Package)] visited;
 			void perform_rec(const Package parent_pack){
 				foreach(id, dependency; parent_pack.dependencies){
-					logTrace("Retrieving package %s from package manager.", id);
+					logDebug("Retrieving package %s from package manager.", id);
 					auto pack = m_pkgMgr.getBestPackage(id, dependency);
 					if( pack in visited ) continue;
 					if( pack is null && dependency.optional ) {
@@ -451,7 +451,7 @@ ret.formattedWrite(
 						// want to spawn an error (an finally mark it as 
 						// visited).
 						// TODO: should this information be posted to the user?
-						logDebug("An optional dependency was not found: %s, %s", id, dependency);
+						logDiagnostic("An optional dependency was not found: %s, %s", id, dependency);
 						continue;
 					}
 					visited[pack] = true;
@@ -459,7 +459,7 @@ ret.formattedWrite(
 						logWarn("Package %s (%s) could not be retrieved continuing...", id, to!string(dependency));
 						continue;
 					}
-					logTrace("Performing on retrieved package %s", pack.name);
+					logDebug("Performing on retrieved package %s", pack.name);
 					op(pack);
 					perform_rec(pack);
 				}
