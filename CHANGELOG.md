@@ -1,6 +1,21 @@
 Changelog
 =========
 
+v0.9.15 - 2013-06-19
+--------------------
+
+### Features and improvements ###
+
+ - Added `"targetType": "none"` for packages which don't contain sources and don't generate a binary output
+
+### Bug fixes ###
+
+ - Fixed fetching of "main:sub" style dependencies from the registry
+ - Remove half-broken support for sub-packages defined in sub-directories (needs to be determined if this feature is worth the trade-offs)
+ - Fixed bogus re-installations of packages referenced by a sub-package
+ - Fixed handling of dependencies of header-only (or target type "none") dependencies in the VisualD generator
+
+
 v0.9.14 - 2013-06-18
 --------------------
 
