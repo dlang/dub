@@ -269,7 +269,7 @@ class Package {
 	{
 		dst.path = m_path.toNativeString();
 		dst.name = this.name;
-		dst["version"] = m_info.version_;
+		dst["version"] = this.vers;
 		dst.description = m_info.description;
 		dst.homepage = m_info.homepage;
 		dst.authors = m_info.authors.serializeToJson();
