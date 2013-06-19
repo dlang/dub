@@ -277,9 +277,23 @@ class Package {
 		dst.license = m_info.license;
 		dst.dependencies = m_info.dependencies.keys.serializeToJson();
 
-		auto jconfig = Json.EmptyObject;
-		Json[] files;
+		// save build settings
 		BuildSettings bs = getBuildSettings(platform, config);
+
+		foreach (string k, v; bs.serializeToJson()) dst[k] = v;
+		dst.remove("requirements");
+		dst.remove("sourceFiles");
+		dst.targetType = bs.targetType.to!string();
+
+		// prettify build requirements output
+		Json[] breqs;
+		for (int i = 1; i <= BuildRequirements.max; i <<= 1)
+			if (bs.requirements & i)
+				breqs ~= Json(to!string(cast(BuildRequirements)i));
+		dst.buildRequirements = breqs;
+
+		// prettify files output
+		Json[] files;
 		foreach (f; bs.sourceFiles) {
 			auto jf = Json.EmptyObject;
 			jf.path = f;
