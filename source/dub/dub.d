@@ -110,53 +110,44 @@ class Dub {
 	/// Performs installation and uninstallation as necessary for
 	/// the application.
 	/// @param options bit combination of UpdateOptions
-	bool update(UpdateOptions options) {
-		Action[] actions = m_project.determineActions(m_packageSuppliers, options);
-		if( actions.length == 0 ) return true;
+	void update(UpdateOptions options)
+	{
+		while (true) {
+			Action[] actions = m_project.determineActions(m_packageSuppliers, options);
+			if (actions.length == 0) break;
 
-		logInfo("The following changes could be performed:");
-		bool conflictedOrFailed = false;
-		foreach(Action a; actions) {
-			logInfo("%s %s %s, %s", capitalize(to!string(a.type)), a.packageId, a.vers, a.location);
-			if( a.type == Action.Type.conflict || a.type == Action.Type.failure ) {
-				logInfo("Issued by: ");
-				conflictedOrFailed = true;
-				foreach(string pkg, d; a.issuer)
-					logInfo(" "~pkg~": %s", d);
+			logInfo("The following changes will be performed:");
+			bool conflictedOrFailed = false;
+			foreach(Action a; actions) {
+				logInfo("%s %s %s, %s", capitalize(to!string(a.type)), a.packageId, a.vers, a.location);
+				if( a.type == Action.Type.conflict || a.type == Action.Type.failure ) {
+					logInfo("Issued by: ");
+					conflictedOrFailed = true;
+					foreach(string pkg, d; a.issuer)
+						logInfo(" "~pkg~": %s", d);
+				}
 			}
+
+			if (conflictedOrFailed || options & UpdateOptions.JustAnnotate) return;
+
+			// Uninstall first
+
+			// ??
+			// foreach(Action a	   ; filter!((Action a)        => a.type == Action.Type.Uninstall)(actions))
+				// uninstall(a.packageId);
+			// foreach(Action a; filter!((Action a) => a.type == Action.Type.InstallUpdate)(actions))
+				// install(a.packageId, a.vers);
+			foreach(Action a; actions)
+				if(a.type == Action.Type.uninstall){
+					assert(a.pack !is null, "No package specified for uninstall.");
+					uninstall(a.pack);
+				}
+			foreach(Action a; actions)
+				if(a.type == Action.Type.install)
+					install(a.packageId, a.vers, a.location);
+
+			if (!actions.empty) m_project.reinit();
 		}
-
-		if( conflictedOrFailed || options & UpdateOptions.JustAnnotate )
-			return conflictedOrFailed;
-
-		// Uninstall first
-
-		// ??
-		// foreach(Action a	   ; filter!((Action a)        => a.type == Action.Type.Uninstall)(actions))
-			// uninstall(a.packageId);
-		// foreach(Action a; filter!((Action a) => a.type == Action.Type.InstallUpdate)(actions))
-			// install(a.packageId, a.vers);
-		foreach(Action a; actions)
-			if(a.type == Action.Type.uninstall){
-				assert(a.pack !is null, "No package specified for uninstall.");
-				uninstall(a.pack);
-			}
-		foreach(Action a; actions)
-			if(a.type == Action.Type.install)
-				install(a.packageId, a.vers, a.location);
-
-		if (!actions.empty) m_project.reinit();
-		
-		Action[] newActions = m_project.determineActions(m_packageSuppliers, 0);
-		if(newActions.length > 0) {
-			logInfo("There are still some actions to perform:");
-			foreach(Action a; newActions)
-				logInfo("%s", a);
-		}
-		else
-			logInfo("You are up to date");
-
-		return newActions.length == 0;
 	}
 
 	/// Generate project files for a specified IDE.

@@ -325,8 +325,8 @@ Available commands:
     add-local <dir> <version>
                          Adds a local package directory (e.g. a git repository)
     remove-local <dir>   Removes a local package directory
-    add-path             Adds a default package search path
-    remove-path          Removes a package search path
+    add-path <dir>       Adds a default package search path
+    remove-path <dir>    Removes a package search path
     list-installed       Prints a list of all installed packages
     generate <name>      Generates project files using the specified generator:
                            visuald, mono-d, build, rdmd
