@@ -122,7 +122,7 @@ class BuildGenerator : ProjectGenerator {
 			// write response file instead of passing flags directly to the compiler
 			auto res_file = Path(buildsettings.targetPath) ~ ".dmd-response-file.txt";
 			cleanup_files ~= res_file;
-			std.file.write(res_file.toNativeString(), join(buildsettings.dflags, "\n"));
+			std.file.write(res_file.toNativeString(), join(buildsettings.dflags.map!(s => "\""~s~"\"")(), "\n"));
 
 			// invoke the compiler
 			logInfo("Running %s...", settings.compilerBinary);
@@ -153,7 +153,7 @@ class BuildGenerator : ProjectGenerator {
 			auto res_file = Path(buildsettings.targetPath) ~ ".dmd-response-file.txt";
 			cleanup_files ~= res_file;
 			cleanup_files ~= tempobj;
-			std.file.write(res_file.toNativeString(), join(buildsettings.dflags, "\n"));
+			std.file.write(res_file.toNativeString(), join(buildsettings.dflags.map!(s => "\""~s~"\"")(), "\n"));
 
 			logInfo("Running %s (compile)...", settings.compilerBinary);
 			logDiagnostic("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
