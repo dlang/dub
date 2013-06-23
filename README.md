@@ -49,3 +49,11 @@ Moritz Maxeiner has created a PKGBUILD file for Arch:
 
  - Latest release: <https://aur.archlinux.org/packages/dub/>
  - GIT master: <https://aur.archlinux.org/packages/dub-git/>
+
+### Debian/Ubuntu Linux
+
+Jordi Sayol maintains a DEB package as part of his [D APT repository](https://code.google.com/p/d-apt/wiki/APT_Repository). Run `sudo apt-get install dub` to install.
+
+### Mac OS
+
+Chris Molozian has added DUB to [Homebrew](http://mxcl.github.io/homebrew/). Use `brew install dub` or `brew install dub --HEAD` to install the stable or the git HEAD version respectively.
