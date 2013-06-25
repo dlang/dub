@@ -146,7 +146,7 @@ class Dub {
 				if(a.type == Action.Type.install)
 					install(a.packageId, a.vers, a.location);
 
-			if (!actions.empty) m_project.reinit();
+			m_project.reinit();
 		}
 	}
 
