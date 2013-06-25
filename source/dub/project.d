@@ -262,6 +262,12 @@ class Project {
 				dst.targetName = psettings.targetName;
 			}
 		}
+
+		// always add all version identifiers of all packages
+		foreach (pkg; this.getTopologicalPackageList(false, null, configs)) {
+			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
+			dst.addVersions(psettings.versions);
+		}
 	}
 
 
