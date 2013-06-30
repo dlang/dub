@@ -1146,16 +1146,6 @@ void writePrettyJsonString(R)(ref R dst, in Json json, int level = 0)
 	}
 }
 
-
-/** Deprecated aliases for backwards compatibility.
-
-	Use writeJsonString and writePrettyJsonString instead.
-*/
-deprecated("Please use writeJsonString instead.") alias writeJsonString toJson;
-///
-deprecated("Please use writePrettyJsonString instead.") alias writePrettyJsonString toPrettyJson;
-
-
 /// private
 private void jsonEscape(R)(ref R dst, string s)
 {
