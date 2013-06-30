@@ -12,6 +12,7 @@ import dub.generators.build;
 import dub.generators.monod;
 import dub.generators.rdmd;
 import dub.generators.visuald;
+import dub.generators.ddt;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
@@ -70,6 +71,9 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 		case "visuald": 
 			logDebug("Creating VisualD generator.");
 			return new VisualDGenerator(app, mgr);
+        case "ddt":
+            logDebug("Creating VisualD generator.");
+            return new DDTGenerator(app, mgr);
 	}
 }
 
