@@ -492,7 +492,8 @@ class Project {
 						markUpToDate(ppath[0]);
 					}
 					catch(Throwable e) {
-						logError("Geting package metadata for %s failed, exception: %s", pkg, e.toString());
+						logError("Getting package metadata for %s failed: %s", pkg, e.msg);
+						logDiagnostic("Full eror: %s", e.toString().sanitize());
 					}
 				}
 
