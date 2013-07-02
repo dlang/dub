@@ -40,8 +40,14 @@ class LdcCompiler : Compiler {
 		string[] newdflags;
 		foreach(f; settings.dflags){
 			switch(f){
-				default: newdflags ~= f; break;
+				default:
+					if (f.startsWith("-debug=")) newdflags ~= "-d-debug="~f[7 .. $];
+					else if (f.startsWith("-version=")) newdflags ~= "-d-version="~f[9 .. $];
+					else newdflags ~= f;
+					break;
 				case "-debug": newdflags ~= "-d-debug"; break;
+				case "-inline": newdflags ~= "-enable-inlining"; break;	
+				case "-noboundscheck": newdflags ~= "-disable-boundscheck"; break;
 			}
 		}
 		settings.dflags = newdflags;
@@ -81,9 +87,9 @@ class LdcCompiler : Compiler {
 		if (settings.requirements & BuildRequirements.silenceWarnings) { settings.removeDFlags("-w", "-wi"); }
 		if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.removeDFlags("-dw", "-d"); settings.addDFlags("-de"); }
 		if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.removeDFlags("-dw", "-de"); settings.addDFlags("-d"); }
-		if (settings.requirements & BuildRequirements.disallowInlining) { settings.removeDFlags("-inline"); }
+		if (settings.requirements & BuildRequirements.disallowInlining) { settings.removeDFlags("-enable-inlining"); }
 		if (settings.requirements & BuildRequirements.disallowOptimization) { settings.removeDFlags("-O"); }
-		if (settings.requirements & BuildRequirements.requireBoundsCheck) { settings.removeDFlags("-noboundscheck"); }
+		if (settings.requirements & BuildRequirements.requireBoundsCheck) { settings.removeDFlags("-disable-boundscheck"); }
 		if (settings.requirements & BuildRequirements.requireContracts) { settings.removeDFlags("-release"); }
 		if (settings.requirements & BuildRequirements.relaxProperties) { settings.removeDFlags("-property"); }
 
