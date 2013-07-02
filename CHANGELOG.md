@@ -1,6 +1,16 @@
 Changelog
 =========
 
+v0.9.16 - 2013-06-29
+--------------------
+
+### Bug fixes ###
+
+ - Fixed fetching of all recursive dependencies in one go
+ - Fixed handling of paths with spaces when using "dub build"
+ - Fixed upwards inheritance of version identifiers in generated VisualD projects
+
+
 v0.9.15 - 2013-06-19
 --------------------
 

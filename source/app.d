@@ -349,7 +349,10 @@ Build/run options:
                            docs, ddox, cov, unittest-cov
         --config=NAME    Builds the specified configuration. Configurations can
                          be defined in package.json
-        --compiler=NAME  Uses one of the supported compilers:
+        --compiler=NAME  Specifies the compiler binary to use. Arbitrary pre-
+                         and suffixes to the identifiers below are recognized
+                         (e.g. ldc2 or dmd-2.063) and matched to the proper
+                         compiler type:
                            dmd (default), gcc, ldc, gdmd, ldmd
         --arch=NAME      Force a different architecture (e.g. x86 or x86_64)
         --nodeps         Do not check dependencies for 'run' or 'build'

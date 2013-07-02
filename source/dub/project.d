@@ -262,6 +262,12 @@ class Project {
 				dst.targetName = psettings.targetName;
 			}
 		}
+
+		// always add all version identifiers of all packages
+		foreach (pkg; this.getTopologicalPackageList(false, null, configs)) {
+			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
+			dst.addVersions(psettings.versions);
+		}
 	}
 
 
@@ -486,7 +492,8 @@ class Project {
 						markUpToDate(ppath[0]);
 					}
 					catch(Throwable e) {
-						logError("Geting package metadata for %s failed, exception: %s", pkg, e.toString());
+						logError("Getting package metadata for %s failed: %s", pkg, e.msg);
+						logDiagnostic("Full eror: %s", e.toString().sanitize());
 					}
 				}
 
