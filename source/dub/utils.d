@@ -15,12 +15,13 @@ import dub.internal.vibecompat.inet.url;
 import dub.version_;
 
 // todo: cleanup imports.
-import std.algorithm;
+import std.algorithm : startsWith;
 import std.array;
 import std.conv;
 import std.exception;
 import std.file;
 import std.net.curl;
+import std.string;
 import std.typecons;
 import std.zip;
 
@@ -121,6 +122,13 @@ private HTTP setupHTTPClient()
 	auto conn = HTTP();
 	static if( is(typeof(&conn.verifyPeer)) )
 		conn.verifyPeer = false;
-	conn.addRequestHeader("User-Agent", "dub/"~dubVersion~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
+
+	// convert version string to valid SemVer format
+	auto verstr = dubVersion;
+	if (verstr.startsWith("v")) verstr = verstr[1 .. $];
+	auto idx = verstr.indexOf("-");
+	if (idx >= 0) verstr = verstr[0 .. idx] ~ "+" ~ verstr[idx+1 .. $].split("-").join(".");
+
+	conn.addRequestHeader("User-Agent", "dub/"~verstr~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
 	return conn;
 }
