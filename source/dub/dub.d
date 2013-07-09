@@ -156,11 +156,6 @@ class Dub {
 		auto generator = createProjectGenerator(ide, m_project, m_packageManager);
 		generator.generateProject(settings);
 	}
-	
-	/// Creates a zip from the application.
-	void createZip(string zipFile) {
-		m_project.createZip(zipFile);
-	}
 
 	/// Outputs a JSON description of the project, including its deoendencies.
 	void describeProject(BuildPlatform platform, string config)

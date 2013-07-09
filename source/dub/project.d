@@ -339,55 +339,6 @@ class Project {
 		return actions;
 	}
 
-	void createZip(string destination) {
-		assert(false); // not properly implemented
-		/*
-		string[] ignores;
-		auto ignoreFile = to!string(m_root~"dub.ignore.txt");
-		if(exists(ignoreFile)){
-			auto iFile = openFile(ignoreFile);
-			scope(exit) iFile.close();
-			while(!iFile.empty)
-				ignores ~= to!string(cast(char[])iFile.readLine());
-			logDiagnostic("Using '%s' found by the application.", ignoreFile);
-		}
-		else {
-			ignores ~= ".svn/*";
-			ignores ~= ".git/*";
-			ignores ~= ".hg/*";
-			logDiagnostic("The '%s' file was not found, defaulting to ignore:", ignoreFile);
-		}
-		ignores ~= ".dub/*"; // .dub will not be included
-		foreach(string i; ignores)
-			logDiagnostic(" " ~ i);
-
-		logDiagnostic("Creating zip file from application: " ~ m_main.name);
-		auto archive = new ZipArchive();
-		foreach( string file; dirEntries(to!string(m_root), SpanMode.depth) ) {
-			enforce( Path(file).startsWith(m_root) );
-			auto p = Path(file);
-			p = p[m_root.length..p.length];
-			if(isDir(file)) continue;
-			foreach(string ignore; ignores)
-				if(globMatch(file, ignore))
-					would work, as I see it;
-					continue;
-			logDiagnostic(" Adding member: %s", p);
-			ArchiveMember am = new ArchiveMember();
-			am.name = to!string(p);
-			auto f = openFile(file);
-			scope(exit) f.close();
-			am.expandedData = f.readAll();
-			archive.addMember(am);
-		}
-
-		logDiagnostic(" Writing zip: %s", destination);
-		auto dst = openFile(destination, FileMode.CreateTrunc);
-		scope(exit) dst.close();
-		dst.write(cast(ubyte[])archive.build());
-		*/
-	}
-
 	/// Outputs a JSON description of the project, including its deoendencies.
 	void describe(ref Json dst, BuildPlatform platform, string config)
 	{
