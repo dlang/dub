@@ -406,23 +406,6 @@ class Project {
 		}
 	}
 
-	/// Tries to add the specified dependency.
-	/// If an existing dependencies is already current, this one is compared to
-	///	the supplied one, in order to check if these are compatible.
-	///	@return true, if the dependency was succesfully added, false if the
-	///	new dependency cannot be added because of current settings.
-	bool tryAddDependency(string packageId, const Dependency dependency) {
-		try {
-			m_main.addDependency(packageId, dependency);
-			m_main.writeJson(m_root);
-			return true;
-		}
-		catch(Exception e) {
-			logError("The dependency '%s' '%s' could not be added. Try to check the package.json of your project if this is a conflict with an existing dependency.", packageId, dependency);
-			return false;
-		}
-	}
-
 	private bool gatherMissingDependencies(PackageSupplier[] packageSuppliers, DependencyGraph graph)
 	{
 		RequestedDependency[string] missing = graph.missing();

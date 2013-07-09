@@ -237,25 +237,6 @@ class Package {
 		assert(false);
 	}
 
-	/// Adds an dependency, if the package is already a dependency and it cannot be
-	/// merged with the supplied dependency, an exception will be generated.
-	void addDependency(string packageId, const Dependency dependency) {
-		/*Dependency dep = new Dependency(dependency);
-		if(packageId in m_info.dependencies) { 
-			dep = dependency.merge(m_info.dependencies[packageId]);
-			if(!dep.valid()) throw new Exception("Cannot merge with existing dependency.");
-		}
-		m_info.dependencies[packageId] = dep;*/
-		assert(false);
-	}
-
-	/// Removes a dependecy.
-	void removeDependency(string packageId) {
-		/*if (packageId in m_info.dependencies)
-			m_info.dependencies.remove(packageId);*/
-		assert(false);
-	}
-
 	bool hasDependency(string depname, string config)
 	const {
 		if (depname in m_info.buildSettings.dependencies) return true;

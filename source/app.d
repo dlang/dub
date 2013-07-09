@@ -165,11 +165,6 @@ int main(string[] args)
 						dub.install(name, new Dependency("~master"), location);
 					}
 				}
-				/*if( add_dependency ){
-					dub.loadPackageFromCwd();
-					dub.addDependency(...);
-				}
-				*/
 				break;
 			case "uninstall":
 				enforce(args.length >= 2, "Missing package name.");
