@@ -364,6 +364,7 @@ struct PackageInfo {
 	}
 }
 
+/// Bundles information about a build configuration.
 struct ConfigurationInfo {
 	string name;
 	string[] platforms;
@@ -371,6 +372,7 @@ struct ConfigurationInfo {
 
 	this(string name, BuildSettingsTemplate build_settings)
 	{
+		enforce(!name.empty, "Configuration name is empty.");
 		this.name = name;
 		this.buildSettings = build_settings;
 	}
@@ -414,6 +416,9 @@ struct ConfigurationInfo {
 	}
 }
 
+/// This keeps general information about how to build a package.
+/// It contains functions to create a specific BuildSetting, targeted at
+/// a certain BuildPlatform.
 struct BuildSettingsTemplate {
 	Dependency[string] dependencies;
 	TargetType targetType = TargetType.autodetect;
@@ -558,6 +563,7 @@ struct BuildSettingsTemplate {
 		return ret;
 	}
 
+	/// Constructs a BuildSettings object from this template.
 	void getPlatformSettings(ref BuildSettings dst, in BuildPlatform platform, Path base_path)
 	const {
 		dst.targetType = this.targetType;
