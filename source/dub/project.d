@@ -171,8 +171,8 @@ class Project {
 		m_main = new Package(m_root);
 		m_main.warnOnSpecialCompilerFlags();
 		if (m_main.name != m_main.name.toLower()) {
-			logWarn("Package names should always be lower case, please change from '%s' to '%s'!",
-				m_main.name, m_main.name.toLower());
+			logWarn(`DUB package names should always be lower case, please change to {"name": "%s"}. You can use {"targetName": "%s"} to keep the current executable name.`,
+				m_main.name.toLower(), m_main.name);
 		}
 
 		// TODO: compute the set of mutual dependencies first
