@@ -24,9 +24,6 @@ import std.uuid;
 import std.exception;
 
 
-version = VISUALD_SEPERATE_PROJECT_FILES;
-//version = VISUALD_SINGLE_PROJECT_FILE;
-
 // Dubbing is developing dub...
 //version = DUBBING;
 
@@ -38,9 +35,12 @@ class VisualDGenerator : ProjectGenerator {
 		Project m_app;
 		PackageManager m_pkgMgr;
 		string[string] m_projectUuids;
+		bool m_combinedProject;
 	}
 	
-	this(Project app, PackageManager mgr) {
+	this(Project app, PackageManager mgr, bool combined_project)
+	{
+		m_combinedProject = combined_project;
 		m_app = app;
 		m_pkgMgr = mgr;
 	}
@@ -77,8 +77,7 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010");
 
 			generateSolutionEntry(ret, m_app.mainPackage, settings);
-			version(VISUALD_SEPERATE_PROJECT_FILES)
-			{
+			if (!m_combinedProject) {
 				performOnDependencies(m_app.mainPackage, (pack){
 					generateSolutionEntry(ret, pack, settings);
 				});
@@ -124,7 +123,7 @@ EndGlobal");
 			ret.formattedWrite("\nProject(\"%s\") = \"%s\", \"%s\", \"%s\"",
 				projUuid, projName, projPath, projectUuid);
 
-			version(VISUALD_SEPERATE_PROJECT_FILES) {
+			if (!m_combinedProject) {
 				void addDepsRec(in Package p)
 				{
 					foreach(id, dependency; p.dependencies) {
@@ -167,8 +166,7 @@ EndGlobal");
 			
 			generateProj(main, settings);
 			
-			version(VISUALD_SEPERATE_PROJECT_FILES) 
-			{
+			if (!m_combinedProject) {
 				bool[string] generatedProjects;
 				generatedProjects[main.name] = true;
 				performOnDependencies(main, (const Package dependency) {
@@ -205,14 +203,17 @@ EndGlobal");
 			generateProjectConfiguration(ret, pack, Config.Unittest, settings);
 
 			// Add all files
-			version(VISUALD_SINGLE_PROJECT_FILE){
-				auto files = settings.buildSettings;
-
+			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
+			auto files = pack.getBuildSettings(settings.platform, configs[pack.name]);
+			bool[SourceFile] sourceFiles;
+			if (m_combinedProject) {
 				// add all package.json files to the project
-				foreach(prj; m_app.getTopologicalPackageList())
+				performOnDependencies(pack, (prj) {
 					files.sourceFiles ~= prj.packageInfoFile.toNativeString();
+					auto pfiles = prj.getBuildSettings(settings.platform, configs[prj.name]);
+					files.sourceFiles ~= pfiles.sourceFiles.map!(f => (prj.path ~ f).toNativeString()).array;
+				});
 
-				bool[SourceFile] sourceFiles;
 				foreach(s; files.sourceFiles){
 					auto sp = Path(s);
 					if( !sp.absolute ) sp = m_app.mainPackage.path ~ sp;
@@ -222,15 +223,9 @@ EndGlobal");
 					sf.structurePath = Path(getPackageFileName(pack)) ~ sp.relativeTo(pack.path);
 					sourceFiles[sf] = true;
 				}
-			}
-
-			version(VISUALD_SEPERATE_PROJECT_FILES){
-				auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
-				auto files = pack.getBuildSettings(settings.platform, configs[pack.name]);
-
+			} else {
 				files.sourceFiles ~= pack.packageInfoFile.toNativeString();
 
-				bool[SourceFile] sourceFiles;
 				foreach(s; files.sourceFiles){
 					auto sp = Path(s);
 					if( !sp.absolute ) sp = pack.path ~ sp;
@@ -397,10 +392,9 @@ ret.formattedWrite(
     <cov>0</cov>
     <nofloat>0</nofloat>
     <Dversion>2</Dversion>
-    <ignoreUnsupportedPragmas>0</ignoreUnsupportedPragmas>
-    <compiler>0</compiler>
-    <otherDMD>0</otherDMD>
-");
+    <ignoreUnsupportedPragmas>0</ignoreUnsupportedPragmas>\n");
+			ret.formattedWrite("    <compiler>%s</compiler>\n", settings.compiler.name == "ldc" ? 2 : settings.compiler.name == "gdc" ? 1 : 0);
+			ret.formattedWrite("    <otherDMD>0</otherDMD>\n");
 			ret.formattedWrite("    <outdir>%s</outdir>\n", bin_path.toNativeString());
 			ret.formattedWrite("    <objdir>.dub/obj/%s/%s</objdir>\n", to!string(type), intersubdir);
 			ret.formattedWrite("%s",

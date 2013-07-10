@@ -67,9 +67,12 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 		case "mono-d":
 			logDebug("Creating MonoD generator.");
 			return new MonoDGenerator(app, mgr);
-		case "visuald": 
+		case "visuald":
 			logDebug("Creating VisualD generator.");
-			return new VisualDGenerator(app, mgr);
+			return new VisualDGenerator(app, mgr, false);
+		case "visuald-combined":
+			logDebug("Creating VisualD generator (combined project).");
+			return new VisualDGenerator(app, mgr, true);
 	}
 }
 

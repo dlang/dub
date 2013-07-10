@@ -324,7 +324,7 @@ Available commands:
     remove-path <dir>    Removes a package search path
     list-installed       Prints a list of all installed packages
     generate <name>      Generates project files using the specified generator:
-                           visuald, mono-d, build, rdmd
+                           visuald, visuald-combined, mono-d, build, rdmd
     describe             Prints a JSON description of the project and its
                          dependencies
 
