@@ -31,7 +31,7 @@ echo "module dub.version_; enum dubVersion = \"$GITVER\";" > source/dub/version_
 
 
 echo Running $DC...
-$DC -ofbin/dub -g -debug -w -property -Isource $* $LIBS @build-files.txt
+$DC -ofbin/dub -g -debug -w -Isource $* $LIBS @build-files.txt
 echo DUB has been built as bin/dub.
 echo
 echo You may want to run

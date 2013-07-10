@@ -7,7 +7,7 @@ for /f %%i in ('git describe') do set GITVER=%%i
 echo module dub.version_; enum dubVersion = "%GITVER%"; > source\dub\version_.d
 
 echo Executing %DC%...
-%DC% -ofbin\dub.exe -g -debug -w -property -Isource curl.lib %* @build-files.txt
+%DC% -ofbin\dub.exe -g -debug -w -Isource curl.lib %* @build-files.txt
 if errorlevel 1 exit /b 1
 
 echo DUB has been built. You probably also want to add the following entry to your
