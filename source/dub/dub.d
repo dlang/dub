@@ -213,7 +213,7 @@ class Dub {
 		supplier.retrievePackage(tempFile, packageId, dep); // Q: continue on fail?
 		scope(exit) remove(sTempFile);
 
-		logInfo("Installing %s %s...", packageId, ver);
+		logInfo("Installing %s %s to %s...", packageId, ver, install_path.toNativeString());
 		auto clean_package_version = ver[ver.startsWith("~") ? 1 : 0 .. $];
 		Path dstpath = install_path ~ (packageId ~ "-" ~ clean_package_version);
 
