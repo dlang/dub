@@ -70,6 +70,7 @@ class VisualDGenerator : ProjectGenerator {
 		void generateSolution(GeneratorSettings settings)
 		{
 			auto ret = appender!(char[])();
+			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
 			
 			// Solution header
 			ret.formattedWrite("
@@ -78,7 +79,7 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 
 			generateSolutionEntry(ret, m_app.mainPackage, settings);
 			if (!m_combinedProject) {
-				performOnDependencies(m_app.mainPackage, (pack){
+				performOnDependencies(m_app.mainPackage, configs, (pack){
 					generateSolutionEntry(ret, pack, settings);
 				});
 			}
@@ -163,13 +164,14 @@ EndGlobal");
 		void generateProjects(const Package main, GeneratorSettings settings) {
 		
 			// TODO: cyclic check
+			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
 			
 			generateProj(main, settings);
 			
 			if (!m_combinedProject) {
 				bool[string] generatedProjects;
 				generatedProjects[main.name] = true;
-				performOnDependencies(main, (const Package dependency) {
+				performOnDependencies(main, configs, (const Package dependency) {
 					if(dependency.name in generatedProjects)
 						return;
 					generateProj(dependency, settings);
@@ -208,7 +210,7 @@ EndGlobal");
 			bool[SourceFile] sourceFiles;
 			if (m_combinedProject) {
 				// add all package.json files to the project
-				performOnDependencies(pack, (prj) {
+				performOnDependencies(pack, configs, (prj) {
 					files.sourceFiles ~= prj.packageInfoFile.toNativeString();
 					auto pfiles = prj.getBuildSettings(settings.platform, configs[prj.name]);
 					files.sourceFiles ~= pfiles.sourceFiles.map!(f => (prj.path ~ f).toNativeString()).array;
@@ -439,34 +441,12 @@ ret.formattedWrite(
 			} // foreach(architecture)
 		}
 		
-		void performOnDependencies(const Package main, void delegate(const Package pack) op) {
-			bool[const(Package)] visited;
-			void perform_rec(const Package parent_pack){
-				foreach(id, dependency; parent_pack.dependencies){
-					logDebug("Retrieving package %s from package manager.", id);
-					auto pack = m_pkgMgr.getBestPackage(id, dependency);
-					if( pack in visited ) continue;
-					if( pack is null && dependency.optional ) {
-						// Do not mark this pack as visited, as other packages
-						// may define this as not optional, in which case we
-						// want to spawn an error (an finally mark it as 
-						// visited).
-						// TODO: should this information be posted to the user?
-						logDiagnostic("An optional dependency was not found: %s, %s", id, dependency);
-						continue;
-					}
-					visited[pack] = true;
-					if(pack is null) {
-						logWarn("Package %s (%s) could not be retrieved continuing...", id, to!string(dependency));
-						continue;
-					}
-					logDebug("Performing on retrieved package %s", pack.name);
-					op(pack);
-					perform_rec(pack);
-				}
+		void performOnDependencies(const Package main, string[string] configs, void delegate(const Package pack) op)
+		{
+			foreach (p; m_app.getTopologicalPackageList(false, main, configs)) {
+				if (p is main) continue;
+				op(p);
 			}
-
-			perform_rec(main);
 		}
 		
 		string generateUUID() const {
