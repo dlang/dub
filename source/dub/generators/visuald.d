@@ -299,28 +299,26 @@ EndGlobal");
 					case "x86_64": arch = "x64"; break;
 				}
 				ret.formattedWrite("
-  <Config name=\"%s\" platform=\"%s\">", to!string(type), arch);
+  <Config name=\"%s\" platform=\"%s\">\n", to!string(type), arch);
 			
 				// debug and optimize setting
-				ret.formattedWrite("
-    <symdebug>%s</symdebug>", type != Config.Release? "1":"0");
-				ret.formattedWrite("
-    <optimize>%s</optimize>", type == Config.Release? "1":"0");
+				ret.formattedWrite("    <symdebug>%s</symdebug>\n", type != Config.Release ? "1" : "0");
+				ret.formattedWrite("    <optimize>%s</optimize>\n", type == Config.Release ? "1" : "0");
+				ret.formattedWrite("    <useInline>%s</useInline>\n", type == Config.Release ? "1" : "0");
+				ret.formattedWrite("    <release>%s</release>\n", type == Config.Release ? "1" : "0");
 
 				// Lib or exe?
 				bool is_lib = pbuildsettings.targetType != TargetType.executable;
 				string debugSuffix = type == Config.Debug? "_d" : "";
 				auto bin_path = pack is m_app.mainPackage ? Path(pbuildsettings.targetPath) : Path(".dub/lib/");
 				bin_path.endsWithSlash = true;
-				ret.formattedWrite("
-    <lib>%s</lib>
-    <exefile>%s%s%s.%s</exefile>", is_lib ? "1" : "0", bin_path.toNativeString(), pbuildsettings.targetName, debugSuffix, is_lib ? "lib" : "exe");
+				ret.formattedWrite("    <lib>%s</lib>\n", is_lib ? "1" : "0");
+				ret.formattedWrite("    <exefile>%s%s%s.%s</exefile>\n", bin_path.toNativeString(), pbuildsettings.targetName, debugSuffix, is_lib ? "lib" : "exe");
 
 				// include paths and string imports
 				string imports = join(getPathSettings!"importPaths"(), " ");
 				string stringImports = join(getPathSettings!"stringImportPaths"(), " ");
-				ret.formattedWrite("
-    <imppath>%s</imppath>
+				ret.formattedWrite("    <imppath>%s</imppath>
     <fileImppath>%s</fileImppath>", imports, stringImports);
 
 				// Compiler?
@@ -383,8 +381,6 @@ ret.formattedWrite(
     <useArrayBounds>0</useArrayBounds>
     <noboundscheck>0</noboundscheck>
     <useSwitchError>0</useSwitchError>
-    <useInline>0</useInline>
-    <release>0</release>
     <preservePaths>1</preservePaths>
     <warnings>0</warnings>
     <infowarnings>0</infowarnings>
