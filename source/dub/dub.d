@@ -41,7 +41,7 @@ import std.zip;
 /// hosted by vibed.org.
 PackageSupplier[] defaultPackageSuppliers()
 {
-	Url url = Url.parse("http://registry.vibed.org/");
+	Url url = Url.parse("http://code.dlang.org/");
 	logDiagnostic("Using dub registry url '%s'", url);
 	return [new RegistryPS(url)];
 }
