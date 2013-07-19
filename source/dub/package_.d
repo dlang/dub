@@ -424,6 +424,7 @@ struct BuildSettingsTemplate {
 	TargetType targetType = TargetType.autodetect;
 	string targetPath;
 	string targetName;
+	string workingDirectory;
 	string[string] subConfigurations;
 	string[][string] dflags;
 	string[][string] lflags;
@@ -484,10 +485,15 @@ struct BuildSettingsTemplate {
 				case "targetPath":
 					enforce(suffix.empty, "targetPath does not support platform customization.");
 					this.targetPath = value.get!string;
+					if (this.workingDirectory is null) this.workingDirectory = this.targetPath;
 					break;
 				case "targetName":
 					enforce(suffix.empty, "targetName does not support platform customization.");
 					this.targetName = value.get!string;
+					break;
+				case "workingDirectory":
+					enforce(suffix.empty, "workingDirectory does not support platform customization.");
+					this.workingDirectory = value.get!string;
 					break;
 				case "subConfigurations":
 					enforce(suffix.empty, "subConfigurations does not support platform customization.");
@@ -539,7 +545,8 @@ struct BuildSettingsTemplate {
 		}
 		if (targetType != TargetType.autodetect) ret["targetType"] = targetType.to!string();
 		if (!targetPath.empty) ret["targetPath"] = targetPath;
-		if (!targetName.empty) ret["targetName"] = targetPath;
+		if (!targetName.empty) ret["targetName"] = targetName;
+		if (!workingDirectory.empty) ret["workingDirectory"] = workingDirectory;
 		foreach (suffix, arr; dflags) ret["dflags"~suffix] = serializeToJson(arr);
 		foreach (suffix, arr; lflags) ret["lflags"~suffix] = serializeToJson(arr);
 		foreach (suffix, arr; libs) ret["libs"~suffix] = serializeToJson(arr);
@@ -569,6 +576,7 @@ struct BuildSettingsTemplate {
 		dst.targetType = this.targetType;
 		if (!this.targetPath.empty) dst.targetPath = this.targetPath;
 		if (!this.targetName.empty) dst.targetName = this.targetName;
+		if (!this.workingDirectory.empty) dst.workingDirectory = this.workingDirectory;
 
 		// collect source files from all source folders
 		foreach(suffix, paths; sourcePaths){

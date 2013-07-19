@@ -174,6 +174,11 @@ class BuildGenerator : ProjectGenerator {
 		// copy files and run the executable
 		if (generate_binary && settings.run) {
 			if (buildsettings.targetType == TargetType.executable) {
+				if (buildsettings.workingDirectory.length) {
+					logDiagnostic("Switching to %s", (cwd ~ buildsettings.workingDirectory).toNativeString());
+					chdir((cwd ~ buildsettings.workingDirectory).toNativeString());
+				}
+				scope(exit) chdir(cwd.toNativeString());
 				logInfo("Running %s...", exe_file_path.toNativeString());
 				auto prg_pid = spawnProcess(exe_file_path.toNativeString() ~ settings.runArgs);
 				auto result = prg_pid.wait();

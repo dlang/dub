@@ -156,6 +156,7 @@ struct BuildSettings {
 	TargetType targetType;
 	string targetPath;
 	string targetName;
+	string workingDirectory;
 	string[] dflags;
 	string[] lflags;
 	string[] libs;

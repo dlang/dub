@@ -112,6 +112,12 @@ class RdmdGenerator : ProjectGenerator {
 
 		if (generate_binary && settings.run) {
 			if (buildsettings.targetType == TargetType.executable) {
+				auto cwd = Path(getcwd());
+				if (buildsettings.workingDirectory.length) {
+					logDiagnostic("Switching to %s", (cwd ~ buildsettings.workingDirectory).toNativeString());
+					chdir((cwd ~ buildsettings.workingDirectory).toNativeString());
+				}
+				scope(exit) chdir(cwd.toNativeString());
 				logInfo("Running %s...", run_exe_file.toNativeString());
 				auto prg_pid = spawnProcess(run_exe_file.toNativeString() ~ settings.runArgs);
 				result = prg_pid.wait();
