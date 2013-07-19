@@ -432,7 +432,7 @@ ret.formattedWrite(
     <resfile />
     <preBuildCommand />
     <postBuildCommand />
-    <filesToClean>*.obj;*.cmd;*.build;*.json;*.dep</filesToClean>
+    <filesToClean>*.obj;*.cmd;*.build;*.dep</filesToClean>
   </Config>");
 			} // foreach(architecture)
 		}
