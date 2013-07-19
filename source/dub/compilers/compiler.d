@@ -126,8 +126,7 @@ void resolveLibs(ref BuildSettings settings)
 	} catch( Exception e ){
 		logDiagnostic("pkg-config failed: %s", e.msg);
 		logDiagnostic("Falling back to direct -lxyz flags.");
-		version(Windows) settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
-		else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
+		settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
 	}
 	settings.libs = null;
 }
