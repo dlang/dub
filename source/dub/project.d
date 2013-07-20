@@ -427,8 +427,8 @@ class Project {
 						markUpToDate(ppath[0]);
 					}
 					catch(Throwable e) {
-						logError("Getting package metadata for %s failed: %s", pkg, e.msg);
-						logDiagnostic("Full eror: %s", e.toString().sanitize());
+						logError("Failed to retrieve metadata for package %s: %s", pkg, e.msg);
+						logDiagnostic("Full error: %s", e.toString().sanitize());
 					}
 				}
 
