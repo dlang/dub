@@ -414,9 +414,10 @@ class Project {
 						logDiagnostic("Fechting package %s (%d suppliers registered)", pkg, packageSuppliers.length);
 						foreach (ps; packageSuppliers) {
 							try {
-								p = new Package(ps.getPackageDescription(ppath[0], reqDep.dependency));
+								auto sp = new Package(ps.getPackageDescription(ppath[0], reqDep.dependency));
 								foreach (spn; ppath[1 .. $])
-									p = p.getSubPackage(spn);
+									sp = sp.getSubPackage(spn);
+								p = sp;
 								break;
 							} catch (Exception e) {
 								logDiagnostic("No metadata for %s: %s", ps.toString(), e.msg);

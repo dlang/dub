@@ -507,7 +507,7 @@ class DependencyGraph {
 	}
 	
 	void insert(const Package p) {
-		enforce(p.name != m_root.name);
+		enforce(p.name != m_root.name, format("Dependency with the same name as the root package (%s) detected.", p.name));
 		m_packages[p.name] = p;
 	}
 	
