@@ -114,6 +114,12 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 void resolveLibs(ref BuildSettings settings)
 {
 	if (settings.libs.length == 0) return;
+
+	if (settings.targetType == TargetType.library || settings.targetType == TargetType.staticLibrary) {
+		logDiagnostic("Ignoring all import libraries for static library build.");
+		settings.libs = null;
+		version(Windows) settings.sourceFiles = settings.sourceFiles.filter!(f => !f.endsWith(".lib")).array;
+	}
 	
 	try {
 		logDiagnostic("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
