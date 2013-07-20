@@ -16,7 +16,6 @@ import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.utils;
-import dub.registry;
 import dub.package_;
 import dub.packagemanager;
 import dub.packagesupplier;
@@ -128,7 +127,7 @@ class Project {
 		foreach(dp; m_dependencies)
 			if( dp.name == name )
 				return dp;
-		if(!isOptional) enforce(false, "Unknown dependency: "~name);
+		if(!isOptional) throw new Exception("Unknown dependency: "~name);
 		else return null;
 	}
 

@@ -18,7 +18,6 @@ import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.packagesupplier;
 import dub.project;
-import dub.registry;
 import dub.version_;
 
 import std.algorithm;
