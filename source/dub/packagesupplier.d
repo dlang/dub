@@ -27,11 +27,15 @@ interface PackageSupplier {
 	
 	/// returns the metadata for the package
 	Json getPackageDescription(const string packageId, const Dependency dep);
+
+	string toString();
 }
 
 class FSPackageSupplier : PackageSupplier {
 	private { Path m_path; }
 	this(Path root) { m_path = root; }
+
+	override string toString() { return "file repository at "~m_path.toNativeString(); }
 	
 	void retrievePackage(const Path path, const string packageId, const Dependency dep) {
 		enforce(path.absolute);

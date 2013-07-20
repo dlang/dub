@@ -412,15 +412,15 @@ class Project {
 
 				if( !p ){
 					try {
-						logDiagnostic("using package from registry");
-						foreach(ps; packageSuppliers){
+						logDiagnostic("Fechting package %s (%d suppliers registered)", pkg, packageSuppliers.length);
+						foreach (ps; packageSuppliers) {
 							try {
 								p = new Package(ps.getPackageDescription(ppath[0], reqDep.dependency));
 								foreach (spn; ppath[1 .. $])
 									p = p.getSubPackage(spn);
 								break;
-							} catch(Exception e) {
-								logDiagnostic("No metadata for %s: %s", ps.classinfo.name, e.msg);
+							} catch (Exception e) {
+								logDiagnostic("No metadata for %s: %s", ps.toString(), e.msg);
 							}
 						}
 						enforce(p !is null, "Could not find package candidate for "~pkg~" "~reqDep.dependency.toString());

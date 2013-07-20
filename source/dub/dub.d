@@ -61,7 +61,7 @@ class Dub {
 
 	/// Initiales the package manager for the vibe application
 	/// under root.
-	this(PackageSupplier[] ps = defaultPackageSuppliers())
+	this(PackageSupplier[] additional_package_suppliers = null)
 	{
 		m_cwd = Path(getcwd());
 
@@ -77,6 +77,11 @@ class Dub {
 		
 		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
+
+		PackageSupplier[] ps = additional_package_suppliers;
+		if (auto pp = "registryUrls" in m_userConfig) ps ~= deserializeJson!(string[])(*pp).map!(url => new RegistryPS(Url(url))).array;
+		if (auto pp = "registryUrls" in m_systemConfig) ps ~= deserializeJson!(string[])(*pp).map!(url => new RegistryPS(Url(url))).array;
+		ps ~= defaultPackageSuppliers();
 
 		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);

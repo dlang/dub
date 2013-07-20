@@ -16,6 +16,7 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.url;
 import dub.package_;
+import dub.packagesupplier;
 import dub.project;
 import dub.registry;
 import dub.version_;
@@ -52,6 +53,7 @@ int main(string[] args)
 		bool print_platform, print_builds, print_configs;
 		bool install_system = false, install_local = false;
 		string install_version;
+		string[] registry_urls;
 		getopt(args,
 			"v|verbose", &verbose,
 			"vverbose", &vverbose,
@@ -70,7 +72,8 @@ int main(string[] args)
 			"print-platform", &print_platform,
 			"system", &install_system,
 			"local", &install_local,
-			"version", &install_version
+			"version", &install_version,
+			"registry", &registry_urls
 			);
 
 		if( vverbose ) loglevel = LogLevel.debug_;
@@ -106,7 +109,7 @@ int main(string[] args)
 			logInfo("");
 		}
 
-		Dub dub = new Dub;
+		Dub dub = new Dub(registry_urls.map!(url => cast(PackageSupplier)new RegistryPS(Url(url))).array);
 		string def_config;
 
 		bool loadCwdPackage()
@@ -334,6 +337,8 @@ General options:
         --vverbose       Also output trace messages (produces a lot of output)
     -q  --quiet          Only output warnings and errors
         --vquiet         No output
+        --registry=URL   Search the given DUB registry URL first when resolving
+                         dependencies. Can be specified multiple times.
 
 Build/run options:
         --build=NAME     Specifies the type of build to perform. Note that
