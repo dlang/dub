@@ -128,7 +128,7 @@ class Package {
 				}
 
 				BuildSettingsTemplate lib_settings;
-				lib_settings.targetType = m_info.buildSettings.targetType;
+				lib_settings.targetType = m_info.buildSettings.targetType == TargetType.autodetect ? TargetType.library : m_info.buildSettings.targetType;
 				lib_settings.excludedSourceFiles[""] = app_files;
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
