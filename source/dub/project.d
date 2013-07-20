@@ -128,7 +128,7 @@ class Project {
 		foreach(dp; m_dependencies)
 			if( dp.name == name )
 				return dp;
-		if(!isOptional) assert(false, "Unknown dependency: "~name);
+		if(!isOptional) enforce(false, "Unknown dependency: "~name);
 		else return null;
 	}
 
@@ -533,7 +533,7 @@ struct Action {
 		this.type = id;
 		this.packageId = pkg;
 		this.location = location;
-		this.vers = cast(immutable)new Dependency(d);
+		this.vers = d;
 		this.issuer = issue;
 	}
 
@@ -542,7 +542,7 @@ struct Action {
 		pack = pkg;
 		type = id;
 		packageId = pkg.name;
-		vers = cast(immutable)new Dependency(pkg.ver);
+		vers = cast(immutable)Dependency(pkg.ver);
 		issuer = issue;
 	}
 

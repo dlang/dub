@@ -43,7 +43,7 @@ PackageSupplier[] defaultPackageSuppliers()
 {
 	Url url = Url.parse("http://code.dlang.org/");
 	logDiagnostic("Using dub registry url '%s'", url);
-	return [new RegistryPS(url)];
+	return [new RegistryPackageSupplier(url)];
 }
 
 /// The Dub class helps in getting the applications
@@ -79,8 +79,8 @@ class Dub {
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
 
 		PackageSupplier[] ps = additional_package_suppliers;
-		if (auto pp = "registryUrls" in m_userConfig) ps ~= deserializeJson!(string[])(*pp).map!(url => new RegistryPS(Url(url))).array;
-		if (auto pp = "registryUrls" in m_systemConfig) ps ~= deserializeJson!(string[])(*pp).map!(url => new RegistryPS(Url(url))).array;
+		if (auto pp = "registryUrls" in m_userConfig) ps ~= deserializeJson!(string[])(*pp).map!(url => new RegistryPackageSupplier(Url(url))).array;
+		if (auto pp = "registryUrls" in m_systemConfig) ps ~= deserializeJson!(string[])(*pp).map!(url => new RegistryPackageSupplier(Url(url))).array;
 		ps ~= defaultPackageSuppliers();
 
 		m_packageSuppliers = ps;
@@ -371,7 +371,7 @@ void main()
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
 			logInfo("DDOX is not installed, performing user wide installation.");
-			ddox_pack = install("ddox", new Dependency(">=0.0.0"), InstallLocation.userWide);
+			ddox_pack = install("ddox", Dependency(">=0.0.0"), InstallLocation.userWide);
 		}
 
 		version(Windows) auto ddox_exe = "ddox.exe";

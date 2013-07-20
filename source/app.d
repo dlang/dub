@@ -109,7 +109,7 @@ int main(string[] args)
 			logInfo("");
 		}
 
-		Dub dub = new Dub(registry_urls.map!(url => cast(PackageSupplier)new RegistryPS(Url(url))).array);
+		Dub dub = new Dub(registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array);
 		string def_config;
 
 		bool loadCwdPackage()
@@ -159,13 +159,13 @@ int main(string[] args)
 				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
 				if( install_local ) location = InstallLocation.local;
 				else if( install_system ) location = InstallLocation.systemWide;
-				if( install_version.length ) dub.install(name, new Dependency(install_version), location);
+				if( install_version.length ) dub.install(name, Dependency(install_version), location);
 				else {
-					try dub.install(name, new Dependency(">=0.0.0"), location);
+					try dub.install(name, Dependency(">=0.0.0"), location);
 					catch(Exception e){
 						logInfo("Installing a release version failed: %s", e.msg);
 						logInfo("Retry with ~master...");
-						dub.install(name, new Dependency("~master"), location);
+						dub.install(name, Dependency("~master"), location);
 					}
 				}
 				break;

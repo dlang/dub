@@ -462,18 +462,18 @@ struct BuildSettingsTemplate {
 							if( auto pp = "path" in verspec ) {
 								// This enforces the "version" specifier to be a simple version, 
 								// without additional range specifiers.
-								dep = new Dependency(Version(ver));
+								dep = Dependency(Version(ver));
 								dep.path = Path(verspec.path.get!string());
 							} else {
 								// Using the string to be able to specifiy a range of versions.
-								dep = new Dependency(ver);
+								dep = Dependency(ver);
 							}
 							if( auto po = "optional" in verspec ) {
 								dep.optional = verspec.optional.get!bool();
 							}
 						} else {
 							// canonical "package-id": "version"
-							dep = new Dependency(verspec.get!string());
+							dep = Dependency(verspec.get!string());
 						}
 						this.dependencies[pkg] = dep;
 					}

@@ -120,10 +120,10 @@ class PackageManager {
 
 	Package getBestPackage(string name, string version_spec)
 	{
-		return getBestPackage(name, new Dependency(version_spec));
+		return getBestPackage(name, Dependency(version_spec));
 	}
 
-	Package getBestPackage(string name, in Dependency version_spec)
+	Package getBestPackage(string name, Dependency version_spec)
 	{
 		Package ret;
 		foreach( p; getPackageIterator(name) )

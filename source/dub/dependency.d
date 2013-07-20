@@ -33,20 +33,18 @@ static import std.compiler;
 	Specification (SemVer) 2.0.0-rc.2.
 */
 struct Version {
-	private enum NoCheck = 0;
-	private this(string vers, int noCheck){ sVersion = vers; }
-	static const Version RELEASE = Version("0.0.0", NoCheck);
-	static const Version HEAD = Version(to!string(MAX_VERS)~"."~to!string(MAX_VERS)~"."~to!string(MAX_VERS), NoCheck);
-	static const Version INVALID = Version("", NoCheck);
-	static const Version MASTER = Version(MASTER_STRING, NoCheck);
-	static const string MASTER_STRING = "~master";
-	static immutable char BRANCH_IDENT = '~';
-	
 	private { 
-		static const size_t MAX_VERS = 9999;
-		static const size_t MASTER_VERS = cast(size_t)(-1);
-		string sVersion;
+		enum MAX_VERS = 9999;
+		enum MASTER_VERS = cast(size_t)(-1);
+		string m_version;
 	}
+
+	static @property RELEASE() { return Version("0.0.0"); }
+	static @property HEAD() { return Version(to!string(MAX_VERS)~"."~to!string(MAX_VERS)~"."~to!string(MAX_VERS)); }
+	static @property INVALID() { return Version(""); }
+	static @property MASTER() { return Version(MASTER_STRING); }
+	static @property MASTER_STRING() { return "~master"; }
+	static @property BRANCH_IDENT() { return '~'; }
 	
 	this(string vers)
 	in {
@@ -93,19 +91,14 @@ struct Version {
 		}
 	}
 	body {
-		sVersion = vers;
+		m_version = vers;
 	}
 
-	this(const Version o)
-	{
-		sVersion = o.sVersion;
-	}
-	
-	bool opEquals(ref const Version oth) const { return sVersion == oth.sVersion; }
-	bool opEquals(const Version oth) const { return sVersion == oth.sVersion; }
+	bool opEquals(ref const Version oth) const { return m_version == oth.m_version; }
+	bool opEquals(const Version oth) const { return m_version == oth.m_version; }
 	
 	/// Returns true, if this version indicates a branch, which is not the trunk.
-	@property bool isBranch() const { return sVersion[0] == BRANCH_IDENT && sVersion != MASTER_STRING; }
+	@property bool isBranch() const { return m_version[0] == BRANCH_IDENT && m_version != MASTER_STRING; }
 
 	/** 
 		Comparing Versions is generally possible, but comparing Versions 
@@ -115,7 +108,7 @@ struct Version {
 	int opCmp(ref const Version other)
 	const {
 		if(isBranch || other.isBranch) {
-			if(sVersion == other.sVersion) return 0;
+			if(m_version == other.m_version) return 0;
 			else throw new Exception("Can't compare branch versions! (this: %s, other: %s)".format(this, other));
 		}
 
@@ -140,22 +133,22 @@ struct Version {
 	}
 	int opCmp(in Version other) const { return opCmp(other); }
 	
-	string toString() const { return sVersion; }
+	string toString() const { return m_version; }
 
 	private string[] toComparableArray() const 
 	out(result) {
 		assert(result.length >= 3);
 	}
 	body { 
-		enforce(!isBranch, "Cannot convert a branch an array representation (%s)", sVersion);
+		enforce(!isBranch, "Cannot convert a branch an array representation (%s)", m_version);
 
 		// Master has to compare to the other regular versions, therefore a special
 		// representation is returned for this case.
-		if(sVersion == MASTER_STRING)
+		if(m_version == MASTER_STRING)
 			return [ to!string(Version.MASTER_VERS), to!string(Version.MASTER_VERS), to!string(Version.MASTER_VERS) ];
 		
 		// Split and discard possible build metadata, this is not compared.
-		string vers = split(sVersion, "+")[0];
+		string vers = split(m_version, "+")[0];
 		
 		// Split prerelease data (may be empty)
 		auto dashIdx = std.string.indexOf(vers, "-");
@@ -238,7 +231,7 @@ unittest {
 /// Representing a dependency, which is basically a version string and a 
 /// compare methode, e.g. '>=1.0.0 <2.0.0' (i.e. a space separates the two
 /// version numbers)
-class Dependency {
+struct Dependency {
 	private {
 		string m_cmpA;
 		Version m_versA;
@@ -249,30 +242,28 @@ class Dependency {
 		bool m_optional = false;
 	}
 
-	this( string ves ) {
-		enforce( ves.length > 0);
+	this(string ves)
+	{
+		enforce(ves.length > 0);
 		string orig = ves;
-		if(ves[0] == Version.BRANCH_IDENT) {
+		if (ves[0] == Version.BRANCH_IDENT) {
 			m_cmpA = ">=";
 			m_cmpB = "<=";
 			m_versA = m_versB = Version(ves);
-		}
-		else {
+		} else {
 			m_cmpA = skipComp(ves);
 			size_t idx2 = std.string.indexOf(ves, " ");
-			if( idx2 == -1 ) {
-				if( m_cmpA == "<=" || m_cmpA == "<" ) {
-					m_versA = Version(Version.RELEASE);
+			if (idx2 == -1) {
+				if (m_cmpA == "<=" || m_cmpA == "<") {
+					m_versA = Version.RELEASE;
 					m_cmpB = m_cmpA;
 					m_cmpA = ">=";
 					m_versB = Version(ves);
-				}
-				else if( m_cmpA == ">=" || m_cmpA == ">" ) {
+				} else if (m_cmpA == ">=" || m_cmpA == ">") {
 					m_versA = Version(ves);
-					m_versB = Version(Version.HEAD);
+					m_versB = Version.HEAD;
 					m_cmpB = "<=";
-				}
-				else {
+				} else {
 					// Converts "==" to ">=a&&<=a", which makes merging easier
 					m_versA = m_versB = Version(ves);
 					m_cmpA = ">=";
@@ -288,7 +279,7 @@ class Dependency {
 				enforce(!m_versA.isBranch, "Partly a branch (A): %s", ves);
 				enforce(!m_versB.isBranch, "Partly a branch (B): %s", ves);
 
-				if( m_versB < m_versA ) {
+				if (m_versB < m_versA) {
 					swap(m_versA, m_versB);
 					swap(m_cmpA, m_cmpB);
 				}
@@ -305,14 +296,6 @@ class Dependency {
 		m_versB = ver;
 	}
 
-	this(const Dependency o) {
-		m_cmpA = o.m_cmpA; m_versA = Version(o.m_versA);
-		m_cmpB = o.m_cmpB; m_versB = Version(o.m_versB);
-		m_path = o.m_path;
-		m_configuration = o.m_configuration;
-		m_optional = o.m_optional;
-	}
-
 	@property void path(Path value) { m_path = value; }
 	@property Path path() const { return m_path; }
 	@property bool optional() const { return m_optional; }
@@ -320,7 +303,8 @@ class Dependency {
 
 	@property Version version_() const { assert(m_versA == m_versB); return m_versA; }
 	
-	override string toString() const {
+	string toString()
+	const {
 		string r;
 		// Special "==" case
 		if( m_versA == m_versB && m_cmpA == ">=" && m_cmpB == "<=" ){
@@ -335,10 +319,8 @@ class Dependency {
 		return r;
 	}
 
-	override bool opEquals(Object b)
+	bool opEquals(in ref Dependency o)
 	{
-		if (this is b) return true; if (b is null) return false; if (typeid(this) != typeid(b)) return false;
-		Dependency o = cast(Dependency) b;
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
 		return o.m_cmpA == m_cmpA && o.m_cmpB == m_cmpB 
 			&& o.m_versA == m_versA && o.m_versB == m_versB 
@@ -373,17 +355,15 @@ class Dependency {
 	
 	/// Merges to versions
 	Dependency merge(ref const(Dependency) o) const {
-		if(!valid())
-			return new Dependency(this);
-		if(!o.valid())
-			return new Dependency(o);
-		if( m_configuration != o.m_configuration )
-			return new Dependency(">=1.0.0 <=0.0.0");
+		if (!valid()) return this;
+		if (!o.valid()) return o;
+		if (m_configuration != o.m_configuration)
+			return Dependency(">=1.0.0 <=0.0.0");
 		
 		Version a = m_versA > o.m_versA? m_versA : o.m_versA;
 		Version b = m_versB < o.m_versB? m_versB : o.m_versB;
 	
-		Dependency d = new Dependency(this);
+		Dependency d = this;
 		d.m_cmpA = !doCmp(m_cmpA, a,a)? m_cmpA : o.m_cmpA;
 		d.m_versA = a;
 		d.m_cmpB = !doCmp(m_cmpB, b,b)? m_cmpB : o.m_cmpB;
@@ -512,9 +492,9 @@ unittest {
 }
 
 struct RequestedDependency {
-	this( string pkg, const Dependency de) {
-		dependency = new Dependency(de);
-		packages[pkg] = new Dependency(de);
+	this( string pkg, Dependency de) {
+		dependency = de;
+		packages[pkg] = de;
 	}
 	Dependency dependency;
 	Dependency[string] packages;
@@ -545,7 +525,7 @@ class DependencyGraph {
 	void clearUnused() {
 		Rebindable!(const Package)[string] unused = m_packages.dup;
 		unused.remove(m_root.name);
-		forAllDependencies( (const PkgType* avail, string s, const Dependency d, const Package issuer) {
+		forAllDependencies( (const PkgType* avail, string s, Dependency d, const Package issuer) {
 			if(avail && d.matches(avail.vers))
 				unused.remove(avail.name);
 		});
@@ -566,7 +546,7 @@ class DependencyGraph {
 	
 	RequestedDependency[string] missing() const {
 		RequestedDependency[string] deps;
-		forAllDependencies( (const PkgType* avail, string pkgId, const Dependency d, const Package issuer) {
+		forAllDependencies( (const PkgType* avail, string pkgId, Dependency d, const Package issuer) {
 			if(!d.optional && (!avail || !d.matches(avail.vers)))
 				addDependency(deps, pkgId, d, issuer);
 		});
@@ -575,7 +555,7 @@ class DependencyGraph {
 	
 	RequestedDependency[string] needed() const {
 		RequestedDependency[string] deps;
-		forAllDependencies( (const PkgType* avail, string pkgId, const Dependency d, const Package issuer) {
+		forAllDependencies( (const PkgType* avail, string pkgId, Dependency d, const Package issuer) {
 			if(!d.optional)
 				addDependency(deps, pkgId, d, issuer);
 		});
@@ -584,7 +564,7 @@ class DependencyGraph {
 
 	RequestedDependency[string] optional() const {
 		RequestedDependency[string] allDeps;
-		forAllDependencies( (const PkgType* avail, string pkgId, const Dependency d, const Package issuer) {
+		forAllDependencies( (const PkgType* avail, string pkgId, Dependency d, const Package issuer) {
 			addDependency(allDeps, pkgId, d, issuer);
 		});
 		RequestedDependency[string] optionalDeps;
@@ -593,7 +573,7 @@ class DependencyGraph {
 		return optionalDeps;
 	}
 	
-	private void forAllDependencies(void delegate (const PkgType* avail, string pkgId, const Dependency d, const Package issuer) dg) const {
+	private void forAllDependencies(void delegate (const PkgType* avail, string pkgId, Dependency d, const Package issuer) dg) const {
 		foreach(string issuerPackag, issuer; m_packages) {
 			foreach(string depPkg, dependency; issuer.dependencies) {
 				auto availPkg = depPkg in m_packages;
@@ -602,7 +582,7 @@ class DependencyGraph {
 		}
 	}
 	
-	private static void addDependency(ref RequestedDependency[string] deps, string packageId, const Dependency d, const Package issuer) {
+	private static void addDependency(ref RequestedDependency[string] deps, string packageId, Dependency d, const Package issuer) {
 		logDebug("addDependency "~packageId~", '%s'", d);
 		auto d2 = packageId in deps;
 		if(!d2) {
@@ -610,7 +590,7 @@ class DependencyGraph {
 		}
 		else {
 			d2.dependency = d2.dependency.merge(d);
-			d2.packages[issuer.name] = new Dependency(d);
+			d2.packages[issuer.name] = d;
 		}
 	}
 	
