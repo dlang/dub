@@ -108,6 +108,16 @@ class PackageManager {
 		return null;
 	}
 
+	Package getPackage(Path path)
+	{
+		foreach (p; getPackageIterator())
+			if (!p.basePackage && p.path == path)
+				return p;
+		auto p = new Package(path);
+		m_temporaryPackages ~= p;
+		return p;
+	}
+
 	Package getBestPackage(string name, string version_spec)
 	{
 		return getBestPackage(name, new Dependency(version_spec));

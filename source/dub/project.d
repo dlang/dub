@@ -168,7 +168,7 @@ class Project {
 			return;
 		}
 
-		m_main = new Package(m_root);
+		m_main = m_packageManager.getPackage(m_root);
 		m_main.warnOnSpecialCompilerFlags();
 		if (m_main.name != m_main.name.toLower()) {
 			logWarn(`DUB package names should always be lower case, please change to {"name": "%s"}. You can use {"targetName": "%s"} to keep the current executable name.`,
