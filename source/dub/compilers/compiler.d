@@ -31,14 +31,14 @@ static this()
 
 Compiler getCompiler(string name)
 {
-	foreach( c; s_compilers )
-		if( c.name == name )
+	foreach (c; s_compilers)
+		if (c.name == name)
 			return c;
 
 	// try to match names like gdmd or gdc-2.61
-	if( name.canFind("dmd") ) return getCompiler("dmd");
-	if( name.canFind("gdc") ) return getCompiler("gdc");
-	if( name.canFind("ldc") ) return getCompiler("ldc");
+	if (name.canFind("dmd")) return getCompiler("dmd");
+	if (name.canFind("gdc")) return getCompiler("gdc");
+	if (name.canFind("ldc")) return getCompiler("ldc");
 			
 	throw new Exception("Unknown compiler: "~name);
 }
@@ -129,7 +129,7 @@ void resolveLibs(ref BuildSettings settings)
 			if (f.startsWith("-Wl,")) settings.addLFlags(f[4 .. $].split(","));
 			else settings.addLFlags(f);
 		}
-	} catch( Exception e ){
+	} catch (Exception e) {
 		logDiagnostic("pkg-config failed: %s", e.msg);
 		logDiagnostic("Falling back to direct -lxyz flags.");
 		version(Windows) settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
@@ -266,23 +266,23 @@ struct BuildPlatform {
 	///     true if the given specification matches this BuildPlatform, false otherwise. (The empty string matches)
 	///
 	bool matchesSpecification(const(char)[] specification) const {
-		if(specification.empty)
+		if (specification.empty)
 			return true;
 		auto splitted=specification.splitter('-');
 		assert(!splitted.empty, "No valid platform specification! The leading hyphen is required!");
 		splitted.popFront(); // Drop leading empty match.
 		enforce(!splitted.empty, "Platform specification if present, must not be empty!");
-		if(platform.canFind(splitted.front)) {
+		if (platform.canFind(splitted.front)) {
 			splitted.popFront();
 			if(splitted.empty)
 			    return true;
 		}
-		if(architecture.canFind(splitted.front)) {
+		if (architecture.canFind(splitted.front)) {
 			splitted.popFront();
 			if(splitted.empty)
 			    return true;
 		}
-		if(compiler==splitted.front) {
+		if (compiler == splitted.front) {
 			splitted.popFront();
 			enforce(splitted.empty, "No valid specification! The compiler has to be the last element!");
 			return true;
@@ -344,7 +344,7 @@ enum BuildRequirements {
 string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 {
 	assert(settings.targetName.length > 0, "No target name set.");
-	final switch(settings.targetType){
+	final switch (settings.targetType) {
 		case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
 		case TargetType.none: return null;
 		case TargetType.sourceLibrary: return null;

@@ -38,8 +38,8 @@ class GdcCompiler : Compiler {
 	{
 		// convert common DMD flags to the corresponding GDC flags
 		string[] newdflags;
-		foreach(f; settings.dflags){
-			switch(f){
+		foreach (f; settings.dflags) {
+			switch (f) {
 				default: newdflags ~= f; break;
 				case "-cov": newdflags ~= ["-fprofile-arcs", "-ftest-coverage"]; break;
 				case "-D": newdflags ~= "-fdoc"; break;
@@ -91,27 +91,27 @@ class GdcCompiler : Compiler {
 		if (!(fields & BuildSetting.libs))
 			resolveLibs(settings);
 
-		if( !(fields & BuildSetting.versions) ){
+		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-fversion="~s)().array());
 			settings.versions = null;
 		}
 
-		if( !(fields & BuildSetting.importPaths) ){
+		if (!(fields & BuildSetting.importPaths)) {
 			settings.addDFlags(settings.importPaths.map!(s => "-I"~s)().array());
 			settings.importPaths = null;
 		}
 
-		if( !(fields & BuildSetting.stringImportPaths) ){
+		if (!(fields & BuildSetting.stringImportPaths)) {
 			settings.addDFlags(settings.stringImportPaths.map!(s => "-J"~s)().array());
 			settings.stringImportPaths = null;
 		}
 
-		if( !(fields & BuildSetting.sourceFiles) ){
+		if (!(fields & BuildSetting.sourceFiles)) {
 			settings.addDFlags(settings.sourceFiles);
 			settings.sourceFiles = null;
 		}
 
-		if( !(fields & BuildSetting.lflags) ){
+		if (!(fields & BuildSetting.lflags)) {
 			foreach( f; settings.lflags )
 				settings.addDFlags(["-Xlinker", f]);
 			settings.lflags = null;
@@ -133,7 +133,7 @@ class GdcCompiler : Compiler {
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform)
 	{
-		final switch(settings.targetType){
+		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
 			case TargetType.none: assert(false, "Invalid target type: none");
 			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");

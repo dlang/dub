@@ -30,7 +30,7 @@ class DmdCompiler : Compiler {
 		build_platform.architecture = .determineArchitecture();
 		build_platform.compiler = this.name;
 
-		switch(arch_override){
+		switch (arch_override) {
 			default: throw new Exception("Unsupported architecture: "~arch_override);
 			case "": break;
 			case "x86":
@@ -47,30 +47,30 @@ class DmdCompiler : Compiler {
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all)
 	{
-		if( !(fields & BuildSetting.libs) )
+		if (!(fields & BuildSetting.libs))
 			resolveLibs(settings);
 
-		if( !(fields & BuildSetting.versions) ){
+		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-version="~s)().array());
 			settings.versions = null;
 		}
 
-		if( !(fields & BuildSetting.importPaths) ){
+		if (!(fields & BuildSetting.importPaths)) {
 			settings.addDFlags(settings.importPaths.map!(s => "-I"~s)().array());
 			settings.importPaths = null;
 		}
 
-		if( !(fields & BuildSetting.stringImportPaths) ){
+		if (!(fields & BuildSetting.stringImportPaths)) {
 			settings.addDFlags(settings.stringImportPaths.map!(s => "-J"~s)().array());
 			settings.stringImportPaths = null;
 		}
 
-		if( !(fields & BuildSetting.sourceFiles) ){
+		if (!(fields & BuildSetting.sourceFiles)) {
 			settings.addDFlags(settings.sourceFiles);
 			settings.sourceFiles = null;
 		}
 
-		if( !(fields & BuildSetting.lflags) ){
+		if (!(fields & BuildSetting.lflags)) {
 			settings.addDFlags(settings.lflags.map!(f => "-L"~f)().array());
 			settings.lflags = null;
 		}
@@ -91,7 +91,7 @@ class DmdCompiler : Compiler {
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform)
 	{
-		final switch(settings.targetType){
+		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
 			case TargetType.none: assert(false, "Invalid target type: none");
 			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");

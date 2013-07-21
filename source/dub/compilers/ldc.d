@@ -38,8 +38,8 @@ class LdcCompiler : Compiler {
 	{
 		// convert common DMD flags to the corresponding GDC flags
 		string[] newdflags;
-		foreach(f; settings.dflags){
-			switch(f){
+		foreach (f; settings.dflags) {
+			switch (f) {
 				default:
 					if (f.startsWith("-debug=")) newdflags ~= "-d-debug="~f[7 .. $];
 					else if (f.startsWith("-version=")) newdflags ~= "-d-version="~f[9 .. $];
@@ -58,27 +58,27 @@ class LdcCompiler : Compiler {
 		if (!(fields & BuildSetting.libs))
 			resolveLibs(settings);
 
-		if( !(fields & BuildSetting.versions) ){
+		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-d-version="~s)().array());
 			settings.versions = null;
 		}
 
-		if( !(fields & BuildSetting.importPaths) ){
+		if (!(fields & BuildSetting.importPaths)) {
 			settings.addDFlags(settings.importPaths.map!(s => "-I"~s)().array());
 			settings.importPaths = null;
 		}
 
-		if( !(fields & BuildSetting.stringImportPaths) ){
+		if (!(fields & BuildSetting.stringImportPaths)) {
 			settings.addDFlags(settings.stringImportPaths.map!(s => "-J"~s)().array());
 			settings.stringImportPaths = null;
 		}
 
-		if( !(fields & BuildSetting.sourceFiles) ){
+		if (!(fields & BuildSetting.sourceFiles)) {
 			settings.addDFlags(settings.sourceFiles);
 			settings.sourceFiles = null;
 		}
 
-		if( !(fields & BuildSetting.lflags) ){
+		if (!(fields & BuildSetting.lflags)) {
 			settings.addDFlags(settings.lflags.map!(s => "-L="~s)().array());
 			settings.lflags = null;
 		}
@@ -99,7 +99,7 @@ class LdcCompiler : Compiler {
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform)
 	{
-		final switch(settings.targetType){
+		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
 			case TargetType.none: assert(false, "Invalid target type: none");
 			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
