@@ -1,6 +1,39 @@
 Changelog
 =========
 
+v0.9.17 - 2013-
+--------------------
+
+### Features and improvements ###
+
+ - Added support for custom build types using the "buildTypes" field - [issue #78][issue78]
+ - Added support for multiple and custom package registry URLs on the command line and as a configuration field - [issue #22][issue22]
+ - Added support for a "workingDirectory" field to control from which directory the generated executable is run - [issue #84][issue84]
+ - Added a new generator "visuald-combined", which combines the whole dependency tree into a single project
+ - Updated default package registry URL to http://code.dlang.org
+
+### Bug fixes ###
+
+ - PARTIAL Fixed building with LDC - [issue #86][issue86]
+ - The version string in the HTTP "User-Agent" field is now formatted according to SemVer
+ - Fixed bogus warnings about "dflags" that are confised with flags that are a prefix of those
+ - Fixed the VisualD generator to use the build settings and dependencies of the selected build configuration
+ - Fixed the VisualD generator to enable the proper command line flags for each build type
+ - Generated VisualD projects don't clean up JSON files on clean/rebuild anymore
+ - Fixed building of packages with sub-packages when the main package is registered to DUB - [issue #87][issue87]
+ - Fixed adhering to the specified global target type for library packages that have no explicit build configurations - [issue #92][issue92]
+ - Fixed building of static libraries which have external library dependencies ("libs") - [issue #91][issue91]
+ - Fixed error message for references to unknown sub-packages
+
+[issue22]: https://github.com/rejectedsoftware/dub/issues/22
+[issue78]: https://github.com/rejectedsoftware/dub/issues/78
+[issue84]: https://github.com/rejectedsoftware/dub/issues/84
+[issue86]: https://github.com/rejectedsoftware/dub/issues/86
+[issue87]: https://github.com/rejectedsoftware/dub/issues/87
+[issue91]: https://github.com/rejectedsoftware/dub/issues/91
+[issue92]: https://github.com/rejectedsoftware/dub/issues/92
+
+
 v0.9.16 - 2013-06-29
 --------------------
 
