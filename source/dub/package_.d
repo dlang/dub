@@ -210,12 +210,12 @@ class Package {
 				case "plain": break;
 				case "debug": settings.addDFlags("-g", "-debug"); break;
 				case "release": settings.addDFlags("-release", "-O", "-inline"); break;
-				case "unittest": settings.addDFlags("-g", "-unittest"); break;
+				case "unittest": settings.addDFlags("-g", "-debug", "-unittest"); break;
 				case "docs": settings.addDFlags("-c", "-o-", "-D", "-Dddocs"); break;
 				case "ddox": settings.addDFlags("-c", "-o-", "-D", "-Df__dummy.html", "-Xfdocs.json"); break;
 				case "profile": settings.addDFlags("-g", "-O", "-inline", "-profile"); break;
 				case "cov": settings.addDFlags("-g", "-cov"); break;
-				case "unittest-cov": settings.addDFlags("-g", "-unittest", "-cov"); break;
+				case "unittest-cov": settings.addDFlags("-g", "-debug", "-unittest", "-cov"); break;
 			}
 		}
 	}
