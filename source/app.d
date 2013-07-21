@@ -45,7 +45,7 @@ int main(string[] args)
 		bool verbose, vverbose, quiet, vquiet;
 		bool help, nodeps, annotate;
 		LogLevel loglevel = LogLevel.info;
-		string build_type = "debug", build_config;
+		string build_type, build_config;
 		string compiler_name = "dmd";
 		string arch;
 		bool rdmd = false;
@@ -237,6 +237,11 @@ int main(string[] args)
 
 				enforce(build_config.length == 0 || dub.configurations.canFind(build_config), "Unknown build configuration: "~build_config);
 
+				if (build_type.length == 0) {
+					if (environment.get("DFLAGS")) build_type = "$DFLAGS";
+					else build_type = "debug";
+				}
+
 				GeneratorSettings gensettings;
 				gensettings.platform = build_platform;
 				gensettings.config = build_config;
@@ -345,7 +350,7 @@ Build/run options:
                          the build type with custom flags.
                          Possible names:
                            debug (default), plain, release, unittest, profile,
-                           docs, ddox, cov, unittest-cov
+                           docs, ddox, cov, unittest-cov and custom types
         --config=NAME    Builds the specified configuration. Configurations can
                          be defined in package.json
         --compiler=NAME  Specifies the compiler binary to use. Arbitrary pre-

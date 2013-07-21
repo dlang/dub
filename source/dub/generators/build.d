@@ -44,15 +44,7 @@ class BuildGenerator : ProjectGenerator {
 
 		auto buildsettings = settings.buildSettings;
 		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
-		bool usedefflags = !(buildsettings.requirements & BuildRequirements.noDefaultFlags);
-		if (usedefflags) buildsettings.addDFlags(["-w"]);
-		string dflags = environment.get("DFLAGS");
-		if( dflags.length ){
-			settings.buildType = "$DFLAGS";
-			buildsettings.addDFlags(dflags.split());
-		} else if (usedefflags) {
-			addBuildTypeFlags(buildsettings, settings.buildType);
-		}
+		m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 
 		auto generate_binary = !buildsettings.dflags.canFind("-o-");
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;

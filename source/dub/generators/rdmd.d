@@ -46,17 +46,9 @@ class RdmdGenerator : ProjectGenerator {
 
 		auto buildsettings = settings.buildSettings;
 		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
-		bool usedefflags = !(buildsettings.requirements & BuildRequirements.noDefaultFlags);
+		m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 		// do not pass all source files to RDMD, only the main source file
 		buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(s => !s.endsWith(".d"))().array();
-		if (usedefflags) buildsettings.addDFlags(["-w"]);
-		string dflags = environment.get("DFLAGS");
-		if( dflags ){
-			settings.buildType = "$DFLAGS";
-			buildsettings.addDFlags(dflags.split());
-		} else if (usedefflags) {
-			addBuildTypeFlags(buildsettings, settings.buildType);
-		}
 		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 		auto generate_binary = !buildsettings.dflags.canFind("-o-");

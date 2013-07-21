@@ -193,6 +193,33 @@ class Package {
 		return ret;
 	}
 
+	void addBuildTypeSettings(ref BuildSettings settings, in BuildPlatform platform, string build_type)
+	const {
+		if (build_type == "$DFLAGS") {
+			import dub.internal.std.process;
+			string dflags = environment.get("DFLAGS");
+			settings.addDFlags(dflags.split());
+			return;
+		}
+
+		if (auto pbt = build_type in m_info.buildTypes) {
+			pbt.getPlatformSettings(settings, platform, this.path);
+		} else {
+			switch (build_type) {
+				default: throw new Exception(format("Unknown build type for %s: %s", this.name, build_type));
+				case "plain": break;
+				case "debug": settings.addDFlags("-g", "-debug"); break;
+				case "release": settings.addDFlags("-release", "-O", "-inline"); break;
+				case "unittest": settings.addDFlags("-g", "-unittest"); break;
+				case "docs": settings.addDFlags("-c", "-o-", "-D", "-Dddocs"); break;
+				case "ddox": settings.addDFlags("-c", "-o-", "-D", "-Df__dummy.html", "-Xfdocs.json"); break;
+				case "profile": settings.addDFlags("-g", "-O", "-inline", "-profile"); break;
+				case "cov": settings.addDFlags("-g", "-cov"); break;
+				case "unittest-cov": settings.addDFlags("-g", "-unittest", "-cov"); break;
+			}
+		}
+	}
+
 	string getSubConfiguration(string config, in Package dependency, in BuildPlatform platform)
 	const {
 		bool found = false;
@@ -298,6 +325,7 @@ struct PackageInfo {
 	string[] ddoxFilterArgs;
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
+	BuildSettingsTemplate[string] buildTypes;
 
 	@property const(Dependency)[string] dependencies()
 	const {
@@ -328,10 +356,17 @@ struct PackageInfo {
 					if (this.buildSettings.targetType != TargetType.autodetect)
 						deftargettp = this.buildSettings.targetType;
 
-					foreach( settings; value ){
+					foreach (settings; value) {
 						ConfigurationInfo ci;
 						ci.parseJson(settings, deftargettp);
 						this.configurations ~= ci;
+					}
+					break;
+				case "buildTypes":
+					foreach (string name, settings; value) {
+						BuildSettingsTemplate bs;
+						bs.parseJson(settings);
+						buildTypes[name] = bs;
 					}
 					break;
 			}

@@ -61,12 +61,6 @@ class VisualDGenerator : ProjectGenerator {
 	}
 	
 	private {
-		enum Config {
-			Release,
-			Debug,
-			Unittest
-		}
-		
 		void generateSolution(GeneratorSettings settings)
 		{
 			auto ret = appender!(char[])();
@@ -200,9 +194,9 @@ EndGlobal");
   <ProjectGuid>%s</ProjectGuid>", guid(projName));
 	
 			// Several configurations (debug, release, unittest)
-			generateProjectConfiguration(ret, pack, Config.Debug, settings);
-			generateProjectConfiguration(ret, pack, Config.Release, settings);
-			generateProjectConfiguration(ret, pack, Config.Unittest, settings);
+			generateProjectConfiguration(ret, pack, "debug", settings);
+			generateProjectConfiguration(ret, pack, "release", settings);
+			generateProjectConfiguration(ret, pack, "unittest", settings);
 
 			// Add all files
 			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
@@ -274,13 +268,16 @@ EndGlobal");
 			proj.flush();
 		}
 		
-		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, Config type, GeneratorSettings settings)
+		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, string type, GeneratorSettings settings)
 		{
 			auto project_file_dir = m_app.mainPackage.path ~ projFileName(pack).parentPath;
 			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
 			auto buildsettings = settings.buildSettings;
 			auto pbuildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
 			m_app.addBuildSettings(buildsettings, settings.platform, settings.config, pack);
+			
+			BuildSettings btsettings;
+			m_app.addBuildTypeSettings(buildsettings, settings.platform, type);
 			
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
 			string[] getPathSettings(string setting)()
@@ -300,16 +297,18 @@ EndGlobal");
 				}
 				ret.formattedWrite("
   <Config name=\"%s\" platform=\"%s\">\n", to!string(type), arch);
+
+				// FIXME: handle compiler options in an abstract way instead of searching for DMD specific flags
 			
 				// debug and optimize setting
-				ret.formattedWrite("    <symdebug>%s</symdebug>\n", type != Config.Release ? "1" : "0");
-				ret.formattedWrite("    <optimize>%s</optimize>\n", type == Config.Release ? "1" : "0");
-				ret.formattedWrite("    <useInline>%s</useInline>\n", type == Config.Release ? "1" : "0");
-				ret.formattedWrite("    <release>%s</release>\n", type == Config.Release ? "1" : "0");
+				ret.formattedWrite("    <symdebug>%s</symdebug>\n", btsettings.dflags.canFind("-g") ? "1" : "0");
+				ret.formattedWrite("    <optimize>%s</optimize>\n", btsettings.dflags.canFind("-O") ? "1" : "0");
+				ret.formattedWrite("    <useInline>%s</useInline>\n", btsettings.dflags.canFind("-inline") ? "1" : "0");
+				ret.formattedWrite("    <release>%s</release>\n", btsettings.dflags.canFind("-release") ? "1" : "0");
 
 				// Lib or exe?
 				bool is_lib = pbuildsettings.targetType != TargetType.executable;
-				string debugSuffix = type == Config.Debug? "_d" : "";
+				string debugSuffix = type == "debug" ? "_d" : "";
 				auto bin_path = pack is m_app.mainPackage ? Path(pbuildsettings.targetPath) : Path(".dub/lib/");
 				bin_path.endsWithSlash = true;
 				ret.formattedWrite("    <lib>%s</lib>\n", is_lib ? "1" : "0");
@@ -330,7 +329,6 @@ EndGlobal");
 
 				// Add version identifiers
 				string versions = join(getSettings!"versions"(), " ");
-				if(type == Config.Unittest) versions ~= " " ~ "Unittest";
 				ret.formattedWrite("
     <versionids>%s</versionids>", versions);
 
@@ -342,7 +340,7 @@ EndGlobal");
 
 				// Unittests
 				ret.formattedWrite("
-				<useUnitTests>%s</useUnitTests>", type == Config.Unittest? "1" : "0");
+				<useUnitTests>%s</useUnitTests>", btsettings.dflags.canFind("-unittest") ? "1" : "0");
 
 				// compute directory for intermediate files (need dummy/ because of how -op determines the resulting path)
 				auto relpackpath = pack.path.relativeTo(project_file_dir);

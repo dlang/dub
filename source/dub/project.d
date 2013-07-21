@@ -270,6 +270,17 @@ class Project {
 		}
 	}
 
+	void addBuildTypeSettings(ref BuildSettings dst, in BuildPlatform platform, string build_type)
+	{
+		bool usedefflags = !(dst.requirements & BuildRequirements.noDefaultFlags);
+		if (usedefflags) {
+			dst.addDFlags(["-w"]);
+			BuildSettings btsettings;
+			m_main.addBuildTypeSettings(btsettings, platform, build_type);
+			processVars(dst, m_main.path.toNativeString(), btsettings);
+		}
+	}
+
 
 	/// Actions which can be performed to update the application.
 	Action[] determineActions(PackageSupplier[] packageSuppliers, int option)
