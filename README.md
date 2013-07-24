@@ -3,7 +3,7 @@ dub package manager
 
 Package and build manager for [D](http://dlang.org/) applications and libraries.
 
-There is a central [package registry](https://github.com/rejectedsoftware/dub-registry/) located at <http://registry.vibed.org>. The location will likely change to a dedicated domain at some point.
+There is a central [package registry](https://github.com/rejectedsoftware/dub-registry/) located at <http://code.dlang.org>. The location will likely change to a dedicated domain at some point.
 
 
 Introduction
@@ -11,7 +11,7 @@ Introduction
 
 DUB emerged as a more general replacement for [vibe.d's](http://vibed.org/) package manager. It does not imply a dependecy to vibe.d for packages and was extended to not only directly build projects, but also to generate project files (currently [VisualD](https://github.com/rainers/visuald) and [Mono-D](http://mono-d.alexanderbothe.com/)).
 
-The project's philosophy is to keep things as simple as possible. All that is needed to make a project a dub package is to write a short [package.json](http://registry.vibed.org/publish) file and put the source code into a `source` subfolder. It *can* then be registered on the public [package registry](http://registry.vibed.org) to be made available for everyone. Any dependencies specified in `package.json` are automatically downloaded and made available to the project during the build process.
+The project's philosophy is to keep things as simple as possible. All that is needed to make a project a dub package is to write a short [package.json](http://code.dlang.org/publish) file and put the source code into a `source` subfolder. It *can* then be registered on the public [package registry](http://code.dlang.org) to be made available for everyone. Any dependencies specified in `package.json` are automatically downloaded and made available to the project during the build process.
 
 
 Key features
@@ -37,7 +37,7 @@ To make things as flexible as they need to be for certain projects, it is planne
 Installation
 ------------
 
-DUB comes [precompiled](http://registry.vibed.org/download) for Windows, Mac OS, Linux and FreeBSD. It needs to have libcurl with SSL support installed (except on Windows).
+DUB comes [precompiled](http://code.dlang.org/download) for Windows, Mac OS, Linux and FreeBSD. It needs to have libcurl with SSL support installed (except on Windows).
 
 The `dub` executable then just needs to be accessible from `PATH` and can be invoked from the root folder of any DUB enabled project to build and run it.
 
