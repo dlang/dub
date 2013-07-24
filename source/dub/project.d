@@ -186,7 +186,7 @@ class Project {
 					Path path = vspec.path;
 					if( !path.absolute ) path = pack.path ~ path;
 					logDiagnostic("Adding local %s %s", path, vspec.version_);
-					p = m_packageManager.addTemporaryPackage(path, vspec.version_);
+					p = m_packageManager.getTemporaryPackage(path, vspec.version_);
 				} else {
 					p = m_packageManager.getBestPackage(name, vspec);
 				}

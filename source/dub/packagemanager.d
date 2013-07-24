@@ -394,8 +394,14 @@ class PackageManager {
 		writeLocalPackageList(type);
 	}
 
-	Package addTemporaryPackage(Path path, Version ver)
+	Package getTemporaryPackage(Path path, Version ver)
 	{
+		foreach (p; m_temporaryPackages)
+			if (p.path == path) {
+				enforce(p.ver == ver, format("Package in %s is refrenced with two conflicting versions: %s vs %s", path.toNativeString(), p.ver, ver));
+				return p;
+			}
+		
 		auto info = jsonFromFile(path ~ PackageJsonFilename, false);
 		string name;
 		if( "name" !in info ) info["name"] = path.head.toString();
