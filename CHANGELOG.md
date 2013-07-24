@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.9.17 - 2013-
+v0.9.17 - 2013-07-24
 --------------------
 
 ### Features and improvements ###
@@ -11,6 +11,8 @@ v0.9.17 - 2013-
  - Added support for a "workingDirectory" field to control from which directory the generated executable is run - [issue #84][issue84]
  - Added a new generator "visuald-combined", which combines the whole dependency tree into a single project
  - Updated default package registry URL to http://code.dlang.org
+ - The default "unittest" and "unittest-cov" build types now issue the "-debug" flag
+ - Building packages without any "importPaths" entry now issue a warning message
 
 ### Bug fixes ###
 
@@ -24,6 +26,7 @@ v0.9.17 - 2013-
  - Fixed adhering to the specified global target type for library packages that have no explicit build configurations - [issue #92][issue92]
  - Fixed building of static libraries which have external library dependencies ("libs") - [issue #91][issue91]
  - Fixed error message for references to unknown sub-packages
+ - Fixed handling of packages that are referenced multiple times using an explicit path - [issue #98][issue98]
 
 [issue22]: https://github.com/rejectedsoftware/dub/issues/22
 [issue78]: https://github.com/rejectedsoftware/dub/issues/78
@@ -32,6 +35,7 @@ v0.9.17 - 2013-
 [issue87]: https://github.com/rejectedsoftware/dub/issues/87
 [issue91]: https://github.com/rejectedsoftware/dub/issues/91
 [issue92]: https://github.com/rejectedsoftware/dub/issues/92
+[issue98]: https://github.com/rejectedsoftware/dub/issues/98
 
 
 v0.9.16 - 2013-06-29
