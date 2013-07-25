@@ -301,6 +301,7 @@ EndGlobal");
 				// FIXME: handle compiler options in an abstract way instead of searching for DMD specific flags
 			
 				// debug and optimize setting
+				string[] special_flags = ["-w", "-debug", "-g", "-O", "-inline", "-release", "-unittest"];
 				ret.formattedWrite("    <symdebug>%s</symdebug>\n", btsettings.dflags.canFind("-g") ? "1" : "0");
 				ret.formattedWrite("    <optimize>%s</optimize>\n", btsettings.dflags.canFind("-O") ? "1" : "0");
 				ret.formattedWrite("    <useInline>%s</useInline>\n", btsettings.dflags.canFind("-inline") ? "1" : "0");
@@ -322,7 +323,7 @@ EndGlobal");
 
 				// Compiler?
 				string compiler = "$(DMDInstallDir)windows\\bin\\dmd.exe";
-				string dflags = join(getSettings!"dflags"(), " ");
+				string dflags = getSettings!"dflags"().filter!(f => !special_flags.canFind(f)).join(" ");
 				ret.formattedWrite("
     <program>%s</program>
     <additionalOptions>%s</additionalOptions>", compiler, dflags);
