@@ -186,7 +186,13 @@ class Package {
 			if( conf.name != config ) continue;
 			m_info.buildSettings.getPlatformSettings(ret, platform, this.path);
 			conf.buildSettings.getPlatformSettings(ret, platform, this.path);
+			
+			// construct default target name based on package name
 			if( ret.targetName.empty ) ret.targetName = this.name.replace(":", "_");
+
+			// special support for DMD style flags
+			getCompiler("dmd").extractBuildOptions(ret);
+
 			return ret;
 		}
 		assert(config is null, "Unknown configuration for "~m_info.name~": "~config);
@@ -205,17 +211,17 @@ class Package {
 		if (auto pbt = build_type in m_info.buildTypes) {
 			pbt.getPlatformSettings(settings, platform, this.path);
 		} else {
-			switch (build_type) {
+			with(BuildOptions) switch (build_type) {
 				default: throw new Exception(format("Unknown build type for %s: %s", this.name, build_type));
 				case "plain": break;
-				case "debug": settings.addDFlags("-g", "-debug"); break;
-				case "release": settings.addDFlags("-release", "-O", "-inline"); break;
-				case "unittest": settings.addDFlags("-g", "-debug", "-unittest"); break;
-				case "docs": settings.addDFlags("-c", "-o-", "-D", "-Dddocs"); break;
-				case "ddox": settings.addDFlags("-c", "-o-", "-D", "-Df__dummy.html", "-Xfdocs.json"); break;
-				case "profile": settings.addDFlags("-g", "-O", "-inline", "-profile"); break;
-				case "cov": settings.addDFlags("-g", "-cov"); break;
-				case "unittest-cov": settings.addDFlags("-g", "-debug", "-unittest", "-cov"); break;
+				case "debug": settings.addOptions(debug_, debugInfo); break;
+				case "release": settings.addOptions(release, optimize, inline); break;
+				case "unittest": settings.addOptions(unittests, debug_, debugInfo); break;
+				case "docs": settings.addOptions(BuildOptions.syntaxOnly); settings.addDFlags("-c", "-Dddocs"); break;
+				case "ddox": settings.addOptions(BuildOptions.syntaxOnly); settings.addDFlags("-c", "-Df__dummy.html", "-Xfdocs.json"); break;
+				case "profile": settings.addOptions(profile, optimize, inline, debugInfo); break;
+				case "cov": settings.addOptions(coverage, debugInfo); break;
+				case "unittest-cov": settings.addOptions(unittests, coverage, debug_, debugInfo); break;
 			}
 		}
 	}
@@ -469,6 +475,7 @@ struct BuildSettingsTemplate {
 	string[][string] excludedSourceFiles;
 	string[][string] copyFiles;
 	string[][string] versions;
+	string[][string] debugVersions;
 	string[][string] importPaths;
 	string[][string] stringImportPaths;
 	string[][string] preGenerateCommands;
@@ -476,6 +483,7 @@ struct BuildSettingsTemplate {
 	string[][string] preBuildCommands;
 	string[][string] postBuildCommands;
 	BuildRequirements[string] buildRequirements;
+	BuildOptions[string] buildOptions;
 
 	void parseJson(Json json)
 	{
@@ -544,6 +552,7 @@ struct BuildSettingsTemplate {
 				case "excludedSourceFiles": this.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
 				case "copyFiles": this.copyFiles[suffix] = deserializeJson!(string[])(value); break;
 				case "versions": this.versions[suffix] = deserializeJson!(string[])(value); break;
+				case "debugVersions": this.debugVersions[suffix] = deserializeJson!(string[])(value); break;
 				case "importPaths": this.importPaths[suffix] = deserializeJson!(string[])(value); break;
 				case "stringImportPaths": this.stringImportPaths[suffix] = deserializeJson!(string[])(value); break;
 				case "preGenerateCommands": this.preGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
@@ -555,6 +564,12 @@ struct BuildSettingsTemplate {
 					foreach (req; deserializeJson!(string[])(value))
 						reqs |= to!BuildRequirements(req);
 					this.buildRequirements[suffix] = reqs;
+					break;
+				case "buildOptions":
+					BuildOptions options;
+					foreach (opt; deserializeJson!(string[])(value))
+						options |= to!BuildOptions(opt);
+					this.buildOptions[suffix] = options;
 					break;
 			}
 		}
@@ -590,6 +605,7 @@ struct BuildSettingsTemplate {
 		foreach (suffix, arr; excludedSourceFiles) ret["excludedSourceFiles"~suffix] = serializeToJson(arr);
 		foreach (suffix, arr; copyFiles) ret["copyFiles"~suffix] = serializeToJson(arr);
 		foreach (suffix, arr; versions) ret["versions"~suffix] = serializeToJson(arr);
+		foreach (suffix, arr; debugVersions) ret["debugVersions"~suffix] = serializeToJson(arr);
 		foreach (suffix, arr; importPaths) ret["importPaths"~suffix] = serializeToJson(arr);
 		foreach (suffix, arr; stringImportPaths) ret["stringImportPaths"~suffix] = serializeToJson(arr);
 		foreach (suffix, arr; preGenerateCommands) ret["preGenerateCommands"~suffix] = serializeToJson(arr);
@@ -601,6 +617,12 @@ struct BuildSettingsTemplate {
 			foreach (i; [EnumMembers!BuildRequirements])
 				if (arr & i) val ~= to!string(i);
 			ret["buildRequirements"~suffix] = serializeToJson(val);
+		}
+		foreach (suffix, arr; buildOptions) {
+			string[] val;
+			foreach (i; [EnumMembers!BuildOptions])
+				if (arr & i) val ~= to!string(i);
+			ret["buildOptions"~suffix] = serializeToJson(val);
 		}
 		return ret;
 	}
@@ -640,6 +662,7 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("excludedSourceFiles", "removeSourceFiles")(dst, platform);
 		getPlatformSetting!("copyFiles", "addCopyFiles")(dst, platform);
 		getPlatformSetting!("versions", "addVersions")(dst, platform);
+		getPlatformSetting!("debugVersions", "addDebugVersions")(dst, platform);
 		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);
 		getPlatformSetting!("stringImportPaths", "addStringImportPaths")(dst, platform);
 		getPlatformSetting!("preGenerateCommands", "addPreGenerateCommands")(dst, platform);
@@ -647,6 +670,7 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("preBuildCommands", "addPreBuildCommands")(dst, platform);
 		getPlatformSetting!("postBuildCommands", "addPostBuildCommands")(dst, platform);
 		getPlatformSetting!("buildRequirements", "addRequirements")(dst, platform);
+		getPlatformSetting!("buildOptions", "addOptions")(dst, platform);
 	}
 
 	void getPlatformSetting(string name, string addname)(ref BuildSettings dst, in BuildPlatform platform)

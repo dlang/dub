@@ -189,9 +189,8 @@ EndGlobal");
 			
 			auto projName = pack.name;
 			auto project_file_dir = m_app.mainPackage.path ~ projFileName(pack).parentPath;
-			ret.formattedWrite(
-"<DProject>
-  <ProjectGuid>%s</ProjectGuid>", guid(projName));
+			ret.put("<DProject>\n");
+			ret.formattedWrite("  <ProjectGuid>%s</ProjectGuid>\n", guid(projName));
 	
 			// Several configurations (debug, release, unittest)
 			generateProjectConfiguration(ret, pack, "debug", settings);
@@ -234,7 +233,7 @@ EndGlobal");
 			}
 
 			// Create folders and files
-			ret.formattedWrite("\n  <Folder name=\"%s\">", getPackageFileName(pack));
+			ret.formattedWrite("  <Folder name=\"%s\">", getPackageFileName(pack));
 			Path lastFolder;
 			foreach(source; sortedSources(sourceFiles.keys)) {
 				logDebug("source looking at %s", source.structurePath);
@@ -275,9 +274,8 @@ EndGlobal");
 			auto buildsettings = settings.buildSettings;
 			auto pbuildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
 			m_app.addBuildSettings(buildsettings, settings.platform, settings.config, pack);
-			
-			BuildSettings btsettings;
 			m_app.addBuildTypeSettings(buildsettings, settings.platform, type);
+			settings.compiler.extractBuildOptions(buildsettings);
 			
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
 			string[] getPathSettings(string setting)()
@@ -295,17 +293,15 @@ EndGlobal");
 					case "x86": arch = "Win32"; break;
 					case "x86_64": arch = "x64"; break;
 				}
-				ret.formattedWrite("
-  <Config name=\"%s\" platform=\"%s\">\n", to!string(type), arch);
+				ret.formattedWrite("  <Config name=\"%s\" platform=\"%s\">\n", to!string(type), arch);
 
 				// FIXME: handle compiler options in an abstract way instead of searching for DMD specific flags
 			
 				// debug and optimize setting
-				string[] special_flags = ["-w", "-debug", "-g", "-O", "-inline", "-release", "-unittest"];
-				ret.formattedWrite("    <symdebug>%s</symdebug>\n", btsettings.dflags.canFind("-g") ? "1" : "0");
-				ret.formattedWrite("    <optimize>%s</optimize>\n", btsettings.dflags.canFind("-O") ? "1" : "0");
-				ret.formattedWrite("    <useInline>%s</useInline>\n", btsettings.dflags.canFind("-inline") ? "1" : "0");
-				ret.formattedWrite("    <release>%s</release>\n", btsettings.dflags.canFind("-release") ? "1" : "0");
+				ret.formattedWrite("    <symdebug>%s</symdebug>\n", buildsettings.options & BuildOptions.debugInfo ? "1" : "0");
+				ret.formattedWrite("    <optimize>%s</optimize>\n", buildsettings.options & BuildOptions.optimize ? "1" : "0");
+				ret.formattedWrite("    <useInline>%s</useInline>\n", buildsettings.options & BuildOptions.inline ? "1" : "0");
+				ret.formattedWrite("    <release>%s</release>\n", buildsettings.options & BuildOptions.release ? "1" : "0");
 
 				// Lib or exe?
 				bool is_lib = pbuildsettings.targetType != TargetType.executable;
@@ -318,30 +314,23 @@ EndGlobal");
 				// include paths and string imports
 				string imports = join(getPathSettings!"importPaths"(), " ");
 				string stringImports = join(getPathSettings!"stringImportPaths"(), " ");
-				ret.formattedWrite("    <imppath>%s</imppath>
-    <fileImppath>%s</fileImppath>", imports, stringImports);
+				ret.formattedWrite("    <imppath>%s</imppath>\n", imports);
+				ret.formattedWrite("    <fileImppath>%s</fileImppath>\n", stringImports);
 
-				// Compiler?
-				string compiler = "$(DMDInstallDir)windows\\bin\\dmd.exe";
-				string dflags = getSettings!"dflags"().filter!(f => !special_flags.canFind(f)).join(" ");
-				ret.formattedWrite("
-    <program>%s</program>
-    <additionalOptions>%s</additionalOptions>", compiler, dflags);
+				ret.formattedWrite("    <program>%s</program>\n", "$(DMDInstallDir)windows\\bin\\dmd.exe"); // FIXME: use the actually selected compiler!
+				ret.formattedWrite("    <additionalOptions>%s</additionalOptions>\n", getSettings!"dflags"().join(" "));
 
 				// Add version identifiers
 				string versions = join(getSettings!"versions"(), " ");
-				ret.formattedWrite("
-    <versionids>%s</versionids>", versions);
+				ret.formattedWrite("    <versionids>%s</versionids>\n", versions);
 
 				// Add libraries, system libs need to be suffixed by ".lib".
 				string linkLibs = join(map!(a => a~".lib")(getSettings!"libs"()), " ");
 				string addLinkFiles = join(getSettings!"sourceFiles"().filter!(s => s.endsWith(".lib"))(), " ");
-				ret.formattedWrite("
-    <libfiles>%s %s phobos.lib</libfiles>", linkLibs, addLinkFiles);
+				ret.formattedWrite("    <libfiles>%s %s phobos.lib</libfiles>\n", linkLibs, addLinkFiles);
 
 				// Unittests
-				ret.formattedWrite("
-				<useUnitTests>%s</useUnitTests>", btsettings.dflags.canFind("-unittest") ? "1" : "0");
+				ret.formattedWrite("    <useUnitTests>%s</useUnitTests>\n", buildsettings.options & BuildOptions.unittests ? "1" : "0");
 
 				// compute directory for intermediate files (need dummy/ because of how -op determines the resulting path)
 				auto relpackpath = pack.path.relativeTo(project_file_dir);
@@ -350,89 +339,84 @@ EndGlobal");
 					if (relpackpath[i] == "..") ndummy++;
 				string intersubdir = (ndummy*2 > relpackpath.length ? replicate("dummy/", ndummy*2-relpackpath.length) : "") ~ getPackageFileName(pack);
 		
-				// Not yet dynamic stuff
-				ret.formattedWrite("
-    <obj>0</obj>
-    <link>0</link>
-    <subsystem>0</subsystem>
-    <multiobj>0</multiobj>
-    <singleFileCompilation>2</singleFileCompilation>
-    <oneobj>0</oneobj>
-    <trace>0</trace>
-    <quiet>0</quiet>
-    <verbose>0</verbose>
-    <vtls>0</vtls>
-    <cpu>0</cpu>
-");
+				ret.put("    <obj>0</obj>\n");
+				ret.put("    <link>0</link>\n");
+				ret.put("    <subsystem>0</subsystem>\n");
+				ret.put("    <multiobj>0</multiobj>\n");
+				ret.put("    <singleFileCompilation>2</singleFileCompilation>\n");
+				ret.put("    <oneobj>0</oneobj>\n");
+				ret.put("    <trace>0</trace>\n");
+				ret.put("    <quiet>0</quiet>\n");
+				ret.formattedWrite("    <verbose>%s</verbose>\n", buildsettings.options & BuildOptions.verbose ? "1" : "0");
+				ret.put("    <vtls>0</vtls>\n");
+				ret.put("    <cpu>0</cpu>\n");
 				ret.formattedWrite("    <isX86_64>%s</isX86_64>\n", arch == "x64" ? 1 : 0);
-ret.formattedWrite(
-"    <isLinux>0</isLinux>
-    <isOSX>0</isOSX>
-    <isWindows>0</isWindows>
-    <isFreeBSD>0</isFreeBSD>
-    <isSolaris>0</isSolaris>
-    <scheduler>0</scheduler>
-    <useDeprecated>0</useDeprecated>
-    <useAssert>0</useAssert>
-    <useInvariants>0</useInvariants>
-    <useIn>0</useIn>
-    <useOut>0</useOut>
-    <useArrayBounds>0</useArrayBounds>
-    <noboundscheck>0</noboundscheck>
-    <useSwitchError>0</useSwitchError>
-    <preservePaths>1</preservePaths>
-    <warnings>0</warnings>
-    <infowarnings>0</infowarnings>
-    <checkProperty>0</checkProperty>
-    <genStackFrame>0</genStackFrame>
-    <pic>0</pic>
-    <cov>0</cov>
-    <nofloat>0</nofloat>
-    <Dversion>2</Dversion>
-    <ignoreUnsupportedPragmas>0</ignoreUnsupportedPragmas>\n");
-			ret.formattedWrite("    <compiler>%s</compiler>\n", settings.compiler.name == "ldc" ? 2 : settings.compiler.name == "gdc" ? 1 : 0);
-			ret.formattedWrite("    <otherDMD>0</otherDMD>\n");
-			ret.formattedWrite("    <outdir>%s</outdir>\n", bin_path.toNativeString());
-			ret.formattedWrite("    <objdir>.dub/obj/%s/%s</objdir>\n", to!string(type), intersubdir);
-			ret.formattedWrite("%s",
-"    <objname />
-    <libname />
-    <doDocComments>0</doDocComments>
-    <docdir />
-    <docname />
-    <modules_ddoc />
-    <ddocfiles />
-    <doHdrGeneration>0</doHdrGeneration>
-    <hdrdir />
-    <hdrname />
-    <doXGeneration>1</doXGeneration>
-    <xfilename>$(IntDir)\\$(TargetName).json</xfilename>
-    <debuglevel>0</debuglevel>
-    <versionlevel>0</versionlevel>
-    <debugids />
-    <dump_source>0</dump_source>
-    <mapverbosity>0</mapverbosity>
-    <createImplib>0</createImplib>
-    <defaultlibname />
-    <debuglibname />
-    <moduleDepsFile />
-    <run>0</run>
-    <runargs />
-    <runCv2pdb>1</runCv2pdb>
-    <pathCv2pdb>$(VisualDInstallDir)cv2pdb\\cv2pdb.exe</pathCv2pdb>
-    <cv2pdbPre2043>0</cv2pdbPre2043>
-    <cv2pdbNoDemangle>0</cv2pdbNoDemangle>
-    <cv2pdbEnumType>0</cv2pdbEnumType>
-    <cv2pdbOptions />
-    <objfiles />
-    <linkswitches />
-    <libpaths />
-    <deffile />
-    <resfile />
-    <preBuildCommand />
-    <postBuildCommand />
-    <filesToClean>*.obj;*.cmd;*.build;*.dep</filesToClean>
-  </Config>");
+				ret.put("    <isLinux>0</isLinux>\n");
+				ret.put("    <isOSX>0</isOSX>\n");
+				ret.put("    <isWindows>0</isWindows>\n");
+				ret.put("    <isFreeBSD>0</isFreeBSD>\n");
+				ret.put("    <isSolaris>0</isSolaris>\n");
+				ret.put("    <scheduler>0</scheduler>\n");
+				ret.put("    <useDeprecated>0</useDeprecated>\n");
+				ret.put("    <useAssert>0</useAssert>\n");
+				ret.put("    <useInvariants>0</useInvariants>\n");
+				ret.put("    <useIn>0</useIn>\n");
+				ret.put("    <useOut>0</useOut>\n");
+				ret.put("    <useArrayBounds>0</useArrayBounds>\n");
+				ret.formattedWrite("    <noboundscheck>%s</noboundscheck>\n", buildsettings.options & BuildOptions.noBoundsChecks ? "1" : "0");
+				ret.put("    <useSwitchError>0</useSwitchError>\n");
+				ret.put("    <preservePaths>1</preservePaths>\n");
+				ret.formattedWrite("    <warnings>%s</warnings>\n", buildsettings.options & BuildOptions.warningsAsErrors ? "1" : "0");
+				ret.formattedWrite("    <infowarnings>%s</infowarnings>\n", buildsettings.options & BuildOptions.warnings ? "1" : "0");
+				ret.formattedWrite("    <checkProperty>%s</checkProperty>\n", buildsettings.options & BuildOptions.property ? "1" : "0");
+				ret.formattedWrite("    <genStackFrame>%s</genStackFrame>\n", buildsettings.options & BuildOptions.alwaysStackFrame ? "1" : "0");
+				ret.put("    <pic>0</pic>\n");
+				ret.formattedWrite("    <cov>%s</cov>\n", buildsettings.options & BuildOptions.coverage ? "1" : "0");
+				ret.put("    <nofloat>0</nofloat>\n");
+				ret.put("    <Dversion>2</Dversion>\n");
+				ret.formattedWrite("    <ignoreUnsupportedPragmas>%s</ignoreUnsupportedPragmas>\n", buildsettings.options & BuildOptions.ignoreUnknownPragmas ? "1" : "0");
+				ret.formattedWrite("    <compiler>%s</compiler>\n", settings.compiler.name == "ldc" ? 2 : settings.compiler.name == "gdc" ? 1 : 0);
+				ret.formattedWrite("    <otherDMD>0</otherDMD>\n");
+				ret.formattedWrite("    <outdir>%s</outdir>\n", bin_path.toNativeString());
+				ret.formattedWrite("    <objdir>.dub/obj/%s/%s</objdir>\n", to!string(type), intersubdir);
+				ret.put("    <objname />\n");
+				ret.put("    <libname />\n");
+				ret.put("    <doDocComments>0</doDocComments>\n");
+				ret.put("    <docdir />\n");
+				ret.put("    <docname />\n");
+				ret.put("    <modules_ddoc />\n");
+				ret.put("    <ddocfiles />\n");
+				ret.put("    <doHdrGeneration>0</doHdrGeneration>\n");
+				ret.put("    <hdrdir />\n");
+				ret.put("    <hdrname />\n");
+				ret.put("    <doXGeneration>1</doXGeneration>\n");
+				ret.put("    <xfilename>$(IntDir)\\$(TargetName).json</xfilename>\n");
+				ret.put("    <debuglevel>0</debuglevel>\n");
+				ret.put("    <versionlevel>0</versionlevel>\n");
+				ret.put("    <debugids />\n");
+				ret.put("    <dump_source>0</dump_source>\n");
+				ret.put("    <mapverbosity>0</mapverbosity>\n");
+				ret.put("    <createImplib>0</createImplib>\n");
+				ret.put("    <defaultlibname />\n");
+				ret.put("    <debuglibname />\n");
+				ret.put("    <moduleDepsFile />\n");
+				ret.put("    <run>0</run>\n");
+				ret.put("    <runargs />\n");
+				ret.put("    <runCv2pdb>1</runCv2pdb>\n");
+				ret.put("    <pathCv2pdb>$(VisualDInstallDir)cv2pdb\\cv2pdb.exe</pathCv2pdb>\n");
+				ret.put("    <cv2pdbPre2043>0</cv2pdbPre2043>\n");
+				ret.put("    <cv2pdbNoDemangle>0</cv2pdbNoDemangle>\n");
+				ret.put("    <cv2pdbEnumType>0</cv2pdbEnumType>\n");
+				ret.put("    <cv2pdbOptions />\n");
+				ret.put("    <objfiles />\n");
+				ret.put("    <linkswitches />\n");
+				ret.put("    <libpaths />\n");
+				ret.put("    <deffile />\n");
+				ret.put("    <resfile />\n");
+				ret.put("    <preBuildCommand />\n");
+				ret.put("    <postBuildCommand />\n");
+				ret.put("    <filesToClean>*.obj;*.cmd;*.build;*.dep</filesToClean>\n");
+				ret.put("  </Config>\n");
 			} // foreach(architecture)
 		}
 		
@@ -471,6 +455,7 @@ ret.formattedWrite(
 		string pkg;
 		Path structurePath;
 		Path filePath;
+		bool build = true;
 
 		int opCmp(ref const SourceFile rhs) const { return sortOrder(this, rhs); }
 		// "a < b" for folder structures (deepest folder first, else lexical)

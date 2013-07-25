@@ -17,9 +17,34 @@ import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
+import std.typecons;
 
 
 class LdcCompiler : Compiler {
+	private static immutable s_options = [
+		tuple(BuildOptions.debug_, ["-d-debug"]),
+		tuple(BuildOptions.release, ["-release"]),
+		//tuple(BuildOptions.coverage, ["-?"]),
+		tuple(BuildOptions.debugInfo, ["-g"]),
+		tuple(BuildOptions.debugInfoC, ["-gc"]),
+		//tuple(BuildOptions.alwaysStackFrame, ["-?"]),
+		//tuple(BuildOptions.stackStomping, ["-?"]),
+		tuple(BuildOptions.inline, ["-enable-inlining"]),
+		tuple(BuildOptions.noBoundsChecks, ["-disable-boundscheck"]),
+		tuple(BuildOptions.optimize, ["-O"]),
+		//tuple(BuildOptions.profile, ["-?"]),
+		tuple(BuildOptions.unittests, ["-unittest"]),
+		tuple(BuildOptions.verbose, ["-v"]),
+		tuple(BuildOptions.ignoreUnknownPragmas, ["-ignore"]),
+		tuple(BuildOptions.syntaxOnly, ["-o-"]),
+		tuple(BuildOptions.warnings, ["-wi"]),
+		tuple(BuildOptions.warningsAsErrors, ["-w"]),
+		tuple(BuildOptions.ignoreDeprecations, ["-d"]),
+		tuple(BuildOptions.deprecationWarnings, ["-dw"]),
+		tuple(BuildOptions.deprecationErrors, ["-de"]),
+		tuple(BuildOptions.property, ["-property"]),
+	];
+
 	@property string name() const { return "ldc"; }
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
@@ -36,21 +61,13 @@ class LdcCompiler : Compiler {
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all)
 	{
-		// convert common DMD flags to the corresponding GDC flags
-		string[] newdflags;
-		foreach (f; settings.dflags) {
-			switch (f) {
-				default:
-					if (f.startsWith("-debug=")) newdflags ~= "-d-debug="~f[7 .. $];
-					else if (f.startsWith("-version=")) newdflags ~= "-d-version="~f[9 .. $];
-					else newdflags ~= f;
-					break;
-				case "-debug": newdflags ~= "-d-debug"; break;
-				case "-inline": newdflags ~= "-enable-inlining"; break;	
-				case "-noboundscheck": newdflags ~= "-disable-boundscheck"; break;
-			}
+		enforceBuildRequirements(settings);
+
+		if (!fields & BuildSetting.options) {
+			foreach (t; s_options)
+				if (settings.options & t[0])
+					settings.addDFlags(t[1]);
 		}
-		settings.dflags = newdflags;
 
 		// since LDC always outputs multiple object files, avoid conflicts by default
 		settings.addDFlags("-oq", "-od=.dub/obj");
@@ -61,6 +78,11 @@ class LdcCompiler : Compiler {
 		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-d-version="~s)().array());
 			settings.versions = null;
+		}
+
+		if (!(fields & BuildSetting.debugVersions)) {
+			settings.addDFlags(settings.debugVersions.map!(s => "-d-debug="~s)().array());
+			settings.debugVersions = null;
 		}
 
 		if (!(fields & BuildSetting.importPaths)) {
@@ -83,18 +105,24 @@ class LdcCompiler : Compiler {
 			settings.lflags = null;
 		}
 
-		if (settings.requirements & BuildRequirements.allowWarnings) { settings.removeDFlags("-w"); settings.addDFlags("-wi"); }
-		if (settings.requirements & BuildRequirements.silenceWarnings) { settings.removeDFlags("-w", "-wi"); }
-		if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.removeDFlags("-dw", "-d"); settings.addDFlags("-de"); }
-		if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.removeDFlags("-dw", "-de"); settings.addDFlags("-d"); }
-		if (settings.requirements & BuildRequirements.disallowInlining) { settings.removeDFlags("-enable-inlining"); }
-		if (settings.requirements & BuildRequirements.disallowOptimization) { settings.removeDFlags("-O"); }
-		if (settings.requirements & BuildRequirements.requireBoundsCheck) { settings.removeDFlags("-disable-boundscheck"); }
-		if (settings.requirements & BuildRequirements.requireContracts) { settings.removeDFlags("-release"); }
-		if (settings.requirements & BuildRequirements.relaxProperties) { settings.removeDFlags("-property"); }
-
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
+	}
+
+	void extractBuildOptions(ref BuildSettings settings)
+	{
+		Appender!(string[]) newflags;
+		next_flag: foreach (f; settings.dflags) {
+			foreach (t; s_options)
+				if (t[1].canFind(f)) {
+					settings.options |= t[0];
+					continue next_flag;
+				}
+			if (f.startsWith("-d-version=")) settings.addVersions(f[11 .. $]);
+			else if (f.startsWith("-d-debug=")) settings.addDebugVersions(f[9 .. $]);
+			else newflags ~= f;
+		}
+		settings.dflags = newflags.data;
 	}
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform)

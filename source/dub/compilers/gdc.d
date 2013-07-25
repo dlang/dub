@@ -17,9 +17,34 @@ import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
+import std.typecons;
 
 
 class GdcCompiler : Compiler {
+	private static immutable s_options = [
+		tuple(BuildOptions.debug_, ["-fdebug"]),
+		tuple(BuildOptions.release, ["-frelease"]),
+		tuple(BuildOptions.coverage, ["-fprofile-arcs", "-ftest-coverage"]),
+		tuple(BuildOptions.debugInfo, ["-g"]),
+		tuple(BuildOptions.debugInfoC, ["-g", "-fdebug-c"]),
+		//tuple(BuildOptions.alwaysStackFrame, ["-X"]),
+		//tuple(BuildOptions.stackStomping, ["-X"]),
+		tuple(BuildOptions.inline, ["-finline-functions"]),
+		tuple(BuildOptions.noBoundsChecks, ["-fno-bounds-check"]),
+		tuple(BuildOptions.optimize, ["-O3"]),
+		//tuple(BuildOptions.profile, ["-X"]),
+		tuple(BuildOptions.unittests, ["-funittest"]),
+		tuple(BuildOptions.verbose, ["-fd-verbose"]),
+		tuple(BuildOptions.ignoreUnknownPragmas, ["-fignore-unknown-pragmas"]),
+		tuple(BuildOptions.syntaxOnly, ["-fsyntax-only"]),
+		tuple(BuildOptions.warnings, ["-Wall"]),
+		tuple(BuildOptions.warningsAsErrors, ["-Werror", "-Wall"]),
+		//tuple(BuildOptions.ignoreDeprecations, ["-?"]),
+		//tuple(BuildOptions.deprecationWarnings, ["-?"]),
+		//tuple(BuildOptions.deprecationErrors, ["-?"]),
+		tuple(BuildOptions.property, ["-fproperty"]),
+	];
+
 	@property string name() const { return "gdc"; }
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
@@ -36,64 +61,25 @@ class GdcCompiler : Compiler {
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all)
 	{
-		// convert common DMD flags to the corresponding GDC flags
-		string[] newdflags;
-		foreach (f; settings.dflags) {
-			switch (f) {
-				default: newdflags ~= f; break;
-				case "-cov": newdflags ~= ["-fprofile-arcs", "-ftest-coverage"]; break;
-				case "-D": newdflags ~= "-fdoc"; break;
-				//case "-Dd[dir]": newdflags ~= ""; break;
-				//case "-Df[file]": newdflags ~= ""; break;
-				case "-d": newdflags ~= "-fdeprecated"; break;
-				case "-dw": break;
-				case "-de": break;
-				case "-debug": newdflags ~= "-fdebug"; break;
-				//case "-debug=[level/ident]": newdflags ~= ""; break;
-				//case "-debuglib=[ident]": newdflags ~= ""; break;
-				//case "-defaultlib=[ident]": newdflags ~= ""; break;
-				//case "-deps=[file]": newdflags ~= ""; break;
-				case "-fPIC": newdflags ~= ""; break;
-				case "-g": newdflags ~= "-g"; break;
-				case "-gc": newdflags ~= ["-g" ~ "-fdebug-c"]; break;
-				case "-gs": break;
-				case "-H": newdflags ~= "-fintfc"; break;
-				//case "-Hd[dir]": newdflags ~= ""; break;
-				//case "-Hf[file]": newdflags ~= ""; break;
-				case "-ignore": newdflags ~= "-fignore-unknown-pragmas"; break;
-				case "-inline": newdflags ~= "-finline-functions"; break;
-				//case "-lib": newdflags ~= ""; break;
-				//case "-m32": newdflags ~= ""; break;
-				//case "-m64": newdflags ~= ""; break;
-				case "-noboundscheck": newdflags ~= "-fno-bounds-check"; break;
-				case "-O": newdflags ~= "-O3"; break;
-				case "-o-": newdflags ~= "-fsyntax-only"; break;
-				//case "-od[dir]": newdflags ~= ""; break;
-				//case "-of[file]": newdflags ~= ""; break;
-				//case "-op": newdflags ~= ""; break;
-				//case "-profile": newdflags ~= "-pg"; break;
-				case "-property": newdflags ~= "-fproperty"; break;
-				//case "-quiet": newdflags ~= ""; break;
-				case "-release": newdflags ~= "-frelease"; break;
-				case "-shared": newdflags ~= "-shared"; break;
-				case "-unittest": newdflags ~= "-funittest"; break;
-				case "-v": newdflags ~= "-fd-verbose"; break;
-				//case "-version=[level/ident]": newdflags ~= ""; break;
-				case "-vtls": newdflags ~= "-fd-vtls"; break;
-				case "-w": newdflags ~= "-Werror"; break;
-				case "-wi": newdflags ~= "-Wall"; break;
-				//case "-X": newdflags ~= ""; break;
-				//case "-Xf[file]": newdflags ~= ""; break;
-			}
+		enforceBuildRequirements(settings);
+
+		if (!fields & BuildSetting.options) {
+			foreach (t; s_options)
+				if (settings.options & t[0])
+					settings.addDFlags(t[1]);
 		}
-		settings.dflags = newdflags;
-	
+
 		if (!(fields & BuildSetting.libs))
 			resolveLibs(settings);
 
 		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-fversion="~s)().array());
 			settings.versions = null;
+		}
+
+		if (!(fields & BuildSetting.debugVersions)) {
+			settings.addDFlags(settings.debugVersions.map!(s => "-fdebug="~s)().array());
+			settings.debugVersions = null;
 		}
 
 		if (!(fields & BuildSetting.importPaths)) {
@@ -117,18 +103,24 @@ class GdcCompiler : Compiler {
 			settings.lflags = null;
 		}
 
-		if (settings.requirements & BuildRequirements.allowWarnings) { settings.removeDFlags("-Werror"); settings.addDFlags("-Wall"); }
-		if (settings.requirements & BuildRequirements.silenceWarnings) { settings.removeDFlags("-Werror", "-Wall"); }
-		if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.addDFlags("-fdeprecated"); }
-		if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.addDFlags("-fdeprecated"); }
-		if (settings.requirements & BuildRequirements.disallowInlining) { settings.removeDFlags("-finline-functions"); }
-		if (settings.requirements & BuildRequirements.disallowOptimization) { settings.removeDFlags("-O3"); }
-		if (settings.requirements & BuildRequirements.requireBoundsCheck) { settings.removeDFlags("-fno-bounds-check"); }
-		if (settings.requirements & BuildRequirements.requireContracts) { settings.removeDFlags("-frelease"); }
-		if (settings.requirements & BuildRequirements.relaxProperties) { settings.removeDFlags("-fproperty"); }
-
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
+	}
+
+	void extractBuildOptions(ref BuildSettings settings)
+	{
+		Appender!(string[]) newflags;
+		next_flag: foreach (f; settings.dflags) {
+			foreach (t; s_options)
+				if (t[1].canFind(f)) {
+					settings.options |= t[0];
+					continue next_flag;
+				}
+			if (f.startsWith("-fversion=")) settings.addVersions(f[10 .. $]);
+			else if (f.startsWith("-fdebug=")) settings.addDebugVersions(f[8 .. $]);
+			else newflags ~= f;
+		}
+		settings.dflags = newflags.data;
 	}
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform)

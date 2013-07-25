@@ -46,7 +46,7 @@ class BuildGenerator : ProjectGenerator {
 		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
 		m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 
-		auto generate_binary = !buildsettings.dflags.canFind("-o-");
+		auto generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
 
 		// make paths relative to shrink the command line

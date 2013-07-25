@@ -17,9 +17,34 @@ import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
+import std.typecons;
 
 
 class DmdCompiler : Compiler {
+	private static immutable s_options = [
+		tuple(BuildOptions.debug_, ["-debug"]),
+		tuple(BuildOptions.release, ["-release"]),
+		tuple(BuildOptions.coverage, ["-cov"]),
+		tuple(BuildOptions.debugInfo, ["-g"]),
+		tuple(BuildOptions.debugInfoC, ["-gc"]),
+		tuple(BuildOptions.alwaysStackFrame, ["-gs"]),
+		tuple(BuildOptions.stackStomping, ["-gx"]),
+		tuple(BuildOptions.inline, ["-inline"]),
+		tuple(BuildOptions.noBoundsChecks, ["-noboundscheck"]),
+		tuple(BuildOptions.optimize, ["-O"]),
+		tuple(BuildOptions.profile, ["-profile"]),
+		tuple(BuildOptions.unittests, ["-unittest"]),
+		tuple(BuildOptions.verbose, ["-v"]),
+		tuple(BuildOptions.ignoreUnknownPragmas, ["-ignore"]),
+		tuple(BuildOptions.syntaxOnly, ["-o-"]),
+		tuple(BuildOptions.warnings, ["-wi"]),
+		tuple(BuildOptions.warningsAsErrors, ["-w"]),
+		tuple(BuildOptions.ignoreDeprecations, ["-d"]),
+		tuple(BuildOptions.deprecationWarnings, ["-dw"]),
+		tuple(BuildOptions.deprecationErrors, ["-de"]),
+		tuple(BuildOptions.property, ["-property"]),
+	];
+
 	@property string name() const { return "dmd"; }
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
@@ -47,12 +72,25 @@ class DmdCompiler : Compiler {
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all)
 	{
+		enforceBuildRequirements(settings);
+
+		if (!(fields & BuildSetting.options)) {
+			foreach (t; s_options)
+				if (settings.options & t[0])
+					settings.addDFlags(t[1]);
+		}
+
 		if (!(fields & BuildSetting.libs))
 			resolveLibs(settings);
 
 		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-version="~s)().array());
 			settings.versions = null;
+		}
+
+		if (!(fields & BuildSetting.debugVersions)) {
+			settings.addDFlags(settings.debugVersions.map!(s => "-debug="~s)().array());
+			settings.debugVersions = null;
 		}
 
 		if (!(fields & BuildSetting.importPaths)) {
@@ -75,18 +113,24 @@ class DmdCompiler : Compiler {
 			settings.lflags = null;
 		}
 
-		if (settings.requirements & BuildRequirements.allowWarnings) { settings.removeDFlags("-w"); settings.addDFlags("-wi"); }
-		if (settings.requirements & BuildRequirements.silenceWarnings) { settings.removeDFlags("-w", "-wi"); }
-		if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.removeDFlags("-dw", "-d"); settings.addDFlags("-de"); }
-		if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.removeDFlags("-dw", "-de"); settings.addDFlags("-d"); }
-		if (settings.requirements & BuildRequirements.disallowInlining) { settings.removeDFlags("-inline"); }
-		if (settings.requirements & BuildRequirements.disallowOptimization) { settings.removeDFlags("-O"); }
-		if (settings.requirements & BuildRequirements.requireBoundsCheck) { settings.removeDFlags("-noboundscheck"); }
-		if (settings.requirements & BuildRequirements.requireContracts) { settings.removeDFlags("-release"); }
-		if (settings.requirements & BuildRequirements.relaxProperties) { settings.removeDFlags("-property"); }
-
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
+	}
+
+	void extractBuildOptions(ref BuildSettings settings)
+	{
+		Appender!(string[]) newflags;
+		next_flag: foreach (f; settings.dflags) {
+			foreach (t; s_options)
+				if (t[1].canFind(f)) {
+					settings.options |= t[0];
+					continue next_flag;
+				}
+			if (f.startsWith("-version=")) settings.addVersions(f[9 .. $]);
+			else if (f.startsWith("-debug=")) settings.addDebugVersions(f[7 .. $]);
+			else newflags ~= f;
+		}
+		settings.dflags = newflags.data;
 	}
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform)

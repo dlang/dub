@@ -148,11 +148,28 @@ interface Compiler {
 	/// dmd flags to compiler-specific flags
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting supported_fields = BuildSetting.all);
 
+	/// Removes any dflags that match one of the BuildOptions values and populates the BuildSettings.options field.
+	void extractBuildOptions(ref BuildSettings settings);
+
 	/// Adds the appropriate flag to set a target path
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform);
 
 	/// Invokes the underlying linker directly
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects);
+
+	final protected void enforceBuildRequirements(ref BuildSettings settings)
+	{
+		settings.addOptions(BuildOptions.warnings);
+		if (settings.requirements & BuildRequirements.allowWarnings) settings.options &= ~BuildOptions.warningsAsErrors;
+		if (settings.requirements & BuildRequirements.silenceWarnings) settings.options &= ~(BuildOptions.warningsAsErrors|BuildOptions.warnings);
+		if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.options &= ~(BuildOptions.ignoreDeprecations|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.deprecationErrors; }
+		if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.options &= ~(BuildOptions.deprecationErrors|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.ignoreDeprecations; }
+		if (settings.requirements & BuildRequirements.disallowInlining) settings.options &= BuildOptions.inline;
+		if (settings.requirements & BuildRequirements.disallowOptimization) settings.options &= ~BuildOptions.optimize;
+		if (settings.requirements & BuildRequirements.requireBoundsCheck) settings.options &= ~BuildOptions.noBoundsChecks;
+		if (settings.requirements & BuildRequirements.requireContracts) settings.options &= ~BuildOptions.release;
+		if (settings.requirements & BuildRequirements.relaxProperties) settings.options &= ~BuildOptions.property;
+	}
 }
 
 
@@ -169,6 +186,7 @@ struct BuildSettings {
 	string[] sourceFiles;
 	string[] copyFiles;
 	string[] versions;
+	string[] debugVersions;
 	string[] importPaths;
 	string[] stringImportPaths;
 	string[] preGenerateCommands;
@@ -176,6 +194,7 @@ struct BuildSettings {
 	string[] preBuildCommands;
 	string[] postBuildCommands;
 	BuildRequirements requirements;
+	BuildOptions options;
 
 	void addDFlags(in string[] value...) { dflags ~= value; }
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
@@ -185,6 +204,7 @@ struct BuildSettings {
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
 	void addVersions(in string[] value...) { add(versions, value); }
+	void addDebugVersions(in string[] value...) { add(debugVersions, value); }
 	void addImportPaths(in string[] value...) { add(importPaths, value); }
 	void addStringImportPaths(in string[] value...) { add(stringImportPaths, value); }
 	void addPreGenerateCommands(in string[] value...) { add(preGenerateCommands, value, false); }
@@ -192,6 +212,8 @@ struct BuildSettings {
 	void addPreBuildCommands(in string[] value...) { add(preBuildCommands, value, false); }
 	void addPostBuildCommands(in string[] value...) { add(postBuildCommands, value, false); }
 	void addRequirements(in BuildRequirements[] value...) { foreach (v; value) this.requirements |= v; }
+	void addOptions(in BuildOptions[] value...) { foreach (v; value) this.options |= v; }
+	void removeOptions(in BuildOptions[] value...) { foreach (v; value) this.options &= ~v; }
 
 	// Adds vals to arr without adding duplicates.
 	private void add(ref string[] arr, in string[] vals, bool no_duplicates = true)
@@ -309,12 +331,15 @@ enum BuildSetting {
 	sourceFiles       = 1<<3,
 	copyFiles         = 1<<4,
 	versions          = 1<<5,
-	importPaths       = 1<<6,
-	stringImportPaths = 1<<7,
+	debugVersions     = 1<<6,
+	importPaths       = 1<<7,
+	stringImportPaths = 1<<8,
+	options           = 1<<9,
 	none = 0,
 	commandLine = dflags|copyFiles,
 	commandLineSeparate = commandLine|lflags,
-	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|importPaths|stringImportPaths
+	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|debugVersions|importPaths|stringImportPaths|options,
+	noOptions = all & ~options
 }
 
 enum TargetType {
@@ -339,6 +364,30 @@ enum BuildRequirements {
 	requireContracts     = 1<<7,  /// Leave assertions and contracts enabled in release builds
 	relaxProperties      = 1<<8,  /// DEPRECATED: Do not enforce strict property handling (-property)
 	noDefaultFlags       = 1<<9,  /// Do not issue any of the default build flags (e.g. -debug, -w, -property etc.) - use only for development purposes
+}
+
+enum BuildOptions {
+	debug_ = 1<<0,                /// Compile in debug mode (enables contracts, -debug)
+	release = 1<<1,              /// Compile in release mode (disables assertions and bounds checks, -release)
+	coverage = 1<<2,              /// Enable code coverage analysis (-cov)
+	debugInfo = 1<<3,             /// Enable symbolic debug information (-g)
+	debugInfoC = 1<<4,            /// Enable symbolic debug information in C compatible form (-gc)
+	alwaysStackFrame = 1<<5,      /// Always generate a stack frame (-gs)
+	stackStomping = 1<<6,         /// Perform stack stomping (-gx)
+	inline = 1<<7,                /// Perform function inlining (-inline)
+	noBoundsChecks = 1<<8,        /// Disable all bounds checking (-noboundscheck)
+	optimize = 1<<9,              /// Enable optimizations (-O)
+	profile = 1<<10,              /// Emit profiling code (-profile)
+	unittests = 1<<11,            /// Compile unit tests (-unittest)
+	verbose = 1<<12,              /// Verbose compiler output (-v)
+	ignoreUnknownPragmas = 1<<13, /// Ignores unknown pragmas during compilation (-ignore)
+	syntaxOnly = 1<<14,         /// Don't generate object files (-o-)
+	warnings = 1<<15,             /// Enable warnings (-wi)
+	warningsAsErrors = 1<<16,     /// Treat warnings as errors (-w)
+	ignoreDeprecations = 1<<17,   /// Do not warn about using deprecated features (-d)
+	deprecationWarnings = 1<<18,  /// Warn about using deprecated features (-dw)
+	deprecationErrors = 1<<19,    /// Stop compilation upon usage of deprecated features (-de)
+	property = 1<<20,             /// DEPRECATED: Enforce property syntax (-property)
 }
 
 string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)

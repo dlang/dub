@@ -277,7 +277,6 @@ class Project {
 	{
 		bool usedefflags = !(dst.requirements & BuildRequirements.noDefaultFlags);
 		if (usedefflags) {
-			dst.addDFlags(["-w"]);
 			BuildSettings btsettings;
 			m_main.addBuildTypeSettings(btsettings, platform, build_type);
 			processVars(dst, m_main.path.toNativeString(), btsettings);
@@ -581,6 +580,7 @@ private void processVars(ref BuildSettings dst, string project_path, BuildSettin
 	dst.addSourceFiles(processVars(project_path, settings.sourceFiles, true));
 	dst.addCopyFiles(processVars(project_path, settings.copyFiles, true));
 	dst.addVersions(processVars(project_path, settings.versions));
+	dst.addDebugVersions(processVars(project_path, settings.debugVersions));
 	dst.addImportPaths(processVars(project_path, settings.importPaths, true));
 	dst.addStringImportPaths(processVars(project_path, settings.stringImportPaths, true));
 	dst.addPreGenerateCommands(processVars(project_path, settings.preGenerateCommands));
@@ -588,6 +588,7 @@ private void processVars(ref BuildSettings dst, string project_path, BuildSettin
 	dst.addPreBuildCommands(processVars(project_path, settings.preBuildCommands));
 	dst.addPostBuildCommands(processVars(project_path, settings.postBuildCommands));
 	dst.addRequirements(settings.requirements);
+	dst.addOptions(settings.options);
 }
 
 private string[] processVars(string project_path, string[] vars, bool are_paths = false)
