@@ -196,6 +196,7 @@ class Package {
 			return ret;
 		}
 		assert(config is null, "Unknown configuration for "~m_info.name~": "~config);
+		m_info.buildSettings.getPlatformSettings(ret, platform, this.path);
 		return ret;
 	}
 

@@ -255,7 +255,7 @@ class Project {
 			if (psettings.targetType != TargetType.none) {
 				processVars(dst, pkg.path.toNativeString(), psettings);
 				if (psettings.importPaths.empty)
-					logWarn(`Package %s (configuration "%s") defines no import paths, use {"importPaths": [...]} or the default package directory structure to fix this.`, pkg.name, config);
+					logWarn(`Package %s (configuration "%s") defines no import paths, use {"importPaths": [...]} or the default package directory structure to fix this.`, pkg.name, configs[pkg.name]);
 			}
 			if (pkg is m_main) {
 				enforce(psettings.targetType != TargetType.none, "Main package has target type \"none\" - stopping build.");
