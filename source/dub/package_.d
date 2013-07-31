@@ -181,7 +181,6 @@ class Package {
 	BuildSettings getBuildSettings(in BuildPlatform platform, string config)
 	const {
 		BuildSettings ret;
-		logDiagnostic("Using config %s for %s", config, this.name);
 		foreach(ref conf; m_info.configurations){
 			if( conf.name != config ) continue;
 			m_info.buildSettings.getPlatformSettings(ret, platform, this.path);
@@ -251,6 +250,18 @@ class Package {
 			return conf.name;
 		}
 		return null;
+	}
+
+	/// Returns a list of configurations suitable for the given platform
+	string[] getPlatformConfigurations(in BuildPlatform platform, bool is_main_package = false)
+	const {
+		auto ret = appender!(string[]);
+		foreach(ref conf; m_info.configurations){
+			if (!conf.matchesPlatform(platform)) continue;
+			if (!is_main_package && conf.buildSettings.targetType == TargetType.executable) continue;
+			ret ~= conf.name;
+		}
+		return ret.data;
 	}
 
 	/// Human readable information of this package and its dependencies.

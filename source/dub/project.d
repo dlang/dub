@@ -213,34 +213,141 @@ class Project {
 	/// Returns a map with the configuration for all packages in the dependency tree. 
 	string[string] getPackageConfigs(in BuildPlatform platform, string config)
 	const {
-		string[string] configs;
-		void determineConfigsRec(in Package p, bool use_default){
-			if( p.name !in configs ){
-				if( use_default ) configs[p.name] = p.getDefaultConfiguration(platform);
-				else return;
-			}
-			auto pconf = configs[p.name];
-			foreach(dn, dv; p.dependencies){
-				auto dep = getDependency(dn, dv.optional);
-				if( dep is null ) continue;
-				auto conf = p.getSubConfiguration(pconf, dep, platform);
-				if( !conf.empty ){
-					if( auto pc = dn in configs ){
-						enforce(*pc == conf, format("Conflicting configurations detected for %s: %s vs. %s", dn, *pc, conf));
-					} else {
-						configs[dn] = conf;
-					}
-				} else if( use_default && dn !in configs ){
-					configs[dn] = dep.getDefaultConfiguration(platform);
-				}
-				determineConfigsRec(dep, use_default);
+		struct Vertex { string pack, config; }
+		struct Edge { size_t from, to; }
+
+		Vertex[] configs;
+		Edge[] edges;
+		string[][string] parents;
+		parents[m_main.name] = null;
+		foreach (p; getTopologicalPackageList())
+			foreach (d; p.dependencies.byKey)
+				parents[d] ~= p.name;
+
+
+		size_t createConfig(string pack, string config) {
+			foreach (i, v; configs)
+				if (v.pack == pack && v.config == config)
+					return i;
+			configs ~= Vertex(pack, config);
+			return configs.length-1;
+		}
+
+		size_t createEdge(size_t from, size_t to) {
+			auto idx = edges.countUntil(Edge(from, to));
+			if (idx >= 0) return idx;
+			edges ~= Edge(from, to);
+			return edges.length-1;
+		}
+
+		void removeConfig(size_t i) {
+			logDebug("Eliminating config %s for %s", configs[i].config, configs[i].pack);
+			configs = configs.remove(i);
+			edges = edges.filter!(e => e.from != i && e.to != i).array();
+			foreach (ref e; edges) {
+				if (e.from > i) e.from--;
+				if (e.to > i) e.to--;
 			}
 		}
 
-		configs[m_main.name] = config;
-		determineConfigsRec(m_main, false); // first only match all explicit selections
-		determineConfigsRec(m_main, true); // then fill up the rest with default configurations
-		return configs;
+		bool isReachable(string pack, string conf) {
+			if (pack == configs[0].pack && configs[0].config == conf) return true;
+			foreach (e; edges)
+				if (configs[e.to].pack == pack && configs[e.to].config == conf)
+					return true;
+			return false;
+			//return (pack == configs[0].pack && conf == configs[0].config) || edges.canFind!(e => configs[e.to].pack == pack && configs[e.to].config == config);
+		}
+
+		bool isReachableByAllParentPacks(size_t cidx) {
+			bool[string] r;
+			foreach (p; parents[configs[cidx].pack]) r[p] = false;
+			foreach (e; edges) {
+				if (e.to != cidx) continue;
+				if (auto pp = configs[e.from].pack in r) *pp = true;
+			}
+			foreach (bool v; r) if (!v) return false;
+			return true;
+		}
+
+		// create a graph of all possible package configurations (package, config) -> (subpackage, subconfig)
+		void determineAllConfigs(in Package p)
+		{
+			foreach (c; p.getPlatformConfigurations(platform, p is m_main)) {
+				if (!isReachable(p.name, c)) {
+					//foreach (e; edges) logDebug("    %s %s -> %s %s", configs[e.from].pack, configs[e.from].config, configs[e.to].pack, configs[e.to].config);
+					logDebug("Skipping %s %s", p.name, c);
+					continue;
+				}
+				size_t cidx = createConfig(p.name, c);
+				foreach (dn; p.dependencies.byKey) {
+					auto dp = getDependency(dn, false);
+					auto subconf = p.getSubConfiguration(c, dp, platform);
+					if (subconf.empty) {
+						foreach (sc; dp.getPlatformConfigurations(platform)) {
+							logDebug("Including %s %s -> %s %s", p.name, c, dn, sc);
+							createEdge(cidx, createConfig(dn, sc));
+						}
+					} else {
+						logDebug("Including %s %s -> %s %s", p.name, c, dn, subconf);
+						createEdge(cidx, createConfig(dn, subconf));
+					}
+				}
+				foreach (dn; p.dependencies.byKey) {
+					auto dp = getDependency(dn, false);
+					determineAllConfigs(dp);
+				}
+			}
+		}
+		createConfig(m_main.name, config);
+		determineAllConfigs(m_main);
+
+		// successively remove configurations until only one configuration per package is left
+		bool changed;
+		do {
+			// remove all configs that are not reachable by all parent packages
+			changed = false;
+			for (size_t i = 0; i < configs.length; ) {
+				if (!isReachableByAllParentPacks(i)) {
+					removeConfig(i);
+					changed = true;
+				} else i++;
+			}
+
+			// when all edges are cleaned up, pick one package and remove all but one config
+			if (!changed) {
+				foreach (p; getTopologicalPackageList()) {
+					size_t cnt = 0;
+					for (size_t i = 0; i < configs.length; ) {
+						if (configs[i].pack == p.name) {
+							if (++cnt > 1) removeConfig(i);
+							else i++;
+						} else i++;
+					}
+					if (cnt > 1) {
+						changed = true;
+						break;
+					}
+				}
+			}
+		} while (changed);
+
+		// print out the resulting tree
+		foreach (e; edges) logDebug("    %s %s -> %s %s", configs[e.from].pack, configs[e.from].config, configs[e.to].pack, configs[e.to].config);
+
+		// return the resulting configuration set as an AA
+		string[string] ret;
+		foreach (c; configs) {
+			assert(ret.get(c.pack, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", c.pack, c.config, ret[c.pack]));
+			logDiagnostic("Using configuration '%s' for %s", c.config, c.pack);
+			ret[c.pack] = c.config;
+		}
+
+		// check for conflicts (packages missing in the final configuration graph)
+		foreach (p; getTopologicalPackageList())
+			enforce(p.name in ret, "Conflicting configurations for package "~p.name);
+
+		return ret;
 	}
 
 	/// Returns the DFLAGS
@@ -251,6 +358,7 @@ class Project {
 		foreach (pkg; this.getTopologicalPackageList(false, root_package, configs)) {
 			dst.addVersions(["Have_" ~ stripDlangSpecialChars(pkg.name)]);
 
+			assert(pkg.name in configs, "Missing configuration for "~pkg.name);
 			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
 			if (psettings.targetType != TargetType.none) {
 				processVars(dst, pkg.path.toNativeString(), psettings);
