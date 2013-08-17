@@ -350,7 +350,17 @@ class Project {
 		return ret;
 	}
 
-	/// Returns the DFLAGS
+	/**
+	 * Fills dst with values from this project.
+	 *
+	 * dst gets initialized according to the given platform and config. 
+	 *
+	 * Params:
+	 *   dst = The BuildSettings struct to fill with data.
+	 *   platform = The platform to retrieve the values for.
+	 *   config = Values of the given configuration will be retrieved.
+	 *   root_package = If non null, use it instead of the project's real root package.
+	 */
 	void addBuildSettings(ref BuildSettings dst, in BuildPlatform platform, string config, in Package root_package = null)
 	const {
 		auto configs = getPackageConfigs(platform, config);
