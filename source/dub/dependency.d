@@ -319,7 +319,7 @@ struct Dependency {
 		return r;
 	}
 
-	bool opEquals(in ref Dependency o)
+	bool opEquals(in Dependency o)
 	{
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
 		return o.m_cmpA == m_cmpA && o.m_cmpB == m_cmpB 
@@ -598,11 +598,98 @@ class DependencyGraph {
 		const Package m_root;
 		PkgType[string] m_packages;
 	}
-}
 
-unittest {
-	/*
-		
-	*/
+	unittest {
+		/*
+			R (master) -> A (master)
+		*/
+		auto R_json = parseJsonString(`
+		{
+			"name": "R",
+			"dependencies": {
+				"A": "~master",
+				"B": "1.0.0"
+			},
+			"version": "~master"
+		}
+			`);
+		Package r_master = new Package(R_json);
+		auto graph = new DependencyGraph(r_master);
 
+		assert(graph.conflicted.length == 0, "There are conflicting packages");
+
+		void expectA(RequestedDependency[string] requested, string name) {
+			assert("A" in requested, "Package A is not the "~name~" package");
+			assert(requested["A"].dependency == Dependency("~master"), "Package A is not "~name~" as ~master version.");
+			assert("R" in requested["A"].packages, "Package R is not the issuer of "~name~" Package A(~master).");
+			assert(requested["A"].packages["R"] == Dependency("~master"), "Package R is not the issuer of "~name~" Package A(~master).");
+		}
+		void expectB(RequestedDependency[string] requested, string name) {
+			assert("B" in requested, "Package B is not the "~name~" package");
+			assert(requested["B"].dependency == Dependency("1.0.0"), "Package B is not "~name~" as 1.0.0 version.");
+			assert("R" in requested["B"].packages, "Package R is not the issuer of "~name~" Package B(1.0.0).");
+			assert(requested["B"].packages["R"] == Dependency("1.0.0"), "Package R is not the issuer of "~name~" Package B(1.0.0).");
+		}
+		auto missing = graph.missing();
+		assert(missing.length == 2, "Invalid count of missing items");
+		expectA(missing, "missing");
+		expectB(missing, "missing");
+
+		auto needed = graph.needed();
+		assert(needed.length == 2, "Invalid count of needed packages.");		
+		expectA(needed, "needed");
+		expectB(needed, "needed");
+
+		assert(graph.optional.length == 0, "There are optional packages reported");
+
+		auto A_json = parseJsonString(`
+		{
+			"name": "A",
+			"dependencies": {
+			},
+			"version": "~master"
+		}
+			`);
+		Package a_master = new Package(A_json);
+		graph.insert(a_master);
+
+		assert(graph.conflicted.length == 0, "There are conflicting packages");
+
+		auto missing2 = graph.missing;
+		assert(missing2.length == 1, "Missing list does not contain an package.");
+		expectB(missing2, "missing2");
+
+		needed = graph.needed;
+		assert(needed.length == 2, "Invalid count of needed packages.");		
+		expectA(needed, "needed");
+		expectB(needed, "needed");
+
+		assert(graph.optional.length == 0, "There are optional packages reported");
+	}
+
+	unittest {
+		/*
+			R -> R:sub
+		*/
+		auto R_json = parseJsonString(`
+		{
+			"name": "R",
+			"dependencies": {
+				"R:sub": "~master"
+			},
+			"version": "~master",
+			"subPackages": [
+				{
+					"name": "sub"
+				}
+			]
+		}
+			`);
+
+		Package r_master = new Package(R_json);
+		auto graph = new DependencyGraph(r_master);
+
+		auto missing = graph.missing();
+		//assert(missing.length == 0);
+	}
 }
