@@ -413,7 +413,7 @@ class Project {
 		}
 
 		auto graph = new DependencyGraph(m_main);
-		if(!gatherMissingDependencies(packageSuppliers, graph)  || graph.missing().length > 0) {
+		if(!gatherMissingDependencies(packageSuppliers, graph) || graph.missing().length > 0) {
 			// Check the conflicts first.
 			auto conflicts = graph.conflicted();
 			if(conflicts.length > 0) {
@@ -421,6 +421,7 @@ class Project {
 				Action[] actions;
 				foreach( string pkg, dbp; graph.conflicted())
 					actions ~= Action.conflict(pkg, dbp.dependency, dbp.packages);
+				
 				// Missing dependencies could have some bogus results, therefore
 				// return only the conflicts.
 				return actions;
@@ -452,8 +453,9 @@ class Project {
 
 		// Check against installed and add install actions
 		Action[] actions;
+		int[string] upgradePackages;
 		foreach( string pkg, d; graph.needed() ) {
-			auto basepkg = pkg.getSubPackagePath()[0];
+			auto basepkg = pkg.getBasePackage();
 			auto p = basepkg in installed;
 			// TODO: auto update to latest head revision
 			if(!p || (!d.dependency.matches(p.vers) && !d.dependency.matches(Version.MASTER))) {
@@ -462,8 +464,13 @@ class Project {
 				actions ~= Action.install(basepkg, InstallLocation.userWide, d.dependency, d.packages);
 			} else {
 				logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"'");
-				if( option & UpdateOptions.Upgrade )
-					actions ~= Action.install(basepkg, InstallLocation.userWide, d.dependency, d.packages);
+				if( option & UpdateOptions.Upgrade ) {
+					// Only add one upgrade action for each package.
+					if(basepkg !in upgradePackages) {
+						upgradePackages[basepkg] = 1;
+						actions ~= Action.install(basepkg, InstallLocation.userWide, d.dependency, d.packages);
+					}
+				}
 			}
 		}
 

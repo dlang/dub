@@ -576,7 +576,7 @@ class DependencyGraph {
 	private void forAllDependencies(void delegate (const PkgType* avail, string pkgId, Dependency d, const Package issuer) dg) const {
 		foreach(string issuerPackag, issuer; m_packages) {
 			foreach(string depPkg, dependency; issuer.dependencies) {
-				auto availPkg = depPkg in m_packages;
+				auto availPkg = depPkg.getBasePackage() in m_packages;
 				dg(availPkg, depPkg, dependency, issuer);
 			}
 		}
@@ -689,7 +689,9 @@ class DependencyGraph {
 		Package r_master = new Package(R_json);
 		auto graph = new DependencyGraph(r_master);
 
+		// See #100, a dependency on a subpackage should only refer the base
+		// project.
 		auto missing = graph.missing();
-		//assert(missing.length == 0);
+		assert(missing.length == 0);
 	}
 }
