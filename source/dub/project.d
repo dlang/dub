@@ -463,13 +463,16 @@ class Project {
 				else logDiagnostic("Triggering installation of required package '"~basepkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
 				actions ~= Action.install(basepkg, InstallLocation.userWide, d.dependency, d.packages);
 			} else {
-				logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"'");
 				if( option & UpdateOptions.Upgrade ) {
 					// Only add one upgrade action for each package.
 					if(basepkg !in upgradePackages) {
+						logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"', upgrading.");
 						upgradePackages[basepkg] = 1;
 						actions ~= Action.install(basepkg, InstallLocation.userWide, d.dependency, d.packages);
 					}
+				}
+				else {
+					logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"'");
 				}
 			}
 		}
