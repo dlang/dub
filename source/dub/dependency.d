@@ -402,31 +402,31 @@ struct Dependency {
 }
 
 unittest {
-	Dependency a = new Dependency(">=1.1.0"), b = new Dependency(">=1.3.0");
+	Dependency a = Dependency(">=1.1.0"), b = Dependency(">=1.3.0");
 	assert( a.merge(b).valid() && to!string(a.merge(b)) == ">=1.3.0", to!string(a.merge(b)) );
 	
-	a = new Dependency("<=1.0.0 >=2.0.0");
+	a = Dependency("<=1.0.0 >=2.0.0");
 	assert( !a.valid(), to!string(a) );
 	
-	a = new Dependency(">=1.0.0 <=5.0.0"), b = new Dependency(">=2.0.0");
+	a = Dependency(">=1.0.0 <=5.0.0"), b = Dependency(">=2.0.0");
 	assert( a.merge(b).valid() && to!string(a.merge(b)) == ">=2.0.0 <=5.0.0", to!string(a.merge(b)) );
 	
-	assertThrown(a = new Dependency(">1.0.0 ==5.0.0"), "Construction is invalid");
+	assertThrown(a = Dependency(">1.0.0 ==5.0.0"), "Construction is invalid");
 	
-	a = new Dependency(">1.0.0"), b = new Dependency("<2.0.0");
+	a = Dependency(">1.0.0"), b = Dependency("<2.0.0");
 	assert( a.merge(b).valid(), to!string(a.merge(b)));
 	assert( to!string(a.merge(b)) == ">1.0.0 <2.0.0", to!string(a.merge(b)) );
 	
-	a = new Dependency(">2.0.0"), b = new Dependency("<1.0.0");
+	a = Dependency(">2.0.0"), b = Dependency("<1.0.0");
 	assert( !(a.merge(b)).valid(), to!string(a.merge(b)));
 	
-	a = new Dependency(">=2.0.0"), b = new Dependency("<=1.0.0");
+	a = Dependency(">=2.0.0"), b = Dependency("<=1.0.0");
 	assert( !(a.merge(b)).valid(), to!string(a.merge(b)));
 	
-	a = new Dependency("==2.0.0"), b = new Dependency("==1.0.0");
+	a = Dependency("==2.0.0"), b = Dependency("==1.0.0");
 	assert( !(a.merge(b)).valid(), to!string(a.merge(b)));
 	
-	a = new Dependency("<=2.0.0"), b = new Dependency("==1.0.0");
+	a = Dependency("<=2.0.0"), b = Dependency("==1.0.0");
 	Dependency m = a.merge(b);
 	assert( m.valid(), to!string(m));
 	assert( m.matches( Version("1.0.0") ) );
@@ -435,53 +435,53 @@ unittest {
 
 
 	// branches / head revisions
-	a = new Dependency(Version.MASTER_STRING);
+	a = Dependency(Version.MASTER_STRING);
 	assert(a.valid());
 	assert(a.matches(Version.MASTER));
-	b = new Dependency(Version.MASTER_STRING);
+	b = Dependency(Version.MASTER_STRING);
 	m = a.merge(b);
 	assert(m.matches(Version.MASTER));
 
-	//assertThrown(a = new Dependency(Version.MASTER_STRING ~ " <=1.0.0"), "Construction invalid");
-	assertThrown(a = new Dependency(">=1.0.0 " ~ Version.MASTER_STRING), "Construction invalid");
+	//assertThrown(a = Dependency(Version.MASTER_STRING ~ " <=1.0.0"), "Construction invalid");
+	assertThrown(a = Dependency(">=1.0.0 " ~ Version.MASTER_STRING), "Construction invalid");
 
-	a = new Dependency(">=1.0.0");
-	b = new Dependency(Version.MASTER_STRING);
+	a = Dependency(">=1.0.0");
+	b = Dependency(Version.MASTER_STRING);
 
 	//// support crazy stuff like this?
 	//m = a.merge(b);
 	//assert(m.valid());
 	//assert(m.matches(Version.MASTER));
 
-	//b = new Dependency("~not_the_master");
+	//b = Dependency("~not_the_master");
 	//m = a.merge(b);
 //	assert(!m.valid());
 
 	immutable string branch1 = Version.BRANCH_IDENT ~ "Branch1";
 	immutable string branch2 = Version.BRANCH_IDENT ~ "Branch2";
 
-	//assertThrown(a = new Dependency(branch1 ~ " " ~ branch2), "Error: '" ~ branch1 ~ " " ~ branch2 ~ "' succeeded");
-	//assertThrown(a = new Dependency(Version.MASTER_STRING ~ " " ~ branch1), "Error: '" ~ Version.MASTER_STRING ~ " " ~ branch1 ~ "' succeeded");
+	//assertThrown(a = Dependency(branch1 ~ " " ~ branch2), "Error: '" ~ branch1 ~ " " ~ branch2 ~ "' succeeded");
+	//assertThrown(a = Dependency(Version.MASTER_STRING ~ " " ~ branch1), "Error: '" ~ Version.MASTER_STRING ~ " " ~ branch1 ~ "' succeeded");
 
-	a = new Dependency(branch1);
-	b = new Dependency(branch2);
+	a = Dependency(branch1);
+	b = Dependency(branch2);
 	assertThrown(a.merge(b), "Shouldn't be able to merge to different branches");
 	assertNotThrown(b = a.merge(a), "Should be able to merge the same branches. (?)");
 	assert(a == b);
 
-	a = new Dependency(branch1);
+	a = Dependency(branch1);
 	assert(a.matches(branch1), "Dependency(branch1) does not match 'branch1'");
 	assert(a.matches(Version(branch1)), "Dependency(branch1) does not match Version('branch1')");
 	assert(!a.matches(Version.MASTER), "Dependency(branch1) matches Version.MASTER");
 	assert(!a.matches(branch2), "Dependency(branch1) matches 'branch2'");
 	assert(!a.matches(Version("1.0.0")), "Dependency(branch1) matches '1.0.0'");
-	a = new Dependency(">=1.0.0");
+	a = Dependency(">=1.0.0");
 	assert(!a.matches(Version(branch1)), "Dependency(1.0.0) matches 'branch1'");
 
 	// Testing optional dependencies.
-	a = new Dependency(">=1.0.0");
+	a = Dependency(">=1.0.0");
 	assert(!a.optional, "Default is not optional.");
-	b = new Dependency(a);
+	b = a;
 	assert(!a.merge(b).optional, "Merging two not optional dependencies wrong.");
 	a.optional = true;
 	assert(!a.merge(b).optional, "Merging optional with not optional wrong.");
