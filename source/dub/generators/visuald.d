@@ -126,7 +126,7 @@ EndGlobal");
 						if (!deppack) continue;
 						if (isHeaderOnlyPackage(deppack, settings)) {
 							addDepsRec(deppack);
-						} else {
+						} else if (!m_app.isRedundantDependency(p, deppack)) {
 							// TODO: clarify what "uuid = uuid" should mean
 							auto uuid = guid(id);
 							ret.formattedWrite("\n			%s = %s", uuid, uuid);
@@ -327,7 +327,7 @@ EndGlobal");
 				// Add libraries, system libs need to be suffixed by ".lib".
 				string linkLibs = join(map!(a => a~".lib")(getSettings!"libs"()), " ");
 				string addLinkFiles = join(getSettings!"sourceFiles"().filter!(s => s.endsWith(".lib"))(), " ");
-				ret.formattedWrite("    <libfiles>%s %s phobos.lib</libfiles>\n", linkLibs, addLinkFiles);
+				if (!is_lib) ret.formattedWrite("    <libfiles>%s %s phobos.lib</libfiles>\n", linkLibs, addLinkFiles);
 
 				// Unittests
 				ret.formattedWrite("    <useUnitTests>%s</useUnitTests>\n", buildsettings.options & BuildOptions.unittests ? "1" : "0");

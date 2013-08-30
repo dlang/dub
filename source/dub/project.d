@@ -281,7 +281,8 @@ class Project {
 				}
 				size_t cidx = createConfig(p.name, c);
 				foreach (dn; p.dependencies.byKey) {
-					auto dp = getDependency(dn, false);
+					auto dp = getDependency(dn, true);
+					if (!dp) continue;
 					auto subconf = p.getSubConfiguration(c, dp, platform);
 					if (subconf.empty) {
 						foreach (sc; dp.getPlatformConfigurations(platform)) {
@@ -294,7 +295,8 @@ class Project {
 					}
 				}
 				foreach (dn; p.dependencies.byKey) {
-					auto dp = getDependency(dn, false);
+					auto dp = getDependency(dn, true);
+					if (!dp) continue;
 					determineAllConfigs(dp);
 				}
 			}
@@ -339,7 +341,7 @@ class Project {
 		string[string] ret;
 		foreach (c; configs) {
 			assert(ret.get(c.pack, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", c.pack, c.config, ret[c.pack]));
-			logDiagnostic("Using configuration '%s' for %s", c.config, c.pack);
+			logDebug("Using configuration '%s' for %s", c.config, c.pack);
 			ret[c.pack] = c.config;
 		}
 
@@ -399,6 +401,19 @@ class Project {
 			m_main.addBuildTypeSettings(btsettings, platform, build_type);
 			processVars(dst, m_main.path.toNativeString(), btsettings);
 		}
+	}
+
+	/// Determines if the given dependency is already indirectly referenced by other dependencies of pack.
+	bool isRedundantDependency(in Package pack, in Package dependency)
+	const {
+		foreach (dep; pack.dependencies.byKey) {
+			auto dp = getDependency(dep, true);
+			if (!dp) continue;
+			if (dp is dependency) continue;
+			foreach (ddp; getTopologicalPackageList(false, dp))
+				if (ddp is dependency) return true;
+		}
+		return false;
 	}
 
 
