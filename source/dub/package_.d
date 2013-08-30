@@ -261,6 +261,7 @@ class Package {
 			if (!is_main_package && conf.buildSettings.targetType == TargetType.executable) continue;
 			ret ~= conf.name;
 		}
+		if (ret.data.length == 0) ret.put(null);
 		return ret.data;
 	}
 
