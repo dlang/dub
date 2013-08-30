@@ -3,7 +3,7 @@ dub package manager
 
 Package and build manager for [D](http://dlang.org/) applications and libraries.
 
-There is a central [package registry](https://github.com/rejectedsoftware/dub-registry/) located at <http://code.dlang.org>. The location will likely change to a dedicated domain at some point.
+There is a central [package registry](https://github.com/rejectedsoftware/dub-registry/) located at <http://code.dlang.org>.
 
 
 Introduction
@@ -31,7 +31,7 @@ Key features
 Future direction
 ----------------
 
-To make things as flexible as they need to be for certain projects, it is planned to gradually add more options to the package file format and eventually to add the possibility to specify an external build tool along with the path of it's output files. The idea is that DUB provides a convenient build management that suffices for 99% of projects, but is also usable as a bare package manager that doesn't get in your way if needed.
+To make things as flexible as they need to be for certain projects, it is planned to gradually add more options to the [package file format](http://code.dlang.org/package-format) and eventually to add the possibility to specify an external build tool along with the path of it's output files. The idea is that DUB provides a convenient build management that suffices for 99% of projects, but is also usable as a bare package manager that doesn't get in your way if needed.
 
 
 Installation
