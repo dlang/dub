@@ -1,6 +1,25 @@
 Changelog
 =========
 
+v0.9.18 - 2013-09-
+--------------------
+
+### Features and improvements ###
+
+ - Added support for a "buildOptions" field to be able to specify compiler options in an abstract way
+ - Implemented a new configuration resolution algorithm that is able to handle complex dependency graphs
+ - Added support for a "debugVersions" field ("-debug=xyz")
+ - Added support for a "-debug=xyz" command line option to specify additional debug version specifiers
+ - The VisualD project generator doesn't specify redundant compiler flags for features that have dedicated checkboxes anymore
+
+### Bug fixes ###
+
+ - Fixed handling of packages with no configurations (a global `null` configuration is now assumed in this case)
+ - Fixed building of shared libraries (was missing the "-shared" flag)
+ - Fixed upgrading in conjunction with sub packages (was causing an infinite loop) - REVIEW
+ - Fixed build of complex generated VisualD projects by avoiding redundant link dependencies
+
+
 v0.9.17 - 2013-07-24
 --------------------
 
