@@ -53,6 +53,7 @@ int main(string[] args)
 		bool install_system = false, install_local = false;
 		string install_version;
 		string[] registry_urls;
+		string[] debug_versions;
 		getopt(args,
 			"v|verbose", &verbose,
 			"vverbose", &vverbose,
@@ -66,6 +67,7 @@ int main(string[] args)
 			"arch", &arch,
 			"rdmd", &rdmd,
 			"config", &build_config,
+			"debug", &debug_versions,
 			"print-builds", &print_builds,
 			"print-configs", &print_configs,
 			"print-platform", &print_platform,
@@ -99,6 +101,7 @@ int main(string[] args)
 		BuildSettings build_settings;
 		auto compiler = getCompiler(compiler_name);
 		auto build_platform = compiler.determinePlatform(build_settings, compiler_name, arch);
+		build_settings.addDFlags(debug_versions.map!(v => "-debug="~v).array);
 
 		if( print_platform ){
 			logInfo("Build platform:");
@@ -365,6 +368,8 @@ Build/run options:
         --print-platform Prints the identifiers for the current build platform
                          as used for the build fields in package.json
         --rdmd           Use rdmd instead of directly invoking the compiler
+        --debug=NAME     Define the specified debug version identifier when
+                         builing - can be used multiple times
 
 Install options:
         --version        Use the specified version/branch instead of the latest
