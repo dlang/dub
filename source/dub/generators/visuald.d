@@ -203,33 +203,37 @@ EndGlobal");
 			bool[SourceFile] sourceFiles;
 			if (m_combinedProject) {
 				// add all package.json files to the project
+				// and all source files
 				performOnDependencies(pack, configs, (prj) {
-					files.sourceFiles ~= prj.packageInfoFile.toNativeString();
-					auto pfiles = prj.getBuildSettings(settings.platform, configs[prj.name]);
-					files.sourceFiles ~= pfiles.sourceFiles.map!(f => (prj.path ~ f).toNativeString()).array;
+
+					string[] prjFiles;
+					prjFiles ~= prj.packageInfoFile.toNativeString();
+					prjFiles = prjFiles ~ prj.getBuildSettings(settings.platform, configs[prj.name]).sourceFiles;					
+
+					foreach(s; prjFiles){
+						auto sp = Path(s);
+						if( !sp.absolute ) sp = prj.path ~ sp;
+						SourceFile sf;
+						sf.pkg = pack.name;
+						sf.filePath = sp.relativeTo(project_file_dir);
+
+						// regroup in Folder by base package
+						sf.structurePath = Path(prj.basePackage().name) ~ sp.relativeTo(prj.path);
+						sourceFiles[sf] = true;
+					}
 				});
+			}
 
-				foreach(s; files.sourceFiles){
-					auto sp = Path(s);
-					if( !sp.absolute ) sp = m_app.mainPackage.path ~ sp;
-					SourceFile sf;
-					sf.pkg = pack.name;
-					sf.filePath = sp.relativeTo(project_file_dir);
-					sf.structurePath = Path(getPackageFileName(pack)) ~ sp.relativeTo(pack.path);
-					sourceFiles[sf] = true;
-				}
-			} else {
-				files.sourceFiles ~= pack.packageInfoFile.toNativeString();
+			files.sourceFiles ~= pack.packageInfoFile.toNativeString();
 
-				foreach(s; files.sourceFiles){
-					auto sp = Path(s);
-					if( !sp.absolute ) sp = pack.path ~ sp;
-					SourceFile sf;
-					sf.pkg = pack.name;
-					sf.filePath = sp.relativeTo(project_file_dir);
-					sf.structurePath = sp.relativeTo(pack.path);
-					sourceFiles[sf] = true;
-				}
+			foreach(s; files.sourceFiles){
+				auto sp = Path(s);
+				if( !sp.absolute ) sp = pack.path ~ sp;
+				SourceFile sf;
+				sf.pkg = pack.name;
+				sf.filePath = sp.relativeTo(project_file_dir);
+				sf.structurePath = sp.relativeTo(pack.path);
+				sourceFiles[sf] = true;
 			}
 
 			// Create folders and files
