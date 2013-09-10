@@ -313,7 +313,7 @@ Install options:
 
 	// No specific help, show general help.
 	logInfo(
-`Usage: dub [<command>] [<vibe options...>] [-- <application options...>]
+`Usage: dub [<command>] [<options...>] [-- <application arguments...>]
 
 Manages the DUB project in the current directory. "--" can be used to separate
 DUB options from options passed to the application. If the command is omitted,
