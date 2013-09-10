@@ -186,7 +186,7 @@ class PackageManager {
 			package_name, package_version, destination.toNativeString(), zip_file_path.toNativeString());
 
 		if( existsFile(destination) ){
-			throw new Exception(format("%s %s needs to be uninstalled prior installation.", package_name, package_version));
+			throw new Exception(format("%s (%s) needs to be uninstalled from '%s' prior installation.", package_name, package_version, destination));
 		}
 
 		// open zip file
@@ -202,9 +202,11 @@ class PackageManager {
 
 		// In a github zip, the actual contents are in a subfolder
 		Path zip_prefix;
+		auto json_file = PathEntry(PackageJsonFilename);
 		foreach(ArchiveMember am; archive.directory) {
-			if( Path(am.name).head == PathEntry(PackageJsonFilename) ){
-				zip_prefix = Path(am.name)[0 .. 1];
+			auto path = Path(am.name);
+			if( path.length > 1 && path.head == json_file){
+				zip_prefix = path[0 .. $-2];
 				break;
 			}
 		}
