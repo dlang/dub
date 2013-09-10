@@ -576,14 +576,14 @@ class DependencyGraph {
 	private void forAllDependencies(void delegate (const PkgType* avail, string pkgId, Dependency d, const Package issuer) dg) const {
 		foreach(string issuerPackag, issuer; m_packages) {
 			foreach(string depPkg, dependency; issuer.dependencies) {
-				auto availPkg = depPkg.getBasePackage() in m_packages;
-				dg(availPkg, depPkg, dependency, issuer);
+				auto basePkg = depPkg.getBasePackage();
+				auto availPkg = basePkg in m_packages;
+				dg(availPkg, basePkg, dependency, issuer);
 			}
 		}
 	}
 	
 	private static void addDependency(ref RequestedDependency[string] deps, string packageId, Dependency d, const Package issuer) {
-		logDebug("addDependency "~packageId~", '%s'", d);
 		auto d2 = packageId in deps;
 		if(!d2) {
 			deps[packageId] = RequestedDependency(issuer.name, d);
