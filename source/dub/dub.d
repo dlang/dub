@@ -116,8 +116,14 @@ class Dub {
 	/// @param options bit combination of UpdateOptions
 	void update(UpdateOptions options)
 	{
+		bool[string] masterVersionUpgrades;
 		while (true) {
-			Action[] actions = m_project.determineActions(m_packageSuppliers, options);
+			Action[] allActions = m_project.determineActions(m_packageSuppliers, options);
+			Action[] actions;
+			foreach(a; allActions)
+				if(a.packageId !in masterVersionUpgrades)
+					actions ~= a;
+
 			if (actions.length == 0) break;
 
 			logInfo("The following changes will be performed:");
@@ -135,20 +141,19 @@ class Dub {
 			if (conflictedOrFailed || options & UpdateOptions.JustAnnotate) return;
 
 			// Uninstall first
-
-			// ??
-			// foreach(Action a	   ; filter!((Action a)        => a.type == Action.Type.Uninstall)(actions))
-				// uninstall(a.packageId);
-			// foreach(Action a; filter!((Action a) => a.type == Action.Type.InstallUpdate)(actions))
-				// install(a.packageId, a.vers);
-			foreach(Action a; actions)
-				if(a.type == Action.Type.uninstall){
-					assert(a.pack !is null, "No package specified for uninstall.");
-					uninstall(a.pack);
+			foreach(Action a; filter!((Action a) => a.type == Action.Type.uninstall)(actions)) {
+				assert(a.pack !is null, "No package specified for uninstall.");
+				uninstall(a.pack);
+			}
+			foreach(Action a; filter!((Action a) => a.type == Action.Type.install)(actions)) {
+				install(a.packageId, a.vers, a.location);
+				if(a.vers.matches(Version.MASTER())) {
+					// Currently, there is no possibility to note when the
+					// module was updated last. Therefore we update a single
+					// package only once per update command.
+					masterVersionUpgrades[a.packageId] = true;
 				}
-			foreach(Action a; actions)
-				if(a.type == Action.Type.install)
-					install(a.packageId, a.vers, a.location);
+			}
 
 			m_project.reinit();
 		}
