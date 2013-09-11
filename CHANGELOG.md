@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.9.18 - 2013-09-
+v0.9.18 - 2013-09-11
 --------------------
 
 ### Features and improvements ###
@@ -11,13 +11,22 @@ v0.9.18 - 2013-09-
  - Added support for a "debugVersions" field ("-debug=xyz")
  - Added support for a "-debug=xyz" command line option to specify additional debug version specifiers
  - The VisualD project generator doesn't specify redundant compiler flags for features that have dedicated checkboxes anymore
+ - Improved folder structure in generated "visuald-combined" projects (by p0nce) - [pull #110][issue110]
 
 ### Bug fixes ###
 
  - Fixed handling of packages with no configurations (a global `null` configuration is now assumed in this case)
  - Fixed building of shared libraries (was missing the "-shared" flag)
- - Fixed upgrading in conjunction with sub packages (was causing an infinite loop) - REVIEW
+ - Fixed upgrading in conjunction with sub packages (was causing an infinite loop) - [issue #100][issue100]
  - Fixed build of complex generated VisualD projects by avoiding redundant link dependencies
+ - Fixed upgrading of branch based dependencies
+ - Fixed inheriting of global build settings in configurations - [issue #113][issue113]
+ - Fixed inclusion of entry point files (e.g. "source/app.d") in pure library packages - [issue #105][issue105]
+
+[issue100]: https://github.com/rejectedsoftware/dub/issues/100
+[issue105]: https://github.com/rejectedsoftware/dub/issues/105
+[issue110]: https://github.com/rejectedsoftware/dub/issues/110
+[issue113]: https://github.com/rejectedsoftware/dub/issues/113
 
 
 v0.9.17 - 2013-07-24
