@@ -205,18 +205,10 @@ class PackageManager {
 		auto json_file = PathEntry(PackageJsonFilename);
 		foreach(ArchiveMember am; archive.directory) {
 			auto path = Path(am.name);
-			if( path.length > 1 && path.head == json_file){
+			if (path.length == 2 && path.head == json_file && path.length) {
 				zip_prefix = path[0 .. $-1];
 				break;
 			}
-		}
-
-		if( zip_prefix.empty ){
-			// not correct zip packages HACK
-			Path minPath;
-			foreach(ArchiveMember am; archive.directory)
-				if( isPathFromZip(am.name) && (minPath == Path() || minPath.startsWith(Path(am.name))) )
-					zip_prefix = Path(am.name);
 		}
 
 		logDebug("zip root folder: %s", zip_prefix);
