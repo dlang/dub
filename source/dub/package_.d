@@ -113,23 +113,25 @@ class Package {
 		}
 
 		// generate default configurations if none are defined
-		if( m_info.configurations.length == 0 ){
-			if( m_info.buildSettings.targetType == TargetType.executable ){
+		if (m_info.configurations.length == 0) {
+			if (m_info.buildSettings.targetType == TargetType.executable) {
 				BuildSettingsTemplate app_settings;
 				app_settings.targetType = TargetType.executable;
 				m_info.configurations ~= ConfigurationInfo("application", app_settings);
 			} else if (m_info.buildSettings.targetType != TargetType.none) {
-				if( m_info.buildSettings.targetType == TargetType.autodetect ){
-					if( app_files.length ){
+				BuildSettingsTemplate lib_settings;
+				lib_settings.targetType = m_info.buildSettings.targetType == TargetType.autodetect ? TargetType.library : m_info.buildSettings.targetType;
+
+				if (m_info.buildSettings.targetType == TargetType.autodetect) {
+					if (app_files.length) {
+						lib_settings.excludedSourceFiles[""] = app_files;
+
 						BuildSettingsTemplate app_settings;
 						app_settings.targetType = TargetType.executable;
 						m_info.configurations ~= ConfigurationInfo("application", app_settings);
 					}
 				}
-
-				BuildSettingsTemplate lib_settings;
-				lib_settings.targetType = m_info.buildSettings.targetType == TargetType.autodetect ? TargetType.library : m_info.buildSettings.targetType;
-				lib_settings.excludedSourceFiles[""] = app_files;
+				
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
