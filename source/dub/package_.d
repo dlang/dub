@@ -131,7 +131,7 @@ class Package {
 						m_info.configurations ~= ConfigurationInfo("application", app_settings);
 					}
 				}
-				
+
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
@@ -372,17 +372,7 @@ struct PackageInfo {
 				case "copyright": this.copyright = value.get!string; break;
 				case "license": this.license = value.get!string; break;
 				case "-ddoxFilterArgs": this.ddoxFilterArgs = deserializeJson!(string[])(value); break;
-				case "configurations":
-					TargetType deftargettp = TargetType.library;
-					if (this.buildSettings.targetType != TargetType.autodetect)
-						deftargettp = this.buildSettings.targetType;
-
-					foreach (settings; value) {
-						ConfigurationInfo ci;
-						ci.parseJson(settings, deftargettp);
-						this.configurations ~= ci;
-					}
-					break;
+				case "configurations": break; // handled below, after the global settings have been parsed
 				case "buildTypes":
 					foreach (string name, settings; value) {
 						BuildSettingsTemplate bs;
@@ -395,6 +385,18 @@ struct PackageInfo {
 
 		// parse build settings
 		this.buildSettings.parseJson(json);
+
+		if (auto pv = "configurations" in json) {
+			TargetType deftargettp = TargetType.library;
+			if (this.buildSettings.targetType != TargetType.autodetect)
+				deftargettp = this.buildSettings.targetType;
+
+			foreach (settings; *pv) {
+				ConfigurationInfo ci;
+				ci.parseJson(settings, deftargettp);
+				this.configurations ~= ci;
+			}
+		}
 
 		enforce(this.name.length > 0, "The package \"name\" field is missing or empty.");
 	}
