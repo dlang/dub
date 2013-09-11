@@ -205,10 +205,16 @@ class Dub {
 			case InstallLocation.systemWide: install_path = m_systemDubPath ~ "packages/"; break;
 		}
 
-		if( auto pack = m_packageManager.getPackage(packageId, ver, install_path) ){
-			logInfo("Package %s %s (%s) is already installed with the latest version, skipping upgrade.",
-				packageId, ver, install_path);
-			return pack;
+		// always upgrade branch based versions - TODO: actually check if there is a new commit available
+		if (auto pack = m_packageManager.getPackage(packageId, ver, install_path)) {
+			if (!ver.startsWith("~")) {
+				logInfo("Package %s %s (%s) is already installed with the latest version, skipping upgrade.",
+					packageId, ver, install_path);
+				return pack;
+			} else {
+				logInfo("Removing current installation of %s %s", packageId, ver);
+				m_packageManager.uninstall(pack);
+			}
 		}
 
 		logInfo("Downloading %s %s...", packageId, ver);
