@@ -146,13 +146,9 @@ class Dub {
 				uninstall(a.pack);
 			}
 			foreach(Action a; filter!((Action a) => a.type == Action.Type.install)(actions)) {
-				install(a.packageId, a.vers, a.location);
-				if(a.vers.matches(Version.MASTER())) {
-					// Currently, there is no possibility to note when the
-					// module was updated last. Therefore we update a single
-					// package only once per update command.
-					masterVersionUpgrades[a.packageId] = true;
-				}
+				install(a.packageId, a.vers, a.location, (options & UpdateOptions.Upgrade) != 0);
+				// never update the same package more than once
+				masterVersionUpgrades[a.packageId] = true;
 			}
 
 			m_project.reinit();
@@ -184,7 +180,7 @@ class Dub {
 	string[string] installedPackages() const { return m_project.installedPackagesIDs(); }
 
 	/// Installs the package matching the dependency into the application.
-	Package install(string packageId, const Dependency dep, InstallLocation location)
+	Package install(string packageId, const Dependency dep, InstallLocation location, bool force_branch_upgrade)
 	{
 		Json pinfo;
 		PackageSupplier supplier;
@@ -207,7 +203,8 @@ class Dub {
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		if (auto pack = m_packageManager.getPackage(packageId, ver, install_path)) {
-			if (!ver.startsWith("~")) {
+			if (!ver.startsWith("~") || !force_branch_upgrade || location == InstallLocation.local) {
+				// TODO: support git working trees by performing a "git pull" instead of this
 				logInfo("Package %s %s (%s) is already installed with the latest version, skipping upgrade.",
 					packageId, ver, install_path);
 				return pack;
@@ -381,7 +378,7 @@ void main()
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
 			logInfo("DDOX is not installed, performing user wide installation.");
-			ddox_pack = install("ddox", Dependency(">=0.0.0"), InstallLocation.userWide);
+			ddox_pack = install("ddox", Dependency(">=0.0.0"), InstallLocation.userWide, false);
 		}
 
 		version(Windows) auto ddox_exe = "ddox.exe";
