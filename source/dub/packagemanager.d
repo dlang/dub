@@ -206,7 +206,7 @@ class PackageManager {
 		foreach(ArchiveMember am; archive.directory) {
 			auto path = Path(am.name);
 			if( path.length > 1 && path.head == json_file){
-				zip_prefix = path[0 .. $-2];
+				zip_prefix = path[0 .. $-1];
 				break;
 			}
 		}
