@@ -321,7 +321,7 @@ dub will default to "run".
 
 Available commands:
     help                 Prints this help screen
-    init [<directory>]   Initializes an empy project in the specified directory
+    init [<directory>]   Initializes an empty project in the specified directory
     run                  Compiles and runs the application (default command)
     build                Just compiles the application in the project directory
     upgrade              Forces an upgrade of all dependencies
@@ -369,7 +369,7 @@ Build/run options:
                          as used for the build fields in package.json
         --rdmd           Use rdmd instead of directly invoking the compiler
         --debug=NAME     Define the specified debug version identifier when
-                         builing - can be used multiple times
+                         building - can be used multiple times
 
 Install options:
         --version        Use the specified version/branch instead of the latest
