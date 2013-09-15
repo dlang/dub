@@ -371,6 +371,8 @@ class Project {
 			dst.addVersions(["Have_" ~ stripDlangSpecialChars(pkg.name)]);
 
 			assert(pkg.name in configs, "Missing configuration for "~pkg.name);
+			logDebug("Gathering build settings for %s (%s)", pkg.name, configs[pkg.name]);
+			
 			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
 			if (psettings.targetType != TargetType.none) {
 				processVars(dst, pkg.path.toNativeString(), psettings);
