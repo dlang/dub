@@ -70,7 +70,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 		{["-cov"], "Call dub with --build=cov or --build=unittest-cox"},
 		{["-profile"], "Call dub with --build=profile"},
 		{["-version="], `Use "versions" to specify version constants in a compiler independent way`},
-		//{["-debug=", `Use "debugVersions" to specify version constants in a compiler independent way`]},
+		{["-debug=", `Use "debugVersions" to specify version constants in a compiler independent way`]},
 		{["-I"], `Use "importPaths" to specify import paths in a compiler independent way`},
 		{["-J"], `Use "stringImportPaths" to specify import paths in a compiler independent way`},
 	];
@@ -367,8 +367,9 @@ enum BuildRequirements {
 }
 
 enum BuildOptions {
+	none = 0,                     /// Use compiler defaults
 	debug_ = 1<<0,                /// Compile in debug mode (enables contracts, -debug)
-	release = 1<<1,              /// Compile in release mode (disables assertions and bounds checks, -release)
+	release = 1<<1,               /// Compile in release mode (disables assertions and bounds checks, -release)
 	coverage = 1<<2,              /// Enable code coverage analysis (-cov)
 	debugInfo = 1<<3,             /// Enable symbolic debug information (-g)
 	debugInfoC = 1<<4,            /// Enable symbolic debug information in C compatible form (-gc)
@@ -381,7 +382,7 @@ enum BuildOptions {
 	unittests = 1<<11,            /// Compile unit tests (-unittest)
 	verbose = 1<<12,              /// Verbose compiler output (-v)
 	ignoreUnknownPragmas = 1<<13, /// Ignores unknown pragmas during compilation (-ignore)
-	syntaxOnly = 1<<14,         /// Don't generate object files (-o-)
+	syntaxOnly = 1<<14,           /// Don't generate object files (-o-)
 	warnings = 1<<15,             /// Enable warnings (-wi)
 	warningsAsErrors = 1<<16,     /// Treat warnings as errors (-w)
 	ignoreDeprecations = 1<<17,   /// Do not warn about using deprecated features (-d)
