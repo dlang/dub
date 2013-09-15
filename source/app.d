@@ -101,7 +101,7 @@ int main(string[] args)
 		BuildSettings build_settings;
 		auto compiler = getCompiler(compiler_name);
 		auto build_platform = compiler.determinePlatform(build_settings, compiler_name, arch);
-		build_settings.addDFlags(debug_versions.map!(v => "-debug="~v).array);
+		build_settings.addDebugVersions(debug_versions);
 
 		if( print_platform ){
 			logInfo("Build platform:");
@@ -151,7 +151,6 @@ int main(string[] args)
 			case "upgrade":
 				dub.loadPackageFromCwd();
 				logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
-				logDiagnostic("dub initialized");
 				dub.update(UpdateOptions.Upgrade | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
 				return 0;
 			case "install":
@@ -234,7 +233,6 @@ int main(string[] args)
 
 				if( !nodeps ){
 					logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
-					logDiagnostic("dub initialized");
 					dub.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
 				}
 
