@@ -358,7 +358,7 @@ Build/run options:
                          and suffixes to the identifiers below are recognized
                          (e.g. ldc2 or dmd-2.063) and matched to the proper
                          compiler type:
-                           dmd (default), gcc, ldc, gdmd, ldmd
+                           dmd (default), gdc, ldc, gdmd, ldmd
         --arch=NAME      Force a different architecture (e.g. x86 or x86_64)
         --nodeps         Do not check dependencies for 'run' or 'build'
         --print-builds   Prints the list of available build types
