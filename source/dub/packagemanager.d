@@ -49,7 +49,8 @@ enum LocalPackageType {
 	system
 }
 
-
+/// The PackageManager can retrieve installed packages and install / uninstall
+/// packages.
 class PackageManager {
 	private {
 		Repository[LocalPackageType] m_repositories;
@@ -176,6 +177,8 @@ class PackageManager {
 		return &iterator;
 	}
 
+	/// Installs the package supplied as a path to it's zip file to the
+	/// destination.
 	Package install(Path zip_file_path, Json package_info, Path destination)
 	{
 		auto package_name = package_info.name.get!string();
@@ -267,6 +270,7 @@ class PackageManager {
 		return pack;
 	}
 
+	/// Uninstalls the given the package.
 	void uninstall(in Package pack)
 	{
 		logDebug("Uninstall %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
@@ -406,12 +410,14 @@ class PackageManager {
 		return pack;
 	}
 
+	/// For the given type add another path where packages will be looked up.
 	void addSearchPath(Path path, LocalPackageType type)
 	{
 		m_repositories[type].searchPath ~= path;
 		writeLocalPackageList(type);
 	}
 
+	/// Removes a search path from the given type.
 	void removeSearchPath(Path path, LocalPackageType type)
 	{
 		m_repositories[type].searchPath = m_repositories[type].searchPath.filter!(p => p != path)().array();
@@ -558,5 +564,79 @@ class PackageManager {
 		Path path = m_repositories[type].packagePath;
 		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
 		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
+	}
+}
+
+
+/**
+	Installation journal for later uninstallation, keeping track of installed
+	files.
+	Example Json:
+	{
+		"version": 1,
+		"files": {
+			"file1": "typeoffile1",
+			...
+		}
+	}
+*/
+private class Journal {
+	private enum Version = 1;
+	
+	enum Type {
+		RegularFile,
+		Directory,
+		Alien
+	}
+	
+	struct Entry {
+		this( Type t, Path f ) { type = t; relFilename = f; }
+		Type type;
+		Path relFilename;
+	}
+	
+	@property const(Entry[]) entries() const { return m_entries; }
+	
+	this() {}
+	
+	/// Initializes a Journal from a json file.
+	this(Path journalFile) {
+		auto jsonJournal = jsonFromFile(journalFile);
+		enforce(cast(int)jsonJournal["Version"] == Version, "Mismatched version: "~to!string(cast(int)jsonJournal["Version"]) ~ "vs. " ~to!string(Version));
+		foreach(string file, type; jsonJournal["Files"])
+			m_entries ~= Entry(to!Type(cast(string)type), Path(file));
+	}
+
+	void add(Entry e) { 
+		foreach(Entry ent; entries) {
+			if( e.relFilename == ent.relFilename ) {
+				enforce(e.type == ent.type, "Duplicate('"~to!string(e.relFilename)~"'), different types: "~to!string(e.type)~" vs. "~to!string(ent.type));
+				return;
+			}
+		}
+		m_entries ~= e;
+	}
+	
+	/// Save the current state to the path.
+	void save(Path path) {
+		Json jsonJournal = serialize();
+		auto fileJournal = openFile(path, FileMode.CreateTrunc);
+		scope(exit) fileJournal.close();
+		if(PRETTY_JOURNAL) fileJournal.writePrettyJsonString(jsonJournal);
+		else fileJournal.writeJsonString(jsonJournal);
+	}
+	
+	private Json serialize() const {
+		Json[string] files;
+		foreach(Entry e; m_entries)
+			files[to!string(e.relFilename)] = to!string(e.type);
+		Json[string] json;
+		json["Version"] = Version;
+		json["Files"] = files;
+		return Json(json);
+	}
+	
+	private {
+		Entry[] m_entries;
 	}
 }

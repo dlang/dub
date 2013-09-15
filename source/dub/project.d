@@ -136,14 +136,6 @@ class Project {
 		return m_main.getDefaultConfiguration(platform, true);
 	}
 
-
-	/// Writes the application's metadata to the package.json file
-	/// in it's root folder.
-	void writeMetadata() const {
-		assert(false);
-		// TODO
-	}
-
 	/// Rereads the applications state.
 	void reinit()
 	{
@@ -551,7 +543,7 @@ class Project {
 					continue;
 				}
 					
-				auto ppath = pkg.split(":");
+				auto ppath = pkg.getSubPackagePath();
 
 				// TODO: auto update and update interval by time
 				logDebug("Adding package to graph: "~pkg);
@@ -569,7 +561,7 @@ class Project {
 
 				if( !p ){
 					try {
-						logDiagnostic("Fechting package %s (%d suppliers registered)", pkg, packageSuppliers.length);
+						logDiagnostic("Fetching package %s (%d suppliers registered)", pkg, packageSuppliers.length);
 						foreach (ps; packageSuppliers) {
 							try {
 								auto sp = new Package(ps.getPackageDescription(ppath[0], reqDep.dependency));

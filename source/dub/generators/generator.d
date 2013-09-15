@@ -78,7 +78,7 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 
 
 /**
-	Runs pre-build commands and performs an other required setup before project files are generated.
+	Runs pre-build commands and performs other required setup before project files are generated.
 */
 void prepareGeneration(BuildSettings buildsettings)
 {

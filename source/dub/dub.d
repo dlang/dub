@@ -37,7 +37,7 @@ import std.zip;
 
 
 /// The default supplier for packages, which is the registry
-/// hosted by vibed.org.
+/// hosted by code.dlang.org.
 PackageSupplier[] defaultPackageSuppliers()
 {
 	Url url = Url.parse("http://code.dlang.org/");
@@ -97,11 +97,14 @@ class Dub {
 
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
 
+	/// Loads the package from the current working directory as the main
+	/// project package.
 	void loadPackageFromCwd()
 	{
 		loadPackage(m_cwd);
 	}
 
+	/// Loads the package from the specified path as the main project package.
 	void loadPackage(Path path)
 	{
 		m_projectPath = path;
@@ -162,7 +165,7 @@ class Dub {
 		generator.generateProject(settings);
 	}
 
-	/// Outputs a JSON description of the project, including its deoendencies.
+	/// Outputs a JSON description of the project, including its dependencies.
 	void describeProject(BuildPlatform platform, string config)
 	{
 		auto dst = Json.EmptyObject;

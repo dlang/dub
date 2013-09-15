@@ -725,14 +725,14 @@ struct BuildSettingsTemplate {
 	}
 }
 
-// @deprecated (move to private?)
+/// Returns all package names, starting with the root package in [0].
 string[] getSubPackagePath(string package_name)
 {
 	return package_name.split(":");
 }
 
-// Returns the name of the base package in the case of some sub package or the
-// package itself, if it is already a full package.
+/// Returns the name of the base package in the case of some sub package or the
+/// package itself, if it is already a full package.
 string getBasePackage(string package_name)
 {
 	return package_name.getSubPackagePath()[0];
