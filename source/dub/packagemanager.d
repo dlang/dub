@@ -363,6 +363,7 @@ class PackageManager {
 		foreach( p; *packs ){
 			if( p.path == path ){
 				enforce(p.ver == ver, "Adding local twice with different versions is not allowed.");
+				logInfo("Package is already registered: %s (version: %s)", p.name, p.ver);
 				return p;
 			}
 		}
@@ -373,6 +374,7 @@ class PackageManager {
 
 		writeLocalPackageList(type);
 
+		logInfo("Registered package: %s (version: %s)", pack.name, pack.ver);
 		return pack;
 	}
 
@@ -385,10 +387,16 @@ class PackageManager {
 				to_remove ~= i;
 		enforce(to_remove.length > 0, "No "~type.to!string()~" package found at "~path.toNativeString());
 
-		foreach_reverse( i; to_remove )
+		string[Version] removed;
+		foreach_reverse( i; to_remove ) {
+			removed[(*packs)[i].ver] = (*packs)[i].name;
 			*packs = (*packs)[0 .. i] ~ (*packs)[i+1 .. $];
+		}
 
 		writeLocalPackageList(type);
+
+		foreach(ver, name; removed)
+			logInfo("Unregistered package: %s (version: %s)", name, ver);
 	}
 
 	Package getTemporaryPackage(Path path, Version ver)
@@ -432,9 +440,10 @@ class PackageManager {
 			Package[] packs;
 			Path[] paths;
 			try {
-				logDiagnostic("Looking for local package map at %s", list_path.toNativeString());
-				if( !existsFile(list_path ~ LocalPackagesFilename) ) return;
-				logDiagnostic("Try to load local package map at %s", list_path.toNativeString());
+				auto local_package_file = list_path ~ LocalPackagesFilename;
+				logDiagnostic("Looking for local package map at %s", local_package_file.toNativeString());
+				if( !existsFile(local_package_file) ) return;
+				logDiagnostic("Try to load local package map at %s", local_package_file.toNativeString());
 				auto packlist = jsonFromFile(list_path ~ LocalPackagesFilename);
 				enforce(packlist.type == Json.Type.Array, LocalPackagesFilename~" must contain an array.");
 				foreach( pentry; packlist ){
