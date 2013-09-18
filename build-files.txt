@@ -1,7 +1,6 @@
 source/app.d
 source/dub/dependency.d
 source/dub/dub.d
-source/dub/installation.d
 source/dub/packagemanager.d
 source/dub/packagesupplier.d
 source/dub/package_.d
