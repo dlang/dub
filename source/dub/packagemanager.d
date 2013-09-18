@@ -8,7 +8,6 @@
 module dub.packagemanager;
 
 import dub.dependency;
-import dub.installation;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
@@ -622,8 +621,7 @@ private class Journal {
 		Json jsonJournal = serialize();
 		auto fileJournal = openFile(path, FileMode.CreateTrunc);
 		scope(exit) fileJournal.close();
-		if(PRETTY_JOURNAL) fileJournal.writePrettyJsonString(jsonJournal);
-		else fileJournal.writeJsonString(jsonJournal);
+		fileJournal.writePrettyJsonString(jsonJournal);
 	}
 	
 	private Json serialize() const {

@@ -9,7 +9,6 @@ module dub.dub;
 
 import dub.compilers.compiler;
 import dub.dependency;
-import dub.installation;
 import dub.internal.std.process;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
