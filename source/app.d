@@ -54,6 +54,7 @@ int main(string[] args)
 		string install_version;
 		string[] registry_urls;
 		string[] debug_versions;
+		string root_path = getcwd();
 		getopt(args,
 			"v|verbose", &verbose,
 			"vverbose", &vverbose,
@@ -74,7 +75,8 @@ int main(string[] args)
 			"system", &install_system,
 			"local", &install_local,
 			"version", &install_version,
-			"registry", &registry_urls
+			"registry", &registry_urls,
+			"root", &root_path
 			);
 
 		if( vverbose ) loglevel = LogLevel.debug_;
@@ -111,12 +113,12 @@ int main(string[] args)
 			logInfo("");
 		}
 
-		Dub dub = new Dub(registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array);
+		Dub dub = new Dub(registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array, root_path);
 		string def_config;
 
 		bool loadCwdPackage()
 		{
-			if( !existsFile("package.json") && !existsFile("source/app.d") ){
+			if( !existsFile(dub.rootPath~"package.json") && !existsFile(dub.rootPath~"source/app.d") ){
 				logInfo("");
 				logInfo("Neither package.json, nor source/app.d was found in the current directory.");
 				logInfo("Please run dub from the root directory of an existing package, or create a new");
@@ -344,6 +346,7 @@ General options:
         --vquiet         No output
         --registry=URL   Search the given DUB registry URL first when resolving
                          dependencies. Can be specified multiple times.
+        --root=PATH      Path to operate in instead of the current working dir
 
 Build/run options:
         --build=NAME     Specifies the type of build to perform. Note that

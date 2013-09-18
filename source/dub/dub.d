@@ -59,9 +59,10 @@ class Dub {
 
 	/// Initiales the package manager for the vibe application
 	/// under root.
-	this(PackageSupplier[] additional_package_suppliers = null)
+	this(PackageSupplier[] additional_package_suppliers = null, string root_path = ".")
 	{
-		m_cwd = Path(getcwd());
+		m_cwd = Path(root_path);
+		if (!m_cwd.absolute) m_cwd = Path(getcwd()) ~ m_cwd;
 
 		version(Windows){
 			m_systemDubPath = Path(environment.get("ProgramData")) ~ "dub/";
@@ -85,6 +86,10 @@ class Dub {
 		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
 		updatePackageSearchPath();
 	}
+
+	/** Returns the root path (usually the current working directory).
+	*/
+	@property Path rootPath() const { return m_cwd; }
 
 	/// Returns the name listed in the package.json of the current
 	/// application.
