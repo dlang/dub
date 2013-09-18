@@ -346,7 +346,7 @@ class Dub {
 		//raw strings must be unindented. 
 		immutable packageJson = 
 `{
-	"name": "`~(path.empty ? "my-project" : path.head.toString())~`",
+	"name": "`~(path.empty ? "my-project" : path.head.toString().toLower())~`",
 	"description": "An example project skeleton",
 	"homepage": "http://example.org",
 	"copyright": "Copyright © 2000, Your Name",
