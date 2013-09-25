@@ -212,7 +212,7 @@ EndGlobal");
 					string[] prjFiles;
 
 					// Avoid multiples package.json when using sub-packages.
-					// Only add the package info file if no mother module/sub-module from the same base package
+					// Only add the package info file if no other package/sub-package from the same base package
 					// has been seen yet.
 					{
 						const(Package) base = prj.basePackage();
