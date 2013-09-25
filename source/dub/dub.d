@@ -398,10 +398,9 @@ void main()
 			ddox_dub.loadPackage(ddox_pack.path);
 
 			GeneratorSettings settings;
-			settings.compilerBinary = "dmd";
 			settings.config = "application";
-			settings.compiler = getCompiler(settings.compilerBinary);
-			settings.platform = settings.compiler.determinePlatform(settings.buildSettings, settings.compilerBinary);
+			settings.compiler = getCompiler(settings.platform.compilerBinary);
+			settings.platform = settings.compiler.determinePlatform(settings.buildSettings, settings.platform.compilerBinary);
 			settings.buildType = "debug";
 			ddox_dub.generateProject("build", settings);
 

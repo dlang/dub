@@ -37,7 +37,6 @@ struct GeneratorSettings {
 	BuildPlatform platform;
 	string config;
 	Compiler compiler;
-	string compilerBinary; // compiler executable name
 	BuildSettings buildSettings;
 
 	// only used for generator "rdmd"

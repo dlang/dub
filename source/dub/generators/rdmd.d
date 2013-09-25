@@ -70,7 +70,7 @@ class RdmdGenerator : ProjectGenerator {
 
 		logDiagnostic("Application output name is '%s'", getTargetFileName(buildsettings, settings.platform));
 
-		string[] flags = ["--build-only", "--compiler="~settings.compilerBinary];
+		string[] flags = ["--build-only", "--compiler="~settings.platform.compilerBinary];
 		flags ~= buildsettings.dflags;
 		flags ~= (mainsrc).toNativeString();
 

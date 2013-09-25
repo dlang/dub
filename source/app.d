@@ -1,7 +1,7 @@
 /**
 	The entry point to dub
 
-	Copyright: © 2012 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff, Sönke Ludwig
 */
@@ -250,7 +250,6 @@ int main(string[] args)
 				gensettings.config = build_config;
 				gensettings.buildType = build_type;
 				gensettings.compiler = compiler;
-				gensettings.compilerBinary = compiler_name;
 				gensettings.buildSettings = build_settings;
 				gensettings.run = cmd == "run";
 				gensettings.runArgs = args[1 .. $];

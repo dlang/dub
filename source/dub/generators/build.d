@@ -101,13 +101,13 @@ class BuildGenerator : ProjectGenerator {
 			      on the other compilers. Later this should be integrated somehow in the build process
 			      (either in the package.json, or using a command line flag)
 		*/
-		if (settings.compilerBinary != "dmd" || !generate_binary || is_static_library) {
+		if (settings.platform.compilerBinary != "dmd" || !generate_binary || is_static_library) {
 			// setup for command line
 			if( generate_binary ) settings.compiler.setTarget(buildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			// invoke the compiler
-			logInfo("Running %s...", settings.compilerBinary);
+			logInfo("Running %s...", settings.platform.compilerBinary);
 			if( settings.run ) cleanup_files ~= exe_file_path;
 			settings.compiler.invoke(buildsettings, settings.platform);
 		} else {
@@ -128,10 +128,10 @@ class BuildGenerator : ProjectGenerator {
 			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !f.endsWith(".lib"))().array();
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
-			logInfo("Running %s (compile)...", settings.compilerBinary);
+			logInfo("Compiling...");
 			settings.compiler.invoke(buildsettings, settings.platform);
 
-			logInfo("Linking...", settings.compilerBinary);
+			logInfo("Linking...");
 			if( settings.run ) cleanup_files ~= exe_file_path;
 			settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()]);
 		}
