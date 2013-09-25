@@ -26,6 +26,17 @@ import std.typecons;
 import std.zip;
 
 
+Path getTempDir()
+{
+	auto tmp = environment.get("TEMP");
+	if( !tmp.length ) tmp = environment.get("TMP");
+	if( !tmp.length ){
+		version(Posix) tmp = "/tmp/";
+		else tmp = "./";
+	}
+	return Path(tmp);
+}
+
 package bool isEmptyDir(Path p) {
 	foreach(DirEntry e; dirEntries(p.toNativeString(), SpanMode.shallow))
 		return false;

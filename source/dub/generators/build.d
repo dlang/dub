@@ -57,12 +57,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		// find the temp directory
-		auto tmp = environment.get("TEMP");
-		if( !tmp.length ) tmp = environment.get("TMP");
-		if( !tmp.length ){
-			version(Posix) tmp = "/tmp";
-			else tmp = ".";
-		}
+		auto tmp = getTempDir();
 
 		if( settings.config.length ) logInfo("Building configuration \""~settings.config~"\", build type "~settings.buildType);
 		else logInfo("Building default configuration, build type "~settings.buildType);
@@ -78,7 +73,7 @@ class BuildGenerator : ProjectGenerator {
 			if( settings.run ){
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max));
-				buildsettings.targetPath = (Path(tmp)~"dub/"~rnd).toNativeString();
+				buildsettings.targetPath = (tmp~"dub/"~rnd).toNativeString();
 			}
 			exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 		}
@@ -111,18 +106,10 @@ class BuildGenerator : ProjectGenerator {
 			if( generate_binary ) settings.compiler.setTarget(buildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
-			// write response file instead of passing flags directly to the compiler
-			auto res_file = Path(buildsettings.targetPath) ~ "dub-build.rsp";
-			cleanup_files ~= res_file;
-			std.file.write(res_file.toNativeString(), join(buildsettings.dflags.map!(s => s.canFind(' ') ? "\""~s~"\"" : s), "\n"));
-
 			// invoke the compiler
 			logInfo("Running %s...", settings.compilerBinary);
-			logDiagnostic("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
 			if( settings.run ) cleanup_files ~= exe_file_path;
-			auto compiler_pid = spawnProcess([settings.compilerBinary, "@"~res_file.toNativeString()]);
-			auto result = compiler_pid.wait();
-			enforce(result == 0, "Build command failed with exit code "~to!string(result));
+			settings.compiler.invoke(buildsettings, settings.platform);
 		} else {
 			// determine path for the temporary object file
 			version(Windows) enum tempobjname = "temp.obj";
@@ -141,16 +128,8 @@ class BuildGenerator : ProjectGenerator {
 			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !f.endsWith(".lib"))().array();
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
-			// write response file instead of passing flags directly to the compiler
-			auto res_file = Path(buildsettings.targetPath) ~ "dub-build.rsp";
-			cleanup_files ~= res_file;
-			cleanup_files ~= tempobj;
-			std.file.write(res_file.toNativeString(), join(buildsettings.dflags.map!(s => s.canFind(' ') ? "\""~s~"\"" : s), "\n"));
-
 			logInfo("Running %s (compile)...", settings.compilerBinary);
-			logDiagnostic("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
-			auto result = spawnProcess([settings.compilerBinary, "@"~res_file.toNativeString()]).wait();
-			enforce(result == 0, "Build command failed with exit code "~to!string(result));
+			settings.compiler.invoke(buildsettings, settings.platform);
 
 			logInfo("Linking...", settings.compilerBinary);
 			if( settings.run ) cleanup_files ~= exe_file_path;

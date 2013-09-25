@@ -12,11 +12,14 @@ import dub.internal.std.process;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
 import dub.platform;
+import dub.utils;
 
 import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
+import std.file;
+import std.random;
 import std.typecons;
 
 
@@ -54,6 +57,7 @@ class LdcCompiler : Compiler {
 		build_platform.platform = .determinePlatform();
 		build_platform.architecture = .determineArchitecture();
 		build_platform.compiler = this.name;
+		build_platform.compilerBinary = compiler_binary;
 
 		enforce(arch_override.length == 0, "Architecture override not implemented for LDC.");
 		return build_platform;
@@ -141,6 +145,18 @@ class LdcCompiler : Compiler {
 
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
 		settings.addDFlags("-of"~tpath.toNativeString());
+	}
+
+	void invoke(in BuildSettings settings, in BuildPlatform platform)
+	{
+		auto res_file = getTempDir() ~ ("dub-build-"~uniform(0, uint.max).to!string~"-.rsp");
+		std.file.write(res_file.toNativeString(), join(cast(string[])settings.dflags, "\n"));
+		scope (exit) remove(res_file.toNativeString());
+
+		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
+		auto compiler_pid = spawnProcess([platform.compilerBinary, "@"~res_file.toNativeString()]);
+		auto result = compiler_pid.wait();
+		enforce(result == 0, "LDC compile run failed with exit code "~to!string(result));
 	}
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects)

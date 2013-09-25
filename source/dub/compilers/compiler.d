@@ -154,6 +154,9 @@ interface Compiler {
 	/// Adds the appropriate flag to set a target path
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform);
 
+	/// Invokes the compiler using the given flags
+	void invoke(in BuildSettings settings, in BuildPlatform platform);
+
 	/// Invokes the underlying linker directly
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects);
 
@@ -265,8 +268,10 @@ struct BuildPlatform {
 	string[] platform;
 	/// e.g. ["x86", "x86_64"]
 	string[] architecture;
-	/// e.g. "dmd"
+	/// Canonical compiler name e.g. "dmd"
 	string compiler;
+	/// Compiler binary name e.g. "ldmd2"
+	string compilerBinary;
 
 	/// Build platforms can be specified via a string specification.
 	///
