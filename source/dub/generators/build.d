@@ -112,9 +112,9 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			// write response file instead of passing flags directly to the compiler
-			auto res_file = Path(buildsettings.targetPath) ~ ".dmd-response-file.txt";
+			auto res_file = Path(buildsettings.targetPath) ~ "dub-build.rsp";
 			cleanup_files ~= res_file;
-			std.file.write(res_file.toNativeString(), join(buildsettings.dflags.map!(s => "\""~s~"\"")(), "\n"));
+			std.file.write(res_file.toNativeString(), join(buildsettings.dflags.map!(s => s.canFind(' ') ? "\""~s~"\"" : s), "\n"));
 
 			// invoke the compiler
 			logInfo("Running %s...", settings.compilerBinary);
@@ -142,10 +142,10 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			// write response file instead of passing flags directly to the compiler
-			auto res_file = Path(buildsettings.targetPath) ~ ".dmd-response-file.txt";
+			auto res_file = Path(buildsettings.targetPath) ~ "dub-build.rsp";
 			cleanup_files ~= res_file;
 			cleanup_files ~= tempobj;
-			std.file.write(res_file.toNativeString(), join(buildsettings.dflags.map!(s => "\""~s~"\"")(), "\n"));
+			std.file.write(res_file.toNativeString(), join(buildsettings.dflags.map!(s => s.canFind(' ') ? "\""~s~"\"" : s), "\n"));
 
 			logInfo("Running %s (compile)...", settings.compilerBinary);
 			logDiagnostic("%s %s", settings.compilerBinary, join(buildsettings.dflags, " "));
