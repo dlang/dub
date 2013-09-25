@@ -1,19 +1,19 @@
 /**
 	Management of packages on the local computer.
 
-	Copyright: © 2012 rejectedsoftware e.K.
+	Copyright: © 2012-2013 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig, Matthias Dondorff
 */
 module dub.packagemanager;
 
 import dub.dependency;
+import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.package_;
-import dub.utils;
 
 import std.algorithm : countUntil, filter, sort, canFind;
 import std.array;

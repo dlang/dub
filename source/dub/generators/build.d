@@ -1,7 +1,7 @@
 /**
 	Generator for direct compiler builds.
 	
-	Copyright: © 2013 rejectedsoftware e.K.
+	Copyright: © 2013-2013 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
@@ -10,13 +10,13 @@ module dub.generators.build;
 import dub.compilers.compiler;
 import dub.generators.generator;
 import dub.internal.std.process;
+import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
-import dub.utils;
 
 import std.algorithm;
 import std.array;

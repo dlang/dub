@@ -1,7 +1,7 @@
 /**
 	Generator for direct RDMD builds.
 	
-	Copyright: © 2013 rejectedsoftware e.K.
+	Copyright: © 2013-2013 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
@@ -10,13 +10,13 @@ module dub.generators.rdmd;
 import dub.compilers.compiler;
 import dub.generators.generator;
 import dub.internal.std.process;
+import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
-import dub.utils;
 
 import std.algorithm;
 import std.array;
@@ -61,13 +61,7 @@ class RdmdGenerator : ProjectGenerator {
 			if( settings.run ){
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
-				auto tmp = environment.get("TEMP");
-				if( !tmp.length ) tmp = environment.get("TMP");
-				if( !tmp.length ){
-					version(Posix) tmp = "/tmp";
-					else tmp = ".";
-				}
-				buildsettings.targetPath = (Path(tmp)~".rdmd/source/").toNativeString();
+				buildsettings.targetPath = (getTempDir()~".rdmd/source/").toNativeString();
 				buildsettings.targetName = rnd ~ buildsettings.targetName;
 				run_exe_file = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 			}

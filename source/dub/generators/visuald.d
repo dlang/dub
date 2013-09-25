@@ -1,7 +1,7 @@
 /**
 	Generator for VisualD project files
 	
-	Copyright: © 2012 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
 */
@@ -9,12 +9,12 @@ module dub.generators.visuald;
 
 import dub.compilers.compiler;
 import dub.generators.generator;
+import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
-import dub.utils;
 
 import std.algorithm;
 import std.array;

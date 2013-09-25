@@ -1,7 +1,7 @@
 /**
 	LDC compiler support.
 
-	Copyright: © 2013 rejectedsoftware e.K.
+	Copyright: © 2013-2013 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
@@ -9,10 +9,10 @@ module dub.compilers.ldc;
 
 import dub.compilers.compiler;
 import dub.internal.std.process;
+import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
 import dub.platform;
-import dub.utils;
 
 import std.algorithm;
 import std.array;

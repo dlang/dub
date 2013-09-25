@@ -1,7 +1,7 @@
 /**
 	Representing a full project, with a root Package and several dependencies.
 
-	Copyright: © 2012 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff, Sönke Ludwig
 */
@@ -9,12 +9,12 @@ module dub.project;
 
 import dub.compilers.compiler;
 import dub.dependency;
+import dub.internal.utils;
 import dub.internal.std.process;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
-import dub.utils;
 import dub.package_;
 import dub.packagemanager;
 import dub.packagesupplier;

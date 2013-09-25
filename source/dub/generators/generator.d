@@ -1,7 +1,7 @@
 /**
 	Generator for project files
 	
-	Copyright: © 2012 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
 */
@@ -119,7 +119,7 @@ void finalizeGeneration(BuildSettings buildsettings, bool generate_binary)
 void runBuildCommands(string[] commands, in BuildSettings build_settings)
 {
 	import dub.internal.std.process;
-	import dub.utils;
+	import dub.internal.utils;
 
 	string[string] env = environment.toAA();
 	// TODO: do more elaborate things here

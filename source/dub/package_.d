@@ -1,7 +1,7 @@
 /**
 	Stuff with dependencies.
 
-	Copyright: © 2012 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
 */
@@ -9,11 +9,11 @@ module dub.package_;
 
 import dub.compilers.compiler;
 import dub.dependency;
+import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
-import dub.utils;
 
 import std.algorithm;
 import std.array;

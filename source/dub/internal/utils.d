@@ -5,7 +5,7 @@
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
 */
-module dub.utils;
+module dub.internal.utils;
 
 import dub.internal.std.process;
 import dub.internal.vibecompat.core.file;
@@ -37,13 +37,13 @@ Path getTempDir()
 	return Path(tmp);
 }
 
-package bool isEmptyDir(Path p) {
+bool isEmptyDir(Path p) {
 	foreach(DirEntry e; dirEntries(p.toNativeString(), SpanMode.shallow))
 		return false;
 	return true;
 }
 
-package Json jsonFromFile(Path file, bool silent_fail = false) {
+Json jsonFromFile(Path file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.EmptyObject;
 	auto f = openFile(file.toNativeString(), FileMode.Read);
 	scope(exit) f.close();
@@ -51,7 +51,7 @@ package Json jsonFromFile(Path file, bool silent_fail = false) {
 	return parseJson(text);
 }
 
-package Json jsonFromZip(Path zip, string filename) {
+Json jsonFromZip(Path zip, string filename) {
 	auto f = openFile(zip, FileMode.Read);
 	ubyte[] b = new ubyte[cast(size_t)f.size];
 	f.rawRead(b);
@@ -61,29 +61,22 @@ package Json jsonFromZip(Path zip, string filename) {
 	return parseJson(text);
 }
 
-package void writeJsonFile(Path path, Json json)
+void writeJsonFile(Path path, Json json)
 {
 	auto f = openFile(path, FileMode.CreateTrunc);
 	scope(exit) f.close();
 	f.writePrettyJsonString(json);
 }
 
-package bool isPathFromZip(string p) {
+bool isPathFromZip(string p) {
 	enforce(p.length > 0);
 	return p[$-1] == '/';
 }
 
-package bool existsDirectory(Path path) {
+bool existsDirectory(Path path) {
 	if( !existsFile(path) ) return false;
 	auto fi = getFileInfo(path);
 	return fi.isDirectory;
-}
-
-private string stripUTF8Bom(string str)
-{
-	if( str.length >= 3 && str[0 .. 3] == [0xEF, 0xBB, 0xBF] )
-		return str[3 ..$];
-	return str;
 }
 
 void runCommands(string[] commands, string[string] env = null)
@@ -142,4 +135,11 @@ private HTTP setupHTTPClient()
 
 	conn.addRequestHeader("User-Agent", "dub/"~verstr~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
 	return conn;
+}
+
+private string stripUTF8Bom(string str)
+{
+	if( str.length >= 3 && str[0 .. 3] == [0xEF, 0xBB, 0xBF] )
+		return str[3 ..$];
+	return str;
 }

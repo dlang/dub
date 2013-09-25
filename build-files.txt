@@ -6,7 +6,6 @@ source/dub/packagesupplier.d
 source/dub/package_.d
 source/dub/platform.d
 source/dub/project.d
-source/dub/utils.d
 source/dub/compilers/compiler.d
 source/dub/compilers/dmd.d
 source/dub/compilers/gdc.d
@@ -18,6 +17,7 @@ source/dub/generators/rdmd.d
 source/dub/generators/visuald.d
 source/dub/internal/std/process.d
 source/dub/internal/std/processcompat.d
+source/dub/internal/utils.d
 source/dub/internal/vibecompat/core/file.d
 source/dub/internal/vibecompat/core/log.d
 source/dub/internal/vibecompat/data/json.d
