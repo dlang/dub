@@ -202,13 +202,29 @@ EndGlobal");
 			auto files = pack.getBuildSettings(settings.platform, configs[pack.name]);
 			bool[SourceFile] sourceFiles;
 			if (m_combinedProject) {
+
+				bool[const(Package)] basePackagesAdded;
+
 				// add all package.json files to the project
 				// and all source files
 				performOnDependencies(pack, configs, (prj) {
 
 					string[] prjFiles;
-					prjFiles ~= prj.packageInfoFile.toNativeString();
-					prjFiles = prjFiles ~ prj.getBuildSettings(settings.platform, configs[prj.name]).sourceFiles;					
+
+					// Avoid multiples package.json when using sub-packages.
+					// Only add the package info file if no mother module/sub-module from the same base package
+					// has been seen yet.
+					{
+						const(Package) base = prj.basePackage();
+
+						if (base !in basePackagesAdded)
+						{
+							prjFiles ~= prj.packageInfoFile.toNativeString();
+							basePackagesAdded[base] = true;
+						}
+					}
+
+					prjFiles = prjFiles ~ prj.getBuildSettings(settings.platform, configs[prj.name]).sourceFiles;
 
 					foreach(s; prjFiles){
 						auto sp = Path(s);
