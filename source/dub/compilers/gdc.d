@@ -150,7 +150,7 @@ class GdcCompiler : Compiler {
 	void invoke(in BuildSettings settings, in BuildPlatform platform)
 	{
 		auto res_file = getTempDir() ~ ("dub-build-"~uniform(0, uint.max).to!string~"-.rsp");
-		std.file.write(res_file.toNativeString(), join(settings.dflags.map!(s => s.canFind(' ') ? "\""~s~"\"" : s), "\n"));
+		std.file.write(res_file.toNativeString(), join(settings.dflags.map!(s => escape(s)), "\n"));
 		scope (exit) remove(res_file.toNativeString());
 
 		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
@@ -163,4 +163,17 @@ class GdcCompiler : Compiler {
 	{
 		assert(false, "Separate linking not implemented for GDC");
 	}
+}
+
+private string escape(string str)
+{
+	auto ret = appender!string();
+	foreach (char ch; str) {
+		switch (ch) {
+			default: ret.put(ch); break;
+			case '\\': ret.put(`\\`); break;
+			case ' ': ret.put(`\ `); break;
+		}
+	}
+	return ret.data;
 }
