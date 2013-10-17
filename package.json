@@ -1,6 +1,7 @@
 ﻿{
 	"name": "dub",
 	"description": "Package manager for D packages",
+	"license": "MIT",
 	"copyright": "Copyright 2012 rejectedsoftware e.K.",
 	"authors": [
 		"Matthias Dondorff",
