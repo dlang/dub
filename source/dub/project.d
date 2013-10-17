@@ -36,6 +36,7 @@ import std.zip;
 /// Representing a full project, with a root Package and several dependencies.
 class Project {
 	private {
+		bool m_fixedPackage;
 		Path m_root;
 		PackageManager m_packageManager;
 		Json m_json;
@@ -47,8 +48,19 @@ class Project {
 
 	this(PackageManager package_manager, Path project_path)
 	{
-		m_root = project_path;
 		m_packageManager = package_manager;
+		m_root = project_path;
+		m_fixedPackage = false;
+		m_json = Json.EmptyObject;
+		reinit();
+	}
+
+	this(PackageManager package_manager, Package pack)
+	{
+		m_packageManager = package_manager;
+		m_root = pack.path;
+		m_main = pack;
+		m_fixedPackage = true;
 		m_json = Json.EmptyObject;
 		reinit();
 	}
@@ -140,25 +152,29 @@ class Project {
 	{
 		scope(failure){
 			logDiagnostic("Failed to initialize project. Assuming defaults.");
-			m_main = new Package(serializeToJson(["name": "unknown"]), m_root);
+			if (!m_fixedPackage) m_main = new Package(serializeToJson(["name": "unknown"]), m_root);
 		}
 
 		m_dependencies = null;
-		m_main = null;
 		m_packageManager.refresh(false);
 
 		try m_json = jsonFromFile(m_root ~ ".dub/dub.json", true);
 		catch(Exception t) logDiagnostic("Failed to read .dub/dub.json: %s", t.msg);
 
-		if( !existsFile(m_root~PackageJsonFilename) ){
-			logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root.toNativeString());
-			auto json = Json.EmptyObject;
-			json.name = "unknown";
-			m_main = new Package(json, m_root);
-			return;
+		// load package description
+		if (!m_fixedPackage) {
+			if (!existsFile(m_root~PackageJsonFilename)) {
+				logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root.toNativeString());
+				auto json = Json.EmptyObject;
+				json.name = "unknown";
+				m_main = new Package(json, m_root);
+				return;
+			}
+
+			m_main = m_packageManager.getPackage(m_root);
 		}
 
-		m_main = m_packageManager.getPackage(m_root);
+		// some basic package lint
 		m_main.warnOnSpecialCompilerFlags();
 		if (m_main.name != m_main.name.toLower()) {
 			logWarn(`DUB package names should always be lower case, please change to {"name": "%s"}. You can use {"targetName": "%s"} to keep the current executable name.`,

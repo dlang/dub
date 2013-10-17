@@ -54,6 +54,7 @@ int main(string[] args)
 		string install_version;
 		string[] registry_urls;
 		string[] debug_versions;
+		string[] app_args;
 		string root_path = getcwd();
 		getopt(args,
 			"v|verbose", &verbose,
@@ -92,7 +93,11 @@ int main(string[] args)
 		} else cmd = "run";
 
 		// contrary to the documentation, getopt does not remove --
-		if( args.length >= 2 && args[1] == "--" ) args = args[0] ~ args[2 .. $];
+		auto app_args_idx = args.countUntil("--");
+		if (app_args_idx >= 0) {
+			app_args = args[app_args_idx+1 .. $];
+			args = args[0 .. app_args_idx];
+		}
 
 		// display help if requested (obsolete)
 		if( help ){
@@ -113,12 +118,13 @@ int main(string[] args)
 			logInfo("");
 		}
 
-		Dub dub = new Dub(registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array, root_path);
+		auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
+		Dub dub = new Dub(package_suppliers, root_path);
 		string def_config;
 
-		bool loadCwdPackage()
+		bool loadCwdPackage(Package pack)
 		{
-			if( !existsFile(dub.rootPath~"package.json") && !existsFile(dub.rootPath~"source/app.d") ){
+			if (!existsFile(dub.rootPath~"package.json") && !existsFile(dub.rootPath~"source/app.d")) {
 				logInfo("");
 				logInfo("Neither package.json, nor source/app.d was found in the current directory.");
 				logInfo("Please run dub from the root directory of an existing package, or create a new");
@@ -128,10 +134,11 @@ int main(string[] args)
 				return false;
 			}
 
-			dub.loadPackageFromCwd();
+			if (pack) dub.loadPackage(pack);
+			else dub.loadPackageFromCwd();
 
 			def_config = dub.getDefaultConfiguration(build_platform);
-			if( !build_config.length ) build_config = def_config;
+			if (!build_config.length) build_config = def_config;
 
 			return true;
 		}
@@ -207,17 +214,31 @@ int main(string[] args)
 			case "run":
 			case "build":
 			case "generate":
-				if (!loadCwdPackage()) return 1;
-
 				string generator;
-				if( cmd == "run" || cmd == "build" ) generator = rdmd ? "rdmd" : "build";
-				else {
-					if( args.length >= 2 ) generator = args[1];
+				string package_name;
+				if( cmd == "run" || cmd == "build" ) {
+					generator = rdmd ? "rdmd" : "build";
+					if (args.length >= 2) package_name = args[1];
+				} else {
+					if (args.length >= 2) generator = args[1];
+					if (args.length >= 3) package_name = args[2];
 					if(generator.empty) {
-						logInfo("Usage: dub generate <generator_name>");
+						logInfo("Usage: dub generate <generator_name> [<package name>]");
 						return 1;
 					}
 				}
+
+				Package pack;
+				if (!package_name.empty) {
+					// load package in root_path to enable searching for sub packages
+					loadCwdPackage(null);
+					pack = dub.packageManager.getFirstPackage(package_name);
+					enforce(pack, "Failed to find a package named '"~package_name~"'.");
+					logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
+					root_path = pack.path.toNativeString();
+					dub = new Dub(package_suppliers, root_path);
+				}
+				if (!loadCwdPackage(pack)) return 1;
 
 				if( print_builds ){
 					logInfo("Available build types:");
@@ -252,14 +273,14 @@ int main(string[] args)
 				gensettings.compiler = compiler;
 				gensettings.buildSettings = build_settings;
 				gensettings.run = cmd == "run";
-				gensettings.runArgs = args[1 .. $];
+				gensettings.runArgs = app_args;
 
 				logDiagnostic("Generating using %s", generator);
 				dub.generateProject(generator, gensettings);
 				if( build_type == "ddox" ) dub.runDdox();
 				break;
 			case "describe":
-				if (!loadCwdPackage()) return 1;
+				if (!loadCwdPackage(null)) return 1;
 				dub.describeProject(build_platform, build_config);				
 				break;
 		}
@@ -321,8 +342,9 @@ dub will default to "run".
 Available commands:
     help                 Prints this help screen
     init [<directory>]   Initializes an empty project in the specified directory
-    run                  Compiles and runs the application (default command)
-    build                Just compiles the application in the project directory
+    run [<package>]      Builds and runs a package (default command)
+    build [<package>]    Builds a package (uses the main package in the current
+                         working directory by default)
     upgrade              Forces an upgrade of all dependencies
     install <name>       Manually installs a package. See 'dub help install'.
     uninstall <name>     Uninstalls a package. See 'dub help uninstall'.
@@ -332,7 +354,8 @@ Available commands:
     add-path <dir>       Adds a default package search path
     remove-path <dir>    Removes a package search path
     list-installed       Prints a list of all installed packages
-    generate <name>      Generates project files using the specified generator:
+    generate <name> [<package>]
+                         Generates project files using the specified generator:
                            visuald, visuald-combined, mono-d, build, rdmd
     describe             Prints a JSON description of the project and its
                          dependencies

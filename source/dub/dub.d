@@ -50,7 +50,7 @@ class Dub {
 	private {
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
-		Path m_cwd, m_tempPath;
+		Path m_rootPath, m_tempPath;
 		Path m_userDubPath, m_systemDubPath;
 		Json m_systemConfig, m_userConfig;
 		Path m_projectPath;
@@ -61,8 +61,8 @@ class Dub {
 	/// under root.
 	this(PackageSupplier[] additional_package_suppliers = null, string root_path = ".")
 	{
-		m_cwd = Path(root_path);
-		if (!m_cwd.absolute) m_cwd = Path(getcwd()) ~ m_cwd;
+		m_rootPath = Path(root_path);
+		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
 
 		version(Windows){
 			m_systemDubPath = Path(environment.get("ProgramData")) ~ "dub/";
@@ -89,7 +89,7 @@ class Dub {
 
 	/** Returns the root path (usually the current working directory).
 	*/
-	@property Path rootPath() const { return m_cwd; }
+	@property Path rootPath() const { return m_rootPath; }
 
 	/// Returns the name listed in the package.json of the current
 	/// application.
@@ -105,7 +105,7 @@ class Dub {
 	/// project package.
 	void loadPackageFromCwd()
 	{
-		loadPackage(m_cwd);
+		loadPackage(m_rootPath);
 	}
 
 	/// Loads the package from the specified path as the main project package.
@@ -114,6 +114,14 @@ class Dub {
 		m_projectPath = path;
 		updatePackageSearchPath();
 		m_project = new Project(m_packageManager, m_projectPath);
+	}
+
+	/// Loads a specific package as the main project package (can be a sub package)
+	void loadPackage(Package pack)
+	{
+		m_projectPath = pack.path;
+		updatePackageSearchPath();
+		m_project = new Project(m_packageManager, pack);
 	}
 
 	string getDefaultConfiguration(BuildPlatform platform) const { return m_project.getDefaultConfiguration(platform); }
@@ -203,7 +211,7 @@ class Dub {
 
 		Path install_path;
 		final switch (location) {
-			case InstallLocation.local: install_path = m_cwd; break;
+			case InstallLocation.local: install_path = m_rootPath; break;
 			case InstallLocation.userWide: install_path = m_userDubPath ~ "packages/"; break;
 			case InstallLocation.systemWide: install_path = m_systemDubPath ~ "packages/"; break;
 		}
@@ -325,7 +333,7 @@ class Dub {
 
 	void createEmptyPackage(Path path)
 	{
-		if( !path.absolute() ) path = m_cwd ~ path;
+		if( !path.absolute() ) path = m_rootPath ~ path;
 		path.normalize();
 
 		//Check to see if a target directory needs to be created
@@ -432,6 +440,6 @@ void main()
 		m_packageManager.searchPath = paths;
 	}
 
-	private Path makeAbsolute(Path p) const { return p.absolute ? p : m_cwd ~ p; }
+	private Path makeAbsolute(Path p) const { return p.absolute ? p : m_rootPath ~ p; }
 	private Path makeAbsolute(string p) const { return makeAbsolute(Path(p)); }
 }

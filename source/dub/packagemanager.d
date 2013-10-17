@@ -108,6 +108,13 @@ class PackageManager {
 		return null;
 	}
 
+	Package getFirstPackage(string name)
+	{
+		foreach (ep; getPackageIterator(name))
+			return ep;
+		return null;
+	}
+
 	Package getPackage(Path path)
 	{
 		foreach (p; getPackageIterator())
