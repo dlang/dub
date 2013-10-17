@@ -8,7 +8,6 @@
 module dub.internal.vibecompat.core.file;
 
 public import dub.internal.vibecompat.inet.url;
-public import std.stdio;
 
 import dub.internal.vibecompat.core.log;
 
@@ -18,6 +17,7 @@ import std.datetime;
 import std.exception;
 import std.file;
 import std.path;
+static import std.stream;
 import std.string;
 import std.utf;
 
@@ -30,23 +30,29 @@ version(Posix){
 /* Add output range support to File
 */
 struct RangeFile {
-	File file;
-	alias file this;
+	std.stream.File file;
 
-	void put(in ubyte[] bytes) { file.rawWrite(bytes); }
+	void put(in ubyte[] bytes) { file.writeExact(bytes.ptr, bytes.length); }
 	void put(in char[] str) { put(cast(ubyte[])str); }
 	void put(char ch) { put((&ch)[0 .. 1]); }
 	void put(dchar ch) { char[4] chars; put(chars[0 .. encode(chars, ch)]); }
 	
 	ubyte[] readAll()
 	{
-		file.seek(0, SEEK_END);
-		auto sz = file.tell();
+		file.seek(0, std.stream.SeekPos.End);
+		auto sz = file.position;
 		enforce(sz <= size_t.max, "File is too big to read to memory.");
-		file.seek(0, SEEK_SET);
+		file.seek(0, std.stream.SeekPos.Set);
 		auto ret = new ubyte[cast(size_t)sz];
-		return file.rawRead(ret);
+		file.readExact(ret.ptr, ret.length);
+		return ret;
 	}
+
+	void rawRead(ubyte[] dst) { file.readExact(dst.ptr, dst.length); }
+	void write(string str) { put(str); }
+	void close() { file.close(); }
+	void flush() { file.flush(); }
+	@property ulong size() { return file.size; }
 }
 
 
@@ -55,14 +61,14 @@ struct RangeFile {
 */
 RangeFile openFile(Path path, FileMode mode = FileMode.Read)
 {
-	string strmode;
+	std.stream.FileMode fmode;
 	final switch(mode){
-		case FileMode.Read: strmode = "rb"; break;
-		case FileMode.ReadWrite: strmode = "rb+"; break;
-		case FileMode.CreateTrunc: strmode = "wb+"; break;
-		case FileMode.Append: strmode = "ab"; break;
+		case FileMode.Read: fmode = std.stream.FileMode.In; break;
+		case FileMode.ReadWrite: fmode = std.stream.FileMode.Out; break;
+		case FileMode.CreateTrunc: fmode = std.stream.FileMode.OutNew; break;
+		case FileMode.Append: fmode = std.stream.FileMode.Append; break;
 	}
-	auto ret = File(path.toNativeString(), strmode);
+	auto ret = new std.stream.File(path.toNativeString(), fmode);
 	assert(ret.isOpen());
 	return RangeFile(ret);
 }
@@ -72,33 +78,6 @@ RangeFile openFile(string path, FileMode mode = FileMode.Read)
 	return openFile(Path(path), mode);
 }
 
-/**
-	Creates and opens a temporary file for writing.
-*/
-RangeFile createTempFile(string suffix = null)
-{
-	version(Windows){
-		char[L_tmpnam] tmp;
-		tmpnam(tmp.ptr);
-		auto tmpname = to!string(tmp.ptr);
-		if( tmpname.startsWith("\\") ) tmpname = tmpname[1 .. $];
-		tmpname ~= suffix;
-		logDiagnostic("tmp %s", tmpname);
-		return openFile(tmpname, FileMode.CreateTrunc);
-	} else {
-		import core.sys.posix.stdio;
-		enum pattern ="/tmp/vtmp.XXXXXX";
-		scope templ = new char[pattern.length+suffix.length+1];
-		templ[0 .. pattern.length] = pattern;
-		templ[pattern.length .. $-1] = suffix[];
-		templ[$-1] = '\0';
-		assert(suffix.length <= int.max);
-		auto fd = mkstemps(templ.ptr, cast(int)suffix.length);
-		enforce(fd >= 0, "Failed to create temporary file.");
-		auto ret = File.wrapFile(fdopen(fd, "wb+"));
-		return RangeFile(ret);
-	}
-}
 
 /**
 	Moves or renames a file.
