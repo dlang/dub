@@ -1,6 +1,33 @@
 Changelog
 =========
 
+v0.9.19 - 2013-10-18
+--------------------
+
+### Features and improvements ###
+
+ - Added the possibility to build or run a specific package, inculding sub packages
+ - Implemented a new "--root=PATH" switch to let dub operate from a different directory than the current working directory
+ - "dub init" now always emits lower case DUB package names
+ - Improved diagnostic output for "dub add-local" and "dub remove-local"
+ - Using the static version of Phobos fro building DUB to improve platform independence on Linux
+
+### Bug fixes ###
+
+ - Fixed erroneos "-debug" switches in non-debug builds
+ - Enabled again a warning when using "-debug=" flags in "dflags" instead of using "debugVersions"
+ - Fixed handling of paths with spaces for "--build=ddox"
+ - Fixed inclusion of multiple instances of the same package.json files in the "visuald-combined" generator (by p0nce) - [pull #124][issue124]
+ - Fixed response file output for LDC - [issue #86][issue86]
+ - Fixed response file output for GDC - [issue #125][issue125]
+ - Partially fixed working in paths with unicode characters by avoiding `std.stdio.File` - [issue #130][issue130]
+
+[issue86]: https://github.com/rejectedsoftware/dub/issues/86
+[issue124]: https://github.com/rejectedsoftware/dub/issues/124
+[issue125]: https://github.com/rejectedsoftware/dub/issues/125
+[issue130]: https://github.com/rejectedsoftware/dub/issues/130
+
+
 v0.9.18 - 2013-09-11
 --------------------
 
