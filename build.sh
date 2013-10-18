@@ -17,7 +17,7 @@ LIBS=`pkg-config --libs libcurl 2>/dev/null || echo "-lcurl"`
 
 # fix for modern GCC versions with --as-needed by default
 if [ "$DC" = "dmd" ]; then
-	if [ `uname` = "Linux" }; then
+	if [ `uname` = "Linux" ]; then
 		LIBS="-l:libphobos2.a $LIBS"
 	else
 		LIBS="-lphobos2 $LIBS"
