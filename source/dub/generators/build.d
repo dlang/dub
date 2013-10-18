@@ -49,7 +49,7 @@ class BuildGenerator : ProjectGenerator {
 		auto generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
 
-		// make paths relative to shrink the command line
+		// make file paths relative to shrink the command line
 		foreach(ref f; buildsettings.sourceFiles){
 			auto fp = Path(f);
 			if( fp.absolute ) fp = fp.relativeTo(Path(getcwd()));
@@ -67,6 +67,12 @@ class BuildGenerator : ProjectGenerator {
 		// determine the absolute target path
 		if( !Path(buildsettings.targetPath).absolute )
 			buildsettings.targetPath = (m_project.mainPackage.path ~ Path(buildsettings.targetPath)).toNativeString();
+
+		// make all target/import paths relative
+		string makeRelative(string path) { auto p = Path(path); if (p.absolute) p = p.relativeTo(cwd); return p.toNativeString(); }
+		buildsettings.targetPath = makeRelative(buildsettings.targetPath);
+		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
+		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
 
 		Path exe_file_path;
 		if( generate_binary ){
