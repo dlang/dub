@@ -90,6 +90,12 @@ class Dub {
 	/** Returns the root path (usually the current working directory).
 	*/
 	@property Path rootPath() const { return m_rootPath; }
+	/// ditto
+	@property void rootPath(Path root_path)
+	{
+		m_rootPath = root_path;
+		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
+	}
 
 	/// Returns the name listed in the package.json of the current
 	/// application.

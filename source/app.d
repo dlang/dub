@@ -122,6 +122,11 @@ int main(string[] args)
 		Dub dub = new Dub(package_suppliers, root_path);
 		string def_config;
 
+		// make the CWD package available so that for example sub packages can reference their
+		// parent package.
+		try dub.packageManager.getTemporaryPackage(Path(root_path), Version("~master"));
+		catch (Exception e) { logDiagnostic("No package found in current working directory."); }
+
 		bool loadCwdPackage(Package pack)
 		{
 			if (!existsFile(dub.rootPath~"package.json") && !existsFile(dub.rootPath~"source/app.d")) {
@@ -234,8 +239,7 @@ int main(string[] args)
 					pack = dub.packageManager.getFirstPackage(package_name);
 					enforce(pack, "Failed to find a package named '"~package_name~"'.");
 					logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
-					root_path = pack.path.toNativeString();
-					dub = new Dub(package_suppliers, root_path);
+					dub.rootPath = pack.path;
 				}
 				if (!loadCwdPackage(pack)) return 1;
 
