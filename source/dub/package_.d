@@ -290,7 +290,7 @@ class Package {
 	const {
 		if (depname in m_info.buildSettings.dependencies) return true;
 		foreach (ref c; m_info.configurations)
-			if (c.name == config && depname in c.buildSettings.dependencies)
+			if ((config.empty || c.name == config) && depname in c.buildSettings.dependencies)
 				return true;
 		return false;
 	}
