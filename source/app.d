@@ -147,6 +147,23 @@ int main(string[] args)
 			return true;
 		}
 
+		string package_name;
+		bool loadSelectedPackage()
+		{
+			Package pack;
+			if (!package_name.empty) {
+				// load package in root_path to enable searching for sub packages
+				loadCwdPackage(null);
+				pack = dub.packageManager.getFirstPackage(package_name);
+				enforce(pack, "Failed to find a package named '"~package_name~"'.");
+				logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
+				dub.rootPath = pack.path;
+			}
+			if (!loadCwdPackage(pack)) return false;
+			if (!build_config.length) build_config = def_config;
+			return true;
+		}
+
 		// handle the command
 		switch( cmd ){
 			default:
@@ -219,7 +236,6 @@ int main(string[] args)
 			case "build":
 			case "generate":
 				string generator;
-				string package_name;
 				if( cmd == "run" || cmd == "build" ) {
 					generator = rdmd ? "rdmd" : "build";
 					if (args.length >= 2) package_name = args[1];
@@ -232,18 +248,7 @@ int main(string[] args)
 					}
 				}
 
-				Package pack;
-				if (!package_name.empty) {
-					// load package in root_path to enable searching for sub packages
-					loadCwdPackage(null);
-					pack = dub.packageManager.getFirstPackage(package_name);
-					enforce(pack, "Failed to find a package named '"~package_name~"'.");
-					logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
-					dub.rootPath = pack.path;
-				}
-				if (!loadCwdPackage(pack)) return 1;
-
-				if (!build_config.length) build_config = def_config;
+				loadSelectedPackage();
 
 				if( print_builds ){
 					logInfo("Available build types:");
@@ -285,7 +290,8 @@ int main(string[] args)
 				if( build_type == "ddox" ) dub.runDdox();
 				break;
 			case "describe":
-				if (!loadCwdPackage(null)) return 1;
+				if (args.length >= 2) package_name = args[1];
+				if (!loadSelectedPackage()) return 1;
 				dub.describeProject(build_platform, build_config);				
 				break;
 		}
@@ -362,7 +368,7 @@ Available commands:
     generate <name> [<package>]
                          Generates project files using the specified generator:
                            visuald, visuald-combined, mono-d, build, rdmd
-    describe             Prints a JSON description of the project and its
+    describe [<package>] Prints a JSON description of the project and its
                          dependencies
 
 General options:
