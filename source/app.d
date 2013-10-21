@@ -138,7 +138,6 @@ int main(string[] args)
 			else dub.loadPackageFromCwd();
 
 			def_config = dub.getDefaultConfiguration(build_platform);
-			if (!build_config.length) build_config = def_config;
 
 			return true;
 		}
@@ -239,6 +238,8 @@ int main(string[] args)
 					dub = new Dub(package_suppliers, root_path);
 				}
 				if (!loadCwdPackage(pack)) return 1;
+
+				if (!build_config.length) build_config = def_config;
 
 				if( print_builds ){
 					logInfo("Available build types:");
