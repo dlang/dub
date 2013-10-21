@@ -314,6 +314,7 @@ class Package {
 		dst.remove("requirements");
 		dst.remove("sourceFiles");
 		dst.targetType = bs.targetType.to!string();
+		dst.targetFileName = getTargetFileName(bs, platform);
 
 		// prettify build requirements output
 		Json[] breqs;
