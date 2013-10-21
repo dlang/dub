@@ -388,6 +388,7 @@ class Project {
 			}
 			if (pkg is m_main) {
 				enforce(psettings.targetType != TargetType.none, "Main package has target type \"none\" - stopping build.");
+				enforce(psettings.targetType != TargetType.sourceLibrary, "Main package has target type \"sourceLibrary\" which generates no target - stopping build.");
 				dst.targetType = psettings.targetType;
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
