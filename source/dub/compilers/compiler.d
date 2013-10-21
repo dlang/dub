@@ -162,8 +162,8 @@ interface Compiler {
 
 	final protected void enforceBuildRequirements(ref BuildSettings settings)
 	{
-		settings.addOptions(BuildOptions.warnings);
-		if (settings.requirements & BuildRequirements.allowWarnings) settings.options &= ~BuildOptions.warningsAsErrors;
+		settings.addOptions(BuildOptions.warningsAsErrors);
+		if (settings.requirements & BuildRequirements.allowWarnings) { settings.options &= ~BuildOptions.warningsAsErrors; settings.options |= BuildOptions.warnings; }
 		if (settings.requirements & BuildRequirements.silenceWarnings) settings.options &= ~(BuildOptions.warningsAsErrors|BuildOptions.warnings);
 		if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.options &= ~(BuildOptions.ignoreDeprecations|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.deprecationErrors; }
 		if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.options &= ~(BuildOptions.deprecationErrors|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.ignoreDeprecations; }
