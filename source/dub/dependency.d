@@ -576,9 +576,8 @@ class DependencyGraph {
 	private void forAllDependencies(void delegate (const PkgType* avail, string pkgId, Dependency d, const Package issuer) dg) const {
 		foreach(string issuerPackag, issuer; m_packages) {
 			foreach(string depPkg, dependency; issuer.dependencies) {
-				auto basePkg = depPkg.getBasePackage();
-				auto availPkg = basePkg in m_packages;
-				dg(availPkg, basePkg, dependency, issuer);
+				auto availPkg = depPkg in m_packages;
+				dg(availPkg, depPkg, dependency, issuer);
 			}
 		}
 	}

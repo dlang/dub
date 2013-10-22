@@ -549,7 +549,7 @@ class Project {
 
 			auto toLookup = missing;
 			foreach(id, dep; graph.optional()) {
-				enforce(id !in toLookup, "A missing dependency in the graph seems to be optional, which is an error.");
+				assert(id !in toLookup, "A missing dependency in the graph seems to be optional, which is an error.");
 				toLookup[id] = dep;
 			}
 
