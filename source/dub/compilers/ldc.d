@@ -67,7 +67,7 @@ class LdcCompiler : Compiler {
 	{
 		enforceBuildRequirements(settings);
 
-		if (!fields & BuildSetting.options) {
+		if (!(fields & BuildSetting.options)) {
 			foreach (t; s_options)
 				if (settings.options & t[0])
 					settings.addDFlags(t[1]);
