@@ -84,8 +84,11 @@ class DmdCompiler : Compiler {
 					settings.addDFlags(t[1]);
 		}
 
-		if (!(fields & BuildSetting.libs))
+		if (!(fields & BuildSetting.libs)) {
 			resolveLibs(settings);
+			version(Windows) settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
+			else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
+		}
 
 		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-version="~s)().array());
@@ -174,7 +177,7 @@ class DmdCompiler : Compiler {
 		import std.string;
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
 		auto args = [platform.compiler, "-of"~tpath.toNativeString()] ~ objects ~ settings.lflags.map!(l => "-L"~l)().array() ~ settings.sourceFiles;
-		static linkerargs = ["-g", "-gc", "-m32", "-m64"];
+		static linkerargs = ["-g", "-gc", "-m32", "-m64", "-shared"];
 		args ~= settings.dflags.filter!(f => linkerargs.canFind(f))().array();
 		logDiagnostic("%s", args.join(" "));
 		auto res = spawnProcess(args).wait();

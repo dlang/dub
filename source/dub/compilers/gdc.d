@@ -73,8 +73,10 @@ class GdcCompiler : Compiler {
 					settings.addDFlags(t[1]);
 		}
 
-		if (!(fields & BuildSetting.libs))
+		if (!(fields & BuildSetting.libs)) {
 			resolveLibs(settings);
+			settings.addDFlags(settings.libs.map!(l => "-l"~l)().array());
+		}
 
 		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-fversion="~s)().array());

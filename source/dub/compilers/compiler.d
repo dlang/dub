@@ -129,13 +129,11 @@ void resolveLibs(ref BuildSettings settings)
 			if (f.startsWith("-Wl,")) settings.addLFlags(f[4 .. $].split(","));
 			else settings.addLFlags(f);
 		}
+		settings.libs = null;
 	} catch (Exception e) {
 		logDiagnostic("pkg-config failed: %s", e.msg);
 		logDiagnostic("Falling back to direct -lxyz flags.");
-		version(Windows) settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
-		else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
 	}
-	settings.libs = null;
 }
 
 
@@ -409,7 +407,7 @@ string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 			else return settings.targetName;
 		case TargetType.library:
 		case TargetType.staticLibrary:
-			if( platform.platform.canFind("windows") )
+			if (platform.platform.canFind("windows") && platform.compiler == "dmd")
 				return settings.targetName ~ ".lib";
 			else return "lib" ~ settings.targetName ~ ".a";
 		case TargetType.dynamicLibrary:

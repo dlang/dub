@@ -76,8 +76,10 @@ class LdcCompiler : Compiler {
 		// since LDC always outputs multiple object files, avoid conflicts by default
 		settings.addDFlags("-oq", "-od=.dub/obj");
 	
-		if (!(fields & BuildSetting.libs))
+		if (!(fields & BuildSetting.libs)) {
 			resolveLibs(settings);
+			settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
+		}
 
 		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-d-version="~s)().array());
