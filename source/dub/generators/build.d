@@ -43,7 +43,7 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = Path(getcwd());
 
 		auto buildsettings = settings.buildSettings;
-		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
+		m_project.addBuildSettings(buildsettings, settings.platform, settings.config, null, settings.buildType == "ddox");
 		m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 
 		auto generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
