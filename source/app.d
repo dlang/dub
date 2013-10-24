@@ -31,6 +31,8 @@ import std.getopt;
 
 int main(string[] args)
 {
+	logDiagnostic("DUB version %s", dubVersion);
+
 	string cmd;
 
 	version(Windows){
