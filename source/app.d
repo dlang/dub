@@ -43,6 +43,14 @@ int main(string[] args)
 	}
 
 	try {
+		// split application arguments from DUB arguments
+		string[] app_args;
+		auto app_args_idx = args.countUntil("--");
+		if (app_args_idx >= 0) {
+			app_args = args[app_args_idx+1 .. $];
+			args = args[0 .. app_args_idx];
+		}
+
 		// parse general options
 		bool verbose, vverbose, quiet, vquiet;
 		bool help, nodeps, annotate;
@@ -56,7 +64,6 @@ int main(string[] args)
 		string install_version;
 		string[] registry_urls;
 		string[] debug_versions;
-		string[] app_args;
 		string root_path = getcwd();
 		getopt(args,
 			"v|verbose", &verbose,
@@ -93,13 +100,6 @@ int main(string[] args)
 			cmd = args[1];
 			args = args[0] ~ args[2 .. $];
 		} else cmd = "run";
-
-		// contrary to the documentation, getopt does not remove --
-		auto app_args_idx = args.countUntil("--");
-		if (app_args_idx >= 0) {
-			app_args = args[app_args_idx+1 .. $];
-			args = args[0 .. app_args_idx];
-		}
 
 		// display help if requested (obsolete)
 		if( help ){
