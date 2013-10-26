@@ -250,7 +250,7 @@ int main(string[] args)
 					}
 				}
 
-				loadSelectedPackage();
+				if (!loadSelectedPackage()) return 1;
 
 				if( print_builds ){
 					logInfo("Available build types:");
