@@ -164,6 +164,11 @@ int main(string[] args)
 			if (!loadCwdPackage(pack)) return false;
 			if (!build_config.length) build_config = def_config;
 			return true;
+        }
+
+		static void warnRenamed(string prev, string curr)
+		{
+			logWarn("Command '%s' was renamed to '%s'. Old name is deprecated, please update your scripts", prev, curr);
 		}
 
 		// handle the command
@@ -185,6 +190,9 @@ int main(string[] args)
 				logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
 				dub.update(UpdateOptions.Upgrade | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
 				return 0;
+			case "install":
+				warnRenamed(cmd, "get");
+				goto case "get";
 			case "get":
 				enforce(args.length >= 2, "Missing package name.");
 				auto location = PlacementLocation.userWide;
@@ -202,6 +210,9 @@ int main(string[] args)
 					}
 				}
 				break;
+			case "uninstall":
+				warnRenamed(cmd, "remove");
+				goto case "remove";
 			case "remove":
 				enforce(args.length >= 2, "Missing package name.");
 				auto location = PlacementLocation.userWide;
@@ -228,6 +239,9 @@ int main(string[] args)
 				enforce(args.length >= 2, "Missing search path.");
 				dub.removeSearchPath(args[1], place_system_wide);
 				break;
+			case "list-installed":
+				warnRenamed(cmd, "list");
+				goto case "list";
 			case "list":
 				logInfo("Packages present in the system and known to dub:");
 				foreach (p; dub.packageManager.getPackageIterator())
