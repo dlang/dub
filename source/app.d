@@ -60,8 +60,8 @@ int main(string[] args)
 		string arch;
 		bool rdmd = false;
 		bool print_platform, print_builds, print_configs;
-		bool install_system = false, install_local = false;
-		string install_version;
+		bool place_system_wide = false, place_locally = false;
+		string retrieved_version;
 		string[] registry_urls;
 		string[] debug_versions;
 		string root_path = getcwd();
@@ -82,9 +82,9 @@ int main(string[] args)
 			"print-builds", &print_builds,
 			"print-configs", &print_configs,
 			"print-platform", &print_platform,
-			"system", &install_system,
-			"local", &install_local,
-			"version", &install_version,
+			"system", &place_system_wide,
+			"local", &place_locally,
+			"version", &retrieved_version,
 			"registry", &registry_urls,
 			"root", &root_path
 			);
@@ -185,51 +185,51 @@ int main(string[] args)
 				logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
 				dub.update(UpdateOptions.Upgrade | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
 				return 0;
-			case "install":
+			case "get":
 				enforce(args.length >= 2, "Missing package name.");
-				auto location = InstallLocation.userWide;
+				auto location = PlacementLocation.userWide;
 				auto name = args[1];
-				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
-				if (install_local) location = InstallLocation.local;
-				else if (install_system) location = InstallLocation.systemWide;
-				if (install_version.length) dub.install(name, Dependency(install_version), location, true);
+				enforce(!place_locally || !place_system_wide, "Cannot place package locally and system wide at the same time.");
+				if (place_locally) location = PlacementLocation.local;
+				else if (place_system_wide) location = PlacementLocation.systemWide;
+				if (retrieved_version.length) dub.get(name, Dependency(retrieved_version), location, true);
 				else {
-					try dub.install(name, Dependency(">=0.0.0"), location, true);
+					try dub.get(name, Dependency(">=0.0.0"), location, true);
 					catch(Exception e){
-						logInfo("Installing a release version failed: %s", e.msg);
+						logInfo("Getting a release version failed: %s", e.msg);
 						logInfo("Retry with ~master...");
-						dub.install(name, Dependency("~master"), location, true);
+						dub.get(name, Dependency("~master"), location, true);
 					}
 				}
 				break;
-			case "uninstall":
+			case "remove":
 				enforce(args.length >= 2, "Missing package name.");
-				auto location = InstallLocation.userWide;
+				auto location = PlacementLocation.userWide;
 				auto package_id = args[1];
-				enforce(!install_local || !install_system, "Cannot install locally and system wide at the same time.");
-				if( install_local ) location = InstallLocation.local;
-				else if( install_system ) location = InstallLocation.systemWide;
-				try dub.uninstall(package_id, install_version, location);
-				catch logError("Please specify a individual version or use the wildcard identifier '%s' (without quotes).", Dub.UninstallVersionWildcard);
+				enforce(!place_locally || !place_system_wide, "Cannot place package locally and system wide at the same time.");
+				if ( place_locally ) location = PlacementLocation.local;
+				else if( place_system_wide ) location = PlacementLocation.systemWide;
+				try dub.remove(package_id, retrieved_version, location);
+				catch logError("Please specify a individual version or use the wildcard identifier '%s' (without quotes).", Dub.RemoveVersionWildcard);
 				break;
 			case "add-local":
 				enforce(args.length >= 3, "Missing arguments.");
-				dub.addLocalPackage(args[1], args[2], install_system);
+				dub.addLocalPackage(args[1], args[2], place_system_wide);
 				break;
 			case "remove-local":
 				enforce(args.length >= 2, "Missing path to package.");
-				dub.removeLocalPackage(args[1], install_system);
+				dub.removeLocalPackage(args[1], place_system_wide);
 				break;
 			case "add-path":
 				enforce(args.length >= 2, "Missing search path.");
-				dub.addSearchPath(args[1], install_system);
+				dub.addSearchPath(args[1], place_system_wide);
 				break;
 			case "remove-path":
 				enforce(args.length >= 2, "Missing search path.");
-				dub.removeSearchPath(args[1], install_system);
+				dub.removeSearchPath(args[1], place_system_wide);
 				break;
-			case "list-installed":
-				logInfo("Installed packages:");
+			case "list":
+				logInfo("Packages present in the system and known to dub:");
 				foreach (p; dub.packageManager.getPackageIterator())
 					logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
 				logInfo("");
@@ -311,34 +311,38 @@ int main(string[] args)
 
 private void showHelp(string command)
 {
-	if(command == "uninstall" || command == "install") {
+	if(command == "remove" || command == "get") {
 		logInfo(
-`Usage: dub <install|uninstall> <package> [<options>]
+`Usage: dub <get|remove> <package> [<options>]
 
 Note: use dependencies (package.json) if you want to add a dependency, you
-      don't have to fiddle with installation stuff.
+      don't have to fiddle with caching stuff.
 
-(Un)Installation of packages is only needed when you want to put packages to a 
+Explicit retrieval/removal of packages is only needed when you want to put packages to a 
 place where several applications can share these. If you just have an 
 dependency to a package, just add it to your package.json, dub will do the rest
 for you.
 
-Without specified options, (un)installation will default to a user wide shared
+Without specified options, placement/removal will default to a user wide shared
 location.
 
-Complete applications can be installed and run easily by e.g.
-        dub install vibelog --local
+Complete applications can be retrieved and run easily by e.g.
+        dub get vibelog --local
         cd vibelog
         dub
 This will grab all needed dependencies and compile and run the application.
 
-Install options:
+Note: dub does not do any real "installation" of packages, those are registered
+only within dub internal ecosystem. Generation of native system packages / installer
+may be added later.
+
+Retrieval options:
         --version        Use the specified version/branch instead of the latest
-                         For the uninstall command, this may be a wildcard 
+                         For the remove command, this may be a wildcard 
                          string: "*", which will remove all packages from the
                          specified location.
-        --system         Install system wide instead of user local
-        --local          Install as in a sub folder of the current directory
+        --system         Put package into system wide dub cache instead of user local one
+        --local          Put packahe to a sub folder of the current directory
                          Note that system and local cannot be mixed.
 `);
 		return;
@@ -359,14 +363,14 @@ Available commands:
     build [<package>]    Builds a package (uses the main package in the current
                          working directory by default)
     upgrade              Forces an upgrade of all dependencies
-    install <name>       Manually installs a package. See 'dub help install'.
-    uninstall <name>     Uninstalls a package. See 'dub help uninstall'.
+    get <name>           Manually retrieves a package. See 'dub help get'.
+    remove <name>        Removes present package. See 'dub help remove'.
     add-local <dir> <version>
                          Adds a local package directory (e.g. a git repository)
     remove-local <dir>   Removes a local package directory
     add-path <dir>       Adds a default package search path
     remove-path <dir>    Removes a package search path
-    list-installed       Prints a list of all installed packages
+    list                 Prints a list of all present packages dub is aware of
     generate <name> [<package>]
                          Generates project files using the specified generator:
                            visuald, visuald-combined, mono-d, build, rdmd
@@ -374,7 +378,7 @@ Available commands:
                          dependencies
 
 General options:
-        --annotate       Do not execute dependency installations, just print
+        --annotate       Do not execute dependency retrieval, just print
     -v  --verbose        Also output debug messages
         --vverbose       Also output trace messages (produces a lot of output)
     -q  --quiet          Only output warnings and errors
@@ -407,10 +411,10 @@ Build/run options:
         --debug=NAME     Define the specified debug version identifier when
                          building - can be used multiple times
 
-Install options:
+Retrieval options:
         --version        Use the specified version/branch instead of the latest
-        --system         Install system wide instead of user local
-        --local          Install as in a sub folder of the current directory
+        --system         Put package into system wide dub cache instead of user local one
+        --local          Put packahe to a sub folder of the current directory
 
 `);
 	logInfo("DUB version %s", dubVersion);

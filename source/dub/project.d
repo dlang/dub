@@ -72,21 +72,21 @@ class Project {
 			return "-Unrecognized application in '"~m_root.toNativeString()~"' (probably no package.json in this directory)";
 		string s = "-Application identifier: " ~ m_main.name;
 		s ~= "\n" ~ m_main.generateInfoString();
-		s ~= "\n-Installed dependencies:";
+		s ~= "\n-Retrieved dependencies:";
 		foreach(p; m_dependencies)
 			s ~= "\n" ~ p.generateInfoString();
 		return s;
 	}
 
-	/// Gets all installed packages as a "packageId" = "version" associative array
-	@property string[string] installedPackagesIDs() const {
+	/// Gets all retrieved packages as a "packageId" = "version" associative array
+	@property string[string] cachedPackagesIDs() const {
 		string[string] pkgs;
 		foreach(p; m_dependencies)
 			pkgs[p.name] = p.vers;
 		return pkgs;
 	}
 
-	/// List of installed Packages
+	/// List of retrieved dependency Packages
 	@property const(Package[]) dependencies() const { return m_dependencies; }
 	
 	/// Main package.
@@ -464,39 +464,39 @@ class Project {
 			return actions;
 		}
 
-		// Gather installed
-		Package[string] installed;
-		installed[m_main.name] = m_main;
+		// Gather retrieved
+		Package[string] retrieved;
+		retrieved[m_main.name] = m_main;
 		foreach(ref Package p; m_dependencies) {
 			auto pbase = p.basePackage;
-			auto pexist = installed.get(pbase.name, null);
+			auto pexist = retrieved.get(pbase.name, null);
 			if (pexist && pexist !is pbase){
 				logError("The same package is referenced in different paths:");
 				logError("  %s %s: %s", pexist.name, pexist.vers, pexist.path.toNativeString());
 				logError("  %s %s: %s", pbase.name, pbase.vers, pbase.path.toNativeString());
 				throw new Exception("Conflicting package multi-references.");
 			}
-			installed[pbase.name] = pbase;
+			retrieved[pbase.name] = pbase;
 		}
 
-		// Check against installed and add install actions
+		// Check against package list and add retrieval actions
 		Action[] actions;
 		int[string] upgradePackages;
 		foreach( string pkg, d; graph.needed() ) {
 			auto basepkg = pkg.getBasePackage();
-			auto p = basepkg in installed;
+			auto p = basepkg in retrieved;
 			// TODO: auto update to latest head revision
 			if(!p || (!d.dependency.matches(p.vers) && !d.dependency.matches(Version.MASTER))) {
-				if(!p) logDiagnostic("Triggering installation of required package '"~basepkg~"', which is not installed.");
-				else logDiagnostic("Triggering installation of required package '"~basepkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
-				actions ~= Action.install(basepkg, InstallLocation.userWide, d.dependency, d.packages);
+				if(!p) logDiagnostic("Triggering retrieval of required package '"~basepkg~"', which was not present.");
+				else logDiagnostic("Triggering retrieval of required package '"~basepkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
+				actions ~= Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages);
 			} else {
 				if( option & UpdateOptions.Upgrade ) {
 					// Only add one upgrade action for each package.
 					if(basepkg !in upgradePackages) {
 						logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"', upgrading.");
 						upgradePackages[basepkg] = 1;
-						actions ~= Action.install(basepkg, InstallLocation.userWide, d.dependency, d.packages);
+						actions ~= Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages);
 					}
 				}
 				else {
@@ -567,12 +567,12 @@ class Project {
 				// TODO: auto update and update interval by time
 				logDebug("Adding package to graph: "~pkg);
 				Package p = m_packageManager.getBestPackage(pkg, reqDep.dependency);
-				if( p ) logDebug("Found installed package %s %s", pkg, p.ver);
+				if( p ) logDebug("Found present package %s %s", pkg, p.ver);
 
 				// Don't bother with not available optional packages.
 				if( !p && reqDep.dependency.optional ) continue;
 				
-				// Try an already installed package first
+				// Try an already present package first
 				if( p && needsUpToDateCheck(p) ){
 					logInfo("Triggering update of package %s", pkg);
 					p = null;
@@ -662,8 +662,8 @@ class Project {
 /// Actions to be performed by the dub
 struct Action {
 	enum Type {
-		install,
-		uninstall,
+		get,
+		remove,
 		conflict,
 		failure
 	}
@@ -671,33 +671,33 @@ struct Action {
 	immutable {
 		Type type;
 		string packageId;
-		InstallLocation location;
+		PlacementLocation location;
 		Dependency vers;
 	}
 	const Package pack;
 	const Dependency[string] issuer;
 
-	static Action install(string pkg, InstallLocation location, in Dependency dep, Dependency[string] context)
+	static Action get(string pkg, PlacementLocation location, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.install, pkg, location, dep, context);
+		return Action(Type.get, pkg, location, dep, context);
 	}
 
-	static Action uninstall(Package pkg, Dependency[string] context)
+	static Action remove(Package pkg, Dependency[string] context)
 	{
-		return Action(Type.uninstall, pkg, context);
+		return Action(Type.remove, pkg, context);
 	}
 
 	static Action conflict(string pkg, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.conflict, pkg, InstallLocation.userWide, dep, context);
+		return Action(Type.conflict, pkg, PlacementLocation.userWide, dep, context);
 	}
 
 	static Action failure(string pkg, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.failure, pkg, InstallLocation.userWide, dep, context);
+		return Action(Type.failure, pkg, PlacementLocation.userWide, dep, context);
 	}
 
-	private this(Type id, string pkg, InstallLocation location, in Dependency d, Dependency[string] issue)
+	private this(Type id, string pkg, PlacementLocation location, in Dependency d, Dependency[string] issue)
 	{
 		this.type = id;
 		this.packageId = pkg;
