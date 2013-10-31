@@ -202,7 +202,13 @@ int main(string[] args)
 				else if (place_system_wide) location = PlacementLocation.systemWide;
 				if (retrieved_version.length) dub.get(name, Dependency(retrieved_version), location, true);
 				else {
-					try dub.get(name, Dependency(">=0.0.0"), location, true);
+					try {
+						dub.get(name, Dependency(">=0.0.0"), location, true);
+						logInfo(
+							"Please note that you need to use `dub run <pkgname>` " ~ 
+							"or add it to dependencies of your package to actually use/run it. " ~
+							"dub does not do actual installation of packages outside of its own ecosystem.");
+					}
 					catch(Exception e){
 						logInfo("Getting a release version failed: %s", e.msg);
 						logInfo("Retry with ~master...");
