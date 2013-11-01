@@ -27,20 +27,20 @@ import std.traits : EnumMembers;
 enum PackageJsonFilename = "package.json";
 
 
-/// Indicates where a package has been or should be installed to.
-enum InstallLocation {
-	/// Packages installed with 'local' will be placed in the current folder 
+/// Indicates where a package has been or should be placed to.
+enum PlacementLocation {
+	/// Packages retrived with 'local' will be placed in the current folder 
 	/// using the package name as destination.
 	local,
 	/// Packages with 'userWide' will be placed in a folder accessible by
 	/// all of the applications from the current user.
 	userWide,
-	/// Packages installed with 'systemWide' will be placed in a shared folder,
+	/// Packages retrieved with 'systemWide' will be placed in a shared folder,
 	/// which can be accessed by all users of the system.
 	systemWide
 }
 
-/// Representing an installed package, usually constructed from a json object.
+/// Representing a downloded / cached package, usually constructed from a json object.
 /// Documentation of the package.json can be found at 
 /// http://registry.vibed.org/package-format
 class Package {
@@ -336,7 +336,7 @@ class Package {
 }
 
 /// Specifying package information without any connection to a certain 
-/// installed package, like Package class is doing.
+/// retrived package, like Package class is doing.
 struct PackageInfo {
 	string name;
 	string version_;

@@ -132,7 +132,7 @@ class Dub {
 
 	string getDefaultConfiguration(BuildPlatform platform) const { return m_project.getDefaultConfiguration(platform); }
 
-	/// Performs installation and uninstallation as necessary for
+	/// Performs retrieval and removal as necessary for
 	/// the application.
 	/// @param options bit combination of UpdateOptions
 	void update(UpdateOptions options)
@@ -161,13 +161,13 @@ class Dub {
 
 			if (conflictedOrFailed || options & UpdateOptions.JustAnnotate) return;
 
-			// Uninstall first
-			foreach(Action a; filter!((Action a) => a.type == Action.Type.uninstall)(actions)) {
-				assert(a.pack !is null, "No package specified for uninstall.");
-				uninstall(a.pack);
+			// Remove first
+			foreach(Action a; filter!((Action a) => a.type == Action.Type.remove)(actions)) {
+				assert(a.pack !is null, "No package specified for removal.");
+				remove(a.pack);
 			}
-			foreach(Action a; filter!((Action a) => a.type == Action.Type.install)(actions)) {
-				install(a.packageId, a.vers, a.location, (options & UpdateOptions.Upgrade) != 0);
+			foreach(Action a; filter!((Action a) => a.type == Action.Type.get)(actions)) {
+				get(a.packageId, a.vers, a.location, (options & UpdateOptions.Upgrade) != 0);
 				// never update the same package more than once
 				masterVersionUpgrades[a.packageId] = true;
 			}
@@ -197,11 +197,11 @@ class Dub {
 	}
 
 
-	/// Gets all installed packages as a "packageId" = "version" associative array
-	string[string] installedPackages() const { return m_project.installedPackagesIDs(); }
+	/// Returns all cached  packages as a "packageId" = "version" associative array
+	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
 
-	/// Installs the package matching the dependency into the application.
-	Package install(string packageId, const Dependency dep, InstallLocation location, bool force_branch_upgrade)
+	/// Gets the package matching the dependency into the application.
+	Package get(string packageId, const Dependency dep, PlacementLocation location, bool force_branch_upgrade)
 	{
 		Json pinfo;
 		PackageSupplier supplier;
@@ -215,77 +215,77 @@ class Dub {
 		enforce(pinfo.type != Json.Type.Undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
 
-		Path install_path;
+		Path placement;
 		final switch (location) {
-			case InstallLocation.local: install_path = m_rootPath; break;
-			case InstallLocation.userWide: install_path = m_userDubPath ~ "packages/"; break;
-			case InstallLocation.systemWide: install_path = m_systemDubPath ~ "packages/"; break;
+			case PlacementLocation.local: placement = m_rootPath; break;
+			case PlacementLocation.userWide: placement = m_userDubPath ~ "packages/"; break;
+			case PlacementLocation.systemWide: placement = m_systemDubPath ~ "packages/"; break;
 		}
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
-		if (auto pack = m_packageManager.getPackage(packageId, ver, install_path)) {
-			if (!ver.startsWith("~") || !force_branch_upgrade || location == InstallLocation.local) {
+		if (auto pack = m_packageManager.getPackage(packageId, ver, placement)) {
+			if (!ver.startsWith("~") || !force_branch_upgrade || location == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
-				logInfo("Package %s %s (%s) is already installed with the latest version, skipping upgrade.",
-					packageId, ver, install_path);
+				logInfo("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
+					packageId, ver, placement);
 				return pack;
 			} else {
-				logInfo("Removing current installation of %s %s", packageId, ver);
-				m_packageManager.uninstall(pack);
+				logInfo("Removing present package of %s %s", packageId, ver);
+				m_packageManager.remove(pack);
 			}
 		}
 
-		logInfo("Downloading %s %s...", packageId, ver);
+		logInfo("Getting %s %s...", packageId, ver);
 
 		logDiagnostic("Acquiring package zip file");
 		auto dload = m_projectPath ~ ".dub/temp/downloads";
 		auto tempfname = packageId ~ "-" ~ (ver.startsWith('~') ? ver[1 .. $] : ver) ~ ".zip";
 		auto tempFile = m_tempPath ~ tempfname;
 		string sTempFile = tempFile.toNativeString();
-		if(exists(sTempFile)) remove(sTempFile);
+		if (exists(sTempFile)) std.file.remove(sTempFile);
 		supplier.retrievePackage(tempFile, packageId, dep); // Q: continue on fail?
-		scope(exit) remove(sTempFile);
+		scope(exit) std.file.remove(sTempFile);
 
-		logInfo("Installing %s %s to %s...", packageId, ver, install_path.toNativeString());
+		logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
 		auto clean_package_version = ver[ver.startsWith("~") ? 1 : 0 .. $];
-		Path dstpath = install_path ~ (packageId ~ "-" ~ clean_package_version);
+		Path dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
 
-		return m_packageManager.install(tempFile, pinfo, dstpath);
+		return m_packageManager.get(tempFile, pinfo, dstpath);
 	}
 
-	/// Uninstalls a given package from the list of installed modules.
+	/// Removes a given package from the list of present/cached modules.
 	/// @removeFromApplication: if true, this will also remove an entry in the
 	/// list of dependencies in the application's package.json
-	void uninstall(in Package pack)
+	void remove(in Package pack)
 	{
-		logInfo("Uninstalling %s in %s", pack.name, pack.path.toNativeString());
-		m_packageManager.uninstall(pack);
+		logInfo("Removing %s in %s", pack.name, pack.path.toNativeString());
+		m_packageManager.remove(pack);
 	}
 
-	/// @see uninstall(string, string, InstallLocation)
-	enum UninstallVersionWildcard = "*";
+	/// @see remove(string, string, RemoveLocation)
+	enum RemoveVersionWildcard = "*";
 
-	/// This will uninstall a given package with a specified version from the 
+	/// This will remove a given package with a specified version from the 
 	/// location.
 	/// It will remove at most one package, unless @param version_ is 
 	/// specified as wildcard "*". 
 	/// @param package_id Package to be removed
 	/// @param version_ Identifying a version or a wild card. An empty string
 	/// may be passed into. In this case the package will be removed from the
-	/// location, if there is only one version installed. This will throw an
-	/// exception, if there are multiple versions installed.
+	/// location, if there is only one version retrieved. This will throw an
+	/// exception, if there are multiple versions retrieved.
 	/// Note: as wildcard string only "*" is supported.
 	/// @param location_
-	void uninstall(string package_id, string version_, InstallLocation location_) {
+	void remove(string package_id, string version_, PlacementLocation location_) {
 		enforce(!package_id.empty);
-		if(location_ == InstallLocation.local) {
-			logInfo("To uninstall a locally installed package, make sure you don't have any data"
+		if (location_ == PlacementLocation.local) {
+			logInfo("To remove a locally placed package, make sure you don't have any data"
 					~ "\nleft in it's directory and then simply remove the whole directory.");
 			return;
 		}
 
 		Package[] packages;
-		const bool wildcardOrEmpty = version_ == UninstallVersionWildcard || version_.empty;
+		const bool wildcardOrEmpty = version_ == RemoveVersionWildcard || version_.empty;
 
 		// Use package manager
 		foreach(pack; m_packageManager.getPackageIterator(package_id)) {
@@ -295,25 +295,25 @@ class Dub {
 		}
 
 		if(packages.empty) {
-			logError("Cannot find package to uninstall. (id:%s, version:%s, location:%s)", package_id, version_, location_);
+			logError("Cannot find package to remove. (id:%s, version:%s, location:%s)", package_id, version_, location_);
 			return;
 		}
 
 		if(version_.empty && packages.length > 1) {
-			logError("Cannot uninstall package '%s', there multiple possibilities at location '%s'.", package_id, location_);
-			logError("Installed versions:");
+			logError("Cannot remove package '%s', there multiple possibilities at location '%s'.", package_id, location_);
+			logError("Retrieved versions:");
 			foreach(pack; packages) 
 				logError(to!string(pack.vers()));
-			throw new Exception("Failed to uninstall package.");
+			throw new Exception("Failed to remove package.");
 		}
 
-		logDebug("Uninstalling %s packages.", packages.length);
+		logDebug("Removing %s packages.", packages.length);
 		foreach(pack; packages) {
 			try {
-				uninstall(pack);
-				logInfo("Uninstalled %s, version %s.", package_id, pack.vers);
+				remove(pack);
+				logInfo("Removing %s, version %s.", package_id, pack.vers);
 			}
-			catch logError("Failed to uninstall %s, version %s. Continuing with other packages (if any).", package_id, pack.vers);
+			catch logError("Failed to remove %s, version %s. Continuing with other packages (if any).", package_id, pack.vers);
 		}
 	}
 
@@ -398,8 +398,8 @@ void main()
 		auto ddox_pack = m_packageManager.getBestPackage("ddox", ">=0.0.0");
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
-			logInfo("DDOX is not installed, performing user wide installation.");
-			ddox_pack = install("ddox", Dependency(">=0.0.0"), InstallLocation.userWide, false);
+			logInfo("DDOX is not present, getting it and storing user wide");
+			ddox_pack = get("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, false);
 		}
 
 		version(Windows) auto ddox_exe = "ddox.exe";

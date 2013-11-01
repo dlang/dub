@@ -48,7 +48,7 @@ enum LocalPackageType {
 	system
 }
 
-/// The PackageManager can retrieve installed packages and install / uninstall
+/// The PackageManager can retrieve present packages and get / remove
 /// packages.
 class PackageManager {
 	private {
@@ -183,19 +183,20 @@ class PackageManager {
 		return &iterator;
 	}
 
-	/// Installs the package supplied as a path to it's zip file to the
+	/// Retrieves the package supplied as a path to it's zip file to the
 	/// destination.
-	Package install(Path zip_file_path, Json package_info, Path destination)
+	// FIXNAME
+	Package get(Path zip_file_path, Json package_info, Path destination)
 	{
 		auto package_name = package_info.name.get!string();
 		auto package_version = package_info["version"].get!string();
 		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
 
-		logDiagnostic("Installing package '%s' version '%s' to location '%s' from file '%s'", 
+		logDiagnostic("Placing package '%s' version '%s' to location '%s' from file '%s'", 
 			package_name, package_version, destination.toNativeString(), zip_file_path.toNativeString());
 
 		if( existsFile(destination) ){
-			throw new Exception(format("%s (%s) needs to be uninstalled from '%s' prior installation.", package_name, package_version, destination));
+			throw new Exception(format("%s (%s) needs to be removed from '%s' prior placement.", package_name, package_version, destination));
 		}
 
 		// open zip file
@@ -207,7 +208,7 @@ class PackageManager {
 			archive = new ZipArchive(f.readAll());
 		}
 
-		logDebug("Installing from zip.");
+		logDebug("Extracting from zip.");
 
 		// In a github zip, the actual contents are in a subfolder
 		Path zip_prefix;
@@ -228,7 +229,7 @@ class PackageManager {
 			return path[zip_prefix.length..path.length];
 		}
 
-		// install
+		// extract & place
 		mkdirRecurse(destination.toNativeString());
 		auto journal = new Journal;
 		logDiagnostic("Copying all files...");
@@ -262,12 +263,12 @@ class PackageManager {
 		writeJsonFile(destination~PackageJsonFilename, pi);
 
 		// Write journal
-		logDebug("Saving installation journal...");
+		logDebug("Saving retrieval action journal...");
 		journal.add(Journal.Entry(Journal.Type.RegularFile, Path(JournalJsonFilename)));
 		journal.save(destination ~ JournalJsonFilename);
 
 		if( existsFile(destination~PackageJsonFilename) )
-			logInfo("%s has been installed with version %s", package_name, package_version);
+			logInfo("%s is present with version %s", package_name, package_version);
 
 		auto pack = new Package(destination);
 
@@ -276,11 +277,11 @@ class PackageManager {
 		return pack;
 	}
 
-	/// Uninstalls the given the package.
-	void uninstall(in Package pack)
+	/// Removes the given the package.
+	void remove(in Package pack)
 	{
-		logDebug("Uninstall %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
-		enforce(!pack.path.empty, "Cannot uninstall package "~pack.name~" without a path.");
+		logDebug("Remove %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
+		enforce(!pack.path.empty, "Cannot remove package "~pack.name~" without a path.");
 
 		// remove package from repositories' list
 		bool found = false;
@@ -306,13 +307,13 @@ class PackageManager {
 				}
 			}
 		}
-		enforce(found, "Cannot uninstall, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
+		enforce(found, "Cannot remove, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
 
 		// delete package files physically
 		logDebug("Looking up journal");
 		auto journalFile = pack.path~JournalJsonFilename;
 		if( !existsFile(journalFile) )
-			throw new Exception("Uninstall failed, no installation journal found for '"~pack.name~"'. Please uninstall manually.");
+			throw new Exception("Removal failed, no retrieval journal found for '"~pack.name~"'. Please remove manually.");
 
 		auto packagePath = pack.path;
 		auto journal = new Journal(journalFile);
@@ -321,7 +322,7 @@ class PackageManager {
 			logDebug("Deleting file '%s'", e.relFilename);
 			auto absFile = pack.path~e.relFilename;
 			if(!existsFile(absFile)) {
-				logWarn("Previously installed file not found for uninstalling: '%s'", absFile);
+				logWarn("Previously retrieved file not found for removal: '%s'", absFile);
 				continue;
 			}
 
@@ -355,7 +356,7 @@ class PackageManager {
 			throw new Exception("Alien files found in '"~pack.path.toNativeString()~"', needs to be deleted manually.");
 
 		rmdir(pack.path.toNativeString());
-		logInfo("Uninstalled package: '"~pack.name~"'");
+		logInfo("Removed package: '"~pack.name~"'");
 	}
 
 	Package addLocalPackage(in Path path, in Version ver, LocalPackageType type)
@@ -584,7 +585,7 @@ class PackageManager {
 
 
 /**
-	Installation journal for later uninstallation, keeping track of installed
+	Retrieval journal for later removal, keeping track of placed files
 	files.
 	Example Json:
 	{
