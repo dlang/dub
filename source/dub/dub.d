@@ -168,7 +168,7 @@ class Dub {
 				remove(a.pack);
 			}
 			foreach(Action a; filter!((Action a) => a.type == Action.Type.get)(actions)) {
-				get(a.packageId, a.vers, a.location, (options & UpdateOptions.Upgrade) != 0);
+				fetch(a.packageId, a.vers, a.location, (options & UpdateOptions.Upgrade) != 0);
 				// never update the same package more than once
 				masterVersionUpgrades[a.packageId] = true;
 			}
@@ -201,8 +201,8 @@ class Dub {
 	/// Returns all cached  packages as a "packageId" = "version" associative array
 	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
 
-	/// Gets the package matching the dependency into the application.
-	Package get(string packageId, const Dependency dep, PlacementLocation location, bool force_branch_upgrade)
+	/// Fetches the package matching the dependency and places it in the specified location.
+	Package fetch(string packageId, const Dependency dep, PlacementLocation location, bool force_branch_upgrade)
 	{
 		Json pinfo;
 		PackageSupplier supplier;
@@ -236,7 +236,7 @@ class Dub {
 			}
 		}
 
-		logInfo("Getting %s %s...", packageId, ver);
+		logInfo("Fetching %s %s...", packageId, ver);
 
 		logDiagnostic("Acquiring package zip file");
 		auto dload = m_projectPath ~ ".dub/temp/downloads";
@@ -370,7 +370,7 @@ class Dub {
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
 			logInfo("DDOX is not present, getting it and storing user wide");
-			ddox_pack = get("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, false);
+			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, false);
 		}
 
 		version(Windows) auto ddox_exe = "ddox.exe";

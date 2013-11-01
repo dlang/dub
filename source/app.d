@@ -202,10 +202,10 @@ int main(string[] args)
 				enforce(!place_locally || !place_system_wide, "Cannot place package locally and system wide at the same time.");
 				if (place_locally) location = PlacementLocation.local;
 				else if (place_system_wide) location = PlacementLocation.systemWide;
-				if (retrieved_version.length) dub.get(name, Dependency(retrieved_version), location, true);
+				if (retrieved_version.length) dub.fetch(name, Dependency(retrieved_version), location, true);
 				else {
 					try {
-						dub.get(name, Dependency(">=0.0.0"), location, true);
+						dub.fetch(name, Dependency(">=0.0.0"), location, true);
 						logInfo(
 							"Please note that you need to use `dub run <pkgname>` " ~ 
 							"or add it to dependencies of your package to actually use/run it. " ~
@@ -214,7 +214,7 @@ int main(string[] args)
 					catch(Exception e){
 						logInfo("Getting a release version failed: %s", e.msg);
 						logInfo("Retry with ~master...");
-						dub.get(name, Dependency("~master"), location, true);
+						dub.fetch(name, Dependency("~master"), location, true);
 					}
 				}
 				break;
