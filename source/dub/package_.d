@@ -659,9 +659,10 @@ struct BuildSettingsTemplate {
 			if( !platform.matchesSpecification(suffix) )
 				continue;
 
-			foreach(spath; paths){
+			foreach (spath; paths) {
+				enforce(!spath.empty, "Source paths must not be empty strings.");
 				auto path = base_path ~ spath;
-				if( !existsFile(path) || !isDir(path.toNativeString()) ){
+				if (!existsFile(path) || !isDir(path.toNativeString())) {
 					logWarn("Invalid source path: %s", path.toNativeString());
 					continue;
 				}
