@@ -191,9 +191,9 @@ int main(string[] args)
 				dub.update(UpdateOptions.Upgrade | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
 				return 0;
 			case "install":
-				warnRenamed(cmd, "get");
-				goto case "get";
-			case "get":
+				warnRenamed(cmd, "fetch");
+				goto case "fetch";
+			case "fetch":
 				enforce(args.length >= 2, "Missing package name.");
 				auto location = PlacementLocation.userWide;
 				auto name = args[1];
@@ -331,9 +331,9 @@ int main(string[] args)
 
 private void showHelp(string command)
 {
-	if(command == "remove" || command == "get") {
+	if(command == "remove" || command == "fetch") {
 		logInfo(
-`Usage: dub <get|remove> <package> [<options>]
+`Usage: dub <fetch|remove> <package> [<options>]
 
 Note: use dependencies (package.json) if you want to add a dependency, you
       don't have to fiddle with caching stuff.
@@ -347,7 +347,7 @@ Without specified options, placement/removal will default to a user wide shared
 location.
 
 Complete applications can be retrieved and run easily by e.g.
-        dub get vibelog --local
+        dub fetch vibelog --local
         cd vibelog
         dub
 This will grab all needed dependencies and compile and run the application.
@@ -362,7 +362,7 @@ Retrieval options:
                          string: "*", which will remove all packages from the
                          specified location.
         --system         Put package into system wide dub cache instead of user local one
-        --local          Put packahe to a sub folder of the current directory
+        --local          Put package to a sub folder of the current directory
                          Note that system and local cannot be mixed.
 `);
 		return;
@@ -383,7 +383,7 @@ Available commands:
     build [<package>]    Builds a package (uses the main package in the current
                          working directory by default)
     upgrade              Forces an upgrade of all dependencies
-    get <name>           Manually retrieves a package. See 'dub help get'.
+    fetch <name>           Manually retrieves a package. See 'dub help fetch'.
     remove <name>        Removes present package. See 'dub help remove'.
     add-local <dir> <version>
                          Adds a local package directory (e.g. a git repository)
