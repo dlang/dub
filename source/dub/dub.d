@@ -20,6 +20,7 @@ import dub.packagemanager;
 import dub.packagesupplier;
 import dub.project;
 import dub.generators.generator;
+import dub.init;
 
 
 // todo: cleanup imports.
@@ -337,7 +338,7 @@ class Dub {
 		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
-	void createEmptyPackage(Path path)
+	void createEmptyPackage(Path path, string type)
 	{
 		if( !path.absolute() ) path = m_rootPath ~ path;
 		path.normalize();
@@ -357,40 +358,10 @@ class Dub {
 			throw new Exception("The current directory is not empty.\n");
 		}
 
-		//raw strings must be unindented. 
-		immutable packageJson = 
-`{
-	"name": "`~(path.empty ? "my-project" : path.head.toString().toLower())~`",
-	"description": "An example project skeleton",
-	"homepage": "http://example.org",
-	"copyright": "Copyright © 2000, Your Name",
-	"authors": [
-		"Your Name"
-	],
-	"dependencies": {
-	}
-}
-`;
-		immutable appFile =
-`import std.stdio;
-
-void main()
-{ 
-	writeln("Edit source/app.d to start your project.");
-}
-`;
-
-		//Create the common directories.
-		createDirectory(path ~ "source");
-		createDirectory(path ~ "views");
-		createDirectory(path ~ "public");
-
-		//Create the common files. 
-		openFile(path ~ PackageJsonFilename, FileMode.Append).write(packageJson);
-		openFile(path ~ "source/app.d", FileMode.Append).write(appFile);     
+		initPackage(path, type);
 
 		//Act smug to the user. 
-		logInfo("Successfully created an empty project in '"~path.toNativeString()~"'.");
+		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
 	}
 
 	void runDdox()

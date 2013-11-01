@@ -182,8 +182,10 @@ int main(string[] args)
 				return 0;
 			case "init":
 				string dir;
-				if( args.length >= 2 ) dir = args[1];
-				dub.createEmptyPackage(Path(dir));
+				string type = "minimal";
+				if (args.length >= 2) dir = args[1];
+				if (args.length >= 3) type = args[2];
+				dub.createEmptyPackage(Path(dir), type);
 				return 0;
 			case "upgrade":
 				dub.loadPackageFromCwd();
@@ -356,7 +358,7 @@ Note: dub does not do any real "installation" of packages, those are registered
 only within dub internal ecosystem. Generation of native system packages / installer
 may be added later.
 
-Retrieval options:
+Options:
         --version        Use the specified version/branch instead of the latest
                          For the remove command, this may be a wildcard 
                          string: "*", which will remove all packages from the
@@ -378,12 +380,16 @@ dub will default to "run".
 
 Available commands:
     help                 Prints this help screen
-    init [<directory>]   Initializes an empty project in the specified directory
+    init [<directory> [<type>]]
+                         Initializes an empty project of the specified type in
+                         the given directory. By default, the current working
+                         dirctory is used. Available types:
+                           minimal (default), vibe.d
     run [<package>]      Builds and runs a package (default command)
     build [<package>]    Builds a package (uses the main package in the current
                          working directory by default)
     upgrade              Forces an upgrade of all dependencies
-    fetch <name>           Manually retrieves a package. See 'dub help fetch'.
+    fetch <name>         Manually retrieves a package. See 'dub help fetch'.
     remove <name>        Removes present package. See 'dub help remove'.
     add-local <dir> <version>
                          Adds a local package directory (e.g. a git repository)
@@ -431,7 +437,7 @@ Build/run options:
         --debug=NAME     Define the specified debug version identifier when
                          building - can be used multiple times
 
-Retrieval options:
+Fetch/remove options:
         --version        Use the specified version/branch instead of the latest
         --system         Put package into system wide dub cache instead of user local one
         --local          Put packahe to a sub folder of the current directory
