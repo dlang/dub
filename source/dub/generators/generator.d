@@ -117,7 +117,7 @@ void finalizeGeneration(BuildSettings buildsettings, bool generate_binary)
 
 void runBuildCommands(string[] commands, in BuildSettings build_settings)
 {
-	import dub.internal.std.process;
+	import std.process;
 	import dub.internal.utils;
 
 	string[string] env = environment.toAA();

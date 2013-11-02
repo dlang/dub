@@ -91,7 +91,7 @@ class Package {
 
 			// try to run git to determine the version of the package if no explicit version was given
 			if (m_info.version_.length == 0 && !parent) {
-				import dub.internal.std.process;
+				import std.process;
 				try {
 					auto branch = execute(["git", "--git-dir="~(root~".git").toNativeString(), "rev-parse", "--abbrev-ref", "HEAD"]);
 					enforce(branch.status == 0, "git rev-parse failed: " ~ branch.output);
@@ -204,7 +204,7 @@ class Package {
 	void addBuildTypeSettings(ref BuildSettings settings, in BuildPlatform platform, string build_type)
 	const {
 		if (build_type == "$DFLAGS") {
-			import dub.internal.std.process;
+			import std.process;
 			string dflags = environment.get("DFLAGS");
 			settings.addDFlags(dflags.split());
 			return;

@@ -8,7 +8,6 @@
 module dub.compilers.gdc;
 
 import dub.compilers.compiler;
-import dub.internal.std.process;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
@@ -19,6 +18,7 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.file;
+import std.process;
 import std.random;
 import std.typecons;
 

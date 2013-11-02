@@ -9,7 +9,6 @@ module dub.generators.build;
 
 import dub.compilers.compiler;
 import dub.generators.generator;
-import dub.internal.std.process;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
@@ -23,6 +22,7 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.file;
+import std.process;
 import std.string;
 
 

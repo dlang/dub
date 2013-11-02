@@ -9,7 +9,6 @@ module dub.dub;
 
 import dub.compilers.compiler;
 import dub.dependency;
-import dub.internal.std.process;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
@@ -30,6 +29,7 @@ import std.conv;
 import std.datetime;
 import std.exception;
 import std.file;
+import std.process;
 import std.string;
 import std.typecons;
 import std.zip;

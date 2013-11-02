@@ -11,7 +11,6 @@ import dub.compilers.compiler;
 import dub.dependency;
 import dub.dub;
 import dub.generators.generator;
-import dub.internal.std.process;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.url;
@@ -27,6 +26,7 @@ import std.encoding;
 import std.exception;
 import std.file;
 import std.getopt;
+import std.process;
 
 
 int main(string[] args)

@@ -7,7 +7,6 @@
 */
 module dub.init;
 
-import dub.internal.std.process;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.package_ : PackageJsonFilename;
@@ -15,6 +14,7 @@ import dub.package_ : PackageJsonFilename;
 import std.datetime;
 import std.file;
 import std.format;
+import std.process;
 import std.string;
 
 

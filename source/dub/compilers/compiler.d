@@ -10,7 +10,6 @@ module dub.compilers.compiler;
 import dub.compilers.dmd;
 import dub.compilers.gdc;
 import dub.compilers.ldc;
-import dub.internal.std.process;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
@@ -19,6 +18,7 @@ import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
+import std.process;
 
 
 static this()
