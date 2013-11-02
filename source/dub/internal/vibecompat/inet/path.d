@@ -97,6 +97,11 @@ struct Path {
 	/// Converts the Path object to a native path string (backslash as path separator on Windows).
 	string toNativeString()
 	const {
+		if (m_nodes.empty) {
+			version(Windows) assert(!absolute, "Empty absolute path detected.");
+			return absolute ? "/" : ".";
+		}
+
 		Appender!string ret;
 		
 		// for absolute unix paths start with /
