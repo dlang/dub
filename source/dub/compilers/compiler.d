@@ -19,6 +19,7 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.process;
+import std.path : globMatch;
 
 
 static this()
@@ -240,7 +241,7 @@ struct BuildSettings {
 		bool matches(string s)
 		{
 			foreach (p; vals)
-				if (Path(s) == Path(p))
+				if (Path(s) == Path(p) || globMatch(s, p))
 					return true;
 			return false;
 		}
