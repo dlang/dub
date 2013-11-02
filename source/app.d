@@ -311,7 +311,7 @@ int main(string[] args)
 
 				logDiagnostic("Generating using %s", generator);
 				dub.generateProject(generator, gensettings);
-				if( build_type == "ddox" ) dub.runDdox();
+				if (build_type == "ddox") dub.runDdox(gensettings.run);
 				break;
 			case "describe":
 				if (args.length >= 2) package_name = args[1];

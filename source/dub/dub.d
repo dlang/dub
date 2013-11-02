@@ -400,15 +400,16 @@ class Dub {
 		string[] filterargs = m_project.mainPackage.info.ddoxFilterArgs.dup;
 		if (filterargs.empty) filterargs = ["--min-protection=Protected", "--only-documented"];
 		commands ~= dub_path~"ddox filter "~filterargs.join(" ")~" docs.json";
-		commands ~= dub_path~"ddox generate-html --navigation-type=ModuleTree docs.json docs";
-		version(Windows) commands ~= "xcopy /S /D "~dub_path~"public\\* docs\\";
-		else commands ~= "cp -r \""~dub_path~"public/*\" docs/";
+		if (!run) {
+			commands ~= dub_path~"ddox generate-html --navigation-type=ModuleTree docs.json docs";
+			version(Windows) commands ~= "xcopy /S /D "~dub_path~"public\\* docs\\";
+			else commands ~= "cp -r \""~dub_path~"public/*\" docs/";
+		}
 		runCommands(commands);
 
 		if (run) {
-			auto url = Url("file", m_rootPath~"docs/index.html");
-			logDiagnostic("Openening generated docs at %s", url.toString());
-			browse(url.toString());
+			spawnProcess([dub_path~"ddox", "serve-html", "--navigation-type=ModuleTree", "docs.json", "--web-file-dir="~dub_path~"public"]);
+			browse("http://127.0.0.1:8080/");
 		}
 	}
 
