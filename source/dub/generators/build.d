@@ -75,11 +75,13 @@ class BuildGenerator : ProjectGenerator {
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
 
 		Path exe_file_path;
+		bool is_temp_target = false;
 		if( generate_binary ){
 			if( settings.run ){
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max));
 				buildsettings.targetPath = (tmp~"dub/"~rnd).toNativeString();
+				is_temp_target = true;
 			}
 			exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 		}
@@ -98,7 +100,7 @@ class BuildGenerator : ProjectGenerator {
 			foreach (f; cleanup_files)
 				if (existsFile(f))
 					remove(f.toNativeString());
-			if (generate_binary && settings.run)
+			if (is_temp_target)
 				rmdirRecurse(buildsettings.targetPath);
 		}
 
@@ -114,7 +116,7 @@ class BuildGenerator : ProjectGenerator {
 
 			// invoke the compiler
 			logInfo("Running %s...", settings.platform.compilerBinary);
-			if( settings.run ) cleanup_files ~= exe_file_path;
+			if (generate_binary && settings.run) cleanup_files ~= exe_file_path;
 			settings.compiler.invoke(buildsettings, settings.platform);
 		} else {
 			// determine path for the temporary object file

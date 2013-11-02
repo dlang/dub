@@ -364,7 +364,7 @@ class Dub {
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
 	}
 
-	void runDdox()
+	void runDdox(bool run)
 	{
 		auto ddox_pack = m_packageManager.getBestPackage("ddox", ">=0.0.0");
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
@@ -404,6 +404,12 @@ class Dub {
 		version(Windows) commands ~= "xcopy /S /D "~dub_path~"public\\* docs\\";
 		else commands ~= "cp -r \""~dub_path~"public/*\" docs/";
 		runCommands(commands);
+
+		if (run) {
+			auto url = Url("file", m_rootPath~"docs/index.html");
+			logDiagnostic("Openening generated docs at %s", url.toString());
+			browse(url.toString());
+		}
 	}
 
 	private void updatePackageSearchPath()
