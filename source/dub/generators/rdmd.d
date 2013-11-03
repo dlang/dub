@@ -57,14 +57,16 @@ class RdmdGenerator : ProjectGenerator {
 		// build "rdmd --force %DFLAGS% -I%~dp0..\source -Jviews -Isource @deps.txt %LIBS% source\app.d" ~ application arguments
 		// or with "/" instead of "\"
 		Path run_exe_file;
-		if( generate_binary ){
-			if( settings.run ){
+		bool tmp_target = false;
+		if (generate_binary) {
+			if (settings.run && !isWritableDir(Path(buildsettings.targetPath))) {
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
 				buildsettings.targetPath = (getTempDir()~".rdmd/source/").toNativeString();
 				buildsettings.targetName = rnd ~ buildsettings.targetName;
-				run_exe_file = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
+				tmp_target = true;
 			}
+			run_exe_file = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 			settings.compiler.setTarget(buildsettings, settings.platform);
 		}
 
@@ -107,9 +109,11 @@ class RdmdGenerator : ProjectGenerator {
 				logInfo("Running %s...", run_exe_file.toNativeString());
 				auto prg_pid = spawnProcess(run_exe_file.toNativeString() ~ settings.runArgs);
 				result = prg_pid.wait();
-				remove(run_exe_file.toNativeString());
-				foreach( f; buildsettings.copyFiles )
-					remove((run_exe_file.parentPath ~ Path(f).head).toNativeString());
+				if (tmp_target) {
+					remove(run_exe_file.toNativeString());
+					foreach( f; buildsettings.copyFiles )
+						remove((run_exe_file.parentPath ~ Path(f).head).toNativeString());
+				}
 				enforce(result == 0, "Program exited with code "~to!string(result));
 			} else logInfo("Target is a library. Skipping execution.");
 		}

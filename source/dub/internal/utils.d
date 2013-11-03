@@ -43,6 +43,16 @@ bool isEmptyDir(Path p) {
 	return true;
 }
 
+bool isWritableDir(Path p)
+{
+	import std.random;
+	auto fname = p ~ format("__dub_write_test_%08X", uniform(0, uint.max));
+	try openFile(fname, FileMode.CreateTrunc).close();
+	catch return false;
+	remove(fname.toNativeString());
+	return true;
+}
+
 Json jsonFromFile(Path file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.EmptyObject;
 	auto f = openFile(file.toNativeString(), FileMode.Read);

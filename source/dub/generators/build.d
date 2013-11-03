@@ -76,8 +76,8 @@ class BuildGenerator : ProjectGenerator {
 
 		Path exe_file_path;
 		bool is_temp_target = false;
-		if( generate_binary ){
-			if( settings.run ){
+		if (generate_binary) {
+			if (settings.run && !isWritableDir(Path(buildsettings.targetPath))) {
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max));
 				buildsettings.targetPath = (tmp~"dub/"~rnd).toNativeString();
@@ -116,7 +116,7 @@ class BuildGenerator : ProjectGenerator {
 
 			// invoke the compiler
 			logInfo("Running %s...", settings.platform.compilerBinary);
-			if (generate_binary && settings.run) cleanup_files ~= exe_file_path;
+			if (generate_binary && is_temp_target) cleanup_files ~= exe_file_path;
 			settings.compiler.invoke(buildsettings, settings.platform);
 		} else {
 			// determine path for the temporary object file
@@ -143,7 +143,7 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.invoke(buildsettings, settings.platform);
 
 			logInfo("Linking...");
-			if( settings.run ) cleanup_files ~= exe_file_path;
+			if (is_temp_target) cleanup_files ~= exe_file_path;
 			settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()]);
 		}
 
