@@ -65,7 +65,7 @@ class BuildGenerator : ProjectGenerator {
 		prepareGeneration(buildsettings);
 
 		// determine the absolute target path
-		if( !Path(buildsettings.targetPath).absolute )
+		if (!Path(buildsettings.targetPath).absolute)
 			buildsettings.targetPath = (m_project.mainPackage.path ~ Path(buildsettings.targetPath)).toNativeString();
 
 		// make all target/import paths relative
@@ -77,7 +77,7 @@ class BuildGenerator : ProjectGenerator {
 		Path exe_file_path;
 		bool is_temp_target = false;
 		if (generate_binary) {
-			if (settings.run && !isWritableDir(Path(buildsettings.targetPath))) {
+			if (settings.run && !isWritableDir(Path(buildsettings.targetPath), true)) {
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max));
 				buildsettings.targetPath = (tmp~"dub/"~rnd).toNativeString();
@@ -156,12 +156,16 @@ class BuildGenerator : ProjectGenerator {
 		// copy files and run the executable
 		if (generate_binary && settings.run) {
 			if (buildsettings.targetType == TargetType.executable) {
+				auto runcwd = cwd;
 				if (buildsettings.workingDirectory.length) {
-					logDiagnostic("Switching to %s", (cwd ~ buildsettings.workingDirectory).toNativeString());
-					chdir((cwd ~ buildsettings.workingDirectory).toNativeString());
+					runcwd = cwd ~ buildsettings.workingDirectory;
+					logDiagnostic("Switching to %s", runcwd.toNativeString());
+					chdir(runcwd.toNativeString());
 				}
 				scope(exit) chdir(cwd.toNativeString());
-				logInfo("Running %s...", exe_file_path.toNativeString());
+				if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
+				exe_file_path = exe_file_path.relativeTo(runcwd);
+				logInfo("Running %s %s", exe_file_path.toNativeString(), settings.runArgs.join(" "));
 				auto prg_pid = spawnProcess(exe_file_path.toNativeString() ~ settings.runArgs);
 				auto result = prg_pid.wait();
 				enforce(result == 0, "Program exited with code "~to!string(result));

@@ -59,7 +59,7 @@ class RdmdGenerator : ProjectGenerator {
 		Path run_exe_file;
 		bool tmp_target = false;
 		if (generate_binary) {
-			if (settings.run && !isWritableDir(Path(buildsettings.targetPath))) {
+			if (settings.run && !isWritableDir(Path(buildsettings.targetPath), true)) {
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
 				buildsettings.targetPath = (getTempDir()~".rdmd/source/").toNativeString();
@@ -101,11 +101,16 @@ class RdmdGenerator : ProjectGenerator {
 		if (generate_binary && settings.run) {
 			if (buildsettings.targetType == TargetType.executable) {
 				auto cwd = Path(getcwd());
-				if (buildsettings.workingDirectory.length) {
-					logDiagnostic("Switching to %s", (cwd ~ buildsettings.workingDirectory).toNativeString());
-					chdir((cwd ~ buildsettings.workingDirectory).toNativeString());
-				}
+				auto runcwd = cwd;
+				if (buildsettings.workingDirectory.length)
+					runcwd = cwd ~ buildsettings.workingDirectory;
+				logDiagnostic("Switching to %s", runcwd.toNativeString());
+				chdir(runcwd.toNativeString());
 				scope(exit) chdir(cwd.toNativeString());
+
+				if (!run_exe_file.absolute) run_exe_file = cwd ~ run_exe_file;
+				run_exe_file = run_exe_file.relativeTo(runcwd);
+
 				logInfo("Running %s...", run_exe_file.toNativeString());
 				auto prg_pid = spawnProcess(run_exe_file.toNativeString() ~ settings.runArgs);
 				result = prg_pid.wait();
