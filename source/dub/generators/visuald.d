@@ -202,12 +202,23 @@ EndGlobal");
 			auto files = pack.getBuildSettings(settings.platform, configs[pack.name]);
 			bool[SourceFile] sourceFiles;
 			if (m_combinedProject) {
-
 				bool[const(Package)] basePackagesAdded;
 
 				// add all package.json files to the project
 				// and all source files
 				performOnDependencies(pack, configs, (prj) {
+					void addFile(string s, bool build) {
+						auto sp = Path(s);
+						if( !sp.absolute ) sp = prj.path ~ sp;
+						SourceFile sf;
+						sf.pkg = pack.name;
+						sf.filePath = sp.relativeTo(project_file_dir);
+						sf.build = build;
+
+						// regroup in Folder by base package
+						sf.structurePath = Path(prj.basePackage().name) ~ sp.relativeTo(prj.path);
+						sourceFiles[sf] = true;
+					}
 
 					string[] prjFiles;
 
@@ -217,40 +228,36 @@ EndGlobal");
 					{
 						const(Package) base = prj.basePackage();
 
-						if (base !in basePackagesAdded)
-						{
+						if (base !in basePackagesAdded) {
 							prjFiles ~= prj.packageInfoFile.toNativeString();
 							basePackagesAdded[base] = true;
 						}
 					}
 
-					prjFiles = prjFiles ~ prj.getBuildSettings(settings.platform, configs[prj.name]).sourceFiles;
-
-					foreach(s; prjFiles){
-						auto sp = Path(s);
-						if( !sp.absolute ) sp = prj.path ~ sp;
-						SourceFile sf;
-						sf.pkg = pack.name;
-						sf.filePath = sp.relativeTo(project_file_dir);
-
-						// regroup in Folder by base package
-						sf.structurePath = Path(prj.basePackage().name) ~ sp.relativeTo(prj.path);
-						sourceFiles[sf] = true;
-					}
+					auto settings = prj.getBuildSettings(settings.platform, configs[prj.name]);
+					foreach (f; prjFiles) addFile(f, false);
+					foreach (f; settings.sourceFiles) addFile(f, true);
+					foreach (f; settings.importFiles) addFile(f, false);
+					foreach (f; settings.stringImportFiles) addFile(f, false);
 				});
 			}
 
 			files.sourceFiles ~= pack.packageInfoFile.toNativeString();
 
-			foreach(s; files.sourceFiles){
+			void addFile(string s, bool build) {
 				auto sp = Path(s);
 				if( !sp.absolute ) sp = pack.path ~ sp;
 				SourceFile sf;
 				sf.pkg = pack.name;
 				sf.filePath = sp.relativeTo(project_file_dir);
 				sf.structurePath = sp.relativeTo(pack.path);
+				sf.build = build;
 				sourceFiles[sf] = true;
 			}
+			addFile(pack.packageInfoFile.toNativeString(), false);
+			foreach(s; files.sourceFiles) addFile(s, true);
+			foreach(s; files.importFiles) addFile(s, false);
+			foreach(s; files.stringImportFiles) addFile(s, false);
 
 			// Create folders and files
 			ret.formattedWrite("  <Folder name=\"%s\">", getPackageFileName(pack));
@@ -273,7 +280,7 @@ EndGlobal");
 						ret.formattedWrite("\n    <Folder name=\"%s\">", cur[same + idx].toString());
 					lastFolder = cur;
 				}
-				ret.formattedWrite("\n      <File path=\"%s\" />",  source.filePath.toNativeString());
+				ret.formattedWrite("\n      <File %spath=\"%s\" />", source.build ? "" : "tool=\"None\" ", source.filePath.toNativeString());
 			}
 			// Finalize all open folders
 			foreach(unused; 0..lastFolder.length)

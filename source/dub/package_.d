@@ -331,6 +331,18 @@ class Package {
 			jf["type"] = "source";
 			files ~= jf;
 		}
+		foreach (f; bs.importFiles) {
+			auto jf = Json.EmptyObject;
+			jf.path = f;
+			jf["type"] = "import";
+			files ~= jf;
+		}
+		foreach (f; bs.stringImportFiles) {
+			auto jf = Json.EmptyObject;
+			jf.path = f;
+			jf["type"] = "stringImport";
+			files ~= jf;
+		}
 		dst.files = Json(files);
 	}
 }
@@ -654,26 +666,34 @@ struct BuildSettingsTemplate {
 		if (!this.targetName.empty) dst.targetName = this.targetName;
 		if (!this.workingDirectory.empty) dst.workingDirectory = this.workingDirectory;
 
-		// collect source files from all source folders
-		foreach(suffix, paths; sourcePaths){
-			if( !platform.matchesSpecification(suffix) )
-				continue;
-
-			foreach (spath; paths) {
-				enforce(!spath.empty, "Source paths must not be empty strings.");
-				auto path = base_path ~ spath;
-				if (!existsFile(path) || !isDir(path.toNativeString())) {
-					logWarn("Invalid source path: %s", path.toNativeString());
+		void collectFiles(string method)(in string[][string] paths_map, string pattern)
+		{
+			foreach (suffix, paths; paths_map) {
+				if (!platform.matchesSpecification(suffix))
 					continue;
-				}
 
-				foreach(d; dirEntries(path.toNativeString(), "*.d", SpanMode.depth)){
-					if (isDir(d.name)) continue;
-					auto src = Path(d.name).relativeTo(base_path);
-					dst.addSourceFiles(src.toNativeString());
+				foreach (spath; paths) {
+					enforce(!spath.empty, "Paths must not be empty strings.");
+					auto path = base_path ~ spath;
+					if (!existsFile(path) || !isDir(path.toNativeString())) {
+						logWarn("Invalid source path: %s", path.toNativeString());
+						continue;
+					}
+
+					foreach (d; dirEntries(path.toNativeString(), pattern, SpanMode.depth)) {
+						if (isDir(d.name)) continue;
+						auto src = Path(d.name).relativeTo(base_path);
+						__traits(getMember, dst, method)(src.toNativeString());
+					}
 				}
 			}
 		}
+
+		// collect files from all source/import folders
+		collectFiles!"addSourceFiles"(sourcePaths, "*.d");
+		collectFiles!"addImportFiles"(importPaths, "*.{d,di}");
+		dst.removeImportFiles(dst.sourceFiles);
+		collectFiles!"addStringImportFiles"(stringImportPaths, "*");
 
 		getPlatformSetting!("dflags", "addDFlags")(dst, platform);
 		getPlatformSetting!("lflags", "addLFlags")(dst, platform);

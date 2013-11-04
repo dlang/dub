@@ -191,6 +191,8 @@ struct BuildSettings {
 	string[] debugVersions;
 	string[] importPaths;
 	string[] stringImportPaths;
+	string[] importFiles;
+	string[] stringImportFiles;
 	string[] preGenerateCommands;
 	string[] postGenerateCommands;
 	string[] preBuildCommands;
@@ -209,6 +211,9 @@ struct BuildSettings {
 	void addDebugVersions(in string[] value...) { add(debugVersions, value); }
 	void addImportPaths(in string[] value...) { add(importPaths, value); }
 	void addStringImportPaths(in string[] value...) { add(stringImportPaths, value); }
+	void addImportFiles(in string[] value...) { add(importFiles, value); }
+	void removeImportFiles(in string[] value...) { removePaths(importFiles, value); }
+	void addStringImportFiles(in string[] value...) { add(stringImportFiles, value); }
 	void addPreGenerateCommands(in string[] value...) { add(preGenerateCommands, value, false); }
 	void addPostGenerateCommands(in string[] value...) { add(postGenerateCommands, value, false); }
 	void addPreBuildCommands(in string[] value...) { add(preBuildCommands, value, false); }
