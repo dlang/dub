@@ -109,7 +109,12 @@ void moveFile(string from, string to)
 */
 void copyFile(Path from, Path to, bool overwrite = false)
 {
-	enforce(overwrite || !existsFile(to), "Destination file already exists.");
+	if (existsFile(to)) {
+		enforce(overwrite, "Destination file already exists.");
+		// remove file before copy to allow "overwriting" files that are in
+		// use on Linux
+		removeFile(to);
+	}
 	.copy(from.toNativeString(), to.toNativeString());
 }
 /// ditto
