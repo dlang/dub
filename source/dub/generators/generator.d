@@ -10,7 +10,6 @@ module dub.generators.generator;
 import dub.compilers.compiler;
 import dub.generators.build;
 import dub.generators.monod;
-import dub.generators.rdmd;
 import dub.generators.visuald;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
@@ -35,14 +34,14 @@ interface ProjectGenerator
 
 struct GeneratorSettings {
 	BuildPlatform platform;
-	string config;
 	Compiler compiler;
+	string config;
+	string buildType;
 	BuildSettings buildSettings;
 
-	// only used for generator "rdmd"
-	bool run;
+	// only used for generator "build"
+	bool run, force, direct, clean;
 	string[] runArgs;
-	string buildType;
 }
 
 
@@ -62,7 +61,9 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 			return new BuildGenerator(app, mgr);
 		case "rdmd":
 			logDebug("Creating rdmd generator.");
-			return new RdmdGenerator(app, mgr);
+			auto ret = new BuildGenerator(app, mgr);
+			ret.useRDMD = true;
+			return ret;
 		case "mono-d":
 			logDebug("Creating MonoD generator.");
 			return new MonoDGenerator(app, mgr);

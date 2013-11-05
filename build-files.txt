@@ -14,7 +14,6 @@ source/dub/compilers/ldc.d
 source/dub/generators/build.d
 source/dub/generators/generator.d
 source/dub/generators/monod.d
-source/dub/generators/rdmd.d
 source/dub/generators/visuald.d
 source/dub/internal/utils.d
 source/dub/internal/vibecompat/core/file.d
