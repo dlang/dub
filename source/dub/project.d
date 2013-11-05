@@ -774,7 +774,9 @@ private void processVars(ref Appender!(string[]) dst, string project_path, strin
 					auto varname = var[0 .. idx2];
 					var = var[idx2 .. $];
 
+					string env_variable;
 					if( varname == "PACKAGE_DIR" ) vres.put(project_path);
+					else if( (env_variable = environment.get(varname)) != null) vres.put(env_variable);
 					else enforce(false, "Invalid variable: "~varname);
 				}
 				idx = std.string.indexOf(var, '$');
