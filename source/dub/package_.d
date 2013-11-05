@@ -676,7 +676,7 @@ struct BuildSettingsTemplate {
 					enforce(!spath.empty, "Paths must not be empty strings.");
 					auto path = base_path ~ spath;
 					if (!existsFile(path) || !isDir(path.toNativeString())) {
-						logWarn("Invalid source path: %s", path.toNativeString());
+						logWarn("Invalid source/import path: %s", path.toNativeString());
 						continue;
 					}
 
