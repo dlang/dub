@@ -242,8 +242,6 @@ EndGlobal");
 				});
 			}
 
-			files.sourceFiles ~= pack.packageInfoFile.toNativeString();
-
 			void addFile(string s, bool build) {
 				auto sp = Path(s);
 				if( !sp.absolute ) sp = pack.path ~ sp;
