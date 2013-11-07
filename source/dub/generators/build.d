@@ -111,6 +111,7 @@ class BuildGenerator : ProjectGenerator {
 		// override target path
 		auto cbuildsettings = buildsettings;
 		cbuildsettings.targetPath = target_path.relativeTo(cwd).toNativeString();
+		if (generate_binary) settings.compiler.setTarget(cbuildsettings, settings.platform);
 		buildWithCompiler(settings, cbuildsettings);
 
 		copyTargetFile(target_path, buildsettings, settings.platform);
