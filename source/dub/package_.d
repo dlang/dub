@@ -313,6 +313,8 @@ class Package {
 		foreach (string k, v; bs.serializeToJson()) dst[k] = v;
 		dst.remove("requirements");
 		dst.remove("sourceFiles");
+		dst.remove("importFiles");
+		dst.remove("stringImportFiles");
 		dst.targetType = bs.targetType.to!string();
 		dst.targetFileName = getTargetFileName(bs, platform);
 
@@ -322,6 +324,13 @@ class Package {
 			if (bs.requirements & i)
 				breqs ~= Json(to!string(cast(BuildRequirements)i));
 		dst.buildRequirements = breqs;
+
+		// prettify options output
+		Json[] bopts;
+		for (int i = 1; i <= BuildOptions.max; i <<= 1)
+			if (bs.options & i)
+				bopts ~= Json(to!string(cast(BuildOptions)i));
+		dst.options = bopts;
 
 		// prettify files output
 		Json[] files;
