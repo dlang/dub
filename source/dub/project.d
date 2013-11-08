@@ -734,6 +734,8 @@ private void processVars(ref BuildSettings dst, string project_path, BuildSettin
 	dst.addLFlags(processVars(project_path, settings.lflags));
 	dst.addLibs(processVars(project_path, settings.libs));
 	dst.addSourceFiles(processVars(project_path, settings.sourceFiles, true));
+	dst.addImportFiles(processVars(project_path, settings.importFiles, true));
+	dst.addStringImportFiles(processVars(project_path, settings.stringImportFiles, true));
 	dst.addCopyFiles(processVars(project_path, settings.copyFiles, true));
 	dst.addVersions(processVars(project_path, settings.versions));
 	dst.addDebugVersions(processVars(project_path, settings.debugVersions));
