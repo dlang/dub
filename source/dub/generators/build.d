@@ -311,14 +311,14 @@ class BuildGenerator : ProjectGenerator {
 
 			// setup linker command line
 			auto lbuildsettings = buildsettings;
-			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => f.endsWith(".lib"))().array();
+			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => isLinkerFile(f)).array;
 			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
 
 			// setup compiler command line
 			buildsettings.libs = null;
 			buildsettings.lflags = null;
 			buildsettings.addDFlags("-c", "-of"~tempobj.toNativeString());
-			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !f.endsWith(".lib"))().array();
+			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !isLinkerFile(f)).array;
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			logInfo("Compiling...");
@@ -370,4 +370,13 @@ private Path getMainSourceFile(in Project prj)
 		if( exists(f) )
 			return Path(f);
 	return Path("source/app.d");
+}
+
+private bool isLinkerFile(string f)
+{
+	version (Windows) {
+		return f.endsWith(".lib") || f.endsWith(".obj");
+	} else {
+		return f.endsWith(".a") || f.endsWith(".o") || f.endsWith(".so") || f.endsWith(".dylib");
+	}
 }
