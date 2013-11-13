@@ -143,6 +143,9 @@ version(DubUseCurl) {
 		static if( is(typeof(&conn.verifyPeer)) )
 			conn.verifyPeer = false;
 
+		auto proxy = environment.get("http_proxy", null);
+		if (proxy.length) conn.proxy = proxy;
+
 		// convert version string to valid SemVer format
 		auto verstr = dubVersion;
 		if (verstr.startsWith("v")) verstr = verstr[1 .. $];
