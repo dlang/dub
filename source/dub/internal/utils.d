@@ -19,11 +19,11 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.file;
-import std.net.curl;
 import std.process;
 import std.string;
 import std.typecons;
 import std.zip;
+version(DubUseCurl) import std.net.curl;
 
 
 Path getTempDir()
@@ -110,9 +110,11 @@ void runCommands(string[] commands, string[string] env = null)
 */
 void download(string url, string filename)
 {
-	auto conn = setupHTTPClient();
-	logDebug("Storing %s...", url);
-	std.net.curl.download(url, filename, conn);
+	version(DubUseCurl) {
+		auto conn = setupHTTPClient();
+		logDebug("Storing %s...", url);
+		std.net.curl.download(url, filename, conn);
+	} else assert(false);
 }
 /// ditto
 void download(Url url, Path filename)
@@ -122,9 +124,11 @@ void download(Url url, Path filename)
 /// ditto
 char[] download(string url)
 {
-	auto conn = setupHTTPClient();
-	logDebug("Getting %s...", url);
-	return get(url, conn);
+	version(DubUseCurl) {
+		auto conn = setupHTTPClient();
+		logDebug("Getting %s...", url);
+		return get(url, conn);
+	} else assert(false);
 }
 /// ditto
 char[] download(Url url)
@@ -132,20 +136,22 @@ char[] download(Url url)
 	return download(url.toString());
 }
 
-private HTTP setupHTTPClient()
-{
-	auto conn = HTTP();
-	static if( is(typeof(&conn.verifyPeer)) )
-		conn.verifyPeer = false;
+version(DubUseCurl) {
+	private HTTP setupHTTPClient()
+	{
+		auto conn = HTTP();
+		static if( is(typeof(&conn.verifyPeer)) )
+			conn.verifyPeer = false;
 
-	// convert version string to valid SemVer format
-	auto verstr = dubVersion;
-	if (verstr.startsWith("v")) verstr = verstr[1 .. $];
-	auto idx = verstr.indexOf("-");
-	if (idx >= 0) verstr = verstr[0 .. idx] ~ "+" ~ verstr[idx+1 .. $].split("-").join(".");
+		// convert version string to valid SemVer format
+		auto verstr = dubVersion;
+		if (verstr.startsWith("v")) verstr = verstr[1 .. $];
+		auto idx = verstr.indexOf("-");
+		if (idx >= 0) verstr = verstr[0 .. idx] ~ "+" ~ verstr[idx+1 .. $].split("-").join(".");
 
-	conn.addRequestHeader("User-Agent", "dub/"~verstr~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
-	return conn;
+		conn.addRequestHeader("User-Agent", "dub/"~verstr~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
+		return conn;
+	}
 }
 
 private string stripUTF8Bom(string str)

@@ -7,7 +7,27 @@
 		"Matthias Dondorff",
 		"Sönke Ludwig"
 	],
-	"libs": ["curl"],
-	"copyFiles-windows": ["curllib.dll", "libeay32.dll", "openldap.dll", "ssleay32.dll"],
-	"targetPath": "bin"
+	"targetPath": "bin",
+	"configurations": [
+		{
+			"name": "application",
+			"targetType": "executable",
+			"libs": ["curl"],
+			"copyFiles-windows": ["curllib.dll", "libeay32.dll", "openldap.dll", "ssleay32.dll"],
+			"versions": ["DubUseCurl"]
+		},
+		{
+			"name": "library",
+			"targetType": "library",
+			"excludedSourceFiles": ["source/app.d"],
+			"libs": ["curl"],
+			"copyFiles-windows": ["curllib.dll", "libeay32.dll", "openldap.dll", "ssleay32.dll"],
+			"versions": ["DubUseCurl"]
+		},
+		{
+			"name": "library-nonet",
+			"targetType": "library",
+			"excludedSourceFiles": ["source/app.d"]
+		}
+	]
 }
