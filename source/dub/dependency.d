@@ -687,10 +687,8 @@ class DependencyGraph {
 
 		Package r_master = new Package(R_json);
 		auto graph = new DependencyGraph(r_master);
-
-		// See #100, a dependency on a subpackage should only refer the base
-		// project.
-		auto missing = graph.missing();
-		assert(missing.length == 0);
+		assert(graph.missing().length == 1);
+		foreach (sp; r_master.subPackages) graph.insert(sp);
+		assert(graph.missing().length == 0);
 	}
 }
