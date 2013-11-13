@@ -13,6 +13,7 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.package_;
+import dub.semver;
 
 import std.algorithm;
 import std.array;
@@ -34,63 +35,22 @@ static import std.compiler;
 */
 struct Version {
 	private { 
-		enum MAX_VERS = 9999;
 		enum MASTER_VERS = cast(size_t)(-1);
+		enum MAX_VERS = "99999.0.0";
 		string m_version;
 	}
 
 	static @property RELEASE() { return Version("0.0.0"); }
-	static @property HEAD() { return Version(to!string(MAX_VERS)~"."~to!string(MAX_VERS)~"."~to!string(MAX_VERS)); }
+	static @property HEAD() { return Version(MAX_VERS); }
 	static @property INVALID() { return Version(""); }
 	static @property MASTER() { return Version(MASTER_STRING); }
 	static @property MASTER_STRING() { return "~master"; }
 	static @property BRANCH_IDENT() { return '~'; }
 	
 	this(string vers)
-	in {
+	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		if(vers[0] == BRANCH_IDENT) {
-			// branch style, ok
-		}
-		else {
-			// Check valid SemVer style
-			// 1.2.3-pre.release-version+build-meta.data.3
-			//enum semVerRegEx = ctRegex!(`yadda_malloc cannot be interpreted at compile time`);
-			//assert(match(vers, 
-			//  `^[0-9]+\.[0-9]+\.[0-9]+\-{0,1}(?:[0-9A-Za-z-]+\.{0,1})*\+{0,1}(?:[0-9A-Za-z-]+\.{0,1})*$`));
-			bool isNumericChar(char x) { return x >= '0' && x <= '9'; }
-			bool isIdentChar(char x) { return isNumericChar(x) || (x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z') || x == '-'; }
-			// 1-3 (version), 4 (prebuild), 5 (build), negative: substate
-			int state = 1; 
-			foreach(c; vers) {
-				switch(state) {
-				default: enforce(false, "Messed up"); break;
-				case 1: case 2: case 3: case 4: case 5:
-					enforce(0
-						|| (state <= 3 && isNumericChar(c))
-						|| (state >= 4 && isIdentChar(c)), "State #"~to!string(state)~", Char "~c~", Version: "~vers);
-					state = -state;
-					break;
-				case -1: case -2: case -3: case -4: case -5:
-					enforce(0
-						|| (state >= -2 && (c == '.' || isNumericChar(c)))
-						|| (state == -3 && (c == '-' || c == '+' || isNumericChar(c)))
-						|| (state == -4 && (c == '+' || c == '.' || isIdentChar(c)))
-						|| (state == -5 && isIdentChar(c)), "State #"~to!string(state)~", Char "~c~", Version: "~vers);
-					if(0
-						|| state >= -2 && c == '.'
-						|| state == -3 && c == '-'
-						|| state == -4 && c == '+')
-						state = -state + 1;
-					if(state == -3 && c == '+')
-						state = 5;
-					break;
-				}
-			}
-			enforce(state <= -3, "The version string is invalid: '" ~ vers ~ "'");
-		}
-	}
-	body {
+		enforce(vers[0] == BRANCH_IDENT || vers.isValidVersion(), "Invalid SemVer format: "~vers);
 		m_version = vers;
 	}
 
@@ -99,6 +59,7 @@ struct Version {
 	
 	/// Returns true, if this version indicates a branch, which is not the trunk.
 	@property bool isBranch() const { return m_version[0] == BRANCH_IDENT && m_version != MASTER_STRING; }
+	@property bool isMaster() const { return m_version == MASTER_STRING; }
 
 	/** 
 		Comparing Versions is generally possible, but comparing Versions 
@@ -112,62 +73,11 @@ struct Version {
 			else throw new Exception("Can't compare branch versions! (this: %s, other: %s)".format(this, other));
 		}
 
-		// Compare two SemVer versions
-		string v[] = this.toComparableArray();
-		string ov[] = other.toComparableArray();
-
-		foreach( i; 0 .. min(v.length, ov.length) ) {
-			if( v[i] != ov[i] ) {
-				if(isNumeric(v[i]) && isNumeric(ov[i]))
-					return to!size_t(v[i]) < to!size_t(ov[i])? -1 : 1;
-				else 
-					return v[i] < ov[i]? -1 : 1;
-			}
-		}
-		if(v.length == 3)
-			return ov.length == 3? 0 : 1;
-		else if(ov.length == 3)
-			return -1;
-		else
-			return cast(int)v.length - cast(int)ov.length;
+		return compareVersions(isMaster ? MAX_VERS : m_version, other.isMaster ? MAX_VERS : other.m_version);
 	}
 	int opCmp(in Version other) const { return opCmp(other); }
 	
 	string toString() const { return m_version; }
-
-	private string[] toComparableArray() const 
-	out(result) {
-		assert(result.length >= 3);
-	}
-	body { 
-		enforce(!isBranch, "Cannot convert a branch an array representation (%s)", m_version);
-
-		// Master has to compare to the other regular versions, therefore a special
-		// representation is returned for this case.
-		if(m_version == MASTER_STRING)
-			return [ to!string(Version.MASTER_VERS), to!string(Version.MASTER_VERS), to!string(Version.MASTER_VERS) ];
-		
-		// Split and discard possible build metadata, this is not compared.
-		string vers = split(m_version, "+")[0];
-		
-		// Split prerelease data (may be empty)
-		auto dashIdx = std.string.indexOf(vers, "-");
-		string prerelease;
-		if(dashIdx != -1) {
-			prerelease = vers[dashIdx+1..$];
-			vers = vers[0..dashIdx];
-		}
-		auto toksV = split(vers, ".");
-		auto toksP = split(prerelease, ".");
-		
-		string v[];
-		v.length = toksV.length + toksP.length;
-		int i=-1;
-		foreach( token; toksV ) v[++i] = token;
-		foreach( token; toksP ) v[++i] = token;
-		
-		return v;
-	}
 }
 
 unittest {
@@ -175,19 +85,14 @@ unittest {
 
 	assertNotThrown(a = Version("1.0.0"), "Constructing Version('1.0.0') failed");
 	assert(!a.isBranch, "Error: '1.0.0' treated as branch");
-	string[] arrRepr = [ "1", "0", "0" ];
-	assert(a.toComparableArray() == arrRepr, "Array representation of '1.0.0' is wrong.");
 	assert(a == a, "a == a failed");
 
 	assertNotThrown(a = Version(Version.MASTER_STRING), "Constructing Version("~Version.MASTER_STRING~"') failed");
 	assert(!a.isBranch, "Error: '"~Version.MASTER_STRING~"' treated as branch");
-	arrRepr = [ to!string(Version.MASTER_VERS), to!string(Version.MASTER_VERS), to!string(Version.MASTER_VERS) ];
-	assert(a.toComparableArray() == arrRepr, "'"~Version.MASTER_STRING~"' has a array representation.");
 	assert(a == Version.MASTER, "Constructed master version != default master version.");
 
 	assertNotThrown(a = Version("~BRANCH"), "Construction of branch Version failed.");
 	assert(a.isBranch, "Error: '~BRANCH' not treated as branch'");
-	assertThrown(a.toComparableArray(), "Error: Converting branch version to array succeded.");
 	assert(a == a, "a == a with branch failed");
 
 	// opCmp
@@ -203,16 +108,10 @@ unittest {
 	// SemVer 2.0.0-rc.2
 	a = Version("2.0.0-rc.2");
 	b = Version("2.0.0-rc.3");
-	arrRepr = [ "2","0","0","rc","2" ];
-	assert(a.toComparableArray() == arrRepr, "Array representation of 2.0.0-rc.2 is wrong.");
 	assert(a < b, "Failed: 2.0.0-rc.2 < 2.0.0-rc.3");
 	
 	a = Version("2.0.0-rc.2+build-metadata");
-	arrRepr = [ "2","0","0","rc","2" ];
-	assert(a.toComparableArray() == arrRepr, "Array representation of 2.0.0-rc.2 is wrong.");
 	b = Version("2.0.0+build-metadata");
-	arrRepr = [ "2","0","0" ];
-	assert(b.toComparableArray() == arrRepr, "Array representation of 2.0.0+build-metadata is wrong.");  
 	assert(a < b, "Failed: "~to!string(a)~"<"~to!string(b));
 	
 	// 1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta.2 < 1.0.0-beta.11 < 1.0.0-rc.1 < 1.0.0
