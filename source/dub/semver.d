@@ -26,11 +26,13 @@ bool isValidVersion(string ver)
 
 	// a
 	auto sepi = ver.indexOf('.');
+	if (sepi < 0) return false;
 	if (!isValidNumber(ver[0 .. sepi])) return false;
 	ver = ver[sepi+1 .. $];
 
 	// c
 	sepi = ver.indexOf('.');
+	if (sepi < 0) return false;
 	if (!isValidNumber(ver[0 .. sepi])) return false;
 	ver = ver[sepi+1 .. $];
 
@@ -85,6 +87,8 @@ unittest {
 	assert(!isValidVersion("1.0.0-"));
 	assert(!isValidVersion("1.0.0-+a"));
 	assert(!isValidVersion("1.0.0-a+"));
+	assert(!isValidVersion("1.0"));
+	assert(!isValidVersion("1.0-1.0"));
 }
 
 
