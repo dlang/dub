@@ -152,7 +152,8 @@ class DmdCompiler : Compiler {
 				settings.addDFlags("-lib");
 				break;
 			case TargetType.dynamicLibrary:
-				settings.addDFlags("-shared", "-fPIC");
+				settings.addDFlags("-shared");
+				version(Windows) {} else settings.addDFlags("-fPIC");
 				break;
 		}
 
