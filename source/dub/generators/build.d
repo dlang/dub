@@ -308,7 +308,10 @@ class BuildGenerator : ProjectGenerator {
 			Path tempobj = Path(buildsettings.targetPath) ~ tempobjname;
 
 			if (buildsettings.targetType == TargetType.dynamicLibrary)
-				buildsettings.addDFlags("-shared", "-fPIC");
+			{
+				buildsettings.addDFlags("-shared");
+				version(Windows) {} else buildsettings.addDFlags("-fPIC");
+			}
 
 			// setup linker command line
 			auto lbuildsettings = buildsettings;
