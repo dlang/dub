@@ -307,9 +307,6 @@ class BuildGenerator : ProjectGenerator {
 			else tempobjname ~= ".o";
 			Path tempobj = Path(buildsettings.targetPath) ~ tempobjname;
 
-			if (buildsettings.targetType == TargetType.dynamicLibrary)
-				buildsettings.addDFlags("-shared", "-fPIC");
-
 			// setup linker command line
 			auto lbuildsettings = buildsettings;
 			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => isLinkerFile(f)).array;
