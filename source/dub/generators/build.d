@@ -339,9 +339,13 @@ class BuildGenerator : ProjectGenerator {
 			}
 			scope(exit) chdir(cwd.toNativeString());
 			if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
-			exe_file_path = exe_file_path.relativeTo(runcwd);
-			logInfo("Running %s %s", exe_file_path.toNativeString(), run_args.join(" "));
-			auto prg_pid = spawnProcess(exe_file_path.toNativeString() ~ run_args);
+			auto exe_path_string = exe_file_path.relativeTo(runcwd).toNativeString();
+			version (OSX) { // spawnProcess on OS X requires an explicit path to the executable
+				if (!exe_path_string.startsWith(".") && !exe_path_string.startsWith("/"))
+					exe_path_string = "./" ~ exe_path_string;
+			}
+			logInfo("Running %s %s", exe_path_string, run_args.join(" "));
+			auto prg_pid = spawnProcess(exe_path_string ~ run_args);
 			auto result = prg_pid.wait();
 			enforce(result == 0, "Program exited with code "~to!string(result));
 		} else logInfo("Target is a library. Skipping execution.");
