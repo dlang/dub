@@ -720,13 +720,27 @@ struct Action {
 	}
 }
 
+
 enum UpdateOptions
 {
 	None = 0,
 	JustAnnotate = 1<<0,
 	Upgrade = 1<<1
-};
+}
 
+
+/// Indicates where a package has been or should be placed to.
+enum PlacementLocation {
+	/// Packages retrived with 'local' will be placed in the current folder 
+	/// using the package name as destination.
+	local,
+	/// Packages with 'userWide' will be placed in a folder accessible by
+	/// all of the applications from the current user.
+	userWide,
+	/// Packages retrieved with 'systemWide' will be placed in a shared folder,
+	/// which can be accessed by all users of the system.
+	systemWide
+}
 
 private void processVars(ref BuildSettings dst, string project_path, BuildSettings settings)
 {

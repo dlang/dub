@@ -27,19 +27,6 @@ import std.traits : EnumMembers;
 enum PackageJsonFilename = "package.json";
 
 
-/// Indicates where a package has been or should be placed to.
-enum PlacementLocation {
-	/// Packages retrived with 'local' will be placed in the current folder 
-	/// using the package name as destination.
-	local,
-	/// Packages with 'userWide' will be placed in a folder accessible by
-	/// all of the applications from the current user.
-	userWide,
-	/// Packages retrieved with 'systemWide' will be placed in a shared folder,
-	/// which can be accessed by all users of the system.
-	systemWide
-}
-
 /// Representing a downloded / cached package, usually constructed from a json object.
 /// Documentation of the package.json can be found at 
 /// http://registry.vibed.org/package-format
