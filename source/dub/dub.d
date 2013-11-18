@@ -187,7 +187,7 @@ class Dub {
 	/// Outputs a JSON description of the project, including its dependencies.
 	void describeProject(BuildPlatform platform, string config)
 	{
-		auto dst = Json.EmptyObject;
+		auto dst = Json.emptyObject;
 		dst.configuration = config;
 		dst.compiler = platform.compiler;
 		dst.architecture = platform.architecture.serializeToJson();
@@ -213,7 +213,7 @@ class Dub {
 				break;
 			} catch(Exception) {}
 		}
-		enforce(pinfo.type != Json.Type.Undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
+		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
 
 		Path placement;

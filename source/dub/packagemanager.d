@@ -453,7 +453,7 @@ class PackageManager {
 				if( !existsFile(local_package_file) ) return;
 				logDiagnostic("Try to load local package map at %s", local_package_file.toNativeString());
 				auto packlist = jsonFromFile(list_path ~ LocalPackagesFilename);
-				enforce(packlist.type == Json.Type.Array, LocalPackagesFilename~" must contain an array.");
+				enforce(packlist.type == Json.Type.array, LocalPackagesFilename~" must contain an array.");
 				foreach( pentry; packlist ){
 					try {
 						auto name = pentry.name.get!string();
@@ -462,7 +462,7 @@ class PackageManager {
 							paths ~= path;
 						} else {
 							auto ver = pentry["version"].get!string();
-							auto info = Json.EmptyObject;
+							auto info = Json.emptyObject;
 							if( existsFile(path ~ PackageJsonFilename) ) info = jsonFromFile(path ~ PackageJsonFilename);
 							if( "name" in info && info.name.get!string() != name )
 								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, info.name.get!string());
@@ -563,14 +563,14 @@ class PackageManager {
 	{
 		Json[] newlist;
 		foreach (p; m_repositories[type].searchPath) {
-			auto entry = Json.EmptyObject;
+			auto entry = Json.emptyObject;
 			entry.name = "*";
 			entry.path = p.toNativeString();
 			newlist ~= entry;
 		}
 
 		foreach (p; m_repositories[type].localPackages) {
-			auto entry = Json.EmptyObject;
+			auto entry = Json.emptyObject;
 			entry["name"] = p.name;
 			entry["version"] = p.ver.toString();
 			entry["path"] = p.path.toNativeString();

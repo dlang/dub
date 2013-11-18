@@ -55,7 +55,7 @@ bool isWritableDir(Path p, bool create_if_missing = false)
 }
 
 Json jsonFromFile(Path file, bool silent_fail = false) {
-	if( silent_fail && !existsFile(file) ) return Json.EmptyObject;
+	if( silent_fail && !existsFile(file) ) return Json.emptyObject;
 	auto f = openFile(file.toNativeString(), FileMode.Read);
 	scope(exit) f.close();
 	auto text = stripUTF8Bom(cast(string)f.readAll());

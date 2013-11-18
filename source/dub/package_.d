@@ -322,19 +322,19 @@ class Package {
 		// prettify files output
 		Json[] files;
 		foreach (f; bs.sourceFiles) {
-			auto jf = Json.EmptyObject;
+			auto jf = Json.emptyObject;
 			jf.path = f;
 			jf["type"] = "source";
 			files ~= jf;
 		}
 		foreach (f; bs.importFiles) {
-			auto jf = Json.EmptyObject;
+			auto jf = Json.emptyObject;
 			jf.path = f;
 			jf["type"] = "import";
 			files ~= jf;
 		}
 		foreach (f; bs.stringImportFiles) {
-			auto jf = Json.EmptyObject;
+			auto jf = Json.emptyObject;
 			jf.path = f;
 			jf["type"] = "stringImport";
 			files ~= jf;
@@ -526,7 +526,7 @@ struct BuildSettingsTemplate {
 					foreach( string pkg, verspec; value ) {
 						enforce(pkg !in this.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 						Dependency dep;
-						if( verspec.type == Json.Type.Object ){
+						if( verspec.type == Json.Type.object ){
 							enforce("version" in verspec, "Package information provided for package " ~ pkg ~ " is missing a version field.");
 							auto ver = verspec["version"].get!string;
 							if( auto pp = "path" in verspec ) {
@@ -604,14 +604,14 @@ struct BuildSettingsTemplate {
 
 	Json toJson()
 	const {
-		auto ret = Json.EmptyObject;
+		auto ret = Json.emptyObject;
 		if( this.dependencies !is null ){
-			auto deps = Json.EmptyObject;
+			auto deps = Json.emptyObject;
 			foreach( pack, d; this.dependencies ){
 				if( d.path.empty && !d.optional ){
 					deps[pack] = d.toString();
 				} else {
-					auto vjson = Json.EmptyObject;
+					auto vjson = Json.emptyObject;
 					vjson["version"] = d.version_.toString();
 					if (!d.path.empty) vjson["path"] = d.path.toString();
 					if (d.optional) vjson["optional"] = true;

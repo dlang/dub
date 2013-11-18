@@ -51,7 +51,7 @@ class Project {
 		m_packageManager = package_manager;
 		m_root = project_path;
 		m_fixedPackage = false;
-		m_json = Json.EmptyObject;
+		m_json = Json.emptyObject;
 		reinit();
 	}
 
@@ -61,7 +61,7 @@ class Project {
 		m_root = pack.path;
 		m_main = pack;
 		m_fixedPackage = true;
-		m_json = Json.EmptyObject;
+		m_json = Json.emptyObject;
 		reinit();
 	}
 
@@ -165,7 +165,7 @@ class Project {
 		if (!m_fixedPackage) {
 			if (!existsFile(m_root~PackageJsonFilename)) {
 				logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root.toNativeString());
-				auto json = Json.EmptyObject;
+				auto json = Json.emptyObject;
 				json.name = "unknown";
 				m_main = new Package(json, m_root);
 				return;
@@ -515,12 +515,12 @@ class Project {
 
 		auto configs = getPackageConfigs(platform, config);
 
-		auto mp = Json.EmptyObject;
+		auto mp = Json.emptyObject;
 		m_main.describe(mp, platform, config);
 		dst.packages = Json([mp]);
 
 		foreach (dep; m_dependencies) {
-			auto dp = Json.EmptyObject;
+			auto dp = Json.emptyObject;
 			dep.describe(dp, platform, configs[dep.name]);
 			dst.packages = dst.packages.get!(Json[]) ~ dp;
 		}
@@ -632,7 +632,7 @@ class Project {
 	private void markUpToDate(string packageId) {
 		logDebug("markUpToDate(%s)", packageId);
 		Json create(ref Json json, string object) {
-			if( object !in json ) json[object] = Json.EmptyObject;
+			if( object !in json ) json[object] = Json.emptyObject;
 			return json[object];
 		}
 		create(m_json, "dub");
