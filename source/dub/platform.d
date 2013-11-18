@@ -41,9 +41,8 @@ string[] determineArchitecture()
 	version(X86_64) ret.put("x86_64");
 	version(ARM) ret.put("arm");
 	version(ARM_Thumb) ret.put("arm_thumb");
-	version(ARM_Soft) ret.put("arm_soft");
-	version(ARM_SoftFP) ret.put("arm_softfp");
-	version(ARM_HardFP) ret.put("arm_hardfp");
+	version(ARM_SoftFloat) ret.put("arm_softfloat");
+	version(ARM_HardFloat) ret.put("arm_hardfloat");
 	version(ARM64) ret.put("arm64");
 	version(PPC) ret.put("ppc");
 	version(PPC_SoftFP) ret.put("ppc_softfp");
