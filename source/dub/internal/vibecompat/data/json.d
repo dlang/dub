@@ -676,7 +676,7 @@ struct Json {
 		return ret.data;
 	}
 
-	private void checkType(T...)()
+	private void checkType(T...)(string op = null)
 	const {
 		bool found = false;
 		foreach (t; T) if (m_type == typeId!t) found = true;
