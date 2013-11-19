@@ -40,6 +40,7 @@ struct Json {
 			Json[string] m_object;
 		};
 		Type m_type = Type.undefined;
+		uint m_magic = 0x1337f00d; // workaround for Appender bug
 		string m_name;
 	}
 
@@ -108,11 +109,11 @@ struct Json {
 			case Type.string: m_string = v.m_string; break;
 			case Type.array:
 				m_array = v.m_array;
-				foreach (ref av; m_array) av.m_name = m_name;
+				if (m_magic == 0x1337f00d) foreach (ref av; m_array) av.m_name = m_name;
 				break;
 			case Type.object:
 				m_object = v.m_object;
-				foreach (k, ref av; m_object) av.m_name = m_name ~ "." ~ k;
+				if (m_magic == 0x1337f00d) foreach (k, ref av; m_object) av.m_name = m_name ~ "." ~ k;
 				break;
 		}
 		return this;
