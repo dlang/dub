@@ -40,6 +40,7 @@ struct Json {
 			Json[string] m_object;
 		};
 		Type m_type = Type.undefined;
+		string m_name;
 	}
 
 	/** Represents the run time type of a JSON value.
@@ -105,8 +106,14 @@ struct Json {
 			case Type.int_: m_int = v.m_int; break;
 			case Type.float_: m_float = v.m_float; break;
 			case Type.string: m_string = v.m_string; break;
-			case Type.array: m_array = v.m_array; break;
-			case Type.object: m_object = v.m_object; break;
+			case Type.array:
+				m_array = v.m_array;
+				foreach (ref av; m_array) av.m_name = m_name;
+				break;
+			case Type.object:
+				m_object = v.m_object;
+				foreach (k, ref av; m_object) av.m_name = m_name ~ "." ~ k;
+				break;
 		}
 		return this;
 	}
@@ -123,9 +130,21 @@ struct Json {
 	/// ditto
 	string opAssign(string v) { m_type = Type.string; m_string = v; return v; }
 	/// ditto
-	Json[] opAssign(Json[] v) { m_type = Type.array; m_array = v; return v; }
+	Json[] opAssign(Json[] v)
+	{
+		m_type = Type.array;
+		m_array = v;
+		foreach (ref av; m_array) av.m_name = m_name;
+		return v;
+	}
 	/// ditto
-	Json[string] opAssign(Json[string] v) { m_type = Type.object; m_object = v; return v; }
+	Json[string] opAssign(Json[string] v)
+	{
+		m_type = Type.object;
+		m_object = v;
+		foreach (k, ref av; m_object) av.m_name = m_name ~ "." ~ k;
+		return v;
+	}
 
 	/**
 		The current type id of this JSON object.
@@ -156,6 +175,7 @@ struct Json {
 		m_object[key] = Json();
 		m_object[key].m_type = Type.undefined; // DMDBUG: AAs are teh $H1T!!!11
 		assert(m_object[key].type == Type.undefined);
+		m_object[key].m_name = m_name ~ "." ~ key;
 		m_object[key].m_string = key;
 		return m_object[key];
 	}
@@ -177,13 +197,12 @@ struct Json {
 	*/
 	@property size_t length()
 	const {
+		checkType!(string, Json[], Json[string]);
 		switch(m_type){
 			case Type.string: return m_string.length;
 			case Type.array: return m_array.length;
 			case Type.object: return m_object.length;
-			default:
-				enforce(false, "Json.length() can only be called on strings, arrays and objects, not "~.to!string(m_type)~".");
-				return 0;
+			default: assert(false);
 		}
 	}
 
@@ -192,7 +211,7 @@ struct Json {
 	*/
 	int opApply(int delegate(ref Json obj) del)
 	{
-		enforce(m_type == Type.array || m_type == Type.object, "opApply may only be called on objects and arrays, not "~.to!string(m_type)~".");
+		checkType!(Json[], Json[string]);
 		if( m_type == Type.array ){
 			foreach( ref v; m_array )
 				if( auto ret = del(v) )
@@ -209,7 +228,7 @@ struct Json {
 	/// ditto
 	int opApply(int delegate(ref const Json obj) del)
 	const {
-		enforce(m_type == Type.array || m_type == Type.object, "opApply may only be called on objects and arrays, not "~.to!string(m_type)~".");
+		checkType!(Json[], Json[string]);
 		if( m_type == Type.array ){
 			foreach( ref v; m_array )
 				if( auto ret = del(v) )
@@ -226,7 +245,7 @@ struct Json {
 	/// ditto
 	int opApply(int delegate(ref size_t idx, ref Json obj) del)
 	{
-		enforce(m_type == Type.array, "opApply may only be called on arrays, not "~.to!string(m_type)~"");
+		checkType!(Json[]);
 		foreach( idx, ref v; m_array )
 			if( auto ret = del(idx, v) )
 				return ret;
@@ -235,7 +254,7 @@ struct Json {
 	/// ditto
 	int opApply(int delegate(ref size_t idx, ref const Json obj) del)
 	const {
-		enforce(m_type == Type.array, "opApply may only be called on arrays, not "~.to!string(m_type)~".");
+		checkType!(Json[]);
 		foreach( idx, ref v; m_array )
 			if( auto ret = del(idx, v) )
 				return ret;
@@ -244,7 +263,7 @@ struct Json {
 	/// ditto
 	int opApply(int delegate(ref string idx, ref Json obj) del)
 	{
-		enforce(m_type == Type.object, "opApply may only be called on objects, not "~.to!string(m_type)~".");
+		checkType!(Json[string]);
 		foreach( idx, ref v; m_object )
 			if( v.type != Type.undefined )
 				if( auto ret = del(idx, v) )
@@ -254,7 +273,7 @@ struct Json {
 	/// ditto
 	int opApply(int delegate(ref string idx, ref const Json obj) del)
 	const {
-		enforce(m_type == Type.object, "opApply may only be called on objects, not "~.to!string(m_type)~".");
+		checkType!(Json[string]);
 		foreach( idx, ref v; m_object )
 			if( v.type != Type.undefined )
 				if( auto ret = del(idx, v) )
@@ -393,9 +412,10 @@ struct Json {
 			checkType!bool();
 			return Json(~m_bool);
 		} else static if( op == "+" || op == "-" || op == "++" || op == "--" ){
+			checkType!(long, double);
 			if( m_type == Type.int_ ) mixin("return Json("~op~"m_int);");
 			else if( m_type == Type.float_ ) mixin("return Json("~op~"m_float);");
-			else enforce(false, "'"~op~"' only allowed on scalar types, not on "~.to!string(m_type)~".");
+			else assert(false);
 		} else static assert("Unsupported operator '"~op~"' for type JSON.");
 	}
 
@@ -420,47 +440,52 @@ struct Json {
 	const {
 		enforce(m_type == other.m_type, "Binary operation '"~op~"' between "~.to!string(m_type)~" and "~.to!string(other.m_type)~" JSON objects.");
 		static if( op == "&&" ){
-			enforce(m_type == Type.bool_, "'&&' only allowed for Type.bool_, not "~.to!string(m_type)~".");
+			checkType!(bool)("'&&'"); other.checkType!(bool)("'&&'");
 			return Json(m_bool && other.m_bool);
 		} else static if( op == "||" ){
-			enforce(m_type == Type.bool_, "'||' only allowed for Type.bool_, not "~.to!string(m_type)~".");
+			checkType!(bool)("'||'"); other.checkType!(bool)("'||'");
 			return Json(m_bool || other.m_bool);
 		} else static if( op == "+" ){
+			checkType!(double, long)("'+'"); other.checkType!(double, long)("'+'");
 			if( m_type == Type.int_ ) return Json(m_int + other.m_int);
 			else if( m_type == Type.float_ ) return Json(m_float + other.m_float);
-			else enforce(false, "'+' only allowed for scalar types, not "~.to!string(m_type)~".");
+			else assert(false);
 		} else static if( op == "-" ){
+			checkType!(double, long)("'-'"); other.checkType!(double, long)("'-'");
 			if( m_type == Type.int_ ) return Json(m_int - other.m_int);
 			else if( m_type == Type.float_ ) return Json(m_float - other.m_float);
-			else enforce(false, "'-' only allowed for scalar types, not "~.to!string(m_type)~".");
+			else assert(false);
 		} else static if( op == "*" ){
+			checkType!(double, long)("'*'"); other.checkType!(double, long)("'*'");
 			if( m_type == Type.int_ ) return Json(m_int * other.m_int);
 			else if( m_type == Type.float_ ) return Json(m_float * other.m_float);
-			else enforce(false, "'*' only allowed for scalar types, not "~.to!string(m_type)~".");
+			else assert(false);
 		} else static if( op == "/" ){
+			checkType!(double, long)("'/'"); other.checkType!(double, long)("'/'");
 			if( m_type == Type.int_ ) return Json(m_int / other.m_int);
 			else if( m_type == Type.float_ ) return Json(m_float / other.m_float);
-			else enforce(false, "'/' only allowed for scalar types, not "~.to!string(m_type)~".");
+			else assert(false);
 		} else static if( op == "%" ){
+			checkType!(double, long)("'%'"); other.checkType!(double, long)("'%'");
 			if( m_type == Type.int_ ) return Json(m_int % other.m_int);
 			else if( m_type == Type.float_ ) return Json(m_float % other.m_float);
-			else enforce(false, "'%' only allowed for scalar types, not "~.to!string(m_type)~".");
+			else assert(false);
 		} else static if( op == "~" ){
+			checkType!(string)("'~'"); other.checkType!(string)("'~'");
 			if( m_type == Type.string ) return Json(m_string ~ other.m_string);
-			else enforce(false, "'~' only allowed for strings, not "~.to!string(m_type)~".");
+			else assert(false);
 		} else static assert("Unsupported operator '"~op~"' for type JSON.");
-		assert(false);
 	}
 	/// ditto
 	Json opBinary(string op)(Json other)
 		if( op == "~" )
 	{
 		static if( op == "~" ){
+			checkType!(string, Json[])("'~'"); other.checkType!(string, Json[])("'~'");
 			if( m_type == Type.string ) return Json(m_string ~ other.m_string);
 			else if( m_type == Type.array ) return Json(m_array ~ other.m_array);
-			else enforce(false, "'~' only allowed for strings and arrays, not "~.to!string(m_type)~".");
+			else assert(false);
 		} else static assert("Unsupported operator '"~op~"' for type JSON.");
-		assert(false);
 	}
 	/// ditto
 	void opOpAssign(string op)(Json other)
@@ -651,11 +676,27 @@ struct Json {
 		return ret.data;
 	}
 
-	private void checkType(T)()
+	private void checkType(T...)()
 	const {
-		string dbg;
-		if( m_type == Type.undefined ) dbg = " field "~m_string;
-		enforce(typeId!T == m_type, "Trying to access JSON"~dbg~" of type "~.to!string(m_type)~" as "~T.stringof~".");
+		bool found = false;
+		foreach (t; T) if (m_type == typeId!t) found = true;
+		if (found) return;
+		if (T.length == 1) {
+			throw new Exception(format("Got %s - expected %s.", this.displayName, typeId!(T[0]).to!string));
+		} else {
+			string types;
+			foreach (t; T) {
+				if (types.length) types ~= ", ";
+				types ~= typeId!t.to!string;
+			}
+			throw new Exception(format("Got %s - expected one of %s.", this.displayName, types));
+		}
+	}
+
+	private @property string displayName()
+	const {
+		if (m_name.length) return m_name ~ " of type " ~ m_type.to!string();
+		else return "JSON of type " ~ m_type.to!string();
 	}
 
 	/*invariant()
