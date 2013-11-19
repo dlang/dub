@@ -109,11 +109,11 @@ struct Json {
 			case Type.string: m_string = v.m_string; break;
 			case Type.array:
 				m_array = v.m_array;
-				if (m_magic == 0x1337f00d) foreach (ref av; m_array) av.m_name = m_name;
+				if (m_magic == 0x1337f00d) foreach (ref av; m_array) av.m_name = m_name; else m_name = null;
 				break;
 			case Type.object:
 				m_object = v.m_object;
-				if (m_magic == 0x1337f00d) foreach (k, ref av; m_object) av.m_name = m_name ~ "." ~ k;
+				if (m_magic == 0x1337f00d) foreach (k, ref av; m_object) av.m_name = m_name ~ "." ~ k; else m_name = null;
 				break;
 		}
 		return this;
