@@ -163,7 +163,7 @@ struct Json {
 	const(Json) opIndex(string key) const {
 		checkType!(Json[string])();
 		if( auto pv = key in m_object ) return *pv;
-		Json ret = Json.Undefined;
+		Json ret = Json.undefined;
 		ret.m_string = key;
 		return ret;
 	}
