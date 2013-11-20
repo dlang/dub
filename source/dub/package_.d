@@ -170,21 +170,22 @@ class Package {
 	BuildSettings getBuildSettings(in BuildPlatform platform, string config)
 	const {
 		BuildSettings ret;
+		m_info.buildSettings.getPlatformSettings(ret, platform, this.path);
+		bool found = false;
 		foreach(ref conf; m_info.configurations){
 			if( conf.name != config ) continue;
-			m_info.buildSettings.getPlatformSettings(ret, platform, this.path);
 			conf.buildSettings.getPlatformSettings(ret, platform, this.path);
-			
-			// construct default target name based on package name
-			if( ret.targetName.empty ) ret.targetName = this.name.replace(":", "_");
-
-			// special support for DMD style flags
-			getCompiler("dmd").extractBuildOptions(ret);
-
-			return ret;
+			found = true;
+			break;
 		}
-		assert(config is null, "Unknown configuration for "~m_info.name~": "~config);
-		m_info.buildSettings.getPlatformSettings(ret, platform, this.path);
+		assert(found || config is null, "Unknown configuration for "~m_info.name~": "~config);
+
+		// construct default target name based on package name
+		if( ret.targetName.empty ) ret.targetName = this.name.replace(":", "_");
+
+		// special support for DMD style flags
+		getCompiler("dmd").extractBuildOptions(ret);
+
 		return ret;
 	}
 
@@ -303,7 +304,8 @@ class Package {
 		dst.remove("importFiles");
 		dst.remove("stringImportFiles");
 		dst.targetType = bs.targetType.to!string();
-		dst.targetFileName = getTargetFileName(bs, platform);
+		if (dst.targetType != TargetType.none)
+			dst.targetFileName = getTargetFileName(bs, platform);
 
 		// prettify build requirements output
 		Json[] breqs;
