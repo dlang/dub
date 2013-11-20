@@ -329,12 +329,30 @@ EndGlobal");
 				ret.formattedWrite("    <release>%s</release>\n", buildsettings.options & BuildOptions.release ? "1" : "0");
 
 				// Lib or exe?
-				bool is_lib = pbuildsettings.targetType != TargetType.executable;
+				enum 
+				{
+					Executable = 0,
+					StaticLib = 1,
+					DynamicLib = 2
+				}
+
+				int output_type = StaticLib; // library
+				string output_ext = "lib";
+				if (pbuildsettings.targetType == TargetType.executable)
+				{
+					output_type = Executable;
+					output_ext = "exe";
+				}
+				else if (pbuildsettings.targetType == TargetType.dynamicLibrary)
+				{
+					output_type = DynamicLib;
+					output_ext = "dll";
+				}
 				string debugSuffix = type == "debug" ? "_d" : "";
 				auto bin_path = pack is m_app.mainPackage ? Path(pbuildsettings.targetPath) : Path(".dub/lib/");
 				bin_path.endsWithSlash = true;
-				ret.formattedWrite("    <lib>%s</lib>\n", is_lib ? "1" : "0");
-				ret.formattedWrite("    <exefile>%s%s%s.%s</exefile>\n", bin_path.toNativeString(), pbuildsettings.targetName, debugSuffix, is_lib ? "lib" : "exe");
+				ret.formattedWrite("    <lib>%s</lib>\n", output_type);
+				ret.formattedWrite("    <exefile>%s%s%s.%s</exefile>\n", bin_path.toNativeString(), pbuildsettings.targetName, debugSuffix, output_ext);
 
 				// include paths and string imports
 				string imports = join(getPathSettings!"importPaths"(), " ");
@@ -352,7 +370,7 @@ EndGlobal");
 				// Add libraries, system libs need to be suffixed by ".lib".
 				string linkLibs = join(map!(a => a~".lib")(getSettings!"libs"()), " ");
 				string addLinkFiles = join(getSettings!"sourceFiles"().filter!(s => s.endsWith(".lib"))(), " ");
-				if (!is_lib) ret.formattedWrite("    <libfiles>%s %s phobos.lib</libfiles>\n", linkLibs, addLinkFiles);
+				if (output_type != StaticLib) ret.formattedWrite("    <libfiles>%s %s phobos.lib</libfiles>\n", linkLibs, addLinkFiles);
 
 				// Unittests
 				ret.formattedWrite("    <useUnitTests>%s</useUnitTests>\n", buildsettings.options & BuildOptions.unittests ? "1" : "0");
