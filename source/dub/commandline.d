@@ -129,9 +129,9 @@ int runDubCommandLine(string[] args)
 		try dub.packageManager.getTemporaryPackage(Path(root_path), Version("~master"));
 		catch (Exception e) { logDiagnostic("No package found in current working directory."); }
 
-		bool loadCwdPackage(Package pack)
+		bool loadCwdPackage(Package pack, bool warn_missing_package)
 		{
-			if (!existsFile(dub.rootPath~"package.json") && !existsFile(dub.rootPath~"source/app.d")) {
+			if (warn_missing_package && !existsFile(dub.rootPath~"package.json") && !existsFile(dub.rootPath~"source/app.d")) {
 				logInfo("");
 				logInfo("Neither package.json, nor source/app.d was found in the current directory.");
 				logInfo("Please run dub from the root directory of an existing package, or create a new");
@@ -155,13 +155,13 @@ int runDubCommandLine(string[] args)
 			Package pack;
 			if (!package_name.empty) {
 				// load package in root_path to enable searching for sub packages
-				loadCwdPackage(null);
+				loadCwdPackage(null, false);
 				pack = dub.packageManager.getFirstPackage(package_name);
 				enforce(pack, "Failed to find a package named '"~package_name~"'.");
 				logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
 				dub.rootPath = pack.path;
 			}
-			if (!loadCwdPackage(pack)) return false;
+			if (!loadCwdPackage(pack, true)) return false;
 			if (!build_config.length) build_config = def_config;
 			return true;
         }
