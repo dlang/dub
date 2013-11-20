@@ -382,10 +382,12 @@ class Dub {
 			auto ddox_dub = new Dub(m_packageSuppliers);
 			ddox_dub.loadPackage(ddox_pack.path);
 
+			auto compiler_binary = "dmd";
+
 			GeneratorSettings settings;
 			settings.config = "application";
-			settings.compiler = getCompiler(settings.platform.compilerBinary);
-			settings.platform = settings.compiler.determinePlatform(settings.buildSettings, settings.platform.compilerBinary);
+			settings.compiler = getCompiler(compiler_binary);
+			settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary);
 			settings.buildType = "debug";
 			ddox_dub.generateProject("build", settings);
 

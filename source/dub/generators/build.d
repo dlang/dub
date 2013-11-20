@@ -51,6 +51,10 @@ class BuildGenerator : ProjectGenerator {
 		auto buildsettings = settings.buildSettings;
 		m_project.addBuildSettings(buildsettings, settings.platform, settings.config, null, settings.buildType == "ddox");
 		m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
+		bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
+		// determine the absolute target path
+		if (!Path(buildsettings.targetPath).absolute)
+			buildsettings.targetPath = (m_project.mainPackage.path ~ Path(buildsettings.targetPath)).toNativeString();
 
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { auto p = Path(path); if (p.absolute) p = p.relativeTo(cwd); return p.toNativeString(); }
@@ -60,7 +64,7 @@ class BuildGenerator : ProjectGenerator {
 
 		// perform the actual build
 		if (this.useRDMD) performRDMDBuild(settings, buildsettings);
-		else if (settings.direct) performDirectBuild(settings, buildsettings);
+		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings);
 		else performCachedBuild(settings, buildsettings);
 
 		// run post-build commands
@@ -70,7 +74,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		// run the generated executable
-		if (!(buildsettings.options & BuildOptions.syntaxOnly) && settings.run) {
+		if (generate_binary && settings.run) {
 			auto exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 			runTarget(exe_file_path, buildsettings, settings.runArgs);
 		}
@@ -194,10 +198,6 @@ class BuildGenerator : ProjectGenerator {
 		logInfo("Building configuration \""~settings.config~"\", build type "~settings.buildType);
 
 		prepareGeneration(buildsettings);
-
-		// determine the absolute target path
-		if (!Path(buildsettings.targetPath).absolute)
-			buildsettings.targetPath = (m_project.mainPackage.path ~ Path(buildsettings.targetPath)).toNativeString();
 
 		// make all target/import paths relative
 		string makeRelative(string path) { auto p = Path(path); if (p.absolute) p = p.relativeTo(cwd); return p.toNativeString(); }
