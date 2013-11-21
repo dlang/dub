@@ -9,9 +9,10 @@ module dub.init;
 
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.package_ : PackageJsonFilename;
+import dub.package_ : packageInfoFilenames;
 
 import std.datetime;
+import std.exception;
 import std.file;
 import std.format;
 import std.process;
@@ -20,6 +21,17 @@ import std.string;
 
 void initPackage(Path root_path, string type)
 {
+	//Check to see if a target directory needs to be created
+	if( !root_path.empty ){
+		if( !existsFile(root_path) )
+			createDirectory(root_path);
+	} 
+
+	//Make sure we do not overwrite anything accidentally
+	auto files = packageInfoFilenames ~ ["source/", "views/", "public/"];
+	foreach (fil; files)
+		enforce(!existsFile(root_path ~ fil), "The target directory already contains a '"~fil~"' file. Aborting.");
+
 	switch (type) {
 		default: throw new Exception("Unknown package init type: "~type);
 		case "minimal": initMinimalPackage(root_path); break;
@@ -77,7 +89,7 @@ void writePackageJson(Path root_path, string description, string[string] depende
 	version (Windows) username = environment.get("USERNAME", "Peter Parker");
 	else username = environment.get("USER", "Peter Parker");
 
-	auto fil = openFile(root_path ~ PackageJsonFilename, FileMode.Append);
+	auto fil = openFile(root_path ~ "dub.json", FileMode.Append);
 	scope(exit) fil.close();
 
 	fil.formattedWrite("{\n\t\"name\": \"%s\",\n", root_path.head.toString().toLower());

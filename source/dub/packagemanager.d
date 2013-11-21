@@ -225,13 +225,13 @@ class PackageManager {
 
 		// In a github zip, the actual contents are in a subfolder
 		Path zip_prefix;
-		auto json_file = PathEntry(PackageJsonFilename);
-		foreach(ArchiveMember am; archive.directory) {
+		outer: foreach(ArchiveMember am; archive.directory) {
 			auto path = Path(am.name);
-			if (path.length == 2 && path.head == json_file && path.length) {
-				zip_prefix = path[0 .. $-1];
-				break;
-			}
+			foreach (fil; packageInfoFilenames)
+				if (path.length == 2 && path.head.toString == fil) {
+					zip_prefix = path[0 .. $-1];
+					break outer;
+				}
 		}
 
 		logDebug("zip root folder: %s", zip_prefix);
@@ -270,21 +270,17 @@ class PackageManager {
 		logDiagnostic("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite package.json (this one includes a version field)
-		Json pi = jsonFromFile(destination~PackageJsonFilename);
-		pi["name"] = toLower(pi["name"].get!string());
-		pi["version"] = package_info["version"];
-		writeJsonFile(destination~PackageJsonFilename, pi);
+		auto pack = new Package(destination);
+		pack.info.version_ = package_info["version"].get!string;
+		pack.storeInfo();
 
 		// Write journal
 		logDebug("Saving retrieval action journal...");
 		journal.add(Journal.Entry(Journal.Type.RegularFile, Path(JournalJsonFilename)));
 		journal.save(destination ~ JournalJsonFilename);
 
-		if( existsFile(destination~PackageJsonFilename) )
-			logInfo("%s is present with version %s", package_name, package_version);
-
-		auto pack = new Package(destination);
 		addPackages(m_packages, pack);
+
 		return pack;
 	}
 
@@ -367,19 +363,15 @@ class PackageManager {
 	Package addLocalPackage(in Path path, string verName, LocalPackageType type)
 	{
 		Package[]* packs = &m_repositories[type].localPackages;
-		auto info = jsonFromFile(path ~ PackageJsonFilename, false);
-		string name;
-		if( "name" !in info ) info["name"] = path.head.toString();
-		if (verName.length) info["version"] = Version(verName).toString();
 
-		// load package
-		auto pack = new Package(info, path);
-		Version ver = pack.ver;
+		auto pack = new Package(path);
+		if (verName.length)
+			pack.ver = Version(verName);
 
 		// don't double-add packages
-		foreach( p; *packs ){
-			if( p.path == path ){
-				enforce(p.ver == ver, "Adding the same local package twice with differing versions is not allowed.");
+		foreach (p; *packs) {
+			if (p.path == path) {
+				enforce(p.ver == pack.ver, "Adding the same local package twice with differing versions is not allowed.");
 				logInfo("Package is already registered: %s (version: %s)", p.name, p.ver);
 				return p;
 			}
@@ -422,12 +414,8 @@ class PackageManager {
 				return p;
 			}
 		
-		auto info = jsonFromFile(path ~ PackageJsonFilename, false);
-		string name;
-		if( "name" !in info ) info["name"] = path.head.toString();
-		info["version"] = ver.toString();
-
-		auto pack = new Package(info, path);
+		auto pack = new Package(path);
+		pack.ver = ver;
 		addPackages(m_temporaryPackages, pack);
 		return pack;
 	}
@@ -468,22 +456,29 @@ class PackageManager {
 						if (name == "*") {
 							paths ~= path;
 						} else {
-							auto ver = pentry["version"].get!string();
-							auto info = Json.emptyObject;
-							if( existsFile(path ~ PackageJsonFilename) ) info = jsonFromFile(path ~ PackageJsonFilename);
-							if( "name" in info && info.name.get!string() != name )
-								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, info.name.get!string());
-							info.name = name;
-							if (ver.length) info["version"] = ver;
+							auto ver = Version(pentry["version"].get!string());
 
 							Package pp;
-							if (!refresh_existing_packages)
+							if (!refresh_existing_packages) {
 								foreach (p; m_repositories[type].localPackages)
 									if (p.path == path) {
 										pp = p;
 										break;
 									}
-							if (!pp) pp = new Package(info, path);
+							}
+
+							if (!pp) {
+								if (Package.isPackageAt(path)) pp = new Package(path);
+								else {
+									auto info = Json.emptyObject;
+									info.name = name;
+								}
+							}
+
+							if (pp.name != name)
+								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, pp.name);
+							pp.ver = ver;
+
 							addPackages(packs, pp);
 						}
 					} catch( Exception e ){
@@ -510,7 +505,7 @@ class PackageManager {
 					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 					if( !pdir.isDirectory ) continue;
 					auto pack_path = path ~ pdir.name;
-					if( !existsFile(pack_path ~ PackageJsonFilename) ) continue;
+					if (!Package.isPackageAt(pack_path)) continue;
 					Package p;
 					try {
 						if (!refresh_existing_packages)

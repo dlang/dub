@@ -472,21 +472,6 @@ class Dub {
 		if( !path.absolute() ) path = m_rootPath ~ path;
 		path.normalize();
 
-		//Check to see if a target directory needs to be created
-		if( !path.empty ){
-			if( !existsFile(path) )
-				createDirectory(path);
-		} 
-
-		//Make sure we do not overwrite anything accidentally
-		if( existsFile(path ~ PackageJsonFilename) ||
-			existsFile(path ~ "source") ||
-			existsFile(path ~ "views") ||
-			existsFile(path ~ "public") )
-		{
-			throw new Exception("The current directory is not empty.\n");
-		}
-
 		if (m_dryRun) return;
 
 		initPackage(path, type);

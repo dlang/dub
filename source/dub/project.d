@@ -163,8 +163,8 @@ class Project {
 
 		// load package description
 		if (!m_fixedPackage) {
-			if (!existsFile(m_root~PackageJsonFilename)) {
-				logWarn("There was no '"~PackageJsonFilename~"' found for the application in '%s'.", m_root.toNativeString());
+			if (!Package.isPackageAt(m_root)) {
+				logWarn("There was no package description found for the application in '%s'.", m_root.toNativeString());
 				auto json = Json.emptyObject;
 				json.name = "unknown";
 				m_main = new Package(json, m_root);
@@ -474,11 +474,11 @@ class Project {
 		// Gather retrieved
 		Package[string] retrieved;
 		retrieved[m_main.name] = m_main;
-		foreach(ref Package p; m_dependencies) {
+		foreach(dep, ref Package p; m_dependencies) {
 			auto pbase = p.basePackage;
 			auto pexist = retrieved.get(pbase.name, null);
 			if (pexist && pexist !is pbase){
-				logError("The same package is referenced in different paths:");
+				logError("Conflicting package references found:");
 				logError("  %s %s: %s", pexist.name, pexist.vers, pexist.path.toNativeString());
 				logError("  %s %s: %s", pbase.name, pbase.vers, pbase.path.toNativeString());
 				throw new Exception("Conflicting package multi-references.");

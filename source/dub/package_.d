@@ -24,26 +24,48 @@ import std.range;
 import std.string;
 import std.traits : EnumMembers;
 
-enum PackageJsonFilename = "package.json";
 
+enum packageInfoFilenames = ["dub.json", /*"dub.sdl",*/ "package.json"];
 
-/// Representing a downloded / cached package, usually constructed from a json object.
-/// Documentation of the package.json can be found at 
-/// http://registry.vibed.org/package-format
+/**
+	Represents a package, including its sub packages
+
+	Documentation of the package.json can be found at 
+	http://registry.vibed.org/package-format
+*/
 class Package {
 	static struct LocalPackageDef { string name; Version version_; Path path; }
 
 	private {
 		Path m_path;
+		Path m_infoFile;
 		PackageInfo m_info;
 		Package m_parentPackage;
 		Package[] m_subPackages;
 		Path[string] m_exportedPackages;
 	}
 
+	static bool isPackageAt(Path path)
+	{
+		foreach (f; packageInfoFilenames)
+			if (existsFile(path ~ f))
+				return true;
+		return false;
+	}
+
 	this(Path root, Package parent = null)
 	{
-		this(jsonFromFile(root ~ PackageJsonFilename), root, parent);
+		Json info;
+		if (existsFile(root ~ "dub.json")) {
+			m_infoFile = root ~ "dub.json";
+			info = jsonFromFile(m_infoFile);
+		} else if (existsFile(root ~ "package.json")) {
+			m_infoFile = root ~ "package.json";
+			info = jsonFromFile(root ~ "package.json");
+		} else {
+			throw new Exception("Missing package description for package in %s", root.toNativeString());
+		}
+		this(info, root, parent);
 	}
 
 	this(Json packageInfo, Path root = Path(), Package parent = null)
@@ -162,9 +184,10 @@ class Package {
 	}
 	@property string vers() const { return m_parentPackage ? m_parentPackage.vers : m_info.version_; }
 	@property Version ver() const { return Version(this.vers); }
+	@property void ver(Version ver) { assert(m_parentPackage is null); m_info.version_ = ver.toString(); }
 	@property ref inout(PackageInfo) info() inout { return m_info; }
 	@property Path path() const { return m_path; }
-	@property Path packageInfoFile() const { return m_path ~ PackageJsonFilename; }
+	@property Path packageInfoFile() const { return m_infoFile; }
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
 	@property inout(Package) basePackage() inout { return m_parentPackage ? m_parentPackage.basePackage : this; }
 	@property inout(Package) parentPackage() inout { return m_parentPackage; }
@@ -177,6 +200,15 @@ class Package {
 		foreach( ref config; m_info.configurations )
 			ret.put(config.name);
 		return ret.data;
+	}
+
+	/** Overwrites the packge description file with the current information.
+	*/
+	void storeInfo()
+	{
+		auto dstFile = openFile((m_path ~ "dub.json").toString(), FileMode.CreateTrunc);
+		scope(exit) dstFile.close();
+		dstFile.writePrettyJsonString(m_info.toJson());
 	}
 
 	inout(Package) getSubPackage(string name) inout {
@@ -295,14 +327,6 @@ class Package {
 		return s;
 	}
 	
-	/// Writes the json file back to the filesystem
-	void writeJson(Path path) {
-		auto dstFile = openFile((path~PackageJsonFilename).toString(), FileMode.CreateTrunc);
-		scope(exit) dstFile.close();
-		dstFile.writePrettyJsonString(m_info.toJson());
-		assert(false);
-	}
-
 	bool hasDependency(string depname, string config)
 	const {
 		if (depname in m_info.buildSettings.dependencies) return true;
