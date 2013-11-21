@@ -139,6 +139,21 @@ class PackageManager {
 		return ret;
 	}
 
+	/** Determines if a package is managed by DUB.
+
+		Managed packages can be upgraded and uninstalled.
+	*/
+	bool isManagedPackage(Package pack)
+	const {
+		auto ppath = pack.basePackage.path;
+		foreach (rep; m_repositories) {
+			auto rpath = rep.packagePath;
+			if (ppath.startsWith(rpath))
+				return true;
+		}
+		return false;
+	}
+
 	int delegate(int delegate(ref Package)) getPackageIterator()
 	{
 		int iterator(int delegate(ref Package) del)

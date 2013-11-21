@@ -431,7 +431,7 @@ class Project {
 
 
 	/// Actions which can be performed to update the application.
-	Action[] determineActions(PackageSupplier[] packageSuppliers, int option)
+	Action[] determineActions(PackageSupplier[] packageSuppliers, UpdateOptions option)
 	{
 		scope(exit) writeDubJson();
 
@@ -491,9 +491,10 @@ class Project {
 				else logDiagnostic("Triggering retrieval of required package '"~basepkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
 				actions ~= Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages);
 			} else {
-				if( option & UpdateOptions.Upgrade ) {
+				if (option & UpdateOptions.Upgrade) {
+					auto existing = m_packageManager.getBestPackage(basepkg, d.dependency);
 					// Only add one upgrade action for each package.
-					if(basepkg !in upgradePackages) {
+					if(basepkg !in upgradePackages && m_packageManager.isManagedPackage(existing)) {
 						logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"', upgrading.");
 						upgradePackages[basepkg] = 1;
 						actions ~= Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages);
@@ -662,7 +663,7 @@ class Project {
 /// Actions to be performed by the dub
 struct Action {
 	enum Type {
-		get,
+		fetch,
 		remove,
 		conflict,
 		failure
@@ -679,7 +680,7 @@ struct Action {
 
 	static Action get(string pkg, PlacementLocation location, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.get, pkg, location, dep, context);
+		return Action(Type.fetch, pkg, location, dep, context);
 	}
 
 	static Action remove(Package pkg, Dependency[string] context)

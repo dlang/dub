@@ -167,7 +167,7 @@ class Dub {
 				assert(a.pack !is null, "No package specified for removal.");
 				remove(a.pack);
 			}
-			foreach(Action a; filter!((Action a) => a.type == Action.Type.get)(actions)) {
+			foreach(Action a; filter!((Action a) => a.type == Action.Type.fetch)(actions)) {
 				fetch(a.packageId, a.vers, a.location, (options & UpdateOptions.Upgrade) != 0);
 				// never update the same package more than once
 				masterVersionUpgrades[a.packageId] = true;
