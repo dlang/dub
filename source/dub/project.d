@@ -584,7 +584,7 @@ class Project {
 						logDiagnostic("Fetching package %s (%d suppliers registered)", pkg, packageSuppliers.length);
 						foreach (ps; packageSuppliers) {
 							try {
-								auto sp = new Package(ps.getPackageDescription(ppath[0], reqDep.dependency));
+								auto sp = new Package(ps.getPackageDescription(ppath[0], reqDep.dependency, false));
 								foreach (spn; ppath[1 .. $])
 									sp = sp.getSubPackage(spn);
 								p = sp;
@@ -726,7 +726,8 @@ enum UpdateOptions
 {
 	None = 0,
 	JustAnnotate = 1<<0,
-	Upgrade = 1<<1
+	Upgrade = 1<<1,
+	preRelease = 1<<2 // inclde pre-release versions in upgrade
 }
 
 

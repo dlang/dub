@@ -61,6 +61,7 @@ int runDubCommandLine(string[] args)
 		bool rdmd = false;
 		bool print_platform, print_builds, print_configs;
 		bool place_system_wide = false, place_locally = false;
+		bool pre_release = false;
 		string retrieved_version;
 		string[] registry_urls;
 		string[] debug_versions;
@@ -84,6 +85,7 @@ int runDubCommandLine(string[] args)
 			"print-platform", &print_platform,
 			"system", &place_system_wide,
 			"local", &place_locally,
+			"prerelease", &pre_release,
 			"version", &retrieved_version,
 			"registry", &registry_urls,
 			"root", &root_path
@@ -190,7 +192,7 @@ int runDubCommandLine(string[] args)
 			case "upgrade":
 				dub.loadPackageFromCwd();
 				logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
-				dub.update(UpdateOptions.Upgrade | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None));
+				dub.update(UpdateOptions.Upgrade | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None) | (pre_release ? UpdateOptions.preRelease : UpdateOptions.None));
 				return 0;
 			case "install":
 				warnRenamed(cmd, "fetch");
@@ -202,10 +204,10 @@ int runDubCommandLine(string[] args)
 				enforce(!place_locally || !place_system_wide, "Cannot place package locally and system wide at the same time.");
 				if (place_locally) location = PlacementLocation.local;
 				else if (place_system_wide) location = PlacementLocation.systemWide;
-				if (retrieved_version.length) dub.fetch(name, Dependency(retrieved_version), location, true);
+				if (retrieved_version.length) dub.fetch(name, Dependency(retrieved_version), location, true, false);
 				else {
 					try {
-						dub.fetch(name, Dependency(">=0.0.0"), location, true);
+						dub.fetch(name, Dependency(">=0.0.0"), location, true, false);
 						logInfo(
 							"Please note that you need to use `dub run <pkgname>` " ~ 
 							"or add it to dependencies of your package to actually use/run it. " ~
@@ -214,7 +216,7 @@ int runDubCommandLine(string[] args)
 					catch(Exception e){
 						logInfo("Getting a release version failed: %s", e.msg);
 						logInfo("Retry with ~master...");
-						dub.fetch(name, Dependency("~master"), location, true);
+						dub.fetch(name, Dependency("~master"), location, true, true);
 					}
 				}
 				break;
@@ -439,8 +441,14 @@ Build/run options:
 
 Fetch/remove options:
         --version        Use the specified version/branch instead of the latest
-        --system         Put package into system wide dub cache instead of user local one
-        --local          Put packahe to a sub folder of the current directory
+        --system         Put package into system wide dub cache instead of the
+                         user local one
+        --local          Extract the package to a sub folder of the current
+                         working directory
+
+Upgrade options:
+        -prerelease      Uses the latest pre-release version, even if release
+                         versions are available
 
 `);
 	logInfo("DUB version %s", dubVersion);

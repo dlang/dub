@@ -91,6 +91,18 @@ unittest {
 	assert(!isValidVersion("1.0-1.0"));
 }
 
+bool isPreReleaseVersion(string ver)
+in { assert(isValidVersion(ver)); }
+body {
+	foreach (i; 0 .. 2) {
+		auto di = ver.indexOf('.');
+		assert(di > 0);
+		ver = ver[di+1 .. $];
+	}
+	auto di = ver.indexOf('-');
+	if (di < 0) return false;
+	return isValidNumber(ver[0 .. di]);
+}
 
 /**
 	Compares the precedence of two SemVer version strings.

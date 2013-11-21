@@ -23,10 +23,10 @@ import std.conv;
 /// which is available.
 interface PackageSupplier {
 	/// path: absolute path to store the package (usually in a zip format)
-	void retrievePackage(Path path, string packageId, Dependency dep);
+	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release);
 	
 	/// returns the metadata for the package
-	Json getPackageDescription(string packageId, Dependency dep);
+	Json getPackageDescription(string packageId, Dependency dep, bool pre_release);
 
 	/// Returns a hunman readable representation of the supplier
 	string toString();
@@ -41,39 +41,43 @@ class FileSystemPackageSupplier : PackageSupplier {
 
 	override string toString() { return "file repository at "~m_path.toNativeString(); }
 	
-	void retrievePackage(Path path, string packageId, Dependency dep)
+	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{
 		enforce(path.absolute);
 		logInfo("Storing package '"~packageId~"', version requirements: %s", dep);
-		auto filename = bestPackageFile(packageId, dep);
+		auto filename = bestPackageFile(packageId, dep, pre_release);
 		enforce(existsFile(filename));
 		copyFile(filename, path);
 	}
 	
-	Json getPackageDescription(string packageId, Dependency dep)
+	Json getPackageDescription(string packageId, Dependency dep, bool pre_release)
 	{
-		auto filename = bestPackageFile(packageId, dep);
+		auto filename = bestPackageFile(packageId, dep, pre_release);
 		return jsonFromZip(filename, "package.json");
 	}
 	
-	private Path bestPackageFile(string packageId, Dependency dep)
+	private Path bestPackageFile(string packageId, Dependency dep, bool pre_release)
 	const {
-		Version bestVersion = Version.RELEASE;
+		Version bestver = Version.RELEASE;
 		foreach (DirEntry d; dirEntries(m_path.toNativeString(), packageId~"*", SpanMode.shallow)) {
 			Path p = Path(d.name);
 			logDebug("Entry: %s", p);
 			enforce(to!string(p.head)[$-4..$] == ".zip");
 			string vers = to!string(p.head)[packageId.length+1..$-4];
 			logDebug("Version string: "~vers);
-			Version v = Version(vers);
-			if (v > bestVersion && dep.matches(v)) {
-				bestVersion = v;
-			}
+			Version cur = Version(vers);
+			if (!dep.matches(cur)) continue;
+			if (bestver == Version.RELEASE) bestver = cur;
+			else if (pre_release) {
+				if (cur > bestver) bestver = cur;
+			} else if (bestver.isPreRelease) {
+				if (!cur.isPreRelease || cur > bestver) bestver = cur;
+			} else if (!cur.isPreRelease && cur > bestver) bestver = cur;
 		}
 		
-		auto fileName = m_path ~ (packageId ~ "_" ~ to!string(bestVersion) ~ ".zip");
+		auto fileName = m_path ~ (packageId ~ "_" ~ to!string(bestver) ~ ".zip");
 		
-		if (bestVersion == Version.RELEASE || !existsFile(fileName))
+		if (bestver == Version.RELEASE || !existsFile(fileName))
 			throw new Exception("No matching package found");
 		
 		logDiagnostic("Found best matching package: '%s'", fileName);
@@ -96,17 +100,17 @@ class RegistryPackageSupplier : PackageSupplier {
 
 	override string toString() { return "registry at "~m_registryUrl.toString(); }
 	
-	void retrievePackage(Path path, string packageId, Dependency dep)
+	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{
-		Json best = getBestPackage(packageId, dep);
+		Json best = getBestPackage(packageId, dep, pre_release);
 		auto url = m_registryUrl ~ Path(PackagesPath~"/"~packageId~"/"~best["version"].get!string~".zip");
 		logDiagnostic("Found download URL: '%s'", url);
 		download(url, path);
 	}
 	
-	Json getPackageDescription(string packageId, Dependency dep)
+	Json getPackageDescription(string packageId, Dependency dep, bool pre_release)
 	{
-		return getBestPackage(packageId, dep);
+		return getBestPackage(packageId, dep, pre_release);
 	}
 	
 	private Json getMetadata(string packageId)
@@ -125,14 +129,22 @@ class RegistryPackageSupplier : PackageSupplier {
 		return json;
 	}
 	
-	private Json getBestPackage(string packageId, Dependency dep)
+	private Json getBestPackage(string packageId, Dependency dep, bool pre_release)
 	{
 		Json md = getMetadata(packageId);
 		Json best = null;
+		Version bestver;
 		foreach (json; md["versions"]) {
 			auto cur = Version(cast(string)json["version"]);
-			if (dep.matches(cur) && (best == null || Version(cast(string)best["version"]) < cur))
-				best = json;
+			logInfo("FOUND %s %s %s", cur.toString(), dep.matches(cur), cur.isPreRelease);
+			if (!dep.matches(cur)) continue;
+			if (best == null) best = json;
+			else if (pre_release) {
+				if (cur > bestver) best = json;
+			} else if (bestver.isPreRelease) {
+				if (!cur.isPreRelease || cur > bestver) best = json;
+			} else if (!cur.isPreRelease && cur > bestver) best = json;
+			bestver = Version(cast(string)best["version"]);
 		}
 		enforce(best != null, "No package candidate found for "~packageId~" "~dep.toString());
 		return best;

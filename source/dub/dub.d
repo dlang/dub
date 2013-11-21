@@ -168,7 +168,7 @@ class Dub {
 				remove(a.pack);
 			}
 			foreach(Action a; filter!((Action a) => a.type == Action.Type.fetch)(actions)) {
-				fetch(a.packageId, a.vers, a.location, (options & UpdateOptions.Upgrade) != 0);
+				fetch(a.packageId, a.vers, a.location, (options & UpdateOptions.Upgrade) != 0, (options & UpdateOptions.preRelease) != 0);
 				// never update the same package more than once
 				masterVersionUpgrades[a.packageId] = true;
 			}
@@ -202,13 +202,13 @@ class Dub {
 	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
 
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, bool force_branch_upgrade)
+	Package fetch(string packageId, const Dependency dep, PlacementLocation location, bool force_branch_upgrade, bool use_prerelease)
 	{
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.getPackageDescription(packageId, dep);
+				pinfo = ps.getPackageDescription(packageId, dep, use_prerelease);
 				supplier = ps;
 				break;
 			} catch(Exception) {}
@@ -244,7 +244,7 @@ class Dub {
 		auto tempFile = m_tempPath ~ tempfname;
 		string sTempFile = tempFile.toNativeString();
 		if (exists(sTempFile)) std.file.remove(sTempFile);
-		supplier.retrievePackage(tempFile, packageId, dep); // Q: continue on fail?
+		supplier.retrievePackage(tempFile, packageId, dep, use_prerelease); // Q: continue on fail?
 		scope(exit) std.file.remove(sTempFile);
 
 		logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
@@ -370,7 +370,7 @@ class Dub {
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
 			logInfo("DDOX is not present, getting it and storing user wide");
-			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, false);
+			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, false, false);
 		}
 
 		version(Windows) auto ddox_exe = "ddox.exe";

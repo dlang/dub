@@ -60,6 +60,10 @@ struct Version {
 	/// Returns true, if this version indicates a branch, which is not the trunk.
 	@property bool isBranch() const { return m_version[0] == BRANCH_IDENT && m_version != MASTER_STRING; }
 	@property bool isMaster() const { return m_version == MASTER_STRING; }
+	@property bool isPreRelease() const {
+		if (isBranch || isMaster) return true;
+		return isPreReleaseVersion(m_version);
+	}
 
 	/** 
 		Comparing Versions is generally possible, but comparing Versions 
