@@ -192,7 +192,7 @@ int runDubCommandLine(string[] args)
 			case "upgrade":
 				dub.loadPackageFromCwd();
 				logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
-				dub.update(UpdateOptions.Upgrade | (annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None) | (pre_release ? UpdateOptions.preRelease : UpdateOptions.None));
+				dub.update(UpdateOptions.upgrade | (annotate ? UpdateOptions.justAnnotate : UpdateOptions.none) | (pre_release ? UpdateOptions.preRelease : UpdateOptions.none));
 				return 0;
 			case "install":
 				warnRenamed(cmd, "fetch");
@@ -292,7 +292,7 @@ int runDubCommandLine(string[] args)
 
 				if( !nodeps ){
 					logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
-					dub.update(annotate ? UpdateOptions.JustAnnotate : UpdateOptions.None);
+					dub.update(annotate ? UpdateOptions.justAnnotate : UpdateOptions.none);
 				}
 
 				enforce(build_config.length == 0 || dub.configurations.canFind(build_config), "Unknown build configuration: "~build_config);

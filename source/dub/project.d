@@ -491,7 +491,7 @@ class Project {
 				else logDiagnostic("Triggering retrieval of required package '"~basepkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
 				actions ~= Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages);
 			} else {
-				if (option & UpdateOptions.Upgrade) {
+				if (option & UpdateOptions.upgrade) {
 					auto existing = m_packageManager.getBestPackage(basepkg, d.dependency);
 					// Only add one upgrade action for each package.
 					if(basepkg !in upgradePackages && m_packageManager.isManagedPackage(existing)) {
@@ -724,9 +724,9 @@ struct Action {
 
 enum UpdateOptions
 {
-	None = 0,
-	JustAnnotate = 1<<0,
-	Upgrade = 1<<1,
+	none = 0,
+	justAnnotate = 1<<0,
+	upgrade = 1<<1,
 	preRelease = 1<<2 // inclde pre-release versions in upgrade
 }
 

@@ -160,7 +160,7 @@ class Dub {
 				}
 			}
 
-			if (conflictedOrFailed || options & UpdateOptions.JustAnnotate) return;
+			if (conflictedOrFailed || options & UpdateOptions.justAnnotate) return;
 
 			// Remove first
 			foreach(Action a; filter!((Action a) => a.type == Action.Type.remove)(actions)) {
@@ -168,7 +168,7 @@ class Dub {
 				remove(a.pack);
 			}
 			foreach(Action a; filter!((Action a) => a.type == Action.Type.fetch)(actions)) {
-				fetch(a.packageId, a.vers, a.location, (options & UpdateOptions.Upgrade) != 0, (options & UpdateOptions.preRelease) != 0);
+				fetch(a.packageId, a.vers, a.location, (options & UpdateOptions.upgrade) != 0, (options & UpdateOptions.preRelease) != 0);
 				// never update the same package more than once
 				masterVersionUpgrades[a.packageId] = true;
 			}
