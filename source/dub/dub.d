@@ -163,11 +163,11 @@ class Dub {
 			if (conflictedOrFailed || options & UpdateOptions.justAnnotate) return;
 
 			// Remove first
-			foreach(Action a; filter!((Action a) => a.type == Action.Type.remove)(actions)) {
+			foreach(Action a; actions.filter!(a => a.type == Action.Type.remove)) {
 				assert(a.pack !is null, "No package specified for removal.");
 				remove(a.pack);
 			}
-			foreach(Action a; filter!((Action a) => a.type == Action.Type.fetch)(actions)) {
+			foreach(Action a; actions.filter!(a => a.type == Action.Type.fetch)) {
 				fetch(a.packageId, a.vers, a.location, (options & UpdateOptions.upgrade) != 0, (options & UpdateOptions.preRelease) != 0);
 				// never update the same package more than once
 				masterVersionUpgrades[a.packageId] = true;
