@@ -201,6 +201,21 @@ EndGlobal");
 			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
 			auto files = pack.getBuildSettings(settings.platform, configs[pack.name]);
 			bool[SourceFile] sourceFiles;
+			void addSourceFile(Path file_path, Path structure_path, bool build)
+			{
+				SourceFile sf;
+				sf.filePath = file_path;
+				sf.structurePath = structure_path;
+				if (build) {
+					sf.build = false;
+					if (sf in sourceFiles) sourceFiles.remove(sf);
+				} else {
+					sf.build = true;
+					if (sf in sourceFiles) return;
+				}
+				sf.build = build;
+				sourceFiles[sf] = true;
+			}
 			if (m_combinedProject) {
 				bool[const(Package)] basePackagesAdded;
 
@@ -210,14 +225,8 @@ EndGlobal");
 					void addFile(string s, bool build) {
 						auto sp = Path(s);
 						if( !sp.absolute ) sp = prj.path ~ sp;
-						SourceFile sf;
-						sf.pkg = pack.name;
-						sf.filePath = sp.relativeTo(project_file_dir);
-						sf.build = build;
-
 						// regroup in Folder by base package
-						sf.structurePath = Path(prj.basePackage().name) ~ sp.relativeTo(prj.path);
-						sourceFiles[sf] = true;
+						addSourceFile(sp.relativeTo(project_file_dir), Path(prj.basePackage().name) ~ sp.relativeTo(prj.path), build);
 					}
 
 					string[] prjFiles;
@@ -245,12 +254,7 @@ EndGlobal");
 			void addFile(string s, bool build) {
 				auto sp = Path(s);
 				if( !sp.absolute ) sp = pack.path ~ sp;
-				SourceFile sf;
-				sf.pkg = pack.name;
-				sf.filePath = sp.relativeTo(project_file_dir);
-				sf.structurePath = sp.relativeTo(pack.path);
-				sf.build = build;
-				sourceFiles[sf] = true;
+				addSourceFile(sp.relativeTo(project_file_dir), sp.relativeTo(pack.path), build);
 			}
 			addFile(pack.packageInfoFile.toNativeString(), false);
 			foreach(s; files.sourceFiles) addFile(s, true);
@@ -495,11 +499,11 @@ EndGlobal");
 
 	// TODO: nice folders
 	struct SourceFile {
-		string pkg;
 		Path structurePath;
 		Path filePath;
 		bool build = true;
 
+		hash_t toHash() const nothrow @trusted { return structurePath.toHash() ^ filePath.toHash() ^ (build * 0x1f3e7b2c); }
 		int opCmp(ref const SourceFile rhs) const { return sortOrder(this, rhs); }
 		// "a < b" for folder structures (deepest folder first, else lexical)
 		private final static int sortOrder(ref const SourceFile a, ref const SourceFile b) {
