@@ -136,7 +136,6 @@ class RegistryPackageSupplier : PackageSupplier {
 		Version bestver;
 		foreach (json; md["versions"]) {
 			auto cur = Version(cast(string)json["version"]);
-			logInfo("FOUND %s %s %s", cur.toString(), dep.matches(cur), cur.isPreRelease);
 			if (!dep.matches(cur)) continue;
 			if (best == null) best = json;
 			else if (pre_release) {
