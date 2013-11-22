@@ -481,6 +481,10 @@ class Project {
 
 		// Check against package list and add retrieval actions
 		Action[] actions;
+		void addAction(Action act) {
+			if (!actions.canFind!(a => a.type == act.type && a.location == act.location && a.packageId == act.packageId && a.vers == act.vers))
+				actions ~= act;
+		}
 		int[string] upgradePackages;
 		foreach( string pkg, d; graph.needed() ) {
 			auto basepkg = pkg.getBasePackage();
@@ -489,7 +493,7 @@ class Project {
 			if(!p || (!d.dependency.matches(p.vers) && !d.dependency.matches(Version.MASTER))) {
 				if(!p) logDiagnostic("Triggering retrieval of required package '"~basepkg~"', which was not present.");
 				else logDiagnostic("Triggering retrieval of required package '"~basepkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
-				actions ~= Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages);
+				addAction(Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages));
 			} else {
 				if (option & UpdateOptions.upgrade) {
 					auto existing = m_packageManager.getBestPackage(basepkg, d.dependency);
@@ -497,7 +501,7 @@ class Project {
 					if(basepkg !in upgradePackages && m_packageManager.isManagedPackage(existing)) {
 						logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"', upgrading.");
 						upgradePackages[basepkg] = 1;
-						actions ~= Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages);
+						addAction(Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages));
 					}
 				}
 				else {

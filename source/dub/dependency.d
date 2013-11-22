@@ -223,7 +223,7 @@ struct Dependency {
 	}
 
 	bool opEquals(in Dependency o)
-	{
+	const {
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
 		return o.m_cmpA == m_cmpA && o.m_cmpB == m_cmpB 
 			&& o.m_versA == m_versA && o.m_versB == m_versB 
