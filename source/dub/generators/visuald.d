@@ -536,12 +536,12 @@ EndGlobal");
 
 	unittest {
 		SourceFile[] sfs = [
-			{ "", Path("b/file.d"), Path("") },
-			{ "", Path("b/b/fileA.d"), Path("") },
-			{ "", Path("a/file.d"), Path("") },
-			{ "", Path("b/b/fileB.d"), Path("") },
-			{ "", Path("b/b/b/fileA.d"), Path("") },
-			{ "", Path("b/c/fileA.d"), Path("") },
+			{ Path("b/file.d"), Path("") },
+			{ Path("b/b/fileA.d"), Path("") },
+			{ Path("a/file.d"), Path("") },
+			{ Path("b/b/fileB.d"), Path("") },
+			{ Path("b/b/b/fileA.d"), Path("") },
+			{ Path("b/c/fileA.d"), Path("") },
 		];
 		auto sorted = sort(sfs);
 		SourceFile[] sortedSfs;
