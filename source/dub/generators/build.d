@@ -376,9 +376,33 @@ private Path getMainSourceFile(in Project prj)
 
 private bool isLinkerFile(string f)
 {
+	import std.path;
+	switch (extension(f)) {
+		default:
+			return false;
+		version (Windows) {
+			case ".lib", ".obj", ".res":
+				return true;
+		} else {
+			case ".a", ".o", ".so", ".dylib":
+				return true;
+		}
+	}
+}
+
+unittest {
 	version (Windows) {
-		return f.endsWith(".lib") || f.endsWith(".obj");
+		assert(isLinkerFile("test.obj"));
+		assert(isLinkerFile("test.lib"));
+		assert(isLinkerFile("test.res"));
+		assert(!isLinkerFile("test.o"));
+		assert(!isLinkerFile("test.d"));
 	} else {
-		return f.endsWith(".a") || f.endsWith(".o") || f.endsWith(".so") || f.endsWith(".dylib");
+		assert(isLinkerFile("test.o"));
+		assert(isLinkerFile("test.a"));
+		assert(isLinkerFile("test.so"));
+		assert(isLinkerFile("test.dylib"));
+		assert(!isLinkerFile("test.obj"));
+		assert(!isLinkerFile("test.d"));
 	}
 }
