@@ -98,8 +98,10 @@ struct Path {
 	string toNativeString()
 	const {
 		if (m_nodes.empty) {
-			version(Windows) assert(!absolute, "Empty absolute path detected.");
-			return absolute ? "/" : ".";
+			version(Windows) {
+				assert(!absolute, "Empty absolute path detected.");
+				return ".\\";
+			} else return absolute ? "/" : "./";
 		}
 
 		Appender!string ret;
