@@ -1,6 +1,66 @@
 Changelog
 =========
 
+v0.9.20 - 2013-11-
+--------------------
+
+### Features and improvements ###
+
+ - Compiles on DMD 2.064 without warnings - [issue #116][issue116]
+ - Builds are cached now by default in the ".dub/" sub folder of each package
+ - An explicit "dub upgrade --prerelease" is now necessary to upgrade to pre-release versions of dependencies
+ - "dub describe" and generated VisualD projects now also contain pure import and string import files
+ - "dub run" now only builds in "/tmp" or "%TEMP%" if the package folder is write protected - [issue #82][issue82]
+ - "dub init" can not take an optional project template name (currently "minimal" or "vibe.d")
+ - Renamed "dub install" to "dub fetch" to avoid giving the impression of actual system installation (by Михаил Страшун aka Dicebot) - [pull #150][issue150]
+ - Added support for "dub describe (package name)" and "dub describe --root=(path to package)" to describe packages outside of the CWD
+ - `"excludedSourceFiles"` now supports [glob expressions](http://dlang.org/phobos/std_path.html#.globMatch) (by Jacob Carlborg) - [pull #155][issue155]
+ - "dub --build=ddox" now starts a local HTTP server and automatically opens the browser to display the documentation
+ - Environment variables can now be used inside path based fields in package.json (by Alexei Bykov) - [pull #158][issue158]
+ - "dub describe" now contains a `"targetFileName"` field that includes the file extension (e.g. ".exe" or ".so")
+ - Removed the compatibility version of the new `std.process` as it lacks support for `browse()`
+ - Support using .obj/.lib/.res/.o/.a/.so/.dylib files to be specified as "sourceFiles", they will be bassed to the compiler at the linking stage
+ - Added a "library-nonet" configuration to the package description file to compile without a CURL dependency
+ - Added support for the "http_proxy" environment variable
+
+
+### Bug fixes ###
+
+ - Fixed building of explicitly selected packages with custom configurations (using "dub build (package name)")
+ - Fixed running DUB from outside of a valid package directory when an explicit package name is given
+ - Fixed dependency calculation for dependencies referenced in configuration blocks - [issue #137][issue137]
+ - Fixed warnings to be enabled as errors by default again
+ - Fixed resolution of dependencies when sub packages are involved - [issue #140][issue140]
+ - Fixed handling of build options for GDC/LDC (by finalpatch) - [pull #143][issue143]
+ - Fixed emitting "-shared -fPIC" for DMD when building shared libraries - [issue #138][issue138]
+ - Fixed "dub --build=ddox" for target types other than "executable" - [issue #142][issue142]
+ - Fixed a crash when loading the main package failed - [issue #145][issue145]
+ - Fixed the error message for empty path strings in the `"sourcePaths"` field - see [issue #149][issue149]
+ - Fixed representing empty relative paths by "." instead of an empty string - [issue #153][issue153]
+ - Fixed running executables for projects outside of the CWD
+ - Fixed copying of DDOX resources on Posix for "--build=ddox" (by Martin Nowak) - [pull #162][issue162]
+ - Fixed ARM floating-point platform/version identifiers
+ - Fixed generating VisualD projects for shared library packages (by p0nce) - [pull #173][issue173]
+ - Fixed erroneous upgrading of packages that are not managed by DUB (for "dub upgrade") - [issue #171][issue171]
+ - Fixed erroneously fetching the same package multiple times when sub packages are used
+
+[issue82]: https://github.com/rejectedsoftware/dub/issues/82
+[issue116]: https://github.com/rejectedsoftware/dub/issues/116
+[issue137]: https://github.com/rejectedsoftware/dub/issues/137
+[issue140]: https://github.com/rejectedsoftware/dub/issues/140
+[issue142]: https://github.com/rejectedsoftware/dub/issues/142
+[issue143]: https://github.com/rejectedsoftware/dub/issues/143
+[issue145]: https://github.com/rejectedsoftware/dub/issues/145
+[issue149]: https://github.com/rejectedsoftware/dub/issues/149
+[issue150]: https://github.com/rejectedsoftware/dub/issues/150
+[issue153]: https://github.com/rejectedsoftware/dub/issues/153
+[issue155]: https://github.com/rejectedsoftware/dub/issues/155
+[issue158]: https://github.com/rejectedsoftware/dub/issues/158
+[issue162]: https://github.com/rejectedsoftware/dub/issues/162
+[issue171]: https://github.com/rejectedsoftware/dub/issues/171
+[issue173]: https://github.com/rejectedsoftware/dub/issues/173
+
+
 v0.9.19 - 2013-10-18
 --------------------
 
