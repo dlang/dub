@@ -7,6 +7,9 @@
 		"Matthias Dondorff",
 		"Sönke Ludwig"
 	],
+	"dependencies": {
+		"vibe-d": {"version": "~master", "optional": true}
+	},
 	"targetPath": "bin",
 	"configurations": [
 		{
