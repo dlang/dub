@@ -49,6 +49,7 @@ PackageSupplier[] defaultPackageSuppliers()
 /// dependencies up and running. An instance manages one application.
 class Dub {
 	private {
+		bool m_dryRun = false;
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
 		Path m_rootPath, m_tempPath;
@@ -160,7 +161,7 @@ class Dub {
 				}
 			}
 
-			if (conflictedOrFailed || options & UpdateOptions.justAnnotate) return;
+			if (conflictedOrFailed || m_dryRun) return;
 
 			// Remove first
 			foreach(Action a; actions.filter!(a => a.type == Action.Type.remove)) {

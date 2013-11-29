@@ -27,13 +27,14 @@ import std.exception;
 import std.file;
 import std.getopt;
 import std.process;
+import std.stdio;
+import std.string;
+import std.variant;
 
 
 int runDubCommandLine(string[] args)
 {
 	logDiagnostic("DUB version %s", dubVersion);
-
-	string cmd;
 
 	version(Windows){
 		// rdmd uses $TEMP to compute a temporary path. since cygwin substitutes backslashes
@@ -42,414 +43,930 @@ int runDubCommandLine(string[] args)
 		environment["TEMP"] = environment["TEMP"].replace("/", "\\");
 	}
 
-	try {
-		// split application arguments from DUB arguments
-		string[] app_args;
-		auto app_args_idx = args.countUntil("--");
-		if (app_args_idx >= 0) {
-			app_args = args[app_args_idx+1 .. $];
-			args = args[0 .. app_args_idx];
-		}
+	// split application arguments from DUB arguments
+	string[] app_args;
+	auto app_args_idx = args.countUntil("--");
+	if (app_args_idx >= 0) {
+		app_args = args[app_args_idx+1 .. $];
+		args = args[0 .. app_args_idx];
+	}
+	args = args[1 .. $]; // strip the application name
 
-		// parse general options
-		bool verbose, vverbose, quiet, vquiet;
-		bool help, nodeps, annotate;
-		LogLevel loglevel = LogLevel.info;
-		string build_type, build_config;
-		string compiler_name = "dmd";
-		string arch;
-		bool rdmd = false;
-		bool print_platform, print_builds, print_configs;
-		bool place_system_wide = false, place_locally = false;
-		bool pre_release = false;
-		string retrieved_version;
-		string[] registry_urls;
-		string[] debug_versions;
-		string root_path = getcwd();
-		getopt(args,
-			"v|verbose", &verbose,
-			"vverbose", &vverbose,
-			"q|quiet", &quiet,
-			"vquiet", &vquiet,
-			"h|help", &help, // obsolete
-			"nodeps", &nodeps,
-			"annotate", &annotate,
-			"build", &build_type,
-			"compiler", &compiler_name,
-			"arch", &arch,
-			"rdmd", &rdmd,
-			"config", &build_config,
-			"debug", &debug_versions,
-			"print-builds", &print_builds,
-			"print-configs", &print_configs,
-			"print-platform", &print_platform,
-			"system", &place_system_wide,
-			"local", &place_locally,
-			"prerelease", &pre_release,
-			"version", &retrieved_version,
-			"registry", &registry_urls,
-			"root", &root_path
-			);
+	// parse general options
+	bool verbose, vverbose, quiet, vquiet;
+	bool help, annotate;
+	LogLevel loglevel = LogLevel.info;
+	string[] registry_urls;
+	string root_path = getcwd();
+
+	auto common_args = new CommandArgs(args);
+	try {
+		common_args.getopt("h|help", &help, ["Display general or command specific help"]);
+		common_args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
+		common_args.getopt("registry", &registry_urls, ["Search the given DUB registry URL first when resolving dependencies. Can be specified multiple times."]);
+		common_args.getopt("annotate", &annotate, ["Do not perform any action, just print what would be done"]);
+		common_args.getopt("v|verbose", &verbose, ["Print diagnostic output"]);
+		common_args.getopt("vverbose", &vverbose, ["Print debug output"]);
+		common_args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
+		common_args.getopt("vquiet", &vquiet, ["Print no messages"]);
 
 		if( vverbose ) loglevel = LogLevel.debug_;
 		else if( verbose ) loglevel = LogLevel.diagnostic;
 		else if( vquiet ) loglevel = LogLevel.none;
 		else if( quiet ) loglevel = LogLevel.warn;
 		setLogLevel(loglevel);
+	} catch (Throwable e) {
+		logError("Error processing arguments: %s", e.msg);
+		logDiagnostic("Full exception: %s", e.toString().sanitize);
+		logInfo("Run 'dub help' for usage information.");
+		return 1;
+	}
 
-		// extract the command
-		if( args.length > 1 && !args[1].startsWith("-") ){
-			cmd = args[1];
-			args = args[0] ~ args[2 .. $];
-		} else cmd = "run";
+	// create the list of all supported commands
+	Command[] commands = [
+		new InitCommand,
+		new RunCommand,
+		new BuildCommand,
+		new GenerateCommand,
+		new DescribeCommand,
+		new FetchCommand,
+		new InstallCommand,
+		new RemoveCommand,
+		new UninstallCommand,
+		new UpgradeCommand,
+		new AddPathCommand,
+		new RemovePathCommand,
+		new AddLocalCommand,
+		new RemoveLocalCommand,
+		new ListCommand,
+		new ListInstalledCommand
+	];
 
-		// display help if requested (obsolete)
-		if( help ){
-			showHelp(cmd);
+	// extract the command
+	string cmdname;
+	args = common_args.extractRemainingArgs();
+	if (args.length >= 1 && !args[0].startsWith("-")) {
+		cmdname = args[0];
+		args = args[1 .. $];
+	} else {
+		if (help) {
+			showHelp(commands, common_args);
 			return 0;
 		}
+		cmdname = "run";
+	}
+	auto command_args = new CommandArgs(args);
 
-		BuildSettings build_settings;
-		auto compiler = getCompiler(compiler_name);
-		auto build_platform = compiler.determinePlatform(build_settings, compiler_name, arch);
-		build_settings.addDebugVersions(debug_versions);
+	if (cmdname == "help") {
+		showHelp(commands, common_args);
+		return 0;
+	}
 
-		if( print_platform ){
-			logInfo("Build platform:");
-			logInfo("  Compiler: %s", build_platform.compiler);
-			logInfo("  System: %s", build_platform.platform.join(" "));
-			logInfo("  Architecture: %s", build_platform.architecture.join(" "));
-			logInfo("");
-		}
+	// initialize DUB
+	auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
+	Dub dub = new Dub(package_suppliers, root_path);
 
-		auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
-		Dub dub = new Dub(package_suppliers, root_path);
-		string def_config;
+	// make the CWD package available so that for example sub packages can reference their
+	// parent package.
+	try dub.packageManager.getTemporaryPackage(Path(root_path), Version("~master"));
+	catch (Exception e) { logDiagnostic("No package found in current working directory."); }
 
-		// make the CWD package available so that for example sub packages can reference their
-		// parent package.
-		try dub.packageManager.getTemporaryPackage(Path(root_path), Version("~master"));
-		catch (Exception e) { logDiagnostic("No package found in current working directory."); }
-
-		bool loadCwdPackage(Package pack, bool warn_missing_package)
-		{
-			if (warn_missing_package && !existsFile(dub.rootPath~"package.json") && !existsFile(dub.rootPath~"source/app.d")) {
-				logInfo("");
-				logInfo("Neither package.json, nor source/app.d was found in the current directory.");
-				logInfo("Please run dub from the root directory of an existing package, or create a new");
-				logInfo("package using \"dub init <name>\".");
-				logInfo("");
-				showHelp(null);
-				return false;
+	// execute the sepected command
+	foreach (cmd; commands)
+		if (cmd.name == cmdname) {
+			try {
+				cmd.prepare(command_args);
+				enforceUsage(cmd.acceptsAppArgs || app_args.length == 0, cmd.name ~ " doesn't accept application arguments.");
+			} catch (Throwable e) {
+				logError("Error processing arguments: %s", e.msg);
+				logDiagnostic("Full exception: %s", e.toString().sanitize);
+				logInfo("Run 'dub help' for usage information.");
+				return 1;
 			}
 
-			if (pack) dub.loadPackage(pack);
-			else dub.loadPackageFromCwd();
-
-			def_config = dub.getDefaultConfiguration(build_platform);
-
-			return true;
-		}
-
-		string package_name;
-		bool loadSelectedPackage()
-		{
-			Package pack;
-			if (!package_name.empty) {
-				// load package in root_path to enable searching for sub packages
-				loadCwdPackage(null, false);
-				pack = dub.packageManager.getFirstPackage(package_name);
-				enforce(pack, "Failed to find a package named '"~package_name~"'.");
-				logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
-				dub.rootPath = pack.path;
+			if (help) {
+				showCommandHelp(cmd, command_args, common_args);
+				return 0;
 			}
-			if (!loadCwdPackage(pack, true)) return false;
-			if (!build_config.length) build_config = def_config;
-			return true;
-        }
 
-		static void warnRenamed(string prev, string curr)
-		{
-			logWarn("Command '%s' was renamed to '%s'. Old name is deprecated, please update your scripts", prev, curr);
+			try return cmd.execute(dub, command_args.extractRemainingArgs(), app_args);
+			catch (UsageException e) {
+				logError("%s", e.msg);
+				logDiagnostic("Full exception: %s", e.toString().sanitize);
+				return 1;
+			}
+			catch (Throwable e) {
+				logError("Error executing command %s: %s\n", cmd.name, e.msg);
+				logDiagnostic("Full exception: %s", e.toString().sanitize);
+				return 2;
+			}
 		}
+	
+	logError("Unknown command: %s", cmdname);
+	writeln();
+	showHelp(commands, common_args);
+	return 1;
+}
 
-		// handle the command
-		switch( cmd ){
-			default:
-				enforce(false, "Command is unknown: " ~ cmd);
-				assert(false);
-			case "help":
-				if(args.length >= 2) cmd = args[1];
-				showHelp(cmd);
-				return 0;
-			case "init":
-				string dir;
-				string type = "minimal";
-				if (args.length >= 2) dir = args[1];
-				if (args.length >= 3) type = args[2];
-				dub.createEmptyPackage(Path(dir), type);
-				return 0;
-			case "upgrade":
-				dub.loadPackageFromCwd();
-				logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
-				dub.update(UpdateOptions.upgrade | (annotate ? UpdateOptions.justAnnotate : UpdateOptions.none) | (pre_release ? UpdateOptions.preRelease : UpdateOptions.none));
-				return 0;
-			case "install":
-				warnRenamed(cmd, "fetch");
-				goto case "fetch";
-			case "fetch":
-				enforce(args.length >= 2, "Missing package name.");
-				auto location = PlacementLocation.userWide;
-				auto name = args[1];
-				enforce(!place_locally || !place_system_wide, "Cannot place package locally and system wide at the same time.");
-				if (place_locally) location = PlacementLocation.local;
-				else if (place_system_wide) location = PlacementLocation.systemWide;
-				if (retrieved_version.length) dub.fetch(name, Dependency(retrieved_version), location, true, false);
-				else {
-					try {
-						dub.fetch(name, Dependency(">=0.0.0"), location, true, false);
-						logInfo(
-							"Please note that you need to use `dub run <pkgname>` " ~ 
-							"or add it to dependencies of your package to actually use/run it. " ~
-							"dub does not do actual installation of packages outside of its own ecosystem.");
-					}
-					catch(Exception e){
-						logInfo("Getting a release version failed: %s", e.msg);
-						logInfo("Retry with ~master...");
-						dub.fetch(name, Dependency("~master"), location, true, true);
-					}
-				}
-				break;
-			case "uninstall":
-				warnRenamed(cmd, "remove");
-				goto case "remove";
-			case "remove":
-				enforce(args.length >= 2, "Missing package name.");
-				auto location = PlacementLocation.userWide;
-				auto package_id = args[1];
-				enforce(!place_locally || !place_system_wide, "Cannot place package locally and system wide at the same time.");
-				if ( place_locally ) location = PlacementLocation.local;
-				else if( place_system_wide ) location = PlacementLocation.systemWide;
-				try dub.remove(package_id, retrieved_version, location);
-				catch logError("Please specify a individual version or use the wildcard identifier '%s' (without quotes).", Dub.RemoveVersionWildcard);
-				break;
-			case "add-local":
-				enforce(args.length >= 3, "Missing arguments.");
-				dub.addLocalPackage(args[1], args[2], place_system_wide);
-				break;
-			case "remove-local":
-				enforce(args.length >= 2, "Missing path to package.");
-				dub.removeLocalPackage(args[1], place_system_wide);
-				break;
-			case "add-path":
-				enforce(args.length >= 2, "Missing search path.");
-				dub.addSearchPath(args[1], place_system_wide);
-				break;
-			case "remove-path":
-				enforce(args.length >= 2, "Missing search path.");
-				dub.removeSearchPath(args[1], place_system_wide);
-				break;
-			case "list-installed":
-				warnRenamed(cmd, "list");
-				goto case "list";
-			case "list":
-				logInfo("Packages present in the system and known to dub:");
-				foreach (p; dub.packageManager.getPackageIterator())
-					logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
-				logInfo("");
-				break;
-			case "run":
-			case "build":
-			case "generate":
-				string generator;
-				if( cmd == "run" || cmd == "build" ) {
-					generator = rdmd ? "rdmd" : "build";
-					if (args.length >= 2) package_name = args[1];
-				} else {
-					if (args.length >= 2) generator = args[1];
-					if (args.length >= 3) package_name = args[2];
-					if(generator.empty) {
-						logInfo("Usage: dub generate <generator_name> [<package name>]");
-						return 1;
-					}
-				}
+class CommandArgs {
+	struct Arg {
+		Variant defaultValue;
+		Variant value;
+		string names;
+		string[] helpText;
+	}
+	private {
+		string[] m_args;
+		Arg[] m_recognizedArgs;
+	}
 
-				if (!loadSelectedPackage()) return 1;
+	this(string[] args)
+	{
+		m_args = "dummy" ~ args;
+	}
 
-				if( print_builds ){
-					logInfo("Available build types:");
-					foreach( tp; ["debug", "release", "unittest", "profile"] )
-						logInfo("  %s", tp);
-					logInfo("");
-				}
+	@property const(Arg)[] recognizedArgs() { return m_recognizedArgs; }
 
-				if( print_configs ){
-					logInfo("Available configurations:");
-					foreach( tp; dub.configurations )
-						logInfo("  %s%s", tp, tp == def_config ? " [default]" : null);
-					logInfo("");
-				}
+	void getopt(T)(string names, T* var, string[] help_text = null)
+	{
+		foreach (ref arg; m_recognizedArgs)
+			if (names == arg.names) {
+				assert(help_text is null);
+				*var = arg.value.get!T;
+				return;
+			}
+		assert(help_text.length > 0);
+		Arg arg;
+		arg.defaultValue = *var;
+		arg.names = names;
+		arg.helpText = help_text;
+		m_args.getopt(config.passThrough, names, var);
+		arg.value = *var;
+		m_recognizedArgs ~= arg;
+	}
 
-				if( !nodeps ){
-					logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
-					dub.update(annotate ? UpdateOptions.justAnnotate : UpdateOptions.none);
-				}
+	void dropAllArgs()
+	{
+		m_args = null;
+	}
 
-				enforce(build_config.length == 0 || dub.configurations.canFind(build_config), "Unknown build configuration: "~build_config);
+	string[] extractRemainingArgs()
+	{
+		auto ret = m_args[1 .. $];
+		m_args = null;
+		return ret;
+	}
+}
 
-				if (build_type.length == 0) {
-					if (environment.get("DFLAGS")) build_type = "$DFLAGS";
-					else build_type = "debug";
-				}
+class Command {
+	string name;
+	string argumentsPattern;
+	string description;
+	string[] helpText;
+	bool acceptsAppArgs;
 
-				GeneratorSettings gensettings;
-				gensettings.platform = build_platform;
-				gensettings.config = build_config;
-				gensettings.buildType = build_type;
-				gensettings.compiler = compiler;
-				gensettings.buildSettings = build_settings;
-				gensettings.run = cmd == "run";
-				gensettings.runArgs = app_args;
+	abstract void prepare(scope CommandArgs args);
+	abstract int execute(Dub dub, string[] free_args, string[] app_args);
+}
 
-				logDiagnostic("Generating using %s", generator);
-				dub.generateProject(generator, gensettings);
-				if (build_type == "ddox") dub.runDdox(gensettings.run);
-				break;
-			case "describe":
-				if (args.length >= 2) package_name = args[1];
-				if (!loadSelectedPackage()) return 1;
-				dub.describeProject(build_platform, build_config);				
-				break;
+
+/******************************************************************************/
+/* INIT                                                                       */
+/******************************************************************************/
+
+class InitCommand : Command {
+	private {
+		string m_directory;
+		string m_type = "minimal";
+	}
+
+	this()
+	{
+		this.name = "init";
+		this.argumentsPattern = "[<directory> [<type>]]";
+		this.description = "Initializes an empty package skeleton";
+		this.helpText = [
+			"Initializes an empty package of the specified type in the given directory. By default, the current working dirctory is used. Available types:",
+			"",
+			"minimal - a simple \"hello world\" project with no dependencies (default)",
+			"vibe.d - minimal HTTP server based on vibe.d"
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		string dir, type = "minimal";
+		enforceUsage(app_args.empty, "Unexpected application arguments.");
+		enforceUsage(free_args.length <= 2, "Too many arguments.");
+		if (free_args.length >= 1) dir = free_args[0];
+		if (free_args.length >= 2) type = free_args[1];
+		dub.createEmptyPackage(Path(m_directory), m_type);
+		return 0;
+	}
+}
+
+
+/******************************************************************************/
+/* FETCH / REMOVE / UPGRADE                                                   */
+/******************************************************************************/
+
+class UpgradeCommand : Command {
+	private {
+		bool m_prerelease = false;
+	}
+
+	this()
+	{
+		this.name = "upgrade";
+		this.argumentsPattern = "";
+		this.description = "Forces an upgrade of all dependencies";
+		this.helpText = [
+			"Upgrades all dependencies of the package by querying the package registry(ies) for new versions."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("prerelease", &m_prerelease, [
+			"Uses the latest pre-release version, even if release versions are available"
+		]);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length == 0, "Unexpected arguments.");
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+		dub.loadPackageFromCwd();
+		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
+		auto options = UpdateOptions.upgrade;
+		if (m_prerelease) options |= UpdateOptions.preRelease;
+		dub.update(options);
+		return 0;
+	}
+}
+
+class FetchRemoveCommand : Command {
+	protected {
+		string m_version;
+		bool m_system = false;
+		bool m_local = false;
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("version", &m_version, [
+			"Use the specified version/branch instead of the latest available match",
+			"The remove command also accepts \"*\" here as a wildcard to remove all versions of the package from the specified location"
+		]);
+
+		args.getopt("system", &m_system, ["Puts the package into the system wide package cache instead of the user local one."]);
+		args.getopt("local", &m_system, ["Puts the package into a sub folder of the current working directory. Cannot be mixed with --system."]);
+	}
+
+	abstract override int execute(Dub dub, string[] free_args, string[] app_args);
+}
+
+class FetchCommand : FetchRemoveCommand {
+	this()
+	{
+		this.name = "fetch";
+		this.argumentsPattern = "<name>";
+		this.description = "Manually retrieves and caches a package";
+		this.helpText = [
+			"Note: Use the \"dependencies\" field in the package description file (e.g. package.json) if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
+			"",
+			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your package.json, dub will do the rest for you."
+			"",
+			"Without specified options, placement/removal will default to a user wide shared location."
+			"",
+			"Complete applications can be retrieved and run easily by e.g.",
+			"$ dub fetch vibelog --local",
+			"$ cd vibelog",
+			"$ dub",
+			""
+			"This will grab all needed dependencies and compile and run the application.",
+			"",
+			"Note: DUB does not do a system installation of packages. Packages are instead only registered within DUB's internal ecosystem. Generation of native system packages/installers may be added later as a separate feature."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		super.prepare(args);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(!m_local || !m_system, "--local and --system are exclusive to each other.");
+		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+
+		auto location = PlacementLocation.userWide;
+		if (m_local) location = PlacementLocation.local;
+		else if (m_system) location = PlacementLocation.systemWide;
+
+		auto name = free_args[0];
+
+		if (m_version.length) dub.fetch(name, Dependency(m_version), location, true, false);
+		else {
+			try {
+				dub.fetch(name, Dependency(">=0.0.0"), location, true, false);
+				logInfo(
+					"Please note that you need to use `dub run <pkgname>` " ~ 
+					"or add it to dependencies of your package to actually use/run it. " ~
+					"dub does not do actual installation of packages outside of its own ecosystem.");
+			}
+			catch(Exception e){
+				logInfo("Getting a release version failed: %s", e.msg);
+				logInfo("Retry with ~master...");
+				dub.fetch(name, Dependency("~master"), location, true, true);
+			}
+		}
+		return 0;
+	}
+}
+
+class InstallCommand : FetchCommand {
+	this() { this.name = "install"; }
+	override void prepare(scope CommandArgs args) { super.prepare(args); }
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		warnRenamed("install", "fetch");
+		return super.execute(dub, free_args, app_args);
+	}
+}
+
+class RemoveCommand : FetchRemoveCommand {
+	this()
+	{
+		this.name = "remove";
+		this.argumentsPattern = "<name>";
+		this.description = "Removes a cached package";
+		this.helpText = [
+			"Removes a package that is cached on the local system."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		super.prepare(args);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(!m_local || !m_system, "--local and --system are exclusive to each other.");
+		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+
+		auto package_id = free_args[0];
+		auto location = PlacementLocation.userWide;
+		if (m_local) location = PlacementLocation.local;
+		else if (m_system) location = PlacementLocation.systemWide;
+
+		try dub.remove(package_id, m_version, location);
+		catch {
+			logError("Please specify a individual version or use the wildcard identifier '%s' (without quotes).", Dub.RemoveVersionWildcard);
+			return 1;
 		}
 
 		return 0;
 	}
-	catch(Throwable e)
+}
+
+class UninstallCommand : RemoveCommand {
+	this() { this.name = "uninstall"; }
+	override void prepare(scope CommandArgs args) { super.prepare(args); }
+	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		logError("Error: %s\n", e.msg);
-		logDiagnostic("Full exception: %s", sanitize(e.toString()));
-		logInfo("Run 'dub help' for usage information.");
-		return 1;
+		warnRenamed("uninstall", "remove");
+		return super.execute(dub, free_args, app_args);
 	}
 }
 
-private void showHelp(string command)
-{
-	if(command == "remove" || command == "fetch") {
-		logInfo(
-`Usage: dub <fetch|remove> <package> [<options>]
 
-Note: use dependencies (package.json) if you want to add a dependency, you
-      don't have to fiddle with caching stuff.
+/******************************************************************************/
+/* ADD/REMOVE PATH/LOCAL                                                      */
+/******************************************************************************/
 
-Explicit retrieval/removal of packages is only needed when you want to put packages to a 
-place where several applications can share these. If you just have an 
-dependency to a package, just add it to your package.json, dub will do the rest
-for you.
-
-Without specified options, placement/removal will default to a user wide shared
-location.
-
-Complete applications can be retrieved and run easily by e.g.
-        dub fetch vibelog --local
-        cd vibelog
-        dub
-This will grab all needed dependencies and compile and run the application.
-
-Note: dub does not do any real "installation" of packages, those are registered
-only within dub internal ecosystem. Generation of native system packages / installer
-may be added later.
-
-Options:
-        --version        Use the specified version/branch instead of the latest
-                         For the remove command, this may be a wildcard 
-                         string: "*", which will remove all packages from the
-                         specified location.
-        --system         Put package into system wide dub cache instead of user local one
-        --local          Put package to a sub folder of the current directory
-                         Note that system and local cannot be mixed.
-`);
-		return;
+abstract class RegistrationCommand : Command {
+	private {
+		bool m_system;
 	}
 
-	// No specific help, show general help.
-	logInfo(
-`Usage: dub [<command>] [<options...>] [-- <application arguments...>]
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("system", &m_system, [
+			"Register system-wide instead of user-wide"
+		]);
+	}
 
-Manages the DUB project in the current directory. "--" can be used to separate
-DUB options from options passed to the application. If the command is omitted,
-dub will default to "run".
+	abstract override int execute(Dub dub, string[] free_args, string[] app_args);
+}
 
-Available commands:
-    help                 Prints this help screen
-    init [<directory> [<type>]]
-                         Initializes an empty project of the specified type in
-                         the given directory. By default, the current working
-                         dirctory is used. Available types:
-                           minimal (default), vibe.d
-    run [<package>]      Builds and runs a package (default command)
-    build [<package>]    Builds a package (uses the main package in the current
-                         working directory by default)
-    upgrade              Forces an upgrade of all dependencies
-    fetch <name>         Manually retrieves a package. See 'dub help fetch'.
-    remove <name>        Removes present package. See 'dub help remove'.
-    add-local <dir> <version>
-                         Adds a local package directory (e.g. a git repository)
-    remove-local <dir>   Removes a local package directory
-    add-path <dir>       Adds a default package search path
-    remove-path <dir>    Removes a package search path
-    list                 Prints a list of all present packages dub is aware of
-    generate <name> [<package>]
-                         Generates project files using the specified generator:
-                           visuald, visuald-combined, mono-d, build, rdmd
-    describe [<package>] Prints a JSON description of the project and its
-                         dependencies
+class AddPathCommand : RegistrationCommand {
+	this()
+	{
+		this.name = "add-path";
+		this.argumentsPattern = "<path>";
+		this.description = "Adds a default package search path";
+		this.helpText = ["Adds a default package search path"];
+	}
 
-General options:
-        --annotate       Do not execute dependency retrieval, just print
-    -v  --verbose        Also output debug messages
-        --vverbose       Also output trace messages (produces a lot of output)
-    -q  --quiet          Only output warnings and errors
-        --vquiet         No output
-        --registry=URL   Search the given DUB registry URL first when resolving
-                         dependencies. Can be specified multiple times.
-        --root=PATH      Path to operate in instead of the current working dir
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length == 1, "Missing search path.");
+		dub.addSearchPath(free_args[0], m_system);
+		return 0;
+	}
+}
 
-Build/run options:
-        --build=NAME     Specifies the type of build to perform. Note that
-                         setting the DFLAGS environment variable will override
-                         the build type with custom flags.
-                         Possible names:
-                           debug (default), plain, release, unittest, profile,
-                           docs, ddox, cov, unittest-cov and custom types
-        --config=NAME    Builds the specified configuration. Configurations can
-                         be defined in package.json
-        --compiler=NAME  Specifies the compiler binary to use. Arbitrary pre-
-                         and suffixes to the identifiers below are recognized
-                         (e.g. ldc2 or dmd-2.063) and matched to the proper
-                         compiler type:
-                           dmd (default), gdc, ldc, gdmd, ldmd
-        --arch=NAME      Force a different architecture (e.g. x86 or x86_64)
-        --nodeps         Do not check dependencies for 'run' or 'build'
-        --print-builds   Prints the list of available build types
-        --print-configs  Prints the list of available configurations
-        --print-platform Prints the identifiers for the current build platform
-                         as used for the build fields in package.json
-        --rdmd           Use rdmd instead of directly invoking the compiler
-        --debug=NAME     Define the specified debug version identifier when
-                         building - can be used multiple times
+class RemovePathCommand : RegistrationCommand {
+	this()
+	{
+		this.name = "remove-path";
+		this.argumentsPattern = "<path>";
+		this.description = "Removes a package search path";
+		this.helpText = ["Removes a package search path"];
+	}
 
-Fetch/remove options:
-        --version        Use the specified version/branch instead of the latest
-        --system         Put package into system wide dub cache instead of the
-                         user local one
-        --local          Extract the package to a sub folder of the current
-                         working directory
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length == 1, "Expected one argument.");
+		dub.removeSearchPath(free_args[0], m_system);
+		return 0;
+	}
+}
 
-Upgrade options:
-        -prerelease      Uses the latest pre-release version, even if release
-                         versions are available
+class AddLocalCommand : RegistrationCommand {
+	this()
+	{
+		this.name = "add-local";
+		this.argumentsPattern = "<path> <version>";
+		this.description = "Adds a local package directory (e.g. a git repository)";
+		this.helpText = ["Adds a local package directory (e.g. a git repository)"];
+	}
 
-`);
-	logInfo("DUB version %s", dubVersion);
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length == 2, "Expecting two arguments.");
+		dub.addLocalPackage(free_args[0], free_args[1], m_system);
+		return 0;
+	}
+}
+
+class RemoveLocalCommand : RegistrationCommand {
+	this()
+	{
+		this.name = "remove-local";
+		this.argumentsPattern = "<path>";
+		this.description = "Removes a local package directory";
+		this.helpText = ["Removes a local package directory"];
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length == 1, "Missing path to package.");
+		dub.removeLocalPackage(free_args[0], m_system);
+		return 0;
+	}
+}
+
+
+/******************************************************************************/
+/* LIST                                                                       */
+/******************************************************************************/
+
+class ListCommand : Command {
+	this()
+	{
+		this.name = "list";
+		this.argumentsPattern = "";
+		this.description = "Prints a list of all local packages dub is aware of";
+		this.helpText = [
+			"Prints a list of all local packages. This includes all cached packages (user or system wide), all packages in the package search paths (\"dub add-path\") and all manually registered packages (\"dub add-local\")."
+		];
+	}
+	override void prepare(scope CommandArgs args) {}
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		logInfo("Packages present in the system and known to dub:");
+		foreach (p; dub.packageManager.getPackageIterator())
+			logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
+		logInfo("");
+		return true;
+	}
+}
+
+class ListInstalledCommand : ListCommand {
+	this() { this.name = "list-installed"; }
+	override void prepare(scope CommandArgs args) { super.prepare(args); }
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		warnRenamed("list-installed", "list");
+		return super.execute(dub, free_args, app_args);
+	}
+}
+
+
+/******************************************************************************/
+/* GENERATE / BUILD / RUN / DESCRIBE                                          */
+/******************************************************************************/
+
+abstract class PackageBuildCommand : Command {
+	protected {
+		string m_build_type;
+		string m_build_config;
+		string m_compiler_name = "dmd";
+		string m_arch;
+		string[] m_debug_versions;
+		Compiler m_compiler;
+		BuildPlatform m_buildPlatform;
+		BuildSettings m_buildSettings;
+		string m_defaultConfig;
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("build", &m_build_type, [
+			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
+			"Possible names:",
+			"  debug (default), plain, release, unittest, profile, docs, ddox, cov, unittest-cov and custom types"
+		]);
+		args.getopt("config", &m_build_config, [
+			"Builds the specified configuration. Configurations can be defined in package.json"
+		]);
+		args.getopt("compiler", &m_compiler_name, [
+			"Specifies the compiler binary to use. Arbitrary pre- and suffixes to the identifiers below are recognized (e.g. ldc2 or dmd-2.063) and matched to the proper compiler type:",
+			"  dmd (default), gdc, ldc, gdmd, ldmd"
+		]);
+		args.getopt("arch", &m_arch, [
+			"Force a different architecture (e.g. x86 or x86_64)"
+		]);
+		args.getopt("debug", &m_debug_versions, [
+			"Define the specified debug version identifier when building - can be used multiple times"
+		]);
+	}
+
+	protected void setupPackage(Dub dub, string package_name)
+	{
+		m_compiler = getCompiler(m_compiler_name);
+		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compiler_name, m_arch);
+		m_buildSettings.addDebugVersions(m_debug_versions);
+
+		m_defaultConfig = null;
+		enforce (loadSpecificPackage(dub, package_name), "Failed to load package.");
+
+		enforce(m_build_config.length == 0 || dub.configurations.canFind(m_build_config), "Unknown build configuration: "~m_build_config);
+
+		if (m_build_type.length == 0) {
+			if (environment.get("DFLAGS")) m_build_type = "$DFLAGS";
+			else m_build_type = "debug";
+		}
+	}
+
+	private bool loadSpecificPackage(Dub dub, string package_name)
+	{
+		Package pack;
+		if (!package_name.empty) {
+			// load package in root_path to enable searching for sub packages
+			loadCwdPackage(dub, null, false);
+			pack = dub.packageManager.getFirstPackage(package_name);
+			enforce(pack, "Failed to find a package named '"~package_name~"'.");
+			logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
+			dub.rootPath = pack.path;
+		}
+		if (!loadCwdPackage(dub, pack, true)) return false;
+		if (!m_build_config.length) m_build_config = m_defaultConfig;
+		return true;
+	}
+
+	private bool loadCwdPackage(Dub dub, Package pack, bool warn_missing_package)
+	{
+		if (warn_missing_package && !existsFile(dub.rootPath~"package.json") && !existsFile(dub.rootPath~"source/app.d")) {
+			logInfo("");
+			logInfo("Neither package.json, nor source/app.d was found in the current directory.");
+			logInfo("Please run dub from the root directory of an existing package, or create a new");
+			logInfo("package using \"dub init <name>\".");
+			logInfo("");
+			return false;
+		}
+
+		if (pack) dub.loadPackage(pack);
+		else dub.loadPackageFromCwd();
+
+		m_defaultConfig = dub.getDefaultConfiguration(m_buildPlatform);
+
+		return true;
+	}
+}
+
+class GenerateCommand : PackageBuildCommand {
+	protected {
+		string m_generator;
+		bool m_rdmd = false;
+		bool m_run = false;
+		bool m_print_platform, m_print_builds, m_print_configs;
+		bool m_nodeps;
+	}
+
+	this()
+	{
+		this.name = "generate";
+		this.argumentsPattern = "<generator> [<package>]";
+		this.description = "Generates project files using the specified generator";
+		this.helpText = [
+			"Generates project files using one of the supported generators:",
+			"",
+			"visuald - VisualD project files",
+			"visuald-combined - VisualD single project file",
+			"build - Builds the package directly",
+			"run - Builds and runs the package directly"
+			"",
+			"An optional package name can be given to generate a different package than the root/CWD package."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		super.prepare(args);
+
+		args.getopt("rdmd", &m_rdmd, [
+			"Use rdmd instead of directly invoking the compiler"
+		]);
+		args.getopt("print-builds", &m_print_builds, [
+			"Prints the list of available build types"
+		]);
+		args.getopt("print-configs", &m_print_configs, [
+			"Prints the list of available configurations"
+		]);
+		args.getopt("print-platform", &m_print_platform, [
+			"Prints the identifiers for the current build platform as used for the build fields in package.json"
+		]);
+		args.getopt("nodeps", &m_nodeps, [
+			"Do not check dependencies for 'run' or 'build'"
+		]);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		string package_name;
+		if (!m_generator.length) {
+			enforceUsage(free_args.length >= 1 && free_args.length <= 2, "Expected one or two arguments.");
+			m_generator = free_args[0];
+			if (free_args.length >= 2) package_name = free_args[1];
+		} else {
+			enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
+			if (free_args.length >= 1) package_name = free_args[0];
+		}
+
+		setupPackage(dub, package_name);
+		
+		if (m_print_builds) { // FIXME: use actual package data
+			logInfo("Available build types:");
+			foreach (tp; ["debug", "release", "unittest", "profile"])
+				logInfo("  %s", tp);
+			logInfo("");
+		}
+
+		if (m_print_configs) {
+			logInfo("Available configurations:");
+			foreach (tp; dub.configurations)
+				logInfo("  %s%s", tp, tp == m_defaultConfig ? " [default]" : null);
+			logInfo("");
+		}
+
+		if (!m_nodeps) {
+			logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
+			dub.update(UpdateOptions.none);
+		}
+
+		GeneratorSettings gensettings;
+		gensettings.platform = m_buildPlatform;
+		gensettings.config = m_build_config;
+		gensettings.buildType = m_build_type;
+		gensettings.compiler = m_compiler;
+		gensettings.buildSettings = m_buildSettings;
+		gensettings.run = m_run;
+		gensettings.runArgs = app_args;
+
+		logDiagnostic("Generating using %s", m_generator);
+		dub.generateProject(m_generator, gensettings);
+		if (m_build_type == "ddox") dub.runDdox(gensettings.run);
+		return 0;
+	}
+}
+
+class BuildCommand : GenerateCommand {
+	this()
+	{
+		this.name = "build";
+		this.argumentsPattern = "[<package>]";
+		this.description = "Builds a package (uses the main package in the current working directory by default)";
+		this.helpText = [
+			"Builds a package (uses the main package in the current working directory by default)"
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		super.prepare(args);
+		m_generator = "build";
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		return super.execute(dub, free_args, app_args);
+	}
+}
+
+class RunCommand : GenerateCommand {
+	this()
+	{
+		this.name = "run";
+		this.argumentsPattern = "[<package>]";
+		this.description = "Builds and runs a package (default command)";
+		this.helpText = [
+			"Builds and runs a package (uses the main package in the current working directory by default)"
+		];
+		this.acceptsAppArgs = true;
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		super.prepare(args);
+		m_generator = "build";
+		m_run = true;
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		return super.execute(dub, free_args, app_args);
+	}
+}
+
+class DescribeCommand : PackageBuildCommand {
+	this()
+	{
+		this.name = "describe";
+		this.argumentsPattern = "[<package>]";
+		this.description = "Prints a JSON description of the project and its dependencies";
+		this.helpText = [
+			"Prints a JSON build description for the root package an all of their dependencies in a format similar to a JSON package description file. This is useful mostly for IDEs.",
+			"All usual options that are also used for build/run/generate apply."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		super.prepare(args);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		string package_name;
+		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
+		if (free_args.length >= 1) package_name = free_args[1];
+
+		setupPackage(dub, package_name);
+
+		dub.describeProject(m_buildPlatform, m_build_config);				
+		return 0;
+	}
+}
+
+
+/******************************************************************************/
+/* HELP                                                                       */
+/******************************************************************************/
+
+private {
+	enum shortArgColumn = 4;
+	enum longArgColumn = 8;
+	enum descColumn = 25;
+	enum lineWidth = 80;
+}
+
+private void showHelp(Command[] commands, CommandArgs common_args)
+{
+	writeln(
+`Usage: dub [<command>] [<options...>] [-- [<application arguments...>]]
+
+Manages the DUB project in the current directory. If the command is omitted,
+DUB will default to "run". When running an application, "--" can be used to
+separate DUB options from options passed to the application. 
+
+Run "dub <command> --help" to get help for a specific command.
+
+Available commands:`);
+
+	foreach (cmd; commands) {
+		writeWS(shortArgColumn);
+		writef("%s %s", cmd.name, cmd.argumentsPattern);
+		auto chars_output = cmd.name.length + cmd.argumentsPattern.length + shortArgColumn + 1;
+		if (chars_output < descColumn) {
+			writeWS(descColumn - chars_output);
+		} else {
+			writeln();
+			writeWS(descColumn);
+		}
+		writeWrapped(cmd.description, descColumn, descColumn);
+	}
+	writeln();
+	writeln(`General options:`);
+	writeOptions(common_args);
+}
+
+private void showCommandHelp(Command cmd, CommandArgs args, CommandArgs common_args)
+{
+	writefln(`Usage: dub %s %s [<options...>]%s`, cmd.name, cmd.argumentsPattern, cmd.acceptsAppArgs ? " [-- <application arguments...>]": null);
+	writeln();
+	foreach (ln; cmd.helpText)
+		ln.writeWrapped();
+	
+	if (args.recognizedArgs.length) {
+		writeln();
+		writeln("Options:");
+		writeOptions(args);
+	}
+	
+	writeln();
+	writeln("General options:");
+	writeOptions(common_args);
+}
+
+private void writeOptions(CommandArgs args)
+{
+	foreach (arg; args.recognizedArgs) {
+		auto names = arg.names.split("|");
+		assert(names.length == 1 || names.length == 2);
+		string sarg = names[0].length == 1 ? names[0] : null;
+		string larg = names[0].length > 1 ? names[0] : names.length > 1 ? names[1] : null;
+		if (sarg) {
+			writeWS(shortArgColumn);
+			writef("-%s", sarg);
+			writeWS(longArgColumn - shortArgColumn - 2);
+		} else writeWS(longArgColumn);
+		size_t col = longArgColumn;
+		if (larg) {
+			if (arg.defaultValue.peek!bool) {
+				writef("--%s", larg);
+				col += larg.length + 2;
+			} else {
+				writef("--%s=VALUE", larg);
+				col += larg.length + 8;
+			}
+		}
+		if (col < descColumn) {
+			writeWS(descColumn - col);
+		} else {
+			writeln();
+			writeWS(descColumn);
+		}
+		foreach (i, ln; arg.helpText) {
+			if (i > 0) writeWS(descColumn);
+			ln.writeWrapped(descColumn, descColumn);
+		}
+	}
+}
+
+private void writeWrapped(string string, size_t indent = 0, size_t first_line_pos = 0)
+{
+	auto wrapped = string.wrap(lineWidth, getWSString(first_line_pos), getWSString(indent));
+	wrapped = wrapped[first_line_pos .. $];
+	foreach (ln; wrapped.splitLines())
+		writeln(ln);
+}
+
+private void writeWS(size_t num) { write(getWSString(num)); }
+
+private string getWSString(size_t len)
+{
+	static string buf;
+	if (len > buf.length) buf ~= " ".replicate(len-buf.length);
+	return buf[0 .. len];
+}
+
+/***
+*/
+
+
+private void enforceUsage(bool cond, string text)
+{
+	if (!cond) throw new UsageException(text);
+}
+
+private class UsageException : Exception {
+	this(string message, string file = __FILE__, int line = __LINE__, Throwable next = null)
+	{
+		super(message, file, line, next);
+	}
+}
+
+private void warnRenamed(string prev, string curr)
+{
+	logWarn("Command '%s' was renamed to '%s'. Old name is deprecated, please update your scripts", prev, curr);
 }

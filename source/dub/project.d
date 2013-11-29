@@ -729,7 +729,6 @@ struct Action {
 enum UpdateOptions
 {
 	none = 0,
-	justAnnotate = 1<<0,
 	upgrade = 1<<1,
 	preRelease = 1<<2 // inclde pre-release versions in upgrade
 }
