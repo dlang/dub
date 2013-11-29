@@ -5,7 +5,7 @@ SetCompressor /SOLID lzma
 ;--------------------------------------------------------
 
 ; Options
-!define Version "0.9.13"
+!define Version "0.9.20"
 !define DubExecPath "..\..\bin"
 
 ;--------------------------------------------------------
