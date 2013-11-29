@@ -289,6 +289,13 @@ class BuildGenerator : ProjectGenerator {
 		auto generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
 
+		Path target_file;
+		scope (failure) {
+			auto tpath = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
+			if (generate_binary && existsFile(tpath))
+				removeFile(tpath);
+		}
+
 		/*
 			NOTE: for DMD experimental separate compile/link is used, but this is not yet implemented
 			      on the other compilers. Later this should be integrated somehow in the build process
