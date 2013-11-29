@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.9.20 - 2013-11-
+v0.9.20 - 2013-11-29
 --------------------
 
 ### Features and improvements ###
@@ -43,6 +43,7 @@ v0.9.20 - 2013-11-
  - Fixed generating VisualD projects for shared library packages (by p0nce) - [pull #173][issue173]
  - Fixed erroneous upgrading of packages that are not managed by DUB (for "dub upgrade") - [issue #171][issue171]
  - Fixed erroneously fetching the same package multiple times when sub packages are used
+ - Fixed string representation of empty paths (fixes the target file name for generated VisualD projects)
 
 [issue82]: https://github.com/rejectedsoftware/dub/issues/82
 [issue116]: https://github.com/rejectedsoftware/dub/issues/116
