@@ -123,9 +123,10 @@ class BuildGenerator : ProjectGenerator {
 
 	void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings)
 	{
+		auto cwd = Path(getcwd());
 		//Added check for existance of [AppNameInPackagejson].d
 		//If exists, use that as the starting file.
-		auto mainsrc = getMainSourceFile(m_project);
+		auto mainsrc = buildsettings.mainSourceFile.length ? m_project.mainPackage.path ~ buildsettings.mainSourceFile : getMainSourceFile(m_project);
 
 		// do not pass all source files to RDMD, only the main source file
 		buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(s => !s.endsWith(".d"))().array();
@@ -156,7 +157,7 @@ class BuildGenerator : ProjectGenerator {
 
 		string[] flags = ["--build-only", "--compiler="~settings.platform.compilerBinary];
 		flags ~= buildsettings.dflags;
-		flags ~= (mainsrc).toNativeString();
+		flags ~= mainsrc.relativeTo(cwd).toNativeString();
 
 		prepareGeneration(buildsettings);
 		finalizeGeneration(buildsettings, generate_binary);
@@ -368,10 +369,10 @@ class BuildGenerator : ProjectGenerator {
 
 private Path getMainSourceFile(in Project prj)
 {
-	foreach( f; ["source/app.d", "src/app.d", "source/"~prj.name~".d", "src/"~prj.name~".d"])
-		if( exists(f) )
-			return Path(f);
-	return Path("source/app.d");
+	foreach (f; ["source/app.d", "src/app.d", "source/"~prj.name~".d", "src/"~prj.name~".d"])
+		if (existsFile(prj.mainPackage.path ~ f))
+			return prj.mainPackage.path ~ f;
+	return prj.mainPackage.path ~ "source/app.d";
 }
 
 private bool isLinkerFile(string f)

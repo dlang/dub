@@ -182,6 +182,7 @@ struct BuildSettings {
 	string targetPath;
 	string targetName;
 	string workingDirectory;
+	string mainSourceFile;
 	string[] dflags;
 	string[] lflags;
 	string[] libs;

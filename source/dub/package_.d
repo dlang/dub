@@ -57,17 +57,25 @@ class Package {
 				m_info.buildSettings.stringImportPaths[""] ~= defvf;
 		}
 
-		string[] app_files;
+		string app_main_file, lib_main_file;
 		auto pkg_name = packageInfo.name.get!string();
 
 		// check for default source folders
-		foreach(defsf; ["source", "src"]){
+		foreach(defsf; ["source/", "src/"]){
 			auto p = m_path ~ defsf;
 			if( existsFile(p) ){
 				m_info.buildSettings.sourcePaths[""] ~= defsf;
 				m_info.buildSettings.importPaths[""] ~= defsf;
-				if( existsFile(p ~ "app.d") ) app_files ~= Path(defsf ~ "/app.d").toNativeString();
-				else if( existsFile(p ~ (pkg_name~".d")) ) app_files ~= Path(defsf ~ "/"~pkg_name~".d").toNativeString();
+				foreach (fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ pkg_name ~ ".d"])
+					if (existsFile(p ~ fil)) {
+						app_main_file = Path(defsf ~ fil).toNativeString();
+						break;
+					}
+				foreach (fil; [pkg_name ~ "/all.d", pkg_name ~ "/package.d", pkg_name ~ "/" ~ pkg_name ~ ".d"])
+					if (existsFile(p ~ fil)) {
+						lib_main_file = Path(defsf ~ fil).toNativeString();
+						break;
+					}
 			}
 		}
 
@@ -104,21 +112,24 @@ class Package {
 			if (m_info.buildSettings.targetType == TargetType.executable) {
 				BuildSettingsTemplate app_settings;
 				app_settings.targetType = TargetType.executable;
+				if (m_info.buildSettings.mainSourceFile.empty) app_settings.mainSourceFile = app_main_file;
 				m_info.configurations ~= ConfigurationInfo("application", app_settings);
 			} else if (m_info.buildSettings.targetType != TargetType.none) {
 				BuildSettingsTemplate lib_settings;
 				lib_settings.targetType = m_info.buildSettings.targetType == TargetType.autodetect ? TargetType.library : m_info.buildSettings.targetType;
 
 				if (m_info.buildSettings.targetType == TargetType.autodetect) {
-					if (app_files.length) {
-						lib_settings.excludedSourceFiles[""] = app_files;
+					if (app_main_file.length) {
+						lib_settings.excludedSourceFiles[""] ~= app_main_file;
 
 						BuildSettingsTemplate app_settings;
 						app_settings.targetType = TargetType.executable;
+						app_settings.mainSourceFile = app_main_file;
 						m_info.configurations ~= ConfigurationInfo("application", app_settings);
 					}
 				}
 
+				if (m_info.buildSettings.mainSourceFile.empty) lib_settings.mainSourceFile = lib_main_file;
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
@@ -495,6 +506,7 @@ struct BuildSettingsTemplate {
 	string targetPath;
 	string targetName;
 	string workingDirectory;
+	string mainSourceFile;
 	string[string] subConfigurations;
 	string[][string] dflags;
 	string[][string] lflags;
@@ -567,6 +579,10 @@ struct BuildSettingsTemplate {
 					enforce(suffix.empty, "workingDirectory does not support platform customization.");
 					this.workingDirectory = value.get!string;
 					break;
+				case "mainSourceFile":
+					enforce(suffix.empty, "mainSourceFile does not support platform customization.");
+					this.mainSourceFile = value.get!string;
+					break;
 				case "subConfigurations":
 					enforce(suffix.empty, "subConfigurations does not support platform customization.");
 					this.subConfigurations = deserializeJson!(string[string])(value);
@@ -626,6 +642,7 @@ struct BuildSettingsTemplate {
 		if (!targetPath.empty) ret["targetPath"] = targetPath;
 		if (!targetName.empty) ret["targetName"] = targetName;
 		if (!workingDirectory.empty) ret["workingDirectory"] = workingDirectory;
+		if (!mainSourceFile.empty) ret["mainSourceFile"] = mainSourceFile;
 		foreach (suffix, arr; dflags) ret["dflags"~suffix] = serializeToJson(arr);
 		foreach (suffix, arr; lflags) ret["lflags"~suffix] = serializeToJson(arr);
 		foreach (suffix, arr; libs) ret["libs"~suffix] = serializeToJson(arr);
@@ -663,6 +680,7 @@ struct BuildSettingsTemplate {
 		if (!this.targetPath.empty) dst.targetPath = this.targetPath;
 		if (!this.targetName.empty) dst.targetName = this.targetName;
 		if (!this.workingDirectory.empty) dst.workingDirectory = this.workingDirectory;
+		if (!this.mainSourceFile.empty) dst.mainSourceFile = this.mainSourceFile;
 
 		void collectFiles(string method)(in string[][string] paths_map, string pattern)
 		{
