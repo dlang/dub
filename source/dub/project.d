@@ -388,6 +388,8 @@ class Project {
 				processVars(dst, pkg.path.toNativeString(), psettings);
 				if (psettings.importPaths.empty)
 					logWarn(`Package %s (configuration "%s") defines no import paths, use {"importPaths": [...]} or the default package directory structure to fix this.`, pkg.name, configs[pkg.name]);
+				if (psettings.mainSourceFile.empty && pkg is m_main)
+					logWarn(`Package %s (configuration "%s") defines no main source file, this may cause certain build modes to fail. Add an explicit "mainSourceFile" to the package description to fix this.`, pkg.name, configs[pkg.name]);
 			}
 			if (pkg is m_main && !shallow) {
 				enforce(psettings.targetType != TargetType.none, "Main package has target type \"none\" - stopping build.");
