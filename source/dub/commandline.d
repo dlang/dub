@@ -143,6 +143,7 @@ int runDubCommandLine(string[] args)
 			// initialize DUB
 			auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
 			Dub dub = new Dub(package_suppliers, root_path);
+			dub.dryRun = annotate;
 			
 			// make the CWD package available so that for example sub packages can reference their
 			// parent package.

@@ -89,6 +89,8 @@ class Dub {
 		updatePackageSearchPath();
 	}
 
+	@property void dryRun(bool v) { m_dryRun = v; }
+
 	/** Returns the root path (usually the current working directory).
 	*/
 	@property Path rootPath() const { return m_rootPath; }
@@ -182,6 +184,7 @@ class Dub {
 	/// Any existing project files will be overridden.
 	void generateProject(string ide, GeneratorSettings settings) {
 		auto generator = createProjectGenerator(ide, m_project, m_packageManager);
+		if (m_dryRun) return; // TODO: pass m_dryRun to the generator
 		generator.generateProject(settings);
 	}
 
@@ -233,11 +236,12 @@ class Dub {
 				return pack;
 			} else {
 				logInfo("Removing present package of %s %s", packageId, ver);
-				m_packageManager.remove(pack);
+				if (!m_dryRun) m_packageManager.remove(pack);
 			}
 		}
 
 		logInfo("Fetching %s %s...", packageId, ver);
+		if (m_dryRun) return null;
 
 		logDiagnostic("Acquiring package zip file");
 		auto dload = m_projectPath ~ ".dub/temp/downloads";
@@ -261,7 +265,7 @@ class Dub {
 	void remove(in Package pack)
 	{
 		logInfo("Removing %s in %s", pack.name, pack.path.toNativeString());
-		m_packageManager.remove(pack);
+		if (!m_dryRun) m_packageManager.remove(pack);
 	}
 
 	/// @see remove(string, string, RemoveLocation)
@@ -278,7 +282,8 @@ class Dub {
 	/// exception, if there are multiple versions retrieved.
 	/// Note: as wildcard string only "*" is supported.
 	/// @param location_
-	void remove(string package_id, string version_, PlacementLocation location_) {
+	void remove(string package_id, string version_, PlacementLocation location_)
+	{
 		enforce(!package_id.empty);
 		if (location_ == PlacementLocation.local) {
 			logInfo("To remove a locally placed package, make sure you don't have any data"
@@ -321,21 +326,25 @@ class Dub {
 
 	void addLocalPackage(string path, string ver, bool system)
 	{
+		if (m_dryRun) return;
 		m_packageManager.addLocalPackage(makeAbsolute(path), Version(ver), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
 	void removeLocalPackage(string path, bool system)
 	{
+		if (m_dryRun) return;
 		m_packageManager.removeLocalPackage(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
 	void addSearchPath(string path, bool system)
 	{
+		if (m_dryRun) return;
 		m_packageManager.addSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
 	void removeSearchPath(string path, bool system)
 	{
+		if (m_dryRun) return;
 		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
@@ -359,6 +368,8 @@ class Dub {
 			throw new Exception("The current directory is not empty.\n");
 		}
 
+		if (m_dryRun) return;
+
 		initPackage(path, type);
 
 		//Act smug to the user. 
@@ -367,6 +378,8 @@ class Dub {
 
 	void runDdox(bool run)
 	{
+		if (m_dryRun) return;
+
 		auto ddox_pack = m_packageManager.getBestPackage("ddox", ">=0.0.0");
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
