@@ -122,15 +122,6 @@ int runDubCommandLine(string[] args)
 		return 0;
 	}
 
-	// initialize DUB
-	auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
-	Dub dub = new Dub(package_suppliers, root_path);
-
-	// make the CWD package available so that for example sub packages can reference their
-	// parent package.
-	try dub.packageManager.getTemporaryPackage(Path(root_path), Version("~master"));
-	catch (Exception e) { logDiagnostic("No package found in current working directory."); }
-
 	// execute the sepected command
 	foreach (cmd; commands)
 		if (cmd.name == cmdname) {
@@ -148,6 +139,15 @@ int runDubCommandLine(string[] args)
 				showCommandHelp(cmd, command_args, common_args);
 				return 0;
 			}
+
+			// initialize DUB
+			auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
+			Dub dub = new Dub(package_suppliers, root_path);
+			
+			// make the CWD package available so that for example sub packages can reference their
+			// parent package.
+			try dub.packageManager.getTemporaryPackage(Path(root_path), Version("~master"));
+			catch (Exception e) { logDiagnostic("No package found in current working directory."); }
 
 			try return cmd.execute(dub, command_args.extractRemainingArgs(), app_args);
 			catch (UsageException e) {
