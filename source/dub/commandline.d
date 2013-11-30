@@ -607,22 +607,22 @@ abstract class PackageBuildCommand : Command {
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("build", &m_build_type, [
+		args.getopt("b|build", &m_build_type, [
 			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
 			"Possible names:",
 			"  debug (default), plain, release, unittest, profile, docs, ddox, cov, unittest-cov and custom types"
 		]);
-		args.getopt("config", &m_build_config, [
+		args.getopt("c|config", &m_build_config, [
 			"Builds the specified configuration. Configurations can be defined in package.json"
 		]);
 		args.getopt("compiler", &m_compiler_name, [
 			"Specifies the compiler binary to use. Arbitrary pre- and suffixes to the identifiers below are recognized (e.g. ldc2 or dmd-2.063) and matched to the proper compiler type:",
 			"  dmd (default), gdc, ldc, gdmd, ldmd"
 		]);
-		args.getopt("arch", &m_arch, [
+		args.getopt("a|arch", &m_arch, [
 			"Force a different architecture (e.g. x86 or x86_64)"
 		]);
-		args.getopt("debug", &m_debug_versions, [
+		args.getopt("d|debug", &m_debug_versions, [
 			"Define the specified debug version identifier when building - can be used multiple times"
 		]);
 	}
@@ -791,7 +791,7 @@ class BuildCommand : GenerateCommand {
 		args.getopt("rdmd", &m_rdmd, [
 			"Use rdmd instead of directly invoking the compiler"
 		]);
-		args.getopt("force", &m_force, [
+		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
 		super.prepare(args);
@@ -894,16 +894,16 @@ class DescribeCommand : PackageBuildCommand {
 /******************************************************************************/
 
 private {
-	enum shortArgColumn = 4;
-	enum longArgColumn = 8;
-	enum descColumn = 25;
+	enum shortArgColumn = 2;
+	enum longArgColumn = 6;
+	enum descColumn = 24;
 	enum lineWidth = 80;
 }
 
 private void showHelp(in CommandGroup[] commands, CommandArgs common_args)
 {
 	writeln(
-`Usage: dub [<command>] [<options...>] [-- [<application arguments...>]]
+`USAGE: dub [<command>] [<options...>] [-- [<application arguments...>]]
 
 Manages the DUB project in the current directory. If the command is omitted,
 DUB will default to "run". When running an application, "--" can be used to
@@ -911,14 +911,16 @@ separate DUB options from options passed to the application.
 
 Run "dub <command> --help" to get help for a specific command.
 
-Available commands:`);
+
+Available commands
+==================`);
 
 	foreach (grp; commands) {
 		writeln();
 		writeWS(shortArgColumn);
 		writeln(grp.caption);
 		writeWS(shortArgColumn);
-		writerep!'='(grp.caption.length);
+		writerep!'-'(grp.caption.length);
 		writeln();
 		foreach (cmd; grp.commands) {
 			writeWS(shortArgColumn);
@@ -934,25 +936,34 @@ Available commands:`);
 		}
 	}
 	writeln();
-	writeln(`Common options:`);
+	writeln();
+	writeln(`Common options`);
+	writeln(`==============`);
+	writeln();
 	writeOptions(common_args);
 }
 
 private void showCommandHelp(Command cmd, CommandArgs args, CommandArgs common_args)
 {
-	writefln(`Usage: dub %s %s [<options...>]%s`, cmd.name, cmd.argumentsPattern, cmd.acceptsAppArgs ? " [-- <application arguments...>]": null);
+	writefln(`USAGE: dub %s %s [<options...>]%s`, cmd.name, cmd.argumentsPattern, cmd.acceptsAppArgs ? " [-- <application arguments...>]": null);
 	writeln();
 	foreach (ln; cmd.helpText)
 		ln.writeWrapped();
 	
 	if (args.recognizedArgs.length) {
 		writeln();
-		writeln("Options:");
+		writeln();
+		writeln("Command specific options");
+		writeln("========================");
+		writeln();
 		writeOptions(args);
 	}
 	
 	writeln();
-	writeln("General options:");
+	writeln();
+	writeln("Common options");
+	writeln("==============");
+	writeln();
 	writeOptions(common_args);
 }
 
