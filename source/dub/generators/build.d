@@ -276,7 +276,7 @@ class BuildGenerator : ProjectGenerator {
 		foreach (file; allfiles.data) {
 			auto ftime = getFileInfo(file).timeModified;
 			if (ftime > Clock.currTime)
-				logWarn("File '%s' was modified in the future. Please re-save.");
+				logWarn("File '%s' was modified in the future. Please re-save.", file);
 			if (ftime > targettime)
 				return false;
 		}
