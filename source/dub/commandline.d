@@ -859,7 +859,7 @@ class TestCommand : PackageBuildCommand {
 	{
 		string package_name;
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-		if (free_args.length >= 1) package_name = free_args[1];
+		if (free_args.length >= 1) package_name = free_args[0];
 
 		setupPackage(dub, package_name);
 
