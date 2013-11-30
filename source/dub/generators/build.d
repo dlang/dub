@@ -340,7 +340,8 @@ class BuildGenerator : ProjectGenerator {
 			auto cwd = Path(getcwd());
 			auto runcwd = cwd;
 			if (buildsettings.workingDirectory.length) {
-				runcwd = cwd ~ buildsettings.workingDirectory;
+				runcwd = Path(buildsettings.workingDirectory);
+				if (!runcwd.absolute) runcwd = cwd ~ runcwd;
 				logDiagnostic("Switching to %s", runcwd.toNativeString());
 				chdir(runcwd.toNativeString());
 			}
