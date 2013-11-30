@@ -146,7 +146,7 @@ class Package {
 	}
 	@property string vers() const { return m_parentPackage ? m_parentPackage.vers : m_info.version_; }
 	@property Version ver() const { return Version(this.vers); }
-	@property const(PackageInfo) info() const { return m_info; }
+	@property ref inout(PackageInfo) info() inout { return m_info; }
 	@property Path path() const { return m_path; }
 	@property Path packageInfoFile() const { return m_path ~ "package.json"; }
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
@@ -244,11 +244,11 @@ class Package {
 	}
 
 	/// Returns the default configuration to build for the given platform
-	string getDefaultConfiguration(in BuildPlatform platform, bool is_main_package = false)
+	string getDefaultConfiguration(in BuildPlatform platform, bool allow_non_library = false)
 	const {
-		foreach(ref conf; m_info.configurations){
-			if( !conf.matchesPlatform(platform) ) continue;
-			if( !is_main_package && conf.buildSettings.targetType == TargetType.executable ) continue;
+		foreach (ref conf; m_info.configurations) {
+			if (!conf.matchesPlatform(platform)) continue;
+			if (!allow_non_library && conf.buildSettings.targetType == TargetType.executable) continue;
 			return conf.name;
 		}
 		return null;
@@ -380,6 +380,14 @@ struct PackageInfo {
 			foreach (n, d; c.buildSettings.dependencies)
 				ret[n] = d;
 		return ret;
+	}
+
+	inout(ConfigurationInfo) getConfiguration(string name)
+	inout {
+		foreach (c; configurations)
+			if (c.name == name)
+				return c;
+		throw new Exception("Unknown configuration: "~name);
 	}
 
 	void parseJson(Json json)

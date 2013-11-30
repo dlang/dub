@@ -90,7 +90,7 @@ class Project {
 	@property const(Package[]) dependencies() const { return m_dependencies; }
 	
 	/// Main package.
-	@property const (Package) mainPackage() const { return m_main; }
+	@property inout(Package) mainPackage() inout { return m_main; }
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
@@ -142,9 +142,9 @@ class Project {
 		else return null;
 	}
 
-	string getDefaultConfiguration(BuildPlatform platform)
+	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true)
 	const {
-		return m_main.getDefaultConfiguration(platform, true);
+		return m_main.getDefaultConfiguration(platform, allow_non_library_configs);
 	}
 
 	/// Rereads the applications state.
@@ -354,7 +354,7 @@ class Project {
 
 		// check for conflicts (packages missing in the final configuration graph)
 		foreach (p; getTopologicalPackageList())
-			enforce(p.name in ret, "Conflicting configurations for package "~p.name);
+			enforce(p.name in ret, "Could not resolve configuration for package "~p.name);
 
 		return ret;
 	}
@@ -376,6 +376,7 @@ class Project {
 		auto configs = getPackageConfigs(platform, config);
 
 		foreach (pkg; this.getTopologicalPackageList(false, root_package, configs)) {
+			auto pkg_path = pkg.path.toNativeString();
 			dst.addVersions(["Have_" ~ stripDlangSpecialChars(pkg.name)]);
 
 			assert(pkg.name in configs, "Missing configuration for "~pkg.name);
@@ -385,7 +386,7 @@ class Project {
 			if (psettings.targetType != TargetType.none) {
 				if (shallow && pkg !is m_main)
 					psettings.sourceFiles = null;
-				processVars(dst, pkg.path.toNativeString(), psettings);
+				processVars(dst, pkg_path, psettings);
 				if (psettings.importPaths.empty)
 					logWarn(`Package %s (configuration "%s") defines no import paths, use {"importPaths": [...]} or the default package directory structure to fix this.`, pkg.name, configs[pkg.name]);
 				if (psettings.mainSourceFile.empty && pkg is m_main)
@@ -397,7 +398,8 @@ class Project {
 				dst.targetType = psettings.targetType;
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
-				dst.workingDirectory = psettings.workingDirectory;
+				dst.mainSourceFile = processVars(psettings.mainSourceFile, pkg_path, true);
+				dst.workingDirectory = processVars(psettings.workingDirectory, pkg_path, true);
 			}
 		}
 
@@ -779,43 +781,46 @@ private string[] processVars(string project_path, string[] vars, bool are_paths 
 }
 private void processVars(ref Appender!(string[]) dst, string project_path, string[] vars, bool are_paths = false)
 {
-	foreach( var; vars ){
-		auto idx = std.string.indexOf(var, '$');
-		if( idx >= 0 ){
-			auto vres = appender!string();
-			while( idx >= 0 ){
-				if( idx+1 >= var.length ) break;
-				if( var[idx+1] == '$' ){
-					vres.put(var[0 .. idx+1]);
-					var = var[idx+2 .. $];
-				} else {
-					vres.put(var[0 .. idx]);
-					var = var[idx+1 .. $];
+	foreach (var; vars) dst.put(processVars(var, project_path, are_paths));
+}
 
-					size_t idx2 = 0;
-					while( idx2 < var.length && isIdentChar(var[idx2]) ) idx2++;
-					auto varname = var[0 .. idx2];
-					var = var[idx2 .. $];
+private string processVars(string var, string project_path, bool is_path)
+{
+	auto idx = std.string.indexOf(var, '$');
+	if (idx >= 0) {
+		auto vres = appender!string();
+		while (idx >= 0) {
+			if (idx+1 >= var.length) break;
+			if (var[idx+1] == '$') {
+				vres.put(var[0 .. idx+1]);
+				var = var[idx+2 .. $];
+			} else {
+				vres.put(var[0 .. idx]);
+				var = var[idx+1 .. $];
 
-					string env_variable;
-					if( varname == "PACKAGE_DIR" ) vres.put(project_path);
-					else if( (env_variable = environment.get(varname)) != null) vres.put(env_variable);
-					else enforce(false, "Invalid variable: "~varname);
-				}
-				idx = std.string.indexOf(var, '$');
+				size_t idx2 = 0;
+				while( idx2 < var.length && isIdentChar(var[idx2]) ) idx2++;
+				auto varname = var[0 .. idx2];
+				var = var[idx2 .. $];
+
+				string env_variable;
+				if( varname == "PACKAGE_DIR" ) vres.put(project_path);
+				else if( (env_variable = environment.get(varname)) != null) vres.put(env_variable);
+				else enforce(false, "Invalid variable: "~varname);
 			}
-			vres.put(var);
-			var = vres.data;
+			idx = std.string.indexOf(var, '$');
 		}
-		if( are_paths ){
-			auto p = Path(var);
-			if( !p.absolute ){
-				logDebug("Fixing relative path: %s ~ %s", project_path, p.toNativeString());
-				p = Path(project_path) ~ p;
-			}
-			dst.put(p.toNativeString());
-		} else dst.put(var);
+		vres.put(var);
+		var = vres.data;
 	}
+	if (is_path) {
+		auto p = Path(var);
+		if (!p.absolute) {
+			logDebug("Fixing relative path: %s ~ %s", project_path, p.toNativeString());
+			p = Path(project_path) ~ p;
+		}
+		return p.toNativeString();
+	} else return var;
 }
 
 private bool isIdentChar(dchar ch)

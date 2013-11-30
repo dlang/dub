@@ -111,6 +111,8 @@ class Dub {
 
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
 
+	@property inout(Project) project() inout { return m_project; }
+
 	/// Loads the package from the current working directory as the main
 	/// project package.
 	void loadPackageFromCwd()
@@ -134,7 +136,7 @@ class Dub {
 		m_project = new Project(m_packageManager, pack);
 	}
 
-	string getDefaultConfiguration(BuildPlatform platform) const { return m_project.getDefaultConfiguration(platform); }
+	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true) const { return m_project.getDefaultConfiguration(platform, allow_non_library_configs); }
 
 	/// Performs retrieval and removal as necessary for
 	/// the application.
@@ -185,6 +187,83 @@ class Dub {
 	void generateProject(string ide, GeneratorSettings settings) {
 		auto generator = createProjectGenerator(ide, m_project, m_packageManager);
 		if (m_dryRun) return; // TODO: pass m_dryRun to the generator
+		generator.generateProject(settings);
+	}
+
+	void testProject(BuildSettings build_settings, BuildPlatform platform, string config, Path custom_main_file, string[] run_args)
+	{
+		if (custom_main_file.length && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
+
+		auto test_config = format("__test__%s__", config);
+
+		BuildSettings lbuildsettings = build_settings;
+		m_project.addBuildSettings(lbuildsettings, platform, config);
+		enforce(lbuildsettings.targetType != TargetType.executable && lbuildsettings.targetType != TargetType.none,
+			"Can only test configurations with a library target type.");
+		enforce(lbuildsettings.mainSourceFile.length, `A "mainSourceFile" is required for testing, but none was set or inferred.`);
+
+		BuildSettingsTemplate tcinfo =  m_project.mainPackage.info.getConfiguration(config).buildSettings;
+		tcinfo.targetType = TargetType.executable;
+		tcinfo.targetName = test_config;
+		tcinfo.versions[""] ~= "VibeCustomMain"; // HACK for vibe.d's legacy main() behavior
+		string custommodname;
+		if (custom_main_file.length) {
+			import std.path;
+			tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(m_project.mainPackage.path).toNativeString();
+			tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
+			custommodname = custom_main_file.head.toString().baseName(".d");
+		}
+
+		auto mainmodname = lbuildsettings.determineModuleName(Path(lbuildsettings.mainSourceFile), m_project.mainPackage.path);
+
+		// generate main file
+		Path mainfile = getTempDir() ~ "test_main.d";
+		tcinfo.sourceFiles[""] ~= mainfile.toNativeString();
+		tcinfo.mainSourceFile = mainfile.toNativeString();
+		if (!m_dryRun) {
+			auto fil = openFile(mainfile, FileMode.CreateTrunc);
+			scope(exit) fil.close();
+			if (custommodname.length) {
+				fil.write(format(q{
+					module test_main;
+					import %s;
+					import %s;
+				}, mainmodname, custommodname));
+			} else {
+				fil.write(format(q{
+					module test_main;
+					import %s;
+					import std.stdio;
+					import core.runtime;
+
+					void main() { writeln("All unit tests were successful."); }
+					shared static this() {
+						version (Have_tested) {
+							import core.runtime;
+							Runtime.moduleUnitTester = () => true;
+							//runUnitTests!app(new JsonTestResultWriter("results.json"));
+							assert(runUnitTests!%s(new ConsoleTestResultWriter), "Unit tests failed.");
+						}
+					}
+				}, mainmodname, mainmodname));
+			}
+		}
+		m_project.mainPackage.info.configurations ~= ConfigurationInfo(test_config, tcinfo);
+		m_project = new Project(m_packageManager, m_project.mainPackage);
+
+		BuildSettings tbuildsettings = build_settings;
+		m_project.addBuildSettings(tbuildsettings, platform, test_config);
+
+		auto generator = createProjectGenerator("build", m_project, m_packageManager);
+		GeneratorSettings settings;
+		settings.platform = platform;
+		settings.compiler = getCompiler(platform.compilerBinary);
+		settings.config = test_config;
+		settings.buildType = "unittest";
+		settings.buildSettings = tbuildsettings;
+		settings.run = true;
+		settings.runArgs = run_args;
+		if (m_dryRun) return;
 		generator.generateProject(settings);
 	}
 
@@ -442,4 +521,27 @@ class Dub {
 
 	private Path makeAbsolute(Path p) const { return p.absolute ? p : m_rootPath ~ p; }
 	private Path makeAbsolute(string p) const { return makeAbsolute(Path(p)); }
+}
+
+string determineModuleName(BuildSettings settings, Path file, Path base_path)
+{
+	assert(base_path.absolute);
+	if (!file.absolute) file = base_path ~ file;
+	foreach (ipath; settings.importPaths.map!(p => Path(p))) {
+		if (!ipath.absolute) ipath = base_path ~ ipath;
+		assert(!ipath.empty);
+		if (file.startsWith(ipath)) {
+			auto mpath = file[ipath.length .. file.length];
+			auto ret = appender!string;
+			foreach (i; 0 .. mpath.length) {
+				import std.path;
+				auto p = mpath[i].toString();
+				if (i > 0) ret ~= ".";
+				if (i+1 < mpath.length) ret ~= p;
+				else ret ~= p.baseName(".d");
+			}
+			return ret.data;
+		}
+	}
+	throw new Exception("Main source file not found in any import path.");
 }

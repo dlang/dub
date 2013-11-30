@@ -603,6 +603,7 @@ abstract class PackageBuildCommand : Command {
 		BuildPlatform m_buildPlatform;
 		BuildSettings m_buildSettings;
 		string m_defaultConfig;
+		bool m_allowNonLibraryConfigs = true;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -674,7 +675,8 @@ abstract class PackageBuildCommand : Command {
 		if (pack) dub.loadPackage(pack);
 		else dub.loadPackageFromCwd();
 
-		m_defaultConfig = dub.getDefaultConfiguration(m_buildPlatform);
+		m_defaultConfig = dub.getDefaultConfiguration(m_buildPlatform, m_allowNonLibraryConfigs);
+		logInfo("Got %s for %s", m_defaultConfig, m_allowNonLibraryConfigs);
 
 		return true;
 	}
@@ -829,6 +831,10 @@ class RunCommand : BuildCommand {
 }
 
 class TestCommand : PackageBuildCommand {
+	private {
+		string m_mainFile;
+	}
+
 	this()
 	{
 		this.name = "test";
@@ -838,10 +844,14 @@ class TestCommand : PackageBuildCommand {
 			"Builds a library configuration of the selected package and executes all contained unit tests."
 		];
 		this.acceptsAppArgs = true;
+		m_allowNonLibraryConfigs = false;
 	}
 
 	override void prepare(scope CommandArgs args)
 	{
+		args.getopt("main-file", &m_mainFile, [
+			"Specifies a custom file containing the main() function to use for running the tests."
+		]);
 		super.prepare(args);
 	}
 
@@ -853,7 +863,14 @@ class TestCommand : PackageBuildCommand {
 
 		setupPackage(dub, package_name);
 
-		enforce(false, "not implemented");
+		//if (!m_nodeps) {
+			logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
+			dub.update(UpdateOptions.none);
+		//}
+
+		logInfo("Running unit tests for package %s, configuration '%s'.", dub.project.mainPackage.name, m_build_config);
+
+		dub.testProject(m_buildSettings, m_buildPlatform, m_build_config, Path(m_mainFile), app_args);
 		return 0;
 	}
 }
