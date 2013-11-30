@@ -236,11 +236,6 @@ class Command {
 /******************************************************************************/
 
 class InitCommand : Command {
-	private {
-		string m_directory;
-		string m_type = "minimal";
-	}
-
 	this()
 	{
 		this.name = "init";
@@ -265,7 +260,7 @@ class InitCommand : Command {
 		enforceUsage(free_args.length <= 2, "Too many arguments.");
 		if (free_args.length >= 1) dir = free_args[0];
 		if (free_args.length >= 2) type = free_args[1];
-		dub.createEmptyPackage(Path(m_directory), m_type);
+		dub.createEmptyPackage(Path(dir), type);
 		return 0;
 	}
 }
@@ -973,5 +968,5 @@ private class UsageException : Exception {
 
 private void warnRenamed(string prev, string curr)
 {
-	logWarn("Command '%s' was renamed to '%s'. Old name is deprecated, please update your scripts", prev, curr);
+	logWarn("The '%s' Command was renamed to '%s'. Please update your scripts.", prev, curr);
 }
