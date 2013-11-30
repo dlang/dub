@@ -29,6 +29,7 @@ import std.getopt;
 import std.process;
 import std.stdio;
 import std.string;
+import std.typecons : Tuple, tuple;
 import std.variant;
 
 
@@ -83,23 +84,31 @@ int runDubCommandLine(string[] args)
 	}
 
 	// create the list of all supported commands
-	Command[] commands = [
-		new InitCommand,
-		new RunCommand,
-		new BuildCommand,
-		new GenerateCommand,
-		new DescribeCommand,
-		new FetchCommand,
-		new InstallCommand,
-		new RemoveCommand,
-		new UninstallCommand,
-		new UpgradeCommand,
-		new AddPathCommand,
-		new RemovePathCommand,
-		new AddLocalCommand,
-		new RemoveLocalCommand,
-		new ListCommand,
-		new ListInstalledCommand
+
+	CommandGroup[] commands = [
+		CommandGroup("Package creation",
+			new InitCommand
+		),
+		CommandGroup("Build, test and run",
+			new RunCommand,
+			new BuildCommand,
+			new TestCommand,
+			new GenerateCommand,
+			new DescribeCommand
+		),
+		CommandGroup("Package management",
+			new FetchCommand,
+			new InstallCommand,
+			new RemoveCommand,
+			new UninstallCommand,
+			new UpgradeCommand,
+			new AddPathCommand,
+			new RemovePathCommand,
+			new AddLocalCommand,
+			new RemoveLocalCommand,
+			new ListCommand,
+			new ListInstalledCommand
+		)
 	];
 
 	// extract the command
@@ -123,7 +132,7 @@ int runDubCommandLine(string[] args)
 	}
 
 	// execute the sepected command
-	foreach (cmd; commands)
+	foreach (grp; commands) foreach (cmd; grp.commands)
 		if (cmd.name == cmdname) {
 			try {
 				cmd.prepare(command_args);
@@ -228,6 +237,17 @@ class Command {
 
 	abstract void prepare(scope CommandArgs args);
 	abstract int execute(Dub dub, string[] free_args, string[] app_args);
+}
+
+struct CommandGroup {
+	string caption;
+	Command[] commands;
+
+	this(string caption, Command[] commands...)
+	{
+		this.caption = caption;
+		this.commands = commands.dup;
+	}
 }
 
 
@@ -808,6 +828,36 @@ class RunCommand : BuildCommand {
 	}
 }
 
+class TestCommand : PackageBuildCommand {
+	this()
+	{
+		this.name = "test";
+		this.argumentsPattern = "[<package>]";
+		this.description = "Executes the tests of the selected package";
+		this.helpText = [
+			"Builds a library configuration of the selected package and executes all contained unit tests."
+		];
+		this.acceptsAppArgs = true;
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		super.prepare(args);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		string package_name;
+		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
+		if (free_args.length >= 1) package_name = free_args[1];
+
+		setupPackage(dub, package_name);
+
+		enforce(false, "not implemented");
+		return 0;
+	}
+}
+
 class DescribeCommand : PackageBuildCommand {
 	this()
 	{
@@ -850,7 +900,7 @@ private {
 	enum lineWidth = 80;
 }
 
-private void showHelp(Command[] commands, CommandArgs common_args)
+private void showHelp(in CommandGroup[] commands, CommandArgs common_args)
 {
 	writeln(
 `Usage: dub [<command>] [<options...>] [-- [<application arguments...>]]
@@ -863,20 +913,28 @@ Run "dub <command> --help" to get help for a specific command.
 
 Available commands:`);
 
-	foreach (cmd; commands) {
+	foreach (grp; commands) {
+		writeln();
 		writeWS(shortArgColumn);
-		writef("%s %s", cmd.name, cmd.argumentsPattern);
-		auto chars_output = cmd.name.length + cmd.argumentsPattern.length + shortArgColumn + 1;
-		if (chars_output < descColumn) {
-			writeWS(descColumn - chars_output);
-		} else {
-			writeln();
-			writeWS(descColumn);
+		writeln(grp.caption);
+		writeWS(shortArgColumn);
+		writerep!'='(grp.caption.length);
+		writeln();
+		foreach (cmd; grp.commands) {
+			writeWS(shortArgColumn);
+			writef("%s %s", cmd.name, cmd.argumentsPattern);
+			auto chars_output = cmd.name.length + cmd.argumentsPattern.length + shortArgColumn + 1;
+			if (chars_output < descColumn) {
+				writeWS(descColumn - chars_output);
+			} else {
+				writeln();
+				writeWS(descColumn);
+			}
+			writeWrapped(cmd.description, descColumn, descColumn);
 		}
-		writeWrapped(cmd.description, descColumn, descColumn);
 	}
 	writeln();
-	writeln(`General options:`);
+	writeln(`Common options:`);
 	writeOptions(common_args);
 }
 
@@ -935,18 +993,19 @@ private void writeOptions(CommandArgs args)
 
 private void writeWrapped(string string, size_t indent = 0, size_t first_line_pos = 0)
 {
-	auto wrapped = string.wrap(lineWidth, getWSString(first_line_pos), getWSString(indent));
+	auto wrapped = string.wrap(lineWidth, getRepString!' '(first_line_pos), getRepString!' '(indent));
 	wrapped = wrapped[first_line_pos .. $];
 	foreach (ln; wrapped.splitLines())
 		writeln(ln);
 }
 
-private void writeWS(size_t num) { write(getWSString(num)); }
+private void writeWS(size_t num) { writerep!' '(num); }
+private void writerep(char ch)(size_t num) { write(getRepString!ch(num)); }
 
-private string getWSString(size_t len)
+private string getRepString(char ch)(size_t len)
 {
 	static string buf;
-	if (len > buf.length) buf ~= " ".replicate(len-buf.length);
+	if (len > buf.length) buf ~= [ch].replicate(len-buf.length);
 	return buf[0 .. len];
 }
 
