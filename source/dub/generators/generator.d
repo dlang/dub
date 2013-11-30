@@ -40,7 +40,7 @@ struct GeneratorSettings {
 	BuildSettings buildSettings;
 
 	// only used for generator "build"
-	bool run, force, direct, clean;
+	bool run, force, direct, clean, rdmd;
 	string[] runArgs;
 }
 
@@ -59,11 +59,6 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 		case "build":
 			logDebug("Creating build generator.");
 			return new BuildGenerator(app, mgr);
-		case "rdmd":
-			logDebug("Creating rdmd generator.");
-			auto ret = new BuildGenerator(app, mgr);
-			ret.useRDMD = true;
-			return ret;
 		case "mono-d":
 			logDebug("Creating MonoD generator.");
 			return new MonoDGenerator(app, mgr);

@@ -670,6 +670,7 @@ class GenerateCommand : PackageBuildCommand {
 		string m_generator;
 		bool m_rdmd = false;
 		bool m_run = false;
+		bool m_force = false;
 		bool m_print_platform, m_print_builds, m_print_configs;
 		bool m_nodeps;
 	}
@@ -685,7 +686,6 @@ class GenerateCommand : PackageBuildCommand {
 			"visuald - VisualD project files",
 			"visuald-combined - VisualD single project file",
 			"build - Builds the package directly",
-			"run - Builds and runs the package directly"
 			"",
 			"An optional package name can be given to generate a different package than the root/CWD package."
 		];
@@ -695,9 +695,6 @@ class GenerateCommand : PackageBuildCommand {
 	{
 		super.prepare(args);
 
-		args.getopt("rdmd", &m_rdmd, [
-			"Use rdmd instead of directly invoking the compiler"
-		]);
 		args.getopt("print-builds", &m_print_builds, [
 			"Prints the list of available build types"
 		]);
@@ -753,6 +750,8 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.buildSettings = m_buildSettings;
 		gensettings.run = m_run;
 		gensettings.runArgs = app_args;
+		gensettings.force = m_force;
+		gensettings.rdmd = m_rdmd;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
@@ -774,6 +773,12 @@ class BuildCommand : GenerateCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
+		args.getopt("rdmd", &m_rdmd, [
+			"Use rdmd instead of directly invoking the compiler"
+		]);
+		args.getopt("force", &m_force, [
+			"Forces a recompilation even if the target is up to date"
+		]);
 		super.prepare(args);
 		m_generator = "build";
 	}
@@ -784,7 +789,7 @@ class BuildCommand : GenerateCommand {
 	}
 }
 
-class RunCommand : GenerateCommand {
+class RunCommand : BuildCommand {
 	this()
 	{
 		this.name = "run";
@@ -799,7 +804,6 @@ class RunCommand : GenerateCommand {
 	override void prepare(scope CommandArgs args)
 	{
 		super.prepare(args);
-		m_generator = "build";
 		m_run = true;
 	}
 

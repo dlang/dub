@@ -33,8 +33,6 @@ class BuildGenerator : ProjectGenerator {
 		Path[] m_temporaryFiles;
 	}
 
-	bool useRDMD = false;
-	
 	this(Project app, PackageManager mgr)
 	{
 		m_project = app;
@@ -63,7 +61,7 @@ class BuildGenerator : ProjectGenerator {
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
 
 		// perform the actual build
-		if (this.useRDMD) performRDMDBuild(settings, buildsettings);
+		if (settings.rdmd) performRDMDBuild(settings, buildsettings);
 		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings);
 		else performCachedBuild(settings, buildsettings);
 
@@ -86,7 +84,7 @@ class BuildGenerator : ProjectGenerator {
 		auto build_id = computeBuildID(settings);
 		auto target_path = m_project.mainPackage.path ~ format(".dub/build/%s/", build_id);
 
-		if (isUpToDate(target_path, buildsettings, settings.platform)) {
+		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform)) {
 			logInfo("Target is up to date. Skipping build.");
 			copyTargetFile(target_path, buildsettings, settings.platform);
 			return;
@@ -156,6 +154,7 @@ class BuildGenerator : ProjectGenerator {
 		logDiagnostic("Application output name is '%s'", getTargetFileName(buildsettings, settings.platform));
 
 		string[] flags = ["--build-only", "--compiler="~settings.platform.compilerBinary];
+		if (settings.force) flags ~= "--force";
 		flags ~= buildsettings.dflags;
 		flags ~= mainsrc.relativeTo(cwd).toNativeString();
 
