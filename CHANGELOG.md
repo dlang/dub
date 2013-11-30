@@ -17,6 +17,9 @@ v0.9.21 - 2013-
 
  - Fixed a malformed log message for files with modification times in the future
  - Fixed handling of absolute working directories
+ - Fixed a segmentation fault on OS X when doing "dub upgrade" - [issue #179][issue179]
+
+[issue179]: https://github.com/rejectedsoftware/dub/issues/179
 
 
 v0.9.20 - 2013-11-29
