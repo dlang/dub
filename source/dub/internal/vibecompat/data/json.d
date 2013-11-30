@@ -135,7 +135,7 @@ struct Json {
 	{
 		m_type = Type.array;
 		m_array = v;
-		foreach (ref av; m_array) av.m_name = m_name;
+		if (m_magic == 0x1337f00d) foreach (ref av; m_array) av.m_name = m_name;
 		return v;
 	}
 	/// ditto
@@ -143,7 +143,7 @@ struct Json {
 	{
 		m_type = Type.object;
 		m_object = v;
-		foreach (k, ref av; m_object) av.m_name = m_name ~ "." ~ k;
+		if (m_magic == 0x1337f00d) foreach (k, ref av; m_object) av.m_name = m_name ~ "." ~ k;
 		return v;
 	}
 
