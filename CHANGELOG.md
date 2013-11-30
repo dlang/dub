@@ -1,6 +1,24 @@
 Changelog
 =========
 
+v0.9.21 - 2013-
+--------------------
+
+### Features and improvements ###
+
+ - Revamped command line help now shows detailed help for each command
+ - Added `dub test` to run the unit tests of a package using a custom main() function
+ - `--annotate` now works for all commands
+ - Added a `"mainSourceFile"` field to better control how `--rdmd` and `dub test` work
+ - The target binary (if any) is now automatically deleted after a linker error to avoid partially linked binaries
+ - Added `--force` to `dub build` and `dub run` to force recompilation even if already up to date
+
+### Bug fixes ###
+
+ - Fixed a malformed log message for files with modification times in the future
+ - Fixed handling of absolute working directories
+
+
 v0.9.20 - 2013-11-29
 --------------------
 
@@ -22,7 +40,6 @@ v0.9.20 - 2013-11-29
  - Support using .obj/.lib/.res/.o/.a/.so/.dylib files to be specified as "sourceFiles", they will be bassed to the compiler at the linking stage
  - Added a "library-nonet" configuration to the package description file to compile without a CURL dependency
  - Added support for the "http_proxy" environment variable
-
 
 ### Bug fixes ###
 
