@@ -287,309 +287,7 @@ class InitCommand : Command {
 
 
 /******************************************************************************/
-/* FETCH / REMOVE / UPGRADE                                                   */
-/******************************************************************************/
-
-class UpgradeCommand : Command {
-	private {
-		bool m_prerelease = false;
-	}
-
-	this()
-	{
-		this.name = "upgrade";
-		this.argumentsPattern = "";
-		this.description = "Forces an upgrade of all dependencies";
-		this.helpText = [
-			"Upgrades all dependencies of the package by querying the package registry(ies) for new versions."
-		];
-	}
-
-	override void prepare(scope CommandArgs args)
-	{
-		args.getopt("prerelease", &m_prerelease, [
-			"Uses the latest pre-release version, even if release versions are available"
-		]);
-	}
-
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		enforceUsage(free_args.length == 0, "Unexpected arguments.");
-		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
-		dub.loadPackageFromCwd();
-		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
-		auto options = UpdateOptions.upgrade;
-		if (m_prerelease) options |= UpdateOptions.preRelease;
-		dub.update(options);
-		return 0;
-	}
-}
-
-class FetchRemoveCommand : Command {
-	protected {
-		string m_version;
-		bool m_system = false;
-		bool m_local = false;
-	}
-
-	override void prepare(scope CommandArgs args)
-	{
-		args.getopt("version", &m_version, [
-			"Use the specified version/branch instead of the latest available match",
-			"The remove command also accepts \"*\" here as a wildcard to remove all versions of the package from the specified location"
-		]);
-
-		args.getopt("system", &m_system, ["Puts the package into the system wide package cache instead of the user local one."]);
-		args.getopt("local", &m_system, ["Puts the package into a sub folder of the current working directory. Cannot be mixed with --system."]);
-	}
-
-	abstract override int execute(Dub dub, string[] free_args, string[] app_args);
-}
-
-class FetchCommand : FetchRemoveCommand {
-	this()
-	{
-		this.name = "fetch";
-		this.argumentsPattern = "<name>";
-		this.description = "Manually retrieves and caches a package";
-		this.helpText = [
-			"Note: Use the \"dependencies\" field in the package description file (e.g. package.json) if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
-			"",
-			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your package.json, dub will do the rest for you."
-			"",
-			"Without specified options, placement/removal will default to a user wide shared location."
-			"",
-			"Complete applications can be retrieved and run easily by e.g.",
-			"$ dub fetch vibelog --local",
-			"$ cd vibelog",
-			"$ dub",
-			""
-			"This will grab all needed dependencies and compile and run the application.",
-			"",
-			"Note: DUB does not do a system installation of packages. Packages are instead only registered within DUB's internal ecosystem. Generation of native system packages/installers may be added later as a separate feature."
-		];
-	}
-
-	override void prepare(scope CommandArgs args)
-	{
-		super.prepare(args);
-	}
-
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		enforceUsage(!m_local || !m_system, "--local and --system are exclusive to each other.");
-		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
-		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
-
-		auto location = PlacementLocation.userWide;
-		if (m_local) location = PlacementLocation.local;
-		else if (m_system) location = PlacementLocation.systemWide;
-
-		auto name = free_args[0];
-
-		if (m_version.length) dub.fetch(name, Dependency(m_version), location, true, false);
-		else {
-			try {
-				dub.fetch(name, Dependency(">=0.0.0"), location, true, false);
-				logInfo(
-					"Please note that you need to use `dub run <pkgname>` " ~ 
-					"or add it to dependencies of your package to actually use/run it. " ~
-					"dub does not do actual installation of packages outside of its own ecosystem.");
-			}
-			catch(Exception e){
-				logInfo("Getting a release version failed: %s", e.msg);
-				logInfo("Retry with ~master...");
-				dub.fetch(name, Dependency("~master"), location, true, true);
-			}
-		}
-		return 0;
-	}
-}
-
-class InstallCommand : FetchCommand {
-	this() { this.name = "install"; }
-	override void prepare(scope CommandArgs args) { super.prepare(args); }
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		warnRenamed("install", "fetch");
-		return super.execute(dub, free_args, app_args);
-	}
-}
-
-class RemoveCommand : FetchRemoveCommand {
-	this()
-	{
-		this.name = "remove";
-		this.argumentsPattern = "<name>";
-		this.description = "Removes a cached package";
-		this.helpText = [
-			"Removes a package that is cached on the local system."
-		];
-	}
-
-	override void prepare(scope CommandArgs args)
-	{
-		super.prepare(args);
-	}
-
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		enforceUsage(!m_local || !m_system, "--local and --system are exclusive to each other.");
-		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
-		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
-
-		auto package_id = free_args[0];
-		auto location = PlacementLocation.userWide;
-		if (m_local) location = PlacementLocation.local;
-		else if (m_system) location = PlacementLocation.systemWide;
-
-		try dub.remove(package_id, m_version, location);
-		catch {
-			logError("Please specify a individual version or use the wildcard identifier '%s' (without quotes).", Dub.RemoveVersionWildcard);
-			return 1;
-		}
-
-		return 0;
-	}
-}
-
-class UninstallCommand : RemoveCommand {
-	this() { this.name = "uninstall"; }
-	override void prepare(scope CommandArgs args) { super.prepare(args); }
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		warnRenamed("uninstall", "remove");
-		return super.execute(dub, free_args, app_args);
-	}
-}
-
-
-/******************************************************************************/
-/* ADD/REMOVE PATH/LOCAL                                                      */
-/******************************************************************************/
-
-abstract class RegistrationCommand : Command {
-	private {
-		bool m_system;
-	}
-
-	override void prepare(scope CommandArgs args)
-	{
-		args.getopt("system", &m_system, [
-			"Register system-wide instead of user-wide"
-		]);
-	}
-
-	abstract override int execute(Dub dub, string[] free_args, string[] app_args);
-}
-
-class AddPathCommand : RegistrationCommand {
-	this()
-	{
-		this.name = "add-path";
-		this.argumentsPattern = "<path>";
-		this.description = "Adds a default package search path";
-		this.helpText = ["Adds a default package search path"];
-	}
-
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		enforceUsage(free_args.length == 1, "Missing search path.");
-		dub.addSearchPath(free_args[0], m_system);
-		return 0;
-	}
-}
-
-class RemovePathCommand : RegistrationCommand {
-	this()
-	{
-		this.name = "remove-path";
-		this.argumentsPattern = "<path>";
-		this.description = "Removes a package search path";
-		this.helpText = ["Removes a package search path"];
-	}
-
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		enforceUsage(free_args.length == 1, "Expected one argument.");
-		dub.removeSearchPath(free_args[0], m_system);
-		return 0;
-	}
-}
-
-class AddLocalCommand : RegistrationCommand {
-	this()
-	{
-		this.name = "add-local";
-		this.argumentsPattern = "<path> <version>";
-		this.description = "Adds a local package directory (e.g. a git repository)";
-		this.helpText = ["Adds a local package directory (e.g. a git repository)"];
-	}
-
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		enforceUsage(free_args.length == 2, "Expecting two arguments.");
-		dub.addLocalPackage(free_args[0], free_args[1], m_system);
-		return 0;
-	}
-}
-
-class RemoveLocalCommand : RegistrationCommand {
-	this()
-	{
-		this.name = "remove-local";
-		this.argumentsPattern = "<path>";
-		this.description = "Removes a local package directory";
-		this.helpText = ["Removes a local package directory"];
-	}
-
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		enforceUsage(free_args.length == 1, "Missing path to package.");
-		dub.removeLocalPackage(free_args[0], m_system);
-		return 0;
-	}
-}
-
-
-/******************************************************************************/
-/* LIST                                                                       */
-/******************************************************************************/
-
-class ListCommand : Command {
-	this()
-	{
-		this.name = "list";
-		this.argumentsPattern = "";
-		this.description = "Prints a list of all local packages dub is aware of";
-		this.helpText = [
-			"Prints a list of all local packages. This includes all cached packages (user or system wide), all packages in the package search paths (\"dub add-path\") and all manually registered packages (\"dub add-local\")."
-		];
-	}
-	override void prepare(scope CommandArgs args) {}
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		logInfo("Packages present in the system and known to dub:");
-		foreach (p; dub.packageManager.getPackageIterator())
-			logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
-		logInfo("");
-		return true;
-	}
-}
-
-class ListInstalledCommand : ListCommand {
-	this() { this.name = "list-installed"; }
-	override void prepare(scope CommandArgs args) { super.prepare(args); }
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		warnRenamed("list-installed", "list");
-		return super.execute(dub, free_args, app_args);
-	}
-}
-
-
-/******************************************************************************/
-/* GENERATE / BUILD / RUN / DESCRIBE                                          */
+/* GENERATE / BUILD / RUN / TEST / DESCRIBE                                   */
 /******************************************************************************/
 
 abstract class PackageBuildCommand : Command {
@@ -901,6 +599,308 @@ class DescribeCommand : PackageBuildCommand {
 
 		dub.describeProject(m_buildPlatform, m_build_config);				
 		return 0;
+	}
+}
+
+
+/******************************************************************************/
+/* FETCH / REMOVE / UPGRADE                                                   */
+/******************************************************************************/
+
+class UpgradeCommand : Command {
+	private {
+		bool m_prerelease = false;
+	}
+
+	this()
+	{
+		this.name = "upgrade";
+		this.argumentsPattern = "";
+		this.description = "Forces an upgrade of all dependencies";
+		this.helpText = [
+			"Upgrades all dependencies of the package by querying the package registry(ies) for new versions."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("prerelease", &m_prerelease, [
+			"Uses the latest pre-release version, even if release versions are available"
+		]);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length == 0, "Unexpected arguments.");
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+		dub.loadPackageFromCwd();
+		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
+		auto options = UpdateOptions.upgrade;
+		if (m_prerelease) options |= UpdateOptions.preRelease;
+		dub.update(options);
+		return 0;
+	}
+}
+
+class FetchRemoveCommand : Command {
+	protected {
+		string m_version;
+		bool m_system = false;
+		bool m_local = false;
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("version", &m_version, [
+			"Use the specified version/branch instead of the latest available match",
+			"The remove command also accepts \"*\" here as a wildcard to remove all versions of the package from the specified location"
+		]);
+
+		args.getopt("system", &m_system, ["Puts the package into the system wide package cache instead of the user local one."]);
+		args.getopt("local", &m_system, ["Puts the package into a sub folder of the current working directory. Cannot be mixed with --system."]);
+	}
+
+	abstract override int execute(Dub dub, string[] free_args, string[] app_args);
+}
+
+class FetchCommand : FetchRemoveCommand {
+	this()
+	{
+		this.name = "fetch";
+		this.argumentsPattern = "<name>";
+		this.description = "Manually retrieves and caches a package";
+		this.helpText = [
+			"Note: Use the \"dependencies\" field in the package description file (e.g. package.json) if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
+			"",
+			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your package.json, dub will do the rest for you."
+			"",
+			"Without specified options, placement/removal will default to a user wide shared location."
+			"",
+			"Complete applications can be retrieved and run easily by e.g.",
+			"$ dub fetch vibelog --local",
+			"$ cd vibelog",
+			"$ dub",
+			""
+			"This will grab all needed dependencies and compile and run the application.",
+			"",
+			"Note: DUB does not do a system installation of packages. Packages are instead only registered within DUB's internal ecosystem. Generation of native system packages/installers may be added later as a separate feature."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		super.prepare(args);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(!m_local || !m_system, "--local and --system are exclusive to each other.");
+		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+
+		auto location = PlacementLocation.userWide;
+		if (m_local) location = PlacementLocation.local;
+		else if (m_system) location = PlacementLocation.systemWide;
+
+		auto name = free_args[0];
+
+		if (m_version.length) dub.fetch(name, Dependency(m_version), location, true, false);
+		else {
+			try {
+				dub.fetch(name, Dependency(">=0.0.0"), location, true, false);
+				logInfo(
+					"Please note that you need to use `dub run <pkgname>` " ~ 
+					"or add it to dependencies of your package to actually use/run it. " ~
+					"dub does not do actual installation of packages outside of its own ecosystem.");
+			}
+			catch(Exception e){
+				logInfo("Getting a release version failed: %s", e.msg);
+				logInfo("Retry with ~master...");
+				dub.fetch(name, Dependency("~master"), location, true, true);
+			}
+		}
+		return 0;
+	}
+}
+
+class InstallCommand : FetchCommand {
+	this() { this.name = "install"; }
+	override void prepare(scope CommandArgs args) { super.prepare(args); }
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		warnRenamed("install", "fetch");
+		return super.execute(dub, free_args, app_args);
+	}
+}
+
+class RemoveCommand : FetchRemoveCommand {
+	this()
+	{
+		this.name = "remove";
+		this.argumentsPattern = "<name>";
+		this.description = "Removes a cached package";
+		this.helpText = [
+			"Removes a package that is cached on the local system."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		super.prepare(args);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(!m_local || !m_system, "--local and --system are exclusive to each other.");
+		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+
+		auto package_id = free_args[0];
+		auto location = PlacementLocation.userWide;
+		if (m_local) location = PlacementLocation.local;
+		else if (m_system) location = PlacementLocation.systemWide;
+
+		try dub.remove(package_id, m_version, location);
+		catch {
+			logError("Please specify a individual version or use the wildcard identifier '%s' (without quotes).", Dub.RemoveVersionWildcard);
+			return 1;
+		}
+
+		return 0;
+	}
+}
+
+class UninstallCommand : RemoveCommand {
+	this() { this.name = "uninstall"; }
+	override void prepare(scope CommandArgs args) { super.prepare(args); }
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		warnRenamed("uninstall", "remove");
+		return super.execute(dub, free_args, app_args);
+	}
+}
+
+
+/******************************************************************************/
+/* ADD/REMOVE PATH/LOCAL                                                      */
+/******************************************************************************/
+
+abstract class RegistrationCommand : Command {
+	private {
+		bool m_system;
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("system", &m_system, [
+			"Register system-wide instead of user-wide"
+		]);
+	}
+
+	abstract override int execute(Dub dub, string[] free_args, string[] app_args);
+}
+
+class AddPathCommand : RegistrationCommand {
+	this()
+	{
+		this.name = "add-path";
+		this.argumentsPattern = "<path>";
+		this.description = "Adds a default package search path";
+		this.helpText = ["Adds a default package search path"];
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length == 1, "Missing search path.");
+		dub.addSearchPath(free_args[0], m_system);
+		return 0;
+	}
+}
+
+class RemovePathCommand : RegistrationCommand {
+	this()
+	{
+		this.name = "remove-path";
+		this.argumentsPattern = "<path>";
+		this.description = "Removes a package search path";
+		this.helpText = ["Removes a package search path"];
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length == 1, "Expected one argument.");
+		dub.removeSearchPath(free_args[0], m_system);
+		return 0;
+	}
+}
+
+class AddLocalCommand : RegistrationCommand {
+	this()
+	{
+		this.name = "add-local";
+		this.argumentsPattern = "<path> <version>";
+		this.description = "Adds a local package directory (e.g. a git repository)";
+		this.helpText = ["Adds a local package directory (e.g. a git repository)"];
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length == 2, "Expecting two arguments.");
+		dub.addLocalPackage(free_args[0], free_args[1], m_system);
+		return 0;
+	}
+}
+
+class RemoveLocalCommand : RegistrationCommand {
+	this()
+	{
+		this.name = "remove-local";
+		this.argumentsPattern = "<path>";
+		this.description = "Removes a local package directory";
+		this.helpText = ["Removes a local package directory"];
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length == 1, "Missing path to package.");
+		dub.removeLocalPackage(free_args[0], m_system);
+		return 0;
+	}
+}
+
+
+/******************************************************************************/
+/* LIST                                                                       */
+/******************************************************************************/
+
+class ListCommand : Command {
+	this()
+	{
+		this.name = "list";
+		this.argumentsPattern = "";
+		this.description = "Prints a list of all local packages dub is aware of";
+		this.helpText = [
+			"Prints a list of all local packages. This includes all cached packages (user or system wide), all packages in the package search paths (\"dub add-path\") and all manually registered packages (\"dub add-local\")."
+		];
+	}
+	override void prepare(scope CommandArgs args) {}
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		logInfo("Packages present in the system and known to dub:");
+		foreach (p; dub.packageManager.getPackageIterator())
+			logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
+		logInfo("");
+		return true;
+	}
+}
+
+class ListInstalledCommand : ListCommand {
+	this() { this.name = "list-installed"; }
+	override void prepare(scope CommandArgs args) { super.prepare(args); }
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		warnRenamed("list-installed", "list");
+		return super.execute(dub, free_args, app_args);
 	}
 }
 
