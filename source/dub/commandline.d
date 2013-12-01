@@ -676,7 +676,6 @@ abstract class PackageBuildCommand : Command {
 		else dub.loadPackageFromCwd();
 
 		m_defaultConfig = dub.getDefaultConfiguration(m_buildPlatform, m_allowNonLibraryConfigs);
-		logInfo("Got %s for %s", m_defaultConfig, m_allowNonLibraryConfigs);
 
 		return true;
 	}
