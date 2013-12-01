@@ -206,15 +206,18 @@ class Dub {
 		auto test_config = format("__test__%s__", config);
 
 		BuildSettings lbuildsettings = build_settings;
-		m_project.addBuildSettings(lbuildsettings, platform, config);
+		m_project.addBuildSettings(lbuildsettings, platform, config, null, true);
 		if (lbuildsettings.targetType == TargetType.none) {
 			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
 			return;
 		}
 		
 		if (lbuildsettings.targetType == TargetType.executable) {
-			logInfo(`Configuration '%s' does not output a library. Running "dub build -b unittest" instead.`, config);
+			logInfo(`Configuration '%s' does not output a library. Falling back to "dub -b unittest -c %s".`, config, config);
 			settings.config = config;
+		} else if (lbuildsettings.sourceFiles.empty) {
+			logInfo(`No source files found in configuration '%s'. Falling back to "dub -b unittest".`, config);
+			settings.config = m_project.getDefaultConfiguration(platform);
 		} else {
 			enforce(lbuildsettings.mainSourceFile.length, `A "mainSourceFile" is required for testing, but none was set or inferred.`);
 
