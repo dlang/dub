@@ -603,6 +603,7 @@ abstract class PackageBuildCommand : Command {
 		BuildPlatform m_buildPlatform;
 		BuildSettings m_buildSettings;
 		string m_defaultConfig;
+		bool m_nodeps;
 		bool m_allowNonLibraryConfigs = true;
 	}
 
@@ -626,6 +627,9 @@ abstract class PackageBuildCommand : Command {
 		args.getopt("d|debug", &m_debug_versions, [
 			"Define the specified debug version identifier when building - can be used multiple times"
 		]);
+		args.getopt("nodeps", &m_nodeps, [
+			"Do not check/update dependencies before building"
+		]);
 	}
 
 	protected void setupPackage(Dub dub, string package_name)
@@ -642,6 +646,11 @@ abstract class PackageBuildCommand : Command {
 		if (m_build_type.length == 0) {
 			if (environment.get("DFLAGS")) m_build_type = "$DFLAGS";
 			else m_build_type = "debug";
+		}
+
+		if (!m_nodeps) {
+			logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
+			dub.update(UpdateOptions.none);
 		}
 	}
 
@@ -688,7 +697,6 @@ class GenerateCommand : PackageBuildCommand {
 		bool m_run = false;
 		bool m_force = false;
 		bool m_print_platform, m_print_builds, m_print_configs;
-		bool m_nodeps;
 	}
 
 	this()
@@ -719,9 +727,6 @@ class GenerateCommand : PackageBuildCommand {
 		]);
 		args.getopt("print-platform", &m_print_platform, [
 			"Prints the identifiers for the current build platform as used for the build fields in package.json"
-		]);
-		args.getopt("nodeps", &m_nodeps, [
-			"Do not check dependencies for 'run' or 'build'"
 		]);
 	}
 
@@ -861,11 +866,6 @@ class TestCommand : PackageBuildCommand {
 		if (free_args.length >= 1) package_name = free_args[0];
 
 		setupPackage(dub, package_name);
-
-		//if (!m_nodeps) {
-			logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
-			dub.update(UpdateOptions.none);
-		//}
 
 		logInfo("Running unit tests for package %s, configuration '%s'.", dub.project.mainPackage.name, m_build_config);
 
