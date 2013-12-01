@@ -392,14 +392,16 @@ class Project {
 				if (psettings.mainSourceFile.empty && pkg is m_main)
 					logWarn(`Package %s (configuration "%s") defines no main source file, this may cause certain build modes to fail. Add an explicit "mainSourceFile" to the package description to fix this.`, pkg.name, configs[pkg.name]);
 			}
-			if (pkg is m_main && !shallow) {
-				enforce(psettings.targetType != TargetType.none, "Main package has target type \"none\" - stopping build.");
-				enforce(psettings.targetType != TargetType.sourceLibrary, "Main package has target type \"sourceLibrary\" which generates no target - stopping build.");
-				dst.targetType = psettings.targetType;
-				dst.targetPath = psettings.targetPath;
-				dst.targetName = psettings.targetName;
+			if (pkg is m_main) {
+				if (!shallow) {
+					enforce(psettings.targetType != TargetType.none, "Main package has target type \"none\" - stopping build.");
+					enforce(psettings.targetType != TargetType.sourceLibrary, "Main package has target type \"sourceLibrary\" which generates no target - stopping build.");
+					dst.targetType = psettings.targetType;
+					dst.targetPath = psettings.targetPath;
+					dst.targetName = psettings.targetName;
+					dst.workingDirectory = processVars(psettings.workingDirectory, pkg_path, true);
+				}
 				dst.mainSourceFile = processVars(psettings.mainSourceFile, pkg_path, true);
-				dst.workingDirectory = processVars(psettings.workingDirectory, pkg_path, true);
 			}
 		}
 
