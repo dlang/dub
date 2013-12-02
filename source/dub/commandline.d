@@ -17,7 +17,7 @@ import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.packagesupplier;
 import dub.project;
-import dub.version_;
+import dub.internal.utils : getDUBVersion;
 
 import std.algorithm;
 import std.array;
@@ -35,7 +35,7 @@ import std.variant;
 
 int runDubCommandLine(string[] args)
 {
-	logDiagnostic("DUB version %s", dubVersion);
+	logDiagnostic("DUB version %s", getDUBVersion());
 
 	version(Windows){
 		// rdmd uses $TEMP to compute a temporary path. since cygwin substitutes backslashes
@@ -957,6 +957,8 @@ Available commands
 	writeln(`==============`);
 	writeln();
 	writeOptions(common_args);
+	writeln();
+	writefln("DUB version %s", getDUBVersion());
 }
 
 private void showCommandHelp(Command cmd, CommandArgs args, CommandArgs common_args)
@@ -981,6 +983,8 @@ private void showCommandHelp(Command cmd, CommandArgs args, CommandArgs common_a
 	writeln("==============");
 	writeln();
 	writeOptions(common_args);
+	writeln();
+	writefln("DUB version %s", getDUBVersion());
 }
 
 private void writeOptions(CommandArgs args)

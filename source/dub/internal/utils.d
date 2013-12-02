@@ -136,6 +136,22 @@ char[] download(Url url)
 	return download(url.toString());
 }
 
+/// Returns the current DUB version in semantic version format
+string getDUBVersion()
+{
+	import dub.version_;
+	// convert version string to valid SemVer format
+	auto verstr = dubVersion;
+	if (verstr.startsWith("v")) verstr = verstr[1 .. $];
+	auto parts = verstr.split("-");
+	if (parts.length >= 3) {
+		// detect GIT commit suffix
+		if (parts[$-1].length == 8 && parts[$-1][1 .. $].isHexNumber() && parts[$-2].isNumber())
+			verstr = parts[0 .. $-2].join("-") ~ "+" ~ parts[$-2 .. $].join("-");
+	}
+	return verstr;
+}
+
 version(DubUseCurl) {
 	private HTTP setupHTTPClient()
 	{
@@ -146,13 +162,7 @@ version(DubUseCurl) {
 		auto proxy = environment.get("http_proxy", null);
 		if (proxy.length) conn.proxy = proxy;
 
-		// convert version string to valid SemVer format
-		auto verstr = dubVersion;
-		if (verstr.startsWith("v")) verstr = verstr[1 .. $];
-		auto idx = verstr.indexOf("-");
-		if (idx >= 0) verstr = verstr[0 .. idx] ~ "+" ~ verstr[idx+1 .. $].split("-").join(".");
-
-		conn.addRequestHeader("User-Agent", "dub/"~verstr~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
+		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
 		return conn;
 	}
 }
@@ -162,4 +172,24 @@ private string stripUTF8Bom(string str)
 	if( str.length >= 3 && str[0 .. 3] == [0xEF, 0xBB, 0xBF] )
 		return str[3 ..$];
 	return str;
+}
+
+private bool isNumber(string str) {
+	foreach (ch; str)
+		switch (ch) {
+			case '0': .. case '9': break;
+			default: return false;
+		}
+	return true;
+}
+
+private bool isHexNumber(string str) {
+	foreach (ch; str)
+		switch (ch) {
+			case '0': .. case '9': break;
+			case 'a': .. case 'f': break;
+			case 'A': .. case 'F': break;
+			default: return false;
+		}
+	return true;
 }
