@@ -344,7 +344,7 @@ class Dub {
 		auto clean_package_version = ver[ver.startsWith("~") ? 1 : 0 .. $];
 		Path dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
 
-		return m_packageManager.get(tempFile, pinfo, dstpath);
+		return m_packageManager.storeFetchedPackage(tempFile, pinfo, dstpath);
 	}
 
 	/// Removes a given package from the list of present/cached modules.

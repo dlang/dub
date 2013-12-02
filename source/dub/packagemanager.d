@@ -198,10 +198,9 @@ class PackageManager {
 		return &iterator;
 	}
 
-	/// Retrieves the package supplied as a path to it's zip file to the
-	/// destination.
-	// FIXNAME
-	Package get(Path zip_file_path, Json package_info, Path destination)
+	/// Extracts the package supplied as a path to it's zip file to the
+	/// destination and sets a version field in the package description.
+	Package storeFetchedPackage(Path zip_file_path, Json package_info, Path destination)
 	{
 		auto package_name = package_info.name.get!string();
 		auto package_version = package_info["version"].get!string();
