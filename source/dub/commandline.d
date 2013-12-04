@@ -302,7 +302,6 @@ abstract class PackageBuildCommand : Command {
 		BuildSettings m_buildSettings;
 		string m_defaultConfig;
 		bool m_nodeps;
-		bool m_allowNonLibraryConfigs = true;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -364,7 +363,6 @@ abstract class PackageBuildCommand : Command {
 			dub.rootPath = pack.path;
 		}
 		if (!loadCwdPackage(dub, pack, true)) return false;
-		if (!m_build_config.length) m_build_config = m_defaultConfig;
 		return true;
 	}
 
@@ -382,7 +380,7 @@ abstract class PackageBuildCommand : Command {
 		if (pack) dub.loadPackage(pack);
 		else dub.loadPackageFromCwd();
 
-		m_defaultConfig = dub.getDefaultConfiguration(m_buildPlatform, m_allowNonLibraryConfigs);
+		m_defaultConfig = dub.getDefaultConfiguration(m_buildPlatform);
 
 		return true;
 	}
@@ -463,7 +461,7 @@ class GenerateCommand : PackageBuildCommand {
 
 		GeneratorSettings gensettings;
 		gensettings.platform = m_buildPlatform;
-		gensettings.config = m_build_config;
+		gensettings.config = m_build_config.length ? m_build_config : m_defaultConfig;
 		gensettings.buildType = m_build_type;
 		gensettings.compiler = m_compiler;
 		gensettings.buildSettings = m_buildSettings;
@@ -546,7 +544,6 @@ class TestCommand : PackageBuildCommand {
 			"Builds a library configuration of the selected package and executes all contained unit tests."
 		];
 		this.acceptsAppArgs = true;
-		m_allowNonLibraryConfigs = false;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -564,8 +561,6 @@ class TestCommand : PackageBuildCommand {
 		if (free_args.length >= 1) package_name = free_args[0];
 
 		setupPackage(dub, package_name);
-
-		logInfo("Running unit tests for package %s, configuration '%s'.", dub.project.mainPackage.name, m_build_config);
 
 		dub.testProject(m_buildSettings, m_buildPlatform, m_build_config, Path(m_mainFile), app_args);
 		return 0;
@@ -597,7 +592,7 @@ class DescribeCommand : PackageBuildCommand {
 
 		setupPackage(dub, package_name);
 
-		dub.describeProject(m_buildPlatform, m_build_config);				
+		dub.describeProject(m_buildPlatform, m_build_config.length ? m_build_config : m_defaultConfig);				
 		return 0;
 	}
 }

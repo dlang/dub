@@ -369,7 +369,7 @@ class Project {
 	 *   platform = The platform to retrieve the values for.
 	 *   config = Values of the given configuration will be retrieved.
 	 *   root_package = If non null, use it instead of the project's real root package.
-	 *   shallow = If true, collects only build settings for the main package and doesn't emit build target settings.
+	 *   shallow = If true, collects only build settings for the main package (including inherited settings) and doesn't stop on target type none and sourceLibrary.
 	 */
 	void addBuildSettings(ref BuildSettings dst, in BuildPlatform platform, string config, in Package root_package = null, bool shallow = false)
 	const {
@@ -396,11 +396,11 @@ class Project {
 				if (!shallow) {
 					enforce(psettings.targetType != TargetType.none, "Main package has target type \"none\" - stopping build.");
 					enforce(psettings.targetType != TargetType.sourceLibrary, "Main package has target type \"sourceLibrary\" which generates no target - stopping build.");
-					dst.targetType = psettings.targetType;
-					dst.targetPath = psettings.targetPath;
-					dst.targetName = psettings.targetName;
-					dst.workingDirectory = processVars(psettings.workingDirectory, pkg_path, true);
 				}
+				dst.targetType = psettings.targetType;
+				dst.targetPath = psettings.targetPath;
+				dst.targetName = psettings.targetName;
+				dst.workingDirectory = processVars(psettings.workingDirectory, pkg_path, true);
 				dst.mainSourceFile = processVars(psettings.mainSourceFile, pkg_path, true);
 			}
 		}
