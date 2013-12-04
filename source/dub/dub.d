@@ -195,8 +195,13 @@ class Dub {
 		if (custom_main_file.length && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
 
 		if (config.length == 0) {
-			if (m_project.mainPackage.configurations.canFind("unittest"))config = "unittest";
-			else config = m_project.getDefaultConfiguration(platform, false);
+			// if a custom main file was given, favor the first library configuration, so that it can be applied
+			if (custom_main_file.length) config = m_project.getDefaultConfiguration(platform, false);
+			// else look for a "unittest" configuration
+			if (!config.length && m_project.mainPackage.configurations.canFind("unittest")) config = "unittest";
+			// if not found, fall back to the first "library" configuration
+			if (!config.length) config = m_project.getDefaultConfiguration(platform, false);
+			// if still nothing found, use the first executable configuration
 			if (!config.length) config = m_project.getDefaultConfiguration(platform, true);
 		}
 
@@ -221,9 +226,11 @@ class Dub {
 		if (lbuildsettings.targetType == TargetType.executable) {
 			if (config == "unittest") logInfo("Running custom 'unittest' configuration.", config);
 			else logInfo(`Configuration '%s' does not output a library. Falling back to "dub -b unittest -c %s".`, config, config);
+			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
 			settings.config = config;
 		} else if (lbuildsettings.sourceFiles.empty) {
 			logInfo(`No source files found in configuration '%s'. Falling back to "dub -b unittest".`, config);
+			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
 			settings.config = m_project.getDefaultConfiguration(platform);
 		} else {
 			logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, test_config, config, lbuildsettings.targetType);
