@@ -311,7 +311,7 @@ EndGlobal");
 			{
 				auto settings = getSettings!setting();
 				auto ret = new string[settings.length];
-				foreach (i; 0 .. settings.length) ret[i] = (Path(settings[i]).relativeTo(project_file_dir)).toNativeString();
+				foreach (i; 0 .. settings.length) ret[i] = '"' ~ (Path(settings[i]).relativeTo(project_file_dir)).toNativeString() ~ '"';
 				return ret;
 			}
 			
