@@ -592,6 +592,11 @@ class DescribeCommand : PackageBuildCommand {
 
 		setupPackage(dub, package_name);
 
+		if (!m_nodeps) {
+			logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
+			dub.update(UpdateOptions.none);
+		}
+
 		dub.describeProject(m_buildPlatform, m_build_config.length ? m_build_config : m_defaultConfig);				
 		return 0;
 	}
