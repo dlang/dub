@@ -111,7 +111,8 @@ void runCommands(string[] commands, string[string] env = null)
 void download(string url, string filename)
 {
 	version(DubUseCurl) {
-		auto conn = setupHTTPClient();
+		auto conn = HTTP();
+		setupHTTPClient(conn);
 		logDebug("Storing %s...", url);
 		std.net.curl.download(url, filename, conn);
 	} else assert(false);
@@ -125,7 +126,8 @@ void download(Url url, Path filename)
 char[] download(string url)
 {
 	version(DubUseCurl) {
-		auto conn = setupHTTPClient();
+		auto conn = HTTP();
+		setupHTTPClient(conn);
 		logDebug("Getting %s...", url);
 		return get(url, conn);
 	} else assert(false);
@@ -153,9 +155,8 @@ string getDUBVersion()
 }
 
 version(DubUseCurl) {
-	private HTTP setupHTTPClient()
+	void setupHTTPClient(ref HTTP conn)
 	{
-		auto conn = HTTP();
 		static if( is(typeof(&conn.verifyPeer)) )
 			conn.verifyPeer = false;
 
@@ -163,7 +164,6 @@ version(DubUseCurl) {
 		if (proxy.length) conn.proxy = proxy;
 
 		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
-		return conn;
 	}
 }
 
