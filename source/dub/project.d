@@ -401,7 +401,8 @@ class Project {
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
 				dst.workingDirectory = processVars(psettings.workingDirectory, pkg_path, true);
-				dst.mainSourceFile = processVars(psettings.mainSourceFile, pkg_path, true);
+				if (psettings.mainSourceFile.length)
+					dst.mainSourceFile = processVars(psettings.mainSourceFile, pkg_path, true);
 			}
 		}
 

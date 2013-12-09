@@ -234,9 +234,8 @@ class Dub {
 			settings.config = m_project.getDefaultConfiguration(platform);
 		} else {
 			logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, test_config, config, lbuildsettings.targetType);
-			enforce(lbuildsettings.mainSourceFile.length, `A "mainSourceFile" is required for testing, but none was set or inferred.`);
 
-			BuildSettingsTemplate tcinfo =  m_project.mainPackage.info.getConfiguration(config).buildSettings;
+			BuildSettingsTemplate tcinfo = m_project.mainPackage.info.getConfiguration(config).buildSettings;
 			tcinfo.targetType = TargetType.executable;
 			tcinfo.targetName = test_config;
 			tcinfo.versions[""] ~= "VibeCustomMain"; // HACK for vibe.d's legacy main() behavior
@@ -248,7 +247,14 @@ class Dub {
 				custommodname = custom_main_file.head.toString().baseName(".d");
 			}
 
-			auto mainmodname = lbuildsettings.determineModuleName(Path(lbuildsettings.mainSourceFile), m_project.mainPackage.path);
+			string[] import_modules;
+			if (lbuildsettings.mainSourceFile.length) {
+				import_modules ~= lbuildsettings.determineModuleName(Path(lbuildsettings.mainSourceFile), m_project.mainPackage.path);
+			} else {
+				foreach (file; lbuildsettings.sourceFiles){
+					import_modules ~= lbuildsettings.determineModuleName(Path(file), m_project.mainPackage.path);
+				}
+			}
 
 			// generate main file
 			Path mainfile = getTempDir() ~ "test_main.d";
@@ -261,12 +267,12 @@ class Dub {
 					fil.write(format(q{
 						module test_main;
 						import %s;
-						import %s;
-					}, mainmodname, custommodname));
+					}, custommodname));
+					foreach (mod; import_modules) fil.write(format("import %s;\n", mod));
 				} else {
-					fil.write(format(q{
-						module test_main;
-						import %s;
+					fil.write("module test_main;\n");
+					foreach (mod; import_modules) fil.write(format("import %s;", mod));
+					fil.write(q{
 						import std.stdio;
 						import core.runtime;
 
@@ -276,10 +282,10 @@ class Dub {
 								import core.runtime;
 								Runtime.moduleUnitTester = () => true;
 								//runUnitTests!app(new JsonTestResultWriter("results.json"));
-								assert(runUnitTests!%s(new ConsoleTestResultWriter), "Unit tests failed.");
+								assert(runUnitTests!test_main(new ConsoleTestResultWriter), "Unit tests failed.");
 							}
 						}
-					}, mainmodname, mainmodname));
+					});
 				}
 			}
 			m_project.mainPackage.info.configurations ~= ConfigurationInfo(test_config, tcinfo);
@@ -567,5 +573,5 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 			return ret.data;
 		}
 	}
-	throw new Exception("Main source file not found in any import path.");
+	throw new Exception(format("Source file '%s' not found in any import path.", file.toNativeString()));
 }
