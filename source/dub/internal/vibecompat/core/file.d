@@ -281,12 +281,16 @@ private FileInfo makeFileInfo(DirEntry ent)
 	ret.name = baseName(ent.name);
 	if( ret.name.length == 0 ) ret.name = ent.name;
 	assert(ret.name.length > 0);
-	ret.size = ent.size;
-	ret.timeModified = ent.timeLastModified;
-	version(Windows) ret.timeCreated = ent.timeCreated;
-	else ret.timeCreated = ent.timeLastModified;
 	ret.isSymlink = ent.isSymlink;
-	ret.isDirectory = ent.isDir;
+	try {
+		ret.isDirectory = ent.isDir;
+		ret.size = ent.size;
+		ret.timeModified = ent.timeLastModified;
+		version(Windows) ret.timeCreated = ent.timeCreated;
+		else ret.timeCreated = ent.timeLastModified;
+	} catch (Exception e) {
+		logDiagnostic("Failed to get extended file information for %s: %s", ret.name, e.msg);
+	}
 	return ret;
 }
 
