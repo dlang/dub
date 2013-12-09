@@ -119,7 +119,7 @@ class Package {
 				lib_settings.targetType = m_info.buildSettings.targetType == TargetType.autodetect ? TargetType.library : m_info.buildSettings.targetType;
 
 				if (m_info.buildSettings.targetType == TargetType.autodetect) {
-					if (app_main_file.length) {
+					if (app_main_file.length && lib_main_file != app_main_file) {
 						lib_settings.excludedSourceFiles[""] ~= app_main_file;
 
 						BuildSettingsTemplate app_settings;
