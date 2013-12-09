@@ -234,6 +234,7 @@ class Command {
 	string description;
 	string[] helpText;
 	bool acceptsAppArgs;
+	bool hidden = false; // used for deprecated commands
 
 	abstract void prepare(scope CommandArgs args);
 	abstract int execute(Dub dub, string[] free_args, string[] app_args);
@@ -724,7 +725,7 @@ class FetchCommand : FetchRemoveCommand {
 }
 
 class InstallCommand : FetchCommand {
-	this() { this.name = "install"; }
+	this() { this.name = "install"; hidden = true; }
 	override void prepare(scope CommandArgs args) { super.prepare(args); }
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
@@ -771,7 +772,7 @@ class RemoveCommand : FetchRemoveCommand {
 }
 
 class UninstallCommand : RemoveCommand {
-	this() { this.name = "uninstall"; }
+	this() { this.name = "uninstall"; hidden = true; }
 	override void prepare(scope CommandArgs args) { super.prepare(args); }
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
@@ -895,7 +896,7 @@ class ListCommand : Command {
 }
 
 class ListInstalledCommand : ListCommand {
-	this() { this.name = "list-installed"; }
+	this() { this.name = "list-installed"; hidden = true; }
 	override void prepare(scope CommandArgs args) { super.prepare(args); }
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
@@ -939,6 +940,7 @@ Available commands
 		writerep!'-'(grp.caption.length);
 		writeln();
 		foreach (cmd; grp.commands) {
+			if (cmd.hidden) continue;
 			writeWS(shortArgColumn);
 			writef("%s %s", cmd.name, cmd.argumentsPattern);
 			auto chars_output = cmd.name.length + cmd.argumentsPattern.length + shortArgColumn + 1;
