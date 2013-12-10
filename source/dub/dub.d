@@ -543,8 +543,8 @@ class Dub {
 		auto p = environment.get("DUBPATH");
 		Path[] paths;
 
-		version(Windows) enum pathsep = ":";
-		else enum pathsep = ";";
+		version(Windows) enum pathsep = ";";
+		else enum pathsep = ":";
 		if (p.length) paths ~= p.split(pathsep).map!(p => Path(p))().array();
 		m_packageManager.searchPath = paths;
 	}
