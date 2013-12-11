@@ -601,7 +601,7 @@ class Project {
 								p = sp;
 								break;
 							} catch (Exception e) {
-								logDiagnostic("No metadata for %s: %s", ps.toString(), e.msg);
+								logDiagnostic("No metadata for %s: %s", ps.description, e.msg);
 							}
 						}
 						enforce(p !is null, "Could not find package candidate for "~pkg~" "~reqDep.dependency.toString());

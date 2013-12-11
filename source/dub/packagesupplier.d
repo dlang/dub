@@ -22,14 +22,14 @@ import std.conv;
 /// Supplies packages, this is done by supplying the latest possible version
 /// which is available.
 interface PackageSupplier {
+	/// Returns a hunman readable representation of the supplier
+	@property string description();
+
 	/// path: absolute path to store the package (usually in a zip format)
 	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release);
 	
 	/// returns the metadata for the package
 	Json getPackageDescription(string packageId, Dependency dep, bool pre_release);
-
-	/// Returns a hunman readable representation of the supplier
-	string toString();
 }
 
 class FileSystemPackageSupplier : PackageSupplier {
@@ -39,7 +39,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 
 	this(Path root) { m_path = root; }
 
-	override string toString() { return "file repository at "~m_path.toNativeString(); }
+	override @property string description() { return "file repository at "~m_path.toNativeString(); }
 	
 	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{
@@ -98,7 +98,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		m_registryUrl = registry;
 	}
 
-	override string toString() { return "registry at "~m_registryUrl.toString(); }
+	override @property string description() { return "registry at "~m_registryUrl.toString(); }
 	
 	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{

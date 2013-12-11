@@ -80,8 +80,14 @@ class Dub {
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
 
 		PackageSupplier[] ps = additional_package_suppliers;
-		if (auto pp = "registryUrls" in m_userConfig) ps ~= deserializeJson!(string[])(*pp).map!(url => new RegistryPackageSupplier(Url(url))).array;
-		if (auto pp = "registryUrls" in m_systemConfig) ps ~= deserializeJson!(string[])(*pp).map!(url => new RegistryPackageSupplier(Url(url))).array;
+		if (auto pp = "registryUrls" in m_userConfig)
+			ps ~= deserializeJson!(string[])(*pp)
+				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url)))
+				.array;
+		if (auto pp = "registryUrls" in m_systemConfig)
+			ps ~= deserializeJson!(string[])(*pp)
+				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url)))
+				.array;
 		ps ~= defaultPackageSuppliers();
 
 		m_packageSuppliers = ps;
