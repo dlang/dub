@@ -286,6 +286,7 @@ class Dub {
 						shared static this() {
 							version (Have_tested) {
 								import core.runtime;
+								import tested;
 								Runtime.moduleUnitTester = () => true;
 								//runUnitTests!app(new JsonTestResultWriter("results.json"));
 								assert(runUnitTests!test_main(new ConsoleTestResultWriter), "Unit tests failed.");
