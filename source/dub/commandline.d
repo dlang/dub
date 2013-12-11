@@ -928,6 +928,9 @@ separate DUB options from options passed to the application.
 
 Run "dub <command> --help" to get help for a specific command.
 
+You can use the "http_proxy" environment variable to configure a proxy server
+to be used for fetching packages.
+
 
 Available commands
 ==================`);
