@@ -113,7 +113,6 @@ class BuildGenerator : ProjectGenerator {
 		// override target path
 		auto cbuildsettings = buildsettings;
 		cbuildsettings.targetPath = target_path.relativeTo(cwd).toNativeString();
-		if (generate_binary) settings.compiler.setTarget(cbuildsettings, settings.platform);
 		buildWithCompiler(settings, cbuildsettings);
 
 		copyTargetFile(target_path, buildsettings, settings.platform);
@@ -217,7 +216,6 @@ class BuildGenerator : ProjectGenerator {
 				is_temp_target = true;
 			}
 			exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
-			settings.compiler.setTarget(buildsettings, settings.platform);
 		}
 
 		finalizeGeneration(buildsettings, generate_binary);
@@ -302,6 +300,7 @@ class BuildGenerator : ProjectGenerator {
 		*/
 		if (settings.platform.compilerBinary != "dmd" || !generate_binary || is_static_library) {
 			// setup for command line
+			if (generate_binary) settings.compiler.setTarget(buildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			// invoke the compiler
@@ -317,6 +316,7 @@ class BuildGenerator : ProjectGenerator {
 			// setup linker command line
 			auto lbuildsettings = buildsettings;
 			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => isLinkerFile(f)).array;
+			settings.compiler.setTarget(lbuildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
 
 			// setup compiler command line
