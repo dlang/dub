@@ -263,7 +263,7 @@ class Dub {
 			}
 
 			// generate main file
-			Path mainfile = getTempDir() ~ "test_main.d";
+			Path mainfile = getTempDir() ~ "dub_test_root.d";
 			tcinfo.sourceFiles[""] ~= mainfile.toNativeString();
 			tcinfo.mainSourceFile = mainfile.toNativeString();
 			if (!m_dryRun) {
@@ -271,12 +271,12 @@ class Dub {
 				scope(exit) fil.close();
 				if (custommodname.length) {
 					fil.write(format(q{
-						module test_main;
+						module dub_test_root;
 						import %s;
 					}, custommodname));
 					foreach (mod; import_modules) fil.write(format("import %s;\n", mod));
 				} else {
-					fil.write("module test_main;\n");
+					fil.write("module dub_test_root;\n");
 					foreach (mod; import_modules) fil.write(format("import %s;", mod));
 					fil.write(q{
 						import std.stdio;
@@ -288,7 +288,7 @@ class Dub {
 								import core.runtime;
 								Runtime.moduleUnitTester = () => true;
 								//runUnitTests!app(new JsonTestResultWriter("results.json"));
-								assert(runUnitTests!test_main(new ConsoleTestResultWriter), "Unit tests failed.");
+								enforce(runUnitTests!dub_test_root(new ConsoleTestResultWriter), "Unit tests failed.");
 							}
 						}
 					});
