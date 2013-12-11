@@ -25,8 +25,8 @@ import std.typecons;
 
 class LdcCompiler : Compiler {
 	private static immutable s_options = [
-		tuple(BuildOptions.debug_, ["-d-debug"]),
-		tuple(BuildOptions.release, ["-release"]),
+		tuple(BuildOptions.debugMode, ["-d-debug"]),
+		tuple(BuildOptions.releaseMode, ["-release"]),
 		//tuple(BuildOptions.coverage, ["-?"]),
 		tuple(BuildOptions.debugInfo, ["-g"]),
 		tuple(BuildOptions.debugInfoC, ["-gc"]),

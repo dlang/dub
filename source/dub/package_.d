@@ -216,14 +216,14 @@ class Package {
 			with(BuildOptions) switch (build_type) {
 				default: throw new Exception(format("Unknown build type for %s: '%s'", this.name, build_type));
 				case "plain": break;
-				case "debug": settings.addOptions(debug_, debugInfo); break;
-				case "release": settings.addOptions(release, optimize, inline); break;
-				case "unittest": settings.addOptions(unittests, debug_, debugInfo); break;
+				case "debug": settings.addOptions(debugMode, debugInfo); break;
+				case "release": settings.addOptions(releaseMode, optimize, inline); break;
+				case "unittest": settings.addOptions(unittests, debugMode, debugInfo); break;
 				case "docs": settings.addOptions(syntaxOnly); settings.addDFlags("-c", "-Dddocs"); break;
 				case "ddox": settings.addOptions(syntaxOnly); settings.addDFlags("-c", "-Df__dummy.html", "-Xfdocs.json"); break;
 				case "profile": settings.addOptions(profile, optimize, inline, debugInfo); break;
 				case "cov": settings.addOptions(coverage, debugInfo); break;
-				case "unittest-cov": settings.addOptions(unittests, coverage, debug_, debugInfo); break;
+				case "unittest-cov": settings.addOptions(unittests, coverage, debugMode, debugInfo); break;
 			}
 		}
 	}

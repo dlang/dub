@@ -57,7 +57,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 	}
 	static immutable SpecialFlag[] s_specialFlags = [
 		{["-c", "-o-"], "Automatically issued by DUB, do not specify in package.json"},
-		{[ "-w", "-Wall", "-Werr"], `Use "buildRequirements" to control warning behavior`},
+		{["-w", "-Wall", "-Werr"], `Use "buildRequirements" to control warning behavior`},
 		{["-property", "-fproperty"], "Using this flag may break building of dependencies and it will probably be removed from DMD in the future"},
 		{["-wi"], `Use the "buildRequirements" field to control warning behavior`},
 		{["-d", "-de", "-dw"], `Use the "buildRequirements" field to control deprecation behavior`},
@@ -169,7 +169,7 @@ interface Compiler {
 		if (settings.requirements & BuildRequirements.disallowInlining) settings.options &= BuildOptions.inline;
 		if (settings.requirements & BuildRequirements.disallowOptimization) settings.options &= ~BuildOptions.optimize;
 		if (settings.requirements & BuildRequirements.requireBoundsCheck) settings.options &= ~BuildOptions.noBoundsChecks;
-		if (settings.requirements & BuildRequirements.requireContracts) settings.options &= ~BuildOptions.release;
+		if (settings.requirements & BuildRequirements.requireContracts) settings.options &= ~BuildOptions.releaseMode;
 		if (settings.requirements & BuildRequirements.relaxProperties) settings.options &= ~BuildOptions.property;
 	}
 }
@@ -378,8 +378,8 @@ enum BuildRequirements {
 
 enum BuildOptions {
 	none = 0,                     /// Use compiler defaults
-	debug_ = 1<<0,                /// Compile in debug mode (enables contracts, -debug)
-	release = 1<<1,               /// Compile in release mode (disables assertions and bounds checks, -release)
+	debugMode = 1<<0,             /// Compile in debug mode (enables contracts, -debug)
+	releaseMode = 1<<1,           /// Compile in release mode (disables assertions and bounds checks, -release)
 	coverage = 1<<2,              /// Enable code coverage analysis (-cov)
 	debugInfo = 1<<3,             /// Enable symbolic debug information (-g)
 	debugInfoC = 1<<4,            /// Enable symbolic debug information in C compatible form (-gc)

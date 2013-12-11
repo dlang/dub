@@ -330,7 +330,7 @@ EndGlobal");
 				ret.formattedWrite("    <symdebug>%s</symdebug>\n", buildsettings.options & BuildOptions.debugInfo ? "1" : "0");
 				ret.formattedWrite("    <optimize>%s</optimize>\n", buildsettings.options & BuildOptions.optimize ? "1" : "0");
 				ret.formattedWrite("    <useInline>%s</useInline>\n", buildsettings.options & BuildOptions.inline ? "1" : "0");
-				ret.formattedWrite("    <release>%s</release>\n", buildsettings.options & BuildOptions.release ? "1" : "0");
+				ret.formattedWrite("    <release>%s</release>\n", buildsettings.options & BuildOptions.releaseMode ? "1" : "0");
 
 				// Lib or exe?
 				enum 

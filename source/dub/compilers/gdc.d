@@ -25,8 +25,8 @@ import std.typecons;
 
 class GdcCompiler : Compiler {
 	private static immutable s_options = [
-		tuple(BuildOptions.debug_, ["-fdebug"]),
-		tuple(BuildOptions.release, ["-frelease"]),
+		tuple(BuildOptions.debugMode, ["-fdebug"]),
+		tuple(BuildOptions.releaseMode, ["-frelease"]),
 		tuple(BuildOptions.coverage, ["-fprofile-arcs", "-ftest-coverage"]),
 		tuple(BuildOptions.debugInfo, ["-g"]),
 		tuple(BuildOptions.debugInfoC, ["-g", "-fdebug-c"]),

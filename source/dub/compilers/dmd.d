@@ -25,8 +25,8 @@ import std.typecons;
 
 class DmdCompiler : Compiler {
 	private static immutable s_options = [
-		tuple(BuildOptions.debug_, ["-debug"]),
-		tuple(BuildOptions.release, ["-release"]),
+		tuple(BuildOptions.debugMode, ["-debug"]),
+		tuple(BuildOptions.releaseMode, ["-release"]),
 		tuple(BuildOptions.coverage, ["-cov"]),
 		tuple(BuildOptions.debugInfo, ["-g"]),
 		tuple(BuildOptions.debugInfoC, ["-gc"]),
