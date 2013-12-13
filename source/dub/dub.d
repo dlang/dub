@@ -254,12 +254,9 @@ class Dub {
 			}
 
 			string[] import_modules;
-			if (lbuildsettings.mainSourceFile.length) {
-				import_modules ~= lbuildsettings.determineModuleName(Path(lbuildsettings.mainSourceFile), m_project.mainPackage.path);
-			} else {
-				foreach (file; lbuildsettings.sourceFiles){
+			foreach (file; lbuildsettings.sourceFiles) {
+				if (file.endsWith(".d"))
 					import_modules ~= lbuildsettings.determineModuleName(Path(file), m_project.mainPackage.path);
-				}
 			}
 
 			// generate main file
@@ -269,15 +266,18 @@ class Dub {
 			if (!m_dryRun) {
 				auto fil = openFile(mainfile, FileMode.CreateTrunc);
 				scope(exit) fil.close();
+				fil.write("module dub_test_root;\n");
+				fil.write("import std.typetuple;\n");
+				foreach (mod; import_modules) fil.write(format("static import %s;\n", mod));
+				fil.write("alias allModules = TypeTuple!(");
+				foreach (i, mod; import_modules) {
+					if (i > 0) fil.write(", ");
+					fil.write(mod);
+				}
+				fil.write(");\n");
 				if (custommodname.length) {
-					fil.write(format(q{
-						module dub_test_root;
-						import %s;
-					}, custommodname));
-					foreach (mod; import_modules) fil.write(format("import %s;\n", mod));
+					fil.write(format("import %s;\n", custommodname));
 				} else {
-					fil.write("module dub_test_root;\n");
-					foreach (mod; import_modules) fil.write(format("import %s;", mod));
 					fil.write(q{
 						import std.stdio;
 						import core.runtime;
@@ -285,10 +285,12 @@ class Dub {
 						void main() { writeln("All unit tests were successful."); }
 						shared static this() {
 							version (Have_tested) {
+								import tested;
 								import core.runtime;
+								import std.exception;
 								Runtime.moduleUnitTester = () => true;
 								//runUnitTests!app(new JsonTestResultWriter("results.json"));
-								enforce(runUnitTests!dub_test_root(new ConsoleTestResultWriter), "Unit tests failed.");
+								enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
 							}
 						}
 					});
