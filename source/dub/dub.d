@@ -73,6 +73,8 @@ class Dub {
 		} else version(Posix){
 			m_systemDubPath = Path("/var/lib/dub/");
 			m_userDubPath = Path(environment.get("HOME")) ~ ".dub/";
+			if(!m_userDubPath.absolute)
+				m_userDubPath = Path(getcwd()) ~ m_userDubPath;
 			m_tempPath = Path("/tmp");
 		}
 		
