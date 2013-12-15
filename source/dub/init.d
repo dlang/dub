@@ -43,7 +43,7 @@ void main()
 
 void initVibeDPackage(Path root_path)
 {
-	writePackageJson(root_path, "A simple vibe.d server application.", ["vibe-d": ">=0.7.17"]);
+	writePackageJson(root_path, "A simple vibe.d server application.", ["vibe-d": ">=0.7.17"], ["VibeDefaultMain"]);
 	createDirectory(root_path ~ "source");
 	createDirectory(root_path ~ "views");
 	createDirectory(root_path ~ "public");
@@ -67,8 +67,10 @@ void hello(HTTPServerRequest req, HTTPServerResponse res)
 });
 }
 
-void writePackageJson(Path root_path, string description, string[string] dependencies)
+void writePackageJson(Path root_path, string description, string[string] dependencies, string[] versions = null)
 {
+	import std.algorithm : map;
+
 	assert(!root_path.empty);
 
 	string username;
@@ -89,5 +91,7 @@ void writePackageJson(Path root_path, string description, string[string] depende
 		else fil.write(",");
 		fil.formattedWrite("\n\t\t\"%s\": \"%s\"", dep, ver);
 	}
-	fil.formattedWrite("\n\t}\n}\n");
+	fil.formattedWrite("\n\t}");
+	if (versions.length) fil.formattedWrite(",\n\t\"versions\": [%s]", versions.map!(v => `"`~v~`"`).join(", "));
+	fil.write("\n}\n");
 }
