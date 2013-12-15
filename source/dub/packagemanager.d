@@ -373,8 +373,30 @@ class PackageManager {
 		logInfo("Removed package: '"~pack.name~"'");
 	}
 
-	Package addLocalPackage(in Path path, in Version ver, LocalPackageType type)
+	Package addLocalPackage(in Path path, string verName, LocalPackageType type)
 	{
+		// if no version provided, find one through git
+		if (verName is null)
+		{
+			import std.stdio;
+			import std.process;
+			try {
+				auto branch = execute(["git", "--git-dir="~(path~".git").toNativeString(), "rev-parse", "--abbrev-ref", "HEAD"]);
+				enforce(branch.status == 0, "git rev-parse failed: " ~ branch.output);
+				if (branch.output.strip() == "HEAD") {
+					//auto ver = execute("git",)
+					enforce(false, "oops");
+				} else {
+					verName = "~" ~ branch.output.strip();
+				}
+			} catch (Exception e) {
+				logDebug("Failed to run git: %s", e.msg);
+			}
+
+			enforce(verName !is null, "Failed to determine version of package at " ~ path.toNativeString() ~ ".");
+		}
+
+		Version ver = Version(verName);
 		Package[]* packs = &m_repositories[type].localPackages;
 		auto info = jsonFromFile(path ~ PackageJsonFilename, false);
 		string name;

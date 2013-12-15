@@ -446,7 +446,7 @@ class Dub {
 	void addLocalPackage(string path, string ver, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.addLocalPackage(makeAbsolute(path), Version(ver), system ? LocalPackageType.system : LocalPackageType.user);
+		m_packageManager.addLocalPackage(makeAbsolute(path), ver, system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
 	void removeLocalPackage(string path, bool system)
