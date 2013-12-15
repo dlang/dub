@@ -107,6 +107,24 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 
 
 /**
+	Alters the build options to comply with the specified build requirements.
+*/
+void enforceBuildRequirements(ref BuildSettings settings)
+{
+	settings.addOptions(BuildOptions.warningsAsErrors);
+	if (settings.requirements & BuildRequirements.allowWarnings) { settings.options &= ~BuildOptions.warningsAsErrors; settings.options |= BuildOptions.warnings; }
+	if (settings.requirements & BuildRequirements.silenceWarnings) settings.options &= ~(BuildOptions.warningsAsErrors|BuildOptions.warnings);
+	if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.options &= ~(BuildOptions.ignoreDeprecations|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.deprecationErrors; }
+	if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.options &= ~(BuildOptions.deprecationErrors|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.ignoreDeprecations; }
+	if (settings.requirements & BuildRequirements.disallowInlining) settings.options &= BuildOptions.inline;
+	if (settings.requirements & BuildRequirements.disallowOptimization) settings.options &= ~BuildOptions.optimize;
+	if (settings.requirements & BuildRequirements.requireBoundsCheck) settings.options &= ~BuildOptions.noBoundsChecks;
+	if (settings.requirements & BuildRequirements.requireContracts) settings.options &= ~BuildOptions.releaseMode;
+	if (settings.requirements & BuildRequirements.relaxProperties) settings.options &= ~BuildOptions.property;
+}
+
+
+/**
 	Replaces each referenced import library by the appropriate linker flags.
 
 	This function tries to invoke "pkg-config" if possible and falls back to
@@ -158,20 +176,6 @@ interface Compiler {
 
 	/// Invokes the underlying linker directly
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects);
-
-	final protected void enforceBuildRequirements(ref BuildSettings settings)
-	{
-		settings.addOptions(BuildOptions.warningsAsErrors);
-		if (settings.requirements & BuildRequirements.allowWarnings) { settings.options &= ~BuildOptions.warningsAsErrors; settings.options |= BuildOptions.warnings; }
-		if (settings.requirements & BuildRequirements.silenceWarnings) settings.options &= ~(BuildOptions.warningsAsErrors|BuildOptions.warnings);
-		if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.options &= ~(BuildOptions.ignoreDeprecations|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.deprecationErrors; }
-		if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.options &= ~(BuildOptions.deprecationErrors|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.ignoreDeprecations; }
-		if (settings.requirements & BuildRequirements.disallowInlining) settings.options &= BuildOptions.inline;
-		if (settings.requirements & BuildRequirements.disallowOptimization) settings.options &= ~BuildOptions.optimize;
-		if (settings.requirements & BuildRequirements.requireBoundsCheck) settings.options &= ~BuildOptions.noBoundsChecks;
-		if (settings.requirements & BuildRequirements.requireContracts) settings.options &= ~BuildOptions.releaseMode;
-		if (settings.requirements & BuildRequirements.relaxProperties) settings.options &= ~BuildOptions.property;
-	}
 }
 
 

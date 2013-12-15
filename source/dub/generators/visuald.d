@@ -305,6 +305,7 @@ EndGlobal");
 			m_app.addBuildSettings(buildsettings, settings.platform, settings.config, pack);
 			m_app.addBuildTypeSettings(buildsettings, settings.platform, type);
 			settings.compiler.extractBuildOptions(buildsettings);
+			enforceBuildRequirements(buildsettings);
 			
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
 			string[] getPathSettings(string setting)()
