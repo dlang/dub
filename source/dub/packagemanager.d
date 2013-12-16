@@ -484,7 +484,6 @@ class PackageManager {
 							if( "name" in info && info.name.get!string() != name )
 								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, info.name.get!string());
 							info.name = name;
-							info["version"] = ver;
 
 							Package pp;
 							if (!refresh_existing_packages)
