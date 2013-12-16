@@ -839,15 +839,16 @@ class AddLocalCommand : RegistrationCommand {
 	this()
 	{
 		this.name = "add-local";
-		this.argumentsPattern = "<path> <version>";
+		this.argumentsPattern = "<path> [<version>]";
 		this.description = "Adds a local package directory (e.g. a git repository)";
 		this.helpText = ["Adds a local package directory (e.g. a git repository)"];
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		enforceUsage(free_args.length == 2, "Expecting two arguments.");
-		dub.addLocalPackage(free_args[0], free_args[1], m_system);
+		enforceUsage(free_args.length == 1 || free_args.length == 2, "Expecting one or two arguments.");
+		string ver = free_args.length == 2 ? free_args[1] : null;
+		dub.addLocalPackage(free_args[0], ver, m_system);
 		return 0;
 	}
 }

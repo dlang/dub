@@ -373,13 +373,18 @@ class PackageManager {
 		logInfo("Removed package: '"~pack.name~"'");
 	}
 
-	Package addLocalPackage(in Path path, in Version ver, LocalPackageType type)
+	Package addLocalPackage(in Path path, string verName, LocalPackageType type)
 	{
 		Package[]* packs = &m_repositories[type].localPackages;
 		auto info = jsonFromFile(path ~ PackageJsonFilename, false);
 		string name;
 		if( "name" !in info ) info["name"] = path.head.toString();
-		info["version"] = ver.toString();
+		if (verName !is null)
+			info["version"] = Version(verName).toString();
+
+		// load package
+		auto pack = new Package(info, path);
+		Version ver = pack.ver;
 
 		// don't double-add packages
 		foreach( p; *packs ){
@@ -389,8 +394,6 @@ class PackageManager {
 				return p;
 			}
 		}
-
-		auto pack = new Package(info, path);
 
 		*packs ~= pack;
 
@@ -481,7 +484,6 @@ class PackageManager {
 							if( "name" in info && info.name.get!string() != name )
 								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, info.name.get!string());
 							info.name = name;
-							info["version"] = ver;
 
 							Package pp;
 							if (!refresh_existing_packages)
