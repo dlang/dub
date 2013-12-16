@@ -379,8 +379,7 @@ class PackageManager {
 		auto info = jsonFromFile(path ~ PackageJsonFilename, false);
 		string name;
 		if( "name" !in info ) info["name"] = path.head.toString();
-		if (verName !is null)
-			info["version"] = Version(verName).toString();
+		if (verName.length) info["version"] = Version(verName).toString();
 
 		// load package
 		auto pack = new Package(info, path);
@@ -389,7 +388,7 @@ class PackageManager {
 		// don't double-add packages
 		foreach( p; *packs ){
 			if( p.path == path ){
-				enforce(p.ver == ver, "Adding local twice with different versions is not allowed.");
+				enforce(p.ver == ver, "Adding the same local package twice with differing versions is not allowed.");
 				logInfo("Package is already registered: %s (version: %s)", p.name, p.ver);
 				return p;
 			}
@@ -484,6 +483,7 @@ class PackageManager {
 							if( "name" in info && info.name.get!string() != name )
 								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, info.name.get!string());
 							info.name = name;
+							if (ver.length) info["version"] = ver;
 
 							Package pp;
 							if (!refresh_existing_packages)
