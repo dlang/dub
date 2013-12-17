@@ -101,7 +101,7 @@ struct Path {
 			version(Windows) {
 				assert(!absolute, "Empty absolute path detected.");
 				return m_endsWithSlash ? ".\\" : ".";
-			} else return absolute ? "/" : "./";
+			} else return absolute ? "/" : m_endsWithSlash ? "./" : ".";
 		}
 
 		Appender!string ret;
@@ -327,6 +327,21 @@ PathEntry[] splitPath(string path)
 	enforce(path.length - startidx > 0, "Empty path entries not allowed.");
 	assert(eidx == nelements);
 	return elements;
+}
+
+unittest
+{
+	Path p;
+	assert(p.toNativeString() == ".");
+	p.endsWithSlash = true;
+	version(Windows) assert(p.toNativeString() == ".\\");
+	else assert(p.toNativeString() == "./");
+
+	p = Path("test/");
+	version(Windows) assert(p.toNativeString() == "test\\");
+	else assert(p.toNativeString() == "test/");
+	p.endsWithSlash = false;
+	assert(p.toNativeString() == "test");
 }
 
 unittest
