@@ -33,7 +33,7 @@ class GdcCompiler : Compiler {
 		//tuple(BuildOptions.alwaysStackFrame, ["-X"]),
 		//tuple(BuildOptions.stackStomping, ["-X"]),
 		tuple(BuildOptions.inline, ["-finline-functions"]),
-		tuple(BuildOptions.noBoundsChecks, ["-fno-bounds-check"]),
+		tuple(BuildOptions.noBoundsCheck, ["-fno-bounds-check"]),
 		tuple(BuildOptions.optimize, ["-O3"]),
 		//tuple(BuildOptions.profile, ["-X"]),
 		tuple(BuildOptions.unittests, ["-funittest"]),

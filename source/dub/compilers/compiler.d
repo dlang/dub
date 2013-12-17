@@ -118,7 +118,7 @@ void enforceBuildRequirements(ref BuildSettings settings)
 	if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.options &= ~(BuildOptions.deprecationErrors|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.ignoreDeprecations; }
 	if (settings.requirements & BuildRequirements.disallowInlining) settings.options &= BuildOptions.inline;
 	if (settings.requirements & BuildRequirements.disallowOptimization) settings.options &= ~BuildOptions.optimize;
-	if (settings.requirements & BuildRequirements.requireBoundsCheck) settings.options &= ~BuildOptions.noBoundsChecks;
+	if (settings.requirements & BuildRequirements.requireBoundsCheck) settings.options &= ~BuildOptions.noBoundsCheck;
 	if (settings.requirements & BuildRequirements.requireContracts) settings.options &= ~BuildOptions.releaseMode;
 	if (settings.requirements & BuildRequirements.relaxProperties) settings.options &= ~BuildOptions.property;
 }
@@ -390,7 +390,7 @@ enum BuildOptions {
 	alwaysStackFrame = 1<<5,      /// Always generate a stack frame (-gs)
 	stackStomping = 1<<6,         /// Perform stack stomping (-gx)
 	inline = 1<<7,                /// Perform function inlining (-inline)
-	noBoundsChecks = 1<<8,        /// Disable all bounds checking (-noboundscheck)
+	noBoundsCheck = 1<<8,         /// Disable all bounds checking (-noboundscheck)
 	optimize = 1<<9,              /// Enable optimizations (-O)
 	profile = 1<<10,              /// Emit profiling code (-profile)
 	unittests = 1<<11,            /// Compile unit tests (-unittest)

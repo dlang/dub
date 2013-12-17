@@ -411,7 +411,7 @@ EndGlobal");
 				ret.put("    <useIn>0</useIn>\n");
 				ret.put("    <useOut>0</useOut>\n");
 				ret.put("    <useArrayBounds>0</useArrayBounds>\n");
-				ret.formattedWrite("    <noboundscheck>%s</noboundscheck>\n", buildsettings.options & BuildOptions.noBoundsChecks ? "1" : "0");
+				ret.formattedWrite("    <noboundscheck>%s</noboundscheck>\n", buildsettings.options & BuildOptions.noBoundsCheck ? "1" : "0");
 				ret.put("    <useSwitchError>0</useSwitchError>\n");
 				ret.put("    <preservePaths>1</preservePaths>\n");
 				ret.formattedWrite("    <warnings>%s</warnings>\n", buildsettings.options & BuildOptions.warningsAsErrors ? "1" : "0");

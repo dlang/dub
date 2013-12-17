@@ -33,7 +33,7 @@ class DmdCompiler : Compiler {
 		tuple(BuildOptions.alwaysStackFrame, ["-gs"]),
 		tuple(BuildOptions.stackStomping, ["-gx"]),
 		tuple(BuildOptions.inline, ["-inline"]),
-		tuple(BuildOptions.noBoundsChecks, ["-noboundscheck"]),
+		tuple(BuildOptions.noBoundsCheck, ["-noboundscheck"]),
 		tuple(BuildOptions.optimize, ["-O"]),
 		tuple(BuildOptions.profile, ["-profile"]),
 		tuple(BuildOptions.unittests, ["-unittest"]),
