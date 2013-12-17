@@ -100,7 +100,7 @@ struct Path {
 		if (m_nodes.empty) {
 			version(Windows) {
 				assert(!absolute, "Empty absolute path detected.");
-				return ".\\";
+				return m_endsWithSlash ? ".\\" : ".";
 			} else return absolute ? "/" : "./";
 		}
 
