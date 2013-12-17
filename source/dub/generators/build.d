@@ -60,6 +60,9 @@ class BuildGenerator : ProjectGenerator {
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
 
+		// convert plain DFLAGS to build options
+		settings.compiler.extractBuildOptions(buildsettings);
+
 		// perform the actual build
 		if (settings.rdmd) performRDMDBuild(settings, buildsettings);
 		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings);
