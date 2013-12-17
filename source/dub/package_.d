@@ -218,6 +218,7 @@ class Package {
 				case "plain": break;
 				case "debug": settings.addOptions(debugMode, debugInfo); break;
 				case "release": settings.addOptions(releaseMode, optimize, inline); break;
+				case "release-nobounds": settings.addOptions(releaseMode, optimize, inline, noBoundsCheck); break;
 				case "unittest": settings.addOptions(unittests, debugMode, debugInfo); break;
 				case "docs": settings.addOptions(syntaxOnly); settings.addDFlags("-c", "-Dddocs"); break;
 				case "ddox": settings.addOptions(syntaxOnly); settings.addDFlags("-c", "-Df__dummy.html", "-Xfdocs.json"); break;
