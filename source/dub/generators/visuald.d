@@ -32,7 +32,6 @@ import std.exception;
 
 class VisualDGenerator : ProjectGenerator {
 	private {
-		Project m_app;
 		PackageManager m_pkgMgr;
 		string[string] m_projectUuids;
 		bool m_combinedProject;
@@ -40,20 +39,24 @@ class VisualDGenerator : ProjectGenerator {
 	
 	this(Project app, PackageManager mgr, bool combined_project)
 	{
+		super(app);
 		m_combinedProject = combined_project;
-		m_app = app;
 		m_pkgMgr = mgr;
 	}
 	
-	void generateProject(GeneratorSettings settings)
+	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets) { assert(false); }
+
+	override void generate(GeneratorSettings settings)
 	{
+		if (settings.combined) m_combinedProject = true;
+		
 		auto buildsettings = settings.buildSettings;
-		m_app.addBuildSettings(buildsettings, settings.platform, settings.config);
+		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
 		
 		prepareGeneration(buildsettings);
 
-		logDebug("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
-		generateProjects(m_app.mainPackage(), settings);
+		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.mainPackage().name, m_project.mainPackage().dependencies().length);
+		generateProjects(m_project.mainPackage(), settings);
 		generateSolution(settings);
 		logInfo("VisualD project generated.");
 
@@ -64,16 +67,16 @@ class VisualDGenerator : ProjectGenerator {
 		void generateSolution(GeneratorSettings settings)
 		{
 			auto ret = appender!(char[])();
-			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
+			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
 			
 			// Solution header
 			ret.formattedWrite("
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010");
 
-			generateSolutionEntry(ret, m_app.mainPackage, settings);
+			generateSolutionEntry(ret, m_project.mainPackage, settings);
 			if (!m_combinedProject) {
-				performOnDependencies(m_app.mainPackage, configs, (pack){
+				performOnDependencies(m_project.mainPackage, configs, (pack){
 					generateSolutionEntry(ret, pack, settings);
 				});
 			}
@@ -88,7 +91,7 @@ Global
   EndGlobalSection
   GlobalSection(ProjectConfigurationPlatforms) = postSolution");
 			
-			generateSolutionConfig(ret, m_app.mainPackage());
+			generateSolutionConfig(ret, m_project.mainPackage());
 			
 			// TODO: for all dependencies
 			
@@ -122,11 +125,11 @@ EndGlobal");
 				void addDepsRec(in Package p)
 				{
 					foreach(id, dependency; p.dependencies) {
-						auto deppack = m_app.getDependency(id, true);
+						auto deppack = m_project.getDependency(id, true);
 						if (!deppack) continue;
 						if (isHeaderOnlyPackage(deppack, settings)) {
 							addDepsRec(deppack);
-						} else if (!m_app.isRedundantDependency(p, deppack)) {
+						} else if (!m_project.isRedundantDependency(p, deppack)) {
 							// TODO: clarify what "uuid = uuid" should mean
 							auto uuid = guid(id);
 							ret.formattedWrite("\n			%s = %s", uuid, uuid);
@@ -158,7 +161,7 @@ EndGlobal");
 		void generateProjects(const Package main, GeneratorSettings settings) {
 		
 			// TODO: cyclic check
-			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
+			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
 			
 			generateProj(main, settings);
 			
@@ -175,7 +178,7 @@ EndGlobal");
 
 		bool isHeaderOnlyPackage(in Package pack, in GeneratorSettings settings)
 		const {
-			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
+			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
 			auto pbuildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
 			if (!pbuildsettings.sourceFiles.any!(f => f.endsWith(".d"))())
 				return true;
@@ -188,7 +191,7 @@ EndGlobal");
 			auto ret = appender!(char[])();
 			
 			auto projName = pack.name;
-			auto project_file_dir = m_app.mainPackage.path ~ projFileName(pack).parentPath;
+			auto project_file_dir = m_project.mainPackage.path ~ projFileName(pack).parentPath;
 			ret.put("<DProject>\n");
 			ret.formattedWrite("  <ProjectGuid>%s</ProjectGuid>\n", guid(projName));
 	
@@ -198,7 +201,7 @@ EndGlobal");
 			generateProjectConfiguration(ret, pack, "unittest", settings);
 
 			// Add all files
-			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
+			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
 			auto files = pack.getBuildSettings(settings.platform, configs[pack.name]);
 			bool[SourceFile] sourceFiles;
 			void addSourceFile(Path file_path, Path structure_path, bool build)
@@ -298,12 +301,12 @@ EndGlobal");
 		
 		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, string type, GeneratorSettings settings)
 		{
-			auto project_file_dir = m_app.mainPackage.path ~ projFileName(pack).parentPath;
-			auto configs = m_app.getPackageConfigs(settings.platform, settings.config);
+			auto project_file_dir = m_project.mainPackage.path ~ projFileName(pack).parentPath;
+			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
 			auto buildsettings = settings.buildSettings;
 			auto pbuildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
-			m_app.addBuildSettings(buildsettings, settings.platform, settings.config, pack);
-			m_app.addBuildTypeSettings(buildsettings, settings.platform, type);
+			m_project.addBuildSettings(buildsettings, settings.platform, settings.config, pack);
+			m_project.addBuildTypeSettings(buildsettings, settings.platform, type);
 			settings.compiler.extractBuildOptions(buildsettings);
 			enforceBuildRequirements(buildsettings);
 			
@@ -359,7 +362,7 @@ EndGlobal");
 					output_ext = "dll";
 				}
 				string debugSuffix = type == "debug" ? "_d" : "";
-				auto bin_path = pack is m_app.mainPackage ? Path(pbuildsettings.targetPath) : Path(".dub/lib/");
+				auto bin_path = pack is m_project.mainPackage ? Path(pbuildsettings.targetPath) : Path(".dub/lib/");
 				bin_path.endsWithSlash = true;
 				ret.formattedWrite("    <lib>%s</lib>\n", output_type);
 				ret.formattedWrite("    <exefile>%s%s%s.%s</exefile>\n", bin_path.toNativeString(), pbuildsettings.targetName, debugSuffix, output_ext);
@@ -475,7 +478,7 @@ EndGlobal");
 		
 		void performOnDependencies(const Package main, string[string] configs, void delegate(const Package pack) op)
 		{
-			foreach (p; m_app.getTopologicalPackageList(false, main, configs)) {
+			foreach (p; m_project.getTopologicalPackageList(false, main, configs)) {
 				if (p is main) continue;
 				op(p);
 			}
@@ -492,8 +495,8 @@ EndGlobal");
 		}
 
 		auto solutionFileName() const {
-			version(DUBBING) return getPackageFileName(m_app.mainPackage()) ~ ".dubbed.sln";
-			else return getPackageFileName(m_app.mainPackage()) ~ ".sln";
+			version(DUBBING) return getPackageFileName(m_project.mainPackage()) ~ ".dubbed.sln";
+			else return getPackageFileName(m_project.mainPackage()) ~ ".sln";
 		}
 
 		Path projFileName(ref const Package pack) const {

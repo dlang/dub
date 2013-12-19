@@ -18,6 +18,7 @@ import dub.package_;
 import dub.packagemanager;
 import dub.project;
 
+import std.array;
 import std.exception;
 import std.file;
 import std.string;
@@ -26,9 +27,121 @@ import std.string;
 /**
 	Common interface for project generators/builders.
 */
-interface ProjectGenerator
+class ProjectGenerator
 {
-	void generateProject(GeneratorSettings settings);
+	struct TargetInfo {
+		Package pack;
+		string config;
+		BuildSettings buildSettings;
+		string[] dependencies;
+	}
+
+	protected {
+		Project m_project;
+	}
+
+	this(Project project)
+	{
+		m_project = project;
+	}
+
+	void generate(GeneratorSettings settings)
+	{
+		if (!settings.config.length) settings.config = m_project.getDefaultConfiguration(settings.platform);
+
+		TargetInfo[string] targets;
+		string[string] configs = m_project.getPackageConfigs(settings.platform, settings.config);
+
+		string[] mainfiles;
+		collect(settings, m_project.mainPackage, targets, configs, mainfiles);
+		downwardsInheritSettings(m_project.mainPackage.name, targets, targets[m_project.mainPackage.name].buildSettings);
+		auto bs = &targets[m_project.mainPackage.name].buildSettings;
+		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
+
+		generateTargets(settings, targets);
+	}
+
+	abstract void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets);
+
+	private BuildSettings collect(GeneratorSettings settings, Package pack, ref TargetInfo[string] targets, in string[string] configs, ref string[] main_files)
+	{
+		if (auto pt = pack.name in targets) return pt.buildSettings;
+
+		// determine the actual target type
+		auto shallowbs = pack.getBuildSettings(settings.platform, configs[pack.name]);
+		logInfo("TT %s: %s", pack.name, shallowbs.targetType);
+		TargetType tt = shallowbs.targetType;
+		if (pack is m_project.mainPackage) {
+			if (tt == TargetType.autodetect || tt == TargetType.library) tt = TargetType.staticLibrary;
+		} else {
+			if (tt == TargetType.autodetect || tt == TargetType.library) tt = settings.combined ? TargetType.sourceLibrary : TargetType.staticLibrary;
+			else if (tt == TargetType.dynamicLibrary) {
+				logWarn("Dynamic libraries are not yet supported as dependencies - building as static library.");
+				tt = TargetType.staticLibrary;
+			}
+		}
+		shallowbs.targetType = tt;
+		bool generates_binary = tt != TargetType.sourceLibrary && tt != TargetType.none;
+
+		// start to build up the build settings
+		BuildSettings buildsettings;
+		processVars(buildsettings, pack.path.toNativeString(), shallowbs, true);
+		buildsettings.addVersions("Have_" ~ stripDlangSpecialChars(pack.name));
+
+		// remove any mainSourceFile from library builds
+		if (buildsettings.targetType != TargetType.executable && buildsettings.mainSourceFile.length) {
+			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => f != buildsettings.mainSourceFile)().array;
+			main_files ~= buildsettings.mainSourceFile;
+		}
+
+		logInfo("Generate target %s (%s %s %s)", pack.name, buildsettings.targetType, buildsettings.targetPath, buildsettings.targetName);
+		if (generates_binary)
+			targets[pack.name] = TargetInfo(pack, configs[pack.name], buildsettings, null);
+
+		foreach (depname, depspec; pack.dependencies) {
+			if (!pack.hasDependency(depname, configs[pack.name])) continue;
+			auto dep = m_project.getDependency(depname, depspec.optional);
+			if (!dep) continue;
+
+			auto depbs = collect(settings, dep, targets, configs, main_files);
+
+			if (depbs.targetType != TargetType.sourceLibrary)
+				depbs.sourceFiles = depbs.sourceFiles.filter!(f => f.isLinkerFile()).array;
+
+			buildsettings.add(depbs);
+
+			if (depname in targets)
+				targets[pack.name].dependencies ~= dep.name;
+		}
+
+		if (generates_binary) {
+			// add a reference to the target binary
+			auto target = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
+			if (!target.absolute) target = pack.path ~ target;
+			buildsettings.prependSourceFiles(target.toNativeString());
+
+			// add build type settings and convert plain DFLAGS to build options
+			m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
+			settings.compiler.extractBuildOptions(buildsettings);
+			targets[pack.name].buildSettings = buildsettings;
+
+			logInfo("TARGET %s %s", buildsettings.targetPath, buildsettings.targetName);
+		}
+
+		return buildsettings;
+	}
+
+	private void downwardsInheritSettings(string target, TargetInfo[string] targets, in BuildSettings root_settings)
+	{
+		auto ti = &targets[target];
+		ti.buildSettings.addVersions(root_settings.versions);
+		ti.buildSettings.addDebugVersions(root_settings.debugVersions);
+		ti.buildSettings.addOptions(root_settings.options);
+		ti.buildSettings.prependStringImportPaths(root_settings.stringImportPaths);
+
+		foreach (d; ti.dependencies)
+			downwardsInheritSettings(d, targets, root_settings);
+	}
 }
 
 
@@ -38,6 +151,8 @@ struct GeneratorSettings {
 	string config;
 	string buildType;
 	BuildSettings buildSettings;
+
+	bool combined; // compile all in one go instead of each dependency separately
 
 	// only used for generator "build"
 	bool run, force, direct, clean, rdmd;

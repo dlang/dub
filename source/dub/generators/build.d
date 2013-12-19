@@ -35,24 +35,45 @@ class BuildGenerator : ProjectGenerator {
 
 	this(Project app, PackageManager mgr)
 	{
+		super(app);
 		m_project = app;
 		m_packageMan = mgr;
 	}
 
-	void generateProject(GeneratorSettings settings)
+	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
-		scope(exit) cleanupTemporaries();
+		scope (exit) cleanupTemporaries();
 
+		bool[string] visited;
+		void buildTargetRec(string target)
+		{
+			if (target in visited) return;
+			visited[target] = true;
+
+			auto ti = targets[target];
+
+			foreach (dep; ti.dependencies)
+				buildTargetRec(dep);
+
+			auto bs = ti.buildSettings.dup;
+			buildTarget(settings, bs, ti.pack, ti.config);
+		}
+
+		// build all targets
+		buildTargetRec(m_project.mainPackage.name);
+
+		// run the generated executable
+		auto buildsettings = targets[m_project.mainPackage.name].buildSettings;
+		if (settings.run && !(buildsettings.options & BuildOptions.syntaxOnly)) {
+			auto exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
+			runTarget(exe_file_path, buildsettings, settings.runArgs);
+		}
+	}
+
+	private void buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config)
+	{
 		auto cwd = Path(getcwd());
-		if (!settings.config.length) settings.config = m_project.getDefaultConfiguration(settings.platform);
-
-		auto buildsettings = settings.buildSettings;
-		m_project.addBuildSettings(buildsettings, settings.platform, settings.config, null, settings.buildType == "ddox");
-		m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 		bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
-		// determine the absolute target path
-		if (!Path(buildsettings.targetPath).absolute)
-			buildsettings.targetPath = (m_project.mainPackage.path ~ Path(buildsettings.targetPath)).toNativeString();
 
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { auto p = Path(path); if (p.absolute) p = p.relativeTo(cwd); return p.toNativeString(); }
@@ -60,42 +81,33 @@ class BuildGenerator : ProjectGenerator {
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
 
-		// convert plain DFLAGS to build options
-		settings.compiler.extractBuildOptions(buildsettings);
-
 		// perform the actual build
-		if (settings.rdmd) performRDMDBuild(settings, buildsettings);
-		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings);
-		else performCachedBuild(settings, buildsettings);
+		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config);
+		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config);
+		else performCachedBuild(settings, buildsettings, pack, config);
 
 		// run post-build commands
 		if (buildsettings.postBuildCommands.length) {
 			logInfo("Running post-build commands...");
 			runBuildCommands(buildsettings.postBuildCommands, buildsettings);
 		}
-
-		// run the generated executable
-		if (generate_binary && settings.run) {
-			auto exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
-			runTarget(exe_file_path, buildsettings, settings.runArgs);
-		}
 	}
 
-	void performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings)
+	void performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config)
 	{
 		auto cwd = Path(getcwd());
-		auto build_id = computeBuildID(settings);
-		auto target_path = m_project.mainPackage.path ~ format(".dub/build/%s/", build_id);
+		auto build_id = computeBuildID(config, buildsettings, settings);
+		auto target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform)) {
-			logInfo("Target is up to date. Using existing build in .dub/build/%s/. Use --force to force a rebuild.", build_id);
+			logInfo("Target is up to date. Using existing build in %s. Use --force to force a rebuild.", target_path.toNativeString());
 			copyTargetFile(target_path, buildsettings, settings.platform);
 			return;
 		}
 
 		if (!isWritableDir(target_path, true)) {
 			logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
-			performDirectBuild(settings, buildsettings);
+			performDirectBuild(settings, buildsettings, pack, config);
 			return;
 		}
 
@@ -106,7 +118,7 @@ class BuildGenerator : ProjectGenerator {
 		prepareGeneration(buildsettings);
 		finalizeGeneration(buildsettings, generate_binary);
 
-		logInfo("Building configuration \""~settings.config~"\", build type "~settings.buildType);
+		logInfo("Building %s configuration \"%s\", build type %s.", pack.name, config, settings.buildType);
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
@@ -121,12 +133,12 @@ class BuildGenerator : ProjectGenerator {
 		copyTargetFile(target_path, buildsettings, settings.platform);
 	}
 
-	void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings)
+	void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config)
 	{
 		auto cwd = Path(getcwd());
 		//Added check for existance of [AppNameInPackagejson].d
 		//If exists, use that as the starting file.
-		auto mainsrc = buildsettings.mainSourceFile.length ? m_project.mainPackage.path ~ buildsettings.mainSourceFile : getMainSourceFile(m_project);
+		auto mainsrc = buildsettings.mainSourceFile.length ? pack.path ~ buildsettings.mainSourceFile : getMainSourceFile(pack);
 
 		// do not pass all source files to RDMD, only the main source file
 		buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(s => !s.endsWith(".d"))().array();
@@ -168,7 +180,7 @@ class BuildGenerator : ProjectGenerator {
 			runCommands(buildsettings.preBuildCommands);
 		}
 
-		logInfo("Building configuration "~settings.config~", build type "~settings.buildType);
+		logInfo("Building configuration "~config~", build type "~settings.buildType);
 
 		logInfo("Running rdmd...");
 		logDiagnostic("rdmd %s", join(flags, " "));
@@ -183,7 +195,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings)
+	void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config)
 	{
 		auto cwd = Path(getcwd());
 
@@ -197,7 +209,7 @@ class BuildGenerator : ProjectGenerator {
 			f = fp.toNativeString();
 		}
 
-		logInfo("Building configuration \""~settings.config~"\", build type "~settings.buildType);
+		logInfo("Building configuration \""~config~"\", build type "~settings.buildType);
 
 		prepareGeneration(buildsettings);
 
@@ -237,7 +249,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private string computeBuildID(GeneratorSettings settings)
+	private string computeBuildID(string config, in BuildSettings buildsettings, GeneratorSettings settings)
 	{
 		import std.digest.digest;
 		import std.digest.sha;
@@ -246,7 +258,7 @@ class BuildGenerator : ProjectGenerator {
 		// ...
 		auto hashstr = hash.finish().toHexString().idup;
 
-		return format("%s-%s-%s-%s-%s", settings.config, settings.buildType,
+		return format("%s-%s-%s-%s-%s", config, settings.buildType,
 			settings.platform.architecture.join("."),
 			settings.platform.compilerBinary, hashstr);
 	}
@@ -264,22 +276,28 @@ class BuildGenerator : ProjectGenerator {
 		import std.datetime;
 
 		auto targetfile = target_path ~ getTargetFileName(buildsettings, platform);
-		if (!existsFile(targetfile)) return false;
+		if (!existsFile(targetfile)) {
+			logDiagnostic("Target '%s' doesn't exist, need rebuild.", targetfile.toNativeString());
+			return false;
+		}
 		auto targettime = getFileInfo(targetfile).timeModified;
 
 		auto allfiles = appender!(string[]);
 		allfiles ~= buildsettings.sourceFiles;
 		allfiles ~= buildsettings.importFiles;
 		allfiles ~= buildsettings.stringImportFiles;
-		foreach (p; m_project.getTopologicalPackageList())
-			allfiles ~= p.packageInfoFile.toNativeString();
+		// TODO: add library files
+		/*foreach (p; m_project.getTopologicalPackageList())
+			allfiles ~= p.packageInfoFile.toNativeString();*/
 
 		foreach (file; allfiles.data) {
 			auto ftime = getFileInfo(file).timeModified;
 			if (ftime > Clock.currTime)
 				logWarn("File '%s' was modified in the future. Please re-save.", file);
-			if (ftime > targettime)
+			if (ftime > targettime) {
+				logDiagnostic("File '%s' modified, need rebuild.", file);
 				return false;
+			}
 		}
 		return true;
 	}
@@ -291,6 +309,7 @@ class BuildGenerator : ProjectGenerator {
 
 		Path target_file;
 		scope (failure) {
+			logInfo("FAIL %s %s %s" , buildsettings.targetPath, buildsettings.targetName, buildsettings.targetType);
 			auto tpath = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 			if (generate_binary && existsFile(tpath))
 				removeFile(tpath);
@@ -337,7 +356,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	void runTarget(Path exe_file_path, BuildSettings buildsettings, string[] run_args)
+	void runTarget(Path exe_file_path, in BuildSettings buildsettings, string[] run_args)
 	{
 		if (buildsettings.targetType == TargetType.executable) {
 			auto cwd = Path(getcwd());
@@ -377,28 +396,12 @@ class BuildGenerator : ProjectGenerator {
 	}
 }
 
-private Path getMainSourceFile(in Project prj)
+private Path getMainSourceFile(in Package prj)
 {
 	foreach (f; ["source/app.d", "src/app.d", "source/"~prj.name~".d", "src/"~prj.name~".d"])
-		if (existsFile(prj.mainPackage.path ~ f))
-			return prj.mainPackage.path ~ f;
-	return prj.mainPackage.path ~ "source/app.d";
-}
-
-private bool isLinkerFile(string f)
-{
-	import std.path;
-	switch (extension(f)) {
-		default:
-			return false;
-		version (Windows) {
-			case ".lib", ".obj", ".res":
-				return true;
-		} else {
-			case ".a", ".o", ".so", ".dylib":
-				return true;
-		}
-	}
+		if (existsFile(prj.path ~ f))
+			return prj.path ~ f;
+	return prj.path ~ "source/app.d";
 }
 
 unittest {

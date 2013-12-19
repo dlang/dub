@@ -195,7 +195,7 @@ class Dub {
 	void generateProject(string ide, GeneratorSettings settings) {
 		auto generator = createProjectGenerator(ide, m_project, m_packageManager);
 		if (m_dryRun) return; // TODO: pass m_dryRun to the generator
-		generator.generateProject(settings);
+		generator.generate(settings);
 	}
 
 	void testProject(BuildSettings build_settings, BuildPlatform platform, string config, Path custom_main_file, string[] run_args)
@@ -304,7 +304,7 @@ class Dub {
 			settings.config = test_config;
 		}
 
-		generator.generateProject(settings);
+		generator.generate(settings);
 	}
 
 	/// Outputs a JSON description of the project, including its dependencies.

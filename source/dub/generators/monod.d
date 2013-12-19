@@ -28,7 +28,6 @@ import std.exception;
 
 class MonoDGenerator : ProjectGenerator {
 	private {
-		Project m_app;
 		PackageManager m_pkgMgr;
 		string[string] m_projectUuids;
 		bool m_singleProject = true;
@@ -37,22 +36,24 @@ class MonoDGenerator : ProjectGenerator {
 	
 	this(Project app, PackageManager mgr)
 	{
-		m_app = app;
+		super(app);
 		m_pkgMgr = mgr;
 		m_allConfigs ~= Config("Debug", "AnyCPU", "Any CPU");
 	}
+
+	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets) { assert(false); }
 	
-	void generateProject(GeneratorSettings settings)
+	override void generate(GeneratorSettings settings)
 	{
 		logWarn("Note that the latest Mono-D has direct support for building DUB projects. It is recommended to directly open package.json instead of generating a Mono-D project.");
 
 		auto buildsettings = settings.buildSettings;
-		m_app.addBuildSettings(buildsettings, settings.platform, settings.config);
+		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
 
 		prepareGeneration(buildsettings);
 
-		logDebug("About to generate projects for %s, with %s direct dependencies.", m_app.mainPackage().name, m_app.mainPackage().dependencies().length);
-		generateProjects(m_app.mainPackage(), settings);
+		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.mainPackage().name, m_project.mainPackage().dependencies().length);
+		generateProjects(m_project.mainPackage(), settings);
 		generateSolution(settings);
 
 		finalizeGeneration(buildsettings, true);
@@ -60,7 +61,7 @@ class MonoDGenerator : ProjectGenerator {
 	
 	private void generateSolution(GeneratorSettings settings)
 	{
-		auto sln = openFile(m_app.mainPackage().name ~ ".sln", FileMode.CreateTrunc);
+		auto sln = openFile(m_project.mainPackage().name ~ ".sln", FileMode.CreateTrunc);
 		scope(exit) sln.close();
 
 		// Writing solution file
@@ -71,9 +72,9 @@ class MonoDGenerator : ProjectGenerator {
 		sln.put("Microsoft Visual Studio Solution File, Format Version 11.00\n");
 		sln.put("# Visual Studio 2010\n");
 
-		generateSolutionEntry(sln, settings, m_app.mainPackage);
+		generateSolutionEntry(sln, settings, m_project.mainPackage);
 		if( !m_singleProject )
-			performOnDependencies(m_app.mainPackage, pack => generateSolutionEntry(sln, settings, pack));
+			performOnDependencies(m_project.mainPackage, pack => generateSolutionEntry(sln, settings, pack));
 		
 		sln.put("Global\n");
 
@@ -86,7 +87,7 @@ class MonoDGenerator : ProjectGenerator {
 
 		// configuration platforms per project
 		sln.put("\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n");
-		auto projectUuid = guid(m_app.mainPackage.name);
+		auto projectUuid = guid(m_project.mainPackage.name);
 		foreach(config; m_allConfigs)
 			foreach(s; ["ActiveCfg", "Build.0"])
 				sln.formattedWrite("\t\t%s.%s|%s.%s = %s|%s\n",
@@ -164,7 +165,7 @@ class MonoDGenerator : ProjectGenerator {
 		auto projName = pack.name;
 
 		auto buildsettings = settings.buildSettings;
-		m_app.addBuildSettings(buildsettings, settings.platform, m_app.getDefaultConfiguration(settings.platform));
+		m_project.addBuildSettings(buildsettings, settings.platform, m_project.getDefaultConfiguration(settings.platform));
 
 		// Mono-D does not have a setting for string import paths
 	    settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.all & ~BuildSetting.stringImportPaths);
@@ -260,7 +261,7 @@ class MonoDGenerator : ProjectGenerator {
 		}
 		// TODO: add all files in stringImportFolders
 		// add package.json files
-		foreach (p; m_app.getTopologicalPackageList())
+		foreach (p; m_project.getTopologicalPackageList())
 			generateSourceEntry(p.packageInfoFile, pack.path, false);
 		sln.put("  </ItemGroup>\n");
 		sln.put("</Project>");

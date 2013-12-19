@@ -754,7 +754,7 @@ enum PlacementLocation {
 	systemWide
 }
 
-private void processVars(ref BuildSettings dst, string project_path, BuildSettings settings)
+package void processVars(ref BuildSettings dst, string project_path, BuildSettings settings, bool include_target_settings = false)
 {
 	dst.addDFlags(processVars(project_path, settings.dflags));
 	dst.addLFlags(processVars(project_path, settings.lflags));
@@ -773,6 +773,15 @@ private void processVars(ref BuildSettings dst, string project_path, BuildSettin
 	dst.addPostBuildCommands(processVars(project_path, settings.postBuildCommands));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
+
+	if (include_target_settings) {
+		dst.targetType = settings.targetType;
+		dst.targetPath = processVars(settings.targetPath, project_path, true);
+		dst.targetName = settings.targetName;
+		dst.workingDirectory = processVars(settings.workingDirectory, project_path, true);
+		if (settings.mainSourceFile.length)
+			dst.mainSourceFile = processVars(settings.mainSourceFile, project_path, true);
+	}
 }
 
 private string[] processVars(string project_path, string[] vars, bool are_paths = false)
@@ -831,7 +840,7 @@ private bool isIdentChar(dchar ch)
 	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
 }
 
-private string stripDlangSpecialChars(string s) 
+package string stripDlangSpecialChars(string s) 
 {
 	import std.array;
 	import std.uni;

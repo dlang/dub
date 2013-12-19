@@ -393,6 +393,7 @@ class GenerateCommand : PackageBuildCommand {
 		bool m_rdmd = false;
 		bool m_run = false;
 		bool m_force = false;
+		bool m_combined = false;
 		bool m_print_platform, m_print_builds, m_print_configs;
 	}
 
@@ -415,6 +416,10 @@ class GenerateCommand : PackageBuildCommand {
 	override void prepare(scope CommandArgs args)
 	{
 		super.prepare(args);
+
+		args.getopt("combined", &m_combined, [
+			"Tries to build the whole project in a single compiler run."
+		]);
 
 		args.getopt("print-builds", &m_print_builds, [
 			"Prints the list of available build types"
@@ -466,6 +471,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.buildType = m_build_type;
 		gensettings.compiler = m_compiler;
 		gensettings.buildSettings = m_buildSettings;
+		gensettings.combined = m_combined;
 		gensettings.run = m_run;
 		gensettings.runArgs = app_args;
 		gensettings.force = m_force;

@@ -178,7 +178,6 @@ interface Compiler {
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects);
 }
 
-
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
 struct BuildSettings {
@@ -205,17 +204,53 @@ struct BuildSettings {
 	BuildRequirements requirements;
 	BuildOptions options;
 
+	BuildSettings dup()
+	const {
+		BuildSettings ret;
+		foreach (m; __traits(allMembers, BuildSettings)) {
+			static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m).dup)))
+				__traits(getMember, ret, m) = __traits(getMember, this, m).dup;
+			else static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m))))
+				__traits(getMember, ret, m) = __traits(getMember, this, m);
+		}
+		assert(ret.targetType == targetType);
+		assert(ret.targetName == targetName);
+		assert(ret.importPaths == importPaths);
+		return ret;
+	}
+
+	void add(in BuildSettings bs)
+	{
+		addDFlags(bs.dflags);
+		addLFlags(bs.lflags);
+		addLibs(bs.libs);
+		addSourceFiles(bs.sourceFiles);
+		addCopyFiles(bs.copyFiles);
+		addVersions(bs.versions);
+		addDebugVersions(bs.debugVersions);
+		addImportPaths(bs.importPaths);
+		addStringImportPaths(bs.stringImportPaths);
+		addImportFiles(bs.importFiles);
+		addStringImportFiles(bs.stringImportFiles);
+		addPreGenerateCommands(bs.preGenerateCommands);
+		addPostGenerateCommands(bs.postGenerateCommands);
+		addPreBuildCommands(bs.preBuildCommands);
+		addPostBuildCommands(bs.postBuildCommands);
+	}
+
 	void addDFlags(in string[] value...) { dflags ~= value; }
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { lflags ~= value; }
 	void addLibs(in string[] value...) { add(libs, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
+	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
 	void addVersions(in string[] value...) { add(versions, value); }
 	void addDebugVersions(in string[] value...) { add(debugVersions, value); }
 	void addImportPaths(in string[] value...) { add(importPaths, value); }
 	void addStringImportPaths(in string[] value...) { add(stringImportPaths, value); }
+	void prependStringImportPaths(in string[] value...) { prepend(stringImportPaths, value); }
 	void addImportFiles(in string[] value...) { add(importFiles, value); }
 	void removeImportFiles(in string[] value...) { removePaths(importFiles, value); }
 	void addStringImportFiles(in string[] value...) { add(stringImportFiles, value); }
@@ -243,6 +278,24 @@ struct BuildSettings {
 					break;
 				}
 			if (!found) arr ~= v;
+		}
+	}
+
+	private void prepend(ref string[] arr, in string[] vals, bool no_duplicates = true)
+	{
+		if (!no_duplicates) {
+			arr = vals ~ arr;
+			return;
+		}
+
+		foreach_reverse (v; vals) {
+			bool found = false;
+			foreach (i; 0 .. arr.length)
+				if (arr[i] == v) {
+					found = true;
+					break;
+				}
+			if (!found) arr = v ~ arr;
 		}
 	}
 
@@ -429,6 +482,21 @@ string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 } 
 
 
+bool isLinkerFile(string f)
+{
+	import std.path;
+	switch (extension(f)) {
+		default:
+			return false;
+		version (Windows) {
+			case ".lib", ".obj", ".res":
+				return true;
+		} else {
+			case ".a", ".o", ".so", ".dylib":
+				return true;
+		}
+	}
+}
 
 private {
 	Compiler[] s_compilers;
