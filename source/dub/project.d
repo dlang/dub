@@ -754,7 +754,7 @@ enum PlacementLocation {
 	systemWide
 }
 
-package void processVars(ref BuildSettings dst, string project_path, BuildSettings settings, bool include_target_settings = false)
+void processVars(ref BuildSettings dst, string project_path, BuildSettings settings, bool include_target_settings = false)
 {
 	dst.addDFlags(processVars(project_path, settings.dflags));
 	dst.addLFlags(processVars(project_path, settings.lflags));
@@ -840,7 +840,7 @@ private bool isIdentChar(dchar ch)
 	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
 }
 
-package string stripDlangSpecialChars(string s) 
+string stripDlangSpecialChars(string s) 
 {
 	import std.array;
 	import std.uni;
