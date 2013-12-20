@@ -103,27 +103,23 @@ class ProjectGenerator
 			auto dep = m_project.getDependency(depname, depspec.optional);
 			if (!dep) continue;
 
-			auto depbs = collect(settings, dep, targets, configs, main_files);
-
-			if (depbs.targetType != TargetType.sourceLibrary)
-				depbs.sourceFiles = depbs.sourceFiles.filter!(f => f.isLinkerFile()).array;
-
-			buildsettings.add(depbs);
+			buildsettings.add(collect(settings, dep, targets, configs, main_files));
 
 			if (depname in targets)
 				targets[pack.name].dependencies ~= dep.name;
 		}
 
 		if (generates_binary) {
-			// add a reference to the target binary
-			auto target = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
-			if (!target.absolute) target = pack.path ~ target;
-			buildsettings.prependSourceFiles(target.toNativeString());
-
 			// add build type settings and convert plain DFLAGS to build options
 			m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 			settings.compiler.extractBuildOptions(buildsettings);
-			targets[pack.name].buildSettings = buildsettings;
+			targets[pack.name].buildSettings = buildsettings.dup;
+
+			// add a reference to the target binary and remove all source files in the dependency build settings
+			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => f.isLinkerFile()).array;
+			auto target = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
+			if (!target.absolute) target = pack.path ~ target;
+			buildsettings.prependSourceFiles(target.toNativeString());
 
 			logInfo("TARGET %s %s", buildsettings.targetPath, buildsettings.targetName);
 		}
