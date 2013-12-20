@@ -75,6 +75,8 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = Path(getcwd());
 		bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
 
+		auto build_id = computeBuildID(config, buildsettings, settings);
+
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { auto p = Path(path); if (p.absolute) p = p.relativeTo(cwd); return p.toNativeString(); }
 		foreach (ref f; buildsettings.sourceFiles) f = makeRelative(f);
@@ -84,7 +86,7 @@ class BuildGenerator : ProjectGenerator {
 		// perform the actual build
 		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config);
 		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config);
-		else performCachedBuild(settings, buildsettings, pack, config);
+		else performCachedBuild(settings, buildsettings, pack, config, build_id);
 
 		// run post-build commands
 		if (buildsettings.postBuildCommands.length) {
@@ -93,10 +95,9 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	void performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config)
+	void performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id)
 	{
 		auto cwd = Path(getcwd());
-		auto build_id = computeBuildID(config, buildsettings, settings);
 		auto target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform)) {
@@ -252,10 +253,21 @@ class BuildGenerator : ProjectGenerator {
 	private string computeBuildID(string config, in BuildSettings buildsettings, GeneratorSettings settings)
 	{
 		import std.digest.digest;
-		import std.digest.sha;
-		SHA1 hash;
+		import std.digest.md;
+		MD5 hash;
 		hash.start();
-		// ...
+		void addHash(in string[] strings...) { foreach (s; strings) { hash.put(cast(ubyte[])s); hash.put(0); } hash.put(0); }
+		addHash(buildsettings.versions);
+		addHash(buildsettings.debugVersions);
+		//addHash(buildsettings.versionLevel);
+		//addHash(buildsettings.debugLevel);
+		addHash(buildsettings.dflags);
+		addHash(buildsettings.lflags);
+		addHash((cast(uint)buildsettings.options).to!string);
+		addHash(buildsettings.stringImportPaths);
+		addHash(settings.platform.architecture);
+		addHash(settings.platform.compiler);
+		//addHash(settings.platform.frontendVersion);
 		auto hashstr = hash.finish().toHexString().idup;
 
 		return format("%s-%s-%s-%s-%s", config, settings.buildType,
