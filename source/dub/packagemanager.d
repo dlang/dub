@@ -326,8 +326,8 @@ class PackageManager {
 		// delete package files physically
 		logDebug("Looking up journal");
 		auto journalFile = pack.path~JournalJsonFilename;
-		if( !existsFile(journalFile) )
-			throw new Exception("Removal failed, no retrieval journal found for '"~pack.name~"'. Please remove manually.");
+		if (!existsFile(journalFile))
+			throw new Exception("Removal failed, no retrieval journal found for '"~pack.name~"'. Please remove the folder '%s' manually.", pack.path.toNativeString());
 
 		auto packagePath = pack.path;
 		auto journal = new Journal(journalFile);
