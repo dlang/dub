@@ -9,7 +9,6 @@ module dub.generators.generator;
 
 import dub.compilers.compiler;
 import dub.generators.build;
-import dub.generators.monod;
 import dub.generators.visuald;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
@@ -103,7 +102,17 @@ class ProjectGenerator
 			auto dep = m_project.getDependency(depname, depspec.optional);
 			if (!dep) continue;
 
-			buildsettings.add(collect(settings, dep, targets, configs, main_files));
+			auto depbs = collect(settings, dep, targets, configs, main_files);
+
+			if (depbs.targetType != TargetType.sourceLibrary && depbs.targetType != TargetType.none) {
+				// add a reference to the target binary and remove all source files in the dependency build settings
+				depbs.sourceFiles = depbs.sourceFiles.filter!(f => f.isLinkerFile()).array;
+				auto target = Path(depbs.targetPath) ~ getTargetFileName(depbs, settings.platform);
+				if (!target.absolute) target = pack.path ~ target;
+				depbs.prependSourceFiles(target.toNativeString());
+			}
+
+			buildsettings.add(depbs);
 
 			if (depname in targets)
 				targets[pack.name].dependencies ~= dep.name;
@@ -114,12 +123,6 @@ class ProjectGenerator
 			m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 			settings.compiler.extractBuildOptions(buildsettings);
 			targets[pack.name].buildSettings = buildsettings.dup;
-
-			// add a reference to the target binary and remove all source files in the dependency build settings
-			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => f.isLinkerFile()).array;
-			auto target = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
-			if (!target.absolute) target = pack.path ~ target;
-			buildsettings.prependSourceFiles(target.toNativeString());
 
 			logInfo("TARGET %s %s", buildsettings.targetPath, buildsettings.targetName);
 		}
@@ -171,8 +174,7 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 			logDebug("Creating build generator.");
 			return new BuildGenerator(app, mgr);
 		case "mono-d":
-			logDebug("Creating MonoD generator.");
-			return new MonoDGenerator(app, mgr);
+			throw new Exception("The Mono-D generator has been removed. Use Mono-D's built in DUB support instead.");
 		case "visuald":
 			logDebug("Creating VisualD generator.");
 			return new VisualDGenerator(app, mgr, false);
