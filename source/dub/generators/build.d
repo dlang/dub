@@ -337,6 +337,9 @@ class BuildGenerator : ProjectGenerator {
 			if (generate_binary) settings.compiler.setTarget(buildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
+			// don't include symbols of dependencies (will be included by the top level target)
+			if (is_static_library) buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !f.isLinkerFile()).array;
+
 			// invoke the compiler
 			logInfo("Running %s...", settings.platform.compilerBinary);
 			settings.compiler.invoke(buildsettings, settings.platform);
