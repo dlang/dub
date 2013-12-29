@@ -177,7 +177,11 @@ class DmdCompiler : Compiler {
 	{
 		import std.string;
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		auto args = [platform.compiler, "-of"~tpath.toNativeString()] ~ objects ~ settings.sourceFiles ~ settings.lflags.map!(l => "-L"~l)().array();
+		auto args = [platform.compiler, "-of"~tpath.toNativeString()];
+		args ~= objects;
+		args ~= settings.sourceFiles;
+		version(Posix) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
+		args ~= settings.lflags.map!(l => "-L"~l)().array;
 		static linkerargs = ["-g", "-gc", "-m32", "-m64", "-shared"];
 		args ~= settings.dflags.filter!(f => linkerargs.canFind(f))().array();
 		logDiagnostic("%s", args.join(" "));
