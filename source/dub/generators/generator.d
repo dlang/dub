@@ -68,7 +68,6 @@ class ProjectGenerator
 
 		// determine the actual target type
 		auto shallowbs = pack.getBuildSettings(settings.platform, configs[pack.name]);
-		logInfo("TT %s: %s", pack.name, shallowbs.targetType);
 		TargetType tt = shallowbs.targetType;
 		if (pack is m_project.mainPackage) {
 			if (tt == TargetType.autodetect || tt == TargetType.library) tt = TargetType.staticLibrary;
@@ -123,8 +122,6 @@ class ProjectGenerator
 			m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 			settings.compiler.extractBuildOptions(buildsettings);
 			targets[pack.name].buildSettings = buildsettings.dup;
-
-			logInfo("TARGET %s %s", buildsettings.targetPath, buildsettings.targetName);
 		}
 
 		return buildsettings;
