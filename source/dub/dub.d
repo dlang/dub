@@ -576,6 +576,7 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 			foreach (i; 0 .. mpath.length) {
 				import std.path;
 				auto p = mpath[i].toString();
+				if (p == "package.d") break;
 				if (i > 0) ret ~= ".";
 				if (i+1 < mpath.length) ret ~= p;
 				else ret ~= p.baseName(".d");
