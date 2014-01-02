@@ -257,7 +257,7 @@ class Dub {
 
 			string[] import_modules;
 			foreach (file; lbuildsettings.sourceFiles) {
-				if (file.endsWith(".d"))
+				if (file.endsWith(".d") && Path(file).head.toString() != "package.d")
 					import_modules ~= lbuildsettings.determineModuleName(Path(file), m_project.mainPackage.path);
 			}
 
