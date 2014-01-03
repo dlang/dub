@@ -197,6 +197,9 @@ class Package {
 		// special support for DMD style flags
 		getCompiler("dmd").extractBuildOptions(ret);
 
+        if (platform.architecture == ["x86_64"])
+            ret.addDFlags("-m64");
+
 		return ret;
 	}
 
