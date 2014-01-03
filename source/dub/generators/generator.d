@@ -82,7 +82,7 @@ class ProjectGenerator
 		bool generates_binary = tt != TargetType.sourceLibrary && tt != TargetType.none;
 
 		// start to build up the build settings
-		BuildSettings buildsettings;
+		BuildSettings buildsettings = settings.buildSettings.dup;
 		processVars(buildsettings, pack.path.toNativeString(), shallowbs, true);
 		buildsettings.addVersions("Have_" ~ stripDlangSpecialChars(pack.name));
 
