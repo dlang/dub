@@ -54,7 +54,7 @@ class PackageManager {
 	private {
 		Repository[LocalPackageType] m_repositories;
 		Path[] m_searchPath;
-		Package[][string] m_packages;
+		Package[] m_packages;
 		Package[] m_temporaryPackages;
 	}
 
@@ -175,10 +175,9 @@ class PackageManager {
 					if (auto ret = handlePackage(p)) return ret;
 
 			// and then all packages gathered from the search path
-			foreach( pl; m_packages )
-				foreach( v; pl )
-					if( auto ret = handlePackage(v) )
-						return ret;
+			foreach( p; m_packages )
+				if( auto ret = handlePackage(p) )
+					return ret;
 			return 0;
 		}
 
@@ -286,7 +285,7 @@ class PackageManager {
 
 		auto pack = new Package(destination);
 
-		m_packages[package_name] ~= pack;
+		m_packages ~= pack;
 
 		return pack;
 	}
@@ -313,14 +312,8 @@ class PackageManager {
 				break;
 			}
 		}
-		if(!found) {
-			foreach(packsOfId; m_packages) {
-				if(removeFrom(packsOfId, pack)) {
-					found = true;
-					break;
-				}
-			}
-		}
+		if(!found)
+			found = removeFrom(m_packages, pack);
 		enforce(found, "Cannot remove, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
 
 		// delete package files physically
@@ -508,7 +501,7 @@ class PackageManager {
 		scanLocalPackages(LocalPackageType.system);
 		scanLocalPackages(LocalPackageType.user);
 
-		Package[][string] old_packages = m_packages;
+		auto old_packages = m_packages;
 
 		// rescan the system and user package folder
 		void scanPackageFolder(Path path)
@@ -523,14 +516,13 @@ class PackageManager {
 					Package p;
 					try {
 						if (!refresh_existing_packages)
-							foreach (plist; old_packages)
-								foreach (pp; plist)
-									if (pp.path == pack_path) {
-										p = pp;
-										break;
-									}
+							foreach (pp; old_packages)
+								if (pp.path == pack_path) {
+									p = pp;
+									break;
+								}
 						if (!p) p = new Package(pack_path);
-						m_packages[p.name] ~= p;
+						m_packages ~= p;
 					} catch( Exception e ){
 						logError("Failed to load package in %s: %s", pack_path, e.msg);
 						logDiagnostic("Full error: %s", e.toString().sanitize());
