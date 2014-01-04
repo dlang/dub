@@ -131,7 +131,7 @@ int runDubCommandLine(string[] args)
 		return 0;
 	}
 
-	// execute the sepected command
+	// execute the selected command
 	foreach (grp; commands) foreach (cmd; grp.commands)
 		if (cmd.name == cmdname) {
 			try {

@@ -141,7 +141,7 @@ class PackageManager {
 
 	/** Determines if a package is managed by DUB.
 
-		Managed packages can be upgraded and uninstalled.
+		Managed packages can be upgraded and removed.
 	*/
 	bool isManagedPackage(Package pack)
 	const {
