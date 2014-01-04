@@ -1,5 +1,5 @@
 {
-	"name": "vibed-main-example",
+	"name": "vibed-main",
 	"description": "A project using vibe.d and a custom main() function",
 	"dependencies": {
 		"vibe-d": "~master"

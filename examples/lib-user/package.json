@@ -1,5 +1,5 @@
 {
-	"name": "lib-user-example",
+	"name": "lib-user",
 	"description": "An application using a local library dependency",
 	"dependencies": {
 		"lib-example": {"version": "~master", "path": "../lib"}
