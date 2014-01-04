@@ -141,7 +141,17 @@ class Package {
 	
 	@property string name()
 	const {
-		if (m_parentPackage) return m_parentPackage.name ~ ":" ~ m_info.name;
+		if (m_parentPackage) {
+			// HACK
+			if (m_parentPackage.path == m_path)
+				return m_parentPackage.name ~ ":" ~ m_info.name;
+			else {
+				enforce(m_path.startsWith(m_parentPackage.path));
+				enforce(m_path.head.toString() == m_info.name,
+					"Subpackage name (" ~ m_info.name ~ ") is different than the path-head (" ~ m_path.head.toString() ~ "), this gets confusing.");
+				return m_parentPackage.name ~ "/" ~ m_path[m_parentPackage.path.length .. $].toString();
+			}
+		}
 		else return m_info.name;
 	}
 	@property string vers() const { return m_parentPackage ? m_parentPackage.vers : m_info.version_; }
@@ -783,5 +793,5 @@ string[] getSubPackagePath(string package_name)
 /// package itself, if it is already a full package.
 string getBasePackage(string package_name)
 {
-	return package_name.getSubPackagePath()[0];
+	return (package_name.getSubPackagePath()[0]).split("/")[0];
 }

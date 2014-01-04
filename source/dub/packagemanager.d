@@ -120,9 +120,7 @@ class PackageManager {
 		foreach (p; getPackageIterator())
 			if (!p.basePackage && p.path == path)
 				return p;
-		auto p = new Package(path);
-		m_temporaryPackages ~= p;
-		return p;
+		return addPackages(m_temporaryPackages, new Package(path));
 	}
 
 	Package getBestPackage(string name, string version_spec)
@@ -283,11 +281,7 @@ class PackageManager {
 		if( existsFile(destination~PackageJsonFilename) )
 			logInfo("%s is present with version %s", package_name, package_version);
 
-		auto pack = new Package(destination);
-
-		m_packages ~= pack;
-
-		return pack;
+		return addPackages(m_packages, new Package(destination));
 	}
 
 	/// Removes the given the package.
@@ -387,7 +381,7 @@ class PackageManager {
 			}
 		}
 
-		*packs ~= pack;
+		addPackages(*packs, pack);
 
 		writeLocalPackageList(type);
 
@@ -429,9 +423,7 @@ class PackageManager {
 		if( "name" !in info ) info["name"] = path.head.toString();
 		info["version"] = ver.toString();
 
-		auto pack = new Package(info, path);
-		m_temporaryPackages ~= pack;
-		return pack;
+		return addPackages(m_temporaryPackages, new Package(info, path));
 	}
 
 	/// For the given type add another path where packages will be looked up.
@@ -486,7 +478,7 @@ class PackageManager {
 										break;
 									}
 							if (!pp) pp = new Package(info, path);
-							packs ~= pp;
+							addPackages(packs, pp);
 						}
 					} catch( Exception e ){
 						logWarn("Error adding local package: %s", e.msg);
@@ -522,7 +514,7 @@ class PackageManager {
 									break;
 								}
 						if (!p) p = new Package(pack_path);
-						m_packages ~= p;
+						addPackages(m_packages, p);
 					} catch( Exception e ){
 						logError("Failed to load package in %s: %s", pack_path, e.msg);
 						logDiagnostic("Full error: %s", e.toString().sanitize());
@@ -588,6 +580,38 @@ class PackageManager {
 		Path path = m_repositories[type].packagePath;
 		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
 		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
+	}
+
+	/// Adds the package and scans for subpackages.
+	private Package addPackages(ref Package[] dst_repos, Package pack) {
+		dst_repos ~= pack;
+
+		void scanRecurse(Path directory) {
+			logDebug("- scanning for subpackages, dir %s", directory);
+			if (existsFile(directory ~ PackageJsonFilename) ) {
+				// Add the subpackage.
+				try {
+					dst_repos ~= new Package(directory, pack);
+				} catch( Exception e ){
+					logError("Failed to load sub-package in %s: %s", directory, e.msg);
+					logDiagnostic("Full error: %s", e.toString().sanitize());
+				}
+			}
+			try foreach( dir; iterateDirectory(directory) ){
+				if( !dir.isDirectory ) continue;
+				scanRecurse(directory ~ dir.name);
+			}
+			catch(Exception e) logDiagnostic("Failed to scan %s sub-packages: %s", directory, e.toString());
+		}
+
+		try foreach( dir; iterateDirectory(pack.path) ){
+			logDebug("scanning for subpackages, dir %s entry %s", pack.path.toNativeString(), dir.name);
+			if( !dir.isDirectory ) continue;
+			scanRecurse(pack.path ~ dir.name);
+		}
+		catch(Exception e) logDiagnostic("Failed to scan %s sub-packages: %s", pack.path.toNativeString(), e.toString());
+
+		return pack;
 	}
 }
 
