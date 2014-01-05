@@ -120,7 +120,9 @@ class PackageManager {
 		foreach (p; getPackageIterator())
 			if (!p.basePackage && p.path == path)
 				return p;
-		return addPackages(m_temporaryPackages, new Package(path));
+		auto pack = new Package(path);
+		addPackages(m_temporaryPackages, pack);
+		return pack;
 	}
 
 	Package getBestPackage(string name, string version_spec)
@@ -281,7 +283,9 @@ class PackageManager {
 		if( existsFile(destination~PackageJsonFilename) )
 			logInfo("%s is present with version %s", package_name, package_version);
 
-		return addPackages(m_packages, new Package(destination));
+		auto pack = new Package(destination);
+		addPackages(m_packages, pack);
+		return pack;
 	}
 
 	/// Removes the given the package.
@@ -423,7 +427,9 @@ class PackageManager {
 		if( "name" !in info ) info["name"] = path.head.toString();
 		info["version"] = ver.toString();
 
-		return addPackages(m_temporaryPackages, new Package(info, path));
+		auto pack = new Package(info, path);
+		addPackages(m_temporaryPackages, pack);
+		return pack;
 	}
 
 	/// For the given type add another path where packages will be looked up.
@@ -583,35 +589,30 @@ class PackageManager {
 	}
 
 	/// Adds the package and scans for subpackages.
-	private Package addPackages(ref Package[] dst_repos, Package pack) {
+	private void addPackages(ref Package[] dst_repos, Package pack) const {
+		// Add the main package.
 		dst_repos ~= pack;
 
-		void scanRecurse(Path directory) {
-			logDebug("- scanning for subpackages, dir %s", directory);
-			if (existsFile(directory ~ PackageJsonFilename) ) {
-				// Add the subpackage.
-				try {
-					dst_repos ~= new Package(directory, pack);
-				} catch( Exception e ){
-					logError("Failed to load sub-package in %s: %s", directory, e.msg);
-					logDiagnostic("Full error: %s", e.toString().sanitize());
-				}
+		// Additionally to the internally defined subpackages, whose metadata
+		// is loaded with the main package.json, load all externally defined
+		// packages after the package is available with all the data.
+		foreach ( sub_name, sub_path; pack.exportedPackages ) {
+			auto path = pack.path ~ sub_path;
+			if ( !existsFile(path) ) {
+				logError("Package %s defined sub-package %s, definition file is missing: ", sub_name, path.toNativeString());
+				continue;
 			}
-			try foreach( dir; iterateDirectory(directory) ){
-				if( !dir.isDirectory ) continue;
-				scanRecurse(directory ~ dir.name);
+			// Add the subpackage.
+			try {
+				auto sub_pack = new Package(path, pack);
+				// Checking the raw name here, instead of the "parent:sub" style.
+				enforce(sub_pack.info.name == sub_name, "Name of package '" ~ sub_name ~ "' differs in definition in '" ~ path.toNativeString() ~ "'.");
+				dst_repos ~= sub_pack;
+			} catch( Exception e ){
+				logError("Package '%s': Failed to load sub-package '%s' in %s, error: %s", pack.name, sub_name, path.toNativeString(), e.msg);
+				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}
-			catch(Exception e) logDiagnostic("Failed to scan %s sub-packages: %s", directory, e.toString());
 		}
-
-		try foreach( dir; iterateDirectory(pack.path) ){
-			logDebug("scanning for subpackages, dir %s entry %s", pack.path.toNativeString(), dir.name);
-			if( !dir.isDirectory ) continue;
-			scanRecurse(pack.path ~ dir.name);
-		}
-		catch(Exception e) logDiagnostic("Failed to scan %s sub-packages: %s", pack.path.toNativeString(), e.toString());
-
-		return pack;
 	}
 }
 

@@ -38,6 +38,7 @@ class Package {
 		PackageInfo m_info;
 		Package m_parentPackage;
 		Package[] m_subPackages;
+		Path[string] m_exportedPackages;
 	}
 
 	this(Path root, Package parent = null)
@@ -135,34 +136,40 @@ class Package {
 		}
 
 		// load all sub packages defined in the package description
-		foreach (p; packageInfo.subPackages.opt!(Json[]))
-			m_subPackages ~= new Package(p, root, this);
+		foreach (sub; packageInfo.subPackages.opt!(Json[])) {
+			if (m_parentPackage) {
+				throw new Exception("'subPackages' found in '" ~ name ~ "'. This is only supported in the main package file for '" ~ m_parentPackage.name ~ "'.");
+			}
+			if ("packageDefinition" in sub) {
+				auto path = Path(sub.packageDefinition.get!string);
+				enforce("name" in sub, "A subpackage is missing a name in package '" ~ name ~ "'");
+				auto sub_name = sub.name.get!string;
+				enforce(sub_name !in m_exportedPackages, "Subpackage '" ~ sub_name ~ "' defined more than once in '" ~ name ~ "'");
+				m_exportedPackages[sub_name] = path;
+			}
+			else {
+				m_subPackages ~= new Package(sub, root, this);
+			}
+		}
+
+		simpleLint();
 	}
 	
 	@property string name()
 	const {
-		if (m_parentPackage) {
-			// HACK
-			if (m_parentPackage.path == m_path)
-				return m_parentPackage.name ~ ":" ~ m_info.name;
-			else {
-				enforce(m_path.startsWith(m_parentPackage.path));
-				enforce(m_path.head.toString() == m_info.name,
-					"Subpackage name (" ~ m_info.name ~ ") is different than the path-head (" ~ m_path.head.toString() ~ "), this gets confusing.");
-				return m_parentPackage.name ~ "/" ~ m_path[m_parentPackage.path.length .. $].toString();
-			}
-		}
+		if (m_parentPackage) return m_parentPackage.name ~ ":" ~ m_info.name;
 		else return m_info.name;
 	}
 	@property string vers() const { return m_parentPackage ? m_parentPackage.vers : m_info.version_; }
 	@property Version ver() const { return Version(this.vers); }
 	@property ref inout(PackageInfo) info() inout { return m_info; }
 	@property Path path() const { return m_path; }
-	@property Path packageInfoFile() const { return m_path ~ "package.json"; }
+	@property Path packageInfoFile() const { return m_path ~ PackageJsonFilename; }
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
 	@property inout(Package) basePackage() inout { return m_parentPackage ? m_parentPackage.basePackage : this; }
 	@property inout(Package) parentPackage() inout { return m_parentPackage; }
 	@property inout(Package)[] subPackages() inout { return m_subPackages; }
+	@property inout(Path[string]) exportedPackages() inout { return m_exportedPackages; }
 
 	@property string[] configurations()
 	const {
@@ -364,6 +371,15 @@ class Package {
 			files ~= jf;
 		}
 		dst.files = Json(files);
+	}
+
+	private void simpleLint() const {
+		if (m_parentPackage) {
+			if (m_parentPackage.path != path) {
+				if (info.license != m_parentPackage.info.license) logWarn("License in subpackage %s is different than it's parent package, this is discouraged.", name);
+			}
+		}
+		if (name.empty()) logWarn("The package in %s has no name.", path);
 	}
 }
 
