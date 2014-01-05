@@ -809,5 +809,5 @@ string[] getSubPackagePath(string package_name)
 /// package itself, if it is already a full package.
 string getBasePackage(string package_name)
 {
-	return (package_name.getSubPackagePath()[0]).split("/")[0];
+	return package_name.getSubPackagePath()[0];
 }
