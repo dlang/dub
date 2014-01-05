@@ -590,31 +590,8 @@ class Project {
 					p = null;
 				}
 
-				if( !p ){
-					try {
-						logDiagnostic("Fetching package %s (%d suppliers registered)", pkg, packageSuppliers.length);
-						foreach (ps; packageSuppliers) {
-							try {
-								auto sp = new Package(ps.getPackageDescription(ppath[0], reqDep.dependency, false));
-								foreach (spn; ppath[1 .. $])
-									sp = sp.getSubPackage(spn);
-								p = sp;
-								break;
-							} catch (Exception e) {
-								logDiagnostic("No metadata for %s: %s", ps.description, e.msg);
-							}
-						}
-						enforce(p !is null, "Could not find package candidate for "~pkg~" "~reqDep.dependency.toString());
-						markUpToDate(ppath[0]);
-					}
-					catch(Throwable e) {
-						logError("Failed to retrieve metadata for package %s: %s", pkg, e.msg);
-						logDiagnostic("Full error: %s", e.toString().sanitize());
-					}
-				}
-
-				if(p)
-					graph.insert(p);
+				if( !p ) p = fetchPackageMetadata(packageSuppliers, pkg, reqDep);
+				if( p ) graph.insert(p);
 			}
 			graph.clearUnused();
 			
@@ -629,6 +606,56 @@ class Project {
 		}
 
 		return true;
+	}
+
+	private Package fetchPackageMetadata(PackageSupplier[] packageSuppliers, string pkg, RequestedDependency reqDep) {
+		Package p = null;
+		try {
+			logDiagnostic("Fetching package %s (%d suppliers registered)", pkg, packageSuppliers.length);
+			auto ppath = pkg.getSubPackagePath();
+			auto basepkg = pkg.getBasePackage();
+			foreach (ps; packageSuppliers) {
+				try {
+					// Get main package.
+					auto sp = new Package(ps.getPackageDescription(basepkg, reqDep.dependency, false));
+					// Fetch subpackage, if one was requested.
+					foreach (spn; ppath[1 .. $]) {
+						try {
+							// Some subpackages are shipped with the main package.
+							sp = sp.getSubPackage(spn);
+						} catch (Exception e) {
+							// HACK: Support for external packages. Until the registry serves the
+							//   metadata of the external packages, there is no way to get to
+							//   know this information.
+							//
+							//   Eventually, the dependencies of all referenced packages will be
+							//   fulfilled, but this is done by a hack where the metadata of the
+							//   external package is inferred as having no additional dependencies.
+							//   When the package is then fetched the state is re-evaluated and
+							//   possible new dependencies will be resolved.
+							if (spn in sp.exportedPackages) {
+								string hacked_info = "{\"name\": \"" ~ spn ~ "\"}";
+								auto info = parseJson(hacked_info);
+								sp = new Package(info, Path(), sp);
+							}
+							else throw e;
+						}
+					}
+					p = sp;
+					break;
+				} catch (Exception e) {
+					logDiagnostic("No metadata for %s: %s", ps.description, e.msg);
+				}
+			}
+			enforce(p !is null, "Could not find package candidate for "~pkg~" "~reqDep.dependency.toString());
+			markUpToDate(basepkg);
+		}
+		catch(Throwable e) {
+			logError("Failed to retrieve metadata for package %s: %s", pkg, e.msg);
+			logDiagnostic("Full error: %s", e.toString().sanitize());
+		}
+
+		return p;
 	}
 
 	private bool needsUpToDateCheck(Package pack) {
