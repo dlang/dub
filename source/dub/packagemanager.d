@@ -276,8 +276,8 @@ class PackageManager {
 		if (pack.packageInfoFile.head != defaultPackageFilename()) {
 			// Storeinfo saved a default file, this could be different to the file from the zip.
 			removeFile(pack.packageInfoFile);
-			journal.remove(Journal.Entry(Journal.Type.RegularFile, pack.packageInfoFile));
-			journal.add(Journal.Entry(Journal.Type.RegularFile, destination ~ Path(defaultPackageFilename())));
+			journal.remove(Journal.Entry(Journal.Type.RegularFile, Path(pack.packageInfoFile.head)));
+			journal.add(Journal.Entry(Journal.Type.RegularFile, Path(defaultPackageFilename())));
 		}
 		pack.storeInfo();
 
