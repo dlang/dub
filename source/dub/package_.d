@@ -25,12 +25,16 @@ import std.string;
 import std.traits : EnumMembers;
 
 
+// Supported package descriptions in decreasing order of preference.
 enum packageInfoFilenames = ["dub.json", /*"dub.sdl",*/ "package.json"];
+string defaultPackageFilename() {
+	return packageInfoFilenames[0];
+}
 
 /**
 	Represents a package, including its sub packages
 
-	Documentation of the package.json can be found at 
+	Documentation of the dub.json can be found at 
 	http://registry.vibed.org/package-format
 */
 class Package {
@@ -56,13 +60,15 @@ class Package {
 	this(Path root, Package parent = null)
 	{
 		Json info;
-		if (existsFile(root ~ "dub.json")) {
-			m_infoFile = root ~ "dub.json";
-			info = jsonFromFile(m_infoFile);
-		} else if (existsFile(root ~ "package.json")) {
-			m_infoFile = root ~ "package.json";
-			info = jsonFromFile(root ~ "package.json");
-		} else {
+		foreach (f; packageInfoFilenames) {
+			auto name = root ~ f;
+			if (existsFile(name)) {
+				m_infoFile = name;
+				info = jsonFromFile(m_infoFile);
+				break;
+			}
+		}
+		if (info == Json.undefined) {
 			throw new Exception("Missing package description for package in %s", root.toNativeString());
 		}
 		this(info, root, parent);
@@ -202,13 +208,15 @@ class Package {
 		return ret.data;
 	}
 
-	/** Overwrites the packge description file with the current information.
+	/** Overwrites the packge description file using the default filename with the current information.
 	*/
 	void storeInfo()
 	{
-		auto dstFile = openFile((m_path ~ "dub.json").toString(), FileMode.CreateTrunc);
+		auto filename = m_path ~ defaultPackageFilename();
+		auto dstFile = openFile(filename.toNativeString(), FileMode.CreateTrunc);
 		scope(exit) dstFile.close();
 		dstFile.writePrettyJsonString(m_info.toJson());
+		m_infoFile = filename;
 	}
 
 	inout(Package) getSubPackage(string name) inout {

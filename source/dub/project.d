@@ -474,7 +474,7 @@ class Project {
 		// Gather retrieved
 		Package[string] retrieved;
 		retrieved[m_main.name] = m_main;
-		foreach(dep, ref Package p; m_dependencies) {
+		foreach(ref Package p; m_dependencies) {
 			auto pbase = p.basePackage;
 			auto pexist = retrieved.get(pbase.name, null);
 			if (pexist && pexist !is pbase){

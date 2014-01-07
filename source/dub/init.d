@@ -9,7 +9,7 @@ module dub.init;
 
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.package_ : packageInfoFilenames;
+import dub.package_ : packageInfoFilenames, defaultPackageFilename;
 
 import std.datetime;
 import std.exception;
@@ -89,7 +89,7 @@ void writePackageJson(Path root_path, string description, string[string] depende
 	version (Windows) username = environment.get("USERNAME", "Peter Parker");
 	else username = environment.get("USER", "Peter Parker");
 
-	auto fil = openFile(root_path ~ "dub.json", FileMode.Append);
+	auto fil = openFile(root_path ~ defaultPackageFilename(), FileMode.Append);
 	scope(exit) fil.close();
 
 	fil.formattedWrite("{\n\t\"name\": \"%s\",\n", root_path.head.toString().toLower());

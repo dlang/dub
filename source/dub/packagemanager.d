@@ -272,6 +272,13 @@ class PackageManager {
 		// overwrite package.json (this one includes a version field)
 		auto pack = new Package(destination);
 		pack.info.version_ = package_info["version"].get!string;
+
+		if (pack.packageInfoFile.head != defaultPackageFilename()) {
+			// Storeinfo saved a default file, this could be different to the file from the zip.
+			removeFile(pack.packageInfoFile);
+			journal.remove(Journal.Entry(Journal.Type.RegularFile, pack.packageInfoFile));
+			journal.add(Journal.Entry(Journal.Type.RegularFile, destination ~ Path(defaultPackageFilename())));
+		}
 		pack.storeInfo();
 
 		// Write journal
@@ -362,13 +369,13 @@ class PackageManager {
 
 	Package addLocalPackage(in Path path, string verName, LocalPackageType type)
 	{
-		Package[]* packs = &m_repositories[type].localPackages;
-
 		auto pack = new Package(path);
+		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
 		if (verName.length)
 			pack.ver = Version(verName);
 
 		// don't double-add packages
+		Package[]* packs = &m_repositories[type].localPackages;
 		foreach (p; *packs) {
 			if (p.path == path) {
 				enforce(p.ver == pack.ver, "Adding the same local package twice with differing versions is not allowed.");
@@ -415,6 +422,7 @@ class PackageManager {
 			}
 		
 		auto pack = new Package(path);
+		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
 		pack.ver = ver;
 		addPackages(m_temporaryPackages, pack);
 		return pack;
@@ -651,7 +659,7 @@ private class Journal {
 			m_entries ~= Entry(to!Type(cast(string)type), Path(file));
 	}
 
-	void add(Entry e) { 
+	void add(Entry e) {
 		foreach(Entry ent; entries) {
 			if( e.relFilename == ent.relFilename ) {
 				enforce(e.type == ent.type, "Duplicate('"~to!string(e.relFilename)~"'), different types: "~to!string(e.type)~" vs. "~to!string(ent.type));
@@ -659,6 +667,16 @@ private class Journal {
 			}
 		}
 		m_entries ~= e;
+	}
+
+	void remove(Entry e) {
+		foreach(i, Entry ent; entries) {
+			if( e.relFilename == ent.relFilename ) {
+				m_entries = std.algorithm.remove(m_entries, i);
+				return;
+			}
+		}
+		enforce(false, "Cannot remove entry, not available: " ~ e.relFilename.toNativeString());
 	}
 	
 	/// Save the current state to the path.
