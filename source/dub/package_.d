@@ -100,7 +100,7 @@ class Package {
 						app_main_file = Path(defsf ~ fil).toNativeString();
 						break;
 					}
-				foreach (fil; [pkg_name ~ "/all.d", pkg_name ~ "/package.d", pkg_name ~ "/" ~ pkg_name ~ ".d"])
+				foreach (fil; [pkg_name ~ "/main.d", pkg_name ~ "/main.d"])
 					if (existsFile(p ~ fil)) {
 						lib_main_file = Path(defsf ~ fil).toNativeString();
 						break;
