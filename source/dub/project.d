@@ -236,13 +236,19 @@ class Project {
 			foreach (i, v; configs)
 				if (v.pack == pack && v.config == config)
 					return i;
+			logDebug("Add config %s %s", pack, config);
 			configs ~= Vertex(pack, config);
 			return configs.length-1;
+		}
+
+		bool haveConfig(string pack, string config) {
+			return configs.canFind!(c => c.pack == pack && c.config == config);
 		}
 
 		size_t createEdge(size_t from, size_t to) {
 			auto idx = edges.countUntil(Edge(from, to));
 			if (idx >= 0) return idx;
+			logDebug("Including %s %s -> %s %s", configs[from].pack, configs[from].config, configs[to].pack, configs[to].config);
 			edges ~= Edge(from, to);
 			return edges.length-1;
 		}
@@ -280,32 +286,40 @@ class Project {
 		// create a graph of all possible package configurations (package, config) -> (subpackage, subconfig)
 		void determineAllConfigs(in Package p)
 		{
-			foreach (c; p.getPlatformConfigurations(platform, p is m_main)) {
-				if (!isReachable(p.name, c)) {
-					//foreach (e; edges) logDebug("    %s %s -> %s %s", configs[e.from].pack, configs[e.from].config, configs[e.to].pack, configs[e.to].config);
-					logDebug("Skipping %s %s", p.name, c);
-					continue;
-				}
-				size_t cidx = createConfig(p.name, c);
+			// first, add all dependency configurations
+			foreach (dn; p.dependencies.byKey) {
+				auto dp = getDependency(dn, true);
+				if (!dp) continue;
+				determineAllConfigs(dp);
+			}
+
+			// for each configuration, determine the configurations usable for the dependencies
+			outer: foreach (c; p.getPlatformConfigurations(platform, p is m_main)) {
+				string[][string] depconfigs;
 				foreach (dn; p.dependencies.byKey) {
 					auto dp = getDependency(dn, true);
 					if (!dp) continue;
+
+					string[] cfgs;
 					auto subconf = p.getSubConfiguration(c, dp, platform);
-					if (subconf.empty) {
-						foreach (sc; dp.getPlatformConfigurations(platform)) {
-							logDebug("Including %s %s -> %s %s", p.name, c, dn, sc);
-							createEdge(cidx, createConfig(dn, sc));
-						}
-					} else {
-						logDebug("Including %s %s -> %s %s", p.name, c, dn, subconf);
-						createEdge(cidx, createConfig(dn, subconf));
+					if (!subconf.empty) cfgs = [subconf];
+					else cfgs = dp.getPlatformConfigurations(platform);
+					cfgs = cfgs.filter!(c => haveConfig(dn, c)).array;
+
+					// if no valid configuration was found for a dependency, don't include the
+					// current configuration
+					if (!cfgs.length) {
+						logDebug("Skip %s %s (missing configuration for %s)", p.name, c, dp.name);
+						continue outer;
 					}
+					depconfigs[dn] = cfgs;
 				}
-				foreach (dn; p.dependencies.byKey) {
-					auto dp = getDependency(dn, true);
-					if (!dp) continue;
-					determineAllConfigs(dp);
-				}
+
+				// add this configuration to the graph
+				size_t cidx = createConfig(p.name, c);
+				foreach (dn; p.dependencies.byKey)
+					foreach (sc; depconfigs.get(dn, null))
+						createEdge(cidx, createConfig(dn, sc));
 			}
 		}
 		createConfig(m_main.name, config);
@@ -318,6 +332,7 @@ class Project {
 			changed = false;
 			for (size_t i = 0; i < configs.length; ) {
 				if (!isReachableByAllParentPacks(i)) {
+					logDebug("NOT REACHABLE by (%s):", parents[configs[i].pack]);
 					removeConfig(i);
 					changed = true;
 				} else i++;
@@ -329,8 +344,10 @@ class Project {
 					size_t cnt = 0;
 					for (size_t i = 0; i < configs.length; ) {
 						if (configs[i].pack == p.name) {
-							if (++cnt > 1) removeConfig(i);
-							else i++;
+							if (++cnt > 1) {
+								logDebug("NON-PRIMARY:");
+								removeConfig(i);
+							} else i++;
 						} else i++;
 					}
 					if (cnt > 1) {
