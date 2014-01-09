@@ -406,7 +406,6 @@ class GenerateCommand : PackageBuildCommand {
 			"Generates project files using one of the supported generators:",
 			"",
 			"visuald - VisualD project files",
-			"visuald-combined - VisualD single project file",
 			"build - Builds the package directly",
 			"",
 			"An optional package name can be given to generate a different package than the root/CWD package."
@@ -478,6 +477,11 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.rdmd = m_rdmd;
 
 		logDiagnostic("Generating using %s", m_generator);
+		if (m_generator == "visuald-combined") {
+			gensettings.combined = true;
+			m_generator = "visuald";
+			logWarn(`The generator "visuald-combined" is deprecated, please use the --combined switch instead.`);
+		}
 		dub.generateProject(m_generator, gensettings);
 		if (m_build_type == "ddox") dub.runDdox(gensettings.run);
 		return 0;

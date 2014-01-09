@@ -34,20 +34,16 @@ class VisualDGenerator : ProjectGenerator {
 	private {
 		PackageManager m_pkgMgr;
 		string[string] m_projectUuids;
-		bool m_combinedProject;
 	}
 	
-	this(Project app, PackageManager mgr, bool combined_project)
+	this(Project app, PackageManager mgr)
 	{
 		super(app);
-		m_combinedProject = combined_project;
 		m_pkgMgr = mgr;
 	}
 	
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
-		if (settings.combined) m_combinedProject = true;
-
 		auto bs = targets[m_project.name].buildSettings;
 		prepareGeneration(bs);
 		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.mainPackage().name, m_project.mainPackage().dependencies().length);

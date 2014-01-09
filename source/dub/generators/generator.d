@@ -181,10 +181,7 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 			throw new Exception("The Mono-D generator has been removed. Use Mono-D's built in DUB support instead.");
 		case "visuald":
 			logDebug("Creating VisualD generator.");
-			return new VisualDGenerator(app, mgr, false);
-		case "visuald-combined":
-			logDebug("Creating VisualD generator (combined project).");
-			return new VisualDGenerator(app, mgr, true);
+			return new VisualDGenerator(app, mgr);
 	}
 }
 
