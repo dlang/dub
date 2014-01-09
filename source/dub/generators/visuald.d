@@ -44,62 +44,82 @@ class VisualDGenerator : ProjectGenerator {
 		m_pkgMgr = mgr;
 	}
 	
-	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets) { assert(false); }
-
-	override void generate(GeneratorSettings settings)
+	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
 		if (settings.combined) m_combinedProject = true;
-		
-		auto buildsettings = settings.buildSettings;
-		m_project.addBuildSettings(buildsettings, settings.platform, settings.config);
-		
-		prepareGeneration(buildsettings);
 
+		auto bs = targets[m_project.name].buildSettings;
+		prepareGeneration(bs);
 		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.mainPackage().name, m_project.mainPackage().dependencies().length);
-		generateProjects(m_project.mainPackage(), settings);
-		generateSolution(settings);
+		generateProjectFiles(settings, targets);
+		generateSolutionFile(settings, targets);
 		logInfo("VisualD project generated.");
-
-		finalizeGeneration(buildsettings, true);
+		finalizeGeneration(bs, true);
 	}
-	
+
 	private {
-		void generateSolution(GeneratorSettings settings)
+		void generateSolutionFile(GeneratorSettings settings, in TargetInfo[string] targets)
 		{
 			auto ret = appender!(char[])();
 			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
+			auto some_uuid = generateUUID();
 			
 			// Solution header
-			ret.formattedWrite("
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010");
+			ret.put("Microsoft Visual Studio Solution File, Format Version 11.00\n");
+			ret.put("# Visual Studio 2010\n");
 
-			generateSolutionEntry(ret, m_project.mainPackage, settings);
-			if (!m_combinedProject) {
-				performOnDependencies(m_project.mainPackage, configs, (pack){
-					generateSolutionEntry(ret, pack, settings);
-				});
+			bool[string] visited;
+			void generateSolutionEntry(string pack) {
+				if (pack in visited) return;
+				visited[pack] = true;
+
+				auto ti = targets[pack];
+
+				auto uuid = guid(pack);
+				ret.formattedWrite("Project(\"%s\") = \"%s\", \"%s\", \"%s\"\n",
+					some_uuid, pack, projFileName(pack), uuid);
+
+				if (ti.linkDependencies.length && ti.buildSettings.targetType != TargetType.staticLibrary) {
+					ret.put("\tProjectSection(ProjectDependencies) = postProject\n");
+					foreach (d; ti.linkDependencies)
+						if (!isHeaderOnlyPackage(d, targets)) {
+							// TODO: clarify what "uuid = uuid" should mean
+							ret.formattedWrite("\t\t%s = %s\n", guid(d), guid(d));
+						}
+					ret.put("\tEndProjectSection\n");
+				}
+
+				ret.put("EndProject\n");
+
+				foreach (d; ti.dependencies) generateSolutionEntry(d);
 			}
+
+			auto mainpack = m_project.mainPackage.name;
+
+			generateSolutionEntry(mainpack);
 			
 			// Global section contains configurations
-			ret.formattedWrite("
-Global
-  GlobalSection(SolutionConfigurationPlatforms) = preSolution
-    Debug|Win32 = Debug|Win32
-    Release|Win32 = Release|Win32
-    Unittest|Win32 = Unittest|Win32
-  EndGlobalSection
-  GlobalSection(ProjectConfigurationPlatforms) = postSolution");
+			ret.put("Global\n");
+			ret.put("\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n");
+			ret.formattedWrite("\t\t%s|Win32 = %s|Win32\n", settings.buildType, settings.buildType);
+			ret.put("\tEndGlobalSection\n");
+			ret.put("\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n");
 			
-			generateSolutionConfig(ret, m_project.mainPackage());
+			const string[] sub = ["ActiveCfg", "Build.0"];
+			const string[] conf = [settings.buildType~"|Win32"];
+			auto projectUuid = guid(mainpack);
+			foreach (t; targets.byKey)
+				foreach (c; conf)
+					foreach (s; sub)
+						formattedWrite(ret, "\t\t%s.%s.%s = %s\n", guid(t), c, s, c);
 			
 			// TODO: for all dependencies
+			ret.put("\tEndGlobalSection\n");
 			
-			ret.formattedWrite("
-  GlobalSection(SolutionProperties) = preSolution
-    HideSolutionNode = FALSE
-  EndGlobalSection
-EndGlobal");
+			ret.put("\tGlobalSection(SolutionProperties) = preSolution\n");
+			ret.put("\t\tHideSolutionNode = FALSE\n");
+			ret.put("\tEndGlobalSection\n");
+			ret.put("EndGlobal\n");
 
 			// Writing solution file
 			logDebug("About to write to .sln file with %s bytes", to!string(ret.data().length));
@@ -109,165 +129,76 @@ EndGlobal");
 			sln.flush();
 		}
 
-		void generateSolutionEntry(Appender!(char[]) ret, const Package pack, GeneratorSettings settings)
+		
+		void generateProjectFiles(GeneratorSettings settings, in TargetInfo[string] targets)
 		{
-			auto projUuid = generateUUID();
-			auto projName = pack.name;
-			auto projPath = projFileName(pack);
-			auto projectUuid = guid(projName);
-			
-			// Write project header, like so
-			// Project("{002A2DE9-8BB6-484D-9802-7E4AD4084715}") = "derelict", "..\inbase\source\derelict.visualdproj", "{905EF5DA-649E-45F9-9C15-6630AA815ACB}"
-			ret.formattedWrite("\nProject(\"%s\") = \"%s\", \"%s\", \"%s\"",
-				projUuid, projName, projPath, projectUuid);
-
-			if (!m_combinedProject) {
-				void addDepsRec(in Package p)
-				{
-					foreach(id, dependency; p.dependencies) {
-						auto deppack = m_project.getDependency(id, true);
-						if (!deppack) continue;
-						if (isHeaderOnlyPackage(deppack, settings)) {
-							addDepsRec(deppack);
-						} else if (!m_project.isRedundantDependency(p, deppack)) {
-							// TODO: clarify what "uuid = uuid" should mean
-							auto uuid = guid(id);
-							ret.formattedWrite("\n			%s = %s", uuid, uuid);
-						}
-					}
-				}
-
-				if(pack.dependencies.length > 0) {
-					ret.formattedWrite("
-		ProjectSection(ProjectDependencies) = postProject");
-					addDepsRec(pack);
-					ret.formattedWrite("
-		EndProjectSection");
-				}
+			bool[string] visited;
+			void performRec(string name) {
+				if (name in visited) return;
+				visited[name] = true;
+				generateProjectFile(name, settings, targets);
+				foreach (d; targets[name].dependencies)
+					performRec(d);
 			}
-			
-			ret.formattedWrite("\nEndProject");
+
+			performRec(m_project.mainPackage.name);
 		}
 
-		void generateSolutionConfig(Appender!(char[]) ret, const Package pack) {
-			const string[] sub = [ "ActiveCfg", "Build.0" ];
-			const string[] conf = [ "Debug|Win32", "Release|Win32" /*, "Unittest|Win32" */];
-			auto projectUuid = guid(pack.name());
-			foreach(c; conf)
-				foreach(s; sub)
-					formattedWrite(ret, "\n\t\t%s.%s.%s = %s", to!string(projectUuid), c, s, c);
-		}
-		
-		void generateProjects(const Package main, GeneratorSettings settings) {
-		
-			// TODO: cyclic check
-			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
-			
-			generateProj(main, settings);
-			
-			if (!m_combinedProject) {
-				bool[string] generatedProjects;
-				generatedProjects[main.name] = true;
-				performOnDependencies(main, configs, (const Package dependency) {
-					if(dependency.name in generatedProjects)
-						return;
-					generateProj(dependency, settings);
-				} );
-			}
-		}
-
-		bool isHeaderOnlyPackage(in Package pack, in GeneratorSettings settings)
+		bool isHeaderOnlyPackage(string pack, in TargetInfo[string] targets)
 		const {
-			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
-			auto pbuildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
-			if (!pbuildsettings.sourceFiles.any!(f => f.endsWith(".d"))())
+			auto buildsettings = targets[pack].buildSettings;
+			if (!buildsettings.sourceFiles.any!(f => f.endsWith(".d"))())
 				return true;
 			return false;
 		}
 		
-		void generateProj(const Package pack, GeneratorSettings settings)
+		void generateProjectFile(string packname, GeneratorSettings settings, in TargetInfo[string] targets)
 		{
 			int i = 0;
 			auto ret = appender!(char[])();
 			
-			auto projName = pack.name;
-			auto project_file_dir = m_project.mainPackage.path ~ projFileName(pack).parentPath;
+			auto project_file_dir = m_project.mainPackage.path ~ projFileName(packname).parentPath;
 			ret.put("<DProject>\n");
-			ret.formattedWrite("  <ProjectGuid>%s</ProjectGuid>\n", guid(projName));
+			ret.formattedWrite("  <ProjectGuid>%s</ProjectGuid>\n", guid(packname));
 	
 			// Several configurations (debug, release, unittest)
-			generateProjectConfiguration(ret, pack, "debug", settings);
-			generateProjectConfiguration(ret, pack, "release", settings);
-			generateProjectConfiguration(ret, pack, "unittest", settings);
+			generateProjectConfiguration(ret, packname, settings.buildType, settings, targets);
+			//generateProjectConfiguration(ret, packname, "release", settings, targets);
+			//generateProjectConfiguration(ret, packname, "unittest", settings, targets);
 
 			// Add all files
-			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
-			auto files = pack.getBuildSettings(settings.platform, configs[pack.name]);
-			bool[SourceFile] sourceFiles;
+			auto files = targets[packname].buildSettings;
+			SourceFile[string] sourceFiles;
 			void addSourceFile(Path file_path, Path structure_path, bool build)
 			{
-				SourceFile sf;
+				auto key = file_path.toString();
+				auto sf = sourceFiles.get(key, SourceFile.init);
 				sf.filePath = file_path;
-				sf.structurePath = structure_path;
-				if (build) {
-					sf.build = false;
-					if (sf in sourceFiles) sourceFiles.remove(sf);
-				} else {
-					sf.build = true;
-					if (sf in sourceFiles) return;
+				if (!sf.build) {
+					sf.build = build;
+					sf.structurePath = structure_path;
 				}
-				sf.build = build;
-				sourceFiles[sf] = true;
-			}
-			if (m_combinedProject) {
-				bool[const(Package)] basePackagesAdded;
-
-				// add all package.json files to the project
-				// and all source files
-				performOnDependencies(pack, configs, (prj) {
-					void addFile(string s, bool build) {
-						auto sp = Path(s);
-						if( !sp.absolute ) sp = prj.path ~ sp;
-						// regroup in Folder by base package
-						addSourceFile(sp.relativeTo(project_file_dir), Path(prj.basePackage().name) ~ sp.relativeTo(prj.path), build);
-					}
-
-					string[] prjFiles;
-
-					// Avoid multiples package.json when using sub-packages.
-					// Only add the package info file if no other package/sub-package from the same base package
-					// has been seen yet.
-					{
-						const(Package) base = prj.basePackage();
-
-						if (base !in basePackagesAdded) {
-							prjFiles ~= prj.packageInfoFile.toNativeString();
-							basePackagesAdded[base] = true;
-						}
-					}
-
-					auto settings = prj.getBuildSettings(settings.platform, configs[prj.name]);
-					foreach (f; prjFiles) addFile(f, false);
-					foreach (f; settings.sourceFiles) addFile(f, true);
-					foreach (f; settings.importFiles) addFile(f, false);
-					foreach (f; settings.stringImportFiles) addFile(f, false);
-				});
+				sourceFiles[key] = sf;
 			}
 
 			void addFile(string s, bool build) {
 				auto sp = Path(s);
-				if( !sp.absolute ) sp = pack.path ~ sp;
-				addSourceFile(sp.relativeTo(project_file_dir), sp.relativeTo(pack.path), build);
+				assert(sp.absolute);
+				//if( !sp.absolute ) sp = pack.path ~ sp;
+				addSourceFile(sp.relativeTo(project_file_dir), determineStructurePath(sp, targets[packname]), build);
 			}
-			addFile(pack.packageInfoFile.toNativeString(), false);
-			foreach(s; files.sourceFiles) addFile(s, true);
+			foreach (p; targets[packname].packages) addFile(p.packageInfoFile.toNativeString(), false);
+			if (files.targetType == TargetType.staticLibrary)
+				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(s))) addFile(s, true);
+			else
+				foreach(s; files.sourceFiles.filter!(s => !s.endsWith(".lib"))) addFile(s, true);
 			foreach(s; files.importFiles) addFile(s, false);
 			foreach(s; files.stringImportFiles) addFile(s, false);
 
 			// Create folders and files
-			ret.formattedWrite("  <Folder name=\"%s\">", getPackageFileName(pack));
+			ret.formattedWrite("  <Folder name=\"%s\">", getPackageFileName(packname));
 			Path lastFolder;
-			foreach(source; sortedSources(sourceFiles.keys)) {
+			foreach(source; sortedSources(sourceFiles.values)) {
 				logDebug("source looking at %s", source.structurePath);
 				auto cur = source.structurePath[0 .. source.structurePath.length-1];
 				if(lastFolder != cur) {
@@ -292,23 +223,17 @@ EndGlobal");
 				ret.put("\n    </Folder>");
 			ret.put("\n  </Folder>\n</DProject>");
 
-			logDebug("About to write to '%s.visualdproj' file %s bytes", getPackageFileName(pack), ret.data().length);
-			auto proj = openFile(projFileName(pack), FileMode.CreateTrunc);
+			logDebug("About to write to '%s.visualdproj' file %s bytes", getPackageFileName(packname), ret.data().length);
+			auto proj = openFile(projFileName(packname), FileMode.CreateTrunc);
 			scope(exit) proj.close();
 			proj.put(ret.data());
 			proj.flush();
 		}
 		
-		void generateProjectConfiguration(Appender!(char[]) ret, const Package pack, string type, GeneratorSettings settings)
+		void generateProjectConfiguration(Appender!(char[]) ret, string pack, string type, GeneratorSettings settings, in TargetInfo[string] targets)
 		{
 			auto project_file_dir = m_project.mainPackage.path ~ projFileName(pack).parentPath;
-			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
-			auto buildsettings = settings.buildSettings;
-			auto pbuildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
-			m_project.addBuildSettings(buildsettings, settings.platform, settings.config, pack);
-			m_project.addBuildTypeSettings(buildsettings, settings.platform, type);
-			settings.compiler.extractBuildOptions(buildsettings);
-			enforceBuildRequirements(buildsettings);
+			auto buildsettings = targets[pack].buildSettings.dup;
 			
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
 			string[] getPathSettings(string setting)()
@@ -351,21 +276,21 @@ EndGlobal");
 
 				int output_type = StaticLib; // library
 				string output_ext = "lib";
-				if (pbuildsettings.targetType == TargetType.executable)
+				if (buildsettings.targetType == TargetType.executable)
 				{
 					output_type = Executable;
 					output_ext = "exe";
 				}
-				else if (pbuildsettings.targetType == TargetType.dynamicLibrary)
+				else if (buildsettings.targetType == TargetType.dynamicLibrary)
 				{
 					output_type = DynamicLib;
 					output_ext = "dll";
 				}
 				string debugSuffix = type == "debug" ? "_d" : "";
-				auto bin_path = pack is m_project.mainPackage ? Path(pbuildsettings.targetPath) : Path(".dub/lib/");
+				auto bin_path = pack == m_project.mainPackage.name ? Path(buildsettings.targetPath) : Path(".dub/lib/");
 				bin_path.endsWithSlash = true;
 				ret.formattedWrite("    <lib>%s</lib>\n", output_type);
-				ret.formattedWrite("    <exefile>%s%s%s.%s</exefile>\n", bin_path.toNativeString(), pbuildsettings.targetName, debugSuffix, output_ext);
+				ret.formattedWrite("    <exefile>%s%s%s.%s</exefile>\n", bin_path.toNativeString(), buildsettings.targetName, debugSuffix, output_ext);
 
 				// include paths and string imports
 				string imports = join(getPathSettings!"importPaths"(), " ");
@@ -383,17 +308,23 @@ EndGlobal");
 				// Add libraries, system libs need to be suffixed by ".lib".
 				string linkLibs = join(map!(a => a~".lib")(getSettings!"libs"()), " ");
 				string addLinkFiles = join(getSettings!"sourceFiles"().filter!(s => s.endsWith(".lib"))(), " ");
-				if (output_type != StaticLib) ret.formattedWrite("    <libfiles>%s %s phobos.lib</libfiles>\n", linkLibs, addLinkFiles);
+				if (arch == "x86") addLinkFiles ~= " phobos.lib";
+				if (output_type != StaticLib) ret.formattedWrite("    <libfiles>%s %s</libfiles>\n", linkLibs, addLinkFiles);
 
 				// Unittests
 				ret.formattedWrite("    <useUnitTests>%s</useUnitTests>\n", buildsettings.options & BuildOptions.unittests ? "1" : "0");
 
 				// compute directory for intermediate files (need dummy/ because of how -op determines the resulting path)
-				auto relpackpath = pack.path.relativeTo(project_file_dir);
-				uint ndummy = 0;
-				foreach (i; 0 .. relpackpath.length)
-					if (relpackpath[i] == "..") ndummy++;
-				string intersubdir = (ndummy*2 > relpackpath.length ? replicate("dummy/", ndummy*2-relpackpath.length) : "") ~ getPackageFileName(pack);
+				size_t ndummy = 0;
+				foreach (f; buildsettings.sourceFiles) {
+					auto rpath = Path(f).relativeTo(project_file_dir);
+					size_t nd = 0;
+					foreach (i; 0 .. rpath.length)
+						if (rpath[i] == "..")
+							nd++;
+					if (nd > ndummy) ndummy = nd;
+				}
+				string intersubdir = replicate("dummy/", ndummy) ~ getPackageFileName(pack);
 		
 				ret.put("    <obj>0</obj>\n");
 				ret.put("    <link>0</link>\n");
@@ -485,7 +416,8 @@ EndGlobal");
 		}
 		
 		string generateUUID() const {
-			return "{" ~ randomUUID().toString() ~ "}";
+			import std.string;
+			return "{" ~ toUpper(randomUUID().toString()) ~ "}";
 		}
 		
 		string guid(string projectName) {
@@ -496,10 +428,10 @@ EndGlobal");
 
 		auto solutionFileName() const {
 			version(DUBBING) return getPackageFileName(m_project.mainPackage()) ~ ".dubbed.sln";
-			else return getPackageFileName(m_project.mainPackage()) ~ ".sln";
+			else return getPackageFileName(m_project.mainPackage.name) ~ ".sln";
 		}
 
-		Path projFileName(ref const Package pack) const {
+		Path projFileName(string pack) const {
 			auto basepath = Path(".");//Path(".dub/");
 			version(DUBBING) return basepath ~ (getPackageFileName(pack) ~ ".dubbed.visualdproj");
 			else return basepath ~ (getPackageFileName(pack) ~ ".visualdproj");
@@ -510,14 +442,14 @@ EndGlobal");
 	struct SourceFile {
 		Path structurePath;
 		Path filePath;
-		bool build = true;
+		bool build;
 
 		hash_t toHash() const nothrow @trusted { return structurePath.toHash() ^ filePath.toHash() ^ (build * 0x1f3e7b2c); }
 		int opCmp(ref const SourceFile rhs) const { return sortOrder(this, rhs); }
 		// "a < b" for folder structures (deepest folder first, else lexical)
 		private final static int sortOrder(ref const SourceFile a, ref const SourceFile b) {
-			enforce(!a.structurePath.empty());
-			enforce(!b.structurePath.empty());
+			assert(!a.structurePath.empty());
+			assert(!b.structurePath.empty());
 			auto as = a.structurePath;
 			auto bs = b.structurePath;
 
@@ -565,7 +497,16 @@ EndGlobal");
 	}
 }
 
-private string getPackageFileName(in Package pack)
+private Path determineStructurePath(Path file_path, in ProjectGenerator.TargetInfo target)
 {
-	return pack.name.replace(":", "_");
+	foreach (p; target.packages) {
+		if (file_path.startsWith(p.path))
+			return Path(getPackageFileName(p.name)) ~ file_path[p.path.length .. $];
+	}
+	return Path("misc/") ~ file_path.head;
+}
+
+private string getPackageFileName(string pack)
+{
+	return pack.replace(":", "_");
 }

@@ -90,7 +90,7 @@ bool existsDirectory(Path path) {
 	return fi.isDirectory;
 }
 
-void runCommands(string[] commands, string[string] env = null)
+void runCommands(in string[] commands, string[string] env = null)
 {
 	foreach(cmd; commands){
 		logDiagnostic("Running %s", cmd);

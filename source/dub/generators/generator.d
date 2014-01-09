@@ -30,9 +30,11 @@ class ProjectGenerator
 {
 	struct TargetInfo {
 		Package pack;
+		Package[] packages;
 		string config;
 		BuildSettings buildSettings;
 		string[] dependencies;
+		string[] linkDependencies;
 	}
 
 	protected {
@@ -92,9 +94,9 @@ class ProjectGenerator
 			main_files ~= buildsettings.mainSourceFile;
 		}
 
-		logInfo("Generate target %s (%s %s %s)", pack.name, buildsettings.targetType, buildsettings.targetPath, buildsettings.targetName);
+		logDiagnostic("Generate target %s (%s %s %s)", pack.name, buildsettings.targetType, buildsettings.targetPath, buildsettings.targetName);
 		if (generates_binary)
-			targets[pack.name] = TargetInfo(pack, configs[pack.name], buildsettings, null);
+			targets[pack.name] = TargetInfo(pack, [pack], configs[pack.name], buildsettings, null);
 
 		foreach (depname, depspec; pack.dependencies) {
 			if (!pack.hasDependency(depname, configs[pack.name])) continue;
@@ -106,21 +108,26 @@ class ProjectGenerator
 			if (depbs.targetType != TargetType.sourceLibrary && depbs.targetType != TargetType.none) {
 				// add a reference to the target binary and remove all source files in the dependency build settings
 				depbs.sourceFiles = depbs.sourceFiles.filter!(f => f.isLinkerFile()).array;
-				auto target = Path(depbs.targetPath) ~ getTargetFileName(depbs, settings.platform);
-				if (!target.absolute) target = pack.path ~ target;
-				depbs.prependSourceFiles(target.toNativeString());
+				depbs.importFiles = null;
 			}
 
 			buildsettings.add(depbs);
 
-			if (depname in targets)
-				targets[pack.name].dependencies ~= dep.name;
+			if (auto pdt = depname in targets) {
+				auto pt = pack.name in targets;
+				pt.dependencies ~= depname;
+				pt.linkDependencies ~= depname;
+				if (depbs.targetType == TargetType.staticLibrary)
+					pt.linkDependencies ~= pdt.linkDependencies.filter!(d => !pt.linkDependencies.canFind(d)).array;
+			}
+			else targets[pack.name].packages ~= dep;
 		}
 
 		if (generates_binary) {
 			// add build type settings and convert plain DFLAGS to build options
 			m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 			settings.compiler.extractBuildOptions(buildsettings);
+			enforceBuildRequirements(buildsettings);
 			targets[pack.name].buildSettings = buildsettings.dup;
 		}
 
@@ -185,7 +192,7 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 /**
 	Runs pre-build commands and performs other required setup before project files are generated.
 */
-void prepareGeneration(BuildSettings buildsettings)
+void prepareGeneration(in BuildSettings buildsettings)
 {
 	if( buildsettings.preGenerateCommands.length ){
 		logInfo("Running pre-generate commands...");
@@ -196,7 +203,7 @@ void prepareGeneration(BuildSettings buildsettings)
 /**
 	Runs post-build commands and copies required files to the binary directory.
 */
-void finalizeGeneration(BuildSettings buildsettings, bool generate_binary)
+void finalizeGeneration(in BuildSettings buildsettings, bool generate_binary)
 {
 	if (buildsettings.postGenerateCommands.length) {
 		logInfo("Running post-generate commands...");
@@ -221,7 +228,7 @@ void finalizeGeneration(BuildSettings buildsettings, bool generate_binary)
 	}
 }
 
-void runBuildCommands(string[] commands, in BuildSettings build_settings)
+void runBuildCommands(in string[] commands, in BuildSettings build_settings)
 {
 	import std.process;
 	import dub.internal.utils;

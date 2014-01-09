@@ -56,6 +56,11 @@ class BuildGenerator : ProjectGenerator {
 				buildTargetRec(dep);
 
 			auto bs = ti.buildSettings.dup;
+			if (bs.targetType != TargetType.staticLibrary)
+				foreach (ldep; ti.linkDependencies) {
+					auto dbs = targets[ldep].buildSettings;
+					bs.addSourceFiles((Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform)).toNativeString());
+				}
 			buildTarget(settings, bs, ti.pack, ti.config);
 		}
 
