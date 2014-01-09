@@ -54,7 +54,7 @@ class ProjectGenerator
 		string[string] configs = m_project.getPackageConfigs(settings.platform, settings.config);
 
 		string[] mainfiles;
-		collect(settings, m_project.mainPackage, targets, configs, mainfiles);
+		collect(settings, m_project.mainPackage, targets, configs, mainfiles, null);
 		downwardsInheritSettings(m_project.mainPackage.name, targets, targets[m_project.mainPackage.name].buildSettings);
 		auto bs = &targets[m_project.mainPackage.name].buildSettings;
 		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
@@ -64,7 +64,7 @@ class ProjectGenerator
 
 	abstract void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets);
 
-	private BuildSettings collect(GeneratorSettings settings, Package pack, ref TargetInfo[string] targets, in string[string] configs, ref string[] main_files)
+	private BuildSettings collect(GeneratorSettings settings, Package pack, ref TargetInfo[string] targets, in string[string] configs, ref string[] main_files, string bin_pack)
 	{
 		if (auto pt = pack.name in targets) return pt.buildSettings;
 
@@ -103,7 +103,7 @@ class ProjectGenerator
 			auto dep = m_project.getDependency(depname, depspec.optional);
 			if (!dep) continue;
 
-			auto depbs = collect(settings, dep, targets, configs, main_files);
+			auto depbs = collect(settings, dep, targets, configs, main_files, generates_binary ? pack.name : bin_pack);
 
 			if (depbs.targetType != TargetType.sourceLibrary && depbs.targetType != TargetType.none) {
 				// add a reference to the target binary and remove all source files in the dependency build settings
@@ -113,14 +113,16 @@ class ProjectGenerator
 
 			buildsettings.add(depbs);
 
-			if (auto pdt = depname in targets) {
+			if (generates_binary) {
 				auto pt = pack.name in targets;
-				pt.dependencies ~= depname;
-				pt.linkDependencies ~= depname;
-				if (depbs.targetType == TargetType.staticLibrary)
-					pt.linkDependencies ~= pdt.linkDependencies.filter!(d => !pt.linkDependencies.canFind(d)).array;
-			}
-			else targets[pack.name].packages ~= dep;
+				assert(pt !is null);
+				if (auto pdt = depname in targets) {
+					pt.dependencies ~= depname;
+					pt.linkDependencies ~= depname;
+					if (depbs.targetType == TargetType.staticLibrary)
+						pt.linkDependencies ~= pdt.linkDependencies.filter!(d => !pt.linkDependencies.canFind(d)).array;
+				} else pt.packages ~= dep;
+			} else targets[bin_pack].packages ~= dep;
 		}
 
 		if (generates_binary) {
