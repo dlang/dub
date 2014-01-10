@@ -523,7 +523,7 @@ class Dub {
 		if (!run) {
 			commands ~= dub_path~"ddox generate-html --navigation-type=ModuleTree docs.json docs";
 			version(Windows) commands ~= "xcopy /S /D "~dub_path~"public\\* docs\\";
-			else commands ~= "cp -r \""~dub_path~"public\"/* docs/";
+			else commands ~= "cp -ru \""~dub_path~"public\"/* docs/";
 		}
 		runCommands(commands);
 
