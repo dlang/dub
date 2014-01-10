@@ -144,7 +144,8 @@ class Project {
 
 	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true)
 	const {
-		return m_main.getDefaultConfiguration(platform, allow_non_library_configs);
+		auto cfgs = getPackageConfigs(platform, null, allow_non_library_configs);
+		return cfgs[m_main.name];
 	}
 
 	/// Rereads the applications state.
@@ -218,7 +219,7 @@ class Project {
 	@property string[] configurations() const { return m_main.configurations; }
 
 	/// Returns a map with the configuration for all packages in the dependency tree. 
-	string[string] getPackageConfigs(in BuildPlatform platform, string config)
+	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
 		struct Vertex { string pack, config; }
 		struct Edge { size_t from, to; }
@@ -294,7 +295,7 @@ class Project {
 			}
 
 			// for each configuration, determine the configurations usable for the dependencies
-			outer: foreach (c; p.getPlatformConfigurations(platform, p is m_main)) {
+			outer: foreach (c; p.getPlatformConfigurations(platform, p is m_main && allow_non_library)) {
 				string[][string] depconfigs;
 				foreach (dn; p.dependencies.byKey) {
 					auto dp = getDependency(dn, true);
@@ -322,7 +323,7 @@ class Project {
 						createEdge(cidx, createConfig(dn, sc));
 			}
 		}
-		createConfig(m_main.name, config);
+		if (config.length) createConfig(m_main.name, config);
 		determineAllConfigs(m_main);
 
 		// successively remove configurations until only one configuration per package is left
