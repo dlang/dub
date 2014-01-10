@@ -6,20 +6,50 @@ v0.9.21 - 2013-
 
 ### Features and improvements ###
 
+ - Implemented building dependencies as separate libraries (use `--combined` to use - almost - the old behavior)
+ - The preferred package description file name is now "dub.json", instead of "package.json", which is still supported
  - Revamped command line help now shows detailed help for each command
  - Added `dub test` to run the unit tests of a package using a custom main() function
  - `--annotate` now works for all commands
  - Added a `"mainSourceFile"` field to better control how `--rdmd` and `dub test` work
  - The target binary (if any) is now automatically deleted after a linker error to avoid partially linked binaries
  - Added `--force` to `dub build` and `dub run` to force recompilation even if already up to date
+ - Renamed the "debug_" and "release" build options to "debugMode" and "releaseMode" to avoid the D keyword clash
+ - Renamed the "noBoundsChecks" build option to "noBoundsCheck" to be consistent with the corresponding build requirement
+ - "dub init xxx vibe.d" now emits a "-version=VibeDefaultMain" as required by the latest versions
+ - Reimplemented the VisualD project generator to use the new compile target logic
+    - Instead of "dub generate visuald-combined" use "dub generate visuald --combined"
+    - Properly handles the explicit library target types (those other than `"targetType": "library"`)
+ - Added support for "dub add-local" without an explicit version argument (will be inferred using GIT) (by p0nce) - [pull #194][issue194]
+ - Added a new "release-nobounds" build type
+ - Improved the error message when "dub remove" fails because of a missing installation journal
+ - Removed the Mono-D project generator - use Mono-D's built in DUB support instead
+ - Added support for public sub packages in sub folders - this is the preferred way to use sub packages, see <http://code.dlang.org/package-format#sub-packages>
+ - Only "main.d" or "packname/main.d" are now automatically treated as `"mainSourceFile"` for library targets
 
 ### Bug fixes ###
 
  - Fixed a malformed log message for files with modification times in the future
  - Fixed handling of absolute working directories
  - Fixed a segmentation fault on OS X when doing "dub upgrade" - [issue #179][issue179]
+ - Fixed extraction of prerelease SemVer versions from the "git describe" output
+ - Fixed handling of paths with spaces in generated VisualD projects
+ - Fixed DUB binaries compiled with GDC/LDC to work around a crash issue in `std.net.curl` - [issue #109][issue109], [issue #135][issue135]
+ - Fixed iterating over directories containing invalid symbols links (e.g. when searching a directory for packages)
+ - Fixed the path separators used for `$DUBPATH` (':' on Posix and ';' on Windows)
+ - Fixed using custom registries in the global DUB configuration file - [issue #186][issue186]
+ - Fixed assertions triggering when `$HOME` is a relative path (by Ognjen Ivkovic) - [pull #192][issue192]
+ - Fixed the VisualD project generator to enforce build requirements
+ - Fixed build requirements to also affect comipler options of the selected build 
+ - Fixed configuration resolution for complex dependency graphs (it could happen that configurations were picked that can't work on the selected platform)
+ - Fixed "dub build -b ddox" to only copy resource files from DDOX if they are newer than existing files on Posix
 
+[issue109]: https://github.com/rejectedsoftware/dub/issues/109
+[issue135]: https://github.com/rejectedsoftware/dub/issues/135
 [issue179]: https://github.com/rejectedsoftware/dub/issues/179
+[issue186]: https://github.com/rejectedsoftware/dub/issues/186
+[issue192]: https://github.com/rejectedsoftware/dub/issues/192
+[issue194]: https://github.com/rejectedsoftware/dub/issues/194
 
 
 v0.9.20 - 2013-11-29
