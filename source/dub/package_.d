@@ -429,6 +429,7 @@ struct PackageInfo {
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
 	BuildSettingsTemplate[string] buildTypes;
+	Json subPackages;
 
 	@property const(Dependency)[string] dependencies()
 	const {
@@ -461,7 +462,7 @@ struct PackageInfo {
 				case "authors": this.authors = deserializeJson!(string[])(value); break;
 				case "copyright": this.copyright = value.get!string; break;
 				case "license": this.license = value.get!string; break;
-				case "-ddoxFilterArgs": this.ddoxFilterArgs = deserializeJson!(string[])(value); break;
+				case "subPackages": subPackages = value;
 				case "configurations": break; // handled below, after the global settings have been parsed
 				case "buildTypes":
 					foreach (string name, settings; value) {
@@ -470,6 +471,7 @@ struct PackageInfo {
 						buildTypes[name] = bs;
 					}
 					break;
+				case "-ddoxFilterArgs": this.ddoxFilterArgs = deserializeJson!(string[])(value); break;
 			}
 		}
 
@@ -501,13 +503,22 @@ struct PackageInfo {
 		if( !this.authors.empty ) ret.authors = serializeToJson(this.authors);
 		if( !this.copyright.empty ) ret.copyright = this.copyright;
 		if( !this.license.empty ) ret.license = this.license;
-		if( !this.ddoxFilterArgs.empty ) ret["-ddoxFilterArgs"] = this.ddoxFilterArgs.serializeToJson();
+		if( this.subPackages.length ) {
+			auto copy = this.subPackages.toString();
+			ret.subPackages = dub.internal.vibecompat.data.json.parseJson(copy);
+		}
 		if( this.configurations ){
 			Json[] configs;
 			foreach(config; this.configurations)
 				configs ~= config.toJson();
 			ret.configurations = configs;
 		}
+		if( this.buildTypes.length ) {
+			Json[string] types;
+			foreach(name, settings; this.buildTypes)
+				types[name] = settings.toJson();
+		}
+		if( !this.ddoxFilterArgs.empty ) ret["-ddoxFilterArgs"] = this.ddoxFilterArgs.serializeToJson();
 		return ret;
 	}
 }
