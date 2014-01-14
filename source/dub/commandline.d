@@ -381,8 +381,6 @@ abstract class PackageBuildCommand : Command {
 		if (pack) dub.loadPackage(pack);
 		else dub.loadPackageFromCwd();
 
-		m_defaultConfig = dub.getDefaultConfiguration(m_buildPlatform);
-
 		return true;
 	}
 }
@@ -452,16 +450,17 @@ class GenerateCommand : PackageBuildCommand {
 			logInfo("");
 		}
 
+		if (!m_nodeps) {
+			logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
+			dub.update(UpdateOptions.none);
+		}
+
+		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 		if (m_print_configs) {
 			logInfo("Available configurations:");
 			foreach (tp; dub.configurations)
 				logInfo("  %s%s", tp, tp == m_defaultConfig ? " [default]" : null);
 			logInfo("");
-		}
-
-		if (!m_nodeps) {
-			logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
-			dub.update(UpdateOptions.none);
 		}
 
 		GeneratorSettings gensettings;
@@ -607,6 +606,8 @@ class DescribeCommand : PackageBuildCommand {
 			logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
 			dub.update(UpdateOptions.none);
 		}
+
+		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
 		dub.describeProject(m_buildPlatform, m_build_config.length ? m_build_config : m_defaultConfig);				
 		return 0;
