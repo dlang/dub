@@ -46,7 +46,7 @@ class Package {
 		PackageInfo m_info;
 		Package m_parentPackage;
 		Package[] m_subPackages;
-		Path[string] m_exportedPackages;
+		Path[] m_exportedPackages;
 	}
 
 	static bool isPackageAt(Path path)
@@ -171,11 +171,7 @@ class Package {
 				throw new Exception("'subPackages' found in '" ~ name ~ "'. This is only supported in the main package file for '" ~ m_parentPackage.name ~ "'.");
 			}
 			if ("packageDefinition" in sub) {
-				auto path = Path(sub.packageDefinition.get!string);
-				enforce("name" in sub, "A subpackage is missing a name in package '" ~ name ~ "'");
-				auto sub_name = sub.name.get!string;
-				enforce(sub_name !in m_exportedPackages, "Subpackage '" ~ sub_name ~ "' defined more than once in '" ~ name ~ "'");
-				m_exportedPackages[sub_name] = path;
+				m_exportedPackages ~= Path(sub.packageDefinition.get!string);
 			}
 			else {
 				m_subPackages ~= new Package(sub, root, this);
@@ -200,7 +196,7 @@ class Package {
 	@property inout(Package) basePackage() inout { return m_parentPackage ? m_parentPackage.basePackage : this; }
 	@property inout(Package) parentPackage() inout { return m_parentPackage; }
 	@property inout(Package)[] subPackages() inout { return m_subPackages; }
-	@property inout(Path[string]) exportedPackages() inout { return m_exportedPackages; }
+	@property inout(Path[]) exportedPackages() inout { return m_exportedPackages; }
 
 	@property string[] configurations()
 	const {

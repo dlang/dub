@@ -591,7 +591,67 @@ class DependencyGraph {
 		Package r_master = new Package(R_json);
 		auto graph = new DependencyGraph(r_master);
 		assert(graph.missing().length == 1);
-		foreach (sp; r_master.subPackages) graph.insert(sp);
+		// Subpackages need to be explicitly added.
+		graph.insert(r_master.subPackages[0]);
 		assert(graph.missing().length == 0);
+	}
+
+	unittest {
+		/*
+			R -> S:sub
+		*/
+		auto R_json = parseJsonString(`
+		{
+			"name": "R",
+			"dependencies": {
+				"S:sub": "~master"
+			},
+			"version": "~master"
+		}
+			`);
+		auto S_w_sub_json = parseJsonString(`
+		{
+			"name": "S",
+			"version": "~master",
+			"subPackages": [
+				{
+					"name": "sub"
+				}
+			]
+		}
+			`);
+		auto S_wout_sub_json = parseJsonString(`
+		{
+			"name": "S",
+			"version": "~master"
+		}
+			`);
+		auto sub_json = parseJsonString(`
+		{
+			"name": "sub",
+			"version": "~master"
+		}
+			`);
+
+		Package r_master = new Package(R_json);
+		auto graph = new DependencyGraph(r_master);
+		assert(graph.missing().length == 1);
+		Package s_master = new Package(S_w_sub_json);
+		graph.insert(s_master);
+		assert(graph.missing().length == 1);
+		graph.insert(s_master.subPackages[0]);
+		assert(graph.missing().length == 0);
+
+		graph = new DependencyGraph(r_master);
+		assert(graph.missing().length == 1);
+		s_master = new Package(S_wout_sub_json);
+		graph.insert(s_master);
+		assert(graph.missing().length == 1);
+
+		graph = new DependencyGraph(r_master);
+		assert(graph.missing().length == 1);
+		s_master = new Package(sub_json);
+		graph.insert(s_master);
+		assert(graph.missing().length == 1);
 	}
 }

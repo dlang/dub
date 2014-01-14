@@ -599,20 +599,17 @@ class PackageManager {
 		// Additionally to the internally defined subpackages, whose metadata
 		// is loaded with the main package.json, load all externally defined
 		// packages after the package is available with all the data.
-		foreach ( sub_name, sub_path; pack.exportedPackages ) {
+		foreach ( sub_path; pack.exportedPackages ) {
 			auto path = pack.path ~ sub_path;
 			if ( !existsFile(path) ) {
-				logError("Package %s defined sub-package %s, definition file is missing: ", sub_name, path.toNativeString());
+				logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
 				continue;
 			}
 			// Add the subpackage.
 			try {
-				auto sub_pack = new Package(path, pack);
-				// Checking the raw name here, instead of the "parent:sub" style.
-				enforce(sub_pack.info.name == sub_name, "Name of package '" ~ sub_name ~ "' differs in definition in '" ~ path.toNativeString() ~ "'.");
-				dst_repos ~= sub_pack;
+				dst_repos ~= new Package(path, pack);
 			} catch( Exception e ){
-				logError("Package '%s': Failed to load sub-package '%s' in %s, error: %s", pack.name, sub_name, path.toNativeString(), e.msg);
+				logError("Package '%s': Failed to load sub-package in %s, error: %s", pack.name, path.toNativeString(), e.msg);
 				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}
 		}

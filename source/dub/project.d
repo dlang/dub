@@ -632,10 +632,10 @@ class Project {
 			logDiagnostic("Fetching package %s (%d suppliers registered)", pkg, packageSuppliers.length);
 			auto ppath = pkg.getSubPackagePath();
 			auto basepkg = pkg.getBasePackage();
-			foreach (ps; packageSuppliers) {
+			foreach (supplier; packageSuppliers) {
 				try {
 					// Get main package.
-					auto sp = new Package(ps.getPackageDescription(basepkg, reqDep.dependency, false));
+					auto sp = new Package(supplier.getPackageDescription(basepkg, reqDep.dependency, false));
 					// Fetch subpackage, if one was requested.
 					foreach (spn; ppath[1 .. $]) {
 						try {
@@ -651,18 +651,15 @@ class Project {
 							//   external package is inferred as having no additional dependencies.
 							//   When the package is then fetched the state is re-evaluated and
 							//   possible new dependencies will be resolved.
-							if (spn in sp.exportedPackages) {
-								string hacked_info = "{\"name\": \"" ~ spn ~ "\"}";
-								auto info = parseJson(hacked_info);
-								sp = new Package(info, Path(), sp);
-							}
-							else throw e;
+							string hacked_info = "{\"name\": \"" ~ spn ~ "\"}";
+							auto info = parseJson(hacked_info);
+							sp = new Package(info, Path(), sp);
 						}
 					}
 					p = sp;
 					break;
 				} catch (Exception e) {
-					logDiagnostic("No metadata for %s: %s", ps.description, e.msg);
+					logDiagnostic("No metadata for %s: %s", supplier.description, e.msg);
 				}
 			}
 			enforce(p !is null, "Could not find package candidate for "~pkg~" "~reqDep.dependency.toString());
