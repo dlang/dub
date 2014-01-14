@@ -60,17 +60,19 @@ class Package {
 	this(Path root, Package parent = null)
 	{
 		Json info;
-		foreach (f; packageInfoFilenames) {
-			auto name = root ~ f;
-			if (existsFile(name)) {
-				m_infoFile = name;
-				info = jsonFromFile(m_infoFile);
-				break;
+		try {
+			foreach (f; packageInfoFilenames) {
+				auto name = root ~ f;
+				if (existsFile(name)) {
+					m_infoFile = name;
+					info = jsonFromFile(m_infoFile);
+					break;
+				}
 			}
-		}
-		if (info == Json.undefined) {
-			throw new Exception("Missing package description for package in %s", root.toNativeString());
-		}
+		} catch (Exception ex) throw new Exception(format("Failed to load package at %s: %s", root.toNativeString(), ex.msg));
+
+		enforce(info != Json.undefined, format("Missing package description for package at %s", root.toNativeString()));
+
 		this(info, root, parent);
 	}
 
@@ -503,7 +505,7 @@ struct PackageInfo {
 		if( !this.authors.empty ) ret.authors = serializeToJson(this.authors);
 		if( !this.copyright.empty ) ret.copyright = this.copyright;
 		if( !this.license.empty ) ret.license = this.license;
-		if( this.subPackages.length ) {
+		if( this.subPackages.type != Json.Type.undefined ) {
 			auto copy = this.subPackages.toString();
 			ret.subPackages = dub.internal.vibecompat.data.json.parseJson(copy);
 		}
