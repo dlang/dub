@@ -118,7 +118,7 @@ class PackageManager {
 	Package getPackage(Path path)
 	{
 		foreach (p; getPackageIterator())
-			if (!p.basePackage && p.path == path)
+			if (!p.parentPackage && p.path == path)
 				return p;
 		auto pack = new Package(path);
 		addPackages(m_temporaryPackages, pack);
