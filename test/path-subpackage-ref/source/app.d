@@ -1,6 +1,7 @@
-import std.stdio;
+module app;
+import lib;
 
 void main()
 {
-	writeln("Edit source/app.d to start your project.");
+	libFunc();
 }
