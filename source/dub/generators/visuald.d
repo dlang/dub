@@ -19,9 +19,10 @@ import dub.project;
 import std.algorithm;
 import std.array;
 import std.conv;
-import std.format;
-import std.uuid;
 import std.exception;
+import std.format;
+import std.string : format;
+import std.uuid;
 
 
 // Dubbing is developing dub...
@@ -179,15 +180,20 @@ class VisualDGenerator : ProjectGenerator {
 
 			void addFile(string s, bool build) {
 				auto sp = Path(s);
-				assert(sp.absolute);
+				assert(sp.absolute, format("Source path in %s expected to be absolute: %s", packname, s));
 				//if( !sp.absolute ) sp = pack.path ~ sp;
 				addSourceFile(sp.relativeTo(project_file_dir), determineStructurePath(sp, targets[packname]), build);
 			}
-			foreach (p; targets[packname].packages) addFile(p.packageInfoFile.toNativeString(), false);
+
+			foreach (p; targets[packname].packages)
+				if (!p.packageInfoFile.empty)
+					addFile(p.packageInfoFile.toNativeString(), false);
+
 			if (files.targetType == TargetType.staticLibrary)
 				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(s))) addFile(s, true);
 			else
 				foreach(s; files.sourceFiles.filter!(s => !s.endsWith(".lib"))) addFile(s, true);
+
 			foreach(s; files.importFiles) addFile(s, false);
 			foreach(s; files.stringImportFiles) addFile(s, false);
 
