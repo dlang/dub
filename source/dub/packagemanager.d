@@ -478,8 +478,10 @@ class PackageManager {
 							if (!pp) {
 								if (Package.isPackageAt(path)) pp = new Package(path);
 								else {
+									logWarn("Locally registered package at %s was not found.", path.toNativeString());
 									auto info = Json.emptyObject;
 									info.name = name;
+									pp = new Package(info, path);
 								}
 							}
 
