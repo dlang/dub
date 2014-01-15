@@ -164,10 +164,13 @@ class Package {
 			if (m_parentPackage) {
 				throw new Exception("'subPackages' found in '" ~ name ~ "'. This is only supported in the main package file for '" ~ m_parentPackage.name ~ "'.");
 			}
-			if ("packageDefinition" in sub) {
-				m_exportedPackages ~= Path(sub.packageDefinition.get!string);
-			}
-			else {
+			if (sub.type == Json.Type.string)  {
+				auto p = Path(sub.get!string);
+				p.normalize();
+				enforce(!p.absolute, "Sub package paths must not be absolute: " ~ sub.get!string);
+				enforce(!p.startsWith(Path("..")), "Sub packages must be in a sub directory, not " ~ sub.get!string);
+				m_exportedPackages ~= p;
+			} else {
 				m_subPackages ~= new Package(sub, root, this);
 			}
 		}
