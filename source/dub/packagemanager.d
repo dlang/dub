@@ -478,7 +478,8 @@ class PackageManager {
 							if (!pp) {
 								if (Package.isPackageAt(path)) pp = new Package(path);
 								else {
-									logWarn("Locally registered package at %s was not found.", path.toNativeString());
+									logWarn("Locally registered package %s %s was not found. Please run \"dub remove-local %s\".",
+										name, ver, path.toNativeString());
 									auto info = Json.emptyObject;
 									info.name = name;
 									pp = new Package(info, path);
