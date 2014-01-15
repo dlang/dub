@@ -21,7 +21,7 @@ Key features
 
  - Integrated with Git, avoiding maintainance tasks such as incrementing version numbers or uploading new project releases
 
- - Generation of VisualD and Mono-D project/solution files
+ - Generates VisualD project/solution files, integrated into MonoD
 
  - Support for DMD, GDC and LDC (common DMD flags are translated automatically)
 
@@ -52,7 +52,7 @@ Moritz Maxeiner has created a PKGBUILD file for Arch:
 
 ### Debian/Ubuntu Linux
 
-Jordi Sayol maintains a DEB package as part of his [D APT repository](https://code.google.com/p/d-apt/wiki/APT_Repository). Run `sudo apt-get install dub` to install.
+Jordi Sayol maintains a DEB package as part of his [D APT repository](http://d-apt.sourceforge.net). Run `sudo apt-get install dub` to install.
 
 ### Mac OS
 
