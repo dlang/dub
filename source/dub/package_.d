@@ -88,7 +88,7 @@ class Package {
 				m_info.buildSettings.stringImportPaths[""] ~= defvf;
 		}
 
-		string app_main_file, lib_main_file;
+		string app_main_file;
 		auto pkg_name = packageInfo.name.get!string();
 
 		// check for default source folders
@@ -97,14 +97,9 @@ class Package {
 			if( existsFile(p) ){
 				m_info.buildSettings.sourcePaths[""] ~= defsf;
 				m_info.buildSettings.importPaths[""] ~= defsf;
-				foreach (fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ pkg_name ~ ".d"])
+				foreach (fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"])
 					if (existsFile(p ~ fil)) {
 						app_main_file = Path(defsf ~ fil).toNativeString();
-						break;
-					}
-				foreach (fil; [pkg_name ~ "/main.d", pkg_name ~ "/main.d"])
-					if (existsFile(p ~ fil)) {
-						lib_main_file = Path(defsf ~ fil).toNativeString();
 						break;
 					}
 			}
@@ -150,7 +145,7 @@ class Package {
 				lib_settings.targetType = m_info.buildSettings.targetType == TargetType.autodetect ? TargetType.library : m_info.buildSettings.targetType;
 
 				if (m_info.buildSettings.targetType == TargetType.autodetect) {
-					if (app_main_file.length && lib_main_file != app_main_file) {
+					if (app_main_file.length) {
 						lib_settings.excludedSourceFiles[""] ~= app_main_file;
 
 						BuildSettingsTemplate app_settings;
@@ -160,7 +155,6 @@ class Package {
 					}
 				}
 
-				if (m_info.buildSettings.mainSourceFile.empty) lib_settings.mainSourceFile = lib_main_file;
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
