@@ -40,7 +40,7 @@ Compiler getCompiler(string name)
 	if (name.canFind("dmd")) return getCompiler("dmd");
 	if (name.canFind("gdc")) return getCompiler("gdc");
 	if (name.canFind("ldc")) return getCompiler("ldc");
-			
+
 	throw new Exception("Unknown compiler: "~name);
 }
 
@@ -139,7 +139,7 @@ void resolveLibs(ref BuildSettings settings)
 		settings.libs = null;
 		version(Windows) settings.sourceFiles = settings.sourceFiles.filter!(f => !f.endsWith(".lib")).array;
 	}
-	
+
 	try {
 		logDiagnostic("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
 		auto libflags = execute(["pkg-config", "--libs"] ~ settings.libs.map!(l => "lib"~l)().array());
@@ -190,6 +190,7 @@ struct BuildSettings {
 	string[] lflags;
 	string[] libs;
 	string[] sourceFiles;
+	string[] testFiles;
 	string[] copyFiles;
 	string[] versions;
 	string[] debugVersions;
@@ -243,6 +244,7 @@ struct BuildSettings {
 	void addLFlags(in string[] value...) { lflags ~= value; }
 	void addLibs(in string[] value...) { add(libs, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
+	void addTestFiles(in string[] value...) { add(testFiles, value); }
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
@@ -349,9 +351,9 @@ struct BuildPlatform {
 	/// "-windows-dmd"
 	///
 	/// Params:
-	///     specification = The specification being matched. It must be the empty string or start with a dash.  
+	///     specification = The specification being matched. It must be the empty string or start with a dash.
 	///
-	/// Returns: 
+	/// Returns:
 	///     true if the given specification matches this BuildPlatform, false otherwise. (The empty string matches)
 	///
 	bool matchesSpecification(const(char)[] specification) const {
@@ -479,7 +481,7 @@ string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 				return settings.targetName ~ ".dll";
 			else return "lib" ~ settings.targetName ~ ".so";
 	}
-} 
+}
 
 
 bool isLinkerFile(string f)

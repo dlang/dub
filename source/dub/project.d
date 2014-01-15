@@ -88,7 +88,7 @@ class Project {
 
 	/// List of retrieved dependency Packages
 	@property const(Package[]) dependencies() const { return m_dependencies; }
-	
+
 	/// Main package.
 	@property inout(Package) mainPackage() inout { return m_main; }
 
@@ -97,7 +97,7 @@ class Project {
 	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[string] configs = null)
 	const {
 		const(Package) rootpack = root_package ? root_package : m_main;
-	
+
 		int iterator(int delegate(ref const Package) del)
 		{
 			int ret = 0;
@@ -129,7 +129,7 @@ class Project {
 			perform_rec(rootpack);
 			return ret;
 		}
-		
+
 		return &iterator;
 	}
 
@@ -218,7 +218,7 @@ class Project {
 
 	@property string[] configurations() const { return m_main.configurations; }
 
-	/// Returns a map with the configuration for all packages in the dependency tree. 
+	/// Returns a map with the configuration for all packages in the dependency tree.
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
 		struct Vertex { string pack, config; }
@@ -380,7 +380,7 @@ class Project {
 	/**
 	 * Fills dst with values from this project.
 	 *
-	 * dst gets initialized according to the given platform and config. 
+	 * dst gets initialized according to the given platform and config.
 	 *
 	 * Params:
 	 *   dst = The BuildSettings struct to fill with data.
@@ -399,7 +399,7 @@ class Project {
 
 			assert(pkg.name in configs, "Missing configuration for "~pkg.name);
 			logDebug("Gathering build settings for %s (%s)", pkg.name, configs[pkg.name]);
-			
+
 			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
 			if (psettings.targetType != TargetType.none) {
 				if (shallow && pkg !is m_main)
@@ -474,7 +474,7 @@ class Project {
 				Action[] actions;
 				foreach( string pkg, dbp; graph.conflicted())
 					actions ~= Action.conflict(pkg, dbp.dependency, dbp.packages);
-				
+
 				// Missing dependencies could have some bogus results, therefore
 				// return only the conflicts.
 				return actions;
@@ -591,7 +591,7 @@ class Project {
 					logDebug("Dependency to "~pkg~" is invalid. Trying to fix by modifying others.");
 					continue;
 				}
-					
+
 				auto ppath = pkg.getSubPackagePath();
 
 				// TODO: auto update and update interval by time
@@ -601,7 +601,7 @@ class Project {
 
 				// Don't bother with not available optional packages.
 				if( !p && reqDep.dependency.optional ) continue;
-				
+
 				// Try an already present package first
 				if( p && needsUpToDateCheck(p) ){
 					logInfo("Triggering update of package %s", pkg);
@@ -612,8 +612,8 @@ class Project {
 				if( p ) graph.insert(p);
 			}
 			graph.clearUnused();
-			
-			// As the dependencies are filled in starting from the outermost 
+
+			// As the dependencies are filled in starting from the outermost
 			// packages, resolving those conflicts won't happen (?).
 			if(graph.conflicted().length > 0) {
 				logInfo("There are conflicts in the dependency graph.");
@@ -682,7 +682,7 @@ class Project {
 			} catch(Exception t) return true;
 		} else return false;
 	}
-		
+
 	private void markUpToDate(string packageId) {
 		logDebug("markUpToDate(%s)", packageId);
 		Json create(ref Json json, string object) {
@@ -785,7 +785,7 @@ enum UpdateOptions
 
 /// Indicates where a package has been or should be placed to.
 enum PlacementLocation {
-	/// Packages retrived with 'local' will be placed in the current folder 
+	/// Packages retrived with 'local' will be placed in the current folder
 	/// using the package name as destination.
 	local,
 	/// Packages with 'userWide' will be placed in a folder accessible by
@@ -802,6 +802,7 @@ void processVars(ref BuildSettings dst, string project_path, BuildSettings setti
 	dst.addLFlags(processVars(project_path, settings.lflags));
 	dst.addLibs(processVars(project_path, settings.libs));
 	dst.addSourceFiles(processVars(project_path, settings.sourceFiles, true));
+	dst.addTestFiles(processVars(project_path, settings.testFiles, true));
 	dst.addImportFiles(processVars(project_path, settings.importFiles, true));
 	dst.addStringImportFiles(processVars(project_path, settings.stringImportFiles, true));
 	dst.addCopyFiles(processVars(project_path, settings.copyFiles, true));
@@ -882,7 +883,7 @@ private bool isIdentChar(dchar ch)
 	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
 }
 
-string stripDlangSpecialChars(string s) 
+string stripDlangSpecialChars(string s)
 {
 	import std.array;
 	import std.uni;

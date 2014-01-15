@@ -34,7 +34,7 @@ string defaultPackageFilename() {
 /**
 	Represents a package, including its sub packages
 
-	Documentation of the dub.json can be found at 
+	Documentation of the dub.json can be found at
 	http://registry.vibed.org/package-format
 */
 class Package {
@@ -174,7 +174,7 @@ class Package {
 
 		simpleLint();
 	}
-	
+
 	@property string name()
 	const {
 		if (m_parentPackage) return m_parentPackage.name ~ ":" ~ m_info.name;
@@ -326,7 +326,7 @@ class Package {
 			s ~= "\n    " ~ p ~ ", version '" ~ to!string(v) ~ "'";
 		return s;
 	}
-	
+
 	bool hasDependency(string depname, string config)
 	const {
 		if (depname in m_info.buildSettings.dependencies) return true;
@@ -407,7 +407,7 @@ class Package {
 	}
 }
 
-/// Specifying package information without any connection to a certain 
+/// Specifying package information without any connection to a certain
 /// retrived package, like Package class is doing.
 struct PackageInfo {
 	string name;
@@ -584,6 +584,7 @@ struct BuildSettingsTemplate {
 	string[][string] sourceFiles;
 	string[][string] sourcePaths;
 	string[][string] excludedSourceFiles;
+	string[][string] testPaths;
 	string[][string] copyFiles;
 	string[][string] versions;
 	string[][string] debugVersions;
@@ -614,7 +615,7 @@ struct BuildSettingsTemplate {
 							enforce("version" in verspec, "Package information provided for package " ~ pkg ~ " is missing a version field.");
 							auto ver = verspec["version"].get!string;
 							if( auto pp = "path" in verspec ) {
-								// This enforces the "version" specifier to be a simple version, 
+								// This enforces the "version" specifier to be a simple version,
 								// without additional range specifiers.
 								dep = Dependency(Version(ver));
 								dep.path = Path(verspec.path.get!string());
@@ -665,6 +666,7 @@ struct BuildSettingsTemplate {
 				case "sourcePaths": this.sourcePaths[suffix] = deserializeJson!(string[])(value); break;
 				case "sourcePath": this.sourcePaths[suffix] ~= [value.get!string()]; break; // deprecated
 				case "excludedSourceFiles": this.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
+				case "testPaths": this.testPaths[suffix] = deserializeJson!(string[])(value); break;
 				case "copyFiles": this.copyFiles[suffix] = deserializeJson!(string[])(value); break;
 				case "versions": this.versions[suffix] = deserializeJson!(string[])(value); break;
 				case "debugVersions": this.debugVersions[suffix] = deserializeJson!(string[])(value); break;
@@ -778,6 +780,7 @@ struct BuildSettingsTemplate {
 
 		// collect files from all source/import folders
 		collectFiles!"addSourceFiles"(sourcePaths, "*.d");
+		collectFiles!"addTestFiles"(testPaths, "*.d");
 		collectFiles!"addImportFiles"(importPaths, "*.{d,di}");
 		dst.removeImportFiles(dst.sourceFiles);
 		collectFiles!"addStringImportFiles"(stringImportPaths, "*");

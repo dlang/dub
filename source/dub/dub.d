@@ -77,7 +77,7 @@ class Dub {
 				m_userDubPath = Path(getcwd()) ~ m_userDubPath;
 			m_tempPath = Path("/tmp");
 		}
-		
+
 		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
 
@@ -230,7 +230,7 @@ class Dub {
 			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
 			return;
 		}
-		
+
 		if (lbuildsettings.targetType == TargetType.executable) {
 			if (config == "unittest") logInfo("Running custom 'unittest' configuration.", config);
 			else logInfo(`Configuration '%s' does not output a library. Falling back to "dub -b unittest -c %s".`, config, config);
@@ -247,6 +247,7 @@ class Dub {
 			tcinfo.targetType = TargetType.executable;
 			tcinfo.targetName = test_config;
 			tcinfo.versions[""] ~= "VibeCustomMain"; // HACK for vibe.d's legacy main() behavior
+			tcinfo.sourceFiles[""] ~= lbuildsettings.testFiles;
 			string custommodname;
 			if (custom_main_file.length) {
 				import std.path;
@@ -390,10 +391,10 @@ class Dub {
 	/// @see remove(string, string, RemoveLocation)
 	enum RemoveVersionWildcard = "*";
 
-	/// This will remove a given package with a specified version from the 
+	/// This will remove a given package with a specified version from the
 	/// location.
-	/// It will remove at most one package, unless @param version_ is 
-	/// specified as wildcard "*". 
+	/// It will remove at most one package, unless @param version_ is
+	/// specified as wildcard "*".
 	/// @param package_id Package to be removed
 	/// @param version_ Identifying a version or a wild card. An empty string
 	/// may be passed into. In this case the package will be removed from the
@@ -428,7 +429,7 @@ class Dub {
 		if(version_.empty && packages.length > 1) {
 			logError("Cannot remove package '%s', there multiple possibilities at location '%s'.", package_id, location_);
 			logError("Retrieved versions:");
-			foreach(pack; packages) 
+			foreach(pack; packages)
 				logError(to!string(pack.vers()));
 			throw new Exception("Failed to remove package.");
 		}
@@ -476,7 +477,7 @@ class Dub {
 
 		initPackage(path, type);
 
-		//Act smug to the user. 
+		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
 	}
 
