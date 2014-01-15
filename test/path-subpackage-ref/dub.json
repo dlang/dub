@@ -1,0 +1,9 @@
+{
+    "name": "test",
+    "dependencies": {
+        "test:subpack": "~master"
+    },
+    "subPackages": [
+    	"subpack/"
+    ]
+}

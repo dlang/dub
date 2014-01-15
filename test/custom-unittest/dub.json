@@ -1,0 +1,21 @@
+{
+	"name": "custom-unittest",
+	"configurations": [
+		{
+			"name": "application",
+			"targetType": "executable"
+		},
+		{
+			"name": "library",
+			"excludedSourceFiles": ["source/app.d"],
+			"targetType": "library"
+		},
+		{
+			"name": "unittest",
+			"targetType": "executable",
+			"excludedSourceFiles": ["source/app.d"],
+			"sourcePaths": ["test/"],
+			"importPaths": ["test/"]
+		}
+	]
+}
