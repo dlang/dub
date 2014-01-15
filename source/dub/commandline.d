@@ -369,13 +369,23 @@ abstract class PackageBuildCommand : Command {
 
 	private bool loadCwdPackage(Dub dub, Package pack, bool warn_missing_package)
 	{
-		if (warn_missing_package && !existsFile(dub.rootPath~"package.json") && !existsFile(dub.rootPath~"source/app.d")) {
-			logInfo("");
-			logInfo("Neither package.json, nor source/app.d was found in the current directory.");
-			logInfo("Please run dub from the root directory of an existing package, or create a new");
-			logInfo("package using \"dub init <name>\".");
-			logInfo("");
-			return false;
+		if (warn_missing_package) {
+			bool found = existsFile(dub.rootPath ~ "source/app.d");
+			if (!found)
+				foreach (f; packageInfoFilenames)
+					if (existsFile(dub.rootPath ~ f)) {
+						found = true;
+						break;
+					}
+			if (!found) {
+				logInfo("");
+				logInfo("Neither a package description file, nor source/app.d was found in");
+				logInfo(dub.rootPath.toNativeString());
+				logInfo("Please run DUB from the root directory of an existing package, or run");
+				logInfo("\"dub init --help\" to get information on creating a new package.");
+				logInfo("");
+				return false;
+			}
 		}
 
 		if (pack) dub.loadPackage(pack);
