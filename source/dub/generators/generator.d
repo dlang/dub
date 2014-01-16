@@ -83,6 +83,9 @@ class ProjectGenerator
 		shallowbs.targetType = tt;
 		bool generates_binary = tt != TargetType.sourceLibrary && tt != TargetType.none;
 
+		enforce (generates_binary || pack !is m_project.mainPackage,
+			format("Main package must have a binary target type, not %s. Cannot build.", tt));
+
 		// start to build up the build settings
 		BuildSettings buildsettings = settings.buildSettings.dup;
 		processVars(buildsettings, pack.path.toNativeString(), shallowbs, true);
