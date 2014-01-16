@@ -42,7 +42,6 @@ struct Version {
 
 	static @property RELEASE() { return Version("0.0.0"); }
 	static @property HEAD() { return Version(MAX_VERS); }
-	static @property INVALID() { return Version(""); }
 	static @property MASTER() { return Version(MASTER_STRING); }
 	static @property MASTER_STRING() { return "~master"; }
 	static @property BRANCH_IDENT() { return '~'; }
