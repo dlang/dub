@@ -413,7 +413,7 @@ class PackageManager {
 			logInfo("Unregistered package: %s (version: %s)", name, ver);
 	}
 
-	Package getTemporaryPackage(Path path, Version ver)
+	Package getTemporaryPackage(Path path, Version ver = Version.INVALID)
 	{
 		foreach (p; m_temporaryPackages)
 			if (p.path == path) {
@@ -423,7 +423,7 @@ class PackageManager {
 		
 		auto pack = new Package(path);
 		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
-		pack.ver = ver;
+		if (ver != Version.INVALID) pack.ver = ver;
 		addPackages(m_temporaryPackages, pack);
 		return pack;
 	}

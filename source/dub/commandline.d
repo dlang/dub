@@ -156,7 +156,7 @@ int runDubCommandLine(string[] args)
 			
 			// make the CWD package available so that for example sub packages can reference their
 			// parent package.
-			try dub.packageManager.getTemporaryPackage(Path(root_path), Version("~master"));
+			try dub.packageManager.getTemporaryPackage(Path(root_path));
 			catch (Exception e) { logDiagnostic("No package found in current working directory."); }
 
 			try return cmd.execute(dub, command_args.extractRemainingArgs(), app_args);
