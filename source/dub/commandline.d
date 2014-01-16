@@ -460,11 +460,6 @@ class GenerateCommand : PackageBuildCommand {
 			logInfo("");
 		}
 
-		if (!m_nodeps) {
-			logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
-			dub.update(UpdateOptions.none);
-		}
-
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 		if (m_print_configs) {
 			logInfo("Available configurations:");
@@ -611,11 +606,6 @@ class DescribeCommand : PackageBuildCommand {
 		if (free_args.length >= 1) package_name = free_args[1];
 
 		setupPackage(dub, package_name);
-
-		if (!m_nodeps) {
-			logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
-			dub.update(UpdateOptions.none);
-		}
 
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
