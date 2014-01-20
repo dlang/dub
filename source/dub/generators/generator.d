@@ -80,11 +80,23 @@ class ProjectGenerator
 				tt = TargetType.staticLibrary;
 			}
 		}
+		if (tt != TargetType.none && tt != TargetType.sourceLibrary && shallowbs.sourceFiles.empty) {
+			logWarn(`Package %s contains no source files. Please add {"targetType": "none"} to it's package description to avoid building it.`,
+				pack.name);
+			tt = TargetType.none;
+		}
+
+
 		shallowbs.targetType = tt;
 		bool generates_binary = tt != TargetType.sourceLibrary && tt != TargetType.none;
 
 		enforce (generates_binary || pack !is m_project.mainPackage,
 			format("Main package must have a binary target type, not %s. Cannot build.", tt));
+
+		if (tt == TargetType.none) {
+			// ignore any build settings for targetType none (only dependencies will be processed)
+			shallowbs = BuildSettings.init;
+		}
 
 		// start to build up the build settings
 		BuildSettings buildsettings = settings.buildSettings.dup;
@@ -116,16 +128,15 @@ class ProjectGenerator
 
 			buildsettings.add(depbs);
 
-			if (generates_binary) {
-				auto pt = pack.name in targets;
-				assert(pt !is null);
-				if (auto pdt = depname in targets) {
-					pt.dependencies ~= depname;
-					pt.linkDependencies ~= depname;
-					if (depbs.targetType == TargetType.staticLibrary)
-						pt.linkDependencies = pt.linkDependencies.filter!(d => !pdt.linkDependencies.canFind(d)).array ~ pdt.linkDependencies;
-				} else pt.packages ~= dep;
-			} else targets[bin_pack].packages ~= dep;
+			auto pt = (generates_binary ? pack.name : bin_pack) in targets;
+			assert(pt !is null);
+			if (auto pdt = depname in targets) {
+				pt.dependencies ~= depname;
+				pt.linkDependencies ~= depname;
+				if (depbs.targetType == TargetType.staticLibrary)
+					pt.linkDependencies = pt.linkDependencies.filter!(d => !pdt.linkDependencies.canFind(d)).array ~ pdt.linkDependencies;
+			}
+			pt.packages ~= dep;
 		}
 
 		if (generates_binary) {
