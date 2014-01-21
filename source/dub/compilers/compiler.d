@@ -94,7 +94,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 
 	foreach (f; compiler_flags) {
 		foreach (sf; s_specialFlags) {
-			if (sf.flags.canFind!(sff => f == sff || (sff.endsWith("=") && f.startsWith(sff)))) {
+			if (sf.flags.any!(sff => f == sff || (sff.endsWith("=") && f.startsWith(sff)))) {
 				outputPreamble();
 				logWarn("%s: %s", f, sf.alternative);
 				break;

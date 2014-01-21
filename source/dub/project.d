@@ -243,7 +243,7 @@ class Project {
 		}
 
 		bool haveConfig(string pack, string config) {
-			return configs.canFind!(c => c.pack == pack && c.config == config);
+			return configs.any!(c => c.pack == pack && c.config == config);
 		}
 
 		size_t createEdge(size_t from, size_t to) {
@@ -507,7 +507,7 @@ class Project {
 		// Check against package list and add retrieval actions
 		Action[] actions;
 		void addAction(Action act) {
-			if (!actions.canFind!(a => a.type == act.type && a.location == act.location && a.packageId == act.packageId && a.vers == act.vers))
+			if (!actions.any!(a => a.type == act.type && a.location == act.location && a.packageId == act.packageId && a.vers == act.vers))
 				actions ~= act;
 		}
 		int[string] upgradePackages;
