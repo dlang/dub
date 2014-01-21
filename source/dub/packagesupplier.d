@@ -102,8 +102,10 @@ class RegistryPackageSupplier : PackageSupplier {
 	
 	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{
+		import std.string : replace;
 		Json best = getBestPackage(packageId, dep, pre_release);
-		auto url = m_registryUrl ~ Path(PackagesPath~"/"~packageId~"/"~best["version"].get!string~".zip");
+		auto vers = replace(best["version"].get!string, "+", "%2B");
+		auto url = m_registryUrl ~ Path(PackagesPath~"/"~packageId~"/"~vers~".zip");
 		logDiagnostic("Found download URL: '%s'", url);
 		download(url, path);
 	}
