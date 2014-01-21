@@ -25,7 +25,7 @@ import std.typecons;
 static import std.compiler;
 
 /**
-	A version in the format "major.update.bugfix-pre-release+build-metadata" or
+	A version in the format "major.update.bugfix-prerelease+buildmetadata" or
 	"~master", to identify trunk, or "~branch_name" to identify a branch. Both 
 	Version types starting with "~"	refer to the head revision of the 
 	corresponding branch.
