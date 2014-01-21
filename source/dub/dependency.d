@@ -278,7 +278,7 @@ struct Dependency {
 	private static bool isDigit(char ch) { return ch >= '0' && ch <= '9'; }
 	private static string skipComp(ref string c) {
 		size_t idx = 0;
-		while( idx < c.length && !isDigit(c[idx]) ) idx++;
+		while (idx < c.length && !isDigit(c[idx]) && c[idx] != Version.BRANCH_IDENT) idx++;
 		enforce(idx < c.length, "Expected version number in version spec: "~c);
 		string cmp = idx==c.length-1||idx==0? ">=" : c[0..idx];
 		c = c[idx..$];
