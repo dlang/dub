@@ -166,7 +166,7 @@ int runDubCommandLine(string[] args)
 			try dub.packageManager.getTemporaryPackage(Path(root_path));
 			catch (Exception e) { logDiagnostic("No package found in current working directory."); }
 
-			try return cmd.execute(dub, command_args.extractRemainingArgs(), app_args);
+			try return cmd.execute(dub, remaining_args, app_args);
 			catch (UsageException e) {
 				logError("%s", e.msg);
 				logDiagnostic("Full exception: %s", e.toString().sanitize);
