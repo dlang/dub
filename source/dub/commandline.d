@@ -149,6 +149,13 @@ int runDubCommandLine(string[] args)
 				return 0;
 			}
 
+			auto remaining_args = command_args.extractRemainingArgs();
+			if (remaining_args.any!(a => a.startsWith("-"))) {
+				logError("Unknown command line flags: %s", remaining_args.filter!(a => a.startsWith("-")).array.join(" "));
+				logError(`Type "dub %s -h" to get a list of all supported flags.`, cmdname);
+				return 1;
+			}
+
 			// initialize DUB
 			auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
 			Dub dub = new Dub(package_suppliers, root_path);
