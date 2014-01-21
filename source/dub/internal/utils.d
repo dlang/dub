@@ -115,6 +115,9 @@ void download(string url, string filename)
 		setupHTTPClient(conn);
 		logDebug("Storing %s...", url);
 		std.net.curl.download(url, filename, conn);
+		enforce(conn.statusLine.code < 400,
+			format("Failed to download %s: %s %s",
+				url, conn.statusLine.code, conn.statusLine.reason));
 	} else assert(false);
 }
 /// ditto
@@ -129,7 +132,11 @@ char[] download(string url)
 		auto conn = HTTP();
 		setupHTTPClient(conn);
 		logDebug("Getting %s...", url);
-		return get(url, conn);
+		auto ret = get(url, conn);
+		enforce(conn.statusLine.code < 400,
+			format("Failed to GET %s: %s %s",
+				url, conn.statusLine.code, conn.statusLine.reason));
+		return ret;
 	} else assert(false);
 }
 /// ditto
