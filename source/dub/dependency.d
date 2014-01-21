@@ -57,10 +57,10 @@ struct Version {
 	bool opEquals(const Version oth) const { return m_version == oth.m_version; }
 	
 	/// Returns true, if this version indicates a branch, which is not the trunk.
-	@property bool isBranch() const { return m_version[0] == BRANCH_IDENT && m_version != MASTER_STRING; }
+	@property bool isBranch() const { return m_version[0] == BRANCH_IDENT; }
 	@property bool isMaster() const { return m_version == MASTER_STRING; }
 	@property bool isPreRelease() const {
-		if (isBranch || isMaster) return true;
+		if (isBranch) return true;
 		return isPreReleaseVersion(m_version);
 	}
 
@@ -91,11 +91,13 @@ unittest {
 	assert(a == a, "a == a failed");
 
 	assertNotThrown(a = Version(Version.MASTER_STRING), "Constructing Version("~Version.MASTER_STRING~"') failed");
-	assert(!a.isBranch, "Error: '"~Version.MASTER_STRING~"' treated as branch");
+	assert(a.isBranch, "Error: '"~Version.MASTER_STRING~"' treated as branch");
+	assert(a.isMaster);
 	assert(a == Version.MASTER, "Constructed master version != default master version.");
 
 	assertNotThrown(a = Version("~BRANCH"), "Construction of branch Version failed.");
 	assert(a.isBranch, "Error: '~BRANCH' not treated as branch'");
+	assert(!a.isMaster);
 	assert(a == a, "a == a with branch failed");
 
 	// opCmp
@@ -240,13 +242,11 @@ struct Dependency {
 	bool matches(ref const(Version) v) const {
 		//logDebug(" try match: %s with: %s", v, this);
 		// Master only matches master
-		if(m_versA == Version.MASTER || m_versA.isBranch) {
+		if(m_versA.isBranch) {
 			enforce(m_versA == m_versB);
 			return m_versA == v;
 		}
-		if(v.isBranch)
-			return m_versA == v;
-		if(m_versA == Version.MASTER || v == Version.MASTER)
+		if(v.isBranch || m_versA.isBranch)
 			return m_versA == v;
 		if( !doCmp(m_cmpA, v, m_versA) )
 			return false;
@@ -389,6 +389,16 @@ unittest {
 	assert(!a.merge(b).optional, "Merging optional with not optional wrong.");
 	b.optional = true;
 	assert(a.merge(b).optional, "Merging two optional dependencies wrong.");
+
+	a = Dependency("~d2test");
+	assert(!a.optional);
+	assert(a.valid);
+	assert(a.version_ == Version("~d2test"));
+
+	a = Dependency("==~d2test");
+	assert(!a.optional);
+	assert(a.valid);
+	assert(a.version_ == Version("~d2test"));
 
 	logDebug("Dependency Unittest sucess.");
 }
