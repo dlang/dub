@@ -1023,6 +1023,8 @@ class DustmiteCommand : PackageBuildCommand {
 					if (de.isDirectory) {
 						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
 					} else {
+						if (de.name.endsWith(".o") || de.name.endsWith(".obj")) continue;
+						if (de.name.endsWith(".exe")) continue;
 						try copyFile(folder ~ de.name, dstfolder ~ de.name);
 						catch (Exception e) {
 							logWarn("Failed to copy file %s: %s", (folder ~ de.name).toNativeString(), e.msg);
@@ -1031,9 +1033,8 @@ class DustmiteCommand : PackageBuildCommand {
 				}
 			}
 
-			auto configs = prj.getPackageConfigs(m_buildPlatform, m_build_config);
 			bool[string] visited;
-			foreach (pack_; prj.getTopologicalPackageList(false, null, configs)) {
+			foreach (pack_; prj.getTopologicalPackageList()) {
 				auto pack = pack_.basePackage;
 				if (pack.name in visited) continue;
 				visited[pack.name] = true;
