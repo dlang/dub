@@ -157,15 +157,19 @@ int runDubCommandLine(string[] args)
 				return 1;
 			}
 
-			// initialize DUB
-			auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
-			Dub dub = new Dub(package_suppliers, root_path);
-			dub.dryRun = annotate;
+			Dub dub;
+
+			if (!cmd.skipDubInitialization) {
+				// initialize DUB
+				auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
+				dub = new Dub(package_suppliers, root_path);
+				dub.dryRun = annotate;
 			
-			// make the CWD package available so that for example sub packages can reference their
-			// parent package.
-			try dub.packageManager.getTemporaryPackage(Path(root_path));
-			catch (Exception e) { logDiagnostic("No package found in current working directory."); }
+				// make the CWD package available so that for example sub packages can reference their
+				// parent package.
+				try dub.packageManager.getTemporaryPackage(Path(root_path));
+				catch (Exception e) { logDiagnostic("No package found in current working directory."); }
+			}
 
 			try return cmd.execute(dub, remaining_args, app_args);
 			catch (UsageException e) {
@@ -243,6 +247,7 @@ class Command {
 	string[] helpText;
 	bool acceptsAppArgs;
 	bool hidden = false; // used for deprecated commands
+	bool skipDubInitialization = false;
 
 	abstract void prepare(scope CommandArgs args);
 	abstract int execute(Dub dub, string[] free_args, string[] app_args);
@@ -968,12 +973,15 @@ class DustmiteCommand : PackageBuildCommand {
 		args.getopt("test-package", &m_testPackage, ["Perform a test run - usually only used internally"]);
 		args.getopt("combined", &m_combined, ["Builds multiple packages with one compiler run"]);
 		super.prepare(args);
+
+		// speed up loading when in test mode
+		if (m_testPackage.length) skipDubInitialization = true;
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		if (m_testPackage.length) {
-			dub.overrideSearchPath(Path(getcwd()));
+			dub = new Dub(Path(getcwd()));
 
 			setupPackage(dub, m_testPackage);
 			m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);

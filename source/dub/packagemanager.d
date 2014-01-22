@@ -59,11 +59,11 @@ class PackageManager {
 		bool m_disableDefaultSearchPaths = false;
 	}
 
-	this(Path user_path, Path system_path)
+	this(Path user_path, Path system_path, bool refresh_packages = true)
 	{
 		m_repositories[LocalPackageType.user] = Repository(user_path);
 		m_repositories[LocalPackageType.system] = Repository(system_path);
-		refresh(true);
+		if (refresh_packages) refresh(true);
 	}
 
 	@property void searchPath(Path[] paths) { m_searchPath = paths.dup; refresh(false); }

@@ -94,7 +94,15 @@ class Dub {
 		ps ~= defaultPackageSuppliers();
 
 		m_packageSuppliers = ps;
-		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
+		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath, false);
+		updatePackageSearchPath();
+	}
+
+	/// Initializes DUB with only a single search path
+	this(Path override_path)
+	{
+		m_overrideSearchPath = override_path;
+		m_packageManager = new PackageManager(Path(), Path(), false);
 		updatePackageSearchPath();
 	}
 
