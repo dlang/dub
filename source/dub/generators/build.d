@@ -71,7 +71,7 @@ class BuildGenerator : ProjectGenerator {
 		auto buildsettings = targets[m_project.mainPackage.name].buildSettings;
 		if (settings.run && !(buildsettings.options & BuildOptions.syntaxOnly)) {
 			auto exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
-			runTarget(exe_file_path, buildsettings, settings.runArgs);
+			runTarget(exe_file_path, buildsettings, settings.runArgs, settings);
 		}
 	}
 
@@ -347,7 +347,7 @@ class BuildGenerator : ProjectGenerator {
 
 			// invoke the compiler
 			logInfo("Running %s...", settings.platform.compilerBinary);
-			settings.compiler.invoke(buildsettings, settings.platform);
+			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 		} else {
 			// determine path for the temporary object file
 			string tempobjname = buildsettings.targetName;
@@ -369,14 +369,14 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			logInfo("Compiling...");
-			settings.compiler.invoke(buildsettings, settings.platform);
+			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 
 			logInfo("Linking...");
-			settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()]);
+			settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback);
 		}
 	}
 
-	void runTarget(Path exe_file_path, in BuildSettings buildsettings, string[] run_args)
+	void runTarget(Path exe_file_path, in BuildSettings buildsettings, string[] run_args, GeneratorSettings settings)
 	{
 		if (buildsettings.targetType == TargetType.executable) {
 			auto cwd = Path(getcwd());
@@ -395,9 +395,14 @@ class BuildGenerator : ProjectGenerator {
 					exe_path_string = "./" ~ exe_path_string;
 			}
 			logInfo("Running %s %s", exe_path_string, run_args.join(" "));
-			auto prg_pid = spawnProcess(exe_path_string ~ run_args);
-			auto result = prg_pid.wait();
-			enforce(result == 0, "Program exited with code "~to!string(result));
+			if (settings.runCallback) {
+				auto res = execute(exe_path_string ~ run_args);
+				settings.runCallback(res.status, res.output);
+			} else {
+				auto prg_pid = spawnProcess(exe_path_string ~ run_args);
+				auto result = prg_pid.wait();
+				enforce(result == 0, "Program exited with code "~to!string(result));
+			}
 		} else logInfo("Target is a library. Skipping execution.");
 	}
 

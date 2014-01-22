@@ -149,19 +149,17 @@ class LdcCompiler : Compiler {
 		settings.addDFlags("-of"~tpath.toNativeString());
 	}
 
-	void invoke(in BuildSettings settings, in BuildPlatform platform)
+	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
 		auto res_file = getTempDir() ~ ("dub-build-"~uniform(0, uint.max).to!string~"-.rsp");
 		std.file.write(res_file.toNativeString(), join(cast(string[])settings.dflags, "\n"));
 		scope (exit) remove(res_file.toNativeString());
 
 		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
-		auto compiler_pid = spawnProcess([platform.compilerBinary, "@"~res_file.toNativeString()]);
-		auto result = compiler_pid.wait();
-		enforce(result == 0, "LDC compile run failed with exit code "~to!string(result));
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
-	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects)
+	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
 		assert(false, "Separate linking not implemented for GDC");
 	}
