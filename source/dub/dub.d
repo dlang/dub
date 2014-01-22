@@ -57,6 +57,7 @@ class Dub {
 		Json m_systemConfig, m_userConfig;
 		Path m_projectPath;
 		Project m_project;
+		Path m_overrideSearchPath;
 	}
 
 	/// Initiales the package manager for the vibe application
@@ -142,6 +143,13 @@ class Dub {
 		m_projectPath = pack.path;
 		updatePackageSearchPath();
 		m_project = new Project(m_packageManager, pack);
+	}
+
+	void overrideSearchPath(Path path)
+	{
+		if (!path.absolute) path = Path(getcwd()) ~ path;
+		m_overrideSearchPath = path;
+		updatePackageSearchPath();
 	}
 
 	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true) const { return m_project.getDefaultConfiguration(platform, allow_non_library_configs); }
@@ -535,13 +543,19 @@ class Dub {
 
 	private void updatePackageSearchPath()
 	{
-		auto p = environment.get("DUBPATH");
-		Path[] paths;
+		if (m_overrideSearchPath.length) {
+			m_packageManager.disableDefaultSearchPaths = true;
+			m_packageManager.searchPath = [m_overrideSearchPath];
+		} else {
+			auto p = environment.get("DUBPATH");
+			Path[] paths;
 
-		version(Windows) enum pathsep = ";";
-		else enum pathsep = ":";
-		if (p.length) paths ~= p.split(pathsep).map!(p => Path(p))().array();
-		m_packageManager.searchPath = paths;
+			version(Windows) enum pathsep = ";";
+			else enum pathsep = ":";
+			if (p.length) paths ~= p.split(pathsep).map!(p => Path(p))().array();
+			m_packageManager.disableDefaultSearchPaths = false;
+			m_packageManager.searchPath = paths;
+		}
 	}
 
 	private Path makeAbsolute(Path p) const { return p.absolute ? p : m_rootPath ~ p; }
