@@ -94,7 +94,8 @@ int runDubCommandLine(string[] args)
 			new BuildCommand,
 			new TestCommand,
 			new GenerateCommand,
-			new DescribeCommand
+			new DescribeCommand,
+			new DustmiteCommand
 		),
 		CommandGroup("Package management",
 			new FetchCommand,
@@ -910,7 +911,7 @@ class ListCommand : Command {
 		foreach (p; dub.packageManager.getPackageIterator())
 			logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
 		logInfo("");
-		return true;
+		return 0;
 	}
 }
 
@@ -921,6 +922,154 @@ class ListInstalledCommand : ListCommand {
 	{
 		warnRenamed("list-installed", "list");
 		return super.execute(dub, free_args, app_args);
+	}
+}
+
+
+/******************************************************************************/
+/* DUSTMITE                                                                   */
+/******************************************************************************/
+
+class DustmiteCommand : PackageBuildCommand {
+	private {
+		int m_compilerStatusCode = int.min;
+		int m_linkerStatusCode = int.min;
+		int m_programStatusCode = int.min;
+		string m_compilerRegex;
+		string m_linkerRegex;
+		string m_programRegex;
+		string m_testPackage;
+		bool m_combined;
+	}
+
+	this()
+	{
+		this.name = "dustmite";
+		this.argumentsPattern = "<destination-path>";
+		this.acceptsAppArgs = true;
+		this.description = "Create reduced test cases for build errors";
+		this.helpText = [
+			"This command uses the Dustmite utility to isolate the cause of build errors in a DUB project.",
+			"",
+			"It will create a copy of all involved packages and run dustmite on this copy, leaving a reduced test case.",
+			"",
+			"Determining the desired error condition is done by checking the compiler/linker status code, as well as their output (stdout and stderr combined). If --program-status or --program-regex is given and the generated binary is an executable, it will be executed and its output will also be incorporated into the final decision."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("compiler-status", &m_compilerStatusCode, ["The expected status code of the compiler run"]);
+		args.getopt("compiler-regex", &m_compilerRegex, ["A regular expression used to match against the compiler output"]);
+		args.getopt("linker-status", &m_linkerStatusCode, ["The expected status code of the liner run"]);
+		args.getopt("linker-regex", &m_linkerRegex, ["A regular expression used to match against the linker output"]);
+		args.getopt("program-status", &m_programStatusCode, ["The expected status code of the built executable"]);
+		args.getopt("program-regex", &m_programRegex, ["A regular expression used to match against the program output"]);
+		args.getopt("test-package", &m_testPackage, ["Perform a test run - usually only used internally"]);
+		args.getopt("combined", &m_combined, ["Builds multiple packages with one compiler run"]);
+		super.prepare(args);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		if (m_testPackage.length) {
+			dub.overrideSearchPath(Path(getcwd()));
+
+			setupPackage(dub, m_testPackage);
+			m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
+
+			GeneratorSettings gensettings;
+			gensettings.platform = m_buildPlatform;
+			gensettings.config = m_build_config.length ? m_build_config : m_defaultConfig;
+			gensettings.buildType = m_build_type;
+			gensettings.compiler = m_compiler;
+			gensettings.buildSettings = m_buildSettings;
+			gensettings.combined = m_combined;
+			gensettings.run = m_programStatusCode != int.min || m_programRegex.length;
+			gensettings.runArgs = app_args;
+			gensettings.force = true;
+			gensettings.compileCallback = check(m_compilerStatusCode, m_compilerRegex);
+			gensettings.linkCallback = check(m_compilerStatusCode, m_compilerRegex);
+			gensettings.runCallback = check(m_compilerStatusCode, m_compilerRegex);
+			try dub.generateProject("build", gensettings);
+			catch (DustmiteMismatchException) return 3;
+			catch (DustmiteMatchException) return 0;
+		} else {
+			enforceUsage(free_args.length == 1, "Expected destination path.");
+			auto path = Path(free_args[0]);
+			path.normalize();
+			enforceUsage(path.length > 0, "Destination path must not be empty.");
+			if (!path.absolute) path = Path(getcwd()) ~ path;
+			enforceUsage(!path.startsWith(dub.rootPath), "Destination path must not be a sub directory of the tested package!");
+
+			setupPackage(dub, null);
+			auto prj = dub.project;
+			if (m_build_config.empty)
+				m_build_config = prj.getDefaultConfiguration(m_buildPlatform);
+
+			void copyFolderRec(Path folder, Path dstfolder)
+			{
+				mkdirRecurse(dstfolder.toNativeString());
+				foreach (de; iterateDirectory(folder.toNativeString())) {
+					if (de.name.startsWith(".")) continue;
+					if (de.isDirectory) {
+						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
+					} else {
+						try copyFile(folder ~ de.name, dstfolder ~ de.name);
+						catch (Exception e) {
+							logWarn("Failed to copy file %s: %s", (folder ~ de.name).toNativeString(), e.msg);
+						}
+					}
+				}
+			}
+
+			auto configs = prj.getPackageConfigs(m_buildPlatform, m_build_config);
+			bool[string] visited;
+			foreach (pack_; prj.getTopologicalPackageList(false, null, configs)) {
+				auto pack = pack_.basePackage;
+				if (pack.name in visited) continue;
+				visited[pack.name] = true;
+				logInfo("Copy package '%s' to destination folder...", pack.name);
+				copyFolderRec(pack.path, path ~ pack.name);
+			}
+			logInfo("Executing dustmite...");
+			auto testcmd = format("dub dustmite --vquiet --test-package=%s", prj.name);
+			if (m_compilerStatusCode != int.min) testcmd ~= format(" --compiler-status=%s", m_compilerStatusCode);
+			if (m_compilerRegex.length) testcmd ~= format(" \"--compiler-regex=%s\"", m_compilerRegex);
+			if (m_linkerStatusCode != int.min) testcmd ~= format(" --compiler-status=%s", m_linkerStatusCode);
+			if (m_linkerRegex.length) testcmd ~= format(" \"--compiler-regex=%s\"", m_linkerRegex);
+			if (m_programStatusCode != int.min) testcmd ~= format(" --compiler-status=%s", m_programStatusCode);
+			if (m_programRegex.length) testcmd ~= format(" \"--compiler-regex=%s\"", m_programRegex);
+			if (m_combined) testcmd ~= " --combined";
+			// TODO: pass all original parameters
+			auto dmpid = spawnProcess(["dustmite", path.toNativeString(), testcmd]);
+			return dmpid.wait();
+		}
+		return 0;
+	}
+
+	void delegate(int, string) check(int code_match, string regex_match)
+	{
+		return (code, output) {
+			import std.regex;
+			enforceEx!DustmiteMismatchException(code_match == int.min || code == code_match);
+			enforceEx!DustmiteMismatchException(regex_match.empty || match(output, regex_match));
+			enforceEx!DustmiteMatchException(code == 0);
+		};
+	}
+
+	static class DustmiteMismatchException : Exception {
+		this(string message = "", string file = __FILE__, int line = __LINE__, Throwable next = null)
+		{
+			super(message, file, line, next);
+		}
+	}
+
+	static class DustmiteMatchException : Exception {
+		this(string message = "", string file = __FILE__, int line = __LINE__, Throwable next = null)
+		{
+			super(message, file, line, next);
+		}
 	}
 }
 
