@@ -1066,21 +1066,27 @@ class DustmiteCommand : PackageBuildCommand {
 	void delegate(int, string) check(int code_match, string regex_match)
 	{
 		return (code, output) {
+			import std.encoding;
 			import std.regex;
 
-			if (code_match != int.min && code != code_match) {
-				logInfo("Exit code %s doesn't match expected value %s", code, code_match);
-				throw new DustmiteMismatchException;
+			if (code_match != int.min) {
+				if (code != code_match) {
+					logInfo("Exit code %s doesn't match expected value %s", code, code_match);
+					throw new DustmiteMismatchException;
+				} else if (code != 0) {
+					throw new DustmiteMatchException;
+				}
 			}
 
-			if (regex_match.length > 0 && !match(output, regex_match)) {
-				logInfo("Output doesn't match regex:");
-				logInfo("%s", output);
-				throw new DustmiteMismatchException;
+			if (regex_match.length > 0) {
+				if (!match(output.sanitize, regex_match)) {
+					logInfo("Output doesn't match regex:");
+					logInfo("%s", output);
+					throw new DustmiteMismatchException;
+				} else if (code != 0) {
+					throw new DustmiteMatchException;
+				}
 			}
-
-			if (code_match != int.min && code != 0)
-				throw new DustmiteMatchException;
 		};
 	}
 
