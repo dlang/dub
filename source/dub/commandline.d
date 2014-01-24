@@ -1078,8 +1078,9 @@ class DustmiteCommand : PackageBuildCommand {
 				logInfo("%s", output);
 				throw new DustmiteMismatchException;
 			}
-			
-			enforceEx!DustmiteMatchException(code_match == int.min && code == 0);
+
+			if (code_match != int.min && code != 0)
+				throw new DustmiteMatchException;
 		};
 	}
 
