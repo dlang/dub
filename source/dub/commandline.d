@@ -997,11 +997,17 @@ class DustmiteCommand : PackageBuildCommand {
 			gensettings.runArgs = app_args;
 			gensettings.force = true;
 			gensettings.compileCallback = check(m_compilerStatusCode, m_compilerRegex);
-			gensettings.linkCallback = check(m_compilerStatusCode, m_compilerRegex);
-			gensettings.runCallback = check(m_compilerStatusCode, m_compilerRegex);
+			gensettings.linkCallback = check(m_linkerStatusCode, m_linkerRegex);
+			gensettings.runCallback = check(m_programStatusCode, m_programRegex);
 			try dub.generateProject("build", gensettings);
-			catch (DustmiteMismatchException) return 3;
-			catch (DustmiteMatchException) return 0;
+			catch (DustmiteMismatchException) {
+				logInfo("Dustmite test doesn't match.");
+				return 3;
+			}
+			catch (DustmiteMatchException) {
+				logInfo("Dustmite test matches.");
+				return 0;
+			}
 		} else {
 			enforceUsage(free_args.length == 1, "Expected destination path.");
 			auto path = Path(free_args[0]);
@@ -1045,10 +1051,10 @@ class DustmiteCommand : PackageBuildCommand {
 			auto testcmd = format("dub dustmite --vquiet --test-package=%s", prj.name);
 			if (m_compilerStatusCode != int.min) testcmd ~= format(" --compiler-status=%s", m_compilerStatusCode);
 			if (m_compilerRegex.length) testcmd ~= format(" \"--compiler-regex=%s\"", m_compilerRegex);
-			if (m_linkerStatusCode != int.min) testcmd ~= format(" --compiler-status=%s", m_linkerStatusCode);
-			if (m_linkerRegex.length) testcmd ~= format(" \"--compiler-regex=%s\"", m_linkerRegex);
-			if (m_programStatusCode != int.min) testcmd ~= format(" --compiler-status=%s", m_programStatusCode);
-			if (m_programRegex.length) testcmd ~= format(" \"--compiler-regex=%s\"", m_programRegex);
+			if (m_linkerStatusCode != int.min) testcmd ~= format(" --linker-status=%s", m_linkerStatusCode);
+			if (m_linkerRegex.length) testcmd ~= format(" \"--linker-regex=%s\"", m_linkerRegex);
+			if (m_programStatusCode != int.min) testcmd ~= format(" --program-status=%s", m_programStatusCode);
+			if (m_programRegex.length) testcmd ~= format(" \"--program-regex=%s\"", m_programRegex);
 			if (m_combined) testcmd ~= " --combined";
 			// TODO: pass all original parameters
 			auto dmpid = spawnProcess(["dustmite", path.toNativeString(), testcmd]);
@@ -1061,9 +1067,19 @@ class DustmiteCommand : PackageBuildCommand {
 	{
 		return (code, output) {
 			import std.regex;
-			enforceEx!DustmiteMismatchException(code_match == int.min || code == code_match);
-			enforceEx!DustmiteMismatchException(regex_match.empty || match(output, regex_match));
-			enforceEx!DustmiteMatchException(code == 0);
+
+			if (code_match != int.min && code != code_match) {
+				logInfo("Exit code %s doesn't match expected value %s", code, code_match);
+				throw new DustmiteMismatchException;
+			}
+
+			if (regex_match.length > 0 && !match(output, regex_match)) {
+				logInfo("Output doesn't match regex:");
+				logInfo("%s", output);
+				throw new DustmiteMismatchException;
+			}
+			
+			enforceEx!DustmiteMatchException(code_match == int.min && code == 0);
 		};
 	}
 
