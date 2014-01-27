@@ -552,22 +552,27 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 {
 	assert(base_path.absolute);
 	if (!file.absolute) file = base_path ~ file;
+
+	size_t path_skip = 0;
 	foreach (ipath; settings.importPaths.map!(p => Path(p))) {
 		if (!ipath.absolute) ipath = base_path ~ ipath;
 		assert(!ipath.empty);
-		if (file.startsWith(ipath)) {
-			auto mpath = file[ipath.length .. file.length];
-			auto ret = appender!string;
-			foreach (i; 0 .. mpath.length) {
-				import std.path;
-				auto p = mpath[i].toString();
-				if (p == "package.d") break;
-				if (i > 0) ret ~= ".";
-				if (i+1 < mpath.length) ret ~= p;
-				else ret ~= p.baseName(".d");
-			}
-			return ret.data;
-		}
+		if (file.startsWith(ipath) && ipath.length > path_skip)
+			path_skip = ipath.length;
 	}
-	throw new Exception(format("Source file '%s' not found in any import path.", file.toNativeString()));
+
+	enforce(path_skip > 0,
+		format("Source file '%s' not found in any import path.", file.toNativeString()));
+
+	auto mpath = file[path_skip .. file.length];
+	auto ret = appender!string;
+	foreach (i; 0 .. mpath.length) {
+		import std.path;
+		auto p = mpath[i].toString();
+		if (p == "package.d") break;
+		if (i > 0) ret ~= ".";
+		if (i+1 < mpath.length) ret ~= p;
+		else ret ~= p.baseName(".d");
+	}
+	return ret.data;
 }
