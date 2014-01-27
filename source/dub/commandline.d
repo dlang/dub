@@ -354,7 +354,7 @@ abstract class PackageBuildCommand : Command {
 		}
 
 		if (!m_nodeps) {
-			logInfo("Checking dependencies in '%s'", dub.projectPath.toNativeString());
+			logDiagnostic("Checking dependencies in '%s'", dub.projectPath.toNativeString());
 			dub.update(UpdateOptions.none);
 		}
 	}
