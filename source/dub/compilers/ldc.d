@@ -59,7 +59,19 @@ class LdcCompiler : Compiler {
 		build_platform.compiler = this.name;
 		build_platform.compilerBinary = compiler_binary;
 
-		enforce(arch_override.length == 0, "Architecture override not implemented for LDC.");
+		switch (arch_override) {
+			default: throw new Exception("Unsupported architecture: "~arch_override);
+			case "": break;
+			case "x86":
+				build_platform.architecture = ["x86"];
+				settings.addDFlags("-march=x86");
+				break;
+			case "x86_64":
+				build_platform.architecture = ["x86_64"];
+				settings.addDFlags("-march=x86_64");
+				break;
+		}
+
 		return build_platform;
 	}
 
