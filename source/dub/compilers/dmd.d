@@ -182,10 +182,20 @@ class DmdCompiler : Compiler {
 		args ~= settings.sourceFiles;
 		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
 		args ~= settings.lflags.map!(l => "-L"~l)().array;
-		static linkerargs = ["-g", "-gc", "-m32", "-m64", "-shared"];
-		args ~= settings.dflags.filter!(f => linkerargs.canFind(f))().array();
+		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 		logDiagnostic("%s", args.join(" "));
 		auto res = spawnProcess(args).wait();
 		enforce(res == 0, "Link command failed with exit code "~to!string(res));
+	}
+
+	private static bool isLinkerDFlag(string arg)
+	{
+		switch (arg) {
+			default:
+				if (arg.startsWith("-defaultlib=")) return true;
+				return false;
+			case "-g", "-gc", "-m32", "-m64", "-shared":
+				return true;
+		}
 	}
 }
