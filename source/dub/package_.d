@@ -81,6 +81,9 @@ class Package {
 		m_parentPackage = parent;
 		m_path = root;
 
+		// force the package name to be lower case
+		packageInfo.name = packageInfo.name.get!string.toLower();
+
 		// check for default string import folders
 		foreach(defvf; ["views"]){
 			auto p = m_path ~ defvf;
