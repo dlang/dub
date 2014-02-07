@@ -334,7 +334,10 @@ class Dub {
 				pinfo = ps.getPackageDescription(packageId, dep, use_prerelease);
 				supplier = ps;
 				break;
-			} catch(Exception) {}
+			} catch(Exception e) {
+				logDiagnostic("Package %s not found at for %s: %s", packageId, ps.description(), e.msg);
+				logDebug("Full error: %s", e.toString().sanitize());
+			}
 		}
 		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
