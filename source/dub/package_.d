@@ -788,6 +788,9 @@ struct BuildSettingsTemplate {
 		dst.removeImportFiles(dst.sourceFiles);
 		collectFiles!"addStringImportFiles"(stringImportPaths, "*");
 
+		// ensure a deterministic order of files as passed to the compiler
+		dst.sourceFiles.sort();
+
 		getPlatformSetting!("dflags", "addDFlags")(dst, platform);
 		getPlatformSetting!("lflags", "addLFlags")(dst, platform);
 		getPlatformSetting!("libs", "addLibs")(dst, platform);
