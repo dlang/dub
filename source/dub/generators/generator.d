@@ -135,8 +135,7 @@ class ProjectGenerator
 				pt.linkDependencies ~= depname;
 				if (depbs.targetType == TargetType.staticLibrary)
 					pt.linkDependencies = pt.linkDependencies.filter!(d => !pdt.linkDependencies.canFind(d)).array ~ pdt.linkDependencies;
-			}
-			pt.packages ~= dep;
+			} else pt.packages ~= dep;
 		}
 
 		if (generates_binary) {
