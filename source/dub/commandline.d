@@ -563,7 +563,23 @@ class TestCommand : PackageBuildCommand {
 		this.argumentsPattern = "[<package>]";
 		this.description = "Executes the tests of the selected package";
 		this.helpText = [
-			"Builds a library configuration of the selected package and executes all contained unit tests."
+			`Builds the package and executes all contained unit tests.`,
+			``,
+			`If no explicit configuration is given, an existing "unittest" ` ~
+			`configuration will be preferred for testing. If none exists, the ` ~
+			`first library type configuration will be used, and if that doesn't ` ~
+			`exist either, the first executable configuration is chosen.`,
+			``,
+			`When a custom main file (--main-file) is specified, only library ` ~
+			`configurations can be used. Otherwise, depending on the type of ` ~
+			`the selected configuration, either an existing main file will be ` ~
+			`used (and needs to be properly adjusted to just run the unit ` ~
+			`tests for 'version(unittest)'), or DUB will generate one for ` ~
+			`library type configurations.`,
+			``,
+			`Finally, if the package contains a dependency to the "tested" ` ~
+			`package, the automatically generated main file will use it to ` ~
+			`run the unit tests.`
 		];
 		this.acceptsAppArgs = true;
 	}
@@ -933,7 +949,7 @@ private {
 	enum shortArgColumn = 2;
 	enum longArgColumn = 6;
 	enum descColumn = 24;
-	enum lineWidth = 80;
+	enum lineWidth = 80 - 1;
 }
 
 private void showHelp(in CommandGroup[] commands, CommandArgs common_args)
