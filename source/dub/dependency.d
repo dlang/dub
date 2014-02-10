@@ -256,14 +256,18 @@ struct Dependency {
 	}
 	
 	/// Merges to versions
-	Dependency merge(ref const(Dependency) o) const {
+	Dependency merge(ref const(Dependency) o)
+	const {
 		if (!valid()) return this;
 		if (!o.valid()) return o;
 		if (m_configuration != o.m_configuration)
 			return Dependency(">=1.0.0 <=0.0.0");
-		
-		Version a = m_versA > o.m_versA? m_versA : o.m_versA;
-		Version b = m_versB < o.m_versB? m_versB : o.m_versB;
+
+		enforce(m_versA.isBranch == o.m_versA.isBranch, format("Conflicting versions: %s vs. %s", m_versA, o.m_versA));
+		enforce(m_versB.isBranch == o.m_versB.isBranch, format("Conflicting versions: %s vs. %s", m_versB, o.m_versB));
+
+		Version a = m_versA > o.m_versA ? m_versA : o.m_versA;
+		Version b = m_versB < o.m_versB ? m_versB : o.m_versB;
 	
 		Dependency d = this;
 		d.m_cmpA = !doCmp(m_cmpA, a,a)? m_cmpA : o.m_cmpA;
@@ -498,10 +502,15 @@ class DependencyGraph {
 		auto d2 = packageId in deps;
 		if(!d2) {
 			deps[packageId] = RequestedDependency(issuer.name, d);
-		}
-		else {
-			d2.dependency = d2.dependency.merge(d);
+		} else {
 			d2.packages[issuer.name] = d;
+			try d2.dependency = d2.dependency.merge(d);
+			catch (Exception e) {
+				logError("Conflicting dependency %s: %s", packageId, e.msg);
+				foreach (p, d; d2.packages)
+					logError("  %s requires %s", p, d);
+				d2.dependency = Dependency("<=0.0.0 >=1.0.0");
+			}
 		}
 	}
 	
