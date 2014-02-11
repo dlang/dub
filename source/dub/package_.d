@@ -71,7 +71,7 @@ class Package {
 			}
 		} catch (Exception ex) throw new Exception(format("Failed to load package at %s: %s", root.toNativeString(), ex.msg));
 
-		enforce(info != Json.undefined, format("Missing package description for package at %s", root.toNativeString()));
+		enforce(info.type != Json.Type.undefined, format("Missing package description for package at %s", root.toNativeString()));
 
 		this(info, root, parent);
 	}
