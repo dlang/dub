@@ -706,7 +706,7 @@ struct BuildSettingsTemplate {
 					deps[pack] = d.toString();
 				} else {
 					auto vjson = Json.emptyObject;
-					vjson["version"] = d.version_.toString();
+					vjson["version"] = d.toString();
 					if (!d.path.empty) vjson["path"] = d.path.toString();
 					if (d.optional) vjson["optional"] = true;
 					deps[pack] = vjson;
