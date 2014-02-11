@@ -525,10 +525,10 @@ class DependencyGraph {
 		*/
 		auto R_json = parseJsonString(`
 		{
-			"name": "R",
+			"name": "r",
 			"dependencies": {
-				"A": "~master",
-				"B": "1.0.0"
+				"a": "~master",
+				"b": "1.0.0"
 			},
 			"version": "~master"
 		}
@@ -539,16 +539,16 @@ class DependencyGraph {
 		assert(graph.conflicted.length == 0, "There are conflicting packages");
 
 		void expectA(RequestedDependency[string] requested, string name) {
-			assert("A" in requested, "Package A is not the "~name~" package");
-			assert(requested["A"].dependency == Dependency("~master"), "Package A is not "~name~" as ~master version.");
-			assert("R" in requested["A"].packages, "Package R is not the issuer of "~name~" Package A(~master).");
-			assert(requested["A"].packages["R"] == Dependency("~master"), "Package R is not the issuer of "~name~" Package A(~master).");
+			assert("a" in requested, "Package a is not the "~name~" package");
+			assert(requested["a"].dependency == Dependency("~master"), "Package a is not "~name~" as ~master version.");
+			assert("r" in requested["a"].packages, "Package r is not the issuer of "~name~" Package a(~master).");
+			assert(requested["a"].packages["r"] == Dependency("~master"), "Package r is not the issuer of "~name~" Package a(~master).");
 		}
 		void expectB(RequestedDependency[string] requested, string name) {
-			assert("B" in requested, "Package B is not the "~name~" package");
-			assert(requested["B"].dependency == Dependency("1.0.0"), "Package B is not "~name~" as 1.0.0 version.");
-			assert("R" in requested["B"].packages, "Package R is not the issuer of "~name~" Package B(1.0.0).");
-			assert(requested["B"].packages["R"] == Dependency("1.0.0"), "Package R is not the issuer of "~name~" Package B(1.0.0).");
+			assert("b" in requested, "Package b is not the "~name~" package");
+			assert(requested["b"].dependency == Dependency("1.0.0"), "Package b is not "~name~" as 1.0.0 version.");
+			assert("r" in requested["b"].packages, "Package r is not the issuer of "~name~" Package b(1.0.0).");
+			assert(requested["b"].packages["r"] == Dependency("1.0.0"), "Package r is not the issuer of "~name~" Package b(1.0.0).");
 		}
 		auto missing = graph.missing();
 		assert(missing.length == 2, "Invalid count of missing items");
@@ -564,7 +564,7 @@ class DependencyGraph {
 
 		auto A_json = parseJsonString(`
 		{
-			"name": "A",
+			"name": "a",
 			"dependencies": {
 			},
 			"version": "~master"
@@ -589,13 +589,13 @@ class DependencyGraph {
 
 	unittest {
 		/*
-			R -> R:sub
+			r -> r:sub
 		*/
 		auto R_json = parseJsonString(`
 		{
-			"name": "R",
+			"name": "r",
 			"dependencies": {
-				"R:sub": "~master"
+				"r:sub": "~master"
 			},
 			"version": "~master",
 			"subPackages": [
@@ -616,20 +616,20 @@ class DependencyGraph {
 
 	unittest {
 		/*
-			R -> S:sub
+			r -> s:sub
 		*/
 		auto R_json = parseJsonString(`
 		{
-			"name": "R",
+			"name": "r",
 			"dependencies": {
-				"S:sub": "~master"
+				"s:sub": "~master"
 			},
 			"version": "~master"
 		}
 			`);
 		auto S_w_sub_json = parseJsonString(`
 		{
-			"name": "S",
+			"name": "s",
 			"version": "~master",
 			"subPackages": [
 				{
@@ -640,7 +640,7 @@ class DependencyGraph {
 			`);
 		auto S_wout_sub_json = parseJsonString(`
 		{
-			"name": "S",
+			"name": "s",
 			"version": "~master"
 		}
 			`);
