@@ -421,11 +421,16 @@ class PackageManager {
 				return p;
 			}
 		
-		auto pack = new Package(path);
-		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
-		pack.ver = ver;
-		addPackages(m_temporaryPackages, pack);
-		return pack;
+		try {
+			auto pack = new Package(path);
+			enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
+			pack.ver = ver;
+			addPackages(m_temporaryPackages, pack);
+			return pack;
+		} catch (Exception e) {
+			logDiagnostic("Error loading package at %s: %s", path.toNativeString(), e.toString().sanitize);
+			throw new Exception(format("Failed to add temporary package at %s: %s", path.toNativeString(), e.msg));
+		}
 	}
 
 	Package getTemporaryPackage(Path path)
