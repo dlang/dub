@@ -213,7 +213,7 @@ struct Dependency {
 		// Special "==" case
 		if( m_versA == m_versB && m_cmpA == ">=" && m_cmpB == "<=" ){
 			if( m_versA == Version.MASTER ) r = "~master";
-			else r = "==" ~ to!string(m_versA);
+			else r = to!string(m_versA);
 		} else {
 			if( m_versA != Version.RELEASE ) r = m_cmpA ~ to!string(m_versA);
 			if( m_versB != Version.HEAD ) r ~= (r.length==0?"" : " ") ~ m_cmpB ~ to!string(m_versB);
