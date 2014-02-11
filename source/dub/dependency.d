@@ -205,7 +205,7 @@ struct Dependency {
 	@property bool optional() const { return m_optional; }
 	@property void optional(bool optional) { m_optional = optional; }
 
-	@property Version version_() const { assert(m_versA == m_versB); return m_versA; }
+	@property Version version_() const { assert(m_versA == m_versB, "Dependency "~toString()~" is no exact version."); return m_versA; }
 	
 	string toString()
 	const {
