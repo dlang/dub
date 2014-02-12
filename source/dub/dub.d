@@ -166,14 +166,16 @@ class Dub {
 			foreach(Action a; actions) {
 				logInfo("%s %s %s, %s", capitalize(to!string(a.type)), a.packageId, a.vers, a.location);
 				if( a.type == Action.Type.conflict || a.type == Action.Type.failure ) {
-					logInfo("Issued by: ");
+					logInfo(" -> issued by: ");
 					conflictedOrFailed = true;
 					foreach(string pkg, d; a.issuer)
-						logInfo(" "~pkg~": %s", d);
+						logInfo("    "~pkg~": %s", d);
 				}
 			}
 
-			if (conflictedOrFailed || m_dryRun) return;
+			enforce (!conflictedOrFailed, "Aborting package retrieval due to errors.");
+
+			if (m_dryRun) return;
 
 			// Remove first
 			foreach(Action a; actions.filter!(a => a.type == Action.Type.remove)) {
