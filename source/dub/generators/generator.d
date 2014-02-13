@@ -17,6 +17,8 @@ import dub.package_;
 import dub.packagemanager;
 import dub.project;
 
+import std.algorithm : map;
+import std.array : array;
 import std.array;
 import std.exception;
 import std.file;
@@ -101,7 +103,6 @@ class ProjectGenerator
 		// start to build up the build settings
 		BuildSettings buildsettings = settings.buildSettings.dup;
 		processVars(buildsettings, pack.path.toNativeString(), shallowbs, true);
-		buildsettings.addVersions("Have_" ~ stripDlangSpecialChars(pack.name));
 
 		// remove any mainSourceFile from library builds
 		if (buildsettings.targetType != TargetType.executable && buildsettings.mainSourceFile.length) {
@@ -149,16 +150,32 @@ class ProjectGenerator
 		return buildsettings;
 	}
 
-	private void downwardsInheritSettings(string target, TargetInfo[string] targets, in BuildSettings root_settings)
+	private string[] downwardsInheritSettings(string target, TargetInfo[string] targets, in BuildSettings root_settings)
 	{
 		auto ti = &targets[target];
 		ti.buildSettings.addVersions(root_settings.versions);
 		ti.buildSettings.addDebugVersions(root_settings.debugVersions);
 		ti.buildSettings.addOptions(root_settings.options);
-		ti.buildSettings.prependStringImportPaths(root_settings.stringImportPaths);
 
+		// special support for overriding string imports in parent packages
+		// this is a candidate for deprecation, once an alternative approach
+		// has been found
+		if (ti.buildSettings.stringImportPaths.length)
+			ti.buildSettings.prependStringImportPaths(root_settings.stringImportPaths);
+
+		string[] packs = ti.packages.map!(p => p.name).array;
 		foreach (d; ti.dependencies)
-			downwardsInheritSettings(d, targets, root_settings);
+			packs ~= downwardsInheritSettings(d, targets, root_settings);
+
+		logInfo("%s: %s", target, packs);
+
+		// Add Have_* versions *after* downwards inheritance, so that dependencies
+		// are build independently of the parent packages w.r.t the other parent
+		// dependencies. This enables sharing of the same package build for
+		// multiple dependees.
+		ti.buildSettings.addVersions(packs.map!(pn => "Have_" ~ stripDlangSpecialChars(pn)).array);
+
+		return packs;
 	}
 }
 
