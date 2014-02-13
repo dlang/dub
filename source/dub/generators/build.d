@@ -275,7 +275,8 @@ class BuildGenerator : ProjectGenerator {
 		//addHash(settings.platform.frontendVersion);
 		auto hashstr = hash.finish().toHexString().idup;
 
-		return format("%s-%s-%s-%s-%s", config, settings.buildType,
+		return format("%s-%s-%s-%s-%s-%s", config, settings.buildType,
+			settings.platform.platform.join("."),
 			settings.platform.architecture.join("."),
 			settings.platform.compilerBinary, hashstr);
 	}
