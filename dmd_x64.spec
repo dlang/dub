@@ -27,15 +27,9 @@ Compiler for the D Programming language
 rm -fr D-Programming-Language-dmd-*/
 rm -fr phobos/
 rm -fr druntime/
-if [ ! -f %{SOURCE0} ]; then
-    wget --no-check-certificate -O %{SOURCE0} https://github.com/D-Programming-Language/dmd/tarball/master
-fi
-if [ ! -f %{SOURCE1} ]; then
-    wget --no-check-certificate -O %{SOURCE1} https://github.com/D-Programming-Language/phobos/tarball/master
-fi
-if [ ! -f %{SOURCE2} ]; then
-    wget --no-check-certificate -O %{SOURCE2} https://github.com/D-Programming-Language/druntime/tarball/master
-fi
+wget --no-check-certificate -O %{SOURCE0} https://github.com/D-Programming-Language/dmd/tarball/master
+wget --no-check-certificate -O %{SOURCE1} https://github.com/D-Programming-Language/phobos/tarball/master
+wget --no-check-certificate -O %{SOURCE2} https://github.com/D-Programming-Language/druntime/tarball/master
 tar -xzvf %{SOURCE0}
 tar -xzvf %{SOURCE1}
 tar -xzvf %{SOURCE2}
