@@ -180,10 +180,10 @@ class Dub {
 			// Remove first
 			foreach(Action a; actions.filter!(a => a.type == Action.Type.remove)) {
 				assert(a.pack !is null, "No package specified for removal.");
-				remove(a.pack);
+				remove(a.pack, (options & UpdateOptions.forceRemove) != 0);
 			}
 			foreach(Action a; actions.filter!(a => a.type == Action.Type.fetch)) {
-				fetch(a.packageId, a.vers, a.location, (options & UpdateOptions.upgrade) != 0, (options & UpdateOptions.preRelease) != 0);
+				fetch(a.packageId, a.vers, a.location, (options & UpdateOptions.upgrade) != 0, (options & UpdateOptions.preRelease) != 0, (options & UpdateOptions.forceRemove) != 0);
 				// never update the same package more than once
 				masterVersionUpgrades[a.packageId] = true;
 			}
@@ -326,8 +326,9 @@ class Dub {
 	/// Returns all cached  packages as a "packageId" = "version" associative array
 	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
 
+	// TODO: use flags enum instead of bool parameters
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, bool force_branch_upgrade, bool use_prerelease)
+	Package fetch(string packageId, const Dependency dep, PlacementLocation location, bool force_branch_upgrade, bool use_prerelease, bool force_remove)
 	{
 		Json pinfo;
 		PackageSupplier supplier;
@@ -360,7 +361,7 @@ class Dub {
 				return pack;
 			} else {
 				logInfo("Removing present package of %s %s", packageId, ver);
-				if (!m_dryRun) m_packageManager.remove(pack);
+				if (!m_dryRun) m_packageManager.remove(pack, force_remove);
 			}
 		}
 
@@ -386,10 +387,10 @@ class Dub {
 	/// Removes a given package from the list of present/cached modules.
 	/// @removeFromApplication: if true, this will also remove an entry in the
 	/// list of dependencies in the application's package.json
-	void remove(in Package pack)
+	void remove(in Package pack, bool force_remove)
 	{
 		logInfo("Removing %s in %s", pack.name, pack.path.toNativeString());
-		if (!m_dryRun) m_packageManager.remove(pack);
+		if (!m_dryRun) m_packageManager.remove(pack, force_remove);
 	}
 
 	/// @see remove(string, string, RemoveLocation)
@@ -406,7 +407,7 @@ class Dub {
 	/// exception, if there are multiple versions retrieved.
 	/// Note: as wildcard string only "*" is supported.
 	/// @param location_
-	void remove(string package_id, string version_, PlacementLocation location_)
+	void remove(string package_id, string version_, PlacementLocation location_, bool force_remove)
 	{
 		enforce(!package_id.empty);
 		if (location_ == PlacementLocation.local) {
@@ -441,7 +442,7 @@ class Dub {
 		logDebug("Removing %s packages.", packages.length);
 		foreach(pack; packages) {
 			try {
-				remove(pack);
+				remove(pack, force_remove);
 				logInfo("Removing %s, version %s.", package_id, pack.vers);
 			} catch (Exception e) {
 				logError("Failed to remove %s %s: %s", package_id, pack.vers, e.msg);
@@ -495,7 +496,7 @@ class Dub {
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
 			logInfo("DDOX is not present, getting it and storing user wide");
-			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, false, false);
+			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, false, false, false);
 		}
 
 		version(Windows) auto ddox_exe = "ddox.exe";

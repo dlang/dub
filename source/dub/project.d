@@ -779,7 +779,8 @@ enum UpdateOptions
 {
 	none = 0,
 	upgrade = 1<<1,
-	preRelease = 1<<2 // inclde pre-release versions in upgrade
+	preRelease = 1<<2, // inclde pre-release versions in upgrade
+	forceRemove = 1<<3
 }
 
 

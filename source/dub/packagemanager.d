@@ -292,10 +292,60 @@ class PackageManager {
 	}
 
 	/// Removes the given the package.
-	void remove(in Package pack)
+	void remove(in Package pack, bool force_remove)
 	{
 		logDebug("Remove %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
 		enforce(!pack.path.empty, "Cannot remove package "~pack.name~" without a path.");
+
+		// delete package files physically
+		logDebug("Looking up journal");
+		auto journalFile = pack.path~JournalJsonFilename;
+		if (!existsFile(journalFile))
+			throw new Exception("Removal failed, no retrieval journal found for '"~pack.name~"'. Please remove the folder '%s' manually.", pack.path.toNativeString());
+
+		auto packagePath = pack.path;
+		auto journal = new Journal(journalFile);
+
+
+		// Determine all target paths/files
+		/*auto basebs = pack.getBuildSettings();
+		foreach (conf; pack.configurations) {
+			auto bs = pack.getBuildSettings(conf);
+			auto tpath = conf.targetPath.length ? conf.targetPath : basebs.targetPath;
+			auto tname = conf.targetName.length ? conf.targetName : basebs.targetName;
+			auto ttype = conf.targetType != TargetType.auto_ ? conf.targetType : basebs.targetType;
+			if (ttype == TargetType.none || ttype == TargetType.auto_) continue;
+			foreach (n; generatePlatformNames(tname, ttype))
+				// ...
+		}*/
+
+		// test if there are any untracked files
+		if (!force_remove) {
+			bool checkFilesRec(Path p)
+			{
+				auto relp = p.relativeTo(pack.path);
+				// ignore /.dub folder
+				if (relp == Path(".dub")) return true;
+
+				// TODO: ignore target paths/files
+
+				foreach (fi; iterateDirectory(p)) {
+					auto fpath = p ~ fi.name;
+					auto type = fi.isDirectory ? Journal.Type.Directory : Journal.Type.RegularFile;
+					if (fi.isDirectory)
+						if (!checkFilesRec(fpath))
+							return false;
+
+					if (!journal.containsEntry(type, fpath.relativeTo(pack.path))) {
+						enforce(force_remove, "Untracked file found, aborting package removal: " ~ fpath.toNativeString());
+						logWarn("Deleting untracked files without confirmation.");
+						return false;
+					}
+				}
+				return true;
+			}
+			checkFilesRec(pack.path);
+		}
 
 		// remove package from repositories' list
 		bool found = false;
@@ -317,58 +367,8 @@ class PackageManager {
 			found = removeFrom(m_packages, pack);
 		enforce(found, "Cannot remove, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
 
-		// delete package files physically
-		logDebug("Looking up journal");
-		auto journalFile = pack.path~JournalJsonFilename;
-		if (!existsFile(journalFile))
-			throw new Exception("Removal failed, no retrieval journal found for '"~pack.name~"'. Please remove the folder '%s' manually.", pack.path.toNativeString());
-
-		auto packagePath = pack.path;
-		auto journal = new Journal(journalFile);
-		logDebug("Erasing files");
-		foreach( Journal.Entry e; filter!((Journal.Entry a) => a.type == Journal.Type.RegularFile)(journal.entries)) {
-			logDebug("Deleting file '%s'", e.relFilename);
-			auto absFile = pack.path~e.relFilename;
-			if(!existsFile(absFile)) {
-				logWarn("Previously retrieved file not found for removal: '%s'", absFile);
-				continue;
-			}
-
-			removeFile(absFile);
-		}
-
-		logDiagnostic("Erasing directories");
-		Path[] allPaths;
-		foreach(Journal.Entry e; filter!((Journal.Entry a) => a.type == Journal.Type.Directory)(journal.entries))
-			allPaths ~= pack.path~e.relFilename;
-		sort!("a.length>b.length")(allPaths); // sort to erase deepest paths first
-		foreach(Path p; allPaths) {
-			logDebug("Deleting folder '%s'", p);
-			if (!existsFile(p)) continue;
-			if (!isDir(p.toNativeString())) {
-				logError("%s expected to be a directory, skipping deletion.", p.toNativeString());
-				continue;
-			}
-			if (!isEmptyDir(p)) {
-				logError("Found untracked files in %s, skipping deletion.", p.toNativeString());
-				continue;
-			}
-			rmdir(p.toNativeString());
-		}
-
-		// Erase .dub folder, this is completely erased.
-		auto dubDir = (pack.path ~ ".dub/").toNativeString();
-		enforce(!existsFile(dubDir) || isDir(dubDir), ".dub should be a directory, but is a file.");
-		if(existsFile(dubDir) && isDir(dubDir)) {
-			logDebug(".dub directory found, removing directory including content.");
-			rmdirRecurse(dubDir);
-		}
-
 		logDebug("About to delete root folder for package '%s'.", pack.path);
-		if(!isEmptyDir(pack.path))
-			throw new Exception("Alien files found in '"~pack.path.toNativeString()~"', needs to be deleted manually.");
-
-		rmdir(pack.path.toNativeString());
+		rmdirRecurse(pack.path.toNativeString());
 		logInfo("Removed package: '"~pack.name~"'");
 	}
 
@@ -707,6 +707,14 @@ private class Journal {
 		auto fileJournal = openFile(path, FileMode.CreateTrunc);
 		scope(exit) fileJournal.close();
 		fileJournal.writePrettyJsonString(jsonJournal);
+	}
+
+	bool containsEntry(Type type, Path path)
+	const {
+		foreach (e; entries)
+			if (e.type == type && e.relFilename == path)
+				return true;
+		return false;
 	}
 	
 	private Json serialize() const {

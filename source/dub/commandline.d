@@ -310,6 +310,7 @@ abstract class PackageBuildCommand : Command {
 		BuildSettings m_buildSettings;
 		string m_defaultConfig;
 		bool m_nodeps;
+		bool m_forceRemove = false;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -334,6 +335,9 @@ abstract class PackageBuildCommand : Command {
 		]);
 		args.getopt("nodeps", &m_nodeps, [
 			"Do not check/update dependencies before building"
+		]);
+		args.getopt("force-remove", &m_forceRemove, [
+			"Force deletion of fetched packages with untracked files when upgrading"
 		]);
 	}
 
@@ -645,6 +649,7 @@ class DescribeCommand : PackageBuildCommand {
 class UpgradeCommand : Command {
 	private {
 		bool m_prerelease = false;
+		bool m_forceRemove = false;
 	}
 
 	this()
@@ -662,6 +667,9 @@ class UpgradeCommand : Command {
 		args.getopt("prerelease", &m_prerelease, [
 			"Uses the latest pre-release version, even if release versions are available"
 		]);
+		args.getopt("force-remove", &m_forceRemove, [
+			"Force deletion of fetched packages with untracked files"
+		]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -672,6 +680,7 @@ class UpgradeCommand : Command {
 		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
 		auto options = UpdateOptions.upgrade;
 		if (m_prerelease) options |= UpdateOptions.preRelease;
+		if (m_forceRemove) options |= UpdateOptions.forceRemove;
 		dub.update(options);
 		return 0;
 	}
@@ -682,6 +691,7 @@ class FetchRemoveCommand : Command {
 		string m_version;
 		bool m_system = false;
 		bool m_local = false;
+		bool m_forceRemove = false;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -693,6 +703,9 @@ class FetchRemoveCommand : Command {
 
 		args.getopt("system", &m_system, ["Puts the package into the system wide package cache instead of the user local one."]);
 		args.getopt("local", &m_system, ["Puts the package into a sub folder of the current working directory. Cannot be mixed with --system."]);
+		args.getopt("force-remove", &m_forceRemove, [
+			"Force deletion of fetched packages with untracked files"
+		]);
 	}
 
 	abstract override int execute(Dub dub, string[] free_args, string[] app_args);
@@ -739,10 +752,10 @@ class FetchCommand : FetchRemoveCommand {
 
 		auto name = free_args[0];
 
-		if (m_version.length) dub.fetch(name, Dependency(m_version), location, true, false);
+		if (m_version.length) dub.fetch(name, Dependency(m_version), location, true, false, m_forceRemove);
 		else {
 			try {
-				dub.fetch(name, Dependency(">=0.0.0"), location, true, false);
+				dub.fetch(name, Dependency(">=0.0.0"), location, true, false, m_forceRemove);
 				logInfo(
 					"Please note that you need to use `dub run <pkgname>` " ~ 
 					"or add it to dependencies of your package to actually use/run it. " ~
@@ -751,7 +764,7 @@ class FetchCommand : FetchRemoveCommand {
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
 				logInfo("Retry with ~master...");
-				dub.fetch(name, Dependency("~master"), location, true, true);
+				dub.fetch(name, Dependency("~master"), location, true, true, m_forceRemove);
 			}
 		}
 		return 0;
@@ -795,7 +808,7 @@ class RemoveCommand : FetchRemoveCommand {
 		if (m_local) location = PlacementLocation.local;
 		else if (m_system) location = PlacementLocation.systemWide;
 
-		try dub.remove(package_id, m_version, location);
+		try dub.remove(package_id, m_version, location, m_forceRemove);
 		catch {
 			logError("Please specify a individual version or use the wildcard identifier '%s' (without quotes).", Dub.RemoveVersionWildcard);
 			return 1;
