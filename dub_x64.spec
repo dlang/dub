@@ -11,7 +11,8 @@ URL: http://code.dlang.org
 
 Vendor: rejectedsoftware e.K.
 
-BuildRequires: wget libcurl-devel tar git
+BuildRequires: wget tar git
+Requires: libcurl libcurl-devel
 ExclusiveArch: x86_64
 
 %description
