@@ -74,6 +74,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 		{["-debug=", `Use "debugVersions" to specify version constants in a compiler independent way`]},
 		{["-I"], `Use "importPaths" to specify import paths in a compiler independent way`},
 		{["-J"], `Use "stringImportPaths" to specify import paths in a compiler independent way`},
+		{["-m32", "-m64"], `Use --arch=x86/--arch=x86_64 to specify the target architecture`}
 	];
 
 	bool got_preamble = false;
