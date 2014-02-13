@@ -443,8 +443,10 @@ class Dub {
 			try {
 				remove(pack);
 				logInfo("Removing %s, version %s.", package_id, pack.vers);
+			} catch (Exception e) {
+				logError("Failed to remove %s %s: %s", package_id, pack.vers, e.msg);
+				logInfo("Continuing with other packages (if any).");
 			}
-			catch logError("Failed to remove %s, version %s. Continuing with other packages (if any).", package_id, pack.vers);
 		}
 	}
 

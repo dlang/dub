@@ -344,8 +344,13 @@ class PackageManager {
 		sort!("a.length>b.length")(allPaths); // sort to erase deepest paths first
 		foreach(Path p; allPaths) {
 			logDebug("Deleting folder '%s'", p);
-			if( !existsFile(p) || !isDir(p.toNativeString()) || !isEmptyDir(p) ) {
-				logError("Alien files found, directory is not empty or is not a directory: '%s'", p);
+			if (!existsFile(p)) continue;
+			if (!isDir(p.toNativeString())) {
+				logError("%s expected to be a directory, skipping deletion.", p.toNativeString());
+				continue;
+			}
+			if (!isEmptyDir(p)) {
+				logError("Found untracked files in %s, skipping deletion.", p.toNativeString());
 				continue;
 			}
 			rmdir(p.toNativeString());
