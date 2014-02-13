@@ -338,7 +338,7 @@ class Dub {
 				supplier = ps;
 				break;
 			} catch(Exception e) {
-				logDiagnostic("Package %s not found at for %s: %s", packageId, ps.description(), e.msg);
+				logDiagnostic("Package %s not found for %s: %s", packageId, ps.description(), e.msg);
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
