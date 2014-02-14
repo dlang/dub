@@ -48,4 +48,4 @@ cp %{gitdir}/bin/dub $RPM_BUILD_ROOT%{_bindir}/
 
 
 %clean
-cp $RPM_BUILD_ROOT/../RPMS/*/dub*.rpm %{gitdir}
+cp $RPM_BUILD_ROOT/../../RPMS/*/dub*.rpm %{gitdir}
