@@ -1,5 +1,5 @@
 # command is:
-# rpmbuild -ba dub.spec --define 'ver 0.9.21' --define 'rel rc3' --define 'commit 9d704b76112367a348446f57ef24635c9a60f4df'
+# rpmbuild -ba dub.spec --define 'gitdir /usr/src/dub' --define 'ver 0.9.21' --define 'rel rc3' --define 'commit 9d704b76112367a348446f57ef24635c9a60f4df'
 # rpm file will be in ~/rpmbuild/RPMS/x86_64/dub*.rpm
 # if built on a i386 platform, rpm file will be in ~/rpmbuild/RPMS/i386/dub*.rpm
 
@@ -24,22 +24,17 @@ Package Manager for the D Programming language
 
 %prep
 echo prep
-cd $RPM_BUILD_DIR
-rm -fr $RPM_BUILD_DIR/rejectedsoftware-dub*/
-wget --no-check-certificate -O %{SOURCE1} https://github.com/rejectedsoftware/dub/tarball/%{commit}
-tar -xzvf %{SOURCE1}
-mv rejectedsoftware-dub*/ $RPM_BUILD_DIR/dub
+cd %{gitdir} && git checkout ${commit}
 
 %build
 echo build
-cd $RPM_BUILD_DIR/dub
-./build.sh
+cd %{gitdir} && ./build.sh
 
 %install
 echo install
 rm -fr $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT%{_bindir}/
-cp $RPM_BUILD_DIR/dub/bin/dub $RPM_BUILD_ROOT%{_bindir}/
+cp %{gitdir}/bin/dub $RPM_BUILD_ROOT%{_bindir}/
 
 
 #////////////////////////////////////////////////////////////////
@@ -53,4 +48,4 @@ cp $RPM_BUILD_DIR/dub/bin/dub $RPM_BUILD_ROOT%{_bindir}/
 
 
 %clean
-rm -fr $RPM_BUILD_DIR/dub*
+cp $RPM_BUILD_ROOT/../RPMS/*/dub*.rpm %{gitdir}
