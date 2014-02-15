@@ -10,14 +10,13 @@ Release: %{rel}
 License: MIT
 Group: Applications/Programming
 
-Source1: dub.tar.gz
+#Source1: dub.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)
 URL: http://code.dlang.org
 
 Vendor: rejectedsoftware e.K.
 
-BuildRequires: wget tar git libcurl-devel
-Requires: libcurl
+BuildRequires: wget tar git
 
 %description
 Package Manager for the D Programming language
@@ -48,5 +47,5 @@ cp %{gitdir}/bin/dub $RPM_BUILD_ROOT%{_bindir}/
 
 
 %clean
-cp $RPM_BUILD_ROOT/../../RPMS/*/dub*.rpm %{gitdir}
+cp $RPM_BUILD_ROOT/../../RPMS/*/dub*.rpm %{gitdir}/installer
 rm -fR $RPM_BUILD_ROOT/../../RPMS/*
