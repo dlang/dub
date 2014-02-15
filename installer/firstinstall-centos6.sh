@@ -4,7 +4,7 @@ git clone https://github.com/etcimon/dub
 cd dub/installer
 rpmbuild -ba dmd.spec
 cp ~/rpmbuild/RPMS/x86_64/dmd*.rpm ./
-rpm-ivh dmd*.rpm
+rpm -ivh dmd*.rpm
 rpmbuild -ba dub.spec --define 'gitdir /usr/src/dub' --define 'ver 0.9.21' --define 'rel rc4' --define 'commit master'
 rpm -ivh dub*.rpm
 ls -l
