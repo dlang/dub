@@ -232,6 +232,18 @@ class Package {
 			config.buildSettings.warnOnSpecialCompilerFlags(m_info.name, config.name);
 	}
 
+	const(BuildSettingsTemplate) getBuildSettings(string config = null)
+	const {
+		if (config.length) {
+			foreach (ref conf; m_info.configurations)
+				if (conf.name == config)
+					return conf.buildSettings;
+			assert(false, "Unknown configuration: "~config);
+		} else {
+			return m_info.buildSettings;
+		}
+	}
+
 	/// Returns all BuildSettings for the given platform and config.
 	BuildSettings getBuildSettings(in BuildPlatform platform, string config)
 	const {

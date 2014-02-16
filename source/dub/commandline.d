@@ -559,6 +559,8 @@ class RunCommand : BuildCommand {
 class TestCommand : PackageBuildCommand {
 	private {
 		string m_mainFile;
+		bool m_combined = false;
+		bool m_force = false;
 	}
 
 	this()
@@ -593,6 +595,12 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("main-file", &m_mainFile, [
 			"Specifies a custom file containing the main() function to use for running the tests."
 		]);
+		args.getopt("combined", &m_combined, [
+			"Tries to build the whole project in a single compiler run."
+		]);
+		args.getopt("f|force", &m_force, [
+			"Forces a recompilation even if the target is up to date"
+		]);
 		super.prepare(args);
 	}
 
@@ -604,7 +612,17 @@ class TestCommand : PackageBuildCommand {
 
 		setupPackage(dub, package_name);
 
-		dub.testProject(m_buildSettings, m_buildPlatform, m_build_config, Path(m_mainFile), app_args);
+		GeneratorSettings settings;
+		settings.platform = m_buildPlatform;
+		settings.compiler = getCompiler(m_buildPlatform.compilerBinary);
+		settings.buildType = "unittest";
+		settings.buildSettings = m_buildSettings;
+		settings.combined = m_combined;
+		settings.force = m_force;
+		settings.run = true;
+		settings.runArgs = app_args;
+
+		dub.testProject(settings, m_build_config, Path(m_mainFile));
 		return 0;
 	}
 }

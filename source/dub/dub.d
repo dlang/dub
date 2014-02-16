@@ -200,34 +200,27 @@ class Dub {
 		generator.generate(settings);
 	}
 
-	void testProject(BuildSettings build_settings, BuildPlatform platform, string config, Path custom_main_file, string[] run_args)
+	void testProject(GeneratorSettings settings, string config, Path custom_main_file)
 	{
 		if (custom_main_file.length && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
 
 		if (config.length == 0) {
 			// if a custom main file was given, favor the first library configuration, so that it can be applied
-			if (custom_main_file.length) config = m_project.getDefaultConfiguration(platform, false);
+			if (custom_main_file.length) config = m_project.getDefaultConfiguration(settings.platform, false);
 			// else look for a "unittest" configuration
 			if (!config.length && m_project.mainPackage.configurations.canFind("unittest")) config = "unittest";
 			// if not found, fall back to the first "library" configuration
-			if (!config.length) config = m_project.getDefaultConfiguration(platform, false);
+			if (!config.length) config = m_project.getDefaultConfiguration(settings.platform, false);
 			// if still nothing found, use the first executable configuration
-			if (!config.length) config = m_project.getDefaultConfiguration(platform, true);
+			if (!config.length) config = m_project.getDefaultConfiguration(settings.platform, true);
 		}
 
 		auto generator = createProjectGenerator("build", m_project, m_packageManager);
-		GeneratorSettings settings;
-		settings.platform = platform;
-		settings.compiler = getCompiler(platform.compilerBinary);
-		settings.buildType = "unittest";
-		settings.buildSettings = build_settings;
-		settings.run = true;
-		settings.runArgs = run_args;
 
 		auto test_config = format("__test__%s__", config);
 
-		BuildSettings lbuildsettings = build_settings;
-		m_project.addBuildSettings(lbuildsettings, platform, config, null, true);
+		BuildSettings lbuildsettings = settings.buildSettings;
+		m_project.addBuildSettings(lbuildsettings, settings.platform, config, null, true);
 		if (lbuildsettings.targetType == TargetType.none) {
 			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
 			return;
@@ -241,7 +234,7 @@ class Dub {
 		} else if (lbuildsettings.sourceFiles.empty) {
 			logInfo(`No source files found in configuration '%s'. Falling back to "dub -b unittest".`, config);
 			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
-			settings.config = m_project.getDefaultConfiguration(platform);
+			settings.config = m_project.getDefaultConfiguration(settings.platform);
 		} else {
 			logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, test_config, config, lbuildsettings.targetType);
 
