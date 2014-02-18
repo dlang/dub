@@ -35,7 +35,6 @@ static import std.compiler;
 */
 struct Version {
 	private { 
-		enum MASTER_VERS = cast(size_t)(-1);
 		enum MAX_VERS = "99999.0.0";
 		string m_version;
 	}
@@ -150,7 +149,16 @@ struct Dependency {
 	{
 		enforce(ves.length > 0);
 		string orig = ves;
-		if (ves[0] == Version.BRANCH_IDENT) {
+
+		if (ves[0] == Version.BRANCH_IDENT && ves[1] == '>') {
+			// Shortcut: "~>x.y.z" variant. Last non-zero number will indicate
+			// the base for this so something like this: ">=x.y.z <x.(y+1).z"
+			m_cmpA = ">=";
+			m_cmpB = "<";
+			ves = ves[2..$];
+			m_versA = Version(ves);
+			m_versB = Version(incrementVersion(ves));
+		} else if (ves[0] == Version.BRANCH_IDENT) {
 			m_cmpA = ">=";
 			m_cmpB = "<=";
 			m_versA = m_versB = Version(ves);
@@ -393,6 +401,30 @@ unittest {
 	assert(!a.merge(b).optional, "Merging optional with not optional wrong.");
 	b.optional = true;
 	assert(a.merge(b).optional, "Merging two optional dependencies wrong.");
+
+	// SemVer's sub identifiers.
+	a = Dependency(">=1.0.0-beta");
+	assert(!a.matches(Version("1.0.0-alpha")), "Failed: match 1.0.0-alpha with >=1.0.0-beta");
+	assert(a.matches(Version("1.0.0-beta")), "Failed: match 1.0.0-beta with >=1.0.0-beta");
+	assert(a.matches(Version("1.0.0")), "Failed: match 1.0.0 with >=1.0.0-beta");
+	assert(a.matches(Version("1.0.0-rc")), "Failed: match 1.0.0-rc with >=1.0.0-beta");
+
+	// Dependency shortcut.
+	a = Dependency("~>0.1.2");
+	b = Dependency(">=0.1.2 <0.2.0");
+	assert(a == b, "Testing failed: " ~ a.to!string());
+	assert(a.matches(Version("0.1.146")), "Failed: Match 0.1.146 with ~>0.1.2");
+	assert(!a.matches(Version("0.2.0")), "Failed: Match 0.2.0 with ~>0.1.2");
+
+	a = Dependency("~>1.0.2");
+	b = Dependency(">=1.0.2 <1.1.0");
+	assert(a == b, "Testing failed: " ~ a.to!string());
+
+	a = Dependency("~>1.0.1-beta");
+	b = Dependency(">=1.0.1-beta <1.0.1-betb");
+	assert(a == b, "Testing failed: " ~ a.to!string());
+	assert(a.matches(Version("1.0.1-beta")));
+	assert(a.matches(Version("1.0.1-beta.6")));
 
 	a = Dependency("~d2test");
 	assert(!a.optional);

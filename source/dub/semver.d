@@ -9,6 +9,8 @@ module dub.semver;
 
 import std.range;
 import std.string;
+import std.algorithm : join, split;
+import std.conv;
 
 /*
 	General format of SemVer: a.b.c[-x.y...][+x.y...]
@@ -168,8 +170,76 @@ unittest {
 	assertLess("1.0.0-2", "1.0.0-10");
 	assertLess("1.0.0-99", "1.0.0-1a");
 	assertLess("1.0.0-99", "1.0.0-a");
+	assertLess("1.0.0-alpha", "1.0.0-alphb");
+	assertLess("1.0.0-alphz", "1.0.0-alphz0");
+	assertLess("1.0.0-alphZ", "1.0.0-alpha");
 }
 
+
+/**
+	Given a valid semver version string, increments it in the sense of
+	  1.5.67 -> 1.6.0
+	  1.5.67-a -> 1.5.67-b
+
+	This helps with the "~>1.5.6" version specifier.
+
+	The version strings must be validated using isValidVersion() before being
+	passed to this function.
+*/
+string incrementVersion(string ver) {
+	// Cut off metadata, does not matter.
+	auto mi = ver.indexOf("+");
+	if (mi > 0) ver = ver[0..mi];
+
+	// Check and increment pre-release numbers
+	mi = ver.indexOf("-");
+	if (mi > 0) return ver[0..mi+1] ~ incrementDotted(ver[(mi+1)..$]);
+
+	// Increment simple a.b.c
+	return incrementDotted(ver);
+}
+
+private string incrementDotted(string ver) {
+	auto items = split(ver, ".");
+	// Find item to increment: last item before last non-zero item.
+	int idx = items.length-1;
+	while (idx >= 0 && isValidNumber(items[idx]) && to!int(items[idx]) == 0)
+		--idx;
+
+	// idx is the last non-zero item, take the one before it or the first item.
+	idx = idx<=0 ? 0 : idx - 1;
+	auto to_increment = items[idx];
+	if (isValidNumber(to_increment)) {
+		to_increment = to!string(to!int(to_increment) + 1);
+	} else {
+		// "000Z" -> "000a"
+		if (to_increment[$-1] == 'Z') to_increment = to_increment[0..$-1] ~ 'a';
+		// "000z" -> "000z0"
+		else if(to_increment[$-1] == 'z') to_increment = to_increment ~ '0';
+		// "000y" -> "000z"
+		else to_increment = to_increment[0..$-1] ~ cast(char)( cast(int)(to_increment[$-1]) + 1);
+	}
+	items[idx] = to_increment;
+	string incremented = join(items[0 .. idx+1], ".");
+	// Fill up with zeros.
+	for (int i=idx+1; i<items.length; ++i)
+		incremented ~= ".0";
+	return incremented;
+}
+
+unittest {
+	assert("1.0.0" == incrementVersion("0.0.0"));
+	assert("2.0.0" == incrementVersion("1.0.0"));
+	assert("2.0.0" == incrementVersion("1.1.0"));
+	assert("1.1.0" == incrementVersion("1.0.1"));
+	assert("1.0.1-b" == incrementVersion("1.0.1-a"));
+	assert("1.0.1-z0" == incrementVersion("1.0.1-z"));
+	assert("1.0.1-a" == incrementVersion("1.0.1-Z"));
+	assert("1.0.1-bbbbbba" == incrementVersion("1.0.1-bbbbbbZ"));
+	assert("1.0.1-bbbbbbZ.48.0" == incrementVersion("1.0.1-bbbbbbZ.47.11"));
+	assert("1.1.0" == incrementVersion("1.0.1+metadata"));
+	assert("1.0.1-a.c.0" == incrementVersion("1.0.1-a.b.c+metadata"));
+}
 
 private int compareIdentifier(ref string a, ref string b)
 {
