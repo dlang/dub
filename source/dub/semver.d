@@ -202,7 +202,7 @@ string incrementVersion(string ver) {
 private string incrementDotted(string ver) {
 	auto items = split(ver, ".");
 	// Find item to increment: last item before last non-zero item.
-	int idx = items.length-1;
+	sizediff_t idx = items.length-1;
 	while (idx >= 0 && isValidNumber(items[idx]) && to!int(items[idx]) == 0)
 		--idx;
 
@@ -222,7 +222,7 @@ private string incrementDotted(string ver) {
 	items[idx] = to_increment;
 	string incremented = join(items[0 .. idx+1], ".");
 	// Fill up with zeros.
-	for (int i=idx+1; i<items.length; ++i)
+	foreach (i; idx + 1 .. items.length)
 		incremented ~= ".0";
 	return incremented;
 }
