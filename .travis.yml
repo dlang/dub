@@ -19,4 +19,4 @@ install:
   - sudo tar -C /usr/local/bin -zxf ${DUB}.tar.gz
 
 script:
-  - dub test
+  - dub test -c library-nonet
