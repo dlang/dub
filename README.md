@@ -5,6 +5,7 @@ Package and build manager for [D](http://dlang.org/) applications and libraries.
 
 There is a central [package registry](https://github.com/rejectedsoftware/dub-registry/) located at <http://code.dlang.org>.
 
+[![Build Status](https://travis-ci.org/rejectedsoftware/dub.png)](https://travis-ci.org/rejectedsoftware/dub)
 
 Introduction
 ------------
