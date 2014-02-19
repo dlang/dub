@@ -25,13 +25,14 @@ import std.typecons;
 static import std.compiler;
 
 /**
-	A version in the format "major.update.bugfix-prerelease+buildmetadata" or
-	"~master", to identify trunk, or "~branch_name" to identify a branch. Both 
-	Version types starting with "~"	refer to the head revision of the 
-	corresponding branch.
-	
-	Except for the "~branch" Version format, this follows the Semantic Versioning
-	Specification (SemVer) 2.0.0-rc.2.
+	A version in the format "major.update.bugfix-prerelease+buildmetadata"
+	according to Semantic Versioning Specification v2.0.0.
+
+	(deprecated):
+	This also supports a format like "~master", to identify trunk, or
+	"~branch_name" to identify a branch. Both Version types starting with "~"
+	refer to the head revision of the corresponding branch.
+	This is subject to be removed soon.
 */
 struct Version {
 	private { 
@@ -131,9 +132,11 @@ unittest {
 			assert(versions[j] < versions[i], "Failed: " ~ to!string(versions[j]) ~ "<" ~ to!string(versions[i]));
 }
 
-/// Representing a dependency, which is basically a version string and a 
-/// compare methode, e.g. '>=1.0.0 <2.0.0' (i.e. a space separates the two
-/// version numbers)
+/**
+	Representing a dependency, which is basically a version string and a 
+	compare methode, e.g. '>=1.0.0 <2.0.0' (i.e. a space separates the two
+	version numbers)
+*/
 struct Dependency {
 	private {
 		string m_cmpA;
@@ -156,8 +159,8 @@ struct Dependency {
 			m_cmpA = ">=";
 			m_cmpB = "<";
 			ves = ves[2..$];
-			m_versA = Version(ves);
-			m_versB = Version(incrementVersion(ves));
+			m_versA = Version(expandVersion(ves));
+			m_versB = Version(bumpVersion(ves));
 		} else if (ves[0] == Version.BRANCH_IDENT) {
 			m_cmpA = ">=";
 			m_cmpB = "<=";
@@ -409,19 +412,21 @@ unittest {
 	assert(a.matches(Version("1.0.0")), "Failed: match 1.0.0 with >=1.0.0-beta");
 	assert(a.matches(Version("1.0.0-rc")), "Failed: match 1.0.0-rc with >=1.0.0-beta");
 
-	// Dependency shortcut.
-	a = Dependency("~>0.1.2");
-	b = Dependency(">=0.1.2 <0.2.0");
+	// Approximate versions.
+	a = Dependency("~>3.0");
+	b = Dependency(">=3.0.0 <4.0.0");
 	assert(a == b, "Testing failed: " ~ a.to!string());
-	assert(a.matches(Version("0.1.146")), "Failed: Match 0.1.146 with ~>0.1.2");
+	assert(a.matches(Version("3.1.146")), "Failed: Match 3.1.146 with ~>0.1.2");
 	assert(!a.matches(Version("0.2.0")), "Failed: Match 0.2.0 with ~>0.1.2");
-
-	a = Dependency("~>1.0.2");
-	b = Dependency(">=1.0.2 <1.1.0");
-	assert(a == b, "Testing failed: " ~ a.to!string());
+	a = Dependency("~>3.0.0");
+	assert(a == Dependency(">=3.0.0 <3.1.0"), "Testing failed: " ~ a.to!string());
+	a = Dependency("~>3.5");
+	assert(a == Dependency(">=3.5.0 <4.0.0"), "Testing failed: " ~ a.to!string());
+	a = Dependency("~>3.5.0");
+	assert(a == Dependency(">=3.5.0 <3.6.0"), "Testing failed: " ~ a.to!string());
 
 	a = Dependency("~>1.0.1-beta");
-	b = Dependency(">=1.0.1-beta <1.0.1-betb");
+	b = Dependency(">=1.0.1-beta <1.1.0");
 	assert(a == b, "Testing failed: " ~ a.to!string());
 	assert(a.matches(Version("1.0.1-beta")));
 	assert(a.matches(Version("1.0.1-beta.6")));
@@ -439,6 +444,9 @@ unittest {
 	logDebug("Dependency Unittest sucess.");
 }
 
+/**
+	Stuff for a dependency lookup.
+*/
 struct RequestedDependency {
 	this( string pkg, Dependency de) {
 		dependency = de;
