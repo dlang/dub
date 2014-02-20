@@ -11,7 +11,9 @@ v0.9.21 - 2014-02-
  - Revamped command line help now shows detailed help for each command
  - Added `dub test` to run the unit tests of a package using a custom main() function
  - Public sub packages can now (and are recommended to) reside in sub folders
+ - Added ruby style `~>` version specifications: `"~>1.0.2"` is equivalent to `">=1.0.2 <1.1.0"` and `"~>1.3"` is equivalent to `">=1.3.0 <2.0.0"`
  - `--annotate` now works for all commands
+ - Added a `--force-remove` switch to force package removal when untracked files are found in a package folder
  - Added a `"mainSourceFile"` field to better control how `--rdmd` and `dub test` work
  - The target binary (if any) is now automatically deleted after a linker error to avoid partially linked binaries
  - Added `--force` to `dub build` and `dub run` to force recompilation even if already up to date
@@ -55,6 +57,7 @@ v0.9.21 - 2014-02-
  - Fixed determining the version of the root package (previously, `~master` was always assumed)
  - Fixed parsing of `==~master` style dependencies (equivalent to just `~master`)
  - Fixed handling of packages with upper case letters in their name (which is not allowed)
+ - Fixed running applications on Windows with relative paths (`.\` gets prepended now)
 
 
 [issue109]: https://github.com/rejectedsoftware/dub/issues/109
