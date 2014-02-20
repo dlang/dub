@@ -7,7 +7,7 @@ DUB_PATH=`pwd`
 cd installer/rpm/
 for i in $(git describe | tr "-" "\n"); do
 	if [ "$VER" == "" ]; then
-		VER=$i
+		VER=${i:1}
 	elif [ "$REL" == "" ]; then
 		REL=0.$i
 	else
