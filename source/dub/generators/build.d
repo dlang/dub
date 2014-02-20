@@ -391,9 +391,13 @@ class BuildGenerator : ProjectGenerator {
 			scope(exit) chdir(cwd.toNativeString());
 			if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
 			auto exe_path_string = exe_file_path.relativeTo(runcwd).toNativeString();
-			version (Posix) { // spawnProcess on Posix systems requires an explicit path to the executable
+			version (Posix) {
 				if (!exe_path_string.startsWith(".") && !exe_path_string.startsWith("/"))
 					exe_path_string = "./" ~ exe_path_string;
+			}
+			version (Windows) {
+				if (!exe_path_string.startsWith(".") && (exe_path_string.length < 2 || exe_path_string[1] != ':'))
+					exe_path_string = ".\\" ~ exe_path_string;
 			}
 			logInfo("Running %s %s", exe_path_string, run_args.join(" "));
 			auto prg_pid = spawnProcess(exe_path_string ~ run_args);

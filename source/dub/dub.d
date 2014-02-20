@@ -279,7 +279,7 @@ class Dub {
 						import std.stdio;
 						import core.runtime;
 
-						void main() { writeln("All unit tests were successful."); }
+						void main() { writeln("All unit tests have been run successfully."); }
 						shared static this() {
 							version (Have_tested) {
 								import tested;
