@@ -14,6 +14,9 @@ for i in $(git describe | tr "-" "\n"); do
 		REL=$REL.$i
 	fi
 done
+if [ "$REL" == "" ]; then
+	REL=1
+fi
 ARCH=$(uname -i)
 echo Building RPM FOR $VER-$REL-$ARCH
 rpmbuild -ba dub.spec --define "ver $VER" --define "rel $REL" --define="srcpath $DUB_PATH"
