@@ -720,7 +720,7 @@ class FetchRemoveCommand : Command {
 		]);
 
 		args.getopt("system", &m_system, ["Puts the package into the system wide package cache instead of the user local one."]);
-		args.getopt("local", &m_system, ["Puts the package into a sub folder of the current working directory. Cannot be mixed with --system."]);
+		args.getopt("local", &m_local, ["Puts the package into a sub folder of the current working directory. Cannot be mixed with --system."]);
 		args.getopt("force-remove", &m_forceRemove, [
 			"Force deletion of fetched packages with untracked files"
 		]);
