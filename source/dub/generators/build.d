@@ -144,7 +144,14 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = Path(getcwd());
 		//Added check for existance of [AppNameInPackagejson].d
 		//If exists, use that as the starting file.
-		auto mainsrc = buildsettings.mainSourceFile.length ? pack.path ~ buildsettings.mainSourceFile : getMainSourceFile(pack);
+		Path mainsrc;
+		if (buildsettings.mainSourceFile.length) {
+			mainsrc = Path(buildsettings.mainSourceFile);
+			if (!mainsrc.absolute) mainsrc = pack.path ~ mainsrc;
+		} else {
+			logWarn(`Package has no "mainSourceFile" defined. Trying to guess something to pass to RDMD...`);
+			mainsrc = getMainSourceFile(pack);
+		}
 
 		// do not pass all source files to RDMD, only the main source file
 		buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(s => !s.endsWith(".d"))().array();
