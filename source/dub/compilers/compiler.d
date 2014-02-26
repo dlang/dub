@@ -49,7 +49,7 @@ void registerCompiler(Compiler c)
 	s_compilers ~= c;
 }
 
-void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, string config_name)
+void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, string package_name, string config_name)
 {
 	struct SpecialFlag {
 		string[] flags;
@@ -77,6 +77,25 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 		{["-m32", "-m64"], `Use --arch=x86/--arch=x86_64 to specify the target architecture`}
 	];
 
+	struct SpecialOption {
+		BuildOptions[] flags;
+		string alternative;
+	}
+	static immutable SpecialOption[] s_specialOptions = [
+		{[BuildOptions.debugMode], "Call DUB with --build=debug"},
+		{[BuildOptions.releaseMode], "Call DUB with --build=release"},
+		{[BuildOptions.coverage], "Call DUB with --build=cov or --build=unittest-cov"},
+		{[BuildOptions.debugInfo], "Call DUB with --build=debug"},
+		{[BuildOptions.inline], "Call DUB with --build=release"},
+		{[BuildOptions.noBoundsCheck], "Call DUB with --build=release-nobounds"},
+		{[BuildOptions.optimize], "Call DUB with --build=release"},
+		{[BuildOptions.profile], "Call DUB with --build=profile"},
+		{[BuildOptions.unittests], "Call DUB with --build=unittest"},
+		{[BuildOptions.warnings, BuildOptions.warningsAsErrors], "Use \"buildRequirements\" to control the warning level"},
+		{[BuildOptions.ignoreDeprecations, BuildOptions.deprecationWarnings, BuildOptions.deprecationErrors], "Use \"buildRequirements\" to control the deprecation warning level"},
+		{[BuildOptions.property], "This flag is deprecated and has no effect"}
+	];
+
 	bool got_preamble = false;
 	void outputPreamble()
 	{
@@ -96,6 +115,16 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, string package_name, st
 	foreach (f; compiler_flags) {
 		foreach (sf; s_specialFlags) {
 			if (sf.flags.any!(sff => f == sff || (sff.endsWith("=") && f.startsWith(sff)))) {
+				outputPreamble();
+				logWarn("%s: %s", f, sf.alternative);
+				break;
+			}
+		}
+	}
+
+	foreach (sf; s_specialOptions) {
+		foreach (f; sf.flags) {
+			if (options & f) {
 				outputPreamble();
 				logWarn("%s: %s", f, sf.alternative);
 				break;

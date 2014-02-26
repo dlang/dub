@@ -848,9 +848,10 @@ struct BuildSettingsTemplate {
 			logWarn("");
 		} else {
 			string[] all_dflags;
-			foreach (flags; this.dflags)
-				all_dflags ~= flags;
-			.warnOnSpecialCompilerFlags(all_dflags, package_name, config_name);
+			BuildOptions all_options;
+			foreach (flags; this.dflags) all_dflags ~= flags;
+			foreach (options; this.buildOptions) all_options |= options;
+			.warnOnSpecialCompilerFlags(all_dflags, all_options, package_name, config_name);
 		}
 	}
 }
