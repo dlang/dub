@@ -167,7 +167,7 @@ class ProjectGenerator
 		foreach (d; ti.dependencies)
 			packs ~= downwardsInheritSettings(d, targets, root_settings);
 
-		logInfo("%s: %s", target, packs);
+		logDebug("%s: %s", target, packs);
 
 		// Add Have_* versions *after* downwards inheritance, so that dependencies
 		// are build independently of the parent packages w.r.t the other parent
