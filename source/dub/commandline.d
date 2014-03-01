@@ -827,8 +827,9 @@ class RemoveCommand : FetchRemoveCommand {
 		else if (m_system) location = PlacementLocation.systemWide;
 
 		try dub.remove(package_id, m_version, location, m_forceRemove);
-		catch {
-			logError("Please specify a individual version or use the wildcard identifier '%s' (without quotes).", Dub.RemoveVersionWildcard);
+		catch (Exception e) {
+			logError("Failed to remove package: " ~ e.msg);
+			logDiagnostic(e.toString().sanitize);
 			return 1;
 		}
 

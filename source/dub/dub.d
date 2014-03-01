@@ -398,7 +398,7 @@ class Dub {
 	/// may be passed into. In this case the package will be removed from the
 	/// location, if there is only one version retrieved. This will throw an
 	/// exception, if there are multiple versions retrieved.
-	/// Note: as wildcard string only "*" is supported.
+	/// Note: as wildcard string only RemoveVersionWildcard ("*") is supported.
 	/// @param location_
 	void remove(string package_id, string version_, PlacementLocation location_, bool force_remove)
 	{
@@ -406,37 +406,38 @@ class Dub {
 		if (location_ == PlacementLocation.local) {
 			logInfo("To remove a locally placed package, make sure you don't have any data"
 					~ "\nleft in it's directory and then simply remove the whole directory.");
-			return;
+			throw new Exception("dub cannot remove locally installed packages.");
 		}
 
 		Package[] packages;
 		const bool wildcardOrEmpty = version_ == RemoveVersionWildcard || version_.empty;
 
-		// Use package manager
-		foreach(pack; m_packageManager.getPackageIterator(package_id)) {
-			if( wildcardOrEmpty || pack.vers == version_ ) {
+		// Retrieve packages to be removed.
+		foreach(pack; m_packageManager.getPackageIterator(package_id))
+			if( wildcardOrEmpty || pack.vers == version_ )
 				packages ~= pack;
-			}
-		}
 
+		// Check validity of packages to be removed.
 		if(packages.empty) {
-			logError("Cannot find package to remove. (id:%s, version:%s, location:%s)", package_id, version_, location_);
-			return;
+			throw new Exception("Cannot find package to remove. ("
+				~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location_) ~ "'"
+				~ ")");
 		}
-
 		if(version_.empty && packages.length > 1) {
-			logError("Cannot remove package '%s', there multiple possibilities at location '%s'.", package_id, location_);
+			logError("Cannot remove package '" ~ package_id ~ "', there are multiple possibilities at location\n"
+				~ "'" ~ to!string(location_) ~ "'.");
 			logError("Retrieved versions:");
 			foreach(pack; packages) 
 				logError(to!string(pack.vers()));
-			throw new Exception("Failed to remove package.");
+			throw new Exception("Please specify a individual version or use the wildcard identifier '" 
+				~ RemoveVersionWildcard ~ "' (without quotes).");			
 		}
 
 		logDebug("Removing %s packages.", packages.length);
 		foreach(pack; packages) {
 			try {
 				remove(pack, force_remove);
-				logInfo("Removing %s, version %s.", package_id, pack.vers);
+				logInfo("Removed %s, version %s.", package_id, pack.vers);
 			} catch (Exception e) {
 				logError("Failed to remove %s %s: %s", package_id, pack.vers, e.msg);
 				logInfo("Continuing with other packages (if any).");
