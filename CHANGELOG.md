@@ -1,6 +1,16 @@
 Changelog
 =========
 
+v0.9.22 - 2014-
+--------------------
+
+### Features and improvements ###
+
+
+### Bug fixes ###
+
+ - Fixed automatic removing of packages, removing was only possible with --force-remove.
+
 v0.9.21 - 2014-02-22
 --------------------
 

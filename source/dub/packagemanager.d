@@ -321,28 +321,26 @@ class PackageManager {
 
 		// test if there are any untracked files
 		if (!force_remove) {
-			bool checkFilesRec(Path p)
+			void checkFilesRec(Path p)
 			{
-				auto relp = p.relativeTo(pack.path);
-				// ignore /.dub folder
-				if (relp == Path(".dub")) return true;
-
 				// TODO: ignore target paths/files
 
 				foreach (fi; iterateDirectory(p)) {
 					auto fpath = p ~ fi.name;
-					auto type = fi.isDirectory ? Journal.Type.Directory : Journal.Type.RegularFile;
-					if (fi.isDirectory)
-						if (!checkFilesRec(fpath))
-							return false;
-
-					if (!journal.containsEntry(type, fpath.relativeTo(pack.path))) {
-						enforce(force_remove, "Untracked file found, aborting package removal: " ~ fpath.toNativeString());
-						logWarn("Deleting untracked files without confirmation.");
-						return false;
+					if (fi.isDirectory) {
+						// Indicate a directory.
+						fpath.endsWithSlash(true);
+						// Ignore /.dub folder: This folder and its content 
+						// are not tracked by the Journal.
+						if (fpath.relativeTo(pack.path) == Path(".dub/"))
+							continue;
+						checkFilesRec(fpath);
 					}
+
+					auto type = fi.isDirectory ? Journal.Type.Directory : Journal.Type.RegularFile;
+					if (!journal.containsEntry(type, fpath.relativeTo(pack.path)))
+						throw new Exception("Untracked file found, aborting package removal, file: " ~ fpath.toNativeString());
 				}
-				return true;
 			}
 			checkFilesRec(pack.path);
 		}
