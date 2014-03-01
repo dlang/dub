@@ -665,7 +665,7 @@ class Project {
 			enforce(p !is null, "Could not find package candidate for "~pkg~" "~reqDep.dependency.toString());
 			markUpToDate(basepkg);
 		}
-		catch(Throwable e) {
+		catch(Exception e) {
 			logError("Failed to retrieve metadata for package %s: %s", pkg, e.msg);
 			logDiagnostic("Full error: %s", e.toString().sanitize());
 		}

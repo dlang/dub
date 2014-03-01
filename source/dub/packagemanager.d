@@ -339,7 +339,8 @@ class PackageManager {
 
 					auto type = fi.isDirectory ? Journal.Type.Directory : Journal.Type.RegularFile;
 					if (!journal.containsEntry(type, fpath.relativeTo(pack.path)))
-						throw new Exception("Untracked file found, aborting package removal, file: " ~ fpath.toNativeString());
+						throw new Exception("Untracked file found, aborting package removal, file: " 
+							~ fpath.toNativeString() ~ "\nYou can forcefully remove this package.");
 				}
 			}
 			checkFilesRec(pack.path);

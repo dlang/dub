@@ -200,6 +200,8 @@ class Dub {
 		generator.generate(settings);
 	}
 
+	/// Executes tests on the current project. Throws an exception, if 
+	/// unittests failed.
 	void testProject(GeneratorSettings settings, string config, Path custom_main_file)
 	{
 		if (custom_main_file.length && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
