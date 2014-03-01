@@ -152,6 +152,7 @@ struct Path {
 		ret.m_endsWithSlash = true;
 		foreach( i; 0 .. nup ) ret ~= "..";
 		ret ~= Path(m_nodes[parentPath.length-nup .. $], false);
+		ret.m_endsWithSlash = this.m_endsWithSlash;
 		return ret;
 	}
 	
@@ -400,4 +401,17 @@ unittest
 		dotpathp.normalize();
 		assert(dotpathp.toString() == "/test2/x/y");
 	}
+
+	{
+		auto parentpath = "/path/to/parent";
+		auto parentpathp = Path(parentpath);
+		auto subpath = "/path/to/parent/sub/";
+		auto subpathp = Path(subpath);
+		auto subpath_rel = "sub/";
+		assert(subpathp.relativeTo(parentpathp).toString() == subpath_rel);
+		auto subfile = "/path/to/parent/child";
+		auto subfilep = Path(subfile);
+		auto subfile_rel = "child";
+		assert(subfilep.relativeTo(parentpathp).toString() == subfile_rel);
+  }
 }
