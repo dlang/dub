@@ -193,7 +193,7 @@ struct Dependency {
 			m_cmpA = ">=";
 			m_cmpB = "<=";
 			m_versA = m_versB = Version(ves);
-		} else if ("><=".indexOf(ves[0]) == -1) {
+		} else if (std.string.indexOf("><=", ves[0]) == -1) {
 			m_cmpA = ">=";
 			m_cmpB = "<=";
 			m_versA = m_versB = Version(ves);
