@@ -44,6 +44,7 @@ class Project {
 		//Package[string] m_packages;
 		Package[] m_dependencies;
 		Package[][Package] m_dependees;
+		SelectedVersions m_selectedVersions = new SelectedVersions();
 	}
 
 	this(PackageManager package_manager, Path project_path)
@@ -162,6 +163,9 @@ class Project {
 		try m_json = jsonFromFile(m_root ~ ".dub/dub.json", true);
 		catch(Exception t) logDiagnostic("Failed to read .dub/dub.json: %s", t.msg);
 
+		try m_selectedVersions = new SelectedVersions(m_root ~ SelectedVersions.DefaultFile);
+		catch(Exception e) logDiagnostic("A " ~ SelectedVersions.DefaultFile ~ " file was not found or failed to load:\n%s", e.msg);
+
 		// load package description
 		if (!m_fixedPackage) {
 			if (!Package.isPackageAt(m_root)) {
@@ -188,7 +192,13 @@ class Project {
 		void collectDependenciesRec(Package pack)
 		{
 			logDiagnostic("Collecting dependencies for %s", pack.name);
-			foreach( name, vspec; pack.dependencies ){
+			foreach( name, original_vspec; pack.dependencies ){
+				Dependency vspec = original_vspec;
+				if (m_selectedVersions.hasSelectedVersion(name)) {
+					vspec = m_selectedVersions.selectedVersion(name);
+					logDiagnostic("Dependency on %s overruled by locally selected version: %s", name, vspec);
+				}
+
 				Package p;
 				if( !vspec.path.empty ){
 					Path path = vspec.path;
@@ -206,6 +216,11 @@ class Project {
 						collectDependenciesRec(p);
 					}
 				}
+
+				if( m_selectedVersions.hasSelectedVersion(name) && !pack) {
+					logError("The locally selected version was not found: " ~ name);
+				}
+
 				m_dependees[p] ~= pack;
 				//enforce(p !is null, "Failed to resolve dependency "~name~" "~vspec.toString());
 			}
@@ -454,9 +469,9 @@ class Project {
 		return false;
 	}
 
-
 	/// Actions which can be performed to update the application.
-	Action[] determineActions(PackageSupplier[] packageSuppliers, UpdateOptions option)
+	/// selectedVersions:
+	Action[] determineActions(PackageSupplier[] packageSuppliers, UpdateOptions option, SelectedVersions selectedVersions = null)
 	{
 		scope(exit) writeDubJson();
 
@@ -511,6 +526,7 @@ class Project {
 				actions ~= act;
 		}
 		int[string] upgradePackages;
+		scope(failure) if (selectedVersions !is null) selectedVersions.clean();
 		foreach( string pkg, d; graph.needed() ) {
 			auto basepkg = pkg.getBasePackage();
 			auto p = basepkg in retrieved;
@@ -531,6 +547,8 @@ class Project {
 				}
 				else {
 					logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"'");
+					if (selectedVersions !is null)
+						selectedVersions.selectVersion(pkg, p.ver, d.packages);
 				}
 			}
 		}
@@ -891,4 +909,69 @@ string stripDlangSpecialChars(string s)
 	foreach(ch; s)
 		ret.put(isIdentChar(ch) ? ch : '_');
 	return ret.data;
+}
+
+class SelectedVersions {
+	static @property DefaultFile() { return "dub.select.json"; }
+
+	this() { }
+
+	this(Path path) {
+		auto json = jsonFromFile(path);
+		deserialize(json);
+	}
+
+	void clean() {
+		Selected[string] empty;
+		m_selectedVersions = empty;
+	}
+
+	void selectVersion(string packageId, Version version_, Dependency[string] issuer) {
+		enforce(packageId !in m_selectedVersions, "Cannot reselect a package!");
+		m_selectedVersions[packageId] = Selected(Dependency(version_), issuer);
+	}
+
+	bool hasSelectedVersion(string packageId) const {
+		return (packageId in m_selectedVersions) !is null;
+	}
+
+	Dependency selectedVersion(string packageId) const {
+		enforce(hasSelectedVersion(packageId));
+		return m_selectedVersions[packageId].versionSpec;
+	}
+
+	void save(Path path) const {
+		Json json = serialize();
+		auto file = openFile(path, FileMode.CreateTrunc);
+		scope(exit) file.close();
+		file.writePrettyJsonString(json);
+	}
+
+	private struct Selected {
+		this(Dependency versSpec_, Dependency[string] packages_) {
+			versionSpec = versSpec_;
+			packages = packages_;
+		}
+		Dependency versionSpec;
+		Dependency[string] packages;	
+	}
+	private {
+		enum FileVersion = 1;
+		Selected[string] m_selectedVersions;
+	}
+
+	private Json serialize() const {
+		Json json = serializeToJson(m_selectedVersions);
+		Json serialized = Json.emptyObject;
+		serialized.fileVersion = FileVersion;
+		serialized.versions = json;
+		return serialized;
+	}
+
+	private void deserialize(Json json) {
+		enforce(cast(int)json["fileVersion"] == FileVersion, "Mismatched dub.select.json version: " ~ to!string(cast(int)json["fileVersion"]) ~ "vs. " ~to!string(FileVersion));
+		clean();
+		scope(failure) clean();
+		deserializeJson(m_selectedVersions, json.versions);
+	}
 }

@@ -134,7 +134,9 @@ class Package {
 
 				if (m_info.version_.length == 0) {
 					logDiagnostic("Note: Failed to determine version of package %s at %s. Assuming ~master.", m_info.name, this.path.toNativeString());
-					m_info.version_ = "~master";
+					// TODO: Assume unknown version here?
+					// m_info.version_ = Version.UNKNOWN.toString();
+					m_info.version_ = Version.MASTER.toString();
 				} else logDiagnostic("Determined package version using GIT: %s %s", m_info.name, m_info.version_);
 			}
 		}
@@ -213,6 +215,7 @@ class Package {
 	*/
 	void storeInfo()
 	{
+		enforce(!ver.isUnknown, "Trying to store a package with an 'unknown' version, this is not supported.");
 		auto filename = m_path ~ defaultPackageFilename();
 		auto dstFile = openFile(filename.toNativeString(), FileMode.CreateTrunc);
 		scope(exit) dstFile.close();
@@ -630,27 +633,7 @@ struct BuildSettingsTemplate {
 				case "dependencies":
 					foreach( string pkg, verspec; value ) {
 						enforce(pkg !in this.dependencies, "The dependency '"~pkg~"' is specified more than once." );
-						Dependency dep;
-						if( verspec.type == Json.Type.object ){
-							enforce("version" in verspec, "Package information provided for package " ~ pkg ~ " is missing a version field.");
-							auto ver = verspec["version"].get!string;
-							if( auto pp = "path" in verspec ) {
-								// This enforces the "version" specifier to be a simple version, 
-								// without additional range specifiers.
-								dep = Dependency(Version(ver));
-								dep.path = Path(verspec.path.get!string());
-							} else {
-								// Using the string to be able to specifiy a range of versions.
-								dep = Dependency(ver);
-							}
-							if( auto po = "optional" in verspec ) {
-								dep.optional = verspec.optional.get!bool();
-							}
-						} else {
-							// canonical "package-id": "version"
-							dep = Dependency(verspec.get!string());
-						}
-						this.dependencies[pkg] = dep;
+						this.dependencies[pkg] = deserializeJson!Dependency(verspec);
 					}
 					break;
 				case "targetType":
@@ -716,17 +699,8 @@ struct BuildSettingsTemplate {
 		auto ret = Json.emptyObject;
 		if( this.dependencies !is null ){
 			auto deps = Json.emptyObject;
-			foreach( pack, d; this.dependencies ){
-				if( d.path.empty && !d.optional ){
-					deps[pack] = d.toString();
-				} else {
-					auto vjson = Json.emptyObject;
-					vjson["version"] = d.toString();
-					if (!d.path.empty) vjson["path"] = d.path.toString();
-					if (d.optional) vjson["optional"] = true;
-					deps[pack] = vjson;
-				}
-			}
+			foreach( pack, d; this.dependencies )
+				deps[pack] = serializeToJson(d);
 			ret.dependencies = deps;
 		}
 		if (targetType != TargetType.autodetect) ret["targetType"] = targetType.to!string();

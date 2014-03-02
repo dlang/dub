@@ -107,7 +107,8 @@ int runDubCommandLine(string[] args)
 			new AddLocalCommand,
 			new RemoveLocalCommand,
 			new ListCommand,
-			new ListInstalledCommand
+			new ListInstalledCommand,
+			new SelectCommand
 		)
 	];
 
@@ -930,6 +931,51 @@ class RemoveLocalCommand : RegistrationCommand {
 	}
 }
 
+/******************************************************************************/
+/* SELECT                                                                     */
+/******************************************************************************/
+
+class SelectCommand : Command {
+	private {
+		bool m_tuneup;
+	}
+	this()
+	{
+		/*
+			Development TODOs:
+			- DependencyGraph select needs to overrule resolution algorithm.
+			- Fail build, when selected version is not available
+			- dub update: updating to pinned by default or by flag?
+
+			Done:
+			- write selected versions
+			- load selected versions
+			- init: warning if pinned dependency not found
+		*/
+		this.name = "select";
+		this.argumentsPattern = "";
+		this.description = "Stores the currently used dependent package in a file, this can be used later override the used versions.";
+		this.helpText = [
+			"<in development>",
+			"",
+			"This stores the used package versions of the main package in the current working directory. The file is " ~ SelectedVersions.DefaultFile ~ " and this file can also be used to manually override only certain versions. (This includes switching to a local master <to be implemented>)."
+		];
+	}
+	override void prepare(scope CommandArgs args) {
+		args.getopt("tuneup", &m_tuneup, [
+			"Updates the project and performs a build. If successfull, rewrites the selected versions file <to be implemeted>."
+		]);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		logDiagnostic("loadPackageFromCwd");
+		dub.loadPackageFromCwd();
+		logDiagnostic("Selecting current versions:");
+		dub.selectVersions();
+		return 0;
+	}
+}
 
 /******************************************************************************/
 /* LIST                                                                       */

@@ -37,32 +37,40 @@ static import std.compiler;
 struct Version {
 	private { 
 		enum MAX_VERS = "99999.0.0";
+		enum UNKNOWN_VERS = "unknown";
 		string m_version;
 	}
 
 	static @property RELEASE() { return Version("0.0.0"); }
 	static @property HEAD() { return Version(MAX_VERS); }
 	static @property MASTER() { return Version(MASTER_STRING); }
+	static @property UNKNOWN() { return Version(UNKNOWN_VERS); }
 	static @property MASTER_STRING() { return "~master"; }
 	static @property BRANCH_IDENT() { return '~'; }
 	
 	this(string vers)
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		enforce(vers[0] == BRANCH_IDENT || vers.isValidVersion(), "Invalid SemVer format: "~vers);
+		if (vers[0] != BRANCH_IDENT && vers != UNKNOWN_VERS)
+			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
 		m_version = vers;
 	}
 
-	bool opEquals(ref const Version oth) const { return m_version == oth.m_version; }
-	bool opEquals(const Version oth) const { return m_version == oth.m_version; }
+	bool opEquals(const Version oth) const {
+		if (isUnknown || oth.isUnknown) {
+			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, oth));
+		}
+		return m_version == oth.m_version; 
+	}
 	
 	/// Returns true, if this version indicates a branch, which is not the trunk.
-	@property bool isBranch() const { return m_version[0] == BRANCH_IDENT; }
+	@property bool isBranch() const { return !m_version.empty && m_version[0] == BRANCH_IDENT; }
 	@property bool isMaster() const { return m_version == MASTER_STRING; }
 	@property bool isPreRelease() const {
 		if (isBranch) return true;
 		return isPreReleaseVersion(m_version);
 	}
+	@property bool isUnknown() const { return m_version == UNKNOWN_VERS; }
 
 	/** 
 		Comparing Versions is generally possible, but comparing Versions 
@@ -71,7 +79,10 @@ struct Version {
 	*/
 	int opCmp(ref const Version other)
 	const {
-		if(isBranch || other.isBranch) {
+		if (isUnknown || other.isUnknown) {
+			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, other));
+		}
+		if (isBranch || other.isBranch) {
 			if(m_version == other.m_version) return 0;
 			else throw new Exception("Can't compare branch versions! (this: %s, other: %s)".format(this, other));
 		}
@@ -130,6 +141,14 @@ unittest {
 	for(int i=1; i<versions.length; ++i)
 		for(int j=i-1; j>=0; --j)
 			assert(versions[j] < versions[i], "Failed: " ~ to!string(versions[j]) ~ "<" ~ to!string(versions[i]));
+
+	a = Version.UNKNOWN;
+	b = Version.RELEASE;
+	assertThrown(a == b, "Failed: compared " ~ to!string(a) ~ " with " ~ to!string(b) ~ "");
+
+	a = Version.UNKNOWN;
+	b = Version.UNKNOWN;
+	assertThrown(a == b, "Failed: UNKNOWN == UNKNOWN");
 }
 
 /**
@@ -139,19 +158,28 @@ unittest {
 */
 struct Dependency {
 	private {
+		// Shortcut to create >=0.0.0
+		enum ANY_IDENT = "*";
 		string m_cmpA;
 		Version m_versA;
 		string m_cmpB;
 		Version m_versB;
 		Path m_path;
-		string m_configuration = "library";
 		bool m_optional = false;
 	}
+
+	// A Dependency, which matches every valid version.
+	static @property ANY() { return Dependency(ANY_IDENT); }
 
 	this(string ves)
 	{
 		enforce(ves.length > 0);
 		string orig = ves;
+
+		if (ves == ANY_IDENT) {
+			// Any version is good.
+			ves = ">=0.0.0";
+		}
 
 		if (ves[0] == Version.BRANCH_IDENT && ves[1] == '>') {
 			// Shortcut: "~>x.y.z" variant. Last non-zero number will indicate
@@ -216,22 +244,101 @@ struct Dependency {
 	@property bool optional() const { return m_optional; }
 	@property void optional(bool optional) { m_optional = optional; }
 
-	@property Version version_() const { assert(m_versA == m_versB, "Dependency "~toString()~" is no exact version."); return m_versA; }
+	@property Version version_() const {
+		enforce(m_versA == m_versB, "Dependency "~toString()~" is no exact version."); 
+		return m_versA; 
+	}
 	
 	string toString()
 	const {
+		return versionString();
+		// TODO(mdondorff): add information to path and optionality.
+		//   This is not directly possible, as this toString method is used for
+		//   writing to the dub.json files.
+		// if (m_path) r ~= "(path: " ~ m_path.toString() ~ ")";
+		// if (m_optional) r ~= ", optional";
+	}
+
+	private string versionString() const {
 		string r;
-		// Special "==" case
+	
 		if( m_versA == m_versB && m_cmpA == ">=" && m_cmpB == "<=" ){
-			if( m_versA == Version.MASTER ) r = "~master";
+			// Special "==" case
+			if (m_versA == Version.MASTER ) r = "~master";
 			else r = to!string(m_versA);
 		} else {
 			if( m_versA != Version.RELEASE ) r = m_cmpA ~ to!string(m_versA);
 			if( m_versB != Version.HEAD ) r ~= (r.length==0?"" : " ") ~ m_cmpB ~ to!string(m_versB);
 			if( m_versA == Version.RELEASE && m_versB == Version.HEAD ) r = ">=0.0.0";
 		}
-		// TODO(mdondorff): add information to path and optionality.
 		return r;
+	}
+
+	Json toJson() const {
+		Json json;
+		if( path.empty && !optional ){
+			json = Json(versionString());
+		} else {
+			json = Json.emptyObject;
+			json["version"] = versionString();
+			if (!path.empty) json["path"] = path.toString();
+			if (optional) json["optional"] = true;
+		}
+		return json;
+	}
+
+	unittest {
+		Dependency d = Dependency("==1.0.0");
+		assert(d.toJson() == Json("1.0.0"), "Failed: " ~ d.toJson().toPrettyString());
+		// TODO: The previous will fail with
+		// d = fromJson((fromJson(d.toJson())).toJson());
+		// because
+		//   Dependency("==1.0.0").versionString -> "1.0.0" and 
+		//   Dependency("1.0.0").versionString -> ">=1.0.0"
+		// Also, this fails
+		// assert(Dependency(Version("1.0.0")) == Dependency("1.0.0"));
+	}
+
+	static Dependency fromJson(Json verspec) {
+		Dependency dep;
+		if( verspec.type == Json.Type.object ){
+			enforce("version" in verspec, "No version field specified!");
+			auto ver = verspec["version"].get!string;
+			if( auto pp = "path" in verspec ) {
+				// This enforces the "version" specifier to be a simple version, 
+				// without additional range specifiers.
+				dep = Dependency(Version(ver));
+				dep.path = Path(verspec.path.get!string());
+			} else {
+				// Using the string to be able to specifiy a range of versions.
+				dep = Dependency(ver);
+			}
+			if( auto po = "optional" in verspec ) {
+				dep.optional = verspec.optional.get!bool();
+			}
+		} else {
+			// canonical "package-id": "version"
+			dep = Dependency(verspec.get!string());
+		}
+		return dep;
+	}
+
+	unittest {
+		assert(fromJson(parseJsonString("\">=1.0.0 <2.0.0\"")) == Dependency(">=1.0.0 <2.0.0"));
+		Dependency parsed = fromJson(parseJsonString(`
+		{
+			"version": "2.0.0",
+			"optional": true,
+			"path": "path/to/package"
+		}
+			`));
+		Dependency d = Dependency(Version("2.0.0"));
+		d.optional = true;
+		d.path = Path("path/to/package");
+		assert(d == parsed);
+		// optional and path not checked by opEquals.
+		assert(d.optional == parsed.optional);
+		assert(d.path == parsed.path);
 	}
 
 	bool opEquals(in Dependency o)
@@ -239,7 +346,6 @@ struct Dependency {
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
 		return o.m_cmpA == m_cmpA && o.m_cmpB == m_cmpB 
 			&& o.m_versA == m_versA && o.m_versB == m_versB 
-			&& o.m_configuration == m_configuration
 			&& o.m_optional == m_optional;
 	}
 	
@@ -271,8 +377,6 @@ struct Dependency {
 	const {
 		if (!valid()) return this;
 		if (!o.valid()) return o;
-		if (m_configuration != o.m_configuration)
-			return Dependency(">=1.0.0 <=0.0.0");
 
 		enforce(m_versA.isBranch == o.m_versA.isBranch, format("Conflicting versions: %s vs. %s", m_versA, o.m_versA));
 		enforce(m_versB.isBranch == o.m_versB.isBranch, format("Conflicting versions: %s vs. %s", m_versB, o.m_versB));
@@ -440,6 +544,14 @@ unittest {
 	assert(!a.optional);
 	assert(a.valid);
 	assert(a.version_ == Version("~d2test"));
+
+	a = Dependency.ANY;
+	assert(!a.optional);
+	assert(a.valid);
+	assertThrown(a.version_);
+	b = Dependency(">=1.0.1");
+	assert(b == a.merge(b));
+	assert(b == b.merge(a));
 
 	logDebug("Dependency Unittest sucess.");
 }

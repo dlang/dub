@@ -192,6 +192,19 @@ class Dub {
 		}
 	}
 
+	/// AKA "Pinning" or "shrinkwrap"
+	void selectVersions() {
+		enforce(m_rootPath == m_projectPath, "Currently, DUB can only select versions directly from the main project's working directory.");
+		SelectedVersions selectedVersions = new SelectedVersions;
+		Action[] allActions = m_project.determineActions(m_packageSuppliers, UpdateOptions.none, selectedVersions);
+		if (allActions.length > 0) {
+			logError("Cannot select build versions, there are missing updates to be performed.");
+			throw new Exception("Version selection failed.");
+		}
+		selectedVersions.save(m_rootPath ~ Path(SelectedVersions.DefaultFile));
+		logInfo("Stored currently selected versions into: " ~ SelectedVersions.DefaultFile);
+	}
+
 	/// Generate project files for a specified IDE.
 	/// Any existing project files will be overridden.
 	void generateProject(string ide, GeneratorSettings settings) {
