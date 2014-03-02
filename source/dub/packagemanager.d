@@ -270,8 +270,7 @@ class PackageManager {
 		logDiagnostic("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite package.json (this one includes a version field)
-		auto pack = new Package(destination);
-		pack.info.version_ = package_info["version"].get!string;
+		auto pack = new Package(destination, null, package_info["version"].get!string);
 
 		if (pack.packageInfoFile.head != defaultPackageFilename()) {
 			// Storeinfo saved a default file, this could be different to the file from the zip.

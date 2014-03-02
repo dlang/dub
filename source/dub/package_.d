@@ -57,7 +57,7 @@ class Package {
 		return false;
 	}
 
-	this(Path root, Package parent = null)
+	this(Path root, Package parent = null, string versionOverride = "")
 	{
 		Json info;
 		try {
@@ -73,10 +73,10 @@ class Package {
 
 		enforce(info.type != Json.Type.undefined, format("Missing package description for package at %s", root.toNativeString()));
 
-		this(info, root, parent);
+		this(info, root, parent, versionOverride);
 	}
 
-	this(Json packageInfo, Path root = Path(), Package parent = null)
+	this(Json packageInfo, Path root = Path(), Package parent = null, string versionOverride = "")
 	{
 		m_parentPackage = parent;
 		m_path = root;
@@ -112,6 +112,9 @@ class Package {
 		{
 			scope(failure) logError("Failed to parse package description in %s", root.toNativeString());
 			m_info.parseJson(packageInfo);
+
+			if (!versionOverride.empty)
+				m_info.version_ = versionOverride;
 
 			// try to run git to determine the version of the package if no explicit version was given
 			if (m_info.version_.length == 0 && !parent) {
