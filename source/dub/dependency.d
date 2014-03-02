@@ -193,6 +193,10 @@ struct Dependency {
 			m_cmpA = ">=";
 			m_cmpB = "<=";
 			m_versA = m_versB = Version(ves);
+		} else if ("><=".indexOf(ves[0]) == -1) {
+			m_cmpA = ">=";
+			m_cmpB = "<=";
+			m_versA = m_versB = Version(ves);
 		} else {
 			m_cmpA = skipComp(ves);
 			size_t idx2 = std.string.indexOf(ves, " ");
@@ -290,13 +294,9 @@ struct Dependency {
 	unittest {
 		Dependency d = Dependency("==1.0.0");
 		assert(d.toJson() == Json("1.0.0"), "Failed: " ~ d.toJson().toPrettyString());
-		// TODO: The previous will fail with
-		// d = fromJson((fromJson(d.toJson())).toJson());
-		// because
-		//   Dependency("==1.0.0").versionString -> "1.0.0" and 
-		//   Dependency("1.0.0").versionString -> ">=1.0.0"
-		// Also, this fails
-		// assert(Dependency(Version("1.0.0")) == Dependency("1.0.0"));
+		d = fromJson((fromJson(d.toJson())).toJson());
+		assert(d == Dependency("1.0.0"));
+		assert(d.toJson() == Json("1.0.0"), "Failed: " ~ d.toJson().toPrettyString());
 	}
 
 	static Dependency fromJson(Json verspec) {
@@ -446,6 +446,9 @@ unittest {
 	
 	a = Dependency("==2.0.0"), b = Dependency("==1.0.0");
 	assert( !(a.merge(b)).valid(), to!string(a.merge(b)));
+
+	a = Dependency("1.0.0"), b = Dependency("==1.0.0");
+	assert(a == b);
 	
 	a = Dependency("<=2.0.0"), b = Dependency("==1.0.0");
 	Dependency m = a.merge(b);
@@ -465,18 +468,6 @@ unittest {
 
 	//assertThrown(a = Dependency(Version.MASTER_STRING ~ " <=1.0.0"), "Construction invalid");
 	assertThrown(a = Dependency(">=1.0.0 " ~ Version.MASTER_STRING), "Construction invalid");
-
-	a = Dependency(">=1.0.0");
-	b = Dependency(Version.MASTER_STRING);
-
-	//// support crazy stuff like this?
-	//m = a.merge(b);
-	//assert(m.valid());
-	//assert(m.matches(Version.MASTER));
-
-	//b = Dependency("~not_the_master");
-	//m = a.merge(b);
-//	assert(!m.valid());
 
 	immutable string branch1 = Version.BRANCH_IDENT ~ "Branch1";
 	immutable string branch2 = Version.BRANCH_IDENT ~ "Branch2";
