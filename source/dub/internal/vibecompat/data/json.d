@@ -891,9 +891,9 @@ Json serializeToJson(T)(T value)
 		foreach( string key, value; value )
 			ret[key] = serializeToJson(value);
 		return Json(ret);
-	} else static if( __traits(compiles, value = T.fromJson(value.toJson())) ){
+	} else static if( isJsonSerializable!TU ){
 		return value.toJson();
-	} else static if( __traits(compiles, value = T.fromString(value.toString())) ){
+	} else static if( isStringSerializable!TU ){
 		return Json(value.toString());
 	} else static if( is(TU == struct) ){
 		Json[string] ret;
@@ -956,9 +956,9 @@ T deserializeJson(T)(Json src)
 		foreach( string key, value; src )
 			dst[key] = deserializeJson!(Unqual!TV)(value);
 		return dst;
-	} else static if( __traits(compiles, { T dst; dst = T.fromJson(dst.toJson()); }()) ){
+	} else static if( isJsonSerializable!T ){
 		return T.fromJson(src);
-	} else static if( __traits(compiles, { T dst; dst = T.fromString(dst.toString()); }()) ){
+	} else static if( isStringSerializable!T ){
 		return T.fromString(src.get!string);
 	} else static if( is(T == struct) ){
 		T dst;
@@ -1283,3 +1283,6 @@ private string underscoreStrip(string field_name)
 	if( field_name.length < 1 || field_name[$-1] != '_' ) return field_name;
 	else return field_name[0 .. $-1];
 }
+
+private template isJsonSerializable(T) { enum isJsonSerializable = is(typeof(T.init.toJson()) == Json) && is(typeof(T.fromJson(Json())) == T); }
+package template isStringSerializable(T) { enum isStringSerializable = is(typeof(T.init.toString()) == string) && is(typeof(T.fromString("")) == T); }
