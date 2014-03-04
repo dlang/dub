@@ -192,6 +192,9 @@ struct GeneratorSettings {
 	// only used for generator "build"
 	bool run, force, direct, clean, rdmd;
 	string[] runArgs;
+	void delegate(int status, string output) compileCallback;
+	void delegate(int status, string output) linkCallback;
+	void delegate(int status, string output) runCallback;
 }
 
 

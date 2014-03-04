@@ -161,19 +161,17 @@ class DmdCompiler : Compiler {
 		settings.addDFlags("-of"~tpath.toNativeString());
 	}
 
-	void invoke(in BuildSettings settings, in BuildPlatform platform)
+	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
 		auto res_file = getTempDir() ~ ("dub-build-"~uniform(0, uint.max).to!string~"-.rsp");
 		std.file.write(res_file.toNativeString(), join(settings.dflags.map!(s => s.canFind(' ') ? "\""~s~"\"" : s), "\n"));
 		scope (exit) remove(res_file.toNativeString());
 
 		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
-		auto compiler_pid = spawnProcess([platform.compilerBinary, "@"~res_file.toNativeString()]);
-		auto result = compiler_pid.wait();
-		enforce(result == 0, "DMD compile run failed with exit code "~to!string(result));
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
-	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects)
+	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
 		import std.string;
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
@@ -184,8 +182,7 @@ class DmdCompiler : Compiler {
 		args ~= settings.lflags.map!(l => "-L"~l)().array;
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 		logDiagnostic("%s", args.join(" "));
-		auto res = spawnProcess(args).wait();
-		enforce(res == 0, "Link command failed with exit code "~to!string(res));
+		invokeTool(args, output_callback);
 	}
 
 	private static bool isLinkerDFlag(string arg)

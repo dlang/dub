@@ -56,26 +56,31 @@ class PackageManager {
 		Path[] m_searchPath;
 		Package[] m_packages;
 		Package[] m_temporaryPackages;
+		bool m_disableDefaultSearchPaths = false;
 	}
 
-	this(Path user_path, Path system_path)
+	this(Path user_path, Path system_path, bool refresh_packages = true)
 	{
 		m_repositories[LocalPackageType.user] = Repository(user_path);
 		m_repositories[LocalPackageType.system] = Repository(system_path);
-		refresh(true);
+		if (refresh_packages) refresh(true);
 	}
 
 	@property void searchPath(Path[] paths) { m_searchPath = paths.dup; refresh(false); }
 	@property const(Path)[] searchPath() const { return m_searchPath; }
 
+	@property void disableDefaultSearchPaths(bool val) { m_disableDefaultSearchPaths = val; refresh(true); }
+
 	@property const(Path)[] completeSearchPath()
 	const {
 		auto ret = appender!(Path[])();
 		ret.put(m_searchPath);
-		ret.put(m_repositories[LocalPackageType.user].searchPath);
-		ret.put(m_repositories[LocalPackageType.user].packagePath);
-		ret.put(m_repositories[LocalPackageType.system].searchPath);
-		ret.put(m_repositories[LocalPackageType.system].packagePath);
+		if (!m_disableDefaultSearchPaths) {
+			ret.put(m_repositories[LocalPackageType.user].searchPath);
+			ret.put(m_repositories[LocalPackageType.user].packagePath);
+			ret.put(m_repositories[LocalPackageType.system].searchPath);
+			ret.put(m_repositories[LocalPackageType.system].packagePath);
+		}
 		return ret.data;
 	}
 
@@ -470,7 +475,7 @@ class PackageManager {
 			Path list_path = m_repositories[type].packagePath;
 			Package[] packs;
 			Path[] paths;
-			try {
+			if (!m_disableDefaultSearchPaths) try {
 				auto local_package_file = list_path ~ LocalPackagesFilename;
 				logDiagnostic("Looking for local package map at %s", local_package_file.toNativeString());
 				if( !existsFile(local_package_file) ) return;

@@ -202,10 +202,24 @@ interface Compiler {
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform);
 
 	/// Invokes the compiler using the given flags
-	void invoke(in BuildSettings settings, in BuildPlatform platform);
+	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback);
 
 	/// Invokes the underlying linker directly
-	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects);
+	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback);
+
+	protected final void invokeTool(string[] args, void delegate(int, string) output_callback)
+	{
+		int status;
+		if (output_callback) {
+			auto result = execute(args);
+			output_callback(result.status, result.output);
+			status = result.status;
+		} else {
+			auto compiler_pid = spawnProcess(args);
+			status = compiler_pid.wait();
+		}
+		enforce(status == 0, args[0] ~ " failed with exit code "~to!string(status));
+	}
 }
 
 /// BuildPlatform specific settings, like needed libraries or additional
