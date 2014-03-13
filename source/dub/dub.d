@@ -206,6 +206,7 @@ class Dub {
 				masterVersionUpgrades[a.packageId] = true;
 			}
 
+			m_project.selections.set(selections);
 			m_project.reinit();
 		}
 

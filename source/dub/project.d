@@ -36,43 +36,54 @@ import std.encoding : sanitize;
 /// Representing a full project, with a root Package and several dependencies.
 class Project {
 	private {
-		bool m_fixedPackage;
-		Path m_root;
 		PackageManager m_packageManager;
-		Json m_json;
-		Package m_main;
-		//Package[string] m_packages;
+		Json m_packageSettings;
+		Package m_rootPackage;
 		Package[] m_dependencies;
 		Package[][Package] m_dependees;
-		SelectedVersions m_selectedVersions = new SelectedVersions();
+		SelectedVersions m_selectedVersions;
 	}
 
 	this(PackageManager package_manager, Path project_path)
 	{
-		m_packageManager = package_manager;
-		m_root = project_path;
-		m_fixedPackage = false;
-		m_json = Json.emptyObject;
-		reinit();
+		Package pack;
+		if (!Package.isPackageAt(project_path)) {
+			logWarn("There was no package description found for the application in '%s'.", m_rootPackage.path.toNativeString());
+			auto json = Json.emptyObject;
+			json.name = "unknown";
+			pack = new Package(json, project_path);
+		} else {
+			pack = package_manager.getPackage(project_path); 
+		}
+
+		this(package_manager, pack);
 	}
 
 	this(PackageManager package_manager, Package pack)
 	{
 		m_packageManager = package_manager;
-		m_root = pack.path;
-		m_main = pack;
-		m_fixedPackage = true;
-		m_json = Json.emptyObject;
+		m_rootPackage = pack;
+		m_packageSettings = Json.emptyObject;
+
+		try m_packageSettings = jsonFromFile(m_rootPackage.path ~ ".dub/dub.json", true);
+		catch(Exception t) logDiagnostic("Failed to read .dub/dub.json: %s", t.msg);
+
+		try m_selectedVersions = new SelectedVersions(m_rootPackage.path ~ SelectedVersions.defaultFile);
+		catch(Exception e) {
+			logDiagnostic("A " ~ SelectedVersions.defaultFile ~ " file was not found or failed to load:\n%s", e.msg);
+			m_selectedVersions = new SelectedVersions;
+		}
+
 		reinit();
 	}
 
 	/// Gathers information
 	@property string info()
 	const {
-		if(!m_main)
-			return "-Unrecognized application in '"~m_root.toNativeString()~"' (probably no package.json in this directory)";
-		string s = "-Application identifier: " ~ m_main.name;
-		s ~= "\n" ~ m_main.generateInfoString();
+		if(!m_rootPackage)
+			return "-Unrecognized application in '"~m_rootPackage.path.toNativeString()~"' (probably no package.json in this directory)";
+		string s = "-Application identifier: " ~ m_rootPackage.name;
+		s ~= "\n" ~ m_rootPackage.generateInfoString();
 		s ~= "\n-Retrieved dependencies:";
 		foreach(p; m_dependencies)
 			s ~= "\n" ~ p.generateInfoString();
@@ -91,13 +102,16 @@ class Project {
 	@property const(Package[]) dependencies() const { return m_dependencies; }
 	
 	/// Main package.
-	@property inout(Package) mainPackage() inout { return m_main; }
+	@property inout(Package) mainPackage() inout { return m_rootPackage; }
+
+	/// The versions to use for all dependencies. Call reinit() after changing these.
+	@property inout(SelectedVersions) selections() inout { return m_selectedVersions; }
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
 	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[string] configs = null)
 	const {
-		const(Package) rootpack = root_package ? root_package : m_main;
+		const(Package) rootpack = root_package ? root_package : m_rootPackage;
 	
 		int iterator(int delegate(ref const Package) del)
 		{
@@ -146,44 +160,20 @@ class Project {
 	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true)
 	const {
 		auto cfgs = getPackageConfigs(platform, null, allow_non_library_configs);
-		return cfgs[m_main.name];
+		return cfgs[m_rootPackage.name];
 	}
 
 	/// Rereads the applications state.
 	void reinit()
 	{
-		scope(failure){
-			logDiagnostic("Failed to initialize project. Assuming defaults.");
-			if (!m_fixedPackage) m_main = new Package(serializeToJson(["name": "unknown"]), m_root);
-		}
-
 		m_dependencies = null;
 		m_packageManager.refresh(false);
 
-		try m_json = jsonFromFile(m_root ~ ".dub/dub.json", true);
-		catch(Exception t) logDiagnostic("Failed to read .dub/dub.json: %s", t.msg);
-
-		try m_selectedVersions = new SelectedVersions(m_root ~ SelectedVersions.defaultFile);
-		catch(Exception e) logDiagnostic("A " ~ SelectedVersions.defaultFile ~ " file was not found or failed to load:\n%s", e.msg);
-
-		// load package description
-		if (!m_fixedPackage) {
-			if (!Package.isPackageAt(m_root)) {
-				logWarn("There was no package description found for the application in '%s'.", m_root.toNativeString());
-				auto json = Json.emptyObject;
-				json.name = "unknown";
-				m_main = new Package(json, m_root);
-				return;
-			}
-
-			m_main = m_packageManager.getPackage(m_root);
-		}
-
 		// some basic package lint
-		m_main.warnOnSpecialCompilerFlags();
-		if (m_main.name != m_main.name.toLower()) {
+		m_rootPackage.warnOnSpecialCompilerFlags();
+		if (m_rootPackage.name != m_rootPackage.name.toLower()) {
 			logWarn(`DUB package names should always be lower case, please change to {"name": "%s"}. You can use {"targetName": "%s"} to keep the current executable name.`,
-				m_main.name.toLower(), m_main.name);
+				m_rootPackage.name.toLower(), m_rootPackage.name);
 		}
 
 		// TODO: compute the set of mutual dependencies first
@@ -225,13 +215,13 @@ class Project {
 				//enforce(p !is null, "Failed to resolve dependency "~name~" "~vspec.toString());
 			}
 		}
-		collectDependenciesRec(m_main);
+		collectDependenciesRec(m_rootPackage);
 	}
 
 	/// Returns the applications name.
-	@property string name() const { return m_main ? m_main.name : "app"; }
+	@property string name() const { return m_rootPackage ? m_rootPackage.name : "app"; }
 
-	@property string[] configurations() const { return m_main.configurations; }
+	@property string[] configurations() const { return m_rootPackage.configurations; }
 
 	/// Returns a map with the configuration for all packages in the dependency tree. 
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
@@ -242,7 +232,7 @@ class Project {
 		Vertex[] configs;
 		Edge[] edges;
 		string[][string] parents;
-		parents[m_main.name] = null;
+		parents[m_rootPackage.name] = null;
 		foreach (p; getTopologicalPackageList())
 			foreach (d; p.dependencies.byKey)
 				parents[d] ~= p.name;
@@ -310,7 +300,7 @@ class Project {
 			}
 
 			// for each configuration, determine the configurations usable for the dependencies
-			outer: foreach (c; p.getPlatformConfigurations(platform, p is m_main && allow_non_library)) {
+			outer: foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library)) {
 				string[][string] depconfigs;
 				foreach (dn; p.dependencies.byKey) {
 					auto dp = getDependency(dn, true);
@@ -338,8 +328,8 @@ class Project {
 						createEdge(cidx, createConfig(dn, sc));
 			}
 		}
-		if (config.length) createConfig(m_main.name, config);
-		determineAllConfigs(m_main);
+		if (config.length) createConfig(m_rootPackage.name, config);
+		determineAllConfigs(m_rootPackage);
 
 		// successively remove configurations until only one configuration per package is left
 		bool changed;
@@ -417,15 +407,15 @@ class Project {
 			
 			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
 			if (psettings.targetType != TargetType.none) {
-				if (shallow && pkg !is m_main)
+				if (shallow && pkg !is m_rootPackage)
 					psettings.sourceFiles = null;
 				processVars(dst, pkg_path, psettings);
 				if (psettings.importPaths.empty)
 					logWarn(`Package %s (configuration "%s") defines no import paths, use {"importPaths": [...]} or the default package directory structure to fix this.`, pkg.name, configs[pkg.name]);
-				if (psettings.mainSourceFile.empty && pkg is m_main && psettings.targetType == TargetType.executable)
+				if (psettings.mainSourceFile.empty && pkg is m_rootPackage && psettings.targetType == TargetType.executable)
 					logWarn(`Executable configuration "%s" of package %s defines no main source file, this may cause certain build modes to fail. Add an explicit "mainSourceFile" to the package description to fix this.`, configs[pkg.name], pkg.name);
 			}
-			if (pkg is m_main) {
+			if (pkg is m_rootPackage) {
 				if (!shallow) {
 					enforce(psettings.targetType != TargetType.none, "Main package has target type \"none\" - stopping build.");
 					enforce(psettings.targetType != TargetType.sourceLibrary, "Main package has target type \"sourceLibrary\" which generates no target - stopping build.");
@@ -451,8 +441,8 @@ class Project {
 		bool usedefflags = !(dst.requirements & BuildRequirements.noDefaultFlags);
 		if (usedefflags) {
 			BuildSettings btsettings;
-			m_main.addBuildTypeSettings(btsettings, platform, build_type);
-			processVars(dst, m_main.path.toNativeString(), btsettings);
+			m_rootPackage.addBuildTypeSettings(btsettings, platform, build_type);
+			processVars(dst, m_rootPackage.path.toNativeString(), btsettings);
 		}
 	}
 
@@ -477,12 +467,12 @@ class Project {
 
 		selected_versions.clean();
 
-		if(!m_main) {
+		if(!m_rootPackage) {
 			Action[] a;
 			return a;
 		}
 
-		auto graph = new DependencyGraph(m_main);
+		auto graph = new DependencyGraph(m_rootPackage);
 		if(!gatherMissingDependencies(packageSuppliers, graph) || graph.missing().length > 0) {
 			// Check the conflicts first.
 			auto conflicts = graph.conflicted();
@@ -508,7 +498,7 @@ class Project {
 
 		// Gather retrieved
 		Package[string] retrieved;
-		retrieved[m_main.name] = m_main;
+		retrieved[m_rootPackage.name] = m_rootPackage;
 		foreach(ref Package p; m_dependencies) {
 			auto pbase = p.basePackage;
 			auto pexist = retrieved.get(pbase.name, null);
@@ -558,12 +548,12 @@ class Project {
 	/// Outputs a JSON description of the project, including its deoendencies.
 	void describe(ref Json dst, BuildPlatform platform, string config)
 	{
-		dst.mainPackage = m_main.name;
+		dst.mainPackage = m_rootPackage.name;
 
 		auto configs = getPackageConfigs(platform, config);
 
 		auto mp = Json.emptyObject;
-		m_main.describe(mp, platform, config);
+		m_rootPackage.describe(mp, platform, config);
 		dst.packages = Json([mp]);
 
 		foreach (dep; m_dependencies) {
@@ -693,7 +683,7 @@ class Project {
 	private bool needsUpToDateCheck(Package pack) {
 		version (none) { // needs to be updated for the new package system (where no project local packages exist)
 			try {
-				auto time = m_json["dub"]["lastUpdate"].opt!(Json[string]).get(pack.name, Json("")).get!string;
+				auto time = m_packageSettings["dub"]["lastUpdate"].opt!(Json[string]).get(pack.name, Json("")).get!string;
 				if( !time.length ) return true;
 				return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
 			} catch(Exception t) return true;
@@ -706,24 +696,24 @@ class Project {
 			if( object !in json ) json[object] = Json.emptyObject;
 			return json[object];
 		}
-		create(m_json, "dub");
-		create(m_json["dub"], "lastUpdate");
-		m_json["dub"]["lastUpdate"][packageId] = Json( Clock.currTime().toISOExtString() );
+		create(m_packageSettings, "dub");
+		create(m_packageSettings["dub"], "lastUpdate");
+		m_packageSettings["dub"]["lastUpdate"][packageId] = Json( Clock.currTime().toISOExtString() );
 
 		writeDubJson();
 	}
 
 	private void writeDubJson() {
 		// don't bother to write an empty file
-		if( m_json.length == 0 ) return;
+		if( m_packageSettings.length == 0 ) return;
 
 		try {
 			logDebug("writeDubJson");
-			auto dubpath = m_root~".dub";
+			auto dubpath = m_rootPackage.path~".dub";
 			if( !exists(dubpath.toNativeString()) ) mkdir(dubpath.toNativeString());
 			auto dstFile = openFile((dubpath~"dub.json").toString(), FileMode.CreateTrunc);
 			scope(exit) dstFile.close();
-			dstFile.writePrettyJsonString(m_json);
+			dstFile.writePrettyJsonString(m_packageSettings);
 		} catch( Exception e ){
 			logWarn("Could not write .dub/dub.json.");
 		}
@@ -933,8 +923,12 @@ class SelectedVersions {
 
 	void clean()
 	{
-		Selected[string] empty;
-		m_selectedVersions = empty;
+		m_selectedVersions = null;
+	}
+
+	void set(SelectedVersions versions)
+	{
+		m_selectedVersions = versions.m_selectedVersions.dup;
 	}
 
 	void selectVersion(string packageId, Version version_, Dependency[string] issuer)
