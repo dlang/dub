@@ -217,8 +217,8 @@ class Dub {
 			logError("Cannot select build versions, there are missing updates to be performed.");
 			throw new Exception("Version selection failed.");
 		}
-		selectedVersions.save(m_rootPath ~ Path(SelectedVersions.DefaultFile));
-		logInfo("Stored currently selected versions into: " ~ SelectedVersions.DefaultFile);
+		selectedVersions.save(m_rootPath ~ Path(SelectedVersions.defaultFile));
+		logInfo("Stored currently selected versions into: " ~ SelectedVersions.defaultFile);
 	}
 
 	/// Generate project files for a specified IDE.

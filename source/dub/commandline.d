@@ -964,7 +964,7 @@ class SelectCommand : Command {
 		this.helpText = [
 			"<in development>",
 			"",
-			"This stores the used package versions of the main package in the current working directory. The file is " ~ SelectedVersions.DefaultFile ~ " and this file can also be used to manually override only certain versions. (This includes switching to a local master <to be implemented>)."
+			"This stores the used package versions of the main package in the current working directory. The file is " ~ SelectedVersions.defaultFile ~ " and this file can also be used to manually override only certain versions. (This includes switching to a local master <to be implemented>)."
 		];
 	}
 	override void prepare(scope CommandArgs args) {

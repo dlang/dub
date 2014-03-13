@@ -163,8 +163,8 @@ class Project {
 		try m_json = jsonFromFile(m_root ~ ".dub/dub.json", true);
 		catch(Exception t) logDiagnostic("Failed to read .dub/dub.json: %s", t.msg);
 
-		try m_selectedVersions = new SelectedVersions(m_root ~ SelectedVersions.DefaultFile);
-		catch(Exception e) logDiagnostic("A " ~ SelectedVersions.DefaultFile ~ " file was not found or failed to load:\n%s", e.msg);
+		try m_selectedVersions = new SelectedVersions(m_root ~ SelectedVersions.defaultFile);
+		catch(Exception e) logDiagnostic("A " ~ SelectedVersions.defaultFile ~ " file was not found or failed to load:\n%s", e.msg);
 
 		// load package description
 		if (!m_fixedPackage) {
@@ -912,66 +912,73 @@ string stripDlangSpecialChars(string s)
 }
 
 class SelectedVersions {
-	static @property DefaultFile() { return "dub.select.json"; }
-
-	this() { }
-
-	this(Path path) {
-		auto json = jsonFromFile(path);
-		deserialize(json);
-	}
-
-	void clean() {
-		Selected[string] empty;
-		m_selectedVersions = empty;
-	}
-
-	void selectVersion(string packageId, Version version_, Dependency[string] issuer) {
-		enforce(packageId !in m_selectedVersions, "Cannot reselect a package!");
-		m_selectedVersions[packageId] = Selected(Dependency(version_), issuer);
-	}
-
-	bool hasSelectedVersion(string packageId) const {
-		return (packageId in m_selectedVersions) !is null;
-	}
-
-	Dependency selectedVersion(string packageId) const {
-		enforce(hasSelectedVersion(packageId));
-		return m_selectedVersions[packageId].versionSpec;
-	}
-
-	void save(Path path) const {
-		Json json = serialize();
-		auto file = openFile(path, FileMode.CreateTrunc);
-		scope(exit) file.close();
-		file.writePrettyJsonString(json);
-	}
-
 	private struct Selected {
-		this(Dependency versSpec_, Dependency[string] packages_) {
-			versionSpec = versSpec_;
-			packages = packages_;
-		}
-		Dependency versionSpec;
-		Dependency[string] packages;	
+		Version version_;
+		//Dependency[string] packages;	
 	}
 	private {
 		enum FileVersion = 1;
 		Selected[string] m_selectedVersions;
 	}
 
-	private Json serialize() const {
+	enum defaultFile = "dub.selections.json";
+
+	this() {}
+
+	this(Path path)
+	{
+		auto json = jsonFromFile(path);
+		deserialize(json);
+	}
+
+	void clean()
+	{
+		Selected[string] empty;
+		m_selectedVersions = empty;
+	}
+
+	void selectVersion(string packageId, Version version_, Dependency[string] issuer)
+	{
+		enforce(packageId !in m_selectedVersions, "Cannot reselect a package!");
+		m_selectedVersions[packageId] = Selected(version_/*, issuer*/);
+	}
+
+	bool hasSelectedVersion(string packageId)
+	const {
+		return (packageId in m_selectedVersions) !is null;
+	}
+
+	Dependency selectedVersion(string packageId)
+	const {
+		enforce(hasSelectedVersion(packageId));
+		return Dependency(m_selectedVersions[packageId].version_);
+	}
+
+	void save(Path path)
+	const {
+		Json json = serialize();
+		auto file = openFile(path, FileMode.CreateTrunc);
+		scope(exit) file.close();
+		file.writePrettyJsonString(json);
+	}
+
+	private Json serialize()
+	const {
 		Json json = serializeToJson(m_selectedVersions);
 		Json serialized = Json.emptyObject;
 		serialized.fileVersion = FileVersion;
-		serialized.versions = json;
+		serialized.versions = Json.emptyObject;
+		foreach (p, v; m_selectedVersions)
+			serialized.versions[p] = v.version_.toString();
 		return serialized;
 	}
 
-	private void deserialize(Json json) {
+	private void deserialize(Json json)
+	{
 		enforce(cast(int)json["fileVersion"] == FileVersion, "Mismatched dub.select.json version: " ~ to!string(cast(int)json["fileVersion"]) ~ "vs. " ~to!string(FileVersion));
 		clean();
 		scope(failure) clean();
-		deserializeJson(m_selectedVersions, json.versions);
+		foreach (string p, v; json.versions)
+			m_selectedVersions[p] = Selected(Version(v.get!string));
 	}
 }
