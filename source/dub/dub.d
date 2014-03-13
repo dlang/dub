@@ -52,7 +52,8 @@ class Dub {
 		bool m_dryRun = false;
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
-		Path m_rootPath, m_tempPath;
+		Path m_rootPath;
+		Path m_tempPath;
 		Path m_userDubPath, m_systemDubPath;
 		Json m_systemConfig, m_userConfig;
 		Path m_projectPath;
@@ -168,8 +169,9 @@ class Dub {
 	void update(UpdateOptions options)
 	{
 		bool[string] masterVersionUpgrades;
+		auto selections = new SelectedVersions;
 		while (true) {
-			Action[] allActions = m_project.determineActions(m_packageSuppliers, options);
+			Action[] allActions = m_project.determineActions(m_packageSuppliers, options, selections);
 			Action[] actions;
 			foreach(a; allActions)
 				if(a.packageId !in masterVersionUpgrades)
@@ -206,19 +208,11 @@ class Dub {
 
 			m_project.reinit();
 		}
-	}
 
-	/// AKA "Pinning" or "shrinkwrap"
-	void selectVersions() {
-		enforce(m_rootPath == m_projectPath, "Currently, DUB can only select versions directly from the main project's working directory.");
-		SelectedVersions selectedVersions = new SelectedVersions;
-		Action[] allActions = m_project.determineActions(m_packageSuppliers, UpdateOptions.none, selectedVersions);
-		if (allActions.length > 0) {
-			logError("Cannot select build versions, there are missing updates to be performed.");
-			throw new Exception("Version selection failed.");
+		if (options & UpdateOptions.select) {
+			selections.save(m_projectPath ~ SelectedVersions.defaultFile);
+			logDiagnostic("Stored currently selected versions into " ~ SelectedVersions.defaultFile);
 		}
-		selectedVersions.save(m_rootPath ~ Path(SelectedVersions.defaultFile));
-		logInfo("Stored currently selected versions into: " ~ SelectedVersions.defaultFile);
 	}
 
 	/// Generate project files for a specified IDE.

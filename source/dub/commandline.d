@@ -1,7 +1,7 @@
 /**
 	Defines the behavior of the DUB command line client.
 
-	Copyright: © 2012-2013 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff, Copyright © 2012-2014 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff, Sönke Ludwig
 */
@@ -108,8 +108,7 @@ int runDubCommandLine(string[] args)
 			new AddLocalCommand,
 			new RemoveLocalCommand,
 			new ListCommand,
-			new ListInstalledCommand,
-			new SelectCommand
+			new ListInstalledCommand
 		)
 	];
 
@@ -366,7 +365,7 @@ abstract class PackageBuildCommand : Command {
 
 		if (!m_nodeps) {
 			logDiagnostic("Checking dependencies in '%s'", dub.projectPath.toNativeString());
-			dub.update(UpdateOptions.none);
+			dub.update(UpdateOptions.select);
 		}
 	}
 
@@ -672,18 +671,33 @@ class DescribeCommand : PackageBuildCommand {
 /******************************************************************************/
 
 class UpgradeCommand : Command {
+	/* TODO:
+		- DependencyGraph select needs to overrule resolution algorithm.
+		- Fail build, when selected version is not available
+		- dub update: updating to pinned by default or by flag?
+
+	Done:
+		- write selected versions
+		- load selected versions
+		- init: warning if pinned dependency not found
+	*/
 	private {
 		bool m_prerelease = false;
 		bool m_forceRemove = false;
+		bool m_verify = false;
 	}
 
 	this()
 	{
 		this.name = "upgrade";
-		this.argumentsPattern = "";
+		this.argumentsPattern = "<package>";
 		this.description = "Forces an upgrade of all dependencies";
 		this.helpText = [
-			"Upgrades all dependencies of the package by querying the package registry(ies) for new versions."
+			"Upgrades all dependencies of the package by querying the package registry(ies) for new versions.",
+			"",
+			"This will also update the versions stored in the selections file ("~SelectedVersions.defaultFile~") accordingly."
+			"",
+			"If a package specified, (only) that package will be upgraded. Otherwise all direct and indirect dependencies of the current package will get upgraded."
 		];
 	}
 
@@ -695,17 +709,22 @@ class UpgradeCommand : Command {
 		args.getopt("force-remove", &m_forceRemove, [
 			"Force deletion of fetched packages with untracked files"
 		]);
+		args.getopt("verify", &m_verify, [
+			"Updates the project and performs a build. If successfull, rewrites the selected versions file <to be implemeted>."
+		]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		enforceUsage(free_args.length == 0, "Unexpected arguments.");
+		enforceUsage(free_args.length <= 1, "Unexpected arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+		enforceUsage(!m_verify, "--verify is not yet implemented.");
 		dub.loadPackageFromCwd();
 		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
-		auto options = UpdateOptions.upgrade;
+		auto options = UpdateOptions.upgrade|UpdateOptions.select;
 		if (m_prerelease) options |= UpdateOptions.preRelease;
 		if (m_forceRemove) options |= UpdateOptions.forceRemove;
+		enforceUsage(app_args.length == 0, "Upgrading a specific package is not yet implemented.");
 		dub.update(options);
 		return 0;
 	}
@@ -937,51 +956,6 @@ class RemoveLocalCommand : RegistrationCommand {
 	}
 }
 
-/******************************************************************************/
-/* SELECT                                                                     */
-/******************************************************************************/
-
-class SelectCommand : Command {
-	private {
-		bool m_tuneup;
-	}
-	this()
-	{
-		/*
-			Development TODOs:
-			- DependencyGraph select needs to overrule resolution algorithm.
-			- Fail build, when selected version is not available
-			- dub update: updating to pinned by default or by flag?
-
-			Done:
-			- write selected versions
-			- load selected versions
-			- init: warning if pinned dependency not found
-		*/
-		this.name = "select";
-		this.argumentsPattern = "";
-		this.description = "Stores the currently used dependent package in a file, this can be used later override the used versions.";
-		this.helpText = [
-			"<in development>",
-			"",
-			"This stores the used package versions of the main package in the current working directory. The file is " ~ SelectedVersions.defaultFile ~ " and this file can also be used to manually override only certain versions. (This includes switching to a local master <to be implemented>)."
-		];
-	}
-	override void prepare(scope CommandArgs args) {
-		args.getopt("tuneup", &m_tuneup, [
-			"Updates the project and performs a build. If successfull, rewrites the selected versions file <to be implemeted>."
-		]);
-	}
-
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		logDiagnostic("loadPackageFromCwd");
-		dub.loadPackageFromCwd();
-		logDiagnostic("Selecting current versions:");
-		dub.selectVersions();
-		return 0;
-	}
-}
 
 /******************************************************************************/
 /* LIST                                                                       */

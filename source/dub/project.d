@@ -471,9 +471,11 @@ class Project {
 
 	/// Actions which can be performed to update the application.
 	/// selectedVersions:
-	Action[] determineActions(PackageSupplier[] packageSuppliers, UpdateOptions option, SelectedVersions selectedVersions = null)
+	Action[] determineActions(PackageSupplier[] packageSuppliers, UpdateOptions option, SelectedVersions selected_versions = null)
 	{
 		scope(exit) writeDubJson();
+
+		selected_versions.clean();
 
 		if(!m_main) {
 			Action[] a;
@@ -526,7 +528,7 @@ class Project {
 				actions ~= act;
 		}
 		int[string] upgradePackages;
-		scope(failure) if (selectedVersions !is null) selectedVersions.clean();
+		scope(failure) if (selected_versions) selected_versions.clean();
 		foreach( string pkg, d; graph.needed() ) {
 			auto basepkg = pkg.getBasePackage();
 			auto p = basepkg in retrieved;
@@ -544,12 +546,9 @@ class Project {
 						upgradePackages[basepkg] = 1;
 						addAction(Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages));
 					}
-				}
-				else {
-					logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"'");
-					if (selectedVersions !is null)
-						selectedVersions.selectVersion(pkg, p.ver, d.packages);
-				}
+				} else logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"'");
+
+				if (selected_versions) selected_versions.selectVersion(pkg, p.ver, d.packages);
 			}
 		}
 
@@ -798,7 +797,8 @@ enum UpdateOptions
 	none = 0,
 	upgrade = 1<<1,
 	preRelease = 1<<2, // inclde pre-release versions in upgrade
-	forceRemove = 1<<3
+	forceRemove = 1<<3,
+	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
 }
 
 
