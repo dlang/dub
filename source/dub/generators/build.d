@@ -24,7 +24,7 @@ import std.exception;
 import std.file;
 import std.process;
 import std.string;
-
+import std.encoding : sanitize;
 
 class BuildGenerator : ProjectGenerator {
 	private {

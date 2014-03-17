@@ -17,7 +17,7 @@ import dub.package_;
 import dub.packagemanager;
 import dub.project;
 
-import std.algorithm : map;
+import std.algorithm : map, filter, canFind;
 import std.array : array;
 import std.array;
 import std.exception;

@@ -102,7 +102,7 @@ class RegistryPackageSupplier : PackageSupplier {
 	
 	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{
-		import std.string : replace;
+		import std.array : replace;
 		Json best = getBestPackage(packageId, dep, pre_release);
 		auto vers = replace(best["version"].get!string, "+", "%2B");
 		auto url = m_registryUrl ~ Path(PackagesPath~"/"~packageId~"/"~vers~".zip");
