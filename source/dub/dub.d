@@ -33,7 +33,7 @@ import std.process;
 import std.string;
 import std.typecons;
 import std.zip;
-
+import std.encoding : sanitize;
 
 
 /// The default supplier for packages, which is the registry

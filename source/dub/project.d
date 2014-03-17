@@ -31,7 +31,7 @@ import std.process;
 import std.string;
 import std.typecons;
 import std.zip;
-
+import std.encoding : sanitize;
 
 /// Representing a full project, with a root Package and several dependencies.
 class Project {
