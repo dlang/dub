@@ -102,7 +102,7 @@ class Project {
 	@property const(Package[]) dependencies() const { return m_dependencies; }
 	
 	/// Main package.
-	@property inout(Package) mainPackage() inout { return m_rootPackage; }
+	@property inout(Package) rootPackage() inout { return m_rootPackage; }
 
 	/// The versions to use for all dependencies. Call reinit() after changing these.
 	@property inout(SelectedVersions) selections() inout { return m_selectedVersions; }
@@ -480,7 +480,8 @@ class Project {
 	/// Outputs a JSON description of the project, including its deoendencies.
 	void describe(ref Json dst, BuildPlatform platform, string config)
 	{
-		dst.mainPackage = m_rootPackage.name;
+		dst.mainPackage = m_rootPackage.name; // deprecated
+		dst.rootPackage = m_rootPackage.name;
 
 		auto configs = getPackageConfigs(platform, config);
 

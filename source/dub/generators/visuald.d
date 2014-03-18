@@ -47,7 +47,7 @@ class VisualDGenerator : ProjectGenerator {
 	{
 		auto bs = targets[m_project.name].buildSettings;
 		prepareGeneration(bs);
-		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.mainPackage().name, m_project.mainPackage().dependencies().length);
+		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.rootPackage.name, m_project.rootPackage.dependencies.length);
 		generateProjectFiles(settings, targets);
 		generateSolutionFile(settings, targets);
 		logInfo("VisualD project generated.");
@@ -91,7 +91,7 @@ class VisualDGenerator : ProjectGenerator {
 				foreach (d; ti.dependencies) generateSolutionEntry(d);
 			}
 
-			auto mainpack = m_project.mainPackage.name;
+			auto mainpack = m_project.rootPackage.name;
 
 			generateSolutionEntry(mainpack);
 			
@@ -138,7 +138,7 @@ class VisualDGenerator : ProjectGenerator {
 					performRec(d);
 			}
 
-			performRec(m_project.mainPackage.name);
+			performRec(m_project.rootPackage.name);
 		}
 
 		bool isHeaderOnlyPackage(string pack, in TargetInfo[string] targets)
@@ -154,7 +154,7 @@ class VisualDGenerator : ProjectGenerator {
 			int i = 0;
 			auto ret = appender!(char[])();
 			
-			auto project_file_dir = m_project.mainPackage.path ~ projFileName(packname).parentPath;
+			auto project_file_dir = m_project.rootPackage.path ~ projFileName(packname).parentPath;
 			ret.put("<DProject>\n");
 			ret.formattedWrite("  <ProjectGuid>%s</ProjectGuid>\n", guid(packname));
 	
@@ -234,7 +234,7 @@ class VisualDGenerator : ProjectGenerator {
 		
 		void generateProjectConfiguration(Appender!(char[]) ret, string pack, string type, GeneratorSettings settings, in TargetInfo[string] targets)
 		{
-			auto project_file_dir = m_project.mainPackage.path ~ projFileName(pack).parentPath;
+			auto project_file_dir = m_project.rootPackage.path ~ projFileName(pack).parentPath;
 			auto buildsettings = targets[pack].buildSettings.dup;
 			
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
@@ -289,7 +289,7 @@ class VisualDGenerator : ProjectGenerator {
 					output_ext = "dll";
 				}
 				string debugSuffix = type == "debug" ? "_d" : "";
-				auto bin_path = pack == m_project.mainPackage.name ? Path(buildsettings.targetPath) : Path(".dub/lib/");
+				auto bin_path = pack == m_project.rootPackage.name ? Path(buildsettings.targetPath) : Path(".dub/lib/");
 				bin_path.endsWithSlash = true;
 				ret.formattedWrite("    <lib>%s</lib>\n", output_type);
 				ret.formattedWrite("    <exefile>%s%s%s.%s</exefile>\n", bin_path.toNativeString(), buildsettings.targetName, debugSuffix, output_ext);
@@ -429,8 +429,8 @@ class VisualDGenerator : ProjectGenerator {
 		}
 
 		auto solutionFileName() const {
-			version(DUBBING) return getPackageFileName(m_project.mainPackage()) ~ ".dubbed.sln";
-			else return getPackageFileName(m_project.mainPackage.name) ~ ".sln";
+			version(DUBBING) return getPackageFileName(m_project.rootPackage) ~ ".dubbed.sln";
+			else return getPackageFileName(m_project.rootPackage.name) ~ ".sln";
 		}
 
 		Path projFileName(string pack) const {

@@ -67,12 +67,12 @@ class BuildGenerator : ProjectGenerator {
 		// build all targets
 		if (settings.rdmd) {
 			// RDMD always builds everything at once
-			auto ti = targets[m_project.mainPackage.name];
-			buildTarget(settings, ti.buildSettings.dup, m_project.mainPackage, ti.config);
-		} else buildTargetRec(m_project.mainPackage.name);
+			auto ti = targets[m_project.rootPackage.name];
+			buildTarget(settings, ti.buildSettings.dup, m_project.rootPackage, ti.config);
+		} else buildTargetRec(m_project.rootPackage.name);
 
 		// run the generated executable
-		auto buildsettings = targets[m_project.mainPackage.name].buildSettings;
+		auto buildsettings = targets[m_project.rootPackage.name].buildSettings;
 		if (settings.run && !(buildsettings.options & BuildOptions.syntaxOnly)) {
 			auto exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 			runTarget(exe_file_path, buildsettings, settings.runArgs, settings);

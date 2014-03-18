@@ -56,9 +56,9 @@ class ProjectGenerator
 		string[string] configs = m_project.getPackageConfigs(settings.platform, settings.config);
 
 		string[] mainfiles;
-		collect(settings, m_project.mainPackage, targets, configs, mainfiles, null);
-		downwardsInheritSettings(m_project.mainPackage.name, targets, targets[m_project.mainPackage.name].buildSettings);
-		auto bs = &targets[m_project.mainPackage.name].buildSettings;
+		collect(settings, m_project.rootPackage, targets, configs, mainfiles, null);
+		downwardsInheritSettings(m_project.rootPackage.name, targets, targets[m_project.rootPackage.name].buildSettings);
+		auto bs = &targets[m_project.rootPackage.name].buildSettings;
 		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
 
 		generateTargets(settings, targets);
@@ -73,7 +73,7 @@ class ProjectGenerator
 		// determine the actual target type
 		auto shallowbs = pack.getBuildSettings(settings.platform, configs[pack.name]);
 		TargetType tt = shallowbs.targetType;
-		if (pack is m_project.mainPackage) {
+		if (pack is m_project.rootPackage) {
 			if (tt == TargetType.autodetect || tt == TargetType.library) tt = TargetType.staticLibrary;
 		} else {
 			if (tt == TargetType.autodetect || tt == TargetType.library) tt = settings.combined ? TargetType.sourceLibrary : TargetType.staticLibrary;
@@ -92,7 +92,7 @@ class ProjectGenerator
 		shallowbs.targetType = tt;
 		bool generates_binary = tt != TargetType.sourceLibrary && tt != TargetType.none;
 
-		enforce (generates_binary || pack !is m_project.mainPackage,
+		enforce (generates_binary || pack !is m_project.rootPackage,
 			format("Main package must have a binary target type, not %s. Cannot build.", tt));
 
 		if (tt == TargetType.none) {

@@ -166,7 +166,7 @@ class Dub {
 	void upgrade(UpdateOptions options)
 	{
 		auto resolver = new DependencyVersionResolver(this, options);
-		auto versions = resolver.resolve(m_project.mainPackage, m_project.selections);
+		auto versions = resolver.resolve(m_project.rootPackage, m_project.selections);
 
 		foreach (p, ver; versions) {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
@@ -198,7 +198,7 @@ class Dub {
 			// if a custom main file was given, favor the first library configuration, so that it can be applied
 			if (custom_main_file.length) config = m_project.getDefaultConfiguration(settings.platform, false);
 			// else look for a "unittest" configuration
-			if (!config.length && m_project.mainPackage.configurations.canFind("unittest")) config = "unittest";
+			if (!config.length && m_project.rootPackage.configurations.canFind("unittest")) config = "unittest";
 			// if not found, fall back to the first "library" configuration
 			if (!config.length) config = m_project.getDefaultConfiguration(settings.platform, false);
 			// if still nothing found, use the first executable configuration
@@ -228,14 +228,14 @@ class Dub {
 		} else {
 			logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, test_config, config, lbuildsettings.targetType);
 
-			BuildSettingsTemplate tcinfo = m_project.mainPackage.info.getConfiguration(config).buildSettings;
+			BuildSettingsTemplate tcinfo = m_project.rootPackage.info.getConfiguration(config).buildSettings;
 			tcinfo.targetType = TargetType.executable;
 			tcinfo.targetName = test_config;
 			tcinfo.versions[""] ~= "VibeCustomMain"; // HACK for vibe.d's legacy main() behavior
 			string custommodname;
 			if (custom_main_file.length) {
 				import std.path;
-				tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(m_project.mainPackage.path).toNativeString();
+				tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(m_project.rootPackage.path).toNativeString();
 				tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
 				custommodname = custom_main_file.head.toString().baseName(".d");
 			}
@@ -243,7 +243,7 @@ class Dub {
 			string[] import_modules;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d") && Path(file).head.toString() != "package.d")
-					import_modules ~= lbuildsettings.determineModuleName(Path(file), m_project.mainPackage.path);
+					import_modules ~= lbuildsettings.determineModuleName(Path(file), m_project.rootPackage.path);
 			}
 
 			// generate main file
@@ -283,8 +283,8 @@ class Dub {
 					});
 				}
 			}
-			m_project.mainPackage.info.configurations ~= ConfigurationInfo(test_config, tcinfo);
-			m_project = new Project(m_packageManager, m_project.mainPackage);
+			m_project.rootPackage.info.configurations ~= ConfigurationInfo(test_config, tcinfo);
+			m_project = new Project(m_packageManager, m_project.rootPackage);
 
 			settings.config = test_config;
 		}
@@ -516,7 +516,7 @@ class Dub {
 		auto dub_path = p.toNativeString();
 
 		string[] commands;
-		string[] filterargs = m_project.mainPackage.info.ddoxFilterArgs.dup;
+		string[] filterargs = m_project.rootPackage.info.ddoxFilterArgs.dup;
 		if (filterargs.empty) filterargs = ["--min-protection=Protected", "--only-documented"];
 		commands ~= dub_path~"ddox filter "~filterargs.join(" ")~" docs.json";
 		if (!run) {
