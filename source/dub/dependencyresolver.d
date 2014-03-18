@@ -8,6 +8,7 @@
 module dub.dependencyresolver;
 
 import dub.dependency;
+import dub.internal.vibecompat.core.log;
 
 import std.algorithm : any, canFind, sort;
 import std.array : appender;
@@ -57,7 +58,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 				auto pidx = all_configs.length;
 				auto configs = getAllConfigs(basepack);
-				enforce(configs.length > 0, format("Found no configurations for package %s.", basepack));
+				if (!configs.length) {
+					logDiagnostic("Found no configurations for package %s, referenced by %s %s.", basepack, parent.pack, parent.config);
+					continue;
+				}
 				all_configs ~= configs;
 				package_indices[basepack] = pidx;
 
