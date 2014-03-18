@@ -654,22 +654,22 @@ class DependencyResolver(CONFIGS, CONFIG) {
 }
 
 unittest {
-	static class TestResolver : DependencyResolver!(size_t[], size_t) {
+	static class TestResolver : DependencyResolver!(uint[], uint) {
 		private TreeNodes[][string] m_children;
 		this(TreeNodes[][string] children) { m_children = children; }
-		protected override size_t[] getAllConfigs(string pack) {
-			auto ret = appender!(size_t[]);
+		protected override uint[] getAllConfigs(string pack) {
+			auto ret = appender!(uint[]);
 			foreach (p; m_children.byKey) {
 				if (p.length <= pack.length+1) continue;
 				if (p[0 .. pack.length] != pack || p[pack.length] != ':') continue;
 				auto didx = p.lastIndexOf(':');
-				ret ~= p[didx+1 .. $].to!size_t;
+				ret ~= p[didx+1 .. $].to!uint;
 			}
 			ret.data.sort!"a>b"();
 			return ret.data;
 		}
 		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null); }
-		protected override bool matches(size_t[] configs, size_t config) { return configs.canFind(config); }
+		protected override bool matches(uint[] configs, uint config) { return configs.canFind(config); }
 	}
 
 	// properly back up if conflicts are detected along the way (d:2 vs d:1)
