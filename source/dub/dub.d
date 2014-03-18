@@ -9,6 +9,7 @@ module dub.dub;
 
 import dub.compilers.compiler;
 import dub.dependency;
+import dub.dependencyresolver;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;

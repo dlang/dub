@@ -24,141 +24,6 @@ import std.string;
 import std.typecons;
 static import std.compiler;
 
-/**
-	A version in the format "major.update.bugfix-prerelease+buildmetadata"
-	according to Semantic Versioning Specification v2.0.0.
-
-	(deprecated):
-	This also supports a format like "~master", to identify trunk, or
-	"~branch_name" to identify a branch. Both Version types starting with "~"
-	refer to the head revision of the corresponding branch.
-	This is subject to be removed soon.
-*/
-struct Version {
-	private { 
-		enum MAX_VERS = "99999.0.0";
-		enum UNKNOWN_VERS = "unknown";
-		string m_version;
-	}
-
-	static @property RELEASE() { return Version("0.0.0"); }
-	static @property HEAD() { return Version(MAX_VERS); }
-	static @property MASTER() { return Version(MASTER_STRING); }
-	static @property UNKNOWN() { return Version(UNKNOWN_VERS); }
-	static @property MASTER_STRING() { return "~master"; }
-	static @property BRANCH_IDENT() { return '~'; }
-	
-	this(string vers)
-	{
-		enforce(vers.length > 1, "Version strings must not be empty.");
-		if (vers[0] != BRANCH_IDENT && vers != UNKNOWN_VERS)
-			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
-		m_version = vers;
-	}
-
-	bool opEquals(const Version oth) const {
-		if (isUnknown || oth.isUnknown) {
-			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, oth));
-		}
-		return m_version == oth.m_version; 
-	}
-	
-	/// Returns true, if this version indicates a branch, which is not the trunk.
-	@property bool isBranch() const { return !m_version.empty && m_version[0] == BRANCH_IDENT; }
-	@property bool isMaster() const { return m_version == MASTER_STRING; }
-	@property bool isPreRelease() const {
-		if (isBranch) return true;
-		return isPreReleaseVersion(m_version);
-	}
-	@property bool isUnknown() const { return m_version == UNKNOWN_VERS; }
-
-	/** 
-		Comparing Versions is generally possible, but comparing Versions 
-		identifying branches other than master will fail. Only equality
-		can be tested for these.
-	*/
-	int opCmp(ref const Version other)
-	const {
-		if (isUnknown || other.isUnknown) {
-			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, other));
-		}
-		if (isBranch || other.isBranch) {
-			if(m_version == other.m_version) return 0;
-			if (!isBranch) return 1;
-			else if (!other.isBranch) return -1;
-			if (isMaster) return 1;
-			else if (other.isMaster) return -1;
-			return this.m_version < other.m_version ? -1 : 1;
-		}
-
-		return compareVersions(isMaster ? MAX_VERS : m_version, other.isMaster ? MAX_VERS : other.m_version);
-	}
-	int opCmp(in Version other) const { return opCmp(other); }
-	
-	string toString() const { return m_version; }
-}
-
-unittest {
-	Version a, b;
-
-	assertNotThrown(a = Version("1.0.0"), "Constructing Version('1.0.0') failed");
-	assert(!a.isBranch, "Error: '1.0.0' treated as branch");
-	assert(a == a, "a == a failed");
-
-	assertNotThrown(a = Version(Version.MASTER_STRING), "Constructing Version("~Version.MASTER_STRING~"') failed");
-	assert(a.isBranch, "Error: '"~Version.MASTER_STRING~"' treated as branch");
-	assert(a.isMaster);
-	assert(a == Version.MASTER, "Constructed master version != default master version.");
-
-	assertNotThrown(a = Version("~BRANCH"), "Construction of branch Version failed.");
-	assert(a.isBranch, "Error: '~BRANCH' not treated as branch'");
-	assert(!a.isMaster);
-	assert(a == a, "a == a with branch failed");
-
-	// opCmp
-	a = Version("1.0.0");
-	b = Version("1.0.0");
-	assert(a == b, "a == b with a:'1.0.0', b:'1.0.0' failed");
-	b = Version("2.0.0");
-	assert(a != b, "a != b with a:'1.0.0', b:'2.0.0' failed");
-	a = Version(Version.MASTER_STRING);
-	b = Version("~BRANCH");
-	assert(a != b, "a != b with a:MASTER, b:'~branch' failed");
-	assert(a > b);
-	assert(a < Version("0.0.0"));
-	assert(b < Version("0.0.0"));
-	assert(a > Version("~Z"));
-	assert(b < Version("~Z"));
-	
-	// SemVer 2.0.0-rc.2
-	a = Version("2.0.0-rc.2");
-	b = Version("2.0.0-rc.3");
-	assert(a < b, "Failed: 2.0.0-rc.2 < 2.0.0-rc.3");
-	
-	a = Version("2.0.0-rc.2+build-metadata");
-	b = Version("2.0.0+build-metadata");
-	assert(a < b, "Failed: "~to!string(a)~"<"~to!string(b));
-	
-	// 1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta.2 < 1.0.0-beta.11 < 1.0.0-rc.1 < 1.0.0
-	Version[] versions;
-	versions ~= Version("1.0.0-alpha");
-	versions ~= Version("1.0.0-alpha.1");
-	versions ~= Version("1.0.0-beta.2");
-	versions ~= Version("1.0.0-beta.11");
-	versions ~= Version("1.0.0-rc.1");
-	versions ~= Version("1.0.0");
-	for(int i=1; i<versions.length; ++i)
-		for(int j=i-1; j>=0; --j)
-			assert(versions[j] < versions[i], "Failed: " ~ to!string(versions[j]) ~ "<" ~ to!string(versions[i]));
-
-	a = Version.UNKNOWN;
-	b = Version.RELEASE;
-	assertThrown(a == b, "Failed: compared " ~ to!string(a) ~ " with " ~ to!string(b) ~ "");
-
-	a = Version.UNKNOWN;
-	b = Version.UNKNOWN;
-	assertThrown(a == b, "Failed: UNKNOWN == UNKNOWN");
-}
 
 /**
 	Representing a dependency, which is basically a version string and a 
@@ -257,6 +122,7 @@ struct Dependency {
 	@property Path path() const { return m_path; }
 	@property bool optional() const { return m_optional; }
 	@property void optional(bool optional) { m_optional = optional; }
+	@property bool isExactVersion() const { return m_versA == m_versB; }
 
 	@property Version version_() const {
 		enforce(m_versA == m_versB, "Dependency "~toString()~" is no exact version."); 
@@ -558,139 +424,138 @@ unittest {
 }
 
 
-class DependencyResolver(CONFIGS, CONFIG) {
-	static struct TreeNodes {
-		string pack;
-		CONFIGS configs;
+/**
+	A version in the format "major.update.bugfix-prerelease+buildmetadata"
+	according to Semantic Versioning Specification v2.0.0.
+
+	(deprecated):
+	This also supports a format like "~master", to identify trunk, or
+	"~branch_name" to identify a branch. Both Version types starting with "~"
+	refer to the head revision of the corresponding branch.
+	This is subject to be removed soon.
+*/
+struct Version {
+	private { 
+		enum MAX_VERS = "99999.0.0";
+		enum UNKNOWN_VERS = "unknown";
+		string m_version;
 	}
 
-	static struct TreeNode {
-		string pack;
-		CONFIG config;
-	}
-
-	static struct ChildIterationState {
-		TreeNode[] configs;
-		size_t configIndex;
-	}
-
-	static struct GraphIterationState {
-		CONFIG[string] visited;
-		TreeNode[] stack;
-		TreeNode node;
-		ChildIterationState[] children;
-	}
-
-	CONFIG[string] resolve(TreeNode root)
+	static @property RELEASE() { return Version("0.0.0"); }
+	static @property HEAD() { return Version(MAX_VERS); }
+	static @property MASTER() { return Version(MASTER_STRING); }
+	static @property UNKNOWN() { return Version(UNKNOWN_VERS); }
+	static @property MASTER_STRING() { return "~master"; }
+	static @property BRANCH_IDENT() { return '~'; }
+	
+	this(string vers)
 	{
-		static string rootPackage(string p) {
-			auto idx = std.string.indexOf(p, ":");
-			if (idx < 0) return p;
-			return p[0 .. idx];
-		}
-
-		size_t[string] package_indices;
-		CONFIG[][] all_configs;
-		void findConfigsRec(TreeNode parent)
-		{
-			foreach (ch; getChildren(parent)) {
-				auto basepack = rootPackage(ch.pack);
-				if (basepack in package_indices) continue;
-
-				auto pidx = all_configs.length;
-				auto configs = getAllConfigs(basepack);
-				enforce(configs.length > 0, format("Found no configurations for package %s.", basepack));
-				all_configs ~= configs;
-				package_indices[basepack] = pidx;
-
-				foreach (v; all_configs[pidx])
-					findConfigsRec(TreeNode(ch.pack, v));
-			}
-		}
-		findConfigsRec(root);
-
-		auto config_indices = new size_t[all_configs.length];
-		config_indices[] = 0;
-
-		bool[TreeNode] visited;
-		bool validateConfigs(TreeNode parent)
-		{
-			if (parent in visited) return true;
-			visited[parent] = true;
-			foreach (ch; getChildren(parent)) {
-				auto basepack = rootPackage(ch.pack);
-				assert(basepack in package_indices, format("%s not in packages %s", basepack, package_indices));
-				auto pidx = package_indices[basepack];
-				auto config = all_configs[pidx][config_indices[pidx]];
-				auto chnode = TreeNode(ch.pack, config);
-				if (!matches(ch.configs, config) || !validateConfigs(chnode))
-					return false;
-			}
-			return true;
-		}
-
-		while (true) {
-			// check if the current combination of configurations works out
-			visited = null;
-			if (validateConfigs(root)) {
-				CONFIG[string] ret;
-				foreach (p, i; package_indices)
-					ret[p] = all_configs[i][config_indices[i]];
-				return ret;
-			}
-
-			// find the next combination of configurations
-			foreach_reverse (pi, ref i; config_indices) {
-				if (++i >= all_configs[pi].length) i = 0;
-				else break;
-			}
-			enforce(config_indices.any!"a!=0", "Could not find a valid dependency tree configuration.");
-		}
+		enforce(vers.length > 1, "Version strings must not be empty.");
+		if (vers[0] != BRANCH_IDENT && vers != UNKNOWN_VERS)
+			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
+		m_version = vers;
 	}
 
-	protected abstract CONFIG[] getAllConfigs(string pack);
-	protected abstract TreeNodes[] getChildren(TreeNode node);
-	protected abstract bool matches(CONFIGS configs, CONFIG config);
+	bool opEquals(const Version oth) const {
+		if (isUnknown || oth.isUnknown) {
+			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, oth));
+		}
+		return m_version == oth.m_version; 
+	}
+	
+	/// Returns true, if this version indicates a branch, which is not the trunk.
+	@property bool isBranch() const { return !m_version.empty && m_version[0] == BRANCH_IDENT; }
+	@property bool isMaster() const { return m_version == MASTER_STRING; }
+	@property bool isPreRelease() const {
+		if (isBranch) return true;
+		return isPreReleaseVersion(m_version);
+	}
+	@property bool isUnknown() const { return m_version == UNKNOWN_VERS; }
+
+	/** 
+		Comparing Versions is generally possible, but comparing Versions 
+		identifying branches other than master will fail. Only equality
+		can be tested for these.
+	*/
+	int opCmp(ref const Version other)
+	const {
+		if (isUnknown || other.isUnknown) {
+			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, other));
+		}
+		if (isBranch || other.isBranch) {
+			if(m_version == other.m_version) return 0;
+			if (!isBranch) return 1;
+			else if (!other.isBranch) return -1;
+			if (isMaster) return 1;
+			else if (other.isMaster) return -1;
+			return this.m_version < other.m_version ? -1 : 1;
+		}
+
+		return compareVersions(isMaster ? MAX_VERS : m_version, other.isMaster ? MAX_VERS : other.m_version);
+	}
+	int opCmp(in Version other) const { return opCmp(other); }
+	
+	string toString() const { return m_version; }
 }
 
 unittest {
-	static class TestResolver : DependencyResolver!(uint[], uint) {
-		private TreeNodes[][string] m_children;
-		this(TreeNodes[][string] children) { m_children = children; }
-		protected override uint[] getAllConfigs(string pack) {
-			auto ret = appender!(uint[]);
-			foreach (p; m_children.byKey) {
-				if (p.length <= pack.length+1) continue;
-				if (p[0 .. pack.length] != pack || p[pack.length] != ':') continue;
-				auto didx = p.lastIndexOf(':');
-				ret ~= p[didx+1 .. $].to!uint;
-			}
-			ret.data.sort!"a>b"();
-			return ret.data;
-		}
-		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null); }
-		protected override bool matches(uint[] configs, uint config) { return configs.canFind(config); }
-	}
+	Version a, b;
 
-	// properly back up if conflicts are detected along the way (d:2 vs d:1)
-	with (TestResolver) {
-		auto res = new TestResolver([
-			"a:0": [TreeNodes("b", [2, 1]), TreeNodes("d", [1]), TreeNodes("e", [2, 1])],
-			"b:1": [TreeNodes("c", [2, 1]), TreeNodes("d", [1])],
-			"b:2": [TreeNodes("c", [3, 2]), TreeNodes("d", [2, 1])],
-			"c:1": [], "c:2": [], "c:3": [],
-			"d:1": [], "d:2": [],
-			"e:1": [], "e:2": [],
-		]);
-		assert(res.resolve(TreeNode("a", 0)) == ["b":2u, "c":3u, "d":1u, "e":2u]);
-	}
+	assertNotThrown(a = Version("1.0.0"), "Constructing Version('1.0.0') failed");
+	assert(!a.isBranch, "Error: '1.0.0' treated as branch");
+	assert(a == a, "a == a failed");
 
-	// handle cyclic dependencies gracefully
-	with (TestResolver) {
-		auto res = new TestResolver([
-			"a:0": [TreeNodes("b", [1])],
-			"b:1": [TreeNodes("b", [1])]
-		]);
-		assert(res.resolve(TreeNode("a", 0)) == ["b":1u]);
-	}
+	assertNotThrown(a = Version(Version.MASTER_STRING), "Constructing Version("~Version.MASTER_STRING~"') failed");
+	assert(a.isBranch, "Error: '"~Version.MASTER_STRING~"' treated as branch");
+	assert(a.isMaster);
+	assert(a == Version.MASTER, "Constructed master version != default master version.");
+
+	assertNotThrown(a = Version("~BRANCH"), "Construction of branch Version failed.");
+	assert(a.isBranch, "Error: '~BRANCH' not treated as branch'");
+	assert(!a.isMaster);
+	assert(a == a, "a == a with branch failed");
+
+	// opCmp
+	a = Version("1.0.0");
+	b = Version("1.0.0");
+	assert(a == b, "a == b with a:'1.0.0', b:'1.0.0' failed");
+	b = Version("2.0.0");
+	assert(a != b, "a != b with a:'1.0.0', b:'2.0.0' failed");
+	a = Version(Version.MASTER_STRING);
+	b = Version("~BRANCH");
+	assert(a != b, "a != b with a:MASTER, b:'~branch' failed");
+	assert(a > b);
+	assert(a < Version("0.0.0"));
+	assert(b < Version("0.0.0"));
+	assert(a > Version("~Z"));
+	assert(b < Version("~Z"));
+	
+	// SemVer 2.0.0-rc.2
+	a = Version("2.0.0-rc.2");
+	b = Version("2.0.0-rc.3");
+	assert(a < b, "Failed: 2.0.0-rc.2 < 2.0.0-rc.3");
+	
+	a = Version("2.0.0-rc.2+build-metadata");
+	b = Version("2.0.0+build-metadata");
+	assert(a < b, "Failed: "~to!string(a)~"<"~to!string(b));
+	
+	// 1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta.2 < 1.0.0-beta.11 < 1.0.0-rc.1 < 1.0.0
+	Version[] versions;
+	versions ~= Version("1.0.0-alpha");
+	versions ~= Version("1.0.0-alpha.1");
+	versions ~= Version("1.0.0-beta.2");
+	versions ~= Version("1.0.0-beta.11");
+	versions ~= Version("1.0.0-rc.1");
+	versions ~= Version("1.0.0");
+	for(int i=1; i<versions.length; ++i)
+		for(int j=i-1; j>=0; --j)
+			assert(versions[j] < versions[i], "Failed: " ~ to!string(versions[j]) ~ "<" ~ to!string(versions[i]));
+
+	a = Version.UNKNOWN;
+	b = Version.RELEASE;
+	assertThrown(a == b, "Failed: compared " ~ to!string(a) ~ " with " ~ to!string(b) ~ "");
+
+	a = Version.UNKNOWN;
+	b = Version.UNKNOWN;
+	assertThrown(a == b, "Failed: UNKNOWN == UNKNOWN");
 }
