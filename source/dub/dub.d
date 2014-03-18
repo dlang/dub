@@ -597,6 +597,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	this(Dub dub, UpdateOptions options)
 	{
 		m_dub = dub;
+		m_selectedVersions = m_dub.m_project.selections;
 		m_options = options;
 	}
 
@@ -604,7 +605,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	{
 		m_rootPackage = root;
 		m_selectedVersions = selected_versions;
-		return super.resolve(TreeNode(root.name, Dependency(root.ver)));
+		return super.resolve(TreeNode(root.name, Dependency(root.ver)), (m_options & UpdateOptions.printUpgradesOnly) == 0);
 	}
 
 	protected override Dependency[] getAllConfigs(string pack)
@@ -647,9 +648,10 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		auto ret = appender!(TreeNodes[]);
 		auto pack = getPackage(node.pack, node.config);
 		foreach (dname, dspec; pack.dependencies) {
-			if (m_options & UpdateOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(node.pack))
+			auto dbasename = getBasePackage(dname);
+			if (m_options & UpdateOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))
 				ret ~= TreeNodes(dname, dspec);
-			else ret ~= TreeNodes(dname, m_selectedVersions.selectedVersion(node.pack));
+			else ret ~= TreeNodes(dname, m_selectedVersions.selectedVersion(dbasename));
 		}
 		return ret.data;
 	}

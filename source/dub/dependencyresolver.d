@@ -10,7 +10,7 @@ module dub.dependencyresolver;
 import dub.dependency;
 import dub.internal.vibecompat.core.log;
 
-import std.algorithm : any, canFind, sort;
+import std.algorithm : all, canFind, sort;
 import std.array : appender;
 import std.conv : to;
 import std.exception : enforce;
@@ -40,7 +40,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		ChildIterationState[] children;
 	}
 
-	CONFIG[string] resolve(TreeNode root)
+	CONFIG[string] resolve(TreeNode root, bool throw_on_failure = true)
 	{
 		static string rootPackage(string p) {
 			auto idx = indexOf(p, ":");
@@ -106,7 +106,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				if (++i >= all_configs[pi].length) i = 0;
 				else break;
 			}
-			enforce(config_indices.any!"a!=0", "Could not find a valid dependency tree configuration.");
+			if (config_indices.all!"a==0") {
+				if (throw_on_failure) throw new Exception("Could not find a valid dependency tree configuration.");
+				else return null;
+			}
 		}
 	}
 
