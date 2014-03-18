@@ -172,16 +172,28 @@ class Project {
 		// some basic package lint
 		m_rootPackage.warnOnSpecialCompilerFlags();
 		if (m_rootPackage.name != m_rootPackage.name.toLower()) {
-			logWarn(`DUB package names should always be lower case, please change to {"name": "%s"}. You can use {"targetName": "%s"} to keep the current executable name.`,
+			logWarn(`WARNING: DUB package names should always be lower case, please change `
+				~ `to {"name": "%s"}. You can use {"targetName": "%s"} to keep the current `
+				~ `executable name.`,
 				m_rootPackage.name.toLower(), m_rootPackage.name);
 		}
+
+		foreach (dn, ds; m_rootPackage.dependencies)
+			if (ds.isExactVersion && ds.version_.isBranch) {
+				logWarn("WARNING: The dependency %s uses a deprecated branch based version "
+					~ "speficication. Please use numbered versions instead. Note that you "
+					~ "can still use the %s file to override a certain dependency to use a "
+					~ "branch instead.", 
+					dn, SelectedVersions.defaultFile);
+			}
 
 		void collectDependenciesRec(Package pack)
 		{
 			logDebug("Collecting dependencies for %s", pack.name);
 			foreach (name, original_vspec; pack.dependencies) {
 				if (!m_selectedVersions.hasSelectedVersion(name)) {
-					logDiagnostic("Version selection for dependency %s of %s is missing.", name, pack.name);
+					logDiagnostic("Version selection for dependency %s of %s is missing.",
+						name, pack.name);
 					continue;
 				}
 
