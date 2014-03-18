@@ -163,57 +163,21 @@ class Dub {
 
 	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true) const { return m_project.getDefaultConfiguration(platform, allow_non_library_configs); }
 
-	/// Performs retrieval and removal as necessary for
-	/// the application.
-	/// @param options bit combination of UpdateOptions
-	void update(UpdateOptions options)
+	void upgrade(UpdateOptions options)
 	{
-		bool[string] masterVersionUpgrades;
-		auto selections = new SelectedVersions;
-		while (true) {
-			Action[] allActions = m_project.determineActions(m_packageSuppliers, options, selections);
-			Action[] actions;
-			foreach(a; allActions)
-				if(a.packageId !in masterVersionUpgrades)
-					actions ~= a;
+		auto resolver = new DependencyVersionResolver(this, options);
+		auto versions = resolver.resolve(m_project.mainPackage, m_project.selections);
 
-			if (actions.length == 0) break;
-
-			logInfo("The following changes will be performed:");
-			bool conflictedOrFailed = false;
-			foreach(Action a; actions) {
-				logInfo("%s %s %s, %s", capitalize(to!string(a.type)), a.packageId, a.vers, a.location);
-				if( a.type == Action.Type.conflict || a.type == Action.Type.failure ) {
-					logInfo(" -> issued by: ");
-					conflictedOrFailed = true;
-					foreach(string pkg, d; a.issuer)
-						logInfo("    "~pkg~": %s", d);
-				}
-			}
-
-			enforce (!conflictedOrFailed, "Aborting package retrieval due to errors.");
-
-			if (m_dryRun) return;
-
-			// Remove first
-			foreach(Action a; actions.filter!(a => a.type == Action.Type.remove)) {
-				assert(a.pack !is null, "No package specified for removal.");
-				remove(a.pack, (options & UpdateOptions.forceRemove) != 0);
-			}
-			foreach(Action a; actions.filter!(a => a.type == Action.Type.fetch)) {
-				fetch(a.packageId, a.vers, a.location, (options & UpdateOptions.upgrade) != 0, (options & UpdateOptions.preRelease) != 0, (options & UpdateOptions.forceRemove) != 0);
-				// never update the same package more than once
-				masterVersionUpgrades[a.packageId] = true;
-			}
-
-			m_project.selections.set(selections);
-			m_project.reinit();
+		foreach (p, ver; versions) {
+			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
+			auto pack = m_packageManager.getBestPackage(p, ver);
+			if (!pack) fetch(p, ver, PlacementLocation.userWide, false, (options & UpdateOptions.preRelease) != 0, (options & UpdateOptions.forceRemove) != 0, false);
+			if (options & UpdateOptions.select)
+				m_project.selections.selectVersion(p, ver.version_);
 		}
 
-		if (options & UpdateOptions.select) {
-			selections.save(m_projectPath ~ SelectedVersions.defaultFile);
-			logDiagnostic("Stored currently selected versions into " ~ SelectedVersions.defaultFile);
-		}
+		if (options & UpdateOptions.select)
+			m_project.saveSelections();
 	}
 
 	/// Generate project files for a specified IDE.
@@ -347,7 +311,7 @@ class Dub {
 
 	// TODO: use flags enum instead of bool parameters
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, bool force_branch_upgrade, bool use_prerelease, bool force_remove)
+	Package fetch(string packageId, const Dependency dep, PlacementLocation location, bool force_branch_upgrade, bool use_prerelease, bool force_remove, bool print_only)
 	{
 		Json pinfo;
 		PackageSupplier supplier;
@@ -372,15 +336,22 @@ class Dub {
 		}
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
-		if (auto pack = m_packageManager.getPackage(packageId, ver, placement)) {
+		auto existing = m_packageManager.getPackage(packageId, ver, placement);
+		if (print_only) {
+			if (existing && existing.vers != ver)
+				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
+					packageId, existing.vers, ver, packageId);
+			return null;
+		}
+		if (existing) {
 			if (!ver.startsWith("~") || !force_branch_upgrade || location == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
-				logInfo("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
+				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
 					packageId, ver, placement);
-				return pack;
+				return existing;
 			} else {
-				logInfo("Removing present package of %s %s", packageId, ver);
-				if (!m_dryRun) m_packageManager.remove(pack, force_remove);
+				logInfo("Removing %s %s to prepare replacement with a new version.", packageId, ver);
+				if (!m_dryRun) m_packageManager.remove(existing, force_remove);
 			}
 		}
 
@@ -516,7 +487,7 @@ class Dub {
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
 			logInfo("DDOX is not present, getting it and storing user wide");
-			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, false, false, false);
+			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, false, false, false, false);
 		}
 
 		version(Windows) auto ddox_exe = "ddox.exe";
@@ -609,4 +580,123 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 		else ret ~= p.baseName(".d");
 	}
 	return ret.data;
+}
+
+private class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
+	private {
+		Dub m_dub;
+		UpdateOptions m_options;
+		Dependency[][string] m_packageVersions;
+		Package[string] m_remotePackages;
+		SelectedVersions m_selectedVersions;
+		Package m_rootPackage;
+	}
+
+
+	this(Dub dub, UpdateOptions options)
+	{
+		m_dub = dub;
+		m_options = options;
+	}
+
+	Dependency[string] resolve(Package root, SelectedVersions selected_versions)
+	{
+		m_rootPackage = root;
+		m_selectedVersions = selected_versions;
+		return super.resolve(TreeNode(root.name, Dependency(root.ver)));
+	}
+
+	protected override Dependency[] getAllConfigs(string pack)
+	{
+		logDiagnostic("Search for versions of %s (%s package suppliers)", pack, m_dub.m_packageSuppliers.length);
+		if (!(m_options & UpdateOptions.upgrade) && m_selectedVersions.hasSelectedVersion(pack))
+			return [m_selectedVersions.selectedVersion(pack)];
+
+		if (auto pvers = pack in m_packageVersions)
+			return *pvers;
+
+		// TODO: if no UpdateOptions.upgrade is given, query the PackageManager first
+
+		foreach (ps; m_dub.m_packageSuppliers) {
+			try {
+				auto vers = ps.getVersions(pack).reverse;
+				if (!vers.length) {
+					logDiagnostic("No versions for %s for %s", pack, ps.description);
+					continue;
+				}
+
+				// move pre-release versions to the back of the list if no preRelease flag is given
+				if (!(m_options & UpdateOptions.preRelease))
+					vers = vers.filter!(v => !v.isPreRelease).array ~ vers.filter!(v => v.isPreRelease).array;
+
+				m_packageVersions[pack] = vers.map!(v => Dependency(v)).array;
+				return vers.map!(v => Dependency(v)).array;
+			} catch (Exception e) {
+				logDebug("Package %s not found in %s: %s", pack, ps.description, e.msg);
+				logDebug("Full error: %s", e.toString().sanitize);
+			}
+		}
+
+		logDiagnostic("Nothing found for %s", pack);
+		return null;
+	}
+
+	protected override TreeNodes[] getChildren(TreeNode node)
+	{
+		auto ret = appender!(TreeNodes[]);
+		auto pack = getPackage(node.pack, node.config);
+		foreach (dname, dspec; pack.dependencies) {
+			if (m_options & UpdateOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(node.pack))
+				ret ~= TreeNodes(dname, dspec);
+			else ret ~= TreeNodes(dname, m_selectedVersions.selectedVersion(node.pack));
+		}
+		return ret.data;
+	}
+
+	protected override bool matches(Dependency configs, Dependency config)
+	{
+		return configs.merge(config).valid;
+	}
+
+	private Package getPackage(string name, Dependency dep)
+	{
+		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
+			return ret;
+
+		auto key = name ~ ":" ~ dep.version_.toString();
+
+		if (auto ret = key in m_remotePackages)
+			return *ret;
+
+		auto prerelease = (m_options & UpdateOptions.preRelease) != 0;
+
+		auto rootpack = name.split(":")[0];
+
+		foreach (ps; m_dub.m_packageSuppliers) {
+			if (rootpack == name) {
+				try {
+					auto desc = ps.getPackageDescription(name, dep, prerelease);
+					auto ret = new Package(desc);
+					m_remotePackages[key] = ret;
+						return ret;
+				} catch (Exception e) {
+					logDiagnostic("Metadata for %s could not be downloaded from %s...", name, ps.description);
+				}
+			} else {
+				try {
+					m_dub.fetch(rootpack, dep, PlacementLocation.userWide, false, prerelease, (m_options & UpdateOptions.forceRemove) != 0, false);
+					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
+					if (!ret) {
+						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
+						return null;
+					}
+				} catch (Exception e) {
+					logDiagnostic("Package %s could not be downloaded from %s...", rootpack, ps.description);
+				}
+			}
+		}
+
+		logWarn("Package %s was found neither locally, nor in the configured package registries.");
+		return null;
+	}
 }

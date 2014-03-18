@@ -84,7 +84,11 @@ struct Version {
 		}
 		if (isBranch || other.isBranch) {
 			if(m_version == other.m_version) return 0;
-			else throw new Exception("Can't compare branch versions! (this: %s, other: %s)".format(this, other));
+			if (!isBranch) return 1;
+			else if (!other.isBranch) return -1;
+			if (isMaster) return 1;
+			else if (other.isMaster) return -1;
+			return this.m_version < other.m_version ? -1 : 1;
 		}
 
 		return compareVersions(isMaster ? MAX_VERS : m_version, other.isMaster ? MAX_VERS : other.m_version);
@@ -120,6 +124,11 @@ unittest {
 	a = Version(Version.MASTER_STRING);
 	b = Version("~BRANCH");
 	assert(a != b, "a != b with a:MASTER, b:'~branch' failed");
+	assert(a > b);
+	assert(a < Version("0.0.0"));
+	assert(b < Version("0.0.0"));
+	assert(a > Version("~Z"));
+	assert(b < Version("~Z"));
 	
 	// SemVer 2.0.0-rc.2
 	a = Version("2.0.0-rc.2");
@@ -170,6 +179,7 @@ struct Dependency {
 
 	// A Dependency, which matches every valid version.
 	static @property ANY() { return Dependency(ANY_IDENT); }
+	static @property INVALID() { Dependency ret; ret.m_versA = Version.HEAD; ret.m_versB = Version.RELEASE; return ret; }
 
 	this(string ves)
 	{
@@ -375,11 +385,10 @@ struct Dependency {
 	/// Merges to versions
 	Dependency merge(ref const(Dependency) o)
 	const {
-		if (!valid()) return this;
-		if (!o.valid()) return o;
-
-		enforce(m_versA.isBranch == o.m_versA.isBranch, format("Conflicting versions: %s vs. %s", m_versA, o.m_versA));
-		enforce(m_versB.isBranch == o.m_versB.isBranch, format("Conflicting versions: %s vs. %s", m_versB, o.m_versB));
+		if (!this.valid || !o.valid) return INVALID;
+		if (m_versA.isBranch != o.m_versA.isBranch) return INVALID;
+		if (m_versB.isBranch != o.m_versB.isBranch) return INVALID;
+		if (m_versA.isBranch) return m_versA == o.m_versA ? this : INVALID;
 
 		Version a = m_versA > o.m_versA ? m_versA : o.m_versA;
 		Version b = m_versB < o.m_versB ? m_versB : o.m_versB;
@@ -477,8 +486,9 @@ unittest {
 
 	a = Dependency(branch1);
 	b = Dependency(branch2);
-	assertThrown(a.merge(b), "Shouldn't be able to merge to different branches");
-	assertNotThrown(b = a.merge(a), "Should be able to merge the same branches. (?)");
+	assert(!a.merge(b).valid, "Shouldn't be able to merge to different branches");
+	b = a.merge(a);
+	assert(b.valid, "Should be able to merge the same branches. (?)");
 	assert(a == b);
 
 	a = Dependency(branch1);
@@ -547,272 +557,140 @@ unittest {
 	logDebug("Dependency Unittest sucess.");
 }
 
-/**
-	Stuff for a dependency lookup.
-*/
-struct RequestedDependency {
-	this( string pkg, Dependency de) {
-		dependency = de;
-		packages[pkg] = de;
+
+class DependencyResolver(CONFIGS, CONFIG) {
+	static struct TreeNodes {
+		string pack;
+		CONFIGS configs;
 	}
-	Dependency dependency;
-	Dependency[string] packages;
+
+	static struct TreeNode {
+		string pack;
+		CONFIG config;
+	}
+
+	static struct ChildIterationState {
+		TreeNode[] configs;
+		size_t configIndex;
+	}
+
+	static struct GraphIterationState {
+		CONFIG[string] visited;
+		TreeNode[] stack;
+		TreeNode node;
+		ChildIterationState[] children;
+	}
+
+	CONFIG[string] resolve(TreeNode root)
+	{
+		static string rootPackage(string p) {
+			auto idx = p.indexOf(":");
+			if (idx < 0) return p;
+			return p[0 .. idx];
+		}
+
+		size_t[string] package_indices;
+		CONFIG[][] all_configs;
+		void findConfigsRec(TreeNode parent)
+		{
+			foreach (ch; getChildren(parent)) {
+				auto basepack = rootPackage(ch.pack);
+				if (basepack in package_indices) continue;
+
+				auto pidx = all_configs.length;
+				auto configs = getAllConfigs(basepack);
+				enforce(configs.length > 0, format("Found no configurations for package %s.", basepack));
+				all_configs ~= configs;
+				package_indices[basepack] = pidx;
+
+				foreach (v; all_configs[pidx])
+					findConfigsRec(TreeNode(ch.pack, v));
+			}
+		}
+		findConfigsRec(root);
+
+		auto config_indices = new size_t[all_configs.length];
+		config_indices[] = 0;
+
+		bool[TreeNode] visited;
+		bool validateConfigs(TreeNode parent)
+		{
+			if (parent in visited) return true;
+			visited[parent] = true;
+			foreach (ch; getChildren(parent)) {
+				auto basepack = rootPackage(ch.pack);
+				assert(basepack in package_indices, format("%s not in packages %s", basepack, package_indices));
+				auto pidx = package_indices[basepack];
+				auto config = all_configs[pidx][config_indices[pidx]];
+				auto chnode = TreeNode(ch.pack, config);
+				if (!matches(ch.configs, config) || !validateConfigs(chnode))
+					return false;
+			}
+			return true;
+		}
+
+		while (true) {
+			// check if the current combination of configurations works out
+			visited = null;
+			if (validateConfigs(root)) {
+				CONFIG[string] ret;
+				foreach (p, i; package_indices)
+					ret[p] = all_configs[i][config_indices[i]];
+				return ret;
+			}
+
+			// find the next combination of configurations
+			foreach_reverse (pi, ref i; config_indices) {
+				if (++i >= all_configs[pi].length) i = 0;
+				else break;
+			}
+			enforce(config_indices.any!"a!=0", "Could not find a valid dependency tree configuration.");
+		}
+	}
+
+	protected abstract CONFIG[] getAllConfigs(string pack);
+	protected abstract TreeNodes[] getChildren(TreeNode node);
+	protected abstract bool matches(CONFIGS configs, CONFIG config);
 }
 
-class DependencyGraph {	
-	this(const Package root) {
-		m_root = root;
-		m_packages[m_root.name] = root;
-	}
-	
-	void insert(const Package p) {
-		enforce(p.name != m_root.name, format("Dependency with the same name as the root package (%s) detected.", p.name));
-		m_packages[p.name] = p;
-	}
-	
-	void remove(const Package p) {
-		enforce(p.name != m_root.name);
-		Rebindable!(const Package)* pkg = p.name in m_packages;
-		if( pkg ) m_packages.remove(p.name);
-	}
-	
-	private
-	{
-		alias Rebindable!(const Package) PkgType;
-	}
-	
-	void clearUnused() {
-		Rebindable!(const Package)[string] unused = m_packages.dup;
-		unused.remove(m_root.name);
-		forAllDependencies( (const PkgType* avail, string s, Dependency d, const Package issuer) {
-			if(avail && d.matches(avail.vers))
-				unused.remove(avail.name);
-		});
-		foreach(string unusedPkg, d; unused) {
-			logDebug("Removed unused package: "~unusedPkg);
-			m_packages.remove(unusedPkg);
-		}
-	}
-	
-	RequestedDependency[string] conflicted() const {
-		RequestedDependency[string] deps = needed();
-		RequestedDependency[string] conflicts;
-		foreach(string pkg, d; deps)
-			if(!d.dependency.valid())
-				conflicts[pkg] = d;
-		return conflicts;
-	}
-	
-	RequestedDependency[string] missing() const {
-		RequestedDependency[string] deps;
-		forAllDependencies( (const PkgType* avail, string pkgId, Dependency d, const Package issuer) {
-			if(!d.optional && (!avail || !d.matches(avail.vers)))
-				addDependency(deps, pkgId, d, issuer);
-		});
-		return deps;
-	}
-	
-	RequestedDependency[string] needed() const {
-		RequestedDependency[string] deps;
-		forAllDependencies( (const PkgType* avail, string pkgId, Dependency d, const Package issuer) {
-			if(!d.optional)
-				addDependency(deps, pkgId, d, issuer);
-		});
-		return deps;
-	}
-
-	RequestedDependency[string] optional() const {
-		RequestedDependency[string] allDeps;
-		forAllDependencies( (const PkgType* avail, string pkgId, Dependency d, const Package issuer) {
-			addDependency(allDeps, pkgId, d, issuer);
-		});
-		RequestedDependency[string] optionalDeps;
-		foreach(id, req; allDeps)
-			if(req.dependency.optional) optionalDeps[id] = req;
-		return optionalDeps;
-	}
-	
-	private void forAllDependencies(void delegate (const PkgType* avail, string pkgId, Dependency d, const Package issuer) dg) const {
-		foreach(string issuerPackag, issuer; m_packages) {
-			foreach(string depPkg, dependency; issuer.dependencies) {
-				auto availPkg = depPkg in m_packages;
-				dg(availPkg, depPkg, dependency, issuer);
+unittest {
+	static class TestResolver : DependencyResolver!(size_t[], size_t) {
+		private TreeNodes[][string] m_children;
+		this(TreeNodes[][string] children) { m_children = children; }
+		protected override size_t[] getAllConfigs(string pack) {
+			auto ret = appender!(size_t[]);
+			foreach (p; m_children.byKey) {
+				if (p.length <= pack.length+1) continue;
+				if (p[0 .. pack.length] != pack || p[pack.length] != ':') continue;
+				auto didx = p.lastIndexOf(':');
+				ret ~= p[didx+1 .. $].to!size_t;
 			}
+			ret.data.sort!"a>b"();
+			return ret.data;
 		}
-	}
-	
-	private static void addDependency(ref RequestedDependency[string] deps, string packageId, Dependency d, const Package issuer) {
-		auto d2 = packageId in deps;
-		if(!d2) {
-			deps[packageId] = RequestedDependency(issuer.name, d);
-		} else {
-			d2.packages[issuer.name] = d;
-			try d2.dependency = d2.dependency.merge(d);
-			catch (Exception e) {
-				logError("Conflicting dependency %s: %s", packageId, e.msg);
-				foreach (p, d; d2.packages)
-					logError("  %s requires %s", p, d);
-				d2.dependency = Dependency("<=0.0.0 >=1.0.0");
-			}
-		}
-	}
-	
-	private {
-		const Package m_root;
-		PkgType[string] m_packages;
+		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null); }
+		protected override bool matches(size_t[] configs, size_t config) { return configs.canFind(config); }
 	}
 
-	unittest {
-		/*
-			R (master) -> A (master)
-		*/
-		auto R_json = parseJsonString(`
-		{
-			"name": "r",
-			"dependencies": {
-				"a": "~master",
-				"b": "1.0.0"
-			},
-			"version": "~master"
-		}
-			`);
-		Package r_master = new Package(R_json);
-		auto graph = new DependencyGraph(r_master);
-
-		assert(graph.conflicted.length == 0, "There are conflicting packages");
-
-		void expectA(RequestedDependency[string] requested, string name) {
-			assert("a" in requested, "Package a is not the "~name~" package");
-			assert(requested["a"].dependency == Dependency("~master"), "Package a is not "~name~" as ~master version.");
-			assert("r" in requested["a"].packages, "Package r is not the issuer of "~name~" Package a(~master).");
-			assert(requested["a"].packages["r"] == Dependency("~master"), "Package r is not the issuer of "~name~" Package a(~master).");
-		}
-		void expectB(RequestedDependency[string] requested, string name) {
-			assert("b" in requested, "Package b is not the "~name~" package");
-			assert(requested["b"].dependency == Dependency("1.0.0"), "Package b is not "~name~" as 1.0.0 version.");
-			assert("r" in requested["b"].packages, "Package r is not the issuer of "~name~" Package b(1.0.0).");
-			assert(requested["b"].packages["r"] == Dependency("1.0.0"), "Package r is not the issuer of "~name~" Package b(1.0.0).");
-		}
-		auto missing = graph.missing();
-		assert(missing.length == 2, "Invalid count of missing items");
-		expectA(missing, "missing");
-		expectB(missing, "missing");
-
-		auto needed = graph.needed();
-		assert(needed.length == 2, "Invalid count of needed packages.");		
-		expectA(needed, "needed");
-		expectB(needed, "needed");
-
-		assert(graph.optional.length == 0, "There are optional packages reported");
-
-		auto A_json = parseJsonString(`
-		{
-			"name": "a",
-			"dependencies": {
-			},
-			"version": "~master"
-		}
-			`);
-		Package a_master = new Package(A_json);
-		graph.insert(a_master);
-
-		assert(graph.conflicted.length == 0, "There are conflicting packages");
-
-		auto missing2 = graph.missing;
-		assert(missing2.length == 1, "Missing list does not contain an package.");
-		expectB(missing2, "missing2");
-
-		needed = graph.needed;
-		assert(needed.length == 2, "Invalid count of needed packages.");		
-		expectA(needed, "needed");
-		expectB(needed, "needed");
-
-		assert(graph.optional.length == 0, "There are optional packages reported");
+	// properly back up if conflicts are detected along the way (d:2 vs d:1)
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", [2, 1]), TreeNodes("d", [1]), TreeNodes("e", [2, 1])],
+			"b:1": [TreeNodes("c", [2, 1]), TreeNodes("d", [1])],
+			"b:2": [TreeNodes("c", [3, 2]), TreeNodes("d", [2, 1])],
+			"c:1": [], "c:2": [], "c:3": [],
+			"d:1": [], "d:2": [],
+			"e:1": [], "e:2": [],
+		]);
+		assert(res.resolve(TreeNode("a", 0)) == ["b":2u, "c":3u, "d":1u, "e":2u]);
 	}
 
-	unittest {
-		/*
-			r -> r:sub
-		*/
-		auto R_json = parseJsonString(`
-		{
-			"name": "r",
-			"dependencies": {
-				"r:sub": "~master"
-			},
-			"version": "~master",
-			"subPackages": [
-				{
-					"name": "sub"
-				}
-			]
-		}
-			`);
-
-		Package r_master = new Package(R_json);
-		auto graph = new DependencyGraph(r_master);
-		assert(graph.missing().length == 1);
-		// Subpackages need to be explicitly added.
-		graph.insert(r_master.subPackages[0]);
-		assert(graph.missing().length == 0);
-	}
-
-	unittest {
-		/*
-			r -> s:sub
-		*/
-		auto R_json = parseJsonString(`
-		{
-			"name": "r",
-			"dependencies": {
-				"s:sub": "~master"
-			},
-			"version": "~master"
-		}
-			`);
-		auto S_w_sub_json = parseJsonString(`
-		{
-			"name": "s",
-			"version": "~master",
-			"subPackages": [
-				{
-					"name": "sub"
-				}
-			]
-		}
-			`);
-		auto S_wout_sub_json = parseJsonString(`
-		{
-			"name": "s",
-			"version": "~master"
-		}
-			`);
-		auto sub_json = parseJsonString(`
-		{
-			"name": "sub",
-			"version": "~master"
-		}
-			`);
-
-		Package r_master = new Package(R_json);
-		auto graph = new DependencyGraph(r_master);
-		assert(graph.missing().length == 1);
-		Package s_master = new Package(S_w_sub_json);
-		graph.insert(s_master);
-		assert(graph.missing().length == 1);
-		graph.insert(s_master.subPackages[0]);
-		assert(graph.missing().length == 0);
-
-		graph = new DependencyGraph(r_master);
-		assert(graph.missing().length == 1);
-		s_master = new Package(S_wout_sub_json);
-		graph.insert(s_master);
-		assert(graph.missing().length == 1);
-
-		graph = new DependencyGraph(r_master);
-		assert(graph.missing().length == 1);
-		s_master = new Package(sub_json);
-		graph.insert(s_master);
-		assert(graph.missing().length == 1);
+	// handle cyclic dependencies gracefully
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", [1])],
+			"b:1": [TreeNodes("b", [1])]
+		]);
+		assert(res.resolve(TreeNode("a", 0)) == ["b":1u]);
 	}
 }

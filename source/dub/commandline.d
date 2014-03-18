@@ -364,8 +364,12 @@ abstract class PackageBuildCommand : Command {
 		}
 
 		if (!m_nodeps) {
-			logDiagnostic("Checking dependencies in '%s'", dub.projectPath.toNativeString());
-			dub.update(UpdateOptions.select);
+			// retrieve missing packages
+			logDiagnostic("Checking for missing dependencies.");
+			dub.upgrade(UpdateOptions.select);
+			// check for updates
+			logDiagnostic("Checking for upgrades.");
+			dub.upgrade(UpdateOptions.upgrade|UpdateOptions.printUpgradesOnly);
 		}
 	}
 
@@ -725,7 +729,7 @@ class UpgradeCommand : Command {
 		if (m_prerelease) options |= UpdateOptions.preRelease;
 		if (m_forceRemove) options |= UpdateOptions.forceRemove;
 		enforceUsage(app_args.length == 0, "Upgrading a specific package is not yet implemented.");
-		dub.update(options);
+		dub.upgrade(options);
 		return 0;
 	}
 }
@@ -796,10 +800,10 @@ class FetchCommand : FetchRemoveCommand {
 
 		auto name = free_args[0];
 
-		if (m_version.length) dub.fetch(name, Dependency(m_version), location, true, false, m_forceRemove);
+		if (m_version.length) dub.fetch(name, Dependency(m_version), location, true, false, m_forceRemove, false);
 		else {
 			try {
-				dub.fetch(name, Dependency(">=0.0.0"), location, true, false, m_forceRemove);
+				dub.fetch(name, Dependency(">=0.0.0"), location, true, false, m_forceRemove, false);
 				logInfo(
 					"Please note that you need to use `dub run <pkgname>` " ~ 
 					"or add it to dependencies of your package to actually use/run it. " ~
@@ -808,7 +812,7 @@ class FetchCommand : FetchRemoveCommand {
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
 				logInfo("Retry with ~master...");
-				dub.fetch(name, Dependency("~master"), location, true, true, m_forceRemove);
+				dub.fetch(name, Dependency("~master"), location, true, true, m_forceRemove, false);
 			}
 		}
 		return 0;

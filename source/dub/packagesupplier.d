@@ -14,16 +14,23 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 
-import std.file;
-import std.exception;
-import std.zip;
+import std.algorithm : filter, sort;
+import std.array : array;
 import std.conv;
+import std.exception;
+import std.file;
+import std.string : format;
+import std.zip;
+
+// TODO: drop the "best package" behavior and let retrievePackage/getPackageDescription take a Version instead of Dependency
 
 /// Supplies packages, this is done by supplying the latest possible version
 /// which is available.
 interface PackageSupplier {
 	/// Returns a hunman readable representation of the supplier
 	@property string description();
+
+	Version[] getVersions(string package_id);
 
 	/// path: absolute path to store the package (usually in a zip format)
 	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release);
@@ -41,6 +48,21 @@ class FileSystemPackageSupplier : PackageSupplier {
 
 	override @property string description() { return "file repository at "~m_path.toNativeString(); }
 	
+	Version[] getVersions(string package_id)
+	{
+		Version[] ret;
+		foreach (DirEntry d; dirEntries(m_path.toNativeString(), package_id~"*", SpanMode.shallow)) {
+			Path p = Path(d.name);
+			logDebug("Entry: %s", p);
+			enforce(to!string(p.head)[$-4..$] == ".zip");
+			auto vers = p.head.toString()[package_id.length+1..$-4];
+			logDebug("Version: %s", vers);
+			ret ~= Version(vers);
+		}
+		ret.sort();
+		return ret;
+	}
+
 	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{
 		enforce(path.absolute);
@@ -57,31 +79,17 @@ class FileSystemPackageSupplier : PackageSupplier {
 	}
 	
 	private Path bestPackageFile(string packageId, Dependency dep, bool pre_release)
-	const {
-		Version bestver = Version.RELEASE;
-		foreach (DirEntry d; dirEntries(m_path.toNativeString(), packageId~"*", SpanMode.shallow)) {
-			Path p = Path(d.name);
-			logDebug("Entry: %s", p);
-			enforce(to!string(p.head)[$-4..$] == ".zip");
-			string vers = to!string(p.head)[packageId.length+1..$-4];
-			logDebug("Version string: "~vers);
-			Version cur = Version(vers);
-			if (!dep.matches(cur)) continue;
-			if (bestver == Version.RELEASE) bestver = cur;
-			else if (pre_release) {
-				if (cur > bestver) bestver = cur;
-			} else if (bestver.isPreRelease) {
-				if (!cur.isPreRelease || cur > bestver) bestver = cur;
-			} else if (!cur.isPreRelease && cur > bestver) bestver = cur;
+	{
+		Path toPath(Version ver) {
+			return m_path ~ (packageId ~ "-" ~ ver.toString() ~ ".zip");
 		}
-		
-		auto fileName = m_path ~ (packageId ~ "_" ~ to!string(bestver) ~ ".zip");
-		
-		if (bestver == Version.RELEASE || !existsFile(fileName))
-			throw new Exception("No matching package found");
-		
-		logDiagnostic("Found best matching package: '%s'", fileName);
-		return fileName;
+		auto versions = getVersions(packageId).filter!(v => dep.matches(v)).array;
+		enforce(versions.length > 0, format("No package %s found matching %s", packageId, dep));
+		foreach_reverse (ver; versions) {
+			if (pre_release || !ver.isPreRelease)
+				return toPath(ver);
+		}
+		return toPath(versions[$-1]);
 	}
 }
 
@@ -99,6 +107,18 @@ class RegistryPackageSupplier : PackageSupplier {
 	}
 
 	override @property string description() { return "registry at "~m_registryUrl.toString(); }
+
+	Version[] getVersions(string package_id)
+	{
+		Version[] ret;
+		Json md = getMetadata(package_id);
+		foreach (json; md["versions"]) {
+			auto cur = Version(cast(string)json["version"]);
+			ret ~= cur;
+		}
+		ret.sort();
+		return ret;
+	}
 	
 	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{

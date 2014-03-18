@@ -176,39 +176,37 @@ class Project {
 				m_rootPackage.name.toLower(), m_rootPackage.name);
 		}
 
-		// TODO: compute the set of mutual dependencies first
-		// (i.e. ">=0.0.1 <=0.0.5" and "<= 0.0.4" get ">=0.0.1 <=0.0.4")
-		// conflicts would then also be detected.
 		void collectDependenciesRec(Package pack)
 		{
-			logDiagnostic("Collecting dependencies for %s", pack.name);
-			foreach( name, original_vspec; pack.dependencies ){
-				Dependency vspec = original_vspec;
-				if (m_selectedVersions.hasSelectedVersion(name)) {
-					vspec = m_selectedVersions.selectedVersion(name);
-					logDiagnostic("Dependency on %s overruled by locally selected version: %s", name, vspec);
+			logDebug("Collecting dependencies for %s", pack.name);
+			foreach (name, original_vspec; pack.dependencies) {
+				if (!m_selectedVersions.hasSelectedVersion(name)) {
+					logDiagnostic("Version selection for dependency %s of %s is missing.", name, pack.name);
+					continue;
 				}
 
+				Dependency vspec = m_selectedVersions.selectedVersion(name);
+
 				Package p;
-				if( !vspec.path.empty ){
+				if (!vspec.path.empty) {
 					Path path = vspec.path;
-					if( !path.absolute ) path = pack.path ~ path;
+					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("Adding local %s %s", path, vspec.version_);
 					p = m_packageManager.getTemporaryPackage(path, vspec.version_);
 				} else {
 					p = m_packageManager.getBestPackage(name, vspec);
 				}
-				if( !m_dependencies.canFind(p) ){
-					logDiagnostic("Found dependency %s %s: %s", name, vspec.toString(), p !is null);
-					if( p ){
-						m_dependencies ~= p;
-						p.warnOnSpecialCompilerFlags();
-						collectDependenciesRec(p);
-					}
+
+				if (!p) {
+					logDiagnostic("Missing dependency %s %s of %s", name, vspec, pack.name);
+					continue;
 				}
 
-				if( m_selectedVersions.hasSelectedVersion(name) && !pack) {
-					logError("The locally selected version was not found: " ~ name);
+				if (!m_dependencies.canFind(p)) {
+					logDiagnostic("Found dependency %s %s", name, vspec.toString());
+					m_dependencies ~= p;
+					p.warnOnSpecialCompilerFlags();
+					collectDependenciesRec(p);
 				}
 
 				m_dependees[p] ~= pack;
@@ -459,91 +457,25 @@ class Project {
 		return false;
 	}
 
-	/// Actions which can be performed to update the application.
-	/// selectedVersions:
-	Action[] determineActions(PackageSupplier[] packageSuppliers, UpdateOptions option, SelectedVersions selected_versions = null)
+	/*bool iterateDependencies(bool delegate(Package pack, string dep_name, Dependency dep_spec) del)
 	{
-		scope(exit) writeDubJson();
+		bool all_found = true;
 
-		selected_versions.clean();
+		bool[string] visited;
+		void iterate(Package pack)
+		{
+			if (pack.name in visited) return;
+			visited[pack.name] = true;
 
-		if(!m_rootPackage) {
-			Action[] a;
-			return a;
-		}
-
-		auto graph = new DependencyGraph(m_rootPackage);
-		if(!gatherMissingDependencies(packageSuppliers, graph) || graph.missing().length > 0) {
-			// Check the conflicts first.
-			auto conflicts = graph.conflicted();
-			if(conflicts.length > 0) {
-				logError("The dependency graph could not be filled, there are conflicts.");
-				Action[] actions;
-				foreach( string pkg, dbp; graph.conflicted())
-					actions ~= Action.conflict(pkg, dbp.dependency, dbp.packages);
-				
-				// Missing dependencies could have some bogus results, therefore
-				// return only the conflicts.
-				return actions;
-			}
-
-			// Then check unresolved dependencies.
-			logError("The dependency graph could not be filled, there are unresolved dependencies.");
-			Action[] actions;
-			foreach( string pkg, rdp; graph.missing())
-				actions ~= Action.failure(pkg, rdp.dependency, rdp.packages);
-
-			return actions;
-		}
-
-		// Gather retrieved
-		Package[string] retrieved;
-		retrieved[m_rootPackage.name] = m_rootPackage;
-		foreach(ref Package p; m_dependencies) {
-			auto pbase = p.basePackage;
-			auto pexist = retrieved.get(pbase.name, null);
-			if (pexist && pexist !is pbase){
-				logError("Conflicting package references found:");
-				logError("  %s %s: %s", pexist.name, pexist.vers, pexist.path.toNativeString());
-				logError("  %s %s: %s", pbase.name, pbase.vers, pbase.path.toNativeString());
-				throw new Exception("Conflicting package multi-references.");
-			}
-			retrieved[pbase.name] = pbase;
-		}
-
-		// Check against package list and add retrieval actions
-		Action[] actions;
-		void addAction(Action act) {
-			if (!actions.any!(a => a.type == act.type && a.location == act.location && a.packageId == act.packageId && a.vers == act.vers))
-				actions ~= act;
-		}
-		int[string] upgradePackages;
-		scope(failure) if (selected_versions) selected_versions.clean();
-		foreach( string pkg, d; graph.needed() ) {
-			auto basepkg = pkg.getBasePackage();
-			auto p = basepkg in retrieved;
-			// TODO: auto update to latest head revision
-			if(!p || (!d.dependency.matches(p.vers) && !d.dependency.matches(Version.MASTER))) {
-				if(!p) logDiagnostic("Triggering retrieval of required package '"~basepkg~"', which was not present.");
-				else logDiagnostic("Triggering retrieval of required package '"~basepkg~"', which doesn't match the required versionh. Required '%s', available '%s'.", d.dependency, p.vers);
-				addAction(Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages));
-			} else {
-				if (option & UpdateOptions.upgrade) {
-					auto existing = m_packageManager.getBestPackage(basepkg, d.dependency);
-					// Only add one upgrade action for each package.
-					if(basepkg !in upgradePackages && m_packageManager.isManagedPackage(existing)) {
-						logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"', upgrading.");
-						upgradePackages[basepkg] = 1;
-						addAction(Action.get(basepkg, PlacementLocation.userWide, d.dependency, d.packages));
-					}
-				} else logDiagnostic("Required package '"~basepkg~"' found with version '"~p.vers~"'");
-
-				if (selected_versions) selected_versions.selectVersion(pkg, p.ver, d.packages);
+			foreach (dn, ds; pack.dependencies) {
+				auto dep = del(pack, dn, ds);
+				if (dep) iterateDependencies(dep);
+				else all_found = false;
 			}
 		}
 
-		return actions;
-	}
+		return all_found;
+	}*/
 
 	/// Outputs a JSON description of the project, including its deoendencies.
 	void describe(ref Json dst, BuildPlatform platform, string config)
@@ -563,121 +495,10 @@ class Project {
 		}
 	}
 
-	private bool gatherMissingDependencies(PackageSupplier[] packageSuppliers, DependencyGraph graph)
+	void saveSelections()
 	{
-		RequestedDependency[string] missing = graph.missing();
-		RequestedDependency[string] oldMissing;
-		while( missing.length > 0 ) {
-			logDebug("Try to resolve %s", missing.keys);
-			if( missing.keys == oldMissing.keys ){ // FIXME: should actually compare the complete AA here
-				bool different = false;
-				foreach(string pkg, reqDep; missing) {
-					auto o = pkg in oldMissing;
-					if(o && reqDep.dependency != o.dependency) {
-						different = true;
-						break;
-					}
-				}
-				if(!different) {
-					logWarn("Could not resolve dependencies");
-					return false;
-				}
-			}
-
-			oldMissing = missing.dup;
-			logDebug("There are %s packages missing.", missing.length);
-
-			auto toLookup = missing;
-			foreach(id, dep; graph.optional()) {
-				assert(id !in toLookup, "A missing dependency in the graph seems to be optional, which is an error.");
-				toLookup[id] = dep;
-			}
-
-			foreach(string pkg, reqDep; toLookup) {
-				if(!reqDep.dependency.valid()) {
-					logDebug("Dependency to "~pkg~" is invalid. Trying to fix by modifying others.");
-					continue;
-				}
-					
-				auto ppath = pkg.getSubPackagePath();
-
-				// TODO: auto update and update interval by time
-				logDebug("Adding package to graph: "~pkg);
-				Package p = m_packageManager.getBestPackage(pkg, reqDep.dependency);
-				if( p ) logDebug("Found present package %s %s", pkg, p.ver);
-
-				// Don't bother with not available optional packages.
-				if( !p && reqDep.dependency.optional ) continue;
-				
-				// Try an already present package first
-				if( p && needsUpToDateCheck(p) ){
-					logInfo("Triggering update of package %s", pkg);
-					p = null;
-				}
-
-				if( !p ) p = fetchPackageMetadata(packageSuppliers, pkg, reqDep);
-				if( p ) graph.insert(p);
-			}
-			graph.clearUnused();
-			
-			// As the dependencies are filled in starting from the outermost 
-			// packages, resolving those conflicts won't happen (?).
-			if(graph.conflicted().length > 0) {
-				logInfo("There are conflicts in the dependency graph.");
-				return false;
-			}
-
-			missing = graph.missing();
-		}
-
-		return true;
-	}
-
-	private Package fetchPackageMetadata(PackageSupplier[] packageSuppliers, string pkg, RequestedDependency reqDep) {
-		Package p = null;
-		try {
-			logDiagnostic("Fetching package %s (%d suppliers registered)", pkg, packageSuppliers.length);
-			auto ppath = pkg.getSubPackagePath();
-			auto basepkg = pkg.getBasePackage();
-			foreach (supplier; packageSuppliers) {
-				try {
-					// Get main package.
-					auto sp = new Package(supplier.getPackageDescription(basepkg, reqDep.dependency, false));
-					// Fetch subpackage, if one was requested.
-					foreach (spn; ppath[1 .. $]) {
-						try {
-							// Some subpackages are shipped with the main package.
-							sp = sp.getSubPackage(spn);
-						} catch (Exception e) {
-							// HACK: Support for external packages. Until the registry serves the
-							//   metadata of the external packages, there is no way to get to
-							//   know this information.
-							//
-							//   Eventually, the dependencies of all referenced packages will be
-							//   fulfilled, but this is done by a hack where the metadata of the
-							//   external package is inferred as having no additional dependencies.
-							//   When the package is then fetched the state is re-evaluated and
-							//   possible new dependencies will be resolved.
-							string hacked_info = "{\"name\": \"" ~ spn ~ "\"}";
-							auto info = parseJson(hacked_info);
-							sp = new Package(info, Path(), sp);
-						}
-					}
-					p = sp;
-					break;
-				} catch (Exception e) {
-					logDiagnostic("No metadata for %s: %s", supplier.description, e.msg);
-				}
-			}
-			enforce(p !is null, "Could not find package candidate for "~pkg~" "~reqDep.dependency.toString());
-			markUpToDate(basepkg);
-		}
-		catch(Exception e) {
-			logError("Failed to retrieve metadata for package %s: %s", pkg, e.msg);
-			logDiagnostic("Full error: %s", e.toString().sanitize());
-		}
-
-		return p;
+		assert(m_selectedVersions !is null, "Cannot save selections for non-disk based project (has no selections).");
+		m_selectedVersions.save(m_rootPackage.path ~ SelectedVersions.defaultFile);
 	}
 
 	private bool needsUpToDateCheck(Package pack) {
@@ -734,13 +555,14 @@ struct Action {
 		string packageId;
 		PlacementLocation location;
 		Dependency vers;
+		Version existingVersion;
 	}
 	const Package pack;
 	const Dependency[string] issuer;
 
-	static Action get(string pkg, PlacementLocation location, in Dependency dep, Dependency[string] context)
+	static Action get(string pkg, PlacementLocation location, in Dependency dep, Dependency[string] context, Version old_version = Version.UNKNOWN)
 	{
-		return Action(Type.fetch, pkg, location, dep, context);
+		return Action(Type.fetch, pkg, location, dep, context, old_version);
 	}
 
 	static Action remove(Package pkg, Dependency[string] context)
@@ -758,13 +580,14 @@ struct Action {
 		return Action(Type.failure, pkg, PlacementLocation.userWide, dep, context);
 	}
 
-	private this(Type id, string pkg, PlacementLocation location, in Dependency d, Dependency[string] issue)
+	private this(Type id, string pkg, PlacementLocation location, in Dependency d, Dependency[string] issue, Version existing_version = Version.UNKNOWN)
 	{
 		this.type = id;
 		this.packageId = pkg;
 		this.location = location;
 		this.vers = d;
 		this.issuer = issue;
+		this.existingVersion = existing_version;
 	}
 
 	private this(Type id, Package pkg, Dependency[string] issue)
@@ -785,10 +608,11 @@ struct Action {
 enum UpdateOptions
 {
 	none = 0,
-	upgrade = 1<<1,
-	preRelease = 1<<2, // inclde pre-release versions in upgrade
-	forceRemove = 1<<3,
+	upgrade = 1<<1, /// Upgrade existing packages
+	preRelease = 1<<2, /// inclde pre-release versions in upgrade
+	forceRemove = 1<<3, /// Force removing package folders, which contain unknown files
 	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
+	printUpgradesOnly = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
 }
 
 
@@ -931,9 +755,8 @@ class SelectedVersions {
 		m_selectedVersions = versions.m_selectedVersions.dup;
 	}
 
-	void selectVersion(string packageId, Version version_, Dependency[string] issuer)
+	void selectVersion(string packageId, Version version_)
 	{
-		enforce(packageId !in m_selectedVersions, "Cannot reselect a package!");
 		m_selectedVersions[packageId] = Selected(version_/*, issuer*/);
 	}
 
