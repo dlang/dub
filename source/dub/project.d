@@ -180,10 +180,10 @@ class Project {
 
 		foreach (dn, ds; m_rootPackage.dependencies)
 			if (ds.isExactVersion && ds.version_.isBranch) {
-				logWarn("WARNING: The dependency %s uses a deprecated branch based version "
-					~ "speficication. Please use numbered versions instead. Note that you "
-					~ "can still use the %s file to override a certain dependency to use a "
-					~ "branch instead.", 
+				logWarn("WARNING: A deprecated branch based version specification is used "
+					~ "for the dependency %s. Please use numbered versions instead. Also "
+					~ "note that you can still use the %s file to override a certain "
+					~ "dependency to use a branch instead.",
 					dn, SelectedVersions.defaultFile);
 			}
 
