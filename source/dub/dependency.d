@@ -584,7 +584,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 	CONFIG[string] resolve(TreeNode root)
 	{
 		static string rootPackage(string p) {
-			auto idx = p.indexOf(":");
+			auto idx = std.string.indexOf(p, ":");
 			if (idx < 0) return p;
 			return p[0 .. idx];
 		}
