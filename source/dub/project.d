@@ -163,12 +163,8 @@ class Project {
 		return cfgs[m_rootPackage.name];
 	}
 
-	/// Rereads the applications state.
-	void reinit()
+	void validate()
 	{
-		m_dependencies = null;
-		m_packageManager.refresh(false);
-
 		// some basic package lint
 		m_rootPackage.warnOnSpecialCompilerFlags();
 		if (m_rootPackage.name != m_rootPackage.name.toLower()) {
@@ -186,6 +182,13 @@ class Project {
 					~ "dependency to use a branch instead.",
 					dn, SelectedVersions.defaultFile);
 			}
+	}
+
+	/// Rereads the applications state.
+	void reinit()
+	{
+		m_dependencies = null;
+		m_packageManager.refresh(false);
 
 		void collectDependenciesRec(Package pack)
 		{

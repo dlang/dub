@@ -371,6 +371,8 @@ abstract class PackageBuildCommand : Command {
 			logDiagnostic("Checking for upgrades.");
 			dub.upgrade(UpdateOptions.upgrade|UpdateOptions.printUpgradesOnly);
 		}
+
+		dub.project.validate();
 	}
 
 	private bool loadSpecificPackage(Dub dub, string package_name)
