@@ -73,11 +73,6 @@ class GdcCompiler : Compiler {
 					settings.addDFlags(t[1]);
 		}
 
-		if (!(fields & BuildSetting.libs)) {
-			resolveLibs(settings);
-			settings.addDFlags(settings.libs.map!(l => "-l"~l)().array());
-		}
-
 		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-fversion="~s)().array());
 			settings.versions = null;
@@ -101,6 +96,11 @@ class GdcCompiler : Compiler {
 		if (!(fields & BuildSetting.sourceFiles)) {
 			settings.addDFlags(settings.sourceFiles);
 			settings.sourceFiles = null;
+		}
+
+		if (!(fields & BuildSetting.libs)) {
+			resolveLibs(settings);
+			settings.addDFlags(settings.libs.map!(l => "-l"~l)().array());
 		}
 
 		if (!(fields & BuildSetting.lflags)) {
