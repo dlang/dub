@@ -179,6 +179,8 @@ class Dub {
 
 		if (options & UpdateOptions.select)
 			m_project.saveSelections();
+
+		m_project.reinit();
 	}
 
 	/// Generate project files for a specified IDE.
