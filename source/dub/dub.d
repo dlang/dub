@@ -619,7 +619,9 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		if (auto pvers = pack in m_packageVersions)
 			return *pvers;
 
-		// TODO: if no UpdateOptions.upgrade is given, query the PackageManager first
+		Version[] versions;
+		foreach (p; m_dub.packageManager.getPackageIterator(pack))
+			versions ~= p.ver;
 
 		foreach (ps; m_dub.m_packageSuppliers) {
 			try {
@@ -629,26 +631,33 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					continue;
 				}
 
-				// move pre-release versions to the back of the list if no preRelease flag is given
-				if (!(m_options & UpdateOptions.preRelease))
-					vers = vers.filter!(v => !v.isPreRelease).array ~ vers.filter!(v => v.isPreRelease).array;
-
-				m_packageVersions[pack] = vers.map!(v => Dependency(v)).array;
-				return vers.map!(v => Dependency(v)).array;
+				versions ~= vers;
+				break;
 			} catch (Exception e) {
 				logDebug("Package %s not found in %s: %s", pack, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize);
 			}
 		}
 
-		logDiagnostic("Nothing found for %s", pack);
-		return null;
+		// sort by version, descending, and remove duplicates
+		versions = versions.sort!"a>b".uniq.array;
+
+		// move pre-release versions to the back of the list if no preRelease flag is given
+		if (!(m_options & UpdateOptions.preRelease))
+			versions = versions.filter!(v => !v.isPreRelease).array ~ versions.filter!(v => v.isPreRelease).array;
+
+		if (!versions.length) logDiagnostic("Nothing found for %s", pack);
+
+		auto ret = versions.map!(v => Dependency(v)).array;
+		m_packageVersions[pack] = ret;
+		return ret;
 	}
 
 	protected override TreeNodes[] getChildren(TreeNode node)
 	{
 		auto ret = appender!(TreeNodes[]);
 		auto pack = getPackage(node.pack, node.config);
+		assert(pack !is null, format("Invalid package: %s %s", node.pack, node.config));
 		foreach (dname, dspec; pack.dependencies) {
 			auto dbasename = getBasePackage(dname);
 			if (m_options & UpdateOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))
@@ -683,7 +692,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					auto desc = ps.getPackageDescription(name, dep, prerelease);
 					auto ret = new Package(desc);
 					m_remotePackages[key] = ret;
-						return ret;
+					return ret;
 				} catch (Exception e) {
 					logDiagnostic("Metadata for %s could not be downloaded from %s...", name, ps.description);
 				}
@@ -695,13 +704,15 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
 						return null;
 					}
+					m_remotePackages[key] = ret;
+					return ret;
 				} catch (Exception e) {
 					logDiagnostic("Package %s could not be downloaded from %s...", rootpack, ps.description);
 				}
 			}
 		}
 
-		logWarn("Package %s was found neither locally, nor in the configured package registries.");
+		logWarn("Package %s %s was found neither locally, nor in the configured package registries.", name, dep);
 		return null;
 	}
 }
