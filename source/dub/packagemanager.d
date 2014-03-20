@@ -28,20 +28,8 @@ import std.zip;
 
 enum JournalJsonFilename = "journal.json";
 enum LocalPackagesFilename = "local-packages.json";
+enum LocalOverridesFilename = "local-overrides.json";
 
-
-private struct Repository {
-	Path path;
-	Path packagePath;
-	Path[] searchPath;
-	Package[] localPackages;
-
-	this(Path path)
-	{
-		this.path = path;
-		this.packagePath = path ~"packages/";
-	}
-}
 
 enum LocalPackageType {
 	user,
@@ -84,35 +72,79 @@ class PackageManager {
 		return ret.data;
 	}
 
-	Package getPackage(string name, Version ver)
-	{
-		foreach( p; getPackageIterator(name) )
-			if( p.ver == ver )
-				return p;
-		return null;
-	}
 
-	Package getPackage(string name, string ver, Path in_path)
-	{
-		return getPackage(name, Version(ver), in_path);
-	}
-	Package getPackage(string name, Version ver, Path in_path)
-	{
-		foreach( p; getPackageIterator(name) )
-			if (p.ver == ver && p.path.startsWith(in_path))
-				return p;
-		return null;
-	}
+	/** Looks up a specific package.
 
-	Package getPackage(string name, string ver)
+		Looks up a package matching the given version/path in the set of
+		registered packages. The lookup order is done according the the
+		usual rules (see getPackageIterator).
+
+		Params:
+			name = The name of the package
+			ver = The exact version of the package to query
+			path = An exact path that the package must reside in. Note that
+				the package must still be registered in the package manager.
+			enable_overrides = Apply the local package override list before
+				returning a package (enabled by default)
+
+		Returns:
+			The matching package or null if no match was found.
+	*/
+	Package getPackage(string name, Version ver, bool enable_overrides = true)
 	{
-		foreach (ep; getPackageIterator(name)) {
-			if (ep.vers == ver)
-				return ep;
+		if (enable_overrides) {
+			foreach (tp; [LocalPackageType.user, LocalPackageType.system])
+				foreach (ovr; m_repositories[tp].overrides)
+					if (ovr.package_ == name && ovr.version_.matches(ver)) {
+						Package pack;
+						if (!ovr.targetPath.empty) pack = getPackage(name, ovr.targetPath);
+						else pack = getPackage(name, ovr.targetVersion);
+						if (pack) return pack;
+
+						logWarn("Package override %s %s -> %s %s doesn't reference an existing package.",
+							ovr.package_, ovr.version_, ovr.targetVersion, ovr.targetPath);
+					}
 		}
+
+		foreach (p; getPackageIterator(name))
+			if (p.ver == ver)
+				return p;
+
 		return null;
 	}
 
+	/// ditto
+	Package getPackage(string name, string ver, bool enable_overrides = true)
+	{
+		return getPackage(name, Version(ver), enable_overrides);
+	}
+
+	/// ditto
+	Package getPackage(string name, Version ver, Path path)
+	{
+		auto ret = getPackage(name, path);
+		if (!ret || ret.ver != ver) return null;
+		return ret;
+	}
+
+	/// ditto
+	Package getPackage(string name, string ver, Path path)
+	{
+		return getPackage(name, Version(ver), path);
+	}
+
+	/// ditto
+	Package getPackage(string name, Path path)
+	{
+		foreach( p; getPackageIterator(name) )
+			if (p.path.startsWith(path))
+				return p;
+		return null;
+	}
+
+
+	/** Looks up the first package matching the given name.
+	*/
 	Package getFirstPackage(string name)
 	{
 		foreach (ep; getPackageIterator(name))
@@ -120,7 +152,7 @@ class PackageManager {
 		return null;
 	}
 
-	Package getPackage(Path path)
+	Package getOrLoadPackage(Path path)
 	{
 		foreach (p; getPackageIterator())
 			if (!p.parentPackage && p.path == path)
@@ -130,19 +162,29 @@ class PackageManager {
 		return pack;
 	}
 
+
+	/** Searches for the latest version of a package matching the given dependency.
+	*/
+	Package getBestPackage(string name, Dependency version_spec, bool enable_overrides = true)
+	{
+		Package ret;
+		foreach (p; getPackageIterator(name))
+			if (version_spec.matches(p.ver) && (!ret || p.ver > ret.ver))
+				ret = p;
+
+		if (enable_overrides && ret) {
+			if (auto ovr = getPackage(name, ret.ver))
+				return ovr;
+		}
+		return ret;
+	}
+
+	/// ditto
 	Package getBestPackage(string name, string version_spec)
 	{
 		return getBestPackage(name, Dependency(version_spec));
 	}
 
-	Package getBestPackage(string name, Dependency version_spec)
-	{
-		Package ret;
-		foreach( p; getPackageIterator(name) )
-			if( version_spec.matches(p.ver) && (!ret || p.ver > ret.ver) )
-				ret = p;
-		return ret;
-	}
 
 	/** Determines if a package is managed by DUB.
 
@@ -564,6 +606,24 @@ class PackageManager {
 		m_packages = null;
 		foreach (p; this.completeSearchPath)
 			scanPackageFolder(p);
+
+		void loadOverrides(LocalPackageType type)
+		{
+			m_repositories[type].overrides = null;
+			auto ovrfilepath = m_repositories[LocalPackageType.user].packagePath ~ LocalOverridesFilename;
+			if (existsFile(ovrfilepath)) {
+				foreach (entry; jsonFromFile(ovrfilepath)) {
+					PackageOverride ovr;
+					ovr.package_ = entry.name.get!string;
+					ovr.version_ = Dependency(entry["version"].get!string);
+					if (auto pv = "targetVersion" in entry) ovr.targetVersion = Version(pv.get!string);
+					if (auto pv = "targetPath" in entry) ovr.targetPath = Path(pv.get!string);
+					m_repositories[type].overrides ~= ovr;
+				}
+			}
+		}
+		loadOverrides(LocalPackageType.user);
+		loadOverrides(LocalPackageType.system);
 	}
 
 	alias ubyte[] Hash;
@@ -620,7 +680,8 @@ class PackageManager {
 	}
 
 	/// Adds the package and scans for subpackages.
-	private void addPackages(ref Package[] dst_repos, Package pack) const {
+	private void addPackages(ref Package[] dst_repos, Package pack)
+	const {
 		// Add the main package.
 		dst_repos ~= pack;
 
@@ -642,6 +703,29 @@ class PackageManager {
 			}
 		}
 	}
+}
+
+
+private struct Repository {
+	Path path;
+	Path packagePath;
+	Path[] searchPath;
+	Package[] localPackages;
+	PackageOverride[] overrides;
+
+	this(Path path)
+	{
+		this.path = path;
+		this.packagePath = path ~"packages/";
+	}
+}
+
+
+private struct PackageOverride {
+	string package_;
+	Dependency version_;
+	Version targetVersion;
+	Path targetPath;
 }
 
 

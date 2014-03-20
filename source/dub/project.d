@@ -53,7 +53,7 @@ class Project {
 			json.name = "unknown";
 			pack = new Package(json, project_path);
 		} else {
-			pack = package_manager.getPackage(project_path); 
+			pack = package_manager.getOrLoadPackage(project_path); 
 		}
 
 		this(package_manager, pack);
