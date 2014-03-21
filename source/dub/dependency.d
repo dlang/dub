@@ -56,7 +56,7 @@ struct Dependency {
 			ves = ">=0.0.0";
 		}
 
-		if (ves[0] == Version.BRANCH_IDENT && ves[1] == '>') {
+		if (ves.startsWith("~>")) {
 			// Shortcut: "~>x.y.z" variant. Last non-zero number will indicate
 			// the base for this so something like this: ">=x.y.z <x.(y+1).z"
 			m_cmpA = ">=";

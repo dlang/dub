@@ -26,16 +26,6 @@ import std.string;
 import std.zip;
 
 
-enum JournalJsonFilename = "journal.json";
-enum LocalPackagesFilename = "local-packages.json";
-enum LocalOverridesFilename = "local-overrides.json";
-
-
-enum LocalPackageType {
-	user,
-	system
-}
-
 /// The PackageManager can retrieve present packages and get / remove
 /// packages.
 class PackageManager {
@@ -242,6 +232,43 @@ class PackageManager {
 		}
 
 		return &iterator;
+	}
+
+
+	/** Returns a list of all package overrides for the given scope.
+	*/
+	const(PackageOverride)[] getOverrides(LocalPackageType scope_)
+	const {
+		return m_repositories[scope_].overrides;
+	}
+
+	/** Adds a new override for the given package.
+	*/
+	void addOverride(LocalPackageType scope_, string package_, Dependency version_spec, Version target)
+	{
+		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
+		writeLocalPackageOverridesFile(scope_);
+	}
+	/// ditto
+	void addOverride(LocalPackageType scope_, string package_, Dependency version_spec, Path target)
+	{
+		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
+		writeLocalPackageOverridesFile(scope_);
+	}
+
+	/** Removes an existing package override.
+	*/
+	void removeOverride(LocalPackageType scope_, string package_, Dependency version_spec)
+	{
+		Repository* rep = &m_repositories[scope_];
+		foreach (i, ovr; rep.overrides) {
+			if (ovr.package_ != package_ || ovr.version_ != version_spec)
+				continue;
+			rep.overrides = rep.overrides[0 .. i] ~ rep.overrides[i+1 .. $];
+			writeLocalPackageOverridesFile(scope_);
+			return;
+		}
+		throw new Exception(format("No override exists for %s %s", package_, version_spec));
 	}
 
 	/// Extracts the package supplied as a path to it's zip file to the
@@ -610,7 +637,7 @@ class PackageManager {
 		void loadOverrides(LocalPackageType type)
 		{
 			m_repositories[type].overrides = null;
-			auto ovrfilepath = m_repositories[LocalPackageType.user].packagePath ~ LocalOverridesFilename;
+			auto ovrfilepath = m_repositories[type].packagePath ~ LocalOverridesFilename;
 			if (existsFile(ovrfilepath)) {
 				foreach (entry; jsonFromFile(ovrfilepath)) {
 					PackageOverride ovr;
@@ -679,6 +706,22 @@ class PackageManager {
 		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
 	}
 
+	private void writeLocalPackageOverridesFile(LocalPackageType type)
+	{
+		Json[] newlist;
+		foreach (ovr; m_repositories[type].overrides) {
+			auto jovr = Json.emptyObject;
+			jovr.name = ovr.package_;
+			jovr["version"] = ovr.version_.toString();
+			if (!ovr.targetPath.empty) jovr.targetPath = ovr.targetPath.toNativeString();
+			else jovr.targetVersion = ovr.targetVersion.toString();
+			newlist ~= jovr;
+		}
+		auto path = m_repositories[type].packagePath;
+		if (!existsDirectory(path)) mkdirRecurse(path.toNativeString());
+		writeJsonFile(path ~ LocalOverridesFilename, Json(newlist));
+	}
+
 	/// Adds the package and scans for subpackages.
 	private void addPackages(ref Package[] dst_repos, Package pack)
 	const {
@@ -705,6 +748,36 @@ class PackageManager {
 	}
 }
 
+struct PackageOverride {
+	string package_;
+	Dependency version_;
+	Version targetVersion;
+	Path targetPath;
+
+	this(string package_, Dependency version_, Version target_version)
+	{
+		this.package_ = package_;
+		this.version_ = version_;
+		this.targetVersion = target_version;
+	}
+
+	this(string package_, Dependency version_, Path target_path)
+	{
+		this.package_ = package_;
+		this.version_ = version_;
+		this.targetPath = target_path;
+	}
+}
+
+enum LocalPackageType {
+	user,
+	system
+}
+
+enum JournalJsonFilename = "journal.json";
+enum LocalPackagesFilename = "local-packages.json";
+enum LocalOverridesFilename = "local-overrides.json";
+
 
 private struct Repository {
 	Path path;
@@ -721,18 +794,12 @@ private struct Repository {
 }
 
 
-private struct PackageOverride {
-	string package_;
-	Dependency version_;
-	Version targetVersion;
-	Path targetPath;
-}
-
-
-/**
+/*
 	Retrieval journal for later removal, keeping track of placed files
 	files.
+
 	Example Json:
+	---
 	{
 		"version": 1,
 		"files": {
@@ -740,6 +807,7 @@ private struct PackageOverride {
 			...
 		}
 	}
+	---
 */
 private class Journal {
 	private enum Version = 1;

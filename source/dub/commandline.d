@@ -15,6 +15,7 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.url;
 import dub.package_;
+import dub.packagemanager;
 import dub.packagesupplier;
 import dub.project;
 import dub.internal.utils : getDUBVersion;
@@ -108,7 +109,10 @@ int runDubCommandLine(string[] args)
 			new AddLocalCommand,
 			new RemoveLocalCommand,
 			new ListCommand,
-			new ListInstalledCommand
+			new ListInstalledCommand,
+			new AddOverrideCommand,
+			new RemoveOverrideCommand,
+			new ListOverridesCommand,
 		)
 	];
 
@@ -972,11 +976,6 @@ class RemoveLocalCommand : RegistrationCommand {
 	}
 }
 
-
-/******************************************************************************/
-/* LIST                                                                       */
-/******************************************************************************/
-
 class ListCommand : Command {
 	this()
 	{
@@ -1005,6 +1004,111 @@ class ListInstalledCommand : ListCommand {
 	{
 		warnRenamed("list-installed", "list");
 		return super.execute(dub, free_args, app_args);
+	}
+}
+
+
+/******************************************************************************/
+/* OVERRIDES                                                                  */
+/******************************************************************************/
+
+class AddOverrideCommand : Command {
+	private {
+		bool m_system = false;
+	}
+
+	this()
+	{
+		this.name = "add-override";
+		this.argumentsPattern = "<package> <version-spec> <target-path/target-version>";
+		this.description = "Adds a new package override.";
+		this.helpText = [
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("system", &m_system, [
+			"Register system-wide instead of user-wide"
+		]);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+		enforceUsage(free_args.length == 3, "Expected three arguments, not "~free_args.length.to!string);
+		auto scope_ = m_system ? LocalPackageType.system : LocalPackageType.user;
+		auto pack = free_args[0];
+		auto ver = Dependency(free_args[1]);
+		if (existsFile(Path(free_args[2]))) {
+			auto target = Path(free_args[2]);
+			dub.packageManager.addOverride(scope_, pack, ver, target);
+			logInfo("Added override %s %s => %s", pack, ver, target);
+		} else {
+			auto target = Version(free_args[2]);
+			dub.packageManager.addOverride(scope_, pack, ver, target);
+			logInfo("Added override %s %s => %s", pack, ver, target);
+		}
+		return 0;
+	}
+}
+
+class RemoveOverrideCommand : Command {
+	private {
+		bool m_system = false;
+	}
+
+	this()
+	{
+		this.name = "remove-override";
+		this.argumentsPattern = "<package> <version-spec>";
+		this.description = "Removes an existing package override.";
+		this.helpText = [
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("system", &m_system, [
+			"Register system-wide instead of user-wide"
+		]);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+		enforceUsage(free_args.length == 2, "Expected two arguments, not "~free_args.length.to!string);
+		auto scope_ = m_system ? LocalPackageType.system : LocalPackageType.user;
+		dub.packageManager.removeOverride(scope_, free_args[0], Dependency(free_args[1]));
+		return 0;
+	}
+}
+
+class ListOverridesCommand : Command {
+	this()
+	{
+		this.name = "list-overrides";
+		this.argumentsPattern = "";
+		this.description = "Prints a list of all local package overrides";
+		this.helpText = [
+			"Prints a list of all overriden packages added via \"dub add-override\"."
+		];
+	}
+	override void prepare(scope CommandArgs args) {}
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		void printList(in PackageOverride[] overrides, string caption)
+		{
+			if (overrides.length == 0) return;
+			logInfo("# %s", caption);
+			foreach (ovr; overrides) {
+				if (!ovr.targetPath.empty) logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetPath);
+				else logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetVersion);
+			}
+		}
+		printList(dub.packageManager.getOverrides(LocalPackageType.user), "User wide overrides");
+		printList(dub.packageManager.getOverrides(LocalPackageType.system), "System wide overrides");
+		return 0;
 	}
 }
 
