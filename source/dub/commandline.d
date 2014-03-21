@@ -672,6 +672,11 @@ class DescribeCommand : PackageBuildCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
+		// disable all log output and use "writeln" to output the JSON description
+		auto ll = getLogLevel();
+		setLogLevel(LogLevel.none);
+		scope (exit) setLogLevel(ll);
+
 		string package_name;
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
 		if (free_args.length >= 1) package_name = free_args[1];

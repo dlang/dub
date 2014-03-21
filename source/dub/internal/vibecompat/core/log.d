@@ -24,6 +24,11 @@ void setLogLevel(LogLevel level) nothrow
 	s_minLevel = level;
 }
 
+LogLevel getLogLevel()
+{
+	return s_minLevel;
+}
+
 /**
 	Logs a message.
 

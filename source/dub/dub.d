@@ -305,7 +305,9 @@ class Dub {
 		dst.platform = platform.platform.serializeToJson();
 
 		m_project.describe(dst, platform, config);
-		logInfo("%s", dst.toPrettyString());
+
+		import std.stdio;
+		write(dst.toPrettyString());
 	}
 
 
