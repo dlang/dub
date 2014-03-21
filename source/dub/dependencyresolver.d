@@ -28,18 +28,6 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		CONFIG config;
 	}
 
-	static struct ChildIterationState {
-		TreeNode[] configs;
-		size_t configIndex;
-	}
-
-	static struct GraphIterationState {
-		CONFIG[string] visited;
-		TreeNode[] stack;
-		TreeNode node;
-		ChildIterationState[] children;
-	}
-
 	CONFIG[string] resolve(TreeNode root, bool throw_on_failure = true)
 	{
 		static string rootPackage(string p) {
@@ -50,8 +38,12 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 		size_t[string] package_indices;
 		CONFIG[][] all_configs;
+		bool[TreeNode] visited;
 		void findConfigsRec(TreeNode parent)
 		{
+			if (parent in visited) return;
+			visited[parent] = true;
+			
 			foreach (ch; getChildren(parent)) {
 				auto basepack = rootPackage(ch.pack);
 				auto pidx = all_configs.length;
@@ -78,7 +70,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		auto config_indices = new size_t[all_configs.length];
 		config_indices[] = 0;
 
-		bool[TreeNode] visited;
+		visited = null;
 		bool validateConfigs(TreeNode parent)
 		{
 			if (parent in visited) return true;
@@ -139,7 +131,7 @@ unittest {
 			ret.data.sort!"a>b"();
 			return ret.data;
 		}
-		protected override uint[] getSpecificConfigs(TreeModes nodes) { return null; }
+		protected override uint[] getSpecificConfigs(TreeNodes nodes) { return null; }
 		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null); }
 		protected override bool matches(uint[] configs, uint config) { return configs.canFind(config); }
 	}
