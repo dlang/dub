@@ -193,7 +193,8 @@ class Project {
 		void collectDependenciesRec(Package pack)
 		{
 			logDebug("Collecting dependencies for %s", pack.name);
-			foreach (name, Dependency vspec; pack.dependencies) {
+			foreach (name, vspec_; pack.dependencies) {
+				Dependency vspec = vspec_;
 				Package p;
 				if (!vspec.path.empty) {
 					Path path = vspec.path;
