@@ -67,6 +67,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		}
 		findConfigsRec(root);
 
+		logDebug("Configurations used for dependency resolution:");
+		foreach (n, i; package_indices) logDebug("  %s: %s", n, all_configs[i]);
+
 		auto config_indices = new size_t[all_configs.length];
 		config_indices[] = 0;
 

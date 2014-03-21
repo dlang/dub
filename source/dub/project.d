@@ -193,22 +193,24 @@ class Project {
 		void collectDependenciesRec(Package pack)
 		{
 			logDebug("Collecting dependencies for %s", pack.name);
-			foreach (name, original_vspec; pack.dependencies) {
-				if (!m_selectedVersions.hasSelectedVersion(name)) {
-					logDiagnostic("Version selection for dependency %s of %s is missing.",
-						name, pack.name);
-					continue;
-				}
-
-				Dependency vspec = m_selectedVersions.selectedVersion(name);
-
+			foreach (name, Dependency vspec; pack.dependencies) {
 				Package p;
 				if (!vspec.path.empty) {
 					Path path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("Adding local %s %s", path, vspec.version_);
 					p = m_packageManager.getTemporaryPackage(path, vspec.version_);
-				} else {
+				}
+
+				if (!p) {
+					if (!m_selectedVersions.hasSelectedVersion(name)) {
+						logDiagnostic("Version selection for dependency %s of %s is missing.",
+							name, pack.name);
+						continue;
+					}
+
+					vspec = m_selectedVersions.selectedVersion(name);
+
 					p = m_packageManager.getBestPackage(name, vspec);
 				}
 

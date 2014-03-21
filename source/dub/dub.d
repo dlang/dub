@@ -173,7 +173,7 @@ class Dub {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			auto pack = m_packageManager.getBestPackage(p, ver);
 			if (!pack) fetch(p, ver, PlacementLocation.userWide, false, (options & UpdateOptions.preRelease) != 0, (options & UpdateOptions.forceRemove) != 0, false);
-			if (options & UpdateOptions.select)
+			if (options & UpdateOptions.select && ver.path.empty)
 				m_project.selections.selectVersion(p, ver.version_);
 		}
 
