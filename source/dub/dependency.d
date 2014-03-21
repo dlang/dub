@@ -17,7 +17,6 @@ import dub.semver;
 
 import std.algorithm;
 import std.array;
-import std.conv;
 import std.exception;
 import std.regex;
 import std.string;
@@ -125,8 +124,24 @@ struct Dependency {
 	@property bool isExactVersion() const { return m_versA == m_versB; }
 
 	@property Version version_() const {
-		enforce(m_versA == m_versB, "Dependency "~toString()~" is no exact version."); 
+		enforce(m_versA == m_versB, "Dependency "~versionString()~" is no exact version."); 
 		return m_versA; 
+	}
+
+	@property string versionString()
+	const {
+		string r;
+	
+		if( m_versA == m_versB && m_cmpA == ">=" && m_cmpB == "<=" ){
+			// Special "==" case
+			if (m_versA == Version.MASTER ) r = "~master";
+			else r = m_versA.toString();
+		} else {
+			if( m_versA != Version.RELEASE ) r = m_cmpA ~ m_versA.toString();
+			if( m_versB != Version.HEAD ) r ~= (r.length==0?"" : " ") ~ m_cmpB ~ m_versB.toString();
+			if( m_versA == Version.RELEASE && m_versB == Version.HEAD ) r = ">=0.0.0";
+		}
+		return r;
 	}
 
 	Dependency mapToPath(Path path)
@@ -138,30 +153,13 @@ struct Dependency {
 			return ret;
 		}
 	}
-	
-	string toString()
-	const {
-		return versionString();
-		// TODO(mdondorff): add information to path and optionality.
-		//   This is not directly possible, as this toString method is used for
-		//   writing to the dub.json files.
-		// if (m_path) r ~= "(path: " ~ m_path.toString() ~ ")";
-		// if (m_optional) r ~= ", optional";
-	}
 
-	private string versionString() const {
-		string r;
-	
-		if( m_versA == m_versB && m_cmpA == ">=" && m_cmpB == "<=" ){
-			// Special "==" case
-			if (m_versA == Version.MASTER ) r = "~master";
-			else r = to!string(m_versA);
-		} else {
-			if( m_versA != Version.RELEASE ) r = m_cmpA ~ to!string(m_versA);
-			if( m_versB != Version.HEAD ) r ~= (r.length==0?"" : " ") ~ m_cmpB ~ to!string(m_versB);
-			if( m_versA == Version.RELEASE && m_versB == Version.HEAD ) r = ">=0.0.0";
-		}
-		return r;
+	string toString()()
+	const {
+		auto ret = versionString;
+		if (optional) ret ~= " (optional)";
+		if (!path.empty) ret ~= " @"~path.toNativeString();
+		return ret;
 	}
 
 	Json toJson() const {
@@ -310,38 +308,38 @@ struct Dependency {
 
 unittest {
 	Dependency a = Dependency(">=1.1.0"), b = Dependency(">=1.3.0");
-	assert( a.merge(b).valid() && to!string(a.merge(b)) == ">=1.3.0", to!string(a.merge(b)) );
+	assert (a.merge(b).valid() && a.merge(b).versionString == ">=1.3.0", a.merge(b).toString());
 	
 	a = Dependency("<=1.0.0 >=2.0.0");
-	assert( !a.valid(), to!string(a) );
+	assert (!a.valid(), a.toString());
 	
 	a = Dependency(">=1.0.0 <=5.0.0"), b = Dependency(">=2.0.0");
-	assert( a.merge(b).valid() && to!string(a.merge(b)) == ">=2.0.0 <=5.0.0", to!string(a.merge(b)) );
+	assert (a.merge(b).valid() && a.merge(b).versionString == ">=2.0.0 <=5.0.0", a.merge(b).toString());
 	
 	assertThrown(a = Dependency(">1.0.0 ==5.0.0"), "Construction is invalid");
 	
 	a = Dependency(">1.0.0"), b = Dependency("<2.0.0");
-	assert( a.merge(b).valid(), to!string(a.merge(b)));
-	assert( to!string(a.merge(b)) == ">1.0.0 <2.0.0", to!string(a.merge(b)) );
+	assert (a.merge(b).valid(), a.merge(b).toString());
+	assert (a.merge(b).versionString == ">1.0.0 <2.0.0", a.merge(b).toString());
 	
 	a = Dependency(">2.0.0"), b = Dependency("<1.0.0");
-	assert( !(a.merge(b)).valid(), to!string(a.merge(b)));
+	assert (!(a.merge(b)).valid(), a.merge(b).toString());
 	
 	a = Dependency(">=2.0.0"), b = Dependency("<=1.0.0");
-	assert( !(a.merge(b)).valid(), to!string(a.merge(b)));
+	assert (!(a.merge(b)).valid(), a.merge(b).toString());
 	
 	a = Dependency("==2.0.0"), b = Dependency("==1.0.0");
-	assert( !(a.merge(b)).valid(), to!string(a.merge(b)));
+	assert (!(a.merge(b)).valid(), a.merge(b).toString());
 
 	a = Dependency("1.0.0"), b = Dependency("==1.0.0");
-	assert(a == b);
+	assert (a == b);
 	
 	a = Dependency("<=2.0.0"), b = Dependency("==1.0.0");
 	Dependency m = a.merge(b);
-	assert( m.valid(), to!string(m));
-	assert( m.matches( Version("1.0.0") ) );
-	assert( !m.matches( Version("1.1.0") ) );
-	assert( !m.matches( Version("0.0.1") ) );
+	assert (m.valid(), m.toString());
+	assert (m.matches(Version("1.0.0")));
+	assert (!m.matches(Version("1.1.0")));
+	assert (!m.matches(Version("0.0.1")));
 
 
 	// branches / head revisions
@@ -397,19 +395,19 @@ unittest {
 	// Approximate versions.
 	a = Dependency("~>3.0");
 	b = Dependency(">=3.0.0 <4.0.0");
-	assert(a == b, "Testing failed: " ~ a.to!string());
+	assert(a == b, "Testing failed: " ~ a.toString());
 	assert(a.matches(Version("3.1.146")), "Failed: Match 3.1.146 with ~>0.1.2");
 	assert(!a.matches(Version("0.2.0")), "Failed: Match 0.2.0 with ~>0.1.2");
 	a = Dependency("~>3.0.0");
-	assert(a == Dependency(">=3.0.0 <3.1.0"), "Testing failed: " ~ a.to!string());
+	assert(a == Dependency(">=3.0.0 <3.1.0"), "Testing failed: " ~ a.toString());
 	a = Dependency("~>3.5");
-	assert(a == Dependency(">=3.5.0 <4.0.0"), "Testing failed: " ~ a.to!string());
+	assert(a == Dependency(">=3.5.0 <4.0.0"), "Testing failed: " ~ a.toString());
 	a = Dependency("~>3.5.0");
-	assert(a == Dependency(">=3.5.0 <3.6.0"), "Testing failed: " ~ a.to!string());
+	assert(a == Dependency(">=3.5.0 <3.6.0"), "Testing failed: " ~ a.toString());
 
 	a = Dependency("~>1.0.1-beta");
 	b = Dependency(">=1.0.1-beta <1.1.0");
-	assert(a == b, "Testing failed: " ~ a.to!string());
+	assert(a == b, "Testing failed: " ~ a.toString());
 	assert(a.matches(Version("1.0.1-beta")));
 	assert(a.matches(Version("1.0.1-beta.6")));
 
@@ -548,7 +546,7 @@ unittest {
 	
 	a = Version("2.0.0-rc.2+build-metadata");
 	b = Version("2.0.0+build-metadata");
-	assert(a < b, "Failed: "~to!string(a)~"<"~to!string(b));
+	assert(a < b, "Failed: "~a.toString()~"<"~b.toString());
 	
 	// 1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta.2 < 1.0.0-beta.11 < 1.0.0-rc.1 < 1.0.0
 	Version[] versions;
@@ -560,11 +558,11 @@ unittest {
 	versions ~= Version("1.0.0");
 	for(int i=1; i<versions.length; ++i)
 		for(int j=i-1; j>=0; --j)
-			assert(versions[j] < versions[i], "Failed: " ~ to!string(versions[j]) ~ "<" ~ to!string(versions[i]));
+			assert(versions[j] < versions[i], "Failed: " ~ versions[j].toString() ~ "<" ~ versions[i].toString());
 
 	a = Version.UNKNOWN;
 	b = Version.RELEASE;
-	assertThrown(a == b, "Failed: compared " ~ to!string(a) ~ " with " ~ to!string(b) ~ "");
+	assertThrown(a == b, "Failed: compared " ~ a.toString() ~ " with " ~ b.toString() ~ "");
 
 	a = Version.UNKNOWN;
 	b = Version.UNKNOWN;

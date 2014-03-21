@@ -712,7 +712,7 @@ class PackageManager {
 		foreach (ovr; m_repositories[type].overrides) {
 			auto jovr = Json.emptyObject;
 			jovr.name = ovr.package_;
-			jovr["version"] = ovr.version_.toString();
+			jovr["version"] = ovr.version_.versionString;
 			if (!ovr.targetPath.empty) jovr.targetPath = ovr.targetPath.toNativeString();
 			else jovr.targetVersion = ovr.targetVersion.toString();
 			newlist ~= jovr;

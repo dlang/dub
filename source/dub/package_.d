@@ -347,7 +347,7 @@ class Package {
 		s ~= m_info.name ~ ", version '" ~ m_info.version_ ~ "'";
 		s ~= "\n  Dependencies:";
 		foreach(string p, ref const Dependency v; m_info.dependencies)
-			s ~= "\n    " ~ p ~ ", version '" ~ to!string(v) ~ "'";
+			s ~= "\n    " ~ p ~ ", version '" ~ v.toString() ~ "'";
 		return s;
 	}
 	

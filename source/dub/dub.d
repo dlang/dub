@@ -430,7 +430,7 @@ class Dub {
 				~ "'" ~ to!string(location_) ~ "'.");
 			logError("Retrieved versions:");
 			foreach(pack; packages) 
-				logError(to!string(pack.vers()));
+				logError("%s", pack.vers);
 			throw new Exception("Please specify a individual version or use the wildcard identifier '" 
 				~ RemoveVersionWildcard ~ "' (without quotes).");			
 		}
