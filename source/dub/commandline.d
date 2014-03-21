@@ -132,62 +132,72 @@ int runDubCommandLine(string[] args)
 		return 0;
 	}
 
-	// execute the selected command
-	foreach (grp; commands) foreach (cmd; grp.commands)
-		if (cmd.name == cmdname) {
-			try {
-				cmd.prepare(command_args);
-				enforceUsage(cmd.acceptsAppArgs || app_args.length == 0, cmd.name ~ " doesn't accept application arguments.");
-			} catch (Throwable e) {
-				logError("Error processing arguments: %s", e.msg);
-				logDiagnostic("Full exception: %s", e.toString().sanitize);
-				logInfo("Run 'dub help' for usage information.");
-				return 1;
+	// find the selected command
+	Command cmd;
+	foreach (grp; commands)
+		foreach (c; grp.commands)
+			if (c.name == cmdname) {
+				cmd = c;
+				break;
 			}
 
-			if (help) {
-				showCommandHelp(cmd, command_args, common_args);
-				return 0;
-			}
+	if (!cmd) {
+		logError("Unknown command: %s", cmdname);
+		writeln();
+		showHelp(commands, common_args);
+		return 1;
+	}
 
-			auto remaining_args = command_args.extractRemainingArgs();
-			if (remaining_args.any!(a => a.startsWith("-"))) {
-				logError("Unknown command line flags: %s", remaining_args.filter!(a => a.startsWith("-")).array.join(" "));
-				logError(`Type "dub %s -h" to get a list of all supported flags.`, cmdname);
-				return 1;
-			}
+	// process command line options for the selected command
+	try {
+		cmd.prepare(command_args);
+		enforceUsage(cmd.acceptsAppArgs || app_args.length == 0, cmd.name ~ " doesn't accept application arguments.");
+	} catch (Throwable e) {
+		logError("Error processing arguments: %s", e.msg);
+		logDiagnostic("Full exception: %s", e.toString().sanitize);
+		logInfo("Run 'dub help' for usage information.");
+		return 1;
+	}
 
-			Dub dub;
+	if (help) {
+		showCommandHelp(cmd, command_args, common_args);
+		return 0;
+	}
 
-			if (!cmd.skipDubInitialization) {
-				// initialize DUB
-				auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
-				dub = new Dub(package_suppliers, root_path);
-				dub.dryRun = annotate;
-			
-				// make the CWD package available so that for example sub packages can reference their
-				// parent package.
-				try dub.packageManager.getTemporaryPackage(Path(root_path));
-				catch (Exception e) { logDiagnostic("No package found in current working directory."); }
-			}
+	auto remaining_args = command_args.extractRemainingArgs();
+	if (remaining_args.any!(a => a.startsWith("-"))) {
+		logError("Unknown command line flags: %s", remaining_args.filter!(a => a.startsWith("-")).array.join(" "));
+		logError(`Type "dub %s -h" to get a list of all supported flags.`, cmdname);
+		return 1;
+	}
 
-			try return cmd.execute(dub, remaining_args, app_args);
-			catch (UsageException e) {
-				logError("%s", e.msg);
-				logDiagnostic("Full exception: %s", e.toString().sanitize);
-				return 1;
-			}
-			catch (Throwable e) {
-				logError("Error executing command %s: %s\n", cmd.name, e.msg);
-				logDiagnostic("Full exception: %s", e.toString().sanitize);
-				return 2;
-			}
-		}
+	Dub dub;
+
+	// initialize the root package
+	if (!cmd.skipDubInitialization) {
+		// initialize DUB
+		auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
+		dub = new Dub(package_suppliers, root_path);
+		dub.dryRun = annotate;
 	
-	logError("Unknown command: %s", cmdname);
-	writeln();
-	showHelp(commands, common_args);
-	return 1;
+		// make the CWD package available so that for example sub packages can reference their
+		// parent package.
+		try dub.packageManager.getTemporaryPackage(Path(root_path));
+		catch (Exception e) { logDiagnostic("No package found in current working directory."); }
+	}
+
+	// execute the command
+	try return cmd.execute(dub, remaining_args, app_args);
+	catch (UsageException e) {
+		logError("%s", e.msg);
+		logDiagnostic("Full exception: %s", e.toString().sanitize);
+		return 1;
+	}
+	catch (Throwable e) {
+		logError("Error executing command %s: %s\n", cmd.name, e.msg);
+		logDiagnostic("Full exception: %s", e.toString().sanitize);
+		return 2;
+	}
 }
 
 class CommandArgs {
