@@ -655,6 +655,13 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return ret;
 	}
 
+	protected override Dependency[] getSpecificConfigs(TreeNodes nodes)
+	{
+		if (!nodes.configs.path.empty) return [nodes.configs];
+		else return null;
+	}
+
+
 	protected override TreeNodes[] getChildren(TreeNode node)
 	{
 		auto ret = appender!(TreeNodes[]);
@@ -662,8 +669,10 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		assert(pack !is null, format("Invalid package: %s %s", node.pack, node.config));
 		foreach (dname, dspec; pack.dependencies) {
 			auto dbasename = getBasePackage(dname);
+			if (dspec.optional && !m_dub.packageManager.getFirstPackage(dname))
+				continue;
 			if (m_options & UpdateOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))
-				ret ~= TreeNodes(dname, dspec);
+				ret ~= TreeNodes(dname, dspec.mapToPath(pack.path));
 			else ret ~= TreeNodes(dname, m_selectedVersions.selectedVersion(dbasename));
 		}
 		return ret.data;
@@ -671,11 +680,17 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 	protected override bool matches(Dependency configs, Dependency config)
 	{
+		if (!configs.path.empty) return configs.path == config.path;
 		return configs.merge(config).valid;
 	}
 
 	private Package getPackage(string name, Dependency dep)
 	{
+		if (!dep.path.empty) {
+			auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
+			if (dep.matches(ret.ver)) return ret;
+		}
+
 		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
 			return ret;
 

@@ -128,6 +128,16 @@ struct Dependency {
 		enforce(m_versA == m_versB, "Dependency "~toString()~" is no exact version."); 
 		return m_versA; 
 	}
+
+	Dependency mapToPath(Path path)
+	const {
+		if (m_path.empty || m_path.absolute) return this;
+		else {
+			Dependency ret = this;
+			ret.path = path ~ ret.path;
+			return ret;
+		}
+	}
 	
 	string toString()
 	const {
@@ -255,6 +265,7 @@ struct Dependency {
 		if (m_versA.isBranch != o.m_versA.isBranch) return INVALID;
 		if (m_versB.isBranch != o.m_versB.isBranch) return INVALID;
 		if (m_versA.isBranch) return m_versA == o.m_versA ? this : INVALID;
+		if (this.path != o.path) return INVALID;
 
 		Version a = m_versA > o.m_versA ? m_versA : o.m_versA;
 		Version b = m_versB < o.m_versB ? m_versB : o.m_versB;

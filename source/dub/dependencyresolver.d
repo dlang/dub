@@ -54,16 +54,20 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		{
 			foreach (ch; getChildren(parent)) {
 				auto basepack = rootPackage(ch.pack);
-				if (basepack in package_indices) continue;
-
 				auto pidx = all_configs.length;
-				auto configs = getAllConfigs(basepack);
-				if (!configs.length) {
-					logDiagnostic("Found no configurations for package %s, referenced by %s %s.", basepack, parent.pack, parent.config);
-					continue;
+				CONFIG[] configs;
+				if (auto pi = basepack in package_indices) {
+					pidx = *pi;
+					configs = all_configs[*pi];
+				} else {
+					configs = getAllConfigs(basepack);
+					all_configs ~= configs;
+					package_indices[basepack] = pidx;
 				}
-				all_configs ~= configs;
-				package_indices[basepack] = pidx;
+
+				configs = getSpecificConfigs(ch) ~ configs;
+
+				all_configs[pidx] = configs;
 
 				foreach (v; all_configs[pidx])
 					findConfigsRec(TreeNode(ch.pack, v));
@@ -114,6 +118,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 	}
 
 	protected abstract CONFIG[] getAllConfigs(string pack);
+	protected abstract CONFIG[] getSpecificConfigs(TreeNodes nodes);
 	protected abstract TreeNodes[] getChildren(TreeNode node);
 	protected abstract bool matches(CONFIGS configs, CONFIG config);
 }
@@ -134,6 +139,7 @@ unittest {
 			ret.data.sort!"a>b"();
 			return ret.data;
 		}
+		protected override uint[] getSpecificConfigs(TreeModes nodes) { return null; }
 		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null); }
 		protected override bool matches(uint[] configs, uint config) { return configs.canFind(config); }
 	}
