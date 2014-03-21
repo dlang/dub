@@ -1,7 +1,7 @@
 /**
 	URL parsing routines.
 
-	Copyright: © 2012 RejectedSoftware e.K.
+	Copyright: © 2012 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */

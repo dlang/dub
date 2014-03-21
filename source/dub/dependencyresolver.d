@@ -1,7 +1,7 @@
 /**
 	Dependency configuration/version resolution algorithm.
 
-	Copyright: © 2014 Sönke Ludwig
+	Copyright: © 2014 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
