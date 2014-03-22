@@ -666,7 +666,11 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	{
 		auto ret = appender!(TreeNodes[]);
 		auto pack = getPackage(node.pack, node.config);
-		assert(pack !is null, format("Invalid package: %s %s", node.pack, node.config));
+		if (!pack) {
+			// this can hapen when the package description contains syntax errors
+			logDiagnostic("Invalid package in dependency tree: %s %s", node.pack, node.config);
+			return null;
+		}
 		foreach (dname, dspec; pack.dependencies) {
 			auto dbasename = getBasePackage(dname);
 			if (dspec.optional && !m_dub.packageManager.getFirstPackage(dname))
@@ -711,7 +715,8 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					m_remotePackages[key] = ret;
 					return ret;
 				} catch (Exception e) {
-					logDiagnostic("Metadata for %s could not be downloaded from %s...", name, ps.description);
+					logDiagnostic("Metadata for %s could not be downloaded from %s: %s", name, ps.description, e.msg);
+					logDebug("Full error: %s", e.toString().sanitize);
 				}
 			} else {
 				try {
@@ -724,7 +729,8 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					m_remotePackages[key] = ret;
 					return ret;
 				} catch (Exception e) {
-					logDiagnostic("Package %s could not be downloaded from %s...", rootpack, ps.description);
+					logDiagnostic("Package %s could not be downloaded from %s: %s", rootpack, ps.description, e.msg);
+					logDebug("Full error: %s", e.toString().sanitize);
 				}
 			}
 		}
