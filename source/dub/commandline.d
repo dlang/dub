@@ -378,6 +378,8 @@ abstract class PackageBuildCommand : Command {
 		}
 
 		if (!m_nodeps) {
+			// TODO: only upgrade(select) if necessary, only upgrade(upgrade) every now and then
+
 			// retrieve missing packages
 			logDiagnostic("Checking for missing dependencies.");
 			dub.upgrade(UpdateOptions.select);

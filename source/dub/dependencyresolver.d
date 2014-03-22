@@ -74,35 +74,53 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		config_indices[] = 0;
 
 		visited = null;
-		bool validateConfigs(TreeNode parent)
+		sizediff_t validateConfigs(TreeNode parent)
 		{
-			if (parent in visited) return true;
+			import std.algorithm : max;
+
+			if (parent in visited) return -1;
 			visited[parent] = true;
+			sizediff_t maxcpi = -1;
 			foreach (ch; getChildren(parent)) {
 				auto basepack = rootPackage(ch.pack);
 				assert(basepack in package_indices, format("%s not in packages %s", basepack, package_indices));
 				auto pidx = package_indices[basepack];
-				auto config = all_configs[pidx][config_indices[pidx]];
-				auto chnode = TreeNode(ch.pack, config);
-				if (!matches(ch.configs, config) || !validateConfigs(chnode))
-					return false;
+				if (!all_configs[pidx].length) {
+					auto pbase = rootPackage(parent.pack);
+					auto ppi = pbase in package_indices;
+					enforce(ppi !is null, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
+					// choose another parent config to avoid the invalid child
+					maxcpi = max(maxcpi, *ppi);
+				} else {
+					auto config = all_configs[pidx][config_indices[pidx]];
+					auto chnode = TreeNode(ch.pack, config);
+					if (!matches(ch.configs, config)) {
+						maxcpi = max(maxcpi, pidx);
+						assert(maxcpi >= 0);
+					}
+					maxcpi = max(maxcpi, validateConfigs(chnode));
+				}
 			}
-			return true;
+			return maxcpi;
 		}
 
 		while (true) {
 			// check if the current combination of configurations works out
 			visited = null;
-			if (validateConfigs(root)) {
+			auto conflict_index = validateConfigs(root);
+
+			if (conflict_index < 0) {
 				CONFIG[string] ret;
 				foreach (p, i; package_indices)
-					ret[p] = all_configs[i][config_indices[i]];
+					if (all_configs[i].length)
+						ret[p] = all_configs[i][config_indices[i]];
 				return ret;
 			}
 
 			// find the next combination of configurations
 			foreach_reverse (pi, ref i; config_indices) {
-				if (++i >= all_configs[pi].length) i = 0;
+				if (pi > conflict_index) i = 0;
+				else if (++i >= all_configs[pi].length) i = 0;
 				else break;
 			}
 			if (config_indices.all!"a==0") {
@@ -149,7 +167,7 @@ unittest {
 			"d:1": [], "d:2": [],
 			"e:1": [], "e:2": [],
 		]);
-		assert(res.resolve(TreeNode("a", 0)) == ["b":2u, "c":3u, "d":1u, "e":2u]);
+		assert(res.resolve(TreeNode("a", 0)) == ["b":2u, "c":3u, "d":1u, "e":2u], format("%s", res.resolve(TreeNode("a", 0))));
 	}
 
 	// handle cyclic dependencies gracefully
