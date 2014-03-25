@@ -48,7 +48,7 @@ class Project {
 	{
 		Package pack;
 		if (!Package.isPackageAt(project_path)) {
-			logWarn("There was no package description found for the application in '%s'.", m_rootPackage.path.toNativeString());
+			logWarn("There was no package description found for the application in '%s'.", project_path.toNativeString());
 			auto json = Json.emptyObject;
 			json.name = "unknown";
 			pack = new Package(json, project_path);
