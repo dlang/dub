@@ -84,19 +84,24 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			foreach (ch; getChildren(parent)) {
 				auto basepack = rootPackage(ch.pack);
 				assert(basepack in package_indices, format("%s not in packages %s", basepack, package_indices));
-				auto pidx = package_indices[basepack];
+				sizediff_t pidx = package_indices[basepack];
 				if (!all_configs[pidx].length) {
 					auto pbase = rootPackage(parent.pack);
 					auto ppi = pbase in package_indices;
 					enforce(ppi !is null, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
 					// choose another parent config to avoid the invalid child
-					maxcpi = max(maxcpi, *ppi);
+					if (*ppi > maxcpi) {
+						logDiagnostic("Package %s contains invalid dependency %s", parent.pack, ch.pack);
+						maxcpi = *ppi;
+					}
 				} else {
 					auto config = all_configs[pidx][config_indices[pidx]];
 					auto chnode = TreeNode(ch.pack, config);
 					if (!matches(ch.configs, config)) {
-						maxcpi = max(maxcpi, pidx);
-						assert(maxcpi >= 0);
+						if (pidx > maxcpi) {
+							logDebug("Dependency %s -> %s %s mismatches with selected version %s", parent.pack, ch.pack, ch.configs, config);
+							maxcpi = pidx;
+						}
 					}
 					maxcpi = max(maxcpi, validateConfigs(chnode));
 				}
@@ -108,6 +113,14 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			// check if the current combination of configurations works out
 			visited = null;
 			auto conflict_index = validateConfigs(root);
+
+			// print out current iteration state
+			logDebug("Interation %s", {
+				import std.array : join;
+				auto cs = new string[all_configs.length];
+				foreach (p, i; package_indices) cs[i] = p~" "~all_configs[i][config_indices[i]].to!string~(i >= 0 && i >= conflict_index ? " (C)" : "");
+				return cs.join(", ");
+			}());
 
 			if (conflict_index < 0) {
 				CONFIG[string] ret;
