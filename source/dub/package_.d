@@ -169,15 +169,15 @@ class Package {
 
 		// load all sub packages defined in the package description
 		foreach (sub; packageInfo.subPackages.opt!(Json[])) {
-			if (m_parentPackage) {
-				throw new Exception("'subPackages' found in '" ~ name ~ "'. This is only supported in the main package file for '" ~ m_parentPackage.name ~ "'.");
-			}
+			enforce(!m_parentPackage, format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.", name, m_parentPackage.name));
+
 			if (sub.type == Json.Type.string)  {
 				auto p = Path(sub.get!string);
 				p.normalize();
 				enforce(!p.absolute, "Sub package paths must not be absolute: " ~ sub.get!string);
 				enforce(!p.startsWith(Path("..")), "Sub packages must be in a sub directory, not " ~ sub.get!string);
 				m_exportedPackages ~= p;
+				if (!path.empty) m_subPackages ~= new Package(path ~ p, this, this.vers);
 			} else {
 				m_subPackages ~= new Package(sub, root, this);
 			}
@@ -841,7 +841,12 @@ string[] getSubPackagePath(string package_name)
 
 /// Returns the name of the base package in the case of some sub package or the
 /// package itself, if it is already a full package.
-string getBasePackage(string package_name)
+string getBasePackageName(string package_name)
 {
 	return package_name.getSubPackagePath()[0];
+}
+
+string getSubPackageName(string package_name)
+{
+	return getSubPackagePath(package_name)[1 .. $].join(":");
 }
