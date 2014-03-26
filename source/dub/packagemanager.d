@@ -731,16 +731,16 @@ class PackageManager {
 		// Additionally to the internally defined subpackages, whose metadata
 		// is loaded with the main package.json, load all externally defined
 		// packages after the package is available with all the data.
-		foreach ( sub_path; pack.exportedPackages ) {
+		foreach (sub_path; pack.exportedPackages) {
 			auto path = pack.path ~ sub_path;
-			if ( !existsFile(path) ) {
+			if (!existsFile(path)) {
 				logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
 				continue;
 			}
 			// Add the subpackage.
 			try {
 				dst_repos ~= new Package(path, pack);
-			} catch( Exception e ){
+			} catch (Exception e) {
 				logError("Package '%s': Failed to load sub-package in %s, error: %s", pack.name, path.toNativeString(), e.msg);
 				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}

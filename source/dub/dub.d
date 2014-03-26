@@ -672,7 +672,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			return null;
 		}
 		foreach (dname, dspec; pack.dependencies) {
-			auto dbasename = getBasePackage(dname);
+			auto dbasename = getBasePackageName(dname);
 			if (dspec.optional && !m_dub.packageManager.getFirstPackage(dname))
 				continue;
 			if (m_options & UpdateOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))

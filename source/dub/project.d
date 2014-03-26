@@ -204,15 +204,25 @@ class Project {
 				}
 
 				if (!p) {
-					if (!m_selectedVersions.hasSelectedVersion(name)) {
-						logDiagnostic("Version selection for dependency %s of %s is missing.",
-							name, pack.name);
-						continue;
+					auto basename = getBasePackageName(name);
+					if (basename == m_rootPackage.basePackage.name) {
+						vspec = Dependency(m_rootPackage.ver);
+						try p = m_rootPackage.getSubPackage(getSubPackageName(name));
+						catch (Exception e) {
+							logDiagnostic("Error getting sub package %s: %s", name, e.msg);
+							continue;
+						}
+					} else {
+						if (!m_selectedVersions.hasSelectedVersion(basename)) {
+							logDiagnostic("Version selection for dependency %s (%s) of %s is missing.",
+								basename, name, pack.name);
+							continue;
+						}
+
+						vspec = m_selectedVersions.selectedVersion(basename);
+
+						p = m_packageManager.getBestPackage(name, vspec);
 					}
-
-					vspec = m_selectedVersions.selectedVersion(name);
-
-					p = m_packageManager.getBestPackage(name, vspec);
 				}
 
 				if (!p) {
@@ -517,6 +527,8 @@ class Project {
 	void saveSelections()
 	{
 		assert(m_selectedVersions !is null, "Cannot save selections for non-disk based project (has no selections).");
+		if (m_selectedVersions.hasSelectedVersion(m_rootPackage.basePackage.name))
+			m_selectedVersions.deselectVersion(m_rootPackage.basePackage.name);
 		m_selectedVersions.save(m_rootPackage.path ~ SelectedVersions.defaultFile);
 	}
 
@@ -777,6 +789,11 @@ class SelectedVersions {
 	void selectVersion(string packageId, Version version_)
 	{
 		m_selectedVersions[packageId] = Selected(version_/*, issuer*/);
+	}
+
+	void deselectVersion(string package_id)
+	{
+		m_selectedVersions.remove(package_id);
 	}
 
 	bool hasSelectedVersion(string packageId)
