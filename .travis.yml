@@ -20,3 +20,4 @@ install:
 
 script:
   - dub test -c library-nonet
+  - for test in `\ls -1 test/`; do (echo "[INFO] Running test $test"; cd test/$test && dub test && dub run) || break; done
