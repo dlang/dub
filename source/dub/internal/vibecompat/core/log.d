@@ -36,18 +36,18 @@ LogLevel getLogLevel()
 		level = The log level for the logged message
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
-void logDebug(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.debug_, fmt, args); }
+void logDebug(T...)(string fmt, lazy T args) nothrow { log(LogLevel.debug_, fmt, args); }
 /// ditto
-void logDiagnostic(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.diagnostic, fmt, args); }
+void logDiagnostic(T...)(string fmt, lazy T args) nothrow { log(LogLevel.diagnostic, fmt, args); }
 /// ditto
-void logInfo(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.info, fmt, args); }
+void logInfo(T...)(string fmt, lazy T args) nothrow { log(LogLevel.info, fmt, args); }
 /// ditto
-void logWarn(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.warn, fmt, args); }
+void logWarn(T...)(string fmt, lazy T args) nothrow { log(LogLevel.warn, fmt, args); }
 /// ditto
-void logError(T...)(string fmt, auto ref T args) nothrow { log(LogLevel.error, fmt, args); }
+void logError(T...)(string fmt, lazy T args) nothrow { log(LogLevel.error, fmt, args); }
 
 /// ditto
-void log(T...)(LogLevel level, string fmt, auto ref T args)
+void log(T...)(LogLevel level, string fmt, lazy T args)
 nothrow {
 	if( level < s_minLevel ) return;
 	string pref;
