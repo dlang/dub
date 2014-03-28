@@ -1,7 +1,7 @@
 {
     "name": "test",
     "dependencies": {
-        "test:subpack": "~master"
+        "test:subpack": "*"
     },
     "subPackages": [
     	"subpack/"

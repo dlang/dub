@@ -241,6 +241,7 @@ struct Dependency {
 	bool matches(string vers) const { return matches(Version(vers)); }
 	bool matches(const(Version) v) const { return matches(v); }
 	bool matches(ref const(Version) v) const {
+		if (this == ANY) return true;
 		//logDebug(" try match: %s with: %s", v, this);
 		// Master only matches master
 		if(m_versA.isBranch) {
@@ -259,6 +260,8 @@ struct Dependency {
 	/// Merges to versions
 	Dependency merge(ref const(Dependency) o)
 	const {
+		if (this == ANY) return o;
+		if (o == ANY) return this;
 		if (!this.valid || !o.valid) return INVALID;
 		if (m_versA.isBranch != o.m_versA.isBranch) return INVALID;
 		if (m_versB.isBranch != o.m_versB.isBranch) return INVALID;
