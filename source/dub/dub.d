@@ -532,8 +532,9 @@ class Dub {
 		runCommands(commands);
 
 		if (run) {
-			spawnProcess([dub_path~"ddox", "serve-html", "--navigation-type=ModuleTree", "docs.json", "--web-file-dir="~dub_path~"public"]);
+			auto proc = spawnProcess([dub_path~"ddox", "serve-html", "--navigation-type=ModuleTree", "docs.json", "--web-file-dir="~dub_path~"public"]);
 			browse("http://127.0.0.1:8080/");
+			wait(proc);
 		}
 	}
 
