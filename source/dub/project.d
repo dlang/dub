@@ -402,8 +402,15 @@ class Project {
 		}
 
 		// check for conflicts (packages missing in the final configuration graph)
-		foreach (p; getTopologicalPackageList())
-			enforce(p.name in ret, "Could not resolve configuration for package "~p.name);
+		void checkPacksRec(in Package pack) {
+			auto pc = pack.name in ret;
+			enforce(pc !is null, "Could not resolve configuration for package "~pack.name);
+			foreach (p, dep; pack.getDependencies(*pc)) {
+				auto deppack = getDependency(p, dep.optional);
+				if (deppack) checkPacksRec(deppack);
+			}
+		}
+		checkPacksRec(m_rootPackage);
 
 		return ret;
 	}

@@ -211,6 +211,20 @@ class Package {
 		return ret.data;
 	}
 
+	const(Dependency[string]) getDependencies(string config)
+	const {
+		Dependency[string] ret;
+		foreach (k, v; m_info.buildSettings.dependencies)
+			ret[k] = v;
+		foreach (ref conf; m_info.configurations)
+			if (conf.name == config) {
+				foreach (k, v; conf.buildSettings.dependencies)
+					ret[k] = v;
+				break;
+			}
+		return ret;
+	}
+
 	/** Overwrites the packge description file using the default filename with the current information.
 	*/
 	void storeInfo()
