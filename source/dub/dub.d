@@ -588,7 +588,7 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 	return ret.data;
 }
 
-private class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
+class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 	private {
 		Dub m_dub;
 		UpdateOptions m_options;
