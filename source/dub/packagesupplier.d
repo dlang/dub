@@ -17,6 +17,7 @@ import dub.internal.vibecompat.inet.url;
 import std.algorithm : filter, sort;
 import std.array : array;
 import std.conv;
+import std.datetime;
 import std.exception;
 import std.file;
 import std.string : format;
@@ -98,12 +99,15 @@ class FileSystemPackageSupplier : PackageSupplier {
 class RegistryPackageSupplier : PackageSupplier {
 	private {
 		URL m_registryUrl;
-		Json[string] m_allMetadata;
+		struct CacheEntry { Json data; SysTime cacheTime; }
+		CacheEntry[string] m_metadataCache;
+		Duration m_maxCacheTime;
 	}
 	
 	this(URL registry)
 	{
 		m_registryUrl = registry;
+		m_maxCacheTime = 24.hours();
 	}
 
 	override @property string description() { return "registry at "~m_registryUrl.toString(); }
@@ -137,8 +141,11 @@ class RegistryPackageSupplier : PackageSupplier {
 	
 	private Json getMetadata(string packageId)
 	{
-		if (auto json = packageId in m_allMetadata)
-			return *json;
+		auto now = Clock.currTime(UTC());
+		if (auto pentry = packageId in m_metadataCache) {
+			if (pentry.cacheTime + m_maxCacheTime > now)
+				return pentry.data;
+		}
 
 		auto url = m_registryUrl ~ Path(PackagesPath ~ "/" ~ packageId ~ ".json");
 		
@@ -147,7 +154,7 @@ class RegistryPackageSupplier : PackageSupplier {
 
 		auto jsonData = cast(string)download(url);
 		Json json = parseJson(jsonData);
-		m_allMetadata[packageId] = json;
+		m_metadataCache[packageId] = CacheEntry(json, now);
 		return json;
 	}
 	
