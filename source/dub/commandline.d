@@ -180,7 +180,7 @@ int runDubCommandLine(string[] args)
 	// initialize the root package
 	if (!cmd.skipDubInitialization) {
 		// initialize DUB
-		auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url))).array;
+		auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
 		dub = new Dub(package_suppliers, root_path);
 		dub.dryRun = annotate;
 	

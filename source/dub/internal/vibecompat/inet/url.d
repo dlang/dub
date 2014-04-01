@@ -9,6 +9,9 @@ module dub.internal.vibecompat.inet.url;
 
 public import dub.internal.vibecompat.inet.path;
 
+version (Have_vibe_d) public import vibe.inet.url;
+else:
+
 import std.algorithm;
 import std.array;
 import std.conv;
@@ -20,7 +23,7 @@ import std.uri;
 /**
 	Represents a URL decomposed into its components.
 */
-struct Url {
+struct URL {
 	private {
 		string m_schema;
 		string m_pathString;
@@ -107,9 +110,9 @@ struct Url {
 		this.localURI = str;
 	}
 	/// ditto
-	static Url parse(string url_string)
+	static URL parse(string url_string)
 	{
-		return Url(url_string);
+		return URL(url_string);
 	}
 
 	/// The schema/protocol part of the URL
@@ -194,8 +197,8 @@ struct Url {
 	}
 
 	/// The URL to the parent path with query string and anchor stripped.
-	@property Url parentUrl() const {
-		Url ret;
+	@property URL parentURL() const {
+		URL ret;
 		ret.schema = schema;
 		ret.host = host;
 		ret.port = port;
@@ -229,29 +232,29 @@ struct Url {
 		return dst.data;
 	}
 
-	bool startsWith(const Url rhs) const {
+	bool startsWith(const URL rhs) const {
 		if( m_schema != rhs.m_schema ) return false;
 		if( m_host != rhs.m_host ) return false;
 		// FIXME: also consider user, port, querystring, anchor etc
 		return path.startsWith(rhs.m_path);
 	}
 
-	Url opBinary(string OP)(Path rhs) const if( OP == "~" ) { return Url(m_schema, m_host, m_port, m_path ~ rhs); }
-	Url opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return Url(m_schema, m_host, m_port, m_path ~ rhs); }
+	URL opBinary(string OP)(Path rhs) const if( OP == "~" ) { return URL(m_schema, m_host, m_port, m_path ~ rhs); }
+	URL opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return URL(m_schema, m_host, m_port, m_path ~ rhs); }
 	void opOpAssign(string OP)(Path rhs) if( OP == "~" ) { m_path ~= rhs; }
 	void opOpAssign(string OP)(PathEntry rhs) if( OP == "~" ) { m_path ~= rhs; }
 
 	/// Tests two URLs for equality using '=='.
-	bool opEquals(ref const Url rhs) const {
+	bool opEquals(ref const URL rhs) const {
 		if( m_schema != rhs.m_schema ) return false;
 		if( m_host != rhs.m_host ) return false;
 		if( m_path != rhs.m_path ) return false;
 		return true;
 	}
 	/// ditto
-	bool opEquals(const Url other) const { return opEquals(other); }
+	bool opEquals(const URL other) const { return opEquals(other); }
 
-	int opCmp(ref const Url rhs) const {
+	int opCmp(ref const URL rhs) const {
 		if( m_schema != rhs.m_schema ) return m_schema.cmp(rhs.m_schema);
 		if( m_host != rhs.m_host ) return m_host.cmp(rhs.m_host);
 		if( m_path != rhs.m_path ) return m_path.opCmp(rhs.m_path);
@@ -260,12 +263,12 @@ struct Url {
 }
 
 unittest {
-	auto url = Url.parse("https://www.example.net/index.html");
+	auto url = URL.parse("https://www.example.net/index.html");
 	assert(url.schema == "https", url.schema);
 	assert(url.host == "www.example.net", url.host);
 	assert(url.path == Path("/index.html"), url.path.toString());
 	
-	url = Url.parse("http://jo.doe:password@sub.www.example.net:4711/sub2/index.html?query#anchor");
+	url = URL.parse("http://jo.doe:password@sub.www.example.net:4711/sub2/index.html?query#anchor");
 	assert(url.schema == "http", url.schema);
 	assert(url.username == "jo.doe", url.username);
 	assert(url.password == "password", url.password);

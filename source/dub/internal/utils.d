@@ -121,7 +121,7 @@ void download(string url, string filename)
 	} else assert(false);
 }
 /// ditto
-void download(Url url, Path filename)
+void download(URL url, Path filename)
 {
 	download(url.toString(), filename.toNativeString());
 }
@@ -140,7 +140,7 @@ char[] download(string url)
 	} else assert(false);
 }
 /// ditto
-char[] download(Url url)
+char[] download(URL url)
 {
 	return download(url.toString());
 }

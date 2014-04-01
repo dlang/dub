@@ -41,7 +41,7 @@ import std.encoding : sanitize;
 /// hosted by code.dlang.org.
 PackageSupplier[] defaultPackageSuppliers()
 {
-	Url url = Url.parse("http://code.dlang.org/");
+	URL url = URL.parse("http://code.dlang.org/");
 	logDiagnostic("Using dub registry url '%s'", url);
 	return [new RegistryPackageSupplier(url)];
 }
@@ -87,11 +87,11 @@ class Dub {
 		PackageSupplier[] ps = additional_package_suppliers;
 		if (auto pp = "registryUrls" in m_userConfig)
 			ps ~= deserializeJson!(string[])(*pp)
-				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url)))
+				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
 				.array;
 		if (auto pp = "registryUrls" in m_systemConfig)
 			ps ~= deserializeJson!(string[])(*pp)
-				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(Url(url)))
+				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
 				.array;
 		ps ~= defaultPackageSuppliers();
 

@@ -7,6 +7,9 @@
 */
 module dub.internal.vibecompat.inet.path;
 
+version (Have_vibe_d) public import vibe.inet.path;
+else:
+
 import std.algorithm;
 import std.array;
 import std.conv;
@@ -244,14 +247,13 @@ struct Path {
 	hash_t toHash()
 	const nothrow @trusted {
 		hash_t ret;
-		auto strtid = typeid(string);
-		try foreach (n; nodes) ret ^= strtid.getHash(&n.m_name);
+		auto strhash = &typeid(string).getHash;
+		try foreach (n; nodes) ret ^= strhash(&n.m_name);
 		catch assert(false);
 		if (m_absolute) ret ^= 0xfe3c1738;
 		if (m_endsWithSlash) ret ^= 0x6aa4352d;
 		return ret;
 	}
-	
 }
 
 struct PathEntry {

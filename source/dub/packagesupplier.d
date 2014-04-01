@@ -97,11 +97,11 @@ class FileSystemPackageSupplier : PackageSupplier {
 /// Client PackageSupplier using the registry available via registerVpmRegistry
 class RegistryPackageSupplier : PackageSupplier {
 	private {
-		Url m_registryUrl;
+		URL m_registryUrl;
 		Json[string] m_allMetadata;
 	}
 	
-	this(Url registry)
+	this(URL registry)
 	{
 		m_registryUrl = registry;
 	}
