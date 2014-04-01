@@ -118,6 +118,9 @@ void download(string url, string filename)
 		enforce(conn.statusLine.code < 400,
 			format("Failed to download %s: %s %s",
 				url, conn.statusLine.code, conn.statusLine.reason));
+	} else version (Have_vibe_d) {
+		import vibe.inet.urltransfer;
+		vibe.inet.urltransfer.download(url, filename);
 	} else assert(false);
 }
 /// ditto
@@ -126,21 +129,27 @@ void download(URL url, Path filename)
 	download(url.toString(), filename.toNativeString());
 }
 /// ditto
-char[] download(string url)
+ubyte[] download(string url)
 {
 	version(DubUseCurl) {
 		auto conn = HTTP();
 		setupHTTPClient(conn);
 		logDebug("Getting %s...", url);
-		auto ret = get(url, conn);
+		auto ret = cast(ubyte[])get(url, conn);
 		enforce(conn.statusLine.code < 400,
 			format("Failed to GET %s: %s %s",
 				url, conn.statusLine.code, conn.statusLine.reason));
 		return ret;
+	} else version (Have_vibe_d) {
+		import vibe.inet.urltransfer;
+		import vibe.stream.operations;
+		ubyte[] ret;
+		download(url, (scope input) { ret = input.readAll(); });
+		return ret;
 	} else assert(false);
 }
 /// ditto
-char[] download(URL url)
+ubyte[] download(URL url)
 {
 	return download(url.toString());
 }
