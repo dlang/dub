@@ -612,7 +612,6 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 	this(Dub dub, UpgradeOptions options)
 	{
 		m_dub = dub;
-		m_selectedVersions = m_dub.m_project.selections;
 		m_options = options;
 	}
 
