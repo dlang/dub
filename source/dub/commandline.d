@@ -382,10 +382,10 @@ abstract class PackageBuildCommand : Command {
 
 			// retrieve missing packages
 			logDiagnostic("Checking for missing dependencies.");
-			dub.upgrade(UpdateOptions.select);
+			dub.upgrade(UpgradeOptions.select);
 			// check for updates
 			logDiagnostic("Checking for upgrades.");
-			dub.upgrade(UpdateOptions.upgrade|UpdateOptions.printUpgradesOnly);
+			dub.upgrade(UpgradeOptions.upgrade|UpgradeOptions.printUpgradesOnly);
 		}
 
 		dub.project.validate();
@@ -748,9 +748,9 @@ class UpgradeCommand : Command {
 		enforceUsage(!m_verify, "--verify is not yet implemented.");
 		dub.loadPackageFromCwd();
 		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
-		auto options = UpdateOptions.upgrade|UpdateOptions.select;
-		if (m_prerelease) options |= UpdateOptions.preRelease;
-		if (m_forceRemove) options |= UpdateOptions.forceRemove;
+		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
+		if (m_prerelease) options |= UpgradeOptions.preRelease;
+		if (m_forceRemove) options |= UpgradeOptions.forceRemove;
 		enforceUsage(app_args.length == 0, "Upgrading a specific package is not yet implemented.");
 		dub.upgrade(options);
 		return 0;

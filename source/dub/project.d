@@ -643,17 +643,6 @@ struct Action {
 }
 
 
-enum UpdateOptions
-{
-	none = 0,
-	upgrade = 1<<1, /// Upgrade existing packages
-	preRelease = 1<<2, /// inclde pre-release versions in upgrade
-	forceRemove = 1<<3, /// Force removing package folders, which contain unknown files
-	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
-	printUpgradesOnly = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
-}
-
-
 /// Indicates where a package has been or should be placed to.
 enum PlacementLocation {
 	/// Packages retrived with 'local' will be placed in the current folder 

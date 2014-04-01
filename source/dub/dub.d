@@ -164,7 +164,7 @@ class Dub {
 
 	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true) const { return m_project.getDefaultConfiguration(platform, allow_non_library_configs); }
 
-	void upgrade(UpdateOptions options)
+	void upgrade(UpgradeOptions options)
 	{
 		auto resolver = new DependencyVersionResolver(this, options);
 		auto versions = resolver.resolve(m_project.rootPackage, m_project.selections);
@@ -172,12 +172,12 @@ class Dub {
 		foreach (p, ver; versions) {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			auto pack = m_packageManager.getBestPackage(p, ver);
-			if (!pack) fetch(p, ver, PlacementLocation.userWide, false, (options & UpdateOptions.preRelease) != 0, (options & UpdateOptions.forceRemove) != 0, false);
-			if (options & UpdateOptions.select && ver.path.empty)
+			if (!pack) fetch(p, ver, PlacementLocation.userWide, false, (options & UpgradeOptions.preRelease) != 0, (options & UpgradeOptions.forceRemove) != 0, false);
+			if (options & UpgradeOptions.select && ver.path.empty)
 				m_project.selections.selectVersion(p, ver.version_);
 		}
 
-		if (options & UpdateOptions.select)
+		if (options & UpgradeOptions.select)
 			m_project.saveSelections();
 
 		m_project.reinit();
@@ -588,10 +588,20 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 	return ret.data;
 }
 
+enum UpgradeOptions
+{
+	none = 0,
+	upgrade = 1<<1, /// Upgrade existing packages
+	preRelease = 1<<2, /// inclde pre-release versions in upgrade
+	forceRemove = 1<<3, /// Force removing package folders, which contain unknown files
+	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
+	printUpgradesOnly = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
+}
+
 class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 	protected {
 		Dub m_dub;
-		UpdateOptions m_options;
+		UpgradeOptions m_options;
 		Dependency[][string] m_packageVersions;
 		Package[string] m_remotePackages;
 		SelectedVersions m_selectedVersions;
@@ -599,7 +609,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 	}
 
 
-	this(Dub dub, UpdateOptions options)
+	this(Dub dub, UpgradeOptions options)
 	{
 		m_dub = dub;
 		m_selectedVersions = m_dub.m_project.selections;
@@ -610,13 +620,13 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 	{
 		m_rootPackage = root;
 		m_selectedVersions = selected_versions;
-		return super.resolve(TreeNode(root.name, Dependency(root.ver)), (m_options & UpdateOptions.printUpgradesOnly) == 0);
+		return super.resolve(TreeNode(root.name, Dependency(root.ver)), (m_options & UpgradeOptions.printUpgradesOnly) == 0);
 	}
 
 	protected override Dependency[] getAllConfigs(string pack)
 	{
 		logDiagnostic("Search for versions of %s (%s package suppliers)", pack, m_dub.m_packageSuppliers.length);
-		if (!(m_options & UpdateOptions.upgrade) && m_selectedVersions.hasSelectedVersion(pack))
+		if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(pack))
 			return [m_selectedVersions.selectedVersion(pack)];
 
 		if (auto pvers = pack in m_packageVersions)
@@ -646,7 +656,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		versions = versions.sort!"a>b".uniq.array;
 
 		// move pre-release versions to the back of the list if no preRelease flag is given
-		if (!(m_options & UpdateOptions.preRelease))
+		if (!(m_options & UpgradeOptions.preRelease))
 			versions = versions.filter!(v => !v.isPreRelease).array ~ versions.filter!(v => v.isPreRelease).array;
 
 		if (!versions.length) logDiagnostic("Nothing found for %s", pack);
@@ -676,7 +686,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 			auto dbasename = getBasePackageName(dname);
 			if (dspec.optional && !m_dub.packageManager.getFirstPackage(dname))
 				continue;
-			if (m_options & UpdateOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))
+			if (m_options & UpgradeOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))
 				ret ~= TreeNodes(dname, dspec.mapToPath(pack.path));
 			else ret ~= TreeNodes(dname, m_selectedVersions.selectedVersion(dbasename));
 		}
@@ -704,7 +714,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		if (auto ret = key in m_remotePackages)
 			return *ret;
 
-		auto prerelease = (m_options & UpdateOptions.preRelease) != 0;
+		auto prerelease = (m_options & UpgradeOptions.preRelease) != 0;
 
 		auto rootpack = name.split(":")[0];
 
@@ -721,7 +731,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 				}
 			} else {
 				try {
-					m_dub.fetch(rootpack, dep, PlacementLocation.userWide, false, prerelease, (m_options & UpdateOptions.forceRemove) != 0, false);
+					m_dub.fetch(rootpack, dep, PlacementLocation.userWide, false, prerelease, (m_options & UpgradeOptions.forceRemove) != 0, false);
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
