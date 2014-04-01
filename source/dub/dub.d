@@ -589,7 +589,7 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 }
 
 class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
-	private {
+	protected {
 		Dub m_dub;
 		UpdateOptions m_options;
 		Dependency[][string] m_packageVersions;

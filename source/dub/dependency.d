@@ -117,6 +117,12 @@ struct Dependency {
 		m_versB = ver;
 	}
 
+	this(Path path)
+	{
+		this(ANY_IDENT);
+		m_path = path;
+	}
+
 	@property void path(Path value) { m_path = value; }
 	@property Path path() const { return m_path; }
 	@property bool optional() const { return m_optional; }

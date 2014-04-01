@@ -763,9 +763,9 @@ string stripDlangSpecialChars(string s)
 	return ret.data;
 }
 
-class SelectedVersions {
+final class SelectedVersions {
 	private struct Selected {
-		Version version_;
+		Dependency dep;
 		//Dependency[string] packages;	
 	}
 	private {
@@ -776,6 +776,11 @@ class SelectedVersions {
 	enum defaultFile = "dub.selections.json";
 
 	this() {}
+
+	this(Json data)
+	{
+		deserialize(data);
+	}
 
 	this(Path path)
 	{
@@ -795,7 +800,12 @@ class SelectedVersions {
 
 	void selectVersion(string packageId, Version version_)
 	{
-		m_selectedVersions[packageId] = Selected(version_/*, issuer*/);
+		m_selectedVersions[packageId] = Selected(Dependency(version_)/*, issuer*/);
+	}
+
+	void selectVersion(string package_id, Path path)
+	{
+		m_selectedVersions[package_id] = Selected(Dependency(path));
 	}
 
 	void deselectVersion(string package_id)
@@ -811,7 +821,7 @@ class SelectedVersions {
 	Dependency selectedVersion(string packageId)
 	const {
 		enforce(hasSelectedVersion(packageId));
-		return Dependency(m_selectedVersions[packageId].version_);
+		return m_selectedVersions[packageId].dep;
 	}
 
 	void save(Path path)
@@ -822,14 +832,16 @@ class SelectedVersions {
 		file.writePrettyJsonString(json);
 	}
 
-	private Json serialize()
+	Json serialize()
 	const {
 		Json json = serializeToJson(m_selectedVersions);
 		Json serialized = Json.emptyObject;
 		serialized.fileVersion = FileVersion;
 		serialized.versions = Json.emptyObject;
-		foreach (p, v; m_selectedVersions)
-			serialized.versions[p] = v.version_.toString();
+		foreach (p, v; m_selectedVersions) {
+			if (v.dep.path.empty) serialized.versions[p] = v.dep.version_.toString();
+			else serialized.versions[p] = serializeToJson(["path": v.dep.path.toString()]);
+		}
 		return serialized;
 	}
 
@@ -838,7 +850,12 @@ class SelectedVersions {
 		enforce(cast(int)json["fileVersion"] == FileVersion, "Mismatched dub.select.json version: " ~ to!string(cast(int)json["fileVersion"]) ~ "vs. " ~to!string(FileVersion));
 		clean();
 		scope(failure) clean();
-		foreach (string p, v; json.versions)
-			m_selectedVersions[p] = Selected(Version(v.get!string));
+		foreach (string p, v; json.versions) {
+			if (v.type == Json.Type.string)
+				m_selectedVersions[p] = Selected(Dependency(Version(v.get!string)));
+			else if (v.type == Json.Type.object)
+				m_selectedVersions[p] = Selected(Dependency(Path(v.path.get!string())));
+			else throw new Exception("Unexpected type for dependency %s: %s", p, v.type);
+		}
 	}
 }
