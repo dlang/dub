@@ -68,7 +68,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		findConfigsRec(root);
 
 		logDebug("Configurations used for dependency resolution:");
-		foreach (n, i; package_indices) logDebug("  %s: %s", n, all_configs[i]);
+		foreach (n, i; package_indices) logDebug("  %s (%s): %s", n, i, all_configs[i]);
 
 		auto config_indices = new size_t[all_configs.length];
 		config_indices[] = 0;
@@ -81,31 +81,32 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			if (parent in visited) return -1;
 			visited[parent] = true;
 			sizediff_t maxcpi = -1;
+			sizediff_t parentidx = package_indices.get(rootPackage(parent.pack), -1);
 			foreach (ch; getChildren(parent)) {
 				auto basepack = rootPackage(ch.pack);
 				assert(basepack in package_indices, format("%s not in packages %s", basepack, package_indices));
-				sizediff_t pidx = package_indices[basepack];
-				if (!all_configs[pidx].length) {
-					auto pbase = rootPackage(parent.pack);
-					auto ppi = pbase in package_indices;
-					enforce(ppi !is null, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
+				sizediff_t childidx = package_indices[basepack];
+				if (!all_configs[childidx].length) {
+					enforce(parentidx >= 0, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
 					// choose another parent config to avoid the invalid child
-					if (*ppi > maxcpi) {
+					if (parentidx > maxcpi) {
 						logDiagnostic("Package %s contains invalid dependency %s", parent.pack, ch.pack);
-						maxcpi = *ppi;
+						maxcpi = parentidx;
 					}
 					enforce(parent != root, "Invalid dependecy %s referenced by the root package.");
 				} else {
-					auto config = all_configs[pidx][config_indices[pidx]];
+					auto config = all_configs[childidx][config_indices[childidx]];
 					auto chnode = TreeNode(ch.pack, config);
 					if (!matches(ch.configs, config)) {
-						if (pidx > maxcpi) {
-							logDebug("Dependency %s -> %s %s mismatches with selected version %s", parent.pack, ch.pack, ch.configs, config);
-							maxcpi = pidx;
+						// if we are at the root level, we can safely skip the maxcpi computation and instead choose another childidx config
+						if (parent == root) return childidx;
+
+						if (childidx > maxcpi) {
+							maxcpi = max(childidx, parentidx);
+							logDebug("Dependency %s -> %s %s mismatches with selected version %s (ci=%s)", parent.pack, ch.pack, ch.configs, config, maxcpi);
 						}
 					}
 					maxcpi = max(maxcpi, validateConfigs(chnode));
-					if (parent == root) return pidx;
 				}
 			}
 			return maxcpi;
@@ -117,7 +118,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			auto conflict_index = validateConfigs(root);
 
 			// print out current iteration state
-			logDebug("Interation %s", {
+			logDebug("Interation (ci=%s) %s", conflict_index, {
 				import std.array : join;
 				auto cs = new string[all_configs.length];
 				foreach (p, i; package_indices) {
