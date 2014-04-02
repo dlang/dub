@@ -94,6 +94,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 						logDiagnostic("Package %s contains invalid dependency %s", parent.pack, ch.pack);
 						maxcpi = *ppi;
 					}
+					enforce(parent != root, "Invalid dependecy %s referenced by the root package.");
 				} else {
 					auto config = all_configs[pidx][config_indices[pidx]];
 					auto chnode = TreeNode(ch.pack, config);
@@ -104,6 +105,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 						}
 					}
 					maxcpi = max(maxcpi, validateConfigs(chnode));
+					if (parent == root) return pidx;
 				}
 			}
 			return maxcpi;
@@ -118,7 +120,11 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			logDebug("Interation %s", {
 				import std.array : join;
 				auto cs = new string[all_configs.length];
-				foreach (p, i; package_indices) cs[i] = p~" "~all_configs[i][config_indices[i]].to!string~(i >= 0 && i >= conflict_index ? " (C)" : "");
+				foreach (p, i; package_indices) {
+					if (all_configs[i].length)
+						cs[i] = p~" "~all_configs[i][config_indices[i]].to!string~(i >= 0 && i >= conflict_index ? " (C)" : "");
+					else cs[i] = p ~ " [no config]";
+				}
 				return cs.join(", ");
 			}());
 
