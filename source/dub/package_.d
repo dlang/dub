@@ -118,19 +118,8 @@ class Package {
 
 			// try to run git to determine the version of the package if no explicit version was given
 			if (m_info.version_.length == 0 && !parent) {
-				import std.process;
-				try {
-					auto branch = execute(["git", "--git-dir="~(root~".git").toNativeString(), "rev-parse", "--abbrev-ref", "HEAD"]);
-					enforce(branch.status == 0, "git rev-parse failed: " ~ branch.output);
-					if (branch.output.strip() == "HEAD") {
-						//auto ver = execute("git",)
-						enforce(false, "oops");
-					} else {
-						m_info.version_ = "~" ~ branch.output.strip();
-					}
-				} catch (Exception e) {
-					logDebug("Failed to run git: %s", e.msg);
-				}
+				try m_info.version_ = determineVersionFromSCM(root);
+				catch (Exception e) logDebug("Failed to determine version by SCM: %s", e.msg);
 
 				if (m_info.version_.length == 0) {
 					logDiagnostic("Note: Failed to determine version of package %s at %s. Assuming ~master.", m_info.name, this.path.toNativeString());
@@ -863,4 +852,39 @@ string getBasePackageName(string package_name)
 string getSubPackageName(string package_name)
 {
 	return getSubPackagePath(package_name)[1 .. $].join(":");
+}
+
+private string determineVersionFromSCM(Path path)
+{
+	import std.process;
+	import dub.semver;
+
+	auto git_dir = path ~ ".git";
+	if (!existsFile(git_dir) || !isDir(git_dir.toNativeString)) return null;
+	auto git_dir_param = "--git-dir=" ~ git_dir.toNativeString();
+
+	static string exec(scope string[] params...) {
+		auto ret = execute(params);
+		if (ret.status == 0) return ret.output.strip;
+		logDebug("'%s' failed with exit code %s: %s", params.join(" "), ret.status, ret.output.strip);
+		return null;
+	}
+
+	if (auto tag = exec("git", git_dir_param, "describe", "--long")) {
+		auto parts = tag.split("-");
+		auto commit = parts[$-1];
+		auto num = parts[$-2].to!int;
+		tag = parts[0 .. $-2].join("-");
+		if (tag.startsWith("v") && isValidVersion(tag[1 .. $])) {
+			if (num == 0) return tag[1 .. $];
+			else if (tag.canFind("+") || tag.canFind("-")) return format("%s.%s.%s", tag[1 .. $], num, commit);
+			else return format("%s+%s.%s", tag[1 .. $], num, commit);
+		}
+	}
+
+	if (auto branch = exec("git", git_dir_param, "rev-parse", "--abbrev-ref", "HEAD")) {
+		if (branch != "HEAD") return "~" ~ branch;
+	}
+
+	return null;
 }
