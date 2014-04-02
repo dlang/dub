@@ -88,7 +88,7 @@ class PackageManager {
 					if (ovr.package_ == name && ovr.version_.matches(ver)) {
 						Package pack;
 						if (!ovr.targetPath.empty) pack = getPackage(name, ovr.targetPath);
-						else pack = getPackage(name, ovr.targetVersion);
+						else pack = getPackage(name, ovr.targetVersion, false);
 						if (pack) return pack;
 
 						logWarn("Package override %s %s -> %s %s doesn't reference an existing package.",
