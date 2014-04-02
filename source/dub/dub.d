@@ -678,7 +678,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		auto pack = getPackage(node.pack, node.config);
 		if (!pack) {
 			// this can hapen when the package description contains syntax errors
-			logDiagnostic("Invalid package in dependency tree: %s %s", node.pack, node.config);
+			logDebug("Invalid package in dependency tree: %s %s", node.pack, node.config);
 			return null;
 		}
 		foreach (dname, dspec; pack.dependencies) {
@@ -744,6 +744,8 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 				}
 			}
 		}
+
+		m_remotePackages[key] = null;
 
 		logWarn("Package %s %s was found neither locally, nor in the configured package registries.", name, dep);
 		return null;
