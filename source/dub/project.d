@@ -68,11 +68,14 @@ class Project {
 		try m_packageSettings = jsonFromFile(m_rootPackage.path ~ ".dub/dub.json", true);
 		catch(Exception t) logDiagnostic("Failed to read .dub/dub.json: %s", t.msg);
 
-		try m_selectedVersions = new SelectedVersions(m_rootPackage.path ~ SelectedVersions.defaultFile);
-		catch(Exception e) {
-			logDiagnostic("A " ~ SelectedVersions.defaultFile ~ " file was not found or failed to load:\n%s", e.msg);
-			m_selectedVersions = new SelectedVersions;
-		}
+		auto selverfile = m_rootPackage.path ~ SelectedVersions.defaultFile;
+		if (existsFile(selverfile)) {
+			try m_selectedVersions = new SelectedVersions();
+			catch(Exception e) {
+				logDiagnostic("A " ~ SelectedVersions.defaultFile ~ " file was not found or failed to load:\n%s", e.msg);
+				m_selectedVersions = new SelectedVersions;
+			}
+		} else m_selectedVersions = new SelectedVersions;
 
 		reinit();
 	}
