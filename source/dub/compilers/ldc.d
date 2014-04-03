@@ -152,9 +152,11 @@ class LdcCompiler : Compiler {
 			case TargetType.executable: break;
 			case TargetType.library:
 			case TargetType.staticLibrary:
-				assert(false, "No LDC static libraries supported");
+				settings.addDFlags("-lib");
+				break;
 			case TargetType.dynamicLibrary:
-				assert(false, "No LDC dynamic libraries supported");
+				settings.addDFlags("-shared");
+				break;
 		}
 
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
