@@ -146,7 +146,7 @@ void enforceBuildRequirements(ref BuildSettings settings)
 	if (settings.requirements & BuildRequirements.silenceWarnings) settings.options &= ~(BuildOptions.warningsAsErrors|BuildOptions.warnings);
 	if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.options &= ~(BuildOptions.ignoreDeprecations|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.deprecationErrors; }
 	if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.options &= ~(BuildOptions.deprecationErrors|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.ignoreDeprecations; }
-	if (settings.requirements & BuildRequirements.disallowInlining) settings.options &= BuildOptions.inline;
+	if (settings.requirements & BuildRequirements.disallowInlining) settings.options &= ~BuildOptions.inline;
 	if (settings.requirements & BuildRequirements.disallowOptimization) settings.options &= ~BuildOptions.optimize;
 	if (settings.requirements & BuildRequirements.requireBoundsCheck) settings.options &= ~BuildOptions.noBoundsCheck;
 	if (settings.requirements & BuildRequirements.requireContracts) settings.options &= ~BuildOptions.releaseMode;
