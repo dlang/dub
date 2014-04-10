@@ -73,8 +73,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		auto config_indices = new size_t[all_configs.length];
 		config_indices[] = 0;
 
+		string last_error;
+
 		visited = null;
-		sizediff_t validateConfigs(TreeNode parent)
+		sizediff_t validateConfigs(TreeNode parent, ref string error)
 		{
 			import std.algorithm : max;
 
@@ -90,7 +92,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					enforce(parentidx >= 0, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
 					// choose another parent config to avoid the invalid child
 					if (parentidx > maxcpi) {
-						logDiagnostic("Package %s contains invalid dependency %s", parent.pack, ch.pack);
+						error = format("Package %s contains invalid dependency %s", parent.pack, ch.pack);
+						logDiagnostic("%s (ci=%s)", error, parentidx);
 						maxcpi = parentidx;
 					}
 					enforce(parent != root, "Invalid dependecy %s referenced by the root package.");
@@ -103,19 +106,24 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 						if (childidx > maxcpi) {
 							maxcpi = max(childidx, parentidx);
-							logDebug("Dependency %s -> %s %s mismatches with selected version %s (ci=%s)", parent.pack, ch.pack, ch.configs, config, maxcpi);
+							error = format("Dependency %s -> %s %s mismatches with selected version %s", parent.pack, ch.pack, ch.configs, config);
+							logDebug("%s (ci=%s)", error, maxcpi);
 						}
 					}
-					maxcpi = max(maxcpi, validateConfigs(chnode));
+					maxcpi = max(maxcpi, validateConfigs(chnode, error));
 				}
 			}
 			return maxcpi;
 		}
 
+		string first_error;
+
 		while (true) {
 			// check if the current combination of configurations works out
 			visited = null;
-			auto conflict_index = validateConfigs(root);
+			string error;
+			auto conflict_index = validateConfigs(root, error);
+			if (!first_error) first_error = error;
 
 			// print out current iteration state
 			logDebug("Interation (ci=%s) %s", conflict_index, {
@@ -144,7 +152,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				else break;
 			}
 			if (config_indices.all!"a==0") {
-				if (throw_on_failure) throw new Exception("Could not find a valid dependency tree configuration.");
+				if (throw_on_failure) throw new Exception("Could not find a valid dependency tree configuration: "~first_error);
 				else return null;
 			}
 		}
