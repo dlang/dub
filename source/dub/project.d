@@ -70,7 +70,7 @@ class Project {
 
 		auto selverfile = m_rootPackage.path ~ SelectedVersions.defaultFile;
 		if (existsFile(selverfile)) {
-			try m_selectedVersions = new SelectedVersions();
+			try m_selectedVersions = new SelectedVersions(selverfile);
 			catch(Exception e) {
 				logDiagnostic("A " ~ SelectedVersions.defaultFile ~ " file was not found or failed to load:\n%s", e.msg);
 				m_selectedVersions = new SelectedVersions;

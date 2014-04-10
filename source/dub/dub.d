@@ -173,7 +173,7 @@ class Dub {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			auto pack = m_packageManager.getBestPackage(p, ver);
 			if (!pack) fetch(p, ver, PlacementLocation.userWide, false, (options & UpgradeOptions.preRelease) != 0, (options & UpgradeOptions.forceRemove) != 0, false);
-			if (options & UpgradeOptions.select && ver.path.empty)
+			if ((options & UpgradeOptions.select) && ver.path.empty)
 				m_project.selections.selectVersion(p, ver.version_);
 		}
 
@@ -624,13 +624,17 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 
 	protected override Dependency[] getAllConfigs(string pack)
 	{
-		logDiagnostic("Search for versions of %s (%s package suppliers)", pack, m_dub.m_packageSuppliers.length);
-		if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(pack))
-			return [m_selectedVersions.selectedVersion(pack)];
-
 		if (auto pvers = pack in m_packageVersions)
 			return *pvers;
 
+		if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(pack)) {
+			auto ret = [m_selectedVersions.selectedVersion(pack)];
+			logDiagnostic("Using fixed selection %s %s", pack, ret[0]);
+			m_packageVersions[pack] = ret;
+			return ret;
+		}
+
+		logDiagnostic("Search for versions of %s (%s package suppliers)", pack, m_dub.m_packageSuppliers.length);
 		Version[] versions;
 		foreach (p; m_dub.packageManager.getPackageIterator(pack))
 			versions ~= p.ver;
