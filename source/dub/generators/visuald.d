@@ -46,12 +46,10 @@ class VisualDGenerator : ProjectGenerator {
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
 		auto bs = targets[m_project.name].buildSettings;
-		prepareGeneration(bs);
 		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.rootPackage.name, m_project.rootPackage.dependencies.length);
 		generateProjectFiles(settings, targets);
 		generateSolutionFile(settings, targets);
 		logInfo("VisualD project generated.");
-		finalizeGeneration(bs, true);
 	}
 
 	private {

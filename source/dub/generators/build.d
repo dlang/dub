@@ -125,10 +125,6 @@ class BuildGenerator : ProjectGenerator {
 		// determine basic build properties
 		auto generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
 
-		// run pre-/post-generate commands and copy "copyFiles"
-		prepareGeneration(buildsettings);
-		finalizeGeneration(buildsettings, generate_binary);
-
 		logInfo("Building %s configuration \"%s\", build type %s.", pack.name, config, settings.buildType);
 
 		if( buildsettings.preBuildCommands.length ){
@@ -190,9 +186,6 @@ class BuildGenerator : ProjectGenerator {
 		flags ~= buildsettings.dflags;
 		flags ~= mainsrc.relativeTo(cwd).toNativeString();
 
-		prepareGeneration(buildsettings);
-		finalizeGeneration(buildsettings, generate_binary);
-
 		if (buildsettings.preBuildCommands.length){
 			logInfo("Running pre-build commands...");
 			runCommands(buildsettings.preBuildCommands);
@@ -229,8 +222,6 @@ class BuildGenerator : ProjectGenerator {
 
 		logInfo("Building configuration \""~config~"\", build type "~settings.buildType);
 
-		prepareGeneration(buildsettings);
-
 		// make all target/import paths relative
 		string makeRelative(string path) { auto p = Path(path); if (p.absolute) p = p.relativeTo(cwd); return p.toNativeString(); }
 		buildsettings.targetPath = makeRelative(buildsettings.targetPath);
@@ -250,8 +241,6 @@ class BuildGenerator : ProjectGenerator {
 			}
 			exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 		}
-
-		finalizeGeneration(buildsettings, generate_binary);
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");

@@ -55,6 +55,11 @@ class ProjectGenerator
 		TargetInfo[string] targets;
 		string[string] configs = m_project.getPackageConfigs(settings.platform, settings.config);
 
+		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
+			auto buildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
+			prepareGeneration(pack.name, buildsettings);
+		}
+
 		string[] mainfiles;
 		collect(settings, m_project.rootPackage, targets, configs, mainfiles, null);
 		downwardsInheritSettings(m_project.rootPackage.name, targets, targets[m_project.rootPackage.name].buildSettings);
@@ -62,6 +67,12 @@ class ProjectGenerator
 		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
 
 		generateTargets(settings, targets);
+
+		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
+			auto buildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
+			bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
+			finalizeGeneration(pack.name, buildsettings, generate_binary);
+		}
 	}
 
 	abstract void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets);
@@ -224,10 +235,10 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 /**
 	Runs pre-build commands and performs other required setup before project files are generated.
 */
-void prepareGeneration(in BuildSettings buildsettings)
+private void prepareGeneration(string pack, in BuildSettings buildsettings)
 {
 	if( buildsettings.preGenerateCommands.length ){
-		logInfo("Running pre-generate commands...");
+		logInfo("Running pre-generate commands for %s...", pack);
 		runBuildCommands(buildsettings.preGenerateCommands, buildsettings);
 	}
 }
@@ -235,10 +246,10 @@ void prepareGeneration(in BuildSettings buildsettings)
 /**
 	Runs post-build commands and copies required files to the binary directory.
 */
-void finalizeGeneration(in BuildSettings buildsettings, bool generate_binary)
+private void finalizeGeneration(string pack, in BuildSettings buildsettings, bool generate_binary)
 {
 	if (buildsettings.postGenerateCommands.length) {
-		logInfo("Running post-generate commands...");
+		logInfo("Running post-generate commands for %s...", pack);
 		runBuildCommands(buildsettings.postGenerateCommands, buildsettings);
 	}
 
@@ -247,7 +258,7 @@ void finalizeGeneration(in BuildSettings buildsettings, bool generate_binary)
 			mkdirRecurse(buildsettings.targetPath);
 		
 		if (buildsettings.copyFiles.length) {
-			logInfo("Copying files...");
+			logInfo("Copying files for %s...", pack);
 			foreach (f; buildsettings.copyFiles) {
 				auto src = Path(f);
 				auto dst = Path(buildsettings.targetPath) ~ Path(f).head;
