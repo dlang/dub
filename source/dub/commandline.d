@@ -698,26 +698,17 @@ class DescribeCommand : PackageBuildCommand {
 /******************************************************************************/
 
 class UpgradeCommand : Command {
-	/* TODO:
-		- DependencyGraph select needs to overrule resolution algorithm.
-		- Fail build, when selected version is not available
-		- dub update: updating to pinned by default or by flag?
-
-	Done:
-		- write selected versions
-		- load selected versions
-		- init: warning if pinned dependency not found
-	*/
 	private {
 		bool m_prerelease = false;
 		bool m_forceRemove = false;
+		bool m_missingOnly = false;
 		bool m_verify = false;
 	}
 
 	this()
 	{
 		this.name = "upgrade";
-		this.argumentsPattern = "<package>";
+		this.argumentsPattern = "[<package>]";
 		this.description = "Forces an upgrade of all dependencies";
 		this.helpText = [
 			"Upgrades all dependencies of the package by querying the package registry(ies) for new versions.",
@@ -739,6 +730,9 @@ class UpgradeCommand : Command {
 		args.getopt("verify", &m_verify, [
 			"Updates the project and performs a build. If successfull, rewrites the selected versions file <to be implemeted>."
 		]);
+		args.getopt("missing-only", &m_missingOnly, [
+			"Performs an upgrade only for dependencies that don't yet have a version selected. This is also done automatically before each build."
+		]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -749,6 +743,7 @@ class UpgradeCommand : Command {
 		dub.loadPackageFromCwd();
 		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
+		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
 		if (m_forceRemove) options |= UpgradeOptions.forceRemove;
 		enforceUsage(app_args.length == 0, "Upgrading a specific package is not yet implemented.");
