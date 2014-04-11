@@ -748,7 +748,10 @@ struct BuildSettingsTemplate {
 		if (!this.targetPath.empty) dst.targetPath = this.targetPath;
 		if (!this.targetName.empty) dst.targetName = this.targetName;
 		if (!this.workingDirectory.empty) dst.workingDirectory = this.workingDirectory;
-		if (!this.mainSourceFile.empty) dst.mainSourceFile = this.mainSourceFile;
+		if (!this.mainSourceFile.empty) {
+			dst.mainSourceFile = this.mainSourceFile;
+			dst.addSourceFiles(this.mainSourceFile);
+		}
 
 		void collectFiles(string method)(in string[][string] paths_map, string pattern)
 		{
