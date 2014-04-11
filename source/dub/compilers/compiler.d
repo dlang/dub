@@ -162,6 +162,8 @@ void enforceBuildRequirements(ref BuildSettings settings)
 */
 void resolveLibs(ref BuildSettings settings)
 {
+	import std.string : format;
+
 	if (settings.libs.length == 0) return;
 
 	if (settings.targetType == TargetType.library || settings.targetType == TargetType.staticLibrary) {
@@ -169,19 +171,31 @@ void resolveLibs(ref BuildSettings settings)
 		settings.libs = null;
 		version(Windows) settings.sourceFiles = settings.sourceFiles.filter!(f => !f.endsWith(".lib")).array;
 	}
-	
-	try {
-		logDiagnostic("Trying to use pkg-config to resolve library flags for %s.", settings.libs);
-		auto libflags = execute(["pkg-config", "--libs"] ~ settings.libs.map!(l => "lib"~l)().array());
-		enforce(libflags.status == 0, "pkg-config exited with error code "~to!string(libflags.status));
-		foreach (f; libflags.output.split()) {
-			if (f.startsWith("-Wl,")) settings.addLFlags(f[4 .. $].split(","));
-			else settings.addLFlags(f);
+
+	version (Posix) {
+		try {
+			auto pkgconfig_bin = "pkg-config";
+			string[] pkgconfig_libs;
+			foreach (lib; settings.libs)
+				if (execute([pkgconfig_bin, "--exists", "lib"~lib]).status == 0)
+					pkgconfig_libs ~= lib;
+
+			logDiagnostic("Trying to use pkg-config to resolve library flags for %s.", pkgconfig_libs);
+
+			if (pkgconfig_libs.length) {
+				auto libflags = execute(["pkg-config", "--libs"] ~ pkgconfig_libs.map!(l => "lib"~l)().array());
+				enforce(libflags.status == 0, format("pkg-config exited with error code %s: %s", libflags.status, libflags.output));
+				foreach (f; libflags.output.split()) {
+					if (f.startsWith("-Wl,")) settings.addLFlags(f[4 .. $].split(","));
+					else settings.addLFlags(f);
+				}
+				settings.libs = settings.libs.filter!(l => !pkgconfig_libs.canFind(l)).array;
+			}
+			if (settings.libs.length) logDiagnostic("Using direct -l... flags for %s.", settings.libs);
+		} catch (Exception e) {
+			logDiagnostic("pkg-config failed: %s", e.msg);
+			logDiagnostic("Falling back to direct -l... flags.");
 		}
-		settings.libs = null;
-	} catch (Exception e) {
-		logDiagnostic("pkg-config failed: %s", e.msg);
-		logDiagnostic("Falling back to direct -lxyz flags.");
 	}
 }
 
