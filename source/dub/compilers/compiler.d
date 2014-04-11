@@ -180,7 +180,7 @@ void resolveLibs(ref BuildSettings settings)
 				if (execute([pkgconfig_bin, "--exists", "lib"~lib]).status == 0)
 					pkgconfig_libs ~= lib;
 
-			logDiagnostic("Trying to use pkg-config to resolve library flags for %s.", pkgconfig_libs);
+			logDiagnostic("Using pkg-config to resolve library flags for %s.", pkgconfig_libs.map!(l => "lib"~l).array.join(", "));
 
 			if (pkgconfig_libs.length) {
 				auto libflags = execute(["pkg-config", "--libs"] ~ pkgconfig_libs.map!(l => "lib"~l)().array());
@@ -191,7 +191,7 @@ void resolveLibs(ref BuildSettings settings)
 				}
 				settings.libs = settings.libs.filter!(l => !pkgconfig_libs.canFind(l)).array;
 			}
-			if (settings.libs.length) logDiagnostic("Using direct -l... flags for %s.", settings.libs);
+			if (settings.libs.length) logDiagnostic("Using direct -l... flags for %s.", settings.libs.array.join(", "));
 		} catch (Exception e) {
 			logDiagnostic("pkg-config failed: %s", e.msg);
 			logDiagnostic("Falling back to direct -l... flags.");
