@@ -208,7 +208,10 @@ class Project {
 
 				if (!p) {
 					auto basename = getBasePackageName(name);
-					if (basename == m_rootPackage.basePackage.name) {
+					if (name == m_rootPackage.basePackage.name) {
+						vspec = Dependency(m_rootPackage.ver);
+						p = m_rootPackage.basePackage;
+					} else if (basename == m_rootPackage.basePackage.name) {
 						vspec = Dependency(m_rootPackage.ver);
 						try p = m_rootPackage.getSubPackage(getSubPackageName(name));
 						catch (Exception e) {
