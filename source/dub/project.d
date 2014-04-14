@@ -321,9 +321,15 @@ class Project {
 			return true;
 		}
 
+		string[] allconfigs_path;
 		// create a graph of all possible package configurations (package, config) -> (subpackage, subconfig)
 		void determineAllConfigs(in Package p)
 		{
+			auto idx = allconfigs_path.countUntil(p.name);
+			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ p.name).join("->")));
+			allconfigs_path ~= p.name;
+			scope (exit) allconfigs_path.length--;
+
 			// first, add all dependency configurations
 			foreach (dn; p.dependencies.byKey) {
 				auto dp = getDependency(dn, true);
