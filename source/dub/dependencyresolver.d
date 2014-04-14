@@ -21,11 +21,39 @@ class DependencyResolver(CONFIGS, CONFIG) {
 	static struct TreeNodes {
 		string pack;
 		CONFIGS configs;
+
+		hash_t toHash() const nothrow @trusted {
+			try {
+				size_t ret = typeid(string).getHash(&pack);
+				ret ^= typeid(CONFIGS).getHash(&configs);
+				return ret;
+			} catch assert(false);
+		}
+		bool opEqual(in ref TreeNodes other) const { return pack == other.pack && configs == other.configs; }
+		int opCmp(in ref TreeNodes other) const {
+			if (pack != other.pack) return pack < other.pack ? -1 : 1;
+			if (configs != other.configs) return configs < other.configs ? -1 : 1;
+			return 0;
+		}
 	}
 
 	static struct TreeNode {
 		string pack;
 		CONFIG config;
+
+		hash_t toHash() const nothrow @trusted {
+			try {
+				size_t ret = typeid(string).getHash(&pack);
+				ret ^= typeid(CONFIG).getHash(&config);
+				return ret;
+			} catch assert(false);
+		}
+		bool opEqual(in ref TreeNode other) const { return pack == other.pack && config == other.config; }
+		int opCmp(in ref TreeNode other) const {
+			if (pack != other.pack) return pack < other.pack ? -1 : 1;
+			if (config != other.config) return config < other.config ? -1 : 1;
+			return 0;
+		}
 	}
 
 	CONFIG[string] resolve(TreeNode root, bool throw_on_failure = true)

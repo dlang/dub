@@ -238,6 +238,24 @@ struct Dependency {
 			&& o.m_versA == m_versA && o.m_versB == m_versB 
 			&& o.m_optional == m_optional;
 	}
+
+	int opCmp(in Dependency o)
+	const {
+		if (m_cmpA != o.m_cmpA) return m_cmpA < o.m_cmpA ? -1 : 1;
+		if (m_cmpB != o.m_cmpB) return m_cmpB < o.m_cmpB ? -1 : 1;
+		if (m_versA != o.m_versA) return m_versA < o.m_versA ? -1 : 1;
+		if (m_versB != o.m_versB) return m_versB < o.m_versB ? -1 : 1;
+		if (m_optional != o.m_optional) return m_optional ? -1 : 1;
+		return 0;
+	}
+
+	hash_t toHash() const nothrow @trusted  {
+		try {
+			auto strhash = &typeid(string).getHash;
+			auto str = this.toString();
+			return strhash(&str);
+		} catch assert(false);
+	}
 	
 	bool valid() const {
 		return m_versA == m_versB // compare not important
