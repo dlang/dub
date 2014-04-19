@@ -17,6 +17,7 @@ import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.packagemanager;
 import dub.packagesupplier;
+import dub.platform : determineCompiler;
 import dub.project;
 import dub.internal.utils : getDUBVersion;
 
@@ -322,7 +323,7 @@ abstract class PackageBuildCommand : Command {
 	protected {
 		string m_build_type;
 		string m_build_config;
-		string m_compiler_name = "dmd";
+		string m_compiler_name = .determineCompiler();
 		string m_arch;
 		string[] m_debug_versions;
 		Compiler m_compiler;
