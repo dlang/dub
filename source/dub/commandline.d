@@ -346,7 +346,7 @@ abstract class PackageBuildCommand : Command {
 		]);
 		args.getopt("compiler", &m_compiler_name, [
 			"Specifies the compiler binary to use. Arbitrary pre- and suffixes to the identifiers below are recognized (e.g. ldc2 or dmd-2.063) and matched to the proper compiler type:",
-			"  dmd (default), gdc, ldc, gdmd, ldmd"
+			"  "~m_compiler_name~" (default)"~["dmd", "gdc", "ldc", "gdmd", "ldmd"].filter!(c => c != m_compiler_name).map!(c => ", "~c).join()
 		]);
 		args.getopt("a|arch", &m_arch, [
 			"Force a different architecture (e.g. x86 or x86_64)"
