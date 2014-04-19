@@ -321,11 +321,11 @@ class InitCommand : Command {
 
 abstract class PackageBuildCommand : Command {
 	protected {
-		string m_build_type;
-		string m_build_config;
-		string m_compiler_name = .determineCompiler();
+		string m_buildType;
+		string m_buildConfig;
+		string m_compilerName = .determineCompiler();
 		string m_arch;
-		string[] m_debug_versions;
+		string[] m_debugVersions;
 		Compiler m_compiler;
 		BuildPlatform m_buildPlatform;
 		BuildSettings m_buildSettings;
@@ -336,22 +336,22 @@ abstract class PackageBuildCommand : Command {
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("b|build", &m_build_type, [
+		args.getopt("b|build", &m_buildType, [
 			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
 			"Possible names:",
 			"  debug (default), plain, release, release-nobounds, unittest, profile, docs, ddox, cov, unittest-cov and custom types"
 		]);
-		args.getopt("c|config", &m_build_config, [
+		args.getopt("c|config", &m_buildConfig, [
 			"Builds the specified configuration. Configurations can be defined in package.json"
 		]);
-		args.getopt("compiler", &m_compiler_name, [
+		args.getopt("compiler", &m_compilerName, [
 			"Specifies the compiler binary to use. Arbitrary pre- and suffixes to the identifiers below are recognized (e.g. ldc2 or dmd-2.063) and matched to the proper compiler type:",
-			"  "~m_compiler_name~" (default)"~["dmd", "gdc", "ldc", "gdmd", "ldmd"].filter!(c => c != m_compiler_name).map!(c => ", "~c).join()
+			"  "~m_compilerName~" (default)"~["dmd", "gdc", "ldc", "gdmd", "ldmd"].filter!(c => c != m_compilerName).map!(c => ", "~c).join()
 		]);
 		args.getopt("a|arch", &m_arch, [
 			"Force a different architecture (e.g. x86 or x86_64)"
 		]);
-		args.getopt("d|debug", &m_debug_versions, [
+		args.getopt("d|debug", &m_debugVersions, [
 			"Define the specified debug version identifier when building - can be used multiple times"
 		]);
 		args.getopt("nodeps", &m_nodeps, [
@@ -364,18 +364,18 @@ abstract class PackageBuildCommand : Command {
 
 	protected void setupPackage(Dub dub, string package_name)
 	{
-		m_compiler = getCompiler(m_compiler_name);
-		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compiler_name, m_arch);
-		m_buildSettings.addDebugVersions(m_debug_versions);
+		m_compiler = getCompiler(m_compilerName);
+		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compilerName, m_arch);
+		m_buildSettings.addDebugVersions(m_debugVersions);
 
 		m_defaultConfig = null;
 		enforce (loadSpecificPackage(dub, package_name), "Failed to load package.");
 
-		enforce(m_build_config.length == 0 || dub.configurations.canFind(m_build_config), "Unknown build configuration: "~m_build_config);
+		enforce(m_buildConfig.length == 0 || dub.configurations.canFind(m_buildConfig), "Unknown build configuration: "~m_buildConfig);
 
-		if (m_build_type.length == 0) {
-			if (environment.get("DFLAGS")) m_build_type = "$DFLAGS";
-			else m_build_type = "debug";
+		if (m_buildType.length == 0) {
+			if (environment.get("DFLAGS")) m_buildType = "$DFLAGS";
+			else m_buildType = "debug";
 		}
 
 		if (!m_nodeps) {
@@ -442,7 +442,7 @@ class GenerateCommand : PackageBuildCommand {
 		bool m_run = false;
 		bool m_force = false;
 		bool m_combined = false;
-		bool m_print_platform, m_print_builds, m_print_configs;
+		bool m_printPlatform, m_printBuilds, m_printConfigs;
 	}
 
 	this()
@@ -468,13 +468,13 @@ class GenerateCommand : PackageBuildCommand {
 			"Tries to build the whole project in a single compiler run."
 		]);
 
-		args.getopt("print-builds", &m_print_builds, [
+		args.getopt("print-builds", &m_printBuilds, [
 			"Prints the list of available build types"
 		]);
-		args.getopt("print-configs", &m_print_configs, [
+		args.getopt("print-configs", &m_printConfigs, [
 			"Prints the list of available configurations"
 		]);
-		args.getopt("print-platform", &m_print_platform, [
+		args.getopt("print-platform", &m_printPlatform, [
 			"Prints the identifiers for the current build platform as used for the build fields in package.json"
 		]);
 	}
@@ -493,7 +493,7 @@ class GenerateCommand : PackageBuildCommand {
 
 		setupPackage(dub, package_name);
 		
-		if (m_print_builds) { // FIXME: use actual package data
+		if (m_printBuilds) { // FIXME: use actual package data
 			logInfo("Available build types:");
 			foreach (tp; ["debug", "release", "unittest", "profile"])
 				logInfo("  %s", tp);
@@ -501,7 +501,7 @@ class GenerateCommand : PackageBuildCommand {
 		}
 
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
-		if (m_print_configs) {
+		if (m_printConfigs) {
 			logInfo("Available configurations:");
 			foreach (tp; dub.configurations)
 				logInfo("  %s%s", tp, tp == m_defaultConfig ? " [default]" : null);
@@ -510,8 +510,8 @@ class GenerateCommand : PackageBuildCommand {
 
 		GeneratorSettings gensettings;
 		gensettings.platform = m_buildPlatform;
-		gensettings.config = m_build_config.length ? m_build_config : m_defaultConfig;
-		gensettings.buildType = m_build_type;
+		gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
+		gensettings.buildType = m_buildType;
 		gensettings.compiler = m_compiler;
 		gensettings.buildSettings = m_buildSettings;
 		gensettings.combined = m_combined;
@@ -527,7 +527,7 @@ class GenerateCommand : PackageBuildCommand {
 			logWarn(`The generator "visuald-combined" is deprecated, please use the --combined switch instead.`);
 		}
 		dub.generateProject(m_generator, gensettings);
-		if (m_build_type == "ddox") dub.runDdox(gensettings.run);
+		if (m_buildType == "ddox") dub.runDdox(gensettings.run);
 		return 0;
 	}
 }
@@ -651,7 +651,7 @@ class TestCommand : PackageBuildCommand {
 		settings.run = true;
 		settings.runArgs = app_args;
 
-		dub.testProject(settings, m_build_config, Path(m_mainFile));
+		dub.testProject(settings, m_buildConfig, Path(m_mainFile));
 		return 0;
 	}
 }
@@ -688,7 +688,7 @@ class DescribeCommand : PackageBuildCommand {
 
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
-		dub.describeProject(m_buildPlatform, m_build_config.length ? m_build_config : m_defaultConfig);				
+		dub.describeProject(m_buildPlatform, m_buildConfig.length ? m_buildConfig : m_defaultConfig);				
 		return 0;
 	}
 }
@@ -1173,8 +1173,8 @@ class DustmiteCommand : PackageBuildCommand {
 
 			GeneratorSettings gensettings;
 			gensettings.platform = m_buildPlatform;
-			gensettings.config = m_build_config.length ? m_build_config : m_defaultConfig;
-			gensettings.buildType = m_build_type;
+			gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
+			gensettings.buildType = m_buildType;
 			gensettings.compiler = m_compiler;
 			gensettings.buildSettings = m_buildSettings;
 			gensettings.combined = m_combined;
@@ -1203,8 +1203,8 @@ class DustmiteCommand : PackageBuildCommand {
 
 			setupPackage(dub, null);
 			auto prj = dub.project;
-			if (m_build_config.empty)
-				m_build_config = prj.getDefaultConfiguration(m_buildPlatform);
+			if (m_buildConfig.empty)
+				m_buildConfig = prj.getDefaultConfiguration(m_buildPlatform);
 
 			void copyFolderRec(Path folder, Path dstfolder)
 			{
