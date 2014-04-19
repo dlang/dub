@@ -55,7 +55,7 @@ void main()
 
 void initVibeDPackage(Path root_path)
 {
-	writePackageJson(root_path, "A simple vibe.d server application.", ["vibe-d": ">=0.7.17"], ["VibeDefaultMain"]);
+	writePackageJson(root_path, "A simple vibe.d server application.", ["vibe-d": "~>0.7.19"], ["VibeDefaultMain"]);
 	createDirectory(root_path ~ "source");
 	createDirectory(root_path ~ "views");
 	createDirectory(root_path ~ "public");
