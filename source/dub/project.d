@@ -469,7 +469,8 @@ class Project {
 				dst.targetType = psettings.targetType;
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
-				dst.workingDirectory = processVars(psettings.workingDirectory, pkg_path, true);
+				if (!psettings.workingDirectory.empty)
+					dst.workingDirectory = processVars(psettings.workingDirectory, pkg_path, true);
 				if (psettings.mainSourceFile.length)
 					dst.mainSourceFile = processVars(psettings.mainSourceFile, pkg_path, true);
 			}
@@ -693,7 +694,8 @@ void processVars(ref BuildSettings dst, string project_path, BuildSettings setti
 		dst.targetType = settings.targetType;
 		dst.targetPath = processVars(settings.targetPath, project_path, true);
 		dst.targetName = settings.targetName;
-		dst.workingDirectory = processVars(settings.workingDirectory, project_path, true);
+		if (!settings.workingDirectory.empty)
+			dst.workingDirectory = processVars(settings.workingDirectory, project_path, true);
 		if (settings.mainSourceFile.length)
 			dst.mainSourceFile = processVars(settings.mainSourceFile, project_path, true);
 	}

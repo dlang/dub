@@ -646,7 +646,6 @@ struct BuildSettingsTemplate {
 				case "targetPath":
 					enforce(suffix.empty, "targetPath does not support platform customization.");
 					this.targetPath = value.get!string;
-					if (this.workingDirectory is null) this.workingDirectory = this.targetPath;
 					break;
 				case "targetName":
 					enforce(suffix.empty, "targetName does not support platform customization.");
