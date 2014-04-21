@@ -223,7 +223,7 @@ struct Dependency {
 			"path": "path/to/package"
 		}
 			`));
-		Dependency d = Dependency(Version("2.0.0"));
+		Dependency d = Dependency.ANY; // supposed to ignore the version spec
 		d.optional = true;
 		d.path = Path("path/to/package");
 		assert(d == parsed);
