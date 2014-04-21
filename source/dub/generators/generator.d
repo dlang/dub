@@ -73,9 +73,13 @@ class ProjectGenerator
 			bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
 			finalizeGeneration(pack.name, buildsettings, generate_binary);
 		}
+
+		performPostGenerateActions(settings, targets);
 	}
 
 	abstract void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets);
+
+	void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[string] targets) {} // e.g. run the compiled program
 
 	private BuildSettings collect(GeneratorSettings settings, Package pack, ref TargetInfo[string] targets, in string[string] configs, ref string[] main_files, string bin_pack)
 	{

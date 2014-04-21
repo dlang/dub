@@ -70,7 +70,10 @@ class BuildGenerator : ProjectGenerator {
 			auto ti = targets[m_project.rootPackage.name];
 			buildTarget(settings, ti.buildSettings.dup, m_project.rootPackage, ti.config);
 		} else buildTargetRec(m_project.rootPackage.name);
+	}
 
+	override void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[string] targets)
+	{
 		// run the generated executable
 		auto buildsettings = targets[m_project.rootPackage.name].buildSettings;
 		if (settings.run && !(buildsettings.options & BuildOptions.syntaxOnly)) {
