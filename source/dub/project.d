@@ -202,8 +202,9 @@ class Project {
 				if (!vspec.path.empty) {
 					Path path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
-					logDiagnostic("Adding local %s %s", path, vspec.version_);
-					p = m_packageManager.getTemporaryPackage(path, vspec.version_);
+					logDiagnostic("Adding local %s", path);
+					p = m_packageManager.getTemporaryPackage(path);
+					enforce(p.name == name, format("Path based dependency %s is referenced with a wrong name: %s vs. %s", path.toNativeString(), name, p.name));
 				}
 
 				if (!p) {

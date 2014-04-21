@@ -192,14 +192,15 @@ struct Dependency {
 	static Dependency fromJson(Json verspec) {
 		Dependency dep;
 		if( verspec.type == Json.Type.object ){
-			enforce("version" in verspec, "No version field specified!");
-			auto ver = verspec["version"].get!string;
 			if( auto pp = "path" in verspec ) {
-				// This enforces the "version" specifier to be a simple version, 
-				// without additional range specifiers.
-				dep = Dependency(Version(ver));
+				if (auto pv = "version" in verspec)
+					logDiagnostic("Ignoring version specification (%s) for path based dependency %s", pv.get!string, pp.get!string);
+
+				dep = Dependency.ANY;
 				dep.path = Path(verspec.path.get!string());
 			} else {
+				enforce("version" in verspec, "No version field specified!");
+				auto ver = verspec["version"].get!string;
 				// Using the string to be able to specifiy a range of versions.
 				dep = Dependency(ver);
 			}

@@ -171,7 +171,9 @@ class Dub {
 
 		foreach (p, ver; versions) {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
-			auto pack = m_packageManager.getBestPackage(p, ver);
+			Package pack;
+			if (!ver.path.empty) pack = m_packageManager.getTemporaryPackage(ver.path);
+			else pack = m_packageManager.getBestPackage(p, ver);
 			if (!pack) fetch(p, ver, PlacementLocation.userWide, false, (options & UpgradeOptions.preRelease) != 0, (options & UpgradeOptions.forceRemove) != 0, false);
 			if ((options & UpgradeOptions.select) && ver.path.empty)
 				m_project.selections.selectVersion(p, ver.version_);
