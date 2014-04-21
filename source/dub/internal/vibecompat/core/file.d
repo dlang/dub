@@ -22,11 +22,6 @@ import std.string;
 import std.utf;
 
 
-version(Posix){
-	private extern(C) int mkstemps(char* templ, int suffixlen);
-}
-
-
 /* Add output range support to File
 */
 struct RangeFile {
