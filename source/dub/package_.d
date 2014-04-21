@@ -873,7 +873,7 @@ private string determineVersionFromSCM(Path path)
 		return null;
 	}
 
-	if (auto tag = exec("git", git_dir_param, "describe", "--long")) {
+	if (auto tag = exec("git", git_dir_param, "describe", "--long", "--tags")) {
 		auto parts = tag.split("-");
 		auto commit = parts[$-1];
 		auto num = parts[$-2].to!int;
