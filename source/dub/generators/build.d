@@ -293,6 +293,8 @@ class BuildGenerator : ProjectGenerator {
 		auto filename = getTargetFileName(buildsettings, platform);
 		auto src = build_path ~ filename;
 		logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
+		if (!existsFile(Path(buildsettings.targetPath)))
+			mkdirRecurse(buildsettings.targetPath);
 		copyFile(src, Path(buildsettings.targetPath) ~ filename, true);
 	}
 
