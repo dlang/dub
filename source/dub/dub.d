@@ -46,6 +46,16 @@ PackageSupplier[] defaultPackageSuppliers()
 	return [new RegistryPackageSupplier(url)];
 }
 
+/// Option flags for fetch
+enum FetchOptions
+{
+	none = 0,
+	forceBranchUpgrade = 1<<0,
+	usePrerelease = 1<<1,
+	forceRemove = 1<<2,
+	printOnly = 1<<3,
+}
+
 /// The Dub class helps in getting the applications
 /// dependencies up and running. An instance manages one application.
 class Dub {
@@ -174,7 +184,10 @@ class Dub {
 			Package pack;
 			if (!ver.path.empty) pack = m_packageManager.getTemporaryPackage(ver.path);
 			else pack = m_packageManager.getBestPackage(p, ver);
-			if (!pack) fetch(p, ver, PlacementLocation.userWide, false, (options & UpgradeOptions.preRelease) != 0, (options & UpgradeOptions.forceRemove) != 0, false);
+			FetchOptions fetchOpts;
+			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
+			fetchOpts |= (options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
+			if (!pack) fetch(p, ver, PlacementLocation.userWide, fetchOpts);
 			if ((options & UpgradeOptions.select) && ver.path.empty)
 				m_project.selections.selectVersion(p, ver.version_);
 		}
@@ -316,15 +329,14 @@ class Dub {
 	/// Returns all cached  packages as a "packageId" = "version" associative array
 	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
 
-	// TODO: use flags enum instead of bool parameters
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, bool force_branch_upgrade, bool use_prerelease, bool force_remove, bool print_only)
+	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options)
 	{
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.getPackageDescription(packageId, dep, use_prerelease);
+				pinfo = ps.getPackageDescription(packageId, dep, (options & FetchOptions.usePrerelease) != 0);
 				supplier = ps;
 				break;
 			} catch(Exception e) {
@@ -344,21 +356,21 @@ class Dub {
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		auto existing = m_packageManager.getPackage(packageId, ver, placement);
-		if (print_only) {
+		if (options & FetchOptions.printOnly) {
 			if (existing && existing.vers != ver)
 				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
 					packageId, existing.vers, ver, packageId);
 			return null;
 		}
 		if (existing) {
-			if (!ver.startsWith("~") || !force_branch_upgrade || location == PlacementLocation.local) {
+			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
 				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
 					packageId, ver, placement);
 				return existing;
 			} else {
 				logInfo("Removing %s %s to prepare replacement with a new version.", packageId, ver);
-				if (!m_dryRun) m_packageManager.remove(existing, force_remove);
+				if (!m_dryRun) m_packageManager.remove(existing, (options & FetchOptions.forceRemove) != 0);
 			}
 		}
 
@@ -371,7 +383,7 @@ class Dub {
 		auto tempFile = m_tempPath ~ tempfname;
 		string sTempFile = tempFile.toNativeString();
 		if (exists(sTempFile)) std.file.remove(sTempFile);
-		supplier.retrievePackage(tempFile, packageId, dep, use_prerelease); // Q: continue on fail?
+		supplier.retrievePackage(tempFile, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 		scope(exit) std.file.remove(sTempFile);
 
 		logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
@@ -482,7 +494,7 @@ class Dub {
 
 		initPackage(path, type);
 
-		//Act smug to the user. 
+		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
 	}
 
@@ -494,7 +506,7 @@ class Dub {
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
 			logInfo("DDOX is not present, getting it and storing user wide");
-			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, false, false, false, false);
+			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, FetchOptions.none);
 		}
 
 		version(Windows) auto ddox_exe = "ddox.exe";
@@ -736,7 +748,10 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 				}
 			} else {
 				try {
-					m_dub.fetch(rootpack, dep, PlacementLocation.userWide, false, prerelease, (m_options & UpgradeOptions.forceRemove) != 0, false);
+					FetchOptions fetchOpts;
+					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
+					fetchOpts |= (m_options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
+					m_dub.fetch(rootpack, dep, PlacementLocation.userWide, fetchOpts);
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
