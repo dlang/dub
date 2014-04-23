@@ -263,9 +263,12 @@ class BuildGenerator : ProjectGenerator {
 	{
 		import std.digest.digest;
 		import std.digest.md;
+		import std.bitmanip;
+
 		MD5 hash;
 		hash.start();
 		void addHash(in string[] strings...) { foreach (s; strings) { hash.put(cast(ubyte[])s); hash.put(0); } hash.put(0); }
+		void addHashI(int value) { hash.put(nativeToLittleEndian(value)); }
 		addHash(buildsettings.versions);
 		addHash(buildsettings.debugVersions);
 		//addHash(buildsettings.versionLevel);
@@ -276,7 +279,7 @@ class BuildGenerator : ProjectGenerator {
 		addHash(buildsettings.stringImportPaths);
 		addHash(settings.platform.architecture);
 		addHash(settings.platform.compiler);
-		//addHash(settings.platform.frontendVersion);
+		addHashI(settings.platform.frontendVersion);
 		auto hashstr = hash.finish().toHexString().idup;
 
 		return format("%s-%s-%s-%s-%s-%s", config, settings.buildType,
