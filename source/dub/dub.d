@@ -176,6 +176,33 @@ class Dub {
 
 	void upgrade(UpgradeOptions options)
 	{
+		// clear non-existent version selections
+		if (!(options & UpgradeOptions.upgrade)) {
+			next_pack:
+			foreach (p; m_project.selections.selectedPackages) {
+				auto dep = m_project.selections.selectedVersion(p);
+				if (!dep.path.empty) {
+					if (m_packageManager.getTemporaryPackage(dep.path)) continue;
+				} else {
+					if (m_packageManager.getPackage(p, dep.version_)) continue;
+					foreach (ps; m_packageSuppliers) {
+						try {
+							auto versions = ps.getVersions(p);
+							if (versions.canFind!(v => dep.matches(v)))
+								continue next_pack;
+						} catch (Exception e) {
+							logDiagnostic("Error querying versions for %s, %s: %s", p, ps.description, e.msg);
+							logDebug("Full error: %s", e.toString().sanitize());
+						}
+					}
+				}
+
+				logWarn("Selected package %s %s doesn't exist. Using latest matching version instead.", p, dep);
+				m_project.selections.deselectVersion(p);
+			}
+		}
+
+
 		auto resolver = new DependencyVersionResolver(this, options);
 		auto versions = resolver.resolve(m_project.rootPackage, m_project.selections);
 
@@ -192,10 +219,10 @@ class Dub {
 				m_project.selections.selectVersion(p, ver.version_);
 		}
 
+		m_project.reinit();
+
 		if (options & UpgradeOptions.select)
 			m_project.saveSelections();
-
-		m_project.reinit();
 	}
 
 	/// Generate project files for a specified IDE.
