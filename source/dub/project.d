@@ -41,7 +41,7 @@ class Project {
 		Package m_rootPackage;
 		Package[] m_dependencies;
 		Package[][Package] m_dependees;
-		SelectedVersions m_selectedVersions;
+		SelectedVersions m_selections;
 	}
 
 	this(PackageManager package_manager, Path project_path)
@@ -70,12 +70,12 @@ class Project {
 
 		auto selverfile = m_rootPackage.path ~ SelectedVersions.defaultFile;
 		if (existsFile(selverfile)) {
-			try m_selectedVersions = new SelectedVersions(selverfile);
+			try m_selections = new SelectedVersions(selverfile);
 			catch(Exception e) {
 				logDiagnostic("A " ~ SelectedVersions.defaultFile ~ " file was not found or failed to load:\n%s", e.msg);
-				m_selectedVersions = new SelectedVersions;
+				m_selections = new SelectedVersions;
 			}
-		} else m_selectedVersions = new SelectedVersions;
+		} else m_selections = new SelectedVersions;
 
 		reinit();
 	}
@@ -108,7 +108,7 @@ class Project {
 	@property inout(Package) rootPackage() inout { return m_rootPackage; }
 
 	/// The versions to use for all dependencies. Call reinit() after changing these.
-	@property inout(SelectedVersions) selections() inout { return m_selectedVersions; }
+	@property inout(SelectedVersions) selections() inout { return m_selections; }
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
@@ -220,13 +220,13 @@ class Project {
 							continue;
 						}
 					} else {
-						if (!m_selectedVersions.hasSelectedVersion(basename)) {
+						if (!m_selections.hasSelectedVersion(basename)) {
 							logDiagnostic("Version selection for dependency %s (%s) of %s is missing.",
 								basename, name, pack.name);
 							continue;
 						}
 
-						vspec = m_selectedVersions.getSelectedVersion(basename);
+						vspec = m_selections.getSelectedVersion(basename);
 
 						p = m_packageManager.getBestPackage(name, vspec);
 					}
@@ -547,12 +547,12 @@ class Project {
 
 	void saveSelections()
 	{
-		assert(m_selectedVersions !is null, "Cannot save selections for non-disk based project (has no selections).");
-		if (m_selectedVersions.hasSelectedVersion(m_rootPackage.basePackage.name))
-			m_selectedVersions.deselectVersion(m_rootPackage.basePackage.name);
+		assert(m_selections !is null, "Cannot save selections for non-disk based project (has no selections).");
+		if (m_selections.hasSelectedVersion(m_rootPackage.basePackage.name))
+			m_selections.deselectVersion(m_rootPackage.basePackage.name);
 
-		if (m_selectedVersions.dirty)
-			m_selectedVersions.save(m_rootPackage.path ~ SelectedVersions.defaultFile);
+		if (m_selections.dirty)
+			m_selections.save(m_rootPackage.path ~ SelectedVersions.defaultFile);
 	}
 
 	private bool needsUpToDateCheck(Package pack) {
@@ -776,7 +776,7 @@ final class SelectedVersions {
 	}
 	private {
 		enum FileVersion = 1;
-		Selected[string] m_selectedVersions;
+		Selected[string] m_selections;
 		bool m_dirty = false; // has changes since last save
 	}
 
@@ -795,57 +795,57 @@ final class SelectedVersions {
 		deserialize(json);
 	}
 
-	@property string[] selectedPackages() const { return m_selectedVersions.keys; }
+	@property string[] selectedPackages() const { return m_selections.keys; }
 
 	@property bool dirty() const { return m_dirty; }
 
 	void clear()
 	{
-		m_selectedVersions = null;
+		m_selections = null;
 		m_dirty = true;
 	}
 
 	void set(SelectedVersions versions)
 	{
-		m_selectedVersions = versions.m_selectedVersions.dup;
+		m_selections = versions.m_selections.dup;
 		m_dirty = true;
 	}
 
 	void selectVersion(string package_id, Version version_)
 	{
-		if (auto ps = package_id in m_selectedVersions) {
+		if (auto ps = package_id in m_selections) {
 			if (ps.dep == Dependency(version_))
 				return;
 		}
-		m_selectedVersions[package_id] = Selected(Dependency(version_)/*, issuer*/);
+		m_selections[package_id] = Selected(Dependency(version_)/*, issuer*/);
 		m_dirty = true;
 	}
 
 	void selectVersion(string package_id, Path path)
 	{
-		if (auto ps = package_id in m_selectedVersions) {
+		if (auto ps = package_id in m_selections) {
 			if (ps.dep == Dependency(path))
 				return;
 		}
-		m_selectedVersions[package_id] = Selected(Dependency(path));
+		m_selections[package_id] = Selected(Dependency(path));
 		m_dirty = true;
 	}
 
 	void deselectVersion(string package_id)
 	{
-		m_selectedVersions.remove(package_id);
+		m_selections.remove(package_id);
 		m_dirty = true;
 	}
 
 	bool hasSelectedVersion(string packageId)
 	const {
-		return (packageId in m_selectedVersions) !is null;
+		return (packageId in m_selections) !is null;
 	}
 
 	Dependency getSelectedVersion(string packageId)
 	const {
 		enforce(hasSelectedVersion(packageId));
-		return m_selectedVersions[packageId].dep;
+		return m_selections[packageId].dep;
 	}
 
 	void save(Path path)
@@ -859,11 +859,11 @@ final class SelectedVersions {
 
 	Json serialize()
 	const {
-		Json json = serializeToJson(m_selectedVersions);
+		Json json = serializeToJson(m_selections);
 		Json serialized = Json.emptyObject;
 		serialized.fileVersion = FileVersion;
 		serialized.versions = Json.emptyObject;
-		foreach (p, v; m_selectedVersions) {
+		foreach (p, v; m_selections) {
 			if (v.dep.path.empty) serialized.versions[p] = v.dep.version_.toString();
 			else serialized.versions[p] = serializeToJson(["path": v.dep.path.toString()]);
 		}
@@ -877,9 +877,9 @@ final class SelectedVersions {
 		scope(failure) clear();
 		foreach (string p, v; json.versions) {
 			if (v.type == Json.Type.string)
-				m_selectedVersions[p] = Selected(Dependency(Version(v.get!string)));
+				m_selections[p] = Selected(Dependency(Version(v.get!string)));
 			else if (v.type == Json.Type.object)
-				m_selectedVersions[p] = Selected(Dependency(Path(v.path.get!string())));
+				m_selections[p] = Selected(Dependency(Path(v.path.get!string())));
 			else throw new Exception("Unexpected type for dependency %s: %s", p, v.type);
 		}
 	}
