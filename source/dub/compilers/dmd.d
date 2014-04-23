@@ -52,25 +52,38 @@ class DmdCompiler : Compiler {
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
-		// TODO: determine platform by invoking the compiler instead
-		BuildPlatform build_platform;
-		build_platform.platform = .determinePlatform();
-		build_platform.architecture = .determineArchitecture();
-		build_platform.compiler = this.name;
-		build_platform.compilerBinary = compiler_binary;
+		import std.process;
+		import std.string;
+
+		auto fil = generatePlatformProbeFile();
+
+		string[] arch_flags;
 
 		switch (arch_override) {
 			default: throw new Exception("Unsupported architecture: "~arch_override);
 			case "": break;
-			case "x86":
-				build_platform.architecture = ["x86"];
-				settings.addDFlags("-m32");
-				break;
-			case "x86_64":
-				build_platform.architecture = ["x86_64"];
-				settings.addDFlags("-m64");
-				break;
+			case "x86": arch_flags = ["-m32"]; break;
+			case "x86_64": arch_flags = ["-m64"]; break;
 		}
+		settings.addDFlags(arch_flags);
+
+		auto result = execute(compiler_binary ~ arch_flags ~ ["-quiet", "-run", fil.toNativeString()]);
+		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
+			compiler_binary, result.output));
+
+		auto build_platform = readPlatformProbe(result.output);
+		build_platform.compilerBinary = compiler_binary;
+
+		if (build_platform.compiler != this.name) {
+			logWarn(`The determined compiler type "%s" doesn't match the expected type "%s". This will probably result in build errors.`,
+				build_platform.compiler, this.name);
+		}
+
+		if (arch_override.length && !build_platform.architecture.canFind(arch_override)) {
+			logWarn(`Failed to apply the selected architecture %s. Got %s.`,
+				arch_override, build_platform.architecture);
+		}
+
 		return build_platform;
 	}
 

@@ -1,11 +1,13 @@
 /**
 	Compiler settings and abstraction.
 
-	Copyright: © 2013 rejectedsoftware e.K.
+	Copyright: © 2013-2014 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
 module dub.compilers.compiler;
+
+public import dub.compilers.buildsettings;
 
 import dub.compilers.dmd;
 import dub.compilers.gdc;
@@ -19,7 +21,6 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.process;
-import std.path : globMatch;
 
 
 static this()
@@ -236,151 +237,6 @@ interface Compiler {
 	}
 }
 
-/// BuildPlatform specific settings, like needed libraries or additional
-/// include paths.
-struct BuildSettings {
-	TargetType targetType;
-	string targetPath;
-	string targetName;
-	string workingDirectory;
-	string mainSourceFile;
-	string[] dflags;
-	string[] lflags;
-	string[] libs;
-	string[] sourceFiles;
-	string[] copyFiles;
-	string[] versions;
-	string[] debugVersions;
-	string[] importPaths;
-	string[] stringImportPaths;
-	string[] importFiles;
-	string[] stringImportFiles;
-	string[] preGenerateCommands;
-	string[] postGenerateCommands;
-	string[] preBuildCommands;
-	string[] postBuildCommands;
-	BuildRequirements requirements;
-	BuildOptions options;
-
-	BuildSettings dup()
-	const {
-		BuildSettings ret;
-		foreach (m; __traits(allMembers, BuildSettings)) {
-			static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m).dup)))
-				__traits(getMember, ret, m) = __traits(getMember, this, m).dup;
-			else static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m))))
-				__traits(getMember, ret, m) = __traits(getMember, this, m);
-		}
-		assert(ret.targetType == targetType);
-		assert(ret.targetName == targetName);
-		assert(ret.importPaths == importPaths);
-		return ret;
-	}
-
-	void add(in BuildSettings bs)
-	{
-		addDFlags(bs.dflags);
-		addLFlags(bs.lflags);
-		addLibs(bs.libs);
-		addSourceFiles(bs.sourceFiles);
-		addCopyFiles(bs.copyFiles);
-		addVersions(bs.versions);
-		addDebugVersions(bs.debugVersions);
-		addImportPaths(bs.importPaths);
-		addStringImportPaths(bs.stringImportPaths);
-		addImportFiles(bs.importFiles);
-		addStringImportFiles(bs.stringImportFiles);
-		addPreGenerateCommands(bs.preGenerateCommands);
-		addPostGenerateCommands(bs.postGenerateCommands);
-		addPreBuildCommands(bs.preBuildCommands);
-		addPostBuildCommands(bs.postBuildCommands);
-	}
-
-	void addDFlags(in string[] value...) { dflags ~= value; }
-	void removeDFlags(in string[] value...) { remove(dflags, value); }
-	void addLFlags(in string[] value...) { lflags ~= value; }
-	void addLibs(in string[] value...) { add(libs, value); }
-	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
-	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
-	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
-	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
-	void addVersions(in string[] value...) { add(versions, value); }
-	void addDebugVersions(in string[] value...) { add(debugVersions, value); }
-	void addImportPaths(in string[] value...) { add(importPaths, value); }
-	void addStringImportPaths(in string[] value...) { add(stringImportPaths, value); }
-	void prependStringImportPaths(in string[] value...) { prepend(stringImportPaths, value); }
-	void addImportFiles(in string[] value...) { add(importFiles, value); }
-	void removeImportFiles(in string[] value...) { removePaths(importFiles, value); }
-	void addStringImportFiles(in string[] value...) { add(stringImportFiles, value); }
-	void addPreGenerateCommands(in string[] value...) { add(preGenerateCommands, value, false); }
-	void addPostGenerateCommands(in string[] value...) { add(postGenerateCommands, value, false); }
-	void addPreBuildCommands(in string[] value...) { add(preBuildCommands, value, false); }
-	void addPostBuildCommands(in string[] value...) { add(postBuildCommands, value, false); }
-	void addRequirements(in BuildRequirements[] value...) { foreach (v; value) this.requirements |= v; }
-	void addOptions(in BuildOptions[] value...) { foreach (v; value) this.options |= v; }
-	void removeOptions(in BuildOptions[] value...) { foreach (v; value) this.options &= ~v; }
-
-	// Adds vals to arr without adding duplicates.
-	private void add(ref string[] arr, in string[] vals, bool no_duplicates = true)
-	{
-		if (!no_duplicates) {
-			arr ~= vals;
-			return;
-		}
-
-		foreach (v; vals) {
-			bool found = false;
-			foreach (i; 0 .. arr.length)
-				if (arr[i] == v) {
-					found = true;
-					break;
-				}
-			if (!found) arr ~= v;
-		}
-	}
-
-	private void prepend(ref string[] arr, in string[] vals, bool no_duplicates = true)
-	{
-		if (!no_duplicates) {
-			arr = vals ~ arr;
-			return;
-		}
-
-		foreach_reverse (v; vals) {
-			bool found = false;
-			foreach (i; 0 .. arr.length)
-				if (arr[i] == v) {
-					found = true;
-					break;
-				}
-			if (!found) arr = v ~ arr;
-		}
-	}
-
-	private void removePaths(ref string[] arr, in string[] vals)
-	{
-		bool matches(string s)
-		{
-			foreach (p; vals)
-				if (Path(s) == Path(p) || globMatch(s, p))
-					return true;
-			return false;
-		}
-		arr = arr.filter!(s => !matches(s))().array();
-	}
-
-	private void remove(ref string[] arr, in string[] vals)
-	{
-		bool matches(string s)
-		{
-			foreach (p; vals)
-				if (s == p)
-					return true;
-			return false;
-		}
-		arr = arr.filter!(s => !matches(s))().array();
-	}
-}
 
 /// Represents a platform a package can be build upon.
 struct BuildPlatform {
@@ -392,6 +248,8 @@ struct BuildPlatform {
 	string compiler;
 	/// Compiler binary name e.g. "ldmd2"
 	string compilerBinary;
+	/// Compiled frontend version (e.g. 2065)
+	int frontendVersion;
 
 	/// Build platforms can be specified via a string specification.
 	///
@@ -449,72 +307,6 @@ struct BuildPlatform {
 	}
 }
 
-enum BuildSetting {
-	dflags            = 1<<0,
-	lflags            = 1<<1,
-	libs              = 1<<2,
-	sourceFiles       = 1<<3,
-	copyFiles         = 1<<4,
-	versions          = 1<<5,
-	debugVersions     = 1<<6,
-	importPaths       = 1<<7,
-	stringImportPaths = 1<<8,
-	options           = 1<<9,
-	none = 0,
-	commandLine = dflags|copyFiles,
-	commandLineSeparate = commandLine|lflags,
-	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|debugVersions|importPaths|stringImportPaths|options,
-	noOptions = all & ~options
-}
-
-enum TargetType {
-	autodetect,
-	none,
-	executable,
-	library,
-	sourceLibrary,
-	dynamicLibrary,
-	staticLibrary
-}
-
-enum BuildRequirements {
-	none = 0,                     /// No special requirements
-	allowWarnings        = 1<<0,  /// Warnings do not abort compilation
-	silenceWarnings      = 1<<1,  /// Don't show warnings
-	disallowDeprecations = 1<<2,  /// Using deprecated features aborts compilation
-	silenceDeprecations  = 1<<3,  /// Don't show deprecation warnings
-	disallowInlining     = 1<<4,  /// Avoid function inlining, even in release builds
-	disallowOptimization = 1<<5,  /// Avoid optimizations, even in release builds
-	requireBoundsCheck   = 1<<6,  /// Always perform bounds checks
-	requireContracts     = 1<<7,  /// Leave assertions and contracts enabled in release builds
-	relaxProperties      = 1<<8,  /// DEPRECATED: Do not enforce strict property handling (-property)
-	noDefaultFlags       = 1<<9,  /// Do not issue any of the default build flags (e.g. -debug, -w, -property etc.) - use only for development purposes
-}
-
-enum BuildOptions {
-	none = 0,                     /// Use compiler defaults
-	debugMode = 1<<0,             /// Compile in debug mode (enables contracts, -debug)
-	releaseMode = 1<<1,           /// Compile in release mode (disables assertions and bounds checks, -release)
-	coverage = 1<<2,              /// Enable code coverage analysis (-cov)
-	debugInfo = 1<<3,             /// Enable symbolic debug information (-g)
-	debugInfoC = 1<<4,            /// Enable symbolic debug information in C compatible form (-gc)
-	alwaysStackFrame = 1<<5,      /// Always generate a stack frame (-gs)
-	stackStomping = 1<<6,         /// Perform stack stomping (-gx)
-	inline = 1<<7,                /// Perform function inlining (-inline)
-	noBoundsCheck = 1<<8,         /// Disable all bounds checking (-noboundscheck)
-	optimize = 1<<9,              /// Enable optimizations (-O)
-	profile = 1<<10,              /// Emit profiling code (-profile)
-	unittests = 1<<11,            /// Compile unit tests (-unittest)
-	verbose = 1<<12,              /// Verbose compiler output (-v)
-	ignoreUnknownPragmas = 1<<13, /// Ignores unknown pragmas during compilation (-ignore)
-	syntaxOnly = 1<<14,           /// Don't generate object files (-o-)
-	warnings = 1<<15,             /// Enable warnings (-wi)
-	warningsAsErrors = 1<<16,     /// Treat warnings as errors (-w)
-	ignoreDeprecations = 1<<17,   /// Do not warn about using deprecated features (-d)
-	deprecationWarnings = 1<<18,  /// Warn about using deprecated features (-dw)
-	deprecationErrors = 1<<19,    /// Stop compilation upon usage of deprecated features (-de)
-	property = 1<<20,             /// DEPRECATED: Enforce property syntax (-property)
-}
 
 string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 {
@@ -554,6 +346,136 @@ bool isLinkerFile(string f)
 				return true;
 		}
 	}
+}
+
+Path generatePlatformProbeFile()
+{
+	import dub.internal.vibecompat.core.file;
+	import dub.internal.vibecompat.data.json;
+	import dub.internal.utils;
+
+	auto path = getTempDir() ~ "dub_platform_probe.d";
+	
+	auto fil = openFile(path, FileMode.CreateTrunc);
+	scope (failure) {
+		fil.close();
+		removeFile(path);
+	}
+
+	fil.write(q{
+		import std.array;
+		import std.stdio;
+
+		void main()
+		{
+			writeln(`{`);
+			writefln(`  "compiler": "%s",`, determineCompiler());
+			writefln(`  "frontendVersion": %s,`, __VERSION__);
+			writefln(`  "compilerVendor": "%s",`, __VENDOR__);
+			writefln(`  "platform": [`);
+			foreach (p; determinePlatform()) writefln(`    "%s",`, p);
+			writefln(`   ],`);
+			writefln(`  "architecture": [`);
+			foreach (p; determineArchitecture()) writefln(`    "%s",`, p);
+			writefln(`   ],`);
+			writeln(`}`);
+		}
+
+		string[] determinePlatform()
+		{
+			auto ret = appender!(string[])();
+			version(Windows) ret.put("windows");
+			version(linux) ret.put("linux");
+			version(Posix) ret.put("posix");
+			version(OSX) ret.put("osx");
+			version(FreeBSD) ret.put("freebsd");
+			version(OpenBSD) ret.put("openbsd");
+			version(NetBSD) ret.put("netbsd");
+			version(DragonFlyBSD) ret.put("dragonflybsd");
+			version(BSD) ret.put("bsd");
+			version(Solaris) ret.put("solaris");
+			version(AIX) ret.put("aix");
+			version(Haiku) ret.put("haiku");
+			version(SkyOS) ret.put("skyos");
+			version(SysV3) ret.put("sysv3");
+			version(SysV4) ret.put("sysv4");
+			version(Hurd) ret.put("hurd");
+			version(Android) ret.put("android");
+			version(Cygwin) ret.put("cygwin");
+			version(MinGW) ret.put("mingw");
+			return ret.data;
+		}
+
+		string[] determineArchitecture()
+		{
+			auto ret = appender!(string[])();
+			version(X86) ret.put("x86");
+			version(X86_64) ret.put("x86_64");
+			version(ARM) ret.put("arm");
+			version(ARM_Thumb) ret.put("arm_thumb");
+			version(ARM_SoftFloat) ret.put("arm_softfloat");
+			version(ARM_HardFloat) ret.put("arm_hardfloat");
+			version(ARM64) ret.put("arm64");
+			version(PPC) ret.put("ppc");
+			version(PPC_SoftFP) ret.put("ppc_softfp");
+			version(PPC_HardFP) ret.put("ppc_hardfp");
+			version(PPC64) ret.put("ppc64");
+			version(IA64) ret.put("ia64");
+			version(MIPS) ret.put("mips");
+			version(MIPS32) ret.put("mips32");
+			version(MIPS64) ret.put("mips64");
+			version(MIPS_O32) ret.put("mips_o32");
+			version(MIPS_N32) ret.put("mips_n32");
+			version(MIPS_O64) ret.put("mips_o64");
+			version(MIPS_N64) ret.put("mips_n64");
+			version(MIPS_EABI) ret.put("mips_eabi");
+			version(MIPS_NoFloat) ret.put("mips_nofloat");
+			version(MIPS_SoftFloat) ret.put("mips_softfloat");
+			version(MIPS_HardFloat) ret.put("mips_hardfloat");
+			version(SPARC) ret.put("sparc");
+			version(SPARC_V8Plus) ret.put("sparc_v8plus");
+			version(SPARC_SoftFP) ret.put("sparc_softfp");
+			version(SPARC_HardFP) ret.put("sparc_hardfp");
+			version(SPARC64) ret.put("sparc64");
+			version(S390) ret.put("s390");
+			version(S390X) ret.put("s390x");
+			version(HPPA) ret.put("hppa");
+			version(HPPA64) ret.put("hppa64");
+			version(SH) ret.put("sh");
+			version(SH64) ret.put("sh64");
+			version(Alpha) ret.put("alpha");
+			version(Alpha_SoftFP) ret.put("alpha_softfp");
+			version(Alpha_HardFP) ret.put("alpha_hardfp");
+			return ret.data;
+		}
+
+		string determineCompiler()
+		{
+			version(DigitalMars) return "dmd";
+			else version(GNU) return "gdc";
+			else version(LDC) return "ldc";
+			else version(SDC) return "sdc";
+			else return null;
+		}
+	});
+
+	fil.close();
+
+	return path;
+}
+
+BuildPlatform readPlatformProbe(string output)
+{
+	logInfo("PROBE: %s", output);
+	import dub.internal.vibecompat.data.json;
+	auto json = parseJsonString(output);
+
+	BuildPlatform build_platform;
+	build_platform.platform = json.platform.get!(Json[]).map!(e => e.get!string()).array();
+	build_platform.architecture = json.architecture.get!(Json[]).map!(e => e.get!string()).array();
+	build_platform.compiler = json.compiler.get!string;
+	build_platform.frontendVersion = json.frontendVersion.get!int;
+	return build_platform;
 }
 
 private {

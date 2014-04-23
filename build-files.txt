@@ -10,6 +10,7 @@ source/dub/package_.d
 source/dub/platform.d
 source/dub/project.d
 source/dub/semver.d
+source/dub/compilers/buildsettings.d
 source/dub/compilers/compiler.d
 source/dub/compilers/dmd.d
 source/dub/compilers/gdc.d
