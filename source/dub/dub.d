@@ -180,7 +180,7 @@ class Dub {
 		if (!(options & UpgradeOptions.upgrade)) {
 			next_pack:
 			foreach (p; m_project.selections.selectedPackages) {
-				auto dep = m_project.selections.selectedVersion(p);
+				auto dep = m_project.selections.getSelectedVersion(p);
 				if (!dep.path.empty) {
 					if (m_packageManager.getTemporaryPackage(dep.path)) continue;
 				} else {
@@ -669,7 +669,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 			return *pvers;
 
 		if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(pack)) {
-			auto ret = [m_selectedVersions.selectedVersion(pack)];
+			auto ret = [m_selectedVersions.getSelectedVersion(pack)];
 			logDiagnostic("Using fixed selection %s %s", pack, ret[0]);
 			m_packageVersions[pack] = ret;
 			return ret;
@@ -732,7 +732,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 				continue;
 			if (m_options & UpgradeOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))
 				ret ~= TreeNodes(dname, dspec.mapToPath(pack.path));
-			else ret ~= TreeNodes(dname, m_selectedVersions.selectedVersion(dbasename));
+			else ret ~= TreeNodes(dname, m_selectedVersions.getSelectedVersion(dbasename));
 		}
 		return ret.data;
 	}

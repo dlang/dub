@@ -226,7 +226,7 @@ class Project {
 							continue;
 						}
 
-						vspec = m_selectedVersions.selectedVersion(basename);
+						vspec = m_selectedVersions.getSelectedVersion(basename);
 
 						p = m_packageManager.getBestPackage(name, vspec);
 					}
@@ -550,7 +550,9 @@ class Project {
 		assert(m_selectedVersions !is null, "Cannot save selections for non-disk based project (has no selections).");
 		if (m_selectedVersions.hasSelectedVersion(m_rootPackage.basePackage.name))
 			m_selectedVersions.deselectVersion(m_rootPackage.basePackage.name);
-		m_selectedVersions.save(m_rootPackage.path ~ SelectedVersions.defaultFile);
+
+		if (m_selectedVersions.dirty)
+			m_selectedVersions.save(m_rootPackage.path ~ SelectedVersions.defaultFile);
 	}
 
 	private bool needsUpToDateCheck(Package pack) {
@@ -775,6 +777,7 @@ final class SelectedVersions {
 	private {
 		enum FileVersion = 1;
 		Selected[string] m_selectedVersions;
+		bool m_dirty = false; // has changes since last save
 	}
 
 	enum defaultFile = "dub.selections.json";
@@ -792,29 +795,46 @@ final class SelectedVersions {
 		deserialize(json);
 	}
 
-	void clean()
+	@property string[] selectedPackages() const { return m_selectedVersions.keys; }
+
+	@property bool dirty() const { return m_dirty; }
+
+	void clear()
 	{
 		m_selectedVersions = null;
+		m_dirty = true;
 	}
 
 	void set(SelectedVersions versions)
 	{
 		m_selectedVersions = versions.m_selectedVersions.dup;
+		m_dirty = true;
 	}
 
-	void selectVersion(string packageId, Version version_)
+	void selectVersion(string package_id, Version version_)
 	{
-		m_selectedVersions[packageId] = Selected(Dependency(version_)/*, issuer*/);
+		if (auto ps = package_id in m_selectedVersions) {
+			if (ps.dep == Dependency(version_))
+				return;
+		}
+		m_selectedVersions[package_id] = Selected(Dependency(version_)/*, issuer*/);
+		m_dirty = true;
 	}
 
 	void selectVersion(string package_id, Path path)
 	{
+		if (auto ps = package_id in m_selectedVersions) {
+			if (ps.dep == Dependency(path))
+				return;
+		}
 		m_selectedVersions[package_id] = Selected(Dependency(path));
+		m_dirty = true;
 	}
 
 	void deselectVersion(string package_id)
 	{
 		m_selectedVersions.remove(package_id);
+		m_dirty = true;
 	}
 
 	bool hasSelectedVersion(string packageId)
@@ -822,18 +842,19 @@ final class SelectedVersions {
 		return (packageId in m_selectedVersions) !is null;
 	}
 
-	Dependency selectedVersion(string packageId)
+	Dependency getSelectedVersion(string packageId)
 	const {
 		enforce(hasSelectedVersion(packageId));
 		return m_selectedVersions[packageId].dep;
 	}
 
 	void save(Path path)
-	const {
+	{
 		Json json = serialize();
 		auto file = openFile(path, FileMode.CreateTrunc);
 		scope(exit) file.close();
 		file.writePrettyJsonString(json);
+		m_dirty = false;
 	}
 
 	Json serialize()
@@ -852,8 +873,8 @@ final class SelectedVersions {
 	private void deserialize(Json json)
 	{
 		enforce(cast(int)json["fileVersion"] == FileVersion, "Mismatched dub.select.json version: " ~ to!string(cast(int)json["fileVersion"]) ~ "vs. " ~to!string(FileVersion));
-		clean();
-		scope(failure) clean();
+		clear();
+		scope(failure) clear();
 		foreach (string p, v; json.versions) {
 			if (v.type == Json.Type.string)
 				m_selectedVersions[p] = Selected(Dependency(Version(v.get!string)));
