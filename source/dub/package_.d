@@ -879,7 +879,7 @@ private string determineVersionFromSCM(Path path)
 		tag = parts[0 .. $-2].join("-");
 		if (tag.startsWith("v") && isValidVersion(tag[1 .. $])) {
 			if (num == 0) return tag[1 .. $];
-			else if (tag.canFind("+") || tag.canFind("-")) return format("%s.%s.%s", tag[1 .. $], num, commit);
+			else if (tag.canFind("+")) return format("%s.%s.%s", tag[1 .. $], num, commit);
 			else return format("%s+%s.%s", tag[1 .. $], num, commit);
 		}
 	}
