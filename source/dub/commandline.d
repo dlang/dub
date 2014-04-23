@@ -97,6 +97,7 @@ int runDubCommandLine(string[] args)
 			new TestCommand,
 			new GenerateCommand,
 			new DescribeCommand,
+			new CleanCommand,
 			new DustmiteCommand
 		),
 		CommandGroup("Package management",
@@ -689,6 +690,48 @@ class DescribeCommand : PackageBuildCommand {
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
 		dub.describeProject(m_buildPlatform, m_buildConfig.length ? m_buildConfig : m_defaultConfig);				
+		return 0;
+	}
+}
+
+class CleanCommand : Command {
+	private {
+		bool m_allPackages;
+	}
+
+	this()
+	{
+		this.name = "clean";
+		this.argumentsPattern = "[<package>]";
+		this.description = "Removes intermetiate build files and cached build results";
+		this.helpText = [
+			"This command removes any cached build files of the given package(s). The final target file, as well as any copyFiles are currently not removed.",
+			"Without arguments, the package in the current working directory will be cleaned."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("all-packages", &m_allPackages, [
+			"Cleans up *all* known packages (dub list)"
+		]);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
+		enforceUsage(app_args.length == 0, "Application arguments are not supported for the clean command.");
+		enforceUsage(!m_allPackages || !free_args.length, "The --all-packages flag may not be used together with an explicit package name.");
+
+		enforce(free_args.length == 0, "Cleaning a specific package isn't possible right now.");
+
+		if (m_allPackages) {
+			foreach (p; dub.packageManager.getPackageIterator())
+				dub.cleanPackage(p.path);
+		} else {
+			dub.cleanPackage(dub.rootPath);
+		}
+
 		return 0;
 	}
 }

@@ -352,6 +352,18 @@ class Dub {
 		write(dst.toPrettyString());
 	}
 
+	/// Cleans intermediate/cache files of the given package
+	void cleanPackage(Path path)
+	{
+		logInfo("Cleaning package at %s...", path.toNativeString());
+		enforce(Package.isPackageAt(path), "No package found.", path.toNativeString());
+		
+		// TODO: clear target files and copy files
+
+		if (existsFile(path ~ ".dub/build")) rmdirRecurse((path ~ ".dub/build").toNativeString());
+		if (existsFile(path ~ ".dub/obj")) rmdirRecurse((path ~ ".dub/obj").toNativeString());
+	}
+
 
 	/// Returns all cached  packages as a "packageId" = "version" associative array
 	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
