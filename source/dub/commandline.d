@@ -819,10 +819,13 @@ class FetchCommand : FetchRemoveCommand {
 
 		auto name = free_args[0];
 
-		if (m_version.length) dub.fetch(name, Dependency(m_version), location, true, false, m_forceRemove, false);
+		FetchOptions fetchOpts;
+		fetchOpts |= FetchOptions.forceBranchUpgrade;
+		fetchOpts |= m_forceRemove ? FetchOptions.forceRemove : FetchOptions.none;
+		if (m_version.length) dub.fetch(name, Dependency(m_version), location, fetchOpts);
 		else {
 			try {
-				dub.fetch(name, Dependency(">=0.0.0"), location, true, false, m_forceRemove, false);
+				dub.fetch(name, Dependency(">=0.0.0"), location, fetchOpts);
 				logInfo(
 					"Please note that you need to use `dub run <pkgname>` " ~ 
 					"or add it to dependencies of your package to actually use/run it. " ~
@@ -831,7 +834,7 @@ class FetchCommand : FetchRemoveCommand {
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
 				logInfo("Retry with ~master...");
-				dub.fetch(name, Dependency("~master"), location, true, true, m_forceRemove, false);
+				dub.fetch(name, Dependency("~master"), location, fetchOpts);
 			}
 		}
 		return 0;
