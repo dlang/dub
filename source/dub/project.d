@@ -787,12 +787,14 @@ final class SelectedVersions {
 	this(Json data)
 	{
 		deserialize(data);
+		m_dirty = false;
 	}
 
 	this(Path path)
 	{
 		auto json = jsonFromFile(path);
 		deserialize(json);
+		m_dirty = false;
 	}
 
 	@property string[] selectedPackages() const { return m_selections.keys; }
