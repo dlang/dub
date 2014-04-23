@@ -61,14 +61,14 @@ class BuildGenerator : ProjectGenerator {
 					auto dbs = targets[ldep].buildSettings;
 					bs.addSourceFiles((Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform)).toNativeString());
 				}
-			buildTarget(settings, bs, ti.pack, ti.config);
+			buildTarget(settings, bs, ti.pack, ti.config, ti.packages);
 		}
 
 		// build all targets
 		if (settings.rdmd) {
 			// RDMD always builds everything at once
 			auto ti = targets[m_project.rootPackage.name];
-			buildTarget(settings, ti.buildSettings.dup, m_project.rootPackage, ti.config);
+			buildTarget(settings, ti.buildSettings.dup, m_project.rootPackage, ti.config, ti.packages);
 		} else buildTargetRec(m_project.rootPackage.name);
 	}
 
@@ -82,7 +82,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private void buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config)
+	private void buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages)
 	{
 		auto cwd = Path(getcwd());
 		bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
@@ -98,7 +98,7 @@ class BuildGenerator : ProjectGenerator {
 		// perform the actual build
 		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config);
 		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config);
-		else performCachedBuild(settings, buildsettings, pack, config, build_id);
+		else performCachedBuild(settings, buildsettings, pack, config, build_id, packages);
 
 		// run post-build commands
 		if (buildsettings.postBuildCommands.length) {
@@ -107,12 +107,12 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	void performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id)
+	void performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id, in Package[] packages)
 	{
 		auto cwd = Path(getcwd());
 		auto target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
-		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform)) {
+		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform, pack, packages)) {
 			logInfo("Target %s (%s) is up to date. Use --force to rebuild.", pack.name, pack.vers);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			copyTargetFile(target_path, buildsettings, settings.platform);
@@ -293,7 +293,7 @@ class BuildGenerator : ProjectGenerator {
 		copyFile(src, Path(buildsettings.targetPath) ~ filename, true);
 	}
 
-	private bool isUpToDate(Path target_path, BuildSettings buildsettings, BuildPlatform platform)
+	private bool isUpToDate(Path target_path, BuildSettings buildsettings, BuildPlatform platform, in Package main_pack, in Package[] packages)
 	{
 		import std.datetime;
 
@@ -309,8 +309,9 @@ class BuildGenerator : ProjectGenerator {
 		allfiles ~= buildsettings.importFiles;
 		allfiles ~= buildsettings.stringImportFiles;
 		// TODO: add library files
-		/*foreach (p; m_project.getTopologicalPackageList())
-			allfiles ~= p.packageInfoFile.toNativeString();*/
+		foreach (p; packages) allfiles ~= p.packageInfoFile.toNativeString();
+		if (main_pack is m_project.rootPackage)
+			allfiles ~= (main_pack.path ~ SelectedVersions.defaultFile).toNativeString();
 
 		foreach (file; allfiles.data) {
 			auto ftime = getFileInfo(file).timeModified;
