@@ -466,7 +466,6 @@ Path generatePlatformProbeFile()
 
 BuildPlatform readPlatformProbe(string output)
 {
-	logInfo("PROBE: %s", output);
 	import dub.internal.vibecompat.data.json;
 	auto json = parseJsonString(output);
 
