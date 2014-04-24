@@ -84,7 +84,8 @@ struct Path {
 		Appender!string ret;
 		
 		// for absolute paths start with /
-		if( absolute ) ret.put('/');
+		version( Windows ) { }
+		else if( absolute ) ret.put('/');
 		
 		foreach( i, f; m_nodes ){
 			if( i > 0 ) ret.put('/');
