@@ -672,6 +672,9 @@ enum PlacementLocation {
 	systemWide
 }
 
+/// The default placement location of fetched packages. Can be changed by --local or --system.
+auto defaultPlacementLocation = PlacementLocation.userWide;
+
 void processVars(ref BuildSettings dst, string project_path, BuildSettings settings, bool include_target_settings = false)
 {
 	dst.addDFlags(processVars(project_path, settings.dflags));

@@ -73,6 +73,18 @@ int runDubCommandLine(string[] args)
 		common_args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		common_args.getopt("vquiet", &vquiet, ["Print no messages"]);
 
+		bool local, system;
+		common_args.getopt("local", &local, ["Puts the package into a sub folder of the current working directory. Cannot be mixed with --system."]);
+		common_args.getopt("system", &system, ["Puts the package into the system wide package cache instead of the user local one."]);
+		enforceUsage(!local || !system, "--local and --system are exclusive to each other.");
+		if(local)
+			defaultPlacementLocation = PlacementLocation.local;
+		else if(system)
+			defaultPlacementLocation = PlacementLocation.systemWide;
+
+		import std.conv;
+		logInfo("Using location: " ~ defaultPlacementLocation.to!string);
+
 		if( vverbose ) loglevel = LogLevel.debug_;
 		else if( verbose ) loglevel = LogLevel.diagnostic;
 		else if( vquiet ) loglevel = LogLevel.none;
@@ -185,7 +197,7 @@ int runDubCommandLine(string[] args)
 		auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
 		dub = new Dub(package_suppliers, root_path);
 		dub.dryRun = annotate;
-	
+
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
 		try dub.packageManager.getTemporaryPackage(Path(root_path));
@@ -493,7 +505,7 @@ class GenerateCommand : PackageBuildCommand {
 		}
 
 		setupPackage(dub, package_name);
-		
+
 		if (m_printBuilds) { // FIXME: use actual package data
 			logInfo("Available build types:");
 			foreach (tp; ["debug", "release", "unittest", "profile"])
@@ -689,7 +701,7 @@ class DescribeCommand : PackageBuildCommand {
 
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
-		dub.describeProject(m_buildPlatform, m_buildConfig.length ? m_buildConfig : m_defaultConfig);				
+		dub.describeProject(m_buildPlatform, m_buildConfig.length ? m_buildConfig : m_defaultConfig);
 		return 0;
 	}
 }
@@ -799,8 +811,6 @@ class UpgradeCommand : Command {
 class FetchRemoveCommand : Command {
 	protected {
 		string m_version;
-		bool m_system = false;
-		bool m_local = false;
 		bool m_forceRemove = false;
 	}
 
@@ -811,8 +821,6 @@ class FetchRemoveCommand : Command {
 			"The remove command also accepts \"*\" here as a wildcard to remove all versions of the package from the specified location"
 		]);
 
-		args.getopt("system", &m_system, ["Puts the package into the system wide package cache instead of the user local one."]);
-		args.getopt("local", &m_local, ["Puts the package into a sub folder of the current working directory. Cannot be mixed with --system."]);
 		args.getopt("force-remove", &m_forceRemove, [
 			"Force deletion of fetched packages with untracked files"
 		]);
@@ -852,13 +860,10 @@ class FetchCommand : FetchRemoveCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		enforceUsage(!m_local || !m_system, "--local and --system are exclusive to each other.");
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto location = PlacementLocation.userWide;
-		if (m_local) location = PlacementLocation.local;
-		else if (m_system) location = PlacementLocation.systemWide;
+		auto location = defaultPlacementLocation;
 
 		auto name = free_args[0];
 
@@ -870,7 +875,7 @@ class FetchCommand : FetchRemoveCommand {
 			try {
 				dub.fetch(name, Dependency(">=0.0.0"), location, fetchOpts);
 				logInfo(
-					"Please note that you need to use `dub run <pkgname>` " ~ 
+					"Please note that you need to use `dub run <pkgname>` " ~
 					"or add it to dependencies of your package to actually use/run it. " ~
 					"dub does not do actual installation of packages outside of its own ecosystem.");
 			}
@@ -912,14 +917,11 @@ class RemoveCommand : FetchRemoveCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		enforceUsage(!m_local || !m_system, "--local and --system are exclusive to each other.");
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
 		auto package_id = free_args[0];
-		auto location = PlacementLocation.userWide;
-		if (m_local) location = PlacementLocation.local;
-		else if (m_system) location = PlacementLocation.systemWide;
+		auto location = defaultPlacementLocation;
 
 		dub.remove(package_id, m_version, location, m_forceRemove);
 		return 0;
@@ -1352,7 +1354,7 @@ private void showHelp(in CommandGroup[] commands, CommandArgs common_args)
 
 Manages the DUB project in the current directory. If the command is omitted,
 DUB will default to "run". When running an application, "--" can be used to
-separate DUB options from options passed to the application. 
+separate DUB options from options passed to the application.
 
 Run "dub <command> --help" to get help for a specific command.
 
@@ -1400,7 +1402,7 @@ private void showCommandHelp(Command cmd, CommandArgs args, CommandArgs common_a
 	writeln();
 	foreach (ln; cmd.helpText)
 		ln.writeWrapped();
-	
+
 	if (args.recognizedArgs.length) {
 		writeln();
 		writeln();
@@ -1409,7 +1411,7 @@ private void showCommandHelp(Command cmd, CommandArgs args, CommandArgs common_a
 		writeln();
 		writeOptions(args);
 	}
-	
+
 	writeln();
 	writeln();
 	writeln("Common options");

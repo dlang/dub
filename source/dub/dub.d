@@ -545,7 +545,7 @@ class Dub {
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
 			logInfo("DDOX is not present, getting it and storing user wide");
-			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, FetchOptions.none);
+			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
 		}
 
 		version(Windows) auto ddox_exe = "ddox.exe";
@@ -790,7 +790,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
 					fetchOpts |= (m_options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-					m_dub.fetch(rootpack, dep, PlacementLocation.userWide, fetchOpts);
+					m_dub.fetch(rootpack, dep, defaultPlacementLocation, fetchOpts);
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
