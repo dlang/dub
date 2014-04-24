@@ -214,7 +214,7 @@ class Dub {
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			fetchOpts |= (options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-			if (!pack) fetch(p, ver, PlacementLocation.userWide, fetchOpts);
+			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts);
 			if ((options & UpgradeOptions.select) && ver.path.empty && p != m_project.rootPackage.name)
 				m_project.selections.selectVersion(p, ver.version_);
 		}
