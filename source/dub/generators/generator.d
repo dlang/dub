@@ -71,7 +71,7 @@ class ProjectGenerator
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			auto buildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
 			bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
-			finalizeGeneration(pack.name, buildsettings, generate_binary);
+			finalizeGeneration(pack.name, buildsettings, pack.path, Path(bs.targetPath), generate_binary);
 		}
 
 		performPostGenerateActions(settings, targets);
@@ -250,7 +250,7 @@ private void prepareGeneration(string pack, in BuildSettings buildsettings)
 /**
 	Runs post-build commands and copies required files to the binary directory.
 */
-private void finalizeGeneration(string pack, in BuildSettings buildsettings, bool generate_binary)
+private void finalizeGeneration(string pack, in BuildSettings buildsettings, Path pack_path, Path target_path, bool generate_binary)
 {
 	if (buildsettings.postGenerateCommands.length) {
 		logInfo("Running post-generate commands for %s...", pack);
@@ -265,7 +265,8 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, boo
 			logInfo("Copying files for %s...", pack);
 			foreach (f; buildsettings.copyFiles) {
 				auto src = Path(f);
-				auto dst = Path(buildsettings.targetPath) ~ Path(f).head;
+				if (!src.absolute) src = pack_path ~ src;
+				auto dst = target_path ~ Path(f).head;
 				logDiagnostic("  %s to %s", src.toNativeString(), dst.toNativeString());
 				try {
 					copyFile(src, dst, true);
