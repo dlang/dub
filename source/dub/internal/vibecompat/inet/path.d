@@ -84,8 +84,19 @@ struct Path {
 		Appender!string ret;
 		
 		// for absolute paths start with /
-		version( Windows ) { }
-		else if( absolute ) ret.put('/');
+		version(Windows)
+		{
+			// Make sure windows path isn't "DRIVE:"
+			if( absolute && !m_nodes[0].toString().endsWith(':') )
+				ret.put('/');
+		}
+		else
+		{
+			if( absolute ) 
+			{
+				ret.put('/');
+			}
+		}
 		
 		foreach( i, f; m_nodes ){
 			if( i > 0 ) ret.put('/');
