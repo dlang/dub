@@ -82,9 +82,6 @@ int runDubCommandLine(string[] args)
 		else if(system)
 			defaultPlacementLocation = PlacementLocation.systemWide;
 
-		import std.conv;
-		logInfo("Using location: " ~ defaultPlacementLocation.to!string);
-
 		if( vverbose ) loglevel = LogLevel.debug_;
 		else if( verbose ) loglevel = LogLevel.diagnostic;
 		else if( vquiet ) loglevel = LogLevel.none;
