@@ -111,9 +111,6 @@ void copyFile(Path from, Path to, bool overwrite = false)
 		removeFile(to);
 	}
 
-	if (!existsFile(to.toString().dirName))
-		mkdirRecurse(to.toString().dirName);
-
 	.copy(from.toNativeString(), to.toNativeString());
 
 	// try to preserve ownership/permissions in Posix
