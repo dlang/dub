@@ -113,7 +113,7 @@ class BuildGenerator : ProjectGenerator {
 		auto target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform, pack, packages)) {
-			logInfo("Target %s (%s) is up to date. Use --force to rebuild.", pack.name, pack.vers);
+			logInfo("Target %s %s is up to date. Use --force to rebuild.", pack.name, pack.vers);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			copyTargetFile(target_path, buildsettings, settings.platform);
 			return;
@@ -128,7 +128,7 @@ class BuildGenerator : ProjectGenerator {
 		// determine basic build properties
 		auto generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
 
-		logInfo("Building %s configuration \"%s\", build type %s.", pack.name, config, settings.buildType);
+		logInfo("Building %s %s configuration \"%s\", build type %s.", pack.name, pack.vers, config, settings.buildType);
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
