@@ -72,7 +72,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 		{["-cov"], "Call dub with --build=cov or --build=unittest-cox"},
 		{["-profile"], "Call dub with --build=profile"},
 		{["-version="], `Use "versions" to specify version constants in a compiler independent way`},
-		{["-debug=", `Use "debugVersions" to specify version constants in a compiler independent way`]},
+		{["-debug="], `Use "debugVersions" to specify version constants in a compiler independent way`},
 		{["-I"], `Use "importPaths" to specify import paths in a compiler independent way`},
 		{["-J"], `Use "stringImportPaths" to specify import paths in a compiler independent way`},
 		{["-m32", "-m64"], `Use --arch=x86/--arch=x86_64 to specify the target architecture`}
