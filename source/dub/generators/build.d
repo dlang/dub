@@ -96,18 +96,19 @@ class BuildGenerator : ProjectGenerator {
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
 
 		// perform the actual build
+		bool cached = false;
 		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config);
 		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config);
-		else performCachedBuild(settings, buildsettings, pack, config, build_id, packages);
+		else cached = performCachedBuild(settings, buildsettings, pack, config, build_id, packages);
 
 		// run post-build commands
-		if (buildsettings.postBuildCommands.length) {
+		if (!cached && buildsettings.postBuildCommands.length) {
 			logInfo("Running post-build commands...");
 			runBuildCommands(buildsettings.postBuildCommands, buildsettings);
 		}
 	}
 
-	void performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id, in Package[] packages)
+	bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id, in Package[] packages)
 	{
 		auto cwd = Path(getcwd());
 		auto target_path = pack.path ~ format(".dub/build/%s/", build_id);
@@ -116,13 +117,13 @@ class BuildGenerator : ProjectGenerator {
 			logInfo("Target %s %s is up to date. Use --force to rebuild.", pack.name, pack.vers);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			copyTargetFile(target_path, buildsettings, settings.platform);
-			return;
+			return true;
 		}
 
 		if (!isWritableDir(target_path, true)) {
 			logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
 			performDirectBuild(settings, buildsettings, pack, config);
-			return;
+			return false;
 		}
 
 		// determine basic build properties
@@ -141,6 +142,8 @@ class BuildGenerator : ProjectGenerator {
 		buildWithCompiler(settings, cbuildsettings);
 
 		copyTargetFile(target_path, buildsettings, settings.platform);
+
+		return false;
 	}
 
 	void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config)
