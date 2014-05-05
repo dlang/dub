@@ -1,6 +1,6 @@
 /**
 	...
-	
+
 	Copyright: © 2012 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
@@ -208,4 +208,20 @@ private bool isHexNumber(string str) {
 			default: return false;
 		}
 	return true;
+}
+
+/**
+    Get the closest match of $(D input) in the $(D array), where $(D distance)
+    is the maximum levenshtein distance allowed between the compared strings.
+    Returns $(D null) if no closest match is found.
+*/
+string getClosestMatch(string[] array, string input, size_t distance)
+{
+	import std.algorithm : countUntil, map, levenshteinDistance;
+	import std.uni : toUpper;
+
+	auto distMap = array.map!(elem =>
+		levenshteinDistance!((a, b) => toUpper(a) == toUpper(b))(elem, input));
+	auto idx = distMap.countUntil!(a => a <= distance);
+	return (idx == -1) ? null : array[idx];
 }
