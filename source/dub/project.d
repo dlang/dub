@@ -455,7 +455,7 @@ class Project {
 			if (psettings.targetType != TargetType.none) {
 				if (shallow && pkg !is m_rootPackage)
 					psettings.sourceFiles = null;
-				processVars(dst, pkg_path, psettings);
+				processVars(dst, this, pkg, psettings);
 				if (psettings.importPaths.empty)
 					logWarn(`Package %s (configuration "%s") defines no import paths, use {"importPaths": [...]} or the default package directory structure to fix this.`, pkg.name, configs[pkg.name]);
 				if (psettings.mainSourceFile.empty && pkg is m_rootPackage && psettings.targetType == TargetType.executable)
@@ -470,9 +470,9 @@ class Project {
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
 				if (!psettings.workingDirectory.empty)
-					dst.workingDirectory = processVars(psettings.workingDirectory, pkg_path, true);
+					dst.workingDirectory = processVars(psettings.workingDirectory, this, pkg, true);
 				if (psettings.mainSourceFile.length)
-					dst.mainSourceFile = processVars(psettings.mainSourceFile, pkg_path, true);
+					dst.mainSourceFile = processVars(psettings.mainSourceFile, this, pkg, true);
 			}
 		}
 
@@ -489,7 +489,7 @@ class Project {
 		if (usedefflags) {
 			BuildSettings btsettings;
 			m_rootPackage.addBuildTypeSettings(btsettings, platform, build_type);
-			processVars(dst, m_rootPackage.path.toNativeString(), btsettings);
+			processVars(dst, this, m_rootPackage, btsettings);
 		}
 	}
 
@@ -672,50 +672,50 @@ enum PlacementLocation {
 	systemWide
 }
 
-void processVars(ref BuildSettings dst, string project_path, BuildSettings settings, bool include_target_settings = false)
+void processVars(ref BuildSettings dst, in Project project, in Package pack, BuildSettings settings, bool include_target_settings = false)
 {
-	dst.addDFlags(processVars(project_path, settings.dflags));
-	dst.addLFlags(processVars(project_path, settings.lflags));
-	dst.addLibs(processVars(project_path, settings.libs));
-	dst.addSourceFiles(processVars(project_path, settings.sourceFiles, true));
-	dst.addImportFiles(processVars(project_path, settings.importFiles, true));
-	dst.addStringImportFiles(processVars(project_path, settings.stringImportFiles, true));
-	dst.addCopyFiles(processVars(project_path, settings.copyFiles, true));
-	dst.addVersions(processVars(project_path, settings.versions));
-	dst.addDebugVersions(processVars(project_path, settings.debugVersions));
-	dst.addImportPaths(processVars(project_path, settings.importPaths, true));
-	dst.addStringImportPaths(processVars(project_path, settings.stringImportPaths, true));
-	dst.addPreGenerateCommands(processVars(project_path, settings.preGenerateCommands));
-	dst.addPostGenerateCommands(processVars(project_path, settings.postGenerateCommands));
-	dst.addPreBuildCommands(processVars(project_path, settings.preBuildCommands));
-	dst.addPostBuildCommands(processVars(project_path, settings.postBuildCommands));
+	dst.addDFlags(processVars(project, pack, settings.dflags));
+	dst.addLFlags(processVars(project, pack, settings.lflags));
+	dst.addLibs(processVars(project, pack, settings.libs));
+	dst.addSourceFiles(processVars(project, pack, settings.sourceFiles, true));
+	dst.addImportFiles(processVars(project, pack, settings.importFiles, true));
+	dst.addStringImportFiles(processVars(project, pack, settings.stringImportFiles, true));
+	dst.addCopyFiles(processVars(project, pack, settings.copyFiles, true));
+	dst.addVersions(processVars(project, pack, settings.versions));
+	dst.addDebugVersions(processVars(project, pack, settings.debugVersions));
+	dst.addImportPaths(processVars(project, pack, settings.importPaths, true));
+	dst.addStringImportPaths(processVars(project, pack, settings.stringImportPaths, true));
+	dst.addPreGenerateCommands(processVars(project, pack, settings.preGenerateCommands));
+	dst.addPostGenerateCommands(processVars(project, pack, settings.postGenerateCommands));
+	dst.addPreBuildCommands(processVars(project, pack, settings.preBuildCommands));
+	dst.addPostBuildCommands(processVars(project, pack, settings.postBuildCommands));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
 
 	if (include_target_settings) {
 		dst.targetType = settings.targetType;
-		dst.targetPath = processVars(settings.targetPath, project_path, true);
+		dst.targetPath = processVars(settings.targetPath, project, pack, true);
 		dst.targetName = settings.targetName;
 		if (!settings.workingDirectory.empty)
-			dst.workingDirectory = processVars(settings.workingDirectory, project_path, true);
+			dst.workingDirectory = processVars(settings.workingDirectory, project, pack, true);
 		if (settings.mainSourceFile.length)
-			dst.mainSourceFile = processVars(settings.mainSourceFile, project_path, true);
+			dst.mainSourceFile = processVars(settings.mainSourceFile, project, pack, true);
 	}
 }
 
-private string[] processVars(string project_path, string[] vars, bool are_paths = false)
+private string[] processVars(in Project project, in Package pack, string[] vars, bool are_paths = false)
 {
 	auto ret = appender!(string[])();
-	processVars(ret, project_path, vars, are_paths);
+	processVars(ret, project, pack, vars, are_paths);
 	return ret.data;
 
 }
-private void processVars(ref Appender!(string[]) dst, string project_path, string[] vars, bool are_paths = false)
+private void processVars(ref Appender!(string[]) dst, in Project project, in Package pack, string[] vars, bool are_paths = false)
 {
-	foreach (var; vars) dst.put(processVars(var, project_path, are_paths));
+	foreach (var; vars) dst.put(processVars(var, project, pack, are_paths));
 }
 
-private string processVars(string var, string project_path, bool is_path)
+private string processVars(string var, in Project project, in Package pack, bool is_path)
 {
 	auto idx = std.string.indexOf(var, '$');
 	if (idx >= 0) {
@@ -734,10 +734,7 @@ private string processVars(string var, string project_path, bool is_path)
 				auto varname = var[0 .. idx2];
 				var = var[idx2 .. $];
 
-				string env_variable;
-				if( varname == "PACKAGE_DIR" ) vres.put(project_path);
-				else if( (env_variable = environment.get(varname)) != null) vres.put(env_variable);
-				else enforce(false, "Invalid variable: "~varname);
+				vres.put(getVariable(varname, project, pack));
 			}
 			idx = std.string.indexOf(var, '$');
 		}
@@ -747,11 +744,27 @@ private string processVars(string var, string project_path, bool is_path)
 	if (is_path) {
 		auto p = Path(var);
 		if (!p.absolute) {
-			logDebug("Fixing relative path: %s ~ %s", project_path, p.toNativeString());
-			p = Path(project_path) ~ p;
-		}
-		return p.toNativeString();
+			logDebug("Fixing relative path: %s ~ %s", pack.path.toNativeString(), p.toNativeString());
+			return (pack.path ~ p).toNativeString();
+		} else return p.toNativeString();
 	} else return var;
+}
+
+private string getVariable(string name, in Project project, in Package pack)
+{
+	if (name == "PACKAGE_DIR") return pack.path.toNativeString();
+	if (name == "ROOT_PACKAGE_DIR") return project.rootPackage.path.toNativeString();
+
+	if (name.endsWith("_PACKAGE_DIR")) {
+		auto pname = name[0 .. $-12];
+		foreach (prj; project.getTopologicalPackageList())
+			if (prj.name.toUpper().replace("-", "_") == pname)
+				return prj.path.toNativeString();
+	}
+	
+	if (auto envvar = environment.get(name)) return envvar;
+
+	throw new Exception("Invalid variable: "~name);
 }
 
 private bool isIdentChar(dchar ch)
