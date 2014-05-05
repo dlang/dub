@@ -19,7 +19,7 @@ import dub.packagemanager;
 import dub.packagesupplier;
 import dub.platform : determineCompiler;
 import dub.project;
-import dub.internal.utils : getDUBVersion;
+import dub.internal.utils : getDUBVersion, getClosestMatch;
 
 import std.algorithm;
 import std.array;
@@ -372,7 +372,14 @@ abstract class PackageBuildCommand : Command {
 		m_defaultConfig = null;
 		enforce (loadSpecificPackage(dub, package_name), "Failed to load package.");
 
-		enforce(m_buildConfig.length == 0 || dub.configurations.canFind(m_buildConfig), "Unknown build configuration: "~m_buildConfig);
+		if (m_buildConfig.length != 0 && !dub.configurations.canFind(m_buildConfig))
+		{
+			string msg = "Unknown build configuration: "~m_buildConfig;
+			enum distance = 3;
+			if (auto match = dub.configurations.getClosestMatch(m_buildConfig, distance))
+				msg ~= ". Did you mean '" ~ match ~ "'?";
+			enforce(0, msg);
+		}
 
 		if (m_buildType.length == 0) {
 			if (environment.get("DFLAGS")) m_buildType = "$DFLAGS";
