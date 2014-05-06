@@ -626,12 +626,12 @@ struct Action {
 
 	static Action conflict(string pkg, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.conflict, pkg, PlacementLocation.userWide, dep, context);
+		return Action(Type.conflict, pkg, PlacementLocation.user, dep, context);
 	}
 
 	static Action failure(string pkg, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.failure, pkg, PlacementLocation.userWide, dep, context);
+		return Action(Type.failure, pkg, PlacementLocation.user, dep, context);
 	}
 
 	private this(Type id, string pkg, PlacementLocation location, in Dependency d, Dependency[string] issue, Version existing_version = Version.UNKNOWN)
@@ -666,14 +666,14 @@ enum PlacementLocation {
 	local,
 	/// Packages with 'userWide' will be placed in a folder accessible by
 	/// all of the applications from the current user.
-	userWide,
+	user,
 	/// Packages retrieved with 'systemWide' will be placed in a shared folder,
 	/// which can be accessed by all users of the system.
-	systemWide
+	system
 }
 
 /// The default placement location of fetched packages. Can be changed by --local or --system.
-auto defaultPlacementLocation = PlacementLocation.userWide;
+auto defaultPlacementLocation = PlacementLocation.user;
 
 void processVars(ref BuildSettings dst, in Project project, in Package pack, BuildSettings settings, bool include_target_settings = false)
 

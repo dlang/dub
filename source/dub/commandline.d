@@ -80,7 +80,7 @@ int runDubCommandLine(string[] args)
 		if(local)
 			defaultPlacementLocation = PlacementLocation.local;
 		else if(system)
-			defaultPlacementLocation = PlacementLocation.systemWide;
+			defaultPlacementLocation = PlacementLocation.system;
 
 		if( vverbose ) loglevel = LogLevel.debug_;
 		else if( verbose ) loglevel = LogLevel.diagnostic;
