@@ -53,7 +53,7 @@ class Project {
 			json.name = "unknown";
 			pack = new Package(json, project_path);
 		} else {
-			pack = package_manager.getOrLoadPackage(project_path); 
+			pack = package_manager.getOrLoadPackage(project_path);
 		}
 
 		this(package_manager, pack);
@@ -103,7 +103,7 @@ class Project {
 
 	/// List of retrieved dependency Packages
 	@property const(Package[]) dependencies() const { return m_dependencies; }
-	
+
 	/// Main package.
 	@property inout(Package) rootPackage() inout { return m_rootPackage; }
 
@@ -115,7 +115,7 @@ class Project {
 	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[string] configs = null)
 	const {
 		const(Package) rootpack = root_package ? root_package : m_rootPackage;
-	
+
 		int iterator(int delegate(ref const Package) del)
 		{
 			int ret = 0;
@@ -147,7 +147,7 @@ class Project {
 			perform_rec(rootpack);
 			return ret;
 		}
-		
+
 		return &iterator;
 	}
 
@@ -256,7 +256,7 @@ class Project {
 
 	@property string[] configurations() const { return m_rootPackage.configurations; }
 
-	/// Returns a map with the configuration for all packages in the dependency tree. 
+	/// Returns a map with the configuration for all packages in the dependency tree.
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
 		struct Vertex { string pack, config; }
@@ -431,7 +431,7 @@ class Project {
 	/**
 	 * Fills dst with values from this project.
 	 *
-	 * dst gets initialized according to the given platform and config. 
+	 * dst gets initialized according to the given platform and config.
 	 *
 	 * Params:
 	 *   dst = The BuildSettings struct to fill with data.
@@ -450,12 +450,12 @@ class Project {
 
 			assert(pkg.name in configs, "Missing configuration for "~pkg.name);
 			logDebug("Gathering build settings for %s (%s)", pkg.name, configs[pkg.name]);
-			
+
 			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
 			if (psettings.targetType != TargetType.none) {
 				if (shallow && pkg !is m_rootPackage)
 					psettings.sourceFiles = null;
-				processVars(dst, pkg_path, psettings);
+				processVars(dst, this, pkg, psettings);
 				if (psettings.importPaths.empty)
 					logWarn(`Package %s (configuration "%s") defines no import paths, use {"importPaths": [...]} or the default package directory structure to fix this.`, pkg.name, configs[pkg.name]);
 				if (psettings.mainSourceFile.empty && pkg is m_rootPackage && psettings.targetType == TargetType.executable)
@@ -470,9 +470,9 @@ class Project {
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
 				if (!psettings.workingDirectory.empty)
-					dst.workingDirectory = processVars(psettings.workingDirectory, pkg_path, true);
+					dst.workingDirectory = processVars(psettings.workingDirectory, this, pkg, true);
 				if (psettings.mainSourceFile.length)
-					dst.mainSourceFile = processVars(psettings.mainSourceFile, pkg_path, true);
+					dst.mainSourceFile = processVars(psettings.mainSourceFile, this, pkg, true);
 			}
 		}
 
@@ -489,7 +489,7 @@ class Project {
 		if (usedefflags) {
 			BuildSettings btsettings;
 			m_rootPackage.addBuildTypeSettings(btsettings, platform, build_type);
-			processVars(dst, m_rootPackage.path.toNativeString(), btsettings);
+			processVars(dst, this, m_rootPackage, btsettings);
 		}
 	}
 
@@ -564,7 +564,7 @@ class Project {
 			} catch(Exception t) return true;
 		} else return false;
 	}
-		
+
 	private void markUpToDate(string packageId) {
 		logDebug("markUpToDate(%s)", packageId);
 		Json create(ref Json json, string object) {
@@ -661,7 +661,7 @@ struct Action {
 
 /// Indicates where a package has been or should be placed to.
 enum PlacementLocation {
-	/// Packages retrived with 'local' will be placed in the current folder 
+	/// Packages retrived with 'local' will be placed in the current folder
 	/// using the package name as destination.
 	local,
 	/// Packages with 'userWide' will be placed in a folder accessible by
@@ -675,50 +675,51 @@ enum PlacementLocation {
 /// The default placement location of fetched packages. Can be changed by --local or --system.
 auto defaultPlacementLocation = PlacementLocation.userWide;
 
-void processVars(ref BuildSettings dst, string project_path, BuildSettings settings, bool include_target_settings = false)
+void processVars(ref BuildSettings dst, in Project project, in Package pack, BuildSettings settings, bool include_target_settings = false)
+
 {
-	dst.addDFlags(processVars(project_path, settings.dflags));
-	dst.addLFlags(processVars(project_path, settings.lflags));
-	dst.addLibs(processVars(project_path, settings.libs));
-	dst.addSourceFiles(processVars(project_path, settings.sourceFiles, true));
-	dst.addImportFiles(processVars(project_path, settings.importFiles, true));
-	dst.addStringImportFiles(processVars(project_path, settings.stringImportFiles, true));
-	dst.addCopyFiles(processVars(project_path, settings.copyFiles, true));
-	dst.addVersions(processVars(project_path, settings.versions));
-	dst.addDebugVersions(processVars(project_path, settings.debugVersions));
-	dst.addImportPaths(processVars(project_path, settings.importPaths, true));
-	dst.addStringImportPaths(processVars(project_path, settings.stringImportPaths, true));
-	dst.addPreGenerateCommands(processVars(project_path, settings.preGenerateCommands));
-	dst.addPostGenerateCommands(processVars(project_path, settings.postGenerateCommands));
-	dst.addPreBuildCommands(processVars(project_path, settings.preBuildCommands));
-	dst.addPostBuildCommands(processVars(project_path, settings.postBuildCommands));
+	dst.addDFlags(processVars(project, pack, settings.dflags));
+	dst.addLFlags(processVars(project, pack, settings.lflags));
+	dst.addLibs(processVars(project, pack, settings.libs));
+	dst.addSourceFiles(processVars(project, pack, settings.sourceFiles, true));
+	dst.addImportFiles(processVars(project, pack, settings.importFiles, true));
+	dst.addStringImportFiles(processVars(project, pack, settings.stringImportFiles, true));
+	dst.addCopyFiles(processVars(project, pack, settings.copyFiles, true));
+	dst.addVersions(processVars(project, pack, settings.versions));
+	dst.addDebugVersions(processVars(project, pack, settings.debugVersions));
+	dst.addImportPaths(processVars(project, pack, settings.importPaths, true));
+	dst.addStringImportPaths(processVars(project, pack, settings.stringImportPaths, true));
+	dst.addPreGenerateCommands(processVars(project, pack, settings.preGenerateCommands));
+	dst.addPostGenerateCommands(processVars(project, pack, settings.postGenerateCommands));
+	dst.addPreBuildCommands(processVars(project, pack, settings.preBuildCommands));
+	dst.addPostBuildCommands(processVars(project, pack, settings.postBuildCommands));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
 
 	if (include_target_settings) {
 		dst.targetType = settings.targetType;
-		dst.targetPath = processVars(settings.targetPath, project_path, true);
+		dst.targetPath = processVars(settings.targetPath, project, pack, true);
 		dst.targetName = settings.targetName;
 		if (!settings.workingDirectory.empty)
-			dst.workingDirectory = processVars(settings.workingDirectory, project_path, true);
+			dst.workingDirectory = processVars(settings.workingDirectory, project, pack, true);
 		if (settings.mainSourceFile.length)
-			dst.mainSourceFile = processVars(settings.mainSourceFile, project_path, true);
+			dst.mainSourceFile = processVars(settings.mainSourceFile, project, pack, true);
 	}
 }
 
-private string[] processVars(string project_path, string[] vars, bool are_paths = false)
+private string[] processVars(in Project project, in Package pack, string[] vars, bool are_paths = false)
 {
 	auto ret = appender!(string[])();
-	processVars(ret, project_path, vars, are_paths);
+	processVars(ret, project, pack, vars, are_paths);
 	return ret.data;
 
 }
-private void processVars(ref Appender!(string[]) dst, string project_path, string[] vars, bool are_paths = false)
+private void processVars(ref Appender!(string[]) dst, in Project project, in Package pack, string[] vars, bool are_paths = false)
 {
-	foreach (var; vars) dst.put(processVars(var, project_path, are_paths));
+	foreach (var; vars) dst.put(processVars(var, project, pack, are_paths));
 }
 
-private string processVars(string var, string project_path, bool is_path)
+private string processVars(string var, in Project project, in Package pack, bool is_path)
 {
 	auto idx = std.string.indexOf(var, '$');
 	if (idx >= 0) {
@@ -737,10 +738,7 @@ private string processVars(string var, string project_path, bool is_path)
 				auto varname = var[0 .. idx2];
 				var = var[idx2 .. $];
 
-				string env_variable;
-				if( varname == "PACKAGE_DIR" ) vres.put(project_path);
-				else if( (env_variable = environment.get(varname)) != null) vres.put(env_variable);
-				else enforce(false, "Invalid variable: "~varname);
+				vres.put(getVariable(varname, project, pack));
 			}
 			idx = std.string.indexOf(var, '$');
 		}
@@ -750,11 +748,27 @@ private string processVars(string var, string project_path, bool is_path)
 	if (is_path) {
 		auto p = Path(var);
 		if (!p.absolute) {
-			logDebug("Fixing relative path: %s ~ %s", project_path, p.toNativeString());
-			p = Path(project_path) ~ p;
-		}
-		return p.toNativeString();
+			logDebug("Fixing relative path: %s ~ %s", pack.path.toNativeString(), p.toNativeString());
+			return (pack.path ~ p).toNativeString();
+		} else return p.toNativeString();
 	} else return var;
+}
+
+private string getVariable(string name, in Project project, in Package pack)
+{
+	if (name == "PACKAGE_DIR") return pack.path.toNativeString();
+	if (name == "ROOT_PACKAGE_DIR") return project.rootPackage.path.toNativeString();
+
+	if (name.endsWith("_PACKAGE_DIR")) {
+		auto pname = name[0 .. $-12];
+		foreach (prj; project.getTopologicalPackageList())
+			if (prj.name.toUpper().replace("-", "_") == pname)
+				return prj.path.toNativeString();
+	}
+
+	if (auto envvar = environment.get(name)) return envvar;
+
+	throw new Exception("Invalid variable: "~name);
 }
 
 private bool isIdentChar(dchar ch)
@@ -762,7 +776,7 @@ private bool isIdentChar(dchar ch)
 	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
 }
 
-string stripDlangSpecialChars(string s) 
+string stripDlangSpecialChars(string s)
 {
 	import std.array;
 	import std.uni;
@@ -775,7 +789,7 @@ string stripDlangSpecialChars(string s)
 final class SelectedVersions {
 	private struct Selected {
 		Dependency dep;
-		//Dependency[string] packages;	
+		//Dependency[string] packages;
 	}
 	private {
 		enum FileVersion = 1;

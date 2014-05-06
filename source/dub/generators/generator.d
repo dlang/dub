@@ -56,7 +56,8 @@ class ProjectGenerator
 		string[string] configs = m_project.getPackageConfigs(settings.platform, settings.config);
 
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
-			auto buildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
+			BuildSettings buildsettings;
+			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
 			prepareGeneration(pack.name, buildsettings);
 		}
 
@@ -69,7 +70,8 @@ class ProjectGenerator
 		generateTargets(settings, targets);
 
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
-			auto buildsettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
+			BuildSettings buildsettings;
+			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
 			bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
 			finalizeGeneration(pack.name, buildsettings, pack.path, Path(bs.targetPath), generate_binary);
 		}
@@ -117,7 +119,7 @@ class ProjectGenerator
 
 		// start to build up the build settings
 		BuildSettings buildsettings = settings.buildSettings.dup;
-		processVars(buildsettings, pack.path.toNativeString(), shallowbs, true);
+		processVars(buildsettings, m_project, pack, shallowbs, true);
 
 		// remove any mainSourceFile from library builds
 		if (buildsettings.targetType != TargetType.executable && buildsettings.mainSourceFile.length) {

@@ -481,11 +481,11 @@ class Dub {
 		if(version_.empty && packages.length > 1) {
 			logError("Cannot remove package '" ~ package_id ~ "', there are multiple possibilities at location\n"
 				~ "'" ~ to!string(location_) ~ "'.");
-			logError("Retrieved versions:");
+			logError("Available versions:");
 			foreach(pack; packages) 
-				logError("%s", pack.vers);
-			throw new Exception("Please specify a individual version or use the wildcard identifier '" 
-				~ RemoveVersionWildcard ~ "' (without quotes).");			
+				logError("  %s", pack.vers);
+			throw new Exception("Please specify a individual version using --version=... or use the"
+				~ " wildcard --version=" ~ RemoveVersionWildcard ~ " to remove all versions.");
 		}
 
 		logDebug("Removing %s packages.", packages.length);
