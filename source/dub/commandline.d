@@ -197,6 +197,7 @@ int runDubCommandLine(string[] args)
 	catch (UsageException e) {
 		logError("%s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
+		logInfo(`Run "dub %s -h" for more information about the "%s" command.`, cmdname, cmdname);
 		return 1;
 	}
 	catch (Throwable e) {
