@@ -90,7 +90,7 @@ class Dub {
 				m_userDubPath = Path(getcwd()) ~ m_userDubPath;
 			m_tempPath = Path("/tmp");
 		}
-		
+
 		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
 
@@ -214,7 +214,7 @@ class Dub {
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			fetchOpts |= (options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-			if (!pack) fetch(p, ver, PlacementLocation.userWide, fetchOpts);
+			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts);
 			if ((options & UpgradeOptions.select) && ver.path.empty && p != m_project.rootPackage.name)
 				m_project.selections.selectVersion(p, ver.version_);
 		}
@@ -233,7 +233,7 @@ class Dub {
 		generator.generate(settings);
 	}
 
-	/// Executes tests on the current project. Throws an exception, if 
+	/// Executes tests on the current project. Throws an exception, if
 	/// unittests failed.
 	void testProject(GeneratorSettings settings, string config, Path custom_main_file)
 	{
@@ -260,7 +260,7 @@ class Dub {
 			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
 			return;
 		}
-		
+
 		if (lbuildsettings.targetType == TargetType.executable) {
 			if (config == "unittest") logInfo("Running custom 'unittest' configuration.", config);
 			else logInfo(`Configuration '%s' does not output a library. Falling back to "dub -b unittest -c %s".`, config, config);
@@ -357,7 +357,7 @@ class Dub {
 	{
 		logInfo("Cleaning package at %s...", path.toNativeString());
 		enforce(Package.isPackageAt(path), "No package found.", path.toNativeString());
-		
+
 		// TODO: clear target files and copy files
 
 		if (existsFile(path ~ ".dub/build")) rmdirRecurse((path ~ ".dub/build").toNativeString());
@@ -389,8 +389,8 @@ class Dub {
 		Path placement;
 		final switch (location) {
 			case PlacementLocation.local: placement = m_rootPath; break;
-			case PlacementLocation.userWide: placement = m_userDubPath ~ "packages/"; break;
-			case PlacementLocation.systemWide: placement = m_systemDubPath ~ "packages/"; break;
+			case PlacementLocation.user: placement = m_userDubPath ~ "packages/"; break;
+			case PlacementLocation.system: placement = m_systemDubPath ~ "packages/"; break;
 		}
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
@@ -444,10 +444,10 @@ class Dub {
 	/// @see remove(string, string, RemoveLocation)
 	enum RemoveVersionWildcard = "*";
 
-	/// This will remove a given package with a specified version from the 
+	/// This will remove a given package with a specified version from the
 	/// location.
-	/// It will remove at most one package, unless @param version_ is 
-	/// specified as wildcard "*". 
+	/// It will remove at most one package, unless @param version_ is
+	/// specified as wildcard "*".
 	/// @param package_id Package to be removed
 	/// @param version_ Identifying a version or a wild card. An empty string
 	/// may be passed into. In this case the package will be removed from the
@@ -482,7 +482,7 @@ class Dub {
 			logError("Cannot remove package '" ~ package_id ~ "', there are multiple possibilities at location\n"
 				~ "'" ~ to!string(location_) ~ "'.");
 			logError("Available versions:");
-			foreach(pack; packages) 
+			foreach(pack; packages)
 				logError("  %s", pack.vers);
 			throw new Exception("Please specify a individual version using --version=... or use the"
 				~ " wildcard --version=" ~ RemoveVersionWildcard ~ " to remove all versions.");
@@ -545,7 +545,7 @@ class Dub {
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
 			logInfo("DDOX is not present, getting it and storing user wide");
-			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), PlacementLocation.userWide, FetchOptions.none);
+			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
 		}
 
 		version(Windows) auto ddox_exe = "ddox.exe";
@@ -790,7 +790,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
 					fetchOpts |= (m_options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-					m_dub.fetch(rootpack, dep, PlacementLocation.userWide, fetchOpts);
+					m_dub.fetch(rootpack, dep, defaultPlacementLocation, fetchOpts);
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);

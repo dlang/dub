@@ -53,7 +53,7 @@ class Project {
 			json.name = "unknown";
 			pack = new Package(json, project_path);
 		} else {
-			pack = package_manager.getOrLoadPackage(project_path); 
+			pack = package_manager.getOrLoadPackage(project_path);
 		}
 
 		this(package_manager, pack);
@@ -103,7 +103,7 @@ class Project {
 
 	/// List of retrieved dependency Packages
 	@property const(Package[]) dependencies() const { return m_dependencies; }
-	
+
 	/// Main package.
 	@property inout(Package) rootPackage() inout { return m_rootPackage; }
 
@@ -115,7 +115,7 @@ class Project {
 	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[string] configs = null)
 	const {
 		const(Package) rootpack = root_package ? root_package : m_rootPackage;
-	
+
 		int iterator(int delegate(ref const Package) del)
 		{
 			int ret = 0;
@@ -147,7 +147,7 @@ class Project {
 			perform_rec(rootpack);
 			return ret;
 		}
-		
+
 		return &iterator;
 	}
 
@@ -256,7 +256,7 @@ class Project {
 
 	@property string[] configurations() const { return m_rootPackage.configurations; }
 
-	/// Returns a map with the configuration for all packages in the dependency tree. 
+	/// Returns a map with the configuration for all packages in the dependency tree.
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
 		struct Vertex { string pack, config; }
@@ -431,7 +431,7 @@ class Project {
 	/**
 	 * Fills dst with values from this project.
 	 *
-	 * dst gets initialized according to the given platform and config. 
+	 * dst gets initialized according to the given platform and config.
 	 *
 	 * Params:
 	 *   dst = The BuildSettings struct to fill with data.
@@ -450,7 +450,7 @@ class Project {
 
 			assert(pkg.name in configs, "Missing configuration for "~pkg.name);
 			logDebug("Gathering build settings for %s (%s)", pkg.name, configs[pkg.name]);
-			
+
 			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
 			if (psettings.targetType != TargetType.none) {
 				if (shallow && pkg !is m_rootPackage)
@@ -564,7 +564,7 @@ class Project {
 			} catch(Exception t) return true;
 		} else return false;
 	}
-		
+
 	private void markUpToDate(string packageId) {
 		logDebug("markUpToDate(%s)", packageId);
 		Json create(ref Json json, string object) {
@@ -626,12 +626,12 @@ struct Action {
 
 	static Action conflict(string pkg, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.conflict, pkg, PlacementLocation.userWide, dep, context);
+		return Action(Type.conflict, pkg, PlacementLocation.user, dep, context);
 	}
 
 	static Action failure(string pkg, in Dependency dep, Dependency[string] context)
 	{
-		return Action(Type.failure, pkg, PlacementLocation.userWide, dep, context);
+		return Action(Type.failure, pkg, PlacementLocation.user, dep, context);
 	}
 
 	private this(Type id, string pkg, PlacementLocation location, in Dependency d, Dependency[string] issue, Version existing_version = Version.UNKNOWN)
@@ -661,18 +661,22 @@ struct Action {
 
 /// Indicates where a package has been or should be placed to.
 enum PlacementLocation {
-	/// Packages retrived with 'local' will be placed in the current folder 
+	/// Packages retrived with 'local' will be placed in the current folder
 	/// using the package name as destination.
 	local,
 	/// Packages with 'userWide' will be placed in a folder accessible by
 	/// all of the applications from the current user.
-	userWide,
+	user,
 	/// Packages retrieved with 'systemWide' will be placed in a shared folder,
 	/// which can be accessed by all users of the system.
-	systemWide
+	system
 }
 
+/// The default placement location of fetched packages. Can be changed by --local or --system.
+auto defaultPlacementLocation = PlacementLocation.user;
+
 void processVars(ref BuildSettings dst, in Project project, in Package pack, BuildSettings settings, bool include_target_settings = false)
+
 {
 	dst.addDFlags(processVars(project, pack, settings.dflags));
 	dst.addLFlags(processVars(project, pack, settings.lflags));
@@ -761,7 +765,7 @@ private string getVariable(string name, in Project project, in Package pack)
 			if (prj.name.toUpper().replace("-", "_") == pname)
 				return prj.path.toNativeString();
 	}
-	
+
 	if (auto envvar = environment.get(name)) return envvar;
 
 	throw new Exception("Invalid variable: "~name);
@@ -772,7 +776,7 @@ private bool isIdentChar(dchar ch)
 	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
 }
 
-string stripDlangSpecialChars(string s) 
+string stripDlangSpecialChars(string s)
 {
 	import std.array;
 	import std.uni;
@@ -785,7 +789,7 @@ string stripDlangSpecialChars(string s)
 final class SelectedVersions {
 	private struct Selected {
 		Dependency dep;
-		//Dependency[string] packages;	
+		//Dependency[string] packages;
 	}
 	private {
 		enum FileVersion = 1;
