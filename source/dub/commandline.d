@@ -72,15 +72,7 @@ int runDubCommandLine(string[] args)
 		common_args.getopt("vverbose", &vverbose, ["Print debug output"]);
 		common_args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		common_args.getopt("vquiet", &vquiet, ["Print no messages"]);
-
-		bool local, system;
-		common_args.getopt("local", &local, ["Puts the package into a sub folder of the current working directory. Cannot be mixed with --system."]);
-		common_args.getopt("system", &system, ["Puts the package into the system wide package cache instead of the user local one."]);
-		enforceUsage(!local || !system, "--local and --system are exclusive to each other.");
-		if(local)
-			defaultPlacementLocation = PlacementLocation.local;
-		else if(system)
-			defaultPlacementLocation = PlacementLocation.system;
+		common_args.getopt("cache", &defaultPlacementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 
 		if( vverbose ) loglevel = LogLevel.debug_;
 		else if( verbose ) loglevel = LogLevel.diagnostic;
