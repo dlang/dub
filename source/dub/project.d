@@ -551,8 +551,9 @@ class Project {
 		if (m_selections.hasSelectedVersion(m_rootPackage.basePackage.name))
 			m_selections.deselectVersion(m_rootPackage.basePackage.name);
 
-		if (m_selections.dirty)
-			m_selections.save(m_rootPackage.path ~ SelectedVersions.defaultFile);
+		auto path = m_rootPackage.path ~ SelectedVersions.defaultFile;
+		if (m_selections.dirty || !existsFile(path))
+			m_selections.save(path);
 	}
 
 	private bool needsUpToDateCheck(Package pack) {
