@@ -808,6 +808,8 @@ class FetchRemoveCommand : Command {
 	protected {
 		string m_version;
 		bool m_forceRemove = false;
+		bool m_system = false;
+		bool m_local = false;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -817,6 +819,8 @@ class FetchRemoveCommand : Command {
 			"The remove command also accepts \"*\" here as a wildcard to remove all versions of the package from the specified location"
 		]);
 
+		args.getopt("system", &m_system, ["Deprecated: Puts the package into the system wide package cache instead of the user local one."]);
+		args.getopt("local", &m_local, ["Deprecated: Puts the package into a sub folder of the current working directory. Cannot be mixed with --system."]);
 		args.getopt("force-remove", &m_forceRemove, [
 			"Force deletion of fetched packages with untracked files"
 		]);
@@ -856,10 +860,21 @@ class FetchCommand : FetchRemoveCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
+		enforceUsage(!m_local || !m_system, "--local and --system are exclusive to each other.");
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
 		auto location = defaultPlacementLocation;
+		if (m_local)
+		{
+			logWarn("--local is deprecated. Use --cache=local instead.");
+			location = PlacementLocation.local;
+		}
+		else if (m_system)
+		{
+			logWarn("--system is deprecated. Use --cache=system instead.");
+			location = PlacementLocation.system;
+		}
 
 		auto name = free_args[0];
 
@@ -918,6 +933,16 @@ class RemoveCommand : FetchRemoveCommand {
 
 		auto package_id = free_args[0];
 		auto location = defaultPlacementLocation;
+		if (m_local)
+		{
+			logWarn("--local is deprecated. Use --cache=local instead.");
+			location = PlacementLocation.local;
+		}
+		else if (m_system)
+		{
+			logWarn("--system is deprecated. Use --cache=system instead.");
+			location = PlacementLocation.system;
+		}
 
 		dub.remove(package_id, m_version, location, m_forceRemove);
 		return 0;
