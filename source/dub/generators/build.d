@@ -65,10 +65,11 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		// build all targets
-		if (settings.rdmd) {
-			// RDMD always builds everything at once
-			auto ti = targets[m_project.rootPackage.name];
-			buildTarget(settings, ti.buildSettings.dup, m_project.rootPackage, ti.config, ti.packages);
+		auto root_ti = targets[m_project.rootPackage.name];
+		if (settings.rdmd || root_ti.buildSettings.targetType == TargetType.staticLibrary) {
+			// RDMD always builds everything at once and static libraries don't need their
+			// dependencies to be built
+			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages);
 		} else buildTargetRec(m_project.rootPackage.name);
 	}
 
