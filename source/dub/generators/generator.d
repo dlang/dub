@@ -100,11 +100,10 @@ class ProjectGenerator
 			}
 		}
 		if (tt != TargetType.none && tt != TargetType.sourceLibrary && shallowbs.sourceFiles.empty) {
-			logWarn(`Package %s contains no source files. Please add {"targetType": "none"} to it's package description to avoid building it.`,
-				pack.name);
+			logWarn(`Configuration '%s' of package %s contains no source files. Please add {"targetType": "none"} to it's package description to avoid building it.`,
+				configs[pack.name], pack.name);
 			tt = TargetType.none;
 		}
-
 
 		shallowbs.targetType = tt;
 		bool generates_binary = tt != TargetType.sourceLibrary && tt != TargetType.none;
@@ -203,6 +202,7 @@ struct GeneratorSettings {
 	string config;
 	string buildType;
 	BuildSettings buildSettings;
+	BuildMode buildMode = BuildMode.separate;
 
 	bool combined; // compile all in one go instead of each dependency separately
 
@@ -212,6 +212,19 @@ struct GeneratorSettings {
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;
 	void delegate(int status, string output) runCallback;
+}
+
+
+/**
+	Determines the mode in which the compiler and linker are invoked.
+*/
+enum BuildMode {
+	separate,                 /// Compile and link separately
+	allAtOnce,                /// Perform compile and link with a single compiler invocation
+	//singleFile,               /// Compile each file separately
+	//multipleObjects,          /// Generate an object file per module
+	//multipleObjectsPerModule, /// Use the -multiobj switch to generate multiple object files per module
+	//compileOnly               /// Do not invoke the linker (can be done using a post build command)
 }
 
 

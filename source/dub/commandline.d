@@ -325,6 +325,7 @@ class InitCommand : Command {
 abstract class PackageBuildCommand : Command {
 	protected {
 		string m_buildType;
+		BuildMode m_buildMode;
 		string m_buildConfig;
 		string m_compilerName = .determineCompiler();
 		string m_arch;
@@ -362,6 +363,10 @@ abstract class PackageBuildCommand : Command {
 		]);
 		args.getopt("force-remove", &m_forceRemove, [
 			"Force deletion of fetched packages with untracked files when upgrading"
+		]);
+		args.getopt("build-mode", &m_buildMode, [
+			"Specifies the way the compiler and linker are invoked. Valid values:",
+			"  separate (default), allAtOnce"
 		]);
 	}
 
@@ -522,6 +527,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.platform = m_buildPlatform;
 		gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
 		gensettings.buildType = m_buildType;
+		gensettings.buildMode = m_buildMode;
 		gensettings.compiler = m_compiler;
 		gensettings.buildSettings = m_buildSettings;
 		gensettings.combined = m_combined;
@@ -627,6 +633,8 @@ class TestCommand : PackageBuildCommand {
 			`run the unit tests.`
 		];
 		this.acceptsAppArgs = true;
+
+		m_buildType = "unittest";
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -654,7 +662,8 @@ class TestCommand : PackageBuildCommand {
 		GeneratorSettings settings;
 		settings.platform = m_buildPlatform;
 		settings.compiler = getCompiler(m_buildPlatform.compilerBinary);
-		settings.buildType = "unittest";
+		settings.buildType = m_buildType;
+		settings.buildMode = m_buildMode;
 		settings.buildSettings = m_buildSettings;
 		settings.combined = m_combined;
 		settings.force = m_force;

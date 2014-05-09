@@ -330,7 +330,14 @@ class VisualDGenerator : ProjectGenerator {
 				ret.put("    <link>0</link>\n");
 				ret.put("    <subsystem>0</subsystem>\n");
 				ret.put("    <multiobj>0</multiobj>\n");
-				ret.put("    <singleFileCompilation>2</singleFileCompilation>\n");
+				int singlefilemode;
+				final switch (settings.buildMode) with (BuildMode) {
+					case separate: singlefilemode = 2; break;
+					case allAtOnce: singlefilemode = 0; break;
+					//case singleFile: singlefilemode = 1; break;
+					//case compileOnly: singlefilemode = 3; break;
+				}
+				ret.formattedWrite("    <singleFileCompilation>%s</singleFileCompilation>\n");
 				ret.put("    <oneobj>0</oneobj>\n");
 				ret.put("    <trace>0</trace>\n");
 				ret.put("    <quiet>0</quiet>\n");
