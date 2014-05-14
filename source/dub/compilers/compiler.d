@@ -466,6 +466,15 @@ Path generatePlatformProbeFile()
 
 BuildPlatform readPlatformProbe(string output)
 {
+	import std.string;
+	
+	// work around possible additional output of the compiler
+	auto idx1 = output.indexOf("{");
+	auto idx2 = output.lastIndexOf("}");
+	enforce(idx1 >= 0 && idx1 < idx2,
+		"Unexpected platform information output - does not contain a JSON object.");
+	output = output[idx1 .. idx2+1];
+
 	import dub.internal.vibecompat.data.json;
 	auto json = parseJsonString(output);
 
