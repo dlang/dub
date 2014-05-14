@@ -106,7 +106,7 @@ class Dub {
 		ps ~= defaultPackageSuppliers();
 
 		m_packageSuppliers = ps;
-		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath, false);
+		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
 		updatePackageSearchPath();
 	}
 

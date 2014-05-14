@@ -44,10 +44,20 @@ class PackageManager {
 		if (refresh_packages) refresh(true);
 	}
 
-	@property void searchPath(Path[] paths) { m_searchPath = paths.dup; refresh(false); }
+	@property void searchPath(Path[] paths)
+	{
+		if (paths == m_searchPath) return;
+		m_searchPath = paths.dup;
+		refresh(false);
+	}
 	@property const(Path)[] searchPath() const { return m_searchPath; }
 
-	@property void disableDefaultSearchPaths(bool val) { m_disableDefaultSearchPaths = val; refresh(true); }
+	@property void disableDefaultSearchPaths(bool val)
+	{
+		if (val == m_disableDefaultSearchPaths) return;
+		m_disableDefaultSearchPaths = val;
+		refresh(true);
+	}
 
 	@property const(Path)[] completeSearchPath()
 	const {
@@ -444,8 +454,9 @@ class PackageManager {
 		logInfo("Removed package: '"~pack.name~"'");
 	}
 
-	Package addLocalPackage(in Path path, string verName, LocalPackageType type)
+	Package addLocalPackage(Path path, string verName, LocalPackageType type)
 	{
+		path.endsWithSlash = true;
 		auto pack = new Package(path);
 		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
 		if (verName.length)
@@ -538,6 +549,8 @@ class PackageManager {
 
 	void refresh(bool refresh_existing_packages)
 	{
+		logDiagnostic("Refreshing local packages (refresh existing: %s)...", refresh_existing_packages);
+
 		// load locally defined packages
 		void scanLocalPackages(LocalPackageType type)
 		{

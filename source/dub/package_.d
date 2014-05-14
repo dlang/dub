@@ -80,6 +80,7 @@ class Package {
 	{
 		m_parentPackage = parent;
 		m_path = root;
+		m_path.endsWithSlash = true;
 
 		// force the package name to be lower case
 		packageInfo.name = packageInfo.name.get!string.toLower();
@@ -427,7 +428,8 @@ class Package {
 	private void simpleLint() const {
 		if (m_parentPackage) {
 			if (m_parentPackage.path != path) {
-				if (info.license != m_parentPackage.info.license) logWarn("License in subpackage %s is different than it's parent package, this is discouraged.", name);
+				if (info.license.length && info.license != m_parentPackage.info.license)
+					logWarn("License in subpackage %s is different than it's parent package, this is discouraged.", name);
 			}
 		}
 		if (name.empty()) logWarn("The package in %s has no name.", path);
@@ -481,7 +483,7 @@ struct PackageInfo {
 				case "authors": this.authors = deserializeJson!(string[])(value); break;
 				case "copyright": this.copyright = value.get!string; break;
 				case "license": this.license = value.get!string; break;
-				case "subPackages": subPackages = value;
+				case "subPackages": subPackages = value; break;
 				case "configurations": break; // handled below, after the global settings have been parsed
 				case "buildTypes":
 					foreach (string name, settings; value) {
