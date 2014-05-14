@@ -37,7 +37,6 @@ struct Path {
 		m_nodes = cast(immutable)splitPath(pathstr);
 		m_absolute = (pathstr.startsWith("/") || m_nodes.length > 0 && (m_nodes[0].toString().countUntil(':')>0 || m_nodes[0] == "\\"));
 		m_endsWithSlash = pathstr.endsWith("/");
-		foreach( e; m_nodes ) assert(e.toString().length > 0);
 	}
 	
 	/// Constructs a path object from a list of PathEntry objects.
@@ -65,7 +64,7 @@ struct Path {
 				default:
 					newnodes ~= n;
 					break;
-				case ".": break;
+				case "", ".": break;
 				case "..":
 					enforce(!m_absolute || newnodes.length > 0, "Path goes below root node.");
 					if( newnodes.length > 0 && newnodes[$-1] != ".." ) newnodes = newnodes[0 .. $-1];
@@ -215,7 +214,7 @@ struct Path {
 		foreach(folder; rhs.m_nodes){
 			switch(folder.toString()){
 				default: ret.m_nodes = ret.m_nodes ~ folder; break;
-				case ".": break;
+				case "", ".": break;
 				case "..":
 					enforce(!ret.absolute || ret.m_nodes.length > 0, "Relative path goes below root node!");
 					if( ret.m_nodes.length > 0 && ret.m_nodes[$-1].toString() != ".." )
@@ -334,12 +333,10 @@ PathEntry[] splitPath(string path)
 	size_t startidx = 0;
 	foreach( i, char ch; path )
 		if( ch == '\\' || ch == '/' ){
-			enforce(i - startidx > 0, "Empty path entries not allowed.");
 			elements[eidx++] = PathEntry(path[startidx .. i]);
 			startidx = i+1;
 		}
 	elements[eidx++] = PathEntry(path[startidx .. $]);
-	enforce(path.length - startidx > 0, "Empty path entries not allowed.");
 	assert(eidx == nelements);
 	return elements;
 }
@@ -364,6 +361,7 @@ unittest
 	{
 		auto unc = "\\\\server\\share\\path";
 		auto uncp = Path(unc);
+		uncp.normalize();
 		version(Windows) assert(uncp.toNativeString() == unc);
 		assert(uncp.absolute);
 		assert(!uncp.endsWithSlash);
@@ -397,9 +395,13 @@ unittest
 	{
 		auto winpath = "C:\\windows\\test";
 		auto winpathp = Path(winpath);
-		assert(winpathp.toString() == "/C:/windows/test");
-		version(Windows) assert(winpathp.toNativeString() == winpath);
-		else assert(winpathp.toNativeString() == "/C:/windows/test");
+		version(Windows) {
+			assert(winpathp.toString() == "C:/windows/test", winpathp.toString());
+			assert(winpathp.toNativeString() == winpath);
+		} else {
+			assert(winpathp.toString() == "/C:/windows/test", winpathp.toString());
+			assert(winpathp.toNativeString() == "/C:/windows/test");
+		}
 		assert(winpathp.absolute);
 		assert(!winpathp.endsWithSlash);
 		assert(winpathp.length == 3);
@@ -416,6 +418,14 @@ unittest
 		assert(dotpathp.toString() == "/test2/x/y");
 	}
 
+	{
+		auto dotpath = "/test/..////test2//./x/y";
+		auto dotpathp = Path(dotpath);
+		assert(dotpathp.toString() == "/test/..////test2//./x/y");
+		dotpathp.normalize();
+		assert(dotpathp.toString() == "/test2/x/y");
+	}
+	
 	{
 		auto parentpath = "/path/to/parent";
 		auto parentpathp = Path(parentpath);
