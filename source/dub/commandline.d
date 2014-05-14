@@ -412,7 +412,10 @@ abstract class PackageBuildCommand : Command {
 		Package pack;
 		if (!package_name.empty) {
 			// load package in root_path to enable searching for sub packages
-			loadCwdPackage(dub, null, false);
+			if (loadCwdPackage(dub, null, false)) {
+				if (package_name.startsWith(":"))
+					package_name = dub.projectName ~ package_name;
+			}
 			pack = dub.packageManager.getFirstPackage(package_name);
 			enforce(pack, "Failed to find a package named '"~package_name~"'.");
 			logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());

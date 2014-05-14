@@ -486,7 +486,7 @@ struct PackageInfo {
 				case "buildTypes":
 					foreach (string name, settings; value) {
 						BuildSettingsTemplate bs;
-						bs.parseJson(settings);
+						bs.parseJson(settings, null);
 						buildTypes[name] = bs;
 					}
 					break;
@@ -494,8 +494,10 @@ struct PackageInfo {
 			}
 		}
 
+		enforce(this.name.length > 0, "The package \"name\" field is missing or empty.");
+
 		// parse build settings
-		this.buildSettings.parseJson(json);
+		this.buildSettings.parseJson(json, this.name);
 
 		if (auto pv = "configurations" in json) {
 			TargetType deftargettp = TargetType.library;
@@ -504,12 +506,10 @@ struct PackageInfo {
 
 			foreach (settings; *pv) {
 				ConfigurationInfo ci;
-				ci.parseJson(settings, deftargettp);
+				ci.parseJson(settings, this.name, deftargettp);
 				this.configurations ~= ci;
 			}
 		}
-
-		enforce(this.name.length > 0, "The package \"name\" field is missing or empty.");
 	}
 
 	Json toJson()
@@ -555,7 +555,7 @@ struct ConfigurationInfo {
 		this.buildSettings = build_settings;
 	}
 
-	void parseJson(Json json, TargetType default_target_type = TargetType.library)
+	void parseJson(Json json, string package_name, TargetType default_target_type = TargetType.library)
 	{
 		this.buildSettings.targetType = default_target_type;
 
@@ -573,7 +573,7 @@ struct ConfigurationInfo {
 		enforce(!this.name.empty, "Configuration is missing a name.");
 
 		BuildSettingsTemplate bs;
-		this.buildSettings.parseJson(json);
+		this.buildSettings.parseJson(json, package_name);
 	}
 
 	Json toJson()
@@ -623,7 +623,7 @@ struct BuildSettingsTemplate {
 	BuildRequirements[string] buildRequirements;
 	BuildOptions[string] buildOptions;
 
-	void parseJson(Json json)
+	void parseJson(Json json, string package_name)
 	{
 		foreach(string name, value; json)
 		{
@@ -634,7 +634,8 @@ struct BuildSettingsTemplate {
 			switch(basename){
 				default: break;
 				case "dependencies":
-					foreach( string pkg, verspec; value ) {
+					foreach (string pkg, verspec; value) {
+						if (pkg.startsWith(":")) pkg = package_name ~ pkg;
 						enforce(pkg !in this.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 						this.dependencies[pkg] = deserializeJson!Dependency(verspec);
 					}
