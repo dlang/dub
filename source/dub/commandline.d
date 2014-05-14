@@ -1424,7 +1424,7 @@ Available commands
 	writeln();
 	writeOptions(common_args);
 	writeln();
-	writefln("DUB version %s", getDUBVersion());
+	writefln("DUB version %s, built on %s", getDUBVersion(), __DATE__);
 }
 
 private void showCommandHelp(Command cmd, CommandArgs args, CommandArgs common_args)
@@ -1450,7 +1450,7 @@ private void showCommandHelp(Command cmd, CommandArgs args, CommandArgs common_a
 	writeln();
 	writeOptions(common_args);
 	writeln();
-	writefln("DUB version %s", getDUBVersion());
+	writefln("DUB version %s, built on %s", getDUBVersion(), __DATE__);
 }
 
 private void writeOptions(CommandArgs args)
