@@ -383,7 +383,7 @@ class BuildGenerator : ProjectGenerator {
 			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !isLinkerFile(f)).array;
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
-			logInfo("Compiling...");
+			logInfo("Compiling using %s...", settings.platform.compilerBinary);
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 
 			logInfo("Linking...");
