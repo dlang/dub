@@ -55,13 +55,17 @@ class BuildGenerator : ProjectGenerator {
 			foreach (dep; ti.dependencies)
 				buildTargetRec(dep);
 
+			Path[] additional_dep_files;
 			auto bs = ti.buildSettings.dup;
-			if (bs.targetType != TargetType.staticLibrary)
-				foreach (ldep; ti.linkDependencies) {
-					auto dbs = targets[ldep].buildSettings;
+			foreach (ldep; ti.linkDependencies) {
+				auto dbs = targets[ldep].buildSettings;
+				if (bs.targetType != TargetType.staticLibrary) {
 					bs.addSourceFiles((Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform)).toNativeString());
+				} else {
+					additional_dep_files ~= Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform);
 				}
-			buildTarget(settings, bs, ti.pack, ti.config, ti.packages);
+			}
+			buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files);
 		}
 
 		// build all targets
@@ -69,7 +73,7 @@ class BuildGenerator : ProjectGenerator {
 		if (settings.rdmd || root_ti.buildSettings.targetType == TargetType.staticLibrary) {
 			// RDMD always builds everything at once and static libraries don't need their
 			// dependencies to be built
-			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages);
+			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null);
 		} else buildTargetRec(m_project.rootPackage.name);
 	}
 
@@ -83,7 +87,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private void buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages)
+	private void buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in Path[] additional_dep_files)
 	{
 		auto cwd = Path(getcwd());
 		bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
@@ -100,7 +104,7 @@ class BuildGenerator : ProjectGenerator {
 		bool cached = false;
 		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config);
 		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config);
-		else cached = performCachedBuild(settings, buildsettings, pack, config, build_id, packages);
+		else cached = performCachedBuild(settings, buildsettings, pack, config, build_id, packages, additional_dep_files);
 
 		// run post-build commands
 		if (!cached && buildsettings.postBuildCommands.length) {
@@ -109,12 +113,12 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id, in Package[] packages)
+	bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id, in Package[] packages, in Path[] additional_dep_files)
 	{
 		auto cwd = Path(getcwd());
 		auto target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
-		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform, pack, packages)) {
+		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform, pack, packages, additional_dep_files)) {
 			logInfo("Target %s %s is up to date. Use --force to rebuild.", pack.name, pack.vers);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			copyTargetFile(target_path, buildsettings, settings.platform);
@@ -302,7 +306,7 @@ class BuildGenerator : ProjectGenerator {
 		copyFile(src, Path(buildsettings.targetPath) ~ filename, true);
 	}
 
-	private bool isUpToDate(Path target_path, BuildSettings buildsettings, BuildPlatform platform, in Package main_pack, in Package[] packages)
+	private bool isUpToDate(Path target_path, BuildSettings buildsettings, BuildPlatform platform, in Package main_pack, in Package[] packages, in Path[] additional_dep_files)
 	{
 		import std.datetime;
 
@@ -319,6 +323,7 @@ class BuildGenerator : ProjectGenerator {
 		allfiles ~= buildsettings.stringImportFiles;
 		// TODO: add library files
 		foreach (p; packages) allfiles ~= p.packageInfoFile.toNativeString();
+		foreach (f; additional_dep_files) allfiles ~= f.toNativeString();
 		if (main_pack is m_project.rootPackage)
 			allfiles ~= (main_pack.path ~ SelectedVersions.defaultFile).toNativeString();
 
