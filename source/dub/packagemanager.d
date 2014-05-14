@@ -480,8 +480,10 @@ class PackageManager {
 		return pack;
 	}
 
-	void removeLocalPackage(in Path path, LocalPackageType type)
+	void removeLocalPackage(Path path, LocalPackageType type)
 	{
+		path.endsWithSlash = true;
+
 		Package[]* packs = &m_repositories[type].localPackages;
 		size_t[] to_remove;
 		foreach( i, entry; *packs )
@@ -707,6 +709,7 @@ class PackageManager {
 		}
 
 		foreach (p; m_repositories[type].localPackages) {
+			if (p.parentPackage) continue; // do not store sub packages
 			auto entry = Json.emptyObject;
 			entry["name"] = p.name;
 			entry["version"] = p.ver.toString();
