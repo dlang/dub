@@ -153,7 +153,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		logDebug("Getting from %s", url);
 
 		auto jsonData = cast(string)download(url);
-		Json json = parseJson(jsonData);
+		Json json = parseJsonString(jsonData);
 		m_metadataCache[packageId] = CacheEntry(json, now);
 		return json;
 	}

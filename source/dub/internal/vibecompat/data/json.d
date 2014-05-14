@@ -14,6 +14,8 @@ import std.string;
 import std.range;
 import std.traits;
 
+version = JsonLineNumbers;
+
 
 /******************************************************************************/
 /* public types                                                               */
@@ -728,9 +730,9 @@ Json parseJson(R)(ref R range, int* line = null)
 	skipWhitespace(range, line);
 
 	version(JsonLineNumbers){
-		import vibecompat.core.log;
+		import dub.internal.vibecompat.core.log;
 		int curline = line ? *line : 0;
-		scope(failure) logError("Error in line: %d", curline);
+		scope(failure) logError("Error at line: %d", line ? *line : 0);
 	}
 
 	switch( range.front ){
@@ -813,8 +815,9 @@ Json parseJson(R)(ref R range, int* line = null)
 */
 Json parseJsonString(string str)
 {
-	auto ret = parseJson(str);
-	enforce(str.strip().length == 0, "Expected end of string after JSON value.");
+	int line = 0;
+	auto ret = parseJson(str, &line);
+	enforce(str.strip().length == 0, "Expected end of string after JSON value, not '"~str.strip()~"'.");
 	return ret;
 }
 
@@ -1247,7 +1250,8 @@ private string skipNumber(ref string s, out bool is_float)
 
 private string skipJsonString(ref string s, int* line = null)
 {
-	enforce(s.length >= 2 && s[0] == '\"', "too small: '" ~ s ~ "'");
+	enforce(s.length >= 2, "Too small for a string: '" ~ s ~ "'");
+	enforce(s[0] == '\"', "Expected string, not '" ~ s ~ "'");
 	s = s[1 .. $];
 	string ret = jsonUnescape(s);
 	enforce(s.length > 0 && s[0] == '\"', "Unterminated string literal.");
