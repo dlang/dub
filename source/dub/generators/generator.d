@@ -1,6 +1,6 @@
 /**
 	Generator for project files
-	
+
 	Copyright: © 2012-2013 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
@@ -275,7 +275,7 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 	if (generate_binary) {
 		if (!exists(buildsettings.targetPath))
 			mkdirRecurse(buildsettings.targetPath);
-		
+
 		if (buildsettings.copyFiles.length) {
 			logInfo("Copying files for %s...", pack);
 			foreach (f; buildsettings.copyFiles) {

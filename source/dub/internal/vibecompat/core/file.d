@@ -31,7 +31,7 @@ struct RangeFile {
 	void put(in char[] str) { put(cast(ubyte[])str); }
 	void put(char ch) { put((&ch)[0 .. 1]); }
 	void put(dchar ch) { char[4] chars; put(chars[0 .. encode(chars, ch)]); }
-	
+
 	ubyte[] readAll()
 	{
 		file.seek(0, std.stream.SeekPos.End);

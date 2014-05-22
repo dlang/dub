@@ -52,7 +52,7 @@ struct URL {
 	}
 
 	/** Constructs a URL from its string representation.
-	
+
 		TODO: additional validation required (e.g. valid host and user names and port)
 	*/
 	this(string url_string)
@@ -163,14 +163,14 @@ struct URL {
 
 	/// The path part plus query string and anchor
 	@property string localURI()
-	const { 
+	const {
 		auto str = appender!string();
 		str.reserve(m_pathString.length + 2 + queryString.length + anchor.length);
 		str.put(encode(path.toString()));
 		if( queryString.length ) {
 			str.put("?");
 			str.put(queryString);
-		} 
+		}
 		if( anchor.length ) {
 			str.put("#");
 			str.put(anchor);
@@ -267,7 +267,7 @@ unittest {
 	assert(url.schema == "https", url.schema);
 	assert(url.host == "www.example.net", url.host);
 	assert(url.path == Path("/index.html"), url.path.toString());
-	
+
 	url = URL.parse("http://jo.doe:password@sub.www.example.net:4711/sub2/index.html?query#anchor");
 	assert(url.schema == "http", url.schema);
 	assert(url.username == "jo.doe", url.username);

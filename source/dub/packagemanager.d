@@ -289,7 +289,7 @@ class PackageManager {
 		auto package_version = package_info["version"].get!string();
 		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
 
-		logDiagnostic("Placing package '%s' version '%s' to location '%s' from file '%s'", 
+		logDiagnostic("Placing package '%s' version '%s' to location '%s' from file '%s'",
 			package_name, package_version, destination.toNativeString(), zip_file_path.toNativeString());
 
 		if( existsFile(destination) ){
@@ -413,7 +413,7 @@ class PackageManager {
 					if (fi.isDirectory) {
 						// Indicate a directory.
 						fpath.endsWithSlash(true);
-						// Ignore /.dub folder: This folder and its content 
+						// Ignore /.dub folder: This folder and its content
 						// are not tracked by the Journal.
 						if (fpath.relativeTo(pack.path) == Path(".dub/"))
 							continue;
@@ -422,7 +422,7 @@ class PackageManager {
 
 					auto type = fi.isDirectory ? Journal.Type.Directory : Journal.Type.RegularFile;
 					if (!journal.containsEntry(type, fpath.relativeTo(pack.path)))
-						throw new Exception("Untracked file found, aborting package removal, file: " 
+						throw new Exception("Untracked file found, aborting package removal, file: "
 							~ fpath.toNativeString() ~ "\nPlease remove the package folder manually or use --force-remove.");
 				}
 			}
@@ -510,7 +510,7 @@ class PackageManager {
 				enforce(p.ver == ver, format("Package in %s is refrenced with two conflicting versions: %s vs %s", path.toNativeString(), p.ver, ver));
 				return p;
 			}
-		
+
 		try {
 			auto pack = new Package(path);
 			enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
@@ -528,7 +528,7 @@ class PackageManager {
 		foreach (p; m_temporaryPackages)
 			if (p.path == path)
 				return p;
-		
+
 		auto pack = new Package(path);
 		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
 		addPackages(m_temporaryPackages, pack);
@@ -672,7 +672,7 @@ class PackageManager {
 	/// Generates a hash value for a given package.
 	/// Some files or folders are ignored during the generation (like .dub and
 	/// .svn folders)
-	Hash hashPackage(Package pack) 
+	Hash hashPackage(Package pack)
 	{
 		string[] ignored_directories = [".git", ".dub", ".svn"];
 		// something from .dub_ignore or what?
@@ -827,23 +827,23 @@ private struct Repository {
 */
 private class Journal {
 	private enum Version = 1;
-	
+
 	enum Type {
 		RegularFile,
 		Directory,
 		Alien
 	}
-	
+
 	struct Entry {
 		this( Type t, Path f ) { type = t; relFilename = f; }
 		Type type;
 		Path relFilename;
 	}
-	
+
 	@property const(Entry[]) entries() const { return m_entries; }
-	
+
 	this() {}
-	
+
 	/// Initializes a Journal from a json file.
 	this(Path journalFile) {
 		auto jsonJournal = jsonFromFile(journalFile);
@@ -871,7 +871,7 @@ private class Journal {
 		}
 		enforce(false, "Cannot remove entry, not available: " ~ e.relFilename.toNativeString());
 	}
-	
+
 	/// Save the current state to the path.
 	void save(Path path) {
 		Json jsonJournal = serialize();
@@ -887,7 +887,7 @@ private class Journal {
 				return true;
 		return false;
 	}
-	
+
 	private Json serialize() const {
 		Json[string] files;
 		foreach(Entry e; m_entries)
@@ -897,7 +897,7 @@ private class Journal {
 		json["Files"] = files;
 		return Json(json);
 	}
-	
+
 	private {
 		Entry[] m_entries;
 	}

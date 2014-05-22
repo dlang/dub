@@ -25,7 +25,7 @@ void initPackage(Path root_path, string type)
 	if( !root_path.empty ){
 		if( !existsFile(root_path) )
 			createDirectory(root_path);
-	} 
+	}
 
 	//Make sure we do not overwrite anything accidentally
 	auto files = packageInfoFilenames ~ ["source/", "views/", "public/"];
@@ -43,7 +43,7 @@ void initMinimalPackage(Path root_path)
 {
 	writePackageJson(root_path, "A minimal D application.", null);
 	createDirectory(root_path ~ "source");
-	write((root_path ~ "source/app.d").toNativeString(), 
+	write((root_path ~ "source/app.d").toNativeString(),
 q{import std.stdio;
 
 void main()
@@ -59,7 +59,7 @@ void initVibeDPackage(Path root_path)
 	createDirectory(root_path ~ "source");
 	createDirectory(root_path ~ "views");
 	createDirectory(root_path ~ "public");
-	write((root_path ~ "source/app.d").toNativeString(), 
+	write((root_path ~ "source/app.d").toNativeString(),
 q{import vibe.d;
 
 shared static this()

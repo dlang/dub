@@ -34,7 +34,7 @@ string defaultPackageFilename() {
 /**
 	Represents a package, including its sub packages
 
-	Documentation of the dub.json can be found at 
+	Documentation of the dub.json can be found at
 	http://registry.vibed.org/package-format
 */
 class Package {
@@ -175,7 +175,7 @@ class Package {
 
 		simpleLint();
 	}
-	
+
 	@property string name()
 	const {
 		if (m_parentPackage) return m_parentPackage.name ~ ":" ~ m_info.name;
@@ -354,7 +354,7 @@ class Package {
 			s ~= "\n    " ~ p ~ ", version '" ~ v.toString() ~ "'";
 		return s;
 	}
-	
+
 	bool hasDependency(string depname, string config)
 	const {
 		if (depname in m_info.buildSettings.dependencies) return true;
@@ -436,7 +436,7 @@ class Package {
 	}
 }
 
-/// Specifying package information without any connection to a certain 
+/// Specifying package information without any connection to a certain
 /// retrived package, like Package class is doing.
 struct PackageInfo {
 	string name;

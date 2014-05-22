@@ -25,7 +25,7 @@ static import std.compiler;
 
 
 /**
-	Representing a dependency, which is basically a version string and a 
+	Representing a dependency, which is basically a version string and a
 	compare methode, e.g. '>=1.0.0 <2.0.0' (i.e. a space separates the two
 	version numbers)
 */
@@ -130,14 +130,14 @@ struct Dependency {
 	@property bool isExactVersion() const { return m_versA == m_versB; }
 
 	@property Version version_() const {
-		enforce(m_versA == m_versB, "Dependency "~versionString()~" is no exact version."); 
-		return m_versA; 
+		enforce(m_versA == m_versB, "Dependency "~versionString()~" is no exact version.");
+		return m_versA;
 	}
 
 	@property string versionString()
 	const {
 		string r;
-	
+
 		if( m_versA == m_versB && m_cmpA == ">=" && m_cmpB == "<=" ){
 			// Special "==" case
 			if (m_versA == Version.MASTER ) r = "~master";
@@ -235,8 +235,8 @@ struct Dependency {
 	bool opEquals(in Dependency o)
 	const {
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
-		return o.m_cmpA == m_cmpA && o.m_cmpB == m_cmpB 
-			&& o.m_versA == m_versA && o.m_versB == m_versB 
+		return o.m_cmpA == m_cmpA && o.m_cmpB == m_cmpB
+			&& o.m_versA == m_versA && o.m_versB == m_versB
 			&& o.m_optional == m_optional;
 	}
 
@@ -257,12 +257,12 @@ struct Dependency {
 			return strhash(&str);
 		} catch assert(false);
 	}
-	
+
 	bool valid() const {
 		return m_versA == m_versB // compare not important
 			|| (m_versA < m_versB && doCmp(m_cmpA, m_versB, m_versA) && doCmp(m_cmpB, m_versA, m_versB));
 	}
-	
+
 	bool matches(string vers) const { return matches(Version(vers)); }
 	bool matches(const(Version) v) const { return matches(v); }
 	bool matches(ref const(Version) v) const {
@@ -281,7 +281,7 @@ struct Dependency {
 			return false;
 		return true;
 	}
-	
+
 	/// Merges to versions
 	Dependency merge(ref const(Dependency) o)
 	const {
@@ -295,17 +295,17 @@ struct Dependency {
 
 		Version a = m_versA > o.m_versA ? m_versA : o.m_versA;
 		Version b = m_versB < o.m_versB ? m_versB : o.m_versB;
-	
+
 		Dependency d = this;
 		d.m_cmpA = !doCmp(m_cmpA, a,a)? m_cmpA : o.m_cmpA;
 		d.m_versA = a;
 		d.m_cmpB = !doCmp(m_cmpB, b,b)? m_cmpB : o.m_cmpB;
 		d.m_versB = b;
 		d.m_optional = m_optional && o.m_optional;
-		
+
 		return d;
 	}
-	
+
 	private static bool isDigit(char ch) { return ch >= '0' && ch <= '9'; }
 	private static string skipComp(ref string c) {
 		size_t idx = 0;
@@ -320,7 +320,7 @@ struct Dependency {
 			case "==": return cmp;
 		}
 	}
-	
+
 	private static bool doCmp(string mthd, ref const Version a, ref const Version b) {
 		//logDebug("Calling %s%s%s", a, mthd, b);
 		switch(mthd) {
@@ -337,31 +337,31 @@ struct Dependency {
 unittest {
 	Dependency a = Dependency(">=1.1.0"), b = Dependency(">=1.3.0");
 	assert (a.merge(b).valid() && a.merge(b).versionString == ">=1.3.0", a.merge(b).toString());
-	
+
 	a = Dependency("<=1.0.0 >=2.0.0");
 	assert (!a.valid(), a.toString());
-	
+
 	a = Dependency(">=1.0.0 <=5.0.0"), b = Dependency(">=2.0.0");
 	assert (a.merge(b).valid() && a.merge(b).versionString == ">=2.0.0 <=5.0.0", a.merge(b).toString());
-	
+
 	assertThrown(a = Dependency(">1.0.0 ==5.0.0"), "Construction is invalid");
-	
+
 	a = Dependency(">1.0.0"), b = Dependency("<2.0.0");
 	assert (a.merge(b).valid(), a.merge(b).toString());
 	assert (a.merge(b).versionString == ">1.0.0 <2.0.0", a.merge(b).toString());
-	
+
 	a = Dependency(">2.0.0"), b = Dependency("<1.0.0");
 	assert (!(a.merge(b)).valid(), a.merge(b).toString());
-	
+
 	a = Dependency(">=2.0.0"), b = Dependency("<=1.0.0");
 	assert (!(a.merge(b)).valid(), a.merge(b).toString());
-	
+
 	a = Dependency("==2.0.0"), b = Dependency("==1.0.0");
 	assert (!(a.merge(b)).valid(), a.merge(b).toString());
 
 	a = Dependency("1.0.0"), b = Dependency("==1.0.0");
 	assert (a == b);
-	
+
 	a = Dependency("<=2.0.0"), b = Dependency("==1.0.0");
 	Dependency m = a.merge(b);
 	assert (m.valid(), m.toString());
@@ -472,7 +472,7 @@ unittest {
 	This is subject to be removed soon.
 */
 struct Version {
-	private { 
+	private {
 		enum MAX_VERS = "99999.0.0";
 		enum UNKNOWN_VERS = "unknown";
 		string m_version;
@@ -484,7 +484,7 @@ struct Version {
 	static @property UNKNOWN() { return Version(UNKNOWN_VERS); }
 	static @property MASTER_STRING() { return "~master"; }
 	static @property BRANCH_IDENT() { return '~'; }
-	
+
 	this(string vers)
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
@@ -497,9 +497,9 @@ struct Version {
 		if (isUnknown || oth.isUnknown) {
 			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, oth));
 		}
-		return m_version == oth.m_version; 
+		return m_version == oth.m_version;
 	}
-	
+
 	/// Returns true, if this version indicates a branch, which is not the trunk.
 	@property bool isBranch() const { return !m_version.empty && m_version[0] == BRANCH_IDENT; }
 	@property bool isMaster() const { return m_version == MASTER_STRING; }
@@ -509,8 +509,8 @@ struct Version {
 	}
 	@property bool isUnknown() const { return m_version == UNKNOWN_VERS; }
 
-	/** 
-		Comparing Versions is generally possible, but comparing Versions 
+	/**
+		Comparing Versions is generally possible, but comparing Versions
 		identifying branches other than master will fail. Only equality
 		can be tested for these.
 	*/
@@ -531,7 +531,7 @@ struct Version {
 		return compareVersions(isMaster ? MAX_VERS : m_version, other.isMaster ? MAX_VERS : other.m_version);
 	}
 	int opCmp(in Version other) const { return opCmp(other); }
-	
+
 	string toString() const { return m_version; }
 }
 
@@ -566,16 +566,16 @@ unittest {
 	assert(b < Version("0.0.0"));
 	assert(a > Version("~Z"));
 	assert(b < Version("~Z"));
-	
+
 	// SemVer 2.0.0-rc.2
 	a = Version("2.0.0-rc.2");
 	b = Version("2.0.0-rc.3");
 	assert(a < b, "Failed: 2.0.0-rc.2 < 2.0.0-rc.3");
-	
+
 	a = Version("2.0.0-rc.2+build-metadata");
 	b = Version("2.0.0+build-metadata");
 	assert(a < b, "Failed: "~a.toString()~"<"~b.toString());
-	
+
 	// 1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta.2 < 1.0.0-beta.11 < 1.0.0-rc.1 < 1.0.0
 	Version[] versions;
 	versions ~= Version("1.0.0-alpha");

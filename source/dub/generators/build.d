@@ -1,6 +1,6 @@
 /**
 	Generator for direct compiler builds.
-	
+
 	Copyright: © 2013-2013 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig

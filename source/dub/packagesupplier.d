@@ -35,7 +35,7 @@ interface PackageSupplier {
 
 	/// path: absolute path to store the package (usually in a zip format)
 	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release);
-	
+
 	/// returns the metadata for the package
 	Json getPackageDescription(string packageId, Dependency dep, bool pre_release);
 }
@@ -48,7 +48,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 	this(Path root) { m_path = root; }
 
 	override @property string description() { return "file repository at "~m_path.toNativeString(); }
-	
+
 	Version[] getVersions(string package_id)
 	{
 		Version[] ret;
@@ -72,13 +72,13 @@ class FileSystemPackageSupplier : PackageSupplier {
 		enforce(existsFile(filename));
 		copyFile(filename, path);
 	}
-	
+
 	Json getPackageDescription(string packageId, Dependency dep, bool pre_release)
 	{
 		auto filename = bestPackageFile(packageId, dep, pre_release);
 		return jsonFromZip(filename, "dub.json");
 	}
-	
+
 	private Path bestPackageFile(string packageId, Dependency dep, bool pre_release)
 	{
 		Path toPath(Version ver) {
@@ -103,7 +103,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		CacheEntry[string] m_metadataCache;
 		Duration m_maxCacheTime;
 	}
-	
+
 	this(URL registry)
 	{
 		m_registryUrl = registry;
@@ -123,7 +123,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		ret.sort();
 		return ret;
 	}
-	
+
 	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{
 		import std.array : replace;
@@ -133,12 +133,12 @@ class RegistryPackageSupplier : PackageSupplier {
 		logDiagnostic("Found download URL: '%s'", url);
 		download(url, path);
 	}
-	
+
 	Json getPackageDescription(string packageId, Dependency dep, bool pre_release)
 	{
 		return getBestPackage(packageId, dep, pre_release);
 	}
-	
+
 	private Json getMetadata(string packageId)
 	{
 		auto now = Clock.currTime(UTC());
@@ -148,7 +148,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		}
 
 		auto url = m_registryUrl ~ Path(PackagesPath ~ "/" ~ packageId ~ ".json");
-		
+
 		logDebug("Downloading metadata for %s", packageId);
 		logDebug("Getting from %s", url);
 
@@ -157,7 +157,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		m_metadataCache[packageId] = CacheEntry(json, now);
 		return json;
 	}
-	
+
 	private Json getBestPackage(string packageId, Dependency dep, bool pre_release)
 	{
 		Json md = getMetadata(packageId);
