@@ -280,12 +280,12 @@ struct BuildPlatform {
 		if (platform.canFind(splitted.front)) {
 			splitted.popFront();
 			if(splitted.empty)
-			    return true;
+				return true;
 		}
 		if (architecture.canFind(splitted.front)) {
 			splitted.popFront();
 			if(splitted.empty)
-			    return true;
+				return true;
 		}
 		if (compiler == splitted.front) {
 			splitted.popFront();

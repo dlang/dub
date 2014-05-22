@@ -1,9 +1,9 @@
 {
-    "name": "test",
-    "dependencies": {
-        "test:subpack": "*"
-    },
-    "subPackages": [
-    	"subpack/"
-    ]
+	"name": "test",
+	"dependencies": {
+		"test:subpack": "*"
+	},
+	"subPackages": [
+		"subpack/"
+	]
 }

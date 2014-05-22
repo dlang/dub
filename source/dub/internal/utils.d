@@ -211,9 +211,9 @@ private bool isHexNumber(string str) {
 }
 
 /**
-    Get the closest match of $(D input) in the $(D array), where $(D distance)
-    is the maximum levenshtein distance allowed between the compared strings.
-    Returns $(D null) if no closest match is found.
+	Get the closest match of $(D input) in the $(D array), where $(D distance)
+	is the maximum levenshtein distance allowed between the compared strings.
+	Returns $(D null) if no closest match is found.
 */
 string getClosestMatch(string[] array, string input, size_t distance)
 {
