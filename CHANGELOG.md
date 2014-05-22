@@ -58,7 +58,7 @@ v0.9.21 - 2014-02-22
  - Fixed using custom registries in the global DUB configuration file - [issue #186][issue186]
  - Fixed assertions triggering when `$HOME` is a relative path (by Ognjen Ivkovic) - [pull #192][issue192]
  - Fixed the VisualD project generator to enforce build requirements
- - Fixed build requirements to also affect comipler options of the selected build 
+ - Fixed build requirements to also affect comipler options of the selected build
  - Fixed configuration resolution for complex dependency graphs (it could happen that configurations were picked that can't work on the selected platform)
  - Fixed `dub build -b ddox` to only copy resource files from DDOX if they are newer than existing files on Posix
  - Fixed storing sub packages when the modified package description is written after fetching a package

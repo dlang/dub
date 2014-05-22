@@ -71,7 +71,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		{
 			if (parent in visited) return;
 			visited[parent] = true;
-			
+
 			foreach (ch; getChildren(parent)) {
 				auto basepack = rootPackage(ch.pack);
 				auto pidx = all_configs.length;

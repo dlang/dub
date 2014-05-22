@@ -1,6 +1,6 @@
 /**
 	Generator for VisualD project files
-	
+
 	Copyright: © 2012-2013 Matthias Dondorff
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
@@ -36,13 +36,13 @@ class VisualDGenerator : ProjectGenerator {
 		PackageManager m_pkgMgr;
 		string[string] m_projectUuids;
 	}
-	
+
 	this(Project app, PackageManager mgr)
 	{
 		super(app);
 		m_pkgMgr = mgr;
 	}
-	
+
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
 		auto bs = targets[m_project.name].buildSettings;
@@ -58,7 +58,7 @@ class VisualDGenerator : ProjectGenerator {
 			auto ret = appender!(char[])();
 			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
 			auto some_uuid = generateUUID();
-			
+
 			// Solution header
 			ret.put("Microsoft Visual Studio Solution File, Format Version 11.00\n");
 			ret.put("# Visual Studio 2010\n");
@@ -92,14 +92,14 @@ class VisualDGenerator : ProjectGenerator {
 			auto mainpack = m_project.rootPackage.name;
 
 			generateSolutionEntry(mainpack);
-			
+
 			// Global section contains configurations
 			ret.put("Global\n");
 			ret.put("\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n");
 			ret.formattedWrite("\t\t%s|Win32 = %s|Win32\n", settings.buildType, settings.buildType);
 			ret.put("\tEndGlobalSection\n");
 			ret.put("\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n");
-			
+
 			const string[] sub = ["ActiveCfg", "Build.0"];
 			const string[] conf = [settings.buildType~"|Win32"];
 			auto projectUuid = guid(mainpack);
@@ -107,10 +107,10 @@ class VisualDGenerator : ProjectGenerator {
 				foreach (c; conf)
 					foreach (s; sub)
 						formattedWrite(ret, "\t\t%s.%s.%s = %s\n", guid(t), c, s, c);
-			
+
 			// TODO: for all dependencies
 			ret.put("\tEndGlobalSection\n");
-			
+
 			ret.put("\tGlobalSection(SolutionProperties) = preSolution\n");
 			ret.put("\t\tHideSolutionNode = FALSE\n");
 			ret.put("\tEndGlobalSection\n");
@@ -124,7 +124,7 @@ class VisualDGenerator : ProjectGenerator {
 			sln.flush();
 		}
 
-		
+
 		void generateProjectFiles(GeneratorSettings settings, in TargetInfo[string] targets)
 		{
 			bool[string] visited;
@@ -146,16 +146,16 @@ class VisualDGenerator : ProjectGenerator {
 				return true;
 			return false;
 		}
-		
+
 		void generateProjectFile(string packname, GeneratorSettings settings, in TargetInfo[string] targets)
 		{
 			int i = 0;
 			auto ret = appender!(char[])();
-			
+
 			auto project_file_dir = m_project.rootPackage.path ~ projFileName(packname).parentPath;
 			ret.put("<DProject>\n");
 			ret.formattedWrite("  <ProjectGuid>%s</ProjectGuid>\n", guid(packname));
-	
+
 			// Several configurations (debug, release, unittest)
 			generateProjectConfiguration(ret, packname, settings.buildType, settings, targets);
 			//generateProjectConfiguration(ret, packname, "release", settings, targets);
@@ -229,12 +229,12 @@ class VisualDGenerator : ProjectGenerator {
 			proj.put(ret.data());
 			proj.flush();
 		}
-		
+
 		void generateProjectConfiguration(Appender!(char[]) ret, string pack, string type, GeneratorSettings settings, in TargetInfo[string] targets)
 		{
 			auto project_file_dir = m_project.rootPackage.path ~ projFileName(pack).parentPath;
 			auto buildsettings = targets[pack].buildSettings.dup;
-			
+
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
 			string[] getPathSettings(string setting)()
 			{
@@ -248,7 +248,7 @@ class VisualDGenerator : ProjectGenerator {
 				}
 				return ret;
 			}
-			
+
 			foreach(architecture; settings.platform.architecture) {
 				string arch;
 				switch(architecture) {
@@ -259,7 +259,7 @@ class VisualDGenerator : ProjectGenerator {
 				ret.formattedWrite("  <Config name=\"%s\" platform=\"%s\">\n", to!string(type), arch);
 
 				// FIXME: handle compiler options in an abstract way instead of searching for DMD specific flags
-			
+
 				// debug and optimize setting
 				ret.formattedWrite("    <symdebug>%s</symdebug>\n", buildsettings.options & BuildOptions.debugInfo ? "1" : "0");
 				ret.formattedWrite("    <optimize>%s</optimize>\n", buildsettings.options & BuildOptions.optimize ? "1" : "0");
@@ -267,7 +267,7 @@ class VisualDGenerator : ProjectGenerator {
 				ret.formattedWrite("    <release>%s</release>\n", buildsettings.options & BuildOptions.releaseMode ? "1" : "0");
 
 				// Lib or exe?
-				enum 
+				enum
 				{
 					Executable = 0,
 					StaticLib = 1,
@@ -325,7 +325,7 @@ class VisualDGenerator : ProjectGenerator {
 					if (nd > ndummy) ndummy = nd;
 				}
 				string intersubdir = replicate("dummy/", ndummy) ~ getPackageFileName(pack);
-		
+
 				ret.put("    <obj>0</obj>\n");
 				ret.put("    <link>0</link>\n");
 				ret.put("    <subsystem>0</subsystem>\n");
@@ -413,7 +413,7 @@ class VisualDGenerator : ProjectGenerator {
 				ret.put("  </Config>\n");
 			} // foreach(architecture)
 		}
-		
+
 		void performOnDependencies(const Package main, string[string] configs, void delegate(const Package pack) op)
 		{
 			foreach (p; m_project.getTopologicalPackageList(false, main, configs)) {
@@ -421,12 +421,12 @@ class VisualDGenerator : ProjectGenerator {
 				op(p);
 			}
 		}
-		
+
 		string generateUUID() const {
 			import std.string;
 			return "{" ~ toUpper(randomUUID().toString()) ~ "}";
 		}
-		
+
 		string guid(string projectName) {
 			if(projectName !in m_projectUuids)
 				m_projectUuids[projectName] = generateUUID();
@@ -466,7 +466,7 @@ class VisualDGenerator : ProjectGenerator {
 					return as[idx].opCmp(bs[idx]);
 
 			if(as.length != bs.length) {
-				// If length differ, the longer one is "smaller", that is more 
+				// If length differ, the longer one is "smaller", that is more
 				// specialized and will be put out first.
 				return as.length > bs.length? -1 : 1;
 			}

@@ -79,17 +79,17 @@ Section "dub" DubFiles
 
     ; This section is mandatory
     SectionIn RO
-    
+
     SetOutPath $INSTDIR
-    
+
     ; Create installation directory
     CreateDirectory "$INSTDIR"
-    
+
 	File "${DubExecPath}\dub.exe"
     File "${DubExecPath}\libcurl.dll"
     File "${DubExecPath}\libeay32.dll"
     File "${DubExecPath}\ssleay32.dll"
-    
+
     ; Create command line batch file
     FileOpen $0 "$INSTDIR\dubvars.bat" w
     FileWrite $0 "@echo.$\n"
@@ -146,7 +146,7 @@ Section "Uninstall"
 
     ; Remove the uninstaller
     Delete $INSTDIR\uninstall.exe
-    
+
     ; Remove shortcuts
     Delete "$SMPROGRAMS\dub\dub Command Prompt.lnk"
 

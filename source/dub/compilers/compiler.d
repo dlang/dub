@@ -41,7 +41,7 @@ Compiler getCompiler(string name)
 	if (name.canFind("dmd")) return getCompiler("dmd");
 	if (name.canFind("gdc")) return getCompiler("gdc");
 	if (name.canFind("ldc")) return getCompiler("ldc");
-			
+
 	throw new Exception("Unknown compiler: "~name);
 }
 
@@ -265,9 +265,9 @@ struct BuildPlatform {
 	/// "-windows-dmd"
 	///
 	/// Params:
-	///     specification = The specification being matched. It must be the empty string or start with a dash.  
+	///     specification = The specification being matched. It must be the empty string or start with a dash.
 	///
-	/// Returns: 
+	/// Returns:
 	///     true if the given specification matches this BuildPlatform, false otherwise. (The empty string matches)
 	///
 	bool matchesSpecification(const(char)[] specification) const {
@@ -329,7 +329,7 @@ string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 				return settings.targetName ~ ".dll";
 			else return "lib" ~ settings.targetName ~ ".so";
 	}
-} 
+}
 
 
 bool isLinkerFile(string f)
@@ -355,7 +355,7 @@ Path generatePlatformProbeFile()
 	import dub.internal.utils;
 
 	auto path = getTempDir() ~ "dub_platform_probe.d";
-	
+
 	auto fil = openFile(path, FileMode.CreateTrunc);
 	scope (failure) {
 		fil.close();
@@ -467,7 +467,7 @@ Path generatePlatformProbeFile()
 BuildPlatform readPlatformProbe(string output)
 {
 	import std.string;
-	
+
 	// work around possible additional output of the compiler
 	auto idx1 = output.indexOf("{");
 	auto idx2 = output.lastIndexOf("}");

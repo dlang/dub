@@ -30,7 +30,7 @@ struct Path {
 		bool m_absolute = false;
 		bool m_endsWithSlash = false;
 	}
-	
+
 	/// Constructs a Path object by parsing a path string.
 	this(string pathstr)
 	{
@@ -38,20 +38,20 @@ struct Path {
 		m_absolute = (pathstr.startsWith("/") || m_nodes.length > 0 && (m_nodes[0].toString().countUntil(':')>0 || m_nodes[0] == "\\"));
 		m_endsWithSlash = pathstr.endsWith("/");
 	}
-	
+
 	/// Constructs a path object from a list of PathEntry objects.
 	this(immutable(PathEntry)[] nodes, bool absolute)
 	{
 		m_nodes = nodes;
 		m_absolute = absolute;
 	}
-	
+
 	/// Constructs a relative path with one path entry.
 	this(PathEntry entry){
 		m_nodes = [entry];
 		m_absolute = false;
 	}
-	
+
 	/// Determines if the path is absolute.
 	@property bool absolute() const { return m_absolute; }
 
@@ -74,14 +74,14 @@ struct Path {
 		}
 		m_nodes = newnodes;
 	}
-	
+
 	/// Converts the Path back to a string representation using slashes.
 	string toString()
 	const {
 		if( m_nodes.empty ) return absolute ? "/" : "";
-		
+
 		Appender!string ret;
-		
+
 		// for absolute paths start with /
 		version(Windows)
 		{
@@ -91,12 +91,12 @@ struct Path {
 		}
 		else
 		{
-			if( absolute ) 
+			if( absolute )
 			{
 				ret.put('/');
 			}
 		}
-		
+
 		foreach( i, f; m_nodes ){
 			if( i > 0 ) ret.put('/');
 			ret.put(f.toString());
@@ -104,10 +104,10 @@ struct Path {
 
 		if( m_nodes.length > 0 && m_endsWithSlash )
 			ret.put('/');
-		
+
 		return ret.data;
 	}
-	
+
 	/// Converts the Path object to a native path string (backslash as path separator on Windows).
 	string toNativeString()
 	const {
@@ -119,26 +119,26 @@ struct Path {
 		}
 
 		Appender!string ret;
-		
+
 		// for absolute unix paths start with /
 		version(Posix) { if(absolute) ret.put('/'); }
-		
+
 		foreach( i, f; m_nodes ){
 			version(Windows) { if( i > 0 ) ret.put('\\'); }
 			version(Posix) { if( i > 0 ) ret.put('/'); }
 			else { enforce("Unsupported OS"); }
 			ret.put(f.toString());
 		}
-		
+
 		if( m_nodes.length > 0 && m_endsWithSlash ){
 			version(Windows) { ret.put('\\'); }
 			version(Posix) { ret.put('/'); }
 		}
-		
+
 		return ret.data;
 	}
-	
-	/// Tests if `rhs` is an anchestor or the same as this path. 
+
+	/// Tests if `rhs` is an anchestor or the same as this path.
 	bool startsWith(const Path rhs) const {
 		if( rhs.m_nodes.length > m_nodes.length ) return false;
 		foreach( i; 0 .. rhs.m_nodes.length )
@@ -146,7 +146,7 @@ struct Path {
 				return false;
 		return true;
 	}
-	
+
 	/// Computes the relative path from `parentPath` to this path.
 	Path relativeTo(const Path parentPath) const {
 		assert(this.absolute && parentPath.absolute);
@@ -170,7 +170,7 @@ struct Path {
 		ret.m_endsWithSlash = this.m_endsWithSlash;
 		return ret;
 	}
-	
+
 	/// The last entry of the path
 	@property ref immutable(PathEntry) head() const { enforce(m_nodes.length > 0); return m_nodes[$-1]; }
 
@@ -193,7 +193,7 @@ struct Path {
 
 	/// Determines if this path goes outside of its base path (i.e. begins with '..').
 	@property bool external() const { return !m_absolute && m_nodes.length > 0 && m_nodes[0].m_name == ".."; }
-		
+
 	ref immutable(PathEntry) opIndex(size_t idx) const { return m_nodes[idx]; }
 	Path opSlice(size_t start, size_t end) const {
 		auto ret = Path(m_nodes[start .. end], start == 0 ? absolute : false);
@@ -201,15 +201,15 @@ struct Path {
 		return ret;
 	}
 	size_t opDollar(int dim)() const if(dim == 0) { return m_nodes.length; }
-	
-	
+
+
 	Path opBinary(string OP)(const Path rhs) const if( OP == "~" ) {
 		Path ret;
 		ret.m_nodes = m_nodes;
 		ret.m_absolute = m_absolute;
 		ret.m_endsWithSlash = rhs.m_endsWithSlash;
 		ret.normalize(); // needed to avoid "."~".." become "" instead of ".."
-		
+
 		assert(!rhs.absolute, "Trying to append absolute path.");
 		size_t idx = m_nodes.length;
 		foreach(folder; rhs.m_nodes){
@@ -226,13 +226,13 @@ struct Path {
 		}
 		return ret;
 	}
-	
+
 	Path opBinary(string OP)(string rhs) const if( OP == "~" ) { assert(rhs.length > 0, "Cannot append empty path string."); return opBinary!"~"(Path(rhs)); }
 	Path opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { assert(rhs.toString().length > 0, "Cannot append empty path string."); return opBinary!"~"(Path(rhs)); }
 	void opOpAssign(string OP)(string rhs) if( OP == "~" ) { assert(rhs.length > 0, "Cannot append empty path string."); opOpAssign!"~"(Path(rhs)); }
 	void opOpAssign(string OP)(PathEntry rhs) if( OP == "~" ) { assert(rhs.toString().length > 0, "Cannot append empty path string."); opOpAssign!"~"(Path(rhs)); }
 	void opOpAssign(string OP)(Path rhs) if( OP == "~" ) { auto p = this ~ rhs; m_nodes = p.m_nodes; m_endsWithSlash = rhs.m_endsWithSlash; }
-	
+
 	/// Tests two paths for equality using '=='.
 	bool opEquals(ref const Path rhs) const {
 		if( m_absolute != rhs.m_absolute ) return false;
@@ -272,17 +272,17 @@ struct PathEntry {
 	private {
 		string m_name;
 	}
-	
+
 	this(string str)
 	{
 		assert(str.countUntil('/') < 0 && (str.countUntil('\\') < 0 || str.length == 1));
 		m_name = str;
 	}
-	
+
 	string toString() const { return m_name; }
 
 	Path opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return Path(cast(immutable)[this, rhs], false); }
-	
+
 	bool opEquals(ref const PathEntry rhs) const { return m_name == rhs.m_name; }
 	bool opEquals(PathEntry rhs) const { return m_name == rhs.m_name; }
 	bool opEquals(string rhs) const { return m_name == rhs; }
@@ -426,7 +426,7 @@ unittest
 		dotpathp.normalize();
 		assert(dotpathp.toString() == "/test2/x/y");
 	}
-	
+
 	{
 		auto parentpath = "/path/to/parent";
 		auto parentpathp = Path(parentpath);
