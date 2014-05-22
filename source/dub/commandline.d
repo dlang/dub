@@ -346,7 +346,7 @@ abstract class PackageBuildCommand : Command {
 			"  debug (default), plain, release, release-nobounds, unittest, profile, docs, ddox, cov, unittest-cov and custom types"
 		]);
 		args.getopt("c|config", &m_buildConfig, [
-			"Builds the specified configuration. Configurations can be defined in package.json"
+			"Builds the specified configuration. Configurations can be defined in dub.json"
 		]);
 		args.getopt("compiler", &m_compilerName, [
 			"Specifies the compiler binary to use. Arbitrary pre- and suffixes to the identifiers below are recognized (e.g. ldc2 or dmd-2.063) and matched to the proper compiler type:",
@@ -493,7 +493,7 @@ class GenerateCommand : PackageBuildCommand {
 			"Prints the list of available configurations"
 		]);
 		args.getopt("print-platform", &m_printPlatform, [
-			"Prints the identifiers for the current build platform as used for the build fields in package.json"
+			"Prints the identifiers for the current build platform as used for the build fields in dub.json"
 		]);
 	}
 
@@ -849,9 +849,9 @@ class FetchCommand : FetchRemoveCommand {
 		this.argumentsPattern = "<name>";
 		this.description = "Manually retrieves and caches a package";
 		this.helpText = [
-			"Note: Use the \"dependencies\" field in the package description file (e.g. package.json) if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
+			"Note: Use the \"dependencies\" field in the package description file (e.g. dub.json) if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
 			"",
-			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your package.json, dub will do the rest for you."
+			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your dub.json, dub will do the rest for you."
 			"",
 			"Without specified options, placement/removal will default to a user wide shared location."
 			"",

@@ -76,7 +76,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 	Json getPackageDescription(string packageId, Dependency dep, bool pre_release)
 	{
 		auto filename = bestPackageFile(packageId, dep, pre_release);
-		return jsonFromZip(filename, "package.json");
+		return jsonFromZip(filename, "dub.json");
 	}
 	
 	private Path bestPackageFile(string packageId, Dependency dep, bool pre_release)

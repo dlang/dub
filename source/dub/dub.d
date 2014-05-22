@@ -130,7 +130,7 @@ class Dub {
 		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
 	}
 
-	/// Returns the name listed in the package.json of the current
+	/// Returns the name listed in the dub.json of the current
 	/// application.
 	@property string projectName() const { return m_project.name; }
 
@@ -434,7 +434,7 @@ class Dub {
 
 	/// Removes a given package from the list of present/cached modules.
 	/// @removeFromApplication: if true, this will also remove an entry in the
-	/// list of dependencies in the application's package.json
+	/// list of dependencies in the application's dub.json
 	void remove(in Package pack, bool force_remove)
 	{
 		logInfo("Removing %s in %s", pack.name, pack.path.toNativeString());
