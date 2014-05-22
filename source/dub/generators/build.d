@@ -322,7 +322,8 @@ class BuildGenerator : ProjectGenerator {
 		allfiles ~= buildsettings.importFiles;
 		allfiles ~= buildsettings.stringImportFiles;
 		// TODO: add library files
-		foreach (p; packages) allfiles ~= p.packageInfoFile.toNativeString();
+		foreach (p; packages)
+			allfiles ~= (p.packageInfoFile != Path.init ? p : p.basePackage).packageInfoFile.toNativeString();
 		foreach (f; additional_dep_files) allfiles ~= f.toNativeString();
 		if (main_pack is m_project.rootPackage)
 			allfiles ~= (main_pack.path ~ SelectedVersions.defaultFile).toNativeString();
