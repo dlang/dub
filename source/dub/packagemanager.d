@@ -353,7 +353,7 @@ class PackageManager {
 		}
 		logDiagnostic("%s file(s) copied.", to!string(countFiles));
 
-		// overwrite package.json (this one includes a version field)
+		// overwrite dub.json (this one includes a version field)
 		auto pack = new Package(destination, null, package_info["version"].get!string);
 
 		if (pack.packageInfoFile.head != defaultPackageFilename()) {
@@ -745,7 +745,7 @@ class PackageManager {
 		dst_repos ~= pack;
 
 		// Additionally to the internally defined subpackages, whose metadata
-		// is loaded with the main package.json, load all externally defined
+		// is loaded with the main dub.json, load all externally defined
 		// packages after the package is available with all the data.
 		foreach (sub_path; pack.exportedPackages) {
 			auto path = pack.path ~ sub_path;

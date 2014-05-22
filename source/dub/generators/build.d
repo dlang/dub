@@ -356,7 +356,7 @@ class BuildGenerator : ProjectGenerator {
 		/*
 			NOTE: for DMD experimental separate compile/link is used, but this is not yet implemented
 			      on the other compilers. Later this should be integrated somehow in the build process
-			      (either in the package.json, or using a command line flag)
+			      (either in the dub.json, or using a command line flag)
 		*/
 		if (settings.buildMode == BuildMode.allAtOnce || settings.platform.compilerBinary != "dmd" || !generate_binary || is_static_library) {
 			// setup for command line

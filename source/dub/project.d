@@ -84,7 +84,7 @@ class Project {
 	@property string info()
 	const {
 		if(!m_rootPackage)
-			return "-Unrecognized application in '"~m_rootPackage.path.toNativeString()~"' (probably no package.json in this directory)";
+			return "-Unrecognized application in '"~m_rootPackage.path.toNativeString()~"' (probably no dub.json in this directory)";
 		string s = "-Application identifier: " ~ m_rootPackage.name;
 		s ~= "\n" ~ m_rootPackage.generateInfoString();
 		s ~= "\n-Retrieved dependencies:";

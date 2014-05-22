@@ -57,7 +57,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 		string alternative;
 	}
 	static immutable SpecialFlag[] s_specialFlags = [
-		{["-c", "-o-"], "Automatically issued by DUB, do not specify in package.json"},
+		{["-c", "-o-"], "Automatically issued by DUB, do not specify in dub.json"},
 		{["-w", "-Wall", "-Werr"], `Use "buildRequirements" to control warning behavior`},
 		{["-property", "-fproperty"], "Using this flag may break building of dependencies and it will probably be removed from DMD in the future"},
 		{["-wi"], `Use the "buildRequirements" field to control warning behavior`},
