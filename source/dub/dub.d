@@ -365,7 +365,7 @@ class Dub {
 	}
 
 
-	/// Returns all cached  packages as a "packageId" = "version" associative array
+	/// Returns all cached packages as a "packageId" = "version" associative array
 	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
 
 	/// Fetches the package matching the dependency and places it in the specified location.
