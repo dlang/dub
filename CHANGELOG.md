@@ -1,15 +1,106 @@
 Changelog
 =========
 
-v0.9.22 - 2014-
+v0.9.22 - 2014-06-
 --------------------
 
 ### Features and improvements ###
+
+ - Implemented an improved dependency handling (supported by Matthias Dondorff)
+	 - Deprecated `"~branch"` based dependencies - these have proven to facilitate unresolvable versioning conflicts
+	 - Added a "selections" file that contains the pinned versions of all dependencies for more control - `dub upgrade` can be used to update this file
+	 - Package selections can be overridden user or system wide using `dub add-override`
+	 - When determining the version of a GIT working copy, the latest tag is preferred over the branch
+	 - See the [full rationale](https://github.com/rejectedsoftware/dub/wiki/...)
+ - Implemented the `dub dustmite` command for comfortable creation of reduced test cases of DUB packages
+	 - All packages are automatically copied to an isolated folder where [Dustmite](https://github.com/CyberShadow/DustMite/wiki) can do its job
+	 - DUB is run in a special mode that doesn't require expensive initialization, so that it doesn't slow down the reduction process
+	 - The test condition can be a specific exit code or an output regex match on either the compiler, linker, or program run
+ - The special `"*"` version specification now matches any version or branch (should always be used for referencing sub packages of the same package)
+ - Warn about using certain build options outside of build types (in addition to warning about certain `"dflags"`)
+ - Removed explicit linking against Phobos on Linux when building using DUB (fixed building with DMD 2.065)
+ - Fixed imports for DMD master (by John Colvin) - [pull #283][issue283]
+ - Path based dependencies don't require a version number anymore (ignored)
+ - Add support for vibe.d based HTTP downloads for better integration into vibe.d projects
+ - `"mainSourceFile"` is now implicitly added to `"sourceFiles"`
+ - `"preGenerateCommands"` are now run before collecting source files, enabling better support for generating source files - [issue #144][issue144]
+ - Added a `-missing-only` switch to `dub upgrade` to get the same upgrade/fetch behavior as for `dub build` - see also [issue #271][issue271]
+ - The default compiler is now the one that was used to build DUB itself (by Iain Buclaw) - [pull #303][issue303]
+ - When running an executable, the working directory is now only changed if an explicit `"workingDirectory"` is specified
+ - The compiler is now invoked to determine the actual build platform for the chosen compiler flags instead of simply guessing
+	 - Implemented for GDC by Kinsey Moore aka opticron - [pull #324][issue324]
+ - Added a basic `dub clean` command - [issue #134][issue134]
+ - Added a spell checker for the `-c`/`--config` flag (by Andrej Mitrovic) - [pull #313][issue313]
+ - Added support for `$ROOT_PACKAGE_DIR` and `$<dependency>_PACKAGE_DIR` variables
+ - Generalized the `--local`/`--system` flags to `--cache=<location>`, which is now available for all commands (by Golden Cullen) - [pull #306][issue306]
+ - Added a `--build-mode` switch to choose between combined build and separate compile/link for DMD
+ - When building a static library, its dependencies are not built anymore - [issue #316][issue316]
+ - Displaying the line number where parsing a JSON document fails - see [issue #317][issue317]
+ - Added a shorthand syntax for sub packages (":subpack" instead of "parent:subpack") - [issue #315][issue315]
+ - Replace all "package.json" files/mentions with "dub.json" and clean up white space throughout the code base (by James Clarke aka jrtc27) - [pull #337][issue337], [pull #338][issue338], [pull #339][issue339]
+ - `dub describe` not outputs all source/import files of all configurations and platforms - [issue #185][issue185]
+ - Added basic support for the new human readable `"systemDependencies"` field
 
 
 ### Bug fixes ###
 
  - Fixed automatic removing of packages, removing was only possible with --force-remove.
+ - Fixed "local" package fetching (was doing the same as "system") - [issue #259][issue259]
+ - Fixed handling of `"mainSourceFile"` when building with `--rdmd` - [issue #263][issue263]
+ - Fixed useless separate compilation of dependencies when building with `--rdmd` - see [issue #255][issue255]
+ - Fixed detection of known files during package removal, caused by a missing ending slash (by Matthias Dondorff)
+ - Fixed `dub fetch <package> --version=<version>` to actually fetch the supplied version (by Matthias Dondorff)
+ - Fixed linker issues for GCC based linking by putting `-l` flags after the list of source files - [issue #281][issue281]
+ - Fixed spurious log output happening during `dub describe` - [issue #221][issue221]
+ - Fixed interrupting the DDOX process for `dub -b ddox` (by Martin Nowak) - [pull #291][issue291]
+ - Fixed building library targets with LDC (by Dmitri Makarov) - [pull #296][issue296]
+ - Fixed the `"disallowInlining"` build option (by sinkuu) - [pull #297][issue297]
+ - Fixed determining build flags using pkg-config when some libraries are unknown to pkg-config - [issue #274][issue274]
+ - Fixed detection of dependency cycles - [issue #280][issue280]
+ - Fixed detection of a required rebuild when the compiler (front end) version changes - [issue #284][issue284]
+ - Fixed building of packages with a non-existent `"targetPath"` - [issue #261][issue261]
+ - Fixed the warning that should appear when using manual `-debug=` flags instead of `"debugVersions"` - [issue #310][issue310]
+ - Fixed processing of variables in `"preGenerateCommands"` and `"postGenerateCommands"`
+ - Fixed handling of empty path nodes (e.g. "/home//someone/somefile") - [issue #177][issue177]
+ - Fixed the up-to-date check for intermediate dependencies
+ - Fixed detection of equal paths for `dub add-local` when only the ending slash character differs - [issue #268][issue268]
+ - Fixed a bogus warning that the license of a sub package differs from the parent package when the sub package doesn't specify a license
+ - Fixed building when files from "\\UNC" paths are involved - [issue #302][issue302]
+ - Fixed up-to-date checking for embedded sub packages (by sinkuu) - [pull #336][issue336]
+
+[issue134]: https://github.com/rejectedsoftware/dub/issues/134
+[issue144]: https://github.com/rejectedsoftware/dub/issues/144
+[issue177]: https://github.com/rejectedsoftware/dub/issues/177
+[issue185]: https://github.com/rejectedsoftware/dub/issues/185
+[issue221]: https://github.com/rejectedsoftware/dub/issues/221
+[issue255]: https://github.com/rejectedsoftware/dub/issues/255
+[issue259]: https://github.com/rejectedsoftware/dub/issues/259
+[issue261]: https://github.com/rejectedsoftware/dub/issues/261
+[issue263]: https://github.com/rejectedsoftware/dub/issues/263
+[issue268]: https://github.com/rejectedsoftware/dub/issues/268
+[issue271]: https://github.com/rejectedsoftware/dub/issues/271
+[issue274]: https://github.com/rejectedsoftware/dub/issues/274
+[issue280]: https://github.com/rejectedsoftware/dub/issues/280
+[issue281]: https://github.com/rejectedsoftware/dub/issues/281
+[issue283]: https://github.com/rejectedsoftware/dub/issues/283
+[issue284]: https://github.com/rejectedsoftware/dub/issues/284
+[issue291]: https://github.com/rejectedsoftware/dub/issues/291
+[issue296]: https://github.com/rejectedsoftware/dub/issues/296
+[issue297]: https://github.com/rejectedsoftware/dub/issues/297
+[issue302]: https://github.com/rejectedsoftware/dub/issues/302
+[issue303]: https://github.com/rejectedsoftware/dub/issues/303
+[issue306]: https://github.com/rejectedsoftware/dub/issues/306
+[issue310]: https://github.com/rejectedsoftware/dub/issues/310
+[issue313]: https://github.com/rejectedsoftware/dub/issues/313
+[issue315]: https://github.com/rejectedsoftware/dub/issues/315
+[issue316]: https://github.com/rejectedsoftware/dub/issues/316
+[issue317]: https://github.com/rejectedsoftware/dub/issues/317
+[issue324]: https://github.com/rejectedsoftware/dub/issues/324
+[issue336]: https://github.com/rejectedsoftware/dub/issues/336
+[issue337]: https://github.com/rejectedsoftware/dub/issues/337
+[issue338]: https://github.com/rejectedsoftware/dub/issues/338
+[issue339]: https://github.com/rejectedsoftware/dub/issues/339
+
 
 v0.9.21 - 2014-02-22
 --------------------
