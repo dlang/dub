@@ -277,6 +277,23 @@ class Package {
 		return ret;
 	}
 
+	/// Returns the combination of all build settings for all configurations and platforms
+	BuildSettings getCombinedBuildSettings()
+	const {
+		BuildSettings ret;
+		m_info.buildSettings.getPlatformSettings(ret, BuildPlatform.any, this.path);
+		foreach(ref conf; m_info.configurations)
+			conf.buildSettings.getPlatformSettings(ret, BuildPlatform.any, this.path);
+
+		// construct default target name based on package name
+		if (ret.targetName.empty) ret.targetName = this.name.replace(":", "_");
+
+		// special support for DMD style flags
+		getCompiler("dmd").extractBuildOptions(ret);
+
+		return ret;
+	}
+
 	void addBuildTypeSettings(ref BuildSettings settings, in BuildPlatform platform, string build_type)
 	const {
 		if (build_type == "$DFLAGS") {
@@ -378,6 +395,7 @@ class Package {
 
 		// save build settings
 		BuildSettings bs = getBuildSettings(platform, config);
+		BuildSettings allbs = getCombinedBuildSettings();
 
 		foreach (string k, v; bs.serializeToJson()) dst[k] = v;
 		dst.remove("requirements");
@@ -402,24 +420,19 @@ class Package {
 				bopts ~= Json(to!string(cast(BuildOptions)i));
 		dst.options = bopts;
 
-		// prettify files output
+		// collect all possible source files and determine their types
+		string[string] sourceFileTypes;
+		foreach (f; allbs.stringImportFiles) sourceFileTypes[f] = "unusedStringImport";
+		foreach (f; allbs.importFiles) sourceFileTypes[f] = "unusedImport";
+		foreach (f; allbs.sourceFiles) sourceFileTypes[f] = "unusedSource";
+		foreach (f; bs.stringImportFiles) sourceFileTypes[f] = "stringImport";
+		foreach (f; bs.importFiles) sourceFileTypes[f] = "import";
+		foreach (f; bs.sourceFiles) sourceFileTypes[f] = "source";
 		Json[] files;
-		foreach (f; bs.sourceFiles) {
+		foreach (f; sourceFileTypes.byKey.array.sort) {
 			auto jf = Json.emptyObject;
-			jf.path = f;
-			jf["type"] = "source";
-			files ~= jf;
-		}
-		foreach (f; bs.importFiles) {
-			auto jf = Json.emptyObject;
-			jf.path = f;
-			jf["type"] = "import";
-			files ~= jf;
-		}
-		foreach (f; bs.stringImportFiles) {
-			auto jf = Json.emptyObject;
-			jf.path = f;
-			jf["type"] = "stringImport";
+			jf["path"] = f;
+			jf["type"] = sourceFileTypes[f];
 			files ~= jf;
 		}
 		dst.files = Json(files);

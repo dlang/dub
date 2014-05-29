@@ -251,6 +251,8 @@ struct BuildPlatform {
 	/// Compiled frontend version (e.g. 2065)
 	int frontendVersion;
 
+	enum any = BuildPlatform(null, null, null, null, -1);
+
 	/// Build platforms can be specified via a string specification.
 	///
 	/// Specifications are build upon the following scheme, where each component
@@ -270,9 +272,11 @@ struct BuildPlatform {
 	/// Returns:
 	///     true if the given specification matches this BuildPlatform, false otherwise. (The empty string matches)
 	///
-	bool matchesSpecification(const(char)[] specification) const {
-		if (specification.empty)
-			return true;
+	bool matchesSpecification(const(char)[] specification)
+	const {
+		if (specification.empty) return true;
+		if (this == any) return true;
+
 		auto splitted=specification.splitter('-');
 		assert(!splitted.empty, "No valid platform specification! The leading hyphen is required!");
 		splitted.popFront(); // Drop leading empty match.
