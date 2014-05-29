@@ -601,6 +601,7 @@ struct ConfigurationInfo {
 /// a certain BuildPlatform.
 struct BuildSettingsTemplate {
 	Dependency[string] dependencies;
+	string systemDependencies;
 	TargetType targetType = TargetType.autodetect;
 	string targetPath;
 	string targetName;
@@ -641,6 +642,9 @@ struct BuildSettingsTemplate {
 						enforce(pkg !in this.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 						this.dependencies[pkg] = deserializeJson!Dependency(verspec);
 					}
+					break;
+				case "systemDependencies":
+					this.systemDependencies = value.get!string;
 					break;
 				case "targetType":
 					enforce(suffix.empty, "targetType does not support platform customization.");
@@ -708,6 +712,7 @@ struct BuildSettingsTemplate {
 				deps[pack] = serializeToJson(d);
 			ret.dependencies = deps;
 		}
+		if (this.systemDependencies !is null) ret.systemDependencies = this.systemDependencies;
 		if (targetType != TargetType.autodetect) ret["targetType"] = targetType.to!string();
 		if (!targetPath.empty) ret["targetPath"] = targetPath;
 		if (!targetName.empty) ret["targetName"] = targetName;
