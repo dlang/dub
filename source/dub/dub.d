@@ -614,6 +614,7 @@ class Dub {
 
 string determineModuleName(BuildSettings settings, Path file, Path base_path)
 {
+	import std.stdio;
 	assert(base_path.absolute);
 	if (!file.absolute) file = base_path ~ file;
 
@@ -630,6 +631,13 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 
 	auto mpath = file[path_skip .. file.length];
 	auto ret = appender!string;
+
+	//search for module keyword in file
+	string moduleName = getModuleNameFromFile(file.to!string);
+
+	if(moduleName.length) return moduleName;
+
+	//create module name from path
 	foreach (i; 0 .. mpath.length) {
 		import std.path;
 		auto p = mpath[i].toString();
@@ -638,8 +646,27 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 		if (i+1 < mpath.length) ret ~= p;
 		else ret ~= p.baseName(".d");
 	}
+
 	return ret.data;
 }
+
+/**
+ * Search for module keyword in file 
+ */
+string getModuleNameFromFile(string filePath) {
+	import std.regex;
+
+	auto commentsPattern = regex(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`, "g");
+	auto modulePattern = regex(`module .*;`, "g");
+
+	string fileContent = filePath.readText;
+	fileContent = replaceAll(fileContent, commentsPattern, "");
+	string moduleName = matchFirst(fileContent, modulePattern).front; 
+
+	if(moduleName.length >= 7) moduleName = moduleName[7..$-1];
+
+	return moduleName;
+} 
 
 enum UpgradeOptions
 {
