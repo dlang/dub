@@ -182,7 +182,7 @@ class Dub {
 			foreach (p; m_project.selections.selectedPackages) {
 				auto dep = m_project.selections.getSelectedVersion(p);
 				if (!dep.path.empty) {
-					if (m_packageManager.getTemporaryPackage(dep.path)) continue;
+					if (m_packageManager.getOrLoadPackage(dep.path)) continue;
 				} else {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
 					foreach (ps; m_packageSuppliers) {
@@ -209,7 +209,7 @@ class Dub {
 		foreach (p, ver; versions) {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
-			if (!ver.path.empty) pack = m_packageManager.getTemporaryPackage(ver.path);
+			if (!ver.path.empty) pack = m_packageManager.getOrLoadPackage(ver.path);
 			else pack = m_packageManager.getBestPackage(p, ver);
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;

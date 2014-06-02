@@ -154,6 +154,7 @@ class PackageManager {
 
 	Package getOrLoadPackage(Path path)
 	{
+		path.endsWithSlash = true;
 		foreach (p; getPackageIterator())
 			if (!p.parentPackage && p.path == path)
 				return p;
@@ -503,38 +504,6 @@ class PackageManager {
 			logInfo("Unregistered package: %s (version: %s)", name, ver);
 	}
 
-	Package getTemporaryPackage(Path path, Version ver)
-	{
-		foreach (p; m_temporaryPackages)
-			if (p.path == path) {
-				enforce(p.ver == ver, format("Package in %s is refrenced with two conflicting versions: %s vs %s", path.toNativeString(), p.ver, ver));
-				return p;
-			}
-
-		try {
-			auto pack = new Package(path);
-			enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
-			pack.ver = ver;
-			addPackages(m_temporaryPackages, pack);
-			return pack;
-		} catch (Exception e) {
-			logDiagnostic("Error loading package at %s: %s", path.toNativeString(), e.toString().sanitize);
-			throw new Exception(format("Failed to add temporary package at %s: %s", path.toNativeString(), e.msg));
-		}
-	}
-
-	Package getTemporaryPackage(Path path)
-	{
-		foreach (p; m_temporaryPackages)
-			if (p.path == path)
-				return p;
-
-		auto pack = new Package(path);
-		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
-		addPackages(m_temporaryPackages, pack);
-		return pack;
-	}
-
 	/// For the given type add another path where packages will be looked up.
 	void addSearchPath(Path path, LocalPackageType type)
 	{
@@ -624,7 +593,7 @@ class PackageManager {
 				try foreach( pdir; iterateDirectory(path) ){
 					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 					if( !pdir.isDirectory ) continue;
-					auto pack_path = path ~ pdir.name;
+					auto pack_path = path ~ (pdir.name ~ "/");
 					if (!Package.isPackageAt(pack_path)) continue;
 					Package p;
 					try {

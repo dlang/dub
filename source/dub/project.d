@@ -203,7 +203,7 @@ class Project {
 					Path path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("Adding local %s", path);
-					p = m_packageManager.getTemporaryPackage(path);
+					p = m_packageManager.getOrLoadPackage(path);
 					enforce(p.name == name, format("Path based dependency %s is referenced with a wrong name: %s vs. %s", path.toNativeString(), name, p.name));
 				}
 
