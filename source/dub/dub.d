@@ -614,7 +614,6 @@ class Dub {
 
 string determineModuleName(BuildSettings settings, Path file, Path base_path)
 {
-	import std.stdio;
 	assert(base_path.absolute);
 	if (!file.absolute) file = base_path ~ file;
 
@@ -656,8 +655,8 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 string getModuleNameFromFile(string filePath) {
 	import std.regex;
 
-	auto commentsPattern = regex(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`, "g");
-	auto modulePattern = regex(`module .*;`, "g");
+	auto commentsPattern = ctRegex!(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`, "g");
+	auto modulePattern = ctRegex!(`module\s+([\w\.]+)\s*;`, "g");
 
 	string fileContent = filePath.readText;
 	fileContent = replaceAll(fileContent, commentsPattern, "");
