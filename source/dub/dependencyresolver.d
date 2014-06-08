@@ -112,9 +112,13 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			visited[parent] = true;
 			sizediff_t maxcpi = -1;
 			sizediff_t parentidx = package_indices.get(rootPackage(parent.pack), -1);
+
+			// loop over all dependencies
 			foreach (ch; getChildren(parent)) {
 				auto basepack = rootPackage(ch.pack);
 				assert(basepack in package_indices, format("%s not in packages %s", basepack, package_indices));
+
+				// get the current config/version of the current dependency
 				sizediff_t childidx = package_indices[basepack];
 				if (!all_configs[childidx].length) {
 					enforce(parentidx >= 0, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
@@ -130,7 +134,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					auto chnode = TreeNode(ch.pack, config);
 					if (!matches(ch.configs, config)) {
 						// if we are at the root level, we can safely skip the maxcpi computation and instead choose another childidx config
-						if (parent == root) return childidx;
+						if (parent == root) {
+							error = format("No match for dependency %s %s of %s", ch.pack, ch.configs, parent.pack);
+							return childidx;
+						}
 
 						if (childidx > maxcpi) {
 							maxcpi = max(childidx, parentidx);
