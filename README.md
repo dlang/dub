@@ -3,7 +3,7 @@ dub package manager
 
 Package and build manager for [D](http://dlang.org/) applications and libraries.
 
-There is a central [package registry](https://github.com/rejectedsoftware/dub-registry/) located at <http://code.dlang.org>.
+There is a central [package registry](https://github.com/D-Programming-Language/dub-registry/) located at <http://code.dlang.org>.
 
 [![Build Status](https://travis-ci.org/rejectedsoftware/dub.png)](https://travis-ci.org/rejectedsoftware/dub)
 
@@ -63,4 +63,4 @@ Chris Molozian has added DUB to [Homebrew](http://mxcl.github.io/homebrew/). Use
 Using DUB as a library
 ----------------------
 
-The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/rejectedsoftware/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/rejectedsoftware/dub/blob/master/source/dub/commandline.d).
+The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/D-Programming-Language/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/D-Programming-Language/dub/blob/master/source/dub/commandline.d).
