@@ -64,6 +64,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			return p[0 .. idx];
 		}
 
+		auto root_base_pack = rootPackage(root.pack);
+
 		size_t[string] package_indices;
 		CONFIG[][] all_configs;
 		bool[TreeNode] visited;
@@ -80,7 +82,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					pidx = *pi;
 					configs = all_configs[*pi];
 				} else {
-					if (basepack == root.pack) configs = [root.config];
+					if (basepack == root_base_pack) configs = [root.config];
 					else configs = getAllConfigs(basepack);
 					all_configs ~= configs;
 					package_indices[basepack] = pidx;
@@ -124,20 +126,19 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				// get the current config/version of the current dependency
 				sizediff_t childidx = package_indices[basepack];
 				if (!all_configs[childidx].length) {
-					enforce(parentbase != root.pack, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
+					enforce(parentbase != root_base_pack, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
 					// choose another parent config to avoid the invalid child
 					if (parentidx > maxcpi) {
 						error = format("Package %s contains invalid dependency %s", parent.pack, ch.pack);
 						logDiagnostic("%s (ci=%s)", error, parentidx);
 						maxcpi = parentidx;
 					}
-					enforce(parent != root, "Invalid dependecy %s referenced by the root package.");
 				} else {
 					auto config = all_configs[childidx][config_indices[childidx]];
 					auto chnode = TreeNode(ch.pack, config);
 					if (!matches(ch.configs, config)) {
 						// if we are at the root level, we can safely skip the maxcpi computation and instead choose another childidx config
-						if (parent == root) {
+						if (parentbase == root_base_pack) {
 							error = format("No match for dependency %s %s of %s", ch.pack, ch.configs, parent.pack);
 							return childidx;
 						}

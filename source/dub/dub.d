@@ -738,8 +738,22 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 			logDebug("Invalid package in dependency tree: %s %s", node.pack, node.config);
 			return null;
 		}
+		auto basepack = pack.basePackage;
+
 		foreach (dname, dspec; pack.dependencies) {
 			auto dbasename = getBasePackageName(dname);
+
+			// detect dependencies to the root package (or sub packages thereof)
+			if (dbasename == basepack.name) {
+				auto absdeppath = dspec.mapToPath(pack.path).path;
+				auto desireddeppath = dname == dbasename ? basepack.path : basepack.getSubPackage(getSubPackageName(dname)).path;
+				enforce(dspec.path.empty || absdeppath == desireddeppath,
+					format("Dependency from %s to root package references wrong path: %s vs. %s",
+						node.pack, absdeppath.toNativeString(), desireddeppath.toNativeString()));
+				ret ~= TreeNodes(dname, node.config);
+				continue;
+			}
+
 			if (dspec.optional && !m_dub.packageManager.getFirstPackage(dname))
 				continue;
 			if (m_options & UpgradeOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))
