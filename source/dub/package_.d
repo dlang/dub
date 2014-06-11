@@ -112,7 +112,7 @@ class Package {
 		// parse the JSON description
 		{
 			scope(failure) logError("Failed to parse package description in %s", root.toNativeString());
-			m_info.parseJson(packageInfo);
+			m_info.parseJson(packageInfo, parent ? parent.name : null);
 
 			if (!versionOverride.empty)
 				m_info.version_ = versionOverride;
@@ -484,7 +484,7 @@ struct PackageInfo {
 		throw new Exception("Unknown configuration: "~name);
 	}
 
-	void parseJson(Json json)
+	void parseJson(Json json, string parent_name)
 	{
 		foreach( string field, value; json ){
 			switch(field){
@@ -512,7 +512,7 @@ struct PackageInfo {
 		enforce(this.name.length > 0, "The package \"name\" field is missing or empty.");
 
 		// parse build settings
-		this.buildSettings.parseJson(json, this.name);
+		this.buildSettings.parseJson(json, parent_name.length ? parent_name ~ ":" ~ this.name : this.name);
 
 		if (auto pv = "configurations" in json) {
 			TargetType deftargettp = TargetType.library;
@@ -651,7 +651,10 @@ struct BuildSettingsTemplate {
 				default: break;
 				case "dependencies":
 					foreach (string pkg, verspec; value) {
-						if (pkg.startsWith(":")) pkg = package_name ~ pkg;
+						if (pkg.startsWith(":")) {
+							enforce(!package_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", package_name, pkg));
+							pkg = package_name ~ pkg;
+						}
 						enforce(pkg !in this.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 						this.dependencies[pkg] = deserializeJson!Dependency(verspec);
 					}
