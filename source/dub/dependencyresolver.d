@@ -110,9 +110,11 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			import std.algorithm : max;
 
 			if (parent in visited) return -1;
+
 			visited[parent] = true;
 			sizediff_t maxcpi = -1;
 			sizediff_t parentidx = package_indices.get(rootPackage(parent.pack), -1);
+			auto parentbase = rootPackage(parent.pack);
 
 			// loop over all dependencies
 			foreach (ch; getChildren(parent)) {
@@ -122,7 +124,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				// get the current config/version of the current dependency
 				sizediff_t childidx = package_indices[basepack];
 				if (!all_configs[childidx].length) {
-					enforce(parentidx >= 0, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
+					enforce(parentbase != root.pack, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
 					// choose another parent config to avoid the invalid child
 					if (parentidx > maxcpi) {
 						error = format("Package %s contains invalid dependency %s", parent.pack, ch.pack);
