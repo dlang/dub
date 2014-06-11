@@ -80,7 +80,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					pidx = *pi;
 					configs = all_configs[*pi];
 				} else {
-					configs = getAllConfigs(basepack);
+					if (basepack == root.pack) configs = [root.config];
+					else configs = getAllConfigs(basepack);
 					all_configs ~= configs;
 					package_indices[basepack] = pidx;
 				}
@@ -89,7 +90,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 				all_configs[pidx] = configs;
 
-				foreach (v; all_configs[pidx])
+				foreach (v; configs)
 					findConfigsRec(TreeNode(ch.pack, v));
 			}
 		}
