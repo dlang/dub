@@ -746,10 +746,13 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 			// detect dependencies to the root package (or sub packages thereof)
 			if (dbasename == basepack.name) {
 				auto absdeppath = dspec.mapToPath(pack.path).path;
-				auto desireddeppath = dname == dbasename ? basepack.path : basepack.getSubPackage(getSubPackageName(dname)).path;
-				enforce(dspec.path.empty || absdeppath == desireddeppath,
-					format("Dependency from %s to root package references wrong path: %s vs. %s",
-						node.pack, absdeppath.toNativeString(), desireddeppath.toNativeString()));
+				auto subpack = basepack.getSubPackage(getSubPackageName(dname), true);
+				if (subpack) {
+					auto desireddeppath = dname == dbasename ? basepack.path : subpack.path;
+					enforce(dspec.path.empty || absdeppath == desireddeppath,
+						format("Dependency from %s to root package references wrong path: %s vs. %s",
+							node.pack, absdeppath.toNativeString(), desireddeppath.toNativeString()));
+				}
 				ret ~= TreeNodes(dname, node.config);
 				continue;
 			}
@@ -778,9 +781,12 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		if (basename != name) {
 			auto subname = getSubPackageName(name);
 			auto basepack = getPackage(basename, dep);
-			if (auto sp = basepack.getSubPackage(subname)) {
+			if (auto sp = basepack.getSubPackage(subname, true)) {
 				m_remotePackages[key] = sp;
 				return sp;
+			} else if (!basepack.exportedPackages.length) {
+				logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
+				return null;
 			}
 		}
 
@@ -811,6 +817,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 					logDebug("Full error: %s", e.toString().sanitize);
 				}
 			} else {
+				logDiagnostic("Package %s not found in base package description (%s). Downloading whole package.", name, dep.version_.toString());
 				try {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;

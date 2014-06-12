@@ -227,11 +227,13 @@ class Package {
 		m_infoFile = filename;
 	}
 
-	inout(Package) getSubPackage(string name) inout {
+	inout(Package) getSubPackage(string name, bool silent_fail = false)
+	inout {
 		foreach (p; m_subPackages)
 			if (p.name == this.name ~ ":" ~ name)
 				return p;
-		throw new Exception(format("Unknown sub package: %s:%s", this.name, name));
+		enforce(silent_fail, format("Unknown sub package: %s:%s", this.name, name));
+		return null;
 	}
 
 	void warnOnSpecialCompilerFlags()
