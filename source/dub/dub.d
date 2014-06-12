@@ -771,6 +771,19 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 
 	private Package getPackage(string name, Dependency dep)
 	{
+		auto basename = getBasePackageName(name);
+		auto key = name ~ ":" ~ dep.version_.toString();
+
+		// for sub packages, first try to get them from the base package
+		if (basename != name) {
+			auto subname = getSubPackageName(name);
+			auto basepack = getPackage(basename, dep);
+			if (auto sp = basepack.getSubPackage(subname)) {
+				m_remotePackages[key] = sp;
+				return sp;
+			}
+		}
+
 		if (!dep.path.empty) {
 			auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
 			if (dep.matches(ret.ver)) return ret;
@@ -778,8 +791,6 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 
 		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
 			return ret;
-
-		auto key = name ~ ":" ~ dep.version_.toString();
 
 		if (auto ret = key in m_remotePackages)
 			return *ret;
