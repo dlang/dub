@@ -117,7 +117,8 @@ class ProjectGenerator
 		}
 
 		// start to build up the build settings
-		BuildSettings buildsettings = settings.buildSettings.dup;
+		BuildSettings buildsettings;
+		if (generates_binary) buildsettings = settings.buildSettings.dup;
 		processVars(buildsettings, m_project, pack, shallowbs, true);
 
 		// remove any mainSourceFile from library builds
