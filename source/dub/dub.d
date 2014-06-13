@@ -775,14 +775,12 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 	private Package getPackage(string name, Dependency dep)
 	{
 		auto basename = getBasePackageName(name);
-		auto key = name ~ ":" ~ dep.version_.toString();
 
 		// for sub packages, first try to get them from the base package
 		if (basename != name) {
 			auto subname = getSubPackageName(name);
 			auto basepack = getPackage(basename, dep);
 			if (auto sp = basepack.getSubPackage(subname, true)) {
-				m_remotePackages[key] = sp;
 				return sp;
 			} else if (!basepack.exportedPackages.length) {
 				logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
@@ -798,6 +796,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
 			return ret;
 
+		auto key = name ~ ":" ~ dep.version_.toString();
 		if (auto ret = key in m_remotePackages)
 			return *ret;
 
