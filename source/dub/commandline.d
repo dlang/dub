@@ -457,6 +457,7 @@ class GenerateCommand : PackageBuildCommand {
 	protected {
 		string m_generator;
 		bool m_rdmd = false;
+		bool m_tempBuild = false;
 		bool m_run = false;
 		bool m_force = false;
 		bool m_combined = false;
@@ -538,6 +539,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.runArgs = app_args;
 		gensettings.force = m_force;
 		gensettings.rdmd = m_rdmd;
+		gensettings.tempBuild = m_tempBuild;
 
 		logDiagnostic("Generating using %s", m_generator);
 		if (m_generator == "visuald-combined") {
@@ -567,6 +569,7 @@ class BuildCommand : GenerateCommand {
 		args.getopt("rdmd", &m_rdmd, [
 			"Use rdmd instead of directly invoking the compiler"
 		]);
+
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
@@ -594,6 +597,10 @@ class RunCommand : BuildCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
+		args.getopt("temp-build", &m_tempBuild, [
+			"Builds the project in the temp folder if possible."
+		]);
+
 		super.prepare(args);
 		m_run = true;
 	}

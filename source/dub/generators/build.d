@@ -125,8 +125,9 @@ class BuildGenerator : ProjectGenerator {
 			return true;
 		}
 
-		if (!isWritableDir(target_path, true)) {
-			logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
+		if (settings.tempBuild || !isWritableDir(target_path, true)) {
+			if (!settings.tempBuild)
+				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
 			performDirectBuild(settings, buildsettings, pack, config);
 			return false;
 		}
@@ -177,7 +178,7 @@ class BuildGenerator : ProjectGenerator {
 		Path exe_file_path;
 		bool tmp_target = false;
 		if (generate_binary) {
-			if (settings.run && !isWritableDir(Path(buildsettings.targetPath), true)) {
+			if (settings.tempBuild || (settings.run && !isWritableDir(Path(buildsettings.targetPath), true))) {
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
 				auto tmpdir = getTempDir()~".rdmd/source/";
@@ -242,7 +243,7 @@ class BuildGenerator : ProjectGenerator {
 		Path exe_file_path;
 		bool is_temp_target = false;
 		if (generate_binary) {
-			if (settings.run && !isWritableDir(Path(buildsettings.targetPath), true)) {
+			if (settings.tempBuild || (settings.run && !isWritableDir(Path(buildsettings.targetPath), true))) {
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max));
 				auto tmppath = getTempDir()~("dub/"~rnd~"/");

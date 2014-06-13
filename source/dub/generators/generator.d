@@ -208,7 +208,7 @@ struct GeneratorSettings {
 	bool combined; // compile all in one go instead of each dependency separately
 
 	// only used for generator "build"
-	bool run, force, direct, clean, rdmd;
+	bool run, force, direct, clean, rdmd, tempBuild;
 	string[] runArgs;
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;
