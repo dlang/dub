@@ -204,6 +204,7 @@ class Project {
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("Adding local %s", path);
 					p = m_packageManager.getOrLoadPackage(path);
+					if (name.canFind(':')) p = p.getSubPackage(getSubPackageName(name));
 					enforce(p.name == name, format("Path based dependency %s is referenced with a wrong name: %s vs. %s", path.toNativeString(), name, p.name));
 				}
 
