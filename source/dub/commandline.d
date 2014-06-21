@@ -122,10 +122,9 @@ int runDubCommandLine(string[] args)
 	// extract the command
 	string cmdname;
 	args = common_args.extractRemainingArgs();
-	auto cmdidx = args.countUntil!(a => !a.startsWith("-"));
-	if (cmdidx >= 0) {
-		cmdname = args[cmdidx];
-		args = args[0 .. cmdidx] ~ args[cmdidx+1 .. $];
+	if (args.length >= 1 && !args[0].startsWith("-")) {
+		cmdname = args[0];
+		args = args[1 .. $];
 	} else {
 		if (help) {
 			showHelp(commands, common_args);
