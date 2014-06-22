@@ -175,7 +175,7 @@ void resolveLibs(ref BuildSettings settings)
 
 	version (Posix) {
 		try {
-			auto pkgconfig_bin = "pkg-config";
+			enum pkgconfig_bin = "pkg-config";
 			string[] pkgconfig_libs;
 			foreach (lib; settings.libs)
 				if (execute([pkgconfig_bin, "--exists", "lib"~lib]).status == 0)
@@ -184,7 +184,7 @@ void resolveLibs(ref BuildSettings settings)
 			logDiagnostic("Using pkg-config to resolve library flags for %s.", pkgconfig_libs.map!(l => "lib"~l).array.join(", "));
 
 			if (pkgconfig_libs.length) {
-				auto libflags = execute(["pkg-config", "--libs"] ~ pkgconfig_libs.map!(l => "lib"~l)().array());
+				auto libflags = execute([pkgconfig_bin, "--libs"] ~ pkgconfig_libs.map!(l => "lib"~l)().array());
 				enforce(libflags.status == 0, format("pkg-config exited with error code %s: %s", libflags.status, libflags.output));
 				foreach (f; libflags.output.split()) {
 					if (f.startsWith("-Wl,")) settings.addLFlags(f[4 .. $].split(","));
@@ -226,11 +226,11 @@ interface Compiler {
 	{
 		int status;
 		if (output_callback) {
-			auto result = execute(args);
+			auto result = executeShell(escapeShellCommand(args));
 			output_callback(result.status, result.output);
 			status = result.status;
 		} else {
-			auto compiler_pid = spawnProcess(args);
+			auto compiler_pid = spawnShell(escapeShellCommand(args));
 			status = compiler_pid.wait();
 		}
 		enforce(status == 0, args[0] ~ " failed with exit code "~to!string(status));

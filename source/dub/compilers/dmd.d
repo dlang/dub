@@ -67,7 +67,7 @@ class DmdCompiler : Compiler {
 		}
 		settings.addDFlags(arch_flags);
 
-		auto result = execute(compiler_binary ~ arch_flags ~ ["-quiet", "-run", fil.toNativeString()]);
+		auto result = executeShell(escapeShellCommand(compiler_binary ~ arch_flags ~ ["-quiet", "-run", fil.toNativeString()]));
 		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
 			compiler_binary, result.output));
 

@@ -67,7 +67,7 @@ class GdcCompiler : Compiler {
 		}
 		settings.addDFlags(arch_flags);
 
-		auto compiler_result = execute(compiler_binary ~ arch_flags ~ ["-o", (getTempDir()~"dub_platform_probe").toNativeString(), fil.toNativeString()]);
+		auto compiler_result = executeShell(escapeShellCommand(compiler_binary ~ arch_flags ~ ["-o", (getTempDir()~"dub_platform_probe").toNativeString(), fil.toNativeString()]));
 		enforce(compiler_result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
 			compiler_binary, compiler_result.output));
 		auto result = execute([(getTempDir()~"dub_platform_probe").toNativeString()]);
