@@ -75,7 +75,7 @@ class LdcCompiler : Compiler {
 		return build_platform;
 	}
 
-	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all)
+	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
 	{
 		enforceBuildRequirements(settings);
 
@@ -127,7 +127,7 @@ class LdcCompiler : Compiler {
 		assert(fields & BuildSetting.copyFiles);
 	}
 
-	void extractBuildOptions(ref BuildSettings settings)
+	void extractBuildOptions(ref BuildSettings settings) const
 	{
 		Appender!(string[]) newflags;
 		next_flag: foreach (f; settings.dflags) {
@@ -143,7 +143,7 @@ class LdcCompiler : Compiler {
 		settings.dflags = newflags.data;
 	}
 
-	void setTarget(ref BuildSettings settings, in BuildPlatform platform)
+	void setTarget(ref BuildSettings settings, in BuildPlatform platform) const
 	{
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
