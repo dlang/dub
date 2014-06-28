@@ -785,7 +785,7 @@ class UpgradeCommand : Command {
 		this.helpText = [
 			"Upgrades all dependencies of the package by querying the package registry(ies) for new versions.",
 			"",
-			"This will also update the versions stored in the selections file ("~SelectedVersions.defaultFile~") accordingly."
+			"This will also update the versions stored in the selections file ("~SelectedVersions.defaultFile~") accordingly.",
 			"",
 			"If a package specified, (only) that package will be upgraded. Otherwise all direct and indirect dependencies of the current package will get upgraded."
 		];
@@ -858,15 +858,15 @@ class FetchCommand : FetchRemoveCommand {
 		this.helpText = [
 			"Note: Use the \"dependencies\" field in the package description file (e.g. dub.json) if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
 			"",
-			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your dub.json, dub will do the rest for you."
+			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your dub.json, dub will do the rest for you.",
 			"",
-			"Without specified options, placement/removal will default to a user wide shared location."
+			"Without specified options, placement/removal will default to a user wide shared location.",
 			"",
 			"Complete applications can be retrieved and run easily by e.g.",
 			"$ dub fetch vibelog --local",
 			"$ cd vibelog",
 			"$ dub",
-			""
+			"",
 			"This will grab all needed dependencies and compile and run the application.",
 			"",
 			"Note: DUB does not do a system installation of packages. Packages are instead only registered within DUB's internal ecosystem. Generation of native system packages/installers may be added later as a separate feature."
