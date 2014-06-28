@@ -23,11 +23,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		CONFIGS configs;
 
 		hash_t toHash() const nothrow @trusted {
-			try {
-				size_t ret = typeid(string).getHash(&pack);
-				ret ^= typeid(CONFIGS).getHash(&configs);
-				return ret;
-			} catch assert(false);
+			size_t ret = typeid(string).getHash(&pack);
+			ret ^= typeid(CONFIGS).getHash(&configs);
+			return ret;
 		}
 		bool opEqual(in ref TreeNodes other) const { return pack == other.pack && configs == other.configs; }
 		int opCmp(in ref TreeNodes other) const {
@@ -42,11 +40,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		CONFIG config;
 
 		hash_t toHash() const nothrow @trusted {
-			try {
-				size_t ret = typeid(string).getHash(&pack);
-				ret ^= typeid(CONFIG).getHash(&config);
-				return ret;
-			} catch assert(false);
+			size_t ret = typeid(string).getHash(&pack);
+			ret ^= typeid(CONFIG).getHash(&config);
+			return ret;
 		}
 		bool opEqual(in ref TreeNode other) const { return pack == other.pack && config == other.config; }
 		int opCmp(in ref TreeNode other) const {
