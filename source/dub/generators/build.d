@@ -376,10 +376,6 @@ class BuildGenerator : ProjectGenerator {
 		}
 		if (settings.buildMode == BuildMode.singleFile && generate_binary) {
 			auto lbuildsettings = buildsettings;
-			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f=> f.isLinkerFile()).array;
-			settings.compiler.setTarget(lbuildsettings, settings.platform);
-			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
-
 			auto objs = appender!(string[])();
 			logInfo("Compiling using %s...", settings.platform.compilerBinary);
 			foreach (file; buildsettings.sourceFiles.filter!(f=>!isLinkerFile(f))) {
@@ -388,6 +384,9 @@ class BuildGenerator : ProjectGenerator {
 			}
 
 			logInfo("Linking...");
+			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f=> f.isLinkerFile()).array;
+			settings.compiler.setTarget(lbuildsettings, settings.platform);
+			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
 			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs.data, settings.linkCallback);
 
 		/*
