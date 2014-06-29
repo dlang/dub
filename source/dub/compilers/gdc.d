@@ -156,7 +156,7 @@ class GdcCompiler : Compiler {
 		settings.dflags = newflags.data;
 	}
 
-	void setTarget(ref BuildSettings settings, in BuildPlatform platform) const
+	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
@@ -172,8 +172,9 @@ class GdcCompiler : Compiler {
 				break;
 		}
 
-		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		settings.addDFlags("-o", tpath.toNativeString());
+		if (tpath is null)
+			tpath = (Path(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+		settings.addDFlags("-o", tpath);
 	}
 
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
