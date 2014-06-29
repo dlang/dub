@@ -208,13 +208,13 @@ interface Compiler {
 
 	/// Replaces high level fields with low level fields and converts
 	/// dmd flags to compiler-specific flags
-	void prepareBuildSettings(ref BuildSettings settings, BuildSetting supported_fields = BuildSetting.all);
+	void prepareBuildSettings(ref BuildSettings settings, BuildSetting supported_fields = BuildSetting.all) const;
 
 	/// Removes any dflags that match one of the BuildOptions values and populates the BuildSettings.options field.
-	void extractBuildOptions(ref BuildSettings settings);
+	void extractBuildOptions(ref BuildSettings settings) const;
 
 	/// Adds the appropriate flag to set a target path
-	void setTarget(ref BuildSettings settings, in BuildPlatform platform);
+	void setTarget(ref BuildSettings settings, in BuildPlatform platform) const;
 
 	/// Invokes the compiler using the given flags
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback);

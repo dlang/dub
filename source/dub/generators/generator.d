@@ -222,7 +222,7 @@ struct GeneratorSettings {
 enum BuildMode {
 	separate,                 /// Compile and link separately
 	allAtOnce,                /// Perform compile and link with a single compiler invocation
-	//singleFile,               /// Compile each file separately
+	singleFile,               /// Compile each file separately
 	//multipleObjects,          /// Generate an object file per module
 	//multipleObjectsPerModule, /// Use the -multiobj switch to generate multiple object files per module
 	//compileOnly               /// Do not invoke the linker (can be done using a post build command)
