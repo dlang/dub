@@ -334,7 +334,7 @@ class VisualDGenerator : ProjectGenerator {
 				final switch (settings.buildMode) with (BuildMode) {
 					case separate: singlefilemode = 2; break;
 					case allAtOnce: singlefilemode = 0; break;
-					//case singleFile: singlefilemode = 1; break;
+					case singleFile: singlefilemode = 1; break;
 					//case compileOnly: singlefilemode = 3; break;
 				}
 				ret.formattedWrite("    <singleFileCompilation>%s</singleFileCompilation>\n", singlefilemode);

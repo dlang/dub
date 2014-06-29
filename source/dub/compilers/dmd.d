@@ -204,7 +204,7 @@ class DmdCompiler : Compiler {
 			default:
 				if (arg.startsWith("-defaultlib=")) return true;
 				return false;
-			case "-g", "-gc", "-m32", "-m64", "-shared":
+			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib":
 				return true;
 		}
 	}
