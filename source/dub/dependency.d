@@ -42,8 +42,11 @@ struct Dependency {
 	}
 
 	// A Dependency, which matches every valid version.
-	static @property ANY() { return Dependency(ANY_IDENT); }
-	static @property INVALID() { Dependency ret; ret.m_versA = Version.HEAD; ret.m_versB = Version.RELEASE; return ret; }
+	static @property any() { return Dependency(ANY_IDENT); }
+	static @property invalid() { Dependency ret; ret.m_versA = Version.HEAD; ret.m_versB = Version.RELEASE; return ret; }
+
+	alias ANY = any;
+	alias INVALID = invalid;
 
 	this(string ves)
 	{

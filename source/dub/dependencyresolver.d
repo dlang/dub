@@ -62,6 +62,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 		auto root_base_pack = rootPackage(root.pack);
 
+		// find all possible configurations of each possible dependency
 		size_t[string] package_indices;
 		CONFIG[][] all_configs;
 		bool[TreeNode] visited;
@@ -93,6 +94,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			}
 		}
 		findConfigsRec(root);
+
+		// prepend an invalid configuration to denote an unchosen dependency (for optional dependencies)
+		foreach (ref cfgs; all_configs) cfgs = CONFIG.invalid ~ cfgs;
 
 		logDebug("Configurations used for dependency resolution:");
 		foreach (n, i; package_indices) logDebug("  %s (%s): %s", n, i, all_configs[i]);
@@ -132,7 +136,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				} else {
 					auto config = all_configs[childidx][config_indices[childidx]];
 					auto chnode = TreeNode(ch.pack, config);
-					if (!matches(ch.configs, config)) {
+					if (config == CONFIG.invalid || !matches(ch.configs, config)) {
 						// if we are at the root level, we can safely skip the maxcpi computation and instead choose another childidx config
 						if (parentbase == root_base_pack) {
 							error = format("No match for dependency %s %s of %s", ch.pack, ch.configs, parent.pack);
@@ -175,8 +179,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			if (conflict_index < 0) {
 				CONFIG[string] ret;
 				foreach (p, i; package_indices)
-					if (all_configs[i].length)
-						ret[p] = all_configs[i][config_indices[i]];
+					if (all_configs[i].length) {
+						auto cfg = all_configs[i][config_indices[i]];
+						if (cfg != CONFIG.invalid) ret[p] = cfg;
+					}
 				return ret;
 			}
 
