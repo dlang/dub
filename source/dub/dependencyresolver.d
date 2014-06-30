@@ -95,7 +95,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		}
 		findConfigsRec(root);
 
-		// prepend an invalid configuration to denote an unchosen dependency (for optional dependencies)
+		// prepend an invalid configuration to denote an unchosen dependency
+		// this is used to properly support optional dependencies (when
+		// getChildren() returns no configurations for an optional dependency,
+		// but getAllConfigs() has already provided an existing list of configs)
 		foreach (ref cfgs; all_configs) cfgs = CONFIG.invalid ~ cfgs;
 
 		logDebug("Configurations used for dependency resolution:");
@@ -207,44 +210,51 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 
 unittest {
-	static class TestResolver : DependencyResolver!(uint[], uint) {
+	static struct IntConfig {
+		int value;
+		alias value this;
+		enum invalid = IntConfig(-1);
+	}
+	static IntConfig ic(int v) { return IntConfig(v); }
+
+	static class TestResolver : DependencyResolver!(IntConfig[], IntConfig) {
 		private TreeNodes[][string] m_children;
 		this(TreeNodes[][string] children) { m_children = children; }
-		protected override uint[] getAllConfigs(string pack) {
-			auto ret = appender!(uint[]);
+		protected override IntConfig[] getAllConfigs(string pack) {
+			auto ret = appender!(IntConfig[]);
 			foreach (p; m_children.byKey) {
 				if (p.length <= pack.length+1) continue;
 				if (p[0 .. pack.length] != pack || p[pack.length] != ':') continue;
 				auto didx = p.lastIndexOf(':');
-				ret ~= p[didx+1 .. $].to!uint;
+				ret ~= ic(p[didx+1 .. $].to!uint);
 			}
 			ret.data.sort!"a>b"();
 			return ret.data;
 		}
-		protected override uint[] getSpecificConfigs(TreeNodes nodes) { return null; }
+		protected override IntConfig[] getSpecificConfigs(TreeNodes nodes) { return null; }
 		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null); }
-		protected override bool matches(uint[] configs, uint config) { return configs.canFind(config); }
+		protected override bool matches(IntConfig[] configs, IntConfig config) { return configs.canFind(config); }
 	}
 
 	// properly back up if conflicts are detected along the way (d:2 vs d:1)
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0": [TreeNodes("b", [2, 1]), TreeNodes("d", [1]), TreeNodes("e", [2, 1])],
-			"b:1": [TreeNodes("c", [2, 1]), TreeNodes("d", [1])],
-			"b:2": [TreeNodes("c", [3, 2]), TreeNodes("d", [2, 1])],
+			"a:0": [TreeNodes("b", [ic(2), ic(1)]), TreeNodes("d", [ic(1)]), TreeNodes("e", [ic(2), ic(1)])],
+			"b:1": [TreeNodes("c", [ic(2), ic(1)]), TreeNodes("d", [ic(1)])],
+			"b:2": [TreeNodes("c", [ic(3), ic(2)]), TreeNodes("d", [ic(2), ic(1)])],
 			"c:1": [], "c:2": [], "c:3": [],
 			"d:1": [], "d:2": [],
 			"e:1": [], "e:2": [],
 		]);
-		assert(res.resolve(TreeNode("a", 0)) == ["b":2u, "c":3u, "d":1u, "e":2u], format("%s", res.resolve(TreeNode("a", 0))));
+		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(2), "c":ic(3), "d":ic(1), "e":ic(2)], format("%s", res.resolve(TreeNode("a", ic(0)))));
 	}
 
 	// handle cyclic dependencies gracefully
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0": [TreeNodes("b", [1])],
-			"b:1": [TreeNodes("b", [1])]
+			"a:0": [TreeNodes("b", [ic(1)])],
+			"b:1": [TreeNodes("b", [ic(1)])]
 		]);
-		assert(res.resolve(TreeNode("a", 0)) == ["b":1u]);
+		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(1)]);
 	}
 }
