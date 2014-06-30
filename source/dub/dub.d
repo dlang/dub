@@ -212,7 +212,7 @@ class Dub {
 			if (!ver.path.empty) pack = m_packageManager.getOrLoadPackage(ver.path);
 			else {
 				pack = m_packageManager.getBestPackage(p, ver);
-				if (pack && ver.version_.isBranch) {
+				if (pack && ver.version_.isBranch && (options & UpgradeOptions.upgrade) != 0 && (options & UpgradeOptions.printUpgradesOnly) == 0) {
 					// TODO: only re-install if there is actually a new commit available
 					logInfo("Re-installing branch based dependency %s %s", p, ver.toString());
 					m_packageManager.remove(pack, (options & UpgradeOptions.forceRemove) != 0);
