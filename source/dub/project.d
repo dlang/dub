@@ -185,6 +185,27 @@ class Project {
 					~ "dependency to use a branch instead.",
 					dn, SelectedVersions.defaultFile);
 			}
+
+		bool[string] visited;
+		void validateDependenciesRec(Package pack) {
+			foreach (name, vspec_; pack.dependencies) {
+				if (name in visited) continue;
+				visited[name] = true;
+
+				auto basename = getBasePackageName(name);
+				if (m_selections.hasSelectedVersion(basename)) {
+					auto selver = m_selections.getSelectedVersion(basename);
+					if (vspec_.merge(selver) == Dependency.invalid) {
+						logWarn("Selected package %s %s does not match the dependency specification in package %s (%s). Need to \"dub upgrade\"?",
+							basename, selver, pack.name, vspec_);
+					}
+				}
+
+				auto deppack = getDependency(name, true);
+				if (deppack) validateDependenciesRec(deppack);
+			}
+		}
+		validateDependenciesRec(m_rootPackage);
 	}
 
 	/// Rereads the applications state.
@@ -205,7 +226,9 @@ class Project {
 					logDiagnostic("Adding local %s", path);
 					p = m_packageManager.getOrLoadPackage(path);
 					if (name.canFind(':')) p = p.getSubPackage(getSubPackageName(name));
-					enforce(p.name == name, format("Path based dependency %s is referenced with a wrong name: %s vs. %s", path.toNativeString(), name, p.name));
+					enforce(p.name == name,
+						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
+							path.toNativeString(), name, p.name));
 				}
 
 				if (!p) {
