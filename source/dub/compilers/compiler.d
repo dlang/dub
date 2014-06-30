@@ -224,6 +224,8 @@ interface Compiler {
 
 	protected final void invokeTool(string[] args, void delegate(int, string) output_callback)
 	{
+		import std.string;
+
 		int status;
 		if (output_callback) {
 			auto result = executeShell(escapeShellCommand(args));
@@ -233,7 +235,12 @@ interface Compiler {
 			auto compiler_pid = spawnShell(escapeShellCommand(args));
 			status = compiler_pid.wait();
 		}
-		enforce(status == 0, args[0] ~ " failed with exit code "~to!string(status));
+
+		version (Posix) if (status == -9) {
+			throw new Exception(format("%s failed with exit code %s. This may indicate that the process has run out of memory."),
+				args[0], status);
+		}
+		enforce(status == 0, format("%s failed with exit code %s.", args[0], status));
 	}
 }
 
