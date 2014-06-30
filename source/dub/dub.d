@@ -214,7 +214,7 @@ class Dub {
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			fetchOpts |= (options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts);
+			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting upgraded version");
 			if ((options & UpgradeOptions.select) && ver.path.empty && p != m_project.rootPackage.name)
 				m_project.selections.selectVersion(p, ver.version_);
 		}
@@ -369,7 +369,7 @@ class Dub {
 	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
 
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options)
+	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
 		Json pinfo;
 		PackageSupplier supplier;
@@ -413,7 +413,8 @@ class Dub {
 			}
 		}
 
-		logInfo("Fetching %s %s...", packageId, ver);
+		if (reason.length) logInfo("Fetching %s %s (%s)...", packageId, ver, reason);
+		else logInfo("Fetching %s %s...", packageId, ver);
 		if (m_dryRun) return null;
 
 		logDiagnostic("Acquiring package zip file");
@@ -821,7 +822,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
 					fetchOpts |= (m_options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-					m_dub.fetch(rootpack, dep, defaultPlacementLocation, fetchOpts);
+					m_dub.fetch(rootpack, dep, defaultPlacementLocation, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
