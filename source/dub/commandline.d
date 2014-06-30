@@ -366,7 +366,7 @@ abstract class PackageBuildCommand : Command {
 		]);
 		args.getopt("build-mode", &m_buildMode, [
 			"Specifies the way the compiler and linker are invoked. Valid values:",
-			"  separate (default), allAtOnce"
+			"  separate (default), allAtOnce, singleFile"
 		]);
 	}
 
