@@ -206,13 +206,32 @@ class Dub {
 		auto resolver = new DependencyVersionResolver(this, options);
 		auto versions = resolver.resolve(m_project.rootPackage, m_project.selections);
 
+		if (options & UpgradeOptions.printUpgradesOnly) {
+			foreach (p, ver; versions) {
+				if (!ver.path.empty) continue;
+
+				auto basename = getBasePackageName(p);
+				if (!m_project.selections.hasSelectedVersion(basename)) {
+					logInfo("Package %s can be installed with version %s.",
+						basename, ver);
+					continue;
+				}
+				auto sver = m_project.selections.getSelectedVersion(basename);
+				if (!sver.path.empty) continue;
+				if (ver.version_ <= sver.version_) continue;
+				logInfo("Package %s can be upgraded from %s to %s.",
+					basename, sver, ver);
+			}
+			return;
+		}
+
 		foreach (p, ver; versions) {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
 			if (!ver.path.empty) pack = m_packageManager.getOrLoadPackage(ver.path);
 			else {
 				pack = m_packageManager.getBestPackage(p, ver);
-				if (pack && ver.version_.isBranch && (options & UpgradeOptions.upgrade) != 0 && (options & UpgradeOptions.printUpgradesOnly) == 0) {
+				if (pack && ver.version_.isBranch && (options & UpgradeOptions.upgrade) != 0) {
 					// TODO: only re-install if there is actually a new commit available
 					logInfo("Re-installing branch based dependency %s %s", p, ver.toString());
 					m_packageManager.remove(pack, (options & UpgradeOptions.forceRemove) != 0);
