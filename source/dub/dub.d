@@ -210,7 +210,16 @@ class Dub {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
 			if (!ver.path.empty) pack = m_packageManager.getOrLoadPackage(ver.path);
-			else pack = m_packageManager.getBestPackage(p, ver);
+			else {
+				pack = m_packageManager.getBestPackage(p, ver);
+				if (pack && ver.version_.isBranch) {
+					// TODO: only re-install if there is actually a new commit available
+					logInfo("Re-installing branch based dependency %s %s", p, ver.toString());
+					m_packageManager.remove(pack, (options & UpgradeOptions.forceRemove) != 0);
+					pack = null;
+				}
+			}
+
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			fetchOpts |= (options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
