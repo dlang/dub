@@ -176,6 +176,6 @@ class LdcCompiler : Compiler {
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
-		assert(false, "Separate linking not implemented for GDC");
+		assert(false, "Separate linking not implemented for LDC");
 	}
 }
