@@ -305,6 +305,7 @@ struct Dependency {
 		d.m_cmpB = !doCmp(m_cmpB, b,b)? m_cmpB : o.m_cmpB;
 		d.m_versB = b;
 		d.m_optional = m_optional && o.m_optional;
+		if (!d.valid) return INVALID;
 
 		return d;
 	}

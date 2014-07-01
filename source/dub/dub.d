@@ -207,6 +207,7 @@ class Dub {
 		auto versions = resolver.resolve(m_project.rootPackage, m_project.selections);
 
 		if (options & UpgradeOptions.printUpgradesOnly) {
+			bool any = false;
 			foreach (p, ver; versions) {
 				if (!ver.path.empty) continue;
 
@@ -214,6 +215,7 @@ class Dub {
 				if (!m_project.selections.hasSelectedVersion(basename)) {
 					logInfo("Package %s can be installed with version %s.",
 						basename, ver);
+					any = true;
 					continue;
 				}
 				auto sver = m_project.selections.getSelectedVersion(basename);
@@ -221,7 +223,9 @@ class Dub {
 				if (ver.version_ <= sver.version_) continue;
 				logInfo("Package %s can be upgraded from %s to %s.",
 					basename, sver, ver);
+				any = true;
 			}
+			if (any) logInfo("Use \"dub upgrade\" to perform those changes.");
 			return;
 		}
 
@@ -242,7 +246,7 @@ class Dub {
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			fetchOpts |= (options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting upgraded version");
+			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && ver.path.empty && p != m_project.rootPackage.name)
 				m_project.selections.selectVersion(p, ver.version_);
 		}
