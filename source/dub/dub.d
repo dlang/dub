@@ -202,9 +202,18 @@ class Dub {
 			}
 		}
 
-
-		auto resolver = new DependencyVersionResolver(this, options);
-		auto versions = resolver.resolve(m_project.rootPackage, m_project.selections);
+		Dependency[string] versions;
+		if ((options & UpgradeOptions.useCachedResult) && m_project.isUpgradeCacheUpToDate()) {
+			logDiagnostic("Using cached upgrade results...");
+			versions = m_project.getUpgradeCache();
+		} else {
+			auto resolver = new DependencyVersionResolver(this, options);
+			versions = resolver.resolve(m_project.rootPackage, m_project.selections);
+			if (options & UpgradeOptions.useCachedResult) {
+				logDiagnostic("Caching upgrade results...");
+				m_project.setUpgradeCache(versions);
+			}
+		}
 
 		if (options & UpgradeOptions.printUpgradesOnly) {
 			bool any = false;
@@ -682,6 +691,7 @@ enum UpgradeOptions
 	forceRemove = 1<<3, /// Force removing package folders, which contain unknown files
 	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
 	printUpgradesOnly = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
+	useCachedResult = 1<<6, /// Use cached information stored with the package to determine upgrades
 }
 
 class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {

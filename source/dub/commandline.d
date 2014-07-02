@@ -401,7 +401,7 @@ abstract class PackageBuildCommand : Command {
 			dub.upgrade(UpgradeOptions.select);
 			// check for updates
 			logDiagnostic("Checking for upgrades.");
-			dub.upgrade(UpgradeOptions.upgrade|UpgradeOptions.printUpgradesOnly);
+			dub.upgrade(UpgradeOptions.upgrade|UpgradeOptions.printUpgradesOnly|UpgradeOptions.useCachedResult);
 		}
 
 		dub.project.validate();

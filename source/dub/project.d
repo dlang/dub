@@ -580,25 +580,46 @@ class Project {
 			m_selections.save(path);
 	}
 
-	private bool needsUpToDateCheck(Package pack) {
-		version (none) { // needs to be updated for the new package system (where no project local packages exist)
-			try {
-				auto time = m_packageSettings["dub"]["lastUpdate"].opt!(Json[string]).get(pack.name, Json("")).get!string;
-				if( !time.length ) return true;
-				return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
-			} catch(Exception t) return true;
-		} else return false;
+	bool isUpgradeCacheUpToDate()
+	{
+		try {
+			auto datestr = m_packageSettings["dub"].opt!(Json[string])["lastUpgrade"].opt!string;
+			if (!datestr.length) return false;
+			auto date = SysTime.fromISOExtString(datestr);
+			if ((Clock.currTime() - date) > 1.days) return false;
+			return true;
+		} catch (Exception t) {
+			logDebug("Failed to get the last upgrade time: %s", t.msg);
+			return false;
+		}
 	}
 
-	private void markUpToDate(string packageId) {
-		logDebug("markUpToDate(%s)", packageId);
+	Dependency[string] getUpgradeCache()
+	{
+		try {
+			Dependency[string] ret;
+			foreach (string p, d; m_packageSettings["dub"]["cachedUpgrades"])
+				ret[p] = SelectedVersions.dependencyFromJson(d);
+			return ret;
+		} catch (Exception t) {
+			logDebug("Failed to get cached upgrades: %s", t.msg);
+			return null;
+		}
+	}
+
+	void setUpgradeCache(Dependency[string] versions)
+	{
+		logDebug("markUpToDate");
 		Json create(ref Json json, string object) {
 			if( object !in json ) json[object] = Json.emptyObject;
 			return json[object];
 		}
 		create(m_packageSettings, "dub");
-		create(m_packageSettings["dub"], "lastUpdate");
-		m_packageSettings["dub"]["lastUpdate"][packageId] = Json( Clock.currTime().toISOExtString() );
+		m_packageSettings["dub"]["lastUpgrade"] = Clock.currTime().toISOExtString();
+
+		create(m_packageSettings["dub"], "cachedUpgrades");
+		foreach (p, d; versions)
+			m_packageSettings["dub"]["cachedUpgrades"][p] = SelectedVersions.dependencyToJson(d);
 
 		writeDubJson();
 	}
@@ -901,16 +922,29 @@ final class SelectedVersions {
 		m_dirty = false;
 	}
 
+	static Json dependencyToJson(Dependency d)
+	{
+		if (d.path.empty) return Json(d.version_.toString());
+		else return serializeToJson(["path": d.path.toString()]);
+	}
+
+	static Dependency dependencyFromJson(Json j)
+	{
+		if (j.type == Json.Type.string)
+			return Dependency(Version(j.get!string));
+		else if (j.type == Json.Type.object)
+			return Dependency(Path(j.path.get!string()));
+		else throw new Exception(format("Unexpected type for dependency: %s", j.type));
+	}
+
 	Json serialize()
 	const {
 		Json json = serializeToJson(m_selections);
 		Json serialized = Json.emptyObject;
 		serialized.fileVersion = FileVersion;
 		serialized.versions = Json.emptyObject;
-		foreach (p, v; m_selections) {
-			if (v.dep.path.empty) serialized.versions[p] = v.dep.version_.toString();
-			else serialized.versions[p] = serializeToJson(["path": v.dep.path.toString()]);
-		}
+		foreach (p, v; m_selections)
+			serialized.versions[p] = dependencyToJson(v.dep);
 		return serialized;
 	}
 
@@ -919,12 +953,7 @@ final class SelectedVersions {
 		enforce(cast(int)json["fileVersion"] == FileVersion, "Mismatched dub.select.json version: " ~ to!string(cast(int)json["fileVersion"]) ~ "vs. " ~to!string(FileVersion));
 		clear();
 		scope(failure) clear();
-		foreach (string p, v; json.versions) {
-			if (v.type == Json.Type.string)
-				m_selections[p] = Selected(Dependency(Version(v.get!string)));
-			else if (v.type == Json.Type.object)
-				m_selections[p] = Selected(Dependency(Path(v.path.get!string())));
-			else throw new Exception("Unexpected type for dependency %s: %s", p, v.type);
-		}
+		foreach (string p, v; json.versions)
+			m_selections[p] = Selected(dependencyFromJson(v));
 	}
 }
