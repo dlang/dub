@@ -583,7 +583,7 @@ class Project {
 	bool isUpgradeCacheUpToDate()
 	{
 		try {
-			auto datestr = m_packageSettings["dub"].opt!(Json[string])["lastUpgrade"].opt!string;
+			auto datestr = m_packageSettings["dub"].opt!(Json[string]).get("lastUpgrade", Json("")).get!string;
 			if (!datestr.length) return false;
 			auto date = SysTime.fromISOExtString(datestr);
 			if ((Clock.currTime() - date) > 1.days) return false;
@@ -598,7 +598,7 @@ class Project {
 	{
 		try {
 			Dependency[string] ret;
-			foreach (string p, d; m_packageSettings["dub"]["cachedUpgrades"])
+			foreach (string p, d; m_packageSettings["dub"].opt!(Json[string]).get("cachedUpgrades", Json.emptyObject))
 				ret[p] = SelectedVersions.dependencyFromJson(d);
 			return ret;
 		} catch (Exception t) {
