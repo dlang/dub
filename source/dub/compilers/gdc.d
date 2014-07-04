@@ -156,7 +156,7 @@ class GdcCompiler : Compiler {
 		settings.dflags = newflags.data;
 	}
 
-	void setTarget(ref BuildSettings settings, in BuildPlatform platform) const
+	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
@@ -172,8 +172,9 @@ class GdcCompiler : Compiler {
 				break;
 		}
 
-		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		settings.addDFlags("-o", tpath.toNativeString());
+		if (tpath is null)
+			tpath = (Path(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+		settings.addDFlags("-o", tpath);
 	}
 
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
@@ -188,7 +189,30 @@ class GdcCompiler : Compiler {
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
-		assert(false, "Separate linking not implemented for GDC");
+		import std.string;
+		string[] args;
+		// As the user is supposed to call setTarget prior to invoke, -o target is already set.
+		if (settings.targetType == TargetType.staticLibrary || settings.targetType == TargetType.staticLibrary) {
+			auto tpath = extractTarget(settings.dflags);
+			assert(tpath !is null, "setTarget should be called before invoke");
+			args = [ "ar", "rcs", tpath ] ~ objects;
+		} else {
+			args = platform.compiler ~ objects ~ settings.sourceFiles ~ settings.lflags ~ settings.dflags.filter!(f => isLinkageFlag(f)).array;
+			version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
+		}
+		logDiagnostic("%s", args.join(" "));
+		invokeTool(args, output_callback);
+	}
+}
+
+private string extractTarget(const string[] args) { auto i = args.countUntil("-o"); return i >= 0 ? args[i+1] : null; }
+
+private bool isLinkageFlag(string flag) {
+	switch (flag) {
+		case "-c":
+			return false;
+		default:
+			return true;
 	}
 }
 

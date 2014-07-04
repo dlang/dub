@@ -214,7 +214,7 @@ interface Compiler {
 	void extractBuildOptions(ref BuildSettings settings) const;
 
 	/// Adds the appropriate flag to set a target path
-	void setTarget(ref BuildSettings settings, in BuildPlatform platform) const;
+	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string targetPath = null) const;
 
 	/// Invokes the compiler using the given flags
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback);

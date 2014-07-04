@@ -143,7 +143,7 @@ class LdcCompiler : Compiler {
 		settings.dflags = newflags.data;
 	}
 
-	void setTarget(ref BuildSettings settings, in BuildPlatform platform) const
+	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
@@ -159,8 +159,9 @@ class LdcCompiler : Compiler {
 				break;
 		}
 
-		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		settings.addDFlags("-of"~tpath.toNativeString());
+		if (tpath is null)
+			tpath = (Path(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+		settings.addDFlags("-of"~tpath);
 	}
 
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
@@ -175,6 +176,6 @@ class LdcCompiler : Compiler {
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
-		assert(false, "Separate linking not implemented for GDC");
+		assert(false, "Separate linking not implemented for LDC");
 	}
 }

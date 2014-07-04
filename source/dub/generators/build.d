@@ -350,16 +350,17 @@ class BuildGenerator : ProjectGenerator {
 	static string pathToObjName(string path) { return std.path.buildNormalizedPath(getcwd(), path~objSuffix)[1..$].replace("/", "."); }
 	/// Compile a single source file (srcFile), and write the object to objName.
 	static string compileUnit(string srcFile, string objName, BuildSettings bs, GeneratorSettings gs) {
-        Path tempobj = Path(bs.targetPath)~objName;
-        string objPath = tempobj.toNativeString();
-        bs.libs = null;
-        bs.lflags = null;
-        bs.addDFlags("-c", "-of"~objPath);
-        bs.sourceFiles = [ srcFile ];
-        gs.compiler.prepareBuildSettings(bs, BuildSetting.commandLine);
-        gs.compiler.invoke(bs, gs.platform, gs.compileCallback);
-        return objPath;
-    }
+		Path tempobj = Path(bs.targetPath)~objName;
+		string objPath = tempobj.toNativeString();
+		bs.libs = null;
+		bs.lflags = null;
+		bs.addDFlags("-c");
+		bs.sourceFiles = [ srcFile ];
+		gs.compiler.prepareBuildSettings(bs, BuildSetting.commandLine);
+		gs.compiler.setTarget(bs, gs.platform, objPath);
+		gs.compiler.invoke(bs, gs.platform, gs.compileCallback);
+		return objPath;
+	}
 
 	void buildWithCompiler(GeneratorSettings settings, BuildSettings buildsettings)
 	{
@@ -375,10 +376,6 @@ class BuildGenerator : ProjectGenerator {
 		}
 		if (settings.buildMode == BuildMode.singleFile && generate_binary) {
 			auto lbuildsettings = buildsettings;
-			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f=> f.isLinkerFile()).array;
-			settings.compiler.setTarget(lbuildsettings, settings.platform);
-			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
-
 			auto objs = appender!(string[])();
 			logInfo("Compiling using %s...", settings.platform.compilerBinary);
 			foreach (file; buildsettings.sourceFiles.filter!(f=>!isLinkerFile(f))) {
@@ -387,6 +384,9 @@ class BuildGenerator : ProjectGenerator {
 			}
 
 			logInfo("Linking...");
+			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f=> f.isLinkerFile()).array;
+			settings.compiler.setTarget(lbuildsettings, settings.platform);
+			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
 			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs.data, settings.linkCallback);
 
 		/*
