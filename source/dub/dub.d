@@ -217,10 +217,14 @@ class Dub {
 
 		if (options & UpgradeOptions.printUpgradesOnly) {
 			bool any = false;
+			string rootbasename = getBasePackageName(m_project.rootPackage.name);
+
 			foreach (p, ver; versions) {
 				if (!ver.path.empty) continue;
 
 				auto basename = getBasePackageName(p);
+				if (basename == rootbasename) continue;
+
 				if (!m_project.selections.hasSelectedVersion(basename)) {
 					logInfo("Package %s can be installed with version %s.",
 						basename, ver);
