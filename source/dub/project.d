@@ -238,7 +238,7 @@ class Project {
 						p = m_rootPackage.basePackage;
 					} else if (basename == m_rootPackage.basePackage.name) {
 						vspec = Dependency(m_rootPackage.ver);
-						try p = m_rootPackage.getSubPackage(getSubPackageName(name));
+						try p = m_rootPackage.basePackage.getSubPackage(getSubPackageName(name));
 						catch (Exception e) {
 							logDiagnostic("Error getting sub package %s: %s", name, e.msg);
 							continue;
