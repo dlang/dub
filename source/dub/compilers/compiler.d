@@ -350,7 +350,7 @@ bool isLinkerFile(string f)
 		default:
 			return false;
 		version (Windows) {
-			case ".lib", ".obj", ".res":
+			case ".lib", ".obj", ".res", ".def":
 				return true;
 		} else {
 			case ".a", ".o", ".so", ".dylib":
