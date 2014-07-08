@@ -1,0 +1,6 @@
+{
+    "name": "dynlib-dep",
+    "dependencies": {
+        "dynlib-simple": { "path": "../1-dynLib-simple/" }
+    }
+}

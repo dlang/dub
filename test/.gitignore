@@ -1,0 +1,13 @@
+*.a
+*.lib
+*.so
+*.dll
+
+1-exec-simple/exec-simple
+1-staticLib-simple/__test__library__
+2-dynLib-dep/dynlib-dep
+2-sourceLib-dep/sourcelib-dep
+2-staticLib-dep/staticlib-dep
+custom-unittest/custom-unittest
+path-subpackage-ref/test
+subpackage-ref/test
