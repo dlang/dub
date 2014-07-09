@@ -609,7 +609,7 @@ class Dub {
 
 			GeneratorSettings settings;
 			settings.config = "application";
-			settings.compiler = getCompiler(compiler_binary);
+			settings.compiler = Compiler.factory(compiler_binary);
 			settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary);
 			settings.buildType = "debug";
 			ddox_dub.generateProject("build", settings);

@@ -8,10 +8,6 @@
 module dub.compilers.compiler;
 
 public import dub.compilers.buildsettings;
-
-import dub.compilers.dmd;
-import dub.compilers.gdc;
-import dub.compilers.ldc;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
@@ -21,34 +17,6 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.process;
-
-
-static this()
-{
-	registerCompiler(new DmdCompiler);
-	registerCompiler(new GdcCompiler);
-	registerCompiler(new LdcCompiler);
-}
-
-
-Compiler getCompiler(string name)
-{
-	foreach (c; s_compilers)
-		if (c.name == name)
-			return c;
-
-	// try to match names like gdmd or gdc-2.61
-	if (name.canFind("dmd")) return getCompiler("dmd");
-	if (name.canFind("gdc")) return getCompiler("gdc");
-	if (name.canFind("ldc")) return getCompiler("ldc");
-
-	throw new Exception("Unknown compiler: "~name);
-}
-
-void registerCompiler(Compiler c)
-{
-	s_compilers ~= c;
-}
 
 void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, string package_name, string config_name)
 {
@@ -200,9 +168,23 @@ void resolveLibs(ref BuildSettings settings)
 	}
 }
 
-
 interface Compiler {
+	/// The shortest name of the compiler, lowercased. Eg: "dmd", "gdc", "ldc"
 	@property string name() const;
+	/// The path to the binary that was given as a parameter to Compiler.factory.
+	protected @property string binary() const;
+
+	/// Returns an instance of a Compiler that represent the binary at path.
+	/// The $PATH variable will be used, so values such as "dmd", "gdc-4.9" are accepted.
+	static Compiler factory(string binPath) {
+		import dub.compilers.dmd : DmdCompiler;
+		import dub.compilers.gdc : GdcCompiler;
+		import dub.compilers.ldc : LdcCompiler;
+		if (binPath.canFind("dmd")) return new DmdCompiler(binPath);
+		if (binPath.canFind("gdc")) return new GdcCompiler(binPath);
+		if (binPath.canFind("ldc")) return new LdcCompiler(binPath);
+		throw new Exception("Unknown compiler: "~binPath);
+	}
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override = null);
 
@@ -495,8 +477,4 @@ BuildPlatform readPlatformProbe(string output)
 	build_platform.compiler = json.compiler.get!string;
 	build_platform.frontendVersion = json.frontendVersion.get!int;
 	return build_platform;
-}
-
-private {
-	Compiler[] s_compilers;
 }

@@ -48,7 +48,10 @@ class DmdCompiler : Compiler {
 		tuple(BuildOptions.property, ["-property"]),
 	];
 
-	@property string name() const { return "dmd"; }
+	override @property string name() const { return "dmd"; }
+	override protected @property string binary() const { return m_binary; }
+	private immutable string m_binary;
+	this(string bin) { this.m_binary = bin; }
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
@@ -137,8 +140,10 @@ class DmdCompiler : Compiler {
 		assert(fields & BuildSetting.copyFiles);
 	}
 
-	void extractBuildOptions(ref BuildSettings settings) const
-	{
+	void extractBuildOptions(ref BuildSettings settings) const {
+		DmdCompiler.extractBuildOptions_(settings);
+	}
+	static void extractBuildOptions_(ref BuildSettings settings) {
 		Appender!(string[]) newflags;
 		next_flag: foreach (f; settings.dflags) {
 			foreach (t; s_options)
