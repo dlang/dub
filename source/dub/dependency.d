@@ -100,8 +100,8 @@ struct Dependency {
 				m_cmpB = skipComp(v2);
 				m_versB = Version(v2);
 
-				enforce(!m_versA.isBranch, "Partly a branch (A): %s", ves);
-				enforce(!m_versB.isBranch, "Partly a branch (B): %s", ves);
+				enforce(!m_versA.isBranch, format("Partly a branch (A): %s", ves));
+				enforce(!m_versB.isBranch, format("Partly a branch (B): %s", ves));
 
 				if (m_versB < m_versA) {
 					swap(m_versA, m_versB);
