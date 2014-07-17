@@ -604,6 +604,7 @@ class Dub {
 
 			auto ddox_dub = new Dub(m_packageSuppliers);
 			ddox_dub.loadPackage(ddox_pack.path);
+			ddox_dub.upgrade(UpgradeOptions.select);
 
 			auto compiler_binary = "dmd";
 
