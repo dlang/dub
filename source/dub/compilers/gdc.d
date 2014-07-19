@@ -49,6 +49,9 @@ class GdcCompiler : Compiler {
 	];
 
 	@property string name() const { return "gdc"; }
+	override protected @property string binary() const { return m_binary; }
+	private immutable string m_binary;
+	this(string bin) { this.m_binary = bin; }
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{

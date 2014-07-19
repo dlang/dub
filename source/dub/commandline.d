@@ -372,7 +372,7 @@ abstract class PackageBuildCommand : Command {
 
 	protected void setupPackage(Dub dub, string package_name)
 	{
-		m_compiler = getCompiler(m_compilerName);
+		m_compiler = Compiler.factory(m_compilerName);
 		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compilerName, m_arch);
 		m_buildSettings.addDebugVersions(m_debugVersions);
 
@@ -671,7 +671,7 @@ class TestCommand : PackageBuildCommand {
 
 		GeneratorSettings settings;
 		settings.platform = m_buildPlatform;
-		settings.compiler = getCompiler(m_buildPlatform.compilerBinary);
+		settings.compiler = Compiler.factory(m_buildPlatform.compilerBinary);
 		settings.buildType = m_buildType;
 		settings.buildMode = m_buildMode;
 		settings.buildSettings = m_buildSettings;

@@ -274,7 +274,7 @@ class Package {
 		if( ret.targetName.empty ) ret.targetName = this.name.replace(":", "_");
 
 		// special support for DMD style flags
-		getCompiler("dmd").extractBuildOptions(ret);
+		dub.compilers.dmd.DmdCompiler.extractBuildOptions_(ret);
 
 		return ret;
 	}
@@ -291,7 +291,7 @@ class Package {
 		if (ret.targetName.empty) ret.targetName = this.name.replace(":", "_");
 
 		// special support for DMD style flags
-		getCompiler("dmd").extractBuildOptions(ret);
+		dub.compilers.dmd.DmdCompiler.extractBuildOptions_(ret);
 
 		return ret;
 	}
