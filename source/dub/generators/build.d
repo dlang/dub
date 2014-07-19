@@ -297,7 +297,7 @@ class BuildGenerator : ProjectGenerator {
 		return format("%s-%s-%s-%s-%s-%s", config, settings.buildType,
 			settings.platform.platform.join("."),
 			settings.platform.architecture.join("."),
-			settings.platform.compilerBinary, hashstr);
+			settings.platform.compiler, hashstr);
 	}
 
 	private void copyTargetFile(Path build_path, BuildSettings buildsettings, BuildPlatform platform)
