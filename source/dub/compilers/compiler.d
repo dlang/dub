@@ -359,6 +359,7 @@ bool isLinkerFile(string f)
 	}
 }
 
+/// Generate a file that will give, at compile time, informations about the compiler (architecture, frontend version...)
 Path generatePlatformProbeFile()
 {
 	import dub.internal.vibecompat.core.file;
@@ -374,25 +375,25 @@ Path generatePlatformProbeFile()
 	}
 
 	fil.write(q{
-		import std.array;
-		import std.stdio;
+		import std.array, std.conv;
 
 		void main()
 		{
-			writeln(`{`);
-			writefln(`  "compiler": "%s",`, determineCompiler());
-			writefln(`  "frontendVersion": %s,`, __VERSION__);
-			writefln(`  "compilerVendor": "%s",`, __VENDOR__);
-			writefln(`  "platform": [`);
-			foreach (p; determinePlatform()) writefln(`    "%s",`, p);
-			writefln(`   ],`);
-			writefln(`  "architecture": [`);
-			foreach (p; determineArchitecture()) writefln(`    "%s",`, p);
-			writefln(`   ],`);
-			writeln(`}`);
+			pragma(msg, `{`);
+			pragma(msg,`  "compiler": "`~ determineCompiler() ~ `",`);
+			pragma(msg, `  "frontendVersion": ` ~ to!string(__VERSION__) ~ `,`);
+			pragma(msg, `  "compilerVendor": "` ~ __VENDOR__ ~ `",`);
+			pragma(msg, `  "platform": [`);
+			pragma(msg, `    ` ~ determinePlatform());
+			pragma(msg, `  ],`);
+			pragma(msg, `  "architecture": [`);
+			pragma(msg, `    ` ~ determineArchitecture());
+			pragma(msg, `   ],`);
+			pragma(msg, `}`);
 		}
 
-		string[] determinePlatform()
+
+		string determinePlatform()
 		{
 			auto ret = appender!(string[])();
 			version(Windows) ret.put("windows");
@@ -414,10 +415,11 @@ Path generatePlatformProbeFile()
 			version(Android) ret.put("android");
 			version(Cygwin) ret.put("cygwin");
 			version(MinGW) ret.put("mingw");
-			return ret.data;
+			foreach(ref str; ret.data) str = `"` ~ str ~ `"`;
+			return ret.data.join(",\n    ");
 		}
 
-		string[] determineArchitecture()
+		string determineArchitecture()
 		{
 			auto ret = appender!(string[])();
 			version(X86) ret.put("x86");
@@ -457,7 +459,8 @@ Path generatePlatformProbeFile()
 			version(Alpha) ret.put("alpha");
 			version(Alpha_SoftFP) ret.put("alpha_softfp");
 			version(Alpha_HardFP) ret.put("alpha_hardfp");
-			return ret.data;
+			foreach(ref str; ret.data) str = `"` ~ str ~ `"`;
+			return ret.data.join(",\n    ");
 		}
 
 		string determineCompiler()
