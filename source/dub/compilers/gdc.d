@@ -197,7 +197,7 @@ class GdcCompiler : Compiler {
 			assert(tpath !is null, "setTarget should be called before invoke");
 			args = [ "ar", "rcs", tpath ] ~ objects;
 		} else {
-			args = platform.compiler ~ objects ~ settings.sourceFiles ~ settings.lflags ~ settings.dflags.filter!(f => isLinkageFlag(f)).array;
+			args = platform.compilerBinary ~ objects ~ settings.sourceFiles ~ settings.lflags ~ settings.dflags.filter!(f => isLinkageFlag(f)).array;
 			version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
 		}
 		logDiagnostic("%s", args.join(" "));
