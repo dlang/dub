@@ -96,6 +96,7 @@ int runDubCommandLine(string[] args)
 			new RunCommand,
 			new BuildCommand,
 			new TestCommand,
+			new TestCovCommand,
 			new GenerateCommand,
 			new DescribeCommand,
 			new CleanCommand,
@@ -682,6 +683,17 @@ class TestCommand : PackageBuildCommand {
 
 		dub.testProject(settings, m_buildConfig, Path(m_mainFile));
 		return 0;
+	}
+}
+
+class TestCovCommand : TestCommand {
+	this()
+	{
+		super();
+		this.name = "test-cov";
+		this.description = "Executes the tests of the selected package, generates coverage information";
+		this.helpText[ 0 ] = `Builds the package and executes all contained unit tests, and generates coverage information.`;
+		m_buildType = "unittest-cov";
 	}
 }
 
