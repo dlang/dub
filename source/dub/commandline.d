@@ -658,6 +658,12 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
+		bool coverage = false;
+		args.getopt("coverage", &coverage, [
+			"Enables code coverage statistics to be generated."
+		]);
+		if( coverage )
+			m_buildType = "unittest-cov";
 		super.prepare(args);
 	}
 
