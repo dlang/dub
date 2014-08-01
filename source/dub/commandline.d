@@ -336,15 +336,18 @@ abstract class PackageBuildCommand : Command {
 		string m_defaultConfig;
 		bool m_nodeps;
 		bool m_forceRemove = false;
+		bool m_disableBuildOption = false;
 	}
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("b|build", &m_buildType, [
-			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
-			"Possible names:",
-			"  debug (default), plain, release, release-nobounds, unittest, profile, docs, ddox, cov, unittest-cov and custom types"
-		]);
+		if (!m_disableBuildOption) {
+			args.getopt("b|build", &m_buildType, [
+				"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
+				"Possible names:",
+				"  debug (default), plain, release, release-nobounds, unittest, profile, docs, ddox, cov, unittest-cov and custom types"
+			]);
+		}
 		args.getopt("c|config", &m_buildConfig, [
 			"Builds the specified configuration. Configurations can be defined in dub.json"
 		]);
@@ -645,6 +648,7 @@ class TestCommand : PackageBuildCommand {
 		this.acceptsAppArgs = true;
 
 		m_buildType = "unittest";
+		m_disableBuildOption = true;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -662,8 +666,8 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("coverage", &coverage, [
 			"Enables code coverage statistics to be generated."
 		]);
-		if( coverage )
-			m_buildType = "unittest-cov";
+		if (coverage) m_buildType = "unittest-cov";
+		
 		super.prepare(args);
 	}
 
