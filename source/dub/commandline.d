@@ -96,7 +96,6 @@ int runDubCommandLine(string[] args)
 			new RunCommand,
 			new BuildCommand,
 			new TestCommand,
-			new TestCovCommand,
 			new GenerateCommand,
 			new DescribeCommand,
 			new CleanCommand,
@@ -659,6 +658,12 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
+		bool coverage = false;
+		args.getopt("coverage", &coverage, [
+			"Enables code coverage statistics to be generated."
+		]);
+		if( coverage )
+			m_buildType = "unittest-cov";
 		super.prepare(args);
 	}
 
@@ -683,17 +688,6 @@ class TestCommand : PackageBuildCommand {
 
 		dub.testProject(settings, m_buildConfig, Path(m_mainFile));
 		return 0;
-	}
-}
-
-class TestCovCommand : TestCommand {
-	this()
-	{
-		super();
-		this.name = "test-cov";
-		this.description = "Executes the tests of the selected package, generates coverage information";
-		this.helpText[ 0 ] = `Builds the package and executes all contained unit tests, and generates coverage information.`;
-		m_buildType = "unittest-cov";
 	}
 }
 
