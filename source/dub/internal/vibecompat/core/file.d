@@ -134,6 +134,31 @@ void copyFile(string from, string to)
 }
 
 /**
+	Creates a symlink.
+*/
+version (Windows)
+	alias symlinkFile = copyFile; // TODO: symlinks on Windows
+else version (Posix)
+{
+	void symlinkFile(Path from, Path to, bool overwrite = false)
+	{
+		if (existsFile(to)) {
+			enforce(overwrite, "Destination file already exists.");
+			// remove file before copy to allow "overwriting" files that are in
+			// use on Linux
+			removeFile(to);
+		}
+
+		.symlink(from.toNativeString(), to.toNativeString());
+	}
+}
+
+void symlinkFile(string from, string to)
+{
+	symlinkFile(Path(from), Path(to));
+}
+
+/**
 	Removes a file
 */
 void removeFile(Path path)
@@ -288,4 +313,3 @@ private FileInfo makeFileInfo(DirEntry ent)
 	}
 	return ret;
 }
-
