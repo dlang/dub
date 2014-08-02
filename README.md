@@ -6,6 +6,7 @@ Package and build manager for [D](http://dlang.org/) applications and libraries.
 There is a central [package registry](https://github.com/D-Programming-Language/dub-registry/) located at <http://code.dlang.org>.
 
 [![Build Status](https://travis-ci.org/D-Programming-Language/dub.png)](https://travis-ci.org/D-Programming-Language/dub)
+[![Coverage Status](https://coveralls.io/repos/D-Programming-Language/dub/badge.png?branch=master)](https://coveralls.io/r/D-Programming-Language/dub)
 
 Introduction
 ------------
