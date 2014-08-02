@@ -48,3 +48,8 @@ script:
   - dub test --compiler=${LDC_BIN} -c library-nonet
   - dub build
   - DUB=`pwd`/bin/dub COMPILER=dmd test/run-unittest.sh
+
+after_success:
+  - sudo ./bin/dub test --coverage
+  - sudo ./bin/dub fetch doveralls
+  - sudo ./bin/dub run doveralls -- -j $TRAVIS_JOB_ID
