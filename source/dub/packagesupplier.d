@@ -38,6 +38,12 @@ interface PackageSupplier {
 
 	/// returns the metadata for the package
 	Json getPackageDescription(string packageId, Dependency dep, bool pre_release);
+
+	/// load caches to disk
+	void loadCache(Path cacheDir);
+
+	/// persist caches to disk
+	void storeCache(Path cacheDir);
 }
 
 class FileSystemPackageSupplier : PackageSupplier {
@@ -79,6 +85,12 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return jsonFromZip(filename, "dub.json");
 	}
 
+	void storeCache(Path cacheDir) {
+	}
+
+	void loadCache(Path cacheDir) {
+	}
+
 	private Path bestPackageFile(string packageId, Dependency dep, bool pre_release)
 	{
 		Path toPath(Version ver) {
@@ -102,6 +114,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		struct CacheEntry { Json data; SysTime cacheTime; }
 		CacheEntry[string] m_metadataCache;
 		Duration m_maxCacheTime;
+		bool m_metadataCacheDirty;
 	}
 
 	this(URL registry)
@@ -139,12 +152,42 @@ class RegistryPackageSupplier : PackageSupplier {
 		return getBestPackage(packageId, dep, pre_release);
 	}
 
+	void storeCache(Path cacheDir)
+	{
+		if (!m_metadataCacheDirty) return;
+
+		auto path = cacheDir ~ cacheFileName;
+		if (!cacheDir.existsFile())
+			mkdirRecurse(cacheDir.toNativeString());
+		// TODO: method is slow due to Json escaping
+		writeJsonFile(path, m_metadataCache.serializeToJson());
+		m_metadataCacheDirty = false;
+	}
+
+	void loadCache(Path cacheDir)
+	{
+		auto path = cacheDir ~ cacheFileName;
+		if (!path.existsFile()) return;
+
+		deserializeJson(m_metadataCache, jsonFromFile(path));
+		m_metadataCacheDirty = false;
+	}
+
+	private @property string cacheFileName()
+	{
+		import std.digest.md;
+		auto hash = m_registryUrl.toString.md5Of();
+		return m_registryUrl.host ~ hash[0 .. $/2].toHexString().idup ~ ".json";
+	}
+
 	private Json getMetadata(string packageId)
 	{
 		auto now = Clock.currTime(UTC());
 		if (auto pentry = packageId in m_metadataCache) {
 			if (pentry.cacheTime + m_maxCacheTime > now)
 				return pentry.data;
+			m_metadataCache.remove(packageId);
+			m_metadataCacheDirty = true;
 		}
 
 		auto url = m_registryUrl ~ Path(PackagesPath ~ "/" ~ packageId ~ ".json");
@@ -154,7 +197,11 @@ class RegistryPackageSupplier : PackageSupplier {
 
 		auto jsonData = cast(string)download(url);
 		Json json = parseJsonString(jsonData);
+		// strip readme data (to save size and time)
+		foreach (ref v; json["versions"])
+			v.remove("readme");
 		m_metadataCache[packageId] = CacheEntry(json, now);
+		m_metadataCacheDirty = true;
 		return json;
 	}
 
