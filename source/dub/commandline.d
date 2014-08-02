@@ -194,7 +194,10 @@ int runDubCommandLine(string[] args)
 	}
 
 	// execute the command
-	try return cmd.execute(dub, remaining_args, app_args);
+	int rc;
+	try {
+		rc = cmd.execute(dub, remaining_args, app_args);
+	}
 	catch (UsageException e) {
 		logError("%s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
@@ -206,6 +209,10 @@ int runDubCommandLine(string[] args)
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		return 2;
 	}
+
+	if (!cmd.skipDubInitialization)
+		dub.shutdown();
+	return rc;
 }
 
 class CommandArgs {

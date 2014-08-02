@@ -105,6 +105,10 @@ class Dub {
 				.array;
 		ps ~= defaultPackageSuppliers();
 
+		auto cacheDir = m_userDubPath ~ "cache/";
+		foreach (p; ps)
+			p.loadCache(cacheDir);
+
 		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
 		updatePackageSearchPath();
@@ -116,6 +120,14 @@ class Dub {
 		m_overrideSearchPath = override_path;
 		m_packageManager = new PackageManager(Path(), Path(), false);
 		updatePackageSearchPath();
+	}
+
+	/// Perform cleanup and persist caches to disk
+	void shutdown()
+	{
+		auto cacheDir = m_userDubPath ~ "cache/";
+		foreach (p; m_packageSuppliers)
+			p.storeCache(cacheDir);
 	}
 
 	@property void dryRun(bool v) { m_dryRun = v; }
