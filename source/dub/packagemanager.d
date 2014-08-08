@@ -152,13 +152,13 @@ class PackageManager {
 		return null;
 	}
 
-	Package getOrLoadPackage(Path path)
+	Package getOrLoadPackage(Path path, Path infoFile = Path())
 	{
 		path.endsWithSlash = true;
 		foreach (p; getPackageIterator())
 			if (!p.parentPackage && p.path == path)
 				return p;
-		auto pack = new Package(path);
+		auto pack = new Package(path, infoFile);
 		addPackages(m_temporaryPackages, pack);
 		return pack;
 	}
@@ -355,7 +355,7 @@ class PackageManager {
 		logDiagnostic("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite dub.json (this one includes a version field)
-		auto pack = new Package(destination, null, package_info["version"].get!string);
+		auto pack = new Package(destination, Path(), null, package_info["version"].get!string);
 
 		if (pack.packageInfoFile.head != defaultPackageFilename()) {
 			// Storeinfo saved a default file, this could be different to the file from the zip.
@@ -554,7 +554,8 @@ class PackageManager {
 							}
 
 							if (!pp) {
-								if (Package.isPackageAt(path)) pp = new Package(path);
+								Path infoFile = Package.findPackageFile(path);
+								if (!infoFile.empty) pp = new Package(path, infoFile);
 								else {
 									logWarn("Locally registered package %s %s was not found. Please run \"dub remove-local %s\".",
 										name, ver, path.toNativeString());
@@ -594,7 +595,8 @@ class PackageManager {
 					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 					if( !pdir.isDirectory ) continue;
 					auto pack_path = path ~ (pdir.name ~ "/");
-					if (!Package.isPackageAt(pack_path)) continue;
+					Path packageFile = Package.findPackageFile(pack_path);
+					if (packageFile.empty) continue;
 					Package p;
 					try {
 						if (!refresh_existing_packages)
@@ -603,7 +605,7 @@ class PackageManager {
 									p = pp;
 									break;
 								}
-						if (!p) p = new Package(pack_path);
+						if (!p) p = new Package(pack_path, packageFile);
 						addPackages(m_packages, p);
 					} catch( Exception e ){
 						logError("Failed to load package in %s: %s", pack_path, e.msg);
@@ -724,7 +726,7 @@ class PackageManager {
 			}
 			// Add the subpackage.
 			try {
-				dst_repos ~= new Package(path, pack);
+				dst_repos ~= new Package(path, Path(), pack);
 			} catch (Exception e) {
 				logError("Package '%s': Failed to load sub-package in %s, error: %s", pack.name, path.toNativeString(), e.msg);
 				logDiagnostic("Full error: %s", e.toString().sanitize());
