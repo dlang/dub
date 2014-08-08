@@ -23,6 +23,13 @@ source/dub/internal/vibecompat/core/file.d
 source/dub/internal/vibecompat/core/log.d
 source/dub/internal/vibecompat/data/json.d
 source/dub/internal/vibecompat/data/sdl.d
+source/sdlang_/ast.d
+source/sdlang_/exception.d
+source/sdlang_/lexer.d
+source/sdlang_/parser.d
+source/sdlang_/symbol.d
+source/sdlang_/token.d
+source/sdlang_/util.d
 source/dub/internal/vibecompat/data/utils.d
 source/dub/internal/vibecompat/inet/path.d
 source/dub/internal/vibecompat/inet/url.d
