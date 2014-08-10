@@ -1,0 +1,2 @@
+name       "dynlib-simple"
+targetType "dynamicLibrary"

@@ -10,6 +10,7 @@ module dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
+import dub.internal.vibecompat.data.sdl;
 import dub.internal.vibecompat.inet.url;
 import dub.version_;
 
@@ -25,6 +26,21 @@ import std.typecons;
 import std.zip;
 version(DubUseCurl) import std.net.curl;
 
+
+enum PackageFileFormat { sdl, json }
+
+PackageFileFormat getFormat(Path file)
+{
+	string extension = file.ext();
+	if(extension.empty) throw new Exception(format("Package file '%s' has no extension, cannot determine file format"));
+	if(extension == ".sdl") {
+		return PackageFileFormat.sdl;
+	} else if(extension == ".json") {
+		return PackageFileFormat.json;
+	} else {
+		throw new Exception(format("Package file '%s' has an unknown extension, expected .sdl or .json"));
+	}
+}
 
 Path getTempDir()
 {
@@ -56,10 +72,18 @@ bool isWritableDir(Path p, bool create_if_missing = false)
 
 Json jsonFromFile(Path file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.emptyObject;
+	
+	PackageFileFormat fileFormat = file.getFormat();
+	
 	auto f = openFile(file.toNativeString(), FileMode.Read);
 	scope(exit) f.close();
 	auto text = stripUTF8Bom(cast(string)f.readAll());
-	return parseJsonString(text);
+	
+	final switch(fileFormat)
+	{
+		case PackageFileFormat.sdl: return parseSdlString(text);
+		case PackageFileFormat.json: return parseJsonString(text);
+	}
 }
 
 Json jsonFromZip(Path zip, string filename) {
@@ -72,11 +96,20 @@ Json jsonFromZip(Path zip, string filename) {
 	return parseJsonString(text);
 }
 
+// TODO: change this to writePackageFile
 void writeJsonFile(Path path, Json json)
 {
+	PackageFileFormat fileFormat = path.getFormat();
+	
 	auto f = openFile(path, FileMode.CreateTrunc);
-	scope(exit) f.close();
-	f.writePrettyJsonString(json);
+	scope(exit) f.close();	
+	
+	final switch(fileFormat)
+	{
+		case PackageFileFormat.sdl: f.writePrettySdlString(json); break;
+		case PackageFileFormat.json: f.writePrettyJsonString(json); break;
+	}
+	
 }
 
 bool isPathFromZip(string p) {

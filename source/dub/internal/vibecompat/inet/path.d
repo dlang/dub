@@ -15,6 +15,7 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.string;
+import std.path : extension;
 
 
 /**
@@ -145,6 +146,11 @@ struct Path {
 			if( m_nodes[i] != rhs.m_nodes[i] )
 				return false;
 		return true;
+	}
+	
+	string ext() {
+		if(m_nodes.length == 0) return null;
+		return extension(m_nodes[$-1].toString());
 	}
 
 	/// Computes the relative path from `parentPath` to this path.
