@@ -21,6 +21,7 @@ import std.file;
 import std.process;
 import std.random;
 import std.typecons;
+import std.string : indexOf, CaseSensitive;
 
 
 class DmdCompiler : Compiler {
@@ -130,7 +131,9 @@ class DmdCompiler : Compiler {
 		}
 
 		if (!(fields & BuildSetting.lflags)) {
-			settings.addDFlags(settings.lflags.map!(f => "-L"~f)().array());
+			settings.addDFlags(settings.lflags.map!(f =>
+                indexOf(f, ".def", CaseSensitive.no) == -1 ? "-L"~f : ""~f
+                )().array());
 			settings.lflags = null;
 		}
 
@@ -194,7 +197,9 @@ class DmdCompiler : Compiler {
 		args ~= objects;
 		args ~= settings.sourceFiles;
 		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
-		args ~= settings.lflags.map!(l => "-L"~l)().array;
+		args ~= settings.lflags.map!(f =>
+                indexOf(f, ".def", CaseSensitive.no) == -1 ? "-L"~f : ""~f
+                )().array;
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 		logDiagnostic("%s", args.join(" "));
 		invokeTool(args, output_callback);
