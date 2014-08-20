@@ -415,7 +415,7 @@ class Dub {
 	void cleanPackage(Path path)
 	{
 		logInfo("Cleaning package at %s...", path.toNativeString());
-		enforce(Package.isPackageAt(path), "No package found.", path.toNativeString());
+		enforce(!Package.findPackageFile(path).empty, "No package found.", path.toNativeString());
 
 		// TODO: clear target files and copy files
 

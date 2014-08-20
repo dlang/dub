@@ -48,31 +48,30 @@ class Package {
 		Package[] m_subPackages;
 		Path[] m_exportedPackages;
 	}
-
-	static bool isPackageAt(Path path)
+	
+	static Path findPackageFile(Path path)
 	{
-		foreach (f; packageInfoFilenames)
-			if (existsFile(path ~ f))
-				return true;
-		return false;
+		foreach(f; packageInfoFilenames) {
+			auto filename = path ~ f;
+			if(existsFile(filename)) return filename;
+		}
+		return Path();
 	}
 
-	this(Path root, Package parent = null, string versionOverride = "")
+	this(Path root, Path infoFile = Path(), Package parent = null, string versionOverride = "")
 	{
-		Json info;
+		Json info;		
+		m_infoFile = infoFile;
+		
 		try {
-			foreach (f; packageInfoFilenames) {
-				auto name = root ~ f;
-				if (existsFile(name)) {
-					m_infoFile = name;
-					info = jsonFromFile(m_infoFile);
-					break;
-				}
+			if(m_infoFile.empty) {
+				m_infoFile = findPackageFile(root);
+				if(m_infoFile.empty) throw new Exception("no package file was found, expected one of the following: "~to!string(packageInfoFilenames));
 			}
+			info = jsonFromFile(m_infoFile);
 		} catch (Exception ex) throw new Exception(format("Failed to load package at %s: %s", root.toNativeString(), ex.msg));
-
+		
 		enforce(info.type != Json.Type.undefined, format("Missing package description for package at %s", root.toNativeString()));
-
 		this(info, root, parent, versionOverride);
 	}
 
@@ -167,7 +166,7 @@ class Package {
 				enforce(!p.absolute, "Sub package paths must not be absolute: " ~ sub.get!string);
 				enforce(!p.startsWith(Path("..")), "Sub packages must be in a sub directory, not " ~ sub.get!string);
 				m_exportedPackages ~= p;
-				if (!path.empty) m_subPackages ~= new Package(path ~ p, this, this.vers);
+				if (!path.empty) m_subPackages ~= new Package(path ~ p, Path(), this, this.vers);
 			} else {
 				m_subPackages ~= new Package(sub, root, this);
 			}
