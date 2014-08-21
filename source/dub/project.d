@@ -47,12 +47,10 @@ class Project {
 	this(PackageManager package_manager, Path project_path)
 	{
 		Package pack;
-		Path packageFile = Package.findPackageFile(project_path);
+		auto packageFile = Package.findPackageFile(project_path);
 		if (packageFile.empty) {
 			logWarn("There was no package description found for the application in '%s'.", project_path.toNativeString());
-			auto json = Json.emptyObject;
-			json.name = "unknown";
-			pack = new Package(json, project_path);
+			pack = new Package(null, project_path);
 		} else {
 			pack = package_manager.getOrLoadPackage(project_path, packageFile);
 		}

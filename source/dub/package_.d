@@ -25,10 +25,30 @@ import std.string;
 import std.traits : EnumMembers;
 
 
+
+enum PackageFormat { json, sdl }
+struct FilenameAndFormat
+{
+	string filename;
+	PackageFormat format;	
+}
+struct PathAndFormat
+{
+	Path path;
+	PackageFormat format;
+	@property bool empty() { return path.empty; }
+	string toString() { return path.toString(); }
+}
+
 // Supported package descriptions in decreasing order of preference.
-enum packageInfoFilenames = ["dub.json", /*"dub.sdl",*/ "package.json"];
+enum FilenameAndFormat[] packageInfoFiles = [
+	{"dub.json", PackageFormat.json},
+	/*{"dub.sdl",PackageFormat.sdl},*/
+	{"package.json", PackageFormat.json}
+];
+
 string defaultPackageFilename() {
-	return packageInfoFilenames[0];
+	return packageInfoFiles[0].filename;
 }
 
 /**
@@ -42,47 +62,48 @@ class Package {
 
 	private {
 		Path m_path;
-		Path m_infoFile;
+		PathAndFormat m_infoFile;
 		PackageInfo m_info;
 		Package m_parentPackage;
 		Package[] m_subPackages;
 		Path[] m_exportedPackages;
 	}
 	
-	static Path findPackageFile(Path path)
+	static PathAndFormat findPackageFile(Path path)
 	{
-		foreach(f; packageInfoFilenames) {
-			auto filename = path ~ f;
-			if(existsFile(filename)) return filename;
+		foreach(file; packageInfoFiles) {
+			auto filename = path ~ file.filename;
+			if(existsFile(filename)) return PathAndFormat(filename, file.format);
 		}
-		return Path();
+		return PathAndFormat(Path());
 	}
 
-	this(Path root, Path infoFile = Path(), Package parent = null, string versionOverride = "")
+	this(Path root, PathAndFormat infoFile = PathAndFormat(), Package parent = null, string versionOverride = "")
 	{
-		Json info;		
+		RawPackage raw_package;
 		m_infoFile = infoFile;
 		
 		try {
 			if(m_infoFile.empty) {
 				m_infoFile = findPackageFile(root);
-				if(m_infoFile.empty) throw new Exception("no package file was found, expected one of the following: "~to!string(packageInfoFilenames));
+				if(m_infoFile.empty) throw new Exception("no package file was found, expected one of the following: "~to!string(packageInfoFiles));
 			}
-			info = jsonFromFile(m_infoFile);
-		} catch (Exception ex) throw new Exception(format("Failed to load package at %s: %s", root.toNativeString(), ex.msg));
+			raw_package = rawPackageFromFile(m_infoFile);
+		} catch (Exception ex) throw ex;//throw new Exception(format("Failed to load package %s: %s", m_infoFile.toNativeString(), ex.msg));
 		
-		enforce(info.type != Json.Type.undefined, format("Missing package description for package at %s", root.toNativeString()));
-		this(info, root, parent, versionOverride);
+		enforce(raw_package !is null, format("Missing package description for package at %s", root.toNativeString()));
+		this(raw_package, root, parent, versionOverride);
 	}
-
-	this(Json packageInfo, Path root = Path(), Package parent = null, string versionOverride = "")
+	
+	this(Json package_info, Path root = Path(), Package parent = null, string versionOverride = "")
+	{
+		this(new JsonPackage(package_info), root, parent, versionOverride);
+	}
+	this(RawPackage raw_package, Path root = Path(), Package parent = null, string versionOverride = "")
 	{
 		m_parentPackage = parent;
 		m_path = root;
 		m_path.endsWithSlash = true;
-
-		// force the package name to be lower case
-		packageInfo.name = packageInfo.name.get!string.toLower();
 
 		// check for default string import folders
 		foreach(defvf; ["views"]){
@@ -92,7 +113,7 @@ class Package {
 		}
 
 		string app_main_file;
-		auto pkg_name = packageInfo.name.get!string();
+		auto pkg_name = (raw_package is null) ? "unknown" : raw_package.package_name;
 
 		// check for default source folders
 		foreach(defsf; ["source/", "src/"]){
@@ -108,10 +129,11 @@ class Package {
 			}
 		}
 
-		// parse the JSON description
+		// parse the Package description
+		if(raw_package !is null)
 		{
 			scope(failure) logError("Failed to parse package description in %s", root.toNativeString());
-			m_info.parseJson(packageInfo, parent ? parent.name : null);
+			raw_package.parseInto(m_info, parent ? parent.name : null);
 
 			if (!versionOverride.empty)
 				m_info.version_ = versionOverride;
@@ -157,7 +179,7 @@ class Package {
 		}
 
 		// load all sub packages defined in the package description
-		foreach (sub; packageInfo.subPackages.opt!(Json[])) {
+		foreach (sub; m_info.subPackages.opt!(Json[])) {
 			enforce(!m_parentPackage, format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.", name, m_parentPackage.name));
 
 			if (sub.type == Json.Type.string)  {
@@ -166,9 +188,9 @@ class Package {
 				enforce(!p.absolute, "Sub package paths must not be absolute: " ~ sub.get!string);
 				enforce(!p.startsWith(Path("..")), "Sub packages must be in a sub directory, not " ~ sub.get!string);
 				m_exportedPackages ~= p;
-				if (!path.empty) m_subPackages ~= new Package(path ~ p, Path(), this, this.vers);
+				if (!path.empty) m_subPackages ~= new Package(path ~ p, PathAndFormat(), this, this.vers);
 			} else {
-				m_subPackages ~= new Package(sub, root, this);
+				m_subPackages ~= new Package(new JsonPackage(sub), root, this);
 			}
 		}
 
@@ -185,7 +207,7 @@ class Package {
 	@property void ver(Version ver) { assert(m_parentPackage is null); m_info.version_ = ver.toString(); }
 	@property ref inout(PackageInfo) info() inout { return m_info; }
 	@property Path path() const { return m_path; }
-	@property Path packageInfoFile() const { return m_infoFile; }
+	@property Path packageInfoFilename() const { return m_infoFile.path; }
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
 	@property inout(Package) basePackage() inout { return m_parentPackage ? m_parentPackage.basePackage : this; }
 	@property inout(Package) parentPackage() inout { return m_parentPackage; }
@@ -223,7 +245,7 @@ class Package {
 		auto dstFile = openFile(filename.toNativeString(), FileMode.CreateTrunc);
 		scope(exit) dstFile.close();
 		dstFile.writePrettyJsonString(m_info.toJson());
-		m_infoFile = filename;
+		m_infoFile = PathAndFormat(filename);
 	}
 
 	inout(Package) getSubPackage(string name, bool silent_fail = false)
@@ -484,7 +506,7 @@ struct PackageInfo {
 				return c;
 		throw new Exception("Unknown configuration: "~name);
 	}
-
+	
 	void parseJson(Json json, string parent_name)
 	{
 		foreach( string field, value; json ){
@@ -915,3 +937,51 @@ private string determineVersionFromSCM(Path path)
 
 	return null;
 }
+
+
+private RawPackage rawPackageFromFile(PathAndFormat file, bool silent_fail = false) {
+	if( silent_fail && !existsFile(file.path) ) return null;
+	auto f = openFile(file.path.toNativeString(), FileMode.Read);
+	scope(exit) f.close();
+	auto text = stripUTF8Bom(cast(string)f.readAll());
+	
+	final switch(file.format) {
+		case PackageFormat.json:
+			return new JsonPackage(parseJsonString(text));
+		case PackageFormat.sdl:
+			if(silent_fail) return null; throw new Exception("SDL not implemented");
+	}
+}
+
+private abstract class RawPackage
+{
+	string package_name; // Should already be lower case
+	string version_;
+	abstract void parseInto(ref PackageInfo info, string parent_name);
+}
+private class JsonPackage : RawPackage
+{
+	Json json;
+	this(Json json) {
+		this.json = json;
+
+		string nameLower = json.name.get!string.toLower();
+		this.json.name = nameLower;
+		this.package_name = nameLower;
+		
+		Json versionJson = json["version"];
+		this.version_ = (versionJson.type == Json.Type.undefined) ? null : versionJson.get!string;
+	}
+	override void parseInto(ref PackageInfo info, string parent_name)
+	{
+		info.parseJson(json, parent_name);
+	}
+}
+private class SdlPackage : RawPackage
+{
+	override void parseInto(ref PackageInfo info, string parent_name)
+	{
+		throw new Exception("SDL packages not implemented yet");
+	}
+}
+
