@@ -183,7 +183,7 @@ version(DubUseCurl) {
 	}
 }
 
-private string stripUTF8Bom(string str)
+string stripUTF8Bom(string str)
 {
 	if( str.length >= 3 && str[0 .. 3] == [0xEF, 0xBB, 0xBF] )
 		return str[3 ..$];

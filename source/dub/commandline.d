@@ -440,8 +440,8 @@ abstract class PackageBuildCommand : Command {
 		if (warn_missing_package) {
 			bool found = existsFile(dub.rootPath ~ "source/app.d");
 			if (!found)
-				foreach (f; packageInfoFilenames)
-					if (existsFile(dub.rootPath ~ f)) {
+				foreach (f; packageInfoFiles)
+					if (existsFile(dub.rootPath ~ f.filename)) {
 						found = true;
 						break;
 					}
