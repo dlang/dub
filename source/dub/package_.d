@@ -99,7 +99,7 @@ class Package {
 	{
 		this(new JsonPackage(package_info), root, parent, versionOverride);
 	}
-	this(RawPackage raw_package, Path root = Path(), Package parent = null, string versionOverride = "")
+	this(const RawPackage raw_package, Path root = Path(), Package parent = null, string versionOverride = "")
 	{
 		m_parentPackage = parent;
 		m_path = root;
@@ -133,7 +133,7 @@ class Package {
 		if(raw_package !is null)
 		{
 			scope(failure) logError("Failed to parse package description in %s", root.toNativeString());
-			raw_package.parseInto(m_info, parent ? parent.name : null);
+			raw_package.parseInto(this, parent ? parent.name : null);
 
 			if (!versionOverride.empty)
 				m_info.version_ = versionOverride;
@@ -177,23 +177,12 @@ class Package {
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
-
+		
 		// load all sub packages defined in the package description
-		foreach (sub; m_info.subPackages.opt!(Json[])) {
-			enforce(!m_parentPackage, format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.", name, m_parentPackage.name));
-
-			if (sub.type == Json.Type.string)  {
-				auto p = Path(sub.get!string);
-				p.normalize();
-				enforce(!p.absolute, "Sub package paths must not be absolute: " ~ sub.get!string);
-				enforce(!p.startsWith(Path("..")), "Sub packages must be in a sub directory, not " ~ sub.get!string);
-				m_exportedPackages ~= p;
-				if (!path.empty) m_subPackages ~= new Package(path ~ p, PathAndFormat(), this, this.vers);
-			} else {
-				m_subPackages ~= new Package(new JsonPackage(sub), root, this);
-			}
+		foreach(sub; m_info.subPackages) {
+			enforce(!parentPackage, format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.", name, parentPackage.name));
+			sub.parseAsSubPackage(this);
 		}
-
 		simpleLint();
 	}
 
@@ -470,6 +459,102 @@ class Package {
 		}
 		if (name.empty()) logWarn("The package in %s has no name.", path);
 	}
+
+	private static RawPackage rawPackageFromFile(PathAndFormat file, bool silent_fail = false) {
+		if( silent_fail && !existsFile(file.path) ) return null;
+		auto f = openFile(file.path.toNativeString(), FileMode.Read);
+		scope(exit) f.close();
+		auto text = stripUTF8Bom(cast(string)f.readAll());
+
+		final switch(file.format) {
+			case PackageFormat.json:
+				return new JsonPackage(parseJsonString(text));
+			case PackageFormat.sdl:
+				if(silent_fail) return null; throw new Exception("SDL not implemented");
+		}
+	}
+	
+	static abstract class RawPackage
+	{
+		string package_name; // Should already be lower case
+		string version_;
+		
+		abstract string asImportedPackage() const;
+		abstract Json toOriginalJson() const;
+		abstract void parseInto(Package package_, string parent_name) const;
+		
+		protected Package parse(Package parentPackage)
+		{
+			return new Package(this, parentPackage.m_path, parentPackage);
+		}		
+		void parseAsSubPackage(Package parentPackage)
+		{
+			string importedPackage = asImportedPackage();
+			if (importedPackage !is null) {
+				auto subPackageFilename = Path(importedPackage);
+				subPackageFilename.normalize();
+				enforce(!subPackageFilename.absolute, "Sub package paths must not be absolute: " ~ importedPackage);
+				enforce(!subPackageFilename.startsWith(Path("..")), "Sub packages must be in a sub directory, not " ~ importedPackage);
+				parentPackage.m_exportedPackages ~= subPackageFilename;
+				if (!parentPackage.path.empty) parentPackage.m_subPackages ~=
+					new Package(parentPackage.path ~ subPackageFilename, PathAndFormat(), parentPackage, parentPackage.vers);
+			} else {
+				parentPackage.m_subPackages ~= parse(parentPackage);
+			}
+		}
+	}
+	private static class JsonPackage : RawPackage
+	{
+		Json json;
+		this(Json json) {
+			this.json = json;
+
+			string nameLower;
+			if(json.type == Json.Type.string) {
+				nameLower = json.get!string.toLower();
+				this.json = nameLower;
+			} else {
+				nameLower = json.name.get!string.toLower();
+				this.json.name = nameLower;
+				this.package_name = nameLower;
+
+				Json versionJson = json["version"];
+				this.version_ = (versionJson.type == Json.Type.undefined) ? null : versionJson.get!string;
+			}
+
+			this.package_name = nameLower;
+		}
+		override string asImportedPackage() const
+		{
+			return (json.type == Json.Type.string) ? json.get!string : null;
+		}
+		override Json toOriginalJson() const { return json; }
+		override void parseInto(Package package_, string parent_name) const
+		{
+			package_.info.parseJson(json, parent_name);
+		}
+	}
+	private static class SdlPackage : RawPackage
+	{		
+		Package parsedPackage; // Used to convert the package to JSON
+		
+		override string asImportedPackage() const { throw new Exception("SDL packages not implemented yet"); }
+		override Json toOriginalJson() const
+		{
+			if(parsedPackage !is null) return parsedPackage.info.toJson();
+			// otherwise it is an imported package
+			throw new Exception("SDL packages not implemented yet");
+		}
+		override void parseInto(Package package_, string parent_name) const
+		{
+			throw new Exception("SDL packages not implemented yet");
+		}
+		protected override Package parse(Package parentPackage)
+		{
+			parsedPackage = RawPackage.parse(parentPackage);
+			return parsedPackage;
+		}
+	}
 }
 
 /// Specifying package information without any connection to a certain
@@ -486,7 +571,7 @@ struct PackageInfo {
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
 	BuildSettingsTemplate[string] buildTypes;
-	Json subPackages;
+	Package.RawPackage[] subPackages;
 
 	@property const(Dependency)[string] dependencies()
 	const {
@@ -519,7 +604,13 @@ struct PackageInfo {
 				case "authors": this.authors = deserializeJson!(string[])(value); break;
 				case "copyright": this.copyright = value.get!string; break;
 				case "license": this.license = value.get!string; break;
-				case "subPackages": subPackages = value; break;
+				case "subPackages":
+					Json[] subPackagesJson = value.opt!(Json[]);
+					this.subPackages = new Package.RawPackage[subPackagesJson.length];
+					foreach(i, subPackageJson; subPackagesJson) {
+						this.subPackages[i] = new Package.JsonPackage(subPackagesJson[i]);
+					}
+					break;
 				case "configurations": break; // handled below, after the global settings have been parsed
 				case "buildTypes":
 					foreach (string name, settings; value) {
@@ -560,9 +651,12 @@ struct PackageInfo {
 		if( !this.authors.empty ) ret.authors = serializeToJson(this.authors);
 		if( !this.copyright.empty ) ret.copyright = this.copyright;
 		if( !this.license.empty ) ret.license = this.license;
-		if( this.subPackages.type != Json.Type.undefined ) {
-			auto copy = this.subPackages.toString();
-			ret.subPackages = dub.internal.vibecompat.data.json.parseJson(copy);
+		if( !this.subPackages.empty ) {
+			Json[] jsonSubPackages = new Json[this.subPackages.length];
+			foreach(i, subPackage; this.subPackages) {
+				jsonSubPackages[i] = this.subPackages[i].toOriginalJson();
+			}
+			ret.subPackages = jsonSubPackages;
 		}
 		if( this.configurations ){
 			Json[] configs;
@@ -937,51 +1031,3 @@ private string determineVersionFromSCM(Path path)
 
 	return null;
 }
-
-
-private RawPackage rawPackageFromFile(PathAndFormat file, bool silent_fail = false) {
-	if( silent_fail && !existsFile(file.path) ) return null;
-	auto f = openFile(file.path.toNativeString(), FileMode.Read);
-	scope(exit) f.close();
-	auto text = stripUTF8Bom(cast(string)f.readAll());
-	
-	final switch(file.format) {
-		case PackageFormat.json:
-			return new JsonPackage(parseJsonString(text));
-		case PackageFormat.sdl:
-			if(silent_fail) return null; throw new Exception("SDL not implemented");
-	}
-}
-
-private abstract class RawPackage
-{
-	string package_name; // Should already be lower case
-	string version_;
-	abstract void parseInto(ref PackageInfo info, string parent_name);
-}
-private class JsonPackage : RawPackage
-{
-	Json json;
-	this(Json json) {
-		this.json = json;
-
-		string nameLower = json.name.get!string.toLower();
-		this.json.name = nameLower;
-		this.package_name = nameLower;
-		
-		Json versionJson = json["version"];
-		this.version_ = (versionJson.type == Json.Type.undefined) ? null : versionJson.get!string;
-	}
-	override void parseInto(ref PackageInfo info, string parent_name)
-	{
-		info.parseJson(json, parent_name);
-	}
-}
-private class SdlPackage : RawPackage
-{
-	override void parseInto(ref PackageInfo info, string parent_name)
-	{
-		throw new Exception("SDL packages not implemented yet");
-	}
-}
-
