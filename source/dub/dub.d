@@ -844,7 +844,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 			auto basepack = getPackage(basename, dep);
 			if (auto sp = basepack.getSubPackage(subname, true)) {
 				return sp;
-			} else if (!basepack.exportedPackages.length) {
+			} else if (!basepack.exportedPackageCount) {
 				logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
 				return null;
 			}

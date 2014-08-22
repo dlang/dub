@@ -208,9 +208,10 @@ class PackageManager {
 		{
 			int handlePackage(Package p) {
 				if (auto ret = del(p)) return ret;
-				foreach (sp; p.subPackages)
-					if (auto ret = del(sp))
-						return ret;
+				foreach (sp; p.allSubPackages)
+					if(sp.package_ !is null)
+						if (auto ret = del(sp.package_))
+							return ret;
 				return 0;
 			}
 
@@ -718,8 +719,8 @@ class PackageManager {
 		// Additionally to the internally defined subpackages, whose metadata
 		// is loaded with the main dub.json, load all externally defined
 		// packages after the package is available with all the data.
-		foreach (sub_path; pack.exportedPackages) {
-			auto path = pack.path ~ sub_path;
+		foreach (package_; pack.exportedPackages) {
+			auto path = pack.path ~ package_.referenceName;
 			if (!existsFile(path)) {
 				logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
 				continue;

@@ -65,8 +65,6 @@ class Package {
 		PathAndFormat m_infoFile;
 		PackageInfo m_info;
 		Package m_parentPackage;
-		Package[] m_subPackages;
-		Path[] m_exportedPackages;
 	}
 	
 	static PathAndFormat findPackageFile(Path path)
@@ -177,12 +175,6 @@ class Package {
 				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
 			}
 		}
-		
-		// load all sub packages defined in the package description
-		foreach(sub; m_info.subPackages) {
-			enforce(!parentPackage, format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.", name, parentPackage.name));
-			sub.parseAsSubPackage(this);
-		}
 		simpleLint();
 	}
 
@@ -200,8 +192,9 @@ class Package {
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
 	@property inout(Package) basePackage() inout { return m_parentPackage ? m_parentPackage.basePackage : this; }
 	@property inout(Package) parentPackage() inout { return m_parentPackage; }
-	@property inout(Package)[] subPackages() inout { return m_subPackages; }
-	@property inout(Path[]) exportedPackages() inout { return m_exportedPackages; }
+	@property inout(SubPackage)[] allSubPackages() inout { return m_info.subPackages; }
+	@property auto exportedPackages() { return m_info.subPackages.filter!(p => p.referenceName !is null); }
+	@property auto exportedPackageCount() { return m_info.exportedPackageCount; }
 
 	@property string[] configurations()
 	const {
@@ -209,6 +202,15 @@ class Package {
 		foreach( ref config; m_info.configurations )
 			ret.put(config.name);
 		return ret.data;
+	}
+
+	Package parseImportedPackage(string importedPackage)
+	{
+		auto packageFilename = Path(importedPackage);
+		packageFilename.normalize();
+		enforce(!packageFilename.absolute, "Sub package paths must not be absolute: " ~ importedPackage);
+		enforce(!packageFilename.startsWith(Path("..")), "Sub packages must be in a sub directory, not " ~ importedPackage);
+		return path.empty ? null : new Package(path ~ packageFilename, PathAndFormat(), this, this.vers);
 	}
 
 	const(Dependency[string]) getDependencies(string config)
@@ -239,9 +241,9 @@ class Package {
 
 	inout(Package) getSubPackage(string name, bool silent_fail = false)
 	inout {
-		foreach (p; m_subPackages)
-			if (p.name == this.name ~ ":" ~ name)
-				return p;
+		foreach (p; m_info.subPackages)
+			if (p.package_ !is null && p.package_.name == this.name ~ ":" ~ name)
+				return p.package_;
 		enforce(silent_fail, format("Unknown sub package: %s:%s", this.name, name));
 		return null;
 	}
@@ -477,31 +479,8 @@ class Package {
 	static abstract class RawPackage
 	{
 		string package_name; // Should already be lower case
-		string version_;
-		
-		abstract string asImportedPackage() const;
-		abstract Json toOriginalJson() const;
+		string version_;		
 		abstract void parseInto(Package package_, string parent_name) const;
-		
-		protected Package parse(Package parentPackage)
-		{
-			return new Package(this, parentPackage.m_path, parentPackage);
-		}		
-		void parseAsSubPackage(Package parentPackage)
-		{
-			string importedPackage = asImportedPackage();
-			if (importedPackage !is null) {
-				auto subPackageFilename = Path(importedPackage);
-				subPackageFilename.normalize();
-				enforce(!subPackageFilename.absolute, "Sub package paths must not be absolute: " ~ importedPackage);
-				enforce(!subPackageFilename.startsWith(Path("..")), "Sub packages must be in a sub directory, not " ~ importedPackage);
-				parentPackage.m_exportedPackages ~= subPackageFilename;
-				if (!parentPackage.path.empty) parentPackage.m_subPackages ~=
-					new Package(parentPackage.path ~ subPackageFilename, PathAndFormat(), parentPackage, parentPackage.vers);
-			} else {
-				parentPackage.m_subPackages ~= parse(parentPackage);
-			}
-		}
 	}
 	private static class JsonPackage : RawPackage
 	{
@@ -524,37 +503,25 @@ class Package {
 
 			this.package_name = nameLower;
 		}
-		override string asImportedPackage() const
-		{
-			return (json.type == Json.Type.string) ? json.get!string : null;
-		}
-		override Json toOriginalJson() const { return json; }
 		override void parseInto(Package package_, string parent_name) const
 		{
-			package_.info.parseJson(json, parent_name);
+			package_.info.parseJson(package_, json, parent_name);
 		}
 	}
 	private static class SdlPackage : RawPackage
-	{		
-		Package parsedPackage; // Used to convert the package to JSON
-		
-		override string asImportedPackage() const { throw new Exception("SDL packages not implemented yet"); }
-		override Json toOriginalJson() const
-		{
-			if(parsedPackage !is null) return parsedPackage.info.toJson();
-			// otherwise it is an imported package
-			throw new Exception("SDL packages not implemented yet");
-		}
+	{
 		override void parseInto(Package package_, string parent_name) const
 		{
 			throw new Exception("SDL packages not implemented yet");
 		}
-		protected override Package parse(Package parentPackage)
-		{
-			parsedPackage = RawPackage.parse(parentPackage);
-			return parsedPackage;
-		}
 	}
+}
+
+
+struct SubPackage
+{
+	string referenceName;
+	Package package_;
 }
 
 /// Specifying package information without any connection to a certain
@@ -571,7 +538,9 @@ struct PackageInfo {
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
 	BuildSettingsTemplate[string] buildTypes;
-	Package.RawPackage[] subPackages;
+	
+	size_t exportedPackageCount;
+	SubPackage[] subPackages;
 
 	@property const(Dependency)[string] dependencies()
 	const {
@@ -590,9 +559,28 @@ struct PackageInfo {
 			if (c.name == name)
 				return c;
 		throw new Exception("Unknown configuration: "~name);
+	}	
+	void parseSubPackages(Package containingPackage, Json[] subPackagesJson)
+	{
+		enforce(!containingPackage.parentPackage, format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
+			containingPackage.name, containingPackage.parentPackage.name));
+
+		this.exportedPackageCount = 0;
+		this.subPackages = new SubPackage[subPackagesJson.length];
+		foreach(i, subPackageJson; subPackagesJson) {
+			// Handle referenced Packages
+			if(subPackageJson.type == Json.Type.string) {
+				string packageNameReference = subPackageJson.get!string;
+				this.subPackages[i] = SubPackage(packageNameReference,
+					containingPackage.parseImportedPackage(packageNameReference));
+				this.exportedPackageCount++;
+			} else {
+				this.subPackages[i] = SubPackage(null,
+					new Package(subPackageJson, containingPackage.m_path, containingPackage));
+			}
+		}
 	}
-	
-	void parseJson(Json json, string parent_name)
+	void parseJson(Package containingPackage, Json json, string parent_name)
 	{
 		foreach( string field, value; json ){
 			switch(field){
@@ -604,13 +592,7 @@ struct PackageInfo {
 				case "authors": this.authors = deserializeJson!(string[])(value); break;
 				case "copyright": this.copyright = value.get!string; break;
 				case "license": this.license = value.get!string; break;
-				case "subPackages":
-					Json[] subPackagesJson = value.opt!(Json[]);
-					this.subPackages = new Package.RawPackage[subPackagesJson.length];
-					foreach(i, subPackageJson; subPackagesJson) {
-						this.subPackages[i] = new Package.JsonPackage(subPackagesJson[i]);
-					}
-					break;
+				case "subPackages": parseSubPackages(containingPackage, value.opt!(Json[])); break;
 				case "configurations": break; // handled below, after the global settings have been parsed
 				case "buildTypes":
 					foreach (string name, settings; value) {
@@ -653,8 +635,12 @@ struct PackageInfo {
 		if( !this.license.empty ) ret.license = this.license;
 		if( !this.subPackages.empty ) {
 			Json[] jsonSubPackages = new Json[this.subPackages.length];
-			foreach(i, subPackage; this.subPackages) {
-				jsonSubPackages[i] = this.subPackages[i].toOriginalJson();
+			foreach(i, subPackage; subPackages) {
+				if(subPackage.referenceName !is null) {
+					jsonSubPackages[i] = Json(subPackage.referenceName);
+				} else {
+					jsonSubPackages[i] = subPackage.package_.m_info.toJson();
+				}
 			}
 			ret.subPackages = jsonSubPackages;
 		}
