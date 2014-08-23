@@ -7,8 +7,13 @@
 */
 module dub.package_;
 
+public import dub.recipe.packagerecipe;
+
 import dub.compilers.compiler;
 import dub.dependency;
+import dub.recipe.json;
+import dub.recipe.sdl;
+
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.core.file;
@@ -63,7 +68,7 @@ class Package {
 	private {
 		Path m_path;
 		PathAndFormat m_infoFile;
-		PackageInfo m_info;
+		PackageRecipe m_info;
 		Package m_parentPackage;
 	}
 
@@ -100,7 +105,7 @@ class Package {
 
 	this(const RawPackage raw_package, Path root = Path(), Package parent = null, string versionOverride = "")
 	{
-		PackageInfo recipe;
+		PackageRecipe recipe;
 
 		// parse the Package description
 		if(raw_package !is null)
@@ -128,7 +133,7 @@ class Package {
 		this(recipe, root, parent);
 	}
 
-	this(PackageInfo recipe, Path root = Path(), Package parent = null)
+	this(PackageRecipe recipe, Path root = Path(), Package parent = null)
 	{
 		m_parentPackage = parent;
 		m_path = root;
@@ -200,7 +205,7 @@ class Package {
 	@property string vers() const { return m_parentPackage ? m_parentPackage.vers : m_info.version_; }
 	@property Version ver() const { return Version(this.vers); }
 	@property void ver(Version ver) { assert(m_parentPackage is null); m_info.version_ = ver.toString(); }
-	@property ref inout(PackageInfo) info() inout { return m_info; }
+	@property ref inout(PackageRecipe) info() inout { return m_info; }
 	@property Path path() const { return m_path; }
 	@property Path packageInfoFilename() const { return m_infoFile.path; }
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
@@ -483,7 +488,7 @@ class Package {
 	{
 		string package_name; // Should already be lower case
 		string version_;
-		abstract void parseInto(ref PackageInfo package_, string parent_name) const;
+		abstract void parseInto(ref PackageRecipe package_, string parent_name) const;
 	}
 	private static class JsonPackage : RawPackage
 	{
@@ -506,491 +511,20 @@ class Package {
 
 			this.package_name = nameLower;
 		}
-		override void parseInto(ref PackageInfo recipe, string parent_name) const
+		override void parseInto(ref PackageRecipe recipe, string parent_name) const
 		{
 			recipe.parseJson(json, parent_name);
 		}
 	}
 	private static class SdlPackage : RawPackage
 	{
-		override void parseInto(ref PackageInfo package_, string parent_name) const
+		override void parseInto(ref PackageRecipe package_, string parent_name) const
 		{
 			throw new Exception("SDL packages not implemented yet");
 		}
 	}
 }
 
-
-struct SubPackage
-{
-	string path;
-	PackageInfo recipe;
-}
-
-/// Specifying package information without any connection to a certain
-/// retrived package, like Package class is doing.
-struct PackageInfo {
-	string name;
-	string version_;
-	string description;
-	string homepage;
-	string[] authors;
-	string copyright;
-	string license;
-	string[] ddoxFilterArgs;
-	BuildSettingsTemplate buildSettings;
-	ConfigurationInfo[] configurations;
-	BuildSettingsTemplate[string] buildTypes;
-
-	size_t exportedPackageCount;
-	SubPackage[] subPackages;
-
-	@property const(Dependency)[string] dependencies()
-	const {
-		const(Dependency)[string] ret;
-		foreach (n, d; this.buildSettings.dependencies)
-			ret[n] = d;
-		foreach (ref c; configurations)
-			foreach (n, d; c.buildSettings.dependencies)
-				ret[n] = d;
-		return ret;
-	}
-
-	inout(ConfigurationInfo) getConfiguration(string name)
-	inout {
-		foreach (c; configurations)
-			if (c.name == name)
-				return c;
-		throw new Exception("Unknown configuration: "~name);
-	}
-	void parseJson(Json json, string parent_name)
-	{
-		foreach( string field, value; json ){
-			switch(field){
-				default: break;
-				case "name": this.name = value.get!string; break;
-				case "version": this.version_ = value.get!string; break;
-				case "description": this.description = value.get!string; break;
-				case "homepage": this.homepage = value.get!string; break;
-				case "authors": this.authors = deserializeJson!(string[])(value); break;
-				case "copyright": this.copyright = value.get!string; break;
-				case "license": this.license = value.get!string; break;
-				case "configurations": break; // handled below, after the global settings have been parsed
-				case "buildTypes":
-					foreach (string name, settings; value) {
-						BuildSettingsTemplate bs;
-						bs.parseJson(settings, null);
-						buildTypes[name] = bs;
-					}
-					break;
-				case "-ddoxFilterArgs": this.ddoxFilterArgs = deserializeJson!(string[])(value); break;
-			}
-		}
-
-		enforce(this.name.length > 0, "The package \"name\" field is missing or empty.");
-
-		auto fullname = parent_name.length ? parent_name ~ ":" ~ this.name : this.name;
-
-		// parse build settings
-		this.buildSettings.parseJson(json, fullname);
-
-		if (auto pv = "configurations" in json) {
-			TargetType deftargettp = TargetType.library;
-			if (this.buildSettings.targetType != TargetType.autodetect)
-				deftargettp = this.buildSettings.targetType;
-
-			foreach (settings; *pv) {
-				ConfigurationInfo ci;
-				ci.parseJson(settings, this.name, deftargettp);
-				this.configurations ~= ci;
-			}
-		}
-
-		// parse any sub packages after the main package has been fully parsed
-		if (auto ps = "subPackages" in json)
-			parseSubPackages(fullname, ps.opt!(Json[]));
-	}
-
-	Json toJson()
-	const {
-		auto ret = buildSettings.toJson();
-		ret.name = this.name;
-		if( !this.version_.empty ) ret["version"] = this.version_;
-		if( !this.description.empty ) ret.description = this.description;
-		if( !this.homepage.empty ) ret.homepage = this.homepage;
-		if( !this.authors.empty ) ret.authors = serializeToJson(this.authors);
-		if( !this.copyright.empty ) ret.copyright = this.copyright;
-		if( !this.license.empty ) ret.license = this.license;
-		if( !this.subPackages.empty ) {
-			Json[] jsonSubPackages = new Json[this.subPackages.length];
-			foreach(i, subPackage; subPackages) {
-				if(subPackage.path !is null) {
-					jsonSubPackages[i] = Json(subPackage.path);
-				} else {
-					jsonSubPackages[i] = subPackage.recipe.toJson();
-				}
-			}
-			ret.subPackages = jsonSubPackages;
-		}
-		if( this.configurations ){
-			Json[] configs;
-			foreach(config; this.configurations)
-				configs ~= config.toJson();
-			ret.configurations = configs;
-		}
-		if( this.buildTypes.length ) {
-			Json[string] types;
-			foreach(name, settings; this.buildTypes)
-				types[name] = settings.toJson();
-		}
-		if( !this.ddoxFilterArgs.empty ) ret["-ddoxFilterArgs"] = this.ddoxFilterArgs.serializeToJson();
-		return ret;
-	}
-
-	private void parseSubPackages(string parent_package_name, Json[] subPackagesJson)
-	{
-		enforce(!parent_package_name.canFind(":"), format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
-			parent_package_name, getBasePackageName(parent_package_name)));
-
-		this.exportedPackageCount = 0;
-		this.subPackages = new SubPackage[subPackagesJson.length];
-		foreach(i, subPackageJson; subPackagesJson) {
-			// Handle referenced Packages
-			if(subPackageJson.type == Json.Type.string) {
-				string subpath = subPackageJson.get!string;
-				this.subPackages[i] = SubPackage(subpath, PackageInfo.init);
-				this.exportedPackageCount++;
-			} else {
-				PackageInfo subinfo;
-				subinfo.parseJson(subPackageJson, parent_package_name);
-				this.subPackages[i] = SubPackage(null, subinfo);
-			}
-		}
-	}
-}
-
-/// Bundles information about a build configuration.
-struct ConfigurationInfo {
-	string name;
-	string[] platforms;
-	BuildSettingsTemplate buildSettings;
-
-	this(string name, BuildSettingsTemplate build_settings)
-	{
-		enforce(!name.empty, "Configuration name is empty.");
-		this.name = name;
-		this.buildSettings = build_settings;
-	}
-
-	void parseJson(Json json, string package_name, TargetType default_target_type = TargetType.library)
-	{
-		this.buildSettings.targetType = default_target_type;
-
-		foreach(string name, value; json){
-			switch(name){
-				default: break;
-				case "name":
-					this.name = value.get!string();
-					enforce(!this.name.empty, "Configurations must have a non-empty name.");
-					break;
-				case "platforms": this.platforms = deserializeJson!(string[])(value); break;
-			}
-		}
-
-		enforce(!this.name.empty, "Configuration is missing a name.");
-
-		BuildSettingsTemplate bs;
-		this.buildSettings.parseJson(json, package_name);
-	}
-
-	Json toJson()
-	const {
-		auto ret = buildSettings.toJson();
-		ret.name = name;
-		if( this.platforms.length ) ret.platforms = serializeToJson(platforms);
-		return ret;
-	}
-
-	bool matchesPlatform(in BuildPlatform platform)
-	const {
-		if( platforms.empty ) return true;
-		foreach(p; platforms)
-			if( platform.matchesSpecification("-"~p) )
-				return true;
-		return false;
-	}
-}
-
-/// This keeps general information about how to build a package.
-/// It contains functions to create a specific BuildSetting, targeted at
-/// a certain BuildPlatform.
-struct BuildSettingsTemplate {
-	Dependency[string] dependencies;
-	string systemDependencies;
-	TargetType targetType = TargetType.autodetect;
-	string targetPath;
-	string targetName;
-	string workingDirectory;
-	string mainSourceFile;
-	string[string] subConfigurations;
-	string[][string] dflags;
-	string[][string] lflags;
-	string[][string] libs;
-	string[][string] sourceFiles;
-	string[][string] sourcePaths;
-	string[][string] excludedSourceFiles;
-	string[][string] copyFiles;
-	string[][string] versions;
-	string[][string] debugVersions;
-	string[][string] importPaths;
-	string[][string] stringImportPaths;
-	string[][string] preGenerateCommands;
-	string[][string] postGenerateCommands;
-	string[][string] preBuildCommands;
-	string[][string] postBuildCommands;
-	BuildRequirements[string] buildRequirements;
-	BuildOptions[string] buildOptions;
-
-	void parseJson(Json json, string package_name)
-	{
-		foreach(string name, value; json)
-		{
-			auto idx = std.string.indexOf(name, "-");
-			string basename, suffix;
-			if( idx >= 0 ) basename = name[0 .. idx], suffix = name[idx .. $];
-			else basename = name;
-			switch(basename){
-				default: break;
-				case "dependencies":
-					foreach (string pkg, verspec; value) {
-						if (pkg.startsWith(":")) {
-							enforce(!package_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", package_name, pkg));
-							pkg = package_name ~ pkg;
-						}
-						enforce(pkg !in this.dependencies, "The dependency '"~pkg~"' is specified more than once." );
-						this.dependencies[pkg] = deserializeJson!Dependency(verspec);
-					}
-					break;
-				case "systemDependencies":
-					this.systemDependencies = value.get!string;
-					break;
-				case "targetType":
-					enforce(suffix.empty, "targetType does not support platform customization.");
-					targetType = value.get!string().to!TargetType();
-					break;
-				case "targetPath":
-					enforce(suffix.empty, "targetPath does not support platform customization.");
-					this.targetPath = value.get!string;
-					break;
-				case "targetName":
-					enforce(suffix.empty, "targetName does not support platform customization.");
-					this.targetName = value.get!string;
-					break;
-				case "workingDirectory":
-					enforce(suffix.empty, "workingDirectory does not support platform customization.");
-					this.workingDirectory = value.get!string;
-					break;
-				case "mainSourceFile":
-					enforce(suffix.empty, "mainSourceFile does not support platform customization.");
-					this.mainSourceFile = value.get!string;
-					break;
-				case "subConfigurations":
-					enforce(suffix.empty, "subConfigurations does not support platform customization.");
-					this.subConfigurations = deserializeJson!(string[string])(value);
-					break;
-				case "dflags": this.dflags[suffix] = deserializeJson!(string[])(value); break;
-				case "lflags": this.lflags[suffix] = deserializeJson!(string[])(value); break;
-				case "libs": this.libs[suffix] = deserializeJson!(string[])(value); break;
-				case "files":
-				case "sourceFiles": this.sourceFiles[suffix] = deserializeJson!(string[])(value); break;
-				case "sourcePaths": this.sourcePaths[suffix] = deserializeJson!(string[])(value); break;
-				case "sourcePath": this.sourcePaths[suffix] ~= [value.get!string()]; break; // deprecated
-				case "excludedSourceFiles": this.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
-				case "copyFiles": this.copyFiles[suffix] = deserializeJson!(string[])(value); break;
-				case "versions": this.versions[suffix] = deserializeJson!(string[])(value); break;
-				case "debugVersions": this.debugVersions[suffix] = deserializeJson!(string[])(value); break;
-				case "importPaths": this.importPaths[suffix] = deserializeJson!(string[])(value); break;
-				case "stringImportPaths": this.stringImportPaths[suffix] = deserializeJson!(string[])(value); break;
-				case "preGenerateCommands": this.preGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
-				case "postGenerateCommands": this.postGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
-				case "preBuildCommands": this.preBuildCommands[suffix] = deserializeJson!(string[])(value); break;
-				case "postBuildCommands": this.postBuildCommands[suffix] = deserializeJson!(string[])(value); break;
-				case "buildRequirements":
-					BuildRequirements reqs;
-					foreach (req; deserializeJson!(string[])(value))
-						reqs |= to!BuildRequirements(req);
-					this.buildRequirements[suffix] = reqs;
-					break;
-				case "buildOptions":
-					BuildOptions options;
-					foreach (opt; deserializeJson!(string[])(value))
-						options |= to!BuildOptions(opt);
-					this.buildOptions[suffix] = options;
-					break;
-			}
-		}
-	}
-
-	Json toJson()
-	const {
-		auto ret = Json.emptyObject;
-		if( this.dependencies !is null ){
-			auto deps = Json.emptyObject;
-			foreach( pack, d; this.dependencies )
-				deps[pack] = serializeToJson(d);
-			ret.dependencies = deps;
-		}
-		if (this.systemDependencies !is null) ret.systemDependencies = this.systemDependencies;
-		if (targetType != TargetType.autodetect) ret["targetType"] = targetType.to!string();
-		if (!targetPath.empty) ret["targetPath"] = targetPath;
-		if (!targetName.empty) ret["targetName"] = targetName;
-		if (!workingDirectory.empty) ret["workingDirectory"] = workingDirectory;
-		if (!mainSourceFile.empty) ret["mainSourceFile"] = mainSourceFile;
-		foreach (suffix, arr; dflags) ret["dflags"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; lflags) ret["lflags"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; libs) ret["libs"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; sourceFiles) ret["sourceFiles"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; sourcePaths) ret["sourcePaths"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; excludedSourceFiles) ret["excludedSourceFiles"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; copyFiles) ret["copyFiles"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; versions) ret["versions"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; debugVersions) ret["debugVersions"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; importPaths) ret["importPaths"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; stringImportPaths) ret["stringImportPaths"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; preGenerateCommands) ret["preGenerateCommands"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; postGenerateCommands) ret["postGenerateCommands"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; preBuildCommands) ret["preBuildCommands"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; postBuildCommands) ret["postBuildCommands"~suffix] = serializeToJson(arr);
-		foreach (suffix, arr; buildRequirements) {
-			string[] val;
-			foreach (i; [EnumMembers!BuildRequirements])
-				if (arr & i) val ~= to!string(i);
-			ret["buildRequirements"~suffix] = serializeToJson(val);
-		}
-		foreach (suffix, arr; buildOptions) {
-			string[] val;
-			foreach (i; [EnumMembers!BuildOptions])
-				if (arr & i) val ~= to!string(i);
-			ret["buildOptions"~suffix] = serializeToJson(val);
-		}
-		return ret;
-	}
-
-	/// Constructs a BuildSettings object from this template.
-	void getPlatformSettings(ref BuildSettings dst, in BuildPlatform platform, Path base_path)
-	const {
-		dst.targetType = this.targetType;
-		if (!this.targetPath.empty) dst.targetPath = this.targetPath;
-		if (!this.targetName.empty) dst.targetName = this.targetName;
-		if (!this.workingDirectory.empty) dst.workingDirectory = this.workingDirectory;
-		if (!this.mainSourceFile.empty) {
-			dst.mainSourceFile = this.mainSourceFile;
-			dst.addSourceFiles(this.mainSourceFile);
-		}
-
-		void collectFiles(string method)(in string[][string] paths_map, string pattern)
-		{
-			foreach (suffix, paths; paths_map) {
-				if (!platform.matchesSpecification(suffix))
-					continue;
-
-				foreach (spath; paths) {
-					enforce(!spath.empty, "Paths must not be empty strings.");
-					auto path = Path(spath);
-					if (!path.absolute) path = base_path ~ path;
-					if (!existsFile(path) || !isDir(path.toNativeString())) {
-						logWarn("Invalid source/import path: %s", path.toNativeString());
-						continue;
-					}
-
-					foreach (d; dirEntries(path.toNativeString(), pattern, SpanMode.depth)) {
-						if (isDir(d.name)) continue;
-						auto src = Path(d.name).relativeTo(base_path);
-						__traits(getMember, dst, method)(src.toNativeString());
-					}
-				}
-			}
-		}
-
-		// collect files from all source/import folders
-		collectFiles!"addSourceFiles"(sourcePaths, "*.d");
-		collectFiles!"addImportFiles"(importPaths, "*.{d,di}");
-		dst.removeImportFiles(dst.sourceFiles);
-		collectFiles!"addStringImportFiles"(stringImportPaths, "*");
-
-		// ensure a deterministic order of files as passed to the compiler
-		dst.sourceFiles.sort();
-
-		getPlatformSetting!("dflags", "addDFlags")(dst, platform);
-		getPlatformSetting!("lflags", "addLFlags")(dst, platform);
-		getPlatformSetting!("libs", "addLibs")(dst, platform);
-		getPlatformSetting!("sourceFiles", "addSourceFiles")(dst, platform);
-		getPlatformSetting!("excludedSourceFiles", "removeSourceFiles")(dst, platform);
-		getPlatformSetting!("copyFiles", "addCopyFiles")(dst, platform);
-		getPlatformSetting!("versions", "addVersions")(dst, platform);
-		getPlatformSetting!("debugVersions", "addDebugVersions")(dst, platform);
-		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);
-		getPlatformSetting!("stringImportPaths", "addStringImportPaths")(dst, platform);
-		getPlatformSetting!("preGenerateCommands", "addPreGenerateCommands")(dst, platform);
-		getPlatformSetting!("postGenerateCommands", "addPostGenerateCommands")(dst, platform);
-		getPlatformSetting!("preBuildCommands", "addPreBuildCommands")(dst, platform);
-		getPlatformSetting!("postBuildCommands", "addPostBuildCommands")(dst, platform);
-		getPlatformSetting!("buildRequirements", "addRequirements")(dst, platform);
-		getPlatformSetting!("buildOptions", "addOptions")(dst, platform);
-	}
-
-	void getPlatformSetting(string name, string addname)(ref BuildSettings dst, in BuildPlatform platform)
-	const {
-		foreach(suffix, values; __traits(getMember, this, name)){
-			if( platform.matchesSpecification(suffix) )
-				__traits(getMember, dst, addname)(values);
-		}
-	}
-
-	void warnOnSpecialCompilerFlags(string package_name, string config_name)
-	{
-		auto nodef = false;
-		auto noprop = false;
-		foreach (req; this.buildRequirements) {
-			if (req & BuildRequirements.noDefaultFlags) nodef = true;
-			if (req & BuildRequirements.relaxProperties) noprop = true;
-		}
-
-		if (noprop) {
-			logWarn(`Warning: "buildRequirements": ["relaxProperties"] is deprecated and is now the default behavior. Note that the -property switch will probably be removed in future versions of DMD.`);
-			logWarn("");
-		}
-
-		if (nodef) {
-			logWarn("Warning: This package uses the \"noDefaultFlags\" build requirement. Please use only for development purposes and not for released packages.");
-			logWarn("");
-		} else {
-			string[] all_dflags;
-			BuildOptions all_options;
-			foreach (flags; this.dflags) all_dflags ~= flags;
-			foreach (options; this.buildOptions) all_options |= options;
-			.warnOnSpecialCompilerFlags(all_dflags, all_options, package_name, config_name);
-		}
-	}
-}
-
-/// Returns all package names, starting with the root package in [0].
-string[] getSubPackagePath(string package_name)
-{
-	return package_name.split(":");
-}
-
-/// Returns the name of the base package in the case of some sub package or the
-/// package itself, if it is already a full package.
-string getBasePackageName(string package_name)
-{
-	return package_name.getSubPackagePath()[0];
-}
-
-string getSubPackageName(string package_name)
-{
-	return getSubPackagePath(package_name)[1 .. $].join(":");
-}
 
 private string determineVersionFromSCM(Path path)
 {
