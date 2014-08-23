@@ -808,7 +808,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 			// detect dependencies to the root package (or sub packages thereof)
 			if (dbasename == basepack.name) {
 				auto absdeppath = dspec.mapToPath(pack.path).path;
-				auto subpack = basepack.getSubPackage(getSubPackageName(dname), true);
+				auto subpack = m_dub.m_packageManager.getSubPackage(basepack, getSubPackageName(dname), true);
 				if (subpack) {
 					auto desireddeppath = dname == dbasename ? basepack.path : subpack.path;
 					enforce(dspec.path.empty || absdeppath == desireddeppath,
@@ -842,9 +842,10 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		if (basename != name) {
 			auto subname = getSubPackageName(name);
 			auto basepack = getPackage(basename, dep);
-			if (auto sp = basepack.getSubPackage(subname, true)) {
+			if (auto sp = m_dub.m_packageManager.getSubPackage(basepack, subname, true)) {
 				return sp;
-			} else if (!basepack.exportedPackageCount) {
+			} else if (!basepack.subPackages.canFind!(p => p.path.length)) {
+				// note: external sub packages are handled further below
 				logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
 				return null;
 			}

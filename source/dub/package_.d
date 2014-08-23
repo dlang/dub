@@ -30,7 +30,7 @@ enum PackageFormat { json, sdl }
 struct FilenameAndFormat
 {
 	string filename;
-	PackageFormat format;	
+	PackageFormat format;
 }
 struct PathAndFormat
 {
@@ -66,7 +66,7 @@ class Package {
 		PackageInfo m_info;
 		Package m_parentPackage;
 	}
-	
+
 	static PathAndFormat findPackageFile(Path path)
 	{
 		foreach(file; packageInfoFiles) {
@@ -80,7 +80,7 @@ class Package {
 	{
 		RawPackage raw_package;
 		m_infoFile = infoFile;
-		
+
 		try {
 			if(m_infoFile.empty) {
 				m_infoFile = findPackageFile(root);
@@ -88,16 +88,47 @@ class Package {
 			}
 			raw_package = rawPackageFromFile(m_infoFile);
 		} catch (Exception ex) throw ex;//throw new Exception(format("Failed to load package %s: %s", m_infoFile.toNativeString(), ex.msg));
-		
+
 		enforce(raw_package !is null, format("Missing package description for package at %s", root.toNativeString()));
 		this(raw_package, root, parent, versionOverride);
 	}
-	
+
 	this(Json package_info, Path root = Path(), Package parent = null, string versionOverride = "")
 	{
 		this(new JsonPackage(package_info), root, parent, versionOverride);
 	}
+
 	this(const RawPackage raw_package, Path root = Path(), Package parent = null, string versionOverride = "")
+	{
+		PackageInfo recipe;
+
+		// parse the Package description
+		if(raw_package !is null)
+		{
+			scope(failure) logError("Failed to parse package description in %s", root.toNativeString());
+			raw_package.parseInto(recipe, parent ? parent.name : null);
+
+			if (!versionOverride.empty)
+				recipe.version_ = versionOverride;
+
+			// try to run git to determine the version of the package if no explicit version was given
+			if (recipe.version_.length == 0 && !parent) {
+				try recipe.version_ = determineVersionFromSCM(root);
+				catch (Exception e) logDebug("Failed to determine version by SCM: %s", e.msg);
+
+				if (recipe.version_.length == 0) {
+					logDiagnostic("Note: Failed to determine version of package %s at %s. Assuming ~master.", recipe.name, this.path.toNativeString());
+					// TODO: Assume unknown version here?
+					// recipe.version_ = Version.UNKNOWN.toString();
+					recipe.version_ = Version.MASTER.toString();
+				} else logDiagnostic("Determined package version using GIT: %s %s", recipe.name, recipe.version_);
+			}
+		}
+
+		this(recipe, root, parent);
+	}
+
+	this(PackageInfo recipe, Path root = Path(), Package parent = null)
 	{
 		m_parentPackage = parent;
 		m_path = root;
@@ -110,10 +141,16 @@ class Package {
 				m_info.buildSettings.stringImportPaths[""] ~= defvf;
 		}
 
-		string app_main_file;
-		auto pkg_name = (raw_package is null) ? "unknown" : raw_package.package_name;
+		// use the given recipe as the basis
+		m_info = recipe;
+
+		// WARNING: changed semantics here. Previously, "sourcePaths" etc.
+		// could overwrite what was determined here. Now the default paths
+		// are always added. This must be fixed somehow!
 
 		// check for default source folders
+		string app_main_file;
+		auto pkg_name = recipe.name.length ? recipe.name : "unknown";
 		foreach(defsf; ["source/", "src/"]){
 			auto p = m_path ~ defsf;
 			if( existsFile(p) ){
@@ -124,29 +161,6 @@ class Package {
 						app_main_file = Path(defsf ~ fil).toNativeString();
 						break;
 					}
-			}
-		}
-
-		// parse the Package description
-		if(raw_package !is null)
-		{
-			scope(failure) logError("Failed to parse package description in %s", root.toNativeString());
-			raw_package.parseInto(this, parent ? parent.name : null);
-
-			if (!versionOverride.empty)
-				m_info.version_ = versionOverride;
-
-			// try to run git to determine the version of the package if no explicit version was given
-			if (m_info.version_.length == 0 && !parent) {
-				try m_info.version_ = determineVersionFromSCM(root);
-				catch (Exception e) logDebug("Failed to determine version by SCM: %s", e.msg);
-
-				if (m_info.version_.length == 0) {
-					logDiagnostic("Note: Failed to determine version of package %s at %s. Assuming ~master.", m_info.name, this.path.toNativeString());
-					// TODO: Assume unknown version here?
-					// m_info.version_ = Version.UNKNOWN.toString();
-					m_info.version_ = Version.MASTER.toString();
-				} else logDiagnostic("Determined package version using GIT: %s %s", m_info.name, m_info.version_);
 			}
 		}
 
@@ -192,9 +206,7 @@ class Package {
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
 	@property inout(Package) basePackage() inout { return m_parentPackage ? m_parentPackage.basePackage : this; }
 	@property inout(Package) parentPackage() inout { return m_parentPackage; }
-	@property inout(SubPackage)[] allSubPackages() inout { return m_info.subPackages; }
-	@property auto exportedPackages() { return m_info.subPackages.filter!(p => p.referenceName !is null); }
-	@property auto exportedPackageCount() { return m_info.exportedPackageCount; }
+	@property inout(SubPackage)[] subPackages() inout { return m_info.subPackages; }
 
 	@property string[] configurations()
 	const {
@@ -202,15 +214,6 @@ class Package {
 		foreach( ref config; m_info.configurations )
 			ret.put(config.name);
 		return ret.data;
-	}
-
-	Package parseImportedPackage(string importedPackage)
-	{
-		auto packageFilename = Path(importedPackage);
-		packageFilename.normalize();
-		enforce(!packageFilename.absolute, "Sub package paths must not be absolute: " ~ importedPackage);
-		enforce(!packageFilename.startsWith(Path("..")), "Sub packages must be in a sub directory, not " ~ importedPackage);
-		return path.empty ? null : new Package(path ~ packageFilename, PathAndFormat(), this, this.vers);
 	}
 
 	const(Dependency[string]) getDependencies(string config)
@@ -239,14 +242,14 @@ class Package {
 		m_infoFile = PathAndFormat(filename);
 	}
 
-	inout(Package) getSubPackage(string name, bool silent_fail = false)
+	/*inout(Package) getSubPackage(string name, bool silent_fail = false)
 	inout {
 		foreach (p; m_info.subPackages)
 			if (p.package_ !is null && p.package_.name == this.name ~ ":" ~ name)
 				return p.package_;
 		enforce(silent_fail, format("Unknown sub package: %s:%s", this.name, name));
 		return null;
-	}
+	}*/
 
 	void warnOnSpecialCompilerFlags()
 	{
@@ -475,12 +478,12 @@ class Package {
 				if(silent_fail) return null; throw new Exception("SDL not implemented");
 		}
 	}
-	
+
 	static abstract class RawPackage
 	{
 		string package_name; // Should already be lower case
-		string version_;		
-		abstract void parseInto(Package package_, string parent_name) const;
+		string version_;
+		abstract void parseInto(ref PackageInfo package_, string parent_name) const;
 	}
 	private static class JsonPackage : RawPackage
 	{
@@ -503,14 +506,14 @@ class Package {
 
 			this.package_name = nameLower;
 		}
-		override void parseInto(Package package_, string parent_name) const
+		override void parseInto(ref PackageInfo recipe, string parent_name) const
 		{
-			package_.info.parseJson(package_, json, parent_name);
+			recipe.parseJson(json, parent_name);
 		}
 	}
 	private static class SdlPackage : RawPackage
 	{
-		override void parseInto(Package package_, string parent_name) const
+		override void parseInto(ref PackageInfo package_, string parent_name) const
 		{
 			throw new Exception("SDL packages not implemented yet");
 		}
@@ -520,8 +523,8 @@ class Package {
 
 struct SubPackage
 {
-	string referenceName;
-	Package package_;
+	string path;
+	PackageInfo recipe;
 }
 
 /// Specifying package information without any connection to a certain
@@ -538,7 +541,7 @@ struct PackageInfo {
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
 	BuildSettingsTemplate[string] buildTypes;
-	
+
 	size_t exportedPackageCount;
 	SubPackage[] subPackages;
 
@@ -559,28 +562,8 @@ struct PackageInfo {
 			if (c.name == name)
 				return c;
 		throw new Exception("Unknown configuration: "~name);
-	}	
-	void parseSubPackages(Package containingPackage, Json[] subPackagesJson)
-	{
-		enforce(!containingPackage.parentPackage, format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
-			containingPackage.name, containingPackage.parentPackage.name));
-
-		this.exportedPackageCount = 0;
-		this.subPackages = new SubPackage[subPackagesJson.length];
-		foreach(i, subPackageJson; subPackagesJson) {
-			// Handle referenced Packages
-			if(subPackageJson.type == Json.Type.string) {
-				string packageNameReference = subPackageJson.get!string;
-				this.subPackages[i] = SubPackage(packageNameReference,
-					containingPackage.parseImportedPackage(packageNameReference));
-				this.exportedPackageCount++;
-			} else {
-				this.subPackages[i] = SubPackage(null,
-					new Package(subPackageJson, containingPackage.m_path, containingPackage));
-			}
-		}
 	}
-	void parseJson(Package containingPackage, Json json, string parent_name)
+	void parseJson(Json json, string parent_name)
 	{
 		foreach( string field, value; json ){
 			switch(field){
@@ -592,7 +575,6 @@ struct PackageInfo {
 				case "authors": this.authors = deserializeJson!(string[])(value); break;
 				case "copyright": this.copyright = value.get!string; break;
 				case "license": this.license = value.get!string; break;
-				case "subPackages": parseSubPackages(containingPackage, value.opt!(Json[])); break;
 				case "configurations": break; // handled below, after the global settings have been parsed
 				case "buildTypes":
 					foreach (string name, settings; value) {
@@ -607,8 +589,10 @@ struct PackageInfo {
 
 		enforce(this.name.length > 0, "The package \"name\" field is missing or empty.");
 
+		auto fullname = parent_name.length ? parent_name ~ ":" ~ this.name : this.name;
+
 		// parse build settings
-		this.buildSettings.parseJson(json, parent_name.length ? parent_name ~ ":" ~ this.name : this.name);
+		this.buildSettings.parseJson(json, fullname);
 
 		if (auto pv = "configurations" in json) {
 			TargetType deftargettp = TargetType.library;
@@ -621,6 +605,10 @@ struct PackageInfo {
 				this.configurations ~= ci;
 			}
 		}
+
+		// parse any sub packages after the main package has been fully parsed
+		if (auto ps = "subPackages" in json)
+			parseSubPackages(fullname, ps.opt!(Json[]));
 	}
 
 	Json toJson()
@@ -636,10 +624,10 @@ struct PackageInfo {
 		if( !this.subPackages.empty ) {
 			Json[] jsonSubPackages = new Json[this.subPackages.length];
 			foreach(i, subPackage; subPackages) {
-				if(subPackage.referenceName !is null) {
-					jsonSubPackages[i] = Json(subPackage.referenceName);
+				if(subPackage.path !is null) {
+					jsonSubPackages[i] = Json(subPackage.path);
 				} else {
-					jsonSubPackages[i] = subPackage.package_.m_info.toJson();
+					jsonSubPackages[i] = subPackage.recipe.toJson();
 				}
 			}
 			ret.subPackages = jsonSubPackages;
@@ -657,6 +645,27 @@ struct PackageInfo {
 		}
 		if( !this.ddoxFilterArgs.empty ) ret["-ddoxFilterArgs"] = this.ddoxFilterArgs.serializeToJson();
 		return ret;
+	}
+
+	private void parseSubPackages(string parent_package_name, Json[] subPackagesJson)
+	{
+		enforce(!parent_package_name.canFind(":"), format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
+			parent_package_name, getBasePackageName(parent_package_name)));
+
+		this.exportedPackageCount = 0;
+		this.subPackages = new SubPackage[subPackagesJson.length];
+		foreach(i, subPackageJson; subPackagesJson) {
+			// Handle referenced Packages
+			if(subPackageJson.type == Json.Type.string) {
+				string subpath = subPackageJson.get!string;
+				this.subPackages[i] = SubPackage(subpath, PackageInfo.init);
+				this.exportedPackageCount++;
+			} else {
+				PackageInfo subinfo;
+				subinfo.parseJson(subPackageJson, parent_package_name);
+				this.subPackages[i] = SubPackage(null, subinfo);
+			}
+		}
 	}
 }
 

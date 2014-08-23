@@ -186,6 +186,15 @@ class PackageManager {
 		return getBestPackage(name, Dependency(version_spec));
 	}
 
+	Package getSubPackage(Package base_package, string sub_name, bool silent_fail)
+	{
+		foreach (p; getPackageIterator(base_package.name~":"~sub_name))
+			if (p.parentPackage is base_package)
+				return p;
+		enforce(silent_fail, "Sub package "~base_package.name~":"~sub_name~" doesn't exist.");
+		return null;
+	}
+
 
 	/** Determines if a package is managed by DUB.
 
@@ -206,26 +215,17 @@ class PackageManager {
 	{
 		int iterator(int delegate(ref Package) del)
 		{
-			int handlePackage(Package p) {
-				if (auto ret = del(p)) return ret;
-				foreach (sp; p.allSubPackages)
-					if(sp.package_ !is null)
-						if (auto ret = del(sp.package_))
-							return ret;
-				return 0;
-			}
-
 			foreach (tp; m_temporaryPackages)
-				if (auto ret = handlePackage(tp)) return ret;
+				if (auto ret = del(tp)) return ret;
 
 			// first search local packages
 			foreach (tp; LocalPackageType.min .. LocalPackageType.max+1)
 				foreach (p; m_repositories[cast(LocalPackageType)tp].localPackages)
-					if (auto ret = handlePackage(p)) return ret;
+					if (auto ret = del(p)) return ret;
 
 			// and then all packages gathered from the search path
 			foreach( p; m_packages )
-				if( auto ret = handlePackage(p) )
+				if( auto ret = del(p) )
 					return ret;
 			return 0;
 		}
@@ -719,17 +719,27 @@ class PackageManager {
 		// Additionally to the internally defined subpackages, whose metadata
 		// is loaded with the main dub.json, load all externally defined
 		// packages after the package is available with all the data.
-		foreach (package_; pack.exportedPackages) {
-			auto path = pack.path ~ package_.referenceName;
-			if (!existsFile(path)) {
-				logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
-				continue;
-			}
+		foreach (spr; pack.subPackages) {
+			Package sp;
+
+			if (spr.path.length) {
+				auto p = Path(spr.path);
+				p.normalize();
+				enforce(!p.absolute, "Sub package paths must be sub paths of the parent package.");
+				auto path = pack.path ~ p;
+				if (!existsFile(path)) {
+					logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
+					continue;
+				}
+				sp = new Package(path, PathAndFormat(), pack);
+			} else sp = new Package(spr.recipe, pack.path, pack);
+
 			// Add the subpackage.
 			try {
-				dst_repos ~= new Package(path, PathAndFormat(), pack);
+				dst_repos ~= sp;
 			} catch (Exception e) {
-				logError("Package '%s': Failed to load sub-package in %s, error: %s", pack.name, path.toNativeString(), e.msg);
+				logError("Package '%s': Failed to load sub-package %s: %s", pack.name,
+					spr.path.length ? spr.path : spr.recipe.name, e.msg);
 				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}
 		}

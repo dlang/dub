@@ -224,7 +224,7 @@ class Project {
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("Adding local %s", path);
 					p = m_packageManager.getOrLoadPackage(path);
-					if (name.canFind(':')) p = p.getSubPackage(getSubPackageName(name));
+					if (name.canFind(':')) p = m_packageManager.getSubPackage(p, getSubPackageName(name), false);
 					enforce(p.name == name,
 						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
 							path.toNativeString(), name, p.name));
@@ -237,7 +237,7 @@ class Project {
 						p = m_rootPackage.basePackage;
 					} else if (basename == m_rootPackage.basePackage.name) {
 						vspec = Dependency(m_rootPackage.ver);
-						try p = m_rootPackage.basePackage.getSubPackage(getSubPackageName(name));
+						try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, getSubPackageName(name), false);
 						catch (Exception e) {
 							logDiagnostic("Error getting sub package %s: %s", name, e.msg);
 							continue;
