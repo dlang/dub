@@ -14,6 +14,7 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.url;
 
+import std.algorithm : sort;
 import std.array : join, split;
 import std.exception : enforce;
 import std.file;
