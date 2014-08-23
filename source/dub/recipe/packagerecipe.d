@@ -21,19 +21,34 @@ import std.file;
 import std.range;
 
 
-/// Returns all package names, starting with the root package in [0].
+/**
+	Returns the individual parts of a qualified package name.
+
+	Sub qualified package names are lists of package names separated by ":". For
+	example, "packa:packb:packc" references a package named "packc" that is a
+	sub package of "packb", wich in turn is a sub package of "packa".
+*/
 string[] getSubPackagePath(string package_name)
 {
 	return package_name.split(":");
 }
 
-/// Returns the name of the base package in the case of some sub package or the
-/// package itself, if it is already a full package.
+/**
+	Returns the name of the top level package for a given (sub) package name.
+
+	In case of a top level package, the qualified name is returned unmodified.
+*/
 string getBasePackageName(string package_name)
 {
 	return package_name.getSubPackagePath()[0];
 }
 
+/**
+	Returns the qualified sub package part of the given package name.
+
+	This is the part of the package name excluding the base package
+	name. See also $(D getBasePackageName).
+*/
 string getSubPackageName(string package_name)
 {
 	return getSubPackagePath(package_name)[1 .. $].join(":");
@@ -41,8 +56,12 @@ string getSubPackageName(string package_name)
 
 
 
-/// Specifying package information without any connection to a certain
-/// retrived package, like Package class is doing.
+/**
+	Represents the contents of a package recipe file (dub.json/dub.sdl) in an abstract way.
+
+	This structure is used to reason about package descriptions in isolation.
+	For higher level package handling, see the $(D Package) class.
+*/
 struct PackageRecipe {
 	string name;
 	string version_;
