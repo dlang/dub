@@ -51,6 +51,8 @@ enum FilenameAndFormat[] packageInfoFiles = [
 	{"package.json", PackageFormat.json}
 ];
 
+@property string[] packageInfoFilenames() { return packageInfoFiles.map!(f => f.filename).array; }
+
 string defaultPackageFilename() {
 	return packageInfoFiles[0].filename;
 }
@@ -102,7 +104,7 @@ class Package {
 		this(new JsonPackage(package_info), root, parent, versionOverride);
 	}
 
-	this(const RawPackage raw_package, Path root = Path(), Package parent = null, string versionOverride = "")
+	this(RawPackage raw_package, Path root = Path(), Package parent = null, string versionOverride = "")
 	{
 		PackageRecipe recipe;
 
@@ -487,7 +489,7 @@ class Package {
 	{
 		string package_name; // Should already be lower case
 		string version_;
-		abstract void parseInto(ref PackageRecipe package_, string parent_name) const;
+		abstract void parseInto(ref PackageRecipe package_, string parent_name);
 	}
 	private static class JsonPackage : RawPackage
 	{
@@ -510,14 +512,14 @@ class Package {
 
 			this.package_name = nameLower;
 		}
-		override void parseInto(ref PackageRecipe recipe, string parent_name) const
+		override void parseInto(ref PackageRecipe recipe, string parent_name)
 		{
 			recipe.parseJson(json, parent_name);
 		}
 	}
 	private static class SdlPackage : RawPackage
 	{
-		override void parseInto(ref PackageRecipe package_, string parent_name) const
+		override void parseInto(ref PackageRecipe package_, string parent_name)
 		{
 			throw new Exception("SDL packages not implemented yet");
 		}
