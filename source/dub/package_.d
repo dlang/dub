@@ -51,7 +51,7 @@ static immutable FilenameAndFormat[] packageInfoFiles = [
 	{"package.json", PackageFormat.json}
 ];
 
-@property string[] packageInfoFilenames() { return packageInfoFiles.map!(f => f.filename).array; }
+@property string[] packageInfoFilenames() { return packageInfoFiles.map!(f => cast(string)f.filename).array; }
 
 @property string defaultPackageFilename() { return packageInfoFiles[0].filename; }
 
