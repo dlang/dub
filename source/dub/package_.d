@@ -553,6 +553,7 @@ struct PackageInfo {
 			Json[string] types;
 			foreach(name, settings; this.buildTypes)
 				types[name] = settings.toJson();
+			ret.buildTypes = types;
 		}
 		if( !this.ddoxFilterArgs.empty ) ret["-ddoxFilterArgs"] = this.ddoxFilterArgs.serializeToJson();
 		return ret;
