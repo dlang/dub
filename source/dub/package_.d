@@ -45,7 +45,7 @@ struct PathAndFormat
 }
 
 // Supported package descriptions in decreasing order of preference.
-enum FilenameAndFormat[] packageInfoFiles = [
+static immutable FilenameAndFormat[] packageInfoFiles = [
 	{"dub.json", PackageFormat.json},
 	/*{"dub.sdl",PackageFormat.sdl},*/
 	{"package.json", PackageFormat.json}
@@ -53,9 +53,8 @@ enum FilenameAndFormat[] packageInfoFiles = [
 
 @property string[] packageInfoFilenames() { return packageInfoFiles.map!(f => f.filename).array; }
 
-string defaultPackageFilename() {
-	return packageInfoFiles[0].filename;
-}
+@property string defaultPackageFilename() { return packageInfoFiles[0].filename; }
+
 
 /**
 	Represents a package, including its sub packages
@@ -64,8 +63,6 @@ string defaultPackageFilename() {
 	http://registry.vibed.org/package-format
 */
 class Package {
-	static struct LocalPackageDef { string name; Version version_; Path path; }
-
 	private {
 		Path m_path;
 		PathAndFormat m_infoFile;
@@ -140,19 +137,19 @@ class Package {
 		m_path = root;
 		m_path.endsWithSlash = true;
 
-		// check for default string import folders
-		foreach(defvf; ["views"]){
-			auto p = m_path ~ defvf;
-			if( existsFile(p) )
-				m_info.buildSettings.stringImportPaths[""] ~= defvf;
-		}
-
 		// use the given recipe as the basis
 		m_info = recipe;
 
 		// WARNING: changed semantics here. Previously, "sourcePaths" etc.
 		// could overwrite what was determined here. Now the default paths
 		// are always added. This must be fixed somehow!
+
+		// check for default string import folders
+		foreach(defvf; ["views"]){
+			auto p = m_path ~ defvf;
+			if( existsFile(p) )
+				m_info.buildSettings.stringImportPaths[""] ~= defvf;
+		}
 
 		// check for default source folders
 		string app_main_file;
