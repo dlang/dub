@@ -10,8 +10,8 @@ module dub.dependencyresolver;
 import dub.dependency;
 import dub.internal.vibecompat.core.log;
 
-import std.algorithm : all, canFind, sort;
-import std.array : appender;
+import std.algorithm : all, canFind, filter, sort;
+import std.array : appender, array;
 import std.conv : to;
 import std.exception : enforce;
 import std.string : format, indexOf, lastIndexOf;
@@ -66,7 +66,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		size_t[string] package_indices;
 		CONFIG[][] all_configs;
 		bool[TreeNode] visited;
-		void findConfigsRec(TreeNode parent)
+		void findConfigsRec(TreeNode parent, bool parent_unique)
 		{
 			if (parent in visited) return;
 			visited[parent] = true;
@@ -87,13 +87,17 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 				configs = getSpecificConfigs(ch) ~ configs;
 
+				// eliminate configurations from which we know that they can't satisfy
+				// the uniquely defined root dependencies (==version or ~branch style dependencies)
+				if (parent_unique) configs = configs.filter!(c => matches(ch.configs, c)).array;
+
 				all_configs[pidx] = configs;
 
 				foreach (v; configs)
-					findConfigsRec(TreeNode(ch.pack, v));
+					findConfigsRec(TreeNode(ch.pack, v), parent_unique && configs.length == 1);
 			}
 		}
-		findConfigsRec(root);
+		findConfigsRec(root, true);
 
 		// prepend an invalid configuration to denote an unchosen dependency
 		// this is used to properly support optional dependencies (when
