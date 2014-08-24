@@ -141,6 +141,8 @@ struct Dependency {
 	const {
 		string r;
 
+		if (this == invalid) return "invalid";
+
 		if( m_versA == m_versB && m_cmpA == ">=" && m_cmpB == "<=" ){
 			// Special "==" case
 			if (m_versA == Version.MASTER ) r = "~master";

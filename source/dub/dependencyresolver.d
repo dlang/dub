@@ -139,7 +139,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				} else {
 					auto config = all_configs[childidx][config_indices[childidx]];
 					auto chnode = TreeNode(ch.pack, config);
-					
+
 					if (config == CONFIG.invalid || !matches(ch.configs, config)) {
 						// if we are at the root level, we can safely skip the maxcpi computation and instead choose another childidx config
 						if (parentbase == root_base_pack) {
@@ -152,10 +152,14 @@ class DependencyResolver(CONFIGS, CONFIG) {
 							error = format("Dependency %s -> %s %s mismatches with selected version %s", parent.pack, ch.pack, ch.configs, config);
 							logDebug("%s (ci=%s)", error, maxcpi);
 						}
+
+						// we know that either the child or the parent needs to be switched
+						// to another configuration, no need to continue with other children
+						if (config == CONFIG.invalid) break;
+
+						maxcpi = max(maxcpi, validateConfigs(chnode, error));
 					}
 
-					if (config != CONFIG.invalid)
-						maxcpi = max(maxcpi, validateConfigs(chnode, error));
 				}
 			}
 			return maxcpi;
