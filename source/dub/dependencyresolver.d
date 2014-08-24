@@ -156,10 +156,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 						// we know that either the child or the parent needs to be switched
 						// to another configuration, no need to continue with other children
 						if (config == CONFIG.invalid) break;
-
-						maxcpi = max(maxcpi, validateConfigs(chnode, error));
 					}
 
+					maxcpi = max(maxcpi, validateConfigs(chnode, error));
 				}
 			}
 			return maxcpi;
