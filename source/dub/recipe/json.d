@@ -101,6 +101,7 @@ Json toJson(in ref PackageRecipe recipe)
 		Json[string] types;
 		foreach (name, settings; recipe.buildTypes)
 			types[name] = settings.toJson();
+		ret.buildTypes = types;
 	}
 	if (!recipe.ddoxFilterArgs.empty) ret["-ddoxFilterArgs"] = recipe.ddoxFilterArgs.serializeToJson();
 	return ret;
