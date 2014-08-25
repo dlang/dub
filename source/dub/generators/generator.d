@@ -283,10 +283,14 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 				auto src = Path(f);
 				if (!src.absolute) src = pack_path ~ src;
 				auto dst = target_path ~ Path(f).head;
+				if (src == dst) {
+					logDiagnostic("Skipping copy of %s (same source and destination)", f);
+					continue;
+				}
 				logDiagnostic("  %s to %s", src.toNativeString(), dst.toNativeString());
 				try {
 					copyFile(src, dst, true);
-				} catch logWarn("Failed to copy to %s", dst.toNativeString());
+				} catch(Exception e) logWarn("Failed to copy to %s: %s", dst.toNativeString(), e.msg);
 			}
 		}
 	}

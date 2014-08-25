@@ -104,6 +104,8 @@ void moveFile(string from, string to)
 */
 void copyFile(Path from, Path to, bool overwrite = false)
 {
+	enforce(existsFile(from), "Source file doesn not exist.");
+
 	if (existsFile(to)) {
 		enforce(overwrite, "Destination file already exists.");
 		// remove file before copy to allow "overwriting" files that are in
