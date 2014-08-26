@@ -279,14 +279,23 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 
 		if (buildsettings.copyFiles.length) {
 			logInfo("Copying files for %s...", pack);
-			foreach (f; buildsettings.copyFiles) {
-				auto src = Path(f);
-				if (!src.absolute) src = pack_path ~ src;
-				auto dst = target_path ~ Path(f).head;
-				logDiagnostic("  %s to %s", src.toNativeString(), dst.toNativeString());
-				try {
-					copyFile(src, dst, true);
-				} catch logWarn("Failed to copy to %s", dst.toNativeString());
+			foreach (f; dirEntries(pack_path.toNativeString(), SpanMode.breadth))
+			{
+				foreach(copyGlob; buildsettings.copyFiles)
+				{
+					if(f.globMatch(copyGlob))
+					{
+						auto src = Path(f);
+						if (!src.absolute) src = pack_path ~ src;
+						auto dst = target_path ~ Path(f).head;
+						logDiagnostic("  %s to %s", src.toNativeString(), dst.toNativeString());
+						try {
+							copyFile(src, dst, true);
+						} catch logWarn("Failed to copy to %s", dst.toNativeString());
+
+						break;
+					}
+				}
 			}
 		}
 	}
