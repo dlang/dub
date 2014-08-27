@@ -128,7 +128,7 @@ class RegistryPackageSupplier : PackageSupplier {
 	{
 		import std.array : replace;
 		Json best = getBestPackage(packageId, dep, pre_release);
-		auto vers = replace(best["version"].get!string, "+", "%2B");
+		auto vers = best["version"].get!string;
 		auto url = m_registryUrl ~ Path(PackagesPath~"/"~packageId~"/"~vers~".zip");
 		logDiagnostic("Found download URL: '%s'", url);
 		download(url, path);
