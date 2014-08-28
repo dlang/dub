@@ -837,6 +837,11 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 			} else if (!basepack.exportedPackages.length) {
 				logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
 				return null;
+			} else if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep)) {
+				return ret;
+			} else {
+				logDiagnostic("External sub package %s %s not found.", name, dep.version_);
+				return null;
 			}
 		}
 
@@ -864,7 +869,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 					m_remotePackages[key] = ret;
 					return ret;
 				} catch (Exception e) {
-					logDiagnostic("Metadata for %s could not be downloaded from %s: %s", name, ps.description, e.msg);
+					logDiagnostic("Metadata for %s %s could not be downloaded from %s: %s", name, dep, ps.description, e.msg);
 					logDebug("Full error: %s", e.toString().sanitize);
 				}
 			} else {
