@@ -475,6 +475,7 @@ class Dub {
 
 		logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
 		auto clean_package_version = ver[ver.startsWith("~") ? 1 : 0 .. $];
+		clean_package_version = clean_package_version.replace("+", "$"); // + has special meaning for Optlink
 		Path dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
 
 		return m_packageManager.storeFetchedPackage(tempFile, pinfo, dstpath);
