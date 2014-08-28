@@ -895,7 +895,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 
 		m_remotePackages[key] = null;
 
-		logWarn("Package %s %s was found neither locally, nor in the configured package registries.", name, dep);
+		logWarn("Package %s %s could not be loaded either locally, or from the configured package registries.", name, dep);
 		return null;
 	}
 }

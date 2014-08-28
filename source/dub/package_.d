@@ -111,7 +111,10 @@ class Package {
 
 		// parse the JSON description
 		{
-			scope(failure) logError("Failed to parse package description in %s", root.toNativeString());
+			scope(failure) logError("Failed to parse package description for %s %s in %s.",
+				packageInfo.name.get!string, versionOverride.length ? versionOverride : packageInfo["version"].opt!string,
+				root.length ? root.toNativeString() : "remote location");
+
 			m_info.parseJson(packageInfo, parent ? parent.name : null);
 
 			if (!versionOverride.empty)
