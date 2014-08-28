@@ -831,6 +831,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		if (basename != name) {
 			auto subname = getSubPackageName(name);
 			auto basepack = getPackage(basename, dep);
+			if (!basepack) return null;
 			if (auto sp = basepack.getSubPackage(subname, true)) {
 				return sp;
 			} else if (!basepack.exportedPackages.length) {
