@@ -165,8 +165,8 @@ class BuildGenerator : ProjectGenerator {
 			mainsrc = Path(buildsettings.mainSourceFile);
 			if (!mainsrc.absolute) mainsrc = pack.path ~ mainsrc;
 		} else {
-			logWarn(`Package has no "mainSourceFile" defined. Trying to guess something to pass to RDMD...`);
 			mainsrc = getMainSourceFile(pack);
+			logWarn(`Package has no "mainSourceFile" defined. Using best guess: %s`, mainsrc.relativeTo(pack.path).toNativeString());
 		}
 
 		// do not pass all source files to RDMD, only the main source file
