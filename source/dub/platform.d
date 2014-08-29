@@ -81,7 +81,7 @@ string determineCompiler()
 {
 	version(DigitalMars) return "dmd";
 	else version(GNU) return "gdc";
-	else version(LDC) return "ldc";
+	else version(LDC) return "ldc2";
 	else version(SDC) return "sdc";
 	else return null;
 }

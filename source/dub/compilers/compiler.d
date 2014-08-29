@@ -377,22 +377,18 @@ Path generatePlatformProbeFile()
 	fil.write(q{
 		template toString(int v) { enum toString = v.stringof; }
 
-		void main()
-		{
-			pragma(msg, `{`);
-			pragma(msg,`  "compiler": "`~ determineCompiler() ~ `",`);
-			pragma(msg, `  "frontendVersion": ` ~ toString!__VERSION__ ~ `,`);
-			pragma(msg, `  "compilerVendor": "` ~ __VENDOR__ ~ `",`);
-			pragma(msg, `  "platform": [`);
-			pragma(msg, `    ` ~ determinePlatform());
-			pragma(msg, `  ],`);
-			pragma(msg, `  "architecture": [`);
-			pragma(msg, `    ` ~ determineArchitecture());
-			pragma(msg, `   ],`);
-			pragma(msg, `}`);
-		}
-
-
+		pragma(msg, `{`);
+		pragma(msg,`  "compiler": "`~ determineCompiler() ~ `",`);
+		pragma(msg, `  "frontendVersion": ` ~ toString!__VERSION__ ~ `,`);
+		pragma(msg, `  "compilerVendor": "` ~ __VENDOR__ ~ `",`);
+		pragma(msg, `  "platform": [`);
+		pragma(msg, `    ` ~ determinePlatform());
+		pragma(msg, `  ],`);
+		pragma(msg, `  "architecture": [`);
+		pragma(msg, `    ` ~ determineArchitecture());
+		pragma(msg, `   ],`);
+		pragma(msg, `}`);
+		
 		string determinePlatform()
 		{
 			string ret;
