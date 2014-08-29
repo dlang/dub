@@ -17,7 +17,7 @@ import dub.package_;
 import dub.packagemanager;
 import dub.project;
 
-import std.algorithm : map, filter, canFind;
+import std.algorithm : map, filter, canFind, balancedParens;
 import std.array : array;
 import std.array;
 import std.exception;
@@ -278,15 +278,44 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 			mkdirRecurse(buildsettings.targetPath);
 
 		if (buildsettings.copyFiles.length) {
-			logInfo("Copying files for %s...", pack);
-			foreach (f; buildsettings.copyFiles) {
-				auto src = Path(f);
+			void tryCopyFile(string file)
+			{
+				auto src = Path(file);
 				if (!src.absolute) src = pack_path ~ src;
-				auto dst = target_path ~ Path(f).head;
+				auto dst = target_path ~ Path(file).head;
 				logDiagnostic("  %s to %s", src.toNativeString(), dst.toNativeString());
 				try {
 					copyFile(src, dst, true);
-				} catch logWarn("Failed to copy to %s", dst.toNativeString());
+				} catch logWarn("Failed to copy %s to %s", src.toNativeString(), dst.toNativeString());
+			}
+			logInfo("Copying files for %s...", pack);
+			string[] globs;
+			foreach (f; buildsettings.copyFiles)
+			{
+				if (f.canFind("*", "?") ||
+					(f.canFind("{") && f.balancedParens('{', '}')) ||
+					(f.canFind("[") && f.balancedParens('[', ']')))
+				{
+					globs ~= f;
+				}
+				else
+				{
+					tryCopyFile(f);
+				}
+			}
+			if (globs.length) // Search all files for glob matches
+			{
+				foreach (f; dirEntries(pack_path.toNativeString(), SpanMode.breadth))
+				{
+					foreach (glob; globs)
+					{
+						if (f.globMatch(glob))
+						{
+							tryCopyFile(f);
+							break;
+						}
+					}
+				}
 			}
 		}
 	}
