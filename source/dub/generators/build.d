@@ -290,14 +290,15 @@ class BuildGenerator : ProjectGenerator {
 		addHash((cast(uint)buildsettings.options).to!string);
 		addHash(buildsettings.stringImportPaths);
 		addHash(settings.platform.architecture);
+		addHash(settings.platform.compilerBinary);
 		addHash(settings.platform.compiler);
 		addHashI(settings.platform.frontendVersion);
 		auto hashstr = hash.finish().toHexString().idup;
 
-		return format("%s-%s-%s-%s-%s-%s", config, settings.buildType,
+		return format("%s-%s-%s-%s-%s_%s-%s", config, settings.buildType,
 			settings.platform.platform.join("."),
 			settings.platform.architecture.join("."),
-			settings.platform.compilerBinary, hashstr);
+			settings.platform.compiler, settings.platform.frontendVersion, hashstr);
 	}
 
 	private void copyTargetFile(Path build_path, BuildSettings buildsettings, BuildPlatform platform)
