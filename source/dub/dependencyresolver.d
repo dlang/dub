@@ -132,7 +132,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 				// get the current config/version of the current dependency
 				sizediff_t childidx = package_indices[basepack];
-				if (!all_configs[childidx].length) {
+				if (all_configs[childidx] == [CONFIG.invalid]) {
 					enforce(parentbase != root_base_pack, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
 					// choose another parent config to avoid the invalid child
 					if (parentidx > maxcpi) {
