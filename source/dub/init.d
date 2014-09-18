@@ -9,7 +9,7 @@ module dub.init;
 
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.package_ : packageInfoFilenames, defaultPackageFilename;
+import dub.package_ : packageInfoFiles, defaultPackageFilename;
 
 import std.datetime;
 import std.exception;
@@ -21,6 +21,10 @@ import std.string;
 
 void initPackage(Path root_path, string type)
 {
+	void enforceDoesNotExist(string filename) {
+		enforce(!existsFile(root_path ~ filename), "The target directory already contains a '"~filename~"' file. Aborting.");
+	}
+
 	//Check to see if a target directory needs to be created
 	if( !root_path.empty ){
 		if( !existsFile(root_path) )
@@ -28,15 +32,19 @@ void initPackage(Path root_path, string type)
 	}
 
 	//Make sure we do not overwrite anything accidentally
-	auto files = packageInfoFilenames ~ ["source/", "views/", "public/"];
+	foreach (fil; packageInfoFiles)
+		enforceDoesNotExist(fil.filename);
+		
+	auto files = ["source/", "views/", "public/", "dub.json", ".gitignore"];
 	foreach (fil; files)
-		enforce(!existsFile(root_path ~ fil), "The target directory already contains a '"~fil~"' file. Aborting.");
+		enforceDoesNotExist(fil);
 
 	switch (type) {
 		default: throw new Exception("Unknown package init type: "~type);
 		case "minimal": initMinimalPackage(root_path); break;
 		case "vibe.d": initVibeDPackage(root_path); break;
 	}
+	writeGitignore(root_path);
 }
 
 void initMinimalPackage(Path root_path)
@@ -106,4 +114,10 @@ void writePackageJson(Path root_path, string description, string[string] depende
 	fil.formattedWrite("\n\t}");
 	if (versions.length) fil.formattedWrite(",\n\t\"versions\": [%s]", versions.map!(v => `"`~v~`"`).join(", "));
 	fil.write("\n}\n");
+}
+
+void writeGitignore(Path root_path)
+{
+	write((root_path ~ ".gitignore").toNativeString(),
+		".dub\ndocs.json\n__dummy.html\n*.o\n*.obj\n");
 }

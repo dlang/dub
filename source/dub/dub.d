@@ -105,6 +105,10 @@ class Dub {
 				.array;
 		ps ~= defaultPackageSuppliers();
 
+		auto cacheDir = m_userDubPath ~ "cache/";
+		foreach (p; ps)
+			p.loadCache(cacheDir);
+
 		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
 		updatePackageSearchPath();
@@ -116,6 +120,14 @@ class Dub {
 		m_overrideSearchPath = override_path;
 		m_packageManager = new PackageManager(Path(), Path(), false);
 		updatePackageSearchPath();
+	}
+
+	/// Perform cleanup and persist caches to disk
+	void shutdown()
+	{
+		auto cacheDir = m_userDubPath ~ "cache/";
+		foreach (p; m_packageSuppliers)
+			p.storeCache(cacheDir);
 	}
 
 	@property void dryRun(bool v) { m_dryRun = v; }
@@ -182,7 +194,7 @@ class Dub {
 			foreach (p; m_project.selections.selectedPackages) {
 				auto dep = m_project.selections.getSelectedVersion(p);
 				if (!dep.path.empty) {
-					if (m_packageManager.getTemporaryPackage(dep.path)) continue;
+					if (m_packageManager.getOrLoadPackage(dep.path)) continue;
 				} else {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
 					foreach (ps; m_packageSuppliers) {
@@ -202,19 +214,66 @@ class Dub {
 			}
 		}
 
+		Dependency[string] versions;
+		if ((options & UpgradeOptions.useCachedResult) && m_project.isUpgradeCacheUpToDate()) {
+			logDiagnostic("Using cached upgrade results...");
+			versions = m_project.getUpgradeCache();
+		} else {
+			auto resolver = new DependencyVersionResolver(this, options);
+			versions = resolver.resolve(m_project.rootPackage, m_project.selections);
+			if (options & UpgradeOptions.useCachedResult) {
+				logDiagnostic("Caching upgrade results...");
+				m_project.setUpgradeCache(versions);
+			}
+		}
 
-		auto resolver = new DependencyVersionResolver(this, options);
-		auto versions = resolver.resolve(m_project.rootPackage, m_project.selections);
+		if (options & UpgradeOptions.printUpgradesOnly) {
+			bool any = false;
+			string rootbasename = getBasePackageName(m_project.rootPackage.name);
+
+			foreach (p, ver; versions) {
+				if (!ver.path.empty) continue;
+
+				auto basename = getBasePackageName(p);
+				if (basename == rootbasename) continue;
+
+				if (!m_project.selections.hasSelectedVersion(basename)) {
+					logInfo("Package %s can be installed with version %s.",
+						basename, ver);
+					any = true;
+					continue;
+				}
+				auto sver = m_project.selections.getSelectedVersion(basename);
+				if (!sver.path.empty) continue;
+				if (ver.version_ <= sver.version_) continue;
+				logInfo("Package %s can be upgraded from %s to %s.",
+					basename, sver, ver);
+				any = true;
+			}
+			if (any) logInfo("Use \"dub upgrade\" to perform those changes.");
+			return;
+		}
 
 		foreach (p, ver; versions) {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
-			if (!ver.path.empty) pack = m_packageManager.getTemporaryPackage(ver.path);
-			else pack = m_packageManager.getBestPackage(p, ver);
+			if (!ver.path.empty) pack = m_packageManager.getOrLoadPackage(ver.path);
+			else {
+				pack = m_packageManager.getBestPackage(p, ver);
+				if (pack && m_packageManager.isManagedPackage(pack)
+					&& ver.version_.isBranch && (options & UpgradeOptions.upgrade) != 0)
+				{
+					// TODO: only re-install if there is actually a new commit available
+					logInfo("Re-installing branch based dependency %s %s", p, ver.toString());
+					m_packageManager.remove(pack, (options & UpgradeOptions.forceRemove) != 0);
+					pack = null;
+				}
+			}
+
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			fetchOpts |= (options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts);
+			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && ver.path.empty && p != m_project.rootPackage.name)
 				m_project.selections.selectVersion(p, ver.version_);
 		}
@@ -356,7 +415,7 @@ class Dub {
 	void cleanPackage(Path path)
 	{
 		logInfo("Cleaning package at %s...", path.toNativeString());
-		enforce(Package.isPackageAt(path), "No package found.", path.toNativeString());
+		enforce(!Package.findPackageFile(path).empty, "No package found.", path.toNativeString());
 
 		// TODO: clear target files and copy files
 
@@ -369,7 +428,7 @@ class Dub {
 	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
 
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options)
+	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
 		Json pinfo;
 		PackageSupplier supplier;
@@ -413,7 +472,8 @@ class Dub {
 			}
 		}
 
-		logInfo("Fetching %s %s...", packageId, ver);
+		if (reason.length) logInfo("Fetching %s %s (%s)...", packageId, ver, reason);
+		else logInfo("Fetching %s %s...", packageId, ver);
 		if (m_dryRun) return null;
 
 		logDiagnostic("Acquiring package zip file");
@@ -556,6 +616,7 @@ class Dub {
 
 			auto ddox_dub = new Dub(m_packageSuppliers);
 			ddox_dub.loadPackage(ddox_pack.path);
+			ddox_dub.upgrade(UpgradeOptions.select);
 
 			auto compiler_binary = "dmd";
 
@@ -675,6 +736,7 @@ enum UpgradeOptions
 	forceRemove = 1<<3, /// Force removing package folders, which contain unknown files
 	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
 	printUpgradesOnly = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
+	useCachedResult = 1<<6, /// Use cached information stored with the package to determine upgrades
 }
 
 class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
@@ -764,8 +826,25 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 			logDebug("Invalid package in dependency tree: %s %s", node.pack, node.config);
 			return null;
 		}
+		auto basepack = pack.basePackage;
+
 		foreach (dname, dspec; pack.dependencies) {
 			auto dbasename = getBasePackageName(dname);
+
+			// detect dependencies to the root package (or sub packages thereof)
+			if (dbasename == basepack.name) {
+				auto absdeppath = dspec.mapToPath(pack.path).path;
+				auto subpack = m_dub.m_packageManager.getSubPackage(basepack, getSubPackageName(dname), true);
+				if (subpack) {
+					auto desireddeppath = dname == dbasename ? basepack.path : subpack.path;
+					enforce(dspec.path.empty || absdeppath == desireddeppath,
+						format("Dependency from %s to root package references wrong path: %s vs. %s",
+							node.pack, absdeppath.toNativeString(), desireddeppath.toNativeString()));
+				}
+				ret ~= TreeNodes(dname, node.config);
+				continue;
+			}
+
 			if (dspec.optional && !m_dub.packageManager.getFirstPackage(dname))
 				continue;
 			if (m_options & UpgradeOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))
@@ -783,6 +862,21 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 
 	private Package getPackage(string name, Dependency dep)
 	{
+		auto basename = getBasePackageName(name);
+
+		// for sub packages, first try to get them from the base package
+		if (basename != name) {
+			auto subname = getSubPackageName(name);
+			auto basepack = getPackage(basename, dep);
+			if (auto sp = m_dub.m_packageManager.getSubPackage(basepack, subname, true)) {
+				return sp;
+			} else if (!basepack.subPackages.canFind!(p => p.path.length)) {
+				// note: external sub packages are handled further below
+				logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
+				return null;
+			}
+		}
+
 		if (!dep.path.empty) {
 			auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
 			if (dep.matches(ret.ver)) return ret;
@@ -792,7 +886,6 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 			return ret;
 
 		auto key = name ~ ":" ~ dep.version_.toString();
-
 		if (auto ret = key in m_remotePackages)
 			return *ret;
 
@@ -812,11 +905,12 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 					logDebug("Full error: %s", e.toString().sanitize);
 				}
 			} else {
+				logDiagnostic("Package %s not found in base package description (%s). Downloading whole package.", name, dep.version_.toString());
 				try {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
 					fetchOpts |= (m_options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-					m_dub.fetch(rootpack, dep, defaultPlacementLocation, fetchOpts);
+					m_dub.fetch(rootpack, dep, defaultPlacementLocation, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);

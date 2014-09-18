@@ -1,0 +1,7 @@
+{
+    "name": "staticlib-dep",
+    "description": "Testing staticLibrary dependency.",
+    "dependencies": {
+        "staticlib-simple": { "path": "../1-staticLib-simple/" }
+    }
+}

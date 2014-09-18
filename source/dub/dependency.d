@@ -42,8 +42,11 @@ struct Dependency {
 	}
 
 	// A Dependency, which matches every valid version.
-	static @property ANY() { return Dependency(ANY_IDENT); }
-	static @property INVALID() { Dependency ret; ret.m_versA = Version.HEAD; ret.m_versB = Version.RELEASE; return ret; }
+	static @property any() { return Dependency(ANY_IDENT); }
+	static @property invalid() { Dependency ret; ret.m_versA = Version.HEAD; ret.m_versB = Version.RELEASE; return ret; }
+
+	alias ANY = any;
+	alias INVALID = invalid;
 
 	this(string ves)
 	{
@@ -97,8 +100,8 @@ struct Dependency {
 				m_cmpB = skipComp(v2);
 				m_versB = Version(v2);
 
-				enforce(!m_versA.isBranch, "Partly a branch (A): %s", ves);
-				enforce(!m_versB.isBranch, "Partly a branch (B): %s", ves);
+				enforce(!m_versA.isBranch, format("Partly a branch (A): %s", ves));
+				enforce(!m_versB.isBranch, format("Partly a branch (B): %s", ves));
 
 				if (m_versB < m_versA) {
 					swap(m_versA, m_versB);
@@ -302,6 +305,7 @@ struct Dependency {
 		d.m_cmpB = !doCmp(m_cmpB, b,b)? m_cmpB : o.m_cmpB;
 		d.m_versB = b;
 		d.m_optional = m_optional && o.m_optional;
+		if (!d.valid) return INVALID;
 
 		return d;
 	}

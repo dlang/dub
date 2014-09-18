@@ -3,14 +3,15 @@ dub package manager
 
 Package and build manager for [D](http://dlang.org/) applications and libraries.
 
-There is a central [package registry](https://github.com/rejectedsoftware/dub-registry/) located at <http://code.dlang.org>.
+There is a central [package registry](https://github.com/D-Programming-Language/dub-registry/) located at <http://code.dlang.org>.
 
-[![Build Status](https://travis-ci.org/rejectedsoftware/dub.png)](https://travis-ci.org/rejectedsoftware/dub)
+[![Build Status](https://travis-ci.org/D-Programming-Language/dub.png)](https://travis-ci.org/D-Programming-Language/dub)
 
 Introduction
 ------------
 
-DUB emerged as a more general replacement for [vibe.d's](http://vibed.org/) package manager. It does not imply a dependecy to vibe.d for packages and was extended to not only directly build projects, but also to generate project files (currently [VisualD](https://github.com/rainers/visuald) and [Mono-D](http://mono-d.alexanderbothe.com/)).
+DUB emerged as a more general replacement for [vibe.d's](http://vibed.org/) package manager. It does not imply a dependecy to vibe.d for packages and was extended to not only directly build projects, but also to generate project files (currently [VisualD](https://github.com/rainers/visuald)).
+[Mono-D](http://mono-d.alexanderbothe.com/) also support the use of dub.json (dub's package description) as project file.
 
 The project's philosophy is to keep things as simple as possible. All that is needed to make a project a dub package is to write a short [dub.json](http://code.dlang.org/publish) file and put the source code into a `source` subfolder. It *can* then be registered on the public [package registry](http://code.dlang.org) to be made available for everyone. Any dependencies specified in `dub.json` are automatically downloaded and made available to the project during the build process.
 
@@ -46,10 +47,8 @@ If you want to build for yourself, just install [DMD](http://dlang.org/download.
 
 ### Arch Linux
 
-Moritz Maxeiner has created a PKGBUILD file for Arch:
-
- - Latest release: <https://aur.archlinux.org/packages/dub/>
- - GIT master: <https://aur.archlinux.org/packages/dub-git/>
+Михаил Страшун (Dicebot) maintains a dub package of the latest release in `Community`, for [x86_64](https://www.archlinux.org/packages/community/x86_64/dub/) and [i686](https://www.archlinux.org/packages/community/i686/dub/).
+Moritz Maxeiner has created a PKGBUILD file for GIT master: <https://aur.archlinux.org/packages/dub-git/>
 
 ### Debian/Ubuntu Linux
 
@@ -63,4 +62,4 @@ Chris Molozian has added DUB to [Homebrew](http://mxcl.github.io/homebrew/). Use
 Using DUB as a library
 ----------------------
 
-The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/rejectedsoftware/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/rejectedsoftware/dub/blob/master/source/dub/commandline.d).
+The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/D-Programming-Language/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/D-Programming-Language/dub/blob/master/source/dub/commandline.d).

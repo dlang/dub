@@ -35,16 +35,16 @@ class GdcCompiler : Compiler {
 		tuple(BuildOptions.inline, ["-finline-functions"]),
 		tuple(BuildOptions.noBoundsCheck, ["-fno-bounds-check"]),
 		tuple(BuildOptions.optimize, ["-O3"]),
-		//tuple(BuildOptions.profile, ["-X"]),
+		tuple(BuildOptions.profile, ["-pg"]),
 		tuple(BuildOptions.unittests, ["-funittest"]),
 		tuple(BuildOptions.verbose, ["-fd-verbose"]),
 		tuple(BuildOptions.ignoreUnknownPragmas, ["-fignore-unknown-pragmas"]),
 		tuple(BuildOptions.syntaxOnly, ["-fsyntax-only"]),
 		tuple(BuildOptions.warnings, ["-Wall"]),
 		tuple(BuildOptions.warningsAsErrors, ["-Werror", "-Wall"]),
-		//tuple(BuildOptions.ignoreDeprecations, ["-?"]),
-		//tuple(BuildOptions.deprecationWarnings, ["-?"]),
-		//tuple(BuildOptions.deprecationErrors, ["-?"]),
+		tuple(BuildOptions.ignoreDeprecations, ["-Wno-deprecated"]),
+		tuple(BuildOptions.deprecationWarnings, ["-Wdeprecated"]),
+		tuple(BuildOptions.deprecationErrors, ["-Werror", "-Wdeprecated"]),
 		tuple(BuildOptions.property, ["-fproperty"]),
 	];
 
@@ -67,12 +67,9 @@ class GdcCompiler : Compiler {
 		}
 		settings.addDFlags(arch_flags);
 
-		auto compiler_result = execute(compiler_binary ~ arch_flags ~ ["-o", (getTempDir()~"dub_platform_probe").toNativeString(), fil.toNativeString()]);
-		enforce(compiler_result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
-			compiler_binary, compiler_result.output));
-		auto result = execute([(getTempDir()~"dub_platform_probe").toNativeString()]);
-		enforce(result.status == 0, format("Failed to invoke the build platform probe: %s",
-			result.output));
+		auto result = executeShell(escapeShellCommand(compiler_binary ~ arch_flags ~ ["-c", "-o", (getTempDir()~"dub_platform_probe").toNativeString(), fil.toNativeString()]));
+		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
+			compiler_binary, result.output));
 
 		auto build_platform = readPlatformProbe(result.output);
 		build_platform.compilerBinary = compiler_binary;
@@ -90,7 +87,7 @@ class GdcCompiler : Compiler {
 		return build_platform;
 	}
 
-	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all)
+	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
 	{
 		enforceBuildRequirements(settings);
 
@@ -140,7 +137,7 @@ class GdcCompiler : Compiler {
 		assert(fields & BuildSetting.copyFiles);
 	}
 
-	void extractBuildOptions(ref BuildSettings settings)
+	void extractBuildOptions(ref BuildSettings settings) const
 	{
 		Appender!(string[]) newflags;
 		next_flag: foreach (f; settings.dflags) {
@@ -156,7 +153,7 @@ class GdcCompiler : Compiler {
 		settings.dflags = newflags.data;
 	}
 
-	void setTarget(ref BuildSettings settings, in BuildPlatform platform)
+	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
@@ -172,8 +169,9 @@ class GdcCompiler : Compiler {
 				break;
 		}
 
-		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		settings.addDFlags("-o", tpath.toNativeString());
+		if (tpath is null)
+			tpath = (Path(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+		settings.addDFlags("-o", tpath);
 	}
 
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
@@ -188,7 +186,30 @@ class GdcCompiler : Compiler {
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
-		assert(false, "Separate linking not implemented for GDC");
+		import std.string;
+		string[] args;
+		// As the user is supposed to call setTarget prior to invoke, -o target is already set.
+		if (settings.targetType == TargetType.staticLibrary || settings.targetType == TargetType.staticLibrary) {
+			auto tpath = extractTarget(settings.dflags);
+			assert(tpath !is null, "setTarget should be called before invoke");
+			args = [ "ar", "rcs", tpath ] ~ objects;
+		} else {
+			args = platform.compilerBinary ~ objects ~ settings.sourceFiles ~ settings.lflags ~ settings.dflags.filter!(f => isLinkageFlag(f)).array;
+			version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
+		}
+		logDiagnostic("%s", args.join(" "));
+		invokeTool(args, output_callback);
+	}
+}
+
+private string extractTarget(const string[] args) { auto i = args.countUntil("-o"); return i >= 0 ? args[i+1] : null; }
+
+private bool isLinkageFlag(string flag) {
+	switch (flag) {
+		case "-c":
+			return false;
+		default:
+			return true;
 	}
 }
 

@@ -152,12 +152,13 @@ class PackageManager {
 		return null;
 	}
 
-	Package getOrLoadPackage(Path path)
+	Package getOrLoadPackage(Path path, PathAndFormat infoFile = PathAndFormat())
 	{
+		path.endsWithSlash = true;
 		foreach (p; getPackageIterator())
 			if (!p.parentPackage && p.path == path)
 				return p;
-		auto pack = new Package(path);
+		auto pack = new Package(path, infoFile);
 		addPackages(m_temporaryPackages, pack);
 		return pack;
 	}
@@ -185,6 +186,15 @@ class PackageManager {
 		return getBestPackage(name, Dependency(version_spec));
 	}
 
+	Package getSubPackage(Package base_package, string sub_name, bool silent_fail)
+	{
+		foreach (p; getPackageIterator(base_package.name~":"~sub_name))
+			if (p.parentPackage is base_package)
+				return p;
+		enforce(silent_fail, "Sub package "~base_package.name~":"~sub_name~" doesn't exist.");
+		return null;
+	}
+
 
 	/** Determines if a package is managed by DUB.
 
@@ -205,25 +215,17 @@ class PackageManager {
 	{
 		int iterator(int delegate(ref Package) del)
 		{
-			int handlePackage(Package p) {
-				if (auto ret = del(p)) return ret;
-				foreach (sp; p.subPackages)
-					if (auto ret = del(sp))
-						return ret;
-				return 0;
-			}
-
 			foreach (tp; m_temporaryPackages)
-				if (auto ret = handlePackage(tp)) return ret;
+				if (auto ret = del(tp)) return ret;
 
 			// first search local packages
 			foreach (tp; LocalPackageType.min .. LocalPackageType.max+1)
 				foreach (p; m_repositories[cast(LocalPackageType)tp].localPackages)
-					if (auto ret = handlePackage(p)) return ret;
+					if (auto ret = del(p)) return ret;
 
 			// and then all packages gathered from the search path
 			foreach( p; m_packages )
-				if( auto ret = handlePackage(p) )
+				if( auto ret = del(p) )
 					return ret;
 			return 0;
 		}
@@ -311,8 +313,8 @@ class PackageManager {
 		Path zip_prefix;
 		outer: foreach(ArchiveMember am; archive.directory) {
 			auto path = Path(am.name);
-			foreach (fil; packageInfoFilenames)
-				if (path.length == 2 && path.head.toString == fil) {
+			foreach (fil; packageInfoFiles)
+				if (path.length == 2 && path.head.toString == fil.filename) {
 					zip_prefix = path[0 .. $-1];
 					break outer;
 				}
@@ -354,12 +356,12 @@ class PackageManager {
 		logDiagnostic("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite dub.json (this one includes a version field)
-		auto pack = new Package(destination, null, package_info["version"].get!string);
+		auto pack = new Package(destination, PathAndFormat(), null, package_info["version"].get!string);
 
-		if (pack.packageInfoFile.head != defaultPackageFilename()) {
+		if (pack.packageInfoFilename.head != defaultPackageFilename()) {
 			// Storeinfo saved a default file, this could be different to the file from the zip.
-			removeFile(pack.packageInfoFile);
-			journal.remove(Journal.Entry(Journal.Type.RegularFile, Path(pack.packageInfoFile.head)));
+			removeFile(pack.packageInfoFilename);
+			journal.remove(Journal.Entry(Journal.Type.RegularFile, Path(pack.packageInfoFilename.head)));
 			journal.add(Journal.Entry(Journal.Type.RegularFile, Path(defaultPackageFilename())));
 		}
 		pack.storeInfo();
@@ -384,7 +386,7 @@ class PackageManager {
 		logDebug("Looking up journal");
 		auto journalFile = pack.path~JournalJsonFilename;
 		if (!existsFile(journalFile))
-			throw new Exception("Removal failed, no retrieval journal found for '"~pack.name~"'. Please remove the folder '%s' manually.", pack.path.toNativeString());
+			throw new Exception(format("Removal failed, no retrieval journal found for '"~pack.name~"'. Please remove the folder '%s' manually.", pack.path.toNativeString()));
 
 		auto packagePath = pack.path;
 		auto journal = new Journal(journalFile);
@@ -503,38 +505,6 @@ class PackageManager {
 			logInfo("Unregistered package: %s (version: %s)", name, ver);
 	}
 
-	Package getTemporaryPackage(Path path, Version ver)
-	{
-		foreach (p; m_temporaryPackages)
-			if (p.path == path) {
-				enforce(p.ver == ver, format("Package in %s is refrenced with two conflicting versions: %s vs %s", path.toNativeString(), p.ver, ver));
-				return p;
-			}
-
-		try {
-			auto pack = new Package(path);
-			enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
-			pack.ver = ver;
-			addPackages(m_temporaryPackages, pack);
-			return pack;
-		} catch (Exception e) {
-			logDiagnostic("Error loading package at %s: %s", path.toNativeString(), e.toString().sanitize);
-			throw new Exception(format("Failed to add temporary package at %s: %s", path.toNativeString(), e.msg));
-		}
-	}
-
-	Package getTemporaryPackage(Path path)
-	{
-		foreach (p; m_temporaryPackages)
-			if (p.path == path)
-				return p;
-
-		auto pack = new Package(path);
-		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
-		addPackages(m_temporaryPackages, pack);
-		return pack;
-	}
-
 	/// For the given type add another path where packages will be looked up.
 	void addSearchPath(Path path, LocalPackageType type)
 	{
@@ -585,7 +555,8 @@ class PackageManager {
 							}
 
 							if (!pp) {
-								if (Package.isPackageAt(path)) pp = new Package(path);
+								auto infoFile = Package.findPackageFile(path);
+								if (!infoFile.empty) pp = new Package(path, infoFile);
 								else {
 									logWarn("Locally registered package %s %s was not found. Please run \"dub remove-local %s\".",
 										name, ver, path.toNativeString());
@@ -624,8 +595,9 @@ class PackageManager {
 				try foreach( pdir; iterateDirectory(path) ){
 					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 					if( !pdir.isDirectory ) continue;
-					auto pack_path = path ~ pdir.name;
-					if (!Package.isPackageAt(pack_path)) continue;
+					auto pack_path = path ~ (pdir.name ~ "/");
+					auto packageFile = Package.findPackageFile(pack_path);
+					if (packageFile.empty) continue;
 					Package p;
 					try {
 						if (!refresh_existing_packages)
@@ -634,7 +606,7 @@ class PackageManager {
 									p = pp;
 									break;
 								}
-						if (!p) p = new Package(pack_path);
+						if (!p) p = new Package(pack_path, packageFile);
 						addPackages(m_packages, p);
 					} catch( Exception e ){
 						logError("Failed to load package in %s: %s", pack_path, e.msg);
@@ -747,17 +719,27 @@ class PackageManager {
 		// Additionally to the internally defined subpackages, whose metadata
 		// is loaded with the main dub.json, load all externally defined
 		// packages after the package is available with all the data.
-		foreach (sub_path; pack.exportedPackages) {
-			auto path = pack.path ~ sub_path;
-			if (!existsFile(path)) {
-				logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
-				continue;
-			}
+		foreach (spr; pack.subPackages) {
+			Package sp;
+
+			if (spr.path.length) {
+				auto p = Path(spr.path);
+				p.normalize();
+				enforce(!p.absolute, "Sub package paths must be sub paths of the parent package.");
+				auto path = pack.path ~ p;
+				if (!existsFile(path)) {
+					logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
+					continue;
+				}
+				sp = new Package(path, PathAndFormat(), pack);
+			} else sp = new Package(spr.recipe, pack.path, pack);
+
 			// Add the subpackage.
 			try {
-				dst_repos ~= new Package(path, pack);
+				dst_repos ~= sp;
 			} catch (Exception e) {
-				logError("Package '%s': Failed to load sub-package in %s, error: %s", pack.name, path.toNativeString(), e.msg);
+				logError("Package '%s': Failed to load sub-package %s: %s", pack.name,
+					spr.path.length ? spr.path : spr.recipe.name, e.msg);
 				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}
 		}

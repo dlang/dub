@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.9.22 - 2014-06-
+v0.9.22 - 2014-07-
 --------------------
 
 ### Features and improvements ###
@@ -16,6 +16,7 @@ v0.9.22 - 2014-06-
 	 - All packages are automatically copied to an isolated folder where [Dustmite](https://github.com/CyberShadow/DustMite/wiki) can do its job
 	 - DUB is run in a special mode that doesn't require expensive initialization, so that it doesn't slow down the reduction process
 	 - The test condition can be a specific exit code or an output regex match on either the compiler, linker, or program run
+ - Added support for single file builds (by Mathias Lang aka Geod24) - [pull #364][issue364]
  - The special `"*"` version specification now matches any version or branch (should always be used for referencing sub packages of the same package)
  - Warn about using certain build options outside of build types (in addition to warning about certain `"dflags"`)
  - Removed explicit linking against Phobos on Linux when building using DUB (fixed building with DMD 2.065)
@@ -40,7 +41,10 @@ v0.9.22 - 2014-06-
  - Replace all "package.json" files/mentions with "dub.json" and clean up white space throughout the code base (by James Clarke aka jrtc27) - [pull #337][issue337], [pull #338][issue338], [pull #339][issue339]
  - `dub describe` not outputs all source/import files of all configurations and platforms - [issue #185][issue185]
  - Added basic support for the new human readable `"systemDependencies"` field
-
+ - Added a `--temp-build` switch to force building in a temporary folder - [issue #294][issue294]
+ - Using `executeShell` when invoking tools to enable more flexible use of shell features - [issue #356][issue356]
+ - `dub init` now creates a default `.gitignore` file
+ - An exit code of `-9` for a tool now triggers a short message with a possible cause (out of memory)
 
 ### Bug fixes ###
 
@@ -67,6 +71,8 @@ v0.9.22 - 2014-06-
  - Fixed a bogus warning that the license of a sub package differs from the parent package when the sub package doesn't specify a license
  - Fixed building when files from "\\UNC" paths are involved - [issue #302][issue302]
  - Fixed up-to-date checking for embedded sub packages (by sinkuu) - [pull #336][issue336]
+ - Fixed outputting multiple instances of the same platform flag which broke the build for some compilers - [issue #346][issue346]
+ - Fixed referencing path based sub packages - [issue #347][issue347]
 
 [issue134]: https://github.com/rejectedsoftware/dub/issues/134
 [issue144]: https://github.com/rejectedsoftware/dub/issues/144
@@ -85,6 +91,7 @@ v0.9.22 - 2014-06-
 [issue283]: https://github.com/rejectedsoftware/dub/issues/283
 [issue284]: https://github.com/rejectedsoftware/dub/issues/284
 [issue291]: https://github.com/rejectedsoftware/dub/issues/291
+[issue294]: https://github.com/rejectedsoftware/dub/issues/294
 [issue296]: https://github.com/rejectedsoftware/dub/issues/296
 [issue297]: https://github.com/rejectedsoftware/dub/issues/297
 [issue302]: https://github.com/rejectedsoftware/dub/issues/302
@@ -100,6 +107,10 @@ v0.9.22 - 2014-06-
 [issue337]: https://github.com/rejectedsoftware/dub/issues/337
 [issue338]: https://github.com/rejectedsoftware/dub/issues/338
 [issue339]: https://github.com/rejectedsoftware/dub/issues/339
+[issue346]: https://github.com/rejectedsoftware/dub/issues/346
+[issue347]: https://github.com/rejectedsoftware/dub/issues/347
+[issue356]: https://github.com/rejectedsoftware/dub/issues/356
+[issue364]: https://github.com/rejectedsoftware/dub/issues/364
 
 
 v0.9.21 - 2014-02-22

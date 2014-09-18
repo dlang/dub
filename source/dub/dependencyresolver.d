@@ -23,11 +23,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		CONFIGS configs;
 
 		hash_t toHash() const nothrow @trusted {
-			try {
-				size_t ret = typeid(string).getHash(&pack);
-				ret ^= typeid(CONFIGS).getHash(&configs);
-				return ret;
-			} catch assert(false);
+			size_t ret = typeid(string).getHash(&pack);
+			ret ^= typeid(CONFIGS).getHash(&configs);
+			return ret;
 		}
 		bool opEqual(in ref TreeNodes other) const { return pack == other.pack && configs == other.configs; }
 		int opCmp(in ref TreeNodes other) const {
@@ -42,11 +40,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		CONFIG config;
 
 		hash_t toHash() const nothrow @trusted {
-			try {
-				size_t ret = typeid(string).getHash(&pack);
-				ret ^= typeid(CONFIG).getHash(&config);
-				return ret;
-			} catch assert(false);
+			size_t ret = typeid(string).getHash(&pack);
+			ret ^= typeid(CONFIG).getHash(&config);
+			return ret;
 		}
 		bool opEqual(in ref TreeNode other) const { return pack == other.pack && config == other.config; }
 		int opCmp(in ref TreeNode other) const {
@@ -64,6 +60,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			return p[0 .. idx];
 		}
 
+		auto root_base_pack = rootPackage(root.pack);
+
+		// find all possible configurations of each possible dependency
 		size_t[string] package_indices;
 		CONFIG[][] all_configs;
 		bool[TreeNode] visited;
@@ -80,7 +79,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					pidx = *pi;
 					configs = all_configs[*pi];
 				} else {
-					configs = getAllConfigs(basepack);
+					if (basepack == root_base_pack) configs = [root.config];
+					else configs = getAllConfigs(basepack);
 					all_configs ~= configs;
 					package_indices[basepack] = pidx;
 				}
@@ -89,11 +89,17 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 				all_configs[pidx] = configs;
 
-				foreach (v; all_configs[pidx])
+				foreach (v; configs)
 					findConfigsRec(TreeNode(ch.pack, v));
 			}
 		}
 		findConfigsRec(root);
+
+		// prepend an invalid configuration to denote an unchosen dependency
+		// this is used to properly support optional dependencies (when
+		// getChildren() returns no configurations for an optional dependency,
+		// but getAllConfigs() has already provided an existing list of configs)
+		foreach (ref cfgs; all_configs) cfgs = CONFIG.invalid ~ cfgs;
 
 		logDebug("Configurations used for dependency resolution:");
 		foreach (n, i; package_indices) logDebug("  %s (%s): %s", n, i, all_configs[i]);
@@ -109,28 +115,37 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			import std.algorithm : max;
 
 			if (parent in visited) return -1;
+
 			visited[parent] = true;
 			sizediff_t maxcpi = -1;
 			sizediff_t parentidx = package_indices.get(rootPackage(parent.pack), -1);
+			auto parentbase = rootPackage(parent.pack);
+
+			// loop over all dependencies
 			foreach (ch; getChildren(parent)) {
 				auto basepack = rootPackage(ch.pack);
 				assert(basepack in package_indices, format("%s not in packages %s", basepack, package_indices));
+
+				// get the current config/version of the current dependency
 				sizediff_t childidx = package_indices[basepack];
 				if (!all_configs[childidx].length) {
-					enforce(parentidx >= 0, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
+					enforce(parentbase != root_base_pack, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
 					// choose another parent config to avoid the invalid child
 					if (parentidx > maxcpi) {
 						error = format("Package %s contains invalid dependency %s", parent.pack, ch.pack);
 						logDiagnostic("%s (ci=%s)", error, parentidx);
 						maxcpi = parentidx;
 					}
-					enforce(parent != root, "Invalid dependecy %s referenced by the root package.");
 				} else {
 					auto config = all_configs[childidx][config_indices[childidx]];
 					auto chnode = TreeNode(ch.pack, config);
-					if (!matches(ch.configs, config)) {
+					
+					if (config == CONFIG.invalid || !matches(ch.configs, config)) {
 						// if we are at the root level, we can safely skip the maxcpi computation and instead choose another childidx config
-						if (parent == root) return childidx;
+						if (parentbase == root_base_pack) {
+							error = format("No match for dependency %s %s of %s", ch.pack, ch.configs, parent.pack);
+							return childidx;
+						}
 
 						if (childidx > maxcpi) {
 							maxcpi = max(childidx, parentidx);
@@ -138,7 +153,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 							logDebug("%s (ci=%s)", error, maxcpi);
 						}
 					}
-					maxcpi = max(maxcpi, validateConfigs(chnode, error));
+
+					if (config != CONFIG.invalid)
+						maxcpi = max(maxcpi, validateConfigs(chnode, error));
 				}
 			}
 			return maxcpi;
@@ -168,8 +185,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			if (conflict_index < 0) {
 				CONFIG[string] ret;
 				foreach (p, i; package_indices)
-					if (all_configs[i].length)
-						ret[p] = all_configs[i][config_indices[i]];
+					if (all_configs[i].length) {
+						auto cfg = all_configs[i][config_indices[i]];
+						if (cfg != CONFIG.invalid) ret[p] = cfg;
+					}
 				return ret;
 			}
 
@@ -194,44 +213,51 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 
 unittest {
-	static class TestResolver : DependencyResolver!(uint[], uint) {
+	static struct IntConfig {
+		int value;
+		alias value this;
+		enum invalid = IntConfig(-1);
+	}
+	static IntConfig ic(int v) { return IntConfig(v); }
+
+	static class TestResolver : DependencyResolver!(IntConfig[], IntConfig) {
 		private TreeNodes[][string] m_children;
 		this(TreeNodes[][string] children) { m_children = children; }
-		protected override uint[] getAllConfigs(string pack) {
-			auto ret = appender!(uint[]);
+		protected override IntConfig[] getAllConfigs(string pack) {
+			auto ret = appender!(IntConfig[]);
 			foreach (p; m_children.byKey) {
 				if (p.length <= pack.length+1) continue;
 				if (p[0 .. pack.length] != pack || p[pack.length] != ':') continue;
 				auto didx = p.lastIndexOf(':');
-				ret ~= p[didx+1 .. $].to!uint;
+				ret ~= ic(p[didx+1 .. $].to!uint);
 			}
 			ret.data.sort!"a>b"();
 			return ret.data;
 		}
-		protected override uint[] getSpecificConfigs(TreeNodes nodes) { return null; }
+		protected override IntConfig[] getSpecificConfigs(TreeNodes nodes) { return null; }
 		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null); }
-		protected override bool matches(uint[] configs, uint config) { return configs.canFind(config); }
+		protected override bool matches(IntConfig[] configs, IntConfig config) { return configs.canFind(config); }
 	}
 
 	// properly back up if conflicts are detected along the way (d:2 vs d:1)
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0": [TreeNodes("b", [2, 1]), TreeNodes("d", [1]), TreeNodes("e", [2, 1])],
-			"b:1": [TreeNodes("c", [2, 1]), TreeNodes("d", [1])],
-			"b:2": [TreeNodes("c", [3, 2]), TreeNodes("d", [2, 1])],
+			"a:0": [TreeNodes("b", [ic(2), ic(1)]), TreeNodes("d", [ic(1)]), TreeNodes("e", [ic(2), ic(1)])],
+			"b:1": [TreeNodes("c", [ic(2), ic(1)]), TreeNodes("d", [ic(1)])],
+			"b:2": [TreeNodes("c", [ic(3), ic(2)]), TreeNodes("d", [ic(2), ic(1)])],
 			"c:1": [], "c:2": [], "c:3": [],
 			"d:1": [], "d:2": [],
 			"e:1": [], "e:2": [],
 		]);
-		assert(res.resolve(TreeNode("a", 0)) == ["b":2u, "c":3u, "d":1u, "e":2u], format("%s", res.resolve(TreeNode("a", 0))));
+		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(2), "c":ic(3), "d":ic(1), "e":ic(2)], format("%s", res.resolve(TreeNode("a", ic(0)))));
 	}
 
 	// handle cyclic dependencies gracefully
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0": [TreeNodes("b", [1])],
-			"b:1": [TreeNodes("b", [1])]
+			"a:0": [TreeNodes("b", [ic(1)])],
+			"b:1": [TreeNodes("b", [ic(1)])]
 		]);
-		assert(res.resolve(TreeNode("a", 0)) == ["b":1u]);
+		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(1)]);
 	}
 }

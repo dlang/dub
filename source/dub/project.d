@@ -47,13 +47,12 @@ class Project {
 	this(PackageManager package_manager, Path project_path)
 	{
 		Package pack;
-		if (!Package.isPackageAt(project_path)) {
+		auto packageFile = Package.findPackageFile(project_path);
+		if (packageFile.empty) {
 			logWarn("There was no package description found for the application in '%s'.", project_path.toNativeString());
-			auto json = Json.emptyObject;
-			json.name = "unknown";
-			pack = new Package(json, project_path);
+			pack = new Package(null, project_path);
 		} else {
-			pack = package_manager.getOrLoadPackage(project_path);
+			pack = package_manager.getOrLoadPackage(project_path, packageFile);
 		}
 
 		this(package_manager, pack);
@@ -185,6 +184,27 @@ class Project {
 					~ "dependency to use a branch instead.",
 					dn, SelectedVersions.defaultFile);
 			}
+
+		bool[string] visited;
+		void validateDependenciesRec(Package pack) {
+			foreach (name, vspec_; pack.dependencies) {
+				if (name in visited) continue;
+				visited[name] = true;
+
+				auto basename = getBasePackageName(name);
+				if (m_selections.hasSelectedVersion(basename)) {
+					auto selver = m_selections.getSelectedVersion(basename);
+					if (vspec_.merge(selver) == Dependency.invalid) {
+						logWarn("Selected package %s %s does not match the dependency specification in package %s (%s). Need to \"dub upgrade\"?",
+							basename, selver, pack.name, vspec_);
+					}
+				}
+
+				auto deppack = getDependency(name, true);
+				if (deppack) validateDependenciesRec(deppack);
+			}
+		}
+		validateDependenciesRec(m_rootPackage);
 	}
 
 	/// Rereads the applications state.
@@ -203,8 +223,11 @@ class Project {
 					Path path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("Adding local %s", path);
-					p = m_packageManager.getTemporaryPackage(path);
-					enforce(p.name == name, format("Path based dependency %s is referenced with a wrong name: %s vs. %s", path.toNativeString(), name, p.name));
+					p = m_packageManager.getOrLoadPackage(path);
+					if (name.canFind(':')) p = m_packageManager.getSubPackage(p, getSubPackageName(name), false);
+					enforce(p.name == name,
+						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
+							path.toNativeString(), name, p.name));
 				}
 
 				if (!p) {
@@ -214,7 +237,7 @@ class Project {
 						p = m_rootPackage.basePackage;
 					} else if (basename == m_rootPackage.basePackage.name) {
 						vspec = Dependency(m_rootPackage.ver);
-						try p = m_rootPackage.getSubPackage(getSubPackageName(name));
+						try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, getSubPackageName(name), false);
 						catch (Exception e) {
 							logDiagnostic("Error getting sub package %s: %s", name, e.msg);
 							continue;
@@ -556,25 +579,46 @@ class Project {
 			m_selections.save(path);
 	}
 
-	private bool needsUpToDateCheck(Package pack) {
-		version (none) { // needs to be updated for the new package system (where no project local packages exist)
-			try {
-				auto time = m_packageSettings["dub"]["lastUpdate"].opt!(Json[string]).get(pack.name, Json("")).get!string;
-				if( !time.length ) return true;
-				return (Clock.currTime() - SysTime.fromISOExtString(time)) > dur!"days"(1);
-			} catch(Exception t) return true;
-		} else return false;
+	bool isUpgradeCacheUpToDate()
+	{
+		try {
+			auto datestr = m_packageSettings["dub"].opt!(Json[string]).get("lastUpgrade", Json("")).get!string;
+			if (!datestr.length) return false;
+			auto date = SysTime.fromISOExtString(datestr);
+			if ((Clock.currTime() - date) > 1.days) return false;
+			return true;
+		} catch (Exception t) {
+			logDebug("Failed to get the last upgrade time: %s", t.msg);
+			return false;
+		}
 	}
 
-	private void markUpToDate(string packageId) {
-		logDebug("markUpToDate(%s)", packageId);
+	Dependency[string] getUpgradeCache()
+	{
+		try {
+			Dependency[string] ret;
+			foreach (string p, d; m_packageSettings["dub"].opt!(Json[string]).get("cachedUpgrades", Json.emptyObject))
+				ret[p] = SelectedVersions.dependencyFromJson(d);
+			return ret;
+		} catch (Exception t) {
+			logDebug("Failed to get cached upgrades: %s", t.msg);
+			return null;
+		}
+	}
+
+	void setUpgradeCache(Dependency[string] versions)
+	{
+		logDebug("markUpToDate");
 		Json create(ref Json json, string object) {
 			if( object !in json ) json[object] = Json.emptyObject;
 			return json[object];
 		}
 		create(m_packageSettings, "dub");
-		create(m_packageSettings["dub"], "lastUpdate");
-		m_packageSettings["dub"]["lastUpdate"][packageId] = Json( Clock.currTime().toISOExtString() );
+		m_packageSettings["dub"]["lastUpgrade"] = Clock.currTime().toISOExtString();
+
+		create(m_packageSettings["dub"], "cachedUpgrades");
+		foreach (p, d; versions)
+			m_packageSettings["dub"]["cachedUpgrades"][p] = SelectedVersions.dependencyToJson(d);
 
 		writeDubJson();
 	}
@@ -877,16 +921,29 @@ final class SelectedVersions {
 		m_dirty = false;
 	}
 
+	static Json dependencyToJson(Dependency d)
+	{
+		if (d.path.empty) return Json(d.version_.toString());
+		else return serializeToJson(["path": d.path.toString()]);
+	}
+
+	static Dependency dependencyFromJson(Json j)
+	{
+		if (j.type == Json.Type.string)
+			return Dependency(Version(j.get!string));
+		else if (j.type == Json.Type.object)
+			return Dependency(Path(j.path.get!string()));
+		else throw new Exception(format("Unexpected type for dependency: %s", j.type));
+	}
+
 	Json serialize()
 	const {
 		Json json = serializeToJson(m_selections);
 		Json serialized = Json.emptyObject;
 		serialized.fileVersion = FileVersion;
 		serialized.versions = Json.emptyObject;
-		foreach (p, v; m_selections) {
-			if (v.dep.path.empty) serialized.versions[p] = v.dep.version_.toString();
-			else serialized.versions[p] = serializeToJson(["path": v.dep.path.toString()]);
-		}
+		foreach (p, v; m_selections)
+			serialized.versions[p] = dependencyToJson(v.dep);
 		return serialized;
 	}
 
@@ -895,12 +952,7 @@ final class SelectedVersions {
 		enforce(cast(int)json["fileVersion"] == FileVersion, "Mismatched dub.select.json version: " ~ to!string(cast(int)json["fileVersion"]) ~ "vs. " ~to!string(FileVersion));
 		clear();
 		scope(failure) clear();
-		foreach (string p, v; json.versions) {
-			if (v.type == Json.Type.string)
-				m_selections[p] = Selected(Dependency(Version(v.get!string)));
-			else if (v.type == Json.Type.object)
-				m_selections[p] = Selected(Dependency(Path(v.path.get!string())));
-			else throw new Exception("Unexpected type for dependency %s: %s", p, v.type);
-		}
+		foreach (string p, v; json.versions)
+			m_selections[p] = Selected(dependencyFromJson(v));
 	}
 }

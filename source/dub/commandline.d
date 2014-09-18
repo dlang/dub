@@ -189,12 +189,15 @@ int runDubCommandLine(string[] args)
 
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
-		try dub.packageManager.getTemporaryPackage(Path(root_path));
+		try dub.packageManager.getOrLoadPackage(Path(root_path));
 		catch (Exception e) { logDiagnostic("No package found in current working directory."); }
 	}
 
 	// execute the command
-	try return cmd.execute(dub, remaining_args, app_args);
+	int rc;
+	try {
+		rc = cmd.execute(dub, remaining_args, app_args);
+	}
 	catch (UsageException e) {
 		logError("%s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
@@ -206,6 +209,10 @@ int runDubCommandLine(string[] args)
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		return 2;
 	}
+
+	if (!cmd.skipDubInitialization)
+		dub.shutdown();
+	return rc;
 }
 
 class CommandArgs {
@@ -336,15 +343,18 @@ abstract class PackageBuildCommand : Command {
 		string m_defaultConfig;
 		bool m_nodeps;
 		bool m_forceRemove = false;
+		bool m_disableBuildOption = false;
 	}
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("b|build", &m_buildType, [
-			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
-			"Possible names:",
-			"  debug (default), plain, release, release-nobounds, unittest, profile, docs, ddox, cov, unittest-cov and custom types"
-		]);
+		if (!m_disableBuildOption) {
+			args.getopt("b|build", &m_buildType, [
+				"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
+				"Possible names:",
+				"  debug (default), plain, release, release-nobounds, unittest, profile, docs, ddox, cov, unittest-cov and custom types"
+			]);
+		}
 		args.getopt("c|config", &m_buildConfig, [
 			"Builds the specified configuration. Configurations can be defined in dub.json"
 		]);
@@ -366,7 +376,7 @@ abstract class PackageBuildCommand : Command {
 		]);
 		args.getopt("build-mode", &m_buildMode, [
 			"Specifies the way the compiler and linker are invoked. Valid values:",
-			"  separate (default), allAtOnce"
+			"  separate (default), allAtOnce, singleFile"
 		]);
 	}
 
@@ -401,7 +411,7 @@ abstract class PackageBuildCommand : Command {
 			dub.upgrade(UpgradeOptions.select);
 			// check for updates
 			logDiagnostic("Checking for upgrades.");
-			dub.upgrade(UpgradeOptions.upgrade|UpgradeOptions.printUpgradesOnly);
+			dub.upgrade(UpgradeOptions.upgrade|UpgradeOptions.printUpgradesOnly|UpgradeOptions.useCachedResult);
 		}
 
 		dub.project.validate();
@@ -430,8 +440,8 @@ abstract class PackageBuildCommand : Command {
 		if (warn_missing_package) {
 			bool found = existsFile(dub.rootPath ~ "source/app.d");
 			if (!found)
-				foreach (f; packageInfoFilenames)
-					if (existsFile(dub.rootPath ~ f)) {
+				foreach (f; packageInfoFiles)
+					if (existsFile(dub.rootPath ~ f.filename)) {
 						found = true;
 						break;
 					}
@@ -457,6 +467,7 @@ class GenerateCommand : PackageBuildCommand {
 	protected {
 		string m_generator;
 		bool m_rdmd = false;
+		bool m_tempBuild = false;
 		bool m_run = false;
 		bool m_force = false;
 		bool m_combined = false;
@@ -538,6 +549,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.runArgs = app_args;
 		gensettings.force = m_force;
 		gensettings.rdmd = m_rdmd;
+		gensettings.tempBuild = m_tempBuild;
 
 		logDiagnostic("Generating using %s", m_generator);
 		if (m_generator == "visuald-combined") {
@@ -567,6 +579,7 @@ class BuildCommand : GenerateCommand {
 		args.getopt("rdmd", &m_rdmd, [
 			"Use rdmd instead of directly invoking the compiler"
 		]);
+
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
@@ -594,6 +607,10 @@ class RunCommand : BuildCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
+		args.getopt("temp-build", &m_tempBuild, [
+			"Builds the project in the temp folder if possible."
+		]);
+
 		super.prepare(args);
 		m_run = true;
 	}
@@ -638,6 +655,7 @@ class TestCommand : PackageBuildCommand {
 		this.acceptsAppArgs = true;
 
 		m_buildType = "unittest";
+		m_disableBuildOption = true;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -651,6 +669,12 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
+		bool coverage = false;
+		args.getopt("coverage", &coverage, [
+			"Enables code coverage statistics to be generated."
+		]);
+		if (coverage) m_buildType = "unittest-cov";
+		
 		super.prepare(args);
 	}
 
@@ -704,8 +728,7 @@ class DescribeCommand : PackageBuildCommand {
 
 		string package_name;
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-		if (free_args.length >= 1) package_name = free_args[1];
-
+		if (free_args.length >= 1) package_name = free_args[0];
 		setupPackage(dub, package_name);
 
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
@@ -778,7 +801,7 @@ class UpgradeCommand : Command {
 		this.helpText = [
 			"Upgrades all dependencies of the package by querying the package registry(ies) for new versions.",
 			"",
-			"This will also update the versions stored in the selections file ("~SelectedVersions.defaultFile~") accordingly."
+			"This will also update the versions stored in the selections file ("~SelectedVersions.defaultFile~") accordingly.",
 			"",
 			"If a package specified, (only) that package will be upgraded. Otherwise all direct and indirect dependencies of the current package will get upgraded."
 		];
@@ -851,15 +874,15 @@ class FetchCommand : FetchRemoveCommand {
 		this.helpText = [
 			"Note: Use the \"dependencies\" field in the package description file (e.g. dub.json) if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
 			"",
-			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your dub.json, dub will do the rest for you."
+			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your dub.json, dub will do the rest for you.",
 			"",
-			"Without specified options, placement/removal will default to a user wide shared location."
+			"Without specified options, placement/removal will default to a user wide shared location.",
 			"",
 			"Complete applications can be retrieved and run easily by e.g.",
 			"$ dub fetch vibelog --local",
 			"$ cd vibelog",
 			"$ dub",
-			""
+			"",
 			"This will grab all needed dependencies and compile and run the application.",
 			"",
 			"Note: DUB does not do a system installation of packages. Packages are instead only registered within DUB's internal ecosystem. Generation of native system packages/installers may be added later as a separate feature."

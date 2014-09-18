@@ -67,7 +67,8 @@ class DmdCompiler : Compiler {
 		}
 		settings.addDFlags(arch_flags);
 
-		auto result = execute(compiler_binary ~ arch_flags ~ ["-quiet", "-run", fil.toNativeString()]);
+		auto result = executeShell(escapeShellCommand(compiler_binary ~ arch_flags ~
+			["-quiet", "-c", "-o-", fil.toNativeString()]));
 		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
 			compiler_binary, result.output));
 
@@ -87,7 +88,7 @@ class DmdCompiler : Compiler {
 		return build_platform;
 	}
 
-	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all)
+	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
 	{
 		enforceBuildRequirements(settings);
 
@@ -137,7 +138,7 @@ class DmdCompiler : Compiler {
 		assert(fields & BuildSetting.copyFiles);
 	}
 
-	void extractBuildOptions(ref BuildSettings settings)
+	void extractBuildOptions(ref BuildSettings settings) const
 	{
 		Appender!(string[]) newflags;
 		next_flag: foreach (f; settings.dflags) {
@@ -153,7 +154,7 @@ class DmdCompiler : Compiler {
 		settings.dflags = newflags.data;
 	}
 
-	void setTarget(ref BuildSettings settings, in BuildPlatform platform)
+	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
@@ -170,8 +171,9 @@ class DmdCompiler : Compiler {
 				break;
 		}
 
-		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		settings.addDFlags("-of"~tpath.toNativeString());
+		if (tpath is null)
+			tpath = (Path(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+		settings.addDFlags("-of"~tpath);
 	}
 
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
@@ -188,7 +190,7 @@ class DmdCompiler : Compiler {
 	{
 		import std.string;
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		auto args = [platform.compiler, "-of"~tpath.toNativeString()];
+		auto args = [platform.compilerBinary, "-of"~tpath.toNativeString()];
 		args ~= objects;
 		args ~= settings.sourceFiles;
 		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
@@ -204,7 +206,7 @@ class DmdCompiler : Compiler {
 			default:
 				if (arg.startsWith("-defaultlib=")) return true;
 				return false;
-			case "-g", "-gc", "-m32", "-m64", "-shared":
+			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib":
 				return true;
 		}
 	}

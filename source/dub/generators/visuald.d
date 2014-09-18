@@ -184,8 +184,8 @@ class VisualDGenerator : ProjectGenerator {
 			}
 
 			foreach (p; targets[packname].packages)
-				if (!p.packageInfoFile.empty)
-					addFile(p.packageInfoFile.toNativeString(), false);
+				if (!p.packageInfoFilename.empty)
+					addFile(p.packageInfoFilename.toNativeString(), false);
 
 			if (files.targetType == TargetType.staticLibrary)
 				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(s))) addFile(s, true);
@@ -334,7 +334,7 @@ class VisualDGenerator : ProjectGenerator {
 				final switch (settings.buildMode) with (BuildMode) {
 					case separate: singlefilemode = 2; break;
 					case allAtOnce: singlefilemode = 0; break;
-					//case singleFile: singlefilemode = 1; break;
+					case singleFile: singlefilemode = 1; break;
 					//case compileOnly: singlefilemode = 3; break;
 				}
 				ret.formattedWrite("    <singleFileCompilation>%s</singleFileCompilation>\n", singlefilemode);

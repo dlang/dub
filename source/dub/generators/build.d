@@ -26,6 +26,9 @@ import std.process;
 import std.string;
 import std.encoding : sanitize;
 
+version(Windows) enum objSuffix = ".obj";
+else enum objSuffix = ".o";
+
 class BuildGenerator : ProjectGenerator {
 	private {
 		Project m_project;
@@ -125,8 +128,9 @@ class BuildGenerator : ProjectGenerator {
 			return true;
 		}
 
-		if (!isWritableDir(target_path, true)) {
-			logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
+		if (settings.tempBuild || !isWritableDir(target_path, true)) {
+			if (!settings.tempBuild)
+				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
 			performDirectBuild(settings, buildsettings, pack, config);
 			return false;
 		}
@@ -177,7 +181,7 @@ class BuildGenerator : ProjectGenerator {
 		Path exe_file_path;
 		bool tmp_target = false;
 		if (generate_binary) {
-			if (settings.run && !isWritableDir(Path(buildsettings.targetPath), true)) {
+			if (settings.tempBuild || (settings.run && !isWritableDir(Path(buildsettings.targetPath), true))) {
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
 				auto tmpdir = getTempDir()~".rdmd/source/";
@@ -242,7 +246,7 @@ class BuildGenerator : ProjectGenerator {
 		Path exe_file_path;
 		bool is_temp_target = false;
 		if (generate_binary) {
-			if (settings.run && !isWritableDir(Path(buildsettings.targetPath), true)) {
+			if (settings.tempBuild || (settings.run && !isWritableDir(Path(buildsettings.targetPath), true))) {
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max));
 				auto tmppath = getTempDir()~("dub/"~rnd~"/");
@@ -293,7 +297,7 @@ class BuildGenerator : ProjectGenerator {
 		return format("%s-%s-%s-%s-%s-%s", config, settings.buildType,
 			settings.platform.platform.join("."),
 			settings.platform.architecture.join("."),
-			settings.platform.compilerBinary, hashstr);
+			settings.platform.compiler, hashstr);
 	}
 
 	private void copyTargetFile(Path build_path, BuildSettings buildsettings, BuildPlatform platform)
@@ -303,7 +307,7 @@ class BuildGenerator : ProjectGenerator {
 		logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
 		if (!existsFile(Path(buildsettings.targetPath)))
 			mkdirRecurse(buildsettings.targetPath);
-		copyFile(src, Path(buildsettings.targetPath) ~ filename, true);
+		symlinkFile(src, Path(buildsettings.targetPath) ~ filename, true);
 	}
 
 	private bool isUpToDate(Path target_path, BuildSettings buildsettings, BuildPlatform platform, in Package main_pack, in Package[] packages, in Path[] additional_dep_files)
@@ -323,7 +327,7 @@ class BuildGenerator : ProjectGenerator {
 		allfiles ~= buildsettings.stringImportFiles;
 		// TODO: add library files
 		foreach (p; packages)
-			allfiles ~= (p.packageInfoFile != Path.init ? p : p.basePackage).packageInfoFile.toNativeString();
+			allfiles ~= (p.packageInfoFilename != Path.init ? p : p.basePackage).packageInfoFilename.toNativeString();
 		foreach (f; additional_dep_files) allfiles ~= f.toNativeString();
 		if (main_pack is m_project.rootPackage)
 			allfiles ~= (main_pack.path ~ SelectedVersions.defaultFile).toNativeString();
@@ -340,6 +344,24 @@ class BuildGenerator : ProjectGenerator {
 		return true;
 	}
 
+	/// Output an unique name to represent the source file.
+	/// Calls with path that resolve to the same file on the filesystem will return the same,
+	/// unless they include different symbolic links (which are not resolved).
+	static string pathToObjName(string path) { return std.path.buildNormalizedPath(getcwd(), path~objSuffix)[1..$].replace("/", "."); }
+	/// Compile a single source file (srcFile), and write the object to objName.
+	static string compileUnit(string srcFile, string objName, BuildSettings bs, GeneratorSettings gs) {
+		Path tempobj = Path(bs.targetPath)~objName;
+		string objPath = tempobj.toNativeString();
+		bs.libs = null;
+		bs.lflags = null;
+		bs.addDFlags("-c");
+		bs.sourceFiles = [ srcFile ];
+		gs.compiler.prepareBuildSettings(bs, BuildSetting.commandLine);
+		gs.compiler.setTarget(bs, gs.platform, objPath);
+		gs.compiler.invoke(bs, gs.platform, gs.compileCallback);
+		return objPath;
+	}
+
 	void buildWithCompiler(GeneratorSettings settings, BuildSettings buildsettings)
 	{
 		auto generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
@@ -352,13 +374,27 @@ class BuildGenerator : ProjectGenerator {
 			if (generate_binary && existsFile(tpath))
 				removeFile(tpath);
 		}
+		if (settings.buildMode == BuildMode.singleFile && generate_binary) {
+			auto lbuildsettings = buildsettings;
+			auto objs = appender!(string[])();
+			logInfo("Compiling using %s...", settings.platform.compilerBinary);
+			foreach (file; buildsettings.sourceFiles.filter!(f=>!isLinkerFile(f))) {
+				logInfo("Compiling %s...", file);
+				objs.put(compileUnit(file, pathToObjName(file), buildsettings, settings));
+			}
+
+			logInfo("Linking...");
+			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f=> f.isLinkerFile()).array;
+			settings.compiler.setTarget(lbuildsettings, settings.platform);
+			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
+			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs.data, settings.linkCallback);
 
 		/*
 			NOTE: for DMD experimental separate compile/link is used, but this is not yet implemented
 			      on the other compilers. Later this should be integrated somehow in the build process
 			      (either in the dub.json, or using a command line flag)
 		*/
-		if (settings.buildMode == BuildMode.allAtOnce || settings.platform.compilerBinary != "dmd" || !generate_binary || is_static_library) {
+		} else if (settings.buildMode == BuildMode.allAtOnce || settings.platform.compilerBinary != "dmd" || !generate_binary || is_static_library) {
 			// setup for command line
 			if (generate_binary) settings.compiler.setTarget(buildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
@@ -371,9 +407,7 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 		} else {
 			// determine path for the temporary object file
-			string tempobjname = buildsettings.targetName;
-			version(Windows) tempobjname ~= ".obj";
-			else tempobjname ~= ".o";
+			string tempobjname = buildsettings.targetName ~ objSuffix;
 			Path tempobj = Path(buildsettings.targetPath) ~ tempobjname;
 
 			// setup linker command line
