@@ -711,21 +711,49 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 }
 
 /**
- * Search for module keyword in file 
+ * Search for module keyword in D Code 
  */
-string getModuleNameFromFile(string filePath) {
+string getModuleNameFromContent(string content) {
 	import std.regex;
 
 	auto commentsPattern = ctRegex!(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`, "g");
 	auto modulePattern = ctRegex!(`module\s+([\w\.]+)\s*;`, "g");
-
-	string fileContent = filePath.readText;
-	fileContent = replaceAll(fileContent, commentsPattern, "");
-	string moduleName = matchFirst(fileContent, modulePattern).front; 
+	
+	content = replaceAll(content, commentsPattern, "");
+	string moduleName = matchFirst(content, modulePattern).front; 
 
 	if(moduleName.length >= 7) moduleName = moduleName[7..$-1];
 
 	return moduleName;
+}
+
+unittest {
+	import std.stdio;
+	//test simple name
+	string name = getModuleNameFromContent("module myPackage.myModule;");
+	assert(name == "myPackage.myModule", "can't parse module name");
+	
+	//test if it can ignore module inside comments
+	name = getModuleNameFromContent("/**
+	module fakePackage.fakeModule;
+	*/
+	module myPackage.myModule;");
+	
+	assert(name == "myPackage.myModule", "can't parse module name");
+	
+	name = getModuleNameFromContent("//module fakePackage.fakeModule;
+	module myPackage.myModule;");
+	
+	assert(name == "myPackage.myModule", "can't parse module name");
+}
+
+/**
+ * Search for module keyword in file 
+ */
+string getModuleNameFromFile(string filePath) {
+	string fileContent = filePath.readText;
+	
+	return getModuleNameFromContent(fileContent);
 } 
 
 enum UpgradeOptions
