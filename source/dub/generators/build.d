@@ -333,6 +333,10 @@ class BuildGenerator : ProjectGenerator {
 			allfiles ~= (main_pack.path ~ SelectedVersions.defaultFile).toNativeString();
 
 		foreach (file; allfiles.data) {
+			if (!existsFile(file)) {
+				logDiagnostic("File %s doesn't exists, triggering rebuild.", file);
+				return false;
+			}
 			auto ftime = getFileInfo(file).timeModified;
 			if (ftime > Clock.currTime)
 				logWarn("File '%s' was modified in the future. Please re-save.", file);
