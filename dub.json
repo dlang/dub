@@ -14,7 +14,6 @@
 			"targetType": "executable",
 			"mainSourceFile": "source/app.d",
 			"libs": ["curl"],
-			"copyFiles-windows": ["curllib.dll", "libeay32.dll", "openldap.dll", "ssleay32.dll"],
 			"versions": ["DubUseCurl"]
 		},
 		{
@@ -22,7 +21,7 @@
 			"targetType": "library",
 			"excludedSourceFiles": ["source/app.d"],
 			"libs": ["curl"],
-			"copyFiles-windows": ["curllib.dll", "libeay32.dll", "openldap.dll", "ssleay32.dll"],
+			"copyFiles-windows": ["bin/libcurl.dll", "bin/libeay32.dll", "bin/ssleay32.dll"],
 			"versions": ["DubUseCurl"]
 		},
 		{
