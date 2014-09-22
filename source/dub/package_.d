@@ -108,7 +108,9 @@ class Package {
 		// parse the Package description
 		if(raw_package !is null)
 		{
-			scope(failure) logError("Failed to parse package description in %s", root.toNativeString());
+			scope(failure) logError("Failed to parse package description for %s %s in %s.",
+				raw_package.package_name, versionOverride.length ? versionOverride : raw_package.version_,
+				root.length ? root.toNativeString() : "remote location");
 			raw_package.parseInto(recipe, parent ? parent.name : null);
 
 			if (!versionOverride.empty)

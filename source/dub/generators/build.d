@@ -165,8 +165,8 @@ class BuildGenerator : ProjectGenerator {
 			mainsrc = Path(buildsettings.mainSourceFile);
 			if (!mainsrc.absolute) mainsrc = pack.path ~ mainsrc;
 		} else {
-			logWarn(`Package has no "mainSourceFile" defined. Trying to guess something to pass to RDMD...`);
 			mainsrc = getMainSourceFile(pack);
+			logWarn(`Package has no "mainSourceFile" defined. Using best guess: %s`, mainsrc.relativeTo(pack.path).toNativeString());
 		}
 
 		// do not pass all source files to RDMD, only the main source file
@@ -290,14 +290,15 @@ class BuildGenerator : ProjectGenerator {
 		addHash((cast(uint)buildsettings.options).to!string);
 		addHash(buildsettings.stringImportPaths);
 		addHash(settings.platform.architecture);
+		addHash(settings.platform.compilerBinary);
 		addHash(settings.platform.compiler);
 		addHashI(settings.platform.frontendVersion);
 		auto hashstr = hash.finish().toHexString().idup;
 
-		return format("%s-%s-%s-%s-%s-%s", config, settings.buildType,
+		return format("%s-%s-%s-%s-%s_%s-%s", config, settings.buildType,
 			settings.platform.platform.join("."),
 			settings.platform.architecture.join("."),
-			settings.platform.compiler, hashstr);
+			settings.platform.compiler, settings.platform.frontendVersion, hashstr);
 	}
 
 	private void copyTargetFile(Path build_path, BuildSettings buildsettings, BuildPlatform platform)

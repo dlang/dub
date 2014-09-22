@@ -487,6 +487,7 @@ class Dub {
 
 		logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
 		auto clean_package_version = ver[ver.startsWith("~") ? 1 : 0 .. $];
+		clean_package_version = clean_package_version.replace("+", "_"); // + has special meaning for Optlink
 		Path dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
 
 		return m_packageManager.storeFetchedPackage(tempFile, pinfo, dstpath);
@@ -711,16 +712,16 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 }
 
 /**
- * Search for module keyword in D Code 
+ * Search for module keyword in D Code
  */
 string getModuleNameFromContent(string content) {
 	import std.regex;
 
 	auto commentsPattern = ctRegex!(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`, "g");
 	auto modulePattern = ctRegex!(`module\s+([\w\.]+)\s*;`, "g");
-	
+
 	content = replaceAll(content, commentsPattern, "");
-	string moduleName = matchFirst(content, modulePattern).front; 
+	string moduleName = matchFirst(content, modulePattern).front;
 
 	if(moduleName.length >= 7) moduleName = moduleName[7..$-1];
 
@@ -732,29 +733,29 @@ unittest {
 	//test simple name
 	string name = getModuleNameFromContent("module myPackage.myModule;");
 	assert(name == "myPackage.myModule", "can't parse module name");
-	
+
 	//test if it can ignore module inside comments
 	name = getModuleNameFromContent("/**
 	module fakePackage.fakeModule;
 	*/
 	module myPackage.myModule;");
-	
+
 	assert(name == "myPackage.myModule", "can't parse module name");
-	
+
 	name = getModuleNameFromContent("//module fakePackage.fakeModule;
 	module myPackage.myModule;");
-	
+
 	assert(name == "myPackage.myModule", "can't parse module name");
 }
 
 /**
- * Search for module keyword in file 
+ * Search for module keyword in file
  */
 string getModuleNameFromFile(string filePath) {
 	string fileContent = filePath.readText;
-	
+
 	return getModuleNameFromContent(fileContent);
-} 
+}
 
 enum UpgradeOptions
 {
@@ -896,11 +897,17 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		if (basename != name) {
 			auto subname = getSubPackageName(name);
 			auto basepack = getPackage(basename, dep);
+			if (!basepack) return null;
 			if (auto sp = m_dub.m_packageManager.getSubPackage(basepack, subname, true)) {
 				return sp;
 			} else if (!basepack.subPackages.canFind!(p => p.path.length)) {
 				// note: external sub packages are handled further below
 				logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
+				return null;
+			} else if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep)) {
+				return ret;
+			} else {
+				logDiagnostic("External sub package %s %s not found.", name, dep.version_);
 				return null;
 			}
 		}
@@ -929,7 +936,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 					m_remotePackages[key] = ret;
 					return ret;
 				} catch (Exception e) {
-					logDiagnostic("Metadata for %s could not be downloaded from %s: %s", name, ps.description, e.msg);
+					logDiagnostic("Metadata for %s %s could not be downloaded from %s: %s", name, dep, ps.description, e.msg);
 					logDebug("Full error: %s", e.toString().sanitize);
 				}
 			} else {
@@ -955,7 +962,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 
 		m_remotePackages[key] = null;
 
-		logWarn("Package %s %s was found neither locally, nor in the configured package registries.", name, dep);
+		logWarn("Package %s %s could not be loaded either locally, or from the configured package registries.", name, dep);
 		return null;
 	}
 }

@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.9.22 - 2014-07-
+v0.9.22 - 2014-09-22
 --------------------
 
 ### Features and improvements ###
@@ -45,6 +45,11 @@ v0.9.22 - 2014-07-
  - Using `executeShell` when invoking tools to enable more flexible use of shell features - [issue #356][issue356]
  - `dub init` now creates a default `.gitignore` file
  - An exit code of `-9` for a tool now triggers a short message with a possible cause (out of memory)
+ - The information about possible package upgrades is now cached for one day, resulting in less online queries to the package registry
+ - Implemented separate compile/link mode for GDC (by Mathias Lang aka Geod24) - [pull #367][issue367]
+ - `.def` files are now passed to the linking stage when doing separate compile/link building
+ - Added BASH shell completion script (by Per Nordlöw) - [issue #154][issue154]
+ - Added FISH shell completion script (by Matt Soucy) - [pull #375][issue375]
 
 ### Bug fixes ###
 
@@ -73,9 +78,20 @@ v0.9.22 - 2014-07-
  - Fixed up-to-date checking for embedded sub packages (by sinkuu) - [pull #336][issue336]
  - Fixed outputting multiple instances of the same platform flag which broke the build for some compilers - [issue #346][issue346]
  - Fixed referencing path based sub packages - [issue #347][issue347]
+ - Fixed various error messages (by p0nce and sinkuu) - [pull #368][issue368], [pull #376][issue376]
+ - Fixed the "ddox" build mode when DDOX hasn't already been installed - [issue #366][issue366]
+ - Fixed probing the compiler for platfrom identifiers when performing cross compiling (by Mathias Lang aka Geod24) - [pull #380][issue380]
+ - Fixed erroneously dropping the `"buildTypes"` field of downloaded packages (by sinkuu) - [pull #406][issue406]
+ - Fixed trying to copy files with the same source and destination
+ - Fixed downloading of packages with "+" in their version - [issue #411][issue411]
+ - Fixed building dependencies with versions containing "+" on Windows/OPTLINK
+ - Fixed a crash when sub packages of non-installed base packages are references - [issue #398][issue398]
+ - Fixed repeated download of base packages when a non-existent sub package is referenced
+ - Fixed intermediate build path for `--compiler=` binaries speficied with path separators - [issue #412][issue412]
 
 [issue134]: https://github.com/rejectedsoftware/dub/issues/134
 [issue144]: https://github.com/rejectedsoftware/dub/issues/144
+[issue154]: https://github.com/rejectedsoftware/dub/issues/154
 [issue177]: https://github.com/rejectedsoftware/dub/issues/177
 [issue185]: https://github.com/rejectedsoftware/dub/issues/185
 [issue221]: https://github.com/rejectedsoftware/dub/issues/221
@@ -111,6 +127,16 @@ v0.9.22 - 2014-07-
 [issue347]: https://github.com/rejectedsoftware/dub/issues/347
 [issue356]: https://github.com/rejectedsoftware/dub/issues/356
 [issue364]: https://github.com/rejectedsoftware/dub/issues/364
+[issue366]: https://github.com/rejectedsoftware/dub/issues/366
+[issue367]: https://github.com/rejectedsoftware/dub/issues/367
+[issue368]: https://github.com/rejectedsoftware/dub/issues/368
+[issue375]: https://github.com/rejectedsoftware/dub/issues/375
+[issue376]: https://github.com/rejectedsoftware/dub/issues/376
+[issue380]: https://github.com/rejectedsoftware/dub/issues/380
+[issue398]: https://github.com/rejectedsoftware/dub/issues/398
+[issue406]: https://github.com/rejectedsoftware/dub/issues/406
+[issue411]: https://github.com/rejectedsoftware/dub/issues/411
+[issue412]: https://github.com/rejectedsoftware/dub/issues/412
 
 
 v0.9.21 - 2014-02-22

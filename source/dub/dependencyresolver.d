@@ -10,8 +10,8 @@ module dub.dependencyresolver;
 import dub.dependency;
 import dub.internal.vibecompat.core.log;
 
-import std.algorithm : all, canFind, sort;
-import std.array : appender;
+import std.algorithm : all, canFind, filter, sort;
+import std.array : appender, array;
 import std.conv : to;
 import std.exception : enforce;
 import std.string : format, indexOf, lastIndexOf;
@@ -66,7 +66,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		size_t[string] package_indices;
 		CONFIG[][] all_configs;
 		bool[TreeNode] visited;
-		void findConfigsRec(TreeNode parent)
+		void findConfigsRec(TreeNode parent, bool parent_unique)
 		{
 			if (parent in visited) return;
 			visited[parent] = true;
@@ -87,13 +87,17 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 				configs = getSpecificConfigs(ch) ~ configs;
 
+				// eliminate configurations from which we know that they can't satisfy
+				// the uniquely defined root dependencies (==version or ~branch style dependencies)
+				if (parent_unique) configs = configs.filter!(c => matches(ch.configs, c)).array;
+
 				all_configs[pidx] = configs;
 
 				foreach (v; configs)
-					findConfigsRec(TreeNode(ch.pack, v));
+					findConfigsRec(TreeNode(ch.pack, v), parent_unique && configs.length == 1);
 			}
 		}
-		findConfigsRec(root);
+		findConfigsRec(root, true);
 
 		// prepend an invalid configuration to denote an unchosen dependency
 		// this is used to properly support optional dependencies (when
@@ -128,7 +132,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 				// get the current config/version of the current dependency
 				sizediff_t childidx = package_indices[basepack];
-				if (!all_configs[childidx].length) {
+				if (all_configs[childidx] == [CONFIG.invalid]) {
 					enforce(parentbase != root_base_pack, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
 					// choose another parent config to avoid the invalid child
 					if (parentidx > maxcpi) {
@@ -139,7 +143,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				} else {
 					auto config = all_configs[childidx][config_indices[childidx]];
 					auto chnode = TreeNode(ch.pack, config);
-					
+
 					if (config == CONFIG.invalid || !matches(ch.configs, config)) {
 						// if we are at the root level, we can safely skip the maxcpi computation and instead choose another childidx config
 						if (parentbase == root_base_pack) {
@@ -152,10 +156,13 @@ class DependencyResolver(CONFIGS, CONFIG) {
 							error = format("Dependency %s -> %s %s mismatches with selected version %s", parent.pack, ch.pack, ch.configs, config);
 							logDebug("%s (ci=%s)", error, maxcpi);
 						}
+
+						// we know that either the child or the parent needs to be switched
+						// to another configuration, no need to continue with other children
+						if (config == CONFIG.invalid) break;
 					}
 
-					if (config != CONFIG.invalid)
-						maxcpi = max(maxcpi, validateConfigs(chnode, error));
+					maxcpi = max(maxcpi, validateConfigs(chnode, error));
 				}
 			}
 			return maxcpi;
