@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.9.22 - 2014-07-
+v0.9.22 - 2014-09-22
 --------------------
 
 ### Features and improvements ###
@@ -82,6 +82,12 @@ v0.9.22 - 2014-07-
  - Fixed the "ddox" build mode when DDOX hasn't already been installed - [issue #366][issue366]
  - Fixed probing the compiler for platfrom identifiers when performing cross compiling (by Mathias Lang aka Geod24) - [pull #380][issue380]
  - Fixed erroneously dropping the `"buildTypes"` field of downloaded packages (by sinkuu) - [pull #406][issue406]
+ - Fixed trying to copy files with the same source and destination
+ - Fixed downloading of packages with "+" in their version - [issue #411][issue411]
+ - Fixed building dependencies with versions containing "+" on Windows/OPTLINK
+ - Fixed a crash when sub packages of non-installed base packages are references - [issue #398][issue398]
+ - Fixed repeated download of base packages when a non-existent sub package is referenced
+ - Fixed intermediate build path for `--compiler=` binaries speficied with path separators - [issue #412][issue412]
 
 [issue134]: https://github.com/rejectedsoftware/dub/issues/134
 [issue144]: https://github.com/rejectedsoftware/dub/issues/144
@@ -127,7 +133,10 @@ v0.9.22 - 2014-07-
 [issue375]: https://github.com/rejectedsoftware/dub/issues/375
 [issue376]: https://github.com/rejectedsoftware/dub/issues/376
 [issue380]: https://github.com/rejectedsoftware/dub/issues/380
+[issue398]: https://github.com/rejectedsoftware/dub/issues/398
 [issue406]: https://github.com/rejectedsoftware/dub/issues/406
+[issue411]: https://github.com/rejectedsoftware/dub/issues/411
+[issue412]: https://github.com/rejectedsoftware/dub/issues/412
 
 
 v0.9.21 - 2014-02-22
