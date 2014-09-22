@@ -453,13 +453,20 @@ class Dub {
 		}
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
-		auto existing = m_packageManager.getPackage(packageId, ver, placement);
+		Package existing;
+		try existing = m_packageManager.getPackage(packageId, ver, placement);
+		catch (Exception e) {
+			logWarn("Failed to load existing package %s: %s", ver, e.msg);
+			logDiagnostic("Full error: %s", e.toString().sanitize);
+		}
+
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.vers != ver)
 				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
 					packageId, existing.vers, ver, packageId);
 			return null;
 		}
+
 		if (existing) {
 			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
