@@ -33,7 +33,7 @@ v0.9.22 - 2014-09-22
  - Added a basic `dub clean` command - [issue #134][issue134]
  - Added a spell checker for the `-c`/`--config` flag (by Andrej Mitrovic) - [pull #313][issue313]
  - Added support for `$ROOT_PACKAGE_DIR` and `$<dependency>_PACKAGE_DIR` variables
- - Generalized the `--local`/`--system` flags to `--cache=<location>`, which is now available for all commands (by Golden Cullen) - [pull #306][issue306]
+ - Generalized the `--local`/`--system` flags to `--cache=<location>`, which is now available for all commands (by Colden Cullen) - [pull #306][issue306]
  - Added a `--build-mode` switch to choose between combined build and separate compile/link for DMD
  - When building a static library, its dependencies are not built anymore - [issue #316][issue316]
  - Displaying the line number where parsing a JSON document fails - see [issue #317][issue317]
