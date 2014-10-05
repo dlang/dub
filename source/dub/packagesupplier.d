@@ -39,11 +39,15 @@ interface PackageSupplier {
 	/// returns the metadata for the package
 	Json getPackageDescription(string packageId, Dependency dep, bool pre_release);
 
-	/// load caches to disk
-	void loadCache(Path cacheDir);
+	/// perform cache operation
+	void cacheOp(Path cacheDir, CacheOp op);
+}
 
-	/// persist caches to disk
-	void storeCache(Path cacheDir);
+/// operations on package supplier cache
+enum CacheOp {
+	load,
+	store,
+	clean,
 }
 
 class FileSystemPackageSupplier : PackageSupplier {
@@ -85,10 +89,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return jsonFromZip(filename, "dub.json");
 	}
 
-	void storeCache(Path cacheDir) {
-	}
-
-	void loadCache(Path cacheDir) {
+	void cacheOp(Path cacheDir, CacheOp op) {
 	}
 
 	private Path bestPackageFile(string packageId, Dependency dep, bool pre_release)
@@ -152,24 +153,29 @@ class RegistryPackageSupplier : PackageSupplier {
 		return getBestPackage(packageId, dep, pre_release);
 	}
 
-	void storeCache(Path cacheDir)
-	{
-		if (!m_metadataCacheDirty) return;
-
-		auto path = cacheDir ~ cacheFileName;
-		if (!cacheDir.existsFile())
-			mkdirRecurse(cacheDir.toNativeString());
-		// TODO: method is slow due to Json escaping
-		writeJsonFile(path, m_metadataCache.serializeToJson());
-		m_metadataCacheDirty = false;
-	}
-
-	void loadCache(Path cacheDir)
+	void cacheOp(Path cacheDir, CacheOp op)
 	{
 		auto path = cacheDir ~ cacheFileName;
-		if (!path.existsFile()) return;
+		final switch (op)
+		{
+		case CacheOp.store:
+			if (!m_metadataCacheDirty) return;
+			if (!cacheDir.existsFile())
+				mkdirRecurse(cacheDir.toNativeString());
+			// TODO: method is slow due to Json escaping
+			writeJsonFile(path, m_metadataCache.serializeToJson());
+			break;
 
-		deserializeJson(m_metadataCache, jsonFromFile(path));
+		case CacheOp.load:
+			if (!path.existsFile()) return;
+			deserializeJson(m_metadataCache, jsonFromFile(path));
+			break;
+
+		case CacheOp.clean:
+			if (path.existsFile()) removeFile(path);
+			m_metadataCache.destroy();
+			break;
+		}
 		m_metadataCacheDirty = false;
 	}
 
