@@ -674,7 +674,7 @@ class TestCommand : PackageBuildCommand {
 			"Enables code coverage statistics to be generated."
 		]);
 		if (coverage) m_buildType = "unittest-cov";
-		
+
 		super.prepare(args);
 	}
 
@@ -747,7 +747,7 @@ class CleanCommand : Command {
 	{
 		this.name = "clean";
 		this.argumentsPattern = "[<package>]";
-		this.description = "Removes intermetiate build files and cached build results";
+		this.description = "Removes intermediate build files and cached build results";
 		this.helpText = [
 			"This command removes any cached build files of the given package(s). The final target file, as well as any copyFiles are currently not removed.",
 			"Without arguments, the package in the current working directory will be cleaned."
