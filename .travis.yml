@@ -24,5 +24,5 @@ install:
 
 script:
   - dub test --compiler=${DC_BIN} -c library-nonet
-  - DC=${DC_BIN} ./build.sh
+  - dub build --compiler=${DC_BIN}
   - DUB=`pwd`/bin/dub COMPILER=${DC_BIN} test/run-unittest.sh
