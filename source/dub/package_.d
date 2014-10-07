@@ -451,7 +451,7 @@ class Package {
 		foreach (f; bs.importFiles) sourceFileTypes[f] = "import";
 		foreach (f; bs.sourceFiles) sourceFileTypes[f] = "source";
 		Json[] files;
-		foreach (f; sourceFileTypes.byKey.array.sort) {
+		foreach (f; sourceFileTypes.byKey.array.sort()) {
 			auto jf = Json.emptyObject;
 			jf["path"] = f;
 			jf["type"] = sourceFileTypes[f];
