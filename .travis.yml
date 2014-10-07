@@ -23,6 +23,6 @@ install:
   - if [[ $DC_NAME != "GDC" ]]; then sudo tar xf ${GDC_LATEST_TAR} -C /usr/local/; fi
 
 script:
-  - dub test --compiler=$(DC_BIN) -c library-nonet
-  - DC=$(DC_BIN) ./build.sh
-  - DUB=`pwd`/bin/dub COMPILER=$(DC_BIN) test/run-unittest.sh
+  - dub test --compiler=${DC_BIN} -c library-nonet
+  - DC=${DC_BIN} ./build.sh
+  - DUB=`pwd`/bin/dub COMPILER=${DC_BIN} test/run-unittest.sh
