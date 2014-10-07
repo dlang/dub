@@ -48,7 +48,9 @@ class ProjectGenerator
 		m_project = project;
 	}
 
-	void generate(GeneratorSettings settings)
+	/** Performs the full generator process.
+	*/
+	final void generate(GeneratorSettings settings)
 	{
 		if (!settings.config.length) settings.config = m_project.getDefaultConfiguration(settings.platform);
 
@@ -79,9 +81,25 @@ class ProjectGenerator
 		performPostGenerateActions(settings, targets);
 	}
 
-	abstract void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets);
+	/** Overridden in derived classes fo implement the actual generator functionality.
 
-	void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[string] targets) {} // e.g. run the compiled program
+		The function should go through all targets recursively. The first target
+		(which is guaranteed to be there) is
+		$(D targets[m_project.rootPackage.name]). The recursive descent is then
+		done using the $(D TargetInfo.linkDependencies) list.
+
+		This method is also potentially responsible for running the pre and post
+		build commands, while pre and post generate commands are already taken
+		care of by the $(D generate) method.
+	*/
+	protected abstract void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets);
+
+	/** Overridable method to be invoked after the generator process has finished.
+
+		An examples of functionality placed here is to run the application that
+		has just been built.
+	*/
+	protected void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[string] targets) {}
 
 	private BuildSettings collect(GeneratorSettings settings, Package pack, ref TargetInfo[string] targets, in string[string] configs, ref string[] main_files, string bin_pack)
 	{
