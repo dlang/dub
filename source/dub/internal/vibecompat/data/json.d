@@ -724,6 +724,8 @@ struct Json {
 Json parseJson(R)(ref R range, string filename, int* line)
 	if( is(R == string) )
 {
+	import std.algorithm : min;
+
 	assert(line !is null);
 	Json ret;
 	enforceJson(!range.empty, "JSON string is empty.", filename, 0);
