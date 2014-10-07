@@ -31,7 +31,6 @@ else enum objSuffix = ".o";
 
 class BuildGenerator : ProjectGenerator {
 	private {
-		Project m_project;
 		PackageManager m_packageMan;
 		Path[] m_temporaryFiles;
 	}
@@ -39,7 +38,6 @@ class BuildGenerator : ProjectGenerator {
 	this(Project app, PackageManager mgr)
 	{
 		super(app);
-		m_project = app;
 		m_packageMan = mgr;
 	}
 
