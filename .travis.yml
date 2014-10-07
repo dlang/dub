@@ -1,54 +1,28 @@
 language: d
 
 env:
- - DMD_VER=2.064.0
- - DMD_VER=2.065.0
- - DMD_VER=2.066.0
-
-#compiler:
-#  - dmd
+ # dmd: 2.064 - 2.066
+ - DC_NAME=DMD DC_URL=http://downloads.dlang.org/releases/2014/ DC_ARCHIVE=dmd_2.064.2-0_amd64.deb DC_BIN=dmd
+ - DC_NAME=DMD DC_URL=http://downloads.dlang.org/releases/2014/ DC_ARCHIVE=dmd_2.065.0-0_amd64.deb DC_BIN=dmd
+ - DC_NAME=DMD DC_URL=http://downloads.dlang.org/releases/2014/ DC_ARCHIVE=dmd_2.066.0-0_amd64.deb DC_BIN=dmd
+ # ldc: Latest (0.13.0 / FE 2.064.0 ATM, no support for shared lib)
+ - DC_NAME=LDC DC_URL=https://github.com/ldc-developers/ldc/releases/download/v0.13.0/ DC_ARCHIVE=ldc2-0.13.0-linux-x86_64.tar.gz DC_BIN=/usr/local/ldc2-0.13.0-linux-x86_64/bin/ldc2
+ # gdc: Latest (4.9.0 / FE 2.065.0 ATM)
+ - DC_NAME=GDC DC_URL=http://gdcproject.org/downloads/binaries/x86_64-linux-gnu/ DC_ARCHIVE=native_2.065_gcc4.9.0_a8ad6a6678_20140615.tar.xz DC_BIN=/usr/local/x86_64-gdcproject-linux-gnu/bin/gdc
 
 install:
-  # We need:
-  # dub: Bootstrapping
-  # dmd: Latest version of the frontend
-  # gdc: Latest (4.9.0 / FE 2.065.0 ATM)
-  # ldc: Latest (0.13.0 / FE 2.064.0 ATM, no support for shared lib)
+  # Install release version of DUB for bootstrapping
+  - BOOTSTRAP_DUB_VER=0.9.21
+  - BOOTSTRAP_DUB=dub-${BOOTSTRAP_DUB_VER}-linux-x86_64
+  - wget http://code.dlang.org/files/${BOOTSTRAP_DUB}.tar.gz
+  - sudo tar -C /usr/local/bin -zxf ${BOOTSTRAP_DUB}.tar.gz
 
-
-  # Install 'old' dub to bootstrap
-  - OLD_DUB_VER=0.9.21
-  - OLD_DUB=dub-${OLD_DUB_VER}-linux-x86_64
-  - wget http://code.dlang.org/files/${OLD_DUB}.tar.gz
-  - sudo tar -C /usr/local/bin -zxf ${OLD_DUB}.tar.gz
-
-
-  # Install DMD (latest frontend)
-  - DMD=dmd_${DMD_VER}_amd64.deb
-  - wget http://downloads.dlang.org/releases/2014/${DMD}
-  - sudo dpkg -i ${DMD} || true
-  - sudo apt-get -y update
-  - sudo apt-get -fy install
-  - sudo dpkg -i ${DMD}
-
-
-  # Get the latest GDC
-  - GDC_LATEST_TAR=native_2.065_gcc4.9.0_a8ad6a6678_20140615.tar.xz
-  - GDC_BASE_URL='http://gdcproject.org/downloads/binaries/x86_64-linux-gnu'
-  - wget ${GDC_BASE_URL}/${GDC_LATEST_TAR}
-  - sudo tar xf ${GDC_LATEST_TAR} -C /usr/local/
-  - GDC_BIN=/usr/local/x86_64-gdcproject-linux-gnu/bin/gdc
-
-  # Get the latest LDC
-  - LDC_VER=0.13.0
-  - LDC_URL=https://github.com/ldc-developers/ldc/releases/download/v${LDC_VER}/ldc2-${LDC_VER}-linux-x86_64.tar.gz
-  - wget ${LDC_URL}
-  - sudo tar xf ldc2-${LDC_VER}-linux-x86_64.tar.gz -C /usr/local/
-  - LDC_BIN=/usr/local/ldc2-${LDC_VER}-linux-x86_64/bin/ldc2
+  # Install compiler
+  - wget ${DC_URL}${DC_ARCHIVE}
+  - if [[ $DC_NAME == "DMD" ]]; then sudo dpkg -i ${DC_ARCHIVE} || true; sudo apt-get -y update; sudo apt-get -fy install; sudo dpkg -i ${DC_ARCHIVE}; fi
+  - if [[ $DC_NAME != "GDC" ]]; then sudo tar xf ${GDC_LATEST_TAR} -C /usr/local/; fi
 
 script:
-  - dub test --compiler=dmd -c library-nonet
-  - dub test --compiler=${GDC_BIN} -c library-nonet
-  - dub test --compiler=${LDC_BIN} -c library-nonet
-  - dub build
-  - DUB=`pwd`/bin/dub COMPILER=dmd test/run-unittest.sh
+  - dub test --compiler=$(DC_BIN) -c library-nonet
+  - DC=$(DC_BIN) ./build.sh
+  - DUB=`pwd`/bin/dub COMPILER=$(DC_BIN) test/run-unittest.sh
