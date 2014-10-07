@@ -35,10 +35,10 @@ class BuildGenerator : ProjectGenerator {
 		Path[] m_temporaryFiles;
 	}
 
-	this(Project app, PackageManager mgr)
+	this(Project project)
 	{
-		super(app);
-		m_packageMan = mgr;
+		super(project);
+		m_packageMan = project.packageManager;
 	}
 
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)

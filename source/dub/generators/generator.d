@@ -250,9 +250,9 @@ enum BuildMode {
 /**
 	Creates a project generator of the given type for the specified project.
 */
-ProjectGenerator createProjectGenerator(string generator_type, Project app, PackageManager mgr)
+ProjectGenerator createProjectGenerator(string generator_type, Project project)
 {
-	assert(app !is null && mgr !is null, "Project and package manager needed to create a generator.");
+	assert(project !is null, "Project instance needed to create a generator.");
 
 	generator_type = generator_type.toLower();
 	switch(generator_type) {
@@ -260,12 +260,12 @@ ProjectGenerator createProjectGenerator(string generator_type, Project app, Pack
 			throw new Exception("Unknown project generator: "~generator_type);
 		case "build":
 			logDebug("Creating build generator.");
-			return new BuildGenerator(app, mgr);
+			return new BuildGenerator(project);
 		case "mono-d":
 			throw new Exception("The Mono-D generator has been removed. Use Mono-D's built in DUB support instead.");
 		case "visuald":
 			logDebug("Creating VisualD generator.");
-			return new VisualDGenerator(app, mgr);
+			return new VisualDGenerator(project);
 	}
 }
 

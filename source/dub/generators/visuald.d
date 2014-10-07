@@ -37,10 +37,10 @@ class VisualDGenerator : ProjectGenerator {
 		string[string] m_projectUuids;
 	}
 
-	this(Project app, PackageManager mgr)
+	this(Project project)
 	{
-		super(app);
-		m_pkgMgr = mgr;
+		super(project);
+		m_pkgMgr = project.packageManager;
 	}
 
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
