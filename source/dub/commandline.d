@@ -305,7 +305,8 @@ class InitCommand : Command {
 			"Initializes an empty package of the specified type in the given directory. By default, the current working dirctory is used. Available types:",
 			"",
 			"minimal - a simple \"hello world\" project with no dependencies (default)",
-			"vibe.d - minimal HTTP server based on vibe.d"
+			"vibe.d - minimal HTTP server based on vibe.d",
+			"deimos - standard skeleton for a static C binding library"
 		];
 	}
 
