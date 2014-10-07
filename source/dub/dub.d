@@ -107,7 +107,7 @@ class Dub {
 
 		auto cacheDir = m_userDubPath ~ "cache/";
 		foreach (p; ps)
-			p.loadCache(cacheDir);
+			p.cacheOp(cacheDir, CacheOp.load);
 
 		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
@@ -127,7 +127,15 @@ class Dub {
 	{
 		auto cacheDir = m_userDubPath ~ "cache/";
 		foreach (p; m_packageSuppliers)
-			p.storeCache(cacheDir);
+			p.cacheOp(cacheDir, CacheOp.store);
+	}
+
+	/// cleans all metadata caches
+	void cleanCaches()
+	{
+		auto cacheDir = m_userDubPath ~ "cache/";
+		foreach (p; m_packageSuppliers)
+			p.cacheOp(cacheDir, CacheOp.clean);
 	}
 
 	@property void dryRun(bool v) { m_dryRun = v; }

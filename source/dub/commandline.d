@@ -116,6 +116,7 @@ int runDubCommandLine(string[] args)
 			new AddOverrideCommand,
 			new RemoveOverrideCommand,
 			new ListOverridesCommand,
+			new CleanCachesCommand,
 		)
 	];
 
@@ -1222,6 +1223,29 @@ class ListOverridesCommand : Command {
 	}
 }
 
+/******************************************************************************/
+/* Cache cleanup                                                              */
+/******************************************************************************/
+
+class CleanCachesCommand : Command {
+	this()
+	{
+		this.name = "clean-caches";
+		this.argumentsPattern = "";
+		this.description = "Removes cached metadata";
+		this.helpText = [
+			"This command removes any cached metadata like the list of available packages and their latest version."
+		];
+	}
+
+	override void prepare(scope CommandArgs args) {}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		dub.cleanCaches();
+		return 0;
+	}
+}
 
 /******************************************************************************/
 /* DUSTMITE                                                                   */
