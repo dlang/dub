@@ -472,13 +472,18 @@ class Package {
 
 	private static RawPackage rawPackageFromFile(PathAndFormat file, bool silent_fail = false) {
 		if( silent_fail && !existsFile(file.path) ) return null;
-		auto f = openFile(file.path.toNativeString(), FileMode.Read);
-		scope(exit) f.close();
-		auto text = stripUTF8Bom(cast(string)f.readAll());
+
+		string text;
+
+		{
+			auto f = openFile(file.path.toNativeString(), FileMode.Read);
+			scope(exit) f.close();
+			text = stripUTF8Bom(cast(string)f.readAll());
+		}
 
 		final switch(file.format) {
 			case PackageFormat.json:
-				return new JsonPackage(parseJsonString(text));
+				return new JsonPackage(parseJsonString(text, file.path.toNativeString()));
 			case PackageFormat.sdl:
 				if(silent_fail) return null; throw new Exception("SDL not implemented");
 		}

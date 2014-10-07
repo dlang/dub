@@ -721,56 +721,56 @@ struct Json {
 
 	Throws an Exception if any parsing error occured.
 */
-Json parseJson(R)(ref R range, int* line = null)
+Json parseJson(R)(ref R range, string filename, int* line)
 	if( is(R == string) )
 {
+	assert(line !is null);
 	Json ret;
-	enforce(!range.empty, "JSON string is empty.");
+	enforceJson(!range.empty, "JSON string is empty.", filename, 0);
 
 	skipWhitespace(range, line);
 
 	version(JsonLineNumbers){
 		import dub.internal.vibecompat.core.log;
 		int curline = line ? *line : 0;
-		scope(failure) logError("Error at line: %d", line ? *line : 0);
 	}
 
 	switch( range.front ){
 		case 'f':
-			enforce(range[1 .. $].startsWith("alse"), "Expected 'false', got '"~range[0 .. 5]~"'.");
+			enforceJson(range[1 .. $].startsWith("alse"), "Expected 'false', got '"~range[0 .. min($, 5)]~"'.", filename, *line);
 			range.popFrontN(5);
 			ret = false;
 			break;
 		case 'n':
-			enforce(range[1 .. $].startsWith("ull"), "Expected 'null', got '"~range[0 .. 4]~"'.");
+			enforceJson(range[1 .. $].startsWith("ull"), "Expected 'null', got '"~range[0 .. min($, 4)]~"'.", filename, *line);
 			range.popFrontN(4);
 			ret = null;
 			break;
 		case 't':
-			enforce(range[1 .. $].startsWith("rue"), "Expected 'true', got '"~range[0 .. 4]~"'.");
+			enforceJson(range[1 .. $].startsWith("rue"), "Expected 'true', got '"~range[0 .. min($, 4)]~"'.", filename, *line);
 			range.popFrontN(4);
 			ret = true;
 			break;
 		case '0': .. case '9'+1:
 		case '-':
 			bool is_float;
-			auto num = skipNumber(range, is_float);
+			auto num = skipNumber(range, is_float, filename, *line);
 			if( is_float ) ret = to!double(num);
 			else ret = to!long(num);
 			break;
 		case '\"':
-			ret = skipJsonString(range);
+			ret = skipJsonString(range, filename, line);
 			break;
 		case '[':
 			Json[] arr;
 			range.popFront();
 			while(true) {
 				skipWhitespace(range, line);
-				enforce(!range.empty);
+				enforceJson(!range.empty, "Missing ']' before EOF.", filename, *line);
 				if(range.front == ']') break;
-				arr ~= parseJson(range, line);
+				arr ~= parseJson(range, filename, line);
 				skipWhitespace(range, line);
-				enforce(!range.empty && (range.front == ',' || range.front == ']'), "Expected ']' or ','.");
+				enforceJson(!range.empty && (range.front == ',' || range.front == ']'), "Expected ']' or ','.", filename, *line);
 				if( range.front == ']' ) break;
 				else range.popFront();
 			}
@@ -782,17 +782,17 @@ Json parseJson(R)(ref R range, int* line = null)
 			range.popFront();
 			while(true) {
 				skipWhitespace(range, line);
-				enforce(!range.empty);
+				enforceJson(!range.empty, "Missing '}' before EOF.", filename, *line);
 				if(range.front == '}') break;
-				string key = skipJsonString(range);
+				string key = skipJsonString(range, filename, line);
 				skipWhitespace(range, line);
-				enforce(range.startsWith(":"), "Expected ':' for key '" ~ key ~ "'");
+				enforceJson(range.startsWith(":"), "Expected ':' for key '" ~ key ~ "'", filename, *line);
 				range.popFront();
 				skipWhitespace(range, line);
-				Json itm = parseJson(range, line);
+				Json itm = parseJson(range, filename, line);
 				obj[key] = itm;
 				skipWhitespace(range, line);
-				enforce(!range.empty && (range.front == ',' || range.front == '}'), "Expected '}' or ',' - got '"~range[0]~"'.");
+				enforceJson(!range.empty && (range.front == ',' || range.front == '}'), "Expected '}' or ',' - got '"~range[0]~"'.", filename, *line);
 				if( range.front == '}' ) break;
 				else range.popFront();
 			}
@@ -800,7 +800,7 @@ Json parseJson(R)(ref R range, int* line = null)
 			ret = obj;
 			break;
 		default:
-			enforce(false, "Expected valid json token, got '"~to!string(range.length)~range[0 .. range.length>12?12:range.length]~"'.");
+			enforceJson(false, "Expected valid json token, got '"~range[0 .. min($, 12)]~"'.", filename, *line);
 	}
 
 	assert(ret.type != Json.Type.undefined);
@@ -813,11 +813,11 @@ Json parseJson(R)(ref R range, int* line = null)
 
 	Throws an Exception if any parsing error occurs.
 */
-Json parseJsonString(string str)
+Json parseJsonString(string str, string filename = null)
 {
 	int line = 0;
-	auto ret = parseJson(str, &line);
-	enforce(str.strip().length == 0, "Expected end of string after JSON value, not '"~str.strip()~"'.");
+	auto ret = parseJson(str, filename, &line);
+	enforceJson(str.strip().length == 0, "Expected end of string after JSON value, not '"~str.strip()~"'.", filename, line);
 	return ret;
 }
 
@@ -1217,14 +1217,14 @@ private string jsonUnescape(R)(ref R range)
 	return ret.data;
 }
 
-private string skipNumber(ref string s, out bool is_float)
+private string skipNumber(ref string s, out bool is_float, string filename, int line)
 {
 	size_t idx = 0;
 	is_float = false;
 	if( s[idx] == '-' ) idx++;
 	if( s[idx] == '0' ) idx++;
 	else {
-		enforce(isDigit(s[idx++]), "Digit expected at beginning of number.");
+		enforceJson(isDigit(s[idx++]), "Digit expected at beginning of number.", filename, line);
 		while( idx < s.length && isDigit(s[idx]) ) idx++;
 	}
 
@@ -1238,7 +1238,7 @@ private string skipNumber(ref string s, out bool is_float)
 		idx++;
 		is_float = true;
 		if( idx < s.length && (s[idx] == '+' || s[idx] == '-') ) idx++;
-		enforce( idx < s.length && isDigit(s[idx]), "Expected exponent." ~ s[0 .. idx]);
+		enforceJson(idx < s.length && isDigit(s[idx]), "Expected exponent." ~ s[0 .. idx], filename, line);
 		idx++;
 		while( idx < s.length && isDigit(s[idx]) ) idx++;
 	}
@@ -1248,13 +1248,13 @@ private string skipNumber(ref string s, out bool is_float)
 	return ret;
 }
 
-private string skipJsonString(ref string s, int* line = null)
+private string skipJsonString(ref string s, string filename, int* line = null)
 {
-	enforce(s.length >= 2, "Too small for a string: '" ~ s ~ "'");
-	enforce(s[0] == '\"', "Expected string, not '" ~ s ~ "'");
+	enforceJson(s.length >= 2, "Too small for a string: '" ~ s ~ "'", filename, *line);
+	enforceJson(s[0] == '\"', "Expected string, not '" ~ s ~ "'", filename, *line);
 	s = s[1 .. $];
 	string ret = jsonUnescape(s);
-	enforce(s.length > 0 && s[0] == '\"', "Unterminated string literal.");
+	enforce(s.length > 0 && s[0] == '\"', "Unterminated string literal.", filename, *line);
 	s = s[1 .. $];
 	return ret;
 }
@@ -1290,3 +1290,11 @@ private string underscoreStrip(string field_name)
 
 private template isJsonSerializable(T) { enum isJsonSerializable = is(typeof(T.init.toJson()) == Json) && is(typeof(T.fromJson(Json())) == T); }
 package template isStringSerializable(T) { enum isStringSerializable = is(typeof(T.init.toString()) == string) && is(typeof(T.fromString("")) == T); }
+
+private void enforceJson(string filename = __FILE__, int line = __LINE__)(bool cond, lazy string message, string err_file, int err_line)
+{
+	if (!cond) {
+		auto err_msg = format("%s(%s): Error: %s", err_file, err_line, message);
+		throw new Exception(err_msg, filename, line);
+	}
+}

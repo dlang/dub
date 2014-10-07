@@ -59,7 +59,7 @@ Json jsonFromFile(Path file, bool silent_fail = false) {
 	auto f = openFile(file.toNativeString(), FileMode.Read);
 	scope(exit) f.close();
 	auto text = stripUTF8Bom(cast(string)f.readAll());
-	return parseJsonString(text);
+	return parseJsonString(text, file.toNativeString());
 }
 
 Json jsonFromZip(Path zip, string filename) {
@@ -69,7 +69,7 @@ Json jsonFromZip(Path zip, string filename) {
 	f.close();
 	auto archive = new ZipArchive(b);
 	auto text = stripUTF8Bom(cast(string)archive.expand(archive.directory[filename]));
-	return parseJsonString(text);
+	return parseJsonString(text, zip.toNativeString~"/"~filename);
 }
 
 void writeJsonFile(Path path, Json json)

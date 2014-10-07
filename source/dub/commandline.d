@@ -200,13 +200,14 @@ int runDubCommandLine(string[] args)
 	}
 	catch (UsageException e) {
 		logError("%s", e.msg);
-		logDiagnostic("Full exception: %s", e.toString().sanitize);
+		logDebug("Full exception: %s", e.toString().sanitize);
 		logInfo(`Run "dub %s -h" for more information about the "%s" command.`, cmdname, cmdname);
 		return 1;
 	}
 	catch (Throwable e) {
-		logError("Error executing command %s: %s\n", cmd.name, e.msg);
-		logDiagnostic("Full exception: %s", e.toString().sanitize);
+		logError("Error executing command %s:", cmd.name);
+		logError("%s", e.msg);
+		logDebug("Full exception: %s", e.toString().sanitize);
 		return 2;
 	}
 
@@ -674,7 +675,7 @@ class TestCommand : PackageBuildCommand {
 			"Enables code coverage statistics to be generated."
 		]);
 		if (coverage) m_buildType = "unittest-cov";
-		
+
 		super.prepare(args);
 	}
 

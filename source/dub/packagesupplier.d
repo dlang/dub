@@ -196,7 +196,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		logDebug("Getting from %s", url);
 
 		auto jsonData = cast(string)download(url);
-		Json json = parseJsonString(jsonData);
+		Json json = parseJsonString(jsonData, url.toString());
 		// strip readme data (to save size and time)
 		foreach (ref v; json["versions"])
 			v.remove("readme");
