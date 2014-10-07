@@ -109,6 +109,9 @@ class Project {
 	/// The versions to use for all dependencies. Call reinit() after changing these.
 	@property inout(SelectedVersions) selections() inout { return m_selections; }
 
+	/// Package manager instance used by the project.
+	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
+
 	/** Allows iteration of the dependency tree in topological order
 	*/
 	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[string] configs = null)
