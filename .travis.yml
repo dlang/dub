@@ -1,5 +1,9 @@
 language: d
 
+DMD_VER:
+ - 2.064.0
+ - 2.065.0
+ - 2.066.0
 #compiler:
 #  - dmd
 
@@ -19,7 +23,6 @@ install:
 
 
   # Install DMD (latest frontend)
-  - DMD_VER=2.065.0
   - DMD=dmd_${DMD_VER}-0_amd64.deb
   - wget http://downloads.dlang.org/releases/2014/${DMD}
   - sudo dpkg -i ${DMD} || true
