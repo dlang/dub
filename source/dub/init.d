@@ -34,7 +34,7 @@ void initPackage(Path root_path, string type)
 	//Make sure we do not overwrite anything accidentally
 	foreach (fil; packageInfoFiles)
 		enforceDoesNotExist(fil.filename);
-		
+
 	auto files = ["source/", "views/", "public/", "dub.json", ".gitignore"];
 	foreach (fil; files)
 		enforceDoesNotExist(fil);
@@ -43,13 +43,14 @@ void initPackage(Path root_path, string type)
 		default: throw new Exception("Unknown package init type: "~type);
 		case "minimal": initMinimalPackage(root_path); break;
 		case "vibe.d": initVibeDPackage(root_path); break;
+		case "deimos": initDeimosPackage(root_path); break;
 	}
 	writeGitignore(root_path);
 }
 
 void initMinimalPackage(Path root_path)
 {
-	writePackageJson(root_path, "A minimal D application.", null);
+	writePackageJson(root_path, "A minimal D application.");
 	createDirectory(root_path ~ "source");
 	write((root_path ~ "source/app.d").toNativeString(),
 q{import std.stdio;
@@ -63,7 +64,8 @@ void main()
 
 void initVibeDPackage(Path root_path)
 {
-	writePackageJson(root_path, "A simple vibe.d server application.", ["vibe-d": "~>0.7.19"], ["VibeDefaultMain"]);
+	writePackageJson(root_path, "A simple vibe.d server application.",
+					 ["vibe-d": "~>0.7.19"], ["versions": `["VibeDefaultMain"]`]);
 	createDirectory(root_path ~ "source");
 	createDirectory(root_path ~ "views");
 	createDirectory(root_path ~ "public");
@@ -87,7 +89,16 @@ void hello(HTTPServerRequest req, HTTPServerResponse res)
 });
 }
 
-void writePackageJson(Path root_path, string description, string[string] dependencies, string[] versions = null)
+void initDeimosPackage(Path root_path)
+{
+	auto name = root_path.head.toString().toLower();
+	writePackageJson(root_path, "Deimos Bindings for "~name~".",
+					 null, ["targetType": `"sourceLibrary"`, "importPaths": `["."]`]);
+	createDirectory(root_path ~ "C");
+	createDirectory(root_path ~ "deimos");
+}
+
+void writePackageJson(Path root_path, string description, string[string] dependencies = null, string[string] addFields = null)
 {
 	import std.algorithm : map;
 
@@ -105,14 +116,9 @@ void writePackageJson(Path root_path, string description, string[string] depende
 	fil.formattedWrite("\t\"copyright\": \"Copyright © %s, %s\",\n", Clock.currTime().year, username);
 	fil.formattedWrite("\t\"authors\": [\"%s\"],\n", username);
 	fil.formattedWrite("\t\"dependencies\": {");
-	bool first = true;
-	foreach (dep, ver; dependencies) {
-		if (first) first = false;
-		else fil.write(",");
-		fil.formattedWrite("\n\t\t\"%s\": \"%s\"", dep, ver);
-	}
+	fil.formattedWrite("%(\n\t\t%s: %s,%)", dependencies);
 	fil.formattedWrite("\n\t}");
-	if (versions.length) fil.formattedWrite(",\n\t\"versions\": [%s]", versions.map!(v => `"`~v~`"`).join(", "));
+	fil.formattedWrite("%-(,\n\t\"%s\": %s%)", addFields);
 	fil.write("\n}\n");
 }
 
