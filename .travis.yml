@@ -2,7 +2,7 @@ language: d
 
 env:
   # dmd: 2.064 - 2.066
-  - DC_NAME=DMD DC_URL=http://downloads.dlang.org/releases/2014/ DC_ARCHIVE=dmd_2.064.2-0_amd64.deb DC_BIN=dmd
+  - DC_NAME=DMD DC_URL=http://downloads.dlang.org/releases/2013/ DC_ARCHIVE=dmd_2.064.2-0_amd64.deb DC_BIN=dmd
   - DC_NAME=DMD DC_URL=http://downloads.dlang.org/releases/2014/ DC_ARCHIVE=dmd_2.065.0-0_amd64.deb DC_BIN=dmd
   - DC_NAME=DMD DC_URL=http://downloads.dlang.org/releases/2014/ DC_ARCHIVE=dmd_2.066.0-0_amd64.deb DC_BIN=dmd
   # ldc: Latest (0.13.0 / FE 2.064.0 ATM, no support for shared lib)
@@ -20,7 +20,7 @@ install:
   # Install compiler
   - wget ${DC_URL}${DC_ARCHIVE}
   - if [[ $DC_NAME == "DMD" ]]; then sudo dpkg -i ${DC_ARCHIVE} || true; sudo apt-get -y update; sudo apt-get -fy install; sudo dpkg -i ${DC_ARCHIVE}; fi
-  - if [[ $DC_NAME != "DMD" ]]; then sudo tar xf ${GDC_LATEST_TAR} -C /usr/local/; fi
+  - if [[ $DC_NAME != "DMD" ]]; then sudo tar xf ${DC_ARCHIVE} -C /usr/local/; fi
 
 script:
   - dub test --compiler=${DC_BIN} -c library-nonet
