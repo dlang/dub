@@ -30,12 +30,39 @@ import std.string;
 */
 class ProjectGenerator
 {
+	/** Information about a single binary target.
+
+		A binary target can either be an executable or a static/dynamic library.
+		It consists of one or more packages.
+	*/
 	struct TargetInfo {
+		/// The root package of this target
 		Package pack;
+
+		/// All packages compiled into this target
 		Package[] packages;
+
+		/// The configuration used for building the root package
 		string config;
+
+		/** Build settings used to build the target.
+
+			The build settings include all sources of all contained packages.
+		*/
 		BuildSettings buildSettings;
+
+		/** List of all dependencies.
+
+			This list includes dependencies that are not the root of a binary
+			target.
+		*/
 		string[] dependencies;
+
+		/** List of all binary dependencies.
+
+			This list includes all dependencies that are the root of a binary
+			target.
+		*/
 		string[] linkDependencies;
 	}
 
@@ -81,7 +108,7 @@ class ProjectGenerator
 		performPostGenerateActions(settings, targets);
 	}
 
-	/** Overridden in derived classes fo implement the actual generator functionality.
+	/** Overridden in derived classes to implement the actual generator functionality.
 
 		The function should go through all targets recursively. The first target
 		(which is guaranteed to be there) is
@@ -91,6 +118,11 @@ class ProjectGenerator
 		This method is also potentially responsible for running the pre and post
 		build commands, while pre and post generate commands are already taken
 		care of by the $(D generate) method.
+
+		Params:
+			settings = The generator settings used for this run
+			targets = A map from package name to TargetInfo that contains all
+				binary targets to be built.
 	*/
 	protected abstract void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets);
 
