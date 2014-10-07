@@ -48,6 +48,10 @@ class ProjectGenerator
 		/** Build settings used to build the target.
 
 			The build settings include all sources of all contained packages.
+
+			Depending on the specific generator implementation, it may be
+			necessary to add any static or dynamic libraries generated for
+			child targets ($(D linkDependencies)).
 		*/
 		BuildSettings buildSettings;
 
