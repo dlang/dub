@@ -162,6 +162,12 @@ class Dub {
 
 	@property inout(Project) project() inout { return m_project; }
 
+	/// Return (if any) a project-specified compiler
+	@property const(string) projectCompiler() { return m_project.projectCompiler; }
+
+	/// Return (if any) a project-specifed arch
+	@property const(string) projectArch() { return m_project.projectArch; }
+
 	/// Loads the package from the current working directory as the main
 	/// project package.
 	void loadPackageFromCwd()

@@ -32,6 +32,8 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 			case "description": recipe.description = value.get!string; break;
 			case "homepage": recipe.homepage = value.get!string; break;
 			case "authors": recipe.authors = deserializeJson!(string[])(value); break;
+			case "compiler": recipe.packageCompiler = value.get!string; break;
+			case "arch": recipe.packageArch = value.get!string; break;
 			case "copyright": recipe.copyright = value.get!string; break;
 			case "license": recipe.license = value.get!string; break;
 			case "configurations": break; // handled below, after the global settings have been parsed

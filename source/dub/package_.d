@@ -212,6 +212,8 @@ class Package {
 	@property inout(Package) basePackage() inout { return m_parentPackage ? m_parentPackage.basePackage : this; }
 	@property inout(Package) parentPackage() inout { return m_parentPackage; }
 	@property inout(SubPackage)[] subPackages() inout { return m_info.subPackages; }
+	@property const(string) packageCompiler() const { return m_info.packageCompiler; }
+	@property const(string) packageArch() const { return m_info.packageArch; }
 
 	@property string[] configurations()
 	const {
