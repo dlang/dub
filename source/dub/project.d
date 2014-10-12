@@ -112,6 +112,18 @@ class Project {
 	/// Package manager instance used by the project.
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
 
+	/// A project-specified compiler setting. (Override via --compiler)
+	@property const(string) projectCompiler() const
+	{
+		return m_rootPackage.packageCompiler;
+	}
+
+	/// A project-specified arch setting. (Override via --arch)
+	@property const(string) projectArch() const
+	{
+		return m_rootPackage.packageArch;
+	}
+
 	/** Allows iteration of the dependency tree in topological order
 	*/
 	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[string] configs = null)

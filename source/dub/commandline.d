@@ -338,7 +338,7 @@ abstract class PackageBuildCommand : Command {
 		string m_buildType;
 		BuildMode m_buildMode;
 		string m_buildConfig;
-		string m_compilerName = initialCompilerBinary;
+		string m_compilerName;
 		string m_arch;
 		string[] m_debugVersions;
 		Compiler m_compiler;
@@ -388,12 +388,24 @@ abstract class PackageBuildCommand : Command {
 
 	protected void setupPackage(Dub dub, string package_name)
 	{
+		m_defaultConfig = null;
+		enforce (loadSpecificPackage(dub, package_name), "Failed to load package.");
+
+		if (m_compilerName is null) {
+			m_compilerName = dub.projectCompiler;
+		}
+
+		if (m_compilerName is null) {
+			m_compilerName = initialCompilerBinary;
+		}
+
+		if (m_arch is null) {
+			m_arch = dub.projectArch;
+		}
+
 		m_compiler = getCompiler(m_compilerName);
 		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compilerName, m_arch);
 		m_buildSettings.addDebugVersions(m_debugVersions);
-
-		m_defaultConfig = null;
-		enforce (loadSpecificPackage(dub, package_name), "Failed to load package.");
 
 		if (m_buildConfig.length != 0 && !dub.configurations.canFind(m_buildConfig))
 		{
