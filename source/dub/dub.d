@@ -735,8 +735,8 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 string getModuleNameFromContent(string content) {
 	import std.regex;
 
-	auto commentsPattern = ctRegex!(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`, "g");
-	auto modulePattern = ctRegex!(`module\s+([\w\.]+)\s*;`, "g");
+	auto commentsPattern = regex(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`, "g");
+	auto modulePattern = regex(`module\s+([\w\.]+)\s*;`, "g");
 
 	content = replaceAll(content, commentsPattern, "");
 	string moduleName = matchFirst(content, modulePattern).front;
