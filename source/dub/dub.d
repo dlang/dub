@@ -36,6 +36,9 @@ import std.typecons;
 import std.zip;
 import std.encoding : sanitize;
 
+// Workaround for libcurl liker errors when building with LDC
+version (LDC) pragma(lib, "curl");
+
 
 /// The default supplier for packages, which is the registry
 /// hosted by code.dlang.org.
