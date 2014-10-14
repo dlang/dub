@@ -826,7 +826,8 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 
 		foreach (ps; m_dub.m_packageSuppliers) {
 			try {
-				auto vers = ps.getVersions(pack).reverse;
+				auto vers = ps.getVersions(pack);
+				vers.reverse();
 				if (!vers.length) {
 					logDiagnostic("No versions for %s for %s", pack, ps.description);
 					continue;
