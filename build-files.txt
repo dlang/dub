@@ -28,3 +28,12 @@ source/dub/internal/vibecompat/inet/url.d
 source/dub/recipe/json.d
 source/dub/recipe/packagerecipe.d
 source/dub/recipe/sdl.d
+source/sdlang/ast.d
+source/sdlang/exception.d
+source/sdlang/lexer.d
+source/sdlang/package.d
+source/sdlang/parser.d
+source/sdlang/symbol.d
+source/sdlang/token.d
+source/sdlang/util.d
+source/sdlang/libInputVisitor.d
