@@ -640,7 +640,7 @@ class PackageManager {
 		loadOverrides(LocalPackageType.system);
 	}
 
-	alias ubyte[] Hash;
+	alias Hash = ubyte[];
 	/// Generates a hash value for a given package.
 	/// Some files or folders are ignored during the generation (like .dub and
 	/// .svn folders)
