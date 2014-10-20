@@ -81,7 +81,7 @@ class ProjectGenerator
 
 	/** Performs the full generator process.
 	*/
-	final void generate(GeneratorSettings settings)
+	final void generate(GeneratorSettings settings, in BuildSettings bsettings)
 	{
 		if (!settings.config.length) settings.config = m_project.getDefaultConfiguration(settings.platform);
 
@@ -95,7 +95,7 @@ class ProjectGenerator
 		}
 
 		string[] mainfiles;
-		collect(settings, m_project.rootPackage, targets, configs, mainfiles, null);
+		collect(settings, bsettings, m_project.rootPackage, targets, configs, mainfiles, null);
 		downwardsInheritSettings(m_project.rootPackage.name, targets, targets[m_project.rootPackage.name].buildSettings);
 		auto bs = &targets[m_project.rootPackage.name].buildSettings;
 		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
@@ -137,7 +137,8 @@ class ProjectGenerator
 	*/
 	protected void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[string] targets) {}
 
-	private BuildSettings collect(GeneratorSettings settings, Package pack, ref TargetInfo[string] targets, in string[string] configs, ref string[] main_files, string bin_pack)
+	private BuildSettings collect(GeneratorSettings settings, in BuildSettings bsettings, Package pack,
+	                              ref TargetInfo[string] targets, in string[string] configs, ref string[] main_files, string bin_pack)
 	{
 		if (auto pt = pack.name in targets) return pt.buildSettings;
 
@@ -172,7 +173,7 @@ class ProjectGenerator
 
 		// start to build up the build settings
 		BuildSettings buildsettings;
-		if (generates_binary) buildsettings = settings.buildSettings.dup;
+		if (generates_binary) buildsettings = bsettings.dup;
 		processVars(buildsettings, m_project, pack, shallowbs, true);
 
 		// remove any mainSourceFile from library builds
@@ -190,7 +191,7 @@ class ProjectGenerator
 			auto dep = m_project.getDependency(depname, depspec.optional);
 			if (!dep) continue;
 
-			auto depbs = collect(settings, dep, targets, configs, main_files, generates_binary ? pack.name : bin_pack);
+			auto depbs = collect(settings, bsettings, dep, targets, configs, main_files, generates_binary ? pack.name : bin_pack);
 
 			if (depbs.targetType != TargetType.sourceLibrary && depbs.targetType != TargetType.none) {
 				// add a reference to the target binary and remove all source files in the dependency build settings
@@ -256,7 +257,6 @@ struct GeneratorSettings {
 	Compiler compiler;
 	string config;
 	string buildType;
-	BuildSettings buildSettings;
 	BuildMode buildMode = BuildMode.separate;
 
 	bool combined; // compile all in one go instead of each dependency separately
