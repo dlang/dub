@@ -876,7 +876,7 @@ unittest {
 */
 Json serializeToJson(T)(T value)
 {
-	alias Unqual!T TU;
+	alias TU = Unqual!T;
 	static if( is(TU == Json) ) return value;
 	else static if( is(TU == typeof(null)) ) return Json(null);
 	else static if( is(TU == bool) ) return Json(value);
@@ -950,13 +950,13 @@ T deserializeJson(T)(Json src)
 	else static if( is(T : long) ) return cast(T)src.get!long;
 	else static if( is(T == string) ) return src.get!string;
 	else static if( isArray!T ){
-		alias typeof(T.init[0]) TV;
+		alias TV = typeof(T.init[0]) ;
 		auto dst = new Unqual!TV[src.length];
 		foreach( size_t i, v; src )
 			dst[i] = deserializeJson!(Unqual!TV)(v);
 		return dst;
 	} else static if( isAssociativeArray!T ){
-		alias typeof(T.init.values[0]) TV;
+		alias TV = typeof(T.init.values[0]) ;
 		Unqual!TV[string] dst;
 		foreach( string key, value; src )
 			dst[key] = deserializeJson!(Unqual!TV)(value);
@@ -969,7 +969,7 @@ T deserializeJson(T)(Json src)
 		T dst;
 		foreach( m; __traits(allMembers, T) ){
 			static if( isRWPlainField!(T, m) || isRWField!(T, m) ){
-				alias typeof(__traits(getMember, dst, m)) TM;
+				alias TM = typeof(__traits(getMember, dst, m)) ;
 				__traits(getMember, dst, m) = deserializeJson!TM(src[underscoreStrip(m)]);
 			}
 		}
@@ -979,14 +979,14 @@ T deserializeJson(T)(Json src)
 		auto dst = new T;
 		foreach( m; __traits(allMembers, T) ){
 			static if( isRWPlainField!(T, m) || isRWField!(T, m) ){
-				alias typeof(__traits(getMember, dst, m)) TM;
+				alias TM = typeof(__traits(getMember, dst, m)) ;
 				__traits(getMember, dst, m) = deserializeJson!TM(src[underscoreStrip(m)]);
 			}
 		}
 		return dst;
 	} else static if( isPointer!T ){
 		if( src.type == Json.Type.null_ ) return null;
-		alias typeof(*T.init) TD;
+		alias TD = typeof(*T.init) ;
 		dst = new TD;
 		*dst = deserializeJson!TD(src);
 		return dst;
