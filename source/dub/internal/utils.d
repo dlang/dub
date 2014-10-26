@@ -49,7 +49,7 @@ bool isWritableDir(Path p, bool create_if_missing = false)
 	auto fname = p ~ format("__dub_write_test_%08X", uniform(0, uint.max));
 	if (create_if_missing && !exists(p.toNativeString())) mkdirRecurse(p.toNativeString());
 	try openFile(fname, FileMode.CreateTrunc).close();
-	catch (Throwable) return false;
+	catch (Exception) return false;
 	remove(fname.toNativeString());
 	return true;
 }

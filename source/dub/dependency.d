@@ -260,7 +260,7 @@ struct Dependency {
 			auto strhash = &typeid(string).getHash;
 			auto str = this.toString();
 			return strhash(&str);
-		} catch (Throwable) assert(false);
+		} catch (Exception) assert(false);
 	}
 
 	bool valid() const {
