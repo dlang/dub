@@ -99,6 +99,8 @@ class ProjectGenerator
 		downwardsInheritSettings(m_project.rootPackage.name, targets, targets[m_project.rootPackage.name].buildSettings);
 		auto bs = &targets[m_project.rootPackage.name].buildSettings;
 		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
+		// targetPath can be set via the cmdline.
+		if (bsettings.targetPath) bs.targetPath = bsettings.targetPath;
 
 		generateTargets(settings, targets);
 
@@ -222,6 +224,12 @@ class ProjectGenerator
 		return buildsettings;
 	}
 
+	/**
+	 * Propagate some properties of the root package to it's dependency, such as the defined versions (and debug versions).
+	 *
+	 * Returns:
+	 * An array containing the name of the root package and it's dependencies (i.e. for vibe: ["vibe-d", "libevent", "openssl"]).
+	 */
 	private string[] downwardsInheritSettings(string target, TargetInfo[string] targets, in BuildSettings root_settings)
 	{
 		auto ti = &targets[target];

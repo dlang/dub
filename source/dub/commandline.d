@@ -374,6 +374,9 @@ abstract class PackageBuildCommand : Command {
 		args.getopt("d|debug", &m_debugVersions, [
 			"Define the specified debug version identifier when building - can be used multiple times"
 		]);
+		args.getopt("o|targetpath", &m_buildSettings.targetPath, [
+			"Specify where the output will be written. Override targetPath in dub.json if present."
+		]);
 		args.getopt("nodeps", &m_nodeps, [
 			"Do not check/update dependencies before building"
 		]);
