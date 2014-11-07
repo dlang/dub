@@ -74,14 +74,14 @@ class Dub {
 		Project m_project;
 		Path m_overrideSearchPath;
 	}
-	
+
 	/// Initiales the package manager for the vibe application
 	/// under root.
 	this(PackageSupplier[] additional_package_suppliers = null, string root_path = ".")
 	{
 		m_rootPath = Path(root_path);
 		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
-		
+
 		version(Windows){
 			m_systemDubPath = Path(environment.get("ProgramData")) ~ "dub/";
 			m_userDubPath = Path(environment.get("APPDATA")) ~ "dub/";
@@ -93,10 +93,10 @@ class Dub {
 				m_userDubPath = Path(getcwd()) ~ m_userDubPath;
 			m_tempPath = Path("/tmp");
 		}
-		
+
 		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
-		
+
 		PackageSupplier[] ps = additional_package_suppliers;
 		if (auto pp = "registryUrls" in m_userConfig)
 			ps ~= deserializeJson!(string[])(*pp)
@@ -107,16 +107,16 @@ class Dub {
 				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
 				.array;
 		ps ~= defaultPackageSuppliers();
-		
+
 		auto cacheDir = m_userDubPath ~ "cache/";
 		foreach (p; ps)
 			p.cacheOp(cacheDir, CacheOp.load);
-		
+
 		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
 		updatePackageSearchPath();
 	}
-	
+
 	/// Initializes DUB with only a single search path
 	this(Path override_path)
 	{
@@ -124,7 +124,7 @@ class Dub {
 		m_packageManager = new PackageManager(Path(), Path(), false);
 		updatePackageSearchPath();
 	}
-	
+
 	/// Perform cleanup and persist caches to disk
 	void shutdown()
 	{
@@ -132,7 +132,7 @@ class Dub {
 		foreach (p; m_packageSuppliers)
 			p.cacheOp(cacheDir, CacheOp.store);
 	}
-	
+
 	/// cleans all metadata caches
 	void cleanCaches()
 	{
@@ -140,9 +140,9 @@ class Dub {
 		foreach (p; m_packageSuppliers)
 			p.cacheOp(cacheDir, CacheOp.clean);
 	}
-	
+
 	@property void dryRun(bool v) { m_dryRun = v; }
-	
+
 	/** Returns the root path (usually the current working directory).
 	*/
 	@property Path rootPath() const { return m_rootPath; }
@@ -152,26 +152,26 @@ class Dub {
 		m_rootPath = root_path;
 		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
 	}
-	
+
 	/// Returns the name listed in the dub.json of the current
 	/// application.
 	@property string projectName() const { return m_project.name; }
-	
+
 	@property Path projectPath() const { return m_projectPath; }
-	
+
 	@property string[] configurations() const { return m_project.configurations; }
-	
+
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
-	
+
 	@property inout(Project) project() inout { return m_project; }
-	
+
 	/// Loads the package from the current working directory as the main
 	/// project package.
 	void loadPackageFromCwd()
 	{
 		loadPackage(m_rootPath);
 	}
-	
+
 	/// Loads the package from the specified path as the main project package.
 	void loadPackage(Path path)
 	{
@@ -179,7 +179,7 @@ class Dub {
 		updatePackageSearchPath();
 		m_project = new Project(m_packageManager, m_projectPath);
 	}
-	
+
 	/// Loads a specific package as the main project package (can be a sub package)
 	void loadPackage(Package pack)
 	{
@@ -187,21 +187,21 @@ class Dub {
 		updatePackageSearchPath();
 		m_project = new Project(m_packageManager, pack);
 	}
-	
+
 	void overrideSearchPath(Path path)
 	{
 		if (!path.absolute) path = Path(getcwd()) ~ path;
 		m_overrideSearchPath = path;
 		updatePackageSearchPath();
 	}
-	
+
 	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true) const { return m_project.getDefaultConfiguration(platform, allow_non_library_configs); }
-	
+
 	void upgrade(UpgradeOptions options)
 	{
 		// clear non-existent version selections
 		if (!(options & UpgradeOptions.upgrade)) {
-		next_pack:
+			next_pack:
 			foreach (p; m_project.selections.selectedPackages) {
 				auto dep = m_project.selections.getSelectedVersion(p);
 				if (!dep.path.empty) {
@@ -219,12 +219,12 @@ class Dub {
 						}
 					}
 				}
-				
+
 				logWarn("Selected package %s %s doesn't exist. Using latest matching version instead.", p, dep);
 				m_project.selections.deselectVersion(p);
 			}
 		}
-		
+
 		Dependency[string] versions;
 		if ((options & UpgradeOptions.useCachedResult) && m_project.isUpgradeCacheUpToDate()) {
 			logDiagnostic("Using cached upgrade results...");
@@ -237,20 +237,20 @@ class Dub {
 				m_project.setUpgradeCache(versions);
 			}
 		}
-		
+
 		if (options & UpgradeOptions.printUpgradesOnly) {
 			bool any = false;
 			string rootbasename = getBasePackageName(m_project.rootPackage.name);
-			
+
 			foreach (p, ver; versions) {
 				if (!ver.path.empty) continue;
-				
+
 				auto basename = getBasePackageName(p);
 				if (basename == rootbasename) continue;
-				
+
 				if (!m_project.selections.hasSelectedVersion(basename)) {
 					logInfo("Package %s can be installed with version %s.",
-					        basename, ver);
+						basename, ver);
 					any = true;
 					continue;
 				}
@@ -258,13 +258,13 @@ class Dub {
 				if (!sver.path.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
 				logInfo("Package %s can be upgraded from %s to %s.",
-				        basename, sver, ver);
+					basename, sver, ver);
 				any = true;
 			}
 			if (any) logInfo("Use \"dub upgrade\" to perform those changes.");
 			return;
 		}
-		
+
 		foreach (p, ver; versions) {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
@@ -272,7 +272,7 @@ class Dub {
 			else {
 				pack = m_packageManager.getBestPackage(p, ver);
 				if (pack && m_packageManager.isManagedPackage(pack)
-				    && ver.version_.isBranch && (options & UpgradeOptions.upgrade) != 0)
+					&& ver.version_.isBranch && (options & UpgradeOptions.upgrade) != 0)
 				{
 					// TODO: only re-install if there is actually a new commit available
 					logInfo("Re-installing branch based dependency %s %s", p, ver.toString());
@@ -280,7 +280,7 @@ class Dub {
 					pack = null;
 				}
 			}
-			
+
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			fetchOpts |= (options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
@@ -288,13 +288,13 @@ class Dub {
 			if ((options & UpgradeOptions.select) && ver.path.empty && p != m_project.rootPackage.name)
 				m_project.selections.selectVersion(p, ver.version_);
 		}
-		
+
 		m_project.reinit();
-		
+
 		if (options & UpgradeOptions.select)
 			m_project.saveSelections();
 	}
-	
+
 	/// Generate project files for a specified IDE.
 	/// Any existing project files will be overridden.
 	void generateProject(string ide, GeneratorSettings settings) {
@@ -302,13 +302,13 @@ class Dub {
 		if (m_dryRun) return; // TODO: pass m_dryRun to the generator
 		generator.generate(settings);
 	}
-	
+
 	/// Executes tests on the current project. Throws an exception, if
 	/// unittests failed.
 	void testProject(GeneratorSettings settings, string config, Path custom_main_file)
 	{
 		if (custom_main_file.length && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
-		
+
 		if (config.length == 0) {
 			// if a custom main file was given, favor the first library configuration, so that it can be applied
 			if (custom_main_file.length) config = m_project.getDefaultConfiguration(settings.platform, false);
@@ -319,18 +319,18 @@ class Dub {
 			// if still nothing found, use the first executable configuration
 			if (!config.length) config = m_project.getDefaultConfiguration(settings.platform, true);
 		}
-		
+
 		auto generator = createProjectGenerator("build", m_project);
-		
+
 		auto test_config = format("__test__%s__", config);
-		
+
 		BuildSettings lbuildsettings = settings.buildSettings;
 		m_project.addBuildSettings(lbuildsettings, settings.platform, config, null, true);
 		if (lbuildsettings.targetType == TargetType.none) {
 			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
 			return;
 		}
-		
+
 		if (lbuildsettings.targetType == TargetType.executable) {
 			if (config == "unittest") logInfo("Running custom 'unittest' configuration.", config);
 			else logInfo(`Configuration '%s' does not output a library. Falling back to "dub -b unittest -c %s".`, config, config);
@@ -342,7 +342,7 @@ class Dub {
 			settings.config = m_project.getDefaultConfiguration(settings.platform);
 		} else {
 			logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, test_config, config, lbuildsettings.targetType);
-			
+
 			BuildSettingsTemplate tcinfo = m_project.rootPackage.info.getConfiguration(config).buildSettings;
 			tcinfo.targetType = TargetType.executable;
 			tcinfo.targetName = test_config;
@@ -354,13 +354,13 @@ class Dub {
 				tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
 				custommodname = custom_main_file.head.toString().baseName(".d");
 			}
-			
+
 			string[] import_modules;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d") && Path(file).head.toString() != "package.d")
 					import_modules ~= lbuildsettings.determineModuleName(Path(file), m_project.rootPackage.path);
 			}
-			
+
 			// generate main file
 			Path mainfile = getTempDir() ~ "dub_test_root.d";
 			tcinfo.sourceFiles[""] ~= mainfile.toNativeString();
@@ -383,7 +383,7 @@ class Dub {
 					fil.write(q{
 						import std.stdio;
 						import core.runtime;
-						
+
 						void main() { writeln("All unit tests have been run successfully."); }
 						shared static this() {
 							version (Have_tested) {
@@ -400,13 +400,13 @@ class Dub {
 			}
 			m_project.rootPackage.info.configurations ~= ConfigurationInfo(test_config, tcinfo);
 			m_project = new Project(m_packageManager, m_project.rootPackage);
-			
+
 			settings.config = test_config;
 		}
-		
+
 		generator.generate(settings);
 	}
-	
+
 	/// Outputs a JSON description of the project, including its dependencies.
 	void describeProject(BuildPlatform platform, string config)
 	{
@@ -415,29 +415,29 @@ class Dub {
 		dst.compiler = platform.compiler;
 		dst.architecture = platform.architecture.serializeToJson();
 		dst.platform = platform.platform.serializeToJson();
-		
+
 		m_project.describe(dst, platform, config);
-		
+
 		import std.stdio;
 		write(dst.toPrettyString());
 	}
-	
+
 	/// Cleans intermediate/cache files of the given package
 	void cleanPackage(Path path)
 	{
 		logInfo("Cleaning package at %s...", path.toNativeString());
 		enforce(!Package.findPackageFile(path).empty, "No package found.", path.toNativeString());
-		
+
 		// TODO: clear target files and copy files
-		
+
 		if (existsFile(path ~ ".dub/build")) rmdirRecurse((path ~ ".dub/build").toNativeString());
 		if (existsFile(path ~ ".dub/obj")) rmdirRecurse((path ~ ".dub/obj").toNativeString());
 	}
-	
-	
+
+
 	/// Returns all cached packages as a "packageId" = "version" associative array
 	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
-	
+
 	/// Fetches the package matching the dependency and places it in the specified location.
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
@@ -455,14 +455,14 @@ class Dub {
 		}
 		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
-		
+
 		Path placement;
 		final switch (location) {
 			case PlacementLocation.local: placement = m_rootPath; break;
 			case PlacementLocation.user: placement = m_userDubPath ~ "packages/"; break;
 			case PlacementLocation.system: placement = m_systemDubPath ~ "packages/"; break;
 		}
-		
+
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		Package existing;
 		try existing = m_packageManager.getPackage(packageId, ver, placement);
@@ -470,30 +470,30 @@ class Dub {
 			logWarn("Failed to load existing package %s: %s", ver, e.msg);
 			logDiagnostic("Full error: %s", e.toString().sanitize);
 		}
-		
+
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.vers != ver)
 				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
-				        packageId, existing.vers, ver, packageId);
+					packageId, existing.vers, ver, packageId);
 			return null;
 		}
-		
+
 		if (existing) {
 			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
 				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
-				              packageId, ver, placement);
+					packageId, ver, placement);
 				return existing;
 			} else {
 				logInfo("Removing %s %s to prepare replacement with a new version.", packageId, ver);
 				if (!m_dryRun) m_packageManager.remove(existing, (options & FetchOptions.forceRemove) != 0);
 			}
 		}
-		
+
 		if (reason.length) logInfo("Fetching %s %s (%s)...", packageId, ver, reason);
 		else logInfo("Fetching %s %s...", packageId, ver);
 		if (m_dryRun) return null;
-		
+
 		logDiagnostic("Acquiring package zip file");
 		auto dload = m_projectPath ~ ".dub/temp/downloads";
 		auto tempfname = packageId ~ "-" ~ (ver.startsWith('~') ? ver[1 .. $] : ver) ~ ".zip";
@@ -502,15 +502,15 @@ class Dub {
 		if (exists(sTempFile)) std.file.remove(sTempFile);
 		supplier.retrievePackage(tempFile, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 		scope(exit) std.file.remove(sTempFile);
-		
+
 		logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
 		auto clean_package_version = ver[ver.startsWith("~") ? 1 : 0 .. $];
 		clean_package_version = clean_package_version.replace("+", "_"); // + has special meaning for Optlink
 		Path dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
-		
+
 		return m_packageManager.storeFetchedPackage(tempFile, pinfo, dstpath);
 	}
-	
+
 	/// Removes a given package from the list of present/cached modules.
 	/// @removeFromApplication: if true, this will also remove an entry in the
 	/// list of dependencies in the application's dub.json
@@ -519,10 +519,10 @@ class Dub {
 		logInfo("Removing %s in %s", pack.name, pack.path.toNativeString());
 		if (!m_dryRun) m_packageManager.remove(pack, force_remove);
 	}
-	
+
 	/// @see remove(string, string, RemoveLocation)
 	enum RemoveVersionWildcard = "*";
-	
+
 	/// This will remove a given package with a specified version from the
 	/// location.
 	/// It will remove at most one package, unless @param version_ is
@@ -539,34 +539,34 @@ class Dub {
 		enforce(!package_id.empty);
 		if (location_ == PlacementLocation.local) {
 			logInfo("To remove a locally placed package, make sure you don't have any data"
-			        ~ "\nleft in it's directory and then simply remove the whole directory.");
+					~ "\nleft in it's directory and then simply remove the whole directory.");
 			throw new Exception("dub cannot remove locally installed packages.");
 		}
-		
+
 		Package[] packages;
 		const bool wildcardOrEmpty = version_ == RemoveVersionWildcard || version_.empty;
-		
+
 		// Retrieve packages to be removed.
 		foreach(pack; m_packageManager.getPackageIterator(package_id))
 			if( wildcardOrEmpty || pack.vers == version_ )
 				packages ~= pack;
-		
+
 		// Check validity of packages to be removed.
 		if(packages.empty) {
 			throw new Exception("Cannot find package to remove. ("
-			                    ~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location_) ~ "'"
-			                    ~ ")");
+				~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location_) ~ "'"
+				~ ")");
 		}
 		if(version_.empty && packages.length > 1) {
 			logError("Cannot remove package '" ~ package_id ~ "', there are multiple possibilities at location\n"
-			         ~ "'" ~ to!string(location_) ~ "'.");
+				~ "'" ~ to!string(location_) ~ "'.");
 			logError("Available versions:");
 			foreach(pack; packages)
 				logError("  %s", pack.vers);
 			throw new Exception("Please specify a individual version using --version=... or use the"
-			                    ~ " wildcard --version=" ~ RemoveVersionWildcard ~ " to remove all versions.");
+				~ " wildcard --version=" ~ RemoveVersionWildcard ~ " to remove all versions.");
 		}
-		
+
 		logDebug("Removing %s packages.", packages.length);
 		foreach(pack; packages) {
 			try {
@@ -578,36 +578,36 @@ class Dub {
 			}
 		}
 	}
-	
+
 	void addLocalPackage(string path, string ver, bool system)
 	{
 		if (m_dryRun) return;
 		m_packageManager.addLocalPackage(makeAbsolute(path), ver, system ? LocalPackageType.system : LocalPackageType.user);
 	}
-	
+
 	void removeLocalPackage(string path, bool system)
 	{
 		if (m_dryRun) return;
 		m_packageManager.removeLocalPackage(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
-	
+
 	void addSearchPath(string path, bool system)
 	{
 		if (m_dryRun) return;
 		m_packageManager.addSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
-	
+
 	void removeSearchPath(string path, bool system)
 	{
 		if (m_dryRun) return;
 		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
-	
+
 	void createEmptyPackage(Path path, string[] deps, string type)
 	{
 		if( !path.absolute() ) path = m_rootPath ~ path;
 		path.normalize();
-		
+
 		if (m_dryRun) return;
 		string[string] depVers;
 		foreach(ps; this.m_packageSuppliers){
@@ -621,48 +621,48 @@ class Dub {
 			}
 		}
 		initPackage(path, depVers, type);
-		
+
 		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
 	}
-	
+
 	void runDdox(bool run)
 	{
 		if (m_dryRun) return;
-		
+
 		auto ddox_pack = m_packageManager.getBestPackage("ddox", ">=0.0.0");
 		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
 		if (!ddox_pack) {
 			logInfo("DDOX is not present, getting it and storing user wide");
 			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
 		}
-		
+
 		version(Windows) auto ddox_exe = "ddox.exe";
 		else auto ddox_exe = "ddox";
-		
+
 		if( !existsFile(ddox_pack.path~ddox_exe) ){
 			logInfo("DDOX in %s is not built, performing build now.", ddox_pack.path.toNativeString());
-			
+
 			auto ddox_dub = new Dub(m_packageSuppliers);
 			ddox_dub.loadPackage(ddox_pack.path);
 			ddox_dub.upgrade(UpgradeOptions.select);
-			
+
 			auto compiler_binary = "dmd";
-			
+
 			GeneratorSettings settings;
 			settings.config = "application";
 			settings.compiler = getCompiler(compiler_binary);
 			settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary);
 			settings.buildType = "debug";
 			ddox_dub.generateProject("build", settings);
-			
+
 			//runCommands(["cd "~ddox_pack.path.toNativeString()~" && dub build -v"]);
 		}
-		
+
 		auto p = ddox_pack.path;
 		p.endsWithSlash = true;
 		auto dub_path = p.toNativeString();
-		
+
 		string[] commands;
 		string[] filterargs = m_project.rootPackage.info.ddoxFilterArgs.dup;
 		if (filterargs.empty) filterargs = ["--min-protection=Protected", "--only-documented"];
@@ -673,14 +673,14 @@ class Dub {
 			else commands ~= "cp -ru \""~dub_path~"public\"/* docs/";
 		}
 		runCommands(commands);
-		
+
 		if (run) {
 			auto proc = spawnProcess([dub_path~"ddox", "serve-html", "--navigation-type=ModuleTree", "docs.json", "--web-file-dir="~dub_path~"public"]);
 			browse("http://127.0.0.1:8080/");
 			wait(proc);
 		}
 	}
-	
+
 	private void updatePackageSearchPath()
 	{
 		if (m_overrideSearchPath.length) {
@@ -689,7 +689,7 @@ class Dub {
 		} else {
 			auto p = environment.get("DUBPATH");
 			Path[] paths;
-			
+
 			version(Windows) enum pathsep = ";";
 			else enum pathsep = ":";
 			if (p.length) paths ~= p.split(pathsep).map!(p => Path(p))().array();
@@ -697,7 +697,7 @@ class Dub {
 			m_packageManager.searchPath = paths;
 		}
 	}
-	
+
 	private Path makeAbsolute(Path p) const { return p.absolute ? p : m_rootPath ~ p; }
 	private Path makeAbsolute(string p) const { return makeAbsolute(Path(p)); }
 }
@@ -706,7 +706,7 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 {
 	assert(base_path.absolute);
 	if (!file.absolute) file = base_path ~ file;
-	
+
 	size_t path_skip = 0;
 	foreach (ipath; settings.importPaths.map!(p => Path(p))) {
 		if (!ipath.absolute) ipath = base_path ~ ipath;
@@ -714,18 +714,18 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 		if (file.startsWith(ipath) && ipath.length > path_skip)
 			path_skip = ipath.length;
 	}
-	
+
 	enforce(path_skip > 0,
-	        format("Source file '%s' not found in any import path.", file.toNativeString()));
-	
+		format("Source file '%s' not found in any import path.", file.toNativeString()));
+
 	auto mpath = file[path_skip .. file.length];
 	auto ret = appender!string;
-	
+
 	//search for module keyword in file
 	string moduleName = getModuleNameFromFile(file.to!string);
-	
+
 	if(moduleName.length) return moduleName;
-	
+
 	//create module name from path
 	foreach (i; 0 .. mpath.length) {
 		import std.path;
@@ -735,7 +735,7 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 		if (i+1 < mpath.length) ret ~= p;
 		else ret ~= p.baseName(".d");
 	}
-	
+
 	return ret.data;
 }
 
@@ -744,21 +744,21 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
  */
 string getModuleNameFromContent(string content) {
 	import std.regex;
-	
+
 	static bool regex_initialized = false;
 	static Regex!char comments_pattern, module_pattern;
-	
+
 	if (!regex_initialized) {
 		comments_pattern = regex(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`, "g");
 		module_pattern = regex(`module\s+([\w\.]+)\s*;`, "g");
 		regex_initialized = true;
 	}
-	
+
 	content = replaceAll(content, comments_pattern, "");
 	string moduleName = matchFirst(content, module_pattern).front;
-	
+
 	if (moduleName.length >= 7) moduleName = moduleName[7..$-1];
-	
+
 	return moduleName;
 }
 
@@ -767,18 +767,18 @@ unittest {
 	//test simple name
 	string name = getModuleNameFromContent("module myPackage.myModule;");
 	assert(name == "myPackage.myModule", "can't parse module name");
-	
+
 	//test if it can ignore module inside comments
 	name = getModuleNameFromContent("/**
 	module fakePackage.fakeModule;
 	*/
 	module myPackage.myModule;");
-	
+
 	assert(name == "myPackage.myModule", "can't parse module name");
-	
+
 	name = getModuleNameFromContent("//module fakePackage.fakeModule;
 	module myPackage.myModule;");
-	
+
 	assert(name == "myPackage.myModule", "can't parse module name");
 }
 
@@ -787,7 +787,7 @@ unittest {
  */
 string getModuleNameFromFile(string filePath) {
 	string fileContent = filePath.readText;
-	
+
 	return getModuleNameFromContent(fileContent);
 }
 
@@ -811,38 +811,38 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		SelectedVersions m_selectedVersions;
 		Package m_rootPackage;
 	}
-	
-	
+
+
 	this(Dub dub, UpgradeOptions options)
 	{
 		m_dub = dub;
 		m_options = options;
 	}
-	
+
 	Dependency[string] resolve(Package root, SelectedVersions selected_versions)
 	{
 		m_rootPackage = root;
 		m_selectedVersions = selected_versions;
 		return super.resolve(TreeNode(root.name, Dependency(root.ver)), (m_options & UpgradeOptions.printUpgradesOnly) == 0);
 	}
-	
+
 	protected override Dependency[] getAllConfigs(string pack)
 	{
 		if (auto pvers = pack in m_packageVersions)
 			return *pvers;
-		
+
 		if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(pack)) {
 			auto ret = [m_selectedVersions.getSelectedVersion(pack)];
 			logDiagnostic("Using fixed selection %s %s", pack, ret[0]);
 			m_packageVersions[pack] = ret;
 			return ret;
 		}
-		
+
 		logDiagnostic("Search for versions of %s (%s package suppliers)", pack, m_dub.m_packageSuppliers.length);
 		Version[] versions;
 		foreach (p; m_dub.packageManager.getPackageIterator(pack))
 			versions ~= p.ver;
-		
+
 		foreach (ps; m_dub.m_packageSuppliers) {
 			try {
 				auto vers = ps.getVersions(pack);
@@ -851,7 +851,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 					logDiagnostic("No versions for %s for %s", pack, ps.description);
 					continue;
 				}
-				
+
 				versions ~= vers;
 				break;
 			} catch (Exception e) {
@@ -859,28 +859,28 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 				logDebug("Full error: %s", e.toString().sanitize);
 			}
 		}
-		
+
 		// sort by version, descending, and remove duplicates
 		versions = versions.sort!"a>b".uniq.array;
-		
+
 		// move pre-release versions to the back of the list if no preRelease flag is given
 		if (!(m_options & UpgradeOptions.preRelease))
 			versions = versions.filter!(v => !v.isPreRelease).array ~ versions.filter!(v => v.isPreRelease).array;
-		
+
 		if (!versions.length) logDiagnostic("Nothing found for %s", pack);
-		
+
 		auto ret = versions.map!(v => Dependency(v)).array;
 		m_packageVersions[pack] = ret;
 		return ret;
 	}
-	
+
 	protected override Dependency[] getSpecificConfigs(TreeNodes nodes)
 	{
 		if (!nodes.configs.path.empty) return [nodes.configs];
 		else return null;
 	}
-	
-	
+
+
 	protected override TreeNodes[] getChildren(TreeNode node)
 	{
 		auto ret = appender!(TreeNodes[]);
@@ -891,10 +891,10 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 			return null;
 		}
 		auto basepack = pack.basePackage;
-		
+
 		foreach (dname, dspec; pack.dependencies) {
 			auto dbasename = getBasePackageName(dname);
-			
+
 			// detect dependencies to the root package (or sub packages thereof)
 			if (dbasename == basepack.name) {
 				auto absdeppath = dspec.mapToPath(pack.path).path;
@@ -902,13 +902,13 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 				if (subpack) {
 					auto desireddeppath = dname == dbasename ? basepack.path : subpack.path;
 					enforce(dspec.path.empty || absdeppath == desireddeppath,
-					        format("Dependency from %s to root package references wrong path: %s vs. %s",
-					       node.pack, absdeppath.toNativeString(), desireddeppath.toNativeString()));
+						format("Dependency from %s to root package references wrong path: %s vs. %s",
+							node.pack, absdeppath.toNativeString(), desireddeppath.toNativeString()));
 				}
 				ret ~= TreeNodes(dname, node.config);
 				continue;
 			}
-			
+
 			if (dspec.optional && !m_dub.packageManager.getFirstPackage(dname))
 				continue;
 			if (m_options & UpgradeOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))
@@ -917,17 +917,17 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		}
 		return ret.data;
 	}
-	
+
 	protected override bool matches(Dependency configs, Dependency config)
 	{
 		if (!configs.path.empty) return configs.path == config.path;
 		return configs.merge(config).valid;
 	}
-	
+
 	private Package getPackage(string name, Dependency dep)
 	{
 		auto basename = getBasePackageName(name);
-		
+
 		// for sub packages, first try to get them from the base package
 		if (basename != name) {
 			auto subname = getSubPackageName(name);
@@ -946,23 +946,23 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 				return null;
 			}
 		}
-		
+
 		if (!dep.path.empty) {
 			auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
 			if (dep.matches(ret.ver)) return ret;
 		}
-		
+
 		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
 			return ret;
-		
+
 		auto key = name ~ ":" ~ dep.version_.toString();
 		if (auto ret = key in m_remotePackages)
 			return *ret;
-		
+
 		auto prerelease = (m_options & UpgradeOptions.preRelease) != 0;
-		
+
 		auto rootpack = name.split(":")[0];
-		
+
 		foreach (ps; m_dub.m_packageSuppliers) {
 			if (rootpack == name) {
 				try {
@@ -994,9 +994,9 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 				}
 			}
 		}
-		
+
 		m_remotePackages[key] = null;
-		
+
 		logWarn("Package %s %s could not be loaded either locally, or from the configured package registries.", name, dep);
 		return null;
 	}
