@@ -299,12 +299,12 @@ struct CommandGroup {
 
 class InitCommand : Command {
 	private{
-		string m_buildType;
+		string m_buildType = "minimal";
 	}
 	this()
 	{
 		this.name = "init";
-		this.argumentsPattern = "[<directory> [<dependancies>...] [--type=<type>]]";
+		this.argumentsPattern = "[<directory> [<dependency>...] [--type=<type>]]";
 		this.description = "Initializes an empty package skeleton";
 		this.helpText = [
 			"Initializes an empty package of the specified type in the given directory. By default, the current working dirctory is used. Available types:",
@@ -317,15 +317,15 @@ class InitCommand : Command {
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("t|type", &m_buildType, ["Set the type of project to generate. [minimal (default) | vibe.d | deimos"]);
+		args.getopt("t|type", &m_buildType, [
+			"Set the type of project to generate. [minimal (default) | vibe.d | deimos"
+		]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		string dir, type = "minimal";
+		string dir;
 		enforceUsage(app_args.empty, "Unexpected application arguments.");
-		if(m_buildType.length == 0)
-			m_buildType = "minimal";
 		dir = free_args[0];
 		if (free_args.length == 1) 
 			dub.createEmptyPackage(Path(dir), [], m_buildType);
