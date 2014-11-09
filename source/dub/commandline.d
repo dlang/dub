@@ -327,10 +327,7 @@ class InitCommand : Command {
 		string dir;
 		enforceUsage(app_args.empty, "Unexpected application arguments.");
 		dir = free_args[0];
-		if (free_args.length == 1) 
-			dub.createEmptyPackage(Path(dir), [], m_buildType);
-		else
-			dub.createEmptyPackage(Path(dir), free_args[1..$], m_buildType);
+		dub.createEmptyPackage(Path(dir), free_args[1..$], m_buildType);
 		return 0;
 	}
 }
