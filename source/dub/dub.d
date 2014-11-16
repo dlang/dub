@@ -787,7 +787,7 @@ unittest {
 string getModuleNameFromFile(string filePath) {
 	string fileContent = filePath.readText;
 
-	logDiagnostic("Get module name from path: ", filePath);
+	logDiagnostic("Get module name from path: " ~ filePath);
 	return getModuleNameFromContent(fileContent);
 }
 
