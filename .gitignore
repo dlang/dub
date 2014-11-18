@@ -7,6 +7,3 @@ bin/dub
 
 docs.json
 __dummy.html
-
-*.exe
-source/dub/version_.d
