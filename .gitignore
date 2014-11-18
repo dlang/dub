@@ -10,8 +10,3 @@ __dummy.html
 
 *.exe
 source/dub/version_.d
-*.exe_cv
-*.pdb
-*.sln
-*.suo
-*.visualdproj
