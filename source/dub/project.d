@@ -921,6 +921,7 @@ final class SelectedVersions {
 		auto file = openFile(path, FileMode.CreateTrunc);
 		scope(exit) file.close();
 		file.writePrettyJsonString(json);
+		file.put('\n');
 		m_dirty = false;
 	}
 
