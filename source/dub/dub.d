@@ -736,7 +736,8 @@ string getModuleNameFromContent(string content) {
 	import std.regex;
 	import std.string;
 
-	if(content.strip == "") return "";
+	content = content.strip;
+	if (!content.length) return null;
 
 	static bool regex_initialized = false;
 	static Regex!char comments_pattern, module_pattern;
