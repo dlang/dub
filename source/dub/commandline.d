@@ -335,7 +335,7 @@ class InitCommand : Command {
 		// Checks if argument uses current method of specifying project type.
 		if (free_args.length)
 		{
-			if (free_args[0].among("vibe.d", "deimos", "minimal"))
+			if (["vibe.d", "deimos", "minimal"].canFind(free_args[0]))
 			{
 				m_buildType = free_args[0];
 				free_args = free_args[1 .. $];
