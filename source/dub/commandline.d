@@ -327,6 +327,13 @@ class InitCommand : Command {
 		string dir;
 		enforceUsage(app_args.empty, "Unexpected application arguments.");
 		dir = free_args[0];
+		//TODO: Remove this block in next version
+		// Checks if argument uses current method of specifying project type. 
+		if(free_args[1] == "vibe.d" || free_args[1] == "deimos" || free_args[1] == "minimal"){
+                    m_buildType = free_args[1];     
+                    free_args = free_args.remove(1);
+                    writefln("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
+                }
 		dub.createEmptyPackage(Path(dir), free_args[1..$], m_buildType);
 		return 0;
 	}
