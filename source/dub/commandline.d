@@ -304,21 +304,21 @@ class InitCommand : Command {
 	this()
 	{
 		this.name = "init";
-		this.argumentsPattern = "[<directory> [<dependency>...] [--type=<type>]]";
+		this.argumentsPattern = "[<directory> [<dependency>...]]";
 		this.description = "Initializes an empty package skeleton";
 		this.helpText = [
-			"Initializes an empty package of the specified type in the given directory. By default, the current working dirctory is used. Available types:",
-			"",
-			"minimal - a simple \"hello world\" project with no dependencies (default)",
-			"vibe.d - minimal HTTP server based on vibe.d",
-			"deimos - standard skeleton for a static C binding library"
+			"Initializes an empty package of the specified type in the given directory. By default, the current working dirctory is used."
 		];
 	}
 
 	override void prepare(scope CommandArgs args)
 	{
 		args.getopt("t|type", &m_buildType, [
-			"Set the type of project to generate. [minimal (default) | vibe.d | deimos"
+			"Set the type of project to generate. Available types:",
+			"",
+			"minimal - simple \"hello world\" project (default)",
+			"vibe.d  - minimal HTTP server based on vibe.d",
+			"deimos  - skeleton for C header bindings",
 		]);
 	}
 
@@ -326,19 +326,23 @@ class InitCommand : Command {
 	{
 		string dir;
 		enforceUsage(app_args.empty, "Unexpected application arguments.");
-		dir = free_args[0];
-		//TODO: Remove this block in next version
-		// Checks if argument uses current method of specifying project type. 
-		if(free_args.length > 1)
+		if (free_args.length)
 		{
-		    if(free_args[1] == "vibe.d" || free_args[1] == "deimos" || free_args[1] == "minimal")
-		    {
-                        m_buildType = free_args[1];     
-                        free_args = free_args.remove(1);
-                        writefln("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
-                    }
-                }
-		dub.createEmptyPackage(Path(dir), free_args[1..$], m_buildType);
+			dir = free_args[0];
+			free_args = free_args[1 .. $];
+		}
+		//TODO: Remove this block in next version
+		// Checks if argument uses current method of specifying project type.
+		if (free_args.length)
+		{
+			if (free_args[0].among("vibe.d", "deimos", "minimal"))
+			{
+				m_buildType = free_args[0];
+				free_args = free_args[1 .. $];
+				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
+			}
+		}
+		dub.createEmptyPackage(Path(dir), free_args, m_buildType);
 		return 0;
 	}
 }
