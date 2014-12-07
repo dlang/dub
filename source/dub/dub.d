@@ -750,12 +750,12 @@ string getModuleNameFromContent(string content) {
 
 	content = replaceAll(content, comments_pattern, "");
 	auto result = matchFirst(content, module_pattern);
-	
+
 	string moduleName;
 	if(!result.empty) moduleName = result.front;
-	
+
 	if (moduleName.length >= 7) moduleName = moduleName[7..$-1];
-	
+
 	return moduleName;
 }
 
