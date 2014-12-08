@@ -434,6 +434,8 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 					{
 						if (f.globMatch(glob))
 						{
+							if (!f.isDir)
+								continue;
 							tryCopyDir(f);
 							break;
 						}
