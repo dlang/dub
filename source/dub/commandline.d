@@ -371,6 +371,9 @@ abstract class PackageBuildCommand : Command {
 		args.getopt("d|debug", &m_debugVersions, [
 			"Define the specified debug version identifier when building - can be used multiple times"
 		]);
+		args.getopt("o|targetpath", &m_buildSettings.targetPath, [
+			"Specify where the output will be written. Override targetPath in dub.json if present."
+		]);
 		args.getopt("nodeps", &m_nodeps, [
 			"Do not check/update dependencies before building"
 		]);
@@ -546,7 +549,6 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.buildType = m_buildType;
 		gensettings.buildMode = m_buildMode;
 		gensettings.compiler = m_compiler;
-		gensettings.buildSettings = m_buildSettings;
 		gensettings.combined = m_combined;
 		gensettings.run = m_run;
 		gensettings.runArgs = app_args;
@@ -560,7 +562,7 @@ class GenerateCommand : PackageBuildCommand {
 			m_generator = "visuald";
 			logWarn(`The generator "visuald-combined" is deprecated, please use the --combined switch instead.`);
 		}
-		dub.generateProject(m_generator, gensettings);
+		dub.generateProject(m_generator, gensettings, m_buildSettings);
 		if (m_buildType == "ddox") dub.runDdox(gensettings.run);
 		return 0;
 	}
@@ -693,13 +695,12 @@ class TestCommand : PackageBuildCommand {
 		settings.compiler = getCompiler(m_buildPlatform.compilerBinary);
 		settings.buildType = m_buildType;
 		settings.buildMode = m_buildMode;
-		settings.buildSettings = m_buildSettings;
 		settings.combined = m_combined;
 		settings.force = m_force;
 		settings.run = true;
 		settings.runArgs = app_args;
 
-		dub.testProject(settings, m_buildConfig, Path(m_mainFile));
+		dub.testProject(settings, m_buildConfig, Path(m_mainFile), m_buildSettings);
 		return 0;
 	}
 }
@@ -1306,7 +1307,6 @@ class DustmiteCommand : PackageBuildCommand {
 			gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
 			gensettings.buildType = m_buildType;
 			gensettings.compiler = m_compiler;
-			gensettings.buildSettings = m_buildSettings;
 			gensettings.combined = m_combined;
 			gensettings.run = m_programStatusCode != int.min || m_programRegex.length;
 			gensettings.runArgs = app_args;
@@ -1314,7 +1314,7 @@ class DustmiteCommand : PackageBuildCommand {
 			gensettings.compileCallback = check(m_compilerStatusCode, m_compilerRegex);
 			gensettings.linkCallback = check(m_linkerStatusCode, m_linkerRegex);
 			gensettings.runCallback = check(m_programStatusCode, m_programRegex);
-			try dub.generateProject("build", gensettings);
+			try dub.generateProject("build", gensettings, m_buildSettings);
 			catch (DustmiteMismatchException) {
 				logInfo("Dustmite test doesn't match.");
 				return 3;

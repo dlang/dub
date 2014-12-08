@@ -297,15 +297,15 @@ class Dub {
 
 	/// Generate project files for a specified IDE.
 	/// Any existing project files will be overridden.
-	void generateProject(string ide, GeneratorSettings settings) {
+	void generateProject(string ide, GeneratorSettings gsettings, in BuildSettings bsettings) {
 		auto generator = createProjectGenerator(ide, m_project);
 		if (m_dryRun) return; // TODO: pass m_dryRun to the generator
-		generator.generate(settings);
+		generator.generate(gsettings, bsettings);
 	}
 
 	/// Executes tests on the current project. Throws an exception, if
 	/// unittests failed.
-	void testProject(GeneratorSettings settings, string config, Path custom_main_file)
+	void testProject(GeneratorSettings settings, string config, Path custom_main_file, in BuildSettings bsettings)
 	{
 		if (custom_main_file.length && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
 
@@ -324,7 +324,7 @@ class Dub {
 
 		auto test_config = format("__test__%s__", config);
 
-		BuildSettings lbuildsettings = settings.buildSettings;
+		BuildSettings lbuildsettings = bsettings.dup;
 		m_project.addBuildSettings(lbuildsettings, settings.platform, config, null, true);
 		if (lbuildsettings.targetType == TargetType.none) {
 			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
@@ -404,7 +404,7 @@ class Dub {
 			settings.config = test_config;
 		}
 
-		generator.generate(settings);
+		generator.generate(settings, bsettings);
 	}
 
 	/// Outputs a JSON description of the project, including its dependencies.
@@ -640,11 +640,12 @@ class Dub {
 			auto compiler_binary = "dmd";
 
 			GeneratorSettings settings;
+			BuildSettings bsettings;
 			settings.config = "application";
 			settings.compiler = getCompiler(compiler_binary);
-			settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary);
+			settings.platform = settings.compiler.determinePlatform(bsettings, compiler_binary);
 			settings.buildType = "debug";
-			ddox_dub.generateProject("build", settings);
+			ddox_dub.generateProject("build", settings, bsettings);
 
 			//runCommands(["cd "~ddox_pack.path.toNativeString()~" && dub build -v"]);
 		}
