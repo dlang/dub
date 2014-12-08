@@ -616,7 +616,18 @@ class Dub {
 					auto versionStrings = ps.getVersions(dep);
 					depVers[dep] = versionStrings[$-1].toString;
 				} catch(Exception e){
-					logError("Error, no package %s found. Ignoring...", dep);
+					auto packages = ps.getPackageNames();
+					string[][size_t] lds; //holds the levenshteinDistance from dep for each package
+					foreach(pack; packages){
+						lds[dep.levenshteinDistance(pack)] ~= pack;
+					}
+					auto closestKey = lds.keys.sort.front;
+					if(closestKey <= 4){
+						logError("Error, no package \"%s\" found. Did you mean %s?", dep, lds[closestKey]);
+					} else{
+						logError("Error, no package \"%s\" found. Exiting...", dep);
+					}
+					return;
 				}
 			}
 		}
