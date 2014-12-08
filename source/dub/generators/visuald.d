@@ -30,15 +30,6 @@ import std.uuid;
 
 // TODO: handle pre/post build commands
 
-string vsCpuArchitecture(string architecture)
-{
-  switch(architecture) {
-    default: logWarn("Unsupported platform('%s'), defaulting to x86", architecture); goto case;
-    case "x86": return "Win32";
-    case "x86_64": return "x64";
-  }
-}
-
 
 class VisualDGenerator : ProjectGenerator {
 	private {
@@ -105,12 +96,12 @@ class VisualDGenerator : ProjectGenerator {
 			// Global section contains configurations
 			ret.put("Global\n");
 			ret.put("\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n");
-			ret.formattedWrite("\t\t%s|%s = %s|%s\n", settings.buildType, settings.platform.architecture[0].vsCpuArchitecture, settings.buildType, settings.platform.architecture[0].vsCpuArchitecture);
+			ret.formattedWrite("\t\t%s|%s = %s|%s\n", settings.buildType, settings.platform.architecture[0].vsArchitecture, settings.buildType, settings.platform.architecture[0].vsArchitecture);
 			ret.put("\tEndGlobalSection\n");
 			ret.put("\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n");
 
 			const string[] sub = ["ActiveCfg", "Build.0"];
-			const string[] conf = [settings.buildType~"|"~settings.platform.architecture[0].vsCpuArchitecture];
+			const string[] conf = [settings.buildType~"|"~settings.platform.architecture[0].vsArchitecture];
 			auto projectUuid = guid(mainpack);
 			foreach (t; targets.byKey)
 				foreach (c; conf)
@@ -259,7 +250,7 @@ class VisualDGenerator : ProjectGenerator {
 			}
 
 			foreach(architecture; settings.platform.architecture) {
-        auto arch = architecture.vsCpuArchitecture;
+				auto arch = architecture.vsArchitecture;
 				ret.formattedWrite("  <Config name=\"%s\" platform=\"%s\">\n", to!string(type), arch);
 
 				// FIXME: handle compiler options in an abstract way instead of searching for DMD specific flags
@@ -520,4 +511,13 @@ private Path determineStructurePath(Path file_path, in ProjectGenerator.TargetIn
 private string getPackageFileName(string pack)
 {
 	return pack.replace(":", "_");
+}
+
+private string vsArchitecture(string architecture)
+{
+	switch(architecture) {
+		default: logWarn("Unsupported platform('%s'), defaulting to x86", architecture); goto case;
+		case "x86": return "Win32";
+		case "x86_64": return "x64";
+	}
 }
