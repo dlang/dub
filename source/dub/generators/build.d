@@ -216,6 +216,8 @@ class BuildGenerator : ProjectGenerator {
 			m_temporaryFiles ~= exe_file_path;
 			foreach (f; buildsettings.copyFiles)
 				m_temporaryFiles ~= Path(buildsettings.targetPath).parentPath ~ Path(f).head;
+			foreach (f; buildsettings.copyDirs)
+				m_temporaryFiles ~= Path(buildsettings.targetPath).parentPath ~ Path(f).head;
 		}
 	}
 
@@ -265,6 +267,8 @@ class BuildGenerator : ProjectGenerator {
 		if (is_temp_target) {
 			m_temporaryFiles ~= exe_file_path;
 			foreach (f; buildsettings.copyFiles)
+				m_temporaryFiles ~= Path(buildsettings.targetPath).parentPath ~ Path(f).head;
+			foreach (f; buildsettings.copyDirs)
 				m_temporaryFiles ~= Path(buildsettings.targetPath).parentPath ~ Path(f).head;
 		}
 	}

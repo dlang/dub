@@ -27,6 +27,7 @@ struct BuildSettings {
 	string[] libs;
 	string[] sourceFiles;
 	string[] copyFiles;
+	string[] copyDirs;
 	string[] versions;
 	string[] debugVersions;
 	string[] importPaths;
@@ -62,6 +63,7 @@ struct BuildSettings {
 		addLibs(bs.libs);
 		addSourceFiles(bs.sourceFiles);
 		addCopyFiles(bs.copyFiles);
+		addCopyDirs(bs.copyDirs);
 		addVersions(bs.versions);
 		addDebugVersions(bs.debugVersions);
 		addImportPaths(bs.importPaths);
@@ -82,6 +84,7 @@ struct BuildSettings {
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
+	void addCopyDirs(in string[] value...) { add(copyDirs, value); }
 	void addVersions(in string[] value...) { add(versions, value); }
 	void addDebugVersions(in string[] value...) { add(debugVersions, value); }
 	void addImportPaths(in string[] value...) { add(importPaths, value); }
@@ -171,10 +174,11 @@ enum BuildSetting {
 	importPaths       = 1<<7,
 	stringImportPaths = 1<<8,
 	options           = 1<<9,
+	copyDirs          = 1<<10,
 	none = 0,
-	commandLine = dflags|copyFiles,
+	commandLine = dflags|copyFiles|copyDirs,
 	commandLineSeparate = commandLine|lflags,
-	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|debugVersions|importPaths|stringImportPaths|options,
+	all = dflags|lflags|libs|sourceFiles|copyFiles|copyDirs|versions|debugVersions|importPaths|stringImportPaths|options,
 	noOptions = all & ~options
 }
 

@@ -146,6 +146,7 @@ struct BuildSettingsTemplate {
 	string[][string] sourcePaths;
 	string[][string] excludedSourceFiles;
 	string[][string] copyFiles;
+	string[][string] copyDirs;
 	string[][string] versions;
 	string[][string] debugVersions;
 	string[][string] importPaths;
@@ -209,6 +210,7 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("sourceFiles", "addSourceFiles")(dst, platform);
 		getPlatformSetting!("excludedSourceFiles", "removeSourceFiles")(dst, platform);
 		getPlatformSetting!("copyFiles", "addCopyFiles")(dst, platform);
+		getPlatformSetting!("copyDirs", "addCopyDirs")(dst, platform);
 		getPlatformSetting!("versions", "addVersions")(dst, platform);
 		getPlatformSetting!("debugVersions", "addDebugVersions")(dst, platform);
 		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);

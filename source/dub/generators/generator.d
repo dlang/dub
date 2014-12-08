@@ -376,6 +376,71 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 				}
 			}
 		}
+
+		if (buildsettings.copyDirs.length) {
+			
+			void copyFolderRec(Path folder, Path dstfolder)
+			{
+				mkdirRecurse(dstfolder.toNativeString());
+				foreach (de; iterateDirectory(folder.toNativeString())) {
+					if (de.name.startsWith(".")) continue;
+					if (de.isDirectory) {
+						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
+					} else {
+						try copyFile(folder ~ de.name, dstfolder ~ de.name, true);
+						catch (Exception e) {
+							logWarn("Failed to copy file %s: %s", (folder ~ de.name).toNativeString(), e.msg);
+						}
+					}
+				}
+			}
+
+			void tryCopyDir(string file)
+			{
+				auto src = Path(file);
+				if (!src.absolute) src = pack_path ~ src;
+				auto dst = target_path ~ Path(file).head;
+				if (src == dst) {
+					logDiagnostic("Skipping copy of %s (same source and destination)", file);
+					return;
+				}
+				logDiagnostic("  %s to %s", src.toNativeString(), dst.toNativeString());
+				try {
+					// TODO: copy directory
+					copyFolderRec(src, dst);
+				} catch(Exception e) logWarn("Failed to copy %s to %s: %s", src.toNativeString(), dst.toNativeString(), e.msg);
+			}
+
+			logInfo("Copying dirs for %s...", pack);
+			string[] globs;
+			foreach (f; buildsettings.copyDirs)
+			{
+				if (f.canFind("*", "?") ||
+					(f.canFind("{") && f.balancedParens('{', '}')) ||
+					(f.canFind("[") && f.balancedParens('[', ']')))
+				{
+					globs ~= f;
+				}
+				else
+				{
+					tryCopyDir(f);
+				}
+			}
+			if (globs.length) // Search all files for glob matches
+			{
+				foreach (f; dirEntries(pack_path.toNativeString(), SpanMode.breadth))
+				{
+					foreach (glob; globs)
+					{
+						if (f.globMatch(glob))
+						{
+							tryCopyDir(f);
+							break;
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
