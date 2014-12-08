@@ -96,7 +96,11 @@ class VisualDGenerator : ProjectGenerator {
 			// Global section contains configurations
 			ret.put("Global\n");
 			ret.put("\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n");
-			ret.formattedWrite("\t\t%s|%s = %s|%s\n", settings.buildType, settings.platform.architecture[0].vsArchitecture, settings.buildType, settings.platform.architecture[0].vsArchitecture);
+			ret.formattedWrite("\t\t%s|%s = %s|%s\n",
+				settings.buildType,
+				settings.platform.architecture[0].vsArchitecture,
+				settings.buildType,
+				settings.platform.architecture[0].vsArchitecture);
 			ret.put("\tEndGlobalSection\n");
 			ret.put("\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n");
 
