@@ -517,7 +517,7 @@ private string getPackageFileName(string pack)
 	return pack.replace(":", "_");
 }
 
-private string vsArchitecture(string architecture)
+private @property string vsArchitecture(string architecture)
 {
 	switch(architecture) {
 		default: logWarn("Unsupported platform('%s'), defaulting to x86", architecture); goto case;
