@@ -603,14 +603,35 @@ class Dub {
 		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
-	void createEmptyPackage(Path path, string type)
+	void createEmptyPackage(Path path, string[] deps, string type)
 	{
 		if( !path.absolute() ) path = m_rootPath ~ path;
 		path.normalize();
 
 		if (m_dryRun) return;
-
-		initPackage(path, type);
+		string[string] depVers;
+		foreach(ps; this.m_packageSuppliers){
+			foreach(dep; deps){
+				try{
+					auto versionStrings = ps.getVersions(dep);
+					depVers[dep] = versionStrings[$-1].toString;
+				} catch(Exception e){
+					auto packages = ps.getPackageNames();
+					string[][size_t] lds; //holds the levenshteinDistance from dep for each package
+					foreach(pack; packages){
+						lds[dep.levenshteinDistance(pack)] ~= pack;
+					}
+					auto closestKey = lds.keys.sort.front;
+					if(closestKey <= 4){
+						logError("Error, no package \"%s\" found. Did you mean %s?", dep, lds[closestKey]);
+					} else{
+						logError("Error, no package \"%s\" found. Exiting...", dep);
+					}
+					return;
+				}
+			}
+		}
+		initPackage(path, depVers, type);
 
 		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
