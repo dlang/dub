@@ -10,13 +10,8 @@ v0.9.23 - YYYY-MM-DD
      - Dub will then try to get the latest version number for each of these dependencies from code.dlang.org and automatically add them to the dependencies section of dub.json.
      - If it cant find the dependant package name, it will ignore it,
      - Current functionality is preserved whereby project type can be determined by using [vibe.d, deimos or minimal] after package name. (So example above would be dub init myProj vibe.d logger vibe-d gfm).
-<<<<<<< HEAD
          - Preferrable to use --type however, as this should be removed for next version.
     
-=======
-     - Preferrable to use --type however, as this should be removed for next version.
-
->>>>>>> origin/init-with-dependencies
 v0.9.22 - 2014-09-22
 --------------------
 
