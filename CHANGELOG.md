@@ -1,6 +1,15 @@
 Changelog
 =========
 
+v0.9.23 - YYYY-MM-DD
+--------------------
+
+### Features and improvements ###
+ - Added support for dub init to take a list of dependencies.
+     - Dub will then try to get version numbers for each of these dependencies from code.dlang.org and automatically apply them to dub.json.
+     - If it cant find the dependant package name, it will ignore it,
+     - Current functionality is same whereby project type can be determined by using vibe.d, deimos or minimal after package name. Preferrable to use --type however, as this should be removed for next version.
+    
 v0.9.22 - 2014-09-22
 --------------------
 
