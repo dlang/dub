@@ -5,7 +5,7 @@ v0.9.23 - YYYY-MM-DD
 --------------------
 
 ### Features and improvements ###
- - Added support for dub init to take a list of dependencies.
+ - Added support for dub init to take a list of dependencies. (by Colin Grogan)
      - Example usage (dub init myProj logger vibe-d gfm --type=vibe.d)
      - Dub will then try to get the latest version number for each of these dependencies from code.dlang.org and automatically add them to the dependencies section of dub.json.
      - If it cant find the dependant package name, it will ignore it,
