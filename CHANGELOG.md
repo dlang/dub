@@ -6,9 +6,11 @@ v0.9.23 - YYYY-MM-DD
 
 ### Features and improvements ###
  - Added support for dub init to take a list of dependencies.
-     - Dub will then try to get version numbers for each of these dependencies from code.dlang.org and automatically apply them to dub.json.
+     - Example usage (dub init myProj logger vibe-d gfm --type=vibe.d)
+     - Dub will then try to get the latest version number for each of these dependencies from code.dlang.org and automatically add them to the dependencies section of dub.json.
      - If it cant find the dependant package name, it will ignore it,
-     - Current functionality is same whereby project type can be determined by using vibe.d, deimos or minimal after package name. Preferrable to use --type however, as this should be removed for next version.
+     - Current functionality is preserved whereby project type can be determined by using [vibe.d, deimos or minimal] after package name. (So example above would be dub init myProj vibe.d logger vibe-d gfm).
+         - Preferrable to use --type however, as this should be removed for next version.
     
 v0.9.22 - 2014-09-22
 --------------------
