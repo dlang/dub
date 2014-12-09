@@ -616,17 +616,15 @@ class Dub {
 					auto versionStrings = ps.getVersions(dep);
 					depVers[dep] = versionStrings[$-1].toString;
 				} catch(Exception e){
-					auto packages = ps.getPackageNames();
-					string[][size_t] lds; //holds the levenshteinDistance from dep for each package
-					foreach(pack; packages){
-						lds[dep.levenshteinDistance(pack)] ~= pack;
-					}
-					auto closestKey = lds.keys.sort.front;
-					if(closestKey <= 4){
-						logError("Error, no package \"%s\" found. Did you mean %s?", dep, lds[closestKey]);
-					} else{
-						logError("Error, no package \"%s\" found. Exiting...", dep);
-					}
+                                        import std.range : take;
+                                        logError("Package '%s' was not found", dep);
+                                        auto candidates = ps.getPackageNames()
+                                            .fuzzySearch(dep)
+                                            .take(4);
+                                        if(candidates.length > 1)
+                                            logInfo("Did you mean one of: %-(%s%|, %)?", candidates);
+                                        else if(candidates.length == 1)
+                                            logInfo("Did you mean %s?", candidates.front);
 					return;
 				}
 			}
