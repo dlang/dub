@@ -13,8 +13,7 @@ import dub.recipe.packagerecipe;
 
 import dub.internal.vibecompat.data.json;
 
-import std.algorithm : canFind;
-import std.array : startsWith;
+import std.algorithm : canFind, startsWith;
 import std.conv : to;
 import std.exception : enforce;
 import std.range;

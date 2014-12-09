@@ -755,6 +755,10 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
  */
 string getModuleNameFromContent(string content) {
 	import std.regex;
+	import std.string;
+
+	content = content.strip;
+	if (!content.length) return null;
 
 	static bool regex_initialized = false;
 	static Regex!char comments_pattern, module_pattern;
@@ -766,7 +770,10 @@ string getModuleNameFromContent(string content) {
 	}
 
 	content = replaceAll(content, comments_pattern, "");
-	string moduleName = matchFirst(content, module_pattern).front;
+	auto result = matchFirst(content, module_pattern);
+
+	string moduleName;
+	if(!result.empty) moduleName = result.front;
 
 	if (moduleName.length >= 7) moduleName = moduleName[7..$-1];
 
@@ -774,9 +781,12 @@ string getModuleNameFromContent(string content) {
 }
 
 unittest {
-	import std.stdio;
+	//test empty string
+	string name = getModuleNameFromContent("");
+	assert(name == "", "can't get module name from empty string");
+
 	//test simple name
-	string name = getModuleNameFromContent("module myPackage.myModule;");
+	name = getModuleNameFromContent("module myPackage.myModule;");
 	assert(name == "myPackage.myModule", "can't parse module name");
 
 	//test if it can ignore module inside comments
@@ -799,6 +809,7 @@ unittest {
 string getModuleNameFromFile(string filePath) {
 	string fileContent = filePath.readText;
 
+	logDiagnostic("Get module name from path: " ~ filePath);
 	return getModuleNameFromContent(fileContent);
 }
 
