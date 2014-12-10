@@ -332,6 +332,36 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 			mkdirRecurse(buildsettings.targetPath);
 
 		if (buildsettings.copyFiles.length) {
+			void copyFolderRec(Path folder, Path dstfolder)
+			{
+				mkdirRecurse(dstfolder.toNativeString());
+				foreach (de; iterateDirectory(folder.toNativeString())) {
+					if (de.isDirectory) {
+						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
+					} else {
+						try copyFile(folder ~ de.name, dstfolder ~ de.name, true);
+						catch (Exception e) {
+							logWarn("Failed to copy file %s: %s", (folder ~ de.name).toNativeString(), e.msg);
+						}
+					}
+				}
+			}
+
+			void tryCopyDir(string file)
+			{
+				auto src = Path(file);
+				if (!src.absolute) src = pack_path ~ src;
+				auto dst = target_path ~ Path(file).head;
+				if (src == dst) {
+					logDiagnostic("Skipping copy of %s (same source and destination)", file);
+					return;
+				}
+				logDiagnostic("  %s to %s", src.toNativeString(), dst.toNativeString());
+				try {
+					copyFolderRec(src, dst);
+				} catch(Exception e) logWarn("Failed to copy %s to %s: %s", src.toNativeString(), dst.toNativeString(), e.msg);
+			}
+
 			void tryCopyFile(string file)
 			{
 				auto src = Path(file);
@@ -358,7 +388,10 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 				}
 				else
 				{
-					tryCopyFile(f);
+					if (f.isDir)
+						tryCopyDir(f);
+					else
+						tryCopyFile(f);
 				}
 			}
 			if (globs.length) // Search all files for glob matches
@@ -369,13 +402,17 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 					{
 						if (f.globMatch(glob))
 						{
-							tryCopyFile(f);
+							if (f.isDir)
+								tryCopyDir(f);
+							else
+								tryCopyFile(f);
 							break;
 						}
 					}
 				}
 			}
 		}
+
 	}
 }
 
