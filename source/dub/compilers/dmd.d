@@ -136,7 +136,6 @@ class DmdCompiler : Compiler {
 
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
-		assert(fields & BuildSetting.copyDirs);
 	}
 
 	void extractBuildOptions(ref BuildSettings settings) const

@@ -733,7 +733,6 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack, Bui
 	dst.addImportFiles(processVars(project, pack, settings.importFiles, true));
 	dst.addStringImportFiles(processVars(project, pack, settings.stringImportFiles, true));
 	dst.addCopyFiles(processVars(project, pack, settings.copyFiles, true));
-	dst.addCopyDirs(processVars(project, pack, settings.copyDirs, true));
 	dst.addVersions(processVars(project, pack, settings.versions));
 	dst.addDebugVersions(processVars(project, pack, settings.debugVersions));
 	dst.addImportPaths(processVars(project, pack, settings.importPaths, true));
