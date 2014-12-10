@@ -336,7 +336,6 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 			{
 				mkdirRecurse(dstfolder.toNativeString());
 				foreach (de; iterateDirectory(folder.toNativeString())) {
-					if (de.name.startsWith(".")) continue;
 					if (de.isDirectory) {
 						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
 					} else {
