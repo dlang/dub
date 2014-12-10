@@ -622,12 +622,10 @@ class Dub {
 			}
 		}
         if(notFound.length > 1){
-            logError("Couldnt find packages: %-(%s, %). Exiting...", notFound);
-            return;
+            throw new Exception(format("Couldn't find packages: %-(%s, %).", notFound));
         }
         else if(notFound.length == 1){
-            logError("Couldnt find package: %-(%s, %). Exiting...", notFound);
-            return;
+            throw new Exception(format("Couldn't find package: %-(%s, %).", notFound));
         }
   		
         initPackage(path, depVers, type);

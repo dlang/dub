@@ -342,7 +342,7 @@ class InitCommand : Command {
 				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
 			}
 		}
-		dub.createEmptyPackage(Path(dir), free_args, m_buildType);
+   		dub.createEmptyPackage(Path(dir), free_args, m_buildType);
 		return 0;
 	}
 }
