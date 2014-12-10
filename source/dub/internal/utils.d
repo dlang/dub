@@ -225,3 +225,18 @@ string getClosestMatch(string[] array, string input, size_t distance)
 	auto idx = distMap.countUntil!(a => a <= distance);
 	return (idx == -1) ? null : array[idx];
 }
+
+/**
+	Searches for close matches to input in range. R must be a range of strings
+	Note: Sorts the strings range. Use std.range.indexed to avoid this...
+  */
+auto fuzzySearch(R)(R strings, string input){
+	import std.algorithm : levenshteinDistance, schwartzSort, partition3;
+	import std.traits : isSomeString;
+	import std.range : ElementType;
+
+	static assert(isSomeString!(ElementType!R), "Cannot call fuzzy search on non string rang");
+	immutable threshold = input.length / 4;
+	return strings.partition3!((a, b) => a.length + threshold < b.length)(input)[1]
+			.schwartzSort!(p => levenshteinDistance(input.toUpper, p.toUpper));
+}

@@ -19,7 +19,7 @@ import std.process;
 import std.string;
 
 
-void initPackage(Path root_path, string type)
+void initPackage(Path root_path, string[string] deps, string type)
 {
 	void enforceDoesNotExist(string filename) {
 		enforce(!existsFile(root_path ~ filename), "The target directory already contains a '"~filename~"' file. Aborting.");
@@ -41,16 +41,16 @@ void initPackage(Path root_path, string type)
 
 	switch (type) {
 		default: throw new Exception("Unknown package init type: "~type);
-		case "minimal": initMinimalPackage(root_path); break;
-		case "vibe.d": initVibeDPackage(root_path); break;
-		case "deimos": initDeimosPackage(root_path); break;
+		case "minimal": initMinimalPackage(root_path, deps); break;
+		case "vibe.d": initVibeDPackage(root_path, deps); break;
+		case "deimos": initDeimosPackage(root_path, deps); break;
 	}
 	writeGitignore(root_path);
 }
 
-void initMinimalPackage(Path root_path)
+void initMinimalPackage(Path root_path, string[string] deps)
 {
-	writePackageJson(root_path, "A minimal D application.");
+	writePackageJson(root_path, "A minimal D application.", deps);
 	createDirectory(root_path ~ "source");
 	write((root_path ~ "source/app.d").toNativeString(),
 q{import std.stdio;
@@ -62,10 +62,13 @@ void main()
 });
 }
 
-void initVibeDPackage(Path root_path)
+void initVibeDPackage(Path root_path, string[string] deps)
 {
+	if("vibe-d" !in deps)
+		deps["vibe-d"] = "~>0.7.19";
+
 	writePackageJson(root_path, "A simple vibe.d server application.",
-					 ["vibe-d": "~>0.7.19"], ["versions": `["VibeDefaultMain"]`]);
+	                 deps, ["versions": `["VibeDefaultMain"]`]);
 	createDirectory(root_path ~ "source");
 	createDirectory(root_path ~ "views");
 	createDirectory(root_path ~ "public");
@@ -89,11 +92,11 @@ void hello(HTTPServerRequest req, HTTPServerResponse res)
 });
 }
 
-void initDeimosPackage(Path root_path)
+void initDeimosPackage(Path root_path, string[string] deps)
 {
 	auto name = root_path.head.toString().toLower();
 	writePackageJson(root_path, "Deimos Bindings for "~name~".",
-					 null, ["targetType": `"sourceLibrary"`, "importPaths": `["."]`]);
+	                 deps, ["targetType": `"sourceLibrary"`, "importPaths": `["."]`]);
 	createDirectory(root_path ~ "C");
 	createDirectory(root_path ~ "deimos");
 }

@@ -603,14 +603,32 @@ class Dub {
 		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
-	void createEmptyPackage(Path path, string type)
+	void createEmptyPackage(Path path, string[] deps, string type)
 	{
 		if( !path.absolute() ) path = m_rootPath ~ path;
 		path.normalize();
 
 		if (m_dryRun) return;
+		string[string] depVers;
+		string[] notFound; // keep track of any failed packages in here
+		foreach(ps; this.m_packageSuppliers){
+			foreach(dep; deps){
+				try{
+					auto versionStrings = ps.getVersions(dep);
+					depVers[dep] = versionStrings[$-1].toString;
+				} catch(Exception e){
+					notFound ~= dep;
+				}
+			}
+		}
+		if(notFound.length > 1){
+			throw new Exception(format("Couldn't find packages: %-(%s, %).", notFound));
+		}
+		else if(notFound.length == 1){
+			throw new Exception(format("Couldn't find package: %-(%s, %).", notFound));
+		}
 
-		initPackage(path, type);
+		initPackage(path, depVers, type);
 
 		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
