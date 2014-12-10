@@ -96,12 +96,16 @@ class VisualDGenerator : ProjectGenerator {
 			// Global section contains configurations
 			ret.put("Global\n");
 			ret.put("\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n");
-			ret.formattedWrite("\t\t%s|Win32 = %s|Win32\n", settings.buildType, settings.buildType);
+			ret.formattedWrite("\t\t%s|%s = %s|%s\n",
+				settings.buildType,
+				settings.platform.architecture[0].vsArchitecture,
+				settings.buildType,
+				settings.platform.architecture[0].vsArchitecture);
 			ret.put("\tEndGlobalSection\n");
 			ret.put("\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n");
 
 			const string[] sub = ["ActiveCfg", "Build.0"];
-			const string[] conf = [settings.buildType~"|Win32"];
+			const string[] conf = [settings.buildType~"|"~settings.platform.architecture[0].vsArchitecture];
 			auto projectUuid = guid(mainpack);
 			foreach (t; targets.byKey)
 				foreach (c; conf)
@@ -250,12 +254,7 @@ class VisualDGenerator : ProjectGenerator {
 			}
 
 			foreach(architecture; settings.platform.architecture) {
-				string arch;
-				switch(architecture) {
-					default: logWarn("Unsupported platform('%s'), defaulting to x86", architecture); goto case;
-					case "x86": arch = "Win32"; break;
-					case "x86_64": arch = "x64"; break;
-				}
+				auto arch = architecture.vsArchitecture;
 				ret.formattedWrite("  <Config name=\"%s\" platform=\"%s\">\n", to!string(type), arch);
 
 				// FIXME: handle compiler options in an abstract way instead of searching for DMD specific flags
@@ -516,4 +515,13 @@ private Path determineStructurePath(Path file_path, in ProjectGenerator.TargetIn
 private string getPackageFileName(string pack)
 {
 	return pack.replace(":", "_");
+}
+
+private @property string vsArchitecture(string architecture)
+{
+	switch(architecture) {
+		default: logWarn("Unsupported platform('%s'), defaulting to x86", architecture); goto case;
+		case "x86": return "Win32";
+		case "x86_64": return "x64";
+	}
 }
