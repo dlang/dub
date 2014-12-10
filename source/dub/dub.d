@@ -610,26 +610,27 @@ class Dub {
 
 		if (m_dryRun) return;
 		string[string] depVers;
+        string[] notFound; // keep track of any failed packages in here
 		foreach(ps; this.m_packageSuppliers){
 			foreach(dep; deps){
 				try{
 					auto versionStrings = ps.getVersions(dep);
 					depVers[dep] = versionStrings[$-1].toString;
 				} catch(Exception e){
-                                        import std.range : take;
-                                        logError("Package '%s' was not found", dep);
-                                        auto candidates = ps.getPackageNames()
-                                            .fuzzySearch(dep)
-                                            .take(4);
-                                        if(candidates.length > 1)
-                                            logInfo("Did you mean one of: %-(%s%|, %)?", candidates);
-                                        else if(candidates.length == 1)
-                                            logInfo("Did you mean %s?", candidates.front);
-					return;
+                    notFound ~= dep;
 				}
 			}
 		}
-		initPackage(path, depVers, type);
+        if(notFound.length > 1){
+            logError("Couldnt find packages: %-(%s, %). Exiting...", notFound);
+            return;
+        }
+        else if(notFound.length == 1){
+            logError("Couldnt find package: %-(%s, %). Exiting...", notFound);
+            return;
+        }
+  		
+        initPackage(path, depVers, type);
 
 		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
