@@ -1,0 +1,1 @@
+hdpi/file1 content
