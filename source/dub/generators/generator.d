@@ -200,6 +200,9 @@ class ProjectGenerator
 
 			buildsettings.add(depbs);
 
+			if (depbs.targetType == TargetType.executable)
+				continue;
+
 			auto pt = (generates_binary ? pack.name : bin_pack) in targets;
 			assert(pt !is null);
 			if (auto pdt = depname in targets) {
