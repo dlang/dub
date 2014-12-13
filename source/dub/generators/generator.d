@@ -9,6 +9,7 @@ module dub.generators.generator;
 
 import dub.compilers.compiler;
 import dub.generators.build;
+import dub.generators.sublimetext;
 import dub.generators.visuald;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
@@ -302,6 +303,9 @@ ProjectGenerator createProjectGenerator(string generator_type, Project project)
 		case "visuald":
 			logDebug("Creating VisualD generator.");
 			return new VisualDGenerator(project);
+		case "sublimetext":
+			logDebug("Creating SublimeText generator.");
+			return new SublimeTextGenerator(project);
 	}
 }
 
