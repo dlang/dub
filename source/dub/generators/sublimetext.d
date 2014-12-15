@@ -68,17 +68,45 @@ Json[] sourceFolderJson(in ProjectGenerator.TargetInfo target)
 
 Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd())
 {
-	Json makeBuildSystem(string operation)
+	enum BUILD_TYPES = [
+		//"plain",
+		"debug",
+		"release",
+		//"unittest",
+		"docs",
+		"ddox",
+		"profile",
+		"cov",
+		"unittest-cov",
+		];
+
+	auto arch = buildPlatform.architecture[0];
+
+	Json makeBuildSystem(string buildType)
 	{
-		auto arch = buildPlatform.architecture[0];
 		return Json([
-			"name": "DUB " ~ operation.capitalize ~ " " ~ arch.Json,
-			"cmd": ["dub", operation.toLower, "--arch=" ~ arch].map!Json.array.Json,
+			"name": "DUB Build " ~ buildType.capitalize ~ " " ~ arch.Json,
+			"cmd": ["dub", "build", "--build=" ~ buildType, "--arch=" ~ arch].map!Json.array.Json,
+			
 			"working_dir": workingDiretory.Json,
+			"variants": [
+				[
+					"name": "Run".Json,
+					"cmd": ["dub", "run", "--build=" ~ buildType, "--arch=" ~ arch].map!Json.array.Json,		
+				].Json
+			].array.Json,
 		]);
 	}
 
-	return ["run", "build", "test"].map!makeBuildSystem.array.Json;
+	auto buildSystems = BUILD_TYPES.map!makeBuildSystem.array;
+
+	buildSystems ~= 	[
+		"name": "DUB Test " ~ arch.Json,
+		"cmd": ["dub", "test", "--arch=" ~ arch].map!Json.array.Json,
+		"working_dir": workingDiretory.Json,
+	].Json;
+
+	return buildSystems.array.Json;
 }
 
 unittest
