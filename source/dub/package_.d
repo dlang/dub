@@ -472,7 +472,7 @@ struct PackageInfo {
 
 	@property const(Dependency)[string] dependencies()
 	const {
-		const(Dependency)[string] ret;
+		Dependency[string] ret;
 		foreach (n, d; this.buildSettings.dependencies)
 			ret[n] = d;
 		foreach (ref c; configurations)
