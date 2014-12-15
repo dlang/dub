@@ -85,7 +85,7 @@ Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd()
 	Json makeBuildSystem(string buildType)
 	{
 		return Json([
-			"name": "DUB Build " ~ buildType.capitalize ~ " " ~ arch.Json,
+			"name": "DUB build " ~ buildType.Json,
 			"cmd": ["dub", "build", "--build=" ~ buildType, "--arch=" ~ arch].map!Json.array.Json,
 			"file_regex": r"^(.+)\(([0-9]+)\)\:() (.*)$".Json,
 			"working_dir": workingDiretory.Json,
@@ -101,7 +101,7 @@ Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd()
 	auto buildSystems = BUILD_TYPES.map!makeBuildSystem.array;
 
 	buildSystems ~= 	[
-		"name": "DUB Test " ~ arch.Json,
+		"name": "DUB test".Json,
 		"cmd": ["dub", "test", "--arch=" ~ arch].map!Json.array.Json,
 		"file_regex": r"^(.+)\(([0-9]+)\)\:() (.*)$".Json,
 		"working_dir": workingDiretory.Json,
