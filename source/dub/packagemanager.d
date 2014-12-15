@@ -287,8 +287,8 @@ class PackageManager {
 	/// destination and sets a version field in the package description.
 	Package storeFetchedPackage(Path zip_file_path, Json package_info, Path destination)
 	{
-		auto package_name = package_info.name.get!string();
-		auto package_version = package_info["version"].get!string();
+		auto package_name = package_info.name.get!string;
+		auto package_version = package_info["version"].get!string;
 		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
 
 		logDiagnostic("Placing package '%s' version '%s' to location '%s' from file '%s'",
@@ -358,11 +358,11 @@ class PackageManager {
 		// overwrite dub.json (this one includes a version field)
 		auto pack = new Package(destination, PathAndFormat(), null, package_info["version"].get!string);
 
-		if (pack.packageInfoFilename.head != defaultPackageFilename()) {
+		if (pack.packageInfoFilename.head != defaultPackageFilename) {
 			// Storeinfo saved a default file, this could be different to the file from the zip.
 			removeFile(pack.packageInfoFilename);
 			journal.remove(Journal.Entry(Journal.Type.RegularFile, Path(pack.packageInfoFilename.head)));
-			journal.add(Journal.Entry(Journal.Type.RegularFile, Path(defaultPackageFilename())));
+			journal.add(Journal.Entry(Journal.Type.RegularFile, Path(defaultPackageFilename)));
 		}
 		pack.storeInfo();
 
@@ -414,7 +414,7 @@ class PackageManager {
 					auto fpath = p ~ fi.name;
 					if (fi.isDirectory) {
 						// Indicate a directory.
-						fpath.endsWithSlash(true);
+						fpath.endsWithSlash = true;
 						// Ignore /.dub folder: This folder and its content
 						// are not tracked by the Journal.
 						if (fpath.relativeTo(pack.path) == Path(".dub/"))
@@ -538,12 +538,12 @@ class PackageManager {
 				enforce(packlist.type == Json.Type.array, LocalPackagesFilename~" must contain an array.");
 				foreach( pentry; packlist ){
 					try {
-						auto name = pentry.name.get!string();
-						auto path = Path(pentry.path.get!string());
+						auto name = pentry.name.get!string;
+						auto path = Path(pentry.path.get!string);
 						if (name == "*") {
 							paths ~= path;
 						} else {
-							auto ver = Version(pentry["version"].get!string());
+							auto ver = Version(pentry["version"].get!string);
 
 							Package pp;
 							if (!refresh_existing_packages) {

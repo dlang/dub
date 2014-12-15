@@ -936,7 +936,7 @@ final class SelectedVersions {
 		if (j.type == Json.Type.string)
 			return Dependency(Version(j.get!string));
 		else if (j.type == Json.Type.object)
-			return Dependency(Path(j.path.get!string()));
+			return Dependency(Path(j.path.get!string));
 		else throw new Exception(format("Unexpected type for dependency: %s", j.type));
 	}
 

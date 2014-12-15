@@ -64,7 +64,7 @@ RangeFile openFile(Path path, FileMode mode = FileMode.Read)
 		case FileMode.Append: fmode = std.stream.FileMode.Append; break;
 	}
 	auto ret = new std.stream.File(path.toNativeString(), fmode);
-	assert(ret.isOpen());
+	assert(ret.isOpen);
 	return RangeFile(ret);
 }
 /// ditto

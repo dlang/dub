@@ -121,10 +121,10 @@ class VisualDGenerator : ProjectGenerator {
 			ret.put("EndGlobal\n");
 
 			// Writing solution file
-			logDebug("About to write to .sln file with %s bytes", to!string(ret.data().length));
+			logDebug("About to write to .sln file with %s bytes", to!string(ret.data.length));
 			auto sln = openFile(solutionFileName(), FileMode.CreateTrunc);
 			scope(exit) sln.close();
-			sln.put(ret.data());
+			sln.put(ret.data);
 			sln.flush();
 		}
 
@@ -227,10 +227,10 @@ class VisualDGenerator : ProjectGenerator {
 				ret.put("\n    </Folder>");
 			ret.put("\n  </Folder>\n</DProject>");
 
-			logDebug("About to write to '%s.visualdproj' file %s bytes", getPackageFileName(packname), ret.data().length);
+			logDebug("About to write to '%s.visualdproj' file %s bytes", getPackageFileName(packname), ret.data.length);
 			auto proj = openFile(projFileName(packname), FileMode.CreateTrunc);
 			scope(exit) proj.close();
-			proj.put(ret.data());
+			proj.put(ret.data);
 			proj.flush();
 		}
 
@@ -454,8 +454,8 @@ class VisualDGenerator : ProjectGenerator {
 		int opCmp(ref const SourceFile rhs) const { return sortOrder(this, rhs); }
 		// "a < b" for folder structures (deepest folder first, else lexical)
 		private final static int sortOrder(ref const SourceFile a, ref const SourceFile b) {
-			assert(!a.structurePath.empty());
-			assert(!b.structurePath.empty());
+			assert(!a.structurePath.empty);
+			assert(!b.structurePath.empty);
 			auto as = a.structurePath;
 			auto bs = b.structurePath;
 

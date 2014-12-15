@@ -240,7 +240,7 @@ class Package {
 	void storeInfo()
 	{
 		enforce(!ver.isUnknown, "Trying to store a package with an 'unknown' version, this is not supported.");
-		auto filename = m_path ~ defaultPackageFilename();
+		auto filename = m_path ~ defaultPackageFilename;
 		auto dstFile = openFile(filename.toNativeString(), FileMode.CreateTrunc);
 		scope(exit) dstFile.close();
 		dstFile.writePrettyJsonString(m_info.toJson());
@@ -467,7 +467,7 @@ class Package {
 					logWarn("License in subpackage %s is different than it's parent package, this is discouraged.", name);
 			}
 		}
-		if (name.empty()) logWarn("The package in %s has no name.", path);
+		if (name.empty) logWarn("The package in %s has no name.", path);
 	}
 
 	private static RawPackage rawPackageFromFile(PathAndFormat file, bool silent_fail = false) {

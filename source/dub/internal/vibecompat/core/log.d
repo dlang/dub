@@ -73,10 +73,10 @@ nothrow {
 
 		if( level >= s_minLevel ){
 			if (level == LogLevel.info) {
-				stdout.writeln(txt.data());
+				stdout.writeln(txt.data);
 				stdout.flush();
 			} else {
-				stderr.writeln(txt.data());
+				stderr.writeln(txt.data);
 				stderr.flush();
 			}
 		}

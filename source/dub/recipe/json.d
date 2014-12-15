@@ -133,7 +133,7 @@ private void parseJson(ref ConfigurationInfo config, Json json, string package_n
 		switch (name) {
 			default: break;
 			case "name":
-				config.name = value.get!string();
+				config.name = value.get!string;
 				enforce(!config.name.empty, "Configurations must have a non-empty name.");
 				break;
 			case "platforms": config.platforms = deserializeJson!(string[])(value); break;
@@ -160,7 +160,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 	{
 		auto idx = std.string.indexOf(name, "-");
 		string basename, suffix;
-		if( idx >= 0 ) basename = name[0 .. idx], suffix = name[idx .. $];
+		if( idx >= 0 ) { basename = name[0 .. idx]; suffix = name[idx .. $]; }
 		else basename = name;
 		switch(basename){
 			default: break;
@@ -179,7 +179,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 				break;
 			case "targetType":
 				enforce(suffix.empty, "targetType does not support platform customization.");
-				bs.targetType = value.get!string().to!TargetType();
+				bs.targetType = value.get!string.to!TargetType;
 				break;
 			case "targetPath":
 				enforce(suffix.empty, "targetPath does not support platform customization.");
@@ -207,7 +207,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "files":
 			case "sourceFiles": bs.sourceFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "sourcePaths": bs.sourcePaths[suffix] = deserializeJson!(string[])(value); break;
-			case "sourcePath": bs.sourcePaths[suffix] ~= [value.get!string()]; break; // deprecated
+			case "sourcePath": bs.sourcePaths[suffix] ~= [value.get!string]; break; // deprecated
 			case "excludedSourceFiles": bs.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "copyFiles": bs.copyFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "versions": bs.versions[suffix] = deserializeJson!(string[])(value); break;

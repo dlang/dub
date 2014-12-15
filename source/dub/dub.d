@@ -436,7 +436,7 @@ class Dub {
 
 
 	/// Returns all cached packages as a "packageId" = "version" associative array
-	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
+	string[string] cachedPackages() const { return m_project.cachedPackagesIDs; }
 
 	/// Fetches the package matching the dependency and places it in the specified location.
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
@@ -449,7 +449,7 @@ class Dub {
 				supplier = ps;
 				break;
 			} catch(Exception e) {
-				logDiagnostic("Package %s not found for %s: %s", packageId, ps.description(), e.msg);
+				logDiagnostic("Package %s not found for %s: %s", packageId, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
@@ -605,7 +605,7 @@ class Dub {
 
 	void createEmptyPackage(Path path, string[] deps, string type)
 	{
-		if( !path.absolute() ) path = m_rootPath ~ path;
+		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
 
 		if (m_dryRun) return;
