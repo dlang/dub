@@ -306,7 +306,7 @@ class BuildGenerator : ProjectGenerator {
 		logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
 		if (!existsFile(Path(buildsettings.targetPath)))
 			mkdirRecurse(buildsettings.targetPath);
-		symlinkFile(src, Path(buildsettings.targetPath) ~ filename, true);
+		hardLinkFile(src, Path(buildsettings.targetPath) ~ filename, true);
 	}
 
 	private bool isUpToDate(Path target_path, BuildSettings buildsettings, BuildPlatform platform, in Package main_pack, in Package[] packages, in Path[] additional_dep_files)

@@ -135,29 +135,33 @@ void copyFile(string from, string to)
 	copyFile(Path(from), Path(to));
 }
 
+version (Windows) extern(Windows) int CreateHardLinkW(in wchar* to, in wchar* from, void* attr=null);
+
 /**
-	Creates a symlink.
+	Creates a hardlink.
 */
-version (Windows)
-	alias symlinkFile = copyFile; // TODO: symlinks on Windows
-else version (Posix)
+void hardLinkFile(Path from, Path to, bool overwrite = false)
 {
-	void symlinkFile(Path from, Path to, bool overwrite = false)
-	{
-		if (existsFile(to)) {
-			enforce(overwrite, "Destination file already exists.");
-			// remove file before copy to allow "overwriting" files that are in
-			// use on Linux
-			removeFile(to);
-		}
-
-		.symlink(from.toNativeString(), to.toNativeString());
+	if (existsFile(to)) {
+		enforce(overwrite, "Destination file already exists.");
+		removeFile(to);
 	}
-}
 
-void symlinkFile(string from, string to)
-{
-	symlinkFile(Path(from), Path(to));
+	version (Windows)
+	{
+		alias cstr = toUTFz!(const(wchar)*);
+		if (CreateHardLinkW(cstr(to.toNativeString), cstr(from.toNativeString)))
+			return;
+	}
+	else
+	{
+		import core.sys.posix.unistd : link;
+		alias cstr = toUTFz!(const(char)*);
+		if (!link(cstr(from.toNativeString), cstr(to.toNativeString)))
+			return;
+	}
+	// fallback to copy
+	copyFile(from, to, overwrite);
 }
 
 /**
