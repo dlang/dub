@@ -25,7 +25,7 @@ To make things as flexible as they need to be for certain projects, it is planne
 
 ## Installation
 
-DUB comes [precompiled](http://code.dlang.org/download) for Windows, Mac OS, Linux and FreeBSD. It needs to have libcurl with SSL support installed (except on Windows).
+DUB comes [precompiled](http://code.dlang.org/download) for Windows, OS X and Linux. It needs to have libcurl with SSL support installed (except on Windows).
 
 The `dub` executable then just needs to be accessible from `PATH` and can be invoked from the root folder of any DUB enabled project to build and run it.
 
@@ -40,7 +40,7 @@ Moritz Maxeiner has created a PKGBUILD file for GIT master: <https://aur.archlin
 
 Jordi Sayol maintains a DEB package as part of his [D APT repository](http://d-apt.sourceforge.net). Run `sudo apt-get install dub` to install.
 
-### Mac OS
+### OS X
 
 Chris Molozian has added DUB to [Homebrew](http://mxcl.github.io/homebrew/). Use `brew install dub` or `brew install dub --HEAD` to install the stable or the git HEAD version respectively.
 
