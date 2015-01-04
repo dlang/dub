@@ -410,45 +410,54 @@ class Package {
 	}
 
 	private void fillWithDefaults() {
-		// WARNING: changed semantics here. Previously, "sourcePaths" etc.
-		// could overwrite what was determined here. Now the default paths
-		// are always added. This must be fixed somehow!
+		auto bs = &m_info.buildSettings;
 
 		// check for default string import folders
-		foreach(defvf; ["views"]){
-			auto p = m_path ~ defvf;
-			if( existsFile(p) )
-				m_info.buildSettings.stringImportPaths[""] ~= defvf;
+		if (!bs.stringImportPaths.get("", null).length) {
+			foreach(defvf; ["views"]){
+				if( existsFile(m_path ~ defvf) )
+					bs.stringImportPaths[""] ~= defvf;
+			}
 		}
 
 		// check for default source folders
+		immutable hasSP = !!bs.sourcePaths.get("", null).length;
+		immutable hasIP = !!bs.importPaths.get("", null).length;
+		if (!hasSP || !hasIP) {
+			foreach(defsf; ["source/", "src/"]){
+				if( existsFile(m_path ~ defsf) ){
+					if (!hasSP) bs.sourcePaths[""] ~= defsf;
+					if (!hasIP) bs.importPaths[""] ~= defsf;
+				}
+			}
+		}
+
+		// check for default app_main
 		string app_main_file;
 		auto pkg_name = m_info.name.length ? m_info.name : "unknown";
-		foreach(defsf; ["source/", "src/"]){
-			auto p = m_path ~ defsf;
-			if( existsFile(p) ){
-				m_info.buildSettings.sourcePaths[""] ~= defsf;
-				m_info.buildSettings.importPaths[""] ~= defsf;
-				foreach (fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"])
-					if (existsFile(p ~ fil)) {
-						app_main_file = Path(defsf ~ fil).toNativeString();
-						break;
-					}
+		foreach(sf; bs.sourcePaths.get("", null)){
+			auto p = m_path ~ sf;
+			if( !existsFile(p) ) continue;
+			foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
+				if( existsFile(p ~ fil) ) {
+					app_main_file = Path(sf ~ fil).toNativeString();
+					break;
+				}
 			}
 		}
 
 		// generate default configurations if none are defined
 		if (m_info.configurations.length == 0) {
-			if (m_info.buildSettings.targetType == TargetType.executable) {
+			if (bs.targetType == TargetType.executable) {
 				BuildSettingsTemplate app_settings;
 				app_settings.targetType = TargetType.executable;
-				if (m_info.buildSettings.mainSourceFile.empty) app_settings.mainSourceFile = app_main_file;
+				if (bs.mainSourceFile.empty) app_settings.mainSourceFile = app_main_file;
 				m_info.configurations ~= ConfigurationInfo("application", app_settings);
-			} else if (m_info.buildSettings.targetType != TargetType.none) {
+			} else if (bs.targetType != TargetType.none) {
 				BuildSettingsTemplate lib_settings;
-				lib_settings.targetType = m_info.buildSettings.targetType == TargetType.autodetect ? TargetType.library : m_info.buildSettings.targetType;
+				lib_settings.targetType = bs.targetType == TargetType.autodetect ? TargetType.library : bs.targetType;
 
-				if (m_info.buildSettings.targetType == TargetType.autodetect) {
+				if (bs.targetType == TargetType.autodetect) {
 					if (app_main_file.length) {
 						lib_settings.excludedSourceFiles[""] ~= app_main_file;
 
