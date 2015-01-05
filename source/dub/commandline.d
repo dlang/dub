@@ -20,7 +20,6 @@ import dub.packagesupplier;
 import dub.platform : determineCompiler;
 import dub.project;
 import dub.internal.utils : getDUBVersion, getClosestMatch;
-import dub.version_;
 
 import std.algorithm;
 import std.array;
@@ -357,7 +356,7 @@ abstract class PackageBuildCommand : Command {
 		string m_buildType;
 		BuildMode m_buildMode;
 		string m_buildConfig;
-		string m_compilerName = initialCompilerBinary;
+		string m_compilerName;
 		string m_arch;
 		string[] m_debugVersions;
 		Compiler m_compiler;
@@ -366,6 +365,11 @@ abstract class PackageBuildCommand : Command {
 		string m_defaultConfig;
 		bool m_nodeps;
 		bool m_forceRemove = false;
+	}
+
+	this()
+	{
+		m_compilerName = defaultCompiler();
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -382,7 +386,7 @@ abstract class PackageBuildCommand : Command {
 			"Specifies the compiler binary to use (can be a path).",
 			"Arbitrary pre- and suffixes to the identifiers below are recognized (e.g. ldc2 or dmd-2.063) and matched to the proper compiler type:",
 			"  "~["dmd", "gdc", "ldc", "gdmd", "ldmd"].join(", "),
-			"Default value: "~initialCompilerBinary,
+			"Default value: "~m_compilerName,
 		]);
 		args.getopt("a|arch", &m_arch, [
 			"Force a different architecture (e.g. x86 or x86_64)"

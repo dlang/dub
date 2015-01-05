@@ -12,6 +12,7 @@ public import dub.compilers.buildsettings;
 import dub.compilers.dmd;
 import dub.compilers.gdc;
 import dub.compilers.ldc;
+import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
@@ -30,7 +31,6 @@ static this()
 	registerCompiler(new LdcCompiler);
 }
 
-
 Compiler getCompiler(string name)
 {
 	foreach (c; s_compilers)
@@ -43,6 +43,26 @@ Compiler getCompiler(string name)
 	if (name.canFind("ldc")) return getCompiler("ldc");
 
 	throw new Exception("Unknown compiler: "~name);
+}
+
+string defaultCompiler()
+{
+	static string name;
+	if (!name.length) name = findCompiler();
+	return name;
+}
+
+private string findCompiler()
+{
+	import std.process : env=environment;
+	import dub.version_ : initialCompilerBinary;
+	version (Windows) enum sep = ";", exe = ".exe";
+	version (Posix) enum sep = ":", exe = "";
+
+	auto paths = env.get("PATH", "").splitter(sep).map!Path;
+	auto res = [initialCompilerBinary, "dmd", "gdc", "gdmd", "ldc2", "ldmd2"]
+		.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
+	return res.empty ? initialCompilerBinary : res.front;
 }
 
 void registerCompiler(Compiler c)
@@ -388,7 +408,7 @@ Path generatePlatformProbeFile()
 		pragma(msg, `    ` ~ determineArchitecture());
 		pragma(msg, `   ],`);
 		pragma(msg, `}`);
-		
+
 		string determinePlatform()
 		{
 			string ret;
