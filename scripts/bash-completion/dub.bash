@@ -9,7 +9,7 @@ _dub()
     creation_commands='init run build test generate describe clean dustmite'
 
     local management_commands
-    management_commands='fetch remove upgrade add-path remove-path add-local remove-local list add-override remove-override list-overrides'
+    management_commands='fetch remove upgrade add-path remove-path add-local remove-local list add-override remove-override list-overrides clean-caches'
 
     case "$prev" in
         -h|--help)
