@@ -509,6 +509,7 @@ class GenerateCommand : PackageBuildCommand {
 			"Generates project files using one of the supported generators:",
 			"",
 			"visuald - VisualD project files",
+			"sublimetext - SublimeText project file",
 			"build - Builds the package directly",
 			"",
 			"An optional package name can be given to generate a different package than the root/CWD package."
