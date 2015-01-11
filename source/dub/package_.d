@@ -409,11 +409,12 @@ class Package {
 		dst.files = Json(files);
 	}
 
-	private void fillWithDefaults() {
+	private void fillWithDefaults()
+	{
 		auto bs = &m_info.buildSettings;
 
 		// check for default string import folders
-		if (!bs.stringImportPaths.get("", null).length) {
+		if ("" !in bs.stringImportPaths) {
 			foreach(defvf; ["views"]){
 				if( existsFile(m_path ~ defvf) )
 					bs.stringImportPaths[""] ~= defvf;
@@ -421,11 +422,11 @@ class Package {
 		}
 
 		// check for default source folders
-		immutable hasSP = !!bs.sourcePaths.get("", null).length;
-		immutable hasIP = !!bs.importPaths.get("", null).length;
+		immutable hasSP = ("" in bs.sourcePaths) !is null;
+		immutable hasIP = ("" in bs.importPaths) !is null;
 		if (!hasSP || !hasIP) {
-			foreach(defsf; ["source/", "src/"]){
-				if( existsFile(m_path ~ defsf) ){
+			foreach (defsf; ["source/", "src/"]) {
+				if (existsFile(m_path ~ defsf)) {
 					if (!hasSP) bs.sourcePaths[""] ~= defsf;
 					if (!hasIP) bs.importPaths[""] ~= defsf;
 				}
