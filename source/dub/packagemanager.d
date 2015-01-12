@@ -603,9 +603,9 @@ class PackageManager {
 				logDebug("Hashed file contents from %s", Path(file.name).head);
 			}
 		}
-		auto hash = sha1.finish();
+		auto hash = sha1.finish().dup;
 		logDebug("Project hash: %s", hash);
-		return hash[0..$];
+		return hash;
 	}
 
 	private void writeLocalPackageList(LocalPackageType type)
