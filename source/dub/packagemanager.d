@@ -605,7 +605,7 @@ class PackageManager {
 		}
 		auto hash = sha1.finish();
 		logDebug("Project hash: %s", hash);
-		return hash[0..$];
+		return hash[].dup;
 	}
 
 	private void writeLocalPackageList(LocalPackageType type)
