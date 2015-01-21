@@ -441,7 +441,7 @@ class Package {
 			if( !existsFile(p) ) continue;
 			foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
 				if( existsFile(p ~ fil) ) {
-					app_main_file = Path(sf ~ fil).toNativeString();
+					app_main_file = (Path(sf) ~ fil).toNativeString();
 					break;
 				}
 			}

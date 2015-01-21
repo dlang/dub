@@ -1,0 +1,6 @@
+{
+	"name": "custom-source-main-bug487",
+	"sourcePaths": ["mysrc"],
+	"dependencies": {
+	}
+}
