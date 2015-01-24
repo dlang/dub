@@ -37,7 +37,7 @@ echo "enum initialCompilerBinary = \"$DC\";" >> source/dub/version_.d
 
 
 echo Running $DC...
-$DC -ofbin/dub -g -debug -w -version=DubUseCurl -Isource $* $LIBS @build-files.txt
+$DC -ofbin/dub -w -version=DubUseCurl -Isource $* $LIBS @build-files.txt
 echo DUB has been built as bin/dub.
 echo
 echo You may want to run
