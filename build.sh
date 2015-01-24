@@ -23,7 +23,7 @@ if [ "$DC" = "dmd" ]; then
 		LIBS="-lphobos2 $LIBS"
 	fi
 elif [ "$DC" = "ldmd2" ]; then
-	LIBS="-lphobos-ldc $LIBS"
+	LIBS="-lphobos2-ldc $LIBS"
 fi
 
 # adjust linker flags for dmd command line
