@@ -362,7 +362,7 @@ class Dub {
 			}
 
 			// generate main file
-			Path mainfile = getTempDir() ~ "dub_test_root.d";
+			Path mainfile = getTempFile("dub_test_root", ".d");
 			tcinfo.sourceFiles[""] ~= mainfile.toNativeString();
 			tcinfo.mainSourceFile = mainfile.toNativeString();
 			if (!m_dryRun) {
