@@ -9,6 +9,8 @@ module dub.generators.cmake;
 
 import dub.compilers.buildsettings;
 import dub.generators.generator;
+import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.core.file;
 import dub.project;
 
 import std.algorithm: map, uniq, sort;
@@ -26,7 +28,10 @@ class CMakeGenerator: ProjectGenerator
     override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
     {
         auto script = appender!(char[]);
+        auto scripts = appender!(string[]);
         bool[string] visited;
+        string projectRoot = m_project.rootPackage.path.toString;
+        string cmakeListsPath = "%s/CMakeLists.txt".format(projectRoot);
         
         foreach(name, info; targets)
         {
@@ -94,12 +99,28 @@ class CMakeGenerator: ProjectGenerator
                 );
             }
             
-            string filename = "%s/%s.cmake".format(m_project.rootPackage.path.toString, name);
+            string filename = "%s/%s.cmake".format(projectRoot, name);
             File file = File(filename, "w");
             
             file.write(script.data);
             file.close;
             script.shrinkTo(0);
+            scripts.put(filename);
+        }
+        
+        if(!cmakeListsPath.existsFile)
+        {
+            logInfo("Generating default CMakeLists.txt");
+            script.put("cmake_minimum_required(VERSION 3.0)\n");
+            script.put("project(%s D)\n".format(m_project.rootPackage.name));
+            
+            foreach(path; scripts.data)
+                script.put("include(%s)\n".format(path));
+            
+            File file = File(cmakeListsPath, "w");
+            
+            file.write(script.data);
+            file.close;
         }
     }
 }
