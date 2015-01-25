@@ -28,13 +28,7 @@ version(DubUseCurl) import std.net.curl;
 
 Path getTempDir()
 {
-	auto tmp = environment.get("TEMP");
-	if( !tmp.length ) tmp = environment.get("TMP");
-	if( !tmp.length ){
-		version(Posix) tmp = "/tmp/";
-		else tmp = "./";
-	}
-	return Path(tmp);
+	return std.file.tempDir;
 }
 
 bool isEmptyDir(Path p) {
