@@ -11,6 +11,7 @@ import dub.compilers.buildsettings;
 import dub.generators.generator;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.inet.path;
 import dub.project;
 
 import std.algorithm: map, uniq, sort;
@@ -30,8 +31,8 @@ class CMakeGenerator: ProjectGenerator
         auto script = appender!(char[]);
         auto scripts = appender!(string[]);
         bool[string] visited;
-        string projectRoot = m_project.rootPackage.path.toString;
-        string cmakeListsPath = "%s/CMakeLists.txt".format(projectRoot);
+        Path projectRoot = m_project.rootPackage.path;
+        Path cmakeListsPath = projectRoot ~ "CMakeLists.txt";
         
         foreach(name, info; targets)
         {
@@ -99,7 +100,7 @@ class CMakeGenerator: ProjectGenerator
                 );
             }
             
-            string filename = "%s/%s.cmake".format(projectRoot, name);
+            string filename = (projectRoot ~ "%s.cmake".format(name)).toNativeString;
             File file = File(filename, "w");
             
             file.write(script.data);
@@ -117,7 +118,7 @@ class CMakeGenerator: ProjectGenerator
             foreach(path; scripts.data)
                 script.put("include(%s)\n".format(path));
             
-            File file = File(cmakeListsPath, "w");
+            File file = File(cmakeListsPath.toNativeString, "w");
             
             file.write(script.data);
             file.close;
