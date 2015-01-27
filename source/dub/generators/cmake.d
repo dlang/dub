@@ -117,6 +117,8 @@ class CMakeGenerator: ProjectGenerator
         
         if(!cmakeListsPath.existsFile)
         {
+            logWarn("You must use a fork of CMake which has D support for these scripts to function properly.");
+            logWarn("It is available at https://github.com/trentforkert/cmake");
             logInfo("Generating default CMakeLists.txt");
             script.put("cmake_minimum_required(VERSION 3.0)\n");
             script.put("project(%s D)\n".format(m_project.rootPackage.name));
