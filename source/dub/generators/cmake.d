@@ -101,7 +101,7 @@ class CMakeGenerator: ProjectGenerator
                 script.put(
                     `set_target_properties(%s PROPERTIES TEXT_INCLUDE_DIRECTORIES "%s")`.format(
                         name,
-                        info.buildSettings.stringImportPaths.join(";")
+                        info.buildSettings.stringImportPaths.dup.join(";")
                     ) ~ "\n"
                 );
             }
