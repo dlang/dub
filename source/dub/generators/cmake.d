@@ -98,6 +98,12 @@ class CMakeGenerator: ProjectGenerator
                         info.buildSettings.libs.dup.join(" ")
                     )
                 );
+                script.put(
+                    `set_target_properties(%s PROPERTIES TEXT_INCLUDE_DIRECTORIES "%s")`.format(
+                        name,
+                        info.buildSettings.stringImportPaths.join(";")
+                    ) ~ "\n"
+                );
             }
             
             string filename = (projectRoot ~ "%s.cmake".format(name)).toNativeString;
