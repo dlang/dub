@@ -378,19 +378,22 @@ class BuildGenerator : ProjectGenerator {
 				removeFile(tpath);
 		}
 		if (settings.buildMode == BuildMode.singleFile && generate_binary) {
+			import std.parallelism, std.range : walkLength;
+
 			auto lbuildsettings = buildsettings;
-			auto objs = appender!(string[])();
+			auto srcs = buildsettings.sourceFiles.filter!(f => !isLinkerFile(f));
+			auto objs = new string[](srcs.walkLength);
 			logInfo("Compiling using %s...", settings.platform.compilerBinary);
-			foreach (file; buildsettings.sourceFiles.filter!(f=>!isLinkerFile(f))) {
-				logInfo("Compiling %s...", file);
-				objs.put(compileUnit(file, pathToObjName(file), buildsettings, settings));
+			foreach (i, src; srcs.parallel(1)) {
+				logInfo("Compiling %s...", src);
+				objs[i] = compileUnit(src, pathToObjName(src), buildsettings, settings);
 			}
 
 			logInfo("Linking...");
 			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f=> f.isLinkerFile()).array;
 			settings.compiler.setTarget(lbuildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
-			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs.data, settings.linkCallback);
+			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs, settings.linkCallback);
 
 		/*
 			NOTE: for DMD experimental separate compile/link is used, but this is not yet implemented
