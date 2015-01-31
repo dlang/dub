@@ -8,6 +8,7 @@
 module dub.generators.generator;
 
 import dub.compilers.compiler;
+import dub.generators.cmake;
 import dub.generators.build;
 import dub.generators.sublimetext;
 import dub.generators.visuald;
@@ -309,6 +310,9 @@ ProjectGenerator createProjectGenerator(string generator_type, Project project)
 		case "sublimetext":
 			logDebug("Creating SublimeText generator.");
 			return new SublimeTextGenerator(project);
+		case "cmake":
+			logDebug("Creating CMake generator.");
+			return new CMakeGenerator(project);
 	}
 }
 
