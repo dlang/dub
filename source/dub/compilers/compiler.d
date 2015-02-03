@@ -386,15 +386,16 @@ Path generatePlatformProbeFile()
 	import dub.internal.vibecompat.data.json;
 	import dub.internal.utils;
 
-	auto path = getTempDir() ~ "dub_platform_probe.d";
+	auto path = getTempFile("dub_platform_probe", ".d");
 
 	auto fil = openFile(path, FileMode.CreateTrunc);
 	scope (failure) {
 		fil.close();
-		removeFile(path);
 	}
 
 	fil.write(q{
+		module dub_platform_probe;
+
 		template toString(int v) { enum toString = v.stringof; }
 
 		pragma(msg, `{`);

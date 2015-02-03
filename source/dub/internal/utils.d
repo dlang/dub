@@ -28,13 +28,26 @@ version(DubUseCurl) import std.net.curl;
 
 Path getTempDir()
 {
-	auto tmp = environment.get("TEMP");
-	if( !tmp.length ) tmp = environment.get("TMP");
-	if( !tmp.length ){
-		version(Posix) tmp = "/tmp/";
-		else tmp = "./";
+	return Path(std.file.tempDir());
+}
+
+private Path[] temporary_files;
+
+Path getTempFile(string prefix, string extension = null)
+{
+	import std.uuid : randomUUID;
+
+	auto path = getTempDir() ~ (prefix ~ "-" ~ randomUUID.toString() ~ extension);
+	temporary_files ~= path;
+	return path;
+}
+
+static ~this()
+{
+	foreach (path; temporary_files)
+	{
+		std.file.remove(path.toNativeString());
 	}
-	return Path(tmp);
 }
 
 bool isEmptyDir(Path p) {
