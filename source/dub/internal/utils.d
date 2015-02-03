@@ -33,57 +33,13 @@ Path getTempDir()
 
 private Path[] temporary_files;
 
-version (Posix)
-	private extern(C) int mkstemps(char *, int);
-else
-	private extern(Windows) uint GetTempFileName(
-		const(char)* lpPathName,
-		const(char)* lpPrefixString,
-		uint uUnique,
-		char* lpTempFileName
-	);
-
 Path getTempFile(string prefix, string extension = null)
 {
-	version (Posix)
-	{
-		auto name = (getTempDir() ~ prefix).toString();
+	import std.uuid : randomUUID;
 
-		// build 0-terminated template for mkstemp
-		auto suffix = "-XXXXXX" ~ extension;
-		auto pattern = new char[](name.length + suffix.length + 1);
-		pattern[0..name.length] = name[];
-		pattern[name.length .. $-1] = suffix[];
-		pattern[$-1] = '\0';
-
-		auto handle = mkstemps(pattern.ptr, to!int(extension.length));
-		enforce(handle > 0);
-
-		pattern = pattern[0..$-1]; // get rid of \0
-		auto path = Path(assumeUnique(pattern));
-		temporary_files ~= path;
-		return path;
-	}
-	else version (Windows)
-	{
-		import core.sys.windows.windows : MAX_PATH;
-        import std.string : toStringz, fromStringz;
-	
-		auto dir = getTempDir().toStringz();
-		auto name = prefix.toStringz();	
-		char[MAX_PATH] output = void;
-
-		auto status = GetTempFileName(dir, name, 0, output.ptr);
-		enforce(status != 0);
-
-		auto path = Path(output.fromStringz() ~ extension);
-		temporary_files ~= path;
-		return path;
-	}
-	else
-	{
-		static assert (false, "please report the problem to https://github.com/D-Programming-Language/dub");
-	}
+	auto path = getTempDir() ~ (prefix ~ "-" ~ randomUUID.toString() ~ extension);
+	temporary_files ~= path;
+	return path;
 }
 
 static ~this()
