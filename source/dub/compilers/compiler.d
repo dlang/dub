@@ -59,6 +59,10 @@ private string findCompiler()
 	version (Windows) enum sep = ";", exe = ".exe";
 	version (Posix) enum sep = ":", exe = "";
 
+	// if it is absolute path -> works without prefixes
+	if (existsFile(initialCompilerBinary))
+		return initialCompilerBinary;
+
 	auto paths = env.get("PATH", "").splitter(sep).map!Path;
 	auto res = [initialCompilerBinary, "dmd", "gdc", "gdmd", "ldc2", "ldmd2"]
 		.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
