@@ -14,10 +14,11 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
 import dub.project;
 
-import std.algorithm: map, uniq, sort;
-import std.array: appender, join;
+import std.algorithm: map, uniq;
+import std.algorithm : stdsort = sort; // to avoid clashing with built-in sort
+import std.array: appender, join, replace;
 import std.stdio: File, write;
-import std.string: format, replace;
+import std.string: format;
 
 class CMakeGenerator: ProjectGenerator
 {
@@ -94,7 +95,7 @@ class CMakeGenerator: ProjectGenerator
                 script.put(
                     "target_link_libraries(%s %s %s)\n".format(
                         name,
-                        (info.dependencies ~ info.linkDependencies).dup.sort.uniq.map!sanitize.join(" "),
+                        (info.dependencies ~ info.linkDependencies).dup.stdsort.uniq.map!sanitize.join(" "),
                         info.buildSettings.libs.dup.join(" ")
                     )
                 );
