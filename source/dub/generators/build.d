@@ -353,11 +353,16 @@ class BuildGenerator : ProjectGenerator {
 	static string pathToObjName(string path) { return std.path.buildNormalizedPath(getcwd(), path~objSuffix)[1..$].replace("/", "."); }
 	/// Compile a single source file (srcFile), and write the object to objName.
 	static string compileUnit(string srcFile, string objName, BuildSettings bs, GeneratorSettings gs) {
+            import std.stdio;
+            writeln("srcFile: ", srcFile);
+            writeln("objName: ", objName);
 		Path tempobj = Path(bs.targetPath)~objName;
 		string objPath = tempobj.toNativeString();
+                writeln("objPath: ", objPath);
 		bs.libs = null;
 		bs.lflags = null;
 		bs.addDFlags("-c");
+		bs.addDFlags("-deps");
 		bs.sourceFiles = [ srcFile ];
 		gs.compiler.prepareBuildSettings(bs, BuildSetting.commandLine);
 		gs.compiler.setTarget(bs, gs.platform, objPath);
