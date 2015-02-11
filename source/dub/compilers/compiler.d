@@ -59,13 +59,16 @@ private string findCompiler()
 	version (Windows) enum sep = ";", exe = ".exe";
 	version (Posix) enum sep = ":", exe = "";
 
-	// if it is absolute path -> works without prefixes
-	if (existsFile(initialCompilerBinary))
+	auto def = Path(initialCompilerBinary);
+	if (def.absolute && existsFile(def))
 		return initialCompilerBinary;
 
+	auto compilers = ["dmd", "gdc", "gdmd", "ldc2", "ldmd2"];
+	if (!def.absolute)
+		compilers = initialCompilerBinary ~ compilers;
+
 	auto paths = env.get("PATH", "").splitter(sep).map!Path;
-	auto res = [initialCompilerBinary, "dmd", "gdc", "gdmd", "ldc2", "ldmd2"]
-		.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
+	auto res = compilers.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
 	return res.empty ? initialCompilerBinary : res.front;
 }
 
