@@ -157,6 +157,9 @@ class LdcCompiler : Compiler {
 			case TargetType.dynamicLibrary:
 				settings.addDFlags("-shared");
 				break;
+			case TargetType.object:
+				settings.addDFlags("-c");
+				break;
 		}
 
 		if (tpath is null)

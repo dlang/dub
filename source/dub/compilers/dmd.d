@@ -169,6 +169,9 @@ class DmdCompiler : Compiler {
 				version (Windows) settings.addDFlags("-shared");
 				else settings.addDFlags("-shared", "-fPIC");
 				break;
+			case TargetType.object:
+				settings.addDFlags("-c");
+				break;
 		}
 
 		if (tpath is null)

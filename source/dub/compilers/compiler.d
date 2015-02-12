@@ -366,6 +366,10 @@ string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 			if( platform.platform.canFind("windows") )
 				return settings.targetName ~ ".dll";
 			else return "lib" ~ settings.targetName ~ ".so";
+		case TargetType.object:
+			if (platform.platform.canFind("windows"))
+				return settings.targetName ~ ".obj";
+			else return settings.targetName ~ ".o";
 	}
 }
 

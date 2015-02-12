@@ -362,8 +362,8 @@ class BuildGenerator : ProjectGenerator {
 		string objPath = tempobj.toNativeString();
 		bs.libs = null;
 		bs.lflags = null;
-		bs.addDFlags("-c");
 		bs.sourceFiles = [ srcFile ];
+		bs.targetType = TargetType.object;
 		gs.compiler.prepareBuildSettings(bs, BuildSetting.commandLine);
 		gs.compiler.setTarget(bs, gs.platform, objPath);
 		gs.compiler.invoke(bs, gs.platform, gs.compileCallback);
