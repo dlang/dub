@@ -189,14 +189,18 @@ class DmdCompiler : Compiler {
 	{
 		import std.string;
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		auto args = [platform.compilerBinary, "-of"~tpath.toNativeString()];
+		auto args = ["-of"~tpath.toNativeString()];
 		args ~= objects;
 		args ~= settings.sourceFiles;
 		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
 		args ~= settings.lflags.map!(l => "-L"~l)().array;
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
-		logDiagnostic("%s", args.join(" "));
-		invokeTool(args, output_callback);
+
+		auto res_file = getTempFile("dub-build", ".lnk");
+		std.file.write(res_file.toNativeString(), join(args, "\n"));
+
+		logDiagnostic("%s %s", platform.compilerBinary, args.join(" "));
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
 	private static bool isLinkerDFlag(string arg)
