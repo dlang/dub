@@ -167,6 +167,7 @@ class GdcCompiler : Compiler {
 			case TargetType.executable: break;
 			case TargetType.library:
 			case TargetType.staticLibrary:
+			case TargetType.object:
 				settings.addDFlags("-c");
 				break;
 			case TargetType.dynamicLibrary:

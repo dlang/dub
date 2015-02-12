@@ -185,7 +185,8 @@ enum TargetType {
 	library,
 	sourceLibrary,
 	dynamicLibrary,
-	staticLibrary
+	staticLibrary,
+	object
 }
 
 enum BuildRequirements {
