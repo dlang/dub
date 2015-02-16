@@ -137,6 +137,13 @@ void copyFile(string from, string to)
 
 version (Windows) extern(Windows) int CreateHardLinkW(in wchar* to, in wchar* from, void* attr=null);
 
+// guess whether 2 files are identical, ignores filename and content
+private bool sameFile(Path a, Path b)
+{
+	static assert(__traits(allMembers, FileInfo)[0] == "name");
+	return getFileInfo(a).tupleof[1 .. $] == getFileInfo(b).tupleof[1 .. $];
+}
+
 /**
 	Creates a hardlink.
 */
@@ -144,7 +151,10 @@ void hardLinkFile(Path from, Path to, bool overwrite = false)
 {
 	if (existsFile(to)) {
 		enforce(overwrite, "Destination file already exists.");
-		removeFile(to);
+		if (auto fe = collectException!FileException(removeFile(to))) {
+			version (Windows) if (sameFile(from, to)) return;
+			throw fe;
+		}
 	}
 
 	version (Windows)
