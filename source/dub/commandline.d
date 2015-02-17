@@ -55,6 +55,17 @@ int runDubCommandLine(string[] args)
 	}
 	args = args[1 .. $]; // strip the application name
 
+	// handle direct dub options
+	if (args.length) switch (args[0])
+	{
+	case "--version":
+		showVersion();
+		return 0;
+
+	default:
+		break;
+	}
+
 	// parse general options
 	bool verbose, vverbose, quiet, vquiet;
 	bool help, annotate;
@@ -1457,7 +1468,7 @@ private {
 private void showHelp(in CommandGroup[] commands, CommandArgs common_args)
 {
 	writeln(
-`USAGE: dub [<command>] [<options...>] [-- [<application arguments...>]]
+`USAGE: dub [--version] [<command>] [<options...>] [-- [<application arguments...>]]
 
 Manages the DUB project in the current directory. If the command is omitted,
 DUB will default to "run". When running an application, "--" can be used to
@@ -1500,6 +1511,11 @@ Available commands
 	writeln();
 	writeOptions(common_args);
 	writeln();
+	showVersion();
+}
+
+private void showVersion()
+{
 	writefln("DUB version %s, built on %s", getDUBVersion(), __DATE__);
 }
 
