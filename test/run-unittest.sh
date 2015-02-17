@@ -20,6 +20,12 @@ fi
 
 CURR_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
+for script in $(ls $CURR_DIR/*.sh); do
+    if [ "$script" = "$(readlink -f ${BASH_SOURCE[0]})" ]; then continue; fi
+    log "Running $script..."
+    $script || die "Script failure."
+done
+
 for pack in $(ls -d $CURR_DIR/*/); do
     # First we build the packages
     if [ ! -e $pack/.no_build ]; then # For sourceLibrary
