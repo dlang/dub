@@ -111,7 +111,7 @@ void writePackageJson(Path root_path, string description, string[string] depende
 	version (Windows) username = environment.get("USERNAME", "Peter Parker");
 	else username = environment.get("USER", "Peter Parker");
 
-	auto fil = openFile(root_path ~ defaultPackageFilename(), FileMode.Append);
+	auto fil = openFile(root_path ~ defaultPackageFilename, FileMode.Append);
 	scope(exit) fil.close();
 
 	fil.formattedWrite("{\n\t\"name\": \"%s\",\n", root_path.head.toString().toLower());

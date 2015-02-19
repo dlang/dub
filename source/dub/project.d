@@ -245,16 +245,18 @@ class Project {
 							logDiagnostic("Error getting sub package %s: %s", name, e.msg);
 							continue;
 						}
-					} else {
-						if (!m_selections.hasSelectedVersion(basename)) {
-							logDiagnostic("Version selection for dependency %s (%s) of %s is missing.",
-								basename, name, pack.name);
-							continue;
-						}
-
+					} else if (m_selections.hasSelectedVersion(basename)) {
 						vspec = m_selections.getSelectedVersion(basename);
-
 						p = m_packageManager.getBestPackage(name, vspec);
+					} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
+						auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
+						auto bp = m_dependencies[idx].basePackage;
+						vspec = Dependency(bp.path);
+						p = m_packageManager.getSubPackage(bp, getSubPackageName(name), false);
+					} else {
+						logDiagnostic("Version selection for dependency %s (%s) of %s is missing.",
+							basename, name, pack.name);
+						continue;
 					}
 				}
 
@@ -936,7 +938,7 @@ final class SelectedVersions {
 		if (j.type == Json.Type.string)
 			return Dependency(Version(j.get!string));
 		else if (j.type == Json.Type.object)
-			return Dependency(Path(j.path.get!string()));
+			return Dependency(Path(j.path.get!string));
 		else throw new Exception(format("Unexpected type for dependency: %s", j.type));
 	}
 

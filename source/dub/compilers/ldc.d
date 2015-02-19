@@ -157,6 +157,9 @@ class LdcCompiler : Compiler {
 			case TargetType.dynamicLibrary:
 				settings.addDFlags("-shared");
 				break;
+			case TargetType.object:
+				settings.addDFlags("-c");
+				break;
 		}
 
 		if (tpath is null)
@@ -166,9 +169,8 @@ class LdcCompiler : Compiler {
 
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
-		auto res_file = getTempDir() ~ ("dub-build-"~uniform(0, uint.max).to!string~"-.rsp");
+		auto res_file = getTempFile("dub-build", ".rsp");
 		std.file.write(res_file.toNativeString(), join(cast(string[])settings.dflags, "\n"));
-		scope (exit) remove(res_file.toNativeString());
 
 		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);

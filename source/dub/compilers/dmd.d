@@ -169,6 +169,9 @@ class DmdCompiler : Compiler {
 				version (Windows) settings.addDFlags("-shared");
 				else settings.addDFlags("-shared", "-fPIC");
 				break;
+			case TargetType.object:
+				settings.addDFlags("-c");
+				break;
 		}
 
 		if (tpath is null)
@@ -178,9 +181,8 @@ class DmdCompiler : Compiler {
 
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
-		auto res_file = getTempDir() ~ ("dub-build-"~uniform(0, uint.max).to!string~"-.rsp");
+		auto res_file = getTempFile("dub-build", ".rsp");
 		std.file.write(res_file.toNativeString(), join(settings.dflags.map!(s => s.canFind(' ') ? "\""~s~"\"" : s), "\n"));
-		scope (exit) remove(res_file.toNativeString());
 
 		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
@@ -190,14 +192,18 @@ class DmdCompiler : Compiler {
 	{
 		import std.string;
 		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
-		auto args = [platform.compilerBinary, "-of"~tpath.toNativeString()];
+		auto args = ["-of"~tpath.toNativeString()];
 		args ~= objects;
 		args ~= settings.sourceFiles;
 		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
 		args ~= settings.lflags.map!(l => "-L"~l)().array;
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
-		logDiagnostic("%s", args.join(" "));
-		invokeTool(args, output_callback);
+
+		auto res_file = getTempFile("dub-build", ".lnk");
+		std.file.write(res_file.toNativeString(), join(args, "\n"));
+
+		logDiagnostic("%s %s", platform.compilerBinary, args.join(" "));
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
 	private static bool isLinkerDFlag(string arg)

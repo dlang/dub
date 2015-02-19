@@ -67,7 +67,12 @@ class GdcCompiler : Compiler {
 		}
 		settings.addDFlags(arch_flags);
 
-		auto result = executeShell(escapeShellCommand(compiler_binary ~ arch_flags ~ ["-c", "-o", (getTempDir()~"dub_platform_probe").toNativeString(), fil.toNativeString()]));
+		auto binary_file = getTempFile("dub_platform_probe");
+		auto result = executeShell(escapeShellCommand(
+			compiler_binary ~
+			arch_flags ~
+			["-c", "-o", binary_file.toNativeString(), fil.toNativeString()]
+		));
 		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
 			compiler_binary, result.output));
 
@@ -162,6 +167,7 @@ class GdcCompiler : Compiler {
 			case TargetType.executable: break;
 			case TargetType.library:
 			case TargetType.staticLibrary:
+			case TargetType.object:
 				settings.addDFlags("-c");
 				break;
 			case TargetType.dynamicLibrary:
@@ -176,9 +182,8 @@ class GdcCompiler : Compiler {
 
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
-		auto res_file = getTempDir() ~ ("dub-build-"~uniform(0, uint.max).to!string~"-.rsp");
+		auto res_file = getTempFile("dub-build", ".rsp");
 		std.file.write(res_file.toNativeString(), join(settings.dflags.map!(s => escape(s)), "\n"));
-		scope (exit) remove(res_file.toNativeString());
 
 		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);

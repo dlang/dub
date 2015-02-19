@@ -1,0 +1,1 @@
+hdpi/nested_dir/nested_file.txt content

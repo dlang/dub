@@ -1,0 +1,10 @@
+{
+    "name": "copyfiles-test",
+    "targetType": "executable",
+    "targetPath": "bin",
+    "copyFiles": [
+	"data/res",
+	"data/res/*dpi",
+	"data/file_to_copy.txt", 
+	"data/file_to_copy_mask*.txt"]
+}

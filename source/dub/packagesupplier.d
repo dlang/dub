@@ -41,9 +41,6 @@ interface PackageSupplier {
 
 	/// perform cache operation
 	void cacheOp(Path cacheDir, CacheOp op);
-
-	/// get all package names for this supplier
-	string[] getPackageNames();
 }
 
 /// operations on package supplier cache
@@ -93,10 +90,6 @@ class FileSystemPackageSupplier : PackageSupplier {
 	}
 
 	void cacheOp(Path cacheDir, CacheOp op) {
-	}
-
-	string[] getPackageNames(){
-		assert(false, "FileSystemPackageSupplier.getPackageNames, not implemented yet");
 	}
 
 	private Path bestPackageFile(string packageId, Dependency dep, bool pre_release)
@@ -155,21 +148,9 @@ class RegistryPackageSupplier : PackageSupplier {
 		download(url, path);
 	}
 
-
 	Json getPackageDescription(string packageId, Dependency dep, bool pre_release)
 	{
 		return getBestPackage(packageId, dep, pre_release);
-	}
-
-	string[] getPackageNames(){
-		import std.array : replace;
-		auto url = m_registryUrl ~ Path(PackagesPath~"/index.json");
-		Json data = (cast(string)download(url)).parseJsonString();
-		string[] packages;
-		foreach(ele; data){
-			packages ~= ele.toString().replace("\"", "");
-		}
-		return packages;
 	}
 
 	void cacheOp(Path cacheDir, CacheOp op)

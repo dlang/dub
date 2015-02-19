@@ -12,6 +12,7 @@ public import dub.compilers.buildsettings;
 import dub.compilers.dmd;
 import dub.compilers.gdc;
 import dub.compilers.ldc;
+import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
@@ -30,7 +31,6 @@ static this()
 	registerCompiler(new LdcCompiler);
 }
 
-
 Compiler getCompiler(string name)
 {
 	foreach (c; s_compilers)
@@ -43,6 +43,33 @@ Compiler getCompiler(string name)
 	if (name.canFind("ldc")) return getCompiler("ldc");
 
 	throw new Exception("Unknown compiler: "~name);
+}
+
+string defaultCompiler()
+{
+	static string name;
+	if (!name.length) name = findCompiler();
+	return name;
+}
+
+private string findCompiler()
+{
+	import std.process : env=environment;
+	import dub.version_ : initialCompilerBinary;
+	version (Windows) enum sep = ";", exe = ".exe";
+	version (Posix) enum sep = ":", exe = "";
+
+	auto def = Path(initialCompilerBinary);
+	if (def.absolute && existsFile(def))
+		return initialCompilerBinary;
+
+	auto compilers = ["dmd", "gdc", "gdmd", "ldc2", "ldmd2"];
+	if (!def.absolute)
+		compilers = initialCompilerBinary ~ compilers;
+
+	auto paths = env.get("PATH", "").splitter(sep).map!Path;
+	auto res = compilers.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
+	return res.empty ? initialCompilerBinary : res.front;
 }
 
 void registerCompiler(Compiler c)
@@ -339,6 +366,10 @@ string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 			if( platform.platform.canFind("windows") )
 				return settings.targetName ~ ".dll";
 			else return "lib" ~ settings.targetName ~ ".so";
+		case TargetType.object:
+			if (platform.platform.canFind("windows"))
+				return settings.targetName ~ ".obj";
+			else return settings.targetName ~ ".o";
 	}
 }
 
@@ -366,15 +397,16 @@ Path generatePlatformProbeFile()
 	import dub.internal.vibecompat.data.json;
 	import dub.internal.utils;
 
-	auto path = getTempDir() ~ "dub_platform_probe.d";
+	auto path = getTempFile("dub_platform_probe", ".d");
 
 	auto fil = openFile(path, FileMode.CreateTrunc);
 	scope (failure) {
 		fil.close();
-		removeFile(path);
 	}
 
 	fil.write(q{
+		module dub_platform_probe;
+
 		template toString(int v) { enum toString = v.stringof; }
 
 		pragma(msg, `{`);
@@ -388,7 +420,7 @@ Path generatePlatformProbeFile()
 		pragma(msg, `    ` ~ determineArchitecture());
 		pragma(msg, `   ],`);
 		pragma(msg, `}`);
-		
+
 		string determinePlatform()
 		{
 			string ret;

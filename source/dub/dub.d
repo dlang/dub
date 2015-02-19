@@ -362,7 +362,7 @@ class Dub {
 			}
 
 			// generate main file
-			Path mainfile = getTempDir() ~ "dub_test_root.d";
+			Path mainfile = getTempFile("dub_test_root", ".d");
 			tcinfo.sourceFiles[""] ~= mainfile.toNativeString();
 			tcinfo.mainSourceFile = mainfile.toNativeString();
 			if (!m_dryRun) {
@@ -436,7 +436,7 @@ class Dub {
 
 
 	/// Returns all cached packages as a "packageId" = "version" associative array
-	string[string] cachedPackages() const { return m_project.cachedPackagesIDs(); }
+	string[string] cachedPackages() const { return m_project.cachedPackagesIDs; }
 
 	/// Fetches the package matching the dependency and places it in the specified location.
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
@@ -449,7 +449,7 @@ class Dub {
 				supplier = ps;
 				break;
 			} catch(Exception e) {
-				logDiagnostic("Package %s not found for %s: %s", packageId, ps.description(), e.msg);
+				logDiagnostic("Package %s not found for %s: %s", packageId, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
@@ -605,32 +605,29 @@ class Dub {
 
 	void createEmptyPackage(Path path, string[] deps, string type)
 	{
-		if( !path.absolute() ) path = m_rootPath ~ path;
+		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
 
 		if (m_dryRun) return;
 		string[string] depVers;
+		string[] notFound; // keep track of any failed packages in here
 		foreach(ps; this.m_packageSuppliers){
 			foreach(dep; deps){
 				try{
 					auto versionStrings = ps.getVersions(dep);
 					depVers[dep] = versionStrings[$-1].toString;
 				} catch(Exception e){
-					auto packages = ps.getPackageNames();
-					string[][size_t] lds; //holds the levenshteinDistance from dep for each package
-					foreach(pack; packages){
-						lds[dep.levenshteinDistance(pack)] ~= pack;
-					}
-					auto closestKey = lds.keys.sort.front;
-					if(closestKey <= 4){
-						logError("Error, no package \"%s\" found. Did you mean %s?", dep, lds[closestKey]);
-					} else{
-						logError("Error, no package \"%s\" found. Exiting...", dep);
-					}
-					return;
+					notFound ~= dep;
 				}
 			}
 		}
+		if(notFound.length > 1){
+			throw new Exception(format("Couldn't find packages: %-(%s, %).", notFound));
+		}
+		else if(notFound.length == 1){
+			throw new Exception(format("Couldn't find package: %-(%s, %).", notFound));
+		}
+
 		initPackage(path, depVers, type);
 
 		//Act smug to the user.
@@ -681,7 +678,7 @@ class Dub {
 		if (!run) {
 			commands ~= dub_path~"ddox generate-html --navigation-type=ModuleTree docs.json docs";
 			version(Windows) commands ~= "xcopy /S /D "~dub_path~"public\\* docs\\";
-			else commands ~= "cp -ru \""~dub_path~"public\"/* docs/";
+			else commands ~= "rsync -ru '"~dub_path~"public/' docs/";
 		}
 		runCommands(commands);
 

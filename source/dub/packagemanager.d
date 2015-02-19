@@ -287,8 +287,8 @@ class PackageManager {
 	/// destination and sets a version field in the package description.
 	Package storeFetchedPackage(Path zip_file_path, Json package_info, Path destination)
 	{
-		auto package_name = package_info.name.get!string();
-		auto package_version = package_info["version"].get!string();
+		auto package_name = package_info.name.get!string;
+		auto package_version = package_info["version"].get!string;
 		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
 
 		logDiagnostic("Placing package '%s' version '%s' to location '%s' from file '%s'",
@@ -330,7 +330,6 @@ class PackageManager {
 
 		// extract & place
 		mkdirRecurse(destination.toNativeString());
-		auto journal = new Journal;
 		logDiagnostic("Copying all files...");
 		int countFiles = 0;
 		foreach(ArchiveMember a; archive.directory) {
@@ -342,14 +341,12 @@ class PackageManager {
 			if( dst_path.endsWithSlash ){
 				if( !existsDirectory(dst_path) )
 					mkdirRecurse(dst_path.toNativeString());
-				journal.add(Journal.Entry(Journal.Type.Directory, cleanedPath));
 			} else {
 				if( !existsDirectory(dst_path.parentPath) )
 					mkdirRecurse(dst_path.parentPath.toNativeString());
 				auto dstFile = openFile(dst_path, FileMode.CreateTrunc);
 				scope(exit) dstFile.close();
 				dstFile.put(archive.expand(a));
-				journal.add(Journal.Entry(Journal.Type.RegularFile, cleanedPath));
 				++countFiles;
 			}
 		}
@@ -358,21 +355,11 @@ class PackageManager {
 		// overwrite dub.json (this one includes a version field)
 		auto pack = new Package(destination, PathAndFormat(), null, package_info["version"].get!string);
 
-		if (pack.packageInfoFilename.head != defaultPackageFilename()) {
+		if (pack.packageInfoFilename.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
 			removeFile(pack.packageInfoFilename);
-			journal.remove(Journal.Entry(Journal.Type.RegularFile, Path(pack.packageInfoFilename.head)));
-			journal.add(Journal.Entry(Journal.Type.RegularFile, Path(defaultPackageFilename())));
-		}
 		pack.storeInfo();
-
-		// Write journal
-		logDebug("Saving retrieval action journal...");
-		journal.add(Journal.Entry(Journal.Type.RegularFile, Path(JournalJsonFilename)));
-		journal.save(destination ~ JournalJsonFilename);
-
 		addPackages(m_packages, pack);
-
 		return pack;
 	}
 
@@ -381,55 +368,6 @@ class PackageManager {
 	{
 		logDebug("Remove %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
 		enforce(!pack.path.empty, "Cannot remove package "~pack.name~" without a path.");
-
-		// delete package files physically
-		logDebug("Looking up journal");
-		auto journalFile = pack.path~JournalJsonFilename;
-		if (!existsFile(journalFile))
-			throw new Exception(format("Removal failed, no retrieval journal found for '%s'. Please remove the folder '%s' manually.", pack.name, pack.path.toNativeString()));
-
-		auto packagePath = pack.path;
-		auto journal = new Journal(journalFile);
-
-
-		// Determine all target paths/files
-		/*auto basebs = pack.getBuildSettings();
-		foreach (conf; pack.configurations) {
-			auto bs = pack.getBuildSettings(conf);
-			auto tpath = conf.targetPath.length ? conf.targetPath : basebs.targetPath;
-			auto tname = conf.targetName.length ? conf.targetName : basebs.targetName;
-			auto ttype = conf.targetType != TargetType.auto_ ? conf.targetType : basebs.targetType;
-			if (ttype == TargetType.none || ttype == TargetType.auto_) continue;
-			foreach (n; generatePlatformNames(tname, ttype))
-				// ...
-		}*/
-
-		// test if there are any untracked files
-		if (!force_remove) {
-			void checkFilesRec(Path p)
-			{
-				// TODO: ignore target paths/files
-
-				foreach (fi; iterateDirectory(p)) {
-					auto fpath = p ~ fi.name;
-					if (fi.isDirectory) {
-						// Indicate a directory.
-						fpath.endsWithSlash(true);
-						// Ignore /.dub folder: This folder and its content
-						// are not tracked by the Journal.
-						if (fpath.relativeTo(pack.path) == Path(".dub/"))
-							continue;
-						checkFilesRec(fpath);
-					}
-
-					auto type = fi.isDirectory ? Journal.Type.Directory : Journal.Type.RegularFile;
-					if (!journal.containsEntry(type, fpath.relativeTo(pack.path)))
-						throw new Exception("Untracked file found, aborting package removal, file: "
-							~ fpath.toNativeString() ~ "\nPlease remove the package folder manually or use --force-remove.");
-				}
-			}
-			checkFilesRec(pack.path);
-		}
 
 		// remove package from repositories' list
 		bool found = false;
@@ -538,12 +476,12 @@ class PackageManager {
 				enforce(packlist.type == Json.Type.array, LocalPackagesFilename~" must contain an array.");
 				foreach( pentry; packlist ){
 					try {
-						auto name = pentry.name.get!string();
-						auto path = Path(pentry.path.get!string());
+						auto name = pentry.name.get!string;
+						auto path = Path(pentry.path.get!string);
 						if (name == "*") {
 							paths ~= path;
 						} else {
-							auto ver = Version(pentry["version"].get!string());
+							auto ver = Version(pentry["version"].get!string);
 
 							Package pp;
 							if (!refresh_existing_packages) {
@@ -667,7 +605,7 @@ class PackageManager {
 		}
 		auto hash = sha1.finish();
 		logDebug("Project hash: %s", hash);
-		return hash[0..$];
+		return hash[].dup;
 	}
 
 	private void writeLocalPackageList(LocalPackageType type)
@@ -772,7 +710,6 @@ enum LocalPackageType {
 	system
 }
 
-enum JournalJsonFilename = "journal.json";
 enum LocalPackagesFilename = "local-packages.json";
 enum LocalOverridesFilename = "local-overrides.json";
 
@@ -788,99 +725,5 @@ private struct Repository {
 	{
 		this.path = path;
 		this.packagePath = path ~"packages/";
-	}
-}
-
-
-/*
-	Retrieval journal for later removal, keeping track of placed files
-	files.
-
-	Example Json:
-	---
-	{
-		"version": 1,
-		"files": {
-			"file1": "typeoffile1",
-			...
-		}
-	}
-	---
-*/
-private class Journal {
-	private enum Version = 1;
-
-	enum Type {
-		RegularFile,
-		Directory,
-		Alien
-	}
-
-	struct Entry {
-		this( Type t, Path f ) { type = t; relFilename = f; }
-		Type type;
-		Path relFilename;
-	}
-
-	@property const(Entry[]) entries() const { return m_entries; }
-
-	this() {}
-
-	/// Initializes a Journal from a json file.
-	this(Path journalFile) {
-		auto jsonJournal = jsonFromFile(journalFile);
-		enforce(cast(int)jsonJournal["Version"] == Version, "Mismatched version: "~to!string(cast(int)jsonJournal["Version"]) ~ "vs. " ~to!string(Version));
-		foreach(string file, type; jsonJournal["Files"])
-			m_entries ~= Entry(to!Type(cast(string)type), Path(file));
-	}
-
-	void add(Entry e) {
-		foreach(Entry ent; entries) {
-			if( e.relFilename == ent.relFilename ) {
-				enforce(e.type == ent.type, "Duplicate('"~to!string(e.relFilename)~"'), different types: "~to!string(e.type)~" vs. "~to!string(ent.type));
-				return;
-			}
-		}
-		m_entries ~= e;
-	}
-
-	void remove(Entry e) {
-		foreach(i, Entry ent; entries) {
-			if( e.relFilename == ent.relFilename ) {
-				m_entries = std.algorithm.remove(m_entries, i);
-				return;
-			}
-		}
-		enforce(false, "Cannot remove entry, not available: " ~ e.relFilename.toNativeString());
-	}
-
-	/// Save the current state to the path.
-	void save(Path path) {
-		Json jsonJournal = serialize();
-		auto fileJournal = openFile(path, FileMode.CreateTrunc);
-		scope(exit) fileJournal.close();
-		fileJournal.writePrettyJsonString(jsonJournal);
-	}
-
-	bool containsEntry(Type type, Path path)
-	const {
-		foreach (e; entries)
-			if (e.type == type && e.relFilename == path)
-				return true;
-		return false;
-	}
-
-	private Json serialize() const {
-		Json[string] files;
-		foreach(Entry e; m_entries)
-			files[to!string(e.relFilename)] = to!string(e.type);
-		Json[string] json;
-		json["Version"] = Version;
-		json["Files"] = files;
-		return Json(json);
-	}
-
-	private {
-		Entry[] m_entries;
 	}
 }

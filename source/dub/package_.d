@@ -142,58 +142,7 @@ class Package {
 		// use the given recipe as the basis
 		m_info = recipe;
 
-		// WARNING: changed semantics here. Previously, "sourcePaths" etc.
-		// could overwrite what was determined here. Now the default paths
-		// are always added. This must be fixed somehow!
-
-		// check for default string import folders
-		foreach(defvf; ["views"]){
-			auto p = m_path ~ defvf;
-			if( existsFile(p) )
-				m_info.buildSettings.stringImportPaths[""] ~= defvf;
-		}
-
-		// check for default source folders
-		string app_main_file;
-		auto pkg_name = recipe.name.length ? recipe.name : "unknown";
-		foreach(defsf; ["source/", "src/"]){
-			auto p = m_path ~ defsf;
-			if( existsFile(p) ){
-				m_info.buildSettings.sourcePaths[""] ~= defsf;
-				m_info.buildSettings.importPaths[""] ~= defsf;
-				foreach (fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"])
-					if (existsFile(p ~ fil)) {
-						app_main_file = Path(defsf ~ fil).toNativeString();
-						break;
-					}
-			}
-		}
-
-		// generate default configurations if none are defined
-		if (m_info.configurations.length == 0) {
-			if (m_info.buildSettings.targetType == TargetType.executable) {
-				BuildSettingsTemplate app_settings;
-				app_settings.targetType = TargetType.executable;
-				if (m_info.buildSettings.mainSourceFile.empty) app_settings.mainSourceFile = app_main_file;
-				m_info.configurations ~= ConfigurationInfo("application", app_settings);
-			} else if (m_info.buildSettings.targetType != TargetType.none) {
-				BuildSettingsTemplate lib_settings;
-				lib_settings.targetType = m_info.buildSettings.targetType == TargetType.autodetect ? TargetType.library : m_info.buildSettings.targetType;
-
-				if (m_info.buildSettings.targetType == TargetType.autodetect) {
-					if (app_main_file.length) {
-						lib_settings.excludedSourceFiles[""] ~= app_main_file;
-
-						BuildSettingsTemplate app_settings;
-						app_settings.targetType = TargetType.executable;
-						app_settings.mainSourceFile = app_main_file;
-						m_info.configurations ~= ConfigurationInfo("application", app_settings);
-					}
-				}
-
-				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
-			}
-		}
+		fillWithDefaults();
 		simpleLint();
 	}
 
@@ -240,7 +189,7 @@ class Package {
 	void storeInfo()
 	{
 		enforce(!ver.isUnknown, "Trying to store a package with an 'unknown' version, this is not supported.");
-		auto filename = m_path ~ defaultPackageFilename();
+		auto filename = m_path ~ defaultPackageFilename;
 		auto dstFile = openFile(filename.toNativeString(), FileMode.CreateTrunc);
 		scope(exit) dstFile.close();
 		dstFile.writePrettyJsonString(m_info.toJson());
@@ -460,6 +409,71 @@ class Package {
 		dst.files = Json(files);
 	}
 
+	private void fillWithDefaults()
+	{
+		auto bs = &m_info.buildSettings;
+
+		// check for default string import folders
+		if ("" !in bs.stringImportPaths) {
+			foreach(defvf; ["views"]){
+				if( existsFile(m_path ~ defvf) )
+					bs.stringImportPaths[""] ~= defvf;
+			}
+		}
+
+		// check for default source folders
+		immutable hasSP = ("" in bs.sourcePaths) !is null;
+		immutable hasIP = ("" in bs.importPaths) !is null;
+		if (!hasSP || !hasIP) {
+			foreach (defsf; ["source/", "src/"]) {
+				if (existsFile(m_path ~ defsf)) {
+					if (!hasSP) bs.sourcePaths[""] ~= defsf;
+					if (!hasIP) bs.importPaths[""] ~= defsf;
+				}
+			}
+		}
+
+		// check for default app_main
+		string app_main_file;
+		auto pkg_name = m_info.name.length ? m_info.name : "unknown";
+		foreach(sf; bs.sourcePaths.get("", null)){
+			auto p = m_path ~ sf;
+			if( !existsFile(p) ) continue;
+			foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
+				if( existsFile(p ~ fil) ) {
+					app_main_file = (Path(sf) ~ fil).toNativeString();
+					break;
+				}
+			}
+		}
+
+		// generate default configurations if none are defined
+		if (m_info.configurations.length == 0) {
+			if (bs.targetType == TargetType.executable) {
+				BuildSettingsTemplate app_settings;
+				app_settings.targetType = TargetType.executable;
+				if (bs.mainSourceFile.empty) app_settings.mainSourceFile = app_main_file;
+				m_info.configurations ~= ConfigurationInfo("application", app_settings);
+			} else if (bs.targetType != TargetType.none) {
+				BuildSettingsTemplate lib_settings;
+				lib_settings.targetType = bs.targetType == TargetType.autodetect ? TargetType.library : bs.targetType;
+
+				if (bs.targetType == TargetType.autodetect) {
+					if (app_main_file.length) {
+						lib_settings.excludedSourceFiles[""] ~= app_main_file;
+
+						BuildSettingsTemplate app_settings;
+						app_settings.targetType = TargetType.executable;
+						app_settings.mainSourceFile = app_main_file;
+						m_info.configurations ~= ConfigurationInfo("application", app_settings);
+					}
+				}
+
+				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
+			}
+		}
+	}
+
 	private void simpleLint() const {
 		if (m_parentPackage) {
 			if (m_parentPackage.path != path) {
@@ -467,7 +481,7 @@ class Package {
 					logWarn("License in subpackage %s is different than it's parent package, this is discouraged.", name);
 			}
 		}
-		if (name.empty()) logWarn("The package in %s has no name.", path);
+		if (name.empty) logWarn("The package in %s has no name.", path);
 	}
 
 	private static RawPackage rawPackageFromFile(PathAndFormat file, bool silent_fail = false) {

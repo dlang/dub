@@ -133,7 +133,7 @@ struct Dependency {
 	@property bool isExactVersion() const { return m_versA == m_versB; }
 
 	@property Version version_() const {
-		enforce(m_versA == m_versB, "Dependency "~versionString()~" is no exact version.");
+		enforce(m_versA == m_versB, "Dependency "~versionString~" is no exact version.");
 		return m_versA;
 	}
 
@@ -176,10 +176,10 @@ struct Dependency {
 	Json toJson() const {
 		Json json;
 		if( path.empty && !optional ){
-			json = Json(versionString());
+			json = Json(this.versionString);
 		} else {
 			json = Json.emptyObject;
-			json["version"] = versionString();
+			json["version"] = this.versionString;
 			if (!path.empty) json["path"] = path.toString();
 			if (optional) json["optional"] = true;
 		}
@@ -202,7 +202,7 @@ struct Dependency {
 					logDiagnostic("Ignoring version specification (%s) for path based dependency %s", pv.get!string, pp.get!string);
 
 				dep = Dependency.ANY;
-				dep.path = Path(verspec.path.get!string());
+				dep.path = Path(verspec.path.get!string);
 			} else {
 				enforce("version" in verspec, "No version field specified!");
 				auto ver = verspec["version"].get!string;
@@ -210,11 +210,11 @@ struct Dependency {
 				dep = Dependency(ver);
 			}
 			if( auto po = "optional" in verspec ) {
-				dep.optional = verspec.optional.get!bool();
+				dep.optional = verspec.optional.get!bool;
 			}
 		} else {
 			// canonical "package-id": "version"
-			dep = Dependency(verspec.get!string());
+			dep = Dependency(verspec.get!string);
 		}
 		return dep;
 	}
@@ -347,28 +347,28 @@ unittest {
 	a = Dependency("<=1.0.0 >=2.0.0");
 	assert (!a.valid(), a.toString());
 
-	a = Dependency(">=1.0.0 <=5.0.0"), b = Dependency(">=2.0.0");
+	a = Dependency(">=1.0.0 <=5.0.0"); b = Dependency(">=2.0.0");
 	assert (a.merge(b).valid() && a.merge(b).versionString == ">=2.0.0 <=5.0.0", a.merge(b).toString());
 
 	assertThrown(a = Dependency(">1.0.0 ==5.0.0"), "Construction is invalid");
 
-	a = Dependency(">1.0.0"), b = Dependency("<2.0.0");
+	a = Dependency(">1.0.0"); b = Dependency("<2.0.0");
 	assert (a.merge(b).valid(), a.merge(b).toString());
 	assert (a.merge(b).versionString == ">1.0.0 <2.0.0", a.merge(b).toString());
 
-	a = Dependency(">2.0.0"), b = Dependency("<1.0.0");
+	a = Dependency(">2.0.0"); b = Dependency("<1.0.0");
 	assert (!(a.merge(b)).valid(), a.merge(b).toString());
 
-	a = Dependency(">=2.0.0"), b = Dependency("<=1.0.0");
+	a = Dependency(">=2.0.0"); b = Dependency("<=1.0.0");
 	assert (!(a.merge(b)).valid(), a.merge(b).toString());
 
-	a = Dependency("==2.0.0"), b = Dependency("==1.0.0");
+	a = Dependency("==2.0.0"); b = Dependency("==1.0.0");
 	assert (!(a.merge(b)).valid(), a.merge(b).toString());
 
-	a = Dependency("1.0.0"), b = Dependency("==1.0.0");
+	a = Dependency("1.0.0"); b = Dependency("==1.0.0");
 	assert (a == b);
 
-	a = Dependency("<=2.0.0"), b = Dependency("==1.0.0");
+	a = Dependency("<=2.0.0"); b = Dependency("==1.0.0");
 	Dependency m = a.merge(b);
 	assert (m.valid(), m.toString());
 	assert (m.matches(Version("1.0.0")));

@@ -14,7 +14,7 @@ complete -c dub -n '__fish_use_subcommand' -x -a build           -d 'Builds a pa
 complete -c dub -n '__fish_use_subcommand' -x -a test            -d 'Executes the tests of the selected package'
 complete -c dub -n '__fish_use_subcommand' -x -a generate        -d 'Generates project files using the specified generator'
 complete -c dub -n '__fish_use_subcommand' -x -a describe        -d 'Prints a JSON description of the project and its dependencies'
-complete -c dub -n '__fish_use_subcommand' -x -a clean           -d 'Removes intermetiate build files and cached build results'
+complete -c dub -n '__fish_use_subcommand' -x -a clean           -d 'Removes intermediate build files and cached build results'
 complete -c dub -n '__fish_use_subcommand' -x -a dustmite        -d 'Create reduced test cases for build errors'
 # Package management
 complete -c dub -n '__fish_use_subcommand' -x -a fetch           -d 'Manually retrieves and caches a package'
@@ -28,6 +28,7 @@ complete -c dub -n '__fish_use_subcommand' -x -a list            -d 'Prints a li
 complete -c dub -n '__fish_use_subcommand' -x -a add-override    -d 'Adds a new package override'
 complete -c dub -n '__fish_use_subcommand' -x -a remove-override -d 'Removes an existing package override'
 complete -c dub -n '__fish_use_subcommand' -x -a list-overrides  -d 'Prints a list of all local package overrides'
+complete -c dub -n '__fish_use_subcommand' -x -a clean-caches    -d 'Removes cached metadata'
 
 #
 # Subcommand options

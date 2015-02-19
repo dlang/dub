@@ -20,7 +20,6 @@ import dub.packagesupplier;
 import dub.platform : determineCompiler;
 import dub.project;
 import dub.internal.utils : getDUBVersion, getClosestMatch;
-import dub.version_;
 
 import std.algorithm;
 import std.array;
@@ -55,6 +54,17 @@ int runDubCommandLine(string[] args)
 		args = args[0 .. app_args_idx];
 	}
 	args = args[1 .. $]; // strip the application name
+
+	// handle direct dub options
+	if (args.length) switch (args[0])
+	{
+	case "--version":
+		showVersion();
+		return 0;
+
+	default:
+		break;
+	}
 
 	// parse general options
 	bool verbose, vverbose, quiet, vquiet;
@@ -357,7 +367,7 @@ abstract class PackageBuildCommand : Command {
 		string m_buildType;
 		BuildMode m_buildMode;
 		string m_buildConfig;
-		string m_compilerName = initialCompilerBinary;
+		string m_compilerName;
 		string m_arch;
 		string[] m_debugVersions;
 		Compiler m_compiler;
@@ -366,6 +376,11 @@ abstract class PackageBuildCommand : Command {
 		string m_defaultConfig;
 		bool m_nodeps;
 		bool m_forceRemove = false;
+	}
+
+	this()
+	{
+		m_compilerName = defaultCompiler();
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -382,7 +397,7 @@ abstract class PackageBuildCommand : Command {
 			"Specifies the compiler binary to use (can be a path).",
 			"Arbitrary pre- and suffixes to the identifiers below are recognized (e.g. ldc2 or dmd-2.063) and matched to the proper compiler type:",
 			"  "~["dmd", "gdc", "ldc", "gdmd", "ldmd"].join(", "),
-			"Default value: "~initialCompilerBinary,
+			"Default value: "~m_compilerName,
 		]);
 		args.getopt("a|arch", &m_arch, [
 			"Force a different architecture (e.g. x86 or x86_64)"
@@ -505,6 +520,8 @@ class GenerateCommand : PackageBuildCommand {
 			"Generates project files using one of the supported generators:",
 			"",
 			"visuald - VisualD project files",
+			"sublimetext - SublimeText project file",
+			"cmake - CMake build scripts",
 			"build - Builds the package directly",
 			"",
 			"An optional package name can be given to generate a different package than the root/CWD package."
@@ -1451,7 +1468,7 @@ private {
 private void showHelp(in CommandGroup[] commands, CommandArgs common_args)
 {
 	writeln(
-`USAGE: dub [<command>] [<options...>] [-- [<application arguments...>]]
+`USAGE: dub [--version] [<command>] [<options...>] [-- [<application arguments...>]]
 
 Manages the DUB project in the current directory. If the command is omitted,
 DUB will default to "run". When running an application, "--" can be used to
@@ -1494,6 +1511,11 @@ Available commands
 	writeln();
 	writeOptions(common_args);
 	writeln();
+	showVersion();
+}
+
+private void showVersion()
+{
 	writefln("DUB version %s, built on %s", getDUBVersion(), __DATE__);
 }
 

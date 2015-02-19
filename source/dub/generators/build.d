@@ -306,7 +306,7 @@ class BuildGenerator : ProjectGenerator {
 		logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
 		if (!existsFile(Path(buildsettings.targetPath)))
 			mkdirRecurse(buildsettings.targetPath);
-		symlinkFile(src, Path(buildsettings.targetPath) ~ filename, true);
+		hardLinkFile(src, Path(buildsettings.targetPath) ~ filename, true);
 	}
 
 	private bool isUpToDate(Path target_path, BuildSettings buildsettings, BuildPlatform platform, in Package main_pack, in Package[] packages, in Path[] additional_dep_files)
@@ -350,15 +350,20 @@ class BuildGenerator : ProjectGenerator {
 	/// Output an unique name to represent the source file.
 	/// Calls with path that resolve to the same file on the filesystem will return the same,
 	/// unless they include different symbolic links (which are not resolved).
-	static string pathToObjName(string path) { return std.path.buildNormalizedPath(getcwd(), path~objSuffix)[1..$].replace("/", "."); }
+
+	static string pathToObjName(string path)
+	{
+		return std.path.stripDrive(std.path.buildNormalizedPath(getcwd(), path~objSuffix))[1..$].replace(std.path.dirSeparator, ".");
+	}
+
 	/// Compile a single source file (srcFile), and write the object to objName.
 	static string compileUnit(string srcFile, string objName, BuildSettings bs, GeneratorSettings gs) {
 		Path tempobj = Path(bs.targetPath)~objName;
 		string objPath = tempobj.toNativeString();
 		bs.libs = null;
 		bs.lflags = null;
-		bs.addDFlags("-c");
 		bs.sourceFiles = [ srcFile ];
+		bs.targetType = TargetType.object;
 		gs.compiler.prepareBuildSettings(bs, BuildSetting.commandLine);
 		gs.compiler.setTarget(bs, gs.platform, objPath);
 		gs.compiler.invoke(bs, gs.platform, gs.compileCallback);
@@ -378,19 +383,22 @@ class BuildGenerator : ProjectGenerator {
 				removeFile(tpath);
 		}
 		if (settings.buildMode == BuildMode.singleFile && generate_binary) {
+			import std.parallelism, std.range : walkLength;
+
 			auto lbuildsettings = buildsettings;
-			auto objs = appender!(string[])();
+			auto srcs = buildsettings.sourceFiles.filter!(f => !isLinkerFile(f));
+			auto objs = new string[](srcs.walkLength);
 			logInfo("Compiling using %s...", settings.platform.compilerBinary);
-			foreach (file; buildsettings.sourceFiles.filter!(f=>!isLinkerFile(f))) {
-				logInfo("Compiling %s...", file);
-				objs.put(compileUnit(file, pathToObjName(file), buildsettings, settings));
+			foreach (i, src; srcs.parallel(1)) {
+				logInfo("Compiling %s...", src);
+				objs[i] = compileUnit(src, pathToObjName(src), buildsettings, settings);
 			}
 
 			logInfo("Linking...");
 			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f=> f.isLinkerFile()).array;
 			settings.compiler.setTarget(lbuildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
-			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs.data, settings.linkCallback);
+			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs, settings.linkCallback);
 
 		/*
 			NOTE: for DMD experimental separate compile/link is used, but this is not yet implemented

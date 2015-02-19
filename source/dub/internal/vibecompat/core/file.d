@@ -64,7 +64,7 @@ RangeFile openFile(Path path, FileMode mode = FileMode.Read)
 		case FileMode.Append: fmode = std.stream.FileMode.Append; break;
 	}
 	auto ret = new std.stream.File(path.toNativeString(), fmode);
-	assert(ret.isOpen());
+	assert(ret.isOpen);
 	return RangeFile(ret);
 }
 /// ditto
@@ -135,29 +135,43 @@ void copyFile(string from, string to)
 	copyFile(Path(from), Path(to));
 }
 
-/**
-	Creates a symlink.
-*/
-version (Windows)
-	alias symlinkFile = copyFile; // TODO: symlinks on Windows
-else version (Posix)
-{
-	void symlinkFile(Path from, Path to, bool overwrite = false)
-	{
-		if (existsFile(to)) {
-			enforce(overwrite, "Destination file already exists.");
-			// remove file before copy to allow "overwriting" files that are in
-			// use on Linux
-			removeFile(to);
-		}
+version (Windows) extern(Windows) int CreateHardLinkW(in wchar* to, in wchar* from, void* attr=null);
 
-		.symlink(from.toNativeString(), to.toNativeString());
-	}
+// guess whether 2 files are identical, ignores filename and content
+private bool sameFile(Path a, Path b)
+{
+	static assert(__traits(allMembers, FileInfo)[0] == "name");
+	return getFileInfo(a).tupleof[1 .. $] == getFileInfo(b).tupleof[1 .. $];
 }
 
-void symlinkFile(string from, string to)
+/**
+	Creates a hardlink.
+*/
+void hardLinkFile(Path from, Path to, bool overwrite = false)
 {
-	symlinkFile(Path(from), Path(to));
+	if (existsFile(to)) {
+		enforce(overwrite, "Destination file already exists.");
+		if (auto fe = collectException!FileException(removeFile(to))) {
+			version (Windows) if (sameFile(from, to)) return;
+			throw fe;
+		}
+	}
+
+	version (Windows)
+	{
+		alias cstr = toUTFz!(const(wchar)*);
+		if (CreateHardLinkW(cstr(to.toNativeString), cstr(from.toNativeString)))
+			return;
+	}
+	else
+	{
+		import core.sys.posix.unistd : link;
+		alias cstr = toUTFz!(const(char)*);
+		if (!link(cstr(from.toNativeString), cstr(to.toNativeString)))
+			return;
+	}
+	// fallback to copy
+	copyFile(from, to, overwrite);
 }
 
 /**

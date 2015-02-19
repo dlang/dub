@@ -28,13 +28,26 @@ version(DubUseCurl) import std.net.curl;
 
 Path getTempDir()
 {
-	auto tmp = environment.get("TEMP");
-	if( !tmp.length ) tmp = environment.get("TMP");
-	if( !tmp.length ){
-		version(Posix) tmp = "/tmp/";
-		else tmp = "./";
+	return Path(std.file.tempDir());
+}
+
+private Path[] temporary_files;
+
+Path getTempFile(string prefix, string extension = null)
+{
+	import std.uuid : randomUUID;
+
+	auto path = getTempDir() ~ (prefix ~ "-" ~ randomUUID.toString() ~ extension);
+	temporary_files ~= path;
+	return path;
+}
+
+static ~this()
+{
+	foreach (path; temporary_files)
+	{
+		std.file.remove(path.toNativeString());
 	}
-	return Path(tmp);
 }
 
 bool isEmptyDir(Path p) {
@@ -224,4 +237,19 @@ string getClosestMatch(string[] array, string input, size_t distance)
 		levenshteinDistance!((a, b) => toUpper(a) == toUpper(b))(elem, input));
 	auto idx = distMap.countUntil!(a => a <= distance);
 	return (idx == -1) ? null : array[idx];
+}
+
+/**
+	Searches for close matches to input in range. R must be a range of strings
+	Note: Sorts the strings range. Use std.range.indexed to avoid this...
+  */
+auto fuzzySearch(R)(R strings, string input){
+	import std.algorithm : levenshteinDistance, schwartzSort, partition3;
+	import std.traits : isSomeString;
+	import std.range : ElementType;
+
+	static assert(isSomeString!(ElementType!R), "Cannot call fuzzy search on non string rang");
+	immutable threshold = input.length / 4;
+	return strings.partition3!((a, b) => a.length + threshold < b.length)(input)[1]
+			.schwartzSort!(p => levenshteinDistance(input.toUpper, p.toUpper));
 }
