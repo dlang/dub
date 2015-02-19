@@ -264,8 +264,7 @@ struct Dependency {
 	}
 
 	bool valid() const {
-		return m_versA == m_versB // compare not important
-			|| (m_versA < m_versB && doCmp(m_cmpA, m_versB, m_versA) && doCmp(m_cmpB, m_versA, m_versB));
+		return m_versA <= m_versB && doCmp(m_cmpA, m_versB, m_versA) && doCmp(m_cmpB, m_versA, m_versB);
 	}
 
 	bool matches(string vers) const { return matches(Version(vers)); }
@@ -302,9 +301,9 @@ struct Dependency {
 		Version b = m_versB < o.m_versB ? m_versB : o.m_versB;
 
 		Dependency d = this;
-		d.m_cmpA = !doCmp(m_cmpA, a,a)? m_cmpA : o.m_cmpA;
+		d.m_cmpA = !doCmp(m_cmpA, a, a) && m_versA >= o.m_versA ? m_cmpA : o.m_cmpA;
 		d.m_versA = a;
-		d.m_cmpB = !doCmp(m_cmpB, b,b)? m_cmpB : o.m_cmpB;
+		d.m_cmpB = !doCmp(m_cmpB, b, b) && m_versB <= o.m_versB ? m_cmpB : o.m_cmpB;
 		d.m_versB = b;
 		d.m_optional = m_optional && o.m_optional;
 		if (!d.valid) return INVALID;
@@ -438,6 +437,14 @@ unittest {
 	assert(a == Dependency(">=3.5.0 <4.0.0"), "Testing failed: " ~ a.toString());
 	a = Dependency("~>3.5.0");
 	assert(a == Dependency(">=3.5.0 <3.6.0"), "Testing failed: " ~ a.toString());
+
+	a = Dependency("~>0.1.1");
+	b = Dependency("==0.1.0");
+	assert(!a.merge(b).valid);
+	b = Dependency("==0.1.9999");
+	assert(a.merge(b).valid);
+	b = Dependency("==0.2.0");
+	assert(!a.merge(b).valid);
 
 	a = Dependency("~>1.0.1-beta");
 	b = Dependency(">=1.0.1-beta <1.1.0");
