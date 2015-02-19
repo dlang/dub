@@ -41,6 +41,9 @@ interface PackageSupplier {
 
 	/// perform cache operation
 	void cacheOp(Path cacheDir, CacheOp op);
+
+    /// search for packages
+    Json searchForPackages(string[] names);
 }
 
 /// operations on package supplier cache
@@ -105,6 +108,10 @@ class FileSystemPackageSupplier : PackageSupplier {
 		}
 		return toPath(versions[$-1]);
 	}
+
+    Json searchForPackages(string[] names){
+        return Json.emptyObject;
+    }
 }
 
 
@@ -179,6 +186,11 @@ class RegistryPackageSupplier : PackageSupplier {
 		m_metadataCacheDirty = false;
 	}
 
+    Json searchForPackages(string[] names){
+        import std.array : join;
+        auto url = m_registryUrl ~ Path("api/search?q=" ~ names.join(","));
+        return (cast(string)download(url)).parseJsonString;
+    }
 	private @property string cacheFileName()
 	{
 		import std.digest.md;
@@ -230,6 +242,8 @@ class RegistryPackageSupplier : PackageSupplier {
 		enforce(best != null, "No package candidate found for "~packageId~" "~dep.toString());
 		return best;
 	}
+
+    
 }
 
 private enum PackagesPath = "packages";
