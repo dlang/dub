@@ -33,9 +33,9 @@ struct Dependency {
 	private {
 		// Shortcut to create >=0.0.0
 		enum ANY_IDENT = "*";
-		string m_cmpA;
+		bool m_inclusiveA = true; // A comparison > (true) or >= (false)
 		Version m_versA;
-		string m_cmpB;
+		bool m_inclusiveB = true; // B comparison < (true) or <= (false)
 		Version m_versB;
 		Path m_path;
 		bool m_optional = false;
@@ -61,61 +61,58 @@ struct Dependency {
 		if (ves.startsWith("~>")) {
 			// Shortcut: "~>x.y.z" variant. Last non-zero number will indicate
 			// the base for this so something like this: ">=x.y.z <x.(y+1).z"
-			m_cmpA = ">=";
-			m_cmpB = "<";
+			m_inclusiveA = true;
+			m_inclusiveB = false;
 			ves = ves[2..$];
 			m_versA = Version(expandVersion(ves));
 			m_versB = Version(bumpVersion(ves));
 		} else if (ves[0] == Version.BRANCH_IDENT) {
-			m_cmpA = ">=";
-			m_cmpB = "<=";
+			m_inclusiveA = true;
+			m_inclusiveB = true;
 			m_versA = m_versB = Version(ves);
 		} else if (std.string.indexOf("><=", ves[0]) == -1) {
-			m_cmpA = ">=";
-			m_cmpB = "<=";
+			m_inclusiveA = true;
+			m_inclusiveB = true;
 			m_versA = m_versB = Version(ves);
 		} else {
-			m_cmpA = skipComp(ves);
+			auto cmpa = skipComp(ves);
 			size_t idx2 = std.string.indexOf(ves, " ");
 			if (idx2 == -1) {
-				if (m_cmpA == "<=" || m_cmpA == "<") {
+				if (cmpa == "<=" || cmpa == "<") {
 					m_versA = Version.RELEASE;
-					m_cmpB = m_cmpA;
-					m_cmpA = ">=";
+					m_inclusiveA = true;
 					m_versB = Version(ves);
-				} else if (m_cmpA == ">=" || m_cmpA == ">") {
+					m_inclusiveB = cmpa == "<=";
+				} else if (cmpa == ">=" || cmpa == ">") {
 					m_versA = Version(ves);
+					m_inclusiveA = cmpa == ">=";
 					m_versB = Version.HEAD;
-					m_cmpB = "<=";
+					m_inclusiveB = true;
 				} else {
 					// Converts "==" to ">=a&&<=a", which makes merging easier
 					m_versA = m_versB = Version(ves);
-					m_cmpA = ">=";
-					m_cmpB = "<=";
+					m_inclusiveA = m_inclusiveB = true;
 				}
 			} else {
+				enforce(cmpa == ">" || cmpa == ">=", "First comparison operator expected to be either > or >=, not "~cmpa);
 				assert(ves[idx2] == ' ');
 				m_versA = Version(ves[0..idx2]);
+				m_inclusiveA = cmpa == ">=";
 				string v2 = ves[idx2+1..$];
-				m_cmpB = skipComp(v2);
+				auto cmpb = skipComp(v2);
+				enforce(cmpb == "<" || cmpb == "<=", "Second comparison operator expected to be either < or <=, not "~cmpb);
 				m_versB = Version(v2);
+				m_inclusiveB = cmpb == "<=";
 
-				enforce(!m_versA.isBranch, format("Partly a branch (A): %s", ves));
-				enforce(!m_versB.isBranch, format("Partly a branch (B): %s", ves));
-
-				if (m_versB < m_versA) {
-					swap(m_versA, m_versB);
-					swap(m_cmpA, m_cmpB);
-				}
-				enforce( m_cmpA != "==" && m_cmpB != "==", "For equality, please specify a single version.");
+				enforce(!m_versA.isBranch && !m_versB.isBranch, format("Cannot compare branches: %s", ves));
+				enforce(m_versA <= m_versB, "First version must not be greater than the second one.");
 			}
 		}
 	}
 
 	this(in Version ver)
 	{
-		m_cmpA = ">=";
-		m_cmpB = "<=";
+		m_inclusiveA = m_inclusiveB = true;
 		m_versA = ver;
 		m_versB = ver;
 	}
@@ -143,14 +140,14 @@ struct Dependency {
 
 		if (this == invalid) return "invalid";
 
-		if( m_versA == m_versB && m_cmpA == ">=" && m_cmpB == "<=" ){
+		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
 			// Special "==" case
 			if (m_versA == Version.MASTER ) r = "~master";
 			else r = m_versA.toString();
 		} else {
-			if( m_versA != Version.RELEASE ) r = m_cmpA ~ m_versA.toString();
-			if( m_versB != Version.HEAD ) r ~= (r.length==0?"" : " ") ~ m_cmpB ~ m_versB.toString();
-			if( m_versA == Version.RELEASE && m_versB == Version.HEAD ) r = ">=0.0.0";
+			if (m_versA != Version.RELEASE) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
+			if (m_versB != Version.HEAD) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
+			if (m_versA == Version.RELEASE && m_versB == Version.HEAD) r = ">=0.0.0";
 		}
 		return r;
 	}
@@ -240,15 +237,15 @@ struct Dependency {
 	bool opEquals(in Dependency o)
 	const {
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
-		return o.m_cmpA == m_cmpA && o.m_cmpB == m_cmpB
+		return o.m_inclusiveA == m_inclusiveA && o.m_inclusiveB == m_inclusiveB
 			&& o.m_versA == m_versA && o.m_versB == m_versB
 			&& o.m_optional == m_optional;
 	}
 
 	int opCmp(in Dependency o)
 	const {
-		if (m_cmpA != o.m_cmpA) return m_cmpA < o.m_cmpA ? -1 : 1;
-		if (m_cmpB != o.m_cmpB) return m_cmpB < o.m_cmpB ? -1 : 1;
+		if (m_inclusiveA != o.m_inclusiveA) return m_inclusiveA < o.m_inclusiveA ? -1 : 1;
+		if (m_inclusiveB != o.m_inclusiveB) return m_inclusiveB < o.m_inclusiveB ? -1 : 1;
 		if (m_versA != o.m_versA) return m_versA < o.m_versA ? -1 : 1;
 		if (m_versB != o.m_versB) return m_versB < o.m_versB ? -1 : 1;
 		if (m_optional != o.m_optional) return m_optional ? -1 : 1;
@@ -264,7 +261,7 @@ struct Dependency {
 	}
 
 	bool valid() const {
-		return m_versA <= m_versB && doCmp(m_cmpA, m_versB, m_versA) && doCmp(m_cmpB, m_versA, m_versB);
+		return m_versA <= m_versB && doCmp(m_inclusiveA && m_inclusiveB, m_versA, m_versB);
 	}
 
 	bool matches(string vers) const { return matches(Version(vers)); }
@@ -279,9 +276,9 @@ struct Dependency {
 		}
 		if(v.isBranch || m_versA.isBranch)
 			return m_versA == v;
-		if( !doCmp(m_cmpA, v, m_versA) )
+		if( !doCmp(m_inclusiveA, m_versA, v) )
 			return false;
-		if( !doCmp(m_cmpB, v, m_versB) )
+		if( !doCmp(m_inclusiveB, v, m_versB) )
 			return false;
 		return true;
 	}
@@ -301,9 +298,9 @@ struct Dependency {
 		Version b = m_versB < o.m_versB ? m_versB : o.m_versB;
 
 		Dependency d = this;
-		d.m_cmpA = !doCmp(m_cmpA, a, a) && m_versA >= o.m_versA ? m_cmpA : o.m_cmpA;
+		d.m_inclusiveA = !m_inclusiveA && m_versA >= o.m_versA ? false : o.m_inclusiveA;
 		d.m_versA = a;
-		d.m_cmpB = !doCmp(m_cmpB, b, b) && m_versB <= o.m_versB ? m_cmpB : o.m_cmpB;
+		d.m_inclusiveB = !m_inclusiveB && m_versB <= o.m_versB ? false : o.m_inclusiveB;
 		d.m_versB = b;
 		d.m_optional = m_optional && o.m_optional;
 		if (!d.valid) return INVALID;
@@ -326,16 +323,8 @@ struct Dependency {
 		}
 	}
 
-	private static bool doCmp(string mthd, ref const Version a, ref const Version b) {
-		//logDebug("Calling %s%s%s", a, mthd, b);
-		switch(mthd) {
-			default: throw new Exception("Unknown comparison operator: "~mthd);
-			case ">": return a>b;
-			case ">=": return a>=b;
-			case "==": return a==b;
-			case "<=": return a<=b;
-			case "<": return a<b;
-		}
+	private static bool doCmp(bool inclusive, ref const Version a, ref const Version b) {
+		return inclusive ? a <= b : a < b;
 	}
 }
 
@@ -343,8 +332,8 @@ unittest {
 	Dependency a = Dependency(">=1.1.0"), b = Dependency(">=1.3.0");
 	assert (a.merge(b).valid() && a.merge(b).versionString == ">=1.3.0", a.merge(b).toString());
 
-	a = Dependency("<=1.0.0 >=2.0.0");
-	assert (!a.valid(), a.toString());
+	assertThrown(Dependency("<=2.0.0 >=1.0.0"));
+	assertThrown(Dependency(">=2.0.0 <=1.0.0"));
 
 	a = Dependency(">=1.0.0 <=5.0.0"); b = Dependency(">=2.0.0");
 	assert (a.merge(b).valid() && a.merge(b).versionString == ">=2.0.0 <=5.0.0", a.merge(b).toString());
