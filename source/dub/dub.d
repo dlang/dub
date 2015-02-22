@@ -44,6 +44,7 @@ version (LDC) pragma(lib, "curl");
 /// hosted by code.dlang.org.
 PackageSupplier[] defaultPackageSuppliers()
 {
+	//URL url = URL.parse("http://code.dlang.org/");
 	URL url = URL.parse("http://127.0.0.1:8005/");
 	logDiagnostic("Using dub registry url '%s'", url);
 	return [new RegistryPackageSupplier(url)];
@@ -621,21 +622,19 @@ class Dub {
 				}
 			}
 		}
-        
-		if(notFound.length > 0){
-            // search for packages close in name
-            Json packages;
-            foreach(ps; this.m_packageSuppliers){
-                logInfo("Searching for %s on %s", notFound, ps);
-                packages = ps.searchForPackages(notFound);
-            }
-            logInfo("Raw data: %s", packages);
-            string[][string] foundPackages = deserializeJson!(string[][string])(packages);
 
-            string errorString = "Couldnt find packages. Possible alternatives\n";
-            errorString ~= format("%-10s : %s\n", "Package", "Alternatives");
-            errorString ~= format("%-(%-10s : [%-( %s%|,%) ]%|\n%)", foundPackages);
-            throw new Exception(errorString);
+		if(notFound.length > 0){
+			// search for packages close in name
+			Json packages;
+			foreach(ps; this.m_packageSuppliers){
+				packages = ps.searchForPackages(notFound);
+			}
+			string[][string] foundPackages = deserializeJson!(string[][string])(packages);
+
+			string errorString = "Couldnt find one or more packages.\n";
+			errorString ~= format("%-10s : %s\n", "Package", "Close matches");
+			errorString ~= format("%-(%-10s : [%-( %s%|,%) ]%|\n%)", foundPackages);
+			throw new Exception(errorString);
 		}
 
 		initPackage(path, depVers, type);

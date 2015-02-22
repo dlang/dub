@@ -42,8 +42,8 @@ interface PackageSupplier {
 	/// perform cache operation
 	void cacheOp(Path cacheDir, CacheOp op);
 
-    /// search for packages
-    Json searchForPackages(string[] names);
+	/// search for packages
+	Json searchForPackages(string[] names);
 }
 
 /// operations on package supplier cache
@@ -109,9 +109,9 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return toPath(versions[$-1]);
 	}
 
-    Json searchForPackages(string[] names){
-        return Json.emptyObject;
-    }
+	Json searchForPackages(string[] names){
+		assert(0, "Can't search for packages with FileSystemRegistry yet");
+	}
 }
 
 
@@ -186,11 +186,14 @@ class RegistryPackageSupplier : PackageSupplier {
 		m_metadataCacheDirty = false;
 	}
 
-    Json searchForPackages(string[] names){
-        import std.array : join;
-        auto url = m_registryUrl ~ Path("api/search?q=" ~ names.join(","));
-        return (cast(string)download(url)).parseJsonString;
-    }
+	Json searchForPackages(string[] names)
+	{
+		import std.array : join;
+		import std.uri : encodeComponent;
+		auto url = m_registryUrl ~ Path("api/search?q=" ~ names.join(",").encodeComponent);
+		return (cast(string)download(url)).parseJsonString;
+	}
+
 	private @property string cacheFileName()
 	{
 		import std.digest.md;
@@ -243,7 +246,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		return best;
 	}
 
-    
+
 }
 
 private enum PackagesPath = "packages";
