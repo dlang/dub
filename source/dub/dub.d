@@ -44,8 +44,7 @@ version (LDC) pragma(lib, "curl");
 /// hosted by code.dlang.org.
 PackageSupplier[] defaultPackageSuppliers()
 {
-	//URL url = URL.parse("http://code.dlang.org/");
-	URL url = URL.parse("http://127.0.0.1:8005/");
+	URL url = URL.parse("http://code.dlang.org/");
 	logDiagnostic("Using dub registry url '%s'", url);
 	return [new RegistryPackageSupplier(url)];
 }
