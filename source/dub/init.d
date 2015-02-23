@@ -44,6 +44,7 @@ void initPackage(Path root_path, string[string] deps, string type)
 		case "minimal": initMinimalPackage(root_path, deps); break;
 		case "vibe.d": initVibeDPackage(root_path, deps); break;
 		case "deimos": initDeimosPackage(root_path, deps); break;
+		case "dgui": initDGuiPackage(root_path, deps); break;
 	}
 	writeGitignore(root_path);
 }
@@ -99,6 +100,33 @@ void initDeimosPackage(Path root_path, string[string] deps)
 	                 deps, ["targetType": `"sourceLibrary"`, "importPaths": `["."]`]);
 	createDirectory(root_path ~ "C");
 	createDirectory(root_path ~ "deimos");
+}
+
+void initDGuiPackage(Path root_path, string[string] deps)
+{
+	if("dgui" !in deps)
+		deps["dgui"] = "~>1.0.1";
+	
+	writePackageJson(root_path, "A minimal DGui application", deps);
+	createDirectory(root_path ~ "source");
+	write((root_path ~ "source/app.d").toNativeString(),
+q{import dgui.all;
+
+class MainForm: Form
+{
+	public this()
+	{
+		this.text = "DGui Form";
+		this.size = Size(500, 400);
+		this.startPosition = FormStartPosition.centerScreen;
+	}
+}
+
+int main(string[] args)
+{
+	return Application.run(new MainForm());
+}
+});
 }
 
 void writePackageJson(Path root_path, string description, string[string] dependencies = null, string[string] addFields = null)

@@ -329,6 +329,7 @@ class InitCommand : Command {
 			"minimal - simple \"hello world\" project (default)",
 			"vibe.d  - minimal HTTP server based on vibe.d",
 			"deimos  - skeleton for C header bindings",
+			"dgui  - minimal DGui application",
 		]);
 	}
 
@@ -345,11 +346,11 @@ class InitCommand : Command {
 		// Checks if argument uses current method of specifying project type.
 		if (free_args.length)
 		{
-			if (["vibe.d", "deimos", "minimal"].canFind(free_args[0]))
+			if (["vibe.d", "deimos", "minimal", "dgui"].canFind(free_args[0]))
 			{
 				m_buildType = free_args[0];
 				free_args = free_args[1 .. $];
-				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
+				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal | dgui] in future.");
 			}
 		}
 		dub.createEmptyPackage(Path(dir), free_args, m_buildType);
