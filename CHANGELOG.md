@@ -1,16 +1,69 @@
 Changelog
 =========
 
-v0.9.23 - YYYY-MM-DD
+v0.9.23 - 2015-03-
 --------------------
 
 ### Features and improvements ###
- - Added support for dub init to take a list of dependencies. (by Colin Grogan)
-	 - Example usage (dub init myProj logger vibe-d gfm --type=vibe.d)
-	 - Dub will then try to get the latest version number for each of these dependencies from code.dlang.org and automatically add them to the dependencies section of dub.json.
-	 - If it cant find the dependant package name, it will ignore it,
-	 - Current functionality is preserved whereby project type can be determined by using [vibe.d, deimos or minimal] after package name. (So example above would be dub init myProj vibe.d logger vibe-d gfm).
-		 - Preferrable to use --type however, as this should be removed for next version.
+
+ - Compiles with DMD frontend versions 2.064 up to 2.067
+ - Improved the JSON error diagnostic format to `file(line): Error: message` for better IDE integration - [issue #317][issue317]
+ - Added a "deimos" template type to the `dub init` command - [pull #431][issue431]
+ - Added a `dub clean-caches` command to clear online registry meta data that is cached locally - [pull #433][issue433]
+ - Added a `"copyDirs"` field for package.json for copying whole directories instead of individual files (by Vadim Lopatin) - [pull #471][issue471]
+ - `"copyFiles"` are now hard linked into the target directory instead of a real copy
+ - Added support for dub init to take a list of dependencies (by Colin Grogan) - [pull #453][issue453]
+	 - Example: `dub init myProj logger vibe-d gfm --type=vibe.d`
+	 - DUB will try to get the latest version number for each of these dependencies from [code.dlang.org](http://code.dlang.org/) and automatically add them to the dependencies section of dub.json
+	 - Non-existing packages will be ignored
+	 - The previous syntax where the argument to `dub init` is the project type instead of a dependency list is preserved, but deprecated - use the `--type=` switch instead
+ - DUB now searches the PATH for installed compilers and chooses the default compiler as appropriate - [issue #480][issue480], [pull #506][issue506]
+ - Added a project generator for Sublime Text (by Nicholas Londey) - [pull #461][issue461]
+ - `--build-mode=singleFile` now builds several files in parallel - [issue #498][issue498]
+ - Added a project generator for CMake files (by Steven Dwy) - [pull #489][issue489]
+ - Avoids to hard link `"copyFiles"` that have not changed in the source directory on Windows - [issue #511][issue511]
+ - Added `dub --version` option to output the program version and build date - [pull #513][issue513]
+
+### Bug fixes ###
+
+ - Fixed determining module names from empty modules for `dub test` (by Szabo Bogdan) - [pull #458][issue458]
+ - Fixed generating VisualStudio solution files on Win64 (by Nicholas Londey) - [pull #455][issue455]
+ - Fixed erroneously adding "executable" dependencies to the list of link dependencies (by Михаил Страшун aka Dicebot) - [pull #474][issue474]
+ - Fixed overriding the default source paths with `"sourcePaths"` - [issue #483][issue483]
+ - Fixed removing packages when build output files exist - [issue #377][issue377]
+ - Fixed handling of sub package references that specify an explicit path - [issue #448][issue448]
+ - Fixed erroneous detection of a "sourcemain.d" source file under certain circumstances - [issue #487][issue487]
+ - Fixed `dub build -t ddox` on OS X - [issue #354][issue354]
+ - Fixed using unique temporary files (by Михаил Страшун aka Dicebot) - [issue #482][issue482], [pull #497][issue497]
+ - Fixed compiler command line issues on Windows with `--buildMode=singleFile` (by machindertech) - [pull #505][issue505]
+ - Fixed a version range match error (">=A <B" + "==B" was merged to "==B")
+ - Fixed broken up-to-date detection of changed overriden string import files - [issue #331][issue331]
+
+[issue317]: https://github.com/rejectedsoftware/dub/issues/317
+[issue331]: https://github.com/rejectedsoftware/dub/issues/331
+[issue354]: https://github.com/rejectedsoftware/dub/issues/354
+[issue377]: https://github.com/rejectedsoftware/dub/issues/377
+[issue431]: https://github.com/rejectedsoftware/dub/issues/431
+[issue433]: https://github.com/rejectedsoftware/dub/issues/433
+[issue448]: https://github.com/rejectedsoftware/dub/issues/448
+[issue453]: https://github.com/rejectedsoftware/dub/issues/453
+[issue455]: https://github.com/rejectedsoftware/dub/issues/455
+[issue458]: https://github.com/rejectedsoftware/dub/issues/458
+[issue461]: https://github.com/rejectedsoftware/dub/issues/461
+[issue471]: https://github.com/rejectedsoftware/dub/issues/471
+[issue474]: https://github.com/rejectedsoftware/dub/issues/474
+[issue480]: https://github.com/rejectedsoftware/dub/issues/480
+[issue482]: https://github.com/rejectedsoftware/dub/issues/482
+[issue483]: https://github.com/rejectedsoftware/dub/issues/483
+[issue487]: https://github.com/rejectedsoftware/dub/issues/487
+[issue489]: https://github.com/rejectedsoftware/dub/issues/489
+[issue497]: https://github.com/rejectedsoftware/dub/issues/497
+[issue498]: https://github.com/rejectedsoftware/dub/issues/498
+[issue505]: https://github.com/rejectedsoftware/dub/issues/505
+[issue506]: https://github.com/rejectedsoftware/dub/issues/506
+[issue511]: https://github.com/rejectedsoftware/dub/issues/511
+[issue513]: https://github.com/rejectedsoftware/dub/issues/513
+
 
 v0.9.22 - 2014-09-22
 --------------------
