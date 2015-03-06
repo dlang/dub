@@ -198,8 +198,8 @@ class Project {
 				if (m_selections.hasSelectedVersion(basename)) {
 					auto selver = m_selections.getSelectedVersion(basename);
 					if (vspec_.merge(selver) == Dependency.invalid) {
-						logWarn("Selected package %s %s does not match the dependency specification in package %s (%s). Need to \"dub upgrade\"?",
-							basename, selver, pack.name, vspec_);
+						logWarn("Selected package %s %s does not match the dependency specification %s in package %s. Need to \"dub upgrade\"?",
+							basename, selver, vspec_, pack.name);
 					}
 				}
 
@@ -561,6 +561,8 @@ class Project {
 		dst.rootPackage = m_rootPackage.name;
 
 		auto configs = getPackageConfigs(platform, config);
+
+		// FIXME: use the generator system to collect the list of actually used build dependencies and source files
 
 		auto mp = Json.emptyObject;
 		m_rootPackage.describe(mp, platform, config);
