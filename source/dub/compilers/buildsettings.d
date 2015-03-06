@@ -89,7 +89,7 @@ struct BuildSettings {
 	void prependStringImportPaths(in string[] value...) { prepend(stringImportPaths, value); }
 	void addImportFiles(in string[] value...) { add(importFiles, value); }
 	void removeImportFiles(in string[] value...) { removePaths(importFiles, value); }
-	void addStringImportFiles(in string[] value...) { add(stringImportFiles, value); }
+	void addStringImportFiles(in string[] value...) { addSI(stringImportFiles, value); }
 	void addPreGenerateCommands(in string[] value...) { add(preGenerateCommands, value, false); }
 	void addPostGenerateCommands(in string[] value...) { add(postGenerateCommands, value, false); }
 	void addPreBuildCommands(in string[] value...) { add(preBuildCommands, value, false); }
@@ -132,6 +132,20 @@ struct BuildSettings {
 					break;
 				}
 			if (!found) arr = v ~ arr;
+		}
+	}
+
+	// add string import files (avoids file name duplicates in addition to path duplicates)
+	private void addSI(ref string[] arr, in string[] vals)
+	{
+		outer:
+		foreach (v; vals) {
+			auto vh = Path(v).head;
+			foreach (ve; arr) {
+				if (Path(ve).head == vh)
+					continue outer;
+			}
+			arr ~= v;
 		}
 	}
 
