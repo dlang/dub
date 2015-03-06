@@ -236,8 +236,17 @@ class ProjectGenerator
 		// special support for overriding string imports in parent packages
 		// this is a candidate for deprecation, once an alternative approach
 		// has been found
-		if (ti.buildSettings.stringImportPaths.length)
+		if (ti.buildSettings.stringImportPaths.length) {
+			// override string import files (used for up to date checking)
+			foreach (ref f; ti.buildSettings.stringImportFiles)
+				foreach (fi; root_settings.stringImportFiles)
+					if (f != fi && Path(f).head == Path(fi).head) {
+						f = fi;
+					}
+
+			// add the string import paths (used by the compiler to find the overridden files)
 			ti.buildSettings.prependStringImportPaths(root_settings.stringImportPaths);
+		}
 
 		string[] packs = ti.packages.map!(p => p.name).array;
 		foreach (d; ti.dependencies)
