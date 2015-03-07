@@ -15,7 +15,6 @@ v0.9.23 - 2015-03-
  - Added support for dub init to take a list of dependencies (by Colin Grogan) - [pull #453][issue453]
 	 - Example: `dub init myProj logger vibe-d gfm --type=vibe.d`
 	 - DUB will try to get the latest version number for each of these dependencies from [code.dlang.org](http://code.dlang.org/) and automatically add them to the dependencies section of dub.json
-	 - Non-existing packages will be ignored
 	 - The previous syntax where the argument to `dub init` is the project type instead of a dependency list is preserved, but deprecated - use the `--type=` switch instead
  - DUB now searches the PATH for installed compilers and chooses the default compiler as appropriate - [issue #480][issue480], [pull #506][issue506]
  - Added a project generator for Sublime Text (by Nicholas Londey) - [pull #461][issue461]
