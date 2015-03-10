@@ -1326,7 +1326,10 @@ class DustmiteCommand : PackageBuildCommand {
 		super.prepare(args);
 
 		// speed up loading when in test mode
-		if (m_testPackage.length) skipDubInitialization = true;
+		if (m_testPackage.length) {
+			skipDubInitialization = true;
+			m_nodeps = true;
+		}
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -1407,7 +1410,8 @@ class DustmiteCommand : PackageBuildCommand {
 			if (m_programStatusCode != int.min) testcmd ~= format(" --program-status=%s", m_programStatusCode);
 			if (m_programRegex.length) testcmd ~= format(" \"--program-regex=%s\"", m_programRegex);
 			if (m_combined) testcmd ~= " --combined";
-			// TODO: pass all original parameters
+			// TODO: pass *all* original parameters
+			logDiagnostic("Running dustmite: %s", testcmd);
 			auto dmpid = spawnProcess(["dustmite", path.toNativeString(), testcmd]);
 			return dmpid.wait();
 		}
@@ -1419,6 +1423,8 @@ class DustmiteCommand : PackageBuildCommand {
 		return (code, output) {
 			import std.encoding;
 			import std.regex;
+
+			logInfo("%s", output);
 
 			if (code_match != int.min && code != code_match) {
 				logInfo("Exit code %s doesn't match expected value %s", code, code_match);
