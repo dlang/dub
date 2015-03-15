@@ -499,7 +499,7 @@ struct Version {
 		if (isUnknown || oth.isUnknown) {
 			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, oth));
 		}
-		return m_version == oth.m_version;
+		return opCmp(oth) == 0;
 	}
 
 	/// Returns true, if this version indicates a branch, which is not the trunk.
@@ -597,4 +597,6 @@ unittest {
 	a = Version.UNKNOWN;
 	b = Version.UNKNOWN;
 	assertThrown(a == b, "Failed: UNKNOWN == UNKNOWN");
+
+	assert(Version("1.0.0+a") == Version("1.0.0+b"));
 }
