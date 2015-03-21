@@ -186,7 +186,8 @@ struct BuildSettingsTemplate {
 					}
 
 					foreach (d; dirEntries(path.toNativeString(), pattern, SpanMode.depth)) {
-						if (isDir(d.name)) continue;
+						import std.path : baseName;
+						if (baseName(d.name)[0] == '.' || isDir(d.name)) continue;
 						auto src = Path(d.name).relativeTo(base_path);
 						__traits(getMember, dst, method)(src.toNativeString());
 					}
