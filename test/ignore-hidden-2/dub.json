@@ -1,0 +1,4 @@
+{
+	"name": "ignore-hidden-2",
+	"sourceFiles": ["source/.hidden.d"],
+}

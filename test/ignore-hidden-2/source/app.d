@@ -1,0 +1,5 @@
+import hidden;
+
+void main()
+{
+}
