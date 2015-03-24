@@ -10,7 +10,7 @@ v0.9.23 - 2015-03-
  - Improved the JSON error diagnostic format to `file(line): Error: message` for better IDE integration - [issue #317][issue317]
  - Added a "deimos" template type to the `dub init` command - [pull #431][issue431]
  - Added a `dub clean-caches` command to clear online registry meta data that is cached locally - [pull #433][issue433]
- - Added a `"copyDirs"` field for package.json for copying whole directories instead of individual files (by Vadim Lopatin) - [pull #471][issue471]
+ - `"copyFiles"` can now be used to copy directories (by Vadim Lopatin) - [pull #471][issue471]
  - `"copyFiles"` are now hard linked into the target directory instead of a real copy
  - Added support for dub init to take a list of dependencies (by Colin Grogan) - [pull #453][issue453]
 	 - Example: `dub init myProj logger vibe-d gfm --type=vibe.d`
