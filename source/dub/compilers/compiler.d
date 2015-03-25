@@ -96,7 +96,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 		{["-lib"], `Use {"targetType": "staticLibrary"} or let dub manage this`},
 		{["-D"], "Call dub with --build=docs or --build=ddox"},
 		{["-X"], "Call dub with --build=ddox"},
-		{["-cov"], "Call dub with --build=cov or --build=unittest-cox"},
+		{["-cov"], "Call dub with --build=cov or --build=unittest-cov"},
 		{["-profile"], "Call dub with --build=profile"},
 		{["-version="], `Use "versions" to specify version constants in a compiler independent way`},
 		{["-debug="], `Use "debugVersions" to specify version constants in a compiler independent way`},
