@@ -389,9 +389,16 @@ class BuildGenerator : ProjectGenerator {
 			auto srcs = buildsettings.sourceFiles.filter!(f => !isLinkerFile(f));
 			auto objs = new string[](srcs.walkLength);
 			logInfo("Compiling using %s...", settings.platform.compilerBinary);
-			foreach (i, src; srcs.parallel(1)) {
+
+			void compileSource(size_t i, string src) {
 				logInfo("Compiling %s...", src);
 				objs[i] = compileUnit(src, pathToObjName(src), buildsettings, settings);
+			}
+
+			if (settings.parallelBuild) {
+				foreach (i, src; srcs.parallel(1)) compileSource(i, src);
+			} else {
+				foreach (i, src; srcs.array) compileSource(i, src);
 			}
 
 			logInfo("Linking...");

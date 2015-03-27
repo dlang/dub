@@ -508,6 +508,7 @@ class GenerateCommand : PackageBuildCommand {
 		bool m_run = false;
 		bool m_force = false;
 		bool m_combined = false;
+		bool m_parallel = false;
 		bool m_printPlatform, m_printBuilds, m_printConfigs;
 	}
 
@@ -544,6 +545,9 @@ class GenerateCommand : PackageBuildCommand {
 		]);
 		args.getopt("print-platform", &m_printPlatform, [
 			"Prints the identifiers for the current build platform as used for the build fields in dub.json"
+		]);
+		args.getopt("parallel", &m_parallel, [
+			"Runs multiple compiler instances in parallel, if possible."
 		]);
 	}
 
@@ -589,6 +593,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.force = m_force;
 		gensettings.rdmd = m_rdmd;
 		gensettings.tempBuild = m_tempBuild;
+		gensettings.parallelBuild = m_parallel;
 
 		logDiagnostic("Generating using %s", m_generator);
 		if (m_generator == "visuald-combined") {
