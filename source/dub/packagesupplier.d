@@ -168,7 +168,12 @@ class RegistryPackageSupplier : PackageSupplier {
 
 		case CacheOp.load:
 			if (!path.existsFile()) return;
-			deserializeJson(m_metadataCache, jsonFromFile(path));
+			try deserializeJson(m_metadataCache, jsonFromFile(path));
+			catch (Exception e) {
+				import std.encoding;
+				logWarn("Error loading package cache file %s: %s", path.toNativeString(), e.msg);
+				logDebug("Full error: %s", e.toString().sanitize());
+			}
 			break;
 
 		case CacheOp.clean:
