@@ -7,21 +7,25 @@ v0.9.23 - 2015-04-06
 ### Features and improvements ###
 
  - Compiles with DMD frontend versions 2.064 up to 2.067
- - Improved the JSON error diagnostic format to `file(line): Error: message` for better IDE integration - [issue #317][issue317]
- - Added a "deimos" template type to the `dub init` command - [pull #431][issue431]
+ - Largely reduced the execution time needed by DUB itself during builds - [pull #388][issue388]
  - Added a `dub clean-caches` command to clear online registry meta data that is cached locally - [pull #433][issue433]
- - `"copyFiles"` can now be used to copy directories (by Vadim Lopatin) - [pull #471][issue471]
- - `"copyFiles"` are now hard linked into the target directory instead of a real copy
+ - Added a "deimos" template type to the `dub init` command - [pull #431][issue431]
  - Added support for dub init to take a list of dependencies (by Colin Grogan) - [pull #453][issue453]
 	 - Example: `dub init myProj logger vibe-d gfm --type=vibe.d`
 	 - DUB will try to get the latest version number for each of these dependencies from [code.dlang.org](http://code.dlang.org/) and automatically add them to the dependencies section of dub.json
 	 - The previous syntax where the argument to `dub init` is the project type instead of a dependency list is preserved, but deprecated - use the `--type=` switch instead
- - DUB now searches the PATH for installed compilers and chooses the default compiler as appropriate - [issue #480][issue480], [pull #506][issue506]
  - Added a project generator for Sublime Text (by Nicholas Londey) - [pull #461][issue461]
- - `--build-mode=singleFile` now builds several files in parallel using the `--parallel` switch - [issue #498][issue498]
  - Added a project generator for CMake files (by Steven Dwy) - [pull #489][issue489]
- - Avoids to hard link `"copyFiles"` that have not changed in the source directory on Windows - [issue #511][issue511]
+ - Added support for `dub test` and modules where the path doesn't match the module name (by Szabo Bogdan) - [pull #344][issue344]
  - Added `dub --version` option to output the program version and build date - [pull #513][issue513]
+ - Improved `"copyFiles"` support
+     - Added support for glob matches (by Colden Cullen) - [pull #407][issue407]
+     - Added support for copying directories (by Vadim Lopatin) - [pull #471][issue471]
+     - Files are now hard linked into the target directory instead of making a real copy
+     - Avoids to hard link `"copyFiles"` that have not changed in the source directory on Windows - [issue #511][issue511]
+ - DUB now searches the PATH for installed compilers and chooses the default compiler as appropriate - [issue #480][issue480], [pull #506][issue506]
+ - `--build-mode=singleFile` can now build several files in parallel using the `--parallel` switch - [issue #498][issue498]
+ - Improved the JSON error diagnostic format to `file(line): Error: message` for better IDE integration - [issue #317][issue317]
 
 ### Bug fixes ###
 
@@ -38,11 +42,18 @@ v0.9.23 - 2015-04-06
  - Fixed a version range match error (">=A <B" + "==B" was merged to "==B")
  - Fixed broken up-to-date detection of changed overriden string import files - [issue #331][issue331]
  - Fixed handling of the new `-m32mscoff` flag (is now also passed to the linker stage)
+ - Fixed handling of several command line options for GDC (by Iain Buclaw) - [pull #387][issue387]
+ - Fixed handling of `"buildTypes"` for downloaded packages (by sinkuu) - [pull #406][issue406]
 
 [issue317]: https://github.com/rejectedsoftware/dub/issues/317
 [issue331]: https://github.com/rejectedsoftware/dub/issues/331
+[issue344]: https://github.com/rejectedsoftware/dub/issues/344
 [issue354]: https://github.com/rejectedsoftware/dub/issues/354
 [issue377]: https://github.com/rejectedsoftware/dub/issues/377
+[issue387]: https://github.com/rejectedsoftware/dub/issues/387
+[issue388]: https://github.com/rejectedsoftware/dub/issues/388
+[issue406]: https://github.com/rejectedsoftware/dub/issues/406
+[issue407]: https://github.com/rejectedsoftware/dub/issues/407
 [issue431]: https://github.com/rejectedsoftware/dub/issues/431
 [issue433]: https://github.com/rejectedsoftware/dub/issues/433
 [issue448]: https://github.com/rejectedsoftware/dub/issues/448
