@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.9.23 - 2015-03-
+v0.9.23 - 2015-04-06
 --------------------
 
 ### Features and improvements ###
@@ -18,7 +18,7 @@ v0.9.23 - 2015-03-
 	 - The previous syntax where the argument to `dub init` is the project type instead of a dependency list is preserved, but deprecated - use the `--type=` switch instead
  - DUB now searches the PATH for installed compilers and chooses the default compiler as appropriate - [issue #480][issue480], [pull #506][issue506]
  - Added a project generator for Sublime Text (by Nicholas Londey) - [pull #461][issue461]
- - `--build-mode=singleFile` now builds several files in parallel - [issue #498][issue498]
+ - `--build-mode=singleFile` now builds several files in parallel using the `--parallel` switch - [issue #498][issue498]
  - Added a project generator for CMake files (by Steven Dwy) - [pull #489][issue489]
  - Avoids to hard link `"copyFiles"` that have not changed in the source directory on Windows - [issue #511][issue511]
  - Added `dub --version` option to output the program version and build date - [pull #513][issue513]
@@ -37,6 +37,7 @@ v0.9.23 - 2015-03-
  - Fixed compiler command line issues on Windows with `--buildMode=singleFile` (by machindertech) - [pull #505][issue505]
  - Fixed a version range match error (">=A <B" + "==B" was merged to "==B")
  - Fixed broken up-to-date detection of changed overriden string import files - [issue #331][issue331]
+ - Fixed handling of the new `-m32mscoff` flag (is now also passed to the linker stage)
 
 [issue317]: https://github.com/rejectedsoftware/dub/issues/317
 [issue331]: https://github.com/rejectedsoftware/dub/issues/331
