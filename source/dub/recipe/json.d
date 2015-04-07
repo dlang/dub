@@ -90,7 +90,7 @@ Json toJson(in ref PackageRecipe recipe)
 		}
 		ret.subPackages = jsonSubPackages;
 	}
-	if (recipe.configurations) {
+	if (recipe.configurations.length) {
 		Json[] configs;
 		foreach(config; recipe.configurations)
 			configs ~= config.toJson();

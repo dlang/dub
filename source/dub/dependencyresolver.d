@@ -175,7 +175,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			visited = null;
 			string error;
 			auto conflict_index = validateConfigs(root, error);
-			if (!first_error) first_error = error;
+			if (first_error !is null) first_error = error;
 
 			// print out current iteration state
 			logDebug("Interation (ci=%s) %s", conflict_index, {

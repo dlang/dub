@@ -825,7 +825,8 @@ private string getVariable(string name, in Project project, in Package pack)
 				return prj.path.toNativeString();
 	}
 
-	if (auto envvar = environment.get(name)) return envvar;
+	auto envvar = environment.get(name)
+	if (envvar !is null) return envvar;
 
 	throw new Exception("Invalid variable: "~name);
 }

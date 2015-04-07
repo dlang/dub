@@ -561,7 +561,8 @@ private string determineVersionFromSCM(Path path)
 		return null;
 	}
 
-	if (auto tag = exec("git", git_dir_param, "describe", "--long", "--tags")) {
+	auto tag = exec("git", git_dir_param, "describe", "--long", "--tags");
+	if (tag !is null) {
 		auto parts = tag.split("-");
 		auto commit = parts[$-1];
 		auto num = parts[$-2].to!int;
@@ -573,7 +574,8 @@ private string determineVersionFromSCM(Path path)
 		}
 	}
 
-	if (auto branch = exec("git", git_dir_param, "rev-parse", "--abbrev-ref", "HEAD")) {
+	auto branch = exec("git", git_dir_param, "rev-parse", "--abbrev-ref", "HEAD");
+	if (branch !is null) {
 		if (branch != "HEAD") return "~" ~ branch;
 	}
 

@@ -430,13 +430,13 @@ abstract class PackageBuildCommand : Command {
 		{
 			string msg = "Unknown build configuration: "~m_buildConfig;
 			enum distance = 3;
-			if (auto match = dub.configurations.getClosestMatch(m_buildConfig, distance))
-				msg ~= ". Did you mean '" ~ match ~ "'?";
+			auto match = dub.configurations.getClosestMatch(m_buildConfig, distance);
+			if (match !is null) msg ~= ". Did you mean '" ~ match ~ "'?";
 			enforce(0, msg);
 		}
 
 		if (m_buildType.length == 0) {
-			if (environment.get("DFLAGS")) m_buildType = "$DFLAGS";
+			if (environment.get("DFLAGS") !is null) m_buildType = "$DFLAGS";
 			else m_buildType = "debug";
 		}
 
@@ -1563,13 +1563,13 @@ private void writeOptions(CommandArgs args)
 		assert(names.length == 1 || names.length == 2);
 		string sarg = names[0].length == 1 ? names[0] : null;
 		string larg = names[0].length > 1 ? names[0] : names.length > 1 ? names[1] : null;
-		if (sarg) {
+		if (sarg !is null) {
 			writeWS(shortArgColumn);
 			writef("-%s", sarg);
 			writeWS(longArgColumn - shortArgColumn - 2);
 		} else writeWS(longArgColumn);
 		size_t col = longArgColumn;
-		if (larg) {
+		if (larg !is null) {
 			if (arg.defaultValue.peek!bool) {
 				writef("--%s", larg);
 				col += larg.length + 2;
