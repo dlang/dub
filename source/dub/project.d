@@ -177,7 +177,14 @@ class Project {
 				~ `to {"name": "%s"}. You can use {"targetName": "%s"} to keep the current `
 				~ `executable name.`,
 				m_rootPackage.name.toLower(), m_rootPackage.name);
+		} else if (!m_rootPackage.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
+			logWarn(`WARNING: DUB package names may only contain alphanumeric characters, `
+				~ `as well as '-' and '_', please modify the "name" field in %s `
+				~ `accordingly. You can use {"targetName": "%s"} to keep the current `
+				~ `executable name.`, 
+				m_rootPackage.packageInfoFilename.toNativeString(), m_rootPackage.name);
 		}
+		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
 
 		foreach (dn, ds; m_rootPackage.dependencies)
 			if (ds.isExactVersion && ds.version_.isBranch) {
