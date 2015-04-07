@@ -200,7 +200,7 @@ class DmdCompiler : Compiler {
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 
 		auto res_file = getTempFile("dub-build", ".lnk");
-		std.file.write(res_file.toNativeString(), join(args, "\n"));
+		std.file.write(res_file.toNativeString(), args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s).join("\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, args.join(" "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
