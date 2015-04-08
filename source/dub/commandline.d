@@ -1403,8 +1403,12 @@ class DustmiteCommand : PackageBuildCommand {
 				auto pack = pack_.basePackage;
 				if (pack.name in visited) continue;
 				visited[pack.name] = true;
+				auto dst_path = path ~ pack.name;
 				logInfo("Copy package '%s' to destination folder...", pack.name);
-				copyFolderRec(pack.path, path ~ pack.name);
+				copyFolderRec(pack.path, dst_path);
+
+				// overwrite package description file with additional version information
+				pack_.storeInfo(dst_path);
 			}
 			logInfo("Executing dustmite...");
 			auto testcmd = format("dub dustmite --vquiet --test-package=%s", prj.name);
