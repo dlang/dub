@@ -186,14 +186,19 @@ class Package {
 
 	/** Overwrites the packge description file using the default filename with the current information.
 	*/
-	void storeInfo()
+	void storeInfo(Path path = Path.init)
 	{
+		storeInfo(m_path);
+		m_infoFile = PathAndFormat(m_path ~ defaultPackageFilename);
+	}
+	/// ditto
+	void storeInfo(Path path)
+	const {
 		enforce(!ver.isUnknown, "Trying to store a package with an 'unknown' version, this is not supported.");
-		auto filename = m_path ~ defaultPackageFilename;
+		auto filename = path ~ defaultPackageFilename;
 		auto dstFile = openFile(filename.toNativeString(), FileMode.CreateTrunc);
 		scope(exit) dstFile.close();
 		dstFile.writePrettyJsonString(m_info.toJson());
-		m_infoFile = PathAndFormat(filename);
 	}
 
 	/*inout(Package) getSubPackage(string name, bool silent_fail = false)
