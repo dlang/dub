@@ -1,7 +1,7 @@
 /**
 	Stuff with dependencies.
 
-	Copyright: © 2012-2013 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff, © 2012-2015 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
 */
@@ -27,6 +27,7 @@ import std.exception;
 import std.file;
 import std.range;
 import std.string;
+import std.typecons : Nullable;
 
 
 
@@ -201,14 +202,13 @@ class Package {
 		dstFile.writePrettyJsonString(m_info.toJson());
 	}
 
-	/*inout(Package) getSubPackage(string name, bool silent_fail = false)
-	inout {
-		foreach (p; m_info.subPackages)
-			if (p.package_ !is null && p.package_.name == this.name ~ ":" ~ name)
-				return p.package_;
-		enforce(silent_fail, format("Unknown sub package: %s:%s", this.name, name));
-		return null;
-	}*/
+	Nullable!PackageRecipe getInternalSubPackage(string name)
+	{
+		foreach (ref p; m_info.subPackages)
+			if (p.path.empty && p.recipe.name == name)
+				return Nullable!PackageRecipe(p.recipe);
+		return Nullable!PackageRecipe();
+	}
 
 	void warnOnSpecialCompilerFlags()
 	{

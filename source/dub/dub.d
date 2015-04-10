@@ -956,8 +956,15 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 				return sp;
 			} else if (!basepack.subPackages.canFind!(p => p.path.length)) {
 				// note: external sub packages are handled further below
-				logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
-				return null;
+				auto spr = basepack.getInternalSubPackage(subname);
+				if (!spr.isNull) {
+					auto sp = new Package(spr, basepack.path, basepack);
+					m_remotePackages[sp.name] = sp;
+					return sp;
+				} else {
+					logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
+					return null;
+				}
 			} else if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep)) {
 				return ret;
 			} else {
