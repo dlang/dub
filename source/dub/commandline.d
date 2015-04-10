@@ -68,7 +68,7 @@ int runDubCommandLine(string[] args)
 
 	// parse general options
 	bool verbose, vverbose, quiet, vquiet;
-	bool help, annotate;
+	bool help, annotate, bare;
 	LogLevel loglevel = LogLevel.info;
 	string[] registry_urls;
 	string root_path = getcwd();
@@ -79,6 +79,7 @@ int runDubCommandLine(string[] args)
 		common_args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
 		common_args.getopt("registry", &registry_urls, ["Search the given DUB registry URL first when resolving dependencies. Can be specified multiple times."]);
 		common_args.getopt("annotate", &annotate, ["Do not perform any action, just print what would be done"]);
+		common_args.getopt("bare", &bare, ["Read only packages contained in the current directory"]);
 		common_args.getopt("v|verbose", &verbose, ["Print diagnostic output"]);
 		common_args.getopt("vverbose", &vverbose, ["Print debug output"]);
 		common_args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
@@ -194,15 +195,19 @@ int runDubCommandLine(string[] args)
 
 	// initialize the root package
 	if (!cmd.skipDubInitialization) {
-		// initialize DUB
-		auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
-		dub = new Dub(package_suppliers, root_path);
-		dub.dryRun = annotate;
+		if (bare) {
+			dub = new Dub(Path(getcwd()));
+		} else {
+			// initialize DUB
+			auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
+			dub = new Dub(package_suppliers, root_path);
+			dub.dryRun = annotate;
 
-		// make the CWD package available so that for example sub packages can reference their
-		// parent package.
-		try dub.packageManager.getOrLoadPackage(Path(root_path));
-		catch (Exception e) { logDiagnostic("No package found in current working directory."); }
+			// make the CWD package available so that for example sub packages can reference their
+			// parent package.
+			try dub.packageManager.getOrLoadPackage(Path(root_path));
+			catch (Exception e) { logDiagnostic("No package found in current working directory."); }
+		}
 	}
 
 	// execute the command
