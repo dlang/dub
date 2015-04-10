@@ -17,7 +17,7 @@ import std.algorithm : canFind, startsWith;
 import std.conv : to;
 import std.exception : enforce;
 import std.range;
-import std.string : format;
+import std.string : format, indexOf;
 import std.traits : EnumMembers;
 
 
@@ -158,7 +158,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 {
 	foreach(string name, value; json)
 	{
-		auto idx = std.string.indexOf(name, "-");
+		auto idx = indexOf(name, "-");
 		string basename, suffix;
 		if( idx >= 0 ) { basename = name[0 .. idx]; suffix = name[idx .. $]; }
 		else basename = name;
