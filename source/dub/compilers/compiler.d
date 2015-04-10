@@ -203,24 +203,24 @@ void resolveLibs(ref BuildSettings settings)
 	version (Posix) {
 		try {
 			enum pkgconfig_bin = "pkg-config";
-			string[] pkgconfig_libs;
-			foreach (lib; settings.libs) {
-				if (execute([pkgconfig_bin, "--exists", "lib"~lib]).status == 0)
-					pkgconfig_libs ~= "lib"~lib;
-				if (execute([pkgconfig_bin, "--exists", lib]).status == 0)
-					pkgconfig_libs ~= lib;
+
+			bool exists(string lib) {
+				return execute([pkgconfig_bin, "--exists", lib]).status == 0;
 			}
 
-			logDiagnostic("Using pkg-config to resolve library flags for %s.", pkgconfig_libs.join(", "));
+			auto pkgconfig_libs = settings.libs.partition!(l => !exists(l));
+			pkgconfig_libs ~= settings.libs[0 .. $ - pkgconfig_libs.length]
+				.partition!(l => !exists("lib"~l)).map!(l => "lib"~l).array;
+			settings.libs = settings.libs[0 .. $ - pkgconfig_libs.length];
 
 			if (pkgconfig_libs.length) {
+				logDiagnostic("Using pkg-config to resolve library flags for %s.", pkgconfig_libs.join(", "));
 				auto libflags = execute([pkgconfig_bin, "--libs"] ~ pkgconfig_libs);
 				enforce(libflags.status == 0, format("pkg-config exited with error code %s: %s", libflags.status, libflags.output));
 				foreach (f; libflags.output.split()) {
 					if (f.startsWith("-Wl,")) settings.addLFlags(f[4 .. $].split(","));
 					else settings.addLFlags(f);
 				}
-				settings.libs = settings.libs.filter!(l => !pkgconfig_libs.canFind(l) && !pkgconfig_libs.canFind("lib"~l)).array;
 			}
 			if (settings.libs.length) logDiagnostic("Using direct -l... flags for %s.", settings.libs.array.join(", "));
 		} catch (Exception e) {
