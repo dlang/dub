@@ -177,7 +177,7 @@ class Project {
 				~ `to {"name": "%s"}. You can use {"targetName": "%s"} to keep the current `
 				~ `executable name.`,
 				m_rootPackage.name.toLower(), m_rootPackage.name);
-		} else if (!m_rootPackage.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
+		} else if (!m_rootPackage.info.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
 			logWarn(`WARNING: DUB package names may only contain alphanumeric characters, `
 				~ `as well as '-' and '_', please modify the "name" field in %s `
 				~ `accordingly. You can use {"targetName": "%s"} to keep the current `
