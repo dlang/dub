@@ -456,45 +456,44 @@ abstract class PackageBuildCommand : Command {
 
 	private bool loadSpecificPackage(Dub dub, string package_name)
 	{
-		Package pack;
-		if (!package_name.empty) {
-			// load package in root_path to enable searching for sub packages
-			if (loadCwdPackage(dub, null, false)) {
-				if (package_name.startsWith(":"))
-					package_name = dub.projectName ~ package_name;
-			}
-			pack = dub.packageManager.getFirstPackage(package_name);
-			enforce(pack, "Failed to find a package named '"~package_name~"'.");
-			logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
-			dub.rootPath = pack.path;
+		// load package in root_path to enable searching for sub packages
+		if (loadCwdPackage(dub, package_name.length == 0)) {
+			if (package_name.startsWith(":"))
+				package_name = dub.projectName ~ package_name;
+			if (!package_name.length) return true;
 		}
-		if (!loadCwdPackage(dub, pack, true)) return false;
+
+		auto pack = dub.packageManager.getFirstPackage(package_name);
+		enforce(pack, "Failed to find a package named '"~package_name~"'.");
+		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
+		dub.rootPath = pack.path;
+		dub.loadPackage(pack);
 		return true;
 	}
 
-	private bool loadCwdPackage(Dub dub, Package pack, bool warn_missing_package)
+	private bool loadCwdPackage(Dub dub, bool warn_missing_package)
 	{
-		if (warn_missing_package) {
-			bool found = existsFile(dub.rootPath ~ "source/app.d");
-			if (!found)
-				foreach (f; packageInfoFiles)
-					if (existsFile(dub.rootPath ~ f.filename)) {
-						found = true;
-						break;
-					}
-			if (!found) {
+		bool found = existsFile(dub.rootPath ~ "source/app.d");
+		if (!found)
+			foreach (f; packageInfoFiles)
+				if (existsFile(dub.rootPath ~ f.filename)) {
+					found = true;
+					break;
+				}
+
+		if (!found) {
+			if (warn_missing_package) {
 				logInfo("");
 				logInfo("Neither a package description file, nor source/app.d was found in");
 				logInfo(dub.rootPath.toNativeString());
 				logInfo("Please run DUB from the root directory of an existing package, or run");
 				logInfo("\"dub init --help\" to get information on creating a new package.");
 				logInfo("");
-				return false;
 			}
+			return false;
 		}
 
-		if (pack) dub.loadPackage(pack);
-		else dub.loadPackageFromCwd();
+		dub.loadPackageFromCwd();
 
 		return true;
 	}
