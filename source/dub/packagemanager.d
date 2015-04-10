@@ -374,7 +374,7 @@ class PackageManager {
 		bool removeFrom(Package[] packs, in Package pack) {
 			auto packPos = countUntil!("a.path == b.path")(packs, pack);
 			if(packPos != -1) {
-				packs = std.algorithm.remove(packs, packPos);
+				packs = .remove(packs, packPos);
 				return true;
 			}
 			return false;
