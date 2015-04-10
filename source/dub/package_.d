@@ -187,7 +187,7 @@ class Package {
 
 	/** Overwrites the packge description file using the default filename with the current information.
 	*/
-	void storeInfo(Path path = Path.init)
+	void storeInfo()
 	{
 		storeInfo(m_path);
 		m_infoFile = PathAndFormat(m_path ~ defaultPackageFilename);
