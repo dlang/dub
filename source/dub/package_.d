@@ -91,7 +91,7 @@ class Package {
 				if(m_infoFile.empty)
 					throw new Exception(
 						"No package file found in %s, expected one of %s"
-							.format(root.toNativeString(), packageInfoFiles.map!(f => f.filename).join("/")));
+							.format(root.toNativeString(), packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
 			}
 			raw_package = rawPackageFromFile(m_infoFile);
 		} catch (Exception ex) throw ex;//throw new Exception(format("Failed to load package %s: %s", m_infoFile.toNativeString(), ex.msg));
