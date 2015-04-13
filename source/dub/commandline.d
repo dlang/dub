@@ -1411,7 +1411,8 @@ class DustmiteCommand : PackageBuildCommand {
 				pack_.storeInfo(dst_path);
 			}
 			logInfo("Executing dustmite...");
-			auto testcmd = format("dub dustmite --vquiet --test-package=%s", prj.name);
+			auto testcmd = format("%s dustmite --vquiet --test-package=%s -b %s -c %s --compiler %s -a %s",
+								  thisExePath, prj.name, m_buildType, m_buildConfig, m_compilerName, m_arch);
 			if (m_compilerStatusCode != int.min) testcmd ~= format(" --compiler-status=%s", m_compilerStatusCode);
 			if (m_compilerRegex.length) testcmd ~= format(" \"--compiler-regex=%s\"", m_compilerRegex);
 			if (m_linkerStatusCode != int.min) testcmd ~= format(" --linker-status=%s", m_linkerStatusCode);
