@@ -481,7 +481,8 @@ class BuildGenerator : ProjectGenerator {
 				auto result = prg_pid.wait();
 				enforce(result == 0, "Program exited with code "~to!string(result));
 			}
-		} else logInfo("Target is a library. Skipping execution.");
+		} else
+			enforce(false, "Target is a library. Skipping execution.");
 	}
 
 	void cleanupTemporaries()
