@@ -15,17 +15,6 @@ fi
 # link against libcurl
 LIBS=`pkg-config --libs libcurl 2>/dev/null || echo "-lcurl"`
 
-# fix for modern GCC versions with --as-needed by default
-if [ "$DC" = "dmd" ]; then
-	if [ `uname` = "Linux" ]; then
-		LIBS="-l:libphobos2.a $LIBS"
-	else
-		LIBS="-lphobos2 $LIBS"
-	fi
-elif [ "$DC" = "ldmd2" ]; then
-	LIBS="-lphobos2-ldc $LIBS"
-fi
-
 # adjust linker flags for dmd command line
 LIBS=`echo "$LIBS" | sed 's/^-L/-L-L/; s/ -L/ -L-L/g; s/^-l/-L-l/; s/ -l/ -L-l/g'`
 
