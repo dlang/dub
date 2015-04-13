@@ -1,17 +1,17 @@
 language: d
 sudo: false
 
-d:
-  - dmd-2.064.2
-  - dmd-2.065.0
-  - dmd-2.066.1
-  - dmd-2.067.0
-  - ldc-0.14.0
-  - ldc-0.15.1
-  - gdc-4.9.0
+matrix:
+  include:
+    - d: dmd-2.064.2
+    - d: dmd-2.065.0
+    - d: dmd-2.066.1
+      env:
+        - COVERAGE=true
+    - d: dmd-2.067.0
+    - d: ldc-0.14.0
+    - d: ldc-0.15.1
+    - d: gdc-4.9.0
 
 script:
-  - dub test --compiler=${DC} -c library-nonet
-  - dub build --compiler=${DC}
-  - ./build.sh
-  - DUB=`pwd`/bin/dub COMPILER=${DC} test/run-unittest.sh
+  - ./travis-ci.sh
