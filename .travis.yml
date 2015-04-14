@@ -13,5 +13,5 @@ d:
 script:
   - dub test --compiler=${DC} -c library-nonet
   - dub build --compiler=${DC}
-  - DC=${DMD} ./build.sh
+  - ./build.sh
   - DUB=`pwd`/bin/dub COMPILER=${DC} test/run-unittest.sh
