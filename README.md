@@ -1,4 +1,4 @@
-# dub package manager [![Build Status](https://travis-ci.org/D-Programming-Language/dub.png)](https://travis-ci.org/D-Programming-Language/dub)
+# dub package manager [![Build Status](https://travis-ci.org/D-Programming-Language/dub.png)](https://travis-ci.org/D-Programming-Language/dub) [![Coverage Status](https://coveralls.io/repos/D-Programming-Language/dub/badge.svg)](https://coveralls.io/r/D-Programming-Language/dub)
 
 Package and build manager for [D](http://dlang.org/) applications and libraries.
 
