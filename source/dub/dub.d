@@ -621,11 +621,19 @@ class Dub {
 				}
 			}
 		}
-		if(notFound.length > 1){
-			throw new Exception(format("Couldn't find packages: %-(%s, %).", notFound));
-		}
-		else if(notFound.length == 1){
-			throw new Exception(format("Couldn't find package: %-(%s, %).", notFound));
+
+		if(notFound.length > 0){
+			// search for packages close in name
+			Json packages;
+			foreach(ps; this.m_packageSuppliers){
+				packages = ps.searchForPackages(notFound);
+			}
+			string[][string] foundPackages = deserializeJson!(string[][string])(packages);
+
+			string errorString = "Couldnt find one or more packages.\n";
+			errorString ~= format("%-10s : %s\n", "Package", "Close matches");
+			errorString ~= format("%-(%-10s : [%-( %s%|,%) ]%|\n%)", foundPackages);
+			throw new Exception(errorString);
 		}
 
 		initPackage(path, depVers, type);
