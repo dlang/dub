@@ -109,6 +109,7 @@ int runDubCommandLine(string[] args)
 			new TestCommand,
 			new GenerateCommand,
 			new DescribeCommand,
+			new ListImportsCommand,
 			new CleanCommand,
 			new DustmiteCommand
 		),
@@ -777,6 +778,42 @@ class DescribeCommand : PackageBuildCommand {
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
 		dub.describeProject(m_buildPlatform, m_buildConfig.length ? m_buildConfig : m_defaultConfig);
+		return 0;
+	}
+}
+
+class ListImportsCommand : PackageBuildCommand {
+	this()
+	{
+		this.name = "list-import-paths";
+		this.argumentsPattern = "[<package>]";
+		this.description = "Prints a list of import paths for the project and its dependencies";
+		this.helpText = [
+			"Prints a list of imports for the root package an all of their dependencies. This can be useful for build tools needing to know where to find the imports."
+			"All usual options that are also used for build/run/generate apply."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		super.prepare(args);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		// disable all log output and use "writeln" to output the import paths.
+		auto ll = getLogLevel();
+		setLogLevel(LogLevel.none);
+		scope (exit) setLogLevel(ll);
+
+		string package_name;
+		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
+		if (free_args.length >= 1) package_name = free_args[0];
+		setupPackage(dub, package_name);
+
+		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
+
+		dub.listImportPaths(m_buildPlatform, m_buildConfig.length ? m_buildConfig : m_defaultConfig);
 		return 0;
 	}
 }

@@ -181,7 +181,7 @@ class Project {
 			logWarn(`WARNING: DUB package names may only contain alphanumeric characters, `
 				~ `as well as '-' and '_', please modify the "name" field in %s `
 				~ `accordingly. You can use {"targetName": "%s"} to keep the current `
-				~ `executable name.`, 
+				~ `executable name.`,
 				m_rootPackage.packageInfoFilename.toNativeString(), m_rootPackage.name);
 		}
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
@@ -582,6 +582,29 @@ class Project {
 		}
 	}
 
+	/// Outputs the import paths for the project, including its dependencies.
+	void listImportPaths(ref string[] list, BuildPlatform platform, string config)
+	{
+		auto configs = getPackageConfigs(platform, config);
+
+		import std.path : buildPath;
+
+		auto fullPackagePaths(Package pack) {
+			return pack.getBuildSettings(platform, config).importPaths
+			.map!(importPath => buildPath(pack.path.toString(), importPath));
+		}
+
+		foreach(path; fullPackagePaths(m_rootPackage)) {
+			list ~= path;
+		}
+
+		foreach (dep; m_dependencies) {
+			foreach(path; fullPackagePaths(dep)) {
+				list ~= path;
+			}
+		}
+	}
+
 	void saveSelections()
 	{
 		assert(m_selections !is null, "Cannot save selections for non-disk based project (has no selections).");
@@ -972,3 +995,4 @@ final class SelectedVersions {
 			m_selections[p] = Selected(dependencyFromJson(v));
 	}
 }
+
