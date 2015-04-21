@@ -13,6 +13,7 @@ import dub.dub;
 import dub.generators.generator;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.packagemanager;
@@ -810,7 +811,8 @@ class DescribeCommand : PackageBuildCommand {
 		} else if (m_stringImportPaths) {
 			dub.listStringImportPaths(m_buildPlatform, config);
 		} else {
-			dub.describeProject(m_buildPlatform, config);
+			auto desc = dub.project.describe(m_buildPlatform, config);
+			writeln(desc.serializeToPrettyJson());
 		}
 
 		return 0;

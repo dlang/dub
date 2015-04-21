@@ -495,6 +495,8 @@ struct Version {
 		m_version = vers;
 	}
 
+	static Version fromString(string vers) { return Version(vers); }
+
 	bool opEquals(const Version oth) const {
 		if (isUnknown || oth.isUnknown) {
 			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, oth));

@@ -11,6 +11,7 @@ public import dub.recipe.packagerecipe;
 
 import dub.compilers.compiler;
 import dub.dependency;
+import dub.description;
 import dub.recipe.json;
 import dub.recipe.sdl;
 
@@ -360,61 +361,78 @@ class Package {
 		return false;
 	}
 
-	void describe(ref Json dst, BuildPlatform platform, string config)
+	/** Returns a description of the package for use in IDEs or build tools.
+	*/
+	PackageDescription describe(BuildPlatform platform, string config)
 	{
-		dst.path = m_path.toNativeString();
-		dst.name = this.name;
-		dst["version"] = this.vers;
-		dst.description = m_info.description;
-		dst.homepage = m_info.homepage;
-		dst.authors = m_info.authors.serializeToJson();
-		dst.copyright = m_info.copyright;
-		dst.license = m_info.license;
-		dst.dependencies = m_info.dependencies.keys.serializeToJson();
+		PackageDescription ret;
+		ret.path = m_path.toNativeString();
+		ret.name = this.name;
+		ret.version_ = this.ver;
+		ret.description = m_info.description;
+		ret.homepage = m_info.homepage;
+		ret.authors = m_info.authors;
+		ret.copyright = m_info.copyright;
+		ret.license = m_info.license;
+		ret.dependencies = getDependencies(config).keys;
 
 		// save build settings
 		BuildSettings bs = getBuildSettings(platform, config);
 		BuildSettings allbs = getCombinedBuildSettings();
 
-		foreach (string k, v; bs.serializeToJson()) dst[k] = v;
-		dst.remove("requirements");
-		dst.remove("sourceFiles");
-		dst.remove("importFiles");
-		dst.remove("stringImportFiles");
-		dst.targetType = bs.targetType.to!string();
-		if (dst.targetType != TargetType.none)
-			dst.targetFileName = getTargetFileName(bs, platform);
+		ret.targetType = bs.targetType;
+		ret.targetPath = bs.targetPath;
+		ret.targetName = bs.targetName;
+		if (ret.targetType != TargetType.none)
+			ret.targetFileName = getTargetFileName(bs, platform);
+		ret.workingDirectory = bs.workingDirectory;
+		ret.mainSourceFile = bs.mainSourceFile;
+		ret.dflags = bs.dflags;
+		ret.lflags = bs.lflags;
+		ret.libs = bs.libs;
+		ret.copyFiles = bs.copyFiles;
+		ret.versions = bs.versions;
+		ret.debugVersions = bs.debugVersions;
+		ret.importPaths = bs.importPaths;
+		ret.stringImportPaths = bs.stringImportPaths;
+		ret.preGenerateCommands = bs.preGenerateCommands;
+		ret.postGenerateCommands = bs.postGenerateCommands;
+		ret.preBuildCommands = bs.preBuildCommands;
+		ret.postBuildCommands = bs.postBuildCommands;
 
 		// prettify build requirements output
-		Json[] breqs;
 		for (int i = 1; i <= BuildRequirements.max; i <<= 1)
 			if (bs.requirements & i)
-				breqs ~= Json(to!string(cast(BuildRequirements)i));
-		dst.buildRequirements = breqs;
+				ret.buildRequirements ~= cast(BuildRequirements)i;
 
 		// prettify options output
-		Json[] bopts;
 		for (int i = 1; i <= BuildOptions.max; i <<= 1)
 			if (bs.options & i)
-				bopts ~= Json(to!string(cast(BuildOptions)i));
-		dst.options = bopts;
+				ret.options ~= cast(BuildOptions)i;
 
 		// collect all possible source files and determine their types
-		string[string] sourceFileTypes;
-		foreach (f; allbs.stringImportFiles) sourceFileTypes[f] = "unusedStringImport";
-		foreach (f; allbs.importFiles) sourceFileTypes[f] = "unusedImport";
-		foreach (f; allbs.sourceFiles) sourceFileTypes[f] = "unusedSource";
-		foreach (f; bs.stringImportFiles) sourceFileTypes[f] = "stringImport";
-		foreach (f; bs.importFiles) sourceFileTypes[f] = "import";
-		foreach (f; bs.sourceFiles) sourceFileTypes[f] = "source";
-		Json[] files;
+		SourceFileRole[string] sourceFileTypes;
+		foreach (f; allbs.stringImportFiles) sourceFileTypes[f] = SourceFileRole.unusedStringImport;
+		foreach (f; allbs.importFiles) sourceFileTypes[f] = SourceFileRole.unusedImport;
+		foreach (f; allbs.sourceFiles) sourceFileTypes[f] = SourceFileRole.unusedSource;
+		foreach (f; bs.stringImportFiles) sourceFileTypes[f] = SourceFileRole.stringImport;
+		foreach (f; bs.importFiles) sourceFileTypes[f] = SourceFileRole.import_;
+		foreach (f; bs.sourceFiles) sourceFileTypes[f] = SourceFileRole.source;
 		foreach (f; sourceFileTypes.byKey.array.sort()) {
-			auto jf = Json.emptyObject;
-			jf["path"] = f;
-			jf["type"] = sourceFileTypes[f];
-			files ~= jf;
+			SourceFileDescription sf;
+			sf.path = f;
+			sf.type = sourceFileTypes[f];
+			ret.files ~= sf;
 		}
-		dst.files = Json(files);
+
+		return ret;
+	}
+	// ditto
+	deprecated void describe(ref Json dst, BuildPlatform platform, string config)
+	{
+		auto res = describe(platform, config);
+		foreach (string key, value; res.serializeToJson())
+			dst[key] = value;
 	}
 
 	private void fillWithDefaults()
@@ -551,7 +569,6 @@ class Package {
 		}
 	}
 }
-
 
 private string determineVersionFromSCM(Path path)
 {
