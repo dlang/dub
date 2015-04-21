@@ -24,6 +24,7 @@ source/dub/internal/utils.d
 source/dub/internal/vibecompat/core/file.d
 source/dub/internal/vibecompat/core/log.d
 source/dub/internal/vibecompat/data/json.d
+source/dub/internal/vibecompat/data/serialization.d
 source/dub/internal/vibecompat/data/utils.d
 source/dub/internal/vibecompat/inet/path.d
 source/dub/internal/vibecompat/inet/url.d
