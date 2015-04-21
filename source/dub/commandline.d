@@ -600,11 +600,6 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.parallelBuild = m_parallel;
 
 		logDiagnostic("Generating using %s", m_generator);
-		if (m_generator == "visuald-combined") {
-			gensettings.combined = true;
-			m_generator = "visuald";
-			logWarn(`The generator "visuald-combined" is deprecated, please use the --combined switch instead.`);
-		}
 		dub.generateProject(m_generator, gensettings);
 		if (m_buildType == "ddox") dub.runDdox(gensettings.run);
 		return 0;
