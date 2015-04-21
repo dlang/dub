@@ -9,6 +9,7 @@ module dub.project;
 
 import dub.compilers.compiler;
 import dub.dependency;
+import dub.description;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
@@ -571,25 +572,33 @@ class Project {
 		return all_found;
 	}*/
 
-	/// Outputs a JSON description of the project, including its deoendencies.
-	void describe(ref Json dst, BuildPlatform platform, string config)
+	/// Outputs a build description of the project, including its dependencies.
+	ProjectDescription describe(BuildPlatform platform, string config)
 	{
-		dst.mainPackage = m_rootPackage.name; // deprecated
-		dst.rootPackage = m_rootPackage.name;
+		ProjectDescription ret;
+		ret.rootPackage = m_rootPackage.name;
+		ret.configuration = config;
+		ret.compiler = platform.compiler;
+		ret.architecture = platform.architecture;
+		ret.platform = platform.platform;
 
 		auto configs = getPackageConfigs(platform, config);
 
 		// FIXME: use the generator system to collect the list of actually used build dependencies and source files
 
-		auto mp = Json.emptyObject;
-		m_rootPackage.describe(mp, platform, config);
-		dst.packages = Json([mp]);
+		ret.packages ~= m_rootPackage.describe(platform, config);
 
-		foreach (dep; m_dependencies) {
-			auto dp = Json.emptyObject;
-			dep.describe(dp, platform, configs[dep.name]);
-			dst.packages = dst.packages.get!(Json[]) ~ dp;
-		}
+		foreach (dep; m_dependencies)
+			ret.packages ~= dep.describe(platform, configs[dep.name]);
+
+		return ret;
+	}
+	/// ditto
+	deprecated void describe(ref Json dst, BuildPlatform platform, string config)
+	{
+		auto desc = describe(platform, config);
+		foreach (string key, value; desc.serializeToJson())
+			dst[key] = value;
 	}
 
 	private string[] listPaths(string attributeName)(BuildPlatform platform, string config)

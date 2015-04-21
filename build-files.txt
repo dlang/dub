@@ -2,6 +2,7 @@ source/app.d
 source/dub/commandline.d
 source/dub/dependency.d
 source/dub/dependencyresolver.d
+source/dub/description.d
 source/dub/dub.d
 source/dub/init.d
 source/dub/packagemanager.d

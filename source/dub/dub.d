@@ -414,18 +414,11 @@ class Dub {
 	}
 
 	/// Outputs a JSON description of the project, including its dependencies.
-	void describeProject(BuildPlatform platform, string config)
+	deprecated void describeProject(BuildPlatform platform, string config)
 	{
-		auto dst = Json.emptyObject;
-		dst.configuration = config;
-		dst.compiler = platform.compiler;
-		dst.architecture = platform.architecture.serializeToJson();
-		dst.platform = platform.platform.serializeToJson();
-
-		m_project.describe(dst, platform, config);
-
 		import std.stdio;
-		write(dst.toPrettyString());
+		auto desc = m_project.describe(platform, config);
+		writeln(desc.serializeToPrettyJson());
 	}
 
 	void listImportPaths(BuildPlatform platform, string config)
