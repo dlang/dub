@@ -675,7 +675,7 @@ class Project {
 	{
 		logDebug("markUpToDate");
 		Json create(ref Json json, string object) {
-			if( object !in json ) json[object] = Json.emptyObject;
+			if (json[object].type == Json.Type.undefined) json[object] = Json.emptyObject;
 			return json[object];
 		}
 		create(m_packageSettings, "dub");
