@@ -1184,7 +1184,7 @@ private string jsonUnescape(R)(ref R range)
 				range.popFront();
 				enforce(!range.empty, "Unterminated string escape sequence.");
 				switch(range.front){
-					default: enforce("Invalid string escape sequence."); break;
+					default: enforce(false, "Invalid string escape sequence."); break;
 					case '"': ret.put('\"'); range.popFront(); break;
 					case '\\': ret.put('\\'); range.popFront(); break;
 					case '/': ret.put('/'); range.popFront(); break;
