@@ -109,7 +109,6 @@ int runDubCommandLine(string[] args)
 			new TestCommand,
 			new GenerateCommand,
 			new DescribeCommand,
-			new ListImportsCommand,
 			new CleanCommand,
 			new DustmiteCommand
 		),
@@ -747,13 +746,28 @@ class TestCommand : PackageBuildCommand {
 }
 
 class DescribeCommand : PackageBuildCommand {
+	private {
+		bool m_importPaths = false;
+		bool m_stringImportPaths = false;
+	}
+
 	this()
 	{
 		this.name = "describe";
 		this.argumentsPattern = "[<package>]";
 		this.description = "Prints a JSON description of the project and its dependencies";
 		this.helpText = [
-			"Prints a JSON build description for the root package an all of their dependencies in a format similar to a JSON package description file. This is useful mostly for IDEs.",
+			"Prints a JSON build description for the root package an all of "
+			"their dependencies in a format similar to a JSON package "
+			"description file. This is useful mostly for IDEs.",
+			"",
+			"When --import-paths is supplied, the import paths for a project ",
+			"will be printed line-by-line instead. The paths for D source "
+			"files across all dependent projects will be included.",
+			"",
+			"--string-import-paths can can supplied to print the string "
+			"import paths for a project.",
+			"",
 			"All usual options that are also used for build/run/generate apply."
 		];
 	}
@@ -761,10 +775,23 @@ class DescribeCommand : PackageBuildCommand {
 	override void prepare(scope CommandArgs args)
 	{
 		super.prepare(args);
+
+		args.getopt("import-paths", &m_importPaths, [
+			"List the import paths for project."
+		]);
+
+		args.getopt("string-import-paths", &m_stringImportPaths, [
+			"List the string import paths for project."
+		]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
+		enforceUsage(
+			!(m_importPaths && m_stringImportPaths),
+			"--import-paths and --string-import-paths may not be used together."
+		);
+
 		// disable all log output and use "writeln" to output the JSON description
 		auto ll = getLogLevel();
 		setLogLevel(LogLevel.none);
@@ -777,43 +804,16 @@ class DescribeCommand : PackageBuildCommand {
 
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
-		dub.describeProject(m_buildPlatform, m_buildConfig.length ? m_buildConfig : m_defaultConfig);
-		return 0;
-	}
-}
+		auto config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
 
-class ListImportsCommand : PackageBuildCommand {
-	this()
-	{
-		this.name = "list-import-paths";
-		this.argumentsPattern = "[<package>]";
-		this.description = "Prints a list of import paths for the project and its dependencies";
-		this.helpText = [
-			"Prints a list of imports for the root package an all of their dependencies. This can be useful for build tools needing to know where to find the imports."
-			"All usual options that are also used for build/run/generate apply."
-		];
-	}
+		if (m_importPaths) {
+			dub.listImportPaths(m_buildPlatform, config);
+		} else if (m_stringImportPaths) {
+			dub.listStringImportPaths(m_buildPlatform, config);
+		} else {
+			dub.describeProject(m_buildPlatform, config);
+		}
 
-	override void prepare(scope CommandArgs args)
-	{
-		super.prepare(args);
-	}
-
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		// disable all log output and use "writeln" to output the import paths.
-		auto ll = getLogLevel();
-		setLogLevel(LogLevel.none);
-		scope (exit) setLogLevel(ll);
-
-		string package_name;
-		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-		if (free_args.length >= 1) package_name = free_args[0];
-		setupPackage(dub, package_name);
-
-		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
-
-		dub.listImportPaths(m_buildPlatform, m_buildConfig.length ? m_buildConfig : m_defaultConfig);
 		return 0;
 	}
 }
@@ -1671,3 +1671,4 @@ private void warnRenamed(string prev, string curr)
 {
 	logWarn("The '%s' Command was renamed to '%s'. Please update your scripts.", prev, curr);
 }
+

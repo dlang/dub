@@ -582,16 +582,18 @@ class Project {
 		}
 	}
 
-	/// Outputs the import paths for the project, including its dependencies.
-	void listImportPaths(ref string[] list, BuildPlatform platform, string config)
+	private void listPaths(string attributeName)(ref string[] list, BuildPlatform platform, string config)
 	{
 		auto configs = getPackageConfigs(platform, config);
 
-		import std.path : buildPath;
+		import std.path : buildPath, dirSeparator;
 
 		auto fullPackagePaths(Package pack) {
-			return pack.getBuildSettings(platform, config).importPaths
-			.map!(importPath => buildPath(pack.path.toString(), importPath));
+			// Return full paths for the import paths, making sure a
+			// directory separator is on the end of each path.
+			return __traits(getMember, pack.getBuildSettings(platform, config), attributeName)
+			.map!(importPath => buildPath(pack.path.toString(), importPath))
+			.map!(path => path.endsWith(dirSeparator) ? path : path ~ dirSeparator);
 		}
 
 		foreach(path; fullPackagePaths(m_rootPackage)) {
@@ -603,6 +605,19 @@ class Project {
 				list ~= path;
 			}
 		}
+	}
+
+	/// Outputs the import paths for the project, including its dependencies.
+	void listImportPaths(ref string[] list, BuildPlatform platform, string config)
+	{
+		listPaths!"importPaths"(list, platform, config);
+
+	}
+
+	/// Outputs the string import paths for the project, including its dependencies.
+	void listStringImportPaths(ref string[] list, BuildPlatform platform, string config)
+	{
+		listPaths!"stringImportPaths"(list, platform, config);
 	}
 
 	void saveSelections()

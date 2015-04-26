@@ -1,0 +1,19 @@
+{
+    "name": "describe-project",
+    "targetType": "sourceLibrary",
+    "description": "A test describe project",
+    "authors": ["nobody"],
+    "homepage": "fake.com",
+    "license": "BSD 2-clause",
+    "copyright": "Copyright © 2015, nobody",
+    "dependencies": {
+        "describe-dependency-1": {
+            "version": "1.0",
+            "path": "../describe-dependency-1"
+        },
+        "describe-dependency-2": {
+            "version": "1.0",
+            "path": "../describe-dependency-2"
+        }
+    }
+}

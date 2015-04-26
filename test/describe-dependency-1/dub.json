@@ -1,0 +1,9 @@
+{
+    "name": "describe-dependency-1",
+    "targetType": "sourceLibrary",
+    "description": "A test describe project",
+    "authors": ["nobody"],
+    "homepage": "fake.com",
+    "license": "BSD 2-clause",
+    "copyright": "Copyright © 2015, nobody"
+}
