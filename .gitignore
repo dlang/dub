@@ -18,3 +18,5 @@ __dummy.html
 /test/3-copyFiles/bin/
 /test/ignore-hidden-1/ignore-hidden-1
 /test/ignore-hidden-2/ignore-hidden-2
+/test/expected-import-path-output
+/test/expected-string-import-path-output
