@@ -15,7 +15,7 @@ if (( $? )); then
     die 'Printing import paths failed!'
 fi
 
-if ! diff -q "$CURR_DIR"/expected-import-path-output "$temp_file"; then
+if ! diff "$CURR_DIR"/expected-import-path-output "$temp_file"; then
     cleanup
     die 'The import paths did not match the expected output!'
 fi
