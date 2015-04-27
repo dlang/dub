@@ -1,5 +1,5 @@
 language: d
-sudo: false
+sudo: true
 
 before_install:
     - sudo apt-get install jq
