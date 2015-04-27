@@ -422,27 +422,22 @@ class Dub {
 		write(dst.toPrettyString());
 	}
 
-	private void listPaths(string methodName)(BuildPlatform platform, string config)
+	void listImportPaths(BuildPlatform platform, string config)
 	{
-		string[] importPaths;
-
-		__traits(getMember, m_project, methodName)(importPaths, platform, config);
-
 		import std.stdio;
 
-		foreach(path; importPaths) {
+		foreach(path; m_project.listImportPaths(platform, config)) {
 			writeln(path);
 		}
 	}
 
-	void listImportPaths(BuildPlatform platform, string config)
-	{
-		listPaths!"listImportPaths"(platform, config);
-	}
-
 	void listStringImportPaths(BuildPlatform platform, string config)
 	{
-		listPaths!"listStringImportPaths"(platform, config);
+		import std.stdio;
+
+		foreach(path; m_project.listStringImportPaths(platform, config)) {
+			writeln(path);
+		}
 	}
 
 	/// Cleans intermediate/cache files of the given package

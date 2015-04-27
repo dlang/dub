@@ -1,6 +1,9 @@
 language: d
 sudo: false
 
+before_install:
+    - sudo apt-get install jq
+
 matrix:
   include:
     - d: dmd-2.064.2

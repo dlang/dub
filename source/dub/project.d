@@ -582,11 +582,13 @@ class Project {
 		}
 	}
 
-	private void listPaths(string attributeName)(ref string[] list, BuildPlatform platform, string config)
+	private string[] listPaths(string attributeName)(BuildPlatform platform, string config)
 	{
+		import std.path : buildPath, dirSeparator;
+
 		auto configs = getPackageConfigs(platform, config);
 
-		import std.path : buildPath, dirSeparator;
+		string[] list;
 
 		auto fullPackagePaths(Package pack) {
 			// Return full paths for the import paths, making sure a
@@ -605,19 +607,20 @@ class Project {
 				list ~= path;
 			}
 		}
+
+		return list;
 	}
 
 	/// Outputs the import paths for the project, including its dependencies.
-	void listImportPaths(ref string[] list, BuildPlatform platform, string config)
+	string [] listImportPaths(BuildPlatform platform, string config)
 	{
-		listPaths!"importPaths"(list, platform, config);
-
+		return listPaths!"importPaths"(platform, config);
 	}
 
 	/// Outputs the string import paths for the project, including its dependencies.
-	void listStringImportPaths(ref string[] list, BuildPlatform platform, string config)
+	string[] listStringImportPaths(BuildPlatform platform, string config)
 	{
-		listPaths!"stringImportPaths"(list, platform, config);
+		return listPaths!"stringImportPaths"(platform, config);
 	}
 
 	void saveSelections()

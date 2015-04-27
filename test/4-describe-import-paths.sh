@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e -o pipefail
+
 cd "$CURR_DIR"/describe-project
 
 temp_file=`mktemp`
@@ -8,10 +10,9 @@ function cleanup {
     rm $temp_file
 }
 
-$DUB describe --compiler=$COMPILER --import-paths > "$temp_file"
+trap cleanup EXIT
 
-if (( $? )); then
-    cleanup
+if ! $DUB describe --compiler=$COMPILER --import-paths > "$temp_file"; then
     die 'Printing import paths failed!'
 fi
 
@@ -21,9 +22,6 @@ echo "$CURR_DIR/describe-dependency-1/source/" >> "$CURR_DIR/expected-import-pat
 echo "$CURR_DIR/describe-dependency-2/some-path/" >> "$CURR_DIR/expected-import-path-output"
 
 if ! diff "$CURR_DIR"/expected-import-path-output "$temp_file"; then
-    cleanup
     die 'The import paths did not match the expected output!'
 fi
 
-cleanup
-exit 0
