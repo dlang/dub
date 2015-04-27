@@ -1,8 +1,5 @@
 language: d
-sudo: true
-
-before_install:
-    - sudo apt-get install jq
+sudo: false
 
 matrix:
   include:
