@@ -422,6 +422,24 @@ class Dub {
 		write(dst.toPrettyString());
 	}
 
+	void listImportPaths(BuildPlatform platform, string config)
+	{
+		import std.stdio;
+
+		foreach(path; m_project.listImportPaths(platform, config)) {
+			writeln(path);
+		}
+	}
+
+	void listStringImportPaths(BuildPlatform platform, string config)
+	{
+		import std.stdio;
+
+		foreach(path; m_project.listStringImportPaths(platform, config)) {
+			writeln(path);
+		}
+	}
+
 	/// Cleans intermediate/cache files of the given package
 	void cleanPackage(Path path)
 	{
@@ -1027,3 +1045,4 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		return null;
 	}
 }
+

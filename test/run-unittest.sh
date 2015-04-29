@@ -5,9 +5,13 @@ function die() {
     exit 1
 }
 
+export -f die
+
 function log() {
     echo -e "\033[0;33m[INFO] "$@"\033[0m"
 }
+
+export -f log
 
 if [ -z ${DUB} ]; then
     die 'Error: Variable $DUB must be defined to run the tests.'
@@ -23,7 +27,7 @@ CURR_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 for script in $(ls $CURR_DIR/*.sh); do
     if [ "$script" = "$(readlink -f ${BASH_SOURCE[0]})" ]; then continue; fi
     log "Running $script..."
-    DUB=$DUB COMPILER=$COMPILER $script || die "Script failure."
+    DUB=$DUB COMPILER=$COMPILER CURR_DIR="$CURR_DIR" $script || die "Script failure."
 done
 
 for pack in $(ls -d $CURR_DIR/*/); do

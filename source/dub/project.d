@@ -181,7 +181,7 @@ class Project {
 			logWarn(`WARNING: DUB package names may only contain alphanumeric characters, `
 				~ `as well as '-' and '_', please modify the "name" field in %s `
 				~ `accordingly. You can use {"targetName": "%s"} to keep the current `
-				~ `executable name.`, 
+				~ `executable name.`,
 				m_rootPackage.packageInfoFilename.toNativeString(), m_rootPackage.name);
 		}
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
@@ -582,6 +582,47 @@ class Project {
 		}
 	}
 
+	private string[] listPaths(string attributeName)(BuildPlatform platform, string config)
+	{
+		import std.path : buildPath, dirSeparator;
+
+		auto configs = getPackageConfigs(platform, config);
+
+		string[] list;
+
+		auto fullPackagePaths(Package pack) {
+			// Return full paths for the import paths, making sure a
+			// directory separator is on the end of each path.
+			return __traits(getMember, pack.getBuildSettings(platform, config), attributeName)
+			.map!(importPath => buildPath(pack.path.toString(), importPath))
+			.map!(path => path.endsWith(dirSeparator) ? path : path ~ dirSeparator);
+		}
+
+		foreach(path; fullPackagePaths(m_rootPackage)) {
+			list ~= path;
+		}
+
+		foreach (dep; m_dependencies) {
+			foreach(path; fullPackagePaths(dep)) {
+				list ~= path;
+			}
+		}
+
+		return list;
+	}
+
+	/// Outputs the import paths for the project, including its dependencies.
+	string [] listImportPaths(BuildPlatform platform, string config)
+	{
+		return listPaths!"importPaths"(platform, config);
+	}
+
+	/// Outputs the string import paths for the project, including its dependencies.
+	string[] listStringImportPaths(BuildPlatform platform, string config)
+	{
+		return listPaths!"stringImportPaths"(platform, config);
+	}
+
 	void saveSelections()
 	{
 		assert(m_selections !is null, "Cannot save selections for non-disk based project (has no selections).");
@@ -972,3 +1013,4 @@ final class SelectedVersions {
 			m_selections[p] = Selected(dependencyFromJson(v));
 	}
 }
+
