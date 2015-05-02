@@ -15,5 +15,13 @@
             "version": "1.0",
             "path": "../describe-dependency-2"
         }
-    }
+    },
+	"configurations": [
+		{
+			"name": "my-project-config"
+		}
+	],
+	"subConfigurations": {
+		"describe-dependency-1": "my-dependency-1-config"
+	},
 }
