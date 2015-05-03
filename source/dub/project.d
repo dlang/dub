@@ -593,7 +593,7 @@ class Project {
 		auto fullPackagePaths(Package pack) {
 			// Return full paths for the import paths, making sure a
 			// directory separator is on the end of each path.
-			return __traits(getMember, pack.getBuildSettings(platform, config), attributeName)
+			return __traits(getMember, pack.getBuildSettings(platform, configs[pack.name]), attributeName)
 			.map!(importPath => buildPath(pack.path.toString(), importPath))
 			.map!(path => path.endsWith(dirSeparator) ? path : path ~ dirSeparator);
 		}

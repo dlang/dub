@@ -5,5 +5,10 @@
     "authors": ["nobody"],
     "homepage": "fake.com",
     "license": "BSD 2-clause",
-    "copyright": "Copyright © 2015, nobody"
+    "copyright": "Copyright © 2015, nobody",
+	"configurations": [
+		{
+			"name": "my-dependency-1-config"
+		}
+	],
 }
