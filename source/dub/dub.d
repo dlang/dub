@@ -205,7 +205,8 @@ class Dub {
 			foreach (p; m_project.selections.selectedPackages) {
 				auto dep = m_project.selections.getSelectedVersion(p);
 				if (!dep.path.empty) {
-					if (m_packageManager.getOrLoadPackage(dep.path)) continue;
+					try if (m_packageManager.getOrLoadPackage(dep.path)) continue;
+					catch (Exception e) { logDebug("Failed to load path based selection: %s", e.toString().sanitize); }
 				} else {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
 					foreach (ps; m_packageSuppliers) {
@@ -268,8 +269,13 @@ class Dub {
 		foreach (p, ver; versions) {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
-			if (!ver.path.empty) pack = m_packageManager.getOrLoadPackage(ver.path);
-			else {
+			if (!ver.path.empty) {
+				try pack = m_packageManager.getOrLoadPackage(ver.path);
+				catch (Exception e) {
+					logDebug("Failed to load path based selection: %s", e.toString().sanitize);
+					continue;
+				}
+			} else {
 				pack = m_packageManager.getBestPackage(p, ver);
 				if (pack && m_packageManager.isManagedPackage(pack)
 					&& ver.version_.isBranch && (options & UpgradeOptions.upgrade) != 0)
@@ -992,8 +998,14 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		}
 
 		if (!dep.path.empty) {
-			auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
-			if (dep.matches(ret.ver)) return ret;
+			try {
+				auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
+				if (dep.matches(ret.ver)) return ret;
+			} catch (Exception e) {
+				logDiagnostic("Failed to load path based dependency %s: %s", name, e.msg);
+				logDebug("Full error: %s", e.toString().sanitize);
+				return null;
+			}
 		}
 
 		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
