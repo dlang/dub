@@ -598,13 +598,19 @@ class Project {
 		auto getPackageBuildSetting(Package pack) {
 			auto values = __traits(getMember, pack.getBuildSettings(platform, configs[pack.name]), attributeName);
 
-			// Return full paths for the import paths, making sure a
-			// directory separator is on the end of each path.
 			static if(attributeName == "importPaths" || attributeName == "stringImportPaths")
 			{
+				// Return full paths for the import paths, making sure a
+				// directory separator is on the end of each path.
 				return values
 				.map!(importPath => buildPath(pack.path.toString(), importPath))
 				.map!(path => path.endsWith(dirSeparator) ? path : path ~ dirSeparator);
+			}
+			else static if(attributeName == "sourceFiles" || attributeName == "importFiles" || attributeName == "stringImportFiles")
+			{
+				// Return full paths.
+				return values
+				.map!(importPath => buildPath(pack.path.toString(), importPath));
 			}
 			else static if( is(typeof(values) == string[]) )  // Is a string[]?
 				return values;
