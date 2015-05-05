@@ -1,0 +1,6 @@
+{
+	"name": "main",
+	"dependencies": {
+		"a": "~>1.0"
+	}
+}
