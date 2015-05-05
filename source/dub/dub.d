@@ -440,6 +440,15 @@ class Dub {
 		}
 	}
 
+	void listProjectData(BuildPlatform platform, string config, string[] requestedData)
+	{
+		import std.stdio;
+
+		foreach(data; m_project.listBuildSettings(platform, config, requestedData)) {
+			writeln(data);
+		}
+	}
+
 	/// Cleans intermediate/cache files of the given package
 	void cleanPackage(Path path)
 	{
