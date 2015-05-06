@@ -614,7 +614,7 @@ class Project {
 				return values
 				.map!(importPath => buildPath(pack.path.toString(), importPath));
 			}
-			else static if(attributeName == "targetPath")
+			else static if(attributeName == "targetPath" || attributeName == "workingDirectory")
 			{
 				// Return full path, making sure a
 				// directory separator is on the end of each path.
