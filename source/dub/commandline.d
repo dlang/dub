@@ -753,6 +753,7 @@ class DescribeCommand : PackageBuildCommand {
 	private {
 		bool m_importPaths = false;
 		bool m_stringImportPaths = false;
+		string[] m_data;
 	}
 
 	this()
@@ -765,14 +766,38 @@ class DescribeCommand : PackageBuildCommand {
 			"their dependencies in a format similar to a JSON package "
 			"description file. This is useful mostly for IDEs.",
 			"",
-			"When --import-paths is supplied, the import paths for a project ",
-			"will be printed line-by-line instead. The paths for D source "
-			"files across all dependent projects will be included.",
+			"All usual options that are also used for build/run/generate apply.",
 			"",
-			"--string-import-paths can can supplied to print the string "
-			"import paths for a project.",
+			"When --data=VALUE is supplied, specific build settings for a project ",
+			"will be printed instead (by default, line-by-line). The VALUE must "
+			`be prefixed with either "recursive-" or "package-" to indicate `
+			`whether to include dependencies ("recursive-") or just this `
+			`package alone ("package-").`,
 			"",
-			"All usual options that are also used for build/run/generate apply."
+			"The --data=VALUE option can be specified multiple times to retrieve "
+			"several pieces of information at once. The data will be output in "
+			"the same order requested on the command line.",
+			"",
+			"The accepted values for --data=VALUE are:",
+			"package-target-path, recursive-target-path",
+			"package-target-name, recursive-target-name",
+			"package-working-directory, recursive-working-directory",
+			"package-main-source-file, recursive-main-source-file",
+			"package-dflags, recursive-dflags",
+			"package-lflags, recursive-lflags",
+			"package-libs, recursive-libs",
+			"package-source-files, recursive-source-files",
+			"package-copy-files, recursive-copy-files",
+			"package-versions, recursive-versions",
+			"package-debug-versions, recursive-debug-versions",
+			"package-import-paths, recursive-import-paths",
+			"package-string-import-paths, recursive-string-import-paths",
+			"package-import-files, recursive-import-files",
+			"package-string-import-files, recursive-string-import-files",
+			"package-pre-generate-commands, recursive-pre-generate-commands",
+			"package-post-generate-commands, recursive-post-generate-commands",
+			"package-pre-build-commands, recursive-pre-build-commands",
+			"package-post-build-commands, recursive-post-build-commands",
 		];
 	}
 
@@ -781,11 +806,17 @@ class DescribeCommand : PackageBuildCommand {
 		super.prepare(args);
 
 		args.getopt("import-paths", &m_importPaths, [
-			"List the import paths for project."
+			"Shortcut for --data=recursive-import-paths"
 		]);
 
 		args.getopt("string-import-paths", &m_stringImportPaths, [
-			"List the string import paths for project."
+			"Shortcut for --data=recursive-string-import-paths"
+		]);
+
+		args.getopt("data", &m_data, [
+			"Just list the values of a particular build setting, either for this "~
+			"package alone or recursively including all dependencies. See "~
+			"above for more details and accepted possibilities for VALUE."
 		]);
 	}
 
@@ -794,6 +825,11 @@ class DescribeCommand : PackageBuildCommand {
 		enforceUsage(
 			!(m_importPaths && m_stringImportPaths),
 			"--import-paths and --string-import-paths may not be used together."
+		);
+
+		enforceUsage(
+			!(m_data && (m_importPaths || m_stringImportPaths)),
+			"--data may not be used together with --import-paths or --string-import-paths."
 		);
 
 		// disable all log output and use "writeln" to output the JSON description
@@ -814,6 +850,8 @@ class DescribeCommand : PackageBuildCommand {
 			dub.listImportPaths(m_buildPlatform, config);
 		} else if (m_stringImportPaths) {
 			dub.listStringImportPaths(m_buildPlatform, config);
+		} else if (m_data) {
+			dub.listProjectData(m_buildPlatform, config, m_data);
 		} else {
 			dub.describeProject(m_buildPlatform, config);
 		}
