@@ -598,6 +598,8 @@ class Project {
 		auto getPackageBuildSetting(Package pack) {
 			auto values = __traits(getMember, pack.getBuildSettings(platform, configs[pack.name]), attributeName);
 
+			//TODO: This needs redesigned to cleanly separate "handle the various
+			//      data types from BuildSettings" from "fixup the paths"
 			static if(attributeName == "importPaths" || attributeName == "stringImportPaths")
 			{
 				// Return full paths for the import paths, making sure a
@@ -612,10 +614,17 @@ class Project {
 				return values
 				.map!(importPath => buildPath(pack.path.toString(), importPath));
 			}
+			else static if(attributeName == "targetPath")
+			{
+				// Return full path, making sure a
+				// directory separator is on the end of each path.
+				auto path = buildPath(pack.path.toString(), values);
+				return [path.endsWith(dirSeparator) ? path : path ~ dirSeparator];
+			}
 			else static if( is(typeof(values) == string[]) )  // Is a string[]?
 				return values;
 			else
-				return values.empty()? null : [values];
+				return values.empty? null : [values];
 		}
 
 		foreach(value; getPackageBuildSetting(m_rootPackage)) {
