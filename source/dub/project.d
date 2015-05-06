@@ -621,6 +621,14 @@ class Project {
 				auto path = buildPath(pack.path.toString(), values);
 				return [path.endsWith(dirSeparator) ? path : path ~ dirSeparator];
 			}
+			else static if(attributeName == "mainSourceFile")
+			{
+				if(values.empty)
+					return null;
+				
+				// Return full path.
+				return [ buildPath(pack.path.toString(), values) ];
+			}
 			else static if( is(typeof(values) == string[]) )  // Is a string[]?
 				return values;
 			else
