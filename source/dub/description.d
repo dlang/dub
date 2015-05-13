@@ -22,10 +22,12 @@ struct ProjectDescription {
 	string rootPackage;
 	alias mainPackage = rootPackage; /// Compatibility alias
 	string configuration;
+	string buildType;
 	string compiler;
 	string[] architecture;
 	string[] platform;
-	PackageDescription[] packages;
+	PackageDescription[] packages; /// All packages in the dependency tree
+	TargetDescription[] targets; /// Build targets
 }
 
 
@@ -64,6 +66,15 @@ struct PackageDescription {
 	@byName BuildRequirement[] buildRequirements;
 	@byName BuildOption[] options;
 	SourceFileDescription[] files;
+}
+
+struct TargetDescription {
+	string rootPackage;
+	string[] packages;
+	string rootConfiguration;
+	BuildSettings buildSettings;
+	string[] dependencies;
+	string[] linkDependencies;
 }
 
 /**

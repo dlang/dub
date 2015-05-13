@@ -19,6 +19,8 @@ static if (__VERSION__ >= 2067)
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
 struct BuildSettings {
+	import dub.internal.vibecompat.data.serialization;
+
 	TargetType targetType;
 	string targetPath;
 	string targetName;
@@ -39,8 +41,8 @@ struct BuildSettings {
 	string[] postGenerateCommands;
 	string[] preBuildCommands;
 	string[] postBuildCommands;
-	BuildRequirements requirements;
-	BuildOptions options;
+	@byName BuildRequirements requirements;
+	@byName BuildOptions options;
 
 	BuildSettings dup()
 	const {
