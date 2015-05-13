@@ -235,8 +235,8 @@ struct BuildSettingsTemplate {
 		auto nodef = false;
 		auto noprop = false;
 		foreach (req; this.buildRequirements) {
-			if (req & BuildRequirements.noDefaultFlags) nodef = true;
-			if (req & BuildRequirements.relaxProperties) noprop = true;
+			if (req & BuildRequirement.noDefaultFlags) nodef = true;
+			if (req & BuildRequirement.relaxProperties) noprop = true;
 		}
 
 		if (noprop) {

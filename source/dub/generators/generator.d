@@ -107,7 +107,7 @@ class ProjectGenerator
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
-			bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
+			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 			finalizeGeneration(pack.name, buildsettings, pack.path, Path(bs.targetPath), generate_binary);
 		}
 

@@ -61,8 +61,8 @@ struct PackageDescription {
 	string[] postGenerateCommands;
 	string[] preBuildCommands;
 	string[] postBuildCommands;
-	@byName BuildRequirements[] buildRequirements;
-	@byName BuildOptions[] options;
+	@byName BuildRequirement[] buildRequirements;
+	@byName BuildOption[] options;
 	SourceFileDescription[] files;
 }
 

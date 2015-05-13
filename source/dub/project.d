@@ -521,7 +521,7 @@ class Project {
 
 	void addBuildTypeSettings(ref BuildSettings dst, in BuildPlatform platform, string build_type)
 	{
-		bool usedefflags = !(dst.requirements & BuildRequirements.noDefaultFlags);
+		bool usedefflags = !(dst.requirements & BuildRequirement.noDefaultFlags);
 		if (usedefflags) {
 			BuildSettings btsettings;
 			m_rootPackage.addBuildTypeSettings(btsettings, platform, build_type);
