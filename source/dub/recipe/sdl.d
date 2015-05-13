@@ -112,8 +112,8 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "postGenerateCommands": setting.parsePlatformStringArray(bs.postGenerateCommands); break;
 		case "preBuildCommands": setting.parsePlatformStringArray(bs.preBuildCommands); break;
 		case "postBuildCommands": setting.parsePlatformStringArray(bs.postBuildCommands); break;
-		case "buildRequirements": setting.parsePlatformEnumArray!BuildRequirements(bs.buildRequirements); break;
-		case "buildOptions": setting.parsePlatformEnumArray!BuildOptions(bs.buildOptions); break;
+		case "buildRequirements": setting.parsePlatformEnumArray!BuildRequirement(bs.buildRequirements); break;
+		case "buildOptions": setting.parsePlatformEnumArray!BuildOption(bs.buildOptions); break;
 	}
 }
 
@@ -205,8 +205,10 @@ private void parsePlatformEnumArray(E, Es)(Tag t, ref Es[string] dst)
 	string platform;
 	if ("platform" in t.attributes)
 		platform = t.attributes["platform"][0].value.get!string;
-	foreach (v; t.values)
+	foreach (v; t.values) {
+		if (platform !in dst) dst[platform] = Es.init;
 		dst[platform] |= v.get!string.to!E;
+	}
 }
 
 private void enforceSDL(bool condition, lazy string message, Tag tag, string file = __FILE__, int line = __LINE__)
@@ -334,8 +336,8 @@ lflags "lf3"
 	assert(rec.buildSettings.workingDirectory == "working directory");
 	assert(rec.buildSettings.subConfigurations.length == 1);
 	assert(rec.buildSettings.subConfigurations["projectname:subpackage2"] == "library");
-	assert(rec.buildSettings.buildRequirements == ["": BuildRequirements.allowWarnings | BuildRequirements.silenceDeprecations]);
-	assert(rec.buildSettings.buildOptions == ["": BuildOptions.verbose | BuildOptions.ignoreUnknownPragmas]);
+	assert(rec.buildSettings.buildRequirements == ["": cast(BuildRequirements)(BuildRequirement.allowWarnings | BuildRequirement.silenceDeprecations)]);
+	assert(rec.buildSettings.buildOptions == ["": cast(BuildOptions)(BuildOption.verbose | BuildOption.ignoreUnknownPragmas)]);
 	assert(rec.buildSettings.libs == ["": ["lib1", "lib2", "lib3"]]);
 	assert(rec.buildSettings.sourceFiles == ["": ["source1", "source2", "source3"]]);
 	assert(rec.buildSettings.sourcePaths == ["": ["sourcepath1", "sourcepath2", "sourcepath3"]]);

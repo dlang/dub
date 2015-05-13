@@ -240,7 +240,8 @@ template isPublicMember(T, string M)
 	static if (!__traits(compiles, TypeTuple!(__traits(getMember, T, M)))) enum isPublicMember = false;
 	else {
 		alias MEM = TypeTuple!(__traits(getMember, T, M));
-		enum isPublicMember = __traits(getProtection, MEM).among("public", "export");
+		enum _prot =  __traits(getProtection, MEM);
+		enum isPublicMember = _prot == "public" || _prot == "export";
 	}
 }
 

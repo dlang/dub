@@ -287,7 +287,7 @@ class Package {
 			logDiagnostic("Using custom build type '%s'.", build_type);
 			pbt.getPlatformSettings(settings, platform, this.path);
 		} else {
-			with(BuildOptions) switch (build_type) {
+			with(BuildOption) switch (build_type) {
 				default: throw new Exception(format("Unknown build type for %s: '%s'", this.name, build_type));
 				case "plain": break;
 				case "debug": settings.addOptions(debugMode, debugInfo); break;
@@ -401,14 +401,14 @@ class Package {
 		ret.postBuildCommands = bs.postBuildCommands;
 
 		// prettify build requirements output
-		for (int i = 1; i <= BuildRequirements.max; i <<= 1)
-			if (bs.requirements & i)
-				ret.buildRequirements ~= cast(BuildRequirements)i;
+		for (int i = 1; i <= BuildRequirement.max; i <<= 1)
+			if (bs.requirements & cast(BuildRequirement)i)
+				ret.buildRequirements ~= cast(BuildRequirement)i;
 
 		// prettify options output
-		for (int i = 1; i <= BuildOptions.max; i <<= 1)
-			if (bs.options & i)
-				ret.options ~= cast(BuildOptions)i;
+		for (int i = 1; i <= BuildOption.max; i <<= 1)
+			if (bs.options & cast(BuildOption)i)
+				ret.options ~= cast(BuildOption)i;
 
 		// collect all possible source files and determine their types
 		SourceFileRole[string] sourceFileTypes;

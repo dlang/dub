@@ -108,7 +108,7 @@ class ProjectGenerator
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
-			bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
+			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 			finalizeGeneration(pack.name, buildsettings, pack.path, Path(bs.targetPath), generate_binary);
 		}
 
@@ -219,7 +219,7 @@ class ProjectGenerator
 			m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 			settings.compiler.extractBuildOptions(buildsettings);
 
-			enforce (generates_binary || pack !is m_project.rootPackage || (buildsettings.options & BuildOptions.syntaxOnly),
+			enforce (generates_binary || pack !is m_project.rootPackage || (buildsettings.options & BuildOption.syntaxOnly),
 				format("Main package must have a binary target type, not %s. Cannot build.", tt));
 
 			targets[pack.name].buildSettings = buildsettings.dup;
