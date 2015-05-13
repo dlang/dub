@@ -563,23 +563,41 @@ class Project {
 	}*/
 
 	/// Outputs a build description of the project, including its dependencies.
-	ProjectDescription describe(BuildPlatform platform, string config)
+	ProjectDescription describe(BuildPlatform platform, string config, string build_type = null)
 	{
+		import dub.generators.targetdescription;
+
+		// store basic build parameters
 		ProjectDescription ret;
 		ret.rootPackage = m_rootPackage.name;
 		ret.configuration = config;
+		ret.buildType = build_type;
 		ret.compiler = platform.compiler;
 		ret.architecture = platform.architecture;
 		ret.platform = platform.platform;
 
+		// collect high level information about projects (useful for IDE display)
 		auto configs = getPackageConfigs(platform, config);
-
-		// FIXME: use the generator system to collect the list of actually used build dependencies and source files
-
 		ret.packages ~= m_rootPackage.describe(platform, config);
-
 		foreach (dep; m_dependencies)
 			ret.packages ~= dep.describe(platform, configs[dep.name]);
+
+		if (build_type.length) {
+			// collect build target information (useful for build tools)
+			GeneratorSettings settings;
+			settings.platform = platform;
+			settings.compiler = getCompiler(platform.compilerBinary);
+			settings.config = config;
+			settings.buildType = build_type;
+			auto gen = new TargetDescriptionGenerator(this);
+			try {
+				gen.generate(settings);
+				ret.targets = gen.targetDescriptions;
+			} catch (Exception e) {
+				logDiagnostic("Skipping targets description: %s", e.msg);
+				logDebug("Full error: %s", e.toString().sanitize);
+			}
+		}
 
 		return ret;
 	}

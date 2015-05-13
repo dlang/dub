@@ -811,7 +811,7 @@ class DescribeCommand : PackageBuildCommand {
 		} else if (m_stringImportPaths) {
 			dub.listStringImportPaths(m_buildPlatform, config);
 		} else {
-			auto desc = dub.project.describe(m_buildPlatform, config);
+			auto desc = dub.project.describe(m_buildPlatform, config, m_buildType);
 			writeln(desc.serializeToPrettyJson());
 		}
 

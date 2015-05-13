@@ -20,6 +20,7 @@ source/dub/generators/build.d
 source/dub/generators/cmake.d
 source/dub/generators/generator.d
 source/dub/generators/sublimetext.d
+source/dub/generators/targetdescription.d
 source/dub/generators/visuald.d
 source/dub/internal/utils.d
 source/dub/internal/vibecompat/core/file.d
