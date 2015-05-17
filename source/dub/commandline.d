@@ -708,6 +708,16 @@ class WatchCommand : RunCommand {
 		super.prepare(args);
 		m_watch = true;
 	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		version(Windows) {
+			logInfo("dub watch isn't yet implemented on Windows.");
+			return 0;
+		}
+		else
+			return super.execute(dub, free_args, app_args);
+	}
 }
 
 class TestCommand : PackageBuildCommand {
