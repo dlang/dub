@@ -364,14 +364,14 @@ class Package {
 	/** Returns a description of the package for use in IDEs or build tools.
 	*/
 	PackageDescription describe(BuildPlatform platform, string config)
-	{
+	const {
 		PackageDescription ret;
 		ret.path = m_path.toNativeString();
 		ret.name = this.name;
 		ret.version_ = this.ver;
 		ret.description = m_info.description;
 		ret.homepage = m_info.homepage;
-		ret.authors = m_info.authors;
+		ret.authors = m_info.authors.dup;
 		ret.copyright = m_info.copyright;
 		ret.license = m_info.license;
 		ret.dependencies = getDependencies(config).keys;

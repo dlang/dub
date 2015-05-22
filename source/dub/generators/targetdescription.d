@@ -13,6 +13,7 @@ import dub.project;
 
 class TargetDescriptionGenerator : ProjectGenerator {
 	TargetDescription[] targetDescriptions;
+	TargetDescription[string] targetDescriptionLookup;
 
 	this(Project project)
 	{
@@ -21,6 +22,7 @@ class TargetDescriptionGenerator : ProjectGenerator {
 
 	protected override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
+		auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
 		targetDescriptions.length = targets.length;
 		size_t i = 0;
 		foreach (t; targets) {
@@ -31,6 +33,8 @@ class TargetDescriptionGenerator : ProjectGenerator {
 			d.buildSettings = t.buildSettings.dup;
 			d.dependencies = t.dependencies.dup;
 			d.linkDependencies = t.linkDependencies.dup;
+
+			targetDescriptionLookup[d.rootPackage] = d;
 			targetDescriptions[i++] = d;
 		}
 	}

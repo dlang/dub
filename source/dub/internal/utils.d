@@ -21,6 +21,7 @@ import std.exception;
 import std.file;
 import std.process;
 import std.string;
+import std.traits : isIntegral;
 import std.typecons;
 import std.zip;
 version(DubUseCurl) import std.net.curl;
@@ -268,4 +269,34 @@ auto fuzzySearch(R)(R strings, string input){
 	immutable threshold = input.length / 4;
 	return strings.partition3!((a, b) => a.length + threshold < b.length)(input)[1]
 			.schwartzSort!(p => levenshteinDistance(input.toUpper, p.toUpper));
+}
+
+/**
+	If T is a bitfield-style enum, this function returns a string range
+	listing the names of all members included in the given value.
+	
+	Example:
+	---------
+	enum Bits {
+		none = 0,
+		a = 1<<0,
+		b = 1<<1,
+		c = 1<<2,
+		a_c = a | c,
+	}
+	
+	assert( bitFieldNames(Bits.none).equals(["none"]) );
+	assert( bitFieldNames(Bits.a).equals(["a"]) );
+	assert( bitFieldNames(Bits.a_c).equals(["a", "c", "a_c"]) );
+	---------
+  */
+auto bitFieldNames(T)(T value) if(is(T==enum) && isIntegral!T)
+{
+	import std.algorithm : filter, map;
+	import std.conv : to;
+	import std.traits : EnumMembers;
+
+	return [ EnumMembers!(T) ]
+		.filter!(member => member==0? value==0 : (value & member) == member)
+		.map!(member => to!string(member));
 }
