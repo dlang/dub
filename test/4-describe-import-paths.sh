@@ -20,6 +20,7 @@ fi
 echo "$CURR_DIR/describe-project/src/" > "$CURR_DIR/expected-import-path-output"
 echo "$CURR_DIR/describe-dependency-1/source/" >> "$CURR_DIR/expected-import-path-output"
 echo "$CURR_DIR/describe-dependency-2/some-path/" >> "$CURR_DIR/expected-import-path-output"
+echo "$CURR_DIR/describe-dependency-3/dep3-source/" >> "$CURR_DIR/expected-import-path-output"
 
 if ! diff "$CURR_DIR"/expected-import-path-output "$temp_file"; then
     die 'The import paths did not match the expected output!'

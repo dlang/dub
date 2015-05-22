@@ -421,21 +421,30 @@ class Dub {
 		writeln(desc.serializeToPrettyJson());
 	}
 
-	void listImportPaths(BuildPlatform platform, string config)
+	void listImportPaths(BuildPlatform platform, string config, string buildType)
 	{
 		import std.stdio;
 
-		foreach(path; m_project.listImportPaths(platform, config)) {
+		foreach(path; m_project.listImportPaths(platform, config, buildType)) {
 			writeln(path);
 		}
 	}
 
-	void listStringImportPaths(BuildPlatform platform, string config)
+	void listStringImportPaths(BuildPlatform platform, string config, string buildType)
 	{
 		import std.stdio;
 
-		foreach(path; m_project.listStringImportPaths(platform, config)) {
+		foreach(path; m_project.listStringImportPaths(platform, config, buildType)) {
 			writeln(path);
+		}
+	}
+
+	void listProjectData(BuildPlatform platform, string config, string buildType, string[] requestedData)
+	{
+		import std.stdio;
+
+		foreach(data; m_project.listBuildSettings(platform, config, buildType, requestedData)) {
+			writeln(data);
 		}
 	}
 
