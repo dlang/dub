@@ -68,7 +68,7 @@ class LdcCompiler : Compiler {
 				break;
 			case "x86_64":
 				build_platform.architecture = ["x86_64"];
-				settings.addDFlags("-march=x86_64");
+				settings.addDFlags("-march=x86-64");
 				break;
 		}
 
