@@ -182,9 +182,9 @@ class DmdCompiler : Compiler {
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
 		auto res_file = getTempFile("dub-build", ".rsp");
-		std.file.write(res_file.toNativeString(), join(settings.dflags.map!(s => s.canFind(' ') ? "\""~s~"\"" : s), "\n"));
+		std.file.write(res_file.toNativeString(), escapeArgs(settings.dflags).join("\n"));
 
-		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
+		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(settings.dflags).join(" "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
@@ -200,10 +200,15 @@ class DmdCompiler : Compiler {
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 
 		auto res_file = getTempFile("dub-build", ".lnk");
-		std.file.write(res_file.toNativeString(), args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s).join("\n"));
+		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
 
-		logDiagnostic("%s %s", platform.compilerBinary, args.join(" "));
+		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
+	}
+
+	private auto escapeArgs(in string[] args)
+	{
+		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
 	}
 
 	private static bool isLinkerDFlag(string arg)
