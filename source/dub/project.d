@@ -562,22 +562,36 @@ class Project {
 	}*/
 
 	/// Outputs a JSON description of the project, including its deoendencies.
-	void describe(ref Json dst, BuildPlatform platform, string config)
+	void describe(ref Json dst, BuildPlatform platform, string config, GeneratorSettings gensettings)
 	{
 		dst.mainPackage = m_rootPackage.name; // deprecated
 		dst.rootPackage = m_rootPackage.name;
 
 		auto configs = getPackageConfigs(platform, config);
 
-		// FIXME: use the generator system to collect the list of actually used build dependencies and source files
+		static class DescribeGenerator: ProjectGenerator {
+			string[] buildSrcFiles;
+			this(Project project) {
+				super(project);
+			}
+			override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets) {
+				foreach(targetInfo; targets.values) {
+				    buildSrcFiles ~= targetInfo.buildSettings.sourceFiles;
+				}
+			}
+		}
+
+
+		auto generator = new DescribeGenerator(this);
+		generator.generate(gensettings);
 
 		auto mp = Json.emptyObject;
-		m_rootPackage.describe(mp, platform, config);
+		m_rootPackage.describe(mp, platform, config, generator.buildSrcFiles);
 		dst.packages = Json([mp]);
 
 		foreach (dep; m_dependencies) {
 			auto dp = Json.emptyObject;
-			dep.describe(dp, platform, configs[dep.name]);
+			dep.describe(dp, platform, configs[dep.name], generator.buildSrcFiles);
 			dst.packages = dst.packages.get!(Json[]) ~ dp;
 		}
 	}
@@ -1013,4 +1027,3 @@ final class SelectedVersions {
 			m_selections[p] = Selected(dependencyFromJson(v));
 	}
 }
-

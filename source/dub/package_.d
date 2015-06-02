@@ -360,7 +360,7 @@ class Package {
 		return false;
 	}
 
-	void describe(ref Json dst, BuildPlatform platform, string config)
+	void describe(ref Json dst, BuildPlatform platform, string config, string[] srcFiles)
 	{
 		dst.path = m_path.toNativeString();
 		dst.name = this.name;
@@ -401,17 +401,23 @@ class Package {
 
 		// collect all possible source files and determine their types
 		string[string] sourceFileTypes;
+		bool[string] sourceFileActiveStatus;
 		foreach (f; allbs.stringImportFiles) sourceFileTypes[f] = "unusedStringImport";
 		foreach (f; allbs.importFiles) sourceFileTypes[f] = "unusedImport";
 		foreach (f; allbs.sourceFiles) sourceFileTypes[f] = "unusedSource";
 		foreach (f; bs.stringImportFiles) sourceFileTypes[f] = "stringImport";
 		foreach (f; bs.importFiles) sourceFileTypes[f] = "import";
-		foreach (f; bs.sourceFiles) sourceFileTypes[f] = "source";
+		foreach (f; bs.sourceFiles) {
+			sourceFileTypes[f] = "source";
+			import std.algorithm;
+			sourceFileActiveStatus[f] = srcFiles.canFind!(a => a.canFind(f));
+               }
 		Json[] files;
 		foreach (f; sourceFileTypes.byKey.array.sort()) {
 			auto jf = Json.emptyObject;
 			jf["path"] = f;
 			jf["type"] = sourceFileTypes[f];
+			jf["active"] = f in sourceFileActiveStatus && sourceFileActiveStatus[f];
 			files ~= jf;
 		}
 		dst.files = Json(files);
