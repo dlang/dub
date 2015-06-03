@@ -727,6 +727,7 @@ class Project {
 		case "dflags":                 return listBuildSetting!"dflags"(platform, configs, projectDescription);
 		case "lflags":                 return listBuildSetting!"lflags"(platform, configs, projectDescription);
 		case "libs":                   return listBuildSetting!"libs"(platform, configs, projectDescription);
+		case "lib-files":              return listBuildSetting!"libFiles"(platform, configs, projectDescription);
 		case "source-files":           return listBuildSetting!"sourceFiles"(platform, configs, projectDescription);
 		case "copy-files":             return listBuildSetting!"copyFiles"(platform, configs, projectDescription);
 		case "versions":               return listBuildSetting!"versions"(platform, configs, projectDescription);
@@ -762,7 +763,7 @@ class Project {
 		foreach (ldep; target.linkDependencies) {
 			auto dbs = projectDescription.targetLookup[ldep].buildSettings;
 			if (bs.targetType != TargetType.staticLibrary) {
-				bs.addLibs((Path(dbs.targetPath) ~ getTargetFileName(dbs, platform)).toNativeString());
+				bs.addLibFiles((Path(dbs.targetPath) ~ getTargetFileName(dbs, platform)).toNativeString());
 			}
 		}
 		target.buildSettings = bs;

@@ -21,6 +21,7 @@ if ! $DUB describe --compiler=$COMPILER \
     --data=dflags \
     --data=lflags \
     --data=libs \
+    --data=lib-files \
     --data=source-files \
     --data=copy-files \
     --data=versions \
@@ -67,6 +68,8 @@ echo >> "$expected_file"
 # --data=libs
 echo "ssl" >> "$expected_file"
 echo "curl" >> "$expected_file"
+echo >> "$expected_file"
+# --data=lib-files
 echo "$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a" >> "$expected_file"
 echo >> "$expected_file"
 # --data=source-files
