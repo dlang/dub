@@ -28,6 +28,7 @@ struct BuildSettings {
 	string[] dflags;
 	string[] lflags;
 	string[] libs;
+	string[] libFiles;
 	string[] sourceFiles;
 	string[] copyFiles;
 	string[] versions;
@@ -63,6 +64,7 @@ struct BuildSettings {
 		addDFlags(bs.dflags);
 		addLFlags(bs.lflags);
 		addLibs(bs.libs);
+		addLibFiles(bs.libFiles);
 		addSourceFiles(bs.sourceFiles);
 		addCopyFiles(bs.copyFiles);
 		addVersions(bs.versions);
@@ -81,6 +83,7 @@ struct BuildSettings {
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { lflags ~= value; }
 	void addLibs(in string[] value...) { add(libs, value); }
+	void addLibFiles(in string[] value...) { add(libFiles, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
