@@ -698,6 +698,7 @@ class Project {
 			bs.dflags = null;
 			bs.lflags = null;
 			bs.sourceFiles = null;
+			bs.targetType = TargetType.none; // Force Compiler to NOT omit dependency libs when package is a library.
 			
 			compiler.prepareBuildSettings(bs, BuildSetting.all & ~getBuildSettingBitField(attributeName));
 			
