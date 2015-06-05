@@ -12,7 +12,7 @@ function cleanup {
 
 trap cleanup EXIT
 
-if ! $DUB describe --compiler=$COMPILER --data-format=dmd \
+if ! $DUB describe --compiler=dmd \
     --data=main-source-file \
     --data=dflags \
     --data=lflags \
