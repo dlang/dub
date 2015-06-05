@@ -750,10 +750,13 @@ class DescribeCommand : PackageBuildCommand {
 		bool m_importPaths = false;
 		bool m_stringImportPaths = false;
 		string[] m_data;
+		string m_dataFormat;
 	}
 
 	this()
 	{
+		m_dataFormat = m_compilerName; // Default compiler
+
 		this.name = "describe";
 		this.argumentsPattern = "[<package>]";
 		this.description = "Prints a JSON description of the project and its dependencies";
@@ -788,17 +791,23 @@ class DescribeCommand : PackageBuildCommand {
 		super.prepare(args);
 
 		args.getopt("import-paths", &m_importPaths, [
-			"Shortcut for --data=import-paths"
+			"Shortcut for --data=import-paths --data-format=list"
 		]);
 
 		args.getopt("string-import-paths", &m_stringImportPaths, [
-			"Shortcut for --data=string-import-paths"
+			"Shortcut for --data=string-import-paths --data-format=list"
 		]);
 
 		args.getopt("data", &m_data, [
 			"Just list the values of a particular build setting, either for this "~
 			"package alone or recursively including all dependencies. See "~
 			"above for more details and accepted possibilities for VALUE."
+		]);
+
+		args.getopt("data-format", &m_dataFormat, [
+			"Specifies the output format for --data. Possible values:",
+			"  "~["list", "dmd", "gdc", "ldc", "gdmd", "ldmd"].join(", "),
+			"Default value: "~m_dataFormat,
 		]);
 	}
 
@@ -833,7 +842,7 @@ class DescribeCommand : PackageBuildCommand {
 		} else if (m_stringImportPaths) {
 			dub.listStringImportPaths(m_buildPlatform, config, m_buildType);
 		} else if (m_data) {
-			dub.listProjectData(m_buildPlatform, config, m_buildType, m_data);
+			dub.listProjectData(m_buildPlatform, config, m_buildType, m_data, m_dataFormat);
 		} else {
 			auto desc = dub.project.describe(m_buildPlatform, config, m_buildType);
 			writeln(desc.serializeToPrettyJson());
