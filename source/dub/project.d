@@ -620,12 +620,119 @@ class Project {
 			dst[key] = value;
 	}
 
-	private string[] listBuildSetting(string attributeName)(BuildPlatform platform, string config, ProjectDescription projectDescription)
+	private string[] listBuildSetting(string attributeName)(BuildPlatform platform, string config, ProjectDescription projectDescription, Compiler compiler)
 	{
-		return listBuildSetting!attributeName(platform, getPackageConfigs(platform, config), projectDescription);
+		return listBuildSetting!attributeName(platform, getPackageConfigs(platform, config), projectDescription, compiler);
 	}
 	
-	private string[] listBuildSetting(string attributeName)(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription)
+	private string[] listBuildSetting(string attributeName)(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription, Compiler compiler)
+	{
+		if (compiler)
+			return formatBuildSettingCompiler!attributeName(platform, configs, projectDescription, compiler);
+		else
+			return formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
+	}
+	
+	// Output a build setting formatted for a compiler
+	private string[] formatBuildSettingCompiler(string attributeName)(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription, Compiler compiler)
+	{
+		import std.process : escapeShellFileName;
+		import std.path : dirSeparator;
+
+		assert(compiler);
+		
+		static BuildSetting getBuildSettingBitField(string requestedData)
+		{
+			switch (requestedData)
+			{
+			case "dflags":            return BuildSetting.dflags;
+			case "lflags":            return BuildSetting.lflags;
+			case "libs":              return BuildSetting.libs;
+			case "sourceFiles":       return BuildSetting.sourceFiles;
+			case "copyFiles":         return BuildSetting.copyFiles;
+			case "versions":          return BuildSetting.versions;
+			case "debugVersions":     return BuildSetting.debugVersions;
+			case "importPaths":       return BuildSetting.importPaths;
+			case "stringImportPaths": return BuildSetting.stringImportPaths;
+			case "options":           return BuildSetting.options;
+			default: assert(0);
+			}
+		}
+
+		auto targetDescription = projectDescription.targetLookup[projectDescription.rootPackage];
+		auto buildSettings = targetDescription.buildSettings;
+
+		string[] values;
+		switch (attributeName)
+		{
+		case "dflags":
+		case "mainSourceFile":
+		case "libFiles":
+		case "importFiles":
+			values = formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
+			break;
+
+		case "lflags":
+		case "sourceFiles":
+		case "versions":
+		case "debugVersions":
+		case "importPaths":
+		case "stringImportPaths":
+		case "options":
+			auto bs = buildSettings.dup;
+			bs.dflags = null;
+			
+			// Ensure trailing slash on directory paths
+			auto ensureTrailingSlash = (string path) => path.endsWith(dirSeparator) ? path : path ~ dirSeparator;
+			static if (attributeName == "importPaths")
+				bs.importPaths = bs.importPaths.map!(ensureTrailingSlash).array();
+			else static if (attributeName == "stringImportPaths")
+				bs.stringImportPaths = bs.stringImportPaths.map!(ensureTrailingSlash).array();
+
+			compiler.prepareBuildSettings(bs, BuildSetting.all & ~getBuildSettingBitField(attributeName));
+			values = bs.dflags;
+			break;
+
+		case "libs":
+			auto bs = buildSettings.dup;
+			bs.dflags = null;
+			bs.lflags = null;
+			bs.sourceFiles = null;
+			
+			compiler.prepareBuildSettings(bs, BuildSetting.all & ~getBuildSettingBitField(attributeName));
+			
+			if (bs.lflags)
+				values = bs.lflags;
+			else if (bs.sourceFiles)
+				values = bs.sourceFiles;
+			else
+				values = bs.dflags;
+
+			break;
+
+		default: assert(0);
+		}
+		
+		// Escape filenames and paths
+		switch (attributeName)
+		{
+		case "mainSourceFile":
+		case "libFiles":
+		case "copyFiles":
+		case "importFiles":
+		case "stringImportFiles":
+		case "sourceFiles":
+		case "importPaths":
+		case "stringImportPaths":
+			return values.map!(escapeShellFileName).array();
+
+		default:
+			return values;
+		}
+	}
+	
+	// Output a build setting without formatting for any particular compiler
+	private string[] formatBuildSettingPlain(string attributeName)(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription)
 	{
 		import std.path : buildPath, dirSeparator;
 		import std.range : only;
@@ -715,33 +822,62 @@ class Project {
 		return list;
 	}
 
-	private string[] listBuildSetting(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription, string requestedData)
+	// The "compiler" arg is for choosing which compiler the output should be formatted for,
+	// or null to imply "list" format.
+	private string[] listBuildSetting(BuildPlatform platform, string[string] configs,
+		ProjectDescription projectDescription, string requestedData, Compiler compiler)
 	{
-		switch(requestedData)
+		// Certain data cannot be formatter for a compiler
+		if (compiler)
 		{
-		case "target-type":            return listBuildSetting!"targetType"(platform, configs, projectDescription);
-		case "target-path":            return listBuildSetting!"targetPath"(platform, configs, projectDescription);
-		case "target-name":            return listBuildSetting!"targetName"(platform, configs, projectDescription);
-		case "working-directory":      return listBuildSetting!"workingDirectory"(platform, configs, projectDescription);
-		case "main-source-file":       return listBuildSetting!"mainSourceFile"(platform, configs, projectDescription);
-		case "dflags":                 return listBuildSetting!"dflags"(platform, configs, projectDescription);
-		case "lflags":                 return listBuildSetting!"lflags"(platform, configs, projectDescription);
-		case "libs":                   return listBuildSetting!"libs"(platform, configs, projectDescription);
-		case "lib-files":              return listBuildSetting!"libFiles"(platform, configs, projectDescription);
-		case "source-files":           return listBuildSetting!"sourceFiles"(platform, configs, projectDescription);
-		case "copy-files":             return listBuildSetting!"copyFiles"(platform, configs, projectDescription);
-		case "versions":               return listBuildSetting!"versions"(platform, configs, projectDescription);
-		case "debug-versions":         return listBuildSetting!"debugVersions"(platform, configs, projectDescription);
-		case "import-paths":           return listBuildSetting!"importPaths"(platform, configs, projectDescription);
-		case "string-import-paths":    return listBuildSetting!"stringImportPaths"(platform, configs, projectDescription);
-		case "import-files":           return listBuildSetting!"importFiles"(platform, configs, projectDescription);
-		case "string-import-files":    return listBuildSetting!"stringImportFiles"(platform, configs, projectDescription);
-		case "pre-generate-commands":  return listBuildSetting!"preGenerateCommands"(platform, configs, projectDescription);
-		case "post-generate-commands": return listBuildSetting!"postGenerateCommands"(platform, configs, projectDescription);
-		case "pre-build-commands":     return listBuildSetting!"preBuildCommands"(platform, configs, projectDescription);
-		case "post-build-commands":    return listBuildSetting!"postBuildCommands"(platform, configs, projectDescription);
-		case "requirements":           return listBuildSetting!"requirements"(platform, configs, projectDescription);
-		case "options":                return listBuildSetting!"options"(platform, configs, projectDescription);
+			switch (requestedData)
+			{
+			case "target-type":
+			case "target-path":
+			case "target-name":
+			case "working-directory":
+			case "string-import-files":
+			case "copy-files":
+			case "pre-generate-commands":
+			case "post-generate-commands":
+			case "pre-build-commands":
+			case "post-build-commands":
+				enforce(false, "--data="~requestedData~" can only be used with --data-format=list.");
+				break;
+
+			case "requirements":
+				enforce(false, "--data=requirements can only be used with --data-format=list. Use --data=options instead.");
+				break;
+
+			default: break;
+			}
+		}
+
+		switch (requestedData)
+		{
+		case "target-type":            return listBuildSetting!"targetType"(platform, configs, projectDescription, compiler);
+		case "target-path":            return listBuildSetting!"targetPath"(platform, configs, projectDescription, compiler);
+		case "target-name":            return listBuildSetting!"targetName"(platform, configs, projectDescription, compiler);
+		case "working-directory":      return listBuildSetting!"workingDirectory"(platform, configs, projectDescription, compiler);
+		case "main-source-file":       return listBuildSetting!"mainSourceFile"(platform, configs, projectDescription, compiler);
+		case "dflags":                 return listBuildSetting!"dflags"(platform, configs, projectDescription, compiler);
+		case "lflags":                 return listBuildSetting!"lflags"(platform, configs, projectDescription, compiler);
+		case "libs":                   return listBuildSetting!"libs"(platform, configs, projectDescription, compiler);
+		case "lib-files":              return listBuildSetting!"libFiles"(platform, configs, projectDescription, compiler);
+		case "source-files":           return listBuildSetting!"sourceFiles"(platform, configs, projectDescription, compiler);
+		case "copy-files":             return listBuildSetting!"copyFiles"(platform, configs, projectDescription, compiler);
+		case "versions":               return listBuildSetting!"versions"(platform, configs, projectDescription, compiler);
+		case "debug-versions":         return listBuildSetting!"debugVersions"(platform, configs, projectDescription, compiler);
+		case "import-paths":           return listBuildSetting!"importPaths"(platform, configs, projectDescription, compiler);
+		case "string-import-paths":    return listBuildSetting!"stringImportPaths"(platform, configs, projectDescription, compiler);
+		case "import-files":           return listBuildSetting!"importFiles"(platform, configs, projectDescription, compiler);
+		case "string-import-files":    return listBuildSetting!"stringImportFiles"(platform, configs, projectDescription, compiler);
+		case "pre-generate-commands":  return listBuildSetting!"preGenerateCommands"(platform, configs, projectDescription, compiler);
+		case "post-generate-commands": return listBuildSetting!"postGenerateCommands"(platform, configs, projectDescription, compiler);
+		case "pre-build-commands":     return listBuildSetting!"preBuildCommands"(platform, configs, projectDescription, compiler);
+		case "post-build-commands":    return listBuildSetting!"postBuildCommands"(platform, configs, projectDescription, compiler);
+		case "requirements":           return listBuildSetting!"requirements"(platform, configs, projectDescription, compiler);
+		case "options":                return listBuildSetting!"options"(platform, configs, projectDescription, compiler);
 
 		default:
 			enforce(false, "--data="~requestedData~
@@ -752,7 +888,7 @@ class Project {
 	}
 
 	/// Outputs requested data for the project, optionally including its dependencies.
-	string[] listBuildSettings(BuildPlatform platform, string config, string buildType, string[] requestedData)
+	string[] listBuildSettings(BuildPlatform platform, string config, string buildType, string[] requestedData, string format)
 	{
 		auto projectDescription = describe(platform, config, buildType);
 		auto configs = getPackageConfigs(platform, config);
@@ -777,24 +913,43 @@ class Project {
 			}
 		}
 
-		return requestedData
-			.map!(dataName => listBuildSetting(platform, configs, projectDescription, dataName))
-			.joiner([""]) // Blank line between each type of requestedData
-			.array();
+		// Genrate results
+		if (format == "list")
+		{
+			return requestedData
+				.map!(dataName => listBuildSetting(platform, configs, projectDescription, dataName, null))
+				.joiner([""]) // Blank line between each type of requestedData
+				.array();
+		}
+		else
+		{
+			Compiler compiler;
+			try
+				compiler = getCompiler(format);
+			catch
+				enforce(false, "--data-format="~format~
+					" is not a valid option. See 'dub describe --help' for accepted --data-format= values.");
+			
+			return [
+				requestedData
+					.map!(dataName => listBuildSetting(platform, configs, projectDescription, dataName, compiler))
+					.join().join(" ")
+			];
+		}
 	}
 
 	/// Outputs the import paths for the project, including its dependencies.
 	string[] listImportPaths(BuildPlatform platform, string config, string buildType)
 	{
 		auto projectDescription = describe(platform, config, buildType);
-		return listBuildSetting!"importPaths"(platform, config, projectDescription);
+		return listBuildSetting!"importPaths"(platform, config, projectDescription, null);
 	}
 
 	/// Outputs the string import paths for the project, including its dependencies.
 	string[] listStringImportPaths(BuildPlatform platform, string config, string buildType)
 	{
 		auto projectDescription = describe(platform, config, buildType);
-		return listBuildSetting!"stringImportPaths"(platform, config, projectDescription);
+		return listBuildSetting!"stringImportPaths"(platform, config, projectDescription, null);
 	}
 
 	void saveSelections()
