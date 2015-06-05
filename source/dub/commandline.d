@@ -749,14 +749,12 @@ class DescribeCommand : PackageBuildCommand {
 	private {
 		bool m_importPaths = false;
 		bool m_stringImportPaths = false;
+		bool m_dataList = false;
 		string[] m_data;
-		string m_dataFormat;
 	}
 
 	this()
 	{
-		m_dataFormat = m_compilerName; // Default compiler
-
 		this.name = "describe";
 		this.argumentsPattern = "[<package>]";
 		this.description = "Prints a JSON description of the project and its dependencies";
@@ -768,7 +766,7 @@ class DescribeCommand : PackageBuildCommand {
 			"All usual options that are also used for build/run/generate apply.",
 			"",
 			"When --data=VALUE is supplied, specific build settings for a project ",
-			"will be printed instead (by default, line-by-line).",
+			"will be printed instead (by default, formatted for the current compiler).",
 			"",
 			"The --data=VALUE option can be specified multiple times to retrieve "
 			"several pieces of information at once. The data will be output in "
@@ -776,13 +774,16 @@ class DescribeCommand : PackageBuildCommand {
 			"",
 			"The accepted values for --data=VALUE are:",
 			"",
-			"target-type, target-path, target-name, working-directory, "
 			"main-source-file, dflags, lflags, libs, lib-files, source-files, "
-			"copy-files, versions, debug-versions, import-paths, "
-			"string-import-paths, import-files, string-import-files, "
-			"pre-generate-commands, post-generate-commands, "
-			"pre-build-commands, post-build-commands, "
-			"requirements, options",
+			"versions, debug-versions, import-paths, string-import-paths, "
+			"import-files, options",
+			"",
+			"The following are also accepted by --data if --data-list is used:",
+			"",
+			"target-type, target-path, target-name, working-directory, "
+			"copy-files, string-import-files, pre-generate-commands,"
+			"post-generate-commands, pre-build-commands, post-build-commands, "
+			"requirements",
 		];
 	}
 
@@ -791,11 +792,11 @@ class DescribeCommand : PackageBuildCommand {
 		super.prepare(args);
 
 		args.getopt("import-paths", &m_importPaths, [
-			"Shortcut for --data=import-paths --data-format=list"
+			"Shortcut for --data=import-paths --data-list"
 		]);
 
 		args.getopt("string-import-paths", &m_stringImportPaths, [
-			"Shortcut for --data=string-import-paths --data-format=list"
+			"Shortcut for --data=string-import-paths --data-list"
 		]);
 
 		args.getopt("data", &m_data, [
@@ -804,10 +805,9 @@ class DescribeCommand : PackageBuildCommand {
 			"above for more details and accepted possibilities for VALUE."
 		]);
 
-		args.getopt("data-format", &m_dataFormat, [
-			"Specifies the output format for --data. Possible values:",
-			"  "~["list", "dmd", "gdc", "ldc", "gdmd", "ldmd"].join(", "),
-			"Default value: "~m_dataFormat,
+		args.getopt("data-list", &m_dataList, [
+			"Output --data information in list format (line-by-line), instead "~
+			"of formatting for a compiler command line.",
 		]);
 	}
 
@@ -842,7 +842,7 @@ class DescribeCommand : PackageBuildCommand {
 		} else if (m_stringImportPaths) {
 			dub.listStringImportPaths(m_buildPlatform, config, m_buildType);
 		} else if (m_data) {
-			dub.listProjectData(m_buildPlatform, config, m_buildType, m_data, m_dataFormat);
+			dub.listProjectData(m_buildPlatform, config, m_buildType, m_data, m_dataList? null : m_compiler);
 		} else {
 			auto desc = dub.project.describe(m_buildPlatform, config, m_buildType);
 			writeln(desc.serializeToPrettyJson());

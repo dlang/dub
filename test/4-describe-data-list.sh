@@ -12,7 +12,7 @@ function cleanup {
 
 trap cleanup EXIT
 
-if ! $DUB describe --compiler=$COMPILER --data-format=list \
+if ! $DUB describe --compiler=$COMPILER --data-list \
     --data=target-type \
     --data=target-path \
     --data=target-name \

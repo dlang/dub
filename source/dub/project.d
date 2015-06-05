@@ -888,7 +888,7 @@ class Project {
 	}
 
 	/// Outputs requested data for the project, optionally including its dependencies.
-	string[] listBuildSettings(BuildPlatform platform, string config, string buildType, string[] requestedData, string format)
+	string[] listBuildSettings(BuildPlatform platform, string config, string buildType, string[] requestedData, Compiler formattingCompiler)
 	{
 		auto projectDescription = describe(platform, config, buildType);
 		auto configs = getPackageConfigs(platform, config);
@@ -914,27 +914,22 @@ class Project {
 		}
 
 		// Genrate results
-		if (format == "list")
+		if (formattingCompiler)
 		{
+			// Format for a compiler
+			return [
+				requestedData
+					.map!(dataName => listBuildSetting(platform, configs, projectDescription, dataName, formattingCompiler))
+					.join().join(" ")
+			];
+		}
+		else
+		{
+			// Format list-style
 			return requestedData
 				.map!(dataName => listBuildSetting(platform, configs, projectDescription, dataName, null))
 				.joiner([""]) // Blank line between each type of requestedData
 				.array();
-		}
-		else
-		{
-			Compiler compiler;
-			try
-				compiler = getCompiler(format);
-			catch
-				enforce(false, "--data-format="~format~
-					" is not a valid option. See 'dub describe --help' for accepted --data-format= values.");
-			
-			return [
-				requestedData
-					.map!(dataName => listBuildSetting(platform, configs, projectDescription, dataName, compiler))
-					.join().join(" ")
-			];
 		}
 	}
 
