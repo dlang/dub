@@ -50,6 +50,53 @@ struct Dependency {
 
 	this(string ves)
 	{
+		this.versionSpec = ves;
+	}
+
+	this(in Version ver)
+	{
+		m_inclusiveA = m_inclusiveB = true;
+		m_versA = ver;
+		m_versB = ver;
+	}
+
+	this(Path path)
+	{
+		this(ANY_IDENT);
+		m_path = path;
+	}
+
+	@property void path(Path value) { m_path = value; }
+	@property Path path() const { return m_path; }
+	@property bool optional() const { return m_optional; }
+	@property void optional(bool optional) { m_optional = optional; }
+	@property bool isExactVersion() const { return m_versA == m_versB; }
+
+	@property Version version_() const {
+		enforce(m_versA == m_versB, "Dependency "~versionString~" is no exact version.");
+		return m_versA;
+	}
+
+	@property string versionString()
+	const {
+		string r;
+
+		if (this == invalid) return "invalid";
+
+		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
+			// Special "==" case
+			if (m_versA == Version.MASTER ) r = "~master";
+			else r = m_versA.toString();
+		} else {
+			if (m_versA != Version.RELEASE) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
+			if (m_versB != Version.HEAD) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
+			if (m_versA == Version.RELEASE && m_versB == Version.HEAD) r = ">=0.0.0";
+		}
+		return r;
+	}
+
+	@property void versionSpec(string ves)
+	{
 		enforce(ves.length > 0);
 		string orig = ves;
 
@@ -108,48 +155,6 @@ struct Dependency {
 				enforce(m_versA <= m_versB, "First version must not be greater than the second one.");
 			}
 		}
-	}
-
-	this(in Version ver)
-	{
-		m_inclusiveA = m_inclusiveB = true;
-		m_versA = ver;
-		m_versB = ver;
-	}
-
-	this(Path path)
-	{
-		this(ANY_IDENT);
-		m_path = path;
-	}
-
-	@property void path(Path value) { m_path = value; }
-	@property Path path() const { return m_path; }
-	@property bool optional() const { return m_optional; }
-	@property void optional(bool optional) { m_optional = optional; }
-	@property bool isExactVersion() const { return m_versA == m_versB; }
-
-	@property Version version_() const {
-		enforce(m_versA == m_versB, "Dependency "~versionString~" is no exact version.");
-		return m_versA;
-	}
-
-	@property string versionString()
-	const {
-		string r;
-
-		if (this == invalid) return "invalid";
-
-		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
-			// Special "==" case
-			if (m_versA == Version.MASTER ) r = "~master";
-			else r = m_versA.toString();
-		} else {
-			if (m_versA != Version.RELEASE) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
-			if (m_versB != Version.HEAD) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
-			if (m_versA == Version.RELEASE && m_versB == Version.HEAD) r = ">=0.0.0";
-		}
-		return r;
 	}
 
 	Dependency mapToPath(Path path)
