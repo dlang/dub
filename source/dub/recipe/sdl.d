@@ -321,7 +321,6 @@ lflags "lf3"
 	assert(rec.buildSettings.targetPath == "target path");
 	assert(rec.buildSettings.workingDirectory == "working directory");
 	assert(rec.buildSettings.subConfigurations.length == 1);
-	logInfo("%s", rec.buildSettings.subConfigurations);
 	assert(rec.buildSettings.subConfigurations["projectname:subpackage2"] == "library");
 	assert(rec.buildSettings.buildRequirements == ["": BuildRequirements.allowWarnings | BuildRequirements.silenceDeprecations]);
 	assert(rec.buildSettings.buildOptions == ["": BuildOptions.verbose | BuildOptions.ignoreUnknownPragmas]);
@@ -341,4 +340,29 @@ lflags "lf3"
 	assert(rec.buildSettings.postBuildCommands == ["": ["postb1", "postb2", "postb3"]]);
 	assert(rec.buildSettings.dflags == ["": ["df1", "df2", "df3"]]);
 	assert(rec.buildSettings.lflags == ["": ["lf1", "lf2", "lf3"]]);
+}
+
+unittest { // test platform identifiers
+	auto sdl = 
+`name "testproject"
+dflags "-a" "-b" platform="windows-x86"
+dflags "-c" platform="windows-x86"
+dflags "-e" "-f"
+dflags "-g"
+dflags "-h" "-i" platform="linux"
+dflags "-j" platform="linux"
+`;
+	PackageRecipe rec;
+	parseSDL(rec, sdl, null, "testfile");
+	assert(rec.buildSettings.dflags.length == 3);
+	assert(rec.buildSettings.dflags["windows-x86"] == ["-a", "-b", "-c"]);
+	assert(rec.buildSettings.dflags[""] == ["-e", "-f", "-g"]);
+	assert(rec.buildSettings.dflags["linux"] == ["-h", "-i", "-j"]);
+}
+
+unittest { // test for missing name field
+	import std.exception;
+	auto sdl = `description "missing name"`;
+	PackageRecipe rec;
+	assertThrown(parseSDL(rec, sdl, null, "testfile"));
 }
