@@ -29,14 +29,14 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 	Tag[] configs;
 
 	// parse top-level fields
-	foreach (n; sdl.tags) {
+	foreach (n; sdl.all.tags) {
 		enforceSDL(n.name.length > 0, "Anonymous tags are not allowed at the root level.", n);
 		switch (n.fullName) {
 			default: break;
 			case "name": recipe.name = n.stringTagValue; break;
 			case "description": recipe.description = n.stringTagValue; break;
 			case "homepage": recipe.homepage = n.stringTagValue; break;
-			case "authors": recipe.authors = n.stringArrayTagValue; break;
+			case "authors": recipe.authors ~= n.stringArrayTagValue; break;
 			case "copyright": recipe.copyright = n.stringTagValue; break;
 			case "license": recipe.license = n.stringTagValue; break;
 			case "subPackage": subpacks ~= n; break;
@@ -47,7 +47,7 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 				parseBuildSettings(n, bt, parent_name);
 				recipe.buildTypes[name] = bt;
 				break;
-			case "x:ddoxFilterArgs": recipe.ddoxFilterArgs = n.stringArrayTagValue; break;
+			case "x:ddoxFilterArgs": recipe.ddoxFilterArgs ~= n.stringArrayTagValue; break;
 		}
 	}
 
@@ -94,7 +94,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "subConfiguration":
 			auto args = setting.stringArrayTagValue;
 			enforceSDL(args.length == 2, "Expecting package and configuration names as arguments.", setting);
-			bs.subConfigurations[args[0]] = args[1];
+			bs.subConfigurations[expandPackageName(args[0], package_name, setting)] = args[1];
 			break;
 		case "dflags": setting.parsePlatformStringArray(bs.dflags); break;
 		case "lflags": setting.parsePlatformStringArray(bs.lflags); break;
@@ -102,8 +102,10 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "sourceFiles": setting.parsePlatformStringArray(bs.sourceFiles); break;
 		case "sourcePaths": setting.parsePlatformStringArray(bs.sourcePaths); break;
 		case "excludedSourceFiles": setting.parsePlatformStringArray(bs.excludedSourceFiles); break;
+		case "mainSourceFile": bs.mainSourceFile = setting.stringTagValue; break;
 		case "copyFiles": setting.parsePlatformStringArray(bs.copyFiles); break;
 		case "versions": setting.parsePlatformStringArray(bs.versions); break;
+		case "debugVersions": setting.parsePlatformStringArray(bs.debugVersions); break;
 		case "importPaths": setting.parsePlatformStringArray(bs.importPaths); break;
 		case "stringImportPaths": setting.parsePlatformStringArray(bs.stringImportPaths); break;
 		case "preGenerateCommands": setting.parsePlatformStringArray(bs.preGenerateCommands); break;
@@ -117,14 +119,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 
 private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package_name)
 {
-	import std.algorithm : canFind;
-	import std.string : format;
-
-	auto pkg = t.values[0].get!string;
-	if (pkg.startsWith(":")) {
-		enforce(!package_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", package_name, pkg));
-		pkg = package_name ~ pkg;
-	}
+	auto pkg = expandPackageName(t.values[0].get!string, package_name, t);
 	enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 
 	Dependency dep = Dependency.ANY;
@@ -148,13 +143,23 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	bs.dependencies[pkg] = dep;
 }
 
+private string expandPackageName(string name, string parent_name, Tag tag)
+{
+	import std.algorithm : canFind;
+	import std.string : format;
+	if (name.startsWith(":")) {
+		enforceSDL(!parent_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", parent_name, name), tag);
+		return parent_name ~ name;
+	} else return name;
+}
+
 private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package_name)
 {
 	ret.name = t.stringTagValue(true);
 	foreach (f; t.tags) {
 		switch (f.fullName) {
 			default: parseBuildSetting(f, ret.buildSettings, package_name); break;
-			case "platforms": ret.platforms = f.stringArrayTagValue; break;
+			case "platforms": ret.platforms ~= f.stringArrayTagValue; break;
 		}
 	}
 }
@@ -198,4 +203,142 @@ private void enforceSDL(bool condition, lazy string message, Tag tag, string fil
 	if (!condition) {
 		throw new Exception(format("%s(%s): Error: %s", tag.location.file, tag.location.line, message), file, line);
 	}
+}
+
+
+unittest { // test all possible fields
+	auto sdl =
+`name "projectname";
+description "project description";
+homepage "http://example.com"
+authors "author 1" "author 2"
+authors "author 3"
+copyright "copyright string"
+license "license string"
+subPackage {
+	name "subpackage1"
+}
+subPackage {
+	name "subpackage2"
+	dependency "projectname:subpackage1" version="*"
+}
+subPackage "pathsp3"
+configuration "config1" {
+	platforms "windows" "linux"
+	targetType "library"
+}
+configuration "config2" {
+	platforms "windows-x86"
+	targetType "executable"
+}
+buildType "debug" {
+	dflags "-g" "-debug"
+}
+buildType "release" {
+	dflags "-release" "-O"
+}
+x:ddoxFilterArgs "-arg1" "-arg2"
+x:ddoxFilterArgs "-arg3"
+
+dependency ":subpackage1" optional=false path="."
+dependency "somedep" version="1.0.0" optional=true
+systemDependencies "system dependencies"
+targetType "executable"
+targetName "target name"
+targetPath "target path"
+workingDirectory "working directory"
+subConfiguration ":subpackage2" "library"
+buildRequirements "allowWarnings" "silenceDeprecations"
+buildOptions "verbose" "ignoreUnknownPragmas"
+libs "lib1" "lib2"
+libs "lib3"
+sourceFiles "source1" "source2"
+sourceFiles "source3"
+sourcePaths "sourcepath1" "sourcepath2"
+sourcePaths "sourcepath3"
+excludedSourceFiles "excluded1" "excluded2"
+excludedSourceFiles "excluded3"
+mainSourceFile "main source"
+copyFiles "copy1" "copy2"
+copyFiles "copy3"
+versions "version1" "version2"
+versions "version3"
+debugVersions "debug1" "debug2"
+debugVersions "debug3"
+importPaths "import1" "import2"
+importPaths "import3"
+stringImportPaths "string1" "string2"
+stringImportPaths "string3"
+preGenerateCommands "preg1" "preg2"
+preGenerateCommands "preg3"
+postGenerateCommands "postg1" "postg2"
+postGenerateCommands "postg3"
+preBuildCommands "preb1" "preb2"
+preBuildCommands "preb3"
+postBuildCommands "postb1" "postb2"
+postBuildCommands "postb3"
+dflags "df1" "df2"
+dflags "df3"
+lflags "lf1" "lf2"
+lflags "lf3"
+`;
+	PackageRecipe rec;
+	parseSDL(rec, sdl, null, "testfile");
+	assert(rec.name == "projectname");
+	assert(rec.description == "project description");
+	assert(rec.homepage == "http://example.com");
+	assert(rec.authors == ["author 1", "author 2", "author 3"]);
+	assert(rec.copyright == "copyright string");
+	assert(rec.license == "license string");
+	assert(rec.subPackages.length == 3);
+	assert(rec.subPackages[0].path == "");
+	assert(rec.subPackages[0].recipe.name == "subpackage1");
+	assert(rec.subPackages[1].path == "");
+	assert(rec.subPackages[1].recipe.name == "subpackage2");
+	assert(rec.subPackages[1].recipe.dependencies.length == 1);
+	assert("projectname:subpackage1" in rec.subPackages[1].recipe.dependencies);
+	assert(rec.subPackages[2].path == "pathsp3");
+	assert(rec.configurations.length == 2);
+	assert(rec.configurations[0].name == "config1");
+	assert(rec.configurations[0].platforms == ["windows", "linux"]);
+	assert(rec.configurations[0].buildSettings.targetType == TargetType.library);
+	assert(rec.configurations[1].name == "config2");
+	assert(rec.configurations[1].platforms == ["windows-x86"]);
+	assert(rec.configurations[1].buildSettings.targetType == TargetType.executable);
+	assert(rec.buildTypes.length == 2);
+	assert(rec.buildTypes["debug"].dflags == ["": ["-g", "-debug"]]);
+	assert(rec.buildTypes["release"].dflags == ["": ["-release", "-O"]]);
+	assert(rec.ddoxFilterArgs == ["-arg1", "-arg2", "-arg3"], rec.ddoxFilterArgs.to!string);
+	assert(rec.buildSettings.dependencies.length == 2);
+	assert(rec.buildSettings.dependencies["projectname:subpackage1"].optional == false);
+	assert(rec.buildSettings.dependencies["projectname:subpackage1"].path == Path("."));
+	assert(rec.buildSettings.dependencies["somedep"].versionString == "1.0.0");
+	assert(rec.buildSettings.dependencies["somedep"].optional == true);
+	assert(rec.buildSettings.dependencies["somedep"].path.empty);
+	assert(rec.buildSettings.systemDependencies == "system dependencies");
+	assert(rec.buildSettings.targetType == TargetType.executable);
+	assert(rec.buildSettings.targetName == "target name");
+	assert(rec.buildSettings.targetPath == "target path");
+	assert(rec.buildSettings.workingDirectory == "working directory");
+	assert(rec.buildSettings.subConfigurations.length == 1);
+	logInfo("%s", rec.buildSettings.subConfigurations);
+	assert(rec.buildSettings.subConfigurations["projectname:subpackage2"] == "library");
+	assert(rec.buildSettings.buildRequirements == ["": BuildRequirements.allowWarnings | BuildRequirements.silenceDeprecations]);
+	assert(rec.buildSettings.buildOptions == ["": BuildOptions.verbose | BuildOptions.ignoreUnknownPragmas]);
+	assert(rec.buildSettings.libs == ["": ["lib1", "lib2", "lib3"]]);
+	assert(rec.buildSettings.sourceFiles == ["": ["source1", "source2", "source3"]]);
+	assert(rec.buildSettings.sourcePaths == ["": ["sourcepath1", "sourcepath2", "sourcepath3"]]);
+	assert(rec.buildSettings.excludedSourceFiles == ["": ["excluded1", "excluded2", "excluded3"]]);
+	assert(rec.buildSettings.mainSourceFile == "main source");
+	assert(rec.buildSettings.copyFiles == ["": ["copy1", "copy2", "copy3"]]);
+	assert(rec.buildSettings.versions == ["": ["version1", "version2", "version3"]]);
+	assert(rec.buildSettings.debugVersions == ["": ["debug1", "debug2", "debug3"]]);
+	assert(rec.buildSettings.importPaths == ["": ["import1", "import2", "import3"]]);
+	assert(rec.buildSettings.stringImportPaths == ["": ["string1", "string2", "string3"]]);
+	assert(rec.buildSettings.preGenerateCommands == ["": ["preg1", "preg2", "preg3"]]);
+	assert(rec.buildSettings.postGenerateCommands == ["": ["postg1", "postg2", "postg3"]]);
+	assert(rec.buildSettings.preBuildCommands == ["": ["preb1", "preb2", "preb3"]]);
+	assert(rec.buildSettings.postBuildCommands == ["": ["postb1", "postb2", "postb3"]]);
+	assert(rec.buildSettings.dflags == ["": ["df1", "df2", "df3"]]);
+	assert(rec.buildSettings.lflags == ["": ["lf1", "lf2", "lf3"]]);
 }
