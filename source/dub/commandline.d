@@ -1100,7 +1100,10 @@ class AddPathCommand : RegistrationCommand {
 		this.name = "add-path";
 		this.argumentsPattern = "<path>";
 		this.description = "Adds a default package search path";
-		this.helpText = ["Adds a default package search path"];
+		this.helpText = [
+			"Adds a default package search path. All direct sub folders of this path will be searched for package descriptions and will be made available as packages. Using this command has the equivalent effect as calling 'dub add-local' on each of the sub folders manually.",
+			"Any packages registered using add-path will be preferred over packages downloaded from the package registry when searching for dependencies during a build operation."
+		];
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -1117,7 +1120,7 @@ class RemovePathCommand : RegistrationCommand {
 		this.name = "remove-path";
 		this.argumentsPattern = "<path>";
 		this.description = "Removes a package search path";
-		this.helpText = ["Removes a package search path"];
+		this.helpText = ["Removes a package search path previously added with add-path."];
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -1134,7 +1137,10 @@ class AddLocalCommand : RegistrationCommand {
 		this.name = "add-local";
 		this.argumentsPattern = "<path> [<version>]";
 		this.description = "Adds a local package directory (e.g. a git repository)";
-		this.helpText = ["Adds a local package directory (e.g. a git repository)"];
+		this.helpText = [
+			"Adds a local package directory to be used during dependency resolution. This command is useful for registering local packages, such as GIT working copies, that are either not available in the package registry, or are supposed to be overwritten.",
+			"See 'dub add-path -h' for a way to register multiple local packages at once."
+		];
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
