@@ -1102,7 +1102,13 @@ class AddPathCommand : RegistrationCommand {
 		this.description = "Adds a default package search path";
 		this.helpText = [
 			"Adds a default package search path. All direct sub folders of this path will be searched for package descriptions and will be made available as packages. Using this command has the equivalent effect as calling 'dub add-local' on each of the sub folders manually.",
-			"Any packages registered using add-path will be preferred over packages downloaded from the package registry when searching for dependencies during a build operation."
+			"",
+			"Any packages registered using add-path will be preferred over packages downloaded from the package registry when searching for dependencies during a build operation.",
+			"",
+			"The version of the packages will be determined by one of the following:",
+			"  - For GIT working copies, the last tag (git describe) is used to determine the version",
+			"  - If the package contains a \"version\" field in the package description, this is used",
+			"  - If neither of those apply, \"~master\" is assumed"
 		];
 	}
 
@@ -1139,6 +1145,9 @@ class AddLocalCommand : RegistrationCommand {
 		this.description = "Adds a local package directory (e.g. a git repository)";
 		this.helpText = [
 			"Adds a local package directory to be used during dependency resolution. This command is useful for registering local packages, such as GIT working copies, that are either not available in the package registry, or are supposed to be overwritten.",
+			"",
+			"The version of the package is either determined automatically (see the \"add-path\" command, or can be explicitly overwritten by passing a version on the command line.",
+			"",
 			"See 'dub add-path -h' for a way to register multiple local packages at once."
 		];
 	}
