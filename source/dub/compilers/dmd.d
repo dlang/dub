@@ -182,9 +182,11 @@ class DmdCompiler : Compiler {
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
 		auto res_file = getTempFile("dub-build", ".rsp");
-		std.file.write(res_file.toNativeString(), escapeArgs(settings.dflags).join("\n"));
+		const(string)[] args = settings.dflags;
+		if (platform.frontendVersion >= 2066) args ~= "-vcolumns";
+		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
 
-		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(settings.dflags).join(" "));
+		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
