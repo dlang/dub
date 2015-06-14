@@ -421,31 +421,34 @@ class Dub {
 		writeln(desc.serializeToPrettyJson());
 	}
 
-	void listImportPaths(BuildPlatform platform, string config, string buildType)
+	void listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		import std.stdio;
 
-		foreach(path; m_project.listImportPaths(platform, config, buildType)) {
+		foreach(path; m_project.listImportPaths(platform, config, buildType, nullDelim)) {
 			writeln(path);
 		}
 	}
 
-	void listStringImportPaths(BuildPlatform platform, string config, string buildType)
+	void listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		import std.stdio;
 
-		foreach(path; m_project.listStringImportPaths(platform, config, buildType)) {
+		foreach(path; m_project.listStringImportPaths(platform, config, buildType, nullDelim)) {
 			writeln(path);
 		}
 	}
 
-	void listProjectData(BuildPlatform platform, string config, string buildType, string[] requestedData, Compiler formattingCompiler)
+	void listProjectData(BuildPlatform platform, string config, string buildType,
+		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
 	{
 		import std.stdio;
+		import std.ascii : newline;
 
-		foreach(data; m_project.listBuildSettings(platform, config, buildType, requestedData, formattingCompiler)) {
-			writeln(data);
-		}
+		auto data = m_project.listBuildSettings(platform, config, buildType, requestedData, formattingCompiler, nullDelim);
+		write( data.joiner(nullDelim? "\0" : newline) );
+		if(!nullDelim)
+			writeln();
 	}
 
 	/// Cleans intermediate/cache files of the given package
