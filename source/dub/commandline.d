@@ -750,6 +750,7 @@ class DescribeCommand : PackageBuildCommand {
 		bool m_importPaths = false;
 		bool m_stringImportPaths = false;
 		bool m_dataList = false;
+		bool m_dataNullDelim = false;
 		string[] m_data;
 	}
 
@@ -809,6 +810,11 @@ class DescribeCommand : PackageBuildCommand {
 			"Output --data information in list format (line-by-line), instead "~
 			"of formatting for a compiler command line.",
 		]);
+
+		args.getopt("data-0", &m_dataNullDelim, [
+			"Output --data information using null-delimiters, rather than "~
+			"spaces or newlines. Result is usable with, ex., xargs -0.",
+		]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -838,11 +844,12 @@ class DescribeCommand : PackageBuildCommand {
 		auto config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
 
 		if (m_importPaths) {
-			dub.listImportPaths(m_buildPlatform, config, m_buildType);
+			dub.listImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim);
 		} else if (m_stringImportPaths) {
-			dub.listStringImportPaths(m_buildPlatform, config, m_buildType);
+			dub.listStringImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim);
 		} else if (m_data) {
-			dub.listProjectData(m_buildPlatform, config, m_buildType, m_data, m_dataList? null : m_compiler);
+			dub.listProjectData(m_buildPlatform, config, m_buildType, m_data,
+				m_dataList? null : m_compiler, m_dataNullDelim);
 		} else {
 			auto desc = dub.project.describe(m_buildPlatform, config, m_buildType);
 			writeln(desc.serializeToPrettyJson());
