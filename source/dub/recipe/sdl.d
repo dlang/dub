@@ -167,8 +167,9 @@ private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package
 private string stringTagValue(Tag t, bool allow_child_tags = false)
 {
 	import std.string : format;
-	enforceSDL(t.values.length > 0, format("Missing value for '%s'.", t.fullName), t);
+	enforceSDL(t.values.length > 0, format("Missing string value for '%s'.", t.fullName), t);
 	enforceSDL(t.values.length == 1, format("Expected only one value for '%s'.", t.fullName), t);
+	enforceSDL(t.values[0].peek!string !is null, format("Expected value of type string for '%s'.", t.fullName), t);
 	enforceSDL(allow_child_tags || t.tags.length == 0, format("No child tags allowed for '%s'.", t.fullName), t);
 	// Q: should attributes be disallowed, or just ignored for forward compatibility reasons?
 	//enforceSDL(t.attributes.length == 0, format("No attributes allowed for '%s'.", t.fullName), t);
@@ -177,10 +178,16 @@ private string stringTagValue(Tag t, bool allow_child_tags = false)
 
 private string[] stringArrayTagValue(Tag t, bool allow_child_tags = false)
 {
+	import std.string : format;
+	enforceSDL(allow_child_tags || t.tags.length == 0, format("No child tags allowed for '%s'.", t.fullName), t);
+	// Q: should attributes be disallowed, or just ignored for forward compatibility reasons?
+	//enforceSDL(t.attributes.length == 0, format("No attributes allowed for '%s'.", t.fullName), t);
+
 	string[] ret;
-	// TODO: check for additional attributes
-	foreach (v; t.values)
+	foreach (v; t.values) {
+		enforceSDL(t.values[0].peek!string !is null, format("Values for '%s' must be strings.", t.fullName), t);
 		ret ~= v.get!string;
+	}
 	return ret;
 }
 
@@ -377,8 +384,13 @@ unittest { // test single value fields
 	PackageRecipe rec;
 	assertThrown!Exception(parseSDL(rec, `name "hello" "world"`, null, "testfile"));
 	assertThrown!Exception(parseSDL(rec, `name`, null, "testfile"));
+	assertThrown!Exception(parseSDL(rec, `name 10`, null, "testfile"));
 	assertThrown!Exception(parseSDL(rec,
 		`name "hello" {
 			world
 		}`, null, "testfile"));
+	assertThrown!Exception(parseSDL(rec, 
+		`name ""
+		versions "hello" 10`
+		, null, "testfile"));
 }
