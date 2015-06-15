@@ -166,7 +166,12 @@ private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package
 
 private string stringTagValue(Tag t, bool allow_child_tags = false)
 {
-	// TODO: check for additional values or attributes
+	import std.string : format;
+	enforceSDL(t.values.length > 0, format("Missing value for '%s'.", t.fullName), t);
+	enforceSDL(t.values.length == 1, format("Expected only one value for '%s'.", t.fullName), t);
+	enforceSDL(allow_child_tags || t.tags.length == 0, format("No child tags allowed for '%s'.", t.fullName), t);
+	// Q: should attributes be disallowed, or just ignored for forward compatibility reasons?
+	//enforceSDL(t.attributes.length == 0, format("No attributes allowed for '%s'.", t.fullName), t);
 	return t.values[0].get!string;
 }
 
@@ -365,4 +370,15 @@ unittest { // test for missing name field
 	auto sdl = `description "missing name"`;
 	PackageRecipe rec;
 	assertThrown(parseSDL(rec, sdl, null, "testfile"));
+}
+
+unittest { // test single value fields
+	import std.exception;
+	PackageRecipe rec;
+	assertThrown!Exception(parseSDL(rec, `name "hello" "world"`, null, "testfile"));
+	assertThrown!Exception(parseSDL(rec, `name`, null, "testfile"));
+	assertThrown!Exception(parseSDL(rec,
+		`name "hello" {
+			world
+		}`, null, "testfile"));
 }
