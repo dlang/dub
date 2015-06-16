@@ -105,11 +105,27 @@ bool existsDirectory(Path path) {
 
 void runCommands(in string[] commands, string[string] env = null)
 {
+	import std.stdio : stdin, stdout, stderr, File;
+
+	version(Windows) enum nullFile = "NUL";
+	else version(Posix) enum nullFile = "/dev/null";
+	else static assert(0);
+	
+	auto childStdout = stdout;
+	auto childStderr = stderr;
+	auto config = Config.retainStdout | Config.retainStderr;
+	
+	// Disable child's stdout/stderr depending on LogLevel
+	auto logLevel = getLogLevel();
+	if(logLevel >= LogLevel.warn)
+		childStdout = File(nullFile, "w");
+	if(logLevel >= LogLevel.none)
+		childStderr = File(nullFile, "w");
+	
 	foreach(cmd; commands){
 		logDiagnostic("Running %s", cmd);
 		Pid pid;
-		if( env !is null ) pid = spawnShell(cmd, env);
-		else pid = spawnShell(cmd);
+		pid = spawnShell(cmd, stdin, childStdout, childStderr, env, config);
 		auto exitcode = pid.wait();
 		enforce(exitcode == 0, "Command failed with exit code "~to!string(exitcode));
 	}
