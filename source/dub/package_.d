@@ -48,7 +48,7 @@ struct PathAndFormat
 // Supported package descriptions in decreasing order of preference.
 static immutable FilenameAndFormat[] packageInfoFiles = [
 	{"dub.json", PackageFormat.json},
-	/*{"dub.sdl",PackageFormat.sdl},*/
+	{"dub.sdl",PackageFormat.sdl},
 	{"package.json", PackageFormat.json}
 ];
 
@@ -507,7 +507,7 @@ class Package {
 			case PackageFormat.json:
 				return new JsonPackage(parseJsonString(text, file.path.toNativeString()));
 			case PackageFormat.sdl:
-				if(silent_fail) return null; throw new Exception("SDL not implemented");
+				return new SdlPackage(text, file.path.toNativeString());
 		}
 	}
 
@@ -543,11 +543,32 @@ class Package {
 			recipe.parseJson(json, parent_name);
 		}
 	}
+
 	private static class SdlPackage : RawPackage
 	{
-		override void parseInto(ref PackageRecipe package_, string parent_name)
+		import dub.internal.sdlang;
+		Tag sdl;
+
+		this(string sdl_text, string filename)
 		{
-			throw new Exception("SDL packages not implemented yet");
+			this.sdl = parseSource(sdl_text, filename);
+			foreach (t; this.sdl.tags) {
+				switch (t.name) {
+					default: break;
+					case "name":
+						this.package_name = t.values[0].get!string.toLower();
+						t.values[0] = this.package_name;
+						break;
+					case "version":
+						this.version_ = t.values[0].get!string;
+						break;
+				}
+			}
+		}
+
+		override void parseInto(ref PackageRecipe recipe, string parent_name)
+		{
+			recipe.parseSDL(sdl, parent_name);
 		}
 	}
 }

@@ -20,6 +20,15 @@ source/dub/generators/cmake.d
 source/dub/generators/generator.d
 source/dub/generators/sublimetext.d
 source/dub/generators/visuald.d
+source/dub/internal/libInputVisitor.d
+source/dub/internal/sdlang/ast.d
+source/dub/internal/sdlang/exception.d
+source/dub/internal/sdlang/lexer.d
+source/dub/internal/sdlang/package.d
+source/dub/internal/sdlang/parser.d
+source/dub/internal/sdlang/symbol.d
+source/dub/internal/sdlang/token.d
+source/dub/internal/sdlang/util.d
 source/dub/internal/utils.d
 source/dub/internal/vibecompat/core/file.d
 source/dub/internal/vibecompat/core/log.d
