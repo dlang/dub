@@ -529,7 +529,6 @@ class Package {
 				this.json = nameLower;
 			} else {
 				nameLower = json.name.get!string.toLower();
-				this.json.name = nameLower;
 				this.package_name = nameLower;
 
 				Json versionJson = json["version"];
@@ -557,7 +556,6 @@ class Package {
 					default: break;
 					case "name":
 						this.package_name = t.values[0].get!string.toLower();
-						t.values[0] = this.package_name;
 						break;
 					case "version":
 						this.version_ = t.values[0].get!string;

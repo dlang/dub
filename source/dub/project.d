@@ -172,17 +172,23 @@ class Project {
 	{
 		// some basic package lint
 		m_rootPackage.warnOnSpecialCompilerFlags();
+		string nameSuggestion() {
+			string ret;
+			ret ~= `Please modify the "name" field in %s accordingly.`.format(m_rootPackage.packageInfoFilename.toNativeString());
+			if (!m_rootPackage.info.buildSettings.targetName.length) {
+				if (m_rootPackage.packageInfoFilename.head.toString().endsWith(".sdl")) {
+					ret ~= ` You can then add 'targetName "%s"' to keep the current executable name.`.format(m_rootPackage.name);
+				} else {
+					ret ~= ` You can then add '"targetName": "%s"' to keep the current executable name.`.format(m_rootPackage.name);
+				}
+			}
+			return ret;
+		}
 		if (m_rootPackage.name != m_rootPackage.name.toLower()) {
-			logWarn(`WARNING: DUB package names should always be lower case, please change `
-				~ `to {"name": "%s"}. You can use {"targetName": "%s"} to keep the current `
-				~ `executable name.`,
-				m_rootPackage.name.toLower(), m_rootPackage.name);
+			logWarn(`WARNING: DUB package names should always be lower case. %s`, nameSuggestion());
 		} else if (!m_rootPackage.info.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
 			logWarn(`WARNING: DUB package names may only contain alphanumeric characters, `
-				~ `as well as '-' and '_', please modify the "name" field in %s `
-				~ `accordingly. You can use {"targetName": "%s"} to keep the current `
-				~ `executable name.`,
-				m_rootPackage.packageInfoFilename.toNativeString(), m_rootPackage.name);
+				~ `as well as '-' and '_'. %s`, nameSuggestion());
 		}
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
 
