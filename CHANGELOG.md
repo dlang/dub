@@ -1,6 +1,52 @@
 Changelog
 =========
 
+v0.9.24 - 2015-06-
+--------------------
+
+### Features and improvements ###
+
+ - Added support for [SDL][sdl-package-format] based package descriptions - [issue #348][issue348], [pull #582][issue582]
+ - Source code updated to build with DMD 2.067
+ - Added stricter package name validation checks
+ - Added the possibility to get all import paths for `dub describe` (by w0rp) - [pull #552][issue552], [issue #560][issue560], [pull #561][issue561]
+ - Added a `--bare` option to search for dependencies only in the current directory (useful for running tests)
+ - Removed the deprecated "visuald-combined" generator (use `dub generate visuald --combined` instead)
+ - The command line shown for verbose output now contain the same quotes as used for the actual command invocation
+ - Uses `-vcolumns` for DMD if supported - [issue #581][issue581]
+ - Properly suppressing compiler output when `--quiet` or `--vquiet` are given (by Nick Sabalausky) - [issue #585][issue585], [pull #587][issue587]
+
+### Bug fixes ###
+
+ - Fixed quoting of command line arguments for the DMD backend in the linker phase - [issue #540][issue540]
+ - Fixed running Dustmite with versioned dependencies that are available as a git working copy
+ - Fixed dependency resolution for packages that have sub packages and all of them are path based - [issue #543][issue543]
+ - Fixed the error message for path based dependencies that are missing a package description file - see [issue #535][issue535]
+ - Fixed running Dustmite with dub not available in `PATH` - [pull #547][issue547]
+ - Fixed passing compiler, architecture, build type and configuration options to Dustmite - [pull #547][issue547]
+ - Fixed return code when `dub run` is used on a library (returns non-zero now) - [pull #546][issue546]
+ - Fixed spurious warning when building a package by name and DUB is not run from a package directory
+ - Fixed handling of dependency errors that occur during automatic upgrade checks - [issue #564][issue564], [pull #565][issue565]
+ - Fixed the architecture flag for x64 passed to LDC (by p0nce) - [pull #574][issue574]
+
+[issue348]: https://github.com/D-Programming-Language/dub/issues/348
+[issue535]: https://github.com/D-Programming-Language/dub/issues/535
+[issue540]: https://github.com/D-Programming-Language/dub/issues/540
+[issue543]: https://github.com/D-Programming-Language/dub/issues/543
+[issue546]: https://github.com/D-Programming-Language/dub/issues/546
+[issue547]: https://github.com/D-Programming-Language/dub/issues/547
+[issue552]: https://github.com/D-Programming-Language/dub/issues/552
+[issue560]: https://github.com/D-Programming-Language/dub/issues/560
+[issue561]: https://github.com/D-Programming-Language/dub/issues/561
+[issue564]: https://github.com/D-Programming-Language/dub/issues/564
+[issue565]: https://github.com/D-Programming-Language/dub/issues/565
+[issue574]: https://github.com/D-Programming-Language/dub/issues/574
+[issue581]: https://github.com/D-Programming-Language/dub/issues/581
+[issue582]: https://github.com/D-Programming-Language/dub/issues/582
+[issue585]: https://github.com/D-Programming-Language/dub/issues/585
+[issue587]: https://github.com/D-Programming-Language/dub/issues/587
+
+
 v0.9.23 - 2015-04-06
 --------------------
 
