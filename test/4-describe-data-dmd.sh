@@ -14,10 +14,8 @@ trap cleanup EXIT
 
 if ! $DUB describe --compiler=dmd \
     --data=main-source-file \
-    --data=dflags \
-    --data=lflags \
-    --data=libs \
-    --data=lib-files \
+    --data=dflags,lflags \
+    --data=libs,lib-files \
     --data=source-files \
     --data=versions \
     --data=debug-versions \

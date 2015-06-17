@@ -770,7 +770,8 @@ class DescribeCommand : PackageBuildCommand {
 			"will be printed instead (by default, formatted for the current compiler).",
 			"",
 			"The --data=VALUE option can be specified multiple times to retrieve "
-			"several pieces of information at once. The data will be output in "
+			"several pieces of information at once. A comma-separated list is "
+			"also acceptable (ex: --data=dflags,libs). The data will be output in "
 			"the same order requested on the command line.",
 			"",
 			"The accepted values for --data=VALUE are:",
@@ -802,8 +803,9 @@ class DescribeCommand : PackageBuildCommand {
 
 		args.getopt("data", &m_data, [
 			"Just list the values of a particular build setting, either for this "~
-			"package alone or recursively including all dependencies. See "~
-			"above for more details and accepted possibilities for VALUE."
+			"package alone or recursively including all dependencies. Accepts a "~
+			"comma-separated list. See above for more details and accepted "~
+			"possibilities for VALUE."
 		]);
 
 		args.getopt("data-list", &m_dataList, [

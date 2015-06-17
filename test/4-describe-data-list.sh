@@ -13,19 +13,13 @@ function cleanup {
 trap cleanup EXIT
 
 if ! $DUB describe --compiler=$COMPILER --data-list \
-    --data=target-type \
-    --data=target-path \
-    --data=target-name \
-    --data=working-directory \
+    '--data= target-type , target-path , target-name ' \
+    '--data= working-directory ' \
     --data=main-source-file \
-    --data=dflags \
-    --data=lflags \
-    --data=libs \
-    --data=lib-files \
-    --data=source-files \
-    --data=copy-files \
-    --data=versions \
-    --data=debug-versions \
+    '--data=dflags,lflags' \
+    '--data=libs, lib-files' \
+    '--data=source-files, copy-files' \
+    '--data=versions, debug-versions' \
     --data=import-paths \
     --data=string-import-paths \
     --data=import-files \
@@ -34,8 +28,7 @@ if ! $DUB describe --compiler=$COMPILER --data-list \
     --data=post-generate-commands \
     --data=pre-build-commands \
     --data=post-build-commands \
-    --data=requirements \
-    --data=options \
+    '--data=requirements, options' \
     > "$temp_file"; then
     die 'Printing project data failed!'
 fi

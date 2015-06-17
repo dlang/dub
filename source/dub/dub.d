@@ -444,8 +444,17 @@ class Dub {
 	{
 		import std.stdio;
 		import std.ascii : newline;
+		
+		// Split comma-separated lists
+		string[] requestedDataSplit =
+			requestedData
+			.map!(a => a.splitter(",").map!strip)
+			.joiner()
+			.array();
+		
+		auto data = m_project.listBuildSettings(platform, config, buildType,
+			requestedDataSplit, formattingCompiler, nullDelim);
 
-		auto data = m_project.listBuildSettings(platform, config, buildType, requestedData, formattingCompiler, nullDelim);
 		write( data.joiner(nullDelim? "\0" : newline) );
 		if(!nullDelim)
 			writeln();
