@@ -901,12 +901,6 @@ class Project {
 
 		// Update projectDescription.targets
 		projectDescription.lookupTarget(projectDescription.rootPackage) = target;
-		/+foreach (ref t; projectDescription.targets) {
-			if(t.rootPackage == target.rootPackage) {
-				t = target;
-				break;
-			}
-		}+/
 
 		// Genrate results
 		if (formattingCompiler)
