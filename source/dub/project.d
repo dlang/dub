@@ -634,24 +634,6 @@ class Project {
 		import std.path : dirSeparator;
 
 		assert(compiler);
-		
-		static BuildSetting getBuildSettingBitField(string requestedData)
-		{
-			switch (requestedData)
-			{
-			case "dflags":            return BuildSetting.dflags;
-			case "lflags":            return BuildSetting.lflags;
-			case "libs":              return BuildSetting.libs;
-			case "sourceFiles":       return BuildSetting.sourceFiles;
-			case "copyFiles":         return BuildSetting.copyFiles;
-			case "versions":          return BuildSetting.versions;
-			case "debugVersions":     return BuildSetting.debugVersions;
-			case "importPaths":       return BuildSetting.importPaths;
-			case "stringImportPaths": return BuildSetting.stringImportPaths;
-			case "options":           return BuildSetting.options;
-			default: assert(0);
-			}
-		}
 
 		auto targetDescription = projectDescription.targetLookup[projectDescription.rootPackage];
 		auto buildSettings = targetDescription.buildSettings;
@@ -683,7 +665,7 @@ class Project {
 			else static if (attributeName == "stringImportPaths")
 				bs.stringImportPaths = bs.stringImportPaths.map!(ensureTrailingSlash).array();
 
-			compiler.prepareBuildSettings(bs, BuildSetting.all & ~getBuildSettingBitField(attributeName));
+			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
 			values = bs.dflags;
 			break;
 
@@ -694,7 +676,7 @@ class Project {
 			bs.sourceFiles = null;
 			bs.targetType = TargetType.none; // Force Compiler to NOT omit dependency libs when package is a library.
 			
-			compiler.prepareBuildSettings(bs, BuildSetting.all & ~getBuildSettingBitField(attributeName));
+			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
 			
 			if (bs.lflags)
 				values = bs.lflags;
