@@ -726,7 +726,7 @@ class Project {
 	// Output a build setting without formatting for any particular compiler
 	private string[] formatBuildSettingPlain(string attributeName)(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription)
 	{
-		import std.path : buildPath, dirSeparator;
+		import std.path : buildNormalizedPath, dirSeparator;
 		import std.range : only;
 
 		string[] list;
@@ -789,7 +789,7 @@ class Project {
 				attributeName == "options";
 			
 			auto values = getRawBuildSetting(pack, allowEmptyString);
-			auto fixRelativePath = (string importPath) => buildPath(pack.path.toString(), importPath);
+			auto fixRelativePath = (string importPath) => buildNormalizedPath(pack.path.toString(), importPath);
 			auto ensureTrailingSlash = (string path) => path.endsWith(dirSeparator) ? path : path ~ dirSeparator;
 
 			static if(isRelativeDirectory) {
