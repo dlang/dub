@@ -13,7 +13,7 @@ import dub.project;
 
 class TargetDescriptionGenerator : ProjectGenerator {
 	TargetDescription[] targetDescriptions;
-	TargetDescription[string] targetDescriptionLookup;
+	size_t[string] targetDescriptionLookup;
 
 	this(Project project)
 	{
@@ -34,7 +34,7 @@ class TargetDescriptionGenerator : ProjectGenerator {
 			d.dependencies = t.dependencies.dup;
 			d.linkDependencies = t.linkDependencies.dup;
 
-			targetDescriptionLookup[d.rootPackage] = d;
+			targetDescriptionLookup[d.rootPackage] = i;
 			targetDescriptions[i++] = d;
 		}
 	}

@@ -645,7 +645,7 @@ class Project {
 
 		assert(compiler);
 
-		auto targetDescription = projectDescription.targetLookup[projectDescription.rootPackage];
+		auto targetDescription = projectDescription.lookupTarget(projectDescription.rootPackage);
 		auto buildSettings = targetDescription.buildSettings;
 
 		string[] values;
@@ -731,7 +731,7 @@ class Project {
 
 		string[] list;
 		
-		auto targetDescription = projectDescription.targetLookup[projectDescription.rootPackage];
+		auto targetDescription = projectDescription.lookupTarget(projectDescription.rootPackage);
 		auto buildSettings = targetDescription.buildSettings;
 		
 		// Return any BuildSetting member attributeName as a range of strings. Don't attempt to fixup values.
@@ -889,10 +889,10 @@ class Project {
 		auto configs = getPackageConfigs(platform, config);
 
 		// Include link dependencies
-		auto target = projectDescription.targetLookup[projectDescription.rootPackage];
+		auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
 		auto bs = target.buildSettings;
 		foreach (ldep; target.linkDependencies) {
-			auto dbs = projectDescription.targetLookup[ldep].buildSettings;
+			auto dbs = projectDescription.lookupTarget(ldep).buildSettings;
 			if (bs.targetType != TargetType.staticLibrary) {
 				bs.addLibFiles((Path(dbs.targetPath) ~ getTargetFileName(dbs, platform)).toNativeString());
 			}
@@ -900,13 +900,13 @@ class Project {
 		target.buildSettings = bs;
 
 		// Update projectDescription.targets
-		projectDescription.targetLookup[projectDescription.rootPackage] = target;
-		foreach (ref t; projectDescription.targets) {
+		projectDescription.lookupTarget(projectDescription.rootPackage) = target;
+		/+foreach (ref t; projectDescription.targets) {
 			if(t.rootPackage == target.rootPackage) {
 				t = target;
 				break;
 			}
-		}
+		}+/
 
 		// Genrate results
 		if (formattingCompiler)
