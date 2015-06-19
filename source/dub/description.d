@@ -28,7 +28,13 @@ struct ProjectDescription {
 	string[] platform;
 	PackageDescription[] packages; /// All packages in the dependency tree
 	TargetDescription[] targets; /// Build targets
-	@ignore TargetDescription[string] targetLookup; /// Targets by name
+	@ignore size_t[string] targetLookup; /// Target index by name
+	
+	/// Targets by name
+	ref inout(TargetDescription) lookupTarget(string name) inout
+	{
+		return targets[ targetLookup[name] ];
+	}
 }
 
 
