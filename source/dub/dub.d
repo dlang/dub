@@ -941,9 +941,11 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 			// detect dependencies to the root package (or sub packages thereof)
 			if (dbasename == basepack.name) {
 				auto absdeppath = dspec.mapToPath(pack.path).path;
+				absdeppath.endsWithSlash = true;
 				auto subpack = m_dub.m_packageManager.getSubPackage(basepack, getSubPackageName(dname), true);
 				if (subpack) {
 					auto desireddeppath = dname == dbasename ? basepack.path : subpack.path;
+					desireddeppath.endsWithSlash = true;
 					enforce(dspec.path.empty || absdeppath == desireddeppath,
 						format("Dependency from %s to root package references wrong path: %s vs. %s",
 							node.pack, absdeppath.toNativeString(), desireddeppath.toNativeString()));
