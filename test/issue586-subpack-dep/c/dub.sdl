@@ -1,0 +1,3 @@
+name "c"
+dependency "a" version="*"
+targetType "executable"

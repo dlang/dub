@@ -1,0 +1,3 @@
+name "a"
+dependency ":b" version="*"
+subPackage "b/"
