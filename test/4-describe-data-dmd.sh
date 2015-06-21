@@ -2,6 +2,11 @@
 
 set -e -o pipefail
 
+if ! dmd --help >/dev/null; then
+	echo Skipping DMD-centric test on configuration that lacks DMD.
+	exit
+fi
+
 cd "$CURR_DIR"/describe-project
 
 temp_file=`mktemp`
