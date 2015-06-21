@@ -17,8 +17,8 @@ if ! $DUB describe --compiler=$COMPILER --data-list \
     '--data= working-directory ' \
     --data=main-source-file \
     '--data=dflags,lflags' \
-    '--data=libs, lib-files' \
-    '--data=source-files, copy-files' \
+    '--data=libs, linker-files' \
+    '--data=d-files, source-files, copy-files' \
     '--data=versions, debug-versions' \
     --data=import-paths \
     --data=string-import-paths \
@@ -62,12 +62,17 @@ echo >> "$expected_file"
 echo "ssl" >> "$expected_file"
 echo "curl" >> "$expected_file"
 echo >> "$expected_file"
-# --data=lib-files
+# --data=linker-files
 echo "$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a" >> "$expected_file"
+echo >> "$expected_file"
+# --data=d-files
+echo "$CURR_DIR/describe-project/src/dummy.d" >> "$expected_file"
+echo "$CURR_DIR/describe-dependency-1/source/dummy.d" >> "$expected_file"
 echo >> "$expected_file"
 # --data=source-files
 echo "$CURR_DIR/describe-project/src/dummy.d" >> "$expected_file"
 echo "$CURR_DIR/describe-dependency-1/source/dummy.d" >> "$expected_file"
+echo "$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a" >> "$expected_file"
 echo >> "$expected_file"
 # --data=copy-files
 echo "$CURR_DIR/describe-project/data/dummy.dat" >> "$expected_file"
