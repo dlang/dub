@@ -7,8 +7,11 @@
 */
 module dub.generators.targetdescription;
 
+import dub.compilers.buildsettings;
+import dub.compilers.compiler;
 import dub.description;
 import dub.generators.generator;
+import dub.internal.vibecompat.inet.path;
 import dub.project;
 
 class TargetDescriptionGenerator : ProjectGenerator {
@@ -25,7 +28,11 @@ class TargetDescriptionGenerator : ProjectGenerator {
 		auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
 		targetDescriptions.length = targets.length;
 		size_t i = 0;
+		size_t rootIndex;
 		foreach (t; targets) {
+			if (t.pack.name == m_project.rootPackage.name)
+				rootIndex = i;
+
 			TargetDescription d;
 			d.rootPackage = t.pack.name;
 			d.packages = t.packages.map!(p => p.name).array;
@@ -37,5 +44,18 @@ class TargetDescriptionGenerator : ProjectGenerator {
 			targetDescriptionLookup[d.rootPackage] = i;
 			targetDescriptions[i++] = d;
 		}
+
+		// Add static library dependencies
+		auto bs = targetDescriptions[rootIndex].buildSettings;
+		foreach (ref desc; targetDescriptions) {
+			foreach (linkDepName; desc.linkDependencies) {
+				auto linkDepTarget = targetDescriptions[ targetDescriptionLookup[linkDepName] ];
+				auto dbs = linkDepTarget.buildSettings;
+				if (bs.targetType != TargetType.staticLibrary) {
+					bs.addSourceFiles((Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform)).toNativeString());
+				}
+			}
+		}
+		targetDescriptions[rootIndex].buildSettings = bs;
 	}
 }

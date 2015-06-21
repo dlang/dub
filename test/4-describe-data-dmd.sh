@@ -15,8 +15,8 @@ trap cleanup EXIT
 if ! $DUB describe --compiler=dmd \
     --data=main-source-file \
     --data=dflags,lflags \
-    --data=libs,lib-files \
-    --data=source-files \
+    --data=libs,linker-files \
+    --data=d-files,source-files \
     --data=versions \
     --data=debug-versions \
     --data=import-paths \
@@ -41,11 +41,15 @@ echo -n "-L--another-lflag " >> "$expected_file"
 echo -n "-lssl " >> "$expected_file"
 echo -n "-lcrypto " >> "$expected_file"
 echo -n "-lcurl " >> "$expected_file"
-# --data=lib-files
+# --data=linker-files
 echo -n "'$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a' " >> "$expected_file"
+# --data=d-files
+echo -n "'$CURR_DIR/describe-project/src/dummy.d' " >> "$expected_file"
+echo -n "'$CURR_DIR/describe-dependency-1/source/dummy.d' " >> "$expected_file"
 # --data=source-files
 echo -n "'$CURR_DIR/describe-project/src/dummy.d' " >> "$expected_file"
 echo -n "'$CURR_DIR/describe-dependency-1/source/dummy.d' " >> "$expected_file"
+echo -n "'$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a' " >> "$expected_file"
 # --data=versions
 echo -n "-version=someVerIdent " >> "$expected_file"
 echo -n "-version=anotherVerIdent " >> "$expected_file"
