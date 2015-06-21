@@ -152,11 +152,11 @@ class PackageManager {
 		return null;
 	}
 
-	Package getOrLoadPackage(Path path, PathAndFormat infoFile = PathAndFormat())
+	Package getOrLoadPackage(Path path, PathAndFormat infoFile = PathAndFormat(), bool allow_sub_packages = false)
 	{
 		path.endsWithSlash = true;
 		foreach (p; getPackageIterator())
-			if (!p.parentPackage && p.path == path)
+			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
 				return p;
 		auto pack = new Package(path, infoFile);
 		addPackages(m_temporaryPackages, pack);

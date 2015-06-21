@@ -239,7 +239,11 @@ class Project {
 					Path path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("Adding local %s", path);
-					p = m_packageManager.getOrLoadPackage(path);
+					p = m_packageManager.getOrLoadPackage(path, PathAndFormat.init, true);
+					if (p.parentPackage !is null) {
+						logWarn("Sub package %s must be referenced using the path to it's parent package.", name);
+						p = p.parentPackage;
+					}
 					if (name.canFind(':')) p = m_packageManager.getSubPackage(p, getSubPackageName(name), false);
 					enforce(p.name == name,
 						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
