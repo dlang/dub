@@ -420,7 +420,7 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 				{
 					foreach (glob; globs)
 					{
-						if (f.globMatch(glob))
+						if (f.name().globMatch(glob))
 						{
 							if (f.isDir)
 								tryCopyDir(f);
