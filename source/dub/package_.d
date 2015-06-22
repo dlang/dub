@@ -29,14 +29,14 @@ import std.range;
 import std.string;
 import std.typecons : Nullable;
 
-
-
 enum PackageFormat { json, sdl }
+
 struct FilenameAndFormat
 {
 	string filename;
 	PackageFormat format;
 }
+
 struct PathAndFormat
 {
 	Path path;

@@ -652,7 +652,7 @@ class Dub {
 			throw new Exception(format("Couldn't find package: %-(%s, %).", notFound));
 		}
 
-		initPackage(path, depVers, type);
+		initPackage(path, m_userDubPath, depVers, type);
 
 		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
