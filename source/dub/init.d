@@ -9,8 +9,7 @@ module dub.init;
 
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.package_;
-import dub.dependency;
+import dub.package_ : packageInfoFiles, defaultPackageFilename, Package;
 
 import std.datetime;
 import std.exception;
@@ -20,8 +19,10 @@ import std.format;
 import std.process;
 import std.string;
 import std.algorithm : map;
+import std.array;
 import std.traits : EnumMembers;
 import std.conv : to;
+import std.stdio : File;
 
 enum InitType
 {
@@ -155,8 +156,9 @@ void writePackageJson(Path package_root, string description, string[string] depe
 	assert(!package_root.empty);
 
 	string username;
-	version (Windows) username = environment.get("USERNAME", "Peter Parker");
-	else username = environment.get("USER", "Peter Parker");
+	version (Windows) enum USER_VAR = "USERNAME";
+	else enum USER_VAR = "USER";
+	environment.get(USER_VAR, "Peter Parker");
 
 	auto fil = openFile(package_root ~ defaultPackageFilename, FileMode.Append);
 	scope(exit) fil.close();
@@ -184,18 +186,31 @@ void initCustomPackage(Path package_root, Path custom_package_path, string[strin
 	enforce(isDir(custom_package_path.toString()), "custom package in dub path not a dir");
 
 	auto cpps = custom_package_path.toString();
+	auto package_name = package_root.head.toString();
+
 	foreach (file; dirEntries(cpps, SpanMode.breadth))
 	{
 		auto dst = (package_root ~ file.name.relativePath(cpps)).toString();
 		if (file.isDir) mkdir(dst);
-		else copy(file.name, dst);
-	}
+		else
+		{
+			auto templ = File(file.name,"r");
+			scope(exit) templ.close();
 
-	auto package_name = package_root.head.toString().toLower();
-	auto pack = new Package(package_root, Package.findPackageFile(package_root));
-	pack.info.name = package_name;
-	pack.info.description = "custom package";
-	foreach( dep; deps.byKeyValue )
-		pack.info.buildSettings.dependencies[dep.key] = Dependency(dep.value);
-	pack.storeInfo();
+			auto res = File(dst,"w");
+			scope(exit) res.close();
+
+			foreach (ln; templ.byLine)
+				res.writeln(replaceTemplateVarialbes(ln.idup, package_name, deps));
+		}
+	}
+}
+
+string replaceTemplateVarialbes(string line, string name, string[string] deps )
+{
+	return line
+		.replace("$name", name.toLower())
+		.replace("$Name", name)
+		.replace("$deps_json", deps.byKeyValue.map!(a=>format(`"%s": "%s"`,a.key,a.value)).join(", ") )
+		;
 }
