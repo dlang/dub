@@ -202,6 +202,10 @@ class Package {
 		auto filename = path ~ defaultPackageFilename;
 		auto dstFile = openFile(filename.toNativeString(), FileMode.CreateTrunc);
 		scope(exit) dstFile.close();
+
+		//TODO: write SDL if origin is SDL
+		//TODO: save order of PackageRecipe fields
+		//TODO: not write defaul values
 		dstFile.writePrettyJsonString(m_info.toJson());
 	}
 

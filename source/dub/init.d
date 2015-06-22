@@ -9,7 +9,8 @@ module dub.init;
 
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.package_ : packageInfoFiles, defaultPackageFilename;
+import dub.package_;
+import dub.dependency;
 
 import std.datetime;
 import std.exception;
@@ -67,16 +68,16 @@ string initTypeDescription(InitType type)
 	}
 }
 
-void initPackage(Path package_path, Path user_dub_path, string[string] deps, InitType type)
+void initPackage(Path package_root, Path user_dub_path, string[string] deps, InitType type)
 {
 	void enforceDoesNotExist(string filename) {
-		enforce(!existsFile(package_path ~ filename), "The target directory already contains a '"~filename~"' file. Aborting.");
+		enforce(!existsFile(package_root ~ filename), "The target directory already contains a '"~filename~"' file. Aborting.");
 	}
 
 	//Check to see if a target directory needs to be created
-	if( !package_path.empty ){
-		if( !existsFile(package_path) )
-			createDirectory(package_path);
+	if( !package_root.empty ){
+		if( !existsFile(package_root) )
+			createDirectory(package_root);
 	}
 
 	//Make sure we do not overwrite anything accidentally
@@ -88,19 +89,19 @@ void initPackage(Path package_path, Path user_dub_path, string[string] deps, Ini
 		enforceDoesNotExist(fil);
 
 	final switch (type) {
-		case InitType.minimal: initMinimalPackage(package_path, deps); break;
-		case InitType.vibe_d:  initVibeDPackage(package_path, deps); break;
-		case InitType.deimos:  initDeimosPackage(package_path, deps); break;
-		case InitType.custom:  initCustomPackage(package_path, user_dub_path ~ CUSTOM_INIT_PACKAGE_DIR, deps); break;
+		case InitType.minimal: initMinimalPackage(package_root, deps); break;
+		case InitType.vibe_d:  initVibeDPackage(package_root, deps); break;
+		case InitType.deimos:  initDeimosPackage(package_root, deps); break;
+		case InitType.custom:  initCustomPackage(package_root, user_dub_path ~ CUSTOM_INIT_PACKAGE_DIR, deps); break;
 	}
-	writeGitignore(package_path);
+	writeGitignore(package_root);
 }
 
-void initMinimalPackage(Path package_path, string[string] deps)
+void initMinimalPackage(Path package_root, string[string] deps)
 {
-	writePackageJson(package_path, "A minimal D application.", deps);
-	createDirectory(package_path ~ "source");
-	write((package_path ~ "source/app.d").toNativeString(),
+	writePackageJson(package_root, "A minimal D application.", deps);
+	createDirectory(package_root ~ "source");
+	write((package_root ~ "source/app.d").toNativeString(),
 q{import std.stdio;
 
 void main()
@@ -110,17 +111,17 @@ void main()
 });
 }
 
-void initVibeDPackage(Path package_path, string[string] deps)
+void initVibeDPackage(Path package_root, string[string] deps)
 {
 	if("vibe-d" !in deps)
 		deps["vibe-d"] = "~>0.7.19";
 
-	writePackageJson(package_path, "A simple vibe.d server application.",
+	writePackageJson(package_root, "A simple vibe.d server application.",
 	                 deps, ["versions": `["VibeDefaultMain"]`]);
-	createDirectory(package_path ~ "source");
-	createDirectory(package_path ~ "views");
-	createDirectory(package_path ~ "public");
-	write((package_path ~ "source/app.d").toNativeString(),
+	createDirectory(package_root ~ "source");
+	createDirectory(package_root ~ "views");
+	createDirectory(package_root ~ "public");
+	write((package_root ~ "source/app.d").toNativeString(),
 q{import vibe.d;
 
 shared static this()
@@ -140,27 +141,27 @@ void hello(HTTPServerRequest req, HTTPServerResponse res)
 });
 }
 
-void initDeimosPackage(Path package_path, string[string] deps)
+void initDeimosPackage(Path package_root, string[string] deps)
 {
-	auto name = package_path.head.toString().toLower();
-	writePackageJson(package_path, "Deimos Bindings for "~name~".",
+	auto name = package_root.head.toString().toLower();
+	writePackageJson(package_root, "Deimos Bindings for "~name~".",
 	                 deps, ["targetType": `"sourceLibrary"`, "importPaths": `["."]`]);
-	createDirectory(package_path ~ "C");
-	createDirectory(package_path ~ "deimos");
+	createDirectory(package_root ~ "C");
+	createDirectory(package_root ~ "deimos");
 }
 
-void writePackageJson(Path package_path, string description, string[string] dependencies = null, string[string] addFields = null)
+void writePackageJson(Path package_root, string description, string[string] dependencies = null, string[string] addFields = null)
 {
-	assert(!package_path.empty);
+	assert(!package_root.empty);
 
 	string username;
 	version (Windows) username = environment.get("USERNAME", "Peter Parker");
 	else username = environment.get("USER", "Peter Parker");
 
-	auto fil = openFile(package_path ~ defaultPackageFilename, FileMode.Append);
+	auto fil = openFile(package_root ~ defaultPackageFilename, FileMode.Append);
 	scope(exit) fil.close();
 
-	fil.formattedWrite("{\n\t\"name\": \"%s\",\n", package_path.head.toString().toLower());
+	fil.formattedWrite("{\n\t\"name\": \"%s\",\n", package_root.head.toString().toLower());
 	fil.formattedWrite("\t\"description\": \"%s\",\n", description);
 	fil.formattedWrite("\t\"copyright\": \"Copyright © %s, %s\",\n", Clock.currTime().year, username);
 	fil.formattedWrite("\t\"authors\": [\"%s\"],\n", username);
@@ -171,13 +172,13 @@ void writePackageJson(Path package_path, string description, string[string] depe
 	fil.write("\n}\n");
 }
 
-void writeGitignore(Path package_path)
+void writeGitignore(Path package_root)
 {
-	write((package_path ~ ".gitignore").toNativeString(),
+	write((package_root ~ ".gitignore").toNativeString(),
 		".dub\ndocs.json\n__dummy.html\n*.o\n*.obj\n");
 }
 
-void initCustomPackage(Path package_path, Path custom_package_path, string[string] deps)
+void initCustomPackage(Path package_root, Path custom_package_path, string[string] deps)
 {
 	enforce(existsFile(custom_package_path), format("no custom package in dub path (%s)", custom_package_path));
 	enforce(isDir(custom_package_path.toString()), "custom package in dub path not a dir");
@@ -185,10 +186,16 @@ void initCustomPackage(Path package_path, Path custom_package_path, string[strin
 	auto cpps = custom_package_path.toString();
 	foreach (file; dirEntries(cpps, SpanMode.breadth))
 	{
-		auto dst = (package_path ~ file.name.relativePath(cpps)).toString();
-		if (file.isDir)
-			mkdir(dst);
-		else
-			copy(file.name, dst);
+		auto dst = (package_root ~ file.name.relativePath(cpps)).toString();
+		if (file.isDir) mkdir(dst);
+		else copy(file.name, dst);
 	}
+
+	auto package_name = package_root.head.toString().toLower();
+	auto pack = new Package(package_root, Package.findPackageFile(package_root));
+	pack.info.name = package_name;
+	pack.info.description = "custom package";
+	foreach( dep; deps.byKeyValue )
+		pack.info.buildSettings.dependencies[dep.key] = Dependency(dep.value);
+	pack.storeInfo();
 }
