@@ -20,6 +20,7 @@ import dub.packagesupplier;
 import dub.platform : determineCompiler;
 import dub.project;
 import dub.internal.utils : getDUBVersion, getClosestMatch;
+import dub.init;
 
 import std.algorithm;
 import std.array;
@@ -252,7 +253,7 @@ class CommandArgs {
 
 	@property const(Arg)[] recognizedArgs() { return m_recognizedArgs; }
 
-	void getopt(T)(string names, T* var, string[] help_text = null)
+	void getopt(T)(string names, T* var, string[] help_text = null, T delegate(string) value_conv = null)
 	{
 		foreach (ref arg; m_recognizedArgs)
 			if (names == arg.names) {
@@ -265,7 +266,10 @@ class CommandArgs {
 		arg.defaultValue = *var;
 		arg.names = names;
 		arg.helpText = help_text;
-		m_args.getopt(config.passThrough, names, var);
+		if (value_conv is null)
+			m_args.getopt(config.passThrough, names, var);
+		else
+			m_args.getopt(config.passThrough, names, (string o,string s){ *var = value_conv(s); });
 		arg.value = *var;
 		m_recognizedArgs ~= arg;
 	}
@@ -314,7 +318,7 @@ struct CommandGroup {
 
 class InitCommand : Command {
 	private{
-		string m_buildType = "minimal";
+		InitType m_buildType = InitType.minimal;
 	}
 	this()
 	{
@@ -331,10 +335,9 @@ class InitCommand : Command {
 		args.getopt("t|type", &m_buildType, [
 			"Set the type of project to generate. Available types:",
 			"",
-			"minimal - simple \"hello world\" project (default)",
-			"vibe.d  - minimal HTTP server based on vibe.d",
-			"deimos  - skeleton for C header bindings",
-		]);
+		] ~ fullInitTypeDescriptions("%7s - %s").array,
+		(string val){ return val.replace(".","_").to!InitType; }
+		);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -350,11 +353,11 @@ class InitCommand : Command {
 		// Checks if argument uses current method of specifying project type.
 		if (free_args.length)
 		{
-			if (["vibe.d", "deimos", "minimal"].canFind(free_args[0]))
+			if (initTypeNames().canFind(free_args[0]))
 			{
-				m_buildType = free_args[0];
+				m_buildType = free_args[0].to!InitType;
 				free_args = free_args[1 .. $];
-				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
+				logInfo(format("Deprecated use of init type. Use --type=[%(%s |%)] in future.", initTypeNames()));
 			}
 		}
 		dub.createEmptyPackage(Path(dir), free_args, m_buildType);

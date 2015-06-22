@@ -627,7 +627,7 @@ class Dub {
 		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
-	void createEmptyPackage(Path path, string[] deps, string type)
+	void createEmptyPackage(Path path, string[] deps, InitType type)
 	{
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();

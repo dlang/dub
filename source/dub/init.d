@@ -17,9 +17,52 @@ import std.file;
 import std.format;
 import std.process;
 import std.string;
+import std.algorithm : map;
+import std.traits : EnumMembers;
 
+enum InitType
+{
+	minimal,
+	vibe_d,
+	deimos
+}
 
-void initPackage(Path root_path, string[string] deps, string type)
+auto fullInitTypeDescriptions(string fmt="%7s - %s")
+{
+	return map!(a=>fullInitTypeDescription(a,fmt))( [EnumMembers!InitType] );
+}
+
+auto initTypeNames()
+{
+	return map!(a=>initTypeName(a))( [EnumMembers!InitType] );
+}
+
+string fullInitTypeDescription(InitType type, string fmt="%7s - %s")
+{
+	return format( fmt, initTypeName(type), initTypeDescription(type) );
+}
+
+string initTypeName(InitType type)
+{
+	final switch(type)
+	{
+		case InitType.minimal: return "minimal";
+		case InitType.vibe_d:  return "vibe.d";
+		case InitType.deimos:  return "deimos";
+	}
+}
+
+string initTypeDescription(InitType type)
+{
+	final switch(type)
+	{
+		case InitType.minimal: return "simple \"hello world\" project (default)";
+		case InitType.vibe_d:  return "minimal HTTP server based on vibe.d";
+		case InitType.deimos:  return "skeleton for C header bindings";
+	}
+}
+
+void initPackage(Path root_path, string[string] deps, InitType type)
 {
 	void enforceDoesNotExist(string filename) {
 		enforce(!existsFile(root_path ~ filename), "The target directory already contains a '"~filename~"' file. Aborting.");
@@ -39,11 +82,10 @@ void initPackage(Path root_path, string[string] deps, string type)
 	foreach (fil; files)
 		enforceDoesNotExist(fil);
 
-	switch (type) {
-		default: throw new Exception("Unknown package init type: "~type);
-		case "minimal": initMinimalPackage(root_path, deps); break;
-		case "vibe.d": initVibeDPackage(root_path, deps); break;
-		case "deimos": initDeimosPackage(root_path, deps); break;
+	final switch (type) {
+		case InitType.minimal: initMinimalPackage(root_path, deps); break;
+		case InitType.vibe_d:  initVibeDPackage(root_path, deps); break;
+		case InitType.deimos:  initDeimosPackage(root_path, deps); break;
 	}
 	writeGitignore(root_path);
 }
