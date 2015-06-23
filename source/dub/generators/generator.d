@@ -163,9 +163,7 @@ class ProjectGenerator
 
 		shallowbs.targetType = tt;
 		bool generates_binary = tt != TargetType.sourceLibrary && tt != TargetType.none;
-
-		enforce (generates_binary || pack !is m_project.rootPackage,
-			format("Main package must have a binary target type, not %s. Cannot build.", tt));
+		bool is_target = generates_binary || pack is m_project.rootPackage;
 
 		if (tt == TargetType.none) {
 			// ignore any build settings for targetType none (only dependencies will be processed)
@@ -174,7 +172,7 @@ class ProjectGenerator
 
 		// start to build up the build settings
 		BuildSettings buildsettings;
-		if (generates_binary) buildsettings = settings.buildSettings.dup;
+		if (is_target) buildsettings = settings.buildSettings.dup;
 		processVars(buildsettings, m_project, pack, shallowbs, true);
 
 		// remove any mainSourceFile from library builds
@@ -184,7 +182,7 @@ class ProjectGenerator
 		}
 
 		logDiagnostic("Generate target %s (%s %s %s)", pack.name, buildsettings.targetType, buildsettings.targetPath, buildsettings.targetName);
-		if (generates_binary)
+		if (is_target)
 			targets[pack.name] = TargetInfo(pack, [pack], configs[pack.name], buildsettings, null);
 
 		foreach (depname, depspec; pack.dependencies) {
@@ -192,7 +190,7 @@ class ProjectGenerator
 			auto dep = m_project.getDependency(depname, depspec.optional);
 			if (!dep) continue;
 
-			auto depbs = collect(settings, dep, targets, configs, main_files, generates_binary ? pack.name : bin_pack);
+			auto depbs = collect(settings, dep, targets, configs, main_files, is_target ? pack.name : bin_pack);
 
 			if (depbs.targetType != TargetType.sourceLibrary && depbs.targetType != TargetType.none) {
 				// add a reference to the target binary and remove all source files in the dependency build settings
@@ -205,7 +203,7 @@ class ProjectGenerator
 			if (depbs.targetType == TargetType.executable)
 				continue;
 
-			auto pt = (generates_binary ? pack.name : bin_pack) in targets;
+			auto pt = (is_target ? pack.name : bin_pack) in targets;
 			assert(pt !is null);
 			if (auto pdt = depname in targets) {
 				pt.dependencies ~= depname;
@@ -215,11 +213,15 @@ class ProjectGenerator
 			} else pt.packages ~= dep;
 		}
 
-		if (generates_binary) {
+		if (is_target) {
 			// add build type settings and convert plain DFLAGS to build options
 			m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 			settings.compiler.extractBuildOptions(buildsettings);
 			enforceBuildRequirements(buildsettings);
+
+			enforce (generates_binary || pack !is m_project.rootPackage || (buildsettings.options & BuildOptions.syntaxOnly),
+				format("Main package must have a binary target type, not %s. Cannot build.", tt));
+
 			targets[pack.name].buildSettings = buildsettings.dup;
 		}
 
