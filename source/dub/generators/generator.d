@@ -99,6 +99,7 @@ class ProjectGenerator
 		string[] mainfiles;
 		collect(settings, m_project.rootPackage, targets, configs, mainfiles, null);
 		downwardsInheritSettings(m_project.rootPackage.name, targets, targets[m_project.rootPackage.name].buildSettings);
+		foreach (ref t; targets.byValue) enforceBuildRequirements(t.buildSettings);
 		auto bs = &targets[m_project.rootPackage.name].buildSettings;
 		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
 
@@ -217,7 +218,6 @@ class ProjectGenerator
 			// add build type settings and convert plain DFLAGS to build options
 			m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
 			settings.compiler.extractBuildOptions(buildsettings);
-			enforceBuildRequirements(buildsettings);
 
 			enforce (generates_binary || pack !is m_project.rootPackage || (buildsettings.options & BuildOptions.syntaxOnly),
 				format("Main package must have a binary target type, not %s. Cannot build.", tt));
