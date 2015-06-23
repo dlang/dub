@@ -45,7 +45,6 @@ class VisualDGenerator : ProjectGenerator {
 
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
-		auto bs = targets[m_project.name].buildSettings;
 		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.rootPackage.name, m_project.rootPackage.dependencies.length);
 		generateProjectFiles(settings, targets);
 		generateSolutionFile(settings, targets);
@@ -256,8 +255,6 @@ class VisualDGenerator : ProjectGenerator {
 			foreach(architecture; settings.platform.architecture) {
 				auto arch = architecture.vsArchitecture;
 				ret.formattedWrite("  <Config name=\"%s\" platform=\"%s\">\n", to!string(type), arch);
-
-				// FIXME: handle compiler options in an abstract way instead of searching for DMD specific flags
 
 				// debug and optimize setting
 				ret.formattedWrite("    <symdebug>%s</symdebug>\n", buildsettings.options & BuildOptions.debugInfo ? "1" : "0");
