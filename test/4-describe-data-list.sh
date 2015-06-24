@@ -18,7 +18,7 @@ if ! $DUB describe --compiler=$COMPILER --data-list \
     --data=main-source-file \
     '--data=dflags,lflags' \
     '--data=libs, linker-files' \
-    '--data=d-files, source-files, copy-files' \
+    '--data=source-files, copy-files' \
     '--data=versions, debug-versions' \
     --data=import-paths \
     --data=string-import-paths \
@@ -59,20 +59,15 @@ echo "--some-lflag" >> "$expected_file"
 echo "--another-lflag" >> "$expected_file"
 echo >> "$expected_file"
 # --data=libs
-echo "ssl" >> "$expected_file"
+echo "crypto" >> "$expected_file"
 echo "curl" >> "$expected_file"
 echo >> "$expected_file"
 # --data=linker-files
 echo "$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a" >> "$expected_file"
 echo >> "$expected_file"
-# --data=d-files
-echo "$CURR_DIR/describe-project/src/dummy.d" >> "$expected_file"
-echo "$CURR_DIR/describe-dependency-1/source/dummy.d" >> "$expected_file"
-echo >> "$expected_file"
 # --data=source-files
 echo "$CURR_DIR/describe-project/src/dummy.d" >> "$expected_file"
 echo "$CURR_DIR/describe-dependency-1/source/dummy.d" >> "$expected_file"
-echo "$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a" >> "$expected_file"
 echo >> "$expected_file"
 # --data=copy-files
 echo "$CURR_DIR/describe-project/data/dummy.dat" >> "$expected_file"

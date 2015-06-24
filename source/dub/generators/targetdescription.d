@@ -52,7 +52,9 @@ class TargetDescriptionGenerator : ProjectGenerator {
 				auto linkDepTarget = targetDescriptions[ targetDescriptionLookup[linkDepName] ];
 				auto dbs = linkDepTarget.buildSettings;
 				if (bs.targetType != TargetType.staticLibrary) {
-					bs.addSourceFiles((Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform)).toNativeString());
+					auto linkerFile = (Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform)).toNativeString();
+					bs.addLinkerFiles(linkerFile);
+					bs.addSourceFiles(linkerFile); // To be removed from sourceFiles in the future
 				}
 			}
 		}

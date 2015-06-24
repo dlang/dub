@@ -642,14 +642,13 @@ class Project {
 		switch (attributeName)
 		{
 		case "dflags":
+		case "linkerFiles":
 		case "mainSourceFile":
 		case "importFiles":
 			values = formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
 			break;
 
 		case "lflags":
-		case "linkerFiles":
-		case "dFiles":
 		case "sourceFiles":
 		case "versions":
 		case "debugVersions":
@@ -666,20 +665,7 @@ class Project {
 			else static if (attributeName == "stringImportPaths")
 				bs.stringImportPaths = bs.stringImportPaths.map!(ensureTrailingSlash).array();
 
-			// linkerFiles and dFiles are functions, not regular BuildSetting fields
-			auto buildSettingField = attributeName;
-			static if(attributeName == "linkerFiles")
-			{
-				buildSettingField = "sourceFiles";
-				bs.sourceFiles = bs.linkerFiles();
-			}
-			else static if(attributeName == "dFiles")
-			{
-				buildSettingField = "sourceFiles";
-				bs.sourceFiles = bs.dFiles();
-			}
-
-			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(buildSettingField));
+			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
 			values = bs.dflags;
 			break;
 
@@ -711,7 +697,6 @@ class Project {
 			{
 			case "mainSourceFile":
 			case "linkerFiles":
-			case "dFiles":
 			case "copyFiles":
 			case "importFiles":
 			case "stringImportFiles":
@@ -744,13 +729,7 @@ class Project {
 		//                   is empty string an actual permitted value instead of
 		//                   a missing value?
 		auto getRawBuildSetting(Package pack, bool allowEmptyString) {
-			// linkerFiles and dFiles are implemented as member functions
-			static if(attributeName == "linkerFiles")
-				auto value = buildSettings.linkerFiles();
-			else static if(attributeName == "dFiles")
-				auto value = buildSettings.dFiles();
-			else
-				auto value = __traits(getMember, buildSettings, attributeName);
+			auto value = __traits(getMember, buildSettings, attributeName);
 			
 			static if( is(typeof(value) == string[]) )
 				return value;
@@ -788,9 +767,8 @@ class Project {
 			// Is relative path(s) to a file?
 			enum isRelativeFile =
 				attributeName == "sourceFiles" || attributeName == "linkerFiles" ||
-				attributeName == "dFiles" || attributeName == "importFiles" ||
-				attributeName == "stringImportFiles" || attributeName == "copyFiles" ||
-				attributeName == "mainSourceFile";
+				attributeName == "importFiles" || attributeName == "stringImportFiles" ||
+				attributeName == "copyFiles" || attributeName == "mainSourceFile";
 			
 			// For these, empty string means "main project directory", not "missing value"
 			enum allowEmptyString =
@@ -869,7 +847,6 @@ class Project {
 		case "dflags":                 return listBuildSetting!"dflags"(args);
 		case "lflags":                 return listBuildSetting!"lflags"(args);
 		case "libs":                   return listBuildSetting!"libs"(args);
-		case "d-files":                return listBuildSetting!"dFiles"(args);
 		case "linker-files":           return listBuildSetting!"linkerFiles"(args);
 		case "source-files":           return listBuildSetting!"sourceFiles"(args);
 		case "copy-files":             return listBuildSetting!"copyFiles"(args);
@@ -905,6 +882,14 @@ class Project {
 			if (pack.name == projectDescription.rootPackage)
 				packageDescription = pack;
 		}
+
+		// Remove linker files from sourceFiles
+		auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
+		target.buildSettings.sourceFiles =
+			target.buildSettings.sourceFiles
+			.filter!(a => !isLinkerFile(a))
+			.array();
+		projectDescription.lookupTarget(projectDescription.rootPackage) = target;
 
 		// Genrate results
 		if (formattingCompiler)
