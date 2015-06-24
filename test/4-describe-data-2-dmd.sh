@@ -33,7 +33,7 @@ if ! $DUB describe --compiler=dmd \
 fi
 
 # Create the expected output path file to compare against.
-expected_file="$CURR_DIR/expected-describe-data-dmd-output"
+expected_file="$CURR_DIR/expected-describe-data-2-dmd-output"
 # --data=main-source-file
 echo -n "'$CURR_DIR/describe-project/src/dummy.d' " > "$expected_file"
 # --data=dflags

@@ -34,7 +34,7 @@ if ! $DUB describe --compiler=$COMPILER --data-list \
 fi
 
 # Create the expected output path file to compare against.
-expected_file="$CURR_DIR/expected-describe-data-output"
+expected_file="$CURR_DIR/expected-describe-data-1-list-output"
 # --data=target-type
 echo "executable" > "$expected_file"
 echo >> "$expected_file"
