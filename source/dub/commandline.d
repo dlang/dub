@@ -776,7 +776,7 @@ class DescribeCommand : PackageBuildCommand {
 			"",
 			"The accepted values for --data=VALUE are:",
 			"",
-			"main-source-file, dflags, lflags, libs, linker-files, d-files, "
+			"main-source-file, dflags, lflags, libs, linker-files, "
 			"source-files, versions, debug-versions, import-paths, "
 			"string-import-paths, import-files, options",
 			"",

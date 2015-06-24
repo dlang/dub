@@ -29,6 +29,7 @@ struct BuildSettings {
 	string[] dflags;
 	string[] lflags;
 	string[] libs;
+	string[] linkerFiles;
 	string[] sourceFiles;
 	string[] copyFiles;
 	string[] versions;
@@ -44,18 +45,6 @@ struct BuildSettings {
 	@byName BuildRequirements requirements;
 	@byName BuildOptions options;
 
-	string[] dFiles()
-	{
-		import dub.compilers.compiler : isLinkerFile;
-		return sourceFiles.filter!(f => !isLinkerFile(f)).array();
-	}
-	
-	string[] linkerFiles()
-	{
-		import dub.compilers.compiler : isLinkerFile;
-		return sourceFiles.filter!(f => isLinkerFile(f)).array();
-	}
-	
 	BuildSettings dup()
 	const {
 		BuildSettings ret;
@@ -76,6 +65,7 @@ struct BuildSettings {
 		addDFlags(bs.dflags);
 		addLFlags(bs.lflags);
 		addLibs(bs.libs);
+		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
 		addCopyFiles(bs.copyFiles);
 		addVersions(bs.versions);
@@ -94,6 +84,7 @@ struct BuildSettings {
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { lflags ~= value; }
 	void addLibs(in string[] value...) { add(libs, value); }
+	void addLinkerFiles(in string[] value...) { add(linkerFiles, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }

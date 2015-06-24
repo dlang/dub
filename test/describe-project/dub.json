@@ -9,7 +9,7 @@
     "mainSourceFile": "src/dummy.d",
     "dflags": ["--some-dflag"],
     "lflags": ["--some-lflag"],
-    "libs": ["ssl"],
+    "libs": ["crypto"],
     "copyFiles": ["data/dummy.dat"],
     "versions": ["someVerIdent"],
     "debugVersions": ["someDebugVerIdent"],
