@@ -7,6 +7,8 @@
     "license": "BSD 2-clause",
     "copyright": "Copyright © 2015, nobody",
     "mainSourceFile": "src/dummy.d",
+    "sourceFiles-posix": ["./some.a"],
+    "sourceFiles-windows": ["./some.lib"],
     "dflags": ["--some-dflag"],
     "lflags": ["--some-lflag"],
     "libs": ["crypto"],

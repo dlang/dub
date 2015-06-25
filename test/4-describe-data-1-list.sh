@@ -64,6 +64,8 @@ echo "curl" >> "$expected_file"
 echo >> "$expected_file"
 # --data=linker-files
 echo "$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a" >> "$expected_file"
+echo "$CURR_DIR/describe-project/some.a" >> "$expected_file"
+echo "$CURR_DIR/describe-dependency-1/dep.a" >> "$expected_file"
 echo >> "$expected_file"
 # --data=source-files
 echo "$CURR_DIR/describe-project/src/dummy.d" >> "$expected_file"
