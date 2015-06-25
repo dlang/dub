@@ -572,7 +572,7 @@ class Dub {
 
 		// Retrieve packages to be removed.
 		foreach(pack; m_packageManager.getPackageIterator(package_id))
-			if( wildcardOrEmpty || pack.vers == version_ )
+			if ((wildcardOrEmpty || pack.vers == version_) && m_packageManager.isManagedPackage(pack))
 				packages ~= pack;
 
 		// Check validity of packages to be removed.
