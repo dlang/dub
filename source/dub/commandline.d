@@ -810,7 +810,17 @@ class DescribeCommand : PackageBuildCommand {
 		} else if (m_stringImportPaths) {
 			dub.listStringImportPaths(m_buildPlatform, config);
 		} else {
-			dub.describeProject(m_buildPlatform, config);
+
+			GeneratorSettings gensettings;
+			gensettings.platform = m_buildPlatform;
+			gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
+			gensettings.buildType = m_buildType;
+			gensettings.buildMode = m_buildMode;
+			gensettings.compiler = m_compiler;
+			gensettings.buildSettings = m_buildSettings;
+			gensettings.runArgs = app_args;
+
+			dub.describeProject(m_buildPlatform, config, gensettings);
 		}
 
 		return 0;
@@ -1690,4 +1700,3 @@ private void warnRenamed(string prev, string curr)
 {
 	logWarn("The '%s' Command was renamed to '%s'. Please update your scripts.", prev, curr);
 }
-

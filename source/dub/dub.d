@@ -414,7 +414,7 @@ class Dub {
 	}
 
 	/// Outputs a JSON description of the project, including its dependencies.
-	void describeProject(BuildPlatform platform, string config)
+	void describeProject(BuildPlatform platform, string config, GeneratorSettings gensettings)
 	{
 		auto dst = Json.emptyObject;
 		dst.configuration = config;
@@ -422,7 +422,7 @@ class Dub {
 		dst.architecture = platform.architecture.serializeToJson();
 		dst.platform = platform.platform.serializeToJson();
 
-		m_project.describe(dst, platform, config);
+		m_project.describe(dst, platform, config, gensettings);
 
 		import std.stdio;
 		write(dst.toPrettyString());
@@ -1059,4 +1059,3 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		return null;
 	}
 }
-
