@@ -54,7 +54,6 @@ class TargetDescriptionGenerator : ProjectGenerator {
 				if (bs.targetType != TargetType.staticLibrary) {
 					auto linkerFile = (Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform)).toNativeString();
 					bs.addLinkerFiles(linkerFile);
-					bs.addSourceFiles(linkerFile); // To be removed from sourceFiles in the future
 				}
 			}
 		}
