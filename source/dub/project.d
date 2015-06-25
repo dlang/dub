@@ -883,8 +883,13 @@ class Project {
 				packageDescription = pack;
 		}
 
-		// Remove linker files from sourceFiles
+		// Copy linker files from sourceFiles to linkerFiles
 		auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
+		target.buildSettings.sourceFiles
+			.filter!(isLinkerFile)
+			.each!(file => target.buildSettings.addLinkerFiles(file));
+		
+		// Remove linker files from sourceFiles
 		target.buildSettings.sourceFiles =
 			target.buildSettings.sourceFiles
 			.filter!(a => !isLinkerFile(a))

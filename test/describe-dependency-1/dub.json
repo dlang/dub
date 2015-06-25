@@ -6,6 +6,8 @@
     "homepage": "fake.com",
     "license": "BSD 2-clause",
     "copyright": "Copyright © 2015, nobody",
+    "sourceFiles-posix": ["dep.a"],
+    "sourceFiles-windows": ["dep.lib"],
     "dflags": ["--another-dflag"],
     "lflags": ["--another-lflag"],
     "libs": ["curl"],

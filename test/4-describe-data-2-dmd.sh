@@ -47,6 +47,8 @@ echo -n "-lcrypto " >> "$expected_file"
 echo -n "-lcurl " >> "$expected_file"
 # --data=linker-files
 echo -n "'$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a' " >> "$expected_file"
+echo -n "'$CURR_DIR/describe-project/some.a' " >> "$expected_file"
+echo -n "'$CURR_DIR/describe-dependency-1/dep.a' " >> "$expected_file"
 # --data=source-files
 echo -n "'$CURR_DIR/describe-project/src/dummy.d' " >> "$expected_file"
 echo -n "'$CURR_DIR/describe-dependency-1/source/dummy.d' " >> "$expected_file"
