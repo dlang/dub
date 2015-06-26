@@ -895,9 +895,8 @@ class Project {
 
 		// Copy linker files from sourceFiles to linkerFiles
 		auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
-		target.buildSettings.sourceFiles
-			.filter!(isLinkerFile)
-			.each!(file => target.buildSettings.addLinkerFiles(file));
+		foreach (file; target.buildSettings.sourceFiles.filter!(isLinkerFile))
+			target.buildSettings.addLinkerFiles(file);
 		
 		// Remove linker files from sourceFiles
 		target.buildSettings.sourceFiles =
