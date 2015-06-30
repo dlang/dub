@@ -760,31 +760,31 @@ class DescribeCommand : PackageBuildCommand {
 		this.argumentsPattern = "[<package>]";
 		this.description = "Prints a JSON description of the project and its dependencies";
 		this.helpText = [
-			"Prints a JSON build description for the root package an all of "
-			"their dependencies in a format similar to a JSON package "
+			"Prints a JSON build description for the root package an all of " ~
+			"their dependencies in a format similar to a JSON package " ~
 			"description file. This is useful mostly for IDEs.",
 			"",
 			"All usual options that are also used for build/run/generate apply.",
 			"",
-			"When --data=VALUE is supplied, specific build settings for a project ",
+			"When --data=VALUE is supplied, specific build settings for a project " ~
 			"will be printed instead (by default, formatted for the current compiler).",
 			"",
-			"The --data=VALUE option can be specified multiple times to retrieve "
-			"several pieces of information at once. A comma-separated list is "
-			"also acceptable (ex: --data=dflags,libs). The data will be output in "
+			"The --data=VALUE option can be specified multiple times to retrieve " ~
+			"several pieces of information at once. A comma-separated list is " ~
+			"also acceptable (ex: --data=dflags,libs). The data will be output in " ~
 			"the same order requested on the command line.",
 			"",
 			"The accepted values for --data=VALUE are:",
 			"",
-			"main-source-file, dflags, lflags, libs, linker-files, "
-			"source-files, versions, debug-versions, import-paths, "
+			"main-source-file, dflags, lflags, libs, linker-files, " ~
+			"source-files, versions, debug-versions, import-paths, " ~
 			"string-import-paths, import-files, options",
 			"",
 			"The following are also accepted by --data if --data-list is used:",
 			"",
-			"target-type, target-path, target-name, working-directory, "
-			"copy-files, string-import-files, pre-generate-commands,"
-			"post-generate-commands, pre-build-commands, post-build-commands, "
+			"target-type, target-path, target-name, working-directory, " ~
+			"copy-files, string-import-files, pre-generate-commands, " ~
+			"post-generate-commands, pre-build-commands, post-build-commands, " ~
 			"requirements",
 		];
 	}
