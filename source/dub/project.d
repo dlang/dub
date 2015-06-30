@@ -9,6 +9,7 @@ module dub.project;
 
 import dub.compilers.compiler;
 import dub.dependency;
+import dub.description;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
@@ -530,7 +531,7 @@ class Project {
 
 	void addBuildTypeSettings(ref BuildSettings dst, in BuildPlatform platform, string build_type)
 	{
-		bool usedefflags = !(dst.requirements & BuildRequirements.noDefaultFlags);
+		bool usedefflags = !(dst.requirements & BuildRequirement.noDefaultFlags);
 		if (usedefflags) {
 			BuildSettings btsettings;
 			m_rootPackage.addBuildTypeSettings(btsettings, platform, build_type);
@@ -571,66 +572,371 @@ class Project {
 		return all_found;
 	}*/
 
-	/// Outputs a JSON description of the project, including its deoendencies.
-	void describe(ref Json dst, BuildPlatform platform, string config)
+	/// Outputs a build description of the project, including its dependencies.
+	ProjectDescription describe(BuildPlatform platform, string config, string build_type = null)
 	{
-		dst.mainPackage = m_rootPackage.name; // deprecated
-		dst.rootPackage = m_rootPackage.name;
+		import dub.generators.targetdescription;
 
+		// store basic build parameters
+		ProjectDescription ret;
+		ret.rootPackage = m_rootPackage.name;
+		ret.configuration = config;
+		ret.buildType = build_type;
+		ret.compiler = platform.compiler;
+		ret.architecture = platform.architecture;
+		ret.platform = platform.platform;
+
+		// collect high level information about projects (useful for IDE display)
 		auto configs = getPackageConfigs(platform, config);
+		ret.packages ~= m_rootPackage.describe(platform, config);
+		foreach (dep; m_dependencies)
+			ret.packages ~= dep.describe(platform, configs[dep.name]);
 
-		// FIXME: use the generator system to collect the list of actually used build dependencies and source files
-
-		auto mp = Json.emptyObject;
-		m_rootPackage.describe(mp, platform, config);
-		dst.packages = Json([mp]);
-
-		foreach (dep; m_dependencies) {
-			auto dp = Json.emptyObject;
-			dep.describe(dp, platform, configs[dep.name]);
-			dst.packages = dst.packages.get!(Json[]) ~ dp;
+		if (build_type.length) {
+			// collect build target information (useful for build tools)
+			GeneratorSettings settings;
+			settings.platform = platform;
+			settings.compiler = getCompiler(platform.compilerBinary);
+			settings.config = config;
+			settings.buildType = build_type;
+			auto gen = new TargetDescriptionGenerator(this);
+			try {
+				gen.generate(settings);
+				ret.targets = gen.targetDescriptions;
+				ret.targetLookup = gen.targetDescriptionLookup;
+			} catch (Exception e) {
+				logDiagnostic("Skipping targets description: %s", e.msg);
+				logDebug("Full error: %s", e.toString().sanitize);
+			}
 		}
+
+		return ret;
+	}
+	/// ditto
+	deprecated void describe(ref Json dst, BuildPlatform platform, string config)
+	{
+		auto desc = describe(platform, config);
+		foreach (string key, value; desc.serializeToJson())
+			dst[key] = value;
 	}
 
-	private string[] listPaths(string attributeName)(BuildPlatform platform, string config)
+	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
+		string config, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
-		import std.path : buildPath, dirSeparator;
+		return listBuildSetting!attributeName(platform, getPackageConfigs(platform, config),
+			projectDescription, compiler, disableEscaping);
+	}
+	
+	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
+		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
+	{
+		if (compiler)
+			return formatBuildSettingCompiler!attributeName(platform, configs, projectDescription, compiler, disableEscaping);
+		else
+			return formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
+	}
+	
+	// Output a build setting formatted for a compiler
+	private string[] formatBuildSettingCompiler(string attributeName)(BuildPlatform platform,
+		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
+	{
+		import std.process : escapeShellFileName;
+		import std.path : dirSeparator;
 
-		auto configs = getPackageConfigs(platform, config);
+		assert(compiler);
+
+		auto targetDescription = projectDescription.lookupTarget(projectDescription.rootPackage);
+		auto buildSettings = targetDescription.buildSettings;
+
+		string[] values;
+		switch (attributeName)
+		{
+		case "dflags":
+		case "linkerFiles":
+		case "mainSourceFile":
+		case "importFiles":
+			values = formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
+			break;
+
+		case "lflags":
+		case "sourceFiles":
+		case "versions":
+		case "debugVersions":
+		case "importPaths":
+		case "stringImportPaths":
+		case "options":
+			auto bs = buildSettings.dup;
+			bs.dflags = null;
+			
+			// Ensure trailing slash on directory paths
+			auto ensureTrailingSlash = (string path) => path.endsWith(dirSeparator) ? path : path ~ dirSeparator;
+			static if (attributeName == "importPaths")
+				bs.importPaths = bs.importPaths.map!(ensureTrailingSlash).array();
+			else static if (attributeName == "stringImportPaths")
+				bs.stringImportPaths = bs.stringImportPaths.map!(ensureTrailingSlash).array();
+
+			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
+			values = bs.dflags;
+			break;
+
+		case "libs":
+			auto bs = buildSettings.dup;
+			bs.dflags = null;
+			bs.lflags = null;
+			bs.sourceFiles = null;
+			bs.targetType = TargetType.none; // Force Compiler to NOT omit dependency libs when package is a library.
+			
+			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
+			
+			if (bs.lflags)
+				values = bs.lflags;
+			else if (bs.sourceFiles)
+				values = bs.sourceFiles;
+			else
+				values = bs.dflags;
+
+			break;
+
+		default: assert(0);
+		}
+		
+		// Escape filenames and paths
+		if(!disableEscaping)
+		{
+			switch (attributeName)
+			{
+			case "mainSourceFile":
+			case "linkerFiles":
+			case "copyFiles":
+			case "importFiles":
+			case "stringImportFiles":
+			case "sourceFiles":
+			case "importPaths":
+			case "stringImportPaths":
+				return values.map!(escapeShellFileName).array();
+	
+			default:
+				return values;
+			}
+		}
+
+		return values;
+	}
+	
+	// Output a build setting without formatting for any particular compiler
+	private string[] formatBuildSettingPlain(string attributeName)(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription)
+	{
+		import std.path : buildNormalizedPath, dirSeparator;
+		import std.range : only;
 
 		string[] list;
+		
+		auto targetDescription = projectDescription.lookupTarget(projectDescription.rootPackage);
+		auto buildSettings = targetDescription.buildSettings;
+		
+		// Return any BuildSetting member attributeName as a range of strings. Don't attempt to fixup values.
+		// allowEmptyString: When the value is a string (as opposed to string[]),
+		//                   is empty string an actual permitted value instead of
+		//                   a missing value?
+		auto getRawBuildSetting(Package pack, bool allowEmptyString) {
+			auto value = __traits(getMember, buildSettings, attributeName);
+			
+			static if( is(typeof(value) == string[]) )
+				return value;
+			else static if( is(typeof(value) == string) )
+			{
+				auto ret = only(value);
 
-		auto fullPackagePaths(Package pack) {
-			// Return full paths for the import paths, making sure a
-			// directory separator is on the end of each path.
-			return __traits(getMember, pack.getBuildSettings(platform, configs[pack.name]), attributeName)
-			.map!(importPath => buildPath(pack.path.toString(), importPath))
-			.map!(path => path.endsWith(dirSeparator) ? path : path ~ dirSeparator);
-		}
+				// only() has a different return type from only(value), so we
+				// have to empty the range rather than just returning only().
+				if(value.empty && !allowEmptyString) {
+					ret.popFront();
+					assert(ret.empty);
+				}
 
-		foreach(path; fullPackagePaths(m_rootPackage)) {
-			list ~= path;
-		}
-
-		foreach (dep; m_dependencies) {
-			foreach(path; fullPackagePaths(dep)) {
-				list ~= path;
+				return ret;
 			}
+			else static if( is(typeof(value) == enum) )
+				return only(value);
+			else static if( is(typeof(value) == BuildRequirements) )
+				return only(cast(BuildRequirement) cast(int) value.values);
+			else static if( is(typeof(value) == BuildOptions) )
+				return only(cast(BuildOption) cast(int) value.values);
+			else
+				static assert(false, "Type of BuildSettings."~attributeName~" is unsupported.");
+		}
+		
+		// Adjust BuildSetting member attributeName as needed.
+		// Returns a range of strings.
+		auto getFixedBuildSetting(Package pack) {
+			// Is relative path(s) to a directory?
+			enum isRelativeDirectory =
+				attributeName == "importPaths" || attributeName == "stringImportPaths" ||
+				attributeName == "targetPath" || attributeName == "workingDirectory";
+
+			// Is relative path(s) to a file?
+			enum isRelativeFile =
+				attributeName == "sourceFiles" || attributeName == "linkerFiles" ||
+				attributeName == "importFiles" || attributeName == "stringImportFiles" ||
+				attributeName == "copyFiles" || attributeName == "mainSourceFile";
+			
+			// For these, empty string means "main project directory", not "missing value"
+			enum allowEmptyString =
+				attributeName == "targetPath" || attributeName == "workingDirectory";
+			
+			enum isEnumBitfield =
+				attributeName == "targetType" || attributeName == "requirements" ||
+				attributeName == "options";
+			
+			auto values = getRawBuildSetting(pack, allowEmptyString);
+			auto fixRelativePath = (string importPath) => buildNormalizedPath(pack.path.toString(), importPath);
+			auto ensureTrailingSlash = (string path) => path.endsWith(dirSeparator) ? path : path ~ dirSeparator;
+
+			static if(isRelativeDirectory) {
+				// Return full paths for the paths, making sure a
+				// directory separator is on the end of each path.
+				return values.map!(fixRelativePath).map!(ensureTrailingSlash);
+			}
+			else static if(isRelativeFile) {
+				// Return full paths.
+				return values.map!(fixRelativePath);
+			}
+			else static if(isEnumBitfield)
+				return bitFieldNames(values.front);
+			else
+				return values;
+		}
+
+		foreach(value; getFixedBuildSetting(m_rootPackage)) {
+			list ~= value;
 		}
 
 		return list;
 	}
 
-	/// Outputs the import paths for the project, including its dependencies.
-	string [] listImportPaths(BuildPlatform platform, string config)
+	// The "compiler" arg is for choosing which compiler the output should be formatted for,
+	// or null to imply "list" format.
+	private string[] listBuildSetting(BuildPlatform platform, string[string] configs,
+		ProjectDescription projectDescription, string requestedData, Compiler compiler, bool disableEscaping)
 	{
-		return listPaths!"importPaths"(platform, config);
+		// Certain data cannot be formatter for a compiler
+		if (compiler)
+		{
+			switch (requestedData)
+			{
+			case "target-type":
+			case "target-path":
+			case "target-name":
+			case "working-directory":
+			case "string-import-files":
+			case "copy-files":
+			case "pre-generate-commands":
+			case "post-generate-commands":
+			case "pre-build-commands":
+			case "post-build-commands":
+				enforce(false, "--data="~requestedData~" can only be used with --data-format=list.");
+				break;
+
+			case "requirements":
+				enforce(false, "--data=requirements can only be used with --data-format=list. Use --data=options instead.");
+				break;
+
+			default: break;
+			}
+		}
+
+		import std.typetuple : TypeTuple;
+		auto args = TypeTuple!(platform, configs, projectDescription, compiler, disableEscaping);
+		switch (requestedData)
+		{
+		case "target-type":            return listBuildSetting!"targetType"(args);
+		case "target-path":            return listBuildSetting!"targetPath"(args);
+		case "target-name":            return listBuildSetting!"targetName"(args);
+		case "working-directory":      return listBuildSetting!"workingDirectory"(args);
+		case "main-source-file":       return listBuildSetting!"mainSourceFile"(args);
+		case "dflags":                 return listBuildSetting!"dflags"(args);
+		case "lflags":                 return listBuildSetting!"lflags"(args);
+		case "libs":                   return listBuildSetting!"libs"(args);
+		case "linker-files":           return listBuildSetting!"linkerFiles"(args);
+		case "source-files":           return listBuildSetting!"sourceFiles"(args);
+		case "copy-files":             return listBuildSetting!"copyFiles"(args);
+		case "versions":               return listBuildSetting!"versions"(args);
+		case "debug-versions":         return listBuildSetting!"debugVersions"(args);
+		case "import-paths":           return listBuildSetting!"importPaths"(args);
+		case "string-import-paths":    return listBuildSetting!"stringImportPaths"(args);
+		case "import-files":           return listBuildSetting!"importFiles"(args);
+		case "string-import-files":    return listBuildSetting!"stringImportFiles"(args);
+		case "pre-generate-commands":  return listBuildSetting!"preGenerateCommands"(args);
+		case "post-generate-commands": return listBuildSetting!"postGenerateCommands"(args);
+		case "pre-build-commands":     return listBuildSetting!"preBuildCommands"(args);
+		case "post-build-commands":    return listBuildSetting!"postBuildCommands"(args);
+		case "requirements":           return listBuildSetting!"requirements"(args);
+		case "options":                return listBuildSetting!"options"(args);
+
+		default:
+			enforce(false, "--data="~requestedData~
+				" is not a valid option. See 'dub describe --help' for accepted --data= values.");
+		}
+		
+		assert(0);
+	}
+
+	/// Outputs requested data for the project, optionally including its dependencies.
+	string[] listBuildSettings(BuildPlatform platform, string config, string buildType,
+		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
+	{
+		auto projectDescription = describe(platform, config, buildType);
+		auto configs = getPackageConfigs(platform, config);
+		PackageDescription packageDescription;
+		foreach (pack; projectDescription.packages) {
+			if (pack.name == projectDescription.rootPackage)
+				packageDescription = pack;
+		}
+
+		// Copy linker files from sourceFiles to linkerFiles
+		auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
+		foreach (file; target.buildSettings.sourceFiles.filter!(isLinkerFile))
+			target.buildSettings.addLinkerFiles(file);
+		
+		// Remove linker files from sourceFiles
+		target.buildSettings.sourceFiles =
+			target.buildSettings.sourceFiles
+			.filter!(a => !isLinkerFile(a))
+			.array();
+		projectDescription.lookupTarget(projectDescription.rootPackage) = target;
+
+		// Genrate results
+		if (formattingCompiler)
+		{
+			// Format for a compiler
+			return [
+				requestedData
+					.map!(dataName => listBuildSetting(platform, configs, projectDescription, dataName, formattingCompiler, nullDelim))
+					.join().join(nullDelim? "\0" : " ")
+			];
+		}
+		else
+		{
+			// Format list-style
+			return requestedData
+				.map!(dataName => listBuildSetting(platform, configs, projectDescription, dataName, null, nullDelim))
+				.joiner([""]) // Blank entry between each type of requestedData
+				.array();
+		}
+	}
+
+	/// Outputs the import paths for the project, including its dependencies.
+	string[] listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
+	{
+		auto projectDescription = describe(platform, config, buildType);
+		return listBuildSetting!"importPaths"(platform, config, projectDescription, null, nullDelim);
 	}
 
 	/// Outputs the string import paths for the project, including its dependencies.
-	string[] listStringImportPaths(BuildPlatform platform, string config)
+	string[] listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
-		return listPaths!"stringImportPaths"(platform, config);
+		auto projectDescription = describe(platform, config, buildType);
+		return listBuildSetting!"stringImportPaths"(platform, config, projectDescription, null, nullDelim);
 	}
 
 	void saveSelections()
@@ -675,7 +981,7 @@ class Project {
 	{
 		logDebug("markUpToDate");
 		Json create(ref Json json, string object) {
-			if( object !in json ) json[object] = Json.emptyObject;
+			if (json[object].type == Json.Type.undefined) json[object] = Json.emptyObject;
 			return json[object];
 		}
 		create(m_packageSettings, "dub");

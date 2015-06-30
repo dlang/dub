@@ -12,11 +12,15 @@ import dub.internal.vibecompat.inet.path;
 import std.array : array;
 import std.algorithm : filter;
 import std.path : globMatch;
+static if (__VERSION__ >= 2067)
+	import std.typecons : BitFlags;
 
 
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
 struct BuildSettings {
+	import dub.internal.vibecompat.data.serialization;
+
 	TargetType targetType;
 	string targetPath;
 	string targetName;
@@ -25,6 +29,7 @@ struct BuildSettings {
 	string[] dflags;
 	string[] lflags;
 	string[] libs;
+	string[] linkerFiles;
 	string[] sourceFiles;
 	string[] copyFiles;
 	string[] versions;
@@ -37,8 +42,8 @@ struct BuildSettings {
 	string[] postGenerateCommands;
 	string[] preBuildCommands;
 	string[] postBuildCommands;
-	BuildRequirements requirements;
-	BuildOptions options;
+	@byName BuildRequirements requirements;
+	@byName BuildOptions options;
 
 	BuildSettings dup()
 	const {
@@ -60,6 +65,7 @@ struct BuildSettings {
 		addDFlags(bs.dflags);
 		addLFlags(bs.lflags);
 		addLibs(bs.libs);
+		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
 		addCopyFiles(bs.copyFiles);
 		addVersions(bs.versions);
@@ -78,6 +84,7 @@ struct BuildSettings {
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { lflags ~= value; }
 	void addLibs(in string[] value...) { add(libs, value); }
+	void addLinkerFiles(in string[] value...) { add(linkerFiles, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
@@ -94,9 +101,12 @@ struct BuildSettings {
 	void addPostGenerateCommands(in string[] value...) { add(postGenerateCommands, value, false); }
 	void addPreBuildCommands(in string[] value...) { add(preBuildCommands, value, false); }
 	void addPostBuildCommands(in string[] value...) { add(postBuildCommands, value, false); }
-	void addRequirements(in BuildRequirements[] value...) { foreach (v; value) this.requirements |= v; }
-	void addOptions(in BuildOptions[] value...) { foreach (v; value) this.options |= v; }
-	void removeOptions(in BuildOptions[] value...) { foreach (v; value) this.options &= ~v; }
+	void addRequirements(in BuildRequirement[] value...) { foreach (v; value) this.requirements |= v; }
+	void addRequirements(in BuildRequirements value) { this.requirements |= value; }
+	void addOptions(in BuildOption[] value...) { foreach (v; value) this.options |= v; }
+	void addOptions(in BuildOptions value) { this.options |= value; }
+	void removeOptions(in BuildOption[] value...) { foreach (v; value) this.options &= ~v; }
+	void removeOptions(in BuildOptions value) { this.options &= ~value; }
 
 	// Adds vals to arr without adding duplicates.
 	private void add(ref string[] arr, in string[] vals, bool no_duplicates = true)
@@ -203,7 +213,7 @@ enum TargetType {
 	object
 }
 
-enum BuildRequirements {
+enum BuildRequirement {
 	none = 0,                     /// No special requirements
 	allowWarnings        = 1<<0,  /// Warnings do not abort compilation
 	silenceWarnings      = 1<<1,  /// Don't show warnings
@@ -217,7 +227,46 @@ enum BuildRequirements {
 	noDefaultFlags       = 1<<9,  /// Do not issue any of the default build flags (e.g. -debug, -w, -property etc.) - use only for development purposes
 }
 
-enum BuildOptions {
+	struct BuildRequirements {
+		import dub.internal.vibecompat.data.serialization : ignore;
+
+		static if (__VERSION__ >= 2067) {
+			@ignore BitFlags!BuildRequirement values;
+			this(BuildRequirement req) { values = req; }
+			deprecated("Use BuildRequirement.* instead.") {
+				enum none = BuildRequirement.none;
+				enum allowWarnings = BuildRequirement.allowWarnings;
+				enum silenceWarnings = BuildRequirement.silenceWarnings;
+				enum disallowDeprecations = BuildRequirement.disallowDeprecations;
+				enum silenceDeprecations = BuildRequirement.silenceDeprecations;
+				enum disallowInlining = BuildRequirement.disallowInlining;
+				enum disallowOptimization = BuildRequirement.disallowOptimization;
+				enum requireBoundsCheck = BuildRequirement.requireBoundsCheck;
+				enum requireContracts = BuildRequirement.requireContracts;
+				enum relaxProperties = BuildRequirement.relaxProperties;
+				enum noDefaultFlags = BuildRequirement.noDefaultFlags;
+			}
+		} else {
+			@ignore BuildRequirement values;
+			this(BuildRequirement req) { values = req; }
+			BuildRequirement[] toRepresentation()
+			const {
+				BuildRequirement[] ret;
+				for (int f = 1; f <= BuildRequirement.max; f *= 2)
+					if (values & f) ret ~= cast(BuildRequirement)f;
+				return ret;
+			}
+			static BuildRequirements fromRepresentation(BuildRequirement[] v)
+			{
+				BuildRequirements ret;
+				foreach (f; v) ret.values |= f;
+				return ret;
+			}
+		}
+		alias values this;
+	}
+
+enum BuildOption {
 	none = 0,                     /// Use compiler defaults
 	debugMode = 1<<0,             /// Compile in debug mode (enables contracts, -debug)
 	releaseMode = 1<<1,           /// Compile in release mode (disables assertions and bounds checks, -release)
@@ -241,3 +290,54 @@ enum BuildOptions {
 	deprecationErrors = 1<<19,    /// Stop compilation upon usage of deprecated features (-de)
 	property = 1<<20,             /// DEPRECATED: Enforce property syntax (-property)
 }
+
+	struct BuildOptions {
+		import dub.internal.vibecompat.data.serialization : ignore;
+
+		static if (__VERSION__ >= 2067) {
+			@ignore BitFlags!BuildOption values;
+			this(BuildOption opt) { values = opt; }
+			deprecated("Use BuildOption.* instead.") {
+				enum none = BuildOption.none;
+				enum debugMode = BuildOption.debugMode;
+				enum releaseMode = BuildOption.releaseMode;
+				enum coverage = BuildOption.coverage;
+				enum debugInfo = BuildOption.debugInfo;
+				enum debugInfoC = BuildOption.debugInfoC;
+				enum alwaysStackFrame = BuildOption.alwaysStackFrame;
+				enum stackStomping = BuildOption.stackStomping;
+				enum inline = BuildOption.inline;
+				enum noBoundsCheck = BuildOption.noBoundsCheck;
+				enum optimize = BuildOption.optimize;
+				enum profile = BuildOption.profile;
+				enum unittests = BuildOption.unittests;
+				enum verbose = BuildOption.verbose;
+				enum ignoreUnknownPragmas = BuildOption.ignoreUnknownPragmas;
+				enum syntaxOnly = BuildOption.syntaxOnly;
+				enum warnings = BuildOption.warnings;
+				enum warningsAsErrors = BuildOption.warningsAsErrors;
+				enum ignoreDeprecations = BuildOption.ignoreDeprecations;
+				enum deprecationWarnings = BuildOption.deprecationWarnings;
+				enum deprecationErrors = BuildOption.deprecationErrors;
+				enum property = BuildOption.property;
+			}
+		} else {
+			@ignore BuildOption values;
+			this(BuildOption opt) { values = opt; }
+			BuildOption[] toRepresentation()
+			const {
+				BuildOption[] ret;
+				for (int f = 1; f <= BuildOption.max; f *= 2)
+					if (values & f) ret ~= cast(BuildOption)f;
+				return ret;
+			}
+			static BuildOptions fromRepresentation(BuildOption[] v)
+			{
+				BuildOptions ret;
+				foreach (f; v) ret.values |= f;
+				return ret;
+			}
+		}
+
+		alias values this;
+	}

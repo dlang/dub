@@ -257,10 +257,10 @@ class VisualDGenerator : ProjectGenerator {
 				ret.formattedWrite("  <Config name=\"%s\" platform=\"%s\">\n", to!string(type), arch);
 
 				// debug and optimize setting
-				ret.formattedWrite("    <symdebug>%s</symdebug>\n", buildsettings.options & BuildOptions.debugInfo ? "1" : "0");
-				ret.formattedWrite("    <optimize>%s</optimize>\n", buildsettings.options & BuildOptions.optimize ? "1" : "0");
-				ret.formattedWrite("    <useInline>%s</useInline>\n", buildsettings.options & BuildOptions.inline ? "1" : "0");
-				ret.formattedWrite("    <release>%s</release>\n", buildsettings.options & BuildOptions.releaseMode ? "1" : "0");
+				ret.formattedWrite("    <symdebug>%s</symdebug>\n", buildsettings.options & BuildOption.debugInfo ? "1" : "0");
+				ret.formattedWrite("    <optimize>%s</optimize>\n", buildsettings.options & BuildOption.optimize ? "1" : "0");
+				ret.formattedWrite("    <useInline>%s</useInline>\n", buildsettings.options & BuildOption.inline ? "1" : "0");
+				ret.formattedWrite("    <release>%s</release>\n", buildsettings.options & BuildOption.releaseMode ? "1" : "0");
 
 				// Lib or exe?
 				enum
@@ -308,7 +308,7 @@ class VisualDGenerator : ProjectGenerator {
 				if (output_type != StaticLib) ret.formattedWrite("    <libfiles>%s %s</libfiles>\n", linkLibs, addLinkFiles);
 
 				// Unittests
-				ret.formattedWrite("    <useUnitTests>%s</useUnitTests>\n", buildsettings.options & BuildOptions.unittests ? "1" : "0");
+				ret.formattedWrite("    <useUnitTests>%s</useUnitTests>\n", buildsettings.options & BuildOption.unittests ? "1" : "0");
 
 				// compute directory for intermediate files (need dummy/ because of how -op determines the resulting path)
 				size_t ndummy = 0;
@@ -337,7 +337,7 @@ class VisualDGenerator : ProjectGenerator {
 				ret.put("    <oneobj>0</oneobj>\n");
 				ret.put("    <trace>0</trace>\n");
 				ret.put("    <quiet>0</quiet>\n");
-				ret.formattedWrite("    <verbose>%s</verbose>\n", buildsettings.options & BuildOptions.verbose ? "1" : "0");
+				ret.formattedWrite("    <verbose>%s</verbose>\n", buildsettings.options & BuildOption.verbose ? "1" : "0");
 				ret.put("    <vtls>0</vtls>\n");
 				ret.put("    <cpu>0</cpu>\n");
 				ret.formattedWrite("    <isX86_64>%s</isX86_64>\n", arch == "x64" ? 1 : 0);
@@ -353,18 +353,18 @@ class VisualDGenerator : ProjectGenerator {
 				ret.put("    <useIn>0</useIn>\n");
 				ret.put("    <useOut>0</useOut>\n");
 				ret.put("    <useArrayBounds>0</useArrayBounds>\n");
-				ret.formattedWrite("    <noboundscheck>%s</noboundscheck>\n", buildsettings.options & BuildOptions.noBoundsCheck ? "1" : "0");
+				ret.formattedWrite("    <noboundscheck>%s</noboundscheck>\n", buildsettings.options & BuildOption.noBoundsCheck ? "1" : "0");
 				ret.put("    <useSwitchError>0</useSwitchError>\n");
 				ret.put("    <preservePaths>1</preservePaths>\n");
-				ret.formattedWrite("    <warnings>%s</warnings>\n", buildsettings.options & BuildOptions.warningsAsErrors ? "1" : "0");
-				ret.formattedWrite("    <infowarnings>%s</infowarnings>\n", buildsettings.options & BuildOptions.warnings ? "1" : "0");
-				ret.formattedWrite("    <checkProperty>%s</checkProperty>\n", buildsettings.options & BuildOptions.property ? "1" : "0");
-				ret.formattedWrite("    <genStackFrame>%s</genStackFrame>\n", buildsettings.options & BuildOptions.alwaysStackFrame ? "1" : "0");
+				ret.formattedWrite("    <warnings>%s</warnings>\n", buildsettings.options & BuildOption.warningsAsErrors ? "1" : "0");
+				ret.formattedWrite("    <infowarnings>%s</infowarnings>\n", buildsettings.options & BuildOption.warnings ? "1" : "0");
+				ret.formattedWrite("    <checkProperty>%s</checkProperty>\n", buildsettings.options & BuildOption.property ? "1" : "0");
+				ret.formattedWrite("    <genStackFrame>%s</genStackFrame>\n", buildsettings.options & BuildOption.alwaysStackFrame ? "1" : "0");
 				ret.put("    <pic>0</pic>\n");
-				ret.formattedWrite("    <cov>%s</cov>\n", buildsettings.options & BuildOptions.coverage ? "1" : "0");
+				ret.formattedWrite("    <cov>%s</cov>\n", buildsettings.options & BuildOption.coverage ? "1" : "0");
 				ret.put("    <nofloat>0</nofloat>\n");
 				ret.put("    <Dversion>2</Dversion>\n");
-				ret.formattedWrite("    <ignoreUnsupportedPragmas>%s</ignoreUnsupportedPragmas>\n", buildsettings.options & BuildOptions.ignoreUnknownPragmas ? "1" : "0");
+				ret.formattedWrite("    <ignoreUnsupportedPragmas>%s</ignoreUnsupportedPragmas>\n", buildsettings.options & BuildOption.ignoreUnknownPragmas ? "1" : "0");
 				ret.formattedWrite("    <compiler>%s</compiler>\n", settings.compiler.name == "ldc" ? 2 : settings.compiler.name == "gdc" ? 1 : 0);
 				ret.formattedWrite("    <otherDMD>0</otherDMD>\n");
 				ret.formattedWrite("    <outdir>%s</outdir>\n", bin_path.toNativeString());

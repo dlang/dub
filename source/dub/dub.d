@@ -414,36 +414,50 @@ class Dub {
 	}
 
 	/// Outputs a JSON description of the project, including its dependencies.
-	void describeProject(BuildPlatform platform, string config)
+	deprecated void describeProject(BuildPlatform platform, string config)
 	{
-		auto dst = Json.emptyObject;
-		dst.configuration = config;
-		dst.compiler = platform.compiler;
-		dst.architecture = platform.architecture.serializeToJson();
-		dst.platform = platform.platform.serializeToJson();
-
-		m_project.describe(dst, platform, config);
-
 		import std.stdio;
-		write(dst.toPrettyString());
+		auto desc = m_project.describe(platform, config);
+		writeln(desc.serializeToPrettyJson());
 	}
 
-	void listImportPaths(BuildPlatform platform, string config)
+	void listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		import std.stdio;
 
-		foreach(path; m_project.listImportPaths(platform, config)) {
+		foreach(path; m_project.listImportPaths(platform, config, buildType, nullDelim)) {
 			writeln(path);
 		}
 	}
 
-	void listStringImportPaths(BuildPlatform platform, string config)
+	void listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		import std.stdio;
 
-		foreach(path; m_project.listStringImportPaths(platform, config)) {
+		foreach(path; m_project.listStringImportPaths(platform, config, buildType, nullDelim)) {
 			writeln(path);
 		}
+	}
+
+	void listProjectData(BuildPlatform platform, string config, string buildType,
+		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
+	{
+		import std.stdio;
+		import std.ascii : newline;
+		
+		// Split comma-separated lists
+		string[] requestedDataSplit =
+			requestedData
+			.map!(a => a.splitter(",").map!strip)
+			.joiner()
+			.array();
+		
+		auto data = m_project.listBuildSettings(platform, config, buildType,
+			requestedDataSplit, formattingCompiler, nullDelim);
+
+		write( data.joiner(nullDelim? "\0" : newline) );
+		if(!nullDelim)
+			writeln();
 	}
 
 	/// Cleans intermediate/cache files of the given package

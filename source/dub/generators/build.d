@@ -82,7 +82,7 @@ class BuildGenerator : ProjectGenerator {
 	{
 		// run the generated executable
 		auto buildsettings = targets[m_project.rootPackage.name].buildSettings;
-		if (settings.run && !(buildsettings.options & BuildOptions.syntaxOnly)) {
+		if (settings.run && !(buildsettings.options & BuildOption.syntaxOnly)) {
 			auto exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 			runTarget(exe_file_path, buildsettings, settings.runArgs, settings);
 		}
@@ -91,7 +91,7 @@ class BuildGenerator : ProjectGenerator {
 	private void buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in Path[] additional_dep_files)
 	{
 		auto cwd = Path(getcwd());
-		bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
+		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
 		auto build_id = computeBuildID(config, buildsettings, settings);
 
@@ -134,7 +134,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		// determine basic build properties
-		auto generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
+		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
 		logInfo("Building %s %s configuration \"%s\", build type %s.", pack.name, pack.vers, config, settings.buildType);
 
@@ -223,7 +223,7 @@ class BuildGenerator : ProjectGenerator {
 	{
 		auto cwd = Path(getcwd());
 
-		auto generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
+		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
 
 		// make file paths relative to shrink the command line
@@ -373,7 +373,7 @@ class BuildGenerator : ProjectGenerator {
 
 	void buildWithCompiler(GeneratorSettings settings, BuildSettings buildsettings)
 	{
-		auto generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
+		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
 
 		Path target_file;

@@ -6,9 +6,23 @@
     "homepage": "fake.com",
     "license": "BSD 2-clause",
     "copyright": "Copyright © 2015, nobody",
-	"configurations": [
-		{
-			"name": "my-dependency-1-config"
-		}
-	],
+    "sourceFiles-posix": ["dep.a"],
+    "sourceFiles-windows": ["dep.lib"],
+    "dflags": ["--another-dflag"],
+    "lflags": ["--another-lflag"],
+    "libs": ["curl"],
+    "copyFiles": ["data/*"],
+    "versions": ["anotherVerIdent"],
+    "debugVersions": ["anotherDebugVerIdent"],
+    "preGenerateCommands": ["../describe-dependency-1/dependency-preGenerateCommands.sh"],
+    "postGenerateCommands": ["../describe-dependency-1/dependency-postGenerateCommands.sh"],
+    "preBuildCommands": ["../describe-dependency-1/dependency-preBuildCommands.sh"],
+    "postBuildCommands": ["../describe-dependency-1/dependency-postBuildCommands.sh"],
+    "buildRequirements": ["requireContracts"],
+    "buildOptions": ["stackStomping"],
+    "configurations": [
+        {
+            "name": "my-dependency-1-config"
+        }
+    ],
 }

@@ -13,6 +13,7 @@ import dub.dub;
 import dub.generators.generator;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.packagemanager;
@@ -748,6 +749,9 @@ class DescribeCommand : PackageBuildCommand {
 	private {
 		bool m_importPaths = false;
 		bool m_stringImportPaths = false;
+		bool m_dataList = false;
+		bool m_dataNullDelim = false;
+		string[] m_data;
 	}
 
 	this()
@@ -760,14 +764,28 @@ class DescribeCommand : PackageBuildCommand {
 			"their dependencies in a format similar to a JSON package "
 			"description file. This is useful mostly for IDEs.",
 			"",
-			"When --import-paths is supplied, the import paths for a project ",
-			"will be printed line-by-line instead. The paths for D source "
-			"files across all dependent projects will be included.",
+			"All usual options that are also used for build/run/generate apply.",
 			"",
-			"--string-import-paths can can supplied to print the string "
-			"import paths for a project.",
+			"When --data=VALUE is supplied, specific build settings for a project ",
+			"will be printed instead (by default, formatted for the current compiler).",
 			"",
-			"All usual options that are also used for build/run/generate apply."
+			"The --data=VALUE option can be specified multiple times to retrieve "
+			"several pieces of information at once. A comma-separated list is "
+			"also acceptable (ex: --data=dflags,libs). The data will be output in "
+			"the same order requested on the command line.",
+			"",
+			"The accepted values for --data=VALUE are:",
+			"",
+			"main-source-file, dflags, lflags, libs, linker-files, "
+			"source-files, versions, debug-versions, import-paths, "
+			"string-import-paths, import-files, options",
+			"",
+			"The following are also accepted by --data if --data-list is used:",
+			"",
+			"target-type, target-path, target-name, working-directory, "
+			"copy-files, string-import-files, pre-generate-commands,"
+			"post-generate-commands, pre-build-commands, post-build-commands, "
+			"requirements",
 		];
 	}
 
@@ -776,11 +794,28 @@ class DescribeCommand : PackageBuildCommand {
 		super.prepare(args);
 
 		args.getopt("import-paths", &m_importPaths, [
-			"List the import paths for project."
+			"Shortcut for --data=import-paths --data-list"
 		]);
 
 		args.getopt("string-import-paths", &m_stringImportPaths, [
-			"List the string import paths for project."
+			"Shortcut for --data=string-import-paths --data-list"
+		]);
+
+		args.getopt("data", &m_data, [
+			"Just list the values of a particular build setting, either for this "~
+			"package alone or recursively including all dependencies. Accepts a "~
+			"comma-separated list. See above for more details and accepted "~
+			"possibilities for VALUE."
+		]);
+
+		args.getopt("data-list", &m_dataList, [
+			"Output --data information in list format (line-by-line), instead "~
+			"of formatting for a compiler command line.",
+		]);
+
+		args.getopt("data-0", &m_dataNullDelim, [
+			"Output --data information using null-delimiters, rather than "~
+			"spaces or newlines. Result is usable with, ex., xargs -0.",
 		]);
 	}
 
@@ -789,6 +824,11 @@ class DescribeCommand : PackageBuildCommand {
 		enforceUsage(
 			!(m_importPaths && m_stringImportPaths),
 			"--import-paths and --string-import-paths may not be used together."
+		);
+
+		enforceUsage(
+			!(m_data && (m_importPaths || m_stringImportPaths)),
+			"--data may not be used together with --import-paths or --string-import-paths."
 		);
 
 		// disable all log output and use "writeln" to output the JSON description
@@ -806,11 +846,15 @@ class DescribeCommand : PackageBuildCommand {
 		auto config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
 
 		if (m_importPaths) {
-			dub.listImportPaths(m_buildPlatform, config);
+			dub.listImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim);
 		} else if (m_stringImportPaths) {
-			dub.listStringImportPaths(m_buildPlatform, config);
+			dub.listStringImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim);
+		} else if (m_data) {
+			dub.listProjectData(m_buildPlatform, config, m_buildType, m_data,
+				m_dataList? null : m_compiler, m_dataNullDelim);
 		} else {
-			dub.describeProject(m_buildPlatform, config);
+			auto desc = dub.project.describe(m_buildPlatform, config, m_buildType);
+			writeln(desc.serializeToPrettyJson());
 		}
 
 		return 0;

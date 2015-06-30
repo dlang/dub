@@ -106,22 +106,22 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 	];
 
 	struct SpecialOption {
-		BuildOptions[] flags;
+		BuildOption[] flags;
 		string alternative;
 	}
 	static immutable SpecialOption[] s_specialOptions = [
-		{[BuildOptions.debugMode], "Call DUB with --build=debug"},
-		{[BuildOptions.releaseMode], "Call DUB with --build=release"},
-		{[BuildOptions.coverage], "Call DUB with --build=cov or --build=unittest-cov"},
-		{[BuildOptions.debugInfo], "Call DUB with --build=debug"},
-		{[BuildOptions.inline], "Call DUB with --build=release"},
-		{[BuildOptions.noBoundsCheck], "Call DUB with --build=release-nobounds"},
-		{[BuildOptions.optimize], "Call DUB with --build=release"},
-		{[BuildOptions.profile], "Call DUB with --build=profile"},
-		{[BuildOptions.unittests], "Call DUB with --build=unittest"},
-		{[BuildOptions.warnings, BuildOptions.warningsAsErrors], "Use \"buildRequirements\" to control the warning level"},
-		{[BuildOptions.ignoreDeprecations, BuildOptions.deprecationWarnings, BuildOptions.deprecationErrors], "Use \"buildRequirements\" to control the deprecation warning level"},
-		{[BuildOptions.property], "This flag is deprecated and has no effect"}
+		{[BuildOption.debugMode], "Call DUB with --build=debug"},
+		{[BuildOption.releaseMode], "Call DUB with --build=release"},
+		{[BuildOption.coverage], "Call DUB with --build=cov or --build=unittest-cov"},
+		{[BuildOption.debugInfo], "Call DUB with --build=debug"},
+		{[BuildOption.inline], "Call DUB with --build=release"},
+		{[BuildOption.noBoundsCheck], "Call DUB with --build=release-nobounds"},
+		{[BuildOption.optimize], "Call DUB with --build=release"},
+		{[BuildOption.profile], "Call DUB with --build=profile"},
+		{[BuildOption.unittests], "Call DUB with --build=unittest"},
+		{[BuildOption.warnings, BuildOption.warningsAsErrors], "Use \"buildRequirements\" to control the warning level"},
+		{[BuildOption.ignoreDeprecations, BuildOption.deprecationWarnings, BuildOption.deprecationErrors], "Use \"buildRequirements\" to control the deprecation warning level"},
+		{[BuildOption.property], "This flag is deprecated and has no effect"}
 	];
 
 	bool got_preamble = false;
@@ -169,16 +169,16 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 */
 void enforceBuildRequirements(ref BuildSettings settings)
 {
-	settings.addOptions(BuildOptions.warningsAsErrors);
-	if (settings.requirements & BuildRequirements.allowWarnings) { settings.options &= ~BuildOptions.warningsAsErrors; settings.options |= BuildOptions.warnings; }
-	if (settings.requirements & BuildRequirements.silenceWarnings) settings.options &= ~(BuildOptions.warningsAsErrors|BuildOptions.warnings);
-	if (settings.requirements & BuildRequirements.disallowDeprecations) { settings.options &= ~(BuildOptions.ignoreDeprecations|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.deprecationErrors; }
-	if (settings.requirements & BuildRequirements.silenceDeprecations) { settings.options &= ~(BuildOptions.deprecationErrors|BuildOptions.deprecationWarnings); settings.options |= BuildOptions.ignoreDeprecations; }
-	if (settings.requirements & BuildRequirements.disallowInlining) settings.options &= ~BuildOptions.inline;
-	if (settings.requirements & BuildRequirements.disallowOptimization) settings.options &= ~BuildOptions.optimize;
-	if (settings.requirements & BuildRequirements.requireBoundsCheck) settings.options &= ~BuildOptions.noBoundsCheck;
-	if (settings.requirements & BuildRequirements.requireContracts) settings.options &= ~BuildOptions.releaseMode;
-	if (settings.requirements & BuildRequirements.relaxProperties) settings.options &= ~BuildOptions.property;
+	settings.addOptions(BuildOption.warningsAsErrors);
+	if (settings.requirements & BuildRequirement.allowWarnings) { settings.options &= ~BuildOption.warningsAsErrors; settings.options |= BuildOption.warnings; }
+	if (settings.requirements & BuildRequirement.silenceWarnings) settings.options &= ~(BuildOption.warningsAsErrors|BuildOption.warnings);
+	if (settings.requirements & BuildRequirement.disallowDeprecations) { settings.options &= ~(BuildOption.ignoreDeprecations|BuildOption.deprecationWarnings); settings.options |= BuildOption.deprecationErrors; }
+	if (settings.requirements & BuildRequirement.silenceDeprecations) { settings.options &= ~(BuildOption.deprecationErrors|BuildOption.deprecationWarnings); settings.options |= BuildOption.ignoreDeprecations; }
+	if (settings.requirements & BuildRequirement.disallowInlining) settings.options &= ~BuildOption.inline;
+	if (settings.requirements & BuildRequirement.disallowOptimization) settings.options &= ~BuildOption.optimize;
+	if (settings.requirements & BuildRequirement.requireBoundsCheck) settings.options &= ~BuildOption.noBoundsCheck;
+	if (settings.requirements & BuildRequirement.requireContracts) settings.options &= ~BuildOption.releaseMode;
+	if (settings.requirements & BuildRequirement.relaxProperties) settings.options &= ~BuildOption.property;
 }
 
 

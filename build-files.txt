@@ -2,6 +2,7 @@ source/app.d
 source/dub/commandline.d
 source/dub/dependency.d
 source/dub/dependencyresolver.d
+source/dub/description.d
 source/dub/dub.d
 source/dub/init.d
 source/dub/packagemanager.d
@@ -19,6 +20,7 @@ source/dub/generators/build.d
 source/dub/generators/cmake.d
 source/dub/generators/generator.d
 source/dub/generators/sublimetext.d
+source/dub/generators/targetdescription.d
 source/dub/generators/visuald.d
 source/dub/internal/libInputVisitor.d
 source/dub/internal/sdlang/ast.d
@@ -33,6 +35,7 @@ source/dub/internal/utils.d
 source/dub/internal/vibecompat/core/file.d
 source/dub/internal/vibecompat/core/log.d
 source/dub/internal/vibecompat/data/json.d
+source/dub/internal/vibecompat/data/serialization.d
 source/dub/internal/vibecompat/data/utils.d
 source/dub/internal/vibecompat/inet/path.d
 source/dub/internal/vibecompat/inet/url.d

@@ -221,13 +221,13 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "buildRequirements":
 				BuildRequirements reqs;
 				foreach (req; deserializeJson!(string[])(value))
-					reqs |= to!BuildRequirements(req);
+					reqs |= to!BuildRequirement(req);
 				bs.buildRequirements[suffix] = reqs;
 				break;
 			case "buildOptions":
 				BuildOptions options;
 				foreach (opt; deserializeJson!(string[])(value))
-					options |= to!BuildOptions(opt);
+					options |= to!BuildOption(opt);
 				bs.buildOptions[suffix] = options;
 				break;
 		}
@@ -266,13 +266,13 @@ Json toJson(in ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.postBuildCommands) ret["postBuildCommands"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.buildRequirements) {
 		string[] val;
-		foreach (i; [EnumMembers!BuildRequirements])
+		foreach (i; [EnumMembers!BuildRequirement])
 			if (arr & i) val ~= to!string(i);
 		ret["buildRequirements"~suffix] = serializeToJson(val);
 	}
 	foreach (suffix, arr; bs.buildOptions) {
 		string[] val;
-		foreach (i; [EnumMembers!BuildOptions])
+		foreach (i; [EnumMembers!BuildOption])
 			if (arr & i) val ~= to!string(i);
 		ret["buildOptions"~suffix] = serializeToJson(val);
 	}

@@ -1,11 +1,26 @@
 {
     "name": "describe-project",
-    "targetType": "sourceLibrary",
+    "targetType": "executable",
     "description": "A test describe project",
     "authors": ["nobody"],
     "homepage": "fake.com",
     "license": "BSD 2-clause",
     "copyright": "Copyright © 2015, nobody",
+    "mainSourceFile": "src/dummy.d",
+    "sourceFiles-posix": ["./some.a"],
+    "sourceFiles-windows": ["./some.lib"],
+    "dflags": ["--some-dflag"],
+    "lflags": ["--some-lflag"],
+    "libs": ["crypto"],
+    "copyFiles": ["data/dummy.dat"],
+    "versions": ["someVerIdent"],
+    "debugVersions": ["someDebugVerIdent"],
+    "preGenerateCommands": ["./do-preGenerateCommands.sh"],
+    "postGenerateCommands": ["./do-postGenerateCommands.sh"],
+    "preBuildCommands": ["./do-preBuildCommands.sh"],
+    "postBuildCommands": ["./do-postBuildCommands.sh"],
+    "buildRequirements": ["allowWarnings", "disallowInlining"],
+    "buildOptions": ["releaseMode", "debugInfo"],
     "dependencies": {
         "describe-dependency-1": {
             "version": "1.0",
@@ -14,14 +29,18 @@
         "describe-dependency-2": {
             "version": "1.0",
             "path": "../describe-dependency-2"
+        },
+        "describe-dependency-3": {
+            "version": "1.0",
+            "path": "../describe-dependency-3"
         }
     },
-	"configurations": [
-		{
-			"name": "my-project-config"
-		}
-	],
-	"subConfigurations": {
-		"describe-dependency-1": "my-dependency-1-config"
-	},
+    "configurations": [
+        {
+            "name": "my-project-config"
+        }
+    ],
+    "subConfigurations": {
+        "describe-dependency-1": "my-dependency-1-config"
+    },
 }
