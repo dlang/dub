@@ -366,6 +366,7 @@ class Package {
 	PackageDescription describe(BuildPlatform platform, string config)
 	const {
 		PackageDescription ret;
+		ret.configuration = config;
 		ret.path = m_path.toNativeString();
 		ret.name = this.name;
 		ret.version_ = this.ver;

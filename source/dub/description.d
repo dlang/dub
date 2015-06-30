@@ -52,6 +52,8 @@ struct PackageDescription {
 	string license;
 	string[] dependencies;
 
+	bool active; /// Does this package take part in the build?
+	string configuration; /// The configuration that is built
 	@byName TargetType targetType;
 	string targetPath;
 	string targetName;

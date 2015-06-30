@@ -592,6 +592,9 @@ class Project {
 		foreach (dep; m_dependencies)
 			ret.packages ~= dep.describe(platform, configs[dep.name]);
 
+		foreach (p; getTopologicalPackageList(false, null, configs))
+			ret.packages[ret.packages.countUntil!(pp => pp.name == p.name)].active = true;
+
 		if (build_type.length) {
 			// collect build target information (useful for build tools)
 			GeneratorSettings settings;
