@@ -2,13 +2,13 @@
 
 packname="0-init-simple-pack"
 
-$DUB init $packname
+$DUB init $packname -f json
 
 function cleanup {
     rm -rf $packname
 }
 
-if [ ! -e $packname/dub.sdl ]; then # it failed
+if [ ! -e $packname/dub.json ]; then # it failed
     cleanup
     exit 1
 fi
