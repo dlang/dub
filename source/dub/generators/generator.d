@@ -93,7 +93,7 @@ class ProjectGenerator
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
-			prepareGeneration(pack.name, buildsettings);
+			prepareGeneration(pack, settings, buildsettings);
 		}
 
 		string[] mainfiles;
@@ -109,7 +109,7 @@ class ProjectGenerator
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
 			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
-			finalizeGeneration(pack.name, buildsettings, pack.path, Path(bs.targetPath), generate_binary);
+			finalizeGeneration(pack, settings, buildsettings, Path(bs.targetPath), generate_binary);
 		}
 
 		performPostGenerateActions(settings, targets);
@@ -331,22 +331,23 @@ ProjectGenerator createProjectGenerator(string generator_type, Project project)
 /**
 	Runs pre-build commands and performs other required setup before project files are generated.
 */
-private void prepareGeneration(string pack, in BuildSettings buildsettings)
+private void prepareGeneration(in Package pack, in GeneratorSettings settings, in BuildSettings buildsettings)
 {
 	if( buildsettings.preGenerateCommands.length ){
-		logInfo("Running pre-generate commands for %s...", pack);
-		runBuildCommands(buildsettings.preGenerateCommands, buildsettings);
+		logInfo("Running pre-generate commands for %s...", pack.name);
+		runBuildCommands(buildsettings.preGenerateCommands, pack, settings, buildsettings);
 	}
 }
 
 /**
 	Runs post-build commands and copies required files to the binary directory.
 */
-private void finalizeGeneration(string pack, in BuildSettings buildsettings, Path pack_path, Path target_path, bool generate_binary)
+private void finalizeGeneration(in Package pack, in GeneratorSettings settings, in BuildSettings buildsettings,
+	Path target_path, bool generate_binary)
 {
 	if (buildsettings.postGenerateCommands.length) {
-		logInfo("Running post-generate commands for %s...", pack);
-		runBuildCommands(buildsettings.postGenerateCommands, buildsettings);
+		logInfo("Running post-generate commands for %s...", pack.name);
+		runBuildCommands(buildsettings.postGenerateCommands, pack, settings, buildsettings);
 	}
 
 	if (generate_binary) {
@@ -372,7 +373,7 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 			void tryCopyDir(string file)
 			{
 				auto src = Path(file);
-				if (!src.absolute) src = pack_path ~ src;
+				if (!src.absolute) src = pack.path ~ src;
 				auto dst = target_path ~ Path(file).head;
 				if (src == dst) {
 					logDiagnostic("Skipping copy of %s (same source and destination)", file);
@@ -387,7 +388,7 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 			void tryCopyFile(string file)
 			{
 				auto src = Path(file);
-				if (!src.absolute) src = pack_path ~ src;
+				if (!src.absolute) src = pack.path ~ src;
 				auto dst = target_path ~ Path(file).head;
 				if (src == dst) {
 					logDiagnostic("Skipping copy of %s (same source and destination)", file);
@@ -398,7 +399,7 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 					hardLinkFile(src, dst, true);
 				} catch(Exception e) logWarn("Failed to copy %s to %s: %s", src.toNativeString(), dst.toNativeString(), e.msg);
 			}
-			logInfo("Copying files for %s...", pack);
+			logInfo("Copying files for %s...", pack.name);
 			string[] globs;
 			foreach (f; buildsettings.copyFiles)
 			{
@@ -418,7 +419,7 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 			}
 			if (globs.length) // Search all files for glob matches
 			{
-				foreach (f; dirEntries(pack_path.toNativeString(), SpanMode.breadth))
+				foreach (f; dirEntries(pack.path.toNativeString(), SpanMode.breadth))
 				{
 					foreach (glob; globs)
 					{
@@ -438,19 +439,50 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 	}
 }
 
-void runBuildCommands(in string[] commands, in BuildSettings build_settings)
+void runBuildCommands(in string[] commands, in Package pack, in GeneratorSettings settings, in BuildSettings build_settings)
 {
+	import std.conv;
 	import std.process;
 	import dub.internal.utils;
 
 	string[string] env = environment.toAA();
 	// TODO: do more elaborate things here
 	// TODO: escape/quote individual items appropriately
-	env["DFLAGS"] = join(cast(string[])build_settings.dflags, " ");
-	env["LFLAGS"] = join(cast(string[])build_settings.lflags," ");
-	env["VERSIONS"] = join(cast(string[])build_settings.versions," ");
-	env["LIBS"] = join(cast(string[])build_settings.libs," ");
-	env["IMPORT_PATHS"] = join(cast(string[])build_settings.importPaths," ");
-	env["STRING_IMPORT_PATHS"] = join(cast(string[])build_settings.stringImportPaths," ");
+	env["DFLAGS"]                = join(cast(string[])build_settings.dflags, " ");
+	env["LFLAGS"]                = join(cast(string[])build_settings.lflags," ");
+	env["VERSIONS"]              = join(cast(string[])build_settings.versions," ");
+	env["LIBS"]                  = join(cast(string[])build_settings.libs," ");
+	env["IMPORT_PATHS"]          = join(cast(string[])build_settings.importPaths," ");
+	env["STRING_IMPORT_PATHS"]   = join(cast(string[])build_settings.stringImportPaths," ");
+
+	env["DC"]                    = settings.platform.compilerBinary;
+	env["DC_BASE"]               = settings.platform.compiler;
+	env["D_FRONTEND_VER"]        = to!string(settings.platform.frontendVersion);
+
+	env["DUB_PLATFORM"]          = join(cast(string[])settings.platform.platform," ");
+	env["DUB_ARCH"]              = join(cast(string[])settings.platform.architecture," ");
+
+	env["DUB_TARGET_TYPE"]       = to!string(build_settings.targetType);
+	env["DUB_TARGET_PATH"]       = build_settings.targetPath;
+	env["DUB_TARGET_NAME"]       = build_settings.targetName;
+	env["DUB_WORKING_DIRECTORY"] = build_settings.workingDirectory;
+	env["DUB_MAIN_SOURCE_FILE"]  = build_settings.mainSourceFile;
+
+	env["DUB_CONFIG"]            = settings.config;
+	env["DUB_BUILD_TYPE"]        = settings.buildType;
+	env["DUB_BUILD_MODE"]        = to!string(settings.buildMode);
+	env["DUB_PACKAGE"]           = pack.name;
+	env["DUB_PACKAGE_DIR"]       = pack.path.toNativeString();
+
+	env["DUB_COMBINED"]          = settings.combined?      "TRUE" : "";
+	env["DUB_RUN"]               = settings.run?           "TRUE" : "";
+	env["DUB_FORCE"]             = settings.force?         "TRUE" : "";
+	env["DUB_DIRECT"]            = settings.direct?        "TRUE" : "";
+	env["DUB_CLEAN"]             = settings.clean?         "TRUE" : "";
+	env["DUB_RDMD"]              = settings.rdmd?          "TRUE" : "";
+	env["DUB_TEMP_BUILD"]        = settings.tempBuild?     "TRUE" : "";
+	env["DUB_PARALLEL_BUILD"]    = settings.parallelBuild? "TRUE" : "";
+
+	env["DUB_RUN_ARGS"] = (cast(string[])settings.runArgs).map!(escapeShellFileName).join(" ");
 	runCommands(commands, env);
 }
