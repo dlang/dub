@@ -338,7 +338,7 @@ class InitCommand : Command {
 			"deimos  - skeleton for C header bindings",
 		]);
 		args.getopt("f|format", &m_format, [
-			"Sets the format to use for the package description file. Possible values:"
+			"Sets the format to use for the package description file. Possible values:",
 			"  sdl, json"
 		]);
 	}
