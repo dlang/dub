@@ -459,8 +459,8 @@ void runBuildCommands(in string[] commands, in Package pack, in GeneratorSetting
 	env["DC_BASE"]               = settings.platform.compiler;
 	env["D_FRONTEND_VER"]        = to!string(settings.platform.frontendVersion);
 
-	env["DUB_PLATFORM"]          = join(cast(string[])settings.platform.platform,"-");
-	env["DUB_ARCH"]              = join(cast(string[])settings.platform.architecture,"-");
+	env["DUB_PLATFORM"]          = join(cast(string[])settings.platform.platform," ");
+	env["DUB_ARCH"]              = join(cast(string[])settings.platform.architecture," ");
 
 	env["DUB_TARGET_TYPE"]       = to!string(build_settings.targetType);
 	env["DUB_TARGET_PATH"]       = build_settings.targetPath;
