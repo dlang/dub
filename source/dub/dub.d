@@ -641,7 +641,7 @@ class Dub {
 		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
-	void createEmptyPackage(Path path, string[] deps, string type)
+	void createEmptyPackage(Path path, string[] deps, string type, PackageFormat format = PackageFormat.sdl)
 	{
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
@@ -660,13 +660,13 @@ class Dub {
 			}
 		}
 		if(notFound.length > 1){
-			throw new Exception(format("Couldn't find packages: %-(%s, %).", notFound));
+			throw new Exception(.format("Couldn't find packages: %-(%s, %).", notFound));
 		}
 		else if(notFound.length == 1){
-			throw new Exception(format("Couldn't find package: %-(%s, %).", notFound));
+			throw new Exception(.format("Couldn't find package: %-(%s, %).", notFound));
 		}
 
-		initPackage(path, depVers, type);
+		initPackage(path, depVers, type, format);
 
 		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());

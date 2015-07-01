@@ -316,6 +316,7 @@ struct CommandGroup {
 class InitCommand : Command {
 	private{
 		string m_buildType = "minimal";
+		PackageFormat m_format = PackageFormat.sdl;
 	}
 	this()
 	{
@@ -335,6 +336,10 @@ class InitCommand : Command {
 			"minimal - simple \"hello world\" project (default)",
 			"vibe.d  - minimal HTTP server based on vibe.d",
 			"deimos  - skeleton for C header bindings",
+		]);
+		args.getopt("f|format", &m_format, [
+			"Sets the format to use for the package description file. Possible values:",
+			"  sdl, json"
 		]);
 	}
 
@@ -358,7 +363,7 @@ class InitCommand : Command {
 				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
 			}
 		}
-		dub.createEmptyPackage(Path(dir), free_args, m_buildType);
+		dub.createEmptyPackage(Path(dir), free_args, m_buildType, m_format);
 		return 0;
 	}
 }
