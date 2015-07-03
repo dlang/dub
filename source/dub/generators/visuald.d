@@ -282,11 +282,10 @@ class VisualDGenerator : ProjectGenerator {
 					output_type = DynamicLib;
 					output_ext = "dll";
 				}
-				string debugSuffix = type == "debug" ? "_d" : "";
 				auto bin_path = pack == m_project.rootPackage.name ? Path(buildsettings.targetPath) : Path(".dub/lib/");
 				bin_path.endsWithSlash = true;
 				ret.formattedWrite("    <lib>%s</lib>\n", output_type);
-				ret.formattedWrite("    <exefile>%s%s%s.%s</exefile>\n", bin_path.toNativeString(), buildsettings.targetName, debugSuffix, output_ext);
+				ret.formattedWrite("    <exefile>%s%s.%s</exefile>\n", bin_path.toNativeString(), buildsettings.targetName, output_ext);
 
 				// include paths and string imports
 				string imports = join(getPathSettings!"importPaths"(), " ");
