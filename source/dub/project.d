@@ -792,8 +792,8 @@ class Project {
 				attributeName == "options";
 			
 			auto values = getRawBuildSetting(pack, allowEmptyString);
-			auto fixRelativePath = (string importPath) => buildNormalizedPath(pack.path.toString(), importPath);
-			auto ensureTrailingSlash = (string path) => path.endsWith(dirSeparator) ? path : path ~ dirSeparator;
+			string fixRelativePath(string importPath) { return buildNormalizedPath(pack.path.toString(), importPath); }
+			static string ensureTrailingSlash(string path) { return path.endsWith(dirSeparator) ? path : path ~ dirSeparator; }
 
 			static if(isRelativeDirectory) {
 				// Return full paths for the paths, making sure a

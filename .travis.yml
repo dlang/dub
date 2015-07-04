@@ -3,14 +3,15 @@ sudo: false
 
 matrix:
   include:
-    - d: dmd-2.064.2
-    - d: dmd-2.065.0
-    - d: dmd-2.066.1
+    - d: dmd-2.068.0-b1
+    - d: dmd-2.067.1
       env:
         - COVERAGE=true
-    - d: dmd-2.067.0
-    - d: ldc-0.14.0
+    - d: dmd-2.066.1
+    - d: dmd-2.064.2
+    - d: dmd-2.065.0
     - d: ldc-0.15.1
+    - d: ldc-0.14.0
     - d: gdc-4.9.0
 
 script:
