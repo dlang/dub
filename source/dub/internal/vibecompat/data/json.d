@@ -1812,7 +1812,7 @@ unittest {
 	a.b ~= Json(1);
 	a.b ~= Json.emptyObject;
 
-	assert(a.toString() == `{"a":[],"b":[1,{}]}`);
+	assert(a.toString() == `{"a":[],"b":[1,{}]}` || a.toString == `{"b":[1,{}],"a":[]}`);
 	assert(a.toPrettyString() ==
 `{
 	"a": [],
@@ -1820,6 +1820,13 @@ unittest {
 		1,
 		{}
 	]
+}` || a.toPrettyString() ==
+`{
+	"b": [
+		1,
+		{}
+	],
+	"a": []
 }`);
 }
 
