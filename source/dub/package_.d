@@ -601,8 +601,11 @@ class Package {
 	*/
 	PackageDescription describe(BuildPlatform platform, string config)
 	const {
-		import dub.compilers.utils : getTargetFileName;
-
+		return describe(platform, getCompiler(platform.compilerBinary), config);
+	}
+	/// ditto
+	PackageDescription describe(BuildPlatform platform, Compiler compiler, string config)
+	const {
 		PackageDescription ret;
 		ret.configuration = config;
 		ret.path = m_path.toNativeString();
@@ -622,8 +625,8 @@ class Package {
 		ret.targetType = bs.targetType;
 		ret.targetPath = bs.targetPath;
 		ret.targetName = bs.targetName;
-		if (ret.targetType != TargetType.none)
-			ret.targetFileName = getTargetFileName(bs, platform);
+		if (ret.targetType != TargetType.none && compiler)
+			ret.targetFileName = compiler.getTargetFileName(bs, platform);
 		ret.workingDirectory = bs.workingDirectory;
 		ret.mainSourceFile = bs.mainSourceFile;
 		ret.dflags = bs.dflags;

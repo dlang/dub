@@ -104,6 +104,9 @@ interface Compiler {
 	/// Removes any dflags that match one of the BuildOptions values and populates the BuildSettings.options field.
 	void extractBuildOptions(ref BuildSettings settings) const;
 
+	/// Computes the full file name of the generated binary.
+	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform) const;
+
 	/// Adds the appropriate flag to set a target path
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string targetPath = null) const;
 

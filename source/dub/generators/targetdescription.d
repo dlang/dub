@@ -9,7 +9,6 @@ module dub.generators.targetdescription;
 
 import dub.compilers.buildsettings;
 import dub.compilers.compiler;
-import dub.compilers.utils : getTargetFileName;
 import dub.description;
 import dub.generators.generator;
 import dub.internal.vibecompat.inet.path;
@@ -53,7 +52,7 @@ class TargetDescriptionGenerator : ProjectGenerator {
 			foreach (ld; ti.linkDependencies) {
 				auto ltarget = targets[ld];
 				auto ltbs = ltarget.buildSettings;
-				auto targetfil = (Path(ltbs.targetPath) ~ getTargetFileName(ltbs, settings.platform)).toNativeString();
+				auto targetfil = (Path(ltbs.targetPath) ~ settings.compiler.getTargetFileName(ltbs, settings.platform)).toNativeString();
 				d.buildSettings.addLinkerFiles(targetfil);
 			}
 
