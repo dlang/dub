@@ -28,25 +28,34 @@ class TargetDescriptionGenerator : ProjectGenerator {
 		auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
 		targetDescriptions.length = targets.length;
 		size_t i = 0;
-		size_t rootIndex;
-		foreach (t; targets) {
-			if (t.pack.name == m_project.rootPackage.name)
-				rootIndex = i;
+
+		bool[string] visited;
+		void visitTargetRec(string target)
+		{
+			if (target in visited) return;
+			visited[target] = true;
+
+			auto ti = targets[target];
 
 			TargetDescription d;
-			d.rootPackage = t.pack.name;
-			d.packages = t.packages.map!(p => p.name).array;
-			d.rootConfiguration = t.config;
-			d.buildSettings = t.buildSettings.dup;
-			d.dependencies = t.dependencies.dup;
-			d.linkDependencies = t.linkDependencies.dup;
+			d.rootPackage = ti.pack.name;
+			d.packages = ti.packages.map!(p => p.name).array;
+			d.rootConfiguration = ti.config;
+			d.buildSettings = ti.buildSettings.dup;
+			d.dependencies = ti.dependencies.dup;
+			d.linkDependencies = ti.linkDependencies.dup;
 
 			targetDescriptionLookup[d.rootPackage] = i;
 			targetDescriptions[i++] = d;
+
+			foreach (dep; ti.dependencies)
+				visitTargetRec(dep);
 		}
+		visitTargetRec(m_project.rootPackage.name);
 
 		// Add static library dependencies
-		auto bs = targetDescriptions[rootIndex].buildSettings;
+		// FIXME: do this for every target!
+		auto bs = targetDescriptions[0].buildSettings;
 		foreach (ref desc; targetDescriptions) {
 			foreach (linkDepName; desc.linkDependencies) {
 				auto linkDepTarget = targetDescriptions[ targetDescriptionLookup[linkDepName] ];
@@ -57,6 +66,6 @@ class TargetDescriptionGenerator : ProjectGenerator {
 				}
 			}
 		}
-		targetDescriptions[rootIndex].buildSettings = bs;
+		targetDescriptions[0].buildSettings = bs;
 	}
 }
