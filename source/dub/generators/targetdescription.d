@@ -45,6 +45,14 @@ class TargetDescriptionGenerator : ProjectGenerator {
 			d.dependencies = ti.dependencies.dup;
 			d.linkDependencies = ti.linkDependencies.dup;
 
+			// Add static library dependencies
+			foreach (ld; ti.linkDependencies) {
+				auto ltarget = targets[ld];
+				auto ltbs = ltarget.buildSettings;
+				auto targetfil = (Path(ltbs.targetPath) ~ getTargetFileName(ltbs, settings.platform)).toNativeString();
+				d.buildSettings.addLinkerFiles(targetfil);
+			}
+
 			targetDescriptionLookup[d.rootPackage] = i;
 			targetDescriptions[i++] = d;
 
@@ -52,20 +60,5 @@ class TargetDescriptionGenerator : ProjectGenerator {
 				visitTargetRec(dep);
 		}
 		visitTargetRec(m_project.rootPackage.name);
-
-		// Add static library dependencies
-		// FIXME: do this for every target!
-		auto bs = targetDescriptions[0].buildSettings;
-		foreach (ref desc; targetDescriptions) {
-			foreach (linkDepName; desc.linkDependencies) {
-				auto linkDepTarget = targetDescriptions[ targetDescriptionLookup[linkDepName] ];
-				auto dbs = linkDepTarget.buildSettings;
-				if (bs.targetType != TargetType.staticLibrary) {
-					auto linkerFile = (Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform)).toNativeString();
-					bs.addLinkerFiles(linkerFile);
-				}
-			}
-		}
-		targetDescriptions[0].buildSettings = bs;
 	}
 }
