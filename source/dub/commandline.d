@@ -836,9 +836,9 @@ class DescribeCommand : PackageBuildCommand {
 			"--data may not be used together with --import-paths or --string-import-paths."
 		);
 
-		// disable all log output and use "writeln" to output the JSON description
+		// disable all log output to stdout and use "writeln" to output the JSON description
 		auto ll = getLogLevel();
-		setLogLevel(LogLevel.none);
+		setLogLevel(LogLevel.warn);
 		scope (exit) setLogLevel(ll);
 
 		string package_name;
