@@ -134,7 +134,8 @@ class Project {
 
 				auto cfg = configs.get(p.name, null);
 
-				foreach (dn, dv; p.dependencies) {
+				foreach (dn; p.dependencies.byKey.array.sort()) {
+					auto dv = p.dependencies[dn];
 					// filter out dependencies not in the current configuration set
 					if (!p.hasDependency(dn, cfg)) continue;
 					auto dependency = getDependency(dn, dv.optional);

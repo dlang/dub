@@ -186,7 +186,8 @@ class ProjectGenerator
 		if (is_target)
 			targets[pack.name] = TargetInfo(pack, [pack], configs[pack.name], buildsettings, null);
 
-		foreach (depname, depspec; pack.dependencies) {
+		foreach (depname; pack.dependencies.byKey.array.sort()) {
+			auto depspec = pack.dependencies[depname];
 			if (!pack.hasDependency(depname, configs[pack.name])) continue;
 			auto dep = m_project.getDependency(depname, depspec.optional);
 			if (!dep) continue;
@@ -333,7 +334,7 @@ ProjectGenerator createProjectGenerator(string generator_type, Project project)
 */
 private void prepareGeneration(in Package pack, in GeneratorSettings settings, in BuildSettings buildsettings)
 {
-	if( buildsettings.preGenerateCommands.length ){
+	if (buildsettings.preGenerateCommands.length) {
 		logInfo("Running pre-generate commands for %s...", pack.name);
 		runBuildCommands(buildsettings.preGenerateCommands, pack, settings, buildsettings);
 	}
