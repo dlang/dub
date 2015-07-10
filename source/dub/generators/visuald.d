@@ -48,7 +48,6 @@ class VisualDGenerator : ProjectGenerator {
 		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.rootPackage.name, m_project.rootPackage.dependencies.length);
 		generateProjectFiles(settings, targets);
 		generateSolutionFile(settings, targets);
-		logInfo("VisualD project generated.");
 	}
 
 	private {
@@ -125,6 +124,8 @@ class VisualDGenerator : ProjectGenerator {
 			scope(exit) sln.close();
 			sln.put(ret.data);
 			sln.flush();
+
+			logInfo("Solution '%s' generated.", solutionFileName());
 		}
 
 
