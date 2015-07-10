@@ -1006,7 +1006,7 @@ class Project {
 			logDebug("writeDubJson");
 			auto dubpath = m_rootPackage.path~".dub";
 			if( !exists(dubpath.toNativeString()) ) mkdir(dubpath.toNativeString());
-			auto dstFile = openFile((dubpath~"dub.json").toString(), FileMode.CreateTrunc);
+			auto dstFile = openFile((dubpath~"dub.json").toString(), FileMode.createTrunc);
 			scope(exit) dstFile.close();
 			dstFile.writePrettyJsonString(m_packageSettings);
 		} catch( Exception e ){
@@ -1291,7 +1291,7 @@ final class SelectedVersions {
 	void save(Path path)
 	{
 		Json json = serialize();
-		auto file = openFile(path, FileMode.CreateTrunc);
+		auto file = openFile(path, FileMode.createTrunc);
 		scope(exit) file.close();
 		file.writePrettyJsonString(json);
 		file.put('\n');

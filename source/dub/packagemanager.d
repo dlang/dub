@@ -302,7 +302,7 @@ class PackageManager {
 		ZipArchive archive;
 		{
 			logDebug("Opening file %s", zip_file_path);
-			auto f = openFile(zip_file_path, FileMode.Read);
+			auto f = openFile(zip_file_path, FileMode.read);
 			scope(exit) f.close();
 			archive = new ZipArchive(f.readAll());
 		}
@@ -344,7 +344,7 @@ class PackageManager {
 			} else {
 				if( !existsDirectory(dst_path.parentPath) )
 					mkdirRecurse(dst_path.parentPath.toNativeString());
-				auto dstFile = openFile(dst_path, FileMode.CreateTrunc);
+				auto dstFile = openFile(dst_path, FileMode.createTrunc);
 				scope(exit) dstFile.close();
 				dstFile.put(archive.expand(a));
 				++countFiles;

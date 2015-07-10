@@ -125,7 +125,7 @@ private void writePackageJSON(Path root_path, string description, string[string]
 	version (Windows) username = environment.get("USERNAME", "Peter Parker");
 	else username = environment.get("USER", "Peter Parker");
 
-	auto fil = openFile(root_path ~ "dub.json", FileMode.Append);
+	auto fil = openFile(root_path ~ "dub.json", FileMode.append);
 	scope(exit) fil.close();
 
 	fil.formattedWrite("{\n\t\"name\": \"%s\",\n", root_path.head.toString().toLower());
@@ -149,7 +149,7 @@ private void writePackageSDL(Path root_path, string description, string[string] 
 	version (Windows) username = environment.get("USERNAME", "Peter Parker");
 	else username = environment.get("USER", "Peter Parker");
 
-	auto fil = openFile(root_path ~ "dub.sdl", FileMode.Append);
+	auto fil = openFile(root_path ~ "dub.sdl", FileMode.append);
 	scope(exit) fil.close();
 
 	fil.formattedWrite("name \"%s\"\n", root_path.head.toString().toLower());

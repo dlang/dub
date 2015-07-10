@@ -54,21 +54,21 @@ struct RangeFile {
 /**
 	Opens a file stream with the specified mode.
 */
-RangeFile openFile(Path path, FileMode mode = FileMode.Read)
+RangeFile openFile(Path path, FileMode mode = FileMode.read)
 {
 	std.stream.FileMode fmode;
 	final switch(mode){
-		case FileMode.Read: fmode = std.stream.FileMode.In; break;
-		case FileMode.ReadWrite: fmode = std.stream.FileMode.Out; break;
-		case FileMode.CreateTrunc: fmode = std.stream.FileMode.OutNew; break;
-		case FileMode.Append: fmode = std.stream.FileMode.Append; break;
+		case FileMode.read: fmode = std.stream.FileMode.In; break;
+		case FileMode.readWrite: fmode = std.stream.FileMode.Out; break;
+		case FileMode.createTrunc: fmode = std.stream.FileMode.OutNew; break;
+		case FileMode.append: fmode = std.stream.FileMode.Append; break;
 	}
 	auto ret = new std.stream.File(path.toNativeString(), fmode);
 	assert(ret.isOpen);
 	return RangeFile(ret);
 }
 /// ditto
-RangeFile openFile(string path, FileMode mode = FileMode.Read)
+RangeFile openFile(string path, FileMode mode = FileMode.read)
 {
 	return openFile(Path(path), mode);
 }
@@ -298,13 +298,13 @@ struct FileInfo {
 */
 enum FileMode {
 	/// The file is opened read-only.
-	Read,
+	read,
 	/// The file is opened for read-write random access.
-	ReadWrite,
+	readWrite,
 	/// The file is truncated if it exists and created otherwise and the opened for read-write access.
-	CreateTrunc,
+	createTrunc,
 	/// The file is opened for appending data to it and created if it does not exist.
-	Append
+	append
 }
 
 /**

@@ -62,7 +62,7 @@ bool isWritableDir(Path p, bool create_if_missing = false)
 	import std.random;
 	auto fname = p ~ format("__dub_write_test_%08X", uniform(0, uint.max));
 	if (create_if_missing && !exists(p.toNativeString())) mkdirRecurse(p.toNativeString());
-	try openFile(fname, FileMode.CreateTrunc).close();
+	try openFile(fname, FileMode.createTrunc).close();
 	catch (Exception) return false;
 	remove(fname.toNativeString());
 	return true;
@@ -70,14 +70,14 @@ bool isWritableDir(Path p, bool create_if_missing = false)
 
 Json jsonFromFile(Path file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.emptyObject;
-	auto f = openFile(file.toNativeString(), FileMode.Read);
+	auto f = openFile(file.toNativeString(), FileMode.read);
 	scope(exit) f.close();
 	auto text = stripUTF8Bom(cast(string)f.readAll());
 	return parseJsonString(text, file.toNativeString());
 }
 
 Json jsonFromZip(Path zip, string filename) {
-	auto f = openFile(zip, FileMode.Read);
+	auto f = openFile(zip, FileMode.read);
 	ubyte[] b = new ubyte[cast(size_t)f.size];
 	f.rawRead(b);
 	f.close();
@@ -88,7 +88,7 @@ Json jsonFromZip(Path zip, string filename) {
 
 void writeJsonFile(Path path, Json json)
 {
-	auto f = openFile(path, FileMode.CreateTrunc);
+	auto f = openFile(path, FileMode.createTrunc);
 	scope(exit) f.close();
 	f.writePrettyJsonString(json);
 }

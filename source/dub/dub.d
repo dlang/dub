@@ -372,7 +372,7 @@ class Dub {
 			tcinfo.sourceFiles[""] ~= mainfile.toNativeString();
 			tcinfo.mainSourceFile = mainfile.toNativeString();
 			if (!m_dryRun) {
-				auto fil = openFile(mainfile, FileMode.CreateTrunc);
+				auto fil = openFile(mainfile, FileMode.createTrunc);
 				scope(exit) fil.close();
 				fil.write("module dub_test_root;\n");
 				fil.write("import std.typetuple;\n");

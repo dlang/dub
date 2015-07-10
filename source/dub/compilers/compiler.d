@@ -402,7 +402,7 @@ Path generatePlatformProbeFile()
 
 	auto path = getTempFile("dub_platform_probe", ".d");
 
-	auto fil = openFile(path, FileMode.CreateTrunc);
+	auto fil = openFile(path, FileMode.createTrunc);
 	scope (failure) {
 		fil.close();
 	}

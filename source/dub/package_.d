@@ -31,25 +31,30 @@ import std.string;
 import std.typecons : Nullable;
 
 
+enum PackageFormat {
+	json,
+	sdl
+}
 
-enum PackageFormat { json, sdl }
-struct FilenameAndFormat
-{
+struct FilenameAndFormat {
 	string filename;
 	PackageFormat format;
 }
-struct PathAndFormat
-{
+
+struct PathAndFormat {
 	Path path;
 	PackageFormat format;
+
 	@property bool empty() { return path.empty; }
-	string toString() { return path.toString(); }
+
+	string toString() const { return path.toString(); }
 }
+
 
 // Supported package descriptions in decreasing order of preference.
 static immutable FilenameAndFormat[] packageInfoFiles = [
 	{"dub.json", PackageFormat.json},
-	{"dub.sdl",PackageFormat.sdl},
+	{"dub.sdl", PackageFormat.sdl},
 	{"package.json", PackageFormat.json}
 ];
 
@@ -201,7 +206,7 @@ class Package {
 	const {
 		enforce(!ver.isUnknown, "Trying to store a package with an 'unknown' version, this is not supported.");
 		auto filename = path ~ defaultPackageFilename;
-		auto dstFile = openFile(filename.toNativeString(), FileMode.CreateTrunc);
+		auto dstFile = openFile(filename.toNativeString(), FileMode.createTrunc);
 		scope(exit) dstFile.close();
 		dstFile.writePrettyJsonString(m_info.toJson());
 	}
@@ -517,7 +522,7 @@ class Package {
 		string text;
 
 		{
-			auto f = openFile(file.path.toNativeString(), FileMode.Read);
+			auto f = openFile(file.path.toNativeString(), FileMode.read);
 			scope(exit) f.close();
 			text = stripUTF8Bom(cast(string)f.readAll());
 		}
