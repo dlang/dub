@@ -136,7 +136,7 @@ class BuildGenerator : ProjectGenerator {
 		// determine basic build properties
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
-		logInfo("Building %s %s configuration \"%s\", build type %s.", pack.name, pack.vers, config, settings.buildType);
+		logInfo("Building %s %s configuration \"%s\", build \"%s\"...", pack.name, pack.vers, config, settings.buildType);
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
@@ -204,7 +204,7 @@ class BuildGenerator : ProjectGenerator {
 			runCommands(buildsettings.preBuildCommands);
 		}
 
-		logInfo("Building configuration "~config~", build type "~settings.buildType);
+		logInfo("Building configuration \""~config~"\", build \""~settings.buildType ~ "\"...");
 
 		logInfo("Running rdmd...");
 		logDiagnostic("rdmd %s", join(flags, " "));
@@ -233,7 +233,7 @@ class BuildGenerator : ProjectGenerator {
 			f = fp.toNativeString();
 		}
 
-		logInfo("Building configuration \""~config~"\", build type "~settings.buildType);
+		logInfo("Building configuration \""~config~"\", build \""~settings.buildType ~ "\"...");
 
 		// make all target/import paths relative
 		string makeRelative(string path) { auto p = Path(path); if (p.absolute) p = p.relativeTo(cwd); return p.toNativeString(); }
@@ -378,7 +378,7 @@ class BuildGenerator : ProjectGenerator {
 
 		Path target_file;
 		scope (failure) {
-			logInfo("FAIL %s %s %s" , buildsettings.targetPath, buildsettings.targetName, buildsettings.targetType);
+			logDiagnostic("FAIL %s %s %s" , buildsettings.targetPath, buildsettings.targetName, buildsettings.targetType);
 			auto tpath = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
 			if (generate_binary && existsFile(tpath))
 				removeFile(tpath);
@@ -389,7 +389,6 @@ class BuildGenerator : ProjectGenerator {
 			auto lbuildsettings = buildsettings;
 			auto srcs = buildsettings.sourceFiles.filter!(f => !isLinkerFile(f));
 			auto objs = new string[](srcs.walkLength);
-			logInfo("Compiling using %s...", settings.platform.compilerBinary);
 
 			void compileSource(size_t i, string src) {
 				logInfo("Compiling %s...", src);
@@ -402,7 +401,6 @@ class BuildGenerator : ProjectGenerator {
 				foreach (i, src; srcs.array) compileSource(i, src);
 			}
 
-			logInfo("Linking...");
 			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f=> f.isLinkerFile()).array;
 			settings.compiler.setTarget(lbuildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
@@ -422,7 +420,6 @@ class BuildGenerator : ProjectGenerator {
 			if (is_static_library) buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !f.isLinkerFile()).array;
 
 			// invoke the compiler
-			logInfo("Running %s...", settings.platform.compilerBinary);
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 		} else {
 			// determine path for the temporary object file
@@ -442,10 +439,8 @@ class BuildGenerator : ProjectGenerator {
 			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !isLinkerFile(f)).array;
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
-			logInfo("Compiling using %s...", settings.platform.compilerBinary);
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 
-			logInfo("Linking...");
 			settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback);
 		}
 	}
