@@ -223,7 +223,6 @@ int runDubCommandLine(string[] args)
 		return 1;
 	}
 	catch (Throwable e) {
-		logError("Error executing command %s:", cmd.name);
 		logError("%s", e.msg);
 		logDebug("Full exception: %s", e.toString().sanitize);
 		return 2;
