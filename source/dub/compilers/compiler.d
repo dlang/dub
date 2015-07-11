@@ -311,13 +311,15 @@ struct BuildPlatform {
 	///
 	bool matchesSpecification(const(char)[] specification)
 	const {
+		import std.string : format;
+		
 		if (specification.empty) return true;
 		if (this == any) return true;
 
 		auto splitted=specification.splitter('-');
 		assert(!splitted.empty, "No valid platform specification! The leading hyphen is required!");
 		splitted.popFront(); // Drop leading empty match.
-		enforce(!splitted.empty, "Platform specification if present, must not be empty!");
+		enforce(!splitted.empty, format("Platform specification, if present, must not be empty: \"%s\"", specification));
 		if (platform.canFind(splitted.front)) {
 			splitted.popFront();
 			if(splitted.empty)
