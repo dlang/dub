@@ -195,7 +195,7 @@ private void parsePlatformStringArray(Tag t, ref string[][string] dst)
 {
 	string platform;
 	if ("platform" in t.attributes)
-		platform = t.attributes["platform"][0].value.get!string;
+		platform = "-" ~ t.attributes["platform"][0].value.get!string;
 	foreach (v; t.values)
 		dst[platform] ~= v.get!string;
 }
@@ -204,7 +204,7 @@ private void parsePlatformEnumArray(E, Es)(Tag t, ref Es[string] dst)
 {
 	string platform;
 	if ("platform" in t.attributes)
-		platform = t.attributes["platform"][0].value.get!string;
+		platform = "-" ~ t.attributes["platform"][0].value.get!string;
 	foreach (v; t.values) {
 		if (platform !in dst) dst[platform] = Es.init;
 		dst[platform] |= v.get!string.to!E;
