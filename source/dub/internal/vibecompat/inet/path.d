@@ -163,7 +163,9 @@ struct Path {
 		while( parentPath.length > nup && !startsWith(parentPath[0 .. parentPath.length-nup]) ){
 			nup++;
 		}
+		assert(m_nodes.length >= parentPath.length - nup);
 		Path ret = Path(null, false);
+		assert(m_nodes.length >= parentPath.length - nup);
 		ret.m_endsWithSlash = true;
 		foreach( i; 0 .. nup ) ret ~= "..";
 		ret ~= Path(m_nodes[parentPath.length-nup .. $], false);
@@ -456,4 +458,19 @@ unittest
 			assert(p1.relativeTo(p4) == Path("\\\\server\\share"));
 		}
 	}
+}
+
+unittest {
+	assert(Path("/foo/bar/baz").relativeTo(Path("/foo")).toString == "bar/baz");
+	assert(Path("/foo/bar/baz/").relativeTo(Path("/foo")).toString == "bar/baz/");
+	assert(Path("/foo/bar").relativeTo(Path("/foo")).toString == "bar");
+	assert(Path("/foo/bar/").relativeTo(Path("/foo")).toString == "bar/");
+	assert(Path("/foo").relativeTo(Path("/foo/bar")).toString() == "..");
+	assert(Path("/foo/").relativeTo(Path("/foo/bar")).toString() == "../");
+	assert(Path("/foo/baz").relativeTo(Path("/foo/bar/baz")).toString() == "../../baz");
+	assert(Path("/foo/baz/").relativeTo(Path("/foo/bar/baz")).toString() == "../../baz/");
+	assert(Path("/foo/").relativeTo(Path("/foo/bar/baz")).toString() == "../../");
+	assert(Path("/foo/").relativeTo(Path("/foo/bar/baz/mumpitz")).toString() == "../../../");
+	assert(Path("/foo").relativeTo(Path("/foo")).toString() == "");
+	assert(Path("/foo/").relativeTo(Path("/foo")).toString() == "");
 }
