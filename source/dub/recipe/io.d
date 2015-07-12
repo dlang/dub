@@ -14,7 +14,7 @@ PackageRecipe readPackageRecipe(string filename, string parent_name = null)
 PackageRecipe readPackageRecipe(Path file, string parent_name = null)
 {
 	import dub.internal.utils : stripUTF8Bom;
-	import dub.internal.vibecompat.core.file : openFile;
+	import dub.internal.vibecompat.core.file : openFile, FileMode;
 
 	string text;
 
