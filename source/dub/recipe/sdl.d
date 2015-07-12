@@ -369,9 +369,9 @@ dflags "-j" platform="linux"
 	PackageRecipe rec;
 	parseSDL(rec, sdl, null, "testfile");
 	assert(rec.buildSettings.dflags.length == 3);
-	assert(rec.buildSettings.dflags["windows-x86"] == ["-a", "-b", "-c"]);
+	assert(rec.buildSettings.dflags["-windows-x86"] == ["-a", "-b", "-c"]);
 	assert(rec.buildSettings.dflags[""] == ["-e", "-f", "-g"]);
-	assert(rec.buildSettings.dflags["linux"] == ["-h", "-i", "-j"]);
+	assert(rec.buildSettings.dflags["-linux"] == ["-h", "-i", "-j"]);
 }
 
 unittest { // test for missing name field
