@@ -45,6 +45,9 @@ class BuildGenerator : ProjectGenerator {
 	{
 		scope (exit) cleanupTemporaries();
 
+		logInfo("Performing \"%s\" build using %s for %-(%s, %).",
+			settings.buildType, settings.platform.compilerBinary, settings.platform.architecture);
+
 		bool[string] visited;
 		void buildTargetRec(string target)
 		{
@@ -136,7 +139,7 @@ class BuildGenerator : ProjectGenerator {
 		// determine basic build properties
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
-		logInfo("Building %s %s configuration \"%s\", build \"%s\"...", pack.name, pack.vers, config, settings.buildType);
+		logInfo("Building %s %s configuration \"%s\"...", pack.name, pack.vers, config);
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
@@ -204,7 +207,7 @@ class BuildGenerator : ProjectGenerator {
 			runCommands(buildsettings.preBuildCommands);
 		}
 
-		logInfo("Building configuration \""~config~"\", build \""~settings.buildType ~ "\"...");
+		logInfo("Building configuration \"%s\"...", config);
 
 		logInfo("Running rdmd...");
 		logDiagnostic("rdmd %s", join(flags, " "));
@@ -233,7 +236,7 @@ class BuildGenerator : ProjectGenerator {
 			f = fp.toNativeString();
 		}
 
-		logInfo("Building configuration \""~config~"\", build \""~settings.buildType ~ "\"...");
+		logInfo("Building configuration \"%s\"...", config);
 
 		// make all target/import paths relative
 		string makeRelative(string path) { auto p = Path(path); if (p.absolute) p = p.relativeTo(cwd); return p.toNativeString(); }
