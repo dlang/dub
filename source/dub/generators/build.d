@@ -401,6 +401,7 @@ class BuildGenerator : ProjectGenerator {
 				foreach (i, src; srcs.array) compileSource(i, src);
 			}
 
+			logInfo("Linking...");
 			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f=> f.isLinkerFile()).array;
 			settings.compiler.setTarget(lbuildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
@@ -441,6 +442,7 @@ class BuildGenerator : ProjectGenerator {
 
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 
+			logInfo("Linking...");
 			settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback);
 		}
 	}
