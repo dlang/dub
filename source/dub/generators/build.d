@@ -99,7 +99,13 @@ class BuildGenerator : ProjectGenerator {
 		auto build_id = computeBuildID(config, buildsettings, settings);
 
 		// make all paths relative to shrink the command line
-		string makeRelative(string path) { auto p = Path(path); if (p.absolute) p = p.relativeTo(cwd); return p.toNativeString(); }
+		string makeRelative(string path) { 
+			auto orig = Path(path); Path rel = null;
+			rel = (orig.absolute ? orig.relativeTo(cwd) 
+			                     : orig);
+			return rel.toNativeString(); 
+		}
+
 		foreach (ref f; buildsettings.sourceFiles) f = makeRelative(f);
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);

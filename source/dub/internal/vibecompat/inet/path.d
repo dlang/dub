@@ -34,7 +34,7 @@ struct Path {
 	/// Constructs a Path object by parsing a path string.
 	this(string pathstr)
 	{
-		m_nodes = cast(immutable)splitPath(pathstr);
+		m_nodes = (splitPath(pathstr).idup);
 		m_absolute = (pathstr.startsWith("/") || m_nodes.length > 0 && (m_nodes[0].toString().countUntil(':')>0 || m_nodes[0] == "\\"));
 		m_endsWithSlash = pathstr.endsWith("/");
 	}
@@ -283,7 +283,7 @@ struct PathEntry {
 
 	string toString() const { return m_name; }
 
-	Path opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return Path(cast(immutable)[this, rhs], false); }
+	Path opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return Path(([this, rhs]).idup, false); }
 
 	bool opEquals(ref const PathEntry rhs) const { return m_name == rhs.m_name; }
 	bool opEquals(PathEntry rhs) const { return m_name == rhs.m_name; }
