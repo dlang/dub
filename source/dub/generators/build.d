@@ -99,7 +99,12 @@ class BuildGenerator : ProjectGenerator {
 		auto build_id = computeBuildID(config, buildsettings, settings);
 
 		// make all paths relative to shrink the command line
-		string makeRelative(string path) { auto p = Path(path); if (p.absolute) p = p.relativeTo(cwd); return p.toNativeString(); }
+		string makeRelative(string path) {
+			auto p = Path(path);
+			// storing in a separate temprary to work around #601
+			auto prel = p.absolute ? p.relativeTo(cwd) : p;
+			return prel.toNativeString();
+		}
 		foreach (ref f; buildsettings.sourceFiles) f = makeRelative(f);
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
@@ -239,7 +244,12 @@ class BuildGenerator : ProjectGenerator {
 		logInfo("Building configuration \"%s\"...", config);
 
 		// make all target/import paths relative
-		string makeRelative(string path) { auto p = Path(path); if (p.absolute) p = p.relativeTo(cwd); return p.toNativeString(); }
+		string makeRelative(string path) {
+			auto p = Path(path);
+			// storing in a separate temprary to work around #601
+			auto prel = p.absolute ? p.relativeTo(cwd) : p;
+			return prel.toNativeString();
+		}
 		buildsettings.targetPath = makeRelative(buildsettings.targetPath);
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
