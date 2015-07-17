@@ -34,7 +34,8 @@ struct Path {
 	/// Constructs a Path object by parsing a path string.
 	this(string pathstr)
 	{
-		m_nodes = cast(immutable)splitPath(pathstr);
+		static if (__VERSION__ < 2066) m_nodes = splitPath(pathstr).idup;
+		else m_nodes = splitPath(pathstr);
 		m_absolute = (pathstr.startsWith("/") || m_nodes.length > 0 && (m_nodes[0].toString().countUntil(':')>0 || m_nodes[0] == "\\"));
 		m_endsWithSlash = pathstr.endsWith("/");
 	}
@@ -276,14 +277,14 @@ struct PathEntry {
 	}
 
 	this(string str)
-	{
+	pure {
 		assert(str.countUntil('/') < 0 && (str.countUntil('\\') < 0 || str.length == 1));
 		m_name = str;
 	}
 
-	string toString() const { return m_name; }
+	string toString() const pure { return m_name; }
 
-	Path opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return Path(cast(immutable)[this, rhs], false); }
+	Path opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return Path([this, rhs], false); }
 
 	bool opEquals(ref const PathEntry rhs) const { return m_name == rhs.m_name; }
 	bool opEquals(PathEntry rhs) const { return m_name == rhs.m_name; }
@@ -309,7 +310,7 @@ string joinPath(string basepath, string subpath)
 
 /// Splits up a path string into its elements/folders
 PathEntry[] splitPath(string path)
-{
+pure {
 	if( path.startsWith("/") || path.startsWith("\\") ) path = path[1 .. $];
 	if( path.empty ) return null;
 	if( path.endsWith("/") || path.endsWith("\\") ) path = path[0 .. $-1];
