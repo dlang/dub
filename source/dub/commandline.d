@@ -36,6 +36,41 @@ import std.typecons : Tuple, tuple;
 import std.variant;
 
 
+CommandGroup[] getCommands()
+{
+	return [
+		CommandGroup("Package creation",
+			new InitCommand
+		),
+		CommandGroup("Build, test and run",
+			new RunCommand,
+			new BuildCommand,
+			new TestCommand,
+			new GenerateCommand,
+			new DescribeCommand,
+			new CleanCommand,
+			new DustmiteCommand
+		),
+		CommandGroup("Package management",
+			new FetchCommand,
+			new InstallCommand,
+			new RemoveCommand,
+			new UninstallCommand,
+			new UpgradeCommand,
+			new AddPathCommand,
+			new RemovePathCommand,
+			new AddLocalCommand,
+			new RemoveLocalCommand,
+			new ListCommand,
+			new ListInstalledCommand,
+			new AddOverrideCommand,
+			new RemoveOverrideCommand,
+			new ListOverridesCommand,
+			new CleanCachesCommand,
+		)
+	];
+}
+
 int runDubCommandLine(string[] args)
 {
 	logDiagnostic("DUB version %s", getDUBVersion());
@@ -68,29 +103,18 @@ int runDubCommandLine(string[] args)
 	}
 
 	// parse general options
-	bool verbose, vverbose, quiet, vquiet;
-	bool help, annotate, bare;
+	CommonOptions options;
 	LogLevel loglevel = LogLevel.info;
-	string[] registry_urls;
-	string root_path = getcwd();
+	options.root_path = getcwd();
 
 	auto common_args = new CommandArgs(args);
 	try {
-		common_args.getopt("h|help", &help, ["Display general or command specific help"]);
-		common_args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
-		common_args.getopt("registry", &registry_urls, ["Search the given DUB registry URL first when resolving dependencies. Can be specified multiple times."]);
-		common_args.getopt("annotate", &annotate, ["Do not perform any action, just print what would be done"]);
-		common_args.getopt("bare", &bare, ["Read only packages contained in the current directory"]);
-		common_args.getopt("v|verbose", &verbose, ["Print diagnostic output"]);
-		common_args.getopt("vverbose", &vverbose, ["Print debug output"]);
-		common_args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
-		common_args.getopt("vquiet", &vquiet, ["Print no messages"]);
-		common_args.getopt("cache", &defaultPlacementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
+		options.prepare(common_args);
 
-		if( vverbose ) loglevel = LogLevel.debug_;
-		else if( verbose ) loglevel = LogLevel.diagnostic;
-		else if( vquiet ) loglevel = LogLevel.none;
-		else if( quiet ) loglevel = LogLevel.warn;
+		if (options.vverbose) loglevel = LogLevel.debug_;
+		else if (options.verbose) loglevel = LogLevel.diagnostic;
+		else if (options.vquiet) loglevel = LogLevel.none;
+		else if (options.quiet) loglevel = LogLevel.warn;
 		setLogLevel(loglevel);
 	} catch (Throwable e) {
 		logError("Error processing arguments: %s", e.msg);
@@ -100,38 +124,7 @@ int runDubCommandLine(string[] args)
 	}
 
 	// create the list of all supported commands
-
-	CommandGroup[] commands = [
-		CommandGroup("Package creation",
-			new InitCommand
-		),
-		CommandGroup("Build, test and run",
-			new RunCommand,
-			new BuildCommand,
-			new TestCommand,
-			new GenerateCommand,
-			new DescribeCommand,
-			new CleanCommand,
-			new DustmiteCommand
-		),
-		CommandGroup("Package management",
-			new FetchCommand,
-			new InstallCommand,
-			new RemoveCommand,
-			new UninstallCommand,
-			new UpgradeCommand,
-			new AddPathCommand,
-			new RemovePathCommand,
-			new AddLocalCommand,
-			new RemoveLocalCommand,
-			new ListCommand,
-			new ListInstalledCommand,
-			new AddOverrideCommand,
-			new RemoveOverrideCommand,
-			new ListOverridesCommand,
-			new CleanCachesCommand,
-		)
-	];
+	CommandGroup[] commands = getCommands();
 
 	// extract the command
 	string cmdname;
@@ -140,7 +133,7 @@ int runDubCommandLine(string[] args)
 		cmdname = args[0];
 		args = args[1 .. $];
 	} else {
-		if (help) {
+		if (options.help) {
 			showHelp(commands, common_args);
 			return 0;
 		}
@@ -180,7 +173,7 @@ int runDubCommandLine(string[] args)
 		return 1;
 	}
 
-	if (help) {
+	if (options.help) {
 		showCommandHelp(cmd, command_args, common_args);
 		return 0;
 	}
@@ -196,17 +189,17 @@ int runDubCommandLine(string[] args)
 
 	// initialize the root package
 	if (!cmd.skipDubInitialization) {
-		if (bare) {
+		if (options.bare) {
 			dub = new Dub(Path(getcwd()));
 		} else {
 			// initialize DUB
-			auto package_suppliers = registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
-			dub = new Dub(package_suppliers, root_path);
-			dub.dryRun = annotate;
+			auto package_suppliers = options.registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
+			dub = new Dub(package_suppliers, options.root_path);
+			dub.dryRun = options.annotate;
 
 			// make the CWD package available so that for example sub packages can reference their
 			// parent package.
-			try dub.packageManager.getOrLoadPackage(Path(root_path));
+			try dub.packageManager.getOrLoadPackage(Path(options.root_path));
 			catch (Exception e) { logDiagnostic("No package found in current working directory."); }
 		}
 	}
@@ -231,6 +224,27 @@ int runDubCommandLine(string[] args)
 	if (!cmd.skipDubInitialization)
 		dub.shutdown();
 	return rc;
+}
+
+struct CommonOptions {
+	bool verbose, vverbose, quiet, vquiet;
+	bool help, annotate, bare;
+	string[] registry_urls;
+	string root_path;
+
+	void prepare(CommandArgs args)
+	{
+		args.getopt("h|help", &help, ["Display general or command specific help"]);
+		args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
+		args.getopt("registry", &registry_urls, ["Search the given DUB registry URL first when resolving dependencies. Can be specified multiple times."]);
+		args.getopt("annotate", &annotate, ["Do not perform any action, just print what would be done"]);
+		args.getopt("bare", &bare, ["Read only packages contained in the current directory"]);
+		args.getopt("v|verbose", &verbose, ["Print diagnostic output"]);
+		args.getopt("vverbose", &vverbose, ["Print debug output"]);
+		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
+		args.getopt("vquiet", &vquiet, ["Print no messages"]);
+		args.getopt("cache", &defaultPlacementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
+	}
 }
 
 class CommandArgs {
