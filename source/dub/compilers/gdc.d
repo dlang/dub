@@ -138,6 +138,9 @@ class GdcCompiler : Compiler {
 			settings.lflags = null;
 		}
 
+		if (settings.targetType == TargetType.dynamicLibrary)
+			settings.addDFlags("-fPIC");
+
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
 	}
