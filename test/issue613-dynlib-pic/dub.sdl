@@ -1,0 +1,4 @@
+name "issue613-dynlib-pic"
+targetType "dynamicLibrary"
+
+// TODO: instead of just testing build success, test if -shared, -fPIC and -defaultlib have all been specified correctly

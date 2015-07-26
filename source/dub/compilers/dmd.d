@@ -134,6 +134,11 @@ class DmdCompiler : Compiler {
 			settings.lflags = null;
 		}
 
+		version (Posix) {
+			if (settings.targetType == TargetType.dynamicLibrary)
+				settings.addDFlags("-fPIC");
+		}
+
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
 	}
@@ -167,7 +172,7 @@ class DmdCompiler : Compiler {
 				break;
 			case TargetType.dynamicLibrary:
 				version (Windows) settings.addDFlags("-shared");
-				else settings.addDFlags("-shared", "-fPIC");
+				else settings.addDFlags("-shared", "-defaultlib=libphobos2.so");
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
