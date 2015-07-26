@@ -631,3 +631,58 @@ private string determineVersionFromSCM(Path path)
 
 	return null;
 }
+
+/// All packages being used by all parent DUB processes (if any).
+/// Used to avoid infinite process recursion.
+static class PackagesUsed
+{
+	import std.process : environment;
+import std.stdio;
+	
+	private static bool loaded = false;
+	private static bool[string] packageNames;
+	private enum envVarName = "DUB_PACKAGES_USED";
+	
+	static void add(string pack)
+	{
+		ensureLoaded();
+		packageNames[pack] = true;
+	}
+	
+	static void add(string[] packs)
+	{
+		ensureLoaded();
+		foreach (p; packs)
+			packageNames[p] = true;
+	}
+	
+	static bool has(string pack)
+	{
+		ensureLoaded();
+		return !!(pack in packageNames);
+	}
+	
+	// Store in envvar
+	static void store(string[string] env)
+	{
+		auto commaList = packageNames.keys.sort().join(",");
+		env[envVarName] = commaList;
+	}
+	
+	// Load from envvar
+	private static void load()
+	{
+		auto commaList = environment.get(envVarName);
+		loaded = true;
+
+		foreach (name; commaList.split(","))
+			add(name);
+	}
+
+	// Load if not already loaded
+	private static void ensureLoaded()
+	{
+		if (!loaded)
+			load();
+	}
+}
