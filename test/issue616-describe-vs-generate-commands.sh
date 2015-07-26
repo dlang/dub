@@ -11,7 +11,7 @@ function cleanup {
 
 trap cleanup EXIT
 
-if ! $DUB describe --data-list --data=target-name \
+if ! $DUB describe --compiler=$COMPILER --data-list --data=target-name \
     > "$temp_file" 2>&1; then
     die 'Printing project data failed!'
 fi

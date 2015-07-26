@@ -7,4 +7,4 @@ fi
 echo preGenerateCommands: DUB_PACKAGES_USED=$DUB_PACKAGES_USED >&2
 
 export dub_issue616=true
-$DUB describe --data-list --data=import-paths >&2
+$DUB describe --compiler=$COMPILER --data-list --data=import-paths >&2
