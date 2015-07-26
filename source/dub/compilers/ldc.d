@@ -124,7 +124,7 @@ class LdcCompiler : Compiler {
 		}
 
 		if (settings.targetType == TargetType.dynamicLibrary)
-			settings.addDFlags("-fPIC");
+			settings.addDFlags("-relocation-model=pic");
 
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
@@ -158,7 +158,7 @@ class LdcCompiler : Compiler {
 				settings.addDFlags("-lib");
 				break;
 			case TargetType.dynamicLibrary:
-				settings.addDFlags("-shared");
+				settings.addDFlags("-shared", "-defaultlib=phobos2");
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
