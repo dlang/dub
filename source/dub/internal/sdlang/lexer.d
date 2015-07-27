@@ -201,10 +201,15 @@ class Lexer
 		return ch == '\n' || ch == '\r' || ch == lineSep || ch == paraSep;
 	}
 
-	private int isAtNewline()
+	/// Returns the length of the newline sequence, or zero if the current
+	/// character is not a newline
+	///
+	/// Note that there are only single character sequences and the two
+	/// character sequence `\r\n` as used on Windows.
+	private size_t isAtNewline()
 	{
-		if (ch == '\n' || ch == lineSep || ch == paraSep) return 1;
-		else if (ch == '\r' && lookahead('\n')) return 2;
+		if(ch == '\n' || ch == lineSep || ch == paraSep) return 1;
+		else if(ch == '\r') return lookahead('\n') ? 2 : 1;
 		else return 0;
 	}
 
@@ -347,6 +352,13 @@ class Lexer
 		isEndOfIdentCached = false;
 	}
 
+	/// Advances the specified amount of characters
+	private void advanceChar(size_t count, ErrorOnEOF errorOnEOF)
+	{
+		while(count-- > 0)
+			advanceChar(errorOnEOF);
+	}
+
 	void popFront()
 	{
 		// -- Main Lexer -------------
@@ -401,11 +413,9 @@ class Lexer
 			mixin(accept!"EOL");
 		}
 
-		else if (auto cnt = isAtNewline())
+		else if(auto cnt = isAtNewline())
 		{
-			if (cnt == 2)
-				advanceChar(ErrorOnEOF.No);
-			advanceChar(ErrorOnEOF.No);
+			advanceChar(cnt, ErrorOnEOF.No);
 			mixin(accept!"EOL");
 		}
 		
@@ -2011,27 +2021,30 @@ unittest
 	writeln("lexer: Regression test issue #28...");
 	stdout.flush();
 
-	// NOTE: \r is generally considered pure white space by SDL, but
-	//       it is significant for line number counting.
-
+	enum offset = 1; // workaround for an of-by-one error for line numbers
+	testLex("test", [
+		Token(symbol!"Ident", Location("filename", 0, 0, 0), Value(null), "test")
+	], true);
 	testLex("\ntest", [
-		Token(symbol!"EOL", Location("filename", 1, 1, 0), Value(null), "\n"),
-		Token(symbol!"Ident", Location("filename", 2, 1, 1), Value(null), "test")
-	]);
+		Token(symbol!"EOL", Location("filename", 0, 0, 0), Value(null), "\n"),
+		Token(symbol!"Ident", Location("filename", 1, 0, 1), Value(null), "test")
+	], true);
 	testLex("\rtest", [
-		Token(symbol!"Ident", Location("filename", 2, 1, 1),Value(null),"test")
-	]);
+		Token(symbol!"EOL", Location("filename", 0, 0, 0), Value(null), "\r"),
+		Token(symbol!"Ident", Location("filename", 1, 0, 1), Value(null), "test")
+	], true);
 	testLex("\r\ntest", [
-		Token(symbol!"EOL", Location("filename", 1, 1, 0), Value(null), "\n"),
-		Token(symbol!"Ident", Location("filename", 2, 1, 2),Value(null),"test")
-	]);
+		Token(symbol!"EOL", Location("filename", 0, 0, 0), Value(null), "\r\n"),
+		Token(symbol!"Ident", Location("filename", 1, 0, 2), Value(null), "test")
+	], true);
 	testLex("\r\n\ntest", [
-		Token(symbol!"EOL", Location("filename", 1, 1, 0), Value(null), "\n"),
-		Token(symbol!"EOL", Location("filename", 1, 1, 0), Value(null), "\n"),
-		Token(symbol!"Ident", Location("filename", 3, 1, 3),Value(null),"test")
-	]);
+		Token(symbol!"EOL", Location("filename", 0, 0, 0), Value(null), "\r\n"),
+		Token(symbol!"EOL", Location("filename", 1, 0, 2), Value(null), "\n"),
+		Token(symbol!"Ident", Location("filename", 2, 0, 3), Value(null), "test")
+	], true);
 	testLex("\r\r\ntest", [
-		Token(symbol!"EOL", Location("filename", 1, 1, 0), Value(null), "\n"),
-		Token(symbol!"Ident", Location("filename", 3, 1, 3),Value(null),"test")
-	]);
+		Token(symbol!"EOL", Location("filename", 0, 0, 0), Value(null), "\r"),
+		Token(symbol!"EOL", Location("filename", 1, 0, 1), Value(null), "\r\n"),
+		Token(symbol!"Ident", Location("filename", 2, 0, 3), Value(null), "test")
+	], true);
 }
