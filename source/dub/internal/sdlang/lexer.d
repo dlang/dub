@@ -201,11 +201,11 @@ class Lexer
 		return ch == '\n' || ch == '\r' || ch == lineSep || ch == paraSep;
 	}
 
-	private bool isAtNewline()
+	private int isAtNewline()
 	{
-		return
-			ch == '\n' || ch == lineSep || ch == paraSep ||
-			(ch == '\r' && lookahead('\n'));
+		if (ch == '\n' || ch == lineSep || ch == paraSep) return 1;
+		else if (ch == '\r' && lookahead('\n')) return 2;
+		else return 0;
 	}
 
 	/// Is 'ch' a valid base 64 character?
@@ -311,9 +311,10 @@ class Lexer
 	/// Returns false if EOF was reached
 	private void advanceChar(ErrorOnEOF errorOnEOF)
 	{
-		if(isAtNewline())
+		if(auto cnt = isAtNewline())
 		{
-			location.line++;
+			if (cnt == 1)
+				location.line++;
 			location.col = 0;
 		}
 		else
@@ -394,8 +395,16 @@ class Lexer
 			mixin(accept!":");
 		}
 		
-		else if(ch == ';' || isAtNewline())
+		else if(ch == ';')
 		{
+			advanceChar(ErrorOnEOF.No);
+			mixin(accept!"EOL");
+		}
+
+		else if (auto cnt = isAtNewline())
+		{
+			if (cnt == 2)
+				advanceChar(ErrorOnEOF.No);
 			advanceChar(ErrorOnEOF.No);
 			mixin(accept!"EOL");
 		}
@@ -1445,7 +1454,7 @@ version(sdlangUnittest)
 	}
 
 	private int numErrors = 0;
-	private void testLex(string file=__FILE__, size_t line=__LINE__)(string source, Token[] expected)
+	private void testLex(string source, Token[] expected, bool test_locations = false, string file=__FILE__, size_t line=__LINE__)
 	{
 		Token[] actual;
 		try
@@ -1460,8 +1469,13 @@ version(sdlangUnittest)
 			stderr.writeln("        ", e.msg);
 			return;
 		}
+
+		bool is_same = actual == expected;
+		if (is_same && test_locations) {
+			is_same = actual.map!(t => t.location).equal(expected.map!(t => t.location));
+		}
 		
-		if(actual != expected)
+		if(!is_same)
 		{
 			numErrors++;
 			stderr.writeln(file, "(", line, "): testLex failed on: ", source);
@@ -1989,4 +2003,35 @@ unittest
 	testLex("//\na",  [ Token(symbol!"Ident",loc,Value(null),"a") ]);
 	testLex("--\na",  [ Token(symbol!"Ident",loc,Value(null),"a") ]);
 	testLex("#\na",   [ Token(symbol!"Ident",loc,Value(null),"a") ]);
+}
+
+version(sdlangUnittest)
+unittest
+{
+	writeln("lexer: Regression test issue #28...");
+	stdout.flush();
+
+	// NOTE: \r is generally considered pure white space by SDL, but
+	//       it is significant for line number counting.
+
+	testLex("\ntest", [
+		Token(symbol!"EOL", Location("filename", 1, 1, 0), Value(null), "\n"),
+		Token(symbol!"Ident", Location("filename", 2, 1, 1), Value(null), "test")
+	]);
+	testLex("\rtest", [
+		Token(symbol!"Ident", Location("filename", 2, 1, 1),Value(null),"test")
+	]);
+	testLex("\r\ntest", [
+		Token(symbol!"EOL", Location("filename", 1, 1, 0), Value(null), "\n"),
+		Token(symbol!"Ident", Location("filename", 2, 1, 2),Value(null),"test")
+	]);
+	testLex("\r\n\ntest", [
+		Token(symbol!"EOL", Location("filename", 1, 1, 0), Value(null), "\n"),
+		Token(symbol!"EOL", Location("filename", 1, 1, 0), Value(null), "\n"),
+		Token(symbol!"Ident", Location("filename", 3, 1, 3),Value(null),"test")
+	]);
+	testLex("\r\r\ntest", [
+		Token(symbol!"EOL", Location("filename", 1, 1, 0), Value(null), "\n"),
+		Token(symbol!"Ident", Location("filename", 3, 1, 3),Value(null),"test")
+	]);
 }
