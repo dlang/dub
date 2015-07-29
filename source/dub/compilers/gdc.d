@@ -62,6 +62,8 @@ class GdcCompiler : Compiler {
 		switch (arch_override) {
 			default: throw new Exception("Unsupported architecture: "~arch_override);
 			case "": break;
+			case "arm": arch_flags = ["-marm"]; break;
+			case "arm_thumb": arch_flags = ["-mthumb"]; break;
 			case "x86": arch_flags = ["-m32"]; break;
 			case "x86_64": arch_flags = ["-m64"]; break;
 		}
