@@ -43,9 +43,11 @@ class SublimeTextGenerator : ProjectGenerator {
 		auto jsonString = appender!string();
 		writePrettyJsonString(jsonString, root);
 
-		write(m_project.name ~ ".sublime-project", jsonString.data);
+		string projectPath = m_project.name ~ ".sublime-project";
 
-		logInfo("SublimeText project generated.");
+		write(projectPath, jsonString.data);
+
+		logInfo("Project '%s' generated.", projectPath);
 	}
 }
 
