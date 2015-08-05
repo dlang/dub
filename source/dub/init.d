@@ -65,7 +65,7 @@ void main()
 void initVibeDPackage(Path root_path, string[string] deps, PackageFormat format)
 {
 	if("vibe-d" !in deps)
-		deps["vibe-d"] = "~>0.7.19";
+		deps["vibe-d"] = "~>0.7.23";
 
 	writePackageDescription(format, root_path, "A simple vibe.d server application.",
 	                 deps, ["versions": ["VibeDefaultMain"]]);
