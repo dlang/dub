@@ -3,7 +3,7 @@ sudo: false
 
 matrix:
   include:
-    - d: dmd-2.068.0-b1
+    - d: dmd-2.068.0-rc1
     - d: dmd-2.067.1
       env:
         - COVERAGE=true
