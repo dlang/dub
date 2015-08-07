@@ -252,6 +252,9 @@ interface Compiler {
 	/// Invokes the underlying linker directly
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback);
 
+	/// Convert linker flags to compiler format
+	string[] lflagsToDFlags(in string[] lflags) const;
+	
 	protected final void invokeTool(string[] args, void delegate(int, string) output_callback)
 	{
 		import std.string;
