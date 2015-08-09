@@ -302,6 +302,7 @@ class Package {
 				case "docs": settings.addOptions(syntaxOnly); settings.addDFlags("-c", "-Dddocs"); break;
 				case "ddox": settings.addOptions(syntaxOnly); settings.addDFlags("-c", "-Df__dummy.html", "-Xfdocs.json"); break;
 				case "profile": settings.addOptions(profile, optimize, inline, debugInfo); break;
+				case "profile-gc": settings.addOptions(profileGC, debugInfo); break;
 				case "cov": settings.addOptions(coverage, debugInfo); break;
 				case "unittest-cov": settings.addOptions(unittests, coverage, debugMode, debugInfo); break;
 			}
