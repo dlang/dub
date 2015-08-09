@@ -48,6 +48,9 @@ class BuildGenerator : ProjectGenerator {
 		logInfo("Performing \"%s\" build using %s for %-(%s, %).",
 			settings.buildType, settings.platform.compilerBinary, settings.platform.architecture);
 
+		if (!settings.force)
+			logInfo("To rebuild all targets, rerun with the --force switch.");
+
 		bool[string] visited;
 		void buildTargetRec(string target)
 		{
@@ -128,7 +131,7 @@ class BuildGenerator : ProjectGenerator {
 		auto target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform, pack, packages, additional_dep_files)) {
-			logInfo("Target %s %s is up to date. Use --force to rebuild.", pack.name, pack.vers);
+			logInfo("Target %s %s is up to date.", pack.name, pack.vers);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			copyTargetFile(target_path, buildsettings, settings.platform);
 			return true;
