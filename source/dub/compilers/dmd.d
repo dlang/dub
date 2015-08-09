@@ -46,6 +46,7 @@ class DmdCompiler : Compiler {
 		tuple(BuildOption.deprecationWarnings, ["-dw"]),
 		tuple(BuildOption.deprecationErrors, ["-de"]),
 		tuple(BuildOption.property, ["-property"]),
+		tuple(BuildOption.profileGC, ["-profile=gc"]),
 	];
 
 	@property string name() const { return "dmd"; }

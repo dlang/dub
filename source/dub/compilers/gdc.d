@@ -46,6 +46,7 @@ class GdcCompiler : Compiler {
 		tuple(BuildOption.deprecationWarnings, ["-Wdeprecated"]),
 		tuple(BuildOption.deprecationErrors, ["-Werror", "-Wdeprecated"]),
 		tuple(BuildOption.property, ["-fproperty"]),
+		//tuple(BuildOption.profileGC, ["-?"]),
 	];
 
 	@property string name() const { return "gdc"; }

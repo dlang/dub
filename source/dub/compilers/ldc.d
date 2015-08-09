@@ -46,6 +46,7 @@ class LdcCompiler : Compiler {
 		tuple(BuildOption.deprecationWarnings, ["-dw"]),
 		tuple(BuildOption.deprecationErrors, ["-de"]),
 		tuple(BuildOption.property, ["-property"]),
+		//tuple(BuildOption.profileGC, ["-?"]),
 	];
 
 	@property string name() const { return "ldc"; }

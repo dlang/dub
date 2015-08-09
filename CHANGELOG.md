@@ -25,6 +25,7 @@ v0.9.24 - 2015-07-
  - Added a warning when referencing sub packages by their path (instead of their parent's path)
  - Building `sourceLibrary` targets with `-o-` is allowed now (enables documentation generation in particular) - [issue #553][issue553]
  - The VisualD generator doesn't use a "_d" suffix for debug build targets anymore (by Guillaume Piolat aka p0nce) - [pull #617][issue617]
+ - Added a new "profile-gc" build type
 
 ### Bug fixes ###
 
