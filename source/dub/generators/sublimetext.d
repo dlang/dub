@@ -69,6 +69,7 @@ Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd()
 		//"plain",
 		"debug",
 		"release",
+		"release-nobounds",
 		//"unittest",
 		"docs",
 		"ddox",
