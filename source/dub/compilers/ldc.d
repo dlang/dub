@@ -158,7 +158,7 @@ class LdcCompiler : Compiler {
 				settings.addDFlags("-lib");
 				break;
 			case TargetType.dynamicLibrary:
-				settings.addDFlags("-shared", "-defaultlib=phobos2");
+				settings.addDFlags("-shared");
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
