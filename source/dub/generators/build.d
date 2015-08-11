@@ -48,6 +48,8 @@ class BuildGenerator : ProjectGenerator {
 		logInfo("Performing \"%s\" build using %s for %-(%s, %).",
 			settings.buildType, settings.platform.compilerBinary, settings.platform.architecture);
 
+		bool any_cached = false;
+
 		bool[string] visited;
 		void buildTargetRec(string target)
 		{
@@ -69,7 +71,8 @@ class BuildGenerator : ProjectGenerator {
 					additional_dep_files ~= Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform);
 				}
 			}
-			buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files);
+			if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files))
+				any_cached = true;
 		}
 
 		// build all targets
@@ -78,7 +81,13 @@ class BuildGenerator : ProjectGenerator {
 			// RDMD always builds everything at once and static libraries don't need their
 			// dependencies to be built
 			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null);
-		} else buildTargetRec(m_project.rootPackage.name);
+		} else {
+			buildTargetRec(m_project.rootPackage.name);
+
+			if (any_cached) {
+				logInfo("To force a rebuild of up-to-date targets, run again with --force.");
+			}
+		}
 	}
 
 	override void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[string] targets)
@@ -91,7 +100,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private void buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in Path[] additional_dep_files)
+	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in Path[] additional_dep_files)
 	{
 		auto cwd = Path(getcwd());
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
@@ -120,6 +129,8 @@ class BuildGenerator : ProjectGenerator {
 			logInfo("Running post-build commands...");
 			runBuildCommands(buildsettings.postBuildCommands, pack, settings, buildsettings);
 		}
+
+		return cached;
 	}
 
 	bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id, in Package[] packages, in Path[] additional_dep_files)
@@ -128,7 +139,7 @@ class BuildGenerator : ProjectGenerator {
 		auto target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform, pack, packages, additional_dep_files)) {
-			logInfo("Target %s %s is up to date. Use --force to rebuild.", pack.name, pack.vers);
+			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.vers, config);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			copyTargetFile(target_path, buildsettings, settings.platform);
 			return true;
@@ -144,7 +155,7 @@ class BuildGenerator : ProjectGenerator {
 		// determine basic build properties
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
-		logInfo("Building %s %s configuration \"%s\"...", pack.name, pack.vers, config);
+		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.vers, config);
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
@@ -212,7 +223,7 @@ class BuildGenerator : ProjectGenerator {
 			runCommands(buildsettings.preBuildCommands);
 		}
 
-		logInfo("Building configuration \"%s\"...", config);
+		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.vers, config);
 
 		logInfo("Running rdmd...");
 		logDiagnostic("rdmd %s", join(flags, " "));
@@ -241,7 +252,7 @@ class BuildGenerator : ProjectGenerator {
 			f = fp.toNativeString();
 		}
 
-		logInfo("Building configuration \"%s\"...", config);
+		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.vers, config);
 
 		// make all target/import paths relative
 		string makeRelative(string path) {
