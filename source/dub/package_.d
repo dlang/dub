@@ -637,7 +637,6 @@ private string determineVersionFromSCM(Path path)
 static class PackagesUsed
 {
 	import std.process : environment;
-import std.stdio;
 	
 	private static bool loaded = false;
 	private static bool[string] packageNames;
