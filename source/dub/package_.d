@@ -669,16 +669,17 @@ static class PackagesUsed
 	}
 	
 	// Load from envvar
-	private static void load()
+	static void load()
 	{
 		auto commaList = environment.get(envVarName);
 		loaded = true;
 
+		packageNames = null;
 		foreach (name; commaList.split(","))
 			add(name);
 	}
 
-	// Load if not already loaded
+	// Load from envar if not already loaded
 	private static void ensureLoaded()
 	{
 		if (!loaded)

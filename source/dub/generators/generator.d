@@ -492,6 +492,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	foreach (dep; proj.dependencies)
 		PackagesUsed.add(dep.name);
 	PackagesUsed.store(env);
+	PackagesUsed.load(); // Refresh internal list from actual current environment
 	
 	runCommands(commands, env);
 }
