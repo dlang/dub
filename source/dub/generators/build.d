@@ -127,7 +127,7 @@ class BuildGenerator : ProjectGenerator {
 		// run post-build commands
 		if (!cached && buildsettings.postBuildCommands.length) {
 			logInfo("Running post-build commands...");
-			runBuildCommands(buildsettings.postBuildCommands, pack, settings, buildsettings);
+			runBuildCommands(buildsettings.postBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
 		return cached;
@@ -159,7 +159,7 @@ class BuildGenerator : ProjectGenerator {
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
-			runBuildCommands(buildsettings.preBuildCommands, pack, settings, buildsettings);
+			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
 		// override target path
@@ -281,7 +281,7 @@ class BuildGenerator : ProjectGenerator {
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
-			runBuildCommands(buildsettings.preBuildCommands, pack, settings, buildsettings);
+			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
 		buildWithCompiler(settings, buildsettings);
