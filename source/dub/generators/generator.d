@@ -443,6 +443,7 @@ private void finalizeGeneration(in Package pack, in GeneratorSettings settings, 
 void runBuildCommands(in string[] commands, in Package pack, in GeneratorSettings settings, in BuildSettings build_settings)
 {
 	import std.conv;
+	import std.file;
 	import std.process;
 	import dub.internal.utils;
 
@@ -485,5 +486,10 @@ void runBuildCommands(in string[] commands, in Package pack, in GeneratorSetting
 	env["DUB_PARALLEL_BUILD"]    = settings.parallelBuild? "TRUE" : "";
 
 	env["DUB_RUN_ARGS"] = (cast(string[])settings.runArgs).map!(escapeShellFileName).join(" ");
+	
+	auto saveCurrentDir = getcwd();
+	chdir(pack.path.toNativeString());
+	scope(exit) chdir(saveCurrentDir);
+	
 	runCommands(commands, env);
 }
