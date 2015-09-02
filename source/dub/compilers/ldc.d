@@ -33,7 +33,7 @@ class LdcCompiler : Compiler {
 		//tuple(BuildOption.alwaysStackFrame, ["-?"]),
 		//tuple(BuildOption.stackStomping, ["-?"]),
 		tuple(BuildOption.inline, ["-enable-inlining"]),
-		tuple(BuildOption.noBoundsCheck, ["-disable-boundscheck"]),
+		tuple(BuildOption.noBoundsCheck, ["-boundscheck=off"]),
 		tuple(BuildOption.optimize, ["-O"]),
 		//tuple(BuildOption.profile, ["-?"]),
 		tuple(BuildOption.unittests, ["-unittest"]),
