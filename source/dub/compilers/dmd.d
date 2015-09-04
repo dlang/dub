@@ -175,7 +175,10 @@ class DmdCompiler : Compiler {
 				settings.addDFlags("-lib");
 				break;
 			case TargetType.dynamicLibrary:
-				settings.addDFlags("-shared");
+				version(linux)
+					settings.addDFlags("-shared", "-defaultlib=libphobos2.so");
+				else
+					settings.addDFlags("-shared");
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
