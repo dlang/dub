@@ -2,6 +2,7 @@
 
 set -e -o pipefail
 
+dub fetch vibe-d # get optional dependency
 dub test --compiler=${DC} -c library-nonet
 
 if [ "$COVERAGE" = true ]; then
