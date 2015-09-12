@@ -37,7 +37,6 @@ echo Generating version file...
 GITVER=$(git describe) || GITVER=unknown
 echo "module dub.version_;" > source/dub/version_.d
 echo "enum dubVersion = \"$GITVER\";" >> source/dub/version_.d
-echo "enum initialCompilerBinary = \"$DMD\";" >> source/dub/version_.d
 
 
 echo Running $DMD...
