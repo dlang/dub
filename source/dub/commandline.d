@@ -402,11 +402,6 @@ abstract class PackageBuildCommand : Command {
 		bool m_forceRemove = false;
 	}
 
-	this()
-	{
-		m_compilerName = defaultCompiler();
-	}
-
 	override void prepare(scope CommandArgs args)
 	{
 		args.getopt("b|build", &m_buildType, [
@@ -420,8 +415,7 @@ abstract class PackageBuildCommand : Command {
 		args.getopt("compiler", &m_compilerName, [
 			"Specifies the compiler binary to use (can be a path).",
 			"Arbitrary pre- and suffixes to the identifiers below are recognized (e.g. ldc2 or dmd-2.063) and matched to the proper compiler type:",
-			"  "~["dmd", "gdc", "ldc", "gdmd", "ldmd"].join(", "),
-			"Default value: "~m_compilerName,
+			"  "~["dmd", "gdc", "ldc", "gdmd", "ldmd"].join(", ")
 		]);
 		args.getopt("a|arch", &m_arch, [
 			"Force a different architecture (e.g. x86 or x86_64)"
@@ -443,6 +437,7 @@ abstract class PackageBuildCommand : Command {
 
 	protected void setupPackage(Dub dub, string package_name)
 	{
+		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		m_compiler = getCompiler(m_compilerName);
 		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compilerName, m_arch);
 		m_buildSettings.addDebugVersions(m_debugVersions);

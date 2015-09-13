@@ -165,6 +165,20 @@ class Dub {
 
 	@property inout(Project) project() inout { return m_project; }
 
+	/// Returns the default compiler binary to use for building D code.
+	@property string defaultCompiler()
+	const {
+		if (auto pv = "defaultCompiler" in m_userConfig)
+			if (pv.type == Json.Type.string)
+				return pv.get!string;
+
+		if (auto pv = "defaultCompiler" in m_systemConfig)
+			if (pv.type == Json.Type.string)
+				return pv.get!string;
+
+		return .defaultCompiler();
+	}
+
 	/// Loads the package from the current working directory as the main
 	/// project package.
 	void loadPackageFromCwd()
@@ -693,7 +707,7 @@ class Dub {
 			ddox_dub.loadPackage(ddox_pack.path);
 			ddox_dub.upgrade(UpgradeOptions.select);
 
-			auto compiler_binary = "dmd";
+			auto compiler_binary = this.defaultCompiler;
 
 			GeneratorSettings settings;
 			settings.config = "application";
