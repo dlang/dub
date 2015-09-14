@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.9.24 - 2015-07-
+v0.9.24 - 2015-09-
 --------------------
 
 ### Features and improvements ###
@@ -26,6 +26,11 @@ v0.9.24 - 2015-07-
  - Building `sourceLibrary` targets with `-o-` is allowed now (enables documentation generation in particular) - [issue #553][issue553]
  - The VisualD generator doesn't use a "_d" suffix for debug build targets anymore (by Guillaume Piolat aka p0nce) - [pull #617][issue617]
  - Added a new "profile-gc" build type
+ - Cleaned up console output (parts by Guillaume Piolat aka p0nce) - [pull #621][issue621]
+ - Added "arm" and "arm_thumb" cross-compilation invocation support for GDC
+ - Added configuration support to set the default compiler binary "defaultCompiler" field in the settings.json file
+ - Removed the build script based selection of the default compiler (by Marc Schütz) - [pull #678][issue678]
+ - Added a `--skip-registry=` switch to skip searching for packages on remote registries - [issue #580][issue580]
 
 ### Bug fixes ###
 
@@ -41,6 +46,8 @@ v0.9.24 - 2015-07-
  - Fixed the architecture flag for x64 passed to LDC (by p0nce) - [pull #574][issue574]
  - Fixed enforcement of build requirements in dependencies - [issue #592][issue592]
  - Fixed `dub remove` to only remove managed packages - [issue #596][issue596]
+ - Added a workaround for a data corruption issue (codegen bug) - [issue #601][issue601]
+ - Fixed building dynamic libraries with DMD - [issue #613][issue613]
 
 [sdl-package-format]: http://code.dlang.org/package-format?lang=sdl
 [issue348]: https://github.com/D-Programming-Language/dub/issues/348
@@ -59,6 +66,7 @@ v0.9.24 - 2015-07-
 [issue565]: https://github.com/D-Programming-Language/dub/issues/565
 [issue572]: https://github.com/D-Programming-Language/dub/issues/572
 [issue574]: https://github.com/D-Programming-Language/dub/issues/574
+[issue580]: https://github.com/D-Programming-Language/dub/issues/580
 [issue581]: https://github.com/D-Programming-Language/dub/issues/581
 [issue582]: https://github.com/D-Programming-Language/dub/issues/582
 [issue585]: https://github.com/D-Programming-Language/dub/issues/585
@@ -66,8 +74,11 @@ v0.9.24 - 2015-07-
 [issue592]: https://github.com/D-Programming-Language/dub/issues/592
 [issue593]: https://github.com/D-Programming-Language/dub/issues/593
 [issue596]: https://github.com/D-Programming-Language/dub/issues/596
+[issue601]: https://github.com/D-Programming-Language/dub/issues/601
+[issue613]: https://github.com/D-Programming-Language/dub/issues/613
 [issue617]: https://github.com/D-Programming-Language/dub/issues/617
-
+[issue621]: https://github.com/D-Programming-Language/dub/issues/621
+[issue678]: https://github.com/D-Programming-Language/dub/issues/678
 
 v0.9.23 - 2015-04-06
 --------------------
