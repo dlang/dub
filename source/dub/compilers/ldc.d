@@ -162,7 +162,10 @@ class LdcCompiler : Compiler {
 				settings.addDFlags("-lib");
 				break;
 			case TargetType.dynamicLibrary:
-				settings.addDFlags("-shared");
+				version(linux)
+					settings.addDFlags("-shared", "-defaultlib=phobos2");
+				else
+					settings.addDFlags("-shared");
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
