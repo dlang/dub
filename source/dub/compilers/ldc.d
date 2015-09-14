@@ -120,7 +120,7 @@ class LdcCompiler : Compiler {
 		}
 
 		if (!(fields & BuildSetting.lflags)) {
-			settings.addDFlags(settings.lflags.map!(s => "-L="~s)().array());
+			settings.addDFlags(lflagsToDFlags(settings.lflags));
 			settings.lflags = null;
 		}
 
@@ -183,5 +183,10 @@ class LdcCompiler : Compiler {
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
 		assert(false, "Separate linking not implemented for LDC");
+	}
+
+	string[] lflagsToDFlags(in string[] lflags) const
+	{
+		return  lflags.map!(s => "-L="~s)().array();
 	}
 }
