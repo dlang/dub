@@ -74,6 +74,7 @@ Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd()
 		"docs",
 		"ddox",
 		"profile",
+		"profile-gc",
 		"cov",
 		"unittest-cov",
 		];
