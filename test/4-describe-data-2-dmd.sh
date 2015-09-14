@@ -43,8 +43,8 @@ echo -n "--another-dflag " >> "$expected_file"
 echo -n "-L--some-lflag " >> "$expected_file"
 echo -n "-L--another-lflag " >> "$expected_file"
 # --data=libs
-echo -n "-lcrypto " >> "$expected_file"
-echo -n "-lcurl " >> "$expected_file"
+echo -n "-L-lcrypto " >> "$expected_file"
+echo -n "-L-lcurl " >> "$expected_file"
 # --data=linker-files
 echo -n "'$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a' " >> "$expected_file"
 echo -n "'$CURR_DIR/describe-project/some.a' " >> "$expected_file"

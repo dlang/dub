@@ -131,7 +131,7 @@ class DmdCompiler : Compiler {
 		}
 
 		if (!(fields & BuildSetting.lflags)) {
-			settings.addDFlags(settings.lflags.map!(f => "-L"~f)().array());
+			settings.addDFlags(lflagsToDFlags(settings.lflags));
 			settings.lflags = null;
 		}
 
@@ -204,7 +204,7 @@ class DmdCompiler : Compiler {
 		args ~= objects;
 		args ~= settings.sourceFiles;
 		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
-		args ~= settings.lflags.map!(l => "-L"~l)().array;
+		args ~= lflagsToDFlags(settings.lflags);
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 
 		auto res_file = getTempFile("dub-build", ".lnk");
@@ -214,6 +214,11 @@ class DmdCompiler : Compiler {
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
+	string[] lflagsToDFlags(in string[] lflags) const
+	{
+		return  lflags.map!(f => "-L"~f)().array();
+	}
+	
 	private auto escapeArgs(in string[] args)
 	{
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
