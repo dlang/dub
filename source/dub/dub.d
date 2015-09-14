@@ -39,14 +39,14 @@ import std.encoding : sanitize;
 // Workaround for libcurl liker errors when building with LDC
 version (LDC) pragma(lib, "curl");
 
+enum defaultRegistryURL = "http://code.dlang.org/";
 
 /// The default supplier for packages, which is the registry
 /// hosted by code.dlang.org.
 PackageSupplier[] defaultPackageSuppliers()
 {
-	URL url = URL.parse("http://code.dlang.org/");
-	logDiagnostic("Using dub registry url '%s'", url);
-	return [new RegistryPackageSupplier(url)];
+	logDiagnostic("Using dub registry url '%s'", defaultRegistryURL);
+	return [new RegistryPackageSupplier(URL(defaultRegistryURL))];
 }
 
 /// Option flags for fetch
@@ -77,7 +77,7 @@ class Dub {
 
 	/// Initiales the package manager for the vibe application
 	/// under root.
-	this(PackageSupplier[] additional_package_suppliers = null, string root_path = ".")
+	this(PackageSupplier[] additional_package_suppliers = null, string root_path = ".", SkipRegistry skip_registry = SkipRegistry.none)
 	{
 		m_rootPath = Path(root_path);
 		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
@@ -98,15 +98,23 @@ class Dub {
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
 
 		PackageSupplier[] ps = additional_package_suppliers;
-		if (auto pp = "registryUrls" in m_userConfig)
-			ps ~= deserializeJson!(string[])(*pp)
-				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
-				.array;
-		if (auto pp = "registryUrls" in m_systemConfig)
-			ps ~= deserializeJson!(string[])(*pp)
-				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
-				.array;
-		ps ~= defaultPackageSuppliers();
+
+		if (skip_registry < SkipRegistry.all) {
+			if (auto pp = "registryUrls" in m_userConfig)
+				ps ~= deserializeJson!(string[])(*pp)
+					.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
+					.array;
+		}
+
+		if (skip_registry < SkipRegistry.all) {
+			if (auto pp = "registryUrls" in m_systemConfig)
+				ps ~= deserializeJson!(string[])(*pp)
+					.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
+					.array;
+		}
+
+		if (skip_registry < SkipRegistry.standard)
+			ps ~= defaultPackageSuppliers();
 
 		auto cacheDir = m_userDubPath ~ "cache/";
 		foreach (p; ps)
@@ -871,6 +879,12 @@ enum UpgradeOptions
 	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
 	printUpgradesOnly = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
 	useCachedResult = 1<<6, /// Use cached information stored with the package to determine upgrades
+}
+
+enum SkipRegistry {
+	none,
+	standard,
+	all
 }
 
 class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {

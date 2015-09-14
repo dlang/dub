@@ -194,7 +194,7 @@ int runDubCommandLine(string[] args)
 		} else {
 			// initialize DUB
 			auto package_suppliers = options.registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
-			dub = new Dub(package_suppliers, options.root_path);
+			dub = new Dub(package_suppliers, options.root_path, options.skipRegistry);
 			dub.dryRun = options.annotate;
 
 			// make the CWD package available so that for example sub packages can reference their
@@ -231,12 +231,19 @@ struct CommonOptions {
 	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
+	SkipRegistry skipRegistry = SkipRegistry.none;
 
 	void prepare(CommandArgs args)
 	{
 		args.getopt("h|help", &help, ["Display general or command specific help"]);
 		args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
 		args.getopt("registry", &registry_urls, ["Search the given DUB registry URL first when resolving dependencies. Can be specified multiple times."]);
+		args.getopt("skip-registry", &skipRegistry, [
+			"Skips searching certain package registries for dependencies:",
+			"  none: Search all configured registries (default)",
+			"  standard: Don't search on "~defaultRegistryURL,
+			"  all: Search none of the configured registries",
+			]);
 		args.getopt("annotate", &annotate, ["Do not perform any action, just print what would be done"]);
 		args.getopt("bare", &bare, ["Read only packages contained in the current directory"]);
 		args.getopt("v|verbose", &verbose, ["Print diagnostic output"]);
