@@ -62,7 +62,7 @@ struct BuildSettings {
 
 	void add(in BuildSettings bs)
 	{
-		addDFlags(bs.dflags);
+		addDFlagsNoDuplicates(bs.dflags);
 		addLFlags(bs.lflags);
 		addLibs(bs.libs);
 		addLinkerFiles(bs.linkerFiles);
@@ -81,6 +81,7 @@ struct BuildSettings {
 	}
 
 	void addDFlags(in string[] value...) { dflags ~= value; }
+	void addDFlagsNoDuplicates(in string[] value...) { add(dflags, value); }
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { lflags ~= value; }
 	void addLibs(in string[] value...) { add(libs, value); }
