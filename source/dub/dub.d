@@ -82,20 +82,7 @@ class Dub {
 		m_rootPath = Path(root_path);
 		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
 
-		version(Windows){
-			m_systemDubPath = Path(environment.get("ProgramData")) ~ "dub/";
-			m_userDubPath = Path(environment.get("APPDATA")) ~ "dub/";
-			m_tempPath = Path(environment.get("TEMP"));
-		} else version(Posix){
-			m_systemDubPath = Path("/var/lib/dub/");
-			m_userDubPath = Path(environment.get("HOME")) ~ ".dub/";
-			if(!m_userDubPath.absolute)
-				m_userDubPath = Path(getcwd()) ~ m_userDubPath;
-			m_tempPath = Path("/tmp");
-		}
-
-		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
-		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
+		this();
 
 		PackageSupplier[] ps = additional_package_suppliers;
 
@@ -128,9 +115,28 @@ class Dub {
 	/// Initializes DUB with only a single search path
 	this(Path override_path)
 	{
+		this();
 		m_overrideSearchPath = override_path;
 		m_packageManager = new PackageManager(Path(), Path(), false);
 		updatePackageSearchPath();
+	}
+
+	private this()
+	{
+		version(Windows){
+			m_systemDubPath = Path(environment.get("ProgramData")) ~ "dub/";
+			m_userDubPath = Path(environment.get("APPDATA")) ~ "dub/";
+			m_tempPath = Path(environment.get("TEMP"));
+		} else version(Posix){
+			m_systemDubPath = Path("/var/lib/dub/");
+			m_userDubPath = Path(environment.get("HOME")) ~ ".dub/";
+			if(!m_userDubPath.absolute)
+				m_userDubPath = Path(getcwd()) ~ m_userDubPath;
+			m_tempPath = Path("/tmp");
+		}
+
+		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
+		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
 	}
 
 	/// Perform cleanup and persist caches to disk
