@@ -173,7 +173,6 @@ class ProjectGenerator
 
 		// start to build up the build settings
 		BuildSettings buildsettings;
-		if (is_target) buildsettings = settings.buildSettings.dup;
 		processVars(buildsettings, m_project, pack, shallowbs, true);
 
 		// remove any mainSourceFile from library builds
@@ -216,14 +215,17 @@ class ProjectGenerator
 		}
 
 		if (is_target) {
-			// add build type settings and convert plain DFLAGS to build options
-			m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
-			settings.compiler.extractBuildOptions(buildsettings);
+			BuildSettings targetbs = buildsettings.dup;
+			targetbs.add(settings.buildSettings);
 
-			enforce (generates_binary || pack !is m_project.rootPackage || (buildsettings.options & BuildOption.syntaxOnly),
+			// add build type settings and convert plain DFLAGS to build options
+			m_project.addBuildTypeSettings(targetbs, settings.platform, settings.buildType);
+			settings.compiler.extractBuildOptions(targetbs);
+
+			enforce (generates_binary || pack !is m_project.rootPackage || (targetbs.options & BuildOption.syntaxOnly),
 				format("Main package must have a binary target type, not %s. Cannot build.", tt));
 
-			targets[pack.name].buildSettings = buildsettings.dup;
+			targets[pack.name].buildSettings = targetbs;
 		}
 
 		return buildsettings;
