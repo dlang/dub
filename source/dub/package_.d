@@ -632,3 +632,24 @@ private string determineVersionFromSCM(Path path)
 
 	return null;
 }
+ 
+bool isRecursiveInvocation(string pack)
+{
+	import std.process : environment;
+
+	return environment
+        .get("DUB_PACKAGES_USED", "")
+        .splitter(",")
+        .canFind(pack);
+}
+
+void storeRecursiveInvokations(string[string] env, string[] packs)
+{
+	import std.process : environment;
+
+    env["DUB_PACKAGES_USED"] = environment
+        .get("DUB_PACKAGES_USED", "")
+        .splitter(",")
+        .chain(packs)
+        .join(",");
+}

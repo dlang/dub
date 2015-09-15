@@ -93,7 +93,7 @@ class ProjectGenerator
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
-			prepareGeneration(pack, settings, buildsettings);
+			prepareGeneration(pack, m_project, settings, buildsettings);
 		}
 
 		string[] mainfiles;
@@ -109,7 +109,7 @@ class ProjectGenerator
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
 			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
-			finalizeGeneration(pack, settings, buildsettings, Path(bs.targetPath), generate_binary);
+			finalizeGeneration(pack, m_project, settings, buildsettings, Path(bs.targetPath), generate_binary);
 		}
 
 		performPostGenerateActions(settings, targets);
@@ -334,23 +334,24 @@ ProjectGenerator createProjectGenerator(string generator_type, Project project)
 /**
 	Runs pre-build commands and performs other required setup before project files are generated.
 */
-private void prepareGeneration(in Package pack, in GeneratorSettings settings, in BuildSettings buildsettings)
+private void prepareGeneration(in Package pack, in Project proj, in GeneratorSettings settings,
+	in BuildSettings buildsettings)
 {
-	if (buildsettings.preGenerateCommands.length) {
+	if (buildsettings.preGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running pre-generate commands for %s...", pack.name);
-		runBuildCommands(buildsettings.preGenerateCommands, pack, settings, buildsettings);
+		runBuildCommands(buildsettings.preGenerateCommands, pack, proj, settings, buildsettings);
 	}
 }
 
 /**
 	Runs post-build commands and copies required files to the binary directory.
 */
-private void finalizeGeneration(in Package pack, in GeneratorSettings settings, in BuildSettings buildsettings,
-	Path target_path, bool generate_binary)
+private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSettings settings,
+	in BuildSettings buildsettings, Path target_path, bool generate_binary)
 {
-	if (buildsettings.postGenerateCommands.length) {
+	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running post-generate commands for %s...", pack.name);
-		runBuildCommands(buildsettings.postGenerateCommands, pack, settings, buildsettings);
+		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
 	}
 
 	if (generate_binary) {
@@ -442,7 +443,8 @@ private void finalizeGeneration(in Package pack, in GeneratorSettings settings, 
 	}
 }
 
-void runBuildCommands(in string[] commands, in Package pack, in GeneratorSettings settings, in BuildSettings build_settings)
+void runBuildCommands(in string[] commands, in Package pack, in Project proj,
+	in GeneratorSettings settings, in BuildSettings build_settings)
 {
 	import std.conv;
 	import std.process;
@@ -487,5 +489,8 @@ void runBuildCommands(in string[] commands, in Package pack, in GeneratorSetting
 	env["DUB_PARALLEL_BUILD"]    = settings.parallelBuild? "TRUE" : "";
 
 	env["DUB_RUN_ARGS"] = (cast(string[])settings.runArgs).map!(escapeShellFileName).join(" ");
+	
+	auto depNames = proj.dependencies.map!((a) => a.name).array();
+	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
 	runCommands(commands, env);
 }
