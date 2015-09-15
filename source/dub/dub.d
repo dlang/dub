@@ -39,6 +39,20 @@ import std.encoding : sanitize;
 // Workaround for libcurl liker errors when building with LDC
 version (LDC) pragma(lib, "curl");
 
+// Set output path and options for coverage reports
+version (DigitalMars) version (D_Coverage) static if (__VERSION__ >= 2068)
+{
+	shared static this()
+	{
+		import core.runtime, std.file, std.path, std.stdio;
+		dmd_coverSetMerge(true);
+		auto path = buildPath(dirName(thisExePath()), "../cov");
+		if (!path.exists)
+			mkdir(path);
+		dmd_coverDestPath(path);
+	}
+}
+
 enum defaultRegistryURL = "http://code.dlang.org/";
 
 /// The default supplier for packages, which is the registry
@@ -472,14 +486,14 @@ class Dub {
 	{
 		import std.stdio;
 		import std.ascii : newline;
-		
+
 		// Split comma-separated lists
 		string[] requestedDataSplit =
 			requestedData
 			.map!(a => a.splitter(",").map!strip)
 			.joiner()
 			.array();
-		
+
 		auto data = m_project.listBuildSettings(platform, config, buildType,
 			requestedDataSplit, formattingCompiler, nullDelim);
 
@@ -1107,4 +1121,3 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		return null;
 	}
 }
-

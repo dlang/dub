@@ -25,3 +25,6 @@ __dummy.html
 /test/expected-issue616-output
 /test/describe-project/dummy.dat
 /test/describe-project/dummy-dep1.dat
+
+# Ignore coverage files
+cov/
