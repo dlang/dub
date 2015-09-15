@@ -403,7 +403,10 @@ class VisualDGenerator : ProjectGenerator {
 				ret.put("    <libpaths />\n");
 				ret.put("    <deffile />\n");
 				ret.put("    <resfile />\n");
-				ret.put("    <debugworkingdir>..</debugworkingdir>\n");
+				auto wdir = Path(buildsettings.workingDirectory);
+				if (!wdir.absolute) wdir = m_project.rootPackage.path ~ wdir;
+				ret.formattedWrite("    <debugworkingdir>%s</debugworkingdir>\n",
+					wdir.relativeTo(project_file_dir).toNativeString());
 				ret.put("    <preBuildCommand />\n");
 				ret.put("    <postBuildCommand />\n");
 				ret.put("    <filesToClean>*.obj;*.cmd;*.build;*.dep</filesToClean>\n");
