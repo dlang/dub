@@ -403,6 +403,7 @@ class VisualDGenerator : ProjectGenerator {
 				ret.put("    <libpaths />\n");
 				ret.put("    <deffile />\n");
 				ret.put("    <resfile />\n");
+				ret.put("    <debugworkingdir>..</debugworkingdir>\n");
 				ret.put("    <preBuildCommand />\n");
 				ret.put("    <postBuildCommand />\n");
 				ret.put("    <filesToClean>*.obj;*.cmd;*.build;*.dep</filesToClean>\n");
