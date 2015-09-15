@@ -335,7 +335,7 @@ ProjectGenerator createProjectGenerator(string generator_type, Project project)
 private void prepareGeneration(in Package pack, in Project proj, in GeneratorSettings settings,
 	in BuildSettings buildsettings)
 {
-	if (buildsettings.preGenerateCommands.length && !PackagesUsed.has(pack.name)) {
+	if (buildsettings.preGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running pre-generate commands for %s...", pack.name);
 		runBuildCommands(buildsettings.preGenerateCommands, pack, proj, settings, buildsettings);
 	}
@@ -347,7 +347,7 @@ private void prepareGeneration(in Package pack, in Project proj, in GeneratorSet
 private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSettings settings,
 	in BuildSettings buildsettings, Path target_path, bool generate_binary)
 {
-	if (buildsettings.postGenerateCommands.length && !PackagesUsed.has(pack.name)) {
+	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running post-generate commands for %s...", pack.name);
 		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
 	}
@@ -488,11 +488,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 
 	env["DUB_RUN_ARGS"] = (cast(string[])settings.runArgs).map!(escapeShellFileName).join(" ");
 	
-	PackagesUsed.add(proj.rootPackage.name);
-	foreach (dep; proj.dependencies)
-		PackagesUsed.add(dep.name);
-	PackagesUsed.store(env);
-	PackagesUsed.load(); // Refresh internal list from actual current environment
-	
+	auto depNames = proj.dependencies.map!((a) => a.name).array();
+	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
 	runCommands(commands, env);
 }

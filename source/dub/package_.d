@@ -631,58 +631,24 @@ private string determineVersionFromSCM(Path path)
 
 	return null;
 }
-
-/// All packages being used by all parent DUB processes (if any).
-/// Used to avoid infinite process recursion.
-static class PackagesUsed
+ 
+bool isRecursiveInvocation(string pack)
 {
 	import std.process : environment;
-	
-	private static bool loaded = false;
-	private static bool[string] packageNames;
-	private enum envVarName = "DUB_PACKAGES_USED";
-	
-	static void add(string pack)
-	{
-		ensureLoaded();
-		packageNames[pack] = true;
-	}
-	
-	static void add(string[] packs)
-	{
-		ensureLoaded();
-		foreach (p; packs)
-			packageNames[p] = true;
-	}
-	
-	static bool has(string pack)
-	{
-		ensureLoaded();
-		return !!(pack in packageNames);
-	}
-	
-	// Store in envvar
-	static void store(string[string] env)
-	{
-		auto commaList = packageNames.keys.sort().join(",");
-		env[envVarName] = commaList;
-	}
-	
-	// Load from envvar
-	static void load()
-	{
-		auto commaList = environment.get(envVarName);
-		loaded = true;
 
-		packageNames = null;
-		foreach (name; commaList.split(","))
-			add(name);
-	}
+	return environment
+        .get("DUB_PACKAGES_USED", "")
+        .splitter(",")
+        .canFind(pack);
+}
 
-	// Load from envar if not already loaded
-	private static void ensureLoaded()
-	{
-		if (!loaded)
-			load();
-	}
+void storeRecursiveInvokations(string[string] env, string[] packs)
+{
+	import std.process : environment;
+
+    env["DUB_PACKAGES_USED"] = environment
+        .get("DUB_PACKAGES_USED", "")
+        .splitter(",")
+        .chain(packs)
+        .join(",");
 }
