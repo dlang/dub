@@ -24,3 +24,6 @@ __dummy.html
 /test/expected-describe-data-2-dmd-output
 /test/describe-project/dummy.dat
 /test/describe-project/dummy-dep1.dat
+
+# Ignore coverage files
+cov/

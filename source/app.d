@@ -11,7 +11,5 @@ import dub.commandline;
 
 int main(string[] args)
 {
-	version (unittest) return 0;
-	else return runDubCommandLine(args);
+	return runDubCommandLine(args);
 }
-
