@@ -283,7 +283,7 @@ class VisualDGenerator : ProjectGenerator {
 					output_type = DynamicLib;
 					output_ext = "dll";
 				}
-				auto bin_path = pack == m_project.rootPackage.name ? Path(buildsettings.targetPath) : Path(".dub/lib/");
+				auto bin_path = pack == m_project.rootPackage.name ? Path(buildsettings.targetPath) : Path("lib/");
 				bin_path.endsWithSlash = true;
 				ret.formattedWrite("    <lib>%s</lib>\n", output_type);
 				ret.formattedWrite("    <exefile>%s%s.%s</exefile>\n", bin_path.toNativeString(), buildsettings.targetName, output_ext);
@@ -368,7 +368,7 @@ class VisualDGenerator : ProjectGenerator {
 				ret.formattedWrite("    <compiler>%s</compiler>\n", settings.compiler.name == "ldc" ? 2 : settings.compiler.name == "gdc" ? 1 : 0);
 				ret.formattedWrite("    <otherDMD>0</otherDMD>\n");
 				ret.formattedWrite("    <outdir>%s</outdir>\n", bin_path.toNativeString());
-				ret.formattedWrite("    <objdir>.dub/obj/%s/%s</objdir>\n", to!string(type), intersubdir);
+				ret.formattedWrite("    <objdir>obj/%s/%s</objdir>\n", to!string(type), intersubdir);
 				ret.put("    <objname />\n");
 				ret.put("    <libname />\n");
 				ret.put("    <doDocComments>0</doDocComments>\n");
@@ -403,6 +403,7 @@ class VisualDGenerator : ProjectGenerator {
 				ret.put("    <libpaths />\n");
 				ret.put("    <deffile />\n");
 				ret.put("    <resfile />\n");
+				ret.put("    <debugworkingdir>..</debugworkingdir>\n");
 				ret.put("    <preBuildCommand />\n");
 				ret.put("    <postBuildCommand />\n");
 				ret.put("    <filesToClean>*.obj;*.cmd;*.build;*.dep</filesToClean>\n");
@@ -435,7 +436,7 @@ class VisualDGenerator : ProjectGenerator {
 		}
 
 		Path projFileName(string pack) const {
-			auto basepath = Path(".");//Path(".dub/");
+			auto basepath = Path(".dub/");
 			version(DUBBING) return basepath ~ (getPackageFileName(pack) ~ ".dubbed.visualdproj");
 			else return basepath ~ (getPackageFileName(pack) ~ ".visualdproj");
 		}
