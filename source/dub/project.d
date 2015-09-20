@@ -693,9 +693,9 @@ class Project {
 			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
 			
 			if (bs.lflags)
-				values = bs.lflags;
+				values = compiler.lflagsToDFlags( bs.lflags );
 			else if (bs.sourceFiles)
-				values = bs.sourceFiles;
+				values = compiler.lflagsToDFlags( bs.sourceFiles );
 			else
 				values = bs.dflags;
 

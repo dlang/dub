@@ -136,8 +136,7 @@ class GdcCompiler : Compiler {
 		}
 
 		if (!(fields & BuildSetting.lflags)) {
-			foreach( f; settings.lflags )
-				settings.addDFlags(["-Xlinker", f]);
+			settings.addDFlags(lflagsToDFlags(settings.lflags));
 			settings.lflags = null;
 		}
 
@@ -210,6 +209,18 @@ class GdcCompiler : Compiler {
 		}
 		logDiagnostic("%s", args.join(" "));
 		invokeTool(args, output_callback);
+	}
+
+	string[] lflagsToDFlags(in string[] lflags) const
+	{
+		string[] dflags;
+		foreach( f; lflags )
+		{
+			dflags ~= "-Xlinker";
+			dflags ~= f;
+		}
+
+		return  dflags;
 	}
 }
 
