@@ -67,6 +67,7 @@ CommandGroup[] getCommands()
 			new RemoveOverrideCommand,
 			new ListOverridesCommand,
 			new CleanCachesCommand,
+			new RegistryCommand
 		)
 	];
 }
@@ -1398,6 +1399,32 @@ class CleanCachesCommand : Command {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		dub.cleanCaches();
+		return 0;
+	}
+}
+
+/******************************************************************************/
+/* Browse registry                                                            */
+/******************************************************************************/
+
+class RegistryCommand : Command {
+
+	this()
+	{
+		this.name = "registry";
+		this.argumentsPattern = "";
+		this.description = "Open DUB registry in browser";
+		this.helpText = [
+			"This command open the DUB registry in a browser for package discovery and management."
+		];
+	}
+
+	override void prepare(scope CommandArgs args) {}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		import std.process : browse;
+		browse("http://code.dlang.org/");
 		return 0;
 	}
 }
