@@ -598,6 +598,47 @@ class Package {
 
 private string determineVersionFromSCM(Path path)
 {
+	import std.file : exists, readText;
+
+	// quickly determine head commit without invoking GIT
+	string head_commit;
+	auto hpath = (path ~ ".git/HEAD").toNativeString();
+	if (exists(hpath)) {
+		auto head_ref = readText(hpath).strip();
+		if (head_ref.startsWith("ref: ")) {
+			auto rpath = (path ~ (".git/"~head_ref[5 .. $])).toNativeString();
+			if (exists(rpath))
+				head_commit = readText(rpath).strip();
+		}
+	}
+
+	// return the last determined version for that commit
+	// not that this is not always correct, most notably when
+	// a tag gets added/removed/changed and changes the outcome
+	// of the full version detection computation
+	auto vcachepath = path ~ ".dub/version.json";
+	if (existsFile(vcachepath)) {
+		auto ver = jsonFromFile(vcachepath);
+		if (head_commit == ver["commit"].opt!string)
+			return ver["version"].get!string;
+	}
+
+	// if no cache file or the HEAD commit changed, perform full detection
+	auto ret = determineVersionWithGIT(path);
+
+	// update version cache file
+	if (head_commit.length) {
+		if (!existsFile(path ~".dub")) createDirectory(path ~ ".dub");
+		atomicWriteJsonFile(vcachepath, Json(["commit": Json(head_commit), "version": Json(ret)]));
+	}
+
+	return ret;
+}
+
+// determines the version of a package that is stored in a GIT working copy
+// by invoking the "git" executable
+private string determineVersionWithGIT(Path path)
+{
 	import std.process;
 	import dub.semver;
 
