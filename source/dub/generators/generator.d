@@ -478,6 +478,8 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_BUILD_MODE"]        = to!string(settings.buildMode);
 	env["DUB_PACKAGE"]           = pack.name;
 	env["DUB_PACKAGE_DIR"]       = pack.path.toNativeString();
+	env["DUB_ROOT_PACKAGE"]      = proj.rootPackage.name;
+	env["DUB_ROOT_PACKAGE_DIR"]  = proj.rootPackage.path.toNativeString();
 
 	env["DUB_COMBINED"]          = settings.combined?      "TRUE" : "";
 	env["DUB_RUN"]               = settings.run?           "TRUE" : "";
