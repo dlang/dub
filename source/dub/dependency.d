@@ -537,7 +537,7 @@ struct Version {
 			return this.m_version < other.m_version ? -1 : 1;
 		}
 
-		return compareVersions(isMaster ? MAX_VERS : m_version, other.isMaster ? MAX_VERS : other.m_version);
+		return compareVersions(m_version, other.m_version);
 	}
 	int opCmp(in Version other) const { return opCmp(other); }
 
