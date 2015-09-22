@@ -1294,11 +1294,17 @@ class SearchCommand : Command {
 			logError("No matches found.");
 			return 1;
 		}
+		auto justify = res
+			.map!((descNmatches) => descNmatches[1])
+			.joiner
+			.map!(m => m.name.length + m.version_.length)
+			.reduce!max + " ()".length;
+		justify += (~justify & 3) + 1; // round to next multiple of 4
 		foreach (desc, matches; res)
 		{
 			logInfo("==== %s ====", desc);
 			foreach (m; matches)
-				logInfo("%s\t%s\t%s", m.name, m.version_, m.description);
+				logInfo("%s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
 		}
 		return 0;
 	}
