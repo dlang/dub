@@ -683,6 +683,12 @@ class Dub {
 		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
+	auto searchPackages(string query)
+	{
+		return m_packageSuppliers.map!(ps => tuple(ps.description, ps.searchPackages(query)))
+			.filter!(t => t[1].length);
+	}
+
 	void createEmptyPackage(Path path, string[] deps, string type, PackageFormat format = PackageFormat.sdl)
 	{
 		if (!path.absolute) path = m_rootPath ~ path;
