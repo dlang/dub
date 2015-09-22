@@ -41,6 +41,9 @@ interface PackageSupplier {
 
 	/// perform cache operation
 	void cacheOp(Path cacheDir, CacheOp op);
+
+	static struct SearchResult { string name, description, version_; }
+	SearchResult[] searchPackages(string query);
 }
 
 /// operations on package supplier cache
@@ -90,6 +93,10 @@ class FileSystemPackageSupplier : PackageSupplier {
 	}
 
 	void cacheOp(Path cacheDir, CacheOp op) {
+	}
+
+	SearchResult[] searchPackages(string query) {
+		return null;
 	}
 
 	private Path bestPackageFile(string packageId, Dependency dep, bool pre_release)
@@ -214,6 +221,21 @@ class RegistryPackageSupplier : PackageSupplier {
 		m_metadataCache[packageId] = CacheEntry(json, now);
 		m_metadataCacheDirty = true;
 		return json;
+	}
+
+	SearchResult[] searchPackages(string query) {
+		import std.uri : encodeComponent;
+		auto url = m_registryUrl;
+		url.localURI = "/api/packages/search?q="~encodeComponent(query);
+		string data;
+		try
+			data = cast(string)download(url);
+		catch (Exception)
+			return null;
+		import std.algorithm : map;
+		return data.parseJson.opt!(Json[])
+			.map!(j => SearchResult(j["name"].opt!string, j["description"].opt!string, j["version"].opt!string))
+			.array;
 	}
 
 	private Json getBestPackage(string packageId, Dependency dep, bool pre_release)

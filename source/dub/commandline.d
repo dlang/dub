@@ -62,6 +62,7 @@ CommandGroup[] getCommands()
 			new AddLocalCommand,
 			new RemoveLocalCommand,
 			new ListCommand,
+			new SearchCommand,
 			new ListInstalledCommand,
 			new AddOverrideCommand,
 			new RemoveOverrideCommand,
@@ -1273,6 +1274,42 @@ class ListInstalledCommand : ListCommand {
 	}
 }
 
+class SearchCommand : Command {
+	this()
+	{
+		this.name = "search";
+		this.argumentsPattern = "<query>";
+		this.description = "Seach for available packages.";
+		this.helpText = [
+			"Search all specified DUB registries for packages matching query."
+		];
+	}
+	override void prepare(scope CommandArgs args) {}
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforce(free_args.length == 1, "Expected one argument.");
+		auto res = dub.searchPackages(free_args[0]);
+		if (res.empty)
+		{
+			logError("No matches found.");
+			return 1;
+		}
+		auto justify = res
+			.map!((descNmatches) => descNmatches[1])
+			.joiner
+			.map!(m => m.name.length + m.version_.length)
+			.reduce!max + " ()".length;
+		justify += (~justify & 3) + 1; // round to next multiple of 4
+		foreach (desc, matches; res)
+		{
+			logInfo("==== %s ====", desc);
+			foreach (m; matches)
+				logInfo("%s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
+		}
+		return 0;
+	}
+}
+
 
 /******************************************************************************/
 /* OVERRIDES                                                                  */
@@ -1754,4 +1791,3 @@ private void warnRenamed(string prev, string curr)
 {
 	logWarn("The '%s' Command was renamed to '%s'. Please update your scripts.", prev, curr);
 }
-
