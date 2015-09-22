@@ -685,7 +685,7 @@ class Dub {
 
 	auto searchPackages(string query)
 	{
-		return m_packageSuppliers.map!(ps => tuple(ps.description, ps.searchPackages(query)))
+		return m_packageSuppliers.map!(ps => tuple(ps.description, ps.searchPackages(query))).array
 			.filter!(t => t[1].length);
 	}
 
