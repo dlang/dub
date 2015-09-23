@@ -2,7 +2,10 @@
 
 set -e -o pipefail
 
-dub test --compiler=${DC} -c library-nonet
+if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.064.2 ]; then
+    dub fetch vibe-d --version=0.7.24 # get optional dependency
+    dub test --compiler=${DC} -c library-nonet
+fi
 
 if [ "$COVERAGE" = true ]; then
     # library-nonet fails to build with coverage (Issue 13742)

@@ -11,6 +11,8 @@ matrix:
     - d: dmd-2.066.1
     - d: dmd-2.065.0
     - d: dmd-2.064.2
+      env:
+        - FRONTEND=2.064
     - d: ldc-0.15.1
     - d: ldc-0.14.0
     - d: gdc-4.9.2
