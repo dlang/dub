@@ -14,6 +14,7 @@ import dub.internal.vibecompat.inet.url;
 import dub.version_;
 
 // todo: cleanup imports.
+import core.thread;
 import std.algorithm : startsWith;
 import std.array;
 import std.conv;
@@ -27,12 +28,12 @@ import std.zip;
 version(DubUseCurl) import std.net.curl;
 
 
+private Path[] temporary_files;
+
 Path getTempDir()
 {
 	return Path(std.file.tempDir());
 }
-
-private Path[] temporary_files;
 
 Path getTempFile(string prefix, string extension = null)
 {
@@ -43,11 +44,45 @@ Path getTempFile(string prefix, string extension = null)
 	return path;
 }
 
+// lockfile based on atomic mkdir
+struct LockFile
+{
+	bool opCast(T:bool)() { return !!path; }
+	~this() { if (path) rmdir(path); }
+	string path;
+}
+
+auto tryLockFile(string path)
+{
+	import std.file;
+	if (collectException(mkdir(path)))
+		return LockFile(null);
+	return LockFile(path);
+}
+
+auto lockFile(string path, Duration wait)
+{
+	import std.datetime, std.file;
+	auto t0 = Clock.currTime();
+	auto dur = 1.msecs;
+	while (true)
+	{
+		if (!collectException(mkdir(path)))
+			return LockFile(path);
+		enforce(Clock.currTime() - t0 < wait, "Failed to lock '"~path~"'.");
+		if (dur < 1024.msecs) // exponentially increase sleep time
+			dur *= 2;
+		Thread.sleep(dur);
+	}
+}
+
 static ~this()
 {
 	foreach (path; temporary_files)
 	{
-		std.file.remove(path.toNativeString());
+		auto spath = path.toNativeString();
+		if (spath.exists)
+			std.file.remove(spath);
 	}
 }
 
@@ -127,18 +162,18 @@ void runCommands(in string[] commands, string[string] env = null)
 	version(Windows) enum nullFile = "NUL";
 	else version(Posix) enum nullFile = "/dev/null";
 	else static assert(0);
-	
+
 	auto childStdout = stdout;
 	auto childStderr = stderr;
 	auto config = Config.retainStdout | Config.retainStderr;
-	
+
 	// Disable child's stdout/stderr depending on LogLevel
 	auto logLevel = getLogLevel();
 	if(logLevel >= LogLevel.warn)
 		childStdout = File(nullFile, "w");
 	if(logLevel >= LogLevel.none)
 		childStderr = File(nullFile, "w");
-	
+
 	foreach(cmd; commands){
 		logDiagnostic("Running %s", cmd);
 		Pid pid;
@@ -290,7 +325,7 @@ auto fuzzySearch(R)(R strings, string input){
 /**
 	If T is a bitfield-style enum, this function returns a string range
 	listing the names of all members included in the given value.
-	
+
 	Example:
 	---------
 	enum Bits {
@@ -300,7 +335,7 @@ auto fuzzySearch(R)(R strings, string input){
 		c = 1<<2,
 		a_c = a | c,
 	}
-	
+
 	assert( bitFieldNames(Bits.none).equals(["none"]) );
 	assert( bitFieldNames(Bits.a).equals(["a"]) );
 	assert( bitFieldNames(Bits.a_c).equals(["a", "c", "a_c"]) );

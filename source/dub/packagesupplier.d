@@ -170,7 +170,7 @@ class RegistryPackageSupplier : PackageSupplier {
 			if (!cacheDir.existsFile())
 				mkdirRecurse(cacheDir.toNativeString());
 			// TODO: method is slow due to Json escaping
-			writeJsonFile(path, m_metadataCache.serializeToJson());
+			atomicWriteJsonFile(path, m_metadataCache.serializeToJson());
 			break;
 
 		case CacheOp.load:
