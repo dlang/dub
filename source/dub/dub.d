@@ -575,20 +575,30 @@ class Dub {
 		if (m_dryRun) return null;
 
 		logDiagnostic("Acquiring package zip file");
-		auto dload = m_projectPath ~ ".dub/temp/downloads";
-		auto tempfname = packageId ~ "-" ~ (ver.startsWith('~') ? ver[1 .. $] : ver) ~ ".zip";
-		auto tempFile = m_tempPath ~ tempfname;
-		string sTempFile = tempFile.toNativeString();
-		if (exists(sTempFile)) std.file.remove(sTempFile);
-		supplier.retrievePackage(tempFile, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
-		scope(exit) std.file.remove(sTempFile);
 
-		logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
 		auto clean_package_version = ver[ver.startsWith("~") ? 1 : 0 .. $];
 		clean_package_version = clean_package_version.replace("+", "_"); // + has special meaning for Optlink
+		if (!placement.existsFile())
+			mkdirRecurse(placement.toNativeString());
 		Path dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
 
-		return m_packageManager.storeFetchedPackage(tempFile, pinfo, dstpath);
+		if (auto lock = tryLockFile(dstpath.toNativeString() ~ ".lock")) // avoid concurrent fetch
+		{
+			auto path = getTempFile(packageId, ".zip");
+			supplier.retrievePackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			scope(exit) std.file.remove(path.toNativeString());
+
+			logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
+
+			return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
+		}
+		else
+		{
+			logInfo("Waiting for concurrent dub to fetch %s %s.", packageId, ver);
+			lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds); // wait for other dub instance
+			m_packageManager.refresh(false);
+			return m_packageManager.getPackage(packageId, ver, dstpath);
+		}
 	}
 
 	/// Removes a given package from the list of present/cached modules.
