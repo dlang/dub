@@ -93,6 +93,22 @@ void writeJsonFile(Path path, Json json)
 	f.writePrettyJsonString(json);
 }
 
+/// Performs a write->delete->rename sequence to atomically "overwrite" the destination file
+void atomicWriteJsonFile(Path path, Json json)
+{
+	import std.random : uniform;
+	auto tmppath = path[0 .. $-1] ~ format("%s.%s.tmp", path.head, uniform(0, int.max));
+	auto f = openFile(tmppath, FileMode.createTrunc);
+	scope (failure) {
+		f.close();
+		removeFile(tmppath);
+	}
+	f.writePrettyJsonString(json);
+	f.close();
+	if (existsFile(path)) removeFile(path);
+	moveFile(tmppath, path);
+}
+
 bool isPathFromZip(string p) {
 	enforce(p.length > 0);
 	return p[$-1] == '/';
