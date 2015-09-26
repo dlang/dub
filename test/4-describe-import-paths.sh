@@ -4,7 +4,7 @@ set -e -o pipefail
 
 cd "$CURR_DIR"/describe-project
 
-temp_file=`mktemp`
+temp_file=$(mktemp $(basename $0).XXXXXX)
 
 function cleanup {
     rm $temp_file
