@@ -490,6 +490,8 @@ abstract class PackageBuildCommand : Command {
 			if (!package_name.length) return true;
 		}
 
+		enforce(package_name.length, "No valid root package found - aborting.");
+
 		auto pack = dub.packageManager.getFirstPackage(package_name);
 		enforce(pack, "Failed to find a package named '"~package_name~"'.");
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
