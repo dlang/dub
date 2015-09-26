@@ -2,8 +2,7 @@
 
 set -e -o pipefail
 
-TMPDIR=$(mktemp -d)
-echo ${TMPDIR}
+TMPDIR=$(mktemp -d $(basename $0).XXXXXX)
 
 function cleanup {
     rm -rf ${TMPDIR}

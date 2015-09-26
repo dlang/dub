@@ -4,8 +4,8 @@ set -e -o pipefail
 
 cd "$CURR_DIR"/describe-project
 
-temp_file_normal=`mktemp`
-temp_file_zero_delim=`mktemp`
+temp_file_normal=$(mktemp $(basename $0).XXXXXX)
+temp_file_zero_delim=$(mktemp $(basename $0).XXXXXX)
 
 function cleanup {
     rm $temp_file_normal

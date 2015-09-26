@@ -3,7 +3,7 @@ set -e -o pipefail
 
 cd "$CURR_DIR"/issue616-describe-vs-generate-commands
 
-temp_file=`mktemp`
+temp_file=$(mktemp $(basename $0).XXXXXX)
 
 function cleanup {
     rm $temp_file
