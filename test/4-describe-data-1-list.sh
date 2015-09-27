@@ -59,8 +59,8 @@ echo "--some-lflag" >> "$expected_file"
 echo "--another-lflag" >> "$expected_file"
 echo >> "$expected_file"
 # --data=libs
-echo "crypto" >> "$expected_file"
-echo "curl" >> "$expected_file"
+echo "somelib" >> "$expected_file"
+echo "anotherlib" >> "$expected_file"
 echo >> "$expected_file"
 # --data=linker-files
 echo "$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a" >> "$expected_file"

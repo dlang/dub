@@ -10,7 +10,7 @@
     "sourceFiles-windows": ["dep.lib"],
     "dflags": ["--another-dflag"],
     "lflags": ["--another-lflag"],
-    "libs": ["curl"],
+    "libs": ["anotherlib"],
     "copyFiles": ["data/*"],
     "versions": ["anotherVerIdent"],
     "debugVersions": ["anotherDebugVerIdent"],
