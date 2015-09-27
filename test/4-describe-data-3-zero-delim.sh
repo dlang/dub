@@ -15,7 +15,7 @@ function cleanup {
 trap cleanup EXIT
 
 # Test list-style project data
-if ! $DUB describe --compiler=$COMPILER --data-list \
+if ! $DUB describe --compiler=$DC --data-list \
     --data=target-type \
     --data=target-path \
     --data=target-name \
@@ -43,7 +43,7 @@ if ! $DUB describe --compiler=$COMPILER --data-list \
     die 'Printing list-style project data failed!'
 fi
 
-if ! $DUB describe --compiler=$COMPILER --data-0 --data-list \
+if ! $DUB describe --compiler=$DC --data-0 --data-list \
     --data=target-type \
     --data=target-path \
     --data=target-name \
@@ -76,12 +76,12 @@ if ! diff -Z "$temp_file_normal" "$temp_file_zero_delim"; then
 fi
 
 # Test --import-paths
-if ! $DUB describe --compiler=$COMPILER --import-paths \
+if ! $DUB describe --compiler=$DC --import-paths \
     > "$temp_file_normal"; then
     die 'Printing --import-paths failed!'
 fi
 
-if ! $DUB describe --compiler=$COMPILER --data-0 --import-paths \
+if ! $DUB describe --compiler=$DC --data-0 --import-paths \
     | xargs -0 printf "%s\n" > "$temp_file_zero_delim"; then
     die 'Printing null-delimited --import-paths failed!'
 fi

@@ -12,7 +12,7 @@ function cleanup {
 
 trap cleanup EXIT
 
-if ! $DUB describe --compiler=$COMPILER --string-import-paths > "$temp_file"; then
+if ! $DUB describe --compiler=$DC --string-import-paths > "$temp_file"; then
     die 'Printing string import paths failed!'
 fi
 
