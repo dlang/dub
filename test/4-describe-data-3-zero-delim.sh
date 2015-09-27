@@ -91,18 +91,18 @@ if ! diff -Z -B "$temp_file_normal" "$temp_file_zero_delim"; then
 fi
 
 # DMD-only beyond this point
-if ! dmd --help >/dev/null; then
-	echo Skipping DMD-centric tests on configuration that lacks DMD.
-	exit
+if [ "${DC}" != "dmd" ]; then
+    echo Skipping DMD-centric tests on configuration that lacks DMD.
+    exit
 fi
 
 # Test dmd-style --data=versions
-if ! $DUB describe --compiler=dmd --data=versions \
+if ! $DUB describe --compiler=$DC --data=versions \
     > "$temp_file_normal"; then
     die 'Printing dmd-style --data=versions failed!'
 fi
 
-if ! $DUB describe --compiler=dmd --data-0 --data=versions \
+if ! $DUB describe --compiler=$DC --data-0 --data=versions \
     | xargs -0 printf "%s " > "$temp_file_zero_delim"; then
     die 'Printing null-delimited dmd-style --data=versions failed!'
 fi
@@ -112,12 +112,12 @@ if ! diff -Z "$temp_file_normal" "$temp_file_zero_delim"; then
 fi
 
 # Test dmd-style --data=source-files
-if ! $DUB describe --compiler=dmd --data=source-files \
+if ! $DUB describe --compiler=$DC --data=source-files \
     > "$temp_file_normal"; then
     die 'Printing dmd-style --data=source-files failed!'
 fi
 
-if ! $DUB describe --compiler=dmd --data-0 --data=source-files \
+if ! $DUB describe --compiler=$DC --data-0 --data=source-files \
     | xargs -0 printf "'%s' " > "$temp_file_zero_delim"; then
     die 'Printing null-delimited dmd-style --data=source-files failed!'
 fi

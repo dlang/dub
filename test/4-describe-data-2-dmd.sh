@@ -2,9 +2,9 @@
 
 set -e -o pipefail
 
-if ! dmd --help >/dev/null; then
-	echo Skipping DMD-centric test on configuration that lacks DMD.
-	exit
+if [ "${DC}" != "dmd" ]; then
+    echo Skipping DMD-centric test on configuration that lacks DMD.
+    exit
 fi
 
 cd "$CURR_DIR"/describe-project
@@ -17,7 +17,7 @@ function cleanup {
 
 trap cleanup EXIT
 
-if ! $DUB describe --compiler=dmd \
+if ! $DUB describe --compiler=${DC} \
     --data=main-source-file \
     --data=dflags,lflags \
     --data=libs,linker-files \
