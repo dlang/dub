@@ -38,6 +38,8 @@ GITVER=$(git describe) || GITVER=unknown
 echo "module dub.version_;" > source/dub/version_.d
 echo "enum dubVersion = \"$GITVER\";" >> source/dub/version_.d
 
+# For OSX compatibility >= 10.6
+export MACOSX_DEPLOYMENT_TARGET=10.6
 
 echo Running $DMD...
 $DMD -ofbin/dub -w -version=DubUseCurl -Isource $* $LIBS @build-files.txt
