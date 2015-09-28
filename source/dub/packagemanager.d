@@ -440,7 +440,7 @@ class PackageManager {
 		writeLocalPackageList(type);
 
 		foreach(ver, name; removed)
-			logInfo("Unregistered package: %s (version: %s)", name, ver);
+			logInfo("Deregistered package: %s (version: %s)", name, ver);
 	}
 
 	/// For the given type add another path where packages will be looked up.
