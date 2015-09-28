@@ -838,11 +838,11 @@ class Project {
 			case "post-generate-commands":
 			case "pre-build-commands":
 			case "post-build-commands":
-				enforce(false, "--data="~requestedData~" can only be used with --data-format=list.");
+				enforce(false, "--data="~requestedData~" can only be used with --data-list or --data-0.");
 				break;
 
 			case "requirements":
-				enforce(false, "--data=requirements can only be used with --data-format=list. Use --data=options instead.");
+				enforce(false, "--data=requirements can only be used with --data-list or --data-0. Use --data=options instead.");
 				break;
 
 			default: break;
