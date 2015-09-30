@@ -5,18 +5,19 @@ matrix:
   include:
     - d: dmd-2.068.2-b1
     - d: dmd-2.068.1
-      env:
-        - COVERAGE=true
+      env: [COVERAGE=true]
     - d: dmd-2.067.1
     - d: dmd-2.066.1
     - d: dmd-2.065.0
+      env: [FRONTEND=2.065]
     - d: dmd-2.064.2
-      env:
-        - FRONTEND=2.064
+      env: [FRONTEND=2.064]
     - d: ldc-0.15.1
     - d: ldc-0.14.0
+      env: [FRONTEND=2.065]
     - d: gdc-4.9.2
     - d: gdc-4.9.0
+      env: [FRONTEND=2.065]
 
 script:
   - ./travis-ci.sh

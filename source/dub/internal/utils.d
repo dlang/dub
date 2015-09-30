@@ -155,6 +155,11 @@ bool existsDirectory(Path path) {
 	return fi.isDirectory;
 }
 
+void runCommand(string command, string[string] env = null)
+{
+	runCommands((&command)[0 .. 1], env);
+}
+
 void runCommands(in string[] commands, string[string] env = null)
 {
 	import std.stdio : stdin, stdout, stderr, File;

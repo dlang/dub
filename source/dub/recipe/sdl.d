@@ -48,6 +48,7 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 				recipe.buildTypes[name] = bt;
 				break;
 			case "x:ddoxFilterArgs": recipe.ddoxFilterArgs ~= n.stringArrayTagValue; break;
+			case "x:ddoxTool": recipe.ddoxTool = n.stringTagValue; break;
 		}
 	}
 
@@ -357,7 +358,7 @@ lflags "lf3"
 }
 
 unittest { // test platform identifiers
-	auto sdl = 
+	auto sdl =
 `name "testproject"
 dflags "-a" "-b" platform="windows-x86"
 dflags "-c" platform="windows-x86"
@@ -391,7 +392,7 @@ unittest { // test single value fields
 		`name "hello" {
 			world
 		}`, null, "testfile"));
-	assertThrown!Exception(parseSDL(rec, 
+	assertThrown!Exception(parseSDL(rec,
 		`name ""
 		versions "hello" 10`
 		, null, "testfile"));

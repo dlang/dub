@@ -730,54 +730,52 @@ class Dub {
 	{
 		if (m_dryRun) return;
 
-		auto ddox_pack = m_packageManager.getBestPackage("ddox", ">=0.0.0");
-		if (!ddox_pack) ddox_pack = m_packageManager.getBestPackage("ddox", "~master");
-		if (!ddox_pack) {
-			logInfo("DDOX is not present, getting it and storing user wide");
-			ddox_pack = fetch("ddox", Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+		// allow to choose a custom ddox tool
+		auto tool = m_project.rootPackage.info.ddoxTool;
+		if (tool.empty) tool = "ddox";
+
+		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
+		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
+		if (!tool_pack) {
+			logInfo("% is not present, getting and storing it user wide", tool);
+			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
 		}
 
-		version(Windows) auto ddox_exe = "ddox.exe";
-		else auto ddox_exe = "ddox";
+		auto ddox_dub = new Dub(m_packageSuppliers);
+		ddox_dub.loadPackage(tool_pack.path);
+		ddox_dub.upgrade(UpgradeOptions.select);
 
-		if( !existsFile(ddox_pack.path~ddox_exe) ){
-			logInfo("DDOX in %s is not built, performing build now.", ddox_pack.path.toNativeString());
+		auto compiler_binary = this.defaultCompiler;
 
-			auto ddox_dub = new Dub(m_packageSuppliers);
-			ddox_dub.loadPackage(ddox_pack.path);
-			ddox_dub.upgrade(UpgradeOptions.select);
+		GeneratorSettings settings;
+		settings.config = "application";
+		settings.compiler = getCompiler(compiler_binary); // TODO: not using --compiler ???
+		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary);
+		settings.buildType = "debug";
+		settings.run = true;
 
-			auto compiler_binary = this.defaultCompiler;
-
-			GeneratorSettings settings;
-			settings.config = "application";
-			settings.compiler = getCompiler(compiler_binary);
-			settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary);
-			settings.buildType = "debug";
-			ddox_dub.generateProject("build", settings);
-
-			//runCommands(["cd "~ddox_pack.path.toNativeString()~" && dub build -v"]);
-		}
-
-		auto p = ddox_pack.path;
-		p.endsWithSlash = true;
-		auto dub_path = p.toNativeString();
-
-		string[] commands;
-		string[] filterargs = m_project.rootPackage.info.ddoxFilterArgs.dup;
+		auto filterargs = m_project.rootPackage.info.ddoxFilterArgs.dup;
 		if (filterargs.empty) filterargs = ["--min-protection=Protected", "--only-documented"];
-		commands ~= dub_path~"ddox filter "~filterargs.join(" ")~" docs.json";
-		if (!run) {
-			commands ~= dub_path~"ddox generate-html --navigation-type=ModuleTree docs.json docs";
-			version(Windows) commands ~= "xcopy /S /D "~dub_path~"public\\* docs\\";
-			else commands ~= "rsync -ru '"~dub_path~"public/' docs/";
-		}
-		runCommands(commands);
+
+		settings.runArgs = "filter" ~ filterargs ~ "docs.json";
+		ddox_dub.generateProject("build", settings);
+
+		auto p = tool_pack.path;
+		p.endsWithSlash = true;
+		auto tool_path = p.toNativeString();
 
 		if (run) {
-			auto proc = spawnProcess([dub_path~"ddox", "serve-html", "--navigation-type=ModuleTree", "docs.json", "--web-file-dir="~dub_path~"public"]);
+			settings.runArgs = ["serve-html", "--navigation-type=ModuleTree", "docs.json", "--web-file-dir="~tool_path~"public"];
 			browse("http://127.0.0.1:8080/");
-			wait(proc);
+		} else {
+			settings.runArgs = ["generate-html", "--navigation-type=ModuleTree", "docs.json", "docs"];
+		}
+		ddox_dub.generateProject("build", settings);
+
+		if (!run) {
+			// TODO: ddox should copy those files itself
+			version(Windows) runCommand("xcopy /S /D "~tool_path~"public\\* docs\\");
+			else runCommand("rsync -ru '"~tool_path~"public/' docs/");
 		}
 	}
 
