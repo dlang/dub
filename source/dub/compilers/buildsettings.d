@@ -290,6 +290,9 @@ enum BuildOption {
 	deprecationErrors = 1<<19,    /// Stop compilation upon usage of deprecated features (-de)
 	property = 1<<20,             /// DEPRECATED: Enforce property syntax (-property)
 	profileGC = 1<<21,            /// Profile runtime allocations
+	// for internal usage
+	_docs = 1<<22,                // Write ddoc to docs
+	_ddox = 1<<23,                // Compile docs.json
 }
 
 	struct BuildOptions {
