@@ -582,23 +582,19 @@ class Dub {
 			mkdirRecurse(placement.toNativeString());
 		Path dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
 
-		if (auto lock = tryLockFile(dstpath.toNativeString() ~ ".lock")) // avoid concurrent fetch
+		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds); // possibly wait for other dub instance
+		if (dstpath.existsFile())
 		{
-			auto path = getTempFile(packageId, ".zip");
-			supplier.retrievePackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
-			scope(exit) std.file.remove(path.toNativeString());
-
-			logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
-
-			return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
-		}
-		else
-		{
-			logInfo("Waiting for concurrent dub to fetch %s %s.", packageId, ver);
-			lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds); // wait for other dub instance
 			m_packageManager.refresh(false);
 			return m_packageManager.getPackage(packageId, ver, dstpath);
 		}
+
+		auto path = getTempFile(packageId, ".zip");
+		supplier.retrievePackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+		scope(exit) std.file.remove(path.toNativeString());
+
+		logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
+		return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
 	}
 
 	/// Removes a given package from the list of present/cached modules.
