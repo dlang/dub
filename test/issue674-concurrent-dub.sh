@@ -11,6 +11,7 @@ trap cleanup EXIT
 
 cd ${TMPDIR} && $DUB fetch --cache=local bloom &
 pid1=$!
+sleep 0.5
 cd ${TMPDIR} && $DUB fetch --cache=local bloom &
 pid2=$!
 wait $pid1
