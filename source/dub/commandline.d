@@ -1570,7 +1570,7 @@ class DustmiteCommand : PackageBuildCommand {
 			// adjust all path based dependencies of the root package
 			void fixPathDependency(string pack, ref Dependency dep) {
 				if (dep.path.length > 0)
-					dep.path = path ~ pack;
+					dep.path = Path("../") ~ pack;
 			}
 			foreach (name, ref dep; prj.rootPackage.info.buildSettings.dependencies)
 				fixPathDependency(name, dep);
