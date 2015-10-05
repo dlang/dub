@@ -1493,6 +1493,8 @@ class DustmiteCommand : PackageBuildCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
+		import std.format : formattedWrite;
+
 		if (m_testPackage.length) {
 			dub = new Dub(Path(getcwd()));
 
@@ -1564,19 +1566,24 @@ class DustmiteCommand : PackageBuildCommand {
 				// overwrite package description file with additional version information
 				pack_.storeInfo(dst_path);
 			}
+
 			logInfo("Executing dustmite...");
-			auto testcmd = format("%s dustmite --vquiet --test-package=%s -b %s -c %s --compiler %s -a %s",
-								  thisExePath, prj.name, m_buildType, m_buildConfig, m_compilerName, m_arch);
-			if (m_compilerStatusCode != int.min) testcmd ~= format(" --compiler-status=%s", m_compilerStatusCode);
-			if (m_compilerRegex.length) testcmd ~= format(" \"--compiler-regex=%s\"", m_compilerRegex);
-			if (m_linkerStatusCode != int.min) testcmd ~= format(" --linker-status=%s", m_linkerStatusCode);
-			if (m_linkerRegex.length) testcmd ~= format(" \"--linker-regex=%s\"", m_linkerRegex);
-			if (m_programStatusCode != int.min) testcmd ~= format(" --program-status=%s", m_programStatusCode);
-			if (m_programRegex.length) testcmd ~= format(" \"--program-regex=%s\"", m_programRegex);
+			auto testcmd = appender!string();
+			testcmd.formattedWrite("%s dustmite --vquiet --test-package=%s --build=%s --config=%s",
+				thisExePath, prj.name, m_buildType, m_buildConfig);
+			
+			if (m_compilerName.length) testcmd.formattedWrite(" \"--compiler=%s\"", m_compilerName);
+			if (m_arch.length) testcmd.formattedWrite(" --arch=%s", m_arch);
+			if (m_compilerStatusCode != int.min) testcmd.formattedWrite(" --compiler-status=%s", m_compilerStatusCode);
+			if (m_compilerRegex.length) testcmd.formattedWrite(" \"--compiler-regex=%s\"", m_compilerRegex);
+			if (m_linkerStatusCode != int.min) testcmd.formattedWrite(" --linker-status=%s", m_linkerStatusCode);
+			if (m_linkerRegex.length) testcmd.formattedWrite(" \"--linker-regex=%s\"", m_linkerRegex);
+			if (m_programStatusCode != int.min) testcmd.formattedWrite(" --program-status=%s", m_programStatusCode);
+			if (m_programRegex.length) testcmd.formattedWrite(" \"--program-regex=%s\"", m_programRegex);
 			if (m_combined) testcmd ~= " --combined";
 			// TODO: pass *all* original parameters
 			logDiagnostic("Running dustmite: %s", testcmd);
-			auto dmpid = spawnProcess(["dustmite", path.toNativeString(), testcmd]);
+			auto dmpid = spawnProcess(["dustmite", path.toNativeString(), testcmd.data]);
 			return dmpid.wait();
 		}
 		return 0;
