@@ -1567,6 +1567,19 @@ class DustmiteCommand : PackageBuildCommand {
 				pack_.storeInfo(dst_path);
 			}
 
+			// adjust all path based dependencies of the root package
+			void fixPathDependency(string pack, ref Dependency dep) {
+				if (dep.path.length > 0)
+					dep.path = path ~ pack;
+			}
+			foreach (name, ref dep; prj.rootPackage.info.buildSettings.dependencies)
+				fixPathDependency(name, dep);
+			foreach (ref cfg; prj.rootPackage.info.configurations)
+				foreach (name, ref dep; cfg.buildSettings.dependencies)
+					fixPathDependency(name, dep);
+			prj.rootPackage.storeInfo(path ~ prj.rootPackage.name);
+
+
 			logInfo("Executing dustmite...");
 			auto testcmd = appender!string();
 			testcmd.formattedWrite("%s dustmite --vquiet --test-package=%s --build=%s --config=%s",
