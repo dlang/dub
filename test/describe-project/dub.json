@@ -11,7 +11,7 @@
     "sourceFiles-windows": ["./some.lib"],
     "dflags": ["--some-dflag"],
     "lflags": ["--some-lflag"],
-    "libs": ["crypto"],
+    "libs": ["somelib"],
     "copyFiles": ["data/dummy.dat"],
     "versions": ["someVerIdent"],
     "debugVersions": ["someDebugVerIdent"],
