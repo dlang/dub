@@ -17,6 +17,6 @@ fi
 DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
 
 if [ "$COVERAGE" = true ]; then
-    dub fetch doveralls --version=~master
+    dub fetch doveralls
     dub run doveralls --compiler=${DC}
 fi
