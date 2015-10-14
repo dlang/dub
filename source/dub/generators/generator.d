@@ -236,7 +236,7 @@ class ProjectGenerator
 		auto ti = &targets[target];
 		ti.buildSettings.addVersions(root_settings.versions);
 		ti.buildSettings.addDebugVersions(root_settings.debugVersions);
-		ti.buildSettings.addOptions(BuildOptions(root_settings.options & inheritedBuildOptions));
+		ti.buildSettings.addOptions(BuildOptions(cast(BuildOptions)root_settings.options & inheritedBuildOptions));
 
 		// special support for overriding string imports in parent packages
 		// this is a candidate for deprecation, once an alternative approach
