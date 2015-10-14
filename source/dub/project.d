@@ -530,12 +530,20 @@ class Project {
 		}
 	}
 
-	void addBuildTypeSettings(ref BuildSettings dst, in BuildPlatform platform, string build_type)
+	void addBuildTypeSettings(ref BuildSettings dst, in BuildPlatform platform, string build_type, bool for_root_package = true)
 	{
 		bool usedefflags = !(dst.requirements & BuildRequirement.noDefaultFlags);
 		if (usedefflags) {
 			BuildSettings btsettings;
 			m_rootPackage.addBuildTypeSettings(btsettings, platform, build_type);
+			
+			if (!for_root_package) {
+				// don't propagate unittest switch to dependencies, as dependent
+				// unit tests aren't run anyway and the additional code may
+				// cause linking to fail on Windows (issue #640)
+				btsettings.removeOptions(BuildOption.unittests);
+			}
+
 			processVars(dst, this, m_rootPackage, btsettings);
 		}
 	}

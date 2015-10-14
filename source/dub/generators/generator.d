@@ -219,7 +219,7 @@ class ProjectGenerator
 			targetbs.add(settings.buildSettings);
 
 			// add build type settings and convert plain DFLAGS to build options
-			m_project.addBuildTypeSettings(targetbs, settings.platform, settings.buildType);
+			m_project.addBuildTypeSettings(targetbs, settings.platform, settings.buildType, pack is m_project.rootPackage);
 			settings.compiler.extractBuildOptions(targetbs);
 
 			enforce (generates_binary || pack !is m_project.rootPackage || (targetbs.options & BuildOption.syntaxOnly),
@@ -236,7 +236,7 @@ class ProjectGenerator
 		auto ti = &targets[target];
 		ti.buildSettings.addVersions(root_settings.versions);
 		ti.buildSettings.addDebugVersions(root_settings.debugVersions);
-		ti.buildSettings.addOptions(root_settings.options);
+		ti.buildSettings.addOptions(BuildOptions(root_settings.options & inheritedBuildOptions));
 
 		// special support for overriding string imports in parent packages
 		// this is a candidate for deprecation, once an alternative approach
