@@ -43,3 +43,49 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 	else assert(false, "readPackageRecipe called with filename with unknown extension: "~filename);
 	return ret;
 }
+
+
+unittest { // issue #711 - configuration default target type not correct for SDL
+	import dub.compilers.buildsettings : TargetType;
+	auto inputs = [
+		"dub.sdl": "name \"test\"\nconfiguration \"a\" {\n}",
+		"dub.json": "{\"name\": \"test\", \"configurations\": [{\"name\": \"a\"}]}"
+	];
+	foreach (file, content; inputs) {
+		auto pr = parsePackageRecipe(content, file);
+		assert(pr.name == "test");
+		assert(pr.configurations.length == 1);
+		assert(pr.configurations[0].name == "a");
+		assert(pr.configurations[0].buildSettings.targetType == TargetType.library);
+	}
+}
+
+unittest { // issue #711 - configuration default target type not correct for SDL
+	import dub.compilers.buildsettings : TargetType;
+	auto inputs = [
+		"dub.sdl": "name \"test\"\ntargetType \"autodetect\"\nconfiguration \"a\" {\n}",
+		"dub.json": "{\"name\": \"test\", \"targetType\": \"autodetect\", \"configurations\": [{\"name\": \"a\"}]}"
+	];
+	foreach (file, content; inputs) {
+		auto pr = parsePackageRecipe(content, file);
+		assert(pr.name == "test");
+		assert(pr.configurations.length == 1);
+		assert(pr.configurations[0].name == "a");
+		assert(pr.configurations[0].buildSettings.targetType == TargetType.library);
+	}
+}
+
+unittest { // issue #711 - configuration default target type not correct for SDL
+	import dub.compilers.buildsettings : TargetType;
+	auto inputs = [
+		"dub.sdl": "name \"test\"\ntargetType \"executable\"\nconfiguration \"a\" {\n}",
+		"dub.json": "{\"name\": \"test\", \"targetType\": \"executable\", \"configurations\": [{\"name\": \"a\"}]}"
+	];
+	foreach (file, content; inputs) {
+		auto pr = parsePackageRecipe(content, file);
+		assert(pr.name == "test");
+		assert(pr.configurations.length == 1);
+		assert(pr.configurations[0].name == "a");
+		assert(pr.configurations[0].buildSettings.targetType == TargetType.executable);
+	}
+}
