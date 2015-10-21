@@ -451,47 +451,6 @@ private template isSame(ab...)
     }
 }
 
-/**
-	Compares two groups for element identity
-	
-	Params:
-		Group1, Group2 = any instances of `Group`
-
-	Returns:
-		`true` if each element of Group1 is identical to
-		the one of Group2 at the same index
-*/
-template Compare(alias Group1, alias Group2)
-	if (isGroup!Group1 && isGroup!Group2)
-{
-	private bool implementation()
-	{
-		static if (Group1.expand.length == Group2.expand.length) {
-			foreach (index, element; Group1.expand)
-			{
-				static if (!isSame!(Group1.expand[index], Group2.expand[index])) {
-					return false;
-				}
-			}
-			return true;
-		}
-		else {
-			return false;
-		}
-	}
-
-	enum Compare = implementation();
-}
-
-///
-unittest
-{
-	alias one = Group!(int, double);
-	alias two = Group!(int, double);
-	alias three = Group!(double, int);
-	static assert (Compare!(one, two));
-	static assert (!Compare!(one, three));
-}
 
 /**
 	Small convenience wrapper to find and extract certain UDA from given type.
