@@ -533,7 +533,16 @@ class PackageManager {
 				try foreach( pdir; iterateDirectory(path) ){
 					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 					if( !pdir.isDirectory ) continue;
-					auto pack_path = path ~ (pdir.name ~ "/");
+
+					// Search for a single directory within this directory
+					FileInfo subdir;
+					foreach( pdir2; iterateDirectory(path ~ (pdir.name ~ "/")) )
+					{
+						subdir = pdir2;
+					}
+					if( !subdir.isDirectory ) continue;
+
+					auto pack_path = path ~ (pdir.name ~ "/") ~ (subdir.name ~ "/");
 					auto packageFile = Package.findPackageFile(pack_path);
 					if (packageFile.empty) continue;
 					Package p;
