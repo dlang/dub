@@ -534,11 +534,13 @@ class PackageManager {
 					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 					if( !pdir.isDirectory ) continue;
 
-					// Search for a single directory within this directory
+					// Search for a single directory within this directory which happen to be a prefix of pdir
+					// This is to support new folder structure installed over the ancient one.
 					FileInfo subdir;
 					foreach( pdir2; iterateDirectory(path ~ (pdir.name ~ "/")) )
 					{
-						subdir = pdir2;
+						if (pdir.name.startsWith(pdir2.name)) // eg: package vibe-d will be in "vibe-d-x.y.z/vibe-d"
+							subdir = pdir2;
 					}
 					if( !subdir.isDirectory ) continue;
 
