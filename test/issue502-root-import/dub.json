@@ -1,0 +1,7 @@
+{
+    "name": "issue502-root-import",
+    "dependencies":
+    {
+        "gitcompatibledubpackage": "~>1.0"
+    }
+}
