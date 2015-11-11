@@ -71,6 +71,7 @@ struct PackageRecipe {
 	string copyright;
 	string license;
 	string[] ddoxFilterArgs;
+	string ddoxTool;
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
 	BuildSettingsTemplate[string] buildTypes;

@@ -47,6 +47,9 @@ class DmdCompiler : Compiler {
 		tuple(BuildOption.deprecationErrors, ["-de"]),
 		tuple(BuildOption.property, ["-property"]),
 		tuple(BuildOption.profileGC, ["-profile=gc"]),
+
+		tuple(BuildOption._docs, ["-Dddocs"]),
+		tuple(BuildOption._ddox, ["-Xfdocs.json", "-Df__dummy.html"]),
 	];
 
 	@property string name() const { return "dmd"; }
@@ -218,7 +221,7 @@ class DmdCompiler : Compiler {
 	{
 		return  lflags.map!(f => "-L"~f)().array();
 	}
-	
+
 	private auto escapeArgs(in string[] args)
 	{
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);

@@ -299,8 +299,8 @@ class Package {
 				case "release": settings.addOptions(releaseMode, optimize, inline); break;
 				case "release-nobounds": settings.addOptions(releaseMode, optimize, inline, noBoundsCheck); break;
 				case "unittest": settings.addOptions(unittests, debugMode, debugInfo); break;
-				case "docs": settings.addOptions(syntaxOnly); settings.addDFlags("-c", "-Dddocs"); break;
-				case "ddox": settings.addOptions(syntaxOnly); settings.addDFlags("-c", "-Df__dummy.html", "-Xfdocs.json"); break;
+				case "docs": settings.addOptions(syntaxOnly, _docs); break;
+				case "ddox": settings.addOptions(syntaxOnly,  _ddox); break;
 				case "profile": settings.addOptions(profile, optimize, inline, debugInfo); break;
 				case "profile-gc": settings.addOptions(profileGC, debugInfo); break;
 				case "cov": settings.addOptions(coverage, debugInfo); break;
@@ -680,7 +680,7 @@ private string determineVersionWithGIT(Path path)
 
 	return null;
 }
- 
+
 bool isRecursiveInvocation(string pack)
 {
 	import std.process : environment;

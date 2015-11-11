@@ -42,6 +42,7 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 				}
 				break;
 			case "-ddoxFilterArgs": recipe.ddoxFilterArgs = deserializeJson!(string[])(value); break;
+			case "-ddoxTool": recipe.ddoxTool = value.get!string; break;
 		}
 	}
 
