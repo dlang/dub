@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -e
 
 if [ "$DMD" = "" ]; then
@@ -16,8 +16,11 @@ if [ "$DMD" = "" ]; then
 	exit 1
 fi
 
-# link against libcurl
-LIBS=`pkg-config --libs libcurl 2>/dev/null || echo "-lcurl"`
+VERSION=$($DMD --version 2>/dev/null | sed -n 's|DMD.* v||p')
+if [[ $VERSION < 2.069.0 ]]; then
+    # link against libcurl
+    LIBS=`pkg-config --libs libcurl 2>/dev/null || echo "-lcurl"`
+fi
 
 # fix for modern GCC versions with --as-needed by default
 if [ "$DMD" = "dmd" ]; then
