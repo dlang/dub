@@ -44,6 +44,8 @@ Jordi Sayol maintains a DEB package as part of his [D APT repository](http://d-a
 
 Chris Molozian has added DUB to [Homebrew](http://mxcl.github.io/homebrew/). Use `brew install dub` or `brew install dub --HEAD` to install the stable or the git HEAD version respectively.
 
+There is also a [MacPorts](https://www.macports.org/) package available. Type `sudo port install dub` to install the latest stable version.
+
 ### Windows
 
 Daniel Jost maintains a dub package on [chocolatey](https://chocolatey.org/packages/dub). Use `cinst dub` or `cinst dub -version #.#.#` to install stable or a custom version respectively.
