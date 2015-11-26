@@ -23,13 +23,13 @@ if [[ $VERSION < 2.069.0 ]]; then
 fi
 
 # fix for modern GCC versions with --as-needed by default
-if [ "$DMD" = "dmd" ]; then
+if [[ `$DMD --help | head -n1 | grep -P '^DMD(32|64) '` ]]; then
 	if [ `uname` = "Linux" ]; then
 		LIBS="-l:libphobos2.a $LIBS"
 	else
 		LIBS="-lphobos2 $LIBS"
 	fi
-elif [ "$DMD" = "ldmd2" ]; then
+elif [[ `$DMD --help | head -n1 | grep -P '^LDC '` ]]; then
 	LIBS="-lphobos2-ldc $LIBS"
 fi
 
