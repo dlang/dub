@@ -2,7 +2,7 @@
 
 set -e -o pipefail
 
-if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.064.2 ]; then
+if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.065.z ]; then
     dub fetch vibe-d --version=0.7.24 # get optional dependency
     dub test --compiler=${DC} -c library-nonet
 fi
