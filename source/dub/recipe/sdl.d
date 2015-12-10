@@ -14,6 +14,7 @@ import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
 import dub.recipe.packagerecipe;
 
+import std.algorithm : map;
 import std.conv;
 import std.string : startsWith;
 
@@ -82,11 +83,43 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 	}
 }
 
+Tag toSDL(in ref PackageRecipe recipe)
+{
+	Tag ret = new Tag;
+	void add(T)(string field, T value) { ret.add(new Tag(null, field, [Value(value)])); }
+	add("name", recipe.name);
+	if (recipe.version_.length) add("version", recipe.version_);
+	if (recipe.description.length) add("description", recipe.description);
+	if (recipe.homepage.length) add("homepage", recipe.homepage);
+	if (recipe.authors.length) ret.add(new Tag(null, "authors", recipe.authors.map!(a => Value(a)).array));
+	if (recipe.copyright.length) add("copyright", recipe.copyright);
+	if (recipe.license.length) add("license", recipe.license);
+	foreach (i, subPackage; recipe.subPackages) {
+		if (subPackage.path !is null) {
+			add("subPackage", subPackage.path);
+		} else {
+			auto t = subPackage.recipe.toSDL();
+			t.name = "subPackage";
+			ret.add(t);
+		}
+	}
+	foreach(config; recipe.configurations)
+		ret.add(config.toSDL());
+	foreach (name, settings; recipe.buildTypes) {
+		auto t = new Tag(null, "buildType", [Value(name)]);
+		t.add(settings.toSDL());
+		ret.add(t);
+	}
+	if (recipe.ddoxFilterArgs.length)
+		ret.add(new Tag("x", "ddoxFilterArgs", recipe.ddoxFilterArgs.map!(a => Value(a)).array));
+	ret.add(recipe.buildSettings.toSDL());
+	return ret;
+}
+
 private void parseBuildSettings(Tag settings, ref BuildSettingsTemplate bs, string package_name)
 {
-	foreach (setting; settings.tags) {
+	foreach (setting; settings.tags)
 		parseBuildSetting(setting, bs, package_name);
-	}
 }
 
 private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string package_name)
@@ -153,16 +186,6 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	bs.dependencies[pkg] = dep;
 }
 
-private string expandPackageName(string name, string parent_name, Tag tag)
-{
-	import std.algorithm : canFind;
-	import std.string : format;
-	if (name.startsWith(":")) {
-		enforceSDL(!parent_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", parent_name, name), tag);
-		return parent_name ~ name;
-	} else return name;
-}
-
 private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package_name)
 {
 	ret.name = t.stringTagValue(true);
@@ -172,6 +195,74 @@ private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package
 			case "platforms": ret.platforms ~= f.stringArrayTagValue; break;
 		}
 	}
+}
+
+private Tag toSDL(in ref ConfigurationInfo config)
+{
+	auto ret = new Tag(null, "configuration", [Value(config.name)]);
+	if (config.platforms.length) ret.add(new Tag(null, "platforms", config.platforms[].map!(p => Value(p)).array));
+	ret.add(config.buildSettings.toSDL());
+	return ret;
+}
+
+private Tag[] toSDL(in ref BuildSettingsTemplate bs)
+{
+	Tag[] ret;
+	void add(string name, string value) { ret ~= new Tag(null, name, [Value(value)]); }
+	void adda(string name, string suffix, in string[] values) {
+		ret ~= new Tag(null, name, values[].map!(v => Value(v)).array,
+			suffix.length ? [new Attribute(null, "platform", Value(suffix[1 .. $]))] : null);
+	}
+
+	string[] toNameArray(T, U)(U bits) if(is(T == enum)) {
+		string[] ret;
+		foreach (m; __traits(allMembers, T))
+			if (bits & __traits(getMember, T, m))
+				ret ~= m;
+		return ret;
+	}
+	
+	foreach (pack, d; bs.dependencies) {
+		Attribute[] attribs;
+		if (d.path.length) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
+		else attribs ~= new Attribute(null, "version", Value(d.versionString));
+		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
+		ret ~= new Tag(null, "dependency", [Value(pack)], attribs);
+	}
+	if (bs.systemDependencies !is null) add("systemDependencies", bs.systemDependencies);
+	if (bs.targetType != TargetType.autodetect) add("targetType", bs.targetType.to!string());
+	if (bs.targetPath.length) add("targetPath", bs.targetPath);
+	if (bs.targetName.length) add("targetName", bs.targetName);
+	if (bs.workingDirectory.length) add("workingDirectory", bs.workingDirectory);
+	if (bs.mainSourceFile.length) add("mainSourceFile", bs.mainSourceFile);
+	foreach (suffix, arr; bs.dflags) adda("dflags", suffix, arr);
+	foreach (suffix, arr; bs.lflags) adda("lflags", suffix, arr);
+	foreach (suffix, arr; bs.libs) adda("libs", suffix, arr);
+	foreach (suffix, arr; bs.sourceFiles) adda("sourceFiles", suffix, arr);
+	foreach (suffix, arr; bs.sourcePaths) adda("sourcePaths", suffix, arr);
+	foreach (suffix, arr; bs.excludedSourceFiles) adda("excludedSourceFiles", suffix, arr);
+	foreach (suffix, arr; bs.copyFiles) adda("copyFiles", suffix, arr);
+	foreach (suffix, arr; bs.versions) adda("versions", suffix, arr);
+	foreach (suffix, arr; bs.debugVersions) adda("debugVersions", suffix, arr);
+	foreach (suffix, arr; bs.importPaths) adda("importPaths", suffix, arr);
+	foreach (suffix, arr; bs.stringImportPaths) adda("stringImportPaths", suffix, arr);
+	foreach (suffix, arr; bs.preGenerateCommands) adda("preGenerateCommands", suffix, arr);
+	foreach (suffix, arr; bs.postGenerateCommands) adda("postGenerateCommands", suffix, arr);
+	foreach (suffix, arr; bs.preBuildCommands) adda("preBuildCommands", suffix, arr);
+	foreach (suffix, arr; bs.postBuildCommands) adda("postBuildCommands", suffix, arr);
+	foreach (suffix, bits; bs.buildRequirements) adda("buildRequirements", suffix, toNameArray!BuildRequirement(bits));
+	foreach (suffix, bits; bs.buildOptions) adda("buildOptions", suffix, toNameArray!BuildOption(bits));
+	return ret;
+}
+
+private string expandPackageName(string name, string parent_name, Tag tag)
+{
+	import std.algorithm : canFind;
+	import std.string : format;
+	if (name.startsWith(":")) {
+		enforceSDL(!parent_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", parent_name, name), tag);
+		return parent_name ~ name;
+	} else return name;
 }
 
 private string stringTagValue(Tag t, bool allow_child_tags = false)
@@ -405,4 +496,19 @@ unittest { // test single value fields
 		`name ""
 		versions "hello" 10`
 		, null, "testfile"));
+}
+
+unittest { // test basic serialization
+	PackageRecipe p;
+	p.name = "test";
+	p.authors = ["foo", "bar"];
+	p.buildSettings.dflags["-windows"] = ["-a"];
+	p.buildSettings.lflags[""] = ["-b", "-c"];
+	auto sdl = toSDL(p).toSDLDocument();
+	assert(sdl == 
+`name "test"
+authors "foo" "bar"
+dflags "-a" platform="windows"
+lflags "-b" "-c"
+`);
 }
