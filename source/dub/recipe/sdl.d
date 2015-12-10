@@ -127,6 +127,8 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 
 private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package_name)
 {
+	enforceSDL(t.values.length != 0, "Missing dependency name.", t);
+	enforceSDL(t.values.length == 1, "Multiple dependency names.", t);
 	auto pkg = expandPackageName(t.values[0].get!string, package_name, t);
 	enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 
