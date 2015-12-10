@@ -94,6 +94,16 @@ Tag toSDL(in ref PackageRecipe recipe)
 	if (recipe.authors.length) ret.add(new Tag(null, "authors", recipe.authors.map!(a => Value(a)).array));
 	if (recipe.copyright.length) add("copyright", recipe.copyright);
 	if (recipe.license.length) add("license", recipe.license);
+	foreach (name, settings; recipe.buildTypes) {
+		auto t = new Tag(null, "buildType", [Value(name)]);
+		t.add(settings.toSDL());
+		ret.add(t);
+	}
+	if (recipe.ddoxFilterArgs.length)
+		ret.add(new Tag("x", "ddoxFilterArgs", recipe.ddoxFilterArgs.map!(a => Value(a)).array));
+	ret.add(recipe.buildSettings.toSDL());
+	foreach(config; recipe.configurations)
+		ret.add(config.toSDL());
 	foreach (i, subPackage; recipe.subPackages) {
 		if (subPackage.path !is null) {
 			add("subPackage", subPackage.path);
@@ -103,16 +113,6 @@ Tag toSDL(in ref PackageRecipe recipe)
 			ret.add(t);
 		}
 	}
-	foreach(config; recipe.configurations)
-		ret.add(config.toSDL());
-	foreach (name, settings; recipe.buildTypes) {
-		auto t = new Tag(null, "buildType", [Value(name)]);
-		t.add(settings.toSDL());
-		ret.add(t);
-	}
-	if (recipe.ddoxFilterArgs.length)
-		ret.add(new Tag("x", "ddoxFilterArgs", recipe.ddoxFilterArgs.map!(a => Value(a)).array));
-	ret.add(recipe.buildSettings.toSDL());
 	return ret;
 }
 
