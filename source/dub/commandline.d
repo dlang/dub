@@ -68,6 +68,7 @@ CommandGroup[] getCommands()
 			new RemoveOverrideCommand,
 			new ListOverridesCommand,
 			new CleanCachesCommand,
+			new ConvertCommand,
 		)
 	];
 }
@@ -316,6 +317,33 @@ class Command {
 
 	abstract void prepare(scope CommandArgs args);
 	abstract int execute(Dub dub, string[] free_args, string[] app_args);
+
+	private bool loadCwdPackage(Dub dub, bool warn_missing_package)
+	{
+		bool found = existsFile(dub.rootPath ~ "source/app.d");
+		if (!found)
+			foreach (f; packageInfoFiles)
+				if (existsFile(dub.rootPath ~ f.filename)) {
+					found = true;
+					break;
+				}
+
+		if (!found) {
+			if (warn_missing_package) {
+				logInfo("");
+				logInfo("Neither a package description file, nor source/app.d was found in");
+				logInfo(dub.rootPath.toNativeString());
+				logInfo("Please run DUB from the root directory of an existing package, or run");
+				logInfo("\"dub init --help\" to get information on creating a new package.");
+				logInfo("");
+			}
+			return false;
+		}
+
+		dub.loadPackageFromCwd();
+
+		return true;
+	}
 }
 
 struct CommandGroup {
@@ -497,33 +525,6 @@ abstract class PackageBuildCommand : Command {
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
 		dub.rootPath = pack.path;
 		dub.loadPackage(pack);
-		return true;
-	}
-
-	private bool loadCwdPackage(Dub dub, bool warn_missing_package)
-	{
-		bool found = existsFile(dub.rootPath ~ "source/app.d");
-		if (!found)
-			foreach (f; packageInfoFiles)
-				if (existsFile(dub.rootPath ~ f.filename)) {
-					found = true;
-					break;
-				}
-
-		if (!found) {
-			if (warn_missing_package) {
-				logInfo("");
-				logInfo("Neither a package description file, nor source/app.d was found in");
-				logInfo(dub.rootPath.toNativeString());
-				logInfo("Please run DUB from the root directory of an existing package, or run");
-				logInfo("\"dub init --help\" to get information on creating a new package.");
-				logInfo("");
-			}
-			return false;
-		}
-
-		dub.loadPackageFromCwd();
-
 		return true;
 	}
 }
@@ -1638,6 +1639,44 @@ class DustmiteCommand : PackageBuildCommand {
 		{
 			super(message, file, line, next);
 		}
+	}
+}
+
+
+/******************************************************************************/
+/* CONVERT command                                                               */
+/******************************************************************************/
+
+class ConvertCommand : Command {
+	private {
+		string m_format;
+	}
+
+	this()
+	{
+		this.name = "convert";
+		this.argumentsPattern = "";
+		this.description = "Converts the file format of the package recipe.";
+		this.helpText = [
+			"This command will convert between JSON and SDLang formatted package recipe files."
+			"",
+			"Warning: Beware that any formatting and comments within the package recipe will get lost in the conversion process."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("f|format", &m_format, ["Specifies the target package recipe format. Possible values:", "  json, sdl"]);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+		enforceUsage(free_args.length == 0, "Unexpected arguments: "~free_args.join(" "));
+		enforceUsage(m_format.length > 0, "Missing target format file extension (--format=...).");
+		if (!loadCwdPackage(dub, true)) return 1;
+		dub.convertRecipe(m_format);
+		return 0;
 	}
 }
 
