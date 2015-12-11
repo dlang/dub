@@ -1084,11 +1084,22 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 				continue;
 			}
 
-			if (dspec.optional && !m_dub.packageManager.getFirstPackage(dname))
-				continue;
-			if (m_options & UpgradeOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))
-				ret ~= TreeNodes(dname, dspec.mapToPath(pack.path));
-			else ret ~= TreeNodes(dname, m_selectedVersions.getSelectedVersion(dbasename));
+			DependencyType dt;
+			if (dspec.optional) {
+				if (dspec.default_) dt = DependencyType.optionalDefault;
+				else dt = DependencyType.optional;
+			} else dt = DependencyType.required;
+
+			if (m_options & UpgradeOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename)) {
+				// keep deselected dependencies deselected by default
+				if (m_selectedVersions && !m_selectedVersions.bare && dt == DependencyType.optionalDefault)
+					dt = DependencyType.optional;
+				ret ~= TreeNodes(dname, dspec.mapToPath(pack.path), dt);
+			} else {
+				// keep already selected optional dependencies if possible
+				if (dt == DependencyType.optional) dt = DependencyType.optionalDefault;
+				ret ~= TreeNodes(dname, m_selectedVersions.getSelectedVersion(dbasename), dt);
+			}
 		}
 		return ret.data;
 	}
