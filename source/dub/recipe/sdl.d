@@ -185,6 +185,9 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	if ("optional" in attrs)
 		dep.optional = attrs["optional"][0].value.get!bool;
 
+	if ("default" in attrs)
+		dep.default_ = attrs["default"][0].value.get!bool;
+
 	bs.dependencies[pkg] = dep;
 }
 

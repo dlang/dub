@@ -39,6 +39,7 @@ struct Dependency {
 		Version m_versB;
 		Path m_path;
 		bool m_optional = false;
+		bool m_default = false;
 	}
 
 	// A Dependency, which matches every valid version.
@@ -66,17 +67,31 @@ struct Dependency {
 		m_path = path;
 	}
 
+	/// If set, overrides any version based dependency selection.
 	@property void path(Path value) { m_path = value; }
+	/// ditto
 	@property Path path() const { return m_path; }
+
+	/// Determines if the dependency is required or optional.
 	@property bool optional() const { return m_optional; }
+	/// ditto
 	@property void optional(bool optional) { m_optional = optional; }
+
+	/// Determines if an optional dependency should be chosen by default.
+	@property bool default_() const { return m_default; }
+	/// ditto
+	@property void default_(bool value) { m_default = value; }
+
+	/// Returns true $(I iff) the version range only matches a specific version.
 	@property bool isExactVersion() const { return m_versA == m_versB; }
 
+	/// Returns the exact version matched by the version range.
 	@property Version version_() const {
 		enforce(m_versA == m_versB, "Dependency "~versionString~" is no exact version.");
 		return m_versA;
 	}
 
+	/// Returns a string representing the version range for the dependency.
 	@property string versionString()
 	const {
 		string r;
@@ -201,6 +216,7 @@ struct Dependency {
 			json["version"] = this.versionString;
 			if (!path.empty) json["path"] = path.toString();
 			if (optional) json["optional"] = true;
+			if (default_) json["default"] = true;
 		}
 		return json;
 	}
@@ -228,9 +244,9 @@ struct Dependency {
 				// Using the string to be able to specifiy a range of versions.
 				dep = Dependency(ver);
 			}
-			if( auto po = "optional" in verspec ) {
-				dep.optional = verspec.optional.get!bool;
-			}
+
+			if (auto po = "optional" in verspec) dep.optional = po.get!bool;
+			if (auto po = "default" in verspec) dep.default_ = po.get!bool;
 		} else {
 			// canonical "package-id": "version"
 			dep = Dependency(verspec.get!string);
@@ -244,15 +260,18 @@ struct Dependency {
 		{
 			"version": "2.0.0",
 			"optional": true,
+			"default": true,
 			"path": "path/to/package"
 		}
 			`));
 		Dependency d = Dependency.ANY; // supposed to ignore the version spec
 		d.optional = true;
+		d.default_ = true;
 		d.path = Path("path/to/package");
 		assert(d == parsed);
 		// optional and path not checked by opEquals.
 		assert(d.optional == parsed.optional);
+		assert(d.default_ == parsed.default_);
 		assert(d.path == parsed.path);
 	}
 
@@ -261,7 +280,7 @@ struct Dependency {
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
 		return o.m_inclusiveA == m_inclusiveA && o.m_inclusiveB == m_inclusiveB
 			&& o.m_versA == m_versA && o.m_versB == m_versB
-			&& o.m_optional == m_optional;
+			&& o.m_optional == m_optional && o.m_default == m_default;
 	}
 
 	int opCmp(in Dependency o)
@@ -286,10 +305,17 @@ struct Dependency {
 		return m_versA <= m_versB && doCmp(m_inclusiveA && m_inclusiveB, m_versA, m_versB);
 	}
 
+	bool matchesAny() const {
+		auto cmp = Dependency("*");
+		cmp.optional = m_optional;
+		cmp.default_ = m_default;
+		return cmp == this;
+	}
+
 	bool matches(string vers) const { return matches(Version(vers)); }
 	bool matches(const(Version) v) const { return matches(v); }
 	bool matches(ref const(Version) v) const {
-		if (this == ANY) return true;
+		if (this.matchesAny) return true;
 		//logDebug(" try match: %s with: %s", v, this);
 		// Master only matches master
 		if(m_versA.isBranch) {
@@ -308,8 +334,8 @@ struct Dependency {
 	/// Merges to versions
 	Dependency merge(ref const(Dependency) o)
 	const {
-		if (this == ANY) return o;
-		if (o == ANY) return this;
+		if (this.matchesAny) return o;
+		if (o.matchesAny) return this;
 		if (!this.valid || !o.valid) return INVALID;
 		if (m_versA.isBranch != o.m_versA.isBranch) return INVALID;
 		if (m_versB.isBranch != o.m_versB.isBranch) return INVALID;
@@ -477,11 +503,28 @@ unittest {
 	assert(!a.optional);
 	assert(a.valid);
 	assertThrown(a.version_);
+	assert(a.matches(Version.MASTER));
+	assert(a.matches(Version("1.0.0")));
+	assert(a.matches(Version("0.0.1-pre")));
 	b = Dependency(">=1.0.1");
 	assert(b == a.merge(b));
 	assert(b == b.merge(a));
+	b = Dependency(Version.MASTER);
+	assert(a.merge(m) == m);
+	assert(m.merge(a) == m);
 
-	logDebug("Dependency Unittest sucess.");
+	a.optional = true;
+	assert(a.matches(Version.MASTER));
+	assert(a.matches(Version("1.0.0")));
+	assert(a.matches(Version("0.0.1-pre")));
+	b = Dependency(">=1.0.1");
+	assert(b == a.merge(b));
+	assert(b == b.merge(a));
+	b = Dependency(Version.MASTER);
+	assert(a.merge(m) == m);
+	assert(m.merge(a) == m);
+
+	logDebug("Dependency unittest sucess.");
 }
 
 unittest {
