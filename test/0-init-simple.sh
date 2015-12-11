@@ -2,7 +2,7 @@
 
 packname="0-init-simple-pack"
 
-$DUB init $packname --format sdl
+$DUB init -n $packname --format sdl
 
 function cleanup {
     rm -rf $packname

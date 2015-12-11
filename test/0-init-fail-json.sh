@@ -3,7 +3,7 @@
 packname="0-init-fail-pack"
 deps="logger PACKAGE_DONT_EXIST" # would be very unlucky if it does exist...
 
-$DUB init $packname $deps -f json
+$DUB init -n $packname $deps -f json
 
 function cleanup {
     rm -rf $packname
