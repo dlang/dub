@@ -702,22 +702,32 @@ class Dub {
 			.filter!(t => t[1].length);
 	}
 
-	void createEmptyPackage(Path path, string[] deps, string type, PackageFormat format = PackageFormat.sdl)
+	Version[] listPackageVersions(string name)
+	{
+		Version[] versions;
+		foreach (ps; this.m_packageSuppliers) {
+			try versions ~= ps.getVersions(name);
+			catch (Exception e) {
+				logDebug("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
+			}
+		}
+		return versions.sort().uniq.array;
+	}
+
+	void createEmptyPackage(Path path, string[] deps, string type, PackageFormat format = PackageFormat.sdl, scope void delegate(ref PackageRecipe) recipe_callback = null)
 	{
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
 
-		if (m_dryRun) return;
 		string[string] depVers;
 		string[] notFound; // keep track of any failed packages in here
-		foreach(ps; this.m_packageSuppliers){
-			foreach(dep; deps){
-				try{
-					auto versionStrings = ps.getVersions(dep);
-					depVers[dep] = versionStrings[$-1].toString;
-				} catch(Exception e){
-					notFound ~= dep;
-				}
+		foreach(dep; deps){
+			auto vers = listPackageVersions(dep);
+			if (vers.length == 0) notFound ~= dep;
+			else {
+				auto v = vers[$-1];
+				if (v.isBranch()) depVers[dep] = v.toString();
+				else depVers[dep] = "~>" ~ v.toString();
 			}
 		}
 		if(notFound.length > 1){
@@ -727,7 +737,9 @@ class Dub {
 			throw new Exception(.format("Couldn't find package: %-(%s, %).", notFound));
 		}
 
-		initPackage(path, depVers, type, format);
+		if (m_dryRun) return;
+
+		initPackage(path, depVers, type, format, recipe_callback);
 
 		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
