@@ -423,20 +423,17 @@ class InitCommand : Command {
 			p.copyright = input("Copyright string", p.copyright);
 
 			while (true) {
-				auto dep = input("Add dependency (leave empty to skip)", null);
-				if (!dep.length) break;
-				auto vers = dub.listPackageVersions(dep);
-				if (!vers.length) {
-					logError("Could not find package '%s'.", dep);
-					continue;
+				auto depname = input("Add dependency (leave empty to skip)", null);
+				if (!depname.length) break;
+				try {
+					auto ver = dub.getLatestVersion(depname);
+					auto dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
+					p.buildSettings.dependencies[depname] =	dep;
+					logInfo("Added dependency %s %s", depname, dep.versionString);
+				} catch (Exception e) {
+					logError("Could not find package '%s'.", depname);
+					logDebug("Full error: %s", e.toString().sanitize);
 				}
-				string vstr;
-				auto final_versions = vers.filter!(v => !v.isBranch && !v.isBranch).array;
-				if (final_versions.length) vstr = "~>" ~ final_versions[$-1].toString();
-				else if (vers[$-1].isBranch) vstr = vers[$-1].toString();
-				else vstr = "~>" ~ vers[$-1].toString();
-				p.buildSettings.dependencies[dep] = Dependency(vstr);
-				logInfo("Added dependency %s %s", dep, vstr);
 			}
 		}
 
