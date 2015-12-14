@@ -121,10 +121,7 @@ private void writePackageJSON(Path root_path, string description, string[string]
 
 	assert(!root_path.empty);
 
-	string username;
-	version (Windows) username = environment.get("USERNAME", "Peter Parker");
-	else username = environment.get("USER", "Peter Parker");
-
+	auto username = getUserName();
 	auto fil = openFile(root_path ~ "dub.json", FileMode.append);
 	scope(exit) fil.close();
 
@@ -145,10 +142,7 @@ private void writePackageSDL(Path root_path, string description, string[string] 
 
 	assert(!root_path.empty);
 
-	string username;
-	version (Windows) username = environment.get("USERNAME", "Peter Parker");
-	else username = environment.get("USER", "Peter Parker");
-
+	auto username = getUserName();
 	auto fil = openFile(root_path ~ "dub.sdl", FileMode.append);
 	scope(exit) fil.close();
 
@@ -166,4 +160,23 @@ void writeGitignore(Path root_path)
 {
 	write((root_path ~ ".gitignore").toNativeString(),
 		".dub\ndocs.json\n__dummy.html\n*.o\n*.obj\n");
+}
+
+private string getUserName()
+{
+	version (Windows)
+		return environment.get("USERNAME", "Peter Parker");
+	else version (Posix)
+	{
+		import core.sys.posix.pwd, core.sys.posix.unistd, core.stdc.string : strlen;
+
+		if (auto pw = getpwuid(getuid))
+		{
+			if (auto len = strlen(pw.pw_gecos))
+				return pw.pw_gecos[0 .. len].idup;
+		}
+		return environment.get("USER", "Peter Parker");
+	}
+	else
+		static assert(0);
 }
