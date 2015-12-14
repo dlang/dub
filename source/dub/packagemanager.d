@@ -203,9 +203,19 @@ class PackageManager {
 	bool isManagedPackage(Package pack)
 	const {
 		auto ppath = pack.basePackage.path;
+		return isManagedPath(ppath);
+	}
+
+	/** Determines if a specifc path is within a DUB managed package folder.
+
+		By default, managed folders are "~/.dub/packages" and
+		"/var/lib/dub/packages".
+	*/
+	bool isManagedPath(Path path)
+	const {
 		foreach (rep; m_repositories) {
 			auto rpath = rep.packagePath;
-			if (ppath.startsWith(rpath))
+			if (path.startsWith(rpath))
 				return true;
 		}
 		return false;
@@ -532,19 +542,20 @@ class PackageManager {
 				logDebug("iterating dir %s", path.toNativeString());
 				try foreach( pdir; iterateDirectory(path) ){
 					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
-					if( !pdir.isDirectory ) continue;
+					if (!pdir.isDirectory) continue;
 
-					// Search for a single directory within this directory which happen to be a prefix of pdir
-					// This is to support new folder structure installed over the ancient one.
-					FileInfo subdir;
-					foreach( pdir2; iterateDirectory(path ~ (pdir.name ~ "/")) )
-					{
-						if (pdir.name.startsWith(pdir2.name)) // eg: package vibe-d will be in "vibe-d-x.y.z/vibe-d"
-							subdir = pdir2;
+					auto pack_path = path ~ (pdir.name ~ "/");
+
+					if (isManagedPath(path)) {
+						// Search for a single directory within this directory which happen to be a prefix of pdir
+						// This is to support new folder structure installed over the ancient one.
+						foreach (subdir; iterateDirectory(path ~ (pdir.name ~ "/")))
+							if (subdir.isDirectory && pdir.name.startsWith(subdir.name)) {// eg: package vibe-d will be in "vibe-d-x.y.z/vibe-d"
+								pack_path ~= subdir.name ~ "/";
+								break;
+							}
 					}
-					if( !subdir.isDirectory ) continue;
 
-					auto pack_path = path ~ (pdir.name ~ "/") ~ (subdir.name ~ "/");
 					auto packageFile = Package.findPackageFile(pack_path);
 					if (packageFile.empty) continue;
 					Package p;
