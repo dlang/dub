@@ -581,6 +581,13 @@ class Dub {
 		if (!placement.existsFile())
 			mkdirRecurse(placement.toNativeString());
 		Path dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
+		if (!dstpath.existsFile())
+			mkdirRecurse(dstpath.toNativeString());
+
+		// Support libraries typically used with git submodules like ae.
+		// Such libraries need to have ".." as import path but this can create
+		// import path leakage.
+		dstpath = dstpath ~ packageId;
 
 		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds); // possibly wait for other dub instance
 		if (dstpath.existsFile())
