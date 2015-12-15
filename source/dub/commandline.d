@@ -337,7 +337,7 @@ struct CommandGroup {
 class InitCommand : Command {
 	private{
 		string m_buildType = "minimal";
-		PackageFormat m_format = PackageFormat.sdl;
+		PackageFormat m_format = PackageFormat.json;
 	}
 	this()
 	{
@@ -360,7 +360,7 @@ class InitCommand : Command {
 		]);
 		args.getopt("f|format", &m_format, [
 			"Sets the format to use for the package description file. Possible values:",
-			"  sdl, json"
+			"  " ~ [__traits(allMembers, PackageFormat)].map!(f => f == m_format.init.to!string ? f ~ " (default)" : f).join(", ")
 		]);
 	}
 
