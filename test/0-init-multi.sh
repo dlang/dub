@@ -4,13 +4,15 @@ packname="0-init-multi-pack"
 deps="openssl logger"
 type="vibe.d"
 
-$DUB init $packname $deps --type=$type
+$DUB init $packname $deps --type=$type --format sdl
 
 function cleanup {
     rm -rf $packname
 }
 
 if [ ! -e $packname/dub.sdl ]; then # it failed, exit 1
+    echo "No dub.sdl file has been generated."
+    cleanup
     exit 1
 else # check if resulting dub.sdl has all dependancies in tow
     deps="$deps vibe-d";
