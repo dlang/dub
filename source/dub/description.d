@@ -33,8 +33,22 @@ struct ProjectDescription {
 	/// Targets by name
 	ref inout(TargetDescription) lookupTarget(string name) inout
 	{
-		return targets[ targetLookup[name] ];
+		auto pti = name in targetLookup;
+		enforce(pti !is null, "Target '"~name~"' doesn't exist. Is the target type set to \"none\" in the package recipe?");
+		return targets[*pti];
 	}
+
+	/// Projects by name
+	ref inout(PackageDescription) lookupPackage(string name) inout
+	{
+		foreach (ref p; packages)
+			if (p.name == name)
+				return p;
+		throw new Exception("Package '"~name~"' not found in dependency tree.");
+	}
+
+	/// Root package
+	ref inout(PackageDescription) lookupRootPackage() inout { return lookupPackage(rootPackage); }
 }
 
 

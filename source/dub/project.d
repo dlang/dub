@@ -742,6 +742,9 @@ class Project {
 		import std.range : only;
 
 		string[] list;
+
+		enforce(projectDescription.lookupRootPackage().targetType != TargetType.none,
+			"Target type is 'none'. Cannot list build settings.");
 		
 		auto targetDescription = projectDescription.lookupTarget(projectDescription.rootPackage);
 		auto buildSettings = targetDescription.buildSettings;
