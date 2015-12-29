@@ -42,7 +42,7 @@ Jordi Sayol maintains a DEB package as part of his [D APT repository](http://d-a
 
 ### OS X
 
-Chris Molozian has added DUB to [Homebrew](http://mxcl.github.io/homebrew/). Use `brew install dub` or `brew install dub --HEAD` to install the stable or the git HEAD version respectively.
+Chris Molozian has added DUB to [Homebrew](http://mxcl.github.io/homebrew/). Use `brew install dub` to install the stable version, optionally adding `--HEAD`/`--devel` to install the latest git master or development release respectively.
 
 There is also a [MacPorts](https://www.macports.org/) package available. Type `sudo port install dub` to install the latest stable version.
 
