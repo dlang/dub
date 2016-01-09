@@ -250,6 +250,7 @@ Json toJson(in ref BuildSettingsTemplate bs)
 	if (!bs.targetName.empty) ret["targetName"] = bs.targetName;
 	if (!bs.workingDirectory.empty) ret["workingDirectory"] = bs.workingDirectory;
 	if (!bs.mainSourceFile.empty) ret["mainSourceFile"] = bs.mainSourceFile;
+	if (bs.subConfigurations.length > 0) ret["subConfigurations"] = serializeToJson(bs.subConfigurations);
 	foreach (suffix, arr; bs.dflags) ret["dflags"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.lflags) ret["lflags"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.libs) ret["libs"~suffix] = serializeToJson(arr);
