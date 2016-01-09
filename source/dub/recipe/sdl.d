@@ -235,6 +235,7 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 	if (bs.targetName.length) add("targetName", bs.targetName);
 	if (bs.workingDirectory.length) add("workingDirectory", bs.workingDirectory);
 	if (bs.mainSourceFile.length) add("mainSourceFile", bs.mainSourceFile);
+	foreach (pack, conf; bs.subConfigurations) ret ~= new Tag(null, "subConfiguration", [Value(pack), Value(conf)]);
 	foreach (suffix, arr; bs.dflags) adda("dflags", suffix, arr);
 	foreach (suffix, arr; bs.lflags) adda("lflags", suffix, arr);
 	foreach (suffix, arr; bs.libs) adda("libs", suffix, arr);
@@ -397,8 +398,11 @@ dflags "df3"
 lflags "lf1" "lf2"
 lflags "lf3"
 `;
+	PackageRecipe rec1;
+	parseSDL(rec1, sdl, null, "testfile");
 	PackageRecipe rec;
-	parseSDL(rec, sdl, null, "testfile");
+	parseSDL(rec, rec1.toSDL(), null); // verify that all fields are serialized properly
+
 	assert(rec.name == "projectname");
 	assert(rec.description == "project description");
 	assert(rec.homepage == "http://example.com");
