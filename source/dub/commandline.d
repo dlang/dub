@@ -391,7 +391,7 @@ class InitCommand : Command {
 			"Sets the format to use for the package description file. Possible values:",
 			"  " ~ [__traits(allMembers, PackageFormat)].map!(f => f == m_format.init.to!string ? f ~ " (default)" : f).join(", ")
 		]);
-		args.getopt("n", &m_nonInteractive, ["Don't enter interactive mode."]);
+		args.getopt("n|non-interactive", &m_nonInteractive, ["Don't enter interactive mode."]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
