@@ -411,10 +411,19 @@ class InitCommand : Command {
 			return inp.length > 1 ? inp[0 .. $-1] : default_value;
 		}
 
-		void depCallback(ref PackageRecipe p) {
+		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
 			if (m_nonInteractive) return;
 			
-			auto fmt = input("Package recipe format (sdl/json)", m_format.to!string);
+			while (true) {
+				string rawfmt = input("Package recipe format (sdl/json)", fmt.to!string);
+				if (!rawfmt.length) break;
+				try {
+					fmt = rawfmt.to!PackageFormat;
+					break;
+				} catch (Exception) {
+					logError("Invalid format, \""~rawfmt~"\", enter either \"sdl\" or \"json\".");
+				}
+			}
 			auto author = p.authors.join(", ");
 			p.name = input("Name", p.name);
 			p.description = input("Description", p.description);

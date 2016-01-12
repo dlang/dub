@@ -745,7 +745,9 @@ class Dub {
 		else return vers[$-1];
 	}
 
-	void createEmptyPackage(Path path, string[] deps, string type, PackageFormat format = PackageFormat.sdl, scope void delegate(ref PackageRecipe) recipe_callback = null)
+	void createEmptyPackage(Path path, string[] deps, string type,
+		PackageFormat format = PackageFormat.sdl,
+		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null)
 	{
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();

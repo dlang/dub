@@ -20,7 +20,7 @@ import std.format;
 import std.process;
 import std.string;
 
-void initPackage(Path root_path, string[string] deps, string type, PackageFormat format, scope void delegate(ref PackageRecipe) recipe_callback = null)
+void initPackage(Path root_path, string[string] deps, string type, PackageFormat format, scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null)
 {
 	import std.conv : to;
 	import dub.recipe.io : writePackageRecipe;
@@ -62,7 +62,7 @@ void initPackage(Path root_path, string[string] deps, string type, PackageFormat
 		case "deimos": initDeimosPackage(root_path, p); break;
 	}
 
-	if (recipe_callback) recipe_callback(p);
+	if (recipe_callback) recipe_callback(p, format);
 	writePackageRecipe(root_path ~ ("dub."~format.to!string), p);
 	writeGitignore(root_path);
 }
