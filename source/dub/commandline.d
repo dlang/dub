@@ -443,7 +443,7 @@ abstract class PackageBuildCommand : Command {
 		]);
 	}
 
-	protected void setupPackage(Dub dub, string package_name)
+	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug")
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		m_compiler = getCompiler(m_compilerName);
@@ -464,7 +464,7 @@ abstract class PackageBuildCommand : Command {
 
 		if (m_buildType.length == 0) {
 			if (environment.get("DFLAGS") !is null) m_buildType = "$DFLAGS";
-			else m_buildType = "debug";
+			else m_buildType = default_build_type;
 		}
 
 		if (!m_nodeps) {
@@ -720,8 +720,6 @@ class TestCommand : PackageBuildCommand {
 			`run the unit tests.`
 		];
 		this.acceptsAppArgs = true;
-
-		m_buildType = "unittest";
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -750,7 +748,7 @@ class TestCommand : PackageBuildCommand {
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
 		if (free_args.length >= 1) package_name = free_args[0];
 
-		setupPackage(dub, package_name);
+		setupPackage(dub, package_name, "unittest");
 
 		GeneratorSettings settings;
 		settings.platform = m_buildPlatform;
