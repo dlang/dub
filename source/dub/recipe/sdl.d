@@ -101,6 +101,7 @@ Tag toSDL(in ref PackageRecipe recipe)
 	}
 	if (recipe.ddoxFilterArgs.length)
 		ret.add(new Tag("x", "ddoxFilterArgs", recipe.ddoxFilterArgs.map!(a => Value(a)).array));
+	if (recipe.ddoxTool.length) ret.add(new Tag("x", "ddoxTool", [Value(recipe.ddoxTool)]));
 	ret.add(recipe.buildSettings.toSDL());
 	foreach(config; recipe.configurations)
 		ret.add(config.toSDL());
@@ -355,6 +356,7 @@ buildType "release" {
 }
 x:ddoxFilterArgs "-arg1" "-arg2"
 x:ddoxFilterArgs "-arg3"
+x:ddoxTool "ddoxtool"
 
 dependency ":subpackage1" optional=false path="."
 dependency "somedep" version="1.0.0" optional=true
@@ -428,6 +430,7 @@ lflags "lf3"
 	assert(rec.buildTypes["debug"].dflags == ["": ["-g", "-debug"]]);
 	assert(rec.buildTypes["release"].dflags == ["": ["-release", "-O"]]);
 	assert(rec.ddoxFilterArgs == ["-arg1", "-arg2", "-arg3"], rec.ddoxFilterArgs.to!string);
+	assert(rec.ddoxTool == "ddoxtool");
 	assert(rec.buildSettings.dependencies.length == 2);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].optional == false);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].path == Path("."));
