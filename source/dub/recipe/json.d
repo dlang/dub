@@ -104,6 +104,7 @@ Json toJson(in ref PackageRecipe recipe)
 		ret.buildTypes = types;
 	}
 	if (!recipe.ddoxFilterArgs.empty) ret["-ddoxFilterArgs"] = recipe.ddoxFilterArgs.serializeToJson();
+	if (!recipe.ddoxTool.empty) ret["-ddoxTool"] = recipe.ddoxTool;
 	return ret;
 }
 
