@@ -89,3 +89,42 @@ unittest { // issue #711 - configuration default target type not correct for SDL
 		assert(pr.configurations[0].buildSettings.targetType == TargetType.executable);
 	}
 }
+
+
+/** Writes the textual representation of a package recipe to a file.
+
+	Note that the file extension must be either "json" or "sdl".
+*/
+void writePackageRecipe(string filename, in ref PackageRecipe recipe)
+{
+	import dub.internal.vibecompat.core.file : openFile, FileMode;
+	auto f = openFile(filename, FileMode.createTrunc);
+	scope(exit) f.close();
+	serializePackageRecipe(f, recipe, filename);
+}
+
+/// ditto
+void writePackageRecipe(Path filename, in ref PackageRecipe recipe)
+{
+	writePackageRecipe(filename.toNativeString, recipe);
+}
+
+/** Converts a package recipe to its textual representation.
+
+	The extension of the supplied `filename` must be either "json" or "sdl".
+	The output format is chosen accordingly.
+*/
+void serializePackageRecipe(R)(ref R dst, in ref PackageRecipe recipe, string filename)
+{
+	import std.algorithm : endsWith;
+	import dub.internal.vibecompat.data.json : writeJsonString;
+	import dub.recipe.json : toJson;
+	import dub.recipe.sdl : toSDL;
+
+	if (filename.endsWith(".json"))
+		dst.writeJsonString!(R, true)(toJson(recipe));
+	else if (filename.endsWith(".sdl"))
+		toSDL(recipe).toSDLDocument(dst);
+	else assert(false, "writePackageRecipe called with filename with unknown extension: "~filename);
+}
+

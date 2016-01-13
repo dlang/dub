@@ -733,6 +733,28 @@ class Dub {
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
 	}
 
+	/** Converts the package recipe to the given format.
+
+		Params:
+			destination_file_ext = The file extension matching the desired
+				format. Possible values are "json" or "sdl".
+	*/
+	void convertRecipe(string destination_file_ext)
+	{
+		import std.path : extension;
+		import dub.recipe.io : writePackageRecipe;
+
+		auto srcfile = m_project.rootPackage.packageInfoFilename;
+		auto srcext = srcfile[$-1].toString().extension;
+		if (srcext == "."~destination_file_ext) {
+			logInfo("Package format is already %s.", destination_file_ext);
+			return;
+		}
+		
+		writePackageRecipe(srcfile[0 .. $-1] ~ ("dub."~destination_file_ext), m_project.rootPackage.info);
+		removeFile(srcfile);
+	}
+
 	void runDdox(bool run)
 	{
 		if (m_dryRun) return;
