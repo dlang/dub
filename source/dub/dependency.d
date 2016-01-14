@@ -85,13 +85,30 @@ struct Dependency {
 
 		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
 			// Special "==" case
-			if (m_versA == Version.MASTER ) r = "~master";
-			else r = m_versA.toString();
-		} else {
-			if (m_versA != Version.RELEASE) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
-			if (m_versB != Version.HEAD) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
-			if (m_versA == Version.RELEASE && m_versB == Version.HEAD) r = ">=0.0.0";
+			if (m_versA == Version.MASTER ) return "~master";
+			else return m_versA.toString();
 		}
+
+		// "~>" case
+		if (m_inclusiveA && !m_inclusiveB && !m_versA.isBranch) {
+			auto vs = m_versA.toString();
+			auto i1 = std.string.indexOf(vs, '-'), i2 = std.string.indexOf(vs, '+');
+			auto i12 = i1 >= 0 ? i2 >= 0 ? i1 < i2 ? i1 : i2 : i1 : i2;
+			auto va = i12 >= 0 ? vs[0 .. i12] : vs;
+			auto parts = va.splitter('.').array;
+			assert(parts.length == 3, "Version string with a digit group count != 3: "~va);
+
+			foreach (i; 0 .. 3) {
+				auto vp = parts[0 .. i+1].join(".");
+				auto ve = Version(expandVersion(vp));
+				auto veb = Version(expandVersion(bumpVersion(vp)));
+				if (ve == m_versA && veb == m_versB) return "~>" ~ vp;
+			}
+		}
+
+		if (m_versA != Version.RELEASE) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
+		if (m_versB != Version.HEAD) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
+		if (m_versA == Version.RELEASE && m_versB == Version.HEAD) r = ">=0.0.0";
 		return r;
 	}
 
@@ -465,6 +482,13 @@ unittest {
 	assert(b == b.merge(a));
 
 	logDebug("Dependency Unittest sucess.");
+}
+
+unittest {
+	assert(Dependency("~>1.0.4").versionString == "~>1.0.4");
+	assert(Dependency("~>1.4").versionString == "~>1.4");
+	assert(Dependency("~>2").versionString == "~>2");
+	assert(Dependency("~>1.0.4+1.2.3").versionString == "~>1.0.4");
 }
 
 

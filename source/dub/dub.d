@@ -702,24 +702,68 @@ class Dub {
 			.filter!(t => t[1].length);
 	}
 
-	void createEmptyPackage(Path path, string[] deps, string type, PackageFormat format = PackageFormat.sdl)
+	/** Returns a list of all available versions (including branches) for a
+		particular package.
+
+		The list returned is based on the registered package suppliers. Local
+		packages are not queried in the search for versions.
+
+		See_also: `getLatestVersion`
+	*/
+	Version[] listPackageVersions(string name)
+	{
+		Version[] versions;
+		foreach (ps; this.m_packageSuppliers) {
+			try versions ~= ps.getVersions(name);
+			catch (Exception e) {
+				logDebug("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
+			}
+		}
+		return versions.sort().uniq.array;
+	}
+
+	/** Returns the latest available version for a particular package.
+
+		This function returns the latest numbered version of a package. If no
+		numbered versions are available, it will return an available branch,
+		preferring "~master".
+
+		Params:
+			package_name: The name of the package in question.
+			prefer_stable: If set to `true` (the default), returns the latest
+				stable version, even if there are newer pre-release versions.
+
+		See_also: `listPackageVersions`
+	*/
+	Version getLatestVersion(string package_name, bool prefer_stable = true)
+	{
+		auto vers = listPackageVersions(package_name);
+		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~package_name~"'.");
+		auto final_versions = vers.filter!(v => !v.isBranch && !v.isPreRelease).array;
+		if (prefer_stable && final_versions.length) return final_versions[$-1];
+		else if (vers[$-1].isBranch) return vers[$-1];
+		else return vers[$-1];
+	}
+
+	void createEmptyPackage(Path path, string[] deps, string type,
+		PackageFormat format = PackageFormat.sdl,
+		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null)
 	{
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
 
-		if (m_dryRun) return;
 		string[string] depVers;
 		string[] notFound; // keep track of any failed packages in here
-		foreach(ps; this.m_packageSuppliers){
-			foreach(dep; deps){
-				try{
-					auto versionStrings = ps.getVersions(dep);
-					depVers[dep] = versionStrings[$-1].toString;
-				} catch(Exception e){
-					notFound ~= dep;
-				}
+		foreach (dep; deps) {
+			Version ver;
+			try {
+				ver = getLatestVersion(dep);
+				depVers[dep] = ver.isBranch ? ver.toString() : "~>" ~ ver.toString();
+			} catch (Exception e) {
+				notFound ~= dep;
 			}
 		}
+
 		if(notFound.length > 1){
 			throw new Exception(.format("Couldn't find packages: %-(%s, %).", notFound));
 		}
@@ -727,7 +771,9 @@ class Dub {
 			throw new Exception(.format("Couldn't find package: %-(%s, %).", notFound));
 		}
 
-		initPackage(path, depVers, type, format);
+		if (m_dryRun) return;
+
+		initPackage(path, depVers, type, format, recipe_callback);
 
 		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());

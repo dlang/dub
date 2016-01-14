@@ -364,8 +364,9 @@ struct CommandGroup {
 
 class InitCommand : Command {
 	private{
-		string m_buildType = "minimal";
+		string m_templateType = "minimal";
 		PackageFormat m_format = PackageFormat.json;
+		bool m_nonInteractive;
 	}
 	this()
 	{
@@ -379,7 +380,7 @@ class InitCommand : Command {
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("t|type", &m_buildType, [
+		args.getopt("t|type", &m_templateType, [
 			"Set the type of project to generate. Available types:",
 			"",
 			"minimal - simple \"hello world\" project (default)",
@@ -390,6 +391,7 @@ class InitCommand : Command {
 			"Sets the format to use for the package description file. Possible values:",
 			"  " ~ [__traits(allMembers, PackageFormat)].map!(f => f == m_format.init.to!string ? f ~ " (default)" : f).join(", ")
 		]);
+		args.getopt("n|non-interactive", &m_nonInteractive, ["Don't enter interactive mode."]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -401,18 +403,63 @@ class InitCommand : Command {
 			dir = free_args[0];
 			free_args = free_args[1 .. $];
 		}
+
+		string input(string caption, string default_value)
+		{
+			writef("%s [%s]: ", caption, default_value);
+			auto inp = readln();
+			return inp.length > 1 ? inp[0 .. $-1] : default_value;
+		}
+
+		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
+			if (m_nonInteractive) return;
+			
+			while (true) {
+				string rawfmt = input("Package recipe format (sdl/json)", fmt.to!string);
+				if (!rawfmt.length) break;
+				try {
+					fmt = rawfmt.to!PackageFormat;
+					break;
+				} catch (Exception) {
+					logError("Invalid format, \""~rawfmt~"\", enter either \"sdl\" or \"json\".");
+				}
+			}
+			auto author = p.authors.join(", ");
+			p.name = input("Name", p.name);
+			p.description = input("Description", p.description);
+			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
+			p.license = input("License", p.license);
+			p.copyright = input("Copyright string", p.copyright);
+
+			while (true) {
+				auto depname = input("Add dependency (leave empty to skip)", null);
+				if (!depname.length) break;
+				try {
+					auto ver = dub.getLatestVersion(depname);
+					auto dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
+					p.buildSettings.dependencies[depname] =	dep;
+					logInfo("Added dependency %s %s", depname, dep.versionString);
+				} catch (Exception e) {
+					logError("Could not find package '%s'.", depname);
+					logDebug("Full error: %s", e.toString().sanitize);
+				}
+			}
+		}
+
 		//TODO: Remove this block in next version
 		// Checks if argument uses current method of specifying project type.
 		if (free_args.length)
 		{
 			if (["vibe.d", "deimos", "minimal"].canFind(free_args[0]))
 			{
-				m_buildType = free_args[0];
+				m_templateType = free_args[0];
 				free_args = free_args[1 .. $];
 				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
 			}
 		}
-		dub.createEmptyPackage(Path(dir), free_args, m_buildType, m_format);
+		dub.createEmptyPackage(Path(dir), free_args, m_templateType, m_format, &depCallback);
+
+		logInfo("Package sucessfully created in %s", dir.length ? dir : ".");
 		return 0;
 	}
 }

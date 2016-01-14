@@ -4,7 +4,7 @@ packname="0-init-multi-pack"
 deps="openssl logger"
 type="vibe.d"
 
-$DUB init $packname $deps --type=$type --format sdl
+$DUB init -n $packname $deps --type=$type --format sdl
 
 function cleanup {
     rm -rf $packname

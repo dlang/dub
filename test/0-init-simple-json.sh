@@ -2,7 +2,7 @@
 
 packname="0-init-simple-pack"
 
-$DUB init $packname -f json
+$DUB init -n $packname -f json
 
 function cleanup {
     rm -rf $packname
