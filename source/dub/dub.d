@@ -96,7 +96,7 @@ class Dub {
 		m_rootPath = Path(root_path);
 		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
 
-		this();
+		init();
 
 		PackageSupplier[] ps = additional_package_suppliers;
 
@@ -129,13 +129,13 @@ class Dub {
 	/// Initializes DUB with only a single search path
 	this(Path override_path)
 	{
-		this();
+		init();
 		m_overrideSearchPath = override_path;
 		m_packageManager = new PackageManager(Path(), Path(), false);
 		updatePackageSearchPath();
 	}
 
-	private this()
+	private void init()
 	{
 		version(Windows){
 			m_systemDubPath = Path(environment.get("ProgramData")) ~ "dub/";
