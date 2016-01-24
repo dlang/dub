@@ -140,8 +140,9 @@ private string getUserName()
 
 		if (auto pw = getpwuid(getuid))
 		{
-			auto displayname = pw.pw_gecos[0 .. strlen(pw.pw_gecos)].splitter(',').front;
-			if (displayname.length) return displayname.idup;
+			auto uinfo = pw.pw_gecos[0 .. strlen(pw.pw_gecos)].splitter(',');
+			if (!uinfo.empty && uinfo.front.length)
+				return uinfo.front.idup;
 		}
 		return environment.get("USER", "Peter Parker");
 	}
