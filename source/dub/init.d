@@ -136,11 +136,12 @@ private string getUserName()
 	else version (Posix)
 	{
 		import core.sys.posix.pwd, core.sys.posix.unistd, core.stdc.string : strlen;
+		import std.algorithm : splitter;
 
 		if (auto pw = getpwuid(getuid))
 		{
-			if (auto len = strlen(pw.pw_gecos))
-				return pw.pw_gecos[0 .. len].idup;
+			auto displayname = pw.pw_gecos[0 .. strlen(pw.pw_gecos)].splitter(',').front;
+			if (displayname.length) return displayname.idup;
 		}
 		return environment.get("USER", "Peter Parker");
 	}
