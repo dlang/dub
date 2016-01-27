@@ -1008,7 +1008,7 @@ class UpgradeCommand : Command {
 			"Force deletion of fetched packages with untracked files"
 		]);
 		args.getopt("verify", &m_verify, [
-			"Updates the project and performs a build. If successfull, rewrites the selected versions file <to be implemeted>."
+			"Updates the project and performs a build. If successful, rewrites the selected versions file <to be implemeted>."
 		]);
 		args.getopt("missing-only", &m_missingOnly, [
 			"Performs an upgrade only for dependencies that don't yet have a version selected. This is also done automatically before each build."
