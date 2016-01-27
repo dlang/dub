@@ -207,10 +207,7 @@ int runDubCommandLine(string[] args)
 	}
 
 	// execute the command
-	int rc;
-	try {
-		rc = cmd.execute(dub, remaining_args, app_args);
-	}
+	try return cmd.execute(dub, remaining_args, app_args);
 	catch (UsageException e) {
 		logError("%s", e.msg);
 		logDebug("Full exception: %s", e.toString().sanitize);
@@ -222,10 +219,6 @@ int runDubCommandLine(string[] args)
 		logDebug("Full exception: %s", e.toString().sanitize);
 		return 2;
 	}
-
-	if (!cmd.skipDubInitialization)
-		dub.shutdown();
-	return rc;
 }
 
 struct CommonOptions {
@@ -413,7 +406,7 @@ class InitCommand : Command {
 
 		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
 			if (m_nonInteractive) return;
-			
+
 			while (true) {
 				string rawfmt = input("Package recipe format (sdl/json)", fmt.to!string);
 				if (!rawfmt.length) break;
@@ -1482,7 +1475,6 @@ class CleanCachesCommand : Command {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		dub.cleanCaches();
 		return 0;
 	}
 }
@@ -1630,7 +1622,7 @@ class DustmiteCommand : PackageBuildCommand {
 			auto testcmd = appender!string();
 			testcmd.formattedWrite("%s dustmite --vquiet --test-package=%s --build=%s --config=%s",
 				thisExePath, prj.name, m_buildType, m_buildConfig);
-			
+
 			if (m_compilerName.length) testcmd.formattedWrite(" \"--compiler=%s\"", m_compilerName);
 			if (m_arch.length) testcmd.formattedWrite(" --arch=%s", m_arch);
 			if (m_compilerStatusCode != int.min) testcmd.formattedWrite(" --compiler-status=%s", m_compilerStatusCode);
