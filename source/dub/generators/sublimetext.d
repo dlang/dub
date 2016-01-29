@@ -38,6 +38,7 @@ class SublimeTextGenerator : ProjectGenerator {
 		auto root = Json([
 			"folders": targets.byValue.map!targetFolderJson.array.Json,
 			"build_systems": buildSystems(settings.platform),
+			"settings": [ "include_paths": buildSettings.importPaths.map!Json.array.Json ].Json,
 		]);
 
 		auto jsonString = appender!string();
