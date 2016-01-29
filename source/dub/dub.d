@@ -117,10 +117,6 @@ class Dub {
 		if (skip_registry < SkipRegistry.standard)
 			ps ~= defaultPackageSuppliers();
 
-		auto cacheDir = m_userDubPath ~ "cache/";
-		foreach (p; ps)
-			p.cacheOp(cacheDir, CacheOp.load);
-
 		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
 		updatePackageSearchPath();
@@ -151,22 +147,6 @@ class Dub {
 
 		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
-	}
-
-	/// Perform cleanup and persist caches to disk
-	void shutdown()
-	{
-		auto cacheDir = m_userDubPath ~ "cache/";
-		foreach (p; m_packageSuppliers)
-			p.cacheOp(cacheDir, CacheOp.store);
-	}
-
-	/// cleans all metadata caches
-	void cleanCaches()
-	{
-		auto cacheDir = m_userDubPath ~ "cache/";
-		foreach (p; m_packageSuppliers)
-			p.cacheOp(cacheDir, CacheOp.clean);
 	}
 
 	@property void dryRun(bool v) { m_dryRun = v; }
@@ -796,7 +776,7 @@ class Dub {
 			logInfo("Package format is already %s.", destination_file_ext);
 			return;
 		}
-		
+
 		writePackageRecipe(srcfile[0 .. $-1] ~ ("dub."~destination_file_ext), m_project.rootPackage.info);
 		removeFile(srcfile);
 	}
