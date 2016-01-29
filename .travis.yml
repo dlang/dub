@@ -4,16 +4,25 @@ sudo: false
 matrix:
   include:
     - d: dmd
+      env: [FRONTEND=2.070]
+    - d: dmd-2.069.2
+      env: [FRONTEND=2.069]
     - d: dmd-2.068.2
+      env: [FRONTEND=2.068]
       env: [COVERAGE=true]
     - d: dmd-2.067.1
+      env: [FRONTEND=2.067]
     - d: dmd-2.066.1
+      env: [FRONTEND=2.066]
     - d: dmd-2.065.0
       env: [FRONTEND=2.065]
     - d: dmd-2.064.2
       env: [FRONTEND=2.064]
     - d: ldc
+    - d: ldc-0.16.1
+      env: [FRONTEND=2.067]
     - d: ldc-0.15.1
+      env: [FRONTEND=2.066]
     - d: ldc-0.14.0
       env: [FRONTEND=2.065]
     - d: gdc
