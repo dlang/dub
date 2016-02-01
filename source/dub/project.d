@@ -115,6 +115,12 @@ class Project {
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
+	int delegate(int delegate(ref Package)) getTopologicalPackageList(bool children_first = false, Package root_package = null, string[string] configs = null)
+	{
+		// ugly way to avoid code duplication since inout isn't compatible with foreach type inference
+		return cast(int delegate(int delegate(ref Package)))(cast(const)this).getTopologicalPackageList(children_first, root_package, configs);
+	}
+	/// ditto
 	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[string] configs = null)
 	const {
 		const(Package) rootpack = root_package ? root_package : m_rootPackage;
