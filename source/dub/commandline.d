@@ -1602,13 +1602,15 @@ class DustmiteCommand : PackageBuildCommand {
 				copyFolderRec(pack.path, dst_path);
 
 				// overwrite package description file with additional version information
-				pack_.storeInfo(dst_path);
+				pack.storeInfo(dst_path);
 			}
 
 			// adjust all path based dependencies of the root package
 			void fixPathDependency(string pack, ref Dependency dep) {
-				if (dep.path.length > 0)
-					dep.path = Path("../") ~ pack;
+				if (dep.path.length > 0) {
+					auto mainpack = getBasePackageName(pack);
+					dep.path = Path("../") ~ mainpack;
+				}
 			}
 			foreach (name, ref dep; prj.rootPackage.info.buildSettings.dependencies)
 				fixPathDependency(name, dep);
