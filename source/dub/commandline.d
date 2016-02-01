@@ -1592,6 +1592,31 @@ class DustmiteCommand : PackageBuildCommand {
 				}
 			}
 
+			static void fixPathDependency(string pack, ref Dependency dep) {
+				if (dep.path.length > 0) {
+					auto mainpack = getBasePackageName(pack);
+					dep.path = Path("../") ~ mainpack;
+				}
+			}
+
+			void fixPathDependencies(ref PackageRecipe recipe, Path base_path)
+			{
+				foreach (name, ref dep; recipe.buildSettings.dependencies)
+					fixPathDependency(name, dep);
+				
+				foreach (ref cfg; recipe.configurations)
+					foreach (name, ref dep; cfg.buildSettings.dependencies)
+						fixPathDependency(name, dep);
+				
+				foreach (ref subp; recipe.subPackages)
+					if (subp.path.length) {
+						auto sub_path = base_path ~ Path(subp.path);
+						auto pack = prj.packageManager.getOrLoadPackage(sub_path);
+						fixPathDependencies(pack.info, sub_path);
+						pack.storeInfo(sub_path);
+					} else fixPathDependencies(subp.recipe, base_path);
+			}
+
 			bool[string] visited;
 			foreach (pack_; prj.getTopologicalPackageList()) {
 				auto pack = pack_.basePackage;
@@ -1601,24 +1626,12 @@ class DustmiteCommand : PackageBuildCommand {
 				logInfo("Copy package '%s' to destination folder...", pack.name);
 				copyFolderRec(pack.path, dst_path);
 
+				// adjust all path based dependencies
+				fixPathDependencies(pack.info, dst_path);
+
 				// overwrite package description file with additional version information
 				pack.storeInfo(dst_path);
 			}
-
-			// adjust all path based dependencies of the root package
-			void fixPathDependency(string pack, ref Dependency dep) {
-				if (dep.path.length > 0) {
-					auto mainpack = getBasePackageName(pack);
-					dep.path = Path("../") ~ mainpack;
-				}
-			}
-			foreach (name, ref dep; prj.rootPackage.info.buildSettings.dependencies)
-				fixPathDependency(name, dep);
-			foreach (ref cfg; prj.rootPackage.info.configurations)
-				foreach (name, ref dep; cfg.buildSettings.dependencies)
-					fixPathDependency(name, dep);
-			prj.rootPackage.storeInfo(path ~ prj.rootPackage.name);
-
 
 			logInfo("Executing dustmite...");
 			auto testcmd = appender!string();
