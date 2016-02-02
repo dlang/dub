@@ -1,0 +1,3 @@
+module a;
+
+void test() {}

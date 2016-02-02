@@ -1,0 +1,2 @@
+name "test"
+dependency "a" path="a-2.0"
