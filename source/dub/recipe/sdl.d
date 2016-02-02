@@ -35,6 +35,7 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 		switch (n.fullName) {
 			default: break;
 			case "name": recipe.name = n.stringTagValue; break;
+			case "version": recipe.version_ = n.stringTagValue; break;
 			case "description": recipe.description = n.stringTagValue; break;
 			case "homepage": recipe.homepage = n.stringTagValue; break;
 			case "authors": recipe.authors ~= n.stringArrayTagValue; break;
@@ -332,6 +333,7 @@ authors "author 1" "author 2"
 authors "author 3"
 copyright "copyright string"
 license "license string"
+version "1.0.0"
 subPackage {
 	name "subpackage1"
 }
@@ -411,6 +413,7 @@ lflags "lf3"
 	assert(rec.authors == ["author 1", "author 2", "author 3"]);
 	assert(rec.copyright == "copyright string");
 	assert(rec.license == "license string");
+	assert(rec.version_ == "1.0.0");
 	assert(rec.subPackages.length == 3);
 	assert(rec.subPackages[0].path == "");
 	assert(rec.subPackages[0].recipe.name == "subpackage1");
