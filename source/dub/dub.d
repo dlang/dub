@@ -227,7 +227,9 @@ class Dub {
 			foreach (p; m_project.selections.selectedPackages) {
 				auto dep = m_project.selections.getSelectedVersion(p);
 				if (!dep.path.empty) {
-					try if (m_packageManager.getOrLoadPackage(dep.path)) continue;
+					auto path = dep.path;
+					if (!path.absolute) path = this.rootPath ~ path;
+					try if (m_packageManager.getOrLoadPackage(path)) continue;
 					catch (Exception e) { logDebug("Failed to load path based selection: %s", e.toString().sanitize); }
 				} else {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
