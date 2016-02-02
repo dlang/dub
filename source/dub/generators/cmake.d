@@ -82,14 +82,14 @@ class CMakeGenerator: ProjectGenerator
             );
             
             foreach(directory; info.buildSettings.importPaths)
-                script.put("include_directories(%s)\n".format(directory));
+                script.put("include_directories(%s)\n".format(directory.sanitizeSlashes));
             
             if(addTarget)
             {
                 script.put("add_%s(%s %s\n".format(targetType, name, libType));
                 
                 foreach(file; info.buildSettings.sourceFiles)
-                    script.put("    %s\n".format(file));
+                    script.put("    %s\n".format(file.sanitizeSlashes));
                 
                 script.put(")\n");
                 script.put(
@@ -102,7 +102,7 @@ class CMakeGenerator: ProjectGenerator
                 script.put(
                     `set_target_properties(%s PROPERTIES TEXT_INCLUDE_DIRECTORIES "%s")`.format(
                         name,
-                        info.buildSettings.stringImportPaths.dup.join(";")
+                        info.buildSettings.stringImportPaths.map!sanitizeSlashes.join(";")
                     ) ~ "\n"
                 );
             }
@@ -139,4 +139,12 @@ class CMakeGenerator: ProjectGenerator
 string sanitize(string name)
 {
     return name.replace(":", "_");
+}
+
+string sanitizeSlashes(string path)
+{
+    version(Windows)
+        return path.replace("\\", "/");
+    else
+        return path;
 }
