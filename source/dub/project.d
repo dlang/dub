@@ -233,9 +233,12 @@ class Project {
 		m_dependencies = null;
 		m_packageManager.refresh(false);
 
-		void collectDependenciesRec(Package pack)
+		void collectDependenciesRec(Package pack, int depth = 0)
 		{
-			logDebug("Collecting dependencies for %s", pack.name);
+			auto indent = replicate("  ", depth);
+			logDebug("%sCollecting dependencies for %s", indent, pack.name);
+			indent ~= "  ";
+
 			foreach (name, vspec_; pack.dependencies) {
 				Dependency vspec = vspec_;
 				Package p;
@@ -248,7 +251,7 @@ class Project {
 					vspec = Dependency(m_rootPackage.ver);
 					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, getSubPackageName(name), false);
 					catch (Exception e) {
-						logDiagnostic("Error getting sub package %s: %s", name, e.msg);
+						logDiagnostic("%sError getting sub package %s: %s", indent, name, e.msg);
 						continue;
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
@@ -260,17 +263,17 @@ class Project {
 					vspec = Dependency(bp.path);
 					p = m_packageManager.getSubPackage(bp, getSubPackageName(name), false);
 				} else {
-					logDiagnostic("Version selection for dependency %s (%s) of %s is missing.",
-						basename, name, pack.name);
+					logDiagnostic("%sVersion selection for dependency %s (%s) of %s is missing.",
+						indent, basename, name, pack.name);
 				}
 
 				if (!p && !vspec.path.empty) {
 					Path path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
-					logDiagnostic("Adding local %s", path);
+					logDiagnostic("%sAdding local %s", indent, path);
 					p = m_packageManager.getOrLoadPackage(path, PathAndFormat.init, true);
 					if (p.parentPackage !is null) {
-						logWarn("Sub package %s must be referenced using the path to it's parent package.", name);
+						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, name);
 						p = p.parentPackage;
 					}
 					if (name.canFind(':')) p = m_packageManager.getSubPackage(p, getSubPackageName(name), false);
@@ -280,15 +283,15 @@ class Project {
 				}
 
 				if (!p) {
-					logDiagnostic("Missing dependency %s %s of %s", name, vspec, pack.name);
+					logDiagnostic("%sMissing dependency %s %s of %s", indent, name, vspec, pack.name);
 					continue;
 				}
 
 				if (!m_dependencies.canFind(p)) {
-					logDiagnostic("Found dependency %s %s", name, vspec.toString());
+					logDiagnostic("%sFound dependency %s %s", indent, name, vspec.toString());
 					m_dependencies ~= p;
 					p.warnOnSpecialCompilerFlags();
-					collectDependenciesRec(p);
+					collectDependenciesRec(p, depth+1);
 				}
 
 				m_dependees[p] ~= pack;
