@@ -86,7 +86,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					package_names[pidx] = basepack;
 				}
 
-				configs = getSpecificConfigs(ch) ~ configs;
+				configs = getSpecificConfigs(basepack, ch) ~ configs;
 
 				// eliminate configurations from which we know that they can't satisfy
 				// the uniquely defined root dependencies (==version or ~branch style dependencies)
@@ -109,7 +109,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				cfgs = cfgs ~ CONFIG.invalid;
 
 		logDebug("Configurations used for dependency resolution:");
-		foreach (n, i; package_indices) logDebug("  %s (%s): %s", n, i, all_configs[i]);
+		foreach (n, i; package_indices) logDebug("  %s (%s%s): %s", n, i, n in required_deps ? "" : ", optional", all_configs[i]);
 
 		auto config_indices = new size_t[all_configs.length];
 		config_indices[] = 0;
@@ -225,7 +225,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 	}
 
 	protected abstract CONFIG[] getAllConfigs(string pack);
-	protected abstract CONFIG[] getSpecificConfigs(TreeNodes nodes);
+	protected abstract CONFIG[] getSpecificConfigs(string pack, TreeNodes nodes);
 	protected abstract TreeNodes[] getChildren(TreeNode node);
 	protected abstract bool matches(CONFIGS configs, CONFIG config);
 
@@ -293,7 +293,7 @@ unittest {
 			ret.data.sort!"a>b"();
 			return ret.data;
 		}
-		protected override IntConfig[] getSpecificConfigs(TreeNodes nodes) { return null; }
+		protected override IntConfig[] getSpecificConfigs(string pack, TreeNodes nodes) { return null; }
 		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null); }
 		protected override bool matches(IntConfigs configs, IntConfig config) { return configs.canFind(config); }
 	}

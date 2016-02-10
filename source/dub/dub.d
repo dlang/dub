@@ -1040,16 +1040,24 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		if (!(m_options & UpgradeOptions.preRelease))
 			versions = versions.filter!(v => !v.isPreRelease).array ~ versions.filter!(v => v.isPreRelease).array;
 
+		// filter out invalid/unreachable dependency specs
+		versions = versions.filter!((v) {
+				bool valid = getPackage(pack, Dependency(v)) !is null;
+				if (!valid) logDiagnostic("Excluding invalid dependency specification %s %s from dependency resolution process.", pack, v);
+				return valid;
+			}).array;
+
 		if (!versions.length) logDiagnostic("Nothing found for %s", pack);
+		else logDiagnostic("Return for %s: %s", pack, versions);
 
 		auto ret = versions.map!(v => Dependency(v)).array;
 		m_packageVersions[pack] = ret;
 		return ret;
 	}
 
-	protected override Dependency[] getSpecificConfigs(TreeNodes nodes)
+	protected override Dependency[] getSpecificConfigs(string pack, TreeNodes nodes)
 	{
-		if (!nodes.configs.path.empty) return [nodes.configs];
+		if (!nodes.configs.path.empty && getPackage(pack, nodes.configs)) return [nodes.configs];
 		else return null;
 	}
 
