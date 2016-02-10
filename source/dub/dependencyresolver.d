@@ -55,12 +55,6 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 	CONFIG[string] resolve(TreeNode root, bool throw_on_failure = true)
 	{
-		static string rootPackage(string p) {
-			auto idx = indexOf(p, ":");
-			if (idx < 0) return p;
-			return p[0 .. idx];
-		}
-
 		auto root_base_pack = rootPackage(root.pack);
 
 		// find all possible configurations of each possible dependency
@@ -244,7 +238,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			if (node.pack in required) return;
 			required[node.pack] = true;
 			foreach (dep; getChildren(node).filter!(dep => dep.depType != DependencyType.optional))
-				if (auto dp = dep.pack in configs)
+				if (auto dp = rootPackage(dep.pack) in configs)
 					markRecursively(TreeNode(dep.pack, *dp));
 		}
 
@@ -263,6 +257,14 @@ enum DependencyType {
 	optionalDefault,
 	optional
 }
+
+private string rootPackage(string p)
+{
+	auto idx = indexOf(p, ":");
+	if (idx < 0) return p;
+	return p[0 .. idx];
+}
+
 
 unittest {
 	static struct IntConfig {
