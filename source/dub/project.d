@@ -138,7 +138,9 @@ class Project {
 					auto dv = p.dependencies[dn];
 					// filter out dependencies not in the current configuration set
 					if (!p.hasDependency(dn, cfg)) continue;
-					auto dependency = getDependency(dn, dv.optional);
+					auto dependency = getDependency(dn, true);
+					assert(dependency || dv.optional,
+						format("Non-optional dependency %s of %s not found in dependency tree!?.", dn, p.name));
 					if(dependency) perform_rec(dependency);
 					if( ret ) return;
 				}
