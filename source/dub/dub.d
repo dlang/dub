@@ -227,7 +227,9 @@ class Dub {
 			foreach (p; m_project.selections.selectedPackages) {
 				auto dep = m_project.selections.getSelectedVersion(p);
 				if (!dep.path.empty) {
-					try if (m_packageManager.getOrLoadPackage(dep.path)) continue;
+					auto path = dep.path;
+					if (!path.absolute) path = this.rootPath ~ path;
+					try if (m_packageManager.getOrLoadPackage(path)) continue;
 					catch (Exception e) { logDebug("Failed to load path based selection: %s", e.toString().sanitize); }
 				} else {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
@@ -288,7 +290,8 @@ class Dub {
 			return;
 		}
 
-		foreach (p, ver; versions) {
+		foreach (p; versions.byKey) {
+			auto ver = versions[p]; // Workaround for DMD 2.070.0 AA issue (crashes in aaApply2 if iterating by key+value)
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
 			if (!ver.path.empty) {

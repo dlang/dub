@@ -237,7 +237,32 @@ class Project {
 			foreach (name, vspec_; pack.dependencies) {
 				Dependency vspec = vspec_;
 				Package p;
-				if (!vspec.path.empty) {
+
+				auto basename = getBasePackageName(name);
+				if (name == m_rootPackage.basePackage.name) {
+					vspec = Dependency(m_rootPackage.ver);
+					p = m_rootPackage.basePackage;
+				} else if (basename == m_rootPackage.basePackage.name) {
+					vspec = Dependency(m_rootPackage.ver);
+					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, getSubPackageName(name), false);
+					catch (Exception e) {
+						logDiagnostic("Error getting sub package %s: %s", name, e.msg);
+						continue;
+					}
+				} else if (m_selections.hasSelectedVersion(basename)) {
+					vspec = m_selections.getSelectedVersion(basename);
+					p = m_packageManager.getBestPackage(name, vspec);
+				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
+					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
+					auto bp = m_dependencies[idx].basePackage;
+					vspec = Dependency(bp.path);
+					p = m_packageManager.getSubPackage(bp, getSubPackageName(name), false);
+				} else {
+					logDiagnostic("Version selection for dependency %s (%s) of %s is missing.",
+						basename, name, pack.name);
+				}
+
+				if (!p && !vspec.path.empty) {
 					Path path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("Adding local %s", path);
@@ -250,33 +275,6 @@ class Project {
 					enforce(p.name == name,
 						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
 							path.toNativeString(), name, p.name));
-				}
-
-				if (!p) {
-					auto basename = getBasePackageName(name);
-					if (name == m_rootPackage.basePackage.name) {
-						vspec = Dependency(m_rootPackage.ver);
-						p = m_rootPackage.basePackage;
-					} else if (basename == m_rootPackage.basePackage.name) {
-						vspec = Dependency(m_rootPackage.ver);
-						try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, getSubPackageName(name), false);
-						catch (Exception e) {
-							logDiagnostic("Error getting sub package %s: %s", name, e.msg);
-							continue;
-						}
-					} else if (m_selections.hasSelectedVersion(basename)) {
-						vspec = m_selections.getSelectedVersion(basename);
-						p = m_packageManager.getBestPackage(name, vspec);
-					} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
-						auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
-						auto bp = m_dependencies[idx].basePackage;
-						vspec = Dependency(bp.path);
-						p = m_packageManager.getSubPackage(bp, getSubPackageName(name), false);
-					} else {
-						logDiagnostic("Version selection for dependency %s (%s) of %s is missing.",
-							basename, name, pack.name);
-						continue;
-					}
 				}
 
 				if (!p) {
