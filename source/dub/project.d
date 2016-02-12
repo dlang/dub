@@ -1230,6 +1230,7 @@ final class SelectedVersions {
 		enum FileVersion = 1;
 		Selected[string] m_selections;
 		bool m_dirty = false; // has changes since last save
+		bool m_bare = true;
 	}
 
 	enum defaultFile = "dub.selections.json";
@@ -1247,11 +1248,15 @@ final class SelectedVersions {
 		auto json = jsonFromFile(path);
 		deserialize(json);
 		m_dirty = false;
+		m_bare = false;
 	}
 
 	@property string[] selectedPackages() const { return m_selections.keys; }
 
 	@property bool dirty() const { return m_dirty; }
+
+	/// Determine if this set of selections is empty and has not been saved to disk.
+	@property bool bare() const { return m_bare && !m_dirty; }
 
 	void clear()
 	{
@@ -1310,6 +1315,7 @@ final class SelectedVersions {
 		file.writePrettyJsonString(json);
 		file.put('\n');
 		m_dirty = false;
+		m_bare = false;
 	}
 
 	static Json dependencyToJson(Dependency d)

@@ -1040,16 +1040,24 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		if (!(m_options & UpgradeOptions.preRelease))
 			versions = versions.filter!(v => !v.isPreRelease).array ~ versions.filter!(v => v.isPreRelease).array;
 
+		// filter out invalid/unreachable dependency specs
+		versions = versions.filter!((v) {
+				bool valid = getPackage(pack, Dependency(v)) !is null;
+				if (!valid) logDiagnostic("Excluding invalid dependency specification %s %s from dependency resolution process.", pack, v);
+				return valid;
+			}).array;
+
 		if (!versions.length) logDiagnostic("Nothing found for %s", pack);
+		else logDiagnostic("Return for %s: %s", pack, versions);
 
 		auto ret = versions.map!(v => Dependency(v)).array;
 		m_packageVersions[pack] = ret;
 		return ret;
 	}
 
-	protected override Dependency[] getSpecificConfigs(TreeNodes nodes)
+	protected override Dependency[] getSpecificConfigs(string pack, TreeNodes nodes)
 	{
-		if (!nodes.configs.path.empty) return [nodes.configs];
+		if (!nodes.configs.path.empty && getPackage(pack, nodes.configs)) return [nodes.configs];
 		else return null;
 	}
 
@@ -1084,11 +1092,22 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 				continue;
 			}
 
-			if (dspec.optional && !m_dub.packageManager.getFirstPackage(dname))
-				continue;
-			if (m_options & UpgradeOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename))
-				ret ~= TreeNodes(dname, dspec.mapToPath(pack.path));
-			else ret ~= TreeNodes(dname, m_selectedVersions.getSelectedVersion(dbasename));
+			DependencyType dt;
+			if (dspec.optional) {
+				if (dspec.default_) dt = DependencyType.optionalDefault;
+				else dt = DependencyType.optional;
+			} else dt = DependencyType.required;
+
+			if (m_options & UpgradeOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename)) {
+				// keep deselected dependencies deselected by default
+				if (m_selectedVersions && !m_selectedVersions.bare && dt == DependencyType.optionalDefault)
+					dt = DependencyType.optional;
+				ret ~= TreeNodes(dname, dspec.mapToPath(pack.path), dt);
+			} else {
+				// keep already selected optional dependencies if possible
+				if (dt == DependencyType.optional) dt = DependencyType.optionalDefault;
+				ret ~= TreeNodes(dname, m_selectedVersions.getSelectedVersion(dbasename), dt);
+			}
 		}
 		return ret.data;
 	}
