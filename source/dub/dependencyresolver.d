@@ -61,8 +61,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		size_t[string] package_indices;
 		string[size_t] package_names;
 		CONFIG[][] all_configs;
+		bool[] any_config;
 		bool[string] required_deps;
 		bool[TreeNode] visited;
+
 		void findConfigsRec(TreeNode parent, bool parent_unique)
 		{
 			if (parent in visited) return;
@@ -87,6 +89,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				}
 
 				configs = getSpecificConfigs(basepack, ch) ~ configs;
+
+				if (any_config.length <= pidx) any_config.length = pidx+1;
+				any_config[pidx] = configs.length > 0;
 
 				// eliminate configurations from which we know that they can't satisfy
 				// the uniquely defined root dependencies (==version or ~branch style dependencies)
@@ -140,7 +145,19 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					if (ch.depType != DependencyType.required)
 						continue;
 
-					enforce(parentbase != root_base_pack, format("Root package %s contains reference to invalid package %s %s", parent.pack, ch.pack, ch.configs));
+					if (parentbase == root_base_pack) {
+						import std.uni : toLower;
+						auto lp = ch.pack.toLower();
+						if (lp != ch.pack) {
+							logError("Dependency \"%s\" of %s contains upper case letters, but must be lower case.", ch.pack, parent.pack);
+							if (getAllConfigs(lp).length) logError("Did you mean \"%s\"?", lp);
+						}
+						bool pvalid = any_config[childidx];
+						if (pvalid)
+							throw new Exception(format("Root package %s reference %s %s cannot be satisfied.", parent.pack, ch.pack, ch.configs));
+						else
+							throw new Exception(format("Root package %s references unknown package %s", parent.pack, ch.pack));
+					}
 					// choose another parent config to avoid the invalid child
 					if (parentidx > maxcpi) {
 						error = format("Package %s contains invalid dependency %s", parent.pack, ch.pack);
