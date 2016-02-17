@@ -1208,7 +1208,7 @@ private string getVariable(string name, in Project project, in Package pack)
 
 private bool isIdentChar(dchar ch)
 {
-	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
+	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_' || ch == '-';
 }
 
 string stripDlangSpecialChars(string s)
