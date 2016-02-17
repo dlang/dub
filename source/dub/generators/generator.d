@@ -99,6 +99,7 @@ class ProjectGenerator
 		string[] mainfiles;
 		collect(settings, m_project.rootPackage, targets, configs, mainfiles, null);
 		downwardsInheritSettings(m_project.rootPackage.name, targets, targets[m_project.rootPackage.name].buildSettings);
+		addBuildTypeSettings(targets, settings);
 		foreach (ref t; targets.byValue) enforceBuildRequirements(t.buildSettings);
 		auto bs = &targets[m_project.rootPackage.name].buildSettings;
 		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
@@ -214,19 +215,7 @@ class ProjectGenerator
 			} else pt.packages ~= dep;
 		}
 
-		if (is_target) {
-			BuildSettings targetbs = buildsettings.dup;
-			targetbs.add(settings.buildSettings);
-
-			// add build type settings and convert plain DFLAGS to build options
-			m_project.addBuildTypeSettings(targetbs, settings.platform, settings.buildType, pack is m_project.rootPackage);
-			settings.compiler.extractBuildOptions(targetbs);
-
-			enforce (generates_binary || pack !is m_project.rootPackage || (targetbs.options & BuildOption.syntaxOnly),
-				format("Main package must have a binary target type, not %s. Cannot build.", tt));
-
-			targets[pack.name].buildSettings = targetbs;
-		}
+		if (is_target) targets[pack.name].buildSettings = buildsettings.dup;
 
 		return buildsettings;
 	}
@@ -266,6 +255,22 @@ class ProjectGenerator
 		ti.buildSettings.addVersions(packs.map!(pn => "Have_" ~ stripDlangSpecialChars(pn)).array);
 
 		return packs;
+	}
+
+	private void addBuildTypeSettings(TargetInfo[string] targets, GeneratorSettings settings)
+	{
+		foreach (ref t; targets) {
+			t.buildSettings.add(settings.buildSettings);
+
+			// add build type settings and convert plain DFLAGS to build options
+			m_project.addBuildTypeSettings(t.buildSettings, settings.platform, settings.buildType, t.pack is m_project.rootPackage);
+			settings.compiler.extractBuildOptions(t.buildSettings);
+
+			auto tt = t.buildSettings.targetType;
+			bool generates_binary = tt != TargetType.sourceLibrary && tt != TargetType.none;
+			enforce (generates_binary || t.pack !is m_project.rootPackage || (t.buildSettings.options & BuildOption.syntaxOnly),
+				format("Main package must have a binary target type, not %s. Cannot build.", tt));
+		}
 	}
 }
 
