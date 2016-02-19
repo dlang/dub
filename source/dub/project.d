@@ -72,7 +72,8 @@ class Project {
 		if (existsFile(selverfile)) {
 			try m_selections = new SelectedVersions(selverfile);
 			catch(Exception e) {
-				logDiagnostic("A " ~ SelectedVersions.defaultFile ~ " file was not found or failed to load:\n%s", e.msg);
+				logWarn("Failed to load %s: %s", SelectedVersions.defaultFile, e.msg);
+				logDiagnostic("Full error: %s", e.toString().sanitize);
 				m_selections = new SelectedVersions;
 			}
 		} else m_selections = new SelectedVersions;
@@ -1312,8 +1313,25 @@ final class SelectedVersions {
 		Json json = serialize();
 		auto file = openFile(path, FileMode.createTrunc);
 		scope(exit) file.close();
-		file.writePrettyJsonString(json);
-		file.put('\n');
+
+		assert(json.type == Json.Type.object);
+		assert(json.length == 2);
+		assert(json["versions"].type != Json.Type.undefined);
+
+		file.write("{\n\t\"fileVersion\": ");
+		file.writeJsonString(json["fileVersion"]);
+		file.write(",\n\t\"versions\": {");
+		auto vers = json["versions"].get!(Json[string]);
+		bool first = true;
+		foreach (k; vers.byKey.array.sort()) {
+			if (!first) file.write(",");
+			else first = false;
+			file.write("\n\t\t");
+			file.writeJsonString(Json(k));
+			file.write(": ");
+			file.writeJsonString(vers[k]);
+		}
+		file.write("\n\t}\n}\n");
 		m_dirty = false;
 		m_bare = false;
 	}
