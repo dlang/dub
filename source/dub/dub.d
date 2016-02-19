@@ -316,8 +316,10 @@ class Dub {
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			fetchOpts |= (options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
 			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting selected version");
-			if ((options & UpgradeOptions.select) && ver.path.empty && p != m_project.rootPackage.name)
-				m_project.selections.selectVersion(p, ver.version_);
+			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
+				if (ver.path.empty) m_project.selections.selectVersion(p, ver.version_);
+				else m_project.selections.selectVersion(p, ver.path);
+			}
 		}
 
 		m_project.reinit();
