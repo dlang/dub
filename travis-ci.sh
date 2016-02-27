@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e -o pipefail
+set -v -e -o pipefail
 
 if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.065.z ]; then
     vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
