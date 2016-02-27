@@ -1,0 +1,7 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"b": {"path":"/home/sludwig/develop/dub/test/issue777-bogus-path-dependency/b"},
+		"c": {"path":"/home/sludwig/develop/dub/test/issue777-bogus-path-dependency/c"}
+	}
+}
