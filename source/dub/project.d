@@ -257,7 +257,12 @@ class Project {
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
 					vspec = m_selections.getSelectedVersion(basename);
-					p = m_packageManager.getBestPackage(name, vspec);
+					if (vspec.path.empty) p = m_packageManager.getBestPackage(name, vspec);
+					else {
+						auto path = vspec.path;
+						if (!path.absolute) path = m_rootPackage.path ~ path;
+						p = m_packageManager.getOrLoadPackage(path, PathAndFormat.init, true);
+					}
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
 					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
 					auto bp = m_dependencies[idx].basePackage;
