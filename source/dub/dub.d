@@ -318,7 +318,11 @@ class Dub {
 			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
 				if (ver.path.empty) m_project.selections.selectVersion(p, ver.version_);
-				else m_project.selections.selectVersion(p, ver.path);
+				else {
+					Path relpath = ver.path;
+					if (relpath.absolute) relpath = relpath.relativeTo(m_project.rootPackage.path);
+					m_project.selections.selectVersion(p, relpath);
+				}
 			}
 		}
 
