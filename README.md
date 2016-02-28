@@ -6,8 +6,8 @@ There is a central [package registry](https://github.com/D-Programming-Language/
 
 ## Introduction
 
-DUB emerged as a more general replacement for [vibe.d's](http://vibed.org/) package manager. It does not imply a dependecy to vibe.d for packages and was extended to not only directly build projects, but also to generate project files (currently [VisualD](https://github.com/rainers/visuald)).
-[Mono-D](http://mono-d.alexanderbothe.com/) also support the use of dub.json (dub's package description) as project file.
+DUB emerged as a more general replacement for [vibe.d's](http://vibed.org/) package manager. It does not imply a dependency to vibe.d for packages and was extended to not only directly build projects, but also to generate project files (currently [VisualD](https://github.com/rainers/visuald)).
+[Mono-D](http://mono-d.alexanderbothe.com/) also supports the use of dub.json (dub's package description) as the project file.
 
 The project's philosophy is to keep things as simple as possible. All that is needed to make a project a dub package is to write a short [dub.json](http://code.dlang.org/publish) file and put the source code into a `source` subfolder. It *can* then be registered on the public [package registry](http://code.dlang.org) to be made available for everyone. Any dependencies specified in `dub.json` are automatically downloaded and made available to the project during the build process.
 
