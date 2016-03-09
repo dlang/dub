@@ -374,4 +374,15 @@ unittest {
 		]);
 		assert(res.resolve(TreeNode("a", ic(0))).length == 0, to!string(res.resolve(TreeNode("a", ic(0)))));
 	}
+
+	// don't choose optional dependency if non-optional in a non-selected version
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", ics([ic(1), ic(2)]))],
+			"b:1": [TreeNodes("c", ics([ic(1)]))],
+			"b:2": [TreeNodes("c", ics([ic(1)]), DependencyType.optional)],
+			"c:1": []
+		]);
+		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(2)], to!string(res.resolve(TreeNode("a", ic(0)))));
+	}
 }
