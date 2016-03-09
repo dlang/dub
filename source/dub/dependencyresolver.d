@@ -62,7 +62,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		string[size_t] package_names;
 		CONFIG[][] all_configs;
 		bool[] any_config;
-		bool[string] required_deps;
+		bool[string] maybe_optional_deps;
 		bool[TreeNode] visited;
 
 		void findConfigsRec(TreeNode parent, bool parent_unique)
@@ -74,7 +74,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				auto basepack = rootPackage(ch.pack);
 				auto pidx = all_configs.length;
 
-				if (ch.depType == DependencyType.required) required_deps[ch.pack] = true;
+				if (ch.depType != DependencyType.required) maybe_optional_deps[ch.pack] = true;
 
 				CONFIG[] configs;
 				if (auto pi = basepack in package_indices) {
@@ -110,11 +110,11 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		// getChildren() returns no configurations for an optional dependency,
 		// but getAllConfigs() has already provided an existing list of configs)
 		foreach (i, ref cfgs; all_configs)
-			if (cfgs.length == 0 || package_names[i] !in required_deps)
+			if (cfgs.length == 0 || package_names[i] in maybe_optional_deps)
 				cfgs = cfgs ~ CONFIG.invalid;
 
 		logDebug("Configurations used for dependency resolution:");
-		foreach (n, i; package_indices) logDebug("  %s (%s%s): %s", n, i, n in required_deps ? "" : ", optional", all_configs[i]);
+		foreach (n, i; package_indices) logDebug("  %s (%s%s): %s", n, i, n in maybe_optional_deps ? ", maybe optional" : ", required", all_configs[i]);
 
 		auto config_indices = new size_t[all_configs.length];
 		config_indices[] = 0;
@@ -381,6 +381,17 @@ unittest {
 			"a:0": [TreeNodes("b", ics([ic(1), ic(2)]))],
 			"b:1": [TreeNodes("c", ics([ic(1)]))],
 			"b:2": [TreeNodes("c", ics([ic(1)]), DependencyType.optional)],
+			"c:1": []
+		]);
+		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(2)], to!string(res.resolve(TreeNode("a", ic(0)))));
+	}
+
+	// make sure non-satisfyable dependencies are not a problem, even if non-optional in some dependencies
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", ics([ic(1), ic(2)]))],
+			"b:1": [TreeNodes("c", ics([ic(2)]))],
+			"b:2": [TreeNodes("c", ics([ic(2)]), DependencyType.optional)],
 			"c:1": []
 		]);
 		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(2)], to!string(res.resolve(TreeNode("a", ic(0)))));
