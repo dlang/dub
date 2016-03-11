@@ -1,7 +1,7 @@
 /**
 	Generator for project files
 
-	Copyright: © 2012-2013 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff, © 2013-2016 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
 */
@@ -452,6 +452,14 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	}
 }
 
+
+/** Runs a list of build commands for a particular package.
+
+	This funtion sets all DUB speficic environment variables and makes sure
+	that recursive dub invocations are detected and don't result in infinite
+	command execution loops. The latter could otherwise happen when a command
+	runs "dub describe" or similar functionality.
+*/
 void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	in GeneratorSettings settings, in BuildSettings build_settings)
 {
