@@ -1,7 +1,7 @@
 /**
 	Defines the behavior of the DUB command line client.
 
-	Copyright: © 2012-2013 Matthias Dondorff, Copyright © 2012-2014 Sönke Ludwig
+	Copyright: © 2012-2013 Matthias Dondorff, Copyright © 2012-2016 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff, Sönke Ludwig
 */
@@ -36,6 +36,10 @@ import std.typecons : Tuple, tuple;
 import std.variant;
 
 
+/** Retrieves a list of all available commands.
+
+	Commands are grouped by category.
+*/
 CommandGroup[] getCommands()
 {
 	return [
@@ -73,6 +77,16 @@ CommandGroup[] getCommands()
 	];
 }
 
+
+/** Processes the given command line and executes the appropriate actions.
+
+	Params:
+		args = This command line argument array as received in `main`. The first
+			entry is considered to be the name of the binary invoked.
+
+	Returns:
+		Returns the exit code that is supposed to be returned to the system.
+*/
 int runDubCommandLine(string[] args)
 {
 	logDiagnostic("DUB version %s", getDUBVersion());
@@ -221,6 +235,9 @@ int runDubCommandLine(string[] args)
 	}
 }
 
+
+/** Contains and parses options common to all commands.
+*/
 struct CommonOptions {
 	bool verbose, vverbose, quiet, vquiet;
 	bool help, annotate, bare;
@@ -228,6 +245,7 @@ struct CommonOptions {
 	string root_path;
 	SkipRegistry skipRegistry = SkipRegistry.none;
 
+	/// Parses all common options and stores the result in the struct instance.
 	void prepare(CommandArgs args)
 	{
 		args.getopt("h|help", &help, ["Display general or command specific help"]);
@@ -249,6 +267,13 @@ struct CommonOptions {
 	}
 }
 
+/** Encapsulates a set of application arguments.
+
+	This class serves two purposes. The first is to provide an API for parsing
+	command line arguments (`getopt`). At the same time it records all calls
+	to `getopt` and provides a list of all possible options using the
+	`recognizedArgs` property.
+*/
 class CommandArgs {
 	struct Arg {
 		Variant defaultValue;
@@ -261,11 +286,20 @@ class CommandArgs {
 		Arg[] m_recognizedArgs;
 	}
 
+	/** Initializes the list of source arguments.
+
+		Note that all array entries are considered application arguments (i.e.
+		no application name entry is present as the first entry)
+	*/
 	this(string[] args)
 	{
 		m_args = "dummy" ~ args;
 	}
 
+	/** Returns the list of all options recognized.
+
+		This list is created by recording all calls to `getopt`.
+	*/
 	@property const(Arg)[] recognizedArgs() { return m_recognizedArgs; }
 
 	void getopt(T)(string names, T* var, string[] help_text = null)
@@ -286,11 +320,15 @@ class CommandArgs {
 		m_recognizedArgs ~= arg;
 	}
 
+	/** Resets the list of available source arguments.
+	*/
 	void dropAllArgs()
 	{
 		m_args = null;
 	}
 
+	/** Returns the list of unprocessed arguments and calls `dropAllArgs`.
+	*/
 	string[] extractRemainingArgs()
 	{
 		auto ret = m_args[1 .. $];
@@ -299,6 +337,13 @@ class CommandArgs {
 	}
 }
 
+
+/** Base class for all commands.
+
+	This cass contains a high-level description of the command, including brief
+	and full descriptions and a human readable command line pattern. On top of
+	that it defines the two main entry functions for command execution.
+*/
 class Command {
 	string name;
 	string argumentsPattern;
@@ -308,7 +353,20 @@ class Command {
 	bool hidden = false; // used for deprecated commands
 	bool skipDubInitialization = false;
 
+	/** Parses all known command line options without executing any actions.
+
+		This function will be called prior to execute, or may be called as
+		the only method when collecting the list of recognized command line
+		options.
+
+		Only `args.getopt` should be called within this method.
+	*/
 	abstract void prepare(scope CommandArgs args);
+
+	/** Executes the actual action.
+
+		Note that `prepare` will be called before any call to `execute`.
+	*/
 	abstract int execute(Dub dub, string[] free_args, string[] app_args);
 
 	private bool loadCwdPackage(Dub dub, bool warn_missing_package)
@@ -339,8 +397,14 @@ class Command {
 	}
 }
 
+
+/** Encapsulates a group of commands that fit into a common category.
+*/
 struct CommandGroup {
+	/// Caption of the command category
 	string caption;
+
+	/// List of commands contained inthis group
 	Command[] commands;
 
 	this(string caption, Command[] commands...)
