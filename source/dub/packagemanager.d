@@ -1,7 +1,7 @@
 /**
 	Management of packages on the local computer.
 
-	Copyright: © 2012-2013 rejectedsoftware e.K.
+	Copyright: © 2012-2016 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig, Matthias Dondorff
 */
@@ -44,14 +44,19 @@ class PackageManager {
 		if (refresh_packages) refresh(true);
 	}
 
+	/** Gets/sets the list of paths to search for local packages.
+	*/
 	@property void searchPath(Path[] paths)
 	{
 		if (paths == m_searchPath) return;
 		m_searchPath = paths.dup;
 		refresh(false);
 	}
+	/// ditto
 	@property const(Path)[] searchPath() const { return m_searchPath; }
 
+	/** Disables searching DUB's predefined search paths.
+	*/
 	@property void disableDefaultSearchPaths(bool val)
 	{
 		if (val == m_disableDefaultSearchPaths) return;
@@ -59,6 +64,8 @@ class PackageManager {
 		refresh(true);
 	}
 
+	/** Returns the effective list of search paths, including default ones.
+	*/
 	@property const(Path)[] completeSearchPath()
 	const {
 		auto ret = appender!(Path[])();
@@ -152,13 +159,26 @@ class PackageManager {
 		return null;
 	}
 
-	Package getOrLoadPackage(Path path, Path infoFile = Path.init, bool allow_sub_packages = false)
+	/** For a given package path, returns the corresponding package.
+
+		If the package is already loaded, a reference is returned. Otherwise
+		the package gets loaded and cached for the next call to this function.
+
+		Params:
+			path = Path to the root directory of the package
+			recipe_path = Optional path to the recipe file of the package
+			allow_sub_packages = Also return a sub package if it resides in the given folder
+
+		Returns: The packages loaded from the given path
+		Throws: Throws an exception if no package can be loaded
+	*/
+	Package getOrLoadPackage(Path path, Path recipe_path = Path.init, bool allow_sub_packages = false)
 	{
 		path.endsWithSlash = true;
 		foreach (p; getPackageIterator())
 			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
 				return p;
-		auto pack = new Package(path, infoFile);
+		auto pack = new Package(path, recipe_path);
 		addPackages(m_temporaryPackages, pack);
 		return pack;
 	}
@@ -186,6 +206,19 @@ class PackageManager {
 		return getBestPackage(name, Dependency(version_spec));
 	}
 
+	/** Gets the a specific sub package.
+
+		In contrast to `Package.getSubPackage`, this function supports path
+		based sub packages.
+
+		Params:
+			base_package = The package from which to get a sub package
+			sub_name = Name of the sub package (not prefixed with the base
+				package name)
+			silent_fail = If set to true, the function will return `null` if no
+				package is found. Otherwise will throw an exception.
+
+	*/
 	Package getSubPackage(Package base_package, string sub_name, bool silent_fail)
 	{
 		foreach (p; getPackageIterator(base_package.name~":"~sub_name))
@@ -221,6 +254,10 @@ class PackageManager {
 		return false;
 	}
 
+	/** Enables iteration over all known local packages.
+
+		Returns: A delegate suitable for use with `foreach` is returned.
+	*/
 	int delegate(int delegate(ref Package)) getPackageIterator()
 	{
 		int iterator(int delegate(ref Package) del)
@@ -243,6 +280,10 @@ class PackageManager {
 		return &iterator;
 	}
 
+	/** Enables iteration over all known local packages with a certain name.
+
+		Returns: A delegate suitable for use with `foreach` is returned.
+	*/
 	int delegate(int delegate(ref Package)) getPackageIterator(string name)
 	{
 		int iterator(int delegate(ref Package) del)
@@ -732,8 +773,8 @@ enum LocalPackageType {
 	system
 }
 
-enum LocalPackagesFilename = "local-packages.json";
-enum LocalOverridesFilename = "local-overrides.json";
+private enum LocalPackagesFilename = "local-packages.json";
+private enum LocalOverridesFilename = "local-overrides.json";
 
 
 private struct Repository {
