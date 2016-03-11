@@ -83,7 +83,7 @@ void main()
 
 private void initVibeDPackage(Path root_path, ref PackageRecipe p)
 {
-	if("vibe-d" !in p.dependencies)
+	if ("vibe-d" !in p.buildSettings.dependencies)
 		p.buildSettings.dependencies["vibe-d"] = Dependency("~>0.7.26");
 	p.description = "A simple vibe.d server application.";
 	p.buildSettings.versions[""] ~= "VibeDefaultMain";

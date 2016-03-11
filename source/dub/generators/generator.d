@@ -505,3 +505,27 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
 	runCommands(commands, env);
 }
+
+private bool isRecursiveInvocation(string pack)
+{
+	import std.algorithm : canFind, splitter;
+	import std.process : environment;
+
+	return environment
+        .get("DUB_PACKAGES_USED", "")
+        .splitter(",")
+        .canFind(pack);
+}
+
+private void storeRecursiveInvokations(string[string] env, string[] packs)
+{
+	import std.algorithm : canFind, splitter;
+	import std.range : chain;
+	import std.process : environment;
+
+    env["DUB_PACKAGES_USED"] = environment
+        .get("DUB_PACKAGES_USED", "")
+        .splitter(",")
+        .chain(packs)
+        .join(",");
+}

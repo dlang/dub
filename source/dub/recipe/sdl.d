@@ -423,8 +423,8 @@ lflags "lf3"
 	assert(rec.subPackages[0].recipe.name == "subpackage1");
 	assert(rec.subPackages[1].path == "");
 	assert(rec.subPackages[1].recipe.name == "subpackage2");
-	assert(rec.subPackages[1].recipe.dependencies.length == 1);
-	assert("projectname:subpackage1" in rec.subPackages[1].recipe.dependencies);
+	assert(rec.subPackages[1].recipe.buildSettings.dependencies.length == 1);
+	assert("projectname:subpackage1" in rec.subPackages[1].recipe.buildSettings.dependencies);
 	assert(rec.subPackages[2].path == "pathsp3");
 	assert(rec.configurations.length == 2);
 	assert(rec.configurations[0].name == "config1");
