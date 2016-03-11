@@ -236,7 +236,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 	}
 }
 
-Json toJson(in ref BuildSettingsTemplate bs)
+private Json toJson(in ref BuildSettingsTemplate bs)
 {
 	auto ret = Json.emptyObject;
 	if( bs.dependencies !is null ){
