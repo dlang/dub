@@ -76,25 +76,22 @@ class Package {
 		return Path.init;
 	}
 
-	this(Path root, Path infoFile = Path.init, Package parent = null, string versionOverride = "")
+	this(Path root, Path recipe_file = Path.init, Package parent = null, string versionOverride = "")
 	{
 		import dub.recipe.io;
 
-		PackageRecipe raw_package;
-		m_infoFile = infoFile;
+		if (recipe_file.empty) recipe_file = findPackageFile(root);
 
-		try {
-			if(m_infoFile.empty) {
-				m_infoFile = findPackageFile(root);
-				if(m_infoFile.empty)
-					throw new Exception(
-						"No package file found in %s, expected one of %s"
-							.format(root.toNativeString(), packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
-			}
-			raw_package = readPackageRecipe(m_infoFile, parent ? parent.name : null);
-		} catch (Exception ex) throw ex;//throw new Exception(format("Failed to load package %s: %s", m_infoFile.toNativeString(), ex.msg));
+		enforce(!recipe_file.empty, 
+			"No package file found in %s, expected one of %s"
+				.format(root.toNativeString(),
+					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
 
-		this(raw_package, root, parent, versionOverride);
+		m_infoFile = recipe_file;
+
+		auto recipe = readPackageRecipe(m_infoFile, parent ? parent.name : null);
+
+		this(recipe, root, parent, versionOverride);
 	}
 
 	this(Json package_info, Path root = Path(), Package parent = null, string versionOverride = "")
