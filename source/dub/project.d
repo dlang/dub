@@ -51,7 +51,7 @@ class Project {
 		auto packageFile = Package.findPackageFile(project_path);
 		if (packageFile.empty) {
 			logWarn("There was no package description found for the application in '%s'.", project_path.toNativeString());
-			pack = new Package(null, project_path);
+			pack = new Package(PackageRecipe.init, project_path);
 		} else {
 			pack = package_manager.getOrLoadPackage(project_path, packageFile);
 		}

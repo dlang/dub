@@ -88,7 +88,9 @@ class Package {
 
 	this(Path root, PathAndFormat infoFile = PathAndFormat(), Package parent = null, string versionOverride = "")
 	{
-		RawPackage raw_package;
+		import dub.recipe.io;
+
+		PackageRecipe raw_package;
 		m_infoFile = infoFile;
 
 		try {
@@ -99,52 +101,39 @@ class Package {
 						"No package file found in %s, expected one of %s"
 							.format(root.toNativeString(), packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
 			}
-			raw_package = rawPackageFromFile(m_infoFile);
+			raw_package = readPackageRecipe(m_infoFile.path, parent ? parent.name : null);
 		} catch (Exception ex) throw ex;//throw new Exception(format("Failed to load package %s: %s", m_infoFile.toNativeString(), ex.msg));
 
-		enforce(raw_package !is null, format("Missing package description for package at %s", root.toNativeString()));
 		this(raw_package, root, parent, versionOverride);
 	}
 
 	this(Json package_info, Path root = Path(), Package parent = null, string versionOverride = "")
 	{
-		this(new JsonPackage(package_info), root, parent, versionOverride);
+		import dub.recipe.json;
+
+		PackageRecipe recipe;
+		parseJson(recipe, package_info, parent ? parent.name : null);
+		this(recipe, root, parent, versionOverride);
 	}
 
-	this(RawPackage raw_package, Path root = Path(), Package parent = null, string versionOverride = "")
+	this(PackageRecipe recipe, Path root = Path(), Package parent = null, string versionOverride = "")
 	{
-		PackageRecipe recipe;
+		if (!versionOverride.empty)
+			recipe.version_ = versionOverride;
 
-		// parse the Package description
-		if(raw_package !is null)
-		{
-			scope(failure) logError("Failed to parse package description for %s %s in %s.",
-				raw_package.package_name, versionOverride.length ? versionOverride : raw_package.version_,
-				root.length ? root.toNativeString() : "remote location");
-			raw_package.parseInto(recipe, parent ? parent.name : null);
+		// try to run git to determine the version of the package if no explicit version was given
+		if (recipe.version_.length == 0 && !parent) {
+			try recipe.version_ = determineVersionFromSCM(root);
+			catch (Exception e) logDebug("Failed to determine version by SCM: %s", e.msg);
 
-			if (!versionOverride.empty)
-				recipe.version_ = versionOverride;
-
-			// try to run git to determine the version of the package if no explicit version was given
-			if (recipe.version_.length == 0 && !parent) {
-				try recipe.version_ = determineVersionFromSCM(root);
-				catch (Exception e) logDebug("Failed to determine version by SCM: %s", e.msg);
-
-				if (recipe.version_.length == 0) {
-					logDiagnostic("Note: Failed to determine version of package %s at %s. Assuming ~master.", recipe.name, this.path.toNativeString());
-					// TODO: Assume unknown version here?
-					// recipe.version_ = Version.UNKNOWN.toString();
-					recipe.version_ = Version.MASTER.toString();
-				} else logDiagnostic("Determined package version using GIT: %s %s", recipe.name, recipe.version_);
-			}
+			if (recipe.version_.length == 0) {
+				logDiagnostic("Note: Failed to determine version of package %s at %s. Assuming ~master.", recipe.name, this.path.toNativeString());
+				// TODO: Assume unknown version here?
+				// recipe.version_ = Version.UNKNOWN.toString();
+				recipe.version_ = Version.MASTER.toString();
+			} else logDiagnostic("Determined package version using GIT: %s %s", recipe.name, recipe.version_);
 		}
 
-		this(recipe, root, parent);
-	}
-
-	this(PackageRecipe recipe, Path root = Path(), Package parent = null)
-	{
 		m_parentPackage = parent;
 		m_path = root;
 		m_path.endsWithSlash = true;
@@ -516,84 +505,6 @@ class Package {
 			}
 		}
 		if (name.empty) logWarn("The package in %s has no name.", path);
-	}
-
-	private static RawPackage rawPackageFromFile(PathAndFormat file, bool silent_fail = false) {
-		if( silent_fail && !existsFile(file.path) ) return null;
-
-		string text;
-
-		{
-			auto f = openFile(file.path.toNativeString(), FileMode.read);
-			scope(exit) f.close();
-			text = stripUTF8Bom(cast(string)f.readAll());
-		}
-
-		final switch(file.format) {
-			case PackageFormat.json:
-				return new JsonPackage(parseJsonString(text, file.path.toNativeString()));
-			case PackageFormat.sdl:
-				return new SdlPackage(text, file.path.toNativeString());
-		}
-	}
-
-	static abstract class RawPackage
-	{
-		string package_name; // Should already be lower case
-		string version_;
-		abstract void parseInto(ref PackageRecipe package_, string parent_name);
-	}
-	private static class JsonPackage : RawPackage
-	{
-		Json json;
-		this(Json json) {
-			this.json = json;
-
-			string nameLower;
-			if(json.type == Json.Type.string) {
-				nameLower = json.get!string.toLower();
-				this.json = nameLower;
-			} else {
-				nameLower = json.name.get!string.toLower();
-				this.package_name = nameLower;
-
-				Json versionJson = json["version"];
-				this.version_ = (versionJson.type == Json.Type.undefined) ? null : versionJson.get!string;
-			}
-
-			this.package_name = nameLower;
-		}
-		override void parseInto(ref PackageRecipe recipe, string parent_name)
-		{
-			recipe.parseJson(json, parent_name);
-		}
-	}
-
-	private static class SdlPackage : RawPackage
-	{
-		import dub.internal.sdlang;
-		Tag sdl;
-
-		this(string sdl_text, string filename)
-		{
-			this.sdl = parseSource(sdl_text, filename);
-			foreach (t; this.sdl.tags) {
-				switch (t.name) {
-					default: break;
-					case "name":
-						this.package_name = t.values[0].get!string.toLower();
-						break;
-					case "version":
-						this.version_ = t.values[0].get!string;
-						break;
-				}
-			}
-		}
-
-		override void parseInto(ref PackageRecipe recipe, string parent_name)
-		{
-			recipe.parseSDL(sdl, parent_name);
-		}
 	}
 }
 
