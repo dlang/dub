@@ -1,3 +1,10 @@
+/**
+	Package recipe reading/writing facilities.
+
+	Copyright: © 2015-2016, Sönke Ludwig
+	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
+	Authors: Sönke Ludwig
+*/
 module dub.recipe.io;
 
 import dub.recipe.packagerecipe;
@@ -5,6 +12,15 @@ import dub.internal.vibecompat.inet.path;
 
 
 /** Reads a package recipe from a file.
+
+	The file format (JSON/SDLang) will be determined from the file extension.
+
+	Params:
+		filename = Path of the package recipe file
+		parent_name = Optional name of the parent package (if this is a sub package)
+
+	Returns: Returns the package recipe contents
+	Throws: Throws an exception if an I/O or syntax error occurs
 */
 PackageRecipe readPackageRecipe(string filename, string parent_name = null)
 {
@@ -28,6 +44,18 @@ PackageRecipe readPackageRecipe(Path file, string parent_name = null)
 }
 
 /** Parses an in-memory package recipe.
+
+	The file format (JSON/SDLang) will be determined from the file extension.
+
+	Params:
+		contents = The contents of the recipe file
+		filename = Name associated with the package recipe - this is only used
+			to determine the file format from the file extension
+		parent_name = Optional name of the parent package (if this is a sub
+		package)
+
+	Returns: Returns the package recipe contents
+	Throws: Throws an exception if an I/O or syntax error occurs
 */
 PackageRecipe parsePackageRecipe(string contents, string filename, string parent_name = null)
 {
