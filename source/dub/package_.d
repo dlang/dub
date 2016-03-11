@@ -130,8 +130,8 @@ class Package {
 			if (recipe.version_.length == 0) {
 				logDiagnostic("Note: Failed to determine version of package %s at %s. Assuming ~master.", recipe.name, this.path.toNativeString());
 				// TODO: Assume unknown version here?
-				// recipe.version_ = Version.UNKNOWN.toString();
-				recipe.version_ = Version.MASTER.toString();
+				// recipe.version_ = Version.unknown.toString();
+				recipe.version_ = Version.masterBranch.toString();
 			} else logDiagnostic("Determined package version using GIT: %s %s", recipe.name, recipe.version_);
 		}
 
@@ -280,7 +280,7 @@ class Package {
 	/// ditto
 	void storeInfo(Path path)
 	const {
-		enforce(!ver.isUnknown, "Trying to store a package with an 'unknown' version, this is not supported.");
+		enforce(!version_.isUnknown, "Trying to store a package with an 'unknown' version, this is not supported.");
 		auto filename = path ~ defaultPackageFilename;
 		auto dstFile = openFile(filename.toNativeString(), FileMode.createTrunc);
 		scope(exit) dstFile.close();
@@ -554,7 +554,7 @@ class Package {
 		ret.configuration = config;
 		ret.path = m_path.toNativeString();
 		ret.name = this.name;
-		ret.version_ = this.ver;
+		ret.version_ = this.version_;
 		ret.description = m_info.description;
 		ret.homepage = m_info.homepage;
 		ret.authors = m_info.authors.dup;
@@ -607,7 +607,7 @@ class Package {
 		foreach (f; sourceFileTypes.byKey.array.sort()) {
 			SourceFileDescription sf;
 			sf.path = f;
-			sf.type = sourceFileTypes[f];
+			sf.role = sourceFileTypes[f];
 			ret.files ~= sf;
 		}
 
@@ -689,7 +689,7 @@ class Package {
 	private void simpleLint() const {
 		if (m_parentPackage) {
 			if (m_parentPackage.path != path) {
-				if (info.license.length && info.license != m_parentPackage.info.license)
+				if (this.recipe.license.length && this.recipe.license != m_parentPackage.recipe.license)
 					logWarn("License in subpackage %s is different than it's parent package, this is discouraged.", name);
 			}
 		}

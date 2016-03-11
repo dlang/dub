@@ -383,7 +383,7 @@ class Dub {
 		} else {
 			logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, test_config, config, lbuildsettings.targetType);
 
-			BuildSettingsTemplate tcinfo = m_project.rootPackage.info.getConfiguration(config).buildSettings;
+			BuildSettingsTemplate tcinfo = m_project.rootPackage.recipe.getConfiguration(config).buildSettings;
 			tcinfo.targetType = TargetType.executable;
 			tcinfo.targetName = test_config;
 			tcinfo.versions[""] ~= "VibeCustomMain"; // HACK for vibe.d's legacy main() behavior
@@ -438,7 +438,7 @@ class Dub {
 					});
 				}
 			}
-			m_project.rootPackage.info.configurations ~= ConfigurationInfo(test_config, tcinfo);
+			m_project.rootPackage.recipe.configurations ~= ConfigurationInfo(test_config, tcinfo);
 			m_project = new Project(m_packageManager, m_project.rootPackage);
 
 			settings.config = test_config;
@@ -544,9 +544,9 @@ class Dub {
 		}
 
 		if (options & FetchOptions.printOnly) {
-			if (existing && existing.vers != ver)
+			if (existing && existing.version_ != Version(ver))
 				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
-					packageId, existing.vers, ver, packageId);
+					packageId, existing.version_, ver, packageId);
 			return null;
 		}
 
@@ -633,7 +633,7 @@ class Dub {
 
 		// Retrieve packages to be removed.
 		foreach(pack; m_packageManager.getPackageIterator(package_id))
-			if ((wildcardOrEmpty || pack.vers == version_) && m_packageManager.isManagedPackage(pack))
+			if ((wildcardOrEmpty || pack.version_ == Version(version_)) && m_packageManager.isManagedPackage(pack))
 				packages ~= pack;
 
 		// Check validity of packages to be removed.
@@ -647,7 +647,7 @@ class Dub {
 				~ "'" ~ to!string(location_) ~ "'.");
 			logError("Available versions:");
 			foreach(pack; packages)
-				logError("  %s", pack.vers);
+				logError("  %s", pack.version_);
 			throw new Exception("Please specify a individual version using --version=... or use the"
 				~ " wildcard --version=" ~ RemoveVersionWildcard ~ " to remove all versions.");
 		}
@@ -656,9 +656,9 @@ class Dub {
 		foreach(pack; packages) {
 			try {
 				remove(pack, force_remove);
-				logInfo("Removed %s, version %s.", package_id, pack.vers);
+				logInfo("Removed %s, version %s.", package_id, pack.version_);
 			} catch (Exception e) {
-				logError("Failed to remove %s %s: %s", package_id, pack.vers, e.msg);
+				logError("Failed to remove %s %s: %s", package_id, pack.version_, e.msg);
 				logInfo("Continuing with other packages (if any).");
 			}
 		}
@@ -782,14 +782,14 @@ class Dub {
 		import std.path : extension;
 		import dub.recipe.io : writePackageRecipe;
 
-		auto srcfile = m_project.rootPackage.packageInfoFilename;
+		auto srcfile = m_project.rootPackage.recipePath;
 		auto srcext = srcfile[$-1].toString().extension;
 		if (srcext == "."~destination_file_ext) {
 			logInfo("Package format is already %s.", destination_file_ext);
 			return;
 		}
 
-		writePackageRecipe(srcfile[0 .. $-1] ~ ("dub."~destination_file_ext), m_project.rootPackage.info);
+		writePackageRecipe(srcfile[0 .. $-1] ~ ("dub."~destination_file_ext), m_project.rootPackage.recipe);
 		removeFile(srcfile);
 	}
 
@@ -798,7 +798,7 @@ class Dub {
 		if (m_dryRun) return;
 
 		// allow to choose a custom ddox tool
-		auto tool = m_project.rootPackage.info.ddoxTool;
+		auto tool = m_project.rootPackage.recipe.ddoxTool;
 		if (tool.empty) tool = "ddox";
 
 		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
@@ -821,7 +821,7 @@ class Dub {
 		settings.buildType = "debug";
 		settings.run = true;
 
-		auto filterargs = m_project.rootPackage.info.ddoxFilterArgs.dup;
+		auto filterargs = m_project.rootPackage.recipe.ddoxFilterArgs.dup;
 		if (filterargs.empty) filterargs = ["--min-protection=Protected", "--only-documented"];
 
 		settings.runArgs = "filter" ~ filterargs ~ "docs.json";
@@ -1005,7 +1005,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 	{
 		m_rootPackage = root;
 		m_selectedVersions = selected_versions;
-		return super.resolve(TreeNode(root.name, Dependency(root.ver)), (m_options & UpgradeOptions.printUpgradesOnly) == 0);
+		return super.resolve(TreeNode(root.name, Dependency(root.version_)), (m_options & UpgradeOptions.printUpgradesOnly) == 0);
 	}
 
 	protected override Dependency[] getAllConfigs(string pack)
@@ -1023,7 +1023,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		logDiagnostic("Search for versions of %s (%s package suppliers)", pack, m_dub.m_packageSuppliers.length);
 		Version[] versions;
 		foreach (p; m_dub.packageManager.getPackageIterator(pack))
-			versions ~= p.ver;
+			versions ~= p.version_;
 
 		foreach (ps; m_dub.m_packageSuppliers) {
 			try {
@@ -1160,7 +1160,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		if (!dep.path.empty) {
 			try {
 				auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
-				if (dep.matches(ret.ver)) return ret;
+				if (dep.matches(ret.version_)) return ret;
 			} catch (Exception e) {
 				logDiagnostic("Failed to load path based dependency %s: %s", name, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize);

@@ -107,7 +107,7 @@ class PackageManager {
 		}
 
 		foreach (p; getPackageIterator(name))
-			if (p.ver == ver)
+			if (p.version_ == ver)
 				return p;
 
 		return null;
@@ -123,7 +123,7 @@ class PackageManager {
 	Package getPackage(string name, Version ver, Path path)
 	{
 		auto ret = getPackage(name, path);
-		if (!ret || ret.ver != ver) return null;
+		if (!ret || ret.version_ != ver) return null;
 		return ret;
 	}
 
@@ -170,11 +170,11 @@ class PackageManager {
 	{
 		Package ret;
 		foreach (p; getPackageIterator(name))
-			if (version_spec.matches(p.ver) && (!ret || p.ver > ret.ver))
+			if (version_spec.matches(p.version_) && (!ret || p.version_ > ret.version_))
 				ret = p;
 
 		if (enable_overrides && ret) {
-			if (auto ovr = getPackage(name, ret.ver))
+			if (auto ovr = getPackage(name, ret.version_))
 				return ovr;
 		}
 		return ret;
@@ -365,9 +365,9 @@ class PackageManager {
 		// overwrite dub.json (this one includes a version field)
 		auto pack = new Package(destination, Path.init, null, package_info["version"].get!string);
 
-		if (pack.packageInfoFilename.head != defaultPackageFilename)
+		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
-			removeFile(pack.packageInfoFilename);
+			removeFile(pack.recipePath);
 		pack.storeInfo();
 		addPackages(m_packages, pack);
 		return pack;
@@ -376,7 +376,7 @@ class PackageManager {
 	/// Removes the given the package.
 	void remove(in Package pack, bool force_remove)
 	{
-		logDebug("Remove %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
+		logDebug("Remove %s, version %s, path '%s'", pack.name, pack.version_, pack.path);
 		enforce(!pack.path.empty, "Cannot remove package "~pack.name~" without a path.");
 
 		// remove package from repositories' list
@@ -410,14 +410,14 @@ class PackageManager {
 		auto pack = new Package(path);
 		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
 		if (verName.length)
-			pack.ver = Version(verName);
+			pack.version_ = Version(verName);
 
 		// don't double-add packages
 		Package[]* packs = &m_repositories[type].localPackages;
 		foreach (p; *packs) {
 			if (p.path == path) {
-				enforce(p.ver == pack.ver, "Adding the same local package twice with differing versions is not allowed.");
-				logInfo("Package is already registered: %s (version: %s)", p.name, p.ver);
+				enforce(p.version_ == pack.version_, "Adding the same local package twice with differing versions is not allowed.");
+				logInfo("Package is already registered: %s (version: %s)", p.name, p.version_);
 				return p;
 			}
 		}
@@ -426,7 +426,7 @@ class PackageManager {
 
 		writeLocalPackageList(type);
 
-		logInfo("Registered package: %s (version: %s)", pack.name, pack.ver);
+		logInfo("Registered package: %s (version: %s)", pack.name, pack.version_);
 		return pack;
 	}
 
@@ -443,7 +443,7 @@ class PackageManager {
 
 		string[Version] removed;
 		foreach_reverse( i; to_remove ) {
-			removed[(*packs)[i].ver] = (*packs)[i].name;
+			removed[(*packs)[i].version_] = (*packs)[i].name;
 			*packs = (*packs)[0 .. i] ~ (*packs)[i+1 .. $];
 		}
 
@@ -516,7 +516,7 @@ class PackageManager {
 
 							if (pp.name != name)
 								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, pp.name);
-							pp.ver = ver;
+							pp.version_ = ver;
 
 							addPackages(packs, pp);
 						}
@@ -644,7 +644,7 @@ class PackageManager {
 			if (p.parentPackage) continue; // do not store sub packages
 			auto entry = Json.emptyObject;
 			entry["name"] = p.name;
-			entry["version"] = p.ver.toString();
+			entry["version"] = p.version_.toString();
 			entry["path"] = p.path.toNativeString();
 			newlist ~= entry;
 		}
@@ -660,7 +660,7 @@ class PackageManager {
 		foreach (ovr; m_repositories[type].overrides) {
 			auto jovr = Json.emptyObject;
 			jovr.name = ovr.package_;
-			jovr["version"] = ovr.version_.versionString;
+			jovr["version"] = ovr.version_.versionSpec;
 			if (!ovr.targetPath.empty) jovr.targetPath = ovr.targetPath.toNativeString();
 			else jovr.targetVersion = ovr.targetVersion.toString();
 			newlist ~= jovr;

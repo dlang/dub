@@ -49,7 +49,7 @@ struct Dependency {
 	static @property any() { return Dependency(ANY_IDENT); }
 
 	/// An invalid dependency (with no possible version matches).
-	static @property invalid() { Dependency ret; ret.m_versA = Version.HEAD; ret.m_versB = Version.RELEASE; return ret; }
+	static @property invalid() { Dependency ret; ret.m_versA = Version.maxRelease; ret.m_versB = Version.minRelease; return ret; }
 
 	deprecated("Use .any instead")
 	alias ANY = any;
@@ -105,7 +105,7 @@ struct Dependency {
 
 	/// Returns the exact version matched by the version range.
 	@property Version version_() const {
-		enforce(m_versA == m_versB, "Dependency "~versionString~" is no exact version.");
+		enforce(m_versA == m_versB, "Dependency "~this.versionSpec~" is no exact version.");
 		return m_versA;
 	}
 
@@ -150,7 +150,7 @@ struct Dependency {
 			ves = ves[2..$];
 			m_versA = Version(expandVersion(ves));
 			m_versB = Version(bumpVersion(ves));
-		} else if (ves[0] == Version.BRANCH_IDENT) {
+		} else if (ves[0] == Version.branchPrefix) {
 			m_inclusiveA = true;
 			m_inclusiveB = true;
 			m_versA = m_versB = Version(ves);
@@ -163,14 +163,14 @@ struct Dependency {
 			size_t idx2 = std.string.indexOf(ves, " ");
 			if (idx2 == -1) {
 				if (cmpa == "<=" || cmpa == "<") {
-					m_versA = Version.RELEASE;
+					m_versA = Version.minRelease;
 					m_inclusiveA = true;
 					m_versB = Version(ves);
 					m_inclusiveB = cmpa == "<=";
 				} else if (cmpa == ">=" || cmpa == ">") {
 					m_versA = Version(ves);
 					m_inclusiveA = cmpa == ">=";
-					m_versB = Version.HEAD;
+					m_versB = Version.maxRelease;
 					m_inclusiveB = true;
 				} else {
 					// Converts "==" to ">=a&&<=a", which makes merging easier
@@ -202,7 +202,7 @@ struct Dependency {
 
 		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
 			// Special "==" case
-			if (m_versA == Version.MASTER ) return "~master";
+			if (m_versA == Version.masterBranch) return "~master";
 			else return m_versA.toString();
 		}
 
@@ -223,9 +223,9 @@ struct Dependency {
 			}
 		}
 
-		if (m_versA != Version.RELEASE) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
-		if (m_versB != Version.HEAD) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
-		if (m_versA == Version.RELEASE && m_versB == Version.HEAD) r = ">=0.0.0";
+		if (m_versA != Version.minRelease) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
+		if (m_versB != Version.maxRelease) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
+		if (m_versA == Version.minRelease && m_versB == Version.maxRelease) r = ">=0.0.0";
 		return r;
 	}
 
@@ -250,7 +250,7 @@ struct Dependency {
 	*/
 	string toString()()
 	const {
-		auto ret = versionString;
+		auto ret = versionSpec;
 		if (optional) ret ~= " (optional)";
 		if (!path.empty) ret ~= " @"~path.toNativeString();
 		return ret;
@@ -266,10 +266,10 @@ struct Dependency {
 	Json toJson() const {
 		Json json;
 		if( path.empty && !optional ){
-			json = Json(this.versionString);
+			json = Json(this.versionSpec);
 		} else {
 			json = Json.emptyObject;
-			json["version"] = this.versionString;
+			json["version"] = this.versionSpec;
 			if (!path.empty) json["path"] = path.toString();
 			if (optional) json["optional"] = true;
 			if (default_) json["default"] = true;
@@ -296,7 +296,7 @@ struct Dependency {
 				if (auto pv = "version" in verspec)
 					logDiagnostic("Ignoring version specification (%s) for path based dependency %s", pv.get!string, pp.get!string);
 
-				dep = Dependency.ANY;
+				dep = Dependency.any;
 				dep.path = Path(verspec.path.get!string);
 			} else {
 				enforce("version" in verspec, "No version field specified!");
@@ -324,7 +324,7 @@ struct Dependency {
 			"path": "path/to/package"
 		}
 			`));
-		Dependency d = Dependency.ANY; // supposed to ignore the version spec
+		Dependency d = Dependency.any; // supposed to ignore the version spec
 		d.optional = true;
 		d.default_ = true;
 		d.path = Path("path/to/package");
@@ -420,11 +420,11 @@ struct Dependency {
 	const {
 		if (this.matchesAny) return o;
 		if (o.matchesAny) return this;
-		if (!this.valid || !o.valid) return INVALID;
-		if (m_versA.isBranch != o.m_versA.isBranch) return INVALID;
-		if (m_versB.isBranch != o.m_versB.isBranch) return INVALID;
-		if (m_versA.isBranch) return m_versA == o.m_versA ? this : INVALID;
-		if (this.path != o.path) return INVALID;
+		if (!this.valid || !o.valid) return invalid;
+		if (m_versA.isBranch != o.m_versA.isBranch) return invalid;
+		if (m_versB.isBranch != o.m_versB.isBranch) return invalid;
+		if (m_versA.isBranch) return m_versA == o.m_versA ? this : invalid;
+		if (this.path != o.path) return invalid;
 
 		Version a = m_versA > o.m_versA ? m_versA : o.m_versA;
 		Version b = m_versB < o.m_versB ? m_versB : o.m_versB;
@@ -435,7 +435,7 @@ struct Dependency {
 		d.m_inclusiveB = !m_inclusiveB && m_versB <= o.m_versB ? false : o.m_inclusiveB;
 		d.m_versB = b;
 		d.m_optional = m_optional && o.m_optional;
-		if (!d.valid) return INVALID;
+		if (!d.valid) return invalid;
 
 		return d;
 	}
@@ -443,7 +443,7 @@ struct Dependency {
 	private static bool isDigit(char ch) { return ch >= '0' && ch <= '9'; }
 	private static string skipComp(ref string c) {
 		size_t idx = 0;
-		while (idx < c.length && !isDigit(c[idx]) && c[idx] != Version.BRANCH_IDENT) idx++;
+		while (idx < c.length && !isDigit(c[idx]) && c[idx] != Version.branchPrefix) idx++;
 		enforce(idx < c.length, "Expected version number in version spec: "~c);
 		string cmp = idx==c.length-1||idx==0? ">=" : c[0..idx];
 		c = c[idx..$];
@@ -462,19 +462,19 @@ struct Dependency {
 
 unittest {
 	Dependency a = Dependency(">=1.1.0"), b = Dependency(">=1.3.0");
-	assert (a.merge(b).valid() && a.merge(b).versionString == ">=1.3.0", a.merge(b).toString());
+	assert (a.merge(b).valid() && a.merge(b).versionSpec == ">=1.3.0", a.merge(b).toString());
 
 	assertThrown(Dependency("<=2.0.0 >=1.0.0"));
 	assertThrown(Dependency(">=2.0.0 <=1.0.0"));
 
 	a = Dependency(">=1.0.0 <=5.0.0"); b = Dependency(">=2.0.0");
-	assert (a.merge(b).valid() && a.merge(b).versionString == ">=2.0.0 <=5.0.0", a.merge(b).toString());
+	assert (a.merge(b).valid() && a.merge(b).versionSpec == ">=2.0.0 <=5.0.0", a.merge(b).toString());
 
 	assertThrown(a = Dependency(">1.0.0 ==5.0.0"), "Construction is invalid");
 
 	a = Dependency(">1.0.0"); b = Dependency("<2.0.0");
 	assert (a.merge(b).valid(), a.merge(b).toString());
-	assert (a.merge(b).versionString == ">1.0.0 <2.0.0", a.merge(b).toString());
+	assert (a.merge(b).versionSpec == ">1.0.0 <2.0.0", a.merge(b).toString());
 
 	a = Dependency(">2.0.0"); b = Dependency("<1.0.0");
 	assert (!(a.merge(b)).valid(), a.merge(b).toString());
@@ -497,18 +497,18 @@ unittest {
 
 
 	// branches / head revisions
-	a = Dependency(Version.MASTER_STRING);
+	a = Dependency(Version.masterBranch);
 	assert(a.valid());
-	assert(a.matches(Version.MASTER));
-	b = Dependency(Version.MASTER_STRING);
+	assert(a.matches(Version.masterBranch));
+	b = Dependency(Version.masterBranch);
 	m = a.merge(b);
-	assert(m.matches(Version.MASTER));
+	assert(m.matches(Version.masterBranch));
 
 	//assertThrown(a = Dependency(Version.MASTER_STRING ~ " <=1.0.0"), "Construction invalid");
-	assertThrown(a = Dependency(">=1.0.0 " ~ Version.MASTER_STRING), "Construction invalid");
+	assertThrown(a = Dependency(">=1.0.0 " ~ Version.masterBranch.toString()), "Construction invalid");
 
-	immutable string branch1 = Version.BRANCH_IDENT ~ "Branch1";
-	immutable string branch2 = Version.BRANCH_IDENT ~ "Branch2";
+	immutable string branch1 = Version.branchPrefix ~ "Branch1";
+	immutable string branch2 = Version.branchPrefix ~ "Branch2";
 
 	//assertThrown(a = Dependency(branch1 ~ " " ~ branch2), "Error: '" ~ branch1 ~ " " ~ branch2 ~ "' succeeded");
 	//assertThrown(a = Dependency(Version.MASTER_STRING ~ " " ~ branch1), "Error: '" ~ Version.MASTER_STRING ~ " " ~ branch1 ~ "' succeeded");
@@ -523,7 +523,7 @@ unittest {
 	a = Dependency(branch1);
 	assert(a.matches(branch1), "Dependency(branch1) does not match 'branch1'");
 	assert(a.matches(Version(branch1)), "Dependency(branch1) does not match Version('branch1')");
-	assert(!a.matches(Version.MASTER), "Dependency(branch1) matches Version.MASTER");
+	assert(!a.matches(Version.masterBranch), "Dependency(branch1) matches Version.masterBranch");
 	assert(!a.matches(branch2), "Dependency(branch1) matches 'branch2'");
 	assert(!a.matches(Version("1.0.0")), "Dependency(branch1) matches '1.0.0'");
 	a = Dependency(">=1.0.0");
@@ -583,28 +583,28 @@ unittest {
 	assert(a.valid);
 	assert(a.version_ == Version("~d2test"));
 
-	a = Dependency.ANY;
+	a = Dependency.any;
 	assert(!a.optional);
 	assert(a.valid);
 	assertThrown(a.version_);
-	assert(a.matches(Version.MASTER));
+	assert(a.matches(Version.masterBranch));
 	assert(a.matches(Version("1.0.0")));
 	assert(a.matches(Version("0.0.1-pre")));
 	b = Dependency(">=1.0.1");
 	assert(b == a.merge(b));
 	assert(b == b.merge(a));
-	b = Dependency(Version.MASTER);
+	b = Dependency(Version.masterBranch);
 	assert(a.merge(b) == b);
 	assert(b.merge(a) == b);
 
 	a.optional = true;
-	assert(a.matches(Version.MASTER));
+	assert(a.matches(Version.masterBranch));
 	assert(a.matches(Version("1.0.0")));
 	assert(a.matches(Version("0.0.1-pre")));
 	b = Dependency(">=1.0.1");
 	assert(b == a.merge(b));
 	assert(b == b.merge(a));
-	b = Dependency(Version.MASTER);
+	b = Dependency(Version.masterBranch);
 	assert(a.merge(b) == b);
 	assert(b.merge(a) == b);
 
@@ -612,10 +612,10 @@ unittest {
 }
 
 unittest {
-	assert(Dependency("~>1.0.4").versionString == "~>1.0.4");
-	assert(Dependency("~>1.4").versionString == "~>1.4");
-	assert(Dependency("~>2").versionString == "~>2");
-	assert(Dependency("~>1.0.4+1.2.3").versionString == "~>1.0.4");
+	assert(Dependency("~>1.0.4").versionSpec == "~>1.0.4");
+	assert(Dependency("~>1.4").versionSpec == "~>1.4");
+	assert(Dependency("~>2").versionSpec == "~>2");
+	assert(Dependency("~>1.0.4+1.2.3").versionSpec == "~>1.0.4");
 }
 
 
@@ -630,13 +630,15 @@ struct Version {
 	private {
 		enum MAX_VERS = "99999.0.0";
 		enum UNKNOWN_VERS = "unknown";
+		enum branchPrefix = '~';
+		enum masterString = "~master";
 		string m_version;
 	}
 
 	static @property minRelease() { return Version("0.0.0"); }
 	static @property maxRelease() { return Version(MAX_VERS); }
-	static @property masterBranch() { return Version(MASTER_STRING); }
-	static @property unknownVersion() { return Version(UNKNOWN_VERS); }
+	static @property masterBranch() { return Version(masterString); }
+	static @property unknown() { return Version(UNKNOWN_VERS); }
 
 	deprecated("Use minRelease instead")
 	static @property RELEASE() { return Version("0.0.0"); }
@@ -644,19 +646,19 @@ struct Version {
 	static @property HEAD() { return Version(MAX_VERS); }
 	deprecated("Use masterBranch instead")
 	static @property MASTER() { return Version(MASTER_STRING); }
-	deprecated("Use unknownVersion instead")
+	deprecated("Use unknown instead")
 	static @property UNKNOWN() { return Version(UNKNOWN_VERS); }
 	deprecated("Use masterBranch.toString() instead")
-	static @property MASTER_STRING() { return "~master"; }
+	static @property MASTER_STRING() { return masterString; }
 	deprecated
-	static @property BRANCH_IDENT() { return '~'; }
+	static @property BRANCH_IDENT() { return branchPrefix; }
 
 	/** Constructs a new `Version` from its string representation.
 	*/
 	this(string vers)
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		if (vers[0] != BRANCH_IDENT && vers != UNKNOWN_VERS)
+		if (vers[0] != branchPrefix && vers != UNKNOWN_VERS)
 			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
 		m_version = vers;
 	}
@@ -672,10 +674,10 @@ struct Version {
 	}
 
 	/// Tests if this represents a branch instead of a version.
-	@property bool isBranch() const { return !m_version.empty && m_version[0] == BRANCH_IDENT; }
+	@property bool isBranch() const { return !m_version.empty && m_version[0] == branchPrefix; }
 
 	/// Tests if this represents the master branch "~master".
-	@property bool isMaster() const { return m_version == MASTER_STRING; }
+	@property bool isMaster() const { return m_version == masterString; }
 
 	/** Tests if this represents a pre-release version.
 
@@ -726,10 +728,10 @@ unittest {
 	assert(!a.isBranch, "Error: '1.0.0' treated as branch");
 	assert(a == a, "a == a failed");
 
-	assertNotThrown(a = Version(Version.MASTER_STRING), "Constructing Version("~Version.MASTER_STRING~"') failed");
-	assert(a.isBranch, "Error: '"~Version.MASTER_STRING~"' treated as branch");
+	assertNotThrown(a = Version(Version.masterString), "Constructing Version("~Version.masterString~"') failed");
+	assert(a.isBranch, "Error: '"~Version.masterString~"' treated as branch");
 	assert(a.isMaster);
-	assert(a == Version.MASTER, "Constructed master version != default master version.");
+	assert(a == Version.masterBranch, "Constructed master version != default master version.");
 
 	assertNotThrown(a = Version("~BRANCH"), "Construction of branch Version failed.");
 	assert(a.isBranch, "Error: '~BRANCH' not treated as branch'");
@@ -742,7 +744,7 @@ unittest {
 	assert(a == b, "a == b with a:'1.0.0', b:'1.0.0' failed");
 	b = Version("2.0.0");
 	assert(a != b, "a != b with a:'1.0.0', b:'2.0.0' failed");
-	a = Version(Version.MASTER_STRING);
+	a = Version.masterBranch;
 	b = Version("~BRANCH");
 	assert(a != b, "a != b with a:MASTER, b:'~branch' failed");
 	assert(a > b);
@@ -772,12 +774,12 @@ unittest {
 		for(int j=i-1; j>=0; --j)
 			assert(versions[j] < versions[i], "Failed: " ~ versions[j].toString() ~ "<" ~ versions[i].toString());
 
-	a = Version.UNKNOWN;
-	b = Version.RELEASE;
+	a = Version.unknown;
+	b = Version.minRelease;
 	assertThrown(a == b, "Failed: compared " ~ a.toString() ~ " with " ~ b.toString() ~ "");
 
-	a = Version.UNKNOWN;
-	b = Version.UNKNOWN;
+	a = Version.unknown;
+	b = Version.unknown;
 	assertThrown(a == b, "Failed: UNKNOWN == UNKNOWN");
 
 	assert(Version("1.0.0+a") == Version("1.0.0+b"));

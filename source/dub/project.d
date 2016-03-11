@@ -98,7 +98,7 @@ class Project {
 	@property string[string] cachedPackagesIDs() const {
 		string[string] pkgs;
 		foreach(p; m_dependencies)
-			pkgs[p.name] = p.vers;
+			pkgs[p.name] = p.version_.toString();
 		return pkgs;
 	}
 
@@ -185,9 +185,9 @@ class Project {
 		m_rootPackage.warnOnSpecialCompilerFlags();
 		string nameSuggestion() {
 			string ret;
-			ret ~= `Please modify the "name" field in %s accordingly.`.format(m_rootPackage.packageInfoFilename.toNativeString());
-			if (!m_rootPackage.info.buildSettings.targetName.length) {
-				if (m_rootPackage.packageInfoFilename.head.toString().endsWith(".sdl")) {
+			ret ~= `Please modify the "name" field in %s accordingly.`.format(m_rootPackage.recipePath.toNativeString());
+			if (!m_rootPackage.recipe.buildSettings.targetName.length) {
+				if (m_rootPackage.recipePath.head.toString().endsWith(".sdl")) {
 					ret ~= ` You can then add 'targetName "%s"' to keep the current executable name.`.format(m_rootPackage.name);
 				} else {
 					ret ~= ` You can then add '"targetName": "%s"' to keep the current executable name.`.format(m_rootPackage.name);
@@ -197,7 +197,7 @@ class Project {
 		}
 		if (m_rootPackage.name != m_rootPackage.name.toLower()) {
 			logWarn(`WARNING: DUB package names should always be lower case. %s`, nameSuggestion());
-		} else if (!m_rootPackage.info.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
+		} else if (!m_rootPackage.recipe.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
 			logWarn(`WARNING: DUB package names may only contain alphanumeric characters, `
 				~ `as well as '-' and '_'. %s`, nameSuggestion());
 		}
@@ -252,10 +252,10 @@ class Project {
 
 				auto basename = getBasePackageName(name);
 				if (name == m_rootPackage.basePackage.name) {
-					vspec = Dependency(m_rootPackage.ver);
+					vspec = Dependency(m_rootPackage.version_);
 					p = m_rootPackage.basePackage;
 				} else if (basename == m_rootPackage.basePackage.name) {
-					vspec = Dependency(m_rootPackage.ver);
+					vspec = Dependency(m_rootPackage.version_);
 					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, getSubPackageName(name), false);
 					catch (Exception e) {
 						logDiagnostic("%sError getting sub package %s: %s", indent, name, e.msg);
@@ -564,9 +564,9 @@ class Project {
 	}
 
 	/// Determines if the given dependency is already indirectly referenced by other dependencies of pack.
-	bool isRedundantDependency(in Package pack, in Package dependency)
+	deprecated bool isRedundantDependency(in Package pack, in Package dependency)
 	const {
-		foreach (dep; pack.dependencies.byKey) {
+		foreach (dep; pack.recipe.dependencies.byKey) {
 			auto dp = getDependency(dep, true);
 			if (!dp) continue;
 			if (dp is dependency) continue;
@@ -1060,7 +1060,7 @@ struct Action {
 	const Package pack;
 	const Dependency[string] issuer;
 
-	static Action get(string pkg, PlacementLocation location, in Dependency dep, Dependency[string] context, Version old_version = Version.UNKNOWN)
+	static Action get(string pkg, PlacementLocation location, in Dependency dep, Dependency[string] context, Version old_version = Version.unknown)
 	{
 		return Action(Type.fetch, pkg, location, dep, context, old_version);
 	}
@@ -1080,7 +1080,7 @@ struct Action {
 		return Action(Type.failure, pkg, PlacementLocation.user, dep, context);
 	}
 
-	private this(Type id, string pkg, PlacementLocation location, in Dependency d, Dependency[string] issue, Version existing_version = Version.UNKNOWN)
+	private this(Type id, string pkg, PlacementLocation location, in Dependency d, Dependency[string] issue, Version existing_version = Version.unknown)
 	{
 		this.type = id;
 		this.packageId = pkg;
@@ -1095,7 +1095,7 @@ struct Action {
 		pack = pkg;
 		type = id;
 		packageId = pkg.name;
-		vers = cast(immutable)Dependency(pkg.ver);
+		vers = cast(immutable)Dependency(pkg.version_);
 		issuer = issue;
 	}
 
