@@ -41,16 +41,6 @@ struct FilenameAndFormat {
 	PackageFormat format;
 }
 
-struct PathAndFormat {
-	Path path;
-	PackageFormat format;
-
-	@property bool empty() { return path.empty; }
-
-	string toString() const { return path.toString(); }
-}
-
-
 // Supported package descriptions in decreasing order of preference.
 static immutable FilenameAndFormat[] packageInfoFiles = [
 	{"dub.json", PackageFormat.json},
@@ -72,21 +62,21 @@ static immutable FilenameAndFormat[] packageInfoFiles = [
 class Package {
 	private {
 		Path m_path;
-		PathAndFormat m_infoFile;
+		Path m_infoFile;
 		PackageRecipe m_info;
 		Package m_parentPackage;
 	}
 
-	static PathAndFormat findPackageFile(Path path)
+	static Path findPackageFile(Path path)
 	{
 		foreach(file; packageInfoFiles) {
 			auto filename = path ~ file.filename;
-			if(existsFile(filename)) return PathAndFormat(filename, file.format);
+			if(existsFile(filename)) return filename;
 		}
-		return PathAndFormat(Path());
+		return Path.init;
 	}
 
-	this(Path root, PathAndFormat infoFile = PathAndFormat(), Package parent = null, string versionOverride = "")
+	this(Path root, Path infoFile = Path.init, Package parent = null, string versionOverride = "")
 	{
 		import dub.recipe.io;
 
@@ -101,7 +91,7 @@ class Package {
 						"No package file found in %s, expected one of %s"
 							.format(root.toNativeString(), packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
 			}
-			raw_package = readPackageRecipe(m_infoFile.path, parent ? parent.name : null);
+			raw_package = readPackageRecipe(m_infoFile, parent ? parent.name : null);
 		} catch (Exception ex) throw ex;//throw new Exception(format("Failed to load package %s: %s", m_infoFile.toNativeString(), ex.msg));
 
 		this(raw_package, root, parent, versionOverride);
@@ -155,7 +145,7 @@ class Package {
 	@property void ver(Version ver) { assert(m_parentPackage is null); m_info.version_ = ver.toString(); }
 	@property ref inout(PackageRecipe) info() inout { return m_info; }
 	@property Path path() const { return m_path; }
-	@property Path packageInfoFilename() const { return m_infoFile.path; }
+	@property Path packageInfoFilename() const { return m_infoFile; }
 	@property const(Dependency[string]) dependencies() const { return m_info.dependencies; }
 	@property inout(Package) basePackage() inout { return m_parentPackage ? m_parentPackage.basePackage : this; }
 	@property inout(Package) parentPackage() inout { return m_parentPackage; }
@@ -188,7 +178,7 @@ class Package {
 	void storeInfo()
 	{
 		storeInfo(m_path);
-		m_infoFile = PathAndFormat(m_path ~ defaultPackageFilename);
+		m_infoFile = m_path ~ defaultPackageFilename;
 	}
 	/// ditto
 	void storeInfo(Path path)

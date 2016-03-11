@@ -152,7 +152,7 @@ class PackageManager {
 		return null;
 	}
 
-	Package getOrLoadPackage(Path path, PathAndFormat infoFile = PathAndFormat(), bool allow_sub_packages = false)
+	Package getOrLoadPackage(Path path, Path infoFile = Path.init, bool allow_sub_packages = false)
 	{
 		path.endsWithSlash = true;
 		foreach (p; getPackageIterator())
@@ -363,7 +363,7 @@ class PackageManager {
 		logDiagnostic("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite dub.json (this one includes a version field)
-		auto pack = new Package(destination, PathAndFormat(), null, package_info["version"].get!string);
+		auto pack = new Package(destination, Path.init, null, package_info["version"].get!string);
 
 		if (pack.packageInfoFilename.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
@@ -691,7 +691,7 @@ class PackageManager {
 					logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
 					continue;
 				}
-				sp = new Package(path, PathAndFormat(), pack);
+				sp = new Package(path, Path.init, pack);
 			} else sp = new Package(spr.recipe, pack.path, pack);
 
 			// Add the subpackage.

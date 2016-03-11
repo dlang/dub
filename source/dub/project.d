@@ -267,7 +267,7 @@ class Project {
 					else {
 						auto path = vspec.path;
 						if (!path.absolute) path = m_rootPackage.path ~ path;
-						p = m_packageManager.getOrLoadPackage(path, PathAndFormat.init, true);
+						p = m_packageManager.getOrLoadPackage(path, Path.init, true);
 					}
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
 					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
@@ -283,7 +283,7 @@ class Project {
 					Path path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("%sAdding local %s", indent, path);
-					p = m_packageManager.getOrLoadPackage(path, PathAndFormat.init, true);
+					p = m_packageManager.getOrLoadPackage(path, Path.init, true);
 					if (p.parentPackage !is null) {
 						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, name);
 						p = p.parentPackage;
