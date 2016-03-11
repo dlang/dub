@@ -1,7 +1,7 @@
 /**
 	Compiler settings and abstraction.
 
-	Copyright: © 2013-2014 rejectedsoftware e.K.
+	Copyright: © 2013-2016 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
@@ -27,11 +27,18 @@ import std.process;
 
 static this()
 {
-	registerCompiler(new DmdCompiler);
-	registerCompiler(new GdcCompiler);
-	registerCompiler(new LdcCompiler);
+	registerCompiler(new DMDCompiler);
+	registerCompiler(new GDCCompiler);
+	registerCompiler(new LDCCompiler);
 }
 
+/** Returns a compiler handler for a given binary name.
+
+	The name will be compared against the canonical name of each registered
+	compiler handler. If no match is found, the sub strings "dmd", "gdc" and
+	"ldc", in this order, will be searched within the name. If this doesn't
+	yield a match either, an exception will be thrown.
+*/
 Compiler getCompiler(string name)
 {
 	foreach (c; s_compilers)
@@ -46,7 +53,14 @@ Compiler getCompiler(string name)
 	throw new Exception("Unknown compiler: "~name);
 }
 
-string defaultCompiler()
+/** Returns the binary name of the default compiler for the system.
+
+	When calling this function for the first time, it will search the PATH
+	environment variable for files named "dmd", "gdc", "gdmd", "ldc2", "ldmd2"
+	(in that order) and return the first match. If no match is found, "dmd" is
+	returned.
+*/
+@property string defaultCompiler()
 {
 	static string name;
 	if (!name.length) name = findCompiler();
@@ -66,11 +80,25 @@ private string findCompiler()
 	return res.empty ? compilers[0] : res.front;
 }
 
+/** Registers a new compiler handler.
+
+	Note that by default `DMDCompiler`, `GDCCompiler` and `LDCCompiler` are
+	already registered at startup.
+*/
 void registerCompiler(Compiler c)
 {
 	s_compilers ~= c;
 }
 
+
+/** Searches the given list of compiler flags for ones that have a generic
+	equivalent.
+
+	Certain compiler flags should, instead of using compiler-specfic syntax,
+	be specified as build options (`BuildOptions`) or built requirements
+	(`BuildRequirements`). This function will output warning messages to
+	assist the user in making the best choice.
+*/
 void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, string package_name, string config_name)
 {
 	struct SpecialFlag {

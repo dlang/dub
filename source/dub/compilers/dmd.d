@@ -23,7 +23,9 @@ import std.random;
 import std.typecons;
 
 
-class DmdCompiler : Compiler {
+deprecated alias DmdCompiler = DMDCompiler;
+
+class DMDCompiler : Compiler {
 	private static immutable s_options = [
 		tuple(BuildOption.debugMode, ["-debug"]),
 		tuple(BuildOption.releaseMode, ["-release"]),

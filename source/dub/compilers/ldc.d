@@ -23,7 +23,9 @@ import std.random;
 import std.typecons;
 
 
-class LdcCompiler : Compiler {
+deprecated alias LdcCompiler = LDCCompiler;
+
+class LDCCompiler : Compiler {
 	private static immutable s_options = [
 		tuple(BuildOption.debugMode, ["-d-debug"]),
 		tuple(BuildOption.releaseMode, ["-release"]),
