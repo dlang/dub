@@ -1,7 +1,7 @@
 /**
-	Stuff with dependencies.
+	Dependency specification functionality.
 
-	Copyright: © 2012-2013 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff, © 2012-2016 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff, Sönke Ludwig
 */
@@ -25,9 +25,12 @@ static import std.compiler;
 
 
 /**
-	Representing a dependency, which is basically a version string and a
-	compare methode, e.g. '>=1.0.0 <2.0.0' (i.e. a space separates the two
-	version numbers)
+	Represents a dependency specification.
+
+	A dependency specification either represents a specific version or version
+	range, or a path to a package. In addition to that it has `optional` and
+	`default_` flags to control how non-mandatory dependencies are handled. The
+	package name is notably not part of the dependency specification.
 */
 struct Dependency {
 	private {
@@ -42,18 +45,30 @@ struct Dependency {
 		bool m_default = false;
 	}
 
-	// A Dependency, which matches every valid version.
+	/// A Dependency, which matches every valid version.
 	static @property any() { return Dependency(ANY_IDENT); }
+
+	/// An invalid dependency (with no possible version matches).
 	static @property invalid() { Dependency ret; ret.m_versA = Version.HEAD; ret.m_versB = Version.RELEASE; return ret; }
 
+	deprecated("Use .any instead")
 	alias ANY = any;
+	deprecated("Use .invalid instead")
 	alias INVALID = invalid;
 
-	this(string ves)
+	/** Constructs a new dependency specification from a string
+
+		See the `versionSpec` property for a description of the accepted
+		contents of that string.
+	*/
+	this(string spec)
 	{
-		this.versionSpec = ves;
+		this.versionSpec = spec;
 	}
 
+	/** Constructs a new dependency specification that matches a specific
+		version.
+	*/
 	this(in Version ver)
 	{
 		m_inclusiveA = m_inclusiveB = true;
@@ -61,6 +76,9 @@ struct Dependency {
 		m_versB = ver;
 	}
 
+	/** Constructs a new dependency specification that matches a specific
+		path.
+	*/
 	this(Path path)
 	{
 		this(ANY_IDENT);
@@ -91,42 +109,29 @@ struct Dependency {
 		return m_versA;
 	}
 
-	/// Returns a string representing the version range for the dependency.
-	@property string versionString()
-	const {
-		string r;
+	/// Compatibility alias
+	deprecated("Use versionSpec instead.")
+	alias versionString = versionSpec;
 
-		if (this == invalid) return "invalid";
+	/** Sets/gets the matching version range as a specification string.
 
-		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
-			// Special "==" case
-			if (m_versA == Version.MASTER ) return "~master";
-			else return m_versA.toString();
-		}
+		The acceptable forms for this string are as follows:
 
-		// "~>" case
-		if (m_inclusiveA && !m_inclusiveB && !m_versA.isBranch) {
-			auto vs = m_versA.toString();
-			auto i1 = std.string.indexOf(vs, '-'), i2 = std.string.indexOf(vs, '+');
-			auto i12 = i1 >= 0 ? i2 >= 0 ? i1 < i2 ? i1 : i2 : i1 : i2;
-			auto va = i12 >= 0 ? vs[0 .. i12] : vs;
-			auto parts = va.splitter('.').array;
-			assert(parts.length == 3, "Version string with a digit group count != 3: "~va);
+		$(UL
+			$(LI `"1.0.0"` - a single version in SemVer format)
+			$(LI `"==1.0.0"` - alternative single version notation)
+			$(LI `">1.0.0"` - version range with a single bound)
+			$(LI `">1.0.0 <2.0.0"` - version range with two bounds)
+			$(LI `"~>1.0.0"` - a fuzzy version range)
+			$(LI `"~>1.0"` - a fuzzy version range with partial version)
+			$(LI `"~master"` - a branch name)
+			$(LI `"*" - match any version (see also `any`))
+		)
 
-			foreach (i; 0 .. 3) {
-				auto vp = parts[0 .. i+1].join(".");
-				auto ve = Version(expandVersion(vp));
-				auto veb = Version(expandVersion(bumpVersion(vp)));
-				if (ve == m_versA && veb == m_versB) return "~>" ~ vp;
-			}
-		}
+		Apart from "$(LT)" and "$(GT)", "$(GT)=" and "$(LT)=" are also valid
+		comparators.
 
-		if (m_versA != Version.RELEASE) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
-		if (m_versB != Version.HEAD) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
-		if (m_versA == Version.RELEASE && m_versB == Version.HEAD) r = ">=0.0.0";
-		return r;
-	}
-
+	*/
 	@property void versionSpec(string ves)
 	{
 		enforce(ves.length > 0);
@@ -188,7 +193,48 @@ struct Dependency {
 			}
 		}
 	}
+	/// ditto
+	@property string versionSpec()
+	const {
+		string r;
 
+		if (this == invalid) return "invalid";
+
+		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
+			// Special "==" case
+			if (m_versA == Version.MASTER ) return "~master";
+			else return m_versA.toString();
+		}
+
+		// "~>" case
+		if (m_inclusiveA && !m_inclusiveB && !m_versA.isBranch) {
+			auto vs = m_versA.toString();
+			auto i1 = std.string.indexOf(vs, '-'), i2 = std.string.indexOf(vs, '+');
+			auto i12 = i1 >= 0 ? i2 >= 0 ? i1 < i2 ? i1 : i2 : i1 : i2;
+			auto va = i12 >= 0 ? vs[0 .. i12] : vs;
+			auto parts = va.splitter('.').array;
+			assert(parts.length == 3, "Version string with a digit group count != 3: "~va);
+
+			foreach (i; 0 .. 3) {
+				auto vp = parts[0 .. i+1].join(".");
+				auto ve = Version(expandVersion(vp));
+				auto veb = Version(expandVersion(bumpVersion(vp)));
+				if (ve == m_versA && veb == m_versB) return "~>" ~ vp;
+			}
+		}
+
+		if (m_versA != Version.RELEASE) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
+		if (m_versB != Version.HEAD) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
+		if (m_versA == Version.RELEASE && m_versB == Version.HEAD) r = ">=0.0.0";
+		return r;
+	}
+
+	/** Returns a modified dependency that gets mapped to a given path.
+
+		This function will return an unmodified `Dependency` if it is not path
+		based. Otherwise, the given `path` will be prefixed to the existing
+		path.
+	*/
 	Dependency mapToPath(Path path)
 	const {
 		if (m_path.empty || m_path.absolute) return this;
@@ -199,6 +245,9 @@ struct Dependency {
 		}
 	}
 
+	/** Returns a human-readable string representation of the dependency
+		specification.
+	*/
 	string toString()()
 	const {
 		auto ret = versionString;
@@ -207,6 +256,13 @@ struct Dependency {
 		return ret;
 	}
 
+	/** Returns a JSON representation of the dependency specification.
+
+		Simple specifications will be represented as a single specification
+		string (`versionSpec`), while more complex specifications will be
+		represented as a JSON object with optional "version", "path", "optional"
+		and "default" fields.
+	*/
 	Json toJson() const {
 		Json json;
 		if( path.empty && !optional ){
@@ -229,6 +285,10 @@ struct Dependency {
 		assert(d.toJson() == Json("1.0.0"), "Failed: " ~ d.toJson().toPrettyString());
 	}
 
+	/** Constructs a new `Dependency` from its JSON representation.
+
+		See `toJson` for a description of the JSON format.
+	*/
 	static Dependency fromJson(Json verspec) {
 		Dependency dep;
 		if( verspec.type == Json.Type.object ){
@@ -275,6 +335,11 @@ struct Dependency {
 		assert(d.path == parsed.path);
 	}
 
+	/** Compares dependency specifications.
+
+		These methods are suitable for equality comparisons, as well as for
+		using `Dependency` as a key in hash or tree maps.
+	*/
 	bool opEquals(in Dependency o)
 	const {
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
@@ -283,6 +348,7 @@ struct Dependency {
 			&& o.m_optional == m_optional && o.m_default == m_default;
 	}
 
+	/// ditto
 	int opCmp(in Dependency o)
 	const {
 		if (m_inclusiveA != o.m_inclusiveA) return m_inclusiveA < o.m_inclusiveA ? -1 : 1;
@@ -293,6 +359,7 @@ struct Dependency {
 		return 0;
 	}
 
+	/// ditto
 	hash_t toHash() const nothrow @trusted  {
 		try {
 			auto strhash = &typeid(string).getHash;
@@ -301,10 +368,18 @@ struct Dependency {
 		} catch (Exception) assert(false);
 	}
 
+	/** Determines if this dependency specification is valid.
+
+		A specification is valid if it can match at least one version.
+	*/
 	bool valid() const {
 		return m_versA <= m_versB && doCmp(m_inclusiveA && m_inclusiveB, m_versA, m_versB);
 	}
 
+	/** Determines if this dependency specification matches arbitrary versions.
+
+		This is true in particular for the `any` constant.
+	*/
 	bool matchesAny() const {
 		auto cmp = Dependency("*");
 		cmp.optional = m_optional;
@@ -312,8 +387,12 @@ struct Dependency {
 		return cmp == this;
 	}
 
+	/** Tests if the specification matches a specific version.
+	*/
 	bool matches(string vers) const { return matches(Version(vers)); }
+	/// ditto
 	bool matches(const(Version) v) const { return matches(v); }
+	/// ditto
 	bool matches(ref const(Version) v) const {
 		if (this.matchesAny) return true;
 		//logDebug(" try match: %s with: %s", v, this);
@@ -331,7 +410,12 @@ struct Dependency {
 		return true;
 	}
 
-	/// Merges to versions
+	/** Merges two dependency specifications.
+
+		The result is a specification that matches the intersection of the set
+		of versions matched by the individual specifications. Note that this
+		result can be invalid (i.e. not match any version).
+	*/
 	Dependency merge(ref const(Dependency) o)
 	const {
 		if (this.matchesAny) return o;
@@ -536,14 +620,11 @@ unittest {
 
 
 /**
-	A version in the format "major.update.bugfix-prerelease+buildmetadata"
-	according to Semantic Versioning Specification v2.0.0.
+	Represents a version in semantic version format, or a branch identifier.
 
-	(deprecated):
-	This also supports a format like "~master", to identify trunk, or
-	"~branch_name" to identify a branch. Both Version types starting with "~"
-	refer to the head revision of the corresponding branch.
-	This is subject to be removed soon.
+	This can either have the form "~master", where "master" is a branch name,
+	or the form "major.update.bugfix-prerelease+buildmetadata" (see the
+	Semantic Versioning Specification v2.0.0 at http://semver.org/).
 */
 struct Version {
 	private {
@@ -552,13 +633,26 @@ struct Version {
 		string m_version;
 	}
 
+	static @property minRelease() { return Version("0.0.0"); }
+	static @property maxRelease() { return Version(MAX_VERS); }
+	static @property masterBranch() { return Version(MASTER_STRING); }
+	static @property unknownVersion() { return Version(UNKNOWN_VERS); }
+
+	deprecated("Use minRelease instead")
 	static @property RELEASE() { return Version("0.0.0"); }
+	deprecated("Use maxRelease instead")
 	static @property HEAD() { return Version(MAX_VERS); }
+	deprecated("Use masterBranch instead")
 	static @property MASTER() { return Version(MASTER_STRING); }
+	deprecated("Use unknownVersion instead")
 	static @property UNKNOWN() { return Version(UNKNOWN_VERS); }
+	deprecated("Use masterBranch.toString() instead")
 	static @property MASTER_STRING() { return "~master"; }
+	deprecated
 	static @property BRANCH_IDENT() { return '~'; }
 
+	/** Constructs a new `Version` from its string representation.
+	*/
 	this(string vers)
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
@@ -567,6 +661,7 @@ struct Version {
 		m_version = vers;
 	}
 
+	deprecated("Use the constructor instead.")
 	static Version fromString(string vers) { return Version(vers); }
 
 	bool opEquals(const Version oth) const {
@@ -576,19 +671,30 @@ struct Version {
 		return opCmp(oth) == 0;
 	}
 
-	/// Returns true, if this version indicates a branch, which is not the trunk.
+	/// Tests if this represents a branch instead of a version.
 	@property bool isBranch() const { return !m_version.empty && m_version[0] == BRANCH_IDENT; }
+
+	/// Tests if this represents the master branch "~master".
 	@property bool isMaster() const { return m_version == MASTER_STRING; }
+
+	/** Tests if this represents a pre-release version.
+
+		Note that branches are always considered pre-release versions.
+	*/
 	@property bool isPreRelease() const {
 		if (isBranch) return true;
 		return isPreReleaseVersion(m_version);
 	}
+
+	/// Tests if this represents the special unknown version constant.
 	@property bool isUnknown() const { return m_version == UNKNOWN_VERS; }
 
-	/**
-		Comparing Versions is generally possible, but comparing Versions
-		identifying branches other than master will fail. Only equality
-		can be tested for these.
+	/** Compares two versions/branches for precedence.
+
+		Versions generally have precedence over branches and the master branch
+		has precedence over other branches. Apart from that, versions are
+		compared using SemVer semantics, while branches are compared
+		lexicographically.
 	*/
 	int opCmp(ref const Version other)
 	const {
@@ -606,8 +712,10 @@ struct Version {
 
 		return compareVersions(m_version, other.m_version);
 	}
+	/// ditto
 	int opCmp(in Version other) const { return opCmp(other); }
 
+	/// Returns the string representation of the version/branch.
 	string toString() const { return m_version; }
 }
 
