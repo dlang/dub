@@ -142,7 +142,7 @@ class BuildGenerator : ProjectGenerator {
 		return cached;
 	}
 
-	bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id, in Package[] packages, in Path[] additional_dep_files)
+	private bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id, in Package[] packages, in Path[] additional_dep_files)
 	{
 		auto cwd = Path(getcwd());
 		auto target_path = pack.path ~ format(".dub/build/%s/", build_id);
@@ -181,7 +181,7 @@ class BuildGenerator : ProjectGenerator {
 		return false;
 	}
 
-	void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config)
+	private void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config)
 	{
 		auto cwd = Path(getcwd());
 		//Added check for existance of [AppNameInPackagejson].d
@@ -247,7 +247,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config)
+	private void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config)
 	{
 		auto cwd = Path(getcwd());
 
@@ -404,7 +404,7 @@ class BuildGenerator : ProjectGenerator {
 		return objPath;
 	}
 
-	void buildWithCompiler(GeneratorSettings settings, BuildSettings buildsettings)
+	private void buildWithCompiler(GeneratorSettings settings, BuildSettings buildsettings)
 	{
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
@@ -480,7 +480,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	void runTarget(Path exe_file_path, in BuildSettings buildsettings, string[] run_args, GeneratorSettings settings)
+	private void runTarget(Path exe_file_path, in BuildSettings buildsettings, string[] run_args, GeneratorSettings settings)
 	{
 		if (buildsettings.targetType == TargetType.executable) {
 			auto cwd = Path(getcwd());
@@ -515,7 +515,7 @@ class BuildGenerator : ProjectGenerator {
 			enforce(false, "Target is a library. Skipping execution.");
 	}
 
-	void cleanupTemporaries()
+	private void cleanupTemporaries()
 	{
 		foreach_reverse (f; m_temporaryFiles) {
 			try {

@@ -446,7 +446,7 @@ class VisualDGenerator : ProjectGenerator {
 	}
 
 	// TODO: nice folders
-	struct SourceFile {
+	private struct SourceFile {
 		Path structurePath;
 		Path filePath;
 		bool build;
@@ -478,7 +478,7 @@ class VisualDGenerator : ProjectGenerator {
 		}
 	}
 
-	auto sortedSources(SourceFile[] sources) {
+	private auto sortedSources(SourceFile[] sources) {
 		return sort(sources);
 	}
 
