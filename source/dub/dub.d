@@ -187,6 +187,9 @@ class Dub {
 		return .defaultCompiler();
 	}
 
+	deprecated void shutdown() {}
+	deprecated void cleanCaches() {}
+
 	/// Loads the package from the current working directory as the main
 	/// project package.
 	void loadPackageFromCwd()
