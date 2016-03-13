@@ -80,6 +80,13 @@ Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd()
 		"unittest-cov",
 		];
 
+	string fileRegex;
+
+	if (buildPlatform.frontendVersion >= 2066 && buildPlatform.compiler == "dmd")
+		fileRegex = r"^(.+)\(([0-9]+)\,([0-9]+)\)\:() (.*)$";
+	else
+		fileRegex = r"^(.+)\(([0-9]+)\)\:() (.*)$";
+
 	auto arch = buildPlatform.architecture[0];
 
 	Json makeBuildSystem(string buildType)
@@ -87,7 +94,7 @@ Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd()
 		return Json([
 			"name": "DUB build " ~ buildType.Json,
 			"cmd": ["dub", "build", "--build=" ~ buildType, "--arch=" ~ arch].map!Json.array.Json,
-			"file_regex": r"^(.+)\(([0-9]+)\)\:() (.*)$".Json,
+			"file_regex": fileRegex.Json,
 			"working_dir": workingDiretory.Json,
 			"variants": [
 				[
