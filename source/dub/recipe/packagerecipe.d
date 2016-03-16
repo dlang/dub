@@ -14,7 +14,7 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.url;
 
-import std.algorithm : sort;
+import std.algorithm : findSplit, sort;
 import std.array : join, split;
 import std.exception : enforce;
 import std.file;
@@ -40,7 +40,7 @@ string[] getSubPackagePath(string package_name)
 */
 string getBasePackageName(string package_name)
 {
-	return package_name.getSubPackagePath()[0];
+	return package_name.findSplit(":")[0];
 }
 
 /**
@@ -51,10 +51,18 @@ string getBasePackageName(string package_name)
 */
 string getSubPackageName(string package_name)
 {
-	return getSubPackagePath(package_name)[1 .. $].join(":");
+	return package_name.findSplit(":")[2];
 }
 
-
+unittest
+{
+	assert(getSubPackagePath("packa:packb:packc") == ["packa", "packb", "packc"]);
+	assert(getSubPackagePath("pack") == ["pack"]);
+	assert(getBasePackageName("packa:packb:packc") == "packa");
+	assert(getBasePackageName("pack") == "pack");
+	assert(getSubPackageName("packa:packb:packc") == "packb:packc");
+	assert(getSubPackageName("pack") == "");
+}
 
 /**
 	Represents the contents of a package recipe file (dub.json/dub.sdl) in an abstract way.
