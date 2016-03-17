@@ -205,13 +205,22 @@ void resolveLibs(ref BuildSettings settings)
 			pkgconfig_libs ~= settings.libs[0 .. $ - pkgconfig_libs.length]
 				.partition!(l => !exists("lib"~l)).map!(l => "lib"~l).array;
 			settings.libs = settings.libs[0 .. $ - pkgconfig_libs.length];
-
 			if (pkgconfig_libs.length) {
 				logDiagnostic("Using pkg-config to resolve library flags for %s.", pkgconfig_libs.join(", "));
 				auto libflags = execute([pkgconfig_bin, "--libs"] ~ pkgconfig_libs);
 				enforce(libflags.status == 0, format("pkg-config exited with error code %s: %s", libflags.status, libflags.output));
 				foreach (f; libflags.output.split()) {
-					if (f.startsWith("-Wl,")) settings.addLFlags(f[4 .. $].split(","));
+					if (f.startsWith("-L-L")) {
+						settings.addLFlags(f[2 .. $]);
+					} else if (f.startsWith("-defaultlib")) {
+						settings.addDFlags(f);
+					} else if (f.startsWith("-L-defaultlib")) {
+						settings.addDFlags(f[2 .. $]);
+					} else if (f.startsWith("-pthread")) {
+						settings.addLFlags("-lpthread");
+					} else if (f.startsWith("-L-l")) {
+						settings.addLFlags(f[2 .. $].split(","));
+					} else if (f.startsWith("-Wl,")) settings.addLFlags(f[4 .. $].split(","));
 					else settings.addLFlags(f);
 				}
 			}

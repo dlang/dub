@@ -1,0 +1,5 @@
+{
+    "name" : "fake-gtkd",
+    "targetType": "dynamicLibrary",
+    "description" : "Fake GtkD shared library for testing",
+}
