@@ -92,8 +92,16 @@ void registerCompiler(Compiler c)
 
 
 interface Compiler {
+	/// Returns the canonical name of the compiler (e.g. "dmd").
 	@property string name() const;
 
+	/** Determines the build platform properties given a set of build settings.
+
+		This will invoke the compiler to build a platform probe file, which
+		determines the target build platform's properties during compile-time.
+
+		See_Also: `dub.compilers.utils.generatePlatformProbeFile`
+	*/
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override = null);
 
 	/// Replaces high level fields with low level fields and converts
@@ -115,6 +123,11 @@ interface Compiler {
 	/// Convert linker flags to compiler format
 	string[] lflagsToDFlags(in string[] lflags) const;
 	
+	/** Runs a tool and provides common boilerplate code.
+
+		This method should be used by `Compiler` implementations to invoke the
+		compiler or linker binary.
+	*/
 	protected final void invokeTool(string[] args, void delegate(int, string) output_callback)
 	{
 		import std.string;
