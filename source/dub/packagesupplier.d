@@ -1,7 +1,7 @@
 /**
-	A package supplier, able to get some packages to the local FS.
+	Contains (remote) package supplier interface and implementations.
 
-	Copyright: © 2012-2013 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff, 2012-2016 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
 */
@@ -23,26 +23,74 @@ import std.file;
 import std.string : format;
 import std.zip;
 
-// TODO: drop the "best package" behavior and let retrievePackage/getPackageDescription take a Version instead of Dependency
+// TODO: Could drop the "best package" behavior and let retrievePackage/
+//       getPackageDescription take a Version instead of Dependency. But note
+//       this means that two requests to the registry are necessary to retrieve
+//       a package recipe instead of one (first get version list, then the
+//       package recipe)
 
-/// Supplies packages, this is done by supplying the latest possible version
-/// which is available.
+/**
+	Base interface for remote package suppliers.
+
+	Provides functionality necessary to query package versions, recipes and
+	contents.
+*/
 interface PackageSupplier {
-	/// Returns a hunman readable representation of the supplier
+	/// Represents a single package search result.
+	static struct SearchResult { string name, description, version_; }
+
+	/// Returns a human-readable representation of the package supplier.
 	@property string description();
 
+	/** Retrieves a list of all available versions(/branches) of a package.
+
+		Throws: Throws an exception if the package name is not known, or if
+			an error occurred while retrieving the version list.
+	*/
 	Version[] getVersions(string package_id);
 
-	/// path: absolute path to store the package (usually in a zip format)
-	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release);
+	/** Downloads a package and stores it as a ZIP file.
 
-	/// returns the metadata for the package
-	Json getPackageDescription(string packageId, Dependency dep, bool pre_release);
+		Params:
+			path = Absolute path of the target ZIP file
+			package_id = Name of the package to retrieve
+			dep: Version constraint to match against
+			pre_release: If true, matches the latest pre-release version.
+				Otherwise prefers stable versions.
+	*/
+	void fetchPackage(Path path, string package_id, Dependency dep, bool pre_release);
 
-	static struct SearchResult { string name, description, version_; }
+	deprecated("Use fetchPackage instead.")
+	alias retrievePackage = fetchPackage;
+
+	/** Retrieves only the recipe of a particular package.
+
+		Params:
+			package_id = Name of the package of which to retrieve the recipe
+			dep: Version constraint to match against
+			pre_release: If true, matches the latest pre-release version.
+				Otherwise prefers stable versions.
+	*/
+	Json fetchPackageRecipe(string package_id, Dependency dep, bool pre_release);
+
+	deprecated("Use fetchPackageRecipe instead.")
+	alias getPackageDescription = fetchPackageRecipe;
+
+	/** Searches for packages matching the given search query term.
+
+		Search queries are currently a simple list of words separated by
+		white space. Results will get ordered from best match to worst.
+	*/
 	SearchResult[] searchPackages(string query);
 }
 
+
+/**
+	File system based package supplier.
+
+	This package supplier searches a certain directory for files with names of
+	the form "[package name]-[version].zip".
+*/
 class FileSystemPackageSupplier : PackageSupplier {
 	private {
 		Path m_path;
@@ -67,7 +115,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{
 		enforce(path.absolute);
 		logInfo("Storing package '"~packageId~"', version requirements: %s", dep);
@@ -76,13 +124,15 @@ class FileSystemPackageSupplier : PackageSupplier {
 		copyFile(filename, path);
 	}
 
-	Json getPackageDescription(string packageId, Dependency dep, bool pre_release)
+	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
 	{
 		auto filename = bestPackageFile(packageId, dep, pre_release);
 		return jsonFromZip(filename, "dub.json");
 	}
 
-	SearchResult[] searchPackages(string query) {
+	SearchResult[] searchPackages(string query)
+	{
+		// TODO!
 		return null;
 	}
 
@@ -102,7 +152,12 @@ class FileSystemPackageSupplier : PackageSupplier {
 }
 
 
-/// Client PackageSupplier using the registry available via registerVpmRegistry
+/**
+	Online registry based package supplier.
+
+	This package supplier connects to an online registry (e.g.
+	$(LINK https://code.dlang.org/)) to search for available packages.
+*/
 class RegistryPackageSupplier : PackageSupplier {
 	private {
 		URL m_registryUrl;
@@ -131,7 +186,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void retrievePackage(Path path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{
 		import std.array : replace;
 		Json best = getBestPackage(packageId, dep, pre_release);
@@ -141,7 +196,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		download(url, path);
 	}
 
-	Json getPackageDescription(string packageId, Dependency dep, bool pre_release)
+	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
 	{
 		return getBestPackage(packageId, dep, pre_release);
 	}

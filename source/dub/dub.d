@@ -517,7 +517,7 @@ class Dub {
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.getPackageDescription(packageId, dep, (options & FetchOptions.usePrerelease) != 0);
+				pinfo = ps.fetchPackageRecipe(packageId, dep, (options & FetchOptions.usePrerelease) != 0);
 				supplier = ps;
 				break;
 			} catch(Exception e) {
@@ -589,7 +589,7 @@ class Dub {
 		}
 
 		auto path = getTempFile(packageId, ".zip");
-		supplier.retrievePackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+		supplier.fetchPackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 		scope(exit) std.file.remove(path.toNativeString());
 
 		logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
@@ -1182,7 +1182,7 @@ class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 		foreach (ps; m_dub.m_packageSuppliers) {
 			if (rootpack == name) {
 				try {
-					auto desc = ps.getPackageDescription(name, dep, prerelease);
+					auto desc = ps.fetchPackageRecipe(name, dep, prerelease);
 					auto ret = new Package(desc);
 					m_remotePackages[key] = ret;
 					return ret;
