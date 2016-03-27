@@ -1,7 +1,7 @@
 /**
 	A package manager.
 
-	Copyright: © 2012-2013 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff, 2012-2016 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff, Sönke Ludwig
 */
@@ -53,28 +53,29 @@ version (DigitalMars) version (D_Coverage) static if (__VERSION__ >= 2068)
 	}
 }
 
+/// The URL to the official package registry.
 enum defaultRegistryURL = "http://code.dlang.org/";
 
-/// The default supplier for packages, which is the registry
-/// hosted by code.dlang.org.
+/** Returns a default list of package suppliers.
+
+	This will contain a single package supplier that points to the official
+	package registry.
+
+	See_Also: `defaultRegistryURL`
+*/
 PackageSupplier[] defaultPackageSuppliers()
 {
 	logDiagnostic("Using dub registry url '%s'", defaultRegistryURL);
 	return [new RegistryPackageSupplier(URL(defaultRegistryURL))];
 }
 
-/// Option flags for fetch
-enum FetchOptions
-{
-	none = 0,
-	forceBranchUpgrade = 1<<0,
-	usePrerelease = 1<<1,
-	forceRemove = 1<<2,
-	printOnly = 1<<3,
-}
 
-/// The Dub class helps in getting the applications
-/// dependencies up and running. An instance manages one application.
+/** Provides a high-level entry point for DUB's functionality.
+
+	This class provides means to load a certain project (a root package with
+	all of its dependencies) and to perform high-level operations as found in
+	the command line interface.
+*/
 class Dub {
 	private {
 		bool m_dryRun = false;
@@ -89,9 +90,21 @@ class Dub {
 		Path m_overrideSearchPath;
 	}
 
-	/// Initiales the package manager for the vibe application
-	/// under root.
-	this(PackageSupplier[] additional_package_suppliers = null, string root_path = ".", SkipRegistry skip_registry = SkipRegistry.none)
+	/** Initializes the instance for use with a specific root package.
+
+		Note that a package still has to be loaded using one of the
+		`loadPackage` overloads.
+
+		Params:
+			root_path = Path to the root package
+			additional_package_suppliers = A list of package suppliers to try
+				before the suppliers found in the configurations files and the
+				`defaultPackageSuppliers`.
+			skip_registry = Can be used to skip using the configured package
+				suppliers, as well as the default suppliers.
+	*/
+	this(string root_path = ".", PackageSupplier[] additional_package_suppliers = null,
+			SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
 	{
 		m_rootPath = Path(root_path);
 		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
@@ -100,29 +113,41 @@ class Dub {
 
 		PackageSupplier[] ps = additional_package_suppliers;
 
-		if (skip_registry < SkipRegistry.all) {
+		if (skip_registry < SkipPackageSuppliers.all) {
 			if (auto pp = "registryUrls" in m_userConfig)
 				ps ~= deserializeJson!(string[])(*pp)
 					.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
 					.array;
 		}
 
-		if (skip_registry < SkipRegistry.all) {
+		if (skip_registry < SkipPackageSuppliers.all) {
 			if (auto pp = "registryUrls" in m_systemConfig)
 				ps ~= deserializeJson!(string[])(*pp)
 					.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
 					.array;
 		}
 
-		if (skip_registry < SkipRegistry.standard)
+		if (skip_registry < SkipPackageSuppliers.standard)
 			ps ~= defaultPackageSuppliers();
 
 		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
 		updatePackageSearchPath();
 	}
+	/// ditto
+	deprecated
+	this(PackageSupplier[] additional_package_suppliers = null, string root_path = ".",
+		SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
+	{
+		this(root_path, additional_package_suppliers, skip_registry);
+	}
 
-	/// Initializes DUB with only a single search path
+	/** Initializes the instance with a single package search path, without
+		loading a package.
+
+		This constructor corresponds to the "--bare" option of the command line
+		interface. Use 
+	*/
 	this(Path override_path)
 	{
 		init();
@@ -190,9 +215,12 @@ class Dub {
 	deprecated void shutdown() {}
 	deprecated void cleanCaches() {}
 
-	/// Loads the package from the current working directory as the main
-	/// project package.
-	void loadPackageFromCwd()
+	deprecated("Use loadPackage instead.")
+	alias loadPackageFromCwd = loadPackage;
+
+	/** Loads the package that resides within the configured `rootPath`.
+	*/
+	void loadPackage()
 	{
 		loadPackage(m_rootPath);
 	}
@@ -213,6 +241,9 @@ class Dub {
 		m_project = new Project(m_packageManager, pack);
 	}
 
+	/** Disables the default search paths and only searches a specific directory
+		for packages.
+	*/
 	void overrideSearchPath(Path path)
 	{
 		if (!path.absolute) path = Path(getcwd()) ~ path;
@@ -220,8 +251,15 @@ class Dub {
 		updatePackageSearchPath();
 	}
 
+	/** Gets the default configuration for a particular build platform.
+
+		This forwards to `Project.getDefaultConfiguration` and requires a
+		project to be loaded.
+	*/
 	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true) const { return m_project.getDefaultConfiguration(platform, allow_non_library_configs); }
 
+	/** Attempts to upgrade the dependency selection of the loaded project.
+	*/
 	void upgrade(UpgradeOptions options)
 	{
 		// clear non-existent version selections
@@ -335,16 +373,21 @@ class Dub {
 			m_project.saveSelections();
 	}
 
-	/// Generate project files for a specified IDE.
-	/// Any existing project files will be overridden.
-	void generateProject(string ide, GeneratorSettings settings) {
+	/** Generate project files for a specified generator.
+
+		Any existing project files will be overridden.
+	*/
+	void generateProject(string ide, GeneratorSettings settings)
+	{
 		auto generator = createProjectGenerator(ide, m_project);
 		if (m_dryRun) return; // TODO: pass m_dryRun to the generator
 		generator.generate(settings);
 	}
 
-	/// Executes tests on the current project. Throws an exception, if
-	/// unittests failed.
+	/** Executes tests on the current project.
+
+		Throws an exception, if unittests failed.
+	*/
 	void testProject(GeneratorSettings settings, string config, Path custom_main_file)
 	{
 		if (custom_main_file.length && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
@@ -398,7 +441,7 @@ class Dub {
 			string[] import_modules;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d") && Path(file).head.toString() != "package.d")
-					import_modules ~= lbuildsettings.determineModuleName(Path(file), m_project.rootPackage.path);
+					import_modules ~= dub.internal.utils.determineModuleName(lbuildsettings, Path(file), m_project.rootPackage.path);
 			}
 
 			// generate main file
@@ -455,7 +498,9 @@ class Dub {
 		writeln(desc.serializeToPrettyJson());
 	}
 
-	void listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
+	/** Prints a list of all import paths necessary for building the root package.
+	*/
+	deprecated void listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		import std.stdio;
 
@@ -464,7 +509,9 @@ class Dub {
 		}
 	}
 
-	void listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
+	/** Prints a list of all string import paths necessary for building the root package.
+	*/
+	deprecated void listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		import std.stdio;
 
@@ -473,8 +520,9 @@ class Dub {
 		}
 	}
 
-	void listProjectData(BuildPlatform platform, string config, string buildType,
-		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
+	/** Prints the specified build settings necessary for building the root package.
+	*/
+	void listProjectData(GeneratorSettings settings, string[] requestedData, bool nullDelim)
 	{
 		import std.stdio;
 		import std.ascii : newline;
@@ -486,12 +534,23 @@ class Dub {
 			.joiner()
 			.array();
 
-		auto data = m_project.listBuildSettings(platform, config, buildType,
-			requestedDataSplit, formattingCompiler, nullDelim);
+		auto data = m_project.listBuildSettings(settings.platform, settings.config, settings.buildType,
+			requestedDataSplit, settings.compiler, nullDelim);
 
 		write( data.joiner(nullDelim? "\0" : newline) );
 		if(!nullDelim)
 			writeln();
+	}
+	deprecated("Use the overload taking GeneratorSettings instead.")
+	void listProjectData(BuildPlatform platform, string config, string buildType,
+		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
+	{
+		GeneratorSettings settings;
+		settings.platform = platform;
+		settings.compiler = formattingCompiler;
+		settings.config = config;
+		settings.buildType = buildType;
+		listProjectData(settings, requestedData, nullDelim);
 	}
 
 	/// Cleans intermediate/cache files of the given package
@@ -508,7 +567,7 @@ class Dub {
 
 
 	/// Returns all cached packages as a "packageId" = "version" associative array
-	string[string] cachedPackages() const { return m_project.cachedPackagesIDs; }
+	deprecated string[string] cachedPackages() const { return m_project.cachedPackagesIDs; }
 
 	/// Fetches the package matching the dependency and places it in the specified location.
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
@@ -596,9 +655,16 @@ class Dub {
 		return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
 	}
 
-	/// Removes a given package from the list of present/cached modules.
-	/// @removeFromApplication: if true, this will also remove an entry in the
-	/// list of dependencies in the application's dub.json
+	/** Removes a specific locally cached package.
+
+		This will delete the package files from disk and removes the
+		corresponding entry from the list of known packages.
+
+		Params:
+			pack = Package instance to remove
+			force_remove = Forces removal of the package, even if untracked
+				files are found in its folder.
+	*/
 	void remove(in Package pack, bool force_remove)
 	{
 		logInfo("Removing %s in %s", pack.name, pack.path.toNativeString());
@@ -608,21 +674,27 @@ class Dub {
 	/// @see remove(string, string, RemoveLocation)
 	enum RemoveVersionWildcard = "*";
 
-	/// This will remove a given package with a specified version from the
-	/// location.
-	/// It will remove at most one package, unless @param version_ is
-	/// specified as wildcard "*".
-	/// @param package_id Package to be removed
-	/// @param version_ Identifying a version or a wild card. An empty string
-	/// may be passed into. In this case the package will be removed from the
-	/// location, if there is only one version retrieved. This will throw an
-	/// exception, if there are multiple versions retrieved.
-	/// Note: as wildcard string only RemoveVersionWildcard ("*") is supported.
-	/// @param location_
-	void remove(string package_id, string version_, PlacementLocation location_, bool force_remove)
+	/** Removes one or more versions of a locally cached package.
+
+		This will remove a given package with a specified version from the
+		given location. It will remove at most one package, unless `version_`
+		is set to `RemoveVersionWildcard`.
+
+		Params:
+			package_id = Name of the package to be removed
+			version_ = Identifying a version or a wild card. If an empty string
+				is passed, the package will be removed from the location, if
+				there is only one version retrieved. This will throw an
+				exception, if there are multiple versions retrieved.
+			location_ = Specifies the location to look for the given package
+				name/version.
+			force_remove = Forces removal of the package, even if untracked
+				files are found in its folder.
+	*/
+	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
 	{
 		enforce(!package_id.empty);
-		if (location_ == PlacementLocation.local) {
+		if (location == PlacementLocation.local) {
 			logInfo("To remove a locally placed package, make sure you don't have any data"
 					~ "\nleft in it's directory and then simply remove the whole directory.");
 			throw new Exception("dub cannot remove locally installed packages.");
@@ -639,12 +711,12 @@ class Dub {
 		// Check validity of packages to be removed.
 		if(packages.empty) {
 			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location_) ~ "'"
+				~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
 				~ ")");
 		}
 		if(version_.empty && packages.length > 1) {
 			logError("Cannot remove package '" ~ package_id ~ "', there are multiple possibilities at location\n"
-				~ "'" ~ to!string(location_) ~ "'.");
+				~ "'" ~ to!string(location) ~ "'.");
 			logError("Available versions:");
 			foreach(pack; packages)
 				logError("  %s", pack.version_);
@@ -664,30 +736,81 @@ class Dub {
 		}
 	}
 
+	/** Adds a directory to the list of locally known packages.
+
+		Forwards to `PackageManager.addLocalPackage`.
+
+		Params:
+			path = Path to the package
+			ver = Optional version to associate with the package (can be left
+				empty)
+			system = Make the package known system wide instead of user wide
+				(requires administrator privileges).
+
+		See_Also: `removeLocalPackage`
+	*/
 	void addLocalPackage(string path, string ver, bool system)
 	{
 		if (m_dryRun) return;
 		m_packageManager.addLocalPackage(makeAbsolute(path), ver, system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
+	/** Removes a directory from the list of locally known packages.
+
+		Forwards to `PackageManager.removeLocalPackage`.
+
+		Params:
+			path = Path to the package
+			system = Make the package known system wide instead of user wide
+				(requires administrator privileges).
+
+		See_Also: `addLocalPackage`
+	*/
 	void removeLocalPackage(string path, bool system)
 	{
 		if (m_dryRun) return;
 		m_packageManager.removeLocalPackage(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
+	/** Registers a local directory to search for packages to use for satisfying
+		dependencies.
+
+		Params:
+			path = Path to a directory containing package directories
+			system = Make the package known system wide instead of user wide
+				(requires administrator privileges).
+
+		See_Also: `removeSearchPath`
+	*/
 	void addSearchPath(string path, bool system)
 	{
 		if (m_dryRun) return;
 		m_packageManager.addSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
+	/** Unregisters a local directory search path.
+
+		Params:
+			path = Path to a directory containing package directories
+			system = Make the package known system wide instead of user wide
+				(requires administrator privileges).
+
+		See_Also: `addSearchPath`
+	*/
 	void removeSearchPath(string path, bool system)
 	{
 		if (m_dryRun) return;
 		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
 	}
 
+	/** Queries all package suppliers with the given query string.
+
+		Returns a list of tuples, where the first entry is the human readable
+		name of the package supplier and the second entry is the list of
+		matched packages.
+
+		See_Also: `PackageSupplier.searchPackages`
+	*/
 	auto searchPackages(string query)
 	{
 		return m_packageSuppliers.map!(ps => tuple(ps.description, ps.searchPackages(query))).array
@@ -737,6 +860,17 @@ class Dub {
 		else return vers[$-1];
 	}
 
+	/** Initializes a directory with a package skeleton.
+
+		Params:
+			path = Path of the directory to create the new package in. The
+				directory will be created if it doesn't exist.
+			deps = List of dependencies to add to the package recipe.
+			type = Specifies the type of the application skeleton to use.
+			format = Determines the package recipe format to use.
+			recipe_callback = Optional callback that can be used to
+				customize the recipe before it gets written.
+	*/
 	void createEmptyPackage(Path path, string[] deps, string type,
 		PackageFormat format = PackageFormat.sdl,
 		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null)
@@ -771,7 +905,7 @@ class Dub {
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
 	}
 
-	/** Converts the package recipe to the given format.
+	/** Converts the package recipe of the loaded root package to the given format.
 
 		Params:
 			destination_file_ext = The file extension matching the desired
@@ -793,6 +927,12 @@ class Dub {
 		removeFile(srcfile);
 	}
 
+	/** Runs DDOX to generate or serve documentation.
+
+		Params:
+			run = If set to true, serves documentation on a local web server.
+				Otherwise generates actual HTML files.
+	*/
 	void runDdox(bool run)
 	{
 		if (m_dryRun) return;
@@ -808,7 +948,7 @@ class Dub {
 			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
 		}
 
-		auto ddox_dub = new Dub(m_packageSuppliers);
+		auto ddox_dub = new Dub(null, m_packageSuppliers);
 		ddox_dub.loadPackage(tool_pack.path);
 		ddox_dub.upgrade(UpgradeOptions.select);
 
@@ -867,106 +1007,22 @@ class Dub {
 	private Path makeAbsolute(string p) const { return makeAbsolute(Path(p)); }
 }
 
-string determineModuleName(BuildSettings settings, Path file, Path base_path)
+deprecated alias determineModuleName = dub.internal.utils.determineModuleName;
+deprecated alias getModuleNameFromContent = dub.internal.utils.getModuleNameFromContent;
+deprecated alias getModuleNameFromFile = dub.internal.utils.getModuleNameFromFile;
+
+
+/// Option flags for `Dub.fetch`
+enum FetchOptions
 {
-	assert(base_path.absolute);
-	if (!file.absolute) file = base_path ~ file;
-
-	size_t path_skip = 0;
-	foreach (ipath; settings.importPaths.map!(p => Path(p))) {
-		if (!ipath.absolute) ipath = base_path ~ ipath;
-		assert(!ipath.empty);
-		if (file.startsWith(ipath) && ipath.length > path_skip)
-			path_skip = ipath.length;
-	}
-
-	enforce(path_skip > 0,
-		format("Source file '%s' not found in any import path.", file.toNativeString()));
-
-	auto mpath = file[path_skip .. file.length];
-	auto ret = appender!string;
-
-	//search for module keyword in file
-	string moduleName = getModuleNameFromFile(file.to!string);
-
-	if(moduleName.length) return moduleName;
-
-	//create module name from path
-	foreach (i; 0 .. mpath.length) {
-		import std.path;
-		auto p = mpath[i].toString();
-		if (p == "package.d") break;
-		if (i > 0) ret ~= ".";
-		if (i+1 < mpath.length) ret ~= p;
-		else ret ~= p.baseName(".d");
-	}
-
-	return ret.data;
+	none = 0,
+	forceBranchUpgrade = 1<<0,
+	usePrerelease = 1<<1,
+	forceRemove = 1<<2,
+	printOnly = 1<<3,
 }
 
-/**
- * Search for module keyword in D Code
- */
-string getModuleNameFromContent(string content) {
-	import std.regex;
-	import std.string;
-
-	content = content.strip;
-	if (!content.length) return null;
-
-	static bool regex_initialized = false;
-	static Regex!char comments_pattern, module_pattern;
-
-	if (!regex_initialized) {
-		comments_pattern = regex(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`, "g");
-		module_pattern = regex(`module\s+([\w\.]+)\s*;`, "g");
-		regex_initialized = true;
-	}
-
-	content = replaceAll(content, comments_pattern, "");
-	auto result = matchFirst(content, module_pattern);
-
-	string moduleName;
-	if(!result.empty) moduleName = result.front;
-
-	if (moduleName.length >= 7) moduleName = moduleName[7..$-1];
-
-	return moduleName;
-}
-
-unittest {
-	//test empty string
-	string name = getModuleNameFromContent("");
-	assert(name == "", "can't get module name from empty string");
-
-	//test simple name
-	name = getModuleNameFromContent("module myPackage.myModule;");
-	assert(name == "myPackage.myModule", "can't parse module name");
-
-	//test if it can ignore module inside comments
-	name = getModuleNameFromContent("/**
-	module fakePackage.fakeModule;
-	*/
-	module myPackage.myModule;");
-
-	assert(name == "myPackage.myModule", "can't parse module name");
-
-	name = getModuleNameFromContent("//module fakePackage.fakeModule;
-	module myPackage.myModule;");
-
-	assert(name == "myPackage.myModule", "can't parse module name");
-}
-
-/**
- * Search for module keyword in file
- */
-string getModuleNameFromFile(string filePath) {
-	string fileContent = filePath.readText;
-
-	logDiagnostic("Get module name from path: " ~ filePath);
-	return getModuleNameFromContent(fileContent);
-}
-
+/// Option flags for `Dub.upgrade`
 enum UpgradeOptions
 {
 	none = 0,
@@ -978,13 +1034,17 @@ enum UpgradeOptions
 	useCachedResult = 1<<6, /// Use cached information stored with the package to determine upgrades
 }
 
-enum SkipRegistry {
-	none,
-	standard,
-	all
+/// Determines which of the default package suppliers are queried for packages.
+enum SkipPackageSuppliers {
+	none,     /// Uses all configured package suppliers.
+	standard, /// Does not use the default package suppliers (`defaultPackageSuppliers`).
+	all       /// Uses only manually specified package suppliers.
 }
 
-class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
+deprecated("Use SkipPackageSuppliers instead.")
+alias SkipRegistry = SkipPackageSuppliers;
+
+private class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 	protected {
 		Dub m_dub;
 		UpgradeOptions m_options;

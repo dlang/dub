@@ -210,7 +210,7 @@ int runDubCommandLine(string[] args)
 		} else {
 			// initialize DUB
 			auto package_suppliers = options.registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
-			dub = new Dub(package_suppliers, options.root_path, options.skipRegistry);
+			dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
 			dub.dryRun = options.annotate;
 
 			// make the CWD package available so that for example sub packages can reference their
@@ -243,7 +243,7 @@ struct CommonOptions {
 	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
-	SkipRegistry skipRegistry = SkipRegistry.none;
+	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
 
 	/// Parses all common options and stores the result in the struct instance.
 	void prepare(CommandArgs args)
@@ -391,7 +391,7 @@ class Command {
 			return false;
 		}
 
-		dub.loadPackageFromCwd();
+		dub.loadPackage();
 
 		return true;
 	}
@@ -971,13 +971,20 @@ class DescribeCommand : PackageBuildCommand {
 
 		auto config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
 
+		GeneratorSettings settings;
+		settings.platform = m_buildPlatform;
+		settings.config = config;
+		settings.buildType = m_buildType;
+		settings.compiler = m_dataList ? null : m_compiler;
+
 		if (m_importPaths) {
-			dub.listImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim);
+			foreach (path; dub.project.listImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim))
+				writeln(path);
 		} else if (m_stringImportPaths) {
-			dub.listStringImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim);
+			foreach (path; dub.project.listStringImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim))
+				writeln(path);
 		} else if (m_data) {
-			dub.listProjectData(m_buildPlatform, config, m_buildType, m_data,
-				m_dataList? null : m_compiler, m_dataNullDelim);
+			dub.listProjectData(settings, m_data, m_dataNullDelim);
 		} else {
 			auto desc = dub.project.describe(m_buildPlatform, config, m_buildType);
 			writeln(desc.serializeToPrettyJson());
@@ -1077,7 +1084,7 @@ class UpgradeCommand : Command {
 		enforceUsage(free_args.length <= 1, "Unexpected arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(!m_verify, "--verify is not yet implemented.");
-		dub.loadPackageFromCwd();
+		dub.loadPackage();
 		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;

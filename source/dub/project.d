@@ -1,7 +1,7 @@
 /**
 	Representing a full project, with a root Package and several dependencies.
 
-	Copyright: © 2012-2013 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff, 2012-2016 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff, Sönke Ludwig
 */
