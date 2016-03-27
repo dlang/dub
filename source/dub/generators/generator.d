@@ -85,6 +85,8 @@ class ProjectGenerator
 	*/
 	final void generate(GeneratorSettings settings)
 	{
+		import dub.compilers.utils : enforceBuildRequirements;
+
 		if (!settings.config.length) settings.config = m_project.getDefaultConfiguration(settings.platform);
 
 		TargetInfo[string] targets;
@@ -144,6 +146,7 @@ class ProjectGenerator
 	private BuildSettings collect(GeneratorSettings settings, Package pack, ref TargetInfo[string] targets, in string[string] configs, ref string[] main_files, string bin_pack)
 	{
 		import std.algorithm : sort;
+		import dub.compilers.utils : isLinkerFile;
 
 		if (auto pt = pack.name in targets) return pt.buildSettings;
 

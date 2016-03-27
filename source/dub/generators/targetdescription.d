@@ -9,6 +9,7 @@ module dub.generators.targetdescription;
 
 import dub.compilers.buildsettings;
 import dub.compilers.compiler;
+import dub.compilers.utils : getTargetFileName;
 import dub.description;
 import dub.generators.generator;
 import dub.internal.vibecompat.inet.path;

@@ -550,6 +550,8 @@ class Package {
 	*/
 	PackageDescription describe(BuildPlatform platform, string config)
 	const {
+		import dub.compilers.utils : getTargetFileName;
+
 		PackageDescription ret;
 		ret.configuration = config;
 		ret.path = m_path.toNativeString();

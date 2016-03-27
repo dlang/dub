@@ -153,6 +153,8 @@ class VisualDGenerator : ProjectGenerator {
 
 		void generateProjectFile(string packname, GeneratorSettings settings, in TargetInfo[string] targets)
 		{
+			import dub.compilers.utils : isLinkerFile;
+
 			int i = 0;
 			auto ret = appender!(char[])();
 

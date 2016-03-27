@@ -16,6 +16,7 @@ source/dub/compilers/compiler.d
 source/dub/compilers/dmd.d
 source/dub/compilers/gdc.d
 source/dub/compilers/ldc.d
+source/dub/compilers/utils.d
 source/dub/generators/build.d
 source/dub/generators/cmake.d
 source/dub/generators/generator.d

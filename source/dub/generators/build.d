@@ -8,6 +8,7 @@
 module dub.generators.build;
 
 import dub.compilers.compiler;
+import dub.compilers.utils;
 import dub.generators.generator;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;

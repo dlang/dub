@@ -915,6 +915,8 @@ class Project {
 	string[] listBuildSettings(BuildPlatform platform, string config, string buildType,
 		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
 	{
+		import dub.compilers.utils : isLinkerFile;
+
 		auto projectDescription = describe(platform, config, buildType);
 		auto configs = getPackageConfigs(platform, config);
 		PackageDescription packageDescription;

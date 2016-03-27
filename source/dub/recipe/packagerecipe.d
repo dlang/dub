@@ -8,6 +8,7 @@
 module dub.recipe.packagerecipe;
 
 import dub.compilers.compiler;
+import dub.compilers.utils : warnOnSpecialCompilerFlags;
 import dub.dependency;
 
 import dub.internal.vibecompat.core.file;
