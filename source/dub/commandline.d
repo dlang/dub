@@ -977,16 +977,13 @@ class DescribeCommand : PackageBuildCommand {
 		settings.buildType = m_buildType;
 		settings.compiler = m_dataList ? null : m_compiler;
 
-		if (m_importPaths) {
-			foreach (path; dub.project.listImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim))
-				writeln(path);
-		} else if (m_stringImportPaths) {
-			foreach (path; dub.project.listStringImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim))
-				writeln(path);
-		} else if (m_data) {
+		if (m_importPaths) { m_data = ["import-paths"]; m_dataList = true; }
+		else if (m_stringImportPaths) { m_data = ["string-import-paths"]; m_dataList = true; }
+
+		if (m_data.length) {
 			dub.listProjectData(settings, m_data, m_dataNullDelim);
 		} else {
-			auto desc = dub.project.describe(m_buildPlatform, config, m_buildType);
+			auto desc = dub.project.describe(settings);
 			writeln(desc.serializeToPrettyJson());
 		}
 

@@ -534,8 +534,7 @@ class Dub {
 			.joiner()
 			.array();
 
-		auto data = m_project.listBuildSettings(settings.platform, settings.config, settings.buildType,
-			requestedDataSplit, settings.compiler, nullDelim);
+		auto data = m_project.listBuildSettings(settings, requestedDataSplit, nullDelim);
 
 		write( data.joiner(nullDelim? "\0" : newline) );
 		if(!nullDelim)

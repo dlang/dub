@@ -359,10 +359,25 @@ auto bitFieldNames(T)(T value) if(is(T==enum) && isIntegral!T)
 }
 
 
+bool isIdentChar(dchar ch)
+{
+	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
+}
+
+string stripDlangSpecialChars(string s)
+{
+	import std.array;
+	import std.uni;
+	auto ret = appender!string();
+	foreach(ch; s)
+		ret.put(isIdentChar(ch) ? ch : '_');
+	return ret.data;
+}
+
 string determineModuleName(BuildSettings settings, Path file, Path base_path)
 {
 	import std.algorithm : map;
-	
+
 	assert(base_path.absolute);
 	if (!file.absolute) file = base_path ~ file;
 

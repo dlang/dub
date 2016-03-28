@@ -34,7 +34,14 @@ import std.typecons;
 import std.zip;
 import std.encoding : sanitize;
 
-/// Representing a full project, with a root Package and several dependencies.
+/**
+	Represents a full project, a root package with its dependencies and package
+	selection.
+
+	All dependencies must be available locally so that the package dependency
+	graph can be built. Use `Project.reinit` if necessary for reloading
+	dependencies after more packages are available.
+*/
 class Project {
 	private {
 		PackageManager m_packageManager;
@@ -45,6 +52,14 @@ class Project {
 		SelectedVersions m_selections;
 	}
 
+	/** Loads a project.
+
+		Params:
+			package_manager = Package manager instance to use for loading
+				dependencies
+			project_path = Path of the root package to load
+			pack = An existing `Package` instance to use as the root package
+	*/
 	this(PackageManager package_manager, Path project_path)
 	{
 		Package pack;
@@ -59,6 +74,7 @@ class Project {
 		this(package_manager, pack);
 	}
 
+	/// ditto
 	this(PackageManager package_manager, Package pack)
 	{
 		m_packageManager = package_manager;
@@ -82,7 +98,7 @@ class Project {
 	}
 
 	/// Gathers information
-	@property string info()
+	deprecated @property string info()
 	const {
 		if(!m_rootPackage)
 			return "-Unrecognized application in '"~m_rootPackage.path.toNativeString()~"' (probably no dub.json in this directory)";
@@ -95,17 +111,21 @@ class Project {
 	}
 
 	/// Gets all retrieved packages as a "packageId" = "version" associative array
-	@property string[string] cachedPackagesIDs() const {
+	deprecated @property string[string] cachedPackagesIDs() const {
 		string[string] pkgs;
 		foreach(p; m_dependencies)
 			pkgs[p.name] = p.version_.toString();
 		return pkgs;
 	}
 
-	/// List of retrieved dependency Packages
+	/** List of all resolved dependencies.
+
+		This includes all direct and indirect dependencies of all configurations
+		combined. Optional dependencies that were not chosen are not included.
+	*/
 	@property const(Package[]) dependencies() const { return m_dependencies; }
 
-	/// Main package.
+	/// The root package of the project.
 	@property inout(Package) rootPackage() inout { return m_rootPackage; }
 
 	/// The versions to use for all dependencies. Call reinit() after changing these.
@@ -164,21 +184,42 @@ class Project {
 		return &iterator;
 	}
 
-	inout(Package) getDependency(string name, bool isOptional)
+	/** Retrieves a particular dependency by name.
+
+		Params:
+			name = (Qualified) package name of the dependency
+			is_optional = If set to true, will return `null` for unsatisfiable
+				dependencies instead of throwing an exception.
+	*/
+	inout(Package) getDependency(string name, bool is_optional)
 	inout {
 		foreach(dp; m_dependencies)
 			if( dp.name == name )
 				return dp;
-		if(!isOptional) throw new Exception("Unknown dependency: "~name);
+		if (!is_optional) throw new Exception("Unknown dependency: "~name);
 		else return null;
 	}
 
+	/** Returns the name of the default build configuration for the specified
+		target platform.
+
+		Params:
+			platform = The target build platform
+			allow_non_library_configs = If set to true, will use the first
+				possible configuration instead of the first "executable"
+				configuration.
+	*/
 	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true)
 	const {
 		auto cfgs = getPackageConfigs(platform, null, allow_non_library_configs);
 		return cfgs[m_rootPackage.name];
 	}
 
+	/** Performs basic validation of various aspects of the package.
+
+		This will emit warnings to `stderr` if any discouraged names or
+		dependency patterns are found.
+	*/
 	void validate()
 	{
 		// some basic package lint
@@ -234,7 +275,7 @@ class Project {
 		validateDependenciesRec(m_rootPackage);
 	}
 
-	/// Rereads the applications state.
+	/// Reloads dependencies.
 	void reinit()
 	{
 		m_dependencies = null;
@@ -313,9 +354,10 @@ class Project {
 		collectDependenciesRec(m_rootPackage);
 	}
 
-	/// Returns the applications name.
+	/// Returns the name of the root package.
 	@property string name() const { return m_rootPackage ? m_rootPackage.name : "app"; }
 
+	/// Returns the names of all configurations of the root package.
 	@property string[] configurations() const { return m_rootPackage.configurations; }
 
 	/// Returns a map with the configuration for all packages in the dependency tree.
@@ -491,9 +533,9 @@ class Project {
 	}
 
 	/**
-	 * Fills dst with values from this project.
+	 * Fills `dst` with values from this project.
 	 *
-	 * dst gets initialized according to the given platform and config.
+	 * `dst` gets initialized according to the given platform and config.
 	 *
 	 * Params:
 	 *   dst = The BuildSettings struct to fill with data.
@@ -504,6 +546,8 @@ class Project {
 	 */
 	void addBuildSettings(ref BuildSettings dst, in BuildPlatform platform, string config, in Package root_package = null, bool shallow = false)
 	const {
+		import dub.internal.utils : stripDlangSpecialChars;
+
 		auto configs = getPackageConfigs(platform, config);
 
 		foreach (pkg; this.getTopologicalPackageList(false, root_package, configs)) {
@@ -545,6 +589,16 @@ class Project {
 		}
 	}
 
+	/** Fills `dst` with build settings specific to the given build type.
+
+		Params:
+			dst = The `BuildSettings` instance to add the build settings to
+			platform = Target build platform
+			build_type = Name of the build type
+			for_root_package = Selects if the build settings are for the root
+				package or for one of the dependencies. Unittest flags will
+				only be added to the root package.
+	*/
 	void addBuildTypeSettings(ref BuildSettings dst, in BuildPlatform platform, string build_type, bool for_root_package = true)
 	{
 		bool usedefflags = !(dst.requirements & BuildRequirement.noDefaultFlags);
@@ -576,56 +630,31 @@ class Project {
 		return false;
 	}
 
-	/*bool iterateDependencies(bool delegate(Package pack, string dep_name, Dependency dep_spec) del)
-	{
-		bool all_found = true;
-
-		bool[string] visited;
-		void iterate(Package pack)
-		{
-			if (pack.name in visited) return;
-			visited[pack.name] = true;
-
-			foreach (dn, ds; pack.dependencies) {
-				auto dep = del(pack, dn, ds);
-				if (dep) iterateDependencies(dep);
-				else all_found = false;
-			}
-		}
-
-		return all_found;
-	}*/
-
 	/// Outputs a build description of the project, including its dependencies.
-	ProjectDescription describe(BuildPlatform platform, string config, string build_type = null)
+	ProjectDescription describe(GeneratorSettings settings)
 	{
 		import dub.generators.targetdescription;
 
 		// store basic build parameters
 		ProjectDescription ret;
 		ret.rootPackage = m_rootPackage.name;
-		ret.configuration = config;
-		ret.buildType = build_type;
-		ret.compiler = platform.compiler;
-		ret.architecture = platform.architecture;
-		ret.platform = platform.platform;
+		ret.configuration = settings.config;
+		ret.buildType = settings.buildType;
+		ret.compiler = settings.platform.compiler;
+		ret.architecture = settings.platform.architecture;
+		ret.platform = settings.platform.platform;
 
 		// collect high level information about projects (useful for IDE display)
-		auto configs = getPackageConfigs(platform, config);
-		ret.packages ~= m_rootPackage.describe(platform, config);
+		auto configs = getPackageConfigs(settings.platform, settings.config);
+		ret.packages ~= m_rootPackage.describe(settings.platform, settings.config);
 		foreach (dep; m_dependencies)
-			ret.packages ~= dep.describe(platform, configs[dep.name]);
+			ret.packages ~= dep.describe(settings.platform, configs[dep.name]);
 
 		foreach (p; getTopologicalPackageList(false, null, configs))
 			ret.packages[ret.packages.countUntil!(pp => pp.name == p.name)].active = true;
 
-		if (build_type.length) {
+		if (settings.buildType.length) {
 			// collect build target information (useful for build tools)
-			GeneratorSettings settings;
-			settings.platform = platform;
-			settings.compiler = getCompiler(platform.compilerBinary);
-			settings.config = config;
-			settings.buildType = build_type;
 			auto gen = new TargetDescriptionGenerator(this);
 			try {
 				gen.generate(settings);
@@ -645,6 +674,17 @@ class Project {
 		auto desc = describe(platform, config);
 		foreach (string key, value; desc.serializeToJson())
 			dst[key] = value;
+	}
+	/// ditto
+	deprecated("Use the overload taking a GeneratorSettings instance.")
+	ProjectDescription describe(BuildPlatform platform, string config, string build_type = null)
+	{
+		GeneratorSettings settings;
+		settings.platform = platform;
+		settings.compiler = getCompiler(platform.compilerBinary);
+		settings.config = config;
+		settings.buildType = build_type;
+		return describe(settings);
 	}
 
 	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
@@ -912,13 +952,12 @@ class Project {
 	}
 
 	/// Outputs requested data for the project, optionally including its dependencies.
-	string[] listBuildSettings(BuildPlatform platform, string config, string buildType,
-		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
+	string[] listBuildSettings(GeneratorSettings settings, string[] requestedData, bool nullDelim)
 	{
 		import dub.compilers.utils : isLinkerFile;
 
-		auto projectDescription = describe(platform, config, buildType);
-		auto configs = getPackageConfigs(platform, config);
+		auto projectDescription = describe(settings);
+		auto configs = getPackageConfigs(settings.platform, settings.config);
 		PackageDescription packageDescription;
 		foreach (pack; projectDescription.packages) {
 			if (pack.name == projectDescription.rootPackage)
@@ -938,12 +977,12 @@ class Project {
 		projectDescription.lookupTarget(projectDescription.rootPackage) = target;
 
 		// Genrate results
-		if (formattingCompiler)
+		if (settings.compiler)
 		{
 			// Format for a compiler
 			return [
 				requestedData
-					.map!(dataName => listBuildSetting(platform, configs, projectDescription, dataName, formattingCompiler, nullDelim))
+					.map!(dataName => listBuildSetting(settings.platform, configs, projectDescription, dataName, settings.compiler, nullDelim))
 					.join().join(nullDelim? "\0" : " ")
 			];
 		}
@@ -951,26 +990,43 @@ class Project {
 		{
 			// Format list-style
 			return requestedData
-				.map!(dataName => listBuildSetting(platform, configs, projectDescription, dataName, null, nullDelim))
+				.map!(dataName => listBuildSetting(settings.platform, configs, projectDescription, dataName, null, nullDelim))
 				.joiner([""]) // Blank entry between each type of requestedData
 				.array();
 		}
 	}
+	deprecated("Use the overload taking a GeneratorSettings instance instead.")
+	string[] listBuildSettings(BuildPlatform platform, string config, string buildType,
+		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
+	{
+		GeneratorSettings settings;
+		settings.platform = platform;
+		settings.config = config;
+		settings.buildType = buildType;
+		settings.compiler = formattingCompiler;
+		return listBuildSettings(settings, requestedData, nullDelim);
+	}
 
 	/// Outputs the import paths for the project, including its dependencies.
-	string[] listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
+	deprecated string[] listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		auto projectDescription = describe(platform, config, buildType);
 		return listBuildSetting!"importPaths"(platform, config, projectDescription, null, nullDelim);
 	}
 
 	/// Outputs the string import paths for the project, including its dependencies.
-	string[] listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
+	deprecated string[] listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		auto projectDescription = describe(platform, config, buildType);
 		return listBuildSetting!"stringImportPaths"(platform, config, projectDescription, null, nullDelim);
 	}
 
+	/** Saves the currently selected dependency versions to disk.
+
+		The selections will be written to a file named
+		`SelectedVersions.defaultFile` ("dub.selections.json") within the
+		directory of the root package. Any existing file will get overwritten.
+	*/
 	void saveSelections()
 	{
 		assert(m_selections !is null, "Cannot save selections for non-disk based project (has no selections).");
@@ -982,6 +1038,11 @@ class Project {
 			m_selections.save(path);
 	}
 
+	/** Checks if the cached upgrade information is still considered up to date.
+
+		The cache will be considered out of date after 24 hours after the last
+		online check.
+	*/
 	bool isUpgradeCacheUpToDate()
 	{
 		try {
@@ -996,6 +1057,11 @@ class Project {
 		}
 	}
 
+	/** Returns the currently cached upgrade information.
+
+		The returned dictionary maps from dependency package name to the latest
+		available version that matches the dependency specifications.
+	*/
 	Dependency[string] getUpgradeCache()
 	{
 		try {
@@ -1009,6 +1075,8 @@ class Project {
 		}
 	}
 
+	/** Sets a new set of versions for the upgrade cache.
+	*/
 	void setUpgradeCache(Dependency[string] versions)
 	{
 		logDebug("markUpToDate");
@@ -1044,7 +1112,7 @@ class Project {
 }
 
 /// Actions to be performed by the dub
-struct Action {
+deprecated struct Action {
 	enum Type {
 		fetch,
 		remove,
@@ -1109,7 +1177,7 @@ struct Action {
 
 /// Indicates where a package has been or should be placed to.
 enum PlacementLocation {
-	/// Packages retrived with 'local' will be placed in the current folder
+	/// Packages retrieved with 'local' will be placed in the current folder
 	/// using the package name as destination.
 	local,
 	/// Packages with 'userWide' will be placed in a folder accessible by
@@ -1120,11 +1188,16 @@ enum PlacementLocation {
 	system
 }
 
-/// The default placement location of fetched packages. Can be changed by --local or --system.
-auto defaultPlacementLocation = PlacementLocation.user;
+/** The default placement location of fetched packages.
 
-void processVars(ref BuildSettings dst, in Project project, in Package pack, BuildSettings settings, bool include_target_settings = false)
+	This property can be altered, so that packages which are downloaded as part
+	of the normal upgrade process are stored in a certain location. This is
+	how the "--local" and "--system" command line switches operate.
+*/
+PlacementLocation defaultPlacementLocation = PlacementLocation.user;
 
+void processVars(ref BuildSettings dst, in Project project, in Package pack,
+	BuildSettings settings, bool include_target_settings = false)
 {
 	dst.addDFlags(processVars(project, pack, settings.dflags));
 	dst.addLFlags(processVars(project, pack, settings.lflags));
@@ -1220,21 +1293,16 @@ private string getVariable(string name, in Project project, in Package pack)
 	throw new Exception("Invalid variable: "~name);
 }
 
-private bool isIdentChar(dchar ch)
+deprecated string stripDlangSpecialChars(string s)
 {
-	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
+	return dub.internal.utils.stripDlangSpecialChars(s);
 }
 
-string stripDlangSpecialChars(string s)
-{
-	import std.array;
-	import std.uni;
-	auto ret = appender!string();
-	foreach(ch; s)
-		ret.put(isIdentChar(ch) ? ch : '_');
-	return ret.data;
-}
+/** Holds and stores a set of version selections for package dependencies.
 
+	This is the runtime representation of the information contained in
+	"dub.selections.json" within a package's directory.
+*/
 final class SelectedVersions {
 	private struct Selected {
 		Dependency dep;
@@ -1247,16 +1315,25 @@ final class SelectedVersions {
 		bool m_bare = true;
 	}
 
+	/// Default file name to use for storing selections.
 	enum defaultFile = "dub.selections.json";
 
+	/// Constructs a new empty version selection.
 	this() {}
 
+	/** Constructs a new version selection from JSON data.
+
+		The structure of the JSON document must match the contents of the
+		"dub.selections.json" file.
+	*/
 	this(Json data)
 	{
 		deserialize(data);
 		m_dirty = false;
 	}
 
+	/** Constructs a new version selections from an existing JSON file.
+	*/
 	this(Path path)
 	{
 		auto json = jsonFromFile(path);
@@ -1265,25 +1342,30 @@ final class SelectedVersions {
 		m_bare = false;
 	}
 
+	/// Returns a list of names for all packages that have a version selection.
 	@property string[] selectedPackages() const { return m_selections.keys; }
 
+	/// Determines if any changes have been made after loading the selections from a file.
 	@property bool dirty() const { return m_dirty; }
 
-	/// Determine if this set of selections is empty and has not been saved to disk.
+	/// Determine if this set of selections is still empty (but not `clear`ed).
 	@property bool bare() const { return m_bare && !m_dirty; }
 
+	/// Removes all selections.
 	void clear()
 	{
 		m_selections = null;
 		m_dirty = true;
 	}
 
+	/// Duplicates the set of selected versions from another instance.
 	void set(SelectedVersions versions)
 	{
 		m_selections = versions.m_selections.dup;
 		m_dirty = true;
 	}
 
+	/// Selects a certain version for a specific package.
 	void selectVersion(string package_id, Version version_)
 	{
 		if (auto ps = package_id in m_selections) {
@@ -1294,6 +1376,7 @@ final class SelectedVersions {
 		m_dirty = true;
 	}
 
+	/// Selects a certain path for a specific package.
 	void selectVersion(string package_id, Path path)
 	{
 		if (auto ps = package_id in m_selections) {
@@ -1304,23 +1387,38 @@ final class SelectedVersions {
 		m_dirty = true;
 	}
 
+	/// Removes the selection for a particular package.
 	void deselectVersion(string package_id)
 	{
 		m_selections.remove(package_id);
 		m_dirty = true;
 	}
 
+	/// Determines if a particular package has a selection set.
 	bool hasSelectedVersion(string packageId)
 	const {
 		return (packageId in m_selections) !is null;
 	}
 
+	/** Returns the selection for a particular package.
+
+		Note that the returned `Dependency` can either have the
+		`Dependency.path` property set to a non-empty value, in which case this
+		is a path based selection, or its `Dependency.version_` property is
+		valid and it is a version selection.
+	*/
 	Dependency getSelectedVersion(string packageId)
 	const {
 		enforce(hasSelectedVersion(packageId));
 		return m_selections[packageId].dep;
 	}
 
+	/** Stores the selections to disk.
+
+		The target file will be written in JSON format. Usually, `defaultFile`
+		should be used as the file name and the directory should be the root
+		directory of the project's root package.
+	*/
 	void save(Path path)
 	{
 		Json json = serialize();
