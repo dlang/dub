@@ -952,7 +952,7 @@ class Project {
 	}
 
 	/// Outputs requested data for the project, optionally including its dependencies.
-	string[] listBuildSettings(GeneratorSettings settings, string[] requestedData, bool nullDelim)
+	string[] listBuildSettings(GeneratorSettings settings, string[] requestedData, ListBuildSettingsFormat list_type)
 	{
 		import dub.compilers.utils : isLinkerFile;
 
@@ -976,25 +976,27 @@ class Project {
 			.array();
 		projectDescription.lookupTarget(projectDescription.rootPackage) = target;
 
-		// Genrate results
-		if (settings.compiler)
-		{
-			// Format for a compiler
-			return [
-				requestedData
-					.map!(dataName => listBuildSetting(settings.platform, configs, projectDescription, dataName, settings.compiler, nullDelim))
-					.join().join(nullDelim? "\0" : " ")
-			];
+		Compiler compiler;
+		bool no_escape;
+		final switch (list_type) with (ListBuildSettingsFormat) {
+			case list: break;
+			case listNul: no_escape = true; break;
+			case commandLine: compiler = settings.compiler; break;
+			case commandLineNul: compiler = settings.compiler; no_escape = true; break;
+
 		}
-		else
-		{
-			// Format list-style
-			return requestedData
-				.map!(dataName => listBuildSetting(settings.platform, configs, projectDescription, dataName, null, nullDelim))
-				.joiner([""]) // Blank entry between each type of requestedData
-				.array();
+
+		auto result = requestedData
+			.map!(dataName => listBuildSetting(settings.platform, configs, projectDescription, dataName, compiler, no_escape));
+
+		final switch (list_type) with (ListBuildSettingsFormat) {
+			case list: return result.map!(l => l.join("\n")).array();
+			case listNul: return result.map!(l => l.join("\0")).array;
+			case commandLine: return result.map!(l => l.join(" ")).array;
+			case commandLineNul: return result.map!(l => l.join("\0")).array;
 		}
 	}
+
 	deprecated("Use the overload taking a GeneratorSettings instance instead.")
 	string[] listBuildSettings(BuildPlatform platform, string config, string buildType,
 		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
@@ -1004,7 +1006,10 @@ class Project {
 		settings.config = config;
 		settings.buildType = buildType;
 		settings.compiler = formattingCompiler;
-		return listBuildSettings(settings, requestedData, nullDelim);
+		ListBuildSettingsFormat listtype;
+		with (ListBuildSettingsFormat)
+			listtype = formattingCompiler ? (nullDelim ? commandLineNul : commandLine) : (nullDelim ? listNul : list);
+		return listBuildSettings(settings, requestedData, listtype);
 	}
 
 	/// Outputs the import paths for the project, including its dependencies.
@@ -1110,6 +1115,16 @@ class Project {
 		}
 	}
 }
+
+
+/// Determines the output format used for `Project.listBuildSettings`.
+enum ListBuildSettingsFormat {
+	list,           /// Newline separated list entries
+	listNul,        /// NUL character separated list entries (unescaped)
+	commandLine,    /// Formatted for compiler command line (one data list per line)
+	commandLineNul, /// NUL character separated list entries (unescaped, data lists separated by two NUL characters)
+}
+
 
 /// Actions to be performed by the dub
 deprecated struct Action {

@@ -978,13 +978,16 @@ class DescribeCommand : PackageBuildCommand {
 		settings.platform = m_buildPlatform;
 		settings.config = config;
 		settings.buildType = m_buildType;
-		settings.compiler = m_dataList ? null : m_compiler;
+		settings.compiler = m_compiler;
 
 		if (m_importPaths) { m_data = ["import-paths"]; m_dataList = true; }
 		else if (m_stringImportPaths) { m_data = ["string-import-paths"]; m_dataList = true; }
 
 		if (m_data.length) {
-			dub.listProjectData(settings, m_data, m_dataNullDelim);
+			ListBuildSettingsFormat lt;
+			with (ListBuildSettingsFormat)
+				lt = m_dataList ? (m_dataNullDelim ? listNul : list) : (m_dataNullDelim ? commandLineNul : commandLine);
+			dub.listProjectData(settings, m_data, lt);
 		} else {
 			auto desc = dub.project.describe(settings);
 			writeln(desc.serializeToPrettyJson());

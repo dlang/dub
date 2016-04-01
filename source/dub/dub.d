@@ -531,7 +531,7 @@ class Dub {
 
 	/** Prints the specified build settings necessary for building the root package.
 	*/
-	void listProjectData(GeneratorSettings settings, string[] requestedData, bool nullDelim)
+	void listProjectData(GeneratorSettings settings, string[] requestedData, ListBuildSettingsFormat list_type)
 	{
 		import std.stdio;
 		import std.ascii : newline;
@@ -543,22 +543,32 @@ class Dub {
 			.joiner()
 			.array();
 
-		auto data = m_project.listBuildSettings(settings, requestedDataSplit, nullDelim);
+		auto data = m_project.listBuildSettings(settings, requestedDataSplit, list_type);
 
-		write( data.joiner(nullDelim? "\0" : newline) );
-		if(!nullDelim)
-			writeln();
+		string delimiter;
+		final switch (list_type) with (ListBuildSettingsFormat) {
+			case list: delimiter = newline ~ newline; break;
+			case listNul: delimiter = "\0\0"; break;
+			case commandLine: delimiter = " "; break;
+			case commandLineNul: delimiter = "\0\0"; break;
+		}
+
+		write(data.joiner(delimiter));
+		if (delimiter != "\0\0") writeln();
 	}
 	deprecated("Use the overload taking GeneratorSettings instead.")
 	void listProjectData(BuildPlatform platform, string config, string buildType,
-		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
+		string[] requestedData, Compiler formattingCompiler, bool null_delim)
 	{
 		GeneratorSettings settings;
 		settings.platform = platform;
 		settings.compiler = formattingCompiler;
 		settings.config = config;
 		settings.buildType = buildType;
-		listProjectData(settings, requestedData, nullDelim);
+		ListBuildSettingsFormat lt;
+		with (ListBuildSettingsFormat)
+			lt = formattingCompiler ? (null_delim ? commandLineNul : commandLine) : (null_delim ? listNul : list);
+		listProjectData(settings, requestedData, lt);
 	}
 
 	/// Cleans intermediate/cache files of the given package
