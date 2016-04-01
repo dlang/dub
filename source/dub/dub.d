@@ -90,6 +90,15 @@ class Dub {
 		Path m_overrideSearchPath;
 	}
 
+	/** The default placement location of fetched packages.
+
+		This property can be altered, so that packages which are downloaded as part
+		of the normal upgrade process are stored in a certain location. This is
+		how the "--local" and "--system" command line switches operate.
+	*/
+	PlacementLocation defaultPlacementLocation = PlacementLocation.user;
+
+
 	/** Initializes the instance for use with a specific root package.
 
 		Note that a package still has to be loaded using one of the
@@ -1255,7 +1264,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
 					fetchOpts |= (m_options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-					m_dub.fetch(rootpack, dep, defaultPlacementLocation, fetchOpts, "need sub package description");
+					m_dub.fetch(rootpack, dep, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);

@@ -207,11 +207,13 @@ int runDubCommandLine(string[] args)
 	if (!cmd.skipDubInitialization) {
 		if (options.bare) {
 			dub = new Dub(Path(getcwd()));
+			dub.defaultPlacementLocation = options.placementLocation;
 		} else {
 			// initialize DUB
 			auto package_suppliers = options.registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
 			dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
 			dub.dryRun = options.annotate;
+			dub.defaultPlacementLocation = options.placementLocation;
 
 			// make the CWD package available so that for example sub packages can reference their
 			// parent package.
@@ -244,6 +246,7 @@ struct CommonOptions {
 	string[] registry_urls;
 	string root_path;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
+	PlacementLocation placementLocation = PlacementLocation.user;
 
 	/// Parses all common options and stores the result in the struct instance.
 	void prepare(CommandArgs args)
@@ -263,7 +266,7 @@ struct CommonOptions {
 		args.getopt("vverbose", &vverbose, ["Print debug output"]);
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
-		args.getopt("cache", &defaultPlacementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
+		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 	}
 }
 
@@ -1153,7 +1156,7 @@ class FetchCommand : FetchRemoveCommand {
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto location = defaultPlacementLocation;
+		auto location = dub.defaultPlacementLocation;
 		if (m_local)
 		{
 			logWarn("--local is deprecated. Use --cache=local instead.");
@@ -1221,7 +1224,7 @@ class RemoveCommand : FetchRemoveCommand {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
 		auto package_id = free_args[0];
-		auto location = defaultPlacementLocation;
+		auto location = dub.defaultPlacementLocation;
 		if (m_local)
 		{
 			logWarn("--local is deprecated. Use --cache=local instead.");

@@ -1188,14 +1188,6 @@ enum PlacementLocation {
 	system
 }
 
-/** The default placement location of fetched packages.
-
-	This property can be altered, so that packages which are downloaded as part
-	of the normal upgrade process are stored in a certain location. This is
-	how the "--local" and "--system" command line switches operate.
-*/
-PlacementLocation defaultPlacementLocation = PlacementLocation.user;
-
 void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	BuildSettings settings, bool include_target_settings = false)
 {
