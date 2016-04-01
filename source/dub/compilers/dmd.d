@@ -176,6 +176,7 @@ class DmdCompiler : Compiler {
 				break;
 			case TargetType.dynamicLibrary:
 				version (Windows) settings.addDFlags("-shared");
+				else version (OSX) settings.addDFlags("-shared");
 				else settings.addDFlags("-shared", "-defaultlib=libphobos2.so");
 				break;
 			case TargetType.object:
