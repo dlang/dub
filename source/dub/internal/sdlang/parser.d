@@ -44,7 +44,7 @@ can be included so that the SDL document's filename (if any) can be displayed
 with any syntax error messages.
 
 Warning! The FileStartEvent and FileEndEvent events *might* be removed later.
-See $(WEB https://github.com/Abscissa/SDLang-D/issues/17)
+See $(LINK https://github.com/Abscissa/SDLang-D/issues/17)
 
 Example:
 ------------------
@@ -538,4 +538,17 @@ unittest
 	{
 		event.peek!FileStartEvent();
 	}
+}
+
+// Regression test, issue #31: https://github.com/Abscissa/SDLang-D/issues/31
+// "Escape sequence results in range violation error"
+version(sdlangUnittest)
+unittest
+{
+	import std.stdio;
+	writeln("parser: Regression test issue #31...");
+	stdout.flush();
+
+	// Shouldn't get a Range violation
+	parseSource(`test "\"foo\""`);
 }

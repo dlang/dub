@@ -271,9 +271,9 @@ void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char
 		else
 			sink.put("+");
 		
-		sink.put("%.2s".format(offset.hours));
+		sink.put("%.2s".format(offset.split.hours));
 		sink.put(":");
-		sink.put("%.2s".format(offset.minutes));
+		sink.put("%.2s".format(offset.split.minutes));
 	}
 	else
 		sink.put(tzString);
@@ -303,16 +303,16 @@ void toSDLString(Sink)(Duration value, ref Sink sink) if(isOutputRange!(Sink,cha
 		sink.put("d:");
 	}
 
-	sink.put("%.2s".format(value.hours));
+	sink.put("%.2s".format(value.split.hours));
 	sink.put(':');
-	sink.put("%.2s".format(value.minutes));
+	sink.put("%.2s".format(value.split.minutes));
 	sink.put(':');
-	sink.put("%.2s".format(value.seconds));
+	sink.put("%.2s".format(value.split.seconds));
 
-	if(value.fracSec.msecs != 0)
+	if(value.split.msecs != 0)
 	{
 		sink.put('.');
-		sink.put("%.3s".format(value.fracSec.msecs));
+		sink.put("%.3s".format(value.split.msecs));
 	}
 }
 
