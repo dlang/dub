@@ -38,8 +38,8 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 
 	PackageRecipe ret;
 
-	if (filename.endsWith(".json")) dub.recipe.json.parseJson(ret, parseJsonString(contents, filename), parent_name);
-	else if (filename.endsWith(".sdl")) dub.recipe.sdl.parseSDL(ret, contents, parent_name, filename);
+	if (filename.endsWith(".json")) parseJson(ret, parseJsonString(contents, filename), parent_name);
+	else if (filename.endsWith(".sdl")) parseSDL(ret, contents, parent_name, filename);
 	else assert(false, "readPackageRecipe called with filename with unknown extension: "~filename);
 	return ret;
 }

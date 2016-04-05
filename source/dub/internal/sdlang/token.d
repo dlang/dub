@@ -23,7 +23,11 @@ import dub.internal.sdlang.util;
 struct DateTimeFrac
 {
 	DateTime dateTime;
-	FracSec fracSec;
+	Duration fracSecs;
+	deprecated("Use fracSecs instead.") {
+		@property FracSec fracSec() const { return FracSec.from!"hnsecs"(fracSecs.total!"hnsecs"); }
+		@property void fracSec(FracSec v) { fracSecs = v.hnsecs.hnsecs; }
+	}
 }
 
 /++
@@ -39,7 +43,11 @@ data for it could not be found on your system.
 struct DateTimeFracUnknownZone
 {
 	DateTime dateTime;
-	FracSec fracSec;
+	Duration fracSecs;
+	deprecated("Use fracSecs instead.") {
+		@property FracSec fracSec() { return FracSec.from!"hnsecs"(fracSecs.total!"hnsecs"); }
+		@property void fracSec(FracSec v) { fracSecs = v.hnsecs.hnsecs; }
+	}
 	string timeZone;
 
 	bool opEquals(const DateTimeFracUnknownZone b) const
@@ -50,7 +58,7 @@ struct DateTimeFracUnknownZone
 	{
 		return
 			this.dateTime == b.dateTime &&
-			this.fracSec  == b.fracSec  &&
+			this.fracSecs  == b.fracSecs  &&
 			this.timeZone == b.timeZone;
 	}
 }
@@ -227,16 +235,19 @@ void toSDLString(Sink)(DateTimeFrac value, ref Sink sink) if(isOutputRange!(Sink
 		sink.put("%.2s".format(value.dateTime.second));
 	}
 
-	if(value.fracSec.msecs != 0)
+	if(value.fracSecs.total!"msecs" != 0)
 	{
 		sink.put('.');
-		sink.put("%.3s".format(value.fracSec.msecs));
+		sink.put("%.3s".format(value.fracSecs.total!"msecs"));
 	}
 }
 
 void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
-	auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSec);
+	static if (__VERSION__ >= 2067)
+		auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSecs);
+	else
+		auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSec);
 	toSDLString(dateTimeFrac, sink);
 	
 	sink.put("-");
@@ -286,7 +297,7 @@ void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char
 
 void toSDLString(Sink)(DateTimeFracUnknownZone value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
-	auto dateTimeFrac = DateTimeFrac(value.dateTime, value.fracSec);
+	auto dateTimeFrac = DateTimeFrac(value.dateTime, value.fracSecs);
 	toSDLString(dateTimeFrac, sink);
 	
 	sink.put("-");

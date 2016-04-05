@@ -15,6 +15,7 @@ import dub.internal.vibecompat.inet.path;
 import dub.recipe.packagerecipe;
 
 import std.algorithm : map;
+import std.array : array;
 import std.conv;
 import std.string : startsWith;
 
@@ -54,7 +55,7 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 		}
 	}
 
-	enforce(recipe.name.length > 0, "The package \"name\" field is missing or empty.");
+	enforceSDL(recipe.name.length > 0, "The package \"name\" field is missing or empty.", sdl);
 	string full_name = parent_name.length ? parent_name ~ ":" ~ recipe.name : recipe.name;
 
 	// parse general build settings
@@ -165,7 +166,7 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	enforceSDL(t.values.length != 0, "Missing dependency name.", t);
 	enforceSDL(t.values.length == 1, "Multiple dependency names.", t);
 	auto pkg = expandPackageName(t.values[0].get!string, package_name, t);
-	enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
+	enforceSDL(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once.", t);
 
 	Dependency dep = Dependency.ANY;
 	auto attrs = t.attributes;

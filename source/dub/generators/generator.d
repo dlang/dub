@@ -143,6 +143,8 @@ class ProjectGenerator
 
 	private BuildSettings collect(GeneratorSettings settings, Package pack, ref TargetInfo[string] targets, in string[string] configs, ref string[] main_files, string bin_pack)
 	{
+		import std.algorithm : sort;
+
 		if (auto pt = pack.name in targets) return pt.buildSettings;
 
 		// determine the actual target type
@@ -354,6 +356,8 @@ private void prepareGeneration(in Package pack, in Project proj, in GeneratorSet
 private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSettings settings,
 	in BuildSettings buildsettings, Path target_path, bool generate_binary)
 {
+	import std.path : globMatch;
+	
 	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running post-generate commands for %s...", pack.name);
 		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);

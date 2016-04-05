@@ -19,7 +19,7 @@ static if (__VERSION__ >= 2067)
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
 struct BuildSettings {
-	import dub.internal.vibecompat.data.serialization;
+	import dub.internal.vibecompat.data.serialization : byName;
 
 	TargetType targetType;
 	string targetPath;

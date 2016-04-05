@@ -33,6 +33,7 @@ struct ProjectDescription {
 	/// Targets by name
 	ref inout(TargetDescription) lookupTarget(string name) inout
 	{
+		import std.exception : enforce;
 		auto pti = name in targetLookup;
 		enforce(pti !is null, "Target '"~name~"' doesn't exist. Is the target type set to \"none\" in the package recipe?");
 		return targets[*pti];

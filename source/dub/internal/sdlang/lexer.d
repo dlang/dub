@@ -990,8 +990,7 @@ class Lexer
 				millisecond *= 10;
 		}
 
-		FracSec fracSecs;
-		fracSecs.msecs = millisecond;
+		Duration fracSecs = millisecond.msecs;
 		
 		auto offset = hours(numHours) + minutes(numMinutes) + seconds(numSeconds);
 
@@ -1256,12 +1255,12 @@ class Lexer
 				if(offset.isNull())
 				{
 					// Unknown time zone
-					mixin(accept!("Value", "DateTimeFracUnknownZone(dateTimeFrac.dateTime, dateTimeFrac.fracSec, timezoneStr)"));
+					mixin(accept!("Value", "DateTimeFracUnknownZone(dateTimeFrac.dateTime, dateTimeFrac.fracSecs, timezoneStr)"));
 				}
 				else
 				{
 					auto timezone = new immutable SimpleTimeZone(offset.get());
-					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, dateTimeFrac.fracSec, timezone)"));
+					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, dateTimeFrac.fracSecs, timezone)"));
 				}
 			}
 			
@@ -1269,7 +1268,7 @@ class Lexer
 			{
 				auto timezone = TimeZone.getTimeZone(timezoneStr);
 				if(timezone)
-					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, dateTimeFrac.fracSec, timezone)"));
+					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, dateTimeFrac.fracSecs, timezone)"));
 			}
 			catch(TimeException e)
 			{
@@ -1277,7 +1276,7 @@ class Lexer
 			}
 
 			// Unknown time zone
-			mixin(accept!("Value", "DateTimeFracUnknownZone(dateTimeFrac.dateTime, dateTimeFrac.fracSec, timezoneStr)"));
+			mixin(accept!("Value", "DateTimeFracUnknownZone(dateTimeFrac.dateTime, dateTimeFrac.fracSecs, timezoneStr)"));
 		}
 
 		if(!isEndOfNumber())

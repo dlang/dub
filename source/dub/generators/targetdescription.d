@@ -25,6 +25,9 @@ class TargetDescriptionGenerator : ProjectGenerator {
 
 	protected override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
+		import std.algorithm : map;
+		import std.array : array;
+
 		auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
 		targetDescriptions.length = targets.length;
 		size_t i = 0;
