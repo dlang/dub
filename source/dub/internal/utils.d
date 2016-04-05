@@ -230,7 +230,7 @@ ubyte[] download(string url)
 		import vibe.inet.urltransfer;
 		import vibe.stream.operations;
 		ubyte[] ret;
-		download(url, (scope input) { ret = input.readAll(); });
+		vibe.inet.urltransfer.download(url, (scope input) { ret = input.readAll(); });
 		return ret;
 	} else assert(false);
 }
