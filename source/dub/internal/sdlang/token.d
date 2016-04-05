@@ -22,6 +22,9 @@ import dub.internal.sdlang.util;
 /// So this is needed for any SDL "Date Time" that doesn't include a time zone.
 struct DateTimeFrac
 {
+	this(DateTime dt, Duration fs) { this.dateTime = dt; this.fracSecs = fs; }
+	this(DateTime dt, FracSec fs) { this.dateTime = dt; this.fracSecs = fs.hnsecs.hnsecs; }
+
 	DateTime dateTime;
 	Duration fracSecs;
 	deprecated("Use fracSecs instead.") {

@@ -1260,15 +1260,20 @@ class Lexer
 				else
 				{
 					auto timezone = new immutable SimpleTimeZone(offset.get());
-					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, dateTimeFrac.fracSecs, timezone)"));
+					static if (__VERSION__ >= 2067) auto fsecs = dateTimeFrac.fracSecs;
+					else auto fsecs = FracSec.from!"hnsecs"(dateTimeFrac.fracSecs.total!"hnsecs");
+					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, fsecs, timezone)"));
 				}
 			}
 			
 			try
 			{
 				auto timezone = TimeZone.getTimeZone(timezoneStr);
-				if(timezone)
-					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, dateTimeFrac.fracSecs, timezone)"));
+				if(timezone) {
+					static if (__VERSION__ >= 2067) auto fsecs = dateTimeFrac.fracSecs;
+					else auto fsecs = FracSec.from!"hnsecs"(dateTimeFrac.fracSecs.total!"hnsecs");
+					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, fsecs, timezone)"));
+				}
 			}
 			catch(TimeException e)
 			{
