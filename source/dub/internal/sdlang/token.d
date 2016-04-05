@@ -270,10 +270,15 @@ void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char
 		}
 		else
 			sink.put("+");
+
+		long hours, minutes;
+		static if (__VERSION__ >= 2066)
+			offset.split!("hours", "minutes")(hours, minutes);
+		else hours = offset.hours, minutes = offset.minutes;
 		
-		sink.put("%.2s".format(offset.hours));
+		sink.put("%.2s".format(hours));
 		sink.put(":");
-		sink.put("%.2s".format(offset.minutes));
+		sink.put("%.2s".format(minutes));
 	}
 	else
 		sink.put(tzString);
@@ -303,16 +308,21 @@ void toSDLString(Sink)(Duration value, ref Sink sink) if(isOutputRange!(Sink,cha
 		sink.put("d:");
 	}
 
-	sink.put("%.2s".format(value.hours));
-	sink.put(':');
-	sink.put("%.2s".format(value.minutes));
-	sink.put(':');
-	sink.put("%.2s".format(value.seconds));
+	long hours, minutes, seconds, msecs;
+	static if (__VERSION__ >= 2066)
+		value.split!("hours", "minutes", "seconds", "msecs")(hours, minutes, seconds, msecs);
+	else hours = value.hours, minutes = value.minutes, seconds = value.seconds, msecs = value.fracSec.msecs;
 
-	if(value.fracSec.msecs != 0)
+	sink.put("%.2s".format(hours));
+	sink.put(':');
+	sink.put("%.2s".format(minutes));
+	sink.put(':');
+	sink.put("%.2s".format(seconds));
+
+	if(msecs != 0)
 	{
 		sink.put('.');
-		sink.put("%.3s".format(value.fracSec.msecs));
+		sink.put("%.3s".format(msecs));
 	}
 }
 
