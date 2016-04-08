@@ -10,7 +10,7 @@ module dub.dependencyresolver;
 import dub.dependency;
 import dub.internal.vibecompat.core.log;
 
-import std.algorithm : all, canFind, filter, sort;
+import std.algorithm : all, canFind, filter, map, sort;
 import std.array : appender, array;
 import std.conv : to;
 import std.exception : enforce;
@@ -55,7 +55,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 	CONFIG[string] resolve(TreeNode root, bool throw_on_failure = true)
 	{
-		auto root_base_pack = rootPackage(root.pack);
+		auto root_base_pack = basePackage(root.pack);
 
 		// find all possible configurations of each possible dependency
 		size_t[string] package_indices;
@@ -71,7 +71,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			visited[parent] = true;
 
 			foreach (ch; getChildren(parent)) {
-				auto basepack = rootPackage(ch.pack);
+				auto basepack = basePackage(ch.pack);
 				auto pidx = all_configs.length;
 
 				if (ch.depType != DependencyType.required) maybe_optional_deps[ch.pack] = true;
@@ -132,12 +132,12 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 			visited[parent] = true;
 			sizediff_t maxcpi = -1;
-			sizediff_t parentidx = package_indices.get(rootPackage(parent.pack), -1);
-			auto parentbase = rootPackage(parent.pack);
+			sizediff_t parentidx = package_indices.get(basePackage(parent.pack), -1);
+			auto parentbase = basePackage(parent.pack);
 
 			// loop over all dependencies
 			foreach (ch; getChildren(parent)) {
-				auto basepack = rootPackage(ch.pack);
+				auto basepack = basePackage(ch.pack);
 				assert(basepack in package_indices, format("%s not in packages %s", basepack, package_indices));
 
 				// get the current config/version of the current dependency
@@ -226,7 +226,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 						auto cfg = all_configs[i][config_indices[i]];
 						if (cfg != CONFIG.invalid) ret[p] = cfg;
 					}
+				logDebug("Resolved dependencies before optional-purge: %s", ret.byKey.map!(k => k~" "~ret[k].to!string));
 				purgeOptionalDependencies(root, ret);
+				logDebug("Resolved dependencies after optional-purge: %s", ret.byKey.map!(k => k~" "~ret[k].to!string));
 				return ret;
 			}
 
@@ -257,7 +259,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			if (node.pack in required) return;
 			required[node.pack] = true;
 			foreach (dep; getChildren(node).filter!(dep => dep.depType != DependencyType.optional))
-				if (auto dp = rootPackage(dep.pack) in configs)
+				if (auto dp = basePackage(dep.pack) in configs)
 					markRecursively(TreeNode(dep.pack, *dp));
 		}
 
@@ -277,7 +279,7 @@ enum DependencyType {
 	optional
 }
 
-private string rootPackage(string p)
+private string basePackage(string p)
 {
 	auto idx = indexOf(p, ":");
 	if (idx < 0) return p;
