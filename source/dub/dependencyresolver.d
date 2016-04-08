@@ -257,7 +257,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		void markRecursively(TreeNode node)
 		{
 			if (node.pack in required) return;
-			required[node.pack] = true;
+			required[basePackage(node.pack)] = true;
 			foreach (dep; getChildren(node).filter!(dep => dep.depType != DependencyType.optional))
 				if (auto dp = basePackage(dep.pack) in configs)
 					markRecursively(TreeNode(dep.pack, *dp));
