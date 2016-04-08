@@ -88,7 +88,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					package_names[pidx] = basepack;
 				}
 
-				configs = getSpecificConfigs(basepack, ch) ~ configs;
+				foreach (c; getSpecificConfigs(basepack, ch))
+					if (!configs.canFind(c))
+						configs = c ~ configs;
 
 				if (any_config.length <= pidx) any_config.length = pidx+1;
 				any_config[pidx] = configs.length > 0;
