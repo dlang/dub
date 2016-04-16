@@ -50,35 +50,35 @@ v0.9.24 - 2015-09-
  - Fixed building dynamic libraries with DMD - [issue #613][issue613]
 
 [sdl-package-format]: http://code.dlang.org/package-format?lang=sdl
-[issue348]: https://github.com/D-Programming-Language/dub/issues/348
-[issue393]: https://github.com/D-Programming-Language/dub/issues/393
-[issue535]: https://github.com/D-Programming-Language/dub/issues/535
-[issue540]: https://github.com/D-Programming-Language/dub/issues/540
-[issue543]: https://github.com/D-Programming-Language/dub/issues/543
-[issue546]: https://github.com/D-Programming-Language/dub/issues/546
-[issue547]: https://github.com/D-Programming-Language/dub/issues/547
-[issue552]: https://github.com/D-Programming-Language/dub/issues/552
-[issue552]: https://github.com/D-Programming-Language/dub/issues/552
-[issue553]: https://github.com/D-Programming-Language/dub/issues/553
-[issue560]: https://github.com/D-Programming-Language/dub/issues/560
-[issue561]: https://github.com/D-Programming-Language/dub/issues/561
-[issue564]: https://github.com/D-Programming-Language/dub/issues/564
-[issue565]: https://github.com/D-Programming-Language/dub/issues/565
-[issue572]: https://github.com/D-Programming-Language/dub/issues/572
-[issue574]: https://github.com/D-Programming-Language/dub/issues/574
-[issue580]: https://github.com/D-Programming-Language/dub/issues/580
-[issue581]: https://github.com/D-Programming-Language/dub/issues/581
-[issue582]: https://github.com/D-Programming-Language/dub/issues/582
-[issue585]: https://github.com/D-Programming-Language/dub/issues/585
-[issue587]: https://github.com/D-Programming-Language/dub/issues/587
-[issue592]: https://github.com/D-Programming-Language/dub/issues/592
-[issue593]: https://github.com/D-Programming-Language/dub/issues/593
-[issue596]: https://github.com/D-Programming-Language/dub/issues/596
-[issue601]: https://github.com/D-Programming-Language/dub/issues/601
-[issue613]: https://github.com/D-Programming-Language/dub/issues/613
-[issue617]: https://github.com/D-Programming-Language/dub/issues/617
-[issue621]: https://github.com/D-Programming-Language/dub/issues/621
-[issue678]: https://github.com/D-Programming-Language/dub/issues/678
+[issue348]: https://github.com/dlang/dub/issues/348
+[issue393]: https://github.com/dlang/dub/issues/393
+[issue535]: https://github.com/dlang/dub/issues/535
+[issue540]: https://github.com/dlang/dub/issues/540
+[issue543]: https://github.com/dlang/dub/issues/543
+[issue546]: https://github.com/dlang/dub/issues/546
+[issue547]: https://github.com/dlang/dub/issues/547
+[issue552]: https://github.com/dlang/dub/issues/552
+[issue552]: https://github.com/dlang/dub/issues/552
+[issue553]: https://github.com/dlang/dub/issues/553
+[issue560]: https://github.com/dlang/dub/issues/560
+[issue561]: https://github.com/dlang/dub/issues/561
+[issue564]: https://github.com/dlang/dub/issues/564
+[issue565]: https://github.com/dlang/dub/issues/565
+[issue572]: https://github.com/dlang/dub/issues/572
+[issue574]: https://github.com/dlang/dub/issues/574
+[issue580]: https://github.com/dlang/dub/issues/580
+[issue581]: https://github.com/dlang/dub/issues/581
+[issue582]: https://github.com/dlang/dub/issues/582
+[issue585]: https://github.com/dlang/dub/issues/585
+[issue587]: https://github.com/dlang/dub/issues/587
+[issue592]: https://github.com/dlang/dub/issues/592
+[issue593]: https://github.com/dlang/dub/issues/593
+[issue596]: https://github.com/dlang/dub/issues/596
+[issue601]: https://github.com/dlang/dub/issues/601
+[issue613]: https://github.com/dlang/dub/issues/613
+[issue617]: https://github.com/dlang/dub/issues/617
+[issue621]: https://github.com/dlang/dub/issues/621
+[issue678]: https://github.com/dlang/dub/issues/678
 
 v0.9.23 - 2015-04-06
 --------------------

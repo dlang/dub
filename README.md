@@ -1,8 +1,8 @@
-# dub package manager [![Build Status](https://travis-ci.org/D-Programming-Language/dub.svg?branch=master)](https://travis-ci.org/D-Programming-Language/dub) [![Coverage Status](https://coveralls.io/repos/D-Programming-Language/dub/badge.svg)](https://coveralls.io/r/D-Programming-Language/dub)
+# dub package manager [![Build Status](https://travis-ci.org/dlang/dub.svg?branch=master)](https://travis-ci.org/dlang/dub) [![Coverage Status](https://coveralls.io/repos/dlang/dub/badge.svg)](https://coveralls.io/r/dlang/dub)
 
 Package and build manager for [D](http://dlang.org/) applications and libraries.
 
-There is a central [package registry](https://github.com/D-Programming-Language/dub-registry/) located at <http://code.dlang.org>.
+There is a central [package registry](https://github.com/dlang/dub-registry/) located at <http://code.dlang.org>.
 
 ## Introduction
 
@@ -52,4 +52,4 @@ Daniel Jost maintains a dub package on [chocolatey](https://chocolatey.org/packa
 
 ## Using DUB as a library
 
-The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/D-Programming-Language/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/D-Programming-Language/dub/blob/master/source/dub/commandline.d).
+The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/dlang/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/dlang/dub/blob/master/source/dub/commandline.d).
