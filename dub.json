@@ -31,6 +31,14 @@
 				"vibe-d": {"version": "~>0.7.19-rc.4", "optional": true}
 			},
 			"excludedSourceFiles": ["source/app.d"]
-		}
+		},
+      {
+         "name": "dynamic-library-nonet",
+         "targetType": "dynamicLibrary",
+         "dependencies": {
+            "vibe-d": {"version": "~>0.7.19-rc.4", "optional": true}
+         },
+         "excludedSourceFiles": ["source/app.d"]
+      }
 	]
 }
