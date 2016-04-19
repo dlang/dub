@@ -361,13 +361,13 @@ auto bitFieldNames(T)(T value) if(is(T==enum) && isIntegral!T)
 
 bool isIdentChar(dchar ch)
 {
-	return ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_';
+	import std.ascii : isAlphaNum;
+	return isAlphaNum(ch) || ch == '_';
 }
 
 string stripDlangSpecialChars(string s)
 {
-	import std.array;
-	import std.uni;
+	import std.array : appender;
 	auto ret = appender!string();
 	foreach(ch; s)
 		ret.put(isIdentChar(ch) ? ch : '_');
