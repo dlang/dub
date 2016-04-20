@@ -98,7 +98,7 @@ class Project {
 	}
 
 	/// Gathers information
-	deprecated @property string info()
+	deprecated("Will be removed for version 1.0.0.") @property string info()
 	const {
 		if(!m_rootPackage)
 			return "-Unrecognized application in '"~m_rootPackage.path.toNativeString()~"' (probably no dub.json in this directory)";
@@ -111,7 +111,7 @@ class Project {
 	}
 
 	/// Gets all retrieved packages as a "packageId" = "version" associative array
-	deprecated @property string[string] cachedPackagesIDs() const {
+	deprecated("Will be removed for version 1.0.0.") @property string[string] cachedPackagesIDs() const {
 		string[string] pkgs;
 		foreach(p; m_dependencies)
 			pkgs[p.name] = p.version_.toString();
@@ -618,7 +618,7 @@ class Project {
 	}
 
 	/// Determines if the given dependency is already indirectly referenced by other dependencies of pack.
-	deprecated bool isRedundantDependency(in Package pack, in Package dependency)
+	deprecated("Will be removed for version 1.0.0.") bool isRedundantDependency(in Package pack, in Package dependency)
 	const {
 		foreach (dep; pack.recipe.dependencies.byKey) {
 			auto dp = getDependency(dep, true);
@@ -669,14 +669,14 @@ class Project {
 		return ret;
 	}
 	/// ditto
-	deprecated void describe(ref Json dst, BuildPlatform platform, string config)
+	deprecated("Will be removed for version 1.0.0.") void describe(ref Json dst, BuildPlatform platform, string config)
 	{
 		auto desc = describe(platform, config);
 		foreach (string key, value; desc.serializeToJson())
 			dst[key] = value;
 	}
 	/// ditto
-	deprecated("Use the overload taking a GeneratorSettings instance.")
+	deprecated("Use the overload taking a GeneratorSettings instance. Will be removed for version 1.0.0.")
 	ProjectDescription describe(BuildPlatform platform, string config, string build_type = null)
 	{
 		GeneratorSettings settings;
@@ -997,7 +997,7 @@ class Project {
 		}
 	}
 
-	deprecated("Use the overload taking a GeneratorSettings instance instead.")
+	deprecated("Use the overload taking a GeneratorSettings instance instead. Will be removed for version 1.0.0.")
 	string[] listBuildSettings(BuildPlatform platform, string config, string buildType,
 		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
 	{
@@ -1013,14 +1013,14 @@ class Project {
 	}
 
 	/// Outputs the import paths for the project, including its dependencies.
-	deprecated string[] listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
+	deprecated("Will be removed for version 1.0.0.") string[] listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		auto projectDescription = describe(platform, config, buildType);
 		return listBuildSetting!"importPaths"(platform, config, projectDescription, null, nullDelim);
 	}
 
 	/// Outputs the string import paths for the project, including its dependencies.
-	deprecated string[] listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
+	deprecated("Will be removed for version 1.0.0.") string[] listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		auto projectDescription = describe(platform, config, buildType);
 		return listBuildSetting!"stringImportPaths"(platform, config, projectDescription, null, nullDelim);
@@ -1127,7 +1127,7 @@ enum ListBuildSettingsFormat {
 
 
 /// Actions to be performed by the dub
-deprecated struct Action {
+deprecated("Will be removed for version 1.0.0.") struct Action {
 	enum Type {
 		fetch,
 		remove,
@@ -1300,7 +1300,7 @@ private string getVariable(string name, in Project project, in Package pack)
 	throw new Exception("Invalid variable: "~name);
 }
 
-deprecated string stripDlangSpecialChars(string s)
+deprecated("Will be removed for version 1.0.0.") string stripDlangSpecialChars(string s)
 {
 	return dub.internal.utils.stripDlangSpecialChars(s);
 }

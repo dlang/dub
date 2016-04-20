@@ -87,7 +87,7 @@ struct PackageRecipe {
 
 	SubPackage[] subPackages;
 
-	deprecated("Use Package.dependencies or the dependencies of the individual BuildSettingsTemplates instead.")
+	deprecated("Use Package.dependencies or the dependencies of the individual BuildSettingsTemplates instead. Will be removed for version 1.0.0.")
 	@property const(Dependency)[string] dependencies()
 	const {
 		Dependency[string] ret;

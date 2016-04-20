@@ -144,7 +144,7 @@ class Dub {
 		updatePackageSearchPath();
 	}
 	/// ditto
-	deprecated
+	deprecated("Will be removed for version 1.0.0.")
 	this(PackageSupplier[] additional_package_suppliers = null, string root_path = ".",
 		SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
 	{
@@ -221,10 +221,10 @@ class Dub {
 		return .defaultCompiler();
 	}
 
-	deprecated void shutdown() {}
-	deprecated void cleanCaches() {}
+	deprecated("Will be removed for version 1.0.0.") void shutdown() {}
+	deprecated("Will be removed for version 1.0.0.") void cleanCaches() {}
 
-	deprecated("Use loadPackage instead.")
+	deprecated("Use loadPackage instead. Will be removed for version 1.0.0.")
 	alias loadPackageFromCwd = loadPackage;
 
 	/** Loads the package that resides within the configured `rootPath`.
@@ -500,7 +500,7 @@ class Dub {
 	}
 
 	/// Outputs a JSON description of the project, including its dependencies.
-	deprecated void describeProject(BuildPlatform platform, string config)
+	deprecated("Will be removed for version 1.0.0.") void describeProject(BuildPlatform platform, string config)
 	{
 		import std.stdio;
 		auto desc = m_project.describe(platform, config);
@@ -509,7 +509,7 @@ class Dub {
 
 	/** Prints a list of all import paths necessary for building the root package.
 	*/
-	deprecated void listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
+	deprecated("Will be removed for version 1.0.0.") void listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		import std.stdio;
 
@@ -520,7 +520,7 @@ class Dub {
 
 	/** Prints a list of all string import paths necessary for building the root package.
 	*/
-	deprecated void listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
+	deprecated("Will be removed for version 1.0.0.") void listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
 	{
 		import std.stdio;
 
@@ -556,7 +556,7 @@ class Dub {
 		write(data.joiner(delimiter));
 		if (delimiter != "\0\0") writeln();
 	}
-	deprecated("Use the overload taking GeneratorSettings instead.")
+	deprecated("Use the overload taking GeneratorSettings instead. Will be removed for version 1.0.0.")
 	void listProjectData(BuildPlatform platform, string config, string buildType,
 		string[] requestedData, Compiler formattingCompiler, bool null_delim)
 	{
@@ -585,7 +585,7 @@ class Dub {
 
 
 	/// Returns all cached packages as a "packageId" = "version" associative array
-	deprecated string[string] cachedPackages() const { return m_project.cachedPackagesIDs; }
+	deprecated("Will be removed for version 1.0.0.") string[string] cachedPackages() const { return m_project.cachedPackagesIDs; }
 
 	/// Fetches the package matching the dependency and places it in the specified location.
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
@@ -1025,9 +1025,9 @@ class Dub {
 	private Path makeAbsolute(string p) const { return makeAbsolute(Path(p)); }
 }
 
-deprecated alias determineModuleName = dub.internal.utils.determineModuleName;
-deprecated alias getModuleNameFromContent = dub.internal.utils.getModuleNameFromContent;
-deprecated alias getModuleNameFromFile = dub.internal.utils.getModuleNameFromFile;
+deprecated("Will be removed for version 1.0.0.") alias determineModuleName = dub.internal.utils.determineModuleName;
+deprecated("Will be removed for version 1.0.0.") alias getModuleNameFromContent = dub.internal.utils.getModuleNameFromContent;
+deprecated("Will be removed for version 1.0.0.") alias getModuleNameFromFile = dub.internal.utils.getModuleNameFromFile;
 
 
 /// Option flags for `Dub.fetch`
@@ -1059,7 +1059,7 @@ enum SkipPackageSuppliers {
 	all       /// Uses only manually specified package suppliers.
 }
 
-deprecated("Use SkipPackageSuppliers instead.")
+deprecated("Use SkipPackageSuppliers instead. Will be removed for version 1.0.0.")
 alias SkipRegistry = SkipPackageSuppliers;
 
 private class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {

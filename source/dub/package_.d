@@ -203,18 +203,18 @@ class Package {
 	@property Path recipePath() const { return m_infoFile; }
 
 
-	deprecated("Use .version_.toString() instead.")
+	deprecated("Use .version_.toString() instead. Will be removed for version 1.0.0.")
 	@property string vers() const { return m_parentPackage ? m_parentPackage.vers : m_info.version_; }
 
-	deprecated("Use .version instead")
+	deprecated("Use .version instead. Will be removed for version 1.0.0.")
 	@property Version ver() const { return Version(this.vers); }
-	deprecated("Use .version instead")
+	deprecated("Use .version instead. Will be removed for version 1.0.0.")
 	@property void ver(Version ver) { assert(m_parentPackage is null); m_info.version_ = ver.toString(); }
 	
-	deprecated("Use .recipe instead")
+	deprecated("Use .recipe instead. Will be removed for version 1.0.0.")
 	@property ref inout(PackageRecipe) info() inout { return m_info; }
 
-	deprecated("Use .recipePath instead")
+	deprecated("Use .recipePath instead. Will be removed for version 1.0.0.")
 	@property Path packageInfoFilename() const { return m_infoFile; }
 
 	/** Returns a list of all possible dependencies of the package.
@@ -616,7 +616,7 @@ class Package {
 		return ret;
 	}
 	// ditto
-	deprecated void describe(ref Json dst, BuildPlatform platform, string config)
+	deprecated("Will be removed for version 1.0.0.") void describe(ref Json dst, BuildPlatform platform, string config)
 	{
 		auto res = describe(platform, config);
 		foreach (string key, value; res.serializeToJson())

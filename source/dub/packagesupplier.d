@@ -60,7 +60,7 @@ interface PackageSupplier {
 	*/
 	void fetchPackage(Path path, string package_id, Dependency dep, bool pre_release);
 
-	deprecated("Use fetchPackage instead.")
+	deprecated("Use fetchPackage instead. Will be removed for version 1.0.0.")
 	alias retrievePackage = fetchPackage;
 
 	/** Retrieves only the recipe of a particular package.
@@ -73,7 +73,7 @@ interface PackageSupplier {
 	*/
 	Json fetchPackageRecipe(string package_id, Dependency dep, bool pre_release);
 
-	deprecated("Use fetchPackageRecipe instead.")
+	deprecated("Use fetchPackageRecipe instead. Will be removed for version 1.0.0.")
 	alias getPackageDescription = fetchPackageRecipe;
 
 	/** Searches for packages matching the given search query term.

@@ -24,7 +24,7 @@ import std.random;
 import std.typecons;
 
 
-deprecated alias DmdCompiler = DMDCompiler;
+deprecated("Use DMDCompiler instead. Will be removed for version 1.0.0.") alias DmdCompiler = DMDCompiler;
 
 class DMDCompiler : Compiler {
 	private static immutable s_options = [

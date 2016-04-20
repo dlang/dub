@@ -51,9 +51,9 @@ struct Dependency {
 	/// An invalid dependency (with no possible version matches).
 	static @property invalid() { Dependency ret; ret.m_versA = Version.maxRelease; ret.m_versB = Version.minRelease; return ret; }
 
-	deprecated("Use .any instead")
+	deprecated("Use .any instead. Will be removed for version 1.0.0.")
 	alias ANY = any;
-	deprecated("Use .invalid instead")
+	deprecated("Use .invalid instead. Will be removed for version 1.0.0.")
 	alias INVALID = invalid;
 
 	/** Constructs a new dependency specification from a string
@@ -110,7 +110,7 @@ struct Dependency {
 	}
 
 	/// Compatibility alias
-	deprecated("Use versionSpec instead.")
+	deprecated("Use versionSpec instead. Will be removed for version 1.0.0.")
 	alias versionString = versionSpec;
 
 	/** Sets/gets the matching version range as a specification string.
@@ -640,17 +640,17 @@ struct Version {
 	static @property masterBranch() { return Version(masterString); }
 	static @property unknown() { return Version(UNKNOWN_VERS); }
 
-	deprecated("Use minRelease instead")
+	deprecated("Use minRelease instead. Will be removed for version 1.0.0.")
 	static @property RELEASE() { return Version("0.0.0"); }
-	deprecated("Use maxRelease instead")
+	deprecated("Use maxRelease instead. Will be removed for version 1.0.0.")
 	static @property HEAD() { return Version(MAX_VERS); }
-	deprecated("Use masterBranch instead")
+	deprecated("Use masterBranch instead. Will be removed for version 1.0.0.")
 	static @property MASTER() { return Version(MASTER_STRING); }
-	deprecated("Use unknown instead")
+	deprecated("Use unknown instead. Will be removed for version 1.0.0.")
 	static @property UNKNOWN() { return Version(UNKNOWN_VERS); }
-	deprecated("Use masterBranch.toString() instead")
+	deprecated("Use masterBranch.toString() instead. Will be removed for version 1.0.0.")
 	static @property MASTER_STRING() { return masterString; }
-	deprecated
+	deprecated("Will be removed for version 1.0.0.")
 	static @property BRANCH_IDENT() { return branchPrefix; }
 
 	/** Constructs a new `Version` from its string representation.
@@ -663,7 +663,11 @@ struct Version {
 		m_version = vers;
 	}
 
-	deprecated("Use the constructor instead.")
+	/** Constructs a new `Version` from its string representation.
+
+		This method is equivalent to calling the constructor and is used as an
+		endpoint for the serialization framework.
+	*/
 	static Version fromString(string vers) { return Version(vers); }
 
 	bool opEquals(const Version oth) const {

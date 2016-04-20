@@ -24,7 +24,7 @@ import std.random;
 import std.typecons;
 
 
-deprecated alias LdcCompiler = LDCCompiler;
+deprecated("Use LDCCompiler instead. Will be removed for version 1.0.0.") alias LdcCompiler = LDCCompiler;
 
 class LDCCompiler : Compiler {
 	private static immutable s_options = [

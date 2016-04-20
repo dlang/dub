@@ -24,7 +24,7 @@ import std.random;
 import std.typecons;
 
 
-deprecated alias GdcCompiler = GDCCompiler;
+deprecated("Use GDCCompiler instead. Will be removed for version 1.0.0.") alias GdcCompiler = GDCCompiler;
 
 class GDCCompiler : Compiler {
 	private static immutable s_options = [
