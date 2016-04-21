@@ -10,9 +10,6 @@ module dub.compilers.compiler;
 public import dub.compilers.buildsettings;
 public import dub.platform : BuildPlatform, matchesSpecification;
 
-import dub.compilers.dmd;
-import dub.compilers.gdc;
-import dub.compilers.ldc;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
@@ -24,13 +21,6 @@ import std.conv;
 import std.exception;
 import std.process;
 
-
-static this()
-{
-	registerCompiler(new DMDCompiler);
-	registerCompiler(new GDCCompiler);
-	registerCompiler(new LDCCompiler);
-}
 
 /** Returns a compiler handler for a given binary name.
 

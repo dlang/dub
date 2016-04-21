@@ -53,6 +53,16 @@ version (DigitalMars) version (D_Coverage) static if (__VERSION__ >= 2068)
 	}
 }
 
+static this()
+{
+	import dub.compilers.dmd : DMDCompiler;
+	import dub.compilers.gdc : GDCCompiler;
+	import dub.compilers.ldc : LDCCompiler;
+	registerCompiler(new DMDCompiler);
+	registerCompiler(new GDCCompiler);
+	registerCompiler(new LDCCompiler);
+}
+
 /// The URL to the official package registry.
 enum defaultRegistryURL = "http://code.dlang.org/";
 
