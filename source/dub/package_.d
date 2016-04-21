@@ -252,16 +252,17 @@ class Package {
 
 		This list includes all dependencies of all configurations. If different
 		configurations have a dependency to the same package, but with differing
-		version specifications, only one of them will be returned.
+		version specifications, only one of them will be returned. Which one
+		is returned is undefined behavior.
+
+		See_Also: `getAllDependencies`
 	*/
+	deprecated("Use getAllDependencies instead. Will be removed for version 1.0.0.")
 	@property const(Dependency[string]) dependencies()
 	const {
 		Dependency[string] ret;
-		foreach (n, d; this.recipe.buildSettings.dependencies)
-			ret[n] = d;
-		foreach (ref c; this.recipe.configurations)
-			foreach (n, d; c.buildSettings.dependencies)
-				ret[n] = d;
+		foreach (d; getAllDependencies())
+			ret[d.name] = d.spec;
 		return ret;
 	}
 
@@ -526,13 +527,14 @@ class Package {
 		This will return the name and version of this package, as well as of all
 		root dependencies.
 	*/
+	deprecated("Will be removed for version 1.0.0.")
 	string generateInfoString()
 	const {
 		string s;
 		s ~= m_info.name ~ ", version '" ~ m_info.version_ ~ "'";
 		s ~= "\n  Dependencies:";
-		foreach(string p, ref const Dependency v; this.dependencies)
-			s ~= "\n    " ~ p ~ ", version '" ~ v.toString() ~ "'";
+		foreach(PackageDependency d; this.getAllDependencies())
+			s ~= "\n    " ~ d.name ~ ", version '" ~ d.spec.toString() ~ "'";
 		return s;
 	}
 
@@ -576,6 +578,24 @@ class Package {
 			}
 		return ret;
 	}
+
+	/** Returns a list of all possible dependencies of the package.
+
+		This list includes all dependencies of all configurations. The same
+		package may occur multiple times with possibly different `Dependency`
+		values.
+	*/
+	PackageDependency[] getAllDependencies()
+	const {
+		auto ret = appender!(PackageDependency[]);
+		foreach (n, d; this.recipe.buildSettings.dependencies)
+			ret ~= PackageDependency(n, d);
+		foreach (ref c; this.recipe.configurations)
+			foreach (n, d; c.buildSettings.dependencies)
+				ret ~= PackageDependency(n, d);
+		return ret.data;
+	}
+
 
 	/** Returns a description of the package for use in IDEs or build tools.
 	*/

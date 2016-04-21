@@ -24,6 +24,17 @@ import std.typecons;
 static import std.compiler;
 
 
+/** Encapsulates the name of a package along with its dependency specification.
+*/
+struct PackageDependency {
+	/// Name of the referenced package.
+	string name;
+
+	/// Dependency specification used to select a particular version of the package.
+	Dependency spec;
+}
+
+
 /**
 	Represents a dependency specification.
 
