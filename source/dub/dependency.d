@@ -57,10 +57,10 @@ struct Dependency {
 	}
 
 	/// A Dependency, which matches every valid version.
-	static @property any() { return Dependency(ANY_IDENT); }
+	static @property Dependency any() { return Dependency(ANY_IDENT); }
 
 	/// An invalid dependency (with no possible version matches).
-	static @property invalid() { Dependency ret; ret.m_versA = Version.maxRelease; ret.m_versB = Version.minRelease; return ret; }
+	static @property Dependency invalid() { Dependency ret; ret.m_versA = Version.maxRelease; ret.m_versB = Version.minRelease; return ret; }
 
 	deprecated("Use .any instead. Will be removed for version 1.0.0.")
 	alias ANY = any;
@@ -646,10 +646,10 @@ struct Version {
 		string m_version;
 	}
 
-	static @property minRelease() { return Version("0.0.0"); }
-	static @property maxRelease() { return Version(MAX_VERS); }
-	static @property masterBranch() { return Version(masterString); }
-	static @property unknown() { return Version(UNKNOWN_VERS); }
+	static @property Version minRelease() { return Version("0.0.0"); }
+	static @property Version maxRelease() { return Version(MAX_VERS); }
+	static @property Version masterBranch() { return Version(masterString); }
+	static @property Version unknown() { return Version(UNKNOWN_VERS); }
 
 	deprecated("Use minRelease instead. Will be removed for version 1.0.0.")
 	static @property RELEASE() { return Version("0.0.0"); }
