@@ -538,20 +538,3 @@ private Path getMainSourceFile(in Package prj)
 			return prj.path ~ f;
 	return prj.path ~ "source/app.d";
 }
-
-unittest {
-	version (Windows) {
-		assert(isLinkerFile("test.obj"));
-		assert(isLinkerFile("test.lib"));
-		assert(isLinkerFile("test.res"));
-		assert(!isLinkerFile("test.o"));
-		assert(!isLinkerFile("test.d"));
-	} else {
-		assert(isLinkerFile("test.o"));
-		assert(isLinkerFile("test.a"));
-		assert(isLinkerFile("test.so"));
-		assert(isLinkerFile("test.dylib"));
-		assert(!isLinkerFile("test.obj"));
-		assert(!isLinkerFile("test.d"));
-	}
-}

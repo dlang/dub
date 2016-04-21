@@ -91,6 +91,24 @@ bool isLinkerFile(string f)
 	}
 }
 
+unittest {
+	version (Windows) {
+		assert(isLinkerFile("test.obj"));
+		assert(isLinkerFile("test.lib"));
+		assert(isLinkerFile("test.res"));
+		assert(!isLinkerFile("test.o"));
+		assert(!isLinkerFile("test.d"));
+	} else {
+		assert(isLinkerFile("test.o"));
+		assert(isLinkerFile("test.a"));
+		assert(isLinkerFile("test.so"));
+		assert(isLinkerFile("test.dylib"));
+		assert(!isLinkerFile("test.obj"));
+		assert(!isLinkerFile("test.d"));
+	}
+}
+
+
 /**
 	Replaces each referenced import library by the appropriate linker flags.
 
