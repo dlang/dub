@@ -1686,7 +1686,7 @@ class DustmiteCommand : PackageBuildCommand {
 					if (subp.path.length) {
 						auto sub_path = base_path ~ Path(subp.path);
 						auto pack = prj.packageManager.getOrLoadPackage(sub_path);
-						fixPathDependencies(pack.info, sub_path);
+						fixPathDependencies(pack.recipe, sub_path);
 						pack.storeInfo(sub_path);
 					} else fixPathDependencies(subp.recipe, base_path);
 			}
@@ -1701,7 +1701,7 @@ class DustmiteCommand : PackageBuildCommand {
 				copyFolderRec(pack.path, dst_path);
 
 				// adjust all path based dependencies
-				fixPathDependencies(pack.info, dst_path);
+				fixPathDependencies(pack.recipe, dst_path);
 
 				// overwrite package description file with additional version information
 				pack.storeInfo(dst_path);

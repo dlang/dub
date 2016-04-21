@@ -111,7 +111,7 @@ void resolveLibs(ref BuildSettings settings)
 
 	version (Posix) {
 		import std.algorithm : any, map, partition, startsWith;
-		import std.array : join, split;
+		import std.array : array, join, split;
 		import std.exception : enforce;
 		import std.process : execute;
 
@@ -380,6 +380,7 @@ Path generatePlatformProbeFile()
 BuildPlatform readPlatformProbe(string output)
 {
 	import std.algorithm : map;
+	import std.array : array;
 	import std.exception : enforce;
 	import std.string;
 
