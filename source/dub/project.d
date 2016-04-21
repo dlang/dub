@@ -161,13 +161,18 @@ class Project {
 
 				auto cfg = configs.get(p.name, null);
 
-				foreach (dn; p.dependencies.byKey.array.sort()) {
-					auto dv = p.dependencies[dn];
-					// filter out dependencies not in the current configuration set
-					if (!p.hasDependency(dn, cfg)) continue;
-					auto dependency = getDependency(dn, true);
-					assert(dependency || dv.optional,
-						format("Non-optional dependency %s of %s not found in dependency tree!?.", dn, p.name));
+				PackageDependency[] deps;
+				if (!cfg.length) deps = p.getAllDependencies();
+				else {
+					auto depmap = p.getDependencies(cfg);
+					deps = depmap.keys.map!(k => PackageDependency(k, depmap[k])).array;
+				}
+				deps.sort!((a, b) => a.name < b.name);
+
+				foreach (d; deps) {
+					auto dependency = getDependency(d.name, true);
+					assert(dependency || d.spec.optional,
+						format("Non-optional dependency %s of %s not found in dependency tree!?.", d.name, p.name));
 					if(dependency) perform_rec(dependency);
 					if( ret ) return;
 				}
@@ -244,31 +249,30 @@ class Project {
 		}
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
 
-		foreach (dn, ds; m_rootPackage.dependencies)
-			if (ds.isExactVersion && ds.version_.isBranch) {
+		foreach (d; m_rootPackage.getAllDependencies())
+			if (d.spec.isExactVersion && d.spec.version_.isBranch) {
 				logWarn("WARNING: A deprecated branch based version specification is used "
 					~ "for the dependency %s. Please use numbered versions instead. Also "
 					~ "note that you can still use the %s file to override a certain "
 					~ "dependency to use a branch instead.",
-					dn, SelectedVersions.defaultFile);
+					d.name, SelectedVersions.defaultFile);
 			}
 
-		bool[string] visited;
+		bool[Package] visited;
 		void validateDependenciesRec(Package pack) {
-			foreach (name, vspec_; pack.dependencies) {
-				if (name in visited) continue;
-				visited[name] = true;
-
-				auto basename = getBasePackageName(name);
+			foreach (d; pack.getAllDependencies()) {
+				auto basename = getBasePackageName(d.name);
 				if (m_selections.hasSelectedVersion(basename)) {
 					auto selver = m_selections.getSelectedVersion(basename);
-					if (vspec_.merge(selver) == Dependency.invalid) {
+					if (d.spec.merge(selver) == Dependency.invalid) {
 						logWarn("Selected package %s %s does not match the dependency specification %s in package %s. Need to \"dub upgrade\"?",
-							basename, selver, vspec_, pack.name);
+							basename, selver, d.spec, pack.name);
 					}
 				}
 
 				auto deppack = getDependency(name, true);
+				if (deppack in visited) continue;
+				visited[deppack] = true;
 				if (deppack) validateDependenciesRec(deppack);
 			}
 		}
@@ -287,24 +291,24 @@ class Project {
 			logDebug("%sCollecting dependencies for %s", indent, pack.name);
 			indent ~= "  ";
 
-			foreach (name, vspec_; pack.dependencies) {
-				Dependency vspec = vspec_;
+			foreach (dep; pack.getAllDependencies()) {
+				Dependency vspec = dep.spec;
 				Package p;
 
-				auto basename = getBasePackageName(name);
-				if (name == m_rootPackage.basePackage.name) {
+				auto basename = getBasePackageName(dep.name);
+				if (dep.name == m_rootPackage.basePackage.name) {
 					vspec = Dependency(m_rootPackage.version_);
 					p = m_rootPackage.basePackage;
 				} else if (basename == m_rootPackage.basePackage.name) {
 					vspec = Dependency(m_rootPackage.version_);
-					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, getSubPackageName(name), false);
+					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, getSubPackageName(dep.name), false);
 					catch (Exception e) {
-						logDiagnostic("%sError getting sub package %s: %s", indent, name, e.msg);
+						logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
 						continue;
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
 					vspec = m_selections.getSelectedVersion(basename);
-					if (vspec.path.empty) p = m_packageManager.getBestPackage(name, vspec);
+					if (vspec.path.empty) p = m_packageManager.getBestPackage(dep.name, vspec);
 					else {
 						auto path = vspec.path;
 						if (!path.absolute) path = m_rootPackage.path ~ path;
@@ -314,10 +318,10 @@ class Project {
 					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
 					auto bp = m_dependencies[idx].basePackage;
 					vspec = Dependency(bp.path);
-					p = m_packageManager.getSubPackage(bp, getSubPackageName(name), false);
+					p = m_packageManager.getSubPackage(bp, getSubPackageName(dep.name), false);
 				} else {
 					logDiagnostic("%sVersion selection for dependency %s (%s) of %s is missing.",
-						indent, basename, name, pack.name);
+						indent, basename, dep.name, pack.name);
 				}
 
 				if (!p && !vspec.path.empty) {
@@ -326,29 +330,29 @@ class Project {
 					logDiagnostic("%sAdding local %s", indent, path);
 					p = m_packageManager.getOrLoadPackage(path, Path.init, true);
 					if (p.parentPackage !is null) {
-						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, name);
+						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
 						p = p.parentPackage;
 					}
-					if (name.canFind(':')) p = m_packageManager.getSubPackage(p, getSubPackageName(name), false);
-					enforce(p.name == name,
+					if (dep.name.canFind(':')) p = m_packageManager.getSubPackage(p, getSubPackageName(dep.name), false);
+					enforce(p.name == dep.name,
 						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
-							path.toNativeString(), name, p.name));
+							path.toNativeString(), dep.name, p.name));
 				}
 
 				if (!p) {
-					logDiagnostic("%sMissing dependency %s %s of %s", indent, name, vspec, pack.name);
+					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
 					continue;
 				}
 
 				if (!m_dependencies.canFind(p)) {
-					logDiagnostic("%sFound dependency %s %s", indent, name, vspec.toString());
+					logDiagnostic("%sFound dependency %s %s", indent, dep.name, vspec.toString());
 					m_dependencies ~= p;
 					p.warnOnSpecialCompilerFlags();
 					collectDependenciesRec(p, depth+1);
 				}
 
 				m_dependees[p] ~= pack;
-				//enforce(p !is null, "Failed to resolve dependency "~name~" "~vspec.toString());
+				//enforce(p !is null, "Failed to resolve dependency "~dep.name~" "~vspec.toString());
 			}
 		}
 		collectDependenciesRec(m_rootPackage);
@@ -371,8 +375,8 @@ class Project {
 		string[][string] parents;
 		parents[m_rootPackage.name] = null;
 		foreach (p; getTopologicalPackageList())
-			foreach (d; p.dependencies.byKey)
-				parents[d] ~= p.name;
+			foreach (d; p.getAllDependencies())
+				parents[d.name] ~= p.name;
 
 
 		size_t createConfig(string pack, string config) {
@@ -436,8 +440,8 @@ class Project {
 			scope (exit) allconfigs_path.length--;
 
 			// first, add all dependency configurations
-			foreach (dn; p.dependencies.byKey) {
-				auto dp = getDependency(dn, true);
+			foreach (d; p.getAllDependencies) {
+				auto dp = getDependency(d.name, true);
 				if (!dp) continue;
 				determineAllConfigs(dp);
 			}
@@ -445,15 +449,15 @@ class Project {
 			// for each configuration, determine the configurations usable for the dependencies
 			outer: foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library)) {
 				string[][string] depconfigs;
-				foreach (dn; p.dependencies.byKey) {
-					auto dp = getDependency(dn, true);
+				foreach (d; p.getAllDependencies()) {
+					auto dp = getDependency(d.name, true);
 					if (!dp) continue;
 
 					string[] cfgs;
 					auto subconf = p.getSubConfiguration(c, dp, platform);
 					if (!subconf.empty) cfgs = [subconf];
 					else cfgs = dp.getPlatformConfigurations(platform);
-					cfgs = cfgs.filter!(c => haveConfig(dn, c)).array;
+					cfgs = cfgs.filter!(c => haveConfig(d.name, c)).array;
 
 					// if no valid configuration was found for a dependency, don't include the
 					// current configuration
@@ -461,14 +465,14 @@ class Project {
 						logDebug("Skip %s %s (missing configuration for %s)", p.name, c, dp.name);
 						continue outer;
 					}
-					depconfigs[dn] = cfgs;
+					depconfigs[d.name] = cfgs;
 				}
 
 				// add this configuration to the graph
 				size_t cidx = createConfig(p.name, c);
-				foreach (dn; p.dependencies.byKey)
-					foreach (sc; depconfigs.get(dn, null))
-						createEdge(cidx, createConfig(dn, sc));
+				foreach (d; p.getAllDependencies())
+					foreach (sc; depconfigs.get(d.name, null))
+						createEdge(cidx, createConfig(d.name, sc));
 			}
 		}
 		if (config.length) createConfig(m_rootPackage.name, config);
