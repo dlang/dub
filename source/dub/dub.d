@@ -98,6 +98,7 @@ class Dub {
 		Path m_projectPath;
 		Project m_project;
 		Path m_overrideSearchPath;
+		string m_defaultCompiler;
 	}
 
 	/** The default placement location of fetched packages.
@@ -191,6 +192,8 @@ class Dub {
 
 		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
+
+		determineDefaultCompiler();
 	}
 
 	@property void dryRun(bool v) { m_dryRun = v; }
@@ -217,19 +220,16 @@ class Dub {
 
 	@property inout(Project) project() inout { return m_project; }
 
-	/// Returns the default compiler binary to use for building D code.
-	@property string defaultCompiler()
-	const {
-		if (auto pv = "defaultCompiler" in m_userConfig)
-			if (pv.type == Json.Type.string)
-				return pv.get!string;
+	/** Returns the default compiler binary to use for building D code.
 
-		if (auto pv = "defaultCompiler" in m_systemConfig)
-			if (pv.type == Json.Type.string)
-				return pv.get!string;
-
-		return .defaultCompiler();
-	}
+		If set, the "defaultCompiler" field of the DUB user or system
+		configuration file will be used. Otherwise the PATH environment variable
+		will be searched for files named "dmd", "gdc", "gdmd", "ldc2", "ldmd2"
+		(in that order, taking into account operating system specific file
+		extensions) and the first match is returned. If no match is found, "dmd"
+		will be used.
+	*/
+	@property string defaultCompiler() const { return m_defaultCompiler; }
 
 	deprecated("Will be removed for version 1.0.0.") void shutdown() {}
 	deprecated("Will be removed for version 1.0.0.") void cleanCaches() {}
@@ -1029,6 +1029,26 @@ class Dub {
 			m_packageManager.disableDefaultSearchPaths = false;
 			m_packageManager.searchPath = paths;
 		}
+	}
+
+	private void determineDefaultCompiler()
+	{
+		import std.process : environment;
+
+		m_defaultCompiler = m_userConfig["defaultCompiler"].opt!string();
+		if (m_defaultCompiler.length) return;
+
+		m_defaultCompiler = m_systemConfig["defaultCompiler"].opt!string();
+		if (m_defaultCompiler.length) return;
+
+		version (Windows) enum sep = ";", exe = ".exe";
+		version (Posix) enum sep = ":", exe = "";
+
+		auto compilers = ["dmd", "gdc", "gdmd", "ldc2", "ldmd2"];
+
+		auto paths = environment.get("PATH", "").splitter(sep).map!Path;
+		auto res = compilers.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
+		m_defaultCompiler = res.empty ? compilers[0] : res.front;
 	}
 
 	private Path makeAbsolute(Path p) const { return p.absolute ? p : m_rootPath ~ p; }

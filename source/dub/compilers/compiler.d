@@ -49,7 +49,10 @@ Compiler getCompiler(string name)
 	environment variable for files named "dmd", "gdc", "gdmd", "ldc2", "ldmd2"
 	(in that order) and return the first match. If no match is found, "dmd" is
 	returned.
+
+	See_Also: `Dub.defaultCompiler`
 */
+deprecated("Use Dub.defaultCompiler instead. Will be removed for version 1.0.0.")
 @property string defaultCompiler()
 {
 	static string name;
