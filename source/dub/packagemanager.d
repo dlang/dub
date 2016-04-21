@@ -178,7 +178,7 @@ class PackageManager {
 		foreach (p; getPackageIterator())
 			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
 				return p;
-		auto pack = new Package(path, recipe_path);
+		auto pack = Package.load(path, recipe_path);
 		addPackages(m_temporaryPackages, pack);
 		return pack;
 	}
@@ -404,7 +404,7 @@ class PackageManager {
 		logDiagnostic("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite dub.json (this one includes a version field)
-		auto pack = new Package(destination, Path.init, null, package_info["version"].get!string);
+		auto pack = Package.load(destination, Path.init, null, package_info["version"].get!string);
 
 		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
@@ -448,7 +448,7 @@ class PackageManager {
 	Package addLocalPackage(Path path, string verName, LocalPackageType type)
 	{
 		path.endsWithSlash = true;
-		auto pack = new Package(path);
+		auto pack = Package.load(path);
 		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
 		if (verName.length)
 			pack.version_ = Version(verName);
@@ -545,7 +545,7 @@ class PackageManager {
 
 							if (!pp) {
 								auto infoFile = Package.findPackageFile(path);
-								if (!infoFile.empty) pp = new Package(path, infoFile);
+								if (!infoFile.empty) pp = Package.load(path, infoFile);
 								else {
 									logWarn("Locally registered package %s %s was not found. Please run \"dub remove-local %s\".",
 										name, ver, path.toNativeString());
@@ -607,7 +607,7 @@ class PackageManager {
 									p = pp;
 									break;
 								}
-						if (!p) p = new Package(pack_path, packageFile);
+						if (!p) p = Package.load(pack_path, packageFile);
 						addPackages(m_packages, p);
 					} catch( Exception e ){
 						logError("Failed to load package in %s: %s", pack_path, e.msg);
@@ -732,7 +732,7 @@ class PackageManager {
 					logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
 					continue;
 				}
-				sp = new Package(path, Path.init, pack);
+				sp = Package.load(path, Path.init, pack);
 			} else sp = new Package(spr.recipe, pack.path, pack);
 
 			// Add the subpackage.

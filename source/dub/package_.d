@@ -78,6 +78,7 @@ class Package {
 				instead of the one declared in the package recipe, or the one
 				determined by invoking the VCS (GIT currently).
 	*/
+	deprecated("Use load() instead. Will be removed for version 1.0.0.")
 	this(Path root, Path recipe_file = Path.init, Package parent = null, string version_override = "")
 	{
 		import dub.recipe.io;
@@ -162,6 +163,36 @@ class Package {
 			if (existsFile(filename)) return filename;
 		}
 		return Path.init;
+	}
+
+	/** Constructs a `Package` using a package that is physically present on the local file system.
+
+		Params:
+			root = The directory in which the package resides.
+			recipe_file = Optional path to the package recipe file. If left
+				empty, the `root` directory will be searched for a recipe file.
+			parent = Reference to the parent package, if the new package is a
+				sub package.
+			version_override = Optional version to associate to the package
+				instead of the one declared in the package recipe, or the one
+				determined by invoking the VCS (GIT currently).
+	*/
+	static Package load(Path root, Path recipe_file = Path.init, Package parent = null, string version_override = "")
+	{
+		import dub.recipe.io;
+
+		if (recipe_file.empty) recipe_file = findPackageFile(root);
+
+		enforce(!recipe_file.empty, 
+			"No package file found in %s, expected one of %s"
+				.format(root.toNativeString(),
+					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
+
+		auto recipe = readPackageRecipe(recipe_file, parent ? parent.name : null);
+
+		auto ret = new Package(recipe, root, parent, version_override);
+		ret.m_infoFile = recipe_file;
+		return ret;
 	}
 
 	/** Returns the qualified name of the package.
