@@ -27,7 +27,7 @@ PackageRecipe readPackageRecipe(string filename, string parent_name = null)
 	return readPackageRecipe(Path(filename), parent_name);
 }
 /// ditto
-PackageRecipe readPackageRecipe(Path file, string parent_name = null)
+PackageRecipe readPackageRecipe(Path filename, string parent_name = null)
 {
 	import dub.internal.utils : stripUTF8Bom;
 	import dub.internal.vibecompat.core.file : openFile, FileMode;
@@ -35,12 +35,12 @@ PackageRecipe readPackageRecipe(Path file, string parent_name = null)
 	string text;
 
 	{
-		auto f = openFile(file.toNativeString(), FileMode.read);
+		auto f = openFile(filename.toNativeString(), FileMode.read);
 		scope(exit) f.close();
 		text = stripUTF8Bom(cast(string)f.readAll());
 	}
 
-	return parsePackageRecipe(text, file.toNativeString(), parent_name);
+	return parsePackageRecipe(text, filename.toNativeString(), parent_name);
 }
 
 /** Parses an in-memory package recipe.
