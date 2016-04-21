@@ -95,8 +95,15 @@ class BuildGenerator : ProjectGenerator {
 		// run the generated executable
 		auto buildsettings = targets[m_project.rootPackage.name].buildSettings;
 		if (settings.run && !(buildsettings.options & BuildOption.syntaxOnly)) {
+			if (buildsettings.targetType != TargetType.executable) {
+				enforce(false, "Target is a library. Skipping execution.");
+				return;
+			}
 			auto exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
-			runTarget(exe_file_path, buildsettings, settings.runArgs, settings);
+			if (settings.watch)
+				watchTarget(exe_file_path, buildsettings, settings.runArgs, settings, targets);
+			else
+				runTarget(exe_file_path, buildsettings, settings.runArgs, settings);
 		}
 	}
 
@@ -480,39 +487,103 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	void runTarget(Path exe_file_path, in BuildSettings buildsettings, string[] run_args, GeneratorSettings settings)
+	// running and watching
+
+	private Path switchWorkDir(Path cwd, string workDir)
 	{
-		if (buildsettings.targetType == TargetType.executable) {
-			auto cwd = Path(getcwd());
-			auto runcwd = cwd;
-			if (buildsettings.workingDirectory.length) {
-				runcwd = Path(buildsettings.workingDirectory);
-				if (!runcwd.absolute) runcwd = cwd ~ runcwd;
-				logDiagnostic("Switching to %s", runcwd.toNativeString());
-				chdir(runcwd.toNativeString());
+		if (!workDir.length)
+			return cwd;
+		auto res = Path(workDir);
+		if (!res.absolute) res = cwd ~ res;
+		logDiagnostic("Switching to %s", res.toNativeString());
+		chdir(res.toNativeString());
+		return res;
+	}
+
+	private string[] runCmd(Path exe_file_path, Path cwd, Path runcwd, string[] run_args)
+	{
+		if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
+		auto exe_path_string = exe_file_path.relativeTo(runcwd).toNativeString();
+		version (Posix) {
+			if (!exe_path_string.startsWith(".") && !exe_path_string.startsWith("/"))
+				exe_path_string = "./" ~ exe_path_string;
+		}
+		version (Windows) {
+			if (!exe_path_string.startsWith(".") && (exe_path_string.length < 2 || exe_path_string[1] != ':'))
+				exe_path_string = ".\\" ~ exe_path_string;
+		}
+		return exe_path_string ~ run_args;
+	}
+
+	private void runTarget(Path exe_file_path, in BuildSettings buildsettings, string[] run_args, GeneratorSettings settings)
+	{
+		auto cwd = Path(getcwd());
+		auto runcwd = switchWorkDir(cwd, buildsettings.workingDirectory);
+		scope(exit) chdir(cwd.toNativeString());
+
+		auto cmd = runCmd(exe_file_path, cwd, runcwd, run_args);
+		logInfo("Running '%-(%s %)'", cmd);
+
+		if (settings.runCallback) {
+			auto res = execute(cmd);
+			settings.runCallback(res.status, res.output);
+		} else {
+			auto prg_pid = spawnProcess(cmd);
+			auto result = prg_pid.wait();
+			enforce(result == 0, "Program exited with code "~to!string(result));
+		}
+	}
+
+	private void watchTarget(Path exe_file_path, in BuildSettings buildsettings, string[] run_args, GeneratorSettings settings, in TargetInfo[string] targets)
+	{
+		Watcher w;
+		logInfo("Setting up file watches.");
+		foreach (_, tgt; targets)
+		{
+			auto bs = tgt.buildSettings;
+			import std.range : chain;
+			foreach (file; chain(bs.sourceFiles, bs.importFiles, bs.stringImportFiles))
+				w.addFile(file);
+		}
+
+		auto cwd = Path(getcwd());
+		auto runcwd = switchWorkDir(cwd, buildsettings.workingDirectory);
+		scope(exit) chdir(cwd.toNativeString());
+
+		auto cmd = runCmd(exe_file_path, cwd, runcwd, run_args);
+		assert(!settings.runCallback);
+
+		while (true)
+		{
+			logInfo("Running '%-(%s, %)'", cmd);
+			auto pid = spawnProcess(cmd);
+			w.wait(pid);
+			auto res = tryWait(pid);
+			if (res.terminated)
+			{
+				logInfo("Program exited with code %s.", res.status);
+				return; // child process exited
 			}
-			scope(exit) chdir(cwd.toNativeString());
-			if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
-			auto exe_path_string = exe_file_path.relativeTo(runcwd).toNativeString();
-			version (Posix) {
-				if (!exe_path_string.startsWith(".") && !exe_path_string.startsWith("/"))
-					exe_path_string = "./" ~ exe_path_string;
+			logInfo("Stopping process...");
+			import core.thread;
+			// sleep a little, on some filesystems (vboxsf) modified notifications arrive before the change is written
+			Thread.sleep(1.msecs);
+			kill(pid);
+			wait(pid);
+			logInfo("Rebuilding target...");
+			while (true)
+			{
+				w.readChanges(); // TODO: use list of changed files to optimize rebuild
+				try {
+					generateTargets(settings, targets);
+					break;
+				} catch (Exception e) {
+					logWarn("Failed to build program: '%s'", e.msg);
+					logDiagnostic("Full error: %s", e.toString().sanitize);
+				}
+				w.wait();
 			}
-			version (Windows) {
-				if (!exe_path_string.startsWith(".") && (exe_path_string.length < 2 || exe_path_string[1] != ':'))
-					exe_path_string = ".\\" ~ exe_path_string;
-			}
-			logInfo("Running %s %s", exe_path_string, run_args.join(" "));
-			if (settings.runCallback) {
-				auto res = execute(exe_path_string ~ run_args);
-				settings.runCallback(res.status, res.output);
-			} else {
-				auto prg_pid = spawnProcess(exe_path_string ~ run_args);
-				auto result = prg_pid.wait();
-				enforce(result == 0, "Program exited with code "~to!string(result));
-			}
-		} else
-			enforce(false, "Target is a library. Skipping execution.");
+		}
 	}
 
 	void cleanupTemporaries()
@@ -528,6 +599,159 @@ class BuildGenerator : ProjectGenerator {
 		}
 		m_temporaryFiles = null;
 	}
+}
+
+version (linux)
+	version = INOTIFY;
+else version (FreeBSD)
+	 version = KQUEUE;
+else version (OSX)
+	 version = KQUEUE;
+else
+	 static assert(0, "Filewatcher support not yet implemented");
+
+struct Watcher
+{
+	import core.stdc.errno;
+	version (linux)
+		import core.sys.linux.sys.inotify, core.sys.posix.fcntl : O_NONBLOCK;
+	else version (FreeBSD)
+		import core.sys.posix.fcntl, core.sys.freebsd.sys.event;
+	else version (OSX)
+		import core.sys.osx.sys.event;
+
+	void addFile(string path)
+	{
+		version (INOTIFY) {
+			static if (__VERSION__ < 2067)
+				// value of IN_NONBLOCK in core.sys.linux.sys.inotify is incorrect
+				enum IN_NONBLOCK = O_NONBLOCK;
+
+			if (!eventfd)
+				eventfd = inotify_init1(IN_NONBLOCK);
+
+			if (inotify_add_watch(eventfd, path.toStringz(), IN_MODIFY) == -1)
+			{
+				if (errno == ENOSPC)
+					logError("Not enough inotify watches, try to increase 'fs.inotify.max_user_watches'.");
+				errnoEnforce(false);
+			}
+		} else version (KQUEUE) {
+			if (!eventfd)
+				eventfd = kqueue();
+
+			version (OSX) {
+				enum O_CLOEXEC = 0x1000000;
+				enum oflags = O_EVTONLY | O_CLOEXEC;
+			} else version (FreeBSD) {
+				enum O_CLOEXEC = 0x00100000;
+				enum oflags = O_RDONLY | O_CLOEXEC;
+			}
+			// TODO: leaking file descriptor
+			auto fd = open(path.toStringz(), oflags);
+			watches[path] = fd;
+
+			enum fflags = NOTE_WRITE;
+			kevent_t event;
+			EV_SET(&event, fd, EVFILT_VNODE, EV_ADD | EV_CLEAR, fflags, 0, null);
+			errnoEnforce(kevent(eventfd, &event, 1, null, 0, null) != -1);
+		} else
+			static assert(0, "no file watcher event system");
+	}
+
+	void wait(Pid pid)
+	{
+		// Also see http://lwn.net/Articles/176911/ for how to use pselect.
+		import core.sys.posix.signal, core.sys.posix.sys.select;
+
+		// Block SIGCHLD
+		sigset_t set=void;
+		sigemptyset(&set);
+		sigaddset(&set, SIGCHLD);
+		sigprocmask(SIG_BLOCK, &set, null);
+
+		// Add dummy handler SIGCHLD
+		extern(C) void dummy_handler(int) {}
+		sigaction_t sa;
+		sa.sa_handler = &dummy_handler;
+		sa.sa_flags = 0;
+		sigemptyset(&sa.sa_mask);
+		sigaction(SIGCHLD, &sa, null);
+
+		if (!tryWait(pid).terminated)
+		{
+			fd_set rfds=void;
+			FD_ZERO(&rfds);
+			FD_SET(eventfd, &rfds);
+
+			sigset_t emptyset=void;
+			sigemptyset(&emptyset);
+			// wait for inotify or SIGCHLD
+			logInfo("Waiting for file changes or child exit.");
+			auto res = pselect(eventfd+1, &rfds, null, null, null, &emptyset);
+		}
+		// Unblock SIGCHLD
+		sigaddset(&set, SIGCHLD);
+		sigprocmask(SIG_UNBLOCK, &set, null);
+
+		// Remove SIGCHLD handler
+		sigaction(SIGCHLD, cast(sigaction_t*)SIG_DFL, null);
+	}
+
+	void wait()
+	{
+		import core.sys.posix.sys.select;
+
+		fd_set rfds=void;
+		FD_ZERO(&rfds);
+		FD_SET(eventfd, &rfds);
+		logInfo("Waiting for file changes.");
+		auto res = select(eventfd+1, &rfds, null, null, null);
+	}
+
+	void readChanges()
+	{
+		import core.stdc.errno, core.sys.posix.unistd;
+
+		version (INOTIFY) {
+			ubyte[1024] buf=void;
+			while (true) {
+				if (read(eventfd, buf.ptr, buf.length) != -1 || errno == EINTR)
+					continue;
+				else if (errno == EAGAIN)
+					return;
+				else
+					errnoEnforce(false);
+			}
+		} else version (KQUEUE) {
+			import core.sys.posix.time;
+			timespec ts;
+			kevent_t[8] buf=void;
+			while (true) {
+				auto res = kevent(eventfd, null, 0, buf.ptr, buf.length, &ts);
+				if (res > 0)
+					continue;
+				else if (res == 0)
+					return;
+				else
+					errnoEnforce(false);
+			}
+		}
+	}
+
+	~this()
+	{
+		import core.sys.posix.unistd;
+
+		if (eventfd)
+			close(eventfd);
+	}
+
+	int eventfd;
+	version (KQUEUE)
+		int[string] watches;
+	else version (INOTIFY)
+		bool[string] watches;
 }
 
 private Path getMainSourceFile(in Package prj)
