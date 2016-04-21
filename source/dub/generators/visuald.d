@@ -45,7 +45,7 @@ class VisualDGenerator : ProjectGenerator {
 
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
-		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.rootPackage.name, m_project.rootPackage.dependencies.length);
+		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.rootPackage.name, m_project.rootPackage.getAllDependencies().length);
 		generateProjectFiles(settings, targets);
 		generateSolutionFile(settings, targets);
 	}

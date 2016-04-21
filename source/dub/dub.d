@@ -1160,28 +1160,28 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		}
 		auto basepack = pack.basePackage;
 
-		foreach (dname, dspec; pack.dependencies) {
-			auto dbasename = getBasePackageName(dname);
+		foreach (d; pack.getAllDependencies()) {
+			auto dbasename = getBasePackageName(d.name);
 
 			// detect dependencies to the root package (or sub packages thereof)
 			if (dbasename == basepack.name) {
-				auto absdeppath = dspec.mapToPath(pack.path).path;
+				auto absdeppath = d.spec.mapToPath(pack.path).path;
 				absdeppath.endsWithSlash = true;
-				auto subpack = m_dub.m_packageManager.getSubPackage(basepack, getSubPackageName(dname), true);
+				auto subpack = m_dub.m_packageManager.getSubPackage(basepack, getSubPackageName(d.name), true);
 				if (subpack) {
-					auto desireddeppath = dname == dbasename ? basepack.path : subpack.path;
+					auto desireddeppath = d.name == dbasename ? basepack.path : subpack.path;
 					desireddeppath.endsWithSlash = true;
-					enforce(dspec.path.empty || absdeppath == desireddeppath,
+					enforce(d.spec.path.empty || absdeppath == desireddeppath,
 						format("Dependency from %s to root package references wrong path: %s vs. %s",
 							node.pack, absdeppath.toNativeString(), desireddeppath.toNativeString()));
 				}
-				ret ~= TreeNodes(dname, node.config);
+				ret ~= TreeNodes(d.name, node.config);
 				continue;
 			}
 
 			DependencyType dt;
-			if (dspec.optional) {
-				if (dspec.default_) dt = DependencyType.optionalDefault;
+			if (d.spec.optional) {
+				if (d.spec.default_) dt = DependencyType.optionalDefault;
 				else dt = DependencyType.optional;
 			} else dt = DependencyType.required;
 
@@ -1189,11 +1189,11 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				// keep deselected dependencies deselected by default
 				if (m_selectedVersions && !m_selectedVersions.bare && dt == DependencyType.optionalDefault)
 					dt = DependencyType.optional;
-				ret ~= TreeNodes(dname, dspec.mapToPath(pack.path), dt);
+				ret ~= TreeNodes(d.name, d.spec.mapToPath(pack.path), dt);
 			} else {
 				// keep already selected optional dependencies if possible
 				if (dt == DependencyType.optional) dt = DependencyType.optionalDefault;
-				ret ~= TreeNodes(dname, m_selectedVersions.getSelectedVersion(dbasename), dt);
+				ret ~= TreeNodes(d.name, m_selectedVersions.getSelectedVersion(dbasename), dt);
 			}
 		}
 		return ret.data;
