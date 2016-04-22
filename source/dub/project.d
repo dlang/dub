@@ -165,7 +165,7 @@ class Project {
 				if (!cfg.length) deps = p.getAllDependencies();
 				else {
 					auto depmap = p.getDependencies(cfg);
-					deps = depmap.keys.map!(k => PackageDependency(k, depmap[k])).array;
+					deps = depmap.byKey.map!(k => PackageDependency(k, depmap[k])).array;
 				}
 				deps.sort!((a, b) => a.name < b.name);
 
