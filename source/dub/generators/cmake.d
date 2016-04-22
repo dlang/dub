@@ -95,14 +95,14 @@ class CMakeGenerator: ProjectGenerator
                 script.put(
                     "target_link_libraries(%s %s %s)\n".format(
                         name,
-                        (info.dependencies ~ info.linkDependencies).dup.stdsort.uniq.map!sanitize.join(" "),
+                        (info.dependencies ~ info.linkDependencies).dup.stdsort.uniq.map!(s => sanitize(s)).join(" "),
                         info.buildSettings.libs.dup.join(" ")
                     )
                 );
                 script.put(
                     `set_target_properties(%s PROPERTIES TEXT_INCLUDE_DIRECTORIES "%s")`.format(
                         name,
-                        info.buildSettings.stringImportPaths.map!sanitizeSlashes.join(";")
+                        info.buildSettings.stringImportPaths.map!(s => sanitizeSlashes(s)).join(";")
                     ) ~ "\n"
                 );
             }
@@ -136,12 +136,12 @@ class CMakeGenerator: ProjectGenerator
 }
 
 ///Transform a package name into a valid CMake target name.
-string sanitize(string name)
+private string sanitize(string name)
 {
     return name.replace(":", "_");
 }
 
-string sanitizeSlashes(string path)
+private string sanitizeSlashes(string path)
 {
     version(Windows)
         return path.replace("\\", "/");

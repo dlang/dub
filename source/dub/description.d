@@ -1,7 +1,7 @@
 /**
 	Types for project descriptions (dub describe).
 
-	Copyright: © 2015 rejectedsoftware e.K.
+	Copyright: © 2015-2016 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
@@ -19,16 +19,16 @@ import dub.internal.vibecompat.data.serialization;
 	and configuration that has been selected.
 */
 struct ProjectDescription {
-	string rootPackage;
-	alias mainPackage = rootPackage; /// Compatibility alias
-	string configuration;
-	string buildType;
-	string compiler;
-	string[] architecture;
-	string[] platform;
+	string rootPackage; /// Name of the root package being built
+	@ignore deprecated("Use rootPackage instead. Will be removed for version 1.0.0.") alias mainPackage = rootPackage; /// Compatibility alias
+	string configuration; /// Name of the selected build configuration
+	string buildType; /// Name of the selected build type
+	string compiler; /// Canonical name of the compiler used (e.g. "dmd", "gdc" or "ldc")
+	string[] architecture; /// Architecture constants for the selected platform (e.g. `["x86_64"]`)
+	string[] platform; /// Platform constants for the selected platform (e.g. `["posix", "osx"]`)
 	PackageDescription[] packages; /// All packages in the dependency tree
 	TargetDescription[] targets; /// Build targets
-	@ignore size_t[string] targetLookup; /// Target index by name
+	@ignore size_t[string] targetLookup; /// Target index by package name name
 	
 	/// Targets by name
 	ref inout(TargetDescription) lookupTarget(string name) inout
@@ -59,12 +59,17 @@ struct ProjectDescription {
 
 
 /**
-	Build settings and meta data of a single package.
+	Describes the build settings and meta data of a single package.
+
+	This structure contains the effective build settings and dependencies for
+	the selected build platform. This structure is most useful for displaying
+	information about a package in an IDE. Use `TargetDescription` instead when
+	writing a build-tool.
 */
 struct PackageDescription {
-	string path;
-	string name;
-	Version version_;
+	string path; /// Path to the package
+	string name; /// Qualified name of the package
+	Version version_; /// Version of the package
 	string description;
 	string homepage;
 	string[] authors;
@@ -80,49 +85,57 @@ struct PackageDescription {
 	string targetFileName;
 	string workingDirectory;
 	string mainSourceFile;
-	string[] dflags;
-	string[] lflags;
-	string[] libs;
-	string[] copyFiles;
-	string[] versions;
-	string[] debugVersions;
+	string[] dflags; /// Flags passed to the D compiler
+	string[] lflags; /// Flags passed to the linker
+	string[] libs; /// Librariy names to link against (typically using "-l<name>")
+	string[] copyFiles; /// Files to copy to the target directory
+	string[] versions; /// D version identifiers to set
+	string[] debugVersions; /// D debug version identifiers to set
 	string[] importPaths;
 	string[] stringImportPaths;
-	string[] preGenerateCommands;
-	string[] postGenerateCommands;
-	string[] preBuildCommands;
-	string[] postBuildCommands;
+	string[] preGenerateCommands; /// commands executed before creating the description
+	string[] postGenerateCommands; /// commands executed after creating the description
+	string[] preBuildCommands; /// Commands to execute prior to every build
+	string[] postBuildCommands; /// Commands to execute after every build
 	@byName BuildRequirement[] buildRequirements;
 	@byName BuildOption[] options;
-	SourceFileDescription[] files;
+	SourceFileDescription[] files; /// A list of all source/import files possibly used by the package
 }
 
+
+/**
+	Describes the settings necessary to build a certain binary target.
+*/
 struct TargetDescription {
-	string rootPackage;
-	string[] packages;
-	string rootConfiguration;
-	BuildSettings buildSettings;
-	string[] dependencies;
-	string[] linkDependencies;
+	string rootPackage; /// Main package associated with this target, this is also the name of the target.
+	string[] packages; /// All packages contained in this target (e.g. for target type "sourceLibrary")
+	string rootConfiguration; /// Build configuration of the target's root package used for building
+	BuildSettings buildSettings; /// Final build settings to use when building the target
+	string[] dependencies; /// List of all dependencies of this target (package names)
+	string[] linkDependencies; /// List of all link-dependencies of this target (target names)
 }
 
 /**
-	Description for a single source file.
+	Description for a single source file known to the package.
 */
 struct SourceFileDescription {
-	@byName SourceFileRole role;
-	alias type = role; /// Compatibility alias
-	string path;
+	@byName SourceFileRole role; /// Main role this file plays in the build process
+	@ignore deprecated("Use role instead. Will be removed for version 1.0.0.") alias type = role; /// Compatibility alias
+	string path; /// Full path to the file
 }
 
 /**
-	Determines 
+	Determines the role that a file plays in the build process.
+
+	If a file has multiple roles, higher enum values will have precedence, i.e.
+	if a file is used both, as a source file and as an import file, it will
+	be classified as a source file.
 */
 enum SourceFileRole {
-	unusedStringImport,
-	unusedImport,
-	unusedSource,
-	stringImport,
-	import_,
-	source
+	unusedStringImport, /// Used as a string import for another configuration/platform
+	unusedImport,       /// Used as an import for another configuration/platform
+	unusedSource,       /// Used as a source file for another configuration/platform
+	stringImport,       /// Used as a string import file
+	import_,            /// Used as an import file
+	source              /// Used as a source file
 }

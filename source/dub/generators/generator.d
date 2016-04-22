@@ -1,7 +1,7 @@
 /**
 	Generator for project files
 
-	Copyright: © 2012-2013 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff, © 2013-2016 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
 */
@@ -85,6 +85,8 @@ class ProjectGenerator
 	*/
 	final void generate(GeneratorSettings settings)
 	{
+		import dub.compilers.utils : enforceBuildRequirements;
+
 		if (!settings.config.length) settings.config = m_project.getDefaultConfiguration(settings.platform);
 
 		TargetInfo[string] targets;
@@ -144,6 +146,7 @@ class ProjectGenerator
 	private BuildSettings collect(GeneratorSettings settings, Package pack, ref TargetInfo[string] targets, in string[string] configs, ref string[] main_files, string bin_pack)
 	{
 		import std.algorithm : sort;
+		import dub.compilers.utils : isLinkerFile;
 
 		if (auto pt = pack.name in targets) return pt.buildSettings;
 
@@ -188,9 +191,9 @@ class ProjectGenerator
 		if (is_target)
 			targets[pack.name] = TargetInfo(pack, [pack], configs[pack.name], buildsettings, null);
 
-		foreach (depname; pack.dependencies.byKey.array.sort()) {
-			auto depspec = pack.dependencies[depname];
-			if (!pack.hasDependency(depname, configs[pack.name])) continue;
+		auto deps = pack.getDependencies(configs[pack.name]);
+		foreach (depname; deps.keys.sort()) {
+			auto depspec = deps[depname];
 			auto dep = m_project.getDependency(depname, depspec.optional);
 			if (!dep) continue;
 
@@ -452,6 +455,14 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	}
 }
 
+
+/** Runs a list of build commands for a particular package.
+
+	This funtion sets all DUB speficic environment variables and makes sure
+	that recursive dub invocations are detected and don't result in infinite
+	command execution loops. The latter could otherwise happen when a command
+	runs "dub describe" or similar functionality.
+*/
 void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	in GeneratorSettings settings, in BuildSettings build_settings)
 {
@@ -504,4 +515,28 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	auto depNames = proj.dependencies.map!((a) => a.name).array();
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
 	runCommands(commands, env);
+}
+
+private bool isRecursiveInvocation(string pack)
+{
+	import std.algorithm : canFind, splitter;
+	import std.process : environment;
+
+	return environment
+        .get("DUB_PACKAGES_USED", "")
+        .splitter(",")
+        .canFind(pack);
+}
+
+private void storeRecursiveInvokations(string[string] env, string[] packs)
+{
+	import std.algorithm : canFind, splitter;
+	import std.range : chain;
+	import std.process : environment;
+
+    env["DUB_PACKAGES_USED"] = environment
+        .get("DUB_PACKAGES_USED", "")
+        .splitter(",")
+        .chain(packs)
+        .join(",");
 }

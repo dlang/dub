@@ -45,7 +45,7 @@ class VisualDGenerator : ProjectGenerator {
 
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
-		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.rootPackage.name, m_project.rootPackage.dependencies.length);
+		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.rootPackage.name, m_project.rootPackage.getAllDependencies().length);
 		generateProjectFiles(settings, targets);
 		generateSolutionFile(settings, targets);
 	}
@@ -153,6 +153,8 @@ class VisualDGenerator : ProjectGenerator {
 
 		void generateProjectFile(string packname, GeneratorSettings settings, in TargetInfo[string] targets)
 		{
+			import dub.compilers.utils : isLinkerFile;
+
 			int i = 0;
 			auto ret = appender!(char[])();
 
@@ -188,8 +190,8 @@ class VisualDGenerator : ProjectGenerator {
 			}
 
 			foreach (p; targets[packname].packages)
-				if (!p.packageInfoFilename.empty)
-					addFile(p.packageInfoFilename.toNativeString(), false);
+				if (!p.recipePath.empty)
+					addFile(p.recipePath.toNativeString(), false);
 
 			if (files.targetType == TargetType.staticLibrary)
 				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(s))) addFile(s, true);
@@ -446,7 +448,7 @@ class VisualDGenerator : ProjectGenerator {
 	}
 
 	// TODO: nice folders
-	struct SourceFile {
+	private struct SourceFile {
 		Path structurePath;
 		Path filePath;
 		bool build;
@@ -478,7 +480,7 @@ class VisualDGenerator : ProjectGenerator {
 		}
 	}
 
-	auto sortedSources(SourceFile[] sources) {
+	private auto sortedSources(SourceFile[] sources) {
 		return sort(sources);
 	}
 

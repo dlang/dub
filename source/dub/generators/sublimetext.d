@@ -36,7 +36,7 @@ class SublimeTextGenerator : ProjectGenerator {
 		logDebug("About to generate sublime project for %s.", m_project.rootPackage.name);
 		
 		auto root = Json([
-			"folders": targets.byValue.map!targetFolderJson.array.Json,
+			"folders": targets.byValue.map!(f => targetFolderJson(f)).array.Json,
 			"build_systems": buildSystems(settings.platform),
 			"settings": [ "include_paths": buildSettings.importPaths.map!Json.array.Json ].Json,
 		]);
@@ -53,7 +53,7 @@ class SublimeTextGenerator : ProjectGenerator {
 }
 
 
-Json targetFolderJson(in ProjectGenerator.TargetInfo target)
+private Json targetFolderJson(in ProjectGenerator.TargetInfo target)
 {
 	return [
 		"name": target.pack.name.Json,
@@ -64,7 +64,7 @@ Json targetFolderJson(in ProjectGenerator.TargetInfo target)
 }
 
 
-Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd())
+private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd())
 {
 	enum BUILD_TYPES = [
 		//"plain",

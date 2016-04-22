@@ -11,6 +11,7 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
+import dub.compilers.buildsettings : BuildSettings;
 import dub.version_;
 
 // todo: cleanup imports.
@@ -355,4 +356,122 @@ auto bitFieldNames(T)(T value) if(is(T==enum) && isIntegral!T)
 	return [ EnumMembers!(T) ]
 		.filter!(member => member==0? value==0 : (value & member) == member)
 		.map!(member => to!string(member));
+}
+
+
+bool isIdentChar(dchar ch)
+{
+	import std.ascii : isAlphaNum;
+	return isAlphaNum(ch) || ch == '_';
+}
+
+string stripDlangSpecialChars(string s)
+{
+	import std.array : appender;
+	auto ret = appender!string();
+	foreach(ch; s)
+		ret.put(isIdentChar(ch) ? ch : '_');
+	return ret.data;
+}
+
+string determineModuleName(BuildSettings settings, Path file, Path base_path)
+{
+	import std.algorithm : map;
+
+	assert(base_path.absolute);
+	if (!file.absolute) file = base_path ~ file;
+
+	size_t path_skip = 0;
+	foreach (ipath; settings.importPaths.map!(p => Path(p))) {
+		if (!ipath.absolute) ipath = base_path ~ ipath;
+		assert(!ipath.empty);
+		if (file.startsWith(ipath) && ipath.length > path_skip)
+			path_skip = ipath.length;
+	}
+
+	enforce(path_skip > 0,
+		format("Source file '%s' not found in any import path.", file.toNativeString()));
+
+	auto mpath = file[path_skip .. file.length];
+	auto ret = appender!string;
+
+	//search for module keyword in file
+	string moduleName = getModuleNameFromFile(file.to!string);
+
+	if(moduleName.length) return moduleName;
+
+	//create module name from path
+	foreach (i; 0 .. mpath.length) {
+		import std.path;
+		auto p = mpath[i].toString();
+		if (p == "package.d") break;
+		if (i > 0) ret ~= ".";
+		if (i+1 < mpath.length) ret ~= p;
+		else ret ~= p.baseName(".d");
+	}
+
+	return ret.data;
+}
+
+/**
+ * Search for module keyword in D Code
+ */
+string getModuleNameFromContent(string content) {
+	import std.regex;
+	import std.string;
+
+	content = content.strip;
+	if (!content.length) return null;
+
+	static bool regex_initialized = false;
+	static Regex!char comments_pattern, module_pattern;
+
+	if (!regex_initialized) {
+		comments_pattern = regex(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`, "g");
+		module_pattern = regex(`module\s+([\w\.]+)\s*;`, "g");
+		regex_initialized = true;
+	}
+
+	content = replaceAll(content, comments_pattern, "");
+	auto result = matchFirst(content, module_pattern);
+
+	string moduleName;
+	if(!result.empty) moduleName = result.front;
+
+	if (moduleName.length >= 7) moduleName = moduleName[7..$-1];
+
+	return moduleName;
+}
+
+unittest {
+	//test empty string
+	string name = getModuleNameFromContent("");
+	assert(name == "", "can't get module name from empty string");
+
+	//test simple name
+	name = getModuleNameFromContent("module myPackage.myModule;");
+	assert(name == "myPackage.myModule", "can't parse module name");
+
+	//test if it can ignore module inside comments
+	name = getModuleNameFromContent("/**
+	module fakePackage.fakeModule;
+	*/
+	module myPackage.myModule;");
+
+	assert(name == "myPackage.myModule", "can't parse module name");
+
+	name = getModuleNameFromContent("//module fakePackage.fakeModule;
+	module myPackage.myModule;");
+
+	assert(name == "myPackage.myModule", "can't parse module name");
+}
+
+/**
+ * Search for module keyword in file
+ */
+string getModuleNameFromFile(string filePath) {
+	string fileContent = filePath.readText;
+
+	logDiagnostic("Get module name from path: " ~ filePath);
+	return getModuleNameFromContent(fileContent);
 }

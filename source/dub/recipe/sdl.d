@@ -168,7 +168,7 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	auto pkg = expandPackageName(t.values[0].get!string, package_name, t);
 	enforceSDL(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once.", t);
 
-	Dependency dep = Dependency.ANY;
+	Dependency dep = Dependency.any;
 	auto attrs = t.attributes;
 
 	auto pv = "version" in attrs;
@@ -231,7 +231,7 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 	foreach (pack, d; bs.dependencies) {
 		Attribute[] attribs;
 		if (d.path.length) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
-		else attribs ~= new Attribute(null, "version", Value(d.versionString));
+		else attribs ~= new Attribute(null, "version", Value(d.versionSpec));
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
 		ret ~= new Tag(null, "dependency", [Value(pack)], attribs);
 	}
@@ -423,8 +423,8 @@ lflags "lf3"
 	assert(rec.subPackages[0].recipe.name == "subpackage1");
 	assert(rec.subPackages[1].path == "");
 	assert(rec.subPackages[1].recipe.name == "subpackage2");
-	assert(rec.subPackages[1].recipe.dependencies.length == 1);
-	assert("projectname:subpackage1" in rec.subPackages[1].recipe.dependencies);
+	assert(rec.subPackages[1].recipe.buildSettings.dependencies.length == 1);
+	assert("projectname:subpackage1" in rec.subPackages[1].recipe.buildSettings.dependencies);
 	assert(rec.subPackages[2].path == "pathsp3");
 	assert(rec.configurations.length == 2);
 	assert(rec.configurations[0].name == "config1");
@@ -441,7 +441,7 @@ lflags "lf3"
 	assert(rec.buildSettings.dependencies.length == 2);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].optional == false);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].path == Path("."));
-	assert(rec.buildSettings.dependencies["somedep"].versionString == "1.0.0");
+	assert(rec.buildSettings.dependencies["somedep"].versionSpec == "1.0.0");
 	assert(rec.buildSettings.dependencies["somedep"].optional == true);
 	assert(rec.buildSettings.dependencies["somedep"].path.empty);
 	assert(rec.buildSettings.systemDependencies == "system dependencies");

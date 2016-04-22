@@ -1,3 +1,10 @@
+/**
+	Package recipe reading/writing facilities.
+
+	Copyright: © 2015-2016, Sönke Ludwig
+	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
+	Authors: Sönke Ludwig
+*/
 module dub.recipe.io;
 
 import dub.recipe.packagerecipe;
@@ -5,13 +12,22 @@ import dub.internal.vibecompat.inet.path;
 
 
 /** Reads a package recipe from a file.
+
+	The file format (JSON/SDLang) will be determined from the file extension.
+
+	Params:
+		filename = Path of the package recipe file
+		parent_name = Optional name of the parent package (if this is a sub package)
+
+	Returns: Returns the package recipe contents
+	Throws: Throws an exception if an I/O or syntax error occurs
 */
 PackageRecipe readPackageRecipe(string filename, string parent_name = null)
 {
 	return readPackageRecipe(Path(filename), parent_name);
 }
 /// ditto
-PackageRecipe readPackageRecipe(Path file, string parent_name = null)
+PackageRecipe readPackageRecipe(Path filename, string parent_name = null)
 {
 	import dub.internal.utils : stripUTF8Bom;
 	import dub.internal.vibecompat.core.file : openFile, FileMode;
@@ -19,15 +35,27 @@ PackageRecipe readPackageRecipe(Path file, string parent_name = null)
 	string text;
 
 	{
-		auto f = openFile(file.toNativeString(), FileMode.read);
+		auto f = openFile(filename.toNativeString(), FileMode.read);
 		scope(exit) f.close();
 		text = stripUTF8Bom(cast(string)f.readAll());
 	}
 
-	return parsePackageRecipe(text, file.toNativeString(), parent_name);
+	return parsePackageRecipe(text, filename.toNativeString(), parent_name);
 }
 
 /** Parses an in-memory package recipe.
+
+	The file format (JSON/SDLang) will be determined from the file extension.
+
+	Params:
+		contents = The contents of the recipe file
+		filename = Name associated with the package recipe - this is only used
+			to determine the file format from the file extension
+		parent_name = Optional name of the parent package (if this is a sub
+		package)
+
+	Returns: Returns the package recipe contents
+	Throws: Throws an exception if an I/O or syntax error occurs
 */
 PackageRecipe parsePackageRecipe(string contents, string filename, string parent_name = null)
 {

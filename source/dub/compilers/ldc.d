@@ -8,6 +8,7 @@
 module dub.compilers.ldc;
 
 import dub.compilers.compiler;
+import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
@@ -23,7 +24,9 @@ import std.random;
 import std.typecons;
 
 
-class LdcCompiler : Compiler {
+deprecated("Use LDCCompiler instead. Will be removed for version 1.0.0.") alias LdcCompiler = LDCCompiler;
+
+class LDCCompiler : Compiler {
 	private static immutable s_options = [
 		tuple(BuildOption.debugMode, ["-d-debug"]),
 		tuple(BuildOption.releaseMode, ["-release"]),

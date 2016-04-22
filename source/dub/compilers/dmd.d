@@ -8,6 +8,7 @@
 module dub.compilers.dmd;
 
 import dub.compilers.compiler;
+import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
@@ -23,7 +24,9 @@ import std.random;
 import std.typecons;
 
 
-class DmdCompiler : Compiler {
+deprecated("Use DMDCompiler instead. Will be removed for version 1.0.0.") alias DmdCompiler = DMDCompiler;
+
+class DMDCompiler : Compiler {
 	private static immutable s_options = [
 		tuple(BuildOption.debugMode, ["-debug"]),
 		tuple(BuildOption.releaseMode, ["-release"]),

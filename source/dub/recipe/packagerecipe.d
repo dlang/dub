@@ -8,6 +8,7 @@
 module dub.recipe.packagerecipe;
 
 import dub.compilers.compiler;
+import dub.compilers.utils : warnOnSpecialCompilerFlags;
 import dub.dependency;
 
 import dub.internal.vibecompat.core.file;
@@ -86,6 +87,7 @@ struct PackageRecipe {
 
 	SubPackage[] subPackages;
 
+	deprecated("Use Package.dependencies or the dependencies of the individual BuildSettingsTemplates instead. Will be removed for version 1.0.0.")
 	@property const(Dependency)[string] dependencies()
 	const {
 		Dependency[string] ret;

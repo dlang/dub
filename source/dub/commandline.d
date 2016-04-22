@@ -1,7 +1,7 @@
 /**
 	Defines the behavior of the DUB command line client.
 
-	Copyright: © 2012-2013 Matthias Dondorff, Copyright © 2012-2014 Sönke Ludwig
+	Copyright: © 2012-2013 Matthias Dondorff, Copyright © 2012-2016 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff, Sönke Ludwig
 */
@@ -36,6 +36,10 @@ import std.typecons : Tuple, tuple;
 import std.variant;
 
 
+/** Retrieves a list of all available commands.
+
+	Commands are grouped by category.
+*/
 CommandGroup[] getCommands()
 {
 	return [
@@ -73,6 +77,16 @@ CommandGroup[] getCommands()
 	];
 }
 
+
+/** Processes the given command line and executes the appropriate actions.
+
+	Params:
+		args = This command line argument array as received in `main`. The first
+			entry is considered to be the name of the binary invoked.
+
+	Returns:
+		Returns the exit code that is supposed to be returned to the system.
+*/
 int runDubCommandLine(string[] args)
 {
 	logDiagnostic("DUB version %s", getDUBVersion());
@@ -193,11 +207,13 @@ int runDubCommandLine(string[] args)
 	if (!cmd.skipDubInitialization) {
 		if (options.bare) {
 			dub = new Dub(Path(getcwd()));
+			dub.defaultPlacementLocation = options.placementLocation;
 		} else {
 			// initialize DUB
 			auto package_suppliers = options.registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
-			dub = new Dub(package_suppliers, options.root_path, options.skipRegistry);
+			dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
 			dub.dryRun = options.annotate;
+			dub.defaultPlacementLocation = options.placementLocation;
 
 			// make the CWD package available so that for example sub packages can reference their
 			// parent package.
@@ -221,13 +237,18 @@ int runDubCommandLine(string[] args)
 	}
 }
 
+
+/** Contains and parses options common to all commands.
+*/
 struct CommonOptions {
 	bool verbose, vverbose, quiet, vquiet;
 	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
-	SkipRegistry skipRegistry = SkipRegistry.none;
+	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
+	PlacementLocation placementLocation = PlacementLocation.user;
 
+	/// Parses all common options and stores the result in the struct instance.
 	void prepare(CommandArgs args)
 	{
 		args.getopt("h|help", &help, ["Display general or command specific help"]);
@@ -245,10 +266,17 @@ struct CommonOptions {
 		args.getopt("vverbose", &vverbose, ["Print debug output"]);
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
-		args.getopt("cache", &defaultPlacementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
+		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 	}
 }
 
+/** Encapsulates a set of application arguments.
+
+	This class serves two purposes. The first is to provide an API for parsing
+	command line arguments (`getopt`). At the same time it records all calls
+	to `getopt` and provides a list of all possible options using the
+	`recognizedArgs` property.
+*/
 class CommandArgs {
 	struct Arg {
 		Variant defaultValue;
@@ -261,11 +289,20 @@ class CommandArgs {
 		Arg[] m_recognizedArgs;
 	}
 
+	/** Initializes the list of source arguments.
+
+		Note that all array entries are considered application arguments (i.e.
+		no application name entry is present as the first entry)
+	*/
 	this(string[] args)
 	{
 		m_args = "dummy" ~ args;
 	}
 
+	/** Returns the list of all options recognized.
+
+		This list is created by recording all calls to `getopt`.
+	*/
 	@property const(Arg)[] recognizedArgs() { return m_recognizedArgs; }
 
 	void getopt(T)(string names, T* var, string[] help_text = null)
@@ -286,11 +323,15 @@ class CommandArgs {
 		m_recognizedArgs ~= arg;
 	}
 
+	/** Resets the list of available source arguments.
+	*/
 	void dropAllArgs()
 	{
 		m_args = null;
 	}
 
+	/** Returns the list of unprocessed arguments and calls `dropAllArgs`.
+	*/
 	string[] extractRemainingArgs()
 	{
 		auto ret = m_args[1 .. $];
@@ -299,6 +340,13 @@ class CommandArgs {
 	}
 }
 
+
+/** Base class for all commands.
+
+	This cass contains a high-level description of the command, including brief
+	and full descriptions and a human readable command line pattern. On top of
+	that it defines the two main entry functions for command execution.
+*/
 class Command {
 	string name;
 	string argumentsPattern;
@@ -308,7 +356,20 @@ class Command {
 	bool hidden = false; // used for deprecated commands
 	bool skipDubInitialization = false;
 
+	/** Parses all known command line options without executing any actions.
+
+		This function will be called prior to execute, or may be called as
+		the only method when collecting the list of recognized command line
+		options.
+
+		Only `args.getopt` should be called within this method.
+	*/
 	abstract void prepare(scope CommandArgs args);
+
+	/** Executes the actual action.
+
+		Note that `prepare` will be called before any call to `execute`.
+	*/
 	abstract int execute(Dub dub, string[] free_args, string[] app_args);
 
 	private bool loadCwdPackage(Dub dub, bool warn_missing_package)
@@ -333,14 +394,20 @@ class Command {
 			return false;
 		}
 
-		dub.loadPackageFromCwd();
+		dub.loadPackage();
 
 		return true;
 	}
 }
 
+
+/** Encapsulates a group of commands that fit into a common category.
+*/
 struct CommandGroup {
+	/// Caption of the command category
 	string caption;
+
+	/// List of commands contained inthis group
 	Command[] commands;
 
 	this(string caption, Command[] commands...)
@@ -431,7 +498,7 @@ class InitCommand : Command {
 					auto ver = dub.getLatestVersion(depname);
 					auto dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
 					p.buildSettings.dependencies[depname] =	dep;
-					logInfo("Added dependency %s %s", depname, dep.versionString);
+					logInfo("Added dependency %s %s", depname, dep.versionSpec);
 				} catch (Exception e) {
 					logError("Could not find package '%s'.", depname);
 					logDebug("Full error: %s", e.toString().sanitize);
@@ -907,15 +974,22 @@ class DescribeCommand : PackageBuildCommand {
 
 		auto config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
 
-		if (m_importPaths) {
-			dub.listImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim);
-		} else if (m_stringImportPaths) {
-			dub.listStringImportPaths(m_buildPlatform, config, m_buildType, m_dataNullDelim);
-		} else if (m_data) {
-			dub.listProjectData(m_buildPlatform, config, m_buildType, m_data,
-				m_dataList? null : m_compiler, m_dataNullDelim);
+		GeneratorSettings settings;
+		settings.platform = m_buildPlatform;
+		settings.config = config;
+		settings.buildType = m_buildType;
+		settings.compiler = m_compiler;
+
+		if (m_importPaths) { m_data = ["import-paths"]; m_dataList = true; }
+		else if (m_stringImportPaths) { m_data = ["string-import-paths"]; m_dataList = true; }
+
+		if (m_data.length) {
+			ListBuildSettingsFormat lt;
+			with (ListBuildSettingsFormat)
+				lt = m_dataList ? (m_dataNullDelim ? listNul : list) : (m_dataNullDelim ? commandLineNul : commandLine);
+			dub.listProjectData(settings, m_data, lt);
 		} else {
-			auto desc = dub.project.describe(m_buildPlatform, config, m_buildType);
+			auto desc = dub.project.describe(settings);
 			writeln(desc.serializeToPrettyJson());
 		}
 
@@ -1013,7 +1087,7 @@ class UpgradeCommand : Command {
 		enforceUsage(free_args.length <= 1, "Unexpected arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(!m_verify, "--verify is not yet implemented.");
-		dub.loadPackageFromCwd();
+		dub.loadPackage();
 		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
@@ -1085,7 +1159,7 @@ class FetchCommand : FetchRemoveCommand {
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto location = defaultPlacementLocation;
+		auto location = dub.defaultPlacementLocation;
 		if (m_local)
 		{
 			logWarn("--local is deprecated. Use --cache=local instead.");
@@ -1153,7 +1227,7 @@ class RemoveCommand : FetchRemoveCommand {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
 		auto package_id = free_args[0];
-		auto location = defaultPlacementLocation;
+		auto location = dub.defaultPlacementLocation;
 		if (m_local)
 		{
 			logWarn("--local is deprecated. Use --cache=local instead.");
@@ -1299,7 +1373,7 @@ class ListCommand : Command {
 	{
 		logInfo("Packages present in the system and known to dub:");
 		foreach (p; dub.packageManager.getPackageIterator())
-			logInfo("  %s %s: %s", p.name, p.ver, p.path.toNativeString());
+			logInfo("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
 		logInfo("");
 		return 0;
 	}
@@ -1612,7 +1686,7 @@ class DustmiteCommand : PackageBuildCommand {
 					if (subp.path.length) {
 						auto sub_path = base_path ~ Path(subp.path);
 						auto pack = prj.packageManager.getOrLoadPackage(sub_path);
-						fixPathDependencies(pack.info, sub_path);
+						fixPathDependencies(pack.recipe, sub_path);
 						pack.storeInfo(sub_path);
 					} else fixPathDependencies(subp.recipe, base_path);
 			}
@@ -1627,7 +1701,7 @@ class DustmiteCommand : PackageBuildCommand {
 				copyFolderRec(pack.path, dst_path);
 
 				// adjust all path based dependencies
-				fixPathDependencies(pack.info, dst_path);
+				fixPathDependencies(pack.recipe, dst_path);
 
 				// overwrite package description file with additional version information
 				pack.storeInfo(dst_path);
