@@ -11,7 +11,7 @@ import dub.compilers.buildsettings;
 import dub.platform;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
-import std.algorithm : canFind;
+import std.algorithm : canFind, endsWith, filter;
 
 
 /**
