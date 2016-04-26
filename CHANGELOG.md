@@ -1,7 +1,104 @@
 Changelog
 =========
 
-v0.9.24 - 2015-09-
+v0.9.25 - 2016-05-
+--------------------
+
+### Features and improvements ###
+
+ - Builds on DMD 2.064.2 up to 2.071.0
+ - Cleaned up the API to be (almost) ready for the 1.0.0 release - [issue #349][issue349] - [pull #785][issue785]
+ - Implemented new semantics for optional dependencies (now controlled using dub.selections.json) - [issue #361][issue361], [pull #733][issue733]
+ - Made "dub init" interactive to improve/simplify the creation of new packages (can be disabled with the "-n" switch) - [pull #734][issue734]
+ - Switched back the default "dub init" recipe format to JSON (both, JSON and SDLang will stay supported) - [issue #724][issue724]
+ - Locally cached packages are now stored in a folder that matches their name, which enables more possible ways to organize the source code (mostly by Guillaume Piolat aka p0nce) - [issue #502][issue502], [pull #735][issue735]
+ - Improved worst-case speed of the dependency resolver for some pathological cases
+ - Sped up GIT based local package version detection using a cache on Windows - [pull #692][issue692]
+ - Implemented "dub convert" to convert between JSON and SDLang package recipes - [pull #732][issue732]
+ - Implemented a "dub search" command to search the package registry from the CLI - [pull #663][issue663]
+ - "dub test" doesn't build dependencies in unittest mode anymore - [issue #640][issue640], [issue #823][issue823]
+ - Added a "-ddoxTool"/"x:ddoxTool" field to override the package used for DDOX documentation builds - [pull #702][issue702]
+ - DUB init now uses the users full name on Posix systems - [issue #715][issue715]
+ - Added support for the "DFLAGS" environment variable to "dub test"
+ - Added a "release-debug" default build type
+ - Path based dependencies are now also stored in dub.selections.json - [issue #722][issue722]
+ - Entries in dub.selections.json are now output in alphabetic order - [issue #709][issue709]
+ - The Sublime Text generator now outputs import paths for use with DKit (by xentec) - [pull #757][issue757]
+ - The VisualD generator now creates the project files in the ".dub" subdirectory (by Guillaume Piolat aka p0nce) - [pull #680][issue680]
+
+### Bug fixes ###
+
+ - Fixed outputting global build settings (e.g. architecture flags) only once - [issue #346][issue346], [issue #635][issue635], [issue #686][issue686], [pull #759][issue759]
+ - Fixed an infinite recursive DUB invocation if dub was invoked in "preGenerateCommands" (by Nick Sabalausky) - [issue #616][issue616], [pull #633][issue633]
+ - Fixed the VisualD generator to set the correct debug working directory
+ - Fixed disabling bounds-checking on LDC to avoid the deprecated/removed `-noboundscheck` flag (by Guillaume Piolat aka p0nce) - [pull #693][issue693]
+ - Fixed race conditions when running multiple DUB instances concurrently - [issue #674][issue674], [pull #683][issue683]
+ - Fixed the error message when trying to build with DUB from a directory that doesn't contain a package - [issue #696][issue696]
+ - Fixed running the pre-compiled version of DUB on Mac OS versions prior to 10.11 (by Guillaume Piolat aka p0nce) - [pull #704][issue704]
+ - Fixed "dub dustmite" to emit a proper DUB command line if no explicit compiler/architecture is given
+ - Fixed "dub dustmite" when invoked on packages with path based dependencies - [issue #240][issue240], [pull #762][issue762]
+ - Fixed target type inheritance from the top level scope in the SDLang recipe parser
+ - Fixed the error message when a dependency name is omitted in an SDLang recipe (by lablanu) - [pull #723][issue723]
+ - Fixed the error message when using one of the "list" modes of "dub describe" on a target type "none" package - [issue #739][issue739]
+ - Fixed writing the "subConfigurations" field in the JSON recipe of downloaded packages - [issue #745][issue745]
+ - Fixed recently updated packages sometimes to fail to download - [issue #528][issue528]
+ - Fixed handling of path based dependencies that have internal sub package references - [issue #754][issue754], [pull #766][issue766]
+ - Fixed issues with generated CMake files due to backslashes in paths on Windows (by Steven Dwy) - [pull #738][issue738]
+ - Fixed path based dependencies sometimes overriding version based dependencies of the same package - [issue #777][issue777]
+ - Fixed loading of packages that have a path based selection
+ - Fixed detection of compiler errors in the build output for generated Sublime Text projects (by Justinas Šneideris aka develop32) - [pull #788][issue788]
+ - Fixed handling of certain libraries that got included using "pkg-config" (by Jean-Baptiste Lab) - [issue #782][issue782], [pull #794][issue794]
+ - Quick fix for building shared libraries with LDC/Windows/OS X and DMD/OS X (by Guillaume Piolat aka p0nce) - [pull #801][issue801]
+ - Fixed several issues with the SDLang parser
+
+
+[issue240]: https://github.com/dlang/dub/issues/240
+[issue346]: https://github.com/dlang/dub/issues/346
+[issue349]: https://github.com/dlang/dub/issues/349
+[issue361]: https://github.com/dlang/dub/issues/361
+[issue502]: https://github.com/dlang/dub/issues/502
+[issue528]: https://github.com/dlang/dub/issues/528
+[issue616]: https://github.com/dlang/dub/issues/616
+[issue633]: https://github.com/dlang/dub/issues/633
+[issue635]: https://github.com/dlang/dub/issues/635
+[issue640]: https://github.com/dlang/dub/issues/640
+[issue663]: https://github.com/dlang/dub/issues/663
+[issue674]: https://github.com/dlang/dub/issues/674
+[issue680]: https://github.com/dlang/dub/issues/680
+[issue683]: https://github.com/dlang/dub/issues/683
+[issue686]: https://github.com/dlang/dub/issues/686
+[issue692]: https://github.com/dlang/dub/issues/692
+[issue693]: https://github.com/dlang/dub/issues/693
+[issue696]: https://github.com/dlang/dub/issues/696
+[issue702]: https://github.com/dlang/dub/issues/702
+[issue704]: https://github.com/dlang/dub/issues/704
+[issue709]: https://github.com/dlang/dub/issues/709
+[issue715]: https://github.com/dlang/dub/issues/715
+[issue722]: https://github.com/dlang/dub/issues/722
+[issue723]: https://github.com/dlang/dub/issues/723
+[issue724]: https://github.com/dlang/dub/issues/724
+[issue732]: https://github.com/dlang/dub/issues/732
+[issue733]: https://github.com/dlang/dub/issues/733
+[issue734]: https://github.com/dlang/dub/issues/734
+[issue735]: https://github.com/dlang/dub/issues/735
+[issue738]: https://github.com/dlang/dub/issues/738
+[issue739]: https://github.com/dlang/dub/issues/739
+[issue745]: https://github.com/dlang/dub/issues/745
+[issue754]: https://github.com/dlang/dub/issues/754
+[issue757]: https://github.com/dlang/dub/issues/757
+[issue759]: https://github.com/dlang/dub/issues/759
+[issue762]: https://github.com/dlang/dub/issues/762
+[issue766]: https://github.com/dlang/dub/issues/766
+[issue777]: https://github.com/dlang/dub/issues/777
+[issue782]: https://github.com/dlang/dub/issues/782
+[issue785]: https://github.com/dlang/dub/issues/785
+[issue788]: https://github.com/dlang/dub/issues/788
+[issue794]: https://github.com/dlang/dub/issues/794
+[issue801]: https://github.com/dlang/dub/issues/801
+[issue823]: https://github.com/dlang/dub/issues/823
+
+
+v0.9.24 - 2015-09-20
 --------------------
 
 ### Features and improvements ###
