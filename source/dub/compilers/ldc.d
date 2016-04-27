@@ -155,7 +155,18 @@ class LDCCompiler : Compiler {
 
 	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 	const {
+		import std.string : splitLines, strip;
+		import std.uni : toLower;
+
 		assert(settings.targetName.length > 0, "No target name set.");
+
+		auto result = executeShell(escapeShellCommand([platform.compilerBinary, "-version"]));
+		enforce (result.status == 0, "Failed to determine linker used by LDC. \""
+			~platform.compilerBinary~" -version\" failed with exit code "
+			~result.status.to!string()~".");
+
+		bool generates_coff = result.output.splitLines.find!(l => l.strip.toLower.startsWith("default target:")).front.canFind("-windows-msvc");
+
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
 			case TargetType.none: return null;
@@ -166,9 +177,8 @@ class LDCCompiler : Compiler {
 				else return settings.targetName;
 			case TargetType.library:
 			case TargetType.staticLibrary:
-				/*if (m_generatesCOFF)
-					return settings.targetName ~ ".lib";
-				else*/ return "lib" ~ settings.targetName ~ ".a";
+				if (generates_coff) return settings.targetName ~ ".lib";
+				else return "lib" ~ settings.targetName ~ ".a";
 			case TargetType.dynamicLibrary:
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".dll";
