@@ -50,6 +50,7 @@ v0.9.25 - 2016-05-
  - Fixed handling of certain libraries that got included using "pkg-config" (by Jean-Baptiste Lab) - [issue #782][issue782], [pull #794][issue794]
  - Quick fix for building shared libraries with LDC/Windows/OS X and DMD/OS X (by Guillaume Piolat aka p0nce) - [pull #801][issue801]
  - Fixed several issues with the SDLang parser
+ - Fixed release-specific regressions regarding sub package dependencies that got ignored during dependency graph collection - [issue #803][issue803], [pull #807][issue807]
 
 
 [issue240]: https://github.com/dlang/dub/issues/240
@@ -95,6 +96,8 @@ v0.9.25 - 2016-05-
 [issue788]: https://github.com/dlang/dub/issues/788
 [issue794]: https://github.com/dlang/dub/issues/794
 [issue801]: https://github.com/dlang/dub/issues/801
+[issue803]: https://github.com/dlang/dub/issues/803
+[issue807]: https://github.com/dlang/dub/issues/807
 [issue823]: https://github.com/dlang/dub/issues/823
 
 
