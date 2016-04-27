@@ -587,17 +587,19 @@ class PackageManager {
 
 					auto pack_path = path ~ (pdir.name ~ "/");
 
-					if (isManagedPath(path)) {
+					auto packageFile = Package.findPackageFile(pack_path);
+
+					if (isManagedPath(path) && packageFile.empty) {
 						// Search for a single directory within this directory which happen to be a prefix of pdir
 						// This is to support new folder structure installed over the ancient one.
 						foreach (subdir; iterateDirectory(path ~ (pdir.name ~ "/")))
 							if (subdir.isDirectory && pdir.name.startsWith(subdir.name)) {// eg: package vibe-d will be in "vibe-d-x.y.z/vibe-d"
 								pack_path ~= subdir.name ~ "/";
+								packageFile = Package.findPackageFile(pack_path);
 								break;
 							}
 					}
 
-					auto packageFile = Package.findPackageFile(pack_path);
 					if (packageFile.empty) continue;
 					Package p;
 					try {
