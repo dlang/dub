@@ -1,0 +1,6 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"sub": {"path": "../sub"}
+	}
+}
