@@ -90,6 +90,15 @@ void initPackage(Path root_path, string[string] deps, string type,
 private void initMinimalPackage(Path root_path, ref PackageRecipe p)
 {
 	p.description = "A minimal D application.";
+
+	// we want to create a empty, not-null dictionary,
+	// s. t. the generated recipe contains an empty "dependencies" section
+	// in case of PackageFormat.json
+	auto bar = Dependency("~>0.0.0");
+	p.buildSettings.dependencies["foo"] = bar;
+	p.buildSettings.dependencies.remove("foo");
+	assert(p.buildSettings.dependencies !is null);
+
 	createDirectory(root_path ~ "source");
 	write((root_path ~ "source/app.d").toNativeString(),
 q{import std.stdio;
