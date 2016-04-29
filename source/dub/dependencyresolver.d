@@ -74,13 +74,13 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				auto basepack = basePackage(ch.pack);
 				auto pidx = all_configs.length;
 
-				if (ch.depType != DependencyType.required) maybe_optional_deps[ch.pack] = true;
+				if (optional) maybe_optional_deps[ch.pack] = true;
 
 				CONFIG[] configs;
 				if (auto pi = basepack in package_indices) {
 					pidx = *pi;
 					configs = all_configs[*pi];
-				} else {
+				} else if(ch.depType == DependencyType.required) {
 					if (basepack == root_base_pack) configs = [root.config];
 					else configs = getAllConfigs(basepack);
 					all_configs ~= configs;
