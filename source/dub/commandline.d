@@ -1677,11 +1677,11 @@ class DustmiteCommand : PackageBuildCommand {
 			{
 				foreach (name, ref dep; recipe.buildSettings.dependencies)
 					fixPathDependency(name, dep);
-				
+
 				foreach (ref cfg; recipe.configurations)
 					foreach (name, ref dep; cfg.buildSettings.dependencies)
 						fixPathDependency(name, dep);
-				
+
 				foreach (ref subp; recipe.subPackages)
 					if (subp.path.length) {
 						auto sub_path = base_path ~ Path(subp.path);
