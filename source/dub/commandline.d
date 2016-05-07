@@ -1939,7 +1939,11 @@ private void writeWrapped(string string, size_t indent = 0, size_t first_line_po
 {
 	// handle pre-indented strings and bullet lists
 	size_t first_line_indent = 0;
-	while (string.startsWith(" ")) string = string[1 .. $], indent++, first_line_indent++;
+	while (string.startsWith(" ")) {
+		string = string[1 .. $];
+		indent++;
+		first_line_indent++;
+	}
 	if (string.startsWith("- ")) indent += 2;
 
 	auto wrapped = string.wrap(lineWidth, getRepString!' '(first_line_pos+first_line_indent), getRepString!' '(indent));

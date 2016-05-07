@@ -288,8 +288,11 @@ void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char
 		long hours, minutes;
 		static if (__VERSION__ >= 2066)
 			offset.split!("hours", "minutes")(hours, minutes);
-		else hours = offset.hours, minutes = offset.minutes;
-		
+		else {
+			hours = offset.hours;
+			minutes = offset.minutes;
+		}
+
 		sink.put("%.2s".format(hours));
 		sink.put(":");
 		sink.put("%.2s".format(minutes));
@@ -325,7 +328,12 @@ void toSDLString(Sink)(Duration value, ref Sink sink) if(isOutputRange!(Sink,cha
 	long hours, minutes, seconds, msecs;
 	static if (__VERSION__ >= 2066)
 		value.split!("hours", "minutes", "seconds", "msecs")(hours, minutes, seconds, msecs);
-	else hours = value.hours, minutes = value.minutes, seconds = value.seconds, msecs = value.fracSec.msecs;
+	else {
+		hours = value.hours;
+		minutes = value.minutes;
+		seconds = value.seconds;
+		msecs = value.fracSec.msecs;
+	}
 
 	sink.put("%.2s".format(hours));
 	sink.put(':');
