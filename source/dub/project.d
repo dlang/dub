@@ -804,9 +804,13 @@ class Project {
 
 		string[] list;
 
-		enforce(projectDescription.lookupRootPackage().targetType != TargetType.none,
+		enforce(attributeName == "targetType" || projectDescription.lookupRootPackage().targetType != TargetType.none,
 			"Target type is 'none'. Cannot list build settings.");
 		
+		static if (attributeName == "targetType")
+			if (projectDescription.rootPackage !in projectDescription.targetLookup)
+				return ["none"];
+
 		auto targetDescription = projectDescription.lookupTarget(projectDescription.rootPackage);
 		auto buildSettings = targetDescription.buildSettings;
 		
@@ -861,8 +865,9 @@ class Project {
 				attributeName == "targetPath" || attributeName == "workingDirectory";
 			
 			enum isEnumBitfield =
-				attributeName == "targetType" || attributeName == "requirements" ||
-				attributeName == "options";
+				attributeName == "requirements" || attributeName == "options";
+
+			enum isEnum = attributeName == "targetType";
 			
 			auto values = getRawBuildSetting(pack, allowEmptyString);
 			string fixRelativePath(string importPath) { return buildNormalizedPath(pack.path.toString(), importPath); }
@@ -879,6 +884,8 @@ class Project {
 			}
 			else static if(isEnumBitfield)
 				return bitFieldNames(values.front);
+			else static if (isEnum)
+				return [values.front.to!string];
 			else
 				return values;
 		}
@@ -970,17 +977,19 @@ class Project {
 				packageDescription = pack;
 		}
 
-		// Copy linker files from sourceFiles to linkerFiles
-		auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
-		foreach (file; target.buildSettings.sourceFiles.filter!(isLinkerFile))
-			target.buildSettings.addLinkerFiles(file);
-		
-		// Remove linker files from sourceFiles
-		target.buildSettings.sourceFiles =
-			target.buildSettings.sourceFiles
-			.filter!(a => !isLinkerFile(a))
-			.array();
-		projectDescription.lookupTarget(projectDescription.rootPackage) = target;
+		if (projectDescription.rootPackage in projectDescription.targetLookup) {
+			// Copy linker files from sourceFiles to linkerFiles
+			auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
+			foreach (file; target.buildSettings.sourceFiles.filter!(isLinkerFile))
+				target.buildSettings.addLinkerFiles(file);
+			
+			// Remove linker files from sourceFiles
+			target.buildSettings.sourceFiles =
+				target.buildSettings.sourceFiles
+				.filter!(a => !isLinkerFile(a))
+				.array();
+			projectDescription.lookupTarget(projectDescription.rootPackage) = target;
+		}
 
 		Compiler compiler;
 		bool no_escape;
