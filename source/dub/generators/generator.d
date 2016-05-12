@@ -175,6 +175,7 @@ class ProjectGenerator
 		if (tt == TargetType.none) {
 			// ignore any build settings for targetType none (only dependencies will be processed)
 			shallowbs = BuildSettings.init;
+			shallowbs.targetType = TargetType.none;
 		}
 
 		// start to build up the build settings
