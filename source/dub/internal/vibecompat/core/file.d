@@ -17,7 +17,7 @@ import std.datetime;
 import std.exception;
 import std.file;
 import std.path;
-static import std.stream;
+import std.stdio;
 import std.string;
 import std.utf;
 
@@ -25,25 +25,24 @@ import std.utf;
 /* Add output range support to File
 */
 struct RangeFile {
-	std.stream.File file;
+	std.stdio.File file;
 
-	void put(in ubyte[] bytes) { file.writeExact(bytes.ptr, bytes.length); }
+	void put(in ubyte[] bytes) { file.rawWrite(bytes); }
 	void put(in char[] str) { put(cast(ubyte[])str); }
 	void put(char ch) { put((&ch)[0 .. 1]); }
 	void put(dchar ch) { char[4] chars; put(chars[0 .. encode(chars, ch)]); }
 
 	ubyte[] readAll()
 	{
-		file.seek(0, std.stream.SeekPos.End);
-		auto sz = file.position;
+		auto sz = file.size;
 		enforce(sz <= size_t.max, "File is too big to read to memory.");
-		file.seek(0, std.stream.SeekPos.Set);
+		file.seek(0, SEEK_SET);
 		auto ret = new ubyte[cast(size_t)sz];
-		file.readExact(ret.ptr, ret.length);
+		file.rawRead(ret);
 		return ret;
 	}
 
-	void rawRead(ubyte[] dst) { file.readExact(dst.ptr, dst.length); }
+	void rawRead(ubyte[] dst) { file.rawRead(dst); }
 	void write(string str) { put(str); }
 	void close() { file.close(); }
 	void flush() { file.flush(); }
@@ -56,14 +55,14 @@ struct RangeFile {
 */
 RangeFile openFile(Path path, FileMode mode = FileMode.read)
 {
-	std.stream.FileMode fmode;
+	string fmode;
 	final switch(mode){
-		case FileMode.read: fmode = std.stream.FileMode.In; break;
-		case FileMode.readWrite: fmode = std.stream.FileMode.Out; break;
-		case FileMode.createTrunc: fmode = std.stream.FileMode.OutNew; break;
-		case FileMode.append: fmode = std.stream.FileMode.Append; break;
+		case FileMode.read: fmode = "rb"; break;
+		case FileMode.readWrite: fmode = "r+b"; break;
+		case FileMode.createTrunc: fmode = "wb"; break;
+		case FileMode.append: fmode = "ab"; break;
 	}
-	auto ret = new std.stream.File(path.toNativeString(), fmode);
+	auto ret = std.stdio.File(path.toNativeString(), fmode);
 	assert(ret.isOpen);
 	return RangeFile(ret);
 }
