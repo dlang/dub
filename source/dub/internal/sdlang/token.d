@@ -141,7 +141,7 @@ void toSDLString(Sink)(Value value, ref Sink sink) if(isOutputRange!(Sink,char))
 			return;
 		}
 	}
-	
+
 	throw new Exception("Internal SDLang-D error: Unhandled type of Value. Contains: "~value.toString());
 }
 
@@ -159,7 +159,7 @@ void toSDLString(Sink)(bool value, ref Sink sink) if(isOutputRange!(Sink,char))
 void toSDLString(Sink)(string value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
 	sink.put('"');
-	
+
 	// This loop is UTF-safe
 	foreach(char ch; value)
 	{
@@ -178,7 +178,7 @@ void toSDLString(Sink)(string value, ref Sink sink) if(isOutputRange!(Sink,char)
 void toSDLString(Sink)(dchar value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
 	sink.put('\'');
-	
+
 	if     (value == '\n') sink.put(`\n`);
 	else if(value == '\r') sink.put(`\r`);
 	else if(value == '\t') sink.put(`\t`);
@@ -231,7 +231,7 @@ void toSDLString(Sink)(DateTimeFrac value, ref Sink sink) if(isOutputRange!(Sink
 	sink.put("%.2s".format(value.dateTime.hour));
 	sink.put(':');
 	sink.put("%.2s".format(value.dateTime.minute));
-	
+
 	if(value.dateTime.second != 0)
 	{
 		sink.put(':');
@@ -252,11 +252,11 @@ void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char
 	else
 		auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSec);
 	toSDLString(dateTimeFrac, sink);
-	
+
 	sink.put("-");
-	
+
 	auto tzString = value.timezone.name;
-	
+
 	// If name didn't exist, try abbreviation.
 	// Note that according to std.datetime docs, on Windows the
 	// stdName/dstName may not be properly abbreviated.
@@ -265,13 +265,13 @@ void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char
 	{
 		auto tz = value.timezone;
 		auto stdTime = value.stdTime;
-		
+
 		if(tz.hasDST())
 			tzString = tz.dstInEffect(stdTime)? tz.dstName : tz.stdName;
 		else
 			tzString = tz.stdName;
 	}
-	
+
 	if(tzString == "")
 	{
 		auto offset = value.timezone.utcOffsetAt(value.stdTime);
@@ -288,8 +288,11 @@ void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char
 		long hours, minutes;
 		static if (__VERSION__ >= 2066)
 			offset.split!("hours", "minutes")(hours, minutes);
-		else hours = offset.hours, minutes = offset.minutes;
-		
+		else {
+			hours = offset.hours;
+			minutes = offset.minutes;
+		}
+
 		sink.put("%.2s".format(hours));
 		sink.put(":");
 		sink.put("%.2s".format(minutes));
@@ -302,7 +305,7 @@ void toSDLString(Sink)(DateTimeFracUnknownZone value, ref Sink sink) if(isOutput
 {
 	auto dateTimeFrac = DateTimeFrac(value.dateTime, value.fracSecs);
 	toSDLString(dateTimeFrac, sink);
-	
+
 	sink.put("-");
 	sink.put(value.timeZone);
 }
@@ -314,7 +317,7 @@ void toSDLString(Sink)(Duration value, ref Sink sink) if(isOutputRange!(Sink,cha
 		sink.put("-");
 		value = -value;
 	}
-	
+
 	auto days = value.total!"days"();
 	if(days != 0)
 	{
@@ -325,7 +328,12 @@ void toSDLString(Sink)(Duration value, ref Sink sink) if(isOutputRange!(Sink,cha
 	long hours, minutes, seconds, msecs;
 	static if (__VERSION__ >= 2066)
 		value.split!("hours", "minutes", "seconds", "msecs")(hours, minutes, seconds, msecs);
-	else hours = value.hours, minutes = value.minutes, seconds = value.seconds, msecs = value.fracSec.msecs;
+	else {
+		hours = value.hours;
+		minutes = value.minutes;
+		seconds = value.seconds;
+		msecs = value.fracSec.msecs;
+	}
 
 	sink.put("%.2s".format(hours));
 	sink.put(':');
@@ -364,7 +372,7 @@ struct Token
 		this.value    = value;
 		this.data     = data;
 	}
-	
+
 	/// Tokens with differing symbols are always unequal.
 	/// Tokens with differing values are always unequal.
 	/// Tokens with differing Value types are always unequal.
@@ -382,13 +390,13 @@ struct Token
 			this.value      != b.value
 		)
 			return false;
-		
+
 		if(this.symbol == .symbol!"Ident")
 			return this.data == b.data;
-		
+
 		return true;
 	}
-	
+
 	bool matches(string symbolName)()
 	{
 		return this.symbol == .symbol!symbolName;
@@ -401,7 +409,7 @@ unittest
 	import std.stdio;
 	writeln("Unittesting sdlang token...");
 	stdout.flush();
-	
+
 	auto loc  = Location("", 0, 0, 0);
 	auto loc2 = Location("a", 1, 1, 1);
 
@@ -435,12 +443,12 @@ unittest
 	import std.stdio;
 	writeln("Unittesting sdlang Value.toSDLString()...");
 	stdout.flush();
-	
+
 	// Bool and null
 	assert(Value(null ).toSDLString() == "null");
 	assert(Value(true ).toSDLString() == "true");
 	assert(Value(false).toSDLString() == "false");
-	
+
 	// Base64 Binary
 	assert(Value(cast(ubyte[])"hello world".dup).toSDLString() == "[aGVsbG8gd29ybGQ=]");
 
