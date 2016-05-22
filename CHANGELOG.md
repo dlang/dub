@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.9.25 - 2016-05-
+v0.9.25 - 2016-05-22
 --------------------
 
 ### Features and improvements ###
@@ -51,6 +51,8 @@ v0.9.25 - 2016-05-
  - Quick fix for building shared libraries with LDC/Windows/OS X and DMD/OS X (by Guillaume Piolat aka p0nce) - [pull #801][issue801]
  - Fixed several issues with the SDLang parser
  - Fixed release-specific regressions regarding sub package dependencies that got ignored during dependency graph collection - [issue #803][issue803], [pull #807][issue807]
+ - Fixed target type "none" packages still generating a binary target (affected `dub describe`)
+ - Fixed `dub describe --data-list target-type` work for target type "none" pacakges
 
 
 [issue240]: https://github.com/dlang/dub/issues/240
