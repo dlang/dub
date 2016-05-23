@@ -20,7 +20,6 @@ import dub.internal.vibecompat.data.serialization;
 */
 struct ProjectDescription {
 	string rootPackage; /// Name of the root package being built
-	@ignore deprecated("Use rootPackage instead. Will be removed for version 1.0.0.") alias mainPackage = rootPackage; /// Compatibility alias
 	string configuration; /// Name of the selected build configuration
 	string buildType; /// Name of the selected build type
 	string compiler; /// Canonical name of the compiler used (e.g. "dmd", "gdc" or "ldc")
@@ -120,7 +119,6 @@ struct TargetDescription {
 */
 struct SourceFileDescription {
 	@byName SourceFileRole role; /// Main role this file plays in the build process
-	@ignore deprecated("Use role instead. Will be removed for version 1.0.0.") alias type = role; /// Compatibility alias
 	string path; /// Full path to the file
 }
 

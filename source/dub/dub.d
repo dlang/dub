@@ -154,13 +154,6 @@ class Dub {
 		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
 		updatePackageSearchPath();
 	}
-	/// ditto
-	deprecated("Will be removed for version 1.0.0.")
-	this(PackageSupplier[] additional_package_suppliers = null, string root_path = ".",
-		SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
-	{
-		this(root_path, additional_package_suppliers, skip_registry);
-	}
 
 	/** Initializes the instance with a single package search path, without
 		loading a package.
@@ -230,12 +223,6 @@ class Dub {
 		will be used.
 	*/
 	@property string defaultCompiler() const { return m_defaultCompiler; }
-
-	deprecated("Will be removed for version 1.0.0.") void shutdown() {}
-	deprecated("Will be removed for version 1.0.0.") void cleanCaches() {}
-
-	deprecated("Use loadPackage instead. Will be removed for version 1.0.0.")
-	alias loadPackageFromCwd = loadPackage;
 
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
@@ -509,36 +496,6 @@ class Dub {
 		generator.generate(settings);
 	}
 
-	/// Outputs a JSON description of the project, including its dependencies.
-	deprecated("Will be removed for version 1.0.0.") void describeProject(BuildPlatform platform, string config)
-	{
-		import std.stdio;
-		auto desc = m_project.describe(platform, config);
-		writeln(desc.serializeToPrettyJson());
-	}
-
-	/** Prints a list of all import paths necessary for building the root package.
-	*/
-	deprecated("Will be removed for version 1.0.0.") void listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
-	{
-		import std.stdio;
-
-		foreach(path; m_project.listImportPaths(platform, config, buildType, nullDelim)) {
-			writeln(path);
-		}
-	}
-
-	/** Prints a list of all string import paths necessary for building the root package.
-	*/
-	deprecated("Will be removed for version 1.0.0.") void listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
-	{
-		import std.stdio;
-
-		foreach(path; m_project.listStringImportPaths(platform, config, buildType, nullDelim)) {
-			writeln(path);
-		}
-	}
-
 	/** Prints the specified build settings necessary for building the root package.
 	*/
 	void listProjectData(GeneratorSettings settings, string[] requestedData, ListBuildSettingsFormat list_type)
@@ -566,20 +523,6 @@ class Dub {
 		write(data.joiner(delimiter));
 		if (delimiter != "\0\0") writeln();
 	}
-	deprecated("Use the overload taking GeneratorSettings instead. Will be removed for version 1.0.0.")
-	void listProjectData(BuildPlatform platform, string config, string buildType,
-		string[] requestedData, Compiler formattingCompiler, bool null_delim)
-	{
-		GeneratorSettings settings;
-		settings.platform = platform;
-		settings.compiler = formattingCompiler;
-		settings.config = config;
-		settings.buildType = buildType;
-		ListBuildSettingsFormat lt;
-		with (ListBuildSettingsFormat)
-			lt = formattingCompiler ? (null_delim ? commandLineNul : commandLine) : (null_delim ? listNul : list);
-		listProjectData(settings, requestedData, lt);
-	}
 
 	/// Cleans intermediate/cache files of the given package
 	void cleanPackage(Path path)
@@ -592,10 +535,6 @@ class Dub {
 		if (existsFile(path ~ ".dub/build")) rmdirRecurse((path ~ ".dub/build").toNativeString());
 		if (existsFile(path ~ ".dub/obj")) rmdirRecurse((path ~ ".dub/obj").toNativeString());
 	}
-
-
-	/// Returns all cached packages as a "packageId" = "version" associative array
-	deprecated("Will be removed for version 1.0.0.") string[string] cachedPackages() const { return m_project.cachedPackagesIDs; }
 
 	/// Fetches the package matching the dependency and places it in the specified location.
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
@@ -1055,10 +994,6 @@ class Dub {
 	private Path makeAbsolute(string p) const { return makeAbsolute(Path(p)); }
 }
 
-deprecated("Will be removed for version 1.0.0.") alias determineModuleName = dub.internal.utils.determineModuleName;
-deprecated("Will be removed for version 1.0.0.") alias getModuleNameFromContent = dub.internal.utils.getModuleNameFromContent;
-deprecated("Will be removed for version 1.0.0.") alias getModuleNameFromFile = dub.internal.utils.getModuleNameFromFile;
-
 
 /// Option flags for `Dub.fetch`
 enum FetchOptions
@@ -1088,9 +1023,6 @@ enum SkipPackageSuppliers {
 	standard, /// Does not use the default package suppliers (`defaultPackageSuppliers`).
 	all       /// Uses only manually specified package suppliers.
 }
-
-deprecated("Use SkipPackageSuppliers instead. Will be removed for version 1.0.0.")
-alias SkipRegistry = SkipPackageSuppliers;
 
 private class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 	protected {

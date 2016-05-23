@@ -228,6 +228,8 @@ class ProjectGenerator
 
 	private string[] downwardsInheritSettings(string target, TargetInfo[string] targets, in BuildSettings root_settings)
 	{
+		import dub.internal.utils : stripDlangSpecialChars;
+
 		auto ti = &targets[target];
 		ti.buildSettings.addVersions(root_settings.versions);
 		ti.buildSettings.addDebugVersions(root_settings.debugVersions);

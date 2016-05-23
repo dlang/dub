@@ -66,37 +66,6 @@ class Package {
 		Package m_parentPackage;
 	}
 
-	/** Constructs a `Package` using a package that is physically present on the local file system.
-
-		Params:
-			root = The directory in which the package resides.
-			recipe_file = Optional path to the package recipe file. If left
-				empty, the `root` directory will be searched for a recipe file.
-			parent = Reference to the parent package, if the new package is a
-				sub package.
-			version_override = Optional version to associate to the package
-				instead of the one declared in the package recipe, or the one
-				determined by invoking the VCS (GIT currently).
-	*/
-	deprecated("Use load() instead. Will be removed for version 1.0.0.")
-	this(Path root, Path recipe_file = Path.init, Package parent = null, string version_override = "")
-	{
-		import dub.recipe.io;
-
-		if (recipe_file.empty) recipe_file = findPackageFile(root);
-
-		enforce(!recipe_file.empty, 
-			"No package file found in %s, expected one of %s"
-				.format(root.toNativeString(),
-					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
-
-		m_infoFile = recipe_file;
-
-		auto recipe = readPackageRecipe(m_infoFile, parent ? parent.name : null);
-
-		this(recipe, root, parent, version_override);
-	}
-
 	/** Constructs a `Package` using an in-memory package recipe.
 
 		Params:
@@ -233,38 +202,6 @@ class Package {
 	*/
 	@property Path recipePath() const { return m_infoFile; }
 
-
-	deprecated("Use .version_.toString() instead. Will be removed for version 1.0.0.")
-	@property string vers() const { return m_parentPackage ? m_parentPackage.vers : m_info.version_; }
-
-	deprecated("Use .version instead. Will be removed for version 1.0.0.")
-	@property Version ver() const { return Version(this.vers); }
-	deprecated("Use .version instead. Will be removed for version 1.0.0.")
-	@property void ver(Version ver) { assert(m_parentPackage is null); m_info.version_ = ver.toString(); }
-	
-	deprecated("Use .recipe instead. Will be removed for version 1.0.0.")
-	@property ref inout(PackageRecipe) info() inout { return m_info; }
-
-	deprecated("Use .recipePath instead. Will be removed for version 1.0.0.")
-	@property Path packageInfoFilename() const { return m_infoFile; }
-
-	/** Returns a list of all possible dependencies of the package.
-
-		This list includes all dependencies of all configurations. If different
-		configurations have a dependency to the same package, but with differing
-		version specifications, only one of them will be returned. Which one
-		is returned is undefined behavior.
-
-		See_Also: `getAllDependencies`
-	*/
-	deprecated("Use getAllDependencies instead. Will be removed for version 1.0.0.")
-	@property const(Dependency[string]) dependencies()
-	const {
-		Dependency[string] ret;
-		foreach (d; getAllDependencies())
-			ret[d.name] = d.spec;
-		return ret;
-	}
 
 	/** Returns the base package of this package.
 
@@ -521,23 +458,6 @@ class Package {
 		return ret.data;
 	}
 
-
-	/** Human readable information of this package and its dependencies.
-
-		This will return the name and version of this package, as well as of all
-		root dependencies.
-	*/
-	deprecated("Will be removed for version 1.0.0.")
-	string generateInfoString()
-	const {
-		string s;
-		s ~= m_info.name ~ ", version '" ~ m_info.version_ ~ "'";
-		s ~= "\n  Dependencies:";
-		foreach(PackageDependency d; this.getAllDependencies())
-			s ~= "\n    " ~ d.name ~ ", version '" ~ d.spec.toString() ~ "'";
-		return s;
-	}
-
 	/** Determines if the package has a dependency to a certain package.
 
 		Params:
@@ -665,13 +585,6 @@ class Package {
 		}
 
 		return ret;
-	}
-	// ditto
-	deprecated("Will be removed for version 1.0.0.") void describe(ref Json dst, BuildPlatform platform, string config)
-	{
-		auto res = describe(platform, config);
-		foreach (string key, value; res.serializeToJson())
-			dst[key] = value;
 	}
 
 	private void fillWithDefaults()

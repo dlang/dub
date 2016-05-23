@@ -97,27 +97,6 @@ class Project {
 		reinit();
 	}
 
-	/// Gathers information
-	deprecated("Will be removed for version 1.0.0.") @property string info()
-	const {
-		if(!m_rootPackage)
-			return "-Unrecognized application in '"~m_rootPackage.path.toNativeString()~"' (probably no dub.json in this directory)";
-		string s = "-Application identifier: " ~ m_rootPackage.name;
-		s ~= "\n" ~ m_rootPackage.generateInfoString();
-		s ~= "\n-Retrieved dependencies:";
-		foreach(p; m_dependencies)
-			s ~= "\n" ~ p.generateInfoString();
-		return s;
-	}
-
-	/// Gets all retrieved packages as a "packageId" = "version" associative array
-	deprecated("Will be removed for version 1.0.0.") @property string[string] cachedPackagesIDs() const {
-		string[string] pkgs;
-		foreach(p; m_dependencies)
-			pkgs[p.name] = p.version_.toString();
-		return pkgs;
-	}
-
 	/** List of all resolved dependencies.
 
 		This includes all direct and indirect dependencies of all configurations
@@ -623,19 +602,6 @@ class Project {
 		}
 	}
 
-	/// Determines if the given dependency is already indirectly referenced by other dependencies of pack.
-	deprecated("Will be removed for version 1.0.0.") bool isRedundantDependency(in Package pack, in Package dependency)
-	const {
-		foreach (dep; pack.recipe.dependencies.byKey) {
-			auto dp = getDependency(dep, true);
-			if (!dp) continue;
-			if (dp is dependency) continue;
-			foreach (ddp; getTopologicalPackageList(false, dp))
-				if (ddp is dependency) return true;
-		}
-		return false;
-	}
-
 	/// Outputs a build description of the project, including its dependencies.
 	ProjectDescription describe(GeneratorSettings settings)
 	{
@@ -673,24 +639,6 @@ class Project {
 		}
 
 		return ret;
-	}
-	/// ditto
-	deprecated("Will be removed for version 1.0.0.") void describe(ref Json dst, BuildPlatform platform, string config)
-	{
-		auto desc = describe(platform, config);
-		foreach (string key, value; desc.serializeToJson())
-			dst[key] = value;
-	}
-	/// ditto
-	deprecated("Use the overload taking a GeneratorSettings instance. Will be removed for version 1.0.0.")
-	ProjectDescription describe(BuildPlatform platform, string config, string build_type = null)
-	{
-		GeneratorSettings settings;
-		settings.platform = platform;
-		settings.compiler = getCompiler(platform.compilerBinary);
-		settings.config = config;
-		settings.buildType = build_type;
-		return describe(settings);
 	}
 
 	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
@@ -1012,35 +960,6 @@ class Project {
 		}
 	}
 
-	deprecated("Use the overload taking a GeneratorSettings instance instead. Will be removed for version 1.0.0.")
-	string[] listBuildSettings(BuildPlatform platform, string config, string buildType,
-		string[] requestedData, Compiler formattingCompiler, bool nullDelim)
-	{
-		GeneratorSettings settings;
-		settings.platform = platform;
-		settings.config = config;
-		settings.buildType = buildType;
-		settings.compiler = formattingCompiler;
-		ListBuildSettingsFormat listtype;
-		with (ListBuildSettingsFormat)
-			listtype = formattingCompiler ? (nullDelim ? commandLineNul : commandLine) : (nullDelim ? listNul : list);
-		return listBuildSettings(settings, requestedData, listtype);
-	}
-
-	/// Outputs the import paths for the project, including its dependencies.
-	deprecated("Will be removed for version 1.0.0.") string[] listImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
-	{
-		auto projectDescription = describe(platform, config, buildType);
-		return listBuildSetting!"importPaths"(platform, config, projectDescription, null, nullDelim);
-	}
-
-	/// Outputs the string import paths for the project, including its dependencies.
-	deprecated("Will be removed for version 1.0.0.") string[] listStringImportPaths(BuildPlatform platform, string config, string buildType, bool nullDelim)
-	{
-		auto projectDescription = describe(platform, config, buildType);
-		return listBuildSetting!"stringImportPaths"(platform, config, projectDescription, null, nullDelim);
-	}
-
 	/** Saves the currently selected dependency versions to disk.
 
 		The selections will be written to a file named
@@ -1138,70 +1057,6 @@ enum ListBuildSettingsFormat {
 	listNul,        /// NUL character separated list entries (unescaped)
 	commandLine,    /// Formatted for compiler command line (one data list per line)
 	commandLineNul, /// NUL character separated list entries (unescaped, data lists separated by two NUL characters)
-}
-
-
-/// Actions to be performed by the dub
-deprecated("Will be removed for version 1.0.0.") struct Action {
-	enum Type {
-		fetch,
-		remove,
-		conflict,
-		failure
-	}
-
-	immutable {
-		Type type;
-		string packageId;
-		PlacementLocation location;
-		Dependency vers;
-		Version existingVersion;
-	}
-	const Package pack;
-	const Dependency[string] issuer;
-
-	static Action get(string pkg, PlacementLocation location, in Dependency dep, Dependency[string] context, Version old_version = Version.unknown)
-	{
-		return Action(Type.fetch, pkg, location, dep, context, old_version);
-	}
-
-	static Action remove(Package pkg, Dependency[string] context)
-	{
-		return Action(Type.remove, pkg, context);
-	}
-
-	static Action conflict(string pkg, in Dependency dep, Dependency[string] context)
-	{
-		return Action(Type.conflict, pkg, PlacementLocation.user, dep, context);
-	}
-
-	static Action failure(string pkg, in Dependency dep, Dependency[string] context)
-	{
-		return Action(Type.failure, pkg, PlacementLocation.user, dep, context);
-	}
-
-	private this(Type id, string pkg, PlacementLocation location, in Dependency d, Dependency[string] issue, Version existing_version = Version.unknown)
-	{
-		this.type = id;
-		this.packageId = pkg;
-		this.location = location;
-		this.vers = d;
-		this.issuer = issue;
-		this.existingVersion = existing_version;
-	}
-
-	private this(Type id, Package pkg, Dependency[string] issue)
-	{
-		pack = pkg;
-		type = id;
-		packageId = pkg.name;
-		vers = cast(immutable)Dependency(pkg.version_);
-		issuer = issue;
-	}
-
-	string toString() const {
-		return to!string(type) ~ ": " ~ packageId ~ ", " ~ to!string(vers);
-	}
 }
 
 
@@ -1315,10 +1170,6 @@ private string getVariable(string name, in Project project, in Package pack)
 	throw new Exception("Invalid variable: "~name);
 }
 
-deprecated("Will be removed for version 1.0.0.") string stripDlangSpecialChars(string s)
-{
-	return dub.internal.utils.stripDlangSpecialChars(s);
-}
 
 /** Holds and stores a set of version selections for package dependencies.
 

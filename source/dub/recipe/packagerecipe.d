@@ -87,18 +87,6 @@ struct PackageRecipe {
 
 	SubPackage[] subPackages;
 
-	deprecated("Use Package.dependencies or the dependencies of the individual BuildSettingsTemplates instead. Will be removed for version 1.0.0.")
-	@property const(Dependency)[string] dependencies()
-	const {
-		Dependency[string] ret;
-		foreach (n, d; this.buildSettings.dependencies)
-			ret[n] = d;
-		foreach (ref c; configurations)
-			foreach (n, d; c.buildSettings.dependencies)
-				ret[n] = d;
-		return ret;
-	}
-
 	inout(ConfigurationInfo) getConfiguration(string name)
 	inout {
 		foreach (c; configurations)

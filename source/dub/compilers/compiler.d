@@ -43,36 +43,6 @@ Compiler getCompiler(string name)
 	throw new Exception("Unknown compiler: "~name);
 }
 
-/** Returns the binary name of the default compiler for the system.
-
-	When calling this function for the first time, it will search the PATH
-	environment variable for files named "dmd", "gdc", "gdmd", "ldc2", "ldmd2"
-	(in that order) and return the first match. If no match is found, "dmd" is
-	returned.
-
-	See_Also: `Dub.defaultCompiler`
-*/
-deprecated("Use Dub.defaultCompiler instead. Will be removed for version 1.0.0.")
-@property string defaultCompiler()
-{
-	static string name;
-	if (!name.length) name = findCompiler();
-	return name;
-}
-
-private string findCompiler()
-{
-	import std.process : env=environment;
-	version (Windows) enum sep = ";", exe = ".exe";
-	version (Posix) enum sep = ":", exe = "";
-
-	auto compilers = ["dmd", "gdc", "gdmd", "ldc2", "ldmd2"];
-
-	auto paths = env.get("PATH", "").splitter(sep).map!Path;
-	auto res = compilers.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
-	return res.empty ? compilers[0] : res.front;
-}
-
 /** Registers a new compiler handler.
 
 	Note that by default `DMDCompiler`, `GDCCompiler` and `LDCCompiler` are

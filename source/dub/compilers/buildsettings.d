@@ -233,19 +233,6 @@ enum BuildRequirement {
 		static if (__VERSION__ >= 2067) {
 			@ignore BitFlags!BuildRequirement values;
 			this(BuildRequirement req) { values = req; }
-			deprecated("Use BuildRequirement.* instead.") {
-				enum none = BuildRequirement.none;
-				enum allowWarnings = BuildRequirement.allowWarnings;
-				enum silenceWarnings = BuildRequirement.silenceWarnings;
-				enum disallowDeprecations = BuildRequirement.disallowDeprecations;
-				enum silenceDeprecations = BuildRequirement.silenceDeprecations;
-				enum disallowInlining = BuildRequirement.disallowInlining;
-				enum disallowOptimization = BuildRequirement.disallowOptimization;
-				enum requireBoundsCheck = BuildRequirement.requireBoundsCheck;
-				enum requireContracts = BuildRequirement.requireContracts;
-				enum relaxProperties = BuildRequirement.relaxProperties;
-				enum noDefaultFlags = BuildRequirement.noDefaultFlags;
-			}
 		} else {
 			@ignore BuildRequirement values;
 			this(BuildRequirement req) { values = req; }
@@ -302,30 +289,6 @@ enum BuildOption {
 			@ignore BitFlags!BuildOption values;
 			this(BuildOption opt) { values = opt; }
 			this(BitFlags!BuildOption v) { values = v; }
-			deprecated("Use BuildOption.* instead. Will be removed for version 1.0.0.") {
-				enum none = BuildOption.none;
-				enum debugMode = BuildOption.debugMode;
-				enum releaseMode = BuildOption.releaseMode;
-				enum coverage = BuildOption.coverage;
-				enum debugInfo = BuildOption.debugInfo;
-				enum debugInfoC = BuildOption.debugInfoC;
-				enum alwaysStackFrame = BuildOption.alwaysStackFrame;
-				enum stackStomping = BuildOption.stackStomping;
-				enum inline = BuildOption.inline;
-				enum noBoundsCheck = BuildOption.noBoundsCheck;
-				enum optimize = BuildOption.optimize;
-				enum profile = BuildOption.profile;
-				enum unittests = BuildOption.unittests;
-				enum verbose = BuildOption.verbose;
-				enum ignoreUnknownPragmas = BuildOption.ignoreUnknownPragmas;
-				enum syntaxOnly = BuildOption.syntaxOnly;
-				enum warnings = BuildOption.warnings;
-				enum warningsAsErrors = BuildOption.warningsAsErrors;
-				enum ignoreDeprecations = BuildOption.ignoreDeprecations;
-				enum deprecationWarnings = BuildOption.deprecationWarnings;
-				enum deprecationErrors = BuildOption.deprecationErrors;
-				enum property = BuildOption.property;
-			}
 		} else {
 			@ignore BuildOption values;
 			this(BuildOption opt) { values = opt; }
