@@ -21,7 +21,7 @@ v0.9.25 - 2016-05-22
  - DUB init now uses the users full name on Posix systems - [issue #715][issue715]
  - Added support for the "DFLAGS" environment variable to "dub test"
  - Added a "release-debug" default build type
- - Path based dependencies are now also stored in dub.selections.json - [issue #722][issue722]
+ - Path based dependencies are now also stored in dub.selections.json - [issue #772][issue772]
  - Entries in dub.selections.json are now output in alphabetic order - [issue #709][issue709]
  - The Sublime Text generator now outputs import paths for use with DKit (by xentec) - [pull #757][issue757]
  - The VisualD generator now creates the project files in the ".dub" subdirectory (by Guillaume Piolat aka p0nce) - [pull #680][issue680]
@@ -77,7 +77,6 @@ v0.9.25 - 2016-05-22
 [issue704]: https://github.com/dlang/dub/issues/704
 [issue709]: https://github.com/dlang/dub/issues/709
 [issue715]: https://github.com/dlang/dub/issues/715
-[issue722]: https://github.com/dlang/dub/issues/722
 [issue723]: https://github.com/dlang/dub/issues/723
 [issue724]: https://github.com/dlang/dub/issues/724
 [issue732]: https://github.com/dlang/dub/issues/732
@@ -92,6 +91,7 @@ v0.9.25 - 2016-05-22
 [issue759]: https://github.com/dlang/dub/issues/759
 [issue762]: https://github.com/dlang/dub/issues/762
 [issue766]: https://github.com/dlang/dub/issues/766
+[issue772]: https://github.com/dlang/dub/issues/772
 [issue777]: https://github.com/dlang/dub/issues/777
 [issue782]: https://github.com/dlang/dub/issues/782
 [issue785]: https://github.com/dlang/dub/issues/785
