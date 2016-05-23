@@ -16,8 +16,6 @@ matrix:
       env: [FRONTEND=2.066]
     - d: dmd-2.065.0
       env: [FRONTEND=2.065]
-    - d: dmd-2.064.2
-      env: [FRONTEND=2.064]
     - d: ldc
     - d: ldc-0.16.1
       env: [FRONTEND=2.067]
