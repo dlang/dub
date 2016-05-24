@@ -171,18 +171,18 @@ class Dub {
 
 	private void init()
 	{
+		import std.file : tempDir;
 		version(Windows){
 			m_systemDubPath = Path(environment.get("ProgramData")) ~ "dub/";
 			m_userDubPath = Path(environment.get("APPDATA")) ~ "dub/";
-			m_tempPath = Path(environment.get("TEMP"));
 		} else version(Posix){
 			m_systemDubPath = Path("/var/lib/dub/");
 			m_userDubPath = Path(environment.get("HOME")) ~ ".dub/";
 			if(!m_userDubPath.absolute)
 				m_userDubPath = Path(getcwd()) ~ m_userDubPath;
-			m_tempPath = Path("/tmp");
 		}
 
+		m_tempPath = Path(tempDir);
 		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
 		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
 
@@ -245,6 +245,72 @@ class Dub {
 		m_projectPath = pack.path;
 		updatePackageSearchPath();
 		m_project = new Project(m_packageManager, pack);
+	}
+
+	/** Loads a single file package.
+
+		Single-file packages are D files that contain a package receipe comment
+		at their top. A recipe comment must be a nested `/+ ... +/` style
+		comment, containing the virtual recipe file name and a colon, followed by the 
+		recipe contents (what would normally be in dub.sdl/dub.json).
+
+		Example:
+		---
+		/+ dub.sdl:
+		   name "test"
+		   dependency "vibe-d" version="~>0.7.29"
+		+/
+		import vibe.http.server;
+
+		void main()
+		{
+			auto settings = new HTTPServerSettings;
+			settings.port = 8080;
+			listenHTTP(settings, &hello);
+		}
+
+		void hello(HTTPServerRequest req, HTTPServerResponse res)
+		{
+			res.writeBody("Hello, World!");
+		}
+		---
+
+		The script above can be invoked with "dub --single test.d".
+	*/
+	void loadSingleFilePackage(Path path)
+	{
+		import dub.recipe.io : parsePackageRecipe;
+		import std.file : mkdirRecurse, readText;
+
+		path = makeAbsolute(path);
+
+		string file_content = readText(path.toNativeString());
+		auto idx = file_content.indexOf("/+");
+		enforce(idx >= 0, "Missing /+ ... +/ recipe comment.");
+		file_content = file_content[idx+2 .. $];
+		
+		idx = file_content.indexOf("+/");
+		enforce(idx >= 0, "Missing closing \"+/\" for recipe comment.");
+		string recipe_content = file_content[0 .. idx];
+
+		idx = recipe_content.indexOf(':');
+		enforce(idx > 0, "Missing recipe file name (e.g. \"dub.sdl:\") in recipe comment");
+		auto recipe_filename = recipe_content[0 .. idx].strip();
+		recipe_content = recipe_content[idx+1 .. $];
+
+		auto recipe = parsePackageRecipe(recipe_content, recipe_filename);
+		recipe.buildSettings.sourceFiles[""] = [path.toNativeString()];
+		recipe.buildSettings.mainSourceFile = path.toNativeString();
+		if (recipe.buildSettings.targetType == TargetType.autodetect)
+			recipe.buildSettings.targetType = TargetType.executable;
+
+		auto pack = new Package(recipe, path.parentPath, null, "~master");
+		loadPackage(pack);
+	}
+	/// ditto
+	void loadSingleFilePackage(string path)
+	{
+		loadSingleFilePackage(Path(path));
 	}
 
 	/** Disables the default search paths and only searches a specific directory
@@ -375,7 +441,7 @@ class Dub {
 
 		m_project.reinit();
 
-		if (options & UpgradeOptions.select)
+		if ((options & UpgradeOptions.select) && !(options & UpgradeOptions.noSaveSelections))
 			m_project.saveSelections();
 	}
 
@@ -1015,6 +1081,7 @@ enum UpgradeOptions
 	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
 	printUpgradesOnly = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
 	useCachedResult = 1<<6, /// Use cached information stored with the package to determine upgrades
+	noSaveSelections = 1<<7, /// Don't store updated selections on disk
 }
 
 /// Determines which of the default package suppliers are queried for packages.

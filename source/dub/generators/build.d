@@ -146,7 +146,10 @@ class BuildGenerator : ProjectGenerator {
 	private bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id, in Package[] packages, in Path[] additional_dep_files)
 	{
 		auto cwd = Path(getcwd());
-		auto target_path = pack.path ~ format(".dub/build/%s/", build_id);
+
+		Path target_path;
+		if (settings.tempBuild) target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", pack.name, pack.version_, build_id);
+		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform, pack, packages, additional_dep_files)) {
 			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
@@ -155,7 +158,7 @@ class BuildGenerator : ProjectGenerator {
 			return true;
 		}
 
-		if (settings.tempBuild || !isWritableDir(target_path, true)) {
+		if (!isWritableDir(target_path, true)) {
 			if (!settings.tempBuild)
 				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
 			performDirectBuild(settings, buildsettings, pack, config);
