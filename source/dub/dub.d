@@ -1197,6 +1197,10 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			}
 		}
 
+		// shortcut if the referenced package is the root package
+		if (basename == m_rootPackage.basePackage.name)
+			return m_rootPackage.basePackage;
+
 		if (!dep.path.empty) {
 			try {
 				auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
