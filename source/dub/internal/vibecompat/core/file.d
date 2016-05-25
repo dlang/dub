@@ -38,11 +38,11 @@ struct RangeFile {
 		enforce(sz <= size_t.max, "File is too big to read to memory.");
 		file.seek(0, SEEK_SET);
 		auto ret = new ubyte[cast(size_t)sz];
-		file.rawRead(ret);
+		rawRead(ret);
 		return ret;
 	}
 
-	void rawRead(ubyte[] dst) { file.rawRead(dst); }
+	void rawRead(ubyte[] dst) { enforce(file.rawRead(dst).length == dst.length, "Failed to readall bytes from file."); }
 	void write(string str) { put(str); }
 	void close() { file.close(); }
 	void flush() { file.flush(); }
