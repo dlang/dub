@@ -150,7 +150,7 @@ struct Path {
 
 	/// Computes the relative path from `parentPath` to this path.
 	Path relativeTo(const Path parentPath) const {
-		assert(this.absolute && parentPath.absolute);
+		assert(this.absolute && parentPath.absolute, "Determining relative path between non-absolute paths.");
 		version(Windows){
 			// a path such as ..\C:\windows is not valid, so force the path to stay absolute in this case
 			if( this.absolute && !this.empty &&
