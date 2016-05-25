@@ -123,15 +123,15 @@ class DMDCompiler : Compiler {
 			settings.stringImportPaths = null;
 		}
 
-		if (!(fields & BuildSetting.sourceFiles)) {
-			settings.addDFlags(settings.sourceFiles);
-			settings.sourceFiles = null;
-		}
-
 		if (!(fields & BuildSetting.libs)) {
 			resolveLibs(settings);
 			version(Windows) settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
 			else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
+		}
+
+		if (!(fields & BuildSetting.sourceFiles)) {
+			settings.addDFlags(settings.sourceFiles);
+			settings.sourceFiles = null;
 		}
 
 		if (!(fields & BuildSetting.lflags)) {
