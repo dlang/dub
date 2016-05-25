@@ -146,8 +146,13 @@ int runDubCommandLine(string[] args)
 	string cmdname;
 	args = common_args.extractRemainingArgs();
 	if (args.length >= 1 && !args[0].startsWith("-")) {
-		cmdname = args[0];
-		args = args[1 .. $];
+		if (args[0].endsWith(".d")) {
+			cmdname = "run";
+			args = "--single" ~ args;
+		} else {
+			cmdname = args[0];
+			args = args[1 .. $];
+		}
 	} else {
 		if (options.help) {
 			showHelp(commands, common_args);
@@ -543,6 +548,7 @@ abstract class PackageBuildCommand : Command {
 		string m_defaultConfig;
 		bool m_nodeps;
 		bool m_forceRemove = false;
+		bool m_single;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -576,6 +582,9 @@ abstract class PackageBuildCommand : Command {
 			"Specifies the way the compiler and linker are invoked. Valid values:",
 			"  separate (default), allAtOnce, singleFile"
 		]);
+		args.getopt("single", &m_single, [
+			"Treats the package name as a filename. The file must contain a package recipe comment."
+		]);
 	}
 
 	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug")
@@ -607,10 +616,13 @@ abstract class PackageBuildCommand : Command {
 
 			// retrieve missing packages
 			logDiagnostic("Checking for missing dependencies.");
-			dub.upgrade(UpgradeOptions.select);
-			// check for updates
-			logDiagnostic("Checking for upgrades.");
-			dub.upgrade(UpgradeOptions.upgrade|UpgradeOptions.printUpgradesOnly|UpgradeOptions.useCachedResult);
+			if (m_single) dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
+			else {
+				dub.upgrade(UpgradeOptions.select);
+
+				logDiagnostic("Checking for upgrades.");
+				dub.upgrade(UpgradeOptions.upgrade|UpgradeOptions.printUpgradesOnly|UpgradeOptions.useCachedResult);
+			}
 		}
 
 		dub.project.validate();
@@ -618,6 +630,12 @@ abstract class PackageBuildCommand : Command {
 
 	private bool loadSpecificPackage(Dub dub, string package_name)
 	{
+		if (m_single) {
+			enforce(package_name.length, "Missing file name of single-file package.");
+			dub.loadSingleFilePackage(package_name);
+			return true;
+		}
+
 		// load package in root_path to enable searching for sub packages
 		if (loadCwdPackage(dub, package_name.length == 0)) {
 			if (package_name.startsWith(":"))
@@ -728,7 +746,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.runArgs = app_args;
 		gensettings.force = m_force;
 		gensettings.rdmd = m_rdmd;
-		gensettings.tempBuild = m_tempBuild;
+		gensettings.tempBuild = m_tempBuild || m_single;
 		gensettings.parallelBuild = m_parallel;
 
 		logDiagnostic("Generating using %s", m_generator);
@@ -866,6 +884,7 @@ class TestCommand : PackageBuildCommand {
 		settings.buildSettings = m_buildSettings;
 		settings.combined = m_combined;
 		settings.force = m_force;
+		settings.tempBuild = m_single;
 		settings.run = true;
 		settings.runArgs = app_args;
 
