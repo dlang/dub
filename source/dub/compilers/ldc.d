@@ -217,8 +217,15 @@ class LDCCompiler : Compiler {
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
 		auto res_file = getTempFile("dub-build", ".rsp");
-		std.file.write(res_file.toNativeString(), join(cast(string[])settings.dflags, "\n"));
 
+        // Escape arguments
+        // LDC seems to also accept "\ " as escape sequence for space, 
+        // but other anti-slashed things are considered as path (?), so using quotes instead.
+        // Note: the quote character '"' doesn't get escaped itself, but passing it as argument is rare enough.
+        auto escapedSettings = (cast(string[])settings.dflags ).map!(a => "\"" ~ a ~ "\"").join("\n");
+
+		std.file.write(res_file.toNativeString(), escapedSettings);
+        logDiagnostic("%s", res_file);
 		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
