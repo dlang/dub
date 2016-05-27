@@ -225,7 +225,6 @@ class LDCCompiler : Compiler {
         auto escapedSettings = (cast(string[])settings.dflags ).map!(a => "\"" ~ a ~ "\"").join("\n");
 
 		std.file.write(res_file.toNativeString(), escapedSettings);
-        logDiagnostic("%s", res_file);
 		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
