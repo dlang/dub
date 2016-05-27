@@ -167,6 +167,31 @@ class GDCCompiler : Compiler {
 		settings.dflags = newflags.data;
 	}
 
+	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
+	const {
+		assert(settings.targetName.length > 0, "No target name set.");
+		final switch (settings.targetType) {
+			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
+			case TargetType.none: return null;
+			case TargetType.sourceLibrary: return null;
+			case TargetType.executable:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".exe";
+				else return settings.targetName;
+			case TargetType.library:
+			case TargetType.staticLibrary:
+				return "lib" ~ settings.targetName ~ ".a";
+			case TargetType.dynamicLibrary:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".dll";
+				else return "lib" ~ settings.targetName ~ ".so";
+			case TargetType.object:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".obj";
+				else return settings.targetName ~ ".o";
+		}
+	}
+
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
 		final switch (settings.targetType) {

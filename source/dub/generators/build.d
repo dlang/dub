@@ -67,9 +67,9 @@ class BuildGenerator : ProjectGenerator {
 			foreach (ldep; ti.linkDependencies) {
 				auto dbs = targets[ldep].buildSettings;
 				if (bs.targetType != TargetType.staticLibrary) {
-					bs.addSourceFiles((Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform)).toNativeString());
+					bs.addSourceFiles(getTargetPath(dbs, settings).toNativeString());
 				} else {
-					additional_dep_files ~= Path(dbs.targetPath) ~ getTargetFileName(dbs, settings.platform);
+					additional_dep_files ~= getTargetPath(dbs, settings);
 				}
 			}
 			if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files))
@@ -96,7 +96,7 @@ class BuildGenerator : ProjectGenerator {
 		// run the generated executable
 		auto buildsettings = targets[m_project.rootPackage.name].buildSettings;
 		if (settings.run && !(buildsettings.options & BuildOption.syntaxOnly)) {
-			auto exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
+			auto exe_file_path = getTargetPath(buildsettings, settings);
 			runTarget(exe_file_path, buildsettings, settings.runArgs, settings);
 		}
 	}
@@ -151,10 +151,10 @@ class BuildGenerator : ProjectGenerator {
 		if (settings.tempBuild) target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", pack.name, pack.version_, build_id);
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
-		if (!settings.force && isUpToDate(target_path, buildsettings, settings.platform, pack, packages, additional_dep_files)) {
+		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
 			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
-			copyTargetFile(target_path, buildsettings, settings.platform);
+			copyTargetFile(target_path, buildsettings, settings);
 			return true;
 		}
 
@@ -180,7 +180,7 @@ class BuildGenerator : ProjectGenerator {
 		cbuildsettings.targetPath = target_path.relativeTo(cwd).toNativeString();
 		buildWithCompiler(settings, cbuildsettings);
 
-		copyTargetFile(target_path, buildsettings, settings.platform);
+		copyTargetFile(target_path, buildsettings, settings);
 
 		return false;
 	}
@@ -220,11 +220,11 @@ class BuildGenerator : ProjectGenerator {
 				m_temporaryFiles ~= tmpdir;
 				tmp_target = true;
 			}
-			exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
+			exe_file_path = getTargetPath(buildsettings, settings);
 			settings.compiler.setTarget(buildsettings, settings.platform);
 		}
 
-		logDiagnostic("Application output name is '%s'", getTargetFileName(buildsettings, settings.platform));
+		logDiagnostic("Application output name is '%s'", settings.compiler.getTargetFileName(buildsettings, settings.platform));
 
 		string[] flags = ["--build-only", "--compiler="~settings.platform.compilerBinary];
 		if (settings.force) flags ~= "--force";
@@ -289,7 +289,7 @@ class BuildGenerator : ProjectGenerator {
 				m_temporaryFiles ~= tmppath;
 				is_temp_target = true;
 			}
-			exe_file_path = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
+			exe_file_path = getTargetPath(buildsettings, settings);
 		}
 
 		if( buildsettings.preBuildCommands.length ){
@@ -336,9 +336,9 @@ class BuildGenerator : ProjectGenerator {
 			settings.platform.compiler, settings.platform.frontendVersion, hashstr);
 	}
 
-	private void copyTargetFile(Path build_path, BuildSettings buildsettings, BuildPlatform platform)
+	private void copyTargetFile(Path build_path, BuildSettings buildsettings, GeneratorSettings settings)
 	{
-		auto filename = getTargetFileName(buildsettings, platform);
+		auto filename = settings.compiler.getTargetFileName(buildsettings, settings.platform);
 		auto src = build_path ~ filename;
 		logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
 		if (!existsFile(Path(buildsettings.targetPath)))
@@ -346,11 +346,11 @@ class BuildGenerator : ProjectGenerator {
 		hardLinkFile(src, Path(buildsettings.targetPath) ~ filename, true);
 	}
 
-	private bool isUpToDate(Path target_path, BuildSettings buildsettings, BuildPlatform platform, in Package main_pack, in Package[] packages, in Path[] additional_dep_files)
+	private bool isUpToDate(Path target_path, BuildSettings buildsettings, GeneratorSettings settings, in Package main_pack, in Package[] packages, in Path[] additional_dep_files)
 	{
 		import std.datetime;
 
-		auto targetfile = target_path ~ getTargetFileName(buildsettings, platform);
+		auto targetfile = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 		if (!existsFile(targetfile)) {
 			logDiagnostic("Target '%s' doesn't exist, need rebuild.", targetfile.toNativeString());
 			return false;
@@ -416,7 +416,7 @@ class BuildGenerator : ProjectGenerator {
 		Path target_file;
 		scope (failure) {
 			logDiagnostic("FAIL %s %s %s" , buildsettings.targetPath, buildsettings.targetName, buildsettings.targetType);
-			auto tpath = Path(buildsettings.targetPath) ~ getTargetFileName(buildsettings, settings.platform);
+			auto tpath = getTargetPath(buildsettings, settings);
 			if (generate_binary && existsFile(tpath))
 				removeFile(tpath);
 		}
@@ -540,4 +540,9 @@ private Path getMainSourceFile(in Package prj)
 		if (existsFile(prj.path ~ f))
 			return prj.path ~ f;
 	return prj.path ~ "source/app.d";
+}
+
+private Path getTargetPath(in ref BuildSettings bs, in ref GeneratorSettings settings)
+{
+	return Path(bs.targetPath) ~ settings.compiler.getTargetFileName(bs, settings.platform);
 }

@@ -15,41 +15,6 @@ import std.algorithm : canFind, endsWith, filter;
 
 
 /**
-	Given a set of build settings and a target platform, determines the target
-	binary file name.
-
-	The returned string contains the file name, as well as the platform
-	specific file extension. The directory is not included.
-*/
-string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
-{
-	assert(settings.targetName.length > 0, "No target name set.");
-	final switch (settings.targetType) {
-		case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
-		case TargetType.none: return null;
-		case TargetType.sourceLibrary: return null;
-		case TargetType.executable:
-			if (platform.platform.canFind("windows"))
-				return settings.targetName ~ ".exe";
-			else return settings.targetName;
-		case TargetType.library:
-		case TargetType.staticLibrary:
-			if (platform.platform.canFind("windows") && platform.compiler == "dmd")
-				return settings.targetName ~ ".lib";
-			else return "lib" ~ settings.targetName ~ ".a";
-		case TargetType.dynamicLibrary:
-			if( platform.platform.canFind("windows") )
-				return settings.targetName ~ ".dll";
-			else return "lib" ~ settings.targetName ~ ".so";
-		case TargetType.object:
-			if (platform.platform.canFind("windows"))
-				return settings.targetName ~ ".obj";
-			else return settings.targetName ~ ".o";
-	}
-}
-
-
-/**
 	Alters the build options to comply with the specified build requirements.
 
 	And enabled options that do not comply will get disabled.
