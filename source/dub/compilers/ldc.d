@@ -217,9 +217,11 @@ class LDCCompiler : Compiler {
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
 		auto res_file = getTempFile("dub-build", ".rsp");
-		std.file.write(res_file.toNativeString(), join(cast(string[])settings.dflags, "\n"));
+		const(string)[] args = settings.dflags;
+		if (platform.frontendVersion >= 2066) args ~= "-vcolumns";
+		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
 
-		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
+		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
@@ -231,5 +233,10 @@ class LDCCompiler : Compiler {
 	string[] lflagsToDFlags(in string[] lflags) const
 	{
 		return  lflags.map!(s => "-L="~s)().array();
+	}
+
+	private auto escapeArgs(in string[] args)
+	{
+		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
 	}
 }
