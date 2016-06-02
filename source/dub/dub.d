@@ -965,8 +965,10 @@ class Dub {
 		Params:
 			run = If set to true, serves documentation on a local web server.
 				Otherwise generates actual HTML files.
+			generate_args = Additional command line arguments to pass to
+				"ddox generate-html" or "ddox serve-html".
 	*/
-	void runDdox(bool run)
+	void runDdox(bool run, string[] generate_args = null)
 	{
 		if (m_dryRun) return;
 
@@ -1005,10 +1007,10 @@ class Dub {
 		auto tool_path = p.toNativeString();
 
 		if (run) {
-			settings.runArgs = ["serve-html", "--navigation-type=ModuleTree", "docs.json", "--web-file-dir="~tool_path~"public"];
+			settings.runArgs = ["serve-html", "--navigation-type=ModuleTree", "docs.json", "--web-file-dir="~tool_path~"public"] ~ generate_args;
 			browse("http://127.0.0.1:8080/");
 		} else {
-			settings.runArgs = ["generate-html", "--navigation-type=ModuleTree", "docs.json", "docs"];
+			settings.runArgs = ["generate-html", "--navigation-type=ModuleTree", "docs.json", "docs"] ~ generate_args;
 		}
 		ddox_dub.generateProject("build", settings);
 

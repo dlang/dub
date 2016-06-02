@@ -751,7 +751,7 @@ class GenerateCommand : PackageBuildCommand {
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
-		if (m_buildType == "ddox") dub.runDdox(gensettings.run);
+		if (m_buildType == "ddox") dub.runDdox(gensettings.run, app_args);
 		return 0;
 	}
 }
