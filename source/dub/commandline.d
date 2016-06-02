@@ -615,11 +615,14 @@ abstract class PackageBuildCommand : Command {
 			// TODO: only upgrade(select) if necessary, only upgrade(upgrade) every now and then
 
 			// retrieve missing packages
-			logDiagnostic("Checking for missing dependencies.");
-			if (m_single) dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
-			else {
-				dub.upgrade(UpgradeOptions.select);
+			dub.project.reinit();
+			if (!dub.project.hasAllDependencies) {
+				logDiagnostic("Checking for missing dependencies.");
+				if (m_single) dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
+				else dub.upgrade(UpgradeOptions.select);
+			}
 
+			if (!m_single) {
 				logDiagnostic("Checking for upgrades.");
 				dub.upgrade(UpgradeOptions.upgrade|UpgradeOptions.printUpgradesOnly|UpgradeOptions.useCachedResult);
 			}
