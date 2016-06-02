@@ -284,6 +284,10 @@ class Project {
 				Dependency vspec = dep.spec;
 				Package p;
 
+				// non-optional and optional-default dependencies (if no selections file exists)
+				// need to be satisfied
+				bool is_desired = !vspec.optional || (vspec.default_ && m_selections.bare);
+
 				auto basename = getBasePackageName(dep.name);
 				auto subname = getSubPackageName(dep.name);
 				if (dep.name == m_rootPackage.basePackage.name) {
@@ -294,7 +298,7 @@ class Project {
 					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, subname, false);
 					catch (Exception e) {
 						logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
-						if (!vspec.optional) m_hasAllDependencies = false;
+						if (is_desired) m_hasAllDependencies = false;
 						continue;
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
@@ -333,7 +337,7 @@ class Project {
 
 				if (!p) {
 					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
-					if (!vspec.optional) m_hasAllDependencies = false;
+					if (is_desired) m_hasAllDependencies = false;
 					continue;
 				}
 
