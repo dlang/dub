@@ -253,7 +253,10 @@ struct Dependency {
 	string toString()()
 	const {
 		auto ret = versionSpec;
-		if (optional) ret ~= " (optional)";
+		if (optional) {
+			if (default_) ret ~= " (optional, default)";
+			else ret ~= " (optional)";
+		}
 		if (!path.empty) ret ~= " @"~path.toNativeString();
 		return ret;
 	}
