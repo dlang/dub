@@ -46,8 +46,14 @@ echo "enum dubVersion = \"$GITVER\";" >> source/dub/version_.d
 # For OSX compatibility >= 10.7
 MACOSX_DEPLOYMENT_TARGET=10.7
 
+if [[ -n $DEBUG ]]; then
+    BUILDOPTS=''
+else
+    BUILDOPTS='-release -O -inline'
+fi
+
 echo Running $DMD...
-$DMD -ofbin/dub -w -version=DubUseCurl -Isource $* $LIBS @build-files.txt
+$DMD -ofbin/dub -w -version=DubUseCurl -Isource $BUILDOPTS $* $LIBS @build-files.txt
 echo DUB has been built as bin/dub.
 echo
 echo You may want to run
