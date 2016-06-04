@@ -50,6 +50,7 @@ class Project {
 		Package[] m_dependencies;
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
+		bool m_hasAllDependencies;
 	}
 
 	/** Loads a project.
@@ -112,6 +113,14 @@ class Project {
 
 	/// Package manager instance used by the project.
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
+
+	/** Determines if all dependencies necessary to build have been collected.
+
+		If this function returns `false`, it may be necessary to add more entries
+		to `selections`, or to use `Dub.upgrade` to automatically select all
+		missing dependencies. 
+	*/
+	bool hasAllDependencies() const { return m_hasAllDependencies; }
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
@@ -262,6 +271,7 @@ class Project {
 	void reinit()
 	{
 		m_dependencies = null;
+		m_hasAllDependencies = true;
 		m_packageManager.refresh(false);
 
 		void collectDependenciesRec(Package pack, int depth = 0)
@@ -274,6 +284,10 @@ class Project {
 				Dependency vspec = dep.spec;
 				Package p;
 
+				// non-optional and optional-default dependencies (if no selections file exists)
+				// need to be satisfied
+				bool is_desired = !vspec.optional || (vspec.default_ && m_selections.bare);
+
 				auto basename = getBasePackageName(dep.name);
 				auto subname = getSubPackageName(dep.name);
 				if (dep.name == m_rootPackage.basePackage.name) {
@@ -284,6 +298,7 @@ class Project {
 					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, subname, false);
 					catch (Exception e) {
 						logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
+						if (is_desired) m_hasAllDependencies = false;
 						continue;
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
@@ -322,6 +337,7 @@ class Project {
 
 				if (!p) {
 					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
+					if (is_desired) m_hasAllDependencies = false;
 					continue;
 				}
 
