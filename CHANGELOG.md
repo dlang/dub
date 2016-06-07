@@ -1,6 +1,37 @@
 Changelog
 =========
 
+v1.0.0 - 2016-06-
+-------------------
+
+### Features and improvements ###
+
+ - Implemented support for single-file packages, including shebang script support - [issue #103][issue103], [pull #851][issue851], [pull #866][issue866]
+ - Builds on DMD 2.065.0 up to 2.071.1
+ - Removed all deprecated functionality from the API, CLI and data formats
+ - The minimum supported OS X version is now 10.7
+ - Switched from `std.stream` to `std.stdio` (beware that a recent version of DMD is now necessary when building DUB to support unicode file names on Windows) - [pull #847][issue847]
+ - Now passes `-vcolumns` also to LDC - [issue #859][issue859], [pull #860][issue860]
+
+### Bug fixes ###
+ - Avoids superfluous registry queries when building - [issue #831][issue831], [pull #861][issue861]
+ - Fixed handling of "libs" on Windows/DMD when building in `allAtOnce` mode
+ - Fixed building with LDC on Windows for both, the VisualStudio based version and the MinGW version - [issue #618][issue618], [pull #688][issue688]
+ - Fixed escaping of command line arguments with spaces for LDC - [issue #834][issue834], [pull #860][issue860]
+
+[issue103]: https://github.com/dlang/dub/issues/103
+[issue618]: https://github.com/dlang/dub/issues/618
+[issue688]: https://github.com/dlang/dub/issues/688
+[issue831]: https://github.com/dlang/dub/issues/831
+[issue834]: https://github.com/dlang/dub/issues/834
+[issue847]: https://github.com/dlang/dub/issues/847
+[issue851]: https://github.com/dlang/dub/issues/851
+[issue859]: https://github.com/dlang/dub/issues/859
+[issue860]: https://github.com/dlang/dub/issues/860
+[issue861]: https://github.com/dlang/dub/issues/861
+[issue866]: https://github.com/dlang/dub/issues/866
+
+
 v0.9.25 - 2016-05-22
 --------------------
 
