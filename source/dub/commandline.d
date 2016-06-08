@@ -98,6 +98,11 @@ int runDubCommandLine(string[] args)
 		environment["TEMP"] = environment["TEMP"].replace("/", "\\");
 	}
 
+	// special single-file package shebang syntax
+	if (args.length >= 2 && args[1].endsWith(".d")) {
+		args = args[0] ~ ["run", "-q", "--single", args[1], "--"] ~ args[2 ..$];
+	}
+
 	// split application arguments from DUB arguments
 	string[] app_args;
 	auto app_args_idx = args.countUntil("--");
@@ -146,15 +151,8 @@ int runDubCommandLine(string[] args)
 	string cmdname;
 	args = common_args.extractRemainingArgs();
 	if (args.length >= 1 && !args[0].startsWith("-")) {
-		if (args[0].endsWith(".d")) {
-			cmdname = "run";
-			if (app_args.length) app_args = args[1 .. $] ~ "--" ~ app_args;
-			else app_args = args[1 .. $];
-			args = ["-q", "--single", args[0]];
-		} else {
-			cmdname = args[0];
-			args = args[1 .. $];
-		}
+		cmdname = args[0];
+		args = args[1 .. $];
 	} else {
 		if (options.help) {
 			showHelp(commands, common_args);
