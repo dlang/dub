@@ -299,7 +299,12 @@ class Dub {
 		recipe_content = recipe_content[idx+1 .. $];
 
 		auto recipe = parsePackageRecipe(recipe_content, recipe_filename);
+		enforce(recipe.buildSettings.sourceFiles.length == 0, "Single-file packages are not allowed to specify source files.");
+		enforce(recipe.buildSettings.sourcePaths.length == 0, "Single-file packages are not allowed to specify source paths.");
+		enforce(recipe.buildSettings.importPaths.length == 0, "Single-file packages are not allowed to specify import paths.");
 		recipe.buildSettings.sourceFiles[""] = [path.toNativeString()];
+		recipe.buildSettings.sourcePaths[""] = [];
+		recipe.buildSettings.importPaths[""] = [];
 		recipe.buildSettings.mainSourceFile = path.toNativeString();
 		if (recipe.buildSettings.targetType == TargetType.autodetect)
 			recipe.buildSettings.targetType = TargetType.executable;
