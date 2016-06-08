@@ -281,24 +281,17 @@ class Dub {
 	{
 		import dub.recipe.io : parsePackageRecipe;
 		import std.file : mkdirRecurse, readText;
+		import std.regex : ctRegex, matchFirst;
+		auto ctr = ctRegex!(`\n\/\+\s*(dub\.(sdl|json)):?\n(.*)\n\+\/\n`, "s");
+
 
 		path = makeAbsolute(path);
 
 		string file_content = readText(path.toNativeString());
-		auto idx = file_content.indexOf("/+");
-		enforce(idx >= 0, "Missing /+ ... +/ recipe comment.");
-		file_content = file_content[idx+2 .. $];
-		
-		idx = file_content.indexOf("+/");
-		enforce(idx >= 0, "Missing closing \"+/\" for recipe comment.");
-		string recipe_content = file_content[0 .. idx];
+		auto matches = matchFirst(file_content, ctr);
+		enforce(!matches.empty, "Missing /+ ... +/ recipe comment.");
 
-		idx = recipe_content.indexOf(':');
-		enforce(idx > 0, "Missing recipe file name (e.g. \"dub.sdl:\") in recipe comment");
-		auto recipe_filename = recipe_content[0 .. idx].strip();
-		recipe_content = recipe_content[idx+1 .. $];
-
-		auto recipe = parsePackageRecipe(recipe_content, recipe_filename);
+		auto recipe = parsePackageRecipe(matches[3], matches[1]);
 		recipe.buildSettings.sourceFiles[""] = [path.toNativeString()];
 		recipe.buildSettings.mainSourceFile = path.toNativeString();
 		if (recipe.buildSettings.targetType == TargetType.autodetect)
