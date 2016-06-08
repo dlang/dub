@@ -148,7 +148,9 @@ int runDubCommandLine(string[] args)
 	if (args.length >= 1 && !args[0].startsWith("-")) {
 		if (args[0].endsWith(".d")) {
 			cmdname = "run";
-			args = "--single" ~ args;
+			if (app_args.length) app_args = args[1 .. $] ~ "--" ~ app_args;
+			else app_args = args[1 .. $];
+			args = ["--single", args[0]];
 		} else {
 			cmdname = args[0];
 			args = args[1 .. $];
