@@ -277,28 +277,104 @@ class Dub {
 
 		The script above can be invoked with "dub --single test.d".
 	*/
+		struct Parser {
+			static typeof(this) opCall(string sc) {
+				Parser ret;
+				ret.sourcecode = sc;
+				ret.popFront;
+				return ret;
+			}
+			string sourcecode;
+			string front;
+			bool empty;
+			char inComment = '\0';
+			bool hadFileName;
+			bool hadData;
+			int depth;
+			void popFront() {
+				import std.uni : isWhite;
+				if (empty) return;
+				for (;sourcecode.length > 0;) {
+					if (sourcecode[0].isWhite) {
+						sourcecode = sourcecode[1..$];
+					} else {
+						break;
+					}
+				}
+				if (sourcecode.length <= 0) {
+					empty = true;
+					return;
+				}
+
+				int i,j;
+				for (; i<sourcecode.length; i++) {
+					if (sourcecode[i] == '/') {
+						j=i;
+						if (inComment=='\0') {
+							j = i;
+							i++;
+							if (sourcecode[i] == '+' || sourcecode[i]=='*') {
+								depth++;
+								inComment = sourcecode[i];
+								i++;
+								break;
+							}
+						} else {
+							if (i>0 && sourcecode[i-1]==inComment) {
+								if (hadFileName && !hadData) {
+									j=0;
+									i-=2;
+									hadData = true;
+									break;
+								} else if (hadData) {
+									empty = true;
+									return;
+								}
+								inComment = '\0';
+								depth--;
+								j--;
+								i++;
+								break;
+							}
+						}
+					}
+					if (depth==1 && !hadFileName && inComment && sourcecode[i]==':') {
+						hadFileName = true;
+						break;
+					}
+				}
+				front = sourcecode[j..i];
+				if (hadFileName) {
+					i++;
+					if (front != "dub.sdl" && front != "dub.json") {
+						hadFileName = false; // allow us to keep searching comments if this was a false match
+					}
+				}
+				sourcecode = sourcecode[i..$];
+			}
+		}
 	void loadSingleFilePackage(Path path)
 	{
 		import dub.recipe.io : parsePackageRecipe;
 		import std.file : mkdirRecurse, readText;
+		//import std.regex : ctRegex, matchFirst;
+		//auto ctr = ctRegex!(`\n\/\+\s*(dub\.(sdl|json)):?\n(.*)\n\+\/\n`, "s");
+
 
 		path = makeAbsolute(path);
 
 		string file_content = readText(path.toNativeString());
-		auto idx = file_content.indexOf("/+");
-		enforce(idx >= 0, "Missing /+ ... +/ recipe comment.");
-		file_content = file_content[idx+2 .. $];
+		auto p = Parser(file_content);
+		while (!p.empty && !p.hadFileName) {
+			p.popFront;
+		}
+		enforce(!p.empty, "Missing /+ dub.(sdl|json):... +/ recipe comment.");
+		auto filename = p.front;
+		p.popFront;
+		auto content = p.front;
+
 		
-		idx = file_content.indexOf("+/");
-		enforce(idx >= 0, "Missing closing \"+/\" for recipe comment.");
-		string recipe_content = file_content[0 .. idx];
-
-		idx = recipe_content.indexOf(':');
-		enforce(idx > 0, "Missing recipe file name (e.g. \"dub.sdl:\") in recipe comment");
-		auto recipe_filename = recipe_content[0 .. idx].strip();
-		recipe_content = recipe_content[idx+1 .. $];
-
-		auto recipe = parsePackageRecipe(recipe_content, recipe_filename);
+		auto recipe = parsePackageRecipe(content, filename);
 		recipe.buildSettings.sourceFiles[""] = [path.toNativeString()];
 		recipe.buildSettings.mainSourceFile = path.toNativeString();
 		if (recipe.buildSettings.targetType == TargetType.autodetect)
