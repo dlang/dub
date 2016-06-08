@@ -150,7 +150,7 @@ int runDubCommandLine(string[] args)
 			cmdname = "run";
 			if (app_args.length) app_args = args[1 .. $] ~ "--" ~ app_args;
 			else app_args = args[1 .. $];
-			args = ["--single", args[0]];
+			args = ["-q", "--single", args[0]];
 		} else {
 			cmdname = args[0];
 			args = args[1 .. $];
