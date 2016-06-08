@@ -290,6 +290,7 @@ class Dub {
 			char inComment = '\0';
 			bool hadFileName;
 			bool hadData;
+			int depth;
 			void popFront() {
 				import std.uni : isWhite;
 				if (empty) return;
@@ -313,6 +314,7 @@ class Dub {
 							j = i;
 							i++;
 							if (sourcecode[i] == '+' || sourcecode[i]=='*') {
+								depth++;
 								inComment = sourcecode[i];
 								i++;
 								break;
@@ -329,13 +331,14 @@ class Dub {
 									return;
 								}
 								inComment = '\0';
+								depth--;
 								j--;
 								i++;
 								break;
 							}
 						}
 					}
-					if (inComment && sourcecode[i]==':') {
+					if (depth==1 && !hadFileName && inComment && sourcecode[i]==':') {
 						hadFileName = true;
 						break;
 					}
@@ -362,10 +365,10 @@ class Dub {
 
 		string file_content = readText(path.toNativeString());
 		auto p = Parser(file_content);
-		import std.stdio;
 		while (!p.empty && !p.hadFileName) {
 			p.popFront;
 		}
+		enforce(!p.empty, "Missing /+ dub.(sdl|json):... +/ recipe comment.");
 		auto filename = p.front;
 		p.popFront;
 		auto content = p.front;
