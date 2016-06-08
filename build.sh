@@ -30,7 +30,11 @@ if [[ `$DMD --help | head -n1 | grep 'DMD\(32\|64\)'` ]]; then
 		LIBS="-lphobos2 $LIBS"
 	fi
 elif [[ `$DMD --help | head -n1 | grep '^LDC '` ]]; then
-	LIBS="-lphobos2-ldc $LIBS"
+	if [ `uname` = "SunOS" ]; then
+	        LIBS="-lnsl -lsocket -lphobos2-ldc $LIBS"
+	else
+	        LIBS="-lphobos2-ldc $LIBS"
+	fi
 fi
 
 # adjust linker flags for dmd command line
