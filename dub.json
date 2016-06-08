@@ -28,7 +28,7 @@
 			"name": "library-nonet",
 			"targetType": "library",
 			"dependencies": {
-				"vibe-d": {"version": "~>0.7.19-rc.4", "optional": true}
+				"vibe-d": {"version": "~>0.7.28", "optional": true}
 			},
 			"excludedSourceFiles": ["source/app.d"]
 		},
