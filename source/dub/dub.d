@@ -277,101 +277,12 @@ class Dub {
 
 		The script above can be invoked with "dub --single test.d".
 	*/
-		struct Parser {
-			static typeof(this) opCall(string sc) {
-				Parser ret;
-				ret.sourcecode = sc;
-				ret.popFront;
-				return ret;
-			}
-			string sourcecode;
-			string front;
-			bool empty;
-			char inComment = '\0';
-			bool hadFileName;
-			bool hadData;
-			void popFront() {
-				import std.uni : isWhite;
-				if (empty) return;
-				for (;sourcecode.length > 0;) {
-					if (sourcecode[0].isWhite) {
-						sourcecode = sourcecode[1..$];
-					} else {
-						break;
-					}
-				}
-				if (sourcecode.length <= 0) {
-					empty = true;
-					return;
-				}
-
-				int i,j;
-				for (; i<sourcecode.length; i++) {
-					if (sourcecode[i] == '/') {
-						j=i;
-						if (inComment=='\0') {
-							j = i;
-							i++;
-							if (sourcecode[i] == '+' || sourcecode[i]=='*') {
-								inComment = sourcecode[i];
-								i++;
-								break;
-							}
-						} else {
-							if (i>0 && sourcecode[i-1]==inComment) {
-								if (hadFileName && !hadData) {
-									j=0;
-									i-=2;
-									hadData = true;
-									break;
-								} else if (hadData) {
-									empty = true;
-									return;
-								}
-								inComment = '\0';
-								j--;
-								i++;
-								break;
-							}
-						}
-					}
-					if (inComment && sourcecode[i]==':') {
-						hadFileName = true;
-						break;
-					}
-				}
-				front = sourcecode[j..i];
-				if (hadFileName) {
-					i++;
-					if (front != "dub.sdl" && front != "dub.json") {
-						hadFileName = false; // allow us to keep searching comments if this was a false match
-					}
-				}
-				sourcecode = sourcecode[i..$];
-			}
-		}
 	void loadSingleFilePackage(Path path)
 	{
-		import dub.recipe.io : parsePackageRecipe;
-		import std.file : mkdirRecurse, readText;
-		//import std.regex : ctRegex, matchFirst;
-		//auto ctr = ctRegex!(`\n\/\+\s*(dub\.(sdl|json)):?\n(.*)\n\+\/\n`, "s");
-
-
+		import dub.singlefilepackage;
 		path = makeAbsolute(path);
+		auto recipe = SingleFilePackage(path).getRecipe();
 
-		string file_content = readText(path.toNativeString());
-		auto p = Parser(file_content);
-		import std.stdio;
-		while (!p.empty && !p.hadFileName) {
-			p.popFront;
-		}
-		auto filename = p.front;
-		p.popFront;
-		auto content = p.front;
-
-		
-		auto recipe = parsePackageRecipe(content, filename);
 		recipe.buildSettings.sourceFiles[""] = [path.toNativeString()];
 		recipe.buildSettings.mainSourceFile = path.toNativeString();
 		if (recipe.buildSettings.targetType == TargetType.autodetect)
