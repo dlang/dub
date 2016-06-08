@@ -34,6 +34,7 @@ class BuildGenerator : ProjectGenerator {
 	private {
 		PackageManager m_packageMan;
 		Path[] m_temporaryFiles;
+		Path m_targetExecutablePath;
 	}
 
 	this(Project project)
@@ -94,9 +95,13 @@ class BuildGenerator : ProjectGenerator {
 	override void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
 		// run the generated executable
-		auto buildsettings = targets[m_project.rootPackage.name].buildSettings;
+		auto buildsettings = targets[m_project.rootPackage.name].buildSettings.dup;
 		if (settings.run && !(buildsettings.options & BuildOption.syntaxOnly)) {
-			auto exe_file_path = getTargetPath(buildsettings, settings);
+			Path exe_file_path;
+			if (!m_targetExecutablePath.length)
+				exe_file_path = getTargetPath(buildsettings, settings);
+			else
+				exe_file_path = m_targetExecutablePath ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 			runTarget(exe_file_path, buildsettings, settings.runArgs, settings);
 		}
 	}
@@ -148,7 +153,7 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = Path(getcwd());
 
 		Path target_path;
-		if (settings.tempBuild) target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", pack.name, pack.version_, build_id);
+		if (settings.tempBuild) m_targetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", pack.name, pack.version_, build_id);
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
@@ -180,7 +185,8 @@ class BuildGenerator : ProjectGenerator {
 		cbuildsettings.targetPath = target_path.relativeTo(cwd).toNativeString();
 		buildWithCompiler(settings, cbuildsettings);
 
-		copyTargetFile(target_path, buildsettings, settings);
+		if (!settings.tempBuild)
+			copyTargetFile(target_path, buildsettings, settings);
 
 		return false;
 	}
