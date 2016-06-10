@@ -1,3 +1,10 @@
+/**
+	A package manager.
+
+	Copyright: © 2012-2013 Matthias Dondorff, 2012-2016 Sönke Ludwig
+	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
+	Authors: Rory McGuire
+*/
 module dub.singlefilepackage;
 
 import dub.internal.vibecompat.core.file;
@@ -19,139 +26,73 @@ struct SingleFilePackage {
 	}
 	auto getRecipe() {
 		import dub.recipe.io : parsePackageRecipe;
-		return parsePackageRecipe(_code, _filename);
+		return parsePackageRecipe(_recipe, _filename);
 	}
 	auto toString() {
 		import std.format;
-		return "%s:\n%s".format(_filename, _code);
+		return "%s:\n%s".format(_filename, _recipe);
 	}
 
 private:
 	string _filename;
-	string _code;
+	string _recipe;
 	void init() {
-		while (!empty && !hadFileName) {
-			popFront;
+		import std.string : startsWith, indexOf, strip;
+		import std.algorithm : find;
+		enforce(sourcecode.startsWith("#!"), "single file packages must start with #!");
+		auto unix = sourcecode.find('\n');
+		auto mac = sourcecode.find('\r');
+		auto sourcecode = unix.length > mac.length ? unix : mac;
+		enforce(sourcecode.length > 0, "second line of single file package must contain dub recipe");
+		sourcecode = sourcecode[1..$];
+		enum shortest = `/+dub.sdl:{}+/`;
+		enforce(sourcecode.length >= shortest.length && sourcecode[0]=='/'
+				&& (sourcecode[1] == '*' || sourcecode[1] == '+')
+			, "second line of single file package must contain dub recipe");
+		enum shortestWithCode = `/+dub.sdl:{}+/void main(){}`; // shortest valid
+		enforce(sourcecode.length >= shortestWithCode.length, "single file package must contain code");
+		
+		auto stop = sourcecode[1];
+		sourcecode = sourcecode[2..$].strip;
+		enforce(sourcecode[0]!='*' && sourcecode[0]!='+', "documentation style comments not supported for dub recipe comment");
+
+		size_t i;
+		for(; i<sourcecode.length; i++) {
+			if (sourcecode[i]==stop) {
+				i++;
+				if (i<sourcecode.length && sourcecode[i]=='/') {
+					break;
+				}
+			}
 		}
-		enforce(!empty, "Missing /+ dub.(sdl|json):... +/ recipe comment.");
-		_filename = front;
-		popFront();
-		_code = front;
+		auto colon = sourcecode.indexOf(':');
+		enforce(i-1 > colon+1 && colon >= 7, "Missing /+ dub.(sdl|json): ... +/ recipe comment."); //dub.sdl: // shortest valid
+		enforce(i < sourcecode.length, "unclosed dub recipe comment");
+
+		_filename = sourcecode[0..colon];
+		_recipe = sourcecode[colon+1..i-1];
 	}
 
 	string sourcecode;
-	string front;
-	bool empty;
-	char inComment = '\0';
-	bool hadFileName;
-	bool hadData;
-	int depth;
-	void popFront() {
-		import std.ascii : isWhite;
-		if (empty) return;
-		while (sourcecode.length > 0) {
-			if (sourcecode[0].isWhite) {
-				sourcecode = sourcecode[1..$];
-			} else {
-				break;
-			}
-		}
-		if (sourcecode.length <= 0) {
-			empty = true;
-			return;
-		}
-
-		int i,j;
-		for (; i<sourcecode.length; i++) {
-			if (sourcecode[i] == '"') {
-				do {
-					i++;
-					if (sourcecode[i]=='"')
-						break;
-				} while (i < sourcecode.length);
-				continue;
-			}
-			if (sourcecode[i] == '/') {
-				j=i;
-				if (inComment=='\0') {
-					i++;
-					if (sourcecode[i] == '+' || sourcecode[i]=='*') {
-						depth++;
-						inComment = sourcecode[i];
-						i++;
-						break;
-					}
-				} else {
-					if (i>0 && sourcecode[i-1]==inComment) {
-						if (hadFileName && !hadData) {
-							j=0;
-							i-=2;
-							hadData = true;
-							break;
-						} else if (hadData) {
-							empty = true;
-							return;
-						}
-						inComment = '\0';
-						depth--;
-						j--;
-						i++;
-						break;
-					}
-				}
-			}
-			if (depth==1 && !hadFileName && inComment && sourcecode[i]==':') {
-				hadFileName = true;
-				break;
-			}
-		}
-		front = sourcecode[j..i];
-		if (hadFileName) {
-			i++;
-			if (front != "dub.sdl" && front != "dub.json") {
-				hadFileName = false; // allow us to keep searching comments if this was a false match
-			}
-		}
-		sourcecode = sourcecode[i..$];
-	}
 }
 
 
 unittest {
-	/+
-	-> nothing
-	+/
-	assertThrown!Exception(SingleFilePackage("/* foo: */"));
+	// first line must be #!
+	assertThrown!Exception(SingleFilePackage("/* dub.json: {} */void main(){}"));
+	// missing dub recipe
+	assertThrown!Exception(SingleFilePackage("#!/asdf\n/* dub: {} */void main(){}"));
+	// single file package must contain code
+	assertThrown!Exception(SingleFilePackage("#!/asdf\n/* dub.sdl: */"));
+	// documentation style comments not supported for dub recipe comment
+	assertThrown!Exception(SingleFilePackage("#!/asdf\n/** dub.json: {} */void main(){}"));
+	// documentation style comments not supported for dub recipe comment
+	assertThrown!Exception(SingleFilePackage("#!/asdf\n/++ dub.json: {} +/void main(){}"));
+	// unclosed dub recipe comment
+	assertThrown!Exception(SingleFilePackage("#!/asdf\n/* dub.json: {} * /void main(){}"));
 
-
-	//-> nothing
-	assertThrown!Exception(SingleFilePackage(`/+ foo: +/`));
-
-	//
-	//-> valid
-	assertNotThrown!Exception(SingleFilePackage(`/* /* */ /* dub.json: {} */`));
-
-	//-> invalid
-	//assertThrown!Exception(SingleFilePackage(`/+ /+ +/ /+ dub.json: {} +/`));
-
-	//auto sfp = SingleFilePackage(`/+ /+ +/ /+ dub.json: {} +/`);
-	//import std.stdio;
-	//writeln("sfp: ", sfp.toString);
-
-	//-> valid
-	assertNotThrown!Exception(SingleFilePackage(r"/+ /+ +/ +/ /+ dub.json: {} +/"));
-
-	//`// dub.json:
-	//// {}
-	//`
-	//-> valid
-
-	//`/** dub.json: */`
-	//-> invalid, should probably emit a warning that doc comment syntax is not allowed for recipe comments
-
-	//-> invalid
-	assertThrown!Exception(SingleFilePackage(`/++ dub.json: */`));
-
-	//-> invalid
-	assertThrown!Exception(SingleFilePackage(`/// dub.json:`));
+	assertNotThrown!Exception(SingleFilePackage("#!/asdf\n/* dub.sdl: {name:\"*\"} */void main(){}"));
+	assertNotThrown!Exception(SingleFilePackage("#!/asdf\n/+ dub.json: /* some sdl comment */ +/void main(){}"));
+	assertNotThrown!Exception(SingleFilePackage("#!/asdf\n/* dub.json: {} */void main(){}"));
+	assertNotThrown!Exception(SingleFilePackage("#!/asdf\n/* dub.sdl: {} */void main(){}"));
 }
