@@ -63,6 +63,14 @@ private:
 
 		int i,j;
 		for (; i<sourcecode.length; i++) {
+			if (sourcecode[i] == '"') {
+				do {
+					i++;
+					if (sourcecode[i]=='"')
+						break;
+				} while (i < sourcecode.length);
+				continue;
+			}
 			if (sourcecode[i] == '/') {
 				j=i;
 				if (inComment=='\0') {
