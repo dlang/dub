@@ -1052,10 +1052,11 @@ class Dub {
 		version (Posix) enum sep = ":", exe = "";
 
 		auto compilers = ["dmd", "gdc", "gdmd", "ldc2", "ldmd2"];
+		typeof(compilers[0]) found;
 
 		auto paths = environment.get("PATH", "").splitter(sep).map!Path;
-		auto res = compilers.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
-		m_defaultCompiler = res.empty ? compilers[0] : res.front;
+		auto res = paths.find!(path => compilers.canFind!((compiler){found = compiler; return existsFile(path ~ (compiler~exe));}));
+		m_defaultCompiler = res.empty ? compilers[0] : found;
 	}
 
 	private Path makeAbsolute(Path p) const { return p.absolute ? p : m_rootPath ~ p; }
