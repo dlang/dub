@@ -279,26 +279,10 @@ class Dub {
 	*/
 	void loadSingleFilePackage(Path path)
 	{
-		import dub.recipe.io : parsePackageRecipe;
-		import std.file : mkdirRecurse, readText;
-
+		import dub.singlefilepackage;
 		path = makeAbsolute(path);
+		auto recipe = SingleFilePackage(path).getRecipe();
 
-		string file_content = readText(path.toNativeString());
-		auto idx = file_content.indexOf("/+");
-		enforce(idx >= 0, "Missing /+ ... +/ recipe comment.");
-		file_content = file_content[idx+2 .. $];
-		
-		idx = file_content.indexOf("+/");
-		enforce(idx >= 0, "Missing closing \"+/\" for recipe comment.");
-		string recipe_content = file_content[0 .. idx];
-
-		idx = recipe_content.indexOf(':');
-		enforce(idx > 0, "Missing recipe file name (e.g. \"dub.sdl:\") in recipe comment");
-		auto recipe_filename = recipe_content[0 .. idx].strip();
-		recipe_content = recipe_content[idx+1 .. $];
-
-		auto recipe = parsePackageRecipe(recipe_content, recipe_filename);
 		recipe.buildSettings.sourceFiles[""] = [path.toNativeString()];
 		recipe.buildSettings.mainSourceFile = path.toNativeString();
 		if (recipe.buildSettings.targetType == TargetType.autodetect)
