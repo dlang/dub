@@ -6,7 +6,7 @@ v1.0.0 - 2016-06-
 
 ### Features and improvements ###
 
- - Implemented support for single-file packages, including shebang script support - [issue #103][issue103], [pull #851][issue851], [pull #866][issue866]
+ - Implemented support for single-file packages, including shebang script support - [issue #103][issue103], [pull #851][issue851], [pull #866][issue866], [pull #870][issue870], [pull #878][issue878]
  - Builds on DMD 2.065.0 up to 2.071.1
  - Removed all deprecated functionality from the API, CLI and data formats
  - The minimum supported OS X version is now 10.7
@@ -30,6 +30,8 @@ v1.0.0 - 2016-06-
 [issue860]: https://github.com/dlang/dub/issues/860
 [issue861]: https://github.com/dlang/dub/issues/861
 [issue866]: https://github.com/dlang/dub/issues/866
+[issue870]: https://github.com/dlang/dub/issues/870
+[issue878]: https://github.com/dlang/dub/issues/878
 
 
 v0.9.25 - 2016-05-22
