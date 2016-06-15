@@ -285,17 +285,27 @@ class Dub {
 		path = makeAbsolute(path);
 
 		string file_content = readText(path.toNativeString());
-		auto idx = file_content.indexOf("/+");
-		enforce(idx >= 0, "Missing /+ ... +/ recipe comment.");
-		file_content = file_content[idx+2 .. $];
-		
-		idx = file_content.indexOf("+/");
-		enforce(idx >= 0, "Missing closing \"+/\" for recipe comment.");
-		string recipe_content = file_content[0 .. idx];
 
-		idx = recipe_content.indexOf(':');
+		if (file_content.startsWith("#!")) {
+			auto idx = file_content.indexOf('\n');
+			enforce(idx > 0, "The source fine doesn't contain anything but a shebang line.");
+			file_content = file_content[idx+1 .. $];
+		}
+
+		file_content = file_content.strip();
+
+		string recipe_content;
+
+		if (file_content.startsWith("/+")) {
+			file_content = file_content[2 .. $];
+			auto idx = file_content.indexOf("+/");
+			enforce(idx >= 0, "Missing \"+/\" to close comment.");
+			recipe_content = file_content[0 .. idx].strip();
+		} else throw new Exception("The source file must start with a recipe comment.");
+
+		auto idx = recipe_content.indexOf(':');
 		enforce(idx > 0, "Missing recipe file name (e.g. \"dub.sdl:\") in recipe comment");
-		auto recipe_filename = recipe_content[0 .. idx].strip();
+		auto recipe_filename = recipe_content[0 .. idx];
 		recipe_content = recipe_content[idx+1 .. $];
 
 		auto recipe = parsePackageRecipe(recipe_content, recipe_filename);
