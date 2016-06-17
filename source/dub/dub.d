@@ -738,8 +738,10 @@ class Dub {
 				name/version.
 			force_remove = Forces removal of the package, even if untracked
 				files are found in its folder.
+			resolveVersion = Callback to select package version.
 	*/
-	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
+	void remove(string package_id, string version_, PlacementLocation location, bool force_remove,
+				scope size_t delegate(in Package[] packages) resolveVersion=null)
 	{
 		enforce(!package_id.empty);
 		if (location == PlacementLocation.local) {
@@ -763,13 +765,21 @@ class Dub {
 				~ ")");
 		}
 		if(version_.empty && packages.length > 1) {
-			logError("Cannot remove package '" ~ package_id ~ "', there are multiple possibilities at location\n"
-				~ "'" ~ to!string(location) ~ "'.");
-			logError("Available versions:");
-			foreach(pack; packages)
-				logError("  %s", pack.version_);
-			throw new Exception("Please specify a individual version using --version=... or use the"
-				~ " wildcard --version=" ~ RemoveVersionWildcard ~ " to remove all versions.");
+			if (resolveVersion is null) {
+				logError("Cannot remove package '" ~ package_id ~ "', there are multiple possibilities at location\n"
+						 ~ "'" ~ to!string(location) ~ "'.");
+				logError("Available versions:");
+				foreach(pack; packages)
+					logError("  %s", pack.version_);
+				throw new Exception("Please specify a individual version using --version=... or use the"
+									~ " wildcard --version=" ~ RemoveVersionWildcard ~ " to remove all versions.");
+			} else {
+				immutable idx = resolveVersion(packages);
+				if (idx == size_t.max)
+					return;
+				else if (idx != packages.length)
+					packages = packages[idx .. idx + 1];
+			}
 		}
 
 		logDebug("Removing %s packages.", packages.length);

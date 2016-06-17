@@ -1213,6 +1213,10 @@ class InstallCommand : FetchCommand {
 }
 
 class RemoveCommand : FetchRemoveCommand {
+	private {
+		bool m_nonInteractive;
+	}
+
 	this()
 	{
 		this.name = "remove";
@@ -1226,6 +1230,7 @@ class RemoveCommand : FetchRemoveCommand {
 	override void prepare(scope CommandArgs args)
 	{
 		super.prepare(args);
+		args.getopt("n|non-interactive", &m_nonInteractive, ["Don't enter interactive mode."]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -1236,7 +1241,29 @@ class RemoveCommand : FetchRemoveCommand {
 		auto package_id = free_args[0];
 		auto location = dub.defaultPlacementLocation;
 
-		dub.remove(package_id, m_version, location, m_forceRemove);
+		size_t resolveVersion(in Package[] packages) {
+			writeln("Select version of '", package_id, "' to remove from location '", location, "':");
+			foreach(i, pack; packages)
+				writeln(i, ". ", pack.version_);
+			writeln(packages.length, ". ", "all versions");
+			while (true) {
+				writef("> ");
+				auto inp = readln();
+				if (!inp.length) // Ctrl+D
+					return size_t.max;
+				if (inp.length > 1) {
+					try {
+						immutable selection = inp[0 .. $ - 1].to!size_t;
+						if (selection <= packages.length)
+							return selection;
+					} catch (ConvException e) {
+					}
+					logError("Please enter a number between 0 and %s.", packages.length);
+				}
+			}
+		}
+
+		dub.remove(package_id, m_version, location, m_forceRemove, m_nonInteractive ? null : &resolveVersion);
 		return 0;
 	}
 }
