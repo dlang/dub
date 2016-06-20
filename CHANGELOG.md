@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v1.0.0 - 2016-06-
+v1.0.0 - 2016-06-20
 -------------------
 
 ### Features and improvements ###
