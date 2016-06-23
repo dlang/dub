@@ -40,7 +40,7 @@ import std.string;
 			writing it to disk.
 */
 void initPackage(Path root_path, string[string] deps, string type,
-	PackageFormat format, scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null)
+	PackageFormat format, scope RecipeCallback recipe_callback = null)
 {
 	import std.conv : to;
 	import dub.recipe.io : writePackageRecipe;
@@ -62,8 +62,8 @@ void initPackage(Path root_path, string[string] deps, string type,
 	}
 
 	//Check to see if a target directory needs to be created
-	if( !root_path.empty ){
-		if( !existsFile(root_path) )
+	if (!root_path.empty) {
+		if (!existsFile(root_path))
 			createDirectory(root_path);
 	}
 
@@ -75,21 +75,30 @@ void initPackage(Path root_path, string[string] deps, string type,
 	foreach (fil; files)
 		enforceDoesNotExist(fil);
 
-	switch (type) {
-		default: throw new Exception("Unknown package init type: "~type);
-		case "minimal": initMinimalPackage(root_path, p); break;
-		case "vibe.d": initVibeDPackage(root_path, p); break;
-		case "deimos": initDeimosPackage(root_path, p); break;
+	void processRecipe()
+	{
+		if (recipe_callback)
+			recipe_callback(p, format);
 	}
 
-	if (recipe_callback) recipe_callback(p, format);
+	switch (type) {
+		default: throw new Exception("Unknown package init type: "~type);
+		case "minimal": initMinimalPackage(root_path, p, &processRecipe); break;
+		case "vibe.d": initVibeDPackage(root_path, p, &processRecipe); break;
+		case "deimos": initDeimosPackage(root_path, p, &processRecipe); break;
+	}
+
 	writePackageRecipe(root_path ~ ("dub."~format.to!string), p);
 	writeGitignore(root_path);
 }
 
-private void initMinimalPackage(Path root_path, ref PackageRecipe p)
+alias RecipeCallback = void delegate(ref PackageRecipe, ref PackageFormat);
+
+private void initMinimalPackage(Path root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
 {
 	p.description = "A minimal D application.";
+	pre_write_callback();
+
 	createDirectory(root_path ~ "source");
 	write((root_path ~ "source/app.d").toNativeString(),
 q{import std.stdio;
@@ -101,12 +110,13 @@ void main()
 });
 }
 
-private void initVibeDPackage(Path root_path, ref PackageRecipe p)
+private void initVibeDPackage(Path root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
 {
 	if ("vibe-d" !in p.buildSettings.dependencies)
-		p.buildSettings.dependencies["vibe-d"] = Dependency("~>0.7.26");
+		p.buildSettings.dependencies["vibe-d"] = Dependency("~>0.7.28");
 	p.description = "A simple vibe.d server application.";
 	p.buildSettings.versions[""] ~= "VibeDefaultMain";
+	pre_write_callback();
 
 	createDirectory(root_path ~ "source");
 	createDirectory(root_path ~ "views");
@@ -131,7 +141,7 @@ void hello(HTTPServerRequest req, HTTPServerResponse res)
 });
 }
 
-private void initDeimosPackage(Path root_path, ref PackageRecipe p)
+private void initDeimosPackage(Path root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
 {
 	import dub.compilers.buildsettings : TargetType;
 
@@ -139,6 +149,8 @@ private void initDeimosPackage(Path root_path, ref PackageRecipe p)
 	p.description = format("Deimos Bindings for "~p.name~".");
 	p.buildSettings.importPaths[""] ~= ".";
 	p.buildSettings.targetType = TargetType.sourceLibrary;
+	pre_write_callback();
+
 	createDirectory(root_path ~ "C");
 	createDirectory(root_path ~ "deimos");
 }
