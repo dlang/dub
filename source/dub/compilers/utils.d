@@ -378,9 +378,9 @@ BuildPlatform readPlatformProbe(string output)
 	auto json = parseJsonString(output);
 
 	BuildPlatform build_platform;
-	build_platform.platform = json.platform.get!(Json[]).map!(e => e.get!string()).array();
-	build_platform.architecture = json.architecture.get!(Json[]).map!(e => e.get!string()).array();
-	build_platform.compiler = json.compiler.get!string;
-	build_platform.frontendVersion = json.frontendVersion.get!int;
+	build_platform.platform = json["platform"].get!(Json[]).map!(e => e.get!string()).array();
+	build_platform.architecture = json["architecture"].get!(Json[]).map!(e => e.get!string()).array();
+	build_platform.compiler = json["compiler"].get!string;
+	build_platform.frontendVersion = json["frontendVersion"].get!int;
 	return build_platform;
 }

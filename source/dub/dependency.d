@@ -302,7 +302,7 @@ struct Dependency {
 					logDiagnostic("Ignoring version specification (%s) for path based dependency %s", pv.get!string, pp.get!string);
 
 				dep = Dependency.any;
-				dep.path = Path(verspec.path.get!string);
+				dep.path = Path(verspec["path"].get!string);
 			} else {
 				enforce("version" in verspec, "No version field specified!");
 				auto ver = verspec["version"].get!string;

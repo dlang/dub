@@ -139,8 +139,8 @@ unittest {
 	test.text = "Hello";
 
 	Json serialized = serialize!JsonSerializer(test);
-	assert(serialized.value.get!int == 12);
-	assert(serialized.text.get!string == "Hello");
+	assert(serialized["value"].get!int == 12);
+	assert(serialized["text"].get!string == "Hello");
 }
 
 unittest {
@@ -243,8 +243,8 @@ unittest {
 	}
 
 	Json serialized = Json.emptyObject;
-	serialized.value = 12;
-	serialized.text = "Hello";
+	serialized["value"] = 12;
+	serialized["text"] = "Hello";
 
 	Test test = deserialize!(JsonSerializer, Test)(serialized);
 	assert(test.value == 12);

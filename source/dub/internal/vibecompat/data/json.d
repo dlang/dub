@@ -693,14 +693,6 @@ struct Json {
 		m_array ~= element;
 	}
 
-	/** Scheduled for deprecation, please use `opIndex` instead.
-		
-		Allows to access existing fields of a JSON object using dot syntax.
-	*/
-	@property const(Json) opDispatch(string prop)() const { return opIndex(prop); }
-	/// ditto
-	@property ref Json opDispatch(string prop)() { return opIndex(prop); }
-
 	/**
 		Compares two JSON values for equality.
 
@@ -1422,8 +1414,8 @@ unittest {
 	s.a = 2;
 
 	auto j = serializeToJson(s);
-	assert(j.a.type == Json.Type.int_);
-	assert(j.b.type == Json.Type.null_);
+	assert(j["a"].type == Json.Type.int_);
+	assert(j["b"].type == Json.Type.null_);
 
 	auto t = deserializeJson!S(j);
 	assert(!t.a.isNull() && t.a == 2);
@@ -1807,10 +1799,10 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 
 unittest {
 	auto a = Json.emptyObject;
-	a.a = Json.emptyArray;
-	a.b = Json.emptyArray;
-	a.b ~= Json(1);
-	a.b ~= Json.emptyObject;
+	a["a"] = Json.emptyArray;
+	a["b"] = Json.emptyArray;
+	a["b"] ~= Json(1);
+	a["b"] ~= Json.emptyObject;
 
 	assert(a.toString() == `{"a":[],"b":[1,{}]}` || a.toString == `{"b":[1,{}],"a":[]}`);
 	assert(a.toPrettyString() ==

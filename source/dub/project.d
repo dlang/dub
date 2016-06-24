@@ -1347,7 +1347,7 @@ final class SelectedVersions {
 		if (j.type == Json.Type.string)
 			return Dependency(Version(j.get!string));
 		else if (j.type == Json.Type.object)
-			return Dependency(Path(j.path.get!string));
+			return Dependency(Path(j["path"].get!string));
 		else throw new Exception(format("Unexpected type for dependency: %s", j.type));
 	}
 
@@ -1355,10 +1355,10 @@ final class SelectedVersions {
 	const {
 		Json json = serializeToJson(m_selections);
 		Json serialized = Json.emptyObject;
-		serialized.fileVersion = FileVersion;
-		serialized.versions = Json.emptyObject;
+		serialized["fileVersion"] = FileVersion;
+		serialized["versions"] = Json.emptyObject;
 		foreach (p, v; m_selections)
-			serialized.versions[p] = dependencyToJson(v.dep);
+			serialized["versions"][p] = dependencyToJson(v.dep);
 		return serialized;
 	}
 
@@ -1367,7 +1367,7 @@ final class SelectedVersions {
 		enforce(cast(int)json["fileVersion"] == FileVersion, "Mismatched dub.select.json version: " ~ to!string(cast(int)json["fileVersion"]) ~ "vs. " ~to!string(FileVersion));
 		clear();
 		scope(failure) clear();
-		foreach (string p, v; json.versions)
+		foreach (string p, v; json["versions"])
 			m_selections[p] = Selected(dependencyFromJson(v));
 	}
 }

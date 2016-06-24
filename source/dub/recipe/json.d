@@ -73,13 +73,13 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 Json toJson(in ref PackageRecipe recipe)
 {
 	auto ret = recipe.buildSettings.toJson();
-	ret.name = recipe.name;
+	ret["name"] = recipe.name;
 	if (!recipe.version_.empty) ret["version"] = recipe.version_;
-	if (!recipe.description.empty) ret.description = recipe.description;
-	if (!recipe.homepage.empty) ret.homepage = recipe.homepage;
-	if (!recipe.authors.empty) ret.authors = serializeToJson(recipe.authors);
-	if (!recipe.copyright.empty) ret.copyright = recipe.copyright;
-	if (!recipe.license.empty) ret.license = recipe.license;
+	if (!recipe.description.empty) ret["description"] = recipe.description;
+	if (!recipe.homepage.empty) ret["homepage"] = recipe.homepage;
+	if (!recipe.authors.empty) ret["authors"] = serializeToJson(recipe.authors);
+	if (!recipe.copyright.empty) ret["copyright"] = recipe.copyright;
+	if (!recipe.license.empty) ret["license"] = recipe.license;
 	if (!recipe.subPackages.empty) {
 		Json[] jsonSubPackages = new Json[recipe.subPackages.length];
 		foreach (i, subPackage; recipe.subPackages) {
@@ -89,19 +89,19 @@ Json toJson(in ref PackageRecipe recipe)
 				jsonSubPackages[i] = subPackage.recipe.toJson();
 			}
 		}
-		ret.subPackages = jsonSubPackages;
+		ret["subPackages"] = jsonSubPackages;
 	}
 	if (recipe.configurations.length) {
 		Json[] configs;
 		foreach(config; recipe.configurations)
 			configs ~= config.toJson();
-		ret.configurations = configs;
+		ret["configurations"] = configs;
 	}
 	if (recipe.buildTypes.length) {
 		Json[string] types;
 		foreach (name, settings; recipe.buildTypes)
 			types[name] = settings.toJson();
-		ret.buildTypes = types;
+		ret["buildTypes"] = types;
 	}
 	if (!recipe.ddoxFilterArgs.empty) ret["-ddoxFilterArgs"] = recipe.ddoxFilterArgs.serializeToJson();
 	if (!recipe.ddoxTool.empty) ret["-ddoxTool"] = recipe.ddoxTool;
@@ -151,8 +151,8 @@ private void parseJson(ref ConfigurationInfo config, Json json, string package_n
 private Json toJson(in ref ConfigurationInfo config)
 {
 	auto ret = config.buildSettings.toJson();
-	ret.name = config.name;
-	if (config.platforms.length) ret.platforms = serializeToJson(config.platforms);
+	ret["name"] = config.name;
+	if (config.platforms.length) ret["platforms"] = serializeToJson(config.platforms);
 	return ret;
 }
 
@@ -243,9 +243,9 @@ private Json toJson(in ref BuildSettingsTemplate bs)
 		auto deps = Json.emptyObject;
 		foreach( pack, d; bs.dependencies )
 			deps[pack] = serializeToJson(d);
-		ret.dependencies = deps;
+		ret["dependencies"] = deps;
 	}
-	if (bs.systemDependencies !is null) ret.systemDependencies = bs.systemDependencies;
+	if (bs.systemDependencies !is null) ret["systemDependencies"] = bs.systemDependencies;
 	if (bs.targetType != TargetType.autodetect) ret["targetType"] = bs.targetType.to!string();
 	if (!bs.targetPath.empty) ret["targetPath"] = bs.targetPath;
 	if (!bs.targetName.empty) ret["targetName"] = bs.targetName;

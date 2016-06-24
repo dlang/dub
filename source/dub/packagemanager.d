@@ -338,7 +338,7 @@ class PackageManager {
 	/// destination and sets a version field in the package description.
 	Package storeFetchedPackage(Path zip_file_path, Json package_info, Path destination)
 	{
-		auto package_name = package_info.name.get!string;
+		auto package_name = package_info["name"].get!string;
 		auto package_version = package_info["version"].get!string;
 		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
 
@@ -527,8 +527,8 @@ class PackageManager {
 				enforce(packlist.type == Json.Type.array, LocalPackagesFilename~" must contain an array.");
 				foreach( pentry; packlist ){
 					try {
-						auto name = pentry.name.get!string;
-						auto path = Path(pentry.path.get!string);
+						auto name = pentry["name"].get!string;
+						auto path = Path(pentry["path"].get!string);
 						if (name == "*") {
 							paths ~= path;
 						} else {
@@ -550,7 +550,7 @@ class PackageManager {
 									logWarn("Locally registered package %s %s was not found. Please run \"dub remove-local %s\".",
 										name, ver, path.toNativeString());
 									auto info = Json.emptyObject;
-									info.name = name;
+									info["name"] = name;
 									pp = new Package(info, path);
 								}
 							}
@@ -631,7 +631,7 @@ class PackageManager {
 			if (existsFile(ovrfilepath)) {
 				foreach (entry; jsonFromFile(ovrfilepath)) {
 					PackageOverride ovr;
-					ovr.package_ = entry.name.get!string;
+					ovr.package_ = entry["name"].get!string;
 					ovr.version_ = Dependency(entry["version"].get!string);
 					if (auto pv = "targetVersion" in entry) ovr.targetVersion = Version(pv.get!string);
 					if (auto pv = "targetPath" in entry) ovr.targetPath = Path(pv.get!string);
@@ -678,8 +678,8 @@ class PackageManager {
 		Json[] newlist;
 		foreach (p; m_repositories[type].searchPath) {
 			auto entry = Json.emptyObject;
-			entry.name = "*";
-			entry.path = p.toNativeString();
+			entry["name"] = "*";
+			entry["path"] = p.toNativeString();
 			newlist ~= entry;
 		}
 
@@ -702,10 +702,10 @@ class PackageManager {
 		Json[] newlist;
 		foreach (ovr; m_repositories[type].overrides) {
 			auto jovr = Json.emptyObject;
-			jovr.name = ovr.package_;
+			jovr["name"] = ovr.package_;
 			jovr["version"] = ovr.version_.versionSpec;
-			if (!ovr.targetPath.empty) jovr.targetPath = ovr.targetPath.toNativeString();
-			else jovr.targetVersion = ovr.targetVersion.toString();
+			if (!ovr.targetPath.empty) jovr["targetPath"] = ovr.targetPath.toNativeString();
+			else jovr["targetVersion"] = ovr.targetVersion.toString();
 			newlist ~= jovr;
 		}
 		auto path = m_repositories[type].packagePath;
