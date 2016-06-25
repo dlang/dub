@@ -304,8 +304,7 @@ private void parsePlatformStringArray(Tag t, ref string[][string] dst)
 	string platform;
 	if ("platform" in t.attributes)
 		platform = "-" ~ t.attributes["platform"][0].value.get!string;
-	foreach (v; t.values)
-		dst[platform] ~= v.get!string;
+	dst[platform] ~= t.values.map!(v => v.get!string).array;
 }
 
 private void parsePlatformEnumArray(E, Es)(Tag t, ref Es[string] dst)
@@ -525,4 +524,11 @@ authors "foo" "bar"
 dflags "-a" platform="windows"
 lflags "-b" "-c"
 `);
+}
+
+unittest {
+	auto sdl = "name \"test\"\nsourcePaths";
+	PackageRecipe rec;
+	parseSDL(rec, sdl, null, "testfile");
+	assert("" in rec.buildSettings.sourcePaths);
 }
