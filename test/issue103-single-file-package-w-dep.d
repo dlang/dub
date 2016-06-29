@@ -1,5 +1,5 @@
 /+ dub.sdl:
-name "hello_world"
+name "single-file-test"
 dependency "sourcelib-simple" path="1-sourceLib-simple"
 +/
 module hello;

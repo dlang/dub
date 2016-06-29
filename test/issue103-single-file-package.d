@@ -1,6 +1,6 @@
 #!../bin/dub
 /+ dub.sdl:
-   name "hello_world"
+   name "single-file-test"
 +/
 module hello;
 
