@@ -100,7 +100,7 @@ int runDubCommandLine(string[] args)
 
 	// special single-file package shebang syntax
 	if (args.length >= 2 && args[1].endsWith(".d")) {
-		args = args[0] ~ ["run", "-q", "--single", args[1], "--"] ~ args[2 ..$];
+		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];
 	}
 
 	// split application arguments from DUB arguments
@@ -749,7 +749,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.runArgs = app_args;
 		gensettings.force = m_force;
 		gensettings.rdmd = m_rdmd;
-		gensettings.tempBuild = m_tempBuild || m_single;
+		gensettings.tempBuild = m_tempBuild;
 		gensettings.parallelBuild = m_parallel;
 
 		logDiagnostic("Generating using %s", m_generator);
