@@ -1,5 +1,5 @@
 /+ dub.json: {
-   "name": "hello_world"
+   "name": "single-file-test"
 } +/
 module hello;
 
