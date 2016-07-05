@@ -25,8 +25,8 @@ import std.conv;
 import std.datetime;
 import std.exception;
 import std.format;
-import std.string;
 import std.range;
+import std.string : format;
 import std.traits;
 
 version = JsonLineNumbers;
@@ -861,6 +861,8 @@ struct Json {
 Json parseJson(R)(ref R range, int* line = null, string filename = null)
 	if( is(R == string) )
 {
+	import std.string : startsWith;
+
 	Json ret;
 	enforceJson(!range.empty, "JSON string is empty.", filename, 0);
 
@@ -957,6 +959,8 @@ Json parseJson(R)(ref R range, int* line = null, string filename = null)
 */
 Json parseJsonString(string str, string filename = null)
 {
+	import std.string : strip;
+
 	auto strcopy = str;
 	int line = 0;
 	auto ret = parseJson(strcopy, &line, filename);
@@ -979,6 +983,8 @@ unittest {
 }
 
 unittest {
+	import std.string : endsWith;
+
 	try parseJsonString(`{"a": 1`);
 	catch (Exception e) assert(e.msg.endsWith("Missing '}' before EOF."));
 	try parseJsonString(`{"a": 1 x`);
