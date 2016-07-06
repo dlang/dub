@@ -71,13 +71,13 @@ nothrow {
 		threadid ^= threadid >> 32;
 		fiberid ^= fiberid >> 32;
 
-		if( level >= s_minLevel ){
-			if (level == LogLevel.info) {
-				stdout.writeln(txt.data);
-				stdout.flush();
-			} else {
-				stderr.writeln(txt.data);
-				stderr.flush();
+		if (level >= s_minLevel) {
+			File output;
+			if (level == LogLevel.info) output = stdout;
+			else output = stderr;
+			if (output.isOpen) {
+				output.writeln(txt.data);
+				output.flush();
 			}
 		}
 	} catch( Exception e ){
