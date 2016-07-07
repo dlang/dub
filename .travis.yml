@@ -3,7 +3,11 @@ sudo: false
 
 matrix:
   include:
+    - d: dmd-beta
+      env: [FRONTEND=2.071]
     - d: dmd
+      env: [FRONTEND=2.071]
+    - d: dmd-2.070.2
       env: [FRONTEND=2.070]
     - d: dmd-2.069.2
       env: [FRONTEND=2.069]
