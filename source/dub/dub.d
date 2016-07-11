@@ -94,7 +94,7 @@ class Dub {
 		Path m_rootPath;
 		Path m_tempPath;
 		Path m_userDubPath, m_systemDubPath;
-		Json m_systemConfig, m_userConfig;
+		DubConfig m_config;
 		Path m_projectPath;
 		Project m_project;
 		Path m_overrideSearchPath;
@@ -133,19 +133,10 @@ class Dub {
 
 		PackageSupplier[] ps = additional_package_suppliers;
 
-		if (skip_registry < SkipPackageSuppliers.all) {
-			if (auto pp = "registryUrls" in m_userConfig)
-				ps ~= deserializeJson!(string[])(*pp)
-					.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
-					.array;
-		}
-
-		if (skip_registry < SkipPackageSuppliers.all) {
-			if (auto pp = "registryUrls" in m_systemConfig)
-				ps ~= deserializeJson!(string[])(*pp)
-					.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
-					.array;
-		}
+		if (skip_registry < SkipPackageSuppliers.all)
+			ps ~= m_config.registryURLs
+				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
+				.array;
 
 		if (skip_registry < SkipPackageSuppliers.standard)
 			ps ~= defaultPackageSuppliers();
@@ -183,8 +174,9 @@ class Dub {
 		}
 
 		m_tempPath = Path(tempDir);
-		m_userConfig = jsonFromFile(m_userDubPath ~ "settings.json", true);
-		m_systemConfig = jsonFromFile(m_systemDubPath ~ "settings.json", true);
+
+		m_config = new DubConfig(jsonFromFile(m_userDubPath ~ "settings.json", true), null);
+		m_config = new DubConfig(jsonFromFile(m_systemDubPath ~ "settings.json", true), m_config);
 
 		determineDefaultCompiler();
 	}
@@ -402,7 +394,7 @@ class Dub {
 				if (basename == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
-					logInfo("Package %s can be installed with version %s.",
+					logInfo("Non-selected package %s is available with version %s.",
 						basename, ver);
 					any = true;
 					continue;
@@ -1057,10 +1049,7 @@ class Dub {
 	{
 		import std.process : environment;
 
-		m_defaultCompiler = m_userConfig["defaultCompiler"].opt!string();
-		if (m_defaultCompiler.length) return;
-
-		m_defaultCompiler = m_systemConfig["defaultCompiler"].opt!string();
+		m_defaultCompiler = m_config.defaultCompiler;
 		if (m_defaultCompiler.length) return;
 
 		version (Windows) enum sep = ";", exe = ".exe";
@@ -1342,6 +1331,36 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		m_remotePackages[key] = null;
 
 		logWarn("Package %s %s could not be loaded either locally, or from the configured package registries.", name, dep);
+		return null;
+	}
+}
+
+private class DubConfig {
+	private {
+		DubConfig m_parentConfig;
+		Json m_data;
+	}
+
+	this(Json data, DubConfig parent_config)
+	{
+		m_data = data;
+		m_parentConfig = parent_config;
+	}
+
+	@property string[] registryURLs()
+	{
+		string[] ret;
+		if (auto pv = "registryUrls" in m_data)
+			ret = (*pv).deserializeJson!(string[]);
+		if (m_parentConfig) ret ~= m_parentConfig.registryURLs;
+		return ret;
+	}
+
+	@property string defaultCompiler()
+	const {
+		if (auto pv = "defaultCompiler" in m_data)
+			return pv.get!string;
+		if (m_parentConfig) return m_parentConfig.defaultCompiler;
 		return null;
 	}
 }
