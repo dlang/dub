@@ -93,7 +93,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 						configs = c ~ configs;
 
 				if (any_config.length <= pidx) any_config.length = pidx+1;
-				any_config[pidx] = configs.length > 0;
+				if (configs.length > 0)
+					any_config[pidx] = true;
 
 				// eliminate configurations from which we know that they can't satisfy
 				// the uniquely defined root dependencies (==version or ~branch style dependencies)
@@ -154,8 +155,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 							logError("Dependency \"%s\" of %s contains upper case letters, but must be lower case.", ch.pack, parent.pack);
 							if (getAllConfigs(lp).length) logError("Did you mean \"%s\"?", lp);
 						}
-						bool pvalid = any_config[childidx];
-						if (pvalid)
+						if (any_config[childidx])
 							throw new Exception(format("Root package %s reference %s %s cannot be satisfied.", parent.pack, ch.pack, ch.configs));
 						else
 							throw new Exception(format("Root package %s references unknown package %s", parent.pack, ch.pack));
