@@ -92,8 +92,7 @@ class Dub {
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
 		Path m_rootPath;
-		Path m_tempPath;
-		Path m_userDubPath, m_systemDubPath;
+		SpecialDirs m_dirs;
 		DubConfig m_config;
 		Path m_projectPath;
 		Project m_project;
@@ -142,7 +141,7 @@ class Dub {
 			ps ~= defaultPackageSuppliers();
 
 		m_packageSuppliers = ps;
-		m_packageManager = new PackageManager(m_userDubPath, m_systemDubPath);
+		m_packageManager = new PackageManager(m_dirs.userSettings, m_dirs.systemSettings);
 		updatePackageSearchPath();
 	}
 
@@ -163,20 +162,20 @@ class Dub {
 	private void init()
 	{
 		import std.file : tempDir;
-		version(Windows){
-			m_systemDubPath = Path(environment.get("ProgramData")) ~ "dub/";
-			m_userDubPath = Path(environment.get("APPDATA")) ~ "dub/";
+		version(Windows) {
+			m_dirs.systemSettings = Path(environment.get("ProgramData")) ~ "dub/";
+			m_dirs.userSettings = Path(environment.get("APPDATA")) ~ "dub/";
 		} else version(Posix){
-			m_systemDubPath = Path("/var/lib/dub/");
-			m_userDubPath = Path(environment.get("HOME")) ~ ".dub/";
-			if(!m_userDubPath.absolute)
-				m_userDubPath = Path(getcwd()) ~ m_userDubPath;
+			m_dirs.systemSettings = Path("/var/lib/dub/");
+			m_dirs.userSettings = Path(environment.get("HOME")) ~ ".dub/";
+			if (!m_dirs.userSettings.absolute)
+				m_dirs.userSettings = Path(getcwd()) ~ m_dirs.userSettings;
 		}
 
-		m_tempPath = Path(tempDir);
+		m_dirs.temp = Path(tempDir);
 
-		m_config = new DubConfig(jsonFromFile(m_userDubPath ~ "settings.json", true), null);
-		m_config = new DubConfig(jsonFromFile(m_systemDubPath ~ "settings.json", true), m_config);
+		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), null);
+		m_config = new DubConfig(jsonFromFile(m_dirs.systemSettings ~ "settings.json", true), m_config);
 
 		determineDefaultCompiler();
 	}
@@ -630,8 +629,8 @@ class Dub {
 		Path placement;
 		final switch (location) {
 			case PlacementLocation.local: placement = m_rootPath; break;
-			case PlacementLocation.user: placement = m_userDubPath ~ "packages/"; break;
-			case PlacementLocation.system: placement = m_systemDubPath ~ "packages/"; break;
+			case PlacementLocation.user: placement = m_dirs.userSettings ~ "packages/"; break;
+			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
 		}
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
@@ -1333,6 +1332,12 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		logWarn("Package %s %s could not be loaded either locally, or from the configured package registries.", name, dep);
 		return null;
 	}
+}
+
+private struct SpecialDirs {
+	Path temp;
+	Path userSettings;
+	Path systemSettings;
 }
 
 private class DubConfig {
