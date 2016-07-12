@@ -856,7 +856,7 @@ struct Json {
 	The range is shrunk during parsing, leaving any remaining text that is not part of
 	the JSON contents.
 
-	Throws a JSONException if any parsing error occured.
+	Throws a JSONException if any parsing error occurred.
 */
 Json parseJson(R)(ref R range, int* line = null, string filename = null)
 	if( is(R == string) )

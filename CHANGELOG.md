@@ -254,7 +254,7 @@ v0.9.23 - 2015-04-06
  - Fixed using unique temporary files (by Михаил Страшун aka Dicebot) - [issue #482][issue482], [pull #497][issue497]
  - Fixed compiler command line issues on Windows with `--buildMode=singleFile` (by machindertech) - [pull #505][issue505]
  - Fixed a version range match error (">=A <B" + "==B" was merged to "==B")
- - Fixed broken up-to-date detection of changed overriden string import files - [issue #331][issue331]
+ - Fixed broken up-to-date detection of changed overridden string import files - [issue #331][issue331]
  - Fixed handling of the new `-m32mscoff` flag (is now also passed to the linker stage)
  - Fixed handling of several command line options for GDC (by Iain Buclaw) - [pull #387][issue387]
  - Fixed handling of `"buildTypes"` for downloaded packages (by sinkuu) - [pull #406][issue406]

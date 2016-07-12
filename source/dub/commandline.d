@@ -524,7 +524,7 @@ class InitCommand : Command {
 		}
 		dub.createEmptyPackage(Path(dir), free_args, m_templateType, m_format, &depCallback);
 
-		logInfo("Package sucessfully created in %s", dir.length ? dir : ".");
+		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;
 	}
 }
@@ -1391,7 +1391,7 @@ class SearchCommand : Command {
 	{
 		this.name = "search";
 		this.argumentsPattern = "<query>";
-		this.description = "Seach for available packages.";
+		this.description = "Search for available packages.";
 		this.helpText = [
 			"Search all specified DUB registries for packages matching query."
 		];
@@ -1506,7 +1506,7 @@ class ListOverridesCommand : Command {
 		this.argumentsPattern = "";
 		this.description = "Prints a list of all local package overrides";
 		this.helpText = [
-			"Prints a list of all overriden packages added via \"dub add-override\"."
+			"Prints a list of all overridden packages added via \"dub add-override\"."
 		];
 	}
 	override void prepare(scope CommandArgs args) {}
