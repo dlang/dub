@@ -453,7 +453,7 @@ struct Dependency {
 		string cmp = idx==c.length-1||idx==0? ">=" : c[0..idx];
 		c = c[idx..$];
 		switch(cmp) {
-			default: enforce(false, "No/Unknown comparision specified: '"~cmp~"'"); return ">=";
+			default: enforce(false, "No/Unknown comparison specified: '"~cmp~"'"); return ">=";
 			case ">=": goto case; case ">": goto case;
 			case "<=": goto case; case "<": goto case;
 			case "==": return cmp;
