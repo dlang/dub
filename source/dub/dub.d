@@ -176,6 +176,7 @@ class Dub {
 
 		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), null);
 		m_config = new DubConfig(jsonFromFile(m_dirs.systemSettings ~ "settings.json", true), m_config);
+		m_config = new DubConfig(jsonFromFile(Path(thisExePath) ~ "../etc/dub/settings.json", true), m_config);
 
 		determineDefaultCompiler();
 	}
