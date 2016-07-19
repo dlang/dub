@@ -63,6 +63,7 @@ class Package {
 		Path m_path;
 		Path m_infoFile;
 		PackageRecipe m_info;
+		PackageRecipe m_rawRecipe;
 		Package m_parentPackage;
 	}
 
@@ -89,6 +90,9 @@ class Package {
 	/// ditto
 	this(PackageRecipe recipe, Path root = Path(), Package parent = null, string version_override = "")
 	{
+		// save the original recipe
+		m_rawRecipe = recipe.clone;
+
 		if (!version_override.empty)
 			recipe.version_ = version_override;
 
@@ -192,8 +196,23 @@ class Package {
 	@property void version_(Version value) { assert(m_parentPackage is null); m_info.version_ = value.toString(); }
 
 	/** Accesses the recipe contents of this package.
+
+		The recipe contains any default values and configurations added by DUB.
+		To access the raw user recipe, use the `rawRecipe` property.
+
+		See_Also: `rawRecipe`
 	*/
 	@property ref inout(PackageRecipe) recipe() inout { return m_info; }
+
+	/** Accesses the original package recipe.
+
+		The returned recipe matches exactly the contents of the original package
+		recipe. For the effective package recipe, augmented with DUB generated
+		default settings and configurations, use the `recipe` property.
+
+		See_Also: `recipe`
+	*/
+	@property ref const(PackageRecipe) rawRecipe() const { return m_rawRecipe; }
 
 	/** Returns the path to the package recipe file.
 
