@@ -128,6 +128,8 @@ private void initHuntPackage(Path root_path, ref PackageRecipe p, scope void del
 	createDirectory(root_path ~ "source/app/controller");
 	createDirectory(root_path ~ "config");
 	createDirectory(root_path ~ "resources");
+	createDirectory(root_path ~ "resources/views");
+	createDirectory(root_path ~ "storage");
 	createDirectory(root_path ~ "public");
 
 	// write bootstrap file
