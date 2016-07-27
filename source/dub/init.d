@@ -34,7 +34,7 @@ import std.string;
 			associative array is expected to map from package name to package
 			version.
 		type = The type of package skeleton to create. Can currently be
-			"minimal", "vibe.d" or "deimos"
+			"minimal", "vibe.d", "hunt" or "deimos"
 		recipe_callback = Optional callback that can be used to customize the
 			package recipe and the file format used to store it prior to
 			writing it to disk.
