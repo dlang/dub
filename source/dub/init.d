@@ -85,6 +85,7 @@ void initPackage(Path root_path, string[string] deps, string type,
 		default: throw new Exception("Unknown package init type: "~type);
 		case "minimal": initMinimalPackage(root_path, p, &processRecipe); break;
 		case "vibe.d": initVibeDPackage(root_path, p, &processRecipe); break;
+		case "hunt": initHuntPackage(root_path, p, &processRecipe); break;
 		case "deimos": initDeimosPackage(root_path, p, &processRecipe); break;
 	}
 
@@ -108,6 +109,110 @@ void main()
 	writeln("Edit source/app.d to start your project.");
 }
 });
+}
+
+private void initHuntPackage(Path root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
+{
+
+	import dub.compilers.buildsettings : TargetType;
+
+	if ("hunt" !in p.buildSettings.dependencies)
+		p.buildSettings.dependencies["hunt"] = Dependency("~>0.3.1");
+	p.description = "A simple hunt framework based application.";
+	p.buildSettings.targetType = TargetType.executable;
+	p.buildSettings.mainSourceFile = "source/bootstrap.d";
+	pre_write_callback();
+
+	createDirectory(root_path ~ "source");
+	createDirectory(root_path ~ "source/app");
+	createDirectory(root_path ~ "source/app/controller");
+	createDirectory(root_path ~ "config");
+	createDirectory(root_path ~ "resources");
+	createDirectory(root_path ~ "public");
+
+	// write bootstrap file
+	write((root_path ~ "source/bootstrap.d").toNativeString(),
+q{import hunt;
+
+void main()
+{
+    auto app = Application.app();
+    app.run();
+}
+
+});
+	// end write
+
+	// write controller file
+	write((root_path ~ "source/app/controller/index.d").toNativeString(),
+q{module app.controller.index;
+
+import hunt;
+
+class IndexController : Controller
+{
+	mixin MakeController;
+
+	@action
+	void index()
+	{
+		response.html("hello world!");
+	}
+}
+
+});
+	// end write
+
+	// write application config file
+	write((root_path ~ "config/application.conf").toNativeString(),
+q{
+[server]
+isipv6 = false
+host = 0.0.0.0
+port = 8080
+timeout = 30
+websocket = 
+
+[server.ssl]
+mode = 
+certificate = 
+privatekey = 
+
+[http]
+maxbody = 
+maxheader = 
+headersection = 
+requestsection = 
+responsesection = 
+}
+);
+	// end wirte
+
+	// write database config file
+	write((root_path ~ "config/database.conf").toNativeString(),
+q{[default]
+# mysql, postgres
+driver = 
+host= 127.0.0.1
+port= 3306
+dbname=test
+username=root
+password=
+prefix=
+charset=utf8
+});
+	// end write
+
+	// write router config file
+	write((root_path ~ "config/routes.conf").toNativeString(),
+q{#
+# [GET,POST,PUT...]    path    controller.action
+#
+
+GET / index.index
+});
+	// end write
+
 }
 
 private void initVibeDPackage(Path root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
