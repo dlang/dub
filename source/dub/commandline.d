@@ -1243,9 +1243,9 @@ class RemoveCommand : FetchRemoveCommand {
 
 		size_t resolveVersion(in Package[] packages) {
 			writeln("Select version of '", package_id, "' to remove from location '", location, "':");
-			foreach(i, pack; packages)
-				writeln(i, ". ", pack.version_);
-			writeln(packages.length, ". ", "all versions");
+			foreach (i, pack; packages)
+				writefln("%s) %s", i + 1, pack.version_);
+			writeln(packages.length + 1, ") ", "all versions");
 			while (true) {
 				writef("> ");
 				auto inp = readln();
@@ -1253,12 +1253,12 @@ class RemoveCommand : FetchRemoveCommand {
 					return size_t.max;
 				if (inp.length > 1) {
 					try {
-						immutable selection = inp[0 .. $ - 1].to!size_t;
+						immutable selection = inp[0 .. $ - 1].to!size_t - 1;
 						if (selection <= packages.length)
 							return selection;
 					} catch (ConvException e) {
 					}
-					logError("Please enter a number between 0 and %s.", packages.length);
+					logError("Please enter a number between 1 and %s.", packages.length + 1);
 				}
 			}
 		}
