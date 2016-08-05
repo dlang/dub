@@ -1242,6 +1242,10 @@ class RemoveCommand : FetchRemoveCommand {
 		auto location = dub.defaultPlacementLocation;
 
 		size_t resolveVersion(in Package[] packages) {
+			// just remove only package version
+			if (packages.length == 1)
+				return 0;
+
 			writeln("Select version of '", package_id, "' to remove from location '", location, "':");
 			foreach (i, pack; packages)
 				writefln("%s) %s", i + 1, pack.version_);
@@ -1251,19 +1255,23 @@ class RemoveCommand : FetchRemoveCommand {
 				auto inp = readln();
 				if (!inp.length) // Ctrl+D
 					return size_t.max;
-				if (inp.length > 1) {
-					try {
-						immutable selection = inp[0 .. $ - 1].to!size_t - 1;
-						if (selection <= packages.length)
-							return selection;
-					} catch (ConvException e) {
-					}
-					logError("Please enter a number between 1 and %s.", packages.length + 1);
+				inp = inp.stripRight;
+				if (!inp.length) // newline or space
+					continue;
+				try {
+					immutable selection = inp.to!size_t - 1;
+					if (selection <= packages.length)
+						return selection;
+				} catch (ConvException e) {
 				}
+				logError("Please enter a number between 1 and %s.", packages.length + 1);
 			}
 		}
 
-		dub.remove(package_id, m_version, location, m_forceRemove, m_nonInteractive ? null : &resolveVersion);
+		if (m_nonInteractive || !m_version.empty)
+			dub.remove(package_id, m_version, location, m_forceRemove);
+		else
+			dub.remove(package_id, location, m_forceRemove, &resolveVersion);
 		return 0;
 	}
 }
