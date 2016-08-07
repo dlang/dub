@@ -730,16 +730,14 @@ class Dub {
 
 		Params:
 			package_id = Name of the package to be removed
-			version_ = Identifying a version or a wild card. If an empty string
-				is passed, the package will be removed from the location, if
-				there is only one version retrieved. This will throw an
-				exception, if there are multiple versions retrieved.
 			location_ = Specifies the location to look for the given package
 				name/version.
 			force_remove = Forces removal of the package, even if untracked
 				files are found in its folder.
+			resolve_version = Callback to select package version.
 	*/
-	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
+	void remove(string package_id, PlacementLocation location, bool force_remove,
+				scope size_t delegate(in Package[] packages) resolve_version)
 	{
 		enforce(!package_id.empty);
 		if (location == PlacementLocation.local) {
@@ -749,28 +747,24 @@ class Dub {
 		}
 
 		Package[] packages;
-		const bool wildcardOrEmpty = version_ == RemoveVersionWildcard || version_.empty;
 
 		// Retrieve packages to be removed.
 		foreach(pack; m_packageManager.getPackageIterator(package_id))
-			if ((wildcardOrEmpty || pack.version_ == Version(version_)) && m_packageManager.isManagedPackage(pack))
+			if (m_packageManager.isManagedPackage(pack))
 				packages ~= pack;
 
 		// Check validity of packages to be removed.
 		if(packages.empty) {
 			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
+				~ "id: '" ~ package_id ~ "', location: '" ~ to!string(location) ~ "'"
 				~ ")");
 		}
-		if(version_.empty && packages.length > 1) {
-			logError("Cannot remove package '" ~ package_id ~ "', there are multiple possibilities at location\n"
-				~ "'" ~ to!string(location) ~ "'.");
-			logError("Available versions:");
-			foreach(pack; packages)
-				logError("  %s", pack.version_);
-			throw new Exception("Please specify a individual version using --version=... or use the"
-				~ " wildcard --version=" ~ RemoveVersionWildcard ~ " to remove all versions.");
-		}
+
+		immutable idx = resolve_version(packages);
+		if (idx == size_t.max)
+			return;
+		else if (idx != packages.length)
+			packages = packages[idx .. idx + 1];
 
 		logDebug("Removing %s packages.", packages.length);
 		foreach(pack; packages) {
@@ -782,6 +776,43 @@ class Dub {
 				logInfo("Continuing with other packages (if any).");
 			}
 		}
+	}
+
+	/** Removes a specific version of a package.
+
+		Params:
+			package_id = Name of the package to be removed
+			version_ = Identifying a version or a wild card. If an empty string
+				is passed, the package will be removed from the location, if
+				there is only one version retrieved. This will throw an
+				exception, if there are multiple versions retrieved.
+			location_ = Specifies the location to look for the given package
+				name/version.
+			force_remove = Forces removal of the package, even if untracked
+				files are found in its folder.
+	 */
+	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
+	{
+		remove(package_id, location, force_remove, (in packages) {
+			if (version_ == RemoveVersionWildcard)
+				return packages.length;
+			if (version_.empty && packages.length > 1) {
+				logError("Cannot remove package '" ~ package_id ~ "', there are multiple possibilities at location\n"
+						 ~ "'" ~ to!string(location) ~ "'.");
+				logError("Available versions:");
+				foreach(pack; packages)
+					logError("  %s", pack.version_);
+				throw new Exception("Please specify a individual version using --version=... or use the"
+									~ " wildcard --version=" ~ RemoveVersionWildcard ~ " to remove all versions.");
+			}
+			foreach (i, p; packages) {
+				if (p.version_ == Version(version_))
+					return i;
+			}
+			throw new Exception("Cannot find package to remove. ("
+				~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
+				~ ")");
+		});
 	}
 
 	/** Adds a directory to the list of locally known packages.

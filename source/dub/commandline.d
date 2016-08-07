@@ -1213,6 +1213,10 @@ class InstallCommand : FetchCommand {
 }
 
 class RemoveCommand : FetchRemoveCommand {
+	private {
+		bool m_nonInteractive;
+	}
+
 	this()
 	{
 		this.name = "remove";
@@ -1226,6 +1230,7 @@ class RemoveCommand : FetchRemoveCommand {
 	override void prepare(scope CommandArgs args)
 	{
 		super.prepare(args);
+		args.getopt("n|non-interactive", &m_nonInteractive, ["Don't enter interactive mode."]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -1236,7 +1241,37 @@ class RemoveCommand : FetchRemoveCommand {
 		auto package_id = free_args[0];
 		auto location = dub.defaultPlacementLocation;
 
-		dub.remove(package_id, m_version, location, m_forceRemove);
+		size_t resolveVersion(in Package[] packages) {
+			// just remove only package version
+			if (packages.length == 1)
+				return 0;
+
+			writeln("Select version of '", package_id, "' to remove from location '", location, "':");
+			foreach (i, pack; packages)
+				writefln("%s) %s", i + 1, pack.version_);
+			writeln(packages.length + 1, ") ", "all versions");
+			while (true) {
+				writef("> ");
+				auto inp = readln();
+				if (!inp.length) // Ctrl+D
+					return size_t.max;
+				inp = inp.stripRight;
+				if (!inp.length) // newline or space
+					continue;
+				try {
+					immutable selection = inp.to!size_t - 1;
+					if (selection <= packages.length)
+						return selection;
+				} catch (ConvException e) {
+				}
+				logError("Please enter a number between 1 and %s.", packages.length + 1);
+			}
+		}
+
+		if (m_nonInteractive || !m_version.empty)
+			dub.remove(package_id, m_version, location, m_forceRemove);
+		else
+			dub.remove(package_id, location, m_forceRemove, &resolveVersion);
 		return 0;
 	}
 }
