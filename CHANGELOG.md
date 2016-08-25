@@ -1,6 +1,34 @@
 Changelog
 =========
 
+v1.1.0 - 2016-08-
+-------------------
+
+### Features and improvements ###
+
+ - Fixed compilation for DMD master - [pull #891][issue891]
+ - Fixed compliation with the latest vibe.d 0.7.30 alpha versions (avoid `Bson.opDispatch`)
+ - Single-file packages are now built locally unless the shebang syntax is used (still performs a build in the temporary folder in that case) - [issue #887][issue887], [pull #888][issue888]
+ - DUB now searches for a configuration file in "../etc/dub/settings.json" (relative to the executable location), enabling distribution-specific configuration - [issue #895][issue895], [pull #897][issue897]
+ - "dub remove" is now interactive in case of multiple matching package versions - [pull #879][issue879]
+
+### Bug fixes ###
+
+ - Pressing Ctrl+C during "dub init" now doesn't leave a half-initialized package behind - [issue #883][issue883], [pull #884][issue884]
+ - Fixed handling of empty array directives in the SDLang recipe parser (e.g. a single `sourcePaths` directive with no arguments now properly avoids searching for default source directories)
+ - Fixed a bad error message for missing dependencies that are referenced in the root package, as well as from a dependency - [issue #896][issue896]
+
+[issue879]: https://github.com/dlang/dub/issues/879
+[issue883]: https://github.com/dlang/dub/issues/883
+[issue884]: https://github.com/dlang/dub/issues/884
+[issue887]: https://github.com/dlang/dub/issues/887
+[issue888]: https://github.com/dlang/dub/issues/888
+[issue891]: https://github.com/dlang/dub/issues/891
+[issue895]: https://github.com/dlang/dub/issues/895
+[issue896]: https://github.com/dlang/dub/issues/896
+[issue897]: https://github.com/dlang/dub/issues/897
+
+
 v1.0.0 - 2016-06-20
 -------------------
 
