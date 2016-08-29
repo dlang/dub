@@ -1,4 +1,4 @@
-# dub package manager [![Build Status](https://travis-ci.org/dlang/dub.svg?branch=master)](https://travis-ci.org/dlang/dub) [![Coverage Status](https://coveralls.io/repos/dlang/dub/badge.svg)](https://coveralls.io/r/dlang/dub)
+# dub package manager [![GitHub tag](https://img.shields.io/github/tag/dlang/dub.svg?maxAge=86400)](#) [![Build Status](https://travis-ci.org/dlang/dub.svg?branch=master)](https://travis-ci.org/dlang/dub) [![Coverage Status](https://coveralls.io/repos/dlang/dub/badge.svg)](https://coveralls.io/r/dlang/dub) [![Issue Stats](https://img.shields.io/issuestats/p/github/dlang/dub.svg?maxAge=2592000)](http://www.issuestats.com/github/dlang/dub)
 
 Package and build manager for [D](http://dlang.org/) applications and libraries.
 
