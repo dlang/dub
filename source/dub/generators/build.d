@@ -376,7 +376,7 @@ class BuildGenerator : ProjectGenerator {
 
 		foreach (file; allfiles.data) {
 			if (!existsFile(file)) {
-				logDiagnostic("File %s doesn't exists, triggering rebuild.", file);
+				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
 				return false;
 			}
 			auto ftime = getFileInfo(file).timeModified;
