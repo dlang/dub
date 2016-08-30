@@ -503,12 +503,17 @@ class Dub {
 			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
 			settings.config = m_project.getDefaultConfiguration(settings.platform);
 		} else {
+			import std.algorithm : remove;
+
 			logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, test_config, config, lbuildsettings.targetType);
 
 			BuildSettingsTemplate tcinfo = m_project.rootPackage.recipe.getConfiguration(config).buildSettings;
 			tcinfo.targetType = TargetType.executable;
 			tcinfo.targetName = test_config;
-			tcinfo.versions[""] ~= "VibeCustomMain"; // HACK for vibe.d's legacy main() behavior
+			// HACK for vibe.d's legacy main() behavior:
+			tcinfo.versions[""] ~= "VibeCustomMain";
+			m_project.rootPackage.recipe.buildSettings.versions[""] = m_project.rootPackage.recipe.buildSettings.versions.get("", null).remove!(v => v == "VibeDefaultMain");
+			// TODO: remove this ^ once vibe.d has removed the default main implementation
 			string custommodname;
 			if (custom_main_file.length) {
 				import std.path;
