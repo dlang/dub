@@ -56,8 +56,8 @@ class SublimeTextGenerator : ProjectGenerator {
 private Json targetFolderJson(in ProjectGenerator.TargetInfo target)
 {
 	return [
-		"name": target.pack.name.Json,
-		"path": target.pack.path.toNativeString.Json,
+		"name": target.pack.basePackage.name.Json,
+		"path": target.pack.basePackage.path.toNativeString.Json,
 		"follow_symlinks": true.Json,
 		"folder_exclude_patterns": [".dub"].map!Json.array.Json,
 	].Json;
