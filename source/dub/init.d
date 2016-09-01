@@ -158,7 +158,7 @@ private void initDeimosPackage(Path root_path, ref PackageRecipe p, scope void d
 private void writeGitignore(Path root_path)
 {
 	write((root_path ~ ".gitignore").toNativeString(),
-		".dub\ndocs.json\n__dummy.html\n*.o\n*.obj\n");
+		".dub\ndocs.json\n__dummy.html\n*.o\n*.obj\n__test__*__\n");
 }
 
 private string getUserName()
