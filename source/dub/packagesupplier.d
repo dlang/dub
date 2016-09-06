@@ -186,7 +186,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		Json best = getBestPackage(packageId, dep, pre_release);
 		auto vers = best["version"].get!string;
 		auto url = m_registryUrl ~ Path(PackagesPath~"/"~packageId~"/"~vers~".zip");
-		logDiagnostic("Found download URL: '%s'", url);
+		logDiagnostic("Downloading from '%s'", url);
 		download(url, path);
 	}
 

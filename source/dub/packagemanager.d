@@ -342,7 +342,7 @@ class PackageManager {
 		auto package_version = package_info["version"].get!string;
 		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
 
-		logDiagnostic("Placing package '%s' version '%s' to location '%s' from file '%s'",
+		logDebug("Placing package '%s' version '%s' to location '%s' from file '%s'",
 			package_name, package_version, destination.toNativeString(), zip_file_path.toNativeString());
 
 		if( existsFile(destination) ){
@@ -381,7 +381,7 @@ class PackageManager {
 
 		// extract & place
 		mkdirRecurse(destination.toNativeString());
-		logDiagnostic("Copying all files...");
+		logDebug("Copying all files...");
 		int countFiles = 0;
 		foreach(ArchiveMember a; archive.directory) {
 			auto cleanedPath = getCleanedPath(a.name);
@@ -401,7 +401,7 @@ class PackageManager {
 				++countFiles;
 			}
 		}
-		logDiagnostic("%s file(s) copied.", to!string(countFiles));
+		logDebug("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite dub.json (this one includes a version field)
 		auto pack = Package.load(destination, Path.init, null, package_info["version"].get!string);

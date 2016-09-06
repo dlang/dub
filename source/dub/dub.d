@@ -670,7 +670,7 @@ class Dub {
 		else logInfo("Fetching %s %s...", packageId, ver);
 		if (m_dryRun) return null;
 
-		logDiagnostic("Acquiring package zip file");
+		logDebug("Acquiring package zip file");
 
 		auto clean_package_version = ver[ver.startsWith("~") ? 1 : 0 .. $];
 		clean_package_version = clean_package_version.replace("+", "_"); // + has special meaning for Optlink
@@ -696,7 +696,7 @@ class Dub {
 		supplier.fetchPackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 		scope(exit) std.file.remove(path.toNativeString());
 
-		logInfo("Placing %s %s to %s...", packageId, ver, placement.toNativeString());
+		logDiagnostic("Placing to %s...", placement.toNativeString());
 		return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
 	}
 

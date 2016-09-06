@@ -1162,7 +1162,6 @@ private string processVars(string var, in Project project, in Package pack, bool
 	if (is_path) {
 		auto p = Path(var);
 		if (!p.absolute) {
-			logDebug("Fixing relative path: %s ~ %s", pack.path.toNativeString(), p.toNativeString());
 			return (pack.path ~ p).toNativeString();
 		} else return p.toNativeString();
 	} else return var;
