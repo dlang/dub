@@ -52,6 +52,8 @@ class BuildGenerator : ProjectGenerator {
 
 		bool any_cached = false;
 
+		Path[string] target_paths;
+
 		bool[string] visited;
 		void buildTargetRec(string target)
 		{
@@ -68,13 +70,15 @@ class BuildGenerator : ProjectGenerator {
 			foreach (ldep; ti.linkDependencies) {
 				auto dbs = targets[ldep].buildSettings;
 				if (bs.targetType != TargetType.staticLibrary) {
-					bs.addSourceFiles(getTargetPath(dbs, settings).toNativeString());
+					bs.addSourceFiles(target_paths[ldep].toNativeString());
 				} else {
-					additional_dep_files ~= getTargetPath(dbs, settings);
+					additional_dep_files ~= target_paths[ldep];
 				}
 			}
-			if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files))
+			Path tpath;
+			if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, tpath))
 				any_cached = true;
+			target_paths[target] = tpath;
 		}
 
 		// build all targets
@@ -82,7 +86,8 @@ class BuildGenerator : ProjectGenerator {
 		if (settings.rdmd || root_ti.buildSettings.targetType == TargetType.staticLibrary) {
 			// RDMD always builds everything at once and static libraries don't need their
 			// dependencies to be built
-			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null);
+			Path tpath;
+			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null, tpath);
 		} else {
 			buildTargetRec(m_project.rootPackage.name);
 
@@ -106,7 +111,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in Path[] additional_dep_files)
+	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in Path[] additional_dep_files, out Path target_path)
 	{
 		auto cwd = Path(getcwd());
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
@@ -126,9 +131,9 @@ class BuildGenerator : ProjectGenerator {
 
 		// perform the actual build
 		bool cached = false;
-		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config);
-		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config);
-		else cached = performCachedBuild(settings, buildsettings, pack, config, build_id, packages, additional_dep_files);
+		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config, target_path);
+		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config, target_path);
+		else cached = performCachedBuild(settings, buildsettings, pack, config, build_id, packages, additional_dep_files, target_path);
 
 		// HACK: cleanup dummy doc files, we shouldn't specialize on buildType
 		// here and the compiler shouldn't need dummy doc ouput.
@@ -148,7 +153,8 @@ class BuildGenerator : ProjectGenerator {
 		return cached;
 	}
 
-	private bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, string build_id, in Package[] packages, in Path[] additional_dep_files)
+	private bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config,
+		string build_id, in Package[] packages, in Path[] additional_dep_files, out Path target_binary_path)
 	{
 		auto cwd = Path(getcwd());
 
@@ -159,14 +165,16 @@ class BuildGenerator : ProjectGenerator {
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
 			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
-			copyTargetFile(target_path, buildsettings, settings);
+			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
+			if (!settings.tempBuild)
+				copyTargetFile(target_path, buildsettings, settings);
 			return true;
 		}
 
 		if (!isWritableDir(target_path, true)) {
 			if (!settings.tempBuild)
 				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
-			performDirectBuild(settings, buildsettings, pack, config);
+			performDirectBuild(settings, buildsettings, pack, config, target_path);
 			return false;
 		}
 
@@ -184,6 +192,7 @@ class BuildGenerator : ProjectGenerator {
 		auto cbuildsettings = buildsettings;
 		cbuildsettings.targetPath = target_path.relativeTo(cwd).toNativeString();
 		buildWithCompiler(settings, cbuildsettings);
+		target_binary_path = getTargetPath(cbuildsettings, settings);
 
 		if (!settings.tempBuild)
 			copyTargetFile(target_path, buildsettings, settings);
@@ -191,7 +200,7 @@ class BuildGenerator : ProjectGenerator {
 		return false;
 	}
 
-	private void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config)
+	private void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out Path target_path)
 	{
 		auto cwd = Path(getcwd());
 		//Added check for existance of [AppNameInPackagejson].d
@@ -214,7 +223,6 @@ class BuildGenerator : ProjectGenerator {
 		// Create start script, which will be used by the calling bash/cmd script.
 		// build "rdmd --force %DFLAGS% -I%~dp0..\source -Jviews -Isource @deps.txt %LIBS% source\app.d" ~ application arguments
 		// or with "/" instead of "\"
-		Path exe_file_path;
 		bool tmp_target = false;
 		if (generate_binary) {
 			if (settings.tempBuild || (settings.run && !isWritableDir(Path(buildsettings.targetPath), true))) {
@@ -226,7 +234,7 @@ class BuildGenerator : ProjectGenerator {
 				m_temporaryFiles ~= tmpdir;
 				tmp_target = true;
 			}
-			exe_file_path = getTargetPath(buildsettings, settings);
+			target_path = getTargetPath(buildsettings, settings);
 			settings.compiler.setTarget(buildsettings, settings.platform);
 		}
 
@@ -251,13 +259,13 @@ class BuildGenerator : ProjectGenerator {
 		enforce(result == 0, "Build command failed with exit code "~to!string(result));
 
 		if (tmp_target) {
-			m_temporaryFiles ~= exe_file_path;
+			m_temporaryFiles ~= target_path;
 			foreach (f; buildsettings.copyFiles)
 				m_temporaryFiles ~= Path(buildsettings.targetPath).parentPath ~ Path(f).head;
 		}
 	}
 
-	private void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config)
+	private void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out Path target_path)
 	{
 		auto cwd = Path(getcwd());
 
@@ -284,7 +292,6 @@ class BuildGenerator : ProjectGenerator {
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
 
-		Path exe_file_path;
 		bool is_temp_target = false;
 		if (generate_binary) {
 			if (settings.tempBuild || (settings.run && !isWritableDir(Path(buildsettings.targetPath), true))) {
@@ -295,7 +302,7 @@ class BuildGenerator : ProjectGenerator {
 				m_temporaryFiles ~= tmppath;
 				is_temp_target = true;
 			}
-			exe_file_path = getTargetPath(buildsettings, settings);
+			target_path = getTargetPath(buildsettings, settings);
 		}
 
 		if( buildsettings.preBuildCommands.length ){
@@ -306,7 +313,7 @@ class BuildGenerator : ProjectGenerator {
 		buildWithCompiler(settings, buildsettings);
 
 		if (is_temp_target) {
-			m_temporaryFiles ~= exe_file_path;
+			m_temporaryFiles ~= target_path;
 			foreach (f; buildsettings.copyFiles)
 				m_temporaryFiles ~= Path(buildsettings.targetPath).parentPath ~ Path(f).head;
 		}
