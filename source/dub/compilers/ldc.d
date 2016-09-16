@@ -202,7 +202,7 @@ class LDCCompiler : Compiler {
 			case TargetType.dynamicLibrary:
 				version(Windows) settings.addDFlags("-shared");
 				else version(OSX) settings.addDFlags("-shared");
-				else settings.addDFlags("-shared", "-defaultlib=phobos2");
+				else settings.addDFlags("-shared", "-defaultlib=phobos2-ldc");
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
