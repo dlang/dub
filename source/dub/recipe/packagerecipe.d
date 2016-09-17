@@ -94,6 +94,10 @@ struct PackageRecipe {
 				return c;
 		throw new Exception("Unknown configuration: "~name);
 	}
+
+	/** Clones the package recipe recursively.
+	*/
+	PackageRecipe clone() const { return .clone(this); }
 }
 
 struct SubPackage
@@ -254,4 +258,33 @@ struct BuildSettingsTemplate {
 			.warnOnSpecialCompilerFlags(all_dflags, all_options, package_name, config_name);
 		}
 	}
+}
+
+private T clone(T)(ref const(T) val)
+{
+	import std.traits : isSomeString, isDynamicArray, isAssociativeArray, isBasicType, ValueType;
+
+	static if (is(T == immutable)) return val;
+	else static if (isBasicType!T) return val;
+	else static if (isDynamicArray!T) {
+		alias V = typeof(T.init[0]);
+		static if (is(V == immutable)) return val;
+		else {
+			T ret = new V[val.length];
+			foreach (i, ref f; val)
+				ret[i] = clone!V(f);
+			return ret;
+		}
+	} else static if (isAssociativeArray!T) {
+		alias V = ValueType!T;
+		T ret;
+		foreach (k, ref f; val)
+			ret[k] = clone!V(f);
+		return ret;
+	} else static if (is(T == struct)) {
+		T ret;
+		foreach (i, M; typeof(T.tupleof))
+			ret.tupleof[i] = clone!M(val.tupleof[i]);
+		return ret;
+	} else static assert(false, "Unsupported type: "~T.stringof);
 }

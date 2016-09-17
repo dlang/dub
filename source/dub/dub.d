@@ -999,7 +999,7 @@ class Dub {
 			return;
 		}
 
-		writePackageRecipe(srcfile[0 .. $-1] ~ ("dub."~destination_file_ext), m_project.rootPackage.recipe);
+		writePackageRecipe(srcfile[0 .. $-1] ~ ("dub."~destination_file_ext), m_project.rootPackage.rawRecipe);
 		removeFile(srcfile);
 	}
 
