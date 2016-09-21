@@ -986,11 +986,19 @@ class Dub {
 		Params:
 			destination_file_ext = The file extension matching the desired
 				format. Possible values are "json" or "sdl".
+			print_only = Print the converted recipe instead of writing to disk
 	*/
-	void convertRecipe(string destination_file_ext)
+	void convertRecipe(string destination_file_ext, bool print_only = false)
 	{
 		import std.path : extension;
-		import dub.recipe.io : writePackageRecipe;
+		import std.stdio : stdout;
+		import dub.recipe.io : serializePackageRecipe, writePackageRecipe;
+
+		if (print_only) {
+			auto dst = stdout.lockingTextWriter;
+			serializePackageRecipe(dst, m_project.rootPackage.rawRecipe, "dub."~destination_file_ext);
+			return;
+		}
 
 		auto srcfile = m_project.rootPackage.recipePath;
 		auto srcext = srcfile[$-1].toString().extension;

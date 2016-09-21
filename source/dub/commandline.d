@@ -1810,6 +1810,7 @@ class DustmiteCommand : PackageBuildCommand {
 class ConvertCommand : Command {
 	private {
 		string m_format;
+		bool m_stdout;
 	}
 
 	this()
@@ -1827,6 +1828,7 @@ class ConvertCommand : Command {
 	override void prepare(scope CommandArgs args)
 	{
 		args.getopt("f|format", &m_format, ["Specifies the target package recipe format. Possible values:", "  json, sdl"]);
+		args.getopt("s|stdout", &m_stdout, ["Outputs the converted package recipe to stdout instead of writing to disk."]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -1835,7 +1837,7 @@ class ConvertCommand : Command {
 		enforceUsage(free_args.length == 0, "Unexpected arguments: "~free_args.join(" "));
 		enforceUsage(m_format.length > 0, "Missing target format file extension (--format=...).");
 		if (!loadCwdPackage(dub, true)) return 1;
-		dub.convertRecipe(m_format);
+		dub.convertRecipe(m_format, m_stdout);
 		return 0;
 	}
 }
