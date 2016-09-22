@@ -1,0 +1,13 @@
+name "a"
+
+dependency ":foo" version="*"
+
+subPackage {
+	name "foo"
+	dependency "b" version="*"
+}
+
+subPackage {
+	name "bar"
+	dependency "a" version="*"
+}

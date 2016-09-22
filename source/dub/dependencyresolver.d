@@ -253,10 +253,12 @@ class DependencyResolver(CONFIGS, CONFIG) {
 	private void purgeOptionalDependencies(TreeNode root, ref CONFIG[string] configs)
 	{
 		bool[string] required;
+		bool[string] visited;
 
 		void markRecursively(TreeNode node)
 		{
-			if (node.pack in required) return;
+			if (node.pack in visited) return;
+			visited[node.pack] = true;
 			required[basePackage(node.pack)] = true;
 			foreach (dep; getChildren(node).filter!(dep => dep.depType != DependencyType.optional))
 				if (auto dp = basePackage(dep.pack) in configs)
