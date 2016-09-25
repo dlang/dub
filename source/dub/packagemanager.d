@@ -547,7 +547,7 @@ class PackageManager {
 								auto infoFile = Package.findPackageFile(path);
 								if (!infoFile.empty) pp = Package.load(path, infoFile);
 								else {
-									logWarn("Locally registered package %s %s was not found. Please run \"dub remove-local %s\".",
+									logWarn("Locally registered package %s %s was not found. Please run 'dub remove-local \"%s\"'.",
 										name, ver, path.toNativeString());
 									auto info = Json.emptyObject;
 									info["name"] = name;

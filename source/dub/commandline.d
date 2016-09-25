@@ -1384,7 +1384,8 @@ class RemoveLocalCommand : RegistrationCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		enforceUsage(free_args.length == 1, "Missing path to package.");
+		enforceUsage(free_args.length >= 1, "Missing package path argument.");
+		enforceUsage(free_args.length <= 1, "Expected the package path to be the only argument.");
 		dub.removeLocalPackage(free_args[0], m_system);
 		return 0;
 	}
