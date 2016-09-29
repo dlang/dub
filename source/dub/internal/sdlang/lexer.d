@@ -13,7 +13,7 @@ import std.bigint;
 import std.conv;
 import std.datetime;
 import std.file;
-import std.stream : ByteOrderMarks, BOM;
+import std.encoding : getBOM, BOM;
 import std.traits;
 import std.typecons;
 import std.uni;
@@ -131,15 +131,11 @@ class Lexer
 		_front = Token(symbol!"Error", Location());
 		lookaheadTokenInfo = LookaheadTokenInfo.init;
 
-		if( source.startsWith( ByteOrderMarks[BOM.UTF8] ) )
-		{
-			source = source[ ByteOrderMarks[BOM.UTF8].length .. $ ];
-			this.source = source;
-		}
-		
-		foreach(bom; ByteOrderMarks)
-		if( source.startsWith(bom) )
+		auto bom = getBOM(cast(ubyte[])source);
+		if(bom.schema != BOM.utf8)
 			error(Location(filename,0,0,0), "SDL spec only supports UTF-8, not UTF-16 or UTF-32");
+
+		source = source[bom.sequence.length .. $];
 		
 		if(source == "")
 			mixin(accept!"EOF");
