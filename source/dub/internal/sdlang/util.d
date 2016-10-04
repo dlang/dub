@@ -85,3 +85,21 @@ string toString(TypeInfo ti)
 	
 	return "{unknown}";
 }
+
+enum BOM {
+	UTF8,           /// UTF-8
+	UTF16LE,        /// UTF-16 (little-endian)
+	UTF16BE,        /// UTF-16 (big-endian)
+	UTF32LE,        /// UTF-32 (little-endian)
+	UTF32BE,        /// UTF-32 (big-endian)
+}
+
+enum NBOM = __traits(allMembers, BOM).length;
+immutable ubyte[][NBOM] ByteOrderMarks =
+[
+	[0xEF, 0xBB, 0xBF],         //UTF8
+	[0xFF, 0xFE],               //UTF16LE
+	[0xFE, 0xFF],               //UTF16BE
+	[0xFF, 0xFE, 0x00, 0x00],   //UTF32LE
+	[0x00, 0x00, 0xFE, 0xFF]    //UTF32BE
+];

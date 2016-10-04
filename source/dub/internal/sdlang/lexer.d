@@ -13,7 +13,6 @@ import std.bigint;
 import std.conv;
 import std.datetime;
 import std.file;
-import std.stream : ByteOrderMarks, BOM;
 import std.traits;
 import std.typecons;
 import std.uni;
@@ -1268,7 +1267,7 @@ class Lexer
 			
 			try
 			{
-				auto timezone = TimeZone.getTimeZone(timezoneStr);
+				auto timezone = PosixTimeZone.getTimeZone(timezoneStr);
 				if(timezone) {
 					static if (__VERSION__ >= 2067) auto fsecs = dateTimeFrac.fracSecs;
 					else auto fsecs = FracSec.from!"hnsecs"(dateTimeFrac.fracSecs.total!"hnsecs");
