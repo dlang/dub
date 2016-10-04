@@ -1820,7 +1820,7 @@ class ConvertCommand : Command {
 		this.argumentsPattern = "";
 		this.description = "Converts the file format of the package recipe.";
 		this.helpText = [
-			"This command will convert between JSON and SDLang formatted package recipe files."
+			"This command will convert between JSON and SDLang formatted package recipe files.",
 			"",
 			"Warning: Beware that any formatting and comments within the package recipe will get lost in the conversion process."
 		];
