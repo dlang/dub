@@ -7,6 +7,9 @@
 */
 module dub.internal.taggedalgebraic;
 
+version (Have_taggedalgebraic) public import taggedalgebraic;
+else:
+
 import std.typetuple;
 
 // TODO:
