@@ -33,7 +33,7 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 	// parse top-level fields
 	foreach (n; sdl.all.tags) {
 		enforceSDL(n.name.length > 0, "Anonymous tags are not allowed at the root level.", n);
-		switch (n.fullName) {
+		switch (n.getFullName.toString()) {
 			default: break;
 			case "name": recipe.name = n.stringTagValue; break;
 			case "version": recipe.version_ = n.stringTagValue; break;
@@ -127,7 +127,7 @@ private void parseBuildSettings(Tag settings, ref BuildSettingsTemplate bs, stri
 
 private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string package_name)
 {
-	switch (setting.fullName) {
+	switch (setting.getFullName.toString()) {
 		default: break;
 		case "dependency": parseDependency(setting, bs, package_name); break;
 		case "systemDependencies": bs.systemDependencies = setting.stringTagValue; break;
@@ -196,7 +196,7 @@ private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package
 {
 	ret.name = t.stringTagValue(true);
 	foreach (f; t.tags) {
-		switch (f.fullName) {
+		switch (f.getFullName.toString()) {
 			default: parseBuildSetting(f, ret.buildSettings, package_name); break;
 			case "platforms": ret.platforms ~= f.stringArrayTagValue; break;
 		}
@@ -275,25 +275,25 @@ private string expandPackageName(string name, string parent_name, Tag tag)
 private string stringTagValue(Tag t, bool allow_child_tags = false)
 {
 	import std.string : format;
-	enforceSDL(t.values.length > 0, format("Missing string value for '%s'.", t.fullName), t);
-	enforceSDL(t.values.length == 1, format("Expected only one value for '%s'.", t.fullName), t);
-	enforceSDL(t.values[0].peek!string !is null, format("Expected value of type string for '%s'.", t.fullName), t);
-	enforceSDL(allow_child_tags || t.tags.length == 0, format("No child tags allowed for '%s'.", t.fullName), t);
+	enforceSDL(t.values.length > 0, format("Missing string value for '%s'.", t.getFullName.toString()), t);
+	enforceSDL(t.values.length == 1, format("Expected only one value for '%s'.", t.getFullName.toString()), t);
+	enforceSDL(t.values[0].peek!string !is null, format("Expected value of type string for '%s'.", t.getFullName.toString()), t);
+	enforceSDL(allow_child_tags || t.tags.length == 0, format("No child tags allowed for '%s'.", t.getFullName.toString()), t);
 	// Q: should attributes be disallowed, or just ignored for forward compatibility reasons?
-	//enforceSDL(t.attributes.length == 0, format("No attributes allowed for '%s'.", t.fullName), t);
+	//enforceSDL(t.attributes.length == 0, format("No attributes allowed for '%s'.", t.getFullName.toString()), t);
 	return t.values[0].get!string;
 }
 
 private string[] stringArrayTagValue(Tag t, bool allow_child_tags = false)
 {
 	import std.string : format;
-	enforceSDL(allow_child_tags || t.tags.length == 0, format("No child tags allowed for '%s'.", t.fullName), t);
+	enforceSDL(allow_child_tags || t.tags.length == 0, format("No child tags allowed for '%s'.", t.getFullName.toString()), t);
 	// Q: should attributes be disallowed, or just ignored for forward compatibility reasons?
-	//enforceSDL(t.attributes.length == 0, format("No attributes allowed for '%s'.", t.fullName), t);
+	//enforceSDL(t.attributes.length == 0, format("No attributes allowed for '%s'.", t.getFullName.toString()), t);
 
 	string[] ret;
 	foreach (v; t.values) {
-		enforceSDL(t.values[0].peek!string !is null, format("Values for '%s' must be strings.", t.fullName), t);
+		enforceSDL(t.values[0].peek!string !is null, format("Values for '%s' must be strings.", t.getFullName.toString()), t);
 		ret ~= v.get!string;
 	}
 	return ret;
@@ -325,7 +325,6 @@ private void enforceSDL(bool condition, lazy string message, Tag tag, string fil
 		throw new Exception(format("%s(%s): Error: %s", tag.location.file, tag.location.line, message), file, line);
 	}
 }
-
 
 unittest { // test all possible fields
 	auto sdl =

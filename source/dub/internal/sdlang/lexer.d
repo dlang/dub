@@ -1273,7 +1273,7 @@ class Lexer
 			
 			try
 			{
-				auto timezone = TimeZone.getTimeZone(timezoneStr);
+				auto timezone = PosixTimeZone.getTimeZone(timezoneStr);
 				if(timezone)
 					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, dateTimeFrac.fracSecs, timezone)"));
 			}
