@@ -2,7 +2,7 @@
 // Written in the D programming language.
 
 /++
-$(H2 SDLang-D v0.9.3)
+$(H2 SDLang-D v0.10.0)
 
 Library for parsing and generating SDL (Simple Declarative Language).
 
@@ -14,15 +14,16 @@ file included with your version of SDLang-D.
 
 Links:
 $(UL
+	$(LI $(LINK2 http://sdlang.org/, SDLang Language Homepage) )
 	$(LI $(LINK2 https://github.com/Abscissa/SDLang-D, SDLang-D Homepage) )
 	$(LI $(LINK2 http://semitwist.com/sdlang-d, SDLang-D API Reference (latest version) ) )
 	$(LI $(LINK2 http://semitwist.com/sdlang-d-docs, SDLang-D API Reference (earlier versions) ) )
-	$(LI $(LINK2 http://sdl.ikayzo.org/display/SDL/Language+Guide, Official SDL Site) [$(LINK2 http://semitwist.com/sdl-mirror/Language+Guide.html, mirror)] )
+	$(LI $(LINK2 http://sdl.ikayzo.org/display/SDL/Language+Guide, Old Official SDL Site) [$(LINK2 http://semitwist.com/sdl-mirror/Language+Guide.html, mirror)] )
 )
 
 Authors: Nick Sabalausky ("Abscissa") http://semitwist.com/contact
 Copyright:
-Copyright (C) 2012-2015 Nick Sabalausky.
+Copyright (C) 2012-2016 Nick Sabalausky.
 
 License: $(LINK2 https://github.com/Abscissa/SDLang-D/blob/master/LICENSE.txt, zlib/libpng)
 +/
@@ -52,10 +53,10 @@ public import dub.internal.sdlang.parser    : parseFile, parseSource;
 public import dub.internal.sdlang.token     : Value, Token, DateTimeFrac, DateTimeFracUnknownZone;
 public import dub.internal.sdlang.util      : sdlangVersion, Location;
 
-version(sdlangUnittest)
+version(sdlangUsingBuiltinTestRunner)
 	void main() {}
 
-version(sdlangTestApp)
+version(sdlangCliApp)
 {
 	int main(string[] args)
 	{
@@ -80,7 +81,7 @@ version(sdlangTestApp)
 			else
 				doToSDL(filename);
 		}
-		catch(SDLangParseException e)
+		catch(ParseException e)
 		{
 			stderr.writeln(e.msg);
 			return 1;

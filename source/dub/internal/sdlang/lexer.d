@@ -8,12 +8,13 @@ else:
 
 import std.algorithm;
 import std.array;
+static import std.ascii;
 import std.base64;
 import std.bigint;
 import std.conv;
 import std.datetime;
 import std.file;
-import std.stream : ByteOrderMarks, BOM;
+import std.format;
 import std.traits;
 import std.typecons;
 import std.uni;
@@ -112,7 +113,7 @@ class Lexer
 	// found after it needs to be saved for the the lexer's next iteration.
 	// 
 	// It's a slight kludge, and could instead be implemented as a slightly
-	// kludgey parser hack, but it's the only situation where SDL's lexing
+	// kludgey parser hack, but it's the only situation where SDLang's lexing
 	// needs to lookahead more than one character, so this is good enough.
 	private struct LookaheadTokenInfo
 	{
@@ -173,9 +174,10 @@ class Lexer
 		error(location, msg);
 	}
 
+	//TODO: Take varargs and use output range sink.
 	private void error(Location loc, string msg)
 	{
-		throw new SDLangParseException(loc, "Error: "~msg);
+		throw new ParseException(loc, "Error: "~msg);
 	}
 
 	private Token makeToken(string symbolName)()
@@ -443,8 +445,14 @@ class Lexer
 
 		else
 		{
+			if(ch == ',')
+				error("Unexpected comma: SDLang is not a comma-separated format.");
+			else if(std.ascii.isPrintable(ch))
+				error(text("Unexpected: ", ch));
+			else
+				error("Unexpected character code 0x%02X".format(ch));
+
 			advanceChar(ErrorOnEOF.No);
-			error("Syntax error");
 		}
 	}
 
@@ -735,8 +743,7 @@ class Lexer
 			//Base64.decode(Base64InputRange(this), OutputBuf());
 			Base64.decode(tmpBuf, OutputBuf());
 
-		//TODO: Starting with dmd 2.062, this should be a Base64Exception
-		catch(Exception e)
+		catch(Base64Exception e)
 			error("Invalid character in base64 binary literal.");
 		
 		advanceChar(ErrorOnEOF.No); // Skip ']'
@@ -1260,20 +1267,15 @@ class Lexer
 				else
 				{
 					auto timezone = new immutable SimpleTimeZone(offset.get());
-					static if (__VERSION__ >= 2067) auto fsecs = dateTimeFrac.fracSecs;
-					else auto fsecs = FracSec.from!"hnsecs"(dateTimeFrac.fracSecs.total!"hnsecs");
-					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, fsecs, timezone)"));
+					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, dateTimeFrac.fracSecs, timezone)"));
 				}
 			}
 			
 			try
 			{
 				auto timezone = TimeZone.getTimeZone(timezoneStr);
-				if(timezone) {
-					static if (__VERSION__ >= 2067) auto fsecs = dateTimeFrac.fracSecs;
-					else auto fsecs = FracSec.from!"hnsecs"(dateTimeFrac.fracSecs.total!"hnsecs");
-					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, fsecs, timezone)"));
-				}
+				if(timezone)
+					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, dateTimeFrac.fracSecs, timezone)"));
 			}
 			catch(TimeException e)
 			{
@@ -1461,13 +1463,17 @@ class Lexer
 	}
 }
 
-version(sdlangUnittest)
+version(unittest)
 {
 	import std.stdio;
+
+	version(Have_unit_threaded) import unit_threaded;
+	else                        { enum DontTest; }
 
 	private auto loc  = Location("filename", 0, 0, 0);
 	private auto loc2 = Location("a", 1, 1, 1);
 
+	@("lexer: EOL")
 	unittest
 	{
 		assert([Token(symbol!"EOL",loc)             ] == [Token(symbol!"EOL",loc)              ] );
@@ -1475,18 +1481,19 @@ version(sdlangUnittest)
 	}
 
 	private int numErrors = 0;
+	@DontTest
 	private void testLex(string source, Token[] expected, bool test_locations = false, string file=__FILE__, size_t line=__LINE__)
 	{
 		Token[] actual;
 		try
 			actual = lexSource(source, "filename");
-		catch(SDLangParseException e)
+		catch(ParseException e)
 		{
 			numErrors++;
 			stderr.writeln(file, "(", line, "): testLex failed on: ", source);
 			stderr.writeln("    Expected:");
 			stderr.writeln("        ", expected);
-			stderr.writeln("    Actual: SDLangParseException thrown:");
+			stderr.writeln("    Actual: ParseException thrown:");
 			stderr.writeln("        ", e.msg);
 			return;
 		}
@@ -1530,26 +1537,23 @@ version(sdlangUnittest)
 		Token[] actual;
 		try
 			actual = lexSource(source, "filename");
-		catch(SDLangParseException e)
+		catch(ParseException e)
 			hadException = true;
 
 		if(!hadException)
 		{
 			numErrors++;
 			stderr.writeln(file, "(", line, "): testLex failed on: ", source);
-			stderr.writeln("    Expected SDLangParseException");
+			stderr.writeln("    Expected ParseException");
 			stderr.writeln("    Actual:");
 			stderr.writeln("        ", actual);
 		}
 	}
 }
 
-version(sdlangUnittest)
+@("sdlang lexer")
 unittest
 {
-	writeln("Unittesting sdlang lexer...");
-	stdout.flush();
-	
 	testLex("",        []);
 	testLex(" ",       []);
 	testLex("\\\n",    []);
@@ -1731,6 +1735,7 @@ unittest
 	testLex("\"hello \\  \n world\"",   [ Token(symbol!"Value",loc,Value("hello world"   )) ]);
 	testLex("\"hello \\  \n\n world\"", [ Token(symbol!"Value",loc,Value("hello world"   )) ]);
 	testLex(`"\"hello world\""`,        [ Token(symbol!"Value",loc,Value(`"hello world"` )) ]);
+	testLex(`""`,                       [ Token(symbol!"Value",loc,Value(""              )) ]); // issue #34
 
 	testLexThrows("\"hello \n world\"");
 	testLexThrows(`"foo`);
@@ -1793,18 +1798,18 @@ unittest
 	testLex( "2013/2/22 -07:53",       [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 0,  0,  0) - hours(7) - minutes(53)))) ]);
 	testLex("-2013/2/22 -07:53",       [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime(-2013, 2, 22, 0,  0,  0) - hours(7) - minutes(53)))) ]);
 	testLex( "2013/2/22 07:53:34",     [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 7, 53, 34)))) ]);
-	testLex( "2013/2/22 07:53:34.123", [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 7, 53, 34), FracSec.from!"msecs"(123)))) ]);
-	testLex( "2013/2/22 07:53:34.12",  [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 7, 53, 34), FracSec.from!"msecs"(120)))) ]);
-	testLex( "2013/2/22 07:53:34.1",   [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 7, 53, 34), FracSec.from!"msecs"(100)))) ]);
-	testLex( "2013/2/22 07:53.123",    [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 7, 53,  0), FracSec.from!"msecs"(123)))) ]);
+	testLex( "2013/2/22 07:53:34.123", [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 7, 53, 34), 123.msecs))) ]);
+	testLex( "2013/2/22 07:53:34.12",  [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 7, 53, 34), 120.msecs))) ]);
+	testLex( "2013/2/22 07:53:34.1",   [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 7, 53, 34), 100.msecs))) ]);
+	testLex( "2013/2/22 07:53.123",    [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 7, 53,  0), 123.msecs))) ]);
 
 	testLex( "2013/2/22 34:65",        [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 0, 0, 0) + hours(34) + minutes(65) + seconds( 0)))) ]);
-	testLex( "2013/2/22 34:65:77.123", [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 0, 0, 0) + hours(34) + minutes(65) + seconds(77), FracSec.from!"msecs"(123)))) ]);
-	testLex( "2013/2/22 34:65.123",    [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 0, 0, 0) + hours(34) + minutes(65) + seconds( 0), FracSec.from!"msecs"(123)))) ]);
+	testLex( "2013/2/22 34:65:77.123", [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 0, 0, 0) + hours(34) + minutes(65) + seconds(77), 123.msecs))) ]);
+	testLex( "2013/2/22 34:65.123",    [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 0, 0, 0) + hours(34) + minutes(65) + seconds( 0), 123.msecs))) ]);
 
 	testLex( "2013/2/22 -34:65",        [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 0, 0, 0) - hours(34) - minutes(65) - seconds( 0)))) ]);
-	testLex( "2013/2/22 -34:65:77.123", [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 0, 0, 0) - hours(34) - minutes(65) - seconds(77), FracSec.from!"msecs"(-123)))) ]);
-	testLex( "2013/2/22 -34:65.123",    [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 0, 0, 0) - hours(34) - minutes(65) - seconds( 0), FracSec.from!"msecs"(-123)))) ]);
+	testLex( "2013/2/22 -34:65:77.123", [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 0, 0, 0) - hours(34) - minutes(65) - seconds(77), -123.msecs))) ]);
+	testLex( "2013/2/22 -34:65.123",    [ Token(symbol!"Value",loc,Value(DateTimeFrac(DateTime( 2013, 2, 22, 0, 0, 0) - hours(34) - minutes(65) - seconds( 0), -123.msecs))) ]);
 
 	testLexThrows("2013/2/22 07:53a");
 	testLexThrows("2013/2/22 07:53f");
@@ -1852,16 +1857,16 @@ unittest
 	testLex( "2013/2/22 07:53:34-GMT+00:00",     [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53, 34), new immutable SimpleTimeZone( hours(0)            )))) ]);
 	testLex( "2013/2/22 07:53:34-GMT+02:10",     [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53, 34), new immutable SimpleTimeZone( hours(2)+minutes(10))))) ]);
 	testLex( "2013/2/22 07:53:34-GMT-05:30",     [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53, 34), new immutable SimpleTimeZone(-hours(5)-minutes(30))))) ]);
-	testLex( "2013/2/22 07:53:34.123-GMT+00:00", [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53, 34), FracSec.from!"msecs"(123), new immutable SimpleTimeZone( hours(0)            )))) ]);
-	testLex( "2013/2/22 07:53:34.123-GMT+02:10", [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53, 34), FracSec.from!"msecs"(123), new immutable SimpleTimeZone( hours(2)+minutes(10))))) ]);
-	testLex( "2013/2/22 07:53:34.123-GMT-05:30", [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53, 34), FracSec.from!"msecs"(123), new immutable SimpleTimeZone(-hours(5)-minutes(30))))) ]);
-	testLex( "2013/2/22 07:53.123-GMT+00:00",    [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53,  0), FracSec.from!"msecs"(123), new immutable SimpleTimeZone( hours(0)            )))) ]);
-	testLex( "2013/2/22 07:53.123-GMT+02:10",    [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53,  0), FracSec.from!"msecs"(123), new immutable SimpleTimeZone( hours(2)+minutes(10))))) ]);
-	testLex( "2013/2/22 07:53.123-GMT-05:30",    [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53,  0), FracSec.from!"msecs"(123), new immutable SimpleTimeZone(-hours(5)-minutes(30))))) ]);
+	testLex( "2013/2/22 07:53:34.123-GMT+00:00", [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53, 34), 123.msecs, new immutable SimpleTimeZone( hours(0)            )))) ]);
+	testLex( "2013/2/22 07:53:34.123-GMT+02:10", [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53, 34), 123.msecs, new immutable SimpleTimeZone( hours(2)+minutes(10))))) ]);
+	testLex( "2013/2/22 07:53:34.123-GMT-05:30", [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53, 34), 123.msecs, new immutable SimpleTimeZone(-hours(5)-minutes(30))))) ]);
+	testLex( "2013/2/22 07:53.123-GMT+00:00",    [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53,  0), 123.msecs, new immutable SimpleTimeZone( hours(0)            )))) ]);
+	testLex( "2013/2/22 07:53.123-GMT+02:10",    [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53,  0), 123.msecs, new immutable SimpleTimeZone( hours(2)+minutes(10))))) ]);
+	testLex( "2013/2/22 07:53.123-GMT-05:30",    [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 7, 53,  0), 123.msecs, new immutable SimpleTimeZone(-hours(5)-minutes(30))))) ]);
 
 	testLex( "2013/2/22 -34:65-GMT-05:30",       [ Token(symbol!"Value",loc,Value(SysTime(DateTime( 2013, 2, 22, 0,  0,  0) - hours(34) - minutes(65) - seconds( 0), new immutable SimpleTimeZone(-hours(5)-minutes(30))))) ]);
 
-	// DateTime, with Java SDL's occasionally weird interpretation of some
+	// DateTime, with Java SDLang's occasionally weird interpretation of some
 	// "not quite ISO" variations of the "GMT with offset" timezone strings.
 	Token testTokenSimpleTimeZone(Duration d)
 	{
@@ -1872,7 +1877,7 @@ unittest
 	Token testTokenUnknownTimeZone(string tzName)
 	{
 		auto dateTime = DateTime(2013, 2, 22, 7, 53, 0);
-		auto frac = FracSec.from!"msecs"(0);
+		auto frac = 0.msecs;
 		return Token( symbol!"Value", loc, Value(DateTimeFracUnknownZone(dateTime,frac,tzName)) );
 	}
 	testLex("2013/2/22 07:53-GMT+",          [ testTokenUnknownTimeZone("GMT+")     ]);
@@ -1913,13 +1918,13 @@ unittest
 	testLex("2013/2/22 07:53-GMT+00004:003", [ testTokenUnknownTimeZone("GMT+00004:003") ]);
 
 	// DateTime, with unknown timezone
-	testLex( "2013/2/22 07:53-Bogus/Foo",        [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime( 2013, 2, 22, 7, 53,  0), FracSec.from!"msecs"(  0), "Bogus/Foo")), "2013/2/22 07:53-Bogus/Foo") ]);
-	testLex("-2013/2/22 07:53-Bogus/Foo",        [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime(-2013, 2, 22, 7, 53,  0), FracSec.from!"msecs"(  0), "Bogus/Foo"))) ]);
-	testLex( "2013/2/22 -07:53-Bogus/Foo",       [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime( 2013, 2, 22, 0,  0,  0) - hours(7) - minutes(53), FracSec.from!"msecs"(  0), "Bogus/Foo"))) ]);
-	testLex("-2013/2/22 -07:53-Bogus/Foo",       [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime(-2013, 2, 22, 0,  0,  0) - hours(7) - minutes(53), FracSec.from!"msecs"(  0), "Bogus/Foo"))) ]);
-	testLex( "2013/2/22 07:53:34-Bogus/Foo",     [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime( 2013, 2, 22, 7, 53, 34), FracSec.from!"msecs"(  0), "Bogus/Foo"))) ]);
-	testLex( "2013/2/22 07:53:34.123-Bogus/Foo", [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime( 2013, 2, 22, 7, 53, 34), FracSec.from!"msecs"(123), "Bogus/Foo"))) ]);
-	testLex( "2013/2/22 07:53.123-Bogus/Foo",    [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime( 2013, 2, 22, 7, 53,  0), FracSec.from!"msecs"(123), "Bogus/Foo"))) ]);
+	testLex( "2013/2/22 07:53-Bogus/Foo",        [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime( 2013, 2, 22, 7, 53,  0),   0.msecs, "Bogus/Foo")), "2013/2/22 07:53-Bogus/Foo") ]);
+	testLex("-2013/2/22 07:53-Bogus/Foo",        [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime(-2013, 2, 22, 7, 53,  0),   0.msecs, "Bogus/Foo"))) ]);
+	testLex( "2013/2/22 -07:53-Bogus/Foo",       [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime( 2013, 2, 22, 0,  0,  0) - hours(7) - minutes(53), 0.msecs, "Bogus/Foo"))) ]);
+	testLex("-2013/2/22 -07:53-Bogus/Foo",       [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime(-2013, 2, 22, 0,  0,  0) - hours(7) - minutes(53), 0.msecs, "Bogus/Foo"))) ]);
+	testLex( "2013/2/22 07:53:34-Bogus/Foo",     [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime( 2013, 2, 22, 7, 53, 34),   0.msecs, "Bogus/Foo"))) ]);
+	testLex( "2013/2/22 07:53:34.123-Bogus/Foo", [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime( 2013, 2, 22, 7, 53, 34), 123.msecs, "Bogus/Foo"))) ]);
+	testLex( "2013/2/22 07:53.123-Bogus/Foo",    [ Token(symbol!"Value",loc,Value(DateTimeFracUnknownZone(DateTime( 2013, 2, 22, 7, 53,  0), 123.msecs, "Bogus/Foo"))) ]);
 
 	// Time Span
 	testLex( "12:14:42",         [ Token(symbol!"Value",loc,Value( days( 0)+hours(12)+minutes(14)+seconds(42)+msecs(  0))) ]);
@@ -2006,23 +2011,17 @@ unittest
 		stderr.writeln(numErrors, " failed test(s)");
 }
 
-version(sdlangUnittest)
+@("lexer: Regression test issue #8")
 unittest
 {
-	writeln("lexer: Regression test issue #8...");
-	stdout.flush();
-
 	testLex(`"\n \n"`, [ Token(symbol!"Value",loc,Value("\n \n"),`"\n \n"`) ]);
 	testLex(`"\t\t"`, [ Token(symbol!"Value",loc,Value("\t\t"),`"\t\t"`) ]);
 	testLex(`"\n\n"`, [ Token(symbol!"Value",loc,Value("\n\n"),`"\n\n"`) ]);
 }
 
-version(sdlangUnittest)
+@("lexer: Regression test issue #11")
 unittest
 {
-	writeln("lexer: Regression test issue #11...");
-	stdout.flush();
-	
 	void test(string input)
 	{
 		testLex(
@@ -2040,12 +2039,9 @@ unittest
 	test("#\na");
 }
 
-version(sdlangUnittest)
+@("ast: Regression test issue #28")
 unittest
 {
-	writeln("lexer: Regression test issue #28...");
-	stdout.flush();
-
 	enum offset = 1; // workaround for an of-by-one error for line numbers
 	testLex("test", [
 		Token(symbol!"Ident", Location("filename", 0, 0, 0), Value(null), "test")

@@ -41,7 +41,7 @@ private Symbol _symbol(string name)
 /// This only represents terminals. Nonterminal tokens aren't
 /// constructed since the AST is built directly during parsing.
 ///
-/// You can't create a Symbol directly. Instead, use the 'symbol'
+/// You can't create a Symbol directly. Instead, use the `symbol`
 /// template.
 struct Symbol
 {

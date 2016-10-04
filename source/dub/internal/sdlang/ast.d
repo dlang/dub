@@ -12,13 +12,6 @@ import std.conv;
 import std.range;
 import std.string;
 
-version(sdlangUnittest)
-version(unittest)
-{
-	import std.stdio;
-	import std.exception;
-}
-
 import dub.internal.sdlang.exception;
 import dub.internal.sdlang.token;
 import dub.internal.sdlang.util;
@@ -30,7 +23,7 @@ class Attribute
 	
 	private Tag _parent;
 	/// Get parent tag. To set a parent, attach this Attribute to its intended
-	/// parent tag by calling 'Tag.add(...)', or by passing it to
+	/// parent tag by calling `Tag.add(...)`, or by passing it to
 	/// the parent tag's constructor.
 	@property Tag parent()
 	{
@@ -38,11 +31,20 @@ class Attribute
 	}
 
 	private string _namespace;
+	/++
+	This tag's namespace. Empty string if no namespace.
+	
+	Note that setting this value is O(n) because internal lookup structures 
+	need to be updated.
+	
+	Note also, that setting this may change where this tag is ordered among
+	its parent's list of tags.
+	+/
 	@property string namespace()
 	{
 		return _namespace;
 	}
-	/// Not particularly efficient, but it works.
+	///ditto
 	@property void namespace(string value)
 	{
 		if(_parent && _namespace != value)
@@ -64,12 +66,22 @@ class Attribute
 	}
 	
 	private string _name;
-	/// Not including namespace. Use 'fullName' if you want the namespace included.
+	/++
+	This attribute's name, not including namespace.
+	
+	Use `getFullName().toString` if you want the namespace included.
+	
+	Note that setting this value is O(n) because internal lookup structures 
+	need to be updated.
+
+	Note also, that setting this may change where this attribute is ordered
+	among its parent's list of tags.
+	+/
 	@property string name()
 	{
 		return _name;
 	}
-	/// Not the most efficient, but it works.
+	///ditto
 	@property void name(string value)
 	{
 		if(_parent && _name != value)
@@ -99,9 +111,17 @@ class Attribute
 			_name = value;
 	}
 
+	/// This tag's name, including namespace if one exists.
+	deprecated("Use 'getFullName().toString()'")
 	@property string fullName()
 	{
-		return _namespace==""? _name : text(_namespace, ":", _name);
+		return getFullName().toString();
+	}
+	
+	/// This tag's name, including namespace if one exists.
+	FullName getFullName()
+	{
+		return FullName(_namespace, _name);
 	}
 
 	this(string namespace, string name, Value value, Location location = Location(0, 0, 0))
@@ -120,7 +140,14 @@ class Attribute
 		this.value      = value;
 	}
 	
-	/// Removes 'this' from its parent, if any. Returns 'this' for chaining.
+	/// Copy this Attribute.
+	/// The clone does $(B $(I not)) have a parent, even if the original does.
+	Attribute clone()
+	{
+		return new Attribute(_namespace, _name, value, location);
+	}
+	
+	/// Removes `this` from its parent, if any. Returns `this` for chaining.
 	/// Inefficient ATM, but it works.
 	Attribute remove()
 	{
@@ -193,14 +220,31 @@ class Attribute
 	}
 }
 
+/// Deep-copy an array of Tag or Attribute.
+/// The top-level clones are $(B $(I not)) attached to any parent, even if the originals are.
+T[] clone(T)(T[] arr) if(is(T==Tag) || is(T==Attribute))
+{
+	T[] newArr;
+	newArr.length = arr.length;
+	
+	foreach(i; 0..arr.length)
+		newArr[i] = arr[i].clone();
+	
+	return newArr;
+}
+
 class Tag
 {
+	/// File/Line/Column/Index information for where this tag was located in
+	/// its original SDLang file.
 	Location location;
+	
+	/// Access all this tag's values, as an array of type `sdlang.token.Value`.
 	Value[]  values;
 
 	private Tag _parent;
 	/// Get parent tag. To set a parent, attach this Tag to its intended
-	/// parent tag by calling 'Tag.add(...)', or by passing it to
+	/// parent tag by calling `Tag.add(...)`, or by passing it to
 	/// the parent tag's constructor.
 	@property Tag parent()
 	{
@@ -208,13 +252,24 @@ class Tag
 	}
 
 	private string _namespace;
+	/++
+	This tag's namespace. Empty string if no namespace.
+	
+	Note that setting this value is O(n) because internal lookup structures 
+	need to be updated.
+	
+	Note also, that setting this may change where this tag is ordered among
+	its parent's list of tags.
+	+/
 	@property string namespace()
 	{
 		return _namespace;
 	}
-	/// Not particularly efficient, but it works.
+	///ditto
 	@property void namespace(string value)
 	{
+		//TODO: Can we do this in-place, without removing/adding and thus
+		//      modyfying the internal order?
 		if(_parent && _namespace != value)
 		{
 			// Remove
@@ -234,18 +289,31 @@ class Tag
 	}
 	
 	private string _name;
-	/// Not including namespace. Use 'fullName' if you want the namespace included.
+	/++
+	This tag's name, not including namespace.
+	
+	Use `getFullName().toString` if you want the namespace included.
+	
+	Note that setting this value is O(n) because internal lookup structures 
+	need to be updated.
+
+	Note also, that setting this may change where this tag is ordered among
+	its parent's list of tags.
+	+/
 	@property string name()
 	{
 		return _name;
 	}
-	/// Not the most efficient, but it works.
+	///ditto
 	@property void name(string value)
 	{
+		//TODO: Seriously? Can't we at least do the "*" modification *in-place*?
+		
 		if(_parent && _name != value)
 		{
 			_parent.updateId++;
 			
+			// Not the most efficient, but it works.
 			void removeFromGroupedLookup(string ns)
 			{
 				// Remove from _parent._tags[ns]
@@ -262,6 +330,7 @@ class Tag
 			_name = value;
 			
 			// Add to new locations in _parent._tags
+			//TODO: Can we re-insert while preserving the original order?
 			_parent._tags[_namespace][_name] ~= this;
 			_parent._tags["*"][_name] ~= this;
 		}
@@ -270,11 +339,18 @@ class Tag
 	}
 	
 	/// This tag's name, including namespace if one exists.
+	deprecated("Use 'getFullName().toString()'")
 	@property string fullName()
 	{
-		return _namespace==""? _name : text(_namespace, ":", _name);
+		return getFullName().toString();
 	}
-
+	
+	/// This tag's name, including namespace if one exists.
+	FullName getFullName()
+	{
+		return FullName(_namespace, _name);
+	}
+	
 	// Tracks dirtiness. This is incremented every time a change is made which
 	// could invalidate existing ranges. This way, the ranges can detect when
 	// they've been invalidated.
@@ -310,6 +386,15 @@ class Tag
 		this.add(children);
 	}
 
+	/// Deep-copy this Tag.
+	/// The clone does $(B $(I not)) have a parent, even if the original does.
+	Tag clone()
+	{
+		auto newTag = new Tag(_namespace, _name, values.dup, allAttributes.clone(), allTags.clone());
+		newTag.location = location;
+		return newTag;
+	}
+	
 	private Attribute[] allAttributes; // In same order as specified in SDL file.
 	private Tag[]       allTags;       // In same order as specified in SDL file.
 	private string[]    allNamespaces; // In same order as specified in SDL file.
@@ -321,8 +406,8 @@ class Tag
 	private Tag[][string][string]       _tags;       // tags[namespace or "*"][name][i]
 	
 	/// Adds a Value, Attribute, Tag (or array of such) as a member/child of this Tag.
-	/// Returns 'this' for chaining.
-	/// Throws 'SDLangValidationException' if trying to add an Attribute or Tag
+	/// Returns `this` for chaining.
+	/// Throws `ValidationException` if trying to add an Attribute or Tag
 	/// that already has a parent.
 	Tag add(Value val)
 	{
@@ -345,7 +430,7 @@ class Tag
 	{
 		if(attr._parent)
 		{
-			throw new SDLangValidationException(
+			throw new ValidationException(
 				"Attribute is already attached to a parent tag. "~
 				"Use Attribute.remove() before adding it to another tag."
 			);
@@ -379,7 +464,7 @@ class Tag
 	{
 		if(tag._parent)
 		{
-			throw new SDLangValidationException(
+			throw new ValidationException(
 				"Tag is already attached to a parent tag. "~
 				"Use Tag.remove() before adding it to another tag."
 			);
@@ -408,7 +493,7 @@ class Tag
 		return this;
 	}
 	
-	/// Removes 'this' from its parent, if any. Returns 'this' for chaining.
+	/// Removes `this` from its parent, if any. Returns `this` for chaining.
 	/// Inefficient ATM, but it works.
 	Tag remove()
 	{
@@ -491,6 +576,7 @@ class Tag
 			frontIndex = 0;
 
 			if(
+				tag !is null &&
 				namespace in mixin("tag."~membersGrouped) &&
 				name in mixin("tag."~membersGrouped~"[namespace]")
 			)
@@ -509,7 +595,7 @@ class Tag
 
 		@property bool empty()
 		{
-			return frontIndex == endIndex;
+			return tag is null || frontIndex == endIndex;
 		}
 		
 		private size_t frontIndex;
@@ -520,7 +606,7 @@ class Tag
 		void popFront()
 		{
 			if(empty)
-				throw new SDLangRangeException("Range is empty");
+				throw new DOMRangeException(tag, "Range is empty");
 
 			frontIndex++;
 		}
@@ -533,7 +619,7 @@ class Tag
 		void popBack()
 		{
 			if(empty)
-				throw new SDLangRangeException("Range is empty");
+				throw new DOMRangeException(tag, "Range is empty");
 
 			endIndex--;
 		}
@@ -568,7 +654,7 @@ class Tag
 				r.endIndex > this.endIndex ||
 				r.frontIndex > r.endIndex
 			)
-				throw new SDLangRangeException("Slice out of range");
+				throw new DOMRangeException(tag, "Slice out of range");
 			
 			return r;
 		}
@@ -576,7 +662,7 @@ class Tag
 		T opIndex(size_t index)
 		{
 			if(empty)
-				throw new SDLangRangeException("Range is empty");
+				throw new DOMRangeException(tag, "Range is empty");
 
 			return mixin("tag."~membersGrouped~"[namespace][name][frontIndex+index]");
 		}
@@ -598,14 +684,20 @@ class Tag
 			this.isMaybe   = isMaybe;
 			frontIndex = 0;
 
-			if(namespace == "*")
-				initialEndIndex = mixin("tag."~allMembers~".length");
-			else if(namespace in mixin("tag."~memberIndicies))
-				initialEndIndex = mixin("tag."~memberIndicies~"[namespace].length");
+			if(tag is null)
+				endIndex = 0;
 			else
-				initialEndIndex = 0;
+			{
+
+				if(namespace == "*")
+					initialEndIndex = mixin("tag."~allMembers~".length");
+				else if(namespace in mixin("tag."~memberIndicies))
+					initialEndIndex = mixin("tag."~memberIndicies~"[namespace].length");
+				else
+					initialEndIndex = 0;
 			
-			endIndex = initialEndIndex;
+				endIndex = initialEndIndex;
+			}
 		}
 		
 		invariant()
@@ -618,7 +710,7 @@ class Tag
 
 		@property bool empty()
 		{
-			return frontIndex == endIndex;
+			return tag is null || frontIndex == endIndex;
 		}
 		
 		private size_t frontIndex;
@@ -629,7 +721,7 @@ class Tag
 		void popFront()
 		{
 			if(empty)
-				throw new SDLangRangeException("Range is empty");
+				throw new DOMRangeException(tag, "Range is empty");
 
 			frontIndex++;
 		}
@@ -642,7 +734,7 @@ class Tag
 		void popBack()
 		{
 			if(empty)
-				throw new SDLangRangeException("Range is empty");
+				throw new DOMRangeException(tag, "Range is empty");
 
 			endIndex--;
 		}
@@ -679,7 +771,7 @@ class Tag
 				r.endIndex > this.endIndex ||
 				r.frontIndex > r.endIndex
 			)
-				throw new SDLangRangeException("Slice out of range");
+				throw new DOMRangeException(tag, "Slice out of range");
 			
 			return r;
 		}
@@ -687,7 +779,7 @@ class Tag
 		T opIndex(size_t index)
 		{
 			if(empty)
-				throw new SDLangRangeException("Range is empty");
+				throw new DOMRangeException(tag, "Range is empty");
 
 			if(namespace == "*")
 				return mixin("tag."~allMembers~"[ frontIndex+index ]");
@@ -700,7 +792,7 @@ class Tag
 		{
 			if(frontIndex != 0 || endIndex != initialEndIndex)
 			{
-				throw new SDLangRangeException(
+				throw new DOMRangeException(tag,
 					"Cannot lookup tags/attributes by name on a subset of a range, "~
 					"only across the entire tag. "~
 					"Please make sure you haven't called popFront or popBack on this "~
@@ -709,10 +801,10 @@ class Tag
 			}
 			
 			if(!isMaybe && empty)
-				throw new SDLangRangeException("Range is empty");
+				throw new DOMRangeException(tag, "Range is empty");
 			
 			if(!isMaybe && name !in this)
-				throw new SDLangRangeException(`No such `~T.stringof~` named: "`~name~`"`);
+				throw new DOMRangeException(tag, `No such `~T.stringof~` named: "`~name~`"`);
 
 			return ThisNamedMemberRange(tag, namespace, name, updateId);
 		}
@@ -721,13 +813,16 @@ class Tag
 		{
 			if(frontIndex != 0 || endIndex != initialEndIndex)
 			{
-				throw new SDLangRangeException(
+				throw new DOMRangeException(tag,
 					"Cannot lookup tags/attributes by name on a subset of a range, "~
 					"only across the entire tag. "~
 					"Please make sure you haven't called popFront or popBack on this "~
 					"range and that you aren't using a slice of the range."
 				);
 			}
+			
+			if(tag is null)
+				return false;
 			
 			return
 				namespace in mixin("tag."~membersGrouped) &&
@@ -772,7 +867,7 @@ class Tag
 		void popFront()
 		{
 			if(empty)
-				throw new SDLangRangeException("Range is empty");
+				throw new DOMRangeException(tag, "Range is empty");
 			
 			frontIndex++;
 		}
@@ -785,7 +880,7 @@ class Tag
 		void popBack()
 		{
 			if(empty)
-				throw new SDLangRangeException("Range is empty");
+				throw new DOMRangeException(tag, "Range is empty");
 			
 			endIndex--;
 		}
@@ -821,7 +916,7 @@ class Tag
 				r.endIndex > this.endIndex ||
 				r.frontIndex > r.endIndex
 			)
-				throw new SDLangRangeException("Slice out of range");
+				throw new DOMRangeException(tag, "Slice out of range");
 			
 			return r;
 		}
@@ -829,7 +924,7 @@ class Tag
 		NamespaceAccess opIndex(size_t index)
 		{
 			if(empty)
-				throw new SDLangRangeException("Range is empty");
+				throw new DOMRangeException(tag, "Range is empty");
 
 			auto namespace = tag.allNamespaces[frontIndex+index];
 			return NamespaceAccess(
@@ -842,10 +937,10 @@ class Tag
 		NamespaceAccess opIndex(string namespace)
 		{
 			if(!isMaybe && empty)
-				throw new SDLangRangeException("Range is empty");
+				throw new DOMRangeException(tag, "Range is empty");
 			
 			if(!isMaybe && namespace !in this)
-				throw new SDLangRangeException(`No such namespace: "`~namespace~`"`);
+				throw new DOMRangeException(tag, `No such namespace: "`~namespace~`"`);
 			
 			return NamespaceAccess(
 				namespace,
@@ -869,7 +964,7 @@ class Tag
 		}
 	}
 
-	struct NamespaceAccess
+	static struct NamespaceAccess
 	{
 		string name;
 		AttributeRange attributes;
@@ -882,25 +977,66 @@ class Tag
 	static assert(isRandomAccessRange!TagRange);
 	static assert(isRandomAccessRange!NamespaceRange);
 
-	/// Access all attributes that don't have a namespace
+	/++
+	Access all attributes that don't have a namespace
+
+	Returns a random access range of `Attribute` objects that supports
+	numeric-indexing, string-indexing, slicing and length.
+	
+	Since SDLang allows multiple attributes with the same name,
+	string-indexing returns a random access range of all attributes
+	with the given name.
+	
+	The string-indexing does $(B $(I not)) support namespace prefixes.
+	Use `namespace[string]`.`attributes` or `all`.`attributes` for that.
+	
+	See $(LINK2 https://github.com/Abscissa/SDLang-D/blob/master/HOWTO.md#tag-and-attribute-api-summary, API Overview)
+	for a high-level overview (and examples) of how to use this.
+	+/
 	@property AttributeRange attributes()
 	{
 		return AttributeRange(this, "", false);
 	}
 
-	/// Access all direct-child tags that don't have a namespace
+	/++
+	Access all direct-child tags that don't have a namespace.
+	
+	Returns a random access range of `Tag` objects that supports
+	numeric-indexing, string-indexing, slicing and length.
+	
+	Since SDLang allows multiple tags with the same name, string-indexing
+	returns a random access range of all immediate child tags with the
+	given name.
+	
+	The string-indexing does $(B $(I not)) support namespace prefixes.
+	Use `namespace[string]`.`attributes` or `all`.`attributes` for that.
+	
+	See $(LINK2 https://github.com/Abscissa/SDLang-D/blob/master/HOWTO.md#tag-and-attribute-api-summary, API Overview)
+	for a high-level overview (and examples) of how to use this.
+	+/
 	@property TagRange tags()
 	{
 		return TagRange(this, "", false);
 	}
 	
-	/// Access all namespaces in this tag, and the attributes/tags within them.
+	/++
+	Access all namespaces in this tag, and the attributes/tags within them.
+	
+	Returns a random access range of `NamespaceAccess` elements that supports
+	numeric-indexing, string-indexing, slicing and length.
+	
+	See $(LINK2 https://github.com/Abscissa/SDLang-D/blob/master/HOWTO.md#tag-and-attribute-api-summary, API Overview)
+	for a high-level overview (and examples) of how to use this.
+	+/
 	@property NamespaceRange namespaces()
 	{
 		return NamespaceRange(this, false);
 	}
 
 	/// Access all attributes and tags regardless of namespace.
+	///
+	/// See $(LINK2 https://github.com/Abscissa/SDLang-D/blob/master/HOWTO.md#tag-and-attribute-api-summary, API Overview)
+	/// for a better understanding (and examples) of how to use this.
 	@property NamespaceAccess all()
 	{
 		// "*" isn't a valid namespace name, so we can use it to indicate "all namespaces"
@@ -945,12 +1081,970 @@ class Tag
 		}
 	}
 	
-	/// Access 'attributes', 'tags', 'namespaces' and 'all' like normal,
+	/// Access `attributes`, `tags`, `namespaces` and `all` like normal,
 	/// except that looking up a non-existant name/namespace with
-	/// opIndex(string) results in an empty array instead of a thrown SDLangRangeException.
+	/// opIndex(string) results in an empty array instead of
+	/// a thrown `sdlang.exception.DOMRangeException`.
+	///
+	/// See $(LINK2 https://github.com/Abscissa/SDLang-D/blob/master/HOWTO.md#tag-and-attribute-api-summary, API Overview)
+	/// for a more information (and examples) of how to use this.
 	@property MaybeAccess maybe()
 	{
 		return MaybeAccess(this);
+	}
+	
+	// Internal implementations for the get/expect functions further below:
+	
+	private Tag getTagImpl(FullName tagFullName, Tag defaultValue=null, bool useDefaultValue=true)
+	{
+		auto tagNS   = tagFullName.namespace;
+		auto tagName = tagFullName.name;
+		
+		// Can find namespace?
+		if(tagNS !in _tags)
+		{
+			if(useDefaultValue)
+				return defaultValue;
+			else
+				throw new TagNotFoundException(this, tagFullName, "No tags found in namespace '"~namespace~"'");
+		}
+
+		// Can find tag in namespace?
+		if(tagName !in _tags[tagNS] || _tags[tagNS][tagName].length == 0)
+		{
+			if(useDefaultValue)
+				return defaultValue;
+			else
+				throw new TagNotFoundException(this, tagFullName, "Can't find tag '"~tagFullName.toString()~"'");
+		}
+
+		// Return last matching tag found
+		return _tags[tagNS][tagName][$-1];
+	}
+
+	private T getValueImpl(T)(T defaultValue, bool useDefaultValue=true)
+	if(isValueType!T)
+	{
+		// Find value
+		foreach(value; this.values)
+		{
+			if(value.type == typeid(T))
+				return value.get!T();
+		}
+		
+		// No value of type T found
+		if(useDefaultValue)
+			return defaultValue;
+		else
+		{
+			throw new ValueNotFoundException(
+				this,
+				FullName(this.namespace, this.name),
+				typeid(T),
+				"No value of type "~T.stringof~" found."
+			);
+		}
+	}
+
+	private T getAttributeImpl(T)(FullName attrFullName, T defaultValue, bool useDefaultValue=true)
+	if(isValueType!T)
+	{
+		auto attrNS   = attrFullName.namespace;
+		auto attrName = attrFullName.name;
+		
+		// Can find namespace and attribute name?
+		if(attrNS !in this._attributes || attrName !in this._attributes[attrNS])
+		{
+			if(useDefaultValue)
+				return defaultValue;
+			else
+			{
+				throw new AttributeNotFoundException(
+					this, this.getFullName(), attrFullName, typeid(T),
+					"Can't find attribute '"~FullName.combine(attrNS, attrName)~"'"
+				);
+			}
+		}
+
+		// Find value with chosen type
+		foreach(attr; this._attributes[attrNS][attrName])
+		{
+			if(attr.value.type == typeid(T))
+				return attr.value.get!T();
+		}
+		
+		// Chosen type not found
+		if(useDefaultValue)
+			return defaultValue;
+		else
+		{
+			throw new AttributeNotFoundException(
+				this, this.getFullName(), attrFullName, typeid(T),
+				"Can't find attribute '"~FullName.combine(attrNS, attrName)~"' of type "~T.stringof
+			);
+		}
+	}
+
+	// High-level interfaces for get/expect funtions:
+	
+	/++
+	Lookup a child tag by name. Returns null if not found.
+	
+	Useful if you only expect one, and only one, child tag of a given name.
+	Only looks for immediate child tags of `this`, doesn't search recursively.
+	
+	If you expect multiple tags by the same name and want to get them all,
+	use `maybe`.`tags[string]` instead.
+	
+	The name can optionally include a namespace, as in `"namespace:name"`.
+	Or, you can search all namespaces using `"*:name"`. Use an empty string
+	to search for anonymous tags, or `"namespace:"` for anonymous tags inside
+	a namespace. Wildcard searching is only supported for namespaces, not names.
+	Use `maybe`.`tags[0]` if you don't care about the name.
+	
+	If there are multiple tags by the chosen name, the $(B $(I last tag)) will
+	always be chosen. That is, this function considers later tags with the
+	same name to override previous ones.
+	
+	If the tag cannot be found, and you provides a default value, the default
+	value is returned. Otherwise null is returned. If you'd prefer an
+	exception thrown, use `expectTag` instead.
+	+/
+	Tag getTag(string fullTagName, Tag defaultValue=null)
+	{
+		auto parsedName = FullName.parse(fullTagName);
+		parsedName.ensureNoWildcardName(
+			"Instead, use 'Tag.maybe.tags[0]', 'Tag.maybe.all.tags[0]' or 'Tag.maybe.namespace[ns].tags[0]'."
+		);
+		return getTagImpl(parsedName, defaultValue);
+	}
+	
+	///
+	@("Tag.getTag")
+	unittest
+	{
+		import std.exception;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo 1
+			foo 2  // getTag considers this to override the first foo
+
+			ns1:foo 3
+			ns1:foo 4   // getTag considers this to override the first ns1:foo
+			ns2:foo 33
+			ns2:foo 44  // getTag considers this to override the first ns2:foo
+		`);
+		assert( root.getTag("foo"    ).values[0].get!int() == 2  );
+		assert( root.getTag("ns1:foo").values[0].get!int() == 4  );
+		assert( root.getTag("*:foo"  ).values[0].get!int() == 44 ); // Search all namespaces
+		
+		// Not found
+		// If you'd prefer an exception, use `expectTag` instead.
+		assert( root.getTag("doesnt-exist") is null );
+
+		// Default value
+		auto foo = root.getTag("foo");
+		assert( root.getTag("doesnt-exist", foo) is foo );
+	}
+	
+	/++
+	Lookup a child tag by name. Throws if not found.
+	
+	Useful if you only expect one, and only one, child tag of a given name.
+	Only looks for immediate child tags of `this`, doesn't search recursively.
+	
+	If you expect multiple tags by the same name and want to get them all,
+	use `tags[string]` instead.
+
+	The name can optionally include a namespace, as in `"namespace:name"`.
+	Or, you can search all namespaces using `"*:name"`. Use an empty string
+	to search for anonymous tags, or `"namespace:"` for anonymous tags inside
+	a namespace. Wildcard searching is only supported for namespaces, not names.
+	Use `tags[0]` if you don't care about the name.
+	
+	If there are multiple tags by the chosen name, the $(B $(I last tag)) will
+	always be chosen. That is, this function considers later tags with the
+	same name to override previous ones.
+	
+	If no such tag is found, an `sdlang.exception.TagNotFoundException` will
+	be thrown. If you'd rather receive a default value, use `getTag` instead.
+	+/
+	Tag expectTag(string fullTagName)
+	{
+		auto parsedName = FullName.parse(fullTagName);
+		parsedName.ensureNoWildcardName(
+			"Instead, use 'Tag.tags[0]', 'Tag.all.tags[0]' or 'Tag.namespace[ns].tags[0]'."
+		);
+		return getTagImpl(parsedName, null, false);
+	}
+	
+	///
+	@("Tag.expectTag")
+	unittest
+	{
+		import std.exception;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo 1
+			foo 2  // expectTag considers this to override the first foo
+
+			ns1:foo 3
+			ns1:foo 4   // expectTag considers this to override the first ns1:foo
+			ns2:foo 33
+			ns2:foo 44  // expectTag considers this to override the first ns2:foo
+		`);
+		assert( root.expectTag("foo"    ).values[0].get!int() == 2  );
+		assert( root.expectTag("ns1:foo").values[0].get!int() == 4  );
+		assert( root.expectTag("*:foo"  ).values[0].get!int() == 44 ); // Search all namespaces
+		
+		// Not found
+		// If you'd rather receive a default value than an exception, use `getTag` instead.
+		assertThrown!TagNotFoundException( root.expectTag("doesnt-exist") );
+	}
+	
+	/++
+	Retrieve a value of type T from `this` tag. Returns a default value if not found.
+	
+	Useful if you only expect one value of type T from this tag. Only looks for
+	values of `this` tag, it does not search child tags. If you wish to search
+	for a value in a child tag (for example, if this current tag is a root tag),
+	try `getTagValue`.
+
+	If you want to get more than one value from this tag, use `values` instead.
+
+	If this tag has multiple values, the $(B $(I first)) value matching the
+	requested type will be returned. Ie, Extra values in the tag are ignored.
+	
+	You may provide a default value to be returned in case no value of
+	the requested type can be found. If you don't provide a default value,
+	`T.init` will be used.
+	
+	If you'd rather an exception be thrown when a value cannot be found,
+	use `expectValue` instead.
+	+/
+	T getValue(T)(T defaultValue = T.init) if(isValueType!T)
+	{
+		return getValueImpl!T(defaultValue, true);
+	}
+
+	///
+	@("Tag.getValue")
+	unittest
+	{
+		import std.exception;
+		import std.math;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo 1 true 2 false
+		`);
+		auto foo = root.getTag("foo");
+		assert( foo.getValue!int() == 1 );
+		assert( foo.getValue!bool() == true );
+
+		// Value found, default value ignored.
+		assert( foo.getValue!int(999) == 1 );
+
+		// No strings found
+		// If you'd prefer an exception, use `expectValue` instead.
+		assert( foo.getValue!string("Default") == "Default" );
+		assert( foo.getValue!string() is null );
+
+		// No floats found
+		assert( foo.getValue!float(99.9).approxEqual(99.9) );
+		assert( foo.getValue!float().isNaN() );
+	}
+
+	/++
+	Retrieve a value of type T from `this` tag. Throws if not found.
+	
+	Useful if you only expect one value of type T from this tag. Only looks
+	for values of `this` tag, it does not search child tags. If you wish to
+	search for a value in a child tag (for example, if this current tag is a
+	root tag), try `expectTagValue`.
+
+	If you want to get more than one value from this tag, use `values` instead.
+
+	If this tag has multiple values, the $(B $(I first)) value matching the
+	requested type will be returned. Ie, Extra values in the tag are ignored.
+	
+	An `sdlang.exception.ValueNotFoundException` will be thrown if no value of
+	the requested type can be found. If you'd rather receive a default value,
+	use `getValue` instead.
+	+/
+	T expectValue(T)() if(isValueType!T)
+	{
+		return getValueImpl!T(T.init, false);
+	}
+
+	///
+	@("Tag.expectValue")
+	unittest
+	{
+		import std.exception;
+		import std.math;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo 1 true 2 false
+		`);
+		auto foo = root.getTag("foo");
+		assert( foo.expectValue!int() == 1 );
+		assert( foo.expectValue!bool() == true );
+
+		// No strings or floats found
+		// If you'd rather receive a default value than an exception, use `getValue` instead.
+		assertThrown!ValueNotFoundException( foo.expectValue!string() );
+		assertThrown!ValueNotFoundException( foo.expectValue!float() );
+	}
+
+	/++
+	Lookup a child tag by name, and retrieve a value of type T from it.
+	Returns a default value if not found.
+	
+	Useful if you only expect one value of type T from a given tag. Only looks
+	for immediate child tags of `this`, doesn't search recursively.
+
+	This is a shortcut for `getTag().getValue()`, except if the tag isn't found,
+	then instead of a null reference error, it will return the requested
+	`defaultValue` (or T.init by default).
+	+/
+	T getTagValue(T)(string fullTagName, T defaultValue = T.init) if(isValueType!T)
+	{
+		auto tag = getTag(fullTagName);
+		if(!tag)
+			return defaultValue;
+		
+		return tag.getValue!T(defaultValue);
+	}
+
+	///
+	@("Tag.getTagValue")
+	unittest
+	{
+		import std.exception;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo 1 "a" 2 "b"
+			foo 3 "c" 4 "d"  // getTagValue considers this to override the first foo
+			
+			bar "hi"
+			bar 379  // getTagValue considers this to override the first bar
+		`);
+		assert( root.getTagValue!int("foo") == 3 );
+		assert( root.getTagValue!string("foo") == "c" );
+
+		// Value found, default value ignored.
+		assert( root.getTagValue!int("foo", 999) == 3 );
+
+		// Tag not found
+		// If you'd prefer an exception, use `expectTagValue` instead.
+		assert( root.getTagValue!int("doesnt-exist", 999) == 999 );
+		assert( root.getTagValue!int("doesnt-exist") == 0 );
+		
+		// The last "bar" tag doesn't have an int (only the first "bar" tag does)
+		assert( root.getTagValue!string("bar", "Default") == "Default" );
+		assert( root.getTagValue!string("bar") is null );
+
+		// Using namespaces:
+		root = parseSource(`
+			ns1:foo 1 "a" 2 "b"
+			ns1:foo 3 "c" 4 "d"
+			ns2:foo 11 "aa" 22 "bb"
+			ns2:foo 33 "cc" 44 "dd"
+			
+			ns1:bar "hi"
+			ns1:bar 379  // getTagValue considers this to override the first bar
+		`);
+		assert( root.getTagValue!int("ns1:foo") == 3  );
+		assert( root.getTagValue!int("*:foo"  ) == 33 ); // Search all namespaces
+
+		assert( root.getTagValue!string("ns1:foo") == "c"  );
+		assert( root.getTagValue!string("*:foo"  ) == "cc" ); // Search all namespaces
+		
+		// The last "bar" tag doesn't have a string (only the first "bar" tag does)
+		assert( root.getTagValue!string("*:bar", "Default") == "Default" );
+		assert( root.getTagValue!string("*:bar") is null );
+	}
+
+	/++
+	Lookup a child tag by name, and retrieve a value of type T from it.
+	Throws if not found,
+	
+	Useful if you only expect one value of type T from a given tag. Only
+	looks for immediate child tags of `this`, doesn't search recursively.
+	
+	This is a shortcut for `expectTag().expectValue()`.
+	+/
+	T expectTagValue(T)(string fullTagName) if(isValueType!T)
+	{
+		return expectTag(fullTagName).expectValue!T();
+	}
+
+	///
+	@("Tag.expectTagValue")
+	unittest
+	{
+		import std.exception;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo 1 "a" 2 "b"
+			foo 3 "c" 4 "d"  // expectTagValue considers this to override the first foo
+			
+			bar "hi"
+			bar 379  // expectTagValue considers this to override the first bar
+		`);
+		assert( root.expectTagValue!int("foo") == 3 );
+		assert( root.expectTagValue!string("foo") == "c" );
+		
+		// The last "bar" tag doesn't have a string (only the first "bar" tag does)
+		// If you'd rather receive a default value than an exception, use `getTagValue` instead.
+		assertThrown!ValueNotFoundException( root.expectTagValue!string("bar") );
+
+		// Tag not found
+		assertThrown!TagNotFoundException( root.expectTagValue!int("doesnt-exist") );
+
+		// Using namespaces:
+		root = parseSource(`
+			ns1:foo 1 "a" 2 "b"
+			ns1:foo 3 "c" 4 "d"
+			ns2:foo 11 "aa" 22 "bb"
+			ns2:foo 33 "cc" 44 "dd"
+			
+			ns1:bar "hi"
+			ns1:bar 379  // expectTagValue considers this to override the first bar
+		`);
+		assert( root.expectTagValue!int("ns1:foo") == 3  );
+		assert( root.expectTagValue!int("*:foo"  ) == 33 ); // Search all namespaces
+
+		assert( root.expectTagValue!string("ns1:foo") == "c"  );
+		assert( root.expectTagValue!string("*:foo"  ) == "cc" ); // Search all namespaces
+		
+		// The last "bar" tag doesn't have a string (only the first "bar" tag does)
+		assertThrown!ValueNotFoundException( root.expectTagValue!string("*:bar") );
+		
+		// Namespace not found
+		assertThrown!TagNotFoundException( root.expectTagValue!int("doesnt-exist:bar") );
+	}
+
+	/++
+	Lookup an attribute of `this` tag by name, and retrieve a value of type T
+	from it. Returns a default value if not found.
+	
+	Useful if you only expect one attribute of the given name and type.
+	
+	Only looks for attributes of `this` tag, it does not search child tags.
+	If you wish to search for a value in a child tag (for example, if this
+	current tag is a root tag), try `getTagAttribute`.
+	
+	If you expect multiple attributes by the same name and want to get them all,
+	use `maybe`.`attributes[string]` instead.
+
+	The attribute name can optionally include a namespace, as in
+	`"namespace:name"`. Or, you can search all namespaces using `"*:name"`.
+	(Note that unlike tags. attributes can't be anonymous - that's what
+	values are.) Wildcard searching is only supported for namespaces, not names.
+	Use `maybe`.`attributes[0]` if you don't care about the name.
+
+	If this tag has multiple attributes, the $(B $(I first)) attribute
+	matching the requested name and type will be returned. Ie, Extra
+	attributes in the tag are ignored.
+	
+	You may provide a default value to be returned in case no attribute of
+	the requested name and type can be found. If you don't provide a default
+	value, `T.init` will be used.
+	
+	If you'd rather an exception be thrown when an attribute cannot be found,
+	use `expectAttribute` instead.
+	+/
+	T getAttribute(T)(string fullAttributeName, T defaultValue = T.init) if(isValueType!T)
+	{
+		auto parsedName = FullName.parse(fullAttributeName);
+		parsedName.ensureNoWildcardName(
+			"Instead, use 'Attribute.maybe.tags[0]', 'Attribute.maybe.all.tags[0]' or 'Attribute.maybe.namespace[ns].tags[0]'."
+		);
+		return getAttributeImpl!T(parsedName, defaultValue);
+	}
+	
+	///
+	@("Tag.getAttribute")
+	unittest
+	{
+		import std.exception;
+		import std.math;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo z=0 X=1 X=true X=2 X=false
+		`);
+		auto foo = root.getTag("foo");
+		assert( foo.getAttribute!int("X") == 1 );
+		assert( foo.getAttribute!bool("X") == true );
+
+		// Value found, default value ignored.
+		assert( foo.getAttribute!int("X", 999) == 1 );
+
+		// Attribute name not found
+		// If you'd prefer an exception, use `expectValue` instead.
+		assert( foo.getAttribute!int("doesnt-exist", 999) == 999 );
+		assert( foo.getAttribute!int("doesnt-exist") == 0 );
+
+		// No strings found
+		assert( foo.getAttribute!string("X", "Default") == "Default" );
+		assert( foo.getAttribute!string("X") is null );
+
+		// No floats found
+		assert( foo.getAttribute!float("X", 99.9).approxEqual(99.9) );
+		assert( foo.getAttribute!float("X").isNaN() );
+
+		
+		// Using namespaces:
+		root = parseSource(`
+			foo  ns1:z=0  ns1:X=1  ns1:X=2  ns2:X=3  ns2:X=4
+		`);
+		foo = root.getTag("foo");
+		assert( foo.getAttribute!int("ns2:X") == 3 );
+		assert( foo.getAttribute!int("*:X") == 1 ); // Search all namespaces
+		
+		// Namespace not found
+		assert( foo.getAttribute!int("doesnt-exist:X", 999) == 999 );
+		
+		// No attribute X is in the default namespace
+		assert( foo.getAttribute!int("X", 999) == 999 );
+		
+		// Attribute name not found
+		assert( foo.getAttribute!int("ns1:doesnt-exist", 999) == 999 );
+	}
+	
+	/++
+	Lookup an attribute of `this` tag by name, and retrieve a value of type T
+	from it. Throws if not found.
+	
+	Useful if you only expect one attribute of the given name and type.
+	
+	Only looks for attributes of `this` tag, it does not search child tags.
+	If you wish to search for a value in a child tag (for example, if this
+	current tag is a root tag), try `expectTagAttribute`.
+
+	If you expect multiple attributes by the same name and want to get them all,
+	use `attributes[string]` instead.
+
+	The attribute name can optionally include a namespace, as in
+	`"namespace:name"`. Or, you can search all namespaces using `"*:name"`.
+	(Note that unlike tags. attributes can't be anonymous - that's what
+	values are.) Wildcard searching is only supported for namespaces, not names.
+	Use `attributes[0]` if you don't care about the name.
+
+	If this tag has multiple attributes, the $(B $(I first)) attribute
+	matching the requested name and type will be returned. Ie, Extra
+	attributes in the tag are ignored.
+	
+	An `sdlang.exception.AttributeNotFoundException` will be thrown if no
+	value of the requested type can be found. If you'd rather receive a
+	default value, use `getAttribute` instead.
+	+/
+	T expectAttribute(T)(string fullAttributeName) if(isValueType!T)
+	{
+		auto parsedName = FullName.parse(fullAttributeName);
+		parsedName.ensureNoWildcardName(
+			"Instead, use 'Attribute.tags[0]', 'Attribute.all.tags[0]' or 'Attribute.namespace[ns].tags[0]'."
+		);
+		return getAttributeImpl!T(parsedName, T.init, false);
+	}
+	
+	///
+	@("Tag.expectAttribute")
+	unittest
+	{
+		import std.exception;
+		import std.math;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo z=0 X=1 X=true X=2 X=false
+		`);
+		auto foo = root.getTag("foo");
+		assert( foo.expectAttribute!int("X") == 1 );
+		assert( foo.expectAttribute!bool("X") == true );
+
+		// Attribute name not found
+		// If you'd rather receive a default value than an exception, use `getAttribute` instead.
+		assertThrown!AttributeNotFoundException( foo.expectAttribute!int("doesnt-exist") );
+
+		// No strings found
+		assertThrown!AttributeNotFoundException( foo.expectAttribute!string("X") );
+
+		// No floats found
+		assertThrown!AttributeNotFoundException( foo.expectAttribute!float("X") );
+
+		
+		// Using namespaces:
+		root = parseSource(`
+			foo  ns1:z=0  ns1:X=1  ns1:X=2  ns2:X=3  ns2:X=4
+		`);
+		foo = root.getTag("foo");
+		assert( foo.expectAttribute!int("ns2:X") == 3 );
+		assert( foo.expectAttribute!int("*:X") == 1 ); // Search all namespaces
+		
+		// Namespace not found
+		assertThrown!AttributeNotFoundException( foo.expectAttribute!int("doesnt-exist:X") );
+		
+		// No attribute X is in the default namespace
+		assertThrown!AttributeNotFoundException( foo.expectAttribute!int("X") );
+		
+		// Attribute name not found
+		assertThrown!AttributeNotFoundException( foo.expectAttribute!int("ns1:doesnt-exist") );
+	}
+
+	/++
+	Lookup a child tag and attribute by name, and retrieve a value of type T
+	from it. Returns a default value if not found.
+	
+	Useful if you only expect one attribute of type T from given
+	the tag and attribute names. Only looks for immediate child tags of
+	`this`, doesn't search recursively.
+
+	This is a shortcut for `getTag().getAttribute()`, except if the tag isn't
+	found, then instead of a null reference error, it will return the requested
+	`defaultValue` (or T.init by default).
+	+/
+	T getTagAttribute(T)(string fullTagName, string fullAttributeName, T defaultValue = T.init) if(isValueType!T)
+	{
+		auto tag = getTag(fullTagName);
+		if(!tag)
+			return defaultValue;
+		
+		return tag.getAttribute!T(fullAttributeName, defaultValue);
+	}
+	
+	///
+	@("Tag.getTagAttribute")
+	unittest
+	{
+		import std.exception;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo X=1 X="a" X=2 X="b"
+			foo X=3 X="c" X=4 X="d"  // getTagAttribute considers this to override the first foo
+			
+			bar X="hi"
+			bar X=379  // getTagAttribute considers this to override the first bar
+		`);
+		assert( root.getTagAttribute!int("foo", "X") == 3 );
+		assert( root.getTagAttribute!string("foo", "X") == "c" );
+
+		// Value found, default value ignored.
+		assert( root.getTagAttribute!int("foo", "X", 999) == 3 );
+
+		// Tag not found
+		// If you'd prefer an exception, use `expectTagAttribute` instead of `getTagAttribute`
+		assert( root.getTagAttribute!int("doesnt-exist", "X", 999)   == 999 );
+		assert( root.getTagAttribute!int("doesnt-exist", "X")        == 0   );
+		assert( root.getTagAttribute!int("foo", "doesnt-exist", 999) == 999 );
+		assert( root.getTagAttribute!int("foo", "doesnt-exist")      == 0   );
+		
+		// The last "bar" tag doesn't have a string (only the first "bar" tag does)
+		assert( root.getTagAttribute!string("bar", "X", "Default") == "Default" );
+		assert( root.getTagAttribute!string("bar", "X") is null );
+		
+
+		// Using namespaces:
+		root = parseSource(`
+			ns1:foo X=1 X="a" X=2 X="b"
+			ns1:foo X=3 X="c" X=4 X="d"
+			ns2:foo X=11 X="aa" X=22 X="bb"
+			ns2:foo X=33 X="cc" X=44 X="dd"
+			
+			ns1:bar attrNS:X="hi"
+			ns1:bar attrNS:X=379  // getTagAttribute considers this to override the first bar
+		`);
+		assert( root.getTagAttribute!int("ns1:foo", "X") == 3  );
+		assert( root.getTagAttribute!int("*:foo",   "X") == 33 ); // Search all namespaces
+
+		assert( root.getTagAttribute!string("ns1:foo", "X") == "c"  );
+		assert( root.getTagAttribute!string("*:foo",   "X") == "cc" ); // Search all namespaces
+		
+		// bar's attribute X is't in the default namespace
+		assert( root.getTagAttribute!int("*:bar", "X", 999) == 999 );
+		assert( root.getTagAttribute!int("*:bar", "X") == 0 );
+
+		// The last "bar" tag's "attrNS:X" attribute doesn't have a string (only the first "bar" tag does)
+		assert( root.getTagAttribute!string("*:bar", "attrNS:X", "Default") == "Default" );
+		assert( root.getTagAttribute!string("*:bar", "attrNS:X") is null);
+	}
+
+	/++
+	Lookup a child tag and attribute by name, and retrieve a value of type T
+	from it. Throws if not found.
+	
+	Useful if you only expect one attribute of type T from given
+	the tag and attribute names. Only looks for immediate child tags of
+	`this`, doesn't search recursively.
+
+	This is a shortcut for `expectTag().expectAttribute()`.
+	+/
+	T expectTagAttribute(T)(string fullTagName, string fullAttributeName) if(isValueType!T)
+	{
+		return expectTag(fullTagName).expectAttribute!T(fullAttributeName);
+	}
+	
+	///
+	@("Tag.expectTagAttribute")
+	unittest
+	{
+		import std.exception;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo X=1 X="a" X=2 X="b"
+			foo X=3 X="c" X=4 X="d"  // expectTagAttribute considers this to override the first foo
+			
+			bar X="hi"
+			bar X=379  // expectTagAttribute considers this to override the first bar
+		`);
+		assert( root.expectTagAttribute!int("foo", "X") == 3 );
+		assert( root.expectTagAttribute!string("foo", "X") == "c" );
+		
+		// The last "bar" tag doesn't have an int attribute named "X" (only the first "bar" tag does)
+		// If you'd rather receive a default value than an exception, use `getAttribute` instead.
+		assertThrown!AttributeNotFoundException( root.expectTagAttribute!string("bar", "X") );
+		
+		// Tag not found
+		assertThrown!TagNotFoundException( root.expectTagAttribute!int("doesnt-exist", "X") );
+
+		// Using namespaces:
+		root = parseSource(`
+			ns1:foo X=1 X="a" X=2 X="b"
+			ns1:foo X=3 X="c" X=4 X="d"
+			ns2:foo X=11 X="aa" X=22 X="bb"
+			ns2:foo X=33 X="cc" X=44 X="dd"
+			
+			ns1:bar attrNS:X="hi"
+			ns1:bar attrNS:X=379  // expectTagAttribute considers this to override the first bar
+		`);
+		assert( root.expectTagAttribute!int("ns1:foo", "X") == 3  );
+		assert( root.expectTagAttribute!int("*:foo",   "X") == 33 ); // Search all namespaces
+		
+		assert( root.expectTagAttribute!string("ns1:foo", "X") == "c"  );
+		assert( root.expectTagAttribute!string("*:foo",   "X") == "cc" ); // Search all namespaces
+		
+		// bar's attribute X is't in the default namespace
+		assertThrown!AttributeNotFoundException( root.expectTagAttribute!int("*:bar", "X") );
+
+		// The last "bar" tag's "attrNS:X" attribute doesn't have a string (only the first "bar" tag does)
+		assertThrown!AttributeNotFoundException( root.expectTagAttribute!string("*:bar", "attrNS:X") );
+
+		// Tag's namespace not found
+		assertThrown!TagNotFoundException( root.expectTagAttribute!int("doesnt-exist:bar", "attrNS:X") );
+	}
+
+	/++
+	Lookup a child tag by name, and retrieve all values from it.
+
+	This just like using `getTag()`.`values`, except if the tag isn't found,
+	it safely returns null (or an optional array of default values) instead of
+	a dereferencing null error.
+	
+	Note that, unlike `getValue`, this doesn't discriminate by the value's
+	type. It simply returns all values of a single tag as a `Value[]`.
+
+	If you'd prefer an exception thrown when the tag isn't found, use
+	`expectTag`.`values` instead.
+	+/
+	Value[] getTagValues(string fullTagName, Value[] defaultValues = null)
+	{
+		auto tag = getTag(fullTagName);
+		if(tag)
+			return tag.values;
+		else
+			return defaultValues;
+	}
+	
+	///
+	@("getTagValues")
+	unittest
+	{
+		import std.exception;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo 1 "a" 2 "b"
+			foo 3 "c" 4 "d"  // getTagValues considers this to override the first foo
+		`);
+		assert( root.getTagValues("foo") == [Value(3), Value("c"), Value(4), Value("d")] );
+
+		// Tag not found
+		// If you'd prefer an exception, use `expectTag.values` instead.
+		assert( root.getTagValues("doesnt-exist") is null );
+		assert( root.getTagValues("doesnt-exist", [ Value(999), Value("Not found") ]) ==
+			[ Value(999), Value("Not found") ] );
+	}
+	
+	/++
+	Lookup a child tag by name, and retrieve all attributes in a chosen
+	(or default) namespace from it.
+
+	This just like using `getTag()`.`attributes` (or
+	`getTag()`.`namespace[...]`.`attributes`, or `getTag()`.`all`.`attributes`),
+	except if the tag isn't found, it safely returns an empty range instead
+	of a dereferencing null error.
+	
+	If provided, the `attributeNamespace` parameter can be either the name of
+	a namespace, or an empty string for the default namespace (the default),
+	or `"*"` to retreive attributes from all namespaces.
+	
+	Note that, unlike `getAttributes`, this doesn't discriminate by the
+	value's type. It simply returns the usual `attributes` range.
+
+	If you'd prefer an exception thrown when the tag isn't found, use
+	`expectTag`.`attributes` instead.
+	+/
+	auto getTagAttributes(string fullTagName, string attributeNamespace = null)
+	{
+		auto tag = getTag(fullTagName);
+		if(tag)
+		{
+			if(attributeNamespace && attributeNamespace in tag.namespaces)
+				return tag.namespaces[attributeNamespace].attributes;
+			else if(attributeNamespace == "*")
+				return tag.all.attributes;
+			else
+				return tag.attributes;
+		}
+
+		return AttributeRange(null, null, false);
+	}
+	
+	///
+	@("getTagAttributes")
+	unittest
+	{
+		import std.exception;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo X=1 X=2
+			
+			// getTagAttributes considers this to override the first foo
+			foo X1=3 X2="c" namespace:bar=7 X3=4 X4="d"
+		`);
+
+		auto fooAttrs = root.getTagAttributes("foo");
+		assert( !fooAttrs.empty );
+		assert( fooAttrs.length == 4 );
+		assert( fooAttrs[0].name == "X1" && fooAttrs[0].value == Value(3)   );
+		assert( fooAttrs[1].name == "X2" && fooAttrs[1].value == Value("c") );
+		assert( fooAttrs[2].name == "X3" && fooAttrs[2].value == Value(4)   );
+		assert( fooAttrs[3].name == "X4" && fooAttrs[3].value == Value("d") );
+
+		fooAttrs = root.getTagAttributes("foo", "namespace");
+		assert( !fooAttrs.empty );
+		assert( fooAttrs.length == 1 );
+		assert( fooAttrs[0].name == "bar" && fooAttrs[0].value == Value(7) );
+
+		fooAttrs = root.getTagAttributes("foo", "*");
+		assert( !fooAttrs.empty );
+		assert( fooAttrs.length == 5 );
+		assert( fooAttrs[0].name == "X1"  && fooAttrs[0].value == Value(3)   );
+		assert( fooAttrs[1].name == "X2"  && fooAttrs[1].value == Value("c") );
+		assert( fooAttrs[2].name == "bar" && fooAttrs[2].value == Value(7)   );
+		assert( fooAttrs[3].name == "X3"  && fooAttrs[3].value == Value(4)   );
+		assert( fooAttrs[4].name == "X4"  && fooAttrs[4].value == Value("d") );
+
+		// Tag not found
+		// If you'd prefer an exception, use `expectTag.attributes` instead.
+		assert( root.getTagValues("doesnt-exist").empty );
+	}
+
+	@("*: Disallow wildcards for names")
+	unittest
+	{
+		import std.exception;
+		import std.math;
+		import dub.internal.sdlang.parser;
+		
+		auto root = parseSource(`
+			foo 1 X=2
+			ns:foo 3 ns:X=4
+		`);
+		auto foo = root.getTag("foo");
+		auto nsfoo = root.getTag("ns:foo");
+
+		// Sanity check
+		assert( foo !is null );
+		assert( foo.name == "foo" );
+		assert( foo.namespace == "" );
+
+		assert( nsfoo !is null );
+		assert( nsfoo.name == "foo" );
+		assert( nsfoo.namespace == "ns" );
+
+		assert( foo.getValue     !int() == 1 );
+		assert( foo.expectValue  !int() == 1 );
+		assert( nsfoo.getValue   !int() == 3 );
+		assert( nsfoo.expectValue!int() == 3 );
+
+		assert( root.getTagValue   !int("foo")    == 1 );
+		assert( root.expectTagValue!int("foo")    == 1 );
+		assert( root.getTagValue   !int("ns:foo") == 3 );
+		assert( root.expectTagValue!int("ns:foo") == 3 );
+
+		assert( foo.getAttribute     !int("X")    == 2 );
+		assert( foo.expectAttribute  !int("X")    == 2 );
+		assert( nsfoo.getAttribute   !int("ns:X") == 4 );
+		assert( nsfoo.expectAttribute!int("ns:X") == 4 );
+
+		assert( root.getTagAttribute   !int("foo", "X")       == 2 );
+		assert( root.expectTagAttribute!int("foo", "X")       == 2 );
+		assert( root.getTagAttribute   !int("ns:foo", "ns:X") == 4 );
+		assert( root.expectTagAttribute!int("ns:foo", "ns:X") == 4 );
+		
+		// No namespace
+		assertThrown!ArgumentException( root.getTag   ("*") );
+		assertThrown!ArgumentException( root.expectTag("*") );
+		
+		assertThrown!ArgumentException( root.getTagValue   !int("*") );
+		assertThrown!ArgumentException( root.expectTagValue!int("*") );
+
+		assertThrown!ArgumentException( foo.getAttribute       !int("*")        );
+		assertThrown!ArgumentException( foo.expectAttribute    !int("*")        );
+		assertThrown!ArgumentException( root.getTagAttribute   !int("*", "X")   );
+		assertThrown!ArgumentException( root.expectTagAttribute!int("*", "X")   );
+		assertThrown!ArgumentException( root.getTagAttribute   !int("foo", "*") );
+		assertThrown!ArgumentException( root.expectTagAttribute!int("foo", "*") );
+
+		// With namespace
+		assertThrown!ArgumentException( root.getTag   ("ns:*") );
+		assertThrown!ArgumentException( root.expectTag("ns:*") );
+		
+		assertThrown!ArgumentException( root.getTagValue   !int("ns:*") );
+		assertThrown!ArgumentException( root.expectTagValue!int("ns:*") );
+
+		assertThrown!ArgumentException( nsfoo.getAttribute     !int("ns:*")           );
+		assertThrown!ArgumentException( nsfoo.expectAttribute  !int("ns:*")           );
+		assertThrown!ArgumentException( root.getTagAttribute   !int("ns:*",   "ns:X") );
+		assertThrown!ArgumentException( root.expectTagAttribute!int("ns:*",   "ns:X") );
+		assertThrown!ArgumentException( root.getTagAttribute   !int("ns:foo", "ns:*") );
+		assertThrown!ArgumentException( root.expectTagAttribute!int("ns:foo", "ns:*") );
+
+		// With wildcard namespace
+		assertThrown!ArgumentException( root.getTag   ("*:*") );
+		assertThrown!ArgumentException( root.expectTag("*:*") );
+		
+		assertThrown!ArgumentException( root.getTagValue   !int("*:*") );
+		assertThrown!ArgumentException( root.expectTagValue!int("*:*") );
+
+		assertThrown!ArgumentException( nsfoo.getAttribute     !int("*:*")          );
+		assertThrown!ArgumentException( nsfoo.expectAttribute  !int("*:*")          );
+		assertThrown!ArgumentException( root.getTagAttribute   !int("*:*",   "*:X") );
+		assertThrown!ArgumentException( root.expectTagAttribute!int("*:*",   "*:X") );
+		assertThrown!ArgumentException( root.getTagAttribute   !int("*:foo", "*:*") );
+		assertThrown!ArgumentException( root.expectTagAttribute!int("*:foo", "*:*") );
 	}
 	
 	override bool opEquals(Object o)
@@ -984,9 +2078,10 @@ class Tag
 		return allTags == t.allTags;
 	}
 	
-	/// Treats 'this' as the root tag. Note that root tags cannot have
+	/// Treats `this` as the root tag. Note that root tags cannot have
 	/// values or attributes, and cannot be part of a namespace.
-	/// If this isn't a valid root tag, 'SDLangValidationException' will be thrown.
+	/// If this isn't a valid root tag, `sdlang.exception.ValidationException`
+	/// will be thrown.
 	string toSDLDocument()(string indent="\t", int indentLevel=0)
 	{
 		Appender!string sink;
@@ -999,21 +2094,21 @@ class Tag
 		if(isOutputRange!(Sink,char))
 	{
 		if(values.length > 0)
-			throw new SDLangValidationException("Root tags cannot have any values, only child tags.");
+			throw new ValidationException("Root tags cannot have any values, only child tags.");
 
 		if(allAttributes.length > 0)
-			throw new SDLangValidationException("Root tags cannot have any attributes, only child tags.");
+			throw new ValidationException("Root tags cannot have any attributes, only child tags.");
 
 		if(_namespace != "")
-			throw new SDLangValidationException("Root tags cannot have a namespace.");
+			throw new ValidationException("Root tags cannot have a namespace.");
 		
 		foreach(tag; allTags)
 			tag.toSDLString(sink, indent, indentLevel);
 	}
 	
-	/// Output this entire tag in SDL format. Does *not* treat 'this' as
+	/// Output this entire tag in SDL format. Does $(B $(I not)) treat `this` as
 	/// a root tag. If you intend this to be the root of a standard SDL
-	/// document, use 'toSDLDocument' instead.
+	/// document, use `toSDLDocument` instead.
 	string toSDLString()(string indent="\t", int indentLevel=0)
 	{
 		Appender!string sink;
@@ -1026,10 +2121,10 @@ class Tag
 		if(isOutputRange!(Sink,char))
 	{
 		if(_name == "" && values.length == 0)
-			throw new SDLangValidationException("Anonymous tags must have at least one value.");
+			throw new ValidationException("Anonymous tags must have at least one value.");
 		
 		if(_name == "" && _namespace != "")
-			throw new SDLangValidationException("Anonymous tags cannot have a namespace.");
+			throw new ValidationException("Anonymous tags cannot have a namespace.");
 	
 		// Indent
 		foreach(i; 0..indentLevel)
@@ -1083,7 +2178,7 @@ class Tag
 			sink.put("\n");
 	}
 
-	/// Not the most efficient, but it works.
+	/// Outputs full information on the tag.
 	string toDebugString()
 	{
 		import std.algorithm : sort;
@@ -1132,7 +2227,7 @@ class Tag
 	}
 }
 
-version(sdlangUnittest)
+version(unittest)
 {
 	private void testRandomAccessRange(R, E)(R range, E[] expected, bool function(E, E) equals=null)
 	{
@@ -1272,12 +2367,11 @@ version(sdlangUnittest)
 	}
 }
 
-version(sdlangUnittest)
+@("*: Test sdlang ast")
 unittest
 {
-	import sdlang.parser;
-	writeln("Unittesting sdlang ast...");
-	stdout.flush();
+	import std.exception;
+	import dub.internal.sdlang.parser;
 	
 	Tag root;
 	root = parseSource("");
@@ -1476,26 +2570,26 @@ unittest
 	testRandomAccessRange(root.all.tags["blue"],                   [blue3, blue5]);
 	testRandomAccessRange(root.all.tags["orange"],                 [orange]);
 
-	assertThrown!SDLangRangeException(root.tags["foobar"]);
-	assertThrown!SDLangRangeException(root.all.tags["foobar"]);
-	assertThrown!SDLangRangeException(root.attributes["foobar"]);
-	assertThrown!SDLangRangeException(root.all.attributes["foobar"]);
+	assertThrown!DOMRangeException(root.tags["foobar"]);
+	assertThrown!DOMRangeException(root.all.tags["foobar"]);
+	assertThrown!DOMRangeException(root.attributes["foobar"]);
+	assertThrown!DOMRangeException(root.all.attributes["foobar"]);
 	
 	// DMD Issue #12585 causes a segfault in these two tests when using 2.064 or 2.065,
 	// so work around it.
-	//assertThrown!SDLangRangeException(root.namespaces["foobar"].tags["foobar"]);
-	//assertThrown!SDLangRangeException(root.namespaces["foobar"].attributes["foobar"]);
+	//assertThrown!DOMRangeException(root.namespaces["foobar"].tags["foobar"]);
+	//assertThrown!DOMRangeException(root.namespaces["foobar"].attributes["foobar"]);
 	bool didCatch = false;
 	try
 		auto x = root.namespaces["foobar"].tags["foobar"];
-	catch(SDLangRangeException e)
+	catch(DOMRangeException e)
 		didCatch = true;
 	assert(didCatch);
 	
 	didCatch = false;
 	try
 		auto x = root.namespaces["foobar"].attributes["foobar"];
-	catch(SDLangRangeException e)
+	catch(DOMRangeException e)
 		didCatch = true;
 	assert(didCatch);
 
@@ -1802,16 +2896,33 @@ unittest
 	assert(""        !in people.namespaces);
 	assert("foobar"  !in people.namespaces);
 	testRandomAccessRange(people.all.attributes, cast(Attribute[])[]);
+	
+	// Test clone()
+	auto rootClone = root.clone();
+	assert(rootClone !is root);
+	assert(rootClone.parent is null);
+	assert(rootClone.name      == root.name);
+	assert(rootClone.namespace == root.namespace);
+	assert(rootClone.location  == root.location);
+	assert(rootClone.values    == root.values);
+	assert(rootClone.toSDLDocument() == root.toSDLDocument());
+
+	auto peopleClone = people.clone();
+	assert(peopleClone !is people);
+	assert(peopleClone.parent is null);
+	assert(peopleClone.name      == people.name);
+	assert(peopleClone.namespace == people.namespace);
+	assert(peopleClone.location  == people.location);
+	assert(peopleClone.values    == people.values);
+	assert(peopleClone.toSDLString() == people.toSDLString());
 }
 
 // Regression test, issue #11: https://github.com/Abscissa/SDLang-D/issues/11
-version(sdlangUnittest)
+@("*: Regression test issue #11")
 unittest
 {
-	import sdlang.parser;
-	writeln("ast: Regression test issue #11...");
-	stdout.flush();
-	
+	import dub.internal.sdlang.parser;
+
 	auto root = parseSource(
 `//
 a`);

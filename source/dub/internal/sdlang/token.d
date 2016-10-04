@@ -10,21 +10,21 @@ import std.array;
 import std.base64;
 import std.conv;
 import std.datetime;
+import std.meta;
 import std.range;
 import std.string;
+import std.traits;
 import std.typetuple;
 import std.variant;
 
+import dub.internal.sdlang.exception;
 import dub.internal.sdlang.symbol;
 import dub.internal.sdlang.util;
 
-/// DateTime doesn't support milliseconds, but SDL's "Date Time" type does.
+/// DateTime doesn't support milliseconds, but SDLang's "Date Time" type does.
 /// So this is needed for any SDL "Date Time" that doesn't include a time zone.
 struct DateTimeFrac
 {
-	this(DateTime dt, Duration fs) { this.dateTime = dt; this.fracSecs = fs; }
-	this(DateTime dt, FracSec fs) { this.dateTime = dt; this.fracSecs = fs.hnsecs.hnsecs; }
-
 	DateTime dateTime;
 	Duration fracSecs;
 	deprecated("Use fracSecs instead.") {
@@ -36,11 +36,11 @@ struct DateTimeFrac
 /++
 If a "Date Time" literal in the SDL file has a time zone that's not found in
 your system, you get one of these instead of a SysTime. (Because it's
-impossible to indicate "unknown time zone" with 'std.datetime.TimeZone'.)
+impossible to indicate "unknown time zone" with `std.datetime.TimeZone`.)
 
-The difference between this and 'DateTimeFrac' is that 'DateTimeFrac'
+The difference between this and `DateTimeFrac` is that `DateTimeFrac`
 indicates that no time zone was specified in the SDL at all, whereas
-'DateTimeFracUnknownZone' indicates that a time zone was specified but
+`DateTimeFracUnknownZone` indicates that a time zone was specified but
 data for it could not be found on your system.
 +/
 struct DateTimeFracUnknownZone
@@ -48,7 +48,7 @@ struct DateTimeFracUnknownZone
 	DateTime dateTime;
 	Duration fracSecs;
 	deprecated("Use fracSecs instead.") {
-		@property FracSec fracSec() { return FracSec.from!"hnsecs"(fracSecs.total!"hnsecs"); }
+		@property FracSec fracSec() const { return FracSec.from!"hnsecs"(fracSecs.total!"hnsecs"); }
 		@property void fracSec(FracSec v) { fracSecs = v.hnsecs.hnsecs; }
 	}
 	string timeZone;
@@ -67,9 +67,10 @@ struct DateTimeFracUnknownZone
 }
 
 /++
-SDL's datatypes map to D's datatypes as described below.
+SDLang's datatypes map to D's datatypes as described below.
 Most are straightforward, but take special note of the date/time-related types.
 
+---------------------------------------------------------------
 Boolean:                       bool
 Null:                          typeof(null)
 Unicode Character:             dchar
@@ -87,8 +88,9 @@ Date (with no time at all):           Date
 Date Time (no timezone):              DateTimeFrac
 Date Time (with a known timezone):    SysTime
 Date Time (with an unknown timezone): DateTimeFracUnknownZone
+---------------------------------------------------------------
 +/
-alias TypeTuple!(
+alias ValueTypes = TypeTuple!(
 	bool,
 	string, dchar,
 	int, long,
@@ -96,41 +98,24 @@ alias TypeTuple!(
 	Date, DateTimeFrac, SysTime, DateTimeFracUnknownZone, Duration,
 	ubyte[],
 	typeof(null),
-) ValueTypes;
+);
 
-alias Algebraic!( ValueTypes ) Value; ///ditto
+alias Value = Algebraic!( ValueTypes ); ///ditto
+enum isValueType(T) = staticIndexOf!(T, ValueTypes) != -1;
 
-template isSDLSink(T)
-{
-	enum isSink =
-		isOutputRange!T &&
-		is(ElementType!(T)[] == string);
-}
+enum isSink(T) =
+	isOutputRange!T &&
+	is(ElementType!(T)[] == string);
 
-string toSDLString(T)(T value) if(
-	is( T : Value        ) ||
-	is( T : bool         ) ||
-	is( T : string       ) ||
-	is( T : dchar        ) ||
-	is( T : int          ) ||
-	is( T : long         ) ||
-	is( T : float        ) ||
-	is( T : double       ) ||
-	is( T : real         ) ||
-	is( T : Date         ) ||
-	is( T : DateTimeFrac ) ||
-	is( T : SysTime      ) ||
-	is( T : DateTimeFracUnknownZone ) ||
-	is( T : Duration     ) ||
-	is( T : ubyte[]      ) ||
-	is( T : typeof(null) )
-)
+string toSDLString(T)(T value) if(is(T==Value) || isValueType!T)
 {
 	Appender!string sink;
 	toSDLString(value, sink);
 	return sink.data;
 }
 
+/// Throws SDLangException if value is infinity, -infinity or NaN, because
+/// those are not currently supported by the SDLang spec.
 void toSDLString(Sink)(Value value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
 	foreach(T; ValueTypes)
@@ -141,8 +126,54 @@ void toSDLString(Sink)(Value value, ref Sink sink) if(isOutputRange!(Sink,char))
 			return;
 		}
 	}
-
+	
 	throw new Exception("Internal SDLang-D error: Unhandled type of Value. Contains: "~value.toString());
+}
+
+@("toSDLString on infinity and NaN")
+unittest
+{
+	import std.exception;
+	
+	auto floatInf    = float.infinity;
+	auto floatNegInf = -float.infinity;
+	auto floatNaN    = float.nan;
+
+	auto doubleInf    = double.infinity;
+	auto doubleNegInf = -double.infinity;
+	auto doubleNaN    = double.nan;
+
+	auto realInf    = real.infinity;
+	auto realNegInf = -real.infinity;
+	auto realNaN    = real.nan;
+
+	assertNotThrown( toSDLString(0.0F) );
+	assertNotThrown( toSDLString(0.0)  );
+	assertNotThrown( toSDLString(0.0L) );
+	
+	assertThrown!ValidationException( toSDLString(floatInf) );
+	assertThrown!ValidationException( toSDLString(floatNegInf) );
+	assertThrown!ValidationException( toSDLString(floatNaN) );
+
+	assertThrown!ValidationException( toSDLString(doubleInf) );
+	assertThrown!ValidationException( toSDLString(doubleNegInf) );
+	assertThrown!ValidationException( toSDLString(doubleNaN) );
+
+	assertThrown!ValidationException( toSDLString(realInf) );
+	assertThrown!ValidationException( toSDLString(realNegInf) );
+	assertThrown!ValidationException( toSDLString(realNaN) );
+	
+	assertThrown!ValidationException( toSDLString(Value(floatInf)) );
+	assertThrown!ValidationException( toSDLString(Value(floatNegInf)) );
+	assertThrown!ValidationException( toSDLString(Value(floatNaN)) );
+
+	assertThrown!ValidationException( toSDLString(Value(doubleInf)) );
+	assertThrown!ValidationException( toSDLString(Value(doubleNegInf)) );
+	assertThrown!ValidationException( toSDLString(Value(doubleNaN)) );
+
+	assertThrown!ValidationException( toSDLString(Value(realInf)) );
+	assertThrown!ValidationException( toSDLString(Value(realNegInf)) );
+	assertThrown!ValidationException( toSDLString(Value(realNaN)) );
 }
 
 void toSDLString(Sink)(typeof(null) value, ref Sink sink) if(isOutputRange!(Sink,char))
@@ -159,7 +190,7 @@ void toSDLString(Sink)(bool value, ref Sink sink) if(isOutputRange!(Sink,char))
 void toSDLString(Sink)(string value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
 	sink.put('"');
-
+	
 	// This loop is UTF-safe
 	foreach(char ch; value)
 	{
@@ -178,7 +209,7 @@ void toSDLString(Sink)(string value, ref Sink sink) if(isOutputRange!(Sink,char)
 void toSDLString(Sink)(dchar value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
 	sink.put('\'');
-
+	
 	if     (value == '\n') sink.put(`\n`);
 	else if(value == '\r') sink.put(`\r`);
 	else if(value == '\t') sink.put(`\t`);
@@ -200,18 +231,37 @@ void toSDLString(Sink)(long value, ref Sink sink) if(isOutputRange!(Sink,char))
 	sink.put( "%sL".format(value) );
 }
 
+private void checkUnsupportedFloatingPoint(T)(T value) if(isFloatingPoint!T)
+{
+	import std.exception;
+	import std.math;
+	
+	enforce!ValidationException(
+		!isInfinity(value),
+		"SDLang does not currently support infinity for floating-point types"
+	);
+
+	enforce!ValidationException(
+		!isNaN(value),
+		"SDLang does not currently support NaN for floating-point types"
+	);
+}
+
 void toSDLString(Sink)(float value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
+	checkUnsupportedFloatingPoint(value);
 	sink.put( "%.10sF".format(value) );
 }
 
 void toSDLString(Sink)(double value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
+	checkUnsupportedFloatingPoint(value);
 	sink.put( "%.30sD".format(value) );
 }
 
 void toSDLString(Sink)(real value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
+	checkUnsupportedFloatingPoint(value);
 	sink.put( "%.30sBD".format(value) );
 }
 
@@ -231,14 +281,14 @@ void toSDLString(Sink)(DateTimeFrac value, ref Sink sink) if(isOutputRange!(Sink
 	sink.put("%.2s".format(value.dateTime.hour));
 	sink.put(':');
 	sink.put("%.2s".format(value.dateTime.minute));
-
+	
 	if(value.dateTime.second != 0)
 	{
 		sink.put(':');
 		sink.put("%.2s".format(value.dateTime.second));
 	}
 
-	if(value.fracSecs.total!"msecs" != 0)
+	if(value.fracSecs != 0.msecs)
 	{
 		sink.put('.');
 		sink.put("%.3s".format(value.fracSecs.total!"msecs"));
@@ -247,16 +297,13 @@ void toSDLString(Sink)(DateTimeFrac value, ref Sink sink) if(isOutputRange!(Sink
 
 void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
-	static if (__VERSION__ >= 2067)
-		auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSecs);
-	else
-		auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSec);
+	auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSecs);
 	toSDLString(dateTimeFrac, sink);
-
+	
 	sink.put("-");
-
+	
 	auto tzString = value.timezone.name;
-
+	
 	// If name didn't exist, try abbreviation.
 	// Note that according to std.datetime docs, on Windows the
 	// stdName/dstName may not be properly abbreviated.
@@ -265,13 +312,13 @@ void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char
 	{
 		auto tz = value.timezone;
 		auto stdTime = value.stdTime;
-
+		
 		if(tz.hasDST())
 			tzString = tz.dstInEffect(stdTime)? tz.dstName : tz.stdName;
 		else
 			tzString = tz.stdName;
 	}
-
+	
 	if(tzString == "")
 	{
 		auto offset = value.timezone.utcOffsetAt(value.stdTime);
@@ -284,18 +331,10 @@ void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char
 		}
 		else
 			sink.put("+");
-
-		long hours, minutes;
-		static if (__VERSION__ >= 2066)
-			offset.split!("hours", "minutes")(hours, minutes);
-		else {
-			hours = offset.hours;
-			minutes = offset.minutes;
-		}
-
-		sink.put("%.2s".format(hours));
+		
+		sink.put("%.2s".format(offset.split.hours));
 		sink.put(":");
-		sink.put("%.2s".format(minutes));
+		sink.put("%.2s".format(offset.split.minutes));
 	}
 	else
 		sink.put(tzString);
@@ -305,7 +344,7 @@ void toSDLString(Sink)(DateTimeFracUnknownZone value, ref Sink sink) if(isOutput
 {
 	auto dateTimeFrac = DateTimeFrac(value.dateTime, value.fracSecs);
 	toSDLString(dateTimeFrac, sink);
-
+	
 	sink.put("-");
 	sink.put(value.timeZone);
 }
@@ -317,7 +356,7 @@ void toSDLString(Sink)(Duration value, ref Sink sink) if(isOutputRange!(Sink,cha
 		sink.put("-");
 		value = -value;
 	}
-
+	
 	auto days = value.total!"days"();
 	if(days != 0)
 	{
@@ -325,26 +364,16 @@ void toSDLString(Sink)(Duration value, ref Sink sink) if(isOutputRange!(Sink,cha
 		sink.put("d:");
 	}
 
-	long hours, minutes, seconds, msecs;
-	static if (__VERSION__ >= 2066)
-		value.split!("hours", "minutes", "seconds", "msecs")(hours, minutes, seconds, msecs);
-	else {
-		hours = value.hours;
-		minutes = value.minutes;
-		seconds = value.seconds;
-		msecs = value.fracSec.msecs;
-	}
-
-	sink.put("%.2s".format(hours));
+	sink.put("%.2s".format(value.split.hours));
 	sink.put(':');
-	sink.put("%.2s".format(minutes));
+	sink.put("%.2s".format(value.split.minutes));
 	sink.put(':');
-	sink.put("%.2s".format(seconds));
+	sink.put("%.2s".format(value.split.seconds));
 
-	if(msecs != 0)
+	if(value.split.msecs != 0)
 	{
 		sink.put('.');
-		sink.put("%.3s".format(msecs));
+		sink.put("%.3s".format(value.split.msecs));
 	}
 }
 
@@ -361,7 +390,7 @@ struct Token
 {
 	Symbol symbol = dub.internal.sdlang.symbol.symbol!"Error"; /// The "type" of this token
 	Location location;
-	Value value; /// Only valid when 'symbol' is symbol!"Value", otherwise null
+	Value value; /// Only valid when `symbol` is `symbol!"Value"`, otherwise null
 	string data; /// Original text from source
 
 	@disable this();
@@ -372,12 +401,12 @@ struct Token
 		this.value    = value;
 		this.data     = data;
 	}
-
+	
 	/// Tokens with differing symbols are always unequal.
 	/// Tokens with differing values are always unequal.
 	/// Tokens with differing Value types are always unequal.
-	/// Member 'location' is always ignored for comparison.
-	/// Member 'data' is ignored for comparison *EXCEPT* when the symbol is Ident.
+	/// Member `location` is always ignored for comparison.
+	/// Member `data` is ignored for comparison *EXCEPT* when the symbol is Ident.
 	bool opEquals(Token b)
 	{
 		return opEquals(b);
@@ -390,26 +419,22 @@ struct Token
 			this.value      != b.value
 		)
 			return false;
-
+		
 		if(this.symbol == .symbol!"Ident")
 			return this.data == b.data;
-
+		
 		return true;
 	}
-
+	
 	bool matches(string symbolName)()
 	{
 		return this.symbol == .symbol!symbolName;
 	}
 }
 
-version(sdlangUnittest)
+@("sdlang token")
 unittest
 {
-	import std.stdio;
-	writeln("Unittesting sdlang token...");
-	stdout.flush();
-
 	auto loc  = Location("", 0, 0, 0);
 	auto loc2 = Location("a", 1, 1, 1);
 
@@ -437,18 +462,14 @@ unittest
 	assert(Token(symbol!"Value",loc,Value(cast(float)1.2)) != Token(symbol!"Value",loc, Value(cast(double)1.2)));
 }
 
-version(sdlangUnittest)
+@("sdlang Value.toSDLString()")
 unittest
 {
-	import std.stdio;
-	writeln("Unittesting sdlang Value.toSDLString()...");
-	stdout.flush();
-
 	// Bool and null
 	assert(Value(null ).toSDLString() == "null");
 	assert(Value(true ).toSDLString() == "true");
 	assert(Value(false).toSDLString() == "false");
-
+	
 	// Base64 Binary
 	assert(Value(cast(ubyte[])"hello world".dup).toSDLString() == "[aGVsbG8gd29ybGQ=]");
 
@@ -500,15 +521,15 @@ unittest
 	assert(Value(DateTimeFrac(DateTime(-2004,10,31, 14,30,15))).toSDLString() == "-2004/10/31 14:30:15");
 
 	// DateTimeFrac w/ Frac
-	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), FracSec.from!"msecs"(123))).toSDLString() == "2004/10/31 14:30:15.123");
-	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), FracSec.from!"msecs"(120))).toSDLString() == "2004/10/31 14:30:15.120");
-	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), FracSec.from!"msecs"(100))).toSDLString() == "2004/10/31 14:30:15.100");
-	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), FracSec.from!"msecs"( 12))).toSDLString() == "2004/10/31 14:30:15.012");
-	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), FracSec.from!"msecs"(  1))).toSDLString() == "2004/10/31 14:30:15.001");
-	assert(Value(DateTimeFrac(DateTime(-2004,10,31, 14,30,15), FracSec.from!"msecs"(123))).toSDLString() == "-2004/10/31 14:30:15.123");
+	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), 123.msecs)).toSDLString() == "2004/10/31 14:30:15.123");
+	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), 120.msecs)).toSDLString() == "2004/10/31 14:30:15.120");
+	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), 100.msecs)).toSDLString() == "2004/10/31 14:30:15.100");
+	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15),  12.msecs)).toSDLString() == "2004/10/31 14:30:15.012");
+	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15),   1.msecs)).toSDLString() == "2004/10/31 14:30:15.001");
+	assert(Value(DateTimeFrac(DateTime(-2004,10,31, 14,30,15), 123.msecs)).toSDLString() == "-2004/10/31 14:30:15.123");
 
 	// DateTimeFracUnknownZone
-	assert(Value(DateTimeFracUnknownZone(DateTime(2004,10,31, 14,30,15), FracSec.from!"msecs"(123), "Foo/Bar")).toSDLString() == "2004/10/31 14:30:15.123-Foo/Bar");
+	assert(Value(DateTimeFracUnknownZone(DateTime(2004,10,31, 14,30,15), 123.msecs, "Foo/Bar")).toSDLString() == "2004/10/31 14:30:15.123-Foo/Bar");
 
 	// SysTime
 	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), new immutable SimpleTimeZone( hours(0)             ))).toSDLString() == "2004/10/31 14:30:15-GMT+00:00");
@@ -516,7 +537,7 @@ unittest
 	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), new immutable SimpleTimeZone( hours(2)+minutes(10) ))).toSDLString() == "2004/10/31 14:30:15-GMT+02:10");
 	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), new immutable SimpleTimeZone(-hours(5)-minutes(30) ))).toSDLString() == "2004/10/31 14:30:15-GMT-05:30");
 	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), new immutable SimpleTimeZone( hours(2)+minutes( 3) ))).toSDLString() == "2004/10/31 14:30:15-GMT+02:03");
-	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), FracSec.from!"msecs"(123), new immutable SimpleTimeZone( hours(0) ))).toSDLString() == "2004/10/31 14:30:15.123-GMT+00:00");
+	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), 123.msecs, new immutable SimpleTimeZone( hours(0) ))).toSDLString() == "2004/10/31 14:30:15.123-GMT+00:00");
 
 	// Duration
 	assert( "12:14:42"         == Value( days( 0)+hours(12)+minutes(14)+seconds(42)+msecs(  0)).toSDLString());
