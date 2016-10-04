@@ -116,22 +116,22 @@ unittest
 	{
 	case ParserEvent.Kind.tagStart:
 		auto e = cast(TagStartEvent) event;
-		writeln("TagStartEvent: ", e.namespace, ":", e.name, " @ ", e.location);
+		//writeln("TagStartEvent: ", e.namespace, ":", e.name, " @ ", e.location);
 		break;
 
 	case ParserEvent.Kind.tagEnd:
 		auto e = cast(TagEndEvent) event;
-		writeln("TagEndEvent");
+		//writeln("TagEndEvent");
 		break;
 
 	case ParserEvent.Kind.value:
 		auto e = cast(ValueEvent) event;
-		writeln("ValueEvent: ", e.value);
+		//writeln("ValueEvent: ", e.value);
 		break;
 
 	case ParserEvent.Kind.attribute:
 		auto e = cast(AttributeEvent) event;
-		writeln("AttributeEvent: ", e.namespace, ":", e.name, "=", e.value);
+		//writeln("AttributeEvent: ", e.namespace, ":", e.name, "=", e.value);
 		break;
 	}
 }
