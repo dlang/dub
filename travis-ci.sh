@@ -2,7 +2,7 @@
 
 set -v -e -o pipefail
 
-if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.065.z ]; then
+if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.066.z ]; then
     vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
     dub fetch vibe-d --version=$vibe_ver # get optional dependency
     dub test --compiler=${DC} -c library-nonet
