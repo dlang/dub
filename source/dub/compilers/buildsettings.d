@@ -63,7 +63,6 @@ struct BuildSettings {
 
 	void add(in BuildSettings bs)
 	{
-import std.stdio: writeln;
 		addDFlags(bs.dflags);
 		addLFlags(bs.lflags);
 		addLibs(bs.libs);

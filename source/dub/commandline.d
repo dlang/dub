@@ -102,6 +102,7 @@ int runDubCommandLine(string[] args)
 	if (args.length >= 2 && args[1].endsWith(".d")) {
 		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];
 	}
+
 	// split application arguments from DUB arguments
 	string[] app_args;
 	auto app_args_idx = args.countUntil("--");

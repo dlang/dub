@@ -499,7 +499,6 @@ class BuildGenerator : ProjectGenerator {
 
 	private void runTarget(Path exe_file_path, in BuildSettings buildsettings, string[] run_args, GeneratorSettings settings)
 	{
-import std.stdio: writeln;			
 		if (buildsettings.targetType == TargetType.executable) {
 			auto cwd = Path(getcwd());
 			auto runcwd = cwd;
