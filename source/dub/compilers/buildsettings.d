@@ -42,6 +42,7 @@ struct BuildSettings {
 	string[] postGenerateCommands;
 	string[] preBuildCommands;
 	string[] postBuildCommands;
+	string[] enviromentCommands; // mgw
 	@byName BuildRequirements requirements;
 	@byName BuildOptions options;
 
@@ -62,6 +63,7 @@ struct BuildSettings {
 
 	void add(in BuildSettings bs)
 	{
+import std.stdio: writeln;
 		addDFlags(bs.dflags);
 		addLFlags(bs.lflags);
 		addLibs(bs.libs);
@@ -78,6 +80,7 @@ struct BuildSettings {
 		addPostGenerateCommands(bs.postGenerateCommands);
 		addPreBuildCommands(bs.preBuildCommands);
 		addPostBuildCommands(bs.postBuildCommands);
+		addEnviromentCommands(bs.enviromentCommands);
 	}
 
 	void addDFlags(in string[] value...) { dflags ~= value; }
@@ -101,6 +104,9 @@ struct BuildSettings {
 	void addPostGenerateCommands(in string[] value...) { add(postGenerateCommands, value, false); }
 	void addPreBuildCommands(in string[] value...) { add(preBuildCommands, value, false); }
 	void addPostBuildCommands(in string[] value...) { add(postBuildCommands, value, false); }
+	// mgw
+	void addEnviromentCommands(in string[] value...) { add(enviromentCommands, value, false); }
+	//
 	void addRequirements(in BuildRequirement[] value...) { foreach (v; value) this.requirements |= v; }
 	void addRequirements(in BuildRequirements value) { this.requirements |= value; }
 	void addOptions(in BuildOption[] value...) { foreach (v; value) this.options |= v; }

@@ -1107,6 +1107,9 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addPostGenerateCommands(processVars(project, pack, settings.postGenerateCommands));
 	dst.addPreBuildCommands(processVars(project, pack, settings.preBuildCommands));
 	dst.addPostBuildCommands(processVars(project, pack, settings.postBuildCommands));
+	// mgw
+	dst.addEnviromentCommands(processVars(project, pack, settings.enviromentCommands));
+	//
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
 

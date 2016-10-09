@@ -157,6 +157,7 @@ struct BuildSettingsTemplate {
 	string[][string] postGenerateCommands;
 	string[][string] preBuildCommands;
 	string[][string] postBuildCommands;
+	string[][string] enviromentCommands; // mgw
 	BuildRequirements[string] buildRequirements;
 	BuildOptions[string] buildOptions;
 
@@ -221,6 +222,9 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("postGenerateCommands", "addPostGenerateCommands")(dst, platform);
 		getPlatformSetting!("preBuildCommands", "addPreBuildCommands")(dst, platform);
 		getPlatformSetting!("postBuildCommands", "addPostBuildCommands")(dst, platform);
+		// mgw
+		getPlatformSetting!("enviromentCommands", "addEnviromentCommands")(dst, platform);
+		//
 		getPlatformSetting!("buildRequirements", "addRequirements")(dst, platform);
 		getPlatformSetting!("buildOptions", "addOptions")(dst, platform);
 	}

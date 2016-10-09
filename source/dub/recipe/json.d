@@ -220,6 +220,11 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "postGenerateCommands": bs.postGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "preBuildCommands": bs.preBuildCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "postBuildCommands": bs.postBuildCommands[suffix] = deserializeJson!(string[])(value); break;
+			// mgw
+			case "enviromentCommands": 
+				bs.enviromentCommands[suffix] = deserializeJson!(string[])(value); 
+				break;
+			//	
 			case "buildRequirements":
 				BuildRequirements reqs;
 				foreach (req; deserializeJson!(string[])(value))

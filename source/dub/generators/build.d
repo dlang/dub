@@ -499,6 +499,7 @@ class BuildGenerator : ProjectGenerator {
 
 	private void runTarget(Path exe_file_path, in BuildSettings buildsettings, string[] run_args, GeneratorSettings settings)
 	{
+import std.stdio: writeln;			
 		if (buildsettings.targetType == TargetType.executable) {
 			auto cwd = Path(getcwd());
 			auto runcwd = cwd;
@@ -520,11 +521,19 @@ class BuildGenerator : ProjectGenerator {
 					exe_path_string = ".\\" ~ exe_path_string;
 			}
 			logInfo("Running %s %s", exe_path_string, run_args.join(" "));
+			// mgw
+			// create ass.array for spawnProcess with enviroment
+			string[string] menv; 
+			foreach(v; buildsettings.enviromentCommands) {
+				auto m = split(v, "="); 
+				menv[strip(m[0])] = strip(m[1]); 
+			}
+			//
 			if (settings.runCallback) {
 				auto res = execute(exe_path_string ~ run_args);
 				settings.runCallback(res.status, res.output);
 			} else {
-				auto prg_pid = spawnProcess(exe_path_string ~ run_args);
+				auto prg_pid = spawnProcess(exe_path_string ~ run_args, menv);
 				auto result = prg_pid.wait();
 				enforce(result == 0, "Program exited with code "~to!string(result));
 			}
