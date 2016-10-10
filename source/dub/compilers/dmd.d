@@ -57,13 +57,7 @@ class DMDCompiler : Compiler {
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
-		import std.process;
-		import std.string;
-
-		auto fil = generatePlatformProbeFile();
-
 		string[] arch_flags;
-
 		switch (arch_override) {
 			default: throw new Exception("Unsupported architecture: "~arch_override);
 			case "": break;
@@ -72,25 +66,7 @@ class DMDCompiler : Compiler {
 		}
 		settings.addDFlags(arch_flags);
 
-		auto result = executeShell(escapeShellCommand(compiler_binary ~ arch_flags ~
-			["-quiet", "-c", "-o-", fil.toNativeString()]));
-		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
-			compiler_binary, result.output));
-
-		auto build_platform = readPlatformProbe(result.output);
-		build_platform.compilerBinary = compiler_binary;
-
-		if (build_platform.compiler != this.name) {
-			logWarn(`The determined compiler type "%s" doesn't match the expected type "%s". This will probably result in build errors.`,
-				build_platform.compiler, this.name);
-		}
-
-		if (arch_override.length && !build_platform.architecture.canFind(arch_override)) {
-			logWarn(`Failed to apply the selected architecture %s. Got %s.`,
-				arch_override, build_platform.architecture);
-		}
-
-		return build_platform;
+		return probePlatform(compiler_binary, arch_flags ~ ["-quiet", "-c", "-o-"], arch_override);
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const

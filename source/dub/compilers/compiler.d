@@ -114,6 +114,34 @@ interface Compiler {
 		}
 		enforce(status == 0, format("%s failed with exit code %s.", args[0], status));
 	}
+
+	/// Compiles platform probe file with the specified compiler and parses its output.
+	protected final BuildPlatform probePlatform(string compiler_binary, string[] args, string arch_override)
+	{
+		import std.string : format;
+		import dub.compilers.utils : generatePlatformProbeFile, readPlatformProbe;
+
+		auto fil = generatePlatformProbeFile();
+
+		auto result = executeShell(escapeShellCommand(compiler_binary ~ args ~ fil.toNativeString()));
+		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
+				compiler_binary, result.output));
+
+		auto build_platform = readPlatformProbe(result.output);
+		build_platform.compilerBinary = compiler_binary;
+
+		if (build_platform.compiler != this.name) {
+			logWarn(`The determined compiler type "%s" doesn't match the expected type "%s". This will probably result in build errors.`,
+				build_platform.compiler, this.name);
+		}
+
+		if (arch_override.length && !build_platform.architecture.canFind(arch_override)) {
+			logWarn(`Failed to apply the selected architecture %s. Got %s.`,
+				arch_override, build_platform.architecture);
+		}
+
+		return build_platform;
+	}
 }
 
 private {
