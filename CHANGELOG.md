@@ -1,23 +1,31 @@
 Changelog
 =========
 
-v1.1.0 - 2016-08-
+v1.1.0 - 2016-10-
 -------------------
 
 ### Features and improvements ###
 
- - Fixed compilation for DMD master - [pull #891][issue891]
+ - Fixed complation for DMD 2.072.0 (minimum supported frontend version is 2.065) - [pull #891][issue891]
  - Fixed compliation with the latest vibe.d 0.7.30 alpha versions (avoid `Bson.opDispatch`)
  - Single-file packages are now built locally unless the shebang syntax is used (still performs a build in the temporary folder in that case) - [issue #887][issue887], [pull #888][issue888]
  - DUB now searches for a configuration file in "../etc/dub/settings.json" (relative to the executable location), enabling distribution-specific configuration - [issue #895][issue895], [pull #897][issue897]
  - "dub remove" is now interactive in case of multiple matching package versions - [pull #879][issue879]
+ - Added a "--stdout" switch to "dub convert" - [issue #932][issue932], [pull #933][issue933]
 
 ### Bug fixes ###
 
  - Pressing Ctrl+C during "dub init" now doesn't leave a half-initialized package behind - [issue #883][issue883], [pull #884][issue884]
  - Fixed handling of empty array directives in the SDLang recipe parser (e.g. a single `sourcePaths` directive with no arguments now properly avoids searching for default source directories)
  - Fixed a bad error message for missing dependencies that are referenced in the root package, as well as from a dependency - [issue #896][issue896]
+ - Fixed naming of folders in generated Sublime Text projects (by p0nce) - [pull #918][issue918]
+ - Fixed the workaround for "dub test" and modern vibe.d projects (proper fix is planned after a grace period)
+ - Fixed linking against intermediate dependencies in their build folder instead of the final build output file - [issue #921][issue921], [pull #922][issue922]
+ - Fixed omission of packages in a moderately complex sub package scenario - [issue #923][issue923], [pull #924][issue924]
+ - Fixed the default lib commmand line flag passed to LDC when building shared libraries (by Олег Леленков aka goodbin) - [pull #930][issue930]
+ - Fixed extraneous fields getting added to the package recipe by "dub convert" - [issue #820][issue820], [pull #901][issue901]
 
+[issue820]: https://github.com/dlang/dub/issues/820
 [issue879]: https://github.com/dlang/dub/issues/879
 [issue883]: https://github.com/dlang/dub/issues/883
 [issue884]: https://github.com/dlang/dub/issues/884
@@ -27,6 +35,15 @@ v1.1.0 - 2016-08-
 [issue895]: https://github.com/dlang/dub/issues/895
 [issue896]: https://github.com/dlang/dub/issues/896
 [issue897]: https://github.com/dlang/dub/issues/897
+[issue901]: https://github.com/dlang/dub/issues/901
+[issue918]: https://github.com/dlang/dub/issues/918
+[issue921]: https://github.com/dlang/dub/issues/921
+[issue922]: https://github.com/dlang/dub/issues/922
+[issue923]: https://github.com/dlang/dub/issues/923
+[issue924]: https://github.com/dlang/dub/issues/924
+[issue930]: https://github.com/dlang/dub/issues/930
+[issue932]: https://github.com/dlang/dub/issues/932
+[issue933]: https://github.com/dlang/dub/issues/933
 
 
 v1.0.0 - 2016-06-20
