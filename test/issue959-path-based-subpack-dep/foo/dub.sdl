@@ -1,0 +1,8 @@
+name "foo"
+targetType "sourceLibrary"
+
+subPackage {
+    name "baz"
+    targetType "sourceLibrary"
+    dependency "foo"  path="."
+}

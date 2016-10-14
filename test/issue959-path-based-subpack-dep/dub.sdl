@@ -1,0 +1,6 @@
+name "bar"
+mainSourceFile "main.d"
+targetType "executable"
+
+dependency "foo" path="foo"
+dependency "foo:baz" path="foo"
