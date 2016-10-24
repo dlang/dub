@@ -1,0 +1,3 @@
+name "main"
+dependency "a" path="../a"
+dependency "b" path="../b"
