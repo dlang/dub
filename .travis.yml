@@ -4,8 +4,8 @@ sudo: false
 matrix:
   include:
     - d: dmd-beta
-      env: [FRONTEND=2.071]
-    - d: dmd
+      env: [FRONTEND=2.072]
+    - d: dmd-2.071.2
       env: [FRONTEND=2.071]
     - d: dmd-2.070.2
       env: [FRONTEND=2.070]
@@ -21,6 +21,10 @@ matrix:
     - d: dmd-2.065.0
       env: [FRONTEND=2.065]
     - d: ldc
+    - d: ldc-1.1.0-beta3
+      env: [FRONTEND=2.071]
+    - d: ldc-1.0.0
+      env: [FRONTEND=2.070]
     - d: ldc-0.16.1
       env: [FRONTEND=2.067]
     - d: ldc-0.15.1
