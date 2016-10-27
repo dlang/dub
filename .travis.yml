@@ -6,8 +6,9 @@ matrix:
     - d: dmd-2.072.0-b2
       env: [FRONTEND=2.072]
     - d: dmd-2.071.2
-      env: [FRONTEND=2.071]
-      env: [COVERAGE=true]
+      env:
+        - [FRONTEND=2.071]
+        - [COVERAGE=true]
     - d: dmd-2.070.2
       env: [FRONTEND=2.070]
     - d: dmd-2.069.2
