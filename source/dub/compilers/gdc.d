@@ -119,7 +119,7 @@ class GDCCompiler : Compiler {
 			settings.lflags = null;
 		}
 
-		if (settings.targetType == TargetType.dynamicLibrary)
+		if (settings.options & BuildOption.pic)
 			settings.addDFlags("-fPIC");
 
 		assert(fields & BuildSetting.dflags);

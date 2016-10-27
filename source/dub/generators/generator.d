@@ -188,6 +188,10 @@ class ProjectGenerator
 			main_files ~= buildsettings.mainSourceFile;
 		}
 
+		// set pic for dynamic library builds.
+		if (buildsettings.targetType == TargetType.dynamicLibrary)
+			buildsettings.addOptions(BuildOption.pic);
+
 		logDiagnostic("Generate target %s (%s %s %s)", pack.name, buildsettings.targetType, buildsettings.targetPath, buildsettings.targetName);
 		if (is_target)
 			targets[pack.name] = TargetInfo(pack, [pack], configs[pack.name], buildsettings, null);

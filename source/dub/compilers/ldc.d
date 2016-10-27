@@ -117,7 +117,7 @@ class LDCCompiler : Compiler {
 			settings.lflags = null;
 		}
 
-		if (settings.targetType == TargetType.dynamicLibrary)
+		if (settings.options & BuildOption.pic)
 			settings.addDFlags("-relocation-model=pic");
 
 		assert(fields & BuildSetting.dflags);
