@@ -39,6 +39,8 @@ matrix:
       env: [FRONTEND=2.066]
     - d: gdc-4.9.0
       env: [FRONTEND=2.065]
+  allow_failures:
+  - d: ldc-1.1.0-beta3
 
 script:
   - ./travis-ci.sh
