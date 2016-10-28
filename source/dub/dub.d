@@ -1120,6 +1120,9 @@ class Dub {
 			version(Windows) enum pathsep = ";";
 			else enum pathsep = ":";
 			if (p.length) paths ~= p.split(pathsep).map!(p => Path(p))().array();
+			if (!defaultPlacementPath_.empty) // e.g. cachePath was set
+				paths ~= defaultPlacementPath; // look there for packages as well
+
 			m_packageManager.disableDefaultSearchPaths = false;
 			m_packageManager.searchPath = paths;
 		}

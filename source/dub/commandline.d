@@ -275,7 +275,8 @@ struct CommonOptions {
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
-		args.getopt("cachePath", &placementPath, ["Puts any fetched pacakges in the specified location. Overrides --cache"]);
+		args.getopt("cachePath", &placementPath, ["Puts any fetched pacakges in the specified location. Will also search this path for packages",
+				"  Overrides --cache"]);
 	}
 }
 
