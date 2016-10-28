@@ -81,6 +81,7 @@ struct BuildSettings {
 	}
 
 	void addDFlags(in string[] value...) { dflags ~= value; }
+	void prependDFlags(in string[] value...) { prepend(dflags, value); }
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { lflags ~= value; }
 	void addLibs(in string[] value...) { add(libs, value); }
