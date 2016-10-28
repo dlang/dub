@@ -105,9 +105,34 @@ class Dub {
 		This property can be altered, so that packages which are downloaded as part
 		of the normal upgrade process are stored in a certain location. This is
 		how the "--local" and "--system" command line switches operate.
+
+		If `defaultPlacementPath` is non-empty it overrides `defaultPlacementLocation`
 	*/
 	PlacementLocation defaultPlacementLocation = PlacementLocation.user;
+	/// ditto
+	Path defaultPlacementPath() @property
+	{
+		if (defaultPlacementPath_.empty)
+			defaultPlacementPath_ = placementLocationToPath(defaultPlacementLocation);
+		return defaultPlacementPath_;
+	}
+	/// ditto
+	void defaultPlacementPath(Path path) @property
+	{
+		defaultPlacementPath_ = path;
+	}
 
+	private Path defaultPlacementPath_;
+	private Path placementLocationToPath(PlacementLocation location)
+	{
+		Path placement;
+		final switch (location) with (PlacementLocation) {
+			case local: placement = m_rootPath; break;
+			case user: placement = m_dirs.userSettings ~ "packages/"; break;
+			case system: placement = m_dirs.systemSettings ~ "packages/"; break;
+		}
+		return placement;
+	}
 
 	/** Initializes the instance for use with a specific root package.
 
@@ -435,7 +460,7 @@ class Dub {
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			fetchOpts |= (options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting selected version");
+			if (!pack) fetch(p, ver, defaultPlacementPath, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
 				if (ver.path.empty) m_project.selections.selectVersion(p, ver.version_);
 				else {
@@ -617,6 +642,11 @@ class Dub {
 	/// Fetches the package matching the dependency and places it in the specified location.
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
+		return fetch(packageId, dep, placementLocationToPath(location), options, reason);
+	}
+	/// ditto
+	Package fetch(string packageId, const Dependency dep, Path placement, FetchOptions options, string reason = "")
+	{
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
@@ -631,13 +661,6 @@ class Dub {
 		}
 		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
-
-		Path placement;
-		final switch (location) {
-			case PlacementLocation.local: placement = m_rootPath; break;
-			case PlacementLocation.user: placement = m_dirs.userSettings ~ "packages/"; break;
-			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
-		}
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		Package existing;
@@ -655,7 +678,7 @@ class Dub {
 		}
 
 		if (existing) {
-			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
+			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade)/* || location == PlacementLocation.local*/) {
 				// TODO: support git working trees by performing a "git pull" instead of this
 				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
 					packageId, ver, placement);
@@ -736,12 +759,20 @@ class Dub {
 	void remove(string package_id, PlacementLocation location, bool force_remove,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
-		enforce(!package_id.empty);
 		if (location == PlacementLocation.local) {
 			logInfo("To remove a locally placed package, make sure you don't have any data"
 					~ "\nleft in it's directory and then simply remove the whole directory.");
 			throw new Exception("dub cannot remove locally installed packages.");
 		}
+		remove(package_id, placementLocationToPath(location), force_remove,
+				resolve_version);
+
+	}
+	/// ditto
+	void remove(string package_id, Path location, bool force_remove,
+				scope size_t delegate(in Package[] packages) resolve_version)
+	{
+		enforce(!package_id.empty);
 
 		Package[] packages;
 
@@ -789,6 +820,11 @@ class Dub {
 				files are found in its folder.
 	 */
 	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
+	{
+		remove(package_id, version_, placementLocationToPath(location), force_remove);
+	}
+	/// ditto
+	void remove(string package_id, string version_, Path location, bool force_remove)
 	{
 		remove(package_id, location, force_remove, (in packages) {
 			if (version_ == RemoveVersionWildcard)
@@ -1031,7 +1067,7 @@ class Dub {
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
 			logInfo("% is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementPath, FetchOptions.none);
 		}
 
 		auto ddox_dub = new Dub(null, m_packageSuppliers);
@@ -1357,7 +1393,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
 					fetchOpts |= (m_options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
-					m_dub.fetch(rootpack, dep, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
+					m_dub.fetch(rootpack, dep, m_dub.defaultPlacementPath, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);

@@ -213,12 +213,14 @@ int runDubCommandLine(string[] args)
 		if (options.bare) {
 			dub = new Dub(Path(getcwd()));
 			dub.defaultPlacementLocation = options.placementLocation;
+			dub.defaultPlacementPath = Path(options.placementPath);
 		} else {
 			// initialize DUB
 			auto package_suppliers = options.registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
 			dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
 			dub.dryRun = options.annotate;
 			dub.defaultPlacementLocation = options.placementLocation;
+			dub.defaultPlacementPath = Path(options.placementPath);
 
 			// make the CWD package available so that for example sub packages can reference their
 			// parent package.
@@ -252,6 +254,7 @@ struct CommonOptions {
 	string root_path;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
 	PlacementLocation placementLocation = PlacementLocation.user;
+	string placementPath;
 
 	/// Parses all common options and stores the result in the struct instance.
 	void prepare(CommandArgs args)
@@ -272,6 +275,7 @@ struct CommonOptions {
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
+		args.getopt("cachePath", &placementPath, ["Puts any fetched pacakges in the specified location. Overrides --cache"]);
 	}
 }
 
@@ -1176,7 +1180,7 @@ class FetchCommand : FetchRemoveCommand {
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto location = dub.defaultPlacementLocation;
+		auto location = dub.defaultPlacementPath;
 
 		auto name = free_args[0];
 
@@ -1239,7 +1243,7 @@ class RemoveCommand : FetchRemoveCommand {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
 		auto package_id = free_args[0];
-		auto location = dub.defaultPlacementLocation;
+		auto location = dub.defaultPlacementPath;
 
 		size_t resolveVersion(in Package[] packages) {
 			// just remove only package version
