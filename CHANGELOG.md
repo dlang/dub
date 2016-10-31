@@ -1,23 +1,33 @@
 Changelog
 =========
 
-v1.1.0 - 2016-10-30
+v1.1.0 - 2016-10-31
 -------------------
 
 ### Features and improvements ###
 
- - Fixed compilation for DMD master - [pull #891][issue891]
- - Fixed compliation with the latest vibe.d 0.7.30 alpha versions (avoid `Bson.opDispatch`)
+ - Fixed compilation for DMD 2.072.0 (minimum supported frontend version is 2.065) - [pull #891][issue891]
+ - Fixed compilation with the latest vibe.d 0.7.30 alpha versions (avoid `Bson.opDispatch`)
  - Single-file packages are now built locally unless the shebang syntax is used (still performs a build in the temporary folder in that case) - [issue #887][issue887], [pull #888][issue888]
  - DUB now searches for a configuration file in "../etc/dub/settings.json" (relative to the executable location), enabling distribution-specific configuration - [issue #895][issue895], [pull #897][issue897]
  - "dub remove" is now interactive in case of multiple matching package versions - [pull #879][issue879]
+ - Added a "--stdout" switch to "dub convert" - [issue #932][issue932], [pull #933][issue933]
 
 ### Bug fixes ###
 
  - Pressing Ctrl+C during "dub init" now doesn't leave a half-initialized package behind - [issue #883][issue883], [pull #884][issue884]
  - Fixed handling of empty array directives in the SDLang recipe parser (e.g. a single `sourcePaths` directive with no arguments now properly avoids searching for default source directories)
  - Fixed a bad error message for missing dependencies that are referenced in the root package, as well as from a dependency - [issue #896][issue896]
+ - Fixed naming of folders in generated Sublime Text projects (by p0nce) - [pull #918][issue918]
+ - Fixed the workaround for "dub test" and modern vibe.d projects (proper fix is planned after a grace period)
+ - Fixed linking against intermediate dependencies in their build folder instead of the final build output file - [issue #921][issue921], [pull #922][issue922]
+ - Fixed omission of packages in a moderately complex sub package scenario - [issue #923][issue923], [pull #924][issue924]
+ - Fixed the default lib command line flag passed to LDC when building shared libraries (by Олег Леленков aka goodbin) - [pull #930][issue930]
+ - Fixed extraneous fields getting added to the package recipe by "dub convert" - [issue #820][issue820], [pull #901][issue901]
+ - Fixed a regression where path based dependencies were not properly resolved - [issue #934][issue934], [issue #959][issue959], [pull #962][issue962], [pull #969][issue969]
+ - Fixed DMD separate compile/link detection code for the case where the compiler binary is not called "dmd" - [pull #966][issur966]
 
+[issue820]: https://github.com/dlang/dub/issues/820
 [issue879]: https://github.com/dlang/dub/issues/879
 [issue883]: https://github.com/dlang/dub/issues/883
 [issue884]: https://github.com/dlang/dub/issues/884
@@ -27,6 +37,20 @@ v1.1.0 - 2016-10-30
 [issue895]: https://github.com/dlang/dub/issues/895
 [issue896]: https://github.com/dlang/dub/issues/896
 [issue897]: https://github.com/dlang/dub/issues/897
+[issue901]: https://github.com/dlang/dub/issues/901
+[issue918]: https://github.com/dlang/dub/issues/918
+[issue921]: https://github.com/dlang/dub/issues/921
+[issue922]: https://github.com/dlang/dub/issues/922
+[issue923]: https://github.com/dlang/dub/issues/923
+[issue924]: https://github.com/dlang/dub/issues/924
+[issue930]: https://github.com/dlang/dub/issues/930
+[issue932]: https://github.com/dlang/dub/issues/932
+[issue933]: https://github.com/dlang/dub/issues/933
+[issue934]: https://github.com/dlang/dub/issues/934
+[issue959]: https://github.com/dlang/dub/issues/959
+[issue962]: https://github.com/dlang/dub/issues/962
+[issue966]: https://github.com/dlang/dub/issues/966
+[issue969]: https://github.com/dlang/dub/issues/969
 
 
 v1.0.0 - 2016-06-20
@@ -38,7 +62,7 @@ v1.0.0 - 2016-06-20
  - Builds on DMD 2.065.0 up to 2.071.1
  - Removed all deprecated functionality from the API, CLI and data formats
  - The minimum supported OS X version is now 10.7
- - Switched from `std.stream` to `std.stdio` (beware that a recent version of DMD is now necessary when building DUB to support unicode file names on Windows) - [pull #847][issue847]
+ - Switched from `std.stream` to `std.stdio` (beware that a recent version of DMD is now necessary when building DUB to support Unicode file names on Windows) - [pull #847][issue847]
  - Now passes `-vcolumns` also to LDC - [issue #859][issue859], [pull #860][issue860]
 
 ### Bug fixes ###
@@ -113,7 +137,7 @@ v0.9.25 - 2016-05-22
  - Fixed several issues with the SDLang parser
  - Fixed release-specific regressions regarding sub package dependencies that got ignored during dependency graph collection - [issue #803][issue803], [pull #807][issue807]
  - Fixed target type "none" packages still generating a binary target (affected `dub describe`)
- - Fixed `dub describe --data-list target-type` work for target type "none" pacakges
+ - Fixed `dub describe --data-list target-type` work for target type "none" packages
 
 
 [issue240]: https://github.com/dlang/dub/issues/240
@@ -397,14 +421,14 @@ v0.9.22 - 2014-09-22
  - Fixed referencing path based sub packages - [issue #347][issue347]
  - Fixed various error messages (by p0nce and sinkuu) - [pull #368][issue368], [pull #376][issue376]
  - Fixed the "ddox" build mode when DDOX hasn't already been installed - [issue #366][issue366]
- - Fixed probing the compiler for platfrom identifiers when performing cross compiling (by Mathias Lang aka Geod24) - [pull #380][issue380]
+ - Fixed probing the compiler for platform identifiers when performing cross compiling (by Mathias Lang aka Geod24) - [pull #380][issue380]
  - Fixed erroneously dropping the `"buildTypes"` field of downloaded packages (by sinkuu) - [pull #406][issue406]
  - Fixed trying to copy files with the same source and destination
  - Fixed downloading of packages with "+" in their version - [issue #411][issue411]
  - Fixed building dependencies with versions containing "+" on Windows/OPTLINK
  - Fixed a crash when sub packages of non-installed base packages are references - [issue #398][issue398]
  - Fixed repeated download of base packages when a non-existent sub package is referenced
- - Fixed intermediate build path for `--compiler=` binaries speficied with path separators - [issue #412][issue412]
+ - Fixed intermediate build path for `--compiler=` binaries specified with path separators - [issue #412][issue412]
 
 [issue134]: https://github.com/rejectedsoftware/dub/issues/134
 [issue144]: https://github.com/rejectedsoftware/dub/issues/144
@@ -495,7 +519,7 @@ v0.9.21 - 2014-02-22
  - Fixed a malformed log message for files with modification times in the future
  - Fixed handling of absolute working directories
  - Fixed a segmentation fault on OS X when doing `dub upgrade` - [issue #179][issue179]
- - Fixed extraction of prerelease SemVer versions from the "git describe" output
+ - Fixed extraction of pre-release SemVer versions from the "git describe" output
  - Fixed handling of paths with spaces in generated VisualD projects
  - Fixed DUB binaries compiled with GDC/LDC to work around a crash issue in `std.net.curl` - [issue #109][issue109], [issue #135][issue135]
  - Fixed iterating over directories containing invalid symbols links (e.g. when searching a directory for packages)
@@ -503,7 +527,7 @@ v0.9.21 - 2014-02-22
  - Fixed using custom registries in the global DUB configuration file - [issue #186][issue186]
  - Fixed assertions triggering when `$HOME` is a relative path (by Ognjen Ivkovic) - [pull #192][issue192]
  - Fixed the VisualD project generator to enforce build requirements
- - Fixed build requirements to also affect comipler options of the selected build
+ - Fixed build requirements to also affect compiler options of the selected build
  - Fixed configuration resolution for complex dependency graphs (it could happen that configurations were picked that can't work on the selected platform)
  - Fixed `dub build -b ddox` to only copy resource files from DDOX if they are newer than existing files on Posix
  - Fixed storing sub packages when the modified package description is written after fetching a package
@@ -589,7 +613,7 @@ v0.9.19 - 2013-10-18
 
 ### Features and improvements ###
 
- - Added the possibility to build or run a specific package, inculding sub packages
+ - Added the possibility to build or run a specific package, including sub packages
  - Implemented a new "--root=PATH" switch to let dub operate from a different directory than the current working directory
  - "dub init" now always emits lower case DUB package names
  - Improved diagnostic output for "dub add-local" and "dub remove-local"
@@ -597,13 +621,13 @@ v0.9.19 - 2013-10-18
 
 ### Bug fixes ###
 
- - Fixed erroneos "-debug" switches in non-debug builds
+ - Fixed erroneous "-debug" switches in non-debug builds
  - Enabled again a warning when using "-debug=" flags in "dflags" instead of using "debugVersions"
  - Fixed handling of paths with spaces for "--build=ddox"
  - Fixed inclusion of multiple instances of the same package.json files in the "visuald-combined" generator (by p0nce) - [pull #124][issue124]
  - Fixed response file output for LDC - [issue #86][issue86]
  - Fixed response file output for GDC - [issue #125][issue125]
- - Partially fixed working in paths with unicode characters by avoiding `std.stdio.File` - [issue #130][issue130]
+ - Partially fixed working in paths with Unicode characters by avoiding `std.stdio.File` - [issue #130][issue130]
 
 [issue86]: https://github.com/rejectedsoftware/dub/issues/86
 [issue124]: https://github.com/rejectedsoftware/dub/issues/124
@@ -656,7 +680,7 @@ v0.9.17 - 2013-07-24
 
  - PARTIAL Fixed building with LDC - [issue #86][issue86]
  - The version string in the HTTP "User-Agent" field is now formatted according to SemVer
- - Fixed bogus warnings about "dflags" that are confised with flags that are a prefix of those
+ - Fixed bogus warnings about "dflags" that are confused with flags that are a prefix of those
  - Fixed the VisualD generator to use the build settings and dependencies of the selected build configuration
  - Fixed the VisualD generator to enable the proper command line flags for each build type
  - Generated VisualD projects don't clean up JSON files on clean/rebuild anymore

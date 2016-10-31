@@ -224,7 +224,7 @@ class PackageManager {
 		foreach (p; getPackageIterator(base_package.name~":"~sub_name))
 			if (p.parentPackage is base_package)
 				return p;
-		enforce(silent_fail, "Sub package "~base_package.name~":"~sub_name~" doesn't exist.");
+		enforce(silent_fail, "Sub package \""~base_package.name~":"~sub_name~"\" doesn't exist.");
 		return null;
 	}
 

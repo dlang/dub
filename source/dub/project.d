@@ -314,7 +314,8 @@ class Project {
 					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
 					auto bp = m_dependencies[idx].basePackage;
 					vspec = Dependency(bp.path);
-					p = m_packageManager.getSubPackage(bp, subname, false);
+					if (subname.length) p = m_packageManager.getSubPackage(bp, subname, false);
+					else p = bp;
 				} else {
 					logDiagnostic("%sVersion selection for dependency %s (%s) of %s is missing.",
 						indent, basename, dep.name, pack.name);
