@@ -1213,7 +1213,7 @@ class FetchCommand : FetchRemoveCommand {
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto location = dub.defaultPlacementLocation;
+		auto location = dub.defaultRepoPath;
 
 		auto name = free_args[0];
 
@@ -1275,7 +1275,7 @@ class RemoveCommand : FetchRemoveCommand {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
 		auto package_id = free_args[0];
-		auto location = dub.defaultPlacementLocation;
+		auto location = dub.defaultRepoPath;
 
 		size_t resolveVersion(in Package[] packages) {
 			// just remove only package version
