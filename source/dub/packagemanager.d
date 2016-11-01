@@ -15,7 +15,7 @@ import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.package_;
 
-import std.algorithm : countUntil, filter, sort, canFind, remove;
+import std.algorithm : countUntil, filter, sort, canFind, remove, all;
 import std.array;
 import std.conv;
 import std.encoding : sanitize;
@@ -47,9 +47,14 @@ class PackageManager {
 
 	this(R)(R repo_paths, bool refresh_packages = true)
 	if (isInputRange!R && is(typeof(Repository(repo_paths.front))))
+	in { assert(repo_paths.all!(p => p.absolute )); }
+	body
 	{
 		foreach (path; repo_paths)
+		{
+			path.normalize();
 			m_repos[path] = Repository(path);
+		}
 		if (refresh_packages) refresh(true);
 	}
 
@@ -255,7 +260,11 @@ class PackageManager {
 		folders to be matched
 	*/
 	bool isManagedPath(Path path, bool allowSubDirs = true)
-	const {
+	const
+	in { assert(path.absolute); }
+	body
+	{
+		path.normalize();
 		if (allowSubDirs) {
 			foreach (rep; m_repos) {
 				Path rpath = rep.packagePath;
@@ -315,11 +324,14 @@ class PackageManager {
 	*/
 	deprecated const(PackageOverride)[] getOverrides(LocalPackageType scope_)
 	{
-		return m_repos[m_defaultPaths[scope_]].getOverrides();
+		return getOverrides(m_defaultPaths[scope_]);
 	}
 	/// ditto
 	const(PackageOverride)[] getOverrides(Path repoPath)
+	in { assert(repoPath.absolute); }
+	body
 	{
+		repoPath.normalize();
 		return m_repos[repoPath].getOverrides();
 	}
 
@@ -327,34 +339,43 @@ class PackageManager {
 	*/
 	deprecated void addOverride(LocalPackageType scope_, string package_, Dependency version_spec, Version target)
 	{
-		m_repos[m_defaultPaths[scope_]].addOverride(package_, version_spec, target);
+		addOverride(m_defaultPaths[scope_], package_, version_spec, target);
 	}
 	/// ditto
 	deprecated void addOverride(LocalPackageType scope_, string package_, Dependency version_spec, Path target)
 	{
-		m_repos[m_defaultPaths[scope_]].addOverride(package_, version_spec, target);
+		addOverride(m_defaultPaths[scope_], package_, version_spec, target);
 	}
 	/// ditto
-	void addOverride(Path path, string package_, Dependency version_spec, Version target)
+	void addOverride(Path repoPath, string package_, Dependency version_spec, Version target)
+	in { assert(repoPath.absolute); }
+	body
 	{
-		m_repos[path].addOverride(package_, version_spec, target);
+		repoPath.normalize();
+		m_repos[repoPath].addOverride(package_, version_spec, target);
 	}
 	/// ditto
-	void addOverride(Path path, string package_, Dependency version_spec, Path target)
+	void addOverride(Path repoPath, string package_, Dependency version_spec, Path target)
+	in { assert(repoPath.absolute); }
+	body
 	{
-		m_repos[path].addOverride(package_, version_spec, target);
+		repoPath.normalize();
+		m_repos[repoPath].addOverride(package_, version_spec, target);
 	}
 
 	/** Removes an existing package override.
 	*/
 	deprecated void removeOverride(LocalPackageType scope_, string package_, Dependency version_spec)
 	{
-		m_repos[m_defaultPaths[scope_]].removeOverride(package_, version_spec);
+		removeOverride(m_defaultPaths[scope_], package_, version_spec);
 	}
 	/// ditto
-	void removeOverride(Path path, string package_, Dependency version_spec)
+	void removeOverride(Path repoPath, string package_, Dependency version_spec)
+	in { assert(repoPath.absolute); }
+	body
 	{
-		m_repos[path].removeOverride(package_, version_spec);
+		repoPath.normalize();
+		m_repos[repoPath].removeOverride(package_, version_spec);
 	}
 
 	/// Extracts the package supplied as a path to it's zip file to the
@@ -489,41 +510,53 @@ class PackageManager {
 
 	deprecated Package addLocalPackage(Path path, string verName, LocalPackageType type)
 	{
-		return m_repos[m_defaultPaths[type]].addLocalPackage(path, verName);
+		return addLocalPackage(path, verName, m_defaultPaths[type]);
 	}
 	Package addLocalPackage(Path path, string verName, Path repoPath)
-	{
+	in { assert(repoPath.absolute); }
+	body
+{
+		repoPath.normalize();
 		return m_repos[repoPath].addLocalPackage(path, verName);
 	}
 
 	deprecated void removeLocalPackage(Path path, LocalPackageType type)
 	{
-		m_repos[m_defaultPaths[type]].removeLocalPackage(path);
+		removeLocalPackage(path, m_defaultPaths[type]);
 	}
 	void removeLocalPackage(Path path, Path repoPath)
+	in { assert(repoPath.absolute); }
+	body
 	{
+		repoPath.normalize();
 		m_repos[repoPath].removeLocalPackage(path);
 	}
 
 	/// For the given type add another path where packages will be looked up.
 	deprecated void addSearchPath(Path path, LocalPackageType type)
 	{
-		m_repos[m_defaultPaths[type]].addSearchPath(path);
+		addSearchPath(path, m_defaultPaths[type]);
 	}
 	/// ditto
 	void addSearchPath(Path path, Path repoPath)
+	in { assert(repoPath.absolute); }
+	body
 	{
+		repoPath.normalize();
 		m_repos[repoPath].addSearchPath(path);
 	}
 
 	/// Removes a search path from the given type.
 	deprecated void removeSearchPath(Path path, LocalPackageType type)
 	{
-		m_repos[m_defaultPaths[type]].removeSearchPath(path);
+		removeSearchPath(path, m_defaultPaths[type]);
 	}
 	/// ditto
 	void removeSearchPath(Path path, Path repoPath)
+	in { assert(repoPath.absolute); }
+	body
 	{
+		repoPath.normalize();
 		m_repos[repoPath].removeSearchPath(path);
 	}
 
@@ -710,7 +743,7 @@ private struct Repository {
 		this.packagePath = path;
 	}
 
-	private void writeLocalPackageOverridesFile()
+	void writeLocalPackageOverridesFile()
 	{
 		Json[] newlist;
 		foreach (ovr; overrides) {
@@ -725,7 +758,7 @@ private struct Repository {
 		writeJsonFile(packagePath ~ LocalOverridesFilename, Json(newlist));
 	}
 
-	private void writeLocalPackageList()
+	void writeLocalPackageList()
 	{
 		Json[] newlist;
 		foreach (p; searchPath) {

@@ -113,6 +113,8 @@ class Dub {
 		This property can be altered, so that packages which are downloaded as part
 		of the normal upgrade process are stored in a certain location. This is
 		how the "--local" and "--system" command line switches operate.
+
+		If it is relative, it is resolved relative to the current working directory
 	*/
 	Path defaultRepoPath() @property
 	{
@@ -121,8 +123,8 @@ class Dub {
 	/// Ditto
 	void defaultRepoPath(Path path) @property
 	{
-		path = makeAbsolute(path);
-		assert(m_packageManager.isManagedPath(path, false));
+		path = makeAbsoluteRelativeToCwd(path);
+		//assert(m_packageManager.isManagedPath(path, false), path.toNativeString);
 		m_defaultRepoPath = path;
 	}
 	/// Ditto
@@ -137,18 +139,24 @@ class Dub {
 		`loadPackage` overloads.
 
 		Params:
-			root_path = Path to the root package
+			root_path = Path to the root package. If relative, it will be resolved
+				relative to the current working directory.
 			additional_package_suppliers = A list of package suppliers to try
 				before the suppliers found in the configurations files and the
 				`defaultPackageSuppliers`.
 			skip_registry = Can be used to skip using the configured package
 				suppliers, as well as the default suppliers.
 	*/
-	this(string root_path = ".", PackageSupplier[] additional_package_suppliers = null,
+	this(string root_path, PackageSupplier[] additional_package_suppliers = null,
 			SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
 	{
-		m_rootPath = Path(root_path);
-		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
+		this(Path(root_path), additional_package_suppliers, skip_registry);
+	}
+	/// ditto
+	this(Path root_path = Path("."), PackageSupplier[] additional_package_suppliers = null,
+			SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
+	{
+		m_rootPath = makeAbsoluteRelativeToCwd(root_path);
 
 		init();
 
@@ -189,12 +197,15 @@ class Dub {
 		loading a package.
 
 		This constructor corresponds to the "--bare" option of the command line
-		interface. Use
+		interface.
+
+		If override_path is relative, it is resolved relative to the current working
+		directory
 	*/
-	this(Path override_path)
+	this(Path overridePath)
 	{
 		init();
-		m_overrideSearchPath = override_path;
+		m_overrideSearchPath = makeAbsoluteRelativeToCwd(overridePath);
 		m_packageManager = new PackageManager(cast(Path[])[], false);
 		updatePackageSearchPath();
 	}
@@ -207,9 +218,8 @@ class Dub {
 			m_dirs.userSettings = Path(environment.get("APPDATA")) ~ "dub/";
 		} else version(Posix){
 			m_dirs.systemSettings = Path("/var/lib/dub/");
-			m_dirs.userSettings = Path(environment.get("HOME")) ~ ".dub/";
-			if (!m_dirs.userSettings.absolute)
-				m_dirs.userSettings = Path(getcwd()) ~ m_dirs.userSettings;
+			m_dirs.userSettings = makeAbsoluteRelativeToCwd(
+					Path(environment.get("HOME")) ~ ".dub/");
 		}
 
 		m_dirs.systemRepo = m_dirs.systemSettings ~ "packages/";
@@ -240,11 +250,10 @@ class Dub {
 	/** Returns the root path (usually the current working directory).
 	*/
 	@property Path rootPath() const { return m_rootPath; }
-	/// ditto
+	/// Sets the root path. If relative, resolved relative to the current working directory.
 	@property void rootPath(Path root_path)
 	{
-		m_rootPath = root_path;
-		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
+		m_rootPath = makeAbsoluteRelativeToCwd(root_path);
 	}
 
 	/// Returns the user repository path (e.g. ~/.dub/)
@@ -284,9 +293,10 @@ class Dub {
 	}
 
 	/// Loads the package from the specified path as the main project package.
+	/// If path is relative, it is resolved relative to the current working directory
 	void loadPackage(Path path)
 	{
-		m_projectPath = path;
+		m_projectPath = makeAbsoluteRelativeToCwd(path);
 		updatePackageSearchPath();
 		m_project = new Project(m_packageManager, m_projectPath);
 	}
@@ -300,6 +310,8 @@ class Dub {
 	}
 
 	/** Loads a single file package.
+
+		If path is relative it is resolved relative to the root path
 
 		Single-file packages are D files that contain a package receipe comment
 		at their top. A recipe comment must be a nested `/+ ... +/` style
@@ -335,7 +347,7 @@ class Dub {
 		import std.file : mkdirRecurse, readText;
 		import std.path : baseName, stripExtension;
 
-		path = makeAbsolute(path);
+		path = makeAbsoluteRelativeToRoot(path);
 
 		string file_content = readText(path.toNativeString());
 
@@ -386,12 +398,12 @@ class Dub {
 	}
 
 	/** Disables the default search paths and only searches a specific directory
-		for packages.
+		for packages. Relative paths are resolved relative to the current working
+		directory
 	*/
 	void overrideSearchPath(Path path)
 	{
-		if (!path.absolute) path = Path(getcwd()) ~ path;
-		m_overrideSearchPath = path;
+		m_overrideSearchPath = makeAbsoluteRelativeToCwd(path);
 		updatePackageSearchPath();
 	}
 
@@ -420,7 +432,7 @@ class Dub {
 				auto dep = m_project.selections.getSelectedVersion(p);
 				if (!dep.path.empty) {
 					auto path = dep.path;
-					if (!path.absolute) path = this.rootPath ~ path;
+					path = makeAbsoluteRelativeToRoot(path);
 					try if (m_packageManager.getOrLoadPackage(path)) continue;
 					catch (Exception e) { logDebug("Failed to load path based selection: %s", e.toString().sanitize); }
 				} else {
@@ -539,10 +551,12 @@ class Dub {
 	/** Executes tests on the current project.
 
 		Throws an exception, if unittests failed.
+
+		If it is a relative path, custom_main_file is resolved relative to the current working directory
 	*/
 	void testProject(GeneratorSettings settings, string config, Path custom_main_file)
 	{
-		if (custom_main_file.length && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
+		if (custom_main_file.length) custom_main_file = makeAbsoluteRelativeToCwd(custom_main_file);
 
 		if (config.length == 0) {
 			// if a custom main file was given, favor the first library configuration, so that it can be applied
@@ -690,9 +704,11 @@ class Dub {
 		if (delimiter != "\0\0") writeln();
 	}
 
-	/// Cleans intermediate/cache files of the given package
+	/// Cleans intermediate/cache files of the given package.
+	/// Relative paths are resolved relative to the current working directory.
 	void cleanPackage(Path path)
 	{
+		path = makeAbsoluteRelativeToCwd(path);
 		logInfo("Cleaning package at %s...", path.toNativeString());
 		enforce(!Package.findPackageFile(path).empty, "No package found.", path.toNativeString());
 
@@ -703,8 +719,10 @@ class Dub {
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified repository
+	/// Relative repoPaths are resolved relative to the current working directory
 	Package fetch(string packageId, const Dependency dep, Path repoPath, FetchOptions options, string reason = "")
 	{
+		repoPath = makeAbsoluteRelativeToCwd(repoPath);
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
@@ -738,7 +756,10 @@ class Dub {
 		}
 
 		if (existing) {
-			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || repoPath == rootPath) {
+			repoPath.normalize();
+			auto rootNormalized = rootPath;
+			rootNormalized.normalize();
+			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || repoPath == rootNormalized) {
 				// TODO: support git working trees by performing a "git pull" instead of this
 				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
 					packageId, ver, repoPath);
@@ -820,14 +841,20 @@ class Dub {
 		Params:
 			package_id = Name of the package to be removed
 			repoPath = Specifies the location to look for the given package
-				name/version.
+				name/version. Relative paths are resolved relative to the
+				current working directory.
 			resolve_version = Callback to select package version.
 	*/
 	void remove(string package_id, Path repoPath,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
 		enforce(!package_id.empty);
-		if (repoPath == rootPath) {
+
+		auto rootNormalized = rootPath;
+		rootNormalized.normalize();
+		repoPath = makeAbsoluteRelativeToCwd(repoPath);
+		repoPath.normalize();
+		if (repoPath == rootNormalized) {
 			logInfo("To remove a locally placed package, make sure you don't have any data"
 					~ "\nleft in it's directory and then simply remove the whole directory.");
 			throw new Exception("dub cannot remove locally installed packages.");
@@ -890,7 +917,8 @@ class Dub {
 				there is only one version retrieved. This will throw an
 				exception, if there are multiple versions retrieved.
 			repoPath = Specifies the location to look for the given package
-				name/version.
+				name/version. Relative paths are resolved relative to the current
+				working directory.
 	 */
 	void remove(string package_id, string version_, Path repoPath)
 	{
@@ -931,18 +959,21 @@ class Dub {
 		Forwards to `PackageManager.addLocalPackage`.
 
 		Params:
-			path = Path to the package
+			path = Path to the package. Relative paths are resolved relative to
+				the root package directory
 			ver = Optional version to associate with the package (can be left
 				empty)
 			repoPath = location of the repository to be used, e.g. to use the default
-				user path, pass the `userRepoPath` property
+				user path, pass the `userRepoPath` property. Relative paths are resolved
+				relative to the current working directory
 
 		See_Also: `removeLocalPackage`
 	*/
 	void addLocalPackage(Path path, string ver, Path repoPath)
 	{
 		if (m_dryRun) return;
-		m_packageManager.addLocalPackage(makeAbsolute(path), ver, repoPath);
+		m_packageManager.addLocalPackage(makeAbsoluteRelativeToRoot(path), ver,
+				makeAbsoluteRelativeToCwd(repoPath));
 	}
 	/// override of addLocalPackage that takes the path as a string and a bool
 	/// to specify whether to use the system or user repository
@@ -956,16 +987,18 @@ class Dub {
 		Forwards to `PackageManager.removeLocalPackage`.
 
 		Params:
-			path = Path to the package
+			path = Path to the package. Relative paths are resolved relative to
+				the root package directory
 			repoPath = location of the repository to be used, e.g. to use the default
-				user path, pass the `userRepoPath` property
+				user path, pass the `userRepoPath` property. Relative paths are resolved
+				relative to the current working directory.
 
 		See_Also: `addLocalPackage`
 	*/
 	void removeLocalPackage(Path path, Path repoPath)
 	{
 		if (m_dryRun) return;
-		m_packageManager.removeLocalPackage(makeAbsolute(path), repoPath);
+		m_packageManager.removeLocalPackage(makeAbsoluteRelativeToRoot(path), repoPath);
 	}
 	/// override of removeLocalPath that takes the path as a string and a bool
 	/// to specify whether to use the system or user repository
@@ -978,16 +1011,20 @@ class Dub {
 		dependencies.
 
 		Params:
-			path = Path to a directory containing package directories
+			path = Path to a directory containing package directories. Relative paths
+				are resolved relative to the root package directory
 			repoPath = location of the repository to be used, e.g. to use the default
-				user path, pass the `userRepoPath` property
+				user path, pass the `userRepoPath` property. Relative paths are resolved
+				relative to the current working directory.
+
 
 		See_Also: `removeSearchPath`
 	*/
 	void addSearchPath(Path path, Path repoPath)
 	{
 		if (m_dryRun) return;
-		m_packageManager.addSearchPath(makeAbsolute(path), repoPath);
+		m_packageManager.addSearchPath(makeAbsoluteRelativeToRoot(path),
+				makeAbsoluteRelativeToCwd(repoPath));
 	}
 	/// override of addSearchPath that takes the path as a string and a bool
 	/// to specify whether to use the system or user repository
@@ -999,16 +1036,19 @@ class Dub {
 	/** Unregisters a local directory search path.
 
 		Params:
-			path = Path to a directory containing package directories
+			path = Path to a directory containing package directories. Relative paths
+				are resolved relative to the root package directory
 			repoPath = location of the repository to be used, e.g. to use the default
-				user path, pass the `userRepoPath` property
+				user path, pass the `userRepoPath` property. Relative paths are resolved
+				relative to the current working directory.
 
 		See_Also: `addSearchPath`
 	*/
 	void removeSearchPath(Path path, Path repoPath)
 	{
 		if (m_dryRun) return;
-		m_packageManager.removeSearchPath(makeAbsolute(path), repoPath);
+		m_packageManager.removeSearchPath(makeAbsoluteRelativeToRoot(path),
+				makeAbsoluteRelativeToCwd(repoPath));
 	}
 	/// override of addSearchPath that takes the path as a string and a bool
 	/// to specify whether to use the system or user repository
@@ -1088,7 +1128,8 @@ class Dub {
 
 		Params:
 			path = Path of the directory to create the new package in. The
-				directory will be created if it doesn't exist.
+				directory will be created if it doesn't exist. Relative paths
+				will be resolved relative to the root package directory
 			deps = List of dependencies to add to the package recipe.
 			type = Specifies the type of the application skeleton to use.
 			format = Determines the package recipe format to use.
@@ -1099,8 +1140,7 @@ class Dub {
 		PackageFormat format = PackageFormat.sdl,
 		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null)
 	{
-		if (!path.absolute) path = m_rootPath ~ path;
-		path.normalize();
+		path = makeAbsoluteRelativeToRoot(path);
 
 		string[string] depVers;
 		string[] notFound; // keep track of any failed packages in here
@@ -1226,14 +1266,13 @@ class Dub {
 			m_packageManager.disableRepoSearchPaths = true;
 			m_packageManager.searchPath = [m_overrideSearchPath];
 		} else {
-			auto p = environment.get("DUBPATH");
-			Path[] paths;
-
 			version(Windows) enum pathsep = ";";
 			else enum pathsep = ":";
-			if (p.length) paths ~= p.split(pathsep).map!(p => Path(p))().array();
+			m_packageManager.searchPath = environment.get("DUBPATH")
+				.splitter(pathsep)
+				.map!(p => makeAbsoluteRelativeToCwd(Path(p)))
+				.array;
 			m_packageManager.disableRepoSearchPaths = false;
-			m_packageManager.searchPath = paths;
 		}
 	}
 
@@ -1254,8 +1293,9 @@ class Dub {
 		m_defaultCompiler = res.empty ? compilers[0] : res.front;
 	}
 
-	private Path makeAbsolute(Path p) const { return p.absolute ? p : m_rootPath ~ p; }
-	private Path makeAbsolute(string p) const { return makeAbsolute(Path(p)); }
+	private Path makeAbsoluteRelativeToRoot(Path p) const { return p.absolute ? p : m_rootPath ~ p; }
+	private Path makeAbsoluteRelativeToRoot(string p) const { return makeAbsoluteRelativeToRoot(Path(p)); }
+	private static Path makeAbsoluteRelativeToCwd(Path p) { return p.absolute ? p : getWorkingDirectory() ~ p; }
 }
 
 
