@@ -796,12 +796,12 @@ class Dub {
 			return m_packageManager.getPackage(packageId, ver, dstpath);
 		}
 
-		auto path = getTempFile(packageId, ".zip");
-		supplier.fetchPackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
-		scope(exit) std.file.remove(path.toNativeString());
+		auto zipPath = getTempFile(packageId, ".zip");
+		supplier.fetchPackage(zipPath, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+		scope(exit) std.file.remove(zipPath.toNativeString());
 
 		logDiagnostic("Placing to %s...", repoPath.toNativeString());
-		return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
+		return m_packageManager.storeFetchedPackage(zipPath, pinfo, dstpath);
 	}
 	/// ditto
 	deprecated Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
