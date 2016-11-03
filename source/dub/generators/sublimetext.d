@@ -93,13 +93,13 @@ private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = 
 	{
 		return Json([
 			"name": "DUB build " ~ buildType.Json,
-			"cmd": ["dub", "build", "--build=" ~ buildType, "--arch=" ~ arch].map!Json.array.Json,
+			"cmd": ["dub", "build", "--build=" ~ buildType, "--arch=" ~ arch, "--compiler="~buildPlatform.compilerBinary].map!Json.array.Json,
 			"file_regex": fileRegex.Json,
 			"working_dir": workingDiretory.Json,
 			"variants": [
 				[
 					"name": "Run".Json,
-					"cmd": ["dub", "run", "--build=" ~ buildType, "--arch=" ~ arch].map!Json.array.Json,		
+					"cmd": ["dub", "run", "--build=" ~ buildType, "--arch=" ~ arch, "--compiler="~buildPlatform.compilerBinary].map!Json.array.Json,		
 				].Json
 			].array.Json,
 		]);
@@ -109,7 +109,7 @@ private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = 
 
 	buildSystems ~= 	[
 		"name": "DUB test".Json,
-		"cmd": ["dub", "test", "--arch=" ~ arch].map!Json.array.Json,
+		"cmd": ["dub", "test", "--arch=" ~ arch, "--compiler="~buildPlatform.compilerBinary].map!Json.array.Json,
 		"file_regex": r"^(.+)\(([0-9]+)\)\:() (.*)$".Json,
 		"working_dir": workingDiretory.Json,
 	].Json;
