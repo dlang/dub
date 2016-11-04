@@ -31,7 +31,7 @@ import std.datetime;
 import std.exception;
 import std.file;
 import std.process;
-import std.range : only;
+import std.range : chain, only;
 import std.string;
 import std.typecons;
 import std.zip;
@@ -154,7 +154,7 @@ class Dub {
 	}
 	/// ditto
 	this(Path root_path = Path("."), PackageSupplier[] additional_package_suppliers = null,
-			SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
+			SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none, Path[] extraRepoPaths = null)
 	{
 		m_rootPath = makeAbsoluteRelativeToCwd(root_path);
 
@@ -173,7 +173,8 @@ class Dub {
 			ps ~= defaultPackageSuppliers();
 
 		m_packageSuppliers = ps;
-		m_packageManager = new PackageManager(only(userRepoPath, systemRepoPath));
+		m_packageManager = new PackageManager(
+				chain(extraRepoPaths, only(userRepoPath, systemRepoPath)));
 		updatePackageSearchPath();
 	}
 

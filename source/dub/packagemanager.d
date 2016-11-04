@@ -58,6 +58,11 @@ class PackageManager {
 		if (refresh_packages) refresh(true);
 	}
 
+	Path[] allRepoPaths() @property
+	{
+		return m_repos.keys;
+	}
+
 	/** Gets/sets the list of paths to search for local packages.
 	*/
 	@property void searchPath(const(Path)[] paths)
