@@ -310,7 +310,7 @@ struct CommonOptions {
 		args.getopt("defaultRepoPath", &repoPath, ["Similar to --defaultRepo, but allows a path to be specified for a custom repository.",
 				"  Conflicts with --defaultRepo and --cache"]);
 
-		enforce(int(!cacheLocation.isNull) + int(!repoLocation.isNull) + int(!repoPath.empty) < 2,
+		enforce((!cacheLocation.isNull) + (!repoLocation.isNull) + (!repoPath.empty) < 2,
 				"Only one of --defaultRepo, --defaultRepoPath and --cache can be specified at once.");
 	}
 }
