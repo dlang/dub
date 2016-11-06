@@ -1,6 +1,24 @@
 Changelog
 =========
 
+v1.1.1 - 2016-11-
+-------------------
+
+### Bug fixes ###
+
+ - Fixed a regression where path based dependencies were not properly resolved - [issue #934][issue934], [issue #959][issue959], [pull #962][issue962], [pull #969][issue969]
+ - Fixed DMD separate compile/link detection code for the case where the compiler binary is not called "dmd" - [pull #966][issur966]
+ - Fixed using the selected compiler for generated Sublime Text projects - [issue #931][issue931], [pull #983][issue983]
+
+[issue931]: https://github.com/dlang/dub/issues/931
+[issue934]: https://github.com/dlang/dub/issues/934
+[issue959]: https://github.com/dlang/dub/issues/959
+[issue962]: https://github.com/dlang/dub/issues/962
+[issue966]: https://github.com/dlang/dub/issues/966
+[issue969]: https://github.com/dlang/dub/issues/969
+[issue983]: https://github.com/dlang/dub/issues/983
+
+
 v1.1.0 - 2016-10-31
 -------------------
 
@@ -24,8 +42,6 @@ v1.1.0 - 2016-10-31
  - Fixed omission of packages in a moderately complex sub package scenario - [issue #923][issue923], [pull #924][issue924]
  - Fixed the default lib command line flag passed to LDC when building shared libraries (by Олег Леленков aka goodbin) - [pull #930][issue930]
  - Fixed extraneous fields getting added to the package recipe by "dub convert" - [issue #820][issue820], [pull #901][issue901]
- - Fixed a regression where path based dependencies were not properly resolved - [issue #934][issue934], [issue #959][issue959], [pull #962][issue962], [pull #969][issue969]
- - Fixed DMD separate compile/link detection code for the case where the compiler binary is not called "dmd" - [pull #966][issur966]
 
 [issue820]: https://github.com/dlang/dub/issues/820
 [issue879]: https://github.com/dlang/dub/issues/879
@@ -46,11 +62,6 @@ v1.1.0 - 2016-10-31
 [issue930]: https://github.com/dlang/dub/issues/930
 [issue932]: https://github.com/dlang/dub/issues/932
 [issue933]: https://github.com/dlang/dub/issues/933
-[issue934]: https://github.com/dlang/dub/issues/934
-[issue959]: https://github.com/dlang/dub/issues/959
-[issue962]: https://github.com/dlang/dub/issues/962
-[issue966]: https://github.com/dlang/dub/issues/966
-[issue969]: https://github.com/dlang/dub/issues/969
 
 
 v1.0.0 - 2016-06-20
