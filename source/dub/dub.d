@@ -1051,15 +1051,12 @@ class Dub {
 		m_packageManager.removeSearchPath(makeAbsoluteRelativeToRoot(path),
 				makeAbsoluteRelativeToCwd(repoPath));
 	}
-	/// override of addSearchPath that takes the path as a string and a bool
+	/// override of removeSearchPath that takes the path as a string and a bool
 	/// to specify whether to use the system or user repository
 	deprecated void removeSearchPath(string path, bool system)
 	{
 		removeSearchPath(Path(path), system ? systemRepoPath : userRepoPath);
 	}
-
-	/// override of addSearchPath that takes the path as a string and a bool
-	/// to specify whether to use the system or user repository
 
 	/** Queries all package suppliers with the given query string.
 
