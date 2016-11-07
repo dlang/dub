@@ -261,7 +261,7 @@ class PackageManager {
 		By default, managed folders are "~/.dub/packages" and
 		"/var/lib/dub/packages".
 
-		Passing allowSubDirs = true will cause only the roots of the managed
+		Passing allowSubDirs = false will cause only the roots of the managed
 		folders to be matched
 	*/
 	bool isManagedPath(Path path, bool allowSubDirs = true)
