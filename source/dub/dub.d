@@ -146,6 +146,8 @@ class Dub {
 				`defaultPackageSuppliers`.
 			skip_registry = Can be used to skip using the configured package
 				suppliers, as well as the default suppliers.
+			extraRepoPaths = Directories to be considered as repositories in
+				addition to the default user and system repos.
 	*/
 	this(string root_path, PackageSupplier[] additional_package_suppliers = null,
 			SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
