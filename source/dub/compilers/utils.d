@@ -174,7 +174,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 		{["-debug="], `Use "debugVersions" to specify version constants in a compiler independent way`},
 		{["-I"], `Use "importPaths" to specify import paths in a compiler independent way`},
 		{["-J"], `Use "stringImportPaths" to specify import paths in a compiler independent way`},
-		{["-m32", "-m64"], `Use --arch=x86/--arch=x86_64 to specify the target architecture`}
+		{["-m32", "-m64", "-m32mscoff"], `Use --arch=x86/--arch=x86_64/--arch=x86_mscoff to specify the target architecture`}
 	];
 
 	struct SpecialOption {

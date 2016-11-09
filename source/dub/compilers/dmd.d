@@ -63,6 +63,7 @@ class DMDCompiler : Compiler {
 			case "": break;
 			case "x86": arch_flags = ["-m32"]; break;
 			case "x86_64": arch_flags = ["-m64"]; break;
+			case "x86_mscoff": arch_flags = ["-m32mscoff"]; break;
 		}
 		settings.addDFlags(arch_flags);
 
