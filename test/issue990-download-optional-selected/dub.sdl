@@ -1,0 +1,2 @@
+name "b"
+dependency "gitcompatibledubpackage" version="1.0.2" optional=true
