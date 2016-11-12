@@ -284,12 +284,13 @@ class Project {
 				Dependency vspec = dep.spec;
 				Package p;
 
-				// non-optional and optional-default dependencies (if no selections file exists)
-				// need to be satisfied
-				bool is_desired = !vspec.optional || (vspec.default_ && m_selections.bare);
-
 				auto basename = getBasePackageName(dep.name);
 				auto subname = getSubPackageName(dep.name);
+
+				// non-optional and optional-default dependencies (if no selections file exists)
+				// need to be satisfied
+				bool is_desired = !vspec.optional || m_selections.hasSelectedVersion(basename) || (vspec.default_ && m_selections.bare);
+
 				if (dep.name == m_rootPackage.basePackage.name) {
 					vspec = Dependency(m_rootPackage.version_);
 					p = m_rootPackage.basePackage;
