@@ -1264,16 +1264,21 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				else dt = DependencyType.optional;
 			} else dt = DependencyType.required;
 
-			if (m_options & UpgradeOptions.upgrade || !m_selectedVersions || !m_selectedVersions.hasSelectedVersion(dbasename)) {
-				// keep deselected dependencies deselected by default
-				if (m_selectedVersions && !m_selectedVersions.bare && dt == DependencyType.optionalDefault)
+			Dependency dspec = d.spec.mapToPath(pack.path);
+
+			// if not upgrading, use the selected version
+			if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions && m_selectedVersions.hasSelectedVersion(dbasename))
+				dspec = m_selectedVersions.getSelectedVersion(dbasename);
+
+			// keep selected optional dependencies and avoid non-selected optional-default dependencies by default
+			if (m_selectedVersions && !m_selectedVersions.bare) {
+				if (dt == DependencyType.optionalDefault && !m_selectedVersions.hasSelectedVersion(dbasename))
 					dt = DependencyType.optional;
-				ret ~= TreeNodes(d.name, d.spec.mapToPath(pack.path), dt);
-			} else {
-				// keep already selected optional dependencies if possible
-				if (dt == DependencyType.optional) dt = DependencyType.optionalDefault;
-				ret ~= TreeNodes(d.name, m_selectedVersions.getSelectedVersion(dbasename), dt);
+				else if (dt == DependencyType.optional && m_selectedVersions.hasSelectedVersion(dbasename))
+					dt = DependencyType.optionalDefault;
 			}
+
+			ret ~= TreeNodes(d.name, dspec, dt);
 		}
 		return ret.data;
 	}
