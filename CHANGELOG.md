@@ -9,7 +9,10 @@ v1.1.1 - 2016-11-
  - Fixed a regression where path based dependencies were not properly resolved - [issue #934][issue934], [issue #959][issue959], [pull #962][issue962], [pull #969][issue969]
  - Fixed DMD separate compile/link detection code for the case where the compiler binary is not called "dmd" - [pull #966][issur966]
  - Fixed using the selected compiler for generated Sublime Text projects - [issue #931][issue931], [pull #983][issue983]
+ - Fixed upgrading of optional dependencies (were ignored during the upgrade previously) - [issue #672][issue672], [pull #989][issue989]
+ - Fixed automatic downloading of selected optional dependencies - [issue #990][issue990], [pull #991][issue991]
 
+[issue672]: https://github.com/dlang/dub/issues/672
 [issue931]: https://github.com/dlang/dub/issues/931
 [issue934]: https://github.com/dlang/dub/issues/934
 [issue959]: https://github.com/dlang/dub/issues/959
@@ -17,6 +20,9 @@ v1.1.1 - 2016-11-
 [issue966]: https://github.com/dlang/dub/issues/966
 [issue969]: https://github.com/dlang/dub/issues/969
 [issue983]: https://github.com/dlang/dub/issues/983
+[issue989]: https://github.com/dlang/dub/issues/989
+[issue990]: https://github.com/dlang/dub/issues/990
+[issue991]: https://github.com/dlang/dub/issues/991
 
 
 v1.1.0 - 2016-10-31
