@@ -1,0 +1,19 @@
+name "mypackage"
+targetType "none"
+subPackage {
+	name "server"
+	sourceFiles "code/mypackage/[sc][oe]*/*.d"
+	targetType "executable"
+}
+subPackage {
+	name "client"
+	sourceFiles "code/mypackage/client/*.d"
+	targetType "executable"
+	dependency "mypackage:common" version="*"
+}
+subPackage {
+	name "common"
+	sourceFiles "code/mypackage/common/*.d"
+	importPaths "code"
+	targetType "library"
+}
