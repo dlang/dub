@@ -113,18 +113,17 @@ void main()
 private void initVibeDPackage(Path root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
 {
 	if ("vibe-d" !in p.buildSettings.dependencies)
-		p.buildSettings.dependencies["vibe-d"] = Dependency("~>0.7.28");
+		p.buildSettings.dependencies["vibe-d"] = Dependency("~>0.7.30");
 	p.description = "A simple vibe.d server application.";
-	p.buildSettings.versions[""] ~= "VibeDefaultMain";
 	pre_write_callback();
 
 	createDirectory(root_path ~ "source");
 	createDirectory(root_path ~ "views");
 	createDirectory(root_path ~ "public");
 	write((root_path ~ "source/app.d").toNativeString(),
-q{import vibe.d;
+q{import vibe.vibe;
 
-shared static this()
+void main()
 {
 	auto settings = new HTTPServerSettings;
 	settings.port = 8080;
@@ -132,6 +131,7 @@ shared static this()
 	listenHTTP(settings, &hello);
 
 	logInfo("Please open http://127.0.0.1:8080/ in your browser.");
+	runApplication();
 }
 
 void hello(HTTPServerRequest req, HTTPServerResponse res)
