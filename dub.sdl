@@ -22,13 +22,13 @@ configuration "library" {
 }
 
 configuration "library-nonet" {
-	dependency "vibe-d" version="~>0.7.29" optional=true
+	dependency "vibe-d:inet" version="~>0.7.30" optional=true
 	targetType "library"
 	excludedSourceFiles "source/app.d"
 }
 
 configuration "dynamic-library-nonet" {
-	dependency "vibe-d" version="~>0.7.29" optional=true
+	dependency "vibe-d:inet" version="~>0.7.30" optional=true
 	targetType "dynamicLibrary"
 	excludedSourceFiles "source/app.d"
 }
