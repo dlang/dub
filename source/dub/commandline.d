@@ -542,6 +542,7 @@ abstract class PackageBuildCommand : Command {
 		string m_compilerName;
 		string m_arch;
 		string[] m_debugVersions;
+		string[] m_overrideConfigs;
 		Compiler m_compiler;
 		BuildPlatform m_buildPlatform;
 		BuildSettings m_buildSettings;
@@ -560,6 +561,10 @@ abstract class PackageBuildCommand : Command {
 		]);
 		args.getopt("c|config", &m_buildConfig, [
 			"Builds the specified configuration. Configurations can be defined in dub.json"
+		]);
+		args.getopt("override-config", &m_overrideConfigs, [
+			"Uses the specified configuration for a certain dependency (format: --override-config <dependency>/<config>).",
+			"Can be specified multiple fimes."
 		]);
 		args.getopt("compiler", &m_compilerName, [
 			"Specifies the compiler binary to use (can be a path).",
@@ -609,6 +614,12 @@ abstract class PackageBuildCommand : Command {
 		if (m_buildType.length == 0) {
 			if (environment.get("DFLAGS") !is null) m_buildType = "$DFLAGS";
 			else m_buildType = default_build_type;
+		}
+
+		foreach (sc; m_overrideConfigs) {
+			auto idx = sc.indexOf('/');
+			enforceUsage(idx >= 0, "Expected \"<package>/<configuration>\" as argument to --override-config.");
+			dub.project.overrideConfiguration(sc[0 .. idx], sc[idx+1 .. $]);
 		}
 
 		if (!m_nodeps) {
