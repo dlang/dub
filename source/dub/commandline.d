@@ -616,12 +616,6 @@ abstract class PackageBuildCommand : Command {
 			else m_buildType = default_build_type;
 		}
 
-		foreach (sc; m_overrideConfigs) {
-			auto idx = sc.indexOf('/');
-			enforceUsage(idx >= 0, "Expected \"<package>/<configuration>\" as argument to --override-config.");
-			dub.project.overrideConfiguration(sc[0 .. idx], sc[idx+1 .. $]);
-		}
-
 		if (!m_nodeps) {
 			// TODO: only upgrade(select) if necessary, only upgrade(upgrade) every now and then
 
@@ -640,6 +634,12 @@ abstract class PackageBuildCommand : Command {
 		}
 
 		dub.project.validate();
+
+		foreach (sc; m_overrideConfigs) {
+			auto idx = sc.indexOf('/');
+			enforceUsage(idx >= 0, "Expected \"<package>/<configuration>\" as argument to --override-config.");
+			dub.project.overrideConfiguration(sc[0 .. idx], sc[idx+1 .. $]);
+		}
 	}
 
 	private bool loadSpecificPackage(Dub dub, string package_name)
