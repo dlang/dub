@@ -1,0 +1,9 @@
+name "a"
+
+configuration "fail" {
+}
+
+configuration "success" {
+	sourceFiles "a.d"
+	importPaths "."
+}
