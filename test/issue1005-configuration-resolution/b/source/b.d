@@ -1,0 +1,3 @@
+module b;
+
+void foo() {}

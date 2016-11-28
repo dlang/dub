@@ -1,0 +1,7 @@
+name "b"
+
+configuration "x" {
+}
+
+configuration "y" {
+}
