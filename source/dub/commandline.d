@@ -563,8 +563,8 @@ abstract class PackageBuildCommand : Command {
 			"Builds the specified configuration. Configurations can be defined in dub.json"
 		]);
 		args.getopt("override-config", &m_overrideConfigs, [
-			"Uses the specified configuration for a certain dependency (format: --override-config <dependency>/<config>).",
-			"Can be specified multiple fimes."
+			"Uses the specified configuration for a certain dependency. Can be specified multiple times.",
+			"Format: --override-config=<dependency>/<config>"
 		]);
 		args.getopt("compiler", &m_compilerName, [
 			"Specifies the compiler binary to use (can be a path).",

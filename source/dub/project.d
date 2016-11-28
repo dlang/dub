@@ -51,7 +51,7 @@ class Project {
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
 		bool m_hasAllDependencies;
-		string[string] m_overridenConfigs;
+		string[string] m_overriddenConfigs;
 	}
 
 	/** Loads a project.
@@ -218,7 +218,7 @@ class Project {
 		Params:
 			package_ = The package for which to force selecting a certain
 				dependency
-			config = Name of the configuration to force.
+			config = Name of the configuration to force
 	*/
 	void overrideConfiguration(string package_, string config)
 	{
@@ -227,7 +227,7 @@ class Project {
 			format("Package '%s', marked for configuration override, is not present in dependency graph.", package_));
 		enforce(p.configurations.canFind(config),
 			format("Package '%s' does not have a configuration named '%s'.", package_, config));
-		m_overridenConfigs[package_] = config;
+		m_overriddenConfigs[package_] = config;
 	}
 
 	/** Performs basic validation of various aspects of the package.
@@ -404,7 +404,7 @@ class Project {
 			foreach (i, v; configs)
 				if (v.pack == pack && v.config == config)
 					return i;
-			assert(pack !in m_overridenConfigs || config == m_overridenConfigs[pack]);
+			assert(pack !in m_overriddenConfigs || config == m_overriddenConfigs[pack]);
 			logDebug("Add config %s %s", pack, config);
 			configs ~= Vertex(pack, config);
 			return configs.length-1;
@@ -462,7 +462,7 @@ class Project {
 				if (!dp) continue;
 
 				string[] cfgs;
-				if (auto pc = dp.name in m_overridenConfigs) cfgs = [*pc];
+				if (auto pc = dp.name in m_overriddenConfigs) cfgs = [*pc];
 				else {
 					auto subconf = p.getSubConfiguration(c, dp, platform);
 					if (!subconf.empty) cfgs = [subconf];
@@ -502,7 +502,7 @@ class Project {
 			}
 
 			// for each configuration, determine the configurations usable for the dependencies
-			if (auto pc = p.name in m_overridenConfigs)
+			if (auto pc = p.name in m_overriddenConfigs)
 				determineDependencyConfigs(p, *pc);
 			else
 				foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library))
