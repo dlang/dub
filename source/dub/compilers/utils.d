@@ -83,6 +83,7 @@ unittest {
 void resolveLibs(ref BuildSettings settings)
 {
 	import std.string : format;
+	import std.array : array;
 
 	if (settings.libs.length == 0) return;
 
