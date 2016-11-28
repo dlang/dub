@@ -399,7 +399,6 @@ class Project {
 			foreach (d; p.getAllDependencies())
 				parents[d.name] ~= p.name;
 
-
 		size_t createConfig(string pack, string config) {
 			foreach (i, v; configs)
 				if (v.pack == pack && v.config == config)
@@ -424,12 +423,32 @@ class Project {
 
 		void removeConfig(size_t i) {
 			logDebug("Eliminating config %s for %s", configs[i].config, configs[i].pack);
+			auto had_dep_to_pack = new bool[configs.length];
+			auto still_has_dep_to_pack = new bool[configs.length];
+
+			edges = edges.filter!((e) {
+					if (e.to == i) {
+						had_dep_to_pack[e.from] = true;
+						return false;
+					} else if (configs[e.to].pack == configs[i].pack) {
+						still_has_dep_to_pack[e.from] = true;
+					}
+					if (e.from == i) return false;
+					return true;
+				}).array;
+
 			configs = configs.remove(i);
-			edges = edges.filter!(e => e.from != i && e.to != i).array();
+
 			foreach (ref e; edges) {
 				if (e.from > i) e.from--;
 				if (e.to > i) e.to--;
 			}
+
+			// also remove any configs that cannot be satisfied anymore
+			foreach_reverse (j; 0 .. configs.length+1)
+				if (j != i)
+					if (had_dep_to_pack[j] && !still_has_dep_to_pack[j])
+						removeConfig(j < i ? j : j - 1);
 		}
 
 		bool isReachable(string pack, string conf) {
@@ -518,7 +537,7 @@ class Project {
 			changed = false;
 			for (size_t i = 0; i < configs.length; ) {
 				if (!isReachableByAllParentPacks(i)) {
-					logDebug("NOT REACHABLE by (%s):", parents[configs[i].pack]);
+					logDebug("%s %s NOT REACHABLE by all of (%s):", configs[i].pack, configs[i].config, parents[configs[i].pack]);
 					removeConfig(i);
 					changed = true;
 				} else i++;
@@ -531,7 +550,7 @@ class Project {
 					for (size_t i = 0; i < configs.length; ) {
 						if (configs[i].pack == p.name) {
 							if (++cnt > 1) {
-								logDebug("NON-PRIMARY:");
+								logDebug("NON-PRIMARY: %s %s", configs[i].pack, configs[i].config);
 								removeConfig(i);
 							} else i++;
 						} else i++;
