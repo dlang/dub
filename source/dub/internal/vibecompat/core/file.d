@@ -112,20 +112,26 @@ void copyFile(Path from, Path to, bool overwrite = false)
 		removeFile(to);
 	}
 
-	.copy(from.toNativeString(), to.toNativeString());
-
-	// try to preserve ownership/permissions in Posix
-	version (Posix) {
-		import core.sys.posix.sys.stat;
-		import core.sys.posix.unistd;
-		import std.utf;
-		auto cspath = toUTFz!(const(char)*)(from.toNativeString());
-		auto cdpath = toUTFz!(const(char)*)(to.toNativeString());
-		stat_t st;
-		enforce(stat(cspath, &st) == 0, "Failed to get attributes of source file.");
-		if (chown(cdpath, st.st_uid, st.st_gid) != 0)
-			st.st_mode &= ~(S_ISUID | S_ISGID);
-		chmod(cdpath, st.st_mode);
+	static if (is(PreserveAttributes))
+	{
+		.copy(from.toNativeString(), to.toNativeString(), PreserveAttributes.yes);
+	}
+	else
+	{
+		.copy(from.toNativeString(), to.toNativeString());
+		// try to preserve ownership/permissions in Posix
+		version (Posix) {
+			import core.sys.posix.sys.stat;
+			import core.sys.posix.unistd;
+			import std.utf;
+			auto cspath = toUTFz!(const(char)*)(from.toNativeString());
+			auto cdpath = toUTFz!(const(char)*)(to.toNativeString());
+			stat_t st;
+			enforce(stat(cspath, &st) == 0, "Failed to get attributes of source file.");
+			if (chown(cdpath, st.st_uid, st.st_gid) != 0)
+				st.st_mode &= ~(S_ISUID | S_ISGID);
+			chmod(cdpath, st.st_mode);
+		}
 	}
 }
 /// ditto
