@@ -1621,7 +1621,7 @@ class DustmiteCommand : PackageBuildCommand {
 	{
 		args.getopt("compiler-status", &m_compilerStatusCode, ["The expected status code of the compiler run"]);
 		args.getopt("compiler-regex", &m_compilerRegex, ["A regular expression used to match against the compiler output"]);
-		args.getopt("linker-status", &m_linkerStatusCode, ["The expected status code of the liner run"]);
+		args.getopt("linker-status", &m_linkerStatusCode, ["The expected status code of the linker run"]);
 		args.getopt("linker-regex", &m_linkerRegex, ["A regular expression used to match against the linker output"]);
 		args.getopt("program-status", &m_programStatusCode, ["The expected status code of the built executable"]);
 		args.getopt("program-regex", &m_programRegex, ["A regular expression used to match against the program output"]);
