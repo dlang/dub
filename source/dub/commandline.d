@@ -1115,7 +1115,7 @@ class UpgradeCommand : Command {
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
 		if (m_forceRemove) options |= UpgradeOptions.forceRemove;
-		enforceUsage(app_args.length == 0, "Upgrading a specific package is not yet implemented.");
+		enforceUsage(free_args.length == 0, "Upgrading a specific package is not yet implemented.");
 		dub.upgrade(options);
 		return 0;
 	}
