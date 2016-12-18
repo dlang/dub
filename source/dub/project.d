@@ -347,7 +347,7 @@ class Project {
 				if (!p && !vspec.path.empty) {
 					Path path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
-					logDiagnostic("%sAdding local %s", indent, path);
+					logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
 					p = m_packageManager.getOrLoadPackage(path, Path.init, true);
 					if (p.parentPackage !is null) {
 						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
