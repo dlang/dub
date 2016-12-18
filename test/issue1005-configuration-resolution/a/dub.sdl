@@ -1,0 +1,10 @@
+name "a"
+dependency "b" version="*"
+
+configuration "x" {
+	subConfiguration "b" "x"
+}
+
+configuration "y" {
+	subConfiguration "b" "y"
+}
