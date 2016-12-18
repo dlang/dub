@@ -1647,7 +1647,7 @@ struct JsonStringSerializer(R, bool pretty = false)
 					m_range.skipWhitespace(&m_line);
 				} else first = false;
 
-				auto name = m_range.skipJsonString(&m_line);
+				auto name = m_range.skipJsonString(null, &m_line);
 
 				m_range.skipWhitespace(&m_line);
 				enforceJson(!m_range.empty && m_range.front == ':', "Expecting ':', not '"~m_range.front.to!string~"'.");
@@ -1692,7 +1692,7 @@ struct JsonStringSerializer(R, bool pretty = false)
 				return ret;
 			} else static if (is(T : long)) {
 				bool is_float;
-				auto num = m_range.skipNumber(is_float);
+				auto num = m_range.skipNumber(is_float, null, &m_line);
 				enforceJson(!is_float, "Expecting integer number.");
 				return to!T(num);
 			} else static if (is(T : real)) {
@@ -1700,7 +1700,7 @@ struct JsonStringSerializer(R, bool pretty = false)
 				auto num = m_range.skipNumber(is_float);
 				return to!T(num);
 			}
-			else static if (is(T == string)) return m_range.skipJsonString(&m_line);
+			else static if (is(T == string)) return m_range.skipJsonString(null, &m_line);
 			else static if (is(T == Json)) return m_range.parseJson(&m_line);
 			else static if (isJsonSerializable!T) return T.fromJson(m_range.parseJson(&m_line));
 			else static assert(false, "Unsupported type: " ~ T.stringof);
