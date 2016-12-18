@@ -674,14 +674,22 @@ class Package {
 		}
 	}
 
-	private void simpleLint() const {
+	private void simpleLint()
+	const {
 		if (m_parentPackage) {
 			if (m_parentPackage.path != path) {
 				if (this.recipe.license.length && this.recipe.license != m_parentPackage.recipe.license)
-					logWarn("License in subpackage %s is different than it's parent package, this is discouraged.", name);
+					logWarn("Warning: License in subpackage %s is different than it's parent package, this is discouraged.", name);
 			}
 		}
-		if (name.empty) logWarn("The package in %s has no name.", path);
+		if (name.empty) logWarn("Warning: The package in %s has no name.", path);
+		bool[string] cnames;
+		foreach (ref c; this.recipe.configurations) {
+			if (c.name in cnames)
+				logWarn("Warning: Multiple configurations with the name \"%s\" are defined in package \"%s\". This will most likely cause configuration resolution issues.",
+					c.name, this.name);
+			cnames[c.name] = true;
+		}
 	}
 }
 
