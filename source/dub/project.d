@@ -51,6 +51,7 @@ class Project {
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
 		bool m_hasAllDependencies;
+		string[string] m_overriddenConfigs;
 	}
 
 	/** Loads a project.
@@ -206,6 +207,27 @@ class Project {
 	const {
 		auto cfgs = getPackageConfigs(platform, null, allow_non_library_configs);
 		return cfgs[m_rootPackage.name];
+	}
+
+	/** Overrides the configuration chosen for a particular package in the
+		dependency graph.
+
+		Setting a certain configuration here is equivalent to removing all
+		but one configuration from the package.
+
+		Params:
+			package_ = The package for which to force selecting a certain
+				dependency
+			config = Name of the configuration to force
+	*/
+	void overrideConfiguration(string package_, string config)
+	{
+		auto p = getDependency(package_, true);
+		enforce(p !is null,
+			format("Package '%s', marked for configuration override, is not present in dependency graph.", package_));
+		enforce(p.configurations.canFind(config),
+			format("Package '%s' does not have a configuration named '%s'.", package_, config));
+		m_overriddenConfigs[package_] = config;
 	}
 
 	/** Performs basic validation of various aspects of the package.
@@ -382,6 +404,7 @@ class Project {
 			foreach (i, v; configs)
 				if (v.pack == pack && v.config == config)
 					return i;
+			assert(pack !in m_overriddenConfigs || config == m_overriddenConfigs[pack]);
 			logDebug("Add config %s %s", pack, config);
 			configs ~= Vertex(pack, config);
 			return configs.length-1;
@@ -430,6 +453,39 @@ class Project {
 		}
 
 		string[] allconfigs_path;
+
+		void determineDependencyConfigs(in Package p, string c)
+		{
+			string[][string] depconfigs;
+			foreach (d; p.getAllDependencies()) {
+				auto dp = getDependency(d.name, true);
+				if (!dp) continue;
+
+				string[] cfgs;
+				if (auto pc = dp.name in m_overriddenConfigs) cfgs = [*pc];
+				else {
+					auto subconf = p.getSubConfiguration(c, dp, platform);
+					if (!subconf.empty) cfgs = [subconf];
+					else cfgs = dp.getPlatformConfigurations(platform);
+				}
+				cfgs = cfgs.filter!(c => haveConfig(d.name, c)).array;
+
+				// if no valid configuration was found for a dependency, don't include the
+				// current configuration
+				if (!cfgs.length) {
+					logDebug("Skip %s %s (missing configuration for %s)", p.name, c, dp.name);
+					return;
+				}
+				depconfigs[d.name] = cfgs;
+			}
+
+			// add this configuration to the graph
+			size_t cidx = createConfig(p.name, c);
+			foreach (d; p.getAllDependencies())
+				foreach (sc; depconfigs.get(d.name, null))
+					createEdge(cidx, createConfig(d.name, sc));
+		}
+
 		// create a graph of all possible package configurations (package, config) -> (subpackage, subconfig)
 		void determineAllConfigs(in Package p)
 		{
@@ -446,33 +502,11 @@ class Project {
 			}
 
 			// for each configuration, determine the configurations usable for the dependencies
-			outer: foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library)) {
-				string[][string] depconfigs;
-				foreach (d; p.getAllDependencies()) {
-					auto dp = getDependency(d.name, true);
-					if (!dp) continue;
-
-					string[] cfgs;
-					auto subconf = p.getSubConfiguration(c, dp, platform);
-					if (!subconf.empty) cfgs = [subconf];
-					else cfgs = dp.getPlatformConfigurations(platform);
-					cfgs = cfgs.filter!(c => haveConfig(d.name, c)).array;
-
-					// if no valid configuration was found for a dependency, don't include the
-					// current configuration
-					if (!cfgs.length) {
-						logDebug("Skip %s %s (missing configuration for %s)", p.name, c, dp.name);
-						continue outer;
-					}
-					depconfigs[d.name] = cfgs;
-				}
-
-				// add this configuration to the graph
-				size_t cidx = createConfig(p.name, c);
-				foreach (d; p.getAllDependencies())
-					foreach (sc; depconfigs.get(d.name, null))
-						createEdge(cidx, createConfig(d.name, sc));
-			}
+			if (auto pc = p.name in m_overriddenConfigs)
+				determineDependencyConfigs(p, *pc);
+			else
+				foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library))
+					determineDependencyConfigs(p, c);
 		}
 		if (config.length) createConfig(m_rootPackage.name, config);
 		determineAllConfigs(m_rootPackage);
