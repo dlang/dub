@@ -122,8 +122,6 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		auto config_indices = new size_t[all_configs.length];
 		config_indices[] = 0;
 
-		string last_error;
-
 		visited = null;
 		sizediff_t validateConfigs(TreeNode parent, ref string error)
 		{
@@ -162,7 +160,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					}
 					// choose another parent config to avoid the invalid child
 					if (parentidx > maxcpi) {
-						error = format("Package %s contains invalid dependency %s", parent.pack, ch.pack);
+						error = format("Package %s contains invalid dependency %s (no version candidates)", parent.pack, ch.pack);
 						logDiagnostic("%s (ci=%s)", error, parentidx);
 						maxcpi = parentidx;
 					}
@@ -205,7 +203,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			visited = null;
 			string error;
 			auto conflict_index = validateConfigs(root, error);
-			if (first_error !is null) first_error = error;
+			if (first_error is null) first_error = error;
 
 			// print out current iteration state
 			logDebug("Interation (ci=%s) %s", conflict_index, {
