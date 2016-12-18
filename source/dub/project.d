@@ -377,7 +377,6 @@ class Project {
 			foreach (d; p.getAllDependencies())
 				parents[d.name] ~= p.name;
 
-
 		size_t createConfig(string pack, string config) {
 			foreach (i, v; configs)
 				if (v.pack == pack && v.config == config)
@@ -401,12 +400,26 @@ class Project {
 
 		void removeConfig(size_t i) {
 			logDebug("Eliminating config %s for %s", configs[i].config, configs[i].pack);
-			configs = configs.remove(i);
-			edges = edges.filter!(e => e.from != i && e.to != i).array();
-			foreach (ref e; edges) {
-				if (e.from > i) e.from--;
-				if (e.to > i) e.to--;
-			}
+			auto had_dep_to_pack = new bool[configs.length];
+			auto still_has_dep_to_pack = new bool[configs.length];
+
+			edges = edges.filter!((e) {
+					if (e.to == i) {
+						had_dep_to_pack[e.from] = true;
+						return false;
+					} else if (configs[e.to].pack == configs[i].pack) {
+						still_has_dep_to_pack[e.from] = true;
+					}
+					if (e.from == i) return false;
+					return true;
+				}).array;
+
+			configs[i] = Vertex.init; // mark config as removed
+
+			// also remove any configs that cannot be satisfied anymore
+			foreach (j; 0 .. configs.length)
+				if (j != i && had_dep_to_pack[j] && !still_has_dep_to_pack[j])
+					removeConfig(j);
 		}
 
 		bool isReachable(string pack, string conf) {
@@ -482,26 +495,24 @@ class Project {
 		do {
 			// remove all configs that are not reachable by all parent packages
 			changed = false;
-			for (size_t i = 0; i < configs.length; ) {
+			foreach (i, ref c; configs) {
+				if (c == Vertex.init) continue; // ignore deleted configurations
 				if (!isReachableByAllParentPacks(i)) {
-					logDebug("NOT REACHABLE by (%s):", parents[configs[i].pack]);
+					logDebug("%s %s NOT REACHABLE by all of (%s):", c.pack, c.config, parents[c.pack]);
 					removeConfig(i);
 					changed = true;
-				} else i++;
+				}
 			}
 
 			// when all edges are cleaned up, pick one package and remove all but one config
 			if (!changed) {
 				foreach (p; getTopologicalPackageList()) {
 					size_t cnt = 0;
-					for (size_t i = 0; i < configs.length; ) {
-						if (configs[i].pack == p.name) {
-							if (++cnt > 1) {
-								logDebug("NON-PRIMARY:");
-								removeConfig(i);
-							} else i++;
-						} else i++;
-					}
+					foreach (i, ref c; configs)
+						if (c.pack == p.name && ++cnt > 1) {
+							logDebug("NON-PRIMARY: %s %s", c.pack, c.config);
+							removeConfig(i);
+						}
 					if (cnt > 1) {
 						changed = true;
 						break;
@@ -516,6 +527,7 @@ class Project {
 		// return the resulting configuration set as an AA
 		string[string] ret;
 		foreach (c; configs) {
+			if (c == Vertex.init) continue; // ignore deleted configurations
 			assert(ret.get(c.pack, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", c.pack, c.config, ret[c.pack]));
 			logDebug("Using configuration '%s' for %s", c.config, c.pack);
 			ret[c.pack] = c.config;
