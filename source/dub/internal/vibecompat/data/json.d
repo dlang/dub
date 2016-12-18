@@ -892,12 +892,12 @@ Json parseJson(R)(ref R range, int* line = null, string filename = null)
 		case '0': .. case '9':
 		case '-':
 			bool is_float;
-			auto num = skipNumber(range, is_float);
+			auto num = skipNumber(range, is_float, filename, line);
 			if( is_float ) ret = to!double(num);
 			else ret = to!long(num);
 			break;
 		case '\"':
-			ret = skipJsonString(range);
+			ret = skipJsonString(range, filename, line);
 			break;
 		case '[':
 			Json[] arr;
@@ -924,7 +924,7 @@ Json parseJson(R)(ref R range, int* line = null, string filename = null)
 				skipWhitespace(range, line);
 				enforceJson(!range.empty, "Missing '}' before EOF.", filename, line);
 				if(range.front == '}') break;
-				string key = skipJsonString(range);
+				string key = skipJsonString(range, filename, line);
 				skipWhitespace(range, line);
 				enforceJson(range.startsWith(":"), "Expected ':' for key '" ~ key ~ "'", filename, line);
 				range.popFront();
@@ -1955,7 +1955,7 @@ private void jsonEscape(bool escape_unicode = false, R)(ref R dst, string s)
 }
 
 /// private
-private string jsonUnescape(R)(ref R range)
+private string jsonUnescape(R)(ref R range, string filename, int* line)
 {
 	auto ret = appender!string();
 	while(!range.empty){
@@ -1964,9 +1964,9 @@ private string jsonUnescape(R)(ref R range)
 			case '"': return ret.data;
 			case '\\':
 				range.popFront();
-				enforceJson(!range.empty, "Unterminated string escape sequence.");
+				enforceJson(!range.empty, "Unterminated string escape sequence.", filename, line);
 				switch(range.front){
-					default: enforceJson(false, "Invalid string escape sequence."); break;
+					default: enforceJson(false, "Invalid string escape sequence.", filename, line); break;
 					case '"': ret.put('\"'); range.popFront(); break;
 					case '\\': ret.put('\\'); range.popFront(); break;
 					case '/': ret.put('/'); range.popFront(); break;
@@ -1983,14 +1983,14 @@ private string jsonUnescape(R)(ref R range)
 							dchar uch = 0;
 							foreach( i; 0 .. 4 ){
 								uch *= 16;
-								enforceJson(!range.empty, "Unicode sequence must be '\\uXXXX'.");
+								enforceJson(!range.empty, "Unicode sequence must be '\\uXXXX'.", filename, line);
 								auto dc = range.front;
 								range.popFront();
 
 								if( dc >= '0' && dc <= '9' ) uch += dc - '0';
 								else if( dc >= 'a' && dc <= 'f' ) uch += dc - 'a' + 10;
 								else if( dc >= 'A' && dc <= 'F' ) uch += dc - 'A' + 10;
-								else enforceJson(false, "Unicode sequence must be '\\uXXXX'.");
+								else enforceJson(false, "Unicode sequence must be '\\uXXXX'.", filename, line);
 							}
 							return uch;
 						}
@@ -2001,7 +2001,7 @@ private string jsonUnescape(R)(ref R range)
 							/* surrogate pair */
 							range.popFront(); // backslash '\'
 							auto uch2 = decode_unicode_escape();
-							enforceJson(0xDC00 <= uch2 && uch2 <= 0xDFFF, "invalid Unicode");
+							enforceJson(0xDC00 <= uch2 && uch2 <= 0xDFFF, "invalid Unicode", filename, line);
 							{
 								/* valid second surrogate */
 								uch =
@@ -2024,7 +2024,7 @@ private string jsonUnescape(R)(ref R range)
 }
 
 /// private
-private string skipNumber(R)(ref R s, out bool is_float)
+private string skipNumber(R)(ref R s, out bool is_float, string filename, int* line)
 {
 	// TODO: make this work with input ranges
 	size_t idx = 0;
@@ -2032,7 +2032,7 @@ private string skipNumber(R)(ref R s, out bool is_float)
 	if (s[idx] == '-') idx++;
 	if (s[idx] == '0') idx++;
 	else {
-		enforceJson(isDigit(s[idx++]), "Digit expected at beginning of number.");
+		enforceJson(isDigit(s[idx++]), "Digit expected at beginning of number.", filename, line);
 		while( idx < s.length && isDigit(s[idx]) ) idx++;
 	}
 
@@ -2046,7 +2046,7 @@ private string skipNumber(R)(ref R s, out bool is_float)
 		idx++;
 		is_float = true;
 		if( idx < s.length && (s[idx] == '+' || s[idx] == '-') ) idx++;
-		enforceJson( idx < s.length && isDigit(s[idx]), "Expected exponent." ~ s[0 .. idx]);
+		enforceJson( idx < s.length && isDigit(s[idx]), "Expected exponent." ~ s[0 .. idx], filename, line);
 		idx++;
 		while( idx < s.length && isDigit(s[idx]) ) idx++;
 	}
@@ -2057,13 +2057,13 @@ private string skipNumber(R)(ref R s, out bool is_float)
 }
 
 /// private
-private string skipJsonString(R)(ref R s, int* line = null)
+private string skipJsonString(R)(ref R s, string filename, int* line)
 {
 	// TODO: count or disallow any newlines inside of the string
-	enforceJson(!s.empty && s.front == '"', "Expected '\"' to start string.");
+	enforceJson(!s.empty && s.front == '"', "Expected '\"' to start string.", filename, line);
 	s.popFront();
-	string ret = jsonUnescape(s);
-	enforceJson(!s.empty && s.front == '"', "Expected '\"' to terminate string.");
+	string ret = jsonUnescape(s, filename, line);
+	enforceJson(!s.empty && s.front == '"', "Expected '\"' to terminate string.", filename, line);
 	s.popFront();
 	return ret;
 }
