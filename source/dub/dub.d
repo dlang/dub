@@ -427,14 +427,13 @@ class Dub {
 				{
 					// TODO: only re-install if there is actually a new commit available
 					logInfo("Re-installing branch based dependency %s %s", p, ver.toString());
-					m_packageManager.remove(pack, (options & UpgradeOptions.forceRemove) != 0);
+					m_packageManager.remove(pack);
 					pack = null;
 				}
 			}
 
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
-			fetchOpts |= (options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
 			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
 				if (ver.path.empty) m_project.selections.selectVersion(p, ver.version_);
@@ -662,7 +661,7 @@ class Dub {
 				return existing;
 			} else {
 				logInfo("Removing %s %s to prepare replacement with a new version.", packageId, ver);
-				if (!m_dryRun) m_packageManager.remove(existing, (options & FetchOptions.forceRemove) != 0);
+				if (!m_dryRun) m_packageManager.remove(existing);
 			}
 		}
 
@@ -707,13 +706,17 @@ class Dub {
 
 		Params:
 			pack = Package instance to remove
-			force_remove = Forces removal of the package, even if untracked
-				files are found in its folder.
 	*/
-	void remove(in Package pack, bool force_remove)
+	void remove(in Package pack)
 	{
 		logInfo("Removing %s in %s", pack.name, pack.path.toNativeString());
-		if (!m_dryRun) m_packageManager.remove(pack, force_remove);
+		if (!m_dryRun) m_packageManager.remove(pack);
+	}
+	
+	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	void remove(in Package pack, bool force_remove)
+	{
+		remove(pack);
 	}
 
 	/// @see remove(string, string, RemoveLocation)
@@ -729,11 +732,9 @@ class Dub {
 			package_id = Name of the package to be removed
 			location_ = Specifies the location to look for the given package
 				name/version.
-			force_remove = Forces removal of the package, even if untracked
-				files are found in its folder.
 			resolve_version = Callback to select package version.
 	*/
-	void remove(string package_id, PlacementLocation location, bool force_remove,
+	void remove(string package_id, PlacementLocation location,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
 		enforce(!package_id.empty);
@@ -766,13 +767,20 @@ class Dub {
 		logDebug("Removing %s packages.", packages.length);
 		foreach(pack; packages) {
 			try {
-				remove(pack, force_remove);
+				remove(pack);
 				logInfo("Removed %s, version %s.", package_id, pack.version_);
 			} catch (Exception e) {
 				logError("Failed to remove %s %s: %s", package_id, pack.version_, e.msg);
 				logInfo("Continuing with other packages (if any).");
 			}
 		}
+	}
+
+	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	void remove(string package_id, PlacementLocation location, bool force_remove,
+				scope size_t delegate(in Package[] packages) resolve_version)
+	{
+		remove(package_id, location, resolve_version);
 	}
 
 	/** Removes a specific version of a package.
@@ -785,12 +793,10 @@ class Dub {
 				exception, if there are multiple versions retrieved.
 			location_ = Specifies the location to look for the given package
 				name/version.
-			force_remove = Forces removal of the package, even if untracked
-				files are found in its folder.
 	 */
-	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
+	void remove(string package_id, string version_, PlacementLocation location)
 	{
-		remove(package_id, location, force_remove, (in packages) {
+		remove(package_id, location, (in packages) {
 			if (version_ == RemoveVersionWildcard)
 				return packages.length;
 			if (version_.empty && packages.length > 1) {
@@ -810,6 +816,12 @@ class Dub {
 				~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
 				~ ")");
 		});
+	}
+
+	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
+	{
+		remove(package_id, version_, location);
 	}
 
 	/** Adds a directory to the list of locally known packages.
@@ -1117,7 +1129,7 @@ enum FetchOptions
 	none = 0,
 	forceBranchUpgrade = 1<<0,
 	usePrerelease = 1<<1,
-	forceRemove = 1<<2,
+	forceRemove = 1<<2, /// Deprecated, does nothing.
 	printOnly = 1<<3,
 }
 
@@ -1127,7 +1139,7 @@ enum UpgradeOptions
 	none = 0,
 	upgrade = 1<<1, /// Upgrade existing packages
 	preRelease = 1<<2, /// inclde pre-release versions in upgrade
-	forceRemove = 1<<3, /// Force removing package folders, which contain unknown files
+	forceRemove = 1<<3, /// Deprecated, does nothing.
 	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
 	printUpgradesOnly = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
 	useCachedResult = 1<<6, /// Use cached information stored with the package to determine upgrades
@@ -1361,7 +1373,6 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				try {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
-					fetchOpts |= (m_options & UpgradeOptions.forceRemove) != 0 ? FetchOptions.forceRemove : FetchOptions.none;
 					m_dub.fetch(rootpack, dep, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {

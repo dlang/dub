@@ -580,15 +580,15 @@ abstract class PackageBuildCommand : Command {
 		args.getopt("nodeps", &m_nodeps, [
 			"Do not check/update dependencies before building"
 		]);
-		args.getopt("force-remove", &m_forceRemove, [
-			"Force deletion of fetched packages with untracked files when upgrading"
-		]);
 		args.getopt("build-mode", &m_buildMode, [
 			"Specifies the way the compiler and linker are invoked. Valid values:",
 			"  separate (default), allAtOnce, singleFile"
 		]);
 		args.getopt("single", &m_single, [
 			"Treats the package name as a filename. The file must contain a package recipe comment."
+		]);
+		args.getopt("force-remove", &m_forceRemove, [
+			"Deprecated option that does nothing."
 		]);
 	}
 
@@ -1104,14 +1104,14 @@ class UpgradeCommand : Command {
 		args.getopt("prerelease", &m_prerelease, [
 			"Uses the latest pre-release version, even if release versions are available"
 		]);
-		args.getopt("force-remove", &m_forceRemove, [
-			"Force deletion of fetched packages with untracked files"
-		]);
 		args.getopt("verify", &m_verify, [
 			"Updates the project and performs a build. If successful, rewrites the selected versions file <to be implemeted>."
 		]);
 		args.getopt("missing-only", &m_missingOnly, [
 			"Performs an upgrade only for dependencies that don't yet have a version selected. This is also done automatically before each build."
+		]);
+		args.getopt("force-remove", &m_forceRemove, [
+			"Deprecated option that does nothing."
 		]);
 	}
 
@@ -1125,7 +1125,6 @@ class UpgradeCommand : Command {
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
-		if (m_forceRemove) options |= UpgradeOptions.forceRemove;
 		enforceUsage(free_args.length == 0, "Upgrading a specific package is not yet implemented.");
 		dub.upgrade(options);
 		return 0;
@@ -1146,7 +1145,7 @@ class FetchRemoveCommand : Command {
 		]);
 
 		args.getopt("force-remove", &m_forceRemove, [
-			"Force deletion of fetched packages with untracked files"
+			"Deprecated option that does nothing"
 		]);
 	}
 
@@ -1193,7 +1192,6 @@ class FetchCommand : FetchRemoveCommand {
 
 		FetchOptions fetchOpts;
 		fetchOpts |= FetchOptions.forceBranchUpgrade;
-		fetchOpts |= m_forceRemove ? FetchOptions.forceRemove : FetchOptions.none;
 		if (m_version.length) dub.fetch(name, Dependency(m_version), location, fetchOpts);
 		else {
 			try {
@@ -1280,9 +1278,9 @@ class RemoveCommand : FetchRemoveCommand {
 		}
 
 		if (m_nonInteractive || !m_version.empty)
-			dub.remove(package_id, m_version, location, m_forceRemove);
+			dub.remove(package_id, m_version, location);
 		else
-			dub.remove(package_id, location, m_forceRemove, &resolveVersion);
+			dub.remove(package_id, location, &resolveVersion);
 		return 0;
 	}
 }

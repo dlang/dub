@@ -415,7 +415,7 @@ class PackageManager {
 	}
 
 	/// Removes the given the package.
-	void remove(in Package pack, bool force_remove)
+	void remove(in Package pack)
 	{
 		logDebug("Remove %s, version %s, path '%s'", pack.name, pack.version_, pack.path);
 		enforce(!pack.path.empty, "Cannot remove package "~pack.name~" without a path.");
@@ -443,6 +443,12 @@ class PackageManager {
 		logDebug("About to delete root folder for package '%s'.", pack.path);
 		rmdirRecurse(pack.path.toNativeString());
 		logInfo("Removed package: '"~pack.name~"'");
+	}
+
+	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	void remove(in Package pack, bool force_remove)
+	{
+		remove(pack);
 	}
 
 	Package addLocalPackage(Path path, string verName, LocalPackageType type)
