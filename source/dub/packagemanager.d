@@ -104,7 +104,7 @@ class PackageManager {
 				foreach (ovr; m_repositories[tp].overrides)
 					if (ovr.package_ == name && ovr.version_.matches(ver)) {
 						Package pack;
-						if (!ovr.targetPath.empty) pack = getPackage(name, ovr.targetPath);
+						if (!ovr.targetPath.empty) pack = getOrLoadPackage(ovr.targetPath);
 						else pack = getPackage(name, ovr.targetVersion, false);
 						if (pack) return pack;
 
