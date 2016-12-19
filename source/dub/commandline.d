@@ -1415,6 +1415,8 @@ class ListCommand : Command {
 	override void prepare(scope CommandArgs args) {}
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
+		enforceUsage(free_args.length == 0, "Expecting no extra arguments.");
+		enforceUsage(app_args.length == 0, "The list command supports no application arguments.");
 		logInfo("Packages present in the system and known to dub:");
 		foreach (p; dub.packageManager.getPackageIterator())
 			logInfo("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
