@@ -1495,6 +1495,7 @@ class AddOverrideCommand : Command {
 		auto ver = Dependency(free_args[1]);
 		if (existsFile(Path(free_args[2]))) {
 			auto target = Path(free_args[2]);
+			if (!target.absolute) target = Path(getcwd()) ~ target;
 			dub.packageManager.addOverride(scope_, pack, ver, target);
 			logInfo("Added override %s %s => %s", pack, ver, target);
 		} else {
