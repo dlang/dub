@@ -181,7 +181,7 @@ bool matchesSpecification(in BuildPlatform platform, const(char)[] specification
 	}
 	if (platform.compiler == splitted.front) {
 		splitted.popFront();
-		enforce(splitted.empty, "No valid specification! The compiler has to be the last element!");
+		enforce(splitted.empty, "No valid specification! The compiler has to be the last element: " ~ specification);
 		return true;
 	}
 	return false;
