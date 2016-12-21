@@ -70,6 +70,7 @@ private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = 
 		//"plain",
 		"debug",
 		"release",
+		"release-debug",
 		"release-nobounds",
 		//"unittest",
 		"docs",
