@@ -86,12 +86,22 @@ class CMakeGenerator: ProjectGenerator
             
             if(addTarget)
             {
-                script.put("add_%s(%s %s\n".format(targetType, name, libType));
+                script.put("set(%s_SRC\n".format(name));
                 
                 foreach(file; info.buildSettings.sourceFiles)
                     script.put("    %s\n".format(file.sanitizeSlashes));
                 
                 script.put(")\n");
+                
+                if(info.buildSettings.mainSourceFile != null)
+                {
+                    script.put("if(DUB_%s_FORCE_MAIN_SOURCE_FILE)\n".format(name));
+                    script.put("    list(APPEND %s_SRC %s)\n".format(name, info.buildSettings.mainSourceFile));
+                    script.put("endif()\n");
+                }
+                
+                script.put("add_%s(%s %s ${%s_SRC})\n".format(targetType, name, libType, name));
+                script.put("unset(%s_SRC)\n".format(name));
                 script.put(
                     "target_link_libraries(%s %s %s)\n".format(
                         name,
