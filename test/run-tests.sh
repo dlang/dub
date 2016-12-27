@@ -17,6 +17,7 @@ function die() {
 }
 
 export -f log
+export -f logError
 export -f die
 
 if [ -z ${DUB} ]; then
@@ -29,9 +30,10 @@ if [ -z ${DC} ]; then
 fi
 
 CURR_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+SCRIPT_NAME="$(readlink -f ${BASH_SOURCE[0]})"
 
 for script in $(ls $CURR_DIR/*.sh); do
-    if [ "$script" = "$(readlink -f ${BASH_SOURCE[0]})" ]; then continue; fi
+    if [ "$script" = "$SCRIPT_NAME" ]; then continue; fi
     if [ -e $script.min_frontend ] && [ ! -z "$FRONTEND" -a "$FRONTEND" \< $(cat $script.min_frontend) ]; then continue; fi
     log "Running $script..."
     DUB=$DUB DC=$DC CURR_DIR="$CURR_DIR" $script || logError "Script failure."
@@ -42,7 +44,7 @@ for pack in $(ls -d $CURR_DIR/*/); do
 
     if [ -e $pack/test.sh ]; then
         log "Running custom test script $pack/test.sh"
-        DUB="$DUB" DC="$DC" CURR_DIR="$CURR_DIR" $pack/test.sh
+       cd "$pack" && DUB="$DUB" DC="$DC" CURR_DIR="$CURR_DIR" $pack/test.sh || logError "Script failure."
     else
         # First we build the packages
         if [ ! -e $pack/.no_build ]; then # For sourceLibrary
