@@ -1126,7 +1126,6 @@ class UpgradeCommand : Command {
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
-		if (m_forceRemove) options |= UpgradeOptions.forceRemove;
 		dub.upgrade(options, free_args);
 		return 0;
 	}
