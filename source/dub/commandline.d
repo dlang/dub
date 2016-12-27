@@ -212,6 +212,7 @@ int runDubCommandLine(string[] args)
 	if (!cmd.skipDubInitialization) {
 		if (options.bare) {
 			dub = new Dub(Path(getcwd()));
+			dub.rootPath = Path(options.root_path);
 			dub.defaultPlacementLocation = options.placementLocation;
 		} else {
 			// initialize DUB
