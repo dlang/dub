@@ -29,6 +29,7 @@ struct BuildSettings {
 	string[] dflags;
 	string[] lflags;
 	string[] libs;
+	SystemLibSpec[] systemLibs;
 	string[] linkerFiles;
 	string[] sourceFiles;
 	string[] copyFiles;
@@ -65,6 +66,7 @@ struct BuildSettings {
 		addDFlags(bs.dflags);
 		addLFlags(bs.lflags);
 		addLibs(bs.libs);
+		addSystemLibs(bs.libs);
 		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
 		addCopyFiles(bs.copyFiles);
@@ -85,6 +87,11 @@ struct BuildSettings {
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { lflags ~= value; }
 	void addLibs(in string[] value...) { add(libs, value); }
+	void addSystemLibs(in SystemLibSpec[] values...) {
+		foreach (v; values)
+			if (!this.systemLibs.canFind!())
+				this.systemLibs ~= v;
+	}
 	void addLinkerFiles(in string[] value...) { add(linkerFiles, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
@@ -236,6 +243,13 @@ private:
 		BuildSettings.remove(ary, ["root/path1", "foo"]);
 		assert(ary == []);
 	}
+}
+
+struct SystemLibSpec {
+	string caption; // e.g. "OpenSSL"
+	string[] names; // e.g. "ssl" for "-lssl"
+	string minVersion; // e.g. "2.0.1"
+	string maxVersion; // e.g. "2.0.2"
 }
 
 enum BuildSetting {
