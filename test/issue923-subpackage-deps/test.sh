@@ -1,6 +1,5 @@
 #!/bin/sh
 
-cd ${CURR_DIR}/issue923-subpackage-deps
 rm -rf main/.dub
 rm -rf a/.dub
 rm -rf b/.dub

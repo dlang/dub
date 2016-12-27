@@ -5,7 +5,6 @@ if [ "${DC}" != "dmd" ]; then
 else
     echo ${CURR_DIR-$(pwd)}
     # the ${CURR_DIR-$(pwd)} allows running issue782-gtkd-pkg-config.sh stand-alone from the test directory
-    cd ${CURR_DIR-$(pwd)}/issue782-gtkd-pkg-config
     rm -rf fake-gtkd/.dub
     rm fake-gtkd/libfake-gtkd.so
     rm -rf main/.dub

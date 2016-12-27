@@ -1,6 +1,5 @@
 #!/bin/sh
 
-cd ${CURR_DIR}/issue813-pure-sub-dependency
 rm -rf main/.dub
 rm -rf sub/.dub
 rm -rf sub/sub/.dub

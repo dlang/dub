@@ -1,6 +1,5 @@
 #!/bin/sh
 
-cd ${CURR_DIR}/issue672-upgrade-optional
 rm -rf b/.dub
 echo "{\"fileVersion\": 1,\"versions\": {\"dub\": \"1.0.0\"}}" > dub.selections.json
 ${DUB} upgrade || exit 1
