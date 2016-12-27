@@ -1089,14 +1089,14 @@ class UpgradeCommand : Command {
 	this()
 	{
 		this.name = "upgrade";
-		this.argumentsPattern = "[<package>]";
-		this.description = "Forces an upgrade of all dependencies";
+		this.argumentsPattern = "[<packages...>]";
+		this.description = "Forces an upgrade of the dependencies";
 		this.helpText = [
 			"Upgrades all dependencies of the package by querying the package registry(ies) for new versions.",
 			"",
-			"This will also update the versions stored in the selections file ("~SelectedVersions.defaultFile~") accordingly.",
+			"This will update the versions stored in the selections file ("~SelectedVersions.defaultFile~") accordingly.",
 			"",
-			"If a package specified, (only) that package will be upgraded. Otherwise all direct and indirect dependencies of the current package will get upgraded."
+			"If one or more package names are specified, only those dependencies will be upgraded. Otherwise all direct and indirect dependencies of the root package will get upgraded."
 		];
 	}
 
