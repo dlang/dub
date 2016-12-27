@@ -15,7 +15,7 @@ if [ "$COVERAGE" = true ]; then
 else
     ./build.sh
 fi
-DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
+DUB=`pwd`/bin/dub DC=${DC} test/run-tests.sh
 
 if [ "$COVERAGE" = true ]; then
     dub fetch doveralls
