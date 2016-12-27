@@ -5,7 +5,7 @@
     "dependencies": {
         "issue616-subpack": {
             "version": "1.0",
-            "path": "../issue616-subpack"
+            "path": "subpack"
         }
     }
 }
