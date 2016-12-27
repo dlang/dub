@@ -483,7 +483,7 @@ class Dub {
 
 		auto generator = createProjectGenerator("build", m_project);
 
-		auto test_config = format("__test__%s__", config);
+		auto test_config = format("%s-test-%s", m_project.rootPackage.name.replace(".", "-"), config);
 
 		BuildSettings lbuildsettings = settings.buildSettings;
 		m_project.addBuildSettings(lbuildsettings, settings.platform, config, null, true);
@@ -492,9 +492,8 @@ class Dub {
 			return;
 		}
 
-		if (lbuildsettings.targetType == TargetType.executable) {
-			if (config == "unittest") logInfo("Running custom 'unittest' configuration.", config);
-			else logInfo(`Configuration '%s' does not output a library. Falling back to "dub -b unittest -c %s".`, config, config);
+		if (lbuildsettings.targetType == TargetType.executable && config == "unittest") {
+			logInfo("Running custom 'unittest' configuration.", config);
 			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
 			settings.config = config;
 		} else if (lbuildsettings.sourceFiles.empty) {
@@ -513,6 +512,10 @@ class Dub {
 			tcinfo.versions[""] ~= "VibeCustomMain";
 			m_project.rootPackage.recipe.buildSettings.versions[""] = m_project.rootPackage.recipe.buildSettings.versions.get("", null).remove!(v => v == "VibeDefaultMain");
 			// TODO: remove this ^ once vibe.d has removed the default main implementation
+
+			auto mainfil = tcinfo.mainSourceFile;
+			if (!mainfil.length) mainfil = m_project.rootPackage.recipe.buildSettings.mainSourceFile;
+
 			string custommodname;
 			if (custom_main_file.length) {
 				import std.path;
@@ -521,10 +524,22 @@ class Dub {
 				custommodname = custom_main_file.head.toString().baseName(".d");
 			}
 
+			// prepare the list of tested modules
 			string[] import_modules;
 			foreach (file; lbuildsettings.sourceFiles) {
-				if (file.endsWith(".d") && Path(file).head.toString() != "package.d")
+				if (file.endsWith(".d")) {
+					auto fname = Path(file).head.toString();
+					if (Path(file).relativeTo(m_project.rootPackage.path) == Path(mainfil)) {
+						logWarn("Excluding main source file %s from test.", mainfil);
+						tcinfo.excludedSourceFiles[""] ~= mainfil;
+						continue;
+					}
+					if (fname == "package.d") {
+						logWarn("Excluding package.d file %s from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
+						continue;
+					}
 					import_modules ~= dub.internal.utils.determineModuleName(lbuildsettings, Path(file), m_project.rootPackage.path);
+				}
 			}
 
 			// generate main file
