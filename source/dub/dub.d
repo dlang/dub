@@ -513,6 +513,9 @@ class Dub {
 			m_project.rootPackage.recipe.buildSettings.versions[""] = m_project.rootPackage.recipe.buildSettings.versions.get("", null).remove!(v => v == "VibeDefaultMain");
 			// TODO: remove this ^ once vibe.d has removed the default main implementation
 
+			auto mainfil = tcinfo.mainSourceFile;
+			if (!mainfil.length) mainfil = m_project.rootPackage.recipe.buildSettings.mainSourceFile;
+
 			string custommodname;
 			if (custom_main_file.length) {
 				import std.path;
@@ -526,9 +529,9 @@ class Dub {
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
 					auto fname = Path(file).head.toString();
-					if (Path(file).relativeTo(m_project.rootPackage.path) == Path(tcinfo.mainSourceFile)) {
-						logWarn("Excluding main source file %s from test.", tcinfo.mainSourceFile);
-						tcinfo.excludedSourceFiles[""] ~= tcinfo.mainSourceFile;
+					if (Path(file).relativeTo(m_project.rootPackage.path) == Path(mainfil)) {
+						logWarn("Excluding main source file %s from test.", mainfil);
+						tcinfo.excludedSourceFiles[""] ~= mainfil;
 						continue;
 					}
 					if (fname == "package.d") {
