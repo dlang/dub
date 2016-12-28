@@ -338,8 +338,15 @@ class Dub {
 	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true) const { return m_project.getDefaultConfiguration(platform, allow_non_library_configs); }
 
 	/** Attempts to upgrade the dependency selection of the loaded project.
+
+		Params:
+			options = Flags that control how the upgrade is carried out
+			packages_to_upgrade = Optional list of packages. If this list
+				contains one or more packages, only those packages will
+				be upgraded. Otherwise, all packages will be upgraded at
+				once.
 	*/
-	void upgrade(UpgradeOptions options)
+	void upgrade(UpgradeOptions options, string[] packages_to_upgrade = null)
 	{
 		// clear non-existent version selections
 		if (!(options & UpgradeOptions.upgrade)) {
@@ -371,11 +378,13 @@ class Dub {
 		}
 
 		Dependency[string] versions;
-		if ((options & UpgradeOptions.useCachedResult) && m_project.isUpgradeCacheUpToDate()) {
+		if ((options & UpgradeOptions.useCachedResult) && m_project.isUpgradeCacheUpToDate() && !packages_to_upgrade.length) {
 			logDiagnostic("Using cached upgrade results...");
 			versions = m_project.getUpgradeCache();
 		} else {
 			auto resolver = new DependencyVersionResolver(this, options);
+			foreach (p; packages_to_upgrade)
+				resolver.addPackageToUpgrade(p);
 			versions = resolver.resolve(m_project.rootPackage, m_project.selections);
 			if (options & UpgradeOptions.useCachedResult) {
 				logDiagnostic("Caching upgrade results...");
@@ -1176,6 +1185,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		Package[string] m_remotePackages;
 		SelectedVersions m_selectedVersions;
 		Package m_rootPackage;
+		bool[string] m_packagesToUpgrade;
 	}
 
 
@@ -1185,6 +1195,11 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		m_options = options;
 	}
 
+	void addPackageToUpgrade(string name)
+	{
+		m_packagesToUpgrade[name] = true;
+	}
+
 	Dependency[string] resolve(Package root, SelectedVersions selected_versions)
 	{
 		m_rootPackage = root;
@@ -1192,12 +1207,17 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return super.resolve(TreeNode(root.name, Dependency(root.version_)), (m_options & UpgradeOptions.printUpgradesOnly) == 0);
 	}
 
+	protected bool isFixedPackage(string pack)
+	{
+		return m_packagesToUpgrade !is null && pack !in m_packagesToUpgrade;
+	}
+
 	protected override Dependency[] getAllConfigs(string pack)
 	{
 		if (auto pvers = pack in m_packageVersions)
 			return *pvers;
 
-		if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(pack)) {
+		if ((!(m_options & UpgradeOptions.upgrade) || isFixedPackage(pack)) && m_selectedVersions.hasSelectedVersion(pack)) {
 			auto ret = [m_selectedVersions.getSelectedVersion(pack)];
 			logDiagnostic("Using fixed selection %s %s", pack, ret[0]);
 			m_packageVersions[pack] = ret;
