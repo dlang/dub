@@ -1,7 +1,24 @@
 Changelog
 =========
 
-v1.1.1 - 2016-11-30
+v1.1.2 - 2017-01-
+-------------------
+
+### Bug fixes ###
+
+ - Fixes configuration resolution in diamond dependency settings - [issue #1005][issue1005], [pull #1006][issue1006]
+ - Fixed compilation of the 
+ - Contains various diagnostic and error message improvements - [issue #957][issue957], [pull #1010][issue1010], [pull #1012][issue1012], [issue #1019][issue1019]
+
+[issue957]: https://github.com/dlang/dub/issues/957
+[issue1005]: https://github.com/dlang/dub/issues/1005
+[issue1006]: https://github.com/dlang/dub/issues/1006
+[issue1010]: https://github.com/dlang/dub/issues/1010
+[issue1012]: https://github.com/dlang/dub/issues/1012
+[issue1019]: https://github.com/dlang/dub/issues/1019
+
+
+ v1.1.1 - 2016-11-30
 -------------------
 
 ### Bug fixes ###
