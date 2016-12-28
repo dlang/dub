@@ -7,6 +7,7 @@ v1.2.0 - 2017-01-
 ### Features and improvements ###
 
  - Added an `--override-config` command line option to force selecting specific configurations for dependencies - [pull #1004][issue1004]
+ - Implemented selective dependency upgrades ("dub upgrade <packages...>") - [issue #1024][issue1024]
  - Multiple configurations with the same name are now detected and will cause a warning to be displayed - [issue #984][issue984]
  - Updated the Sublime Text generator and the Bash completion script to include the default "release-debug" build type (by p0nce) - [pull #1028][issue1028]
  - The `--force-remove` switch is scheduled for deprecation, as it didn't do anything for a while now - [pull #1023][issue1023]
@@ -14,6 +15,7 @@ v1.2.0 - 2017-01-
 [issue984]: https://github.com/dlang/dub/issues/984
 [issue1004]: https://github.com/dlang/dub/issues/1004
 [issue1023]: https://github.com/dlang/dub/issues/1023
+[issue1024]: https://github.com/dlang/dub/issues/1024
 [issue1028]: https://github.com/dlang/dub/issues/1028
 
 
