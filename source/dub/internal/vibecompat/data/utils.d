@@ -7,7 +7,7 @@
 */
 module dub.internal.vibecompat.data.utils;
 
-version (Have_vibe_d) {}
+version (Have_vibe_d_data) {}
 else:
 
 public import std.traits;

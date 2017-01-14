@@ -11,7 +11,7 @@
 */
 module dub.internal.vibecompat.data.json;
 
-version (Have_vibe_d) public import vibe.data.json;
+version (Have_vibe_d_data) public import vibe.data.json;
 else:
 
 import dub.internal.vibecompat.data.utils;
