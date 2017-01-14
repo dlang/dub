@@ -368,7 +368,8 @@ class Project {
 				if (!m_dependencies.canFind(p)) {
 					logDiagnostic("%sFound dependency %s %s", indent, dep.name, vspec.toString());
 					m_dependencies ~= p;
-					p.warnOnSpecialCompilerFlags();
+					if (basename == m_rootPackage.basePackage.name)
+						p.warnOnSpecialCompilerFlags();
 					collectDependenciesRec(p, depth+1);
 				}
 
