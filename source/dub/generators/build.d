@@ -69,7 +69,7 @@ class BuildGenerator : ProjectGenerator {
 			auto bs = ti.buildSettings.dup;
 			foreach (ldep; ti.linkDependencies) {
 				auto dbs = targets[ldep].buildSettings;
-				if (bs.targetType != TargetType.staticLibrary) {
+				if (bs.targetType != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly)) {
 					bs.addSourceFiles(target_paths[ldep].toNativeString());
 				} else {
 					additional_dep_files ~= target_paths[ldep];
@@ -462,9 +462,9 @@ class BuildGenerator : ProjectGenerator {
 			      on the other compilers. Later this should be integrated somehow in the build process
 			      (either in the dub.json, or using a command line flag)
 		*/
-		} else if (settings.buildMode == BuildMode.allAtOnce || settings.compiler.name != "dmd" || !generate_binary || is_static_library) {
+		} else if (generate_binary && (settings.buildMode == BuildMode.allAtOnce || settings.compiler.name != "dmd" || is_static_library)) {
 			// setup for command line
-			if (generate_binary) settings.compiler.setTarget(buildsettings, settings.platform);
+			settings.compiler.setTarget(buildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			// don't include symbols of dependencies (will be included by the top level target)
@@ -480,20 +480,23 @@ class BuildGenerator : ProjectGenerator {
 			// setup linker command line
 			auto lbuildsettings = buildsettings;
 			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => isLinkerFile(f)).array;
-			settings.compiler.setTarget(lbuildsettings, settings.platform);
+			if (generate_binary) settings.compiler.setTarget(lbuildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
 
 			// setup compiler command line
 			buildsettings.libs = null;
 			buildsettings.lflags = null;
-			buildsettings.addDFlags("-c", "-of"~tempobj.toNativeString());
+			if (generate_binary) buildsettings.addDFlags("-c", "-of"~tempobj.toNativeString());
 			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !isLinkerFile(f)).array;
+
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
 
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 
-			logInfo("Linking...");
-			settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback);
+			if (generate_binary) {
+				logInfo("Linking...");
+				settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback);
+			}
 		}
 	}
 
