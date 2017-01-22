@@ -544,7 +544,7 @@ class Dub {
 						continue;
 					}
 					if (fname == "package.d") {
-						logWarn("Excluding package.d file %s from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
+						logWarn("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
 						continue;
 					}
 					import_modules ~= dub.internal.utils.determineModuleName(lbuildsettings, Path(file), m_project.rootPackage.path);
