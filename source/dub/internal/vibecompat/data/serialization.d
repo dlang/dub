@@ -91,7 +91,7 @@
 */
 module dub.internal.vibecompat.data.serialization;
 
-version (Have_vibe_d) public import vibe.data.serialization;
+version (Have_vibe_d_data) public import vibe.data.serialization;
 else:
 
 import dub.internal.vibecompat.data.utils;

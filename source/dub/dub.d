@@ -1066,7 +1066,7 @@ class Dub {
 		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
-			logInfo("% is not present, getting and storing it user wide", tool);
+			logInfo("%s is not present, getting and storing it user wide", tool);
 			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
 		}
 
