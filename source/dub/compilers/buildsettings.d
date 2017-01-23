@@ -108,6 +108,7 @@ struct BuildSettings {
 	void addOptions(in BuildOptions value) { this.options |= value; }
 	void removeOptions(in BuildOption[] value...) { foreach (v; value) this.options &= ~v; }
 	void removeOptions(in BuildOptions value) { this.options &= ~value; }
+	void resetOptions() { this.options = BuildOption.none; }
 
 	// Adds vals to arr without adding duplicates.
 	private void add(ref string[] arr, in string[] vals, bool no_duplicates = true)

@@ -93,24 +93,36 @@ class VisualDGenerator : ProjectGenerator {
 
 			// Global section contains configurations
 			ret.put("Global\n");
-			ret.put("\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n");
-			ret.formattedWrite("\t\t%s|%s = %s|%s\n",
-				settings.buildType,
-				settings.platform.architecture[0].vsArchitecture,
-				settings.buildType,
-				settings.platform.architecture[0].vsArchitecture);
+			ret.put("\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n"); {
+				ret.formattedWrite("\t\t%s|%s = %s|%s\n", settings.buildType, settings.platform.architecture[0].vsArchitecture, settings.buildType, settings.platform.architecture[0].vsArchitecture);
+				if (settings.buildType != "debug")
+					ret.formattedWrite("\t\t%s|%s = %s|%s\n", "debug", settings.platform.architecture[0].vsArchitecture, "debug", settings.platform.architecture[0].vsArchitecture);
+				if (settings.buildType != "release")
+					ret.formattedWrite("\t\t%s|%s = %s|%s\n", "release", settings.platform.architecture[0].vsArchitecture, "release", settings.platform.architecture[0].vsArchitecture);
+				if (settings.buildType != "unittest")
+					ret.formattedWrite("\t\t%s|%s = %s|%s\n", "unittest", settings.platform.architecture[0].vsArchitecture, "unittest", settings.platform.architecture[0].vsArchitecture);
+			}
 			ret.put("\tEndGlobalSection\n");
-			ret.put("\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n");
+			ret.put("\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n"); {
+				void performRec(string name) {
+					const string[] sub = ["ActiveCfg", "Build.0"];
+					const string[] conf = [name~"|"~settings.platform.architecture[0].vsArchitecture];
+					auto projectUuid = guid(mainpack);
+					foreach (t; targets.byKey)
+						foreach (c; conf)
+							foreach (s; sub)
+								formattedWrite(ret, "\t\t%s.%s.%s = %s\n", guid(t), c, s, c);
+					// TODO: for all dependencies
+				}
 
-			const string[] sub = ["ActiveCfg", "Build.0"];
-			const string[] conf = [settings.buildType~"|"~settings.platform.architecture[0].vsArchitecture];
-			auto projectUuid = guid(mainpack);
-			foreach (t; targets.byKey)
-				foreach (c; conf)
-					foreach (s; sub)
-						formattedWrite(ret, "\t\t%s.%s.%s = %s\n", guid(t), c, s, c);
-
-			// TODO: for all dependencies
+				performRec(settings.buildType);
+				if (settings.buildType != "debug")
+					performRec("debug");
+				if (settings.buildType != "release")
+					performRec("release");
+				if (settings.buildType != "unittest")
+					performRec("unittest");
+			}
 			ret.put("\tEndGlobalSection\n");
 
 			ret.put("\tGlobalSection(SolutionProperties) = preSolution\n");
@@ -151,6 +163,24 @@ class VisualDGenerator : ProjectGenerator {
 			return false;
 		}
 
+		void enforceDefaultConfiguration(ref GeneratorSettings settings, ref BuildSettings buildSettings, string configurationName)
+		{
+			with(BuildOption)
+			if (configurationName == "debug") {
+				settings.buildType = configurationName;
+				buildSettings.resetOptions();
+				buildSettings.addOptions(BuildOption.debugMode, debugInfo);
+			} else if (configurationName == "release") {
+				settings.buildType = configurationName;
+				buildSettings.resetOptions();
+				buildSettings.addOptions(releaseMode, optimize, inline);
+			} else if (configurationName == "unittest") {
+				settings.buildType = configurationName;
+				buildSettings.resetOptions();
+				buildSettings.addOptions(unittests, debugMode, debugInfo);
+			}
+		}
+
 		void generateProjectFile(string packname, GeneratorSettings settings, in TargetInfo[string] targets)
 		{
 			import dub.compilers.utils : isLinkerFile;
@@ -163,9 +193,21 @@ class VisualDGenerator : ProjectGenerator {
 			ret.formattedWrite("  <ProjectGuid>%s</ProjectGuid>\n", guid(packname));
 
 			// Several configurations (debug, release, unittest)
-			generateProjectConfiguration(ret, packname, settings.buildType, settings, targets);
-			//generateProjectConfiguration(ret, packname, "release", settings, targets);
-			//generateProjectConfiguration(ret, packname, "unittest", settings, targets);
+			BuildSettings	buildSettings = targets[packname].buildSettings.dup;
+
+			generateProjectConfiguration(ret, packname, settings.buildType, settings, buildSettings);
+			if (settings.buildType != "debug") {
+				enforceDefaultConfiguration(settings, buildSettings, "debug");
+				generateProjectConfiguration(ret, packname, settings.buildType, settings, buildSettings);
+			}
+			if (settings.buildType != "release") {
+				enforceDefaultConfiguration(settings, buildSettings, "release");
+				generateProjectConfiguration(ret, packname, settings.buildType, settings, buildSettings);
+			}
+			if (settings.buildType != "unittest") {
+				enforceDefaultConfiguration(settings, buildSettings, "unittest");
+				generateProjectConfiguration(ret, packname, settings.buildType, settings, buildSettings);
+			}
 
 			// Add all files
 			auto files = targets[packname].buildSettings;
@@ -236,10 +278,9 @@ class VisualDGenerator : ProjectGenerator {
 			proj.flush();
 		}
 
-		void generateProjectConfiguration(Appender!(char[]) ret, string pack, string type, GeneratorSettings settings, in TargetInfo[string] targets)
+		void generateProjectConfiguration(Appender!(char[]) ret, string pack, string type, GeneratorSettings settings, ref BuildSettings buildsettings)
 		{
 			auto project_file_dir = m_project.rootPackage.path ~ projFileName(pack).parentPath;
-			auto buildsettings = targets[pack].buildSettings.dup;
 
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
 			string[] getPathSettings(string setting)()
