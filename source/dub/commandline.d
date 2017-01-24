@@ -432,6 +432,7 @@ class InitCommand : Command {
 	private{
 		string m_templateType = "minimal";
 		PackageFormat m_format = PackageFormat.json;
+		string m_repoType = "git";
 		bool m_nonInteractive;
 	}
 	this()
@@ -457,6 +458,10 @@ class InitCommand : Command {
 			"Sets the format to use for the package description file. Possible values:",
 			"  " ~ [__traits(allMembers, PackageFormat)].map!(f => f == m_format.init.to!string ? f ~ " (default)" : f).join(", ")
 		]);
+		args.getopt("repo", &m_repoType, [
+			"Set the SCM repository type to configure.",
+			"Options are: git (default), hg"
+		]);
 		args.getopt("n|non-interactive", &m_nonInteractive, ["Don't enter interactive mode."]);
 	}
 
@@ -477,7 +482,7 @@ class InitCommand : Command {
 			return inp.length > 1 ? inp[0 .. $-1] : default_value;
 		}
 
-		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
+		void depCallback(ref PackageRecipe p, ref PackageFormat fmt, ref string repo_type) {
 			if (m_nonInteractive) return;
 
 			while (true) {
@@ -523,7 +528,7 @@ class InitCommand : Command {
 				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
 			}
 		}
-		dub.createEmptyPackage(Path(dir), free_args, m_templateType, m_format, &depCallback);
+		dub.createEmptyPackage(Path(dir), free_args, m_templateType, m_format, m_repoType, &depCallback);
 
 		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;

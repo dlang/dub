@@ -35,12 +35,13 @@ import std.string;
 			version.
 		type = The type of package skeleton to create. Can currently be
 			"minimal", "vibe.d" or "deimos"
+		repository_type = The type of the SCM to use. Can be "git" or "hg".
 		recipe_callback = Optional callback that can be used to customize the
 			package recipe and the file format used to store it prior to
 			writing it to disk.
 */
 void initPackage(Path root_path, string[string] deps, string type,
-	PackageFormat format, scope RecipeCallback recipe_callback = null)
+	PackageFormat format, string repository_type, scope RecipeCallback recipe_callback = null)
 {
 	import std.conv : to;
 	import dub.recipe.io : writePackageRecipe;
@@ -71,14 +72,14 @@ void initPackage(Path root_path, string[string] deps, string type,
 	foreach (fil; packageInfoFiles)
 		enforceDoesNotExist(fil.filename);
 
-	auto files = ["source/", "views/", "public/", "dub.json", ".gitignore"];
+	auto files = ["source/", "views/", "public/", "dub.json", ".gitignore", ".hgignore"];
 	foreach (fil; files)
 		enforceDoesNotExist(fil);
 
 	void processRecipe()
 	{
 		if (recipe_callback)
-			recipe_callback(p, format);
+			recipe_callback(p, format, repository_type);
 	}
 
 	switch (type) {
@@ -88,11 +89,16 @@ void initPackage(Path root_path, string[string] deps, string type,
 		case "deimos": initDeimosPackage(root_path, p, &processRecipe); break;
 	}
 
+	if (repository_type != "git" && repository_type != "hg") {
+		throw new Exception("Unknown SCM: " ~ repository_type ~
+			". Valid options are \"git\" or \"hg\"");
+	}
+
 	writePackageRecipe(root_path ~ ("dub."~format.to!string), p);
-	writeGitignore(root_path);
+	writeScmIgnoreFile(root_path, repository_type);
 }
 
-alias RecipeCallback = void delegate(ref PackageRecipe, ref PackageFormat);
+alias RecipeCallback = void delegate(ref PackageRecipe, ref PackageFormat, ref string);
 
 private void initMinimalPackage(Path root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
 {
@@ -155,9 +161,9 @@ private void initDeimosPackage(Path root_path, ref PackageRecipe p, scope void d
 	createDirectory(root_path ~ "deimos");
 }
 
-private void writeGitignore(Path root_path)
+private void writeScmIgnoreFile(Path root_path, string repo_type)
 {
-	write((root_path ~ ".gitignore").toNativeString(),
+	enum ignoreGlobs =
 q"{.dub
 docs.json
 __dummy.html
@@ -171,7 +177,10 @@ docs/
 *.o
 *.obj
 __test__*__
-*.lst}");
+*.lst}";
+
+	string ignoreText = (repo_type == "hg" ? "syntax: glob\n\n" ~ ignoreGlobs : ignoreGlobs);
+	write((root_path ~ ("." ~ repo_type ~ "ignore")).toNativeString(), ignoreText);
 }
 
 private string getUserName()

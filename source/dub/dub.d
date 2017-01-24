@@ -149,7 +149,7 @@ class Dub {
 		loading a package.
 
 		This constructor corresponds to the "--bare" option of the command line
-		interface. Use
+		interface.
 	*/
 	this(Path override_path)
 	{
@@ -215,7 +215,6 @@ class Dub {
 		will be used.
 	*/
 	@property string defaultCompiler() const { return m_defaultCompiler; }
-
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
 	void loadPackage()
@@ -980,12 +979,14 @@ class Dub {
 			deps = List of dependencies to add to the package recipe.
 			type = Specifies the type of the application skeleton to use.
 			format = Determines the package recipe format to use.
+			repository_type = The type of SCM to use. Options are "git"
+				(default) and "hg".
 			recipe_callback = Optional callback that can be used to
 				customize the recipe before it gets written.
 	*/
 	void createEmptyPackage(Path path, string[] deps, string type,
-		PackageFormat format = PackageFormat.sdl,
-		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null)
+		PackageFormat format = PackageFormat.sdl, string repository_type = "git",
+		scope void delegate(ref PackageRecipe, ref PackageFormat, ref string) recipe_callback = null)
 	{
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
@@ -1010,8 +1011,7 @@ class Dub {
 		}
 
 		if (m_dryRun) return;
-
-		initPackage(path, depVers, type, format, recipe_callback);
+		initPackage(path, depVers, type, format, repository_type, recipe_callback);
 
 		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
