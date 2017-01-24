@@ -89,7 +89,7 @@ void initPackage(Path root_path, string[string] deps, string type,
 	}
 
 	writePackageRecipe(root_path ~ ("dub."~format.to!string), p);
-	writeGitignore(root_path);
+	writeGitignore(root_path, p);
 }
 
 alias RecipeCallback = void delegate(ref PackageRecipe, ref PackageFormat);
@@ -155,10 +155,23 @@ private void initDeimosPackage(Path root_path, ref PackageRecipe p, scope void d
 	createDirectory(root_path ~ "deimos");
 }
 
-private void writeGitignore(Path root_path)
+private void writeGitignore(Path root_path, PackageRecipe p)
 {
 	write((root_path ~ ".gitignore").toNativeString(),
-		".dub\ndocs.json\n__dummy.html\n*.o\n*.obj\n__test__*__\n");
+q"{.dub
+docs.json
+__dummy.html
+docs/
+*.so"}" ~
+p.name ~ ".dylib\n" ~
+p.name ~ ".dll\n" ~
+p.name ~ ".a\n" ~
+p.name ~ ".lib\n" ~
+p.name ~ "-test-" ~
+q"{*.exe
+*.o
+*.obj
+*.lst}");
 }
 
 private string getUserName()
