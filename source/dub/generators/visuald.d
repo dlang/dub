@@ -326,7 +326,7 @@ class VisualDGenerator : ProjectGenerator {
 					output_type = DynamicLib;
 					output_ext = "dll";
 				}
-				auto bin_path = pack == m_project.rootPackage.name ? Path(buildsettings.targetPath) : Path("lib/");
+				auto bin_path = pack == m_project.rootPackage.name ? Path(buildsettings.targetPath ~ "/" ~ type) : Path("lib/" ~ type ~ "/");
 				bin_path.endsWithSlash = true;
 				ret.formattedWrite("    <lib>%s</lib>\n", output_type);
 				ret.formattedWrite("    <exefile>%s%s.%s</exefile>\n", bin_path.toNativeString(), buildsettings.targetName, output_ext);
