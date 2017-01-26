@@ -31,7 +31,7 @@ fi
 CURR_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 for script in $(ls $CURR_DIR/*.sh); do
-    if [ "$script" = "$(readlink -f ${BASH_SOURCE[0]})" ]; then continue; fi
+    if [ "$script" = "$CURR_DIR/run-unittest.sh" ]; then continue; fi
     if [ -e $script.min_frontend ] && [ ! -z "$FRONTEND" -a "$FRONTEND" \< $(cat $script.min_frontend) ]; then continue; fi
     log "Running $script..."
     DUB=$DUB DC=$DC CURR_DIR="$CURR_DIR" $script || logError "Script failure."

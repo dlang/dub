@@ -12,6 +12,9 @@ matrix:
       env:
         - [FRONTEND=2.074]
         - [COVERAGE=true]
+    - d: dmd
+      env: [FRONTEND=2.074]
+      os: osx
     - d: dmd-2.074.1
       env: [FRONTEND=2.074]
     - d: dmd-2.073.2
@@ -34,10 +37,13 @@ matrix:
       env: [FRONTEND=2.073]
     - d: ldc
       env: [FRONTEND=2.072]
+    - d: ldc
+      env: [FRONTEND=2.072]
+      os: osx
     - d: ldc-1.2.0
       env: [FRONTEND=2.072]
     - d: ldc-1.1.0
-      env: [FRONTEND=2.071]
+      env: [FRONTEND=2.070]
     - d: ldc-1.0.0
       env: [FRONTEND=2.070]
     - d: ldc-0.17.2
@@ -56,6 +62,12 @@ addons:
   apt:
     packages:
       - libevent-dev
+
+install:
+ - if [ $TRAVIS_OS_NAME == osx ];
+   then
+     brew install jq;
+   fi
 
 script:
   - ./travis-ci.sh
