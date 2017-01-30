@@ -492,7 +492,7 @@ class Dub {
 
 		auto generator = createProjectGenerator("build", m_project);
 
-		auto test_config = format("%s-test-%s", m_project.rootPackage.name.replace(".", "-"), config);
+		auto test_config = format("%s-test-%s", m_project.rootPackage.name.replace(".", "-").replace(":", "-"), config);
 
 		BuildSettings lbuildsettings = settings.buildSettings;
 		m_project.addBuildSettings(lbuildsettings, settings.platform, config, null, true);
