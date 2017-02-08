@@ -1,6 +1,15 @@
 Changelog
 =========
 
+v1.2.1 - 2017-02-12
+-------------------
+
+- Fix orphan format specifier error. - [commit 220b0128][commit220b0128]
+- Fix test executable name generation. - [commit e6262373][commite6262373]
+
+[commit220b0128]: https://github.com/dlang/dub/commit/220b01280041abbead57db6eec28e9279b9d7cf6
+[commite6262373]: https://github.com/dlang/dub/commit/e6262373558591fa8754704fcc2e8ddafabf6671
+
 v1.2.0 - 2017-01-22
 -------------------
 
