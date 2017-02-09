@@ -40,18 +40,23 @@ fi
 # adjust linker flags for dmd command line
 LIBS=`echo "$LIBS" | sed 's/^-L/-L-L/; s/ -L/ -L-L/g; s/^-l/-L-l/; s/ -l/ -L-l/g'`
 
-echo Generating version file...
-if  [ "$GITVER" = "" ]; then
-  GITVER=$(git describe) || GITVER=unknown
+if [ "$GITVER" = "" ]; then
+  GITVER=$(git describe) || echo "Could not determine a version with git."
 fi
-echo "module dub.version_;" > source/dub/version_.d
-echo "enum dubVersion = \"$GITVER\";" >> source/dub/version_.d
+if [ "$GITVER" != "" ]; then
+	echo Generating version file...
+	echo "module dub.version_;" > source/dub/version_.d
+	echo "enum dubVersion = \"$GITVER\";" >> source/dub/version_.d
+else
+	echo Using existing version file.
+fi
 
 # For OSX compatibility >= 10.7
 MACOSX_DEPLOYMENT_TARGET=10.7
 
 echo Running $DMD...
 $DMD -ofbin/dub -w -version=DubUseCurl -Isource $* $LIBS @build-files.txt
+bin/dub --version
 echo DUB has been built as bin/dub.
 echo
 echo You may want to run
