@@ -22,7 +22,7 @@ configuration "library" {
 }
 
 configuration "library-nonet" {
-	dependency "vibe-d:http" version="~>0.7.30"// optional=true
+	dependency "vibe-d:http" version="~>0.7.30" optional=true
 	targetType "library"
 	excludedSourceFiles "source/app.d"
 }
