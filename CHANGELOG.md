@@ -4,11 +4,16 @@ Changelog
 v1.2.1 - 2017-02-12
 -------------------
 
-- Fix orphan format specifier error. - [commit 220b0128][commit220b0128]
-- Fix test executable name generation. - [commit e6262373][commite6262373]
+### Bug fixes ###
 
+- Fixed compile error when compiling with vibe.d versions prior to 0.8.0 - [commit 9d25e5dd][commit9d25e5dd]
+- Fixed orphan format specifier error - [commit 220b0128][commit220b0128]
+- Fixed test executable name generation causing sub package test builds to fail - [commit e6262373][commite6262373]
+
+[commit9d25e5dd]: https://github.com/dlang/dub/commit/9d25e5dd0337e9c054ff32c4b921f32603d29293
 [commit220b0128]: https://github.com/dlang/dub/commit/220b01280041abbead57db6eec28e9279b9d7cf6
 [commite6262373]: https://github.com/dlang/dub/commit/e6262373558591fa8754704fcc2e8ddafabf6671
+
 
 v1.2.0 - 2017-01-22
 -------------------
