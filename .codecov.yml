@@ -1,0 +1,17 @@
+# Documentation: https://docs.codecov.io/docs/codecov-yaml
+
+codecov:
+  bot: dlang-bot
+
+coverage:
+  precision: 3
+  # round: down
+  # range: "70...100"
+
+  status:
+    # Learn more at https://docs.codecov.io/docs/commit-status
+    project: true
+    patch: true
+    changes: false
+
+comment: false
