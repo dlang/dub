@@ -17,28 +17,29 @@ if [ "$DMD" = "" ]; then
 fi
 
 VERSION=$($DMD --version 2>/dev/null | sed -n 's|DMD.* v||p')
+# workaround for link order issues with libcurl (phobos needs to come before curl)
 if [[ $VERSION < 2.069.0 ]]; then
-    # link against libcurl
-    LIBS=`pkg-config --libs libcurl 2>/dev/null || echo "-lcurl"`
-fi
+	# link against libcurl
+	LIBS=`pkg-config --libs libcurl 2>/dev/null || echo "-lcurl"`
 
-# fix for modern GCC versions with --as-needed by default
-if [[ `$DMD --help | head -n1 | grep 'DMD\(32\|64\)'` ]]; then
-	if [ `uname` = "Linux" ]; then
-		LIBS="-l:libphobos2.a $LIBS"
-	else
-		LIBS="-lphobos2 $LIBS"
+	# fix for modern GCC versions with --as-needed by default
+	if [[ `$DMD --help | head -n1 | grep 'DMD\(32\|64\)'` ]]; then
+		if [ `uname` = "Linux" ]; then
+			LIBS="-l:libphobos2.a $LIBS"
+		else
+			LIBS="-lphobos2 $LIBS"
+		fi
+	elif [[ `$DMD --help | head -n1 | grep '^LDC '` ]]; then
+		if [ `uname` = "SunOS" ]; then
+			LIBS="-lnsl -lsocket -lphobos2-ldc $LIBS"
+		else
+			LIBS="-lphobos2-ldc $LIBS"
+		fi
 	fi
-elif [[ `$DMD --help | head -n1 | grep '^LDC '` ]]; then
-	if [ `uname` = "SunOS" ]; then
-	        LIBS="-lnsl -lsocket -lphobos2-ldc $LIBS"
-	else
-	        LIBS="-lphobos2-ldc $LIBS"
-	fi
-fi
 
-# adjust linker flags for dmd command line
-LIBS=`echo "$LIBS" | sed 's/^-L/-L-L/; s/ -L/ -L-L/g; s/^-l/-L-l/; s/ -l/ -L-l/g'`
+	# adjust linker flags for dmd command line
+	LIBS=`echo "$LIBS" | sed 's/^-L/-L-L/; s/ -L/ -L-L/g; s/^-l/-L-l/; s/ -l/ -L-l/g'`
+fi
 
 if [ "$GITVER" = "" ]; then
   GITVER=$(git describe) || echo "Could not determine a version with git."
