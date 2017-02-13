@@ -145,8 +145,14 @@ version (Windows) extern(Windows) int CreateHardLinkW(in wchar* to, in wchar* fr
 // guess whether 2 files are identical, ignores filename and content
 private bool sameFile(Path a, Path b)
 {
-	static assert(__traits(allMembers, FileInfo)[0] == "name");
-	return getFileInfo(a).tupleof[1 .. $] == getFileInfo(b).tupleof[1 .. $];
+	version (Posix) {
+		auto st_a = std.file.DirEntry(a.toNativeString).statBuf;
+		auto st_b = std.file.DirEntry(b.toNativeString).statBuf;
+		return st_a == st_b;
+	} else {
+		static assert(__traits(allMembers, FileInfo)[0] == "name");
+		return getFileInfo(a).tupleof[1 .. $] == getFileInfo(b).tupleof[1 .. $];
+	}
 }
 
 /**
@@ -157,7 +163,7 @@ void hardLinkFile(Path from, Path to, bool overwrite = false)
 	if (existsFile(to)) {
 		enforce(overwrite, "Destination file already exists.");
 		if (auto fe = collectException!FileException(removeFile(to))) {
-			version (Windows) if (sameFile(from, to)) return;
+			if (sameFile(from, to)) return;
 			throw fe;
 		}
 	}
