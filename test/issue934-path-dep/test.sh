@@ -1,6 +1,5 @@
 #!/bin/sh
 
-cd ${CURR_DIR}/issue934-path-dep
 rm -rf main/.dub
 rm -rf a/.dub
 rm -rf b/.dub
