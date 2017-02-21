@@ -1,12 +1,31 @@
 Changelog
 =========
 
+v1.2.1 - 2017-02-12
+-------------------
+
+### Bug fixes ###
+
+- Fixed compile error when compiling with vibe.d versions prior to 0.8.0 - [9d25e5dd][commit9d25e5dd]
+- Fixed orphan format specifier error - [220b0128][commit220b0128]
+- Fixed test executable name generation causing sub package test builds to fail - [e6262373][commite6262373]
+- Fixed bogus warning message when compiling with `--arch x86_mscoff` (by Andrey Penechko aka MrSmith33) - [pull #1059][issue1059]
+- Fixed plaform specifiers to work for "x86_mscoff" - [86e85276][commit86e85276]
+
+[commit9d25e5dd]: https://github.com/dlang/dub/commit/9d25e5dd0337e9c054ff32c4b921f32603d29293
+[commit220b0128]: https://github.com/dlang/dub/commit/220b01280041abbead57db6eec28e9279b9d7cf6
+[commite6262373]: https://github.com/dlang/dub/commit/e6262373558591fa8754704fcc2e8ddafabf6671
+[commit86e85276]: https://github.com/dlang/dub/commit/86e85276a7ff85c5cde4e1926c40e666a2b6bf78
+[issue1059]: https://github.com/dlang/dub/issues/1059
+
+
 v1.2.0 - 2017-01-22
 -------------------
 
 ### Features and improvements ###
 
  - Added an `--override-config` command line option to force selecting specific configurations for dependencies - [pull #1004][issue1004]
+ - Added an `x86_mscoff` architecture corresponding to DMD's `-m32mscoff` flag (by John Colvin) - [pull #1007][issue1007]
  - Implemented selective dependency upgrades ("dub upgrade <packages...>") - [issue #1024][issue1024]
  - Multiple configurations with the same name are now detected and will cause a warning to be displayed - [issue #984][issue984]
  - Updated the Sublime Text generator and the Bash completion script to include the default "release-debug" build type (by p0nce) - [pull #1028][issue1028]
@@ -14,6 +33,7 @@ v1.2.0 - 2017-01-22
 
 [issue984]: https://github.com/dlang/dub/issues/984
 [issue1004]: https://github.com/dlang/dub/issues/1004
+[issue1007]: https://github.com/dlang/dub/issues/1007
 [issue1023]: https://github.com/dlang/dub/issues/1023
 [issue1024]: https://github.com/dlang/dub/issues/1024
 [issue1028]: https://github.com/dlang/dub/issues/1028
