@@ -138,7 +138,10 @@ interface Compiler {
 		// Hack: see #1059
 		// When compiling with --arch=x86_mscoff build_platform.architecture is equal to ["x86"] and canFind below is false.
 		// This hack prevents unnesessary warning 'Failed to apply the selected architecture x86_mscoff. Got ["x86"]'.
-		if (arch_override.length && !build_platform.architecture.canFind(arch_override == "x86_mscoff" ? "x86" : arch_override)) {
+		// And also makes "x86_mscoff" available as a platform specifier in the package recipe
+		if (arch_override == "x86_mscoff")
+			build_platform.architecture ~= arch_override;
+		if (arch_override.length && !build_platform.architecture.canFind(arch_override)) {
 			logWarn(`Failed to apply the selected architecture %s. Got %s.`,
 				arch_override, build_platform.architecture);
 		}

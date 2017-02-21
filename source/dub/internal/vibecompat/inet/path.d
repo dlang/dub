@@ -7,7 +7,7 @@
 */
 module dub.internal.vibecompat.inet.path;
 
-version (Have_vibe_d_inet) public import vibe.inet.path;
+version (Have_vibe_d_core) public import vibe.inet.path;
 else:
 
 import std.algorithm;
