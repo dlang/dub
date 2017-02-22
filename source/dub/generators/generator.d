@@ -294,7 +294,7 @@ struct GeneratorSettings {
 	bool combined; // compile all in one go instead of each dependency separately
 
 	// only used for generator "build"
-	bool run, force, direct, clean, rdmd, tempBuild, parallelBuild;
+	bool run, force, direct, rdmd, tempBuild, parallelBuild;
 	string[] runArgs;
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;
@@ -508,7 +508,6 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_RUN"]               = settings.run?           "TRUE" : "";
 	env["DUB_FORCE"]             = settings.force?         "TRUE" : "";
 	env["DUB_DIRECT"]            = settings.direct?        "TRUE" : "";
-	env["DUB_CLEAN"]             = settings.clean?         "TRUE" : "";
 	env["DUB_RDMD"]              = settings.rdmd?          "TRUE" : "";
 	env["DUB_TEMP_BUILD"]        = settings.tempBuild?     "TRUE" : "";
 	env["DUB_PARALLEL_BUILD"]    = settings.parallelBuild? "TRUE" : "";
