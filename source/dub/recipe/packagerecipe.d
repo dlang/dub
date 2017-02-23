@@ -175,6 +175,8 @@ struct BuildSettingsTemplate {
 
 		void collectFiles(string method)(in string[][string] paths_map, string pattern)
 		{
+			auto files = appender!(string[]);
+
 			foreach (suffix, paths; paths_map) {
 				if (!platform.matchesSpecification(suffix))
 					continue;
@@ -192,10 +194,12 @@ struct BuildSettingsTemplate {
 						import std.path : baseName;
 						if (baseName(d.name)[0] == '.' || isDir(d.name)) continue;
 						auto src = Path(d.name).relativeTo(base_path);
-						__traits(getMember, dst, method)(src.toNativeString());
+						files ~= src.toNativeString();
 					}
 				}
 			}
+
+			__traits(getMember, dst, method)(files.data);
 		}
 
 		// collect files from all source/import folders

@@ -149,14 +149,14 @@ struct BuildSettings {
 	// add string import files (avoids file name duplicates in addition to path duplicates)
 	private void addSI(ref string[] arr, in string[] vals)
 	{
-		outer:
+		bool[string] existing;
+		foreach (v; arr) existing[Path(v).head.toString()] = true;
 		foreach (v; vals) {
-			auto vh = Path(v).head;
-			foreach (ve; arr) {
-				if (Path(ve).head == vh)
-					continue outer;
+			auto s = Path(v).head.toString();
+			if (s !in existing) {
+				existing[s] = true;
+				arr ~= v;
 			}
-			arr ~= v;
 		}
 	}
 
