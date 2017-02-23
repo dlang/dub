@@ -427,12 +427,12 @@ string getModuleNameFromContent(string content) {
 	static Regex!char comments_pattern, module_pattern;
 
 	if (!regex_initialized) {
-		comments_pattern = regex(`//[^\r\n]*\r?\n?|/\*.*\*/|/\+.*\+/`, "g");
+		comments_pattern = regex(`//[^\r\n]*\r?\n?|/\*.*?\*/|/\+.*\+/`, "g");
 		module_pattern = regex(`module\s+([\w\.]+)\s*;`, "g");
 		regex_initialized = true;
 	}
 
-	content = replaceAll(content, comments_pattern, "");
+	content = replaceAll(content, comments_pattern, " ");
 	auto result = matchFirst(content, module_pattern);
 
 	if (!result.empty) return result[1];
@@ -453,6 +453,11 @@ unittest {
 	assert(getModuleNameFromContent("/* module foo; */\nmodule bar;") == "bar");
 	assert(getModuleNameFromContent("/+ module foo; +/\nmodule bar;") == "bar");
 	assert(getModuleNameFromContent("/+ /+ module foo; +/ +/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("// module foo;\nmodule bar; // module foo;") == "bar");
+	assert(getModuleNameFromContent("// module foo;\nmodule// module foo;\nbar//module foo;\n;// module foo;") == "bar");
+	assert(getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;") == "bar", getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;"));
+	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar;") == "bar");
+	//assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar/++/;") == "bar"); // nested comments require a context-free parser!
 }
 
 /**
