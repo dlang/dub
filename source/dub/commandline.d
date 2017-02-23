@@ -24,6 +24,7 @@ import dub.internal.utils : getDUBVersion, getClosestMatch;
 
 import std.algorithm;
 import std.array;
+import std.datetime: Clock;
 import std.conv;
 import std.encoding;
 import std.exception;
@@ -495,6 +496,7 @@ class InitCommand : Command {
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
 			p.license = input("License", p.license);
+			p.copyright = .format("Copyright © %s, %s", Clock.currTime().year, join(p.authors, ", "));
 			p.copyright = input("Copyright string", p.copyright);
 
 			while (true) {
