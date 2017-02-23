@@ -144,7 +144,7 @@ string determineCompiler()
 
 	So the following strings are valid specifications: `"-windows-x86-dmd"`,
 	`"-dmd"`, `"-arm"`, `"-arm-dmd"`, `"-windows-dmd"`
-	
+
 	Params:
 		platform = The build platform to match agains the platform specification
 	    specification = The specification being matched. It must either be an

@@ -35,7 +35,7 @@ Token[] lexFile(string filename)
 Token[] lexSource(string source, string filename=null)
 {
 	auto lexer = scoped!Lexer(source, filename);
-	
+
 	// Can't use 'std.array.array(Range)' because 'lexer' is scoped
 	// and therefore cannot have its reference copied.
 	Appender!(Token[]) tokens;
@@ -98,18 +98,18 @@ class Lexer
 	private size_t posAfterLookahead; // Position after lookahead character (an index into source)
 
 	private Location tokenStart;    // The starting location of the token being lexed
-	
+
 	// Length so far of the token being lexed, not including current char
 	private size_t tokenLength;   // Length in UTF-8 code units
 	private size_t tokenLength32; // Length in UTF-32 code units
-	
+
 	// Slight kludge:
 	// If a numeric fragment is found after a Date (separated by arbitrary
 	// whitespace), it could be the "hours" part of a DateTime, or it could
 	// be a separate numeric literal that simply follows a plain Date. If the
 	// latter, then the Date must be emitted, but numeric fragment that was
 	// found after it needs to be saved for the the lexer's next iteration.
-	// 
+	//
 	// It's a slight kludge, and could instead be implemented as a slightly
 	// kludgey parser hack, but it's the only situation where SDL's lexing
 	// needs to lookahead more than one character, so this is good enough.
@@ -121,12 +121,12 @@ class Lexer
 		Location tokenStart;
 	}
 	private LookaheadTokenInfo lookaheadTokenInfo;
-	
+
 	this(string source=null, string filename=null)
 	{
 		this.filename = filename;
 		this.source = source;
-		
+
 		_front = Token(symbol!"Error", Location());
 		lookaheadTokenInfo = LookaheadTokenInfo.init;
 
@@ -135,14 +135,14 @@ class Lexer
 			source = source[ ByteOrderMarks[BOM.UTF8].length .. $ ];
 			this.source = source;
 		}
-		
+
 		foreach(bom; ByteOrderMarks)
 		if( source.startsWith(bom) )
 			error(Location(filename,0,0,0), "SDL spec only supports UTF-8, not UTF-16 or UTF-32");
-		
+
 		if(source == "")
 			mixin(accept!"EOF");
-		
+
 		// Prime everything
 		hasNextCh = true;
 		nextCh = source.decode(posAfterLookahead);
@@ -150,12 +150,12 @@ class Lexer
 		location = Location(filename, 0, 0, 0);
 		popFront();
 	}
-	
+
 	@property bool empty()
 	{
 		return _front.symbol == symbol!"EOF";
 	}
-	
+
 	Token _front;
 	@property Token front()
 	{
@@ -183,12 +183,12 @@ class Lexer
 		tok.data = tokenData;
 		return tok;
 	}
-	
+
 	private @property string tokenData()
 	{
 		return source[ tokenStart.index .. location.index ];
 	}
-	
+
 	/// Check the lookahead character
 	private bool lookahead(dchar ch)
 	{
@@ -228,20 +228,20 @@ class Lexer
 
 		if(ch >= '0' && ch <= '9')
 			return true;
-		
+
 		return ch == '+' || ch == '/' || ch == '=';
 	}
-	
+
 	/// Is the current character one that's allowed
 	/// immediately *after* an int/float literal?
 	private bool isEndOfNumber()
 	{
 		if(isEOF)
 			return true;
-		
+
 		return !isDigit(ch) && ch != ':' && ch != '_' && !isAlpha(ch);
 	}
-	
+
 	/// Is current character the last one in an ident?
 	private bool isEndOfIdentCached = false;
 	private bool _isEndOfIdent;
@@ -253,10 +253,10 @@ class Lexer
 				_isEndOfIdent = true;
 			else
 				_isEndOfIdent = !isIdentChar(nextCh);
-			
+
 			isEndOfIdentCached = true;
 		}
-		
+
 		return _isEndOfIdent;
 	}
 
@@ -265,12 +265,12 @@ class Lexer
 	{
 		if(isAlpha(ch))
 			return true;
-		
+
 		else if(isNumber(ch))
 			return true;
-		
+
 		else
-			return 
+			return
 				ch == '-' ||
 				ch == '_' ||
 				ch == '.' ||
@@ -281,7 +281,7 @@ class Lexer
 	{
 		return ch >= '0' && ch <= '9';
 	}
-	
+
 	private enum KeywordResult
 	{
 		Accept,   // Keyword is matched
@@ -350,7 +350,7 @@ class Lexer
 			hasNextCh = false;
 			return;
 		}
-		
+
 		nextCh = source.decode(posAfterLookahead);
 		isEndOfIdentCached = false;
 	}
@@ -370,12 +370,12 @@ class Lexer
 
 		if(isEOF)
 			mixin(accept!"EOF");
-		
+
 		tokenStart    = location;
 		tokenLength   = 0;
 		tokenLength32 = 0;
 		isEndOfIdentCached = false;
-		
+
 		if(lookaheadTokenInfo.exists)
 		{
 			tokenStart = lookaheadTokenInfo.tokenStart;
@@ -385,31 +385,31 @@ class Lexer
 			lexNumeric(prevLATokenInfo);
 			return;
 		}
-		
+
 		if(ch == '=')
 		{
 			advanceChar(ErrorOnEOF.No);
 			mixin(accept!"=");
 		}
-		
+
 		else if(ch == '{')
 		{
 			advanceChar(ErrorOnEOF.No);
 			mixin(accept!"{");
 		}
-		
+
 		else if(ch == '}')
 		{
 			advanceChar(ErrorOnEOF.No);
 			mixin(accept!"}");
 		}
-		
+
 		else if(ch == ':')
 		{
 			advanceChar(ErrorOnEOF.No);
 			mixin(accept!":");
 		}
-		
+
 		else if(ch == ';')
 		{
 			advanceChar(ErrorOnEOF.No);
@@ -421,7 +421,7 @@ class Lexer
 			advanceChar(cnt, ErrorOnEOF.No);
 			mixin(accept!"EOL");
 		}
-		
+
 		else if(isAlpha(ch) || ch == '_')
 			lexIdentKeyword();
 
@@ -430,7 +430,7 @@ class Lexer
 
 		else if(ch == '`')
 			lexRawString();
-		
+
 		else if(ch == '\'')
 			lexCharacter();
 
@@ -451,7 +451,7 @@ class Lexer
 	private void lexIdentKeyword()
 	{
 		assert(isAlpha(ch) || ch == '_');
-		
+
 		// Keyword
 		struct Key
 		{
@@ -471,10 +471,10 @@ class Lexer
 			keywords[4] = Key("null",  Value(null ));
 			keywordsInited = true;
 		}
-		
+
 		foreach(ref key; keywords)
 			key.failed = false;
-		
+
 		auto numKeys = keywords.length;
 
 		do
@@ -486,10 +486,10 @@ class Lexer
 				{
 				case KeywordResult.Accept:
 					mixin(accept!("Value", "key.value"));
-				
+
 				case KeywordResult.Continue:
 					break;
-				
+
 				case KeywordResult.Failed:
 					key.failed = true;
 					numKeys--;
@@ -520,13 +520,13 @@ class Lexer
 	{
 		if(tokenLength == 0)
 			assert(isAlpha(ch) || ch == '_');
-		
+
 		while(!isEOF && isIdentChar(ch))
 			advanceChar(ErrorOnEOF.No);
 
 		mixin(accept!"Ident");
 	}
-	
+
 	/// Lex regular string
 	private void lexRegularString()
 	{
@@ -534,7 +534,7 @@ class Lexer
 
 		Appender!string buf;
 		size_t spanStart = nextPos;
-		
+
 		// Doesn't include current character
 		void updateBuf()
 		{
@@ -543,7 +543,7 @@ class Lexer
 
 			buf.put( source[spanStart..location.index] );
 		}
-		
+
 		advanceChar(ErrorOnEOF.Yes);
 		while(ch != '"')
 		{
@@ -564,7 +564,7 @@ class Lexer
 					default: wasEscSequence = false; break;
 					}
 				}
-				
+
 				if(wasEscSequence)
 				{
 					advanceChar(ErrorOnEOF.Yes);
@@ -582,7 +582,7 @@ class Lexer
 
 			advanceChar(ErrorOnEOF.Yes);
 		}
-		
+
 		updateBuf();
 		advanceChar(ErrorOnEOF.No); // Skip closing double-quote
 		mixin(accept!("Value", "buf.data"));
@@ -592,21 +592,21 @@ class Lexer
 	private void lexRawString()
 	{
 		assert(ch == '`');
-		
+
 		do
 			advanceChar(ErrorOnEOF.Yes);
 		while(ch != '`');
-		
+
 		advanceChar(ErrorOnEOF.No); // Skip closing back-tick
 		mixin(accept!("Value", "tokenData[1..$-1]"));
 	}
-	
+
 	/// Lex character literal
 	private void lexCharacter()
 	{
 		assert(ch == '\'');
 		advanceChar(ErrorOnEOF.Yes); // Skip opening single-quote
-		
+
 		dchar value;
 		if(ch == '\\')
 		{
@@ -634,25 +634,25 @@ class Lexer
 
 		mixin(accept!("Value", "value"));
 	}
-	
+
 	/// Lex base64 binary literal
 	private void lexBinary()
 	{
 		assert(ch == '[');
 		advanceChar(ErrorOnEOF.Yes);
-		
+
 		void eatBase64Whitespace()
 		{
 			while(!isEOF && isWhite(ch))
 			{
 				if(isNewline(ch))
 					advanceChar(ErrorOnEOF.Yes);
-				
+
 				if(!isEOF && isWhite(ch))
 					eatWhite();
 			}
 		}
-		
+
 		eatBase64Whitespace();
 
 		// Iterates all valid base64 characters, ending at ']'.
@@ -662,17 +662,17 @@ class Lexer
 			Lexer lexer;
 			private bool isInited = false;
 			private int numInputCharsMod4 = 0;
-			
+
 			@property bool empty()
 			{
 				if(lexer.ch == ']')
 				{
 					if(numInputCharsMod4 != 0)
 						lexer.error("Length of Base64 encoding must be a multiple of 4. ("~to!string(numInputCharsMod4)~")");
-					
+
 					return true;
 				}
-				
+
 				return false;
 			}
 
@@ -680,7 +680,7 @@ class Lexer
 			{
 				return lexer.ch;
 			}
-			
+
 			void popFront()
 			{
 				auto lex = lexer;
@@ -692,14 +692,14 @@ class Lexer
 						numInputCharsMod4++;
 						numInputCharsMod4 %= 4;
 					}
-					
+
 					isInited = true;
 				}
-				
+
 				lex.advanceChar(lex.ErrorOnEOF.Yes);
 
 				eatBase64Whitespace();
-				
+
 				if(lex.isEOF)
 					lex.error("Unexpected end of file.");
 
@@ -707,13 +707,13 @@ class Lexer
 				{
 					if(!lex.isBase64(lex.ch))
 						lex.error("Invalid character in base64 binary literal.");
-					
+
 					numInputCharsMod4++;
 					numInputCharsMod4 %= 4;
 				}
 			}
 		}
-		
+
 		// This is a slow ugly hack. It's necessary because Base64.decode
 		// currently requires the source to have known length.
 		//TODO: Remove this when DMD issue #9543 is fixed.
@@ -729,7 +729,7 @@ class Lexer
 				outputBuf.put(ch);
 			}
 		}
-		
+
 		try
 			//Base64.decode(Base64InputRange(this), OutputBuf());
 			Base64.decode(tmpBuf, OutputBuf());
@@ -737,11 +737,11 @@ class Lexer
 		//TODO: Starting with dmd 2.062, this should be a Base64Exception
 		catch(Exception e)
 			error("Invalid character in base64 binary literal.");
-		
+
 		advanceChar(ErrorOnEOF.No); // Skip ']'
 		mixin(accept!("Value", "outputBuf.data"));
 	}
-	
+
 	private BigInt toBigInt(bool isNegative, string absValue)
 	{
 		auto num = BigInt(absValue);
@@ -759,14 +759,14 @@ class Lexer
 	{
 		if(!isDigit(ch))
 			error("Expected a digit 0-9.");
-		
+
 		auto spanStart = location.index;
-		
+
 		do
 		{
 			advanceChar(ErrorOnEOF.No);
 		} while(!isEOF && isDigit(ch));
-		
+
 		return source[spanStart..location.index];
 	}
 
@@ -811,7 +811,7 @@ class Lexer
 
 			mixin(accept!("Value", "num.toLong()"));
 		}
-		
+
 		// Float (32-bit signed)?
 		else if(ch == 'F' || ch == 'f')
 		{
@@ -819,7 +819,7 @@ class Lexer
 			advanceChar(ErrorOnEOF.No);
 			mixin(accept!("Value", "value"));
 		}
-		
+
 		// Double float (64-bit signed) with suffix?
 		else if((ch == 'D' || ch == 'd') && !lookahead(':')
 		)
@@ -828,7 +828,7 @@ class Lexer
 			advanceChar(ErrorOnEOF.No);
 			mixin(accept!("Value", "value"));
 		}
-		
+
 		// Decimal (128+ bits signed)?
 		else if(
 			(ch == 'B' || ch == 'b') &&
@@ -840,15 +840,15 @@ class Lexer
 			advanceChar(ErrorOnEOF.No);
 			mixin(accept!("Value", "value"));
 		}
-		
+
 		// Some floating point?
 		else if(ch == '.')
 			lexFloatingPoint(firstFragment);
-		
+
 		// Some date?
 		else if(ch == '/' && hasNextCh && isDigit(nextCh))
 			lexDate(isNegative, firstFragment);
-		
+
 		// Some time span?
 		else if(ch == ':' || ch == 'd')
 			lexTimeSpan(isNegative, firstFragment);
@@ -867,15 +867,15 @@ class Lexer
 		else
 			error("Invalid integer suffix.");
 	}
-	
+
 	/// Lex any floating-point literal (after the initial numeric fragment was lexed)
 	private void lexFloatingPoint(string firstPart)
 	{
 		assert(ch == '.');
 		advanceChar(ErrorOnEOF.No);
-		
+
 		auto secondPart = lexNumericFragment();
-		
+
 		try
 		{
 			// Double float (64-bit signed) with suffix?
@@ -928,7 +928,7 @@ class Lexer
 	private Date makeDate(bool isNegative, string yearStr, string monthStr, string dayStr)
 	{
 		BigInt biTmp;
-		
+
 		biTmp = BigInt(yearStr);
 		if(isNegative)
 			biTmp = -biTmp;
@@ -940,15 +940,15 @@ class Lexer
 		if(biTmp < 1 || biTmp > 12)
 			error(tokenStart, "Date's month is out of range.");
 		auto month = biTmp.toInt();
-		
+
 		biTmp = BigInt(dayStr);
 		if(biTmp < 1 || biTmp > 31)
 			error(tokenStart, "Date's month is out of range.");
 		auto day = biTmp.toInt();
-		
+
 		return Date(year, month, day);
 	}
-	
+
 	private DateTimeFrac makeDateTimeFrac(
 		bool isNegative, Date date, string hourStr, string minuteStr,
 		string secondStr, string millisecondStr
@@ -960,12 +960,12 @@ class Lexer
 		if(biTmp < int.min || biTmp > int.max)
 			error(tokenStart, "Datetime's hour is out of range.");
 		auto numHours = biTmp.toInt();
-		
+
 		biTmp = BigInt(minuteStr);
 		if(biTmp < 0 || biTmp > int.max)
 			error(tokenStart, "Datetime's minute is out of range.");
 		auto numMinutes = biTmp.toInt();
-		
+
 		int numSeconds = 0;
 		if(secondStr != "")
 		{
@@ -974,7 +974,7 @@ class Lexer
 				error(tokenStart, "Datetime's second is out of range.");
 			numSeconds = biTmp.toInt();
 		}
-		
+
 		int millisecond = 0;
 		if(millisecondStr != "")
 		{
@@ -990,7 +990,7 @@ class Lexer
 		}
 
 		Duration fracSecs = millisecond.msecs;
-		
+
 		auto offset = hours(numHours) + minutes(numMinutes) + seconds(numSeconds);
 
 		if(isNegative)
@@ -998,7 +998,7 @@ class Lexer
 			offset   = -offset;
 			fracSecs = -fracSecs;
 		}
-		
+
 		return DateTimeFrac(DateTime(date) + offset, fracSecs);
 	}
 
@@ -1047,7 +1047,7 @@ class Lexer
 			else if(millisecondStr.length == 2)
 				millisecond *= 10;
 		}
-		
+
 		auto duration =
 			dur!"days"   (day)    +
 			dur!"hours"  (hour)   +
@@ -1057,7 +1057,7 @@ class Lexer
 
 		if(isNegative)
 			duration = -duration;
-		
+
 		return duration;
 	}
 
@@ -1067,7 +1067,7 @@ class Lexer
 	{
 		if(str.length < 2)
 			return Nullable!Duration(); // Unknown timezone
-		
+
 		if(str[0] != '+' && str[0] != '-')
 			return Nullable!Duration(); // Unknown timezone
 
@@ -1085,7 +1085,7 @@ class Lexer
 			numMinutesStr = str.find(':');
 			numHoursStr = str[1 .. $-numMinutesStr.length];
 		}
-		
+
 		long numHours = 0;
 		long numMinutes = 0;
 		bool isUnknown = false;
@@ -1133,7 +1133,7 @@ class Lexer
 		}
 		catch(ConvException e)
 			isUnknown = true;
-		
+
 		if(isUnknown)
 			return Nullable!Duration(); // Unknown timezone
 
@@ -1144,12 +1144,12 @@ class Lexer
 		// Timezone valid
 		return Nullable!Duration(timeZoneOffset);
 	}
-	
+
 	/// Lex date or datetime (after the initial numeric fragment was lexed)
 	private void lexDate(bool isDateNegative, string yearStr)
 	{
 		assert(ch == '/');
-		
+
 		// Lex months
 		advanceChar(ErrorOnEOF.Yes); // Skip '/'
 		auto monthStr = lexNumericFragment();
@@ -1159,18 +1159,18 @@ class Lexer
 			error("Invalid date format: Missing days.");
 		advanceChar(ErrorOnEOF.Yes); // Skip '/'
 		auto dayStr = lexNumericFragment();
-		
+
 		auto date = makeDate(isDateNegative, yearStr, monthStr, dayStr);
 
 		if(!isEndOfNumber() && ch != '/')
 			error("Dates cannot have suffixes.");
-		
+
 		// Date?
 		if(isEOF)
 			mixin(accept!("Value", "date"));
-		
+
 		auto endOfDate = location;
-		
+
 		while(
 			!isEOF &&
 			( ch == '\\' || ch == '/' || (isWhite(ch) && !isNewline(ch)) )
@@ -1190,7 +1190,7 @@ class Lexer
 		// Date?
 		if(isEOF || (!isDigit(ch) && ch != '-'))
 			mixin(accept!("Value", "date", "", "endOfDate.index"));
-		
+
 		auto startOfTime = location;
 
 		// Is time negative?
@@ -1200,7 +1200,7 @@ class Lexer
 
 		// Lex hours
 		auto hourStr = ch == '.'? "" : lexNumericFragment();
-		
+
 		// Lex minutes
 		if(ch != ':')
 		{
@@ -1214,7 +1214,7 @@ class Lexer
 		}
 		advanceChar(ErrorOnEOF.Yes); // Skip ':'
 		auto minuteStr = lexNumericFragment();
-		
+
 		// Lex seconds, if exists
 		string secondStr;
 		if(ch == ':')
@@ -1222,7 +1222,7 @@ class Lexer
 			advanceChar(ErrorOnEOF.Yes); // Skip ':'
 			secondStr = lexNumericFragment();
 		}
-		
+
 		// Lex milliseconds, if exists
 		string millisecondStr;
 		if(ch == '.')
@@ -1232,25 +1232,25 @@ class Lexer
 		}
 
 		auto dateTimeFrac = makeDateTimeFrac(isTimeNegative, date, hourStr, minuteStr, secondStr, millisecondStr);
-		
+
 		// Lex zone, if exists
 		if(ch == '-')
 		{
 			advanceChar(ErrorOnEOF.Yes); // Skip '-'
 			auto timezoneStart = location;
-			
+
 			if(!isAlpha(ch))
 				error("Invalid timezone format.");
-			
+
 			while(!isEOF && !isWhite(ch))
 				advanceChar(ErrorOnEOF.No);
-			
+
 			auto timezoneStr = source[timezoneStart.index..location.index];
 			if(timezoneStr.startsWith("GMT"))
 			{
 				auto isoPart = timezoneStr["GMT".length..$];
 				auto offset = getTimeZoneOffset(isoPart);
-				
+
 				if(offset.isNull())
 				{
 					// Unknown time zone
@@ -1264,7 +1264,7 @@ class Lexer
 					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, fsecs, timezone)"));
 				}
 			}
-			
+
 			try
 			{
 				auto timezone = PosixTimeZone.getTimeZone(timezoneStr);
@@ -1293,7 +1293,7 @@ class Lexer
 	private void lexTimeSpan(bool isNegative, string firstPart)
 	{
 		assert(ch == ':' || ch == 'd');
-		
+
 		string dayStr = "";
 		string hourStr;
 
@@ -1324,7 +1324,7 @@ class Lexer
 			error("Invalid time span format: Missing seconds.");
 		advanceChar(ErrorOnEOF.Yes); // Skip ':'
 		auto secondStr = lexNumericFragment();
-		
+
 		// Lex milliseconds, if exists
 		string millisecondStr = "";
 		if(ch == '.')
@@ -1335,7 +1335,7 @@ class Lexer
 
 		if(!isEndOfNumber())
 			error("Time spans cannot have suffixes.");
-		
+
 		auto duration = makeDuration(isNegative, dayStr, hourStr, minuteStr, secondStr, millisecondStr);
 		mixin(accept!("Value", "duration"));
 	}
@@ -1354,7 +1354,7 @@ class Lexer
 
 		if(isEOF)
 			return;
-		
+
 		Location commentStart;
 		State state = State.normal;
 		bool consumeNewlines = false;
@@ -1427,12 +1427,12 @@ class Lexer
 				}
 
 				break;
-			
+
 			case State.lineComment:
 				if(lookahead(&isNewline))
 					state = State.normal;
 				break;
-			
+
 			case State.blockComment:
 				if(ch == '*' && lookahead('/'))
 				{
@@ -1441,7 +1441,7 @@ class Lexer
 				}
 				break;
 			}
-			
+
 			advanceChar(ErrorOnEOF.No);
 			if(isEOF)
 			{
@@ -1494,7 +1494,7 @@ version(sdlangUnittest)
 		if (is_same && test_locations) {
 			is_same = actual.map!(t => t.location).equal(expected.map!(t => t.location));
 		}
-		
+
 		if(!is_same)
 		{
 			numErrors++;
@@ -1548,7 +1548,7 @@ unittest
 {
 	writeln("Unittesting sdlang lexer...");
 	stdout.flush();
-	
+
 	testLex("",        []);
 	testLex(" ",       []);
 	testLex("\\\n",    []);
@@ -1604,7 +1604,7 @@ unittest
 	testLexThrows("<");
 	testLexThrows("*");
 	testLexThrows(`\`);
-	
+
 	// Integers
 	testLex(  "7", [ Token(symbol!"Value",loc,Value(cast( int) 7)) ]);
 	testLex( "-7", [ Token(symbol!"Value",loc,Value(cast( int)-7)) ]);
@@ -1624,12 +1624,12 @@ unittest
 	testLexThrows("7A");
 	testLexThrows("-A");
 	testLexThrows(`-""`);
-	
+
 	testLex("7;", [
 		Token(symbol!"Value",loc,Value(cast(int)7)),
 		Token(symbol!"EOL",loc),
 	]);
-	
+
 	// Floats
 	testLex("1.2F" , [ Token(symbol!"Value",loc,Value(cast( float)1.2)) ]);
 	testLex("1.2f" , [ Token(symbol!"Value",loc,Value(cast( float)1.2)) ]);
@@ -1751,7 +1751,7 @@ unittest
 	testLexThrows(`'\`);
 	testLexThrows(`'\'`);
 	testLexThrows("'");
-	
+
 	// Unicode
 	testLex("日本語",         [ Token(symbol!"Ident",loc,Value(null), "日本語") ]);
 	testLex("`おはよう、日本。`", [ Token(symbol!"Value",loc,Value(`おはよう、日本。`)) ]);
@@ -1941,12 +1941,12 @@ unittest
 		Token(symbol!"Ident",loc,Value(      null),"foo."),
 		Token(symbol!"Value",loc,Value(cast(int)7))
 	]);
-	
+
 	testLex(`
 		namespace:person "foo" "bar" 1 23L name.first="ひとみ" name.last="Smith" {
 			namespace:age 37; namespace:favorite_color "blue" // comment
 			somedate 2013/2/22  07:53 -- comment
-			
+
 			inventory /* comment */ {
 				socks
 			}
@@ -2000,7 +2000,7 @@ unittest
 		Token(symbol!"}",     loc, Value(null), "}"),
 		Token(symbol!"EOL",   loc, Value(null), "\n"),
 	]);
-	
+
 	if(numErrors > 0)
 		stderr.writeln(numErrors, " failed test(s)");
 }
@@ -2021,7 +2021,7 @@ unittest
 {
 	writeln("lexer: Regression test issue #11...");
 	stdout.flush();
-	
+
 	void test(string input)
 	{
 		testLex(

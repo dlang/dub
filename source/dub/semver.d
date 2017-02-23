@@ -251,7 +251,7 @@ unittest {
 
 /**
 	Takes a partial version and expands it to a valid SemVer version.
-	
+
 	This function corresponds to the semantivs of the "~>" comparison operator's
 	lower bound.
 
