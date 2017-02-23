@@ -416,27 +416,60 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 /**
  * Search for module keyword in D Code
  */
-string getModuleNameFromContent(string content) {
-	import std.regex;
-	import std.string;
+string getModuleNameFromContent(string _content)
+{
+	import std.algorithm, std.file, std.range, std.utf;
 
-	content = content.strip;
-	if (!content.length) return null;
+	// the parser is only interested in chars within ASCII
+	auto content = _content.byCodeUnit;
 
-	static bool regex_initialized = false;
-	static Regex!char comments_pattern, module_pattern;
+	if (content.length < 7)
+		return null;
 
-	if (!regex_initialized) {
-		comments_pattern = regex(`//[^\r\n]*\r?\n?|/\*.*?\*/|/\+.*\+/`, "g");
-		module_pattern = regex(`module\s+([\w\.]+)\s*;`, "g");
-		regex_initialized = true;
+	bool starCommentScope, plusCommentScope, inlineComment;
+
+	// iterate with 2-mer (avoids need of most special handling
+	foreach (i, e, next; content.lockstep(content.save.dropOne))
+	{
+		switch (e) {
+			case '/':
+				switch (next) {
+					case '*':  starCommentScope = true; break;
+					case '+': plusCommentScope = true; break;
+					case '/': inlineComment = true; break;
+					default:
+				}
+				break;
+			case '*':
+				if (next == '/') starCommentScope = false;
+				break;
+			case '+':
+				if (next == '/') plusCommentScope = false;
+				break;
+			// newline handling shouldn't matter for this parser, but better be
+			// safe (or pedantically correct, than sorry
+			version(Windows)
+			{
+				case '\r':
+					if (next == '\n')
+						inlineComment = false;
+				break;
+			}
+			else
+			{
+				case '\n':
+					inlineComment = false;
+					break;
+			}
+			default:
+				if (!(plusCommentScope || starCommentScope || inlineComment)) {
+					// check for match
+					if (content[i .. $].startsWith("module ")) {
+						return content[i .. $].until(';').drop(7).to!string;
+					}
+				}
+		}
 	}
-
-	content = replaceAll(content, comments_pattern, " ");
-	auto result = matchFirst(content, module_pattern);
-
-	if (!result.empty) return result[1];
-
 	return null;
 }
 
