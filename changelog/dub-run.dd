@@ -1,0 +1,45 @@
+`dub run` will now automatically fetch a package if it's not found locally
+
+Starting with this release, `dub run <mypackage>` makes sure that the package is available locally.
+This means that now a `dub fetch <mypackage>` is no longer required and all a user of a library needs to run your dub package is `dub run`:
+
+$(CONSOLE
+> dub run gitcompatibledubpackage
+gitcompatibledubpackage wasn't found locally, but it's available online:
+---
+Description: Example of a DUB package also usable as git submodule. For DUB test suite.
+Version: 1.0.4
+---
+Do you want to fetch gitcompatibledubpackage? [Y/n]:
+)
+
+An optional `--yes` (`-y`) flag is provided for non-interactive use:
+
+$(CONSOLE
+> dub run --yes gitcompatibledubpackage
+gitcompatibledubpackage wasn't found locally, but it's available online:
+---
+Description: Example of a DUB package also usable as git submodule. For DUB test suite.
+Version: 1.0.4
+---
+Fetching gitcompatibledubpackage 1.0.4...
+Building package gitcompatibledubpackage in /home/seb/.dub/packages/gitcompatibledubpackage-1.0.4/gitcompatibledubpackage/
+Performing "debug" build using dmd for x86_64.
+gitcompatibledubpackage 1.0.4: building configuration "exe"...
+Linking...
+Running ../../.dub/packages/gitcompatibledubpackage-1.0.4/gitcompatibledubpackage/gitcompatibledubpackage
+Hello DUB
+)
+
+If one wants to run a specific version of a package, it can be passed to `dub run` too:
+
+$(CONSOLE
+> dub run gitcompatibledubpackage@1.0.3
+Fetching gitcompatibledubpackage 1.0.3...
+Building package gitcompatibledubpackage in /home/seb/.dub/packages/gitcompatibledubpackage-1.0.3/gitcompatibledubpackage/
+Performing "debug" build using dmd for x86_64.
+gitcompatibledubpackage 1.0.3: building configuration "exe"...
+Linking...
+Running ../../.dub/packages/gitcompatibledubpackage-1.0.3/gitcompatibledubpackage/gitcompatibledubpackage
+Hello DUB
+)
