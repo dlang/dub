@@ -13,7 +13,6 @@ import dub.package_ : PackageFormat, packageInfoFiles, defaultPackageFilename;
 import dub.recipe.packagerecipe;
 import dub.dependency;
 
-import std.datetime;
 import std.exception;
 import std.file;
 import std.format;
@@ -55,7 +54,6 @@ void initPackage(Path root_path, string[string] deps, string type,
 	p.name = root_path.head.toString().toLower();
 	p.authors ~= username;
 	p.license = "proprietary";
-	p.copyright = .format("Copyright © %s, %s", Clock.currTime().year, username);
 	foreach (pack, v; deps) {
 		import std.ascii : isDigit;
 		p.buildSettings.dependencies[pack] = Dependency(v);
