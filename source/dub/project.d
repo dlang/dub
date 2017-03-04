@@ -119,7 +119,7 @@ class Project {
 
 		If this function returns `false`, it may be necessary to add more entries
 		to `selections`, or to use `Dub.upgrade` to automatically select all
-		missing dependencies. 
+		missing dependencies.
 	*/
 	bool hasAllDependencies() const { return m_hasAllDependencies; }
 
@@ -655,7 +655,7 @@ class Project {
 		if (usedefflags) {
 			BuildSettings btsettings;
 			m_rootPackage.addBuildTypeSettings(btsettings, platform, build_type);
-			
+
 			if (!for_root_package) {
 				// don't propagate unittest switch to dependencies, as dependent
 				// unit tests aren't run anyway and the additional code may
@@ -712,7 +712,7 @@ class Project {
 		return listBuildSetting!attributeName(platform, getPackageConfigs(platform, config),
 			projectDescription, compiler, disableEscaping);
 	}
-	
+
 	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
 		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
@@ -721,7 +721,7 @@ class Project {
 		else
 			return formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
 	}
-	
+
 	// Output a build setting formatted for a compiler
 	private string[] formatBuildSettingCompiler(string attributeName)(BuildPlatform platform,
 		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
@@ -753,7 +753,7 @@ class Project {
 		case "options":
 			auto bs = buildSettings.dup;
 			bs.dflags = null;
-			
+
 			// Ensure trailing slash on directory paths
 			auto ensureTrailingSlash = (string path) => path.endsWith(dirSeparator) ? path : path ~ dirSeparator;
 			static if (attributeName == "importPaths")
@@ -771,9 +771,9 @@ class Project {
 			bs.lflags = null;
 			bs.sourceFiles = null;
 			bs.targetType = TargetType.none; // Force Compiler to NOT omit dependency libs when package is a library.
-			
+
 			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
-			
+
 			if (bs.lflags)
 				values = compiler.lflagsToDFlags( bs.lflags );
 			else if (bs.sourceFiles)
@@ -785,7 +785,7 @@ class Project {
 
 		default: assert(0);
 		}
-		
+
 		// Escape filenames and paths
 		if(!disableEscaping)
 		{
@@ -800,7 +800,7 @@ class Project {
 			case "importPaths":
 			case "stringImportPaths":
 				return values.map!(escapeShellFileName).array();
-	
+
 			default:
 				return values;
 			}
@@ -808,7 +808,7 @@ class Project {
 
 		return values;
 	}
-	
+
 	// Output a build setting without formatting for any particular compiler
 	private string[] formatBuildSettingPlain(string attributeName)(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription)
 	{
@@ -819,21 +819,21 @@ class Project {
 
 		enforce(attributeName == "targetType" || projectDescription.lookupRootPackage().targetType != TargetType.none,
 			"Target type is 'none'. Cannot list build settings.");
-		
+
 		static if (attributeName == "targetType")
 			if (projectDescription.rootPackage !in projectDescription.targetLookup)
 				return ["none"];
 
 		auto targetDescription = projectDescription.lookupTarget(projectDescription.rootPackage);
 		auto buildSettings = targetDescription.buildSettings;
-		
+
 		// Return any BuildSetting member attributeName as a range of strings. Don't attempt to fixup values.
 		// allowEmptyString: When the value is a string (as opposed to string[]),
 		//                   is empty string an actual permitted value instead of
 		//                   a missing value?
 		auto getRawBuildSetting(Package pack, bool allowEmptyString) {
 			auto value = __traits(getMember, buildSettings, attributeName);
-			
+
 			static if( is(typeof(value) == string[]) )
 				return value;
 			else static if( is(typeof(value) == string) )
@@ -858,7 +858,7 @@ class Project {
 			else
 				static assert(false, "Type of BuildSettings."~attributeName~" is unsupported.");
 		}
-		
+
 		// Adjust BuildSetting member attributeName as needed.
 		// Returns a range of strings.
 		auto getFixedBuildSetting(Package pack) {
@@ -872,16 +872,16 @@ class Project {
 				attributeName == "sourceFiles" || attributeName == "linkerFiles" ||
 				attributeName == "importFiles" || attributeName == "stringImportFiles" ||
 				attributeName == "copyFiles" || attributeName == "mainSourceFile";
-			
+
 			// For these, empty string means "main project directory", not "missing value"
 			enum allowEmptyString =
 				attributeName == "targetPath" || attributeName == "workingDirectory";
-			
+
 			enum isEnumBitfield =
 				attributeName == "requirements" || attributeName == "options";
 
 			enum isEnum = attributeName == "targetType";
-			
+
 			auto values = getRawBuildSetting(pack, allowEmptyString);
 			string fixRelativePath(string importPath) { return buildNormalizedPath(pack.path.toString(), importPath); }
 			static string ensureTrailingSlash(string path) { return path.endsWith(dirSeparator) ? path : path ~ dirSeparator; }
@@ -973,7 +973,7 @@ class Project {
 			enforce(false, "--data="~requestedData~
 				" is not a valid option. See 'dub describe --help' for accepted --data= values.");
 		}
-		
+
 		assert(0);
 	}
 
@@ -995,7 +995,7 @@ class Project {
 			auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
 			foreach (file; target.buildSettings.sourceFiles.filter!(isLinkerFile))
 				target.buildSettings.addLinkerFiles(file);
-			
+
 			// Remove linker files from sourceFiles
 			target.buildSettings.sourceFiles =
 				target.buildSettings.sourceFiles

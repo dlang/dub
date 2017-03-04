@@ -363,7 +363,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	in BuildSettings buildsettings, Path target_path, bool generate_binary)
 {
 	import std.path : globMatch;
-	
+
 	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running post-generate commands for %s...", pack.name);
 		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
@@ -513,7 +513,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_PARALLEL_BUILD"]    = settings.parallelBuild? "TRUE" : "";
 
 	env["DUB_RUN_ARGS"] = (cast(string[])settings.runArgs).map!(escapeShellFileName).join(" ");
-	
+
 	auto depNames = proj.dependencies.map!((a) => a.name).array();
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
 	runCommands(commands, env);

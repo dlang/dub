@@ -28,7 +28,7 @@ struct ProjectDescription {
 	PackageDescription[] packages; /// All packages in the dependency tree
 	TargetDescription[] targets; /// Build targets
 	@ignore size_t[string] targetLookup; /// Target index by package name name
-	
+
 	/// Targets by name
 	ref inout(TargetDescription) lookupTarget(string name) inout
 	{

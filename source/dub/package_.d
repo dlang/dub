@@ -156,7 +156,7 @@ class Package {
 
 		if (recipe_file.empty) recipe_file = findPackageFile(root);
 
-		enforce(!recipe_file.empty, 
+		enforce(!recipe_file.empty,
 			"No package file found in %s, expected one of %s"
 				.format(root.toNativeString(),
 					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
