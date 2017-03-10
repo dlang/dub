@@ -336,6 +336,7 @@ class VisualDGenerator : ProjectGenerator {
 					//case compileOnly: singlefilemode = 3; break;
 				}
 				ret.formattedWrite("    <singleFileCompilation>%s</singleFileCompilation>\n", singlefilemode);
+				ret.formattedWrite("    <mscoff>%s</mscoff>", buildsettings.dflags.canFind("-m32mscoff") ? "1" : "0");
 				ret.put("    <oneobj>0</oneobj>\n");
 				ret.put("    <trace>0</trace>\n");
 				ret.put("    <quiet>0</quiet>\n");
@@ -524,7 +525,7 @@ private @property string vsArchitecture(string architecture)
 {
 	switch(architecture) {
 		default: logWarn("Unsupported platform('%s'), defaulting to x86", architecture); goto case;
-		case "x86": return "Win32";
+		case "x86", "x86_mscoff": return "Win32";
 		case "x86_64": return "x64";
 	}
 }
