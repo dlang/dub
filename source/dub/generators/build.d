@@ -378,7 +378,7 @@ class BuildGenerator : ProjectGenerator {
 		foreach (p; packages)
 			allfiles ~= (p.recipePath != Path.init ? p : p.basePackage).recipePath.toNativeString();
 		foreach (f; additional_dep_files) allfiles ~= f.toNativeString();
-		if (main_pack is m_project.rootPackage)
+		if (main_pack is m_project.rootPackage && m_project.rootPackage.getAllDependencies().length > 0)
 			allfiles ~= (main_pack.path ~ SelectedVersions.defaultFile).toNativeString();
 
 		foreach (file; allfiles.data) {
