@@ -35,9 +35,9 @@ struct RangeFile {
 
 	ubyte[] readAll()
 	{
-		auto sz = file.size;
+		auto sz = this.size;
 		enforce(sz <= size_t.max, "File is too big to read to memory.");
-		file.seek(0, SEEK_SET);
+		() @trusted { file.seek(0, SEEK_SET); } ();
 		auto ret = new ubyte[cast(size_t)sz];
 		rawRead(ret);
 		return ret;
@@ -45,9 +45,9 @@ struct RangeFile {
 
 	void rawRead(ubyte[] dst) @trusted { enforce(file.rawRead(dst).length == dst.length, "Failed to readall bytes from file."); }
 	void write(string str) { put(str); }
-	void close() { file.close(); }
-	void flush() { file.flush(); }
-	@property ulong size() { return file.size; }
+	void close() @trusted { file.close(); }
+	void flush() @trusted { file.flush(); }
+	@property ulong size() @trusted { return file.size; }
 }
 
 
