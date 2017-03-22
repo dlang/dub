@@ -27,7 +27,7 @@ class Attribute
 {
 	Value    value;
 	Location location;
-	
+
 	private Tag _parent;
 	/// Get parent tag. To set a parent, attach this Attribute to its intended
 	/// parent tag by calling 'Tag.add(...)', or by passing it to
@@ -62,7 +62,7 @@ class Attribute
 		else
 			_namespace = value;
 	}
-	
+
 	private string _name;
 	/// Not including namespace. Use 'fullName' if you want the namespace included.
 	@property string name()
@@ -75,7 +75,7 @@ class Attribute
 		if(_parent && _name != value)
 		{
 			_parent.updateId++;
-			
+
 			void removeFromGroupedLookup(string ns)
 			{
 				// Remove from _parent._attributes[ns]
@@ -83,14 +83,14 @@ class Attribute
 				auto targetIndex = sameNameAttrs.countUntil(this);
 				_parent._attributes[ns][_name].removeIndex(targetIndex);
 			}
-			
+
 			// Remove from _parent._tags
 			removeFromGroupedLookup(_namespace);
 			removeFromGroupedLookup("*");
 
 			// Change name
 			_name = value;
-			
+
 			// Add to new locations in _parent._attributes
 			_parent._attributes[_namespace][_name] ~= this;
 			_parent._attributes["*"][_name] ~= this;
@@ -111,7 +111,7 @@ class Attribute
 		this.location   = location;
 		this.value      = value;
 	}
-	
+
 	this(string name, Value value, Location location = Location(0, 0, 0))
 	{
 		this._namespace = "";
@@ -119,14 +119,14 @@ class Attribute
 		this.location   = location;
 		this.value      = value;
 	}
-	
+
 	/// Removes 'this' from its parent, if any. Returns 'this' for chaining.
 	/// Inefficient ATM, but it works.
 	Attribute remove()
 	{
 		if(!_parent)
 			return this;
-		
+
 		void removeFromGroupedLookup(string ns)
 		{
 			// Remove from _parent._attributes[ns]
@@ -134,7 +134,7 @@ class Attribute
 			auto targetIndex = sameNameAttrs.countUntil(this);
 			_parent._attributes[ns][_name].removeIndex(targetIndex);
 		}
-		
+
 		// Remove from _parent._attributes
 		removeFromGroupedLookup(_namespace);
 		removeFromGroupedLookup("*");
@@ -147,13 +147,13 @@ class Attribute
 		auto sameNamespaceAttrs = _parent.attributeIndicies[_namespace];
 		auto attrIndiciesIndex = sameNamespaceAttrs.countUntil(allAttrsIndex);
 		_parent.attributeIndicies[_namespace].removeIndex(attrIndiciesIndex);
-		
+
 		// Fixup other indicies
 		foreach(ns, ref nsAttrIndicies; _parent.attributeIndicies)
 		foreach(k, ref v; nsAttrIndicies)
 		if(v > allAttrsIndex)
 			v--;
-		
+
 		_parent.removeNamespaceIfEmpty(_namespace);
 		_parent.updateId++;
 		_parent = null;
@@ -171,7 +171,7 @@ class Attribute
 			_name      == a._name      &&
 			value      == a.value;
 	}
-	
+
 	string toSDLString()()
 	{
 		Appender!string sink;
@@ -232,7 +232,7 @@ class Tag
 		else
 			_namespace = value;
 	}
-	
+
 	private string _name;
 	/// Not including namespace. Use 'fullName' if you want the namespace included.
 	@property string name()
@@ -245,7 +245,7 @@ class Tag
 		if(_parent && _name != value)
 		{
 			_parent.updateId++;
-			
+
 			void removeFromGroupedLookup(string ns)
 			{
 				// Remove from _parent._tags[ns]
@@ -253,14 +253,14 @@ class Tag
 				auto targetIndex = sameNameTags.countUntil(this);
 				_parent._tags[ns][_name].removeIndex(targetIndex);
 			}
-			
+
 			// Remove from _parent._tags
 			removeFromGroupedLookup(_namespace);
 			removeFromGroupedLookup("*");
-			
+
 			// Change name
 			_name = value;
-			
+
 			// Add to new locations in _parent._tags
 			_parent._tags[_namespace][_name] ~= this;
 			_parent._tags["*"][_name] ~= this;
@@ -268,7 +268,7 @@ class Tag
 		else
 			_name = value;
 	}
-	
+
 	/// This tag's name, including namespace if one exists.
 	@property string fullName()
 	{
@@ -279,7 +279,7 @@ class Tag
 	// could invalidate existing ranges. This way, the ranges can detect when
 	// they've been invalidated.
 	private size_t updateId=0;
-	
+
 	this(Tag parent = null)
 	{
 		if(parent)
@@ -304,7 +304,7 @@ class Tag
 
 		if(parent)
 			parent.add(this);
-		
+
 		this.values = values;
 		this.add(attributes);
 		this.add(children);
@@ -319,7 +319,7 @@ class Tag
 
 	private Attribute[][string][string] _attributes; // attributes[namespace or "*"][name][i]
 	private Tag[][string][string]       _tags;       // tags[namespace or "*"][name][i]
-	
+
 	/// Adds a Value, Attribute, Tag (or array of such) as a member/child of this Tag.
 	/// Returns 'this' for chaining.
 	/// Throws 'SDLangValidationException' if trying to add an Attribute or Tag
@@ -330,7 +330,7 @@ class Tag
 		updateId++;
 		return this;
 	}
-	
+
 	///ditto
 	Tag add(Value[] vals)
 	{
@@ -339,7 +339,7 @@ class Tag
 
 		return this;
 	}
-	
+
 	///ditto
 	Tag add(Attribute attr)
 	{
@@ -350,12 +350,12 @@ class Tag
 				"Use Attribute.remove() before adding it to another tag."
 			);
 		}
-		
+
 		if(!allNamespaces.canFind(attr._namespace))
 			allNamespaces ~= attr._namespace;
 
 		attr._parent = this;
-		
+
 		allAttributes ~= attr;
 		attributeIndicies[attr._namespace] ~= allAttributes.length-1;
 		_attributes[attr._namespace][attr._name] ~= attr;
@@ -364,7 +364,7 @@ class Tag
 		updateId++;
 		return this;
 	}
-	
+
 	///ditto
 	Tag add(Attribute[] attrs)
 	{
@@ -373,7 +373,7 @@ class Tag
 
 		return this;
 	}
-	
+
 	///ditto
 	Tag add(Tag tag)
 	{
@@ -387,18 +387,18 @@ class Tag
 
 		if(!allNamespaces.canFind(tag._namespace))
 			allNamespaces ~= tag._namespace;
-		
+
 		tag._parent = this;
 
 		allTags ~= tag;
 		tagIndicies[tag._namespace] ~= allTags.length-1;
 		_tags[tag._namespace][tag._name] ~= tag;
 		_tags["*"]           [tag._name] ~= tag;
-		
+
 		updateId++;
 		return this;
 	}
-	
+
 	///ditto
 	Tag add(Tag[] tags)
 	{
@@ -407,14 +407,14 @@ class Tag
 
 		return this;
 	}
-	
+
 	/// Removes 'this' from its parent, if any. Returns 'this' for chaining.
 	/// Inefficient ATM, but it works.
 	Tag remove()
 	{
 		if(!_parent)
 			return this;
-		
+
 		void removeFromGroupedLookup(string ns)
 		{
 			// Remove from _parent._tags[ns]
@@ -422,7 +422,7 @@ class Tag
 			auto targetIndex = sameNameTags.countUntil(this);
 			_parent._tags[ns][_name].removeIndex(targetIndex);
 		}
-		
+
 		// Remove from _parent._tags
 		removeFromGroupedLookup(_namespace);
 		removeFromGroupedLookup("*");
@@ -435,19 +435,19 @@ class Tag
 		auto sameNamespaceTags = _parent.tagIndicies[_namespace];
 		auto tagIndiciesIndex = sameNamespaceTags.countUntil(allTagsIndex);
 		_parent.tagIndicies[_namespace].removeIndex(tagIndiciesIndex);
-		
+
 		// Fixup other indicies
 		foreach(ns, ref nsTagIndicies; _parent.tagIndicies)
 		foreach(k, ref v; nsTagIndicies)
 		if(v > allTagsIndex)
 			v--;
-		
+
 		_parent.removeNamespaceIfEmpty(_namespace);
 		_parent.updateId++;
 		_parent = null;
 		return this;
 	}
-	
+
 	private void removeNamespaceIfEmpty(string namespace)
 	{
 		// If namespace has no attributes, remove it from attributeIndicies/_attributes
@@ -463,7 +463,7 @@ class Tag
 			tagIndicies.remove(namespace);
 			_tags.remove(namespace);
 		}
-		
+
 		// If namespace is now empty, remove it from allNamespaces
 		if(
 			namespace !in tagIndicies &&
@@ -474,7 +474,7 @@ class Tag
 			allNamespaces = allNamespaces[0..allNamespacesIndex] ~ allNamespaces[allNamespacesIndex+1..$];
 		}
 	}
-	
+
 	struct NamedMemberRange(T, string membersGrouped)
 	{
 		private Tag tag;
@@ -498,7 +498,7 @@ class Tag
 			else
 				endIndex = 0;
 		}
-		
+
 		invariant()
 		{
 			assert(
@@ -511,7 +511,7 @@ class Tag
 		{
 			return frontIndex == endIndex;
 		}
-		
+
 		private size_t frontIndex;
 		@property T front()
 		{
@@ -537,13 +537,13 @@ class Tag
 
 			endIndex--;
 		}
-		
+
 		alias length opDollar;
 		@property size_t length()
 		{
 			return endIndex - frontIndex;
 		}
-		
+
 		@property typeof(this) save()
 		{
 			auto r = typeof(this)(this.tag, this.namespace, this.name, this.updateId);
@@ -551,25 +551,25 @@ class Tag
 			r.endIndex   = this.endIndex;
 			return r;
 		}
-		
+
 		typeof(this) opSlice()
 		{
 			return save();
 		}
-		
+
 		typeof(this) opSlice(size_t start, size_t end)
 		{
 			auto r = save();
 			r.frontIndex = this.frontIndex + start;
 			r.endIndex   = this.frontIndex + end;
-			
+
 			if(
 				r.frontIndex > this.endIndex ||
 				r.endIndex > this.endIndex ||
 				r.frontIndex > r.endIndex
 			)
 				throw new SDLangRangeException("Slice out of range");
-			
+
 			return r;
 		}
 
@@ -604,10 +604,10 @@ class Tag
 				initialEndIndex = mixin("tag."~memberIndicies~"[namespace].length");
 			else
 				initialEndIndex = 0;
-			
+
 			endIndex = initialEndIndex;
 		}
-		
+
 		invariant()
 		{
 			assert(
@@ -620,7 +620,7 @@ class Tag
 		{
 			return frontIndex == endIndex;
 		}
-		
+
 		private size_t frontIndex;
 		@property T front()
 		{
@@ -646,13 +646,13 @@ class Tag
 
 			endIndex--;
 		}
-		
+
 		alias length opDollar;
 		@property size_t length()
 		{
 			return endIndex - frontIndex;
 		}
-		
+
 		@property typeof(this) save()
 		{
 			auto r = typeof(this)(this.tag, this.namespace, this.isMaybe);
@@ -662,28 +662,28 @@ class Tag
 			r.updateId        = this.updateId;
 			return r;
 		}
-		
+
 		typeof(this) opSlice()
 		{
 			return save();
 		}
-		
+
 		typeof(this) opSlice(size_t start, size_t end)
 		{
 			auto r = save();
 			r.frontIndex = this.frontIndex + start;
 			r.endIndex   = this.frontIndex + end;
-			
+
 			if(
 				r.frontIndex > this.endIndex ||
 				r.endIndex > this.endIndex ||
 				r.frontIndex > r.endIndex
 			)
 				throw new SDLangRangeException("Slice out of range");
-			
+
 			return r;
 		}
-		
+
 		T opIndex(size_t index)
 		{
 			if(empty)
@@ -694,7 +694,7 @@ class Tag
 			else
 				return mixin("tag."~allMembers~"[ tag."~memberIndicies~"[namespace][frontIndex+index] ]");
 		}
-		
+
 		alias NamedMemberRange!(T,membersGrouped) ThisNamedMemberRange;
 		ThisNamedMemberRange opIndex(string name)
 		{
@@ -707,10 +707,10 @@ class Tag
 					"range and that you aren't using a slice of the range."
 				);
 			}
-			
+
 			if(!isMaybe && empty)
 				throw new SDLangRangeException("Range is empty");
-			
+
 			if(!isMaybe && name !in this)
 				throw new SDLangRangeException(`No such `~T.stringof~` named: "`~name~`"`);
 
@@ -728,10 +728,10 @@ class Tag
 					"range and that you aren't using a slice of the range."
 				);
 			}
-			
+
 			return
 				namespace in mixin("tag."~membersGrouped) &&
-				name in mixin("tag."~membersGrouped~"[namespace]") && 
+				name in mixin("tag."~membersGrouped~"[namespace]") &&
 				mixin("tag."~membersGrouped~"[namespace][name].length") > 0;
 		}
 	}
@@ -758,12 +758,12 @@ class Tag
 				"This range has been invalidated by a change to the tag."
 			);
 		}
-		
+
 		@property bool empty()
 		{
 			return frontIndex == endIndex;
 		}
-		
+
 		private size_t frontIndex;
 		@property NamespaceAccess front()
 		{
@@ -773,7 +773,7 @@ class Tag
 		{
 			if(empty)
 				throw new SDLangRangeException("Range is empty");
-			
+
 			frontIndex++;
 		}
 
@@ -786,16 +786,16 @@ class Tag
 		{
 			if(empty)
 				throw new SDLangRangeException("Range is empty");
-			
+
 			endIndex--;
 		}
-		
+
 		alias length opDollar;
 		@property size_t length()
 		{
 			return endIndex - frontIndex;
 		}
-		
+
 		@property NamespaceRange save()
 		{
 			auto r = NamespaceRange(this.tag, this.isMaybe);
@@ -804,28 +804,28 @@ class Tag
 			r.updateId   = this.updateId;
 			return r;
 		}
-		
+
 		typeof(this) opSlice()
 		{
 			return save();
 		}
-		
+
 		typeof(this) opSlice(size_t start, size_t end)
 		{
 			auto r = save();
 			r.frontIndex = this.frontIndex + start;
 			r.endIndex   = this.frontIndex + end;
-			
+
 			if(
 				r.frontIndex > this.endIndex ||
 				r.endIndex > this.endIndex ||
 				r.frontIndex > r.endIndex
 			)
 				throw new SDLangRangeException("Slice out of range");
-			
+
 			return r;
 		}
-		
+
 		NamespaceAccess opIndex(size_t index)
 		{
 			if(empty)
@@ -838,22 +838,22 @@ class Tag
 				TagRange(tag, namespace, isMaybe)
 			);
 		}
-		
+
 		NamespaceAccess opIndex(string namespace)
 		{
 			if(!isMaybe && empty)
 				throw new SDLangRangeException("Range is empty");
-			
+
 			if(!isMaybe && namespace !in this)
 				throw new SDLangRangeException(`No such namespace: "`~namespace~`"`);
-			
+
 			return NamespaceAccess(
 				namespace,
 				AttributeRange(tag, namespace, isMaybe),
 				TagRange(tag, namespace, isMaybe)
 			);
 		}
-		
+
 		/// Inefficient when range is a slice or has used popFront/popBack, but it works.
 		bool opBinaryRight(string op)(string namespace) if(op=="in")
 		{
@@ -893,7 +893,7 @@ class Tag
 	{
 		return TagRange(this, "", false);
 	}
-	
+
 	/// Access all namespaces in this tag, and the attributes/tags within them.
 	@property NamespaceRange namespaces()
 	{
@@ -926,7 +926,7 @@ class Tag
 		{
 			return TagRange(tag, "", true);
 		}
-		
+
 		/// Access all namespaces in this tag, and the attributes/tags within them.
 		@property NamespaceRange namespaces()
 		{
@@ -944,7 +944,7 @@ class Tag
 			);
 		}
 	}
-	
+
 	/// Access 'attributes', 'tags', 'namespaces' and 'all' like normal,
 	/// except that looking up a non-existant name/namespace with
 	/// opIndex(string) results in an empty array instead of a thrown SDLangRangeException.
@@ -952,13 +952,13 @@ class Tag
 	{
 		return MaybeAccess(this);
 	}
-	
+
 	override bool opEquals(Object o)
 	{
 		auto t = cast(Tag)o;
 		if(!t)
 			return false;
-		
+
 		if(_namespace != t._namespace || _name != t._name)
 			return false;
 
@@ -969,7 +969,7 @@ class Tag
 			allTags       .length != t.allTags      .length
 		)
 			return false;
-		
+
 		if(values != t.values)
 			return false;
 
@@ -978,12 +978,12 @@ class Tag
 
 		if(allAttributes != t.allAttributes)
 			return false;
-		
+
 		// Ok because cycles are not allowed
 		//TODO: Actually check for or prevent cycles.
 		return allTags == t.allTags;
 	}
-	
+
 	/// Treats 'this' as the root tag. Note that root tags cannot have
 	/// values or attributes, and cannot be part of a namespace.
 	/// If this isn't a valid root tag, 'SDLangValidationException' will be thrown.
@@ -993,7 +993,7 @@ class Tag
 		toSDLDocument(sink, indent, indentLevel);
 		return sink.data;
 	}
-	
+
 	///ditto
 	void toSDLDocument(Sink)(ref Sink sink, string indent="\t", int indentLevel=0)
 		if(isOutputRange!(Sink,char))
@@ -1006,11 +1006,11 @@ class Tag
 
 		if(_namespace != "")
 			throw new SDLangValidationException("Root tags cannot have a namespace.");
-		
+
 		foreach(tag; allTags)
 			tag.toSDLString(sink, indent, indentLevel);
 	}
-	
+
 	/// Output this entire tag in SDL format. Does *not* treat 'this' as
 	/// a root tag. If you intend this to be the root of a standard SDL
 	/// document, use 'toSDLDocument' instead.
@@ -1020,21 +1020,21 @@ class Tag
 		toSDLString(sink, indent, indentLevel);
 		return sink.data;
 	}
-	
+
 	///ditto
 	void toSDLString(Sink)(ref Sink sink, string indent="\t", int indentLevel=0)
 		if(isOutputRange!(Sink,char))
 	{
 		if(_name == "" && values.length == 0)
 			throw new SDLangValidationException("Anonymous tags must have at least one value.");
-		
+
 		if(_name == "" && _namespace != "")
 			throw new SDLangValidationException("Anonymous tags cannot have a namespace.");
-	
+
 		// Indent
 		foreach(i; 0..indentLevel)
 			sink.put(indent);
-		
+
 		// Name
 		if(_namespace != "")
 		{
@@ -1042,24 +1042,24 @@ class Tag
 			sink.put(':');
 		}
 		sink.put(_name);
-		
+
 		// Values
 		foreach(i, v; values)
 		{
 			// Omit the first space for anonymous tags
 			if(_name != "" || i > 0)
 				sink.put(' ');
-			
+
 			v.toSDLString(sink);
 		}
-		
+
 		// Attributes
 		foreach(attr; allAttributes)
 		{
 			sink.put(' ');
 			attr.toSDLString(sink);
 		}
-		
+
 		// Child tags
 		bool foundChild=false;
 		foreach(tag; allTags)
@@ -1089,7 +1089,7 @@ class Tag
 		import std.algorithm : sort;
 
 		Appender!string buf;
-		
+
 		buf.put("\n");
 		buf.put("Tag ");
 		if(_namespace != "")
@@ -1113,21 +1113,21 @@ class Tag
 			string namespaceStr;
 			if(attr._namespace != "")
 				namespaceStr = "["~attr._namespace~"]";
-			
+
 			buf.put(
 				"    %s%s(%s): %s\n".format(
 					namespaceStr, attr._name, .toString(attr.value.type), attr.value
 				)
 			);
 		}
-		
+
 		// Children
 		foreach(tagNamespace; _tags.keys.sort())
 		if(tagNamespace != "*")
 		foreach(tagName; _tags[tagNamespace].keys.sort())
 		foreach(tag; _tags[tagNamespace][tagName])
 			buf.put( tag.toDebugString().replace("\n", "\n    ") );
-		
+
 		return buf.data;
 	}
 }
@@ -1147,14 +1147,14 @@ version(sdlangUnittest)
 			assert(range.empty);
 			return;
 		}
-		
+
 		static bool defaultEquals(E e1, E e2)
 		{
 			return e1 == e2;
 		}
 		if(equals is null)
 			equals = &defaultEquals;
-		
+
 		assert(equals(range.front, expected[0]));
 		assert(equals(range.front, expected[0]));  // Ensure consistent result from '.front'
 		assert(equals(range.front, expected[0]));  // Ensure consistent result from '.front'
@@ -1162,20 +1162,20 @@ version(sdlangUnittest)
 		assert(equals(range.back, expected[$-1]));
 		assert(equals(range.back, expected[$-1]));  // Ensure consistent result from '.back'
 		assert(equals(range.back, expected[$-1]));  // Ensure consistent result from '.back'
-		
+
 		// Forward iteration
 		auto original = range.save;
 		auto r2 = range.save;
 		foreach(i; 0..expected.length)
 		{
 			//trace("Forward iteration: ", i);
-			
+
 			// Test length/empty
 			assert(range.length == expected.length - i);
 			assert(range.length == r2.length);
 			assert(!range.empty);
 			assert(!r2.empty);
-			
+
 			// Test front
 			assert(equals(range.front, expected[i]));
 			assert(equals(range.front, r2.front));
@@ -1201,7 +1201,7 @@ version(sdlangUnittest)
 		assert(range.empty);
 		assert(r2.empty);
 		assert(original.length == expected.length);
-		
+
 		// Backwards iteration
 		range = original.save;
 		r2    = original.save;
@@ -1214,7 +1214,7 @@ version(sdlangUnittest)
 			assert(range.length == r2.length);
 			assert(!range.empty);
 			assert(!r2.empty);
-			
+
 			// Test front
 			assert(equals(range.front, expected[0]));
 			assert(equals(range.front, r2.front));
@@ -1240,7 +1240,7 @@ version(sdlangUnittest)
 		assert(range.empty);
 		assert(r2.empty);
 		assert(original.length == expected.length);
-		
+
 		// Random access
 		range = original.save;
 		r2    = original.save;
@@ -1253,7 +1253,7 @@ version(sdlangUnittest)
 			assert(range.length == r2.length);
 			assert(!range.empty);
 			assert(!r2.empty);
-			
+
 			// Test front
 			assert(equals(range.front, expected[0]));
 			assert(equals(range.front, r2.front));
@@ -1278,13 +1278,13 @@ unittest
 	import sdlang.parser;
 	writeln("Unittesting sdlang ast...");
 	stdout.flush();
-	
+
 	Tag root;
 	root = parseSource("");
 	testRandomAccessRange(root.attributes, cast(          Attribute[])[]);
 	testRandomAccessRange(root.tags,       cast(                Tag[])[]);
 	testRandomAccessRange(root.namespaces, cast(Tag.NamespaceAccess[])[]);
-	
+
 	root = parseSource(`
 		blue 3 "Lee" isThree=true
 		blue 5 "Chan" 12345 isThree=false
@@ -1293,7 +1293,7 @@ unittest
 		stuff:triangle data:points=3 data:dimensions=2
 		nothing
 		namespaces small:A=1 med:A=2 big:A=3 small:B=10 big:B=30
-		
+
 		people visitor:a=1 b=2 {
 			chiyo "Small" "Flies?" nemesis="Car" score=100
 			yukari
@@ -1407,7 +1407,7 @@ unittest
 		],
 		[chiyo, yukari, sana, tomo, hayama]
 	);
-	
+
 	assert(blue3      .opEquals( blue3      ));
 	assert(blue5      .opEquals( blue5      ));
 	assert(orange     .opEquals( orange     ));
@@ -1421,19 +1421,19 @@ unittest
 	assert(sana       .opEquals( sana       ));
 	assert(tomo       .opEquals( tomo       ));
 	assert(hayama     .opEquals( hayama     ));
-	
+
 	assert(!blue3.opEquals(orange));
 	assert(!blue3.opEquals(people));
 	assert(!blue3.opEquals(sana));
 	assert(!blue3.opEquals(blue5));
 	assert(!blue5.opEquals(blue3));
-	
+
 	alias Tag.NamespaceAccess NSA;
 	static bool namespaceEquals(NSA n1, NSA n2)
 	{
 		return n1.name == n2.name;
 	}
-	
+
 	testRandomAccessRange(root.attributes, cast(Attribute[])[]);
 	testRandomAccessRange(root.tags,       [blue3, blue5, nothing, namespaces, people]);
 	testRandomAccessRange(root.namespaces, [NSA(""), NSA("stuff")], &namespaceEquals);
@@ -1480,7 +1480,7 @@ unittest
 	assertThrown!SDLangRangeException(root.all.tags["foobar"]);
 	assertThrown!SDLangRangeException(root.attributes["foobar"]);
 	assertThrown!SDLangRangeException(root.all.attributes["foobar"]);
-	
+
 	// DMD Issue #12585 causes a segfault in these two tests when using 2.064 or 2.065,
 	// so work around it.
 	//assertThrown!SDLangRangeException(root.namespaces["foobar"].tags["foobar"]);
@@ -1491,7 +1491,7 @@ unittest
 	catch(SDLangRangeException e)
 		didCatch = true;
 	assert(didCatch);
-	
+
 	didCatch = false;
 	try
 		auto x = root.namespaces["foobar"].attributes["foobar"];
@@ -1520,19 +1520,19 @@ unittest
 	testRandomAccessRange(blue3.namespaces,     [NSA("")], &namespaceEquals);
 	testRandomAccessRange(blue3.all.attributes, [ new Attribute("isThree", Value(true)) ]);
 	testRandomAccessRange(blue3.all.tags,       cast(Tag[])[]);
-	
+
 	testRandomAccessRange(blue5.attributes,     [ new Attribute("isThree", Value(false)) ]);
 	testRandomAccessRange(blue5.tags,           cast(Tag[])[]);
 	testRandomAccessRange(blue5.namespaces,     [NSA("")], &namespaceEquals);
 	testRandomAccessRange(blue5.all.attributes, [ new Attribute("isThree", Value(false)) ]);
 	testRandomAccessRange(blue5.all.tags,       cast(Tag[])[]);
-	
+
 	testRandomAccessRange(orange.attributes,     cast(Attribute[])[]);
 	testRandomAccessRange(orange.tags,           cast(Tag[])[]);
 	testRandomAccessRange(orange.namespaces,     cast(NSA[])[], &namespaceEquals);
 	testRandomAccessRange(orange.all.attributes, cast(Attribute[])[]);
 	testRandomAccessRange(orange.all.tags,       cast(Tag[])[]);
-	
+
 	testRandomAccessRange(square.attributes, [
 		new Attribute("points", Value(4)),
 		new Attribute("dimensions", Value(2)),
@@ -1546,7 +1546,7 @@ unittest
 		new Attribute("points", Value("Still four")),
 	]);
 	testRandomAccessRange(square.all.tags, cast(Tag[])[]);
-	
+
 	testRandomAccessRange(triangle.attributes, cast(Attribute[])[]);
 	testRandomAccessRange(triangle.tags,       cast(Tag[])[]);
 	testRandomAccessRange(triangle.namespaces, [NSA("data")], &namespaceEquals);
@@ -1565,13 +1565,13 @@ unittest
 		new Attribute("data", "dimensions", Value(2)),
 	]);
 	testRandomAccessRange(triangle.all.tags, cast(Tag[])[]);
-	
+
 	testRandomAccessRange(nothing.attributes,     cast(Attribute[])[]);
 	testRandomAccessRange(nothing.tags,           cast(Tag[])[]);
 	testRandomAccessRange(nothing.namespaces,     cast(NSA[])[], &namespaceEquals);
 	testRandomAccessRange(nothing.all.attributes, cast(Attribute[])[]);
 	testRandomAccessRange(nothing.all.tags,       cast(Tag[])[]);
-	
+
 	testRandomAccessRange(namespaces.attributes,   cast(Attribute[])[]);
 	testRandomAccessRange(namespaces.tags,         cast(Tag[])[]);
 	testRandomAccessRange(namespaces.namespaces,   [NSA("small"), NSA("med"), NSA("big")], &namespaceEquals);
@@ -1680,19 +1680,19 @@ unittest
 		new Attribute("score", Value(100)),
 	]);
 	testRandomAccessRange(chiyo.all.tags, cast(Tag[])[]);
-	
+
 	testRandomAccessRange(yukari.attributes,     cast(Attribute[])[]);
 	testRandomAccessRange(yukari.tags,           cast(Tag[])[]);
 	testRandomAccessRange(yukari.namespaces,     cast(NSA[])[], &namespaceEquals);
 	testRandomAccessRange(yukari.all.attributes, cast(Attribute[])[]);
 	testRandomAccessRange(yukari.all.tags,       cast(Tag[])[]);
-	
+
 	testRandomAccessRange(sana.attributes,     cast(Attribute[])[]);
 	testRandomAccessRange(sana.tags,           cast(Tag[])[]);
 	testRandomAccessRange(sana.namespaces,     cast(NSA[])[], &namespaceEquals);
 	testRandomAccessRange(sana.all.attributes, cast(Attribute[])[]);
 	testRandomAccessRange(sana.all.tags,       cast(Tag[])[]);
-	
+
 	testRandomAccessRange(people.attributes,         [new Attribute("b", Value(2))]);
 	testRandomAccessRange(people.tags,               [chiyo, yukari, tomo]);
 	testRandomAccessRange(people.namespaces,         [NSA("visitor"), NSA("")], &namespaceEquals);
@@ -1712,7 +1712,7 @@ unittest
 		new Attribute("b", Value(2)),
 	]);
 	testRandomAccessRange(people.all.tags, [chiyo, yukari, sana, tomo, hayama]);
-	
+
 	people.attributes["b"][0].name = "b_";
 	people.namespaces["visitor"].attributes["a"][0].name = "a_";
 	people.tags["chiyo"][0].name = "chiyo_";
@@ -1751,7 +1751,7 @@ unittest
 	testRandomAccessRange(people.namespaces["visitor"].tags, [sana_]);
 	testRandomAccessRange(people.namespaces[       ""].tags, [yukari]);
 	testRandomAccessRange(people.all.tags, [yukari, sana_]);
-	
+
 	people.attributes["b_"][0].namespace = "_";
 	people.namespaces["visitor"].attributes["a_"][0].namespace = "visitor_";
 	assert("_"         in people.namespaces);
@@ -1767,7 +1767,7 @@ unittest
 	assert(people.namespaces["_"       ].attributes["b_"][0] == new Attribute("_", "b_", Value(2)));
 	assert(people.namespaces["visitor_"].attributes["a_"][0] == new Attribute("visitor_", "a_", Value(1)));
 	assert(people.namespaces["visitor_"].tags["sana_"][0]    == sanaVisitor_);
-	
+
 	people.tags["yukari"][0].remove();
 	people.namespaces["visitor_"].tags["sana_"][0].remove();
 	people.namespaces["visitor_"].attributes["a_"][0].namespace = "visitor";
@@ -1782,7 +1782,7 @@ unittest
 	testRandomAccessRange(people.namespaces["visitor"].tags, cast(Tag[])[]);
 	testRandomAccessRange(people.namespaces[       ""].tags, cast(Tag[])[]);
 	testRandomAccessRange(people.all.tags, cast(Tag[])[]);
-	
+
 	people.namespaces["visitor"].attributes["a_"][0].remove();
 	testRandomAccessRange(people.attributes,               [new Attribute("b_", Value(2))]);
 	testRandomAccessRange(people.namespaces,               [NSA("")], &namespaceEquals);
@@ -1794,7 +1794,7 @@ unittest
 	testRandomAccessRange(people.all.attributes, [
 		new Attribute("b_", Value(2)),
 	]);
-	
+
 	people.attributes["b_"][0].remove();
 	testRandomAccessRange(people.attributes, cast(Attribute[])[]);
 	testRandomAccessRange(people.namespaces, cast(NSA[])[], &namespaceEquals);
@@ -1811,7 +1811,7 @@ unittest
 	import sdlang.parser;
 	writeln("ast: Regression test issue #11...");
 	stdout.flush();
-	
+
 	auto root = parseSource(
 `//
 a`);
@@ -1829,7 +1829,7 @@ parent {
 		null, "", "child",
 		null, null, null
 	);
-	
+
 	assert("parent" in root.tags);
 	assert("child" !in root.tags);
 	testRandomAccessRange(root.tags["parent"][0].tags, [child]);

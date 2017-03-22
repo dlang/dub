@@ -20,6 +20,7 @@ import std.string;
 import std.algorithm : max;
 import std.conv;
 
+@safe:
 
 /**
 	Validates a version string according to the SemVer specification.
@@ -229,7 +230,7 @@ string bumpVersion(string ver) {
 	auto mi = ver.indexOfAny("+-");
 	if (mi > 0) ver = ver[0..mi];
 	// Increment next to last version from a[.b[.c]].
-	auto splitted = split(ver, ".");
+	auto splitted = () @trusted { return split(ver, "."); } (); // DMD 2.065.0
 	assert(splitted.length > 0 && splitted.length <= 3, "Version corrupt: " ~ ver);
 	auto to_inc = splitted.length == 3? 1 : 0;
 	splitted = splitted[0 .. to_inc+1];
@@ -251,7 +252,7 @@ unittest {
 
 /**
 	Takes a partial version and expands it to a valid SemVer version.
-	
+
 	This function corresponds to the semantivs of the "~>" comparison operator's
 	lower bound.
 
@@ -264,7 +265,7 @@ string expandVersion(string ver) {
 		sub = ver[mi..$];
 		ver = ver[0..mi];
 	}
-	auto splitted = split(ver, ".");
+	auto splitted = () @trusted { return split(ver, "."); } (); // DMD 2.065.0
 	assert(splitted.length > 0 && splitted.length <= 3, "Version corrupt: " ~ ver);
 	while (splitted.length < 3) splitted ~= "0";
 	return splitted.join(".") ~ sub;

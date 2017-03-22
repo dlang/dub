@@ -294,7 +294,7 @@ struct GeneratorSettings {
 	bool combined; // compile all in one go instead of each dependency separately
 
 	// only used for generator "build"
-	bool run, force, direct, clean, rdmd, tempBuild, parallelBuild;
+	bool run, force, direct, rdmd, tempBuild, parallelBuild;
 	string[] runArgs;
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;
@@ -363,7 +363,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	in BuildSettings buildsettings, Path target_path, bool generate_binary)
 {
 	import std.path : globMatch;
-	
+
 	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running post-generate commands for %s...", pack.name);
 		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
@@ -508,13 +508,12 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_RUN"]               = settings.run?           "TRUE" : "";
 	env["DUB_FORCE"]             = settings.force?         "TRUE" : "";
 	env["DUB_DIRECT"]            = settings.direct?        "TRUE" : "";
-	env["DUB_CLEAN"]             = settings.clean?         "TRUE" : "";
 	env["DUB_RDMD"]              = settings.rdmd?          "TRUE" : "";
 	env["DUB_TEMP_BUILD"]        = settings.tempBuild?     "TRUE" : "";
 	env["DUB_PARALLEL_BUILD"]    = settings.parallelBuild? "TRUE" : "";
 
 	env["DUB_RUN_ARGS"] = (cast(string[])settings.runArgs).map!(escapeShellFileName).join(" ");
-	
+
 	auto depNames = proj.dependencies.map!((a) => a.name).array();
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
 	runCommands(commands, env);

@@ -68,7 +68,7 @@ version(sdlangTestApp)
 			stderr.writeln("Usage: sdlang [lex|parse|to-sdl] filename.sdl");
 			return 1;
 		}
-		
+
 		auto filename = args[2];
 
 		try
@@ -85,7 +85,7 @@ version(sdlangTestApp)
 			stderr.writeln(e.msg);
 			return 1;
 		}
-		
+
 		return 0;
 	}
 
@@ -93,28 +93,28 @@ version(sdlangTestApp)
 	{
 		auto source = cast(string)read(filename);
 		auto lexer = new Lexer(source, filename);
-		
+
 		foreach(tok; lexer)
 		{
 			// Value
 			string value;
 			if(tok.symbol == symbol!"Value")
 				value = tok.value.hasValue? toString(tok.value.type) : "{null}";
-			
+
 			value = value==""? "\t" : "("~value~":"~tok.value.toString()~") ";
 
 			// Data
 			auto data = tok.data.replace("\n", "").replace("\r", "");
 			if(data != "")
 				data = "\t|"~tok.data~"|";
-			
+
 			// Display
 			writeln(
 				tok.location.toString, ":\t",
 				tok.symbol.name, value,
 				data
 			);
-			
+
 			if(tok.symbol.name == "Error")
 				break;
 		}

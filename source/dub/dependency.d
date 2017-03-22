@@ -44,6 +44,8 @@ struct PackageDependency {
 	package name is notably not part of the dependency specification.
 */
 struct Dependency {
+@trusted: // Too many issues on DMD 2.065.0 to annotate with @safe
+
 	private {
 		// Shortcut to create >=0.0.0
 		enum ANY_IDENT = "*";
@@ -632,6 +634,7 @@ unittest {
 	Semantic Versioning Specification v2.0.0 at http://semver.org/).
 */
 struct Version {
+@safe:
 	private {
 		enum MAX_VERS = "99999.0.0";
 		enum UNKNOWN_VERS = "unknown";

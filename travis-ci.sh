@@ -21,3 +21,8 @@ if [ "$COVERAGE" = true ]; then
     dub fetch doveralls
     dub run doveralls --compiler=${DC}
 fi
+
+# check for trailing whitespace (needs to be done only once per build)
+if [ "$COVERAGE" = true ]; then
+    find . -type f -name '*.d' -exec grep -Hn "[[:blank:]]$" {} \;
+fi
