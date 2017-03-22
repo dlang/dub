@@ -149,7 +149,7 @@ class Dub {
 		loading a package.
 
 		This constructor corresponds to the "--bare" option of the command line
-		interface. Use 
+		interface. Use
 	*/
 	this(Path override_path)
 	{
@@ -243,7 +243,7 @@ class Dub {
 
 		Single-file packages are D files that contain a package receipe comment
 		at their top. A recipe comment must be a nested `/+ ... +/` style
-		comment, containing the virtual recipe file name and a colon, followed by the 
+		comment, containing the virtual recipe file name and a colon, followed by the
 		recipe contents (what would normally be in dub.sdl/dub.json).
 
 		Example:
@@ -736,7 +736,7 @@ class Dub {
 		logInfo("Removing %s in %s", pack.name, pack.path.toNativeString());
 		if (!m_dryRun) m_packageManager.remove(pack);
 	}
-	
+
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
 	void remove(in Package pack, bool force_remove)
 	{

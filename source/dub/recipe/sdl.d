@@ -227,7 +227,7 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 				ret ~= m;
 		return ret;
 	}
-	
+
 	foreach (pack, d; bs.dependencies) {
 		Attribute[] attribs;
 		if (d.path.length) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
@@ -518,7 +518,7 @@ unittest { // test basic serialization
 	p.buildSettings.dflags["-windows"] = ["-a"];
 	p.buildSettings.lflags[""] = ["-b", "-c"];
 	auto sdl = toSDL(p).toSDLDocument();
-	assert(sdl == 
+	assert(sdl ==
 `name "test"
 authors "foo" "bar"
 dflags "-a" platform="windows"

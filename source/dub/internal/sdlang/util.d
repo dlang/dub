@@ -29,14 +29,14 @@ struct Location
 	int line; /// Zero-indexed
 	int col;  /// Zero-indexed, Tab counts as 1
 	size_t index; /// Index into the source
-	
+
 	this(int line, int col, int index)
 	{
 		this.line  = line;
 		this.col   = col;
 		this.index = index;
 	}
-	
+
 	this(string file, int line, int col, int index)
 	{
 		this.file  = file;
@@ -44,7 +44,7 @@ struct Location
 		this.col   = col;
 		this.index = index;
 	}
-	
+
 	string toString()
 	{
 		return "%s(%s:%s)".format(file, line+1, col+1);
@@ -82,7 +82,7 @@ string toString(TypeInfo ti)
 	else if(ti == typeid( Duration     )) return "Duration";
 	else if(ti == typeid( ubyte[]      )) return "ubyte[]";
 	else if(ti == typeid( typeof(null) )) return "null";
-	
+
 	return "{unknown}";
 }
 

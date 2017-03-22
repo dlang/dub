@@ -427,43 +427,37 @@ string getModuleNameFromContent(string content) {
 	static Regex!char comments_pattern, module_pattern;
 
 	if (!regex_initialized) {
-		comments_pattern = regex(`(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)`, "g");
+		comments_pattern = regex(`//[^\r\n]*\r?\n?|/\*.*?\*/|/\+.*\+/`, "g");
 		module_pattern = regex(`module\s+([\w\.]+)\s*;`, "g");
 		regex_initialized = true;
 	}
 
-	content = replaceAll(content, comments_pattern, "");
+	content = replaceAll(content, comments_pattern, " ");
 	auto result = matchFirst(content, module_pattern);
 
-	string moduleName;
-	if(!result.empty) moduleName = result.front;
+	if (!result.empty) return result[1];
 
-	if (moduleName.length >= 7) moduleName = moduleName[7..$-1];
-
-	return moduleName;
+	return null;
 }
 
 unittest {
-	//test empty string
-	string name = getModuleNameFromContent("");
-	assert(name == "", "can't get module name from empty string");
-
-	//test simple name
-	name = getModuleNameFromContent("module myPackage.myModule;");
-	assert(name == "myPackage.myModule", "can't parse module name");
-
-	//test if it can ignore module inside comments
-	name = getModuleNameFromContent("/**
-	module fakePackage.fakeModule;
-	*/
-	module myPackage.myModule;");
-
-	assert(name == "myPackage.myModule", "can't parse module name");
-
-	name = getModuleNameFromContent("//module fakePackage.fakeModule;
-	module myPackage.myModule;");
-
-	assert(name == "myPackage.myModule", "can't parse module name");
+	assert(getModuleNameFromContent("") == "");
+	assert(getModuleNameFromContent("module myPackage.myModule;") == "myPackage.myModule");
+	assert(getModuleNameFromContent("module \t\n myPackage.myModule \t\r\n;") == "myPackage.myModule");
+	assert(getModuleNameFromContent("// foo\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/*\nfoo\n*/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/+\nfoo\n+/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/***\nfoo\n***/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/+++\nfoo\n+++/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("// module foo;\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/* module foo; */\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/+ module foo; +/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/+ /+ module foo; +/ +/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("// module foo;\nmodule bar; // module foo;") == "bar");
+	assert(getModuleNameFromContent("// module foo;\nmodule// module foo;\nbar//module foo;\n;// module foo;") == "bar");
+	assert(getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;") == "bar", getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;"));
+	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar;") == "bar");
+	//assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar/++/;") == "bar"); // nested comments require a context-free parser!
 }
 
 /**

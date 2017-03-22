@@ -3,12 +3,14 @@ sudo: false
 
 matrix:
   include:
-    - d: dmd-2.072.0-b2
+    - d: dmd-2.073.0
+      env:
+        - [FRONTEND=2.073]
+        - [COVERAGE=true]
+    - d: dmd-2.072.2
       env: [FRONTEND=2.072]
     - d: dmd-2.071.2
-      env:
-        - [FRONTEND=2.071]
-        - [COVERAGE=true]
+      env: [FRONTEND=2.071]
     - d: dmd-2.070.2
       env: [FRONTEND=2.070]
     - d: dmd-2.069.2
@@ -21,7 +23,7 @@ matrix:
       env: [FRONTEND=2.066]
     - d: dmd-2.065.0
       env: [FRONTEND=2.065]
-    - d: ldc-1.1.0-beta6
+    - d: ldc-1.1.0
       env: [FRONTEND=2.071]
     - d: ldc-1.0.0
       env: [FRONTEND=2.070]
@@ -39,8 +41,6 @@ matrix:
       env: [FRONTEND=2.066]
     - d: gdc-4.9.0
       env: [FRONTEND=2.065]
-  allow_failures:
-  - d: ldc-1.1.0-beta6
 
 script:
   - ./travis-ci.sh

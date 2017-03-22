@@ -12,6 +12,7 @@ __dummy.html
 /bin/dub
 /bin/__test__library-nonet__
 /bin/__test__library__
+/bin/dub-test-library
 
 # Ignore files or directories created by the test suite.
 /test/custom-source-main-bug487/custom-source-main-bug487
