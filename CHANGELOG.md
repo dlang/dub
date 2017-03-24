@@ -1,6 +1,17 @@
 Changelog
 =========
 
+v1.3.0 - 2017-04-
+-------------------
+
+### Features and improvements ###
+
+- Fix cubic runtime complexity for collecting string import files - [pull #1079][issue1079]
+- Fix bogus rebuild of packages with no dependencies - [pull #1093][issue1093]
+
+[issue1079]: https://github.com/dlang/dub/issues/1079
+[issue1093]: https://github.com/dlang/dub/issues/1093
+
 v1.2.2 - 2017-03-09
 -------------------
 
