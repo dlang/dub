@@ -6,14 +6,28 @@ v1.3.0 - 2017-04-
 
 ### Features and improvements ###
 
-- Fix cubic runtime complexity for collecting string import files - [pull #1079][issue1079]
-- Fix bogus rebuild of packages with no dependencies - [pull #1093][issue1093]
+- Reduced the initialization time for "dub test" by several seconds by avoiding a complex regex - [pull #1078][issue1078]
+- Reduced cubic runtime complexity for collecting string import files to almost linear in the common case - [pull #1079][issue1079]
+- Compiler flag usage warnings are now only emitted for the root package, reducing build output noise - [a75023cd][commita75023cd]
+- Avoid redundant recreation of hard links for build targets (by Danny Milosavljevic aka daym) - [pull #1071][issue1071]
 
+### Bug fixes ###
+
+- Fixed bogus rebuild of packages with no dependencies - [pull #1093][issue1093], [issue #1091][issue1091]
+- Fixed building with vibe-core instead of vibe.d 0.7.x
+- Fixed the VisualD generator to properly handle the "x86_mscoff" pseudoarchitecture
+
+[commita75023cd]: https://github.com/dlang/dub/commit/a75023cd050c055e81190bf7abc5793aba39852f
+[issue1071]: https://github.com/dlang/dub/issues/1071
+[issue1078]: https://github.com/dlang/dub/issues/1078
 [issue1079]: https://github.com/dlang/dub/issues/1079
+[issue1091]: https://github.com/dlang/dub/issues/1091
 [issue1093]: https://github.com/dlang/dub/issues/1093
+
 
 v1.2.2 - 2017-03-09
 -------------------
+
 
 v1.2.1 - 2017-02-12
 -------------------
