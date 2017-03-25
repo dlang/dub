@@ -69,12 +69,12 @@ class PackageManager {
 	@property const(Path)[] completeSearchPath()
 	const {
 		auto ret = appender!(Path[])();
-		ret.put(m_searchPath);
+		ret.put(cast(Path[])m_searchPath); // work around Phobos 17251
 		if (!m_disableDefaultSearchPaths) {
-			ret.put(m_repositories[LocalPackageType.user].searchPath);
-			ret.put(m_repositories[LocalPackageType.user].packagePath);
-			ret.put(m_repositories[LocalPackageType.system].searchPath);
-			ret.put(m_repositories[LocalPackageType.system].packagePath);
+			ret.put(cast(Path[])m_repositories[LocalPackageType.user].searchPath);
+			ret.put(cast(Path)m_repositories[LocalPackageType.user].packagePath);
+			ret.put(cast(Path[])m_repositories[LocalPackageType.system].searchPath);
+			ret.put(cast(Path)m_repositories[LocalPackageType.system].packagePath);
 		}
 		return ret.data;
 	}
@@ -247,7 +247,7 @@ class PackageManager {
 	bool isManagedPath(Path path)
 	const {
 		foreach (rep; m_repositories) {
-			auto rpath = rep.packagePath;
+			Path rpath = rep.packagePath;
 			if (path.startsWith(rpath))
 				return true;
 		}
