@@ -33,6 +33,7 @@ v1.3.0 - 2017-04-10
 - Reduced cubic runtime complexity for collecting string import files to almost linear in the common case - [pull #1079][issue1079]
 - Compiler flag usage warnings are now only emitted for the root package, reducing build output noise - [a75023cd][commita75023cd]
 - Avoid redundant recreation of hard links for build targets (by Danny Milosavljevic aka daym) - [pull #1071][issue1071]
+- Dub init now has a select menu for package format and license - [pull #1101][issue1101]
 
 ### Bug fixes ###
 
@@ -47,6 +48,7 @@ v1.3.0 - 2017-04-10
 [issue1079]: https://github.com/dlang/dub/issues/1079
 [issue1091]: https://github.com/dlang/dub/issues/1091
 [issue1093]: https://github.com/dlang/dub/issues/1093
+[issue1101]: https://github.com/dlang/dub/issues/1101
 
 
 v1.2.2 - 2017-03-09

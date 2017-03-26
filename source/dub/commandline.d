@@ -470,11 +470,51 @@ class InitCommand : Command {
 			free_args = free_args[1 .. $];
 		}
 
-		string input(string caption, string default_value)
+		static string input(string caption, string default_value)
 		{
 			writef("%s [%s]: ", caption, default_value);
 			auto inp = readln();
 			return inp.length > 1 ? inp[0 .. $-1] : default_value;
+		}
+
+		static string select(string caption, bool free_choice, string default_value, string[] options...)
+		{
+			assert(options.length);
+			import std.math : floor, log10;
+			auto ndigits = (size_t val) => val.log10.floor.to!uint + 1;
+
+			immutable default_idx = options.countUntil(default_value);
+			immutable max_width = options.map!(s => s.length).reduce!max + ndigits(options.length) + "  ".length;
+			assert(default_idx >= 0);
+			writeln(free_choice ? "Select or enter " : "Select ", caption);
+			foreach (i, option; options)
+			{
+				if (i && !(i % 4)) writeln();
+				writef("%u) %s", i, leftJustifier(option, max_width - ndigits(i + 1)));
+			}
+			writeln();
+			immutable default_choice = default_idx.to!string;
+			while (true)
+			{
+				auto choice = input(free_choice ? "?" : "#?", default_choice);
+				if (choice is default_choice)
+					return default_value;
+				choice = choice.strip;
+				uint option_idx = uint.max;
+				try
+					option_idx = to!uint(choice);
+				catch (ConvException)
+				{}
+				if (option_idx != uint.max)
+				{
+					if (option_idx < options.length)
+						return options[option_idx];
+				}
+				else if (free_choice)
+					return choice;
+				logError("Select an option between 0 and %u%s.", options.length - 1,
+						 free_choice ? " or enter a custom value" : null);
+			}
 		}
 
 		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
@@ -482,16 +522,8 @@ class InitCommand : Command {
 
 			if (m_nonInteractive) return;
 
-			while (true) {
-				string rawfmt = input("Package recipe format (sdl/json)", fmt.to!string);
-				if (!rawfmt.length) break;
-				try {
-					fmt = rawfmt.to!PackageFormat;
-					break;
-				} catch (Exception) {
-					logError("Invalid format, \""~rawfmt~"\", enter either \"sdl\" or \"json\".");
-				}
-			}
+			enum free_choice = true;
+			fmt = select("a package recipe format", !free_choice, fmt.to!string, "sdl", "json").to!PackageFormat;
 			auto author = p.authors.join(", ");
 			while (true) {
 				// Tries getting the name until a valid one is given.
@@ -507,7 +539,13 @@ class InitCommand : Command {
 			}
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
-			p.license = input("License", p.license);
+			p.license = select(
+				"a license (https://choosealicense.com/)",
+				free_choice,
+				p.license,
+				"MIT", "BSL-1.0 (Boost)", "public domain", "GPL-3.0", "BSD 3-clause", "BSD 2-clause",
+				"GPL-2.0", "LGPL-3.0", "Apache-2.0", "MPL-2.0 (Mozilla)", "AGPL-3.0", "proprietary"
+			);
 			string copyrightString = .format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
 			p.copyright = input("Copyright string", copyrightString);
 

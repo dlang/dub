@@ -1,0 +1,5 @@
+name "test"
+description "desc"
+authors "author"
+copyright "copy"
+license "GPL-3.0"

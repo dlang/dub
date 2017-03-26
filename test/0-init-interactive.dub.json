@@ -1,0 +1,9 @@
+{
+	"name": "test",
+	"authors": [
+		"author"
+	],
+	"description": "desc",
+	"copyright": "copy",
+	"license": "gpl"
+}
