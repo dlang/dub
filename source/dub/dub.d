@@ -389,7 +389,7 @@ class Dub {
 							if (versions.canFind!(v => dep.matches(v)))
 								continue next_pack;
 						} catch (Exception e) {
-							logDiagnostic("Error querying versions for %s, %s: %s", p, ps.description, e.msg);
+							logWarn("Error querying versions for %s, %s: %s", p, ps.description, e.msg);
 							logDebug("Full error: %s", e.toString().sanitize());
 						}
 					}
@@ -671,7 +671,7 @@ class Dub {
 				supplier = ps;
 				break;
 			} catch(Exception e) {
-				logDiagnostic("Package %s not found for %s: %s", packageId, ps.description, e.msg);
+				logWarn("Package %s not found for %s: %s", packageId, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
@@ -966,7 +966,7 @@ class Dub {
 		foreach (ps; this.m_packageSuppliers) {
 			try versions ~= ps.getVersions(name);
 			catch (Exception e) {
-				logDebug("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
+				logWarn("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
 			}
 		}
 		return versions.sort().uniq.array;
@@ -1264,7 +1264,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				versions ~= vers;
 				break;
 			} catch (Exception e) {
-				logDebug("Package %s not found in %s: %s", pack, ps.description, e.msg);
+				logWarn("Package %s not found in %s: %s", pack, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize);
 			}
 		}

@@ -225,8 +225,10 @@ class RegistryPackageSupplier : PackageSupplier {
 		string data;
 		try
 			data = cast(string)download(url);
-		catch (Exception)
+		catch (Exception e) {
+			logWarn("Searching %s for '%s' failed: %s", m_registryUrl, query, e.msg);
 			return null;
+		}
 		import std.algorithm : map;
 		return data.parseJson.opt!(Json[])
 			.map!(j => SearchResult(j["name"].opt!string, j["description"].opt!string, j["version"].opt!string))
