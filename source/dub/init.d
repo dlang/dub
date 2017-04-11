@@ -21,7 +21,7 @@ import std.process;
 import std.string;
 
 
-/** Intializes a new package in the given directory.
+/** Initializes a new package in the given directory.
 
 	The given `root_path` will be checked for any of the files that will be
 	created	by this function. If any exist, an exception will be thrown before

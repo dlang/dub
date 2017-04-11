@@ -461,7 +461,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 
 /** Runs a list of build commands for a particular package.
 
-	This funtion sets all DUB speficic environment variables and makes sure
+	This function sets all DUB speficic environment variables and makes sure
 	that recursive dub invocations are detected and don't result in infinite
 	command execution loops. The latter could otherwise happen when a command
 	runs "dub describe" or similar functionality.

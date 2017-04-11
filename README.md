@@ -16,7 +16,7 @@ The project's philosophy is to keep things as simple as possible. All that is ne
 ## Key features
 
  - Simple package and build description not getting in your way
- - Integrated with Git, avoiding maintainance tasks such as incrementing version numbers or uploading new project releases
+ - Integrated with Git, avoiding maintenance tasks such as incrementing version numbers or uploading new project releases
  - Generates VisualD project/solution files, integrated into MonoD
  - Support for DMD, GDC and LDC (common DMD flags are translated automatically)
  - Supports development workflows by optionally using local directories as a package source

@@ -142,7 +142,7 @@ void resolveLibs(ref BuildSettings settings)
 /** Searches the given list of compiler flags for ones that have a generic
 	equivalent.
 
-	Certain compiler flags should, instead of using compiler-specfic syntax,
+	Certain compiler flags should, instead of using compiler-specific syntax,
 	be specified as build options (`BuildOptions`) or built requirements
 	(`BuildRequirements`). This function will output warning messages to
 	assist the user in making the best choice.
@@ -238,7 +238,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 
 
 /**
-	Generate a file that will give, at compile time, informations about the compiler (architecture, frontend version...)
+	Generate a file that will give, at compile time, information about the compiler (architecture, frontend version...)
 
 	See_Also: `readPlatformProbe`
 */

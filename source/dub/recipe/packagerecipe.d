@@ -27,7 +27,7 @@ import std.range;
 
 	Sub qualified package names are lists of package names separated by ":". For
 	example, "packa:packb:packc" references a package named "packc" that is a
-	sub package of "packb", wich in turn is a sub package of "packa".
+	sub package of "packb", which in turn is a sub package of "packa".
 */
 string[] getSubPackagePath(string package_name)
 {
