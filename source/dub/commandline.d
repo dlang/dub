@@ -1106,7 +1106,7 @@ class UpgradeCommand : Command {
 			"Uses the latest pre-release version, even if release versions are available"
 		]);
 		args.getopt("verify", &m_verify, [
-			"Updates the project and performs a build. If successful, rewrites the selected versions file <to be implemeted>."
+			"Updates the project and performs a build. If successful, rewrites the selected versions file <to be implemented>."
 		]);
 		args.getopt("missing-only", &m_missingOnly, [
 			"Performs an upgrade only for dependencies that don't yet have a version selected. This is also done automatically before each build."
