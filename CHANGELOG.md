@@ -193,12 +193,12 @@ v0.9.25 - 2016-05-22
 ### Features and improvements ###
 
  - Builds on DMD 2.064.2 up to 2.071.0
+ - Locally cached packages are now stored in a folder that matches their name, which enables more possible ways to organize the source code (mostly by Guillaume Piolat aka p0nce) - [issue #502][issue502], [pull #735][issue735]. Warning: This will upgrade your existing `~/.dub/packages` layout on first usage to one that is incompatible with dub-0.9.24.
  - Cleaned up the API to be (almost) ready for the 1.0.0 release - [issue #349][issue349] - [pull #785][issue785]
  - Implemented new semantics for optional dependencies (now controlled using dub.selections.json) - [issue #361][issue361], [pull #733][issue733]
  - Made "dub init" interactive to improve/simplify the creation of new packages (can be disabled with the "-n" switch) - [pull #734][issue734]
  - Switched back the default "dub init" recipe format to JSON (both, JSON and SDLang will stay supported) - [issue #724][issue724]
- - Locally cached packages are now stored in a folder that matches their name, which enables more possible ways to organize the source code (mostly by Guillaume Piolat aka p0nce) - [issue #502][issue502], [pull #735][issue735]
- - Improved worst-case speed of the dependency resolver for some pathological cases
+- Improved worst-case speed of the dependency resolver for some pathological cases
  - Sped up GIT based local package version detection using a cache on Windows - [pull #692][issue692]
  - Implemented "dub convert" to convert between JSON and SDLang package recipes - [pull #732][issue732]
  - Implemented a "dub search" command to search the package registry from the CLI - [pull #663][issue663]
