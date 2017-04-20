@@ -219,7 +219,7 @@ class LDCCompiler : Compiler {
 
 	string[] lflagsToDFlags(in string[] lflags) const
 	{
-		return  lflags.map!(s => "-L="~s)().array();
+		return  lflags.map!(s => "-L"~s)().array();
 	}
 
 	private auto escapeArgs(in string[] args)
