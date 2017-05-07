@@ -491,7 +491,18 @@ class InitCommand : Command {
 				}
 			}
 			auto author = p.authors.join(", ");
-			p.name = input("Name", p.name);
+			while (true) {
+				// Tries getting the name until a valid one is given.
+				import std.regex;
+				auto nameRegex = ctRegex!`^[a-z\-_]+$`;
+				string triedName = input("Name", p.name);
+				if (triedName.matchFirst(nameRegex).empty) {
+					logError("Invalid name, \""~triedName~"\", names should consist only of lowercase alphanumeric characters, - and _.");
+				} else {
+					p.name = triedName;
+					break;
+				}
+			}
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
 			p.license = input("License", p.license);
