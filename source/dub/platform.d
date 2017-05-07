@@ -164,6 +164,8 @@ bool matchesSpecification(in BuildPlatform platform, const(char)[] specification
 	if (specification.empty) return true;
 	if (platform == BuildPlatform.any) return true;
 
+	// TODO: support new target triple format
+
 	auto splitted = specification.splitter('-');
 	assert(!splitted.empty, "No valid platform specification! The leading hyphen is required!");
 	splitted.popFront(); // Drop leading empty match.
@@ -201,6 +203,32 @@ unittest {
 	assert(!platform.matchesSpecification("-windows-dmd"));
 }
 
+TargetTriple parseArchitectureOverride(string arch)
+{
+	switch (arch) {
+		default: break;
+		case "x86": return TargetTriple("i386");
+		case "x86_64": return TargetTriple("x86_64");
+	}
+
+	// TODO: parse target triple
+	assert(false);
+}
+
+struct TargetTriple {
+	string architecture;
+	string subArchitecture;
+	string os;
+	string vendor;
+	string abi;
+
+	string toString()
+	const {
+		// TODO: return in LDC/GDC target triple format
+		assert(false);
+	}
+}
+
 /// Represents a platform a package can be build upon.
 struct BuildPlatform {
 	/// Special constant used to denote matching any build platform.
@@ -210,6 +238,8 @@ struct BuildPlatform {
 	string[] platform;
 	/// CPU architecture identifiers, e.g. ["x86", "x86_64"]
 	string[] architecture;
+	/// LLVM/GCC compatible target triple
+	TargetTriple targetTriple;
 	/// Canonical compiler name e.g. "dmd"
 	string compiler;
 	/// Compiler binary name e.g. "ldmd2"

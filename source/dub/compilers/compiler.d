@@ -65,7 +65,7 @@ interface Compiler {
 
 		See_Also: `dub.compilers.utils.generatePlatformProbeFile`
 	*/
-	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override = null);
+	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override = null /*TODO: pre-parse targe triple/specifier*/);
 
 	/// Replaces high level fields with low level fields and converts
 	/// dmd flags to compiler-specific flags
