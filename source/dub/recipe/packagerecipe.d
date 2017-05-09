@@ -192,7 +192,7 @@ struct BuildSettingsTemplate {
 
 					foreach (d; dirEntries(path.toNativeString(), pattern, SpanMode.depth)) {
 						import std.path : baseName;
-						if (baseName(d.name)[0] == '.' || isDir(d.name)) continue;
+						if (baseName(d.name)[0] == '.' || d.isDir) continue;
 						auto src = Path(d.name).relativeTo(base_path);
 						files ~= src.toNativeString();
 					}
