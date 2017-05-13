@@ -494,7 +494,7 @@ class InitCommand : Command {
 			while (true) {
 				// Tries getting the name until a valid one is given.
 				import std.regex;
-				auto nameRegex = ctRegex!`^[a-z\-_]+$`;
+				auto nameRegex = regex(`^[a-z\-_]+$`);
 				string triedName = input("Name", p.name);
 				if (triedName.matchFirst(nameRegex).empty) {
 					logError("Invalid name, \""~triedName~"\", names should consist only of lowercase alphanumeric characters, - and _.");
