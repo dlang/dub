@@ -143,9 +143,13 @@ class DMDCompiler : Compiler {
 
 	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 	const {
+		import std.conv: text;
 		assert(settings.targetName.length > 0, "No target name set.");
 		final switch (settings.targetType) {
-			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
+			case TargetType.autodetect:
+				assert(false,
+					   text("Configurations must have a concrete target type, ", settings.targetName,
+							" has ", settings.targetType));
 			case TargetType.none: return null;
 			case TargetType.sourceLibrary: return null;
 			case TargetType.executable:
