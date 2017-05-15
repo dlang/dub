@@ -210,7 +210,7 @@ struct BuildSettingsTemplate {
 		import std.algorithm : copy, setDifference;
 
 		auto importFiles = collectFiles(importPaths, "*.{d,di}").sort();
-		immutable nremoved = importFiles.setDifference(sourceFiles).copy(importFiles).length;
+		immutable nremoved = importFiles.setDifference(sourceFiles).copy(importFiles.release).length;
 		importFiles = importFiles[0 .. $ - nremoved];
 		dst.addImportFiles(importFiles.release);
 
