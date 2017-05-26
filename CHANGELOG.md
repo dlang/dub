@@ -199,7 +199,7 @@ v0.9.25 - 2016-05-22
  - Switched back the default "dub init" recipe format to JSON (both, JSON and SDLang will stay supported) - [issue #724][issue724]
  - Locally cached packages are now stored in a folder that matches their name, which enables more possible ways to organize the source code (mostly by Guillaume Piolat aka p0nce) - [issue #502][issue502], [pull #735][issue735]
  - Improved worst-case speed of the dependency resolver for some pathological cases
- - Sped up GIT based local package version detection using a cache on Windows - [pull #692][issue692]
+ - Speed up GIT based local package version detection using a cache on Windows - [pull #692][issue692]
  - Implemented "dub convert" to convert between JSON and SDLang package recipes - [pull #732][issue732]
  - Implemented a "dub search" command to search the package registry from the CLI - [pull #663][issue663]
  - "dub test" doesn't build dependencies in unittest mode anymore - [issue #640][issue640], [issue #823][issue823]
