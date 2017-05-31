@@ -52,6 +52,7 @@ class Project {
 		SelectedVersions m_selections;
 		bool m_hasAllDependencies;
 		string[string] m_overriddenConfigs;
+		string[string] m_cachedConfigs;
 	}
 
 	/** Loads a project.
@@ -134,7 +135,6 @@ class Project {
 	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[string] configs = null)
 	const {
 		const(Package) rootpack = root_package ? root_package : m_rootPackage;
-
 		int iterator(int delegate(ref const Package) del)
 		{
 			int ret = 0;
@@ -290,11 +290,12 @@ class Project {
 	}
 
 	/// Reloads dependencies.
-	void reinit()
+	void reinit(string[string] configs = null)
 	{
 		m_dependencies = null;
 		m_hasAllDependencies = true;
 		m_packageManager.refresh(false);
+		m_cachedConfigs = configs;
 
 		void collectDependenciesRec(Package pack, int depth = 0)
 		{
@@ -302,7 +303,15 @@ class Project {
 			logDebug("%sCollecting dependencies for %s", indent, pack.name);
 			indent ~= "  ";
 
-			foreach (dep; pack.getAllDependencies()) {
+			auto cfg = configs.get(pack.name, null);
+
+			PackageDependency[] deps;
+			if (!cfg.length) deps = pack.getAllDependencies();
+			else {
+				auto depmap = pack.getDependencies(cfg);
+				deps = depmap.byKey.map!(k => PackageDependency(k, depmap[k])).array;
+			}
+			foreach (dep; deps) {
 				Dependency vspec = dep.spec;
 				Package p;
 
@@ -312,6 +321,13 @@ class Project {
 				// non-optional and optional-default dependencies (if no selections file exists)
 				// need to be satisfied
 				bool is_desired = !vspec.optional || m_selections.hasSelectedVersion(basename) || (vspec.default_ && m_selections.bare);
+
+				bool shouldSkipDependency = vspec.optional && !m_selections.bare && !m_selections.isFromSelectionsFile(basename);
+				if (shouldSkipDependency)
+				{
+					logDebug("Skipping optional dependency %s", basename);
+					continue;
+				}
 
 				if (dep.name == m_rootPackage.basePackage.name) {
 					vspec = Dependency(m_rootPackage.version_);
@@ -389,6 +405,12 @@ class Project {
 	/// Returns a map with the configuration for all packages in the dependency tree.
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
+		if (m_cachedConfigs) {
+			string[string] configs;
+			foreach(k,v; m_cachedConfigs)
+				configs[k] = v;
+			return configs;
+		}
 		struct Vertex { string pack, config; }
 		struct Edge { size_t from, to; }
 
@@ -1025,6 +1047,25 @@ class Project {
 		}
 	}
 
+	/** Removes any dependency in dub.selections.json that is no longer necessary
+
+		Sometimes during upgrading optional dependencies or dependencies from
+		unused configurations get added to the selections file.
+		This function removes them.
+		Note: it can only identify unused dependencies after reinit is run with the
+		configs AA from getPackageConfigs.
+	*/
+	bool removeUnusedAddedDependencies()
+	{
+		auto ps = m_selections.getAddedPackages();
+		foreach(p; ps) {
+			if (!m_dependencies.canFind!(d => d.name == p)) {
+				m_selections.deselectVersion(p);
+			}
+		}
+		return m_selections.dirty;
+	}
+
 	/** Saves the currently selected dependency versions to disk.
 
 		The selections will be written to a file named
@@ -1244,6 +1285,7 @@ final class SelectedVersions {
 	private struct Selected {
 		Dependency dep;
 		//Dependency[string] packages;
+		Flag!"fromSelectionsFile" fromSelectionsFile;
 	}
 	private {
 		enum FileVersion = 1;
@@ -1281,6 +1323,9 @@ final class SelectedVersions {
 
 	/// Returns a list of names for all packages that have a version selection.
 	@property string[] selectedPackages() const { return m_selections.keys; }
+
+	/// Returns a list of names for all packages that have been added during this run to an already existing dub.selections.json file
+	@property string[] getAddedPackages() const { return m_selections.byKeyValue.filter!(item => !item.value.fromSelectionsFile).map!(item => item.key).array(); }
 
 	/// Determines if any changes have been made after loading the selections from a file.
 	@property bool dirty() const { return m_dirty; }
@@ -1331,6 +1376,12 @@ final class SelectedVersions {
 		m_dirty = true;
 	}
 
+	bool isFromSelectionsFile(string packageId)
+	const {
+		if (auto p = packageId in m_selections)
+			return p.fromSelectionsFile;
+		return false;
+	}
 	/// Determines if a particular package has a selection set.
 	bool hasSelectedVersion(string packageId)
 	const {
@@ -1416,7 +1467,7 @@ final class SelectedVersions {
 		clear();
 		scope(failure) clear();
 		foreach (string p, v; json["versions"])
-			m_selections[p] = Selected(dependencyFromJson(v));
+			m_selections[p] = Selected(dependencyFromJson(v),Yes.fromSelectionsFile);
 	}
 }
 
