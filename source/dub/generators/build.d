@@ -159,7 +159,10 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = Path(getcwd());
 
 		Path target_path;
-		if (settings.tempBuild) m_targetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", pack.name, pack.version_, build_id);
+		if (settings.tempBuild) {
+			string packageName = pack.basePackage is null ? pack.name : pack.basePackage.name;
+			m_targetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
+		}
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
