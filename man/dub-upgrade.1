@@ -1,0 +1,55 @@
+
+.TH DUB-UPGRADE "1"
+
+.SH NAME
+
+dub\-upgrade \- upgrade package's dependencies
+
+.SH SYNOPSIS
+
+.B dub upgrade
+[\fIPACKAGES\&.\&.\&.\fR]
+[\fIOPTIONS\&.\&.\&.\fR]
+
+.SH DESCRIPTION
+
+Upgrades all dependencies of the package by querying the package registry(ies)
+for new versions\&.
+
+This will update the versions stored in the selections file
+(dub\&.selections\&.json) accordingly\&.
+
+If one or more package names are specified, only those dependencies will be
+upgraded\&. Otherwise all direct and indirect dependencies of the root package
+will get upgraded\&.
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+.B \-\-prerelease
+Use the lates pre\-release version, even if release versions are available\&.
+
+.TP
+.B \-\-verify
+Update the project and perform a build\&. If successful, rewrite the selected
+versions file \fI<to be implemented>\fR\&.
+
+.TP
+.B \-\-missing\-only
+Perform an upgrade only for dependencies that don't have yet a version
+selected.\& This is also done automatically before each build\&.
+
+.TP
+.B \-\-force\-remove
+Deprecated\&.
+
+.SH FILES
+
+\fIdub.selections.json\fR
+
+.SH SEE ALSO
+
+\fIdub\fR(1), \fIdub\-build\fR(1)

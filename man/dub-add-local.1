@@ -1,0 +1,41 @@
+
+.TH DUB-ADD-LOCAL "1"
+
+.SH NAME
+
+dub\-add\-local \- add a local package directory for dependency resolution
+
+.SH SYNOPSIS
+
+.B dub add\-local
+.I PATH
+[\fIVERSION\fR]
+[\fIOPTIONS\&.\&.\&.\fR]
+
+.SH DESCRIPTION
+
+Adds a local package directory to be used during dependency resolution\&. This
+command is useful for registering local packages, such as GIT working copies,
+that are either not available in the package registry, or are supposed to be
+overwritten\&.
+
+The version of the package is either determined automatically or can be
+explicitly overwritten by passing a version on the command line\&.
+
+See \fIdub-add-path\fR(1) for a way to register multiple local packages at
+once\&.
+
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+.B \-\-system
+Register system\-wide instead of user\-wide\&.
+
+.SH SEE ALSO
+
+\fIdub\fR(1), \fIdub\-add\-path\fR(1), \fIdub\-remove\-path\fR(1),
+\fIdub\-remove\-local\fR(1)

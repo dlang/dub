@@ -1,0 +1,132 @@
+
+.TH DUB\-DESCRIBE "1"
+
+.SH NAME
+
+dub\-describe \- print a JSON build description
+
+.SH SYNOPSIS 
+
+\fBdub describe\fR [\fIPACKAGE\fR] [\fIOPTIONS\&.\&.\&.\fR]
+
+.SH DESCRIPTION
+
+Prints a JSON build description for the root package an all of their
+dependencies in a format similar to a JSON package description file. This is
+useful mostly for IDEs\&.
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+\fB\-b, \-\-build\fR=\fIBUILD TYPE\fR
+Perform specified build type\&. Note that setting the DFLAGS environment variable
+will override the build type with custom flags\&. Possible names are
+\fIdebug\fR (default), \fIplain\fR, \fIrelease\fR, \fIrelease-debug\fR,
+\fIrelease-nobounds\fR, \fIunittest\fR, \fIprofile\fR, \fIprofile-gc\fR,
+\fIdocs\fR, \fIddox\fR, \fIcov\fR, \fIunittest-cov\fR and custom types\&.
+
+.TP
+\fB\-c, \-\-config\fR=\fICONFIG\fB
+Build the specified configuration\&. Configurations can be defined in
+\fIdub\&.json\fB or \fIdub\&.sdl\fB\&.
+ 
+.TP
+\fB\-\-override\-config\fR=\fIDEPENDENCY\fB/\fICONFIG\fB
+Use the specified configuration for a certain dependency\&. Can be specified
+multiple times\&.
+
+.TP
+\fB\-\-compiler\fR=\fICOMPILER\fR
+Use the specified compiler (can be a path)\&. Arbitrary pre\- and suffixes to the
+identifiers below are recognized (e\&.g\&. ldc2 or dmd\-2\&.063) and matched to the
+proper compiler type: \fIdmd\fB, \fIgdc\fR, \fIldc\fR, \fIgdmd\fR, \fIldmd\fR\&.
+
+.TP
+\fB\-a\fR, \fB\-\-arch\fR=\fIARCHITECTURE\fR
+Force a different architecture (e\&.g\&. x86 or x86_64)\&.
+
+.TP
+\fB\-d\fR, \fB\-\-debug\fR=\fIVALUE\fR
+Define the specified debug version identifier when building\&. Can be used
+multiple times\&.
+
+.TP
+\fB\-\-nodeps\fR
+Do not check or update dependencies before building\&.
+
+.TP
+\fB\-\-build\-mode\fR=\fIseparate\fB|\fIallAtOnce\fB|\fIsingleFile\fR
+Specify the way the compiler and linker are invoked\&. Default is \fIseparate\fR\&.
+
+.TP
+\fB\-\-single\fR
+Treat the package name as a filename\&. The file must contain a package recipe
+comment\&.
+
+.TP
+\fB\-\-force\-remove\fR
+Deprecated\&.
+
+.TP
+\fB\-\-import\-paths\fR
+Shortcut for \fB\-\-data\fR=\fIimport\-paths\fR \fB\-\-data\-list\fR.
+
+.TP
+\fB\-\-string\-import\-paths\fR
+Shortcut for \fB\-\-data\fR=\fIstring\-import\-paths\fR \fB\-\-data\-list\fR.
+
+.TP
+\fB\-\-data\fR=\fIVALUE\fR
+When supplied, specific build settings for a project will be printed instead of
+usual output (formatted for the current compiler by default). This option can
+be specified multiple times to retrieve several pieces of information at once.
+A comma\-separated list is also acceptable (e.g.
+\fB\-\-data\fR=\fIflags\fR,\fIlibs\fR). The data will be output in the same 
+order requested on the command line. The accepted values are:
+.nf
+\fImain\-source\-file\fR
+\fIdflags\fR
+\fIlflags\fR
+\fIlibs\fR
+\fIlinker\-files\fR
+\fIsource\-files\fR
+\fIversions\fR
+\fIdebug\-versions\fR
+\fIimport\-paths\fR
+\fIstring\-import\-paths\fR
+\fIimport\-files\fR
+\fIoptions\fR
+.fi
+The following are also accepted if \fB\-\-data\-list\fR is used:
+.nf
+\fItarget\-type\fR
+\fItarget\-path\fR
+\fItarget\-name\fR
+\fIworking\-directory\fR
+\fIcopy\-files\fR
+\fIstring\-import\-files\fR
+\fIpre\-generate\-commands\fR
+\fIpost\-generate\-commands\fR
+\fIpre\-build\-commands\fR
+\fIpost\-build\-commands\fR
+\fIrequirements\fR
+.fi
+
+.TP
+\fB\-\-data\-list\fR
+Output \fB\-\-data\fR information in list format (line\-by\-line), instead of
+formatting for a compiler command line. Also affects accepted values for
+\fB\-\-data\fR option.
+
+.TP
+\fB\-\-data\-0\fR
+Output \fB\-\-data\fR information using null\-delimiters, rather than spaces or
+newlines. Result is usable with, e.g., \fBxargs \-0\fR.
+
+.SH SEE ALSO
+
+\fIdub\fR(1)
+

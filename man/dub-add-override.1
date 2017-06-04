@@ -1,0 +1,32 @@
+
+.TH DUB-ADD-OVERRIDE "1"
+
+.SH NAME
+
+dub\-add\-override \- use one package instead of another
+
+.SH SYNOPSIS
+
+.B dub add\-override
+.I PACKAGE
+.I VERSION\-SPEC
+.I TARGET\-PATH/TARGET\-VERSION
+[\fIOPTIONS\&.\&.\&.\fR]
+
+.SH DESCRIPTION
+
+Tells DUB to use one package instead of another when resolving dependencies and
+building\&.
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+.B \-\-system
+Register system\-wide instead of user\-wide\&.
+
+.SH SEE ALSO
+
+\fIdub\fR(1), \fIdub\-remove\-override\fR(1), \fIdub\-list\-overrides\fR(1)

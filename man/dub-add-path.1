@@ -1,0 +1,48 @@
+
+.TH DUB-ADD-PATH "1"
+
+.SH NAME
+
+dub\-add\-path \- add a default package search path
+
+.SH SYNOPSIS
+
+.B dub add\-path
+.I PATH
+[\fIOPTIONS\&.\&.\&.\fR]
+
+.SH DESCRIPTION
+
+Adds a default package search path\&. All direct sub folders of this path will
+be searched for package descriptions and will be made available as packages\&.
+Using this command has the equivalent effect as calling '\fBdub add\-local\fR'
+on each of the sub folders manually\&.
+
+Any packages registered using add\-path will be preferred over packages
+downloaded from the package registry when searching for dependencies during a
+build operation\&.
+
+The version of the packages will be determined by one of the following:
+.nf
+* for GIT working copies, the last tag (git describe) is used to determine the version;
+* if the package contains a "version" field in the package description, this is used;
+* if neither of those apply, "~master" is assumed\&.
+.fi
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+.B \-\-system
+Register system\-wide instead of user\-wide\&.
+
+.SH FILES
+
+\fIdub\&.json\fR, \fIdub\&.sdl\fR
+
+.SH SEE ALSO
+
+\fIdub\fR(1),  \fIdub\-remove\-path\fR(1), \fIdub\-add\-local\fR(1),
+\fIdub\-remove\-local\fR(1), \fIdub\&.json\fR(5), \fIdub\&.sdl\fR(5)

@@ -1,0 +1,176 @@
+
+.TH DUB "1"
+
+.SH NAME
+dub \- a package manager and build system for D programming language
+
+.SH SYNOPSIS
+
+.B dub
+[\-\-version] 
+[\fICOMMAND\fR] 
+[\fIOPTIONS\&.\&.\&.\fR] 
+[\-\- [\fIAPPLICATION ARGUMENTS\&.\&.\&.\fR]]
+
+.SH DESCRIPTION
+Manages the DUB project in the current directory\&. DUB can serve as a build 
+system and a package manager, automatically keeping track of project's 
+dependencies \- both downloading them and linking them into the application\&.
+It requires a file called \fIdub\&.json\fR or \fIdub\&.sdl\fR to be in the root
+directory of your project (see \fIdub\&.json\fR(5) and \fIdub\&.sdl\fR(5) for
+details on the \fIdub\&.json\fR's and \fIdub\&.sdl\fR's contents respectively)\&.
+
+.SH COMMANDS
+All of the following commands (except for \fBinstall\fR, which is an alias for
+\fBfetch\fR) also have a separate man\-page\&.
+
+.TP
+\fBinit\fR [\fIDIRECTORY\fR [\fIDEPENDENCIES\&.\&.\&.\fR]]
+Initializes an empty package skeleton\&.
+
+.PP
+\-\- Build, test and run \-\-
+
+.TP 
+\fBrun\fR [\fIPACKAGE\fR]
+Builds and runs a package (default command)\&.
+
+.TP
+\fBbuild\fR [\fIPACKAGE\fR]
+Builds a package (uses the main package in the current working directory by 
+default)\&.
+
+.TP
+\fBtest\fR [\fIPACKAGE\fR]
+Executes the tests of the selected package\&.
+
+.TP
+\fBgenerate\fR \fIGENERATOR\fR [\fIPACKAGE\fR]
+Generates project files using the specified generator\&.
+
+.TP
+\fBdescribe\fR [\fIPACKAGE\fR]
+Prints a JSON description of the project and its dependencies\&.
+
+.TP
+\fBclean\fR [\fIPACKAGE\fR]
+Removes intermediate build files and cached build results\&.
+
+.PP
+\-\- Package management \-\-
+
+.TP
+\fBfetch\fR \fINAME\fR
+Manually retrieves and caches a package\&.
+
+.TP
+\fBinstall\fR \fINAME\fR
+Same as fetch\&.
+
+.TP
+\fBremove\fR \fINAME\fR
+Removes a cached package\&.
+
+.TP
+\fBupgrade\fR [\fIPACKAGES\&.\&.\&.\fR]
+Forces an upgrade of the dependencies\&.
+
+.TP
+\fBadd\-path\fR \fIPATH\fR
+Adds a default package search path\&.
+
+.TP
+\fBremove\-path\fR \fIPATH\fR
+Removes a package search path\&.
+
+.TP
+\fBadd\-local\fR \fIPATH\fR [\fIVERSION\fR]
+Adds a local package directory (e\&.g\&. a git repository)\&.
+
+.TP
+\fBremove\-local\fR \fIPATH\fR
+Removes a local package directory\&.
+
+.TP
+\fBlist\fR
+Prints a list of all local packages dub is aware of\&.
+
+.TP
+\fBsearch\fR \fIQUERY\fR
+Search for available packages\&.
+
+.TP 
+\fBadd\-override\fR \fIPACKAGE VERSION\-SPEC TARGET\-PATH/TARGET\-VERSION\fR
+Adds a package override\&.
+
+.TP
+\fBremove\-override\fR \fIPACKAGE VERSION\-SPEC\fR
+Removes an existing package override\&.
+
+.TP
+\fBlist\-overrides\fR 
+Prints a list of all local package overrides\&.
+
+.TP
+\fBclean\-caches\fR
+Removes cached metadata\&.
+
+.TP
+\fBconvert\fR
+Converts the file format of the package recipe\&.
+
+.SH COMMON OPTIONS
+
+.TP
+\fB\-h, \-\-help\fR
+Display general or command specific help\&.
+
+.TP
+\fB\-\-root\fR=\fIVALUE\fR
+Path to operate in instead of current working directory\&.
+
+.TP
+\fB\-\-registry\fR=\fIVALUE\fR
+Search the given DUB registry URL first when resolving dependencies\&. Can be 
+specified multiple times\&.
+
+.TP
+\fB\-\-skip\-registry\fR=\fInone\fR\fB|\fR\fIstandard\fR\fB|\fR\fIall\fR
+Skips searching certain package registries for dependencies:
+.nf
+\fInone\fR: search all configured registries (default);
+\fIstandard\fR: don't search on \fBhttp://code\&.dlang\&.org/\fR;
+\fIall\fR: search none of the configured registries\&.
+.fi
+
+.TP
+\fB\-\-annotate\fR
+Do not perform any action, just print what would be done\&.
+
+.TP
+\fB\-\-bare\fR
+Read only packages contained in the current directory\&.
+
+.TP
+\fB\-v, \-\-verbose\fR
+Print diagnostic output\&.
+
+.TP
+\fB\-\-vverbose\fR
+Print debug output\&.
+
+.TP
+\fB\-q, \-\-quiet\fR
+Only print warnings and errors\&.
+
+.TP
+\fB\-\-vquiet\fR
+Print no messages\&.
+
+.TP
+\fB\-\-cache=\fIlocal\fR\fB|\fR\fIsystem\fR\fB|\fR\fIuser\fR
+Put any fetched packages in the specified location\&.
+
+.SH SEE ALSO
+
+Command\-specific man pages, \fIdub\&.json\fR(5), \fIdub\&.sdl\fR(5)\&.

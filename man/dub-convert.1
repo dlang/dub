@@ -1,0 +1,39 @@
+
+.TH DUB-CONVERT "1"
+
+.SH NAME
+
+dub\-convert \- convert between JSON and SDLang package recipes
+
+.SH SYNOPSIS
+
+.B dub convert
+[\fIOPTIONS\&.\&.\&.\fR]
+
+.SH DESCRIPTION
+
+Converts between JSON and SDLang formatted package recipe files\&.
+.PP
+Warning: any formatting and comments within the package recipe will get lost in
+the conversion process\&.
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+\fB\-f\fR, \fB\-\-format\fR=\fIjson\fB|\fIsdl\fR
+Specify the target package recipe format\&.
+
+.TP
+\fB\-s\fR, \fB\-\-stdout\fR
+Output the converted package recipe to stdout instead of writing to disk\&.
+
+.SH FILES
+
+\fIdub\&.json\fR, \fIdub\&.sdl\fR
+
+.SH SEE ALSO
+
+\fIdub\fR(1), \fIdub\&.json\fR(5), \fIdub\&.sdl\fR(5)

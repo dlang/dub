@@ -1,0 +1,48 @@
+
+.TH DUB-INIT "1"
+
+.SH NAME
+
+dub\-init \- initialize an empty package
+
+.SH SYNOPSIS
+
+.B dub init
+[\fIDIRECTORY\fR [\fIDEPENDENCY\&.\&.\&.\fR]] 
+[\fIOPTIONS\&.\&.\&.\fR]
+
+.SH DESCRIPTION
+
+Initializes an empty package of the specified type in the given directory
+(operates on the current working directory by default)\&.
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+\fB\-t\fR, \fB\-\-type\fR=\fIminimal\fB|\fIvibe.d\fB|\fIdeimos\fR
+Set the type of project to generate.
+.nf
+\fIminimal\fR: simple "hello world" project (this is the default);
+\fIvibe.d\fR: minimal HTTP server based on vibe.d;
+\fIdeimos\fR: skeleton for C header bindings.
+.fi
+
+.TP
+\fB\-f\fR, \fB\-\-format\fR=\fIjson\fB|\fIsdl\fR
+Set the format to use for the package description file (see \fIdub.json\fR(5)
+and \fIdub.sdl\fR(5)). Default is \fIjson\fR.
+
+.TP
+\fB\-n\fR, \fB\-\-non\-interactive\fR
+Don't enter interactive mode.
+
+.SH FILES
+
+\fIdub\&.json\fR, \fIdub\&.sdl\fR
+
+.SH SEE ALSO
+
+\fIdub\fR(1), \fIdub\&.json\fR(5), \fIdub\&.sdl\fR(5)

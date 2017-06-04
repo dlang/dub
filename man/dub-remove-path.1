@@ -1,0 +1,34 @@
+
+.TH DUB-REMOVE-PATH "1"
+
+.SH NAME
+
+dub\-remove\-path \- remove a package search path
+
+.SH SYNOPSIS
+
+.B dub remove\-path
+.I PATH
+[\fIOPTIONS\&.\&.\&.\fR]
+
+.SH DESCRIPTION
+
+Removes a package search path previously added with \fBadd\-path\fR.
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+.B \-\-system
+Register system\-wide instead of user\-wide\&.
+
+.SH FILES
+
+\fIdub\&.json\fR, \fIdub\&.sdl\fR
+
+.SH SEE ALSO
+
+\fIdub\fR(1),  \fIdub\-add\-path\fR(1), \fIdub\-add\-local\fR(1),
+\fIdub\-remove\-local\fR(1), \fIdub\&.json\fR(5), \fIdub\&.sdl\fR(5)

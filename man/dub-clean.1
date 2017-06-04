@@ -1,0 +1,33 @@
+
+.TH DUB-CLEAN "1"
+
+.SH NAME
+dub\-clean \- remove package build files
+
+.SH SYNOPSIS
+
+.B dub clean
+[\fIPACKAGE\fR]
+[\fIOPTIONS\&.\&.\&.\fR]
+
+.SH DESCRIPTION
+Removes any cached build files of the given package. The final target file, as
+well as any copyFiles (see \fIdub.json\fR(5)) are currently not removed\&.
+Operates on the package in the current working directory by default\&.
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+\fB\-\-all\-packages\fR
+Clean up all known packages (dub list)\&.
+
+.SH FILES
+
+\fIdub.json\fR, \fIdub.sdl\fR
+
+.SH SEE ALSO
+
+\fIdub\fR(1), \fIdub.json\fR(5), \fIdub.sdl\fR(5)

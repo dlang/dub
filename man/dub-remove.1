@@ -1,0 +1,39 @@
+
+.TH DUB\-REMOVE "1"
+
+.SH NAME
+
+dub\-remove \- remove a package from cache
+
+.SH SYNOPSIS
+
+.B dub remove
+\fIPACKAGE\fR
+[\fIOPTIONS\&.\&.\&.\fR]
+
+.SH DESCRIPTION
+
+Removes a package that is cached on the local system\&.
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+\fB\-\-version\fR=\fIVERSION\fR
+Use the specified version\&/branch instead of the lates available match\&. This
+command also accepts "*" as a wildcard to remove all versions of the package
+from the specified location\&.
+
+.TP
+.B \-\-force\-remove
+Deprecated\&.
+
+.TP
+\fB\-n\fR, \fB\-\-non\-interactive\fR
+Don't enter interactive mode\&.
+
+.SH SEE ALSO
+
+\fIdub\fR(1), \fIdub\-fetch\fR(1)

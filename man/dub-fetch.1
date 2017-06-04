@@ -1,0 +1,57 @@
+
+.TH DUB-FETCH "1"
+
+.SH NAME
+
+dub\-fetch \- retrieve a package
+
+.SH SYNOPSIS
+
+.B dub fetch
+\fINAME\fR
+[\fIOPTIONS\&.\&.\&.\fR]
+
+.SH DESCRIPTION
+
+Downloads a package\&. Note that if you just want to use a package as a
+dependency, you should use "dependencies" field in the package description (see
+\fIdub.json\fR(5) or \fIdub.sdl\fR(5) for details) instead of downloading them
+manually\&. Explicit retrieval of packages is only needed when you want to put 
+packages to a place where several applications can share these. Otherwise, use
+\fIdub.json\fR or \fIdub.sdl\fR\&.
+.PP
+Without specified options, retrieved package will default to a user\-wide
+shared location\&.
+.PP
+Complete applications can be retrieved and run easily by e\&.g\&.
+.nf
+$ dub fetch vibelog \-\-local
+$ cd vibelog
+$ dub
+.fi
+.PP
+Note: DUB does not do a system installation of packages\&. Packages are instead
+only registered withing DUB's internal ecosystem\&. Generation of native system
+packages\&/installers mey be added later as a separate feature\&.
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+\fB\-\-version\fR=\fIVERSION\fR
+Use the specified version\&/branch instead of the latest available match\&.
+
+.TP
+.B \-\-force\-remove
+Deprecated\&.
+
+.SH FILES
+
+\fIdub\&.json\fR, \fIdub\&.sdl\fR
+
+.SH SEE ALSO
+
+\fIdub\fR(1), \fIdub\-run\fR(1), \fIdub\-remove\fR, \fIdub\&.json\fR(5),
+\fIdub\&.sdl\fR(5)
