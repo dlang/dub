@@ -1,0 +1,776 @@
+
+.TH DUB.SDL "5"
+
+.SH NAME
+
+dub.sdl \- a package recipe file
+
+.SH DESCRIPTION
+
+Every DUB package should contain a dub.sdl (or dub.json, see \fIdub.json\fR(5))
+file in its root folder. This file contains meta\-information about the
+project and its dependencies. This information is used for building the
+project and for deploying it using the registry. The following sections give
+an overview of the recognized settings and their meaning. Note that any
+unknown settings are ignored for backwards compatibility reasons.
+
+Please keep the description concise (not more than 100 characters) and avoid
+including unspecific information such as the fact that the package is written
+in D. The same goes for the package name \- since all DUB packages are
+written in D, it's usually better to avoid mentioning D explicitly, unless the
+package is for example a high-level wrapper around a C\&/C++ library.
+
+.SH GLOBAL SETTINGS
+
+In addition to the settings listed here, all build settings are allowed at the
+global scope.
+
+.TS 
+box tab(@);
+cB | cB | cB | cB
+c | c | l | l.
+Name @ Arguments @ Notes @ Description
+_
+name @ "\fINAME\fR" @ required @T{
+Name of the package, used to uniquely identify the package. Must be comprised
+of only lower case ASCII alpha-numeric characters, "\-" or "_"
+T}
+_
+description @ "\fITEXT\fR" @ required for publishing @T{
+Brief description of the package
+T}
+_
+homepage @ "\fIURL\fR" @ @ URL of the project website
+_
+authors @ "\fIAUTHOR1\fR" ["\fIAUTHOR2\fR" [...]] @ @T{
+List of project authors (the suggested format is either "Peter Parker" or
+"Peter Parker <pparker@example.com>)
+T}
+_
+copyright @ "\fITEXT\fR" @ @ Copyright declaration string
+_
+licenes @ "\fILICENSE SPEC\fR" @ required for publishing @T{
+License(s) under which the project can be used \- see the \fBLICENSE
+SPECIFICATION\fR section for possible values
+T}
+_
+subPackage @ "\fIPATH\fR" or { ... } @ @T{
+Defines a sub\-package using either a path to a sub directory, or in\-place \-
+see the \fBSUBPACKAGES\fR section for more information
+T}
+_
+configuration @ "\fINAME\fR" { ... } @ @T{
+Specifies a build configuration (chosen on the command line using
+\fB\-\-config\fR=...) \- see the \fBCONFIGURATIONS\fR section for more details
+T}
+_
+buildType @ "\fINAME\fR { ... } @ @T{
+Defines an additional custom build type or overrides one of the default ones
+(chosen on the command line using \fB\-\-build\fR=...) \- see the \fBBUILD
+TYPES\fR section for an example
+T}
+_
+x:ddoxFilterArgs @ "\fIARG1\fR" ["\fIARG2\fR [...]] @ experimental @T{
+Specifies a list of command line flags usable for controlling filter behaviour
+for \fB\-\-build\fR=\fIddox\fR
+T}
+.TE
+
+.SH SUBPACKAGES
+
+A package may contain an arbitrary number of additional publicly visible
+packages. These packages can be defined using \fIsubPackage\fR directives in
+the main dub.sdl file. They can be referenced by concatenating their name with
+the name of the main package using a colon as the delimiter (i.e.
+"main\-package\-name:sub\-package\-name").
+
+The typical use for this feature is to split up a library into a number of
+parts without breaking it up into different code repositories:
+.PP
+.nf
+name "mylib"
+targetType "none"
+dependency "mylib:component1" version="*"
+dependency "mylib:component2" version="*"
+subPackage "./component1/"
+subPackage "./component2/"
+.fi
+/dub.sdl
+.PP
+.nf
+name "component1"
+targetType "library"
+.fi
+/component1/dub.sdl
+
+The sub directories /component1 and /component2 then contain normal packages
+and can be referred to as "mylib:component1" and "mylib:component2" from
+outside projects. To refer to sub packages within the same repository use the
+"\fI*\fR" version specifier.
+
+It is also possible to define the sub packages within the root package file,
+but note that it is generally discouraged to put the source code of multiple
+sub packages into the same source folder. Doing so can lead to hidden
+dependencies to sub packages that haven't been explicitly stated in the
+"\fIdependencies\fR" section. These hidden dependencies can then result in
+build errors in conjunction with certain build modes or dependency trees that
+may be hard to understand.
+
+.SH LICENSE SPECIFICATIONS
+
+The license setting should only contain one of the standard license identifiers
+if possible. At a later point in time, DUB may use this information to validate
+proper licensing in dependency hierarchies and output warnings when licenses
+don't match up. Multiple licenses can be separated using the term "\fIor\fR"
+and for versioned licenses, the postfix "\fIor later\fR" is allowed to also
+include any later version of the same license.
+
+The standard license identifiers are:
+.nf
+\- \fIpublic domain\fR
+\- \fIAFL-3.0\fR (Academic Free License 3.0) 
+\- \fIAGPL-3.0\fR (Affero GNU Public License 3.0) 
+\- \fIApache-2.0\fR 
+\- \fIAPSL-2.0\fR (Apple Public Source License)
+\- \fIArtistic-2.0\fR
+\- \fIBSL-1.0\fR (Boost Software License)
+\- \fIBSD 2-clause\fR
+\- \fIBSD 3-clause\fR
+\- \fIEPL-1.0\fR (Eclipse Public License) 
+\- \fIGPL-2.0\fR 
+\- \fIGPL-3.0\fR
+\- \fIISC\fR 
+\- \fILGPL-2.1\fR 
+\- \fILGPL-3.0\fR 
+\- \fIMIT\fR 
+\- \fIMPL-2.0\fR (Mozilla Public License 2.0) 
+\- \fIMS-PL\fR (Microsoft Public License) 
+\- \fIMS-RL\fR (Microsoft Reciprocal License) 
+\- \fINCSA\fR (University of Illinois/NCSA Open Source License) 
+\- \fIOpenSSL\fR (OpenSSL License)
+\- \fISSLeay\fR (SSLeay License) 
+\- \fIZlib\fR (zlib/libpng License)
+.fi
+
+Any other value is considered to be a proprietary license, which is assumed to
+be incompatible with any other license. If you think there is a license that
+should be included in this list, please file a quick bug report. Please also
+note that pure D bindings of C/C++ libraries should specify the same license as
+the original library, although a stricter but compatible license can be used,
+too.
+
+Some example license specifications:
+.nf
+"GPL-3.0"
+"GPL-2.0 or later"
+"GPL-2.0 or later or proprietary"
+"GPL-2.0 or LGPL-3.0"
+"LGPL-2.1 or proprietary"
+.fi
+
+.SH BUILD SETTINGS
+
+Build settings influence the command line options passed to the compiler and
+linker. All settings are optional.
+
+.TS 
+box tab(@);
+cB | cB | cB | cB 
+c | c | c | l.
+Name @ Type @ Supports platform attribute @ Description
+_
+dependency @ "\fINAME\fR" ... @ No @T{
+Adds a single dependency of the given name, attributes are used to configure
+the version/path to use - see \fBVERSION SPECIFICATIONS\fR for how version
+specifications look like. Use multiple dependency directives to add more than
+one dependency
+T}
+_
+systemDependencies @ "\fITEXT\fR" @ No @T{
+A textual description of the required system dependencies (external C
+libraries) required by the package. This will be visible on the registry and
+will be displayed in case of linker errors
+T}
+_
+targetType @ "\fITYPE\fR" @ No @T{
+Specifies a specific target type
+T}
+_
+targetName @ "\fINAME\fR" @ No @T{
+Sets the base name of the output file; type and platform specific pre\- and
+suffixes are added automatically
+T}
+_
+targetPath @ "\fIPATH\fR" @ No @T{
+The destination path of the output binary
+T}
+_
+workingDirectory @ "\fIPATH\fR" @ No @T{
+A fixed working directory from which the generated executable will be run
+T}
+_
+subConfiguration @ "\fIDEPENDENCY\fR" "\fICONFIGURATION\fR" @ No @T{
+Locks a dependency (first argument) to a specific configuration (second
+argument); see also the \fBCONFIGURATIONS\fR section
+T}
+_
+buildRequirements @ "\fIREQUIREMENT1\fR" ["\fIREQUIREMENT2\fR" [...]] @ Yes @T{
+List of required settings for the build process. See the \fBBUILD
+REQUIREMENTS\fR section for details
+T}
+_
+buildOptions @ "\fIOPTION1\fR" ["\fIOPTION2\fR" [...]] @ Yes @T{
+List of build option identifiers (corresponding to compiler flags) \- see the
+\fBBUILD OPTIONS\fR section for details
+T}
+_
+libs @ "\fILIB1\fR" ["\fILIB2\fR" [...]] @ Yes @T{
+A list of external library names \- depending on the compiler, these will be
+converted to the proper linker flag (e.g. "ssl" might get translated to
+"-L-lssl")
+T}
+_
+sourceFiles @ "\fIPATTERN1\fR" ["\fIPATTERN2\fR" [...]] @ Yes @T{
+Additional files passed to the compiler \- can be useful to add certain
+configuration dependent source files that are not contained in the general
+source folder
+T}
+_
+sourcePaths @ "\fIPATH1\fR" ["\fIPATH2\fR" [...]] @ Yes @T{
+Allows to customize the path where to look for source files (any folder
+"source" or "src" is automatically used as a source path if no
+\fIsourcePaths\fR setting is specified) - note that you usually also need to
+define \fIimportPaths\fR as \fIsourcePaths\fR don't influence those
+T}
+_
+excludedSourceFiles @ "\fIPATTERN1\fR" ["\fIPATTERN2\fR" [...]] @ Yes @T{
+Files that should be removed for the set of already added source files (takes
+precedence over \fIsourceFiles\fR and \fIsourcePaths\fR) - Glob matching can be
+used to pattern match multiple files at once
+T}
+_
+mainSourceFile @ "\fIPATH\fR" @ No @T{
+Determines the file that contains the main() function. This setting can be used
+by dub to exclude this file in situations where a different main function is
+defined (e.g. for \fBdub test\fR)
+T}
+_
+copyFiles @ "\fIPATTERN1\fR" ["\fIPATTERN2\fR" [...]] @ Yes @T{
+A list of globs matching files or directories to be copied to \fItargetPath\fR.
+Matching directories are copied recursively, i.e. "copyFiles": ["path/to/dir"]"
+recursively copies dir, while "copyFiles": ["path/to/dir/*"]" only copies files
+within dir.
+T}
+_
+versions @ "\fIVERSION1\fR" ["\fIVERSION2\fR" [...]] @ Yes @T{
+A list of D versions to be defined during compilation
+T}
+_
+debugVersions @ "\fIVERSION1\fR" ["\fIVERSION2\fR" [...]] @ Yes @T{
+A list of D debug identifiers to be defined during compilation
+T}
+_
+importPaths @ "\fIPATH1\fR" ["\fIPATH2\fR" [...]] @ Yes @T{
+Additional import paths to search for D modules (the source/ folder is used by
+default as a source folder, if it exists)
+T}
+_
+stringImportPaths @ "\fIPATH1\fR" ["\fIPATH2\fR" [...]] @ Yes @T{
+Additional import paths to search for string imports/views (the views/ folder
+is used by default as a string import folder, if it exists)
+T}
+_
+preGenerateCommands @ "\fICMD1\fR" ["\fICMD2\fR" [...]] @ Yes @T{
+A list of shell commands that is executed before project generation is started
+T}
+_
+postGenerateCommands @ "\fICMD1\fR" ["\fICMD2\fR" [...]] @ Yes @T{
+A list of shell commands that is executed after project generation is finished
+T}
+_
+preBuildCommands @ "\fICMD1\fR" ["\fICMD2\fR" [...]] @ Yes @T{
+A list of shell commands that is executed always before the project is built
+T}
+_
+postBuildCommands @ "\fICMD1\fR" ["\fICMD2\fR" [...]] @ Yes @T{
+A list of shell commands that is executed always after the project is built
+T}
+_
+dflags @ "\fIFLAG1\fR" ["\fIFLAG2\fR" [...]] @ Yes @T{
+Additional flags passed to the D compiler - note that these flags are usually
+specific to the compiler in use, but a set of flags is automatically translated
+from DMD to the selected compiler 
+T}
+_
+lflags @ "\fIFLAG1\fR" ["\fIFLAG2\fR" [...]] @ Yes @T{
+Additional flags passed to the linker - note that these flags are usually
+specific to the linker in use
+T}
+.TE
+
+.SH PLATFORM SPECIFICATIONS
+Platform specific settings are supported through the use of the \fIplatform\fR
+attribute. Platform attributes contain dash separated list of operating
+system/architecture/compiler identifiers, as defined in the D language
+reference, but converted to lower case. The order of these suffixes is
+\fIos-architecture-compiler\fR, where any of these parts can be left off.
+Examples:
+.nf
+// used on all platforms
+versions "PrintfDebugging"
+// only applies if compiled with DMD
+dflags "-vtls" platform="dmd"
+// only used when building for X86-64
+versions "UseAmd64Impl" platform="x86_64"
+// only used on Posix systems (Linux, OS X, FreeBSD etc.)
+libs "ssl" "crypto" platform="posix"
+// applies if compiled for Windows, X86-64 using DMD
+sourceFiles "lib/win32/mylib.lib" platform="windows-x86_64-dmd"
+.fi
+
+.SH VERSION SPECIFICATIONS
+
+A version specification can consist of a number of attributes, mainly the
+\fIversion\fR attribute:
+
+.TS 
+box tab(@);
+cB | cB
+c | l.
+Attribute @ Description
+_
+version=\fIVERSION-SPECIFIER\fR @T{
+The version specification as used fot the simple form. Should only be specified
+when no \fIpath\fR attribute is present, or when compatibility with older 
+versions of DUB (<0.9.22) is required
+T}
+_
+path=\fIPATH-TO-PACKAGE\fR @T{
+Use a folder to source a package from. References a package in a specific path.
+This can be used in situations where a specific copy of a package needs to be
+used. Examples of this include packages that are included as GIT submodules, or
+packages in subfolders of the main package, such as example projects
+T}
+_
+optional=\fItrue\fR @T{
+With this set to \fItrue\fR, the dependency will only be used if explicitly
+selected in dub.selections.json. If omitted, defaults to \fIfalse\fR. Note that
+versions prior to 0.9.25 used to choose an optional dependency if and only if
+it was available on the local machine
+T}
+_
+default=\fItrue\fR @T{
+With this set to \fItrue\fR, the dependency will be chosen by default if no
+dub.selections.json exists yet.
+If omitted, this attribute defaults to \fIfalse\fR. Note that this only has an
+effect if the \fIoptional\fR attribute is set to \fItrue\fR. Also note that
+versions prior to 0.9.25 will ignore this attribute
+T}
+.TE
+.PP
+
+Version specifiers define a range of acceptable versions. They can be specified
+in any of the following ways:
+.nf
+\- Restrict to a certain minor version: "~>2.2.13", equivalent to ">=2.2.13 <2.3.0"
+\- Restrict to a certain major version: "~>2.2", equivalent to ">=2.2.0 <3.0.0"
+\- Require a certain version: "==1.3.0"
+\- Require a minimum version: ">=1.3.0"
+\- Require a version range: ">=1.3.0 <=1.3.4"
+\- Match any released version: "*", equivalent to ">=0.0.0"
+\- Use a GIT branch (deprecated): "~master"
+.fi
+.PP
+Numbered versions are formatted and compared according to the SemVer
+specification. The recommended way to specify versions is using the \fI~>\fR
+operator as a way to balance between flexible upgrades and reducing the risk of
+code breakage.
+
+Whenever you refer to (sub) packages within the same repository, use the "any
+version" version specifier: "\fI*\fR"
+
+.SH TARGET TYPES
+
+The following values are recognized for the \fItargetType\fR setting:
+.TS
+box tab(@);
+cB | cB
+c | l.
+Value @ Description
+_
+autodetect @T{
+Automatically detects the target type. This is the default global value and
+causes dub to try and generate \fIapplication\fR and \fIlibrary\fR
+configurations. Use of other values limits the auto-generated configurations to
+either of the two. This value is not allowed inside of a configuration block
+T}
+_
+none @T{
+Does not generate an output file. This is useful for packages that are supposed
+to drag in other packages using the \fIdependencies\fR section
+T}
+_
+executable @ Generates an executable binary
+_
+library @T{
+Specified that the package is to be used as a library, without limiting the 
+actual type of library. This should be the default for most libraries
+T}
+_
+sourceLibrary @T{
+This taget type does not generate a binary, but rather forces dub to add all
+source files directly to the same compiler invocation as the dependent project
+T}
+_
+staticLibrary @ Forces output as a static library container
+_
+dynamicLibrary @ Forces output as a dynamic/shared library
+.TE
+
+.SH BUILD REQUIREMENTS
+
+The following values are recognized as array items for the
+\fIbuildRequirements\fR setting:
+
+.TS
+box tab(@);
+cB | cB | cB
+c | c | l.
+Value @ Notes @ Description
+_
+allowWarnings @ @ Warnings do not abort compilation
+_
+silenceWarnings @ @ Don't show warnings
+_
+disallowDeprecations @ @ Using deprecated features aborts compilation
+_
+silenceDeprecations @ @ Don't show deprecation warnings
+_
+disallowInlining @ @ Avoid function inlining, even in release builds
+_
+disallowOptimization @ @ Avoid optimizations, even in release builds
+_
+requireBoundCheck @ @ Always perform bounds checks
+_
+requireContracts @ @ Leave assertions and contracts enabled in release builds
+_
+relaxProperties @ Deprecated @ Do not enforce strict property handling (removes the \-property switch)
+_
+noDefaultFlags @T{
+Should never be used for released packages and is intended purely as a 
+development/debugging tool. Use "\-build=plain" instead
+T}@ Do not emit build type specific flags (e.g. \-debug, \-cov or \-unittest)
+.TE
+
+.SH BUILD OPTIONS
+
+The \fIbuildOptions\fR setting provides a compiler-agnostic way to specify common
+compiler options/flags. Note that many of these options are implicitly manages
+by the \fIbuildRequirements\fR setting and most others usually only occur in
+\fIbuildTypes\fR blocks. It supports the following values:
+
+.TS
+box tab(@);
+cB | cB | cB
+c | c | l.
+Value @ Description @ Corresponding DMD Flag
+_
+debugMode @ Compile in debug mode (enables contracts) @ \-debug
+_
+releaseMode @ Compile in release mode (disables assertions and bounds checks @ \-release
+_
+coverage @ Enable code coverage analysis @ \-cov
+_
+debugInfo @ Enable symbolic debug information @ \-g
+_
+debugInfoC @ Enable symbolic debug information in C-compatible form @ \-gc
+_
+alwaysStackFrame @ Always generate a stack frame @ \-gs
+_
+stackStomping @ Perform stack stomping @ \-gx
+_
+inline @ Perform function inlining @ \-inline
+_
+noBoundsCheck @ Disable all bounds checking @ \-boundscheck=off
+_
+optimize @ Enable optimizations @ \-O
+_
+profile @ Emit profiling code @ \-profile
+_
+profileGC @ Emit GC profiling information @ \-profile=gc
+_
+unittests @ Compile unit tests @ \-unittest
+_
+verbose @ Verbose compiler output @ \-v
+_
+ignoreUnknownPragmas @ Ignore unknown pragmas during compilation @ \-ignore
+_
+syntaxOnly @ Don't generate object files @ \-o\-
+_
+warnings @T{
+Enable warnings, enabled by default (use \fIbuildRequirements\fR to control 
+this setting)
+T}@ \-wi
+_
+warningsAsErrors @T{
+Treat warnings as errors (use \fIbuildRequirements\fR to control this setting
+T}@ \-w
+_
+ignoreDeprecations @T{
+Do not warn about using deprecated features (use \fIbuildRequirements\fR to
+control this setting)
+T}@ \-d
+_
+deprecationWarnings @T{
+Warn about using deprecated features, enabled by default (use
+\fIbuildRequirements to control this setting)
+T}@ \-dw
+_
+deprecationErrors @T{
+Stop compilation upon usage of deprecated features (use \fIbuildRequirements\fR
+to control this setting)
+T}@ \-de
+_
+property @ Enforce property syntax \- \fBdeprecated\fR @ \-property
+.TE
+
+.SH ENVIRONMENT VARIABLES
+
+Inside of build setting values, it is possible to use variables using dollar
+notation. Any variable not matching a predefined name will be taken from the
+program environment. To denote a literal dollar sign, use $$. The predefined
+variables are:
+.TS
+box tab(@);
+cB | cB
+c | l.
+Variable @ Content
+_
+$PACKAGE_DIR @ Path to the package itself
+_
+$ROOT_PACKAGE_DIR @ Path to the root package of the build dependency tree
+_
+$<name>_PACKAGE_DIR @T{
+Path to a specific package that is a part of the package's dependency graph
+T}
+.TE
+.PP
+Inside of custom commands a number of additional variables is available:
+.TS
+box tab(@);
+cB | cB
+c | l.
+Variable @ Content
+_
+$DUB_PACKAGE @ Name of the package
+_
+$DUB_ROOT_PACKAGE @ Name of the root package that is being built
+_
+$DFLAGS @ Contents of the \fIdflags\fR field as defined by the package recipe
+_
+$LFLAGS @ Contents of the \fIlflags\fR field as defined by the package recipe
+_
+$VERSIONS @ Contents of the \fIversions\fR field as defined by the package recipe
+_
+$LIBS @ Contents of the \fIlibs\fR field as defined by the package recipe
+_
+$IMPORT_PATHS @ Contents of the \fIimportPaths\fR field as defined by the package recipe
+_
+$STRING_IMPORT_PATHS @T{
+Contents of the \fIstringImportPaths\fR field as defined by the package recipe
+T}
+_
+$DC @ Compiler binary name (e.g. "../dmd" or "ldc2")
+_
+$DC_BASE @ Canonical name of the compiler (e.g. "dmd" or "ldc")
+_
+$D_FRONTEND_VER @T{
+The compiler frontend version represented as a single integer, for example
+"2072" for DMD 2.072.2
+T}
+_
+$DUB_PLATFORM @ Name of the target platform (e.g. "windows" or "linux")
+_
+$DUB_ARCH @ Name of the target architecture (e.g. "x86" or "x86_64")
+_
+$DUB_TARGET_TYPE @T{
+Contents of the \fItargetType\fR field as defined by the package recipe
+T}
+_
+$DUB_TARGET_PATH @T{
+Contents of the \fItargetPath\fR field as defined by the package recipe
+T}
+_
+$DUB_TARGET_NAME @T{
+Contents of the \fItargetName\fR field as defined by the package recipe
+T}
+_
+$DUB_WORKING_DIRECTORY @ Working directory in which the compiled program gets run
+_
+$DUB_MAIN_SOURCE_FILE @T{
+Contents of the \fImainSourceFile\fR field as defined by the package recipe
+T}
+_
+$DUB_CONFIG @ Name of the selected build configuration (e.g. "application" or "library")
+_
+$DUB_BUILD_TYPE @ Name of the selected build type (e.g. "debug" or "unittest")
+_
+$DUB_BUILD_MODE @ Name of the selected build mode (e.g. "separate" or "singleFile")
+_
+$DUB_COMBINED @  "TRUE" if the \fB--combined\fR flag was used, empty otherwise
+_
+$DUB_RUN @ "TRUE" if the "run" command was invoked, empty otherwise
+_
+$DUB_FORCE @  "TRUE" if the \fB--force\fR flag was used, empty otherwise
+_
+$DUB_RDMD @  "TRUE" if the \fB--rdmd\fR flag was used, empty otherwise
+_
+$DUB_TEMP_BUILD @  "TRUE" if the \fB--temp-build\fR flag was used, empty otherwise
+_
+$DUB_PARALLEL_BUILD @  "TRUE" if the \fB--parallel\fR flag was used, empty otherwise
+_
+$DUB_RUN_ARGS @T{
+Contains the arguments passed to the built executable in shell compatible
+format
+T}
+.TE
+
+.SH CONFIGURATIONS
+
+In addition to platform specific build settings, it is possible to define build
+configurations. Build configurations add or override build settings to the
+global ones. To choose a configuration, use \fBdub --config\fR=\fINAME\fR. By
+default, the first configuration that matches the target type and build
+platform is selected automatically. The configurations are defined by adding a
+\fIconfiguration\fR directive.
+
+If no configurations are specified, dub automatically tries to detect the two
+default configurations "application" and "library". The "application"
+configuration is only added if at least one of the following files is found:
+source/app.d, source/main.d, source/<package>/app.d, source/<package>/main.d,
+src/app.d, src/main.d, src/<package>/app.d, src/<package>/main.d. Those files
+are expected to contain only the application entry point (usually main()) and
+are only added to the "application" configuration.
+
+The configuration name "unittest" has a special meaning - if a configuration
+with this name is present, it will be used by default when executing \fBdub
+test\fR.  It can be assumed to have the \fB-unittest\fR flag present (through
+the "unittest" build type). Possible use cases for custom unittest
+configurations overriding the default behavior of excluding the main source
+file or adding additional modules containing additional external tests, which
+don't need to be compiled in the application/library mode.
+
+When defining a configuration's platform, any of the specifiers described in
+\fBBUILD SETTINGS\fR may be combined to make the configuration as specific as
+necessary.
+
+The following example defines "metro-app" and "desktop-app" configurations that
+are only available on Windows and a "glut-app" configuration that is available
+on all platforms.
+
+.nf
+...
+name "somepackage"
+configuration "metro-app" {
+    platforms "windows"
+    targetType "executable"
+    versions "MetroApp"
+    libs "d3d11"
+}
+configuration "desktop-app" {
+    platforms "windows"
+    targetType "executable"
+    versions "DesktopApp"
+    libs "d3d9"
+}
+configuration "glut-app" {
+    // works on any platform
+    targetType "executable"
+    versions "GlutApp"
+}
+.fi
+.PP
+You can choose a specific configuration for certain dependencies by using the
+\fIsubConfigurations\fR directive:
+.nf
+...
+    dependency "somepackage" version=">=1.0.0"
+    subConfiguration "somepackage" "glut-app"
+.fi
+.PP
+If no configuration is specified for a package, the first one that matches the
+current platform is chosen (see the \fIplatforms\fR setting below).
+
+.PP
+In addition to the usual build settings, the following settings are recognized
+inside of a configuration block:
+
+.TS
+box tab(@);
+cB | cB | cB
+c | c | l.
+Name @ Arguments @ Description
+_
+platforms @ "\fISPEC1\fR ["\fISPEC2\fR [...]] @T{
+A list of platform specifiers to limit on which platforms the configuration
+applies
+T}
+.TE
+
+.SH BUILD TYPES
+
+By default, a set of predefined build types is already provided by DUB and can
+be specified using \fBdub build \-\-build\fR=\fINAME\fR:
+
+.TS
+box tab(@);
+cB | cB
+c | l.
+Name @ Build options
+_
+plain @ []
+_
+debug @ ["debugMode", "debugInfo"]
+_
+release @ ["releaseMode", "optimize", "inline"]
+_
+release-debug @ ["releaseMode", "optimize", "inline", "debugInfo"]
+_
+release-noboundscheck @ ["releaseMode", "optimize", "inline", "noBoundsCheck"]
+_
+unittest @ ["unittests", "debugMode", "debugInfo"]
+_
+docs @ ["syntaxOnly"], plus "dflags": ["-c", "-Dddocs"]
+_
+ddox @ ["syntaxOnly"], plus "dflags": ["-c", "-Df__dummy.html", "-Xfdocs.json"]
+_
+profile @ ["profile", "optimize", "inline", "debugInfo"]
+_
+profile-gc @ ["profileGC", "debugInfo"]
+_
+cov @ ["coverage", "debugInfo"]
+_
+unittest-cov @ ["unittests", "coverage", "debugMode", "debugInfo"]
+.TE
+.PP
+The existing build types can be customized and new build types can be added
+using the global \fIbuildType\fR directive. Any of the low level build settings
+(excluding \fIdependencies\fR, \fItargetType\fR, \fItargetName\fR,
+\fItargetPath\fR, \fIworkingDirectory\fR, \fIsubConfigurations\fR) can be used
+inside those. The build settings specified here will later be
+modified/augmented by the package/configuration specific settings.
+
+An example that overrides the "debug" build type and defines a new
+"debug-profile" type:
+
+name "my-package"
+buildType "debug" {
+    buildOptions "debugMode" "debugInfo" "optimize"
+}
+buildType "debug-profile" {
+    buildOptions "debugMode" "debugInfo" "profile"
+}
+.SH SEE ALSO
+
+\fIdub\fR(1)
+\fIdub.json\fR(5)
