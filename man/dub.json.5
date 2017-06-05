@@ -1,0 +1,83 @@
+
+.TH DUB.JSON "5"
+
+.SH NAME
+
+dub.json \- a package recipe file
+
+.SH DESCRIPTION
+
+Every DUB package should contain a dub.json (or dub.sdl, see \fIdub.sdl\fR(5))
+file in its root folder\&. This file contains meta\-information about the
+project and its dependencies\&. This information is used for building the
+project and for deploying it using the registry\&. The following sections give
+an overview of the recognized settings and their meaning\&. Note that any
+unknown settings are ignored for backwards compatibility reasons\&.
+
+Please keep the description concise (not more than 100 characters) and avoid
+including unspecific information such as the fact that the package is written
+in D\&. The same goes for the package name \- since all DUB packages are
+written in D, it's usually better to avoid mentioning D explicitly, unless the
+package is for example a high-level wrapper around a C\&/C++ library\&.
+
+.SH GLOBAL SETTINGS
+
+In addition to the settings listed here, all build settings are allowed at the
+global scope\&.
+
+.TS
+box tab(@);
+cB | cB | cB | cB
+c | c | l | l.
+Name @ Type @ Notes @ Description
+_
+name @ string @ required @T{
+Name of the package, used to uniquely identify the package. Must be comprised
+of only lower case ASCII alpha-numeric characters, "\-" or "_"
+T}
+_
+description @ string @ required for publishing @T{
+Brief description of the package
+T}
+_
+homepage @ string @ @ URL of the project website
+_
+authors @ string[] @ @T{
+List of project authors (the suggested format is either "Peter Parker" or
+"Peter Parker <pparker@example.com>)
+T}
+_
+copyright @ string @ @ Copyright declaration string
+_
+licenes @ string @ required for publishing @T{
+License(s) under which the project can be used \- see the \fBLICENSE
+SPECIFICATION\fR section for possible values
+T}
+_
+subPackages @ T[] @ @T{
+Defines an array of sub\-packages defined in the same directory as the root
+project, where each entry is either a path of a subfolder or an object of the
+same format as a dub.json file \- see the \fBSUBPACKAGE\fR section for more 
+information
+T}
+_
+configurations @ T[] @ @T{
+Specified an optional list of build configurations (chosen on the command line
+using \fB\-\-config\fR) \- see \fBCONFIGURATIONS\fR section for more details.
+T}
+_
+buildTypes @ T[string] @ @T{
+Defines additional custom build types or overrides the default ones (chosen on
+the command line using \fB\-\-build\fR) \- see the \fBBUILD TYPES\fR section
+for an example.
+T}
+_
+ddoxFilterArgs @ string[] @ experimental @T{
+Specifies a list of command line flags usable for controlling filter behaviour
+for \fB\-\-build\fR=\fIddox\fR.
+T}
+.TE
+
+.SH SUBPACKAGES
+
+
