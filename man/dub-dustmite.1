@@ -1,0 +1,118 @@
+
+.TH DUB\-DUSTMITE "1"
+
+.SH NAME
+
+dub\-dustmite \- create reduced test cases for build errors
+
+.SH SYNOPSIS
+
+.B dub dustmite
+.I DESTINATION-PATH
+[\fIOPTIONS...\fR]
+[\-\- \fIAPPLICATION-ARGUMENTS...\fR]
+
+.SH DESCRIPTION
+
+Uses the Dustmite utility to isolate the cause of build errors in a DUB
+project\&.
+.PP
+It will create a copy of all involved packages and run dustmite on this copy,
+leaving a reduced test case\&.
+.PP
+Determining the desired error condition is done by checking the compiler/linker
+status code, as well as their output (stdout and stderr combined)\&. If
+\fB\-\-program\-status\fR or \fB\-\-program\-regex\fR is given and the
+generated binary is an executable, it will be executed and its output will also
+be incorporated into the final decision\&.
+
+.SH OPTIONS
+
+Apart of the options listed below, this command also honours common options 
+listed in \fIdub\fR(1)\&.
+
+.TP
+\fB\-\-compiler\-status\fR=\fISTATUS\fR
+The expected status code of the compiler run\&.
+
+.TP
+\fB\-\-compiler\-regex\fR=\fIREGEX\fR
+A regular expression used to match against the compiler output\&.
+
+.TP
+\fB\-\-linker\-status\fR=\fISTATUS\fR
+The expected status code of the linker run\&.
+
+.TP
+\fB\-\-linker\-regex\fR=\fIREGEX\fR
+A regular expression used to match against the linker output\&.
+
+.TP
+\fB\-\-program\-status\fR=\fISTATUS\fR
+The expected status code of the built executable\&.
+
+.TP
+\fB\-\-program\-regex\fR=\fIREGEX\fR
+A regular expression used to match against the program output\&.
+
+.TP
+\fB\-\-test\-package\fR=\fIVALUE\fR
+Perform a test run - usually only used internally\&.
+
+.TP
+\fB\-\-combined\fR
+Try to build the whole project in a single compiler run\&.
+
+.TP
+\fB\-b, \-\-build\fR=\fIBUILD TYPE\fR
+Perform specified build type\&. Note that setting the DFLAGS environment variable
+will override the build type with custom flags\&. Possible names are
+\fIdebug\fR (default), \fIplain\fR, \fIrelease\fR, \fIrelease-debug\fR,
+\fIrelease-nobounds\fR, \fIunittest\fR, \fIprofile\fR, \fIprofile-gc\fR,
+\fIdocs\fR, \fIddox\fR, \fIcov\fR, \fIunittest-cov\fR and custom types\&.
+
+.TP
+\fB\-c, \-\-config\fR=\fICONFIG\fB
+Build the specified configuration\&. Configurations can be defined in
+\fIdub\&.json\fB or \fIdub\&.sdl\fB\&.
+ 
+.TP
+\fB\-\-override\-config\fR=\fIDEPENDENCY\fB/\fICONFIG\fB
+Use the specified configuration for a certain dependency\&. Can be specified
+multiple times\&.
+
+.TP
+\fB\-\-compiler\fR=\fICOMPILER\fR
+Use the specified compiler (can be a path)\&. Arbitrary pre\- and suffixes to the
+identifiers below are recognized (e\&.g\&. ldc2 or dmd\-2\&.063) and matched to the
+proper compiler type: \fIdmd\fB, \fIgdc\fR, \fIldc\fR, \fIgdmd\fR, \fIldmd\fR\&.
+
+.TP
+\fB\-a\fR, \fB\-\-arch\fR=\fIARCHITECTURE\fR
+Force a different architecture (e\&.g\&. x86 or x86_64)\&.
+
+.TP
+\fB\-d\fR, \fB\-\-debug\fR=\fIVALUE\fR
+Define the specified debug version identifier when building\&. Can be used
+multiple times\&.
+
+.TP
+\fB\-\-nodeps\fR
+Do not check or update dependencies before building\&.
+
+.TP
+\fB\-\-build\-mode\fR=\fIseparate\fB|\fIallAtOnce\fB|\fIsingleFile\fR
+Specify the way the compiler and linker are invoked\&. Default is \fIseparate\fR\&.
+
+.TP
+\fB\-\-single\fR
+Treat the package name as a filename\&. The file must contain a package recipe
+comment\&.
+
+.TP
+\fB\-\-force\-remove\fR
+Deprecated\&.
+
+.SH SEE ALSO
+
+\fIdub\fR(1), \fIdub\-run\fR(1), \fIdub\-test\fR(1)
