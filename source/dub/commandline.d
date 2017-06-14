@@ -478,6 +478,8 @@ class InitCommand : Command {
 		}
 
 		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
+			import std.datetime: Clock;
+
 			if (m_nonInteractive) return;
 
 			while (true) {
@@ -506,7 +508,8 @@ class InitCommand : Command {
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
 			p.license = input("License", p.license);
-			p.copyright = input("Copyright string", p.copyright);
+			string copyrightString = .format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
+			p.copyright = input("Copyright string", copyrightString);
 
 			while (true) {
 				auto depname = input("Add dependency (leave empty to skip)", null);
