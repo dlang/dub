@@ -24,7 +24,6 @@ import dub.internal.utils : getDUBVersion, getClosestMatch;
 
 import std.algorithm;
 import std.array;
-import std.datetime: Clock;
 import std.conv;
 import std.encoding;
 import std.exception;
@@ -479,6 +478,8 @@ class InitCommand : Command {
 		}
 
 		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
+			import std.datetime: Clock;
+
 			if (m_nonInteractive) return;
 
 			while (true) {
