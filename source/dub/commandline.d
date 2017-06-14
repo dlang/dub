@@ -497,7 +497,7 @@ class InitCommand : Command {
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
 			p.license = input("License", p.license);
-			string copyrightString = .format("Copyright © %s, %s", Clock.currTime().year, join(p.authors, ", "));
+			string copyrightString = .format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
 			p.copyright = input("Copyright string", copyrightString);
 
 			while (true) {
