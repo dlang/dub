@@ -243,10 +243,14 @@ class Project {
 			string ret;
 			ret ~= `Please modify the "name" field in %s accordingly.`.format(m_rootPackage.recipePath.toNativeString());
 			if (!m_rootPackage.recipe.buildSettings.targetName.length) {
-				if (m_rootPackage.recipePath.head.toString().endsWith(".sdl")) {
-					ret ~= ` You can then add 'targetName "%s"' to keep the current executable name.`.format(m_rootPackage.name);
-				} else {
+				with (RecipeFormat) final switch (m_rootPackage.recipe.format)
+				{
+				case json:
 					ret ~= ` You can then add '"targetName": "%s"' to keep the current executable name.`.format(m_rootPackage.name);
+					break;
+				case sdl:
+					ret ~= ` You can then add 'targetName "%s"' to keep the current executable name.`.format(m_rootPackage.name);
+					break;
 				}
 			}
 			return ret;
@@ -1419,4 +1423,3 @@ final class SelectedVersions {
 			m_selections[p] = Selected(dependencyFromJson(v));
 	}
 }
-
