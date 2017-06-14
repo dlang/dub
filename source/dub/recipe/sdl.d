@@ -61,16 +61,15 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 	// parse general build settings
 	parseBuildSettings(sdl, recipe.buildSettings, full_name);
 
-	// determine default target type for configurations
-	auto defttype = recipe.buildSettings.targetType;
-	if (defttype == TargetType.autodetect)
-		defttype = TargetType.library;
-
 	// parse configurations
 	recipe.configurations.length = configs.length;
 	foreach (i, n; configs) {
-		recipe.configurations[i].buildSettings.targetType = defttype;
 		parseConfiguration(n, recipe.configurations[i], full_name);
+		if (recipe.buildSettings.targetType == TargetType.autodetect &&
+			recipe.configurations[i].buildSettings.targetType == TargetType.autodetect) {
+			logWarn("Warning: Configuration '%s' has no targetType, using 'library' as default.", recipe.configurations[i].name);
+			recipe.configurations[i].buildSettings.targetType = TargetType.library;
+		}
 	}
 
 	// finally parse all sub packages
