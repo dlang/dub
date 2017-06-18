@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/bash
+set -e -o pipefail
+
 cd ${CURR_DIR}/issue1037-better-dependency-messages
 
 temp_file=$(mktemp $(basename $0).XXXXXX)
