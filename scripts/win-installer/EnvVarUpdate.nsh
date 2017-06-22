@@ -145,7 +145,7 @@ Function ${UN}EnvVarUpdate
     Goto EnvVarUpdate_Restore_Vars
   ${EndIf}
 
-  ;;khc - here check if length is going to be greater then max string length
+  ;;khc - here check if length is going to be greater than max string length
   ;;      and abort if so - also abort if original path empty - may mean
   ;;      it was too long as well- write message to say set it by hand
 

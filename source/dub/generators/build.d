@@ -136,7 +136,7 @@ class BuildGenerator : ProjectGenerator {
 		else cached = performCachedBuild(settings, buildsettings, pack, config, build_id, packages, additional_dep_files, target_path);
 
 		// HACK: cleanup dummy doc files, we shouldn't specialize on buildType
-		// here and the compiler shouldn't need dummy doc ouput.
+		// here and the compiler shouldn't need dummy doc output.
 		if (settings.buildType == "ddox") {
 			if ("__dummy.html".exists)
 				removeFile("__dummy.html");
@@ -159,7 +159,10 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = Path(getcwd());
 
 		Path target_path;
-		if (settings.tempBuild) m_targetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", pack.name, pack.version_, build_id);
+		if (settings.tempBuild) {
+			string packageName = pack.basePackage is null ? pack.name : pack.basePackage.name;
+			m_targetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
+		}
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
@@ -203,7 +206,7 @@ class BuildGenerator : ProjectGenerator {
 	private void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out Path target_path)
 	{
 		auto cwd = Path(getcwd());
-		//Added check for existance of [AppNameInPackagejson].d
+		//Added check for existence of [AppNameInPackagejson].d
 		//If exists, use that as the starting file.
 		Path mainsrc;
 		if (buildsettings.mainSourceFile.length) {

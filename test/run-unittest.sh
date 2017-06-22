@@ -50,7 +50,7 @@ for pack in $(ls -d $CURR_DIR/*/); do
         fi
     fi
 
-    # We run the ones that are supposed to be runned
+    # We run the ones that are supposed to be ran
     if [ ! -e $pack/.no_build ] && [ ! -e $pack/.no_run ]; then
         log "Running $pack..."
         $DUB run --force --root=$pack --compiler=$DC || logError "Run failure."

@@ -265,7 +265,7 @@ struct Json {
 		m_object[key] = Json.init;
 		assert(m_object !is null);
 		assert(key in m_object, "Failed to insert key '"~key~"' into AA!?");
-		m_object[key].m_type = Type.undefined; // DMDBUG: AAs are teh $H1T!!!11
+		m_object[key].m_type = Type.undefined; // DMDBUG: AAs are the $H1T!!!11
 		assert(m_object[key].type == Type.undefined);
 		m_object[key].m_string = key;
 		version (VibeJsonFieldNames) m_object[key].m_name = format("%s.%s", m_name, key);

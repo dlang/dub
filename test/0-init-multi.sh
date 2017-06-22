@@ -14,7 +14,7 @@ if [ ! -e $packname/dub.sdl ]; then # it failed, exit 1
     echo "No dub.sdl file has been generated."
     cleanup
     exit 1
-else # check if resulting dub.sdl has all dependancies in tow
+else # check if resulting dub.sdl has all dependencies in tow
     deps="$deps vibe-d";
     IFS=" " read -a arr <<< "$deps"
     for ele in "${arr[@]}"

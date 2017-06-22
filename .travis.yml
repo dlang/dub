@@ -3,6 +3,14 @@ sudo: false
 
 matrix:
   include:
+    - d: dmd-nightly
+      env: [FRONTEND=2.074]
+    - d: dmd-beta
+      env: [FRONTEND=2.074]
+    - d: dmd
+      env: [FRONTEND=2.074]
+    - d: dmd-2.074.0
+      env: [FRONTEND=2.074]
     - d: dmd-2.073.0
       env:
         - [FRONTEND=2.073]
@@ -23,24 +31,29 @@ matrix:
       env: [FRONTEND=2.066]
     - d: dmd-2.065.0
       env: [FRONTEND=2.065]
+    - d: ldc-beta
+      env: [FRONTEND=2.073]
+    - d: ldc
+      env: [FRONTEND=2.072]
+    - d: ldc-1.2.0
+      env: [FRONTEND=2.072]
     - d: ldc-1.1.0
       env: [FRONTEND=2.071]
     - d: ldc-1.0.0
       env: [FRONTEND=2.070]
     - d: ldc-0.17.2
       env: [FRONTEND=2.068]
-    - d: ldc-0.16.1
-      env: [FRONTEND=2.067]
-    - d: ldc-0.15.1
-      env: [FRONTEND=2.066]
-    - d: ldc-0.14.0
-      env: [FRONTEND=2.065]
+    - d: gdc
+      env: [FRONTEND=2.068]
     - d: gdc-5.2.0
       env: [FRONTEND=2.066]
     - d: gdc-4.9.2
       env: [FRONTEND=2.066]
     - d: gdc-4.9.0
       env: [FRONTEND=2.065]
+
+  allow_failures:
+    - d: gdc
 
 script:
   - ./travis-ci.sh

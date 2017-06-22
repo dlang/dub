@@ -27,7 +27,7 @@ import std.range;
 
 	Sub qualified package names are lists of package names separated by ":". For
 	example, "packa:packb:packc" references a package named "packc" that is a
-	sub package of "packb", wich in turn is a sub package of "packa".
+	sub package of "packb", which in turn is a sub package of "packa".
 */
 string[] getSubPackagePath(string package_name)
 {
@@ -173,7 +173,7 @@ struct BuildSettingsTemplate {
 			dst.addSourceFiles(this.mainSourceFile);
 		}
 
-		void collectFiles(string method)(in string[][string] paths_map, string pattern)
+		string[] collectFiles(in string[][string] paths_map, string pattern)
 		{
 			auto files = appender!(string[]);
 
@@ -192,24 +192,29 @@ struct BuildSettingsTemplate {
 
 					foreach (d; dirEntries(path.toNativeString(), pattern, SpanMode.depth)) {
 						import std.path : baseName;
-						if (baseName(d.name)[0] == '.' || isDir(d.name)) continue;
+						if (baseName(d.name)[0] == '.' || d.isDir) continue;
 						auto src = Path(d.name).relativeTo(base_path);
 						files ~= src.toNativeString();
 					}
 				}
 			}
 
-			__traits(getMember, dst, method)(files.data);
+			return files.data;
 		}
 
-		// collect files from all source/import folders
-		collectFiles!"addSourceFiles"(sourcePaths, "*.d");
-		collectFiles!"addImportFiles"(importPaths, "*.{d,di}");
-		dst.removeImportFiles(dst.sourceFiles);
-		collectFiles!"addStringImportFiles"(stringImportPaths, "*");
+ 		// collect source files
+		dst.addSourceFiles(collectFiles(sourcePaths, "*.d"));
+		auto sourceFiles = dst.sourceFiles.sort();
 
-		// ensure a deterministic order of files as passed to the compiler
-		dst.sourceFiles.sort();
+ 		// collect import files and remove sources
+		import std.algorithm : copy, setDifference;
+
+		auto importFiles = collectFiles(importPaths, "*.{d,di}").sort();
+		immutable nremoved = importFiles.setDifference(sourceFiles).copy(importFiles.release).length;
+		importFiles = importFiles[0 .. $ - nremoved];
+		dst.addImportFiles(importFiles.release);
+
+		dst.addStringImportFiles(collectFiles(stringImportPaths, "*"));
 
 		getPlatformSetting!("dflags", "addDFlags")(dst, platform);
 		getPlatformSetting!("lflags", "addLFlags")(dst, platform);

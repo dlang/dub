@@ -143,9 +143,13 @@ class DMDCompiler : Compiler {
 
 	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 	const {
+		import std.conv: text;
 		assert(settings.targetName.length > 0, "No target name set.");
 		final switch (settings.targetType) {
-			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
+			case TargetType.autodetect:
+				assert(false,
+					   text("Configurations must have a concrete target type, ", settings.targetName,
+							" has ", settings.targetType));
 			case TargetType.none: return null;
 			case TargetType.sourceLibrary: return null;
 			case TargetType.executable:
@@ -212,7 +216,7 @@ class DMDCompiler : Compiler {
 		auto args = ["-of"~tpath.toNativeString()];
 		args ~= objects;
 		args ~= settings.sourceFiles;
-		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
+		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order by DMD
 		args ~= lflagsToDFlags(settings.lflags);
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 
