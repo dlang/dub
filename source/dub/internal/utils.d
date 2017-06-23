@@ -267,7 +267,7 @@ version(DubUseCurl) {
 		if (proxy.length) conn.proxy = proxy;
 
 		auto noProxy = environment.get("no_proxy", null);
-     	if (noProxy.length) conn.handle.set(CurlOption.noproxy, noProxy);
+		if (noProxy.length) conn.handle.set(CurlOption.noproxy, noProxy);
 
 		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
 	}
