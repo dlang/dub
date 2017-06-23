@@ -103,7 +103,7 @@ class BuildGenerator : ProjectGenerator {
 		auto buildsettings = targets[m_project.rootPackage.name].buildSettings.dup;
 		if (settings.run && !(buildsettings.options & BuildOption.syntaxOnly)) {
 			Path exe_file_path;
-			if (!m_targetExecutablePath.length)
+			if (m_targetExecutablePath.empty)
 				exe_file_path = getTargetPath(buildsettings, settings);
 			else
 				exe_file_path = m_targetExecutablePath ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);

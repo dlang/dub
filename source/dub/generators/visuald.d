@@ -203,10 +203,10 @@ class VisualDGenerator : ProjectGenerator {
 
 			// Create folders and files
 			ret.formattedWrite("  <Folder name=\"%s\">", getPackageFileName(packname));
-			Path lastFolder;
+			typeof(Path.init.head)[] lastFolder;
 			foreach(source; sortedSources(sourceFiles.values)) {
 				logDebug("source looking at %s", source.structurePath);
-				auto cur = source.structurePath[0 .. source.structurePath.length-1];
+				auto cur = source.structurePath.parentPath.bySegment.array;
 				if(lastFolder != cur) {
 					size_t same = 0;
 					foreach(idx; 0..min(lastFolder.length, cur.length))
@@ -317,8 +317,8 @@ class VisualDGenerator : ProjectGenerator {
 				foreach (f; buildsettings.sourceFiles) {
 					auto rpath = Path(f).relativeTo(project_file_dir);
 					size_t nd = 0;
-					foreach (i; 0 .. rpath.length)
-						if (rpath[i] == "..")
+					foreach (s; rpath.bySegment)
+						if (s == "..")
 							nd++;
 					if (nd > ndummy) ndummy = nd;
 				}
@@ -460,13 +460,13 @@ class VisualDGenerator : ProjectGenerator {
 		private final static int sortOrder(ref const SourceFile a, ref const SourceFile b) {
 			assert(!a.structurePath.empty);
 			assert(!b.structurePath.empty);
-			auto as = a.structurePath;
-			auto bs = b.structurePath;
+			auto as = a.structurePath.bySegment.array;
+			auto bs = b.structurePath.bySegment.array;
 
 			// Check for different folders, compare folders only (omit last one).
 			for(uint idx=0; idx<min(as.length-1, bs.length-1); ++idx)
 				if(as[idx] != bs[idx])
-					return as[idx].opCmp(bs[idx]);
+					return as[idx].name.cmp(bs[idx].name);
 
 			if(as.length != bs.length) {
 				// If length differ, the longer one is "smaller", that is more
@@ -476,7 +476,7 @@ class VisualDGenerator : ProjectGenerator {
 			else {
 				// Both paths indicate files in the same directory, use lexical
 				// ordering for those.
-				return as.head.opCmp(bs.head);
+				return as[$-1].name.cmp(bs[$-1].name);
 			}
 		}
 	}
@@ -511,7 +511,7 @@ private Path determineStructurePath(Path file_path, in ProjectGenerator.TargetIn
 {
 	foreach (p; target.packages) {
 		if (file_path.startsWith(p.path))
-			return Path(getPackageFileName(p.name)) ~ file_path[p.path.length .. $];
+			return Path(getPackageFileName(p.name)) ~ file_path.relativeTo(p.path);
 	}
 	return Path("misc/") ~ file_path.head;
 }

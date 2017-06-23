@@ -338,6 +338,8 @@ class PackageManager {
 	/// destination and sets a version field in the package description.
 	Package storeFetchedPackage(Path zip_file_path, Json package_info, Path destination)
 	{
+		import std.range : walkLength;
+
 		auto package_name = package_info["name"].get!string;
 		auto package_version = package_info["version"].get!string;
 		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
@@ -361,11 +363,12 @@ class PackageManager {
 		logDebug("Extracting from zip.");
 
 		// In a github zip, the actual contents are in a subfolder
-		Path zip_prefix;
+		alias PSegment = typeof(Path.init.head);
+		PSegment[] zip_prefix;
 		outer: foreach(ArchiveMember am; archive.directory) {
-			auto path = Path(am.name);
+			auto path = Path(am.name).bySegment.array;
 			foreach (fil; packageInfoFiles)
-				if (path.length == 2 && path.head.toString == fil.filename) {
+				if (path.length == 2 && path[$-1].toString == fil.filename) {
 					zip_prefix = path[0 .. $-1];
 					break outer;
 				}
@@ -375,8 +378,9 @@ class PackageManager {
 
 		Path getCleanedPath(string fileName) {
 			auto path = Path(fileName);
-			if(zip_prefix != Path() && !path.startsWith(zip_prefix)) return Path();
-			return path[zip_prefix.length..path.length];
+			if (zip_prefix.length && !path.bySegment.startsWith(zip_prefix)) return Path.init;
+			static if (is(typeof(path[0 .. 1]))) return path[zip_prefix.length .. $];
+			else return Path(path.bySegment.array[zip_prefix.length .. $]);
 		}
 
 		static void setAttributes(string path, ArchiveMember am)
@@ -396,7 +400,7 @@ class PackageManager {
 		foreach(ArchiveMember a; archive.directory) {
 			auto cleanedPath = getCleanedPath(a.name);
 			if(cleanedPath.empty) continue;
-			auto dst_path = destination~cleanedPath;
+			auto dst_path = destination ~ cleanedPath;
 
 			logDebug("Creating %s", cleanedPath);
 			if( dst_path.endsWithSlash ){

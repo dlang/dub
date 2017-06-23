@@ -1711,7 +1711,7 @@ class DustmiteCommand : PackageBuildCommand {
 			enforceUsage(free_args.length == 1, "Expected destination path.");
 			auto path = Path(free_args[0]);
 			path.normalize();
-			enforceUsage(path.length > 0, "Destination path must not be empty.");
+			enforceUsage(!path.empty, "Destination path must not be empty.");
 			if (!path.absolute) path = Path(getcwd()) ~ path;
 			enforceUsage(!path.startsWith(dub.rootPath), "Destination path must not be a sub directory of the tested package!");
 
@@ -1739,7 +1739,7 @@ class DustmiteCommand : PackageBuildCommand {
 			}
 
 			static void fixPathDependency(string pack, ref Dependency dep) {
-				if (dep.path.length > 0) {
+				if (!dep.path.empty) {
 					auto mainpack = getBasePackageName(pack);
 					dep.path = Path("../") ~ mainpack;
 				}

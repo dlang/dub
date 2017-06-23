@@ -230,7 +230,7 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 
 	foreach (pack, d; bs.dependencies) {
 		Attribute[] attribs;
-		if (d.path.length) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
+		if (!d.path.empty) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
 		else attribs ~= new Attribute(null, "version", Value(d.versionSpec));
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
 		ret ~= new Tag(null, "dependency", [Value(pack)], attribs);

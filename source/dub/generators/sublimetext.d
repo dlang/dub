@@ -11,6 +11,7 @@ import dub.compilers.compiler;
 import dub.generators.generator;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
+import dub.internal.vibecompat.inet.path;
 import dub.packagemanager;
 import dub.project;
 

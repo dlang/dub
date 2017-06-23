@@ -516,11 +516,11 @@ class Dub {
 	*/
 	void testProject(GeneratorSettings settings, string config, Path custom_main_file)
 	{
-		if (custom_main_file.length && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
+		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
 
 		if (config.length == 0) {
 			// if a custom main file was given, favor the first library configuration, so that it can be applied
-			if (custom_main_file.length) config = m_project.getDefaultConfiguration(settings.platform, false);
+			if (!custom_main_file.empty) config = m_project.getDefaultConfiguration(settings.platform, false);
 			// else look for a "unittest" configuration
 			if (!config.length && m_project.rootPackage.configurations.canFind("unittest")) config = "unittest";
 			// if not found, fall back to the first "library" configuration
@@ -565,7 +565,7 @@ class Dub {
 			if (!mainfil.length) mainfil = m_project.rootPackage.recipe.buildSettings.mainSourceFile;
 
 			string custommodname;
-			if (custom_main_file.length) {
+			if (!custom_main_file.empty) {
 				import std.path;
 				tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(m_project.rootPackage.path).toNativeString();
 				tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
@@ -1090,13 +1090,13 @@ class Dub {
 		}
 
 		auto srcfile = m_project.rootPackage.recipePath;
-		auto srcext = srcfile[$-1].toString().extension;
+		auto srcext = srcfile.head.toString().extension;
 		if (srcext == "."~destination_file_ext) {
 			logInfo("Package format is already %s.", destination_file_ext);
 			return;
 		}
 
-		writePackageRecipe(srcfile[0 .. $-1] ~ ("dub."~destination_file_ext), m_project.rootPackage.rawRecipe);
+		writePackageRecipe(srcfile.parentPath ~ ("dub."~destination_file_ext), m_project.rootPackage.rawRecipe);
 		removeFile(srcfile);
 	}
 
@@ -1165,7 +1165,7 @@ class Dub {
 
 	private void updatePackageSearchPath()
 	{
-		if (m_overrideSearchPath.length) {
+		if (!m_overrideSearchPath.empty) {
 			m_packageManager.disableDefaultSearchPaths = true;
 			m_packageManager.searchPath = [m_overrideSearchPath];
 		} else {

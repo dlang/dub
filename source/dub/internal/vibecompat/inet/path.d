@@ -7,7 +7,8 @@
 */
 module dub.internal.vibecompat.inet.path;
 
-version (Have_vibe_d_core) public import vibe.inet.path;
+version (Have_vibe_core) public import vibe.core.path;
+else version (Have_vibe_d_core) public import vibe.inet.path;
 else:
 
 import std.algorithm;
@@ -30,6 +31,10 @@ struct Path {
 		bool m_absolute = false;
 		bool m_endsWithSlash = false;
 	}
+
+	alias Segment = PathEntry;
+
+	alias bySegment = nodes;
 
 	/// Constructs a Path object by parsing a path string.
 	this(string pathstr)
@@ -282,6 +287,8 @@ struct PathEntry {
 	}
 
 	string toString() const pure { return m_name; }
+
+	@property string name() const { return m_name; }
 
 	Path opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return Path([this, rhs], false); }
 

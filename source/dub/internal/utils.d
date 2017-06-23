@@ -146,7 +146,7 @@ void writeJsonFile(Path path, Json json)
 void atomicWriteJsonFile(Path path, Json json)
 {
 	import std.random : uniform;
-	auto tmppath = path[0 .. $-1] ~ format("%s.%s.tmp", path.head, uniform(0, int.max));
+	auto tmppath = path.parentPath ~ format("%s.%s.tmp", path.head, uniform(0, int.max));
 	auto f = openFile(tmppath, FileMode.createTrunc);
 	scope (failure) {
 		f.close();
@@ -445,6 +445,8 @@ string stripDlangSpecialChars(string s)
 string determineModuleName(BuildSettings settings, Path file, Path base_path)
 {
 	import std.algorithm : map;
+	import std.array : array;
+	import std.range : walkLength;
 
 	assert(base_path.absolute);
 	if (!file.absolute) file = base_path ~ file;
@@ -453,14 +455,14 @@ string determineModuleName(BuildSettings settings, Path file, Path base_path)
 	foreach (ipath; settings.importPaths.map!(p => Path(p))) {
 		if (!ipath.absolute) ipath = base_path ~ ipath;
 		assert(!ipath.empty);
-		if (file.startsWith(ipath) && ipath.length > path_skip)
-			path_skip = ipath.length;
+		if (file.startsWith(ipath) && ipath.bySegment.walkLength > path_skip)
+			path_skip = ipath.bySegment.walkLength;
 	}
 
 	enforce(path_skip > 0,
 		format("Source file '%s' not found in any import path.", file.toNativeString()));
 
-	auto mpath = file[path_skip .. file.length];
+	auto mpath = file.bySegment.array[path_skip .. $];
 	auto ret = appender!string;
 
 	//search for module keyword in file
