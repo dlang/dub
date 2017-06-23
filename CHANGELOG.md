@@ -1,6 +1,22 @@
 Changelog
 =========
 
+v1.4.0 - 2017-
+-------------------
+
+- The copyright string is generated automatically by "dub init"
+- "dub init" lets the user retry to enter the package name if not valid (by NotSpooky) - [pull #1122][issue1122]
+- Improved collection speed for source/import files - [pull #1125][issue1125]
+- Fixed "dub init" to allow digits in package names (by chadjoan) - [pull #1165][issue1165]
+- Fixed a sub package build issue on Windows, where colons were used as part of the file name (by andre2007) - [issue #1130][issue1130], [pull #1137][issue1137]
+
+[issue1122]: https://github.com/dlang/dub/issues/1122
+[issue1125]: https://github.com/dlang/dub/issues/1125
+[issue1130]: https://github.com/dlang/dub/issues/1130
+[issue1137]: https://github.com/dlang/dub/issues/1137
+[issue1165]: https://github.com/dlang/dub/issues/1165
+
+
 v1.3.0 - 2017-04-10
 -------------------
 
@@ -15,9 +31,10 @@ v1.3.0 - 2017-04-10
 
 - Fixed bogus rebuild of packages with no dependencies - [pull #1093][issue1093], [issue #1091][issue1091]
 - Fixed building with vibe-core instead of vibe.d 0.7.x
-- Fixed the VisualD generator to properly handle the "x86_mscoff" pseudoarchitecture
+- Fixed the VisualD generator to properly handle the "x86_mscoff" pseudoarchitecture - [4d416e73][commit4d416e73]
 
 [commita75023cd]: https://github.com/dlang/dub/commit/a75023cd050c055e81190bf7abc5793aba39852f
+[commit4d416e73]: https://github.com/dlang/dub/commit/4d416e730df872b552ee1dcfa8340c224a4e51fc
 [issue1071]: https://github.com/dlang/dub/issues/1071
 [issue1078]: https://github.com/dlang/dub/issues/1078
 [issue1079]: https://github.com/dlang/dub/issues/1079
