@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+$DUB remove dub --version=\* || echo "No initial cleanup necessary."
+
 $DUB fetch dub --version=0.9.20 && [ -d $HOME/.dub/packages/dub-0.9.20/dub ]
 $DUB fetch dub --version=0.9.21 && [ -d $HOME/.dub/packages/dub-0.9.21/dub ]
 if $DUB remove dub --non-interactive; then
