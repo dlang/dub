@@ -6,7 +6,7 @@ Name: fake-gtkd
 Description: Fake GtkD shared library for testing
 Version: 1.0.0
 #Requires: phobos2
-# The "-L-defaultlib=libphobos2.so" and "-defaultlib=libphobos2.so" should both end up on the compiler (at link stage) invokation as "-defaultlib=libphobos2.so"
+# The "-L-defaultlib=libphobos2.so" and "-defaultlib=libphobos2.so" should both end up on the compiler (at link stage) invocation as "-defaultlib=libphobos2.so"
 # For this test, it doesn't hurt that they appear twice on the cmd line...
 Libs: -L-L${libdir} -L-l:libfake-gtkd.so -L-l:libdl.so.2 -pthread -L-defaultlib=libphobos2.so -defaultlib=libphobos2.so
 Cflags: -I${includedir}

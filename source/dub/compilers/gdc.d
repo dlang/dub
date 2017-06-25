@@ -209,7 +209,7 @@ class GDCCompiler : Compiler {
 			args = [ "ar", "rcs", tpath ] ~ objects;
 		} else {
 			args = platform.compilerBinary ~ objects ~ settings.sourceFiles ~ settings.lflags ~ settings.dflags.filter!(f => isLinkageFlag(f)).array;
-			version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
+			version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order by DMD
 		}
 		logDiagnostic("%s", args.join(" "));
 		invokeTool(args, output_callback);

@@ -308,7 +308,7 @@ struct Dependency {
 			} else {
 				enforce("version" in verspec, "No version field specified!");
 				auto ver = verspec["version"].get!string;
-				// Using the string to be able to specifiy a range of versions.
+				// Using the string to be able to specify a range of versions.
 				dep = Dependency(ver);
 			}
 
@@ -615,7 +615,7 @@ unittest {
 	assert(a.merge(b) == b);
 	assert(b.merge(a) == b);
 
-	logDebug("Dependency unittest sucess.");
+	logDebug("Dependency unittest success.");
 }
 
 unittest {

@@ -478,6 +478,8 @@ class InitCommand : Command {
 		}
 
 		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
+			import std.datetime: Clock;
+
 			if (m_nonInteractive) return;
 
 			while (true) {
@@ -491,11 +493,23 @@ class InitCommand : Command {
 				}
 			}
 			auto author = p.authors.join(", ");
-			p.name = input("Name", p.name);
+			while (true) {
+				// Tries getting the name until a valid one is given.
+				import std.regex;
+				auto nameRegex = regex(`^[a-z\-_]+$`);
+				string triedName = input("Name", p.name);
+				if (triedName.matchFirst(nameRegex).empty) {
+					logError("Invalid name, \""~triedName~"\", names should consist only of lowercase alphanumeric characters, - and _.");
+				} else {
+					p.name = triedName;
+					break;
+				}
+			}
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
 			p.license = input("License", p.license);
-			p.copyright = input("Copyright string", p.copyright);
+			string copyrightString = .format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
+			p.copyright = input("Copyright string", copyrightString);
 
 			while (true) {
 				auto depname = input("Add dependency (leave empty to skip)", null);
@@ -1106,7 +1120,7 @@ class UpgradeCommand : Command {
 			"Uses the latest pre-release version, even if release versions are available"
 		]);
 		args.getopt("verify", &m_verify, [
-			"Updates the project and performs a build. If successful, rewrites the selected versions file <to be implemeted>."
+			"Updates the project and performs a build. If successful, rewrites the selected versions file <to be implemented>."
 		]);
 		args.getopt("missing-only", &m_missingOnly, [
 			"Performs an upgrade only for dependencies that don't yet have a version selected. This is also done automatically before each build."

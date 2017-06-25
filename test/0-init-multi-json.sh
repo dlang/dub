@@ -12,7 +12,7 @@ function cleanup {
 
 if [ ! -e $packname/dub.json ]; then # it failed, exit 1
     exit 1
-else # check if resulting dub.json has all dependancies in tow
+else # check if resulting dub.json has all dependencies in tow
     deps="$deps vibe-d";
     IFS=" " read -a arr <<< "$deps"
     for ele in "${arr[@]}"

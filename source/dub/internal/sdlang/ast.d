@@ -946,7 +946,7 @@ class Tag
 	}
 
 	/// Access 'attributes', 'tags', 'namespaces' and 'all' like normal,
-	/// except that looking up a non-existant name/namespace with
+	/// except that looking up a non-existent name/namespace with
 	/// opIndex(string) results in an empty array instead of a thrown SDLangRangeException.
 	@property MaybeAccess maybe()
 	{

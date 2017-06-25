@@ -239,7 +239,7 @@ class PackageManager {
 		return isManagedPath(ppath);
 	}
 
-	/** Determines if a specifc path is within a DUB managed package folder.
+	/** Determines if a specific path is within a DUB managed package folder.
 
 		By default, managed folders are "~/.dub/packages" and
 		"/var/lib/dub/packages".
