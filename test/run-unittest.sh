@@ -7,7 +7,7 @@ function log() {
 }
 
 function logError() {
-    echo -e 1>&2 "\033[0;31m"$@"\033[0m"
+    echo -e 1>&2 "\033[0;31m[ERROR] "$@"\033[0m"
     any_errors=1
 }
 
@@ -20,7 +20,7 @@ export -f log
 export -f die
 
 if [ -z ${DUB} ]; then
-    die 'Error: Variable $DUB must be defined to run the tests.'
+    die 'Variable $DUB must be defined to run the tests.'
 fi
 
 if [ -z ${DC} ]; then
