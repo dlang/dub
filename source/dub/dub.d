@@ -133,9 +133,11 @@ class Dub {
 		PackageSupplier[] ps = additional_package_suppliers;
 
 		if (skip_registry < SkipPackageSuppliers.all)
-			ps ~= m_config.registryURLs
+		{
+			ps ~= (environment.get("DUB_REGISTRY", null).split(";") ~ m_config.registryURLs)
 				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
 				.array;
+		}
 
 		if (skip_registry < SkipPackageSuppliers.standard)
 			ps ~= defaultPackageSuppliers();
@@ -143,6 +145,22 @@ class Dub {
 		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_dirs.userSettings, m_dirs.systemSettings);
 		updatePackageSearchPath();
+	}
+
+	unittest
+	{
+		scope (exit) environment.remove("DUB_REGISTRY");
+		auto dub = new Dub(".", null, SkipPackageSuppliers.standard);
+		assert(dub.m_packageSuppliers.length == 0);
+		environment["DUB_REGISTRY"] = "http://example.com/";
+		dub = new Dub(".", null, SkipPackageSuppliers.standard);
+		logInfo("%s", dub.m_packageSuppliers);
+		assert(dub.m_packageSuppliers.length == 1);
+		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
+		dub = new Dub(".", null, SkipPackageSuppliers.standard);
+		assert(dub.m_packageSuppliers.length == 2);
+		dub = new Dub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.standard);
+		assert(dub.m_packageSuppliers.length == 3);
 	}
 
 	/** Initializes the instance with a single package search path, without
