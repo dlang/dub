@@ -107,7 +107,7 @@ struct URL {
 			}
 		}
 
-		this.localURI = str;
+		this.localURI = (str == "") ? "/" : str;
 	}
 	/// ditto
 	static URL parse(string url_string)
@@ -277,4 +277,10 @@ unittest {
 	assert(url.path.toString() == "/sub2/index.html", url.path.toString());
 	assert(url.queryString == "query", url.queryString);
 	assert(url.anchor == "anchor", url.anchor);
+
+	url = URL("http://localhost")~Path("packages");
+	assert(url.toString() == "http://localhost/packages", url.toString());
+
+	url = URL("http://localhost/")~Path("packages");
+	assert(url.toString() == "http://localhost/packages", url.toString());
 }
