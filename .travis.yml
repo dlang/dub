@@ -1,20 +1,21 @@
 language: d
+dist: trusty
 sudo: false
 
 matrix:
   include:
     - d: dmd-nightly
-      env: [FRONTEND=2.074]
+      env: [FRONTEND=2.075]
     - d: dmd-beta
-      env: [FRONTEND=2.074]
+      env: [FRONTEND=2.075]
     - d: dmd
-      env: [FRONTEND=2.074]
-    - d: dmd-2.074.0
-      env: [FRONTEND=2.074]
-    - d: dmd-2.073.0
       env:
-        - [FRONTEND=2.073]
+        - [FRONTEND=2.074]
         - [COVERAGE=true]
+    - d: dmd-2.074.1
+      env: [FRONTEND=2.074]
+    - d: dmd-2.073.2
+      env: [FRONTEND=2.073]
     - d: dmd-2.072.2
       env: [FRONTEND=2.072]
     - d: dmd-2.071.2
@@ -50,6 +51,11 @@ matrix:
 
   allow_failures:
     - d: gdc
+
+addons:
+  apt:
+    packages:
+      - libevent-dev
 
 script:
   - ./travis-ci.sh
