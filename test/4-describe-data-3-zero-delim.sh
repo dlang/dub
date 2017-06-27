@@ -71,7 +71,7 @@ if ! $DUB describe --compiler=$DC --data-0 --data-list \
     die 'Printing null-delimited list-style project data failed!'
 fi
 
-if ! diff -Z "$temp_file_normal" "$temp_file_zero_delim"; then
+if ! diff -B "$temp_file_normal" "$temp_file_zero_delim"; then
     die 'The null-delimited list-style project data did not match the expected output!'
 fi
 
@@ -86,7 +86,7 @@ if ! $DUB describe --compiler=$DC --data-0 --import-paths \
     die 'Printing null-delimited --import-paths failed!'
 fi
 
-if ! diff -Z -B "$temp_file_normal" "$temp_file_zero_delim"; then
+if ! diff -B "$temp_file_normal" "$temp_file_zero_delim"; then
     die 'The null-delimited --import-paths data did not match the expected output!'
 fi
 
@@ -103,11 +103,12 @@ if ! $DUB describe --compiler=$DC --data=versions \
 fi
 
 if ! $DUB describe --compiler=$DC --data-0 --data=versions \
-    | xargs -0 printf "%s " > "$temp_file_zero_delim"; then
+    | xargs -0 printf "%s " | sed 's/ $/\
+/' > "$temp_file_zero_delim"; then
     die 'Printing null-delimited dmd-style --data=versions failed!'
 fi
 
-if ! diff -Z "$temp_file_normal" "$temp_file_zero_delim"; then
+if ! diff -B "$temp_file_normal" "$temp_file_zero_delim"; then
     die 'The null-delimited dmd-style --data=versions did not match the expected output!'
 fi
 
@@ -118,10 +119,11 @@ if ! $DUB describe --compiler=$DC --data=source-files \
 fi
 
 if ! $DUB describe --compiler=$DC --data-0 --data=source-files \
-    | xargs -0 printf "'%s' " > "$temp_file_zero_delim"; then
+    | xargs -0 printf "'%s' " | sed 's/ $/\
+/' > "$temp_file_zero_delim"; then
     die 'Printing null-delimited dmd-style --data=source-files failed!'
 fi
 
-if ! diff -Z "$temp_file_normal" "$temp_file_zero_delim"; then
+if ! diff -B "$temp_file_normal" "$temp_file_zero_delim"; then
     die 'The null-delimited dmd-style --data=source-files did not match the expected output!'
 fi

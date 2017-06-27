@@ -8,7 +8,7 @@ if $DUB remove dub --non-interactive; then
     echo "Non-interactive remove should fail" 1>&2
     exit 1
 fi
-echo 1 | $DUB remove dub | tr --delete '\n' | grep --ignore-case 'select.*0\.9\.20.*0\.9\.21.*'
+echo 1 | $DUB remove dub | tr -d '\n' | grep --ignore-case 'select.*0\.9\.20.*0\.9\.21.*'
 if [ -d $HOME/.dub/packages/dub-0.9.20/dub ]; then
     echo "Failed to remove dub-0.9.20" 1>&2
     exit 1
