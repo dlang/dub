@@ -52,5 +52,10 @@ matrix:
   allow_failures:
     - d: gdc
 
+addons:
+  apt:
+    packages:
+      - libevent-dev
+
 script:
   - ./travis-ci.sh
