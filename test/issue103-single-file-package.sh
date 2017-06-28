@@ -18,3 +18,8 @@ if [ -f single-file-test ]; then
 	echo "Shebang invocation produced binary in current directory"
 	exit 1
 fi
+
+if ${DUB} "issue103-single-file-package-error.d" 2> /dev/null; then
+	echo "Invalid package comment syntax did not trigger an error."
+	exit 1
+fi
