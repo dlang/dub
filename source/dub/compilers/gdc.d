@@ -20,7 +20,6 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.process;
-import std.random;
 import std.typecons;
 
 
@@ -119,7 +118,7 @@ class GDCCompiler : Compiler {
 			settings.lflags = null;
 		}
 
-		if (settings.targetType == TargetType.dynamicLibrary)
+		if (settings.options & BuildOption.pic)
 			settings.addDFlags("-fPIC");
 
 		assert(fields & BuildSetting.dflags);
