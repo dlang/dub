@@ -291,6 +291,7 @@ class Dub {
 	{
 		import dub.recipe.io : parsePackageRecipe;
 		import std.file : mkdirRecurse, readText;
+		import std.path : baseName, stripExtension;
 
 		path = makeAbsolute(path);
 
@@ -317,8 +318,9 @@ class Dub {
 		enforce(idx > 0, "Missing recipe file name (e.g. \"dub.sdl:\") in recipe comment");
 		auto recipe_filename = recipe_content[0 .. idx];
 		recipe_content = recipe_content[idx+1 .. $];
+		auto recipe_default_package_name = path.toString.baseName.stripExtension.strip;
 
-		auto recipe = parsePackageRecipe(recipe_content, recipe_filename);
+		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, null, recipe_default_package_name);
 		enforce(recipe.buildSettings.sourceFiles.length == 0, "Single-file packages are not allowed to specify source files.");
 		enforce(recipe.buildSettings.sourcePaths.length == 0, "Single-file packages are not allowed to specify source paths.");
 		enforce(recipe.buildSettings.importPaths.length == 0, "Single-file packages are not allowed to specify import paths.");
