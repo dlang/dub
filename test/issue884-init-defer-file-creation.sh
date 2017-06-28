@@ -8,8 +8,21 @@ echo $TMPDIR
 mkdir ${TMPDIR}
 cd ${TMPDIR}
 
+nothing() {
+	tail -f /dev/null &
+	sleep 2
+	kill $!
+}
+
 # kill dub init during interactive mode
-${DUB} init < /dev/stdin &
+# Use stdin if we're in a terminal,
+# otherwise use the endlessly empty
+# `nothing` function above
+if [ -t 0 ]; then
+	${DUB} init < /dev/stdin &
+else
+	${DUB} init < <(nothing) &
+fi
 sleep 1
 kill $!
 
