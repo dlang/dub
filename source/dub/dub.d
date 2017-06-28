@@ -314,8 +314,11 @@ class Dub {
 			recipe_content = file_content[0 .. idx].strip();
 		} else throw new Exception("The source file must start with a recipe comment.");
 
+		auto nidx = recipe_content.indexOf('\n');
+
 		auto idx = recipe_content.indexOf(':');
-		enforce(idx > 0, "Missing recipe file name (e.g. \"dub.sdl:\") in recipe comment");
+		enforce(idx > 0 && (nidx < 0 || nidx > idx),
+			"The first line of the recipe comment must list the recipe file name followed by a colon (e.g. \"/+ dub.sdl:\").");
 		auto recipe_filename = recipe_content[0 .. idx];
 		recipe_content = recipe_content[idx+1 .. $];
 		auto recipe_default_package_name = path.toString.baseName.stripExtension.strip;
