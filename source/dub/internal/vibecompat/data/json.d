@@ -1915,7 +1915,7 @@ private void jsonEscape(bool escape_unicode = false, R)(ref R dst, string s)
 						char[13] buf;
 						int len;
 						dchar codepoint = decode(s, pos);
-						import std.c.stdio : sprintf;
+						import core.stdc.stdio : sprintf;
 						/* codepoint is in BMP */
 						if(codepoint < 0x10000)
 						{
