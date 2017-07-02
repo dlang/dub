@@ -232,6 +232,7 @@ string bumpVersion(string ver) {
 	// Increment next to last version from a[.b[.c]].
 	auto splitted = () @trusted { return split(ver, "."); } (); // DMD 2.065.0
 	assert(splitted.length > 0 && splitted.length <= 3, "Version corrupt: " ~ ver);
+	if(splitted.length==3) splitted=splitted[0..2];
 	auto to_inc = splitted.length == 3? 1 : 0;
 	splitted = splitted[0 .. to_inc+1];
 	splitted[to_inc] = to!string(to!int(splitted[to_inc]) + 1);
