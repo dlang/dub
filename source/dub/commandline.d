@@ -847,6 +847,7 @@ class TestCommand : PackageBuildCommand {
 	private {
 		string m_mainFile;
 		bool m_combined = false;
+		bool m_parallel = false;
 		bool m_force = false;
 	}
 
@@ -885,6 +886,9 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("combined", &m_combined, [
 			"Tries to build the whole project in a single compiler run."
 		]);
+		args.getopt("parallel", &m_parallel, [
+			"Runs multiple compiler instances in parallel, if possible."
+		]);
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
@@ -912,6 +916,7 @@ class TestCommand : PackageBuildCommand {
 		settings.buildMode = m_buildMode;
 		settings.buildSettings = m_buildSettings;
 		settings.combined = m_combined;
+		settings.parallelBuild = m_parallel;
 		settings.force = m_force;
 		settings.tempBuild = m_single;
 		settings.run = true;
