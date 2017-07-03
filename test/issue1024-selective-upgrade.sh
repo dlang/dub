@@ -1,5 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 cd ${CURR_DIR}/issue1024-selective-upgrade
 echo "{\"fileVersion\": 1,\"versions\": {\"a\": \"1.0.0\", \"b\": \"1.0.0\"}}" > main/dub.selections.json
 $DUB upgrade --bare --root=main a || exit 1

@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e -o pipefail
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 
 if [ "${DC}" != "dmd" ]; then
     echo Skipping DMD-centric test on configuration that lacks DMD.

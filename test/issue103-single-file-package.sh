@@ -1,5 +1,5 @@
-#!/bin/sh
-set -e
+#!/usr/bin/env bash
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 cd ${CURR_DIR}
 rm -f single-file-test
 

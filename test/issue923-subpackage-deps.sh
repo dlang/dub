@@ -1,5 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 cd ${CURR_DIR}/issue923-subpackage-deps
 rm -rf main/.dub
 rm -rf a/.dub

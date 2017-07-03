@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-set -e
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 
 cd ${CURR_DIR}/1-exec-simple
 rm -f dub.selections.json

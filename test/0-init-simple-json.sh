@@ -1,5 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 packname="0-init-simple-pack"
 
 $DUB init -n $packname -f json

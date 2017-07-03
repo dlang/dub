@@ -1,5 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 packname="0-init-multi-pack"
 deps="openssl logger"
 type="vibe.d"

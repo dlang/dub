@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e -o pipefail
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 
 TMPDIR=$(mktemp -d $(basename $0).XXXXXX)
 

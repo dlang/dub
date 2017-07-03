@@ -1,5 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 cd ${CURR_DIR}/issue934-path-dep
 rm -rf main/.dub
 rm -rf a/.dub

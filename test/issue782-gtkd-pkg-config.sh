@@ -1,5 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 if [ "${DC}" != "dmd" ]; then
 	echo "Skipping issue782-dtkd-pkg-config test for ${DC}..."
 else

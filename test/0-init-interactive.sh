@@ -1,5 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 packname="0-init-interactive"
 
 echo -e "sdl\ntest\ndesc\nauthor\ngpl\ncopy\n\n" | $DUB init $packname
