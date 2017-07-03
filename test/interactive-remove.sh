@@ -4,7 +4,7 @@ set -euo pipefail
 
 $DUB fetch dub --version=0.9.20 && [ -d $HOME/.dub/packages/dub-0.9.20/dub ]
 $DUB fetch dub --version=0.9.21 && [ -d $HOME/.dub/packages/dub-0.9.21/dub ]
-if $DUB remove dub --non-interactive; then
+if $DUB remove dub --non-interactive 2>/dev/null; then
     echo "Non-interactive remove should fail" 1>&2
     exit 1
 fi
