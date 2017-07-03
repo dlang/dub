@@ -4,7 +4,10 @@
 packname="0-init-fail-pack"
 deps="logger PACKAGE_DONT_EXIST" # would be very unlucky if it does exist...
 
-$DUB init -n $packname $deps -f json
+if $$DUB init -n $packname $deps -f json 2>/dev/null; then
+    >&2 echo 'Init with unknown non-existing dependency expected to fail'
+fi
+
 
 function cleanup {
     rm -rf $packname

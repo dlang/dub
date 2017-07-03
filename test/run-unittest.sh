@@ -63,4 +63,4 @@ for pack in $(ls -d $CURR_DIR/*/); do
     fi
 done
 
-exit $any_errors
+exit ${any_errors:-0}

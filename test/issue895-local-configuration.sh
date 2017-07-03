@@ -16,7 +16,7 @@ if [ -e ~/.dub/settings.json ]; then
 	exit 1
 fi
 
-if ! ${DUB} describe --single issue103-single-file-package.d 2>&1 | grep -e "Unknown compiler: foo" -c > /dev/null; then
+if ! { ${DUB} describe --single issue103-single-file-package.d 2>&1 || true; } | grep -e "Unknown compiler: foo" -c > /dev/null; then
 	rm -r ../etc
 	echo "DUB didn't find the local configuration"
 	exit 1
