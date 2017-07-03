@@ -7,4 +7,4 @@ rm -rf a/.dub
 rm -rf b/.dub
 rm -f main/dub.selections.json
 cd main
-${DUB} build --compiler=${DC} || exit 1
+${DUB} build --compiler=${DC}

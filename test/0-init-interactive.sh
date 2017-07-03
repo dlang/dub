@@ -10,16 +10,13 @@ function cleanup {
 }
 
 if [ ! -e $packname/dub.sdl ]; then # it failed
-    echo "No dub.sdl file has been generated."
     cleanup
-    exit 1
+    die $LINENO 'No dub.sdl file has been generated.'
 fi
 
 if ! diff $packname/dub.sdl "$CURR_DIR"/0-init-interactive.dub.sdl; then
-	echo "Contents of generated dub.sdl not as expected."
-	cleanup
-	exit 1
+    cleanup
+    die $LINENO 'Contents of generated dub.sdl not as expected.'
 fi
 
 cleanup
-exit 0

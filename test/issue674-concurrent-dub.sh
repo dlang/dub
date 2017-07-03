@@ -16,6 +16,4 @@ cd ${TMPDIR} && $DUB fetch --cache=local bloom &
 pid2=$!
 wait $pid1
 wait $pid2
-if [ ! -d ${TMPDIR}/bloom* ]; then
-    exit 1
-fi
+[ -d ${TMPDIR}/bloom* ]

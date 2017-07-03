@@ -12,14 +12,14 @@ else
     rm -rf main/.dub
     rm -f main/fake-gtkd-test
     echo ${DUB}
-    cd fake-gtkd && ${DUB} build --compiler=${DC} || exit 1
+    cd fake-gtkd && ${DUB} build --compiler=${DC}
     cd ../main
 
     # `run` needs to find the fake-gtkd shared library, so set LD_LIBRARY_PATH to where it is
     export LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}${LD_LIBRARY_PATH:+:}$PWD/../fake-gtkd
     # pkg-config needs to find our .pc file which is in $PWD/../fake-gtkd/pkgconfig, so set PKG_CONFIG_PATH accordingly
     export PKG_CONFIG_PATH=$PWD/../fake-gtkd/pkgconfig
-    ${DUB} run --force --compiler=${DC} || exit 1
+    ${DUB} run --force --compiler=${DC}
     cd ..
     rm -rf fake-gtkd/.dub
     rm fake-gtkd/libfake-gtkd.so

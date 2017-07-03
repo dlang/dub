@@ -2,7 +2,12 @@ SOURCE_FILE=$_
 
 set -ueEo pipefail
 
-function error {
-    >&2 echo "Error: $SOURCE_FILE failed at line $1"
+# lineno[, msg]
+function die() {
+    local line=$1
+    local msg=${2:-command failed}
+    local rc=${3:-1}
+    >&2 echo "$SOURCE_FILE:$1 Error: $msg"
+    exit $rc
 }
-trap 'error $LINENO' ERR
+trap 'die $LINENO' ERR

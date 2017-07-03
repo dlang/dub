@@ -5,8 +5,7 @@ rm -f single-file-test
 
 ${DUB} run --single issue103-single-file-package-json.d --compiler=${DC}
 if [ ! -f single-file-test ]; then
-	echo "Normal invocation did not produce a binary in the current directory"
-	exit 1
+	die $LINENO 'Normal invocation did not produce a binary in the current directory'
 fi
 rm single-file-test
 
@@ -15,6 +14,5 @@ rm single-file-test
 ${DUB} issue103-single-file-package-w-dep.d
 
 if [ -f single-file-test ]; then
-	echo "Shebang invocation produced binary in current directory"
-	exit 1
+	die $LINENO 'Shebang invocation produced binary in current directory'
 fi

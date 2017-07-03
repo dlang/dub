@@ -10,9 +10,7 @@ function cleanup {
 }
 
 if [ ! -e $packname/dub.sdl ]; then # it failed
-    echo "No dub.sdl file has been generated."
     cleanup
-    exit 1
+    die $LINENO 'No dub.sdl file has been generated.'
 fi
 cleanup
-exit 0

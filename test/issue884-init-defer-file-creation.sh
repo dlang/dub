@@ -21,5 +21,5 @@ rm -r ${TMPDIR}
 
 # ignore sum + "." + ".."
 if [ ${NFILES_PLUS_ONE} -gt 3 ]; then
-	exit 1;
+    die $LINENO 'Aborted dub init left spurious files around.'
 fi

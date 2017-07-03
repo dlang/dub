@@ -7,11 +7,10 @@ cd ${CURR_DIR}/1-exec-simple
 cp dub.json dub.json.bak
 ${DUB} convert -f sdl
 
-if grep -c -e "version\|sourcePaths\|importPaths\|configuration" dub.sdl > /dev/null; then
-	echo "Conversion added extra fields."
+if grep -qe "version\|sourcePaths\|importPaths\|configuration" dub.sdl > /dev/null; then
 	mv dub.json.bak dub.json
 	rm dub.sdl
-	exit 1
+	die $LINENO 'Conversion added extra fields.'
 fi
 
 mv dub.json.bak dub.json
