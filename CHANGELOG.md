@@ -1,6 +1,13 @@
 Changelog
 =========
 
+v1.5.0 - 2017-
+-------------------
+
+- Read additional registry URLs (semicolon separated) from DUB_REGISTRY env var - [pull #1173][issue1173]
+
+[issue1173]: https://github.com/dlang/dub/issues/1173
+
 v1.4.0 - 2017-
 -------------------
 
