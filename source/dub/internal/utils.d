@@ -45,32 +45,42 @@ Path getTempFile(string prefix, string extension = null)
 	return path;
 }
 
-// lockfile based on atomic mkdir
-struct LockFile
-{
-	bool opCast(T:bool)() { return !!path; }
-	~this() { if (path) rmdir(path); }
-	string path;
-}
+/**
+   Obtain a lock for a file at the given path. If the file cannot be locked
+   within the given duration, an exception is thrown.  The file will be created
+   if it does not yet exist. Deleting the file is not safe as another process
+   could create a new file with the same name.
+   The returned lock will get unlocked upon destruction.
 
-auto tryLockFile(string path)
+   Params:
+     path = path to file that gets locked
+     timeout = duration after which locking failed
+   Returns:
+     The locked file or an Exception on timeout.
+*/
+auto lockFile(string path, Duration timeout)
 {
-	import std.file;
-	if (collectException(mkdir(path)))
-		return LockFile(null);
-	return LockFile(path);
-}
+	import std.datetime, std.stdio : File;
+	import std.algorithm : move;
 
-auto lockFile(string path, Duration wait)
-{
-	import std.datetime, std.file;
+	// Just a wrapper to hide (and destruct) the locked File.
+	static struct LockFile
+	{
+		// The Lock can't be unlinked as someone could try to lock an already
+		// opened fd while a new file with the same name gets created.
+		// Exclusive filesystem locks (O_EXCL, mkdir) could be deleted but
+		// aren't automatically freed when a process terminates, see #1149.
+		private File f;
+	}
+
+	auto file = File(path, "w");
 	auto t0 = Clock.currTime();
 	auto dur = 1.msecs;
 	while (true)
 	{
-		if (!collectException(mkdir(path)))
-			return LockFile(path);
-		enforce(Clock.currTime() - t0 < wait, "Failed to lock '"~path~"'.");
+		if (file.tryLock())
+			return LockFile(move(file));
+		enforce(Clock.currTime() - t0 < timeout, "Failed to lock '"~path~"'.");
 		if (dur < 1024.msecs) // exponentially increase sleep time
 			dur *= 2;
 		Thread.sleep(dur);

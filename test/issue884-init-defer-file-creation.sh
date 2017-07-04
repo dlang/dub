@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 
 TMPDIR=${CURR_DIR}tmppack
 echo $TMPDIR
@@ -21,5 +21,5 @@ rm -r ${TMPDIR}
 
 # ignore sum + "." + ".."
 if [ ${NFILES_PLUS_ONE} -gt 3 ]; then
-	exit 1;
+    die $LINENO 'Aborted dub init left spurious files around.'
 fi

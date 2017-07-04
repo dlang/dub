@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -v
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 
 function log() {
     echo -e "\033[0;33m[INFO] "$@"\033[0m"
@@ -19,11 +19,11 @@ function die() {
 export -f log
 export -f die
 
-if [ -z ${DUB} ]; then
+if [ -z ${DUB:-} ]; then
     die 'Variable $DUB must be defined to run the tests.'
 fi
 
-if [ -z ${DC} ]; then
+if [ -z ${DC:-} ]; then
     log '$DC not defined, assuming dmd...'
     DC=dmd
 fi
@@ -32,8 +32,8 @@ DC_BIN=$(basename "$DC")
 CURR_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 for script in $(ls $CURR_DIR/*.sh); do
-    if [ "$script" = "$(readlink -f ${BASH_SOURCE[0]})" ]; then continue; fi
-    if [ -e $script.min_frontend ] && [ ! -z "$FRONTEND" -a "$FRONTEND" \< $(cat $script.min_frontend) ]; then continue; fi
+    if [ "$script" = "$(readlink -f ${BASH_SOURCE[0]})" ] || [ "$(basename $script)" = "common.sh" ]; then continue; fi
+    if [ -e $script.min_frontend ] && [ ! -z ${FRONTEND:-} -a ${FRONTEND:-} \< $(cat $script.min_frontend) ]; then continue; fi
     log "Running $script..."
     DUB=$DUB DC=$DC CURR_DIR="$CURR_DIR" $script || logError "Script failure."
 done
@@ -68,4 +68,4 @@ for pack in $(ls -d $CURR_DIR/*/); do
     fi
 done
 
-exit $any_errors
+exit ${any_errors:-0}
