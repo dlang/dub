@@ -1,5 +1,5 @@
-#!/bin/bash
-set -e -o pipefail
+#!/usr/bin/env bash
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 
 cd "$CURR_DIR"/issue616-describe-vs-generate-commands
 

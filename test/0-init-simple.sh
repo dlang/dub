@@ -1,5 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 packname="0-init-simple-pack"
 
 $DUB init -n $packname --format sdl
@@ -9,9 +10,7 @@ function cleanup {
 }
 
 if [ ! -e $packname/dub.sdl ]; then # it failed
-    echo "No dub.sdl file has been generated."
     cleanup
-    exit 1
+    die $LINENO 'No dub.sdl file has been generated.'
 fi
 cleanup
-exit 0
