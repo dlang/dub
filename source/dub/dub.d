@@ -668,6 +668,8 @@ class Dub {
 		foreach(ps; m_packageSuppliers){
 			try {
 				pinfo = ps.fetchPackageRecipe(packageId, dep, (options & FetchOptions.usePrerelease) != 0);
+				if (pinfo.type == Json.Type.null_)
+					continue;
 				supplier = ps;
 				break;
 			} catch(Exception e) {
@@ -948,8 +950,15 @@ class Dub {
 	*/
 	auto searchPackages(string query)
 	{
-		return m_packageSuppliers.map!(ps => tuple(ps.description, ps.searchPackages(query))).array
-			.filter!(t => t[1].length);
+		Tuple!(string, PackageSupplier.SearchResult[])[] results;
+		foreach (ps; this.m_packageSuppliers) {
+			try
+				results ~= tuple(ps.description, ps.searchPackages(query));
+			catch (Exception e) {
+				logWarn("Searching %s for '%s' failed: %s", ps.description, query, e.msg);
+			}
+		}
+		return results.filter!(tup => tup[1].length);
 	}
 
 	/** Returns a list of all available versions (including branches) for a
@@ -1419,6 +1428,8 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			if (rootpack == name) {
 				try {
 					auto desc = ps.fetchPackageRecipe(name, dep, prerelease);
+					if (desc.type == Json.Type.null_)
+						continue;
 					auto ret = new Package(desc);
 					m_remotePackages[key] = ret;
 					return ret;
