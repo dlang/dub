@@ -54,6 +54,7 @@ void initPackage(Path root_path, string[string] deps, string type,
 	p.name = root_path.head.toString().toLower();
 	p.authors ~= username;
 	p.license = "proprietary";
+	p.format = format;
 	foreach (pack, v; deps) {
 		import std.ascii : isDigit;
 		p.buildSettings.dependencies[pack] = Dependency(v);

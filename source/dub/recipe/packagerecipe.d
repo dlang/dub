@@ -72,6 +72,7 @@ unittest
 	For higher level package handling, see the $(D Package) class.
 */
 struct PackageRecipe {
+	RecipeFormat format; /// format of the original recipe file (json, sdl)
 	string name;
 	string version_;
 	string description;

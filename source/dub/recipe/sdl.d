@@ -30,6 +30,7 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 	Tag[] subpacks;
 	Tag[] configs;
 
+	recipe.format = RecipeFormat.sdl;
 	// parse top-level fields
 	foreach (n; sdl.all.tags) {
 		enforceSDL(n.name.length > 0, "Anonymous tags are not allowed at the root level.", n);

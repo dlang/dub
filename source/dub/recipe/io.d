@@ -123,6 +123,23 @@ unittest { // issue #711 - configuration default target type not correct for SDL
 	}
 }
 
+unittest {
+	import std.path : extension;
+	import dub.compilers.buildsettings : TargetType;
+	auto inputs = [
+		"dub.sdl": "name \"test\"\n",
+		"dub.json": "{\"name\": \"test\"}"
+	];
+	foreach (file, content; inputs) {
+		auto pr = parsePackageRecipe(content, file);
+		assert(pr.name == "test");
+		with (RecipeFormat) final switch (pr.format)
+		{
+		case json: assert(file == "dub.json"); break;
+		case sdl: assert(file == "dub.sdl"); break;
+		}
+	}
+}
 
 /** Writes the textual representation of a package recipe to a file.
 
@@ -160,4 +177,3 @@ void serializePackageRecipe(R)(ref R dst, in ref PackageRecipe recipe, string fi
 		toSDL(recipe).toSDLDocument(dst);
 	else assert(false, "writePackageRecipe called with filename with unknown extension: "~filename);
 }
-

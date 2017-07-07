@@ -23,6 +23,7 @@ import std.traits : EnumMembers;
 
 void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 {
+	recipe.format = RecipeFormat.json;
 	foreach (string field, value; json) {
 		switch (field) {
 			default: break;
