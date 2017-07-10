@@ -170,8 +170,10 @@ class RegistryPackageSupplier : PackageSupplier {
 
 	Version[] getVersions(string package_id)
 	{
+		auto md = getMetadata(package_id);
+		if (md.type == Json.Type.null_)
+			return null;
 		Version[] ret;
-		Json md = getMetadata(package_id);
 		foreach (json; md["versions"]) {
 			auto cur = Version(cast(string)json["version"]);
 			ret ~= cur;
@@ -184,6 +186,8 @@ class RegistryPackageSupplier : PackageSupplier {
 	{
 		import std.array : replace;
 		Json best = getBestPackage(packageId, dep, pre_release);
+		if (best.type == Json.Type.null_)
+			return;
 		auto vers = best["version"].get!string;
 		auto url = m_registryUrl ~ Path(PackagesPath~"/"~packageId~"/"~vers~".zip");
 		logDiagnostic("Downloading from '%s'", url);
@@ -209,7 +213,16 @@ class RegistryPackageSupplier : PackageSupplier {
 		logDebug("Downloading metadata for %s", packageId);
 		logDebug("Getting from %s", url);
 
-		auto jsonData = cast(string)download(url);
+		string jsonData;
+		try
+			jsonData = cast(string)download(url);
+		catch (HTTPStatusException e)
+		{
+			if (e.status != 404)
+				throw e;
+			logDebug("Package %s not found in %s: %s", packageId, description, e.msg);
+			return Json(null);
+		}
 		Json json = parseJsonString(jsonData, url.toString());
 		// strip readme data (to save size and time)
 		foreach (ref v; json["versions"])
@@ -223,10 +236,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		auto url = m_registryUrl;
 		url.localURI = "/api/packages/search?q="~encodeComponent(query);
 		string data;
-		try
-			data = cast(string)download(url);
-		catch (Exception)
-			return null;
+		data = cast(string)download(url);
 		import std.algorithm : map;
 		return data.parseJson.opt!(Json[])
 			.map!(j => SearchResult(j["name"].opt!string, j["description"].opt!string, j["version"].opt!string))
@@ -236,6 +246,8 @@ class RegistryPackageSupplier : PackageSupplier {
 	private Json getBestPackage(string packageId, Dependency dep, bool pre_release)
 	{
 		Json md = getMetadata(packageId);
+		if (md.type == Json.Type.null_)
+			return md;
 		Json best = null;
 		Version bestver;
 		foreach (json; md["versions"]) {

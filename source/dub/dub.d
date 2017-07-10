@@ -389,7 +389,7 @@ class Dub {
 							if (versions.canFind!(v => dep.matches(v)))
 								continue next_pack;
 						} catch (Exception e) {
-							logDiagnostic("Error querying versions for %s, %s: %s", p, ps.description, e.msg);
+							logWarn("Error querying versions for %s, %s: %s", p, ps.description, e.msg);
 							logDebug("Full error: %s", e.toString().sanitize());
 						}
 					}
@@ -668,10 +668,12 @@ class Dub {
 		foreach(ps; m_packageSuppliers){
 			try {
 				pinfo = ps.fetchPackageRecipe(packageId, dep, (options & FetchOptions.usePrerelease) != 0);
+				if (pinfo.type == Json.Type.null_)
+					continue;
 				supplier = ps;
 				break;
 			} catch(Exception e) {
-				logDiagnostic("Package %s not found for %s: %s", packageId, ps.description, e.msg);
+				logWarn("Package %s not found for %s: %s", packageId, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
@@ -948,8 +950,15 @@ class Dub {
 	*/
 	auto searchPackages(string query)
 	{
-		return m_packageSuppliers.map!(ps => tuple(ps.description, ps.searchPackages(query))).array
-			.filter!(t => t[1].length);
+		Tuple!(string, PackageSupplier.SearchResult[])[] results;
+		foreach (ps; this.m_packageSuppliers) {
+			try
+				results ~= tuple(ps.description, ps.searchPackages(query));
+			catch (Exception e) {
+				logWarn("Searching %s for '%s' failed: %s", ps.description, query, e.msg);
+			}
+		}
+		return results.filter!(tup => tup[1].length);
 	}
 
 	/** Returns a list of all available versions (including branches) for a
@@ -966,7 +975,7 @@ class Dub {
 		foreach (ps; this.m_packageSuppliers) {
 			try versions ~= ps.getVersions(name);
 			catch (Exception e) {
-				logDebug("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
+				logWarn("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
 			}
 		}
 		return versions.sort().uniq.array;
@@ -1264,7 +1273,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				versions ~= vers;
 				break;
 			} catch (Exception e) {
-				logDebug("Package %s not found in %s: %s", pack, ps.description, e.msg);
+				logWarn("Package %s not found in %s: %s", pack, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize);
 			}
 		}
@@ -1419,6 +1428,8 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			if (rootpack == name) {
 				try {
 					auto desc = ps.fetchPackageRecipe(name, dep, prerelease);
+					if (desc.type == Json.Type.null_)
+						continue;
 					auto ret = new Package(desc);
 					m_remotePackages[key] = ret;
 					return ret;
