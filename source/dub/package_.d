@@ -12,8 +12,6 @@ public import dub.recipe.packagerecipe;
 import dub.compilers.compiler;
 import dub.dependency;
 import dub.description;
-import dub.recipe.json;
-import dub.recipe.sdl;
 
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
@@ -31,22 +29,19 @@ import std.string;
 import std.typecons : Nullable;
 
 
-/// Lists the supported package recipe formats.
-enum PackageFormat {
-	json, /// JSON based, using the ".json" file extension
-	sdl   /// SDLang based, using the ".sdl" file extension
-}
+deprecated("Use dub.recipe.packagerecipe.RecipeFormat instead")
+alias PackageFormat = RecipeFormat;
 
 struct FilenameAndFormat {
 	string filename;
-	PackageFormat format;
+	RecipeFormat format;
 }
 
 /// Supported package descriptions in decreasing order of preference.
 static immutable FilenameAndFormat[] packageInfoFiles = [
-	{"dub.json", PackageFormat.json},
-	{"dub.sdl", PackageFormat.sdl},
-	{"package.json", PackageFormat.json}
+	{"dub.json", RecipeFormat.json},
+	{"dub.sdl", RecipeFormat.sdl},
+	{"package.json", RecipeFormat.json}
 ];
 
 /// Returns a list of all recognized package recipe file names in descending order of precedence.
@@ -81,7 +76,7 @@ class Package {
 	*/
 	this(Json json_recipe, Path root = Path(), Package parent = null, string version_override = "")
 	{
-		import dub.recipe.json;
+		import dub.recipe.json : parseJson;
 
 		PackageRecipe recipe;
 		parseJson(recipe, json_recipe, parent ? parent.name : null);
@@ -268,6 +263,8 @@ class Package {
 	/// ditto
 	void storeInfo(Path path)
 	const {
+		import dub.recipe.json : toJson;
+
 		enforce(!version_.isUnknown, "Trying to store a package with an 'unknown' version, this is not supported.");
 		auto filename = path ~ defaultPackageFilename;
 		auto dstFile = openFile(filename.toNativeString(), FileMode.createTrunc);

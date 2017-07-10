@@ -106,6 +106,11 @@ struct SubPackage
 	PackageRecipe recipe;
 }
 
+enum RecipeFormat
+{
+	json,
+	sdl,
+}
 
 /// Bundles information about a build configuration.
 struct ConfigurationInfo {
