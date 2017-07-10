@@ -645,8 +645,10 @@ abstract class PackageBuildCommand : Command {
 			dub.project.reinit();
 			if (!dub.project.hasAllDependencies) {
 				logDiagnostic("Checking for missing dependencies.");
-				if (m_single) dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
-				else dub.upgrade(UpgradeOptions.select);
+				UpgradeOptions options = UpgradeOptions.select;
+				if (m_single || dub.project.rootPackage.isPureLibrary)
+					options |= UpgradeOptions.noSaveSelections;
+				dub.upgrade(options);
 			}
 
 			if (!m_single) {
@@ -1108,6 +1110,7 @@ class UpgradeCommand : Command {
 	private {
 		bool m_prerelease = false;
 		bool m_forceRemove = false;
+		bool m_forceSelections = false;
 		bool m_missingOnly = false;
 		bool m_verify = false;
 	}
@@ -1137,6 +1140,9 @@ class UpgradeCommand : Command {
 		args.getopt("missing-only", &m_missingOnly, [
 			"Performs an upgrade only for dependencies that don't yet have a version selected. This is also done automatically before each build."
 		]);
+		args.getopt("force-selections", &m_forceRemove, [
+			"Creates dub.selections.json even for a pure library package"
+		]);
 		args.getopt("force-remove", &m_forceRemove, [
 			"Deprecated option that does nothing."
 		]);
@@ -1152,6 +1158,8 @@ class UpgradeCommand : Command {
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
+		if (!m_forceSelections && dub.project.rootPackage.isPureLibrary)
+			options |= UpgradeOptions.noSaveSelections;
 		dub.upgrade(options, free_args);
 		return 0;
 	}

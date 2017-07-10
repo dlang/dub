@@ -477,6 +477,16 @@ class Package {
 		return ret.data;
 	}
 
+	/** Determines if none of the lirbary configurations have an executable target.
+	*/
+	bool isPureLibrary()
+	const  {
+		foreach (ref conf; recipe.configurations)
+			if (conf.buildSettings.targetType == TargetType.executable)
+				return false;
+		return true;
+	}
+
 	/** Determines if the package has a dependency to a certain package.
 
 		Params:
