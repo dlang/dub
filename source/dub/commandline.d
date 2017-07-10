@@ -431,7 +431,7 @@ struct CommandGroup {
 class InitCommand : Command {
 	private{
 		string m_templateType = "minimal";
-		PackageFormat m_format = PackageFormat.json;
+		RecipeFormat m_format = RecipeFormat.json;
 		bool m_nonInteractive;
 	}
 	this()
@@ -455,7 +455,7 @@ class InitCommand : Command {
 		]);
 		args.getopt("f|format", &m_format, [
 			"Sets the format to use for the package description file. Possible values:",
-			"  " ~ [__traits(allMembers, PackageFormat)].map!(f => f == m_format.init.to!string ? f ~ " (default)" : f).join(", ")
+			"  " ~ [__traits(allMembers, RecipeFormat)].map!(f => f == m_format.init.to!string ? f ~ " (default)" : f).join(", ")
 		]);
 		args.getopt("n|non-interactive", &m_nonInteractive, ["Don't enter interactive mode."]);
 	}
@@ -477,7 +477,7 @@ class InitCommand : Command {
 			return inp.length > 1 ? inp[0 .. $-1] : default_value;
 		}
 
-		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
+		void depCallback(ref PackageRecipe p, ref RecipeFormat fmt) {
 			import std.datetime: Clock;
 
 			if (m_nonInteractive) return;
@@ -486,7 +486,7 @@ class InitCommand : Command {
 				string rawfmt = input("Package recipe format (sdl/json)", fmt.to!string);
 				if (!rawfmt.length) break;
 				try {
-					fmt = rawfmt.to!PackageFormat;
+					fmt = rawfmt.to!RecipeFormat;
 					break;
 				} catch (Exception) {
 					logError("Invalid format, \""~rawfmt~"\", enter either \"sdl\" or \"json\".");

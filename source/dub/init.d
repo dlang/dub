@@ -9,7 +9,7 @@ module dub.init;
 
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.package_ : PackageFormat, packageInfoFiles, defaultPackageFilename;
+import dub.package_ : packageInfoFiles, defaultPackageFilename;
 import dub.recipe.packagerecipe;
 import dub.dependency;
 
@@ -39,7 +39,7 @@ import std.string;
 			writing it to disk.
 */
 void initPackage(Path root_path, string[string] deps, string type,
-	PackageFormat format, scope RecipeCallback recipe_callback = null)
+	RecipeFormat format, scope RecipeCallback recipe_callback = null)
 {
 	import std.conv : to;
 	import dub.recipe.io : writePackageRecipe;
@@ -90,7 +90,7 @@ void initPackage(Path root_path, string[string] deps, string type,
 	writeGitignore(root_path);
 }
 
-alias RecipeCallback = void delegate(ref PackageRecipe, ref PackageFormat);
+alias RecipeCallback = void delegate(ref PackageRecipe, ref RecipeFormat);
 
 private void initMinimalPackage(Path root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
 {

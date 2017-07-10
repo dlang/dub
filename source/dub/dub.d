@@ -1007,8 +1007,8 @@ class Dub {
 				customize the recipe before it gets written.
 	*/
 	void createEmptyPackage(Path path, string[] deps, string type,
-		PackageFormat format = PackageFormat.sdl,
-		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null)
+		RecipeFormat format = RecipeFormat.sdl,
+		scope void delegate(ref PackageRecipe, ref RecipeFormat) recipe_callback = null)
 	{
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
