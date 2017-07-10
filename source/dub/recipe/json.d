@@ -158,6 +158,8 @@ private Json toJson(in ref ConfigurationInfo config)
 
 private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_name)
 {
+	string[string] additional_sub_configs;
+
 	foreach(string name, value; json)
 	{
 		auto idx = indexOf(name, "-");
@@ -174,6 +176,8 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 					}
 					enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 					bs.dependencies[pkg] = deserializeJson!Dependency(verspec);
+					if (verspec.type == Json.Type.object && "config" in verspec)
+						additional_sub_configs[pkg] = verspec["config"].get!string;
 				}
 				break;
 			case "systemDependencies":
@@ -234,6 +238,9 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 				break;
 		}
 	}
+
+	foreach (p, c; additional_sub_configs)
+		bs.subConfigurations[p] = c;
 }
 
 private Json toJson(in ref BuildSettingsTemplate bs)
