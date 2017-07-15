@@ -66,18 +66,18 @@ nothrow {
 		txt.reserve(256);
 		formattedWrite(txt, fmt, args);
 
-		auto threadid = cast(ulong)cast(void*)Thread.getThis();
-		auto fiberid = cast(ulong)cast(void*)Fiber.getThis();
+		auto threadid = () @trusted { return cast(ulong)cast(void*)Thread.getThis(); } ();
+		auto fiberid = () @trusted { return cast(ulong)cast(void*)Fiber.getThis(); } ();
 		threadid ^= threadid >> 32;
 		fiberid ^= fiberid >> 32;
 
-		if( level >= s_minLevel ){
-			if (level == LogLevel.info) {
-				stdout.writeln(txt.data);
-				stdout.flush();
-			} else {
-				stderr.writeln(txt.data);
-				stderr.flush();
+		if (level >= s_minLevel) {
+			File output;
+			if (level == LogLevel.info) () @trusted { output = stdout; } ();
+			else () @trusted { output = stderr; } ();
+			if (output.isOpen) {
+				output.writeln(txt.data);
+				output.flush();
 			}
 		}
 	} catch( Exception e ){

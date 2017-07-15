@@ -17,7 +17,7 @@ import std.algorithm : canFind, startsWith;
 import std.conv : to;
 import std.exception : enforce;
 import std.range;
-import std.string : format;
+import std.string : format, indexOf;
 import std.traits : EnumMembers;
 
 
@@ -42,6 +42,7 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 				}
 				break;
 			case "-ddoxFilterArgs": recipe.ddoxFilterArgs = deserializeJson!(string[])(value); break;
+			case "-ddoxTool": recipe.ddoxTool = value.get!string; break;
 		}
 	}
 
@@ -72,13 +73,13 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 Json toJson(in ref PackageRecipe recipe)
 {
 	auto ret = recipe.buildSettings.toJson();
-	ret.name = recipe.name;
+	ret["name"] = recipe.name;
 	if (!recipe.version_.empty) ret["version"] = recipe.version_;
-	if (!recipe.description.empty) ret.description = recipe.description;
-	if (!recipe.homepage.empty) ret.homepage = recipe.homepage;
-	if (!recipe.authors.empty) ret.authors = serializeToJson(recipe.authors);
-	if (!recipe.copyright.empty) ret.copyright = recipe.copyright;
-	if (!recipe.license.empty) ret.license = recipe.license;
+	if (!recipe.description.empty) ret["description"] = recipe.description;
+	if (!recipe.homepage.empty) ret["homepage"] = recipe.homepage;
+	if (!recipe.authors.empty) ret["authors"] = serializeToJson(recipe.authors);
+	if (!recipe.copyright.empty) ret["copyright"] = recipe.copyright;
+	if (!recipe.license.empty) ret["license"] = recipe.license;
 	if (!recipe.subPackages.empty) {
 		Json[] jsonSubPackages = new Json[recipe.subPackages.length];
 		foreach (i, subPackage; recipe.subPackages) {
@@ -88,21 +89,22 @@ Json toJson(in ref PackageRecipe recipe)
 				jsonSubPackages[i] = subPackage.recipe.toJson();
 			}
 		}
-		ret.subPackages = jsonSubPackages;
+		ret["subPackages"] = jsonSubPackages;
 	}
-	if (recipe.configurations) {
+	if (recipe.configurations.length) {
 		Json[] configs;
 		foreach(config; recipe.configurations)
 			configs ~= config.toJson();
-		ret.configurations = configs;
+		ret["configurations"] = configs;
 	}
 	if (recipe.buildTypes.length) {
 		Json[string] types;
 		foreach (name, settings; recipe.buildTypes)
 			types[name] = settings.toJson();
-		ret.buildTypes = types;
+		ret["buildTypes"] = types;
 	}
 	if (!recipe.ddoxFilterArgs.empty) ret["-ddoxFilterArgs"] = recipe.ddoxFilterArgs.serializeToJson();
+	if (!recipe.ddoxTool.empty) ret["-ddoxTool"] = recipe.ddoxTool;
 	return ret;
 }
 
@@ -149,8 +151,8 @@ private void parseJson(ref ConfigurationInfo config, Json json, string package_n
 private Json toJson(in ref ConfigurationInfo config)
 {
 	auto ret = config.buildSettings.toJson();
-	ret.name = config.name;
-	if (config.platforms.length) ret.platforms = serializeToJson(config.platforms);
+	ret["name"] = config.name;
+	if (config.platforms.length) ret["platforms"] = serializeToJson(config.platforms);
 	return ret;
 }
 
@@ -158,7 +160,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 {
 	foreach(string name, value; json)
 	{
-		auto idx = std.string.indexOf(name, "-");
+		auto idx = indexOf(name, "-");
 		string basename, suffix;
 		if( idx >= 0 ) { basename = name[0 .. idx]; suffix = name[idx .. $]; }
 		else basename = name;
@@ -221,34 +223,35 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "buildRequirements":
 				BuildRequirements reqs;
 				foreach (req; deserializeJson!(string[])(value))
-					reqs |= to!BuildRequirements(req);
+					reqs |= to!BuildRequirement(req);
 				bs.buildRequirements[suffix] = reqs;
 				break;
 			case "buildOptions":
 				BuildOptions options;
 				foreach (opt; deserializeJson!(string[])(value))
-					options |= to!BuildOptions(opt);
+					options |= to!BuildOption(opt);
 				bs.buildOptions[suffix] = options;
 				break;
 		}
 	}
 }
 
-Json toJson(in ref BuildSettingsTemplate bs)
+private Json toJson(in ref BuildSettingsTemplate bs)
 {
 	auto ret = Json.emptyObject;
 	if( bs.dependencies !is null ){
 		auto deps = Json.emptyObject;
 		foreach( pack, d; bs.dependencies )
 			deps[pack] = serializeToJson(d);
-		ret.dependencies = deps;
+		ret["dependencies"] = deps;
 	}
-	if (bs.systemDependencies !is null) ret.systemDependencies = bs.systemDependencies;
+	if (bs.systemDependencies !is null) ret["systemDependencies"] = bs.systemDependencies;
 	if (bs.targetType != TargetType.autodetect) ret["targetType"] = bs.targetType.to!string();
 	if (!bs.targetPath.empty) ret["targetPath"] = bs.targetPath;
 	if (!bs.targetName.empty) ret["targetName"] = bs.targetName;
 	if (!bs.workingDirectory.empty) ret["workingDirectory"] = bs.workingDirectory;
 	if (!bs.mainSourceFile.empty) ret["mainSourceFile"] = bs.mainSourceFile;
+	if (bs.subConfigurations.length > 0) ret["subConfigurations"] = serializeToJson(bs.subConfigurations);
 	foreach (suffix, arr; bs.dflags) ret["dflags"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.lflags) ret["lflags"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.libs) ret["libs"~suffix] = serializeToJson(arr);
@@ -266,13 +269,13 @@ Json toJson(in ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.postBuildCommands) ret["postBuildCommands"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.buildRequirements) {
 		string[] val;
-		foreach (i; [EnumMembers!BuildRequirements])
+		foreach (i; [EnumMembers!BuildRequirement])
 			if (arr & i) val ~= to!string(i);
 		ret["buildRequirements"~suffix] = serializeToJson(val);
 	}
 	foreach (suffix, arr; bs.buildOptions) {
 		string[] val;
-		foreach (i; [EnumMembers!BuildOptions])
+		foreach (i; [EnumMembers!BuildOption])
 			if (arr & i) val ~= to!string(i);
 		ret["buildOptions"~suffix] = serializeToJson(val);
 	}

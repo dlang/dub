@@ -1,0 +1,2 @@
+name "b"
+dependency "a" path="../a"

@@ -17,7 +17,7 @@ import std.datetime;
 import std.exception;
 import std.file;
 import std.path;
-static import std.stream;
+import std.stdio;
 import std.string;
 import std.utf;
 
@@ -25,50 +25,50 @@ import std.utf;
 /* Add output range support to File
 */
 struct RangeFile {
-	std.stream.File file;
+@safe:
+	std.stdio.File file;
 
-	void put(in ubyte[] bytes) { file.writeExact(bytes.ptr, bytes.length); }
-	void put(in char[] str) { put(cast(ubyte[])str); }
-	void put(char ch) { put((&ch)[0 .. 1]); }
+	void put(in ubyte[] bytes) @trusted { file.rawWrite(bytes); }
+	void put(in char[] str) { put(cast(const(ubyte)[])str); }
+	void put(char ch) @trusted { put((&ch)[0 .. 1]); }
 	void put(dchar ch) { char[4] chars; put(chars[0 .. encode(chars, ch)]); }
 
 	ubyte[] readAll()
 	{
-		file.seek(0, std.stream.SeekPos.End);
-		auto sz = file.position;
+		auto sz = this.size;
 		enforce(sz <= size_t.max, "File is too big to read to memory.");
-		file.seek(0, std.stream.SeekPos.Set);
+		() @trusted { file.seek(0, SEEK_SET); } ();
 		auto ret = new ubyte[cast(size_t)sz];
-		file.readExact(ret.ptr, ret.length);
+		rawRead(ret);
 		return ret;
 	}
 
-	void rawRead(ubyte[] dst) { file.readExact(dst.ptr, dst.length); }
+	void rawRead(ubyte[] dst) @trusted { enforce(file.rawRead(dst).length == dst.length, "Failed to readall bytes from file."); }
 	void write(string str) { put(str); }
-	void close() { file.close(); }
-	void flush() { file.flush(); }
-	@property ulong size() { return file.size; }
+	void close() @trusted { file.close(); }
+	void flush() @trusted { file.flush(); }
+	@property ulong size() @trusted { return file.size; }
 }
 
 
 /**
 	Opens a file stream with the specified mode.
 */
-RangeFile openFile(Path path, FileMode mode = FileMode.Read)
+RangeFile openFile(Path path, FileMode mode = FileMode.read)
 {
-	std.stream.FileMode fmode;
+	string fmode;
 	final switch(mode){
-		case FileMode.Read: fmode = std.stream.FileMode.In; break;
-		case FileMode.ReadWrite: fmode = std.stream.FileMode.Out; break;
-		case FileMode.CreateTrunc: fmode = std.stream.FileMode.OutNew; break;
-		case FileMode.Append: fmode = std.stream.FileMode.Append; break;
+		case FileMode.read: fmode = "rb"; break;
+		case FileMode.readWrite: fmode = "r+b"; break;
+		case FileMode.createTrunc: fmode = "wb"; break;
+		case FileMode.append: fmode = "ab"; break;
 	}
-	auto ret = new std.stream.File(path.toNativeString(), fmode);
+	auto ret = std.stdio.File(path.toNativeString(), fmode);
 	assert(ret.isOpen);
 	return RangeFile(ret);
 }
 /// ditto
-RangeFile openFile(string path, FileMode mode = FileMode.Read)
+RangeFile openFile(string path, FileMode mode = FileMode.read)
 {
 	return openFile(Path(path), mode);
 }
@@ -113,20 +113,26 @@ void copyFile(Path from, Path to, bool overwrite = false)
 		removeFile(to);
 	}
 
-	.copy(from.toNativeString(), to.toNativeString());
-
-	// try to preserve ownership/permissions in Posix
-	version (Posix) {
-		import core.sys.posix.sys.stat;
-		import core.sys.posix.unistd;
-		import std.utf;
-		auto cspath = toUTFz!(const(char)*)(from.toNativeString());
-		auto cdpath = toUTFz!(const(char)*)(to.toNativeString());
-		stat_t st;
-		enforce(stat(cspath, &st) == 0, "Failed to get attributes of source file.");
-		if (chown(cdpath, st.st_uid, st.st_gid) != 0)
-			st.st_mode &= ~(S_ISUID | S_ISGID);
-		chmod(cdpath, st.st_mode);
+	static if (is(PreserveAttributes))
+	{
+		.copy(from.toNativeString(), to.toNativeString(), PreserveAttributes.yes);
+	}
+	else
+	{
+		.copy(from.toNativeString(), to.toNativeString());
+		// try to preserve ownership/permissions in Posix
+		version (Posix) {
+			import core.sys.posix.sys.stat;
+			import core.sys.posix.unistd;
+			import std.utf;
+			auto cspath = toUTFz!(const(char)*)(from.toNativeString());
+			auto cdpath = toUTFz!(const(char)*)(to.toNativeString());
+			stat_t st;
+			enforce(stat(cspath, &st) == 0, "Failed to get attributes of source file.");
+			if (chown(cdpath, st.st_uid, st.st_gid) != 0)
+				st.st_mode &= ~(S_ISUID | S_ISGID);
+			chmod(cdpath, st.st_mode);
+		}
 	}
 }
 /// ditto
@@ -140,8 +146,14 @@ version (Windows) extern(Windows) int CreateHardLinkW(in wchar* to, in wchar* fr
 // guess whether 2 files are identical, ignores filename and content
 private bool sameFile(Path a, Path b)
 {
-	static assert(__traits(allMembers, FileInfo)[0] == "name");
-	return getFileInfo(a).tupleof[1 .. $] == getFileInfo(b).tupleof[1 .. $];
+	version (Posix) {
+		auto st_a = std.file.DirEntry(a.toNativeString).statBuf;
+		auto st_b = std.file.DirEntry(b.toNativeString).statBuf;
+		return st_a == st_b;
+	} else {
+		static assert(__traits(allMembers, FileInfo)[0] == "name");
+		return getFileInfo(a).tupleof[1 .. $] == getFileInfo(b).tupleof[1 .. $];
+	}
 }
 
 /**
@@ -152,7 +164,7 @@ void hardLinkFile(Path from, Path to, bool overwrite = false)
 	if (existsFile(to)) {
 		enforce(overwrite, "Destination file already exists.");
 		if (auto fe = collectException!FileException(removeFile(to))) {
-			version (Windows) if (sameFile(from, to)) return;
+			if (sameFile(from, to)) return;
 			throw fe;
 		}
 	}
@@ -298,13 +310,13 @@ struct FileInfo {
 */
 enum FileMode {
 	/// The file is opened read-only.
-	Read,
+	read,
 	/// The file is opened for read-write random access.
-	ReadWrite,
+	readWrite,
 	/// The file is truncated if it exists and created otherwise and the opened for read-write access.
-	CreateTrunc,
+	createTrunc,
 	/// The file is opened for appending data to it and created if it does not exist.
-	Append
+	append
 }
 
 /**

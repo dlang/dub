@@ -34,46 +34,59 @@ class SublimeTextGenerator : ProjectGenerator {
 	{
 		auto buildSettings = targets[m_project.name].buildSettings;
 		logDebug("About to generate sublime project for %s.", m_project.rootPackage.name);
-		
+
 		auto root = Json([
-			"folders": targets.byValue.map!targetFolderJson.array.Json,
+			"folders": targets.byValue.map!(f => targetFolderJson(f)).array.Json,
 			"build_systems": buildSystems(settings.platform),
+			"settings": [ "include_paths": buildSettings.importPaths.map!Json.array.Json ].Json,
 		]);
 
 		auto jsonString = appender!string();
 		writePrettyJsonString(jsonString, root);
 
-		write(m_project.name ~ ".sublime-project", jsonString.data);
+		string projectPath = m_project.name ~ ".sublime-project";
 
-		logInfo("SublimeText project generated.");
+		write(projectPath, jsonString.data);
+
+		logInfo("Project '%s' generated.", projectPath);
 	}
 }
 
 
-Json targetFolderJson(in ProjectGenerator.TargetInfo target)
+private Json targetFolderJson(in ProjectGenerator.TargetInfo target)
 {
 	return [
-		"name": target.pack.name.Json,
-		"path": target.pack.path.toNativeString.Json,
+		"name": target.pack.basePackage.name.Json,
+		"path": target.pack.basePackage.path.toNativeString.Json,
 		"follow_symlinks": true.Json,
 		"folder_exclude_patterns": [".dub"].map!Json.array.Json,
 	].Json;
 }
 
 
-Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd())
+private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd())
 {
 	enum BUILD_TYPES = [
 		//"plain",
 		"debug",
 		"release",
+		"release-debug",
+		"release-nobounds",
 		//"unittest",
 		"docs",
 		"ddox",
 		"profile",
+		"profile-gc",
 		"cov",
 		"unittest-cov",
 		];
+
+	string fileRegex;
+
+	if (buildPlatform.frontendVersion >= 2066 && buildPlatform.compiler == "dmd")
+		fileRegex = r"^(.+)\(([0-9]+)\,([0-9]+)\)\:() (.*)$";
+	else
+		fileRegex = r"^(.+)\(([0-9]+)\)\:() (.*)$";
 
 	auto arch = buildPlatform.architecture[0];
 
@@ -81,13 +94,13 @@ Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd()
 	{
 		return Json([
 			"name": "DUB build " ~ buildType.Json,
-			"cmd": ["dub", "build", "--build=" ~ buildType, "--arch=" ~ arch].map!Json.array.Json,
-			"file_regex": r"^(.+)\(([0-9]+)\)\:() (.*)$".Json,
+			"cmd": ["dub", "build", "--build=" ~ buildType, "--arch=" ~ arch, "--compiler="~buildPlatform.compilerBinary].map!Json.array.Json,
+			"file_regex": fileRegex.Json,
 			"working_dir": workingDiretory.Json,
 			"variants": [
 				[
 					"name": "Run".Json,
-					"cmd": ["dub", "run", "--build=" ~ buildType, "--arch=" ~ arch].map!Json.array.Json,		
+					"cmd": ["dub", "run", "--build=" ~ buildType, "--arch=" ~ arch, "--compiler="~buildPlatform.compilerBinary].map!Json.array.Json,
 				].Json
 			].array.Json,
 		]);
@@ -97,7 +110,7 @@ Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd()
 
 	buildSystems ~= 	[
 		"name": "DUB test".Json,
-		"cmd": ["dub", "test", "--arch=" ~ arch].map!Json.array.Json,
+		"cmd": ["dub", "test", "--arch=" ~ arch, "--compiler="~buildPlatform.compilerBinary].map!Json.array.Json,
 		"file_regex": r"^(.+)\(([0-9]+)\)\:() (.*)$".Json,
 		"working_dir": workingDiretory.Json,
 	].Json;

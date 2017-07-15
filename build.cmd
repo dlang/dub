@@ -5,7 +5,6 @@
 @for /f %%i in ('git describe') do @set GITVER=%%i
 @echo module dub.version_; > source\dub\version_.d
 @echo enum dubVersion = "%GITVER%"; >> source\dub\version_.d
-@echo enum initialCompilerBinary = "%DC%"; >> source\dub\version_.d
 
 @echo Executing %DC%...
 @%DC% -ofbin\dub.exe -g -debug -w -version=DubUseCurl -Isource curl.lib %* @build-files.txt

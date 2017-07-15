@@ -1,20 +1,22 @@
-# dub package manager [![Build Status](https://travis-ci.org/D-Programming-Language/dub.png)](https://travis-ci.org/D-Programming-Language/dub)
+# dub package manager
 
 Package and build manager for [D](http://dlang.org/) applications and libraries.
 
-There is a central [package registry](https://github.com/D-Programming-Language/dub-registry/) located at <http://code.dlang.org>.
+There is a central [package registry](https://github.com/dlang/dub-registry/) located at <http://code.dlang.org>.
+
+[![GitHub tag](https://img.shields.io/github/tag/dlang/dub.svg?maxAge=86400)](#) [![Build Status](https://travis-ci.org/dlang/dub.svg?branch=master)](https://travis-ci.org/dlang/dub) [![Coverage Status](https://coveralls.io/repos/dlang/dub/badge.svg)](https://coveralls.io/r/dlang/dub)
 
 ## Introduction
 
-DUB emerged as a more general replacement for [vibe.d's](http://vibed.org/) package manager. It does not imply a dependecy to vibe.d for packages and was extended to not only directly build projects, but also to generate project files (currently [VisualD](https://github.com/rainers/visuald)).
-[Mono-D](http://mono-d.alexanderbothe.com/) also support the use of dub.json (dub's package description) as project file.
+DUB emerged as a more general replacement for [vibe.d's](http://vibed.org/) package manager. It does not imply a dependency to vibe.d for packages and was extended to not only directly build projects, but also to generate project files (currently [VisualD](https://github.com/rainers/visuald)).
+[Mono-D](http://mono-d.alexanderbothe.com/) also supports the use of dub.json (dub's package description) as the project file.
 
 The project's philosophy is to keep things as simple as possible. All that is needed to make a project a dub package is to write a short [dub.json](http://code.dlang.org/publish) file and put the source code into a `source` subfolder. It *can* then be registered on the public [package registry](http://code.dlang.org) to be made available for everyone. Any dependencies specified in `dub.json` are automatically downloaded and made available to the project during the build process.
 
 ## Key features
 
  - Simple package and build description not getting in your way
- - Integrated with Git, avoiding maintainance tasks such as incrementing version numbers or uploading new project releases
+ - Integrated with Git, avoiding maintenance tasks such as incrementing version numbers or uploading new project releases
  - Generates VisualD project/solution files, integrated into MonoD
  - Support for DMD, GDC and LDC (common DMD flags are translated automatically)
  - Supports development workflows by optionally using local directories as a package source
@@ -42,7 +44,9 @@ Jordi Sayol maintains a DEB package as part of his [D APT repository](http://d-a
 
 ### OS X
 
-Chris Molozian has added DUB to [Homebrew](http://mxcl.github.io/homebrew/). Use `brew install dub` or `brew install dub --HEAD` to install the stable or the git HEAD version respectively.
+Chris Molozian has added DUB to [Homebrew](http://mxcl.github.io/homebrew/). Use `brew install dub` to install the stable version, optionally adding `--HEAD`/`--devel` to install the latest git master or development release respectively.
+
+There is also a [MacPorts](https://www.macports.org/) package available. Type `sudo port install dub` to install the latest stable version.
 
 ### Windows
 
@@ -50,4 +54,4 @@ Daniel Jost maintains a dub package on [chocolatey](https://chocolatey.org/packa
 
 ## Using DUB as a library
 
-The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/D-Programming-Language/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/D-Programming-Language/dub/blob/master/source/dub/commandline.d).
+The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/dlang/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/dlang/dub/blob/master/source/dub/commandline.d).

@@ -1,3 +1,2 @@
-module dub.version_; 
-enum dubVersion = "v0.9.22"; 
-enum initialCompilerBinary = "dmd"; 
+module dub.version_;
+enum dubVersion = "v1.4.0-beta.1";

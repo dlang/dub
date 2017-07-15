@@ -1,0 +1,6 @@
+{
+    "name" : "fake-gtkd-test",
+    "description" : "Small test executable calling a Fake GtkD shared library function for testing",
+    "importPaths" : ["../fake-gtkd/src"],
+    "libs" : ["fake-gtkd"]
+}

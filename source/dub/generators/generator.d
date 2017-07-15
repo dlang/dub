@@ -1,7 +1,7 @@
 /**
 	Generator for project files
 
-	Copyright: © 2012-2013 Matthias Dondorff
+	Copyright: © 2012-2013 Matthias Dondorff, © 2013-2016 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Matthias Dondorff
 */
@@ -85,6 +85,8 @@ class ProjectGenerator
 	*/
 	final void generate(GeneratorSettings settings)
 	{
+		import dub.compilers.utils : enforceBuildRequirements;
+
 		if (!settings.config.length) settings.config = m_project.getDefaultConfiguration(settings.platform);
 
 		TargetInfo[string] targets;
@@ -93,12 +95,14 @@ class ProjectGenerator
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
-			prepareGeneration(pack.name, buildsettings);
+			prepareGeneration(pack, m_project, settings, buildsettings);
 		}
 
 		string[] mainfiles;
 		collect(settings, m_project.rootPackage, targets, configs, mainfiles, null);
 		downwardsInheritSettings(m_project.rootPackage.name, targets, targets[m_project.rootPackage.name].buildSettings);
+		addBuildTypeSettings(targets, settings);
+		foreach (ref t; targets.byValue) enforceBuildRequirements(t.buildSettings);
 		auto bs = &targets[m_project.rootPackage.name].buildSettings;
 		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
 
@@ -107,8 +111,8 @@ class ProjectGenerator
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
-			bool generate_binary = !(buildsettings.options & BuildOptions.syntaxOnly);
-			finalizeGeneration(pack.name, buildsettings, pack.path, Path(bs.targetPath), generate_binary);
+			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
+			finalizeGeneration(pack, m_project, settings, buildsettings, Path(bs.targetPath), generate_binary);
 		}
 
 		performPostGenerateActions(settings, targets);
@@ -141,6 +145,9 @@ class ProjectGenerator
 
 	private BuildSettings collect(GeneratorSettings settings, Package pack, ref TargetInfo[string] targets, in string[string] configs, ref string[] main_files, string bin_pack)
 	{
+		import std.algorithm : sort;
+		import dub.compilers.utils : isLinkerFile;
+
 		if (auto pt = pack.name in targets) return pt.buildSettings;
 
 		// determine the actual target type
@@ -163,18 +170,16 @@ class ProjectGenerator
 
 		shallowbs.targetType = tt;
 		bool generates_binary = tt != TargetType.sourceLibrary && tt != TargetType.none;
-
-		enforce (generates_binary || pack !is m_project.rootPackage,
-			format("Main package must have a binary target type, not %s. Cannot build.", tt));
+		bool is_target = generates_binary || pack is m_project.rootPackage;
 
 		if (tt == TargetType.none) {
 			// ignore any build settings for targetType none (only dependencies will be processed)
 			shallowbs = BuildSettings.init;
+			shallowbs.targetType = TargetType.none;
 		}
 
 		// start to build up the build settings
 		BuildSettings buildsettings;
-		if (generates_binary) buildsettings = settings.buildSettings.dup;
 		processVars(buildsettings, m_project, pack, shallowbs, true);
 
 		// remove any mainSourceFile from library builds
@@ -183,16 +188,21 @@ class ProjectGenerator
 			main_files ~= buildsettings.mainSourceFile;
 		}
 
+		// set pic for dynamic library builds.
+		if (buildsettings.targetType == TargetType.dynamicLibrary)
+			buildsettings.addOptions(BuildOption.pic);
+
 		logDiagnostic("Generate target %s (%s %s %s)", pack.name, buildsettings.targetType, buildsettings.targetPath, buildsettings.targetName);
-		if (generates_binary)
+		if (is_target)
 			targets[pack.name] = TargetInfo(pack, [pack], configs[pack.name], buildsettings, null);
 
-		foreach (depname, depspec; pack.dependencies) {
-			if (!pack.hasDependency(depname, configs[pack.name])) continue;
+		auto deps = pack.getDependencies(configs[pack.name]);
+		foreach (depname; deps.keys.sort()) {
+			auto depspec = deps[depname];
 			auto dep = m_project.getDependency(depname, depspec.optional);
 			if (!dep) continue;
 
-			auto depbs = collect(settings, dep, targets, configs, main_files, generates_binary ? pack.name : bin_pack);
+			auto depbs = collect(settings, dep, targets, configs, main_files, is_target ? pack.name : bin_pack);
 
 			if (depbs.targetType != TargetType.sourceLibrary && depbs.targetType != TargetType.none) {
 				// add a reference to the target binary and remove all source files in the dependency build settings
@@ -205,7 +215,7 @@ class ProjectGenerator
 			if (depbs.targetType == TargetType.executable)
 				continue;
 
-			auto pt = (generates_binary ? pack.name : bin_pack) in targets;
+			auto pt = (is_target ? pack.name : bin_pack) in targets;
 			assert(pt !is null);
 			if (auto pdt = depname in targets) {
 				pt.dependencies ~= depname;
@@ -215,29 +225,34 @@ class ProjectGenerator
 			} else pt.packages ~= dep;
 		}
 
-		if (generates_binary) {
-			// add build type settings and convert plain DFLAGS to build options
-			m_project.addBuildTypeSettings(buildsettings, settings.platform, settings.buildType);
-			settings.compiler.extractBuildOptions(buildsettings);
-			enforceBuildRequirements(buildsettings);
-			targets[pack.name].buildSettings = buildsettings.dup;
-		}
+		if (is_target) targets[pack.name].buildSettings = buildsettings.dup;
 
 		return buildsettings;
 	}
 
 	private string[] downwardsInheritSettings(string target, TargetInfo[string] targets, in BuildSettings root_settings)
 	{
+		import dub.internal.utils : stripDlangSpecialChars;
+
 		auto ti = &targets[target];
 		ti.buildSettings.addVersions(root_settings.versions);
 		ti.buildSettings.addDebugVersions(root_settings.debugVersions);
-		ti.buildSettings.addOptions(root_settings.options);
+		ti.buildSettings.addOptions(BuildOptions(cast(BuildOptions)root_settings.options & inheritedBuildOptions));
 
 		// special support for overriding string imports in parent packages
 		// this is a candidate for deprecation, once an alternative approach
 		// has been found
-		if (ti.buildSettings.stringImportPaths.length)
+		if (ti.buildSettings.stringImportPaths.length) {
+			// override string import files (used for up to date checking)
+			foreach (ref f; ti.buildSettings.stringImportFiles)
+				foreach (fi; root_settings.stringImportFiles)
+					if (f != fi && Path(f).head == Path(fi).head) {
+						f = fi;
+					}
+
+			// add the string import paths (used by the compiler to find the overridden files)
 			ti.buildSettings.prependStringImportPaths(root_settings.stringImportPaths);
+		}
 
 		string[] packs = ti.packages.map!(p => p.name).array;
 		foreach (d; ti.dependencies)
@@ -253,6 +268,22 @@ class ProjectGenerator
 
 		return packs;
 	}
+
+	private void addBuildTypeSettings(TargetInfo[string] targets, GeneratorSettings settings)
+	{
+		foreach (ref t; targets) {
+			t.buildSettings.add(settings.buildSettings);
+
+			// add build type settings and convert plain DFLAGS to build options
+			m_project.addBuildTypeSettings(t.buildSettings, settings.platform, settings.buildType, t.pack is m_project.rootPackage);
+			settings.compiler.extractBuildOptions(t.buildSettings);
+
+			auto tt = t.buildSettings.targetType;
+			bool generates_binary = tt != TargetType.sourceLibrary && tt != TargetType.none;
+			enforce (generates_binary || t.pack !is m_project.rootPackage || (t.buildSettings.options & BuildOption.syntaxOnly),
+				format("Main package must have a binary target type, not %s. Cannot build.", tt));
+		}
+	}
 }
 
 
@@ -267,7 +298,7 @@ struct GeneratorSettings {
 	bool combined; // compile all in one go instead of each dependency separately
 
 	// only used for generator "build"
-	bool run, force, direct, clean, rdmd, tempBuild;
+	bool run, force, direct, rdmd, tempBuild, parallelBuild;
 	string[] runArgs;
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;
@@ -320,22 +351,26 @@ ProjectGenerator createProjectGenerator(string generator_type, Project project)
 /**
 	Runs pre-build commands and performs other required setup before project files are generated.
 */
-private void prepareGeneration(string pack, in BuildSettings buildsettings)
+private void prepareGeneration(in Package pack, in Project proj, in GeneratorSettings settings,
+	in BuildSettings buildsettings)
 {
-	if( buildsettings.preGenerateCommands.length ){
-		logInfo("Running pre-generate commands for %s...", pack);
-		runBuildCommands(buildsettings.preGenerateCommands, buildsettings);
+	if (buildsettings.preGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
+		logInfo("Running pre-generate commands for %s...", pack.name);
+		runBuildCommands(buildsettings.preGenerateCommands, pack, proj, settings, buildsettings);
 	}
 }
 
 /**
 	Runs post-build commands and copies required files to the binary directory.
 */
-private void finalizeGeneration(string pack, in BuildSettings buildsettings, Path pack_path, Path target_path, bool generate_binary)
+private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSettings settings,
+	in BuildSettings buildsettings, Path target_path, bool generate_binary)
 {
-	if (buildsettings.postGenerateCommands.length) {
-		logInfo("Running post-generate commands for %s...", pack);
-		runBuildCommands(buildsettings.postGenerateCommands, buildsettings);
+	import std.path : globMatch;
+
+	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
+		logInfo("Running post-generate commands for %s...", pack.name);
+		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
 	}
 
 	if (generate_binary) {
@@ -361,7 +396,7 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 			void tryCopyDir(string file)
 			{
 				auto src = Path(file);
-				if (!src.absolute) src = pack_path ~ src;
+				if (!src.absolute) src = pack.path ~ src;
 				auto dst = target_path ~ Path(file).head;
 				if (src == dst) {
 					logDiagnostic("Skipping copy of %s (same source and destination)", file);
@@ -376,7 +411,7 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 			void tryCopyFile(string file)
 			{
 				auto src = Path(file);
-				if (!src.absolute) src = pack_path ~ src;
+				if (!src.absolute) src = pack.path ~ src;
 				auto dst = target_path ~ Path(file).head;
 				if (src == dst) {
 					logDiagnostic("Skipping copy of %s (same source and destination)", file);
@@ -387,7 +422,7 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 					hardLinkFile(src, dst, true);
 				} catch(Exception e) logWarn("Failed to copy %s to %s: %s", src.toNativeString(), dst.toNativeString(), e.msg);
 			}
-			logInfo("Copying files for %s...", pack);
+			logInfo("Copying files for %s...", pack.name);
 			string[] globs;
 			foreach (f; buildsettings.copyFiles)
 			{
@@ -407,11 +442,11 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 			}
 			if (globs.length) // Search all files for glob matches
 			{
-				foreach (f; dirEntries(pack_path.toNativeString(), SpanMode.breadth))
+				foreach (f; dirEntries(pack.path.toNativeString(), SpanMode.breadth))
 				{
 					foreach (glob; globs)
 					{
-						if (f.globMatch(glob))
+						if (f.name().globMatch(glob))
 						{
 							if (f.isDir)
 								tryCopyDir(f);
@@ -427,19 +462,87 @@ private void finalizeGeneration(string pack, in BuildSettings buildsettings, Pat
 	}
 }
 
-void runBuildCommands(in string[] commands, in BuildSettings build_settings)
+
+/** Runs a list of build commands for a particular package.
+
+	This function sets all DUB speficic environment variables and makes sure
+	that recursive dub invocations are detected and don't result in infinite
+	command execution loops. The latter could otherwise happen when a command
+	runs "dub describe" or similar functionality.
+*/
+void runBuildCommands(in string[] commands, in Package pack, in Project proj,
+	in GeneratorSettings settings, in BuildSettings build_settings)
 {
+	import std.conv;
 	import std.process;
 	import dub.internal.utils;
 
 	string[string] env = environment.toAA();
 	// TODO: do more elaborate things here
 	// TODO: escape/quote individual items appropriately
-	env["DFLAGS"] = join(cast(string[])build_settings.dflags, " ");
-	env["LFLAGS"] = join(cast(string[])build_settings.lflags," ");
-	env["VERSIONS"] = join(cast(string[])build_settings.versions," ");
-	env["LIBS"] = join(cast(string[])build_settings.libs," ");
-	env["IMPORT_PATHS"] = join(cast(string[])build_settings.importPaths," ");
-	env["STRING_IMPORT_PATHS"] = join(cast(string[])build_settings.stringImportPaths," ");
+	env["DFLAGS"]                = join(cast(string[])build_settings.dflags, " ");
+	env["LFLAGS"]                = join(cast(string[])build_settings.lflags," ");
+	env["VERSIONS"]              = join(cast(string[])build_settings.versions," ");
+	env["LIBS"]                  = join(cast(string[])build_settings.libs," ");
+	env["IMPORT_PATHS"]          = join(cast(string[])build_settings.importPaths," ");
+	env["STRING_IMPORT_PATHS"]   = join(cast(string[])build_settings.stringImportPaths," ");
+
+	env["DC"]                    = settings.platform.compilerBinary;
+	env["DC_BASE"]               = settings.platform.compiler;
+	env["D_FRONTEND_VER"]        = to!string(settings.platform.frontendVersion);
+
+	env["DUB_PLATFORM"]          = join(cast(string[])settings.platform.platform," ");
+	env["DUB_ARCH"]              = join(cast(string[])settings.platform.architecture," ");
+
+	env["DUB_TARGET_TYPE"]       = to!string(build_settings.targetType);
+	env["DUB_TARGET_PATH"]       = build_settings.targetPath;
+	env["DUB_TARGET_NAME"]       = build_settings.targetName;
+	env["DUB_WORKING_DIRECTORY"] = build_settings.workingDirectory;
+	env["DUB_MAIN_SOURCE_FILE"]  = build_settings.mainSourceFile;
+
+	env["DUB_CONFIG"]            = settings.config;
+	env["DUB_BUILD_TYPE"]        = settings.buildType;
+	env["DUB_BUILD_MODE"]        = to!string(settings.buildMode);
+	env["DUB_PACKAGE"]           = pack.name;
+	env["DUB_PACKAGE_DIR"]       = pack.path.toNativeString();
+	env["DUB_ROOT_PACKAGE"]      = proj.rootPackage.name;
+	env["DUB_ROOT_PACKAGE_DIR"]  = proj.rootPackage.path.toNativeString();
+
+	env["DUB_COMBINED"]          = settings.combined?      "TRUE" : "";
+	env["DUB_RUN"]               = settings.run?           "TRUE" : "";
+	env["DUB_FORCE"]             = settings.force?         "TRUE" : "";
+	env["DUB_DIRECT"]            = settings.direct?        "TRUE" : "";
+	env["DUB_RDMD"]              = settings.rdmd?          "TRUE" : "";
+	env["DUB_TEMP_BUILD"]        = settings.tempBuild?     "TRUE" : "";
+	env["DUB_PARALLEL_BUILD"]    = settings.parallelBuild? "TRUE" : "";
+
+	env["DUB_RUN_ARGS"] = (cast(string[])settings.runArgs).map!(escapeShellFileName).join(" ");
+
+	auto depNames = proj.dependencies.map!((a) => a.name).array();
+	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
 	runCommands(commands, env);
+}
+
+private bool isRecursiveInvocation(string pack)
+{
+	import std.algorithm : canFind, splitter;
+	import std.process : environment;
+
+	return environment
+        .get("DUB_PACKAGES_USED", "")
+        .splitter(",")
+        .canFind(pack);
+}
+
+private void storeRecursiveInvokations(string[string] env, string[] packs)
+{
+	import std.algorithm : canFind, splitter;
+	import std.range : chain;
+	import std.process : environment;
+
+    env["DUB_PACKAGES_USED"] = environment
+        .get("DUB_PACKAGES_USED", "")
+        .splitter(",")
+        .chain(packs)
+        .join(",");
 }

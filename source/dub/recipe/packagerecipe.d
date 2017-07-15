@@ -8,13 +8,14 @@
 module dub.recipe.packagerecipe;
 
 import dub.compilers.compiler;
+import dub.compilers.utils : warnOnSpecialCompilerFlags;
 import dub.dependency;
 
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.url;
 
-import std.algorithm : sort;
+import std.algorithm : findSplit, sort;
 import std.array : join, split;
 import std.exception : enforce;
 import std.file;
@@ -26,7 +27,7 @@ import std.range;
 
 	Sub qualified package names are lists of package names separated by ":". For
 	example, "packa:packb:packc" references a package named "packc" that is a
-	sub package of "packb", wich in turn is a sub package of "packa".
+	sub package of "packb", which in turn is a sub package of "packa".
 */
 string[] getSubPackagePath(string package_name)
 {
@@ -40,7 +41,7 @@ string[] getSubPackagePath(string package_name)
 */
 string getBasePackageName(string package_name)
 {
-	return package_name.getSubPackagePath()[0];
+	return package_name.findSplit(":")[0];
 }
 
 /**
@@ -51,10 +52,18 @@ string getBasePackageName(string package_name)
 */
 string getSubPackageName(string package_name)
 {
-	return getSubPackagePath(package_name)[1 .. $].join(":");
+	return package_name.findSplit(":")[2];
 }
 
-
+unittest
+{
+	assert(getSubPackagePath("packa:packb:packc") == ["packa", "packb", "packc"]);
+	assert(getSubPackagePath("pack") == ["pack"]);
+	assert(getBasePackageName("packa:packb:packc") == "packa");
+	assert(getBasePackageName("pack") == "pack");
+	assert(getSubPackageName("packa:packb:packc") == "packb:packc");
+	assert(getSubPackageName("pack") == "");
+}
 
 /**
 	Represents the contents of a package recipe file (dub.json/dub.sdl) in an abstract way.
@@ -71,22 +80,12 @@ struct PackageRecipe {
 	string copyright;
 	string license;
 	string[] ddoxFilterArgs;
+	string ddoxTool;
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
 	BuildSettingsTemplate[string] buildTypes;
 
 	SubPackage[] subPackages;
-
-	@property const(Dependency)[string] dependencies()
-	const {
-		Dependency[string] ret;
-		foreach (n, d; this.buildSettings.dependencies)
-			ret[n] = d;
-		foreach (ref c; configurations)
-			foreach (n, d; c.buildSettings.dependencies)
-				ret[n] = d;
-		return ret;
-	}
 
 	inout(ConfigurationInfo) getConfiguration(string name)
 	inout {
@@ -95,6 +94,10 @@ struct PackageRecipe {
 				return c;
 		throw new Exception("Unknown configuration: "~name);
 	}
+
+	/** Clones the package recipe recursively.
+	*/
+	PackageRecipe clone() const { return .clone(this); }
 }
 
 struct SubPackage
@@ -170,8 +173,10 @@ struct BuildSettingsTemplate {
 			dst.addSourceFiles(this.mainSourceFile);
 		}
 
-		void collectFiles(string method)(in string[][string] paths_map, string pattern)
+		string[] collectFiles(in string[][string] paths_map, string pattern)
 		{
+			auto files = appender!(string[]);
+
 			foreach (suffix, paths; paths_map) {
 				if (!platform.matchesSpecification(suffix))
 					continue;
@@ -186,22 +191,30 @@ struct BuildSettingsTemplate {
 					}
 
 					foreach (d; dirEntries(path.toNativeString(), pattern, SpanMode.depth)) {
-						if (isDir(d.name)) continue;
+						import std.path : baseName;
+						if (baseName(d.name)[0] == '.' || d.isDir) continue;
 						auto src = Path(d.name).relativeTo(base_path);
-						__traits(getMember, dst, method)(src.toNativeString());
+						files ~= src.toNativeString();
 					}
 				}
 			}
+
+			return files.data;
 		}
 
-		// collect files from all source/import folders
-		collectFiles!"addSourceFiles"(sourcePaths, "*.d");
-		collectFiles!"addImportFiles"(importPaths, "*.{d,di}");
-		dst.removeImportFiles(dst.sourceFiles);
-		collectFiles!"addStringImportFiles"(stringImportPaths, "*");
+ 		// collect source files
+		dst.addSourceFiles(collectFiles(sourcePaths, "*.d"));
+		auto sourceFiles = dst.sourceFiles.sort();
 
-		// ensure a deterministic order of files as passed to the compiler
-		dst.sourceFiles.sort();
+ 		// collect import files and remove sources
+		import std.algorithm : copy, setDifference;
+
+		auto importFiles = collectFiles(importPaths, "*.{d,di}").sort();
+		immutable nremoved = importFiles.setDifference(sourceFiles).copy(importFiles.release).length;
+		importFiles = importFiles[0 .. $ - nremoved];
+		dst.addImportFiles(importFiles.release);
+
+		dst.addStringImportFiles(collectFiles(stringImportPaths, "*"));
 
 		getPlatformSetting!("dflags", "addDFlags")(dst, platform);
 		getPlatformSetting!("lflags", "addLFlags")(dst, platform);
@@ -234,8 +247,8 @@ struct BuildSettingsTemplate {
 		auto nodef = false;
 		auto noprop = false;
 		foreach (req; this.buildRequirements) {
-			if (req & BuildRequirements.noDefaultFlags) nodef = true;
-			if (req & BuildRequirements.relaxProperties) noprop = true;
+			if (req & BuildRequirement.noDefaultFlags) nodef = true;
+			if (req & BuildRequirement.relaxProperties) noprop = true;
 		}
 
 		if (noprop) {
@@ -254,4 +267,33 @@ struct BuildSettingsTemplate {
 			.warnOnSpecialCompilerFlags(all_dflags, all_options, package_name, config_name);
 		}
 	}
+}
+
+private T clone(T)(ref const(T) val)
+{
+	import std.traits : isSomeString, isDynamicArray, isAssociativeArray, isBasicType, ValueType;
+
+	static if (is(T == immutable)) return val;
+	else static if (isBasicType!T) return val;
+	else static if (isDynamicArray!T) {
+		alias V = typeof(T.init[0]);
+		static if (is(V == immutable)) return val;
+		else {
+			T ret = new V[val.length];
+			foreach (i, ref f; val)
+				ret[i] = clone!V(f);
+			return ret;
+		}
+	} else static if (isAssociativeArray!T) {
+		alias V = ValueType!T;
+		T ret;
+		foreach (k, ref f; val)
+			ret[k] = clone!V(f);
+		return ret;
+	} else static if (is(T == struct)) {
+		T ret;
+		foreach (i, M; typeof(T.tupleof))
+			ret.tupleof[i] = clone!M(val.tupleof[i]);
+		return ret;
+	} else static assert(false, "Unsupported type: "~T.stringof);
 }

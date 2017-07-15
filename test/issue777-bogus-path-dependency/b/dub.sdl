@@ -1,0 +1,10 @@
+name "b"
+targetType "none"
+
+configuration "a" {
+	dependency "c" version="*"
+}
+
+configuration "b" {
+	dependency "c" path="../c-err"
+}

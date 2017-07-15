@@ -1,0 +1,10 @@
+{
+    "name": "issue616-subpack",
+    "targetType": "executable",
+    "dependencies": {
+        "issue616-subsubpack": {
+            "version": "1.0",
+            "path": "../issue616-subsubpack"
+        }
+    }
+}

@@ -8,6 +8,7 @@
 module dub.compilers.dmd;
 
 import dub.compilers.compiler;
+import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
@@ -19,73 +20,53 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.process;
-import std.random;
 import std.typecons;
 
 
-class DmdCompiler : Compiler {
+class DMDCompiler : Compiler {
 	private static immutable s_options = [
-		tuple(BuildOptions.debugMode, ["-debug"]),
-		tuple(BuildOptions.releaseMode, ["-release"]),
-		tuple(BuildOptions.coverage, ["-cov"]),
-		tuple(BuildOptions.debugInfo, ["-g"]),
-		tuple(BuildOptions.debugInfoC, ["-gc"]),
-		tuple(BuildOptions.alwaysStackFrame, ["-gs"]),
-		tuple(BuildOptions.stackStomping, ["-gx"]),
-		tuple(BuildOptions.inline, ["-inline"]),
-		tuple(BuildOptions.noBoundsCheck, ["-noboundscheck"]),
-		tuple(BuildOptions.optimize, ["-O"]),
-		tuple(BuildOptions.profile, ["-profile"]),
-		tuple(BuildOptions.unittests, ["-unittest"]),
-		tuple(BuildOptions.verbose, ["-v"]),
-		tuple(BuildOptions.ignoreUnknownPragmas, ["-ignore"]),
-		tuple(BuildOptions.syntaxOnly, ["-o-"]),
-		tuple(BuildOptions.warnings, ["-wi"]),
-		tuple(BuildOptions.warningsAsErrors, ["-w"]),
-		tuple(BuildOptions.ignoreDeprecations, ["-d"]),
-		tuple(BuildOptions.deprecationWarnings, ["-dw"]),
-		tuple(BuildOptions.deprecationErrors, ["-de"]),
-		tuple(BuildOptions.property, ["-property"]),
+		tuple(BuildOption.debugMode, ["-debug"]),
+		tuple(BuildOption.releaseMode, ["-release"]),
+		tuple(BuildOption.coverage, ["-cov"]),
+		tuple(BuildOption.debugInfo, ["-g"]),
+		tuple(BuildOption.debugInfoC, ["-gc"]),
+		tuple(BuildOption.alwaysStackFrame, ["-gs"]),
+		tuple(BuildOption.stackStomping, ["-gx"]),
+		tuple(BuildOption.inline, ["-inline"]),
+		tuple(BuildOption.noBoundsCheck, ["-noboundscheck"]),
+		tuple(BuildOption.optimize, ["-O"]),
+		tuple(BuildOption.profile, ["-profile"]),
+		tuple(BuildOption.unittests, ["-unittest"]),
+		tuple(BuildOption.verbose, ["-v"]),
+		tuple(BuildOption.ignoreUnknownPragmas, ["-ignore"]),
+		tuple(BuildOption.syntaxOnly, ["-o-"]),
+		tuple(BuildOption.warnings, ["-wi"]),
+		tuple(BuildOption.warningsAsErrors, ["-w"]),
+		tuple(BuildOption.ignoreDeprecations, ["-d"]),
+		tuple(BuildOption.deprecationWarnings, ["-dw"]),
+		tuple(BuildOption.deprecationErrors, ["-de"]),
+		tuple(BuildOption.property, ["-property"]),
+		tuple(BuildOption.profileGC, ["-profile=gc"]),
+
+		tuple(BuildOption._docs, ["-Dddocs"]),
+		tuple(BuildOption._ddox, ["-Xfdocs.json", "-Df__dummy.html"]),
 	];
 
 	@property string name() const { return "dmd"; }
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
-		import std.process;
-		import std.string;
-
-		auto fil = generatePlatformProbeFile();
-
 		string[] arch_flags;
-
 		switch (arch_override) {
 			default: throw new Exception("Unsupported architecture: "~arch_override);
 			case "": break;
 			case "x86": arch_flags = ["-m32"]; break;
 			case "x86_64": arch_flags = ["-m64"]; break;
+			case "x86_mscoff": arch_flags = ["-m32mscoff"]; break;
 		}
 		settings.addDFlags(arch_flags);
 
-		auto result = executeShell(escapeShellCommand(compiler_binary ~ arch_flags ~
-			["-quiet", "-c", "-o-", fil.toNativeString()]));
-		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
-			compiler_binary, result.output));
-
-		auto build_platform = readPlatformProbe(result.output);
-		build_platform.compilerBinary = compiler_binary;
-
-		if (build_platform.compiler != this.name) {
-			logWarn(`The determined compiler type "%s" doesn't match the expected type "%s". This will probably result in build errors.`,
-				build_platform.compiler, this.name);
-		}
-
-		if (arch_override.length && !build_platform.architecture.canFind(arch_override)) {
-			logWarn(`Failed to apply the selected architecture %s. Got %s.`,
-				arch_override, build_platform.architecture);
-		}
-
-		return build_platform;
+		return probePlatform(compiler_binary, arch_flags ~ ["-quiet", "-c", "-o-"], arch_override);
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
@@ -118,20 +99,25 @@ class DmdCompiler : Compiler {
 			settings.stringImportPaths = null;
 		}
 
-		if (!(fields & BuildSetting.sourceFiles)) {
-			settings.addDFlags(settings.sourceFiles);
-			settings.sourceFiles = null;
-		}
-
 		if (!(fields & BuildSetting.libs)) {
 			resolveLibs(settings);
 			version(Windows) settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
 			else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
 		}
 
+		if (!(fields & BuildSetting.sourceFiles)) {
+			settings.addDFlags(settings.sourceFiles);
+			settings.sourceFiles = null;
+		}
+
 		if (!(fields & BuildSetting.lflags)) {
-			settings.addDFlags(settings.lflags.map!(f => "-L"~f)().array());
+			settings.addDFlags(lflagsToDFlags(settings.lflags));
 			settings.lflags = null;
+		}
+
+		version (Posix) {
+			if (settings.options & BuildOption.pic)
+				settings.addDFlags("-fPIC");
 		}
 
 		assert(fields & BuildSetting.dflags);
@@ -154,6 +140,37 @@ class DmdCompiler : Compiler {
 		settings.dflags = newflags.data;
 	}
 
+	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
+	const {
+		import std.conv: text;
+		assert(settings.targetName.length > 0, "No target name set.");
+		final switch (settings.targetType) {
+			case TargetType.autodetect:
+				assert(false,
+					   text("Configurations must have a concrete target type, ", settings.targetName,
+							" has ", settings.targetType));
+			case TargetType.none: return null;
+			case TargetType.sourceLibrary: return null;
+			case TargetType.executable:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".exe";
+				else return settings.targetName;
+			case TargetType.library:
+			case TargetType.staticLibrary:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".lib";
+				else return "lib" ~ settings.targetName ~ ".a";
+			case TargetType.dynamicLibrary:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".dll";
+				else return "lib" ~ settings.targetName ~ ".so";
+			case TargetType.object:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".obj";
+				else return settings.targetName ~ ".o";
+		}
+	}
+
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
 		final switch (settings.targetType) {
@@ -167,7 +184,8 @@ class DmdCompiler : Compiler {
 				break;
 			case TargetType.dynamicLibrary:
 				version (Windows) settings.addDFlags("-shared");
-				else settings.addDFlags("-shared", "-fPIC");
+				else version (OSX) settings.addDFlags("-shared");
+				else settings.prependDFlags("-shared", "-defaultlib=libphobos2.so");
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
@@ -182,9 +200,11 @@ class DmdCompiler : Compiler {
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
 		auto res_file = getTempFile("dub-build", ".rsp");
-		std.file.write(res_file.toNativeString(), join(settings.dflags.map!(s => s.canFind(' ') ? "\""~s~"\"" : s), "\n"));
+		const(string)[] args = settings.dflags;
+		if (platform.frontendVersion >= 2066) args ~= "-vcolumns";
+		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
 
-		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
+		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
@@ -195,15 +215,25 @@ class DmdCompiler : Compiler {
 		auto args = ["-of"~tpath.toNativeString()];
 		args ~= objects;
 		args ~= settings.sourceFiles;
-		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
-		args ~= settings.lflags.map!(l => "-L"~l)().array;
+		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order by DMD
+		args ~= lflagsToDFlags(settings.lflags);
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 
 		auto res_file = getTempFile("dub-build", ".lnk");
-		std.file.write(res_file.toNativeString(), join(args, "\n"));
+		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
 
-		logDiagnostic("%s %s", platform.compilerBinary, args.join(" "));
+		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
+	}
+
+	string[] lflagsToDFlags(in string[] lflags) const
+	{
+		return  lflags.map!(f => "-L"~f)().array();
+	}
+
+	private auto escapeArgs(in string[] args)
+	{
+		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
 	}
 
 	private static bool isLinkerDFlag(string arg)
@@ -212,7 +242,7 @@ class DmdCompiler : Compiler {
 			default:
 				if (arg.startsWith("-defaultlib=")) return true;
 				return false;
-			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib":
+			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib", "-m32mscoff":
 				return true;
 		}
 	}

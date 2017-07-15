@@ -1,0 +1,2 @@
+name "main"
+dependency "a:bar" version="*"

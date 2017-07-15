@@ -1,0 +1,36 @@
+name "describe-dependency-1"
+version "~master"
+description "A test describe project"
+homepage "fake.com"
+authors "nobody"
+copyright "Copyright © 2015, nobody"
+license "BSD 2-clause"
+x:ddoxFilterArgs "dfa1" "dfa2"
+x:ddoxTool "ddoxtool"
+dependency "describe-dependency-1:sub1" version=">=0.0.0"
+targetType "sourceLibrary"
+subConfiguration "describe-dependency-1:sub1" "library"
+dflags "--another-dflag"
+lflags "--another-lflag"
+libs "anotherlib"
+sourceFiles "dep.lib" platform="windows"
+sourcePaths "source/"
+copyFiles "data/*"
+versions "anotherVerIdent"
+debugVersions "anotherDebugVerIdent"
+importPaths "source/"
+preGenerateCommands "../describe-dependency-1/dependency-preGenerateCommands.sh" platform="posix"
+postGenerateCommands "../describe-dependency-1/dependency-postGenerateCommands.sh" platform="posix"
+preBuildCommands "../describe-dependency-1/dependency-preBuildCommands.sh" platform="posix"
+postBuildCommands "../describe-dependency-1/dependency-postBuildCommands.sh" platform="posix"
+buildRequirements "requireContracts"
+buildOptions "stackStomping"
+configuration "my-dependency-1-config" {
+	targetType "sourceLibrary"
+}
+subPackage {
+	name "sub1"
+}
+subPackage {
+	name "sub2"
+}

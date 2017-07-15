@@ -1,8 +1,0 @@
-{
-	"name": "0-init-fail",
-	"description": "A minimal D application.",
-	"copyright": "Copyright © 2014, colin",
-	"authors": ["colin"],
-	"dependencies": {
-	}
-}

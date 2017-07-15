@@ -1,0 +1,2 @@
+name "b"
+dependency "dub" version=">=1.0.0 <=1.1.0" optional=true

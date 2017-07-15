@@ -1,0 +1,13 @@
+{
+    "name": "describe-dependency-3",
+    "targetType": "staticLibrary",
+    "description": "A test describe project",
+    "authors": ["nobody"],
+    "homepage": "fake.com",
+    "license": "BSD 2-clause",
+    "copyright": "Copyright © 2015, nobody",
+    "importPaths": ["dep3-source"],
+    "sourcePaths": ["dep3-source"],
+    "stringImportPaths": ["dep3-string-import-path"],
+    "buildOptions": ["profile"]
+}

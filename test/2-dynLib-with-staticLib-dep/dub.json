@@ -1,0 +1,7 @@
+{
+    "name": "dynlib-with-staticlib-dep",
+    "targetType": "dynamicLibrary",
+    "dependencies": {
+        "staticlib-simple": { "path": "../1-staticLib-simple/" }
+    }
+}

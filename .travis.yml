@@ -1,16 +1,61 @@
 language: d
+dist: trusty
 sudo: false
 
-d:
-  - dmd-2.064.2
-  - dmd-2.065.0
-  - dmd-2.066.1
-  - ldc-0.14.0
-  - ldc-0.15.1
-  - gdc-4.9.0
+matrix:
+  include:
+    - d: dmd-nightly
+      env: [FRONTEND=2.075]
+    - d: dmd-beta
+      env: [FRONTEND=2.075]
+    - d: dmd
+      env:
+        - [FRONTEND=2.074]
+        - [COVERAGE=true]
+    - d: dmd-2.074.1
+      env: [FRONTEND=2.074]
+    - d: dmd-2.073.2
+      env: [FRONTEND=2.073]
+    - d: dmd-2.072.2
+      env: [FRONTEND=2.072]
+    - d: dmd-2.071.2
+      env: [FRONTEND=2.071]
+    - d: dmd-2.070.2
+      env: [FRONTEND=2.070]
+    - d: dmd-2.069.2
+      env: [FRONTEND=2.069]
+    - d: dmd-2.068.2
+      env: [FRONTEND=2.068]
+    - d: dmd-2.067.1
+      env: [FRONTEND=2.067]
+    - d: dmd-2.066.1
+      env: [FRONTEND=2.066]
+    - d: ldc-beta
+      env: [FRONTEND=2.073]
+    - d: ldc
+      env: [FRONTEND=2.072]
+    - d: ldc-1.2.0
+      env: [FRONTEND=2.072]
+    - d: ldc-1.1.0
+      env: [FRONTEND=2.071]
+    - d: ldc-1.0.0
+      env: [FRONTEND=2.070]
+    - d: ldc-0.17.2
+      env: [FRONTEND=2.068]
+    - d: gdc
+      env: [FRONTEND=2.068]
+    - d: gdc-5.2.0
+      env: [FRONTEND=2.066]
+    - d: gdc-4.9.2
+      env: [FRONTEND=2.066]
+
+  allow_failures:
+    - d: gdc
+
+addons:
+  apt:
+    packages:
+      - libevent-dev
 
 script:
-  - dub test --compiler=${DC} -c library-nonet
-  - dub build --compiler=${DC}
-  - DC=${DMD} ./build.sh
-  - DUB=`pwd`/bin/dub COMPILER=${DC} test/run-unittest.sh
+  - ./travis-ci.sh

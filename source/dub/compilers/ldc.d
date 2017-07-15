@@ -8,6 +8,7 @@
 module dub.compilers.ldc;
 
 import dub.compilers.compiler;
+import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
@@ -19,60 +20,52 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.process;
-import std.random;
 import std.typecons;
 
 
-class LdcCompiler : Compiler {
+class LDCCompiler : Compiler {
 	private static immutable s_options = [
-		tuple(BuildOptions.debugMode, ["-d-debug"]),
-		tuple(BuildOptions.releaseMode, ["-release"]),
-		//tuple(BuildOptions.coverage, ["-?"]),
-		tuple(BuildOptions.debugInfo, ["-g"]),
-		tuple(BuildOptions.debugInfoC, ["-gc"]),
-		//tuple(BuildOptions.alwaysStackFrame, ["-?"]),
-		//tuple(BuildOptions.stackStomping, ["-?"]),
-		tuple(BuildOptions.inline, ["-enable-inlining"]),
-		tuple(BuildOptions.noBoundsCheck, ["-disable-boundscheck"]),
-		tuple(BuildOptions.optimize, ["-O"]),
-		//tuple(BuildOptions.profile, ["-?"]),
-		tuple(BuildOptions.unittests, ["-unittest"]),
-		tuple(BuildOptions.verbose, ["-v"]),
-		tuple(BuildOptions.ignoreUnknownPragmas, ["-ignore"]),
-		tuple(BuildOptions.syntaxOnly, ["-o-"]),
-		tuple(BuildOptions.warnings, ["-wi"]),
-		tuple(BuildOptions.warningsAsErrors, ["-w"]),
-		tuple(BuildOptions.ignoreDeprecations, ["-d"]),
-		tuple(BuildOptions.deprecationWarnings, ["-dw"]),
-		tuple(BuildOptions.deprecationErrors, ["-de"]),
-		tuple(BuildOptions.property, ["-property"]),
+		tuple(BuildOption.debugMode, ["-d-debug"]),
+		tuple(BuildOption.releaseMode, ["-release"]),
+		//tuple(BuildOption.coverage, ["-?"]),
+		tuple(BuildOption.debugInfo, ["-g"]),
+		tuple(BuildOption.debugInfoC, ["-gc"]),
+		//tuple(BuildOption.alwaysStackFrame, ["-?"]),
+		//tuple(BuildOption.stackStomping, ["-?"]),
+		tuple(BuildOption.inline, ["-enable-inlining", "-Hkeep-all-bodies"]),
+		tuple(BuildOption.noBoundsCheck, ["-boundscheck=off"]),
+		tuple(BuildOption.optimize, ["-O3"]),
+		//tuple(BuildOption.profile, ["-?"]),
+		tuple(BuildOption.unittests, ["-unittest"]),
+		tuple(BuildOption.verbose, ["-v"]),
+		tuple(BuildOption.ignoreUnknownPragmas, ["-ignore"]),
+		tuple(BuildOption.syntaxOnly, ["-o-"]),
+		tuple(BuildOption.warnings, ["-wi"]),
+		tuple(BuildOption.warningsAsErrors, ["-w"]),
+		tuple(BuildOption.ignoreDeprecations, ["-d"]),
+		tuple(BuildOption.deprecationWarnings, ["-dw"]),
+		tuple(BuildOption.deprecationErrors, ["-de"]),
+		tuple(BuildOption.property, ["-property"]),
+		//tuple(BuildOption.profileGC, ["-?"]),
+
+		tuple(BuildOption._docs, ["-Dd=docs"]),
+		tuple(BuildOption._ddox, ["-Xf=docs.json", "-Dd=__dummy_docs"]),
 	];
 
 	@property string name() const { return "ldc"; }
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
-		// TODO: determine platform by invoking the compiler instead
-		BuildPlatform build_platform;
-		build_platform.platform = .determinePlatform();
-		build_platform.architecture = .determineArchitecture();
-		build_platform.compiler = this.name;
-		build_platform.compilerBinary = compiler_binary;
-
+		string[] arch_flags;
 		switch (arch_override) {
 			default: throw new Exception("Unsupported architecture: "~arch_override);
 			case "": break;
-			case "x86":
-				build_platform.architecture = ["x86"];
-				settings.addDFlags("-march=x86");
-				break;
-			case "x86_64":
-				build_platform.architecture = ["x86_64"];
-				settings.addDFlags("-march=x86_64");
-				break;
+			case "x86": arch_flags = ["-march=x86"]; break;
+			case "x86_64": arch_flags = ["-march=x86-64"]; break;
 		}
+		settings.addDFlags(arch_flags);
 
-		return build_platform;
+		return probePlatform(compiler_binary, arch_flags ~ ["-c", "-o-"], arch_override);
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
@@ -119,9 +112,12 @@ class LdcCompiler : Compiler {
 		}
 
 		if (!(fields & BuildSetting.lflags)) {
-			settings.addDFlags(settings.lflags.map!(s => "-L="~s)().array());
+			settings.addDFlags(lflagsToDFlags(settings.lflags));
 			settings.lflags = null;
 		}
+
+		if (settings.options & BuildOption.pic)
+			settings.addDFlags("-relocation-model=pic");
 
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
@@ -141,6 +137,43 @@ class LdcCompiler : Compiler {
 			else newflags ~= f;
 		}
 		settings.dflags = newflags.data;
+	}
+
+	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
+	const {
+		import std.string : splitLines, strip;
+		import std.uni : toLower;
+
+		assert(settings.targetName.length > 0, "No target name set.");
+
+		auto result = executeShell(escapeShellCommand([platform.compilerBinary, "-version"]));
+		enforce (result.status == 0, "Failed to determine linker used by LDC. \""
+			~platform.compilerBinary~" -version\" failed with exit code "
+			~result.status.to!string()~".");
+
+		bool generates_coff = result.output.splitLines.find!(l => l.strip.toLower.startsWith("default target:")).front.canFind("-windows-msvc");
+
+		final switch (settings.targetType) {
+			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
+			case TargetType.none: return null;
+			case TargetType.sourceLibrary: return null;
+			case TargetType.executable:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".exe";
+				else return settings.targetName;
+			case TargetType.library:
+			case TargetType.staticLibrary:
+				if (generates_coff) return settings.targetName ~ ".lib";
+				else return "lib" ~ settings.targetName ~ ".a";
+			case TargetType.dynamicLibrary:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".dll";
+				else return "lib" ~ settings.targetName ~ ".so";
+			case TargetType.object:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".obj";
+				else return settings.targetName ~ ".o";
+		}
 	}
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
@@ -170,14 +203,26 @@ class LdcCompiler : Compiler {
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
 		auto res_file = getTempFile("dub-build", ".rsp");
-		std.file.write(res_file.toNativeString(), join(cast(string[])settings.dflags, "\n"));
+		const(string)[] args = settings.dflags;
+		if (platform.frontendVersion >= 2066) args ~= "-vcolumns";
+		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
 
-		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
+		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
 		assert(false, "Separate linking not implemented for LDC");
+	}
+
+	string[] lflagsToDFlags(in string[] lflags) const
+	{
+		return  lflags.map!(s => "-L="~s)().array();
+	}
+
+	private auto escapeArgs(in string[] args)
+	{
+		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
 	}
 }

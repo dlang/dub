@@ -11,27 +11,30 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
+import dub.compilers.buildsettings : BuildSettings;
 import dub.version_;
 
 // todo: cleanup imports.
-import std.algorithm : startsWith;
+import core.thread;
+import std.algorithm : canFind, startsWith;
 import std.array;
 import std.conv;
 import std.exception;
 import std.file;
 import std.process;
 import std.string;
+import std.traits : isIntegral;
 import std.typecons;
 import std.zip;
 version(DubUseCurl) import std.net.curl;
 
 
+private Path[] temporary_files;
+
 Path getTempDir()
 {
 	return Path(std.file.tempDir());
 }
-
-private Path[] temporary_files;
 
 Path getTempFile(string prefix, string extension = null)
 {
@@ -42,11 +45,55 @@ Path getTempFile(string prefix, string extension = null)
 	return path;
 }
 
+/**
+   Obtain a lock for a file at the given path. If the file cannot be locked
+   within the given duration, an exception is thrown.  The file will be created
+   if it does not yet exist. Deleting the file is not safe as another process
+   could create a new file with the same name.
+   The returned lock will get unlocked upon destruction.
+
+   Params:
+     path = path to file that gets locked
+     timeout = duration after which locking failed
+   Returns:
+     The locked file or an Exception on timeout.
+*/
+auto lockFile(string path, Duration timeout)
+{
+	import std.datetime, std.stdio : File;
+	import std.algorithm : move;
+
+	// Just a wrapper to hide (and destruct) the locked File.
+	static struct LockFile
+	{
+		// The Lock can't be unlinked as someone could try to lock an already
+		// opened fd while a new file with the same name gets created.
+		// Exclusive filesystem locks (O_EXCL, mkdir) could be deleted but
+		// aren't automatically freed when a process terminates, see #1149.
+		private File f;
+	}
+
+	auto file = File(path, "w");
+	auto t0 = Clock.currTime();
+	auto dur = 1.msecs;
+	while (true)
+	{
+		if (file.tryLock())
+			return LockFile(move(file));
+		enforce(Clock.currTime() - t0 < timeout, "Failed to lock '"~path~"'.");
+		if (dur < 1024.msecs) // exponentially increase sleep time
+			dur *= 2;
+		Thread.sleep(dur);
+	}
+}
+
 static ~this()
 {
 	foreach (path; temporary_files)
 	{
-		std.file.remove(path.toNativeString());
+		auto spath = path.toNativeString();
+		if (spath.exists)
+			std.file.remove(spath);
 	}
 }
 
@@ -61,7 +108,7 @@ bool isWritableDir(Path p, bool create_if_missing = false)
 	import std.random;
 	auto fname = p ~ format("__dub_write_test_%08X", uniform(0, uint.max));
 	if (create_if_missing && !exists(p.toNativeString())) mkdirRecurse(p.toNativeString());
-	try openFile(fname, FileMode.CreateTrunc).close();
+	try openFile(fname, FileMode.createTrunc).close();
 	catch (Exception) return false;
 	remove(fname.toNativeString());
 	return true;
@@ -69,14 +116,14 @@ bool isWritableDir(Path p, bool create_if_missing = false)
 
 Json jsonFromFile(Path file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.emptyObject;
-	auto f = openFile(file.toNativeString(), FileMode.Read);
+	auto f = openFile(file.toNativeString(), FileMode.read);
 	scope(exit) f.close();
 	auto text = stripUTF8Bom(cast(string)f.readAll());
 	return parseJsonString(text, file.toNativeString());
 }
 
 Json jsonFromZip(Path zip, string filename) {
-	auto f = openFile(zip, FileMode.Read);
+	auto f = openFile(zip, FileMode.read);
 	ubyte[] b = new ubyte[cast(size_t)f.size];
 	f.rawRead(b);
 	f.close();
@@ -87,9 +134,25 @@ Json jsonFromZip(Path zip, string filename) {
 
 void writeJsonFile(Path path, Json json)
 {
-	auto f = openFile(path, FileMode.CreateTrunc);
+	auto f = openFile(path, FileMode.createTrunc);
 	scope(exit) f.close();
 	f.writePrettyJsonString(json);
+}
+
+/// Performs a write->delete->rename sequence to atomically "overwrite" the destination file
+void atomicWriteJsonFile(Path path, Json json)
+{
+	import std.random : uniform;
+	auto tmppath = path[0 .. $-1] ~ format("%s.%s.tmp", path.head, uniform(0, int.max));
+	auto f = openFile(tmppath, FileMode.createTrunc);
+	scope (failure) {
+		f.close();
+		removeFile(tmppath);
+	}
+	f.writePrettyJsonString(json);
+	f.close();
+	if (existsFile(path)) removeFile(path);
+	moveFile(tmppath, path);
 }
 
 bool isPathFromZip(string p) {
@@ -103,16 +166,69 @@ bool existsDirectory(Path path) {
 	return fi.isDirectory;
 }
 
+void runCommand(string command, string[string] env = null)
+{
+	runCommands((&command)[0 .. 1], env);
+}
+
 void runCommands(in string[] commands, string[string] env = null)
 {
+	import std.stdio : stdin, stdout, stderr, File;
+
+	version(Windows) enum nullFile = "NUL";
+	else version(Posix) enum nullFile = "/dev/null";
+	else static assert(0);
+
+	auto childStdout = stdout;
+	auto childStderr = stderr;
+	auto config = Config.retainStdout | Config.retainStderr;
+
+	// Disable child's stdout/stderr depending on LogLevel
+	auto logLevel = getLogLevel();
+	if(logLevel >= LogLevel.warn)
+		childStdout = File(nullFile, "w");
+	if(logLevel >= LogLevel.none)
+		childStderr = File(nullFile, "w");
+
 	foreach(cmd; commands){
 		logDiagnostic("Running %s", cmd);
 		Pid pid;
-		if( env !is null ) pid = spawnShell(cmd, env);
-		else pid = spawnShell(cmd);
+		pid = spawnShell(cmd, stdin, childStdout, childStderr, env, config);
 		auto exitcode = pid.wait();
 		enforce(exitcode == 0, "Command failed with exit code "~to!string(exitcode));
 	}
+}
+
+version(DubUseCurl) {
+	/++
+	 Exception thrown on HTTP request failures, e.g. 404 Not Found.
+	 +/
+	static if (__VERSION__ <= 2075) class HTTPStatusException : CurlException
+	{
+		/++
+		 Params:
+		 status = The HTTP status code.
+		 msg  = The message for the exception.
+		 file = The file where the exception occurred.
+		 line = The line number where the exception occurred.
+		 next = The previous exception in the chain of exceptions, if any.
+		 +/
+		@safe pure nothrow
+			this(
+				int status,
+				string msg,
+				string file = __FILE__,
+				size_t line = __LINE__,
+				Throwable next = null)
+		{
+			this.status = status;
+			super(msg, file, line, next);
+		}
+
+		int status; /// The HTTP status code
+	}
+} else version (Have_vibe_d_http) {
+	public import vibe.http.common : HTTPStatusException;
 }
 
 /**
@@ -127,10 +243,19 @@ void download(string url, string filename)
 		auto conn = HTTP();
 		setupHTTPClient(conn);
 		logDebug("Storing %s...", url);
-		std.net.curl.download(url, filename, conn);
-		enforce(conn.statusLine.code < 400,
-			format("Failed to download %s: %s %s",
-				url, conn.statusLine.code, conn.statusLine.reason));
+		static if (__VERSION__ <= 2075)
+		{
+			try
+				std.net.curl.download(url, filename, conn);
+			catch (CurlException e)
+			{
+				if (e.msg.canFind("404"))
+					throw new HTTPStatusException(404, e.msg);
+				throw e;
+			}
+		}
+		else
+			std.net.curl.download(url, filename, conn);
 	} else version (Have_vibe_d) {
 		import vibe.inet.urltransfer;
 		vibe.inet.urltransfer.download(url, filename);
@@ -148,16 +273,24 @@ ubyte[] download(string url)
 		auto conn = HTTP();
 		setupHTTPClient(conn);
 		logDebug("Getting %s...", url);
-		auto ret = cast(ubyte[])get(url, conn);
-		enforce(conn.statusLine.code < 400,
-			format("Failed to GET %s: %s %s",
-				url, conn.statusLine.code, conn.statusLine.reason));
-		return ret;
+		static if (__VERSION__ <= 2075)
+		{
+			try
+				return cast(ubyte[])get(url, conn);
+			catch (CurlException e)
+			{
+				if (e.msg.canFind("404"))
+					throw new HTTPStatusException(404, e.msg);
+				throw e;
+			}
+		}
+		else
+			return cast(ubyte[])get(url, conn);
 	} else version (Have_vibe_d) {
 		import vibe.inet.urltransfer;
 		import vibe.stream.operations;
 		ubyte[] ret;
-		download(url, (scope input) { ret = input.readAll(); });
+		vibe.inet.urltransfer.download(url, (scope input) { ret = input.readAll(); });
 		return ret;
 	} else assert(false);
 }
@@ -191,6 +324,9 @@ version(DubUseCurl) {
 
 		auto proxy = environment.get("http_proxy", null);
 		if (proxy.length) conn.proxy = proxy;
+
+		auto noProxy = environment.get("no_proxy", null);
+		if (noProxy.length) conn.handle.set(CurlOption.noproxy, noProxy);
 
 		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
 	}
@@ -252,4 +388,146 @@ auto fuzzySearch(R)(R strings, string input){
 	immutable threshold = input.length / 4;
 	return strings.partition3!((a, b) => a.length + threshold < b.length)(input)[1]
 			.schwartzSort!(p => levenshteinDistance(input.toUpper, p.toUpper));
+}
+
+/**
+	If T is a bitfield-style enum, this function returns a string range
+	listing the names of all members included in the given value.
+
+	Example:
+	---------
+	enum Bits {
+		none = 0,
+		a = 1<<0,
+		b = 1<<1,
+		c = 1<<2,
+		a_c = a | c,
+	}
+
+	assert( bitFieldNames(Bits.none).equals(["none"]) );
+	assert( bitFieldNames(Bits.a).equals(["a"]) );
+	assert( bitFieldNames(Bits.a_c).equals(["a", "c", "a_c"]) );
+	---------
+  */
+auto bitFieldNames(T)(T value) if(is(T==enum) && isIntegral!T)
+{
+	import std.algorithm : filter, map;
+	import std.conv : to;
+	import std.traits : EnumMembers;
+
+	return [ EnumMembers!(T) ]
+		.filter!(member => member==0? value==0 : (value & member) == member)
+		.map!(member => to!string(member));
+}
+
+
+bool isIdentChar(dchar ch)
+{
+	import std.ascii : isAlphaNum;
+	return isAlphaNum(ch) || ch == '_';
+}
+
+string stripDlangSpecialChars(string s)
+{
+	import std.array : appender;
+	auto ret = appender!string();
+	foreach(ch; s)
+		ret.put(isIdentChar(ch) ? ch : '_');
+	return ret.data;
+}
+
+string determineModuleName(BuildSettings settings, Path file, Path base_path)
+{
+	import std.algorithm : map;
+
+	assert(base_path.absolute);
+	if (!file.absolute) file = base_path ~ file;
+
+	size_t path_skip = 0;
+	foreach (ipath; settings.importPaths.map!(p => Path(p))) {
+		if (!ipath.absolute) ipath = base_path ~ ipath;
+		assert(!ipath.empty);
+		if (file.startsWith(ipath) && ipath.length > path_skip)
+			path_skip = ipath.length;
+	}
+
+	enforce(path_skip > 0,
+		format("Source file '%s' not found in any import path.", file.toNativeString()));
+
+	auto mpath = file[path_skip .. file.length];
+	auto ret = appender!string;
+
+	//search for module keyword in file
+	string moduleName = getModuleNameFromFile(file.to!string);
+
+	if(moduleName.length) return moduleName;
+
+	//create module name from path
+	foreach (i; 0 .. mpath.length) {
+		import std.path;
+		auto p = mpath[i].toString();
+		if (p == "package.d") break;
+		if (i > 0) ret ~= ".";
+		if (i+1 < mpath.length) ret ~= p;
+		else ret ~= p.baseName(".d");
+	}
+
+	return ret.data;
+}
+
+/**
+ * Search for module keyword in D Code
+ */
+string getModuleNameFromContent(string content) {
+	import std.regex;
+	import std.string;
+
+	content = content.strip;
+	if (!content.length) return null;
+
+	static bool regex_initialized = false;
+	static Regex!char comments_pattern, module_pattern;
+
+	if (!regex_initialized) {
+		comments_pattern = regex(`//[^\r\n]*\r?\n?|/\*.*?\*/|/\+.*\+/`, "g");
+		module_pattern = regex(`module\s+([\w\.]+)\s*;`, "g");
+		regex_initialized = true;
+	}
+
+	content = replaceAll(content, comments_pattern, " ");
+	auto result = matchFirst(content, module_pattern);
+
+	if (!result.empty) return result[1];
+
+	return null;
+}
+
+unittest {
+	assert(getModuleNameFromContent("") == "");
+	assert(getModuleNameFromContent("module myPackage.myModule;") == "myPackage.myModule");
+	assert(getModuleNameFromContent("module \t\n myPackage.myModule \t\r\n;") == "myPackage.myModule");
+	assert(getModuleNameFromContent("// foo\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/*\nfoo\n*/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/+\nfoo\n+/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/***\nfoo\n***/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/+++\nfoo\n+++/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("// module foo;\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/* module foo; */\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/+ module foo; +/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("/+ /+ module foo; +/ +/\nmodule bar;") == "bar");
+	assert(getModuleNameFromContent("// module foo;\nmodule bar; // module foo;") == "bar");
+	assert(getModuleNameFromContent("// module foo;\nmodule// module foo;\nbar//module foo;\n;// module foo;") == "bar");
+	assert(getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;") == "bar", getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;"));
+	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar;") == "bar");
+	//assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar/++/;") == "bar"); // nested comments require a context-free parser!
+}
+
+/**
+ * Search for module keyword in file
+ */
+string getModuleNameFromFile(string filePath) {
+	string fileContent = filePath.readText;
+
+	logDiagnostic("Get module name from path: " ~ filePath);
+	return getModuleNameFromContent(fileContent);
 }

@@ -1,7 +1,15 @@
 /**
-	Implementes version validation and comparison according to the semantic versioning specification.
+	Implementes version validation and comparison according to the semantic
+	versioning specification.
 
-	Copyright: © 2013 rejectedsoftware e.K.
+	The general format of a semantiv version is: a.b.c[-x.y...][+x.y...]
+	a/b/c must be integer numbers with no leading zeros, and x/y/... must be
+	either numbers or identifiers containing only ASCII alphabetic characters
+	or hyphens. Identifiers may not start with a digit.
+
+	See_Also: http://semver.org/
+
+	Copyright: © 2013-2016 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
@@ -12,11 +20,7 @@ import std.string;
 import std.algorithm : max;
 import std.conv;
 
-/*
-	General format of SemVer: a.b.c[-x.y...][+x.y...]
-	a/b/c must be integer numbers with no leading zeros
-	x/y/... must be either numbers or identifiers containing only ASCII alphabetic characters or hyphens
-*/
+@safe:
 
 /**
 	Validates a version string according to the SemVer specification.
@@ -64,6 +68,7 @@ bool isValidVersion(string ver)
 	return true;
 }
 
+///
 unittest {
 	assert(isValidVersion("1.9.0"));
 	assert(isValidVersion("0.10.0"));
@@ -93,6 +98,10 @@ unittest {
 	assert(!isValidVersion("1.0-1.0"));
 }
 
+
+/**
+	Determines if a given valid SemVer version has a pre-release suffix.
+*/
 bool isPreReleaseVersion(string ver)
 in { assert(isValidVersion(ver)); }
 body {
@@ -106,11 +115,25 @@ body {
 	return isValidNumber(ver[0 .. di]);
 }
 
+///
+unittest {
+	assert(isPreReleaseVersion("1.0.0-alpha"));
+	assert(isPreReleaseVersion("1.0.0-alpha+b1"));
+	assert(isPreReleaseVersion("0.9.0-beta.1"));
+	assert(!isPreReleaseVersion("0.9.0"));
+	assert(!isPreReleaseVersion("0.9.0+b1"));
+}
+
 /**
 	Compares the precedence of two SemVer version strings.
 
-	The version strings must be validated using isValidVersion() before being
-	passed to this function.
+	The version strings must be validated using `isValidVersion` before being
+	passed to this function. Note that the build meta data suffix (if any) is
+	being ignored when comparing version numbers.
+
+	Returns:
+		Returns a negative number if `a` is a lower version than `b`, `0` if they are
+		equal, and a positive number otherwise.
 */
 int compareVersions(string a, string b)
 {
@@ -145,6 +168,15 @@ int compareVersions(string a, string b)
 	return bempty - aempty;
 }
 
+///
+unittest {
+	assert(compareVersions("1.0.0", "1.0.0") == 0);
+	assert(compareVersions("1.0.0+b1", "1.0.0+b2") == 0);
+	assert(compareVersions("1.0.0", "2.0.0") < 0);
+	assert(compareVersions("1.0.0-beta", "1.0.0") < 0);
+	assert(compareVersions("1.0.1", "1.0.0") > 0);
+}
+
 unittest {
 	void assertLess(string a, string b) {
 		assert(compareVersions(a, b) < 0, "Failed for "~a~" < "~b);
@@ -177,26 +209,28 @@ unittest {
 
 
 /**
-	Given version string, increments the next to last version number.
-	Prerelease and build metadata information is ignored.
-	@param ver Does not need to be a valid semver version.
-	@return Valid semver version
+	Increments a given (partial) version number to the next higher version.
+
+	Prerelease and build metadata information is ignored. The given version
+	can skip the minor and patch digits. If no digits are skipped, the next
+	minor version will be selected. If the patch or minor versions are skipped,
+	the next major version will be selected.
+
+	This function corresponds to the semantivs of the "~>" comparison operator's
+	upper bound.
 
 	The semantics of this are the same as for the "approximate" version
 	specifier from rubygems.
 	(https://github.com/rubygems/rubygems/tree/81d806d818baeb5dcb6398ca631d772a003d078e/lib/rubygems/version.rb)
 
-	Examples:
-	  1.5 -> 2.0
-	  1.5.67 -> 1.6.0
-	  1.5.67-a -> 1.6.0
+	See_Also: `expandVersion`
 */
 string bumpVersion(string ver) {
 	// Cut off metadata and prerelease information.
 	auto mi = ver.indexOfAny("+-");
 	if (mi > 0) ver = ver[0..mi];
 	// Increment next to last version from a[.b[.c]].
-	auto splitted = split(ver, ".");
+	auto splitted = () @trusted { return split(ver, "."); } (); // DMD 2.065.0
 	assert(splitted.length > 0 && splitted.length <= 3, "Version corrupt: " ~ ver);
 	auto to_inc = splitted.length == 3? 1 : 0;
 	splitted = splitted[0 .. to_inc+1];
@@ -205,7 +239,7 @@ string bumpVersion(string ver) {
 	while (splitted.length < 3) splitted ~= "0";
 	return splitted.join(".");
 }
-
+///
 unittest {
 	assert("1.0.0" == bumpVersion("0"));
 	assert("1.0.0" == bumpVersion("0.0"));
@@ -217,8 +251,12 @@ unittest {
 }
 
 /**
-	Takes a abbreviated version and expands it to a valid SemVer version.
-	E.g. "1.0" -> "1.0.0"
+	Takes a partial version and expands it to a valid SemVer version.
+
+	This function corresponds to the semantivs of the "~>" comparison operator's
+	lower bound.
+
+	See_Also: `bumpVersion`
 */
 string expandVersion(string ver) {
 	auto mi = ver.indexOfAny("+-");
@@ -227,12 +265,12 @@ string expandVersion(string ver) {
 		sub = ver[mi..$];
 		ver = ver[0..mi];
 	}
-	auto splitted = split(ver, ".");
+	auto splitted = () @trusted { return split(ver, "."); } (); // DMD 2.065.0
 	assert(splitted.length > 0 && splitted.length <= 3, "Version corrupt: " ~ ver);
 	while (splitted.length < 3) splitted ~= "0";
 	return splitted.join(".") ~ sub;
 }
-
+///
 unittest {
 	assert("1.0.0" == expandVersion("1"));
 	assert("1.0.0" == expandVersion("1.0"));

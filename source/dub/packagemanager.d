@@ -1,7 +1,7 @@
 /**
 	Management of packages on the local computer.
 
-	Copyright: © 2012-2013 rejectedsoftware e.K.
+	Copyright: © 2012-2016 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig, Matthias Dondorff
 */
@@ -44,14 +44,19 @@ class PackageManager {
 		if (refresh_packages) refresh(true);
 	}
 
+	/** Gets/sets the list of paths to search for local packages.
+	*/
 	@property void searchPath(Path[] paths)
 	{
 		if (paths == m_searchPath) return;
 		m_searchPath = paths.dup;
 		refresh(false);
 	}
+	/// ditto
 	@property const(Path)[] searchPath() const { return m_searchPath; }
 
+	/** Disables searching DUB's predefined search paths.
+	*/
 	@property void disableDefaultSearchPaths(bool val)
 	{
 		if (val == m_disableDefaultSearchPaths) return;
@@ -59,15 +64,17 @@ class PackageManager {
 		refresh(true);
 	}
 
+	/** Returns the effective list of search paths, including default ones.
+	*/
 	@property const(Path)[] completeSearchPath()
 	const {
 		auto ret = appender!(Path[])();
-		ret.put(m_searchPath);
+		ret.put(cast(Path[])m_searchPath); // work around Phobos 17251
 		if (!m_disableDefaultSearchPaths) {
-			ret.put(m_repositories[LocalPackageType.user].searchPath);
-			ret.put(m_repositories[LocalPackageType.user].packagePath);
-			ret.put(m_repositories[LocalPackageType.system].searchPath);
-			ret.put(m_repositories[LocalPackageType.system].packagePath);
+			ret.put(cast(Path[])m_repositories[LocalPackageType.user].searchPath);
+			ret.put(cast(Path)m_repositories[LocalPackageType.user].packagePath);
+			ret.put(cast(Path[])m_repositories[LocalPackageType.system].searchPath);
+			ret.put(cast(Path)m_repositories[LocalPackageType.system].packagePath);
 		}
 		return ret.data;
 	}
@@ -97,7 +104,7 @@ class PackageManager {
 				foreach (ovr; m_repositories[tp].overrides)
 					if (ovr.package_ == name && ovr.version_.matches(ver)) {
 						Package pack;
-						if (!ovr.targetPath.empty) pack = getPackage(name, ovr.targetPath);
+						if (!ovr.targetPath.empty) pack = getOrLoadPackage(ovr.targetPath);
 						else pack = getPackage(name, ovr.targetVersion, false);
 						if (pack) return pack;
 
@@ -107,7 +114,7 @@ class PackageManager {
 		}
 
 		foreach (p; getPackageIterator(name))
-			if (p.ver == ver)
+			if (p.version_ == ver)
 				return p;
 
 		return null;
@@ -123,7 +130,7 @@ class PackageManager {
 	Package getPackage(string name, Version ver, Path path)
 	{
 		auto ret = getPackage(name, path);
-		if (!ret || ret.ver != ver) return null;
+		if (!ret || ret.version_ != ver) return null;
 		return ret;
 	}
 
@@ -152,13 +159,26 @@ class PackageManager {
 		return null;
 	}
 
-	Package getOrLoadPackage(Path path, PathAndFormat infoFile = PathAndFormat())
+	/** For a given package path, returns the corresponding package.
+
+		If the package is already loaded, a reference is returned. Otherwise
+		the package gets loaded and cached for the next call to this function.
+
+		Params:
+			path = Path to the root directory of the package
+			recipe_path = Optional path to the recipe file of the package
+			allow_sub_packages = Also return a sub package if it resides in the given folder
+
+		Returns: The packages loaded from the given path
+		Throws: Throws an exception if no package can be loaded
+	*/
+	Package getOrLoadPackage(Path path, Path recipe_path = Path.init, bool allow_sub_packages = false)
 	{
 		path.endsWithSlash = true;
 		foreach (p; getPackageIterator())
-			if (!p.parentPackage && p.path == path)
+			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
 				return p;
-		auto pack = new Package(path, infoFile);
+		auto pack = Package.load(path, recipe_path);
 		addPackages(m_temporaryPackages, pack);
 		return pack;
 	}
@@ -170,11 +190,11 @@ class PackageManager {
 	{
 		Package ret;
 		foreach (p; getPackageIterator(name))
-			if (version_spec.matches(p.ver) && (!ret || p.ver > ret.ver))
+			if (version_spec.matches(p.version_) && (!ret || p.version_ > ret.version_))
 				ret = p;
 
 		if (enable_overrides && ret) {
-			if (auto ovr = getPackage(name, ret.ver))
+			if (auto ovr = getPackage(name, ret.version_))
 				return ovr;
 		}
 		return ret;
@@ -186,12 +206,25 @@ class PackageManager {
 		return getBestPackage(name, Dependency(version_spec));
 	}
 
+	/** Gets the a specific sub package.
+
+		In contrast to `Package.getSubPackage`, this function supports path
+		based sub packages.
+
+		Params:
+			base_package = The package from which to get a sub package
+			sub_name = Name of the sub package (not prefixed with the base
+				package name)
+			silent_fail = If set to true, the function will return `null` if no
+				package is found. Otherwise will throw an exception.
+
+	*/
 	Package getSubPackage(Package base_package, string sub_name, bool silent_fail)
 	{
 		foreach (p; getPackageIterator(base_package.name~":"~sub_name))
 			if (p.parentPackage is base_package)
 				return p;
-		enforce(silent_fail, "Sub package "~base_package.name~":"~sub_name~" doesn't exist.");
+		enforce(silent_fail, "Sub package \""~base_package.name~":"~sub_name~"\" doesn't exist.");
 		return null;
 	}
 
@@ -203,14 +236,28 @@ class PackageManager {
 	bool isManagedPackage(Package pack)
 	const {
 		auto ppath = pack.basePackage.path;
+		return isManagedPath(ppath);
+	}
+
+	/** Determines if a specific path is within a DUB managed package folder.
+
+		By default, managed folders are "~/.dub/packages" and
+		"/var/lib/dub/packages".
+	*/
+	bool isManagedPath(Path path)
+	const {
 		foreach (rep; m_repositories) {
-			auto rpath = rep.packagePath;
-			if (ppath.startsWith(rpath))
+			Path rpath = rep.packagePath;
+			if (path.startsWith(rpath))
 				return true;
 		}
 		return false;
 	}
 
+	/** Enables iteration over all known local packages.
+
+		Returns: A delegate suitable for use with `foreach` is returned.
+	*/
 	int delegate(int delegate(ref Package)) getPackageIterator()
 	{
 		int iterator(int delegate(ref Package) del)
@@ -233,6 +280,10 @@ class PackageManager {
 		return &iterator;
 	}
 
+	/** Enables iteration over all known local packages with a certain name.
+
+		Returns: A delegate suitable for use with `foreach` is returned.
+	*/
 	int delegate(int delegate(ref Package)) getPackageIterator(string name)
 	{
 		int iterator(int delegate(ref Package) del)
@@ -287,11 +338,11 @@ class PackageManager {
 	/// destination and sets a version field in the package description.
 	Package storeFetchedPackage(Path zip_file_path, Json package_info, Path destination)
 	{
-		auto package_name = package_info.name.get!string;
+		auto package_name = package_info["name"].get!string;
 		auto package_version = package_info["version"].get!string;
 		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
 
-		logDiagnostic("Placing package '%s' version '%s' to location '%s' from file '%s'",
+		logDebug("Placing package '%s' version '%s' to location '%s' from file '%s'",
 			package_name, package_version, destination.toNativeString(), zip_file_path.toNativeString());
 
 		if( existsFile(destination) ){
@@ -302,7 +353,7 @@ class PackageManager {
 		ZipArchive archive;
 		{
 			logDebug("Opening file %s", zip_file_path);
-			auto f = openFile(zip_file_path, FileMode.Read);
+			auto f = openFile(zip_file_path, FileMode.read);
 			scope(exit) f.close();
 			archive = new ZipArchive(f.readAll());
 		}
@@ -330,7 +381,7 @@ class PackageManager {
 
 		// extract & place
 		mkdirRecurse(destination.toNativeString());
-		logDiagnostic("Copying all files...");
+		logDebug("Copying all files...");
 		int countFiles = 0;
 		foreach(ArchiveMember a; archive.directory) {
 			auto cleanedPath = getCleanedPath(a.name);
@@ -344,29 +395,29 @@ class PackageManager {
 			} else {
 				if( !existsDirectory(dst_path.parentPath) )
 					mkdirRecurse(dst_path.parentPath.toNativeString());
-				auto dstFile = openFile(dst_path, FileMode.CreateTrunc);
+				auto dstFile = openFile(dst_path, FileMode.createTrunc);
 				scope(exit) dstFile.close();
 				dstFile.put(archive.expand(a));
 				++countFiles;
 			}
 		}
-		logDiagnostic("%s file(s) copied.", to!string(countFiles));
+		logDebug("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite dub.json (this one includes a version field)
-		auto pack = new Package(destination, PathAndFormat(), null, package_info["version"].get!string);
+		auto pack = Package.load(destination, Path.init, null, package_info["version"].get!string);
 
-		if (pack.packageInfoFilename.head != defaultPackageFilename)
+		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
-			removeFile(pack.packageInfoFilename);
+			removeFile(pack.recipePath);
 		pack.storeInfo();
 		addPackages(m_packages, pack);
 		return pack;
 	}
 
 	/// Removes the given the package.
-	void remove(in Package pack, bool force_remove)
+	void remove(in Package pack)
 	{
-		logDebug("Remove %s, version %s, path '%s'", pack.name, pack.vers, pack.path);
+		logDebug("Remove %s, version %s, path '%s'", pack.name, pack.version_, pack.path);
 		enforce(!pack.path.empty, "Cannot remove package "~pack.name~" without a path.");
 
 		// remove package from repositories' list
@@ -374,7 +425,7 @@ class PackageManager {
 		bool removeFrom(Package[] packs, in Package pack) {
 			auto packPos = countUntil!("a.path == b.path")(packs, pack);
 			if(packPos != -1) {
-				packs = std.algorithm.remove(packs, packPos);
+				packs = .remove(packs, packPos);
 				return true;
 			}
 			return false;
@@ -394,20 +445,26 @@ class PackageManager {
 		logInfo("Removed package: '"~pack.name~"'");
 	}
 
+	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	void remove(in Package pack, bool force_remove)
+	{
+		remove(pack);
+	}
+
 	Package addLocalPackage(Path path, string verName, LocalPackageType type)
 	{
 		path.endsWithSlash = true;
-		auto pack = new Package(path);
+		auto pack = Package.load(path);
 		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
 		if (verName.length)
-			pack.ver = Version(verName);
+			pack.version_ = Version(verName);
 
 		// don't double-add packages
 		Package[]* packs = &m_repositories[type].localPackages;
 		foreach (p; *packs) {
 			if (p.path == path) {
-				enforce(p.ver == pack.ver, "Adding the same local package twice with differing versions is not allowed.");
-				logInfo("Package is already registered: %s (version: %s)", p.name, p.ver);
+				enforce(p.version_ == pack.version_, "Adding the same local package twice with differing versions is not allowed.");
+				logInfo("Package is already registered: %s (version: %s)", p.name, p.version_);
 				return p;
 			}
 		}
@@ -416,7 +473,7 @@ class PackageManager {
 
 		writeLocalPackageList(type);
 
-		logInfo("Registered package: %s (version: %s)", pack.name, pack.ver);
+		logInfo("Registered package: %s (version: %s)", pack.name, pack.version_);
 		return pack;
 	}
 
@@ -433,14 +490,14 @@ class PackageManager {
 
 		string[Version] removed;
 		foreach_reverse( i; to_remove ) {
-			removed[(*packs)[i].ver] = (*packs)[i].name;
+			removed[(*packs)[i].version_] = (*packs)[i].name;
 			*packs = (*packs)[0 .. i] ~ (*packs)[i+1 .. $];
 		}
 
 		writeLocalPackageList(type);
 
 		foreach(ver, name; removed)
-			logInfo("Unregistered package: %s (version: %s)", name, ver);
+			logInfo("Deregistered package: %s (version: %s)", name, ver);
 	}
 
 	/// For the given type add another path where packages will be looked up.
@@ -476,8 +533,8 @@ class PackageManager {
 				enforce(packlist.type == Json.Type.array, LocalPackagesFilename~" must contain an array.");
 				foreach( pentry; packlist ){
 					try {
-						auto name = pentry.name.get!string;
-						auto path = Path(pentry.path.get!string);
+						auto name = pentry["name"].get!string;
+						auto path = Path(pentry["path"].get!string);
 						if (name == "*") {
 							paths ~= path;
 						} else {
@@ -494,19 +551,19 @@ class PackageManager {
 
 							if (!pp) {
 								auto infoFile = Package.findPackageFile(path);
-								if (!infoFile.empty) pp = new Package(path, infoFile);
+								if (!infoFile.empty) pp = Package.load(path, infoFile);
 								else {
-									logWarn("Locally registered package %s %s was not found. Please run \"dub remove-local %s\".",
+									logWarn("Locally registered package %s %s was not found. Please run 'dub remove-local \"%s\"'.",
 										name, ver, path.toNativeString());
 									auto info = Json.emptyObject;
-									info.name = name;
+									info["name"] = name;
 									pp = new Package(info, path);
 								}
 							}
 
 							if (pp.name != name)
 								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, pp.name);
-							pp.ver = ver;
+							pp.version_ = ver;
 
 							addPackages(packs, pp);
 						}
@@ -532,9 +589,23 @@ class PackageManager {
 				logDebug("iterating dir %s", path.toNativeString());
 				try foreach( pdir; iterateDirectory(path) ){
 					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
-					if( !pdir.isDirectory ) continue;
+					if (!pdir.isDirectory) continue;
+
 					auto pack_path = path ~ (pdir.name ~ "/");
+
 					auto packageFile = Package.findPackageFile(pack_path);
+
+					if (isManagedPath(path) && packageFile.empty) {
+						// Search for a single directory within this directory which happen to be a prefix of pdir
+						// This is to support new folder structure installed over the ancient one.
+						foreach (subdir; iterateDirectory(path ~ (pdir.name ~ "/")))
+							if (subdir.isDirectory && pdir.name.startsWith(subdir.name)) {// eg: package vibe-d will be in "vibe-d-x.y.z/vibe-d"
+								pack_path ~= subdir.name ~ "/";
+								packageFile = Package.findPackageFile(pack_path);
+								break;
+							}
+					}
+
 					if (packageFile.empty) continue;
 					Package p;
 					try {
@@ -544,7 +615,7 @@ class PackageManager {
 									p = pp;
 									break;
 								}
-						if (!p) p = new Package(pack_path, packageFile);
+						if (!p) p = Package.load(pack_path, packageFile);
 						addPackages(m_packages, p);
 					} catch( Exception e ){
 						logError("Failed to load package in %s: %s", pack_path, e.msg);
@@ -566,7 +637,7 @@ class PackageManager {
 			if (existsFile(ovrfilepath)) {
 				foreach (entry; jsonFromFile(ovrfilepath)) {
 					PackageOverride ovr;
-					ovr.package_ = entry.name.get!string;
+					ovr.package_ = entry["name"].get!string;
 					ovr.version_ = Dependency(entry["version"].get!string);
 					if (auto pv = "targetVersion" in entry) ovr.targetVersion = Version(pv.get!string);
 					if (auto pv = "targetPath" in entry) ovr.targetPath = Path(pv.get!string);
@@ -613,8 +684,8 @@ class PackageManager {
 		Json[] newlist;
 		foreach (p; m_repositories[type].searchPath) {
 			auto entry = Json.emptyObject;
-			entry.name = "*";
-			entry.path = p.toNativeString();
+			entry["name"] = "*";
+			entry["path"] = p.toNativeString();
 			newlist ~= entry;
 		}
 
@@ -622,7 +693,7 @@ class PackageManager {
 			if (p.parentPackage) continue; // do not store sub packages
 			auto entry = Json.emptyObject;
 			entry["name"] = p.name;
-			entry["version"] = p.ver.toString();
+			entry["version"] = p.version_.toString();
 			entry["path"] = p.path.toNativeString();
 			newlist ~= entry;
 		}
@@ -637,10 +708,10 @@ class PackageManager {
 		Json[] newlist;
 		foreach (ovr; m_repositories[type].overrides) {
 			auto jovr = Json.emptyObject;
-			jovr.name = ovr.package_;
-			jovr["version"] = ovr.version_.versionString;
-			if (!ovr.targetPath.empty) jovr.targetPath = ovr.targetPath.toNativeString();
-			else jovr.targetVersion = ovr.targetVersion.toString();
+			jovr["name"] = ovr.package_;
+			jovr["version"] = ovr.version_.versionSpec;
+			if (!ovr.targetPath.empty) jovr["targetPath"] = ovr.targetPath.toNativeString();
+			else jovr["targetVersion"] = ovr.targetVersion.toString();
 			newlist ~= jovr;
 		}
 		auto path = m_repositories[type].packagePath;
@@ -669,7 +740,7 @@ class PackageManager {
 					logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
 					continue;
 				}
-				sp = new Package(path, PathAndFormat(), pack);
+				sp = Package.load(path, Path.init, pack);
 			} else sp = new Package(spr.recipe, pack.path, pack);
 
 			// Add the subpackage.
@@ -710,8 +781,8 @@ enum LocalPackageType {
 	system
 }
 
-enum LocalPackagesFilename = "local-packages.json";
-enum LocalOverridesFilename = "local-overrides.json";
+private enum LocalPackagesFilename = "local-packages.json";
+private enum LocalOverridesFilename = "local-overrides.json";
 
 
 private struct Repository {

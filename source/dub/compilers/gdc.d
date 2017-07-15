@@ -8,6 +8,7 @@
 module dub.compilers.gdc;
 
 import dub.compilers.compiler;
+import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
@@ -19,77 +20,57 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.process;
-import std.random;
 import std.typecons;
 
 
-class GdcCompiler : Compiler {
+class GDCCompiler : Compiler {
 	private static immutable s_options = [
-		tuple(BuildOptions.debugMode, ["-fdebug"]),
-		tuple(BuildOptions.releaseMode, ["-frelease"]),
-		tuple(BuildOptions.coverage, ["-fprofile-arcs", "-ftest-coverage"]),
-		tuple(BuildOptions.debugInfo, ["-g"]),
-		tuple(BuildOptions.debugInfoC, ["-g", "-fdebug-c"]),
-		//tuple(BuildOptions.alwaysStackFrame, ["-X"]),
-		//tuple(BuildOptions.stackStomping, ["-X"]),
-		tuple(BuildOptions.inline, ["-finline-functions"]),
-		tuple(BuildOptions.noBoundsCheck, ["-fno-bounds-check"]),
-		tuple(BuildOptions.optimize, ["-O3"]),
-		tuple(BuildOptions.profile, ["-pg"]),
-		tuple(BuildOptions.unittests, ["-funittest"]),
-		tuple(BuildOptions.verbose, ["-fd-verbose"]),
-		tuple(BuildOptions.ignoreUnknownPragmas, ["-fignore-unknown-pragmas"]),
-		tuple(BuildOptions.syntaxOnly, ["-fsyntax-only"]),
-		tuple(BuildOptions.warnings, ["-Wall"]),
-		tuple(BuildOptions.warningsAsErrors, ["-Werror", "-Wall"]),
-		tuple(BuildOptions.ignoreDeprecations, ["-Wno-deprecated"]),
-		tuple(BuildOptions.deprecationWarnings, ["-Wdeprecated"]),
-		tuple(BuildOptions.deprecationErrors, ["-Werror", "-Wdeprecated"]),
-		tuple(BuildOptions.property, ["-fproperty"]),
+		tuple(BuildOption.debugMode, ["-fdebug"]),
+		tuple(BuildOption.releaseMode, ["-frelease"]),
+		tuple(BuildOption.coverage, ["-fprofile-arcs", "-ftest-coverage"]),
+		tuple(BuildOption.debugInfo, ["-g"]),
+		tuple(BuildOption.debugInfoC, ["-g", "-fdebug-c"]),
+		//tuple(BuildOption.alwaysStackFrame, ["-X"]),
+		//tuple(BuildOption.stackStomping, ["-X"]),
+		tuple(BuildOption.inline, ["-finline-functions"]),
+		tuple(BuildOption.noBoundsCheck, ["-fno-bounds-check"]),
+		tuple(BuildOption.optimize, ["-O3"]),
+		tuple(BuildOption.profile, ["-pg"]),
+		tuple(BuildOption.unittests, ["-funittest"]),
+		tuple(BuildOption.verbose, ["-fd-verbose"]),
+		tuple(BuildOption.ignoreUnknownPragmas, ["-fignore-unknown-pragmas"]),
+		tuple(BuildOption.syntaxOnly, ["-fsyntax-only"]),
+		tuple(BuildOption.warnings, ["-Wall"]),
+		tuple(BuildOption.warningsAsErrors, ["-Werror", "-Wall"]),
+		tuple(BuildOption.ignoreDeprecations, ["-Wno-deprecated"]),
+		tuple(BuildOption.deprecationWarnings, ["-Wdeprecated"]),
+		tuple(BuildOption.deprecationErrors, ["-Werror", "-Wdeprecated"]),
+		tuple(BuildOption.property, ["-fproperty"]),
+		//tuple(BuildOption.profileGC, ["-?"]),
+
+		tuple(BuildOption._docs, ["-fdoc-dir=docs"]),
+		tuple(BuildOption._ddox, ["-fXf=docs.json", "-fdoc-file=__dummy.html"]),
 	];
 
 	@property string name() const { return "gdc"; }
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
-		import std.process;
-		import std.string;
-
-		auto fil = generatePlatformProbeFile();
-
 		string[] arch_flags;
-
 		switch (arch_override) {
 			default: throw new Exception("Unsupported architecture: "~arch_override);
 			case "": break;
+			case "arm": arch_flags = ["-marm"]; break;
+			case "arm_thumb": arch_flags = ["-mthumb"]; break;
 			case "x86": arch_flags = ["-m32"]; break;
 			case "x86_64": arch_flags = ["-m64"]; break;
 		}
 		settings.addDFlags(arch_flags);
 
 		auto binary_file = getTempFile("dub_platform_probe");
-		auto result = executeShell(escapeShellCommand(
-			compiler_binary ~
-			arch_flags ~
-			["-c", "-o", binary_file.toNativeString(), fil.toNativeString()]
-		));
-		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
-			compiler_binary, result.output));
-
-		auto build_platform = readPlatformProbe(result.output);
-		build_platform.compilerBinary = compiler_binary;
-
-		if (build_platform.compiler != this.name) {
-			logWarn(`The determined compiler type "%s" doesn't match the expected type "%s". This will probably result in build errors.`,
-				build_platform.compiler, this.name);
-		}
-
-		if (arch_override.length && !build_platform.architecture.canFind(arch_override)) {
-			logWarn(`Failed to apply the selected architecture %s. Got %s.`,
-				arch_override, build_platform.architecture);
-		}
-
-		return build_platform;
+		return probePlatform(compiler_binary,
+			arch_flags ~ ["-c", "-o", binary_file.toNativeString()],
+			arch_override);
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
@@ -133,10 +114,12 @@ class GdcCompiler : Compiler {
 		}
 
 		if (!(fields & BuildSetting.lflags)) {
-			foreach( f; settings.lflags )
-				settings.addDFlags(["-Xlinker", f]);
+			settings.addDFlags(lflagsToDFlags(settings.lflags));
 			settings.lflags = null;
 		}
+
+		if (settings.options & BuildOption.pic)
+			settings.addDFlags("-fPIC");
 
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
@@ -156,6 +139,31 @@ class GdcCompiler : Compiler {
 			else newflags ~= f;
 		}
 		settings.dflags = newflags.data;
+	}
+
+	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
+	const {
+		assert(settings.targetName.length > 0, "No target name set.");
+		final switch (settings.targetType) {
+			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
+			case TargetType.none: return null;
+			case TargetType.sourceLibrary: return null;
+			case TargetType.executable:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".exe";
+				else return settings.targetName;
+			case TargetType.library:
+			case TargetType.staticLibrary:
+				return "lib" ~ settings.targetName ~ ".a";
+			case TargetType.dynamicLibrary:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".dll";
+				else return "lib" ~ settings.targetName ~ ".so";
+			case TargetType.object:
+				if (platform.platform.canFind("windows"))
+					return settings.targetName ~ ".obj";
+				else return settings.targetName ~ ".o";
+		}
 	}
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
@@ -200,10 +208,22 @@ class GdcCompiler : Compiler {
 			args = [ "ar", "rcs", tpath ] ~ objects;
 		} else {
 			args = platform.compilerBinary ~ objects ~ settings.sourceFiles ~ settings.lflags ~ settings.dflags.filter!(f => isLinkageFlag(f)).array;
-			version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
+			version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order by DMD
 		}
 		logDiagnostic("%s", args.join(" "));
 		invokeTool(args, output_callback);
+	}
+
+	string[] lflagsToDFlags(in string[] lflags) const
+	{
+		string[] dflags;
+		foreach( f; lflags )
+		{
+			dflags ~= "-Xlinker";
+			dflags ~= f;
+		}
+
+		return  dflags;
 	}
 }
 

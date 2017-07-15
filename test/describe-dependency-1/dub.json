@@ -1,0 +1,28 @@
+{
+    "name": "describe-dependency-1",
+    "targetType": "sourceLibrary",
+    "description": "A test describe project",
+    "authors": ["nobody"],
+    "homepage": "fake.com",
+    "license": "BSD 2-clause",
+    "copyright": "Copyright © 2015, nobody",
+    "sourceFiles-posix": ["dep.a"],
+    "sourceFiles-windows": ["dep.lib"],
+    "dflags": ["--another-dflag"],
+    "lflags": ["--another-lflag"],
+    "libs": ["anotherlib"],
+    "copyFiles": ["data/*"],
+    "versions": ["anotherVerIdent"],
+    "debugVersions": ["anotherDebugVerIdent"],
+    "preGenerateCommands-posix": ["../describe-dependency-1/dependency-preGenerateCommands.sh"],
+    "postGenerateCommands-posix": ["../describe-dependency-1/dependency-postGenerateCommands.sh"],
+    "preBuildCommands-posix": ["../describe-dependency-1/dependency-preBuildCommands.sh"],
+    "postBuildCommands-posix": ["../describe-dependency-1/dependency-postBuildCommands.sh"],
+    "buildRequirements": ["requireContracts"],
+    "buildOptions": ["stackStomping"],
+    "configurations": [
+        {
+            "name": "my-dependency-1-config"
+        }
+    ],
+}

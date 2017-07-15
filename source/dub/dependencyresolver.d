@@ -10,7 +10,7 @@ module dub.dependencyresolver;
 import dub.dependency;
 import dub.internal.vibecompat.core.log;
 
-import std.algorithm : all, canFind, filter, sort;
+import std.algorithm : all, canFind, filter, map, sort;
 import std.array : appender, array;
 import std.conv : to;
 import std.exception : enforce;
@@ -21,6 +21,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 	static struct TreeNodes {
 		string pack;
 		CONFIGS configs;
+		DependencyType depType = DependencyType.required;
 
 		hash_t toHash() const nothrow @trusted {
 			size_t ret = typeid(string).getHash(&pack);
@@ -54,26 +55,27 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 	CONFIG[string] resolve(TreeNode root, bool throw_on_failure = true)
 	{
-		static string rootPackage(string p) {
-			auto idx = indexOf(p, ":");
-			if (idx < 0) return p;
-			return p[0 .. idx];
-		}
-
-		auto root_base_pack = rootPackage(root.pack);
+		auto root_base_pack = basePackage(root.pack);
 
 		// find all possible configurations of each possible dependency
 		size_t[string] package_indices;
+		string[size_t] package_names;
 		CONFIG[][] all_configs;
+		bool[] any_config;
+		bool[string] maybe_optional_deps;
 		bool[TreeNode] visited;
+
 		void findConfigsRec(TreeNode parent, bool parent_unique)
 		{
 			if (parent in visited) return;
 			visited[parent] = true;
 
 			foreach (ch; getChildren(parent)) {
-				auto basepack = rootPackage(ch.pack);
+				auto basepack = basePackage(ch.pack);
 				auto pidx = all_configs.length;
+
+				if (ch.depType != DependencyType.required) maybe_optional_deps[ch.pack] = true;
+
 				CONFIG[] configs;
 				if (auto pi = basepack in package_indices) {
 					pidx = *pi;
@@ -83,9 +85,16 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					else configs = getAllConfigs(basepack);
 					all_configs ~= configs;
 					package_indices[basepack] = pidx;
+					package_names[pidx] = basepack;
 				}
 
-				configs = getSpecificConfigs(ch) ~ configs;
+				foreach (c; getSpecificConfigs(basepack, ch))
+					if (!configs.canFind(c))
+						configs = c ~ configs;
+
+				if (any_config.length <= pidx) any_config.length = pidx+1;
+				if (configs.length > 0)
+					any_config[pidx] = true;
 
 				// eliminate configurations from which we know that they can't satisfy
 				// the uniquely defined root dependencies (==version or ~branch style dependencies)
@@ -99,19 +108,19 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		}
 		findConfigsRec(root, true);
 
-		// prepend an invalid configuration to denote an unchosen dependency
+		// append an invalid configuration to denote an unchosen dependency
 		// this is used to properly support optional dependencies (when
 		// getChildren() returns no configurations for an optional dependency,
 		// but getAllConfigs() has already provided an existing list of configs)
-		foreach (ref cfgs; all_configs) cfgs = CONFIG.invalid ~ cfgs;
+		foreach (i, ref cfgs; all_configs)
+			if (cfgs.length == 0 || package_names[i] in maybe_optional_deps)
+				cfgs = cfgs ~ CONFIG.invalid;
 
 		logDebug("Configurations used for dependency resolution:");
-		foreach (n, i; package_indices) logDebug("  %s (%s): %s", n, i, all_configs[i]);
+		foreach (n, i; package_indices) logDebug("  %s (%s%s): %s", n, i, n in maybe_optional_deps ? ", maybe optional" : ", required", all_configs[i]);
 
 		auto config_indices = new size_t[all_configs.length];
 		config_indices[] = 0;
-
-		string last_error;
 
 		visited = null;
 		sizediff_t validateConfigs(TreeNode parent, ref string error)
@@ -122,21 +131,36 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 			visited[parent] = true;
 			sizediff_t maxcpi = -1;
-			sizediff_t parentidx = package_indices.get(rootPackage(parent.pack), -1);
-			auto parentbase = rootPackage(parent.pack);
+			sizediff_t parentidx = package_indices.get(basePackage(parent.pack), -1);
+			auto parentbase = basePackage(parent.pack);
 
 			// loop over all dependencies
 			foreach (ch; getChildren(parent)) {
-				auto basepack = rootPackage(ch.pack);
+				auto basepack = basePackage(ch.pack);
 				assert(basepack in package_indices, format("%s not in packages %s", basepack, package_indices));
 
 				// get the current config/version of the current dependency
 				sizediff_t childidx = package_indices[basepack];
 				if (all_configs[childidx] == [CONFIG.invalid]) {
-					enforce(parentbase != root_base_pack, format("Root package %s contains reference to invalid package %s", parent.pack, ch.pack));
+					// ignore invalid optional dependencies
+					if (ch.depType != DependencyType.required)
+						continue;
+
+					if (parentbase == root_base_pack) {
+						import std.uni : toLower;
+						auto lp = ch.pack.toLower();
+						if (lp != ch.pack) {
+							logError("Dependency \"%s\" of %s contains upper case letters, but must be lower case.", ch.pack, parent.pack);
+							if (getAllConfigs(lp).length) logError("Did you mean \"%s\"?", lp);
+						}
+						if (any_config[childidx])
+							throw new Exception(format("Root package %s reference %s %s cannot be satisfied.", parent.pack, ch.pack, ch.configs));
+						else
+							throw new Exception(format("Root package %s references unknown package %s", parent.pack, ch.pack));
+					}
 					// choose another parent config to avoid the invalid child
 					if (parentidx > maxcpi) {
-						error = format("Package %s contains invalid dependency %s", parent.pack, ch.pack);
+						error = format("Package %s contains invalid dependency %s (no version candidates)", parent.pack, ch.pack);
 						logDiagnostic("%s (ci=%s)", error, parentidx);
 						maxcpi = parentidx;
 					}
@@ -145,6 +169,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					auto chnode = TreeNode(ch.pack, config);
 
 					if (config == CONFIG.invalid || !matches(ch.configs, config)) {
+						// ignore missing optional dependencies
+						if (config == CONFIG.invalid && ch.depType != DependencyType.required)
+							continue;
+
 						// if we are at the root level, we can safely skip the maxcpi computation and instead choose another childidx config
 						if (parentbase == root_base_pack) {
 							error = format("No match for dependency %s %s of %s", ch.pack, ch.configs, parent.pack);
@@ -175,7 +203,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			visited = null;
 			string error;
 			auto conflict_index = validateConfigs(root, error);
-			if (!first_error) first_error = error;
+			if (first_error is null) first_error = error;
 
 			// print out current iteration state
 			logDebug("Interation (ci=%s) %s", conflict_index, {
@@ -196,6 +224,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 						auto cfg = all_configs[i][config_indices[i]];
 						if (cfg != CONFIG.invalid) ret[p] = cfg;
 					}
+				logDebug("Resolved dependencies before optional-purge: %s", ret.byKey.map!(k => k~" "~ret[k].to!string));
+				purgeOptionalDependencies(root, ret);
+				logDebug("Resolved dependencies after optional-purge: %s", ret.byKey.map!(k => k~" "~ret[k].to!string));
 				return ret;
 			}
 
@@ -213,9 +244,46 @@ class DependencyResolver(CONFIGS, CONFIG) {
 	}
 
 	protected abstract CONFIG[] getAllConfigs(string pack);
-	protected abstract CONFIG[] getSpecificConfigs(TreeNodes nodes);
+	protected abstract CONFIG[] getSpecificConfigs(string pack, TreeNodes nodes);
 	protected abstract TreeNodes[] getChildren(TreeNode node);
 	protected abstract bool matches(CONFIGS configs, CONFIG config);
+
+	private void purgeOptionalDependencies(TreeNode root, ref CONFIG[string] configs)
+	{
+		bool[string] required;
+		bool[string] visited;
+
+		void markRecursively(TreeNode node)
+		{
+			if (node.pack in visited) return;
+			visited[node.pack] = true;
+			required[basePackage(node.pack)] = true;
+			foreach (dep; getChildren(node).filter!(dep => dep.depType != DependencyType.optional))
+				if (auto dp = basePackage(dep.pack) in configs)
+					markRecursively(TreeNode(dep.pack, *dp));
+		}
+
+		// recursively mark all required dependencies of the concrete dependency tree
+		markRecursively(root);
+
+		// remove all un-marked configurations
+		foreach (p; configs.keys.dup)
+			if (p !in required)
+				configs.remove(p);
+	}
+}
+
+enum DependencyType {
+	required,
+	optionalDefault,
+	optional
+}
+
+private string basePackage(string p)
+{
+	auto idx = indexOf(p, ":");
+	if (idx < 0) return p;
+	return p[0 .. idx];
 }
 
 
@@ -226,8 +294,13 @@ unittest {
 		enum invalid = IntConfig(-1);
 	}
 	static IntConfig ic(int v) { return IntConfig(v); }
+	static struct IntConfigs {
+		IntConfig[] configs;
+		alias configs this;
+	}
+	static IntConfigs ics(IntConfig[] cfgs) { return IntConfigs(cfgs); }
 
-	static class TestResolver : DependencyResolver!(IntConfig[], IntConfig) {
+	static class TestResolver : DependencyResolver!(IntConfigs, IntConfig) {
 		private TreeNodes[][string] m_children;
 		this(TreeNodes[][string] children) { m_children = children; }
 		protected override IntConfig[] getAllConfigs(string pack) {
@@ -241,17 +314,17 @@ unittest {
 			ret.data.sort!"a>b"();
 			return ret.data;
 		}
-		protected override IntConfig[] getSpecificConfigs(TreeNodes nodes) { return null; }
+		protected override IntConfig[] getSpecificConfigs(string pack, TreeNodes nodes) { return null; }
 		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null); }
-		protected override bool matches(IntConfig[] configs, IntConfig config) { return configs.canFind(config); }
+		protected override bool matches(IntConfigs configs, IntConfig config) { return configs.canFind(config); }
 	}
 
 	// properly back up if conflicts are detected along the way (d:2 vs d:1)
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0": [TreeNodes("b", [ic(2), ic(1)]), TreeNodes("d", [ic(1)]), TreeNodes("e", [ic(2), ic(1)])],
-			"b:1": [TreeNodes("c", [ic(2), ic(1)]), TreeNodes("d", [ic(1)])],
-			"b:2": [TreeNodes("c", [ic(3), ic(2)]), TreeNodes("d", [ic(2), ic(1)])],
+			"a:0": [TreeNodes("b", ics([ic(2), ic(1)])), TreeNodes("d", ics([ic(1)])), TreeNodes("e", ics([ic(2), ic(1)]))],
+			"b:1": [TreeNodes("c", ics([ic(2), ic(1)])), TreeNodes("d", ics([ic(1)]))],
+			"b:2": [TreeNodes("c", ics([ic(3), ic(2)])), TreeNodes("d", ics([ic(2), ic(1)]))],
 			"c:1": [], "c:2": [], "c:3": [],
 			"d:1": [], "d:2": [],
 			"e:1": [], "e:2": [],
@@ -262,9 +335,69 @@ unittest {
 	// handle cyclic dependencies gracefully
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0": [TreeNodes("b", [ic(1)])],
-			"b:1": [TreeNodes("b", [ic(1)])]
+			"a:0": [TreeNodes("b", ics([ic(1)]))],
+			"b:1": [TreeNodes("b", ics([ic(1)]))]
 		]);
 		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(1)]);
+	}
+
+	// don't choose optional dependencies by default
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", ics([ic(1)]), DependencyType.optional)],
+			"b:1": []
+		]);
+		assert(res.resolve(TreeNode("a", ic(0))).length == 0, to!string(res.resolve(TreeNode("a", ic(0)))));
+	}
+
+	// choose default optional dependencies by default
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", ics([ic(1)]), DependencyType.optionalDefault)],
+			"b:1": []
+		]);
+		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(1)], to!string(res.resolve(TreeNode("a", ic(0)))));
+	}
+
+	// choose optional dependency if non-optional within the dependency tree
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", ics([ic(1)]), DependencyType.optional), TreeNodes("c", ics([ic(1)]))],
+			"b:1": [],
+			"c:1": [TreeNodes("b", ics([ic(1)]))]
+		]);
+		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(1), "c":ic(1)], to!string(res.resolve(TreeNode("a", ic(0)))));
+	}
+
+	// don't choose optional dependency if non-optional outside of final dependency tree
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", ics([ic(1)]), DependencyType.optional)],
+			"b:1": [],
+			"preset:0": [TreeNodes("b", ics([ic(1)]))]
+		]);
+		assert(res.resolve(TreeNode("a", ic(0))).length == 0, to!string(res.resolve(TreeNode("a", ic(0)))));
+	}
+
+	// don't choose optional dependency if non-optional in a non-selected version
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", ics([ic(1), ic(2)]))],
+			"b:1": [TreeNodes("c", ics([ic(1)]))],
+			"b:2": [TreeNodes("c", ics([ic(1)]), DependencyType.optional)],
+			"c:1": []
+		]);
+		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(2)], to!string(res.resolve(TreeNode("a", ic(0)))));
+	}
+
+	// make sure non-satisfyable dependencies are not a problem, even if non-optional in some dependencies
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", ics([ic(1), ic(2)]))],
+			"b:1": [TreeNodes("c", ics([ic(2)]))],
+			"b:2": [TreeNodes("c", ics([ic(2)]), DependencyType.optional)],
+			"c:1": []
+		]);
+		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(2)], to!string(res.resolve(TreeNode("a", ic(0)))));
 	}
 }

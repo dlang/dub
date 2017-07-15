@@ -1,9 +1,31 @@
 *.o
 *.obj
 
-.dub/
+.dub
+.directory
 dub.selections.json
-bin/dub
 
 docs.json
 __dummy.html
+
+# Ignore build files.
+/bin/dub
+/bin/__test__library-nonet__
+/bin/__test__library__
+/bin/dub-test-library
+
+# Ignore files or directories created by the test suite.
+/test/custom-source-main-bug487/custom-source-main-bug487
+/test/3-copyFiles/bin/
+/test/ignore-hidden-1/ignore-hidden-1
+/test/ignore-hidden-2/ignore-hidden-2
+/test/expected-import-path-output
+/test/expected-string-import-path-output
+/test/expected-describe-data-1-list-output
+/test/expected-describe-data-2-dmd-output
+/test/expected-issue616-output
+/test/describe-project/dummy.dat
+/test/describe-project/dummy-dep1.dat
+
+# Ignore coverage files
+cov/

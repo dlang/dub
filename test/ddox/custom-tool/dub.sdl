@@ -1,0 +1,4 @@
+name "custom-tool"
+description "A minimal D application."
+copyright "Copyright © 2015, dawg"
+authors "dawg"
