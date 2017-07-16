@@ -16,11 +16,13 @@ v1.4.0 - 2017-
 - Improved collection speed for source/import files - [pull #1125][issue1125]
 - Fixed "dub init" to allow digits in package names (by chadjoan) - [pull #1165][issue1165]
 - Fixed a sub package build issue on Windows, where colons were used as part of the file name (by andre2007) - [issue #1130][issue1130], [pull #1137][issue1137]
+- Fixed failures to acquire a lock when fetching packages - [pull #1149][issue1149]
 
 [issue1122]: https://github.com/dlang/dub/issues/1122
 [issue1125]: https://github.com/dlang/dub/issues/1125
 [issue1130]: https://github.com/dlang/dub/issues/1130
 [issue1137]: https://github.com/dlang/dub/issues/1137
+[issue1149]: https://github.com/dlang/dub/issues/1149
 [issue1165]: https://github.com/dlang/dub/issues/1165
 
 
