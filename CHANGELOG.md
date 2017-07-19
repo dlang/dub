@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v1.4.0 - 2017-
+v1.4.0 - 2017-07-19
 -------------------
 
 - The copyright string is generated automatically by "dub init"
