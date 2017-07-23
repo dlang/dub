@@ -168,6 +168,8 @@ private string getUserName()
 		import core.sys.posix.pwd, core.sys.posix.unistd, core.stdc.string : strlen;
 		import std.algorithm : splitter;
 
+		// Bionic doesn't have pw_gecos on ARM
+		version(CRuntime_Bionic) {} else
 		if (auto pw = getpwuid(getuid))
 		{
 			auto uinfo = pw.pw_gecos[0 .. strlen(pw.pw_gecos)].splitter(',');
