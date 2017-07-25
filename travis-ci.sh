@@ -18,8 +18,8 @@ fi
 DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
 
 if [ "$COVERAGE" = true ]; then
-    dub fetch doveralls
-    dub run doveralls --compiler=${DC}
+    wget https://codecov.io/bash -O codecov.sh
+    bash codecov.sh
 fi
 
 # check for trailing whitespace (needs to be done only once per build)
