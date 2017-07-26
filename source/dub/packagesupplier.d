@@ -198,10 +198,7 @@ class RegistryPackageSupplier : PackageSupplier {
 				return;
 			}
 			catch(HTTPStatusException e) {
-				if (e.status == 404) {
-					logDebug("Failed to download package %s from %s (404)", packageId, url);
-					return;
-				}
+				if (e.status == 404) throw e;
 				else {
 					logDebug("Failed to download package %s from %s (Attempt %s of 3)", packageId, url, i + 1);
 					continue;
@@ -239,11 +236,11 @@ class RegistryPackageSupplier : PackageSupplier {
 			catch (HTTPStatusException e)
 			{
 				if (e.status == 404) {
-					logDebug("Package %s not found in %s (404): %s", packageId, description, e.msg);
+					logDebug("Package %s not found at %s (404): %s", packageId, description, e.msg);
 					return Json(null);
 				}
 				else {
-					logDebug("Package %s not found in %s (attempt %s of 3): %s", packageId, description, i + 1, e.msg);
+					logDebug("Error getting metadata for package %s at %s (attempt %s of 3): %s", packageId, description, i + 1, e.msg);
 					if (i == 2)
 						throw e;
 					continue;
