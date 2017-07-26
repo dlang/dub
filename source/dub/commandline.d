@@ -126,7 +126,6 @@ int runDubCommandLine(string[] args)
 	// parse general options
 	CommonOptions options;
 	LogLevel loglevel = LogLevel.info;
-	options.root_path = getcwd();
 
 	auto common_args = new CommandArgs(args);
 	try {
@@ -142,6 +141,15 @@ int runDubCommandLine(string[] args)
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		logInfo("Run 'dub help' for usage information.");
 		return 1;
+	}
+
+	if (options.root_path.empty)
+		options.root_path = getcwd();
+	else
+	{
+		import std.path : absolutePath, buildNormalizedPath;
+
+		options.root_path = options.root_path.absolutePath.buildNormalizedPath;
 	}
 
 	// create the list of all supported commands
