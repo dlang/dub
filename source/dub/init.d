@@ -160,16 +160,17 @@ q"{.dub
 docs.json
 __dummy.html
 docs/
-*.so"}" ~
-p.name ~ ".dylib\n" ~
-p.name ~ ".dll\n" ~
-p.name ~ ".a\n" ~
-p.name ~ ".lib\n" ~
-p.name ~ "-test-" ~
-q"{*.exe
+%1$s.so
+%1$s.dylib
+%1$s.dll
+%1$s.a
+%1$s.lib
+%1$s-test-*
+*.exe
 *.o
 *.obj
-*.lst}");
+*.lst
+}".format(p.name));
 }
 
 private string getUserName()
