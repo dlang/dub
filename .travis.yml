@@ -58,4 +58,5 @@ addons:
       - libevent-dev
 
 script:
+  - deactivate # deactivate host compiler
   - ./travis-ci.sh
