@@ -500,7 +500,7 @@ class Package {
 		This includes dependencies that are declared at the root level of the
 		package recipe, as well as those declared within the specified
 		configuration. If no configuration with the given name exists, only
-		dependencies declared at the root level will be retunred.
+		dependencies declared at the root level will be returned.
 
 		See_Also: `hasDependency`
 	*/
