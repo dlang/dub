@@ -6,8 +6,11 @@ set -ueEo pipefail
 function die() {
     local line=$1
     local msg=${2:-command failed}
-    local rc=${3:-1}
+    local supplemental=${3:-}
     >&2 echo "[ERROR] $SOURCE_FILE:$1 $msg"
-    exit $rc
+    if [ ! -z "$supplemental" ]; then
+        echo "$supplemental" | >&2 sed 's|^|        |g'
+    fi
+    exit 1
 }
 trap 'die $LINENO' ERR
