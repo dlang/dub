@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v1.5.0 - 2017-
+v1.5.0 - 2017-09-01
 -------------------
 
 - Read additional registry URLs (semicolon separated) from DUB_REGISTRY env var - [pull #1173][issue1173]
