@@ -126,7 +126,6 @@ int runDubCommandLine(string[] args)
 	// parse general options
 	CommonOptions options;
 	LogLevel loglevel = LogLevel.info;
-	options.root_path = getcwd();
 
 	auto common_args = new CommandArgs(args);
 	try {
@@ -142,6 +141,15 @@ int runDubCommandLine(string[] args)
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		logInfo("Run 'dub help' for usage information.");
 		return 1;
+	}
+
+	if (options.root_path.empty)
+		options.root_path = getcwd();
+	else
+	{
+		import std.path : absolutePath, buildNormalizedPath;
+
+		options.root_path = options.root_path.absolutePath.buildNormalizedPath;
 	}
 
 	// create the list of all supported commands
@@ -496,7 +504,7 @@ class InitCommand : Command {
 			while (true) {
 				// Tries getting the name until a valid one is given.
 				import std.regex;
-				auto nameRegex = regex(`^[a-z\-_]+$`);
+				auto nameRegex = regex(`^[a-z0-9\-_]+$`);
 				string triedName = input("Name", p.name);
 				if (triedName.matchFirst(nameRegex).empty) {
 					logError("Invalid name, \""~triedName~"\", names should consist only of lowercase alphanumeric characters, - and _.");
@@ -847,6 +855,7 @@ class TestCommand : PackageBuildCommand {
 	private {
 		string m_mainFile;
 		bool m_combined = false;
+		bool m_parallel = false;
 		bool m_force = false;
 	}
 
@@ -885,6 +894,9 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("combined", &m_combined, [
 			"Tries to build the whole project in a single compiler run."
 		]);
+		args.getopt("parallel", &m_parallel, [
+			"Runs multiple compiler instances in parallel, if possible."
+		]);
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
@@ -912,6 +924,7 @@ class TestCommand : PackageBuildCommand {
 		settings.buildMode = m_buildMode;
 		settings.buildSettings = m_buildSettings;
 		settings.combined = m_combined;
+		settings.parallelBuild = m_parallel;
 		settings.force = m_force;
 		settings.tempBuild = m_single;
 		settings.run = true;

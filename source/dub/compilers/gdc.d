@@ -20,7 +20,6 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.process;
-import std.random;
 import std.typecons;
 
 
@@ -68,9 +67,8 @@ class GDCCompiler : Compiler {
 		}
 		settings.addDFlags(arch_flags);
 
-		auto binary_file = getTempFile("dub_platform_probe");
 		return probePlatform(compiler_binary,
-			arch_flags ~ ["-c", "-o", binary_file.toNativeString()],
+			arch_flags ~ ["-S"],
 			arch_override);
 	}
 
@@ -119,7 +117,7 @@ class GDCCompiler : Compiler {
 			settings.lflags = null;
 		}
 
-		if (settings.targetType == TargetType.dynamicLibrary)
+		if (settings.options & BuildOption.pic)
 			settings.addDFlags("-fPIC");
 
 		assert(fields & BuildSetting.dflags);

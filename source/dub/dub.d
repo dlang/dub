@@ -133,9 +133,11 @@ class Dub {
 		PackageSupplier[] ps = additional_package_suppliers;
 
 		if (skip_registry < SkipPackageSuppliers.all)
-			ps ~= m_config.registryURLs
+		{
+			ps ~= (environment.get("DUB_REGISTRY", null).split(";") ~ m_config.registryURLs)
 				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
 				.array;
+		}
 
 		if (skip_registry < SkipPackageSuppliers.standard)
 			ps ~= defaultPackageSuppliers();
@@ -143,6 +145,22 @@ class Dub {
 		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_dirs.userSettings, m_dirs.systemSettings);
 		updatePackageSearchPath();
+	}
+
+	unittest
+	{
+		scope (exit) environment.remove("DUB_REGISTRY");
+		auto dub = new Dub(".", null, SkipPackageSuppliers.standard);
+		assert(dub.m_packageSuppliers.length == 0);
+		environment["DUB_REGISTRY"] = "http://example.com/";
+		dub = new Dub(".", null, SkipPackageSuppliers.standard);
+		logInfo("%s", dub.m_packageSuppliers);
+		assert(dub.m_packageSuppliers.length == 1);
+		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
+		dub = new Dub(".", null, SkipPackageSuppliers.standard);
+		assert(dub.m_packageSuppliers.length == 2);
+		dub = new Dub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.standard);
+		assert(dub.m_packageSuppliers.length == 3);
 	}
 
 	/** Initializes the instance with a single package search path, without
@@ -273,6 +291,7 @@ class Dub {
 	{
 		import dub.recipe.io : parsePackageRecipe;
 		import std.file : mkdirRecurse, readText;
+		import std.path : baseName, stripExtension;
 
 		path = makeAbsolute(path);
 
@@ -295,12 +314,16 @@ class Dub {
 			recipe_content = file_content[0 .. idx].strip();
 		} else throw new Exception("The source file must start with a recipe comment.");
 
+		auto nidx = recipe_content.indexOf('\n');
+
 		auto idx = recipe_content.indexOf(':');
-		enforce(idx > 0, "Missing recipe file name (e.g. \"dub.sdl:\") in recipe comment");
+		enforce(idx > 0 && (nidx < 0 || nidx > idx),
+			"The first line of the recipe comment must list the recipe file name followed by a colon (e.g. \"/+ dub.sdl:\").");
 		auto recipe_filename = recipe_content[0 .. idx];
 		recipe_content = recipe_content[idx+1 .. $];
+		auto recipe_default_package_name = path.toString.baseName.stripExtension.strip;
 
-		auto recipe = parsePackageRecipe(recipe_content, recipe_filename);
+		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, null, recipe_default_package_name);
 		enforce(recipe.buildSettings.sourceFiles.length == 0, "Single-file packages are not allowed to specify source files.");
 		enforce(recipe.buildSettings.sourcePaths.length == 0, "Single-file packages are not allowed to specify source paths.");
 		enforce(recipe.buildSettings.importPaths.length == 0, "Single-file packages are not allowed to specify import paths.");
@@ -366,7 +389,7 @@ class Dub {
 							if (versions.canFind!(v => dep.matches(v)))
 								continue next_pack;
 						} catch (Exception e) {
-							logDiagnostic("Error querying versions for %s, %s: %s", p, ps.description, e.msg);
+							logWarn("Error querying versions for %s, %s: %s", p, ps.description, e.msg);
 							logDebug("Full error: %s", e.toString().sanitize());
 						}
 					}
@@ -645,10 +668,12 @@ class Dub {
 		foreach(ps; m_packageSuppliers){
 			try {
 				pinfo = ps.fetchPackageRecipe(packageId, dep, (options & FetchOptions.usePrerelease) != 0);
+				if (pinfo.type == Json.Type.null_)
+					continue;
 				supplier = ps;
 				break;
 			} catch(Exception e) {
-				logDiagnostic("Package %s not found for %s: %s", packageId, ps.description, e.msg);
+				logWarn("Package %s not found for %s: %s", packageId, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
@@ -925,8 +950,15 @@ class Dub {
 	*/
 	auto searchPackages(string query)
 	{
-		return m_packageSuppliers.map!(ps => tuple(ps.description, ps.searchPackages(query))).array
-			.filter!(t => t[1].length);
+		Tuple!(string, PackageSupplier.SearchResult[])[] results;
+		foreach (ps; this.m_packageSuppliers) {
+			try
+				results ~= tuple(ps.description, ps.searchPackages(query));
+			catch (Exception e) {
+				logWarn("Searching %s for '%s' failed: %s", ps.description, query, e.msg);
+			}
+		}
+		return results.filter!(tup => tup[1].length);
 	}
 
 	/** Returns a list of all available versions (including branches) for a
@@ -943,7 +975,7 @@ class Dub {
 		foreach (ps; this.m_packageSuppliers) {
 			try versions ~= ps.getVersions(name);
 			catch (Exception e) {
-				logDebug("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
+				logWarn("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
 			}
 		}
 		return versions.sort().uniq.array;
@@ -1241,7 +1273,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				versions ~= vers;
 				break;
 			} catch (Exception e) {
-				logDebug("Package %s not found in %s: %s", pack, ps.description, e.msg);
+				logWarn("Package %s not found in %s: %s", pack, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize);
 			}
 		}
@@ -1396,6 +1428,8 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			if (rootpack == name) {
 				try {
 					auto desc = ps.fetchPackageRecipe(name, dep, prerelease);
+					if (desc.type == Json.Type.null_)
+						continue;
 					auto ret = new Package(desc);
 					m_remotePackages[key] = ret;
 					return ret;
