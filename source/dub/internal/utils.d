@@ -26,7 +26,11 @@ import std.string;
 import std.traits : isIntegral;
 import std.typecons;
 import std.zip;
-version(DubUseCurl) import std.net.curl;
+version(DubUseCurl)
+{
+	import std.net.curl;
+	static if (__VERSION__ > 2075) public import std.net.curl : HTTPStatusException;
+}
 
 
 private Path[] temporary_files;
