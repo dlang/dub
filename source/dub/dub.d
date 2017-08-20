@@ -807,6 +807,9 @@ class Dub {
 				~ ")");
 		}
 
+		// Sort package list in ascending version order
+		packages.sort!((a, b) => a.version_ < b.version_);
+
 		immutable idx = resolve_version(packages);
 		if (idx == size_t.max)
 			return;
