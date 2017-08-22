@@ -9,8 +9,7 @@ mkdir ${TMPDIR}
 cd ${TMPDIR}
 
 # kill dub init during interactive mode
-${DUB} init < /dev/stdin &
-sleep 1
+${DUB} init <(while :; do sleep 1; done) &
 kill $!
 
 # ensure that no files are left behind
