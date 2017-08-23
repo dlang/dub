@@ -379,6 +379,16 @@ class PackageManager {
 			return path[zip_prefix.length..path.length];
 		}
 
+		static void setAttributes(string path, ArchiveMember am)
+		{
+			import std.datetime : DosFileTimeToSysTime;
+
+			auto mtime = DosFileTimeToSysTime(am.time);
+			setTimes(path, mtime, mtime);
+			if (auto attrs = am.fileAttributes)
+				std.file.setAttributes(path, attrs);
+		}
+
 		// extract & place
 		mkdirRecurse(destination.toNativeString());
 		logDebug("Copying all files...");
@@ -398,6 +408,7 @@ class PackageManager {
 				auto dstFile = openFile(dst_path, FileMode.createTrunc);
 				scope(exit) dstFile.close();
 				dstFile.put(archive.expand(a));
+				setAttributes(dst_path.toNativeString(), a);
 				++countFiles;
 			}
 		}
