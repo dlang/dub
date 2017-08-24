@@ -231,6 +231,8 @@ version(DubUseCurl) {
 
 		int status; /// The HTTP status code
 	}
+	else
+		public import std.net.curl : HTTPStatusException;
 } else version (Have_vibe_d_http) {
 	public import vibe.http.common : HTTPStatusException;
 }
