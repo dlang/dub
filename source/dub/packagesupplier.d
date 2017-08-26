@@ -192,7 +192,20 @@ class RegistryPackageSupplier : PackageSupplier {
 		auto vers = best["version"].get!string;
 		auto url = m_registryUrl ~ Path(PackagesPath~"/"~packageId~"/"~vers~".zip");
 		logDiagnostic("Downloading from '%s'", url);
-		download(url, path);
+		foreach(i; 0..3) {
+			try{
+				download(url, path);
+				return;
+			}
+			catch(HTTPStatusException e) {
+				if (e.status == 404) throw e;
+				else {
+					logDebug("Failed to download package %s from %s (Attempt %s of 3)", packageId, url, i + 1);
+					continue;
+				}
+			}
+		}
+		throw new Exception("Failed to download package %s from %s".format(packageId, url));
 	}
 
 	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
@@ -215,14 +228,24 @@ class RegistryPackageSupplier : PackageSupplier {
 		logDebug("Getting from %s", url);
 
 		string jsonData;
-		try
-			jsonData = cast(string)download(url);
-		catch (HTTPStatusException e)
-		{
-			if (e.status != 404)
-				throw e;
-			logDebug("Package %s not found in %s: %s", packageId, description, e.msg);
-			return Json(null);
+		foreach(i; 0..3) {
+			try {
+				jsonData = cast(string)download(url);
+				break;
+			}
+			catch (HTTPStatusException e)
+			{
+				if (e.status == 404) {
+					logDebug("Package %s not found at %s (404): %s", packageId, description, e.msg);
+					return Json(null);
+				}
+				else {
+					logDebug("Error getting metadata for package %s at %s (attempt %s of 3): %s", packageId, description, i + 1, e.msg);
+					if (i == 2)
+						throw e;
+					continue;
+				}
+			}
 		}
 		Json json = parseJsonString(jsonData, url.toString());
 		// strip readme data (to save size and time)
