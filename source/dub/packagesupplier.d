@@ -21,6 +21,7 @@ import std.datetime;
 import std.exception;
 import std.file;
 import std.string : format;
+import std.typecons : AutoImplement;
 import std.zip;
 
 // TODO: Could drop the "best package" behavior and let retrievePackage/
@@ -264,6 +265,43 @@ class RegistryPackageSupplier : PackageSupplier {
 		enforce(best != null, "No package candidate found for "~packageId~" "~dep.toString());
 		return best;
 	}
+}
+
+package abstract class AbstractFallbackPackageSupplier : PackageSupplier
+{
+	protected PackageSupplier m_default, m_fallback;
+
+	this(PackageSupplier default_, PackageSupplier fallback)
+	{
+		m_default = default_;
+		m_fallback = fallback;
+	}
+
+	override @property string description()
+	{
+		return format("%s (fallback %s)", m_default.description, m_fallback.description);
+	}
+
+	// Workaround https://issues.dlang.org/show_bug.cgi?id=2525
+	abstract override Version[] getVersions(string package_id);
+	abstract override void fetchPackage(Path path, string package_id, Dependency dep, bool pre_release);
+	abstract override Json fetchPackageRecipe(string package_id, Dependency dep, bool pre_release);
+	abstract override SearchResult[] searchPackages(string query);
+}
+
+/**
+	Combines two package suppliers and uses the second as fallback to handle failures.
+
+	Assumes that both registries serve the same packages (--mirror).
+*/
+package alias FallbackPackageSupplier = AutoImplement!(AbstractFallbackPackageSupplier, fallback);
+
+private template fallback(T, alias func)
+{
+	enum fallback = q{
+		scope (failure) return m_fallback.%1$s(args);
+		return m_default.%1$s(args);
+	}.format(__traits(identifier, func));
 }
 
 private enum PackagesPath = "packages";
