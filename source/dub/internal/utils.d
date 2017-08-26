@@ -260,7 +260,7 @@ void download(string url, string filename)
 		}
 		else
 			std.net.curl.download(url, filename, conn);
-	} else version (Have_vibe_d) {
+	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		vibe.inet.urltransfer.download(url, filename);
 	} else assert(false);
@@ -290,7 +290,7 @@ ubyte[] download(string url)
 		}
 		else
 			return cast(ubyte[])get(url, conn);
-	} else version (Have_vibe_d) {
+	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		import vibe.stream.operations;
 		ubyte[] ret;
