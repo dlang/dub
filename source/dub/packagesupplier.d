@@ -185,7 +185,6 @@ class RegistryPackageSupplier : PackageSupplier {
 	void fetchPackage(Path path, string packageId, Dependency dep, bool pre_release)
 	{
 		import std.array : replace;
-		import std.net.curl : CurlException;
 		Json best = getBestPackage(packageId, dep, pre_release);
 		if (best.type == Json.Type.null_)
 			return;
