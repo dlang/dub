@@ -163,7 +163,7 @@ class ProjectGenerator
 			}
 		}
 		if (tt != TargetType.none && tt != TargetType.sourceLibrary && shallowbs.sourceFiles.empty) {
-			logWarn(`Configuration '%s' of package %s contains no source files. Please add {"targetType": "none"} to it's package description to avoid building it.`,
+			logWarn(`Configuration '%s' of package %s contains no source files. Please add {"targetType": "none"} to its package description to avoid building it.`,
 				configs[pack.name], pack.name);
 			tt = TargetType.none;
 		}
