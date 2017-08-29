@@ -1193,7 +1193,7 @@ class FetchCommand : FetchRemoveCommand {
 			"Without specified options, placement/removal will default to a user wide shared location.",
 			"",
 			"Complete applications can be retrieved and run easily by e.g.",
-			"$ dub fetch vibelog --local",
+			"$ dub fetch vibelog --cache=local",
 			"$ cd vibelog",
 			"$ dub",
 			"",
