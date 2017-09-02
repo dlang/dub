@@ -405,9 +405,11 @@ class PackageManager {
 			} else {
 				if( !existsDirectory(dst_path.parentPath) )
 					mkdirRecurse(dst_path.parentPath.toNativeString());
-				auto dstFile = openFile(dst_path, FileMode.createTrunc);
-				scope(exit) dstFile.close();
-				dstFile.put(archive.expand(a));
+				{
+					auto dstFile = openFile(dst_path, FileMode.createTrunc);
+					scope(exit) dstFile.close();
+					dstFile.put(archive.expand(a));
+				}
 				setAttributes(dst_path.toNativeString(), a);
 				++countFiles;
 			}
