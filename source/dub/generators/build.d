@@ -568,3 +568,10 @@ private string shrinkPath(Path path, Path base)
 	auto ret = path.relativeTo(base).toNativeString();
 	return ret.length < orig.length ? ret : orig;
 }
+
+unittest {
+	assert(shrinkPath(Path("/foo/bar/baz"), Path("/foo")) == Path("bar/baz").toNativeString());
+	assert(shrinkPath(Path("/foo/bar/baz"), Path("/foo/baz")) == Path("../bar/baz").toNativeString());
+	assert(shrinkPath(Path("/foo/bar/baz"), Path("/bar/")) == Path("/foo/bar/baz").toNativeString());
+	assert(shrinkPath(Path("/foo/bar/baz"), Path("/bar/baz")) == Path("/foo/bar/baz").toNativeString());
+}
