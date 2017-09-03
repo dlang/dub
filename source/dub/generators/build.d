@@ -119,12 +119,7 @@ class BuildGenerator : ProjectGenerator {
 		auto build_id = computeBuildID(config, buildsettings, settings);
 
 		// make all paths relative to shrink the command line
-		string makeRelative(string path) {
-			auto p = Path(path);
-			// storing in a separate temprary to work around #601
-			auto prel = p.absolute ? p.relativeTo(cwd) : p;
-			return prel.toNativeString();
-		}
+		string makeRelative(string path) { return shrinkPath(Path(path), cwd); }
 		foreach (ref f; buildsettings.sourceFiles) f = makeRelative(f);
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
@@ -193,7 +188,7 @@ class BuildGenerator : ProjectGenerator {
 
 		// override target path
 		auto cbuildsettings = buildsettings;
-		cbuildsettings.targetPath = target_path.relativeTo(cwd).toNativeString();
+		cbuildsettings.targetPath = shrinkPath(target_path, cwd);
 		buildWithCompiler(settings, cbuildsettings);
 		target_binary_path = getTargetPath(cbuildsettings, settings);
 
@@ -564,4 +559,12 @@ private Path getMainSourceFile(in Package prj)
 private Path getTargetPath(in ref BuildSettings bs, in ref GeneratorSettings settings)
 {
 	return Path(bs.targetPath) ~ settings.compiler.getTargetFileName(bs, settings.platform);
+}
+
+private string shrinkPath(Path path, Path base)
+{
+	auto orig = path.toNativeString();
+	if (!path.absolute) return orig;
+	auto ret = path.relativeTo(base).toNativeString();
+	return ret.length < orig.length ? ret : orig;
 }
