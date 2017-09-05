@@ -16,7 +16,7 @@ if [ "$DMD" = "" ]; then
 	exit 1
 fi
 
-VERSION=$($DMD --version 2>/dev/null | sed -n 's|DMD.* v||p')
+VERSION=$($DMD --version 2>/dev/null | sed -En 's|.*DMD.* v([[:digit:]\.]+).*|\1|p')
 # workaround for link order issues with libcurl (phobos needs to come before curl)
 if [[ $VERSION < 2.069.0 ]]; then
 	# link against libcurl
