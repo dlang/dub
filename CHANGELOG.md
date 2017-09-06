@@ -1,15 +1,49 @@
 Changelog
 =========
 
+v1.6.0 - 2017-
+-------------------
+
+- The version list displayed for interactive package removal is now sorted - [pull #1225][issue1225], [issue #1224][issue1224]
+- File attributes of fetched packages are now preserved - [pull #1226][issue1226]
+- `http://code-mirror.dlang.io` is now used as a fallback for `code.dlang.org` - [pull #1190][issue1190]
+- Failed package downloads are now retried two more times (by Colin Grogan) - [pull #1198][issue1198]
+
+[issue1190]: https://github.com/dlang/dub/issues/1190
+[issue1198]: https://github.com/dlang/dub/issues/1198
+[issue1224]: https://github.com/dlang/dub/issues/1224
+[issue1225]: https://github.com/dlang/dub/issues/1225
+[issue1226]: https://github.com/dlang/dub/issues/1226
+
+
 v1.5.0 - 2017-09-01
 -------------------
 
+- Allow digits in package names (by Chad Joan) - [pull #1165][issue1165]
+- Support the `no_proxy` environment variable for HTTP requests (by André Pany) - [pull #1162][issue1162], [issue #1159][issue1159]
 - Read additional registry URLs (semicolon separated) from DUB_REGISTRY env var - [pull #1173][issue1173]
+- Single file packages don't have to specify an explicit name anymore (will be inferred from the file name) - [pull #1081][issue1081]
+- Add support for the `--parallel` switch for `dub test` (currently only has an effect for `--build-mode=singleFile`) - [pull #1182][issue1182]
+- Improved error reporting for package download failures - [pull #1104][issue1104]
+- Fixed building the code base against Android/Bionic - [pull #1202][issue1202]
+- Extended the generated gitignore file (by Ryan Frame) - [pull #1050][issue1050]
 
+[issue1050]: https://github.com/dlang/dub/issues/1050
+[issue1081]: https://github.com/dlang/dub/issues/1081
+[issue1104]: https://github.com/dlang/dub/issues/1104
+[issue1182]: https://github.com/dlang/dub/issues/1182
+[issue1159]: https://github.com/dlang/dub/issues/1159
+[issue1162]: https://github.com/dlang/dub/issues/1162
+[issue1165]: https://github.com/dlang/dub/issues/1165
 [issue1173]: https://github.com/dlang/dub/issues/1173
+[issue1202]: https://github.com/dlang/dub/issues/1202
+
 
 v1.4.1 - 2017-08-10
 -------------------
+
+This release is identical with 1.4.0.
+
 
 v1.4.0 - 2017-07-19
 -------------------
