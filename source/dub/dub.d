@@ -64,8 +64,14 @@ static this()
 }
 
 /// The URL to the official package registry.
-enum defaultRegistryURL = "http://code.dlang.org/";
-enum fallbackRegistryURLs = ["https://code-mirror.dlang.io/"];
+enum defaultRegistryURL = "https://code.dlang.org/";
+enum fallbackRegistryURLs = [
+	// fallback in case of HTTPS problems
+	"http://code.dlang.org/",
+	"https://code-mirror.dlang.io/",
+	"https://code-mirror2.dlang.io/",
+	"https://dub-registry.herokuapp.com/",
+];
 
 /** Returns a default list of package suppliers.
 
