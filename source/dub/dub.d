@@ -65,7 +65,7 @@ static this()
 
 /// The URL to the official package registry.
 enum defaultRegistryURL = "http://code.dlang.org/";
-enum fallbackRegistryURL = "https://code-mirror.dlang.io/";
+enum fallbackRegistryURLs = ["https://code-mirror.dlang.io/"];
 
 /** Returns a default list of package suppliers.
 
@@ -80,7 +80,7 @@ PackageSupplier[] defaultPackageSuppliers()
 	return [
 		new FallbackPackageSupplier(
 			new RegistryPackageSupplier(URL(defaultRegistryURL)),
-			new RegistryPackageSupplier(URL(fallbackRegistryURL))
+			fallbackRegistryURLs.map!(x => cast(PackageSupplier) new RegistryPackageSupplier(URL(x))).array
 		)
 	];
 }

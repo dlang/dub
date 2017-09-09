@@ -292,17 +292,19 @@ class RegistryPackageSupplier : PackageSupplier {
 
 package abstract class AbstractFallbackPackageSupplier : PackageSupplier
 {
-	protected PackageSupplier m_default, m_fallback;
+	protected PackageSupplier m_default;
+	protected PackageSupplier[] m_fallbacks;
 
-	this(PackageSupplier default_, PackageSupplier fallback)
+	this(PackageSupplier default_, PackageSupplier[] fallbacks)
 	{
 		m_default = default_;
-		m_fallback = fallback;
+		m_fallbacks = fallbacks;
 	}
 
 	override @property string description()
 	{
-		return format("%s (fallback %s)", m_default.description, m_fallback.description);
+		import std.algorithm.iteration : map;
+		return format("%s (fallback %s)", m_default.description, m_fallbacks.map!(x => x.description));
 	}
 
 	// Workaround https://issues.dlang.org/show_bug.cgi?id=2525
@@ -322,7 +324,18 @@ package alias FallbackPackageSupplier = AutoImplement!(AbstractFallbackPackageSu
 private template fallback(T, alias func)
 {
 	enum fallback = q{
-		scope (failure) return m_fallback.%1$s(args);
+		import std.range : back, dropBackOne;
+		scope (failure)
+		{
+			foreach (m_fallback; m_fallbacks.dropBackOne)
+			{
+				try
+					return m_fallback.%1$s(args);
+				catch(Throwable)
+				    assert(1);
+			}
+			return m_fallbacks.back.%1$s(args);
+		}
 		return m_default.%1$s(args);
 	}.format(__traits(identifier, func));
 }
