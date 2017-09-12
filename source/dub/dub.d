@@ -546,10 +546,11 @@ class Dub {
 			BuildSettingsTemplate tcinfo = m_project.rootPackage.recipe.getConfiguration(config).buildSettings;
 			tcinfo.targetType = TargetType.executable;
 			tcinfo.targetName = test_config;
-			// HACK for vibe.d's legacy main() behavior:
-			tcinfo.versions[""] ~= "VibeCustomMain";
-			m_project.rootPackage.recipe.buildSettings.versions[""] = m_project.rootPackage.recipe.buildSettings.versions.get("", null).remove!(v => v == "VibeDefaultMain");
-			// TODO: remove this ^ once vibe.d has removed the default main implementation
+
+			if (lbuildsettings.targetType != TargetType.executable) {
+				logInfo("target type is %s, which doesn't have a main(); we're providing one");
+				tcinfo.versions[""] ~= "dub_test_main";
+			}
 
 			auto mainfil = tcinfo.mainSourceFile;
 			if (!mainfil.length) mainfil = m_project.rootPackage.recipe.buildSettings.mainSourceFile;
@@ -567,11 +568,6 @@ class Dub {
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
 					auto fname = Path(file).head.toString();
-					if (Path(file).relativeTo(m_project.rootPackage.path) == Path(mainfil)) {
-						logWarn("Excluding main source file %s from test.", mainfil);
-						tcinfo.excludedSourceFiles[""] ~= mainfil;
-						continue;
-					}
 					if (fname == "package.d") {
 						logWarn("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
 						continue;
@@ -603,8 +599,21 @@ class Dub {
 						import std.stdio;
 						import core.runtime;
 
-						void main() { writeln("All unit tests have been run successfully."); }
-						shared static this() {
+						// libraries need a main function
+						version (dub_test_main) void main() {}
+
+						bool defaultUnitTester() {
+							import core.stdc.stdlib : exit;
+							foreach (modul; allModules)
+								foreach (test; __traits(getUnitTests, modul))
+									test();
+							writeln("All unit tests have been run successfully.");
+							exit(0);
+							return true;
+						}
+
+						shared static this()
+						{
 							version (Have_tested) {
 								import tested;
 								import core.runtime;
@@ -612,6 +621,11 @@ class Dub {
 								Runtime.moduleUnitTester = () => true;
 								//runUnitTests!app(new JsonTestResultWriter("results.json"));
 								enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
+							} else {
+								import core.runtime : Runtime;
+								if (Runtime.moduleUnitTester is null) {
+									Runtime.moduleUnitTester = &defaultUnitTester;
+								}
 							}
 						}
 					});
