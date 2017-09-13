@@ -270,16 +270,16 @@ class Project {
 
 		// search for orphan sub configurations
 		void warnSubConfig(string pack, string config) {
-			logWarn("The sub configuration directive %s -> %s references a "
-				~ "package that is not specified as a dependency and will have "
-				~ "no effect.", pack, config);
+			logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+				~ "references a package that is not specified as a dependency "
+				~ "and will have no effect.", pack, config);
 		}
 		void checkSubConfig(string pack, string config) {
 			auto p = getDependency(pack, true);
 			if (p && !p.configurations.canFind(config)) {
-				logWarn("The sub configuration directive %s -> %s references "
-					~ " a configuration that does not exist and will have no "
-					~ "effect.", pack, config);
+				logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+					~ "references a configuration that does not exist.",
+					pack, config);
 			}
 		}
 		auto globalbs = m_rootPackage.getBuildSettings();
