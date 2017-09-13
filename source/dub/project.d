@@ -20,18 +20,12 @@ import dub.packagemanager;
 import dub.packagesupplier;
 import dub.generators.generator;
 
-
-// todo: cleanup imports.
 import std.algorithm;
 import std.array;
-import std.conv;
+import std.conv : to;
 import std.datetime;
-import std.exception;
-import std.file;
-import std.process;
+import std.exception : enforce;
 import std.string;
-import std.typecons;
-import std.zip;
 import std.encoding : sanitize;
 
 /**
@@ -1099,6 +1093,7 @@ class Project {
 	}
 
 	private void writeDubJson() {
+		import std.file : exists, mkdir;
 		// don't bother to write an empty file
 		if( m_packageSettings.length == 0 ) return;
 
@@ -1218,6 +1213,7 @@ private string processVars(string var, in Project project, in Package pack, bool
 
 private string getVariable(string name, in Project project, in Package pack)
 {
+	import std.process : environment;
 	if (name == "PACKAGE_DIR") return pack.path.toNativeString();
 	if (name == "ROOT_PACKAGE_DIR") return project.rootPackage.path.toNativeString();
 

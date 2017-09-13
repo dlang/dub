@@ -22,18 +22,14 @@ import dub.project;
 import dub.generators.generator;
 import dub.init;
 
-
-// todo: cleanup imports.
 import std.algorithm;
-import std.array;
-import std.conv;
-import std.datetime;
-import std.exception;
+import std.array : array, replace;
+import std.conv : to;
+import std.exception : enforce;
 import std.file;
-import std.process;
+import std.process : environment;
+import std.range : empty;
 import std.string;
-import std.typecons;
-import std.zip;
 import std.encoding : sanitize;
 
 // Workaround for libcurl liker errors when building with LDC
@@ -739,6 +735,7 @@ class Dub {
 		// import path leakage.
 		dstpath = dstpath ~ packageId;
 
+		import std.datetime : seconds;
 		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds); // possibly wait for other dub instance
 		if (dstpath.existsFile())
 		{
@@ -959,6 +956,7 @@ class Dub {
 	*/
 	auto searchPackages(string query)
 	{
+		import std.typecons : Tuple, tuple;
 		Tuple!(string, PackageSupplier.SearchResult[])[] results;
 		foreach (ps; this.m_packageSuppliers) {
 			try
@@ -1098,6 +1096,8 @@ class Dub {
 	*/
 	void runDdox(bool run, string[] generate_args = null)
 	{
+		import std.process : browse;
+
 		if (m_dryRun) return;
 
 		// allow to choose a custom ddox tool
@@ -1168,6 +1168,7 @@ class Dub {
 
 	private void determineDefaultCompiler()
 	{
+		import std.range : front;
 		import std.process : environment;
 
 		m_defaultCompiler = m_config.defaultCompiler;
@@ -1318,6 +1319,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 	protected override TreeNodes[] getChildren(TreeNode node)
 	{
+		import std.array : appender;
 		auto ret = appender!(TreeNodes[]);
 		auto pack = getPackage(node.pack, node.config);
 		if (!pack) {
