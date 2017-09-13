@@ -32,7 +32,7 @@ import std.getopt;
 import std.process;
 import std.stdio;
 import std.string;
-import std.typecons : Tuple, tuple;
+import std.typecons : Tuple, tuple, Nullable;
 import std.variant;
 
 
@@ -216,18 +216,29 @@ int runDubCommandLine(string[] args)
 
 	Dub dub;
 
+	void setRepoPath()
+	{
+		// only one can be true, because of check in CommonOptions.prepare
+		if (!options.repoLocation.isNull)
+			dub.defaultRepoPath = dub.toPath(options.repoLocation);
+		if (!options.repoPath.empty)
+			dub.defaultRepoPath = Path(options.repoPath);
+		if (!options.cacheLocation.isNull)
+			dub.defaultRepoPath = dub.toPath(options.cacheLocation);
+	}
+
 	// initialize the root package
 	if (!cmd.skipDubInitialization) {
 		if (options.bare) {
 			dub = new Dub(Path(getcwd()));
 			dub.rootPath = Path(options.root_path);
-			dub.defaultPlacementLocation = options.placementLocation;
+			setRepoPath();
 		} else {
 			// initialize DUB
 			auto package_suppliers = options.registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
-			dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
+			dub = new Dub(Path(options.root_path), package_suppliers, options.skipRegistry, options.repoPath.empty ? [] : [Path(options.repoPath)]);
 			dub.dryRun = options.annotate;
-			dub.defaultPlacementLocation = options.placementLocation;
+			setRepoPath();
 
 			// make the CWD package available so that for example sub packages can reference their
 			// parent package.
@@ -260,7 +271,8 @@ struct CommonOptions {
 	string[] registry_urls;
 	string root_path;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
-	PlacementLocation placementLocation = PlacementLocation.user;
+	Nullable!PlacementLocation cacheLocation, repoLocation;
+	string repoPath;
 
 	/// Parses all common options and stores the result in the struct instance.
 	void prepare(CommandArgs args)
@@ -280,7 +292,26 @@ struct CommonOptions {
 		args.getopt("vverbose", &vverbose, ["Print debug output"]);
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
-		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
+
+		string tmp = null;
+		args.getopt("cache", &tmp, ["Deprecated, please use --defaultRepo.",
+				"  Puts any fetched packages in the specified location [local|system|user].",
+				"  Has no effect on override/local/path listings.",
+				"  Conflicts with --defaultRepo and --defaultRepoPath"]);
+		if (tmp !is null) cacheLocation = tmp.to!PlacementLocation;
+
+		tmp = null;
+		args.getopt("defaultRepo", &tmp, ["Specifies the default respository for packages and override/local/path listings.",
+				"  Allowed values are [local|system|user]",
+				"  If specified, this path is used for storing newly fetched packages and adding/changing listings. All repos will still be searched for existing packages and listings.",
+				"  Conflicts with --cache and --defaultRepoPath"]);
+		if (tmp !is null) repoLocation = tmp.to!PlacementLocation;
+
+		args.getopt("defaultRepoPath", &repoPath, ["Similar to --defaultRepo, but allows a path to be specified for a custom repository.",
+				"  Conflicts with --defaultRepo and --cache"]);
+
+		enforce((!cacheLocation.isNull) + (!repoLocation.isNull) + (!repoPath.empty) < 2,
+				"Only one of --defaultRepo, --defaultRepoPath and --cache can be specified at once.");
 	}
 }
 
@@ -1213,7 +1244,7 @@ class FetchCommand : FetchRemoveCommand {
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto location = dub.defaultPlacementLocation;
+		auto location = dub.defaultRepoPath;
 
 		auto name = free_args[0];
 
@@ -1275,7 +1306,7 @@ class RemoveCommand : FetchRemoveCommand {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
 		auto package_id = free_args[0];
-		auto location = dub.defaultPlacementLocation;
+		auto location = dub.defaultRepoPath;
 
 		size_t resolveVersion(in Package[] packages) {
 			// just remove only package version
@@ -1331,11 +1362,10 @@ abstract class RegistrationCommand : Command {
 	private {
 		bool m_system;
 	}
-
 	override void prepare(scope CommandArgs args)
 	{
 		args.getopt("system", &m_system, [
-			"Register system-wide instead of user-wide"
+			"Deprecated, please use --defaultRepo=system. Register system-wide instead of user-wide. Overrides --defaultRepo and --defaultRepoPath"
 		]);
 	}
 
@@ -1363,7 +1393,7 @@ class AddPathCommand : RegistrationCommand {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length == 1, "Missing search path.");
-		dub.addSearchPath(free_args[0], m_system);
+		dub.addSearchPath(Path(free_args[0]), m_system ? dub.systemRepoPath : dub.defaultRepoPath);
 		return 0;
 	}
 }
@@ -1380,7 +1410,7 @@ class RemovePathCommand : RegistrationCommand {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length == 1, "Expected one argument.");
-		dub.removeSearchPath(free_args[0], m_system);
+		dub.removeSearchPath(Path(free_args[0]), m_system ? dub.systemRepoPath : dub.defaultRepoPath);
 		return 0;
 	}
 }
@@ -1404,7 +1434,7 @@ class AddLocalCommand : RegistrationCommand {
 	{
 		enforceUsage(free_args.length == 1 || free_args.length == 2, "Expecting one or two arguments.");
 		string ver = free_args.length == 2 ? free_args[1] : null;
-		dub.addLocalPackage(free_args[0], ver, m_system);
+		dub.addLocalPackage(Path(free_args[0]), ver, m_system ? dub.systemRepoPath : dub.defaultRepoPath);
 		return 0;
 	}
 }
@@ -1422,7 +1452,7 @@ class RemoveLocalCommand : RegistrationCommand {
 	{
 		enforceUsage(free_args.length >= 1, "Missing package path argument.");
 		enforceUsage(free_args.length <= 1, "Expected the package path to be the only argument.");
-		dub.removeLocalPackage(free_args[0], m_system);
+		dub.removeLocalPackage(Path(free_args[0]), m_system ? dub.systemRepoPath : dub.defaultRepoPath);
 		return 0;
 	}
 }
@@ -1518,7 +1548,7 @@ class AddOverrideCommand : Command {
 	override void prepare(scope CommandArgs args)
 	{
 		args.getopt("system", &m_system, [
-			"Register system-wide instead of user-wide"
+			"Deprecated, please use --defaultRepo=system. Register system-wide instead of user-wide. Overrides --defaultRepo and --defaultRepoPath"
 		]);
 	}
 
@@ -1526,17 +1556,18 @@ class AddOverrideCommand : Command {
 	{
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 3, "Expected three arguments, not "~free_args.length.to!string);
-		auto scope_ = m_system ? LocalPackageType.system : LocalPackageType.user;
+		auto repoPath = m_system ? dub.systemRepoPath : dub.defaultRepoPath;
+
 		auto pack = free_args[0];
 		auto ver = Dependency(free_args[1]);
 		if (existsFile(Path(free_args[2]))) {
 			auto target = Path(free_args[2]);
 			if (!target.absolute) target = Path(getcwd()) ~ target;
-			dub.packageManager.addOverride(scope_, pack, ver, target);
+			dub.packageManager.addOverride(repoPath, pack, ver, target);
 			logInfo("Added override %s %s => %s", pack, ver, target);
 		} else {
 			auto target = Version(free_args[2]);
-			dub.packageManager.addOverride(scope_, pack, ver, target);
+			dub.packageManager.addOverride(repoPath, pack, ver, target);
 			logInfo("Added override %s %s => %s", pack, ver, target);
 		}
 		return 0;
@@ -1560,7 +1591,7 @@ class RemoveOverrideCommand : Command {
 	override void prepare(scope CommandArgs args)
 	{
 		args.getopt("system", &m_system, [
-			"Register system-wide instead of user-wide"
+			"Deprecated, please use --defaultRepo=system. Register system-wide instead of user-wide. Overrides --defaultRepo and --defaultRepoPath"
 		]);
 	}
 
@@ -1568,8 +1599,8 @@ class RemoveOverrideCommand : Command {
 	{
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 2, "Expected two arguments, not "~free_args.length.to!string);
-		auto scope_ = m_system ? LocalPackageType.system : LocalPackageType.user;
-		dub.packageManager.removeOverride(scope_, free_args[0], Dependency(free_args[1]));
+		auto repoPath = m_system ? dub.systemRepoPath : dub.defaultRepoPath;
+		dub.packageManager.removeOverride(repoPath, free_args[0], Dependency(free_args[1]));
 		return 0;
 	}
 }
@@ -1596,8 +1627,8 @@ class ListOverridesCommand : Command {
 				else logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetVersion);
 			}
 		}
-		printList(dub.packageManager.getOverrides(LocalPackageType.user), "User wide overrides");
-		printList(dub.packageManager.getOverrides(LocalPackageType.system), "System wide overrides");
+		foreach (path; dub.packageManager.allRepoPaths)
+			printList(dub.packageManager.getOverrides(path), "Overrides from repo: " ~ path.toString);
 		return 0;
 	}
 }
