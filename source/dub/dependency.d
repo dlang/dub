@@ -153,7 +153,7 @@ struct Dependency {
 			m_inclusiveB = false;
 			ves = ves[2..$];
 			m_versA = Version(expandVersion(ves));
-			m_versB = Version(bumpVersion(ves));
+			m_versB = Version(bumpVersion(ves) ~ "-0");
 		} else if (ves[0] == Version.branchPrefix) {
 			m_inclusiveA = true;
 			m_inclusiveB = true;
@@ -222,7 +222,7 @@ struct Dependency {
 			foreach (i; 0 .. 3) {
 				auto vp = parts[0 .. i+1].join(".");
 				auto ve = Version(expandVersion(vp));
-				auto veb = Version(expandVersion(bumpVersion(vp)));
+				auto veb = Version(bumpVersion(vp) ~ "-0");
 				if (ve == m_versA && veb == m_versB) return "~>" ~ vp;
 			}
 		}
@@ -555,16 +555,18 @@ unittest {
 
 	// Approximate versions.
 	a = Dependency("~>3.0");
-	b = Dependency(">=3.0.0 <4.0.0");
+	b = Dependency(">=3.0.0 <4.0.0-0");
 	assert(a == b, "Testing failed: " ~ a.toString());
 	assert(a.matches(Version("3.1.146")), "Failed: Match 3.1.146 with ~>0.1.2");
 	assert(!a.matches(Version("0.2.0")), "Failed: Match 0.2.0 with ~>0.1.2");
+	assert(!a.matches(Version("4.0.0-beta.1")));
 	a = Dependency("~>3.0.0");
-	assert(a == Dependency(">=3.0.0 <3.1.0"), "Testing failed: " ~ a.toString());
+	assert(a == Dependency(">=3.0.0 <3.1.0-0"), "Testing failed: " ~ a.toString());
 	a = Dependency("~>3.5");
-	assert(a == Dependency(">=3.5.0 <4.0.0"), "Testing failed: " ~ a.toString());
+	assert(a == Dependency(">=3.5.0 <4.0.0-0"), "Testing failed: " ~ a.toString());
 	a = Dependency("~>3.5.0");
-	assert(a == Dependency(">=3.5.0 <3.6.0"), "Testing failed: " ~ a.toString());
+	assert(a == Dependency(">=3.5.0 <3.6.0-0"), "Testing failed: " ~ a.toString());
+	assert(!Dependency("~>3.0.0").matches(Version("3.1.0-beta")));
 
 	a = Dependency("~>0.1.1");
 	b = Dependency("==0.1.0");
@@ -573,9 +575,11 @@ unittest {
 	assert(a.merge(b).valid);
 	b = Dependency("==0.2.0");
 	assert(!a.merge(b).valid);
+	b = Dependency("==0.2.0-beta.1");
+	assert(!a.merge(b).valid);
 
 	a = Dependency("~>1.0.1-beta");
-	b = Dependency(">=1.0.1-beta <1.1.0");
+	b = Dependency(">=1.0.1-beta <1.1.0-0");
 	assert(a == b, "Testing failed: " ~ a.toString());
 	assert(a.matches(Version("1.0.1-beta")));
 	assert(a.matches(Version("1.0.1-beta.6")));
