@@ -303,7 +303,7 @@ package abstract class AbstractFallbackPackageSupplier : PackageSupplier
 
 	override @property string description()
 	{
-		import std.algorithm.iteration : map;
+		import std.algorithm : map;
 		return format("%s (fallback %s)", m_default.description, m_fallbacks.map!(x => x.description));
 	}
 
