@@ -1,30 +1,30 @@
 platform: x64
 environment:
  matrix:
-  - DC: dmd
-    DVersion: nightly
-    arch: x64
-  - DC: dmd
-    DVersion: nightly
-    arch: x86
-  - DC: dmd
-    DVersion: beta
-    arch: x64
-  - DC: dmd
-    DVersion: beta
-    arch: x86
-  - DC: dmd
-    DVersion: stable
-    arch: x64
-  - DC: dmd
-    DVersion: 2.072.2
-    arch: x86
-  - DC: dmd
-    DVersion: 2.072.2
-    arch: x64
-  - DC: dmd
-    DVersion: stable
-    arch: x86
+  #- DC: dmd
+    #DVersion: nightly
+    #arch: x64
+  #- DC: dmd
+    #DVersion: nightly
+    #arch: x86
+  #- DC: dmd
+    #DVersion: beta
+    #arch: x64
+  #- DC: dmd
+    #DVersion: beta
+    #arch: x86
+  #- DC: dmd
+    #DVersion: stable
+    #arch: x64
+  #- DC: dmd
+    #DVersion: 2.072.2
+    #arch: x86
+  #- DC: dmd
+    #DVersion: 2.072.2
+    #arch: x64
+  #- DC: dmd
+    #DVersion: stable
+    #arch: x86
   - DC: ldc
     DVersion: beta
     arch: x64
@@ -32,7 +32,7 @@ environment:
     DVersion: stable
     arch: x64
   - DC: ldc
-    DVersion: 1.2.0
+    DVersion: 1.5.0
     arch: x64
 
 skip_tags: false
@@ -90,6 +90,8 @@ install:
               popd;
             }
             elseif($env:DC -eq "ldc"){
+              $content = [System.IO.File]::ReadAllText("dub.sdl").Replace("curl","C:\ldc2-$($latest)-win64-msvc\lib\curl");
+              [System.IO.File]::WriteAllText("dub.sdl", $content);
               echo "downloading ...";
               $url = ResolveLatestLDC;
               echo $url;
