@@ -1,6 +1,7 @@
 name "bar"
 mainSourceFile "main.d"
 targetType "executable"
+importPaths "."
 
 dependency "foo" path="foo"
 dependency "foo:baz" path="foo"

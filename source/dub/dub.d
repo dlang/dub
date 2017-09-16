@@ -589,11 +589,13 @@ class Dub {
 				scope(exit) fil.close();
 				fil.write("module dub_test_root;\n");
 				fil.write("import std.typetuple;\n");
-				foreach (mod; import_modules) fil.write(format("static import %s;\n", mod));
+				// Rename imports to avoid name collisions.
+				foreach (i, mod; import_modules) fil.write(format("static import m%s = %s;\n", i, mod));
 				fil.write("alias allModules = TypeTuple!(");
 				foreach (i, mod; import_modules) {
 					if (i > 0) fil.write(", ");
-					fil.write(mod);
+					fil.write("m");
+					fil.write(i.to!string);
 				}
 				fil.write(");\n");
 				if (custommodname.length) {
@@ -608,10 +610,13 @@ class Dub {
 
 						bool defaultUnitTester() {
 							import core.stdc.stdlib : exit;
+							import core.runtime : Runtime;
 							foreach (modul; allModules)
 								foreach (test; __traits(getUnitTests, modul))
 									test();
 							writeln("All unit tests have been run successfully.");
+							Runtime.terminate;
+							exit(0);
 							return false;
 						}
 
@@ -621,7 +626,7 @@ class Dub {
 								import tested;
 								import core.runtime;
 								import std.exception;
-								Runtime.moduleUnitTester = () => false;
+								Runtime.moduleUnitTester = () => true;
 								//runUnitTests!app(new JsonTestResultWriter("results.json"));
 								enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
 							} else {
