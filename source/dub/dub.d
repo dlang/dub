@@ -548,8 +548,12 @@ class Dub {
 			tcinfo.targetName = test_config;
 
 			if (lbuildsettings.targetType != TargetType.executable) {
-				logInfo("target type is %s, which doesn't have a main(); we're providing one");
-				tcinfo.versions[""] ~= "dub_test_main";
+				// HACK for vibe.d's legacy main() behavior (for libraries that depend on an old
+				// vibe version).
+				m_project.rootPackage.recipe.buildSettings.versions[""] = m_project.rootPackage.recipe.buildSettings.versions.get("", null).remove!(v => v == "VibeDefaultMain");
+				tcinfo.versions[""] ~= "VibeCustomMain";
+				// TODO: remove this ^ once vibe.d has removed the default main implementation
+				tcinfo.versions[""] ~= "DubTestMain";
 			}
 
 			auto mainfil = tcinfo.mainSourceFile;
@@ -600,7 +604,7 @@ class Dub {
 						import core.runtime;
 
 						// libraries need a main function
-						version (dub_test_main) void main() {}
+						version (DubTestMain) void main() {}
 
 						bool defaultUnitTester() {
 							import core.stdc.stdlib : exit;
@@ -608,8 +612,7 @@ class Dub {
 								foreach (test; __traits(getUnitTests, modul))
 									test();
 							writeln("All unit tests have been run successfully.");
-							exit(0);
-							return true;
+							return false;
 						}
 
 						shared static this()
@@ -618,7 +621,7 @@ class Dub {
 								import tested;
 								import core.runtime;
 								import std.exception;
-								Runtime.moduleUnitTester = () => true;
+								Runtime.moduleUnitTester = () => false;
 								//runUnitTests!app(new JsonTestResultWriter("results.json"));
 								enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
 							} else {
