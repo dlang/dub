@@ -55,6 +55,9 @@ fi
 # For OSX compatibility >= 10.7
 MACOSX_DEPLOYMENT_TARGET=10.7
 
+# Find our source files.
+find source -name '*.d' | grep -v 'version_.d' | sort > build-files.txt
+
 echo Running $DMD...
 $DMD -ofbin/dub -g -O -w -version=DubUseCurl -Isource $* $LIBS @build-files.txt
 bin/dub --version
