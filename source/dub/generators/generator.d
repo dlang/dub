@@ -282,8 +282,9 @@ class ProjectGenerator
 			targets[pack.name].buildSettings = buildsettings;
 
 		if (pack is m_project.rootPackage)
-			foreach (targetName; forDependenciesSettingsMap.byKey())
-				mergeFromDependents(forDependenciesSettingsMap[targetName], targets[targetName].buildSettings);
+			foreach (targetName, settings; forDependenciesSettingsMap)
+				if (auto p = targetName in targets)
+					mergeFromDependents(settings, p.buildSettings);
 
 		return ret;
 	}
