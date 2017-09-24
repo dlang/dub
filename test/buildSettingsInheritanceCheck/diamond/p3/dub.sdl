@@ -1,0 +1,4 @@
+name "p3"
+versions "D"
+configuration "library" {
+}

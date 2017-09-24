@@ -1,0 +1,5 @@
+name "p2"
+versions "C"
+dependency "p3" path="../p3"
+configuration "library" {
+}
