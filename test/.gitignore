@@ -11,3 +11,6 @@
 custom-unittest/custom-unittest
 path-subpackage-ref/test
 subpackage-ref/test
+buildSettingsInheritanceCheck/commonDep/p0/p0-test-library
+buildSettingsInheritanceCheck/commonDep/p1/p1-test-library
+buildSettingsInheritanceCheck/diamond/p0/p0-test-library
