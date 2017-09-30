@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+issue1262-version-inheritance-diamond
+issue1262-version-inheritance-diamond.so
+issue1262-version-inheritance-diamond.dylib
+issue1262-version-inheritance-diamond.dll
+issue1262-version-inheritance-diamond.a
+issue1262-version-inheritance-diamond.lib
+issue1262-version-inheritance-diamond-test-*
+*.exe
+*.o
+*.obj
+*.lst
