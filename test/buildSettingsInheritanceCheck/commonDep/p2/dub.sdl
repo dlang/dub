@@ -1,0 +1,4 @@
+name "p2"
+versions "C"
+configuration "library" {
+}

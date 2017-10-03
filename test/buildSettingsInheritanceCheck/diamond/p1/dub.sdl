@@ -1,0 +1,5 @@
+name "p1"
+versions "B"
+dependency "p3" path="../p3"
+configuration "library" {
+}
