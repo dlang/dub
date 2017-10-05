@@ -325,14 +325,15 @@ private template fallback(T, alias func)
 {
 	enum fallback = q{
 		import std.range : back, dropBackOne;
+		import dub.internal.vibecompat.core.log : logDebug;
 		scope (failure)
 		{
 			foreach (m_fallback; m_fallbacks.dropBackOne)
 			{
 				try
 					return m_fallback.%1$s(args);
-				catch(Throwable)
-				    assert(1);
+				catch(Exception)
+					logDebug("Package supplier %s failed. Trying next fallback.", m_fallback);
 			}
 			return m_fallbacks.back.%1$s(args);
 		}
