@@ -1,5 +1,5 @@
 /**
-	Build platform identification and speficiation matching.
+	Build platform identification and specification matching.
 
 	This module is useful for determining the build platform for a certain
 	machine and compiler invocation. Example applications include classifying
@@ -8,7 +8,7 @@
 	It also contains means to match build platforms against a platform
 	specification string as used in package reciptes.
 
-	Copyright: © 2012-2016 rejectedsoftware e.K.
+	Copyright: © 2012-2017 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
@@ -16,35 +16,11 @@ module dub.platform;
 
 import std.array;
 
-
-/** Determines the full build platform used for the current build.
-
-	Note that the `BuildPlatform.compilerBinary` field will be left empty.
-
-	See_Also: `determinePlatform`, `determineArchitecture`, `determineCompiler`
-*/
-BuildPlatform determineBuildPlatform()
-{
-	BuildPlatform ret;
-	ret.platform = determinePlatform();
-	ret.architecture = determineArchitecture();
-	ret.compiler = determineCompiler();
-	ret.frontendVersion = __VERSION__;
-	return ret;
-}
-
-
-/** Returns a list of platform identifiers that apply to the current
-	build.
-
-	Example results are `["windows"]` or `["posix", "osx"]`. The identifiers
-	correspond to the compiler defined version constants built into the
-	language, except that they are converted to lower case.
-
-	See_Also: `determineBuildPlatform`
-*/
-string[] determinePlatform()
-{
+// archCheck, compilerCheck, and platformCheck are used below and in
+// generatePlatformProbeFile, so they've been extracted into these strings
+// that can be reused.
+/// private
+enum string platformCheck = q{
 	auto ret = appender!(string[])();
 	version(Windows) ret.put("windows");
 	version(linux) ret.put("linux");
@@ -65,20 +41,10 @@ string[] determinePlatform()
 	version(Android) ret.put("android");
 	version(Cygwin) ret.put("cygwin");
 	version(MinGW) ret.put("mingw");
-	return ret.data;
-}
+};
 
-/** Returns a list of architecture identifiers that apply to the current
-	build.
-
-	Example results are `["x86_64"]` or `["arm", "arm_softfloat"]`. The
-	identifiers correspond to the compiler defined version constants built into
-	the language, except that they are converted to lower case.
-
-	See_Also: `determineBuildPlatform`
-*/
-string[] determineArchitecture()
-{
+/// private
+enum string archCheck = q{
 	auto ret = appender!(string[])();
 	version(X86) ret.put("x86");
 	version(X86_64) ret.put("x86_64");
@@ -117,23 +83,74 @@ string[] determineArchitecture()
 	version(Alpha) ret.put("alpha");
 	version(Alpha_SoftFP) ret.put("alpha_softfp");
 	version(Alpha_HardFP) ret.put("alpha_hardfp");
+};
+
+/// private
+enum string compilerCheck = q{
+	version(DigitalMars) return "dmd";
+	else version(GNU) return "gdc";
+	else version(LDC) return "ldc";
+	else version(SDC) return "sdc";
+	else return null;
+};
+
+/** Determines the full build platform used for the current build.
+
+	Note that the `BuildPlatform.compilerBinary` field will be left empty.
+
+	See_Also: `determinePlatform`, `determineArchitecture`, `determineCompiler`
+*/
+BuildPlatform determineBuildPlatform()
+{
+	BuildPlatform ret;
+	ret.platform = determinePlatform();
+	ret.architecture = determineArchitecture();
+	ret.compiler = determineCompiler();
+	ret.frontendVersion = __VERSION__;
+	return ret;
+}
+
+
+/** Returns a list of platform identifiers that apply to the current
+	build.
+
+	Example results are `["windows"]` or `["posix", "osx"]`. The identifiers
+	correspond to the compiler defined version constants built into the
+	language, except that they are converted to lower case.
+
+	See_Also: `determineBuildPlatform`
+*/
+string[] determinePlatform()
+{
+	mixin(platformCheck);
+	return ret.data;
+}
+
+/** Returns a list of architecture identifiers that apply to the current
+	build.
+
+	Example results are `["x86_64"]` or `["arm", "arm_softfloat"]`. The
+	identifiers correspond to the compiler defined version constants built into
+	the language, except that they are converted to lower case.
+
+	See_Also: `determineBuildPlatform`
+*/
+string[] determineArchitecture()
+{
+	mixin(archCheck);
 	return ret.data;
 }
 
 /** Determines the canonical compiler name used for the current build.
 
-	The possible values currently are "dmd", "gdc", "ldc2" or "sdc". If an
+	The possible values currently are "dmd", "gdc", "ldc" or "sdc". If an
 	unknown compiler is used, this function will return an empty string.
 
 	See_Also: `determineBuildPlatform`
 */
 string determineCompiler()
 {
-	version(DigitalMars) return "dmd";
-	else version(GNU) return "gdc";
-	else version(LDC) return "ldc2";
-	else version(SDC) return "sdc";
-	else return null;
+	mixin(compilerCheck);
 }
 
 /** Matches a platform specification string against a build platform.

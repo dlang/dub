@@ -18,7 +18,6 @@ import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.packagemanager;
 import dub.packagesupplier;
-import dub.platform : determineCompiler;
 import dub.project;
 import dub.internal.utils : getDUBVersion, getClosestMatch;
 
