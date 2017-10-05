@@ -19,6 +19,7 @@ import std.array;
 // archCheck, compilerCheck, and platformCheck are used below and in
 // generatePlatformProbeFile, so they've been extracted into these strings
 // that can be reused.
+/// private
 enum string platformCheck = q{
 	auto ret = appender!(string[])();
 	version(Windows) ret.put("windows");
@@ -42,6 +43,7 @@ enum string platformCheck = q{
 	version(MinGW) ret.put("mingw");
 };
 
+/// private
 enum string archCheck = q{
 	auto ret = appender!(string[])();
 	version(X86) ret.put("x86");
@@ -83,6 +85,7 @@ enum string archCheck = q{
 	version(Alpha_HardFP) ret.put("alpha_hardfp");
 };
 
+/// private
 enum string compilerCheck = q{
 	version(DigitalMars) return "dmd";
 	else version(GNU) return "gdc";
