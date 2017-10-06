@@ -56,11 +56,14 @@ fi
 MACOSX_DEPLOYMENT_TARGET=10.7
 
 # Find our source files.
-find source -name '*.d' | sort > build-files.txt
+res_file=$(mktemp '.dub-sources-XXXXXX.rsp')
+find source -name '*.d' | sort > "$res_file"
 
 echo Running $DMD...
-$DMD -ofbin/dub -g -O -w -version=DubUseCurl -Isource $* $LIBS @build-files.txt
+$DMD -ofbin/dub -g -O -w -version=DubUseCurl -Isource $* $LIBS "@$res_file"
 bin/dub --version
+rm "$res_file"
+
 echo DUB has been built as bin/dub.
 echo
 echo You may want to run
