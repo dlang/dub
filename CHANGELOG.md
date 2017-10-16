@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v1.6.0 - 2017-
+v1.6.0 - 2017-11-01
 -------------------
 
 - The version list displayed for interactive package removal is now sorted - [pull #1225][issue1225], [issue #1224][issue1224]
