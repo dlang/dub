@@ -119,12 +119,7 @@ class BuildGenerator : ProjectGenerator {
 		auto build_id = computeBuildID(config, buildsettings, settings);
 
 		// make all paths relative to shrink the command line
-		string makeRelative(string path) {
-			auto p = Path(path);
-			// storing in a separate temprary to work around #601
-			auto prel = p.absolute ? p.relativeTo(cwd) : p;
-			return prel.toNativeString();
-		}
+		string makeRelative(string path) { return shrinkPath(Path(path), cwd); }
 		foreach (ref f; buildsettings.sourceFiles) f = makeRelative(f);
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
@@ -193,7 +188,7 @@ class BuildGenerator : ProjectGenerator {
 
 		// override target path
 		auto cbuildsettings = buildsettings;
-		cbuildsettings.targetPath = target_path.relativeTo(cwd).toNativeString();
+		cbuildsettings.targetPath = shrinkPath(target_path, cwd);
 		buildWithCompiler(settings, cbuildsettings);
 		target_binary_path = getTargetPath(cbuildsettings, settings);
 
@@ -466,12 +461,12 @@ class BuildGenerator : ProjectGenerator {
 			      (either in the dub.json, or using a command line flag)
 		*/
 		} else if (generate_binary && (settings.buildMode == BuildMode.allAtOnce || settings.compiler.name != "dmd" || is_static_library)) {
+			// don't include symbols of dependencies (will be included by the top level target)
+			if (is_static_library) buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !f.isLinkerFile()).array;
+
 			// setup for command line
 			settings.compiler.setTarget(buildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
-
-			// don't include symbols of dependencies (will be included by the top level target)
-			if (is_static_library) buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !f.isLinkerFile()).array;
 
 			// invoke the compiler
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
@@ -564,4 +559,54 @@ private Path getMainSourceFile(in Package prj)
 private Path getTargetPath(in ref BuildSettings bs, in ref GeneratorSettings settings)
 {
 	return Path(bs.targetPath) ~ settings.compiler.getTargetFileName(bs, settings.platform);
+}
+
+private string shrinkPath(Path path, Path base)
+{
+	auto orig = path.toNativeString();
+	if (!path.absolute) return orig;
+	auto ret = path.relativeTo(base).toNativeString();
+	return ret.length < orig.length ? ret : orig;
+}
+
+unittest {
+	assert(shrinkPath(Path("/foo/bar/baz"), Path("/foo")) == Path("bar/baz").toNativeString());
+	assert(shrinkPath(Path("/foo/bar/baz"), Path("/foo/baz")) == Path("../bar/baz").toNativeString());
+	assert(shrinkPath(Path("/foo/bar/baz"), Path("/bar/")) == Path("/foo/bar/baz").toNativeString());
+	assert(shrinkPath(Path("/foo/bar/baz"), Path("/bar/baz")) == Path("/foo/bar/baz").toNativeString());
+}
+
+unittest { // issue #1235 - pass no library files to compiler command line when building a static lib
+	import dub.internal.vibecompat.data.json : parseJsonString;
+	import dub.compilers.gdc : GDCCompiler;
+	import dub.platform : determinePlatform;
+
+	version (Windows) auto libfile = "bar.lib";
+	else auto libfile = "bar.a";
+
+	auto desc = parseJsonString(`{"name": "test", "targetType": "library", "sourceFiles": ["foo.d", "`~libfile~`"]}`);
+	auto pack = new Package(desc, Path("/tmp/fooproject"));
+	auto pman = new PackageManager(Path("/tmp/foo/"), Path("/tmp/foo/"), false);
+	auto prj = new Project(pman, pack);
+
+	final static class TestCompiler : GDCCompiler {
+		override void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback) {
+			assert(!settings.dflags[].any!(f => f.canFind("bar")));
+		}
+		override void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback) {
+			assert(false);
+		}
+	}
+
+	auto comp = new TestCompiler;
+
+	GeneratorSettings settings;
+	settings.platform = BuildPlatform(determinePlatform(), ["x86"], "gdc", "test", 2075);
+	settings.compiler = new TestCompiler;
+	settings.config = "library";
+	settings.buildType = "debug";
+	settings.tempBuild = true;
+
+	auto gen = new BuildGenerator(prj);
+	gen.generate(settings);
 }

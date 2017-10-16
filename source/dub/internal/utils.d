@@ -14,18 +14,15 @@ import dub.internal.vibecompat.inet.url;
 import dub.compilers.buildsettings : BuildSettings;
 import dub.version_;
 
-// todo: cleanup imports.
-import core.thread;
+import core.time : Duration;
 import std.algorithm : canFind, startsWith;
-import std.array;
-import std.conv;
-import std.exception;
+import std.array : appender;
+import std.conv : to;
+import std.exception : enforce;
 import std.file;
+import std.string : format;
 import std.process;
-import std.string;
 import std.traits : isIntegral;
-import std.typecons;
-import std.zip;
 version(DubUseCurl)
 {
 	import std.net.curl;
@@ -64,6 +61,7 @@ Path getTempFile(string prefix, string extension = null)
 */
 auto lockFile(string path, Duration timeout)
 {
+	import core.thread : Thread;
 	import std.datetime, std.stdio : File;
 	import std.algorithm : move;
 
@@ -127,6 +125,7 @@ Json jsonFromFile(Path file, bool silent_fail = false) {
 }
 
 Json jsonFromZip(Path zip, string filename) {
+	import std.zip : ZipArchive;
 	auto f = openFile(zip, FileMode.read);
 	ubyte[] b = new ubyte[cast(size_t)f.size];
 	f.rawRead(b);
@@ -308,6 +307,7 @@ ubyte[] download(URL url)
 string getDUBVersion()
 {
 	import dub.version_;
+	import std.array : split, join;
 	// convert version string to valid SemVer format
 	auto verstr = dubVersion;
 	if (verstr.startsWith("v")) verstr = verstr[1 .. $];
@@ -331,6 +331,8 @@ version(DubUseCurl) {
 
 		auto noProxy = environment.get("no_proxy", null);
 		if (noProxy.length) conn.handle.set(CurlOption.noproxy, noProxy);
+
+		conn.handle.set(CurlOption.encoding, "");
 
 		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
 	}
