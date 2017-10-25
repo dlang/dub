@@ -262,6 +262,35 @@ class Project {
 					d.name, SelectedVersions.defaultFile);
 			}
 
+		// search for orphan sub configurations
+		void warnSubConfig(string pack, string config) {
+			logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+				~ "references a package that is not specified as a dependency "
+				~ "and will have no effect.", pack, config);
+		}
+		void checkSubConfig(string pack, string config) {
+			auto p = getDependency(pack, true);
+			if (p && !p.configurations.canFind(config)) {
+				logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+					~ "references a configuration that does not exist.",
+					pack, config);
+			}
+		}
+		auto globalbs = m_rootPackage.getBuildSettings();
+		foreach (p, c; globalbs.subConfigurations) {
+			if (p !in globalbs.dependencies) warnSubConfig(p, c);
+			else checkSubConfig(p, c);
+		}
+		foreach (c; m_rootPackage.configurations) {
+			auto bs = m_rootPackage.getBuildSettings(c);
+			foreach (p, c; bs.subConfigurations) {
+				if (p !in bs.dependencies && p !in globalbs.dependencies)
+					warnSubConfig(p, c);
+				else checkSubConfig(p, c);
+			}
+		}
+
+		// check for version specification mismatches
 		bool[Package] visited;
 		void validateDependenciesRec(Package pack) {
 			foreach (d; pack.getAllDependencies()) {
