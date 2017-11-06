@@ -303,7 +303,7 @@ class Project {
 					}
 				}
 
-				auto deppack = getDependency(name, true);
+				auto deppack = getDependency(d.name, true);
 				if (deppack in visited) continue;
 				visited[deppack] = true;
 				if (deppack) validateDependenciesRec(deppack);
