@@ -31,13 +31,13 @@ import std.zip;
 class PackageManager {
 	private {
 		Repository[LocalPackageType] m_repositories;
-		Path[] m_searchPath;
+		NativePath[] m_searchPath;
 		Package[] m_packages;
 		Package[] m_temporaryPackages;
 		bool m_disableDefaultSearchPaths = false;
 	}
 
-	this(Path user_path, Path system_path, bool refresh_packages = true)
+	this(NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
 		m_repositories[LocalPackageType.user] = Repository(user_path);
 		m_repositories[LocalPackageType.system] = Repository(system_path);
@@ -46,14 +46,14 @@ class PackageManager {
 
 	/** Gets/sets the list of paths to search for local packages.
 	*/
-	@property void searchPath(Path[] paths)
+	@property void searchPath(NativePath[] paths)
 	{
 		if (paths == m_searchPath) return;
 		m_searchPath = paths.dup;
 		refresh(false);
 	}
 	/// ditto
-	@property const(Path)[] searchPath() const { return m_searchPath; }
+	@property const(NativePath)[] searchPath() const { return m_searchPath; }
 
 	/** Disables searching DUB's predefined search paths.
 	*/
@@ -66,15 +66,15 @@ class PackageManager {
 
 	/** Returns the effective list of search paths, including default ones.
 	*/
-	@property const(Path)[] completeSearchPath()
+	@property const(NativePath)[] completeSearchPath()
 	const {
-		auto ret = appender!(Path[])();
-		ret.put(cast(Path[])m_searchPath); // work around Phobos 17251
+		auto ret = appender!(NativePath[])();
+		ret.put(cast(NativePath[])m_searchPath); // work around Phobos 17251
 		if (!m_disableDefaultSearchPaths) {
-			ret.put(cast(Path[])m_repositories[LocalPackageType.user].searchPath);
-			ret.put(cast(Path)m_repositories[LocalPackageType.user].packagePath);
-			ret.put(cast(Path[])m_repositories[LocalPackageType.system].searchPath);
-			ret.put(cast(Path)m_repositories[LocalPackageType.system].packagePath);
+			ret.put(cast(NativePath[])m_repositories[LocalPackageType.user].searchPath);
+			ret.put(cast(NativePath)m_repositories[LocalPackageType.user].packagePath);
+			ret.put(cast(NativePath[])m_repositories[LocalPackageType.system].searchPath);
+			ret.put(cast(NativePath)m_repositories[LocalPackageType.system].packagePath);
 		}
 		return ret.data;
 	}
@@ -127,7 +127,7 @@ class PackageManager {
 	}
 
 	/// ditto
-	Package getPackage(string name, Version ver, Path path)
+	Package getPackage(string name, Version ver, NativePath path)
 	{
 		auto ret = getPackage(name, path);
 		if (!ret || ret.version_ != ver) return null;
@@ -135,13 +135,13 @@ class PackageManager {
 	}
 
 	/// ditto
-	Package getPackage(string name, string ver, Path path)
+	Package getPackage(string name, string ver, NativePath path)
 	{
 		return getPackage(name, Version(ver), path);
 	}
 
 	/// ditto
-	Package getPackage(string name, Path path)
+	Package getPackage(string name, NativePath path)
 	{
 		foreach( p; getPackageIterator(name) )
 			if (p.path.startsWith(path))
@@ -165,14 +165,14 @@ class PackageManager {
 		the package gets loaded and cached for the next call to this function.
 
 		Params:
-			path = Path to the root directory of the package
+			path = NativePath to the root directory of the package
 			recipe_path = Optional path to the recipe file of the package
 			allow_sub_packages = Also return a sub package if it resides in the given folder
 
 		Returns: The packages loaded from the given path
 		Throws: Throws an exception if no package can be loaded
 	*/
-	Package getOrLoadPackage(Path path, Path recipe_path = Path.init, bool allow_sub_packages = false)
+	Package getOrLoadPackage(NativePath path, NativePath recipe_path = NativePath.init, bool allow_sub_packages = false)
 	{
 		path.endsWithSlash = true;
 		foreach (p; getPackageIterator())
@@ -244,10 +244,10 @@ class PackageManager {
 		By default, managed folders are "~/.dub/packages" and
 		"/var/lib/dub/packages".
 	*/
-	bool isManagedPath(Path path)
+	bool isManagedPath(NativePath path)
 	const {
 		foreach (rep; m_repositories) {
-			Path rpath = rep.packagePath;
+			NativePath rpath = rep.packagePath;
 			if (path.startsWith(rpath))
 				return true;
 		}
@@ -313,7 +313,7 @@ class PackageManager {
 		writeLocalPackageOverridesFile(scope_);
 	}
 	/// ditto
-	void addOverride(LocalPackageType scope_, string package_, Dependency version_spec, Path target)
+	void addOverride(LocalPackageType scope_, string package_, Dependency version_spec, NativePath target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
 		writeLocalPackageOverridesFile(scope_);
@@ -336,7 +336,7 @@ class PackageManager {
 
 	/// Extracts the package supplied as a path to it's zip file to the
 	/// destination and sets a version field in the package description.
-	Package storeFetchedPackage(Path zip_file_path, Json package_info, Path destination)
+	Package storeFetchedPackage(NativePath zip_file_path, Json package_info, NativePath destination)
 	{
 		import std.range : walkLength;
 
@@ -363,10 +363,10 @@ class PackageManager {
 		logDebug("Extracting from zip.");
 
 		// In a github zip, the actual contents are in a subfolder
-		alias PSegment = typeof(Path.init.head);
+		alias PSegment = typeof(NativePath.init.head);
 		PSegment[] zip_prefix;
 		outer: foreach(ArchiveMember am; archive.directory) {
-			auto path = Path(am.name).bySegment.array;
+			auto path = NativePath(am.name).bySegment.array;
 			foreach (fil; packageInfoFiles)
 				if (path.length == 2 && path[$-1].toString == fil.filename) {
 					zip_prefix = path[0 .. $-1];
@@ -376,11 +376,11 @@ class PackageManager {
 
 		logDebug("zip root folder: %s", zip_prefix);
 
-		Path getCleanedPath(string fileName) {
-			auto path = Path(fileName);
-			if (zip_prefix.length && !path.bySegment.startsWith(zip_prefix)) return Path.init;
+		NativePath getCleanedPath(string fileName) {
+			auto path = NativePath(fileName);
+			if (zip_prefix.length && !path.bySegment.startsWith(zip_prefix)) return NativePath.init;
 			static if (is(typeof(path[0 .. 1]))) return path[zip_prefix.length .. $];
-			else return Path(path.bySegment.array[zip_prefix.length .. $]);
+			else return NativePath(path.bySegment.array[zip_prefix.length .. $]);
 		}
 
 		static void setAttributes(string path, ArchiveMember am)
@@ -421,7 +421,7 @@ class PackageManager {
 		logDebug("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite dub.json (this one includes a version field)
-		auto pack = Package.load(destination, Path.init, null, package_info["version"].get!string);
+		auto pack = Package.load(destination, NativePath.init, null, package_info["version"].get!string);
 
 		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
@@ -468,7 +468,7 @@ class PackageManager {
 		remove(pack);
 	}
 
-	Package addLocalPackage(Path path, string verName, LocalPackageType type)
+	Package addLocalPackage(NativePath path, string verName, LocalPackageType type)
 	{
 		path.endsWithSlash = true;
 		auto pack = Package.load(path);
@@ -494,7 +494,7 @@ class PackageManager {
 		return pack;
 	}
 
-	void removeLocalPackage(Path path, LocalPackageType type)
+	void removeLocalPackage(NativePath path, LocalPackageType type)
 	{
 		path.endsWithSlash = true;
 
@@ -518,14 +518,14 @@ class PackageManager {
 	}
 
 	/// For the given type add another path where packages will be looked up.
-	void addSearchPath(Path path, LocalPackageType type)
+	void addSearchPath(NativePath path, LocalPackageType type)
 	{
 		m_repositories[type].searchPath ~= path;
 		writeLocalPackageList(type);
 	}
 
 	/// Removes a search path from the given type.
-	void removeSearchPath(Path path, LocalPackageType type)
+	void removeSearchPath(NativePath path, LocalPackageType type)
 	{
 		m_repositories[type].searchPath = m_repositories[type].searchPath.filter!(p => p != path)().array();
 		writeLocalPackageList(type);
@@ -538,9 +538,9 @@ class PackageManager {
 		// load locally defined packages
 		void scanLocalPackages(LocalPackageType type)
 		{
-			Path list_path = m_repositories[type].packagePath;
+			NativePath list_path = m_repositories[type].packagePath;
 			Package[] packs;
-			Path[] paths;
+			NativePath[] paths;
 			if (!m_disableDefaultSearchPaths) try {
 				auto local_package_file = list_path ~ LocalPackagesFilename;
 				logDiagnostic("Looking for local package map at %s", local_package_file.toNativeString());
@@ -551,7 +551,7 @@ class PackageManager {
 				foreach( pentry; packlist ){
 					try {
 						auto name = pentry["name"].get!string;
-						auto path = Path(pentry["path"].get!string);
+						auto path = NativePath(pentry["path"].get!string);
 						if (name == "*") {
 							paths ~= path;
 						} else {
@@ -600,7 +600,7 @@ class PackageManager {
 		auto old_packages = m_packages;
 
 		// rescan the system and user package folder
-		void scanPackageFolder(Path path)
+		void scanPackageFolder(NativePath path)
 		{
 			if( path.existsDirectory() ){
 				logDebug("iterating dir %s", path.toNativeString());
@@ -657,7 +657,7 @@ class PackageManager {
 					ovr.package_ = entry["name"].get!string;
 					ovr.version_ = Dependency(entry["version"].get!string);
 					if (auto pv = "targetVersion" in entry) ovr.targetVersion = Version(pv.get!string);
-					if (auto pv = "targetPath" in entry) ovr.targetPath = Path(pv.get!string);
+					if (auto pv = "targetPath" in entry) ovr.targetPath = NativePath(pv.get!string);
 					m_repositories[type].overrides ~= ovr;
 				}
 			}
@@ -677,18 +677,18 @@ class PackageManager {
 		string[] ignored_files = [];
 		SHA1 sha1;
 		foreach(file; dirEntries(pack.path.toNativeString(), SpanMode.depth)) {
-			if(file.isDir && ignored_directories.canFind(Path(file.name).head.toString()))
+			if(file.isDir && ignored_directories.canFind(NativePath(file.name).head.toString()))
 				continue;
-			else if(ignored_files.canFind(Path(file.name).head.toString()))
+			else if(ignored_files.canFind(NativePath(file.name).head.toString()))
 				continue;
 
-			sha1.put(cast(ubyte[])Path(file.name).head.toString());
+			sha1.put(cast(ubyte[])NativePath(file.name).head.toString());
 			if(file.isDir) {
-				logDebug("Hashed directory name %s", Path(file.name).head);
+				logDebug("Hashed directory name %s", NativePath(file.name).head);
 			}
 			else {
-				sha1.put(openFile(Path(file.name)).readAll());
-				logDebug("Hashed file contents from %s", Path(file.name).head);
+				sha1.put(openFile(NativePath(file.name)).readAll());
+				logDebug("Hashed file contents from %s", NativePath(file.name).head);
 			}
 		}
 		auto hash = sha1.finish();
@@ -715,7 +715,7 @@ class PackageManager {
 			newlist ~= entry;
 		}
 
-		Path path = m_repositories[type].packagePath;
+		NativePath path = m_repositories[type].packagePath;
 		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
 		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
 	}
@@ -749,7 +749,7 @@ class PackageManager {
 			Package sp;
 
 			if (spr.path.length) {
-				auto p = Path(spr.path);
+				auto p = NativePath(spr.path);
 				p.normalize();
 				enforce(!p.absolute, "Sub package paths must be sub paths of the parent package.");
 				auto path = pack.path ~ p;
@@ -757,7 +757,7 @@ class PackageManager {
 					logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
 					continue;
 				}
-				sp = Package.load(path, Path.init, pack);
+				sp = Package.load(path, NativePath.init, pack);
 			} else sp = new Package(spr.recipe, pack.path, pack);
 
 			// Add the subpackage.
@@ -776,7 +776,7 @@ struct PackageOverride {
 	string package_;
 	Dependency version_;
 	Version targetVersion;
-	Path targetPath;
+	NativePath targetPath;
 
 	this(string package_, Dependency version_, Version target_version)
 	{
@@ -785,7 +785,7 @@ struct PackageOverride {
 		this.targetVersion = target_version;
 	}
 
-	this(string package_, Dependency version_, Path target_path)
+	this(string package_, Dependency version_, NativePath target_path)
 	{
 		this.package_ = package_;
 		this.version_ = version_;
@@ -803,13 +803,13 @@ private enum LocalOverridesFilename = "local-overrides.json";
 
 
 private struct Repository {
-	Path path;
-	Path packagePath;
-	Path[] searchPath;
+	NativePath path;
+	NativePath packagePath;
+	NativePath[] searchPath;
 	Package[] localPackages;
 	PackageOverride[] overrides;
 
-	this(Path path)
+	this(NativePath path)
 	{
 		this.path = path;
 		this.packagePath = path ~"packages/";

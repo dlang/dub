@@ -167,9 +167,9 @@ private:
 	static void addSI(ref string[] arr, in string[] vals)
 	{
 		bool[string] existing;
-		foreach (v; arr) existing[Path(v).head.toString()] = true;
+		foreach (v; arr) existing[NativePath(v).head.toString()] = true;
 		foreach (v; vals) {
-			auto s = Path(v).head.toString();
+			auto s = NativePath(v).head.toString();
 			if (s !in existing) {
 				existing[s] = true;
 				arr ~= v;
@@ -191,7 +191,7 @@ private:
 		bool matches(string s)
 		{
 			foreach (p; vals)
-				if (Path(s) == Path(p) || globMatch(s, p))
+				if (NativePath(s) == NativePath(p) || globMatch(s, p))
 					return true;
 			return false;
 		}

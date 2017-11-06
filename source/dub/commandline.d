@@ -218,8 +218,8 @@ int runDubCommandLine(string[] args)
 	// initialize the root package
 	if (!cmd.skipDubInitialization) {
 		if (options.bare) {
-			dub = new Dub(Path(getcwd()));
-			dub.rootPath = Path(options.root_path);
+			dub = new Dub(NativePath(getcwd()));
+			dub.rootPath = NativePath(options.root_path);
 			dub.defaultPlacementLocation = options.placementLocation;
 		} else {
 			// initialize DUB
@@ -230,7 +230,7 @@ int runDubCommandLine(string[] args)
 
 			// make the CWD package available so that for example sub packages can reference their
 			// parent package.
-			try dub.packageManager.getOrLoadPackage(Path(options.root_path));
+			try dub.packageManager.getOrLoadPackage(NativePath(options.root_path));
 			catch (Exception e) { logDiagnostic("No package found in current working directory."); }
 		}
 	}
@@ -545,7 +545,7 @@ class InitCommand : Command {
 				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
 			}
 		}
-		dub.createEmptyPackage(Path(dir), free_args, m_templateType, m_format, &depCallback);
+		dub.createEmptyPackage(NativePath(dir), free_args, m_templateType, m_format, &depCallback);
 
 		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;
@@ -930,7 +930,7 @@ class TestCommand : PackageBuildCommand {
 		settings.run = true;
 		settings.runArgs = app_args;
 
-		dub.testProject(settings, m_buildConfig, Path(m_mainFile));
+		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
 		return 0;
 	}
 }
@@ -1529,9 +1529,9 @@ class AddOverrideCommand : Command {
 		auto scope_ = m_system ? LocalPackageType.system : LocalPackageType.user;
 		auto pack = free_args[0];
 		auto ver = Dependency(free_args[1]);
-		if (existsFile(Path(free_args[2]))) {
-			auto target = Path(free_args[2]);
-			if (!target.absolute) target = Path(getcwd()) ~ target;
+		if (existsFile(NativePath(free_args[2]))) {
+			auto target = NativePath(free_args[2]);
+			if (!target.absolute) target = NativePath(getcwd()) ~ target;
 			dub.packageManager.addOverride(scope_, pack, ver, target);
 			logInfo("Added override %s %s => %s", pack, ver, target);
 		} else {
@@ -1680,7 +1680,7 @@ class DustmiteCommand : PackageBuildCommand {
 		import std.format : formattedWrite;
 
 		if (m_testPackage.length) {
-			dub = new Dub(Path(getcwd()));
+			dub = new Dub(NativePath(getcwd()));
 
 			setupPackage(dub, m_testPackage);
 			m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
@@ -1709,10 +1709,10 @@ class DustmiteCommand : PackageBuildCommand {
 			}
 		} else {
 			enforceUsage(free_args.length == 1, "Expected destination path.");
-			auto path = Path(free_args[0]);
+			auto path = NativePath(free_args[0]);
 			path.normalize();
 			enforceUsage(!path.empty, "Destination path must not be empty.");
-			if (!path.absolute) path = Path(getcwd()) ~ path;
+			if (!path.absolute) path = NativePath(getcwd()) ~ path;
 			enforceUsage(!path.startsWith(dub.rootPath), "Destination path must not be a sub directory of the tested package!");
 
 			setupPackage(dub, null);
@@ -1720,7 +1720,7 @@ class DustmiteCommand : PackageBuildCommand {
 			if (m_buildConfig.empty)
 				m_buildConfig = prj.getDefaultConfiguration(m_buildPlatform);
 
-			void copyFolderRec(Path folder, Path dstfolder)
+			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
 				mkdirRecurse(dstfolder.toNativeString());
 				foreach (de; iterateDirectory(folder.toNativeString())) {
@@ -1741,11 +1741,11 @@ class DustmiteCommand : PackageBuildCommand {
 			static void fixPathDependency(string pack, ref Dependency dep) {
 				if (!dep.path.empty) {
 					auto mainpack = getBasePackageName(pack);
-					dep.path = Path("../") ~ mainpack;
+					dep.path = NativePath("../") ~ mainpack;
 				}
 			}
 
-			void fixPathDependencies(ref PackageRecipe recipe, Path base_path)
+			void fixPathDependencies(ref PackageRecipe recipe, NativePath base_path)
 			{
 				foreach (name, ref dep; recipe.buildSettings.dependencies)
 					fixPathDependency(name, dep);
@@ -1756,7 +1756,7 @@ class DustmiteCommand : PackageBuildCommand {
 
 				foreach (ref subp; recipe.subPackages)
 					if (subp.path.length) {
-						auto sub_path = base_path ~ Path(subp.path);
+						auto sub_path = base_path ~ NativePath(subp.path);
 						auto pack = prj.packageManager.getOrLoadPackage(sub_path);
 						fixPathDependencies(pack.recipe, sub_path);
 						pack.storeInfo(sub_path);

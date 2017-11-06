@@ -53,7 +53,7 @@ struct Dependency {
 		Version m_versA;
 		bool m_inclusiveB = true; // B comparison < (true) or <= (false)
 		Version m_versB;
-		Path m_path;
+		NativePath m_path;
 		bool m_optional = false;
 		bool m_default = false;
 	}
@@ -87,16 +87,16 @@ struct Dependency {
 	/** Constructs a new dependency specification that matches a specific
 		path.
 	*/
-	this(Path path)
+	this(NativePath path)
 	{
 		this(ANY_IDENT);
 		m_path = path;
 	}
 
 	/// If set, overrides any version based dependency selection.
-	@property void path(Path value) { m_path = value; }
+	@property void path(NativePath value) { m_path = value; }
 	/// ditto
-	@property Path path() const { return m_path; }
+	@property NativePath path() const { return m_path; }
 
 	/// Determines if the dependency is required or optional.
 	@property bool optional() const { return m_optional; }
@@ -239,7 +239,7 @@ struct Dependency {
 		based. Otherwise, the given `path` will be prefixed to the existing
 		path.
 	*/
-	Dependency mapToPath(Path path)
+	Dependency mapToPath(NativePath path)
 	const @trusted { // NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
 		if (m_path.empty || m_path.absolute) return this;
 		else {
@@ -311,7 +311,7 @@ struct Dependency {
 					logDiagnostic("Ignoring version specification (%s) for path based dependency %s", pv.get!string, pp.get!string);
 
 				dep = Dependency.any;
-				dep.path = Path(verspec["path"].get!string);
+				dep.path = NativePath(verspec["path"].get!string);
 			} else {
 				enforce("version" in verspec, "No version field specified!");
 				auto ver = verspec["version"].get!string;
@@ -341,7 +341,7 @@ struct Dependency {
 		Dependency d = Dependency.any; // supposed to ignore the version spec
 		d.optional = true;
 		d.default_ = true;
-		d.path = Path("path/to/package");
+		d.path = NativePath("path/to/package");
 		assert(d == parsed);
 		// optional and path not checked by opEquals.
 		assert(d.optional == parsed.optional);

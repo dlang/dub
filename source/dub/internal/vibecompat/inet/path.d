@@ -18,6 +18,9 @@ import std.exception;
 import std.string;
 
 
+deprecated("Use NativePath instead.")
+alias Path = NativePath;
+
 /**
 	Represents an absolute or relative file system path.
 
@@ -25,7 +28,7 @@ import std.string;
 	are done to disallow invalid operations such as concatenating two absolute paths. It also
 	validates path strings and allows for easy checking of malicious relative paths.
 */
-struct Path {
+struct NativePath {
 	private {
 		immutable(PathEntry)[] m_nodes;
 		bool m_absolute = false;
@@ -36,7 +39,7 @@ struct Path {
 
 	alias bySegment = nodes;
 
-	/// Constructs a Path object by parsing a path string.
+	/// Constructs a NativePath object by parsing a path string.
 	this(string pathstr)
 	{
 		m_nodes = splitPath(pathstr);
@@ -113,7 +116,7 @@ struct Path {
 		return ret.data;
 	}
 
-	/// Converts the Path object to a native path string (backslash as path separator on Windows).
+	/// Converts the NativePath object to a native path string (backslash as path separator on Windows).
 	string toNativeString()
 	const {
 		if (m_nodes.empty) {
@@ -144,7 +147,7 @@ struct Path {
 	}
 
 	/// Tests if `rhs` is an anchestor or the same as this path.
-	bool startsWith(const Path rhs) const {
+	bool startsWith(const NativePath rhs) const {
 		if( rhs.m_nodes.length > m_nodes.length ) return false;
 		foreach( i; 0 .. rhs.m_nodes.length )
 			if( m_nodes[i] != rhs.m_nodes[i] )
@@ -153,7 +156,7 @@ struct Path {
 	}
 
 	/// Computes the relative path from `parentPath` to this path.
-	Path relativeTo(const Path parentPath) const {
+	NativePath relativeTo(const NativePath parentPath) const {
 		assert(this.absolute && parentPath.absolute, "Determining relative path between non-absolute paths.");
 		version(Windows){
 			// a path such as ..\C:\windows is not valid, so force the path to stay absolute in this case
@@ -169,11 +172,11 @@ struct Path {
 			nup++;
 		}
 		assert(m_nodes.length >= parentPath.length - nup);
-		Path ret = Path(null, false);
+		NativePath ret = NativePath(null, false);
 		assert(m_nodes.length >= parentPath.length - nup);
 		ret.m_endsWithSlash = true;
 		foreach( i; 0 .. nup ) ret ~= "..";
-		ret ~= Path(m_nodes[parentPath.length-nup .. $], false);
+		ret ~= NativePath(m_nodes[parentPath.length-nup .. $], false);
 		ret.m_endsWithSlash = this.m_endsWithSlash;
 		return ret;
 	}
@@ -182,7 +185,7 @@ struct Path {
 	@property ref immutable(PathEntry) head() const { enforce(m_nodes.length > 0, "Getting head of empty path."); return m_nodes[$-1]; }
 
 	/// The parent path
-	@property Path parentPath() const { return this[0 .. length-1]; }
+	@property NativePath parentPath() const { return this[0 .. length-1]; }
 
 	/// The ist of path entries of which this path is composed
 	@property immutable(PathEntry)[] nodes() const { return m_nodes; }
@@ -202,16 +205,16 @@ struct Path {
 	@property bool external() const { return !m_absolute && m_nodes.length > 0 && m_nodes[0].m_name == ".."; }
 
 	ref immutable(PathEntry) opIndex(size_t idx) const { return m_nodes[idx]; }
-	Path opSlice(size_t start, size_t end) const {
-		auto ret = Path(m_nodes[start .. end], start == 0 ? absolute : false);
+	NativePath opSlice(size_t start, size_t end) const {
+		auto ret = NativePath(m_nodes[start .. end], start == 0 ? absolute : false);
 		if( end == m_nodes.length ) ret.m_endsWithSlash = m_endsWithSlash;
 		return ret;
 	}
 	size_t opDollar(int dim)() const if(dim == 0) { return m_nodes.length; }
 
 
-	Path opBinary(string OP)(const Path rhs) const if( OP == "~" ) {
-		Path ret;
+	NativePath opBinary(string OP)(const NativePath rhs) const if( OP == "~" ) {
+		NativePath ret;
 		ret.m_nodes = m_nodes;
 		ret.m_absolute = m_absolute;
 		ret.m_endsWithSlash = rhs.m_endsWithSlash;
@@ -234,14 +237,14 @@ struct Path {
 		return ret;
 	}
 
-	Path opBinary(string OP)(string rhs) const if( OP == "~" ) { assert(rhs.length > 0, "Cannot append empty path string."); return opBinary!"~"(Path(rhs)); }
-	Path opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { assert(rhs.toString().length > 0, "Cannot append empty path string."); return opBinary!"~"(Path(rhs)); }
-	void opOpAssign(string OP)(string rhs) if( OP == "~" ) { assert(rhs.length > 0, "Cannot append empty path string."); opOpAssign!"~"(Path(rhs)); }
-	void opOpAssign(string OP)(PathEntry rhs) if( OP == "~" ) { assert(rhs.toString().length > 0, "Cannot append empty path string."); opOpAssign!"~"(Path(rhs)); }
-	void opOpAssign(string OP)(Path rhs) if( OP == "~" ) { auto p = this ~ rhs; m_nodes = p.m_nodes; m_endsWithSlash = rhs.m_endsWithSlash; }
+	NativePath opBinary(string OP)(string rhs) const if( OP == "~" ) { assert(rhs.length > 0, "Cannot append empty path string."); return opBinary!"~"(NativePath(rhs)); }
+	NativePath opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { assert(rhs.toString().length > 0, "Cannot append empty path string."); return opBinary!"~"(NativePath(rhs)); }
+	void opOpAssign(string OP)(string rhs) if( OP == "~" ) { assert(rhs.length > 0, "Cannot append empty path string."); opOpAssign!"~"(NativePath(rhs)); }
+	void opOpAssign(string OP)(PathEntry rhs) if( OP == "~" ) { assert(rhs.toString().length > 0, "Cannot append empty path string."); opOpAssign!"~"(NativePath(rhs)); }
+	void opOpAssign(string OP)(NativePath rhs) if( OP == "~" ) { auto p = this ~ rhs; m_nodes = p.m_nodes; m_endsWithSlash = rhs.m_endsWithSlash; }
 
 	/// Tests two paths for equality using '=='.
-	bool opEquals(ref const Path rhs) const {
+	bool opEquals(ref const NativePath rhs) const {
 		if( m_absolute != rhs.m_absolute ) return false;
 		if( m_endsWithSlash != rhs.m_endsWithSlash ) return false;
 		if( m_nodes.length != rhs.length ) return false;
@@ -251,9 +254,9 @@ struct Path {
 		return true;
 	}
 	/// ditto
-	bool opEquals(const Path other) const { return opEquals(other); }
+	bool opEquals(const NativePath other) const { return opEquals(other); }
 
-	int opCmp(ref const Path rhs) const {
+	int opCmp(ref const NativePath rhs) const {
 		if( m_absolute != rhs.m_absolute ) return cast(int)m_absolute - cast(int)rhs.m_absolute;
 		foreach( i; 0 .. min(m_nodes.length, rhs.m_nodes.length) )
 			if( m_nodes[i] != rhs.m_nodes[i] )
@@ -290,7 +293,7 @@ struct PathEntry {
 
 	@property string name() const { return m_name; }
 
-	Path opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return Path([this, rhs], false); }
+	NativePath opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return NativePath([this, rhs], false); }
 
 	bool opEquals(ref const PathEntry rhs) const { return m_name == rhs.m_name; }
 	bool opEquals(PathEntry rhs) const { return m_name == rhs.m_name; }
@@ -309,8 +312,8 @@ private bool isValidFilename(string str)
 /// Joins two path strings. subpath must be relative.
 string joinPath(string basepath, string subpath)
 {
-	Path p1 = Path(basepath);
-	Path p2 = Path(subpath);
+	NativePath p1 = NativePath(basepath);
+	NativePath p2 = NativePath(subpath);
 	return (p1 ~ p2).toString();
 }
 
@@ -353,13 +356,13 @@ pure {
 
 unittest
 {
-	Path p;
+	NativePath p;
 	assert(p.toNativeString() == ".");
 	p.endsWithSlash = true;
 	version(Windows) assert(p.toNativeString() == ".\\");
 	else assert(p.toNativeString() == "./");
 
-	p = Path("test/");
+	p = NativePath("test/");
 	version(Windows) assert(p.toNativeString() == "test\\");
 	else assert(p.toNativeString() == "test/");
 	p.endsWithSlash = false;
@@ -370,7 +373,7 @@ unittest
 {
 	{
 		auto unc = "\\\\server\\share\\path";
-		auto uncp = Path(unc);
+		auto uncp = NativePath(unc);
 		uncp.normalize();
 		version(Windows) assert(uncp.toNativeString() == unc);
 		assert(uncp.absolute);
@@ -379,7 +382,7 @@ unittest
 
 	{
 		auto abspath = "/test/path/";
-		auto abspathp = Path(abspath);
+		auto abspathp = NativePath(abspath);
 		assert(abspathp.toString() == abspath);
 		version(Windows) {} else assert(abspathp.toNativeString() == abspath);
 		assert(abspathp.absolute);
@@ -391,7 +394,7 @@ unittest
 
 	{
 		auto relpath = "test/path/";
-		auto relpathp = Path(relpath);
+		auto relpathp = NativePath(relpath);
 		assert(relpathp.toString() == relpath);
 		version(Windows) assert(relpathp.toNativeString() == "test\\path\\");
 		else assert(relpathp.toNativeString() == relpath);
@@ -404,7 +407,7 @@ unittest
 
 	{
 		auto winpath = "C:\\windows\\test";
-		auto winpathp = Path(winpath);
+		auto winpathp = NativePath(winpath);
 		version(Windows) {
 			assert(winpathp.toString() == "C:/windows/test", winpathp.toString());
 			assert(winpathp.toNativeString() == winpath);
@@ -422,7 +425,7 @@ unittest
 
 	{
 		auto dotpath = "/test/../test2/././x/y";
-		auto dotpathp = Path(dotpath);
+		auto dotpathp = NativePath(dotpath);
 		assert(dotpathp.toString() == "/test/../test2/././x/y");
 		dotpathp.normalize();
 		assert(dotpathp.toString() == "/test2/x/y");
@@ -430,7 +433,7 @@ unittest
 
 	{
 		auto dotpath = "/test/..////test2//./x/y";
-		auto dotpathp = Path(dotpath);
+		auto dotpathp = NativePath(dotpath);
 		assert(dotpathp.toString() == "/test/..////test2//./x/y");
 		dotpathp.normalize();
 		assert(dotpathp.toString() == "/test2/x/y");
@@ -438,46 +441,46 @@ unittest
 
 	{
 		auto parentpath = "/path/to/parent";
-		auto parentpathp = Path(parentpath);
+		auto parentpathp = NativePath(parentpath);
 		auto subpath = "/path/to/parent/sub/";
-		auto subpathp = Path(subpath);
+		auto subpathp = NativePath(subpath);
 		auto subpath_rel = "sub/";
 		assert(subpathp.relativeTo(parentpathp).toString() == subpath_rel);
 		auto subfile = "/path/to/parent/child";
-		auto subfilep = Path(subfile);
+		auto subfilep = NativePath(subfile);
 		auto subfile_rel = "child";
 		assert(subfilep.relativeTo(parentpathp).toString() == subfile_rel);
 	}
 
 	{ // relative paths across Windows devices are not allowed
 		version (Windows) {
-			auto p1 = Path("\\\\server\\share"); assert(p1.absolute);
-			auto p2 = Path("\\\\server\\othershare"); assert(p2.absolute);
-			auto p3 = Path("\\\\otherserver\\share"); assert(p3.absolute);
-			auto p4 = Path("C:\\somepath"); assert(p4.absolute);
-			auto p5 = Path("C:\\someotherpath"); assert(p5.absolute);
-			auto p6 = Path("D:\\somepath"); assert(p6.absolute);
-			assert(p4.relativeTo(p5) == Path("../somepath"));
-			assert(p4.relativeTo(p6) == Path("C:\\somepath"));
-			assert(p4.relativeTo(p1) == Path("C:\\somepath"));
-			assert(p1.relativeTo(p2) == Path("../share"));
-			assert(p1.relativeTo(p3) == Path("\\\\server\\share"));
-			assert(p1.relativeTo(p4) == Path("\\\\server\\share"));
+			auto p1 = NativePath("\\\\server\\share"); assert(p1.absolute);
+			auto p2 = NativePath("\\\\server\\othershare"); assert(p2.absolute);
+			auto p3 = NativePath("\\\\otherserver\\share"); assert(p3.absolute);
+			auto p4 = NativePath("C:\\somepath"); assert(p4.absolute);
+			auto p5 = NativePath("C:\\someotherpath"); assert(p5.absolute);
+			auto p6 = NativePath("D:\\somepath"); assert(p6.absolute);
+			assert(p4.relativeTo(p5) == NativePath("../somepath"));
+			assert(p4.relativeTo(p6) == NativePath("C:\\somepath"));
+			assert(p4.relativeTo(p1) == NativePath("C:\\somepath"));
+			assert(p1.relativeTo(p2) == NativePath("../share"));
+			assert(p1.relativeTo(p3) == NativePath("\\\\server\\share"));
+			assert(p1.relativeTo(p4) == NativePath("\\\\server\\share"));
 		}
 	}
 }
 
 unittest {
-	assert(Path("/foo/bar/baz").relativeTo(Path("/foo")).toString == "bar/baz");
-	assert(Path("/foo/bar/baz/").relativeTo(Path("/foo")).toString == "bar/baz/");
-	assert(Path("/foo/bar").relativeTo(Path("/foo")).toString == "bar");
-	assert(Path("/foo/bar/").relativeTo(Path("/foo")).toString == "bar/");
-	assert(Path("/foo").relativeTo(Path("/foo/bar")).toString() == "..");
-	assert(Path("/foo/").relativeTo(Path("/foo/bar")).toString() == "../");
-	assert(Path("/foo/baz").relativeTo(Path("/foo/bar/baz")).toString() == "../../baz");
-	assert(Path("/foo/baz/").relativeTo(Path("/foo/bar/baz")).toString() == "../../baz/");
-	assert(Path("/foo/").relativeTo(Path("/foo/bar/baz")).toString() == "../../");
-	assert(Path("/foo/").relativeTo(Path("/foo/bar/baz/mumpitz")).toString() == "../../../");
-	assert(Path("/foo").relativeTo(Path("/foo")).toString() == "");
-	assert(Path("/foo/").relativeTo(Path("/foo")).toString() == "");
+	assert(NativePath("/foo/bar/baz").relativeTo(NativePath("/foo")).toString == "bar/baz");
+	assert(NativePath("/foo/bar/baz/").relativeTo(NativePath("/foo")).toString == "bar/baz/");
+	assert(NativePath("/foo/bar").relativeTo(NativePath("/foo")).toString == "bar");
+	assert(NativePath("/foo/bar/").relativeTo(NativePath("/foo")).toString == "bar/");
+	assert(NativePath("/foo").relativeTo(NativePath("/foo/bar")).toString() == "..");
+	assert(NativePath("/foo/").relativeTo(NativePath("/foo/bar")).toString() == "../");
+	assert(NativePath("/foo/baz").relativeTo(NativePath("/foo/bar/baz")).toString() == "../../baz");
+	assert(NativePath("/foo/baz/").relativeTo(NativePath("/foo/bar/baz")).toString() == "../../baz/");
+	assert(NativePath("/foo/").relativeTo(NativePath("/foo/bar/baz")).toString() == "../../");
+	assert(NativePath("/foo/").relativeTo(NativePath("/foo/bar/baz/mumpitz")).toString() == "../../../");
+	assert(NativePath("/foo").relativeTo(NativePath("/foo")).toString() == "");
+	assert(NativePath("/foo/").relativeTo(NativePath("/foo")).toString() == "");
 }
