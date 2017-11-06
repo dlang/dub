@@ -117,7 +117,6 @@ class Package {
 		m_info = recipe;
 
 		fillWithDefaults();
-		simpleLint();
 	}
 
 	/** Searches the given directory for package recipe files.
@@ -674,7 +673,7 @@ class Package {
 		}
 	}
 
-	private void simpleLint()
+	package void simpleLint()
 	const {
 		if (m_parentPackage) {
 			if (m_parentPackage.path != path) {

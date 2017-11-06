@@ -293,6 +293,9 @@ class Project {
 		// check for version specification mismatches
 		bool[Package] visited;
 		void validateDependenciesRec(Package pack) {
+			// perform basic package linting
+			pack.simpleLint();
+
 			foreach (d; pack.getAllDependencies()) {
 				auto basename = getBasePackageName(d.name);
 				if (m_selections.hasSelectedVersion(basename)) {
