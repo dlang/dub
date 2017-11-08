@@ -15,7 +15,6 @@ configuration "application" {
 
 configuration "library" {
 	targetType "library"
-	libs "curl"
 	excludedSourceFiles "source/app.d"
 	copyFiles "bin/libcurl.dll" "bin/libeay32.dll" "bin/ssleay32.dll" platform="windows"
 	versions "DubUseCurl"
