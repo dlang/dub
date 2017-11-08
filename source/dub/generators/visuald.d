@@ -460,8 +460,13 @@ class VisualDGenerator : ProjectGenerator {
 		private final static int sortOrder(ref const SourceFile a, ref const SourceFile b) {
 			assert(!a.structurePath.empty);
 			assert(!b.structurePath.empty);
-			auto as = a.structurePath.bySegment.array;
-			auto bs = b.structurePath.bySegment.array;
+			static if (is(typeof(a.structurePath.nodes))) { // vibe.d < 0.8.2
+				auto as = a.structurePath.nodes;
+				auto bs = b.structurePath.nodes;
+			} else {
+				auto as = a.structurePath.bySegment.array;
+				auto bs = b.structurePath.bySegment.array;
+			}
 
 			// Check for different folders, compare folders only (omit last one).
 			for(uint idx=0; idx<min(as.length-1, bs.length-1); ++idx)
