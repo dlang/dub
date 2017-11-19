@@ -268,10 +268,11 @@ struct CommonOptions {
 		args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
 		args.getopt("registry", &registry_urls, ["Search the given DUB registry URL first when resolving dependencies. Can be specified multiple times."]);
 		args.getopt("skip-registry", &skipRegistry, [
-			"Skips searching certain package registries for dependencies:",
-			"  none: Search all configured registries (default)",
-			"  standard: Don't search on "~defaultRegistryURL,
-			"  all: Search none of the configured registries",
+			"Sets a mode for skipping the search on certain package registry types:",
+			"  none: Search all configured or default registries (default)",
+			"  standard: Don't search the main registry (e.g. "~defaultRegistryURL~")",
+			"  configured: Skip all default and user configured registries",
+			"  all: Only search registries specified with --registry",
 			]);
 		args.getopt("annotate", &annotate, ["Do not perform any action, just print what would be done"]);
 		args.getopt("bare", &bare, ["Read only packages contained in the current directory"]);

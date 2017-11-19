@@ -142,7 +142,15 @@ class Dub {
 
 		if (skip_registry < SkipPackageSuppliers.all)
 		{
-			ps ~= (environment.get("DUB_REGISTRY", null).split(";") ~ m_config.registryURLs)
+			ps ~= environment.get("DUB_REGISTRY", null)
+				.splitter(";")
+				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
+				.array;
+		}
+
+		if (skip_registry < SkipPackageSuppliers.configured)
+		{
+			ps ~= m_config.registryURLs
 				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
 				.array;
 		}
@@ -158,16 +166,16 @@ class Dub {
 	unittest
 	{
 		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new Dub(".", null, SkipPackageSuppliers.standard);
+		auto dub = new Dub(".", null, SkipPackageSuppliers.configured);
 		assert(dub.m_packageSuppliers.length == 0);
 		environment["DUB_REGISTRY"] = "http://example.com/";
-		dub = new Dub(".", null, SkipPackageSuppliers.standard);
+		dub = new Dub(".", null, SkipPackageSuppliers.configured);
 		logInfo("%s", dub.m_packageSuppliers);
 		assert(dub.m_packageSuppliers.length == 1);
 		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
-		dub = new Dub(".", null, SkipPackageSuppliers.standard);
+		dub = new Dub(".", null, SkipPackageSuppliers.configured);
 		assert(dub.m_packageSuppliers.length == 2);
-		dub = new Dub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.standard);
+		dub = new Dub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
 		assert(dub.m_packageSuppliers.length == 3);
 	}
 
@@ -1220,9 +1228,10 @@ enum UpgradeOptions
 
 /// Determines which of the default package suppliers are queried for packages.
 enum SkipPackageSuppliers {
-	none,     /// Uses all configured package suppliers.
-	standard, /// Does not use the default package suppliers (`defaultPackageSuppliers`).
-	all       /// Uses only manually specified package suppliers.
+	none,       /// Uses all configured package suppliers.
+	standard,   /// Does not use the default package suppliers (`defaultPackageSuppliers`).
+	configured, /// Does not use default suppliers or suppliers configured in DUB's configuration file
+	all         /// Uses only manually specified package suppliers.
 }
 
 private class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
