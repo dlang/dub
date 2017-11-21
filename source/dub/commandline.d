@@ -1023,7 +1023,7 @@ class DescribeCommand : PackageBuildCommand {
 
 		// disable all log output to stdout and use "writeln" to output the JSON description
 		auto ll = getLogLevel();
-		setLogLevel(LogLevel.warn);
+		setLogLevel(max(ll, LogLevel.warn));
 		scope (exit) setLogLevel(ll);
 
 		string package_name;
