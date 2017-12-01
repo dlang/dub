@@ -197,8 +197,20 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		}
 
 		string first_error;
+		size_t loop_counter = 0;
+
+		// Leave the possibility to opt-out from the loop limit
+		import std.process : environment;
+		bool no_loop_limit = environment.get("DUB_NO_RESOLVE_LIMIT") !is null;
 
 		while (true) {
+			assert(no_loop_limit || loop_counter++ < 1_000_000,
+				"The dependency resolution process is taking too long. The"
+				~ " dependency graph is likely hitting a pathological case in"
+				~ " the resolution algorithm. Please file a bug report at"
+				~ " https://github.com/dlang/dub/issues and mention the package"
+				~ " recipe that reproduces this error.");
+
 			// check if the current combination of configurations works out
 			visited = null;
 			string error;
