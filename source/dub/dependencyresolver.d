@@ -141,7 +141,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 				// get the current config/version of the current dependency
 				sizediff_t childidx = package_indices[basepack];
-				if (all_configs[childidx] == [CONFIG.invalid]) {
+				if (all_configs[childidx].length == 1 && all_configs[childidx][0] == CONFIG.invalid) {
 					// ignore invalid optional dependencies
 					if (ch.depType != DependencyType.required)
 						continue;
@@ -281,7 +281,7 @@ enum DependencyType {
 
 private string basePackage(string p)
 {
-	auto idx = indexOf(p, ":");
+	auto idx = indexOf(p, ':');
 	if (idx < 0) return p;
 	return p[0 .. idx];
 }
