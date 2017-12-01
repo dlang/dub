@@ -369,9 +369,14 @@ struct Dependency {
 	/// ditto
 	hash_t toHash() const nothrow @trusted  {
 		try {
-			auto strhash = &typeid(string).getHash;
-			auto str = this.toString();
-			return strhash(&str);
+			size_t hash = 0;
+			hash = m_inclusiveA.hashOf(hash);
+			hash = m_versA.toString().hashOf(hash);
+			hash = m_inclusiveB.hashOf(hash);
+			hash = m_versB.toString().hashOf(hash);
+			hash = m_optional.hashOf(hash);
+			hash = m_default.hashOf(hash);
+			return hash;
 		} catch (Exception) assert(false);
 	}
 
@@ -387,11 +392,18 @@ struct Dependency {
 
 		This is true in particular for the `any` constant.
 	*/
-	bool matchesAny() const {
-		auto cmp = Dependency("*");
-		cmp.optional = m_optional;
-		cmp.default_ = m_default;
-		return cmp == this;
+	bool matchesAny()
+	const {
+		return m_inclusiveA && m_inclusiveB
+			&& m_versA.toString() == "0.0.0"
+			&& m_versB == Version.maxRelease;
+	}
+
+	unittest {
+		assert(Dependency("*").matchesAny);
+		assert(!Dependency(">0.0.0").matchesAny);
+		assert(!Dependency(">=1.0.0").matchesAny);
+		assert(!Dependency("<1.0.0").matchesAny);
 	}
 
 	/** Tests if the specification matches a specific version.
@@ -427,20 +439,19 @@ struct Dependency {
 	const {
 		if (this.matchesAny) return o;
 		if (o.matchesAny) return this;
-		if (!this.valid || !o.valid) return invalid;
 		if (m_versA.isBranch != o.m_versA.isBranch) return invalid;
 		if (m_versB.isBranch != o.m_versB.isBranch) return invalid;
 		if (m_versA.isBranch) return m_versA == o.m_versA ? this : invalid;
 		if (this.path != o.path) return invalid;
 
-		Version a = m_versA > o.m_versA ? m_versA : o.m_versA;
-		Version b = m_versB < o.m_versB ? m_versB : o.m_versB;
+		int acmp = m_versA.opCmp(o.m_versA);
+		int bcmp = m_versB.opCmp(o.m_versB);
 
 		Dependency d = this;
-		d.m_inclusiveA = !m_inclusiveA && m_versA >= o.m_versA ? false : o.m_inclusiveA;
-		d.m_versA = a;
-		d.m_inclusiveB = !m_inclusiveB && m_versB <= o.m_versB ? false : o.m_inclusiveB;
-		d.m_versB = b;
+		d.m_inclusiveA = !m_inclusiveA && acmp >= 0 ? false : o.m_inclusiveA;
+		d.m_versA = acmp > 0 ? m_versA : o.m_versA;
+		d.m_inclusiveB = !m_inclusiveB && bcmp <= 0 ? false : o.m_inclusiveB;
+		d.m_versB = bcmp < 0 ? m_versB : o.m_versB;
 		d.m_optional = m_optional && o.m_optional;
 		if (!d.valid) return invalid;
 
@@ -640,24 +651,24 @@ unittest {
 struct Version {
 @safe:
 	private {
-		enum MAX_VERS = "99999.0.0";
-		enum UNKNOWN_VERS = "unknown";
+		static immutable MAX_VERS = "99999.0.0";
+		static immutable UNKNOWN_VERS = "unknown";
+		static immutable masterString = "~master";
 		enum branchPrefix = '~';
-		enum masterString = "~master";
 		string m_version;
 	}
 
-	static @property Version minRelease() { return Version("0.0.0"); }
-	static @property Version maxRelease() { return Version(MAX_VERS); }
-	static @property Version masterBranch() { return Version(masterString); }
-	static @property Version unknown() { return Version(UNKNOWN_VERS); }
+	static immutable Version minRelease = Version("0.0.0");
+	static immutable Version maxRelease = Version(MAX_VERS);
+	static immutable Version masterBranch = Version(masterString);
+	static immutable Version unknown = Version(UNKNOWN_VERS);
 
 	/** Constructs a new `Version` from its string representation.
 	*/
 	this(string vers)
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		if (vers[0] != branchPrefix && vers != UNKNOWN_VERS)
+		if (vers[0] != branchPrefix && vers.ptr !is UNKNOWN_VERS.ptr)
 			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
 		m_version = vers;
 	}
@@ -669,15 +680,10 @@ struct Version {
 	*/
 	static Version fromString(string vers) { return Version(vers); }
 
-	bool opEquals(const Version oth) const {
-		if (isUnknown || oth.isUnknown) {
-			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, oth));
-		}
-		return opCmp(oth) == 0;
-	}
+	bool opEquals(const Version oth) const { return opCmp(oth) == 0; }
 
 	/// Tests if this represents a branch instead of a version.
-	@property bool isBranch() const { return !m_version.empty && m_version[0] == branchPrefix; }
+	@property bool isBranch() const { return m_version.length > 0 && m_version[0] == branchPrefix; }
 
 	/// Tests if this represents the master branch "~master".
 	@property bool isMaster() const { return m_version == masterString; }

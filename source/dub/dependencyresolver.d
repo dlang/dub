@@ -14,6 +14,7 @@ import std.algorithm : all, canFind, filter, map, sort;
 import std.array : appender, array;
 import std.conv : to;
 import std.exception : enforce;
+import std.typecons : Nullable;
 import std.string : format, indexOf, lastIndexOf;
 
 
@@ -41,7 +42,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		CONFIG config;
 
 		hash_t toHash() const nothrow @trusted {
-			size_t ret = typeid(string).getHash(&pack);
+			size_t ret = pack.hashOf();
+			//size_t ret = typeid(string).getHash(&pack);
 			ret ^= typeid(CONFIG).getHash(&config);
 			return ret;
 		}
@@ -123,7 +125,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		config_indices[] = 0;
 
 		visited = null;
-		sizediff_t validateConfigs(TreeNode parent, ref string error)
+		sizediff_t validateConfigs(TreeNode parent, ref ConflictError error)
 		{
 			import std.algorithm : max;
 
@@ -141,7 +143,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 				// get the current config/version of the current dependency
 				sizediff_t childidx = package_indices[basepack];
-				if (all_configs[childidx] == [CONFIG.invalid]) {
+				if (all_configs[childidx].length == 1 && all_configs[childidx][0] == CONFIG.invalid) {
 					// ignore invalid optional dependencies
 					if (ch.depType != DependencyType.required)
 						continue;
@@ -160,7 +162,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					}
 					// choose another parent config to avoid the invalid child
 					if (parentidx > maxcpi) {
-						error = format("Package %s contains invalid dependency %s (no version candidates)", parent.pack, ch.pack);
+						error = ConflictError(ConflictError.Kind.invalidDependency, parent, ch, CONFIG.invalid);
 						logDiagnostic("%s (ci=%s)", error, parentidx);
 						maxcpi = parentidx;
 					}
@@ -175,13 +177,13 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 						// if we are at the root level, we can safely skip the maxcpi computation and instead choose another childidx config
 						if (parentbase == root_base_pack) {
-							error = format("No match for dependency %s %s of %s", ch.pack, ch.configs, parent.pack);
+							error = ConflictError(ConflictError.Kind.noRootMatch, parent, ch, config);
 							return childidx;
 						}
 
 						if (childidx > maxcpi) {
 							maxcpi = max(childidx, parentidx);
-							error = format("Dependency %s -> %s %s mismatches with selected version %s", parent.pack, ch.pack, ch.configs, config);
+							error = ConflictError(ConflictError.Kind.childMismatch, parent, ch, config);
 							logDebug("%s (ci=%s)", error, maxcpi);
 						}
 
@@ -196,14 +198,26 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			return maxcpi;
 		}
 
-		string first_error;
+		Nullable!ConflictError first_error;
+		size_t loop_counter = 0;
+
+		// Leave the possibility to opt-out from the loop limit
+		import std.process : environment;
+		bool no_loop_limit = environment.get("DUB_NO_RESOLVE_LIMIT") !is null;
 
 		while (true) {
+			assert(no_loop_limit || loop_counter++ < 1_000_000,
+				"The dependency resolution process is taking too long. The"
+				~ " dependency graph is likely hitting a pathological case in"
+				~ " the resolution algorithm. Please file a bug report at"
+				~ " https://github.com/dlang/dub/issues and mention the package"
+				~ " recipe that reproduces this error.");
+
 			// check if the current combination of configurations works out
 			visited = null;
-			string error;
+			ConflictError error;
 			auto conflict_index = validateConfigs(root, error);
-			if (first_error is null) first_error = error;
+			if (first_error.isNull) first_error = error;
 
 			// print out current iteration state
 			logDebug("Interation (ci=%s) %s", conflict_index, {
@@ -237,7 +251,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				else break;
 			}
 			if (config_indices.all!"a==0") {
-				if (throw_on_failure) throw new Exception("Could not find a valid dependency tree configuration: "~first_error);
+				if (throw_on_failure) throw new Exception(format("Could not find a valid dependency tree configuration: %s", first_error.get));
 				else return null;
 			}
 		}
@@ -271,6 +285,36 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			if (p !in required)
 				configs.remove(p);
 	}
+
+	private struct ConflictError {
+		enum Kind {
+			none,
+			noRootMatch,
+			childMismatch,
+			invalidDependency
+		}
+
+		Kind kind;
+		TreeNode parent;
+		TreeNodes child;
+		CONFIG config;
+
+		string toString()
+		const {
+			final switch (kind) {
+				case Kind.none: return "no error";
+				case Kind.noRootMatch:
+					return "No match for dependency %s %s of %s"
+						.format(child.pack, child.configs, parent.pack);
+				case Kind.childMismatch:
+					return "Dependency %s -> %s %s mismatches with selected version %s"
+						.format(parent.pack, child.pack, child.configs, config);
+				case Kind.invalidDependency:
+					return "Package %s contains invalid dependency %s (no version candidates)"
+						.format(parent.pack, child.pack);
+			}
+		}
+	}
 }
 
 enum DependencyType {
@@ -281,7 +325,7 @@ enum DependencyType {
 
 private string basePackage(string p)
 {
-	auto idx = indexOf(p, ":");
+	auto idx = indexOf(p, ':');
 	if (idx < 0) return p;
 	return p[0 .. idx];
 }
