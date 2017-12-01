@@ -140,10 +140,10 @@ int compareVersions(string a, string b)
 	// compare a.b.c numerically
 	if (auto ret = compareNumber(a, b)) return ret;
 	assert(a[0] == '.' && b[0] == '.');
-	a.popFront(); b.popFront();
+	a = a[1 .. $]; b = b[1 .. $];
 	if (auto ret = compareNumber(a, b)) return ret;
 	assert(a[0] == '.' && b[0] == '.');
-	a.popFront(); b.popFront();
+	a = a[1 .. $]; b = b[1 .. $];
 	if (auto ret = compareNumber(a, b)) return ret;
 
 	// give precedence to non-prerelease versions
@@ -154,7 +154,7 @@ int compareVersions(string a, string b)
 
 	// compare the prerelease tail lexicographically
 	do {
-		a.popFront(); b.popFront();
+		a = a[1 .. $]; b = b[1 .. $];
 		if (auto ret = compareIdentifier(a, b)) return ret;
 	} while (a.length > 0 && b.length > 0 && a[0] != '+' && b[0] != '+');
 
@@ -288,12 +288,12 @@ private int compareIdentifier(ref string a, ref string b)
 	bool aempty = true, bempty = true;
 	int res = 0;
 	while (true) {
-		if (a.front != b.front && res == 0) res = a.front - b.front;
-		if (anumber && (a.front < '0' || a.front > '9')) anumber = false;
-		if (bnumber && (b.front < '0' || b.front > '9')) bnumber = false;
-		a.popFront(); b.popFront();
-		aempty = a.empty || a.front == '.' || a.front == '+';
-		bempty = b.empty || b.front == '.' || b.front == '+';
+		if (a[0] != b[0] && res == 0) res = a[0] - b[0];
+		if (anumber && (a[0] < '0' || a[0] > '9')) anumber = false;
+		if (bnumber && (b[0] < '0' || b[0] > '9')) bnumber = false;
+		a = a[1 .. $]; b = b[1 .. $];
+		aempty = !a.length || a[0] == '.' || a[0] == '+';
+		bempty = !b.length || b[0] == '.' || b[0] == '+';
 		if (aempty || bempty) break;
 	}
 
@@ -315,10 +315,10 @@ private int compareNumber(ref string a, ref string b)
 {
 	int res = 0;
 	while (true) {
-		if (a.front != b.front && res == 0) res = a.front - b.front;
-		a.popFront(); b.popFront();
-		auto aempty = a.empty || (a.front < '0' || a.front > '9');
-		auto bempty = b.empty || (b.front < '0' || b.front > '9');
+		if (a[0] != b[0] && res == 0) res = a[0] - b[0];
+		a = a[1 .. $]; b = b[1 .. $];
+		auto aempty = !a.length || (a[0] < '0' || a[0] > '9');
+		auto bempty = !b.length || (b[0] < '0' || b[0] > '9');
 		if (aempty != bempty) return bempty - aempty;
 		if (aempty) return res;
 	}
