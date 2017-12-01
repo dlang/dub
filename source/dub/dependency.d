@@ -439,20 +439,19 @@ struct Dependency {
 	const {
 		if (this.matchesAny) return o;
 		if (o.matchesAny) return this;
-		if (!this.valid || !o.valid) return invalid;
 		if (m_versA.isBranch != o.m_versA.isBranch) return invalid;
 		if (m_versB.isBranch != o.m_versB.isBranch) return invalid;
 		if (m_versA.isBranch) return m_versA == o.m_versA ? this : invalid;
 		if (this.path != o.path) return invalid;
 
-		Version a = m_versA > o.m_versA ? m_versA : o.m_versA;
-		Version b = m_versB < o.m_versB ? m_versB : o.m_versB;
+		int acmp = m_versA.opCmp(o.m_versA);
+		int bcmp = m_versB.opCmp(o.m_versB);
 
 		Dependency d = this;
-		d.m_inclusiveA = !m_inclusiveA && m_versA >= o.m_versA ? false : o.m_inclusiveA;
-		d.m_versA = a;
-		d.m_inclusiveB = !m_inclusiveB && m_versB <= o.m_versB ? false : o.m_inclusiveB;
-		d.m_versB = b;
+		d.m_inclusiveA = !m_inclusiveA && acmp >= 0 ? false : o.m_inclusiveA;
+		d.m_versA = acmp > 0 ? m_versA : o.m_versA;
+		d.m_inclusiveB = !m_inclusiveB && bcmp <= 0 ? false : o.m_inclusiveB;
+		d.m_versB = bcmp < 0 ? m_versB : o.m_versB;
 		d.m_optional = m_optional && o.m_optional;
 		if (!d.valid) return invalid;
 
@@ -669,7 +668,7 @@ struct Version {
 	this(string vers)
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		if (vers[0] != branchPrefix && vers != UNKNOWN_VERS)
+		if (vers[0] != branchPrefix && vers.ptr !is UNKNOWN_VERS.ptr)
 			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
 		m_version = vers;
 	}
@@ -684,7 +683,7 @@ struct Version {
 	bool opEquals(const Version oth) const { return opCmp(oth) == 0; }
 
 	/// Tests if this represents a branch instead of a version.
-	@property bool isBranch() const { return !m_version.empty && m_version[0] == branchPrefix; }
+	@property bool isBranch() const { return m_version.length > 0 && m_version[0] == branchPrefix; }
 
 	/// Tests if this represents the master branch "~master".
 	@property bool isMaster() const { return m_version == masterString; }
