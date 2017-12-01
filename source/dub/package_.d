@@ -526,12 +526,22 @@ class Package {
 	PackageDependency[] getAllDependencies()
 	const {
 		auto ret = appender!(PackageDependency[]);
-		foreach (n, d; this.recipe.buildSettings.dependencies)
-			ret ~= PackageDependency(n, d);
-		foreach (ref c; this.recipe.configurations)
-			foreach (n, d; c.buildSettings.dependencies)
-				ret ~= PackageDependency(n, d);
+		getAllDependenciesRange().copy(ret);
 		return ret.data;
+	}
+
+	// Left as package until the final API for this has been found
+	package auto getAllDependenciesRange()
+	const {
+		return this.recipe.buildSettings.dependencies.byKeyValue
+			.map!(bs => PackageDependency(bs.key, bs.value))
+			.chain(
+				this.recipe.configurations
+					.map!(c => c.buildSettings.dependencies.byKeyValue
+						.map!(bs => PackageDependency(bs.key, bs.value))
+					)
+					.joiner()
+			);
 	}
 
 

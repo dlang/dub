@@ -1243,6 +1243,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		SelectedVersions m_selectedVersions;
 		Package m_rootPackage;
 		bool[string] m_packagesToUpgrade;
+		Package[PackageDependency] m_packages;
 	}
 
 
@@ -1344,7 +1345,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		}
 		auto basepack = pack.basePackage;
 
-		foreach (d; pack.getAllDependencies()) {
+		foreach (d; pack.getAllDependenciesRange()) {
 			auto dbasename = getBasePackageName(d.name);
 
 			// detect dependencies to the root package (or sub packages thereof)
@@ -1395,6 +1396,16 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	}
 
 	private Package getPackage(string name, Dependency dep)
+	{
+		auto key = PackageDependency(name, dep);
+		if (auto pp = key in m_packages)
+			return *pp;
+		auto p = getPackageRaw(name, dep);
+		m_packages[key] = p;
+		return p;
+	}
+
+	private Package getPackageRaw(string name, Dependency dep)
 	{
 		auto basename = getBasePackageName(name);
 
