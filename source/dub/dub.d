@@ -1244,6 +1244,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		Package m_rootPackage;
 		bool[string] m_packagesToUpgrade;
 		Package[PackageDependency] m_packages;
+		TreeNodes[][TreeNode] m_children;
 	}
 
 
@@ -1334,6 +1335,15 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 
 	protected override TreeNodes[] getChildren(TreeNode node)
+	{
+		if (auto pc = node in m_children)
+			return *pc;
+		auto ret = getChildrenRaw(node);
+		m_children[node] = ret;
+		return ret;
+	}
+
+	private final TreeNodes[] getChildrenRaw(TreeNode node)
 	{
 		import std.array : appender;
 		auto ret = appender!(TreeNodes[]);
