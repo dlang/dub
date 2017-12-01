@@ -369,9 +369,14 @@ struct Dependency {
 	/// ditto
 	hash_t toHash() const nothrow @trusted  {
 		try {
-			auto strhash = &typeid(string).getHash;
-			auto str = this.toString();
-			return strhash(&str);
+			size_t hash = 0;
+			hash = m_inclusiveA.hashOf(hash);
+			hash = m_versA.toString().hashOf(hash);
+			hash = m_inclusiveB.hashOf(hash);
+			hash = m_versB.toString().hashOf(hash);
+			hash = m_optional.hashOf(hash);
+			hash = m_default.hashOf(hash);
+			return hash;
 		} catch (Exception) assert(false);
 	}
 
@@ -387,11 +392,18 @@ struct Dependency {
 
 		This is true in particular for the `any` constant.
 	*/
-	bool matchesAny() const {
-		auto cmp = Dependency("*");
-		cmp.optional = m_optional;
-		cmp.default_ = m_default;
-		return cmp == this;
+	bool matchesAny()
+	const {
+		return m_inclusiveA && m_inclusiveB
+			&& m_versA.toString() == "0.0.0"
+			&& m_versB == Version.maxRelease;
+	}
+
+	unittest {
+		assert(Dependency("*").matchesAny);
+		assert(!Dependency(">0.0.0").matchesAny);
+		assert(!Dependency(">=1.0.0").matchesAny);
+		assert(!Dependency("<1.0.0").matchesAny);
 	}
 
 	/** Tests if the specification matches a specific version.
@@ -640,17 +652,17 @@ unittest {
 struct Version {
 @safe:
 	private {
-		enum MAX_VERS = "99999.0.0";
-		enum UNKNOWN_VERS = "unknown";
+		static immutable MAX_VERS = "99999.0.0";
+		static immutable UNKNOWN_VERS = "unknown";
+		static immutable masterString = "~master";
 		enum branchPrefix = '~';
-		enum masterString = "~master";
 		string m_version;
 	}
 
-	static @property Version minRelease() { return Version("0.0.0"); }
-	static @property Version maxRelease() { return Version(MAX_VERS); }
-	static @property Version masterBranch() { return Version(masterString); }
-	static @property Version unknown() { return Version(UNKNOWN_VERS); }
+	static immutable Version minRelease = Version("0.0.0");
+	static immutable Version maxRelease = Version(MAX_VERS);
+	static immutable Version masterBranch = Version(masterString);
+	static immutable Version unknown = Version(UNKNOWN_VERS);
 
 	/** Constructs a new `Version` from its string representation.
 	*/
@@ -669,12 +681,7 @@ struct Version {
 	*/
 	static Version fromString(string vers) { return Version(vers); }
 
-	bool opEquals(const Version oth) const {
-		if (isUnknown || oth.isUnknown) {
-			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, oth));
-		}
-		return opCmp(oth) == 0;
-	}
+	bool opEquals(const Version oth) const { return opCmp(oth) == 0; }
 
 	/// Tests if this represents a branch instead of a version.
 	@property bool isBranch() const { return !m_version.empty && m_version[0] == branchPrefix; }
