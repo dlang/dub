@@ -216,9 +216,7 @@ bool existsFile(string path)
 */
 FileInfo getFileInfo(Path path)
 {
-	static if (__VERSION__ >= 2064)
-		auto ent = std.file.DirEntry(path.toNativeString());
-	else auto ent = std.file.dirEntry(path.toNativeString());
+	auto ent = std.file.DirEntry(path.toNativeString());
 	return makeFileInfo(ent);
 }
 /// ditto

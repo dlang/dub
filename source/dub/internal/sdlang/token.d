@@ -1,4 +1,4 @@
-﻿// SDLang-D
+// SDLang-D
 // Written in the D programming language.
 
 module dub.internal.sdlang.token;
@@ -247,10 +247,7 @@ void toSDLString(Sink)(DateTimeFrac value, ref Sink sink) if(isOutputRange!(Sink
 
 void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
-	static if (__VERSION__ >= 2067)
-		auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSecs);
-	else
-		auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSec);
+	auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSecs);
 	toSDLString(dateTimeFrac, sink);
 
 	sink.put("-");
@@ -286,12 +283,7 @@ void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char
 			sink.put("+");
 
 		long hours, minutes;
-		static if (__VERSION__ >= 2066)
-			offset.split!("hours", "minutes")(hours, minutes);
-		else {
-			hours = offset.hours;
-			minutes = offset.minutes;
-		}
+		offset.split!("hours", "minutes")(hours, minutes);
 
 		sink.put("%.2s".format(hours));
 		sink.put(":");
@@ -326,14 +318,7 @@ void toSDLString(Sink)(Duration value, ref Sink sink) if(isOutputRange!(Sink,cha
 	}
 
 	long hours, minutes, seconds, msecs;
-	static if (__VERSION__ >= 2066)
-		value.split!("hours", "minutes", "seconds", "msecs")(hours, minutes, seconds, msecs);
-	else {
-		hours = value.hours;
-		minutes = value.minutes;
-		seconds = value.seconds;
-		msecs = value.fracSec.msecs;
-	}
+	value.split!("hours", "minutes", "seconds", "msecs")(hours, minutes, seconds, msecs);
 
 	sink.put("%.2s".format(hours));
 	sink.put(':');
