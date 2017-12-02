@@ -43,7 +43,6 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 		hash_t toHash() const nothrow @trusted {
 			size_t ret = pack.hashOf();
-			//size_t ret = typeid(string).getHash(&pack);
 			ret ^= typeid(CONFIG).getHash(&config);
 			return ret;
 		}

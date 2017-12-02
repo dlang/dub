@@ -1,4 +1,4 @@
-﻿// SDLang-D
+// SDLang-D
 // Written in the D programming language.
 
 module dub.internal.sdlang.lexer;
@@ -1259,8 +1259,7 @@ class Lexer
 				else
 				{
 					auto timezone = new immutable SimpleTimeZone(offset.get());
-					static if (__VERSION__ >= 2067) auto fsecs = dateTimeFrac.fracSecs;
-					else auto fsecs = FracSec.from!"hnsecs"(dateTimeFrac.fracSecs.total!"hnsecs");
+					auto fsecs = dateTimeFrac.fracSecs;
 					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, fsecs, timezone)"));
 				}
 			}
@@ -1268,9 +1267,8 @@ class Lexer
 			try
 			{
 				auto timezone = PosixTimeZone.getTimeZone(timezoneStr);
-				if(timezone) {
-					static if (__VERSION__ >= 2067) auto fsecs = dateTimeFrac.fracSecs;
-					else auto fsecs = FracSec.from!"hnsecs"(dateTimeFrac.fracSecs.total!"hnsecs");
+				if (timezone) {
+					auto fsecs = dateTimeFrac.fracSecs;
 					mixin(accept!("Value", "SysTime(dateTimeFrac.dateTime, fsecs, timezone)"));
 				}
 			}
