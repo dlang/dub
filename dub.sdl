@@ -10,6 +10,13 @@ configuration "application" {
 	targetType "executable"
 	mainSourceFile "source/app.d"
 	libs "curl"
+	buildRequirements "disallowDeprecations"
+	versions "DubUseCurl"
+}
+
+configuration "unittest" {
+	buildRequirements "disallowDeprecations"
+	excludedSourceFiles "source/app.d"
 	versions "DubUseCurl"
 }
 
