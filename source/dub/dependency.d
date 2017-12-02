@@ -44,7 +44,7 @@ struct PackageDependency {
 	package name is notably not part of the dependency specification.
 */
 struct Dependency {
-@trusted: // Too many issues on DMD 2.065.0 to annotate with @safe
+@safe:
 
 	private {
 		// Shortcut to create >=0.0.0
@@ -240,7 +240,7 @@ struct Dependency {
 		path.
 	*/
 	Dependency mapToPath(Path path)
-	const {
+	const @trusted { // NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
 		if (m_path.empty || m_path.absolute) return this;
 		else {
 			Dependency ret = this;
@@ -259,7 +259,12 @@ struct Dependency {
 			if (default_) ret ~= " (optional, default)";
 			else ret ~= " (optional)";
 		}
-		if (!path.empty) ret ~= " @"~path.toNativeString();
+
+		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
+		() @trusted {
+			if (!path.empty) ret ~= " @"~path.toNativeString();
+		} ();
+
 		return ret;
 	}
 
@@ -270,7 +275,8 @@ struct Dependency {
 		represented as a JSON object with optional "version", "path", "optional"
 		and "default" fields.
 	*/
-	Json toJson() const {
+	Json toJson()
+	const @trusted { // NOTE Path and Json is @system in vibe.d 0.7.x and in the compatibility layer
 		Json json;
 		if( path.empty && !optional ){
 			json = Json(this.versionSpec);
@@ -284,7 +290,7 @@ struct Dependency {
 		return json;
 	}
 
-	unittest {
+	@trusted unittest {
 		Dependency d = Dependency("==1.0.0");
 		assert(d.toJson() == Json("1.0.0"), "Failed: " ~ d.toJson().toPrettyString());
 		d = fromJson((fromJson(d.toJson())).toJson());
@@ -296,7 +302,8 @@ struct Dependency {
 
 		See `toJson` for a description of the JSON format.
 	*/
-	static Dependency fromJson(Json verspec) {
+	static Dependency fromJson(Json verspec)
+	@trusted { // NOTE Path and Json is @system in vibe.d 0.7.x and in the compatibility layer
 		Dependency dep;
 		if( verspec.type == Json.Type.object ){
 			if( auto pp = "path" in verspec ) {
@@ -321,7 +328,7 @@ struct Dependency {
 		return dep;
 	}
 
-	unittest {
+	@trusted unittest {
 		assert(fromJson(parseJsonString("\">=1.0.0 <2.0.0\"")) == Dependency(">=1.0.0 <2.0.0"));
 		Dependency parsed = fromJson(parseJsonString(`
 		{
@@ -367,7 +374,8 @@ struct Dependency {
 	}
 
 	/// ditto
-	hash_t toHash() const nothrow @trusted  {
+	hash_t toHash()
+	const nothrow @trusted  {
 		try {
 			size_t hash = 0;
 			hash = m_inclusiveA.hashOf(hash);
@@ -442,7 +450,8 @@ struct Dependency {
 		if (m_versA.isBranch != o.m_versA.isBranch) return invalid;
 		if (m_versB.isBranch != o.m_versB.isBranch) return invalid;
 		if (m_versA.isBranch) return m_versA == o.m_versA ? this : invalid;
-		if (this.path != o.path) return invalid;
+		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
+		if (() @trusted { return this.path != o.path; } ()) return invalid;
 
 		int acmp = m_versA.opCmp(o.m_versA);
 		int bcmp = m_versB.opCmp(o.m_versB);
