@@ -4,16 +4,16 @@ sudo: false
 
 matrix:
   include:
-    - d: dmd-nightly
-      env: [FRONTEND=2.078]
-    - d: dmd-beta
-      env: [FRONTEND=2.078]
-    - d: dmd
+    - d: dmd-2.078.0
+      env: [FRONTEND=2.078.0]
+    - d: dmd-2.077.1
       env:
         - [FRONTEND=2.077]
-        - [COVERAGE=true]
+        - [TEST_NONET=true]
     - d: dmd-2.076.1
-      env: [FRONTEND=2.076]
+      env:
+        - [FRONTEND=2.076]
+        - [COVERAGE=true]
     - d: dmd-2.075.1
       env: [FRONTEND=2.075]
     - d: dmd-2.074.1
@@ -32,7 +32,11 @@ matrix:
       env: [FRONTEND=2.068]
     - d: ldc-beta
       env: [FRONTEND=2.073]
-    - d: ldc
+    - d: ldc-1.7.0
+      env:
+        - [FRONTEND=2.077]
+        - [TEST_NONET=true]
+    - d: ldc-1.6.0
       env: [FRONTEND=2.076]
     - d: ldc-1.5.0
       env: [FRONTEND=2.075]

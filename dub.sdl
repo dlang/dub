@@ -13,6 +13,13 @@ configuration "application" {
 	versions "DubUseCurl"
 }
 
+configuration "nonet" {
+	targetType "executable"
+	mainSourceFile "source/app.d"
+	dependency "vibe-d:http" version=">=0.7.30 <=0.9.0"
+	versions "VibeUseOpenSSL11"
+}
+
 configuration "library" {
 	targetType "library"
 	excludedSourceFiles "source/app.d"

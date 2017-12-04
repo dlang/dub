@@ -28,6 +28,10 @@ if [ "$COVERAGE" = true ]; then
 else
     ./build.sh
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
+    if [ "$TEST_NONET" = true ] ; then
+        ./bin/dub build -c nonet
+        DUB=$(pwd)/bin/dub DC=${DC} test/run-unittest.sh
+    fi
 fi
 
 if [ "$COVERAGE" = true ]; then
