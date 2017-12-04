@@ -33,8 +33,8 @@ else enum objSuffix = ".o";
 class BuildGenerator : ProjectGenerator {
 	private {
 		PackageManager m_packageMan;
-		Path[] m_temporaryFiles;
-		Path m_targetExecutablePath;
+		NativePath[] m_temporaryFiles;
+		NativePath m_targetExecutablePath;
 	}
 
 	this(Project project)
@@ -52,7 +52,7 @@ class BuildGenerator : ProjectGenerator {
 
 		bool any_cached = false;
 
-		Path[string] target_paths;
+		NativePath[string] target_paths;
 
 		bool[string] visited;
 		void buildTargetRec(string target)
@@ -65,7 +65,7 @@ class BuildGenerator : ProjectGenerator {
 			foreach (dep; ti.dependencies)
 				buildTargetRec(dep);
 
-			Path[] additional_dep_files;
+			NativePath[] additional_dep_files;
 			auto bs = ti.buildSettings.dup;
 			foreach (ldep; ti.linkDependencies) {
 				auto dbs = targets[ldep].buildSettings;
@@ -75,7 +75,7 @@ class BuildGenerator : ProjectGenerator {
 					additional_dep_files ~= target_paths[ldep];
 				}
 			}
-			Path tpath;
+			NativePath tpath;
 			if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, tpath))
 				any_cached = true;
 			target_paths[target] = tpath;
@@ -86,7 +86,7 @@ class BuildGenerator : ProjectGenerator {
 		if (settings.rdmd || root_ti.buildSettings.targetType == TargetType.staticLibrary) {
 			// RDMD always builds everything at once and static libraries don't need their
 			// dependencies to be built
-			Path tpath;
+			NativePath tpath;
 			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null, tpath);
 		} else {
 			buildTargetRec(m_project.rootPackage.name);
@@ -102,8 +102,8 @@ class BuildGenerator : ProjectGenerator {
 		// run the generated executable
 		auto buildsettings = targets[m_project.rootPackage.name].buildSettings.dup;
 		if (settings.run && !(buildsettings.options & BuildOption.syntaxOnly)) {
-			Path exe_file_path;
-			if (!m_targetExecutablePath.length)
+			NativePath exe_file_path;
+			if (m_targetExecutablePath.empty)
 				exe_file_path = getTargetPath(buildsettings, settings);
 			else
 				exe_file_path = m_targetExecutablePath ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
@@ -111,15 +111,15 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in Path[] additional_dep_files, out Path target_path)
+	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_path)
 	{
-		auto cwd = Path(getcwd());
+		auto cwd = NativePath(getcwd());
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
 		auto build_id = computeBuildID(config, buildsettings, settings);
 
 		// make all paths relative to shrink the command line
-		string makeRelative(string path) { return shrinkPath(Path(path), cwd); }
+		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
 		foreach (ref f; buildsettings.sourceFiles) f = makeRelative(f);
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
@@ -149,11 +149,11 @@ class BuildGenerator : ProjectGenerator {
 	}
 
 	private bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config,
-		string build_id, in Package[] packages, in Path[] additional_dep_files, out Path target_binary_path)
+		string build_id, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_binary_path)
 	{
-		auto cwd = Path(getcwd());
+		auto cwd = NativePath(getcwd());
 
-		Path target_path;
+		NativePath target_path;
 		if (settings.tempBuild) {
 			string packageName = pack.basePackage is null ? pack.name : pack.basePackage.name;
 			m_targetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
@@ -198,14 +198,14 @@ class BuildGenerator : ProjectGenerator {
 		return false;
 	}
 
-	private void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out Path target_path)
+	private void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out NativePath target_path)
 	{
-		auto cwd = Path(getcwd());
+		auto cwd = NativePath(getcwd());
 		//Added check for existence of [AppNameInPackagejson].d
 		//If exists, use that as the starting file.
-		Path mainsrc;
+		NativePath mainsrc;
 		if (buildsettings.mainSourceFile.length) {
-			mainsrc = Path(buildsettings.mainSourceFile);
+			mainsrc = NativePath(buildsettings.mainSourceFile);
 			if (!mainsrc.absolute) mainsrc = pack.path ~ mainsrc;
 		} else {
 			mainsrc = getMainSourceFile(pack);
@@ -223,7 +223,7 @@ class BuildGenerator : ProjectGenerator {
 		// or with "/" instead of "\"
 		bool tmp_target = false;
 		if (generate_binary) {
-			if (settings.tempBuild || (settings.run && !isWritableDir(Path(buildsettings.targetPath), true))) {
+			if (settings.tempBuild || (settings.run && !isWritableDir(NativePath(buildsettings.targetPath), true))) {
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max)) ~ "-";
 				auto tmpdir = getTempDir()~".rdmd/source/";
@@ -259,20 +259,20 @@ class BuildGenerator : ProjectGenerator {
 		if (tmp_target) {
 			m_temporaryFiles ~= target_path;
 			foreach (f; buildsettings.copyFiles)
-				m_temporaryFiles ~= Path(buildsettings.targetPath).parentPath ~ Path(f).head;
+				m_temporaryFiles ~= NativePath(buildsettings.targetPath).parentPath ~ NativePath(f).head;
 		}
 	}
 
-	private void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out Path target_path)
+	private void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out NativePath target_path)
 	{
-		auto cwd = Path(getcwd());
+		auto cwd = NativePath(getcwd());
 
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
 
 		// make file paths relative to shrink the command line
 		foreach (ref f; buildsettings.sourceFiles) {
-			auto fp = Path(f);
+			auto fp = NativePath(f);
 			if( fp.absolute ) fp = fp.relativeTo(cwd);
 			f = fp.toNativeString();
 		}
@@ -281,7 +281,7 @@ class BuildGenerator : ProjectGenerator {
 
 		// make all target/import paths relative
 		string makeRelative(string path) {
-			auto p = Path(path);
+			auto p = NativePath(path);
 			// storing in a separate temprary to work around #601
 			auto prel = p.absolute ? p.relativeTo(cwd) : p;
 			return prel.toNativeString();
@@ -292,7 +292,7 @@ class BuildGenerator : ProjectGenerator {
 
 		bool is_temp_target = false;
 		if (generate_binary) {
-			if (settings.tempBuild || (settings.run && !isWritableDir(Path(buildsettings.targetPath), true))) {
+			if (settings.tempBuild || (settings.run && !isWritableDir(NativePath(buildsettings.targetPath), true))) {
 				import std.random;
 				auto rnd = to!string(uniform(uint.min, uint.max));
 				auto tmppath = getTempDir()~("dub/"~rnd~"/");
@@ -313,7 +313,7 @@ class BuildGenerator : ProjectGenerator {
 		if (is_temp_target) {
 			m_temporaryFiles ~= target_path;
 			foreach (f; buildsettings.copyFiles)
-				m_temporaryFiles ~= Path(buildsettings.targetPath).parentPath ~ Path(f).head;
+				m_temporaryFiles ~= NativePath(buildsettings.targetPath).parentPath ~ NativePath(f).head;
 		}
 	}
 
@@ -347,17 +347,17 @@ class BuildGenerator : ProjectGenerator {
 			settings.platform.compiler, settings.platform.frontendVersion, hashstr);
 	}
 
-	private void copyTargetFile(Path build_path, BuildSettings buildsettings, GeneratorSettings settings)
+	private void copyTargetFile(NativePath build_path, BuildSettings buildsettings, GeneratorSettings settings)
 	{
 		auto filename = settings.compiler.getTargetFileName(buildsettings, settings.platform);
 		auto src = build_path ~ filename;
 		logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
-		if (!existsFile(Path(buildsettings.targetPath)))
+		if (!existsFile(NativePath(buildsettings.targetPath)))
 			mkdirRecurse(buildsettings.targetPath);
-		hardLinkFile(src, Path(buildsettings.targetPath) ~ filename, true);
+		hardLinkFile(src, NativePath(buildsettings.targetPath) ~ filename, true);
 	}
 
-	private bool isUpToDate(Path target_path, BuildSettings buildsettings, GeneratorSettings settings, in Package main_pack, in Package[] packages, in Path[] additional_dep_files)
+	private bool isUpToDate(NativePath target_path, BuildSettings buildsettings, GeneratorSettings settings, in Package main_pack, in Package[] packages, in NativePath[] additional_dep_files)
 	{
 		import std.datetime;
 
@@ -374,7 +374,7 @@ class BuildGenerator : ProjectGenerator {
 		allfiles ~= buildsettings.stringImportFiles;
 		// TODO: add library files
 		foreach (p; packages)
-			allfiles ~= (p.recipePath != Path.init ? p : p.basePackage).recipePath.toNativeString();
+			allfiles ~= (p.recipePath != NativePath.init ? p : p.basePackage).recipePath.toNativeString();
 		foreach (f; additional_dep_files) allfiles ~= f.toNativeString();
 		if (main_pack is m_project.rootPackage && m_project.rootPackage.getAllDependencies().length > 0)
 			allfiles ~= (main_pack.path ~ SelectedVersions.defaultFile).toNativeString();
@@ -407,7 +407,7 @@ class BuildGenerator : ProjectGenerator {
 
 	/// Compile a single source file (srcFile), and write the object to objName.
 	static string compileUnit(string srcFile, string objName, BuildSettings bs, GeneratorSettings gs) {
-		Path tempobj = Path(bs.targetPath)~objName;
+		NativePath tempobj = NativePath(bs.targetPath)~objName;
 		string objPath = tempobj.toNativeString();
 		bs.libs = null;
 		bs.lflags = null;
@@ -424,7 +424,7 @@ class BuildGenerator : ProjectGenerator {
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
 
-		Path target_file;
+		NativePath target_file;
 		scope (failure) {
 			logDiagnostic("FAIL %s %s %s" , buildsettings.targetPath, buildsettings.targetName, buildsettings.targetType);
 			auto tpath = getTargetPath(buildsettings, settings);
@@ -473,7 +473,7 @@ class BuildGenerator : ProjectGenerator {
 		} else {
 			// determine path for the temporary object file
 			string tempobjname = buildsettings.targetName ~ objSuffix;
-			Path tempobj = Path(buildsettings.targetPath) ~ tempobjname;
+			NativePath tempobj = NativePath(buildsettings.targetPath) ~ tempobjname;
 
 			// setup linker command line
 			auto lbuildsettings = buildsettings;
@@ -498,13 +498,13 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private void runTarget(Path exe_file_path, in BuildSettings buildsettings, string[] run_args, GeneratorSettings settings)
+	private void runTarget(NativePath exe_file_path, in BuildSettings buildsettings, string[] run_args, GeneratorSettings settings)
 	{
 		if (buildsettings.targetType == TargetType.executable) {
-			auto cwd = Path(getcwd());
+			auto cwd = NativePath(getcwd());
 			auto runcwd = cwd;
 			if (buildsettings.workingDirectory.length) {
-				runcwd = Path(buildsettings.workingDirectory);
+				runcwd = NativePath(buildsettings.workingDirectory);
 				if (!runcwd.absolute) runcwd = cwd ~ runcwd;
 				logDiagnostic("Switching to %s", runcwd.toNativeString());
 				chdir(runcwd.toNativeString());
@@ -548,7 +548,7 @@ class BuildGenerator : ProjectGenerator {
 	}
 }
 
-private Path getMainSourceFile(in Package prj)
+private NativePath getMainSourceFile(in Package prj)
 {
 	foreach (f; ["source/app.d", "src/app.d", "source/"~prj.name~".d", "src/"~prj.name~".d"])
 		if (existsFile(prj.path ~ f))
@@ -556,12 +556,12 @@ private Path getMainSourceFile(in Package prj)
 	return prj.path ~ "source/app.d";
 }
 
-private Path getTargetPath(in ref BuildSettings bs, in ref GeneratorSettings settings)
+private NativePath getTargetPath(in ref BuildSettings bs, in ref GeneratorSettings settings)
 {
-	return Path(bs.targetPath) ~ settings.compiler.getTargetFileName(bs, settings.platform);
+	return NativePath(bs.targetPath) ~ settings.compiler.getTargetFileName(bs, settings.platform);
 }
 
-private string shrinkPath(Path path, Path base)
+private string shrinkPath(NativePath path, NativePath base)
 {
 	auto orig = path.toNativeString();
 	if (!path.absolute) return orig;
@@ -570,10 +570,10 @@ private string shrinkPath(Path path, Path base)
 }
 
 unittest {
-	assert(shrinkPath(Path("/foo/bar/baz"), Path("/foo")) == Path("bar/baz").toNativeString());
-	assert(shrinkPath(Path("/foo/bar/baz"), Path("/foo/baz")) == Path("../bar/baz").toNativeString());
-	assert(shrinkPath(Path("/foo/bar/baz"), Path("/bar/")) == Path("/foo/bar/baz").toNativeString());
-	assert(shrinkPath(Path("/foo/bar/baz"), Path("/bar/baz")) == Path("/foo/bar/baz").toNativeString());
+	assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/foo")) == NativePath("bar/baz").toNativeString());
+	assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/foo/baz")) == NativePath("../bar/baz").toNativeString());
+	assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/bar/")) == NativePath("/foo/bar/baz").toNativeString());
+	assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/bar/baz")) == NativePath("/foo/bar/baz").toNativeString());
 }
 
 unittest { // issue #1235 - pass no library files to compiler command line when building a static lib
@@ -585,8 +585,8 @@ unittest { // issue #1235 - pass no library files to compiler command line when 
 	else auto libfile = "bar.a";
 
 	auto desc = parseJsonString(`{"name": "test", "targetType": "library", "sourceFiles": ["foo.d", "`~libfile~`"]}`);
-	auto pack = new Package(desc, Path("/tmp/fooproject"));
-	auto pman = new PackageManager(Path("/tmp/foo/"), Path("/tmp/foo/"), false);
+	auto pack = new Package(desc, NativePath("/tmp/fooproject"));
+	auto pman = new PackageManager(NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), false);
 	auto prj = new Project(pman, pack);
 
 	final static class TestCompiler : GDCCompiler {

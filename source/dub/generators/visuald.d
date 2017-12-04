@@ -170,7 +170,7 @@ class VisualDGenerator : ProjectGenerator {
 			// Add all files
 			auto files = targets[packname].buildSettings;
 			SourceFile[string] sourceFiles;
-			void addSourceFile(Path file_path, Path structure_path, bool build)
+			void addSourceFile(NativePath file_path, NativePath structure_path, bool build)
 			{
 				auto key = file_path.toString();
 				auto sf = sourceFiles.get(key, SourceFile.init);
@@ -183,7 +183,7 @@ class VisualDGenerator : ProjectGenerator {
 			}
 
 			void addFile(string s, bool build) {
-				auto sp = Path(s);
+				auto sp = NativePath(s);
 				assert(sp.absolute, format("Source path in %s expected to be absolute: %s", packname, s));
 				//if( !sp.absolute ) sp = pack.path ~ sp;
 				addSourceFile(sp.relativeTo(project_file_dir), determineStructurePath(sp, targets[packname]), build);
@@ -203,10 +203,10 @@ class VisualDGenerator : ProjectGenerator {
 
 			// Create folders and files
 			ret.formattedWrite("  <Folder name=\"%s\">", getPackageFileName(packname));
-			Path lastFolder;
+			typeof(NativePath.init.head)[] lastFolder;
 			foreach(source; sortedSources(sourceFiles.values)) {
 				logDebug("source looking at %s", source.structurePath);
-				auto cur = source.structurePath[0 .. source.structurePath.length-1];
+				auto cur = source.structurePath.parentPath.bySegment.array;
 				if(lastFolder != cur) {
 					size_t same = 0;
 					foreach(idx; 0..min(lastFolder.length, cur.length))
@@ -248,7 +248,7 @@ class VisualDGenerator : ProjectGenerator {
 				auto ret = new string[settings.length];
 				foreach (i; 0 .. settings.length) {
 					// \" is interpreted as an escaped " by cmd.exe, so we need to avoid that
-					auto p = Path(settings[i]).relativeTo(project_file_dir);
+					auto p = NativePath(settings[i]).relativeTo(project_file_dir);
 					p.endsWithSlash = false;
 					ret[i] = '"' ~ p.toNativeString() ~ '"';
 				}
@@ -285,7 +285,7 @@ class VisualDGenerator : ProjectGenerator {
 					output_type = DynamicLib;
 					output_ext = "dll";
 				}
-				auto bin_path = pack == m_project.rootPackage.name ? Path(buildsettings.targetPath) : Path("lib/");
+				auto bin_path = pack == m_project.rootPackage.name ? NativePath(buildsettings.targetPath) : NativePath("lib/");
 				bin_path.endsWithSlash = true;
 				ret.formattedWrite("    <lib>%s</lib>\n", output_type);
 				ret.formattedWrite("    <exefile>%s%s.%s</exefile>\n", bin_path.toNativeString(), buildsettings.targetName, output_ext);
@@ -315,10 +315,10 @@ class VisualDGenerator : ProjectGenerator {
 				// compute directory for intermediate files (need dummy/ because of how -op determines the resulting path)
 				size_t ndummy = 0;
 				foreach (f; buildsettings.sourceFiles) {
-					auto rpath = Path(f).relativeTo(project_file_dir);
+					auto rpath = NativePath(f).relativeTo(project_file_dir);
 					size_t nd = 0;
-					foreach (i; 0 .. rpath.length)
-						if (rpath[i] == "..")
+					foreach (s; rpath.bySegment)
+						if (s == "..")
 							nd++;
 					if (nd > ndummy) ndummy = nd;
 				}
@@ -406,7 +406,7 @@ class VisualDGenerator : ProjectGenerator {
 				ret.put("    <libpaths />\n");
 				ret.put("    <deffile />\n");
 				ret.put("    <resfile />\n");
-				auto wdir = Path(buildsettings.workingDirectory);
+				auto wdir = NativePath(buildsettings.workingDirectory);
 				if (!wdir.absolute) wdir = m_project.rootPackage.path ~ wdir;
 				ret.formattedWrite("    <debugworkingdir>%s</debugworkingdir>\n",
 					wdir.relativeTo(project_file_dir).toNativeString());
@@ -441,8 +441,8 @@ class VisualDGenerator : ProjectGenerator {
 			else return getPackageFileName(m_project.rootPackage.name) ~ ".sln";
 		}
 
-		Path projFileName(string pack) const {
-			auto basepath = Path(".dub/");
+		NativePath projFileName(string pack) const {
+			auto basepath = NativePath(".dub/");
 			version(DUBBING) return basepath ~ (getPackageFileName(pack) ~ ".dubbed.visualdproj");
 			else return basepath ~ (getPackageFileName(pack) ~ ".visualdproj");
 		}
@@ -450,8 +450,8 @@ class VisualDGenerator : ProjectGenerator {
 
 	// TODO: nice folders
 	private struct SourceFile {
-		Path structurePath;
-		Path filePath;
+		NativePath structurePath;
+		NativePath filePath;
 		bool build;
 
 		hash_t toHash() const nothrow @trusted { return structurePath.toHash() ^ filePath.toHash() ^ (build * 0x1f3e7b2c); }
@@ -460,13 +460,18 @@ class VisualDGenerator : ProjectGenerator {
 		private final static int sortOrder(ref const SourceFile a, ref const SourceFile b) {
 			assert(!a.structurePath.empty);
 			assert(!b.structurePath.empty);
-			auto as = a.structurePath;
-			auto bs = b.structurePath;
+			static if (is(typeof(a.structurePath.nodes))) { // vibe.d < 0.8.2
+				auto as = a.structurePath.nodes;
+				auto bs = b.structurePath.nodes;
+			} else {
+				auto as = a.structurePath.bySegment.array;
+				auto bs = b.structurePath.bySegment.array;
+			}
 
 			// Check for different folders, compare folders only (omit last one).
 			for(uint idx=0; idx<min(as.length-1, bs.length-1); ++idx)
 				if(as[idx] != bs[idx])
-					return as[idx].opCmp(bs[idx]);
+					return as[idx].name.cmp(bs[idx].name);
 
 			if(as.length != bs.length) {
 				// If length differ, the longer one is "smaller", that is more
@@ -476,7 +481,7 @@ class VisualDGenerator : ProjectGenerator {
 			else {
 				// Both paths indicate files in the same directory, use lexical
 				// ordering for those.
-				return as.head.opCmp(bs.head);
+				return as[$-1].name.cmp(bs[$-1].name);
 			}
 		}
 	}
@@ -487,33 +492,33 @@ class VisualDGenerator : ProjectGenerator {
 
 	unittest {
 		SourceFile[] sfs = [
-			{ Path("b/file.d"), Path("") },
-			{ Path("b/b/fileA.d"), Path("") },
-			{ Path("a/file.d"), Path("") },
-			{ Path("b/b/fileB.d"), Path("") },
-			{ Path("b/b/b/fileA.d"), Path("") },
-			{ Path("b/c/fileA.d"), Path("") },
+			{ NativePath("b/file.d"), NativePath("") },
+			{ NativePath("b/b/fileA.d"), NativePath("") },
+			{ NativePath("a/file.d"), NativePath("") },
+			{ NativePath("b/b/fileB.d"), NativePath("") },
+			{ NativePath("b/b/b/fileA.d"), NativePath("") },
+			{ NativePath("b/c/fileA.d"), NativePath("") },
 		];
 		auto sorted = sort(sfs);
 		SourceFile[] sortedSfs;
 		foreach(sr; sorted)
 			sortedSfs ~= sr;
-		assert(sortedSfs[0].structurePath == Path("a/file.d"), "1");
-		assert(sortedSfs[1].structurePath == Path("b/b/b/fileA.d"), "2");
-		assert(sortedSfs[2].structurePath == Path("b/b/fileA.d"), "3");
-		assert(sortedSfs[3].structurePath == Path("b/b/fileB.d"), "4");
-		assert(sortedSfs[4].structurePath == Path("b/c/fileA.d"), "5");
-		assert(sortedSfs[5].structurePath == Path("b/file.d"), "6");
+		assert(sortedSfs[0].structurePath == NativePath("a/file.d"), "1");
+		assert(sortedSfs[1].structurePath == NativePath("b/b/b/fileA.d"), "2");
+		assert(sortedSfs[2].structurePath == NativePath("b/b/fileA.d"), "3");
+		assert(sortedSfs[3].structurePath == NativePath("b/b/fileB.d"), "4");
+		assert(sortedSfs[4].structurePath == NativePath("b/c/fileA.d"), "5");
+		assert(sortedSfs[5].structurePath == NativePath("b/file.d"), "6");
 	}
 }
 
-private Path determineStructurePath(Path file_path, in ProjectGenerator.TargetInfo target)
+private NativePath determineStructurePath(NativePath file_path, in ProjectGenerator.TargetInfo target)
 {
 	foreach (p; target.packages) {
 		if (file_path.startsWith(p.path))
-			return Path(getPackageFileName(p.name)) ~ file_path[p.path.length .. $];
+			return NativePath(getPackageFileName(p.name)) ~ file_path.relativeTo(p.path);
 	}
-	return Path("misc/") ~ file_path.head;
+	return NativePath("misc/") ~ file_path.head;
 }
 
 private string getPackageFileName(string pack)

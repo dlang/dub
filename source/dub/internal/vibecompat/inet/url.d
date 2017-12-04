@@ -27,7 +27,7 @@ struct URL {
 	private {
 		string m_schema;
 		string m_pathString;
-		Path m_path;
+		NativePath m_path;
 		string m_host;
 		ushort m_port;
 		string m_username;
@@ -37,7 +37,7 @@ struct URL {
 	}
 
 	/// Constructs a new URL object from its components.
-	this(string schema, string host, ushort port, Path path)
+	this(string schema, string host, ushort port, NativePath path)
 	{
 		m_schema = schema;
 		m_host = host;
@@ -46,7 +46,7 @@ struct URL {
 		m_pathString = path.toString();
 	}
 	/// ditto
-	this(string schema, Path path)
+	this(string schema, NativePath path)
 	{
 		this(schema, null, 0, path);
 	}
@@ -124,9 +124,9 @@ struct URL {
 	@property string pathString() const { return m_pathString; }
 
 	/// The path part of the URL
-	@property Path path() const { return m_path; }
+	@property NativePath path() const { return m_path; }
 	/// ditto
-	@property void path(Path p)
+	@property void path(NativePath p)
 	{
 		m_path = p;
 		auto pstr = p.toString();
@@ -193,7 +193,7 @@ struct URL {
 		}
 
 		m_pathString = str;
-		m_path = Path(decode(str));
+		m_path = NativePath(decode(str));
 	}
 
 	/// The URL to the parent path with query string and anchor stripped.
@@ -239,9 +239,9 @@ struct URL {
 		return path.startsWith(rhs.m_path);
 	}
 
-	URL opBinary(string OP)(Path rhs) const if( OP == "~" ) { return URL(m_schema, m_host, m_port, m_path ~ rhs); }
+	URL opBinary(string OP)(NativePath rhs) const if( OP == "~" ) { return URL(m_schema, m_host, m_port, m_path ~ rhs); }
 	URL opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return URL(m_schema, m_host, m_port, m_path ~ rhs); }
-	void opOpAssign(string OP)(Path rhs) if( OP == "~" ) { m_path ~= rhs; }
+	void opOpAssign(string OP)(NativePath rhs) if( OP == "~" ) { m_path ~= rhs; }
 	void opOpAssign(string OP)(PathEntry rhs) if( OP == "~" ) { m_path ~= rhs; }
 
 	/// Tests two URLs for equality using '=='.
@@ -266,7 +266,7 @@ unittest {
 	auto url = URL.parse("https://www.example.net/index.html");
 	assert(url.schema == "https", url.schema);
 	assert(url.host == "www.example.net", url.host);
-	assert(url.path == Path("/index.html"), url.path.toString());
+	assert(url.path == NativePath("/index.html"), url.path.toString());
 
 	url = URL.parse("http://jo.doe:password@sub.www.example.net:4711/sub2/index.html?query#anchor");
 	assert(url.schema == "http", url.schema);
@@ -278,9 +278,9 @@ unittest {
 	assert(url.queryString == "query", url.queryString);
 	assert(url.anchor == "anchor", url.anchor);
 
-	url = URL("http://localhost")~Path("packages");
+	url = URL("http://localhost")~NativePath("packages");
 	assert(url.toString() == "http://localhost/packages", url.toString());
 
-	url = URL("http://localhost/")~Path("packages");
+	url = URL("http://localhost/")~NativePath("packages");
 	assert(url.toString() == "http://localhost/packages", url.toString());
 }

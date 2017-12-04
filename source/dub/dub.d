@@ -99,12 +99,12 @@ class Dub {
 		bool m_dryRun = false;
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
-		Path m_rootPath;
+		NativePath m_rootPath;
 		SpecialDirs m_dirs;
 		DubConfig m_config;
-		Path m_projectPath;
+		NativePath m_projectPath;
 		Project m_project;
-		Path m_overrideSearchPath;
+		NativePath m_overrideSearchPath;
 		string m_defaultCompiler;
 	}
 
@@ -133,8 +133,8 @@ class Dub {
 	this(string root_path = ".", PackageSupplier[] additional_package_suppliers = null,
 			SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
 	{
-		m_rootPath = Path(root_path);
-		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
+		m_rootPath = NativePath(root_path);
+		if (!m_rootPath.absolute) m_rootPath = NativePath(getcwd()) ~ m_rootPath;
 
 		init();
 
@@ -185,11 +185,11 @@ class Dub {
 		This constructor corresponds to the "--bare" option of the command line
 		interface. Use
 	*/
-	this(Path override_path)
+	this(NativePath override_path)
 	{
 		init();
 		m_overrideSearchPath = override_path;
-		m_packageManager = new PackageManager(Path(), Path(), false);
+		m_packageManager = new PackageManager(NativePath(), NativePath(), false);
 		updatePackageSearchPath();
 	}
 
@@ -197,19 +197,19 @@ class Dub {
 	{
 		import std.file : tempDir;
 		version(Windows) {
-			m_dirs.systemSettings = Path(environment.get("ProgramData")) ~ "dub/";
-			m_dirs.userSettings = Path(environment.get("APPDATA")) ~ "dub/";
+			m_dirs.systemSettings = NativePath(environment.get("ProgramData")) ~ "dub/";
+			m_dirs.userSettings = NativePath(environment.get("APPDATA")) ~ "dub/";
 		} else version(Posix){
-			m_dirs.systemSettings = Path("/var/lib/dub/");
-			m_dirs.userSettings = Path(environment.get("HOME")) ~ ".dub/";
+			m_dirs.systemSettings = NativePath("/var/lib/dub/");
+			m_dirs.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
 			if (!m_dirs.userSettings.absolute)
-				m_dirs.userSettings = Path(getcwd()) ~ m_dirs.userSettings;
+				m_dirs.userSettings = NativePath(getcwd()) ~ m_dirs.userSettings;
 		}
 
-		m_dirs.temp = Path(tempDir);
+		m_dirs.temp = NativePath(tempDir);
 
 		m_config = new DubConfig(jsonFromFile(m_dirs.systemSettings ~ "settings.json", true), m_config);
-		m_config = new DubConfig(jsonFromFile(Path(thisExePath).parentPath ~ "../etc/dub/settings.json", true), m_config);
+		m_config = new DubConfig(jsonFromFile(NativePath(thisExePath).parentPath ~ "../etc/dub/settings.json", true), m_config);
 		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), m_config);
 
 		determineDefaultCompiler();
@@ -219,19 +219,19 @@ class Dub {
 
 	/** Returns the root path (usually the current working directory).
 	*/
-	@property Path rootPath() const { return m_rootPath; }
+	@property NativePath rootPath() const { return m_rootPath; }
 	/// ditto
-	@property void rootPath(Path root_path)
+	@property void rootPath(NativePath root_path)
 	{
 		m_rootPath = root_path;
-		if (!m_rootPath.absolute) m_rootPath = Path(getcwd()) ~ m_rootPath;
+		if (!m_rootPath.absolute) m_rootPath = NativePath(getcwd()) ~ m_rootPath;
 	}
 
 	/// Returns the name listed in the dub.json of the current
 	/// application.
 	@property string projectName() const { return m_project.name; }
 
-	@property Path projectPath() const { return m_projectPath; }
+	@property NativePath projectPath() const { return m_projectPath; }
 
 	@property string[] configurations() const { return m_project.configurations; }
 
@@ -258,7 +258,7 @@ class Dub {
 	}
 
 	/// Loads the package from the specified path as the main project package.
-	void loadPackage(Path path)
+	void loadPackage(NativePath path)
 	{
 		m_projectPath = path;
 		updatePackageSearchPath();
@@ -303,7 +303,7 @@ class Dub {
 
 		The script above can be invoked with "dub --single test.d".
 	*/
-	void loadSingleFilePackage(Path path)
+	void loadSingleFilePackage(NativePath path)
 	{
 		import dub.recipe.io : parsePackageRecipe;
 		import std.file : mkdirRecurse, readText;
@@ -356,15 +356,15 @@ class Dub {
 	/// ditto
 	void loadSingleFilePackage(string path)
 	{
-		loadSingleFilePackage(Path(path));
+		loadSingleFilePackage(NativePath(path));
 	}
 
 	/** Disables the default search paths and only searches a specific directory
 		for packages.
 	*/
-	void overrideSearchPath(Path path)
+	void overrideSearchPath(NativePath path)
 	{
-		if (!path.absolute) path = Path(getcwd()) ~ path;
+		if (!path.absolute) path = NativePath(getcwd()) ~ path;
 		m_overrideSearchPath = path;
 		updatePackageSearchPath();
 	}
@@ -486,7 +486,7 @@ class Dub {
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
 				if (ver.path.empty) m_project.selections.selectVersion(p, ver.version_);
 				else {
-					Path relpath = ver.path;
+					NativePath relpath = ver.path;
 					if (relpath.absolute) relpath = relpath.relativeTo(m_project.rootPackage.path);
 					m_project.selections.selectVersion(p, relpath);
 				}
@@ -514,13 +514,13 @@ class Dub {
 
 		Throws an exception, if unittests failed.
 	*/
-	void testProject(GeneratorSettings settings, string config, Path custom_main_file)
+	void testProject(GeneratorSettings settings, string config, NativePath custom_main_file)
 	{
-		if (custom_main_file.length && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
+		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
 
 		if (config.length == 0) {
 			// if a custom main file was given, favor the first library configuration, so that it can be applied
-			if (custom_main_file.length) config = m_project.getDefaultConfiguration(settings.platform, false);
+			if (!custom_main_file.empty) config = m_project.getDefaultConfiguration(settings.platform, false);
 			// else look for a "unittest" configuration
 			if (!config.length && m_project.rootPackage.configurations.canFind("unittest")) config = "unittest";
 			// if not found, fall back to the first "library" configuration
@@ -565,7 +565,7 @@ class Dub {
 			if (!mainfil.length) mainfil = m_project.rootPackage.recipe.buildSettings.mainSourceFile;
 
 			string custommodname;
-			if (custom_main_file.length) {
+			if (!custom_main_file.empty) {
 				import std.path;
 				tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(m_project.rootPackage.path).toNativeString();
 				tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
@@ -576,8 +576,8 @@ class Dub {
 			string[] import_modules;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
-					auto fname = Path(file).head.toString();
-					if (Path(file).relativeTo(m_project.rootPackage.path) == Path(mainfil)) {
+					auto fname = NativePath(file).head.toString();
+					if (NativePath(file).relativeTo(m_project.rootPackage.path) == NativePath(mainfil)) {
 						logWarn("Excluding main source file %s from test.", mainfil);
 						tcinfo.excludedSourceFiles[""] ~= mainfil;
 						continue;
@@ -586,12 +586,12 @@ class Dub {
 						logWarn("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
 						continue;
 					}
-					import_modules ~= dub.internal.utils.determineModuleName(lbuildsettings, Path(file), m_project.rootPackage.path);
+					import_modules ~= dub.internal.utils.determineModuleName(lbuildsettings, NativePath(file), m_project.rootPackage.path);
 				}
 			}
 
 			// generate main file
-			Path mainfile = getTempFile("dub_test_root", ".d");
+			NativePath mainfile = getTempFile("dub_test_root", ".d");
 			tcinfo.sourceFiles[""] ~= mainfile.toNativeString();
 			tcinfo.mainSourceFile = mainfile.toNativeString();
 			if (!m_dryRun) {
@@ -665,7 +665,7 @@ class Dub {
 	}
 
 	/// Cleans intermediate/cache files of the given package
-	void cleanPackage(Path path)
+	void cleanPackage(NativePath path)
 	{
 		logInfo("Cleaning package at %s...", path.toNativeString());
 		enforce(!Package.findPackageFile(path).empty, "No package found.", path.toNativeString());
@@ -696,7 +696,7 @@ class Dub {
 		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
 
-		Path placement;
+		NativePath placement;
 		final switch (location) {
 			case PlacementLocation.local: placement = m_rootPath; break;
 			case PlacementLocation.user: placement = m_dirs.userSettings ~ "packages/"; break;
@@ -740,7 +740,7 @@ class Dub {
 		clean_package_version = clean_package_version.replace("+", "_"); // + has special meaning for Optlink
 		if (!placement.existsFile())
 			mkdirRecurse(placement.toNativeString());
-		Path dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
+		NativePath dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
 		if (!dstpath.existsFile())
 			mkdirRecurse(dstpath.toNativeString());
 
@@ -1036,7 +1036,7 @@ class Dub {
 			recipe_callback = Optional callback that can be used to
 				customize the recipe before it gets written.
 	*/
-	void createEmptyPackage(Path path, string[] deps, string type,
+	void createEmptyPackage(NativePath path, string[] deps, string type,
 		PackageFormat format = PackageFormat.sdl,
 		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null)
 	{
@@ -1090,13 +1090,13 @@ class Dub {
 		}
 
 		auto srcfile = m_project.rootPackage.recipePath;
-		auto srcext = srcfile[$-1].toString().extension;
+		auto srcext = srcfile.head.toString().extension;
 		if (srcext == "."~destination_file_ext) {
 			logInfo("Package format is already %s.", destination_file_ext);
 			return;
 		}
 
-		writePackageRecipe(srcfile[0 .. $-1] ~ ("dub."~destination_file_ext), m_project.rootPackage.rawRecipe);
+		writePackageRecipe(srcfile.parentPath ~ ("dub."~destination_file_ext), m_project.rootPackage.rawRecipe);
 		removeFile(srcfile);
 	}
 
@@ -1165,16 +1165,16 @@ class Dub {
 
 	private void updatePackageSearchPath()
 	{
-		if (m_overrideSearchPath.length) {
+		if (!m_overrideSearchPath.empty) {
 			m_packageManager.disableDefaultSearchPaths = true;
 			m_packageManager.searchPath = [m_overrideSearchPath];
 		} else {
 			auto p = environment.get("DUBPATH");
-			Path[] paths;
+			NativePath[] paths;
 
 			version(Windows) enum pathsep = ";";
 			else enum pathsep = ":";
-			if (p.length) paths ~= p.split(pathsep).map!(p => Path(p))().array();
+			if (p.length) paths ~= p.split(pathsep).map!(p => NativePath(p))().array();
 			m_packageManager.disableDefaultSearchPaths = false;
 			m_packageManager.searchPath = paths;
 		}
@@ -1193,13 +1193,13 @@ class Dub {
 
 		auto compilers = ["dmd", "gdc", "gdmd", "ldc2", "ldmd2"];
 
-		auto paths = environment.get("PATH", "").splitter(sep).map!Path;
+		auto paths = environment.get("PATH", "").splitter(sep).map!NativePath;
 		auto res = compilers.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
 		m_defaultCompiler = res.empty ? compilers[0] : res.front;
 	}
 
-	private Path makeAbsolute(Path p) const { return p.absolute ? p : m_rootPath ~ p; }
-	private Path makeAbsolute(string p) const { return makeAbsolute(Path(p)); }
+	private NativePath makeAbsolute(NativePath p) const { return p.absolute ? p : m_rootPath ~ p; }
+	private NativePath makeAbsolute(string p) const { return makeAbsolute(NativePath(p)); }
 }
 
 
@@ -1512,9 +1512,9 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 }
 
 private struct SpecialDirs {
-	Path temp;
-	Path userSettings;
-	Path systemSettings;
+	NativePath temp;
+	NativePath userSettings;
+	NativePath systemSettings;
 }
 
 private class DubConfig {

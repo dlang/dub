@@ -16,7 +16,7 @@ import dub.internal.vibecompat.inet.path;
 	The file format (JSON/SDLang) will be determined from the file extension.
 
 	Params:
-		filename = Path of the package recipe file
+		filename = NativePath of the package recipe file
 		parent_name = Optional name of the parent package (if this is a sub package)
 
 	Returns: Returns the package recipe contents
@@ -24,10 +24,10 @@ import dub.internal.vibecompat.inet.path;
 */
 PackageRecipe readPackageRecipe(string filename, string parent_name = null)
 {
-	return readPackageRecipe(Path(filename), parent_name);
+	return readPackageRecipe(NativePath(filename), parent_name);
 }
 /// ditto
-PackageRecipe readPackageRecipe(Path filename, string parent_name = null)
+PackageRecipe readPackageRecipe(NativePath filename, string parent_name = null)
 {
 	import dub.internal.utils : stripUTF8Bom;
 	import dub.internal.vibecompat.core.file : openFile, FileMode;
@@ -137,7 +137,7 @@ void writePackageRecipe(string filename, in ref PackageRecipe recipe)
 }
 
 /// ditto
-void writePackageRecipe(Path filename, in ref PackageRecipe recipe)
+void writePackageRecipe(NativePath filename, in ref PackageRecipe recipe)
 {
 	writePackageRecipe(filename.toNativeString, recipe);
 }

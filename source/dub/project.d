@@ -56,7 +56,7 @@ class Project {
 			project_path = Path of the root package to load
 			pack = An existing `Package` instance to use as the root package
 	*/
-	this(PackageManager package_manager, Path project_path)
+	this(PackageManager package_manager, NativePath project_path)
 	{
 		Package pack;
 		auto packageFile = Package.findPackageFile(project_path);
@@ -356,7 +356,7 @@ class Project {
 					else {
 						auto path = vspec.path;
 						if (!path.absolute) path = m_rootPackage.path ~ path;
-						p = m_packageManager.getOrLoadPackage(path, Path.init, true);
+						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
 						if (subname.length) p = m_packageManager.getSubPackage(p, subname, true);
 					}
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
@@ -371,10 +371,10 @@ class Project {
 				}
 
 				if (!p && !vspec.path.empty) {
-					Path path = vspec.path;
+					NativePath path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
-					p = m_packageManager.getOrLoadPackage(path, Path.init, true);
+					p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
 					if (p.parentPackage !is null) {
 						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
 						p = p.parentPackage;
@@ -1236,7 +1236,7 @@ private string processVars(string var, in Project project, in Package pack, bool
 		var = vres.data;
 	}
 	if (is_path) {
-		auto p = Path(var);
+		auto p = NativePath(var);
 		if (!p.absolute) {
 			return (pack.path ~ p).toNativeString();
 		} else return p.toNativeString();
@@ -1299,7 +1299,7 @@ final class SelectedVersions {
 
 	/** Constructs a new version selections from an existing JSON file.
 	*/
-	this(Path path)
+	this(NativePath path)
 	{
 		auto json = jsonFromFile(path);
 		deserialize(json);
@@ -1342,7 +1342,7 @@ final class SelectedVersions {
 	}
 
 	/// Selects a certain path for a specific package.
-	void selectVersion(string package_id, Path path)
+	void selectVersion(string package_id, NativePath path)
 	{
 		if (auto ps = package_id in m_selections) {
 			if (ps.dep == Dependency(path))
@@ -1384,7 +1384,7 @@ final class SelectedVersions {
 		should be used as the file name and the directory should be the root
 		directory of the project's root package.
 	*/
-	void save(Path path)
+	void save(NativePath path)
 	{
 		Json json = serialize();
 		auto file = openFile(path, FileMode.createTrunc);
@@ -1423,7 +1423,7 @@ final class SelectedVersions {
 		if (j.type == Json.Type.string)
 			return Dependency(Version(j.get!string));
 		else if (j.type == Json.Type.object)
-			return Dependency(Path(j["path"].get!string));
+			return Dependency(NativePath(j["path"].get!string));
 		else throw new Exception(format("Unexpected type for dependency: %s", j.type));
 	}
 
