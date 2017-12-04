@@ -401,8 +401,12 @@ class BuildGenerator : ProjectGenerator {
 
 	static string pathToObjName(string path)
 	{
-		import std.path : buildNormalizedPath, dirSeparator, stripDrive;
-		return stripDrive(buildNormalizedPath(getcwd(), path~objSuffix))[1..$].replace(dirSeparator, ".");
+		import std.digest.crc : crc32Of;
+		import std.path : buildNormalizedPath, dirSeparator, relativePath, stripDrive;
+		if (path.endsWith(".d")) path = path[0 .. $-2];
+		auto ret = buildNormalizedPath(getcwd(), path).replace(dirSeparator, ".");
+		auto idx = ret.lastIndexOf('.');
+		return idx < 0 ? ret ~ objSuffix : format("%s_%(%02x%)%s", ret[idx+1 .. $], crc32Of(ret[0 .. idx]), objSuffix);
 	}
 
 	/// Compile a single source file (srcFile), and write the object to objName.
