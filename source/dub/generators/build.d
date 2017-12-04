@@ -401,7 +401,7 @@ class BuildGenerator : ProjectGenerator {
 
 	static string pathToObjName(string path)
 	{
-		import std.digest.crc;
+		import std.digest.crc : crc32Of;
 		import std.path : buildNormalizedPath, dirSeparator, relativePath, stripDrive;
 		if (path.endsWith(".d")) path = path[0 .. $-2];
 		auto ret = buildNormalizedPath(getcwd(), path).replace(dirSeparator, ".");
