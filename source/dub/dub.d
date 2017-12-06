@@ -1182,17 +1182,56 @@ class Dub {
 
 	private void determineDefaultCompiler()
 	{
-		import std.range : front;
+		import std.file : thisExePath;
+		import std.path : buildPath, dirName, expandTilde, isAbsolute, isDirSeparator;
 		import std.process : environment;
+		import std.range : front;
+		import std.regex : ctRegex, matchFirst;
 
-		m_defaultCompiler = m_config.defaultCompiler;
-		if (m_defaultCompiler.length) return;
+		m_defaultCompiler = m_config.defaultCompiler.expandTilde;
+		if (m_defaultCompiler.length && m_defaultCompiler.isAbsolute)
+			return;
+
+		auto dubPrefix = m_defaultCompiler.matchFirst(ctRegex!(`^\$DUB_BINARY_PATH`));
+		if(!dubPrefix.empty)
+		{
+			m_defaultCompiler = thisExePath().dirName() ~ dubPrefix.post;
+			return;
+		}
+
+		if (!find!isDirSeparator(m_defaultCompiler).empty)
+			throw new Exception("defaultCompiler specified in a DUB config file cannot use an unqualified relative path:\n\n" ~ m_defaultCompiler ~
+			"\n\nUse \"$DUB_BINARY_PATH/../path/you/want\" instead.");
 
 		version (Windows) enum sep = ";", exe = ".exe";
 		version (Posix) enum sep = ":", exe = "";
 
 		auto compilers = ["dmd", "gdc", "gdmd", "ldc2", "ldmd2"];
+		// If a compiler name is specified, look for it next to dub.
+		// Otherwise, look for any of the common compilers adjacent to dub.
+		if (m_defaultCompiler.length)
+		{
+			string compilerPath = buildPath(thisExePath().dirName(), m_defaultCompiler ~ exe);
+			if (existsFile(compilerPath))
+			{
+				m_defaultCompiler = compilerPath;
+				return;
+			}
+		}
+		else
+		{
+			auto nextFound = compilers.find!(bin => existsFile(buildPath(thisExePath().dirName(), bin ~ exe)));
+			if (!nextFound.empty)
+			{
+				m_defaultCompiler = buildPath(thisExePath().dirName(),  nextFound.front ~ exe);
+				return;
+			}
+		}
 
+		// If nothing found next to dub, search the user's PATH, starting
+		// with the compiler name from their DUB config file, if specified.
+		if (m_defaultCompiler.length)
+			compilers = m_defaultCompiler ~ compilers;
 		auto paths = environment.get("PATH", "").splitter(sep).map!NativePath;
 		auto res = compilers.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
 		m_defaultCompiler = res.empty ? compilers[0] : res.front;
