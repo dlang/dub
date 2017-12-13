@@ -4,7 +4,7 @@ set -v -e -o pipefail
 
 source ~/dlang/*/activate # activate host compiler
 
-if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.068.z ]; then
+if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.071.z ]; then
     vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
     dub fetch vibe-d --version=$vibe_ver # get optional dependency
     dub test --compiler=${DC} -c library-nonet
