@@ -42,6 +42,8 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 			case "authors": recipe.authors ~= n.stringArrayTagValue; break;
 			case "copyright": recipe.copyright = n.stringTagValue; break;
 			case "license": recipe.license = n.stringTagValue; break;
+			case "donationUrl": recipe.donationUrl = n.stringTagValue; break;
+			case "donationDetail": recipe.donationDetail = n.stringTagValue; break;
 			case "subPackage": subpacks ~= n; break;
 			case "configuration": configs ~= n; break;
 			case "buildType":
@@ -96,6 +98,8 @@ Tag toSDL(in ref PackageRecipe recipe)
 	if (recipe.authors.length) ret.add(new Tag(null, "authors", recipe.authors.map!(a => Value(a)).array));
 	if (recipe.copyright.length) add("copyright", recipe.copyright);
 	if (recipe.license.length) add("license", recipe.license);
+	if (recipe.donationUrl.length) add("donationUrl", recipe.donationUrl);
+	if (recipe.donationDetail.length) add("donationDetail", recipe.donationDetail);
 	foreach (name, settings; recipe.buildTypes) {
 		auto t = new Tag(null, "buildType", [Value(name)]);
 		t.add(settings.toSDL());
