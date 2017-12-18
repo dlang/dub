@@ -30,8 +30,6 @@ matrix:
       env: [FRONTEND=2.068]
     - d: dmd-2.067.1
       env: [FRONTEND=2.067]
-    - d: dmd-2.066.1
-      env: [FRONTEND=2.066]
     - d: ldc-beta
       env: [FRONTEND=2.073]
     - d: ldc
@@ -48,10 +46,8 @@ matrix:
       env: [FRONTEND=2.068]
     - d: gdc
       env: [FRONTEND=2.068]
-    - d: gdc-5.2.0
-      env: [FRONTEND=2.066]
-    - d: gdc-4.9.2
-      env: [FRONTEND=2.066]
+    - d: gdc-4.8.5
+      env: [FRONTEND=2.068]
 
   allow_failures:
     - d: gdc

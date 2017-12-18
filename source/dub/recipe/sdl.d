@@ -177,7 +177,7 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 		if ("version" in attrs)
 			logDiagnostic("Ignoring version specification (%s) for path based dependency %s", attrs["version"][0].value.get!string, attrs["path"][0].value.get!string);
 		dep.versionSpec = "*";
-		dep.path = Path(attrs["path"][0].value.get!string);
+		dep.path = NativePath(attrs["path"][0].value.get!string);
 	} else {
 		enforceSDL("version" in attrs, "Missing version specification.", t);
 		dep.versionSpec = attrs["version"][0].value.get!string;
@@ -230,7 +230,7 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 
 	foreach (pack, d; bs.dependencies) {
 		Attribute[] attribs;
-		if (d.path.length) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
+		if (!d.path.empty) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
 		else attribs ~= new Attribute(null, "version", Value(d.versionSpec));
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
 		ret ~= new Tag(null, "dependency", [Value(pack)], attribs);
@@ -439,7 +439,7 @@ lflags "lf3"
 	assert(rec.ddoxTool == "ddoxtool");
 	assert(rec.buildSettings.dependencies.length == 2);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].optional == false);
-	assert(rec.buildSettings.dependencies["projectname:subpackage1"].path == Path("."));
+	assert(rec.buildSettings.dependencies["projectname:subpackage1"].path == NativePath("."));
 	assert(rec.buildSettings.dependencies["somedep"].versionSpec == "1.0.0");
 	assert(rec.buildSettings.dependencies["somedep"].optional == true);
 	assert(rec.buildSettings.dependencies["somedep"].path.empty);

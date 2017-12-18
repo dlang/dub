@@ -12,8 +12,7 @@ import dub.internal.vibecompat.inet.path;
 import std.array : array;
 import std.algorithm : filter;
 import std.path : globMatch;
-static if (__VERSION__ >= 2067)
-	import std.typecons : BitFlags;
+import std.typecons : BitFlags;
 
 
 /// BuildPlatform specific settings, like needed libraries or additional
@@ -168,9 +167,9 @@ private:
 	static void addSI(ref string[] arr, in string[] vals)
 	{
 		bool[string] existing;
-		foreach (v; arr) existing[Path(v).head.toString()] = true;
+		foreach (v; arr) existing[NativePath(v).head.toString()] = true;
 		foreach (v; vals) {
-			auto s = Path(v).head.toString();
+			auto s = NativePath(v).head.toString();
 			if (s !in existing) {
 				existing[s] = true;
 				arr ~= v;
@@ -192,7 +191,7 @@ private:
 		bool matches(string s)
 		{
 			foreach (p; vals)
-				if (Path(s) == Path(p) || globMatch(s, p))
+				if (NativePath(s) == NativePath(p) || globMatch(s, p))
 					return true;
 			return false;
 		}
@@ -284,26 +283,9 @@ enum BuildRequirement {
 	struct BuildRequirements {
 		import dub.internal.vibecompat.data.serialization : ignore;
 
-		static if (__VERSION__ >= 2067) {
-			@ignore BitFlags!BuildRequirement values;
-			this(BuildRequirement req) { values = req; }
-		} else {
-			@ignore BuildRequirement values;
-			this(BuildRequirement req) { values = req; }
-			BuildRequirement[] toRepresentation()
-			const {
-				BuildRequirement[] ret;
-				for (int f = 1; f <= BuildRequirement.max; f *= 2)
-					if (values & f) ret ~= cast(BuildRequirement)f;
-				return ret;
-			}
-			static BuildRequirements fromRepresentation(BuildRequirement[] v)
-			{
-				BuildRequirements ret;
-				foreach (f; v) ret.values |= f;
-				return ret;
-			}
-		}
+		@ignore BitFlags!BuildRequirement values;
+		this(BuildRequirement req) { values = req; }
+
 		alias values this;
 	}
 
@@ -340,27 +322,9 @@ enum BuildOption {
 	struct BuildOptions {
 		import dub.internal.vibecompat.data.serialization : ignore;
 
-		static if (__VERSION__ >= 2067) {
-			@ignore BitFlags!BuildOption values;
-			this(BuildOption opt) { values = opt; }
-			this(BitFlags!BuildOption v) { values = v; }
-		} else {
-			@ignore BuildOption values;
-			this(BuildOption opt) { values = opt; }
-			BuildOption[] toRepresentation()
-			const {
-				BuildOption[] ret;
-				for (int f = 1; f <= BuildOption.max; f *= 2)
-					if (values & f) ret ~= cast(BuildOption)f;
-				return ret;
-			}
-			static BuildOptions fromRepresentation(BuildOption[] v)
-			{
-				BuildOptions ret;
-				foreach (f; v) ret.values |= f;
-				return ret;
-			}
-		}
+		@ignore BitFlags!BuildOption values;
+		this(BuildOption opt) { values = opt; }
+		this(BitFlags!BuildOption v) { values = v; }
 
 		alias values this;
 	}

@@ -112,7 +112,7 @@ class ProjectGenerator
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
 			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
-			finalizeGeneration(pack, m_project, settings, buildsettings, Path(bs.targetPath), generate_binary);
+			finalizeGeneration(pack, m_project, settings, buildsettings, NativePath(bs.targetPath), generate_binary);
 		}
 
 		performPostGenerateActions(settings, targets);
@@ -246,7 +246,7 @@ class ProjectGenerator
 			// override string import files (used for up to date checking)
 			foreach (ref f; ti.buildSettings.stringImportFiles)
 				foreach (fi; root_settings.stringImportFiles)
-					if (f != fi && Path(f).head == Path(fi).head) {
+					if (f != fi && NativePath(f).head == NativePath(fi).head) {
 						f = fi;
 					}
 
@@ -364,7 +364,7 @@ private void prepareGeneration(in Package pack, in Project proj, in GeneratorSet
 	Runs post-build commands and copies required files to the binary directory.
 */
 private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSettings settings,
-	in BuildSettings buildsettings, Path target_path, bool generate_binary)
+	in BuildSettings buildsettings, NativePath target_path, bool generate_binary)
 {
 	import std.path : globMatch;
 
@@ -378,7 +378,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 			mkdirRecurse(buildsettings.targetPath);
 
 		if (buildsettings.copyFiles.length) {
-			void copyFolderRec(Path folder, Path dstfolder)
+			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
 				mkdirRecurse(dstfolder.toNativeString());
 				foreach (de; iterateDirectory(folder.toNativeString())) {
@@ -395,9 +395,9 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 
 			void tryCopyDir(string file)
 			{
-				auto src = Path(file);
+				auto src = NativePath(file);
 				if (!src.absolute) src = pack.path ~ src;
-				auto dst = target_path ~ Path(file).head;
+				auto dst = target_path ~ NativePath(file).head;
 				if (src == dst) {
 					logDiagnostic("Skipping copy of %s (same source and destination)", file);
 					return;
@@ -410,9 +410,9 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 
 			void tryCopyFile(string file)
 			{
-				auto src = Path(file);
+				auto src = NativePath(file);
 				if (!src.absolute) src = pack.path ~ src;
-				auto dst = target_path ~ Path(file).head;
+				auto dst = target_path ~ NativePath(file).head;
 				if (src == dst) {
 					logDiagnostic("Skipping copy of %s (same source and destination)", file);
 					return;

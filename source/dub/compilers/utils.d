@@ -242,7 +242,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 
 	See_Also: `readPlatformProbe`
 */
-Path generatePlatformProbeFile()
+NativePath generatePlatformProbeFile()
 {
 	import dub.internal.vibecompat.core.file;
 	import dub.internal.vibecompat.data.json;

@@ -59,7 +59,7 @@ interface PackageSupplier {
 			pre_release: If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	void fetchPackage(Path path, string package_id, Dependency dep, bool pre_release);
+	void fetchPackage(NativePath path, string package_id, Dependency dep, bool pre_release);
 
 	/** Retrieves only the recipe of a particular package.
 
@@ -88,10 +88,10 @@ interface PackageSupplier {
 */
 class FileSystemPackageSupplier : PackageSupplier {
 	private {
-		Path m_path;
+		NativePath m_path;
 	}
 
-	this(Path root) { m_path = root; }
+	this(NativePath root) { m_path = root; }
 
 	override @property string description() { return "file repository at "~m_path.toNativeString(); }
 
@@ -99,7 +99,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 	{
 		Version[] ret;
 		foreach (DirEntry d; dirEntries(m_path.toNativeString(), package_id~"*", SpanMode.shallow)) {
-			Path p = Path(d.name);
+			NativePath p = NativePath(d.name);
 			logDebug("Entry: %s", p);
 			enforce(to!string(p.head)[$-4..$] == ".zip");
 			auto vers = p.head.toString()[package_id.length+1..$-4];
@@ -110,7 +110,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(Path path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
 	{
 		enforce(path.absolute);
 		logInfo("Storing package '"~packageId~"', version requirements: %s", dep);
@@ -131,9 +131,9 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return null;
 	}
 
-	private Path bestPackageFile(string packageId, Dependency dep, bool pre_release)
+	private NativePath bestPackageFile(string packageId, Dependency dep, bool pre_release)
 	{
-		Path toPath(Version ver) {
+		NativePath toPath(Version ver) {
 			return m_path ~ (packageId ~ "-" ~ ver.toString() ~ ".zip");
 		}
 		auto versions = getVersions(packageId).filter!(v => dep.matches(v)).array;
@@ -183,14 +183,14 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(Path path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
 	{
 		import std.array : replace;
 		Json best = getBestPackage(packageId, dep, pre_release);
 		if (best.type == Json.Type.null_)
 			return;
 		auto vers = best["version"].get!string;
-		auto url = m_registryUrl ~ Path(PackagesPath~"/"~packageId~"/"~vers~".zip");
+		auto url = m_registryUrl ~ NativePath(PackagesPath~"/"~packageId~"/"~vers~".zip");
 		logDiagnostic("Downloading from '%s'", url);
 		foreach(i; 0..3) {
 			try{
@@ -222,7 +222,7 @@ class RegistryPackageSupplier : PackageSupplier {
 			m_metadataCache.remove(packageId);
 		}
 
-		auto url = m_registryUrl ~ Path(PackagesPath ~ "/" ~ packageId ~ ".json");
+		auto url = m_registryUrl ~ NativePath(PackagesPath ~ "/" ~ packageId ~ ".json");
 
 		logDebug("Downloading metadata for %s", packageId);
 		logDebug("Getting from %s", url);
@@ -292,22 +292,24 @@ class RegistryPackageSupplier : PackageSupplier {
 
 package abstract class AbstractFallbackPackageSupplier : PackageSupplier
 {
-	protected PackageSupplier m_default, m_fallback;
+	protected PackageSupplier m_default;
+	protected PackageSupplier[] m_fallbacks;
 
-	this(PackageSupplier default_, PackageSupplier fallback)
+	this(PackageSupplier default_, PackageSupplier[] fallbacks)
 	{
 		m_default = default_;
-		m_fallback = fallback;
+		m_fallbacks = fallbacks;
 	}
 
 	override @property string description()
 	{
-		return format("%s (fallback %s)", m_default.description, m_fallback.description);
+		import std.algorithm : map;
+		return format("%s (fallback %s)", m_default.description, m_fallbacks.map!(x => x.description));
 	}
 
 	// Workaround https://issues.dlang.org/show_bug.cgi?id=2525
 	abstract override Version[] getVersions(string package_id);
-	abstract override void fetchPackage(Path path, string package_id, Dependency dep, bool pre_release);
+	abstract override void fetchPackage(NativePath path, string package_id, Dependency dep, bool pre_release);
 	abstract override Json fetchPackageRecipe(string package_id, Dependency dep, bool pre_release);
 	abstract override SearchResult[] searchPackages(string query);
 }
@@ -322,7 +324,19 @@ package alias FallbackPackageSupplier = AutoImplement!(AbstractFallbackPackageSu
 private template fallback(T, alias func)
 {
 	enum fallback = q{
-		scope (failure) return m_fallback.%1$s(args);
+		import std.range : back, dropBackOne;
+		import dub.internal.vibecompat.core.log : logDebug;
+		scope (failure)
+		{
+			foreach (m_fallback; m_fallbacks.dropBackOne)
+			{
+				try
+					return m_fallback.%1$s(args);
+				catch(Exception)
+					logDebug("Package supplier %s failed. Trying next fallback.", m_fallback);
+			}
+			return m_fallbacks.back.%1$s(args);
+		}
 		return m_default.%1$s(args);
 	}.format(__traits(identifier, func));
 }

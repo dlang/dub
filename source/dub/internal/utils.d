@@ -30,14 +30,14 @@ version(DubUseCurl)
 }
 
 
-private Path[] temporary_files;
+private NativePath[] temporary_files;
 
-Path getTempDir()
+NativePath getTempDir()
 {
-	return Path(std.file.tempDir());
+	return NativePath(std.file.tempDir());
 }
 
-Path getTempFile(string prefix, string extension = null)
+NativePath getTempFile(string prefix, string extension = null)
 {
 	import std.uuid : randomUUID;
 
@@ -99,13 +99,13 @@ static ~this()
 	}
 }
 
-bool isEmptyDir(Path p) {
+bool isEmptyDir(NativePath p) {
 	foreach(DirEntry e; dirEntries(p.toNativeString(), SpanMode.shallow))
 		return false;
 	return true;
 }
 
-bool isWritableDir(Path p, bool create_if_missing = false)
+bool isWritableDir(NativePath p, bool create_if_missing = false)
 {
 	import std.random;
 	auto fname = p ~ format("__dub_write_test_%08X", uniform(0, uint.max));
@@ -116,7 +116,7 @@ bool isWritableDir(Path p, bool create_if_missing = false)
 	return true;
 }
 
-Json jsonFromFile(Path file, bool silent_fail = false) {
+Json jsonFromFile(NativePath file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.emptyObject;
 	auto f = openFile(file.toNativeString(), FileMode.read);
 	scope(exit) f.close();
@@ -124,7 +124,7 @@ Json jsonFromFile(Path file, bool silent_fail = false) {
 	return parseJsonString(text, file.toNativeString());
 }
 
-Json jsonFromZip(Path zip, string filename) {
+Json jsonFromZip(NativePath zip, string filename) {
 	import std.zip : ZipArchive;
 	auto f = openFile(zip, FileMode.read);
 	ubyte[] b = new ubyte[cast(size_t)f.size];
@@ -135,7 +135,7 @@ Json jsonFromZip(Path zip, string filename) {
 	return parseJsonString(text, zip.toNativeString~"/"~filename);
 }
 
-void writeJsonFile(Path path, Json json)
+void writeJsonFile(NativePath path, Json json)
 {
 	auto f = openFile(path, FileMode.createTrunc);
 	scope(exit) f.close();
@@ -143,10 +143,10 @@ void writeJsonFile(Path path, Json json)
 }
 
 /// Performs a write->delete->rename sequence to atomically "overwrite" the destination file
-void atomicWriteJsonFile(Path path, Json json)
+void atomicWriteJsonFile(NativePath path, Json json)
 {
 	import std.random : uniform;
-	auto tmppath = path[0 .. $-1] ~ format("%s.%s.tmp", path.head, uniform(0, int.max));
+	auto tmppath = path.parentPath ~ format("%s.%s.tmp", path.head, uniform(0, int.max));
 	auto f = openFile(tmppath, FileMode.createTrunc);
 	scope (failure) {
 		f.close();
@@ -163,7 +163,7 @@ bool isPathFromZip(string p) {
 	return p[$-1] == '/';
 }
 
-bool existsDirectory(Path path) {
+bool existsDirectory(NativePath path) {
 	if( !existsFile(path) ) return false;
 	auto fi = getFileInfo(path);
 	return fi.isDirectory;
@@ -265,7 +265,7 @@ void download(string url, string filename)
 	} else assert(false);
 }
 /// ditto
-void download(URL url, Path filename)
+void download(URL url, NativePath filename)
 {
 	download(url.toString(), filename.toNativeString());
 }
@@ -442,25 +442,27 @@ string stripDlangSpecialChars(string s)
 	return ret.data;
 }
 
-string determineModuleName(BuildSettings settings, Path file, Path base_path)
+string determineModuleName(BuildSettings settings, NativePath file, NativePath base_path)
 {
 	import std.algorithm : map;
+	import std.array : array;
+	import std.range : walkLength;
 
 	assert(base_path.absolute);
 	if (!file.absolute) file = base_path ~ file;
 
 	size_t path_skip = 0;
-	foreach (ipath; settings.importPaths.map!(p => Path(p))) {
+	foreach (ipath; settings.importPaths.map!(p => NativePath(p))) {
 		if (!ipath.absolute) ipath = base_path ~ ipath;
 		assert(!ipath.empty);
-		if (file.startsWith(ipath) && ipath.length > path_skip)
-			path_skip = ipath.length;
+		if (file.startsWith(ipath) && ipath.bySegment.walkLength > path_skip)
+			path_skip = ipath.bySegment.walkLength;
 	}
 
 	enforce(path_skip > 0,
 		format("Source file '%s' not found in any import path.", file.toNativeString()));
 
-	auto mpath = file[path_skip .. file.length];
+	auto mpath = file.bySegment.array[path_skip .. $];
 	auto ret = appender!string;
 
 	//search for module keyword in file

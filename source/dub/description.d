@@ -44,10 +44,7 @@ struct ProjectDescription {
 		foreach (ref p; packages)
 			if (p.name == name)
 			{
-				static if (__VERSION__ > 2065)
-					return p;
-				else
-					return *cast(inout(PackageDescription)*)&p;
+				return p;
 			}
 		throw new Exception("Package '"~name~"' not found in dependency tree.");
 	}

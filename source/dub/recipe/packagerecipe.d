@@ -162,7 +162,7 @@ struct BuildSettingsTemplate {
 
 
 	/// Constructs a BuildSettings object from this template.
-	void getPlatformSettings(ref BuildSettings dst, in BuildPlatform platform, Path base_path)
+	void getPlatformSettings(ref BuildSettings dst, in BuildPlatform platform, NativePath base_path)
 	const {
 		dst.targetType = this.targetType;
 		if (!this.targetPath.empty) dst.targetPath = this.targetPath;
@@ -183,7 +183,7 @@ struct BuildSettingsTemplate {
 
 				foreach (spath; paths) {
 					enforce(!spath.empty, "Paths must not be empty strings.");
-					auto path = Path(spath);
+					auto path = NativePath(spath);
 					if (!path.absolute) path = base_path ~ path;
 					if (!existsFile(path) || !isDir(path.toNativeString())) {
 						logWarn("Invalid source/import path: %s", path.toNativeString());
@@ -193,7 +193,7 @@ struct BuildSettingsTemplate {
 					foreach (d; dirEntries(path.toNativeString(), pattern, SpanMode.depth)) {
 						import std.path : baseName;
 						if (baseName(d.name)[0] == '.' || d.isDir) continue;
-						auto src = Path(d.name).relativeTo(base_path);
+						auto src = NativePath(d.name).relativeTo(base_path);
 						files ~= src.toNativeString();
 					}
 				}

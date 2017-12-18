@@ -195,7 +195,7 @@ class LDCCompiler : Compiler {
 		}
 
 		if (tpath is null)
-			tpath = (Path(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
 		settings.addDFlags("-of"~tpath);
 	}
 

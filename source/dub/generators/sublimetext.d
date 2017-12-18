@@ -11,6 +11,7 @@ import dub.compilers.compiler;
 import dub.generators.generator;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
+import dub.internal.vibecompat.inet.path;
 import dub.packagemanager;
 import dub.project;
 
@@ -84,7 +85,7 @@ private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = 
 	string fileRegex;
 
 	if (buildPlatform.frontendVersion >= 2066 && buildPlatform.compiler == "dmd")
-		fileRegex = r"^(.+)\(([0-9]+)\,([0-9]+)\)\:() (.*)$";
+		fileRegex = r"^(.+)\(([0-9]+)\,([0-9]+)\)\: (.*)$";
 	else
 		fileRegex = r"^(.+)\(([0-9]+)\)\:() (.*)$";
 
