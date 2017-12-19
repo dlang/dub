@@ -1,0 +1,14 @@
+.dub
+docs.json
+__dummy.html
+docs/
+son.so
+son.dylib
+son.dll
+son.a
+son.lib
+son-test-*
+*.exe
+*.o
+*.obj
+*.lst

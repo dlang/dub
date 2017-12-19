@@ -54,11 +54,11 @@ echo -n "'$CURR_DIR/describe-project/src/dummy.d' " >> "$expected_file"
 echo -n "'$CURR_DIR/describe-dependency-1/source/dummy.d' " >> "$expected_file"
 # --data=versions
 echo -n "-version=someVerIdent " >> "$expected_file"
-echo -n "-version=anotherVerIdent " >> "$expected_file"
 echo -n "-version=Have_describe_project " >> "$expected_file"
 echo -n "-version=Have_describe_dependency_1 " >> "$expected_file"
 echo -n "-version=Have_describe_dependency_2 " >> "$expected_file"
 echo -n "-version=Have_describe_dependency_3 " >> "$expected_file"
+echo -n "-version=anotherVerIdent " >> "$expected_file"
 # --data=debug-versions
 echo -n "-debug=someDebugVerIdent " >> "$expected_file"
 echo -n "-debug=anotherDebugVerIdent " >> "$expected_file"
