@@ -243,6 +243,25 @@ class ProjectGenerator
 		}
 	}
 
+	/** Configure dependencies.
+
+		1. downwards inherits versions, debugVersions, and inheritable build settings
+	*/
+	static void configureDependencies(in ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
+	{
+		import std.range : repeat;
+
+		// do not use `visited` here as dependencies must inherit
+		// configurations from *all* of their parents
+		logDebug("%sConfigure dependencies of %s, deps:%(%s, %)", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
+		foreach (depname; ti.dependencies)
+		{
+			auto pti = &targets[depname];
+			mergeFromDependent(ti.buildSettings, pti.buildSettings);
+			configureDependencies(*pti, targets, level + 1);
+		}
+	}
+
 	/** Configure `rootPackage` and all of it's dependencies.
 
 		1. Merge versions, debugVersions, and inheritable build
@@ -277,21 +296,6 @@ class ProjectGenerator
 		}
 
 		collectDependencies(rootPackage, targets[rootPackage.name], targets, hasOutput);
-
-		// 1. downwards inherits versions, debugVersions, and inheritable build settings
-		static void configureDependencies(in ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
-		{
-			// do not use `visited` here as dependencies must inherit
-			// configurations from *all* of their parents
-			logDebug("%sConfigure dependencies of %s, deps:%(%s, %)", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
-			foreach (depname; ti.dependencies)
-			{
-				auto pti = &targets[depname];
-				mergeFromDependent(ti.buildSettings, pti.buildSettings);
-				configureDependencies(*pti, targets, level + 1);
-			}
-		}
-
 		configureDependencies(targets[rootPackage.name], targets);
 
 		// 2. add Have_dependency_xyz for all direct dependencies of a target
