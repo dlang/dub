@@ -306,6 +306,39 @@ class ProjectGenerator
 		}
 	}
 
+	/** Override string imports.
+
+		4. override string import files in dependencies
+	*/
+	static void overrideStringImports(ref TargetInfo ti, TargetInfo[string] targets, string[] overrides)
+	{
+		// do not use visited here as string imports can be overridden by *any* parent
+		//
+		// special support for overriding string imports in parent packages
+		// this is a candidate for deprecation, once an alternative approach
+		// has been found
+		if (ti.buildSettings.stringImportPaths.length) {
+			// override string import files (used for up to date checking)
+			foreach (ref f; ti.buildSettings.stringImportFiles)
+			{
+				foreach (o; overrides)
+				{
+					NativePath op;
+					if (f != o && NativePath(f).head == (op = NativePath(o)).head) {
+						logDebug("string import %s overridden by %s", f, o);
+						f = o;
+						ti.buildSettings.prependStringImportPaths(op.parentPath.toNativeString);
+					}
+				}
+			}
+		}
+		// add to overrides for recursion
+		overrides ~= ti.buildSettings.stringImportFiles;
+		// override dependencies
+		foreach (depname; ti.dependencies)
+			overrideStringImports(targets[depname], targets, overrides);
+	}
+
 	/** Configure `rootPackage` and all of it's dependencies.
 
 		1. Merge versions, debugVersions, and inheritable build
@@ -340,37 +373,6 @@ class ProjectGenerator
 		configureDependencies(targets[rootPackage.name], targets);
 		defineHaveDependencies(targets);
 		configureDependents(targets[rootPackage.name], targets);
-
-		// 4. override string import files in dependencies
-		static void overrideStringImports(ref TargetInfo ti, TargetInfo[string] targets, string[] overrides)
-		{
-			// do not use visited here as string imports can be overridden by *any* parent
-			//
-			// special support for overriding string imports in parent packages
-			// this is a candidate for deprecation, once an alternative approach
-			// has been found
-			if (ti.buildSettings.stringImportPaths.length) {
-				// override string import files (used for up to date checking)
-				foreach (ref f; ti.buildSettings.stringImportFiles)
-				{
-					foreach (o; overrides)
-					{
-						NativePath op;
-						if (f != o && NativePath(f).head == (op = NativePath(o)).head) {
-							logDebug("string import %s overridden by %s", f, o);
-							f = o;
-							ti.buildSettings.prependStringImportPaths(op.parentPath.toNativeString);
-						}
-					}
-				}
-			}
-			// add to overrides for recursion
-			overrides ~= ti.buildSettings.stringImportFiles;
-			// override dependencies
-			foreach (depname; ti.dependencies)
-				overrideStringImports(targets[depname], targets, overrides);
-		}
-
 		overrideStringImports(targets[rootPackage.name], targets, null);
 
 		// remove any mainSourceFile from non-executable builds
