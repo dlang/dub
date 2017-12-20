@@ -280,6 +280,32 @@ class ProjectGenerator
 		}
 	}
 
+	/** Configure dependents.
+
+		3. upwards inherit full build configurations (import paths, versions, debugVersions, ...)
+	*/
+	static void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, void[0][Package] visited = null, size_t level = 0)
+	{
+		import std.range : repeat;
+
+		// use `visited` here as pkgs cannot depend on themselves
+		if (ti.pack in visited)
+			return;
+		visited[ti.pack] = typeof(visited[ti.pack]).init;
+
+		logDiagnostic("%sConfiguring dependent %s, deps:%(%s, %)", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
+		// embedded non-binary dependencies
+		foreach (deppack; ti.packages[1 .. $])
+			ti.buildSettings.add(targets[deppack.name].buildSettings);
+		// binary dependencies
+		foreach (depname; ti.dependencies)
+		{
+			auto pdepti = &targets[depname];
+			configureDependents(*pdepti, targets, visited, level + 1);
+			mergeFromDependency(pdepti.buildSettings, ti.buildSettings);
+		}
+	}
+
 	/** Configure `rootPackage` and all of it's dependencies.
 
 		1. Merge versions, debugVersions, and inheritable build
@@ -304,9 +330,6 @@ class ProjectGenerator
 		import std.algorithm : remove;
 		import std.range : repeat;
 
-		// mark packages as visited (only used during upwards propagation)
-		void[0][Package] visited;
-
 		bool[string] hasOutput;
 		foreach (name, ref ti; targets)
 		{
@@ -315,34 +338,8 @@ class ProjectGenerator
 
 		collectDependencies(rootPackage, targets[rootPackage.name], targets, hasOutput);
 		configureDependencies(targets[rootPackage.name], targets);
-
-		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, ...)
-		void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
-		{
-			// use `visited` here as pkgs cannot depend on themselves
-			if (ti.pack in visited)
-				return;
-			visited[ti.pack] = typeof(visited[ti.pack]).init;
-
-			logDiagnostic("%sConfiguring dependent %s, deps:%(%s, %)", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
-			// embedded non-binary dependencies
-			foreach (deppack; ti.packages[1 .. $])
-				ti.buildSettings.add(targets[deppack.name].buildSettings);
-			// binary dependencies
-			foreach (depname; ti.dependencies)
-			{
-				auto pdepti = &targets[depname];
-				configureDependents(*pdepti, targets, level + 1);
-				mergeFromDependency(pdepti.buildSettings, ti.buildSettings);
-			}
-		}
-
 		defineHaveDependencies(targets);
 		configureDependents(targets[rootPackage.name], targets);
-		static if (__VERSION__ > 2070)
-			visited.clear();
-		else
-			destroy(visited);
 
 		// 4. override string import files in dependencies
 		static void overrideStringImports(ref TargetInfo ti, TargetInfo[string] targets, string[] overrides)
