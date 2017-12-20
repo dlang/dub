@@ -262,6 +262,24 @@ class ProjectGenerator
 		}
 	}
 
+	/** Define Have_dependency_xyz version identifiers.
+
+		2. add Have_dependency_xyz for all direct dependencies of a target
+	    (includes incorporated non-target dependencies and their dependencies)
+	*/
+	static void defineHaveDependencies(TargetInfo[string] targets)
+	{
+		foreach (ref ti; targets.byValue)
+		{
+			import std.range : chain;
+			import dub.internal.utils : stripDlangSpecialChars;
+
+			auto bs = &ti.buildSettings;
+			auto pkgnames = ti.packages.map!(p => p.name).chain(ti.dependencies);
+			bs.addVersions(pkgnames.map!(pn => "Have_" ~ stripDlangSpecialChars(pn)).array);
+		}
+	}
+
 	/** Configure `rootPackage` and all of it's dependencies.
 
 		1. Merge versions, debugVersions, and inheritable build
@@ -298,18 +316,6 @@ class ProjectGenerator
 		collectDependencies(rootPackage, targets[rootPackage.name], targets, hasOutput);
 		configureDependencies(targets[rootPackage.name], targets);
 
-		// 2. add Have_dependency_xyz for all direct dependencies of a target
-		// (includes incorporated non-target dependencies and their dependencies)
-		foreach (ref ti; targets.byValue)
-		{
-			import std.range : chain;
-			import dub.internal.utils : stripDlangSpecialChars;
-
-			auto bs = &ti.buildSettings;
-			auto pkgnames = ti.packages.map!(p => p.name).chain(ti.dependencies);
-			bs.addVersions(pkgnames.map!(pn => "Have_" ~ stripDlangSpecialChars(pn)).array);
-		}
-
 		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, ...)
 		void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
 		{
@@ -331,6 +337,7 @@ class ProjectGenerator
 			}
 		}
 
+		defineHaveDependencies(targets);
 		configureDependents(targets[rootPackage.name], targets);
 		static if (__VERSION__ > 2070)
 			visited.clear();
