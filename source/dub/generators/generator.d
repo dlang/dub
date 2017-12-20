@@ -145,6 +145,50 @@ class ProjectGenerator
 	*/
 	protected void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[string] targets) {}
 
+	/**
+	   Configure package before determining dependencies.
+
+	   Returns:
+	       whether the target of `config` for `pack` has any output (e.g. static lib, exe)
+	*/
+	private bool shallowConfig(in Package pack, string config, bool genCombined, ref BuildSettings bs)
+	{
+		TargetType tt = bs.targetType;
+		if (pack is m_project.rootPackage) {
+			if (tt == TargetType.autodetect || tt == TargetType.library) tt = TargetType.staticLibrary;
+		} else {
+			if (tt == TargetType.autodetect || tt == TargetType.library) tt = genCombined ? TargetType.sourceLibrary : TargetType.staticLibrary;
+			else if (tt == TargetType.dynamicLibrary) {
+				logWarn("Dynamic libraries are not yet supported as dependencies - building as static library.");
+				tt = TargetType.staticLibrary;
+			}
+		}
+		if (tt != TargetType.none && tt != TargetType.sourceLibrary && bs.sourceFiles.empty) {
+			logWarn(`Configuration '%s' of package %s contains no source files. Please add {"targetType": "none"} to its package description to avoid building it.`,
+					config, pack.name);
+			tt = TargetType.none;
+		}
+
+		switch (bs.targetType = tt)
+		{
+		case TargetType.none:
+			// ignore any build settings for targetType none (only dependencies will be processed)
+			bs = BuildSettings.init;
+			bs.targetType = TargetType.none;
+			break;
+
+		case TargetType.dynamicLibrary:
+			// set -fPIC for dynamic library builds
+			bs.addOptions(BuildOption.pic);
+			break;
+
+		default:
+			break;
+		}
+		bool generatesBinary = bs.targetType != TargetType.sourceLibrary && bs.targetType != TargetType.none;
+		return generatesBinary || pack is m_project.rootPackage;
+	}
+
 	/** Configure `rootPackage` and all of it's dependencies.
 
 		1. Merge versions, debugVersions, and inheritable build
@@ -169,59 +213,16 @@ class ProjectGenerator
 		import std.algorithm : remove, sort;
 		import std.range : repeat;
 
-		// 0. do shallow configuration (not including dependencies) of all packages
-		TargetType determineTargetType(const ref TargetInfo ti)
-		{
-			TargetType tt = ti.buildSettings.targetType;
-			if (ti.pack is rootPackage) {
-				if (tt == TargetType.autodetect || tt == TargetType.library) tt = TargetType.staticLibrary;
-			} else {
-				if (tt == TargetType.autodetect || tt == TargetType.library) tt = genSettings.combined ? TargetType.sourceLibrary : TargetType.staticLibrary;
-				else if (tt == TargetType.dynamicLibrary) {
-					logWarn("Dynamic libraries are not yet supported as dependencies - building as static library.");
-					tt = TargetType.staticLibrary;
-				}
-			}
-			if (tt != TargetType.none && tt != TargetType.sourceLibrary && ti.buildSettings.sourceFiles.empty) {
-				logWarn(`Configuration '%s' of package %s contains no source files. Please add {"targetType": "none"} to its package description to avoid building it.`,
-						ti.config, ti.pack.name);
-				tt = TargetType.none;
-			}
-			return tt;
-		}
-
-		bool[string] hasOutput;
-
-		foreach (ref ti; targets.byValue)
-		{
-			auto bs = &ti.buildSettings;
-			// determine the actual target type
-			bs.targetType = determineTargetType(ti);
-
-			switch (bs.targetType)
-			{
-			case TargetType.none:
-				// ignore any build settings for targetType none (only dependencies will be processed)
-				*bs = BuildSettings.init;
-				bs.targetType = TargetType.none;
-				break;
-
-			case TargetType.dynamicLibrary:
-				// set -fPIC for dynamic library builds
-				ti.buildSettings.addOptions(BuildOption.pic);
-				break;
-
-			default:
-				break;
-			}
-			bool generatesBinary = bs.targetType != TargetType.sourceLibrary && bs.targetType != TargetType.none;
-			hasOutput[ti.pack.name] = generatesBinary || ti.pack is rootPackage;
-		}
-
 		// mark packages as visited (only used during upwards propagation)
 		void[0][Package] visited;
 
-		// collect all dependencies
+		bool[string] hasOutput;
+		foreach (name, ref ti; targets)
+		{
+			hasOutput[name] = shallowConfig(ti.pack, ti.config, genSettings.combined, ti.buildSettings);
+		}
+
+		// 0. collect all dependencies
 		void collectDependencies(Package pack, ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
 		{
 			// use `visited` here as pkgs cannot depend on themselves
