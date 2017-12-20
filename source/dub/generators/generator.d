@@ -190,7 +190,6 @@ class ProjectGenerator
 			return tt;
 		}
 
-		string[] mainSourceFiles;
 		bool[string] hasOutput;
 
 		foreach (ref ti; targets.byValue)
@@ -207,20 +206,12 @@ class ProjectGenerator
 				bs.targetType = TargetType.none;
 				break;
 
-			case TargetType.executable:
-				break;
-
 			case TargetType.dynamicLibrary:
 				// set -fPIC for dynamic library builds
 				ti.buildSettings.addOptions(BuildOption.pic);
-				goto default;
+				break;
 
 			default:
-				// remove any mainSourceFile from non-executable builds
-				if (bs.mainSourceFile.length) {
-					bs.sourceFiles = bs.sourceFiles.remove!(f => f == bs.mainSourceFile);
-					mainSourceFiles ~= bs.mainSourceFile;
-				}
 				break;
 			}
 			bool generatesBinary = bs.targetType != TargetType.sourceLibrary && bs.targetType != TargetType.none;
@@ -375,6 +366,17 @@ class ProjectGenerator
 		}
 
 		overrideStringImports(targets[rootPackage.name], targets, null);
+
+		// remove any mainSourceFile from non-executable builds
+		string[] mainSourceFiles;
+		foreach (ref ti; targets.byValue)
+		{
+			auto bs = &ti.buildSettings;
+			if (bs.targetType != TargetType.executable && bs.mainSourceFile.length) {
+				bs.sourceFiles = bs.sourceFiles.remove!(f => f == bs.mainSourceFile);
+				mainSourceFiles ~= bs.mainSourceFile;
+			}
+		}
 
 		// remove targets without output
 		foreach (name; targets.keys)
