@@ -189,6 +189,60 @@ class ProjectGenerator
 		return generatesBinary || pack is m_project.rootPackage;
 	}
 
+	/** Recursively Collect dependencies for all targets.
+	 */
+	void collectDependencies(Package pack, ref TargetInfo ti, TargetInfo[string] targets, in bool[string] hasOutput, void[0][Package] visited = null, size_t level = 0)
+	{
+		import std.algorithm : sort;
+		import std.range : repeat;
+
+		// use `visited` here as pkgs cannot depend on themselves
+		if (pack in visited)
+			return;
+		// transitive dependencies must be visited multiple times, see #1350
+		immutable transitive = !hasOutput[pack.name];
+		if (!transitive)
+			visited[pack] = typeof(visited[pack]).init;
+
+		auto bs = &ti.buildSettings;
+		logDebug("%sConfiguring target %s (%s %s %s)", ' '.repeat(2 * level), pack.name, bs.targetType, bs.targetPath, bs.targetName);
+
+		// get specified dependencies, e.g. vibe-d ~0.8.1
+		auto deps = pack.getDependencies(targets[pack.name].config);
+		logDebug("deps: %s -> %(%s, %)", pack.name, deps.byKey);
+		foreach (depname; deps.keys.sort())
+		{
+			auto depspec = deps[depname];
+			// get selected package for that dependency, e.g. vibe-d 0.8.2-beta.2
+			auto deppack = m_project.getDependency(depname, depspec.optional);
+			if (deppack is null) continue; // optional and not selected
+
+			// if dependency has no target output
+			if (!hasOutput[depname]) {
+				// add itself
+				ti.packages ~= deppack;
+				// and it's transitive dependencies to current target
+				collectDependencies(deppack, ti, targets, hasOutput, visited, level + 1);
+				continue;
+			}
+			auto depti = depname in targets;
+			const depbs = &depti.buildSettings;
+			if (depbs.targetType == TargetType.executable)
+				continue;
+			// add to (link) dependencies
+			ti.dependencies ~= depname;
+			ti.linkDependencies ~= depname;
+
+			// recurse
+			collectDependencies(deppack, *depti, targets, hasOutput, visited, level + 1);
+
+			// also recursively add all link dependencies of static libraries
+			// preserve topological sorting of dependencies for correct link order
+			if (depbs.targetType == TargetType.staticLibrary)
+				ti.linkDependencies = ti.linkDependencies.filter!(d => !depti.linkDependencies.canFind(d)).array ~ depti.linkDependencies;
+		}
+	}
+
 	/** Configure `rootPackage` and all of it's dependencies.
 
 		1. Merge versions, debugVersions, and inheritable build
@@ -210,7 +264,7 @@ class ProjectGenerator
 	 */
 	private string[] configurePackages(Package rootPackage, TargetInfo[string] targets, GeneratorSettings genSettings)
 	{
-		import std.algorithm : remove, sort;
+		import std.algorithm : remove;
 		import std.range : repeat;
 
 		// mark packages as visited (only used during upwards propagation)
@@ -222,64 +276,7 @@ class ProjectGenerator
 			hasOutput[name] = shallowConfig(ti.pack, ti.config, genSettings.combined, ti.buildSettings);
 		}
 
-		// 0. collect all dependencies
-		void collectDependencies(Package pack, ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
-		{
-			// use `visited` here as pkgs cannot depend on themselves
-			if (pack in visited)
-				return;
-			// transitive dependencies must be visited multiple times, see #1350
-			immutable transitive = !hasOutput[pack.name];
-			if (!transitive)
-				visited[pack] = typeof(visited[pack]).init;
-
-			auto bs = &ti.buildSettings;
-			if (hasOutput[pack.name])
-				logDebug("%sConfiguring target %s (%s %s %s)", ' '.repeat(2 * level), pack.name, bs.targetType, bs.targetPath, bs.targetName);
-			else
-				logDebug("%sConfiguring target without output %s", ' '.repeat(2 * level), pack.name);
-
-			// get specified dependencies, e.g. vibe-d ~0.8.1
-			auto deps = pack.getDependencies(targets[pack.name].config);
-			logDebug("deps: %s -> %(%s, %)", pack.name, deps.byKey);
-			foreach (depname; deps.keys.sort())
-			{
-				auto depspec = deps[depname];
-				// get selected package for that dependency, e.g. vibe-d 0.8.2-beta.2
-				auto deppack = m_project.getDependency(depname, depspec.optional);
-				if (deppack is null) continue; // optional and not selected
-
-				// if dependency has no output
-				if (!hasOutput[depname]) {
-					// add itself
-					ti.packages ~= deppack;
-					// and it's transitive dependencies to current target
-					collectDependencies(deppack, ti, targets, level + 1);
-					continue;
-				}
-				auto depti = &targets[depname];
-				const depbs = &depti.buildSettings;
-				if (depbs.targetType == TargetType.executable)
-					continue;
-				// add to (link) dependencies
-				ti.dependencies ~= depname;
-				ti.linkDependencies ~= depname;
-
-				// recurse
-				collectDependencies(deppack, *depti, targets, level + 1);
-
-				// also recursively add all link dependencies of static libraries
-				// preserve topological sorting of dependencies for correct link order
-				if (depbs.targetType == TargetType.staticLibrary)
-					ti.linkDependencies = ti.linkDependencies.filter!(d => !depti.linkDependencies.canFind(d)).array ~ depti.linkDependencies;
-			}
-		}
-
-		collectDependencies(rootPackage, targets[rootPackage.name], targets);
-		static if (__VERSION__ > 2070)
-			visited.clear();
-		else
-			destroy(visited);
+		collectDependencies(rootPackage, targets[rootPackage.name], targets, hasOutput);
 
 		// 1. downwards inherits versions, debugVersions, and inheritable build settings
 		static void configureDependencies(in ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
