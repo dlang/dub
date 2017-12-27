@@ -26,9 +26,6 @@ environment:
     DVersion: stable
     arch: x86
   - DC: ldc
-    DVersion: beta
-    arch: x64
-  - DC: ldc
     DVersion: stable
     arch: x64
   - DC: ldc
