@@ -255,7 +255,21 @@ NativePath generatePlatformProbeFile()
 		fil.close();
 	}
 
-	fil.write(q{
+	fil.write(platformProbeFile);
+	fil.close();
+
+	return path;
+}
+
+
+/**
+	Platform probe file that will give, at compile time, information about the compiler (architecture, frontend version...)
+
+	See_Also: `generatePlatformProbeFile`, `readPlatformProbe`
+*/
+string platformProbeFile()
+{
+	return q{
 		module dub_platform_probe;
 		import std.array;
 
@@ -279,11 +293,7 @@ NativePath generatePlatformProbeFile()
 		string determineArchitecture() } ~ '{' ~ archCheck ~
 		`	return '"' ~ ret.data.join("\", \"") ~ "\", "; }` ~ q{
 
-		string determineCompiler() } ~ '{' ~ compilerCheck ~ "	}");
-
-	fil.close();
-
-	return path;
+		string determineCompiler() } ~ '{' ~ compilerCheck ~ "	}";
 }
 
 /**

@@ -115,19 +115,53 @@ interface Compiler {
 		enforce(status == 0, format("%s failed with exit code %s.", args[0], status));
 	}
 
+	/** Detect the frontend version of a compiler_binary
+	    Returns: 0 if the detection failed, otherwise the frontend version.
+		Note: This only works for DMD and LDC.
+	 */
+	private int frontendVersion(string compiler_binary)
+	{
+		import std.range : dropOne;
+
+		auto res = execute([compiler_binary, "--version"]);
+		if (res.status == 0) {
+			auto versionRange = res.output.find("DMD64 D Compiler v").splitter(".");
+			if (!versionRange.empty && !versionRange.dropOne.empty) {
+				return versionRange.dropOne.front.to!int;
+			}
+		}
+		return 0;
+	}
+
+	// DMD 2.076.0 and newer support passing files via stdin
+	private bool canUseStdin(string compiler_binary)
+	{
+		return frontendVersion(compiler_binary) >= 76 && compiler_binary.startsWith("dmd");
+	}
+
 	/// Compiles platform probe file with the specified compiler and parses its output.
 	protected final BuildPlatform probePlatform(string compiler_binary, string[] args, string arch_override)
 	{
 		import std.string : format;
-		import dub.compilers.utils : generatePlatformProbeFile, readPlatformProbe;
+		import dub.compilers.utils : generatePlatformProbeFile, readPlatformProbe, platformProbeFile;
 
-		auto fil = generatePlatformProbeFile();
+		bool canUseStdin = this.canUseStdin(compiler_binary);
+		string fil = canUseStdin ? generatePlatformProbeFile().toNativeString() : "-";
 
-		auto result = executeShell(escapeShellCommand(compiler_binary ~ args ~ fil.toNativeString()));
-		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
-				compiler_binary, result.output));
+		auto p = pipeShell(escapeShellCommand(compiler_binary ~ args ~ fil), Redirect.all);
+		if (canUseStdin) {
+			p.stdin.write(platformProbeFile);
+			p.stdin.close;
+		}
+		// read stdout
+		string output;
+		auto app = appender!(ubyte[]);
+    	p.stderr.byChunk(4096).each!(a => app.put(a));
+    	output = cast(string) app.data;
+		enforce(p.pid.wait== 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
+				compiler_binary, output));
 
-		auto build_platform = readPlatformProbe(result.output);
+		auto build_platform = readPlatformProbe(output);
 		build_platform.compilerBinary = compiler_binary;
 
 		if (build_platform.compiler != this.name) {
