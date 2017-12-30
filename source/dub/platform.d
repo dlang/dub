@@ -19,70 +19,73 @@ import std.array;
 // archCheck, compilerCheck, and platformCheck are used below and in
 // generatePlatformProbeFile, so they've been extracted into these strings
 // that can be reused.
+// Try to not use phobos in the probes to avoid long import times.
 /// private
 enum string platformCheck = q{
-	auto ret = appender!(string[])();
-	version(Windows) ret.put("windows");
-	version(linux) ret.put("linux");
-	version(Posix) ret.put("posix");
-	version(OSX) ret.put("osx");
-	version(FreeBSD) ret.put("freebsd");
-	version(OpenBSD) ret.put("openbsd");
-	version(NetBSD) ret.put("netbsd");
-	version(DragonFlyBSD) ret.put("dragonflybsd");
-	version(BSD) ret.put("bsd");
-	version(Solaris) ret.put("solaris");
-	version(AIX) ret.put("aix");
-	version(Haiku) ret.put("haiku");
-	version(SkyOS) ret.put("skyos");
-	version(SysV3) ret.put("sysv3");
-	version(SysV4) ret.put("sysv4");
-	version(Hurd) ret.put("hurd");
-	version(Android) ret.put("android");
-	version(Cygwin) ret.put("cygwin");
-	version(MinGW) ret.put("mingw");
+	string[] ret;
+	version(Windows) ret ~= "windows";
+	version(linux) ret ~= "linux";
+	version(Posix) ret ~= "posix";
+	version(OSX) ret ~= "osx";
+	version(FreeBSD) ret ~= "freebsd";
+	version(OpenBSD) ret ~= "openbsd";
+	version(NetBSD) ret ~= "netbsd";
+	version(DragonFlyBSD) ret ~= "dragonflybsd";
+	version(BSD) ret ~= "bsd";
+	version(Solaris) ret ~= "solaris";
+	version(AIX) ret ~= "aix";
+	version(Haiku) ret ~= "haiku";
+	version(SkyOS) ret ~= "skyos";
+	version(SysV3) ret ~= "sysv3";
+	version(SysV4) ret ~= "sysv4";
+	version(Hurd) ret ~= "hurd";
+	version(Android) ret ~= "android";
+	version(Cygwin) ret ~= "cygwin";
+	version(MinGW) ret ~= "mingw";
+	return ret;
 };
 
 /// private
 enum string archCheck = q{
-	auto ret = appender!(string[])();
-	version(X86) ret.put("x86");
-	version(X86_64) ret.put("x86_64");
-	version(ARM) ret.put("arm");
-	version(ARM_Thumb) ret.put("arm_thumb");
-	version(ARM_SoftFloat) ret.put("arm_softfloat");
-	version(ARM_HardFloat) ret.put("arm_hardfloat");
-	version(ARM64) ret.put("arm64");
-	version(PPC) ret.put("ppc");
-	version(PPC_SoftFP) ret.put("ppc_softfp");
-	version(PPC_HardFP) ret.put("ppc_hardfp");
-	version(PPC64) ret.put("ppc64");
-	version(IA64) ret.put("ia64");
-	version(MIPS) ret.put("mips");
-	version(MIPS32) ret.put("mips32");
-	version(MIPS64) ret.put("mips64");
-	version(MIPS_O32) ret.put("mips_o32");
-	version(MIPS_N32) ret.put("mips_n32");
-	version(MIPS_O64) ret.put("mips_o64");
-	version(MIPS_N64) ret.put("mips_n64");
-	version(MIPS_EABI) ret.put("mips_eabi");
-	version(MIPS_NoFloat) ret.put("mips_nofloat");
-	version(MIPS_SoftFloat) ret.put("mips_softfloat");
-	version(MIPS_HardFloat) ret.put("mips_hardfloat");
-	version(SPARC) ret.put("sparc");
-	version(SPARC_V8Plus) ret.put("sparc_v8plus");
-	version(SPARC_SoftFP) ret.put("sparc_softfp");
-	version(SPARC_HardFP) ret.put("sparc_hardfp");
-	version(SPARC64) ret.put("sparc64");
-	version(S390) ret.put("s390");
-	version(S390X) ret.put("s390x");
-	version(HPPA) ret.put("hppa");
-	version(HPPA64) ret.put("hppa64");
-	version(SH) ret.put("sh");
-	version(SH64) ret.put("sh64");
-	version(Alpha) ret.put("alpha");
-	version(Alpha_SoftFP) ret.put("alpha_softfp");
-	version(Alpha_HardFP) ret.put("alpha_hardfp");
+	string[] ret;
+	version(X86) ret ~= "x86";
+	version(X86_64) ret ~= "x86_64";
+	version(ARM) ret ~= "arm";
+	version(ARM_Thumb) ret ~= "arm_thumb";
+	version(ARM_SoftFloat) ret ~= "arm_softfloat";
+	version(ARM_HardFloat) ret ~= "arm_hardfloat";
+	version(ARM64) ret ~= "arm64";
+	version(PPC) ret ~= "ppc";
+	version(PPC_SoftFP) ret ~= "ppc_softfp";
+	version(PPC_HardFP) ret ~= "ppc_hardfp";
+	version(PPC64) ret ~= "ppc64";
+	version(IA64) ret ~= "ia64";
+	version(MIPS) ret ~= "mips";
+	version(MIPS32) ret ~= "mips32";
+	version(MIPS64) ret ~= "mips64";
+	version(MIPS_O32) ret ~= "mips_o32";
+	version(MIPS_N32) ret ~= "mips_n32";
+	version(MIPS_O64) ret ~= "mips_o64";
+	version(MIPS_N64) ret ~= "mips_n64";
+	version(MIPS_EABI) ret ~= "mips_eabi";
+	version(MIPS_NoFloat) ret ~= "mips_nofloat";
+	version(MIPS_SoftFloat) ret ~= "mips_softfloat";
+	version(MIPS_HardFloat) ret ~= "mips_hardfloat";
+	version(SPARC) ret ~= "sparc";
+	version(SPARC_V8Plus) ret ~= "sparc_v8plus";
+	version(SPARC_SoftFP) ret ~= "sparc_softfp";
+	version(SPARC_HardFP) ret ~= "sparc_hardfp";
+	version(SPARC64) ret ~= "sparc64";
+	version(S390) ret ~= "s390";
+	version(S390X) ret ~= "s390x";
+	version(HPPA) ret ~= "hppa";
+	version(HPPA64) ret ~= "hppa64";
+	version(SH) ret ~= "sh";
+	version(SH64) ret ~= "sh64";
+	version(Alpha) ret ~= "alpha";
+	version(Alpha_SoftFP) ret ~= "alpha_softfp";
+	version(Alpha_HardFP) ret ~= "alpha_hardfp";
+	return ret;
 };
 
 /// private
@@ -123,7 +126,6 @@ BuildPlatform determineBuildPlatform()
 string[] determinePlatform()
 {
 	mixin(platformCheck);
-	return ret.data;
 }
 
 /** Returns a list of architecture identifiers that apply to the current
@@ -138,7 +140,6 @@ string[] determinePlatform()
 string[] determineArchitecture()
 {
 	mixin(archCheck);
-	return ret.data;
 }
 
 /** Determines the canonical compiler name used for the current build.
