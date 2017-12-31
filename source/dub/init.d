@@ -156,20 +156,37 @@ private void initDeimosPackage(NativePath root_path, ref PackageRecipe p, scope 
 private void writeGitignore(NativePath root_path, PackageRecipe p)
 {
 	write((root_path ~ ".gitignore").toNativeString(),
-q"{.dub
+q"{# Compiled Object files
+*.o
+*.obj
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+
+# Executables
+*.exe
+%1$s-test-*
+/%1$s
+
+# DUB
+.dub
 docs.json
 __dummy.html
 docs/
-%1$s.so
-%1$s.dylib
-%1$s.dll
-%1$s.a
-%1$s.lib
-%1$s-test-*
-*.exe
-*.o
-*.obj
+
+# Code coverage
 *.lst
+
+# Profiling
+profilegc.log
+trace.def
+trace.log
 }".format(p.name));
 }
 
