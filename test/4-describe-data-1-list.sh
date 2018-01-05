@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e -o pipefail
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 
 cd "$CURR_DIR"/describe-project
 
@@ -30,7 +30,7 @@ if ! $DUB describe --compiler=$DC --data-list \
     --data=post-build-commands \
     '--data=requirements, options' \
     > "$temp_file"; then
-    die 'Printing project data failed!'
+    die $LINENO 'Printing project data failed!'
 fi
 
 # Create the expected output path file to compare against.
@@ -77,11 +77,11 @@ echo "$CURR_DIR/describe-dependency-1/data/*" >> "$expected_file"
 echo >> "$expected_file"
 # --data=versions
 echo "someVerIdent" >> "$expected_file"
-echo "anotherVerIdent" >> "$expected_file"
 echo "Have_describe_project" >> "$expected_file"
 echo "Have_describe_dependency_1" >> "$expected_file"
 echo "Have_describe_dependency_2" >> "$expected_file"
 echo "Have_describe_dependency_3" >> "$expected_file"
+echo "anotherVerIdent" >> "$expected_file"
 echo >> "$expected_file"
 # --data=debug-versions
 echo "someDebugVerIdent" >> "$expected_file"
@@ -134,6 +134,6 @@ echo "warnings" >> "$expected_file"
 #echo "stackStomping" >> "$expected_file"  # Not sure if this (from a sourceLib dependency) should be missing from the result
 
 if ! diff "$expected_file" "$temp_file"; then
-    die 'The project data did not match the expected output!'
+    die $LINENO 'The project data did not match the expected output!'
 fi
 

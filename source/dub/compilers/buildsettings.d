@@ -12,8 +12,7 @@ import dub.internal.vibecompat.inet.path;
 import std.array : array;
 import std.algorithm : filter;
 import std.path : globMatch;
-static if (__VERSION__ >= 2067)
-	import std.typecons : BitFlags;
+import std.typecons : BitFlags;
 
 
 /// BuildPlatform specific settings, like needed libraries or additional
@@ -108,8 +107,9 @@ struct BuildSettings {
 	void removeOptions(in BuildOption[] value...) { foreach (v; value) this.options &= ~v; }
 	void removeOptions(in BuildOptions value) { this.options &= ~value; }
 
+private:
 	// Adds vals to arr without adding duplicates.
-	private void add(ref string[] arr, in string[] vals, bool no_duplicates = true)
+	static void add(ref string[] arr, in string[] vals, bool no_duplicates = true)
 	{
 		if (!no_duplicates) {
 			arr ~= vals;
@@ -127,7 +127,16 @@ struct BuildSettings {
 		}
 	}
 
-	private void prepend(ref string[] arr, in string[] vals, bool no_duplicates = true)
+	unittest
+	{
+		auto ary = ["-dip1000", "-vgc"];
+		BuildSettings.add(ary, ["-dip1000", "-vgc"]);
+		assert(ary == ["-dip1000", "-vgc"]);
+		BuildSettings.add(ary, ["-dip1001", "-vgc"], false);
+		assert(ary == ["-dip1000", "-vgc", "-dip1001", "-vgc"]);
+	}
+
+	static void prepend(ref string[] arr, in string[] vals, bool no_duplicates = true)
 	{
 		if (!no_duplicates) {
 			arr = vals ~ arr;
@@ -145,13 +154,22 @@ struct BuildSettings {
 		}
 	}
 
+	unittest
+	{
+		auto ary = ["-dip1000", "-vgc"];
+		BuildSettings.prepend(ary, ["-dip1000", "-vgc"]);
+		assert(ary == ["-dip1000", "-vgc"]);
+		BuildSettings.prepend(ary, ["-dip1001", "-vgc"], false);
+		assert(ary == ["-dip1001", "-vgc", "-dip1000", "-vgc"]);
+	}
+
 	// add string import files (avoids file name duplicates in addition to path duplicates)
-	private void addSI(ref string[] arr, in string[] vals)
+	static void addSI(ref string[] arr, in string[] vals)
 	{
 		bool[string] existing;
-		foreach (v; arr) existing[Path(v).head.toString()] = true;
+		foreach (v; arr) existing[NativePath(v).head.toString()] = true;
 		foreach (v; vals) {
-			auto s = Path(v).head.toString();
+			auto s = NativePath(v).head.toString();
 			if (s !in existing) {
 				existing[s] = true;
 				arr ~= v;
@@ -159,19 +177,39 @@ struct BuildSettings {
 		}
 	}
 
-	private void removePaths(ref string[] arr, in string[] vals)
+	unittest
+	{
+		auto ary = ["path/foo.txt"];
+		BuildSettings.addSI(ary, ["path2/foo2.txt"]);
+		assert(ary == ["path/foo.txt", "path2/foo2.txt"]);
+		BuildSettings.addSI(ary, ["path2/foo.txt"]); // no duplicate basenames
+		assert(ary == ["path/foo.txt", "path2/foo2.txt"]);
+	}
+
+	static void removePaths(ref string[] arr, in string[] vals)
 	{
 		bool matches(string s)
 		{
 			foreach (p; vals)
-				if (Path(s) == Path(p) || globMatch(s, p))
+				if (NativePath(s) == NativePath(p) || globMatch(s, p))
 					return true;
 			return false;
 		}
 		arr = arr.filter!(s => !matches(s))().array();
 	}
 
-	private void remove(ref string[] arr, in string[] vals)
+	unittest
+	{
+		auto ary = ["path1", "root/path1", "root/path2", "root2/path1"];
+		BuildSettings.removePaths(ary, ["path1"]);
+		assert(ary == ["root/path1", "root/path2", "root2/path1"]);
+		BuildSettings.removePaths(ary, ["*/path1"]);
+		assert(ary == ["root/path2"]);
+		BuildSettings.removePaths(ary, ["foo", "bar", "root/path2"]);
+		assert(ary == []);
+	}
+
+	static void remove(ref string[] arr, in string[] vals)
 	{
 		bool matches(string s)
 		{
@@ -181,6 +219,21 @@ struct BuildSettings {
 			return false;
 		}
 		arr = arr.filter!(s => !matches(s))().array();
+	}
+
+	unittest
+	{
+		import std.string : join;
+
+		auto ary = ["path1", "root/path1", "root/path2", "root2/path1"];
+		BuildSettings.remove(ary, ["path1"]);
+		assert(ary == ["root/path1", "root/path2", "root2/path1"]);
+		BuildSettings.remove(ary, ["root/path*"]);
+		assert(ary == ["root/path1", "root/path2", "root2/path1"]);
+		BuildSettings.removePaths(ary, ["foo", "root/path2", "bar", "root2/path1"]);
+		assert(ary == ["root/path1"]);
+		BuildSettings.remove(ary, ["root/path1", "foo"]);
+		assert(ary == []);
 	}
 }
 
@@ -230,26 +283,9 @@ enum BuildRequirement {
 	struct BuildRequirements {
 		import dub.internal.vibecompat.data.serialization : ignore;
 
-		static if (__VERSION__ >= 2067) {
-			@ignore BitFlags!BuildRequirement values;
-			this(BuildRequirement req) { values = req; }
-		} else {
-			@ignore BuildRequirement values;
-			this(BuildRequirement req) { values = req; }
-			BuildRequirement[] toRepresentation()
-			const {
-				BuildRequirement[] ret;
-				for (int f = 1; f <= BuildRequirement.max; f *= 2)
-					if (values & f) ret ~= cast(BuildRequirement)f;
-				return ret;
-			}
-			static BuildRequirements fromRepresentation(BuildRequirement[] v)
-			{
-				BuildRequirements ret;
-				foreach (f; v) ret.values |= f;
-				return ret;
-			}
-		}
+		@ignore BitFlags!BuildRequirement values;
+		this(BuildRequirement req) { values = req; }
+
 		alias values this;
 	}
 
@@ -277,35 +313,18 @@ enum BuildOption {
 	deprecationErrors = 1<<19,    /// Stop compilation upon usage of deprecated features (-de)
 	property = 1<<20,             /// DEPRECATED: Enforce property syntax (-property)
 	profileGC = 1<<21,            /// Profile runtime allocations
+	pic = 1<<22,                  /// Generate position independent code
 	// for internal usage
-	_docs = 1<<22,                // Write ddoc to docs
-	_ddox = 1<<23,                // Compile docs.json
+	_docs = 1<<23,                // Write ddoc to docs
+	_ddox = 1<<24                 // Compile docs.json
 }
 
 	struct BuildOptions {
 		import dub.internal.vibecompat.data.serialization : ignore;
 
-		static if (__VERSION__ >= 2067) {
-			@ignore BitFlags!BuildOption values;
-			this(BuildOption opt) { values = opt; }
-			this(BitFlags!BuildOption v) { values = v; }
-		} else {
-			@ignore BuildOption values;
-			this(BuildOption opt) { values = opt; }
-			BuildOption[] toRepresentation()
-			const {
-				BuildOption[] ret;
-				for (int f = 1; f <= BuildOption.max; f *= 2)
-					if (values & f) ret ~= cast(BuildOption)f;
-				return ret;
-			}
-			static BuildOptions fromRepresentation(BuildOption[] v)
-			{
-				BuildOptions ret;
-				foreach (f; v) ret.values |= f;
-				return ret;
-			}
-		}
+		@ignore BitFlags!BuildOption values;
+		this(BuildOption opt) { values = opt; }
+		this(BitFlags!BuildOption v) { values = v; }
 
 		alias values this;
 	}
@@ -326,4 +345,5 @@ enum BuildOptions inheritedBuildOptions = BuildOption.debugMode | BuildOption.re
 	| BuildOption.noBoundsCheck | BuildOption.profile | BuildOption.ignoreUnknownPragmas
 	| BuildOption.syntaxOnly | BuildOption.warnings	| BuildOption.warningsAsErrors
 	| BuildOption.ignoreDeprecations | BuildOption.deprecationWarnings
-	| BuildOption.deprecationErrors | BuildOption.property | BuildOption.profileGC;
+	| BuildOption.deprecationErrors | BuildOption.property | BuildOption.profileGC
+	| BuildOption.pic;

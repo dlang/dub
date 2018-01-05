@@ -1,6 +1,71 @@
 Changelog
 =========
 
+v1.7.0 - 2018-01-01
+-------------------
+
+v1.6.0 - 2017-11-01
+-------------------
+
+- The version list displayed for interactive package removal is now sorted - [pull #1225][issue1225], [issue #1224][issue1224]
+- File attributes of fetched packages are now preserved - [pull #1226][issue1226]
+- `http://code-mirror.dlang.io` is now used as a fallback for `code.dlang.org` - [pull #1190][issue1190]
+- Failed package downloads are now retried two more times (by Colin Grogan) - [pull #1198][issue1198]
+
+[issue1190]: https://github.com/dlang/dub/issues/1190
+[issue1198]: https://github.com/dlang/dub/issues/1198
+[issue1224]: https://github.com/dlang/dub/issues/1224
+[issue1225]: https://github.com/dlang/dub/issues/1225
+[issue1226]: https://github.com/dlang/dub/issues/1226
+
+
+v1.5.0 - 2017-09-01
+-------------------
+
+- Allow digits in package names (by Chad Joan) - [pull #1165][issue1165]
+- Support the `no_proxy` environment variable for HTTP requests (by André Pany) - [pull #1162][issue1162], [issue #1159][issue1159]
+- Read additional registry URLs (semicolon separated) from DUB_REGISTRY env var - [pull #1173][issue1173]
+- Single file packages don't have to specify an explicit name anymore (will be inferred from the file name) - [pull #1081][issue1081]
+- Add support for the `--parallel` switch for `dub test` (currently only has an effect for `--build-mode=singleFile`) - [pull #1182][issue1182]
+- Improved error reporting for package download failures - [pull #1104][issue1104]
+- Fixed building the code base against Android/Bionic - [pull #1202][issue1202]
+- Extended the generated gitignore file (by Ryan Frame) - [pull #1050][issue1050]
+
+[issue1050]: https://github.com/dlang/dub/issues/1050
+[issue1081]: https://github.com/dlang/dub/issues/1081
+[issue1104]: https://github.com/dlang/dub/issues/1104
+[issue1182]: https://github.com/dlang/dub/issues/1182
+[issue1159]: https://github.com/dlang/dub/issues/1159
+[issue1162]: https://github.com/dlang/dub/issues/1162
+[issue1165]: https://github.com/dlang/dub/issues/1165
+[issue1173]: https://github.com/dlang/dub/issues/1173
+[issue1202]: https://github.com/dlang/dub/issues/1202
+
+
+v1.4.1 - 2017-08-10
+-------------------
+
+This release is identical with 1.4.0.
+
+
+v1.4.0 - 2017-07-19
+-------------------
+
+- The copyright string is generated automatically by "dub init"
+- "dub init" lets the user retry to enter the package name if not valid (by NotSpooky) - [pull #1122][issue1122]
+- Improved collection speed for source/import files - [pull #1125][issue1125]
+- Fixed "dub init" to allow digits in package names (by chadjoan) - [pull #1165][issue1165]
+- Fixed a sub package build issue on Windows, where colons were used as part of the file name (by andre2007) - [issue #1130][issue1130], [pull #1137][issue1137]
+- Fixed failures to acquire a lock when fetching packages - [pull #1149][issue1149]
+
+[issue1122]: https://github.com/dlang/dub/issues/1122
+[issue1125]: https://github.com/dlang/dub/issues/1125
+[issue1130]: https://github.com/dlang/dub/issues/1130
+[issue1137]: https://github.com/dlang/dub/issues/1137
+[issue1149]: https://github.com/dlang/dub/issues/1149
+[issue1165]: https://github.com/dlang/dub/issues/1165
+
+
 v1.3.0 - 2017-04-10
 -------------------
 
@@ -15,9 +80,10 @@ v1.3.0 - 2017-04-10
 
 - Fixed bogus rebuild of packages with no dependencies - [pull #1093][issue1093], [issue #1091][issue1091]
 - Fixed building with vibe-core instead of vibe.d 0.7.x
-- Fixed the VisualD generator to properly handle the "x86_mscoff" pseudoarchitecture
+- Fixed the VisualD generator to properly handle the "x86_mscoff" pseudoarchitecture - [4d416e73][commit4d416e73]
 
 [commita75023cd]: https://github.com/dlang/dub/commit/a75023cd050c055e81190bf7abc5793aba39852f
+[commit4d416e73]: https://github.com/dlang/dub/commit/4d416e730df872b552ee1dcfa8340c224a4e51fc
 [issue1071]: https://github.com/dlang/dub/issues/1071
 [issue1078]: https://github.com/dlang/dub/issues/1078
 [issue1079]: https://github.com/dlang/dub/issues/1079

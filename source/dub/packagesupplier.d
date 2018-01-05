@@ -21,6 +21,7 @@ import std.datetime;
 import std.exception;
 import std.file;
 import std.string : format;
+import std.typecons : AutoImplement;
 import std.zip;
 
 // TODO: Could drop the "best package" behavior and let retrievePackage/
@@ -58,7 +59,7 @@ interface PackageSupplier {
 			pre_release: If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	void fetchPackage(Path path, string package_id, Dependency dep, bool pre_release);
+	void fetchPackage(NativePath path, string package_id, Dependency dep, bool pre_release);
 
 	/** Retrieves only the recipe of a particular package.
 
@@ -87,10 +88,10 @@ interface PackageSupplier {
 */
 class FileSystemPackageSupplier : PackageSupplier {
 	private {
-		Path m_path;
+		NativePath m_path;
 	}
 
-	this(Path root) { m_path = root; }
+	this(NativePath root) { m_path = root; }
 
 	override @property string description() { return "file repository at "~m_path.toNativeString(); }
 
@@ -98,7 +99,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 	{
 		Version[] ret;
 		foreach (DirEntry d; dirEntries(m_path.toNativeString(), package_id~"*", SpanMode.shallow)) {
-			Path p = Path(d.name);
+			NativePath p = NativePath(d.name);
 			logDebug("Entry: %s", p);
 			enforce(to!string(p.head)[$-4..$] == ".zip");
 			auto vers = p.head.toString()[package_id.length+1..$-4];
@@ -109,7 +110,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(Path path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
 	{
 		enforce(path.absolute);
 		logInfo("Storing package '"~packageId~"', version requirements: %s", dep);
@@ -130,9 +131,9 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return null;
 	}
 
-	private Path bestPackageFile(string packageId, Dependency dep, bool pre_release)
+	private NativePath bestPackageFile(string packageId, Dependency dep, bool pre_release)
 	{
-		Path toPath(Version ver) {
+		NativePath toPath(Version ver) {
 			return m_path ~ (packageId ~ "-" ~ ver.toString() ~ ".zip");
 		}
 		auto versions = getVersions(packageId).filter!(v => dep.matches(v)).array;
@@ -170,8 +171,10 @@ class RegistryPackageSupplier : PackageSupplier {
 
 	Version[] getVersions(string package_id)
 	{
+		auto md = getMetadata(package_id);
+		if (md.type == Json.Type.null_)
+			return null;
 		Version[] ret;
-		Json md = getMetadata(package_id);
 		foreach (json; md["versions"]) {
 			auto cur = Version(cast(string)json["version"]);
 			ret ~= cur;
@@ -180,14 +183,29 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(Path path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
 	{
 		import std.array : replace;
 		Json best = getBestPackage(packageId, dep, pre_release);
+		if (best.type == Json.Type.null_)
+			return;
 		auto vers = best["version"].get!string;
-		auto url = m_registryUrl ~ Path(PackagesPath~"/"~packageId~"/"~vers~".zip");
+		auto url = m_registryUrl ~ NativePath(PackagesPath~"/"~packageId~"/"~vers~".zip");
 		logDiagnostic("Downloading from '%s'", url);
-		download(url, path);
+		foreach(i; 0..3) {
+			try{
+				download(url, path);
+				return;
+			}
+			catch(HTTPStatusException e) {
+				if (e.status == 404) throw e;
+				else {
+					logDebug("Failed to download package %s from %s (Attempt %s of 3)", packageId, url, i + 1);
+					continue;
+				}
+			}
+		}
+		throw new Exception("Failed to download package %s from %s".format(packageId, url));
 	}
 
 	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
@@ -204,12 +222,31 @@ class RegistryPackageSupplier : PackageSupplier {
 			m_metadataCache.remove(packageId);
 		}
 
-		auto url = m_registryUrl ~ Path(PackagesPath ~ "/" ~ packageId ~ ".json");
+		auto url = m_registryUrl ~ NativePath(PackagesPath ~ "/" ~ packageId ~ ".json");
 
 		logDebug("Downloading metadata for %s", packageId);
 		logDebug("Getting from %s", url);
 
-		auto jsonData = cast(string)download(url);
+		string jsonData;
+		foreach(i; 0..3) {
+			try {
+				jsonData = cast(string)download(url);
+				break;
+			}
+			catch (HTTPStatusException e)
+			{
+				if (e.status == 404) {
+					logDebug("Package %s not found at %s (404): %s", packageId, description, e.msg);
+					return Json(null);
+				}
+				else {
+					logDebug("Error getting metadata for package %s at %s (attempt %s of 3): %s", packageId, description, i + 1, e.msg);
+					if (i == 2)
+						throw e;
+					continue;
+				}
+			}
+		}
 		Json json = parseJsonString(jsonData, url.toString());
 		// strip readme data (to save size and time)
 		foreach (ref v; json["versions"])
@@ -223,10 +260,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		auto url = m_registryUrl;
 		url.localURI = "/api/packages/search?q="~encodeComponent(query);
 		string data;
-		try
-			data = cast(string)download(url);
-		catch (Exception)
-			return null;
+		data = cast(string)download(url);
 		import std.algorithm : map;
 		return data.parseJson.opt!(Json[])
 			.map!(j => SearchResult(j["name"].opt!string, j["description"].opt!string, j["version"].opt!string))
@@ -236,6 +270,8 @@ class RegistryPackageSupplier : PackageSupplier {
 	private Json getBestPackage(string packageId, Dependency dep, bool pre_release)
 	{
 		Json md = getMetadata(packageId);
+		if (md.type == Json.Type.null_)
+			return md;
 		Json best = null;
 		Version bestver;
 		foreach (json; md["versions"]) {
@@ -252,6 +288,57 @@ class RegistryPackageSupplier : PackageSupplier {
 		enforce(best != null, "No package candidate found for "~packageId~" "~dep.toString());
 		return best;
 	}
+}
+
+package abstract class AbstractFallbackPackageSupplier : PackageSupplier
+{
+	protected PackageSupplier m_default;
+	protected PackageSupplier[] m_fallbacks;
+
+	this(PackageSupplier default_, PackageSupplier[] fallbacks)
+	{
+		m_default = default_;
+		m_fallbacks = fallbacks;
+	}
+
+	override @property string description()
+	{
+		import std.algorithm : map;
+		return format("%s (fallback %s)", m_default.description, m_fallbacks.map!(x => x.description));
+	}
+
+	// Workaround https://issues.dlang.org/show_bug.cgi?id=2525
+	abstract override Version[] getVersions(string package_id);
+	abstract override void fetchPackage(NativePath path, string package_id, Dependency dep, bool pre_release);
+	abstract override Json fetchPackageRecipe(string package_id, Dependency dep, bool pre_release);
+	abstract override SearchResult[] searchPackages(string query);
+}
+
+/**
+	Combines two package suppliers and uses the second as fallback to handle failures.
+
+	Assumes that both registries serve the same packages (--mirror).
+*/
+package alias FallbackPackageSupplier = AutoImplement!(AbstractFallbackPackageSupplier, fallback);
+
+private template fallback(T, alias func)
+{
+	enum fallback = q{
+		import std.range : back, dropBackOne;
+		import dub.internal.vibecompat.core.log : logDebug;
+		scope (failure)
+		{
+			foreach (m_fallback; m_fallbacks.dropBackOne)
+			{
+				try
+					return m_fallback.%1$s(args);
+				catch(Exception)
+					logDebug("Package supplier %s failed. Trying next fallback.", m_fallback);
+			}
+			return m_fallbacks.back.%1$s(args);
+		}
+		return m_default.%1$s(args);
+	}.format(__traits(identifier, func));
 }
 
 private enum PackagesPath = "packages";

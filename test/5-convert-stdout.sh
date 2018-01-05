@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-set -e
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 
 cd ${CURR_DIR}/1-exec-simple
 
@@ -10,16 +10,13 @@ targetType \"executable\""
 RESULT=`${DUB} convert -s -f sdl`
 
 if [ ! -f dub.json ]; then
-	echo "Package recipe got modified!"
-	exit 1
+	die $LINENO 'Package recipe got modified!'
 fi
 
 if [ -f dub.sdl ]; then
-	echo "An SDL recipe got written."
-	exit 2
+	die $LINENO 'An SDL recipe got written.'
 fi
 
 if [ "$RESULT" != "$EXPECTED" ]; then
-	echo "Unexpected SDLang output."
-	exit 3
+	die $LINENO 'Unexpected SDLang output.'
 fi

@@ -196,7 +196,7 @@ version (unittest)
 }
 
 ///
-static if (__VERSION__ >= 2065) unittest {
+unittest {
 	import dub.internal.vibecompat.data.json;
 
 	static struct SizeI {
@@ -266,7 +266,7 @@ T deserializeWithPolicy(Serializer, alias Policy, T, ARGS...)(ARGS args)
 }
 
 ///
-static if (__VERSION__ >= 2065) unittest {
+unittest {
 	import dub.internal.vibecompat.data.json;
 
 	static struct SizeI {
@@ -292,7 +292,7 @@ static if (__VERSION__ >= 2065) unittest {
 private void serializeImpl(Serializer, alias Policy, T, ATTRIBUTES...)(ref Serializer serializer, T value)
 {
 	import std.typecons : Nullable, Tuple, tuple;
-	static if (__VERSION__ >= 2067) import std.typecons : BitFlags;
+	import std.typecons : BitFlags;
 
 	static assert(Serializer.isSupportedValueType!string, "All serializers must support string values.");
 	static assert(Serializer.isSupportedValueType!(typeof(null)), "All serializers must support null values.");
@@ -356,7 +356,7 @@ private void serializeImpl(Serializer, alias Policy, T, ATTRIBUTES...)(ref Seria
 	} else static if (/*isInstanceOf!(Nullable, TU)*/is(T == Nullable!TPS, TPS...)) {
 		if (value.isNull()) serializeImpl!(Serializer, Policy, typeof(null))(serializer, null);
 		else serializeImpl!(Serializer, Policy, typeof(value.get()), ATTRIBUTES)(serializer, value.get());
-	} else static if (__VERSION__ >= 2067 && is(T == BitFlags!E, E)) {
+	} else static if (is(T == BitFlags!E, E)) {
 		size_t cnt = 0;
 		foreach (v; EnumMembers!E)
 			if (value & v)
@@ -450,7 +450,7 @@ private void serializeImpl(Serializer, alias Policy, T, ATTRIBUTES...)(ref Seria
 private T deserializeImpl(T, alias Policy, Serializer, ATTRIBUTES...)(ref Serializer deserializer)
 {
 	import std.typecons : Nullable;
-	static if (__VERSION__ >= 2067) import std.typecons : BitFlags;
+	import std.typecons : BitFlags;
 
 	static assert(Serializer.isSupportedValueType!string, "All serializers must support string values.");
 	static assert(Serializer.isSupportedValueType!(typeof(null)), "All serializers must support null values.");
@@ -496,7 +496,7 @@ private T deserializeImpl(T, alias Policy, Serializer, ATTRIBUTES...)(ref Serial
 	} else static if (isInstanceOf!(Nullable, T)) {
 		if (deserializer.tryReadNull()) return T.init;
 		return T(deserializeImpl!(typeof(T.init.get()), Policy, Serializer, ATTRIBUTES)(deserializer));
-	} else static if (__VERSION__ >= 2067 && is(T == BitFlags!E, E)) {
+	} else static if (is(T == BitFlags!E, E)) {
 		T ret;
 		deserializer.readArray!(E[])((sz) {}, {
 			ret |= deserializeImpl!(E, Policy, Serializer, ATTRIBUTES)(deserializer);
@@ -1125,7 +1125,8 @@ unittest { // basic serialization behavior
 	test(12.0f, "V(f)(12)");
 	assert(serialize!TestSerializer(null) ==  "null");
 	test(["hello", "world"], "A(AAya)[2][AE(Aya,0)(V(Aya)(hello))AE(Aya,0)AE(Aya,1)(V(Aya)(world))AE(Aya,1)]A(AAya)");
-	test(["hello": "world"], "D(HAyaAya){DE(Aya,hello)(V(Aya)(world))DE(Aya,hello)}D(HAyaAya)");
+	string mangleOfAA = (string[string]).mangleof;
+	test(["hello": "world"], "D(" ~ mangleOfAA ~ "){DE(Aya,hello)(V(Aya)(world))DE(Aya,hello)}D(" ~ mangleOfAA ~ ")");
 	test(cast(int*)null, "null");
 	int i = 42;
 	test(&i, "V(i)(42)");
@@ -1275,7 +1276,6 @@ unittest // Make sure serializing through properties still works
 	assert(s.serializeToJson().deserializeJson!S() == s);
 }
 
-static if (__VERSION__ >= 2067)
 unittest { // test BitFlags serialization
 	import std.typecons : BitFlags;
 

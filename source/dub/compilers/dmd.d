@@ -12,7 +12,6 @@ import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
-import dub.platform;
 
 import std.algorithm;
 import std.array;
@@ -20,7 +19,6 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.process;
-import std.random;
 import std.typecons;
 
 
@@ -117,7 +115,7 @@ class DMDCompiler : Compiler {
 		}
 
 		version (Posix) {
-			if (settings.targetType == TargetType.dynamicLibrary)
+			if (settings.options & BuildOption.pic)
 				settings.addDFlags("-fPIC");
 		}
 
@@ -194,7 +192,7 @@ class DMDCompiler : Compiler {
 		}
 
 		if (tpath is null)
-			tpath = (Path(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
 		settings.addDFlags("-of"~tpath);
 	}
 
@@ -212,7 +210,7 @@ class DMDCompiler : Compiler {
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
 		import std.string;
-		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
+		auto tpath = NativePath(settings.targetPath) ~ getTargetFileName(settings, platform);
 		auto args = ["-of"~tpath.toNativeString()];
 		args ~= objects;
 		args ~= settings.sourceFiles;

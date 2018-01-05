@@ -1,4 +1,4 @@
 {
     "name": "issue616-subsubpack",
-    "targetType": "executable"
+    "targetType": "library"
 }

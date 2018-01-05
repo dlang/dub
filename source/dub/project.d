@@ -20,18 +20,12 @@ import dub.packagemanager;
 import dub.packagesupplier;
 import dub.generators.generator;
 
-
-// todo: cleanup imports.
 import std.algorithm;
 import std.array;
-import std.conv;
+import std.conv : to;
 import std.datetime;
-import std.exception;
-import std.file;
-import std.process;
+import std.exception : enforce;
 import std.string;
-import std.typecons;
-import std.zip;
 import std.encoding : sanitize;
 
 /**
@@ -62,7 +56,7 @@ class Project {
 			project_path = Path of the root package to load
 			pack = An existing `Package` instance to use as the root package
 	*/
-	this(PackageManager package_manager, Path project_path)
+	this(PackageManager package_manager, NativePath project_path)
 	{
 		Package pack;
 		auto packageFile = Package.findPackageFile(project_path);
@@ -268,8 +262,40 @@ class Project {
 					d.name, SelectedVersions.defaultFile);
 			}
 
+		// search for orphan sub configurations
+		void warnSubConfig(string pack, string config) {
+			logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+				~ "references a package that is not specified as a dependency "
+				~ "and will have no effect.", pack, config);
+		}
+		void checkSubConfig(string pack, string config) {
+			auto p = getDependency(pack, true);
+			if (p && !p.configurations.canFind(config)) {
+				logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+					~ "references a configuration that does not exist.",
+					pack, config);
+			}
+		}
+		auto globalbs = m_rootPackage.getBuildSettings();
+		foreach (p, c; globalbs.subConfigurations) {
+			if (p !in globalbs.dependencies) warnSubConfig(p, c);
+			else checkSubConfig(p, c);
+		}
+		foreach (c; m_rootPackage.configurations) {
+			auto bs = m_rootPackage.getBuildSettings(c);
+			foreach (p, c; bs.subConfigurations) {
+				if (p !in bs.dependencies && p !in globalbs.dependencies)
+					warnSubConfig(p, c);
+				else checkSubConfig(p, c);
+			}
+		}
+
+		// check for version specification mismatches
 		bool[Package] visited;
 		void validateDependenciesRec(Package pack) {
+			// perform basic package linting
+			pack.simpleLint();
+
 			foreach (d; pack.getAllDependencies()) {
 				auto basename = getBasePackageName(d.name);
 				if (m_selections.hasSelectedVersion(basename)) {
@@ -280,7 +306,7 @@ class Project {
 					}
 				}
 
-				auto deppack = getDependency(name, true);
+				auto deppack = getDependency(d.name, true);
 				if (deppack in visited) continue;
 				visited[deppack] = true;
 				if (deppack) validateDependenciesRec(deppack);
@@ -330,7 +356,7 @@ class Project {
 					else {
 						auto path = vspec.path;
 						if (!path.absolute) path = m_rootPackage.path ~ path;
-						p = m_packageManager.getOrLoadPackage(path, Path.init, true);
+						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
 						if (subname.length) p = m_packageManager.getSubPackage(p, subname, true);
 					}
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
@@ -345,10 +371,10 @@ class Project {
 				}
 
 				if (!p && !vspec.path.empty) {
-					Path path = vspec.path;
+					NativePath path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
-					p = m_packageManager.getOrLoadPackage(path, Path.init, true);
+					p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
 					if (p.parentPackage !is null) {
 						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
 						p = p.parentPackage;
@@ -1099,6 +1125,7 @@ class Project {
 	}
 
 	private void writeDubJson() {
+		import std.file : exists, mkdir;
 		// don't bother to write an empty file
 		if( m_packageSettings.length == 0 ) return;
 
@@ -1209,7 +1236,7 @@ private string processVars(string var, in Project project, in Package pack, bool
 		var = vres.data;
 	}
 	if (is_path) {
-		auto p = Path(var);
+		auto p = NativePath(var);
 		if (!p.absolute) {
 			return (pack.path ~ p).toNativeString();
 		} else return p.toNativeString();
@@ -1218,6 +1245,7 @@ private string processVars(string var, in Project project, in Package pack, bool
 
 private string getVariable(string name, in Project project, in Package pack)
 {
+	import std.process : environment;
 	if (name == "PACKAGE_DIR") return pack.path.toNativeString();
 	if (name == "ROOT_PACKAGE_DIR") return project.rootPackage.path.toNativeString();
 
@@ -1271,7 +1299,7 @@ final class SelectedVersions {
 
 	/** Constructs a new version selections from an existing JSON file.
 	*/
-	this(Path path)
+	this(NativePath path)
 	{
 		auto json = jsonFromFile(path);
 		deserialize(json);
@@ -1314,7 +1342,7 @@ final class SelectedVersions {
 	}
 
 	/// Selects a certain path for a specific package.
-	void selectVersion(string package_id, Path path)
+	void selectVersion(string package_id, NativePath path)
 	{
 		if (auto ps = package_id in m_selections) {
 			if (ps.dep == Dependency(path))
@@ -1356,7 +1384,7 @@ final class SelectedVersions {
 		should be used as the file name and the directory should be the root
 		directory of the project's root package.
 	*/
-	void save(Path path)
+	void save(NativePath path)
 	{
 		Json json = serialize();
 		auto file = openFile(path, FileMode.createTrunc);
@@ -1395,7 +1423,7 @@ final class SelectedVersions {
 		if (j.type == Json.Type.string)
 			return Dependency(Version(j.get!string));
 		else if (j.type == Json.Type.object)
-			return Dependency(Path(j["path"].get!string));
+			return Dependency(NativePath(j["path"].get!string));
 		else throw new Exception(format("Unexpected type for dependency: %s", j.type));
 	}
 

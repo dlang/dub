@@ -12,7 +12,6 @@ import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
-import dub.platform;
 
 import std.algorithm;
 import std.array;
@@ -20,7 +19,6 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.process;
-import std.random;
 import std.typecons;
 
 
@@ -117,7 +115,7 @@ class LDCCompiler : Compiler {
 			settings.lflags = null;
 		}
 
-		if (settings.targetType == TargetType.dynamicLibrary)
+		if (settings.options & BuildOption.pic)
 			settings.addDFlags("-relocation-model=pic");
 
 		assert(fields & BuildSetting.dflags);
@@ -197,7 +195,7 @@ class LDCCompiler : Compiler {
 		}
 
 		if (tpath is null)
-			tpath = (Path(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
 		settings.addDFlags("-of"~tpath);
 	}
 

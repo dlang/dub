@@ -60,8 +60,8 @@ static immutable FilenameAndFormat[] packageInfoFiles = [
 */
 class Package {
 	private {
-		Path m_path;
-		Path m_infoFile;
+		NativePath m_path;
+		NativePath m_infoFile;
 		PackageRecipe m_info;
 		PackageRecipe m_rawRecipe;
 		Package m_parentPackage;
@@ -79,7 +79,7 @@ class Package {
 				instead of the one declared in the package recipe, or the one
 				determined by invoking the VCS (GIT currently).
 	*/
-	this(Json json_recipe, Path root = Path(), Package parent = null, string version_override = "")
+	this(Json json_recipe, NativePath root = NativePath(), Package parent = null, string version_override = "")
 	{
 		import dub.recipe.json;
 
@@ -88,7 +88,7 @@ class Package {
 		this(recipe, root, parent, version_override);
 	}
 	/// ditto
-	this(PackageRecipe recipe, Path root = Path(), Package parent = null, string version_override = "")
+	this(PackageRecipe recipe, NativePath root = NativePath(), Package parent = null, string version_override = "")
 	{
 		// save the original recipe
 		m_rawRecipe = recipe.clone;
@@ -117,7 +117,6 @@ class Package {
 		m_info = recipe;
 
 		fillWithDefaults();
-		simpleLint();
 	}
 
 	/** Searches the given directory for package recipe files.
@@ -129,13 +128,13 @@ class Package {
 			Returns the full path to the package file, if any was found.
 			Otherwise returns an empty path.
 	*/
-	static Path findPackageFile(Path directory)
+	static NativePath findPackageFile(NativePath directory)
 	{
 		foreach (file; packageInfoFiles) {
 			auto filename = directory ~ file.filename;
 			if (existsFile(filename)) return filename;
 		}
-		return Path.init;
+		return NativePath.init;
 	}
 
 	/** Constructs a `Package` using a package that is physically present on the local file system.
@@ -150,7 +149,7 @@ class Package {
 				instead of the one declared in the package recipe, or the one
 				determined by invoking the VCS (GIT currently).
 	*/
-	static Package load(Path root, Path recipe_file = Path.init, Package parent = null, string version_override = "")
+	static Package load(NativePath root, NativePath recipe_file = NativePath.init, Package parent = null, string version_override = "")
 	{
 		import dub.recipe.io;
 
@@ -184,7 +183,7 @@ class Package {
 		Note that this can be empty for packages that are not stored in the
 		local file system.
 	*/
-	@property Path path() const { return m_path; }
+	@property NativePath path() const { return m_path; }
 
 
 	/** Accesses the version associated with this package.
@@ -219,7 +218,7 @@ class Package {
 		Note that this can be empty for packages that are not stored in the
 		local file system.
 	*/
-	@property Path recipePath() const { return m_infoFile; }
+	@property NativePath recipePath() const { return m_infoFile; }
 
 
 	/** Returns the base package of this package.
@@ -266,7 +265,7 @@ class Package {
 		m_infoFile = m_path ~ defaultPackageFilename;
 	}
 	/// ditto
-	void storeInfo(Path path)
+	void storeInfo(NativePath path)
 	const {
 		enforce(!version_.isUnknown, "Trying to store a package with an 'unknown' version, this is not supported.");
 		auto filename = path ~ defaultPackageFilename;
@@ -500,7 +499,7 @@ class Package {
 		This includes dependencies that are declared at the root level of the
 		package recipe, as well as those declared within the specified
 		configuration. If no configuration with the given name exists, only
-		dependencies declared at the root level will be retunred.
+		dependencies declared at the root level will be returned.
 
 		See_Also: `hasDependency`
 	*/
@@ -527,12 +526,22 @@ class Package {
 	PackageDependency[] getAllDependencies()
 	const {
 		auto ret = appender!(PackageDependency[]);
-		foreach (n, d; this.recipe.buildSettings.dependencies)
-			ret ~= PackageDependency(n, d);
-		foreach (ref c; this.recipe.configurations)
-			foreach (n, d; c.buildSettings.dependencies)
-				ret ~= PackageDependency(n, d);
+		getAllDependenciesRange().copy(ret);
 		return ret.data;
+	}
+
+	// Left as package until the final API for this has been found
+	package auto getAllDependenciesRange()
+	const {
+		return this.recipe.buildSettings.dependencies.byKeyValue
+			.map!(bs => PackageDependency(bs.key, bs.value))
+			.chain(
+				this.recipe.configurations
+					.map!(c => c.buildSettings.dependencies.byKeyValue
+						.map!(bs => PackageDependency(bs.key, bs.value))
+					)
+					.joiner()
+			);
 	}
 
 
@@ -641,7 +650,7 @@ class Package {
 			if( !existsFile(p) ) continue;
 			foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
 				if( existsFile(p ~ fil) ) {
-					app_main_file = (Path(sf) ~ fil).toNativeString();
+					app_main_file = (NativePath(sf) ~ fil).toNativeString();
 					break;
 				}
 			}
@@ -674,7 +683,7 @@ class Package {
 		}
 	}
 
-	private void simpleLint()
+	package void simpleLint()
 	const {
 		if (m_parentPackage) {
 			if (m_parentPackage.path != path) {
@@ -693,7 +702,7 @@ class Package {
 	}
 }
 
-private string determineVersionFromSCM(Path path)
+private string determineVersionFromSCM(NativePath path)
 {
 	// On Windows, which is slow at running external processes,
 	// cache the version numbers that are determined using
@@ -741,7 +750,7 @@ private string determineVersionFromSCM(Path path)
 
 // determines the version of a package that is stored in a GIT working copy
 // by invoking the "git" executable
-private string determineVersionWithGIT(Path path)
+private string determineVersionWithGIT(NativePath path)
 {
 	import std.process;
 	import dub.semver;

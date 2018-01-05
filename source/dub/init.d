@@ -38,7 +38,7 @@ import std.string;
 			package recipe and the file format used to store it prior to
 			writing it to disk.
 */
-void initPackage(Path root_path, string[string] deps, string type,
+void initPackage(NativePath root_path, string[string] deps, string type,
 	PackageFormat format, scope RecipeCallback recipe_callback = null)
 {
 	import std.conv : to;
@@ -87,12 +87,12 @@ void initPackage(Path root_path, string[string] deps, string type,
 	}
 
 	writePackageRecipe(root_path ~ ("dub."~format.to!string), p);
-	writeGitignore(root_path);
+	writeGitignore(root_path, p);
 }
 
 alias RecipeCallback = void delegate(ref PackageRecipe, ref PackageFormat);
 
-private void initMinimalPackage(Path root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
+private void initMinimalPackage(NativePath root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
 {
 	p.description = "A minimal D application.";
 	pre_write_callback();
@@ -108,7 +108,7 @@ void main()
 });
 }
 
-private void initVibeDPackage(Path root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
+private void initVibeDPackage(NativePath root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
 {
 	if ("vibe-d" !in p.buildSettings.dependencies)
 		p.buildSettings.dependencies["vibe-d"] = Dependency("~>0.7.30");
@@ -139,7 +139,7 @@ void hello(HTTPServerRequest req, HTTPServerResponse res)
 });
 }
 
-private void initDeimosPackage(Path root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
+private void initDeimosPackage(NativePath root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
 {
 	import dub.compilers.buildsettings : TargetType;
 
@@ -153,10 +153,24 @@ private void initDeimosPackage(Path root_path, ref PackageRecipe p, scope void d
 	createDirectory(root_path ~ "deimos");
 }
 
-private void writeGitignore(Path root_path)
+private void writeGitignore(NativePath root_path, PackageRecipe p)
 {
 	write((root_path ~ ".gitignore").toNativeString(),
-		".dub\ndocs.json\n__dummy.html\n*.o\n*.obj\n__test__*__\n");
+q"{.dub
+docs.json
+__dummy.html
+docs/
+%1$s.so
+%1$s.dylib
+%1$s.dll
+%1$s.a
+%1$s.lib
+%1$s-test-*
+*.exe
+*.o
+*.obj
+*.lst
+}".format(p.name));
 }
 
 private string getUserName()
@@ -168,6 +182,8 @@ private string getUserName()
 		import core.sys.posix.pwd, core.sys.posix.unistd, core.stdc.string : strlen;
 		import std.algorithm : splitter;
 
+		// Bionic doesn't have pw_gecos on ARM
+		version(CRuntime_Bionic) {} else
 		if (auto pw = getpwuid(getuid))
 		{
 			auto uinfo = pw.pw_gecos[0 .. strlen(pw.pw_gecos)].splitter(',');

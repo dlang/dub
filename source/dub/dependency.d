@@ -44,7 +44,7 @@ struct PackageDependency {
 	package name is notably not part of the dependency specification.
 */
 struct Dependency {
-@trusted: // Too many issues on DMD 2.065.0 to annotate with @safe
+@safe:
 
 	private {
 		// Shortcut to create >=0.0.0
@@ -53,7 +53,7 @@ struct Dependency {
 		Version m_versA;
 		bool m_inclusiveB = true; // B comparison < (true) or <= (false)
 		Version m_versB;
-		Path m_path;
+		NativePath m_path;
 		bool m_optional = false;
 		bool m_default = false;
 	}
@@ -87,16 +87,16 @@ struct Dependency {
 	/** Constructs a new dependency specification that matches a specific
 		path.
 	*/
-	this(Path path)
+	this(NativePath path)
 	{
 		this(ANY_IDENT);
 		m_path = path;
 	}
 
 	/// If set, overrides any version based dependency selection.
-	@property void path(Path value) { m_path = value; }
+	@property void path(NativePath value) { m_path = value; }
 	/// ditto
-	@property Path path() const { return m_path; }
+	@property NativePath path() const { return m_path; }
 
 	/// Determines if the dependency is required or optional.
 	@property bool optional() const { return m_optional; }
@@ -153,7 +153,7 @@ struct Dependency {
 			m_inclusiveB = false;
 			ves = ves[2..$];
 			m_versA = Version(expandVersion(ves));
-			m_versB = Version(bumpVersion(ves));
+			m_versB = Version(bumpVersion(ves) ~ "-0");
 		} else if (ves[0] == Version.branchPrefix) {
 			m_inclusiveA = true;
 			m_inclusiveB = true;
@@ -222,7 +222,7 @@ struct Dependency {
 			foreach (i; 0 .. 3) {
 				auto vp = parts[0 .. i+1].join(".");
 				auto ve = Version(expandVersion(vp));
-				auto veb = Version(expandVersion(bumpVersion(vp)));
+				auto veb = Version(bumpVersion(vp) ~ "-0");
 				if (ve == m_versA && veb == m_versB) return "~>" ~ vp;
 			}
 		}
@@ -239,8 +239,8 @@ struct Dependency {
 		based. Otherwise, the given `path` will be prefixed to the existing
 		path.
 	*/
-	Dependency mapToPath(Path path)
-	const {
+	Dependency mapToPath(NativePath path)
+	const @trusted { // NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
 		if (m_path.empty || m_path.absolute) return this;
 		else {
 			Dependency ret = this;
@@ -259,7 +259,12 @@ struct Dependency {
 			if (default_) ret ~= " (optional, default)";
 			else ret ~= " (optional)";
 		}
-		if (!path.empty) ret ~= " @"~path.toNativeString();
+
+		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
+		() @trusted {
+			if (!path.empty) ret ~= " @"~path.toNativeString();
+		} ();
+
 		return ret;
 	}
 
@@ -270,7 +275,8 @@ struct Dependency {
 		represented as a JSON object with optional "version", "path", "optional"
 		and "default" fields.
 	*/
-	Json toJson() const {
+	Json toJson()
+	const @trusted { // NOTE Path and Json is @system in vibe.d 0.7.x and in the compatibility layer
 		Json json;
 		if( path.empty && !optional ){
 			json = Json(this.versionSpec);
@@ -284,7 +290,7 @@ struct Dependency {
 		return json;
 	}
 
-	unittest {
+	@trusted unittest {
 		Dependency d = Dependency("==1.0.0");
 		assert(d.toJson() == Json("1.0.0"), "Failed: " ~ d.toJson().toPrettyString());
 		d = fromJson((fromJson(d.toJson())).toJson());
@@ -296,7 +302,8 @@ struct Dependency {
 
 		See `toJson` for a description of the JSON format.
 	*/
-	static Dependency fromJson(Json verspec) {
+	static Dependency fromJson(Json verspec)
+	@trusted { // NOTE Path and Json is @system in vibe.d 0.7.x and in the compatibility layer
 		Dependency dep;
 		if( verspec.type == Json.Type.object ){
 			if( auto pp = "path" in verspec ) {
@@ -304,7 +311,7 @@ struct Dependency {
 					logDiagnostic("Ignoring version specification (%s) for path based dependency %s", pv.get!string, pp.get!string);
 
 				dep = Dependency.any;
-				dep.path = Path(verspec["path"].get!string);
+				dep.path = NativePath(verspec["path"].get!string);
 			} else {
 				enforce("version" in verspec, "No version field specified!");
 				auto ver = verspec["version"].get!string;
@@ -321,7 +328,7 @@ struct Dependency {
 		return dep;
 	}
 
-	unittest {
+	@trusted unittest {
 		assert(fromJson(parseJsonString("\">=1.0.0 <2.0.0\"")) == Dependency(">=1.0.0 <2.0.0"));
 		Dependency parsed = fromJson(parseJsonString(`
 		{
@@ -334,7 +341,7 @@ struct Dependency {
 		Dependency d = Dependency.any; // supposed to ignore the version spec
 		d.optional = true;
 		d.default_ = true;
-		d.path = Path("path/to/package");
+		d.path = NativePath("path/to/package");
 		assert(d == parsed);
 		// optional and path not checked by opEquals.
 		assert(d.optional == parsed.optional);
@@ -367,11 +374,17 @@ struct Dependency {
 	}
 
 	/// ditto
-	hash_t toHash() const nothrow @trusted  {
+	hash_t toHash()
+	const nothrow @trusted  {
 		try {
-			auto strhash = &typeid(string).getHash;
-			auto str = this.toString();
-			return strhash(&str);
+			size_t hash = 0;
+			hash = m_inclusiveA.hashOf(hash);
+			hash = m_versA.toString().hashOf(hash);
+			hash = m_inclusiveB.hashOf(hash);
+			hash = m_versB.toString().hashOf(hash);
+			hash = m_optional.hashOf(hash);
+			hash = m_default.hashOf(hash);
+			return hash;
 		} catch (Exception) assert(false);
 	}
 
@@ -387,11 +400,18 @@ struct Dependency {
 
 		This is true in particular for the `any` constant.
 	*/
-	bool matchesAny() const {
-		auto cmp = Dependency("*");
-		cmp.optional = m_optional;
-		cmp.default_ = m_default;
-		return cmp == this;
+	bool matchesAny()
+	const {
+		return m_inclusiveA && m_inclusiveB
+			&& m_versA.toString() == "0.0.0"
+			&& m_versB == Version.maxRelease;
+	}
+
+	unittest {
+		assert(Dependency("*").matchesAny);
+		assert(!Dependency(">0.0.0").matchesAny);
+		assert(!Dependency(">=1.0.0").matchesAny);
+		assert(!Dependency("<1.0.0").matchesAny);
 	}
 
 	/** Tests if the specification matches a specific version.
@@ -427,20 +447,20 @@ struct Dependency {
 	const {
 		if (this.matchesAny) return o;
 		if (o.matchesAny) return this;
-		if (!this.valid || !o.valid) return invalid;
 		if (m_versA.isBranch != o.m_versA.isBranch) return invalid;
 		if (m_versB.isBranch != o.m_versB.isBranch) return invalid;
 		if (m_versA.isBranch) return m_versA == o.m_versA ? this : invalid;
-		if (this.path != o.path) return invalid;
+		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
+		if (() @trusted { return this.path != o.path; } ()) return invalid;
 
-		Version a = m_versA > o.m_versA ? m_versA : o.m_versA;
-		Version b = m_versB < o.m_versB ? m_versB : o.m_versB;
+		int acmp = m_versA.opCmp(o.m_versA);
+		int bcmp = m_versB.opCmp(o.m_versB);
 
 		Dependency d = this;
-		d.m_inclusiveA = !m_inclusiveA && m_versA >= o.m_versA ? false : o.m_inclusiveA;
-		d.m_versA = a;
-		d.m_inclusiveB = !m_inclusiveB && m_versB <= o.m_versB ? false : o.m_inclusiveB;
-		d.m_versB = b;
+		d.m_inclusiveA = !m_inclusiveA && acmp >= 0 ? false : o.m_inclusiveA;
+		d.m_versA = acmp > 0 ? m_versA : o.m_versA;
+		d.m_inclusiveB = !m_inclusiveB && bcmp <= 0 ? false : o.m_inclusiveB;
+		d.m_versB = bcmp < 0 ? m_versB : o.m_versB;
 		d.m_optional = m_optional && o.m_optional;
 		if (!d.valid) return invalid;
 
@@ -555,16 +575,18 @@ unittest {
 
 	// Approximate versions.
 	a = Dependency("~>3.0");
-	b = Dependency(">=3.0.0 <4.0.0");
+	b = Dependency(">=3.0.0 <4.0.0-0");
 	assert(a == b, "Testing failed: " ~ a.toString());
 	assert(a.matches(Version("3.1.146")), "Failed: Match 3.1.146 with ~>0.1.2");
 	assert(!a.matches(Version("0.2.0")), "Failed: Match 0.2.0 with ~>0.1.2");
+	assert(!a.matches(Version("4.0.0-beta.1")));
 	a = Dependency("~>3.0.0");
-	assert(a == Dependency(">=3.0.0 <3.1.0"), "Testing failed: " ~ a.toString());
+	assert(a == Dependency(">=3.0.0 <3.1.0-0"), "Testing failed: " ~ a.toString());
 	a = Dependency("~>3.5");
-	assert(a == Dependency(">=3.5.0 <4.0.0"), "Testing failed: " ~ a.toString());
+	assert(a == Dependency(">=3.5.0 <4.0.0-0"), "Testing failed: " ~ a.toString());
 	a = Dependency("~>3.5.0");
-	assert(a == Dependency(">=3.5.0 <3.6.0"), "Testing failed: " ~ a.toString());
+	assert(a == Dependency(">=3.5.0 <3.6.0-0"), "Testing failed: " ~ a.toString());
+	assert(!Dependency("~>3.0.0").matches(Version("3.1.0-beta")));
 
 	a = Dependency("~>0.1.1");
 	b = Dependency("==0.1.0");
@@ -573,9 +595,11 @@ unittest {
 	assert(a.merge(b).valid);
 	b = Dependency("==0.2.0");
 	assert(!a.merge(b).valid);
+	b = Dependency("==0.2.0-beta.1");
+	assert(!a.merge(b).valid);
 
 	a = Dependency("~>1.0.1-beta");
-	b = Dependency(">=1.0.1-beta <1.1.0");
+	b = Dependency(">=1.0.1-beta <1.1.0-0");
 	assert(a == b, "Testing failed: " ~ a.toString());
 	assert(a.matches(Version("1.0.1-beta")));
 	assert(a.matches(Version("1.0.1-beta.6")));
@@ -636,24 +660,24 @@ unittest {
 struct Version {
 @safe:
 	private {
-		enum MAX_VERS = "99999.0.0";
-		enum UNKNOWN_VERS = "unknown";
+		static immutable MAX_VERS = "99999.0.0";
+		static immutable UNKNOWN_VERS = "unknown";
+		static immutable masterString = "~master";
 		enum branchPrefix = '~';
-		enum masterString = "~master";
 		string m_version;
 	}
 
-	static @property Version minRelease() { return Version("0.0.0"); }
-	static @property Version maxRelease() { return Version(MAX_VERS); }
-	static @property Version masterBranch() { return Version(masterString); }
-	static @property Version unknown() { return Version(UNKNOWN_VERS); }
+	static immutable Version minRelease = Version("0.0.0");
+	static immutable Version maxRelease = Version(MAX_VERS);
+	static immutable Version masterBranch = Version(masterString);
+	static immutable Version unknown = Version(UNKNOWN_VERS);
 
 	/** Constructs a new `Version` from its string representation.
 	*/
 	this(string vers)
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		if (vers[0] != branchPrefix && vers != UNKNOWN_VERS)
+		if (vers[0] != branchPrefix && vers.ptr !is UNKNOWN_VERS.ptr)
 			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
 		m_version = vers;
 	}
@@ -665,15 +689,10 @@ struct Version {
 	*/
 	static Version fromString(string vers) { return Version(vers); }
 
-	bool opEquals(const Version oth) const {
-		if (isUnknown || oth.isUnknown) {
-			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, oth));
-		}
-		return opCmp(oth) == 0;
-	}
+	bool opEquals(const Version oth) const { return opCmp(oth) == 0; }
 
 	/// Tests if this represents a branch instead of a version.
-	@property bool isBranch() const { return !m_version.empty && m_version[0] == branchPrefix; }
+	@property bool isBranch() const { return m_version.length > 0 && m_version[0] == branchPrefix; }
 
 	/// Tests if this represents the master branch "~master".
 	@property bool isMaster() const { return m_version == masterString; }

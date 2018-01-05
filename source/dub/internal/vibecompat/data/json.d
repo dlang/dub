@@ -1915,7 +1915,7 @@ private void jsonEscape(bool escape_unicode = false, R)(ref R dst, string s)
 						char[13] buf;
 						int len;
 						dchar codepoint = decode(s, pos);
-						import std.c.stdio : sprintf;
+						import core.stdc.stdio : sprintf;
 						/* codepoint is in BMP */
 						if(codepoint < 0x10000)
 						{
@@ -2102,15 +2102,13 @@ package template isJsonSerializable(T) { enum isJsonSerializable = is(typeof(T.i
 
 private void enforceJson(string file = __FILE__, size_t line = __LINE__)(bool cond, lazy string message = "JSON exception")
 {
-	static if (__VERSION__ >= 2065) enforceEx!JSONException(cond, message, file, line);
-	else if (!cond) throw new JSONException(message);
+	enforceEx!JSONException(cond, message, file, line);
 }
 
 private void enforceJson(string file = __FILE__, size_t line = __LINE__)(bool cond, lazy string message, string err_file, int err_line)
 {
 	auto errmsg() { return format("%s(%s): Error: %s", err_file, err_line+1, message); }
-	static if (__VERSION__ >= 2065) enforceEx!JSONException(cond, errmsg, file, line);
-	else if (!cond) throw new JSONException(errmsg);
+	enforceEx!JSONException(cond, errmsg, file, line);
 }
 
 private void enforceJson(string file = __FILE__, size_t line = __LINE__)(bool cond, lazy string message, string err_file, int* err_line)

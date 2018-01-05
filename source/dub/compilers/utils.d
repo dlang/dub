@@ -8,7 +8,7 @@
 module dub.compilers.utils;
 
 import dub.compilers.buildsettings;
-import dub.platform;
+import dub.platform : BuildPlatform, archCheck, compilerCheck, platformCheck;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
 import std.algorithm : canFind, endsWith, filter;
@@ -175,7 +175,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 		{["-debug="], `Use "debugVersions" to specify version constants in a compiler independent way`},
 		{["-I"], `Use "importPaths" to specify import paths in a compiler independent way`},
 		{["-J"], `Use "stringImportPaths" to specify import paths in a compiler independent way`},
-		{["-m32", "-m64", "-m32mscoff"], `Use --arch=x86/--arch=x86_64/--arch=x86_mscoff to specify the target architecture`}
+		{["-m32", "-m64", "-m32mscoff"], `Use --arch=x86/--arch=x86_64/--arch=x86_mscoff to specify the target architecture, e.g. 'dub build --arch=x86_64'`}
 	];
 
 	struct SpecialOption {
@@ -242,116 +242,43 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 
 	See_Also: `readPlatformProbe`
 */
-Path generatePlatformProbeFile()
+NativePath generatePlatformProbeFile()
 {
 	import dub.internal.vibecompat.core.file;
 	import dub.internal.vibecompat.data.json;
 	import dub.internal.utils;
 
-	auto path = getTempFile("dub_platform_probe", ".d");
-
-	auto fil = openFile(path, FileMode.createTrunc);
-	scope (failure) {
-		fil.close();
-	}
-
-	// NOTE: This must be kept in sync with the dub.platform module
-	fil.write(q{
+	// try to not use phobos in the probe to avoid long import times
+	enum probe = q{
 		module dub_platform_probe;
 
 		template toString(int v) { enum toString = v.stringof; }
+		string join(string[] ary, string sep) {
+			string res = ary[0];
+			foreach (e; ary[1 .. $])
+				res ~= sep ~ e;
+			return res;
+		}
 
 		pragma(msg, `{`);
 		pragma(msg,`  "compiler": "`~ determineCompiler() ~ `",`);
 		pragma(msg, `  "frontendVersion": ` ~ toString!__VERSION__ ~ `,`);
 		pragma(msg, `  "compilerVendor": "` ~ __VENDOR__ ~ `",`);
 		pragma(msg, `  "platform": [`);
-		pragma(msg, `    ` ~ determinePlatform());
+		pragma(msg, `    "` ~ determinePlatform().join(`", "`) ~ '"');
 		pragma(msg, `  ],`);
 		pragma(msg, `  "architecture": [`);
-		pragma(msg, `    ` ~ determineArchitecture());
+		pragma(msg, `    "` ~ determineArchitecture().join(`", "`) ~ '"');
 		pragma(msg, `   ],`);
 		pragma(msg, `}`);
 
-		string determinePlatform()
-		{
-			string ret;
-			version(Windows) ret ~= `"windows", `;
-			version(linux) ret ~= `"linux", `;
-			version(Posix) ret ~= `"posix", `;
-			version(OSX) ret ~= `"osx", `;
-			version(FreeBSD) ret ~= `"freebsd", `;
-			version(OpenBSD) ret ~= `"openbsd", `;
-			version(NetBSD) ret ~= `"netbsd", `;
-			version(DragonFlyBSD) ret ~= `"dragonflybsd", `;
-			version(BSD) ret ~= `"bsd", `;
-			version(Solaris) ret ~= `"solaris", `;
-			version(AIX) ret ~= `"aix", `;
-			version(Haiku) ret ~= `"haiku", `;
-			version(SkyOS) ret ~= `"skyos", `;
-			version(SysV3) ret ~= `"sysv3", `;
-			version(SysV4) ret ~= `"sysv4", `;
-			version(Hurd) ret ~= `"hurd", `;
-			version(Android) ret ~= `"android", `;
-			version(Cygwin) ret ~= `"cygwin", `;
-			version(MinGW) ret ~= `"mingw", `;
-			return ret;
-		}
+		string[] determinePlatform() } ~ '{' ~ platformCheck ~ '}' ~ q{
+		string[] determineArchitecture() } ~ '{' ~ archCheck ~ '}' ~ q{
+		string determineCompiler() } ~ '{' ~ compilerCheck ~ '}';
 
-		string determineArchitecture()
-		{
-			string ret;
-			version(X86) ret ~= `"x86", `;
-			version(X86_64) ret ~= `"x86_64", `;
-			version(ARM) ret ~= `"arm", `;
-			version(ARM_Thumb) ret ~= `"arm_thumb", `;
-			version(ARM_SoftFloat) ret ~= `"arm_softfloat", `;
-			version(ARM_HardFloat) ret ~= `"arm_hardfloat", `;
-			version(ARM64) ret ~= `"arm64", `;
-			version(PPC) ret ~= `"ppc", `;
-			version(PPC_SoftFP) ret ~= `"ppc_softfp", `;
-			version(PPC_HardFP) ret ~= `"ppc_hardfp", `;
-			version(PPC64) ret ~= `"ppc64", `;
-			version(IA64) ret ~= `"ia64", `;
-			version(MIPS) ret ~= `"mips", `;
-			version(MIPS32) ret ~= `"mips32", `;
-			version(MIPS64) ret ~= `"mips64", `;
-			version(MIPS_O32) ret ~= `"mips_o32", `;
-			version(MIPS_N32) ret ~= `"mips_n32", `;
-			version(MIPS_O64) ret ~= `"mips_o64", `;
-			version(MIPS_N64) ret ~= `"mips_n64", `;
-			version(MIPS_EABI) ret ~= `"mips_eabi", `;
-			version(MIPS_NoFloat) ret ~= `"mips_nofloat", `;
-			version(MIPS_SoftFloat) ret ~= `"mips_softfloat", `;
-			version(MIPS_HardFloat) ret ~= `"mips_hardfloat", `;
-			version(SPARC) ret ~= `"sparc", `;
-			version(SPARC_V8Plus) ret ~= `"sparc_v8plus", `;
-			version(SPARC_SoftFP) ret ~= `"sparc_softfp", `;
-			version(SPARC_HardFP) ret ~= `"sparc_hardfp", `;
-			version(SPARC64) ret ~= `"sparc64", `;
-			version(S390) ret ~= `"s390", `;
-			version(S390X) ret ~= `"s390x", `;
-			version(HPPA) ret ~= `"hppa", `;
-			version(HPPA64) ret ~= `"hppa64", `;
-			version(SH) ret ~= `"sh", `;
-			version(SH64) ret ~= `"sh64", `;
-			version(Alpha) ret ~= `"alpha", `;
-			version(Alpha_SoftFP) ret ~= `"alpha_softfp", `;
-			version(Alpha_HardFP) ret ~= `"alpha_hardfp", `;
-			return ret;
-		}
-
-		string determineCompiler()
-		{
-			version(DigitalMars) return "dmd";
-			else version(GNU) return "gdc";
-			else version(LDC) return "ldc";
-			else version(SDC) return "sdc";
-			else return null;
-		}
-	});
-
-	fil.close();
+	auto path = getTempFile("dub_platform_probe", ".d");
+	auto fil = openFile(path, FileMode.createTrunc);
+	fil.write(probe);
 
 	return path;
 }

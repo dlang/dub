@@ -14,29 +14,30 @@ import dub.internal.vibecompat.inet.url;
 import dub.compilers.buildsettings : BuildSettings;
 import dub.version_;
 
-// todo: cleanup imports.
-import core.thread;
-import std.algorithm : startsWith;
-import std.array;
-import std.conv;
-import std.exception;
+import core.time : Duration;
+import std.algorithm : canFind, startsWith;
+import std.array : appender;
+import std.conv : to;
+import std.exception : enforce;
 import std.file;
+import std.string : format;
 import std.process;
-import std.string;
 import std.traits : isIntegral;
-import std.typecons;
-import std.zip;
-version(DubUseCurl) import std.net.curl;
-
-
-private Path[] temporary_files;
-
-Path getTempDir()
+version(DubUseCurl)
 {
-	return Path(std.file.tempDir());
+	import std.net.curl;
+	static if (__VERSION__ > 2075) public import std.net.curl : HTTPStatusException;
 }
 
-Path getTempFile(string prefix, string extension = null)
+
+private NativePath[] temporary_files;
+
+NativePath getTempDir()
+{
+	return NativePath(std.file.tempDir());
+}
+
+NativePath getTempFile(string prefix, string extension = null)
 {
 	import std.uuid : randomUUID;
 
@@ -45,32 +46,43 @@ Path getTempFile(string prefix, string extension = null)
 	return path;
 }
 
-// lockfile based on atomic mkdir
-struct LockFile
-{
-	bool opCast(T:bool)() { return !!path; }
-	~this() { if (path) rmdir(path); }
-	string path;
-}
+/**
+   Obtain a lock for a file at the given path. If the file cannot be locked
+   within the given duration, an exception is thrown.  The file will be created
+   if it does not yet exist. Deleting the file is not safe as another process
+   could create a new file with the same name.
+   The returned lock will get unlocked upon destruction.
 
-auto tryLockFile(string path)
+   Params:
+     path = path to file that gets locked
+     timeout = duration after which locking failed
+   Returns:
+     The locked file or an Exception on timeout.
+*/
+auto lockFile(string path, Duration timeout)
 {
-	import std.file;
-	if (collectException(mkdir(path)))
-		return LockFile(null);
-	return LockFile(path);
-}
+	import core.thread : Thread;
+	import std.datetime, std.stdio : File;
+	import std.algorithm : move;
 
-auto lockFile(string path, Duration wait)
-{
-	import std.datetime, std.file;
+	// Just a wrapper to hide (and destruct) the locked File.
+	static struct LockFile
+	{
+		// The Lock can't be unlinked as someone could try to lock an already
+		// opened fd while a new file with the same name gets created.
+		// Exclusive filesystem locks (O_EXCL, mkdir) could be deleted but
+		// aren't automatically freed when a process terminates, see #1149.
+		private File f;
+	}
+
+	auto file = File(path, "w");
 	auto t0 = Clock.currTime();
 	auto dur = 1.msecs;
 	while (true)
 	{
-		if (!collectException(mkdir(path)))
-			return LockFile(path);
-		enforce(Clock.currTime() - t0 < wait, "Failed to lock '"~path~"'.");
+		if (file.tryLock())
+			return LockFile(move(file));
+		enforce(Clock.currTime() - t0 < timeout, "Failed to lock '"~path~"'.");
 		if (dur < 1024.msecs) // exponentially increase sleep time
 			dur *= 2;
 		Thread.sleep(dur);
@@ -87,13 +99,13 @@ static ~this()
 	}
 }
 
-bool isEmptyDir(Path p) {
+bool isEmptyDir(NativePath p) {
 	foreach(DirEntry e; dirEntries(p.toNativeString(), SpanMode.shallow))
 		return false;
 	return true;
 }
 
-bool isWritableDir(Path p, bool create_if_missing = false)
+bool isWritableDir(NativePath p, bool create_if_missing = false)
 {
 	import std.random;
 	auto fname = p ~ format("__dub_write_test_%08X", uniform(0, uint.max));
@@ -104,7 +116,7 @@ bool isWritableDir(Path p, bool create_if_missing = false)
 	return true;
 }
 
-Json jsonFromFile(Path file, bool silent_fail = false) {
+Json jsonFromFile(NativePath file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.emptyObject;
 	auto f = openFile(file.toNativeString(), FileMode.read);
 	scope(exit) f.close();
@@ -112,7 +124,8 @@ Json jsonFromFile(Path file, bool silent_fail = false) {
 	return parseJsonString(text, file.toNativeString());
 }
 
-Json jsonFromZip(Path zip, string filename) {
+Json jsonFromZip(NativePath zip, string filename) {
+	import std.zip : ZipArchive;
 	auto f = openFile(zip, FileMode.read);
 	ubyte[] b = new ubyte[cast(size_t)f.size];
 	f.rawRead(b);
@@ -122,7 +135,7 @@ Json jsonFromZip(Path zip, string filename) {
 	return parseJsonString(text, zip.toNativeString~"/"~filename);
 }
 
-void writeJsonFile(Path path, Json json)
+void writeJsonFile(NativePath path, Json json)
 {
 	auto f = openFile(path, FileMode.createTrunc);
 	scope(exit) f.close();
@@ -130,10 +143,10 @@ void writeJsonFile(Path path, Json json)
 }
 
 /// Performs a write->delete->rename sequence to atomically "overwrite" the destination file
-void atomicWriteJsonFile(Path path, Json json)
+void atomicWriteJsonFile(NativePath path, Json json)
 {
 	import std.random : uniform;
-	auto tmppath = path[0 .. $-1] ~ format("%s.%s.tmp", path.head, uniform(0, int.max));
+	auto tmppath = path.parentPath ~ format("%s.%s.tmp", path.head, uniform(0, int.max));
 	auto f = openFile(tmppath, FileMode.createTrunc);
 	scope (failure) {
 		f.close();
@@ -150,7 +163,7 @@ bool isPathFromZip(string p) {
 	return p[$-1] == '/';
 }
 
-bool existsDirectory(Path path) {
+bool existsDirectory(NativePath path) {
 	if( !existsFile(path) ) return false;
 	auto fi = getFileInfo(path);
 	return fi.isDirectory;
@@ -189,6 +202,38 @@ void runCommands(in string[] commands, string[string] env = null)
 	}
 }
 
+version(DubUseCurl) {
+	/++
+	 Exception thrown on HTTP request failures, e.g. 404 Not Found.
+	 +/
+	static if (__VERSION__ <= 2075) class HTTPStatusException : CurlException
+	{
+		/++
+		 Params:
+		 status = The HTTP status code.
+		 msg  = The message for the exception.
+		 file = The file where the exception occurred.
+		 line = The line number where the exception occurred.
+		 next = The previous exception in the chain of exceptions, if any.
+		 +/
+		@safe pure nothrow
+			this(
+				int status,
+				string msg,
+				string file = __FILE__,
+				size_t line = __LINE__,
+				Throwable next = null)
+		{
+			this.status = status;
+			super(msg, file, line, next);
+		}
+
+		int status; /// The HTTP status code
+	}
+} else version (Have_vibe_d_http) {
+	public import vibe.http.common : HTTPStatusException;
+}
+
 /**
 	Downloads a file from the specified URL.
 
@@ -201,17 +246,26 @@ void download(string url, string filename)
 		auto conn = HTTP();
 		setupHTTPClient(conn);
 		logDebug("Storing %s...", url);
-		std.net.curl.download(url, filename, conn);
-		enforce(conn.statusLine.code < 400,
-			format("Failed to download %s: %s %s",
-				url, conn.statusLine.code, conn.statusLine.reason));
-	} else version (Have_vibe_d) {
+		static if (__VERSION__ <= 2075)
+		{
+			try
+				std.net.curl.download(url, filename, conn);
+			catch (CurlException e)
+			{
+				if (e.msg.canFind("404"))
+					throw new HTTPStatusException(404, e.msg);
+				throw e;
+			}
+		}
+		else
+			std.net.curl.download(url, filename, conn);
+	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		vibe.inet.urltransfer.download(url, filename);
 	} else assert(false);
 }
 /// ditto
-void download(URL url, Path filename)
+void download(URL url, NativePath filename)
 {
 	download(url.toString(), filename.toNativeString());
 }
@@ -222,12 +276,20 @@ ubyte[] download(string url)
 		auto conn = HTTP();
 		setupHTTPClient(conn);
 		logDebug("Getting %s...", url);
-		auto ret = cast(ubyte[])get(url, conn);
-		enforce(conn.statusLine.code < 400,
-			format("Failed to GET %s: %s %s",
-				url, conn.statusLine.code, conn.statusLine.reason));
-		return ret;
-	} else version (Have_vibe_d) {
+		static if (__VERSION__ <= 2075)
+		{
+			try
+				return cast(ubyte[])get(url, conn);
+			catch (CurlException e)
+			{
+				if (e.msg.canFind("404"))
+					throw new HTTPStatusException(404, e.msg);
+				throw e;
+			}
+		}
+		else
+			return cast(ubyte[])get(url, conn);
+	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		import vibe.stream.operations;
 		ubyte[] ret;
@@ -245,6 +307,7 @@ ubyte[] download(URL url)
 string getDUBVersion()
 {
 	import dub.version_;
+	import std.array : split, join;
 	// convert version string to valid SemVer format
 	auto verstr = dubVersion;
 	if (verstr.startsWith("v")) verstr = verstr[1 .. $];
@@ -265,6 +328,11 @@ version(DubUseCurl) {
 
 		auto proxy = environment.get("http_proxy", null);
 		if (proxy.length) conn.proxy = proxy;
+
+		auto noProxy = environment.get("no_proxy", null);
+		if (noProxy.length) conn.handle.set(CurlOption.noproxy, noProxy);
+
+		conn.handle.set(CurlOption.encoding, "");
 
 		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
 	}
@@ -374,25 +442,27 @@ string stripDlangSpecialChars(string s)
 	return ret.data;
 }
 
-string determineModuleName(BuildSettings settings, Path file, Path base_path)
+string determineModuleName(BuildSettings settings, NativePath file, NativePath base_path)
 {
 	import std.algorithm : map;
+	import std.array : array;
+	import std.range : walkLength;
 
 	assert(base_path.absolute);
 	if (!file.absolute) file = base_path ~ file;
 
 	size_t path_skip = 0;
-	foreach (ipath; settings.importPaths.map!(p => Path(p))) {
+	foreach (ipath; settings.importPaths.map!(p => NativePath(p))) {
 		if (!ipath.absolute) ipath = base_path ~ ipath;
 		assert(!ipath.empty);
-		if (file.startsWith(ipath) && ipath.length > path_skip)
-			path_skip = ipath.length;
+		if (file.startsWith(ipath) && ipath.bySegment.walkLength > path_skip)
+			path_skip = ipath.bySegment.walkLength;
 	}
 
 	enforce(path_skip > 0,
 		format("Source file '%s' not found in any import path.", file.toNativeString()));
 
-	auto mpath = file[path_skip .. file.length];
+	auto mpath = file.bySegment.array[path_skip .. $];
 	auto ret = appender!string;
 
 	//search for module keyword in file

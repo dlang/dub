@@ -18,7 +18,6 @@ import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.packagemanager;
 import dub.packagesupplier;
-import dub.platform : determineCompiler;
 import dub.project;
 import dub.internal.utils : getDUBVersion, getClosestMatch;
 
@@ -126,7 +125,6 @@ int runDubCommandLine(string[] args)
 	// parse general options
 	CommonOptions options;
 	LogLevel loglevel = LogLevel.info;
-	options.root_path = getcwd();
 
 	auto common_args = new CommandArgs(args);
 	try {
@@ -136,12 +134,22 @@ int runDubCommandLine(string[] args)
 		else if (options.verbose) loglevel = LogLevel.diagnostic;
 		else if (options.vquiet) loglevel = LogLevel.none;
 		else if (options.quiet) loglevel = LogLevel.warn;
+		else if (options.verror) loglevel = LogLevel.error;
 		setLogLevel(loglevel);
 	} catch (Throwable e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		logInfo("Run 'dub help' for usage information.");
 		return 1;
+	}
+
+	if (options.root_path.empty)
+		options.root_path = getcwd();
+	else
+	{
+		import std.path : absolutePath, buildNormalizedPath;
+
+		options.root_path = options.root_path.absolutePath.buildNormalizedPath;
 	}
 
 	// create the list of all supported commands
@@ -211,8 +219,8 @@ int runDubCommandLine(string[] args)
 	// initialize the root package
 	if (!cmd.skipDubInitialization) {
 		if (options.bare) {
-			dub = new Dub(Path(getcwd()));
-			dub.rootPath = Path(options.root_path);
+			dub = new Dub(NativePath(getcwd()));
+			dub.rootPath = NativePath(options.root_path);
 			dub.defaultPlacementLocation = options.placementLocation;
 		} else {
 			// initialize DUB
@@ -223,7 +231,7 @@ int runDubCommandLine(string[] args)
 
 			// make the CWD package available so that for example sub packages can reference their
 			// parent package.
-			try dub.packageManager.getOrLoadPackage(Path(options.root_path));
+			try dub.packageManager.getOrLoadPackage(NativePath(options.root_path));
 			catch (Exception e) { logDiagnostic("No package found in current working directory."); }
 		}
 	}
@@ -247,7 +255,7 @@ int runDubCommandLine(string[] args)
 /** Contains and parses options common to all commands.
 */
 struct CommonOptions {
-	bool verbose, vverbose, quiet, vquiet;
+	bool verbose, vverbose, quiet, vquiet, verror;
 	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
@@ -261,16 +269,18 @@ struct CommonOptions {
 		args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
 		args.getopt("registry", &registry_urls, ["Search the given DUB registry URL first when resolving dependencies. Can be specified multiple times."]);
 		args.getopt("skip-registry", &skipRegistry, [
-			"Skips searching certain package registries for dependencies:",
-			"  none: Search all configured registries (default)",
-			"  standard: Don't search on "~defaultRegistryURL,
-			"  all: Search none of the configured registries",
+			"Sets a mode for skipping the search on certain package registry types:",
+			"  none: Search all configured or default registries (default)",
+			"  standard: Don't search the main registry (e.g. "~defaultRegistryURL~")",
+			"  configured: Skip all default and user configured registries",
+			"  all: Only search registries specified with --registry",
 			]);
 		args.getopt("annotate", &annotate, ["Do not perform any action, just print what would be done"]);
 		args.getopt("bare", &bare, ["Read only packages contained in the current directory"]);
 		args.getopt("v|verbose", &verbose, ["Print diagnostic output"]);
 		args.getopt("vverbose", &vverbose, ["Print debug output"]);
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
+		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 	}
@@ -496,7 +506,7 @@ class InitCommand : Command {
 			while (true) {
 				// Tries getting the name until a valid one is given.
 				import std.regex;
-				auto nameRegex = regex(`^[a-z\-_]+$`);
+				auto nameRegex = regex(`^[a-z0-9\-_]+$`);
 				string triedName = input("Name", p.name);
 				if (triedName.matchFirst(nameRegex).empty) {
 					logError("Invalid name, \""~triedName~"\", names should consist only of lowercase alphanumeric characters, - and _.");
@@ -537,7 +547,7 @@ class InitCommand : Command {
 				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
 			}
 		}
-		dub.createEmptyPackage(Path(dir), free_args, m_templateType, m_format, &depCallback);
+		dub.createEmptyPackage(NativePath(dir), free_args, m_templateType, m_format, &depCallback);
 
 		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;
@@ -847,6 +857,7 @@ class TestCommand : PackageBuildCommand {
 	private {
 		string m_mainFile;
 		bool m_combined = false;
+		bool m_parallel = false;
 		bool m_force = false;
 	}
 
@@ -885,6 +896,9 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("combined", &m_combined, [
 			"Tries to build the whole project in a single compiler run."
 		]);
+		args.getopt("parallel", &m_parallel, [
+			"Runs multiple compiler instances in parallel, if possible."
+		]);
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
@@ -912,12 +926,13 @@ class TestCommand : PackageBuildCommand {
 		settings.buildMode = m_buildMode;
 		settings.buildSettings = m_buildSettings;
 		settings.combined = m_combined;
+		settings.parallelBuild = m_parallel;
 		settings.force = m_force;
 		settings.tempBuild = m_single;
 		settings.run = true;
 		settings.runArgs = app_args;
 
-		dub.testProject(settings, m_buildConfig, Path(m_mainFile));
+		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
 		return 0;
 	}
 }
@@ -1010,7 +1025,7 @@ class DescribeCommand : PackageBuildCommand {
 
 		// disable all log output to stdout and use "writeln" to output the JSON description
 		auto ll = getLogLevel();
-		setLogLevel(LogLevel.warn);
+		setLogLevel(max(ll, LogLevel.warn));
 		scope (exit) setLogLevel(ll);
 
 		string package_name;
@@ -1180,7 +1195,7 @@ class FetchCommand : FetchRemoveCommand {
 			"Without specified options, placement/removal will default to a user wide shared location.",
 			"",
 			"Complete applications can be retrieved and run easily by e.g.",
-			"$ dub fetch vibelog --local",
+			"$ dub fetch vibelog --cache=local",
 			"$ cd vibelog",
 			"$ dub",
 			"",
@@ -1516,9 +1531,9 @@ class AddOverrideCommand : Command {
 		auto scope_ = m_system ? LocalPackageType.system : LocalPackageType.user;
 		auto pack = free_args[0];
 		auto ver = Dependency(free_args[1]);
-		if (existsFile(Path(free_args[2]))) {
-			auto target = Path(free_args[2]);
-			if (!target.absolute) target = Path(getcwd()) ~ target;
+		if (existsFile(NativePath(free_args[2]))) {
+			auto target = NativePath(free_args[2]);
+			if (!target.absolute) target = NativePath(getcwd()) ~ target;
 			dub.packageManager.addOverride(scope_, pack, ver, target);
 			logInfo("Added override %s %s => %s", pack, ver, target);
 		} else {
@@ -1667,7 +1682,7 @@ class DustmiteCommand : PackageBuildCommand {
 		import std.format : formattedWrite;
 
 		if (m_testPackage.length) {
-			dub = new Dub(Path(getcwd()));
+			dub = new Dub(NativePath(getcwd()));
 
 			setupPackage(dub, m_testPackage);
 			m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
@@ -1696,10 +1711,10 @@ class DustmiteCommand : PackageBuildCommand {
 			}
 		} else {
 			enforceUsage(free_args.length == 1, "Expected destination path.");
-			auto path = Path(free_args[0]);
+			auto path = NativePath(free_args[0]);
 			path.normalize();
-			enforceUsage(path.length > 0, "Destination path must not be empty.");
-			if (!path.absolute) path = Path(getcwd()) ~ path;
+			enforceUsage(!path.empty, "Destination path must not be empty.");
+			if (!path.absolute) path = NativePath(getcwd()) ~ path;
 			enforceUsage(!path.startsWith(dub.rootPath), "Destination path must not be a sub directory of the tested package!");
 
 			setupPackage(dub, null);
@@ -1707,7 +1722,7 @@ class DustmiteCommand : PackageBuildCommand {
 			if (m_buildConfig.empty)
 				m_buildConfig = prj.getDefaultConfiguration(m_buildPlatform);
 
-			void copyFolderRec(Path folder, Path dstfolder)
+			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
 				mkdirRecurse(dstfolder.toNativeString());
 				foreach (de; iterateDirectory(folder.toNativeString())) {
@@ -1726,13 +1741,13 @@ class DustmiteCommand : PackageBuildCommand {
 			}
 
 			static void fixPathDependency(string pack, ref Dependency dep) {
-				if (dep.path.length > 0) {
+				if (!dep.path.empty) {
 					auto mainpack = getBasePackageName(pack);
-					dep.path = Path("../") ~ mainpack;
+					dep.path = NativePath("../") ~ mainpack;
 				}
 			}
 
-			void fixPathDependencies(ref PackageRecipe recipe, Path base_path)
+			void fixPathDependencies(ref PackageRecipe recipe, NativePath base_path)
 			{
 				foreach (name, ref dep; recipe.buildSettings.dependencies)
 					fixPathDependency(name, dep);
@@ -1743,7 +1758,7 @@ class DustmiteCommand : PackageBuildCommand {
 
 				foreach (ref subp; recipe.subPackages)
 					if (subp.path.length) {
-						auto sub_path = base_path ~ Path(subp.path);
+						auto sub_path = base_path ~ NativePath(subp.path);
 						auto pack = prj.packageManager.getOrLoadPackage(sub_path);
 						fixPathDependencies(pack.recipe, sub_path);
 						pack.storeInfo(sub_path);

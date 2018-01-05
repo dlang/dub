@@ -32,8 +32,8 @@ class CMakeGenerator: ProjectGenerator
         auto script = appender!(char[]);
         auto scripts = appender!(string[]);
         bool[string] visited;
-        Path projectRoot = m_project.rootPackage.path;
-        Path cmakeListsPath = projectRoot ~ "CMakeLists.txt";
+        NativePath projectRoot = m_project.rootPackage.path;
+        NativePath cmakeListsPath = projectRoot ~ "CMakeLists.txt";
 
         foreach(name, info; targets)
         {
