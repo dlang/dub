@@ -1,5 +1,6 @@
 *.o
 *.obj
+*~
 
 .dub
 .directory
@@ -26,6 +27,10 @@ __dummy.html
 /test/expected-issue616-output
 /test/describe-project/dummy.dat
 /test/describe-project/dummy-dep1.dat
+/test/*/main/main
+/test/*/*test-library
+/test/*/*test-application
+/test/*/exec-simple
 
 # Ignore coverage files
 cov/

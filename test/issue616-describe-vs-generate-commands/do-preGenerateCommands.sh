@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 if [ -n "${dub_issue616}" ]; then
     echo 'Fail! preGenerateCommands recursion detected!' >&2
     exit 0  # Don't return a non-zero error code here. This way the test gives a better diagnostic.
