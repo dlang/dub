@@ -69,7 +69,7 @@ void initPackage(NativePath root_path, string[string] deps, string type,
 	foreach (fil; packageInfoFiles)
 		enforceDoesNotExist(fil.filename);
 
-	auto files = ["source/", "views/", "public/", "dub.json", ".gitignore"];
+	auto files = ["source/", "views/", "public/", "dub.json"];
 	foreach (fil; files)
 		enforceDoesNotExist(fil);
 
@@ -87,7 +87,7 @@ void initPackage(NativePath root_path, string[string] deps, string type,
 	}
 
 	writePackageRecipe(root_path ~ ("dub."~format.to!string), p);
-	writeGitignore(root_path, p);
+	writeGitignore(root_path, p.name);
 }
 
 alias RecipeCallback = void delegate(ref PackageRecipe, ref PackageFormat);
@@ -153,9 +153,29 @@ private void initDeimosPackage(NativePath root_path, ref PackageRecipe p, scope 
 	createDirectory(root_path ~ "deimos");
 }
 
-private void writeGitignore(NativePath root_path, PackageRecipe p)
+/**
+ * Write the `.gitignore` file to the directory, if it does not already exists
+ *
+ * As `dub` is often used with `git`, adding a `.gitignore` is a nice touch for
+ * most users. However, this file is not mandatory for `dub` to do its job,
+ * so we do not depend on the content.
+ * One important use case we need to support is people running `dub init` on
+ * a Github-initialized repository. Those might already contain a `.gitignore`
+ * (and a README and a LICENSE), thus we should not bail out if the file already
+ * exists, just ignore it.
+ *
+ * Params:
+ *   root_path = The path to the directory hosting the project
+ *   pkg_name = Name of the package, to generate a list of binaries to ignore
+ */
+private void writeGitignore(NativePath root_path, const(char)[] pkg_name)
 {
-	write((root_path ~ ".gitignore").toNativeString(),
+    auto full_path = (root_path ~ ".gitignore").toNativeString();
+
+    if (existsFile(full_path))
+        return;
+
+    write(full_path,
 q"{.dub
 docs.json
 __dummy.html
@@ -170,7 +190,7 @@ docs/
 *.o
 *.obj
 *.lst
-}".format(p.name));
+}".format(pkg_name));
 }
 
 private string getUserName()
