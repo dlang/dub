@@ -106,6 +106,7 @@ class Dub {
 		Project m_project;
 		NativePath m_overrideSearchPath;
 		string m_defaultCompiler;
+		string m_defaultArchitecture;
 	}
 
 	/** The default placement location of fetched packages.
@@ -213,6 +214,8 @@ class Dub {
 		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), m_config);
 
 		determineDefaultCompiler();
+
+		m_defaultArchitecture = m_config.defaultArchitecture;
 	}
 
 	@property void dryRun(bool v) { m_dryRun = v; }
@@ -249,6 +252,13 @@ class Dub {
 		will be used.
 	*/
 	@property string defaultCompiler() const { return m_defaultCompiler; }
+
+	/** Returns the default architecture to use for building D code.
+
+		If set, the "defaultArchitecture" field of the DUB user or system
+		configuration file will be used. Otherwise null will be returned.
+	*/
+	@property string defaultArchitecture() const { return m_defaultArchitecture; }
 
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
@@ -1582,6 +1592,14 @@ private class DubConfig {
 		if (auto pv = "defaultCompiler" in m_data)
 			return pv.get!string;
 		if (m_parentConfig) return m_parentConfig.defaultCompiler;
+		return null;
+	}
+
+	@property string defaultArchitecture()
+	const {
+		if(auto pv = "defaultArchitecture" in m_data)
+			return (*pv).get!string;
+		if (m_parentConfig) return m_parentConfig.defaultArchitecture;
 		return null;
 	}
 }
