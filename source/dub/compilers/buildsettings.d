@@ -10,7 +10,7 @@ module dub.compilers.buildsettings;
 import dub.internal.vibecompat.inet.path;
 
 import std.array : array;
-import std.algorithm : filter;
+import std.algorithm : filter, any;
 import std.path : globMatch;
 import std.typecons : BitFlags;
 
@@ -109,22 +109,16 @@ struct BuildSettings {
 
 private:
 	// Adds vals to arr without adding duplicates.
+	static auto _toAdd(T)(ref string[] arr, in T vals, bool no_duplicates = true)
+	{
+		return no_duplicates
+			? vals.filter!(v => !arr.any!(_ => _==v)).array
+			: vals;
+	}
+
 	static void add(ref string[] arr, in string[] vals, bool no_duplicates = true)
 	{
-		if (!no_duplicates) {
-			arr ~= vals;
-			return;
-		}
-
-		foreach (v; vals) {
-			bool found = false;
-			foreach (i; 0 .. arr.length)
-				if (arr[i] == v) {
-					found = true;
-					break;
-				}
-			if (!found) arr ~= v;
-		}
+		arr ~= _toAdd(arr, vals, no_duplicates);
 	}
 
 	unittest
@@ -138,20 +132,7 @@ private:
 
 	static void prepend(ref string[] arr, in string[] vals, bool no_duplicates = true)
 	{
-		if (!no_duplicates) {
-			arr = vals ~ arr;
-			return;
-		}
-
-		foreach_reverse (v; vals) {
-			bool found = false;
-			foreach (i; 0 .. arr.length)
-				if (arr[i] == v) {
-					found = true;
-					break;
-				}
-			if (!found) arr = v ~ arr;
-		}
+		arr = _toAdd(arr, vals, no_duplicates) ~ arr;
 	}
 
 	unittest
@@ -190,10 +171,7 @@ private:
 	{
 		bool matches(string s)
 		{
-			foreach (p; vals)
-				if (NativePath(s) == NativePath(p) || globMatch(s, p))
-					return true;
-			return false;
+			return vals.any!(_ => NativePath(s) == NativePath(_) || globMatch(s, _));
 		}
 		arr = arr.filter!(s => !matches(s))().array();
 	}
@@ -213,10 +191,7 @@ private:
 	{
 		bool matches(string s)
 		{
-			foreach (p; vals)
-				if (s == p)
-					return true;
-			return false;
+			return vals.any!(_ => _==s);
 		}
 		arr = arr.filter!(s => !matches(s))().array();
 	}
