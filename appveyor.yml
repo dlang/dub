@@ -118,5 +118,5 @@ test_script:
  - echo %Darch%
  - echo %DC%
  - echo %PATH%
- - '%DC% --version'
- - dub test --arch=%Darch% --compiler=%DC%
+ - build.cmd
+ - bin\dub.exe test --arch=%Darch% --compiler=%DC%
