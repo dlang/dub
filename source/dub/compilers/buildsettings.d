@@ -10,7 +10,7 @@ module dub.compilers.buildsettings;
 import dub.internal.vibecompat.inet.path;
 
 import std.array : array;
-import std.algorithm : filter;
+import std.algorithm : filter, any;
 import std.path : globMatch;
 import std.typecons : BitFlags;
 
@@ -108,23 +108,17 @@ struct BuildSettings {
 	void removeOptions(in BuildOptions value) { this.options &= ~value; }
 
 private:
-	// Adds vals to arr without adding duplicates.
-	static void add(ref string[] arr, in string[] vals, bool no_duplicates = true)
+	static auto filterDuplicates(T)(ref string[] arr, in T vals, bool noDuplicates = true)
 	{
-		if (!no_duplicates) {
-			arr ~= vals;
-			return;
-		}
+		return noDuplicates
+			? vals.filter!(filtered => !arr.any!(item => item == filtered)).array
+			: vals;
+	}
 
-		foreach (v; vals) {
-			bool found = false;
-			foreach (i; 0 .. arr.length)
-				if (arr[i] == v) {
-					found = true;
-					break;
-				}
-			if (!found) arr ~= v;
-		}
+	// Append vals to arr without adding duplicates.
+	static void add(ref string[] arr, in string[] vals, bool noDuplicates = true)
+	{
+		arr ~= filterDuplicates(arr, vals, noDuplicates);
 	}
 
 	unittest
@@ -136,22 +130,10 @@ private:
 		assert(ary == ["-dip1000", "-vgc", "-dip1001", "-vgc"]);
 	}
 
-	static void prepend(ref string[] arr, in string[] vals, bool no_duplicates = true)
+	// Prepend arr by vals without adding duplicates.
+	static void prepend(ref string[] arr, in string[] vals, bool noDuplicates = true)
 	{
-		if (!no_duplicates) {
-			arr = vals ~ arr;
-			return;
-		}
-
-		foreach_reverse (v; vals) {
-			bool found = false;
-			foreach (i; 0 .. arr.length)
-				if (arr[i] == v) {
-					found = true;
-					break;
-				}
-			if (!found) arr = v ~ arr;
-		}
+		arr = filterDuplicates(arr, vals, noDuplicates) ~ arr;
 	}
 
 	unittest
@@ -186,16 +168,27 @@ private:
 		assert(ary == ["path/foo.txt", "path2/foo2.txt"]);
 	}
 
-	static void removePaths(ref string[] arr, in string[] vals)
+	static bool pathMatch(string path, string pattern)
+	{
+		import std.functional : memoize;
+		
+		alias nativePath = memoize!((string stringPath) => NativePath(stringPath));
+			
+		return nativePath(path) == nativePath(pattern) || globMatch(path, pattern);
+	}
+
+	static void removeValuesFromArray(alias Match)(ref string[] arr, in string[] vals)
 	{
 		bool matches(string s)
 		{
-			foreach (p; vals)
-				if (NativePath(s) == NativePath(p) || globMatch(s, p))
-					return true;
-			return false;
+			return vals.any!(item => Match(s, item));
 		}
-		arr = arr.filter!(s => !matches(s))().array();
+		arr = arr.filter!(s => !matches(s)).array;
+	}
+
+	static void removePaths(ref string[] arr, in string[] vals)
+	{
+		removeValuesFromArray!(pathMatch)(arr, vals);
 	}
 
 	unittest
@@ -211,14 +204,7 @@ private:
 
 	static void remove(ref string[] arr, in string[] vals)
 	{
-		bool matches(string s)
-		{
-			foreach (p; vals)
-				if (s == p)
-					return true;
-			return false;
-		}
-		arr = arr.filter!(s => !matches(s))().array();
+		removeValuesFromArray!((a, b) => a == b)(arr, vals);
 	}
 
 	unittest
