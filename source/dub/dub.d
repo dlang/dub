@@ -757,12 +757,24 @@ class Dub {
 			return m_packageManager.getPackage(packageId, ver, dstpath);
 		}
 
-		auto path = getTempFile(packageId, ".zip");
-		supplier.fetchPackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
-		scope(exit) std.file.remove(path.toNativeString());
+		foreach_reverse (i; 0..4)
+		{
+			import std.zip : ZipException;
+			try {
+				auto path = getTempFile(packageId, ".zip");
+				supplier.fetchPackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+				scope(exit) std.file.remove(path.toNativeString());
 
-		logDiagnostic("Placing to %s...", placement.toNativeString());
-		return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
+				logDiagnostic("Placing to %s...", placement.toNativeString());
+				return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
+			} catch (ZipException e) {
+				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
+				// rethrow the exception at the end of the loop
+				if (i == 0)
+					throw e;
+			}
+		}
+		assert(0, "Should throw a ZipException instead.");
 	}
 
 	/** Removes a specific locally cached package.

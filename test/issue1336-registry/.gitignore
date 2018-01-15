@@ -1,0 +1,14 @@
+.dub
+docs.json
+__dummy.html
+docs/
+issue1336-registry.so
+issue1336-registry.dylib
+issue1336-registry.dll
+issue1336-registry.a
+issue1336-registry.lib
+issue1336-registry-test-*
+*.exe
+*.o
+*.obj
+*.lst

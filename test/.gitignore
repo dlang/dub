@@ -11,3 +11,5 @@
 custom-unittest/custom-unittest
 path-subpackage-ref/test
 subpackage-ref/test
+
+/test_registry
