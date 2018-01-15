@@ -239,12 +239,19 @@ version(DubUseCurl) {
 
 	Any redirects will be followed until the actual file resource is reached or if the redirection
 	limit of 10 is reached. Note that only HTTP(S) is currently supported.
+
+	The download times out if a connection cannot be established within
+	`timeout` ms, or if the average transfer rate drops below 10 bytes / s for
+	more than `timeout` seconds.  Pass `0` as `timeout` to disable both timeout
+	mechanisms.
+
+	Note: Timeouts are only implemented when curl is used (DubUseCurl).
 */
-void download(string url, string filename)
+void download(string url, string filename, uint timeout = 8)
 {
 	version(DubUseCurl) {
 		auto conn = HTTP();
-		setupHTTPClient(conn);
+		setupHTTPClient(conn, timeout);
 		logDebug("Storing %s...", url);
 		static if (__VERSION__ <= 2075)
 		{
@@ -265,16 +272,16 @@ void download(string url, string filename)
 	} else assert(false);
 }
 /// ditto
-void download(URL url, NativePath filename)
+void download(URL url, NativePath filename, uint timeout = 8)
 {
-	download(url.toString(), filename.toNativeString());
+	download(url.toString(), filename.toNativeString(), timeout);
 }
 /// ditto
-ubyte[] download(string url)
+ubyte[] download(string url, uint timeout = 8)
 {
 	version(DubUseCurl) {
 		auto conn = HTTP();
-		setupHTTPClient(conn);
+		setupHTTPClient(conn, timeout);
 		logDebug("Getting %s...", url);
 		static if (__VERSION__ <= 2075)
 		{
@@ -298,9 +305,9 @@ ubyte[] download(string url)
 	} else assert(false);
 }
 /// ditto
-ubyte[] download(URL url)
+ubyte[] download(URL url, uint timeout = 8)
 {
-	return download(url.toString());
+	return download(url.toString(), timeout);
 }
 
 /// Returns the current DUB version in semantic version format
@@ -321,7 +328,7 @@ string getDUBVersion()
 }
 
 version(DubUseCurl) {
-	void setupHTTPClient(ref HTTP conn)
+	void setupHTTPClient(ref HTTP conn, uint timeout)
 	{
 		static if( is(typeof(&conn.verifyPeer)) )
 			conn.verifyPeer = false;
@@ -333,6 +340,13 @@ version(DubUseCurl) {
 		if (noProxy.length) conn.handle.set(CurlOption.noproxy, noProxy);
 
 		conn.handle.set(CurlOption.encoding, "");
+		if (timeout) {
+			// connection (TLS+TCP) times out after 8s
+			conn.handle.set(CurlOption.connecttimeout, timeout);
+			// transfers time out after 8s below 10 byte/s
+			conn.handle.set(CurlOption.low_speed_limit, 10);
+			conn.handle.set(CurlOption.low_speed_time, 5);
+		}
 
 		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
 	}
