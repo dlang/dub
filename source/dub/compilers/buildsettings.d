@@ -108,17 +108,17 @@ struct BuildSettings {
 	void removeOptions(in BuildOptions value) { this.options &= ~value; }
 
 private:
-	// Adds vals to arr without adding duplicates.
-	static auto _toAdd(T)(ref string[] arr, in T vals, bool no_duplicates = true)
+	static auto filterDuplicates(T)(ref string[] arr, in T vals, bool noDuplicates = true)
 	{
-		return no_duplicates
-			? vals.filter!(v => !arr.any!(_ => _==v)).array
+		return noDuplicates
+			? vals.filter!(filtered => !arr.any!(item => item == filtered)).array
 			: vals;
 	}
 
-	static void add(ref string[] arr, in string[] vals, bool no_duplicates = true)
+	// Append vals to arr without adding duplicates.
+	static void add(ref string[] arr, in string[] vals, bool noDuplicates = true)
 	{
-		arr ~= _toAdd(arr, vals, no_duplicates);
+		arr ~= filterDuplicates(arr, vals, noDuplicates);
 	}
 
 	unittest
@@ -130,9 +130,10 @@ private:
 		assert(ary == ["-dip1000", "-vgc", "-dip1001", "-vgc"]);
 	}
 
-	static void prepend(ref string[] arr, in string[] vals, bool no_duplicates = true)
+	// Prepend arr by vals without adding duplicates.
+	static void prepend(ref string[] arr, in string[] vals, bool noDuplicates = true)
 	{
-		arr = _toAdd(arr, vals, no_duplicates) ~ arr;
+		arr = filterDuplicates(arr, vals, noDuplicates) ~ arr;
 	}
 
 	unittest
@@ -167,13 +168,27 @@ private:
 		assert(ary == ["path/foo.txt", "path2/foo2.txt"]);
 	}
 
-	static void removePaths(ref string[] arr, in string[] vals)
+	static bool pathMatch(string path, string pattern)
+	{
+		import std.functional : memoize;
+		
+		alias nativePath = memoize!((string stringPath) => NativePath(stringPath));
+			
+		return nativePath(path) == nativePath(pattern) || globMatch(path, pattern);
+	}
+
+	static void removeValuesFromArray(alias Match)(ref string[] arr, in string[] vals)
 	{
 		bool matches(string s)
 		{
-			return vals.any!(_ => NativePath(s) == NativePath(_) || globMatch(s, _));
+			return vals.any!(item => Match(s, item));
 		}
-		arr = arr.filter!(s => !matches(s))().array();
+		arr = arr.filter!(s => !matches(s)).array;
+	}
+
+	static void removePaths(ref string[] arr, in string[] vals)
+	{
+		removeValuesFromArray!(pathMatch)(arr, vals);
 	}
 
 	unittest
@@ -189,11 +204,7 @@ private:
 
 	static void remove(ref string[] arr, in string[] vals)
 	{
-		bool matches(string s)
-		{
-			return vals.any!(_ => _==s);
-		}
-		arr = arr.filter!(s => !matches(s))().array();
+		removeValuesFromArray!((a, b) => a == b)(arr, vals);
 	}
 
 	unittest
