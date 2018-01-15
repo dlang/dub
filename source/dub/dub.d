@@ -159,7 +159,7 @@ class Dub {
 			ps ~= defaultPackageSuppliers();
 
 		m_packageSuppliers = ps;
-		m_packageManager = new PackageManager(m_dirs.userSettings, m_dirs.systemSettings);
+		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
 		updatePackageSearchPath();
 	}
 
@@ -198,12 +198,15 @@ class Dub {
 		import std.file : tempDir;
 		version(Windows) {
 			m_dirs.systemSettings = NativePath(environment.get("ProgramData")) ~ "dub/";
-			m_dirs.userSettings = NativePath(environment.get("APPDATA")) ~ "dub/";
+			immutable appDataDir = environment.get("APPDATA");
+			m_dirs.userSettings = NativePath(appDataDir) ~ "dub/";
+			m_dirs.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
 		} else version(Posix){
 			m_dirs.systemSettings = NativePath("/var/lib/dub/");
 			m_dirs.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
 			if (!m_dirs.userSettings.absolute)
 				m_dirs.userSettings = NativePath(getcwd()) ~ m_dirs.userSettings;
+			m_dirs.localRepository = m_dirs.userSettings;
 		}
 
 		m_dirs.temp = NativePath(tempDir);
@@ -699,7 +702,7 @@ class Dub {
 		NativePath placement;
 		final switch (location) {
 			case PlacementLocation.local: placement = m_rootPath; break;
-			case PlacementLocation.user: placement = m_dirs.userSettings ~ "packages/"; break;
+			case PlacementLocation.user: placement = m_dirs.localRepository ~ "packages/"; break;
 			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
 		}
 
@@ -1554,6 +1557,7 @@ private struct SpecialDirs {
 	NativePath temp;
 	NativePath userSettings;
 	NativePath systemSettings;
+	NativePath localRepository;
 }
 
 private class DubConfig {
