@@ -3,11 +3,11 @@
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
 
 function log() {
-    echo -e "\033[0;33m[INFO] "$@"\033[0m"
+    echo -e "\033[0;33m[INFO] $@\033[0m"
 }
 
 function logError() {
-    echo -e 1>&2 "\033[0;31m[ERROR] "$@"\033[0m"
+    echo -e 1>&2 "\033[0;31m[ERROR] $@\033[0m"
     any_errors=1
 }
 
