@@ -1,6 +1,13 @@
 Changelog
 =========
 
+v1.7.1 - 2018-01-
+-------------------
+
+- Timeout requests to query mirror instead of hanging - [pull #1338][issue1338]
+
+[issue1338]: https://github.com/dlang/dub/issues/1338
+
 v1.7.0 - 2018-01-01
 -------------------
 
