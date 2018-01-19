@@ -620,6 +620,7 @@ abstract class PackageBuildCommand : Command {
 	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug")
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
+		if (!m_arch.length) m_arch = dub.defaultArchitecture;
 		m_compiler = getCompiler(m_compilerName);
 		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compilerName, m_arch);
 		m_buildSettings.addDebugVersions(m_debugVersions);
