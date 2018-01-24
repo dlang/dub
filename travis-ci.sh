@@ -25,6 +25,7 @@ if [ "$COVERAGE" = true ]; then
     git clean -dxf -- test
     source $(~/dlang/install.sh gdc --activate)
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
+    deactivate
 else
     ./build.sh
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
@@ -38,4 +39,10 @@ fi
 # check for trailing whitespace (needs to be done only once per build)
 if [ "$COVERAGE" = true ]; then
     find . -type f -name '*.d' -exec grep -Hn "[[:blank:]]$" {} \;
+fi
+
+# check that the man page generation still works (only once)
+if [ "$COVERAGE" = true ]; then
+    source $(~/dlang/install.sh dmd --activate)
+    dub --single -v scripts/man/gen_man.d
 fi
