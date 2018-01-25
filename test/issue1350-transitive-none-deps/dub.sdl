@@ -1,0 +1,5 @@
+name "test"
+targetType "executable"
+sourceFiles "test.d"
+dependency "dep1" path="dep1"
+dependency "dep2" path="dep2"
