@@ -236,7 +236,10 @@ class ProjectGenerator
 			// use `visited` here as pkgs cannot depend on themselves
 			if (pack in visited)
 				return;
-			visited[pack] = typeof(visited[pack]).init;
+			// transitive dependencies must be visited multiple times, see #1350
+			immutable transitive = !hasOutput[pack.name];
+			if (!transitive)
+				visited[pack] = typeof(visited[pack]).init;
 
 			auto bs = &ti.buildSettings;
 			if (hasOutput[pack.name])

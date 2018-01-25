@@ -1,0 +1,4 @@
+name "common-dep"
+targetType "library"
+importPaths "."
+sourceFiles "common.d"
