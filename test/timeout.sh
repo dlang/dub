@@ -12,7 +12,7 @@ elif [ $? -eq 124 ]; then
 fi
 
 log '    Testing non-responding registry'
-cat | nc --listen $PORT >/dev/null &
+cat | nc -l $PORT >/dev/null &
 PID=$!
 if timeout 10s $DUB fetch dub --skip-registry=all --registry=http://localhost:$PORT; then
     die 'Fetching from non-responding registry should fail.'
@@ -33,7 +33,7 @@ Content-Length: 2\r
         echo -n "${res:$i:1}"
         sleep 1
     done
-} | nc --listen $PORT >/dev/null &
+} | nc -l $PORT >/dev/null &
 PID=$!
 if timeout 10s time $DUB fetch dub --skip-registry=all --registry=http://localhost:$PORT; then
     die 'Fetching from too slow registry should fail.'
