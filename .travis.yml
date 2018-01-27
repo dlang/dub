@@ -7,9 +7,7 @@ matrix:
     - d: dmd-2.078.0
       env: [FRONTEND=2.078]
     - d: dmd-2.077.1
-      env:
-        - [FRONTEND=2.077]
-        - [COVERAGE=true]
+      env: [FRONTEND=2.077, COVERAGE=true]
     - d: dmd-2.076.1
       env: [FRONTEND=2.076]
     - d: dmd-2.075.1
