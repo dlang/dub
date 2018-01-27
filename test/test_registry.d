@@ -6,10 +6,8 @@ versions "VibeNoSSL"
 void main(string[] args)
 {
 	import std.conv, vibe.d;
-	string folder;
-	uint port = 12345;
-	readOption("folder", &folder, "Folder to service files from.");
-	readOption("port", &port, "Port to use");
+	immutable folder = readRequiredOption!string("folder", "Folder to service files from.");
+	immutable port = readRequiredOption!uint("port", "Port to use");
 	auto router = new URLRouter;
 	router.get("stop", (HTTPServerRequest req, HTTPServerResponse res){
 		res.writeVoidBody;
