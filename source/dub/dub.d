@@ -757,15 +757,17 @@ class Dub {
 			return m_packageManager.getPackage(packageId, ver, dstpath);
 		}
 
+		// repeat download on corrupted zips, see #1336
 		foreach_reverse (i; 0..4)
 		{
 			import std.zip : ZipException;
-			try {
-				auto path = getTempFile(packageId, ".zip");
-				supplier.fetchPackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
-				scope(exit) std.file.remove(path.toNativeString());
 
-				logDiagnostic("Placing to %s...", placement.toNativeString());
+			auto path = getTempFile(packageId, ".zip");
+			supplier.fetchPackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			scope(exit) std.file.remove(path.toNativeString());
+			logDiagnostic("Placing to %s...", placement.toNativeString());
+
+			try {
 				return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
