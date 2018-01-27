@@ -9,8 +9,11 @@ mkdir ${TMPDIR}
 cd ${TMPDIR}
 
 # kill dub init during interactive mode
-${DUB} init <(while :; do sleep 1; done) &
+mkfifo in
+${DUB} init < in &
+sleep 1
 kill $!
+rm in
 
 # ensure that no files are left behind
 NFILES_PLUS_ONE=`ls -la | wc -l`
