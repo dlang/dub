@@ -1,5 +1,5 @@
 /+dub.sdl:
-dependency "vibe-d" version="~>0.8.2"
+dependency "vibe-d" version="~>0.8.3-alpha.1"
 versions "VibeNoSSL"
 +/
 
