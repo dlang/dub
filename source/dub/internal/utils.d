@@ -265,7 +265,15 @@ void download(string url, string filename, uint timeout = 8)
 			}
 		}
 		else
+		{
 			std.net.curl.download(url, filename, conn);
+			// workaround https://issues.dlang.org/show_bug.cgi?id=18318
+			auto sl = conn.statusLine;
+			logDebug("Download %s %s", url, sl);
+			if (sl.code / 100 != 2)
+				throw new HTTPStatusException(sl.code,
+					"Downloading %s failed with %d (%s).".format(url, sl.code, sl.reason));
+		}
 	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		vibe.inet.urltransfer.download(url, filename);
