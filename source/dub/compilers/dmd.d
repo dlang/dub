@@ -28,7 +28,7 @@ class DMDCompiler : Compiler {
 		tuple(BuildOption.releaseMode, ["-release"]),
 		tuple(BuildOption.coverage, ["-cov"]),
 		tuple(BuildOption.debugInfo, ["-g"]),
-		tuple(BuildOption.debugInfoC, ["-gc"]),
+		tuple(BuildOption.debugInfoC, ["-g"]),
 		tuple(BuildOption.alwaysStackFrame, ["-gs"]),
 		tuple(BuildOption.stackStomping, ["-gx"]),
 		tuple(BuildOption.inline, ["-inline"]),
