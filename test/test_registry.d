@@ -13,6 +13,9 @@ void main(string[] args)
 		res.writeVoidBody;
 		exitEventLoop();
 	});
+	router.get("/packages/gitcompatibledubpackage/1.0.2.zip", (req, res) {
+		res.writeBody("", HTTPStatus.badGateway);
+	});
 	router.get("*", folder.serveStaticFiles);
 	listenHTTP(text(":", port), router);
 	runApplication();

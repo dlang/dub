@@ -20,10 +20,10 @@ if [ $? -eq 124 ]; then
 fi
 dub remove gitcompatibledubpackage --non-interactive --version=1.0.4
 
-echo "Trying to download gitcompatibledubpackage (1.0.3) from a broken registry"
+echo "Downloads should be retried when the zip is corrupted - gitcompatibledubpackage (1.0.3)"
 zipCount=$(! timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.3 --skip-registry=all --registry=http://localhost:$PORT 2>&1| grep -Fc 'Failed to extract zip archive')
 rc=$?
-if [ "$zipCount" -le 3 ] ; then
+if [ "$zipCount" -lt 3 ] ; then
     die 'DUB should have tried to download the zip archive multiple times.'
 elif [ $rc -eq 124 ]; then
     die 'DUB timed out unexpectedly.'
@@ -31,3 +31,16 @@ fi
 if dub remove gitcompatibledubpackage --non-interactive --version=* 2>/dev/null; then
     die 'DUB should not have installed a broken package.'
 fi
+
+echo "HTTP status errors on downloads should be retried - gitcompatibledubpackage (1.0.2)"
+retryCount=$(! timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.2 --skip-registry=all --registry=http://localhost:$PORT --vverbose 2>&1| grep -Fc 'Bad Gateway')
+rc=$?
+if [ "$retryCount" -lt 3 ] ; then
+    die 'DUB should have retried download on server error multiple times.'
+elif [ $rc -eq 124 ]; then
+    die 'DUB timed out unexpectedly.'
+fi
+if dub remove gitcompatibledubpackage --non-interactive --version=* 2>/dev/null; then
+    die 'DUB should not have installed a package.'
+fi
+
