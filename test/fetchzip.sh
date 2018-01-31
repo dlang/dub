@@ -43,7 +43,7 @@ if ! retryCount=$(grep -Fc 'Bad Gateway' <<<$retryOut) || [ "$retryCount" -lt 3 
     echo '========== +Output was ==========' >&2
     echo "$retryOut" >&2
     echo '========== -Output was ==========' >&2
-    die 'DUB should have retried download on server error multiple times.'
+    die "DUB should have retried download on server error multiple times, but only tried $retryCount times."
 elif [ $rc -eq 124 ]; then
     die 'DUB timed out unexpectedly.'
 fi
