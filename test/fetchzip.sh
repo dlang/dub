@@ -39,7 +39,7 @@ fi
 echo "HTTP status errors on downloads should be retried - gitcompatibledubpackage (1.0.2)"
 retryOut=$(! timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.2 --skip-registry=all --registry=http://localhost:$PORT --vverbose 2>&1)
 rc=$?
-if ! retryCount=$(grep -Fc 'Bad Gateway' <<<$retryOut) || [ "$retryCount" -lt 3 ] ; then
+if ! retryCount=$(echo "$retryOut" | grep -Fc 'Bad Gateway') || [ "$retryCount" -lt 3 ] ; then
     echo '========== +Output was ==========' >&2
     echo "$retryOut" >&2
     echo '========== -Output was ==========' >&2
