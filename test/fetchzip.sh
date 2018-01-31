@@ -44,3 +44,9 @@ if dub remove gitcompatibledubpackage --non-interactive --version=* 2>/dev/null;
     die 'DUB should not have installed a package.'
 fi
 
+echo "HTTP status errors on downloads should retry with fallback mirror - gitcompatibledubpackage (1.0.2)"
+timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.2 --skip-registry=all --registry="http://localhost:$PORT http://localhost:$PORT/fallback"
+if [ $? -eq 124 ]; then
+    die 'Fetching from responsive registry should not time-out.'
+fi
+dub remove gitcompatibledubpackage --non-interactive --version=1.0.2

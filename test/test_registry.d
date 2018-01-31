@@ -17,6 +17,7 @@ void main(string[] args)
 		res.writeBody("", HTTPStatus.badGateway);
 	});
 	router.get("*", folder.serveStaticFiles);
+	router.get("/fallback/*", folder.serveStaticFiles(new HTTPFileServerSettings("/fallback")));
 	listenHTTP(text(":", port), router);
 	runApplication();
 }

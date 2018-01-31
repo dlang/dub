@@ -229,10 +229,11 @@ int runDubCommandLine(string[] args)
 					// should simply retry over all registries instead of using a special
 					// FallbackPackageSupplier.
 					auto urls = url.splitter(' ');
-					auto ps = new RegistryPackageSupplier(URL(urls.front));
+					PackageSupplier ps = new RegistryPackageSupplier(URL(urls.front));
 					urls.popFront;
 					if (!urls.empty)
-						ps = new FallbackPackageSupplier(ps, urls.map!(u => new RegistryPackageSupplier(URL(u))).array);
+						ps = new FallbackPackageSupplier(ps,
+							urls.map!(u => cast(PackageSupplier) new RegistryPackageSupplier(URL(u))).array);
 					return ps;
 				})
 				.array;
