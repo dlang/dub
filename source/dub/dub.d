@@ -758,7 +758,7 @@ class Dub {
 		}
 
 		// repeat download on corrupted zips, see #1336
-		foreach_reverse (i; 0..4)
+		foreach_reverse (i; 0..3)
 		{
 			import std.zip : ZipException;
 
