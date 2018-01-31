@@ -21,9 +21,13 @@ fi
 dub remove gitcompatibledubpackage --non-interactive --version=1.0.4
 
 echo "Downloads should be retried when the zip is corrupted - gitcompatibledubpackage (1.0.3)"
-zipCount=$(! timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.3 --skip-registry=all --registry=http://localhost:$PORT 2>&1| grep -Fc 'Failed to extract zip archive')
+zipOut=$(! timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.3 --skip-registry=all --registry=http://localhost:$PORT 2>&1)
 rc=$?
-if [ "$zipCount" -lt 3 ] ; then
+
+if ! zipCount=$(grep -Fc 'Failed to extract zip archive' <<<"$zipOut") || [ "$zipCount" -lt 3 ] ; then
+    echo '========== +Output was ==========' >&2
+    echo "$zipOut" >&2
+    echo '========== -Output was ==========' >&2
     die 'DUB should have tried to download the zip archive multiple times.'
 elif [ $rc -eq 124 ]; then
     die 'DUB timed out unexpectedly.'
@@ -33,9 +37,12 @@ if dub remove gitcompatibledubpackage --non-interactive --version=* 2>/dev/null;
 fi
 
 echo "HTTP status errors on downloads should be retried - gitcompatibledubpackage (1.0.2)"
-retryCount=$(! timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.2 --skip-registry=all --registry=http://localhost:$PORT --vverbose 2>&1| grep -Fc 'Bad Gateway')
+retryOut=$(! timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.2 --skip-registry=all --registry=http://localhost:$PORT --vverbose 2>&1)
 rc=$?
-if [ "$retryCount" -lt 3 ] ; then
+if ! retryCount=$(grep -Fc 'Bad Gateway' <<<$retryOut) || [ "$retryCount" -lt 3 ] ; then
+    echo '========== +Output was ==========' >&2
+    echo "$retryOut" >&2
+    echo '========== -Output was ==========' >&2
     die 'DUB should have retried download on server error multiple times.'
 elif [ $rc -eq 124 ]; then
     die 'DUB timed out unexpectedly.'
