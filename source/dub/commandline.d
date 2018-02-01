@@ -224,7 +224,20 @@ int runDubCommandLine(string[] args)
 			dub.defaultPlacementLocation = options.placementLocation;
 		} else {
 			// initialize DUB
-			auto package_suppliers = options.registry_urls.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url))).array;
+			auto package_suppliers = options.registry_urls
+				.map!((url) {
+					// Allow to specify fallback mirrors as space separated urls. Undocumented as we
+					// should simply retry over all registries instead of using a special
+					// FallbackPackageSupplier.
+					auto urls = url.splitter(' ');
+					PackageSupplier ps = new RegistryPackageSupplier(URL(urls.front));
+					urls.popFront;
+					if (!urls.empty)
+						ps = new FallbackPackageSupplier(ps,
+							urls.map!(u => cast(PackageSupplier) new RegistryPackageSupplier(URL(u))).array);
+					return ps;
+				})
+				.array;
 			dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
 			dub.dryRun = options.annotate;
 			dub.defaultPlacementLocation = options.placementLocation;

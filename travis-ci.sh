@@ -19,11 +19,13 @@ if [ "$COVERAGE" = true ]; then
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
     deactivate
     git clean -dxf -- test
-    source $(~/dlang/install.sh ldc --activate)
+    export FRONTEND=2.077
+    source $(~/dlang/install.sh ldc-1.7.0 --activate)
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
     deactivate
     git clean -dxf -- test
-    source $(~/dlang/install.sh gdc --activate)
+    export FRONTEND=2.068
+    source $(~/dlang/install.sh gdc-4.8.5 --activate)
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
     deactivate
 else
