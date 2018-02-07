@@ -1,7 +1,14 @@
 Changelog
 =========
 
-v1.7.1 - 2018-01-
+v1.7.2 - 2018-02-07
+-------------------
+
+- more reliable retries and fallback mirror usage - [pull #1339][issue1339]
+
+[issue1339]: https://github.com/dlang/dub/issues/1339
+
+v1.7.1 - 2018-01-21
 -------------------
 
 - Timeout requests to query mirror instead of hanging - [pull #1338][issue1338]
