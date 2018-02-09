@@ -86,7 +86,7 @@ class RegistryPackageSupplier : PackageSupplier {
 			m_metadataCache.remove(packageId);
 		}
 
-		auto url = m_registryUrl ~ NativePath("api/packages/" ~ packageId ~ "/info?minimize=true");
+		auto url = m_registryUrl ~ NativePath("api/packages/" ~ packageId ~ "/dependencies?minimize=true");
 
 		logDebug("Downloading metadata for %s", packageId);
 		string jsonData;
@@ -102,8 +102,12 @@ class RegistryPackageSupplier : PackageSupplier {
 		}
 
 		Json json = parseJsonString(jsonData, url.toString());
-		m_metadataCache[packageId] = CacheEntry(json, now);
-		return json;
+		foreach (pkg, info; json.get!(Json[string]))
+		{
+			logDebug("adding %s to metadata cache", pkg);
+			m_metadataCache[pkg] = CacheEntry(info, now);
+		}
+		return json[packageId];
 	}
 
 	SearchResult[] searchPackages(string query) {
