@@ -11,7 +11,7 @@ import dub.dependency;
 import dub.internal.vibecompat.core.log;
 
 import std.algorithm : all, canFind, filter, map, sort;
-import std.array : appender, array;
+import std.array : appender, array, join;
 import std.conv : to;
 import std.exception : enforce;
 import std.typecons : Nullable;
@@ -54,6 +54,19 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		}
 	}
 
+	private static struct ConfigEntry
+	{
+		static struct Depender
+		{
+			TreeNode origin;
+			TreeNodes dependency;
+		}
+
+		CONFIG[] allConfigs;
+		bool anyConfig;
+		Depender[] origins;
+	}
+
 	CONFIG[string] resolve(TreeNode root, bool throw_on_failure = true)
 	{
 		auto root_base_pack = basePackage(root.pack);
@@ -61,8 +74,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		// find all possible configurations of each possible dependency
 		size_t[string] package_indices;
 		string[size_t] package_names;
-		CONFIG[][] all_configs;
-		bool[] any_config;
+		ConfigEntry[] configs;
 		bool[string] maybe_optional_deps;
 		bool[TreeNode] visited;
 
@@ -73,38 +85,40 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 			foreach (ch; getChildren(parent)) {
 				auto basepack = basePackage(ch.pack);
-				auto pidx = all_configs.length;
+				auto pidx = configs.length;
 
 				if (ch.depType != DependencyType.required) maybe_optional_deps[ch.pack] = true;
 
-				CONFIG[] configs;
+				ConfigEntry config;
 				if (auto pi = basepack in package_indices) {
 					pidx = *pi;
-					configs = all_configs[*pi];
+					config = configs[*pi];
 				} else {
-					if (basepack == root_base_pack) configs = [root.config];
-					else configs = getAllConfigs(basepack);
-					all_configs ~= configs;
+					if (basepack == root_base_pack) config.allConfigs = [root.config];
+					else config.allConfigs = getAllConfigs(basepack);
+					configs ~= config;
 					package_indices[basepack] = pidx;
 					package_names[pidx] = basepack;
 				}
 
 				foreach (c; getSpecificConfigs(basepack, ch))
-					if (!configs.canFind(c))
-						configs = c ~ configs;
+					if (!config.allConfigs.canFind(c))
+						config.allConfigs = c ~ config.allConfigs;
 
-				if (any_config.length <= pidx) any_config.length = pidx+1;
-				if (configs.length > 0)
-					any_config[pidx] = true;
+				if (config.allConfigs.length > 0)
+					config.anyConfig = true;
+
+				// store package depending on this for better error messages
+				config.origins ~= ConfigEntry.Depender(parent, ch);
 
 				// eliminate configurations from which we know that they can't satisfy
 				// the uniquely defined root dependencies (==version or ~branch style dependencies)
-				if (parent_unique) configs = configs.filter!(c => matches(ch.configs, c)).array;
+				if (parent_unique) config.allConfigs = config.allConfigs.filter!(c => matches(ch.configs, c)).array;
 
-				all_configs[pidx] = configs;
+				configs[pidx] = config;
 
-				foreach (v; configs)
-					findConfigsRec(TreeNode(ch.pack, v), parent_unique && configs.length == 1);
+				foreach (v; config.allConfigs)
+					findConfigsRec(TreeNode(ch.pack, v), parent_unique && config.allConfigs.length == 1);
 			}
 		}
 		findConfigsRec(root, true);
@@ -113,14 +127,14 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		// this is used to properly support optional dependencies (when
 		// getChildren() returns no configurations for an optional dependency,
 		// but getAllConfigs() has already provided an existing list of configs)
-		foreach (i, ref cfgs; all_configs)
-			if (cfgs.length == 0 || package_names[i] in maybe_optional_deps)
-				cfgs = cfgs ~ CONFIG.invalid;
+		foreach (i, ref cfgs; configs)
+			if (cfgs.allConfigs.length == 0 || package_names[i] in maybe_optional_deps)
+				cfgs.allConfigs = cfgs.allConfigs ~ CONFIG.invalid;
 
 		logDebug("Configurations used for dependency resolution:");
-		foreach (n, i; package_indices) logDebug("  %s (%s%s): %s", n, i, n in maybe_optional_deps ? ", maybe optional" : ", required", all_configs[i]);
+		foreach (n, i; package_indices) logDebug("  %s (%s%s): %s", n, i, n in maybe_optional_deps ? ", maybe optional" : ", required", configs[i]);
 
-		auto config_indices = new size_t[all_configs.length];
+		auto config_indices = new size_t[configs.length];
 		config_indices[] = 0;
 
 		visited = null;
@@ -142,7 +156,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 				// get the current config/version of the current dependency
 				sizediff_t childidx = package_indices[basepack];
-				if (all_configs[childidx].length == 1 && all_configs[childidx][0] == CONFIG.invalid) {
+				auto child = configs[childidx];
+				if (child.allConfigs.length == 1 && child.allConfigs[0] == CONFIG.invalid) {
 					// ignore invalid optional dependencies
 					if (ch.depType != DependencyType.required)
 						continue;
@@ -154,8 +169,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 							logError("Dependency \"%s\" of %s contains upper case letters, but must be lower case.", ch.pack, parent.pack);
 							if (getAllConfigs(lp).length) logError("Did you mean \"%s\"?", lp);
 						}
-						if (any_config[childidx])
-							throw new Exception(format("Root package %s reference %s %s cannot be satisfied.", parent.pack, ch.pack, ch.configs));
+						if (child.anyConfig)
+							throw new Exception(format("Root package %s reference %s %s cannot be satisfied.\nPackages causing the conflict:\n\t%s",
+								parent.pack, ch.pack, ch.configs,
+								child.origins.map!(a => a.origin.pack ~ " depends on " ~ a.dependency.configs.to!string).join("\n\t")));
 						else
 							throw new Exception(format("Root package %s references unknown package %s", parent.pack, ch.pack));
 					}
@@ -166,7 +183,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 						maxcpi = parentidx;
 					}
 				} else {
-					auto config = all_configs[childidx][config_indices[childidx]];
+					auto config = child.allConfigs[config_indices[childidx]];
 					auto chnode = TreeNode(ch.pack, config);
 
 					if (config == CONFIG.invalid || !matches(ch.configs, config)) {
@@ -221,10 +238,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			// print out current iteration state
 			logDebug("Interation (ci=%s) %s", conflict_index, {
 				import std.array : join;
-				auto cs = new string[all_configs.length];
+				auto cs = new string[configs.length];
 				foreach (p, i; package_indices) {
-					if (all_configs[i].length)
-						cs[i] = p~" "~all_configs[i][config_indices[i]].to!string~(i >= 0 && i >= conflict_index ? " (C)" : "");
+					if (configs[i].allConfigs.length)
+						cs[i] = p~" "~configs[i].allConfigs[config_indices[i]].to!string~(i >= 0 && i >= conflict_index ? " (C)" : "");
 					else cs[i] = p ~ " [no config]";
 				}
 				return cs.join(", ");
@@ -233,8 +250,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			if (conflict_index < 0) {
 				CONFIG[string] ret;
 				foreach (p, i; package_indices)
-					if (all_configs[i].length) {
-						auto cfg = all_configs[i][config_indices[i]];
+					if (configs[i].allConfigs.length) {
+						auto cfg = configs[i].allConfigs[config_indices[i]];
 						if (cfg != CONFIG.invalid) ret[p] = cfg;
 					}
 				logDebug("Resolved dependencies before optional-purge: %s", ret.byKey.map!(k => k~" "~ret[k].to!string));
@@ -246,7 +263,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			// find the next combination of configurations
 			foreach_reverse (pi, ref i; config_indices) {
 				if (pi > conflict_index) i = 0;
-				else if (++i >= all_configs[pi].length) i = 0;
+				else if (++i >= configs[pi].allConfigs.length) i = 0;
 				else break;
 			}
 			if (config_indices.all!"a==0") {
