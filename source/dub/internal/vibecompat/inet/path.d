@@ -487,12 +487,12 @@ unittest {
 	assert(NativePath("/foo/bar/baz/").relativeTo(NativePath("/foo")).toString == "bar/baz/");
 	assert(NativePath("/foo/bar").relativeTo(NativePath("/foo")).toString == "bar");
 	assert(NativePath("/foo/bar/").relativeTo(NativePath("/foo")).toString == "bar/");
-	assert(NativePath("/foo").relativeTo(NativePath("/foo/bar")).toString() == "..");
-	assert(NativePath("/foo/").relativeTo(NativePath("/foo/bar")).toString() == "../");
-	assert(NativePath("/foo/baz").relativeTo(NativePath("/foo/bar/baz")).toString() == "../../baz");
-	assert(NativePath("/foo/baz/").relativeTo(NativePath("/foo/bar/baz")).toString() == "../../baz/");
-	assert(NativePath("/foo/").relativeTo(NativePath("/foo/bar/baz")).toString() == "../../");
-	assert(NativePath("/foo/").relativeTo(NativePath("/foo/bar/baz/mumpitz")).toString() == "../../../");
+	assert(NativePath("/foo").relativeToAux(NativePath("/foo/bar")).toString() == "..");
+	assert(NativePath("/foo/").relativeToAux(NativePath("/foo/bar")).toString() == "../");
+	assert(NativePath("/foo/baz").relativeToAux(NativePath("/foo/bar/baz")).toString() == "../../baz");
+	assert(NativePath("/foo/baz/").relativeToAux(NativePath("/foo/bar/baz")).toString() == "../../baz/");
+	assert(NativePath("/foo/").relativeToAux(NativePath("/foo/bar/baz")).toString() == "../../");
+	assert(NativePath("/foo/").relativeToAux(NativePath("/foo/bar/baz/mumpitz")).toString() == "../../../");
 	assert(NativePath("/foo").relativeTo(NativePath("/foo")).toString() == "");
 	assert(NativePath("/foo/").relativeTo(NativePath("/foo")).toString() == "");
 }
