@@ -2,9 +2,20 @@ language: d
 dist: trusty
 sudo: false
 
-matrix:
+addons:
+  apt:
+    packages:
+      - libevent-dev
+
+script:
+  - ./travis-ci.sh
+
+jobs:
+  allow_failures:
+    - d: gdc
   include:
-    - d: dmd-2.078.0
+    - stage: test
+      d: dmd-2.078.0
       env: [FRONTEND=2.078]
     - d: dmd-2.077.1
       env: [FRONTEND=2.077, COVERAGE=true]
@@ -46,15 +57,61 @@ matrix:
       env: [FRONTEND=2.068]
     - d: gdc-4.8.5
       env: [FRONTEND=2.068]
-
-  allow_failures:
-    - d: gdc
-
-addons:
-  apt:
-    packages:
-      - libevent-dev
-
-script:
-  - deactivate # deactivate host compiler
-  - ./travis-ci.sh
+    - stage: deploy
+      d: dmd
+      os: osx
+      script: echo "Deploying to GitHub releases ..." && ./release.sh
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.tar.gz
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            branch: master
+            tags: true
+    - d: dmd
+      script: echo "Deploying to GitHub releases ..." && ./release.sh
+      env: [ARCH=32]
+      addons:
+        apt:
+          packages:
+          - g++-multilib
+          - libcurl4-openssl-dev:i386
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.tar.gz
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            branch: master
+            tags: true
+    - d: dmd
+      script: echo "Deploying to GitHub releases ..." && ./release.sh
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.tar.gz
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            branch: master
+            tags: true
+    - stage: update-latest
+      script: echo "Deploying to GitHub pages ..." && mkdir -p docs && git describe --abbrev=0 --tags > docs/LATEST
+      deploy:
+        - provider: pages
+          skip_cleanup: true
+          local_dir: docs
+          github_token: $GH_REPO_TOKEN
+          on:
+            branch: master
+            tags: true
+stages:
+  - name: test
+    if: type = pull_request or (type = push and branch = master)
+  - name: deploy
+    if: type = push and tag =~ ^v
+  - name: update-latest
+    if: type = push and tag =~ ^v
