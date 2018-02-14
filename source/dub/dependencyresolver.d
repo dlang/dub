@@ -54,7 +54,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		}
 	}
 
-	private static struct ConfigEntry
+	private static struct PackageConfigs
 	{
 		static struct Depender
 		{
@@ -62,8 +62,14 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			TreeNodes dependency;
 		}
 
+		// all possible configurations to test for this package
 		CONFIG[] allConfigs;
+
+		// determines whether this package has any dependencies, may be
+		// different from allConfigs.length > 0 after certain configurations
+		// have been filtered out
 		bool anyConfig;
+
 		Depender[] origins;
 	}
 
@@ -74,7 +80,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		// find all possible configurations of each possible dependency
 		size_t[string] package_indices;
 		string[size_t] package_names;
-		ConfigEntry[] configs;
+		PackageConfigs[] configs;
 		bool[string] maybe_optional_deps;
 		bool[TreeNode] visited;
 
@@ -89,7 +95,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 				if (ch.depType != DependencyType.required) maybe_optional_deps[ch.pack] = true;
 
-				ConfigEntry config;
+				PackageConfigs config;
 				if (auto pi = basepack in package_indices) {
 					pidx = *pi;
 					config = configs[*pi];
@@ -109,7 +115,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					config.anyConfig = true;
 
 				// store package depending on this for better error messages
-				config.origins ~= ConfigEntry.Depender(parent, ch);
+				config.origins ~= PackageConfigs.Depender(parent, ch);
 
 				// eliminate configurations from which we know that they can't satisfy
 				// the uniquely defined root dependencies (==version or ~branch style dependencies)
@@ -157,7 +163,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				// get the current config/version of the current dependency
 				sizediff_t childidx = package_indices[basepack];
 				auto child = configs[childidx];
-				if (child.allConfigs == [CONFIG.invalid]) {
+
+				if (child.allConfigs.length == 1 && child.allConfigs[0] == CONFIG.invalid) {
 					// ignore invalid optional dependencies
 					if (ch.depType != DependencyType.required)
 						continue;
