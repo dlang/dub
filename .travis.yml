@@ -58,7 +58,7 @@ jobs:
     - d: gdc-4.8.5
       env: [FRONTEND=2.068]
     - stage: deploy
-      d: ldc
+      d: dmd
       os: osx
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       deploy:
@@ -70,7 +70,7 @@ jobs:
           on:
             branch: master
             tags: true
-    - d: ldc
+    - d: dmd
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       env: [ARCH=32]
       addons:
@@ -87,7 +87,7 @@ jobs:
           on:
             branch: master
             tags: true
-    - d: ldc
+    - d: dmd
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       deploy:
         - provider: releases
