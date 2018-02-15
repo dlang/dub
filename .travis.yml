@@ -68,7 +68,6 @@ jobs:
           skip_cleanup: true
           api_key: $GH_REPO_TOKEN
           on:
-            branch: master
             tags: true
     - d: dmd
       script: echo "Deploying to GitHub releases ..." && ./release.sh
@@ -85,7 +84,6 @@ jobs:
           skip_cleanup: true
           api_key: $GH_REPO_TOKEN
           on:
-            branch: master
             tags: true
     - d: dmd
       script: echo "Deploying to GitHub releases ..." && ./release.sh
@@ -96,7 +94,6 @@ jobs:
           skip_cleanup: true
           api_key: $GH_REPO_TOKEN
           on:
-            branch: master
             tags: true
     - stage: update-latest
       script: echo "Deploying to GitHub pages ..." && mkdir -p docs && git describe --abbrev=0 --tags > docs/LATEST
@@ -106,7 +103,6 @@ jobs:
           local_dir: docs
           github_token: $GH_REPO_TOKEN
           on:
-            branch: master
             tags: true
 stages:
   - name: test
