@@ -1,0 +1,4 @@
+Root package issue1037-better-dependency-messages reference gitcompatibledubpackage 1.0.1 cannot be satisfied.
+Packages causing the conflict:
+	issue1037-better-dependency-messages depends on 1.0.1
+	b depends on ~>1.0.2

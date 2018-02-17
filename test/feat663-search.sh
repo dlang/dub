@@ -7,6 +7,9 @@ fi
 if ${DUB} search nonexistent123456789package 2>/dev/null; then
     die $LINENO '`dub search nonexistent123456789package` succeeded'
 fi
-if ! OUTPUT=$(${DUB} search dub -v 2>&1) || ! { echo "$OUTPUT" | grep -q '^dub (.*)\s'; } then
+if ! OUTPUT=$(${DUB} search dub -v 2>&1); then
     die $LINENO '`dub search dub` failed' "$OUTPUT"
+fi
+if ! grep -q '^dub (.*)\s'<<<"$OUTPUT"; then
+    die $LINENO '`grep -q '"'"'^dub (.*)\s'"'"'` failed' "$OUTPUT"
 fi

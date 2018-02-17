@@ -349,6 +349,7 @@ class VisualDGenerator : ProjectGenerator {
 				ret.put("    <isWindows>0</isWindows>\n");
 				ret.put("    <isFreeBSD>0</isFreeBSD>\n");
 				ret.put("    <isSolaris>0</isSolaris>\n");
+				ret.put("    <isDragonFlyBSD>0</isDragonFlyBSD>\n");
 				ret.put("    <scheduler>0</scheduler>\n");
 				ret.put("    <useDeprecated>0</useDeprecated>\n");
 				ret.put("    <useAssert>0</useAssert>\n");

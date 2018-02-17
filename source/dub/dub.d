@@ -106,6 +106,7 @@ class Dub {
 		Project m_project;
 		NativePath m_overrideSearchPath;
 		string m_defaultCompiler;
+		string m_defaultArchitecture;
 	}
 
 	/** The default placement location of fetched packages.
@@ -159,7 +160,7 @@ class Dub {
 			ps ~= defaultPackageSuppliers();
 
 		m_packageSuppliers = ps;
-		m_packageManager = new PackageManager(m_dirs.userSettings, m_dirs.systemSettings);
+		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
 		updatePackageSearchPath();
 	}
 
@@ -198,12 +199,18 @@ class Dub {
 		import std.file : tempDir;
 		version(Windows) {
 			m_dirs.systemSettings = NativePath(environment.get("ProgramData")) ~ "dub/";
-			m_dirs.userSettings = NativePath(environment.get("APPDATA")) ~ "dub/";
+			immutable appDataDir = environment.get("APPDATA");
+			m_dirs.userSettings = NativePath(appDataDir) ~ "dub/";
+			m_dirs.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
+
+			migrateRepositoryFromRoaming(m_dirs.userSettings ~"\\packages", m_dirs.localRepository ~ "\\packages");
+
 		} else version(Posix){
 			m_dirs.systemSettings = NativePath("/var/lib/dub/");
 			m_dirs.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
 			if (!m_dirs.userSettings.absolute)
 				m_dirs.userSettings = NativePath(getcwd()) ~ m_dirs.userSettings;
+			m_dirs.localRepository = m_dirs.userSettings;
 		}
 
 		m_dirs.temp = NativePath(tempDir);
@@ -213,7 +220,27 @@ class Dub {
 		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), m_config);
 
 		determineDefaultCompiler();
+
+		m_defaultArchitecture = m_config.defaultArchitecture;
 	}
+
+	version(Windows) 
+	private void migrateRepositoryFromRoaming(NativePath roamingDir, NativePath localDir)
+	{
+        immutable roamingDirPath = roamingDir.toNativeString();
+	    if (!existsDirectory(roamingDir)) return;
+        
+        immutable localDirPath = localDir.toNativeString();
+        logInfo("Detected a package cache in " ~ roamingDirPath ~ ". This will be migrated to " ~ localDirPath ~ ". Please wait...");
+        if (!existsDirectory(localDir))
+        {
+            mkdirRecurse(localDirPath);
+        }
+
+        runCommand("xcopy /s /e /y " ~ roamingDirPath ~ " " ~ localDirPath ~ " > NUL"); 
+        rmdirRecurse(roamingDirPath);
+	}
+
 
 	@property void dryRun(bool v) { m_dryRun = v; }
 
@@ -249,6 +276,13 @@ class Dub {
 		will be used.
 	*/
 	@property string defaultCompiler() const { return m_defaultCompiler; }
+
+	/** Returns the default architecture to use for building D code.
+
+		If set, the "defaultArchitecture" field of the DUB user or system
+		configuration file will be used. Otherwise null will be returned.
+	*/
+	@property string defaultArchitecture() const { return m_defaultArchitecture; }
 
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
@@ -699,7 +733,7 @@ class Dub {
 		NativePath placement;
 		final switch (location) {
 			case PlacementLocation.local: placement = m_rootPath; break;
-			case PlacementLocation.user: placement = m_dirs.userSettings ~ "packages/"; break;
+			case PlacementLocation.user: placement = m_dirs.localRepository ~ "packages/"; break;
 			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
 		}
 
@@ -1568,6 +1602,7 @@ private struct SpecialDirs {
 	NativePath temp;
 	NativePath userSettings;
 	NativePath systemSettings;
+	NativePath localRepository;
 }
 
 private class DubConfig {
@@ -1596,6 +1631,14 @@ private class DubConfig {
 		if (auto pv = "defaultCompiler" in m_data)
 			return pv.get!string;
 		if (m_parentConfig) return m_parentConfig.defaultCompiler;
+		return null;
+	}
+
+	@property string defaultArchitecture()
+	const {
+		if(auto pv = "defaultArchitecture" in m_data)
+			return (*pv).get!string;
+		if (m_parentConfig) return m_parentConfig.defaultArchitecture;
 		return null;
 	}
 }

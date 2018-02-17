@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -e
 cd ${CURR_DIR}
 rm -f single-file-sdl-default-name

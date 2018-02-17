@@ -7,7 +7,7 @@ $DUB fetch dub --version=0.9.21 && [ -d $HOME/.dub/packages/dub-0.9.21/dub ]
 if $DUB remove dub --non-interactive 2>/dev/null; then
     die $LINENO 'Non-interactive remove should fail'
 fi
-echo 1 | $DUB remove dub | tr --delete '\n' | grep --ignore-case 'select.*0\.9\.20.*0\.9\.21.*'
+echo 1 | $DUB remove dub | tr -d '\n' | grep --ignore-case 'select.*0\.9\.20.*0\.9\.21.*'
 if [ -d $HOME/.dub/packages/dub-0.9.20/dub ]; then
     die $LINENO 'Failed to remove dub-0.9.20'
 fi

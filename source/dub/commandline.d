@@ -134,6 +134,7 @@ int runDubCommandLine(string[] args)
 		else if (options.verbose) loglevel = LogLevel.diagnostic;
 		else if (options.vquiet) loglevel = LogLevel.none;
 		else if (options.quiet) loglevel = LogLevel.warn;
+		else if (options.verror) loglevel = LogLevel.error;
 		setLogLevel(loglevel);
 	} catch (Throwable e) {
 		logError("Error processing arguments: %s", e.msg);
@@ -267,7 +268,7 @@ int runDubCommandLine(string[] args)
 /** Contains and parses options common to all commands.
 */
 struct CommonOptions {
-	bool verbose, vverbose, quiet, vquiet;
+	bool verbose, vverbose, quiet, vquiet, verror;
 	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
@@ -292,6 +293,7 @@ struct CommonOptions {
 		args.getopt("v|verbose", &verbose, ["Print diagnostic output"]);
 		args.getopt("vverbose", &vverbose, ["Print debug output"]);
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
+		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 	}
@@ -631,6 +633,7 @@ abstract class PackageBuildCommand : Command {
 	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug")
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
+		if (!m_arch.length) m_arch = dub.defaultArchitecture;
 		m_compiler = getCompiler(m_compilerName);
 		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compilerName, m_arch);
 		m_buildSettings.addDebugVersions(m_debugVersions);

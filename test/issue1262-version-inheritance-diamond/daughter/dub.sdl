@@ -1,0 +1,3 @@
+name "daughter"
+versions "Daughter"
+dependency "diamond" path="../diamond"

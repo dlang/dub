@@ -1,5 +1,6 @@
 *.o
 *.obj
+*~
 
 .dub
 .directory
@@ -13,6 +14,8 @@ __dummy.html
 /bin/__test__library-nonet__
 /bin/__test__library__
 /bin/dub-test-library
+/bin/libdub.a
+/bin/dub-*
 
 # Ignore files or directories created by the test suite.
 /test/custom-source-main-bug487/custom-source-main-bug487
@@ -26,6 +29,13 @@ __dummy.html
 /test/expected-issue616-output
 /test/describe-project/dummy.dat
 /test/describe-project/dummy-dep1.dat
+/test/*/main/main
+/test/*/*test-library
+/test/*/*test-application
+/test/*/exec-simple
 
 # Ignore coverage files
 cov/
+
+# Ignore auto-generated docs
+/docs
