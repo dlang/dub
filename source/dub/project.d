@@ -1183,9 +1183,9 @@ private void processVars(ref Appender!(string[]) dst, in Project project, in Pac
 
 private string processVars(Project, Package)(string var, in Project project, in Package pack,in GeneratorSettings gsettings, bool is_path)
 {
-	import std.regex : ctRegex, replaceAll;
+	import std.regex : regex, replaceAll;
 
-	enum varRE = ctRegex!`\$([\w_]+)|\$\{([\w_]+)\}`;
+	auto varRE = regex(`\$([\w_]+)|\$\{([\w_]+)\}`);
 	var = var.replaceAll!(m => getVariable(m[1].length ? m[1] : m[2], project, pack, gsettings))(varRE);
 	if (is_path) {
 		auto p = NativePath(var);
