@@ -1204,14 +1204,27 @@ package(dub) immutable buildSettingsVars = [
 private string getVariable(Project, Package)(string name, in Project project, in Package pack, in GeneratorSettings gsettings)
 {
 	import std.process : environment;
-	if (name == "PACKAGE_DIR") return pack.path.toNativeString();
-	if (name == "ROOT_PACKAGE_DIR") return project.rootPackage.path.toNativeString();
+	Path path;
+	if (name == "PACKAGE_DIR")
+		path = pack.path;
+	else if (name == "ROOT_PACKAGE_DIR")
+		path = project.rootPackage.path;
 
 	if (name.endsWith("_PACKAGE_DIR")) {
 		auto pname = name[0 .. $-12];
 		foreach (prj; project.getTopologicalPackageList())
 			if (prj.name.toUpper().replace("-", "_") == pname)
-				return prj.path.toNativeString();
+			{
+				path = prj.path;
+				break;
+			}
+	}
+
+	if (!path.empty)
+	{
+		// no trailing slash for clean path concatenation (see #1392)
+		path.endsWithSlash = false;
+		return path.toNativeString();
 	}
 
 	if (name == "ARCH") {
@@ -1255,9 +1268,11 @@ unittest
 		{
 			this.name = name;
 			version (Posix)
-				path = NativePath("/pkgs/"~name~"/");
+				path = NativePath("/pkgs/"~name);
 			else version (Windows)
-				path = NativePath(`C:\pkgs\`~name~`\`);
+				path = NativePath(`C:\pkgs\`~name);
+			// see 4d4017c14c, #268, and #1392 for why this all package paths end on slash internally
+			path.endsWithSlash = true;
 		}
 		string name;
 		NativePath path;
@@ -1281,12 +1296,17 @@ unittest
 	auto pack = MockPackage("test");
 	GeneratorSettings gsettings;
 	enum isPath = true;
+
+	version (Posix) enum sep = "/";
+	else version (Windows) enum sep = `\`;
+	static Path woSlash(Path p) { p.endsWithSlash = false; return p; }
 	// basic vars
-	assert(processVars("Hello $PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~pack.path.toNativeString);
-	assert(processVars("Hello $ROOT_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~proj.rootPackage.path.toNativeString);
-	assert(processVars("Hello $DEP1_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~proj._dependencies[0].path.toNativeString);
-	// ${VAR} replacements, NOTE: PACKAGE_DIR et.al. end on /
-	assert(processVars("Hello ${PACKAGE_DIR}foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
+	assert(processVars("Hello $PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(pack.path).toNativeString);
+	assert(processVars("Hello $ROOT_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj.rootPackage.path).toNativeString.chomp(sep));
+	assert(processVars("Hello $DEP1_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj._dependencies[0].path).toNativeString);
+	// ${VAR} replacements
+	assert(processVars("Hello ${PACKAGE_DIR}"~sep~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
+	assert(processVars("Hello $PACKAGE_DIR"~sep~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
 	// test with isPath
 	assert(processVars("local", proj, pack, gsettings, isPath) == (pack.path ~ "local").toNativeString);
 	// test other env variables
