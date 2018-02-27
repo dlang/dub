@@ -70,7 +70,8 @@ jobs:
           on:
             tags: true
     - d: dmd
-      script: echo "Deploying to GitHub releases ..." && ./release.sh
+      # DMD 32-bit is needed for 32-bit compilation
+      script: echo "Deploying to GitHub releases ..." && DMD=$(find $HOME/dlang | grep "dmd-.*/linux/bin32/dmd") ./release.sh
       env: [ARCH=32]
       addons:
         apt:
