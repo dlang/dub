@@ -146,6 +146,50 @@ class FileSystemPackageSupplier : PackageSupplier {
 	}
 }
 
+/**
+	Git based based package supplier.
+
+	This package supplier downloads directly from git.
+*/
+class GitPackageSupplier : PackageSupplier {
+	this() { }
+
+	override @property string description() { return typeof(this).stringof; }
+
+	Version[] getVersions(string package_id)
+	{
+		return null;
+	}
+
+	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	{
+		enforce(path.absolute);
+		logInfo("Storing package '"~packageId~"', version requirements: %s", dep);
+		auto gitDep=dep.gitDep;
+		assert(gitDep.valid);
+		URL url = gitDep.toURLZip;
+		logDiagnostic("Downloading from '%s'", url);
+		// TODO: foreach(i; 0..3)
+		download(url, path);
+	}
+
+	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	{
+		if(!dep.isGit)
+			return Json(null);
+		auto gitDep=dep.gitDep;
+		auto ret=Json.emptyObject;
+		ret["name"]=packageId;
+		ret["version"]=gitDep.toVersion;
+		return ret;
+	}
+
+	SearchResult[] searchPackages(string query)
+	{
+		assert(0);
+	}
+}
+
 
 /**
 	Online registry based package supplier.

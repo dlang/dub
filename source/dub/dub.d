@@ -139,7 +139,9 @@ class Dub {
 
 		init();
 
-		PackageSupplier[] ps = additional_package_suppliers;
+		PackageSupplier[] ps;
+		ps ~= new GitPackageSupplier();
+		ps ~= additional_package_suppliers;
 
 		if (skip_registry < SkipPackageSuppliers.all)
 		{
@@ -426,6 +428,8 @@ class Dub {
 			next_pack:
 			foreach (p; m_project.selections.selectedPackages) {
 				auto dep = m_project.selections.getSelectedVersion(p);
+				if(dep.isGit)
+					continue next_pack;
 				if (!dep.path.empty) {
 					auto path = dep.path;
 					if (!path.absolute) path = this.rootPath ~ path;
@@ -446,6 +450,8 @@ class Dub {
 				}
 
 				logWarn("Selected package %s %s doesn't exist. Using latest matching version instead.", p, dep);
+				// CHECKME: cleaner to error in this case no? unless maybe the idea is if user has no control over that because of third party error?
+				//assert(0);
 				m_project.selections.deselectVersion(p);
 			}
 		}
@@ -1536,9 +1542,13 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		if (basename == m_rootPackage.basePackage.name)
 			return m_rootPackage.basePackage;
 
+		if (dep.isGit)
+			return m_dub.fetch(basename, dep, m_dub.defaultPlacementLocation, FetchOptions.init, "need commit hash");
+
 		if (!dep.path.empty) {
 			try {
 				auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
+				// TODO: shouldn't that allow version + path?
 				if (dep.matches(ret.version_)) return ret;
 			} catch (Exception e) {
 				logDiagnostic("Failed to load path based dependency %s: %s", name, e.msg);

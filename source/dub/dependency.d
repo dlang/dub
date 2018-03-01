@@ -34,6 +34,62 @@ struct PackageDependency {
 	Dependency spec;
 }
 
+struct GitDep{
+	private{
+		string urlPackage;
+		string commit;
+		string spec;
+	}
+
+	bool valid()const @safe{
+		return !!spec;
+	}
+
+	string toURL(){
+		return format(`%s/commit/%s`, urlPackage, commit);
+	}
+
+	URL toURLZip(){
+		URL ret=format(`%s/archive/%s.zip`, urlPackage, commit);
+		return ret;
+	}
+
+	string toVersion(){
+		auto ret=spec;
+		// IMPROVE
+		ret=ret.replace(`/`, `#`);
+		ret=ret.replace(`:`, `$`);
+		return ret;
+	}
+
+	bool isSame(ref const GitDep other)const @safe{
+		return this.commit==other.commit;
+	}
+
+	void from(string spec){
+		spec=spec.replace(`#`, `/`);
+		spec=spec.replace(`$`, `:`);
+		this.spec=spec;
+		/+
+		EG:
+		@https://github.com/CyberShadow/ae/commit/abc177c494c0ed75bc1671fbd4ebdd8323a4d734
+		+/
+		assert(spec[0]==Version.hashPrefix);
+		import std.regex;
+    auto m=spec[1..$].matchFirst(`^(.*?)/commit/([a-f0-9]+)$`.regex);
+    assert(!m.empty, spec);
+    urlPackage=m.captures[1];
+    commit=m.captures[2];
+	}
+
+	this(string spec)@trusted{
+		from(spec);
+	}
+
+	string toString()const @safe{
+		return spec;
+	}
+}
 
 /**
 	Represents a dependency specification.
@@ -79,6 +135,10 @@ struct Dependency {
 	*/
 	this(in Version ver)
 	{
+		// PRTEMP
+		if(ver.m_version[0]==Version.hashPrefix){
+			this.versionSpec = ver.m_version;
+		}
 		m_inclusiveA = m_inclusiveB = true;
 		m_versA = ver;
 		m_versB = ver;
@@ -98,6 +158,8 @@ struct Dependency {
 	/// ditto
 	@property NativePath path() const { return m_path; }
 
+	ref inout(GitDep) gitDep() inout { assert(isGit); return m_versA.gitDep; }
+
 	/// Determines if the dependency is required or optional.
 	@property bool optional() const { return m_optional; }
 	/// ditto
@@ -110,6 +172,8 @@ struct Dependency {
 
 	/// Returns true $(I iff) the version range only matches a specific version.
 	@property bool isExactVersion() const { return m_versA == m_versB; }
+
+	@property bool isGit() const { return m_versA.isGit; }
 
 	/// Returns the exact version matched by the version range.
 	@property Version version_() const {
@@ -154,7 +218,7 @@ struct Dependency {
 			ves = ves[2..$];
 			m_versA = Version(expandVersion(ves));
 			m_versB = Version(bumpVersion(ves) ~ "-0");
-		} else if (ves[0] == Version.branchPrefix) {
+		} else if (ves[0] == Version.branchPrefix || ves[0] == Version.hashPrefix) {
 			m_inclusiveA = true;
 			m_inclusiveB = true;
 			m_versA = m_versB = Version(ves);
@@ -203,7 +267,6 @@ struct Dependency {
 		string r;
 
 		if (this == invalid) return "invalid";
-
 		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
 			// Special "==" case
 			if (m_versA == Version.masterBranch) return "~master";
@@ -365,6 +428,9 @@ struct Dependency {
 	/// ditto
 	int opCmp(in Dependency o)
 	const {
+		// PRTEMP
+		//if (this.isGit || o.isGit) return m_versA.opCmp(o.m_versA);
+
 		if (m_inclusiveA != o.m_inclusiveA) return m_inclusiveA < o.m_inclusiveA ? -1 : 1;
 		if (m_inclusiveB != o.m_inclusiveB) return m_inclusiveB < o.m_inclusiveB ? -1 : 1;
 		if (m_versA != o.m_versA) return m_versA < o.m_versA ? -1 : 1;
@@ -393,6 +459,7 @@ struct Dependency {
 		A specification is valid if it can match at least one version.
 	*/
 	bool valid() const {
+		if(isGit) return true;
 		return m_versA <= m_versB && doCmp(m_inclusiveA && m_inclusiveB, m_versA, m_versB);
 	}
 
@@ -445,6 +512,16 @@ struct Dependency {
 	*/
 	Dependency merge(ref const(Dependency) o)
 	const {
+		// PRTEMP
+		if(this.isGit || o.isGit){
+			if(!o.isGit) return this;
+			if(!this.isGit) return o;
+			if(this.gitDep.isSame(o.gitDep)) return this;
+			// CHECKME
+			return this;
+			//return invalid;
+		}
+
 		if (this.matchesAny) return o;
 		if (o.matchesAny) return this;
 		if (m_versA.isBranch != o.m_versA.isBranch) return invalid;
@@ -470,7 +547,8 @@ struct Dependency {
 	private static bool isDigit(char ch) { return ch >= '0' && ch <= '9'; }
 	private static string skipComp(ref string c) {
 		size_t idx = 0;
-		while (idx < c.length && !isDigit(c[idx]) && c[idx] != Version.branchPrefix) idx++;
+		// PRTEMP
+		while (idx < c.length && !isDigit(c[idx]) && c[idx] != Version.branchPrefix && c[idx] != Version.hashPrefix) idx++;
 		enforce(idx < c.length, "Expected version number in version spec: "~c);
 		string cmp = idx==c.length-1||idx==0? ">=" : c[0..idx];
 		c = c[idx..$];
@@ -666,6 +744,8 @@ struct Version {
 		enum branchPrefix = '~';
 		string m_version;
 	}
+	enum hashPrefix = '@';  // RENAME
+	GitDep gitDep;
 
 	static immutable Version minRelease = Version("0.0.0");
 	static immutable Version maxRelease = Version(MAX_VERS);
@@ -677,9 +757,12 @@ struct Version {
 	this(string vers)
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		if (vers[0] != branchPrefix && vers.ptr !is UNKNOWN_VERS.ptr)
+		if (vers[0] != branchPrefix && vers[0] != hashPrefix && vers.ptr !is UNKNOWN_VERS.ptr)
 			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
 		m_version = vers;
+		if(vers[0] == hashPrefix){
+			gitDep=GitDep(vers);
+		}
 	}
 
 	/** Constructs a new `Version` from its string representation.
@@ -689,7 +772,11 @@ struct Version {
 	*/
 	static Version fromString(string vers) { return Version(vers); }
 
+	// TODO: for git, could throw but shouldn't in this context
 	bool opEquals(const Version oth) const { return opCmp(oth) == 0; }
+
+	/// Tests if this represents a hash instead of a version.
+	@property bool isGit() const { return gitDep.valid; }
 
 	/// Tests if this represents a branch instead of a version.
 	@property bool isBranch() const { return m_version.length > 0 && m_version[0] == branchPrefix; }
@@ -703,6 +790,7 @@ struct Version {
 	*/
 	@property bool isPreRelease() const {
 		if (isBranch) return true;
+		if (isGit) return true;
 		return isPreReleaseVersion(m_version);
 	}
 
@@ -721,6 +809,21 @@ struct Version {
 		if (isUnknown || other.isUnknown) {
 			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, other));
 		}
+
+		// PRTEMP
+		//// isGit has precedence
+		if (isGit || other.isGit) {
+			if(!isGit) return -1;
+			if(!other.isGit) return 1;
+			//if(m_version == other.m_version) return 0;
+			if(gitDep.isSame(other.gitDep)) return 0;
+
+
+			// CHECKME: we want to pick what's asked for; is there a better way?
+			return 1;
+			//throw new Exception("Can't compare versions! (this: %s, other: %s)".format(this.gitDep, other.gitDep));
+		}
+
 		if (isBranch || other.isBranch) {
 			if(m_version == other.m_version) return 0;
 			if (!isBranch) return 1;
@@ -762,6 +865,10 @@ unittest {
 	assert(a == b, "a == b with a:'1.0.0', b:'1.0.0' failed");
 	b = Version("2.0.0");
 	assert(a != b, "a != b with a:'1.0.0', b:'2.0.0' failed");
+
+	// PRTEMP
+	assert(a<b);
+
 	a = Version.masterBranch;
 	b = Version("~BRANCH");
 	assert(a != b, "a != b with a:MASTER, b:'~branch' failed");
