@@ -169,8 +169,10 @@ struct BuildSettingsTemplate {
 		if (!this.targetName.empty) dst.targetName = this.targetName;
 		if (!this.workingDirectory.empty) dst.workingDirectory = this.workingDirectory;
 		if (!this.mainSourceFile.empty) {
-			dst.mainSourceFile = this.mainSourceFile;
-			dst.addSourceFiles(this.mainSourceFile);
+			auto p = NativePath(this.mainSourceFile);
+			p.normalize();
+			dst.mainSourceFile = p.toNativeString();
+			dst.addSourceFiles(dst.mainSourceFile);
 		}
 
 		string[] collectFiles(in string[][string] paths_map, string pattern)
@@ -296,4 +298,24 @@ private T clone(T)(ref const(T) val)
 			ret.tupleof[i] = clone!M(val.tupleof[i]);
 		return ret;
 	} else static assert(false, "Unsupported type: "~T.stringof);
+}
+
+unittest { // issue #1407 - duplicate main source file
+	{
+		BuildSettingsTemplate t;
+		t.mainSourceFile = "./foo.d";
+		t.sourceFiles[""] = ["foo.d"];
+		BuildSettings bs;
+		t.getPlatformSettings(bs, BuildPlatform.init, NativePath("/"));
+		assert(bs.sourceFiles == ["foo.d"]);
+	}
+
+	version (Windows) {{
+		BuildSettingsTemplate t;
+		t.mainSourceFile = "src/foo.d";
+		t.sourceFiles[""] = ["src\\foo.d"];
+		BuildSettings bs;
+		t.getPlatformSettings(bs, BuildPlatform.init, NativePath("/"));
+		assert(bs.sourceFiles == ["src\\foo.d"]);
+	}}
 }
