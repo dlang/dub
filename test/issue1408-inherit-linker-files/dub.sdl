@@ -1,0 +1,12 @@
+name "test"
+targetType "executable"
+dependency ":dep" version="*"
+sourceFiles "main.d"
+
+subPackage {
+	name "dep"
+	sourceFiles "lib.d"
+	sourceFiles "lib/lib.a" platform="posix"
+	sourceFiles "lib/lib.lib" platform="windows"
+	preBuildCommands "dub build --root=\"$PACKAGE_DIR/lib\""
+}
