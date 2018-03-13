@@ -269,6 +269,7 @@ class ProjectGenerator
 				const depbs = &depti.buildSettings;
 				if (depbs.targetType == TargetType.executable)
 					continue;
+
 				// add to (link) dependencies
 				ti.dependencies ~= depname;
 				ti.linkDependencies ~= depname;
@@ -404,7 +405,7 @@ class ProjectGenerator
 		parent.addStringImportPaths(child.stringImportPaths);
 		// linking of static libraries is done by parent
 		if (child.targetType == TargetType.staticLibrary) {
-			parent.addLinkerFiles(child.sourceFiles.filter!isLinkerFile.array);
+			parent.addSourceFiles(child.sourceFiles.filter!isLinkerFile.array);
 			parent.addLibs(child.libs);
 			parent.addLFlags(child.lflags);
 		}

@@ -1,6 +1,15 @@
 Changelog
 =========
 
+v1.8.1 - 2018-
+-------------------
+
+- Fixed a regression in 1.8.0 that caused linker files specified as `sourceFiles` to not get inherited properly - [issue #1408][issue1408], [pull #1409][issue1409]
+
+[issue1408]: https://github.com/dlang/dub/issues/1408
+[issue1409]: https://github.com/dlang/dub/issues/1409
+
+
 v1.8.0 - 2018-03-01
 -------------------
 

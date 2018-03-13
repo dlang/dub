@@ -36,6 +36,7 @@ skip_tags: false
 branches:
   only:
     - master
+    - stable
 
 install:
   - ps: function ResolveLatestDMD
