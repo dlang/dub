@@ -56,7 +56,7 @@ fi
 MACOSX_DEPLOYMENT_TARGET=10.7
 
 echo Running $DMD...
-$DMD -ofbin/dub -L--export-dynamic -g -O -w -version=DubUseCurl -Isource $* $LIBS @build-files.txt
+$DMD -ofbin/dub -g -O -w -version=DubUseCurl -Isource $* $LIBS @build-files.txt
 bin/dub --version
 echo DUB has been built as bin/dub.
 echo
