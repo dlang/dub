@@ -463,7 +463,7 @@ class InitCommand : Command {
 		this.argumentsPattern = "[<directory> [<dependency>...]]";
 		this.description = "Initializes an empty package skeleton";
 		this.helpText = [
-			"Initializes an empty package of the specified type in the given directory. By default, the current working dirctory is used."
+			"Initializes an empty package of the specified type in the given directory. By default, the current working directory is used."
 		];
 	}
 
