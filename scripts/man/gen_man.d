@@ -1,6 +1,7 @@
 #!/usr/bin/env dub
 /+dub.sdl:
 dependency "dub" path="../.."
+lflags "-lz"
 +/
 
 import std.algorithm, std.conv, std.format, std.path, std.range, std.stdio;
