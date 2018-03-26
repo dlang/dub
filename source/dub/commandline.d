@@ -835,6 +835,45 @@ class BuildCommand : GenerateCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
+		if (free_args.length >= 1) {
+			auto package_name = free_args[0];
+			auto pack = dub.packageManager.getFirstPackage(package_name);
+
+			if (!pack) {
+				bool input(string caption, bool default_value = true) {
+					writef("%s [%s]: ", caption, default_value ? "Y/n" : "y/N");
+					auto inp = readln();
+					string userInput = "y";
+					if (inp.length > 1)
+						userInput = inp[0 .. $ - 1].toLower;
+
+					switch (userInput) {
+						case "no", "n", "0":
+							return false;
+						case "yes", "y", "1":
+						default:
+							return true;
+					}
+				}
+
+				// search for the package and filter for exact matches
+				auto search = dub.searchPackages(package_name)
+					.map!(tup => tup[1].find!(p => p.name == package_name))
+					.filter!(ps => !ps.empty);
+				if (search.empty)
+					return 2;
+
+				auto p = search.front.front;
+				writefln("%s wasn't found locally, but it's available online:", package_name);
+				writefln("Description: %s", p.description);
+				writefln("Version: %s", p.version_);
+
+				bool answer = input("Do you want to fetch %s?".format(package_name));
+				auto dep = Dependency(p.version_);
+				dub.fetch(package_name, dep, dub.defaultPlacementLocation, FetchOptions.none);
+			}
+		}
+
 		return super.execute(dub, free_args, app_args);
 	}
 }
