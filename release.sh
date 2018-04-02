@@ -4,11 +4,17 @@ set -v -e -o pipefail
 
 VERSION=$(git describe --abbrev=0 --tags)
 ARCH="${ARCH:-64}"
+CUSTOM_FLAGS=""
 
 unameOut="$(uname -s)"
 case "$unameOut" in
-    Linux*) OS=linux; ;;
-    Darwin*) OS=osx; ;;
+    Linux*)
+        OS=linux
+        CUSTOM_FLAGS="-L--export-dynamic"
+        ;;
+    Darwin*)
+        OS=osx
+        ;;
     *) echo "Unknown OS: $unameOut"; exit 1
 esac
 
@@ -21,5 +27,5 @@ esac
 archiveName="dub-$VERSION-$OS-$ARCH_SUFFIX.tar.gz"
 
 echo "Building $archiveName"
-DFLAGS="-release -m$ARCH" DMD="$(command -v $DMD)" ./build.sh
+DFLAGS="-release -m$ARCH ${CUSTOM_FLAGS}" DMD="$(command -v $DMD)" ./build.sh
 tar cvfz "bin/$archiveName" -C bin dub

@@ -58,7 +58,7 @@ jobs:
     - d: gdc-4.8.5
       env: [FRONTEND=2.068]
     - stage: deploy
-      d: dmd
+      d: ldc
       os: osx
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       deploy:
@@ -69,9 +69,8 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: dmd
-      # DMD 32-bit is needed for 32-bit compilation
-      script: echo "Deploying to GitHub releases ..." && DMD=$(find $HOME/dlang | grep "dmd-.*/linux/bin32/dmd") ./release.sh
+    - d: ldc
+      script: echo "Deploying to GitHub releases ..." && ./release.sh
       env: [ARCH=32]
       addons:
         apt:
@@ -86,7 +85,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: dmd
+    - d: ldc
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       deploy:
         - provider: releases
