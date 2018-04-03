@@ -52,8 +52,8 @@ else
 	echo Using existing version file.
 fi
 
-# For OSX compatibility >= 10.7
-MACOSX_DEPLOYMENT_TARGET=10.7
+# For OSX compatibility >= 10.8
+MACOSX_DEPLOYMENT_TARGET=10.8
 
 echo Running $DMD...
 $DMD -ofbin/dub -g -O -w -version=DubUseCurl -Isource $* $LIBS @build-files.txt
