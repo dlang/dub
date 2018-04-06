@@ -1,0 +1,3 @@
+module lib;
+
+void foo();

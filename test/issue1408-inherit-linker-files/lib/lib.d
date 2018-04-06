@@ -1,0 +1,5 @@
+module lib;
+
+void foo()
+{
+}

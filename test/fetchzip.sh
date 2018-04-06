@@ -10,7 +10,7 @@ dub remove gitcompatibledubpackage --non-interactive --version=* 2>/dev/null || 
 "$DUB" build --single "$DIR"/test_registry.d
 "$DIR"/test_registry --folder="$DIR/issue1336-registry" --port=$PORT &
 PID=$!
-sleep 0.2
+sleep 1
 trap 'kill $PID 2>/dev/null || true' exit
 
 echo "Trying to download gitcompatibledubpackage (1.0.4)"
