@@ -145,6 +145,200 @@ class ProjectGenerator
 	*/
 	protected void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[string] targets) {}
 
+	/**
+	   Configure package before determining dependencies.
+
+	   Returns:
+	       whether the target of `config` for `pack` has any output (e.g. static lib, exe)
+	*/
+	private bool shallowConfig(in Package pack, string config, bool genCombined, ref BuildSettings bs)
+	{
+		TargetType tt = bs.targetType;
+		if (pack is m_project.rootPackage) {
+			if (tt == TargetType.autodetect || tt == TargetType.library) tt = TargetType.staticLibrary;
+		} else {
+			if (tt == TargetType.autodetect || tt == TargetType.library) tt = genCombined ? TargetType.sourceLibrary : TargetType.staticLibrary;
+			else if (tt == TargetType.dynamicLibrary) {
+				logWarn("Dynamic libraries are not yet supported as dependencies - building as static library.");
+				tt = TargetType.staticLibrary;
+			}
+		}
+		if (tt != TargetType.none && tt != TargetType.sourceLibrary && bs.sourceFiles.empty) {
+			logWarn(`Configuration '%s' of package %s contains no source files. Please add {"targetType": "none"} to its package description to avoid building it.`,
+					config, pack.name);
+			tt = TargetType.none;
+		}
+
+		switch (bs.targetType = tt)
+		{
+		case TargetType.none:
+			// ignore any build settings for targetType none (only dependencies will be processed)
+			bs = BuildSettings.init;
+			bs.targetType = TargetType.none;
+			break;
+
+		case TargetType.dynamicLibrary:
+			// set -fPIC for dynamic library builds
+			bs.addOptions(BuildOption.pic);
+			break;
+
+		default:
+			break;
+		}
+		bool generatesBinary = bs.targetType != TargetType.sourceLibrary && bs.targetType != TargetType.none;
+		return generatesBinary || pack is m_project.rootPackage;
+	}
+
+	/** Recursively Collect dependencies for all targets.
+	 */
+	void collectDependencies(Package pack, ref TargetInfo ti, TargetInfo[string] targets, in bool[string] hasOutput, void[0][Package] visited = null, size_t level = 0)
+	{
+		import std.algorithm : sort;
+		import std.range : repeat;
+
+		// use `visited` here as pkgs cannot depend on themselves
+		if (pack in visited)
+			return;
+		// transitive dependencies must be visited multiple times, see #1350
+		immutable transitive = !hasOutput[pack.name];
+		if (!transitive)
+			visited[pack] = typeof(visited[pack]).init;
+
+		auto bs = &ti.buildSettings;
+		logDebug("%sConfiguring target %s (%s %s %s)", ' '.repeat(2 * level), pack.name, bs.targetType, bs.targetPath, bs.targetName);
+
+		// get specified dependencies, e.g. vibe-d ~0.8.1
+		auto deps = pack.getDependencies(targets[pack.name].config);
+		logDebug("deps: %s -> %(%s, %)", pack.name, deps.byKey);
+		foreach (depname; deps.keys.sort())
+		{
+			auto depspec = deps[depname];
+			// get selected package for that dependency, e.g. vibe-d 0.8.2-beta.2
+			auto deppack = m_project.getDependency(depname, depspec.optional);
+			if (deppack is null) continue; // optional and not selected
+
+			// if dependency has no target output
+			if (!hasOutput[depname]) {
+				// add itself
+				ti.packages ~= deppack;
+				// and it's transitive dependencies to current target
+				collectDependencies(deppack, ti, targets, hasOutput, visited, level + 1);
+				continue;
+			}
+			auto depti = depname in targets;
+			const depbs = &depti.buildSettings;
+			if (depbs.targetType == TargetType.executable)
+				continue;
+			// add to (link) dependencies
+			ti.dependencies ~= depname;
+			ti.linkDependencies ~= depname;
+
+			// recurse
+			collectDependencies(deppack, *depti, targets, hasOutput, visited, level + 1);
+
+			// also recursively add all link dependencies of static libraries
+			// preserve topological sorting of dependencies for correct link order
+			if (depbs.targetType == TargetType.staticLibrary)
+				ti.linkDependencies = ti.linkDependencies.filter!(d => !depti.linkDependencies.canFind(d)).array ~ depti.linkDependencies;
+		}
+	}
+
+	/** Configure dependencies.
+
+		1. downwards inherits versions, debugVersions, and inheritable build settings
+	*/
+	static void configureDependencies(in ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
+	{
+		import std.range : repeat;
+
+		// do not use `visited` here as dependencies must inherit
+		// configurations from *all* of their parents
+		logDebug("%sConfigure dependencies of %s, deps:%(%s, %)", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
+		foreach (depname; ti.dependencies)
+		{
+			auto pti = &targets[depname];
+			mergeFromDependent(ti.buildSettings, pti.buildSettings);
+			configureDependencies(*pti, targets, level + 1);
+		}
+	}
+
+	/** Define Have_dependency_xyz version identifiers.
+
+		2. add Have_dependency_xyz for all direct dependencies of a target
+	    (includes incorporated non-target dependencies and their dependencies)
+	*/
+	static void defineHaveDependencies(TargetInfo[string] targets)
+	{
+		foreach (ref ti; targets.byValue)
+		{
+			import std.range : chain;
+			import dub.internal.utils : stripDlangSpecialChars;
+
+			auto bs = &ti.buildSettings;
+			auto pkgnames = ti.packages.map!(p => p.name).chain(ti.dependencies);
+			bs.addVersions(pkgnames.map!(pn => "Have_" ~ stripDlangSpecialChars(pn)).array);
+		}
+	}
+
+	/** Configure dependents.
+
+		3. upwards inherit full build configurations (import paths, versions, debugVersions, ...)
+	*/
+	static void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, void[0][Package] visited = null, size_t level = 0)
+	{
+		import std.range : repeat;
+
+		// use `visited` here as pkgs cannot depend on themselves
+		if (ti.pack in visited)
+			return;
+		visited[ti.pack] = typeof(visited[ti.pack]).init;
+
+		logDiagnostic("%sConfiguring dependent %s, deps:%(%s, %)", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
+		// embedded non-binary dependencies
+		foreach (deppack; ti.packages[1 .. $])
+			ti.buildSettings.add(targets[deppack.name].buildSettings);
+		// binary dependencies
+		foreach (depname; ti.dependencies)
+		{
+			auto pdepti = &targets[depname];
+			configureDependents(*pdepti, targets, visited, level + 1);
+			mergeFromDependency(pdepti.buildSettings, ti.buildSettings);
+		}
+	}
+
+	/** Override string imports.
+
+		4. override string import files in dependencies
+	*/
+	static void overrideStringImports(ref TargetInfo ti, TargetInfo[string] targets, string[] overrides)
+	{
+		// do not use visited here as string imports can be overridden by *any* parent
+		//
+		// special support for overriding string imports in parent packages
+		// this is a candidate for deprecation, once an alternative approach
+		// has been found
+		if (ti.buildSettings.stringImportPaths.length) {
+			// override string import files (used for up to date checking)
+			foreach (ref f; ti.buildSettings.stringImportFiles)
+			{
+				foreach (o; overrides)
+				{
+					NativePath op;
+					if (f != o && NativePath(f).head == (op = NativePath(o)).head) {
+						logDebug("string import %s overridden by %s", f, o);
+						f = o;
+						ti.buildSettings.prependStringImportPaths(op.parentPath.toNativeString);
+					}
+				}
+			}
+		}
+		// add to overrides for recursion
+		overrides ~= ti.buildSettings.stringImportFiles;
+		// override dependencies
+		foreach (depname; ti.dependencies)
+			overrideStringImports(targets[depname], targets, overrides);
+	}
+
 	/** Configure `rootPackage` and all of it's dependencies.
 
 		1. Merge versions, debugVersions, and inheritable build
@@ -166,215 +360,31 @@ class ProjectGenerator
 	 */
 	private string[] configurePackages(Package rootPackage, TargetInfo[string] targets, GeneratorSettings genSettings)
 	{
-		import std.algorithm : remove, sort;
+		import std.algorithm : remove;
 		import std.range : repeat;
 
-		// 0. do shallow configuration (not including dependencies) of all packages
-		TargetType determineTargetType(const ref TargetInfo ti)
-		{
-			TargetType tt = ti.buildSettings.targetType;
-			if (ti.pack is rootPackage) {
-				if (tt == TargetType.autodetect || tt == TargetType.library) tt = TargetType.staticLibrary;
-			} else {
-				if (tt == TargetType.autodetect || tt == TargetType.library) tt = genSettings.combined ? TargetType.sourceLibrary : TargetType.staticLibrary;
-				else if (tt == TargetType.dynamicLibrary) {
-					logWarn("Dynamic libraries are not yet supported as dependencies - building as static library.");
-					tt = TargetType.staticLibrary;
-				}
-			}
-			if (tt != TargetType.none && tt != TargetType.sourceLibrary && ti.buildSettings.sourceFiles.empty) {
-				logWarn(`Configuration '%s' of package %s contains no source files. Please add {"targetType": "none"} to its package description to avoid building it.`,
-						ti.config, ti.pack.name);
-				tt = TargetType.none;
-			}
-			return tt;
-		}
-
-		string[] mainSourceFiles;
 		bool[string] hasOutput;
-
-		foreach (ref ti; targets.byValue)
+		foreach (name, ref ti; targets)
 		{
-			auto bs = &ti.buildSettings;
-			// determine the actual target type
-			bs.targetType = determineTargetType(ti);
-
-			switch (bs.targetType)
-			{
-			case TargetType.none:
-				// ignore any build settings for targetType none (only dependencies will be processed)
-				*bs = BuildSettings.init;
-				bs.targetType = TargetType.none;
-				break;
-
-			case TargetType.executable:
-				break;
-
-			case TargetType.dynamicLibrary:
-				// set -fPIC for dynamic library builds
-				ti.buildSettings.addOptions(BuildOption.pic);
-				goto default;
-
-			default:
-				// remove any mainSourceFile from non-executable builds
-				if (bs.mainSourceFile.length) {
-					bs.sourceFiles = bs.sourceFiles.remove!(f => f == bs.mainSourceFile);
-					mainSourceFiles ~= bs.mainSourceFile;
-				}
-				break;
-			}
-			bool generatesBinary = bs.targetType != TargetType.sourceLibrary && bs.targetType != TargetType.none;
-			hasOutput[ti.pack.name] = generatesBinary || ti.pack is rootPackage;
+			hasOutput[name] = shallowConfig(ti.pack, ti.config, genSettings.combined, ti.buildSettings);
 		}
 
-		// mark packages as visited (only used during upwards propagation)
-		void[0][Package] visited;
-
-		// collect all dependencies
-		void collectDependencies(Package pack, ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
-		{
-			// use `visited` here as pkgs cannot depend on themselves
-			if (pack in visited)
-				return;
-			// transitive dependencies must be visited multiple times, see #1350
-			immutable transitive = !hasOutput[pack.name];
-			if (!transitive)
-				visited[pack] = typeof(visited[pack]).init;
-
-			auto bs = &ti.buildSettings;
-			if (hasOutput[pack.name])
-				logDebug("%sConfiguring target %s (%s %s %s)", ' '.repeat(2 * level), pack.name, bs.targetType, bs.targetPath, bs.targetName);
-			else
-				logDebug("%sConfiguring target without output %s", ' '.repeat(2 * level), pack.name);
-
-			// get specified dependencies, e.g. vibe-d ~0.8.1
-			auto deps = pack.getDependencies(targets[pack.name].config);
-			logDebug("deps: %s -> %(%s, %)", pack.name, deps.byKey);
-			foreach (depname; deps.keys.sort())
-			{
-				auto depspec = deps[depname];
-				// get selected package for that dependency, e.g. vibe-d 0.8.2-beta.2
-				auto deppack = m_project.getDependency(depname, depspec.optional);
-				if (deppack is null) continue; // optional and not selected
-
-				// if dependency has no output
-				if (!hasOutput[depname]) {
-					// add itself
-					ti.packages ~= deppack;
-					// and it's transitive dependencies to current target
-					collectDependencies(deppack, ti, targets, level + 1);
-					continue;
-				}
-				auto depti = &targets[depname];
-				const depbs = &depti.buildSettings;
-				if (depbs.targetType == TargetType.executable)
-					continue;
-				// add to (link) dependencies
-				ti.dependencies ~= depname;
-				ti.linkDependencies ~= depname;
-
-				// recurse
-				collectDependencies(deppack, *depti, targets, level + 1);
-
-				// also recursively add all link dependencies of static libraries
-				// preserve topological sorting of dependencies for correct link order
-				if (depbs.targetType == TargetType.staticLibrary)
-					ti.linkDependencies = ti.linkDependencies.filter!(d => !depti.linkDependencies.canFind(d)).array ~ depti.linkDependencies;
-			}
-		}
-
-		collectDependencies(rootPackage, targets[rootPackage.name], targets);
-		static if (__VERSION__ > 2070)
-			visited.clear();
-		else
-			destroy(visited);
-
-		// 1. downwards inherits versions, debugVersions, and inheritable build settings
-		static void configureDependencies(in ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
-		{
-			// do not use `visited` here as dependencies must inherit
-			// configurations from *all* of their parents
-			logDebug("%sConfigure dependencies of %s, deps:%(%s, %)", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
-			foreach (depname; ti.dependencies)
-			{
-				auto pti = &targets[depname];
-				mergeFromDependent(ti.buildSettings, pti.buildSettings);
-				configureDependencies(*pti, targets, level + 1);
-			}
-		}
-
+		collectDependencies(rootPackage, targets[rootPackage.name], targets, hasOutput);
 		configureDependencies(targets[rootPackage.name], targets);
+		defineHaveDependencies(targets);
+		configureDependents(targets[rootPackage.name], targets);
+		overrideStringImports(targets[rootPackage.name], targets, null);
 
-		// 2. add Have_dependency_xyz for all direct dependencies of a target
-		// (includes incorporated non-target dependencies and their dependencies)
+		// remove any mainSourceFile from non-executable builds
+		string[] mainSourceFiles;
 		foreach (ref ti; targets.byValue)
 		{
-			import std.range : chain;
-			import dub.internal.utils : stripDlangSpecialChars;
-
 			auto bs = &ti.buildSettings;
-			auto pkgnames = ti.packages.map!(p => p.name).chain(ti.dependencies);
-			bs.addVersions(pkgnames.map!(pn => "Have_" ~ stripDlangSpecialChars(pn)).array);
-		}
-
-		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, ...)
-		void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
-		{
-			// use `visited` here as pkgs cannot depend on themselves
-			if (ti.pack in visited)
-				return;
-			visited[ti.pack] = typeof(visited[ti.pack]).init;
-
-			logDiagnostic("%sConfiguring dependent %s, deps:%(%s, %)", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
-			// embedded non-binary dependencies
-			foreach (deppack; ti.packages[1 .. $])
-				ti.buildSettings.add(targets[deppack.name].buildSettings);
-			// binary dependencies
-			foreach (depname; ti.dependencies)
-			{
-				auto pdepti = &targets[depname];
-				configureDependents(*pdepti, targets, level + 1);
-				mergeFromDependency(pdepti.buildSettings, ti.buildSettings);
+			if (bs.targetType != TargetType.executable && bs.mainSourceFile.length) {
+				bs.sourceFiles = bs.sourceFiles.remove!(f => f == bs.mainSourceFile);
+				mainSourceFiles ~= bs.mainSourceFile;
 			}
 		}
-
-		configureDependents(targets[rootPackage.name], targets);
-		static if (__VERSION__ > 2070)
-			visited.clear();
-		else
-			destroy(visited);
-
-		// 4. override string import files in dependencies
-		static void overrideStringImports(ref TargetInfo ti, TargetInfo[string] targets, string[] overrides)
-		{
-			// do not use visited here as string imports can be overridden by *any* parent
-			//
-			// special support for overriding string imports in parent packages
-			// this is a candidate for deprecation, once an alternative approach
-			// has been found
-			if (ti.buildSettings.stringImportPaths.length) {
-				// override string import files (used for up to date checking)
-				foreach (ref f; ti.buildSettings.stringImportFiles)
-				{
-					foreach (o; overrides)
-					{
-						NativePath op;
-						if (f != o && NativePath(f).head == (op = NativePath(o)).head) {
-							logDebug("string import %s overridden by %s", f, o);
-							f = o;
-							ti.buildSettings.prependStringImportPaths(op.parentPath.toNativeString);
-						}
-					}
-				}
-			}
-			// add to overrides for recursion
-			overrides ~= ti.buildSettings.stringImportFiles;
-			// override dependencies
-			foreach (depname; ti.dependencies)
-				overrideStringImports(targets[depname], targets, overrides);
-		}
-
-		overrideStringImports(targets[rootPackage.name], targets, null);
 
 		// remove targets without output
 		foreach (name; targets.keys)
