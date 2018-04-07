@@ -1,0 +1,14 @@
+name "test"
+targetType "executable"
+dependency ":dep" version="*"
+sourceFiles "main.d"
+// make lib.d available for import
+importPaths "."
+
+subPackage {
+	name "dep"
+	sourceFiles "dep.d"
+	sourceFiles "lib/liblib.a" platform="posix"
+	sourceFiles "lib/lib.lib" platform="windows"
+	preBuildCommands "dub build --root=\"$PACKAGE_DIR/lib\""
+}
