@@ -1,22 +1,30 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -v -e -o pipefail
+set -eux -o pipefail
 
 VERSION=$(git describe --abbrev=0 --tags)
 ARCH="${ARCH:-64}"
-CUSTOM_FLAGS=""
-
+CUSTOM_FLAGS=()
 unameOut="$(uname -s)"
 case "$unameOut" in
     Linux*)
         OS=linux
-        CUSTOM_FLAGS="-L--export-dynamic"
+        CUSTOM_FLAGS+=("-L--export-dynamic")
         ;;
     Darwin*)
         OS=osx
+        CUSTOM_FLAGS+=("-L-dead_strip")
         ;;
     *) echo "Unknown OS: $unameOut"; exit 1
 esac
+
+if [[ $(basename "$DMD") =~ ldmd.* ]] ; then
+    CUSTOM_FLAGS+=("-flto=full")
+    # ld.gold is required on Linux
+    if [ ${OS:-} == "linux" ] ; then
+        CUSTOM_FLAGS+=("-linker=gold")
+    fi
+fi
 
 case "$ARCH" in
     64) ARCH_SUFFIX="x86_64";;
@@ -27,5 +35,5 @@ esac
 archiveName="dub-$VERSION-$OS-$ARCH_SUFFIX.tar.gz"
 
 echo "Building $archiveName"
-DFLAGS="-release -m$ARCH ${CUSTOM_FLAGS}" DMD="$(command -v $DMD)" ./build.sh
+DFLAGS="-release -m$ARCH ${CUSTOM_FLAGS[@]}" DMD="$(command -v $DMD)" ./build.sh
 tar cvfz "bin/$archiveName" -C bin dub
