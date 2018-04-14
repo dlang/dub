@@ -113,7 +113,8 @@ jobs:
 stages:
   - name: test
     if: type = pull_request or (type = push and branch = master)
-  - name: deploy
-    if: type = push and tag =~ ^v
+  # Until deployment of the release binaries is fixed, always build them
+  #- name: deploy
+    #if: type = push and tag =~ ^v
   - name: update-latest
     if: type = push and tag =~ ^v
