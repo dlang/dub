@@ -35,7 +35,7 @@ If you want to build for yourself, just install [DMD](http://dlang.org/download.
 
 ### Arch Linux
 
-Михаил Страшун (Dicebot) maintains a dub package of the latest release in `Community`, for [x86_64](https://www.archlinux.org/packages/community/x86_64/dub/) and [i686](https://www.archlinux.org/packages/community/i686/dub/).
+Dub is in the [official repository](https://www.archlinux.org/packages/community/x86_64/dub/). AUR packages are also available: Михаил Страшун (Dicebot) maintains a dub package of the latest release in `Community`, for [x86_64](https://www.archlinux.org/packages/community/x86_64/dub/) and [i686](https://www.archlinux.org/packages/community/i686/dub/).
 Moritz Maxeiner has created a PKGBUILD file for GIT master: <https://aur.archlinux.org/packages/dub-git/>
 
 ### Debian/Ubuntu Linux
