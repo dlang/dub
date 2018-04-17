@@ -106,8 +106,8 @@ dependencies \- both downloading them and linking them into the application.`);
 string highlightArguments(string args)
 {
 	import std.regex : regex, replaceAll;
-	static immutable re = regex("<([^>]*)>");
-	static immutable reReplacement = "<%s>".format(`$1`.italic);
+	static auto re = regex("<([^>]*)>");
+	static const reReplacement = "<%s>".format(`$1`.italic);
 	return args.replaceAll(re, reReplacement);
 }
 

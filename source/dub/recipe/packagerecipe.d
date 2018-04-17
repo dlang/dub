@@ -29,7 +29,7 @@ import std.range;
 	example, "packa:packb:packc" references a package named "packc" that is a
 	sub package of "packb", which in turn is a sub package of "packa".
 */
-string[] getSubPackagePath(string package_name)
+string[] getSubPackagePath(string package_name) @safe pure
 {
 	return package_name.split(":");
 }
@@ -39,7 +39,7 @@ string[] getSubPackagePath(string package_name)
 
 	In case of a top level package, the qualified name is returned unmodified.
 */
-string getBasePackageName(string package_name)
+string getBasePackageName(string package_name) @safe pure
 {
 	return package_name.findSplit(":")[0];
 }
@@ -50,12 +50,12 @@ string getBasePackageName(string package_name)
 	This is the part of the package name excluding the base package
 	name. See also $(D getBasePackageName).
 */
-string getSubPackageName(string package_name)
+string getSubPackageName(string package_name) @safe pure
 {
 	return package_name.findSplit(":")[2];
 }
 
-unittest
+@safe unittest
 {
 	assert(getSubPackagePath("packa:packb:packc") == ["packa", "packb", "packc"]);
 	assert(getSubPackagePath("pack") == ["pack"]);
