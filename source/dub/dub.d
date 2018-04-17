@@ -633,7 +633,7 @@ class Dub {
 		auto test_config = format("%s-test-%s", m_project.rootPackage.name.replace(".", "-").replace(":", "-"), config);
 
 		BuildSettings lbuildsettings = settings.buildSettings;
-		m_project.addBuildSettings(lbuildsettings, settings.platform, config, null, true);
+		m_project.addBuildSettings(lbuildsettings, settings, config, null, true);
 		if (lbuildsettings.targetType == TargetType.none) {
 			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
 			return;
