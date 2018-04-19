@@ -18,6 +18,7 @@ __dummy.html
 /bin/dub-*
 
 # Ignore files or directories created by the test suite.
+/test/test.log
 /test/custom-source-main-bug487/custom-source-main-bug487
 /test/3-copyFiles/bin/
 /test/ignore-hidden-1/ignore-hidden-1
