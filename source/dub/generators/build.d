@@ -183,7 +183,7 @@ class BuildGenerator : ProjectGenerator {
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
-			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
+			runScanBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
 		// override target path
@@ -245,6 +245,7 @@ class BuildGenerator : ProjectGenerator {
 
 		if (buildsettings.preBuildCommands.length){
 			logInfo("Running pre-build commands...");
+			// runScanBuildCommands ?? prepareEnvironment ??
 			runCommands(buildsettings.preBuildCommands);
 		}
 
@@ -305,7 +306,7 @@ class BuildGenerator : ProjectGenerator {
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
-			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
+			runScanBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
 		buildWithCompiler(settings, buildsettings);
@@ -550,6 +551,99 @@ class BuildGenerator : ProjectGenerator {
 		}
 		m_temporaryFiles = null;
 	}
+}
+
+
+/** Runs a list of build commands for a particular package and scan for "dub:" lines output
+
+	This function sets all DUB speficic environment variables and scan for
+	"dub:" lines output and amend build_settings with the settings passed from
+	the commands through these lines.
+
+	Each command get its environment updated by the settings of the previous commands
+*/
+private void runScanBuildCommands(in string[] commands, in Package pack, in Project proj,
+	in GeneratorSettings settings, ref BuildSettings build_settings)
+{
+	import std.process : Config, pipe, spawnShell, wait;
+	import std.stdio : File, stdin, stderr, stdout;
+
+	auto env = prepareCommandsEnvironment(pack, proj, settings, build_settings);
+
+	version(Windows) enum nullFile = "NUL";
+	else version(Posix) enum nullFile = "/dev/null";
+	else static assert(0);
+
+	// Do not use retainStdout here as the output reading loop would hang forever.
+	// Config.retainStderr is not necessary with stderr.
+	const config = Config.none;
+	const logLevel = getLogLevel();
+
+	auto childrenErr = logLevel >= LogLevel.none ? File(nullFile, "w") : stderr;
+
+	foreach (cmd; commands) {
+		logDiagnostic("Running %s", cmd);
+		auto p = pipe();
+		auto pid = spawnShell(cmd, stdin, p.writeEnd, childrenErr, env, config);
+
+		string[] dubLines;
+
+		foreach (l; p.readEnd.byLine) {
+			if (l.startsWith("dub:")) {
+				dubLines ~= l[4 .. $].idup;
+			}
+			else {
+				stdout.writeln(l);
+			}
+		}
+
+		amendBuildSettings(dubLines, env, build_settings);
+
+		const exitcode = wait(pid);
+		enforce(exitcode == 0, "Command failed with exit code "~to!string(exitcode));
+	}
+}
+
+private void amendBuildSettings(string[] dubLines, string[string] env, ref BuildSettings settings)
+{
+	auto bs = BuildSetting.none;
+	foreach (dl; dubLines) {
+		if (handleDubLineProp!("dflags")(dl, settings, bs)) continue;
+		if (handleDubLineProp!("lflags")(dl, settings, bs)) continue;
+		if (handleDubLineProp!("libs")(dl, settings, bs)) continue;
+		if (handleDubLineProp!("sourceFiles")(dl, settings, bs)) continue;
+		if (handleDubLineProp!("copyFiles")(dl, settings, bs)) continue;
+		if (handleDubLineProp!("versions")(dl, settings, bs)) continue;
+		if (handleDubLineProp!("debugVersions")(dl, settings, bs)) continue;
+		if (handleDubLineProp!("importPaths")(dl, settings, bs)) continue;
+		if (handleDubLineProp!("stringImportPaths")(dl, settings, bs)) continue;
+	}
+
+	if (bs & BuildSetting.dflags)
+		env["DFLAGS"]				= join(cast(string[])settings.dflags, " ");
+	if (bs & BuildSetting.lflags)
+		env["LFLAGS"]				= join(cast(string[])settings.lflags, " ");
+	if (bs & BuildSetting.versions)
+		env["VERSIONS"]				= join(cast(string[])settings.versions, " ");
+	if (bs & BuildSetting.libs)
+		env["LIBS"]					= join(cast(string[])settings.libs, " ");
+	if (bs & BuildSetting.importPaths)
+		env["IMPORT_PATHS"]			= join(cast(string[])settings.importPaths, " ");
+	if (bs & BuildSetting.stringImportPaths)
+		env["STRING_IMPORT_PATHS"]	= join(cast(string[])settings.dflags, " ");
+}
+
+private bool handleDubLineProp(string name)(string line, ref BuildSettings settings, ref BuildSetting bsFlags)
+{
+	import std.uni : toUpper;
+	enum addMethod = ("add"~name[0..1].toUpper~name[1..$]).replace("flags", "Flags");
+	if (line.startsWith(name~":")) {
+		const s = line[name.length+1 .. $];
+		mixin("settings."~addMethod~"(s);");
+		mixin("bsFlags |= BuildSetting."~name~";");
+		return true;
+	}
+	return false;
 }
 
 private NativePath getMainSourceFile(in Package prj)
