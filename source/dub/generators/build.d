@@ -586,16 +586,21 @@ private void runScanBuildCommands(in string[] commands, in Package pack, in Proj
 		auto p = pipe();
 		auto pid = spawnShell(cmd, stdin, p.writeEnd, childrenErr, env, config);
 
-		string[] dubLines;
+		BuildSettings cmdBs;
 
 		foreach (l; p.readEnd.byLine) {
-			if (l.startsWith("dub:")) {
-				dubLines ~= l[4 .. $].idup;
-			}
 			stdout.writeln(l);
+			if (l.startsWith("dub:")) {
+				import dub.internal.vibecompat.data.json : parseJsonString;
+				import dub.recipe.json : parseJsonBuildSettings;
+				auto json = parseJsonString(l[4 .. $].idup);
+				const bs = parseJsonBuildSettings(json);
+				cmdBs.add(bs);
+			}
 		}
 
-		amendBuildSettings(dubLines, env, build_settings);
+		build_settings.add(cmdBs);
+		amendBuildSettingsEnvironment(env, cmdBs);
 
 		const exitcode = wait(pid);
 		enforce(exitcode == 0, "Command failed with exit code "~to!string(exitcode));
@@ -637,51 +642,22 @@ bool isScannedBuildSetting(BuildSetting bs)()
 	return isPowerOf2(cast(int)bs) && !exclusion.canFind(bs);
 }
 
-private void amendBuildSettings(string[] dubLines, ref string[string] env, ref BuildSettings settings)
+private void amendBuildSettingsEnvironment(ref string[string] env, in BuildSettings settings)
 {
 	import std.conv : to;
 	import std.meta : Filter;
 	import std.traits : EnumMembers;
 
-	auto modified = BuildSetting.none;
-
 	alias BS = Filter!(isScannedBuildSetting, EnumMembers!BuildSetting);
-
-	lineloop:
-	foreach (dl; dubLines) {
-		foreach(bs; BS) {
-			enum bsName = bs.to!string;
-			if (handleDubLineProp!(bsName)(dl, settings)) {
-				modified |= bs;
-				continue lineloop;
-			}
-		}
-	}
 
 	foreach (bs; BS) {
 		enum bsName = bs.to!string;
 		enum envName = buildSettingEnvVarName(bsName);
-		if (modified & bs) {
-			string[] s = mixin("settings."~bsName);
+		const s = mixin("settings."~bsName);
+		if (s.length) {
 			env[envName] = join(s, " ");
 		}
 	}
-}
-
-private bool handleDubLineProp(string propName)(string line, ref BuildSettings settings)
-{
-	enum addMethod = buildSettingAddMethodName(propName);
-	if (line.startsWith(propName~":")) {
-		const s = line[propName.length+1 .. $];
-		mixin("settings."~addMethod~"(s);");
-		return true;
-	}
-	return false;
-}
-
-private string buildSettingAddMethodName(in string propName) {
-	import std.uni : toUpper;
-	return ("add"~propName[0..1].toUpper~propName[1..$]).replace("flags", "Flags");
 }
 
 private string buildSettingEnvVarName(in string propName) {
