@@ -592,9 +592,7 @@ private void runScanBuildCommands(in string[] commands, in Package pack, in Proj
 			if (l.startsWith("dub:")) {
 				dubLines ~= l[4 .. $].idup;
 			}
-			else {
-				stdout.writeln(l);
-			}
+			stdout.writeln(l);
 		}
 
 		amendBuildSettings(dubLines, env, build_settings);
@@ -604,46 +602,86 @@ private void runScanBuildCommands(in string[] commands, in Package pack, in Proj
 	}
 }
 
-private void amendBuildSettings(string[] dubLines, string[string] env, ref BuildSettings settings)
-{
-	auto bs = BuildSetting.none;
-	foreach (dl; dubLines) {
-		if (handleDubLineProp!("dflags")(dl, settings, bs)) continue;
-		if (handleDubLineProp!("lflags")(dl, settings, bs)) continue;
-		if (handleDubLineProp!("libs")(dl, settings, bs)) continue;
-		if (handleDubLineProp!("sourceFiles")(dl, settings, bs)) continue;
-		if (handleDubLineProp!("copyFiles")(dl, settings, bs)) continue;
-		if (handleDubLineProp!("versions")(dl, settings, bs)) continue;
-		if (handleDubLineProp!("debugVersions")(dl, settings, bs)) continue;
-		if (handleDubLineProp!("importPaths")(dl, settings, bs)) continue;
-		if (handleDubLineProp!("stringImportPaths")(dl, settings, bs)) continue;
-	}
 
-	if (bs & BuildSetting.dflags)
-		env["DFLAGS"]				= join(cast(string[])settings.dflags, " ");
-	if (bs & BuildSetting.lflags)
-		env["LFLAGS"]				= join(cast(string[])settings.lflags, " ");
-	if (bs & BuildSetting.versions)
-		env["VERSIONS"]				= join(cast(string[])settings.versions, " ");
-	if (bs & BuildSetting.libs)
-		env["LIBS"]					= join(cast(string[])settings.libs, " ");
-	if (bs & BuildSetting.importPaths)
-		env["IMPORT_PATHS"]			= join(cast(string[])settings.importPaths, " ");
-	if (bs & BuildSetting.stringImportPaths)
-		env["STRING_IMPORT_PATHS"]	= join(cast(string[])settings.dflags, " ");
+// std.meta.Filter requires this function to be public
+/** Returns: whether bs is a build setting that is scanned for output.
+*/
+bool isScannedBuildSetting(BuildSetting bs)()
+{
+	import std.algorithm : canFind;
+	import std.math : isPowerOf2;
+	immutable exclusion = [ BuildSetting.options ];
+	return isPowerOf2(cast(int)bs) && !exclusion.canFind(bs);
 }
 
-private bool handleDubLineProp(string name)(string line, ref BuildSettings settings, ref BuildSetting bsFlags)
+private void amendBuildSettings(string[] dubLines, ref string[string] env, ref BuildSettings settings)
 {
-	import std.uni : toUpper;
-	enum addMethod = ("add"~name[0..1].toUpper~name[1..$]).replace("flags", "Flags");
-	if (line.startsWith(name~":")) {
-		const s = line[name.length+1 .. $];
+	import std.conv : to;
+	import std.meta : Filter;
+	import std.traits : EnumMembers;
+
+	auto modified = BuildSetting.none;
+
+	alias BS = Filter!(isScannedBuildSetting, EnumMembers!BuildSetting);
+
+	lineloop:
+	foreach (dl; dubLines) {
+		foreach(bs; BS) {
+			enum bsName = bs.to!string;
+			if (handleDubLineProp!(bsName)(dl, settings)) {
+				modified |= bs;
+				continue lineloop;
+			}
+		}
+	}
+
+	foreach (bs; BS) {
+		enum bsName = bs.to!string;
+		enum envName = buildSettingEnvVarName(bsName);
+		if (modified & bs) {
+			string[] s = mixin("settings."~bsName);
+			env[envName] = join(s, " ");
+		}
+	}
+}
+
+private bool handleDubLineProp(string propName)(string line, ref BuildSettings settings)
+{
+	enum addMethod = buildSettingAddMethodName(propName);
+	if (line.startsWith(propName~":")) {
+		const s = line[propName.length+1 .. $];
 		mixin("settings."~addMethod~"(s);");
-		mixin("bsFlags |= BuildSetting."~name~";");
 		return true;
 	}
 	return false;
+}
+
+private string buildSettingAddMethodName(in string propName) {
+	import std.uni : toUpper;
+	return ("add"~propName[0..1].toUpper~propName[1..$]).replace("flags", "Flags");
+}
+
+private string buildSettingEnvVarName(in string propName) {
+	import std.uni : isUpper, toUpper;
+	string envName;
+	foreach (i, c; propName) {
+		if (c.isUpper && i != 0)
+			envName ~= "_";
+		envName ~= c.toUpper;
+	}
+	return /+ "DUB_" ~ +/ envName;
+}
+
+unittest {
+	assert(buildSettingEnvVarName("dflags") == "DFLAGS");
+	assert(buildSettingEnvVarName("lflags") == "LFLAGS");
+	assert(buildSettingEnvVarName("libs") == "LIBS");
+	assert(buildSettingEnvVarName("sourceFiles") == "SOURCE_FILES");
+	assert(buildSettingEnvVarName("copyFiles") == "COPY_FILES");
+	assert(buildSettingEnvVarName("versions") == "VERSIONS");
+	assert(buildSettingEnvVarName("debugVersions") == "DEBUG_VERSIONS");
+	assert(buildSettingEnvVarName("importPaths") == "IMPORT_PATHS");
+	assert(buildSettingEnvVarName("stringImportPaths") == "STRING_IMPORT_PATHS");
 }
 
 private NativePath getMainSourceFile(in Package prj)
