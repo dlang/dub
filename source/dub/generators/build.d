@@ -603,13 +603,36 @@ private void runScanBuildCommands(in string[] commands, in Package pack, in Proj
 }
 
 
+/** Returns: whether x is a power of 2
+*/
+private bool isPowerOf2(in int x) pure @safe nothrow @nogc
+{
+	return x > 0 && !(x & (x - 1));
+}
+
+unittest {
+	assert(isPowerOf2(1));
+	assert(isPowerOf2(2));
+	assert(isPowerOf2(4));
+	assert(isPowerOf2(8));
+	assert(isPowerOf2(16));
+	assert(isPowerOf2(32));
+	assert(isPowerOf2(64));
+	assert(isPowerOf2(128));
+
+	assert(!isPowerOf2(0));
+	assert(!isPowerOf2(3));
+	assert(!isPowerOf2(36));
+	assert(!isPowerOf2(44));
+	assert(!isPowerOf2(75));
+}
+
 // std.meta.Filter requires this function to be public
 /** Returns: whether bs is a build setting that is scanned for output.
 */
 bool isScannedBuildSetting(BuildSetting bs)()
 {
 	import std.algorithm : canFind;
-	import std.math : isPowerOf2;
 	immutable exclusion = [ BuildSetting.options ];
 	return isPowerOf2(cast(int)bs) && !exclusion.canFind(bs);
 }
