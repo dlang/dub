@@ -114,7 +114,12 @@ class BuildGenerator : ProjectGenerator {
 	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_path)
 	{
 		auto cwd = NativePath(getcwd());
-		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
+		const generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
+
+		if( buildsettings.preBuildCommands.length ){
+			logInfo("Running pre-build commands...");
+			runScanBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
+		}
 
 		auto build_id = computeBuildID(config, buildsettings, settings);
 
@@ -176,15 +181,7 @@ class BuildGenerator : ProjectGenerator {
 			return false;
 		}
 
-		// determine basic build properties
-		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
-
 		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
-
-		if( buildsettings.preBuildCommands.length ){
-			logInfo("Running pre-build commands...");
-			runScanBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
-		}
 
 		// override target path
 		auto cbuildsettings = buildsettings;
@@ -243,12 +240,6 @@ class BuildGenerator : ProjectGenerator {
 		flags ~= buildsettings.dflags;
 		flags ~= mainsrc.relativeTo(cwd).toNativeString();
 
-		if (buildsettings.preBuildCommands.length){
-			logInfo("Running pre-build commands...");
-			// runScanBuildCommands ?? prepareEnvironment ??
-			runCommands(buildsettings.preBuildCommands);
-		}
-
 		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
 
 		logInfo("Running rdmd...");
@@ -302,11 +293,6 @@ class BuildGenerator : ProjectGenerator {
 				is_temp_target = true;
 			}
 			target_path = getTargetPath(buildsettings, settings);
-		}
-
-		if( buildsettings.preBuildCommands.length ){
-			logInfo("Running pre-build commands...");
-			runScanBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
 		buildWithCompiler(settings, buildsettings);
