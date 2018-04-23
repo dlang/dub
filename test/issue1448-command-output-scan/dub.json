@@ -1,0 +1,4 @@
+{
+	"name": "test",
+	"preBuildCommands": [ "$PACKAGE_DIR/script.sh" ]
+}
