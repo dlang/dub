@@ -605,20 +605,15 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	}
 }
 
+/** Prepare the environment passed to custom build commands.
 
-/** Runs a list of build commands for a particular package.
-
-	This function sets all DUB speficic environment variables and makes sure
-	that recursive dub invocations are detected and don't result in infinite
-	command execution loops. The latter could otherwise happen when a command
-	runs "dub describe" or similar functionality.
+	Returns: an AA with the current running environment, and DUB specific variables set.
 */
-void runBuildCommands(in string[] commands, in Package pack, in Project proj,
+string[string] prepareCommandsEnvironment(in Package pack, in Project proj,
 	in GeneratorSettings settings, in BuildSettings build_settings)
 {
-	import std.conv;
-	import std.process;
-	import dub.internal.utils;
+	import std.conv : to;
+	import std.process : environment, escapeShellFileName;
 
 	string[string] env = environment.toAA();
 	// TODO: do more elaborate things here
@@ -661,8 +656,27 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 
 	env["DUB_RUN_ARGS"] = (cast(string[])settings.runArgs).map!(escapeShellFileName).join(" ");
 
+	return env;
+}
+
+
+/** Runs a list of build commands for a particular package.
+
+	This function sets all DUB speficic environment variables and makes sure
+	that recursive dub invocations are detected and don't result in infinite
+	command execution loops. The latter could otherwise happen when a command
+	runs "dub describe" or similar functionality.
+*/
+void runBuildCommands(in string[] commands, in Package pack, in Project proj,
+	in GeneratorSettings settings, in BuildSettings build_settings)
+{
+	import dub.internal.utils : runCommands;
+
+	auto env = prepareCommandsEnvironment(pack, proj, settings, build_settings);
+
 	auto depNames = proj.dependencies.map!((a) => a.name).array();
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
+
 	runCommands(commands, env);
 }
 
