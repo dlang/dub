@@ -87,6 +87,34 @@ PackageSupplier[] defaultPackageSuppliers()
 	];
 }
 
+/** Returns a registry package supplier according to protocol.
+
+	Allowed protocols are dub+http(s):// and maven+http(s)://.
+*/
+PackageSupplier getRegistryPackageSupplier(string url)
+{
+	switch (url.startsWith("dub+", "mvn+"))
+	{
+		case 1:
+			return new RegistryPackageSupplier(URL(url[4..$]));
+		case 2:
+			return new MavenRegistryPackageSupplier(URL(url[4..$]));
+		default:
+			return new RegistryPackageSupplier(URL(url));
+	}
+}
+
+unittest
+{
+	auto dubRegistryPackageSupplier = getRegistryPackageSupplier("dub+https://code.dlang.org");
+	assert(dubRegistryPackageSupplier.description.canFind(" https://code.dlang.org"));
+
+	dubRegistryPackageSupplier = getRegistryPackageSupplier("https://code.dlang.org");
+	assert(dubRegistryPackageSupplier.description.canFind(" https://code.dlang.org"));
+
+	auto mavenRegistryPackageSupplier = getRegistryPackageSupplier("mvn+http://localhost:8040/maven/libs-release/dubpackages");
+	assert(mavenRegistryPackageSupplier.description.canFind(" http://localhost:8040/maven/libs-release/dubpackages"));
+}
 
 /** Provides a high-level entry point for DUB's functionality.
 
@@ -145,14 +173,14 @@ class Dub {
 		{
 			ps ~= environment.get("DUB_REGISTRY", null)
 				.splitter(";")
-				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
+				.map!(url => getRegistryPackageSupplier(url))
 				.array;
 		}
 
 		if (skip_registry < SkipPackageSuppliers.configured)
 		{
 			ps ~= m_config.registryURLs
-				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
+				.map!(url => getRegistryPackageSupplier(url))
 				.array;
 		}
 
