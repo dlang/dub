@@ -30,7 +30,7 @@ import std.zip;
 /// packages.
 class PackageManager {
 	private {
-		Repository[LocalPackageType] m_repositories;
+		Repository[] m_repositories;
 		NativePath[] m_searchPath;
 		Package[] m_packages;
 		Package[] m_temporaryPackages;
@@ -39,8 +39,9 @@ class PackageManager {
 
 	this(NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
-		m_repositories[LocalPackageType.user] = Repository(user_path);
-		m_repositories[LocalPackageType.system] = Repository(system_path);
+		m_repositories.length = LocalPackageType.max+1;
+		m_repositories[LocalPackageType.user] = Repository(user_path ~ "packages/");
+		m_repositories[LocalPackageType.system] = Repository(system_path ~ "packages/");
 		if (refresh_packages) refresh(true);
 	}
 
@@ -71,12 +72,31 @@ class PackageManager {
 		auto ret = appender!(NativePath[])();
 		ret.put(cast(NativePath[])m_searchPath); // work around Phobos 17251
 		if (!m_disableDefaultSearchPaths) {
-			ret.put(cast(NativePath[])m_repositories[LocalPackageType.user].searchPath);
-			ret.put(cast(NativePath)m_repositories[LocalPackageType.user].packagePath);
-			ret.put(cast(NativePath[])m_repositories[LocalPackageType.system].searchPath);
-			ret.put(cast(NativePath)m_repositories[LocalPackageType.system].packagePath);
+			foreach (ref repo; m_repositories) {
+				ret.put(cast(NativePath[])repo.searchPath);
+				ret.put(cast(NativePath)repo.packagePath);
+			}
 		}
 		return ret.data;
+	}
+
+	/** Sets additional (read-only) package cache paths to search for packages.
+
+		Cache paths have the same structure as the default cache paths, such as
+		".dub/packages/".
+
+		Note that previously set custom paths will be removed when setting this
+		property.
+	*/
+	@property void customCachePaths(NativePath[] custom_cache_paths)
+	{
+		import std.algorithm.iteration : map;
+		import std.array : array;
+
+		m_repositories.length = LocalPackageType.max+1;
+		m_repositories ~= custom_cache_paths.map!(p => Repository(p)).array;
+
+		refresh(false);
 	}
 
 
@@ -100,8 +120,8 @@ class PackageManager {
 	Package getPackage(string name, Version ver, bool enable_overrides = true)
 	{
 		if (enable_overrides) {
-			foreach (tp; [LocalPackageType.user, LocalPackageType.system])
-				foreach (ovr; m_repositories[tp].overrides)
+			foreach (ref repo; m_repositories)
+				foreach (ovr; repo.overrides)
 					if (ovr.package_ == name && ovr.version_.matches(ver)) {
 						Package pack;
 						if (!ovr.targetPath.empty) pack = getOrLoadPackage(ovr.targetPath);
@@ -266,8 +286,8 @@ class PackageManager {
 				if (auto ret = del(tp)) return ret;
 
 			// first search local packages
-			foreach (tp; LocalPackageType.min .. LocalPackageType.max+1)
-				foreach (p; m_repositories[cast(LocalPackageType)tp].localPackages)
+			foreach (ref repo; m_repositories)
+				foreach (p; repo.localPackages)
 					if (auto ret = del(p)) return ret;
 
 			// and then all packages gathered from the search path
@@ -803,7 +823,6 @@ private enum LocalOverridesFilename = "local-overrides.json";
 
 
 private struct Repository {
-	NativePath path;
 	NativePath packagePath;
 	NativePath[] searchPath;
 	Package[] localPackages;
@@ -811,7 +830,6 @@ private struct Repository {
 
 	this(NativePath path)
 	{
-		this.path = path;
-		this.packagePath = path ~"packages/";
+		this.packagePath = path;
 	}
 }

@@ -189,6 +189,11 @@ class Dub {
 
 		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
+
+		auto ccps = m_config.customCachePaths;
+		if (ccps.length)
+			m_packageManager.customCachePaths = ccps;
+
 		updatePackageSearchPath();
 	}
 
@@ -252,12 +257,12 @@ class Dub {
 		m_defaultArchitecture = m_config.defaultArchitecture;
 	}
 
-	version(Windows) 
+	version(Windows)
 	private void migrateRepositoryFromRoaming(NativePath roamingDir, NativePath localDir)
 	{
         immutable roamingDirPath = roamingDir.toNativeString();
 	    if (!existsDirectory(roamingDir)) return;
-        
+
         immutable localDirPath = localDir.toNativeString();
         logInfo("Detected a package cache in " ~ roamingDirPath ~ ". This will be migrated to " ~ localDirPath ~ ". Please wait...");
         if (!existsDirectory(localDir))
@@ -265,7 +270,7 @@ class Dub {
             mkdirRecurse(localDirPath);
         }
 
-        runCommand("xcopy /s /e /y " ~ roamingDirPath ~ " " ~ localDirPath ~ " > NUL"); 
+        runCommand("xcopy /s /e /y " ~ roamingDirPath ~ " " ~ localDirPath ~ " > NUL");
         rmdirRecurse(roamingDirPath);
 	}
 
@@ -1651,6 +1656,21 @@ private class DubConfig {
 		if (auto pv = "registryUrls" in m_data)
 			ret = (*pv).deserializeJson!(string[]);
 		if (m_parentConfig) ret ~= m_parentConfig.registryURLs;
+		return ret;
+	}
+
+	@property NativePath[] customCachePaths()
+	{
+		import std.algorithm.iteration : map;
+		import std.array : array;
+
+		NativePath[] ret;
+		if (auto pv = "customCachePaths" in m_data)
+			ret = (*pv).deserializeJson!(string[])
+				.map!(s => NativePath(s))
+				.array;
+		if (m_parentConfig)
+			ret ~= m_parentConfig.customCachePaths;
 		return ret;
 	}
 
