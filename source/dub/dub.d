@@ -1262,16 +1262,15 @@ class Dub {
 		import std.path : buildPath, dirName, expandTilde, isAbsolute, isDirSeparator;
 		import std.process : environment;
 		import std.range : front;
-		import std.regex : ctRegex, matchFirst;
 
 		m_defaultCompiler = m_config.defaultCompiler.expandTilde;
 		if (m_defaultCompiler.length && m_defaultCompiler.isAbsolute)
 			return;
 
-		auto dubPrefix = m_defaultCompiler.matchFirst(ctRegex!(`^\$DUB_BINARY_PATH`));
-		if(!dubPrefix.empty)
+		static immutable BinaryPrefix = `$DUB_BINARY_PATH`;
+		if(m_defaultCompiler.startsWith(BinaryPrefix))
 		{
-			m_defaultCompiler = thisExePath().dirName() ~ dubPrefix.post;
+			m_defaultCompiler = thisExePath().dirName() ~ m_defaultCompiler[BinaryPrefix.length .. $];
 			return;
 		}
 
