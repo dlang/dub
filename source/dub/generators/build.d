@@ -576,12 +576,27 @@ private void runScanBuildCommands(in string[] commands, in Package pack, in Proj
 
 		foreach (l; p.readEnd.byLine) {
 			stdout.writeln(l);
-			if (l.startsWith("dub:")) {
-				import dub.internal.vibecompat.data.json : parseJsonString;
-				import dub.recipe.json : parseJsonBuildSettings;
-				auto json = parseJsonString(l[4 .. $].idup);
-				const bs = parseJsonBuildSettings(json);
-				cmdBs.add(bs);
+			enum dubLinePrefix = "dub:";
+			enum sdlSyntaxMarker = "sdl:";
+			enum jsonSyntaxMarker = "json:";
+			if (l.startsWith(dubLinePrefix)) {
+				auto content = l[dubLinePrefix.length .. $].idup;
+				if (content.startsWith(jsonSyntaxMarker)) {
+					content = content[jsonSyntaxMarker.length .. $];
+					parseJsonDubLine(cmdBs, content);
+				}
+				else if (content.startsWith(sdlSyntaxMarker)) {
+					content = content[sdlSyntaxMarker.length .. $];
+					parseSdlDubLine(cmdBs, content);
+				}
+				else {
+					try {
+						parseSdlDubLine(cmdBs, content);
+					}
+					catch (Exception ex) {
+						parseJsonDubLine(cmdBs, content);
+					}
+				}
 			}
 		}
 
@@ -593,7 +608,73 @@ private void runScanBuildCommands(in string[] commands, in Package pack, in Proj
 	}
 }
 
+// Throw on failure
+private void parseJsonDubLine(ref BuildSettings settings, string line)
+{
+	import dub.internal.vibecompat.core.log : logWarn;
+	import dub.internal.vibecompat.data.json : deserializeJson, parseJsonString;
+	import std.conv : to;
+	import std.format : format;
+	import std.meta : Filter;
+	import std.traits : EnumMembers;
 
+	alias BS = Filter!(isScannedBuildSetting, EnumMembers!BuildSetting);
+
+	static string buildSwitchCode() {
+		string code = "switch(name) {\n";
+		foreach (i, bs; BS) {
+			enum bsName = bs.to!string;
+			code ~= format(
+				"case \"%s\": settings.%s ~= deserializeJson!(string[])(value); break;\n",
+				bsName, bsName
+			);
+		}
+		code ~= "default: logWarn(\"Ignoring unexpected JSON property: %s\", name); break;";
+		return code ~ "}\n";
+	}
+
+	enum switchCode = buildSwitchCode();
+
+	auto json = parseJsonString(line);
+	foreach(string name, value; json) {
+		mixin(switchCode);
+	}
+}
+
+// Throw on failure
+private void parseSdlDubLine(ref BuildSettings settings, string line)
+{
+	import dub.internal.sdlang : parseSource;
+	import dub.internal.vibecompat.core.log : logWarn;
+	import std.conv : to;
+	import std.format : format;
+	import std.meta : Filter;
+	import std.traits : EnumMembers;
+
+	alias BS = Filter!(isScannedBuildSetting, EnumMembers!BuildSetting);
+
+	static string buildSwitchCode() {
+		string code = "switch(t.fullName) {\n";
+		foreach (i, bs; BS) {
+			enum bsName = bs.to!string;
+			code ~= format(
+				"case \"%s\": settings.%s ~= t.values.map!(v => v.get!string).array; break;\n",
+				bsName, bsName
+			);
+		}
+		code ~= "default: logWarn(\"Ignoring unexpected SDL property: %s\", t.fullName); break;";
+		return code ~ "}\n";
+	}
+
+	enum switchCode = buildSwitchCode();
+
+	auto tag = parseSource(line, null);
+	foreach(t; tag.all.tags) {
+		mixin(switchCode);
+	}
+}
+
+// Phobos isPowerOf2 is too recent for dub's compiler-compatibility
 /** Returns: whether x is a power of 2
 */
 private bool isPowerOf2(in int x) pure @safe nothrow @nogc

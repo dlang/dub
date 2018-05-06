@@ -108,30 +108,6 @@ Json toJson(in ref PackageRecipe recipe)
 	return ret;
 }
 
-/** Parse the build settings that are serialized in the Json argument
-*/
-BuildSettings parseJsonBuildSettings(Json json)
-{
-	import dub.internal.vibecompat.core.log : logWarn;
-	BuildSettings bs;
-	foreach(string name, value; json)
-	{
-		switch(name){
-			default: logWarn("Ignoring unexpected JSON property: %s", name); break;
-			case "dflags": bs.dflags = deserializeJson!(string[])(value); break;
-			case "lflags": bs.lflags = deserializeJson!(string[])(value); break;
-			case "libs": bs.libs = deserializeJson!(string[])(value); break;
-			case "sourceFiles": bs.sourceFiles = deserializeJson!(string[])(value); break;
-			case "copyFiles": bs.copyFiles = deserializeJson!(string[])(value); break;
-			case "versions": bs.versions = deserializeJson!(string[])(value); break;
-			case "debugVersions": bs.debugVersions = deserializeJson!(string[])(value); break;
-			case "importPaths": bs.importPaths = deserializeJson!(string[])(value); break;
-			case "stringImportPaths": bs.stringImportPaths = deserializeJson!(string[])(value); break;
-		}
-	}
-	return bs;
-}
-
 private void parseSubPackages(ref PackageRecipe recipe, string parent_package_name, Json[] subPackagesJson)
 {
 	enforce(!parent_package_name.canFind(":"), format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
