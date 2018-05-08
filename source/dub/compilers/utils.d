@@ -253,10 +253,13 @@ NativePath generatePlatformProbeFile()
 		module dub_platform_probe;
 
 		template toString(int v) { enum toString = v.stringof; }
-		string join(string[] ary, string sep) {
-			string res = ary[0];
-			foreach (e; ary[1 .. $])
-				res ~= sep ~ e;
+		string stringArray(string[] ary) {
+			string res;
+			foreach (i, e; ary) {
+				if (i)
+					res ~= ", ";
+				res ~= '"' ~ e ~ '"';
+			}
 			return res;
 		}
 
@@ -265,10 +268,10 @@ NativePath generatePlatformProbeFile()
 		pragma(msg, `  "frontendVersion": ` ~ toString!__VERSION__ ~ `,`);
 		pragma(msg, `  "compilerVendor": "` ~ __VENDOR__ ~ `",`);
 		pragma(msg, `  "platform": [`);
-		pragma(msg, `    "` ~ determinePlatform().join(`", "`) ~ '"');
+		pragma(msg, `    ` ~ determinePlatform().stringArray);
 		pragma(msg, `  ],`);
 		pragma(msg, `  "architecture": [`);
-		pragma(msg, `    "` ~ determineArchitecture().join(`", "`) ~ '"');
+		pragma(msg, `    ` ~ determineArchitecture().stringArray);
 		pragma(msg, `   ],`);
 		pragma(msg, `}`);
 
