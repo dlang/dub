@@ -17,7 +17,7 @@ import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.packagemanager;
-import dub.packagesupplier;
+import dub.packagesuppliers;
 import dub.project;
 import dub.generators.generator;
 import dub.init;
