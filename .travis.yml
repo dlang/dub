@@ -101,6 +101,27 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
+    - d: dmd
+      #if: tag IS present
+      os: linux
+      language: generic
+      sudo: yes
+      script: echo "Deploying to GitHub releases ..." && ./release-windows.sh && ARCH=64 ./release-windows.sh
+      addons:
+        apt:
+          packages:
+            - p7zip-full
+            - wine
+        deploy:
+          provider: releases
+          api_key: $GH_REPO_TOKEN
+          file_glob: true
+          file: bin/dub-.*.zip
+          skip_cleanup: true
+          on:
+            repo: dlang/dub
+            tags: true
+
     - stage: update-latest
       script: echo "Deploying to GitHub pages ..." && mkdir -p docs && git describe --abbrev=0 --tags > docs/LATEST
       deploy:
