@@ -311,7 +311,7 @@ class Dub {
             mkdirRecurse(localDirPath);
         }
 
-        runCommand("xcopy /s /e /y " ~ roamingDirPath ~ " " ~ localDirPath ~ " > NUL");
+        runCommand(`xcopy /s /e /y "` ~ roamingDirPath ~ `" "` ~ localDirPath ~ `" > NUL`);
         rmdirRecurse(roamingDirPath);
 	}
 
@@ -1278,7 +1278,7 @@ class Dub {
 
 		if (!run) {
 			// TODO: ddox should copy those files itself
-			version(Windows) runCommand("xcopy /S /D "~tool_path~"public\\* docs\\");
+			version(Windows) runCommand(`xcopy /S /D "`~tool_path~`public\*" docs\`);
 			else runCommand("rsync -ru '"~tool_path~"public/' docs/");
 		}
 	}
