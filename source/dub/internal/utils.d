@@ -8,11 +8,11 @@
 module dub.internal.utils;
 
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.compilers.buildsettings : BuildSettings;
 import dub.version_;
+import dub.logging;
 
 import core.time : Duration;
 import std.algorithm : canFind, startsWith;

@@ -11,8 +11,9 @@ public import dub.compilers.buildsettings;
 deprecated("Please `import dub.dependency : Dependency` instead") public import dub.dependency : Dependency;
 public import dub.platform : BuildPlatform, matchesSpecification;
 
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
+
+import dub.logging;
 
 import std.algorithm;
 import std.array;

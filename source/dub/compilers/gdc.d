@@ -10,8 +10,8 @@ module dub.compilers.gdc;
 import dub.compilers.compiler;
 import dub.compilers.utils;
 import dub.internal.utils;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
+import dub.logging;
 
 import std.algorithm;
 import std.array;
