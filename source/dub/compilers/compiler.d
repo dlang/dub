@@ -113,7 +113,7 @@ interface Compiler {
 			throw new Exception(format("%s failed with exit code %s. This may indicate that the process has run out of memory.",
 				args[0], status));
 		}
-		enforce(status == 0, format("%s failed with exit code %s.", args[0], status));
+		enforce(status == 0, format("%s failed with exit code %s", args[0], status));
 	}
 
 	/// Compiles platform probe file with the specified compiler and parses its output.
