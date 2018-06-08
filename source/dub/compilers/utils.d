@@ -9,10 +9,10 @@ module dub.compilers.utils;
 
 import dub.compilers.buildsettings;
 import dub.platform : BuildPlatform, archCheck, compilerCheck, platformCheck;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
-import std.algorithm : canFind, endsWith, filter;
+import dub.logging;
 
+import std.algorithm : canFind, endsWith, filter;
 
 /**
 	Alters the build options to comply with the specified build requirements.

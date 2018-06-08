@@ -869,7 +869,6 @@ Json parseJson(R)(ref R range, int* line = null, string filename = null)
 	skipWhitespace(range, line);
 
 	version(JsonLineNumbers) {
-		import dub.internal.vibecompat.core.log;
 		int curline = line ? *line : 0;
 	}
 
