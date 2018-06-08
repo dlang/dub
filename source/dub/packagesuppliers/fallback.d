@@ -41,7 +41,7 @@ private template fallback(T, alias func)
 	import std.format : format;
 	enum fallback = q{
 		import std.range : back, dropBackOne;
-		import dub.internal.vibecompat.core.log : logDebug;
+		import dub.logging : logDebug;
 		scope (failure)
 		{
 			foreach (m_fallback; m_fallbacks.dropBackOne)

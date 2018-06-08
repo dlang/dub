@@ -10,9 +10,9 @@ module dub.recipe.packagerecipe;
 import dub.compilers.compiler;
 import dub.compilers.utils : warnOnSpecialCompilerFlags;
 import dub.dependency;
+import dub.logging;
 
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.url;
 
 import std.algorithm : findSplit, sort;

@@ -12,9 +12,9 @@ import dub.dependency;
 import dub.description;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
+import dub.logging;
 import dub.package_;
 import dub.packagemanager;
 import dub.generators.generator;
@@ -1446,4 +1446,3 @@ final class SelectedVersions {
 			m_selections[p] = Selected(dependencyFromJson(v));
 	}
 }
-

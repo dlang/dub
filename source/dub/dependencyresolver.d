@@ -8,7 +8,7 @@
 module dub.dependencyresolver;
 
 import dub.dependency;
-import dub.internal.vibecompat.core.log;
+import dub.logging;
 
 import std.algorithm : all, canFind, filter, map, sort;
 import std.array : appender, array, join;
