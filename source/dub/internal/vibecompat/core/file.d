@@ -9,7 +9,7 @@ module dub.internal.vibecompat.core.file;
 
 public import dub.internal.vibecompat.inet.url;
 
-import dub.internal.vibecompat.core.log;
+import dub.logging;
 
 import std.conv;
 import core.stdc.stdio;

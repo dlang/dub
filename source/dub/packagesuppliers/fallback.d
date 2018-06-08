@@ -46,14 +46,14 @@ private template fallback(T, alias func)
 {
 	import std.format : format;
 	enum fallback = q{
-		import dub.internal.vibecompat.core.log : logDiagnostic;
+		import dub.logging : logDebug;
 
 		Exception firstEx;
 		try
 			return m_suppliers[0].ps.%1$s(args);
 		catch (Exception e)
 		{
-			logDiagnostic("Package supplier %%s failed with '%%s', trying fallbacks.",
+			logDebug("Package supplier %%s failed with '%%s', trying fallbacks.",
 				m_suppliers[0].ps.description, e.msg);
 			firstEx = e;
 		}
@@ -65,13 +65,13 @@ private template fallback(T, alias func)
 				continue;
 			try
 			{
-				scope (success) logDiagnostic("Fallback %%s succeeded", pair.ps.description);
+				scope (success) logDebug("Fallback %%s succeeded", pair.ps.description);
 				return pair.ps.%1$s(args);
 			}
 			catch (Exception e)
 			{
 				pair.failTime = now;
-				logDiagnostic("Fallback package supplier %%s failed with '%%s'.",
+				logDebug("Fallback package supplier %%s failed with '%%s'.",
 					pair.ps.description, e.msg);
 			}
 		}
