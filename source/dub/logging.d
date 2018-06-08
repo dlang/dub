@@ -58,13 +58,14 @@ import std.array;
 import std.format;
 import std.string;
 
-import dub.internal.colorize : fg;
+import dub.internal.colorize : fg, mode;
 
 /**
   An enum listing possible colors for terminal output, useful to set the color
   of a tag
 */
 public alias Color = fg;
+public alias Mode = mode;
 
 /// The tag width in chars
 private const int TAG_WIDTH = 12;
@@ -267,13 +268,30 @@ void log(T...)(
   logInfo("Tag", Color.green, "My %s log message", "colored".color(Color.red));
 
   without worring whether or not colored output is enabled or not.
+
+  Also a mode can be specified, such as bold/underline/etc...
 */
-string color(const string str, const Color c = Color.init)
+string color(const string str, const Color c, const Mode m = Mode.init)
 {
   import dub.internal.colorize;
 
   if (_printColors == true)
-    return dub.internal.colorize.color(str, c);
+    return dub.internal.colorize.color(str, c, bg.init, m);
+  else
+    return str;
+}
+
+/**
+  This function is the same as the above one, but just accepts a mode.
+  It's useful, for instance, when outputting bold text without changing the
+  color.
+*/
+string color(const string str, const Mode m = Mode.init)
+{
+  import dub.internal.colorize;
+
+  if (_printColors == true)
+    return dub.internal.colorize.color(str, fg.init, bg.init, m);
   else
     return str;
 }
