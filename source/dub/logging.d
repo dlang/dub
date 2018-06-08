@@ -150,7 +150,7 @@ void logInfo(T...)(string tag, Color tagColor, string fmt, lazy T args) nothrow
 		level = The log level for the logged message
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
-void logInfo(T...)(string fmt, lazy T args) nothrow
+void logInfo(T...)(string fmt, lazy T args) nothrow if (!is(T[0] : Color))
 {
   log(LogLevel.info, "", Color.init, fmt, args);
 }
