@@ -81,8 +81,10 @@ class BuildGenerator : ProjectGenerator {
 		enforce(!(settings.rdmd && root_ti.buildSettings.targetType == TargetType.none),
 				"Building package with target type \"none\" with rdmd is not supported yet.");
 
-		logInfo("Performing \"%s\" build using %s for %-(%s, %).",
-			settings.buildType, settings.platform.compilerBinary, settings.platform.architecture);
+		logInfo("Starting", Color.green,
+		    "Performing \"%s\" build using %s for %-(%s, %).",
+			settings.buildType.color(Color.magenta), settings.platform.compilerBinary,
+			settings.platform.architecture);
 
 		bool any_cached = false;
 
@@ -125,7 +127,9 @@ class BuildGenerator : ProjectGenerator {
 			buildTargetRec(m_project.rootPackage.name);
 
 			if (any_cached) {
-				logInfo("To force a rebuild of up-to-date targets, run again with --force.");
+				logInfo("Finished", Color.green,
+          "To force a rebuild of up-to-date targets, run again with --force"
+        );
 			}
 		}
 	}
@@ -174,7 +178,7 @@ class BuildGenerator : ProjectGenerator {
 
 		// run post-build commands
 		if (!cached && buildsettings.postBuildCommands.length) {
-			logInfo("Running post-build commands...");
+			logInfo("Post-build", Color.green, "Running commands");
 			runBuildCommands(buildsettings.postBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
@@ -194,7 +198,7 @@ class BuildGenerator : ProjectGenerator {
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
-			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
+			logInfo("Up-to-date", Color.green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 			if (!settings.tempBuild)
@@ -209,10 +213,10 @@ class BuildGenerator : ProjectGenerator {
 			return false;
 		}
 
-		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
+		logInfo("Building", Color.green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
 
 		if( buildsettings.preBuildCommands.length ){
-			logInfo("Running pre-build commands...");
+			logInfo("Pre-build", Color.green, "Running commands");
 			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
@@ -274,11 +278,11 @@ class BuildGenerator : ProjectGenerator {
 		flags ~= mainsrc.relativeTo(cwd).toNativeString();
 
 		if (buildsettings.preBuildCommands.length){
-			logInfo("Running pre-build commands...");
+			logInfo("Pre-build", Color.green, "Running commands");
 			runCommands(buildsettings.preBuildCommands);
 		}
 
-		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
+		logInfo("Building", Color.green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
 
 		logInfo("Running rdmd...");
 		logDiagnostic("rdmd %s", join(flags, " "));
@@ -305,7 +309,7 @@ class BuildGenerator : ProjectGenerator {
 			f = fp.toNativeString();
 		}
 
-		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
+		logInfo("Building", Color.green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
 
 		// make all target/import paths relative
 		string makeRelative(string path) {
@@ -332,7 +336,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		if( buildsettings.preBuildCommands.length ){
-			logInfo("Running pre-build commands...");
+			logInfo("Pre-build", Color.green, "Running commands");
 			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
@@ -464,7 +468,7 @@ class BuildGenerator : ProjectGenerator {
 			auto objs = new string[](srcs.walkLength);
 
 			void compileSource(size_t i, string src) {
-				logInfo("Compiling %s...", src);
+				logInfo("Compiling", Color.green, "%s", src);
 				const objPath = pathToObjName(settings.platform, src);
 				objs[i] = compileUnit(src, objPath, buildsettings, settings);
 			}
@@ -475,7 +479,7 @@ class BuildGenerator : ProjectGenerator {
 				foreach (i, src; srcs.array) compileSource(i, src);
 			}
 
-			logInfo("Linking...");
+			logInfo("Linking", Color.green, "%s", buildsettings.targetName.color(Mode.bold));
 			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)).array;
 			settings.compiler.setTarget(lbuildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(lbuildsettings, settings.platform, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
@@ -514,7 +518,7 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 
 			if (generate_binary) {
-				logInfo("Linking...");
+				logInfo("Linking", Color.green, "%s", buildsettings.targetName.color(Mode.bold));
 				settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback);
 			}
 		}
@@ -531,7 +535,7 @@ class BuildGenerator : ProjectGenerator {
 			}
 			if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
 			runPreRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
-			logInfo("Running %s %s", exe_file_path.relativeTo(runcwd), run_args.join(" "));
+			logInfo("Running", Color.green, "%s %s", exe_file_path.relativeTo(runcwd), run_args.join(" "));
 			if (settings.runCallback) {
 				auto res = execute([ exe_file_path.toNativeString() ] ~ run_args,
 						   null, Config.none, size_t.max, runcwd.toNativeString());

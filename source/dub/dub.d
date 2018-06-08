@@ -533,11 +533,12 @@ class Dub {
 				auto sver = m_project.selections.getSelectedVersion(basename);
 				if (!sver.path.empty || !sver.repository.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
-				logInfo("Package %s would be upgraded from %s to %s.",
-					basename, sver, ver);
+        logInfo("Upgrade", Color.yellow,
+          "%s would be upgraded %s to %s.",
+					basename.color(Mode.bold), sver, ver);
 				any = true;
 			}
-			if (any) logInfo("Use \"dub upgrade\" to perform those changes.");
+			if (any) logInfo("Use \"dub upgrade\" to perform those changes");
 			return;
 		}
 
@@ -826,7 +827,7 @@ class Dub {
 	/// Cleans intermediate/cache files of the given package
 	void cleanPackage(NativePath path)
 	{
-		logInfo("Cleaning package at %s...", path.toNativeString());
+		logInfo("Cleaning", Color.green, "package at %s", path.toNativeString());
 		enforce(!Package.findPackageFile(path).empty, "No package found.", path.toNativeString());
 
 		// TODO: clear target files and copy files
@@ -897,8 +898,8 @@ class Dub {
 			}
 		}
 
-		if (reason.length) logInfo("Fetching %s %s (%s)...", packageId, ver, reason);
-		else logInfo("Fetching %s %s...", packageId, ver);
+		if (reason.length) logInfo("Fetching", Color.yellow, "%s %s (%s)", packageId, ver, reason);
+		else logInfo("Fetching", Color.yellow, "%s %s", packageId, ver);
 		if (m_dryRun) return null;
 
 		logDebug("Acquiring package zip file");
