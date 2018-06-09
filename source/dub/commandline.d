@@ -391,6 +391,10 @@ unittest {
 */
 int runDubCommandLine(string[] args)
 {
+  // Initialize the logging module, ensure that whether stdout/stderr are a TTY
+  // or not is detected in order to disable colors if the output isn't a console
+  initLogging();
+
 	logDiagnostic("DUB version %s", getDUBVersion());
 
 	version(Windows){
