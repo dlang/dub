@@ -1,5 +1,5 @@
 /**
-	Handles all the console output of the Dub package manager, by providing useful
+  Handles all the console output of the Dub package manager, by providing useful
   methods for handling colored text. The module also disables colors when stdout
   and stderr are not a TTY in order to avoid ASCII escape sequences in piped
   output. The module can autodetect and configure itself in this regard by
@@ -46,9 +46,9 @@
 
     logInfo("Tag", Color.green, "My %s message", "colored".color(Color.red))
 
-	Copyright: © 2018 Giacomo De Lazzari
-	License: Subject to the terms of the MIT license, as written in the included LICENSE file.
-	Authors: Giacomo De Lazzari
+  Copyright: © 2018 Giacomo De Lazzari
+  License: Subject to the terms of the MIT license, as written in the included LICENSE file.
+  Authors: Giacomo De Lazzari
 */
 
 module dub.logging;
@@ -72,12 +72,12 @@ private const int TAG_WIDTH = 12;
 
 /// Possible log levels supported
 enum LogLevel {
-	debug_,
-	diagnostic,
-	info,
-	warn,
-	error,
-	none
+  debug_,
+  diagnostic,
+  info,
+  warn,
+  error,
+  none
 }
 
 // The current minimum log level to be printed
@@ -93,13 +93,13 @@ private bool _printColors = true;
 /// Sets the minimum log level to be printed
 void setLogLevel(LogLevel level) nothrow
 {
-	_minLevel = level;
+  _minLevel = level;
 }
 
 /// Gets the minimum log level to be printed
 LogLevel getLogLevel()
 {
-	return _minLevel;
+  return _minLevel;
 }
 
 /// Set whether to print colors or not
@@ -109,12 +109,12 @@ void printColorsInLog(bool enabled)
 }
 
 /**
-	Shorthand function to log a message with debug/diagnostic level, no tag string
+  Shorthand function to log a message with debug/diagnostic level, no tag string
   or tag color required (since there will be no tag).
 
-	Params:
-		level = The log level for the logged message
-		fmt = See http://dlang.org/phobos/std_format.html#format-string
+  Params:
+    level = The log level for the logged message
+    fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
 void logDebug(T...)(string fmt, lazy T args) nothrow
 {
@@ -128,14 +128,14 @@ void logDiagnostic(T...)(string fmt, lazy T args) nothrow
 }
 
 /**
-	Shorthand function to log a message with info level, with custom tag string
+  Shorthand function to log a message with info level, with custom tag string
   and tag color.
 
-	Params:
+  Params:
     tag = The string the tag at the beginning of the line should contain
     tagColor = The color the tag string should have
-		level = The log level for the logged message
-		fmt = See http://dlang.org/phobos/std_format.html#format-string
+    level = The log level for the logged message
+    fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
 void logInfo(T...)(string tag, Color tagColor, string fmt, lazy T args) nothrow
 {
@@ -143,13 +143,13 @@ void logInfo(T...)(string tag, Color tagColor, string fmt, lazy T args) nothrow
 }
 
 /**
-	Shorthand function to log a message with info level, this version prints an
+  Shorthand function to log a message with info level, this version prints an
   empty tag automatically (which is different from not having a tag - in this
   case there will be an identation of TAG_WIDTH chars on the left anyway).
 
-	Params:
-		level = The log level for the logged message
-		fmt = See http://dlang.org/phobos/std_format.html#format-string
+  Params:
+    level = The log level for the logged message
+    fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
 void logInfo(T...)(string fmt, lazy T args) nothrow if (!is(T[0] : Color))
 {
@@ -157,13 +157,13 @@ void logInfo(T...)(string fmt, lazy T args) nothrow if (!is(T[0] : Color))
 }
 
 /**
-	Shorthand function to log a message with warning level, with custom tag string.
+  Shorthand function to log a message with warning level, with custom tag string.
   The tag color is fixed to yellow.
 
-	Params:
+  Params:
     tag = The string the tag at the beginning of the line should contain
-		level = The log level for the logged message
-		fmt = See http://dlang.org/phobos/std_format.html#format-string
+    level = The log level for the logged message
+    fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
 void logWarnTag(T...)(string tag, string fmt, lazy T args) nothrow
 {
@@ -171,12 +171,12 @@ void logWarnTag(T...)(string tag, string fmt, lazy T args) nothrow
 }
 
 /**
-	Shorthand function to log a message with warning level, using the default
+  Shorthand function to log a message with warning level, using the default
   tag "Warning". The tag color is also fixed to yellow.
 
-	Params:
-		level = The log level for the logged message
-		fmt = See http://dlang.org/phobos/std_format.html#format-string
+  Params:
+    level = The log level for the logged message
+    fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
 void logWarn(T...)(string fmt, lazy T args) nothrow
 {
@@ -184,13 +184,13 @@ void logWarn(T...)(string fmt, lazy T args) nothrow
 }
 
 /**
-	Shorthand function to log a message with error level, with custom tag string.
+  Shorthand function to log a message with error level, with custom tag string.
   The tag color is fixed to red.
 
-	Params:
+  Params:
     tag = The string the tag at the beginning of the line should contain
-		level = The log level for the logged message
-		fmt = See http://dlang.org/phobos/std_format.html#format-string
+    level = The log level for the logged message
+    fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
 void logErrorTag(T...)(string tag, string fmt, lazy T args) nothrow
 {
@@ -198,12 +198,12 @@ void logErrorTag(T...)(string tag, string fmt, lazy T args) nothrow
 }
 
 /**
-	Shorthand function to log a message with error level, using the default
+  Shorthand function to log a message with error level, using the default
   tag "Error". The tag color is also fixed to red.
 
-	Params:
-		level = The log level for the logged message
-		fmt = See http://dlang.org/phobos/std_format.html#format-string
+  Params:
+    level = The log level for the logged message
+    fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
 void logError(T...)(string fmt, lazy T args) nothrow
 {
@@ -211,15 +211,15 @@ void logError(T...)(string fmt, lazy T args) nothrow
 }
 
 /**
-	Log a message with the specified log level and with the specified tag string
+  Log a message with the specified log level and with the specified tag string
   and color. If the log level is debug or diagnostic, the tag is not printed
   thus the tag string and tag color will be ignored.
 
-	Params:
-		level = The log level for the logged message
+  Params:
+    level = The log level for the logged message
     tag = The string the tag at the beginning of the line should contain
     tagColor = The color the tag string should have
-		fmt = See http://dlang.org/phobos/std_format.html#format-string
+    fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
 void log(T...)(
   LogLevel level,
@@ -229,7 +229,7 @@ void log(T...)(
   lazy T args
 ) nothrow
 {
-	if (level < _minLevel)
+  if (level < _minLevel)
     return;
 
   auto hasTag = true;
@@ -255,8 +255,8 @@ void log(T...)(
   }
   catch (Exception e)
   {
-		debug assert(false, e.msg);
-	}
+    debug assert(false, e.msg);
+  }
 }
 
 /**
