@@ -398,6 +398,10 @@ int runDubCommandLine(string[] args)
 		return [args0, "run", "-q", "--temp-build", "--single", file, "--"] ~ trailing;
 	}
 
+	// Initialize the logging module, ensure that whether stdout/stderr are a TTY
+	// or not is detected in order to disable colors if the output isn't a console
+	initLogging();
+
 	logDiagnostic("DUB version %s", getDUBVersion());
 
 	version(Windows){
