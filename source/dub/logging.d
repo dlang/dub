@@ -62,12 +62,20 @@ import dub.internal.colorize : fg, mode;
 
 /**
   An enum listing possible colors for terminal output, useful to set the color
-  of a tag
+  of a tag. Re-exported from d-colorize in dub.internal.colorize. See the enum
+  definition there for a list of possible values.
 */
 public alias Color = fg;
+
+/**
+  An enum listing possible text "modes" for terminal output, useful to set the
+  text to bold, underline, blinking, etc...
+  Re-exported from d-colorize in dub.internal.colorize. See the enum definition
+  there for a list of possible values.
+*/
 public alias Mode = mode;
 
-/// The tag width in chars
+/// The tag width in chars, defined as a constant here
 private const int TAG_WIDTH = 12;
 
 /// Possible log levels supported
@@ -89,6 +97,52 @@ private LogLevel _minLevel = LogLevel.info;
   output is probably being piped and we don't want ASCII escape chars in it)
 */
 private bool _printColors = true;
+
+// isatty() is used in initLogging() to detect whether or not we are on a TTY
+extern (C) int isatty(int);
+
+/**
+  This function must be called at the beginning for the program, before any
+  logging occurs. It will detect whether or not stdout/stderr are a console/TTY
+  and will consequently disable colored output if needed.
+
+  Forgetting to call the function will result in ASCII escape sequences in the
+  piped output, probably an undesiderable thing.
+*/
+void initLogging()
+{
+  import core.stdc.stdio;
+
+  // Initially enable colors, we'll disable them during this functions if we
+  // find any reason to
+  _printColors = true;
+
+  // The following stuff depends on the platform
+  version (Windows)
+  {
+    version (CRuntime_DigitalMars)
+    {
+      if (!isatty(core.stdc.stdio.stdout) ||
+          !isatty(core.stdc.stdio.stderr))
+        _printColors = false;
+    }
+    else version (CRuntime_Microsoft)
+    {
+      if (!isatty(fileno(core.stdc.stdio.stdout)) ||
+          !isatty(fileno(core.stdc.stdio.stderr)))
+        _printColors = false;
+    }
+    else
+      _printColors = false;
+  }
+  else version (Posix)
+  {
+    import core.sys.posix.unistd;
+
+    if (!isatty(STDERR_FILENO) || !isatty(STDOUT_FILENO))
+      _printColors = false;
+  }
+}
 
 /// Sets the minimum log level to be printed
 void setLogLevel(LogLevel level) nothrow
@@ -270,13 +324,18 @@ void log(T...)(
   without worring whether or not colored output is enabled or not.
 
   Also a mode can be specified, such as bold/underline/etc...
+
+  Params:
+    str = The string to color
+    color = The color to apply
+    mode = An optional mode, such as bold/underline/etc...
 */
-string color(const string str, const Color c, const Mode m = Mode.init)
+string color(const string str, const Color color, const Mode mode = Mode.init)
 {
   import dub.internal.colorize;
 
   if (_printColors == true)
-    return dub.internal.colorize.color(str, c, bg.init, m);
+    return dub.internal.colorize.color(str, color, bg.init, mode);
   else
     return str;
 }
@@ -285,6 +344,10 @@ string color(const string str, const Color c, const Mode m = Mode.init)
   This function is the same as the above one, but just accepts a mode.
   It's useful, for instance, when outputting bold text without changing the
   color.
+
+  Params:
+    str = The string to color
+    mode = The mode, such as bold/underline/etc...
 */
 string color(const string str, const Mode m = Mode.init)
 {
