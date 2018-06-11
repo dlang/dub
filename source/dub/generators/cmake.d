@@ -114,13 +114,16 @@ class CMakeGenerator: ProjectGenerator
             file.close;
             script.shrinkTo(0);
             scripts.put(filename);
+
+            logInfo("Generated", Color.green, "%s.cmake", name);
         }
 
         if(!cmakeListsPath.existsFile)
         {
             logWarn("You must use a fork of CMake which has D support for these scripts to function properly.");
             logWarn("It is available at https://github.com/trentforkert/cmake");
-            logInfo("Generating default CMakeLists.txt");
+            logDiagnostic("Generating default CMakeLists.txt");
+
             script.put("cmake_minimum_required(VERSION 3.0)\n");
             script.put("project(%s D)\n".format(m_project.rootPackage.name));
 
@@ -131,6 +134,8 @@ class CMakeGenerator: ProjectGenerator
 
             file.write(script.data);
             file.close;
+
+            logInfo("Generated", Color.green, "CMakeLists.txt (default)");
         }
     }
 }

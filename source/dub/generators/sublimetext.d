@@ -45,7 +45,7 @@ class SublimeTextGenerator : ProjectGenerator {
 
 		write(projectPath, jsonString.data);
 
-		logInfo("Project '%s' generated.", projectPath);
+		logInfo("Generated", Color.green, "%s", projectPath);
 	}
 }
 

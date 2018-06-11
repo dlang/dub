@@ -124,7 +124,7 @@ class VisualDGenerator : ProjectGenerator {
 			sln.put(ret.data);
 			sln.flush();
 
-			logInfo("Solution '%s' generated.", solutionFileName());
+			logInfo("Generated", Color.green, "%s (solution)", solutionFileName());
 		}
 
 

@@ -525,8 +525,8 @@ class Dub {
 				if (basename == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
-					logInfo("Package %s would be selected with version %s.",
-						basename, ver);
+					logInfo("Upgrade", Color.yellow,
+						"Package %s would be selected with version %s", basename, ver);
 					any = true;
 					continue;
 				}
