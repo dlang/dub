@@ -4,5 +4,5 @@
 
 cd ${CURR_DIR}/1-exec-simple
 rm -f dub.selections.json
-${DUB} build --compiler=${DC} 2>&1 | grep -e 'building configuration' -c
-${DUB} build --compiler=${DC} 2>&1 | { ! grep -e 'building configuration' -c; }
+${DUB} build --compiler=${DC} 2>&1 | grep 'Building exec-simple ~master' -c
+${DUB} build --compiler=${DC} 2>&1 | { ! grep 'Building exec-simple ~master' -c; }

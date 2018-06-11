@@ -10,6 +10,6 @@ fi
 if ! OUTPUT=$(${DUB} search dub -v 2>&1); then
     die $LINENO '`dub search dub` failed' "$OUTPUT"
 fi
-if ! grep -q '^dub (.*)\s'<<<"$OUTPUT"; then
-    die $LINENO '`grep -q '"'"'^dub (.*)\s'"'"'` failed' "$OUTPUT"
+if ! grep -q '^\s*dub (.*)\s'<<<"$OUTPUT"; then
+    die $LINENO '`grep -q '"'"'^\s*dub (.*)\s'"'"'` failed' "$OUTPUT"
 fi
