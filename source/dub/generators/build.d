@@ -228,7 +228,7 @@ class BuildGenerator : ProjectGenerator {
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
-			logInfo("Up-to-date", Color.green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config);
+			logInfo("Up-to-date", Color.green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 			if (!settings.tempBuild)
