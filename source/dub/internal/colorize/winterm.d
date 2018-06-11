@@ -120,6 +120,28 @@ version(Windows)
       SetConsoleTextAttribute(_console, _currentAttr);
     }
 
+    // resets to the same foreground color that was set on initialize()
+    @nogc void resetForegroundColor() nothrow
+    {
+      if (!_savedInitialColor)
+        return;
+
+      _currentAttr = _currentAttr & ~(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_INTENSITY);
+      _currentAttr = _currentAttr | (consoleInfo.wAttributes & (FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_INTENSITY));
+      SetConsoleTextAttribute(_console, _currentAttr);
+    }
+
+    // resets to the same background color that was set on initialize()
+    @nogc void resetBackgroundColor() nothrow
+    {
+      if (!_savedInitialColor)
+        return;
+
+      _currentAttr = _currentAttr & ~(BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | BACKGROUND_INTENSITY);
+      _currentAttr = _currentAttr | (consoleInfo.wAttributes & (BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | BACKGROUND_INTENSITY));
+      SetConsoleTextAttribute(_console, _currentAttr);
+    }
+
     @nogc void executeAttribute(int attr) nothrow
     {
       switch (attr)
@@ -142,6 +164,10 @@ version(Windows)
             color |= (attr & 1 ? FOREGROUND_RED : 0) | (attr & 2 ? FOREGROUND_GREEN : 0) | (attr & 4 ? FOREGROUND_BLUE : 0);
             setForegroundColor(color);
           }
+          else if (attr == 39) // fg.init
+          {
+            resetForegroundColor();
+          }
 
           if ( (40 <= attr && attr <= 47) || (100 <= attr && attr <= 107) )
           {
@@ -154,6 +180,10 @@ version(Windows)
             attr -= 40;
             color |= (attr & 1 ? BACKGROUND_RED : 0) | (attr & 2 ? BACKGROUND_GREEN : 0) | (attr & 4 ? BACKGROUND_BLUE : 0);
             setBackgroundColor(color);
+          }
+          else if (attr == 49) // bg.init
+          {
+            resetBackgroundColor();
           }
       }
     }
