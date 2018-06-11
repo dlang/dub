@@ -1142,7 +1142,7 @@ class Dub {
 		}
 
 		//Act smug to the user.
-		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
+		logInfo("Success", Color.green, "created empty project in %s", path.toNativeString());
 	}
 
 	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
