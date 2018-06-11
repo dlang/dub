@@ -128,8 +128,8 @@ class BuildGenerator : ProjectGenerator {
 
 			if (any_cached) {
 				logInfo("Finished", Color.green,
-          "To force a rebuild of up-to-date targets, run again with --force"
-        );
+					"To force a rebuild of up-to-date targets, run again with --force"
+				);
 			}
 		}
 	}
