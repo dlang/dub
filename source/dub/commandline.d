@@ -1879,7 +1879,7 @@ class FetchCommand : FetchRemoveCommand {
 		} else {
 			try {
 				dub.fetch(name, Dependency.any, location, fetchOpts);
-				logInfo("Finished", Color.green, "package fetched");
+				logInfo("Finished", Color.green, "%s fetched", name.color(Mode.bold));
 				logInfo("Please note that you need to use `dub run <pkgname>` or add it");
 				logInfo("to dependencies of your package to actually use/run it.");
 			}
