@@ -4,7 +4,7 @@
 	and stderr are not a TTY in order to avoid ASCII escape sequences in piped
 	output. The module can autodetect and configure itself in this regard by
 	calling initLogging() at the beginning of the program. But, whether to color
-	text or not can also be set manually with printColorsInLog(bool).
+	text or not can also be set manually with setLoggingColorsEnabled(bool).
 
 	The output for the log levels error, warn and info is formatted like this:
 
@@ -38,8 +38,9 @@
 		The log(..) function can also be used. Check the signature and documentation
 		of the functions for more information.
 
-		The minimum log level to print can be configured using setLogLevel(..), and
-		whether to color outputted text or not can be set with printColorsInLog(..).
+		The minimum log level to print can be configured using setLogLevel(..),
+		and whether to color outputted text or not can be set with
+		setLoggingColorsEnabled(..)
 
 		The color(str, color) function can be used to color text within a log
 		message, for instance like this:
@@ -157,7 +158,7 @@ LogLevel getLogLevel()
 }
 
 /// Set whether to print colors or not
-void printColorsInLog(bool enabled)
+void setLoggingColorsEnabled(bool enabled)
 {
 	_printColors = enabled;
 }
