@@ -793,13 +793,13 @@ class Dub {
 					packageId, ver, placement);
 				return existing;
 			} else {
-				logInfo("Removing %s %s to prepare replacement with a new version.", packageId, ver);
+				logInfo("Removing", Color.yellow, "%s %s to prepare replacement with a new version", packageId.color(Mode.bold), ver);
 				if (!m_dryRun) m_packageManager.remove(existing);
 			}
 		}
 
-		if (reason.length) logInfo("Fetching", Color.yellow, "%s %s (%s)", packageId, ver, reason);
-		else logInfo("Fetching", Color.yellow, "%s %s", packageId, ver);
+		if (reason.length) logInfo("Fetching", Color.yellow, "%s %s (%s)", packageId.color(Mode.bold), ver, reason);
+		else logInfo("Fetching", Color.yellow, "%s %s", packageId.color(Mode.bold), ver);
 		if (m_dryRun) return null;
 
 		logDebug("Acquiring package zip file");
@@ -857,7 +857,7 @@ class Dub {
 	*/
 	void remove(in Package pack)
 	{
-		logInfo("Removing %s in %s", pack.name, pack.path.toNativeString());
+		logInfo("Removing", Color.yellow, "%s (in %s)", pack.name.color(Mode.bold), pack.path.toNativeString());
 		if (!m_dryRun) m_packageManager.remove(pack);
 	}
 
@@ -919,7 +919,6 @@ class Dub {
 		foreach(pack; packages) {
 			try {
 				remove(pack);
-				logInfo("Removed %s, version %s.", package_id, pack.version_);
 			} catch (Exception e) {
 				logError("Failed to remove %s %s: %s", package_id, pack.version_, e.msg);
 				logInfo("Continuing with other packages (if any).");
