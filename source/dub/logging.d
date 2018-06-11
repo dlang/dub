@@ -357,7 +357,7 @@ string color(const string str, const Color color, const Mode mode = Mode.init)
 {
 	import dub.internal.colorize;
 
-	if (_printColors == true)
+	if (_printColors)
 		return dub.internal.colorize.color(str, color, bg.init, mode);
 	else
 		return str;
@@ -376,7 +376,7 @@ string color(const string str, const Mode m = Mode.init)
 {
 	import dub.internal.colorize;
 
-	if (_printColors == true)
+	if (_printColors)
 		return dub.internal.colorize.color(str, fg.init, bg.init, m);
 	else
 		return str;
