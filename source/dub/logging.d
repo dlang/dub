@@ -122,8 +122,8 @@ void initLogging()
   {
     version (CRuntime_DigitalMars)
     {
-      if (!isatty(core.stdc.stdio.stdout) ||
-          !isatty(core.stdc.stdio.stderr))
+      if (!isatty(core.stdc.stdio.stdout._file) ||
+          !isatty(core.stdc.stdio.stderr._file))
         _printColors = false;
     }
     else version (CRuntime_Microsoft)
