@@ -1840,10 +1840,10 @@ class FetchCommand : FetchRemoveCommand {
 		} else {
 			try {
 				dub.fetch(name, Dependency(">=0.0.0"), location, fetchOpts);
-				logInfo(
-					"Please note that you need to use `dub run <pkgname>` " ~
-					"or add it to dependencies of your package to actually use/run it. " ~
-					"dub does not do actual installation of packages outside of its own ecosystem.");
+				logInfo("Finished", Color.green, "package fetched");
+				logInfo("Please note that you need to use `dub run <pkgname>` or add it");
+				logInfo("to dependencies of your package to actually use/run it.");
+				logInfo("Dub does not do actual installation of packages outside of its own ecosystem.");
 			}
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
@@ -2081,10 +2081,10 @@ class ListCommand : Command {
 		const pname = pinfo.name;
 		const pvlim = Dependency(pinfo.version_ == "" ? "*" : pinfo.version_);
 		enforceUsage(app_args.length == 0, "The list command supports no application arguments.");
-		logInfo("Packages present in the system and known to dub:");
+		logInfoNoTag("Packages present in the system and known to dub:");
 		foreach (p; dub.packageManager.getPackageIterator()) {
 			if ((pname == "" || pname == p.name) && pvlim.matches(p.version_))
-				logInfo("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
+				logInfo("  %s %s: %s", p.name.color(Mode.bold), p.version_, p.path.toNativeString());
 		}
 		logInfo("");
 		return 0;
@@ -2119,9 +2119,9 @@ class SearchCommand : Command {
 		justify += (~justify & 3) + 1; // round to next multiple of 4
 		foreach (desc, matches; res)
 		{
-			logInfo("==== %s ====", desc);
+			logInfoNoTag("%s", desc);
 			foreach (m; matches)
-				logInfo("%s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
+				logInfoNoTag("  %s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
 		}
 		return 0;
 	}
