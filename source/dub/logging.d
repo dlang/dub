@@ -118,13 +118,13 @@ void printColorsInLog(bool enabled)
 */
 void logDebug(T...)(string fmt, lazy T args) nothrow
 {
-  log(LogLevel.debug_, "", Color.init, fmt, args);
+  log(LogLevel.debug_, false, "", Color.init, fmt, args);
 }
 
 /// ditto
 void logDiagnostic(T...)(string fmt, lazy T args) nothrow
 {
-  log(LogLevel.diagnostic, "", Color.init, fmt, args);
+  log(LogLevel.diagnostic, false, "", Color.init, fmt, args);
 }
 
 /**
@@ -139,7 +139,7 @@ void logDiagnostic(T...)(string fmt, lazy T args) nothrow
 */
 void logInfo(T...)(string tag, Color tagColor, string fmt, lazy T args) nothrow
 {
-  log(LogLevel.info, tag, tagColor, fmt, args);
+  log(LogLevel.info, false, tag, tagColor, fmt, args);
 }
 
 /**
@@ -153,7 +153,20 @@ void logInfo(T...)(string tag, Color tagColor, string fmt, lazy T args) nothrow
 */
 void logInfo(T...)(string fmt, lazy T args) nothrow if (!is(T[0] : Color))
 {
-  log(LogLevel.info, "", Color.init, fmt, args);
+  log(LogLevel.info, false, "", Color.init, fmt, args);
+}
+
+/**
+  Shorthand function to log a message with info level, this version doesn't
+  print a tag at all, it effectively just prints the given string.
+
+  Params:
+    level = The log level for the logged message
+    fmt = See http://dlang.org/phobos/std_format.html#format-string
+*/
+void logInfoNoTag(T...)(string fmt, lazy T args) nothrow if (!is(T[0] : Color))
+{
+  log(LogLevel.info, true, "", Color.init, fmt, args);
 }
 
 /**
@@ -167,7 +180,7 @@ void logInfo(T...)(string fmt, lazy T args) nothrow if (!is(T[0] : Color))
 */
 void logWarnTag(T...)(string tag, string fmt, lazy T args) nothrow
 {
-  log(LogLevel.warn, tag, Color.yellow, fmt, args);
+  log(LogLevel.warn, false, tag, Color.yellow, fmt, args);
 }
 
 /**
@@ -180,7 +193,7 @@ void logWarnTag(T...)(string tag, string fmt, lazy T args) nothrow
 */
 void logWarn(T...)(string fmt, lazy T args) nothrow
 {
-  log(LogLevel.warn, "Warning", Color.yellow, fmt, args);
+  log(LogLevel.warn, false, "Warning", Color.yellow, fmt, args);
 }
 
 /**
@@ -194,7 +207,7 @@ void logWarn(T...)(string fmt, lazy T args) nothrow
 */
 void logErrorTag(T...)(string tag, string fmt, lazy T args) nothrow
 {
-  log(LogLevel.error, tag, Color.red, fmt, args);
+  log(LogLevel.error, false, tag, Color.red, fmt, args);
 }
 
 /**
@@ -207,7 +220,7 @@ void logErrorTag(T...)(string tag, string fmt, lazy T args) nothrow
 */
 void logError(T...)(string fmt, lazy T args) nothrow
 {
-  log(LogLevel.error, "Error", Color.red, fmt, args);
+  log(LogLevel.error, false, "Error", Color.red, fmt, args);
 }
 
 /**
@@ -217,12 +230,14 @@ void logError(T...)(string fmt, lazy T args) nothrow
 
   Params:
     level = The log level for the logged message
+    disableTag = Setting this to true disables the tag, no matter what
     tag = The string the tag at the beginning of the line should contain
     tagColor = The color the tag string should have
     fmt = See http://dlang.org/phobos/std_format.html#format-string
 */
 void log(T...)(
   LogLevel level,
+  bool disableTag,
   string tag,
   Color tagColor,
   string fmt,
@@ -234,6 +249,8 @@ void log(T...)(
 
   auto hasTag = true;
   if (level <= LogLevel.diagnostic)
+    hasTag = false;
+  if (disableTag)
     hasTag = false;
 
   try
