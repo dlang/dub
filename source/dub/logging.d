@@ -280,7 +280,9 @@ void logError(T...)(string fmt, lazy T args) nothrow
 /**
   Log a message with the specified log level and with the specified tag string
   and color. If the log level is debug or diagnostic, the tag is not printed
-  thus the tag string and tag color will be ignored.
+  thus the tag string and tag color will be ignored. If the log level is error
+  or warning, the tag will be in bold text. Also the tag can be disabled (for
+  any log level) by passing true as the second argument.
 
   Params:
     level = The log level for the logged message
@@ -307,12 +309,16 @@ void log(T...)(
   if (disableTag)
     hasTag = false;
 
+  auto boldTag = false;
+  if (level >= LogLevel.warn)
+    boldTag = true;
+
   try
   {
     string result = format(fmt, args);
 
     if (hasTag)
-      result = tag.rightJustify(TAG_WIDTH, ' ').color(tagColor) ~ " " ~ result;
+      result = tag.rightJustify(TAG_WIDTH, ' ').color(tagColor, boldTag ? Mode.bold : Mode.init) ~ " " ~ result;
 
     import dub.internal.colorize : cwrite;
 
