@@ -1880,8 +1880,10 @@ class FetchCommand : FetchRemoveCommand {
 			try {
 				dub.fetch(name, Dependency.any, location, fetchOpts);
 				logInfo("Finished", Color.green, "%s fetched", name.color(Mode.bold));
-				logInfo("Please note that you need to use `dub run <pkgname>` or add it");
-				logInfo("to dependencies of your package to actually use/run it.");
+				logInfo(
+					"Please note that you need to use `dub run <pkgname>` " ~
+					"or add it to dependencies of your package to actually use/run it. "
+				);
 			}
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
