@@ -89,14 +89,14 @@ enum LogLevel {
 }
 
 // The current minimum log level to be printed
-private LogLevel _minLevel = LogLevel.info;
+private shared LogLevel _minLevel = LogLevel.info;
 
 /*
   Whether to print text with colors or not, defaults to true but will be set
   to false in initLogging() if stdout or stderr are not a TTY (which means the
   output is probably being piped and we don't want ASCII escape chars in it)
 */
-private bool _printColors = true;
+private shared bool _printColors = true;
 
 // isatty() is used in initLogging() to detect whether or not we are on a TTY
 extern (C) int isatty(int);
