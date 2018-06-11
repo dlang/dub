@@ -1149,7 +1149,7 @@ class Dub {
 		initPackage(path, depVers, type, format, recipe_callback);
 
 		//Act smug to the user.
-		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
+		logInfo("Success", Color.green, "created empty project in %s", path.toNativeString());
 	}
 
 	/** Converts the package recipe of the loaded root package to the given format.

@@ -561,12 +561,12 @@ class InitCommand : Command {
 			{
 				m_templateType = free_args[0];
 				free_args = free_args[1 .. $];
-				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
+				logWarn("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
 			}
 		}
+		
 		dub.createEmptyPackage(NativePath(dir), free_args, m_templateType, m_format, &depCallback);
 
-		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;
 	}
 }
