@@ -509,8 +509,8 @@ class Dub {
 				if (basename == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
-					logInfo("Non-selected package %s is available with version %s",
-						basename, ver);
+					logInfo("Upgrade", Color.yellow,
+						"Non-selected package %s is available with version %s", basename, ver);
 					any = true;
 					continue;
 				}

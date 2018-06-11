@@ -498,7 +498,7 @@ private void prepareGeneration(in Package pack, in Project proj, in GeneratorSet
 	in BuildSettings buildsettings)
 {
 	if (buildsettings.preGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
-		logInfo("Running pre-generate commands for %s...", pack.name);
+		logInfo("Pre-gen", Color.green, "Running commands for %s", pack.name);
 		runBuildCommands(buildsettings.preGenerateCommands, pack, proj, settings, buildsettings);
 	}
 }
@@ -512,7 +512,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	import std.path : globMatch;
 
 	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
-		logInfo("Running post-generate commands for %s...", pack.name);
+		logInfo("Post-gen", Color.green, "Running commands for %s", pack.name);
 		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
 	}
 
