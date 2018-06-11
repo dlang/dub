@@ -457,6 +457,7 @@ int runDubCommandLine(string[] args)
 
 	try handler.prepareOptions(common_args);
 	catch (Exception e) {
+		if (options.noColors) setLoggingColorsEnabled(false);
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		logInfo("Run 'dub help' for usage information.");
@@ -537,7 +538,7 @@ int runDubCommandLine(string[] args)
 */
 struct CommonOptions {
 	bool verbose, vverbose, quiet, vquiet, verror, version_;
-	bool help, annotate, bare;
+	bool help, annotate, bare, noColors;
 	string[] registry_urls;
 	string root_path;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
@@ -567,6 +568,7 @@ struct CommonOptions {
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
+		args.getopt("no-colors", &noColors, ["Disable color output"]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 
 		version_ = args.hasAppVersion;
