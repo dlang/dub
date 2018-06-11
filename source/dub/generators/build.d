@@ -47,12 +47,12 @@ class BuildGenerator : ProjectGenerator {
 	{
 		scope (exit) cleanupTemporaries();
 
-    logInfo("Starting", Color.green,
-      "Performing %s build using %s for %-(%s, %)",
+		logInfo("Starting", Color.green,
+			"Performing %s build using %s for %-(%s, %)",
 			settings.buildType.color(Color.magenta),
-      settings.platform.compilerBinary,
-      settings.platform.architecture
-    );
+			settings.platform.compilerBinary,
+			settings.platform.architecture
+		);
 
 		bool any_cached = false;
 
@@ -97,8 +97,8 @@ class BuildGenerator : ProjectGenerator {
 
 			if (any_cached) {
 				logInfo("Finished", Color.green,
-          "To force a rebuild of up-to-date targets, run again with --force"
-        );
+					"To force a rebuild of up-to-date targets, run again with --force"
+				);
 			}
 		}
 	}

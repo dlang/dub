@@ -260,18 +260,18 @@ class Dub {
 	version(Windows)
 	private void migrateRepositoryFromRoaming(NativePath roamingDir, NativePath localDir)
 	{
-        immutable roamingDirPath = roamingDir.toNativeString();
-	    if (!existsDirectory(roamingDir)) return;
+		immutable roamingDirPath = roamingDir.toNativeString();
+		if (!existsDirectory(roamingDir)) return;
 
-        immutable localDirPath = localDir.toNativeString();
-        logInfo("Detected a package cache in " ~ roamingDirPath ~ ". This will be migrated to " ~ localDirPath ~ ". Please wait...");
-        if (!existsDirectory(localDir))
-        {
-            mkdirRecurse(localDirPath);
-        }
+		immutable localDirPath = localDir.toNativeString();
+		logInfo("Detected a package cache in " ~ roamingDirPath ~ ". This will be migrated to " ~ localDirPath ~ ". Please wait...");
+		if (!existsDirectory(localDir))
+		{
+			mkdirRecurse(localDirPath);
+		}
 
-        runCommand("xcopy /s /e /y " ~ roamingDirPath ~ " " ~ localDirPath ~ " > NUL");
-        rmdirRecurse(roamingDirPath);
+		runCommand("xcopy /s /e /y " ~ roamingDirPath ~ " " ~ localDirPath ~ " > NUL");
+		rmdirRecurse(roamingDirPath);
 	}
 
 
@@ -517,8 +517,7 @@ class Dub {
 				auto sver = m_project.selections.getSelectedVersion(basename);
 				if (!sver.path.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
-        logInfo("Upgrade", Color.yellow,
-          "%s can be upgraded %s -> %s",
+				logInfo("Upgrade", Color.yellow, "%s can be upgraded %s -> %s",
 					basename.color(Mode.bold), sver, ver);
 				any = true;
 			}
