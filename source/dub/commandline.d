@@ -457,7 +457,7 @@ int runDubCommandLine(string[] args)
 
 	try handler.prepareOptions(common_args);
 	catch (Exception e) {
-		if (options.colors_mode == "auto") {
+		if (options.colors_mode == "" || options.colors_mode == "auto") {
 			// we already detected whether to enable colors or not with initLogging() above
 			// this if case is here just to make the else below work correctly
 		} else if (options.colors_mode == "on") {
