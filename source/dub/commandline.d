@@ -141,7 +141,15 @@ int runDubCommandLine(string[] args)
 		else if (options.verror) loglevel = LogLevel.error;
 		setLogLevel(loglevel);
 
+		if (options.noColors && options.forceColors) {
+			logError("Incompatible options: --no-colors and --force-colors");
+			logInfo("Run 'dub help' for usage information.");
+		}
+
+		// based on --no-colors or --force-colors we override whether initLogging()
+		// enabled colors or not in the first place
 		if (options.noColors) setLoggingColorsEnabled(false);
+		if (options.forceColors) setLoggingColorsEnabled(true);
 	} catch (Throwable e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
@@ -275,7 +283,7 @@ int runDubCommandLine(string[] args)
 */
 struct CommonOptions {
 	bool verbose, vverbose, quiet, vquiet, verror;
-	bool help, annotate, bare, noColors;
+	bool help, annotate, bare, noColors, forceColors;
 	string[] registry_urls;
 	string root_path;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
@@ -302,6 +310,7 @@ struct CommonOptions {
 		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
 		args.getopt("no-colors", &noColors, ["Disable color output"]);
+		args.getopt("force-colors", &forceColors, ["Force output to be always colored"]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 	}
 }
