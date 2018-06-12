@@ -354,12 +354,12 @@ void log(T...)(
 		color = The color to apply
 		mode = An optional mode, such as bold/underline/etc...
 */
-string color(const string str, const Color color, const Mode mode = Mode.init)
+string color(const string str, const Color c, const Mode m = Mode.init)
 {
 	import dub.internal.colorize;
 
 	if (_printColors)
-		return dub.internal.colorize.color(str, color, bg.init, mode);
+		return dub.internal.colorize.color(str, c, bg.init, m);
 	else
 		return str;
 }
