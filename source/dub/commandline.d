@@ -141,15 +141,18 @@ int runDubCommandLine(string[] args)
 		else if (options.verror) loglevel = LogLevel.error;
 		setLogLevel(loglevel);
 
-		if (options.noColors && options.forceColors) {
-			logError("Incompatible options: --no-colors and --force-colors");
+		if (options.colors_mode == "auto") {
+			// we already detected whether to enable colors or not with initLogging() above
+			// this if case is here just to make the else below work correctly
+		} else if (options.colors_mode == "on") {
+			setLoggingColorsEnabled(true); // enable colors, no matter what
+		} else if (options.colors_mode == "off") {
+			setLoggingColorsEnabled(false); // disable colors, no matter what
+		} else {
+			logError("Invalid value for --colors option, expected {auto | on | off}");
 			logInfo("Run 'dub help' for usage information.");
+			return 1;
 		}
-
-		// based on --no-colors or --force-colors we override whether initLogging()
-		// enabled colors or not in the first place
-		if (options.noColors) setLoggingColorsEnabled(false);
-		if (options.forceColors) setLoggingColorsEnabled(true);
 	} catch (Throwable e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
@@ -283,9 +286,10 @@ int runDubCommandLine(string[] args)
 */
 struct CommonOptions {
 	bool verbose, vverbose, quiet, vquiet, verror;
-	bool help, annotate, bare, noColors, forceColors;
+	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
+	string colors_mode;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
 	PlacementLocation placementLocation = PlacementLocation.user;
 
@@ -309,8 +313,12 @@ struct CommonOptions {
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
-		args.getopt("no-colors", &noColors, ["Disable color output"]);
-		args.getopt("force-colors", &forceColors, ["Force output to be always colored"]);
+		args.getopt("colors", &colors_mode, [
+			"Confiugre color output",
+			"  auto: Automatically turn on/off colors (default)",
+			"  on: Force colors enabled",
+			"  off: Force colors disabled"
+			]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 	}
 }
