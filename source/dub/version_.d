@@ -1,2 +1,2 @@
 module dub.version_;
-enum dubVersion = "v1.9.0";
+enum dubVersion = "v1.10.0-beta.1";
