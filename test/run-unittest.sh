@@ -3,12 +3,16 @@ set -ueo pipefail
 
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
 
+> $(dirname "${BASH_SOURCE[0]}")/test.log
+
 function log() {
     echo -e "\033[0;33m[INFO] $@\033[0m"
+    echo "[INFO]  $@" >> $(dirname "${BASH_SOURCE[0]}")/test.log
 }
 
 function logError() {
     echo -e 1>&2 "\033[0;31m[ERROR] $@\033[0m"
+    echo "[ERROR] $@" >> $(dirname "${BASH_SOURCE[0]}")/test.log
     any_errors=1
 }
 
@@ -33,7 +37,10 @@ DC_BIN=$(basename "$DC")
 CURR_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 FRONTEND="${FRONTEND:-}"
 
+if [ "$#" -gt 0 ]; then FILTER=$1; else FILTER=".*"; fi
+
 for script in $(ls $CURR_DIR/*.sh); do
+    if [[ ! "$script" =~ $FILTER ]]; then continue; fi
     if [ "$script" = "$(readlink -f ${BASH_SOURCE[0]})" ] || [ "$(basename $script)" = "common.sh" ]; then continue; fi
     if [ -e $script.min_frontend ] && [ ! -z "$FRONTEND" ] && [ ${FRONTEND} \< $(cat $script.min_frontend) ]; then continue; fi
     log "Running $script..."
@@ -41,6 +48,7 @@ for script in $(ls $CURR_DIR/*.sh); do
 done
 
 for pack in $(ls -d $CURR_DIR/*/); do
+    if [[ ! "$pack" =~ $FILTER ]]; then continue; fi
     if [ -e $pack/.min_frontend ] && [ ! -z "$FRONTEND" -a "$FRONTEND" \< $(cat $pack/.min_frontend) ]; then continue; fi
 
     # First we build the packages
@@ -69,5 +77,9 @@ for pack in $(ls -d $CURR_DIR/*/); do
         $DUB test --force --root=$pack --compiler=$DC || logError "Test failure."
     fi
 done
+
+echo
+echo 'Testing summary:'
+cat $(dirname "${BASH_SOURCE[0]}")/test.log
 
 exit ${any_errors:-0}

@@ -198,7 +198,8 @@ void runCommands(in string[] commands, string[string] env = null)
 		Pid pid;
 		pid = spawnShell(cmd, stdin, childStdout, childStderr, env, config);
 		auto exitcode = pid.wait();
-		enforce(exitcode == 0, "Command failed with exit code "~to!string(exitcode));
+		enforce(exitcode == 0, "Command failed with exit code "
+			~ to!string(exitcode) ~ ": " ~ cmd);
 	}
 }
 

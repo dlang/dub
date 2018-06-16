@@ -17,7 +17,7 @@ import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.packagemanager;
-import dub.packagesupplier;
+import dub.packagesuppliers;
 import dub.project;
 import dub.generators.generator;
 import dub.init;
@@ -87,6 +87,34 @@ PackageSupplier[] defaultPackageSuppliers()
 	];
 }
 
+/** Returns a registry package supplier according to protocol.
+
+	Allowed protocols are dub+http(s):// and maven+http(s)://.
+*/
+PackageSupplier getRegistryPackageSupplier(string url)
+{
+	switch (url.startsWith("dub+", "mvn+"))
+	{
+		case 1:
+			return new RegistryPackageSupplier(URL(url[4..$]));
+		case 2:
+			return new MavenRegistryPackageSupplier(URL(url[4..$]));
+		default:
+			return new RegistryPackageSupplier(URL(url));
+	}
+}
+
+unittest
+{
+	auto dubRegistryPackageSupplier = getRegistryPackageSupplier("dub+https://code.dlang.org");
+	assert(dubRegistryPackageSupplier.description.canFind(" https://code.dlang.org"));
+
+	dubRegistryPackageSupplier = getRegistryPackageSupplier("https://code.dlang.org");
+	assert(dubRegistryPackageSupplier.description.canFind(" https://code.dlang.org"));
+
+	auto mavenRegistryPackageSupplier = getRegistryPackageSupplier("mvn+http://localhost:8040/maven/libs-release/dubpackages");
+	assert(mavenRegistryPackageSupplier.description.canFind(" http://localhost:8040/maven/libs-release/dubpackages"));
+}
 
 /** Provides a high-level entry point for DUB's functionality.
 
@@ -145,14 +173,14 @@ class Dub {
 		{
 			ps ~= environment.get("DUB_REGISTRY", null)
 				.splitter(";")
-				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
+				.map!(url => getRegistryPackageSupplier(url))
 				.array;
 		}
 
 		if (skip_registry < SkipPackageSuppliers.configured)
 		{
 			ps ~= m_config.registryURLs
-				.map!(url => cast(PackageSupplier)new RegistryPackageSupplier(URL(url)))
+				.map!(url => getRegistryPackageSupplier(url))
 				.array;
 		}
 
@@ -161,6 +189,11 @@ class Dub {
 
 		m_packageSuppliers = ps;
 		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
+
+		auto ccps = m_config.customCachePaths;
+		if (ccps.length)
+			m_packageManager.customCachePaths = ccps;
+
 		updatePackageSearchPath();
 	}
 
@@ -224,12 +257,12 @@ class Dub {
 		m_defaultArchitecture = m_config.defaultArchitecture;
 	}
 
-	version(Windows) 
+	version(Windows)
 	private void migrateRepositoryFromRoaming(NativePath roamingDir, NativePath localDir)
 	{
         immutable roamingDirPath = roamingDir.toNativeString();
 	    if (!existsDirectory(roamingDir)) return;
-        
+
         immutable localDirPath = localDir.toNativeString();
         logInfo("Detected a package cache in " ~ roamingDirPath ~ ". This will be migrated to " ~ localDirPath ~ ". Please wait...");
         if (!existsDirectory(localDir))
@@ -237,7 +270,7 @@ class Dub {
             mkdirRecurse(localDirPath);
         }
 
-        runCommand("xcopy /s /e /y " ~ roamingDirPath ~ " " ~ localDirPath ~ " > NUL"); 
+        runCommand("xcopy /s /e /y " ~ roamingDirPath ~ " " ~ localDirPath ~ " > NUL");
         rmdirRecurse(roamingDirPath);
 	}
 
@@ -1234,16 +1267,15 @@ class Dub {
 		import std.path : buildPath, dirName, expandTilde, isAbsolute, isDirSeparator;
 		import std.process : environment;
 		import std.range : front;
-		import std.regex : ctRegex, matchFirst;
 
 		m_defaultCompiler = m_config.defaultCompiler.expandTilde;
 		if (m_defaultCompiler.length && m_defaultCompiler.isAbsolute)
 			return;
 
-		auto dubPrefix = m_defaultCompiler.matchFirst(ctRegex!(`^\$DUB_BINARY_PATH`));
-		if(!dubPrefix.empty)
+		static immutable BinaryPrefix = `$DUB_BINARY_PATH`;
+		if(m_defaultCompiler.startsWith(BinaryPrefix))
 		{
-			m_defaultCompiler = thisExePath().dirName() ~ dubPrefix.post;
+			m_defaultCompiler = thisExePath().dirName() ~ m_defaultCompiler[BinaryPrefix.length .. $];
 			return;
 		}
 
@@ -1623,6 +1655,21 @@ private class DubConfig {
 		if (auto pv = "registryUrls" in m_data)
 			ret = (*pv).deserializeJson!(string[]);
 		if (m_parentConfig) ret ~= m_parentConfig.registryURLs;
+		return ret;
+	}
+
+	@property NativePath[] customCachePaths()
+	{
+		import std.algorithm.iteration : map;
+		import std.array : array;
+
+		NativePath[] ret;
+		if (auto pv = "customCachePaths" in m_data)
+			ret = (*pv).deserializeJson!(string[])
+				.map!(s => NativePath(s))
+				.array;
+		if (m_parentConfig)
+			ret ~= m_parentConfig.customCachePaths;
 		return ret;
 	}
 
