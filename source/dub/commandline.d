@@ -280,7 +280,11 @@ struct CommonOptions {
 	{
 		args.getopt("h|help", &help, ["Display general or command specific help"]);
 		args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
-		args.getopt("registry", &registry_urls, ["Search the given DUB registry URL first when resolving dependencies. Can be specified multiple times."]);
+		args.getopt("registry", &registry_urls, [
+			"Search the given registry URL first when resolving dependencies. Can be specified multiple times. Available registry types:",
+			"  DUB: URL to DUB registry (default)",
+			"  Maven: URL to Maven repository + group id containing dub packages as artifacts. E.g. mvn+http://localhost:8040/maven/libs-release/dubpackages",
+			]);
 		args.getopt("skip-registry", &skipRegistry, [
 			"Sets a mode for skipping the search on certain package registry types:",
 			"  none: Search all configured or default registries (default)",
