@@ -167,6 +167,46 @@ class Dub {
 
 		init();
 
+		if (skip_registry == SkipPackageSuppliers.none)
+			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers);
+		else
+			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers, skip_registry);
+
+		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
+
+		auto ccps = m_config.customCachePaths;
+		if (ccps.length)
+			m_packageManager.customCachePaths = ccps;
+
+		updatePackageSearchPath();
+	}
+
+	unittest
+	{
+		scope (exit) environment.remove("DUB_REGISTRY");
+		auto dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 0);
+		environment["DUB_REGISTRY"] = "http://example.com/";
+		dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 1);
+		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
+		dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 2);
+		dub = new Dub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 3);
+	}
+
+	/** Get the list of package suppliers.
+
+		Params:
+			additional_package_suppliers = A list of package suppliers to try
+				before the suppliers found in the configurations files and the
+				`defaultPackageSuppliers`.
+			skip_registry = Can be used to skip using the configured package
+				suppliers, as well as the default suppliers.
+	*/
+	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers, SkipPackageSuppliers skip_registry)
+	{
 		PackageSupplier[] ps = additional_package_suppliers;
 
 		if (skip_registry < SkipPackageSuppliers.all)
@@ -187,30 +227,31 @@ class Dub {
 		if (skip_registry < SkipPackageSuppliers.standard)
 			ps ~= defaultPackageSuppliers();
 
-		m_packageSuppliers = ps;
-		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
+		return ps;
+	}
 
-		auto ccps = m_config.customCachePaths;
-		if (ccps.length)
-			m_packageManager.customCachePaths = ccps;
-
-		updatePackageSearchPath();
+	/// ditto
+	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers)
+	{
+		return getPackageSuppliers(additional_package_suppliers, m_config.skipRegistry);
 	}
 
 	unittest
 	{
 		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new Dub(".", null, SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 0);
+		auto dub = new Dub(".", null, SkipPackageSuppliers.none);
+
+		dub.m_config = new DubConfig(Json(["skipRegistry": Json("none")]), null);
+		assert(dub.getPackageSuppliers(null).length == 1);
+
+		dub.m_config = new DubConfig(Json(["skipRegistry": Json("configured")]), null);
+		assert(dub.getPackageSuppliers(null).length == 0);
+
+		dub.m_config = new DubConfig(Json(["skipRegistry": Json("standard")]), null);
+		assert(dub.getPackageSuppliers(null).length == 0);
+
 		environment["DUB_REGISTRY"] = "http://example.com/";
-		dub = new Dub(".", null, SkipPackageSuppliers.configured);
-		logInfo("%s", dub.m_packageSuppliers);
-		assert(dub.m_packageSuppliers.length == 1);
-		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
-		dub = new Dub(".", null, SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 2);
-		dub = new Dub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 3);
+		assert(dub.getPackageSuppliers(null).length == 1);
 	}
 
 	/** Initializes the instance with a single package search path, without
@@ -1656,6 +1697,17 @@ private class DubConfig {
 			ret = (*pv).deserializeJson!(string[]);
 		if (m_parentConfig) ret ~= m_parentConfig.registryURLs;
 		return ret;
+	}
+
+	@property SkipPackageSuppliers skipRegistry()
+	{
+		if(auto pv = "skipRegistry" in m_data)
+			return to!SkipPackageSuppliers((*pv).get!string);
+
+		if (m_parentConfig)
+			return m_parentConfig.skipRegistry;
+
+		return SkipPackageSuppliers.none;
 	}
 
 	@property NativePath[] customCachePaths()
