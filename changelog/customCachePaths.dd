@@ -1,6 +1,0 @@
-DUB supports "customCachePaths" for providing read-only package paths
-
-With this release DUB allows defining additional paths that contain packages in subfolders with the pattern "(name)-(version)/(name)/" by defining a "customCachePaths" field in `/etc/dub/settings.json` or `~/.dub/settings.json.`
-
-"customCachePaths" can be used to provide prebuilt DUB libraries (e.g. for distribution package maintainers).
-
