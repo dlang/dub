@@ -620,7 +620,7 @@ abstract class PackageBuildCommand : Command {
 			"Define the specified debug version identifier when building - can be used multiple times"
 		]);
 		args.getopt("nodeps", &m_nodeps, [
-			"Do not check/update dependencies before building"
+			"Do not resolve missing dependencies before building"
 		]);
 		args.getopt("build-mode", &m_buildMode, [
 			"Specifies the way the compiler and linker are invoked. Valid values:",
@@ -660,19 +660,12 @@ abstract class PackageBuildCommand : Command {
 		}
 
 		if (!m_nodeps) {
-			// TODO: only upgrade(select) if necessary, only upgrade(upgrade) every now and then
-
 			// retrieve missing packages
 			dub.project.reinit();
 			if (!dub.project.hasAllDependencies) {
 				logDiagnostic("Checking for missing dependencies.");
 				if (m_single) dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
 				else dub.upgrade(UpgradeOptions.select);
-			}
-
-			if (!m_single) {
-				logDiagnostic("Checking for upgrades.");
-				dub.upgrade(UpgradeOptions.upgrade|UpgradeOptions.printUpgradesOnly|UpgradeOptions.useCachedResult);
 			}
 		}
 
@@ -1131,6 +1124,7 @@ class UpgradeCommand : Command {
 		bool m_forceRemove = false;
 		bool m_missingOnly = false;
 		bool m_verify = false;
+		bool m_dryRun = false;
 	}
 
 	this()
@@ -1155,6 +1149,9 @@ class UpgradeCommand : Command {
 		args.getopt("verify", &m_verify, [
 			"Updates the project and performs a build. If successful, rewrites the selected versions file <to be implemented>."
 		]);
+		args.getopt("dry-run", &m_dryRun, [
+			"Only print what would be upgraded, but don't actually upgrade anything."
+		]);
 		args.getopt("missing-only", &m_missingOnly, [
 			"Performs an upgrade only for dependencies that don't yet have a version selected. This is also done automatically before each build."
 		]);
@@ -1173,6 +1170,7 @@ class UpgradeCommand : Command {
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
+		if (m_dryRun) options |= UpgradeOptions.dryRun;
 		dub.upgrade(options, free_args);
 		return 0;
 	}

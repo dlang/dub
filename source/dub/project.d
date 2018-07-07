@@ -1067,41 +1067,14 @@ class Project {
 			m_selections.save(path);
 	}
 
-	/** Checks if the cached upgrade information is still considered up to date.
-
-		The cache will be considered out of date after 24 hours after the last
-		online check.
-	*/
-	bool isUpgradeCacheUpToDate()
+	deprecated bool isUpgradeCacheUpToDate()
 	{
-		try {
-			auto datestr = m_packageSettings["dub"].opt!(Json[string]).get("lastUpgrade", Json("")).get!string;
-			if (!datestr.length) return false;
-			auto date = SysTime.fromISOExtString(datestr);
-			if ((Clock.currTime() - date) > 1.days) return false;
-			return true;
-		} catch (Exception t) {
-			logDebug("Failed to get the last upgrade time: %s", t.msg);
-			return false;
-		}
+		return false;
 	}
 
-	/** Returns the currently cached upgrade information.
-
-		The returned dictionary maps from dependency package name to the latest
-		available version that matches the dependency specifications.
-	*/
-	Dependency[string] getUpgradeCache()
+	deprecated Dependency[string] getUpgradeCache()
 	{
-		try {
-			Dependency[string] ret;
-			foreach (string p, d; m_packageSettings["dub"].opt!(Json[string]).get("cachedUpgrades", Json.emptyObject))
-				ret[p] = SelectedVersions.dependencyFromJson(d);
-			return ret;
-		} catch (Exception t) {
-			logDebug("Failed to get cached upgrades: %s", t.msg);
-			return null;
-		}
+		return null;
 	}
 
 	/** Sets a new set of versions for the upgrade cache.
@@ -1446,4 +1419,3 @@ final class SelectedVersions {
 			m_selections[p] = Selected(dependencyFromJson(v));
 	}
 }
-
