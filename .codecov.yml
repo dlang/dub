@@ -29,6 +29,6 @@ coverage:
     changes: off
     patch:
       default:
-        threshold: 5
+        informational: true
 
 comment: false
