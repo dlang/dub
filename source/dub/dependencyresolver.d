@@ -1,7 +1,7 @@
 /**
 	Dependency configuration/version resolution algorithm.
 
-	Copyright: © 2014 rejectedsoftware e.K.
+	Copyright: © 2014-2018 Sönke Ludwig
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
@@ -18,7 +18,23 @@ import std.typecons : Nullable;
 import std.string : format, indexOf, lastIndexOf;
 
 
+/** Resolves dependency graph with multiple configurations per package.
+
+	The term "configuration" can mean any kind of alternative dependency
+	configuration of a package. In particular, it can mean different
+	versions of a package.
+
+	`CONFIG` is an abstract type denoting a single configuration of a certain
+	package, whereas `CONFIGS` denotes a set of configurations. The
+	representation of both can be freely chosen, so that `CONFIGS` for example
+	can be defined in terms of a version range.
+*/
 class DependencyResolver(CONFIGS, CONFIG) {
+	/** Encapsulates a list of outgoing edges in the dependency graph.
+
+		A value of this type represents a single dependency with multiple
+		possible configurations for the target package.
+	*/
 	static struct TreeNodes {
 		string pack;
 		CONFIGS configs;
@@ -37,6 +53,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		}
 	}
 
+	/** A single node in the dependency graph.
+
+		Nodes are a combination of a package and a single package configuration.
+	*/
 	static struct TreeNode {
 		string pack;
 		CONFIG config;
@@ -54,236 +74,179 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		}
 	}
 
-	private static struct PackageConfigs
-	{
-		static struct Depender
-		{
-			TreeNode origin;
-			TreeNodes dependency;
-		}
-
-		// all possible configurations to test for this package
-		CONFIG[] allConfigs;
-
-		// determines whether this package has any dependencies, may be
-		// different from allConfigs.length > 0 after certain configurations
-		// have been filtered out
-		bool anyConfig;
-
-		Depender[] origins;
-	}
-
 	CONFIG[string] resolve(TreeNode root, bool throw_on_failure = true)
 	{
-		auto root_base_pack = basePackage(root.pack);
-
-		// find all possible configurations of each possible dependency
-		size_t[string] package_indices;
-		string[size_t] package_names;
-		PackageConfigs[] configs;
-		bool[string] maybe_optional_deps;
-		bool[TreeNode] visited;
-
-		void findConfigsRec(TreeNode parent, bool parent_unique)
-		{
-			if (parent in visited) return;
-			visited[parent] = true;
-
-			foreach (ch; getChildren(parent)) {
-				auto basepack = basePackage(ch.pack);
-				auto pidx = configs.length;
-
-				if (ch.depType != DependencyType.required) maybe_optional_deps[ch.pack] = true;
-
-				PackageConfigs config;
-				if (auto pi = basepack in package_indices) {
-					pidx = *pi;
-					config = configs[*pi];
-				} else {
-					if (basepack == root_base_pack) config.allConfigs = [root.config];
-					else config.allConfigs = getAllConfigs(basepack);
-					configs ~= config;
-					package_indices[basepack] = pidx;
-					package_names[pidx] = basepack;
-				}
-
-				foreach (c; getSpecificConfigs(basepack, ch))
-					if (!config.allConfigs.canFind(c))
-						config.allConfigs = c ~ config.allConfigs;
-
-				if (config.allConfigs.length > 0)
-					config.anyConfig = true;
-
-				// store package depending on this for better error messages
-				config.origins ~= PackageConfigs.Depender(parent, ch);
-
-				// eliminate configurations from which we know that they can't satisfy
-				// the uniquely defined root dependencies (==version or ~branch style dependencies)
-				if (parent_unique) config.allConfigs = config.allConfigs.filter!(c => matches(ch.configs, c)).array;
-
-				configs[pidx] = config;
-
-				foreach (v; config.allConfigs)
-					findConfigsRec(TreeNode(ch.pack, v), parent_unique && config.allConfigs.length == 1);
-			}
-		}
-		findConfigsRec(root, true);
-
-		// append an invalid configuration to denote an unchosen dependency
-		// this is used to properly support optional dependencies (when
-		// getChildren() returns no configurations for an optional dependency,
-		// but getAllConfigs() has already provided an existing list of configs)
-		foreach (i, ref cfgs; configs)
-			if (cfgs.allConfigs.length == 0 || package_names[i] in maybe_optional_deps)
-				cfgs.allConfigs = cfgs.allConfigs ~ CONFIG.invalid;
-
-		logDebug("Configurations used for dependency resolution:");
-		foreach (n, i; package_indices) logDebug("  %s (%s%s): %s", n, i, n in maybe_optional_deps ? ", maybe optional" : ", required", configs[i]);
-
-		auto config_indices = new size_t[configs.length];
-		config_indices[] = 0;
-
-		visited = null;
-		sizediff_t validateConfigs(TreeNode parent, ref ConflictError error)
-		{
-			import std.algorithm : max;
-
-			if (parent in visited) return -1;
-
-			visited[parent] = true;
-			sizediff_t maxcpi = -1;
-			sizediff_t parentidx = package_indices.get(basePackage(parent.pack), -1);
-			auto parentbase = basePackage(parent.pack);
-
-			// loop over all dependencies
-			foreach (ch; getChildren(parent)) {
-				auto basepack = basePackage(ch.pack);
-				assert(basepack in package_indices, format("%s not in packages %s", basepack, package_indices));
-
-				// get the current config/version of the current dependency
-				sizediff_t childidx = package_indices[basepack];
-				auto child = configs[childidx];
-
-				if (child.allConfigs.length == 1 && child.allConfigs[0] == CONFIG.invalid) {
-					// ignore invalid optional dependencies
-					if (ch.depType != DependencyType.required)
-						continue;
-
-					if (parentbase == root_base_pack) {
-						import std.uni : toLower;
-						auto lp = ch.pack.toLower();
-						if (lp != ch.pack) {
-							logError("Dependency \"%s\" of %s contains upper case letters, but must be lower case.", ch.pack, parent.pack);
-							if (getAllConfigs(lp).length) logError("Did you mean \"%s\"?", lp);
-						}
-						if (child.anyConfig)
-							throw new Exception(format("Root package %s reference %s %s cannot be satisfied.\nPackages causing the conflict:\n\t%s",
-								parent.pack, ch.pack, ch.configs,
-								child.origins.map!(a => a.origin.pack ~ " depends on " ~ a.dependency.configs.to!string).join("\n\t")));
-						else
-							throw new Exception(format("Root package %s references unknown package %s", parent.pack, ch.pack));
-					}
-					// choose another parent config to avoid the invalid child
-					if (parentidx > maxcpi) {
-						error = ConflictError(ConflictError.Kind.invalidDependency, parent, ch, CONFIG.invalid);
-						logDiagnostic("%s (ci=%s)", error, parentidx);
-						maxcpi = parentidx;
-					}
-				} else {
-					auto config = child.allConfigs[config_indices[childidx]];
-					auto chnode = TreeNode(ch.pack, config);
-
-					if (config == CONFIG.invalid || !matches(ch.configs, config)) {
-						// ignore missing optional dependencies
-						if (config == CONFIG.invalid && ch.depType != DependencyType.required)
-							continue;
-
-						// if we are at the root level, we can safely skip the maxcpi computation and instead choose another childidx config
-						if (parentbase == root_base_pack) {
-							error = ConflictError(ConflictError.Kind.noRootMatch, parent, ch, config);
-							return childidx;
-						}
-
-						if (childidx > maxcpi) {
-							maxcpi = max(childidx, parentidx);
-							error = ConflictError(ConflictError.Kind.childMismatch, parent, ch, config);
-							logDebug("%s (ci=%s)", error, maxcpi);
-						}
-
-						// we know that either the child or the parent needs to be switched
-						// to another configuration, no need to continue with other children
-						if (config == CONFIG.invalid) break;
-					}
-
-					maxcpi = max(maxcpi, validateConfigs(chnode, error));
-				}
-			}
-			return maxcpi;
-		}
-
-		Nullable!ConflictError first_error;
-		size_t loop_counter = 0;
-
 		// Leave the possibility to opt-out from the loop limit
 		import std.process : environment;
 		bool no_loop_limit = environment.get("DUB_NO_RESOLVE_LIMIT") !is null;
 
-		while (true) {
-			assert(no_loop_limit || loop_counter++ < 1_000_000,
-				"The dependency resolution process is taking too long. The"
-				~ " dependency graph is likely hitting a pathological case in"
-				~ " the resolution algorithm. Please file a bug report at"
-				~ " https://github.com/dlang/dub/issues and mention the package"
-				~ " recipe that reproduces this error.");
+		auto rootbase = root.pack.basePackageName;
 
-			// check if the current combination of configurations works out
-			visited = null;
-			ConflictError error;
-			auto conflict_index = validateConfigs(root, error);
-			if (first_error.isNull) first_error = error;
+		// build up the dependency graph, eliminating as many configurations/
+		// versions as possible
+		ResolveContext context;
+		context.configs[rootbase] = [ResolveConfig(root.config, true)];
+		long loop_counter = no_loop_limit ? long.max : 1_000_000;
+		constrain(root, context, loop_counter);
 
-			// print out current iteration state
-			logDebug("Interation (ci=%s) %s", conflict_index, {
-				import std.array : join;
-				auto cs = new string[configs.length];
-				foreach (p, i; package_indices) {
-					if (configs[i].allConfigs.length)
-						cs[i] = p~" "~configs[i].allConfigs[config_indices[i]].to!string~(i >= 0 && i >= conflict_index ? " (C)" : "");
-					else cs[i] = p ~ " [no config]";
-				}
-				return cs.join(", ");
-			}());
+		// remove any non-default optional dependencies
+		purgeOptionalDependencies(root, context.result);
 
-			if (conflict_index < 0) {
-				CONFIG[string] ret;
-				foreach (p, i; package_indices)
-					if (configs[i].allConfigs.length) {
-						auto cfg = configs[i].allConfigs[config_indices[i]];
-						if (cfg != CONFIG.invalid) ret[p] = cfg;
-					}
-				logDebug("Resolved dependencies before optional-purge: %s", ret.byKey.map!(k => k~" "~ret[k].to!string));
-				purgeOptionalDependencies(root, ret);
-				logDebug("Resolved dependencies after optional-purge: %s", ret.byKey.map!(k => k~" "~ret[k].to!string));
-				return ret;
-			}
+		// the root package is implied by the `root` argument and will not be
+		// returned explicitly
+		context.result.remove(rootbase);
 
-			// find the next combination of configurations
-			foreach_reverse (pi, ref i; config_indices) {
-				if (pi > conflict_index) i = 0;
-				else if (++i >= configs[pi].allConfigs.length) i = 0;
-				else break;
-			}
-			if (config_indices.all!"a==0") {
-				if (throw_on_failure) throw new Exception(format("Could not find a valid dependency tree configuration: %s", first_error.get));
-				else return null;
-			}
-		}
+		return context.result;
 	}
 
 	protected abstract CONFIG[] getAllConfigs(string pack);
 	protected abstract CONFIG[] getSpecificConfigs(string pack, TreeNodes nodes);
 	protected abstract TreeNodes[] getChildren(TreeNode node);
 	protected abstract bool matches(CONFIGS configs, CONFIG config);
+
+	private static struct ResolveConfig {
+		CONFIG config;
+		bool included;
+	}
+
+	private static struct ResolveContext {
+		/** Contains all packages visited by the resolution process so far.
+
+			The key is the qualified name of the package (base + sub)
+		*/
+		void[0][string] visited;
+
+		/// The finally chosen configurations for each package
+		CONFIG[string] result;
+
+		/// The set of available configurations for each package
+		ResolveConfig[][string] configs;
+
+		/// Determines if a certain package has already been processed
+		bool isVisited(string package_) const { return (package_ in visited) !is null; }
+
+		/// Marks a package as processed
+		void setVisited(string package_) { visited[package_] = (void[0]).init; }
+
+		/// Returns a deep clone
+		ResolveContext clone()
+		{
+			ResolveContext ret;
+			ret.visited = this.visited.dup;
+			ret.result = this.result.dup;
+			foreach (pack, cfgs; this.configs) {
+				ret.configs[pack] = cfgs.dup;
+			}
+			return ret;
+		}
+	}
+
+
+	/** Starting with a single node, fills `context` with a minimized set of
+		configurations that form valid solutions.
+	*/
+	private void constrain(TreeNode n, ref ResolveContext context, ref long max_iterations)
+	{
+		auto base = n.pack.basePackageName;
+		assert(base in context.configs);
+		if (context.isVisited(n.pack)) return;
+		context.setVisited(n.pack);
+		context.result[base] = n.config;
+		foreach (j, ref sc; context.configs[base])
+			sc.included = sc.config == n.config;
+
+		auto dependencies = getChildren(n);
+
+		foreach (dep; dependencies) {
+			// lazily load all dependency configurations
+			auto depbase = dep.pack.basePackageName;
+			auto di = depbase in context.configs;
+			if (!di) {
+				context.configs[depbase] =
+					getAllConfigs(depbase)
+					.map!(c => ResolveConfig(c, true))
+					.array;
+				di = depbase in context.configs;
+			}
+
+			// add any dependee defined dependency configurations
+			foreach (sc; getSpecificConfigs(n.pack, dep))
+				if (!(*di).canFind!(c => c.config == sc))
+					*di = ResolveConfig(sc, true) ~ *di;
+
+			// restrain the configurations to the current dependency spec
+			bool any_config = false;
+			foreach (i, ref c; *di)
+				if (c.included) {
+					if (!matches(dep.configs, c.config))
+						c.included = false;
+					else any_config = true;
+				}
+
+			if (!any_config && dep.depType == DependencyType.required) {
+				if ((*di).length)
+					throw new ResolveException(n, dep, context);
+				else throw new DependencyLoadException(n, dep);
+			}
+		}
+
+		constrainDependencies(n, dependencies, 0, context, max_iterations);
+	}
+
+	/** Recurses back into `constrain` while recursively going through `n`'s
+		dependencies.
+
+		This attempts to constrain each dependency, while keeping each of them
+		in a nested stack frame. This allows any errors to properly back
+		propagate.
+	*/
+	private void constrainDependencies(TreeNode n, TreeNodes[] dependencies, size_t depidx,
+		ref ResolveContext context, ref long max_iterations)
+	{
+		if (depidx >= dependencies.length) return;
+
+		assert (--max_iterations > 0,
+			"The dependency resolution process is taking too long. The"
+			~ " dependency graph is likely hitting a pathological case in"
+			~ " the resolution algorithm. Please file a bug report at"
+			~ " https://github.com/dlang/dub/issues and mention the package"
+			~ " recipe that reproduces this error.");
+
+		auto dep = &dependencies[depidx];
+		auto depbase = dep.pack.basePackageName;
+		auto depconfigs = context.configs[depbase];
+
+		Exception first_err;
+
+		// try each configuration/version of the current dependency
+		foreach (i, c; depconfigs) {
+			if (c.included) {
+				try {
+					// try the configuration on a cloned context
+					auto subcontext = context.clone;
+					constrain(TreeNode(dep.pack, c.config), subcontext, max_iterations);
+					constrainDependencies(TreeNode(dep.pack, c.config), dependencies, depidx+1, subcontext, max_iterations);
+					// if a branch succeeded, replace the current context
+					// with the one from the branch and return
+					context = subcontext;
+					return;
+				} catch (Exception e) {
+					if (!first_err) first_err = e;
+				}
+			}
+		}
+
+		// ignore unsatisfiable optional dependencies
+		if (dep.depType != DependencyType.required)
+			return;
+
+		// report the first error encountered to the user
+		if (first_err) throw first_err;
+
+		// should have thrown in constrainRec before reaching this
+		assert(false, format("Got no configuration for dependency %s %s of %s %s!?",
+			dep.pack, dep.configs, n.pack, n.config));
+	}
 
 	private void purgeOptionalDependencies(TreeNode root, ref CONFIG[string] configs)
 	{
@@ -294,9 +257,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		{
 			if (node.pack in visited) return;
 			visited[node.pack] = true;
-			required[basePackage(node.pack)] = true;
+			required[node.pack.basePackageName] = true;
 			foreach (dep; getChildren(node).filter!(dep => dep.depType != DependencyType.optional))
-				if (auto dp = basePackage(dep.pack) in configs)
+				if (auto dp = dep.pack.basePackageName in configs)
 					markRecursively(TreeNode(dep.pack, *dp));
 		}
 
@@ -309,33 +272,54 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				configs.remove(p);
 	}
 
-	private struct ConflictError {
-		enum Kind {
-			none,
-			noRootMatch,
-			childMismatch,
-			invalidDependency
-		}
+	final class ResolveException : Exception {
+		import std.range : chain, only;
+		import std.typecons : tuple;
 
-		Kind kind;
-		TreeNode parent;
-		TreeNodes child;
-		CONFIG config;
+		string failedNode;
 
-		string toString()
-		const {
-			final switch (kind) {
-				case Kind.none: return "no error";
-				case Kind.noRootMatch:
-					return "No match for dependency %s %s of %s"
-						.format(child.pack, child.configs, parent.pack);
-				case Kind.childMismatch:
-					return "Dependency %s -> %s %s mismatches with selected version %s"
-						.format(parent.pack, child.pack, child.configs, config);
-				case Kind.invalidDependency:
-					return "Package %s contains invalid dependency %s (no version candidates)"
-						.format(parent.pack, child.pack);
+		this(TreeNode parent, TreeNodes dep, in ref ResolveContext context, string file = __FILE__, size_t line = __LINE__)
+		{
+			auto m = format("Unresolvable dependencies to package %s:", dep.pack.basePackageName);
+			super(m, file, line);
+
+			this.failedNode = dep.pack;
+
+			auto failbase = failedNode.basePackageName;
+
+			// get the list of all dependencies to the failed package
+			auto deps = context.visited.byKey
+				.filter!(p => p.basePackageName in context.result)
+				.map!(p => TreeNode(p, context.result[p.basePackageName]))
+				.map!(n => getChildren(n)
+					.filter!(d => d.pack.basePackageName == failbase)
+					.map!(d => tuple(n, d))
+				)
+				.join
+				.sort!((a, b) => a[0].pack < b[0].pack);
+
+			foreach (d; deps) {
+				// filter out trivial self-dependencies
+				if (d[0].pack.basePackageName == failbase
+					&& matches(d[1].configs, d[0].config))
+					continue;
+				msg ~= format("\n  %s %s depends on %s %s", d[0].pack, d[0].config, d[1].pack, d[1].configs);
 			}
+		}
+	}
+
+	final class DependencyLoadException : Exception {
+		TreeNode parent;
+		TreeNodes dependency;
+
+		this(TreeNode parent, TreeNodes dep)
+		{
+			auto m = format("Failed to find any versions for package %s, referenced by %s %s",
+				dep.pack, parent.pack, parent.config);
+			super(m, file, line);
+
+			this.parent = parent;
+			this.dependency = dep;
 		}
 	}
 }
@@ -346,13 +330,11 @@ enum DependencyType {
 	optional
 }
 
-private string basePackage(string p)
+private string basePackageName(string p)
 {
-	auto idx = indexOf(p, ':');
-	if (idx < 0) return p;
-	return p[0 .. idx];
+	import std.algorithm.searching : findSplit;
+	return p.findSplit(":")[0];
 }
-
 
 unittest {
 	static struct IntConfig {
@@ -457,7 +439,7 @@ unittest {
 		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(2)], to!string(res.resolve(TreeNode("a", ic(0)))));
 	}
 
-	// make sure non-satisfyable dependencies are not a problem, even if non-optional in some dependencies
+	// make sure non-satisfiable dependencies are not a problem, even if non-optional in some dependencies
 	with (TestResolver) {
 		auto res = new TestResolver([
 			"a:0": [TreeNodes("b", ics([ic(1), ic(2)]))],
