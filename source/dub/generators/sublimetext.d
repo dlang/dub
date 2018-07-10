@@ -80,6 +80,7 @@ private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = 
 		"profile-gc",
 		"cov",
 		"unittest-cov",
+		"syntax"
 		];
 
 	string fileRegex;
