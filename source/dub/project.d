@@ -1204,6 +1204,7 @@ package(dub) immutable buildSettingsVars = [
 private string getVariable(Project, Package)(string name, in Project project, in Package pack, in GeneratorSettings gsettings)
 {
 	import std.process : environment;
+	import std.uni : asUpperCase;
 	Path path;
 	if (name == "PACKAGE_DIR")
 		path = pack.path;
@@ -1213,7 +1214,7 @@ private string getVariable(Project, Package)(string name, in Project project, in
 	if (name.endsWith("_PACKAGE_DIR")) {
 		auto pname = name[0 .. $-12];
 		foreach (prj; project.getTopologicalPackageList())
-			if (prj.name.toUpper().replace("-", "_") == pname)
+			if (prj.name.asUpperCase.map!(a => a == '-' ? '_' : a).equal(pname))
 			{
 				path = prj.path;
 				break;
@@ -1297,16 +1298,16 @@ unittest
 	GeneratorSettings gsettings;
 	enum isPath = true;
 
-	version (Posix) enum sep = "/";
-	else version (Windows) enum sep = `\`;
+	import std.path : dirSeparator;
+
 	static Path woSlash(Path p) { p.endsWithSlash = false; return p; }
 	// basic vars
 	assert(processVars("Hello $PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(pack.path).toNativeString);
-	assert(processVars("Hello $ROOT_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj.rootPackage.path).toNativeString.chomp(sep));
+	assert(processVars("Hello $ROOT_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj.rootPackage.path).toNativeString.chomp(dirSeparator));
 	assert(processVars("Hello $DEP1_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj._dependencies[0].path).toNativeString);
 	// ${VAR} replacements
-	assert(processVars("Hello ${PACKAGE_DIR}"~sep~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
-	assert(processVars("Hello $PACKAGE_DIR"~sep~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
+	assert(processVars("Hello ${PACKAGE_DIR}"~dirSeparator~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
+	assert(processVars("Hello $PACKAGE_DIR"~dirSeparator~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
 	// test with isPath
 	assert(processVars("local", proj, pack, gsettings, isPath) == (pack.path ~ "local").toNativeString);
 	// test other env variables
