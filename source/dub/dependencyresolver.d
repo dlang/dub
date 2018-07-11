@@ -449,4 +449,37 @@ unittest {
 		]);
 		assert(res.resolve(TreeNode("a", ic(0))) == ["b":ic(2)], to!string(res.resolve(TreeNode("a", ic(0)))));
 	}
+
+	// check error message for multiple conflicting dependencies
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", ics([ic(1)])), TreeNodes("c", ics([ic(1)]))],
+			"b:1": [TreeNodes("d", ics([ic(1)]))],
+			"c:1": [TreeNodes("d", ics([ic(2)]))],
+			"d:1": [],
+			"d:2": []
+		]);
+		try {
+			res.resolve(TreeNode("a", ic(0)));
+			assert(false, "Expected resolve to throw.");
+		} catch (ResolveException e) {
+			assert(e.msg ==
+				"Unresolvable dependencies to package d:"
+				~ "\n  b 1 depends on d [1]"
+				~ "\n  c 1 depends on d [2]");
+		}
+	}
+
+	// check error message for invalid dependency
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [TreeNodes("b", ics([ic(1)]))]
+		]);
+		try {
+			res.resolve(TreeNode("a", ic(0)));
+			assert(false, "Expected resolve to throw.");
+		} catch (DependencyLoadException e) {
+			assert(e.msg == "Failed to find any versions for package b, referenced by a 0");
+		}
+	}
 }
