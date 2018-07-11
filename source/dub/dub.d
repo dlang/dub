@@ -525,21 +525,12 @@ class Dub {
 		}
 
 		Dependency[string] versions;
-		if ((options & UpgradeOptions.useCachedResult) && m_project.isUpgradeCacheUpToDate() && !packages_to_upgrade.length) {
-			logDiagnostic("Using cached upgrade results...");
-			versions = m_project.getUpgradeCache();
-		} else {
-			auto resolver = new DependencyVersionResolver(this, options);
-			foreach (p; packages_to_upgrade)
-				resolver.addPackageToUpgrade(p);
-			versions = resolver.resolve(m_project.rootPackage, m_project.selections);
-			if (options & UpgradeOptions.useCachedResult) {
-				logDiagnostic("Caching upgrade results...");
-				m_project.setUpgradeCache(versions);
-			}
-		}
+		auto resolver = new DependencyVersionResolver(this, options);
+		foreach (p; packages_to_upgrade)
+			resolver.addPackageToUpgrade(p);
+		versions = resolver.resolve(m_project.rootPackage, m_project.selections);
 
-		if (options & UpgradeOptions.printUpgradesOnly) {
+		if (options & UpgradeOptions.dryRun) {
 			bool any = false;
 			string rootbasename = getBasePackageName(m_project.rootPackage.name);
 
@@ -550,7 +541,7 @@ class Dub {
 				if (basename == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
-					logInfo("Non-selected package %s is available with version %s.",
+					logInfo("Package %s would be selected with version %s.",
 						basename, ver);
 					any = true;
 					continue;
@@ -558,7 +549,7 @@ class Dub {
 				auto sver = m_project.selections.getSelectedVersion(basename);
 				if (!sver.path.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
-				logInfo("Package %s can be upgraded from %s to %s.",
+				logInfo("Package %s would be upgraded from %s to %s.",
 					basename, sver, ver);
 				any = true;
 			}
@@ -603,7 +594,7 @@ class Dub {
 
 		m_project.reinit();
 
-		if ((options & UpgradeOptions.select) && !(options & UpgradeOptions.noSaveSelections))
+		if ((options & UpgradeOptions.select) && !(options & (UpgradeOptions.noSaveSelections | UpgradeOptions.dryRun)))
 			m_project.saveSelections();
 	}
 
@@ -1381,8 +1372,9 @@ enum UpgradeOptions
 	preRelease = 1<<2, /// inclde pre-release versions in upgrade
 	forceRemove = 1<<3, /// Deprecated, does nothing.
 	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
-	printUpgradesOnly = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
-	useCachedResult = 1<<6, /// Use cached information stored with the package to determine upgrades
+	dryRun = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
+	/*deprecated*/ printUpgradesOnly = dryRun, /// deprecated, use dryRun instead
+	/*deprecated*/ useCachedResult = 1<<6, /// deprecated, has no effect
 	noSaveSelections = 1<<7, /// Don't store updated selections on disk
 }
 
