@@ -96,6 +96,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		// returned explicitly
 		context.result.remove(rootbase);
 
+		logDiagnostic("Dependency resolution result:");
+		foreach (d; context.result.keys.sort())
+			logDiagnostic("  %s: %s", d, context.result[d]);
+
 		return context.result;
 	}
 
@@ -225,7 +229,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 					// try the configuration on a cloned context
 					auto subcontext = context.clone;
 					constrain(TreeNode(dep.pack, c.config), subcontext, max_iterations);
-					constrainDependencies(TreeNode(dep.pack, c.config), dependencies, depidx+1, subcontext, max_iterations);
+					constrainDependencies(n, dependencies, depidx+1, subcontext, max_iterations);
 					// if a branch succeeded, replace the current context
 					// with the one from the branch and return
 					context = subcontext;
@@ -237,8 +241,12 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		}
 
 		// ignore unsatisfiable optional dependencies
-		if (dep.depType != DependencyType.required)
+		if (dep.depType != DependencyType.required) {
+			auto subcontext = context.clone;
+			constrainDependencies(n, dependencies, depidx+1, subcontext, max_iterations);
+			context = subcontext;
 			return;
+		}
 
 		// report the first error encountered to the user
 		if (first_err) throw first_err;
@@ -481,5 +489,18 @@ unittest {
 		} catch (DependencyLoadException e) {
 			assert(e.msg == "Failed to find any versions for package b, referenced by a 0");
 		}
+	}
+
+	// regression: unresolvable optional dependency skips the remaining dependencies
+	with (TestResolver) {
+		auto res = new TestResolver([
+			"a:0": [
+				TreeNodes("b", ics([ic(2)]), DependencyType.optional),
+				TreeNodes("c", ics([ic(1)]))
+			],
+			"b:1": [],
+			"c:1": []
+		]);
+		assert(res.resolve(TreeNode("a", ic(0))) == ["c":ic(1)]);
 	}
 }
