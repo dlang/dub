@@ -188,7 +188,13 @@ struct BuildSettingsTemplate {
 					auto path = NativePath(spath);
 					if (!path.absolute) path = base_path ~ path;
 					if (!existsFile(path) || !isDir(path.toNativeString())) {
-						logWarn("Invalid source/import path: %s", path.toNativeString());
+						import dub.project : buildSettingsVars;
+						import std.algorithm : any, find;
+						const hasVar = buildSettingsVars.any!((string var) {
+							return spath.find("$"~var).length > 0 || spath.find("${"~var~"}").length > 0;
+						});
+						if (!hasVar)
+							logWarn("Invalid source/import path: %s", path.toNativeString());
 						continue;
 					}
 
