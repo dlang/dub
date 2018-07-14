@@ -1,0 +1,10 @@
+Build scripts can echo build settings to Dub
+
+Scripts run with `preBuildCommands` can echo lines to provide dynamic build
+settings to Dub. E.g. a script can echo the following lines:
+---
+dub:json:{ "lflags": "-L/some/probed/path" }
+dub:sdl:importPaths "/path/to/generated/package"
+---
+A good use of this is to probe for an existing library on the system,
+to build it if not found, and to provide the relevant link flags to Dub.
