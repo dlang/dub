@@ -97,6 +97,16 @@ int runDubCommandLine(string[] args)
 		environment["TEMP"] = environment["TEMP"].replace("/", "\\");
 	}
 
+	// special stdin syntax
+	if (args.length >= 2 && args[1] == "-")
+	{
+		import dub.internal.utils: getTempFile;
+
+		auto path = getTempFile("app", ".d");
+		stdin.byChunk(4096).joiner.toFile(path.toNativeString());
+		args = args[0] ~ [path.toNativeString()] ~ args[2..$];
+	}
+
 	// special single-file package shebang syntax
 	if (args.length >= 2 && args[1].endsWith(".d")) {
 		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];

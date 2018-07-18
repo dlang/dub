@@ -40,8 +40,14 @@ NativePath getTempDir()
 NativePath getTempFile(string prefix, string extension = null)
 {
 	import std.uuid : randomUUID;
+	import std.array: replace;
 
-	auto path = getTempDir() ~ (prefix ~ "-" ~ randomUUID.toString() ~ extension);
+	string fileName = prefix ~ "-" ~ randomUUID.toString() ~ extension;
+
+	if (extension !is null && extension == ".d")
+		fileName = fileName.replace("-", "_");
+
+	auto path = getTempDir() ~ fileName;
 	temporary_files ~= path;
 	return path;
 }
