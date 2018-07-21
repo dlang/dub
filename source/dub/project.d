@@ -1205,7 +1205,7 @@ private string getVariable(Project, Package)(string name, in Project project, in
 {
 	import std.process : environment;
 	import std.uni : asUpperCase;
-	Path path;
+	NativePath path;
 	if (name == "PACKAGE_DIR")
 		path = pack.path;
 	else if (name == "ROOT_PACKAGE_DIR")
