@@ -1181,32 +1181,12 @@ private void processVars(ref Appender!(string[]) dst, in Project project, in Pac
 	foreach (var; vars) dst.put(processVars(var, project, pack, gsettings, are_paths));
 }
 
-private string processVars(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
+private string processVars(Project, Package)(string var, in Project project, in Package pack,in GeneratorSettings gsettings, bool is_path)
 {
-	auto idx = std.string.indexOf(var, '$');
-	if (idx >= 0) {
-		auto vres = appender!string();
-		while (idx >= 0) {
-			if (idx+1 >= var.length) break;
-			if (var[idx+1] == '$') {
-				vres.put(var[0 .. idx+1]);
-				var = var[idx+2 .. $];
-			} else {
-				vres.put(var[0 .. idx]);
-				var = var[idx+1 .. $];
+	import std.regex : regex, replaceAll;
 
-				size_t idx2 = 0;
-				while( idx2 < var.length && isIdentChar(var[idx2]) ) idx2++;
-				auto varname = var[0 .. idx2];
-				var = var[idx2 .. $];
-
-				vres.put(getVariable(varname, project, pack, gsettings));
-			}
-			idx = std.string.indexOf(var, '$');
-		}
-		vres.put(var);
-		var = vres.data;
-	}
+	auto varRE = regex(`\$([\w_]+)|\$\{([\w_]+)\}`);
+	var = var.replaceAll!(m => getVariable(m[1].length ? m[1] : m[2], project, pack, gsettings))(varRE);
 	if (is_path) {
 		auto p = NativePath(var);
 		if (!p.absolute) {
@@ -1221,17 +1201,31 @@ package(dub) immutable buildSettingsVars = [
 	"ARCH", "PLATFORM", "PLATFORM_POSIX", "BUILD_TYPE"
 ];
 
-private string getVariable(string name, in Project project, in Package pack, in GeneratorSettings gsettings)
+private string getVariable(Project, Package)(string name, in Project project, in Package pack, in GeneratorSettings gsettings)
 {
 	import std.process : environment;
-	if (name == "PACKAGE_DIR") return pack.path.toNativeString();
-	if (name == "ROOT_PACKAGE_DIR") return project.rootPackage.path.toNativeString();
+	import std.uni : asUpperCase;
+	NativePath path;
+	if (name == "PACKAGE_DIR")
+		path = pack.path;
+	else if (name == "ROOT_PACKAGE_DIR")
+		path = project.rootPackage.path;
 
 	if (name.endsWith("_PACKAGE_DIR")) {
 		auto pname = name[0 .. $-12];
 		foreach (prj; project.getTopologicalPackageList())
-			if (prj.name.toUpper().replace("-", "_") == pname)
-				return prj.path.toNativeString();
+			if (prj.name.asUpperCase.map!(a => a == '-' ? '_' : a).equal(pname))
+			{
+				path = prj.path;
+				break;
+			}
+	}
+
+	if (!path.empty)
+	{
+		// no trailing slash for clean path concatenation (see #1392)
+		path.endsWithSlash = false;
+		return path.toNativeString();
 	}
 
 	if (name == "ARCH") {
@@ -1266,6 +1260,65 @@ private string getVariable(string name, in Project project, in Package pack, in 
 	throw new Exception("Invalid variable: "~name);
 }
 
+
+unittest
+{
+	static struct MockPackage
+	{
+		this(string name)
+		{
+			this.name = name;
+			version (Posix)
+				path = NativePath("/pkgs/"~name);
+			else version (Windows)
+				path = NativePath(`C:\pkgs\`~name);
+			// see 4d4017c14c, #268, and #1392 for why this all package paths end on slash internally
+			path.endsWithSlash = true;
+		}
+		string name;
+		NativePath path;
+	}
+
+	static struct MockProject
+	{
+		MockPackage rootPackage;
+		inout(MockPackage)[] getTopologicalPackageList() inout
+		{
+			return _dependencies;
+		}
+	private:
+		MockPackage[] _dependencies;
+	}
+
+	MockProject proj = {
+		rootPackage: MockPackage("root"),
+		_dependencies: [MockPackage("dep1"), MockPackage("dep2")]
+	};
+	auto pack = MockPackage("test");
+	GeneratorSettings gsettings;
+	enum isPath = true;
+
+	import std.path : dirSeparator;
+
+	static Path woSlash(Path p) { p.endsWithSlash = false; return p; }
+	// basic vars
+	assert(processVars("Hello $PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(pack.path).toNativeString);
+	assert(processVars("Hello $ROOT_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj.rootPackage.path).toNativeString.chomp(dirSeparator));
+	assert(processVars("Hello $DEP1_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj._dependencies[0].path).toNativeString);
+	// ${VAR} replacements
+	assert(processVars("Hello ${PACKAGE_DIR}"~dirSeparator~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
+	assert(processVars("Hello $PACKAGE_DIR"~dirSeparator~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
+	// test with isPath
+	assert(processVars("local", proj, pack, gsettings, isPath) == (pack.path ~ "local").toNativeString);
+	// test other env variables
+	import std.process : environment;
+	environment["MY_ENV_VAR"] = "blablabla";
+	assert(processVars("$MY_ENV_VAR", proj, pack, gsettings, !isPath) == "blablabla");
+	assert(processVars("${MY_ENV_VAR}suffix", proj, pack, gsettings, !isPath) == "blablablasuffix");
+	assert(processVars("$MY_ENV_VAR-suffix", proj, pack, gsettings, !isPath) == "blablabla-suffix");
+	assert(processVars("$MY_ENV_VAR:suffix", proj, pack, gsettings, !isPath) == "blablabla:suffix");
+	environment.remove("MY_ENV_VAR");
+}
 
 /** Holds and stores a set of version selections for package dependencies.
 
