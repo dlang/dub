@@ -115,6 +115,6 @@ stages:
     if: type = pull_request or (type = push and branch = master)
   # Until deployment of the release binaries is fixed, always build them
   #- name: deploy
-    #if: type = push and tag =~ ^v
+    #if: type = push and tag =~ tag =~ ^v\d+\.\d+\.\d+[^-]*\$
   - name: update-latest
-    if: type = push and tag =~ ^v and (not tag =~ -alpha or tag =~ -beta or tag =~ -rc)
+    if: type = push and tag =~ ^v\d+\.\d+\.\d+[^-]*\$ # not a pre-release tag
