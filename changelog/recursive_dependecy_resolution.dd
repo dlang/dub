@@ -1,0 +1,10 @@
+Dependency resolution has been reimplemented using a recursive algorithm
+
+The new algorithm minimizes the search space while descending the dependency
+graph. Compared to the old approach, it is now much less likely to run into
+pathological cases that result in exponential run time ("The dependency
+resolution algorithm is taking too long").
+
+Furthermore, the error message in case of unsatisfiable dependencies is more
+precise, usually making it straight forward to debug issues in the dependency
+graph of a failing package.
