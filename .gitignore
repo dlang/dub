@@ -17,6 +17,9 @@ __dummy.html
 /bin/libdub.a
 /bin/dub-*
 
+# Ignore auto-generated version file
+source/dub/version_.d
+
 # Ignore files or directories created by the test suite.
 /test/test.log
 /test/custom-source-main-bug487/custom-source-main-bug487

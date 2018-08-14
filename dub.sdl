@@ -32,3 +32,12 @@ configuration "dynamic-library-nonet" {
 	targetType "dynamicLibrary"
 	excludedSourceFiles "source/app.d"
 }
+
+preGenerateCommands `rdmd --eval='
+	auto dir = environment.get("DUB_PACKAGE_DIR");
+	auto gitVer = ("git -C "~dir~" describe --tags").executeShell;
+	auto header = "module dub.version_;\nenum dubVersion = \"";
+	auto ver = (gitVer.status == 0 ? gitVer.output.strip : dir.dirName.baseName
+			.findSplitAfter(environment.get("DUB_ROOT_PACKAGE")~"-")[1])
+			.ifThrown("unknown");
+	(header ~ ver ~ "\";").toFile(dir.buildPath("source", "dub", "version_.d"));'`
