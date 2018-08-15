@@ -592,7 +592,14 @@ class Dub {
 			}
 		}
 
+		string[] missingDependenciesBeforeReinit = m_project.missingDependencies;
 		m_project.reinit();
+
+		if (!m_project.hasAllDependencies) {
+			auto resolvedDependencies = setDifference(missingDependenciesBeforeReinit, m_project.missingDependencies);
+			if (!resolvedDependencies.empty)
+				upgrade(options, m_project.missingDependencies);
+		}
 
 		if ((options & UpgradeOptions.select) && !(options & (UpgradeOptions.noSaveSelections | UpgradeOptions.dryRun)))
 			m_project.saveSelections();
