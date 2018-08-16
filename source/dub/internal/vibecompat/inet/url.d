@@ -18,6 +18,7 @@ import std.conv;
 import std.exception;
 import std.string;
 import std.uri;
+import std.meta : AliasSeq;
 
 
 /**
@@ -34,6 +35,7 @@ struct URL {
 		string m_password;
 		string m_queryString;
 		string m_anchor;
+		alias m_schemes = AliasSeq!("http", "https", "ftp", "spdy", "file", "sftp");
 	}
 
 	/// Constructs a new URL object from its components.
@@ -66,45 +68,40 @@ struct URL {
 			str = str[idx+1 .. $];
 			bool requires_host = false;
 
-			switch(m_schema){
-				case "http":
-				case "https":
-				case "ftp":
-				case "spdy":
-				case "sftp":
-				case "file":
-					// proto://server/path style
-					enforce(str.startsWith("//"), "URL must start with proto://...");
-					requires_host = true;
-					str = str[2 .. $];
-					goto default;
-				default:
-					auto si = str.countUntil('/');
-					if( si < 0 ) si = str.length;
-					auto ai = str[0 .. si].countUntil('@');
-					sizediff_t hs = 0;
-					if( ai >= 0 ){
-						hs = ai+1;
-						auto ci = str[0 .. ai].countUntil(':');
-						if( ci >= 0 ){
-							m_username = str[0 .. ci];
-							m_password = str[ci+1 .. ai];
-						} else m_username = str[0 .. ai];
-						enforce(m_username.length > 0, "Empty user name in URL.");
-					}
-
-					m_host = str[hs .. si];
-					auto pi = m_host.countUntil(':');
-					if(pi > 0) {
-						enforce(pi < m_host.length-1, "Empty port in URL.");
-						m_port = to!ushort(m_host[pi+1..$]);
-						m_host = m_host[0 .. pi];
-					}
-
-					enforce(!requires_host || m_schema == "file" || m_host.length > 0,
-							"Empty server name in URL.");
-					str = str[si .. $];
+			auto schema_parts = m_schema.split("+");
+			if (!schema_parts.empty && schema_parts.back.canFind(m_schemes))
+			{
+				// proto://server/path style
+				enforce(str.startsWith("//"), "URL must start with proto://...");
+				requires_host = true;
+				str = str[2 .. $];
 			}
+
+			auto si = str.countUntil('/');
+			if( si < 0 ) si = str.length;
+			auto ai = str[0 .. si].countUntil('@');
+			sizediff_t hs = 0;
+			if( ai >= 0 ){
+				hs = ai+1;
+				auto ci = str[0 .. ai].countUntil(':');
+				if( ci >= 0 ){
+					m_username = str[0 .. ci];
+					m_password = str[ci+1 .. ai];
+				} else m_username = str[0 .. ai];
+				enforce(m_username.length > 0, "Empty user name in URL.");
+			}
+
+			m_host = str[hs .. si];
+			auto pi = m_host.countUntil(':');
+			if(pi > 0) {
+				enforce(pi < m_host.length-1, "Empty port in URL.");
+				m_port = to!ushort(m_host[pi+1..$]);
+				m_host = m_host[0 .. pi];
+			}
+
+			enforce(!requires_host || m_schema == "file" || m_host.length > 0,
+				"Empty server name in URL.");
+			str = str[si .. $];
 		}
 
 		this.localURI = (str == "") ? "/" : str;
@@ -215,16 +212,10 @@ struct URL {
 		auto dst = appender!string();
 		dst.put(schema);
 		dst.put(":");
-		switch(schema){
-			default: break;
-			case "file":
-			case "http":
-			case "https":
-			case "ftp":
-			case "spdy":
-			case "sftp":
-				dst.put("//");
-				break;
+		auto schema_parts = schema.split("+");
+		if (!schema_parts.empty && schema_parts.back.canFind(m_schemes))
+		{
+			dst.put("//");
 		}
 		dst.put(host);
 		if( m_port > 0 ) formattedWrite(dst, ":%d", m_port);
@@ -283,4 +274,9 @@ unittest {
 
 	url = URL("http://localhost/")~NativePath("packages");
 	assert(url.toString() == "http://localhost/packages", url.toString());
+
+	url = URL.parse("dub+https://code.dlang.org/");
+	assert(url.host == "code.dlang.org");
+	assert(url.toString() == "dub+https://code.dlang.org/");
+	assert(url.schema == "dub+https");
 }

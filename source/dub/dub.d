@@ -167,6 +167,46 @@ class Dub {
 
 		init();
 
+		if (skip_registry == SkipPackageSuppliers.none)
+			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers);
+		else
+			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers, skip_registry);
+
+		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
+
+		auto ccps = m_config.customCachePaths;
+		if (ccps.length)
+			m_packageManager.customCachePaths = ccps;
+
+		updatePackageSearchPath();
+	}
+
+	unittest
+	{
+		scope (exit) environment.remove("DUB_REGISTRY");
+		auto dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 0);
+		environment["DUB_REGISTRY"] = "http://example.com/";
+		dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 1);
+		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
+		dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 2);
+		dub = new Dub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 3);
+	}
+
+	/** Get the list of package suppliers.
+
+		Params:
+			additional_package_suppliers = A list of package suppliers to try
+				before the suppliers found in the configurations files and the
+				`defaultPackageSuppliers`.
+			skip_registry = Can be used to skip using the configured package
+				suppliers, as well as the default suppliers.
+	*/
+	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers, SkipPackageSuppliers skip_registry)
+	{
 		PackageSupplier[] ps = additional_package_suppliers;
 
 		if (skip_registry < SkipPackageSuppliers.all)
@@ -187,30 +227,31 @@ class Dub {
 		if (skip_registry < SkipPackageSuppliers.standard)
 			ps ~= defaultPackageSuppliers();
 
-		m_packageSuppliers = ps;
-		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
+		return ps;
+	}
 
-		auto ccps = m_config.customCachePaths;
-		if (ccps.length)
-			m_packageManager.customCachePaths = ccps;
-
-		updatePackageSearchPath();
+	/// ditto
+	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers)
+	{
+		return getPackageSuppliers(additional_package_suppliers, m_config.skipRegistry);
 	}
 
 	unittest
 	{
 		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new Dub(".", null, SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 0);
+		auto dub = new Dub(".", null, SkipPackageSuppliers.none);
+
+		dub.m_config = new DubConfig(Json(["skipRegistry": Json("none")]), null);
+		assert(dub.getPackageSuppliers(null).length == 1);
+
+		dub.m_config = new DubConfig(Json(["skipRegistry": Json("configured")]), null);
+		assert(dub.getPackageSuppliers(null).length == 0);
+
+		dub.m_config = new DubConfig(Json(["skipRegistry": Json("standard")]), null);
+		assert(dub.getPackageSuppliers(null).length == 0);
+
 		environment["DUB_REGISTRY"] = "http://example.com/";
-		dub = new Dub(".", null, SkipPackageSuppliers.configured);
-		logInfo("%s", dub.m_packageSuppliers);
-		assert(dub.m_packageSuppliers.length == 1);
-		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
-		dub = new Dub(".", null, SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 2);
-		dub = new Dub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 3);
+		assert(dub.getPackageSuppliers(null).length == 1);
 	}
 
 	/** Initializes the instance with a single package search path, without
@@ -484,21 +525,12 @@ class Dub {
 		}
 
 		Dependency[string] versions;
-		if ((options & UpgradeOptions.useCachedResult) && m_project.isUpgradeCacheUpToDate() && !packages_to_upgrade.length) {
-			logDiagnostic("Using cached upgrade results...");
-			versions = m_project.getUpgradeCache();
-		} else {
-			auto resolver = new DependencyVersionResolver(this, options);
-			foreach (p; packages_to_upgrade)
-				resolver.addPackageToUpgrade(p);
-			versions = resolver.resolve(m_project.rootPackage, m_project.selections);
-			if (options & UpgradeOptions.useCachedResult) {
-				logDiagnostic("Caching upgrade results...");
-				m_project.setUpgradeCache(versions);
-			}
-		}
+		auto resolver = new DependencyVersionResolver(this, options);
+		foreach (p; packages_to_upgrade)
+			resolver.addPackageToUpgrade(p);
+		versions = resolver.resolve(m_project.rootPackage, m_project.selections);
 
-		if (options & UpgradeOptions.printUpgradesOnly) {
+		if (options & UpgradeOptions.dryRun) {
 			bool any = false;
 			string rootbasename = getBasePackageName(m_project.rootPackage.name);
 
@@ -509,7 +541,7 @@ class Dub {
 				if (basename == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
-					logInfo("Non-selected package %s is available with version %s.",
+					logInfo("Package %s would be selected with version %s.",
 						basename, ver);
 					any = true;
 					continue;
@@ -517,7 +549,7 @@ class Dub {
 				auto sver = m_project.selections.getSelectedVersion(basename);
 				if (!sver.path.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
-				logInfo("Package %s can be upgraded from %s to %s.",
+				logInfo("Package %s would be upgraded from %s to %s.",
 					basename, sver, ver);
 				any = true;
 			}
@@ -562,7 +594,7 @@ class Dub {
 
 		m_project.reinit();
 
-		if ((options & UpgradeOptions.select) && !(options & UpgradeOptions.noSaveSelections))
+		if ((options & UpgradeOptions.select) && !(options & (UpgradeOptions.noSaveSelections | UpgradeOptions.dryRun)))
 			m_project.saveSelections();
 	}
 
@@ -601,7 +633,7 @@ class Dub {
 		auto test_config = format("%s-test-%s", m_project.rootPackage.name.replace(".", "-").replace(":", "-"), config);
 
 		BuildSettings lbuildsettings = settings.buildSettings;
-		m_project.addBuildSettings(lbuildsettings, settings.platform, config, null, true);
+		m_project.addBuildSettings(lbuildsettings, settings, config, null, true);
 		if (lbuildsettings.targetType == TargetType.none) {
 			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
 			return;
@@ -1340,8 +1372,9 @@ enum UpgradeOptions
 	preRelease = 1<<2, /// inclde pre-release versions in upgrade
 	forceRemove = 1<<3, /// Deprecated, does nothing.
 	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
-	printUpgradesOnly = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
-	useCachedResult = 1<<6, /// Use cached information stored with the package to determine upgrades
+	dryRun = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
+	/*deprecated*/ printUpgradesOnly = dryRun, /// deprecated, use dryRun instead
+	/*deprecated*/ useCachedResult = 1<<6, /// deprecated, has no effect
 	noSaveSelections = 1<<7, /// Don't store updated selections on disk
 }
 
@@ -1656,6 +1689,17 @@ private class DubConfig {
 			ret = (*pv).deserializeJson!(string[]);
 		if (m_parentConfig) ret ~= m_parentConfig.registryURLs;
 		return ret;
+	}
+
+	@property SkipPackageSuppliers skipRegistry()
+	{
+		if(auto pv = "skipRegistry" in m_data)
+			return to!SkipPackageSuppliers((*pv).get!string);
+
+		if (m_parentConfig)
+			return m_parentConfig.skipRegistry;
+
+		return SkipPackageSuppliers.none;
 	}
 
 	@property NativePath[] customCachePaths()

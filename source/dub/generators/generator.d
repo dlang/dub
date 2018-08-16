@@ -95,7 +95,7 @@ class ProjectGenerator
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			BuildSettings buildSettings;
 			auto config = configs[pack.name];
-			buildSettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, config), true);
+			buildSettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, config), settings, true);
 			targets[pack.name] = TargetInfo(pack, [pack], config, buildSettings);
 
 			prepareGeneration(pack, m_project, settings, buildSettings);
@@ -112,7 +112,7 @@ class ProjectGenerator
 
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			BuildSettings buildsettings;
-			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), true);
+			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), settings, true);
 			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 			finalizeGeneration(pack, m_project, settings, buildsettings, NativePath(bs.targetPath), generate_binary);
 		}
@@ -412,13 +412,13 @@ class ProjectGenerator
 	}
 
 	// configure targets for build types such as release, or unittest-cov
-	private void addBuildTypeSettings(TargetInfo[string] targets, GeneratorSettings settings)
+	private void addBuildTypeSettings(TargetInfo[string] targets, in GeneratorSettings settings)
 	{
 		foreach (ref ti; targets.byValue) {
 			ti.buildSettings.add(settings.buildSettings);
 
 			// add build type settings and convert plain DFLAGS to build options
-			m_project.addBuildTypeSettings(ti.buildSettings, settings.platform, settings.buildType, ti.pack is m_project.rootPackage);
+			m_project.addBuildTypeSettings(ti.buildSettings, settings, ti.pack is m_project.rootPackage);
 			settings.compiler.extractBuildOptions(ti.buildSettings);
 
 			auto tt = ti.buildSettings.targetType;

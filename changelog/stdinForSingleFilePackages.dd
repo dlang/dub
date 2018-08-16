@@ -1,0 +1,6 @@
+DUB accepts single file packages on STDIN
+
+You can pass single file packages to dub on STDIN using dash as first argument to DUB.
+All arguments after dash will be passed as runtime arguments to the application.
+
+Example `cat app.d | dub - --foo=bar`

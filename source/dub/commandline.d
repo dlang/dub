@@ -97,6 +97,16 @@ int runDubCommandLine(string[] args)
 		environment["TEMP"] = environment["TEMP"].replace("/", "\\");
 	}
 
+	// special stdin syntax
+	if (args.length >= 2 && args[1] == "-")
+	{
+		import dub.internal.utils: getTempFile;
+
+		auto path = getTempFile("app", ".d");
+		stdin.byChunk(4096).joiner.toFile(path.toNativeString());
+		args = args[0] ~ [path.toNativeString()] ~ args[2..$];
+	}
+
 	// special single-file package shebang syntax
 	if (args.length >= 2 && args[1].endsWith(".d")) {
 		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];
@@ -245,7 +255,7 @@ int runDubCommandLine(string[] args)
 			// make the CWD package available so that for example sub packages can reference their
 			// parent package.
 			try dub.packageManager.getOrLoadPackage(NativePath(options.root_path));
-			catch (Exception e) { logDiagnostic("No package found in current working directory."); }
+			catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
 		}
 	}
 
@@ -280,7 +290,11 @@ struct CommonOptions {
 	{
 		args.getopt("h|help", &help, ["Display general or command specific help"]);
 		args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
-		args.getopt("registry", &registry_urls, ["Search the given DUB registry URL first when resolving dependencies. Can be specified multiple times."]);
+		args.getopt("registry", &registry_urls, [
+			"Search the given registry URL first when resolving dependencies. Can be specified multiple times. Available registry types:",
+			"  DUB: URL to DUB registry (default)",
+			"  Maven: URL to Maven repository + group id containing dub packages as artifacts. E.g. mvn+http://localhost:8040/maven/libs-release/dubpackages",
+			]);
 		args.getopt("skip-registry", &skipRegistry, [
 			"Sets a mode for skipping the search on certain package registry types:",
 			"  none: Search all configured or default registries (default)",
@@ -595,7 +609,7 @@ abstract class PackageBuildCommand : Command {
 		args.getopt("b|build", &m_buildType, [
 			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
 			"Possible names:",
-			"  debug (default), plain, release, release-debug, release-nobounds, unittest, profile, profile-gc, docs, ddox, cov, unittest-cov and custom types"
+			"  debug (default), plain, release, release-debug, release-nobounds, unittest, profile, profile-gc, docs, ddox, cov, unittest-cov, syntax and custom types"
 		]);
 		args.getopt("c|config", &m_buildConfig, [
 			"Builds the specified configuration. Configurations can be defined in dub.json"
@@ -616,7 +630,7 @@ abstract class PackageBuildCommand : Command {
 			"Define the specified debug version identifier when building - can be used multiple times"
 		]);
 		args.getopt("nodeps", &m_nodeps, [
-			"Do not check/update dependencies before building"
+			"Do not resolve missing dependencies before building"
 		]);
 		args.getopt("build-mode", &m_buildMode, [
 			"Specifies the way the compiler and linker are invoked. Valid values:",
@@ -656,19 +670,12 @@ abstract class PackageBuildCommand : Command {
 		}
 
 		if (!m_nodeps) {
-			// TODO: only upgrade(select) if necessary, only upgrade(upgrade) every now and then
-
 			// retrieve missing packages
 			dub.project.reinit();
 			if (!dub.project.hasAllDependencies) {
 				logDiagnostic("Checking for missing dependencies.");
 				if (m_single) dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
 				else dub.upgrade(UpgradeOptions.select);
-			}
-
-			if (!m_single) {
-				logDiagnostic("Checking for upgrades.");
-				dub.upgrade(UpgradeOptions.upgrade|UpgradeOptions.printUpgradesOnly|UpgradeOptions.useCachedResult);
 			}
 		}
 
@@ -1127,6 +1134,7 @@ class UpgradeCommand : Command {
 		bool m_forceRemove = false;
 		bool m_missingOnly = false;
 		bool m_verify = false;
+		bool m_dryRun = false;
 	}
 
 	this()
@@ -1151,6 +1159,9 @@ class UpgradeCommand : Command {
 		args.getopt("verify", &m_verify, [
 			"Updates the project and performs a build. If successful, rewrites the selected versions file <to be implemented>."
 		]);
+		args.getopt("dry-run", &m_dryRun, [
+			"Only print what would be upgraded, but don't actually upgrade anything."
+		]);
 		args.getopt("missing-only", &m_missingOnly, [
 			"Performs an upgrade only for dependencies that don't yet have a version selected. This is also done automatically before each build."
 		]);
@@ -1169,6 +1180,7 @@ class UpgradeCommand : Command {
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
+		if (m_dryRun) options |= UpgradeOptions.dryRun;
 		dub.upgrade(options, free_args);
 		return 0;
 	}

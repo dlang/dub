@@ -192,6 +192,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 		{[BuildOption.optimize], "Call DUB with --build=release"},
 		{[BuildOption.profile], "Call DUB with --build=profile"},
 		{[BuildOption.unittests], "Call DUB with --build=unittest"},
+		{[BuildOption.syntaxOnly], "Call DUB with --build=syntax"},
 		{[BuildOption.warnings, BuildOption.warningsAsErrors], "Use \"buildRequirements\" to control the warning level"},
 		{[BuildOption.ignoreDeprecations, BuildOption.deprecationWarnings, BuildOption.deprecationErrors], "Use \"buildRequirements\" to control the deprecation warning level"},
 		{[BuildOption.property], "This flag is deprecated and has no effect"}

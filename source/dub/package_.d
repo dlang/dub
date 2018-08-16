@@ -409,6 +409,7 @@ class Package {
 				case "profile-gc": settings.addOptions(profileGC, debugInfo); break;
 				case "cov": settings.addOptions(coverage, debugInfo); break;
 				case "unittest-cov": settings.addOptions(unittests, coverage, debugMode, debugInfo); break;
+				case "syntax": settings.addOptions(syntaxOnly); break;
 			}
 		}
 	}
