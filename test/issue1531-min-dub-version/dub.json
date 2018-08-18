@@ -1,4 +1,4 @@
 {
     "name": "test-application",
-    "minDubVersion": "1.10"
+    "minDubVersion": "1.0"
 }
