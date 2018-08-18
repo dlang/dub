@@ -116,6 +116,7 @@ class Package {
 		// use the given recipe as the basis
 		m_info = recipe;
 
+		checkMinDubVersion();
 		fillWithDefaults();
 	}
 
@@ -617,6 +618,32 @@ class Package {
 		}
 
 		return ret;
+	}
+
+	private void checkMinDubVersion()
+	{
+		import dub.semver : compareVersions, expandVersion, isValidVersion;
+		import dub.version_ : dubVersion;
+		import std.exception : enforce;
+
+		if (m_info.minDubVersion.length) {
+			auto mdv = m_info.minDubVersion;
+			if (!isValidVersion(mdv)) mdv = expandVersion(mdv);
+			enforce(isValidVersion(mdv),
+				"minDubVersion "~m_info.minDubVersion~" is not SemVer compliant!");
+
+			static assert(dubVersion.length);
+			static if (dubVersion[0] == 'v') {
+				enum dv = dubVersion[1 .. $];
+			}
+			else {
+				enum dv = dubVersion;
+			}
+			static assert(isValidVersion(dv));
+
+			enforce(compareVersions(dv, mdv) >= 0,
+				"dub-"~dv~" does not comply with minDubVersion specification: "~mdv);
+		}
 	}
 
 	private void fillWithDefaults()

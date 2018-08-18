@@ -33,6 +33,7 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 			case "authors": recipe.authors = deserializeJson!(string[])(value); break;
 			case "copyright": recipe.copyright = value.get!string; break;
 			case "license": recipe.license = value.get!string; break;
+			case "minDubVersion": recipe.minDubVersion = value.get!string; break;
 			case "configurations": break; // handled below, after the global settings have been parsed
 			case "buildTypes":
 				foreach (string name, settings; value) {
@@ -80,6 +81,7 @@ Json toJson(in ref PackageRecipe recipe)
 	if (!recipe.authors.empty) ret["authors"] = serializeToJson(recipe.authors);
 	if (!recipe.copyright.empty) ret["copyright"] = recipe.copyright;
 	if (!recipe.license.empty) ret["license"] = recipe.license;
+	if (!recipe.minDubVersion.empty) ret["minDubVersion"] = recipe.minDubVersion;
 	if (!recipe.subPackages.empty) {
 		Json[] jsonSubPackages = new Json[recipe.subPackages.length];
 		foreach (i, subPackage; recipe.subPackages) {

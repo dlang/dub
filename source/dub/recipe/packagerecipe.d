@@ -79,6 +79,7 @@ struct PackageRecipe {
 	string[] authors;
 	string copyright;
 	string license;
+	string minDubVersion;
 	string[] ddoxFilterArgs;
 	string ddoxTool;
 	BuildSettingsTemplate buildSettings;
