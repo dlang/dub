@@ -116,12 +116,12 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = NativePath(getcwd());
 		const generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
+		auto build_id = computeBuildID(config, buildsettings, settings);
+
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
 			runScanBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
-
-		auto build_id = computeBuildID(config, buildsettings, settings);
 
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
