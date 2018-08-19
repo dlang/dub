@@ -164,7 +164,7 @@ class ProjectGenerator
 		Note: Targets without output are integrated into their
 		dependents and removed from `targets`.
 	 */
-	private string[] configurePackages(Package rootPackage, TargetInfo[string] targets, GeneratorSettings genSettings)
+	private string[] configurePackages(Package rootPackage, ref TargetInfo[string] targets, GeneratorSettings genSettings)
 	{
 		import std.algorithm : remove, sort;
 		import std.range : repeat;
