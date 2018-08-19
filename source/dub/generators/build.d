@@ -55,20 +55,26 @@ class BuildGenerator : ProjectGenerator {
 		NativePath[string] target_paths;
 
 		bool[string] visited;
-		void buildTargetRec(string target)
+		void buildTargetRec(string target, out BuildSettings additional_bs)
 		{
 			if (target in visited) return;
 			visited[target] = true;
 
 			auto ti = targets[target];
+			auto bs = ti.buildSettings.dup;
 
 			foreach (dep; ti.dependencies)
-				buildTargetRec(dep);
+			{
+				BuildSettings depAddedBs;
+				buildTargetRec(dep, depAddedBs);
+				// find out target type and add the necessary build settings
+				// from the dependency
+				depAddedBs.targetType = targets[dep].buildSettings.targetType;
+				handleDepAddedBuildSettings(depAddedBs, bs);
+			}
 
 			NativePath[] additional_dep_files;
-			auto bs = ti.buildSettings.dup;
 			foreach (ldep; ti.linkDependencies) {
-				auto dbs = targets[ldep].buildSettings;
 				if (bs.targetType != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly)) {
 					bs.addSourceFiles(target_paths[ldep].toNativeString());
 				} else {
@@ -76,7 +82,7 @@ class BuildGenerator : ProjectGenerator {
 				}
 			}
 			NativePath tpath;
-			if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, tpath))
+			if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, additional_bs, tpath))
 				any_cached = true;
 			target_paths[target] = tpath;
 		}
@@ -87,9 +93,12 @@ class BuildGenerator : ProjectGenerator {
 			// RDMD always builds everything at once and static libraries don't need their
 			// dependencies to be built
 			NativePath tpath;
-			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null, tpath);
+			BuildSettings no_use;
+			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage,
+						root_ti.config, root_ti.packages, null, no_use, tpath);
 		} else {
-			buildTargetRec(m_project.rootPackage.name);
+			BuildSettings no_use;
+			buildTargetRec(m_project.rootPackage.name, no_use);
 
 			if (any_cached) {
 				logInfo("To force a rebuild of up-to-date targets, run again with --force.");
@@ -111,7 +120,26 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_path)
+	// This is the same as Generator.mergeFromDependency, called with what build scripts
+	// have added by their stdout.
+	private void handleDepAddedBuildSettings(in ref BuildSettings child, ref BuildSettings parent)
+	{
+		import dub.compilers.utils : isLinkerFile;
+
+		parent.addDFlags(child.dflags);
+		parent.addVersions(child.versions);
+		parent.addDebugVersions(child.debugVersions);
+		parent.addImportPaths(child.importPaths);
+		parent.addStringImportPaths(child.stringImportPaths);
+		// linking of static libraries is done by parent
+		if (child.targetType == TargetType.staticLibrary) {
+			parent.addSourceFiles(child.sourceFiles.filter!isLinkerFile.array);
+			parent.addLibs(child.libs);
+			parent.addLFlags(child.lflags);
+		}
+	}
+
+	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in NativePath[] additional_dep_files, out BuildSettings additional_bs, out NativePath target_path)
 	{
 		auto cwd = NativePath(getcwd());
 		const generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
@@ -120,8 +148,10 @@ class BuildGenerator : ProjectGenerator {
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
-			runScanBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
+			runScanBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings, additional_bs);
 		}
+
+		buildsettings.add(additional_bs);
 
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
@@ -543,13 +573,13 @@ class BuildGenerator : ProjectGenerator {
 /** Runs a list of build commands for a particular package and scan for "dub:" lines output
 
 	This function sets all DUB speficic environment variables and scan for
-	"dub:" lines output and amend build_settings with the settings passed from
+	"dub:" lines output and return in additional_bs the settings passed from
 	the commands through these lines.
 
 	Each command get its environment updated by the settings of the previous commands
 */
 private void runScanBuildCommands(in string[] commands, in Package pack, in Project proj,
-	in GeneratorSettings settings, ref BuildSettings build_settings)
+	in GeneratorSettings settings, BuildSettings build_settings, out BuildSettings additional_bs)
 {
 	import std.process : Config, pipe, spawnShell, wait;
 	import std.stdio : File, stdin, stderr, stdout;
@@ -600,11 +630,11 @@ private void runScanBuildCommands(in string[] commands, in Package pack, in Proj
 			}
 		}
 
-		build_settings.add(cmdBs);
+		additional_bs.add(cmdBs);
 		amendBuildSettingsEnvironment(env, cmdBs);
 
 		const exitcode = wait(pid);
-		enforce(exitcode == 0, "Command failed with exit code "~to!string(exitcode));
+		enforce(exitcode == 0, "Command failed with exit code "~to!string(exitcode)~": "~cmd);
 	}
 }
 
