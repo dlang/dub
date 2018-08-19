@@ -1,0 +1,6 @@
+Dub now supports a $(D_INLINECODE "minDubVersion") field, that will abort build if
+the user does not have a recent enough version of dub and miss essential feature
+to perform the build.
+-------
+    "minDubVersion": "1.10"
+------
