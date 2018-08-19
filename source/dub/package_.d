@@ -628,9 +628,11 @@ class Package {
 
 		if (m_info.minDubVersion.length) {
 			auto mdv = m_info.minDubVersion;
-			if (!isValidVersion(mdv)) mdv = expandVersion(mdv);
-			enforce(isValidVersion(mdv),
-				"minDubVersion "~m_info.minDubVersion~" is not SemVer compliant!");
+			if (!isValidVersion(mdv)) {
+				mdv = expandVersion(mdv);
+				enforce(isValidVersion(mdv),
+					"minDubVersion "~m_info.minDubVersion~" is not SemVer compliant!");
+			}
 
 			static assert(dubVersion.length);
 			static if (dubVersion[0] == 'v') {
