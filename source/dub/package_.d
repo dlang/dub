@@ -644,7 +644,8 @@ class Package {
 			static assert(isValidVersion(dv));
 
 			enforce(compareVersions(dv, mdv) >= 0,
-				"dub-"~dv~" does not comply with minDubVersion specification: "~mdv);
+				"dub-"~dv~" does not comply with minDubVersion specification: "~mdv~
+				".\nPlease consider upgrading your dub installation.");
 		}
 	}
 
