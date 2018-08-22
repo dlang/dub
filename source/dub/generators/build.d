@@ -55,22 +55,27 @@ class BuildGenerator : ProjectGenerator {
 		NativePath[string] target_paths;
 
 		bool[string] visited;
-		void buildTargetRec(string target, out BuildSettings additional_bs)
+
+		// Some dependencies build settings must be handled by higher level
+		// packages. Those from recipes are already handled at configure step,
+		// but we have to handle the settings added by the build commands output.
+		// They are collected top-down, recursively. Each package collects the build
+		// settings of its dependencies, handle them for its own build and pass them
+		// to its parent.
+
+		void buildTargetRec(string target, ref const(BuildSettings)[] parent_added_bs)
 		{
 			if (target in visited) return;
 			visited[target] = true;
+
+			const(BuildSettings)[] target_added_bs;
 
 			auto ti = targets[target];
 			auto bs = ti.buildSettings.dup;
 
 			foreach (dep; ti.dependencies)
 			{
-				BuildSettings depAddedBs;
-				buildTargetRec(dep, depAddedBs);
-				// find out target type and add the necessary build settings
-				// from the dependency
-				depAddedBs.targetType = targets[dep].buildSettings.targetType;
-				handleDepAddedBuildSettings(depAddedBs, bs);
+				buildTargetRec(dep, target_added_bs);
 			}
 
 			NativePath[] additional_dep_files;
@@ -81,9 +86,26 @@ class BuildGenerator : ProjectGenerator {
 					additional_dep_files ~= target_paths[ldep];
 				}
 			}
+
+			foreach (const ref added_bs; target_added_bs) {
+				// handle the settings added by target's dependencies
+				handleDepAddedBuildSettings(added_bs, bs);
+				// and pass them right away to parent
+				parent_added_bs ~= added_bs;
+			}
+
 			NativePath tpath;
-			if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, additional_bs, tpath))
+			BuildSettings added_bs;
+
+			if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, added_bs, tpath))
 				any_cached = true;
+
+			if (added_bs != BuildSettings.init) {
+				// target's build script added some settings, we've to pass them
+				// to the parent (dependent) package.
+				added_bs.targetType = bs.targetType;
+				parent_added_bs ~= added_bs;
+			}
 			target_paths[target] = tpath;
 		}
 
@@ -97,7 +119,7 @@ class BuildGenerator : ProjectGenerator {
 			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage,
 						root_ti.config, root_ti.packages, null, no_use, tpath);
 		} else {
-			BuildSettings no_use;
+			const(BuildSettings)[] no_use;
 			buildTargetRec(m_project.rootPackage.name, no_use);
 
 			if (any_cached) {
@@ -139,7 +161,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in NativePath[] additional_dep_files, out BuildSettings additional_bs, out NativePath target_path)
+	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in NativePath[] additional_dep_files, out BuildSettings added_bs, out NativePath target_path)
 	{
 		auto cwd = NativePath(getcwd());
 		const generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
@@ -148,10 +170,10 @@ class BuildGenerator : ProjectGenerator {
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
-			runScanBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings, additional_bs);
+			runScanBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings, added_bs);
 		}
 
-		buildsettings.add(additional_bs);
+		buildsettings.add(added_bs);
 
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
