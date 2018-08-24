@@ -46,6 +46,7 @@ class DMDCompiler : Compiler {
 		tuple(BuildOption.deprecationErrors, ["-de"]),
 		tuple(BuildOption.property, ["-property"]),
 		tuple(BuildOption.profileGC, ["-profile=gc"]),
+		tuple(BuildOption.betterC, ["-betterC"]),
 
 		tuple(BuildOption._docs, ["-Dddocs"]),
 		tuple(BuildOption._ddox, ["-Xfdocs.json", "-Df__dummy.html"]),
