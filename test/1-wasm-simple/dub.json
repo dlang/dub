@@ -1,0 +1,4 @@
+{
+    "name": "wasm-simple",
+    "targetType": "wasm"
+}
