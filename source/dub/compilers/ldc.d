@@ -172,6 +172,8 @@ class LDCCompiler : Compiler {
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
+			case TargetType.wasm:
+				return settings.targetName ~ ".wasm";
 		}
 	}
 
@@ -192,6 +194,9 @@ class LDCCompiler : Compiler {
 			case TargetType.object:
 				settings.addDFlags("-c");
 				break;
+			case TargetType.wasm:
+				settings.addDFlags("-mtriple=wasm32-unknown-unknown-wasm");
+				settings.addDFlags("-betterC");
 		}
 
 		if (tpath is null)

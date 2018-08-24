@@ -167,6 +167,8 @@ class DMDCompiler : Compiler {
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
+			case TargetType.wasm:
+				assert(false, "dub not support targetType: wasm");
 		}
 	}
 
@@ -189,6 +191,8 @@ class DMDCompiler : Compiler {
 			case TargetType.object:
 				settings.addDFlags("-c");
 				break;
+			case TargetType.wasm:
+				assert(false, "dub not support targetType: wasm");
 		}
 
 		if (tpath is null)

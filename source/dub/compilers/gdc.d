@@ -161,6 +161,8 @@ class GDCCompiler : Compiler {
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
+			case TargetType.wasm:
+				assert(false, "gdc not support targetType: wasm");
 		}
 	}
 
@@ -179,6 +181,8 @@ class GDCCompiler : Compiler {
 			case TargetType.dynamicLibrary:
 				settings.addDFlags("-shared", "-fPIC");
 				break;
+			case TargetType.wasm:
+				assert(false, "gdc not support targetType: wasm");
 		}
 
 		if (tpath is null)
