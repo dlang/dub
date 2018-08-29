@@ -212,7 +212,19 @@ class LDCCompiler : Compiler {
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
-		assert(false, "Separate linking not implemented for LDC");
+		import std.string;
+		auto tpath = NativePath(settings.targetPath) ~ getTargetFileName(settings, platform);
+		auto args = ["-of"~tpath.toNativeString()];
+		args ~= objects;
+		args ~= settings.sourceFiles;
+		args ~= lflagsToDFlags(settings.lflags);
+		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
+
+		auto res_file = getTempFile("dub-build", ".lnk");
+		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
+
+		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
 	string[] lflagsToDFlags(in string[] lflags) const
@@ -223,5 +235,18 @@ class LDCCompiler : Compiler {
 	private auto escapeArgs(in string[] args)
 	{
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
+	}
+
+	private static bool isLinkerDFlag(string arg)
+	{
+		switch (arg) {
+			default:
+				if (arg.startsWith("-defaultlib=")) return true;
+				if (arg.startsWith("-march=")) return true;
+				if (arg.startsWith("-fsanitize=")) return true;
+				return false;
+			case "-g", "-gc", "-shared", "-lib":
+				return true;
+		}
 	}
 }
