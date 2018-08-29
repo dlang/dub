@@ -464,7 +464,8 @@ class BuildGenerator : ProjectGenerator {
 			      on the other compilers. Later this should be integrated somehow in the build process
 			      (either in the dub.json, or using a command line flag)
 		*/
-		} else if (generate_binary && (settings.buildMode == BuildMode.allAtOnce || settings.compiler.name != "dmd" || is_static_library)) {
+		} else if (generate_binary && (settings.buildMode == BuildMode.allAtOnce || is_static_library))
+		{
 			// don't include symbols of dependencies (will be included by the top level target)
 			if (is_static_library) buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !f.isLinkerFile()).array;
 
