@@ -1,3 +1,0 @@
-DUB supports build type "syntax" 
-
-With this release new build type "syntax" is added. This build type is useful for IDEs to check the syntax of D coding without generating binaries.

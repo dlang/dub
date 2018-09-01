@@ -1,8 +1,0 @@
-Enviroment variable expansion was improved
-
-Environment variable expansion now supports the braced `${MY_VAR}` expansion syntax: e.g. for `${PACKAGE_PATH}_suffix`.
-
-Moreover, `$PACKAGE_PATH`, `$ROOT_PACKAGE_PATH`, and `$DEP_PACKAGE_PATH` no longer end
-  with a `/` or `\` to support clean concatenation, e.g. `${PACKAGE_PATH}/subpath`.
-
-Learn more about the details at $(LINK2 https://github.com/dlang/dub/pull/1392, #1392).
