@@ -1,8 +1,0 @@
-The regular upgrade check has been removed
-
-Previously dub would regularly (once a day) check for possible package upgrades before building a packages.
-This lead to unexpected build failures, e.g. when internet connectivity was down or dependency resolution failed, and caused unnecessary delays.
-
-The build flag `--nodeps` now only suppresses resolution of missing dependencies.
-
-The new upgrade flag `--dry-run` was added to explicitly check for upgradable packages without actually upgrading anything.
