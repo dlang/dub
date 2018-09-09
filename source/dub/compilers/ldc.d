@@ -150,7 +150,7 @@ class LDCCompiler : Compiler {
 			~platform.compilerBinary~" -version\" failed with exit code "
 			~result.status.to!string()~".");
 
-		bool generates_coff = result.output.splitLines.find!(l => l.strip.toLower.startsWith("default target:")).front.canFind("-windows-msvc");
+		bool generates_coff = result.output.splitLines.find!(l => l.strip.toLower.startsWith("default target:")).front.canFind("msvc");
 
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
