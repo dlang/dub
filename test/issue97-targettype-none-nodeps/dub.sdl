@@ -1,0 +1,4 @@
+name "issue97-targettype-none"
+targetType "none"
+subPackage "./a/"
+subPackage "./b/"

@@ -1,0 +1,14 @@
+name "issue97-targettype-none"
+targetType "none"
+dependency "issue97-targettype-none:a" version="*"
+dependency "issue97-targettype-none:b" version="*"
+subPackage {
+	name "a"
+	targetType "executable"
+	sourcePaths "a/source"
+}
+subPackage {
+	name "b"
+	targetType "executable"
+	sourcePaths "b/source"
+}

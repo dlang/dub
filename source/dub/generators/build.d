@@ -47,6 +47,11 @@ class BuildGenerator : ProjectGenerator {
 	{
 		scope (exit) cleanupTemporaries();
 
+		auto root_ti = targets[m_project.rootPackage.name];
+
+		enforce(!(settings.rdmd && root_ti.buildSettings.targetType == TargetType.none),
+				"Building package with target type \"none\" with rdmd is not supported yet.");
+
 		logInfo("Performing \"%s\" build using %s for %-(%s, %).",
 			settings.buildType, settings.platform.compilerBinary, settings.platform.architecture);
 
@@ -76,13 +81,13 @@ class BuildGenerator : ProjectGenerator {
 				}
 			}
 			NativePath tpath;
-			if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, tpath))
-				any_cached = true;
+			if (bs.targetType != TargetType.none)
+				if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, tpath))
+					any_cached = true;
 			target_paths[target] = tpath;
 		}
 
 		// build all targets
-		auto root_ti = targets[m_project.rootPackage.name];
 		if (settings.rdmd || root_ti.buildSettings.targetType == TargetType.staticLibrary) {
 			// RDMD always builds everything at once and static libraries don't need their
 			// dependencies to be built

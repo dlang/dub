@@ -773,6 +773,13 @@ class Dub {
 
 		if (existsFile(path ~ ".dub/build")) rmdirRecurse((path ~ ".dub/build").toNativeString());
 		if (existsFile(path ~ ".dub/obj")) rmdirRecurse((path ~ ".dub/obj").toNativeString());
+
+		auto p = Package.load(path);
+		if (p.getBuildSettings().targetType == TargetType.none) {
+			foreach (sp; p.subPackages.filter!(sp => !sp.path.empty)) {
+				cleanPackage(path ~ sp.path);
+			}
+		}
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
