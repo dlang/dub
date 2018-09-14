@@ -162,6 +162,8 @@ class DMDCompiler : Compiler {
 			case TargetType.dynamicLibrary:
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".dll";
+				else if (platform.platform.canFind("osx"))
+					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
 				if (platform.platform.canFind("windows"))
