@@ -325,6 +325,94 @@ ubyte[] download(URL url, uint timeout = 8)
 	return download(url.toString(), timeout);
 }
 
+/**
+	Downloads a file from the specified URL with retry logic.
+
+	Downloads a file from the specified URL with up to n tries on failure
+	Throws: `Exception` if the download failed or `HTTPStatusException` after the nth retry or
+	on "unrecoverable failures" such as 404 not found
+	Otherwise might throw anything else that `download` throws.
+	See_Also: download
+**/
+void retryDownload(URL url, NativePath filename, size_t retryCount = 3)
+{
+	foreach(i; 0..retryCount) {
+		version(DubUseCurl) {
+			try {
+				download(url, filename);
+				return;
+			}
+			catch(HTTPStatusException e) {
+				if (e.status == 404) throw e;
+				else {
+					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+					if (i == retryCount - 1) throw e;
+					else continue;
+				}
+			}
+			catch(CurlException e) {
+				logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+				continue;
+			}
+		}
+		else
+		{
+			try {
+				download(url, filename);
+				return;
+			}
+			catch(HTTPStatusException e) {
+				if (e.status == 404) throw e;
+				else {
+					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+					if (i == retryCount - 1) throw e;
+					else continue;
+				}
+			}
+		}
+	}
+	throw new Exception("Failed to download %s".format(url));
+}
+
+///ditto
+ubyte[] retryDownload(URL url, size_t retryCount = 3)
+{
+	foreach(i; 0..retryCount) {
+		version(DubUseCurl) {
+			try {
+				return download(url);
+			}
+			catch(HTTPStatusException e) {
+				if (e.status == 404) throw e;
+				else {
+					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+					if (i == retryCount - 1) throw e;
+					else continue;
+				}
+			}
+			catch(CurlException e) {
+				logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+				continue;
+			}
+		}
+		else
+		{
+			try {
+				return download(url);
+			}
+			catch(HTTPStatusException e) {
+				if (e.status == 404) throw e;
+				else {
+					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+					if (i == retryCount - 1) throw e;
+					else continue;
+				}
+			}
+		}
+	}
+	throw new Exception("Failed to download %s".format(url));
+}
+
 /// Returns the current DUB version in semantic version format
 string getDUBVersion()
 {
