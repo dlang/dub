@@ -45,7 +45,9 @@ void initPackage(NativePath root_path, string[string] deps, string type,
 	import dub.recipe.io : writePackageRecipe;
 
 	void enforceDoesNotExist(string filename) {
-		enforce(!existsFile(root_path ~ filename), "The target directory already contains a '"~filename~"' file. Aborting.");
+		enforce(!existsFile(root_path ~ filename),
+			"The target directory already contains a '%s' %s. Aborting."
+				.format(filename, filename.isDir ? "directory" : "file"));
 	}
 
 	string username = getUserName();
