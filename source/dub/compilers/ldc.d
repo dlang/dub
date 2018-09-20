@@ -141,17 +141,7 @@ class LDCCompiler : Compiler {
 
 	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 	const {
-		import std.string : splitLines, strip;
-		import std.uni : toLower;
-
 		assert(settings.targetName.length > 0, "No target name set.");
-
-		auto result = executeShell(escapeShellCommand([platform.compilerBinary, "-version"]));
-		enforce (result.status == 0, "Failed to determine linker used by LDC. \""
-			~platform.compilerBinary~" -version\" failed with exit code "
-			~result.status.to!string()~".");
-
-		bool generates_coff = result.output.splitLines.find!(l => l.strip.toLower.startsWith("default target:")).front.canFind("msvc");
 
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
@@ -163,7 +153,7 @@ class LDCCompiler : Compiler {
 				else return settings.targetName;
 			case TargetType.library:
 			case TargetType.staticLibrary:
-				if (generates_coff) return settings.targetName ~ ".lib";
+				if (generatesCOFF(platform)) return settings.targetName ~ ".lib";
 				else return "lib" ~ settings.targetName ~ ".a";
 			case TargetType.dynamicLibrary:
 				if (platform.platform.canFind("windows"))
@@ -226,5 +216,30 @@ class LDCCompiler : Compiler {
 	private auto escapeArgs(in string[] args)
 	{
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
+	}
+
+	private static bool generatesCOFF(in BuildPlatform platform)
+	{
+		import std.string : splitLines, strip;
+		import std.uni : toLower;
+
+		static bool[string] compiler_coff_map;
+
+		if (auto pret = platform.compilerBinary in compiler_coff_map)
+			return *pret;
+
+		auto result = executeShell(escapeShellCommand([platform.compilerBinary, "-version"]));
+		enforce (result.status == 0, "Failed to determine linker used by LDC. \""
+			~platform.compilerBinary~" -version\" failed with exit code "
+			~result.status.to!string()~".");
+
+		bool ret = result.output
+			.splitLines
+			.find!(l => l.strip.toLower.startsWith("default target:"))
+			.front
+			.canFind("msvc");
+
+		compiler_coff_map[platform.compilerBinary] = ret;
+		return ret;
 	}
 }
