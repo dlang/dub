@@ -300,9 +300,11 @@ enum BuildOption {
 	property = 1<<20,             /// DEPRECATED: Enforce property syntax (-property)
 	profileGC = 1<<21,            /// Profile runtime allocations
 	pic = 1<<22,                  /// Generate position independent code
+	betterC = 1<<23,              /// Compile in betterC mode (-betterC)
+
 	// for internal usage
-	_docs = 1<<23,                // Write ddoc to docs
-	_ddox = 1<<24                 // Compile docs.json
+	_docs = 1<<24,                // Write ddoc to docs
+	_ddox = 1<<25                 // Compile docs.json
 }
 
 	struct BuildOptions {

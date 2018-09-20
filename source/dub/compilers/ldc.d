@@ -46,6 +46,7 @@ class LDCCompiler : Compiler {
 		tuple(BuildOption.deprecationErrors, ["-de"]),
 		tuple(BuildOption.property, ["-property"]),
 		//tuple(BuildOption.profileGC, ["-?"]),
+		tuple(BuildOption.betterC, ["-betterC"]),
 
 		tuple(BuildOption._docs, ["-Dd=docs"]),
 		tuple(BuildOption._ddox, ["-Xf=docs.json", "-Dd=__dummy_docs"]),
