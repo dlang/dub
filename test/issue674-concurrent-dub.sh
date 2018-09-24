@@ -16,4 +16,4 @@ cd ${TMPDIR} && $DUB fetch --cache=local bloom &
 pid2=$!
 wait $pid1
 wait $pid2
-[ -d ${TMPDIR}/bloom* ]
+[ -d ${TMPDIR}/.dub/packages/bloom* ]

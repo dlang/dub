@@ -623,7 +623,7 @@ unittest { // issue #1235 - pass no library files to compiler command line when 
 
 	auto desc = parseJsonString(`{"name": "test", "targetType": "library", "sourceFiles": ["foo.d", "`~libfile~`"]}`);
 	auto pack = new Package(desc, NativePath("/tmp/fooproject"));
-	auto pman = new PackageManager(NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), false);
+	auto pman = new PackageManager(pack.path, NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), false);
 	auto prj = new Project(pman, pack);
 
 	final static class TestCompiler : GDCCompiler {

@@ -39,9 +39,20 @@ class PackageManager {
 
 	this(NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
-		m_repositories.length = LocalPackageType.max+1;
-		m_repositories[LocalPackageType.user] = Repository(user_path ~ "packages/");
-		m_repositories[LocalPackageType.system] = Repository(system_path ~ "packages/");
+		m_repositories = [
+			Repository(user_path ~ "packages/"),
+			Repository(system_path ~ "packages/")];
+
+		if (refresh_packages) refresh(true);
+	}
+
+	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
+	{
+		m_repositories = [
+			Repository(package_path ~ ".dub/packages/"),
+			Repository(user_path ~ "packages/"),
+			Repository(system_path ~ "packages/")];
+
 		if (refresh_packages) refresh(true);
 	}
 
@@ -615,6 +626,7 @@ class PackageManager {
 		}
 		scanLocalPackages(LocalPackageType.system);
 		scanLocalPackages(LocalPackageType.user);
+		scanLocalPackages(LocalPackageType.package_);
 
 		auto old_packages = m_packages;
 
@@ -681,6 +693,7 @@ class PackageManager {
 				}
 			}
 		}
+		loadOverrides(LocalPackageType.package_);
 		loadOverrides(LocalPackageType.user);
 		loadOverrides(LocalPackageType.system);
 	}
@@ -813,6 +826,7 @@ struct PackageOverride {
 }
 
 enum LocalPackageType {
+	package_,
 	user,
 	system
 }
