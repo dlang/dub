@@ -168,7 +168,7 @@ class Dub {
 		else
 			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers, skip_registry);
 
-		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
+		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings);
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
@@ -260,7 +260,7 @@ class Dub {
 	{
 		init(NativePath());
 		m_overrideSearchPath = override_path;
-		m_packageManager = new PackageManager(NativePath(), NativePath(), false);
+		m_packageManager = new PackageManager(NativePath(), NativePath(), NativePath(), false);
 		updatePackageSearchPath();
 	}
 
@@ -862,7 +862,7 @@ class Dub {
 
 		NativePath placement;
 		final switch (location) {
-			case PlacementLocation.local: placement = m_rootPath; break;
+			case PlacementLocation.local: placement = m_rootPath ~ ".dub/packages/"; break;
 			case PlacementLocation.user: placement = m_dirs.localRepository ~ "packages/"; break;
 			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
 		}
