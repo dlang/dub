@@ -1,3 +1,0 @@
-module app;
-
-void main() {}
