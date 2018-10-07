@@ -1,0 +1,52 @@
+`toolchainRequirements` recipe entry
+
+DUB now supports a new entry in `dub.json` or `dub.sdl` to restrict the versions of
+DUB and of compilers supported by a package.
+
+dub.json:
+---
+{
+    "toolchainRequirements": {
+        "dub": "~>1.10",
+        "frontend": ">=2.068|<2.083"
+    }
+}
+---
+
+dub.sdl:
+---
+toolchainRequirements dub="~>1.10" frontend=">=2.068|<2.083"
+---
+
+Supported entries in `toolchainRequirements` are:
+$(UL
+    $(LI dub)
+    $(LI frontend)
+    $(LI dmd)
+    $(LI ldc)
+    $(LI gdc)
+)
+
+Each can be assigned to one or more version specifications, separated by `|`.
+For compilers, instead of a version specification, the keyword `no` can also be
+used to indicate that the compiler should not be used for this package.
+
+Example scenario:$(BR)
+Package that needs DUB>=1.12, and that will only build with LDC>=1.10:
+
+dub.json:
+---
+{
+    "toolchainRequirements": {
+        "dub": ">=1.12",
+        "dmd": "no",
+        "gdc": "no",
+        "ldc": ">=1.10"
+    }
+}
+---
+
+dub.sdl:
+---
+toolchainRequirements dub=">=1.12" dmd="no" gdc="no" ldc=">=1.10"
+---
