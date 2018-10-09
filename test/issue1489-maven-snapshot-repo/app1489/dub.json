@@ -1,0 +1,7 @@
+{
+	"name": "app1489",
+	"targetType": "executable",
+	"dependencies": {
+		"package1489": ">=1.0.0-SNAPSHOT"
+	}
+}
