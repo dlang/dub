@@ -1,6 +1,14 @@
 Changelog
 =========
 
+v1.12.0 - 2018-11-01
+-------------------
+See <https://dlang.org/changelog/2.083.0.html>
+
+v1.11.0 - 2018-09-01
+-------------------
+See <https://dlang.org/changelog/2.082.0.html>
+
 v1.10.0 - 2018-07-01
 -------------------
 See <https://dlang.org/changelog/2.081.0.html>
