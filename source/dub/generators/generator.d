@@ -267,7 +267,7 @@ class ProjectGenerator
 				}
 				auto depti = &targets[depname];
 				const depbs = &depti.buildSettings;
-				if (depbs.targetType == TargetType.executable)
+				if (depbs.targetType == TargetType.executable && ti.buildSettings.targetType != TargetType.none)
 					continue;
 
 				// add to (link) dependencies
@@ -282,6 +282,9 @@ class ProjectGenerator
 				if (depbs.targetType == TargetType.staticLibrary)
 					ti.linkDependencies = ti.linkDependencies.filter!(d => !depti.linkDependencies.canFind(d)).array ~ depti.linkDependencies;
 			}
+
+			enforce(!(ti.buildSettings.targetType == TargetType.none && ti.dependencies.empty),
+				"Package with target type \"none\" must have dependencies to build.");
 		}
 
 		collectDependencies(rootPackage, targets[rootPackage.name], targets);
@@ -422,9 +425,8 @@ class ProjectGenerator
 			settings.compiler.extractBuildOptions(ti.buildSettings);
 
 			auto tt = ti.buildSettings.targetType;
-			bool generatesBinary = tt != TargetType.sourceLibrary && tt != TargetType.none;
-			enforce (generatesBinary || ti.pack !is m_project.rootPackage || (ti.buildSettings.options & BuildOption.syntaxOnly),
-				format("Main package must have a binary target type, not %s. Cannot build.", tt));
+			enforce (tt != TargetType.sourceLibrary || ti.pack !is m_project.rootPackage || (ti.buildSettings.options & BuildOption.syntaxOnly),
+				format("Main package must not have target type \"%s\". Cannot build.", tt));
 		}
 	}
 }
@@ -650,6 +652,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_PACKAGE_DIR"]       = pack.path.toNativeString();
 	env["DUB_ROOT_PACKAGE"]      = proj.rootPackage.name;
 	env["DUB_ROOT_PACKAGE_DIR"]  = proj.rootPackage.path.toNativeString();
+	env["DUB_PACKAGE_VERSION"]   = pack.version_.toString();
 
 	env["DUB_COMBINED"]          = settings.combined?      "TRUE" : "";
 	env["DUB_RUN"]               = settings.run?           "TRUE" : "";

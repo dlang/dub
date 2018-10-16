@@ -55,3 +55,12 @@ Daniel Jost maintains a dub package on [chocolatey](https://chocolatey.org/packa
 ## Using DUB as a library
 
 The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/dlang/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/dlang/dub/blob/master/source/dub/commandline.d).
+
+## Minimal D compiler required to build DUB
+
+In general it is always recommended to build DUB with the latest version of your D compiler.
+However, currently [2.072](https://dlang.org/changelog/2.072.0.html) is required to build DUB from source.
+
+# Contributing
+
+New contributers are always welcome, there's plenty to work on! For an easy start, take a look at issues marked [`bootcamp`](https://github.com/dlang/dub/labels/bootcamp)

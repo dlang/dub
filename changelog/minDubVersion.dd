@@ -1,0 +1,17 @@
+Dub now supports a `minDubVersion` field.
+
+This field will abort the build if the user doesn't have a recent enough version of dub
+and miss needed feature to perform the build.
+
+`minDubVersion` can be added to project's `dub.json`:
+-------
+{
+    ...
+    "minDubVersion": "1.10"
+    ...
+}
+------
+or `dub.sdl`:
+------
+minDubVersion "1.10"
+------

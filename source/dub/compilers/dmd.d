@@ -46,6 +46,7 @@ class DMDCompiler : Compiler {
 		tuple(BuildOption.deprecationErrors, ["-de"]),
 		tuple(BuildOption.property, ["-property"]),
 		tuple(BuildOption.profileGC, ["-profile=gc"]),
+		tuple(BuildOption.betterC, ["-betterC"]),
 
 		tuple(BuildOption._docs, ["-Dddocs"]),
 		tuple(BuildOption._ddox, ["-Xfdocs.json", "-Df__dummy.html"]),
@@ -162,6 +163,8 @@ class DMDCompiler : Compiler {
 			case TargetType.dynamicLibrary:
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".dll";
+				else if (platform.platform.canFind("osx"))
+					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
 				if (platform.platform.canFind("windows"))
