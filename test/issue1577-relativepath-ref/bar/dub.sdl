@@ -1,0 +1,4 @@
+name "bar"
+targetType "sourceLibrary"
+
+dependency "dub" version="~>1.12.0-beta.1"
