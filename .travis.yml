@@ -16,6 +16,14 @@ before_install:
 script:
   - ./travis-ci.sh
 
+before_deploy:
+  # Required to set the prerelease status
+  - if git describe --abbrev=0 --tags | grep -qE "(rc|alpha|beta)" ;
+    then export GITHUB_DEPLOY_PRERELEASE=true;
+    else export GITHUB_DEPLOY_PRERELEASE=false;
+    fi
+  - echo $GITHUB_DEPLOY_PRERELEASE
+
 jobs:
   allow_failures:
     - d: gdc
@@ -67,6 +75,7 @@ jobs:
           file: bin/dub-*.tar.gz
           skip_cleanup: true
           api_key: $GH_REPO_TOKEN
+          prerelease: $GITHUB_DEPLOY_PRERELEASE
           on:
             tags: true
     - d: ldc
@@ -83,6 +92,7 @@ jobs:
           file: bin/dub-*.tar.gz
           skip_cleanup: true
           api_key: $GH_REPO_TOKEN
+          prerelease: $GITHUB_DEPLOY_PRERELEASE
           on:
             tags: true
     - d: ldc
@@ -93,6 +103,7 @@ jobs:
           file: bin/dub-*.tar.gz
           skip_cleanup: true
           api_key: $GH_REPO_TOKEN
+          prerelease: $GITHUB_DEPLOY_PRERELEASE
           on:
             tags: true
     - stage: update-latest
