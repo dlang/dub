@@ -10,6 +10,13 @@ if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.072.z ]; then
     dub test --compiler=${DC} -c library-nonet
 fi
 
+function clean() {
+    # Hard reset of the DUB local folder is necessary as some tests
+    # currently don't properly clean themselves
+    rm -rf ~/.dub
+    git clean -dxf -- test
+}
+
 if [ "$COVERAGE" = true ]; then
     # library-nonet fails to build with coverage (Issue 13742)
     dub test --compiler=${DC} -b unittest-cov
@@ -18,12 +25,14 @@ if [ "$COVERAGE" = true ]; then
     # run tests with different compilers
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
     deactivate
-    git clean -dxf -- test
+    clean
+
     export FRONTEND=2.077
     source $(~/dlang/install.sh ldc-1.7.0 --activate)
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
     deactivate
-    git clean -dxf -- test
+    clean
+
     export FRONTEND=2.068
     source $(~/dlang/install.sh gdc-4.8.5 --activate)
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
