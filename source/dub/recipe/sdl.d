@@ -156,6 +156,8 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "postGenerateCommands": setting.parsePlatformStringArray(bs.postGenerateCommands); break;
 		case "preBuildCommands": setting.parsePlatformStringArray(bs.preBuildCommands); break;
 		case "postBuildCommands": setting.parsePlatformStringArray(bs.postBuildCommands); break;
+		case "preRunCommands": setting.parsePlatformStringArray(bs.preRunCommands); break;
+		case "postRunCommands": setting.parsePlatformStringArray(bs.postRunCommands); break;
 		case "buildRequirements": setting.parsePlatformEnumArray!BuildRequirement(bs.buildRequirements); break;
 		case "buildOptions": setting.parsePlatformEnumArray!BuildOption(bs.buildOptions); break;
 	}
@@ -257,6 +259,8 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.postGenerateCommands) adda("postGenerateCommands", suffix, arr);
 	foreach (suffix, arr; bs.preBuildCommands) adda("preBuildCommands", suffix, arr);
 	foreach (suffix, arr; bs.postBuildCommands) adda("postBuildCommands", suffix, arr);
+	foreach (suffix, arr; bs.preRunCommands) adda("preRunCommands", suffix, arr);
+	foreach (suffix, arr; bs.postRunCommands) adda("postRunCommands", suffix, arr);
 	foreach (suffix, bits; bs.buildRequirements) adda("buildRequirements", suffix, toNameArray!BuildRequirement(bits));
 	foreach (suffix, bits; bs.buildOptions) adda("buildOptions", suffix, toNameArray!BuildOption(bits));
 	return ret;
@@ -400,6 +404,10 @@ preBuildCommands "preb1" "preb2"
 preBuildCommands "preb3"
 postBuildCommands "postb1" "postb2"
 postBuildCommands "postb3"
+preRunCommands "prer1" "prer2"
+preRunCommands "prer3"
+postRunCommands "postr1" "postr2"
+postRunCommands "postr3"
 dflags "df1" "df2"
 dflags "df3"
 lflags "lf1" "lf2"
@@ -466,6 +474,8 @@ lflags "lf3"
 	assert(rec.buildSettings.postGenerateCommands == ["": ["postg1", "postg2", "postg3"]]);
 	assert(rec.buildSettings.preBuildCommands == ["": ["preb1", "preb2", "preb3"]]);
 	assert(rec.buildSettings.postBuildCommands == ["": ["postb1", "postb2", "postb3"]]);
+	assert(rec.buildSettings.preRunCommands == ["": ["prer1", "prer2", "prer3"]]);
+	assert(rec.buildSettings.postRunCommands == ["": ["postr1", "postr2", "postr3"]]);
 	assert(rec.buildSettings.dflags == ["": ["df1", "df2", "df3"]]);
 	assert(rec.buildSettings.lflags == ["": ["lf1", "lf2", "lf3"]]);
 }

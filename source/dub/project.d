@@ -991,6 +991,8 @@ class Project {
 		case "post-generate-commands": return listBuildSetting!"postGenerateCommands"(args);
 		case "pre-build-commands":     return listBuildSetting!"preBuildCommands"(args);
 		case "post-build-commands":    return listBuildSetting!"postBuildCommands"(args);
+		case "pre-run-commands":       return listBuildSetting!"preRunCommands"(args);
+		case "post-run-commands":      return listBuildSetting!"postRunCommands"(args);
 		case "requirements":           return listBuildSetting!"requirements"(args);
 		case "options":                return listBuildSetting!"options"(args);
 
@@ -1155,6 +1157,8 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addPostGenerateCommands(processVars(project, pack, gsettings, settings.postGenerateCommands));
 	dst.addPreBuildCommands(processVars(project, pack, gsettings, settings.preBuildCommands));
 	dst.addPostBuildCommands(processVars(project, pack, gsettings, settings.postBuildCommands));
+	dst.addPreRunCommands(processVars(project, pack, gsettings, settings.preRunCommands));
+	dst.addPostRunCommands(processVars(project, pack, gsettings, settings.postRunCommands));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
 

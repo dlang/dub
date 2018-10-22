@@ -1,0 +1,1 @@
+echo post-run-$DUB_TARGET_EXIT_STATUS >> test.txt
