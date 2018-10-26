@@ -1185,8 +1185,10 @@ private string processVars(Project, Package)(string var, in Project project, in 
 {
 	import std.regex : regex, replaceAll;
 
-	auto varRE = regex(`\$([\w_]+)|\$\{([\w_]+)\}`);
-	var = var.replaceAll!(m => getVariable(m[1].length ? m[1] : m[2], project, pack, gsettings))(varRE);
+	auto varRE = regex(`\$([\w_]+)|\$\{([\w_]+)\}|(\$\$[\w_]+|\$\$\{[\w_]+\})`);
+	var = var.replaceAll!(
+		m => m[3].length ? m[3][1..$] : (getVariable(m[1].length ? m[1] : m[2], project, pack, gsettings))
+		)(varRE);
 	if (is_path) {
 		auto p = NativePath(var);
 		if (!p.absolute) {
@@ -1310,6 +1312,8 @@ unittest
 	assert(processVars("Hello $PACKAGE_DIR"~dirSeparator~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
 	// test with isPath
 	assert(processVars("local", proj, pack, gsettings, isPath) == (pack.path ~ "local").toNativeString);
+	assert(processVars("foo/$$ESCAPED", proj, pack, gsettings, isPath) == (pack.path ~ "foo/$ESCAPED").toNativeString);
+	assert(processVars("$$ESCAPED", proj, pack, gsettings, !isPath) == "$ESCAPED");
 	// test other env variables
 	import std.process : environment;
 	environment["MY_ENV_VAR"] = "blablabla";
@@ -1317,6 +1321,7 @@ unittest
 	assert(processVars("${MY_ENV_VAR}suffix", proj, pack, gsettings, !isPath) == "blablablasuffix");
 	assert(processVars("$MY_ENV_VAR-suffix", proj, pack, gsettings, !isPath) == "blablabla-suffix");
 	assert(processVars("$MY_ENV_VAR:suffix", proj, pack, gsettings, !isPath) == "blablabla:suffix");
+	assert(processVars("$MY_ENV_VAR$MY_ENV_VAR", proj, pack, gsettings, !isPath) == "blablablablablabla");
 	environment.remove("MY_ENV_VAR");
 }
 
