@@ -1,0 +1,7 @@
+{
+	"name": "issue1551-var-escaping",
+    "preGenerateCommands": [
+        "echo $${DUB_PACKAGE_DIR}",
+        "echo $$DUB_PACKAGE_DIR"
+    ]
+}
