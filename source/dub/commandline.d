@@ -57,6 +57,7 @@ CommandGroup[] getCommands()
 		CommandGroup("Package management",
 			new FetchCommand,
 			new InstallCommand,
+			new AddCommand,
 			new RemoveCommand,
 			new UninstallCommand,
 			new UpgradeCommand,
@@ -1125,8 +1126,49 @@ class CleanCommand : Command {
 
 
 /******************************************************************************/
-/* FETCH / REMOVE / UPGRADE                                                   */
+/* FETCH / ADD / REMOVE / UPGRADE                                             */
 /******************************************************************************/
+
+class AddCommand : Command {
+	this()
+	{
+		this.name = "add";
+		this.argumentsPattern = "<packages...>";
+		this.description = "Adds a package to the package file.";
+		this.helpText = [
+			"Adds <packages> as dependencies to the package.",
+			"",
+			"Running \"dub add <package>\" is the same as adding <package> to the \"dependencies\" section in dub.json/dub.sdl."
+		];
+	}
+
+	override void prepare(scope CommandArgs args) {}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		import dub.recipe.io : readPackageRecipe, writePackageRecipe;
+		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+
+		foreach (depname; free_args) {
+			try {
+				auto ver = dub.getLatestVersion(depname);
+				auto dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
+				auto pkg = readPackageRecipe(dub.rootPath ~ "dub.json").clone();//TODO: detect if dub.json or dub.sdl
+
+				pkg.buildSettings.dependencies[depname] = dep;
+				writePackageRecipe(dub.rootPath ~ "dub.json", pkg);//TODO: detect if dub.json or dub.sdl
+
+				logInfo("Added dependency %s %s", depname, dep.versionSpec);
+			} catch (Exception e) {
+				logError("Could not find package '%s'.", depname);
+				logDebug("Full error: %s", e.toString().sanitize);
+			}
+		}
+
+		return 0;
+	}
+}
 
 class UpgradeCommand : Command {
 	private {
