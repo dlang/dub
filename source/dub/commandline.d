@@ -1151,12 +1151,11 @@ class AddCommand : Command {
 		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
+		string filetype = existsFile(dub.rootPath ~ "dub.json") ? "json" : "sdl";
 		foreach (depname; free_args) {
 			try {
 				auto ver = dub.getLatestVersion(depname);
 				auto dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
-
-				string filetype = existsFile(dub.rootPath ~ "dub.json") ? "json" : "sdl";
 				auto pkg = readPackageRecipe(dub.rootPath ~ ("dub." ~ filetype));
 
 				pkg.buildSettings.dependencies[depname] = dep;
