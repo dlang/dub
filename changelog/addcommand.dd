@@ -1,0 +1,11 @@
+Add Command
+
+The `add` command adds a dependency to the dub.json/dub.sdl file.
+
+Running `dub add vibe-d` is equivalent to manually adding the following line to dub.sdl (X.Y.Z represents the latest version):
+dependency "vibe-d" version="~>X.Y.Z"
+
+Or the following in dub.json:
+"dependencies": {
+	"vibe-d": "~>X.Y.Z"
+}
