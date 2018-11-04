@@ -1134,9 +1134,9 @@ class AddCommand : Command {
 	{
 		this.name = "add";
 		this.argumentsPattern = "<packages...>";
-		this.description = "Adds a package to the package file.";
+		this.description = "Adds dependencies to the package file.";
 		this.helpText = [
-			"Adds <packages> as dependencies to the package.",
+			"Adds <packages> as dependencies.",
 			"",
 			"Running \"dub add <package>\" is the same as adding <package> to the \"dependencies\" section in dub.json/dub.sdl."
 		];
