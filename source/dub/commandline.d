@@ -1147,6 +1147,7 @@ class AddCommand : Command {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		import dub.recipe.io : readPackageRecipe, writePackageRecipe;
+		import dub.internal.vibecompat.core.file : existsFile;
 		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
@@ -1154,10 +1155,12 @@ class AddCommand : Command {
 			try {
 				auto ver = dub.getLatestVersion(depname);
 				auto dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
-				auto pkg = readPackageRecipe(dub.rootPath ~ "dub.json").clone();//TODO: detect if dub.json or dub.sdl
+
+				string filetype = existsFile(dub.rootPath ~ "dub.json") ? "json" : "sdl";
+				auto pkg = readPackageRecipe(dub.rootPath ~ ("dub." ~ filetype));
 
 				pkg.buildSettings.dependencies[depname] = dep;
-				writePackageRecipe(dub.rootPath ~ "dub.json", pkg);//TODO: detect if dub.json or dub.sdl
+				writePackageRecipe(dub.rootPath ~ ("dub." ~ filetype), pkg);
 
 				logInfo("Added dependency %s %s", depname, dep.versionSpec);
 			} catch (Exception e) {
