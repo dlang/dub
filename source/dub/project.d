@@ -1155,6 +1155,8 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true));
 	dst.addVersions(processVars(project, pack, gsettings, settings.versions));
 	dst.addDebugVersions(processVars(project, pack, gsettings, settings.debugVersions));
+	dst.addVersionFilters(processVars(project, pack, gsettings, settings.versionFilters));
+	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters));
 	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true));
 	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true));
 	dst.addPreGenerateCommands(processVars(project, pack, gsettings, settings.preGenerateCommands));

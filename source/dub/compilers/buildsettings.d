@@ -33,6 +33,8 @@ struct BuildSettings {
 	string[] copyFiles;
 	string[] versions;
 	string[] debugVersions;
+	string[] versionFilters;
+	string[] debugVersionFilters;
 	string[] importPaths;
 	string[] stringImportPaths;
 	string[] importFiles;
@@ -71,6 +73,7 @@ struct BuildSettings {
 		addCopyFiles(bs.copyFiles);
 		addVersions(bs.versions);
 		addDebugVersions(bs.debugVersions);
+		mergeVersionFilters(bs);
 		addImportPaths(bs.importPaths);
 		addStringImportPaths(bs.stringImportPaths);
 		addImportFiles(bs.importFiles);
@@ -81,6 +84,20 @@ struct BuildSettings {
 		addPostBuildCommands(bs.postBuildCommands);
 		addPreRunCommands(bs.preRunCommands);
 		addPostRunCommands(bs.postRunCommands);
+	}
+
+	void mergeVersionFilters(in ref BuildSettings bs)
+	{
+		// only filter version identifiers if they are explicitly listed in both
+		// build settings, so to avoid incorrect filtering
+		if (versionFilters.length && bs.versionFilters.length)
+			addVersionFilters(bs.versionFilters);
+		else
+			versionFilters = null;
+		if (debugVersionFilters.length && bs.debugVersionFilters.length)
+			addDebugVersionFilters(bs.debugVersionFilters);
+		else
+			debugVersionFilters = null;
 	}
 
 	void addDFlags(in string[] value...) { dflags ~= value; }
@@ -95,6 +112,8 @@ struct BuildSettings {
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
 	void addVersions(in string[] value...) { add(versions, value); }
 	void addDebugVersions(in string[] value...) { add(debugVersions, value); }
+	void addVersionFilters(in string[] value...) { add(versionFilters, value); }
+	void addDebugVersionFilters(in string[] value...) { add(debugVersionFilters, value); }
 	void addImportPaths(in string[] value...) { add(importPaths, value); }
 	void addStringImportPaths(in string[] value...) { add(stringImportPaths, value); }
 	void prependStringImportPaths(in string[] value...) { prepend(stringImportPaths, value); }
@@ -177,9 +196,9 @@ private:
 	static bool pathMatch(string path, string pattern)
 	{
 		import std.functional : memoize;
-		
+
 		alias nativePath = memoize!((string stringPath) => NativePath(stringPath));
-			
+
 		return nativePath(path) == nativePath(pattern) || globMatch(path, pattern);
 	}
 

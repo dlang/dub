@@ -1,0 +1,17 @@
+Added experimental build settings to filter applicable version identifiers
+
+Those settings allow to filter version identifiers and debug version identifiers
+used during building a package. This can improve the build cache efficiency for
+libraries that are used by multiple applications with different version
+identifiers.
+
+dub.json:
+```json
+"-versionFilters": ["Have_vibe_d"]
+"-versionFilters-posix": ["UseUnixSockets", "UseMMap"]
+```
+dub.sdl:
+```sdl
+x:versionFilters "Have_vibe_d"
+x:versionFilters "UseUnixSockets" "UseMMap" platform="posix"
+```

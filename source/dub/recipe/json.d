@@ -214,6 +214,8 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "copyFiles": bs.copyFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "versions": bs.versions[suffix] = deserializeJson!(string[])(value); break;
 			case "debugVersions": bs.debugVersions[suffix] = deserializeJson!(string[])(value); break;
+			case "-versionFilters": bs.versionFilters[suffix] = deserializeJson!(string[])(value); break;
+			case "-debugVersionFilters": bs.debugVersionFilters[suffix] = deserializeJson!(string[])(value); break;
 			case "importPaths": bs.importPaths[suffix] = deserializeJson!(string[])(value); break;
 			case "stringImportPaths": bs.stringImportPaths[suffix] = deserializeJson!(string[])(value); break;
 			case "preGenerateCommands": bs.preGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
@@ -263,6 +265,8 @@ private Json toJson(in ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.copyFiles) ret["copyFiles"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.versions) ret["versions"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.debugVersions) ret["debugVersions"~suffix] = serializeToJson(arr);
+	foreach (suffix, arr; bs.versionFilters) ret["-versionFilters"~suffix] = serializeToJson(arr);
+	foreach (suffix, arr; bs.debugVersionFilters) ret["-debugVersionFilters"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.importPaths) ret["importPaths"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.stringImportPaths) ret["stringImportPaths"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.preGenerateCommands) ret["preGenerateCommands"~suffix] = serializeToJson(arr);

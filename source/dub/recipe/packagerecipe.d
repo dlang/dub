@@ -152,6 +152,8 @@ struct BuildSettingsTemplate {
 	string[][string] copyFiles;
 	string[][string] versions;
 	string[][string] debugVersions;
+	string[][string] versionFilters;
+	string[][string] debugVersionFilters;
 	string[][string] importPaths;
 	string[][string] stringImportPaths;
 	string[][string] preGenerateCommands;
@@ -237,6 +239,8 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("copyFiles", "addCopyFiles")(dst, platform);
 		getPlatformSetting!("versions", "addVersions")(dst, platform);
 		getPlatformSetting!("debugVersions", "addDebugVersions")(dst, platform);
+		getPlatformSetting!("versionFilters", "addVersionFilters")(dst, platform);
+		getPlatformSetting!("debugVersionFilters", "addDebugVersionFilters")(dst, platform);
 		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);
 		getPlatformSetting!("stringImportPaths", "addStringImportPaths")(dst, platform);
 		getPlatformSetting!("preGenerateCommands", "addPreGenerateCommands")(dst, platform);

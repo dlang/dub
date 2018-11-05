@@ -160,6 +160,10 @@ class ProjectGenerator
 		compatible. This also transports all Have_dependency_xyz version
 		identifiers to `rootPackage`.
 
+		4. Filter unused versions and debugVersions from all targets. The
+		filters have previously been upwards inherited (3.) so that versions
+		used in a dependency are also applied to all dependents.
+
 		Note: The upwards inheritance is done at last so that siblings do not
 		influence each other, also see https://github.com/dlang/dub/pull/1128.
 
@@ -323,7 +327,7 @@ class ProjectGenerator
 			bs.addVersions(pkgnames.map!(pn => "Have_" ~ stripDlangSpecialChars(pn)).array);
 		}
 
-		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, ...)
+		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, versionFilters, importPaths, ...)
 		void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
 		{
 			// use `visited` here as pkgs cannot depend on themselves
@@ -350,7 +354,27 @@ class ProjectGenerator
 		else
 			destroy(visited);
 
-		// 4. override string import files in dependencies
+		// 4. Filter applicable version and debug version identifiers
+		foreach (name, ref ti; targets)
+		{
+			import std.algorithm.sorting : partition;
+
+			auto bs = &ti.buildSettings;
+			if (bs.versionFilters.length)
+			{
+				auto filtered = bs.versions.partition!(v => bs.versionFilters.canFind(v));
+				logDebug("Filtering out unused versions for %s: %s", name, filtered);
+				bs.versions = bs.versions[0 .. $ - filtered.length];
+			}
+			if (bs.debugVersionFilters.length)
+			{
+				auto filtered = bs.debugVersions.partition!(v => bs.debugVersionFilters.canFind(v));
+				logDebug("Filtering out unused debug versions for %s: %s", name, filtered);
+				bs.debugVersions = bs.debugVersions[0 .. $ - filtered.length];
+			}
+		}
+
+		// 5. override string import files in dependencies
 		static void overrideStringImports(ref TargetInfo ti, TargetInfo[string] targets, string[] overrides)
 		{
 			// do not use visited here as string imports can be overridden by *any* parent
@@ -406,6 +430,7 @@ class ProjectGenerator
 		parent.addDFlags(child.dflags);
 		parent.addVersions(child.versions);
 		parent.addDebugVersions(child.debugVersions);
+		parent.mergeVersionFilters(child);
 		parent.addImportPaths(child.importPaths);
 		parent.addStringImportPaths(child.stringImportPaths);
 		// linking of static libraries is done by parent
