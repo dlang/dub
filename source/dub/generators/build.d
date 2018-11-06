@@ -34,7 +34,6 @@ class BuildGenerator : ProjectGenerator {
 	private {
 		PackageManager m_packageMan;
 		NativePath[] m_temporaryFiles;
-		NativePath m_targetExecutablePath;
 	}
 
 	this(Project project)
@@ -108,10 +107,10 @@ class BuildGenerator : ProjectGenerator {
 		auto buildsettings = targets[m_project.rootPackage.name].buildSettings.dup;
 		if (settings.run && !(buildsettings.options & BuildOption.syntaxOnly)) {
 			NativePath exe_file_path;
-			if (m_targetExecutablePath.empty)
+			if (m_tempTargetExecutablePath.empty)
 				exe_file_path = getTargetPath(buildsettings, settings);
 			else
-				exe_file_path = m_targetExecutablePath ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
+				exe_file_path = m_tempTargetExecutablePath ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 			runTarget(exe_file_path, buildsettings, settings.runArgs, settings);
 		}
 	}
@@ -161,7 +160,7 @@ class BuildGenerator : ProjectGenerator {
 		NativePath target_path;
 		if (settings.tempBuild) {
 			string packageName = pack.basePackage is null ? pack.name : pack.basePackage.name;
-			m_targetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
+			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
 		}
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 

@@ -74,6 +74,7 @@ class ProjectGenerator
 
 	protected {
 		Project m_project;
+		NativePath m_tempTargetExecutablePath;
 	}
 
 	this(Project project)
@@ -109,12 +110,13 @@ class ProjectGenerator
 		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
 
 		generateTargets(settings, targets);
+		auto targetPath = (m_tempTargetExecutablePath.empty) ? NativePath(bs.targetPath) : m_tempTargetExecutablePath;
 
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), settings, true);
 			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
-			finalizeGeneration(pack, m_project, settings, buildsettings, NativePath(bs.targetPath), generate_binary);
+			finalizeGeneration(pack, m_project, settings, buildsettings, targetPath, generate_binary);
 		}
 
 		performPostGenerateActions(settings, targets);
