@@ -602,6 +602,7 @@ abstract class PackageBuildCommand : Command {
 		bool m_nodeps;
 		bool m_forceRemove = false;
 		bool m_single;
+		bool m_filterVersions = false;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -641,6 +642,9 @@ abstract class PackageBuildCommand : Command {
 		]);
 		args.getopt("force-remove", &m_forceRemove, [
 			"Deprecated option that does nothing."
+		]);
+		args.getopt("filter-versions", &m_filterVersions, [
+			"[Experimental] Filter version identifiers and debug version identifiers to improve build cache efficiency."
 		]);
 	}
 
@@ -802,6 +806,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.compiler = m_compiler;
 		gensettings.buildSettings = m_buildSettings;
 		gensettings.combined = m_combined;
+		gensettings.filterVersions = m_filterVersions;
 		gensettings.run = m_run;
 		gensettings.runArgs = app_args;
 		gensettings.force = m_force;
@@ -947,6 +952,7 @@ class TestCommand : PackageBuildCommand {
 		settings.buildMode = m_buildMode;
 		settings.buildSettings = m_buildSettings;
 		settings.combined = m_combined;
+		settings.filterVersions = m_filterVersions;
 		settings.parallelBuild = m_parallel;
 		settings.force = m_force;
 		settings.tempBuild = m_single;
@@ -1063,6 +1069,7 @@ class DescribeCommand : PackageBuildCommand {
 		settings.config = config;
 		settings.buildType = m_buildType;
 		settings.compiler = m_compiler;
+		settings.filterVersions = m_filterVersions;
 
 		if (m_importPaths) { m_data = ["import-paths"]; m_dataList = true; }
 		else if (m_stringImportPaths) { m_data = ["string-import-paths"]; m_dataList = true; }
@@ -1720,6 +1727,7 @@ class DustmiteCommand : PackageBuildCommand {
 			gensettings.compiler = m_compiler;
 			gensettings.buildSettings = m_buildSettings;
 			gensettings.combined = m_combined;
+			gensettings.filterVersions = m_filterVersions;
 			gensettings.run = m_programStatusCode != int.min || m_programRegex.length;
 			gensettings.runArgs = app_args;
 			gensettings.force = true;

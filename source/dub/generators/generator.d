@@ -238,8 +238,9 @@ class ProjectGenerator
 			if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainSourceFiles);
 		}
 
-		foreach (ref ti; targets.byValue)
-			inferVersionFilters(ti);
+		if (genSettings.filterVersions)
+			foreach (ref ti; targets.byValue)
+				inferVersionFilters(ti);
 
 		// mark packages as visited (only used during upwards propagation)
 		void[0][Package] visited;
@@ -363,19 +364,22 @@ class ProjectGenerator
 			destroy(visited);
 
 		// 4. Filter applicable version and debug version identifiers
-		foreach (name, ref ti; targets)
+		if (genSettings.filterVersions)
 		{
-			import std.algorithm.sorting : partition;
+			foreach (name, ref ti; targets)
+			{
+				import std.algorithm.sorting : partition;
 
-			auto bs = &ti.buildSettings;
+				auto bs = &ti.buildSettings;
 
-			auto filtered = bs.versions.partition!(v => bs.versionFilters.canFind(v));
-			logDebug("Filtering out unused versions for %s: %s", name, filtered);
-			bs.versions = bs.versions[0 .. $ - filtered.length];
+				auto filtered = bs.versions.partition!(v => bs.versionFilters.canFind(v));
+				logDebug("Filtering out unused versions for %s: %s", name, filtered);
+				bs.versions = bs.versions[0 .. $ - filtered.length];
 
-			filtered = bs.debugVersions.partition!(v => bs.debugVersionFilters.canFind(v));
-			logDebug("Filtering out unused debug versions for %s: %s", name, filtered);
-			bs.debugVersions = bs.debugVersions[0 .. $ - filtered.length];
+				filtered = bs.debugVersions.partition!(v => bs.debugVersionFilters.canFind(v));
+				logDebug("Filtering out unused debug versions for %s: %s", name, filtered);
+				bs.debugVersions = bs.debugVersions[0 .. $ - filtered.length];
+			}
 		}
 
 		// 5. override string import files in dependencies
