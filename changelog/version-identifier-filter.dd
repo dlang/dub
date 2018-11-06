@@ -17,9 +17,9 @@ enum verRE = ctRegex!`(?:^|\s)version\s*\(\s*([^\s]*?)\s*\)`;
 enum debVerRE = ctRegex!`(?:^|\s)debug\s*\(\s*([^\s]*?)\s*\)`;
 ---
 
-For packages that use version identifiers in mixins or don't want to rely on
-grepping, the list of applicable version identifiers can be specified explicitly
-in the package file.
+For packages that use version identifiers in mixins or auto-generated sources,
+the list of applicable version identifiers can be specified explicitly in the
+package file.
 
 dub.json:
 ---
