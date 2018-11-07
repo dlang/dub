@@ -1258,7 +1258,7 @@ class FetchCommand : FetchRemoveCommand {
 		this.argumentsPattern = "<name>";
 		this.description = "Manually retrieves and caches a package";
 		this.helpText = [
-			"Note: Use the \"dependencies\" field in the package description file (e.g. dub.json) if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
+			"Note: Use \"dub add <dependency>\" if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
 			"",
 			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your dub.json, dub will do the rest for you.",
 			"",
