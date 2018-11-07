@@ -1254,7 +1254,7 @@ class Dub {
 		GeneratorSettings settings;
 		settings.config = "application";
 		settings.compiler = getCompiler(compiler_binary); // TODO: not using --compiler ???
-		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary);
+		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
 		settings.run = true;
 
