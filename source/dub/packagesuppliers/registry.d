@@ -116,7 +116,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		auto url = m_registryUrl;
 		url.localURI = "/api/packages/search?q="~encodeComponent(query);
 		string data;
-		data = cast(string)download(url);
+		data = cast(string)retryDownload(url);
 		return data.parseJson.opt!(Json[])
 			.map!(j => SearchResult(j["name"].opt!string, j["description"].opt!string, j["version"].opt!string))
 			.array;
