@@ -5,20 +5,19 @@ import std.typecons : AutoImplement;
 
 package abstract class AbstractFallbackPackageSupplier : PackageSupplier
 {
-	protected PackageSupplier m_default;
-	protected PackageSupplier[] m_fallbacks;
+	protected PackageSupplier[] m_suppliers;
 
-	this(PackageSupplier default_, PackageSupplier[] fallbacks)
+	this(PackageSupplier[] suppliers)
 	{
-		m_default = default_;
-		m_fallbacks = fallbacks;
+		assert(suppliers.length);
+		m_suppliers = suppliers;
 	}
 
 	override @property string description()
 	{
 		import std.algorithm.iteration : map;
 		import std.format : format;
-		return format("%s (fallback %s)", m_default.description, m_fallbacks.map!(x => x.description));
+		return format("%s (fallbacks %-(%s, %))", m_suppliers[0].description, m_suppliers[1 .. $].map!(x => x.description));
 	}
 
 	// Workaround https://issues.dlang.org/show_bug.cgi?id=2525
@@ -40,19 +39,33 @@ private template fallback(T, alias func)
 {
 	import std.format : format;
 	enum fallback = q{
-		import std.range : back, dropBackOne;
-		import dub.internal.vibecompat.core.log : logDebug;
-		scope (failure)
+		import dub.internal.vibecompat.core.log : logDiagnostic;
+
+		Exception firstEx;
+		try
+			return m_suppliers[0].%1$s(args);
+		catch (Exception e)
 		{
-			foreach (m_fallback; m_fallbacks.dropBackOne)
-			{
-				try
-					return m_fallback.%1$s(args);
-				catch(Exception)
-					logDebug("Package supplier %s failed. Trying next fallback.", m_fallback);
-			}
-			return m_fallbacks.back.%1$s(args);
+			logDiagnostic("Package supplier %%s failed with '%%s', trying fallbacks.",
+				m_suppliers[0].description, e.msg);
+			m_suppliers = m_suppliers[1 .. $];
+			firstEx = e;
 		}
-		return m_default.%1$s(args);
+
+		foreach (fallback; m_suppliers)
+		{
+			try
+			{
+				scope (success) logDiagnostic("Fallback %%s succeeded", fallback.description);
+				return fallback.%1$s(args);
+			}
+			catch(Exception e)
+			{
+				logDiagnostic("Fallback package supplier %%s failed with '%%s'.",
+					fallback.description, e.msg);
+				m_suppliers = m_suppliers[1 .. $];
+			}
+		}
+		throw firstEx;
 	}.format(__traits(identifier, func));
 }
