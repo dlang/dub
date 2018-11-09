@@ -1,0 +1,3 @@
+Sort JSON
+
+JSON files are now sorted before being written to dub.json. This is to prevent the order of the JSON properties from changing when dub.json is updated.
