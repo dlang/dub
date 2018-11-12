@@ -43,7 +43,7 @@ class Project {
 		Package[] m_dependencies;
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
-		bool m_hasAllDependencies;
+		string[] m_missingDependencies;
 		string[string] m_overriddenConfigs;
 	}
 
@@ -114,7 +114,10 @@ class Project {
 		to `selections`, or to use `Dub.upgrade` to automatically select all
 		missing dependencies.
 	*/
-	bool hasAllDependencies() const { return m_hasAllDependencies; }
+	bool hasAllDependencies() const { return m_missingDependencies.length == 0; }
+
+	/// Sorted list of missing dependencies.
+	string[] missingDependencies() { return m_missingDependencies; }
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
@@ -318,7 +321,7 @@ class Project {
 	void reinit()
 	{
 		m_dependencies = null;
-		m_hasAllDependencies = true;
+		m_missingDependencies = [];
 		m_packageManager.refresh(false);
 
 		void collectDependenciesRec(Package pack, int depth = 0)
@@ -346,7 +349,7 @@ class Project {
 					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, subname, false);
 					catch (Exception e) {
 						logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
-						if (is_desired) m_hasAllDependencies = false;
+						if (is_desired) m_missingDependencies ~= dep.name;
 						continue;
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
@@ -386,7 +389,7 @@ class Project {
 
 				if (!p) {
 					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
-					if (is_desired) m_hasAllDependencies = false;
+					if (is_desired) m_missingDependencies ~= dep.name;
 					continue;
 				}
 
@@ -403,6 +406,7 @@ class Project {
 			}
 		}
 		collectDependenciesRec(m_rootPackage);
+		m_missingDependencies.sort();
 	}
 
 	/// Returns the name of the root package.
