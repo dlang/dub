@@ -1782,7 +1782,7 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 
 			static if (pretty) {
 				import std.algorithm.searching : canFind;
-				enum keyOrder = [//determines the sorting order of the json
+				string[] keyOrder = [//determines the sorting order of the json
 					"name",
 					"description",
 					"homepage",
@@ -1820,6 +1820,10 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 					"lflags"
 				];
 
+				foreach (string key, ref const Json val; json) {
+					if (!keyOrder.canFind(key)) keyOrder ~= key;
+				}
+
 				foreach( key; keyOrder ){
 					if( json[key].type == Json.Type.undefined ) continue;
 					if( !first ) dst.put(',');
@@ -1830,17 +1834,6 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 					jsonEscape(dst, key);
 					dst.put(`": `);
 					writeJsonString!(R, pretty)(dst, json[key], level+1);
-				}
-				foreach (string key, ref const Json val; json) {//add remaining elements to the json if they weren't found in `keyOrder`
-					if( keyOrder.canFind(key) || val.type == Json.Type.undefined ) continue;
-					if( !first ) dst.put(',');
-					first = false;
-					dst.put('\n');
-					foreach (tab; 0 .. level+1) dst.put('\t');
-					dst.put('\"');
-					jsonEscape(dst, key);
-					dst.put(`": `);
-					writeJsonString!(R, pretty)(dst, val, level+1);
 				}
 				if (json.length > 0) {
 					dst.put('\n');
