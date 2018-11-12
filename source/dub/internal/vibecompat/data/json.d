@@ -1781,7 +1781,6 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 			bool first = true;
 
 			static if (pretty) {
-				import std.algorithm.sorting : sort;
 				enum keyOrder = [
 					"name",
 					"description",
