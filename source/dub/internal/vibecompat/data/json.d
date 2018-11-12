@@ -1781,7 +1781,8 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 			bool first = true;
 
 			static if (pretty) {
-				enum keyOrder = [
+				import std.algorithm.searching : canFind;
+				enum keyOrder = [//determines the sorting order of the json
 					"name",
 					"description",
 					"homepage",
@@ -1827,8 +1828,19 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 					foreach (tab; 0 .. level+1) dst.put('\t');
 					dst.put('\"');
 					jsonEscape(dst, key);
-					dst.put(pretty ? `": ` : `":`);
+					dst.put(`": `);
 					writeJsonString!(R, pretty)(dst, json[key], level+1);
+				}
+				foreach (string key, ref const Json val; json) {//add remaining elements to the json if they weren't found in `keyOrder`
+					if( keyOrder.canFind(key) || val.type == Json.Type.undefined ) continue;
+					if( !first ) dst.put(',');
+					first = false;
+					dst.put('\n');
+					foreach (tab; 0 .. level+1) dst.put('\t');
+					dst.put('\"');
+					jsonEscape(dst, key);
+					dst.put(`": `);
+					writeJsonString!(R, pretty)(dst, val, level+1);
 				}
 				if (json.length > 0) {
 					dst.put('\n');
@@ -1852,19 +1864,19 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 
 unittest {
 	auto a = Json.emptyObject;
-	a["a"] = Json.emptyArray;
-	a["b"] = Json.emptyArray;
-	a["b"] ~= Json(1);
-	a["b"] ~= Json.emptyObject;
+	a["subPackages"] = Json.emptyArray;
+	a["authors"] = Json.emptyArray;
+	a["authors"] ~= Json("author1");
+	a["authors"] ~= Json("author2");
 
-	assert(a.toString() == `{"a":[],"b":[1,{}]}` || a.toString == `{"b":[1,{}],"a":[]}`);
+	assert(a.toString() == `{"subPackages":[],"authors":["author1","author2"]}` || a.toString == `{"authors":["author1","author2"],"subPackages":[]}`);
 	assert(a.toPrettyString() ==
 `{
-	"a": [],
-	"b": [
-		1,
-		{}
-	]
+	"authors": [
+		"author1",
+		"author2"
+	],
+	"subPackages": []
 }`);
 }
 
