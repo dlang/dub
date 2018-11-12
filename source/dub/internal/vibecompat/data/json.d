@@ -1782,9 +1782,43 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 
 			static if (pretty) {
 				import std.algorithm.sorting : sort;
-				string[] keyOrder;
-				foreach (string key, ref const Json e; json) keyOrder ~= key;
-				keyOrder.sort();
+				enum keyOrder = [
+					"name",
+					"description",
+					"homepage",
+					"authors",
+					"copyright",
+					"license",
+					"dependencies",
+					"systemDependencies",
+					"subPackages",
+					"configurations",
+					"buildTypes",
+					"-ddoxFilterArgs",
+					"targetType",
+					"targetName",
+					"targetPath",
+					"workingDirectory",
+					"subConfigurations",
+					"buildRequirements",
+					"buildOptions",
+					"libs",
+					"sourceFiles",
+					"sourcePaths",
+					"excludedSourceFiles",
+					"mainSourceFile",
+					"copyFiles",
+					"versions",
+					"debugVersions",
+					"importPaths",
+					"stringImportPaths",
+					"preGenerateCommands",
+					"postGenerateCommands",
+					"preBuildCommands",
+					"postBuildCommands",
+					"dflags",
+					"lflags"
+				];
 
 				foreach( key; keyOrder ){
 					if( json[key].type == Json.Type.undefined ) continue;
