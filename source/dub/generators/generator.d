@@ -441,6 +441,7 @@ struct GeneratorSettings {
 	string buildType;
 	BuildSettings buildSettings;
 	BuildMode buildMode = BuildMode.separate;
+	int targetExitStatus;
 
 	bool combined; // compile all in one go instead of each dependency separately
 
@@ -644,6 +645,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_TARGET_TYPE"]       = to!string(build_settings.targetType);
 	env["DUB_TARGET_PATH"]       = build_settings.targetPath;
 	env["DUB_TARGET_NAME"]       = build_settings.targetName;
+	env["DUB_TARGET_EXIT_STATUS"] = settings.targetExitStatus.text;
 	env["DUB_WORKING_DIRECTORY"] = build_settings.workingDirectory;
 	env["DUB_MAIN_SOURCE_FILE"]  = build_settings.mainSourceFile;
 

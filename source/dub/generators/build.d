@@ -528,17 +528,40 @@ class BuildGenerator : ProjectGenerator {
 				if (!exe_path_string.startsWith(".") && (exe_path_string.length < 2 || exe_path_string[1] != ':'))
 					exe_path_string = ".\\" ~ exe_path_string;
 			}
+			runPreRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			logInfo("Running %s %s", exe_path_string, run_args.join(" "));
 			if (settings.runCallback) {
 				auto res = execute(exe_path_string ~ run_args);
 				settings.runCallback(res.status, res.output);
+				settings.targetExitStatus = res.status;
+				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			} else {
 				auto prg_pid = spawnProcess(exe_path_string ~ run_args);
 				auto result = prg_pid.wait();
+				settings.targetExitStatus = result;
+				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 				enforce(result == 0, "Program exited with code "~to!string(result));
 			}
 		} else
 			enforce(false, "Target is a library. Skipping execution.");
+	}
+
+	private void runPreRunCommands(in Package pack, in Project proj, in GeneratorSettings settings,
+		in BuildSettings buildsettings)
+	{
+		if (buildsettings.preRunCommands.length) {
+			logInfo("Running pre-run commands...");
+			runBuildCommands(buildsettings.preRunCommands, pack, proj, settings, buildsettings);
+		}
+	}
+
+	private void runPostRunCommands(in Package pack, in Project proj, in GeneratorSettings settings,
+		in BuildSettings buildsettings)
+	{
+		if (buildsettings.postRunCommands.length) {
+			logInfo("Running post-run commands...");
+			runBuildCommands(buildsettings.postRunCommands, pack, proj, settings, buildsettings);
+		}
 	}
 
 	private void cleanupTemporaries()

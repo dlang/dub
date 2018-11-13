@@ -220,6 +220,8 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "postGenerateCommands": bs.postGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "preBuildCommands": bs.preBuildCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "postBuildCommands": bs.postBuildCommands[suffix] = deserializeJson!(string[])(value); break;
+			case "preRunCommands": bs.preRunCommands[suffix] = deserializeJson!(string[])(value); break;
+			case "postRunCommands": bs.postRunCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "buildRequirements":
 				BuildRequirements reqs;
 				foreach (req; deserializeJson!(string[])(value))
@@ -267,6 +269,8 @@ private Json toJson(in ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.postGenerateCommands) ret["postGenerateCommands"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.preBuildCommands) ret["preBuildCommands"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.postBuildCommands) ret["postBuildCommands"~suffix] = serializeToJson(arr);
+	foreach (suffix, arr; bs.preRunCommands) ret["preRunCommands"~suffix] = serializeToJson(arr);
+	foreach (suffix, arr; bs.postRunCommands) ret["postRunCommands"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.buildRequirements) {
 		string[] val;
 		foreach (i; [EnumMembers!BuildRequirement])

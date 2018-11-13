@@ -41,6 +41,8 @@ struct BuildSettings {
 	string[] postGenerateCommands;
 	string[] preBuildCommands;
 	string[] postBuildCommands;
+	string[] preRunCommands;
+	string[] postRunCommands;
 	@byName BuildRequirements requirements;
 	@byName BuildOptions options;
 
@@ -77,6 +79,8 @@ struct BuildSettings {
 		addPostGenerateCommands(bs.postGenerateCommands);
 		addPreBuildCommands(bs.preBuildCommands);
 		addPostBuildCommands(bs.postBuildCommands);
+		addPreRunCommands(bs.preRunCommands);
+		addPostRunCommands(bs.postRunCommands);
 	}
 
 	void addDFlags(in string[] value...) { dflags ~= value; }
@@ -100,6 +104,8 @@ struct BuildSettings {
 	void addPostGenerateCommands(in string[] value...) { add(postGenerateCommands, value, false); }
 	void addPreBuildCommands(in string[] value...) { add(preBuildCommands, value, false); }
 	void addPostBuildCommands(in string[] value...) { add(postBuildCommands, value, false); }
+	void addPreRunCommands(in string[] value...) { add(preRunCommands, value, false); }
+	void addPostRunCommands(in string[] value...) { add(postRunCommands, value, false); }
 	void addRequirements(in BuildRequirement[] value...) { foreach (v; value) this.requirements |= v; }
 	void addRequirements(in BuildRequirements value) { this.requirements |= value; }
 	void addOptions(in BuildOption[] value...) { foreach (v; value) this.options |= v; }
