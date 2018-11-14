@@ -182,7 +182,7 @@ q"{.dub
 docs.json
 __dummy.html
 docs/
-%1$s
+/%1$s
 %1$s.so
 %1$s.dylib
 %1$s.dll
