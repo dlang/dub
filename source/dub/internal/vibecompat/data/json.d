@@ -1781,48 +1781,10 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 			bool first = true;
 
 			static if (pretty) {
-				import std.algorithm.searching : canFind;
-				string[] keyOrder = [//determines the sorting order of the json
-					"name",
-					"description",
-					"homepage",
-					"authors",
-					"copyright",
-					"license",
-					"dependencies",
-					"systemDependencies",
-					"subPackages",
-					"configurations",
-					"buildTypes",
-					"-ddoxFilterArgs",
-					"targetType",
-					"targetName",
-					"targetPath",
-					"workingDirectory",
-					"subConfigurations",
-					"buildRequirements",
-					"buildOptions",
-					"libs",
-					"sourceFiles",
-					"sourcePaths",
-					"excludedSourceFiles",
-					"mainSourceFile",
-					"copyFiles",
-					"versions",
-					"debugVersions",
-					"importPaths",
-					"stringImportPaths",
-					"preGenerateCommands",
-					"postGenerateCommands",
-					"preBuildCommands",
-					"postBuildCommands",
-					"dflags",
-					"lflags"
-				];
-
-				foreach (string key, ref const Json val; json) {
-					if (!keyOrder.canFind(key)) keyOrder ~= key;
-				}
+				import std.algorithm.sorting : sort;
+				string[] keyOrder;
+				foreach (string key, ref const Json e; json) keyOrder ~= key;
+				keyOrder.sort();
 
 				foreach( key; keyOrder ){
 					if( json[key].type == Json.Type.undefined ) continue;
@@ -1832,7 +1794,7 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 					foreach (tab; 0 .. level+1) dst.put('\t');
 					dst.put('\"');
 					jsonEscape(dst, key);
-					dst.put(`": `);
+					dst.put(pretty ? `": ` : `":`);
 					writeJsonString!(R, pretty)(dst, json[key], level+1);
 				}
 				if (json.length > 0) {
@@ -1857,19 +1819,19 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 
 unittest {
 	auto a = Json.emptyObject;
-	a["subPackages"] = Json.emptyArray;
-	a["authors"] = Json.emptyArray;
-	a["authors"] ~= Json("author1");
-	a["authors"] ~= Json("author2");
+	a["a"] = Json.emptyArray;
+	a["b"] = Json.emptyArray;
+	a["b"] ~= Json(1);
+	a["b"] ~= Json.emptyObject;
 
-	assert(a.toString() == `{"subPackages":[],"authors":["author1","author2"]}` || a.toString == `{"authors":["author1","author2"],"subPackages":[]}`);
+	assert(a.toString() == `{"a":[],"b":[1,{}]}` || a.toString == `{"b":[1,{}],"a":[]}`);
 	assert(a.toPrettyString() ==
 `{
-	"authors": [
-		"author1",
-		"author2"
-	],
-	"subPackages": []
+	"a": [],
+	"b": [
+		1,
+		{}
+	]
 }`);
 }
 
