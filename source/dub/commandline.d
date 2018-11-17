@@ -57,6 +57,7 @@ CommandGroup[] getCommands()
 		CommandGroup("Package management",
 			new FetchCommand,
 			new InstallCommand,
+			new AddCommand,
 			new RemoveCommand,
 			new UninstallCommand,
 			new UpgradeCommand,
@@ -1125,8 +1126,51 @@ class CleanCommand : Command {
 
 
 /******************************************************************************/
-/* FETCH / REMOVE / UPGRADE                                                   */
+/* FETCH / ADD / REMOVE / UPGRADE                                             */
 /******************************************************************************/
+
+class AddCommand : Command {
+	this()
+	{
+		this.name = "add";
+		this.argumentsPattern = "<packages...>";
+		this.description = "Adds dependencies to the package file.";
+		this.helpText = [
+			"Adds <packages> as dependencies.",
+			"",
+			"Running \"dub add <package>\" is the same as adding <package> to the \"dependencies\" section in dub.json/dub.sdl."
+		];
+	}
+
+	override void prepare(scope CommandArgs args) {}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		import dub.recipe.io : readPackageRecipe, writePackageRecipe;
+		import dub.internal.vibecompat.core.file : existsFile;
+		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+
+		string filetype = existsFile(dub.rootPath ~ "dub.json") ? "json" : "sdl";
+		foreach (depname; free_args) {
+			try {
+				auto ver = dub.getLatestVersion(depname);
+				auto dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
+				auto pkg = readPackageRecipe(dub.rootPath ~ ("dub." ~ filetype));
+
+				pkg.buildSettings.dependencies[depname] = dep;
+				writePackageRecipe(dub.rootPath ~ ("dub." ~ filetype), pkg);
+
+				logInfo("Added dependency %s %s", depname, dep.versionSpec);
+			} catch (Exception e) {
+				logError("Could not find package '%s'.", depname);
+				logDebug("Full error: %s", e.toString().sanitize);
+			}
+		}
+
+		return 0;
+	}
+}
 
 class UpgradeCommand : Command {
 	private {
@@ -1214,9 +1258,9 @@ class FetchCommand : FetchRemoveCommand {
 		this.argumentsPattern = "<name>";
 		this.description = "Manually retrieves and caches a package";
 		this.helpText = [
-			"Note: Use the \"dependencies\" field in the package description file (e.g. dub.json) if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
+			"Note: Use \"dub add <dependency>\" if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
 			"",
-			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your dub.json, dub will do the rest for you.",
+			"Explicit retrieval/removal of packages is only needed when you want to put packages in a place where several applications can share them. If you just have a dependency to add, use the `add` command. Dub will do the rest for you.",
 			"",
 			"Without specified options, placement/removal will default to a user wide shared location.",
 			"",
