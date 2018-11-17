@@ -1260,7 +1260,7 @@ class FetchCommand : FetchRemoveCommand {
 		this.helpText = [
 			"Note: Use \"dub add <dependency>\" if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
 			"",
-			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your dub.json, dub will do the rest for you.",
+			"Explicit retrieval/removal of packages is only needed when you want to put packages in a place where several applications can share them. If you just have a dependency to add, use the `add` command. Dub will do the rest for you.",
 			"",
 			"Without specified options, placement/removal will default to a user wide shared location.",
 			"",
