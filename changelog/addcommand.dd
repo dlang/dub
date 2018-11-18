@@ -7,5 +7,5 @@ dependency "vibe-d" version="~>X.Y.Z"
 
 Or the following in dub.json:
 "dependencies": {
-	"vibe-d": "~>X.Y.Z"
+    "vibe-d": "~>X.Y.Z"
 }
