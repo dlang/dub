@@ -396,7 +396,7 @@ class ProjectGenerator
 	{
 		child.addVersions(parent.versions);
 		child.addDebugVersions(parent.debugVersions);
-		child.addOptions(BuildOptions(cast(BuildOptions)parent.options & inheritedBuildOptions));
+		child.addOptions(BuildOptions(parent.options & inheritedBuildOptions));
 	}
 
 	private static void mergeFromDependency(in ref BuildSettings child, ref BuildSettings parent)
