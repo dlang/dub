@@ -427,6 +427,7 @@ class ProjectGenerator
 	{
 		import std.algorithm.searching : any;
 		import std.file : timeLastModified;
+		import std.path : extension;
 		import std.range : chain;
 		import std.regex : ctRegex, matchAll;
 		import std.stdio : File;
@@ -445,8 +446,9 @@ class ProjectGenerator
 		}
 
 		// check all existing source files for version identifiers
+		static immutable dexts = [".d", ".di"];
 		auto srcs = chain(bs.sourceFiles, bs.importFiles, bs.stringImportFiles)
-			.filter!(f => !f.isLinkerFile).filter!exists;
+			.filter!(f => dexts.canFind(f.extension)).filter!exists;
 		// try to load cached filters first
 		auto cache = ti.pack.metadataCache;
 		try
