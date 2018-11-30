@@ -17,7 +17,7 @@ echo "module dub.version_;" > source/dub/version_.d
 echo "enum dubVersion = \"$GITVER\";" >> source/dub/version_.d
 
 echo Running $GDC...
-$GDC -obin/dub -lcurl -w -fversion=DubUseCurl -Isource $* $LIBS @build-files.txt
+$GDC -obin/dub -lcurl -w -fversion=DubUseCurl -fversion=DubApplication -Isource $* $LIBS @build-files.txt
 echo DUB has been built as bin/dub.
 echo
 echo You may want to run

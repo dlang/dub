@@ -430,6 +430,65 @@ string getDUBVersion()
 	return verstr;
 }
 
+
+/**
+	Get current executable's path if running as DUB executable,
+	or find a DUB executable if DUB is used as a library.
+	For the latter, the following locations are checked in order:
+	$(UL
+		$(LI current working directory)
+		$(LI same directory as `compilerBinary` (if supplied))
+		$(LI all components of the `$PATH` variable)
+	)
+	Params:
+		compilerBinary = optional path to a D compiler executable, used to locate DUB executable
+	Returns:
+		The path to a valid DUB executable
+	Throws:
+		an Exception if no valid DUB executable is found
+*/
+public string getDUBExePath(in string compilerBinary=null)
+{
+	version(DubApplication) {
+		import std.file : thisExePath;
+		return thisExePath();
+	}
+	else {
+		// this must be dub as a library
+		import std.algorithm : filter, map, splitter;
+		import std.array : array;
+		import std.file : exists, getcwd;
+		import std.path : chainPath, dirName;
+		import std.range : chain, only, take;
+		import std.process : environment;
+
+		version(Windows) {
+			enum exeName = "dub.exe";
+			enum pathSep = ';';
+		}
+		else {
+			enum exeName = "dub";
+			enum pathSep = ':';
+		}
+
+		auto dubLocs = only(
+			getcwd().chainPath(exeName),
+			compilerBinary.dirName.chainPath(exeName),
+		)
+		.take(compilerBinary.length ? 2 : 1)
+		.chain(
+			environment.get("PATH", "")
+				.splitter(pathSep)
+				.map!(p => p.chainPath(exeName))
+		)
+		.filter!exists;
+
+		enforce(!dubLocs.empty, "Could not find DUB executable");
+		return dubLocs.front.array;
+	}
+}
+
+
 version(DubUseCurl) {
 	void setupHTTPClient(ref HTTP conn, uint timeout)
 	{
