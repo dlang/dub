@@ -10,6 +10,8 @@ fi
 rm single-file-test
 
 ./issue103-single-file-package.d foo -- bar
+${DUB} ./issue103-single-file-package foo -- bar
+./issue103-single-file-package-no-ext foo -- bar
 
 ${DUB} issue103-single-file-package-w-dep.d
 
