@@ -697,11 +697,16 @@ abstract class PackageBuildCommand : Command {
 			return true;
 		}
 
+		bool from_cwd = package_name.length == 0 || package_name.startsWith(":");
 		// load package in root_path to enable searching for sub packages
-		if (loadCwdPackage(dub, package_name.length == 0)) {
+		if (loadCwdPackage(dub, from_cwd)) {
 			if (package_name.startsWith(":"))
-				package_name = dub.projectName ~ package_name;
-			if (!package_name.length) return true;
+			{
+				auto pack = dub.packageManager.getSubPackage(dub.project.rootPackage, package_name[1 .. $], false);
+				dub.loadPackage(pack);
+				return true;
+			}
+			if (from_cwd) return true;
 		}
 
 		enforce(package_name.length, "No valid root package found - aborting.");
