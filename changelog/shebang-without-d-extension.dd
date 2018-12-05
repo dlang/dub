@@ -1,0 +1,6 @@
+Shebang without .d extension
+
+Dub single-file packages e.g. `app.d` can now be called without .d extension.
+In addition to `dub app.d --param` you can call `dub app --param`.
+
+Also files without .d extension are supported now as single-file packages.

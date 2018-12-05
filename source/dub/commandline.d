@@ -19,7 +19,7 @@ import dub.package_;
 import dub.packagemanager;
 import dub.packagesuppliers;
 import dub.project;
-import dub.internal.utils : getDUBVersion, getClosestMatch;
+import dub.internal.utils : getDUBVersion, getClosestMatch, getTempFile;
 
 import std.algorithm;
 import std.array;
@@ -33,7 +33,7 @@ import std.stdio;
 import std.string;
 import std.typecons : Tuple, tuple;
 import std.variant;
-
+import std.path: setExtension;
 
 /** Retrieves a list of all available commands.
 
@@ -101,13 +101,26 @@ int runDubCommandLine(string[] args)
 	// special stdin syntax
 	if (args.length >= 2 && args[1] == "-")
 	{
-		import dub.internal.utils: getTempFile;
-
 		auto path = getTempFile("app", ".d");
 		stdin.byChunk(4096).joiner.toFile(path.toNativeString());
 		args = args[0] ~ [path.toNativeString()] ~ args[2..$];
 	}
 
+	// create the list of all supported commands
+	CommandGroup[] commands = getCommands();
+	string[] commandNames = commands.map!(g => g.commands.map!(c => c.name).array).join.array;
+
+	// Shebang syntax support for files without .d extension
+	if (args.length >= 2 && !args[1].endsWith(".d") && !args[1].startsWith("-") && !commandNames.canFind(args[1])) {
+		if (exists(args[1])) {
+			auto path = getTempFile("app", ".d");
+			copy(args[1], path.toNativeString());
+			args[1] = path.toNativeString();
+		} else if (exists(args[1].setExtension(".d"))) {
+			args[1] = args[1].setExtension(".d");
+		}
+	}
+	
 	// special single-file package shebang syntax
 	if (args.length >= 2 && args[1].endsWith(".d")) {
 		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];
@@ -162,9 +175,6 @@ int runDubCommandLine(string[] args)
 
 		options.root_path = options.root_path.absolutePath.buildNormalizedPath;
 	}
-
-	// create the list of all supported commands
-	CommandGroup[] commands = getCommands();
 
 	// extract the command
 	string cmdname;
