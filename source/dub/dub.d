@@ -28,7 +28,7 @@ import std.conv : to;
 import std.exception : enforce;
 import std.file;
 import std.process : environment;
-import std.range : empty;
+import std.range : assumeSorted, empty;
 import std.string;
 import std.encoding : sanitize;
 
@@ -596,7 +596,10 @@ class Dub {
 		m_project.reinit();
 
 		if (!m_project.hasAllDependencies) {
-			auto resolvedDependencies = setDifference(missingDependenciesBeforeReinit, m_project.missingDependencies);
+			auto resolvedDependencies = setDifference(
+					assumeSorted(missingDependenciesBeforeReinit),
+					assumeSorted(m_project.missingDependencies)
+				);
 			if (!resolvedDependencies.empty)
 				upgrade(options, m_project.missingDependencies);
 		}
