@@ -1,0 +1,54 @@
+Added experimental feature to improve build cache efficiency
+
+Using version identifiers to configure certain features can often lead to
+unnecessary rebuilds of dependencies that don't use those version
+identifiers. In order to improve the build cache efficiency, dub gained a new
+experimental `--filter-versions` switch.
+
+When `--filter-versions` is passed to any build, test, or generate command, dub
+will grep for all the version identifiers packages actually use and only apply
+those during building. This allows for example to reuse a cached build for a
+library between two applications using different version identifiers when the
+library isn't using any of those itself.
+
+The following regular expressions used to grep for version identifiers.
+---
+enum verRE = ctRegex!`(?:^|\s)version\s*\(\s*([^\s]*?)\s*\)`;
+enum debVerRE = ctRegex!`(?:^|\s)debug\s*\(\s*([^\s]*?)\s*\)`;
+---
+
+For packages that use version identifiers in mixins or auto-generated sources,
+the list of applicable version identifiers can be specified explicitly in the
+package file.
+
+dub.json:
+---
+"-versionFilters": ["Have_vibe_d"]
+"-versionFilters-posix": ["UseUnixSockets", "UseMMap"]
+"-debugVersionFilters": ["ValidateRequests"]
+---
+dub.sdl:
+---
+x:versionFilters "Have_vibe_d"
+x:versionFilters "UseUnixSockets" "UseMMap" platform="posix"
+x:debugVersionFilters "ValidateRequests"
+---
+
+Note that the inferred version identifiers are cached and grepping is generally
+very fast, so explicitly specifying version identifiers should only be used if
+necessary.
+
+Also note that specifying either of versionFilters or debugVersionFilters will
+disable inference for both of them.
+
+The reservered version identifier none can be used for packages that don't use
+any version identifiers or debug version identifiers at all.
+
+dub.json:
+----
+"-versionFilters": ["none"]
+----
+dub.sdl:
+----
+x:debugVersionFilters "none"
+----

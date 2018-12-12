@@ -102,20 +102,19 @@ class ProjectGenerator
 			prepareGeneration(pack, m_project, settings, buildSettings);
 		}
 
-		string[] mainfiles = configurePackages(m_project.rootPackage, targets, settings);
+		configurePackages(m_project.rootPackage, targets, settings);
 
 		addBuildTypeSettings(targets, settings);
 		foreach (ref t; targets.byValue) enforceBuildRequirements(t.buildSettings);
-		auto bs = &targets[m_project.rootPackage.name].buildSettings;
-		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
 
 		generateTargets(settings, targets);
-		auto targetPath = (m_tempTargetExecutablePath.empty) ? NativePath(bs.targetPath) : m_tempTargetExecutablePath;
 
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), settings, true);
 			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
+			auto bs = &targets[m_project.rootPackage.name].buildSettings;
+			auto targetPath = (m_tempTargetExecutablePath.empty) ? NativePath(bs.targetPath) : m_tempTargetExecutablePath;
 			finalizeGeneration(pack, m_project, settings, buildsettings, targetPath, generate_binary);
 		}
 
@@ -160,13 +159,17 @@ class ProjectGenerator
 		compatible. This also transports all Have_dependency_xyz version
 		identifiers to `rootPackage`.
 
+		4. Filter unused versions and debugVersions from all targets. The
+		filters have previously been upwards inherited (3.) so that versions
+		used in a dependency are also applied to all dependents.
+
 		Note: The upwards inheritance is done at last so that siblings do not
 		influence each other, also see https://github.com/dlang/dub/pull/1128.
 
 		Note: Targets without output are integrated into their
 		dependents and removed from `targets`.
 	 */
-	private string[] configurePackages(Package rootPackage, TargetInfo[string] targets, GeneratorSettings genSettings)
+	private void configurePackages(Package rootPackage, TargetInfo[string] targets, GeneratorSettings genSettings)
 	{
 		import std.algorithm : remove, sort;
 		import std.range : repeat;
@@ -228,6 +231,16 @@ class ProjectGenerator
 			bool generatesBinary = bs.targetType != TargetType.sourceLibrary && bs.targetType != TargetType.none;
 			hasOutput[ti.pack.name] = generatesBinary || ti.pack is rootPackage;
 		}
+
+		// add main source files to root executable
+		{
+			auto bs = &targets[rootPackage.name].buildSettings;
+			if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainSourceFiles);
+		}
+
+		if (genSettings.filterVersions)
+			foreach (ref ti; targets.byValue)
+				inferVersionFilters(ti);
 
 		// mark packages as visited (only used during upwards propagation)
 		void[0][Package] visited;
@@ -323,7 +336,7 @@ class ProjectGenerator
 			bs.addVersions(pkgnames.map!(pn => "Have_" ~ stripDlangSpecialChars(pn)).array);
 		}
 
-		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, ...)
+		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, versionFilters, importPaths, ...)
 		void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
 		{
 			// use `visited` here as pkgs cannot depend on themselves
@@ -350,7 +363,26 @@ class ProjectGenerator
 		else
 			destroy(visited);
 
-		// 4. override string import files in dependencies
+		// 4. Filter applicable version and debug version identifiers
+		if (genSettings.filterVersions)
+		{
+			foreach (name, ref ti; targets)
+			{
+				import std.algorithm.sorting : partition;
+
+				auto bs = &ti.buildSettings;
+
+				auto filtered = bs.versions.partition!(v => bs.versionFilters.canFind(v));
+				logDebug("Filtering out unused versions for %s: %s", name, filtered);
+				bs.versions = bs.versions[0 .. $ - filtered.length];
+
+				filtered = bs.debugVersions.partition!(v => bs.debugVersionFilters.canFind(v));
+				logDebug("Filtering out unused debug versions for %s: %s", name, filtered);
+				bs.debugVersions = bs.debugVersions[0 .. $ - filtered.length];
+			}
+		}
+
+		// 5. override string import files in dependencies
 		static void overrideStringImports(ref TargetInfo ti, TargetInfo[string] targets, string[] overrides)
 		{
 			// do not use visited here as string imports can be overridden by *any* parent
@@ -388,8 +420,96 @@ class ProjectGenerator
 			if (!hasOutput[name])
 				targets.remove(name);
 		}
+	}
 
-		return mainSourceFiles;
+	// infer applicable version identifiers
+	private static void inferVersionFilters(ref TargetInfo ti)
+	{
+		import std.algorithm.searching : any;
+		import std.file : timeLastModified;
+		import std.path : extension;
+		import std.range : chain;
+		import std.regex : ctRegex, matchAll;
+		import std.stdio : File;
+		import std.datetime : Clock, SysTime, UTC;
+		import dub.compilers.utils : isLinkerFile;
+		import dub.internal.vibecompat.data.json : Json, JSONException;
+
+		auto bs = &ti.buildSettings;
+
+		// only infer if neither version filters are specified explicitly
+		if (bs.versionFilters.length || bs.debugVersionFilters.length)
+		{
+			logDebug("Using specified versionFilters for %s: %s %s", ti.pack.name,
+				bs.versionFilters, bs.debugVersionFilters);
+			return;
+		}
+
+		// check all existing source files for version identifiers
+		static immutable dexts = [".d", ".di"];
+		auto srcs = chain(bs.sourceFiles, bs.importFiles, bs.stringImportFiles)
+			.filter!(f => dexts.canFind(f.extension)).filter!exists;
+		// try to load cached filters first
+		auto cache = ti.pack.metadataCache;
+		try
+		{
+			auto cachedFilters = cache["versionFilters"];
+			if (cachedFilters.type != Json.Type.undefined)
+				cachedFilters = cachedFilters[ti.config];
+			if (cachedFilters.type != Json.Type.undefined)
+			{
+				immutable mtime = SysTime.fromISOExtString(cachedFilters["mtime"].get!string);
+				if (!srcs.any!(src => src.timeLastModified > mtime))
+				{
+					auto versionFilters = cachedFilters["versions"][].map!(j => j.get!string).array;
+					auto debugVersionFilters = cachedFilters["debugVersions"][].map!(j => j.get!string).array;
+					logDebug("Using cached versionFilters for %s: %s %s", ti.pack.name,
+						versionFilters, debugVersionFilters);
+					bs.addVersionFilters(versionFilters);
+					bs.addDebugVersionFilters(debugVersionFilters);
+					return;
+				}
+			}
+		}
+		catch (JSONException e)
+		{
+			logWarn("Exception during loading invalid package cache %s.\n%s",
+				ti.pack.path ~ ".dub/metadata_cache.json", e);
+		}
+
+		// use ctRegex for performance reasons, only small compile time increase
+		enum verRE = ctRegex!`(?:^|\s)version\s*\(\s*([^\s]*?)\s*\)`;
+		enum debVerRE = ctRegex!`(?:^|\s)debug\s*\(\s*([^\s]*?)\s*\)`;
+
+		auto versionFilters = appender!(string[]);
+		auto debugVersionFilters = appender!(string[]);
+
+		foreach (file; srcs)
+		{
+			foreach (line; File(file).byLine)
+			{
+				foreach (m; line.matchAll(verRE))
+					if (!versionFilters.data.canFind(m[1]))
+						versionFilters.put(m[1].idup);
+				foreach (m; line.matchAll(debVerRE))
+					if (!debugVersionFilters.data.canFind(m[1]))
+						debugVersionFilters.put(m[1].idup);
+			}
+		}
+		logDebug("Using inferred versionFilters for %s: %s %s", ti.pack.name,
+			versionFilters.data, debugVersionFilters.data);
+		bs.addVersionFilters(versionFilters.data);
+		bs.addDebugVersionFilters(debugVersionFilters.data);
+
+		auto cachedFilters = cache["versionFilters"];
+		if (cachedFilters.type == Json.Type.undefined)
+			cachedFilters = cache["versionFilters"] = [ti.config: Json.emptyObject];
+		cachedFilters[ti.config] = [
+			"mtime": Json(Clock.currTime(UTC()).toISOExtString),
+			"versions": Json(versionFilters.data.map!Json.array),
+			"debugVersions": Json(debugVersionFilters.data.map!Json.array),
+		];
+		ti.pack.metadataCache = cache;
 	}
 
 	private static void mergeFromDependent(in ref BuildSettings parent, ref BuildSettings child)
@@ -406,6 +526,8 @@ class ProjectGenerator
 		parent.addDFlags(child.dflags);
 		parent.addVersions(child.versions);
 		parent.addDebugVersions(child.debugVersions);
+		parent.addVersionFilters(child.versionFilters);
+		parent.addDebugVersionFilters(child.debugVersionFilters);
 		parent.addImportPaths(child.importPaths);
 		parent.addStringImportPaths(child.stringImportPaths);
 		// linking of static libraries is done by parent
@@ -444,6 +566,7 @@ struct GeneratorSettings {
 	int targetExitStatus;
 
 	bool combined; // compile all in one go instead of each dependency separately
+	bool filterVersions;
 
 	// only used for generator "build"
 	bool run, force, direct, rdmd, tempBuild, parallelBuild;

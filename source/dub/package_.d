@@ -274,6 +274,22 @@ class Package {
 		dstFile.writePrettyJsonString(m_info.toJson());
 	}
 
+	/// Get the metadata cache for this package
+	@property Json metadataCache()
+	{
+		enum silent_fail = true;
+		return jsonFromFile(m_path ~ ".dub/metadata_cache.json", silent_fail);
+	}
+
+	/// Write metadata cache for this package
+	@property void metadataCache(Json json)
+	{
+		enum create_if_missing = true;
+		if (isWritableDir(m_path ~ ".dub", create_if_missing))
+			writeJsonFile(m_path ~ ".dub/metadata_cache.json", json);
+		// TODO: store elsewhere
+	}
+
 	/** Returns the package recipe of a non-path-based sub package.
 
 		For sub packages that are declared within the package recipe of the

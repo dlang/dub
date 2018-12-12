@@ -121,7 +121,7 @@ Tag toSDL(in ref PackageRecipe recipe)
 
 private void parseBuildSettings(Tag settings, ref BuildSettingsTemplate bs, string package_name)
 {
-	foreach (setting; settings.tags)
+	foreach (setting; settings.all.tags)
 		parseBuildSetting(setting, bs, package_name);
 }
 
@@ -150,6 +150,8 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "copyFiles": setting.parsePlatformStringArray(bs.copyFiles); break;
 		case "versions": setting.parsePlatformStringArray(bs.versions); break;
 		case "debugVersions": setting.parsePlatformStringArray(bs.debugVersions); break;
+		case "x:versionFilters": setting.parsePlatformStringArray(bs.versionFilters); break;
+		case "x:debugVersionFilters": setting.parsePlatformStringArray(bs.debugVersionFilters); break;
 		case "importPaths": setting.parsePlatformStringArray(bs.importPaths); break;
 		case "stringImportPaths": setting.parsePlatformStringArray(bs.stringImportPaths); break;
 		case "preGenerateCommands": setting.parsePlatformStringArray(bs.preGenerateCommands); break;
@@ -216,9 +218,9 @@ private Tag toSDL(in ref ConfigurationInfo config)
 private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 {
 	Tag[] ret;
-	void add(string name, string value) { ret ~= new Tag(null, name, [Value(value)]); }
-	void adda(string name, string suffix, in string[] values) {
-		ret ~= new Tag(null, name, values[].map!(v => Value(v)).array,
+	void add(string name, string value, string namespace = null) { ret ~= new Tag(namespace, name, [Value(value)]); }
+	void adda(string name, string suffix, in string[] values, string namespace = null) {
+		ret ~= new Tag(namespace, name, values[].map!(v => Value(v)).array,
 			suffix.length ? [new Attribute(null, "platform", Value(suffix[1 .. $]))] : null);
 	}
 
@@ -253,6 +255,8 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.copyFiles) adda("copyFiles", suffix, arr);
 	foreach (suffix, arr; bs.versions) adda("versions", suffix, arr);
 	foreach (suffix, arr; bs.debugVersions) adda("debugVersions", suffix, arr);
+	foreach (suffix, arr; bs.versionFilters) adda("versionFilters", suffix, arr, "x");
+	foreach (suffix, arr; bs.debugVersionFilters) adda("debugVersionFilters", suffix, arr, "x");
 	foreach (suffix, arr; bs.importPaths) adda("importPaths", suffix, arr);
 	foreach (suffix, arr; bs.stringImportPaths) adda("stringImportPaths", suffix, arr);
 	foreach (suffix, arr; bs.preGenerateCommands) adda("preGenerateCommands", suffix, arr);
@@ -392,6 +396,12 @@ versions "version1" "version2"
 versions "version3"
 debugVersions "debug1" "debug2"
 debugVersions "debug3"
+x:versionFilters "version1" "version2"
+x:versionFilters "version3"
+x:versionFilters
+x:debugVersionFilters "debug1" "debug2"
+x:debugVersionFilters "debug3"
+x:debugVersionFilters
 importPaths "import1" "import2"
 importPaths "import3"
 stringImportPaths "string1" "string2"
@@ -468,6 +478,8 @@ lflags "lf3"
 	assert(rec.buildSettings.copyFiles == ["": ["copy1", "copy2", "copy3"]]);
 	assert(rec.buildSettings.versions == ["": ["version1", "version2", "version3"]]);
 	assert(rec.buildSettings.debugVersions == ["": ["debug1", "debug2", "debug3"]]);
+	assert(rec.buildSettings.versionFilters == ["": ["version1", "version2", "version3"]]);
+	assert(rec.buildSettings.debugVersionFilters == ["": ["debug1", "debug2", "debug3"]]);
 	assert(rec.buildSettings.importPaths == ["": ["import1", "import2", "import3"]]);
 	assert(rec.buildSettings.stringImportPaths == ["": ["string1", "string2", "string3"]]);
 	assert(rec.buildSettings.preGenerateCommands == ["": ["preg1", "preg2", "preg3"]]);

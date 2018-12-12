@@ -1,0 +1,5 @@
+name "version-filters-source-dep"
+versions "Parent"
+debugVersions "dParent"
+x:versionFilters "none"
+dependency "source-dep" path="source-dep"

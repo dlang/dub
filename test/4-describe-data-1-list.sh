@@ -12,7 +12,8 @@ function cleanup {
 
 trap cleanup EXIT
 
-if ! $DUB describe --compiler=$DC --data-list \
+if ! $DUB describe --compiler=$DC --filter-versions \
+     --data-list \
     '--data= target-type , target-path , target-name ' \
     '--data= working-directory ' \
     --data=main-source-file \
@@ -77,11 +78,8 @@ echo "$CURR_DIR/describe-dependency-1/data/*" >> "$expected_file"
 echo >> "$expected_file"
 # --data=versions
 echo "someVerIdent" >> "$expected_file"
-echo "Have_describe_project" >> "$expected_file"
-echo "Have_describe_dependency_1" >> "$expected_file"
-echo "Have_describe_dependency_2" >> "$expected_file"
-echo "Have_describe_dependency_3" >> "$expected_file"
 echo "anotherVerIdent" >> "$expected_file"
+echo "Have_describe_dependency_3" >> "$expected_file"
 echo >> "$expected_file"
 # --data=debug-versions
 echo "someDebugVerIdent" >> "$expected_file"

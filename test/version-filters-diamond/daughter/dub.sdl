@@ -1,0 +1,6 @@
+name "daughter"
+versions "Daughter"
+debugVersions "dDaughter"
+x:versionFilters "Daughter" "Parent"
+x:debugVersionFilters "dDaughter" "dParent"
+dependency "diamond" path="../diamond"
