@@ -28,7 +28,7 @@ import std.conv : to;
 import std.exception : enforce;
 import std.file;
 import std.process : environment;
-import std.range : empty;
+import std.range : assumeSorted, empty;
 import std.string;
 import std.encoding : sanitize;
 
@@ -311,7 +311,7 @@ class Dub {
             mkdirRecurse(localDirPath);
         }
 
-        runCommand("xcopy /s /e /y " ~ roamingDirPath ~ " " ~ localDirPath ~ " > NUL");
+        runCommand(`xcopy /s /e /y "` ~ roamingDirPath ~ `" "` ~ localDirPath ~ `" > NUL`);
         rmdirRecurse(roamingDirPath);
 	}
 
@@ -592,7 +592,17 @@ class Dub {
 			}
 		}
 
+		string[] missingDependenciesBeforeReinit = m_project.missingDependencies;
 		m_project.reinit();
+
+		if (!m_project.hasAllDependencies) {
+			auto resolvedDependencies = setDifference(
+					assumeSorted(missingDependenciesBeforeReinit),
+					assumeSorted(m_project.missingDependencies)
+				);
+			if (!resolvedDependencies.empty)
+				upgrade(options, m_project.missingDependencies);
+		}
 
 		if ((options & UpgradeOptions.select) && !(options & (UpgradeOptions.noSaveSelections | UpgradeOptions.dryRun)))
 			m_project.saveSelections();
@@ -773,6 +783,7 @@ class Dub {
 
 		if (existsFile(path ~ ".dub/build")) rmdirRecurse((path ~ ".dub/build").toNativeString());
 		if (existsFile(path ~ ".dub/obj")) rmdirRecurse((path ~ ".dub/obj").toNativeString());
+		if (existsFile(path ~ ".dub/metadata_cache.json")) std.file.remove((path ~ ".dub/metadata_cache.json").toNativeString());
 
 		auto p = Package.load(path);
 		if (p.getBuildSettings().targetType == TargetType.none) {
@@ -1254,7 +1265,7 @@ class Dub {
 		GeneratorSettings settings;
 		settings.config = "application";
 		settings.compiler = getCompiler(compiler_binary); // TODO: not using --compiler ???
-		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary);
+		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
 		settings.run = true;
 
@@ -1278,7 +1289,7 @@ class Dub {
 
 		if (!run) {
 			// TODO: ddox should copy those files itself
-			version(Windows) runCommand("xcopy /S /D "~tool_path~"public\\* docs\\");
+			version(Windows) runCommand(`xcopy /S /D "`~tool_path~`public\*" docs\`);
 			else runCommand("rsync -ru '"~tool_path~"public/' docs/");
 		}
 	}

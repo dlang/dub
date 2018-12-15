@@ -1,0 +1,6 @@
+Pre/Post run commands added
+
+DUB now supports commands preRunCommands which are executed before the target run
+and postRunCommands which are executed after the target run.
+Environment variable DUB_TARGET_EXIT_STATUS contains the target executable call status
+and is available in postRunCommands.

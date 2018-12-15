@@ -43,7 +43,7 @@ class Project {
 		Package[] m_dependencies;
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
-		bool m_hasAllDependencies;
+		string[] m_missingDependencies;
 		string[string] m_overriddenConfigs;
 	}
 
@@ -114,7 +114,10 @@ class Project {
 		to `selections`, or to use `Dub.upgrade` to automatically select all
 		missing dependencies.
 	*/
-	bool hasAllDependencies() const { return m_hasAllDependencies; }
+	bool hasAllDependencies() const { return m_missingDependencies.length == 0; }
+
+	/// Sorted list of missing dependencies.
+	string[] missingDependencies() { return m_missingDependencies; }
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
@@ -318,7 +321,7 @@ class Project {
 	void reinit()
 	{
 		m_dependencies = null;
-		m_hasAllDependencies = true;
+		m_missingDependencies = [];
 		m_packageManager.refresh(false);
 
 		void collectDependenciesRec(Package pack, int depth = 0)
@@ -346,7 +349,7 @@ class Project {
 					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, subname, false);
 					catch (Exception e) {
 						logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
-						if (is_desired) m_hasAllDependencies = false;
+						if (is_desired) m_missingDependencies ~= dep.name;
 						continue;
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
@@ -386,7 +389,7 @@ class Project {
 
 				if (!p) {
 					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
-					if (is_desired) m_hasAllDependencies = false;
+					if (is_desired) m_missingDependencies ~= dep.name;
 					continue;
 				}
 
@@ -403,6 +406,7 @@ class Project {
 			}
 		}
 		collectDependenciesRec(m_rootPackage);
+		m_missingDependencies.sort();
 	}
 
 	/// Returns the name of the root package.
@@ -991,6 +995,8 @@ class Project {
 		case "post-generate-commands": return listBuildSetting!"postGenerateCommands"(args);
 		case "pre-build-commands":     return listBuildSetting!"preBuildCommands"(args);
 		case "post-build-commands":    return listBuildSetting!"postBuildCommands"(args);
+		case "pre-run-commands":       return listBuildSetting!"preRunCommands"(args);
+		case "post-run-commands":      return listBuildSetting!"postRunCommands"(args);
 		case "requirements":           return listBuildSetting!"requirements"(args);
 		case "options":                return listBuildSetting!"options"(args);
 
@@ -1149,12 +1155,16 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true));
 	dst.addVersions(processVars(project, pack, gsettings, settings.versions));
 	dst.addDebugVersions(processVars(project, pack, gsettings, settings.debugVersions));
+	dst.addVersionFilters(processVars(project, pack, gsettings, settings.versionFilters));
+	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters));
 	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true));
 	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true));
 	dst.addPreGenerateCommands(processVars(project, pack, gsettings, settings.preGenerateCommands));
 	dst.addPostGenerateCommands(processVars(project, pack, gsettings, settings.postGenerateCommands));
 	dst.addPreBuildCommands(processVars(project, pack, gsettings, settings.preBuildCommands));
 	dst.addPostBuildCommands(processVars(project, pack, gsettings, settings.postBuildCommands));
+	dst.addPreRunCommands(processVars(project, pack, gsettings, settings.preRunCommands));
+	dst.addPostRunCommands(processVars(project, pack, gsettings, settings.postRunCommands));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
 
@@ -1205,8 +1215,10 @@ package(dub) immutable buildSettingsVars = [
 
 private string getVariable(Project, Package)(string name, in Project project, in Package pack, in GeneratorSettings gsettings)
 {
-	import std.process : environment;
+	import dub.internal.utils : getDUBExePath;
+	import std.process : environment, escapeShellFileName;
 	import std.uni : asUpperCase;
+
 	NativePath path;
 	if (name == "PACKAGE_DIR")
 		path = pack.path;
@@ -1228,6 +1240,10 @@ private string getVariable(Project, Package)(string name, in Project project, in
 		// no trailing slash for clean path concatenation (see #1392)
 		path.endsWithSlash = false;
 		return path.toNativeString();
+	}
+
+	if (name == "DUB") {
+		return getDUBExePath(gsettings.platform.compilerBinary);
 	}
 
 	if (name == "ARCH") {

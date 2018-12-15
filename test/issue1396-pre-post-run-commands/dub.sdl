@@ -1,0 +1,3 @@
+name "test"
+preRunCommands "echo pre-run >> test.txt"
+postRunCommands "./post-run.sh"

@@ -34,7 +34,6 @@ class BuildGenerator : ProjectGenerator {
 	private {
 		PackageManager m_packageMan;
 		NativePath[] m_temporaryFiles;
-		NativePath m_targetExecutablePath;
 	}
 
 	this(Project project)
@@ -108,10 +107,10 @@ class BuildGenerator : ProjectGenerator {
 		auto buildsettings = targets[m_project.rootPackage.name].buildSettings.dup;
 		if (settings.run && !(buildsettings.options & BuildOption.syntaxOnly)) {
 			NativePath exe_file_path;
-			if (m_targetExecutablePath.empty)
+			if (m_tempTargetExecutablePath.empty)
 				exe_file_path = getTargetPath(buildsettings, settings);
 			else
-				exe_file_path = m_targetExecutablePath ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
+				exe_file_path = m_tempTargetExecutablePath ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 			runTarget(exe_file_path, buildsettings, settings.runArgs, settings);
 		}
 	}
@@ -161,7 +160,7 @@ class BuildGenerator : ProjectGenerator {
 		NativePath target_path;
 		if (settings.tempBuild) {
 			string packageName = pack.basePackage is null ? pack.name : pack.basePackage.name;
-			m_targetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
+			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
 		}
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
@@ -529,17 +528,40 @@ class BuildGenerator : ProjectGenerator {
 				if (!exe_path_string.startsWith(".") && (exe_path_string.length < 2 || exe_path_string[1] != ':'))
 					exe_path_string = ".\\" ~ exe_path_string;
 			}
+			runPreRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			logInfo("Running %s %s", exe_path_string, run_args.join(" "));
 			if (settings.runCallback) {
 				auto res = execute(exe_path_string ~ run_args);
 				settings.runCallback(res.status, res.output);
+				settings.targetExitStatus = res.status;
+				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			} else {
 				auto prg_pid = spawnProcess(exe_path_string ~ run_args);
 				auto result = prg_pid.wait();
+				settings.targetExitStatus = result;
+				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 				enforce(result == 0, "Program exited with code "~to!string(result));
 			}
 		} else
 			enforce(false, "Target is a library. Skipping execution.");
+	}
+
+	private void runPreRunCommands(in Package pack, in Project proj, in GeneratorSettings settings,
+		in BuildSettings buildsettings)
+	{
+		if (buildsettings.preRunCommands.length) {
+			logInfo("Running pre-run commands...");
+			runBuildCommands(buildsettings.preRunCommands, pack, proj, settings, buildsettings);
+		}
+	}
+
+	private void runPostRunCommands(in Package pack, in Project proj, in GeneratorSettings settings,
+		in BuildSettings buildsettings)
+	{
+		if (buildsettings.postRunCommands.length) {
+			logInfo("Running post-run commands...");
+			runBuildCommands(buildsettings.postRunCommands, pack, proj, settings, buildsettings);
+		}
 	}
 
 	private void cleanupTemporaries()

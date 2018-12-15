@@ -19,7 +19,7 @@ import dub.package_;
 import dub.packagemanager;
 import dub.packagesuppliers;
 import dub.project;
-import dub.internal.utils : getDUBVersion, getClosestMatch;
+import dub.internal.utils : getDUBVersion, getClosestMatch, getTempFile;
 
 import std.algorithm;
 import std.array;
@@ -33,7 +33,7 @@ import std.stdio;
 import std.string;
 import std.typecons : Tuple, tuple;
 import std.variant;
-
+import std.path: setExtension;
 
 /** Retrieves a list of all available commands.
 
@@ -57,6 +57,7 @@ CommandGroup[] getCommands()
 		CommandGroup("Package management",
 			new FetchCommand,
 			new InstallCommand,
+			new AddCommand,
 			new RemoveCommand,
 			new UninstallCommand,
 			new UpgradeCommand,
@@ -100,13 +101,26 @@ int runDubCommandLine(string[] args)
 	// special stdin syntax
 	if (args.length >= 2 && args[1] == "-")
 	{
-		import dub.internal.utils: getTempFile;
-
 		auto path = getTempFile("app", ".d");
 		stdin.byChunk(4096).joiner.toFile(path.toNativeString());
 		args = args[0] ~ [path.toNativeString()] ~ args[2..$];
 	}
 
+	// create the list of all supported commands
+	CommandGroup[] commands = getCommands();
+	string[] commandNames = commands.map!(g => g.commands.map!(c => c.name).array).join.array;
+
+	// Shebang syntax support for files without .d extension
+	if (args.length >= 2 && !args[1].endsWith(".d") && !args[1].startsWith("-") && !commandNames.canFind(args[1])) {
+		if (exists(args[1])) {
+			auto path = getTempFile("app", ".d");
+			copy(args[1], path.toNativeString());
+			args[1] = path.toNativeString();
+		} else if (exists(args[1].setExtension(".d"))) {
+			args[1] = args[1].setExtension(".d");
+		}
+	}
+	
 	// special single-file package shebang syntax
 	if (args.length >= 2 && args[1].endsWith(".d")) {
 		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];
@@ -161,9 +175,6 @@ int runDubCommandLine(string[] args)
 
 		options.root_path = options.root_path.absolutePath.buildNormalizedPath;
 	}
-
-	// create the list of all supported commands
-	CommandGroup[] commands = getCommands();
 
 	// extract the command
 	string cmdname;
@@ -602,6 +613,7 @@ abstract class PackageBuildCommand : Command {
 		bool m_nodeps;
 		bool m_forceRemove = false;
 		bool m_single;
+		bool m_filterVersions = true;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -641,6 +653,9 @@ abstract class PackageBuildCommand : Command {
 		]);
 		args.getopt("force-remove", &m_forceRemove, [
 			"Deprecated option that does nothing."
+		]);
+		args.getopt("filter-versions", &m_filterVersions, [
+			"[Experimental] Filter version identifiers and debug version identifiers to improve build cache efficiency."
 		]);
 	}
 
@@ -696,11 +711,16 @@ abstract class PackageBuildCommand : Command {
 			return true;
 		}
 
+		bool from_cwd = package_name.length == 0 || package_name.startsWith(":");
 		// load package in root_path to enable searching for sub packages
-		if (loadCwdPackage(dub, package_name.length == 0)) {
+		if (loadCwdPackage(dub, from_cwd)) {
 			if (package_name.startsWith(":"))
-				package_name = dub.projectName ~ package_name;
-			if (!package_name.length) return true;
+			{
+				auto pack = dub.packageManager.getSubPackage(dub.project.rootPackage, package_name[1 .. $], false);
+				dub.loadPackage(pack);
+				return true;
+			}
+			if (from_cwd) return true;
 		}
 
 		enforce(package_name.length, "No valid root package found - aborting.");
@@ -802,6 +822,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.compiler = m_compiler;
 		gensettings.buildSettings = m_buildSettings;
 		gensettings.combined = m_combined;
+		gensettings.filterVersions = m_filterVersions;
 		gensettings.run = m_run;
 		gensettings.runArgs = app_args;
 		gensettings.force = m_force;
@@ -947,6 +968,7 @@ class TestCommand : PackageBuildCommand {
 		settings.buildMode = m_buildMode;
 		settings.buildSettings = m_buildSettings;
 		settings.combined = m_combined;
+		settings.filterVersions = m_filterVersions;
 		settings.parallelBuild = m_parallel;
 		settings.force = m_force;
 		settings.tempBuild = m_single;
@@ -1063,6 +1085,7 @@ class DescribeCommand : PackageBuildCommand {
 		settings.config = config;
 		settings.buildType = m_buildType;
 		settings.compiler = m_compiler;
+		settings.filterVersions = m_filterVersions;
 
 		if (m_importPaths) { m_data = ["import-paths"]; m_dataList = true; }
 		else if (m_stringImportPaths) { m_data = ["string-import-paths"]; m_dataList = true; }
@@ -1125,8 +1148,51 @@ class CleanCommand : Command {
 
 
 /******************************************************************************/
-/* FETCH / REMOVE / UPGRADE                                                   */
+/* FETCH / ADD / REMOVE / UPGRADE                                             */
 /******************************************************************************/
+
+class AddCommand : Command {
+	this()
+	{
+		this.name = "add";
+		this.argumentsPattern = "<packages...>";
+		this.description = "Adds dependencies to the package file.";
+		this.helpText = [
+			"Adds <packages> as dependencies.",
+			"",
+			"Running \"dub add <package>\" is the same as adding <package> to the \"dependencies\" section in dub.json/dub.sdl."
+		];
+	}
+
+	override void prepare(scope CommandArgs args) {}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		import dub.recipe.io : readPackageRecipe, writePackageRecipe;
+		import dub.internal.vibecompat.core.file : existsFile;
+		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+
+		string filetype = existsFile(dub.rootPath ~ "dub.json") ? "json" : "sdl";
+		foreach (depname; free_args) {
+			try {
+				auto ver = dub.getLatestVersion(depname);
+				auto dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
+				auto pkg = readPackageRecipe(dub.rootPath ~ ("dub." ~ filetype));
+
+				pkg.buildSettings.dependencies[depname] = dep;
+				writePackageRecipe(dub.rootPath ~ ("dub." ~ filetype), pkg);
+
+				logInfo("Added dependency %s %s", depname, dep.versionSpec);
+			} catch (Exception e) {
+				logError("Could not find package '%s'.", depname);
+				logDebug("Full error: %s", e.toString().sanitize);
+			}
+		}
+
+		return 0;
+	}
+}
 
 class UpgradeCommand : Command {
 	private {
@@ -1214,9 +1280,9 @@ class FetchCommand : FetchRemoveCommand {
 		this.argumentsPattern = "<name>";
 		this.description = "Manually retrieves and caches a package";
 		this.helpText = [
-			"Note: Use the \"dependencies\" field in the package description file (e.g. dub.json) if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
+			"Note: Use \"dub add <dependency>\" if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
 			"",
-			"Explicit retrieval/removal of packages is only needed when you want to put packages to a place where several applications can share these. If you just have an dependency to a package, just add it to your dub.json, dub will do the rest for you.",
+			"Explicit retrieval/removal of packages is only needed when you want to put packages in a place where several applications can share them. If you just have a dependency to add, use the `add` command. Dub will do the rest for you.",
 			"",
 			"Without specified options, placement/removal will default to a user wide shared location.",
 			"",
@@ -1720,6 +1786,7 @@ class DustmiteCommand : PackageBuildCommand {
 			gensettings.compiler = m_compiler;
 			gensettings.buildSettings = m_buildSettings;
 			gensettings.combined = m_combined;
+			gensettings.filterVersions = m_filterVersions;
 			gensettings.run = m_programStatusCode != int.min || m_programRegex.length;
 			gensettings.runArgs = app_args;
 			gensettings.force = true;

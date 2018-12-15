@@ -20,6 +20,7 @@ import std.array : join, split;
 import std.exception : enforce;
 import std.file;
 import std.range;
+import std.process : environment;
 
 
 /**
@@ -151,12 +152,16 @@ struct BuildSettingsTemplate {
 	string[][string] copyFiles;
 	string[][string] versions;
 	string[][string] debugVersions;
+	string[][string] versionFilters;
+	string[][string] debugVersionFilters;
 	string[][string] importPaths;
 	string[][string] stringImportPaths;
 	string[][string] preGenerateCommands;
 	string[][string] postGenerateCommands;
 	string[][string] preBuildCommands;
 	string[][string] postBuildCommands;
+	string[][string] preRunCommands;
+	string[][string] postRunCommands;
 	BuildRequirements[string] buildRequirements;
 	BuildOptions[string] buildOptions;
 
@@ -179,6 +184,9 @@ struct BuildSettingsTemplate {
 		{
 			auto files = appender!(string[]);
 
+			import dub.project : buildSettingsVars;
+			auto envVars = environment.toAA();
+
 			foreach (suffix, paths; paths_map) {
 				if (!platform.matchesSpecification(suffix))
 					continue;
@@ -188,9 +196,8 @@ struct BuildSettingsTemplate {
 					auto path = NativePath(spath);
 					if (!path.absolute) path = base_path ~ path;
 					if (!existsFile(path) || !isDir(path.toNativeString())) {
-						import dub.project : buildSettingsVars;
 						import std.algorithm : any, find;
-						const hasVar = buildSettingsVars.any!((string var) {
+						const hasVar = chain(buildSettingsVars, envVars.byKey).any!((string var) {
 							return spath.find("$"~var).length > 0 || spath.find("${"~var~"}").length > 0;
 						});
 						if (!hasVar)
@@ -232,12 +239,16 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("copyFiles", "addCopyFiles")(dst, platform);
 		getPlatformSetting!("versions", "addVersions")(dst, platform);
 		getPlatformSetting!("debugVersions", "addDebugVersions")(dst, platform);
+		getPlatformSetting!("versionFilters", "addVersionFilters")(dst, platform);
+		getPlatformSetting!("debugVersionFilters", "addDebugVersionFilters")(dst, platform);
 		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);
 		getPlatformSetting!("stringImportPaths", "addStringImportPaths")(dst, platform);
 		getPlatformSetting!("preGenerateCommands", "addPreGenerateCommands")(dst, platform);
 		getPlatformSetting!("postGenerateCommands", "addPostGenerateCommands")(dst, platform);
 		getPlatformSetting!("preBuildCommands", "addPreBuildCommands")(dst, platform);
 		getPlatformSetting!("postBuildCommands", "addPostBuildCommands")(dst, platform);
+		getPlatformSetting!("preRunCommands", "addPreRunCommands")(dst, platform);
+		getPlatformSetting!("postRunCommands", "addPostRunCommands")(dst, platform);
 		getPlatformSetting!("buildRequirements", "addRequirements")(dst, platform);
 		getPlatformSetting!("buildOptions", "addOptions")(dst, platform);
 	}

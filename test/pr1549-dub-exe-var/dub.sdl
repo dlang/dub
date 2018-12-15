@@ -1,0 +1,4 @@
+name "test-application"
+targetType "executable"
+preBuildCommands "$DUB run --single $PACKAGE_DIR/setmsg.d -- \"modified code\""
+postBuildCommands "$DUB run --single $PACKAGE_DIR/setmsg.d -- \"unmodified code\""
