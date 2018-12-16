@@ -1,5 +1,5 @@
 build --force-no-deps
 
-The `-F`/`--force-no-deps` option to the `build` command forces a rebuild of the current package, excluding dependencies.
+The `--force-no-deps` option for the `build` command forces a rebuild of the current package, excluding dependencies.
 
 `--force-no-deps` does the same thing as `--force`, except that `--force-no-deps` does not rebuild dependencies.
