@@ -148,6 +148,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "excludedSourceFiles": setting.parsePlatformStringArray(bs.excludedSourceFiles); break;
 		case "mainSourceFile": bs.mainSourceFile = setting.stringTagValue; break;
 		case "copyFiles": setting.parsePlatformStringArray(bs.copyFiles); break;
+		case "extraDependencyFiles": setting.parsePlatformStringArray(bs.extraDependencyFiles); break;
 		case "versions": setting.parsePlatformStringArray(bs.versions); break;
 		case "debugVersions": setting.parsePlatformStringArray(bs.debugVersions); break;
 		case "x:versionFilters": setting.parsePlatformStringArray(bs.versionFilters); break;
@@ -253,6 +254,7 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.sourcePaths) adda("sourcePaths", suffix, arr);
 	foreach (suffix, arr; bs.excludedSourceFiles) adda("excludedSourceFiles", suffix, arr);
 	foreach (suffix, arr; bs.copyFiles) adda("copyFiles", suffix, arr);
+	foreach (suffix, arr; bs.extraDependencyFiles) adda("extraDependencyFiles", suffix, arr);
 	foreach (suffix, arr; bs.versions) adda("versions", suffix, arr);
 	foreach (suffix, arr; bs.debugVersions) adda("debugVersions", suffix, arr);
 	foreach (suffix, arr; bs.versionFilters) adda("versionFilters", suffix, arr, "x");
@@ -392,6 +394,8 @@ excludedSourceFiles "excluded3"
 mainSourceFile "main source"
 copyFiles "copy1" "copy2"
 copyFiles "copy3"
+extraDependencyFiles "extradepfile1" "extradepfile2"
+extraDependencyFiles "extradepfile3"
 versions "version1" "version2"
 versions "version3"
 debugVersions "debug1" "debug2"
@@ -476,6 +480,7 @@ lflags "lf3"
 	assert(rec.buildSettings.excludedSourceFiles == ["": ["excluded1", "excluded2", "excluded3"]]);
 	assert(rec.buildSettings.mainSourceFile == "main source");
 	assert(rec.buildSettings.copyFiles == ["": ["copy1", "copy2", "copy3"]]);
+	assert(rec.buildSettings.extraDependencyFiles == ["": ["extradepfile1", "extradepfile2", "extradepfile3"]]);
 	assert(rec.buildSettings.versions == ["": ["version1", "version2", "version3"]]);
 	assert(rec.buildSettings.debugVersions == ["": ["debug1", "debug2", "debug3"]]);
 	assert(rec.buildSettings.versionFilters == ["": ["version1", "version2", "version3"]]);

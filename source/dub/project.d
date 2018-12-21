@@ -955,6 +955,7 @@ class Project {
 			case "working-directory":
 			case "string-import-files":
 			case "copy-files":
+			case "extra-dependency-files":
 			case "pre-generate-commands":
 			case "post-generate-commands":
 			case "pre-build-commands":
@@ -985,6 +986,7 @@ class Project {
 		case "linker-files":           return listBuildSetting!"linkerFiles"(args);
 		case "source-files":           return listBuildSetting!"sourceFiles"(args);
 		case "copy-files":             return listBuildSetting!"copyFiles"(args);
+		case "extra-dependency-files": return listBuildSetting!"extraDependencyFiles"(args);
 		case "versions":               return listBuildSetting!"versions"(args);
 		case "debug-versions":         return listBuildSetting!"debugVersions"(args);
 		case "import-paths":           return listBuildSetting!"importPaths"(args);
@@ -1153,6 +1155,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true));
 	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true));
 	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true));
+	dst.addExtraDependencyFiles(processVars(project, pack, gsettings, settings.extraDependencyFiles, true));
 	dst.addVersions(processVars(project, pack, gsettings, settings.versions));
 	dst.addDebugVersions(processVars(project, pack, gsettings, settings.debugVersions));
 	dst.addVersionFilters(processVars(project, pack, gsettings, settings.versionFilters));

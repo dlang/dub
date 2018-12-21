@@ -85,6 +85,7 @@ struct PackageDescription {
 	string[] lflags; /// Flags passed to the linker
 	string[] libs; /// Librariy names to link against (typically using "-l<name>")
 	string[] copyFiles; /// Files to copy to the target directory
+	string[] extraDependencyFiles; /// Files to check for rebuild dub project
 	string[] versions; /// D version identifiers to set
 	string[] debugVersions; /// D debug version identifiers to set
 	string[] importPaths;

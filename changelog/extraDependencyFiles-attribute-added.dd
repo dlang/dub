@@ -1,0 +1,4 @@
+extraDependencyFiles attribute added
+
+Using attribute `extraDependencyFiles` a list of files can be specified
+causing rebuild on change.

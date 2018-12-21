@@ -31,6 +31,7 @@ struct BuildSettings {
 	string[] linkerFiles;
 	string[] sourceFiles;
 	string[] copyFiles;
+	string[] extraDependencyFiles;
 	string[] versions;
 	string[] debugVersions;
 	string[] versionFilters;
@@ -71,6 +72,7 @@ struct BuildSettings {
 		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
 		addCopyFiles(bs.copyFiles);
+		addExtraDependencyFiles(bs.extraDependencyFiles);
 		addVersions(bs.versions);
 		addDebugVersions(bs.debugVersions);
 		addVersionFilters(bs.versionFilters);
@@ -97,6 +99,7 @@ struct BuildSettings {
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
+	void addExtraDependencyFiles(in string[] value...) { add(extraDependencyFiles, value); }
 	void addVersions(in string[] value...) { add(versions, value); }
 	void addDebugVersions(in string[] value...) { add(debugVersions, value); }
 	void addVersionFilters(in string[] value...) { add(versionFilters, value); }

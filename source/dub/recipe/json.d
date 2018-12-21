@@ -212,6 +212,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "sourcePath": bs.sourcePaths[suffix] ~= [value.get!string]; break; // deprecated
 			case "excludedSourceFiles": bs.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "copyFiles": bs.copyFiles[suffix] = deserializeJson!(string[])(value); break;
+			case "extraDependencyFiles": bs.extraDependencyFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "versions": bs.versions[suffix] = deserializeJson!(string[])(value); break;
 			case "debugVersions": bs.debugVersions[suffix] = deserializeJson!(string[])(value); break;
 			case "-versionFilters": bs.versionFilters[suffix] = deserializeJson!(string[])(value); break;
@@ -263,6 +264,7 @@ private Json toJson(in ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.sourcePaths) ret["sourcePaths"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.excludedSourceFiles) ret["excludedSourceFiles"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.copyFiles) ret["copyFiles"~suffix] = serializeToJson(arr);
+	foreach (suffix, arr; bs.extraDependencyFiles) ret["extraDependencyFiles"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.versions) ret["versions"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.debugVersions) ret["debugVersions"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.versionFilters) ret["-versionFilters"~suffix] = serializeToJson(arr);
