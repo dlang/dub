@@ -17,7 +17,7 @@ function cleanup {
 
 trap cleanup EXIT
 
-if ! $DUB describe --compiler=${DC} \
+if ! $DUB describe --compiler=$DC --filter-versions \
     --data=main-source-file \
     --data=dflags,lflags \
     --data=libs,linker-files \
