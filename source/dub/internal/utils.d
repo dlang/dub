@@ -16,7 +16,7 @@ import dub.version_;
 
 import core.time : Duration;
 import std.algorithm : canFind, startsWith;
-import std.array : appender;
+import std.array : appender, array;
 import std.conv : to;
 import std.exception : enforce;
 import std.file;
@@ -128,6 +128,39 @@ Json jsonFromFile(NativePath file, bool silent_fail = false) {
 	scope(exit) f.close();
 	auto text = stripUTF8Bom(cast(string)f.readAll());
 	return parseJsonString(text, file.toNativeString());
+}
+
+/**
+	Read package info file content from archive.
+	File needs to be in root folder or in first
+	sub folder.
+
+	Params:
+		zip = path to archive file
+		fileName = Package file name
+	Returns:
+		package file content.
+*/
+string packageInfoFileFromZip(NativePath zip, out string fileName) {
+	import std.zip : ZipArchive, ArchiveMember;
+	import dub.package_ : packageInfoFiles;
+
+	auto f = openFile(zip, FileMode.read);
+	ubyte[] b = new ubyte[cast(size_t)f.size];
+	f.rawRead(b);
+	f.close();
+	auto archive = new ZipArchive(b);
+	alias PSegment = typeof (NativePath.init.head);
+	foreach (ArchiveMember am; archive.directory) {
+		auto path = NativePath(am.name).bySegment.array;
+		foreach (fil; packageInfoFiles) {
+			if ((path.length == 1 && path[0] == fil.filename) || (path.length == 2 && path[$-1].toString == fil.filename)) {
+				fileName = fil.filename;
+				return stripUTF8Bom(cast(string) archive.expand(archive.directory[am.name]));
+			}
+		}
+	}
+	throw new Exception("No package descriptor found");
 }
 
 Json jsonFromZip(NativePath zip, string filename) {

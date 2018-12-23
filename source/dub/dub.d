@@ -93,12 +93,14 @@ PackageSupplier[] defaultPackageSuppliers()
 */
 PackageSupplier getRegistryPackageSupplier(string url)
 {
-	switch (url.startsWith("dub+", "mvn+"))
+	switch (url.startsWith("dub+", "mvn+", "file://"))
 	{
 		case 1:
 			return new RegistryPackageSupplier(URL(url[4..$]));
 		case 2:
 			return new MavenRegistryPackageSupplier(URL(url[4..$]));
+		case 3:
+			return new FileSystemPackageSupplier(NativePath(url[7..$]));
 		default:
 			return new RegistryPackageSupplier(URL(url));
 	}
@@ -114,6 +116,9 @@ unittest
 
 	auto mavenRegistryPackageSupplier = getRegistryPackageSupplier("mvn+http://localhost:8040/maven/libs-release/dubpackages");
 	assert(mavenRegistryPackageSupplier.description.canFind(" http://localhost:8040/maven/libs-release/dubpackages"));
+
+	auto fileSystemPackageSupplier = getRegistryPackageSupplier("file:///etc/dubpackages");
+	assert(fileSystemPackageSupplier.description.canFind(" " ~ NativePath("/etc/dubpackages").toNativeString));
 }
 
 /** Provides a high-level entry point for DUB's functionality.

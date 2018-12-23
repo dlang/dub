@@ -1,0 +1,7 @@
+File system supplier enabled
+
+Existing file system supplier is enabled for usage.
+It searches a certain directory for files with names of
+the form "[package name]-[version].zip".
+
+Example `dub fetch mypackage --registry=file:///etc/dub/packages/`
