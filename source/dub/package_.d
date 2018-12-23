@@ -116,6 +116,7 @@ class Package {
 		// use the given recipe as the basis
 		m_info = recipe;
 
+		checkDubRequirements();
 		fillWithDefaults();
 	}
 
@@ -633,6 +634,32 @@ class Package {
 		}
 
 		return ret;
+	}
+
+	private void checkDubRequirements()
+	{
+		import dub.dependency : Dependency;
+		import dub.semver : isValidVersion;
+		import dub.version_ : dubVersion;
+		import std.exception : enforce;
+
+		if (m_info.toolchainRequirements.dub.length) {
+			const dep = Dependency(m_info.toolchainRequirements.dub);
+
+			static assert(dubVersion.length);
+			static if (dubVersion[0] == 'v') {
+				enum dv = dubVersion[1 .. $];
+			}
+			else {
+				enum dv = dubVersion;
+			}
+			static assert(isValidVersion(dv));
+
+			enforce(dep.matches(dv),
+				"dub-"~dv~" does not comply with toolchainRequirements.dub " ~
+				"specification: "~m_info.toolchainRequirements.dub~
+				"\nPlease consider upgrading your DUB installation");
+		}
 	}
 
 	private void fillWithDefaults()

@@ -234,4 +234,25 @@ struct BuildPlatform {
 	string compilerBinary;
 	/// Compiled frontend version (e.g. `2067` for frontend versions 2.067.x)
 	int frontendVersion;
+	/// Compiler version e.g. "1.11.0"
+	string compilerVersion;
+	/// Frontend version string from frontendVersion
+	/// e.g: 2067 => "2.067"
+	string frontendVersionString() const
+	{
+		import std.format : format;
+
+		const maj = frontendVersion / 1000;
+		const min = frontendVersion % 1000;
+		return format("%d.%03d", maj, min);
+	}
+	///
+	unittest
+	{
+		BuildPlatform bp;
+		bp.frontendVersion = 2067;
+		assert(bp.frontendVersionString == "2.067");
+	}
 }
+
+

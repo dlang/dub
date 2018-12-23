@@ -41,6 +41,9 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 					recipe.buildTypes[name] = bs;
 				}
 				break;
+			case "toolchainRequirements":
+				recipe.toolchainRequirements.parseJson(value);
+				break;
 			case "-ddoxFilterArgs": recipe.ddoxFilterArgs = deserializeJson!(string[])(value); break;
 			case "-ddoxTool": recipe.ddoxTool = value.get!string; break;
 		}
@@ -102,6 +105,9 @@ Json toJson(in ref PackageRecipe recipe)
 		foreach (name, settings; recipe.buildTypes)
 			types[name] = settings.toJson();
 		ret["buildTypes"] = types;
+	}
+	if (recipe.hasToolchainRequirements) {
+		ret["toolchainRequirements"] = recipe.toolchainRequirements.toJson();
 	}
 	if (!recipe.ddoxFilterArgs.empty) ret["-ddoxFilterArgs"] = recipe.ddoxFilterArgs.serializeToJson();
 	if (!recipe.ddoxTool.empty) ret["-ddoxTool"] = recipe.ddoxTool;
@@ -288,6 +294,52 @@ private Json toJson(in ref BuildSettingsTemplate bs)
 		foreach (i; [EnumMembers!BuildOption])
 			if (arr & i) val ~= to!string(i);
 		ret["buildOptions"~suffix] = serializeToJson(val);
+	}
+	return ret;
+}
+
+private void parseJson(ref ToolchainRequirements tr, Json json)
+{
+	foreach (string name, value; json) {
+		switch (name) {
+		case "dub":
+			tr.dub = value.get!string();
+			break;
+		case "frontend":
+			tr.frontend = value.get!string();
+			break;
+		case "dmd":
+			tr.dmd = value.get!string();
+			break;
+		case "ldc":
+			tr.ldc = value.get!string();
+			break;
+		case "gdc":
+			tr.gdc = value.get!string();
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+private Json toJson(in ref ToolchainRequirements tr)
+{
+	auto ret = Json.emptyObject;
+	if (tr.dub.length) {
+		ret["dub"] = serializeToJson(tr.dub);
+	}
+	if (tr.frontend.length) {
+		ret["frontend"] = serializeToJson(tr.frontend);
+	}
+	if (tr.dmd.length) {
+		ret["dmd"] = serializeToJson(tr.dmd);
+	}
+	if (tr.ldc.length) {
+		ret["ldc"] = serializeToJson(tr.ldc);
+	}
+	if (tr.gdc.length) {
+		ret["gdc"] = serializeToJson(tr.gdc);
 	}
 	return ret;
 }

@@ -50,6 +50,9 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 				parseBuildSettings(n, bt, parent_name);
 				recipe.buildTypes[name] = bt;
 				break;
+			case "toolchainRequirements":
+				parseToolchainRequirements(recipe.toolchainRequirements, n);
+				break;
 			case "x:ddoxFilterArgs": recipe.ddoxFilterArgs ~= n.stringArrayTagValue; break;
 			case "x:ddoxTool": recipe.ddoxTool = n.stringTagValue; break;
 		}
@@ -100,6 +103,9 @@ Tag toSDL(in ref PackageRecipe recipe)
 		auto t = new Tag(null, "buildType", [Value(name)]);
 		t.add(settings.toSDL());
 		ret.add(t);
+	}
+	if (recipe.hasToolchainRequirements) {
+		ret.add(toSDL(recipe.toolchainRequirements));
 	}
 	if (recipe.ddoxFilterArgs.length)
 		ret.add(new Tag("x", "ddoxFilterArgs", recipe.ddoxFilterArgs.map!(a => Value(a)).array));
@@ -272,6 +278,52 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 	return ret;
 }
 
+private void parseToolchainRequirements(ref ToolchainRequirements tr, Tag tag)
+{
+	foreach (attr; tag.attributes) {
+		switch (attr.name) {
+		case "dub":
+			tr.dub = attr.value.get!string();
+			break;
+		case "frontend":
+			tr.frontend = attr.value.get!string();
+			break;
+		case "dmd":
+			tr.dmd = attr.value.get!string();
+			break;
+		case "ldc":
+			tr.ldc = attr.value.get!string();
+			break;
+		case "gdc":
+			tr.gdc = attr.value.get!string();
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+private Tag toSDL(const ref ToolchainRequirements tr)
+{
+	Attribute[] attrs;
+	if (tr.dub.length) {
+		attrs ~= new Attribute("dub", Value(tr.dub));
+	}
+	if (tr.frontend.length) {
+		attrs ~= new Attribute("frontend", Value(tr.frontend));
+	}
+	if (tr.dmd.length) {
+		attrs ~= new Attribute("dmd", Value(tr.dmd));
+	}
+	if (tr.ldc.length) {
+		attrs ~= new Attribute("ldc", Value(tr.ldc));
+	}
+	if (tr.gdc.length) {
+		attrs ~= new Attribute("gdc", Value(tr.gdc));
+	}
+	return new Tag(null, "toolchainRequirements", null, attrs);
+}
+
 private string expandPackageName(string name, string parent_name, Tag tag)
 {
 	import std.algorithm : canFind;
@@ -369,6 +421,7 @@ buildType "debug" {
 buildType "release" {
 	dflags "-release" "-O"
 }
+toolchainRequirements dub="~>1.11.0" dmd="~>2.082"
 x:ddoxFilterArgs "-arg1" "-arg2"
 x:ddoxFilterArgs "-arg3"
 x:ddoxTool "ddoxtool"
@@ -457,6 +510,11 @@ lflags "lf3"
 	assert(rec.buildTypes.length == 2);
 	assert(rec.buildTypes["debug"].dflags == ["": ["-g", "-debug"]]);
 	assert(rec.buildTypes["release"].dflags == ["": ["-release", "-O"]]);
+	assert(rec.toolchainRequirements.dub == "~>1.11.0");
+	assert(rec.toolchainRequirements.frontend is null);
+	assert(rec.toolchainRequirements.dmd == "~>2.082");
+	assert(rec.toolchainRequirements.ldc is null);
+	assert(rec.toolchainRequirements.gdc is null);
 	assert(rec.ddoxFilterArgs == ["-arg1", "-arg2", "-arg3"], rec.ddoxFilterArgs.to!string);
 	assert(rec.ddoxTool == "ddoxtool");
 	assert(rec.buildSettings.dependencies.length == 2);
