@@ -64,8 +64,6 @@ deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryU
 /// The URL to the official package registry and it's default fallback registries.
 enum defaultRegistryURLs = [
 	"https://code.dlang.org/",
-	// fallback in case of HTTPS problems
-	"http://code.dlang.org/",
 	"https://code-mirror.dlang.io/",
 	"https://code-mirror2.dlang.io/",
 	"https://dub-registry.herokuapp.com/",
