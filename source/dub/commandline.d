@@ -613,7 +613,7 @@ abstract class PackageBuildCommand : Command {
 		bool m_nodeps;
 		bool m_forceRemove = false;
 		bool m_single;
-		bool m_filterVersions = true;
+		bool m_filterVersions = false;
 	}
 
 	override void prepare(scope CommandArgs args)
