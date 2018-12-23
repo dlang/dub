@@ -170,26 +170,10 @@ class LDCCompiler : Compiler {
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
-		final switch (settings.targetType) {
-			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
-			case TargetType.none: assert(false, "Invalid target type: none");
-			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
-			case TargetType.executable: break;
-			case TargetType.library:
-			case TargetType.staticLibrary:
-				settings.addDFlags("-lib");
-				break;
-			case TargetType.dynamicLibrary:
-				settings.addDFlags("-shared");
-				break;
-			case TargetType.object:
-				settings.addDFlags("-c");
-				break;
-		}
-
+		settings.prependDFlags(targetTypeFlags(settings.targetType));
 		if (tpath is null)
 			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
-		settings.addDFlags("-of"~tpath);
+		settings.addDFlags(outFileFlags(tpath));
 	}
 
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
@@ -208,9 +192,31 @@ class LDCCompiler : Compiler {
 		assert(false, "Separate linking not implemented for LDC");
 	}
 
+	string[] targetTypeFlags(in TargetType tt) const
+	{
+		final switch (tt) {
+			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
+			case TargetType.none: assert(false, "Invalid target type: none");
+			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
+			case TargetType.executable: return null;
+			case TargetType.library:
+			case TargetType.staticLibrary:
+				return ["-lib"];
+			case TargetType.dynamicLibrary:
+				return ["-shared"];
+			case TargetType.object:
+				return ["-c"];
+		}
+	}
+
+	string[] outFileFlags(string tpath) const
+	{
+		return ["-of"~tpath];
+	}
+
 	string[] lflagsToDFlags(in string[] lflags) const
 	{
-		return  lflags.map!(s => "-L="~s)().array();
+		return lflags.map!(s => "-L="~s)().array();
 	}
 
 	private auto escapeArgs(in string[] args)

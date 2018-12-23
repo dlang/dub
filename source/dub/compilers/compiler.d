@@ -86,6 +86,12 @@ interface Compiler {
 	/// Invokes the underlying linker directly
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback);
 
+	/// Get compiler flags for target type (e.g. -shared or -lib)
+	string[] targetTypeFlags(in TargetType tt) const;
+
+	/// Get compiler flags to set output file (e.g. -of=file.o)
+	string[] outFileFlags(string tpath) const;
+
 	/// Convert linker flags to compiler format
 	string[] lflagsToDFlags(in string[] lflags) const;
 

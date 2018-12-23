@@ -175,28 +175,10 @@ class DMDCompiler : Compiler {
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
-		final switch (settings.targetType) {
-			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
-			case TargetType.none: assert(false, "Invalid target type: none");
-			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
-			case TargetType.executable: break;
-			case TargetType.library:
-			case TargetType.staticLibrary:
-				settings.addDFlags("-lib");
-				break;
-			case TargetType.dynamicLibrary:
-				version (Windows) settings.addDFlags("-shared");
-				else version (OSX) settings.addDFlags("-shared");
-				else settings.prependDFlags("-shared", "-defaultlib=libphobos2.so");
-				break;
-			case TargetType.object:
-				settings.addDFlags("-c");
-				break;
-		}
-
+		settings.prependDFlags(targetTypeFlags(settings.targetType));
 		if (tpath is null)
 			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
-		settings.addDFlags("-of"~tpath);
+		settings.addDFlags(outFileFlags(tpath));
 	}
 
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
@@ -226,6 +208,30 @@ class DMDCompiler : Compiler {
 
 		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
+	}
+
+	string[] targetTypeFlags(in TargetType tt) const
+	{
+		final switch (tt) {
+			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
+			case TargetType.none: assert(false, "Invalid target type: none");
+			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
+			case TargetType.executable: return null;
+			case TargetType.library:
+			case TargetType.staticLibrary:
+				return ["-lib"];
+			case TargetType.dynamicLibrary:
+				version (Windows) return ["-shared"];
+				else version (OSX) return ["-shared"];
+				else return ["-shared", "-defaultlib=libphobos2.so"];
+			case TargetType.object:
+				return ["-c"];
+		}
+	}
+
+	string[] outFileFlags(string tpath) const
+	{
+		return ["-of"~tpath];
 	}
 
 	string[] lflagsToDFlags(in string[] lflags) const

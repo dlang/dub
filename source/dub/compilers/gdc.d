@@ -168,24 +168,10 @@ class GDCCompiler : Compiler {
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
-		final switch (settings.targetType) {
-			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
-			case TargetType.none: assert(false, "Invalid target type: none");
-			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
-			case TargetType.executable: break;
-			case TargetType.library:
-			case TargetType.staticLibrary:
-			case TargetType.object:
-				settings.addDFlags("-c");
-				break;
-			case TargetType.dynamicLibrary:
-				settings.addDFlags("-shared", "-fPIC");
-				break;
-		}
-
+		settings.prependDFlags(targetTypeFlags(settings.targetType));
 		if (tpath is null)
 			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
-		settings.addDFlags("-o", tpath);
+		settings.addDFlags(outFileFlags(tpath));
 	}
 
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
@@ -212,6 +198,27 @@ class GDCCompiler : Compiler {
 		}
 		logDiagnostic("%s", args.join(" "));
 		invokeTool(args, output_callback);
+	}
+
+	string[] targetTypeFlags(in TargetType tt) const
+	{
+		final switch (tt) {
+			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
+			case TargetType.none: assert(false, "Invalid target type: none");
+			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
+			case TargetType.executable: return null;
+			case TargetType.library:
+			case TargetType.staticLibrary:
+			case TargetType.object:
+				return ["-c"];
+			case TargetType.dynamicLibrary:
+				return ["-shared", "-fPIC"];
+		}
+	}
+
+	string[] outFileFlags(string tpath) const
+	{
+		return ["-o", tpath];
 	}
 
 	string[] lflagsToDFlags(in string[] lflags) const
