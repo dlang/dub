@@ -120,7 +120,7 @@ int runDubCommandLine(string[] args)
 			args[1] = args[1].setExtension(".d");
 		}
 	}
-	
+
 	// special single-file package shebang syntax
 	if (args.length >= 2 && args[1].endsWith(".d")) {
 		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];
@@ -757,6 +757,7 @@ class GenerateCommand : PackageBuildCommand {
 			"visuald - VisualD project files",
 			"sublimetext - SublimeText project file",
 			"cmake - CMake build scripts",
+			"ninja - Ninja build scripts",
 			"build - Builds the package directly",
 			"",
 			"An optional package name can be given to generate a different package than the root/CWD package."
