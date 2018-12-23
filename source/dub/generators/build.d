@@ -404,13 +404,13 @@ class BuildGenerator : ProjectGenerator {
 	/// Calls with path that resolve to the same file on the filesystem will return the same,
 	/// unless they include different symbolic links (which are not resolved).
 
-	static string pathToObjName(string path)
+	static string pathToObjName(string path, string base = getcwd())
 	{
 		import std.digest.crc : crc32Of;
-		import std.path : buildNormalizedPath, dirSeparator, relativePath, stripDrive;
+		import std.path : buildNormalizedPath, dirSeparator;
 		if (path.endsWith(".d")) path = path[0 .. $-2];
-		auto ret = buildNormalizedPath(getcwd(), path).replace(dirSeparator, ".");
-		auto idx = ret.lastIndexOf('.');
+		auto ret = buildNormalizedPath(base, path);
+		auto idx = ret.lastIndexOf(dirSeparator);
 		return idx < 0 ? ret ~ objSuffix : format("%s_%(%02x%)%s", ret[idx+1 .. $], crc32Of(ret[0 .. idx]), objSuffix);
 	}
 
