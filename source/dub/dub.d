@@ -65,7 +65,6 @@ deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryU
 enum defaultRegistryURLs = [
 	"https://code.dlang.org/",
 	"https://code-mirror.dlang.io/",
-	"https://code-mirror2.dlang.io/",
 	"https://dub-registry.herokuapp.com/",
 ];
 
