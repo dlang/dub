@@ -1,6 +1,6 @@
 Add Command
 
-The `add` command adds a dependency to the dub.json/dub.sdl file.
+The `add` command adds a dependency to the dub.json/dub.sdl recipe file.
 
 Running `dub add vibe-d` is equivalent to manually adding the following line to dub.sdl (X.Y.Z represents the latest version):
 dependency "vibe-d" version="~>X.Y.Z"
@@ -9,3 +9,12 @@ Or the following in dub.json:
 "dependencies": {
     "vibe-d": "~>X.Y.Z"
 }
+
+It is also possible to add multiple packages at once and explicitly add a
+simple $(LINK2 version specification,http://code.dlang.org/package-format?lang=json#version-specs)
+for some of them.
+
+For example the command `dub add vibe-d='~>0.8.2' mir-algorithm=3.1.21` would
+add the given 2 dependencies to the recipe file without querying the registry.
+
+Packages with and without version-specifier can be mixed in a single invocation.

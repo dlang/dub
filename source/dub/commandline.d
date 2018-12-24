@@ -1154,12 +1154,13 @@ class AddCommand : Command {
 	this()
 	{
 		this.name = "add";
-		this.argumentsPattern = "<packages...>";
+		this.argumentsPattern = "<package>[=<version-spec>] [<packages...>]";
 		this.description = "Adds dependencies to the package file.";
 		this.helpText = [
 			"Adds <packages> as dependencies.",
 			"",
-			"Running \"dub add <package>\" is the same as adding <package> to the \"dependencies\" section in dub.json/dub.sdl."
+			"Running \"dub add <package>\" is the same as adding <package> to the \"dependencies\" section in dub.json/dub.sdl.",
+			"If no version is specified for one of the packages, dub will query the registry for the latest version."
 		];
 	}
 
@@ -1175,8 +1176,18 @@ class AddCommand : Command {
 		string filetype = existsFile(dub.rootPath ~ "dub.json") ? "json" : "sdl";
 		foreach (depname; free_args) {
 			try {
-				auto ver = dub.getLatestVersion(depname);
-				auto dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
+				Dependency dep;
+				auto parts = depname.findSplit("=");
+				if (!parts[1].empty)
+				{
+					depname = parts[0];
+					dep = Dependency(parts[2]);
+				}
+				else
+				{
+					auto ver = dub.getLatestVersion(depname);
+					dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
+				}
 				auto pkg = readPackageRecipe(dub.rootPath ~ ("dub." ~ filetype));
 
 				pkg.buildSettings.dependencies[depname] = dep;
