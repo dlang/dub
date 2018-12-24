@@ -28,3 +28,9 @@ grep -q '"gitcompatibledubpackage"\s*:\s*"~>1\.0\.4"' dub.json
 $DUB add gitcompatibledubpackage=1.0.2 non-existing-issue1574-pkg='~>9.8.7' --skip-registry=all
 grep -q '"gitcompatibledubpackage"\s*:\s*"1\.0\.2"' dub.json
 grep -q '"non-existing-issue1574-pkg"\s*:\s*"~>9\.8\.7"' dub.json
+if $DUB add foo=1.2.3 gitcompatibledubpackage='~>a.b.c' --skip-registry=all; then
+    die $LINENO 'Adding non-semver spec should error'
+fi
+if grep -q '"foo"' dub.json; then
+    die $LINENO 'Failing add command should not write recipe file'
+fi
