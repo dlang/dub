@@ -254,8 +254,7 @@ int runDubCommandLine(string[] args)
 					PackageSupplier ps = getRegistryPackageSupplier(urls.front);
 					urls.popFront;
 					if (!urls.empty)
-						ps = new FallbackPackageSupplier(ps,
-							urls.map!(u => getRegistryPackageSupplier(u)).array);
+						ps = new FallbackPackageSupplier(ps ~ urls.map!getRegistryPackageSupplier.array);
 					return ps;
 				})
 				.array;
@@ -309,7 +308,7 @@ struct CommonOptions {
 		args.getopt("skip-registry", &skipRegistry, [
 			"Sets a mode for skipping the search on certain package registry types:",
 			"  none: Search all configured or default registries (default)",
-			"  standard: Don't search the main registry (e.g. "~defaultRegistryURL~")",
+			"  standard: Don't search the main registry (e.g. "~defaultRegistryURLs[0]~")",
 			"  configured: Skip all default and user configured registries",
 			"  all: Only search registries specified with --registry",
 			]);

@@ -59,13 +59,12 @@ static this()
 	registerCompiler(new LDCCompiler);
 }
 
-/// The URL to the official package registry.
-enum defaultRegistryURL = "https://code.dlang.org/";
-enum fallbackRegistryURLs = [
-	// fallback in case of HTTPS problems
-	"http://code.dlang.org/",
+deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryURLs[0];
+
+/// The URL to the official package registry and it's default fallback registries.
+enum defaultRegistryURLs = [
+	"https://code.dlang.org/",
 	"https://code-mirror.dlang.io/",
-	"https://code-mirror2.dlang.io/",
 	"https://dub-registry.herokuapp.com/",
 ];
 
@@ -74,17 +73,12 @@ enum fallbackRegistryURLs = [
 	This will contain a single package supplier that points to the official
 	package registry.
 
-	See_Also: `defaultRegistryURL`
+	See_Also: `defaultRegistryURLs`
 */
 PackageSupplier[] defaultPackageSuppliers()
 {
-	logDiagnostic("Using dub registry url '%s'", defaultRegistryURL);
-	return [
-		new FallbackPackageSupplier(
-			new RegistryPackageSupplier(URL(defaultRegistryURL)),
-			fallbackRegistryURLs.map!(x => cast(PackageSupplier) new RegistryPackageSupplier(URL(x))).array
-		)
-	];
+	logDiagnostic("Using dub registry url '%s'", defaultRegistryURLs[0]);
+	return [new FallbackPackageSupplier(defaultRegistryURLs.map!getRegistryPackageSupplier.array)];
 }
 
 /** Returns a registry package supplier according to protocol.
