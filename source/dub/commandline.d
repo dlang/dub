@@ -254,8 +254,7 @@ int runDubCommandLine(string[] args)
 					PackageSupplier ps = getRegistryPackageSupplier(urls.front);
 					urls.popFront;
 					if (!urls.empty)
-						ps = new FallbackPackageSupplier(ps,
-							urls.map!(u => getRegistryPackageSupplier(u)).array);
+						ps = new FallbackPackageSupplier(ps ~ urls.map!getRegistryPackageSupplier.array);
 					return ps;
 				})
 				.array;
@@ -309,7 +308,7 @@ struct CommonOptions {
 		args.getopt("skip-registry", &skipRegistry, [
 			"Sets a mode for skipping the search on certain package registry types:",
 			"  none: Search all configured or default registries (default)",
-			"  standard: Don't search the main registry (e.g. "~defaultRegistryURL~")",
+			"  standard: Don't search the main registry (e.g. "~defaultRegistryURLs[0]~")",
 			"  configured: Skip all default and user configured registries",
 			"  all: Only search registries specified with --registry",
 			]);
@@ -560,17 +559,9 @@ class InitCommand : Command {
 			p.copyright = input("Copyright string", copyrightString);
 
 			while (true) {
-				auto depname = input("Add dependency (leave empty to skip)", null);
-				if (!depname.length) break;
-				try {
-					auto ver = dub.getLatestVersion(depname);
-					auto dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
-					p.buildSettings.dependencies[depname] =	dep;
-					logInfo("Added dependency %s %s", depname, dep.versionSpec);
-				} catch (Exception e) {
-					logError("Could not find package '%s'.", depname);
-					logDebug("Full error: %s", e.toString().sanitize);
-				}
+				auto depspec = input("Add dependency (leave empty to skip)", null);
+				if (!depspec.length) break;
+				addDependency(dub, p, depspec);
 			}
 		}
 
@@ -613,7 +604,7 @@ abstract class PackageBuildCommand : Command {
 		bool m_nodeps;
 		bool m_forceRemove = false;
 		bool m_single;
-		bool m_filterVersions = true;
+		bool m_filterVersions = false;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -1155,12 +1146,13 @@ class AddCommand : Command {
 	this()
 	{
 		this.name = "add";
-		this.argumentsPattern = "<packages...>";
+		this.argumentsPattern = "<package>[=<version-spec>] [<packages...>]";
 		this.description = "Adds dependencies to the package file.";
 		this.helpText = [
 			"Adds <packages> as dependencies.",
 			"",
-			"Running \"dub add <package>\" is the same as adding <package> to the \"dependencies\" section in dub.json/dub.sdl."
+			"Running \"dub add <package>\" is the same as adding <package> to the \"dependencies\" section in dub.json/dub.sdl.",
+			"If no version is specified for one of the packages, dub will query the registry for the latest version."
 		];
 	}
 
@@ -1173,22 +1165,14 @@ class AddCommand : Command {
 		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		string filetype = existsFile(dub.rootPath ~ "dub.json") ? "json" : "sdl";
-		foreach (depname; free_args) {
-			try {
-				auto ver = dub.getLatestVersion(depname);
-				auto dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
-				auto pkg = readPackageRecipe(dub.rootPath ~ ("dub." ~ filetype));
+		if (!loadCwdPackage(dub, true)) return 1;
+		auto recipe = dub.project.rootPackage.rawRecipe.clone;
 
-				pkg.buildSettings.dependencies[depname] = dep;
-				writePackageRecipe(dub.rootPath ~ ("dub." ~ filetype), pkg);
-
-				logInfo("Added dependency %s %s", depname, dep.versionSpec);
-			} catch (Exception e) {
-				logError("Could not find package '%s'.", depname);
-				logDebug("Full error: %s", e.toString().sanitize);
-			}
+		foreach (depspec; free_args) {
+			if (!addDependency(dub, recipe, depspec))
+				return 1;
 		}
+		writePackageRecipe(dub.project.rootPackage.recipePath, recipe);
 
 		return 0;
 	}
@@ -2150,4 +2134,28 @@ private class UsageException : Exception {
 private void warnRenamed(string prev, string curr)
 {
 	logWarn("The '%s' Command was renamed to '%s'. Please update your scripts.", prev, curr);
+}
+
+private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
+{
+	Dependency dep;
+	// split <package>=<version-specifier>
+	auto parts = depspec.findSplit("=");
+	auto depname = parts[0];
+	if (!parts[1].empty)
+		dep = Dependency(parts[2]);
+	else
+	{
+		try {
+			auto ver = dub.getLatestVersion(depname);
+			dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
+		} catch (Exception e) {
+			logError("Could not find package '%s'.", depname);
+			logDebug("Full error: %s", e.toString().sanitize);
+			return false;
+		}
+	}
+	recipe.buildSettings.dependencies[depname] = dep;
+	logInfo("Adding dependency %s %s", depname, dep.versionSpec);
+	return true;
 }
