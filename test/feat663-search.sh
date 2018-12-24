@@ -7,9 +7,9 @@ fi
 if ${DUB} search nonexistent123456789package 2>/dev/null; then
     die $LINENO '`dub search nonexistent123456789package` succeeded'
 fi
-if ! OUTPUT=$(${DUB} search dub -v 2>&1); then
-    die $LINENO '`dub search dub` failed' "$OUTPUT"
+if ! OUTPUT=$(${DUB} search '"dub-registry"' -v 2>&1); then
+    die $LINENO '`dub search "dub-registry"` failed' "$OUTPUT"
 fi
-if ! grep -q '^dub (.*)\s'<<<"$OUTPUT"; then
-    die $LINENO '`grep -q '"'"'^dub (.*)\s'"'"'` failed' "$OUTPUT"
+if ! grep -q '^dub-registry (.*)\s'<<<"$OUTPUT"; then
+    die $LINENO '`grep -q '"'"'^dub-registry (.*)\s'"'"'` failed' "$OUTPUT"
 fi
