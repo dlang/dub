@@ -18,7 +18,7 @@ dependency "vibe-d" version="~>X.Y.Z"
 ------
 
 It is also possible to add multiple packages at once and explicitly add a
-simple $(LINK2 version specification,http://code.dlang.org/package-format?lang=json#version-specs)
+simple $(LINK2 https://code.dlang.org/package-format?lang=json#version-specs,version specification)
 for some of them.
 
 For example the command `dub add vibe-d='~>0.8.2' mir-algorithm=3.1.21` would
