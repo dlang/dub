@@ -136,7 +136,7 @@ struct Json {
 	/**
 		Allows assignment of D values to a JSON value.
 	*/
-	ref Json opAssign(Json v)
+	ref Json opAssign(Json v) return
 	{
 		m_type = v.m_type;
 		final switch(m_type){
