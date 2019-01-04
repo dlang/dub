@@ -95,6 +95,34 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
+    - d: ldc
+      script: echo "Deploying to GitHub releases (win32) ..." && ./release-windows.sh
+      addons:
+        apt:
+          packages:
+            - p7zip-full
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.zip
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            tags: true
+    - d: ldc
+      script: echo "Deploying to GitHub releases (win64) ..." && ARCH=64 ./release-windows.sh
+      addons:
+        apt:
+          packages:
+            - p7zip-full
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.zip
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            tags: true
     - stage: update-latest
       script: echo "Deploying to GitHub pages ..." && mkdir -p docs && git describe --abbrev=0 --tags > docs/LATEST
       deploy:
