@@ -1194,20 +1194,100 @@ private void processVars(ref Appender!(string[]) dst, in Project project, in Pac
 	foreach (var; vars) dst.put(processVars(var, project, pack, gsettings, are_paths));
 }
 
-private string processVars(Project, Package)(string var, in Project project, in Package pack,in GeneratorSettings gsettings, bool is_path)
+private string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
 {
-	import std.regex : regex, replaceAll;
-
-	auto varRE = regex(`\$([\w_]+)|\$\{([\w_]+)\}|(\$\$[\w_]+|\$\$\{[\w_]+\})`);
-	var = var.replaceAll!(
-		m => m[3].length ? m[3][1..$] : (getVariable(m[1].length ? m[1] : m[2], project, pack, gsettings))
-		)(varRE);
+	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings));
 	if (is_path) {
 		auto p = NativePath(var);
 		if (!p.absolute) {
 			return (pack.path ~ p).toNativeString();
 		} else return p.toNativeString();
 	} else return var;
+}
+
+/// Expand variables using `$VAR_NAME` or `${VAR_NAME}` syntax.
+/// `$$` escapes itself and is expanded to a single `$`.
+private string expandVars(alias expandVar)(string s)
+{
+	import std.functional : not;
+
+	auto result = appender!string;
+
+	static bool isVarChar(char c)
+	{
+		import std.ascii;
+		return isAlphaNum(c) || c == '_';
+	}
+
+	while (true)
+	{
+		auto pos = s.indexOf('$');
+		if (pos < 0)
+		{
+			result.put(s);
+			return result.data;
+		}
+		result.put(s[0 .. pos]);
+		s = s[pos + 1 .. $];
+		enforce(s.length > 0, "Variable name expected at end of string");
+		switch (s[0])
+		{
+			case '$':
+				result.put("$");
+				s = s[1 .. $];
+				break;
+			case '{':
+				pos = s.indexOf('}');
+				enforce(pos >= 0, "Could not find '}' to match '${'");
+				result.put(expandVar(s[1 .. pos]));
+				s = s[pos + 1 .. $];
+				break;
+			default:
+				pos = s.representation.countUntil!(not!isVarChar);
+				if (pos < 0)
+					pos = s.length;
+				result.put(expandVar(s[0 .. pos]));
+				s = s[pos .. $];
+				break;
+		}
+	}
+}
+
+unittest
+{
+	string[string] vars =
+	[
+		"A" : "a",
+		"B" : "b",
+	];
+
+	string expandVar(string name) { auto p = name in vars; enforce(p, name); return *p; }
+
+	assert(expandVars!expandVar("") == "");
+	assert(expandVars!expandVar("x") == "x");
+	assert(expandVars!expandVar("$$") == "$");
+	assert(expandVars!expandVar("x$$") == "x$");
+	assert(expandVars!expandVar("$$x") == "$x");
+	assert(expandVars!expandVar("$$$$") == "$$");
+	assert(expandVars!expandVar("x$A") == "xa");
+	assert(expandVars!expandVar("x$$A") == "x$A");
+	assert(expandVars!expandVar("$A$B") == "ab");
+	assert(expandVars!expandVar("${A}$B") == "ab");
+	assert(expandVars!expandVar("$A${B}") == "ab");
+	assert(expandVars!expandVar("a${B}") == "ab");
+	assert(expandVars!expandVar("${A}b") == "ab");
+
+	import std.exception : assertThrown;
+	assertThrown(expandVars!expandVar("$"));
+	assertThrown(expandVars!expandVar("${}"));
+	assertThrown(expandVars!expandVar("$|"));
+	assertThrown(expandVars!expandVar("x$"));
+	assertThrown(expandVars!expandVar("$X"));
+	assertThrown(expandVars!expandVar("${"));
+	assertThrown(expandVars!expandVar("${X"));
+
+	// https://github.com/dlang/dmd/pull/9275
+	assert(expandVars!expandVar("$${DUB_EXE:-dub}") == "${DUB_EXE:-dub}");
 }
 
 // Keep the following list up-to-date if adding more build settings variables.
