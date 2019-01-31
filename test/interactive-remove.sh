@@ -23,7 +23,7 @@ if [ -d $HOME/.dub/packages/dub-1.9.0/dub ] || [ -d $HOME/.dub/packages/dub-1.10
     die $LINENO 'Failed to remove all version of dub'
 fi
 $DUB fetch dub --version=1.9.0 && [ -d $HOME/.dub/packages/dub-1.9.0/dub ]
-$DUB fetch dub --version=1.10.0 && [ -d $HOME/.dub/packages/dub-1.10.0/dub ]
+$DUB fetch dub@1.10.0 && [ -d $HOME/.dub/packages/dub-1.10.0/dub ]
 # is non-interactive with --version=
 $DUB remove dub --version=\*
 if [ -d $HOME/.dub/packages/dub-1.9.0/dub ] || [ -d $HOME/.dub/packages/dub-1.10.0/dub ]; then
