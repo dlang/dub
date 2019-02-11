@@ -401,12 +401,9 @@ class Package {
 	*/
 	void addBuildTypeSettings(ref BuildSettings settings, in BuildPlatform platform, string build_type)
 	const {
-		if (build_type == "$DFLAGS") {
-			import std.process;
-			string dflags = environment.get("DFLAGS");
-			settings.addDFlags(dflags.split());
-			return;
-		}
+		import std.process;
+		string dflags = environment.get("DFLAGS", "");
+		settings.addDFlags(dflags.split());
 
 		if (auto pbt = build_type in m_info.buildTypes) {
 			logDiagnostic("Using custom build type '%s'.", build_type);
@@ -414,6 +411,7 @@ class Package {
 		} else {
 			with(BuildOption) switch (build_type) {
 				default: throw new Exception(format("Unknown build type for %s: '%s'", this.name, build_type));
+				case "$DFLAGS": break;
 				case "plain": break;
 				case "debug": settings.addOptions(debugMode, debugInfo); break;
 				case "release": settings.addOptions(releaseMode, optimize, inline); break;
