@@ -120,7 +120,7 @@ int runDubCommandLine(string[] args)
 			args[1] = args[1].setExtension(".d");
 		}
 	}
-	
+
 	// special single-file package shebang syntax
 	if (args.length >= 2 && args[1].endsWith(".d")) {
 		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];
@@ -1146,7 +1146,7 @@ class AddCommand : Command {
 	this()
 	{
 		this.name = "add";
-		this.argumentsPattern = "<package>[=<version-spec>] [<packages...>]";
+		this.argumentsPattern = "<package>[@<version-spec>] [<packages...>]";
 		this.description = "Adds dependencies to the package file.";
 		this.helpText = [
 			"Adds <packages> as dependencies.",
@@ -1261,7 +1261,7 @@ class FetchCommand : FetchRemoveCommand {
 	this()
 	{
 		this.name = "fetch";
-		this.argumentsPattern = "<name>";
+		this.argumentsPattern = "<name>[@<version-spec>]";
 		this.description = "Manually retrieves and caches a package";
 		this.helpText = [
 			"Note: Use \"dub add <dependency>\" if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
@@ -1298,7 +1298,10 @@ class FetchCommand : FetchRemoveCommand {
 		FetchOptions fetchOpts;
 		fetchOpts |= FetchOptions.forceBranchUpgrade;
 		if (m_version.length) dub.fetch(name, Dependency(m_version), location, fetchOpts);
-		else {
+		else if (name.canFind("@", "=")) {
+			const parts = name.splitPackageName;
+			dub.fetch(parts.name, Dependency(parts.version_), location, fetchOpts);
+		} else {
 			try {
 				dub.fetch(name, Dependency(">=0.0.0"), location, fetchOpts);
 				logInfo(
@@ -2139,15 +2142,14 @@ private void warnRenamed(string prev, string curr)
 private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 {
 	Dependency dep;
-	// split <package>=<version-specifier>
-	auto parts = depspec.findSplit("=");
-	auto depname = parts[0];
-	if (!parts[1].empty)
-		dep = Dependency(parts[2]);
+	const parts = splitPackageName(depspec);
+	const depname = parts.name;
+	if (parts.version_)
+		dep = Dependency(parts.version_);
 	else
 	{
 		try {
-			auto ver = dub.getLatestVersion(depname);
+			const ver = dub.getLatestVersion(depname);
 			dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
 		} catch (Exception e) {
 			logError("Could not find package '%s'.", depname);
@@ -2158,4 +2160,28 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 	recipe.buildSettings.dependencies[depname] = dep;
 	logInfo("Adding dependency %s %s", depname, dep.versionSpec);
 	return true;
+}
+
+/* Split <package>=<version-specifier> and <package>@<version-specifier>
+   into `name` and `version_`. */
+private auto splitPackageName(string packageName)
+{
+	struct PackageAndVersion
+	{
+		string name;
+		string version_;
+	}
+
+	// split <package>=<version-specifier>
+	auto parts = packageName.split("=");
+	if (parts.length == 1) {
+		// support splitting <package>@<version-specified> too
+		parts = packageName.split("@");
+	}
+
+	PackageAndVersion p;
+	p.name = parts[0];
+	if (parts.length > 1)
+		p.version_ = parts[1];
+	return p;
 }
