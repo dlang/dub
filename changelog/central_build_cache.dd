@@ -1,0 +1,6 @@
+Added support for using central build cache directory
+
+Instead of putting intermediate build files into the ".dub" sub folder of each
+package, settings.json now supports a new field "buildCacheDirectory". The
+configured directory will be used to store the build artefacts of all packages
+as sub directories.
