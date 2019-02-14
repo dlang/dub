@@ -219,12 +219,8 @@ class BuildGenerator : ProjectGenerator {
 	{
 		auto cwd = NativePath(getcwd());
 
-		NativePath target_path;
-		if (settings.tempBuild) {
-			string packageName = pack.basePackage is null ? pack.name : pack.basePackage.name;
-			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
-		}
-		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
+		NativePath target_path = getBuildCacheDirectory(settings, pack, build_id);
+		mkdirRecurse(target_path.toString());
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
 			logInfo("Up-to-date", Color.green, "%s %s: target for configuration [%s] is up to date.",
@@ -260,6 +256,18 @@ class BuildGenerator : ProjectGenerator {
 			copyTargetFile(target_path, buildsettings, settings, dependencyBinariesToCopy);
 
 		return false;
+	}
+
+	private NativePath getBuildCacheDirectory(GeneratorSettings settings, in Package pack, string build_id)
+	{
+		NativePath base_path;
+		if (settings.buildCacheDirectory != NativePath.init)
+			base_path = settings.buildCacheDirectory;
+		else if (settings.tempBuild)
+			base_path = getTempDir() ~ format("dub/builds");
+		else return pack.path ~ format(".dub/build/%s/", build_id);
+
+		return base_path ~ pack.basePackage.name ~ pack.version_.toString() ~ build_id;
 	}
 
 	private void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, in NativePath[] dependencyBinariesToCopy, out NativePath target_path)
