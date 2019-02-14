@@ -417,6 +417,14 @@ class Dub {
 	@property const(string[string]) defaultPreRunEnvironments() const { return this.m_config.defaultPreRunEnvironments; }
 	@property const(string[string]) defaultPostRunEnvironments() const { return this.m_config.defaultPostRunEnvironments; }
 
+	/** An optional directory that is used for storing cached build artefacts.
+
+		This is used by `BuildGenerator` to store intermediate object files
+		for reuse in incremental builds. The value of this proprerty may be
+		an empty path, in which case no directory is configured.
+	*/
+	@property NativePath buildCacheDirectory() const { return m_config.buildCacheDirectory; }
+
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
 	void loadPackage()
@@ -1346,6 +1354,7 @@ class Dub {
 		if (this.defaultPostRunEnvironments)
 			settings.buildSettings.addPostRunEnvironments(this.defaultPostRunEnvironments);
 		settings.run = true;
+		settings.buildCacheDirectory = m_config.buildCacheDirectory;
 
 		return settings;
 	}
@@ -1884,6 +1893,7 @@ private struct UserConfiguration {
 
 	@Optional string[] registryUrls;
 	@Optional NativePath[] customCachePaths;
+	@Optional NativePath buildCacheDirectory;
 
 	SetInfo!(SkipPackageSuppliers) skipRegistry;
 	SetInfo!(string) defaultCompiler;
