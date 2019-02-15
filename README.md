@@ -4,7 +4,8 @@ Package and build manager for [D](http://dlang.org/) applications and libraries.
 
 There is a central [package registry](https://github.com/dlang/dub-registry/) located at <http://code.dlang.org>.
 
-[![GitHub tag](https://img.shields.io/github/tag/dlang/dub.svg?maxAge=86400)](#) [![Build Status](https://travis-ci.org/dlang/dub.svg?branch=master)](https://travis-ci.org/dlang/dub) [![Coverage Status](https://coveralls.io/repos/dlang/dub/badge.svg)](https://coveralls.io/r/dlang/dub)
+[![GitHub tag](https://img.shields.io/github/tag/dlang/dub.svg?maxAge=86400)](#) [![Travis](https://travis-ci.org/dlang/dub.svg?branch=master)](https://travis-ci.org/dlang/dub) [![Coverage Status](https://coveralls.io/repos/dlang/dub/badge.svg)](https://coveralls.io/r/dlang/dub)
+[![Buildkite](https://badge.buildkite.com/c54d71c42284a042b9d578e28e093dff35f20cc8528319b1b6.svg?branch=master)](https://buildkite.com/dlang/dub)
 
 ## Introduction
 

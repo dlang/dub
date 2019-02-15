@@ -50,9 +50,19 @@ class FileSystemPackageSupplier : PackageSupplier {
 
 	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
 	{
-		import dub.internal.utils : jsonFromZip;
-		auto filename = bestPackageFile(packageId, dep, pre_release);
-		return jsonFromZip(filename, "dub.json");
+		import std.array : split;
+		import std.path : stripExtension;
+		import dub.internal.utils : packageInfoFileFromZip;
+		import dub.recipe.io : parsePackageRecipe;
+		import dub.recipe.json : toJson;
+
+		auto filePath = bestPackageFile(packageId, dep, pre_release);
+		string packageFileName;
+		string packageFileContent = packageInfoFileFromZip(filePath, packageFileName);
+		auto recipe = parsePackageRecipe(packageFileContent, packageFileName);
+		Json json = toJson(recipe);
+		json["version"] = filePath.toNativeString().split("-")[$-1].stripExtension();
+		return json;
 	}
 
 	SearchResult[] searchPackages(string query)

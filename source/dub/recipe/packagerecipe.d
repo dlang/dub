@@ -86,6 +86,8 @@ struct PackageRecipe {
 	ConfigurationInfo[] configurations;
 	BuildSettingsTemplate[string] buildTypes;
 
+	ToolchainRequirements toolchainRequirements;
+
 	SubPackage[] subPackages;
 
 	inout(ConfigurationInfo) getConfiguration(string name)
@@ -94,6 +96,17 @@ struct PackageRecipe {
 			if (c.name == name)
 				return c;
 		throw new Exception("Unknown configuration: "~name);
+	}
+
+	bool hasToolchainRequirements() const
+	{
+		import std.algorithm : any;
+		import std.range : only;
+
+		with (toolchainRequirements) {
+			return only(dub, frontend, dmd, ldc, gdc)
+				.any!(r => r.length != 0);
+		}
 	}
 
 	/** Clones the package recipe recursively.
@@ -105,6 +118,33 @@ struct SubPackage
 {
 	string path;
 	PackageRecipe recipe;
+}
+
+/// Describes minimal toolchain requirements
+struct ToolchainRequirements
+{
+	/// DUB version requirement
+	string dub;
+	/// D front-end version requirement
+	string frontend;
+	/// DMD version requirement
+	string dmd;
+	/// LDC version requirement
+	string ldc;
+	/// GDC version requirement
+	string gdc;
+
+	package(dub) enum noKwd = "no";
+	/// Get the list of supported compilers.
+	/// Returns: array of couples of compiler name and compiler requirement
+	@property string[2][] supportedCompilers() const
+	{
+		string[2][] res;
+		if (dmd != noKwd) res ~= [ "dmd", dmd ];
+		if (ldc != noKwd) res ~= [ "ldc", ldc ];
+		if (gdc != noKwd) res ~= [ "gdc", gdc ];
+		return res;
+	}
 }
 
 
@@ -150,6 +190,7 @@ struct BuildSettingsTemplate {
 	string[][string] sourcePaths;
 	string[][string] excludedSourceFiles;
 	string[][string] copyFiles;
+	string[][string] extraDependencyFiles;
 	string[][string] versions;
 	string[][string] debugVersions;
 	string[][string] versionFilters;
@@ -237,6 +278,7 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("sourceFiles", "addSourceFiles")(dst, platform);
 		getPlatformSetting!("excludedSourceFiles", "removeSourceFiles")(dst, platform);
 		getPlatformSetting!("copyFiles", "addCopyFiles")(dst, platform);
+		getPlatformSetting!("extraDependencyFiles", "addExtraDependencyFiles")(dst, platform);
 		getPlatformSetting!("versions", "addVersions")(dst, platform);
 		getPlatformSetting!("debugVersions", "addDebugVersions")(dst, platform);
 		getPlatformSetting!("versionFilters", "addVersionFilters")(dst, platform);

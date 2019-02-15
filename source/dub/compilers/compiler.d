@@ -14,12 +14,14 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
+import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
 import std.process;
+import std.typecons : Flag;
 
 
 /** Returns a compiler handler for a given binary name.
@@ -89,6 +91,46 @@ interface Compiler {
 	/// Convert linker flags to compiler format
 	string[] lflagsToDFlags(in string[] lflags) const;
 
+	/// Get the dependency requirement string for this compiler
+	string toolchainRequirementString(const ref ToolchainRequirements tr);
+
+	/// Check whether the compiler meet the compiler requirement specified
+	/// in the recipe.
+	bool checkCompilerRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr);
+
+	/// Check if the compiler is supported by the recipe
+	final bool checkCompilerSupported(const ref ToolchainRequirements tr)
+	{
+		const str = toolchainRequirementString(tr);
+		return str != ToolchainRequirements.noKwd;
+	}
+
+	/// Check whether the compiler meet the frontend requirement specified
+	/// in the recipe.
+	final bool checkFrontendRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr)
+	{
+		import std.typecons : Yes;
+
+		return checkRequirement(tr.frontend, platform.frontendVersionString, Yes.dmdVer);
+	}
+
+	/// Check that a particular tool version matches with a given requirement
+	final bool checkRequirement(const string requirement, const string toolVer, const Flag!"dmdVer" dmdVer)
+	{
+		import dub.compilers.utils : dmdLikeVersionToSemverLike;
+		import dub.dependency : Dependency, Version;
+		import std.algorithm : all, map, splitter;
+
+		if (!requirement.length) return true; // no requirement
+
+		const ver = Version(dmdVer ? dmdLikeVersionToSemverLike(toolVer) : toolVer);
+
+		return requirement
+			.splitter('|')
+			.map!(r => Dependency(dmdVer ? dmdLikeVersionToSemverLike(r) : r))
+			.all!(r => r.matches(ver));
+	}
+
 	/** Runs a tool and provides common boilerplate code.
 
 		This method should be used by `Compiler` implementations to invoke the
@@ -115,11 +157,24 @@ interface Compiler {
 		enforce(status == 0, format("%s failed with exit code %s.", args[0], status));
 	}
 
-	/// Compiles platform probe file with the specified compiler and parses its output.
-	protected final BuildPlatform probePlatform(string compiler_binary, string[] args, string arch_override)
+	/** Compiles platform probe file with the specified compiler and parses its output.
+		Params:
+			compiler_binary =	binary to invoke compiler with
+			args			=	arguments for the probe compilation
+			arch_override	=	special handler for x86_mscoff
+			versionRes		=	array of regular expressions to scan the output
+								and find the compiler version. For each, the
+								version must be in capture index 1. The output
+								is scanned in multi-line mode (i.e. ^ will match any line start)
+	*/
+	protected final BuildPlatform probePlatform(string compiler_binary, string[] args,
+		string arch_override, string[] versionRes)
 	{
+		import dub.compilers.utils : generatePlatformProbeFile, readPlatformJsonProbe;
+		import std.algorithm : filter, map;
+		import std.range : takeOne;
+		import std.regex : matchFirst, regex;
 		import std.string : format;
-		import dub.compilers.utils : generatePlatformProbeFile, readPlatformProbe;
 
 		auto fil = generatePlatformProbeFile();
 
@@ -127,12 +182,25 @@ interface Compiler {
 		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
 				compiler_binary, result.output));
 
-		auto build_platform = readPlatformProbe(result.output);
+		auto build_platform = readPlatformJsonProbe(result.output);
 		build_platform.compilerBinary = compiler_binary;
 
 		if (build_platform.compiler != this.name) {
-			logWarn(`The determined compiler type "%s" doesn't match the expected type "%s". This will probably result in build errors.`,
-				build_platform.compiler, this.name);
+			logWarn(`The determined compiler type "%s" doesn't match the expected type "%s". `~
+				`This will probably result in build errors.`, build_platform.compiler, this.name);
+		}
+
+		auto ver = versionRes
+			.map!(re => matchFirst(result.output, regex(re, "m")))
+			.filter!(c => c.length > 1)
+			.map!(c => c[1])
+			.takeOne();
+		if (ver.empty) {
+			logWarn(`Could not probe the compiler version for "%s". ` ~
+				`Toolchain requirements might be ineffective`, build_platform.compiler);
+		}
+		else {
+			build_platform.compilerVersion = ver.front;
 		}
 
 		// Hack: see #1059

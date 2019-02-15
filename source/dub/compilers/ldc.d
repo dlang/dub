@@ -12,6 +12,7 @@ import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
+import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
@@ -54,6 +55,20 @@ class LDCCompiler : Compiler {
 
 	@property string name() const { return "ldc"; }
 
+	enum ldcVersionRe = `^version\s+v?(\d+\.\d+\.\d+[A-Za-z0-9.+-]*)`;
+
+	unittest {
+		import std.regex : matchFirst, regex;
+		auto probe = `
+binary    /usr/bin/ldc2
+version   1.11.0 (DMD v2.081.2, LLVM 6.0.1)
+config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
+`;
+		auto re = regex(ldcVersionRe, "m");
+		auto c = matchFirst(probe, re);
+		assert(c && c.length > 1 && c[1] == "1.11.0");
+	}
+
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
 		string[] arch_flags;
@@ -65,7 +80,12 @@ class LDCCompiler : Compiler {
 		}
 		settings.addDFlags(arch_flags);
 
-		return probePlatform(compiler_binary, arch_flags ~ ["-c", "-o-"], arch_override);
+		return probePlatform(
+			compiler_binary,
+			arch_flags ~ ["-c", "-o-", "-v"],
+			arch_override,
+			[ ldcVersionRe ]
+		);
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
@@ -211,6 +231,18 @@ class LDCCompiler : Compiler {
 	string[] lflagsToDFlags(in string[] lflags) const
 	{
 		return  lflags.map!(s => "-L="~s)().array();
+	}
+
+	final string toolchainRequirementString(const ref ToolchainRequirements tr)
+	{
+		return tr.ldc;
+	}
+
+	final bool checkCompilerRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr)
+	{
+		import std.typecons : No;
+
+		return checkRequirement(tr.ldc, platform.compilerVersion, No.dmdVer);
 	}
 
 	private auto escapeArgs(in string[] args)

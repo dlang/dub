@@ -12,6 +12,7 @@ import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
+import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
@@ -54,6 +55,32 @@ class DMDCompiler : Compiler {
 
 	@property string name() const { return "dmd"; }
 
+	enum dmdVersionRe = `^version\s+v?(\d+\.\d+\.\d+[A-Za-z0-9.+-]*)`;
+
+	unittest {
+		import std.regex : matchFirst, regex;
+		auto probe = `
+binary    dmd
+version   v2.082.0
+config    /etc/dmd.conf
+`;
+		auto re = regex(dmdVersionRe, "m");
+		auto c = matchFirst(probe, re);
+		assert(c && c.length > 1 && c[1] == "2.082.0");
+	}
+
+	unittest {
+		import std.regex : matchFirst, regex;
+		auto probe = `
+binary    dmd
+version   v2.084.0-beta.1
+config    /etc/dmd.conf
+`;
+		auto re = regex(dmdVersionRe, "m");
+		auto c = matchFirst(probe, re);
+		assert(c && c.length > 1 && c[1] == "2.084.0-beta.1");
+	}
+
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
 		string[] arch_flags;
@@ -66,7 +93,12 @@ class DMDCompiler : Compiler {
 		}
 		settings.addDFlags(arch_flags);
 
-		return probePlatform(compiler_binary, arch_flags ~ ["-quiet", "-c", "-o-"], arch_override);
+		return probePlatform(
+			compiler_binary,
+			arch_flags ~ ["-quiet", "-c", "-o-", "-v"],
+			arch_override,
+			[ dmdVersionRe ]
+		);
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
@@ -231,6 +263,18 @@ class DMDCompiler : Compiler {
 	string[] lflagsToDFlags(in string[] lflags) const
 	{
 		return  lflags.map!(f => "-L"~f)().array();
+	}
+
+	string toolchainRequirementString(const ref ToolchainRequirements tr)
+	{
+		return tr.dmd;
+	}
+
+	bool checkCompilerRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr)
+	{
+		import std.typecons : Yes;
+
+		return checkRequirement(tr.dmd, platform.compilerVersion, Yes.dmdVer);
 	}
 
 	private auto escapeArgs(in string[] args)

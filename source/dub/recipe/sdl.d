@@ -50,6 +50,9 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 				parseBuildSettings(n, bt, parent_name);
 				recipe.buildTypes[name] = bt;
 				break;
+			case "toolchainRequirements":
+				parseToolchainRequirements(recipe.toolchainRequirements, n);
+				break;
 			case "x:ddoxFilterArgs": recipe.ddoxFilterArgs ~= n.stringArrayTagValue; break;
 			case "x:ddoxTool": recipe.ddoxTool = n.stringTagValue; break;
 		}
@@ -101,6 +104,9 @@ Tag toSDL(in ref PackageRecipe recipe)
 		t.add(settings.toSDL());
 		ret.add(t);
 	}
+	if (recipe.hasToolchainRequirements) {
+		ret.add(toSDL(recipe.toolchainRequirements));
+	}
 	if (recipe.ddoxFilterArgs.length)
 		ret.add(new Tag("x", "ddoxFilterArgs", recipe.ddoxFilterArgs.map!(a => Value(a)).array));
 	if (recipe.ddoxTool.length) ret.add(new Tag("x", "ddoxTool", [Value(recipe.ddoxTool)]));
@@ -148,6 +154,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "excludedSourceFiles": setting.parsePlatformStringArray(bs.excludedSourceFiles); break;
 		case "mainSourceFile": bs.mainSourceFile = setting.stringTagValue; break;
 		case "copyFiles": setting.parsePlatformStringArray(bs.copyFiles); break;
+		case "extraDependencyFiles": setting.parsePlatformStringArray(bs.extraDependencyFiles); break;
 		case "versions": setting.parsePlatformStringArray(bs.versions); break;
 		case "debugVersions": setting.parsePlatformStringArray(bs.debugVersions); break;
 		case "x:versionFilters": setting.parsePlatformStringArray(bs.versionFilters); break;
@@ -253,6 +260,7 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.sourcePaths) adda("sourcePaths", suffix, arr);
 	foreach (suffix, arr; bs.excludedSourceFiles) adda("excludedSourceFiles", suffix, arr);
 	foreach (suffix, arr; bs.copyFiles) adda("copyFiles", suffix, arr);
+	foreach (suffix, arr; bs.extraDependencyFiles) adda("extraDependencyFiles", suffix, arr);
 	foreach (suffix, arr; bs.versions) adda("versions", suffix, arr);
 	foreach (suffix, arr; bs.debugVersions) adda("debugVersions", suffix, arr);
 	foreach (suffix, arr; bs.versionFilters) adda("versionFilters", suffix, arr, "x");
@@ -268,6 +276,52 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 	foreach (suffix, bits; bs.buildRequirements) adda("buildRequirements", suffix, toNameArray!BuildRequirement(bits));
 	foreach (suffix, bits; bs.buildOptions) adda("buildOptions", suffix, toNameArray!BuildOption(bits));
 	return ret;
+}
+
+private void parseToolchainRequirements(ref ToolchainRequirements tr, Tag tag)
+{
+	foreach (attr; tag.attributes) {
+		switch (attr.name) {
+		case "dub":
+			tr.dub = attr.value.get!string();
+			break;
+		case "frontend":
+			tr.frontend = attr.value.get!string();
+			break;
+		case "dmd":
+			tr.dmd = attr.value.get!string();
+			break;
+		case "ldc":
+			tr.ldc = attr.value.get!string();
+			break;
+		case "gdc":
+			tr.gdc = attr.value.get!string();
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+private Tag toSDL(const ref ToolchainRequirements tr)
+{
+	Attribute[] attrs;
+	if (tr.dub.length) {
+		attrs ~= new Attribute("dub", Value(tr.dub));
+	}
+	if (tr.frontend.length) {
+		attrs ~= new Attribute("frontend", Value(tr.frontend));
+	}
+	if (tr.dmd.length) {
+		attrs ~= new Attribute("dmd", Value(tr.dmd));
+	}
+	if (tr.ldc.length) {
+		attrs ~= new Attribute("ldc", Value(tr.ldc));
+	}
+	if (tr.gdc.length) {
+		attrs ~= new Attribute("gdc", Value(tr.gdc));
+	}
+	return new Tag(null, "toolchainRequirements", null, attrs);
 }
 
 private string expandPackageName(string name, string parent_name, Tag tag)
@@ -367,6 +421,7 @@ buildType "debug" {
 buildType "release" {
 	dflags "-release" "-O"
 }
+toolchainRequirements dub="~>1.11.0" dmd="~>2.082"
 x:ddoxFilterArgs "-arg1" "-arg2"
 x:ddoxFilterArgs "-arg3"
 x:ddoxTool "ddoxtool"
@@ -392,6 +447,8 @@ excludedSourceFiles "excluded3"
 mainSourceFile "main source"
 copyFiles "copy1" "copy2"
 copyFiles "copy3"
+extraDependencyFiles "extradepfile1" "extradepfile2"
+extraDependencyFiles "extradepfile3"
 versions "version1" "version2"
 versions "version3"
 debugVersions "debug1" "debug2"
@@ -453,6 +510,11 @@ lflags "lf3"
 	assert(rec.buildTypes.length == 2);
 	assert(rec.buildTypes["debug"].dflags == ["": ["-g", "-debug"]]);
 	assert(rec.buildTypes["release"].dflags == ["": ["-release", "-O"]]);
+	assert(rec.toolchainRequirements.dub == "~>1.11.0");
+	assert(rec.toolchainRequirements.frontend is null);
+	assert(rec.toolchainRequirements.dmd == "~>2.082");
+	assert(rec.toolchainRequirements.ldc is null);
+	assert(rec.toolchainRequirements.gdc is null);
 	assert(rec.ddoxFilterArgs == ["-arg1", "-arg2", "-arg3"], rec.ddoxFilterArgs.to!string);
 	assert(rec.ddoxTool == "ddoxtool");
 	assert(rec.buildSettings.dependencies.length == 2);
@@ -476,6 +538,7 @@ lflags "lf3"
 	assert(rec.buildSettings.excludedSourceFiles == ["": ["excluded1", "excluded2", "excluded3"]]);
 	assert(rec.buildSettings.mainSourceFile == "main source");
 	assert(rec.buildSettings.copyFiles == ["": ["copy1", "copy2", "copy3"]]);
+	assert(rec.buildSettings.extraDependencyFiles == ["": ["extradepfile1", "extradepfile2", "extradepfile3"]]);
 	assert(rec.buildSettings.versions == ["": ["version1", "version2", "version3"]]);
 	assert(rec.buildSettings.debugVersions == ["": ["debug1", "debug2", "debug3"]]);
 	assert(rec.buildSettings.versionFilters == ["": ["version1", "version2", "version3"]]);
