@@ -8,7 +8,7 @@ dub.json:
 {
     "toolchainRequirements": {
         "dub": "~>1.10",
-        "frontend": ">=2.068|<2.083"
+        "frontend": ">=2.068 <2.083"
     }
 }
 ---
@@ -27,9 +27,11 @@ $(UL
     $(LI gdc)
 )
 
-Each can be assigned to one or more version specifications, separated by `|`.
-For compilers, instead of a version specification, the keyword `no` can also be
-used to indicate that the compiler should not be used for this package.
+Each can contain a
+$(LINK2 https://dub.pm/package-format-sdl.html#version-specs version specification),
+where DMD-like versions are supported in addition to SemVer versions. For
+compilers, instead of a version specification, the keyword `no` can also be used
+to indicate that the compiler should not be used for this package.
 
 Example scenario:$(BR)
 Package that needs DUB>=1.12, and that will only build with LDC>=1.10:

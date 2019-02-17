@@ -126,9 +126,11 @@ interface Compiler {
 		const ver = Version(dmdVer ? dmdLikeVersionToSemverLike(toolVer) : toolVer);
 
 		return requirement
-			.splitter('|')
-			.map!(r => Dependency(dmdVer ? dmdLikeVersionToSemverLike(r) : r))
-			.all!(r => r.matches(ver));
+			.splitter(' ')
+			.map!(r => dmdVer ? dmdLikeVersionToSemverLike(r) : r)
+			.join(' ')
+			.Dependency
+			.matches(ver);
 	}
 
 	/** Runs a tool and provides common boilerplate code.
