@@ -551,15 +551,13 @@ class Package {
 	// Left as package until the final API for this has been found
 	package auto getAllDependenciesRange()
 	const {
-		return this.recipe.buildSettings.dependencies.byKeyValue
-			.map!(bs => PackageDependency(bs.key, bs.value))
-			.chain(
-				this.recipe.configurations
-					.map!(c => c.buildSettings.dependencies.byKeyValue
-						.map!(bs => PackageDependency(bs.key, bs.value))
-					)
-					.joiner()
-			);
+		return
+			chain(
+				only(this.recipe.buildSettings.dependencies.byKeyValue),
+				this.recipe.configurations.map!(c => c.buildSettings.dependencies.byKeyValue)
+			)
+			.joiner()
+			.map!(d => PackageDependency(d.key, d.value));
 	}
 
 
