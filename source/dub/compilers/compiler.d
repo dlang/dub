@@ -8,6 +8,7 @@
 module dub.compilers.compiler;
 
 public import dub.compilers.buildsettings;
+public import dub.dependency : Dependency;
 public import dub.platform : BuildPlatform, matchesSpecification;
 
 import dub.internal.vibecompat.core.file;
@@ -92,46 +93,11 @@ interface Compiler {
 	string[] lflagsToDFlags(in string[] lflags) const;
 
 	/// Get the dependency requirement string for this compiler
-	string toolchainRequirementString(const ref ToolchainRequirements tr);
+	Dependency toolchainRequirement(const ref ToolchainRequirements tr);
 
 	/// Check whether the compiler meet the compiler requirement specified
 	/// in the recipe.
 	bool checkCompilerRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr);
-
-	/// Check if the compiler is supported by the recipe
-	final bool checkCompilerSupported(const ref ToolchainRequirements tr)
-	{
-		const str = toolchainRequirementString(tr);
-		return str != ToolchainRequirements.noKwd;
-	}
-
-	/// Check whether the compiler meet the frontend requirement specified
-	/// in the recipe.
-	final bool checkFrontendRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr)
-	{
-		import std.typecons : Yes;
-
-		return checkRequirement(tr.frontend, platform.frontendVersionString, Yes.dmdVer);
-	}
-
-	/// Check that a particular tool version matches with a given requirement
-	final bool checkRequirement(const string requirement, const string toolVer, const Flag!"dmdVer" dmdVer)
-	{
-		import dub.compilers.utils : dmdLikeVersionToSemverLike;
-		import dub.dependency : Dependency, Version;
-		import std.algorithm : all, map, splitter;
-
-		if (!requirement.length) return true; // no requirement
-
-		const ver = Version(dmdVer ? dmdLikeVersionToSemverLike(toolVer) : toolVer);
-
-		return requirement
-			.splitter(' ')
-			.map!(r => dmdVer ? dmdLikeVersionToSemverLike(r) : r)
-			.join(' ')
-			.Dependency
-			.matches(ver);
-	}
 
 	/** Runs a tool and provides common boilerplate code.
 

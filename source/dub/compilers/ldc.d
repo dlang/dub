@@ -233,16 +233,16 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		return  lflags.map!(s => "-L="~s)().array();
 	}
 
-	final string toolchainRequirementString(const ref ToolchainRequirements tr)
+	final Dependency toolchainRequirement(const ref ToolchainRequirements tr)
 	{
 		return tr.ldc;
 	}
 
 	final bool checkCompilerRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr)
 	{
-		import std.typecons : No;
-
-		return checkRequirement(tr.ldc, platform.compilerVersion, No.dmdVer);
+		auto ver = platform.compilerVersion.length
+			? platform.compilerVersion : "0.0.0";
+		return tr.ldc.matches(ver);
 	}
 
 	private auto escapeArgs(in string[] args)

@@ -247,7 +247,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 	Returns:
 		A Semver compliant string
 */
-string dmdLikeVersionToSemverLike(string ver)
+package(dub) string dmdLikeVersionToSemverLike(string ver)
 {
 	import std.algorithm : countUntil, joiner, map, skipOver, splitter;
 	import std.array : join, split;

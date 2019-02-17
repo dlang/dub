@@ -98,17 +98,6 @@ struct PackageRecipe {
 		throw new Exception("Unknown configuration: "~name);
 	}
 
-	bool hasToolchainRequirements() const
-	{
-		import std.algorithm : any;
-		import std.range : only;
-
-		with (toolchainRequirements) {
-			return only(dub, frontend, dmd, ldc, gdc)
-				.any!(r => r.length != 0);
-		}
-	}
-
 	/** Clones the package recipe recursively.
 	*/
 	PackageRecipe clone() const { return .clone(this); }
@@ -123,27 +112,44 @@ struct SubPackage
 /// Describes minimal toolchain requirements
 struct ToolchainRequirements
 {
-	/// DUB version requirement
-	string dub;
-	/// D front-end version requirement
-	string frontend;
-	/// DMD version requirement
-	string dmd;
-	/// LDC version requirement
-	string ldc;
-	/// GDC version requirement
-	string gdc;
+	import std.typecons : Tuple, tuple;
 
-	package(dub) enum noKwd = "no";
-	/// Get the list of supported compilers.
-	/// Returns: array of couples of compiler name and compiler requirement
-	@property string[2][] supportedCompilers() const
+	/// DUB version requirement
+	Dependency dub = Dependency.any;
+	/// D front-end version requirement
+	Dependency frontend = Dependency.any;
+	/// DMD version requirement
+	Dependency dmd = Dependency.any;
+	/// LDC version requirement
+	Dependency ldc = Dependency.any;
+	/// GDC version requirement
+	Dependency gdc = Dependency.any;
+
+	/** Get the list of supported compilers.
+
+		Returns:
+			An array of couples of compiler name and compiler requirement
+	*/
+	@property Tuple!(string, Dependency)[] supportedCompilers() const
 	{
-		string[2][] res;
-		if (dmd != noKwd) res ~= [ "dmd", dmd ];
-		if (ldc != noKwd) res ~= [ "ldc", ldc ];
-		if (gdc != noKwd) res ~= [ "gdc", gdc ];
+		Tuple!(string, Dependency)[] res;
+		if (dmd != Dependency.invalid) res ~= Tuple!(string, Dependency)("dmd", dmd);
+		if (ldc != Dependency.invalid) res ~= Tuple!(string, Dependency)("ldc", ldc);
+		if (gdc != Dependency.invalid) res ~= Tuple!(string, Dependency)("gdc", gdc);
 		return res;
+	}
+
+	bool empty()
+	const {
+		import std.algorithm.searching : all;
+		return only(dub, frontend, dmd, ldc, gdc)
+			.all!(r => r == Dependency.any);
+	}
+
+	bool matchesFrontendVersion(in ref BuildPlatform platform)
+	const {
+		import dub.compilers.utils : dmdLikeVersionToSemverLike;
+		return frontend.matches(Version(dmdLikeVersionToSemverLike(platform.frontendVersionString)));
 	}
 }
 
@@ -328,6 +334,40 @@ struct BuildSettingsTemplate {
 			.warnOnSpecialCompilerFlags(all_dflags, all_options, package_name, config_name);
 		}
 	}
+}
+
+package bool addRequirement(ref ToolchainRequirements req, string name, string value)
+{
+	switch (name) {
+		default: return false;
+		case "dub": req.dub = parseDependency(value); break;
+		case "frontend": req.frontend = parseDMDDependency(value); break;
+		case "ldc": req.ldc = parseDependency(value); break;
+		case "gdc": req.gdc = parseDependency(value); break;
+		case "dmd": req.dmd = parseDMDDependency(value); break;
+	}
+	return true;
+}
+
+private static Dependency parseDependency(string dep)
+{
+	if (dep == "no") return Dependency.invalid;
+	return Dependency(dep);
+}
+
+private static Dependency parseDMDDependency(string dep)
+{
+	import dub.compilers.utils : dmdLikeVersionToSemverLike;
+	import dub.dependency : Dependency;
+	import std.algorithm : map, splitter;
+	import std.array : join;
+
+	if (dep == "no") return Dependency.invalid;
+	return dep
+		.splitter(' ')
+		.map!(r => dmdLikeVersionToSemverLike(r))
+		.join(' ')
+		.Dependency;
 }
 
 private T clone(T)(ref const(T) val)

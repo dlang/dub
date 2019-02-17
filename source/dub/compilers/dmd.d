@@ -265,16 +265,17 @@ config    /etc/dmd.conf
 		return  lflags.map!(f => "-L"~f)().array();
 	}
 
-	string toolchainRequirementString(const ref ToolchainRequirements tr)
+	Dependency toolchainRequirement(const ref ToolchainRequirements tr)
 	{
 		return tr.dmd;
 	}
 
 	bool checkCompilerRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr)
 	{
-		import std.typecons : Yes;
-
-		return checkRequirement(tr.dmd, platform.compilerVersion, Yes.dmdVer);
+		auto ver = platform.compilerVersion.length
+			? dmdLikeVersionToSemverLike(platform.compilerVersion)
+			: "0.0.0";
+		return tr.dmd.matches(ver);
 	}
 
 	private auto escapeArgs(in string[] args)

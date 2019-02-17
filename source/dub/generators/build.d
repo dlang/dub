@@ -54,18 +54,16 @@ class BuildGenerator : ProjectGenerator {
 
 			const tr = pkg.recipe.toolchainRequirements;
 
-			enforce (
-				dcl.checkCompilerSupported(tr),
-				format(
+			if (dcl.toolchainRequirement(tr) == Dependency.invalid)
+				throw new Exception(format(
 					"Installed %s-%s is not supported by %s. Supported compiler(s):\n%s",
 					dcl.name, settings.platform.compilerVersion, pkg.name,
-					tr.supportedCompilers.map!((string[2] cs) {
+					tr.supportedCompilers.map!((cs) {
 						auto str = "  - " ~ cs[0];
-						if (cs[1].length) str ~= ": "~cs[1];
+						if (cs[1] != Dependency.any) str ~= ": " ~ cs[1].toString();
 						return str;
 					}).join("\n")
-				)
-			);
+				));
 
 			enforce(
 				dcl.checkCompilerRequirement(settings.platform, tr),
@@ -73,11 +71,12 @@ class BuildGenerator : ProjectGenerator {
 					"Installed %s-%s does not comply with %s compiler requirement: %s %s\n" ~
 					"Please consider upgrading your installation.",
 					dcl.name, settings.platform.compilerVersion,
-					pkg.name, dcl.name, dcl.toolchainRequirementString( tr )
+					pkg.name, dcl.name, dcl.toolchainRequirement(tr)
 				)
 			);
+
 			enforce(
-				dcl.checkFrontendRequirement(settings.platform, tr),
+				tr.matchesFrontendVersion(settings.platform),
 				format(
 					"Installed %s-%s with frontend %s does not comply with %s frontend requirement: %s\n" ~
 					"Please consider upgrading your installation.",
