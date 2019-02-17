@@ -92,13 +92,6 @@ interface Compiler {
 	/// Convert linker flags to compiler format
 	string[] lflagsToDFlags(in string[] lflags) const;
 
-	/// Get the dependency requirement string for this compiler
-	Dependency toolchainRequirement(const ref ToolchainRequirements tr);
-
-	/// Check whether the compiler meet the compiler requirement specified
-	/// in the recipe.
-	bool checkCompilerRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr);
-
 	/** Runs a tool and provides common boilerplate code.
 
 		This method should be used by `Compiler` implementations to invoke the

@@ -145,12 +145,6 @@ struct ToolchainRequirements
 		return only(dub, frontend, dmd, ldc, gdc)
 			.all!(r => r == Dependency.any);
 	}
-
-	bool matchesFrontendVersion(in ref BuildPlatform platform)
-	const {
-		import dub.compilers.utils : dmdLikeVersionToSemverLike;
-		return frontend.matches(Version(dmdLikeVersionToSemverLike(platform.frontendVersionString)));
-	}
 }
 
 
@@ -334,6 +328,69 @@ struct BuildSettingsTemplate {
 			.warnOnSpecialCompilerFlags(all_dflags, all_options, package_name, config_name);
 		}
 	}
+}
+
+package(dub) void checkPlatform(in ref ToolchainRequirements tr, BuildPlatform platform, string package_name)
+{
+	import dub.compilers.utils : dmdLikeVersionToSemverLike;
+	import std.algorithm.iteration : map;
+	import std.format : format;
+
+	string compilerver;
+	Dependency compilerspec;
+
+	switch (platform.compiler) {
+		default:
+			compilerspec = Dependency.any;
+			compilerver = "0.0.0";
+			break;
+		case "dmd":
+			compilerspec = tr.dmd;
+			compilerver = platform.compilerVersion.length
+				? dmdLikeVersionToSemverLike(platform.compilerVersion)
+				: "0.0.0";
+			break;
+		case "ldc":
+			compilerspec = tr.ldc;
+			compilerver = platform.compilerVersion;
+			if (!compilerver.length) compilerver = "0.0.0";
+			break;
+		case "gdc":
+			compilerspec = tr.gdc;
+			compilerver = platform.compilerVersion;
+			if (!compilerver.length) compilerver = "0.0.0";
+			break;
+	}
+
+	enforce(compilerspec != Dependency.invalid,
+		format(
+			"Installed %s %s is not supported by %s. Supported compiler(s):\n%s",
+			platform.compiler, platform.compilerVersion, package_name,
+			tr.supportedCompilers.map!((cs) {
+				auto str = "  - " ~ cs[0];
+				if (cs[1] != Dependency.any) str ~= ": " ~ cs[1].toString();
+				return str;
+			}).join("\n")
+		)
+	);
+
+	enforce(compilerspec.matches(compilerver),
+		format(
+			"Installed %s-%s does not comply with %s compiler requirement: %s %s\n" ~
+			"Please consider upgrading your installation.",
+			platform.compiler, platform.compilerVersion,
+			package_name, platform.compiler, compilerspec
+		)
+	);
+
+	enforce(tr.frontend.matches(dmdLikeVersionToSemverLike(platform.frontendVersionString)),
+		format(
+			"Installed %s-%s with frontend %s does not comply with %s frontend requirement: %s\n" ~
+			"Please consider upgrading your installation.",
+			platform.compiler, platform.compilerVersion,
+			platform.frontendVersionString, package_name, tr.frontend
+		)
+	);
 }
 
 package bool addRequirement(ref ToolchainRequirements req, string name, string value)
