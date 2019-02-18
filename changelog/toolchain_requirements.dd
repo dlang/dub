@@ -28,7 +28,7 @@ $(UL
 )
 
 Each can contain a
-$(LINK2 https://dub.pm/package-format-sdl.html#version-specs version specification),
+$(LINK2 https://dub.pm/package-format-sdl.html#version-specs, version specification),
 where DMD-like versions are supported in addition to SemVer versions. For
 compilers, instead of a version specification, the keyword `no` can also be used
 to indicate that the compiler should not be used for this package.
