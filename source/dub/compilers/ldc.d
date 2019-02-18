@@ -233,18 +233,6 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		return  lflags.map!(s => "-L="~s)().array();
 	}
 
-	final string toolchainRequirementString(const ref ToolchainRequirements tr)
-	{
-		return tr.ldc;
-	}
-
-	final bool checkCompilerRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr)
-	{
-		import std.typecons : No;
-
-		return checkRequirement(tr.ldc, platform.compilerVersion, No.dmdVer);
-	}
-
 	private auto escapeArgs(in string[] args)
 	{
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);

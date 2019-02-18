@@ -551,15 +551,13 @@ class Package {
 	// Left as package until the final API for this has been found
 	package auto getAllDependenciesRange()
 	const {
-		return this.recipe.buildSettings.dependencies.byKeyValue
-			.map!(bs => PackageDependency(bs.key, bs.value))
-			.chain(
-				this.recipe.configurations
-					.map!(c => c.buildSettings.dependencies.byKeyValue
-						.map!(bs => PackageDependency(bs.key, bs.value))
-					)
-					.joiner()
-			);
+		return
+			chain(
+				only(this.recipe.buildSettings.dependencies.byKeyValue),
+				this.recipe.configurations.map!(c => c.buildSettings.dependencies.byKeyValue)
+			)
+			.joiner()
+			.map!(d => PackageDependency(d.key, d.value));
 	}
 
 
@@ -643,23 +641,21 @@ class Package {
 		import dub.version_ : dubVersion;
 		import std.exception : enforce;
 
-		if (m_info.toolchainRequirements.dub.length) {
-			const dep = Dependency(m_info.toolchainRequirements.dub);
+		const dep = m_info.toolchainRequirements.dub;
 
-			static assert(dubVersion.length);
-			static if (dubVersion[0] == 'v') {
-				enum dv = dubVersion[1 .. $];
-			}
-			else {
-				enum dv = dubVersion;
-			}
-			static assert(isValidVersion(dv));
-
-			enforce(dep.matches(dv),
-				"dub-"~dv~" does not comply with toolchainRequirements.dub " ~
-				"specification: "~m_info.toolchainRequirements.dub~
-				"\nPlease consider upgrading your DUB installation");
+		static assert(dubVersion.length);
+		static if (dubVersion[0] == 'v') {
+			enum dv = dubVersion[1 .. $];
 		}
+		else {
+			enum dv = dubVersion;
+		}
+		static assert(isValidVersion(dv));
+
+		enforce(dep.matches(dv),
+			"dub-" ~ dv ~ " does not comply with toolchainRequirements.dub "
+			~ "specification: " ~ m_info.toolchainRequirements.dub.toString()
+			~ "\nPlease consider upgrading your DUB installation");
 	}
 
 	private void fillWithDefaults()

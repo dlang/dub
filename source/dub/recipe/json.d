@@ -106,7 +106,7 @@ Json toJson(in ref PackageRecipe recipe)
 			types[name] = settings.toJson();
 		ret["buildTypes"] = types;
 	}
-	if (recipe.hasToolchainRequirements) {
+	if (!recipe.toolchainRequirements.empty) {
 		ret["toolchainRequirements"] = recipe.toolchainRequirements.toJson();
 	}
 	if (!recipe.ddoxFilterArgs.empty) ret["-ddoxFilterArgs"] = recipe.ddoxFilterArgs.serializeToJson();
@@ -300,46 +300,17 @@ private Json toJson(in ref BuildSettingsTemplate bs)
 
 private void parseJson(ref ToolchainRequirements tr, Json json)
 {
-	foreach (string name, value; json) {
-		switch (name) {
-		case "dub":
-			tr.dub = value.get!string();
-			break;
-		case "frontend":
-			tr.frontend = value.get!string();
-			break;
-		case "dmd":
-			tr.dmd = value.get!string();
-			break;
-		case "ldc":
-			tr.ldc = value.get!string();
-			break;
-		case "gdc":
-			tr.gdc = value.get!string();
-			break;
-		default:
-			break;
-		}
-	}
+	foreach (string name, value; json)
+		tr.addRequirement(name, value.get!string);
 }
 
 private Json toJson(in ref ToolchainRequirements tr)
 {
 	auto ret = Json.emptyObject;
-	if (tr.dub.length) {
-		ret["dub"] = serializeToJson(tr.dub);
-	}
-	if (tr.frontend.length) {
-		ret["frontend"] = serializeToJson(tr.frontend);
-	}
-	if (tr.dmd.length) {
-		ret["dmd"] = serializeToJson(tr.dmd);
-	}
-	if (tr.ldc.length) {
-		ret["ldc"] = serializeToJson(tr.ldc);
-	}
-	if (tr.gdc.length) {
-		ret["gdc"] = serializeToJson(tr.gdc);
-	}
+	if (tr.dub != Dependency.any) ret["dub"] = serializeToJson(tr.dub);
+	if (tr.frontend != Dependency.any) ret["frontend"] = serializeToJson(tr.frontend);
+	if (tr.dmd != Dependency.any) ret["dmd"] = serializeToJson(tr.dmd);
+	if (tr.ldc != Dependency.any) ret["ldc"] = serializeToJson(tr.ldc);
+	if (tr.gdc != Dependency.any) ret["gdc"] = serializeToJson(tr.gdc);
 	return ret;
 }

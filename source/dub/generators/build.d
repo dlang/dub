@@ -50,47 +50,13 @@ class BuildGenerator : ProjectGenerator {
 
 		void checkPkgRequirements(const(Package) pkg)
 		{
-			import std.format : format;
-
 			const tr = pkg.recipe.toolchainRequirements;
-
-			enforce (
-				dcl.checkCompilerSupported(tr),
-				format(
-					"Installed %s-%s is not supported by %s. Supported compiler(s):\n%s",
-					dcl.name, settings.platform.compilerVersion, pkg.name,
-					tr.supportedCompilers.map!((string[2] cs) {
-						auto str = "  - " ~ cs[0];
-						if (cs[1].length) str ~= ": "~cs[1];
-						return str;
-					}).join("\n")
-				)
-			);
-
-			enforce(
-				dcl.checkCompilerRequirement(settings.platform, tr),
-				format(
-					"Installed %s-%s does not comply with %s compiler requirement: %s %s\n" ~
-					"Please consider upgrading your installation.",
-					dcl.name, settings.platform.compilerVersion,
-					pkg.name, dcl.name, dcl.toolchainRequirementString( tr )
-				)
-			);
-			enforce(
-				dcl.checkFrontendRequirement(settings.platform, tr),
-				format(
-					"Installed %s-%s with frontend %s does not comply with %s frontend requirement: %s\n" ~
-					"Please consider upgrading your installation.",
-					dcl.name, settings.platform.compilerVersion,
-					settings.platform.frontendVersionString, pkg.name, tr.frontend
-				)
-			);
+			tr.checkPlatform(settings.platform, pkg.name);
 		}
 
 		checkPkgRequirements(m_project.rootPackage);
-		foreach (pkg; m_project.dependencies) {
+		foreach (pkg; m_project.dependencies)
 			checkPkgRequirements(pkg);
-		}
 
 		auto root_ti = targets[m_project.rootPackage.name];
 
