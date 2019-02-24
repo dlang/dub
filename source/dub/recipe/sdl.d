@@ -104,7 +104,7 @@ Tag toSDL(in ref PackageRecipe recipe)
 		t.add(settings.toSDL());
 		ret.add(t);
 	}
-	if (recipe.hasToolchainRequirements) {
+	if (!recipe.toolchainRequirements.empty) {
 		ret.add(toSDL(recipe.toolchainRequirements));
 	}
 	if (recipe.ddoxFilterArgs.length)
@@ -280,47 +280,18 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 
 private void parseToolchainRequirements(ref ToolchainRequirements tr, Tag tag)
 {
-	foreach (attr; tag.attributes) {
-		switch (attr.name) {
-		case "dub":
-			tr.dub = attr.value.get!string();
-			break;
-		case "frontend":
-			tr.frontend = attr.value.get!string();
-			break;
-		case "dmd":
-			tr.dmd = attr.value.get!string();
-			break;
-		case "ldc":
-			tr.ldc = attr.value.get!string();
-			break;
-		case "gdc":
-			tr.gdc = attr.value.get!string();
-			break;
-		default:
-			break;
-		}
-	}
+	foreach (attr; tag.attributes)
+		tr.addRequirement(attr.name, attr.value.get!string);
 }
 
 private Tag toSDL(const ref ToolchainRequirements tr)
 {
 	Attribute[] attrs;
-	if (tr.dub.length) {
-		attrs ~= new Attribute("dub", Value(tr.dub));
-	}
-	if (tr.frontend.length) {
-		attrs ~= new Attribute("frontend", Value(tr.frontend));
-	}
-	if (tr.dmd.length) {
-		attrs ~= new Attribute("dmd", Value(tr.dmd));
-	}
-	if (tr.ldc.length) {
-		attrs ~= new Attribute("ldc", Value(tr.ldc));
-	}
-	if (tr.gdc.length) {
-		attrs ~= new Attribute("gdc", Value(tr.gdc));
-	}
+	if (tr.dub != Dependency.any) attrs ~= new Attribute("dub", Value(tr.dub.toString()));
+	if (tr.frontend != Dependency.any) attrs ~= new Attribute("frontend", Value(tr.frontend.toString()));
+	if (tr.dmd != Dependency.any) attrs ~= new Attribute("dmd", Value(tr.dmd.toString()));
+	if (tr.ldc != Dependency.any) attrs ~= new Attribute("ldc", Value(tr.ldc.toString()));
+	if (tr.gdc != Dependency.any) attrs ~= new Attribute("gdc", Value(tr.gdc.toString()));
 	return new Tag(null, "toolchainRequirements", null, attrs);
 }
 
@@ -510,11 +481,11 @@ lflags "lf3"
 	assert(rec.buildTypes.length == 2);
 	assert(rec.buildTypes["debug"].dflags == ["": ["-g", "-debug"]]);
 	assert(rec.buildTypes["release"].dflags == ["": ["-release", "-O"]]);
-	assert(rec.toolchainRequirements.dub == "~>1.11.0");
-	assert(rec.toolchainRequirements.frontend is null);
-	assert(rec.toolchainRequirements.dmd == "~>2.082");
-	assert(rec.toolchainRequirements.ldc is null);
-	assert(rec.toolchainRequirements.gdc is null);
+	assert(rec.toolchainRequirements.dub == Dependency("~>1.11.0"));
+	assert(rec.toolchainRequirements.frontend == Dependency.any);
+	assert(rec.toolchainRequirements.dmd == Dependency("~>2.82.0"));
+	assert(rec.toolchainRequirements.ldc == Dependency.any);
+	assert(rec.toolchainRequirements.gdc == Dependency.any);
 	assert(rec.ddoxFilterArgs == ["-arg1", "-arg2", "-arg3"], rec.ddoxFilterArgs.to!string);
 	assert(rec.ddoxTool == "ddoxtool");
 	assert(rec.buildSettings.dependencies.length == 2);

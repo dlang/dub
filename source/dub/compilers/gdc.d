@@ -256,18 +256,6 @@ predefs   GNU D_Version2 LittleEndian GNU_DWARF2_Exceptions GNU_StackGrowsDown G
 
 		return  dflags;
 	}
-
-	final string toolchainRequirementString(const ref ToolchainRequirements tr)
-	{
-		return tr.gdc;
-	}
-
-	final bool checkCompilerRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr)
-	{
-		import std.typecons : No;
-
-		return checkRequirement(tr.gdc, platform.compilerVersion, No.dmdVer);
-	}
 }
 
 private string extractTarget(const string[] args) { auto i = args.countUntil("-o"); return i >= 0 ? args[i+1] : null; }

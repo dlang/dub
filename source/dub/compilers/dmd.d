@@ -265,18 +265,6 @@ config    /etc/dmd.conf
 		return  lflags.map!(f => "-L"~f)().array();
 	}
 
-	string toolchainRequirementString(const ref ToolchainRequirements tr)
-	{
-		return tr.dmd;
-	}
-
-	bool checkCompilerRequirement(const ref BuildPlatform platform, const ref ToolchainRequirements tr)
-	{
-		import std.typecons : Yes;
-
-		return checkRequirement(tr.dmd, platform.compilerVersion, Yes.dmdVer);
-	}
-
 	private auto escapeArgs(in string[] args)
 	{
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);

@@ -138,6 +138,8 @@ struct Dependency {
 	*/
 	@property void versionSpec(string ves)
 	{
+		static import std.string;
+
 		enforce(ves.length > 0);
 		string orig = ves;
 
@@ -200,6 +202,8 @@ struct Dependency {
 	/// ditto
 	@property string versionSpec()
 	const {
+		static import std.string;
+
 		string r;
 
 		if (this == invalid) return "invalid";

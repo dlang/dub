@@ -91,7 +91,7 @@ test_cl_req_pass ">=$DC_VER"
 test_cl_req_fail ">$DC_VER"
 test_cl_req_pass "<=$DC_VER"
 test_cl_req_fail "<$DC_VER"
-test_cl_req_pass ">=$DC_VER|<$(($DC_VER_MAJ + 1))$DC_VER_REM"
+test_cl_req_pass ">=$DC_VER <$(($DC_VER_MAJ + 1))$DC_VER_REM"
 test_cl_req_pass "~>$DC_VER"
 test_cl_req_fail "~>$(($DC_VER_MAJ + 1))$DC_VER_REM"
 test_cl_req_fail no
