@@ -489,6 +489,7 @@ class InitCommand : Command {
 		this.helpText = [
 			"Initializes an empty package of the specified type in the given directory. By default, the current working directory is used."
 		];
+		this.acceptsAppArgs = true;
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -499,6 +500,7 @@ class InitCommand : Command {
 			"minimal - simple \"hello world\" project (default)",
 			"vibe.d  - minimal HTTP server based on vibe.d",
 			"deimos  - skeleton for C header bindings",
+			"custom  - custom project provided by dub package",
 		]);
 		args.getopt("f|format", &m_format, [
 			"Sets the format to use for the package description file. Possible values:",
@@ -510,7 +512,6 @@ class InitCommand : Command {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		string dir;
-		enforceUsage(app_args.empty, "Unexpected application arguments.");
 		if (free_args.length)
 		{
 			dir = free_args[0];
@@ -565,18 +566,11 @@ class InitCommand : Command {
 			}
 		}
 
-		//TODO: Remove this block in next version
-		// Checks if argument uses current method of specifying project type.
-		if (free_args.length)
+		if (!["vibe.d", "deimos", "minimal"].canFind(m_templateType))
 		{
-			if (["vibe.d", "deimos", "minimal"].canFind(free_args[0]))
-			{
-				m_templateType = free_args[0];
-				free_args = free_args[1 .. $];
-				logInfo("Deprecated use of init type. Use --type=[vibe.d | deimos | minimal] in future.");
-			}
+			free_args ~= m_templateType;
 		}
-		dub.createEmptyPackage(NativePath(dir), free_args, m_templateType, m_format, &depCallback);
+		dub.createEmptyPackage(NativePath(dir), free_args, m_templateType, m_format, &depCallback, app_args);
 
 		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;

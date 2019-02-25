@@ -1,0 +1,8 @@
+Support of custom dub init type
+
+Command dub init now supports custom dub packages for argument -t.
+`dub init -n myPackage --format sdl -t custom-dub-init-dubpackage -- --foo=bar`
+
+Dub init will be invoked like before. The package `custom-dub-init-dubpackage`
+contains a sub package `init` which will be invoked afterwards to create a custom
+package skeleton. Additional arguments could be passed e.g. `-- --foo=bar`.
