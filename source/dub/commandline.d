@@ -67,7 +67,6 @@ CommandGroup[] getCommands()
 			new RemoveLocalCommand,
 			new ListCommand,
 			new SearchCommand,
-			new ListInstalledCommand,
 			new AddOverrideCommand,
 			new RemoveOverrideCommand,
 			new ListOverridesCommand,
@@ -1587,16 +1586,6 @@ class ListCommand : Command {
 			logInfo("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
 		logInfo("");
 		return 0;
-	}
-}
-
-class ListInstalledCommand : ListCommand {
-	this() { this.name = "list-installed"; hidden = true; }
-	override void prepare(scope CommandArgs args) { super.prepare(args); }
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		warnRenamed("list-installed", "list");
-		return super.execute(dub, free_args, app_args);
 	}
 }
 
