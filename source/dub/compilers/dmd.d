@@ -22,6 +22,37 @@ import std.file;
 import std.process;
 import std.typecons;
 
+version (Windows)
+extern (Windows) nothrow @nogc {
+	import core.sys.windows.basetsd : HANDLE;
+	private bool isWow64Process(HANDLE handle, bool* isWow64);
+	private HANDLE GetCurrentProcess();
+}
+
+// Determines whether the specified process is running under WOW64 or an Intel64 of x64 processor.
+version (Windows)
+private Nullable!bool IsWow64() {
+	// See also: https://docs.microsoft.com/en-us/windows/desktop/api/wow64apiset/nf-wow64apiset-iswow64process
+	import core.sys.windows.winbase : IsWow64Process;
+	import core.sys.windows.winbase : GetProcAddress, GetModuleHandleA;
+	static Nullable!bool result;
+
+	// A process's architecture won't change over while the process is in memory
+	// Return the cached result
+	if (!result.isNull)
+		return result;
+
+	auto isWow64Process = GetProcAddress(
+		GetModuleHandleA("kernel32"),"IsWow64Process");
+
+	if(isWow64Process != 0)
+	{
+		bool bIsWow64;
+		if (isWow64Process(GetCurrentProcess(),&bIsWow64))
+			result = bIsWow64;
+	}
+	return result;
+}
 
 class DMDCompiler : Compiler {
 	private static immutable s_options = [
@@ -86,7 +117,14 @@ config    /etc/dmd.conf
 		string[] arch_flags;
 		switch (arch_override) {
 			default: throw new Exception("Unsupported architecture: "~arch_override);
-			case "": break;
+			case "":
+				// Don't use Optlink by default on Windows
+				version (Windows) {
+					const is64bit = isWow64();
+					if (!is64bit.isNull)
+						arch_flags = [is64bit ? "-m64" : "-m32"];
+				}
+				break;
 			case "x86": arch_flags = ["-m32"]; break;
 			case "x86_64": arch_flags = ["-m64"]; break;
 			case "x86_mscoff": arch_flags = ["-m32mscoff"]; break;
