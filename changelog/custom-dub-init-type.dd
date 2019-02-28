@@ -1,6 +1,6 @@
 Support of custom dub init type
 
-Command dub init now supports custom dub packages for argument -t.
+Command dub init now supports custom dub packages for argument `-t`.
 $(CONSOLE
 > dub init -n myPackage --format sdl -t custom-dub-init-dubpackage -- --foo=bar
 )
