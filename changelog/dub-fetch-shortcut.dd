@@ -1,9 +1,0 @@
-`dub fetch` now supports `<package>@<version>` as a shortcut
-
-`dub fetch <package>@<version>` is a shortcut for
-`dub fetch <package> --version=<version>`:
-
-$(CONSOLE
-> dub fetch gitcompatibledubpackage@1.0.4
-Fetching gitcompatibledubpackage 1.0.4...
-)
