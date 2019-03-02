@@ -22,19 +22,14 @@ import std.file;
 import std.process;
 import std.typecons;
 
-version (Windows)
-extern (Windows) nothrow @nogc {
-	import core.sys.windows.basetsd : HANDLE;
-	private bool isWow64Process(HANDLE handle, bool* isWow64);
-	private HANDLE GetCurrentProcess();
-}
-
 // Determines whether the specified process is running under WOW64 or an Intel64 of x64 processor.
 version (Windows)
-private Nullable!bool IsWow64() {
+private Nullable!bool isWow64() {
 	// See also: https://docs.microsoft.com/en-us/windows/desktop/api/wow64apiset/nf-wow64apiset-iswow64process
-	import core.sys.windows.winbase : IsWow64Process;
-	import core.sys.windows.winbase : GetProcAddress, GetModuleHandleA;
+	import core.sys.windows.basetsd : HANDLE;
+	import core.sys.windows.winbase : GetProcAddress, GetModuleHandleA, GetCurrentProcess;
+	
+	alias isWow64Process = extern (Windows) nothrow @nogc bool function(HANDLE handle, bool* isWow64);
 	static Nullable!bool result;
 
 	// A process's architecture won't change over while the process is in memory
@@ -42,13 +37,12 @@ private Nullable!bool IsWow64() {
 	if (!result.isNull)
 		return result;
 
-	auto isWow64Process = GetProcAddress(
-		GetModuleHandleA("kernel32"),"IsWow64Process");
+	auto isWow64ProcessFp = cast(isWow64Process) GetProcAddress(GetModuleHandleA("kernel32"), "IsWow64Process");
 
-	if(isWow64Process != 0)
+	if(isWow64ProcessFp !is null)
 	{
 		bool bIsWow64;
-		if (isWow64Process(GetCurrentProcess(),&bIsWow64))
+		if (isWow64ProcessFp(GetCurrentProcess(), &bIsWow64))
 			result = bIsWow64;
 	}
 	return result;
