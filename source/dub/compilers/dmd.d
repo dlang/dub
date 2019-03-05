@@ -25,11 +25,9 @@ import std.typecons;
 // Determines whether the specified process is running under WOW64 or an Intel64 of x64 processor.
 version (Windows)
 private Nullable!bool isWow64() {
-	// See also: https://docs.microsoft.com/en-us/windows/desktop/api/wow64apiset/nf-wow64apiset-iswow64process
-	import core.sys.windows.basetsd : HANDLE;
-	import core.sys.windows.winbase : GetProcAddress, GetModuleHandleA, GetCurrentProcess;
-	
-	alias isWow64Process = extern (Windows) nothrow @nogc bool function(HANDLE handle, bool* isWow64);
+	// See also: https://docs.microsoft.com/de-de/windows/desktop/api/sysinfoapi/nf-sysinfoapi-getnativesysteminfo
+	import core.sys.windows.windows : GetNativeSystemInfo, SYSTEM_INFO, PROCESSOR_ARCHITECTURE_AMD64;
+
 	static Nullable!bool result;
 
 	// A process's architecture won't change over while the process is in memory
@@ -37,14 +35,9 @@ private Nullable!bool isWow64() {
 	if (!result.isNull)
 		return result;
 
-	auto isWow64ProcessFp = cast(isWow64Process) GetProcAddress(GetModuleHandleA("kernel32"), "IsWow64Process");
-
-	if(isWow64ProcessFp !is null)
-	{
-		bool bIsWow64;
-		if (isWow64ProcessFp(GetCurrentProcess(), &bIsWow64))
-			result = bIsWow64;
-	}
+	//SYSTEM_INFO systemInfo;
+	//GetNativeSystemInfo(&systemInfo);
+	result = systemInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
 	return result;
 }
 
@@ -116,7 +109,7 @@ config    /etc/dmd.conf
 				version (Windows) {
 					const is64bit = isWow64();
 					if (!is64bit.isNull)
-						arch_flags = [is64bit ? "-m64" : "-m32"];
+						arch_flags = [is64bit ? "-m64" : "-m32mscoff"];
 				}
 				break;
 			case "x86": arch_flags = ["-m32"]; break;
