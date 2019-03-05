@@ -1168,7 +1168,8 @@ class Dub {
 	*/
 	void createEmptyPackage(NativePath path, string[] deps, string type,
 		PackageFormat format = PackageFormat.sdl,
-		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null)
+		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null,
+		string[] app_args = [])
 	{
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
@@ -1196,8 +1197,38 @@ class Dub {
 
 		initPackage(path, depVers, type, format, recipe_callback);
 
+		if (!["vibe.d", "deimos", "minimal"].canFind(type)) {
+			runCustomInitialization(path, type, app_args);
+		}
+
 		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
+	}
+
+	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
+	{
+		string packageName = type;
+		auto template_pack = m_packageManager.getBestPackage(packageName, ">=0.0.0");
+		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
+		if (!template_pack) {
+			logInfo("%s is not present, getting and storing it user wide", packageName);
+			template_pack = fetch(packageName, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+		}
+
+		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init", false);
+		auto template_dub = new Dub(null, m_packageSuppliers);
+		template_dub.loadPackage(initSubPackage);
+		auto compiler_binary = this.defaultCompiler;
+
+		GeneratorSettings settings;
+		settings.config = "application";
+		settings.compiler = getCompiler(compiler_binary);
+		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
+		settings.buildType = "debug";
+		settings.run = true;
+		settings.runArgs = runArgs;
+		initSubPackage.recipe.buildSettings.workingDirectory = path.toNativeString();
+		template_dub.generateProject("build", settings);
 	}
 
 	/** Converts the package recipe of the loaded root package to the given format.
