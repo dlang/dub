@@ -1,0 +1,3 @@
+Remove `dub list-installed` command
+
+`dub list-installed` command was deprecated and renamed to `list` at $(LINK2 https://github.com/dlang/dub/pull/150, in 2013).
