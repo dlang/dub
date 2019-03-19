@@ -1215,7 +1215,7 @@ class Dub {
 			template_pack = fetch(packageName, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
 		}
 
-		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init", false);
+		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
 		auto template_dub = new Dub(null, m_packageSuppliers);
 		template_dub.loadPackage(initSubPackage);
 		auto compiler_binary = this.defaultCompiler;
