@@ -35,8 +35,8 @@ private Nullable!bool isWow64() {
 	if (!result.isNull)
 		return result;
 
-	//SYSTEM_INFO systemInfo;
-	//GetNativeSystemInfo(&systemInfo);
+	SYSTEM_INFO systemInfo;
+	GetNativeSystemInfo(&systemInfo);
 	result = systemInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
 	return result;
 }
