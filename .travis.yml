@@ -58,7 +58,7 @@ jobs:
     - d: ldc-1.3.0
       env: [FRONTEND=2.073]
     - stage: deploy
-      d: ldc
+      d: ldc-1.14.0
       os: osx
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       deploy:
@@ -69,7 +69,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc
+    - d: ldc-1.13.0
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       env: [ARCH=32]
       addons:
@@ -85,7 +85,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc
+    - d: ldc-1.14.0
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       deploy:
         - provider: releases
@@ -95,7 +95,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc
+    - d: ldc-1.14.0
       script: echo "Deploying to GitHub releases (win32) ..." && ./release-windows.sh
       addons:
         apt:
@@ -109,7 +109,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc
+    - d: ldc-1.14.0
       script: echo "Deploying to GitHub releases (win64) ..." && ARCH=64 ./release-windows.sh
       addons:
         apt:
