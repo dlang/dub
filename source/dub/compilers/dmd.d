@@ -22,6 +22,24 @@ import std.file;
 import std.process;
 import std.typecons;
 
+// Determines whether the specified process is running under WOW64 or an Intel64 of x64 processor.
+version (Windows)
+private Nullable!bool isWow64() {
+	// See also: https://docs.microsoft.com/de-de/windows/desktop/api/sysinfoapi/nf-sysinfoapi-getnativesysteminfo
+	import core.sys.windows.windows : GetNativeSystemInfo, SYSTEM_INFO, PROCESSOR_ARCHITECTURE_AMD64;
+
+	static Nullable!bool result;
+
+	// A process's architecture won't change over while the process is in memory
+	// Return the cached result
+	if (!result.isNull)
+		return result;
+
+	SYSTEM_INFO systemInfo;
+	GetNativeSystemInfo(&systemInfo);
+	result = systemInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+	return result;
+}
 
 class DMDCompiler : Compiler {
 	private static immutable s_options = [
@@ -86,7 +104,14 @@ config    /etc/dmd.conf
 		string[] arch_flags;
 		switch (arch_override) {
 			default: throw new Exception("Unsupported architecture: "~arch_override);
-			case "": break;
+			case "":
+				// Don't use Optlink by default on Windows
+				version (Windows) {
+					const is64bit = isWow64();
+					if (!is64bit.isNull)
+						arch_flags = [is64bit ? "-m64" : "-m32mscoff"];
+				}
+				break;
 			case "x86": arch_flags = ["-m32"]; break;
 			case "x86_64": arch_flags = ["-m64"]; break;
 			case "x86_mscoff": arch_flags = ["-m32mscoff"]; break;
