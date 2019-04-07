@@ -86,7 +86,7 @@ class RegistryPackageSupplier : PackageSupplier {
 			m_metadataCache.remove(packageId);
 		}
 
-		auto url = m_registryUrl ~ NativePath("api/packages/" ~ packageId ~ "/dependencies?minimize=true");
+		auto url = m_registryUrl ~ NativePath("api/packages/" ~ packageId ~ "/info?minimize=true");
 
 		logDebug("Downloading metadata for %s", packageId);
 		string jsonData;
