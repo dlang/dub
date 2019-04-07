@@ -63,7 +63,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;
-			else logDebug("Failed to download package %s from %s", packageId, url); 
+			else logDebug("Failed to download package %s from %s", packageId, url);
 		}
 		catch(Exception e) {
 			logDebug("Failed to download package %s from %s", packageId, url);
@@ -86,7 +86,7 @@ class RegistryPackageSupplier : PackageSupplier {
 			m_metadataCache.remove(packageId);
 		}
 
-		auto url = m_registryUrl ~ NativePath(PackagesPath ~ "/" ~ packageId ~ ".json");
+		auto url = m_registryUrl ~ NativePath("api/packages/" ~ packageId ~ "/info?minimize=true");
 
 		logDebug("Downloading metadata for %s", packageId);
 		string jsonData;
@@ -102,9 +102,6 @@ class RegistryPackageSupplier : PackageSupplier {
 		}
 
 		Json json = parseJsonString(jsonData, url.toString());
-		// strip readme data (to save size and time)
-		foreach (ref v; json["versions"])
-			v.remove("readme");
 		m_metadataCache[packageId] = CacheEntry(json, now);
 		return json;
 	}
