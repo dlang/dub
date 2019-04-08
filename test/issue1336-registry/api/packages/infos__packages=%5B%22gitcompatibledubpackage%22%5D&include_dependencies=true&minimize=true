@@ -1,0 +1,3 @@
+{
+	"gitcompatibledubpackage": {"versions":[{"configurations":[{"name":"exe"},{"name":"lib"}],"version":"~master","name":"gitcompatibledubpackage"},{"version":"1.0.1","name":"gitcompatibledubpackage"},{"version":"1.0.2","name":"gitcompatibledubpackage"},{"version":"1.0.3","name":"gitcompatibledubpackage"},{"configurations":[{"name":"exe"},{"name":"lib"}],"version":"1.0.4","name":"gitcompatibledubpackage"}]}
+}
