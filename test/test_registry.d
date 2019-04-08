@@ -10,6 +10,9 @@ import vibe.d;
 Provide a special API File Handler as Vibe.d's builtin serveStaticFiles
 doesn't deal well with query params.
 This will blindly check if the requestURI payload exists on the filesystem and if so, return the file.
+
+It replaces `?` with `__` for Windows compatibility.
+
 Params:
     skip = initial part of the requestURI to skip over
     folder = the base directory from which to serve API requests from
@@ -20,7 +23,8 @@ auto apiFileHandler(string skip, string folder) {
         import std.algorithm : skipOver;
         import std.path : buildPath;
         import std.file : exists;
-        auto requestURI = req.requestURI;
+        // ? can't be part of path names on Windows
+        auto requestURI = req.requestURI.replace("?", "__");
         requestURI.skipOver(skip);
         const reqFile = buildPath(folder, requestURI);
         if (reqFile.exists) {
