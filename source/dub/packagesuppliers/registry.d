@@ -92,15 +92,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		logDebug("Downloading metadata for %s", packageId);
 		string jsonData;
 
-		try
-			jsonData = cast(string)retryDownload(url);
-		catch(HTTPStatusException e) {
-			if (e.status == 404) {
-				logDebug("Package %s not found at %s (404): %s", packageId, description, e.msg);
-				return Json(null);
-			}
-			else throw e;
-		}
+		jsonData = cast(string)retryDownload(url);
 
 		Json json = parseJsonString(jsonData, url.toString());
 		foreach (pkg, info; json.get!(Json[string]))
