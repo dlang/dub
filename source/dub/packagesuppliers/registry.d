@@ -86,24 +86,21 @@ class RegistryPackageSupplier : PackageSupplier {
 			m_metadataCache.remove(packageId);
 		}
 
-		auto url = m_registryUrl ~ NativePath("api/packages/" ~ packageId ~ "/info?minimize=true");
+		auto url = m_registryUrl ~ NativePath("api/packages/infos?packages=[\"" ~
+				packageId ~ "\"]&include_dependencies=true&minimize=true");
 
 		logDebug("Downloading metadata for %s", packageId);
 		string jsonData;
 
-		try
-			jsonData = cast(string)retryDownload(url);
-		catch(HTTPStatusException e) {
-			if (e.status == 404) {
-				logDebug("Package %s not found at %s (404): %s", packageId, description, e.msg);
-				return Json(null);
-			}
-			else throw e;
-		}
+		jsonData = cast(string)retryDownload(url);
 
 		Json json = parseJsonString(jsonData, url.toString());
-		m_metadataCache[packageId] = CacheEntry(json, now);
-		return json;
+		foreach (pkg, info; json.get!(Json[string]))
+		{
+			logDebug("adding %s to metadata cache", pkg);
+			m_metadataCache[pkg] = CacheEntry(info, now);
+		}
+		return json[packageId];
 	}
 
 	SearchResult[] searchPackages(string query) {
