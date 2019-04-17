@@ -1,0 +1,4 @@
+DUB uses single API requests to upgrade/resolve dependencies.
+
+`dub` now uses single API request to upgrade/resolve dependencies.
+For more details, see $(LINK2 https://github.com/dlang/dub/pull/1366, pull #1366).

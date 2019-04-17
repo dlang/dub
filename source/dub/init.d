@@ -82,7 +82,7 @@ void initPackage(NativePath root_path, string[string] deps, string type,
 	}
 
 	switch (type) {
-		default: throw new Exception("Unknown package init type: "~type);
+		default: break;
 		case "minimal": initMinimalPackage(root_path, p, &processRecipe); break;
 		case "vibe.d": initVibeDPackage(root_path, p, &processRecipe); break;
 		case "deimos": initDeimosPackage(root_path, p, &processRecipe); break;
