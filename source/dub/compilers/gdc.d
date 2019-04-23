@@ -54,31 +54,15 @@ class GDCCompiler : Compiler {
 
 	@property string name() const { return "gdc"; }
 
-	enum gdcVersionRe1 = `GDC\s+(\d+\.\d+\.\d+[A-Za-z0-9.+-]*)`;
-	enum gdcVersionRe2 = `^GNU D \(.*?\) version (\d+\.\d+\.\d+[A-Za-z0-9.+-]*)`;
-	enum gdcVersionRe3 = `^gcc version (\d+\.\d+\.\d+[A-Za-z0-9.+-]*)`;
+	string determineVersion(string compiler_binary, string verboseOutput)
+	{
+		const result = execute([
+			compiler_binary,
+			"-dumpfullversion",
+			"-dumpversion"
+		]);
 
-	unittest {
-		import std.algorithm : equal, map;
-		import std.range : only;
-		import std.regex : matchFirst, regex;
-		auto probe = `
-Target: x86_64-pc-linux-gnu
-Thread model: posix
-gcc version 8.2.1 20180831 (GDC 8.2.1 based on D v2.068.2 built with ISL 0.20 for Arch Linux)
-GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
-GNU D (GDC 8.2.1 based on D v2.068.2 built with ISL 0.20 for Arch Linux) version 8.2.1 20180831 (x86_64-pc-linux-gnu)
-GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
-binary    /usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/cc1d
-version   v2.068.2
-predefs   GNU D_Version2 LittleEndian GNU_DWARF2_Exceptions GNU_StackGrowsDown GNU_InlineAsm D_LP64 D_PIC assert all X86_64 D_HardFloat Posix linux CRuntime_Glibc
-`;
-		auto vers = only(gdcVersionRe1, gdcVersionRe2, gdcVersionRe3)
-			.map!(re => matchFirst(probe, regex(re, "m")))
-			.filter!(c => c && c.length > 1)
-			.map!(c => c[1]);
-
-		assert(vers.equal([ "8.2.1", "8.2.1", "8.2.1" ]));
+		return result.status == 0 ? result.output : null;
 	}
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
@@ -97,8 +81,7 @@ predefs   GNU D_Version2 LittleEndian GNU_DWARF2_Exceptions GNU_StackGrowsDown G
 		return probePlatform(
 			compiler_binary,
 			arch_flags ~ ["-S", "-v"],
-			arch_override,
-			[ gdcVersionRe1, gdcVersionRe2, gdcVersionRe3 ]
+			arch_override
 		);
 	}
 
