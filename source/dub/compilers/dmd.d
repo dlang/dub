@@ -99,6 +99,13 @@ config    /etc/dmd.conf
 		assert(c && c.length > 1 && c[1] == "2.084.0-beta.1");
 	}
 
+	string determineVersion(string compiler_binary, string verboseOutput)
+	{
+		import std.regex : matchFirst, regex;
+		auto ver = matchFirst(verboseOutput, regex(dmdVersionRe, "m"));
+		return ver && ver.length > 1 ? ver[1] : null;
+	}
+
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
 		string[] arch_flags;
@@ -121,8 +128,7 @@ config    /etc/dmd.conf
 		return probePlatform(
 			compiler_binary,
 			arch_flags ~ ["-quiet", "-c", "-o-", "-v"],
-			arch_override,
-			[ dmdVersionRe ]
+			arch_override
 		);
 	}
 
