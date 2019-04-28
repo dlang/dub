@@ -2215,15 +2215,23 @@ private auto splitPackageName(string packageName)
 	}
 
 	// split <package>=<version-specifier>
-	auto parts = packageName.split("=");
-	if (parts.length == 1) {
+	auto parts = packageName.findSplit("=");
+	if (parts[1].empty) {
 		// support splitting <package>@<version-specified> too
-		parts = packageName.split("@");
+		parts = packageName.findSplit("@");
 	}
 
 	PackageAndVersion p;
 	p.name = parts[0];
-	if (parts.length > 1)
-		p.version_ = parts[1];
+	if (!parts[1].empty)
+		p.version_ = parts[2];
 	return p;
+}
+
+// https://github.com/dlang/dub/issues/1681
+unittest
+{
+	auto pv = splitPackageName("");
+	assert(pv.name == "");
+	assert(pv.version_ is null);
 }
