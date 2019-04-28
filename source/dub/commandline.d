@@ -853,59 +853,61 @@ class BuildCommand : GenerateCommand {
 	{
 		// single package files don't need to be downloaded, they are on the disk.
 		if (free_args.length < 1 || m_single)
-		    return super.execute(dub, free_args, app_args);
+			return super.execute(dub, free_args, app_args);
 
-        const package_parts = splitPackageName(free_args[0]);
-        const package_name = package_parts.name;
+		const package_parts = splitPackageName(free_args[0]);
+		const package_name = package_parts.name;
 
-        static bool input(string caption, bool default_value = true) {
-            writef("%s [%s]: ", caption, default_value ? "Y/n" : "y/N");
-            auto inp = readln();
-            string userInput = "y";
-            if (inp.length > 1)
-                userInput = inp[0 .. $ - 1].toLower;
+		static bool input(string caption, bool default_value = true) {
+			writef("%s [%s]: ", caption, default_value ? "Y/n" : "y/N");
+			auto inp = readln();
+			string userInput = "y";
+			if (inp.length > 1)
+				userInput = inp[0 .. $ - 1].toLower;
 
-            switch (userInput) {
-                case "no", "n", "0":
-                    return false;
-                case "yes", "y", "1":
-                default:
-                    return true;
-            }
-        }
+			switch (userInput) {
+				case "no", "n", "0":
+					return false;
+				case "yes", "y", "1":
+				default:
+					return true;
+			}
+		}
 
-        Dependency dep;
+		Dependency dep;
 
-        if (package_parts.version_.length > 0) {
-            // the user provided a version manually
-            free_args[0] = package_name;
-            dep = Dependency(package_parts.version_);
-        } else {
+		if (package_parts.version_.length > 0) {
+			// the user provided a version manually
+			free_args[0] = package_name;
+			dep = Dependency(package_parts.version_);
+		} else {
 			const pack = dub.packageManager.getFirstPackage(package_name);
 			if (pack)
 				return super.execute(dub, free_args, app_args);
 
-            // search for the package and filter versions for exact matches
-            auto search = dub.searchPackages(package_name)
-                .map!(tup => tup[1].find!(p => p.name == package_name))
-                .filter!(ps => !ps.empty);
-            if (search.empty)
-                return 2;
+			// search for the package and filter versions for exact matches
+			auto search = dub.searchPackages(package_name)
+				.map!(tup => tup[1].find!(p => p.name == package_name))
+				.filter!(ps => !ps.empty);
+			if (search.empty) {
+				logWarn("Package '%s' was neither found locally nor online.", package_name);
+				return 2;
+			}
 
-            const p = search.front.front;
-            logInfo("%s wasn't found locally, but it's available online:", package_name);
-            logInfo("---");
-            logInfo("Description: %s", p.description);
-            logInfo("Version: %s", p.version_);
-            logInfo("---");
+			const p = search.front.front;
+			logInfo("Package '%s' was not found locally but is available online:", package_name);
+			logInfo("---");
+			logInfo("Description: %s", p.description);
+			logInfo("Version: %s", p.version_);
+			logInfo("---");
 
-            const answer = m_yes ? true : input("Do you want to fetch %s?".format(package_name));
-            if (!answer)
-                return 0;
-            dep = Dependency(p.version_);
-        }
+			const answer = m_yes ? true : input("Do you want to fetch '%s' now?".format(package_name));
+			if (!answer)
+				return 0;
+			dep = Dependency(p.version_);
+		}
 
-        dub.fetch(package_name, dep, dub.defaultPlacementLocation, FetchOptions.none);
+		dub.fetch(package_name, dep, dub.defaultPlacementLocation, FetchOptions.none);
 		return super.execute(dub, free_args, app_args);
 	}
 }
@@ -2215,15 +2217,23 @@ private auto splitPackageName(string packageName)
 	}
 
 	// split <package>=<version-specifier>
-	auto parts = packageName.split("=");
-	if (parts.length == 1) {
+	auto parts = packageName.findSplit("=");
+	if (parts[1].empty) {
 		// support splitting <package>@<version-specified> too
-		parts = packageName.split("@");
+		parts = packageName.findSplit("@");
 	}
 
 	PackageAndVersion p;
 	p.name = parts[0];
-	if (parts.length > 1)
-		p.version_ = parts[1];
+	if (!parts[1].empty)
+		p.version_ = parts[2];
 	return p;
+}
+
+// https://github.com/dlang/dub/issues/1681
+unittest
+{
+	auto pv = splitPackageName("");
+	assert(pv.name == "");
+	assert(pv.version_ is null);
 }
