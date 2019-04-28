@@ -19,6 +19,8 @@ $DUB remove gitcompatibledubpackage
 $DUB run -y gitcompatibledubpackage | grep "Hello DUB"
 $DUB remove gitcompatibledubpackage
 
+(! $DUB run --non-interactive gitcompatibledubpackage) 2>&1 | grep "Failed to find.*gitcompatibledubpackage.*locally"
+
 # check supplying versions directly
 dub_log="$($DUB run gitcompatibledubpackage@1.0.3)"
 echo "$dub_log" | grep "Hello DUB"

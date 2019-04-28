@@ -13,7 +13,7 @@ Version: 1.0.4
 Do you want to fetch gitcompatibledubpackage? [Y/n]:
 )
 
-An optional `--yes` (`-y`) flag is provided for non-interactive use:
+An optional `--yes` (`-y`) flag is provided to confirm fetching non-interactively:
 
 $(CONSOLE
 > dub run --yes gitcompatibledubpackage
@@ -29,6 +29,13 @@ gitcompatibledubpackage 1.0.4: building configuration "exe"...
 Linking...
 Running ../../.dub/packages/gitcompatibledubpackage-1.0.4/gitcompatibledubpackage/gitcompatibledubpackage
 Hello DUB
+)
+
+An optional `--non-interactive` (`-n`) flag is provided to skip searching online packages:
+
+$(CONSOLE
+> dub run --non-interactive gitcompatibledubpackage
+Failed to find a package named 'gitcompatibledubpackage'.
 )
 
 If one wants to run a specific version of a package, it can be passed to `dub run` too:

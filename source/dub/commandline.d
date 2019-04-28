@@ -710,7 +710,7 @@ abstract class PackageBuildCommand : Command {
 		enforce(package_name.length, "No valid root package found - aborting.");
 
 		auto pack = dub.packageManager.getFirstPackage(package_name);
-		enforce(pack, "Failed to find a package named '"~package_name~"'.");
+		enforce(pack, "Failed to find a package named '"~package_name~"' locally.");
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
 		dub.rootPath = pack.path;
 		dub.loadPackage(pack);
@@ -822,7 +822,10 @@ class GenerateCommand : PackageBuildCommand {
 }
 
 class BuildCommand : GenerateCommand {
-	bool m_yes; // automatic yes to prompts;
+	protected {
+		bool m_yes; // automatic yes to prompts;
+		bool m_nonInteractive;
+	}
 	this()
 	{
 		this.name = "build";
@@ -843,7 +846,10 @@ class BuildCommand : GenerateCommand {
 			"Forces a recompilation even if the target is up to date"
 		]);
 		args.getopt("y|yes", &m_yes, [
-			`Automatic yes to prompts. Assume "yes" as answer to all prompts and run non-interactively.`
+			`Automatic yes to prompts. Assume "yes" as answer to all interactive prompts.`
+		]);
+		args.getopt("n|non-interactive", &m_nonInteractive, [
+			"Don't enter interactive mode."
 		]);
 		super.prepare(args);
 		m_generator = "build";
@@ -855,8 +861,18 @@ class BuildCommand : GenerateCommand {
 		if (free_args.length < 1 || m_single)
 			return super.execute(dub, free_args, app_args);
 
-		const package_parts = splitPackageName(free_args[0]);
-		const package_name = package_parts.name;
+		if (!m_nonInteractive)
+		{
+			const packageParts = splitPackageName(free_args[0]);
+			if (auto rc = fetchMissingPackages(dub, packageParts))
+				return rc;
+			free_args[0] = packageParts.name;
+		}
+		return super.execute(dub, free_args, app_args);
+	}
+
+	private int fetchMissingPackages(Dub dub, in PackageAndVersion packageParts)
+	{
 
 		static bool input(string caption, bool default_value = true) {
 			writef("%s [%s]: ", caption, default_value ? "Y/n" : "y/N");
@@ -876,39 +892,39 @@ class BuildCommand : GenerateCommand {
 
 		Dependency dep;
 
-		if (package_parts.version_.length > 0) {
+		if (packageParts.version_.length > 0) {
 			// the user provided a version manually
-			free_args[0] = package_name;
-			dep = Dependency(package_parts.version_);
+			dep = Dependency(packageParts.version_);
 		} else {
-			const pack = dub.packageManager.getFirstPackage(package_name);
+			const pack = dub.packageManager.getFirstPackage(packageParts.name);
 			if (pack)
-				return super.execute(dub, free_args, app_args);
+				// found locally
+				return 0;
 
 			// search for the package and filter versions for exact matches
-			auto search = dub.searchPackages(package_name)
-				.map!(tup => tup[1].find!(p => p.name == package_name))
+			auto search = dub.searchPackages(packageParts.name)
+				.map!(tup => tup[1].find!(p => p.name == packageParts.name))
 				.filter!(ps => !ps.empty);
 			if (search.empty) {
-				logWarn("Package '%s' was neither found locally nor online.", package_name);
+				logWarn("Package '%s' was neither found locally nor online.", packageParts.name);
 				return 2;
 			}
 
 			const p = search.front.front;
-			logInfo("Package '%s' was not found locally but is available online:", package_name);
+			logInfo("Package '%s' was not found locally but is available online:", packageParts.name);
 			logInfo("---");
 			logInfo("Description: %s", p.description);
 			logInfo("Version: %s", p.version_);
 			logInfo("---");
 
-			const answer = m_yes ? true : input("Do you want to fetch '%s' now?".format(package_name));
+			const answer = m_yes ? true : input("Do you want to fetch '%s' now?".format(packageParts.name));
 			if (!answer)
 				return 0;
 			dep = Dependency(p.version_);
 		}
 
-		dub.fetch(package_name, dep, dub.defaultPlacementLocation, FetchOptions.none);
-		return super.execute(dub, free_args, app_args);
+		dub.fetch(packageParts.name, dep, dub.defaultPlacementLocation, FetchOptions.none);
+		return 0;
 	}
 }
 
@@ -2206,15 +2222,16 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 	return true;
 }
 
+private struct PackageAndVersion
+{
+	string name;
+	string version_;
+}
+
 /* Split <package>=<version-specifier> and <package>@<version-specifier>
    into `name` and `version_`. */
-private auto splitPackageName(string packageName)
+private PackageAndVersion splitPackageName(string packageName)
 {
-	struct PackageAndVersion
-	{
-		string name;
-		string version_;
-	}
 
 	// split <package>=<version-specifier>
 	auto parts = packageName.findSplit("=");
