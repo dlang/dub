@@ -889,17 +889,19 @@ class BuildCommand : GenerateCommand {
 			auto search = dub.searchPackages(package_name)
 				.map!(tup => tup[1].find!(p => p.name == package_name))
 				.filter!(ps => !ps.empty);
-			if (search.empty)
+			if (search.empty) {
+				logWarn("Package '%s' was neither found locally nor online.", package_name);
 				return 2;
+			}
 
 			const p = search.front.front;
-			logInfo("%s wasn't found locally, but it's available online:", package_name);
+			logInfo("Package '%s' was not found locally but is available online:", package_name);
 			logInfo("---");
 			logInfo("Description: %s", p.description);
 			logInfo("Version: %s", p.version_);
 			logInfo("---");
 
-			const answer = m_yes ? true : input("Do you want to fetch %s?".format(package_name));
+			const answer = m_yes ? true : input("Do you want to fetch '%s' now?".format(package_name));
 			if (!answer)
 				return 0;
 			dep = Dependency(p.version_);
