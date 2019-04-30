@@ -59,9 +59,10 @@ static immutable FilenameAndFormat[] packageInfoFiles = [
 /**	Represents a package, including its sub packages.
 */
 class Package {
+	package NativePath m_infoFile;
+
 	private {
 		NativePath m_path;
-		NativePath m_infoFile;
 		PackageRecipe m_info;
 		PackageRecipe m_rawRecipe;
 		Package m_parentPackage;

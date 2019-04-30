@@ -412,13 +412,23 @@ class Dub {
 	*/
 	void loadSingleFilePackage(NativePath path)
 	{
+		const absolutePath = makeAbsolute(path);
+		const file_content = readText(path.toNativeString());
+
+		auto pack = loadSingleFilePackage(absolutePath, file_content);
+		loadPackage(pack);
+	}
+	/// ditto
+	void loadSingleFilePackage(string path)
+	{
+		loadSingleFilePackage(NativePath(path));
+	}
+
+	private Package loadSingleFilePackage(NativePath path, string file_content)
+	{
 		import dub.recipe.io : parsePackageRecipe;
 		import std.file : mkdirRecurse, readText;
 		import std.path : baseName, stripExtension;
-
-		path = makeAbsolute(path);
-
-		string file_content = readText(path.toNativeString());
 
 		if (file_content.startsWith("#!")) {
 			auto idx = file_content.indexOf('\n');
@@ -458,12 +468,25 @@ class Dub {
 			recipe.buildSettings.targetType = TargetType.executable;
 
 		auto pack = new Package(recipe, path.parentPath, null, "~master");
-		loadPackage(pack);
+		pack.m_infoFile = path;
+
+		return pack;
 	}
-	/// ditto
-	void loadSingleFilePackage(string path)
+
+	unittest
 	{
-		loadSingleFilePackage(NativePath(path));
+		enum filePath = NativePath("bar/foo.d");
+
+		enum content = q{
+			/+ dub.sdl:
+				name "foo"
+			+/
+		};
+
+		auto dub = new Dub(".", null, SkipPackageSuppliers.all);
+		const pack = dub.loadSingleFilePackage(filePath, content);
+
+		assert(pack.recipePath == filePath);
 	}
 
 	/** Disables the default search paths and only searches a specific directory
