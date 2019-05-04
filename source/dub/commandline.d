@@ -896,8 +896,8 @@ class BuildCommand : GenerateCommand {
 			// the user provided a version manually
 			dep = Dependency(packageParts.version_);
 		} else {
-			const pack = dub.packageManager.getFirstPackage(packageParts.name);
-			if (pack)
+			if (packageParts.name.startsWith(":") ||
+				dub.packageManager.getFirstPackage(packageParts.name))
 				// found locally
 				return 0;
 
