@@ -233,6 +233,9 @@ class GDCCompiler : Compiler {
 		string[] dflags;
 		foreach( f; lflags )
 		{
+            if ( f == "") {
+                continue;
+            }
 			dflags ~= "-Xlinker";
 			dflags ~= f;
 		}

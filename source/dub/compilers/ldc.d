@@ -236,7 +236,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 	string[] lflagsToDFlags(in string[] lflags) const
 	{
-		return  lflags.map!(s => "-L="~s)().array();
+        return map!(f => "-L"~f)(lflags.filter!(f => f != "")()).array();
 	}
 
 	private auto escapeArgs(in string[] args)
