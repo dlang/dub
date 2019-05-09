@@ -1,0 +1,9 @@
+{
+	"authors": [
+		"--"
+	],
+	"copyright": "Copyright © 2019, --",
+	"description": "--",
+	"license": "--",
+	"name": "issue1372-ignore-files-in-hidden-dirs"
+}
