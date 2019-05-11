@@ -2,6 +2,6 @@
 	"name": "generated-sources",
 	"description": "Example of using pre generate commands to generate source code.",
 	"preGenerateCommands": [
-		"echo int fun() { return 42; } > source/test.d"
+		"echo 'int fun() { return 42; }' > source/test.d"
 	]
 }
