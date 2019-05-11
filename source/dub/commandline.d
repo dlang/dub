@@ -678,7 +678,13 @@ abstract class PackageBuildCommand : Command {
 			}
 		}
 
-		dub.project.validate();
+		auto validity = dub.project.validate();
+
+		if (!validity.matchingSelections) {
+			logInfo("-> Run \"dub upgrade\" to select specified package versions.");
+		}
+
+		enforce(!validity.hasFatalIssues, "Aborting due to fatal issues in project configuration.");
 
 		foreach (sc; m_overrideConfigs) {
 			auto idx = sc.indexOf('/');
