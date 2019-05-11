@@ -1,0 +1,5 @@
+name "issue1649-pipe-convert-to-target-file"
+description "A minimal D application."
+authors "dlang"
+copyright "Copyright © 2019, dlang"
+license "proprietary"

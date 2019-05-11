@@ -131,9 +131,14 @@ class Package {
 	*/
 	static NativePath findPackageFile(NativePath directory)
 	{
+		static bool hasContents(NativePath path)
+		{
+			import std.file : getSize;
+			return getSize(path.toNativeString()) > 0;
+		}
 		foreach (file; packageInfoFiles) {
 			auto filename = directory ~ file.filename;
-			if (existsFile(filename)) return filename;
+			if (existsFile(filename) && hasContents(filename)) return filename;
 		}
 		return NativePath.init;
 	}

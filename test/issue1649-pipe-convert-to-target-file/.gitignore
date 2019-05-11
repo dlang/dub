@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/issue1649-pipe-convert-to-target-file
+issue1649-pipe-convert-to-target-file.so
+issue1649-pipe-convert-to-target-file.dylib
+issue1649-pipe-convert-to-target-file.dll
+issue1649-pipe-convert-to-target-file.a
+issue1649-pipe-convert-to-target-file.lib
+issue1649-pipe-convert-to-target-file-test-*
+*.exe
+*.o
+*.obj
+*.lst
