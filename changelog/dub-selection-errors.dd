@@ -1,0 +1,5 @@
+Non-matching dependencies in dub.selections.json now abort the build.
+
+When having old dependencies in a dub.selections.json file and updating the dub.json/dub.sdl file to include some new package version, which is incompatible with the downloaded version, the build will no longer succeed without performing `dub upgrade`.
+
+This change got added so that build scripts and automated building or unaware users no longer cause unexplainable errors because of the build using outdated dependencies.
