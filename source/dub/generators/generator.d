@@ -100,6 +100,11 @@ class ProjectGenerator
 			targets[pack.name] = TargetInfo(pack, [pack], config, buildSettings);
 
 			prepareGeneration(pack, m_project, settings, buildSettings);
+			// Dub might have generated new files, so we need to regenerate at
+			// least buildSettings.sourceFiles
+			if (buildSettings.preGenerateCommands.length) {
+				buildSettings = pack.getBuildSettings(settings.platform, config);
+			}
 		}
 
 		configurePackages(m_project.rootPackage, targets, settings);
