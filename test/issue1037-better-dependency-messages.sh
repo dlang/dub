@@ -9,7 +9,7 @@ expected_file="$CURR_DIR/expected-issue1037-output"
 
 function cleanup {
     rm -f $temp_file
-    rm -f $temp_file
+    rm -f $temp_file2
 }
 
 trap cleanup EXIT
