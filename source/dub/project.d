@@ -236,9 +236,10 @@ class Project {
 	ValidationResult validate()
 	{
 		ValidationResult validity;
+		foreach (ref member; validity.tupleof)
+			member = true; // make all succeed by default.
 
 		// some basic package name lint
-		validity.validName = true;
 		m_rootPackage.warnOnSpecialCompilerFlags();
 		string nameSuggestion() {
 			string ret;
@@ -262,7 +263,6 @@ class Project {
 		}
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
 
-		validity.allNumberedVersions = true;
 		foreach (d; m_rootPackage.getAllDependencies())
 			if (d.spec.isExactVersion && d.spec.version_.isBranch) {
 				validity.allNumberedVersions = false;
@@ -275,7 +275,6 @@ class Project {
 			}
 
 		// search for orphan sub configurations
-		validity.allConfigurationDependenciesFound = true;
 		void warnSubConfig(string pack, string config) {
 			validity.allConfigurationDependenciesFound = false;
 			logWarn("The sub configuration directive \"%s\" -> \"%s\" "
@@ -283,7 +282,6 @@ class Project {
 				~ "and will have no effect.", pack, config);
 		}
 
-		validity.allConfigurationsFound = true;
 		void checkSubConfig(string pack, string config) {
 			auto p = getDependency(pack, true);
 			if (p && !p.configurations.canFind(config)) {
@@ -308,7 +306,6 @@ class Project {
 		}
 
 		// check for version specification mismatches
-		validity.matchingSelections = true;
 		bool[Package] visited;
 		void validateDependenciesRec(Package pack) {
 			// perform basic package linting
@@ -354,11 +351,6 @@ class Project {
 		bool hasFatalIssues() const
 		{
 			return !matchingSelections;
-		}
-
-		T opCast(T : bool)() const
-		{
-			return !hasFatalIssues;
 		}
 	}
 

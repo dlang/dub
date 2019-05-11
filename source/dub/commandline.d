@@ -681,7 +681,7 @@ abstract class PackageBuildCommand : Command {
 		auto validity = dub.project.validate();
 
 		if (!validity.matchingSelections) {
-			logInfo("-> Run \"dub upgrade\" to select specified package versions.");
+			logInfo("-> Run \"dub upgrade\" to select specified package versions in dub.selections.json");
 		}
 
 		enforce(!validity.hasFatalIssues, "Aborting due to fatal issues in project configuration.");
