@@ -60,7 +60,7 @@ The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a li
 ## Minimal D compiler required to build DUB
 
 In general it is always recommended to build DUB with the latest version of your D compiler.
-However, currently [2.072](https://dlang.org/changelog/2.072.0.html) is required to build DUB from source.
+However, currently [2.076](https://dlang.org/changelog/2.076.0.html) is required to build DUB from source.
 
 # Contributing
 

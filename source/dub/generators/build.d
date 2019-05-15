@@ -335,7 +335,7 @@ class BuildGenerator : ProjectGenerator {
 
 	private string computeBuildID(string config, in BuildSettings buildsettings, GeneratorSettings settings)
 	{
-		import std.digest.digest;
+		import std.digest;
 		import std.digest.md;
 		import std.bitmanip;
 
