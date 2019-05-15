@@ -28,8 +28,8 @@ struct RangeFile {
 @safe:
 	std.stdio.File file;
 
-	void put(in ubyte[] bytes) @trusted { file.rawWrite(bytes); }
-	void put(in char[] str) { put(cast(const(ubyte)[])str); }
+	void put(const scope ubyte[] bytes) @trusted { file.rawWrite(bytes); }
+	void put(const scope char[] str) { put(cast(const(ubyte)[])str); }
 	void put(char ch) @trusted { put((&ch)[0 .. 1]); }
 	void put(dchar ch) { char[4] chars; put(chars[0 .. encode(chars, ch)]); }
 
