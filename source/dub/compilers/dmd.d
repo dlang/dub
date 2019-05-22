@@ -293,7 +293,7 @@ config    /etc/dmd.conf
 
 	string[] lflagsToDFlags(in string[] lflags) const
 	{
-		return  lflags.map!(f => "-L"~f)().array();
+        return map!(f => "-L"~f)(lflags.filter!(f => f != "")()).array();
 	}
 
 	private auto escapeArgs(in string[] args)
