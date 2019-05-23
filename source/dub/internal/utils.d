@@ -20,7 +20,7 @@ import std.array : appender, array;
 import std.conv : to;
 import std.exception : enforce;
 import std.file;
-import std.string : format;
+import std.string : format, empty;
 import std.process;
 import std.traits : isIntegral;
 version(DubUseCurl)
@@ -127,6 +127,8 @@ Json jsonFromFile(NativePath file, bool silent_fail = false) {
 	auto f = openFile(file.toNativeString(), FileMode.read);
 	scope(exit) f.close();
 	auto text = stripUTF8Bom(cast(string)f.readAll());
+	if (text.empty)
+		return Json.emptyObject;
 	return parseJsonString(text, file.toNativeString());
 }
 

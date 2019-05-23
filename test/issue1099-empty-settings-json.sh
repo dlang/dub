@@ -18,6 +18,6 @@ touch $HOME/.dub/settings.json
 
 cd ${CURR_DIR}/issue1099-empty-settings-json
 
-if ! { ${DUB} build --force 2>&1 || true; } | grep -cF 'settings.json(1): Error: JSON string is empty.' ; then
-    die "Should have thrown with the message: '/settings.json(1): Error: JSON string is empty', but we threw something else"
+if ! ${DUB} build --force ; then
+    die "Dub failed to build with an empty settings.json"
 fi
