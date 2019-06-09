@@ -176,6 +176,11 @@ class BuildGenerator : ProjectGenerator {
 		}
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
+		if( buildsettings.preBuildCommands.length ){
+			logInfo("Running pre-build commands...");
+			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
+		}
+
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
 			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
@@ -196,11 +201,6 @@ class BuildGenerator : ProjectGenerator {
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
 		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
-
-		if( buildsettings.preBuildCommands.length ){
-			logInfo("Running pre-build commands...");
-			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
-		}
 
 		// override target path
 		auto cbuildsettings = buildsettings;
