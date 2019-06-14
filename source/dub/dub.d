@@ -1630,7 +1630,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				// note: external sub packages are handled further below
 				auto spr = basepack.getInternalSubPackage(subname);
 				if (!spr.isNull) {
-					auto sp = new Package(spr, basepack.path, basepack);
+					auto sp = new Package(spr.get, basepack.path, basepack);
 					m_remotePackages[sp.name] = sp;
 					return sp;
 				} else {

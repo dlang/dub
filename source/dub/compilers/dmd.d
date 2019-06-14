@@ -116,7 +116,7 @@ config    /etc/dmd.conf
 				version (Windows) {
 					const is64bit = isWow64();
 					if (!is64bit.isNull)
-						arch_flags = [is64bit ? "-m64" : "-m32mscoff"];
+						arch_flags = [is64bit.get ? "-m64" : "-m32mscoff"];
 				}
 				break;
 			case "x86": arch_flags = ["-m32"]; break;
