@@ -17,6 +17,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 	import std.datetime : Clock, Duration, hours, SysTime, UTC;
 
 	private {
+		enum httpTimeout = 16;
 		URL m_mavenUrl;
 		struct CacheEntry { Json data; SysTime cacheTime; }
 		CacheEntry[string] m_metadataCache;
@@ -57,7 +58,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		auto url = m_mavenUrl~NativePath("%s/%s/%s-%s.zip".format(packageId, vers, packageId, vers));
 
 		try {
-			retryDownload(url, path);
+			retryDownload(url, path, 3, httpTimeout);
 			return;
 		}
 		catch(HTTPStatusException e) {
@@ -93,7 +94,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		string xmlData;
 
 		try
-			xmlData = cast(string)retryDownload(url);
+			xmlData = cast(string)retryDownload(url, 3, httpTimeout);
 		catch(HTTPStatusException e) {
 			if (e.status == 404) {
 				logDebug("Maven metadata %s not found at %s (404): %s", packageId, description, e.msg);
