@@ -92,6 +92,9 @@ interface Compiler {
 	/// Convert linker flags to compiler format
 	string[] lflagsToDFlags(in string[] lflags) const;
 
+	/// Determines compiler version
+	string determineVersion(string compiler_binary, string verboseOutput);
+
 	/** Runs a tool and provides common boilerplate code.
 
 		This method should be used by `Compiler` implementations to invoke the
@@ -123,19 +126,12 @@ interface Compiler {
 			compiler_binary =	binary to invoke compiler with
 			args			=	arguments for the probe compilation
 			arch_override	=	special handler for x86_mscoff
-			versionRes		=	array of regular expressions to scan the output
-								and find the compiler version. For each, the
-								version must be in capture index 1. The output
-								is scanned in multi-line mode (i.e. ^ will match any line start)
 	*/
 	protected final BuildPlatform probePlatform(string compiler_binary, string[] args,
-		string arch_override, string[] versionRes)
+		string arch_override)
 	{
 		import dub.compilers.utils : generatePlatformProbeFile, readPlatformJsonProbe;
-		import std.algorithm : filter, map;
-		import std.range : takeOne;
-		import std.regex : matchFirst, regex;
-		import std.string : format;
+		import std.string : format, strip;
 
 		auto fil = generatePlatformProbeFile();
 
@@ -151,17 +147,14 @@ interface Compiler {
 				`This will probably result in build errors.`, build_platform.compiler, this.name);
 		}
 
-		auto ver = versionRes
-			.map!(re => matchFirst(result.output, regex(re, "m")))
-			.filter!(c => c.length > 1)
-			.map!(c => c[1])
-			.takeOne();
+		auto ver = determineVersion(compiler_binary, result.output)
+			.strip;
 		if (ver.empty) {
 			logWarn(`Could not probe the compiler version for "%s". ` ~
 				`Toolchain requirements might be ineffective`, build_platform.compiler);
 		}
 		else {
-			build_platform.compilerVersion = ver.front;
+			build_platform.compilerVersion = ver;
 		}
 
 		// Hack: see #1059

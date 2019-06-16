@@ -69,6 +69,13 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		assert(c && c.length > 1 && c[1] == "1.11.0");
 	}
 
+	string determineVersion(string compiler_binary, string verboseOutput)
+	{
+		import std.regex : matchFirst, regex;
+		auto ver = matchFirst(verboseOutput, regex(ldcVersionRe, "m"));
+		return ver && ver.length > 1 ? ver[1] : null;
+	}
+
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
 		string[] arch_flags;
@@ -83,8 +90,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		return probePlatform(
 			compiler_binary,
 			arch_flags ~ ["-c", "-o-", "-v"],
-			arch_override,
-			[ ldcVersionRe ]
+			arch_override
 		);
 	}
 
@@ -230,7 +236,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 	string[] lflagsToDFlags(in string[] lflags) const
 	{
-		return  lflags.map!(s => "-L="~s)().array();
+        return map!(f => "-L"~f)(lflags.filter!(f => f != "")()).array();
 	}
 
 	private auto escapeArgs(in string[] args)

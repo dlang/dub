@@ -1,0 +1,10 @@
+{
+	"authors": [
+		"--"
+	],
+	"copyright": "Copyright © 2019, --",
+	"description": "--",
+	"license": "--",
+	"name": "issue1003-empty-ld-flags",
+    "lflags": [""]
+}

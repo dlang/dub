@@ -366,13 +366,20 @@ ubyte[] download(URL url, uint timeout = 8)
 	on "unrecoverable failures" such as 404 not found
 	Otherwise might throw anything else that `download` throws.
 	See_Also: download
+
+	The download times out if a connection cannot be established within
+	`timeout` ms, or if the average transfer rate drops below 10 bytes / s for
+	more than `timeout` seconds.  Pass `0` as `timeout` to disable both timeout
+	mechanisms.
+
+	Note: Timeouts are only implemented when curl is used (DubUseCurl).
 **/
-void retryDownload(URL url, NativePath filename, size_t retryCount = 3)
+void retryDownload(URL url, NativePath filename, size_t retryCount = 3, uint timeout = 8)
 {
 	foreach(i; 0..retryCount) {
 		version(DubUseCurl) {
 			try {
-				download(url, filename);
+				download(url, filename, timeout);
 				return;
 			}
 			catch(HTTPStatusException e) {
@@ -408,12 +415,12 @@ void retryDownload(URL url, NativePath filename, size_t retryCount = 3)
 }
 
 ///ditto
-ubyte[] retryDownload(URL url, size_t retryCount = 3)
+ubyte[] retryDownload(URL url, size_t retryCount = 3, uint timeout = 8)
 {
 	foreach(i; 0..retryCount) {
 		version(DubUseCurl) {
 			try {
-				return download(url);
+				return download(url, timeout);
 			}
 			catch(HTTPStatusException e) {
 				if (e.status == 404) throw e;
