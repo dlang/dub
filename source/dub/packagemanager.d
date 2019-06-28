@@ -93,8 +93,10 @@ class PackageManager {
 		import std.algorithm.iteration : map;
 		import std.array : array;
 
-		m_repositories.length = LocalPackageType.max+1;
-		m_repositories ~= custom_cache_paths.map!(p => Repository(p)).array;
+		synchronized(this) {
+			m_repositories.length = LocalPackageType.max+1;
+			m_repositories ~= custom_cache_paths.map!(p => Repository(p)).array;
+		}
 
 		refresh(false);
 	}
@@ -193,13 +195,16 @@ class PackageManager {
 		Throws: Throws an exception if no package can be loaded
 	*/
 	Package getOrLoadPackage(NativePath path, NativePath recipe_path = NativePath.init, bool allow_sub_packages = false)
+		@trusted
 	{
 		path.endsWithSlash = true;
 		foreach (p; getPackageIterator())
 			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
 				return p;
 		auto pack = Package.load(path, recipe_path);
-		addPackages(m_temporaryPackages, pack);
+		synchronized(this) {
+			addPackages(m_temporaryPackages, pack);
+		}
 		return pack;
 	}
 
@@ -280,21 +285,23 @@ class PackageManager {
 	*/
 	int delegate(int delegate(ref Package)) getPackageIterator()
 	{
-		int iterator(int delegate(ref Package) del)
+		int iterator(int delegate(ref Package) del) @trusted
 		{
-			foreach (tp; m_temporaryPackages)
-				if (auto ret = del(tp)) return ret;
+			synchronized(this) {
+				foreach (tp; cast(Package[])m_temporaryPackages)
+					if (auto ret = del(tp)) return ret;
 
-			// first search local packages
-			foreach (ref repo; m_repositories)
-				foreach (p; repo.localPackages)
-					if (auto ret = del(p)) return ret;
+				// first search local packages
+				foreach (ref repo; m_repositories)
+					foreach (p; repo.localPackages)
+						if (auto ret = del(p)) return ret;
 
-			// and then all packages gathered from the search path
-			foreach( p; m_packages )
-				if( auto ret = del(p) )
-					return ret;
-			return 0;
+				// and then all packages gathered from the search path
+				foreach( p; m_packages )
+					if( auto ret = del(p) )
+						return ret;
+				return 0;
+			}
 		}
 
 		return &iterator;
@@ -447,7 +454,7 @@ class PackageManager {
 			// Storeinfo saved a default file, this could be different to the file from the zip.
 			removeFile(pack.recipePath);
 		pack.storeInfo();
-		addPackages(m_packages, pack);
+		synchronized(this) addPackages(m_packages, pack);
 		return pack;
 	}
 
@@ -467,14 +474,16 @@ class PackageManager {
 			}
 			return false;
 		}
-		foreach(repo; m_repositories) {
-			if(removeFrom(repo.localPackages, pack)) {
-				found = true;
-				break;
+		synchronized(this) {
+			foreach(repo; m_repositories) {
+				if(removeFrom(repo.localPackages, pack)) {
+					found = true;
+					break;
+				}
 			}
+			if(!found)
+				found = removeFrom(m_packages, pack);
 		}
-		if(!found)
-			found = removeFrom(m_packages, pack);
 		enforce(found, "Cannot remove, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
 
 		logDebug("About to delete root folder for package '%s'.", pack.path);
@@ -555,135 +564,137 @@ class PackageManager {
 	{
 		logDiagnostic("Refreshing local packages (refresh existing: %s)...", refresh_existing_packages);
 
-		// load locally defined packages
-		void scanLocalPackages(LocalPackageType type)
-		{
-			NativePath list_path = m_repositories[type].packagePath;
-			Package[] packs;
-			NativePath[] paths;
-			if (!m_disableDefaultSearchPaths) try {
-				auto local_package_file = list_path ~ LocalPackagesFilename;
-				logDiagnostic("Looking for local package map at %s", local_package_file.toNativeString());
-				if( !existsFile(local_package_file) ) return;
-				logDiagnostic("Try to load local package map at %s", local_package_file.toNativeString());
-				auto packlist = jsonFromFile(list_path ~ LocalPackagesFilename);
-				enforce(packlist.type == Json.Type.array, LocalPackagesFilename~" must contain an array.");
-				foreach( pentry; packlist ){
-					try {
-						auto name = pentry["name"].get!string;
-						auto path = NativePath(pentry["path"].get!string);
-						if (name == "*") {
-							paths ~= path;
-						} else {
-							auto ver = Version(pentry["version"].get!string);
+		synchronized(this) {
+			// load locally defined packages
+			void scanLocalPackages(LocalPackageType type)
+			{
+				NativePath list_path = m_repositories[type].packagePath;
+				Package[] packs;
+				NativePath[] paths;
+				if (!m_disableDefaultSearchPaths) try {
+					auto local_package_file = list_path ~ LocalPackagesFilename;
+					logDiagnostic("Looking for local package map at %s", local_package_file.toNativeString());
+					if( !existsFile(local_package_file) ) return;
+					logDiagnostic("Try to load local package map at %s", local_package_file.toNativeString());
+					auto packlist = jsonFromFile(list_path ~ LocalPackagesFilename);
+					enforce(packlist.type == Json.Type.array, LocalPackagesFilename~" must contain an array.");
+					foreach( pentry; packlist ){
+						try {
+							auto name = pentry["name"].get!string;
+							auto path = NativePath(pentry["path"].get!string);
+							if (name == "*") {
+								paths ~= path;
+							} else {
+								auto ver = Version(pentry["version"].get!string);
 
-							Package pp;
-							if (!refresh_existing_packages) {
-								foreach (p; m_repositories[type].localPackages)
-									if (p.path == path) {
-										pp = p;
-										break;
-									}
-							}
-
-							if (!pp) {
-								auto infoFile = Package.findPackageFile(path);
-								if (!infoFile.empty) pp = Package.load(path, infoFile);
-								else {
-									logWarn("Locally registered package %s %s was not found. Please run 'dub remove-local \"%s\"'.",
-										name, ver, path.toNativeString());
-									auto info = Json.emptyObject;
-									info["name"] = name;
-									pp = new Package(info, path);
+								Package pp;
+								if (!refresh_existing_packages) {
+									foreach (p; m_repositories[type].localPackages)
+										if (p.path == path) {
+											pp = p;
+											break;
+										}
 								}
+
+								if (!pp) {
+									auto infoFile = Package.findPackageFile(path);
+									if (!infoFile.empty) pp = Package.load(path, infoFile);
+									else {
+										logWarn("Locally registered package %s %s was not found. Please run 'dub remove-local \"%s\"'.",
+											name, ver, path.toNativeString());
+										auto info = Json.emptyObject;
+										info["name"] = name;
+										pp = new Package(info, path);
+									}
+								}
+
+								if (pp.name != name)
+									logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, pp.name);
+								pp.version_ = ver;
+
+								addPackages(packs, pp);
 							}
-
-							if (pp.name != name)
-								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, pp.name);
-							pp.version_ = ver;
-
-							addPackages(packs, pp);
+						} catch( Exception e ){
+							logWarn("Error adding local package: %s", e.msg);
 						}
-					} catch( Exception e ){
-						logWarn("Error adding local package: %s", e.msg);
 					}
+				} catch( Exception e ){
+					logDiagnostic("Loading of local package list at %s failed: %s", list_path.toNativeString(), e.msg);
 				}
-			} catch( Exception e ){
-				logDiagnostic("Loading of local package list at %s failed: %s", list_path.toNativeString(), e.msg);
+				m_repositories[type].localPackages = packs;
+				m_repositories[type].searchPath = paths;
 			}
-			m_repositories[type].localPackages = packs;
-			m_repositories[type].searchPath = paths;
-		}
-		scanLocalPackages(LocalPackageType.system);
-		scanLocalPackages(LocalPackageType.user);
+			scanLocalPackages(LocalPackageType.system);
+			scanLocalPackages(LocalPackageType.user);
 
-		auto old_packages = m_packages;
+			auto old_packages = m_packages;
 
-		// rescan the system and user package folder
-		void scanPackageFolder(NativePath path)
-		{
-			if( path.existsDirectory() ){
-				logDebug("iterating dir %s", path.toNativeString());
-				try foreach( pdir; iterateDirectory(path) ){
-					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
-					if (!pdir.isDirectory) continue;
+			// rescan the system and user package folder
+			void scanPackageFolder(NativePath path)
+			{
+				if( path.existsDirectory() ){
+					logDebug("iterating dir %s", path.toNativeString());
+					try foreach( pdir; iterateDirectory(path) ){
+						logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
+						if (!pdir.isDirectory) continue;
 
-					auto pack_path = path ~ (pdir.name ~ "/");
+						auto pack_path = path ~ (pdir.name ~ "/");
 
-					auto packageFile = Package.findPackageFile(pack_path);
+						auto packageFile = Package.findPackageFile(pack_path);
 
-					if (isManagedPath(path) && packageFile.empty) {
-						// Search for a single directory within this directory which happen to be a prefix of pdir
-						// This is to support new folder structure installed over the ancient one.
-						foreach (subdir; iterateDirectory(path ~ (pdir.name ~ "/")))
-							if (subdir.isDirectory && pdir.name.startsWith(subdir.name)) {// eg: package vibe-d will be in "vibe-d-x.y.z/vibe-d"
-								pack_path ~= subdir.name ~ "/";
-								packageFile = Package.findPackageFile(pack_path);
-								break;
-							}
-					}
-
-					if (packageFile.empty) continue;
-					Package p;
-					try {
-						if (!refresh_existing_packages)
-							foreach (pp; old_packages)
-								if (pp.path == pack_path) {
-									p = pp;
+						if (isManagedPath(path) && packageFile.empty) {
+							// Search for a single directory within this directory which happen to be a prefix of pdir
+							// This is to support new folder structure installed over the ancient one.
+							foreach (subdir; iterateDirectory(path ~ (pdir.name ~ "/")))
+								if (subdir.isDirectory && pdir.name.startsWith(subdir.name)) {// eg: package vibe-d will be in "vibe-d-x.y.z/vibe-d"
+									pack_path ~= subdir.name ~ "/";
+									packageFile = Package.findPackageFile(pack_path);
 									break;
 								}
-						if (!p) p = Package.load(pack_path, packageFile);
-						addPackages(m_packages, p);
-					} catch( Exception e ){
-						logError("Failed to load package in %s: %s", pack_path, e.msg);
-						logDiagnostic("Full error: %s", e.toString().sanitize());
+						}
+
+						if (packageFile.empty) continue;
+						Package p;
+						try {
+							if (!refresh_existing_packages)
+								foreach (pp; old_packages)
+									if (pp.path == pack_path) {
+										p = pp;
+										break;
+									}
+							if (!p) p = Package.load(pack_path, packageFile);
+							addPackages(m_packages, p);
+						} catch( Exception e ){
+							logError("Failed to load package in %s: %s", pack_path, e.msg);
+							logDiagnostic("Full error: %s", e.toString().sanitize());
+						}
+					}
+					catch(Exception e) logDiagnostic("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
+				}
+			}
+
+			m_packages = null;
+			foreach (p; this.completeSearchPath)
+				scanPackageFolder(p);
+
+			void loadOverrides(LocalPackageType type)
+			{
+				m_repositories[type].overrides = null;
+				auto ovrfilepath = m_repositories[type].packagePath ~ LocalOverridesFilename;
+				if (existsFile(ovrfilepath)) {
+					foreach (entry; jsonFromFile(ovrfilepath)) {
+						PackageOverride ovr;
+						ovr.package_ = entry["name"].get!string;
+						ovr.version_ = Dependency(entry["version"].get!string);
+						if (auto pv = "targetVersion" in entry) ovr.targetVersion = Version(pv.get!string);
+						if (auto pv = "targetPath" in entry) ovr.targetPath = NativePath(pv.get!string);
+						m_repositories[type].overrides ~= ovr;
 					}
 				}
-				catch(Exception e) logDiagnostic("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
 			}
+			loadOverrides(LocalPackageType.user);
+			loadOverrides(LocalPackageType.system);
 		}
-
-		m_packages = null;
-		foreach (p; this.completeSearchPath)
-			scanPackageFolder(p);
-
-		void loadOverrides(LocalPackageType type)
-		{
-			m_repositories[type].overrides = null;
-			auto ovrfilepath = m_repositories[type].packagePath ~ LocalOverridesFilename;
-			if (existsFile(ovrfilepath)) {
-				foreach (entry; jsonFromFile(ovrfilepath)) {
-					PackageOverride ovr;
-					ovr.package_ = entry["name"].get!string;
-					ovr.version_ = Dependency(entry["version"].get!string);
-					if (auto pv = "targetVersion" in entry) ovr.targetVersion = Version(pv.get!string);
-					if (auto pv = "targetPath" in entry) ovr.targetPath = NativePath(pv.get!string);
-					m_repositories[type].overrides ~= ovr;
-				}
-			}
-		}
-		loadOverrides(LocalPackageType.user);
-		loadOverrides(LocalPackageType.system);
 	}
 
 	alias Hash = ubyte[];
