@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e -o pipefail
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 
 if [ "${DC}" != "dmd" ]; then
     echo Skipping DMD-centric test on configuration that lacks DMD.
@@ -17,7 +17,7 @@ function cleanup {
 
 trap cleanup EXIT
 
-if ! $DUB describe --compiler=${DC} \
+if ! $DUB describe --compiler=$DC --filter-versions \
     --data=main-source-file \
     --data=dflags,lflags \
     --data=libs,linker-files \
@@ -55,9 +55,6 @@ echo -n "'$CURR_DIR/describe-dependency-1/source/dummy.d' " >> "$expected_file"
 # --data=versions
 echo -n "-version=someVerIdent " >> "$expected_file"
 echo -n "-version=anotherVerIdent " >> "$expected_file"
-echo -n "-version=Have_describe_project " >> "$expected_file"
-echo -n "-version=Have_describe_dependency_1 " >> "$expected_file"
-echo -n "-version=Have_describe_dependency_2 " >> "$expected_file"
 echo -n "-version=Have_describe_dependency_3 " >> "$expected_file"
 # --data=debug-versions
 echo -n "-debug=someDebugVerIdent " >> "$expected_file"

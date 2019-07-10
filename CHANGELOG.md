@@ -1,7 +1,201 @@
 Changelog
 =========
 
-v1.1.1 - 2016-11-
+v1.12.0 - 2018-11-01
+-------------------
+See <https://dlang.org/changelog/2.083.0.html>
+
+v1.11.0 - 2018-09-01
+-------------------
+See <https://dlang.org/changelog/2.082.0.html>
+
+v1.10.0 - 2018-07-01
+-------------------
+See <https://dlang.org/changelog/2.081.0.html>
+
+v1.9.0 - 2018-05-01
+-------------------
+
+v1.8.1 - 2018-04-14
+-------------------
+
+- Fixed a regression in 1.8.0 that caused linker files specified as `sourceFiles` to not get inherited properly - [issue #1408][issue1408], [pull #1409][issue1409]
+- Fixed a regression in 1.8.0 that caused `mainSourceFile` to be passed twice to the compiler on Windows - [issue #1407][issue1407], [pull #1410][issue1410]
+
+[issue1407]: https://github.com/dlang/dub/issues/1407
+[issue1408]: https://github.com/dlang/dub/issues/1408
+[issue1409]: https://github.com/dlang/dub/issues/1409
+[issue1410]: https://github.com/dlang/dub/issues/1410
+
+
+v1.8.0 - 2018-03-01
+-------------------
+
+v1.7.2 - 2018-02-07
+-------------------
+
+- more reliable retries and fallback mirror usage - [pull #1339][issue1339]
+
+[issue1339]: https://github.com/dlang/dub/issues/1339
+
+v1.7.1 - 2018-01-21
+-------------------
+
+- Timeout requests to query mirror instead of hanging - [pull #1338][issue1338]
+
+[issue1338]: https://github.com/dlang/dub/issues/1338
+
+v1.7.0 - 2018-01-01
+-------------------
+
+v1.6.0 - 2017-11-01
+-------------------
+
+- The version list displayed for interactive package removal is now sorted - [pull #1225][issue1225], [issue #1224][issue1224]
+- File attributes of fetched packages are now preserved - [pull #1226][issue1226]
+- `http://code-mirror.dlang.io` is now used as a fallback for `code.dlang.org` - [pull #1190][issue1190]
+- Failed package downloads are now retried two more times (by Colin Grogan) - [pull #1198][issue1198]
+
+[issue1190]: https://github.com/dlang/dub/issues/1190
+[issue1198]: https://github.com/dlang/dub/issues/1198
+[issue1224]: https://github.com/dlang/dub/issues/1224
+[issue1225]: https://github.com/dlang/dub/issues/1225
+[issue1226]: https://github.com/dlang/dub/issues/1226
+
+
+v1.5.0 - 2017-09-01
+-------------------
+
+- Allow digits in package names (by Chad Joan) - [pull #1165][issue1165]
+- Support the `no_proxy` environment variable for HTTP requests (by André Pany) - [pull #1162][issue1162], [issue #1159][issue1159]
+- Read additional registry URLs (semicolon separated) from DUB_REGISTRY env var - [pull #1173][issue1173]
+- Single file packages don't have to specify an explicit name anymore (will be inferred from the file name) - [pull #1081][issue1081]
+- Add support for the `--parallel` switch for `dub test` (currently only has an effect for `--build-mode=singleFile`) - [pull #1182][issue1182]
+- Improved error reporting for package download failures - [pull #1104][issue1104]
+- Fixed building the code base against Android/Bionic - [pull #1202][issue1202]
+- Extended the generated gitignore file (by Ryan Frame) - [pull #1050][issue1050]
+
+[issue1050]: https://github.com/dlang/dub/issues/1050
+[issue1081]: https://github.com/dlang/dub/issues/1081
+[issue1104]: https://github.com/dlang/dub/issues/1104
+[issue1182]: https://github.com/dlang/dub/issues/1182
+[issue1159]: https://github.com/dlang/dub/issues/1159
+[issue1162]: https://github.com/dlang/dub/issues/1162
+[issue1165]: https://github.com/dlang/dub/issues/1165
+[issue1173]: https://github.com/dlang/dub/issues/1173
+[issue1202]: https://github.com/dlang/dub/issues/1202
+
+
+v1.4.1 - 2017-08-10
+-------------------
+
+This release is identical with 1.4.0.
+
+
+v1.4.0 - 2017-07-19
+-------------------
+
+- The copyright string is generated automatically by "dub init"
+- "dub init" lets the user retry to enter the package name if not valid (by NotSpooky) - [pull #1122][issue1122]
+- Improved collection speed for source/import files - [pull #1125][issue1125]
+- Fixed "dub init" to allow digits in package names (by chadjoan) - [pull #1165][issue1165]
+- Fixed a sub package build issue on Windows, where colons were used as part of the file name (by andre2007) - [issue #1130][issue1130], [pull #1137][issue1137]
+- Fixed failures to acquire a lock when fetching packages - [pull #1149][issue1149]
+
+[issue1122]: https://github.com/dlang/dub/issues/1122
+[issue1125]: https://github.com/dlang/dub/issues/1125
+[issue1130]: https://github.com/dlang/dub/issues/1130
+[issue1137]: https://github.com/dlang/dub/issues/1137
+[issue1149]: https://github.com/dlang/dub/issues/1149
+[issue1165]: https://github.com/dlang/dub/issues/1165
+
+
+v1.3.0 - 2017-04-10
+-------------------
+
+### Features and improvements ###
+
+- Reduced the initialization time for "dub test" by several seconds by avoiding a complex regex - [pull #1078][issue1078]
+- Reduced cubic runtime complexity for collecting string import files to almost linear in the common case - [pull #1079][issue1079]
+- Compiler flag usage warnings are now only emitted for the root package, reducing build output noise - [a75023cd][commita75023cd]
+- Avoid redundant recreation of hard links for build targets (by Danny Milosavljevic aka daym) - [pull #1071][issue1071]
+
+### Bug fixes ###
+
+- Fixed bogus rebuild of packages with no dependencies - [pull #1093][issue1093], [issue #1091][issue1091]
+- Fixed building with vibe-core instead of vibe.d 0.7.x
+- Fixed the VisualD generator to properly handle the "x86_mscoff" pseudoarchitecture - [4d416e73][commit4d416e73]
+
+[commita75023cd]: https://github.com/dlang/dub/commit/a75023cd050c055e81190bf7abc5793aba39852f
+[commit4d416e73]: https://github.com/dlang/dub/commit/4d416e730df872b552ee1dcfa8340c224a4e51fc
+[issue1071]: https://github.com/dlang/dub/issues/1071
+[issue1078]: https://github.com/dlang/dub/issues/1078
+[issue1079]: https://github.com/dlang/dub/issues/1079
+[issue1091]: https://github.com/dlang/dub/issues/1091
+[issue1093]: https://github.com/dlang/dub/issues/1093
+
+
+v1.2.2 - 2017-03-09
+-------------------
+
+
+v1.2.1 - 2017-02-12
+-------------------
+
+### Bug fixes ###
+
+- Fixed compile error when compiling with vibe.d versions prior to 0.8.0 - [9d25e5dd][commit9d25e5dd]
+- Fixed orphan format specifier error - [220b0128][commit220b0128]
+- Fixed test executable name generation causing sub package test builds to fail - [e6262373][commite6262373]
+- Fixed bogus warning message when compiling with `--arch x86_mscoff` (by Andrey Penechko aka MrSmith33) - [pull #1059][issue1059]
+- Fixed plaform specifiers to work for "x86_mscoff" - [86e85276][commit86e85276]
+
+[commit9d25e5dd]: https://github.com/dlang/dub/commit/9d25e5dd0337e9c054ff32c4b921f32603d29293
+[commit220b0128]: https://github.com/dlang/dub/commit/220b01280041abbead57db6eec28e9279b9d7cf6
+[commite6262373]: https://github.com/dlang/dub/commit/e6262373558591fa8754704fcc2e8ddafabf6671
+[commit86e85276]: https://github.com/dlang/dub/commit/86e85276a7ff85c5cde4e1926c40e666a2b6bf78
+[issue1059]: https://github.com/dlang/dub/issues/1059
+
+
+v1.2.0 - 2017-01-22
+-------------------
+
+### Features and improvements ###
+
+ - Added an `--override-config` command line option to force selecting specific configurations for dependencies - [pull #1004][issue1004]
+ - Added an `x86_mscoff` architecture corresponding to DMD's `-m32mscoff` flag (by John Colvin) - [pull #1007][issue1007]
+ - Implemented selective dependency upgrades ("dub upgrade <packages...>") - [issue #1024][issue1024]
+ - Multiple configurations with the same name are now detected and will cause a warning to be displayed - [issue #984][issue984]
+ - Updated the Sublime Text generator and the Bash completion script to include the default "release-debug" build type (by p0nce) - [pull #1028][issue1028]
+ - The `--force-remove` switch is scheduled for deprecation, as it didn't do anything for a while now - [pull #1023][issue1023]
+
+[issue984]: https://github.com/dlang/dub/issues/984
+[issue1004]: https://github.com/dlang/dub/issues/1004
+[issue1007]: https://github.com/dlang/dub/issues/1007
+[issue1023]: https://github.com/dlang/dub/issues/1023
+[issue1024]: https://github.com/dlang/dub/issues/1024
+[issue1028]: https://github.com/dlang/dub/issues/1028
+
+
+v1.1.2 - 2016-12-31
+-------------------
+
+### Bug fixes ###
+
+ - Fixes configuration resolution in diamond dependency settings - [issue #1005][issue1005], [pull #1006][issue1006]
+ - Fixed path based package overrides ("dub add-override") - [issue #779][issue779]
+ - Contains various diagnostic and error message improvements - [issue #957][issue957], [pull #1010][issue1010], [pull #1012][issue1012], [issue #1019][issue1019]
+
+[issue779]: https://github.com/dlang/dub/issues/779
+[issue957]: https://github.com/dlang/dub/issues/957
+[issue1005]: https://github.com/dlang/dub/issues/1005
+[issue1006]: https://github.com/dlang/dub/issues/1006
+[issue1010]: https://github.com/dlang/dub/issues/1010
+[issue1012]: https://github.com/dlang/dub/issues/1012
+[issue1019]: https://github.com/dlang/dub/issues/1019
+
+
+ v1.1.1 - 2016-11-30
 -------------------
 
 ### Bug fixes ###

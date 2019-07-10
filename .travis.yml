@@ -1,46 +1,130 @@
 language: d
+dist: trusty
 sudo: false
 
-matrix:
-  include:
-    - d: dmd-2.072.0-b2
-      env: [FRONTEND=2.072]
-    - d: dmd-2.071.2
-      env:
-        - [FRONTEND=2.071]
-        - [COVERAGE=true]
-    - d: dmd-2.070.2
-      env: [FRONTEND=2.070]
-    - d: dmd-2.069.2
-      env: [FRONTEND=2.069]
-    - d: dmd-2.068.2
-      env: [FRONTEND=2.068]
-    - d: dmd-2.067.1
-      env: [FRONTEND=2.067]
-    - d: dmd-2.066.1
-      env: [FRONTEND=2.066]
-    - d: dmd-2.065.0
-      env: [FRONTEND=2.065]
-    - d: ldc-1.1.0-beta3
-      env: [FRONTEND=2.071]
-    - d: ldc-1.0.0
-      env: [FRONTEND=2.070]
-    - d: ldc-0.17.2
-      env: [FRONTEND=2.068]
-    - d: ldc-0.16.1
-      env: [FRONTEND=2.067]
-    - d: ldc-0.15.1
-      env: [FRONTEND=2.066]
-    - d: ldc-0.14.0
-      env: [FRONTEND=2.065]
-    - d: gdc-5.2.0
-      env: [FRONTEND=2.066]
-    - d: gdc-4.9.2
-      env: [FRONTEND=2.066]
-    - d: gdc-4.9.0
-      env: [FRONTEND=2.065]
-  allow_failures:
-  - d: ldc-1.1.0-beta3
+addons:
+  apt:
+    packages:
+      - libevent-dev
+
+before_install:
+  # Use the dub-updating fork of the installer script until https://github.com/dlang/installer/pull/301 is merged
+  - wget https://raw.githubusercontent.com/wilzbach/installer-dub/master/script/install.sh -O ~/dlang/install.dub.sh
+  - . $(bash ~/dlang/install.dub.sh -a dub)
+  - dub --version
 
 script:
   - ./travis-ci.sh
+
+jobs:
+  allow_failures:
+    - d: gdc
+  include:
+    - stage: test
+      d: dmd-2.086.0
+      env: [FRONTEND=2.086]
+    - d: dmd-2.081.1
+      env: [FRONTEND=2.081]
+    - d: dmd-2.080.1
+      env: [FRONTEND=2.080]
+    - d: dmd-2.079.1
+      env: [FRONTEND=2.078]
+    - d: dmd-2.078.1
+      env: [FRONTEND=2.078]
+    - d: dmd-2.077.1
+      env: [FRONTEND=2.077, COVERAGE=true]
+    - d: dmd-2.076.1
+      env: [FRONTEND=2.076]
+    - d: ldc-1.10.0
+      env: [FRONTEND=2.080]
+    - d: ldc-1.9.0
+      env: [FRONTEND=2.079]
+    - d: ldc-1.8.0
+      env: [FRONTEND=2.078]
+    - d: ldc-1.7.0
+      env: [FRONTEND=2.077]
+    - d: ldc-1.6.0
+      env: [FRONTEND=2.076]
+    - stage: deploy
+      d: ldc-1.15.0
+      os: osx
+      script: echo "Deploying to GitHub releases ..." && ./release.sh
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.tar.gz
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            tags: true
+    - d: ldc-1.15.0
+      script: echo "Deploying to GitHub releases ..." && ./release.sh
+      env: [ARCH=32]
+      addons:
+        apt:
+          packages:
+          - g++-multilib
+          - libcurl4-openssl-dev:i386
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.tar.gz
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            tags: true
+    - d: ldc-1.15.0
+      script: echo "Deploying to GitHub releases ..." && ./release.sh
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.tar.gz
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            tags: true
+    - d: ldc-1.15.0
+      script: echo "Deploying to GitHub releases (win32) ..." && ./release-windows.sh
+      addons:
+        apt:
+          packages:
+            - p7zip-full
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.zip
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            tags: true
+    - d: ldc-1.15.0
+      script: echo "Deploying to GitHub releases (win64) ..." && ARCH=64 ./release-windows.sh
+      addons:
+        apt:
+          packages:
+            - p7zip-full
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.zip
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            tags: true
+    - stage: update-latest
+      script: echo "Deploying to GitHub pages ..." && mkdir -p docs && git describe --abbrev=0 --tags > docs/LATEST
+      deploy:
+        - provider: pages
+          skip_cleanup: true
+          local_dir: docs
+          github_token: $GH_REPO_TOKEN
+          on:
+            tags: true
+stages:
+  - name: test
+    if: type = pull_request or (type = push and branch = master)
+  # Until deployment of the release binaries is fixed, always build them
+  #- name: deploy
+    #if: type = push and tag =~ ^v\d+\.\d+\.\d+[^-]*\$ # not a pre-release tag
+  - name: update-latest
+    if: type = push and tag =~ ^v\d+\.\d+\.\d+[^-]*\$ # not a pre-release tag

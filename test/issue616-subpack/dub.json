@@ -1,6 +1,6 @@
 {
     "name": "issue616-subpack",
-    "targetType": "executable",
+    "targetType": "library",
     "dependencies": {
         "issue616-subsubpack": {
             "version": "1.0",

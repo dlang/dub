@@ -12,7 +12,7 @@ import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
-import dub.platform;
+import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
@@ -20,7 +20,6 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.process;
-import std.random;
 import std.typecons;
 
 
@@ -48,12 +47,34 @@ class LDCCompiler : Compiler {
 		tuple(BuildOption.deprecationErrors, ["-de"]),
 		tuple(BuildOption.property, ["-property"]),
 		//tuple(BuildOption.profileGC, ["-?"]),
+		tuple(BuildOption.betterC, ["-betterC"]),
 
 		tuple(BuildOption._docs, ["-Dd=docs"]),
 		tuple(BuildOption._ddox, ["-Xf=docs.json", "-Dd=__dummy_docs"]),
 	];
 
 	@property string name() const { return "ldc"; }
+
+	enum ldcVersionRe = `^version\s+v?(\d+\.\d+\.\d+[A-Za-z0-9.+-]*)`;
+
+	unittest {
+		import std.regex : matchFirst, regex;
+		auto probe = `
+binary    /usr/bin/ldc2
+version   1.11.0 (DMD v2.081.2, LLVM 6.0.1)
+config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
+`;
+		auto re = regex(ldcVersionRe, "m");
+		auto c = matchFirst(probe, re);
+		assert(c && c.length > 1 && c[1] == "1.11.0");
+	}
+
+	string determineVersion(string compiler_binary, string verboseOutput)
+	{
+		import std.regex : matchFirst, regex;
+		auto ver = matchFirst(verboseOutput, regex(ldcVersionRe, "m"));
+		return ver && ver.length > 1 ? ver[1] : null;
+	}
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
@@ -66,7 +87,11 @@ class LDCCompiler : Compiler {
 		}
 		settings.addDFlags(arch_flags);
 
-		return probePlatform(compiler_binary, arch_flags ~ ["-c", "-o-"], arch_override);
+		return probePlatform(
+			compiler_binary,
+			arch_flags ~ ["-c", "-o-", "-v"],
+			arch_override
+		);
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
@@ -117,7 +142,7 @@ class LDCCompiler : Compiler {
 			settings.lflags = null;
 		}
 
-		if (settings.targetType == TargetType.dynamicLibrary)
+		if (settings.options & BuildOption.pic)
 			settings.addDFlags("-relocation-model=pic");
 
 		assert(fields & BuildSetting.dflags);
@@ -142,17 +167,7 @@ class LDCCompiler : Compiler {
 
 	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 	const {
-		import std.string : splitLines, strip;
-		import std.uni : toLower;
-
 		assert(settings.targetName.length > 0, "No target name set.");
-
-		auto result = executeShell(escapeShellCommand([platform.compilerBinary, "-version"]));
-		enforce (result.status == 0, "Failed to determine linker used by LDC. \""
-			~platform.compilerBinary~" -version\" failed with exit code "
-			~result.status.to!string()~".");
-
-		bool generates_coff = result.output.splitLines.find!(l => l.strip.toLower.startsWith("default target:")).front.canFind("-windows-msvc");
 
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
@@ -164,11 +179,13 @@ class LDCCompiler : Compiler {
 				else return settings.targetName;
 			case TargetType.library:
 			case TargetType.staticLibrary:
-				if (generates_coff) return settings.targetName ~ ".lib";
+				if (generatesCOFF(platform)) return settings.targetName ~ ".lib";
 				else return "lib" ~ settings.targetName ~ ".a";
 			case TargetType.dynamicLibrary:
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".dll";
+				else if (platform.platform.canFind("osx"))
+					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
 				if (platform.platform.canFind("windows"))
@@ -197,7 +214,7 @@ class LDCCompiler : Compiler {
 		}
 
 		if (tpath is null)
-			tpath = (Path(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
 		settings.addDFlags("-of"~tpath);
 	}
 
@@ -219,11 +236,36 @@ class LDCCompiler : Compiler {
 
 	string[] lflagsToDFlags(in string[] lflags) const
 	{
-		return  lflags.map!(s => "-L="~s)().array();
+        return map!(f => "-L"~f)(lflags.filter!(f => f != "")()).array();
 	}
 
 	private auto escapeArgs(in string[] args)
 	{
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
+	}
+
+	private static bool generatesCOFF(in BuildPlatform platform)
+	{
+		import std.string : splitLines, strip;
+		import std.uni : toLower;
+
+		static bool[string] compiler_coff_map;
+
+		if (auto pret = platform.compilerBinary in compiler_coff_map)
+			return *pret;
+
+		auto result = executeShell(escapeShellCommand([platform.compilerBinary, "-version"]));
+		enforce (result.status == 0, "Failed to determine linker used by LDC. \""
+			~platform.compilerBinary~" -version\" failed with exit code "
+			~result.status.to!string()~".");
+
+		bool ret = result.output
+			.splitLines
+			.find!(l => l.strip.toLower.startsWith("default target:"))
+			.front
+			.canFind("msvc");
+
+		compiler_coff_map[platform.compilerBinary] = ret;
+		return ret;
 	}
 }

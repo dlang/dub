@@ -20,12 +20,13 @@ import std.string;
 import std.algorithm : max;
 import std.conv;
 
+@safe:
 
 /**
 	Validates a version string according to the SemVer specification.
 */
 bool isValidVersion(string ver)
-{
+pure @nogc {
 	// NOTE: this is not by spec, but to ensure sane input
 	if (ver.length > 256) return false;
 
@@ -101,7 +102,7 @@ unittest {
 /**
 	Determines if a given valid SemVer version has a pre-release suffix.
 */
-bool isPreReleaseVersion(string ver)
+bool isPreReleaseVersion(string ver) pure @nogc
 in { assert(isValidVersion(ver)); }
 body {
 	foreach (i; 0 .. 2) {
@@ -135,14 +136,14 @@ unittest {
 		equal, and a positive number otherwise.
 */
 int compareVersions(string a, string b)
-{
+pure @nogc {
 	// compare a.b.c numerically
 	if (auto ret = compareNumber(a, b)) return ret;
 	assert(a[0] == '.' && b[0] == '.');
-	a.popFront(); b.popFront();
+	a = a[1 .. $]; b = b[1 .. $];
 	if (auto ret = compareNumber(a, b)) return ret;
 	assert(a[0] == '.' && b[0] == '.');
-	a.popFront(); b.popFront();
+	a = a[1 .. $]; b = b[1 .. $];
 	if (auto ret = compareNumber(a, b)) return ret;
 
 	// give precedence to non-prerelease versions
@@ -153,7 +154,7 @@ int compareVersions(string a, string b)
 
 	// compare the prerelease tail lexicographically
 	do {
-		a.popFront(); b.popFront();
+		a = a[1 .. $]; b = b[1 .. $];
 		if (auto ret = compareIdentifier(a, b)) return ret;
 	} while (a.length > 0 && b.length > 0 && a[0] != '+' && b[0] != '+');
 
@@ -224,12 +225,13 @@ unittest {
 
 	See_Also: `expandVersion`
 */
-string bumpVersion(string ver) {
+string bumpVersion(string ver)
+pure {
 	// Cut off metadata and prerelease information.
 	auto mi = ver.indexOfAny("+-");
 	if (mi > 0) ver = ver[0..mi];
 	// Increment next to last version from a[.b[.c]].
-	auto splitted = split(ver, ".");
+	auto splitted = () @trusted { return split(ver, "."); } (); // DMD 2.065.0
 	assert(splitted.length > 0 && splitted.length <= 3, "Version corrupt: " ~ ver);
 	auto to_inc = splitted.length == 3? 1 : 0;
 	splitted = splitted[0 .. to_inc+1];
@@ -251,20 +253,21 @@ unittest {
 
 /**
 	Takes a partial version and expands it to a valid SemVer version.
-	
+
 	This function corresponds to the semantivs of the "~>" comparison operator's
 	lower bound.
 
 	See_Also: `bumpVersion`
 */
-string expandVersion(string ver) {
+string expandVersion(string ver)
+pure {
 	auto mi = ver.indexOfAny("+-");
 	auto sub = "";
 	if (mi > 0) {
 		sub = ver[mi..$];
 		ver = ver[0..mi];
 	}
-	auto splitted = split(ver, ".");
+	auto splitted = () @trusted { return split(ver, "."); } (); // DMD 2.065.0
 	assert(splitted.length > 0 && splitted.length <= 3, "Version corrupt: " ~ ver);
 	while (splitted.length < 3) splitted ~= "0";
 	return splitted.join(".") ~ sub;
@@ -281,18 +284,18 @@ unittest {
 }
 
 private int compareIdentifier(ref string a, ref string b)
-{
+pure @nogc {
 	bool anumber = true;
 	bool bnumber = true;
 	bool aempty = true, bempty = true;
 	int res = 0;
 	while (true) {
-		if (a.front != b.front && res == 0) res = a.front - b.front;
-		if (anumber && (a.front < '0' || a.front > '9')) anumber = false;
-		if (bnumber && (b.front < '0' || b.front > '9')) bnumber = false;
-		a.popFront(); b.popFront();
-		aempty = a.empty || a.front == '.' || a.front == '+';
-		bempty = b.empty || b.front == '.' || b.front == '+';
+		if (a[0] != b[0] && res == 0) res = a[0] - b[0];
+		if (anumber && (a[0] < '0' || a[0] > '9')) anumber = false;
+		if (bnumber && (b[0] < '0' || b[0] > '9')) bnumber = false;
+		a = a[1 .. $]; b = b[1 .. $];
+		aempty = !a.length || a[0] == '.' || a[0] == '+';
+		bempty = !b.length || b[0] == '.' || b[0] == '+';
 		if (aempty || bempty) break;
 	}
 
@@ -311,20 +314,20 @@ private int compareIdentifier(ref string a, ref string b)
 }
 
 private int compareNumber(ref string a, ref string b)
-{
+pure @nogc {
 	int res = 0;
 	while (true) {
-		if (a.front != b.front && res == 0) res = a.front - b.front;
-		a.popFront(); b.popFront();
-		auto aempty = a.empty || (a.front < '0' || a.front > '9');
-		auto bempty = b.empty || (b.front < '0' || b.front > '9');
+		if (a[0] != b[0] && res == 0) res = a[0] - b[0];
+		a = a[1 .. $]; b = b[1 .. $];
+		auto aempty = !a.length || (a[0] < '0' || a[0] > '9');
+		auto bempty = !b.length || (b[0] < '0' || b[0] > '9');
 		if (aempty != bempty) return bempty - aempty;
 		if (aempty) return res;
 	}
 }
 
 private bool isValidIdentifierChain(string str, bool allow_leading_zeros = false)
-{
+pure @nogc {
 	if (str.length == 0) return false;
 	while (str.length) {
 		auto end = str.indexOf('.');
@@ -337,7 +340,7 @@ private bool isValidIdentifierChain(string str, bool allow_leading_zeros = false
 }
 
 private bool isValidIdentifier(string str, bool allow_leading_zeros = false)
-{
+pure @nogc {
 	if (str.length < 1) return false;
 
 	bool numeric = true;
@@ -360,7 +363,7 @@ private bool isValidIdentifier(string str, bool allow_leading_zeros = false)
 }
 
 private bool isValidNumber(string str)
-{
+pure @nogc {
 	if (str.length < 1) return false;
 	foreach (ch; str)
 		if (ch < '0' || ch > '9')
@@ -373,7 +376,7 @@ private bool isValidNumber(string str)
 }
 
 private sizediff_t indexOfAny(string str, in char[] chars)
-{
+pure @nogc {
 	sizediff_t ret = -1;
 	foreach (ch; chars) {
 		auto idx = str.indexOf(ch);

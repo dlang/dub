@@ -173,13 +173,13 @@ struct AttributeEvent
 private struct PullParser
 {
 	private Lexer lexer;
-	
+
 	private struct IDFull
 	{
 		string namespace;
 		string name;
 	}
-	
+
 	private void error(string msg)
 	{
 		error(lexer.front.location, msg);
@@ -189,20 +189,20 @@ private struct PullParser
 	{
 		throw new SDLangParseException(loc, "Error: "~msg);
 	}
-	
+
 	private InputVisitor!(PullParser, ParserEvent) v;
-	
+
 	void visit(InputVisitor!(PullParser, ParserEvent) v)
 	{
 		this.v = v;
 		parseRoot();
 	}
-	
+
 	private void emit(Event)(Event event)
 	{
 		v.yield( ParserEvent(event) );
 	}
-	
+
 	/// <Root> ::= <Tags> EOF  (Lookaheads: Anything)
 	private void parseRoot()
 	{
@@ -213,11 +213,11 @@ private struct PullParser
 		emit( FileStartEvent(startLocation) );
 
 		parseTags();
-		
+
 		auto token = lexer.front;
 		if(!token.matches!"EOF"())
 			error("Expected end-of-file, not " ~ token.symbol.name);
-		
+
 		emit( FileEndEvent(token.location) );
 	}
 
@@ -283,7 +283,7 @@ private struct PullParser
 		parseAttributes();
 		parseOptChild();
 		parseTagTerminator();
-		
+
 		emit( TagEndEvent() );
 	}
 
@@ -365,7 +365,7 @@ private struct PullParser
 			auto value = token.value;
 			//trace("In tag '", parent.fullName, "', found value: ", value);
 			emit( ValueEvent(token.location, value) );
-			
+
 			lexer.popFront();
 		}
 		else
@@ -401,21 +401,21 @@ private struct PullParser
 		auto token = lexer.front;
 		if(!token.matches!"Ident"())
 			error("Expected attribute name, not "~token.symbol.name);
-		
+
 		auto id = parseIDFull();
-		
+
 		token = lexer.front;
 		if(!token.matches!"="())
 			error("Expected '=' after attribute name, not "~token.symbol.name);
-		
+
 		lexer.popFront();
 		token = lexer.front;
 		if(!token.matches!"Value"())
 			error("Expected attribute value, not "~token.symbol.name);
-		
+
 		//trace("In tag '", parent.fullName, "', found attribute '", attr.fullName, "'");
 		emit( AttributeEvent(token.location, id.namespace, id.name, token.value) );
-		
+
 		lexer.popFront();
 	}
 
@@ -432,10 +432,10 @@ private struct PullParser
 			token = lexer.front;
 			if(!token.matches!"EOL"())
 				error("Expected newline or semicolon after '{', not "~token.symbol.name);
-			
+
 			lexer.popFront();
 			parseTags();
-			
+
 			token = lexer.front;
 			if(!token.matches!"}"())
 				error("Expected '}' after child tags, not "~token.symbol.name);
@@ -447,7 +447,7 @@ private struct PullParser
 			// Do nothing, no error.
 		}
 	}
-	
+
 	/// <TagTerminator>
 	///     ::= EOL      (Lookahead: EOL)
 	///     |   {empty}  (Lookahead: EOF)
@@ -472,12 +472,12 @@ private struct PullParser
 private struct DOMParser
 {
 	Lexer lexer;
-	
+
 	Tag parseRoot()
 	{
 		auto currTag = new Tag(null, null, "root");
 		currTag.location = Location(lexer.filename, 0, 0, 0);
-		
+
 		auto parser = PullParser(lexer);
 		auto eventRange = inputVisitor!ParserEvent( parser );
 		foreach(event; eventRange)
@@ -486,7 +486,7 @@ private struct DOMParser
 			{
 				auto newTag = new Tag(currTag, e.namespace, e.name);
 				newTag.location = e.location;
-				
+
 				currTag = newTag;
 			}
 			else if(event.peek!TagEndEvent())
@@ -518,7 +518,7 @@ private struct DOMParser
 			else
 				parser.error("Internal Error: Received unknown parser event");
 		}
-		
+
 		return currTag;
 	}
 }

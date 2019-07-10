@@ -8,18 +8,21 @@
 module dub.compilers.compiler;
 
 public import dub.compilers.buildsettings;
+public import dub.dependency : Dependency;
 public import dub.platform : BuildPlatform, matchesSpecification;
 
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
+import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
 import std.process;
+import std.typecons : Flag;
 
 
 /** Returns a compiler handler for a given binary name.
@@ -88,7 +91,10 @@ interface Compiler {
 
 	/// Convert linker flags to compiler format
 	string[] lflagsToDFlags(in string[] lflags) const;
-	
+
+	/// Determines compiler version
+	string determineVersion(string compiler_binary, string verboseOutput);
+
 	/** Runs a tool and provides common boilerplate code.
 
 		This method should be used by `Compiler` implementations to invoke the
@@ -115,11 +121,17 @@ interface Compiler {
 		enforce(status == 0, format("%s failed with exit code %s.", args[0], status));
 	}
 
-	/// Compiles platform probe file with the specified compiler and parses its output.
-	protected final BuildPlatform probePlatform(string compiler_binary, string[] args, string arch_override)
+	/** Compiles platform probe file with the specified compiler and parses its output.
+		Params:
+			compiler_binary =	binary to invoke compiler with
+			args			=	arguments for the probe compilation
+			arch_override	=	special handler for x86_mscoff
+	*/
+	protected final BuildPlatform probePlatform(string compiler_binary, string[] args,
+		string arch_override)
 	{
-		import std.string : format;
-		import dub.compilers.utils : generatePlatformProbeFile, readPlatformProbe;
+		import dub.compilers.utils : generatePlatformProbeFile, readPlatformJsonProbe;
+		import std.string : format, strip;
 
 		auto fil = generatePlatformProbeFile();
 
@@ -127,14 +139,30 @@ interface Compiler {
 		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
 				compiler_binary, result.output));
 
-		auto build_platform = readPlatformProbe(result.output);
+		auto build_platform = readPlatformJsonProbe(result.output);
 		build_platform.compilerBinary = compiler_binary;
 
 		if (build_platform.compiler != this.name) {
-			logWarn(`The determined compiler type "%s" doesn't match the expected type "%s". This will probably result in build errors.`,
-				build_platform.compiler, this.name);
+			logWarn(`The determined compiler type "%s" doesn't match the expected type "%s". `~
+				`This will probably result in build errors.`, build_platform.compiler, this.name);
 		}
 
+		auto ver = determineVersion(compiler_binary, result.output)
+			.strip;
+		if (ver.empty) {
+			logWarn(`Could not probe the compiler version for "%s". ` ~
+				`Toolchain requirements might be ineffective`, build_platform.compiler);
+		}
+		else {
+			build_platform.compilerVersion = ver;
+		}
+
+		// Hack: see #1059
+		// When compiling with --arch=x86_mscoff build_platform.architecture is equal to ["x86"] and canFind below is false.
+		// This hack prevents unnesessary warning 'Failed to apply the selected architecture x86_mscoff. Got ["x86"]'.
+		// And also makes "x86_mscoff" available as a platform specifier in the package recipe
+		if (arch_override == "x86_mscoff")
+			build_platform.architecture ~= arch_override;
 		if (arch_override.length && !build_platform.architecture.canFind(arch_override)) {
 			logWarn(`Failed to apply the selected architecture %s. Got %s.`,
 				arch_override, build_platform.architecture);

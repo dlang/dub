@@ -1,0 +1,6 @@
+{
+	"name": "b",
+	"dependencies": {
+		"gitcompatibledubpackage": "~>1.0.2"
+	}
+}

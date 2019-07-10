@@ -9,7 +9,7 @@ module dub.internal.vibecompat.inet.url;
 
 public import dub.internal.vibecompat.inet.path;
 
-version (Have_vibe_d) public import vibe.inet.url;
+version (Have_vibe_d_core) public import vibe.inet.url;
 else:
 
 import std.algorithm;
@@ -18,6 +18,7 @@ import std.conv;
 import std.exception;
 import std.string;
 import std.uri;
+import std.meta : AliasSeq;
 
 
 /**
@@ -27,17 +28,18 @@ struct URL {
 	private {
 		string m_schema;
 		string m_pathString;
-		Path m_path;
+		NativePath m_path;
 		string m_host;
 		ushort m_port;
 		string m_username;
 		string m_password;
 		string m_queryString;
 		string m_anchor;
+		alias m_schemes = AliasSeq!("http", "https", "ftp", "spdy", "file", "sftp");
 	}
 
 	/// Constructs a new URL object from its components.
-	this(string schema, string host, ushort port, Path path)
+	this(string schema, string host, ushort port, NativePath path)
 	{
 		m_schema = schema;
 		m_host = host;
@@ -46,7 +48,7 @@ struct URL {
 		m_pathString = path.toString();
 	}
 	/// ditto
-	this(string schema, Path path)
+	this(string schema, NativePath path)
 	{
 		this(schema, null, 0, path);
 	}
@@ -66,48 +68,43 @@ struct URL {
 			str = str[idx+1 .. $];
 			bool requires_host = false;
 
-			switch(m_schema){
-				case "http":
-				case "https":
-				case "ftp":
-				case "spdy":
-				case "sftp":
-				case "file":
-					// proto://server/path style
-					enforce(str.startsWith("//"), "URL must start with proto://...");
-					requires_host = true;
-					str = str[2 .. $];
-					goto default;
-				default:
-					auto si = str.countUntil('/');
-					if( si < 0 ) si = str.length;
-					auto ai = str[0 .. si].countUntil('@');
-					sizediff_t hs = 0;
-					if( ai >= 0 ){
-						hs = ai+1;
-						auto ci = str[0 .. ai].countUntil(':');
-						if( ci >= 0 ){
-							m_username = str[0 .. ci];
-							m_password = str[ci+1 .. ai];
-						} else m_username = str[0 .. ai];
-						enforce(m_username.length > 0, "Empty user name in URL.");
-					}
-
-					m_host = str[hs .. si];
-					auto pi = m_host.countUntil(':');
-					if(pi > 0) {
-						enforce(pi < m_host.length-1, "Empty port in URL.");
-						m_port = to!ushort(m_host[pi+1..$]);
-						m_host = m_host[0 .. pi];
-					}
-
-					enforce(!requires_host || m_schema == "file" || m_host.length > 0,
-							"Empty server name in URL.");
-					str = str[si .. $];
+			auto schema_parts = m_schema.split("+");
+			if (!schema_parts.empty && schema_parts.back.canFind(m_schemes))
+			{
+				// proto://server/path style
+				enforce(str.startsWith("//"), "URL must start with proto://...");
+				requires_host = true;
+				str = str[2 .. $];
 			}
+
+			auto si = str.countUntil('/');
+			if( si < 0 ) si = str.length;
+			auto ai = str[0 .. si].countUntil('@');
+			sizediff_t hs = 0;
+			if( ai >= 0 ){
+				hs = ai+1;
+				auto ci = str[0 .. ai].countUntil(':');
+				if( ci >= 0 ){
+					m_username = str[0 .. ci];
+					m_password = str[ci+1 .. ai];
+				} else m_username = str[0 .. ai];
+				enforce(m_username.length > 0, "Empty user name in URL.");
+			}
+
+			m_host = str[hs .. si];
+			auto pi = m_host.countUntil(':');
+			if(pi > 0) {
+				enforce(pi < m_host.length-1, "Empty port in URL.");
+				m_port = to!ushort(m_host[pi+1..$]);
+				m_host = m_host[0 .. pi];
+			}
+
+			enforce(!requires_host || m_schema == "file" || m_host.length > 0,
+				"Empty server name in URL.");
+			str = str[si .. $];
 		}
 
-		this.localURI = str;
+		this.localURI = (str == "") ? "/" : str;
 	}
 	/// ditto
 	static URL parse(string url_string)
@@ -124,9 +121,9 @@ struct URL {
 	@property string pathString() const { return m_pathString; }
 
 	/// The path part of the URL
-	@property Path path() const { return m_path; }
+	@property NativePath path() const { return m_path; }
 	/// ditto
-	@property void path(Path p)
+	@property void path(NativePath p)
 	{
 		m_path = p;
 		auto pstr = p.toString();
@@ -193,7 +190,7 @@ struct URL {
 		}
 
 		m_pathString = str;
-		m_path = Path(decode(str));
+		m_path = NativePath(decode(str));
 	}
 
 	/// The URL to the parent path with query string and anchor stripped.
@@ -215,16 +212,10 @@ struct URL {
 		auto dst = appender!string();
 		dst.put(schema);
 		dst.put(":");
-		switch(schema){
-			default: break;
-			case "file":
-			case "http":
-			case "https":
-			case "ftp":
-			case "spdy":
-			case "sftp":
-				dst.put("//");
-				break;
+		auto schema_parts = schema.split("+");
+		if (!schema_parts.empty && schema_parts.back.canFind(m_schemes))
+		{
+			dst.put("//");
 		}
 		dst.put(host);
 		if( m_port > 0 ) formattedWrite(dst, ":%d", m_port);
@@ -239,9 +230,9 @@ struct URL {
 		return path.startsWith(rhs.m_path);
 	}
 
-	URL opBinary(string OP)(Path rhs) const if( OP == "~" ) { return URL(m_schema, m_host, m_port, m_path ~ rhs); }
+	URL opBinary(string OP)(NativePath rhs) const if( OP == "~" ) { return URL(m_schema, m_host, m_port, m_path ~ rhs); }
 	URL opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return URL(m_schema, m_host, m_port, m_path ~ rhs); }
-	void opOpAssign(string OP)(Path rhs) if( OP == "~" ) { m_path ~= rhs; }
+	void opOpAssign(string OP)(NativePath rhs) if( OP == "~" ) { m_path ~= rhs; }
 	void opOpAssign(string OP)(PathEntry rhs) if( OP == "~" ) { m_path ~= rhs; }
 
 	/// Tests two URLs for equality using '=='.
@@ -266,7 +257,7 @@ unittest {
 	auto url = URL.parse("https://www.example.net/index.html");
 	assert(url.schema == "https", url.schema);
 	assert(url.host == "www.example.net", url.host);
-	assert(url.path == Path("/index.html"), url.path.toString());
+	assert(url.path == NativePath("/index.html"), url.path.toString());
 
 	url = URL.parse("http://jo.doe:password@sub.www.example.net:4711/sub2/index.html?query#anchor");
 	assert(url.schema == "http", url.schema);
@@ -277,4 +268,15 @@ unittest {
 	assert(url.path.toString() == "/sub2/index.html", url.path.toString());
 	assert(url.queryString == "query", url.queryString);
 	assert(url.anchor == "anchor", url.anchor);
+
+	url = URL("http://localhost")~NativePath("packages");
+	assert(url.toString() == "http://localhost/packages", url.toString());
+
+	url = URL("http://localhost/")~NativePath("packages");
+	assert(url.toString() == "http://localhost/packages", url.toString());
+
+	url = URL.parse("dub+https://code.dlang.org/");
+	assert(url.host == "code.dlang.org");
+	assert(url.toString() == "dub+https://code.dlang.org/");
+	assert(url.schema == "dub+https");
 }

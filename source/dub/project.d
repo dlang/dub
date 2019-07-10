@@ -17,21 +17,14 @@ import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.packagemanager;
-import dub.packagesupplier;
 import dub.generators.generator;
 
-
-// todo: cleanup imports.
 import std.algorithm;
 import std.array;
-import std.conv;
+import std.conv : to;
 import std.datetime;
-import std.exception;
-import std.file;
-import std.process;
+import std.exception : enforce;
 import std.string;
-import std.typecons;
-import std.zip;
 import std.encoding : sanitize;
 
 /**
@@ -50,7 +43,8 @@ class Project {
 		Package[] m_dependencies;
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
-		bool m_hasAllDependencies;
+		string[] m_missingDependencies;
+		string[string] m_overriddenConfigs;
 	}
 
 	/** Loads a project.
@@ -61,7 +55,7 @@ class Project {
 			project_path = Path of the root package to load
 			pack = An existing `Package` instance to use as the root package
 	*/
-	this(PackageManager package_manager, Path project_path)
+	this(PackageManager package_manager, NativePath project_path)
 	{
 		Package pack;
 		auto packageFile = Package.findPackageFile(project_path);
@@ -120,7 +114,10 @@ class Project {
 		to `selections`, or to use `Dub.upgrade` to automatically select all
 		missing dependencies.
 	*/
-	bool hasAllDependencies() const { return m_hasAllDependencies; }
+	bool hasAllDependencies() const { return m_missingDependencies.length == 0; }
+
+	/// Sorted list of missing dependencies.
+	string[] missingDependencies() { return m_missingDependencies; }
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
@@ -208,6 +205,27 @@ class Project {
 		return cfgs[m_rootPackage.name];
 	}
 
+	/** Overrides the configuration chosen for a particular package in the
+		dependency graph.
+
+		Setting a certain configuration here is equivalent to removing all
+		but one configuration from the package.
+
+		Params:
+			package_ = The package for which to force selecting a certain
+				dependency
+			config = Name of the configuration to force
+	*/
+	void overrideConfiguration(string package_, string config)
+	{
+		auto p = getDependency(package_, true);
+		enforce(p !is null,
+			format("Package '%s', marked for configuration override, is not present in dependency graph.", package_));
+		enforce(p.configurations.canFind(config),
+			format("Package '%s' does not have a configuration named '%s'.", package_, config));
+		m_overriddenConfigs[package_] = config;
+	}
+
 	/** Performs basic validation of various aspects of the package.
 
 		This will emit warnings to `stderr` if any discouraged names or
@@ -246,8 +264,40 @@ class Project {
 					d.name, SelectedVersions.defaultFile);
 			}
 
+		// search for orphan sub configurations
+		void warnSubConfig(string pack, string config) {
+			logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+				~ "references a package that is not specified as a dependency "
+				~ "and will have no effect.", pack, config);
+		}
+		void checkSubConfig(string pack, string config) {
+			auto p = getDependency(pack, true);
+			if (p && !p.configurations.canFind(config)) {
+				logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+					~ "references a configuration that does not exist.",
+					pack, config);
+			}
+		}
+		auto globalbs = m_rootPackage.getBuildSettings();
+		foreach (p, c; globalbs.subConfigurations) {
+			if (p !in globalbs.dependencies) warnSubConfig(p, c);
+			else checkSubConfig(p, c);
+		}
+		foreach (c; m_rootPackage.configurations) {
+			auto bs = m_rootPackage.getBuildSettings(c);
+			foreach (p, c; bs.subConfigurations) {
+				if (p !in bs.dependencies && p !in globalbs.dependencies)
+					warnSubConfig(p, c);
+				else checkSubConfig(p, c);
+			}
+		}
+
+		// check for version specification mismatches
 		bool[Package] visited;
 		void validateDependenciesRec(Package pack) {
+			// perform basic package linting
+			pack.simpleLint();
+
 			foreach (d; pack.getAllDependencies()) {
 				auto basename = getBasePackageName(d.name);
 				if (m_selections.hasSelectedVersion(basename)) {
@@ -258,7 +308,7 @@ class Project {
 					}
 				}
 
-				auto deppack = getDependency(name, true);
+				auto deppack = getDependency(d.name, true);
 				if (deppack in visited) continue;
 				visited[deppack] = true;
 				if (deppack) validateDependenciesRec(deppack);
@@ -271,7 +321,7 @@ class Project {
 	void reinit()
 	{
 		m_dependencies = null;
-		m_hasAllDependencies = true;
+		m_missingDependencies = [];
 		m_packageManager.refresh(false);
 
 		void collectDependenciesRec(Package pack, int depth = 0)
@@ -299,7 +349,7 @@ class Project {
 					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, subname, false);
 					catch (Exception e) {
 						logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
-						if (is_desired) m_hasAllDependencies = false;
+						if (is_desired) m_missingDependencies ~= dep.name;
 						continue;
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
@@ -308,7 +358,7 @@ class Project {
 					else {
 						auto path = vspec.path;
 						if (!path.absolute) path = m_rootPackage.path ~ path;
-						p = m_packageManager.getOrLoadPackage(path, Path.init, true);
+						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
 						if (subname.length) p = m_packageManager.getSubPackage(p, subname, true);
 					}
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
@@ -323,10 +373,10 @@ class Project {
 				}
 
 				if (!p && !vspec.path.empty) {
-					Path path = vspec.path;
+					NativePath path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
-					logDiagnostic("%sAdding local %s", indent, path);
-					p = m_packageManager.getOrLoadPackage(path, Path.init, true);
+					logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
+					p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
 					if (p.parentPackage !is null) {
 						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
 						p = p.parentPackage;
@@ -339,14 +389,15 @@ class Project {
 
 				if (!p) {
 					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
-					if (is_desired) m_hasAllDependencies = false;
+					if (is_desired) m_missingDependencies ~= dep.name;
 					continue;
 				}
 
 				if (!m_dependencies.canFind(p)) {
 					logDiagnostic("%sFound dependency %s %s", indent, dep.name, vspec.toString());
 					m_dependencies ~= p;
-					p.warnOnSpecialCompilerFlags();
+					if (basename == m_rootPackage.basePackage.name)
+						p.warnOnSpecialCompilerFlags();
 					collectDependenciesRec(p, depth+1);
 				}
 
@@ -355,6 +406,7 @@ class Project {
 			}
 		}
 		collectDependenciesRec(m_rootPackage);
+		m_missingDependencies.sort();
 	}
 
 	/// Returns the name of the root package.
@@ -377,11 +429,11 @@ class Project {
 			foreach (d; p.getAllDependencies())
 				parents[d.name] ~= p.name;
 
-
 		size_t createConfig(string pack, string config) {
 			foreach (i, v; configs)
 				if (v.pack == pack && v.config == config)
 					return i;
+			assert(pack !in m_overriddenConfigs || config == m_overriddenConfigs[pack]);
 			logDebug("Add config %s %s", pack, config);
 			configs ~= Vertex(pack, config);
 			return configs.length-1;
@@ -401,12 +453,26 @@ class Project {
 
 		void removeConfig(size_t i) {
 			logDebug("Eliminating config %s for %s", configs[i].config, configs[i].pack);
-			configs = configs.remove(i);
-			edges = edges.filter!(e => e.from != i && e.to != i).array();
-			foreach (ref e; edges) {
-				if (e.from > i) e.from--;
-				if (e.to > i) e.to--;
-			}
+			auto had_dep_to_pack = new bool[configs.length];
+			auto still_has_dep_to_pack = new bool[configs.length];
+
+			edges = edges.filter!((e) {
+					if (e.to == i) {
+						had_dep_to_pack[e.from] = true;
+						return false;
+					} else if (configs[e.to].pack == configs[i].pack) {
+						still_has_dep_to_pack[e.from] = true;
+					}
+					if (e.from == i) return false;
+					return true;
+				}).array;
+
+			configs[i] = Vertex.init; // mark config as removed
+
+			// also remove any configs that cannot be satisfied anymore
+			foreach (j; 0 .. configs.length)
+				if (j != i && had_dep_to_pack[j] && !still_has_dep_to_pack[j])
+					removeConfig(j);
 		}
 
 		bool isReachable(string pack, string conf) {
@@ -430,6 +496,39 @@ class Project {
 		}
 
 		string[] allconfigs_path;
+
+		void determineDependencyConfigs(in Package p, string c)
+		{
+			string[][string] depconfigs;
+			foreach (d; p.getAllDependencies()) {
+				auto dp = getDependency(d.name, true);
+				if (!dp) continue;
+
+				string[] cfgs;
+				if (auto pc = dp.name in m_overriddenConfigs) cfgs = [*pc];
+				else {
+					auto subconf = p.getSubConfiguration(c, dp, platform);
+					if (!subconf.empty) cfgs = [subconf];
+					else cfgs = dp.getPlatformConfigurations(platform);
+				}
+				cfgs = cfgs.filter!(c => haveConfig(d.name, c)).array;
+
+				// if no valid configuration was found for a dependency, don't include the
+				// current configuration
+				if (!cfgs.length) {
+					logDebug("Skip %s %s (missing configuration for %s)", p.name, c, dp.name);
+					return;
+				}
+				depconfigs[d.name] = cfgs;
+			}
+
+			// add this configuration to the graph
+			size_t cidx = createConfig(p.name, c);
+			foreach (d; p.getAllDependencies())
+				foreach (sc; depconfigs.get(d.name, null))
+					createEdge(cidx, createConfig(d.name, sc));
+		}
+
 		// create a graph of all possible package configurations (package, config) -> (subpackage, subconfig)
 		void determineAllConfigs(in Package p)
 		{
@@ -446,33 +545,11 @@ class Project {
 			}
 
 			// for each configuration, determine the configurations usable for the dependencies
-			outer: foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library)) {
-				string[][string] depconfigs;
-				foreach (d; p.getAllDependencies()) {
-					auto dp = getDependency(d.name, true);
-					if (!dp) continue;
-
-					string[] cfgs;
-					auto subconf = p.getSubConfiguration(c, dp, platform);
-					if (!subconf.empty) cfgs = [subconf];
-					else cfgs = dp.getPlatformConfigurations(platform);
-					cfgs = cfgs.filter!(c => haveConfig(d.name, c)).array;
-
-					// if no valid configuration was found for a dependency, don't include the
-					// current configuration
-					if (!cfgs.length) {
-						logDebug("Skip %s %s (missing configuration for %s)", p.name, c, dp.name);
-						continue outer;
-					}
-					depconfigs[d.name] = cfgs;
-				}
-
-				// add this configuration to the graph
-				size_t cidx = createConfig(p.name, c);
-				foreach (d; p.getAllDependencies())
-					foreach (sc; depconfigs.get(d.name, null))
-						createEdge(cidx, createConfig(d.name, sc));
-			}
+			if (auto pc = p.name in m_overriddenConfigs)
+				determineDependencyConfigs(p, *pc);
+			else
+				foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library))
+					determineDependencyConfigs(p, c);
 		}
 		if (config.length) createConfig(m_rootPackage.name, config);
 		determineAllConfigs(m_rootPackage);
@@ -482,26 +559,24 @@ class Project {
 		do {
 			// remove all configs that are not reachable by all parent packages
 			changed = false;
-			for (size_t i = 0; i < configs.length; ) {
+			foreach (i, ref c; configs) {
+				if (c == Vertex.init) continue; // ignore deleted configurations
 				if (!isReachableByAllParentPacks(i)) {
-					logDebug("NOT REACHABLE by (%s):", parents[configs[i].pack]);
+					logDebug("%s %s NOT REACHABLE by all of (%s):", c.pack, c.config, parents[c.pack]);
 					removeConfig(i);
 					changed = true;
-				} else i++;
+				}
 			}
 
 			// when all edges are cleaned up, pick one package and remove all but one config
 			if (!changed) {
 				foreach (p; getTopologicalPackageList()) {
 					size_t cnt = 0;
-					for (size_t i = 0; i < configs.length; ) {
-						if (configs[i].pack == p.name) {
-							if (++cnt > 1) {
-								logDebug("NON-PRIMARY:");
-								removeConfig(i);
-							} else i++;
-						} else i++;
-					}
+					foreach (i, ref c; configs)
+						if (c.pack == p.name && ++cnt > 1) {
+							logDebug("NON-PRIMARY: %s %s", c.pack, c.config);
+							removeConfig(i);
+						}
 					if (cnt > 1) {
 						changed = true;
 						break;
@@ -516,6 +591,7 @@ class Project {
 		// return the resulting configuration set as an AA
 		string[string] ret;
 		foreach (c; configs) {
+			if (c == Vertex.init) continue; // ignore deleted configurations
 			assert(ret.get(c.pack, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", c.pack, c.config, ret[c.pack]));
 			logDebug("Using configuration '%s' for %s", c.config, c.pack);
 			ret[c.pack] = c.config;
@@ -542,16 +618,16 @@ class Project {
 	 *
 	 * Params:
 	 *   dst = The BuildSettings struct to fill with data.
-	 *   platform = The platform to retrieve the values for.
+	 *   gsettings = The generator settings to retrieve the values for.
 	 *   config = Values of the given configuration will be retrieved.
 	 *   root_package = If non null, use it instead of the project's real root package.
 	 *   shallow = If true, collects only build settings for the main package (including inherited settings) and doesn't stop on target type none and sourceLibrary.
 	 */
-	void addBuildSettings(ref BuildSettings dst, in BuildPlatform platform, string config, in Package root_package = null, bool shallow = false)
+	void addBuildSettings(ref BuildSettings dst, in GeneratorSettings gsettings, string config, in Package root_package = null, bool shallow = false)
 	const {
 		import dub.internal.utils : stripDlangSpecialChars;
 
-		auto configs = getPackageConfigs(platform, config);
+		auto configs = getPackageConfigs(gsettings.platform, config);
 
 		foreach (pkg; this.getTopologicalPackageList(false, root_package, configs)) {
 			auto pkg_path = pkg.path.toNativeString();
@@ -560,11 +636,11 @@ class Project {
 			assert(pkg.name in configs, "Missing configuration for "~pkg.name);
 			logDebug("Gathering build settings for %s (%s)", pkg.name, configs[pkg.name]);
 
-			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
+			auto psettings = pkg.getBuildSettings(gsettings.platform, configs[pkg.name]);
 			if (psettings.targetType != TargetType.none) {
 				if (shallow && pkg !is m_rootPackage)
 					psettings.sourceFiles = null;
-				processVars(dst, this, pkg, psettings);
+				processVars(dst, this, pkg, psettings, gsettings);
 				if (psettings.importPaths.empty)
 					logWarn(`Package %s (configuration "%s") defines no import paths, use {"importPaths": [...]} or the default package directory structure to fix this.`, pkg.name, configs[pkg.name]);
 				if (psettings.mainSourceFile.empty && pkg is m_rootPackage && psettings.targetType == TargetType.executable)
@@ -579,15 +655,15 @@ class Project {
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
 				if (!psettings.workingDirectory.empty)
-					dst.workingDirectory = processVars(psettings.workingDirectory, this, pkg, true);
+					dst.workingDirectory = processVars(psettings.workingDirectory, this, pkg, gsettings, true);
 				if (psettings.mainSourceFile.length)
-					dst.mainSourceFile = processVars(psettings.mainSourceFile, this, pkg, true);
+					dst.mainSourceFile = processVars(psettings.mainSourceFile, this, pkg, gsettings, true);
 			}
 		}
 
 		// always add all version identifiers of all packages
 		foreach (pkg; this.getTopologicalPackageList(false, null, configs)) {
-			auto psettings = pkg.getBuildSettings(platform, configs[pkg.name]);
+			auto psettings = pkg.getBuildSettings(gsettings.platform, configs[pkg.name]);
 			dst.addVersions(psettings.versions);
 		}
 	}
@@ -596,18 +672,18 @@ class Project {
 
 		Params:
 			dst = The `BuildSettings` instance to add the build settings to
-			platform = Target build platform
+			gsettings = Target generator settings
 			build_type = Name of the build type
 			for_root_package = Selects if the build settings are for the root
 				package or for one of the dependencies. Unittest flags will
 				only be added to the root package.
 	*/
-	void addBuildTypeSettings(ref BuildSettings dst, in BuildPlatform platform, string build_type, bool for_root_package = true)
+	void addBuildTypeSettings(ref BuildSettings dst, in GeneratorSettings gsettings, bool for_root_package = true)
 	{
 		bool usedefflags = !(dst.requirements & BuildRequirement.noDefaultFlags);
 		if (usedefflags) {
 			BuildSettings btsettings;
-			m_rootPackage.addBuildTypeSettings(btsettings, platform, build_type);
+			m_rootPackage.addBuildTypeSettings(btsettings, gsettings.platform, gsettings.buildType);
 
 			if (!for_root_package) {
 				// don't propagate unittest switch to dependencies, as dependent
@@ -616,7 +692,7 @@ class Project {
 				btsettings.removeOptions(BuildOption.unittests);
 			}
 
-			processVars(dst, this, m_rootPackage, btsettings);
+			processVars(dst, this, m_rootPackage, btsettings, gsettings);
 		}
 	}
 
@@ -879,6 +955,7 @@ class Project {
 			case "working-directory":
 			case "string-import-files":
 			case "copy-files":
+			case "extra-dependency-files":
 			case "pre-generate-commands":
 			case "post-generate-commands":
 			case "pre-build-commands":
@@ -909,6 +986,7 @@ class Project {
 		case "linker-files":           return listBuildSetting!"linkerFiles"(args);
 		case "source-files":           return listBuildSetting!"sourceFiles"(args);
 		case "copy-files":             return listBuildSetting!"copyFiles"(args);
+		case "extra-dependency-files": return listBuildSetting!"extraDependencyFiles"(args);
 		case "versions":               return listBuildSetting!"versions"(args);
 		case "debug-versions":         return listBuildSetting!"debugVersions"(args);
 		case "import-paths":           return listBuildSetting!"importPaths"(args);
@@ -919,6 +997,8 @@ class Project {
 		case "post-generate-commands": return listBuildSetting!"postGenerateCommands"(args);
 		case "pre-build-commands":     return listBuildSetting!"preBuildCommands"(args);
 		case "post-build-commands":    return listBuildSetting!"postBuildCommands"(args);
+		case "pre-run-commands":       return listBuildSetting!"preRunCommands"(args);
+		case "post-run-commands":      return listBuildSetting!"postRunCommands"(args);
 		case "requirements":           return listBuildSetting!"requirements"(args);
 		case "options":                return listBuildSetting!"options"(args);
 
@@ -995,41 +1075,14 @@ class Project {
 			m_selections.save(path);
 	}
 
-	/** Checks if the cached upgrade information is still considered up to date.
-
-		The cache will be considered out of date after 24 hours after the last
-		online check.
-	*/
-	bool isUpgradeCacheUpToDate()
+	deprecated bool isUpgradeCacheUpToDate()
 	{
-		try {
-			auto datestr = m_packageSettings["dub"].opt!(Json[string]).get("lastUpgrade", Json("")).get!string;
-			if (!datestr.length) return false;
-			auto date = SysTime.fromISOExtString(datestr);
-			if ((Clock.currTime() - date) > 1.days) return false;
-			return true;
-		} catch (Exception t) {
-			logDebug("Failed to get the last upgrade time: %s", t.msg);
-			return false;
-		}
+		return false;
 	}
 
-	/** Returns the currently cached upgrade information.
-
-		The returned dictionary maps from dependency package name to the latest
-		available version that matches the dependency specifications.
-	*/
-	Dependency[string] getUpgradeCache()
+	deprecated Dependency[string] getUpgradeCache()
 	{
-		try {
-			Dependency[string] ret;
-			foreach (string p, d; m_packageSettings["dub"].opt!(Json[string]).get("cachedUpgrades", Json.emptyObject))
-				ret[p] = SelectedVersions.dependencyFromJson(d);
-			return ret;
-		} catch (Exception t) {
-			logDebug("Failed to get cached upgrades: %s", t.msg);
-			return null;
-		}
+		return null;
 	}
 
 	/** Sets a new set of versions for the upgrade cache.
@@ -1052,6 +1105,7 @@ class Project {
 	}
 
 	private void writeDubJson() {
+		import std.file : exists, mkdir;
 		// don't bother to write an empty file
 		if( m_packageSettings.length == 0 ) return;
 
@@ -1092,92 +1146,71 @@ enum PlacementLocation {
 }
 
 void processVars(ref BuildSettings dst, in Project project, in Package pack,
-	BuildSettings settings, bool include_target_settings = false)
+	BuildSettings settings, in GeneratorSettings gsettings, bool include_target_settings = false)
 {
-	dst.addDFlags(processVars(project, pack, settings.dflags));
-	dst.addLFlags(processVars(project, pack, settings.lflags));
-	dst.addLibs(processVars(project, pack, settings.libs));
-	dst.addSourceFiles(processVars!true(project, pack, settings.sourceFiles, true));
-	dst.addImportFiles(processVars(project, pack, settings.importFiles, true));
-	dst.addStringImportFiles(processVars(project, pack, settings.stringImportFiles, true));
-	dst.addCopyFiles(processVars(project, pack, settings.copyFiles, true));
-	dst.addVersions(processVars(project, pack, settings.versions));
-	dst.addDebugVersions(processVars(project, pack, settings.debugVersions));
-	dst.addImportPaths(processVars(project, pack, settings.importPaths, true));
-	dst.addStringImportPaths(processVars(project, pack, settings.stringImportPaths, true));
-	dst.addPreGenerateCommands(processVars(project, pack, settings.preGenerateCommands));
-	dst.addPostGenerateCommands(processVars(project, pack, settings.postGenerateCommands));
-	dst.addPreBuildCommands(processVars(project, pack, settings.preBuildCommands));
-	dst.addPostBuildCommands(processVars(project, pack, settings.postBuildCommands));
+	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags));
+	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags));
+	dst.addLibs(processVars(project, pack, gsettings, settings.libs));
+	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true));
+	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true));
+	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true));
+	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true));
+	dst.addExtraDependencyFiles(processVars(project, pack, gsettings, settings.extraDependencyFiles, true));
+	dst.addVersions(processVars(project, pack, gsettings, settings.versions));
+	dst.addDebugVersions(processVars(project, pack, gsettings, settings.debugVersions));
+	dst.addVersionFilters(processVars(project, pack, gsettings, settings.versionFilters));
+	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters));
+	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true));
+	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true));
+	dst.addPreGenerateCommands(processVars(project, pack, gsettings, settings.preGenerateCommands));
+	dst.addPostGenerateCommands(processVars(project, pack, gsettings, settings.postGenerateCommands));
+	dst.addPreBuildCommands(processVars(project, pack, gsettings, settings.preBuildCommands));
+	dst.addPostBuildCommands(processVars(project, pack, gsettings, settings.postBuildCommands));
+	dst.addPreRunCommands(processVars(project, pack, gsettings, settings.preRunCommands));
+	dst.addPostRunCommands(processVars(project, pack, gsettings, settings.postRunCommands));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
 
 	if (include_target_settings) {
 		dst.targetType = settings.targetType;
-		dst.targetPath = processVars(settings.targetPath, project, pack, true);
+		dst.targetPath = processVars(settings.targetPath, project, pack, gsettings, true);
 		dst.targetName = settings.targetName;
 		if (!settings.workingDirectory.empty)
-			dst.workingDirectory = processVars(settings.workingDirectory, project, pack, true);
+			dst.workingDirectory = processVars(settings.workingDirectory, project, pack, gsettings, true);
 		if (settings.mainSourceFile.length)
-			dst.mainSourceFile = processVars(settings.mainSourceFile, project, pack, true);
+			dst.mainSourceFile = processVars(settings.mainSourceFile, project, pack, gsettings, true);
 	}
 }
 
-private string[] processVars(bool glob = false)(in Project project, in Package pack, string[] vars, bool are_paths = false)
+private string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
 {
 	auto ret = appender!(string[])();
-	processVars!glob(ret, project, pack, vars, are_paths);
+	processVars!glob(ret, project, pack, gsettings, vars, are_paths);
 	return ret.data;
 
 }
-private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, string[] vars, bool are_paths = false)
+private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
 {
-	foreach (var; vars) dst.put(processVars!glob(var, project, pack, are_paths));
+	foreach (var; vars) dst.put(processVars!glob(var, project, pack, gsettings, are_paths));
 }
 
-private auto processVars(bool glob = false)(string var, in Project project, in Package pack, bool is_path)
+private auto processVars(bool glob = false, Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
 {
-	auto idx = std.string.indexOf(var, '$');
-	if (idx >= 0) {
-		auto vres = appender!string();
-		while (idx >= 0) {
-			if (idx+1 >= var.length) break;
-			if (var[idx+1] == '$') {
-				vres.put(var[0 .. idx+1]);
-				var = var[idx+2 .. $];
-			} else {
-				vres.put(var[0 .. idx]);
-				var = var[idx+1 .. $];
-
-				size_t idx2 = 0;
-				while( idx2 < var.length && isIdentChar(var[idx2]) ) idx2++;
-				auto varname = var[0 .. idx2];
-				var = var[idx2 .. $];
-
-				vres.put(getVariable(varname, project, pack));
-			}
-			idx = std.string.indexOf(var, '$');
-		}
-		vres.put(var);
-		var = vres.data;
-	}
-
-	static if (glob)
+  static if (glob)
 		assert(is_path, "can't glob something that isn't a path");
-	else {
-		if (!is_path)
-			return var;
-	}
-	auto p = Path(var);
-	string res;
+	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings));
+	if (!is_path)
+    return var;
+  auto p = NativePath(var);
+  string res;
 	if (!p.absolute)
 		res = (pack.path ~ p).toNativeString();
 	else
 		res = p.toNativeString();
-	static if (!glob)
+  static if (!glob)
 		return res;
-	else {
-		// Find the unglobbed prefix and iterate from there.
+  else {
+    		// Find the unglobbed prefix and iterate from there.
 		size_t i = 0;
 		size_t sepIdx = 0;
 		loop: while (i < res.length) {
@@ -1195,20 +1228,158 @@ private auto processVars(bool glob = false)(string var, in Project project, in P
 			.map!(de => de.name)
 			.filter!(name => globMatch(name, res))
 			.array;
+  }
+}
+
+/// Expand variables using `$VAR_NAME` or `${VAR_NAME}` syntax.
+/// `$$` escapes itself and is expanded to a single `$`.
+private string expandVars(alias expandVar)(string s)
+{
+	import std.functional : not;
+
+	auto result = appender!string;
+
+	static bool isVarChar(char c)
+	{
+		import std.ascii;
+		return isAlphaNum(c) || c == '_';
+	}
+
+	while (true)
+	{
+		auto pos = s.indexOf('$');
+		if (pos < 0)
+		{
+			result.put(s);
+			return result.data;
+		}
+		result.put(s[0 .. pos]);
+		s = s[pos + 1 .. $];
+		enforce(s.length > 0, "Variable name expected at end of string");
+		switch (s[0])
+		{
+			case '$':
+				result.put("$");
+				s = s[1 .. $];
+				break;
+			case '{':
+				pos = s.indexOf('}');
+				enforce(pos >= 0, "Could not find '}' to match '${'");
+				result.put(expandVar(s[1 .. pos]));
+				s = s[pos + 1 .. $];
+				break;
+			default:
+				pos = s.representation.countUntil!(not!isVarChar);
+				if (pos < 0)
+					pos = s.length;
+				result.put(expandVar(s[0 .. pos]));
+				s = s[pos .. $];
+				break;
+		}
 	}
 }
 
-private string getVariable(string name, in Project project, in Package pack)
+unittest
 {
-	if (name == "PACKAGE_DIR") return pack.path.toNativeString();
-	if (name == "ROOT_PACKAGE_DIR") return project.rootPackage.path.toNativeString();
+	string[string] vars =
+	[
+		"A" : "a",
+		"B" : "b",
+	];
+
+	string expandVar(string name) { auto p = name in vars; enforce(p, name); return *p; }
+
+	assert(expandVars!expandVar("") == "");
+	assert(expandVars!expandVar("x") == "x");
+	assert(expandVars!expandVar("$$") == "$");
+	assert(expandVars!expandVar("x$$") == "x$");
+	assert(expandVars!expandVar("$$x") == "$x");
+	assert(expandVars!expandVar("$$$$") == "$$");
+	assert(expandVars!expandVar("x$A") == "xa");
+	assert(expandVars!expandVar("x$$A") == "x$A");
+	assert(expandVars!expandVar("$A$B") == "ab");
+	assert(expandVars!expandVar("${A}$B") == "ab");
+	assert(expandVars!expandVar("$A${B}") == "ab");
+	assert(expandVars!expandVar("a${B}") == "ab");
+	assert(expandVars!expandVar("${A}b") == "ab");
+
+	import std.exception : assertThrown;
+	assertThrown(expandVars!expandVar("$"));
+	assertThrown(expandVars!expandVar("${}"));
+	assertThrown(expandVars!expandVar("$|"));
+	assertThrown(expandVars!expandVar("x$"));
+	assertThrown(expandVars!expandVar("$X"));
+	assertThrown(expandVars!expandVar("${"));
+	assertThrown(expandVars!expandVar("${X"));
+
+	// https://github.com/dlang/dmd/pull/9275
+	assert(expandVars!expandVar("$${DUB_EXE:-dub}") == "${DUB_EXE:-dub}");
+}
+
+// Keep the following list up-to-date if adding more build settings variables.
+/// List of variables that can be used in build settings
+package(dub) immutable buildSettingsVars = [
+	"ARCH", "PLATFORM", "PLATFORM_POSIX", "BUILD_TYPE"
+];
+
+private string getVariable(Project, Package)(string name, in Project project, in Package pack, in GeneratorSettings gsettings)
+{
+	import dub.internal.utils : getDUBExePath;
+	import std.process : environment, escapeShellFileName;
+	import std.uni : asUpperCase;
+
+	NativePath path;
+	if (name == "PACKAGE_DIR")
+		path = pack.path;
+	else if (name == "ROOT_PACKAGE_DIR")
+		path = project.rootPackage.path;
 
 	if (name.endsWith("_PACKAGE_DIR")) {
 		auto pname = name[0 .. $-12];
 		foreach (prj; project.getTopologicalPackageList())
-			if (prj.name.toUpper().replace("-", "_") == pname)
-				return prj.path.toNativeString();
+			if (prj.name.asUpperCase.map!(a => a == '-' ? '_' : a).equal(pname))
+			{
+				path = prj.path;
+				break;
+			}
 	}
+
+	if (!path.empty)
+	{
+		// no trailing slash for clean path concatenation (see #1392)
+		path.endsWithSlash = false;
+		return path.toNativeString();
+	}
+
+	if (name == "DUB") {
+		return getDUBExePath(gsettings.platform.compilerBinary);
+	}
+
+	if (name == "ARCH") {
+		foreach (a; gsettings.platform.architecture)
+			return a;
+		return "";
+	}
+
+	if (name == "PLATFORM") {
+		import std.algorithm : filter;
+		foreach (p; gsettings.platform.platform.filter!(p => p != "posix"))
+			return p;
+		foreach (p; gsettings.platform.platform)
+			return p;
+		return "";
+	}
+
+	if (name == "PLATFORM_POSIX") {
+		import std.algorithm : canFind;
+		if (gsettings.platform.platform.canFind("posix"))
+			return "posix";
+		foreach (p; gsettings.platform.platform)
+			return p;
+		return "";
+	}
+
+	if (name == "BUILD_TYPE") return gsettings.buildType;
 
 	auto envvar = environment.get(name);
 	if (envvar !is null) return envvar;
@@ -1216,6 +1387,68 @@ private string getVariable(string name, in Project project, in Package pack)
 	throw new Exception("Invalid variable: "~name);
 }
 
+
+unittest
+{
+	static struct MockPackage
+	{
+		this(string name)
+		{
+			this.name = name;
+			version (Posix)
+				path = NativePath("/pkgs/"~name);
+			else version (Windows)
+				path = NativePath(`C:\pkgs\`~name);
+			// see 4d4017c14c, #268, and #1392 for why this all package paths end on slash internally
+			path.endsWithSlash = true;
+		}
+		string name;
+		NativePath path;
+	}
+
+	static struct MockProject
+	{
+		MockPackage rootPackage;
+		inout(MockPackage)[] getTopologicalPackageList() inout
+		{
+			return _dependencies;
+		}
+	private:
+		MockPackage[] _dependencies;
+	}
+
+	MockProject proj = {
+		rootPackage: MockPackage("root"),
+		_dependencies: [MockPackage("dep1"), MockPackage("dep2")]
+	};
+	auto pack = MockPackage("test");
+	GeneratorSettings gsettings;
+	enum isPath = true;
+
+	import std.path : dirSeparator;
+
+	static Path woSlash(Path p) { p.endsWithSlash = false; return p; }
+	// basic vars
+	assert(processVars("Hello $PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(pack.path).toNativeString);
+	assert(processVars("Hello $ROOT_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj.rootPackage.path).toNativeString.chomp(dirSeparator));
+	assert(processVars("Hello $DEP1_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj._dependencies[0].path).toNativeString);
+	// ${VAR} replacements
+	assert(processVars("Hello ${PACKAGE_DIR}"~dirSeparator~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
+	assert(processVars("Hello $PACKAGE_DIR"~dirSeparator~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
+	// test with isPath
+	assert(processVars("local", proj, pack, gsettings, isPath) == (pack.path ~ "local").toNativeString);
+	assert(processVars("foo/$$ESCAPED", proj, pack, gsettings, isPath) == (pack.path ~ "foo/$ESCAPED").toNativeString);
+	assert(processVars("$$ESCAPED", proj, pack, gsettings, !isPath) == "$ESCAPED");
+	// test other env variables
+	import std.process : environment;
+	environment["MY_ENV_VAR"] = "blablabla";
+	assert(processVars("$MY_ENV_VAR", proj, pack, gsettings, !isPath) == "blablabla");
+	assert(processVars("${MY_ENV_VAR}suffix", proj, pack, gsettings, !isPath) == "blablablasuffix");
+	assert(processVars("$MY_ENV_VAR-suffix", proj, pack, gsettings, !isPath) == "blablabla-suffix");
+	assert(processVars("$MY_ENV_VAR:suffix", proj, pack, gsettings, !isPath) == "blablabla:suffix");
+	assert(processVars("$MY_ENV_VAR$MY_ENV_VAR", proj, pack, gsettings, !isPath) == "blablablablablabla");
+	environment.remove("MY_ENV_VAR");
+}
 
 /** Holds and stores a set of version selections for package dependencies.
 
@@ -1253,7 +1486,7 @@ final class SelectedVersions {
 
 	/** Constructs a new version selections from an existing JSON file.
 	*/
-	this(Path path)
+	this(NativePath path)
 	{
 		auto json = jsonFromFile(path);
 		deserialize(json);
@@ -1296,7 +1529,7 @@ final class SelectedVersions {
 	}
 
 	/// Selects a certain path for a specific package.
-	void selectVersion(string package_id, Path path)
+	void selectVersion(string package_id, NativePath path)
 	{
 		if (auto ps = package_id in m_selections) {
 			if (ps.dep == Dependency(path))
@@ -1338,7 +1571,7 @@ final class SelectedVersions {
 		should be used as the file name and the directory should be the root
 		directory of the project's root package.
 	*/
-	void save(Path path)
+	void save(NativePath path)
 	{
 		Json json = serialize();
 		auto file = openFile(path, FileMode.createTrunc);
@@ -1377,7 +1610,7 @@ final class SelectedVersions {
 		if (j.type == Json.Type.string)
 			return Dependency(Version(j.get!string));
 		else if (j.type == Json.Type.object)
-			return Dependency(Path(j["path"].get!string));
+			return Dependency(NativePath(j["path"].get!string));
 		else throw new Exception(format("Unexpected type for dependency: %s", j.type));
 	}
 
@@ -1401,4 +1634,3 @@ final class SelectedVersions {
 			m_selections[p] = Selected(dependencyFromJson(v));
 	}
 }
-

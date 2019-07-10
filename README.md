@@ -4,7 +4,8 @@ Package and build manager for [D](http://dlang.org/) applications and libraries.
 
 There is a central [package registry](https://github.com/dlang/dub-registry/) located at <http://code.dlang.org>.
 
-[![GitHub tag](https://img.shields.io/github/tag/dlang/dub.svg?maxAge=86400)](#) [![Build Status](https://travis-ci.org/dlang/dub.svg?branch=master)](https://travis-ci.org/dlang/dub) [![Coverage Status](https://coveralls.io/repos/dlang/dub/badge.svg)](https://coveralls.io/r/dlang/dub)
+[![GitHub tag](https://img.shields.io/github/tag/dlang/dub.svg?maxAge=86400)](#) [![Travis](https://travis-ci.org/dlang/dub.svg?branch=master)](https://travis-ci.org/dlang/dub) [![Coverage Status](https://coveralls.io/repos/dlang/dub/badge.svg)](https://coveralls.io/r/dlang/dub)
+[![Buildkite](https://badge.buildkite.com/c54d71c42284a042b9d578e28e093dff35f20cc8528319b1b6.svg?branch=master)](https://buildkite.com/dlang/dub)
 
 ## Introduction
 
@@ -16,7 +17,7 @@ The project's philosophy is to keep things as simple as possible. All that is ne
 ## Key features
 
  - Simple package and build description not getting in your way
- - Integrated with Git, avoiding maintainance tasks such as incrementing version numbers or uploading new project releases
+ - Integrated with Git, avoiding maintenance tasks such as incrementing version numbers or uploading new project releases
  - Generates VisualD project/solution files, integrated into MonoD
  - Support for DMD, GDC and LDC (common DMD flags are translated automatically)
  - Supports development workflows by optionally using local directories as a package source
@@ -55,3 +56,12 @@ Daniel Jost maintains a dub package on [chocolatey](https://chocolatey.org/packa
 ## Using DUB as a library
 
 The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/dlang/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/dlang/dub/blob/master/source/dub/commandline.d).
+
+## Minimal D compiler required to build DUB
+
+In general it is always recommended to build DUB with the latest version of your D compiler.
+However, currently [2.076](https://dlang.org/changelog/2.076.0.html) is required to build DUB from source.
+
+# Contributing
+
+New contributers are always welcome, there's plenty to work on! For an easy start, take a look at issues marked [`bootcamp`](https://github.com/dlang/dub/labels/bootcamp)

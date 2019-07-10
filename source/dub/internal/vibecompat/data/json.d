@@ -11,7 +11,7 @@
 */
 module dub.internal.vibecompat.data.json;
 
-version (Have_vibe_d) public import vibe.data.json;
+version (Have_vibe_d_data) public import vibe.data.json;
 else:
 
 import dub.internal.vibecompat.data.utils;
@@ -136,7 +136,7 @@ struct Json {
 	/**
 		Allows assignment of D values to a JSON value.
 	*/
-	ref Json opAssign(Json v)
+	ref Json opAssign(Json v) return
 	{
 		m_type = v.m_type;
 		final switch(m_type){
@@ -265,7 +265,7 @@ struct Json {
 		m_object[key] = Json.init;
 		assert(m_object !is null);
 		assert(key in m_object, "Failed to insert key '"~key~"' into AA!?");
-		m_object[key].m_type = Type.undefined; // DMDBUG: AAs are teh $H1T!!!11
+		m_object[key].m_type = Type.undefined; // DMDBUG: AAs are the $H1T!!!11
 		assert(m_object[key].type == Type.undefined);
 		m_object[key].m_string = key;
 		version (VibeJsonFieldNames) m_object[key].m_name = format("%s.%s", m_name, key);
@@ -892,12 +892,12 @@ Json parseJson(R)(ref R range, int* line = null, string filename = null)
 		case '0': .. case '9':
 		case '-':
 			bool is_float;
-			auto num = skipNumber(range, is_float);
+			auto num = skipNumber(range, is_float, filename, line);
 			if( is_float ) ret = to!double(num);
 			else ret = to!long(num);
 			break;
 		case '\"':
-			ret = skipJsonString(range);
+			ret = skipJsonString(range, filename, line);
 			break;
 		case '[':
 			Json[] arr;
@@ -924,7 +924,7 @@ Json parseJson(R)(ref R range, int* line = null, string filename = null)
 				skipWhitespace(range, line);
 				enforceJson(!range.empty, "Missing '}' before EOF.", filename, line);
 				if(range.front == '}') break;
-				string key = skipJsonString(range);
+				string key = skipJsonString(range, filename, line);
 				skipWhitespace(range, line);
 				enforceJson(range.startsWith(":"), "Expected ':' for key '" ~ key ~ "'", filename, line);
 				range.popFront();
@@ -1647,7 +1647,7 @@ struct JsonStringSerializer(R, bool pretty = false)
 					m_range.skipWhitespace(&m_line);
 				} else first = false;
 
-				auto name = m_range.skipJsonString(&m_line);
+				auto name = m_range.skipJsonString(null, &m_line);
 
 				m_range.skipWhitespace(&m_line);
 				enforceJson(!m_range.empty && m_range.front == ':', "Expecting ':', not '"~m_range.front.to!string~"'.");
@@ -1692,7 +1692,7 @@ struct JsonStringSerializer(R, bool pretty = false)
 				return ret;
 			} else static if (is(T : long)) {
 				bool is_float;
-				auto num = m_range.skipNumber(is_float);
+				auto num = m_range.skipNumber(is_float, null, &m_line);
 				enforceJson(!is_float, "Expecting integer number.");
 				return to!T(num);
 			} else static if (is(T : real)) {
@@ -1700,7 +1700,7 @@ struct JsonStringSerializer(R, bool pretty = false)
 				auto num = m_range.skipNumber(is_float);
 				return to!T(num);
 			}
-			else static if (is(T == string)) return m_range.skipJsonString(&m_line);
+			else static if (is(T == string)) return m_range.skipJsonString(null, &m_line);
 			else static if (is(T == Json)) return m_range.parseJson(&m_line);
 			else static if (isJsonSerializable!T) return T.fromJson(m_range.parseJson(&m_line));
 			else static assert(false, "Unsupported type: " ~ T.stringof);
@@ -1743,12 +1743,12 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 		case Json.Type.null_: dst.put("null"); break;
 		case Json.Type.bool_: dst.put(cast(bool)json ? "true" : "false"); break;
 		case Json.Type.int_: formattedWrite(dst, "%d", json.get!long); break;
-		case Json.Type.float_: 
+		case Json.Type.float_:
 			auto d = json.get!double;
-			if (d != d) 
+			if (d != d)
 				dst.put("undefined"); // JSON has no NaN value so set null
 			else
-				formattedWrite(dst, "%.16g", json.get!double); 
+				formattedWrite(dst, "%.16g", json.get!double);
 			break;
 		case Json.Type.string:
 			dst.put('\"');
@@ -1779,23 +1779,37 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 		case Json.Type.object:
 			dst.put('{');
 			bool first = true;
-			foreach( string k, ref const Json e; json ){
-				if( e.type == Json.Type.undefined ) continue;
-				if( !first ) dst.put(',');
-				first = false;
-				static if (pretty) {
+
+			static if (pretty) {
+				import std.algorithm.sorting : sort;
+				string[] keyOrder;
+				foreach (string key, ref const Json e; json) keyOrder ~= key;
+				keyOrder.sort();
+
+				foreach( key; keyOrder ){
+					if( json[key].type == Json.Type.undefined ) continue;
+					if( !first ) dst.put(',');
+					first = false;
 					dst.put('\n');
 					foreach (tab; 0 .. level+1) dst.put('\t');
+					dst.put('\"');
+					jsonEscape(dst, key);
+					dst.put(pretty ? `": ` : `":`);
+					writeJsonString!(R, pretty)(dst, json[key], level+1);
 				}
-				dst.put('\"');
-				jsonEscape(dst, k);
-				dst.put(pretty ? `": ` : `":`);
-				writeJsonString!(R, pretty)(dst, e, level+1);
-			}
-			static if (pretty) {
 				if (json.length > 0) {
 					dst.put('\n');
 					foreach (tab; 0 .. level) dst.put('\t');
+				}
+			} else {
+				foreach( string k, ref const Json e; json ){
+					if( e.type == Json.Type.undefined ) continue;
+					if( !first ) dst.put(',');
+					first = false;
+					dst.put('\"');
+					jsonEscape(dst, k);
+					dst.put(pretty ? `": ` : `":`);
+					writeJsonString!(R, pretty)(dst, e, level+1);
 				}
 			}
 			dst.put('}');
@@ -1818,13 +1832,6 @@ unittest {
 		1,
 		{}
 	]
-}` || a.toPrettyString() ==
-`{
-	"b": [
-		1,
-		{}
-	],
-	"a": []
 }`);
 }
 
@@ -1915,7 +1922,7 @@ private void jsonEscape(bool escape_unicode = false, R)(ref R dst, string s)
 						char[13] buf;
 						int len;
 						dchar codepoint = decode(s, pos);
-						import std.c.stdio : sprintf;
+						import core.stdc.stdio : sprintf;
 						/* codepoint is in BMP */
 						if(codepoint < 0x10000)
 						{
@@ -1955,7 +1962,7 @@ private void jsonEscape(bool escape_unicode = false, R)(ref R dst, string s)
 }
 
 /// private
-private string jsonUnescape(R)(ref R range)
+private string jsonUnescape(R)(ref R range, string filename, int* line)
 {
 	auto ret = appender!string();
 	while(!range.empty){
@@ -1964,9 +1971,9 @@ private string jsonUnescape(R)(ref R range)
 			case '"': return ret.data;
 			case '\\':
 				range.popFront();
-				enforceJson(!range.empty, "Unterminated string escape sequence.");
+				enforceJson(!range.empty, "Unterminated string escape sequence.", filename, line);
 				switch(range.front){
-					default: enforceJson(false, "Invalid string escape sequence."); break;
+					default: enforceJson(false, "Invalid string escape sequence.", filename, line); break;
 					case '"': ret.put('\"'); range.popFront(); break;
 					case '\\': ret.put('\\'); range.popFront(); break;
 					case '/': ret.put('/'); range.popFront(); break;
@@ -1983,14 +1990,14 @@ private string jsonUnescape(R)(ref R range)
 							dchar uch = 0;
 							foreach( i; 0 .. 4 ){
 								uch *= 16;
-								enforceJson(!range.empty, "Unicode sequence must be '\\uXXXX'.");
+								enforceJson(!range.empty, "Unicode sequence must be '\\uXXXX'.", filename, line);
 								auto dc = range.front;
 								range.popFront();
 
 								if( dc >= '0' && dc <= '9' ) uch += dc - '0';
 								else if( dc >= 'a' && dc <= 'f' ) uch += dc - 'a' + 10;
 								else if( dc >= 'A' && dc <= 'F' ) uch += dc - 'A' + 10;
-								else enforceJson(false, "Unicode sequence must be '\\uXXXX'.");
+								else enforceJson(false, "Unicode sequence must be '\\uXXXX'.", filename, line);
 							}
 							return uch;
 						}
@@ -2001,7 +2008,7 @@ private string jsonUnescape(R)(ref R range)
 							/* surrogate pair */
 							range.popFront(); // backslash '\'
 							auto uch2 = decode_unicode_escape();
-							enforceJson(0xDC00 <= uch2 && uch2 <= 0xDFFF, "invalid Unicode");
+							enforceJson(0xDC00 <= uch2 && uch2 <= 0xDFFF, "invalid Unicode", filename, line);
 							{
 								/* valid second surrogate */
 								uch =
@@ -2024,7 +2031,7 @@ private string jsonUnescape(R)(ref R range)
 }
 
 /// private
-private string skipNumber(R)(ref R s, out bool is_float)
+private string skipNumber(R)(ref R s, out bool is_float, string filename, int* line)
 {
 	// TODO: make this work with input ranges
 	size_t idx = 0;
@@ -2032,7 +2039,7 @@ private string skipNumber(R)(ref R s, out bool is_float)
 	if (s[idx] == '-') idx++;
 	if (s[idx] == '0') idx++;
 	else {
-		enforceJson(isDigit(s[idx++]), "Digit expected at beginning of number.");
+		enforceJson(isDigit(s[idx++]), "Digit expected at beginning of number.", filename, line);
 		while( idx < s.length && isDigit(s[idx]) ) idx++;
 	}
 
@@ -2046,7 +2053,7 @@ private string skipNumber(R)(ref R s, out bool is_float)
 		idx++;
 		is_float = true;
 		if( idx < s.length && (s[idx] == '+' || s[idx] == '-') ) idx++;
-		enforceJson( idx < s.length && isDigit(s[idx]), "Expected exponent." ~ s[0 .. idx]);
+		enforceJson( idx < s.length && isDigit(s[idx]), "Expected exponent." ~ s[0 .. idx], filename, line);
 		idx++;
 		while( idx < s.length && isDigit(s[idx]) ) idx++;
 	}
@@ -2057,13 +2064,13 @@ private string skipNumber(R)(ref R s, out bool is_float)
 }
 
 /// private
-private string skipJsonString(R)(ref R s, int* line = null)
+private string skipJsonString(R)(ref R s, string filename, int* line)
 {
 	// TODO: count or disallow any newlines inside of the string
-	enforceJson(!s.empty && s.front == '"', "Expected '\"' to start string.");
+	enforceJson(!s.empty && s.front == '"', "Expected '\"' to start string.", filename, line);
 	s.popFront();
-	string ret = jsonUnescape(s);
-	enforceJson(!s.empty && s.front == '"', "Expected '\"' to terminate string.");
+	string ret = jsonUnescape(s, filename, line);
+	enforceJson(!s.empty && s.front == '"', "Expected '\"' to terminate string.", filename, line);
 	s.popFront();
 	return ret;
 }
@@ -2102,15 +2109,19 @@ package template isJsonSerializable(T) { enum isJsonSerializable = is(typeof(T.i
 
 private void enforceJson(string file = __FILE__, size_t line = __LINE__)(bool cond, lazy string message = "JSON exception")
 {
-	static if (__VERSION__ >= 2065) enforceEx!JSONException(cond, message, file, line);
-	else if (!cond) throw new JSONException(message);
+	static if (__VERSION__ >= 2079)
+		enforce!JSONException(cond, message, file, line);
+	else
+		enforceEx!JSONException(cond, message, file, line);
 }
 
 private void enforceJson(string file = __FILE__, size_t line = __LINE__)(bool cond, lazy string message, string err_file, int err_line)
 {
 	auto errmsg() { return format("%s(%s): Error: %s", err_file, err_line+1, message); }
-	static if (__VERSION__ >= 2065) enforceEx!JSONException(cond, errmsg, file, line);
-	else if (!cond) throw new JSONException(errmsg);
+	static if (__VERSION__ >= 2079)
+		enforce!JSONException(cond, errmsg, file, line);
+	else
+		enforceEx!JSONException(cond, errmsg, file, line);
 }
 
 private void enforceJson(string file = __FILE__, size_t line = __LINE__)(bool cond, lazy string message, string err_file, int* err_line)

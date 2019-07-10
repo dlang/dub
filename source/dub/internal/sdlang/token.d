@@ -1,4 +1,4 @@
-﻿// SDLang-D
+// SDLang-D
 // Written in the D programming language.
 
 module dub.internal.sdlang.token;
@@ -23,14 +23,9 @@ import dub.internal.sdlang.util;
 struct DateTimeFrac
 {
 	this(DateTime dt, Duration fs) { this.dateTime = dt; this.fracSecs = fs; }
-	this(DateTime dt, FracSec fs) { this.dateTime = dt; this.fracSecs = fs.hnsecs.hnsecs; }
 
 	DateTime dateTime;
 	Duration fracSecs;
-	deprecated("Use fracSecs instead.") {
-		@property FracSec fracSec() const { return FracSec.from!"hnsecs"(fracSecs.total!"hnsecs"); }
-		@property void fracSec(FracSec v) { fracSecs = v.hnsecs.hnsecs; }
-	}
 }
 
 /++
@@ -47,10 +42,6 @@ struct DateTimeFracUnknownZone
 {
 	DateTime dateTime;
 	Duration fracSecs;
-	deprecated("Use fracSecs instead.") {
-		@property FracSec fracSec() { return FracSec.from!"hnsecs"(fracSecs.total!"hnsecs"); }
-		@property void fracSec(FracSec v) { fracSecs = v.hnsecs.hnsecs; }
-	}
 	string timeZone;
 
 	bool opEquals(const DateTimeFracUnknownZone b) const
@@ -247,10 +238,7 @@ void toSDLString(Sink)(DateTimeFrac value, ref Sink sink) if(isOutputRange!(Sink
 
 void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
-	static if (__VERSION__ >= 2067)
-		auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSecs);
-	else
-		auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSec);
+	auto dateTimeFrac = DateTimeFrac(cast(DateTime)value, value.fracSecs);
 	toSDLString(dateTimeFrac, sink);
 
 	sink.put("-");
@@ -286,12 +274,7 @@ void toSDLString(Sink)(SysTime value, ref Sink sink) if(isOutputRange!(Sink,char
 			sink.put("+");
 
 		long hours, minutes;
-		static if (__VERSION__ >= 2066)
-			offset.split!("hours", "minutes")(hours, minutes);
-		else {
-			hours = offset.hours;
-			minutes = offset.minutes;
-		}
+		offset.split!("hours", "minutes")(hours, minutes);
 
 		sink.put("%.2s".format(hours));
 		sink.put(":");
@@ -326,14 +309,7 @@ void toSDLString(Sink)(Duration value, ref Sink sink) if(isOutputRange!(Sink,cha
 	}
 
 	long hours, minutes, seconds, msecs;
-	static if (__VERSION__ >= 2066)
-		value.split!("hours", "minutes", "seconds", "msecs")(hours, minutes, seconds, msecs);
-	else {
-		hours = value.hours;
-		minutes = value.minutes;
-		seconds = value.seconds;
-		msecs = value.fracSec.msecs;
-	}
+	value.split!("hours", "minutes", "seconds", "msecs")(hours, minutes, seconds, msecs);
 
 	sink.put("%.2s".format(hours));
 	sink.put(':');
@@ -500,15 +476,15 @@ unittest
 	assert(Value(DateTimeFrac(DateTime(-2004,10,31, 14,30,15))).toSDLString() == "-2004/10/31 14:30:15");
 
 	// DateTimeFrac w/ Frac
-	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), FracSec.from!"msecs"(123))).toSDLString() == "2004/10/31 14:30:15.123");
-	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), FracSec.from!"msecs"(120))).toSDLString() == "2004/10/31 14:30:15.120");
-	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), FracSec.from!"msecs"(100))).toSDLString() == "2004/10/31 14:30:15.100");
-	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), FracSec.from!"msecs"( 12))).toSDLString() == "2004/10/31 14:30:15.012");
-	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), FracSec.from!"msecs"(  1))).toSDLString() == "2004/10/31 14:30:15.001");
-	assert(Value(DateTimeFrac(DateTime(-2004,10,31, 14,30,15), FracSec.from!"msecs"(123))).toSDLString() == "-2004/10/31 14:30:15.123");
+	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), 123.msecs)).toSDLString() == "2004/10/31 14:30:15.123");
+	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), 120.msecs)).toSDLString() == "2004/10/31 14:30:15.120");
+	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), 100.msecs)).toSDLString() == "2004/10/31 14:30:15.100");
+	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), 12.msecs)).toSDLString() == "2004/10/31 14:30:15.012");
+	assert(Value(DateTimeFrac(DateTime(2004,10,31,  14,30,15), 1.msecs)).toSDLString() == "2004/10/31 14:30:15.001");
+	assert(Value(DateTimeFrac(DateTime(-2004,10,31, 14,30,15), 123.msecs)).toSDLString() == "-2004/10/31 14:30:15.123");
 
 	// DateTimeFracUnknownZone
-	assert(Value(DateTimeFracUnknownZone(DateTime(2004,10,31, 14,30,15), FracSec.from!"msecs"(123), "Foo/Bar")).toSDLString() == "2004/10/31 14:30:15.123-Foo/Bar");
+	assert(Value(DateTimeFracUnknownZone(DateTime(2004,10,31, 14,30,15), 123.msecs, "Foo/Bar")).toSDLString() == "2004/10/31 14:30:15.123-Foo/Bar");
 
 	// SysTime
 	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), new immutable SimpleTimeZone( hours(0)             ))).toSDLString() == "2004/10/31 14:30:15-GMT+00:00");
@@ -516,7 +492,7 @@ unittest
 	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), new immutable SimpleTimeZone( hours(2)+minutes(10) ))).toSDLString() == "2004/10/31 14:30:15-GMT+02:10");
 	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), new immutable SimpleTimeZone(-hours(5)-minutes(30) ))).toSDLString() == "2004/10/31 14:30:15-GMT-05:30");
 	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), new immutable SimpleTimeZone( hours(2)+minutes( 3) ))).toSDLString() == "2004/10/31 14:30:15-GMT+02:03");
-	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), FracSec.from!"msecs"(123), new immutable SimpleTimeZone( hours(0) ))).toSDLString() == "2004/10/31 14:30:15.123-GMT+00:00");
+	assert(Value(SysTime(DateTime(2004,10,31, 14,30,15), 123.msecs, new immutable SimpleTimeZone( hours(0) ))).toSDLString() == "2004/10/31 14:30:15.123-GMT+00:00");
 
 	// Duration
 	assert( "12:14:42"         == Value( days( 0)+hours(12)+minutes(14)+seconds(42)+msecs(  0)).toSDLString());

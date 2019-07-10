@@ -1,0 +1,6 @@
+name "main"
+
+dependency "b" version="*"
+dependency "c" version="*"
+
+subConfiguration "b" "y"

@@ -25,35 +25,36 @@ import std.utf;
 /* Add output range support to File
 */
 struct RangeFile {
+@safe:
 	std.stdio.File file;
 
-	void put(in ubyte[] bytes) { file.rawWrite(bytes); }
-	void put(in char[] str) { put(cast(ubyte[])str); }
-	void put(char ch) { put((&ch)[0 .. 1]); }
+	void put(in ubyte[] bytes) @trusted { file.rawWrite(bytes); }
+	void put(in char[] str) { put(cast(const(ubyte)[])str); }
+	void put(char ch) @trusted { put((&ch)[0 .. 1]); }
 	void put(dchar ch) { char[4] chars; put(chars[0 .. encode(chars, ch)]); }
 
 	ubyte[] readAll()
 	{
-		auto sz = file.size;
+		auto sz = this.size;
 		enforce(sz <= size_t.max, "File is too big to read to memory.");
-		file.seek(0, SEEK_SET);
+		() @trusted { file.seek(0, SEEK_SET); } ();
 		auto ret = new ubyte[cast(size_t)sz];
 		rawRead(ret);
 		return ret;
 	}
 
-	void rawRead(ubyte[] dst) { enforce(file.rawRead(dst).length == dst.length, "Failed to readall bytes from file."); }
+	void rawRead(ubyte[] dst) @trusted { enforce(file.rawRead(dst).length == dst.length, "Failed to readall bytes from file."); }
 	void write(string str) { put(str); }
-	void close() { file.close(); }
-	void flush() { file.flush(); }
-	@property ulong size() { return file.size; }
+	void close() @trusted { file.close(); }
+	void flush() @trusted { file.flush(); }
+	@property ulong size() @trusted { return file.size; }
 }
 
 
 /**
 	Opens a file stream with the specified mode.
 */
-RangeFile openFile(Path path, FileMode mode = FileMode.read)
+RangeFile openFile(NativePath path, FileMode mode = FileMode.read)
 {
 	string fmode;
 	final switch(mode){
@@ -69,14 +70,14 @@ RangeFile openFile(Path path, FileMode mode = FileMode.read)
 /// ditto
 RangeFile openFile(string path, FileMode mode = FileMode.read)
 {
-	return openFile(Path(path), mode);
+	return openFile(NativePath(path), mode);
 }
 
 
 /**
 	Moves or renames a file.
 */
-void moveFile(Path from, Path to)
+void moveFile(NativePath from, NativePath to)
 {
 	moveFile(from.toNativeString(), to.toNativeString());
 }
@@ -92,8 +93,8 @@ void moveFile(string from, string to)
 	Note that attributes and time stamps are currently not retained.
 
 	Params:
-		from = Path of the source file
-		to = Path for the destination file
+		from = NativePath of the source file
+		to = NativePath for the destination file
 		overwrite = If true, any file existing at the destination path will be
 			overwritten. If this is false, an excpetion will be thrown should
 			a file already exist at the destination path.
@@ -101,7 +102,7 @@ void moveFile(string from, string to)
 	Throws:
 		An Exception if the copy operation fails for some reason.
 */
-void copyFile(Path from, Path to, bool overwrite = false)
+void copyFile(NativePath from, NativePath to, bool overwrite = false)
 {
 	enforce(existsFile(from), "Source file does not exist.");
 
@@ -112,46 +113,58 @@ void copyFile(Path from, Path to, bool overwrite = false)
 		removeFile(to);
 	}
 
-	.copy(from.toNativeString(), to.toNativeString());
-
-	// try to preserve ownership/permissions in Posix
-	version (Posix) {
-		import core.sys.posix.sys.stat;
-		import core.sys.posix.unistd;
-		import std.utf;
-		auto cspath = toUTFz!(const(char)*)(from.toNativeString());
-		auto cdpath = toUTFz!(const(char)*)(to.toNativeString());
-		stat_t st;
-		enforce(stat(cspath, &st) == 0, "Failed to get attributes of source file.");
-		if (chown(cdpath, st.st_uid, st.st_gid) != 0)
-			st.st_mode &= ~(S_ISUID | S_ISGID);
-		chmod(cdpath, st.st_mode);
+	static if (is(PreserveAttributes))
+	{
+		.copy(from.toNativeString(), to.toNativeString(), PreserveAttributes.yes);
+	}
+	else
+	{
+		.copy(from.toNativeString(), to.toNativeString());
+		// try to preserve ownership/permissions in Posix
+		version (Posix) {
+			import core.sys.posix.sys.stat;
+			import core.sys.posix.unistd;
+			import std.utf;
+			auto cspath = toUTFz!(const(char)*)(from.toNativeString());
+			auto cdpath = toUTFz!(const(char)*)(to.toNativeString());
+			stat_t st;
+			enforce(stat(cspath, &st) == 0, "Failed to get attributes of source file.");
+			if (chown(cdpath, st.st_uid, st.st_gid) != 0)
+				st.st_mode &= ~(S_ISUID | S_ISGID);
+			chmod(cdpath, st.st_mode);
+		}
 	}
 }
 /// ditto
 void copyFile(string from, string to)
 {
-	copyFile(Path(from), Path(to));
+	copyFile(NativePath(from), NativePath(to));
 }
 
 version (Windows) extern(Windows) int CreateHardLinkW(in wchar* to, in wchar* from, void* attr=null);
 
 // guess whether 2 files are identical, ignores filename and content
-private bool sameFile(Path a, Path b)
+private bool sameFile(NativePath a, NativePath b)
 {
-	static assert(__traits(allMembers, FileInfo)[0] == "name");
-	return getFileInfo(a).tupleof[1 .. $] == getFileInfo(b).tupleof[1 .. $];
+	version (Posix) {
+		auto st_a = std.file.DirEntry(a.toNativeString).statBuf;
+		auto st_b = std.file.DirEntry(b.toNativeString).statBuf;
+		return st_a == st_b;
+	} else {
+		static assert(__traits(allMembers, FileInfo)[0] == "name");
+		return getFileInfo(a).tupleof[1 .. $] == getFileInfo(b).tupleof[1 .. $];
+	}
 }
 
 /**
 	Creates a hardlink.
 */
-void hardLinkFile(Path from, Path to, bool overwrite = false)
+void hardLinkFile(NativePath from, NativePath to, bool overwrite = false)
 {
 	if (existsFile(to)) {
 		enforce(overwrite, "Destination file already exists.");
 		if (auto fe = collectException!FileException(removeFile(to))) {
-			version (Windows) if (sameFile(from, to)) return;
+			if (sameFile(from, to)) return;
 			throw fe;
 		}
 	}
@@ -176,7 +189,7 @@ void hardLinkFile(Path from, Path to, bool overwrite = false)
 /**
 	Removes a file
 */
-void removeFile(Path path)
+void removeFile(NativePath path)
 {
 	removeFile(path.toNativeString());
 }
@@ -188,7 +201,7 @@ void removeFile(string path) {
 /**
 	Checks if a file exists
 */
-bool existsFile(Path path) {
+bool existsFile(NativePath path) {
 	return existsFile(path.toNativeString());
 }
 /// ditto
@@ -201,36 +214,34 @@ bool existsFile(string path)
 
 	Returns false if the file does not exist.
 */
-FileInfo getFileInfo(Path path)
+FileInfo getFileInfo(NativePath path)
 {
-	static if (__VERSION__ >= 2064)
-		auto ent = std.file.DirEntry(path.toNativeString());
-	else auto ent = std.file.dirEntry(path.toNativeString());
+	auto ent = std.file.DirEntry(path.toNativeString());
 	return makeFileInfo(ent);
 }
 /// ditto
 FileInfo getFileInfo(string path)
 {
-	return getFileInfo(Path(path));
+	return getFileInfo(NativePath(path));
 }
 
 /**
 	Creates a new directory.
 */
-void createDirectory(Path path)
+void createDirectory(NativePath path)
 {
 	mkdir(path.toNativeString());
 }
 /// ditto
 void createDirectory(string path)
 {
-	createDirectory(Path(path));
+	createDirectory(NativePath(path));
 }
 
 /**
 	Enumerates all files in the specified directory.
 */
-void listDirectory(Path path, scope bool delegate(FileInfo info) del)
+void listDirectory(NativePath path, scope bool delegate(FileInfo info) del)
 {
 	foreach( DirEntry ent; dirEntries(path.toNativeString(), SpanMode.shallow) )
 		if( !del(makeFileInfo(ent)) )
@@ -239,10 +250,10 @@ void listDirectory(Path path, scope bool delegate(FileInfo info) del)
 /// ditto
 void listDirectory(string path, scope bool delegate(FileInfo info) del)
 {
-	listDirectory(Path(path), del);
+	listDirectory(NativePath(path), del);
 }
 /// ditto
-int delegate(scope int delegate(ref FileInfo)) iterateDirectory(Path path)
+int delegate(scope int delegate(ref FileInfo)) iterateDirectory(NativePath path)
 {
 	int iterator(scope int delegate(ref FileInfo) del){
 		int ret = 0;
@@ -257,16 +268,16 @@ int delegate(scope int delegate(ref FileInfo)) iterateDirectory(Path path)
 /// ditto
 int delegate(scope int delegate(ref FileInfo)) iterateDirectory(string path)
 {
-	return iterateDirectory(Path(path));
+	return iterateDirectory(NativePath(path));
 }
 
 
 /**
 	Returns the current working directory.
 */
-Path getWorkingDirectory()
+NativePath getWorkingDirectory()
 {
-	return Path(std.file.getcwd());
+	return NativePath(std.file.getcwd());
 }
 
 

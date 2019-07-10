@@ -50,7 +50,7 @@ struct Symbol
 	{
 		return _name;
 	}
-	
+
 	@disable this();
 	private this(string name)
 	{

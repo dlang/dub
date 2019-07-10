@@ -16,7 +16,7 @@ import dub.internal.vibecompat.inet.path;
 	The file format (JSON/SDLang) will be determined from the file extension.
 
 	Params:
-		filename = Path of the package recipe file
+		filename = NativePath of the package recipe file
 		parent_name = Optional name of the parent package (if this is a sub package)
 
 	Returns: Returns the package recipe contents
@@ -24,10 +24,10 @@ import dub.internal.vibecompat.inet.path;
 */
 PackageRecipe readPackageRecipe(string filename, string parent_name = null)
 {
-	return readPackageRecipe(Path(filename), parent_name);
+	return readPackageRecipe(NativePath(filename), parent_name);
 }
 /// ditto
-PackageRecipe readPackageRecipe(Path filename, string parent_name = null)
+PackageRecipe readPackageRecipe(NativePath filename, string parent_name = null)
 {
 	import dub.internal.utils : stripUTF8Bom;
 	import dub.internal.vibecompat.core.file : openFile, FileMode;
@@ -53,11 +53,14 @@ PackageRecipe readPackageRecipe(Path filename, string parent_name = null)
 			to determine the file format from the file extension
 		parent_name = Optional name of the parent package (if this is a sub
 		package)
+		default_package_name = Optional default package name (if no package name
+		is found in the recipe this value will be used)
 
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
-PackageRecipe parsePackageRecipe(string contents, string filename, string parent_name = null)
+PackageRecipe parsePackageRecipe(string contents, string filename, string parent_name = null,
+								 string default_package_name = null)
 {
 	import std.algorithm : endsWith;
 	import dub.internal.vibecompat.data.json;
@@ -65,6 +68,8 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 	import dub.recipe.sdl : parseSDL;
 
 	PackageRecipe ret;
+
+	ret.name = default_package_name;
 
 	if (filename.endsWith(".json")) parseJson(ret, parseJsonString(contents, filename), parent_name);
 	else if (filename.endsWith(".sdl")) parseSDL(ret, contents, parent_name, filename);
@@ -132,7 +137,7 @@ void writePackageRecipe(string filename, in ref PackageRecipe recipe)
 }
 
 /// ditto
-void writePackageRecipe(Path filename, in ref PackageRecipe recipe)
+void writePackageRecipe(NativePath filename, in ref PackageRecipe recipe)
 {
 	writePackageRecipe(filename.toNativeString, recipe);
 }

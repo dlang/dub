@@ -7,7 +7,7 @@
 */
 module dub.internal.vibecompat.data.utils;
 
-version (Have_vibe_d) {}
+version (Have_vibe_d_data) {}
 else:
 
 public import std.traits;
@@ -374,10 +374,10 @@ template isOpApplyDg(DG, TKEY, TVALUE) {
 
 /**
 	TypeTuple which does not auto-expand.
-	
+
 	Useful when you need
 	to multiple several type tuples as different template argument
-	list parameters, without merging those.	
+	list parameters, without merging those.
 */
 template Group(T...)
 {
@@ -407,10 +407,10 @@ template isGroup(T...)
 version (unittest) // NOTE: GDC complains about template definitions in unittest blocks
 {
 	import std.typetuple;
-	
+
 	alias group = Group!(int, double, string);
 	alias group2 = Group!();
-	
+
 	template Fake(T...)
 	{
 		int[] expand;

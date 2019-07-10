@@ -28,7 +28,7 @@ struct ProjectDescription {
 	PackageDescription[] packages; /// All packages in the dependency tree
 	TargetDescription[] targets; /// Build targets
 	@ignore size_t[string] targetLookup; /// Target index by package name name
-	
+
 	/// Targets by name
 	ref inout(TargetDescription) lookupTarget(string name) inout
 	{
@@ -44,10 +44,7 @@ struct ProjectDescription {
 		foreach (ref p; packages)
 			if (p.name == name)
 			{
-				static if (__VERSION__ > 2065)
-					return p;
-				else
-					return *cast(inout(PackageDescription)*)&p;
+				return p;
 			}
 		throw new Exception("Package '"~name~"' not found in dependency tree.");
 	}
@@ -88,6 +85,7 @@ struct PackageDescription {
 	string[] lflags; /// Flags passed to the linker
 	string[] libs; /// Librariy names to link against (typically using "-l<name>")
 	string[] copyFiles; /// Files to copy to the target directory
+	string[] extraDependencyFiles; /// Files to check for rebuild dub project
 	string[] versions; /// D version identifiers to set
 	string[] debugVersions; /// D debug version identifiers to set
 	string[] importPaths;
@@ -96,6 +94,8 @@ struct PackageDescription {
 	string[] postGenerateCommands; /// commands executed after creating the description
 	string[] preBuildCommands; /// Commands to execute prior to every build
 	string[] postBuildCommands; /// Commands to execute after every build
+	string[] preRunCommands; /// Commands to execute prior to every run
+	string[] postRunCommands; /// Commands to execute after every run
 	@byName BuildRequirement[] buildRequirements;
 	@byName BuildOption[] options;
 	SourceFileDescription[] files; /// A list of all source/import files possibly used by the package

@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+issue1262-version-inheritance
+issue1262-version-inheritance.so
+issue1262-version-inheritance.dylib
+issue1262-version-inheritance.dll
+issue1262-version-inheritance.a
+issue1262-version-inheritance.lib
+issue1262-version-inheritance-test-*
+*.exe
+*.o
+*.obj
+*.lst

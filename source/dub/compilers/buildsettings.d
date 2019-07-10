@@ -10,10 +10,9 @@ module dub.compilers.buildsettings;
 import dub.internal.vibecompat.inet.path;
 
 import std.array : array;
-import std.algorithm : filter;
+import std.algorithm : filter, any;
 import std.path : globMatch;
-static if (__VERSION__ >= 2067)
-	import std.typecons : BitFlags;
+import std.typecons : BitFlags;
 
 
 /// BuildPlatform specific settings, like needed libraries or additional
@@ -32,8 +31,11 @@ struct BuildSettings {
 	string[] linkerFiles;
 	string[] sourceFiles;
 	string[] copyFiles;
+	string[] extraDependencyFiles;
 	string[] versions;
 	string[] debugVersions;
+	string[] versionFilters;
+	string[] debugVersionFilters;
 	string[] importPaths;
 	string[] stringImportPaths;
 	string[] importFiles;
@@ -42,6 +44,8 @@ struct BuildSettings {
 	string[] postGenerateCommands;
 	string[] preBuildCommands;
 	string[] postBuildCommands;
+	string[] preRunCommands;
+	string[] postRunCommands;
 	@byName BuildRequirements requirements;
 	@byName BuildOptions options;
 
@@ -68,8 +72,11 @@ struct BuildSettings {
 		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
 		addCopyFiles(bs.copyFiles);
+		addExtraDependencyFiles(bs.extraDependencyFiles);
 		addVersions(bs.versions);
 		addDebugVersions(bs.debugVersions);
+		addVersionFilters(bs.versionFilters);
+		addDebugVersionFilters(bs.debugVersionFilters);
 		addImportPaths(bs.importPaths);
 		addStringImportPaths(bs.stringImportPaths);
 		addImportFiles(bs.importFiles);
@@ -78,6 +85,8 @@ struct BuildSettings {
 		addPostGenerateCommands(bs.postGenerateCommands);
 		addPreBuildCommands(bs.preBuildCommands);
 		addPostBuildCommands(bs.postBuildCommands);
+		addPreRunCommands(bs.preRunCommands);
+		addPostRunCommands(bs.postRunCommands);
 	}
 
 	void addDFlags(in string[] value...) { dflags ~= value; }
@@ -90,18 +99,22 @@ struct BuildSettings {
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
+	void addExtraDependencyFiles(in string[] value...) { add(extraDependencyFiles, value); }
 	void addVersions(in string[] value...) { add(versions, value); }
 	void addDebugVersions(in string[] value...) { add(debugVersions, value); }
+	void addVersionFilters(in string[] value...) { add(versionFilters, value); }
+	void addDebugVersionFilters(in string[] value...) { add(debugVersionFilters, value); }
 	void addImportPaths(in string[] value...) { add(importPaths, value); }
 	void addStringImportPaths(in string[] value...) { add(stringImportPaths, value); }
 	void prependStringImportPaths(in string[] value...) { prepend(stringImportPaths, value); }
 	void addImportFiles(in string[] value...) { add(importFiles, value); }
-	void removeImportFiles(in string[] value...) { removePaths(importFiles, value); }
 	void addStringImportFiles(in string[] value...) { addSI(stringImportFiles, value); }
 	void addPreGenerateCommands(in string[] value...) { add(preGenerateCommands, value, false); }
 	void addPostGenerateCommands(in string[] value...) { add(postGenerateCommands, value, false); }
 	void addPreBuildCommands(in string[] value...) { add(preBuildCommands, value, false); }
 	void addPostBuildCommands(in string[] value...) { add(postBuildCommands, value, false); }
+	void addPreRunCommands(in string[] value...) { add(preRunCommands, value, false); }
+	void addPostRunCommands(in string[] value...) { add(postRunCommands, value, false); }
 	void addRequirements(in BuildRequirement[] value...) { foreach (v; value) this.requirements |= v; }
 	void addRequirements(in BuildRequirements value) { this.requirements |= value; }
 	void addOptions(in BuildOption[] value...) { foreach (v; value) this.options |= v; }
@@ -109,79 +122,119 @@ struct BuildSettings {
 	void removeOptions(in BuildOption[] value...) { foreach (v; value) this.options &= ~v; }
 	void removeOptions(in BuildOptions value) { this.options &= ~value; }
 
-	// Adds vals to arr without adding duplicates.
-	private void add(ref string[] arr, in string[] vals, bool no_duplicates = true)
+private:
+	static auto filterDuplicates(T)(ref string[] arr, in T vals, bool noDuplicates = true)
 	{
-		if (!no_duplicates) {
-			arr ~= vals;
-			return;
-		}
-
-		foreach (v; vals) {
-			bool found = false;
-			foreach (i; 0 .. arr.length)
-				if (arr[i] == v) {
-					found = true;
-					break;
-				}
-			if (!found) arr ~= v;
-		}
+		return noDuplicates
+			? vals.filter!(filtered => !arr.any!(item => item == filtered)).array
+			: vals;
 	}
 
-	private void prepend(ref string[] arr, in string[] vals, bool no_duplicates = true)
+	// Append vals to arr without adding duplicates.
+	static void add(ref string[] arr, in string[] vals, bool noDuplicates = true)
 	{
-		if (!no_duplicates) {
-			arr = vals ~ arr;
-			return;
-		}
+		arr ~= filterDuplicates(arr, vals, noDuplicates);
+	}
 
-		foreach_reverse (v; vals) {
-			bool found = false;
-			foreach (i; 0 .. arr.length)
-				if (arr[i] == v) {
-					found = true;
-					break;
-				}
-			if (!found) arr = v ~ arr;
-		}
+	unittest
+	{
+		auto ary = ["-dip1000", "-vgc"];
+		BuildSettings.add(ary, ["-dip1000", "-vgc"]);
+		assert(ary == ["-dip1000", "-vgc"]);
+		BuildSettings.add(ary, ["-dip1001", "-vgc"], false);
+		assert(ary == ["-dip1000", "-vgc", "-dip1001", "-vgc"]);
+	}
+
+	// Prepend arr by vals without adding duplicates.
+	static void prepend(ref string[] arr, in string[] vals, bool noDuplicates = true)
+	{
+		arr = filterDuplicates(arr, vals, noDuplicates) ~ arr;
+	}
+
+	unittest
+	{
+		auto ary = ["-dip1000", "-vgc"];
+		BuildSettings.prepend(ary, ["-dip1000", "-vgc"]);
+		assert(ary == ["-dip1000", "-vgc"]);
+		BuildSettings.prepend(ary, ["-dip1001", "-vgc"], false);
+		assert(ary == ["-dip1001", "-vgc", "-dip1000", "-vgc"]);
 	}
 
 	// add string import files (avoids file name duplicates in addition to path duplicates)
-	private void addSI(ref string[] arr, in string[] vals)
+	static void addSI(ref string[] arr, in string[] vals)
 	{
-		outer:
+		bool[string] existing;
+		foreach (v; arr) existing[NativePath(v).head.toString()] = true;
 		foreach (v; vals) {
-			auto vh = Path(v).head;
-			foreach (ve; arr) {
-				if (Path(ve).head == vh)
-					continue outer;
+			auto s = NativePath(v).head.toString();
+			if (s !in existing) {
+				existing[s] = true;
+				arr ~= v;
 			}
-			arr ~= v;
 		}
 	}
 
-	private void removePaths(ref string[] arr, in string[] vals)
+	unittest
 	{
-		bool matches(string s)
-		{
-			foreach (p; vals)
-				if (Path(s) == Path(p) || globMatch(s, p))
-					return true;
-			return false;
-		}
-		arr = arr.filter!(s => !matches(s))().array();
+		auto ary = ["path/foo.txt"];
+		BuildSettings.addSI(ary, ["path2/foo2.txt"]);
+		assert(ary == ["path/foo.txt", "path2/foo2.txt"]);
+		BuildSettings.addSI(ary, ["path2/foo.txt"]); // no duplicate basenames
+		assert(ary == ["path/foo.txt", "path2/foo2.txt"]);
 	}
 
-	private void remove(ref string[] arr, in string[] vals)
+	static bool pathMatch(string path, string pattern)
+	{
+		import std.functional : memoize;
+
+		alias nativePath = memoize!((string stringPath) => NativePath(stringPath));
+
+		return nativePath(path) == nativePath(pattern) || globMatch(path, pattern);
+	}
+
+	static void removeValuesFromArray(alias Match)(ref string[] arr, in string[] vals)
 	{
 		bool matches(string s)
 		{
-			foreach (p; vals)
-				if (s == p)
-					return true;
-			return false;
+			return vals.any!(item => Match(s, item));
 		}
-		arr = arr.filter!(s => !matches(s))().array();
+		arr = arr.filter!(s => !matches(s)).array;
+	}
+
+	static void removePaths(ref string[] arr, in string[] vals)
+	{
+		removeValuesFromArray!(pathMatch)(arr, vals);
+	}
+
+	unittest
+	{
+		auto ary = ["path1", "root/path1", "root/path2", "root2/path1"];
+		BuildSettings.removePaths(ary, ["path1"]);
+		assert(ary == ["root/path1", "root/path2", "root2/path1"]);
+		BuildSettings.removePaths(ary, ["*/path1"]);
+		assert(ary == ["root/path2"]);
+		BuildSettings.removePaths(ary, ["foo", "bar", "root/path2"]);
+		assert(ary == []);
+	}
+
+	static void remove(ref string[] arr, in string[] vals)
+	{
+		removeValuesFromArray!((a, b) => a == b)(arr, vals);
+	}
+
+	unittest
+	{
+		import std.string : join;
+
+		auto ary = ["path1", "root/path1", "root/path2", "root2/path1"];
+		BuildSettings.remove(ary, ["path1"]);
+		assert(ary == ["root/path1", "root/path2", "root2/path1"]);
+		BuildSettings.remove(ary, ["root/path*"]);
+		assert(ary == ["root/path1", "root/path2", "root2/path1"]);
+		BuildSettings.removePaths(ary, ["foo", "root/path2", "bar", "root2/path1"]);
+		assert(ary == ["root/path1"]);
+		BuildSettings.remove(ary, ["root/path1", "foo"]);
+		assert(ary == []);
 	}
 }
 
@@ -231,26 +284,9 @@ enum BuildRequirement {
 	struct BuildRequirements {
 		import dub.internal.vibecompat.data.serialization : ignore;
 
-		static if (__VERSION__ >= 2067) {
-			@ignore BitFlags!BuildRequirement values;
-			this(BuildRequirement req) { values = req; }
-		} else {
-			@ignore BuildRequirement values;
-			this(BuildRequirement req) { values = req; }
-			BuildRequirement[] toRepresentation()
-			const {
-				BuildRequirement[] ret;
-				for (int f = 1; f <= BuildRequirement.max; f *= 2)
-					if (values & f) ret ~= cast(BuildRequirement)f;
-				return ret;
-			}
-			static BuildRequirements fromRepresentation(BuildRequirement[] v)
-			{
-				BuildRequirements ret;
-				foreach (f; v) ret.values |= f;
-				return ret;
-			}
-		}
+		@ignore BitFlags!BuildRequirement values;
+		this(BuildRequirement req) { values = req; }
+
 		alias values this;
 	}
 
@@ -278,35 +314,20 @@ enum BuildOption {
 	deprecationErrors = 1<<19,    /// Stop compilation upon usage of deprecated features (-de)
 	property = 1<<20,             /// DEPRECATED: Enforce property syntax (-property)
 	profileGC = 1<<21,            /// Profile runtime allocations
+	pic = 1<<22,                  /// Generate position independent code
+	betterC = 1<<23,              /// Compile in betterC mode (-betterC)
+
 	// for internal usage
-	_docs = 1<<22,                // Write ddoc to docs
-	_ddox = 1<<23,                // Compile docs.json
+	_docs = 1<<24,                // Write ddoc to docs
+	_ddox = 1<<25                 // Compile docs.json
 }
 
 	struct BuildOptions {
 		import dub.internal.vibecompat.data.serialization : ignore;
 
-		static if (__VERSION__ >= 2067) {
-			@ignore BitFlags!BuildOption values;
-			this(BuildOption opt) { values = opt; }
-			this(BitFlags!BuildOption v) { values = v; }
-		} else {
-			@ignore BuildOption values;
-			this(BuildOption opt) { values = opt; }
-			BuildOption[] toRepresentation()
-			const {
-				BuildOption[] ret;
-				for (int f = 1; f <= BuildOption.max; f *= 2)
-					if (values & f) ret ~= cast(BuildOption)f;
-				return ret;
-			}
-			static BuildOptions fromRepresentation(BuildOption[] v)
-			{
-				BuildOptions ret;
-				foreach (f; v) ret.values |= f;
-				return ret;
-			}
-		}
+		@ignore BitFlags!BuildOption values;
+		this(BuildOption opt) { values = opt; }
+		this(BitFlags!BuildOption v) { values = v; }
 
 		alias values this;
 	}
@@ -327,4 +348,5 @@ enum BuildOptions inheritedBuildOptions = BuildOption.debugMode | BuildOption.re
 	| BuildOption.noBoundsCheck | BuildOption.profile | BuildOption.ignoreUnknownPragmas
 	| BuildOption.syntaxOnly | BuildOption.warnings	| BuildOption.warningsAsErrors
 	| BuildOption.ignoreDeprecations | BuildOption.deprecationWarnings
-	| BuildOption.deprecationErrors | BuildOption.property | BuildOption.profileGC;
+	| BuildOption.deprecationErrors | BuildOption.property | BuildOption.profileGC
+	| BuildOption.pic;

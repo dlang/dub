@@ -1,5 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
 packname="0-init-multi-pack"
 deps="openssl logger"
 type="vibe.d"
@@ -10,22 +11,18 @@ function cleanup {
     rm -rf $packname
 }
 
-if [ ! -e $packname/dub.sdl ]; then # it failed, exit 1
-    echo "No dub.sdl file has been generated."
+if [ ! -e $packname/dub.sdl ]; then
     cleanup
-    exit 1
-else # check if resulting dub.sdl has all dependancies in tow
+    die $LINENO 'No dub.sdl file has been generated.'
+else # check if resulting dub.sdl has all dependencies in tow
     deps="$deps vibe-d";
     IFS=" " read -a arr <<< "$deps"
     for ele in "${arr[@]}"
     do
         if [ `grep -c "$ele" $packname/dub.sdl` -ne 1 ]; then #something went wrong
-            echo "$ele not in $packname/dub.sdl"
             cleanup
-            exit 1
+            die $LINENO "$ele not in $packname/dub.sdl"
         fi
     done
     cleanup
-    exit 0
-
 fi

@@ -1,5 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-${DUB} search 2>/dev/null && exit 1
-${DUB} search nonexistent123456789package 2>/dev/null && exit 1
-${DUB} search dub | grep -q '^dub' || exit 1
+. $(dirname "${BASH_SOURCE[0]}")/common.sh
+if ${DUB} search 2>/dev/null; then
+    die $LINENO '`dub search` succeeded'
+fi
+if ${DUB} search nonexistent123456789package 2>/dev/null; then
+    die $LINENO '`dub search nonexistent123456789package` succeeded'
+fi
+if ! OUTPUT=$(${DUB} search '"dub-registry"' -v 2>&1); then
+    die $LINENO '`dub search "dub-registry"` failed' "$OUTPUT"
+fi
+if ! grep -q '^dub-registry (.*)\s'<<<"$OUTPUT"; then
+    die $LINENO '`grep -q '"'"'^dub-registry (.*)\s'"'"'` failed' "$OUTPUT"
+fi

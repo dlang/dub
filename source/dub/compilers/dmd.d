@@ -12,7 +12,7 @@ import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
-import dub.platform;
+import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
@@ -20,9 +20,26 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.process;
-import std.random;
 import std.typecons;
 
+// Determines whether the specified process is running under WOW64 or an Intel64 of x64 processor.
+version (Windows)
+private Nullable!bool isWow64() {
+	// See also: https://docs.microsoft.com/de-de/windows/desktop/api/sysinfoapi/nf-sysinfoapi-getnativesysteminfo
+	import core.sys.windows.windows : GetNativeSystemInfo, SYSTEM_INFO, PROCESSOR_ARCHITECTURE_AMD64;
+
+	static Nullable!bool result;
+
+	// A process's architecture won't change over while the process is in memory
+	// Return the cached result
+	if (!result.isNull)
+		return result;
+
+	SYSTEM_INFO systemInfo;
+	GetNativeSystemInfo(&systemInfo);
+	result = systemInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+	return result;
+}
 
 class DMDCompiler : Compiler {
 	private static immutable s_options = [
@@ -30,7 +47,7 @@ class DMDCompiler : Compiler {
 		tuple(BuildOption.releaseMode, ["-release"]),
 		tuple(BuildOption.coverage, ["-cov"]),
 		tuple(BuildOption.debugInfo, ["-g"]),
-		tuple(BuildOption.debugInfoC, ["-gc"]),
+		tuple(BuildOption.debugInfoC, ["-g"]),
 		tuple(BuildOption.alwaysStackFrame, ["-gs"]),
 		tuple(BuildOption.stackStomping, ["-gx"]),
 		tuple(BuildOption.inline, ["-inline"]),
@@ -48,6 +65,7 @@ class DMDCompiler : Compiler {
 		tuple(BuildOption.deprecationErrors, ["-de"]),
 		tuple(BuildOption.property, ["-property"]),
 		tuple(BuildOption.profileGC, ["-profile=gc"]),
+		tuple(BuildOption.betterC, ["-betterC"]),
 
 		tuple(BuildOption._docs, ["-Dddocs"]),
 		tuple(BuildOption._ddox, ["-Xfdocs.json", "-Df__dummy.html"]),
@@ -55,18 +73,63 @@ class DMDCompiler : Compiler {
 
 	@property string name() const { return "dmd"; }
 
+	enum dmdVersionRe = `^version\s+v?(\d+\.\d+\.\d+[A-Za-z0-9.+-]*)`;
+
+	unittest {
+		import std.regex : matchFirst, regex;
+		auto probe = `
+binary    dmd
+version   v2.082.0
+config    /etc/dmd.conf
+`;
+		auto re = regex(dmdVersionRe, "m");
+		auto c = matchFirst(probe, re);
+		assert(c && c.length > 1 && c[1] == "2.082.0");
+	}
+
+	unittest {
+		import std.regex : matchFirst, regex;
+		auto probe = `
+binary    dmd
+version   v2.084.0-beta.1
+config    /etc/dmd.conf
+`;
+		auto re = regex(dmdVersionRe, "m");
+		auto c = matchFirst(probe, re);
+		assert(c && c.length > 1 && c[1] == "2.084.0-beta.1");
+	}
+
+	string determineVersion(string compiler_binary, string verboseOutput)
+	{
+		import std.regex : matchFirst, regex;
+		auto ver = matchFirst(verboseOutput, regex(dmdVersionRe, "m"));
+		return ver && ver.length > 1 ? ver[1] : null;
+	}
+
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
 		string[] arch_flags;
 		switch (arch_override) {
 			default: throw new Exception("Unsupported architecture: "~arch_override);
-			case "": break;
+			case "":
+				// Don't use Optlink by default on Windows
+				version (Windows) {
+					const is64bit = isWow64();
+					if (!is64bit.isNull)
+						arch_flags = [is64bit.get ? "-m64" : "-m32mscoff"];
+				}
+				break;
 			case "x86": arch_flags = ["-m32"]; break;
 			case "x86_64": arch_flags = ["-m64"]; break;
+			case "x86_mscoff": arch_flags = ["-m32mscoff"]; break;
 		}
 		settings.addDFlags(arch_flags);
 
-		return probePlatform(compiler_binary, arch_flags ~ ["-quiet", "-c", "-o-"], arch_override);
+		return probePlatform(
+			compiler_binary,
+			arch_flags ~ ["-quiet", "-c", "-o-", "-v"],
+			arch_override
+		);
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
@@ -116,7 +179,7 @@ class DMDCompiler : Compiler {
 		}
 
 		version (Posix) {
-			if (settings.targetType == TargetType.dynamicLibrary)
+			if (settings.options & BuildOption.pic)
 				settings.addDFlags("-fPIC");
 		}
 
@@ -142,9 +205,13 @@ class DMDCompiler : Compiler {
 
 	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 	const {
+		import std.conv: text;
 		assert(settings.targetName.length > 0, "No target name set.");
 		final switch (settings.targetType) {
-			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
+			case TargetType.autodetect:
+				assert(false,
+					   text("Configurations must have a concrete target type, ", settings.targetName,
+							" has ", settings.targetType));
 			case TargetType.none: return null;
 			case TargetType.sourceLibrary: return null;
 			case TargetType.executable:
@@ -159,6 +226,8 @@ class DMDCompiler : Compiler {
 			case TargetType.dynamicLibrary:
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".dll";
+				else if (platform.platform.canFind("osx"))
+					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
 				if (platform.platform.canFind("windows"))
@@ -189,7 +258,7 @@ class DMDCompiler : Compiler {
 		}
 
 		if (tpath is null)
-			tpath = (Path(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
 		settings.addDFlags("-of"~tpath);
 	}
 
@@ -207,11 +276,11 @@ class DMDCompiler : Compiler {
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
 		import std.string;
-		auto tpath = Path(settings.targetPath) ~ getTargetFileName(settings, platform);
+		auto tpath = NativePath(settings.targetPath) ~ getTargetFileName(settings, platform);
 		auto args = ["-of"~tpath.toNativeString()];
 		args ~= objects;
 		args ~= settings.sourceFiles;
-		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being speficied in the wrong order by DMD
+		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order by DMD
 		args ~= lflagsToDFlags(settings.lflags);
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 
@@ -224,7 +293,7 @@ class DMDCompiler : Compiler {
 
 	string[] lflagsToDFlags(in string[] lflags) const
 	{
-		return  lflags.map!(f => "-L"~f)().array();
+        return map!(f => "-L"~f)(lflags.filter!(f => f != "")()).array();
 	}
 
 	private auto escapeArgs(in string[] args)
