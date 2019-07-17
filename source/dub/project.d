@@ -1205,17 +1205,19 @@ private auto processVars(bool glob = false, Project, Package)(string var, in Pro
   static if (glob)
 		assert(is_path, "can't glob something that isn't a path");
 	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings));
-	if (!is_path)
-    return var;
-  auto p = NativePath(var);
-  string res;
+	if (!is_path) {
+		static if (glob) return [var];
+		else             return  var;
+	}
+	auto p = NativePath(var);
+	string res;
 	if (!p.absolute)
 		res = (pack.path ~ p).toNativeString();
 	else
 		res = p.toNativeString();
-  static if (!glob)
+	static if (!glob)
 		return res;
-  else {
+	else {
     		// Find the unglobbed prefix and iterate from there.
 		size_t i = 0;
 		size_t sepIdx = 0;
