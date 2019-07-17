@@ -1191,7 +1191,13 @@ private string[] processVars(bool glob = false)(in Project project, in Package p
 }
 private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
 {
-	foreach (var; vars) dst.put(processVars!glob(var, project, pack, gsettings, are_paths));
+	foreach (var; vars) {
+		auto processed = processVars!glob(var, project, pack, gsettings, are_paths);
+		static if (glob)
+			foreach (v; processed) dst.put(v);
+		else
+			dst.put(processed);
+	}
 }
 
 private auto processVars(bool glob = false, Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
@@ -1224,6 +1230,7 @@ private auto processVars(bool glob = false, Project, Package)(string var, in Pro
 		if (i == res.length) //no globbing found in the path
 			return [res];
 		import std.path : globMatch;
+	 	import std.file : dirEntries;
 		return dirEntries(res[0 .. sepIdx], SpanMode.depth)
 			.map!(de => de.name)
 			.filter!(name => globMatch(name, res))
