@@ -1230,7 +1230,7 @@ private auto processVars(bool glob = false, Project, Package)(string var, in Pro
 		if (i == res.length) //no globbing found in the path
 			return [res];
 		import std.path : globMatch;
-	 	import std.file : dirEntries;
+	 	import std.file : dirEntries, SpanMode;
 		return dirEntries(res[0 .. sepIdx], SpanMode.depth)
 			.map!(de => de.name)
 			.filter!(name => globMatch(name, res))
