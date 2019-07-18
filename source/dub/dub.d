@@ -164,7 +164,7 @@ class Dub {
 		m_rootPath = NativePath(root_path);
 		if (!m_rootPath.absolute) m_rootPath = NativePath(getcwd()) ~ m_rootPath;
 
-		init();
+		init(m_rootPath);
 
 		if (skip_registry == SkipPackageSuppliers.none)
 			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers);
@@ -261,13 +261,13 @@ class Dub {
 	*/
 	this(NativePath override_path)
 	{
-		init();
+		init(NativePath());
 		m_overrideSearchPath = override_path;
 		m_packageManager = new PackageManager(NativePath(), NativePath(), false);
 		updatePackageSearchPath();
 	}
 
-	private void init()
+	private void init(NativePath root_path)
 	{
 		import std.file : tempDir;
 		version(Windows) {
@@ -291,6 +291,9 @@ class Dub {
 		m_config = new DubConfig(jsonFromFile(m_dirs.systemSettings ~ "settings.json", true), m_config);
 		m_config = new DubConfig(jsonFromFile(NativePath(thisExePath).parentPath ~ "../etc/dub/settings.json", true), m_config);
 		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), m_config);
+
+		if (!root_path.empty)
+			m_config = new DubConfig(jsonFromFile(root_path ~ "dub.settings.json", true), m_config);
 
 		determineDefaultCompiler();
 
