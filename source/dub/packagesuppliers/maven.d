@@ -119,7 +119,13 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 
 	SearchResult[] searchPackages(string query)
 	{
-		return [];
+		// Only exact search is supported
+		// This enables retrival of dub packages on dub run
+		auto md = getMetadata(query);
+		if (md.type == Json.Type.null_)
+			return [];
+		auto json = getBestPackage(md, query, Dependency(">=0.0.0"), true);
+		return [SearchResult(json["name"].opt!string, "", json["version"].opt!string)];
 	}
 }
 
