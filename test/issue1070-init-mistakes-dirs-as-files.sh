@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 cd ${CURR_DIR}/issue1070-init-mistakes-dirs-as-files
 

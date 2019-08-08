@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e -o pipefail
 
 cd ${CURR_DIR}/issue1037-better-dependency-messages
