@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -v -e -o pipefail
+set -euvo pipefail
 
 vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
 dub fetch vibe-d --version=$vibe_ver # get optional dependency
@@ -19,7 +19,7 @@ function clean() {
     git clean -dxf -- test
 }
 
-if [ "$COVERAGE" = true ]; then
+if [ "${COVERAGE:-}" = true ]; then
     # library-nonet fails to build with coverage (Issue 13742)
     dub test --compiler=${DC} -b unittest-cov
     ./build.d -cov
@@ -34,7 +34,7 @@ fi
 ## Checks that only need to be done once per CI run
 ## Here the `COVERAGE` variable is abused for this purpose,
 ## as it's only defined once in the whole Travis matrix
-if [ "$COVERAGE" = true ]; then
+if [ "${COVERAGE:-}" = true ]; then
     # run tests with different compilers
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
     clean
