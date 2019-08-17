@@ -798,11 +798,12 @@ class Dub {
 	/// Fetches the package matching the dependency and places it in the specified location.
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
+		auto basePackageName = getBasePackageName(packageId);
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.fetchPackageRecipe(packageId, dep, (options & FetchOptions.usePrerelease) != 0);
+				pinfo = ps.fetchPackageRecipe(basePackageName, dep, (options & FetchOptions.usePrerelease) != 0);
 				if (pinfo.type == Json.Type.null_)
 					continue;
 				supplier = ps;
@@ -859,14 +860,14 @@ class Dub {
 		clean_package_version = clean_package_version.replace("+", "_"); // + has special meaning for Optlink
 		if (!placement.existsFile())
 			mkdirRecurse(placement.toNativeString());
-		NativePath dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
+		NativePath dstpath = placement ~ (basePackageName ~ "-" ~ clean_package_version);
 		if (!dstpath.existsFile())
 			mkdirRecurse(dstpath.toNativeString());
 
 		// Support libraries typically used with git submodules like ae.
 		// Such libraries need to have ".." as import path but this can create
 		// import path leakage.
-		dstpath = dstpath ~ packageId;
+		dstpath = dstpath ~ basePackageName;
 
 		import std.datetime : seconds;
 		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds); // possibly wait for other dub instance
@@ -881,13 +882,14 @@ class Dub {
 		{
 			import std.zip : ZipException;
 
-			auto path = getTempFile(packageId, ".zip");
-			supplier.fetchPackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			auto path = getTempFile(basePackageName, ".zip");
+			supplier.fetchPackage(path, basePackageName, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) std.file.remove(path.toNativeString());
 			logDiagnostic("Placing to %s...", placement.toNativeString());
 
 			try {
-				return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
+				m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
+				return m_packageManager.getPackage(packageId, ver, dstpath);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
 				// rethrow the exception at the end of the loop
@@ -1126,8 +1128,9 @@ class Dub {
 	Version[] listPackageVersions(string name)
 	{
 		Version[] versions;
+		auto basePackageName = getBasePackageName(name);
 		foreach (ps; this.m_packageSuppliers) {
-			try versions ~= ps.getVersions(name);
+			try versions ~= ps.getVersions(basePackageName);
 			catch (Exception e) {
 				logWarn("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
 			}
