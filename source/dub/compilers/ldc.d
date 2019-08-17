@@ -80,10 +80,15 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 	{
 		string[] arch_flags;
 		switch (arch_override) {
-			default: throw new Exception("Unsupported architecture: "~arch_override);
 			case "": break;
 			case "x86": arch_flags = ["-march=x86"]; break;
 			case "x86_64": arch_flags = ["-march=x86-64"]; break;
+			default:
+				if (arch_override.canFind('-'))
+					arch_flags = ["-mtriple="~arch_override];
+				else
+					throw new Exception("Unsupported architecture: "~arch_override);
+				break;
 		}
 		settings.addDFlags(arch_flags);
 
@@ -176,6 +181,8 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 			case TargetType.executable:
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".exe";
+				else if (platform.platform.canFind("wasm"))
+					return settings.targetName ~ ".wasm";
 				else return settings.targetName;
 			case TargetType.library:
 			case TargetType.staticLibrary:
