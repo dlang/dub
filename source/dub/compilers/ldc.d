@@ -179,7 +179,8 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				else return settings.targetName;
 			case TargetType.library:
 			case TargetType.staticLibrary:
-				if (generatesCOFF(platform)) return settings.targetName ~ ".lib";
+				if (platform.platform.canFind("windows") && generatesCOFF(platform))
+					return settings.targetName ~ ".lib";
 				else return "lib" ~ settings.targetName ~ ".a";
 			case TargetType.dynamicLibrary:
 				if (platform.platform.canFind("windows"))
