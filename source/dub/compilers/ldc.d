@@ -174,29 +174,30 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 	const {
 		assert(settings.targetName.length > 0, "No target name set.");
 
+		const p = platform.platform;
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
 			case TargetType.none: return null;
 			case TargetType.sourceLibrary: return null;
 			case TargetType.executable:
-				if (platform.platform.canFind("windows"))
+				if (p.canFind("windows"))
 					return settings.targetName ~ ".exe";
-				else if (platform.platform.canFind("wasm"))
+				else if (p.canFind("wasm"))
 					return settings.targetName ~ ".wasm";
 				else return settings.targetName;
 			case TargetType.library:
 			case TargetType.staticLibrary:
-				if (platform.platform.canFind("windows") && generatesCOFF(platform))
+				if (p.canFind("windows") && !p.canFind("mingw"))
 					return settings.targetName ~ ".lib";
 				else return "lib" ~ settings.targetName ~ ".a";
 			case TargetType.dynamicLibrary:
-				if (platform.platform.canFind("windows"))
+				if (p.canFind("windows"))
 					return settings.targetName ~ ".dll";
-				else if (platform.platform.canFind("osx"))
+				else if (p.canFind("osx"))
 					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
-				if (platform.platform.canFind("windows"))
+				if (p.canFind("windows"))
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
 		}
@@ -283,30 +284,5 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				    || arg.startsWith("-mscrtlib=")
 				    || arg.startsWith("-mtriple=");
 		}
-	}
-
-	private static bool generatesCOFF(in BuildPlatform platform)
-	{
-		import std.string : splitLines, strip;
-		import std.uni : toLower;
-
-		static bool[string] compiler_coff_map;
-
-		if (auto pret = platform.compilerBinary in compiler_coff_map)
-			return *pret;
-
-		auto result = executeShell(escapeShellCommand([platform.compilerBinary, "-version"]));
-		enforce (result.status == 0, "Failed to determine linker used by LDC. \""
-			~platform.compilerBinary~" -version\" failed with exit code "
-			~result.status.to!string()~".");
-
-		bool ret = result.output
-			.splitLines
-			.find!(l => l.strip.toLower.startsWith("default target:"))
-			.front
-			.canFind("msvc");
-
-		compiler_coff_map[platform.compilerBinary] = ret;
-		return ret;
 	}
 }
