@@ -232,7 +232,20 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
-		assert(false, "Separate linking not implemented for LDC");
+		import std.string;
+		auto tpath = NativePath(settings.targetPath) ~ getTargetFileName(settings, platform);
+		auto args = ["-of"~tpath.toNativeString()];
+		args ~= objects;
+		args ~= settings.sourceFiles;
+		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order
+		args ~= lflagsToDFlags(settings.lflags);
+		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
+
+		auto res_file = getTempFile("dub-build", ".lnk");
+		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
+
+		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
 	string[] lflagsToDFlags(in string[] lflags) const
@@ -243,6 +256,26 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 	private auto escapeArgs(in string[] args)
 	{
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
+	}
+
+	private static bool isLinkerDFlag(string arg)
+	{
+		switch (arg) {
+			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib",
+			     "-betterC", "-disable-linker-strip-dead", "-static":
+				return true;
+			default:
+				return arg.startsWith("-L")
+				    || arg.startsWith("-Xcc=")
+				    || arg.startsWith("-defaultlib=")
+				    || arg.startsWith("-flto")
+				    || arg.startsWith("-fsanitize=")
+				    || arg.startsWith("-link-")
+				    || arg.startsWith("-linker=")
+				    || arg.startsWith("-march=")
+				    || arg.startsWith("-mscrtlib=")
+				    || arg.startsWith("-mtriple=");
+		}
 	}
 
 	private static bool generatesCOFF(in BuildPlatform platform)

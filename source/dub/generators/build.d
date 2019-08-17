@@ -476,12 +476,8 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
 			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs, settings.linkCallback);
 
-		/*
-			NOTE: for DMD experimental separate compile/link is used, but this is not yet implemented
-			      on the other compilers. Later this should be integrated somehow in the build process
-			      (either in the dub.json, or using a command line flag)
-		*/
-		} else if (generate_binary && (settings.buildMode == BuildMode.allAtOnce || settings.compiler.name != "dmd" || is_static_library)) {
+		// NOTE: separate compile/link is not yet enabled for GDC.
+		} else if (generate_binary && (settings.buildMode == BuildMode.allAtOnce || settings.compiler.name == "gdc" || is_static_library)) {
 			// don't include symbols of dependencies (will be included by the top level target)
 			if (is_static_library) buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !f.isLinkerFile()).array;
 
