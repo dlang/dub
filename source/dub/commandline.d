@@ -902,8 +902,9 @@ class BuildCommand : GenerateCommand {
 				return 0;
 
 			// search for the package and filter versions for exact matches
-			auto search = dub.searchPackages(packageParts.name)
-				.map!(tup => tup[1].find!(p => p.name == packageParts.name))
+			auto basePackageName = getBasePackageName(packageParts.name);
+			auto search = dub.searchPackages(basePackageName)
+				.map!(tup => tup[1].find!(p => p.name == basePackageName))
 				.filter!(ps => !ps.empty);
 			if (search.empty) {
 				logWarn("Package '%s' was neither found locally nor online.", packageParts.name);
