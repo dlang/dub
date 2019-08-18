@@ -245,7 +245,8 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		auto args = ["-of"~tpath.toNativeString()];
 		args ~= objects;
 		args ~= settings.sourceFiles;
-		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order
+		if (platform.platform.canFind("linux"))
+			args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order
 		args ~= lflagsToDFlags(settings.lflags);
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 
