@@ -132,7 +132,7 @@ config    /etc/dmd.conf
 		);
 	}
 
-	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
+	void prepareBuildSettings(ref BuildSettings settings, in ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
 	{
 		enforceBuildRequirements(settings);
 
@@ -163,9 +163,11 @@ config    /etc/dmd.conf
 		}
 
 		if (!(fields & BuildSetting.libs)) {
-			resolveLibs(settings);
-			version(Windows) settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
-			else settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
+			resolveLibs(settings, platform);
+			if (platform.platform.canFind("windows"))
+				settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
+			else
+				settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
 		}
 
 		if (!(fields & BuildSetting.sourceFiles)) {
@@ -178,10 +180,8 @@ config    /etc/dmd.conf
 			settings.lflags = null;
 		}
 
-		version (Posix) {
-			if (settings.options & BuildOption.pic)
-				settings.addDFlags("-fPIC");
-		}
+		if (platform.platform.canFind("posix") && (settings.options & BuildOption.pic))
+			settings.addDFlags("-fPIC");
 
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
@@ -248,9 +248,10 @@ config    /etc/dmd.conf
 				settings.addDFlags("-lib");
 				break;
 			case TargetType.dynamicLibrary:
-				version (Windows) settings.addDFlags("-shared");
-				else version (OSX) settings.addDFlags("-shared");
-				else settings.prependDFlags("-shared", "-defaultlib=libphobos2.so");
+				if (platform.platform.canFind("windows") || platform.platform.canFind("osx"))
+					settings.addDFlags("-shared");
+				else
+					settings.prependDFlags("-shared", "-defaultlib=libphobos2.so");
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
@@ -280,7 +281,8 @@ config    /etc/dmd.conf
 		auto args = ["-of"~tpath.toNativeString()];
 		args ~= objects;
 		args ~= settings.sourceFiles;
-		version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order by DMD
+		if (platform.platform.canFind("linux"))
+			args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order by DMD
 		args ~= lflagsToDFlags(settings.lflags);
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 

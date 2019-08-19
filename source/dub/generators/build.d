@@ -27,8 +27,10 @@ import std.process;
 import std.string;
 import std.encoding : sanitize;
 
-version(Windows) enum objSuffix = ".obj";
-else enum objSuffix = ".o";
+string getObjSuffix(in ref BuildPlatform platform)
+{
+    return platform.platform.canFind("windows") ? ".obj" : ".o";
+}
 
 class BuildGenerator : ProjectGenerator {
 	private {
@@ -230,7 +232,7 @@ class BuildGenerator : ProjectGenerator {
 
 		// do not pass all source files to RDMD, only the main source file
 		buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(s => !s.endsWith(".d"))().array();
-		settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
+		settings.compiler.prepareBuildSettings(buildsettings, settings.platform, BuildSetting.commandLine);
 
 		auto generate_binary = !buildsettings.dflags.canFind("-o-");
 
@@ -416,13 +418,14 @@ class BuildGenerator : ProjectGenerator {
 	/// Calls with path that resolve to the same file on the filesystem will return the same,
 	/// unless they include different symbolic links (which are not resolved).
 
-	static string pathToObjName(string path)
+	static string pathToObjName(in ref BuildPlatform platform, string path)
 	{
 		import std.digest.crc : crc32Of;
 		import std.path : buildNormalizedPath, dirSeparator, relativePath, stripDrive;
 		if (path.endsWith(".d")) path = path[0 .. $-2];
 		auto ret = buildNormalizedPath(getcwd(), path).replace(dirSeparator, ".");
 		auto idx = ret.lastIndexOf('.');
+		const objSuffix = getObjSuffix(platform);
 		return idx < 0 ? ret ~ objSuffix : format("%s_%(%02x%)%s", ret[idx+1 .. $], crc32Of(ret[0 .. idx]), objSuffix);
 	}
 
@@ -434,7 +437,7 @@ class BuildGenerator : ProjectGenerator {
 		bs.lflags = null;
 		bs.sourceFiles = [ srcFile ];
 		bs.targetType = TargetType.object;
-		gs.compiler.prepareBuildSettings(bs, BuildSetting.commandLine);
+		gs.compiler.prepareBuildSettings(bs, gs.platform, BuildSetting.commandLine);
 		gs.compiler.setTarget(bs, gs.platform, objPath);
 		gs.compiler.invoke(bs, gs.platform, gs.compileCallback);
 		return objPath;
@@ -456,12 +459,13 @@ class BuildGenerator : ProjectGenerator {
 			import std.parallelism, std.range : walkLength;
 
 			auto lbuildsettings = buildsettings;
-			auto srcs = buildsettings.sourceFiles.filter!(f => !isLinkerFile(f));
+			auto srcs = buildsettings.sourceFiles.filter!(f => !isLinkerFile(settings.platform, f));
 			auto objs = new string[](srcs.walkLength);
 
 			void compileSource(size_t i, string src) {
 				logInfo("Compiling %s...", src);
-				objs[i] = compileUnit(src, pathToObjName(src), buildsettings, settings);
+				const objPath = pathToObjName(settings.platform, src);
+				objs[i] = compileUnit(src, objPath, buildsettings, settings);
 			}
 
 			if (settings.parallelBuild) {
@@ -471,40 +475,40 @@ class BuildGenerator : ProjectGenerator {
 			}
 
 			logInfo("Linking...");
-			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f=> f.isLinkerFile()).array;
+			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)).array;
 			settings.compiler.setTarget(lbuildsettings, settings.platform);
-			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
+			settings.compiler.prepareBuildSettings(lbuildsettings, settings.platform, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
 			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs, settings.linkCallback);
 
 		// NOTE: separate compile/link is not yet enabled for GDC.
 		} else if (generate_binary && (settings.buildMode == BuildMode.allAtOnce || settings.compiler.name == "gdc" || is_static_library)) {
 			// don't include symbols of dependencies (will be included by the top level target)
-			if (is_static_library) buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !f.isLinkerFile()).array;
+			if (is_static_library) buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !isLinkerFile(settings.platform, f)).array;
 
 			// setup for command line
 			settings.compiler.setTarget(buildsettings, settings.platform);
-			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
+			settings.compiler.prepareBuildSettings(buildsettings, settings.platform, BuildSetting.commandLine);
 
 			// invoke the compiler
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 		} else {
 			// determine path for the temporary object file
-			string tempobjname = buildsettings.targetName ~ objSuffix;
+			string tempobjname = buildsettings.targetName ~ getObjSuffix(settings.platform);
 			NativePath tempobj = NativePath(buildsettings.targetPath) ~ tempobjname;
 
 			// setup linker command line
 			auto lbuildsettings = buildsettings;
-			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => isLinkerFile(f)).array;
+			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)).array;
 			if (generate_binary) settings.compiler.setTarget(lbuildsettings, settings.platform);
-			settings.compiler.prepareBuildSettings(lbuildsettings, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
+			settings.compiler.prepareBuildSettings(lbuildsettings, settings.platform, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
 
 			// setup compiler command line
 			buildsettings.libs = null;
 			buildsettings.lflags = null;
 			if (generate_binary) buildsettings.addDFlags("-c", "-of"~tempobj.toNativeString());
-			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !isLinkerFile(f)).array;
+			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !isLinkerFile(settings.platform, f)).array;
 
-			settings.compiler.prepareBuildSettings(buildsettings, BuildSetting.commandLine);
+			settings.compiler.prepareBuildSettings(buildsettings, settings.platform, BuildSetting.commandLine);
 
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 

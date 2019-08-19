@@ -194,7 +194,7 @@ class VisualDGenerator : ProjectGenerator {
 					addFile(p.recipePath.toNativeString(), false);
 
 			if (files.targetType == TargetType.staticLibrary)
-				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(s))) addFile(s, true);
+				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(settings.platform, s))) addFile(s, true);
 			else
 				foreach(s; files.sourceFiles.filter!(s => !s.endsWith(".lib"))) addFile(s, true);
 

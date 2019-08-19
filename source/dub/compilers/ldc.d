@@ -99,7 +99,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		);
 	}
 
-	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
+	void prepareBuildSettings(ref BuildSettings settings, in ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
 	{
 		enforceBuildRequirements(settings);
 
@@ -138,7 +138,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		}
 
 		if (!(fields & BuildSetting.libs)) {
-			resolveLibs(settings);
+			resolveLibs(settings, platform);
 			settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
 		}
 
