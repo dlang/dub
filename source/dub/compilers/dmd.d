@@ -248,7 +248,7 @@ config    /etc/dmd.conf
 				settings.addDFlags("-lib");
 				break;
 			case TargetType.dynamicLibrary:
-				if (platform.platform.canFind("windows") || platform.platform.canFind("osx"))
+				if (platform.compiler != "dmd" || platform.platform.canFind("windows") || platform.platform.canFind("osx"))
 					settings.addDFlags("-shared");
 				else
 					settings.prependDFlags("-shared", "-defaultlib=libphobos2.so");
