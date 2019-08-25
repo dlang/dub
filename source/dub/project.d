@@ -790,7 +790,7 @@ class Project {
 			else static if (attributeName == "stringImportPaths")
 				bs.stringImportPaths = bs.stringImportPaths.map!(ensureTrailingSlash).array();
 
-			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 			values = bs.dflags;
 			break;
 
@@ -801,7 +801,7 @@ class Project {
 			bs.sourceFiles = null;
 			bs.targetType = TargetType.none; // Force Compiler to NOT omit dependency libs when package is a library.
 
-			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 
 			if (bs.lflags)
 				values = compiler.lflagsToDFlags( bs.lflags );
@@ -1026,13 +1026,13 @@ class Project {
 		if (projectDescription.rootPackage in projectDescription.targetLookup) {
 			// Copy linker files from sourceFiles to linkerFiles
 			auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
-			foreach (file; target.buildSettings.sourceFiles.filter!(isLinkerFile))
+			foreach (file; target.buildSettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)))
 				target.buildSettings.addLinkerFiles(file);
 
 			// Remove linker files from sourceFiles
 			target.buildSettings.sourceFiles =
 				target.buildSettings.sourceFiles
-				.filter!(a => !isLinkerFile(a))
+				.filter!(a => !isLinkerFile(settings.platform, a))
 				.array();
 			projectDescription.lookupTarget(projectDescription.rootPackage) = target;
 		}

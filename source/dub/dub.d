@@ -32,9 +32,6 @@ import std.range : assumeSorted, empty;
 import std.string;
 import std.encoding : sanitize;
 
-// Workaround for libcurl liker errors when building with LDC
-version (LDC) pragma(lib, "curl");
-
 // Set output path and options for coverage reports
 version (DigitalMars) version (D_Coverage) static if (__VERSION__ >= 2068)
 {
