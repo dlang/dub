@@ -1187,59 +1187,53 @@ private string[] processVars(bool glob = false)(in Project project, in Package p
 	auto ret = appender!(string[])();
 	processVars!glob(ret, project, pack, gsettings, vars, are_paths);
 	return ret.data;
-
 }
 private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
 {
-	foreach (var; vars) {
-		auto processed = processVars!glob(var, project, pack, gsettings, are_paths);
-		static if (glob)
-			foreach (v; processed) dst.put(v);
-		else
-			dst.put(processed);
-	}
-}
-
-private auto processVars(bool glob = false, Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
-{
-  static if (glob)
-		assert(is_path, "can't glob something that isn't a path");
-	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings));
-	if (!is_path) {
-		static if (glob) return [var];
-		else             return  var;
-	}
-	auto p = NativePath(var);
-	string res;
-	if (!p.absolute)
-		res = (pack.path ~ p).toNativeString();
+	static if (glob)
+		alias process = processVarWithGlob;
 	else
-		res = p.toNativeString();
-	static if (!glob)
-		return res;
-	else {
-    		// Find the unglobbed prefix and iterate from there.
-		size_t i = 0;
-		size_t sepIdx = 0;
-		loop: while (i < res.length) {
-			switch_: switch (res[i])
-			{
-			case '*', '?', '[', '{': break loop;
-			case '/': sepIdx = i; goto default;
-			default: ++i; break switch_;
-			}
-		}
-		if (i == res.length) //no globbing found in the path
-			return [res];
-		import std.path : globMatch;
-	 	import std.file : dirEntries, SpanMode;
-		return dirEntries(res[0 .. sepIdx], SpanMode.depth)
-			.map!(de => de.name)
-			.filter!(name => globMatch(name, res))
-			.array;
-  }
+		alias process = processVar;
+	foreach (var; vars)
+		dst.put(process(var, project, pack, gsettings, are_paths));
 }
 
+private string processVar(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
+{
+	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings));
+	if (!is_path)
+		return var;
+	auto p = NativePath(var);
+	if (!p.absolute)
+		return (pack.path ~ p).toNativeString();
+	else
+		return p.toNativeString();
+}
+
+private string[] processVarsWithGlob(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
+{
+	assert(is_path, "can't glob something that isn't a path");
+	var = processVars(var, project, pack, gsettings, is_path);
+	// Find the unglobbed prefix and iterate from there.
+	size_t i = 0;
+	size_t sepIdx = 0;
+	loop: while (i < res.length) {
+		switch_: switch (res[i])
+		{
+		case '*', '?', '[', '{': break loop;
+		case '/': sepIdx = i; goto default;
+		default: ++i; break switch_;
+		}
+	}
+	if (i == res.length) //no globbing found in the path
+		return [res];
+	import std.path : globMatch;
+	import std.file : dirEntries, SpanMode;
+	return dirEntries(res[0 .. sepIdx], SpanMode.depth)
+		.map!(de => de.name)
+		.filter!(name => globMatch(name, res))
+		.array;
+}
 /// Expand variables using `$VAR_NAME` or `${VAR_NAME}` syntax.
 /// `$$` escapes itself and is expanded to a single `$`.
 private string expandVars(alias expandVar)(string s)
