@@ -1213,7 +1213,7 @@ private string processVars(Project, Package)(string var, in Project project, in 
 private string[] processVarsWithGlob(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
 {
 	assert(is_path, "can't glob something that isn't a path");
-	var = processVars(var, project, pack, gsettings, is_path);
+	string res = processVars(var, project, pack, gsettings, is_path);
 	// Find the unglobbed prefix and iterate from there.
 	size_t i = 0;
 	size_t sepIdx = 0;
