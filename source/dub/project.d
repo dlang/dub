@@ -1191,14 +1191,14 @@ private string[] processVars(bool glob = false)(in Project project, in Package p
 private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
 {
 	static if (glob)
-		alias process = processVarWithGlob;
+		alias process = processVarsWithGlob;
 	else
-		alias process = processVar;
+		alias process = processVars;
 	foreach (var; vars)
 		dst.put(process(var, project, pack, gsettings, are_paths));
 }
 
-private string processVar(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
+private string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
 {
 	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings));
 	if (!is_path)
