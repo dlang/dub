@@ -1191,9 +1191,9 @@ private string[] processVars(bool glob = false)(in Project project, in Package p
 private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
 {
 	static if (glob)
-		alias process = processVarsWithGlob;
+		alias process = processVarsWithGlob!(Project, Package);
 	else
-		alias process = processVars;
+		alias process = processVars!(Project, Package);
 	foreach (var; vars)
 		dst.put(process(var, project, pack, gsettings, are_paths));
 }
