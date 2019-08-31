@@ -378,7 +378,7 @@ struct Dependency {
 	}
 
 	/// ditto
-	hash_t toHash()
+	size_t toHash()
 	const nothrow @trusted  {
 		try {
 			size_t hash = 0;
