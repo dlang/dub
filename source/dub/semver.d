@@ -375,9 +375,9 @@ pure @nogc {
 	return true;
 }
 
-private sizediff_t indexOfAny(string str, in char[] chars)
+private ptrdiff_t indexOfAny(string str, in char[] chars)
 pure @nogc {
-	sizediff_t ret = -1;
+	ptrdiff_t ret = -1;
 	foreach (ch; chars) {
 		auto idx = str.indexOf(ch);
 		if (idx >= 0 && (ret < 0 || idx < ret))

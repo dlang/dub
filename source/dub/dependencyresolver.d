@@ -40,7 +40,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		CONFIGS configs;
 		DependencyType depType = DependencyType.required;
 
-		hash_t toHash() const nothrow @trusted {
+		size_t toHash() const nothrow @trusted {
 			size_t ret = typeid(string).getHash(&pack);
 			ret ^= typeid(CONFIGS).getHash(&configs);
 			return ret;
@@ -61,7 +61,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		string pack;
 		CONFIG config;
 
-		hash_t toHash() const nothrow @trusted {
+		size_t toHash() const nothrow @trusted {
 			size_t ret = pack.hashOf();
 			ret ^= typeid(CONFIG).getHash(&config);
 			return ret;
