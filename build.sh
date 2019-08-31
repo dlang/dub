@@ -31,7 +31,19 @@ fi
 MACOSX_DEPLOYMENT_TARGET=10.8
 
 echo Running $DMD...
-$DMD -ofbin/dub -g -O -w -version=DubUseCurl -version=DubApplication -Isource $* @build-files.txt
+
+declare -ax objects # array
+while read f; do
+	echo Compiling $f ...
+	object="bin/$f.o"
+	objects+=($object)
+	# compile one file
+	$DMD -of$object -c $f -Os -w -version=DubUseCurl -version=DubApplication -Isource $*
+done < build-files.txt
+
+# link
+$DMD -ofbin/dub -Os -w -version=DubUseCurl -version=DubApplication -Isource $* ${objects[@]}
+echo Linking...
 bin/dub --version
 echo DUB has been built as bin/dub.
 echo
