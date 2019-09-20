@@ -49,6 +49,7 @@ CommandGroup[] getCommands()
 			new RunCommand,
 			new BuildCommand,
 			new TestCommand,
+			new LintCommand,
 			new GenerateCommand,
 			new DescribeCommand,
 			new CleanCommand,
@@ -1038,6 +1039,88 @@ class TestCommand : PackageBuildCommand {
 		settings.runArgs = app_args;
 
 		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
+		return 0;
+	}
+}
+
+class LintCommand : PackageBuildCommand {
+	private {
+		bool m_syntaxCheck = false;
+		bool m_styleCheck = false;
+		string m_errorFormat;
+		bool m_report = false;
+		string m_reportFormat;
+		string[] m_importPaths;
+		string m_config;
+	}
+
+	this()
+	{
+		this.name = "lint";
+		this.argumentsPattern = "[<package>]";
+		this.description = "Executes the linter tests of the selected package";
+		this.helpText = [
+			`Builds the package and executes D-Scanner linter tests.`
+		];
+		this.acceptsAppArgs = true;
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("syntax-check", &m_syntaxCheck, [
+			"Lexes and parses sourceFile, printing the line and column number of " ~
+			"any syntax errors to stdout."
+		]);
+
+		args.getopt("style-check", &m_styleCheck, [
+			"Lexes and parses sourceFiles, printing the line and column number of " ~
+			"any static analysis check failures stdout."
+		]);
+
+		args.getopt("error-format", &m_errorFormat, [
+			"Format errors produced by the style/syntax checkers."
+		]);
+
+		args.getopt("report", &m_report, [
+			"Generate a static analysis report in JSON format."
+		]);
+
+		args.getopt("report-format", &m_reportFormat, [
+			"Specifies the format of the generated report."
+		]);
+
+		if (m_reportFormat) m_report = true;
+
+		args.getopt("import-paths", &m_importPaths, [
+			"Import paths"
+		]);
+
+		args.getopt("config", &m_config, [
+			"Use the given configuration file."
+		]);
+
+		super.prepare(args);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		string package_name;
+		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
+		if (free_args.length >= 1) package_name = free_args[0];
+
+		string[] args;
+		if (!m_syntaxCheck && !m_styleCheck && !m_report && app_args.length == 0) { m_styleCheck = true; }
+
+		if (m_syntaxCheck) args ~= "--syntaxCheck";
+		if (m_styleCheck) args ~= "--styleCheck";
+		if (m_errorFormat) args ~= ["--errorFormat", m_errorFormat];
+		if (m_report) args ~= "--report";
+		if (m_reportFormat) args ~= ["--reportFormat", m_reportFormat];
+		foreach (import_path; m_importPaths) args ~= ["-I", import_path];
+		if (m_config) args ~= ["--config", m_config];
+
+		setupPackage(dub, package_name);
+		dub.lintProject(args ~ app_args);
 		return 0;
 	}
 }
