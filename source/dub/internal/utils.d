@@ -547,7 +547,7 @@ version(DubUseCurl) {
 			conn.handle.set(CurlOption.connecttimeout, timeout);
 			// transfers time out after 8s below 10 byte/s
 			conn.handle.set(CurlOption.low_speed_limit, 10);
-			conn.handle.set(CurlOption.low_speed_time, 5);
+			conn.handle.set(CurlOption.low_speed_time, timeout);
 		}
 
 		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
