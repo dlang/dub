@@ -796,7 +796,7 @@ private string determineVersionWithGIT(NativePath path)
 	import dub.semver;
 
 	auto git_dir = path ~ ".git";
-	if (!existsFile(git_dir) || !isDir(git_dir.toNativeString)) return null;
+	if (!existsFile(git_dir)) return null;
 	auto git_dir_param = "--git-dir=" ~ git_dir.toNativeString();
 
 	static string exec(scope string[] params...) {
