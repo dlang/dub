@@ -295,7 +295,27 @@ config    /etc/dmd.conf
 
 	string[] lflagsToDFlags(in string[] lflags) const
 	{
-        return map!(f => "-L"~f)(lflags.filter!(f => f != "")()).array();
+		static string translate(string lflag)
+		{
+			// flags with blanks need to be escaped in a special way, e.g.:
+			// `/LIBPATH:C:\My dir` => `-L\"/LIBPATH:C:\My dir\"`
+			if (lflag.canFind(' ') &&
+			    !(lflag.length >= 2 && lflag[0..2] == `\"`)) // not already escaped
+			{
+				return `-L\"` ~ lflag ~ `\"`;
+			}
+
+			return "-L" ~ lflag;
+		}
+
+		return lflags.filter!(f => f != "").map!(translate).array();
+	}
+
+	unittest
+	{
+		const lflags = [ ``, `flag`, `\"escaped flag\"`, `flag with blanks` ];
+		const dflags = new DMDCompiler().lflagsToDFlags(lflags);
+		assert(dflags == [ `-Lflag`, `-L\"escaped flag\"`, `-L\"flag with blanks\"` ]);
 	}
 
 	private auto escapeArgs(in string[] args)
