@@ -744,6 +744,53 @@ class Dub {
 		generator.generate(settings);
 	}
 
+	/** Executes D-Scanner tests on the current project. **/
+	void lintProject(string[] args)
+	{
+		import std.path : buildPath, buildNormalizedPath;
+
+		if (m_dryRun) return;
+
+		auto tool = "dscanner";
+
+		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
+		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
+		if (!tool_pack) {
+			logInfo("%s is not present, getting and storing it user wide", tool);
+			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+		}
+
+		auto dscanner_dub = new Dub(null, m_packageSuppliers);
+		dscanner_dub.loadPackage(tool_pack.path);
+		dscanner_dub.upgrade(UpgradeOptions.select);
+
+		auto compiler_binary = this.defaultCompiler;
+
+		GeneratorSettings settings;
+		settings.config = "application";
+		settings.compiler = getCompiler(compiler_binary);
+		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
+		settings.buildType = "debug";
+		settings.run = true;
+
+		foreach (dependencyPackage; m_project.dependencies)
+		{
+			auto cfgs = m_project.getPackageConfigs(settings.platform, null, true);
+			auto buildSettings = dependencyPackage.getBuildSettings(settings.platform, cfgs[dependencyPackage.name]);
+			foreach (importPath; buildSettings.importPaths) {
+				settings.runArgs ~= ["-I", buildNormalizedPath(dependencyPackage.path.toNativeString(), importPath.idup)];
+			}
+		}
+
+		string configFilePath = buildPath(m_project.rootPackage.path.toNativeString(), "dscanner.ini");
+		if (!args.canFind("--config") && exists(configFilePath)) {
+			settings.runArgs ~= ["--config", configFilePath];
+		}
+
+		settings.runArgs ~= args ~ [m_project.rootPackage.path.toNativeString()];
+		dscanner_dub.generateProject("build", settings);
+	}
+
 	/** Prints the specified build settings necessary for building the root package.
 	*/
 	void listProjectData(GeneratorSettings settings, string[] requestedData, ListBuildSettingsFormat list_type)
