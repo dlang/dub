@@ -790,7 +790,7 @@ class Project {
 			else static if (attributeName == "stringImportPaths")
 				bs.stringImportPaths = bs.stringImportPaths.map!(ensureTrailingSlash).array();
 
-			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 			values = bs.dflags;
 			break;
 
@@ -801,7 +801,7 @@ class Project {
 			bs.sourceFiles = null;
 			bs.targetType = TargetType.none; // Force Compiler to NOT omit dependency libs when package is a library.
 
-			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 
 			if (bs.lflags)
 				values = compiler.lflagsToDFlags( bs.lflags );
@@ -1026,13 +1026,13 @@ class Project {
 		if (projectDescription.rootPackage in projectDescription.targetLookup) {
 			// Copy linker files from sourceFiles to linkerFiles
 			auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
-			foreach (file; target.buildSettings.sourceFiles.filter!(isLinkerFile))
+			foreach (file; target.buildSettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)))
 				target.buildSettings.addLinkerFiles(file);
 
 			// Remove linker files from sourceFiles
 			target.buildSettings.sourceFiles =
 				target.buildSettings.sourceFiles
-				.filter!(a => !isLinkerFile(a))
+				.filter!(a => !isLinkerFile(settings.platform, a))
 				.array();
 			projectDescription.lookupTarget(projectDescription.rootPackage) = target;
 		}
@@ -1151,7 +1151,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags));
 	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags));
 	dst.addLibs(processVars(project, pack, gsettings, settings.libs));
-	dst.addSourceFiles(processVars(project, pack, gsettings, settings.sourceFiles, true));
+	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true));
 	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true));
 	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true));
 	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true));
@@ -1182,29 +1182,58 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	}
 }
 
-private string[] processVars(in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
+private string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
 {
 	auto ret = appender!(string[])();
-	processVars(ret, project, pack, gsettings, vars, are_paths);
+	processVars!glob(ret, project, pack, gsettings, vars, are_paths);
 	return ret.data;
-
 }
-private void processVars(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
+private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
 {
-	foreach (var; vars) dst.put(processVars(var, project, pack, gsettings, are_paths));
+	static if (glob)
+		alias process = processVarsWithGlob!(Project, Package);
+	else
+		alias process = processVars!(Project, Package);
+	foreach (var; vars)
+		dst.put(process(var, project, pack, gsettings, are_paths));
 }
 
 private string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
 {
 	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings));
-	if (is_path) {
-		auto p = NativePath(var);
-		if (!p.absolute) {
-			return (pack.path ~ p).toNativeString();
-		} else return p.toNativeString();
-	} else return var;
+	if (!is_path)
+		return var;
+	auto p = NativePath(var);
+	if (!p.absolute)
+		return (pack.path ~ p).toNativeString();
+	else
+		return p.toNativeString();
 }
 
+private string[] processVarsWithGlob(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
+{
+	assert(is_path, "can't glob something that isn't a path");
+	string res = processVars(var, project, pack, gsettings, is_path);
+	// Find the unglobbed prefix and iterate from there.
+	size_t i = 0;
+	size_t sepIdx = 0;
+	loop: while (i < res.length) {
+		switch_: switch (res[i])
+		{
+		case '*', '?', '[', '{': break loop;
+		case '/': sepIdx = i; goto default;
+		default: ++i; break switch_;
+		}
+	}
+	if (i == res.length) //no globbing found in the path
+		return [res];
+	import std.path : globMatch;
+	import std.file : dirEntries, SpanMode;
+	return dirEntries(res[0 .. sepIdx], SpanMode.depth)
+		.map!(de => de.name)
+		.filter!(name => globMatch(name, res))
+		.array;
+}
 /// Expand variables using `$VAR_NAME` or `${VAR_NAME}` syntax.
 /// `$$` escapes itself and is expanded to a single `$`.
 private string expandVars(alias expandVar)(string s)

@@ -85,7 +85,7 @@ class GDCCompiler : Compiler {
 		);
 	}
 
-	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
+	void prepareBuildSettings(ref BuildSettings settings, in ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
 	{
 		enforceBuildRequirements(settings);
 
@@ -121,7 +121,7 @@ class GDCCompiler : Compiler {
 		}
 
 		if (!(fields & BuildSetting.libs)) {
-			resolveLibs(settings);
+			resolveLibs(settings, platform);
 			settings.addDFlags(settings.libs.map!(l => "-l"~l)().array());
 		}
 
@@ -222,7 +222,8 @@ class GDCCompiler : Compiler {
 			args = [ "ar", "rcs", tpath ] ~ objects;
 		} else {
 			args = platform.compilerBinary ~ objects ~ settings.sourceFiles ~ settings.lflags ~ settings.dflags.filter!(f => isLinkageFlag(f)).array;
-			version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order by DMD
+			if (platform.platform.canFind("linux"))
+				args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order
 		}
 		logDiagnostic("%s", args.join(" "));
 		invokeTool(args, output_callback);

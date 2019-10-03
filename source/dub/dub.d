@@ -32,9 +32,6 @@ import std.range : assumeSorted, empty;
 import std.string;
 import std.encoding : sanitize;
 
-// Workaround for libcurl liker errors when building with LDC
-version (LDC) pragma(lib, "curl");
-
 // Set output path and options for coverage reports
 version (DigitalMars) version (D_Coverage) static if (__VERSION__ >= 2068)
 {
@@ -164,7 +161,7 @@ class Dub {
 		m_rootPath = NativePath(root_path);
 		if (!m_rootPath.absolute) m_rootPath = NativePath(getcwd()) ~ m_rootPath;
 
-		init();
+		init(m_rootPath);
 
 		if (skip_registry == SkipPackageSuppliers.none)
 			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers);
@@ -261,13 +258,13 @@ class Dub {
 	*/
 	this(NativePath override_path)
 	{
-		init();
+		init(NativePath());
 		m_overrideSearchPath = override_path;
 		m_packageManager = new PackageManager(NativePath(), NativePath(), false);
 		updatePackageSearchPath();
 	}
 
-	private void init()
+	private void init(NativePath root_path)
 	{
 		import std.file : tempDir;
 		version(Windows) {
@@ -291,6 +288,9 @@ class Dub {
 		m_config = new DubConfig(jsonFromFile(m_dirs.systemSettings ~ "settings.json", true), m_config);
 		m_config = new DubConfig(jsonFromFile(NativePath(thisExePath).parentPath ~ "../etc/dub/settings.json", true), m_config);
 		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), m_config);
+
+		if (!root_path.empty)
+			m_config = new DubConfig(jsonFromFile(root_path ~ "dub.settings.json", true), m_config);
 
 		determineDefaultCompiler();
 
@@ -750,6 +750,53 @@ class Dub {
 		generator.generate(settings);
 	}
 
+	/** Executes D-Scanner tests on the current project. **/
+	void lintProject(string[] args)
+	{
+		import std.path : buildPath, buildNormalizedPath;
+
+		if (m_dryRun) return;
+
+		auto tool = "dscanner";
+
+		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
+		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
+		if (!tool_pack) {
+			logInfo("%s is not present, getting and storing it user wide", tool);
+			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+		}
+
+		auto dscanner_dub = new Dub(null, m_packageSuppliers);
+		dscanner_dub.loadPackage(tool_pack.path);
+		dscanner_dub.upgrade(UpgradeOptions.select);
+
+		auto compiler_binary = this.defaultCompiler;
+
+		GeneratorSettings settings;
+		settings.config = "application";
+		settings.compiler = getCompiler(compiler_binary);
+		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
+		settings.buildType = "debug";
+		settings.run = true;
+
+		foreach (dependencyPackage; m_project.dependencies)
+		{
+			auto cfgs = m_project.getPackageConfigs(settings.platform, null, true);
+			auto buildSettings = dependencyPackage.getBuildSettings(settings.platform, cfgs[dependencyPackage.name]);
+			foreach (importPath; buildSettings.importPaths) {
+				settings.runArgs ~= ["-I", buildNormalizedPath(dependencyPackage.path.toNativeString(), importPath.idup)];
+			}
+		}
+
+		string configFilePath = buildPath(m_project.rootPackage.path.toNativeString(), "dscanner.ini");
+		if (!args.canFind("--config") && exists(configFilePath)) {
+			settings.runArgs ~= ["--config", configFilePath];
+		}
+
+		settings.runArgs ~= args ~ [m_project.rootPackage.path.toNativeString()];
+		dscanner_dub.generateProject("build", settings);
+	}
+
 	/** Prints the specified build settings necessary for building the root package.
 	*/
 	void listProjectData(GeneratorSettings settings, string[] requestedData, ListBuildSettingsFormat list_type)
@@ -801,11 +848,12 @@ class Dub {
 	/// Fetches the package matching the dependency and places it in the specified location.
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
+		auto basePackageName = getBasePackageName(packageId);
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.fetchPackageRecipe(packageId, dep, (options & FetchOptions.usePrerelease) != 0);
+				pinfo = ps.fetchPackageRecipe(basePackageName, dep, (options & FetchOptions.usePrerelease) != 0);
 				if (pinfo.type == Json.Type.null_)
 					continue;
 				supplier = ps;
@@ -862,14 +910,14 @@ class Dub {
 		clean_package_version = clean_package_version.replace("+", "_"); // + has special meaning for Optlink
 		if (!placement.existsFile())
 			mkdirRecurse(placement.toNativeString());
-		NativePath dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
+		NativePath dstpath = placement ~ (basePackageName ~ "-" ~ clean_package_version);
 		if (!dstpath.existsFile())
 			mkdirRecurse(dstpath.toNativeString());
 
 		// Support libraries typically used with git submodules like ae.
 		// Such libraries need to have ".." as import path but this can create
 		// import path leakage.
-		dstpath = dstpath ~ packageId;
+		dstpath = dstpath ~ basePackageName;
 
 		import std.datetime : seconds;
 		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds); // possibly wait for other dub instance
@@ -884,13 +932,14 @@ class Dub {
 		{
 			import std.zip : ZipException;
 
-			auto path = getTempFile(packageId, ".zip");
-			supplier.fetchPackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			auto path = getTempFile(basePackageName, ".zip");
+			supplier.fetchPackage(path, basePackageName, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) std.file.remove(path.toNativeString());
 			logDiagnostic("Placing to %s...", placement.toNativeString());
 
 			try {
-				return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
+				m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
+				return m_packageManager.getPackage(packageId, ver, dstpath);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
 				// rethrow the exception at the end of the loop
@@ -1129,8 +1178,9 @@ class Dub {
 	Version[] listPackageVersions(string name)
 	{
 		Version[] versions;
+		auto basePackageName = getBasePackageName(name);
 		foreach (ps; this.m_packageSuppliers) {
-			try versions ~= ps.getVersions(name);
+			try versions ~= ps.getVersions(basePackageName);
 			catch (Exception e) {
 				logWarn("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
 			}

@@ -353,7 +353,7 @@ class ProjectGenerator
 			{
 				auto pdepti = &targets[depname];
 				configureDependents(*pdepti, targets, level + 1);
-				mergeFromDependency(pdepti.buildSettings, ti.buildSettings);
+				mergeFromDependency(pdepti.buildSettings, ti.buildSettings, genSettings.platform);
 			}
 		}
 
@@ -519,7 +519,7 @@ class ProjectGenerator
 		child.addOptions(BuildOptions(parent.options & inheritedBuildOptions));
 	}
 
-	private static void mergeFromDependency(in ref BuildSettings child, ref BuildSettings parent)
+	private static void mergeFromDependency(in ref BuildSettings child, ref BuildSettings parent, in ref BuildPlatform platform)
 	{
 		import dub.compilers.utils : isLinkerFile;
 
@@ -532,7 +532,7 @@ class ProjectGenerator
 		parent.addStringImportPaths(child.stringImportPaths);
 		// linking of static libraries is done by parent
 		if (child.targetType == TargetType.staticLibrary) {
-			parent.addSourceFiles(child.sourceFiles.filter!isLinkerFile.array);
+			parent.addSourceFiles(child.sourceFiles.filter!(f => isLinkerFile(platform, f)).array);
 			parent.addLibs(child.libs);
 			parent.addLFlags(child.lflags);
 		}

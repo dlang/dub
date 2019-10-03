@@ -547,7 +547,7 @@ version(DubUseCurl) {
 			conn.handle.set(CurlOption.connecttimeout, timeout);
 			// transfers time out after 8s below 10 byte/s
 			conn.handle.set(CurlOption.low_speed_limit, 10);
-			conn.handle.set(CurlOption.low_speed_time, 5);
+			conn.handle.set(CurlOption.low_speed_time, timeout);
 		}
 
 		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
@@ -713,7 +713,7 @@ string getModuleNameFromContent(string content) {
 	static Regex!char comments_pattern, module_pattern;
 
 	if (!regex_initialized) {
-		comments_pattern = regex(`//[^\r\n]*\r?\n?|/\*.*?\*/|/\+.*\+/`, "g");
+		comments_pattern = regex(`//[^\r\n]*\r?\n?|/\*.*?\*/|/\+.*\+/`, "gs");
 		module_pattern = regex(`module\s+([\w\.]+)\s*;`, "g");
 		regex_initialized = true;
 	}
@@ -744,6 +744,7 @@ unittest {
 	assert(getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;") == "bar", getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;"));
 	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar;") == "bar");
 	//assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar/++/;") == "bar"); // nested comments require a context-free parser!
+	assert(getModuleNameFromContent("/*\nmodule sometest;\n*/\n\nmodule fakemath;\n") == "fakemath");
 }
 
 /**

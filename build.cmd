@@ -7,7 +7,7 @@
 @echo enum dubVersion = "%GITVER%"; >> source\dub\version_.d
 
 @echo Executing %DC%...
-@%DC% -ofbin\dub.exe -g -debug -w -version=DubUseCurl -version=DubApplication -Isource curl.lib %* @build-files.txt
+@%DC% -ofbin\dub.exe -g -O -w -version=DubUseCurl -version=DubApplication -Isource %* @build-files.txt
 @if errorlevel 1 exit /b 1
 
 @echo DUB has been built. You probably also want to add the following entry to your
