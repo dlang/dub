@@ -34,6 +34,7 @@ struct PackageDependency {
 	Dependency spec;
 }
 
+
 /**
 	Represents a dependency specification.
 
@@ -55,7 +56,6 @@ struct Dependency {
 		NativePath m_path;
 		bool m_optional = false;
 		bool m_default = false;
-		Repository m_repository;
 	}
 
 	/// A Dependency, which matches every valid version.
@@ -93,27 +93,10 @@ struct Dependency {
 		m_path = path;
 	}
 
-	this(Repository repository, string spec) {
-		this.versionSpec = spec;
-		this.repository = repository;
-	}
-
 	/// If set, overrides any version based dependency selection.
 	@property void path(NativePath value) { m_path = value; }
 	/// ditto
 	@property NativePath path() const { return m_path; }
-
-	/// If set, overrides any version based dependency selection.
-	@property void repository(Repository value)
-	{
-		m_repository = value;
-	}
-
-	/// ditto
-	@property Repository repository() const
-	{
-		return m_repository;
-	}
 
 	/// Determines if the dependency is required or optional.
 	@property bool optional() const { return m_optional; }
@@ -127,8 +110,6 @@ struct Dependency {
 
 	/// Returns true $(I iff) the version range only matches a specific version.
 	@property bool isExactVersion() const { return m_versA == m_versB; }
-
-	@property bool isGit() const { return !repository.empty; }
 
 	/// Returns the exact version matched by the version range.
 	@property Version version_() const {
@@ -175,7 +156,7 @@ struct Dependency {
 			ves = ves[2..$];
 			m_versA = Version(expandVersion(ves));
 			m_versB = Version(bumpVersion(ves) ~ "-0");
-		} else if (ves[0] == Version.branchPrefix || ves.isHash) {
+		} else if (ves[0] == Version.branchPrefix) {
 			m_inclusiveA = true;
 			m_inclusiveB = true;
 			m_versA = m_versB = Version(ves);
@@ -226,6 +207,7 @@ struct Dependency {
 		string r;
 
 		if (this == invalid) return "invalid";
+
 		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
 			// Special "==" case
 			if (m_versA == Version.masterBranch) return "~master";
@@ -276,12 +258,7 @@ struct Dependency {
 	*/
 	string toString()()
 	const {
-		string ret;
-
-		if (!repository.empty) {
-			ret ~= "#";
-		}
-		ret ~= versionSpec;
+		auto ret = versionSpec;
 		if (optional) {
 			if (default_) ret ~= " (optional, default)";
 			else ret ~= " (optional)";
@@ -311,7 +288,6 @@ struct Dependency {
 			json = Json.emptyObject;
 			json["version"] = this.versionSpec;
 			if (!path.empty) json["path"] = path.toString();
-			if (!repository.empty) json["repository"] = repository.remote;
 			if (optional) json["optional"] = true;
 			if (default_) json["default"] = true;
 		}
@@ -340,10 +316,6 @@ struct Dependency {
 
 				dep = Dependency.any;
 				dep.path = NativePath(verspec["path"].get!string);
-			} else if (auto repository = "repository" in verspec) {
-				enforce("version" in verspec, "No version field specified!");
-				dep = Dependency(Repository(repository.get!string),
-						verspec["version"].get!string);
 			} else {
 				enforce("version" in verspec, "No version field specified!");
 				auto ver = verspec["version"].get!string;
@@ -425,7 +397,6 @@ struct Dependency {
 		A specification is valid if it can match at least one version.
 	*/
 	bool valid() const {
-		if (isGit) return true;
 		return m_versA <= m_versB && doCmp(m_inclusiveA && m_inclusiveB, m_versA, m_versB);
 	}
 
@@ -455,7 +426,6 @@ struct Dependency {
 	/// ditto
 	bool matches(ref const(Version) v) const {
 		if (this.matchesAny) return true;
-		if (this.isGit) return true;
 		//logDebug(" try match: %s with: %s", v, this);
 		// Master only matches master
 		if(m_versA.isBranch) {
@@ -479,13 +449,6 @@ struct Dependency {
 	*/
 	Dependency merge(ref const(Dependency) o)
 	const {
-		if (this.isGit) {
-			if (!o.isGit) return this;
-			if (this.m_versA == o.m_versB) return this;
-			return invalid;
-		}
-		if (o.isGit) return o;
-
 		if (this.matchesAny) return o;
 		if (o.matchesAny) return this;
 		if (m_versA.isBranch != o.m_versA.isBranch) return invalid;
@@ -690,34 +653,6 @@ unittest {
 	assert(Dependency("~>1.0.4+1.2.3").versionSpec == "~>1.0.4");
 }
 
-/**
-	Represents an SCM repository.
-*/
-struct Repository
-{
-	private string m_remote;
-
-	/**
-		Returns:
-			Repository URL or path.
-	*/
-	@property string remote() @nogc nothrow pure @safe
-	in { assert(m_remote !is null); }
-	body
-	{
-		return m_remote;
-	}
-
-	/**
-		Returns:
-			Whether the repository was initialized with an URL or path.
-	*/
-	@property bool empty() const @nogc nothrow pure @safe
-	{
-		return m_remote is null;
-	}
-}
-
 
 /**
 	Represents a version in semantic version format, or a branch identifier.
@@ -746,7 +681,7 @@ struct Version {
 	this(string vers)
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		if (vers[0] != branchPrefix && !vers.isHash && vers.ptr !is UNKNOWN_VERS.ptr)
+		if (vers[0] != branchPrefix && vers.ptr !is UNKNOWN_VERS.ptr)
 			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
 		m_version = vers;
 	}
@@ -760,9 +695,6 @@ struct Version {
 
 	bool opEquals(const Version oth) const { return opCmp(oth) == 0; }
 
-	/// Tests if this represents a hash instead of a version.
-	@property bool isGit() const { return m_version.isHash; }
-
 	/// Tests if this represents a branch instead of a version.
 	@property bool isBranch() const { return m_version.length > 0 && m_version[0] == branchPrefix; }
 
@@ -774,7 +706,7 @@ struct Version {
 		Note that branches are always considered pre-release versions.
 	*/
 	@property bool isPreRelease() const {
-		if (isBranch || isGit) return true;
+		if (isBranch) return true;
 		return isPreReleaseVersion(m_version);
 	}
 
@@ -793,13 +725,6 @@ struct Version {
 		if (isUnknown || other.isUnknown) {
 			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, other));
 		}
-
-		if (isGit || other.isGit) {
-			if (!isGit) return -1;
-			if (!other.isGit) return 1;
-			return (m_version == m_version) ? 0 : 1;
-		}
-
 		if (isBranch || other.isBranch) {
 			if(m_version == other.m_version) return 0;
 			if (!isBranch) return 1;
@@ -841,7 +766,6 @@ unittest {
 	assert(a == b, "a == b with a:'1.0.0', b:'1.0.0' failed");
 	b = Version("2.0.0");
 	assert(a != b, "a != b with a:'1.0.0', b:'2.0.0' failed");
-
 	a = Version.masterBranch;
 	b = Version("~BRANCH");
 	assert(a != b, "a != b with a:MASTER, b:'~branch' failed");
@@ -881,20 +805,4 @@ unittest {
 	assertThrown(a == b, "Failed: UNKNOWN == UNKNOWN");
 
 	assert(Version("1.0.0+a") == Version("1.0.0+b"));
-
-	assert(Version("73535568b79a0b124bc1653002637a830ce0fcb8").isGit);
-}
-
-private bool isHash(string hash) @nogc nothrow pure @safe
-{
-	import std.ascii : isAlphaNum;
-	import std.utf : byCodeUnit;
-
-	return hash.length == 40 && hash.byCodeUnit.all!isAlphaNum;
-}
-
-@nogc nothrow pure @safe unittest {
-	assert(isHash("73535568b79a0b124bc1653002637a830ce0fcb8"));
-	assert(!isHash("735"));
-	assert(!isHash("73535568b79a0b124bc1-53002637a830ce0fcb8"));
 }
