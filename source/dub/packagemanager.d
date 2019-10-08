@@ -187,18 +187,20 @@ class PackageManager {
 		Params:
 			path = NativePath to the root directory of the package
 			recipe_path = Optional path to the recipe file of the package
+			scm_path = The directory in which the VCS (Git) stores its state.
 			allow_sub_packages = Also return a sub package if it resides in the given folder
 
 		Returns: The packages loaded from the given path
 		Throws: Throws an exception if no package can be loaded
 	*/
-	Package getOrLoadPackage(NativePath path, NativePath recipe_path = NativePath.init, bool allow_sub_packages = false)
+	Package getOrLoadPackage(NativePath path, NativePath recipe_path = NativePath.init,
+		bool allow_sub_packages = false, NativePath scm_path = NativePath.init)
 	{
 		path.endsWithSlash = true;
 		foreach (p; getPackageIterator())
 			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
 				return p;
-		auto pack = Package.load(path, recipe_path);
+		auto pack = Package.load(path, recipe_path, null, "", scm_path);
 		addPackages(m_temporaryPackages, pack);
 		return pack;
 	}
