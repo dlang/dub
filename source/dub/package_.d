@@ -803,11 +803,15 @@ private string determineVersionFromSCM(NativePath path, NativePath scm_path)
 // by invoking the "git" executable
 private string determineVersionWithGit(NativePath path, NativePath git_dir)
 {
-	import std.process;
 	import dub.semver;
+	import std.process;
+	import std.typecons : tuple;
 
 	if (!existsFile(git_dir) || !isDir(git_dir.toNativeString)) return null;
-	auto git_dir_param = "--git-dir=" ~ git_dir.toNativeString();
+	auto git_dir_params = tuple(
+		"-C", path.toNativeString(),
+		"--git-dir=" ~ git_dir.relativeTo(path).toNativeString(),
+	).expand;
 
 	static string exec(scope string[] params...) {
 		auto ret = executeShell(escapeShellCommand(params));
@@ -816,7 +820,7 @@ private string determineVersionWithGit(NativePath path, NativePath git_dir)
 		return null;
 	}
 
-	auto tag = exec("git", git_dir_param, "describe", "--long", "--tags");
+	auto tag = exec("git", git_dir_params, "describe", "--long", "--tags");
 	if (tag !is null) {
 		auto parts = tag.split("-");
 		auto commit = parts[$-1];
@@ -829,7 +833,7 @@ private string determineVersionWithGit(NativePath path, NativePath git_dir)
 		}
 	}
 
-	auto branch = exec("git", git_dir_param, "rev-parse", "--abbrev-ref", "HEAD");
+	auto branch = exec("git", git_dir_params, "rev-parse", "--abbrev-ref", "HEAD");
 	if (branch !is null) {
 		if (branch != "HEAD") return "~" ~ branch;
 	}

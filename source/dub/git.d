@@ -22,7 +22,12 @@ import std.string;
 public void addGitSubmodules(PackageManager packageManager, NativePath rootPath) {
 	import std.process : execute;
 
-	const submoduleInfo = execute(["git", "--git-dir=" ~ (rootPath ~ ".git").toNativeString, "submodule", "status"]);
+	auto rootScmPath = rootPath ~ ".git";
+	const submoduleInfo = execute([
+		"git",
+		"-C", rootPath.toNativeString,
+		"--git-dir=" ~ (rootScmPath.relativeTo(rootPath)).toNativeString,
+		"submodule", "status"]);
 
 	enforce(submoduleInfo.status == 0,
 		format("git submodule status exited with error code %s: %s", submoduleInfo.status, submoduleInfo.output));
