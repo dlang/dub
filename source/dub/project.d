@@ -256,7 +256,7 @@ class Project {
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
 
 		foreach (d; m_rootPackage.getAllDependencies())
-			if (d.spec.isExactVersion && d.spec.version_.isBranch && !d.spec.isGit) {
+			if (d.spec.isExactVersion && d.spec.version_.isBranch) {
 				logWarn("WARNING: A deprecated branch based version specification is used "
 					~ "for the dependency %s. Please use numbered versions instead. Also "
 					~ "note that you can still use the %s file to override a certain "
@@ -354,10 +354,7 @@ class Project {
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
 					vspec = m_selections.getSelectedVersion(basename);
-					if (!vspec.repository.empty) {
-						p = m_packageManager.clonePackage(basename, vspec);
-						if (subname.length) p = m_packageManager.getSubPackage(p, subname, true);
-					} else if (vspec.path.empty) p = m_packageManager.getBestPackage(dep.name, vspec);
+					if (vspec.path.empty) p = m_packageManager.getBestPackage(dep.name, vspec);
 					else {
 						auto path = vspec.path;
 						if (!path.absolute) path = m_rootPackage.path ~ path;
@@ -373,11 +370,6 @@ class Project {
 				} else {
 					logDiagnostic("%sVersion selection for dependency %s (%s) of %s is missing.",
 						indent, basename, dep.name, pack.name);
-				}
-
-				if (!p && !vspec.repository.empty) {
-					p = m_packageManager.clonePackage(basename, vspec);
-					if (subname.length) p = m_packageManager.getSubPackage(p, subname, false);
 				}
 
 				if (!p && !vspec.path.empty) {
@@ -1550,17 +1542,6 @@ final class SelectedVersions {
 		m_dirty = true;
 	}
 
-	void selectVersion(string package_id, Repository repository, string spec)
-	{
-		const dependency = Dependency(repository, spec);
-		if (auto ps = package_id in m_selections) {
-			if (ps.dep == dependency)
-				return;
-		}
-		m_selections[package_id] = Selected(dependency);
-		m_dirty = true;
-	}
-
 	/// Removes the selection for a particular package.
 	void deselectVersion(string package_id)
 	{
@@ -1623,12 +1604,7 @@ final class SelectedVersions {
 
 	static Json dependencyToJson(Dependency d)
 	{
-		if (!d.repository.empty) {
-			return serializeToJson([
-				"version": d.version_.toString(),
-				"repository": d.repository.remote,
-			]);
-		} else if (d.path.empty) return Json(d.version_.toString());
+		if (d.path.empty) return Json(d.version_.toString());
 		else return serializeToJson(["path": d.path.toString()]);
 	}
 
@@ -1636,10 +1612,8 @@ final class SelectedVersions {
 	{
 		if (j.type == Json.Type.string)
 			return Dependency(Version(j.get!string));
-		else if (j.type == Json.Type.object && "path" in j)
+		else if (j.type == Json.Type.object)
 			return Dependency(NativePath(j["path"].get!string));
-		else if (j.type == Json.Type.object && "repository" in j)
-			return Dependency(Repository(j["repository"].get!string), j["version"].get!string);
 		else throw new Exception(format("Unexpected type for dependency: %s", j.type));
 	}
 
