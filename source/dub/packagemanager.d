@@ -203,6 +203,55 @@ class PackageManager {
 		return pack;
 	}
 
+	/** For a given Git repository, returns the corresponding package.
+
+		Git repository is provided as its remote URL, the repository is cloned
+		and in the dependency speicfied commit is checked out.
+
+		If the target directory already exists, just returns the package
+		without cloning.
+
+		Params:
+			name = Package name
+			dependency = Dependency that contains the repository URL and a specific commit
+
+		Returns:
+			The package loaded from the given Git repository or null if the
+			package couldn't be loaded.
+	*/
+	Package clonePackage(string name, Dependency dependency)
+	in { assert(!dependency.repository.empty); }
+	body {
+		import std.process : escapeShellCommand, executeShell;
+
+		string gitReference = dependency.versionSpec;
+		if (gitReference.startsWith("~")) gitReference.popFront;
+
+		const destination = m_repositories[LocalPackageType.user].packagePath ~
+			NativePath(name~"-"~gitReference) ~ name;
+		const nativeDestination = destination.toNativeString();
+
+		if (!exists(nativeDestination)) {
+			auto command = escapeShellCommand("git", "clone",
+					dependency.repository.remote,
+					nativeDestination);
+			if (executeShell(command).status != 0) {
+				return null;
+			}
+
+			command = escapeShellCommand("git",
+					"-C", nativeDestination,
+					 "checkout", gitReference);
+			if (executeShell(command).status != 0) {
+				rmdirRecurse(nativeDestination);
+				return null;
+			}
+		}
+		auto pack = Package.load(destination);
+		addPackages(m_temporaryPackages, pack);
+
+		return pack;
+	}
 
 	/** Searches for the latest version of a package matching the given dependency.
 	*/
