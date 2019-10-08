@@ -353,6 +353,7 @@ class BuildGenerator : ProjectGenerator {
 		addHash(buildsettings.lflags);
 		addHash((cast(uint)buildsettings.options).to!string);
 		addHash(buildsettings.stringImportPaths);
+		addHash(buildsettings.importPaths);
 		addHash(settings.platform.architecture);
 		addHash(settings.platform.compilerBinary);
 		addHash(settings.platform.compiler);
