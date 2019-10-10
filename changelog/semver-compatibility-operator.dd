@@ -1,0 +1,8 @@
+Added SemVer compatibility operator "^"
+
+Dub now supports version specifications of the form `^x.y.z`.
+This corresponds to a "semver compatible version", ie. any version up from
+`x.y.z` with the same major number. If the major number is 0, only the same
+version matches. This corresponds to the versions listed on https://semver.org/ as
+compatible with the public API of the version given.
+`^x.y` is equivalent to `^x.y.0`.
