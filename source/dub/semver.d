@@ -15,57 +15,82 @@
 */
 module dub.semver;
 
-import std.range;
-import std.string;
-import std.algorithm : max;
+import std.algorithm : map, max;
 import std.conv;
+import std.range;
+import std.regex;
+import std.string;
 
 @safe:
+
+struct SemVer {
+	int major;
+	int minor;
+	int patch;
+	string prerelease;
+	string buildmetadata;
+
+	enum semVerRegex = `^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)` ~
+		`(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))` ~
+		`?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`;
+
+	this(string version_) {
+		import std.exception : enforce;
+
+		if (__ctfe) {
+			// regex does not work at compiletime
+			if (version_ == "0.0.0") return;
+			if (version_ == "99999.0.0") {
+				this.major = 99999;
+				return;
+			}
+			assert(false, version_);
+		}
+		enforce(isValidVersion(version_), "corrupt version '%s'".format(version_));
+
+		auto match = matchFirst(version_, ctRegex!semVerRegex);
+
+		enforce(!match.empty, "corrupt version '%s'".format(version_));
+
+		this(
+			match["major"].to!int,
+			match["minor"].to!int,
+			match["patch"].to!int,
+			match["prerelease"],
+			match["buildmetadata"]
+		);
+	}
+
+	this(int major, int minor, int patch = 0, string prerelease = null, string buildmetadata = null) {
+		this.major = major;
+		this.minor = minor;
+		this.patch = patch;
+		this.prerelease = prerelease;
+		this.buildmetadata = buildmetadata;
+	}
+
+	string toString() const {
+		return "%s.%s.%s".format(this.major, this.minor, this.patch) ~
+			(this.prerelease.empty ? "" : format!"-%s"(this.prerelease)) ~
+			(this.buildmetadata.empty ? "" : format!"+%s"(this.buildmetadata));
+	}
+}
 
 /**
 	Validates a version string according to the SemVer specification.
 */
-bool isValidVersion(string ver)
-pure @nogc {
+bool isValidVersion(string ver) {
 	// NOTE: this is not by spec, but to ensure sane input
 	if (ver.length > 256) return false;
 
-	// a
-	auto sepi = ver.indexOf('.');
-	if (sepi < 0) return false;
-	if (!isValidNumber(ver[0 .. sepi])) return false;
-	ver = ver[sepi+1 .. $];
-
-	// c
-	sepi = ver.indexOf('.');
-	if (sepi < 0) return false;
-	if (!isValidNumber(ver[0 .. sepi])) return false;
-	ver = ver[sepi+1 .. $];
-
-	// c
-	sepi = ver.indexOfAny("-+");
-	if (sepi < 0) sepi = ver.length;
-	if (!isValidNumber(ver[0 .. sepi])) return false;
-	ver = ver[sepi .. $];
-
-	// prerelease tail
-	if (ver.length > 0 && ver[0] == '-') {
-		ver = ver[1 .. $];
-		sepi = ver.indexOf('+');
-		if (sepi < 0) sepi = ver.length;
-		if (!isValidIdentifierChain(ver[0 .. sepi])) return false;
-		ver = ver[sepi .. $];
+	if (__ctfe) {
+		// regex does not work at compiletime
+		if (ver == "0.0.0") return true;
+		if (ver == "99999.0.0") return true;
+		assert(false, ver);
 	}
 
-	// build tail
-	if (ver.length > 0 && ver[0] == '+') {
-		ver = ver[1 .. $];
-		if (!isValidIdentifierChain(ver, true)) return false;
-		ver = null;
-	}
-
-	assert(ver.length == 0);
-	return true;
+	return !matchFirst(ver, ctRegex!(SemVer.semVerRegex)).empty;
 }
 
 ///
@@ -98,91 +123,61 @@ unittest {
 	assert(!isValidVersion("1.0-1.0"));
 }
 
-
 /**
-	Determines if a given valid SemVer version has a pre-release suffix.
-*/
-bool isPreReleaseVersion(string ver) pure @nogc
-in { assert(isValidVersion(ver)); }
-body {
-	foreach (i; 0 .. 2) {
-		auto di = ver.indexOf('.');
-		assert(di > 0);
-		ver = ver[di+1 .. $];
-	}
-	auto di = ver.indexOf('-');
-	if (di < 0) return false;
-	return isValidNumber(ver[0 .. di]);
-}
+	Compares the precedence of two SemVer versions.
 
-///
-unittest {
-	assert(isPreReleaseVersion("1.0.0-alpha"));
-	assert(isPreReleaseVersion("1.0.0-alpha+b1"));
-	assert(isPreReleaseVersion("0.9.0-beta.1"));
-	assert(!isPreReleaseVersion("0.9.0"));
-	assert(!isPreReleaseVersion("0.9.0+b1"));
-}
-
-/**
-	Compares the precedence of two SemVer version strings.
-
-	The version strings must be validated using `isValidVersion` before being
-	passed to this function. Note that the build meta data suffix (if any) is
+	Note that the build meta data suffix (if any) is
 	being ignored when comparing version numbers.
 
 	Returns:
 		Returns a negative number if `a` is a lower version than `b`, `0` if they are
 		equal, and a positive number otherwise.
 */
-int compareVersions(string a, string b)
+int compareVersions(SemVer a, SemVer b)
 pure @nogc {
 	// compare a.b.c numerically
-	if (auto ret = compareNumber(a, b)) return ret;
-	assert(a[0] == '.' && b[0] == '.');
-	a = a[1 .. $]; b = b[1 .. $];
-	if (auto ret = compareNumber(a, b)) return ret;
-	assert(a[0] == '.' && b[0] == '.');
-	a = a[1 .. $]; b = b[1 .. $];
-	if (auto ret = compareNumber(a, b)) return ret;
+	int cmp(T)(T a, T b) { return (a < b) ? -1 : ((a > b) ? 1 : 0); }
+	if (auto ret = cmp(a.major, b.major)) return ret;
+	if (auto ret = cmp(a.minor, b.minor)) return ret;
+	if (auto ret = cmp(a.patch, b.patch)) return ret;
 
 	// give precedence to non-prerelease versions
-	bool apre = a.length > 0 && a[0] == '-';
-	bool bpre = b.length > 0 && b[0] == '-';
-	if (apre != bpre) return bpre - apre;
-	if (!apre) return 0;
+	if (auto ret = cmp(a.prerelease.empty, b.prerelease.empty)) return ret;
+
+	if (a.prerelease.empty) return 0;
 
 	// compare the prerelease tail lexicographically
+	auto apre = a.prerelease, bpre = b.prerelease;
 	do {
-		a = a[1 .. $]; b = b[1 .. $];
-		if (auto ret = compareIdentifier(a, b)) return ret;
-	} while (a.length > 0 && b.length > 0 && a[0] != '+' && b[0] != '+');
+		if (auto ret = compareIdentifier(apre, bpre)) return ret;
+		apre = apre.drop(1);
+		bpre = bpre.drop(1);
+	} while (!apre.empty && !bpre.empty);
 
 	// give longer prerelease tails precedence
-	bool aempty = a.length == 0 || a[0] == '+';
-	bool bempty = b.length == 0 || b[0] == '+';
-	if (aempty == bempty) {
-		assert(aempty);
-		return 0;
-	}
-	return bempty - aempty;
+	if (auto ret = cmp(apre.length, bpre.length)) return ret;
+
+	return 0;
 }
 
 ///
 unittest {
-	assert(compareVersions("1.0.0", "1.0.0") == 0);
-	assert(compareVersions("1.0.0+b1", "1.0.0+b2") == 0);
-	assert(compareVersions("1.0.0", "2.0.0") < 0);
-	assert(compareVersions("1.0.0-beta", "1.0.0") < 0);
-	assert(compareVersions("1.0.1", "1.0.0") > 0);
+	assert(compareVersions(SemVer("1.0.0"), SemVer("1.0.0")) == 0);
+	assert(compareVersions(SemVer("1.0.0+b1"), SemVer("1.0.0+b2")) == 0);
+	assert(compareVersions(SemVer("1.0.0"), SemVer("2.0.0")) < 0);
+	assert(compareVersions(SemVer("1.0.0-beta"), SemVer("1.0.0")) < 0);
+	assert(compareVersions(SemVer("1.0.1"), SemVer("1.0.0")) > 0);
 }
 
 unittest {
 	void assertLess(string a, string b) {
-		assert(compareVersions(a, b) < 0, "Failed for "~a~" < "~b);
-		assert(compareVersions(b, a) > 0);
-		assert(compareVersions(a, a) == 0);
-		assert(compareVersions(b, b) == 0);
+		auto versionA = SemVer(a);
+		auto versionB = SemVer(b);
+
+		assert(compareVersions(versionA, versionB) < 0, "Failed for "~a~" < "~b);
+		assert(compareVersions(versionB, versionA) > 0);
+		assert(compareVersions(versionA, versionA) == 0);
+		assert(compareVersions(versionB, versionB) == 0);
 	}
 	assertLess("1.0.0", "2.0.0");
 	assertLess("2.0.0", "2.1.0");
@@ -195,9 +190,9 @@ unittest {
 	assertLess("1.0.0-beta.2", "1.0.0-beta.11");
 	assertLess("1.0.0-beta.11", "1.0.0-rc.1");
 	assertLess("1.0.0-rc.1", "1.0.0");
-	assert(compareVersions("1.0.0", "1.0.0+1.2.3") == 0);
-	assert(compareVersions("1.0.0", "1.0.0+1.2.3-2") == 0);
-	assert(compareVersions("1.0.0+asdasd", "1.0.0+1.2.3") == 0);
+	assert(compareVersions(SemVer("1.0.0"), SemVer("1.0.0+1.2.3")) == 0);
+	assert(compareVersions(SemVer("1.0.0"), SemVer("1.0.0+1.2.3-2")) == 0);
+	assert(compareVersions(SemVer("1.0.0+asdasd"), SemVer("1.0.0+1.2.3")) == 0);
 	assertLess("2.0.0", "10.0.0");
 	assertLess("1.0.0-2", "1.0.0-10");
 	assertLess("1.0.0-99", "1.0.0-1a");
@@ -206,7 +201,6 @@ unittest {
 	assertLess("1.0.0-alphz", "1.0.0-alphz0");
 	assertLess("1.0.0-alphZ", "1.0.0-alpha");
 }
-
 
 /**
 	Increments a given (partial) version number to the next higher version.
@@ -311,68 +305,6 @@ pure @nogc {
 		if (res != 0) return res;
 		return bempty - aempty;
 	}
-}
-
-private int compareNumber(ref string a, ref string b)
-pure @nogc {
-	int res = 0;
-	while (true) {
-		if (a[0] != b[0] && res == 0) res = a[0] - b[0];
-		a = a[1 .. $]; b = b[1 .. $];
-		auto aempty = !a.length || (a[0] < '0' || a[0] > '9');
-		auto bempty = !b.length || (b[0] < '0' || b[0] > '9');
-		if (aempty != bempty) return bempty - aempty;
-		if (aempty) return res;
-	}
-}
-
-private bool isValidIdentifierChain(string str, bool allow_leading_zeros = false)
-pure @nogc {
-	if (str.length == 0) return false;
-	while (str.length) {
-		auto end = str.indexOf('.');
-		if (end < 0) end = str.length;
-		if (!isValidIdentifier(str[0 .. end], allow_leading_zeros)) return false;
-		if (end < str.length) str = str[end+1 .. $];
-		else break;
-	}
-	return true;
-}
-
-private bool isValidIdentifier(string str, bool allow_leading_zeros = false)
-pure @nogc {
-	if (str.length < 1) return false;
-
-	bool numeric = true;
-	foreach (ch; str) {
-		switch (ch) {
-			default: return false;
-			case 'a': .. case 'z':
-			case 'A': .. case 'Z':
-			case '-':
-				numeric = false;
-				break;
-			case '0': .. case '9':
-				break;
-		}
-	}
-
-	if (!allow_leading_zeros && numeric && str[0] == '0' && str.length > 1) return false;
-
-	return true;
-}
-
-private bool isValidNumber(string str)
-pure @nogc {
-	if (str.length < 1) return false;
-	foreach (ch; str)
-		if (ch < '0' || ch > '9')
-			return false;
-
-	// don't allow leading zeros
-	if (str[0] == '0' && str.length > 1) return false;
-
-	return true;
 }
 
 private ptrdiff_t indexOfAny(string str, in char[] chars)

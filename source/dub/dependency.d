@@ -668,7 +668,16 @@ struct Version {
 		static immutable UNKNOWN_VERS = "unknown";
 		static immutable masterString = "~master";
 		enum branchPrefix = '~';
-		string m_version;
+		enum Type {
+			Branch,
+			SemVer,
+			Unknown
+		}
+		Type type;
+		union {
+			SemVer semver_;
+			string branch_;
+		}
 	}
 
 	static immutable Version minRelease = Version("0.0.0");
@@ -678,12 +687,38 @@ struct Version {
 
 	/** Constructs a new `Version` from its string representation.
 	*/
-	this(string vers)
-	{
+	this(string vers) @trusted {
+		import std.exception : enforce;
+
 		enforce(vers.length > 1, "Version strings must not be empty.");
 		if (vers[0] != branchPrefix && vers.ptr !is UNKNOWN_VERS.ptr)
 			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
-		m_version = vers;
+		if (vers.startsWith("~")) {
+			this.type = Type.Branch;
+			this.branch_ = vers[1 .. $];
+		} else if (vers.ptr is UNKNOWN_VERS.ptr) {
+			this.type = Type.Unknown;
+		} else {
+			this.type = Type.SemVer;
+			this.semver_ = SemVer(vers);
+		}
+	}
+
+	this(SemVer semver) @trusted {
+		this.type = Type.SemVer;
+		this.semver_ = semver;
+	}
+
+	private string branch() const @trusted
+	in (this.type == Type.Branch)
+	{
+		return this.branch_;
+	}
+
+	private SemVer semver() const @trusted
+	in (this.type == Type.SemVer)
+	{
+		return this.semver_;
 	}
 
 	/** Constructs a new `Version` from its string representation.
@@ -696,10 +731,10 @@ struct Version {
 	bool opEquals(const Version oth) const { return opCmp(oth) == 0; }
 
 	/// Tests if this represents a branch instead of a version.
-	@property bool isBranch() const { return m_version.length > 0 && m_version[0] == branchPrefix; }
+	@property bool isBranch() const { return this.type == Type.Branch; }
 
 	/// Tests if this represents the master branch "~master".
-	@property bool isMaster() const { return m_version == masterString; }
+	@property bool isMaster() const { return isBranch && this.branch == "master"; }
 
 	/** Tests if this represents a pre-release version.
 
@@ -707,11 +742,11 @@ struct Version {
 	*/
 	@property bool isPreRelease() const {
 		if (isBranch) return true;
-		return isPreReleaseVersion(m_version);
+		return !semver.prerelease.empty;
 	}
 
 	/// Tests if this represents the special unknown version constant.
-	@property bool isUnknown() const { return m_version == UNKNOWN_VERS; }
+	@property bool isUnknown() const { return this.type == Type.Unknown; }
 
 	/** Compares two versions/branches for precedence.
 
@@ -726,21 +761,37 @@ struct Version {
 			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, other));
 		}
 		if (isBranch || other.isBranch) {
-			if(m_version == other.m_version) return 0;
 			if (!isBranch) return 1;
 			else if (!other.isBranch) return -1;
+			else if (branch == other.branch) return 0;
+
 			if (isMaster) return 1;
 			else if (other.isMaster) return -1;
-			return this.m_version < other.m_version ? -1 : 1;
+			return this.branch < other.branch ? -1 : 1;
 		}
 
-		return compareVersions(m_version, other.m_version);
+		return compareVersions(semver, other.semver);
 	}
 	/// ditto
 	int opCmp(in Version other) const { return opCmp(other); }
 
+	// Returns the hash of the version
+	size_t toHash() const nothrow @trusted {
+		final switch (this.type) {
+			case Type.Branch: return Type.Branch.hashOf ^ this.branch_.hashOf;
+			case Type.Unknown: return Type.Unknown.hashOf;
+			case Type.SemVer: return Type.SemVer.hashOf ^ this.semver_.hashOf;
+		}
+	}
+
 	/// Returns the string representation of the version/branch.
-	string toString() const { return m_version; }
+	string toString() const {
+		final switch (this.type) {
+			case Type.Branch: return format!"~%s"(this.branch);
+			case Type.Unknown: return UNKNOWN_VERS;
+			case Type.SemVer: return this.semver.toString;
+		}
+	}
 }
 
 unittest {

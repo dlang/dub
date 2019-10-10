@@ -650,7 +650,7 @@ class Package {
 		else {
 			enum dv = dubVersion;
 		}
-		static assert(isValidVersion(dv));
+		assert(isValidVersion(dv), format!"dub built with invalid version '%s'"(dv));
 
 		enforce(dep.matches(dv),
 			"dub-" ~ dv ~ " does not comply with toolchainRequirements.dub "
