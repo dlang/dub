@@ -252,6 +252,38 @@ unittest {
 }
 
 /**
+	Increments a given version number to the next incompatible version.
+
+	Prerelease and build metadata information is removed.
+
+	This implements the "^" comparison operator, which represents "nonbreaking semver compatibility."
+	With 0.x.y releases, any release can break.
+	With x.y.z releases, only major releases can break.
+*/
+string bumpIncompatibleVersion(string ver)
+pure {
+	// Cut off metadata and prerelease information.
+	auto mi = ver.indexOfAny("+-");
+	if (mi > 0) ver = ver[0..mi];
+	// Increment next to last version from a[.b[.c]].
+	auto splitted = () @trusted { return split(ver, "."); } (); // DMD 2.065.0
+	assert(splitted.length == 3, "Version corrupt: " ~ ver);
+	if (splitted[0] == "0") splitted[2] = to!string(to!int(splitted[2]) + 1);
+	else splitted = [to!string(to!int(splitted[0]) + 1), "0", "0"];
+	return splitted.join(".");
+}
+///
+unittest {
+	assert(bumpIncompatibleVersion("0.0.0") == "0.0.1");
+	assert(bumpIncompatibleVersion("0.1.2") == "0.1.3");
+	assert(bumpIncompatibleVersion("1.0.0") == "2.0.0");
+	assert(bumpIncompatibleVersion("1.2.3") == "2.0.0");
+	assert(bumpIncompatibleVersion("1.2.3+metadata") == "2.0.0");
+	assert(bumpIncompatibleVersion("1.2.3-pre.release") == "2.0.0");
+	assert(bumpIncompatibleVersion("1.2.3-pre.release+metadata") == "2.0.0");
+}
+
+/**
 	Takes a partial version and expands it to a valid SemVer version.
 
 	This function corresponds to the semantivs of the "~>" comparison operator's
