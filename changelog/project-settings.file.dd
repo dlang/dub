@@ -1,4 +1,0 @@
-Support for dub global settings file at the root package level
-
-Dub settings file can now also be added to project root folder
-and has the highest priority.
