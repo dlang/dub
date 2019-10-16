@@ -128,6 +128,8 @@ struct Dependency {
 			$(LI `">1.0.0 <2.0.0"` - version range with two bounds)
 			$(LI `"~>1.0.0"` - a fuzzy version range)
 			$(LI `"~>1.0"` - a fuzzy version range with partial version)
+			$(LI `"^1.0.0"` - semver compatible version range (same version if 0.x.y, ==major >=minor.patch if x.y.z))
+			$(LI `"^1.0"` - same as ^1.0.0)
 			$(LI `"~master"` - a branch name)
 			$(LI `"*" - match any version (see also `any`))
 		)
@@ -156,6 +158,16 @@ struct Dependency {
 			ves = ves[2..$];
 			m_versA = Version(expandVersion(ves));
 			m_versB = Version(bumpVersion(ves) ~ "-0");
+		} else if (ves.startsWith("^")) {
+			// Shortcut: "^x.y.z" variant. "Semver compatible" - no breaking changes.
+			// if 0.x.y, ==0.x.y
+			// if x.y.z, >=x.y.z <(x+1).0.0-0
+			// ^x.y is equivalent to ^x.y.0.
+			m_inclusiveA = true;
+			m_inclusiveB = false;
+			ves = ves[1..$].expandVersion;
+			m_versA = Version(ves);
+			m_versB = Version(bumpIncompatibleVersion(ves) ~ "-0");
 		} else if (ves[0] == Version.branchPrefix) {
 			m_inclusiveA = true;
 			m_inclusiveB = true;
@@ -214,7 +226,7 @@ struct Dependency {
 			else return m_versA.toString();
 		}
 
-		// "~>" case
+		// "~>", "^" case
 		if (m_inclusiveA && !m_inclusiveB && !m_versA.isBranch) {
 			auto vs = m_versA.toString();
 			auto i1 = std.string.indexOf(vs, '-'), i2 = std.string.indexOf(vs, '+');
@@ -228,6 +240,9 @@ struct Dependency {
 				auto ve = Version(expandVersion(vp));
 				auto veb = Version(bumpVersion(vp) ~ "-0");
 				if (ve == m_versA && veb == m_versB) return "~>" ~ vp;
+
+				auto veb2 = Version(bumpIncompatibleVersion(expandVersion(vp)) ~ "-0");
+				if (ve == m_versA && veb2 == m_versB) return "^" ~ vp;
 			}
 		}
 
@@ -378,7 +393,7 @@ struct Dependency {
 	}
 
 	/// ditto
-	hash_t toHash()
+	size_t toHash()
 	const nothrow @trusted  {
 		try {
 			size_t hash = 0;
@@ -592,6 +607,13 @@ unittest {
 	assert(a == Dependency(">=3.5.0 <3.6.0-0"), "Testing failed: " ~ a.toString());
 	assert(!Dependency("~>3.0.0").matches(Version("3.1.0-beta")));
 
+	a = Dependency("^0.1.2");
+	assert(a == Dependency(">=0.1.2 <0.1.3-0"));
+	a = Dependency("^1.2.3");
+	assert(a == Dependency(">=1.2.3 <2.0.0-0"), "Testing failed: " ~ a.toString());
+	a = Dependency("^1.2");
+	assert(a == Dependency(">=1.2.0 <2.0.0-0"), "Testing failed: " ~ a.toString());
+
 	a = Dependency("~>0.1.1");
 	b = Dependency("==0.1.0");
 	assert(!a.merge(b).valid);
@@ -651,6 +673,9 @@ unittest {
 	assert(Dependency("~>1.4").versionSpec == "~>1.4");
 	assert(Dependency("~>2").versionSpec == "~>2");
 	assert(Dependency("~>1.0.4+1.2.3").versionSpec == "~>1.0.4");
+	assert(Dependency("^0.1.2").versionSpec == "^0.1.2");
+	assert(Dependency("^1.2.3").versionSpec == "^1.2.3");
+	assert(Dependency("^1.2").versionSpec == "~>1.2"); // equivalent; prefer ~>
 }
 
 

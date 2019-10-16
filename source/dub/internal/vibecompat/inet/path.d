@@ -266,9 +266,9 @@ struct NativePath {
 		return 0;
 	}
 
-	hash_t toHash()
+	size_t toHash()
 	const nothrow @trusted {
-		hash_t ret;
+		size_t ret;
 		auto strhash = &typeid(string).getHash;
 		try foreach (n; nodes) ret ^= strhash(&n.m_name);
 		catch (Exception) assert(false);

@@ -194,7 +194,7 @@ class VisualDGenerator : ProjectGenerator {
 					addFile(p.recipePath.toNativeString(), false);
 
 			if (files.targetType == TargetType.staticLibrary)
-				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(s))) addFile(s, true);
+				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(settings.platform, s))) addFile(s, true);
 			else
 				foreach(s; files.sourceFiles.filter!(s => !s.endsWith(".lib"))) addFile(s, true);
 
@@ -455,7 +455,7 @@ class VisualDGenerator : ProjectGenerator {
 		NativePath filePath;
 		bool build;
 
-		hash_t toHash() const nothrow @trusted { return structurePath.toHash() ^ filePath.toHash() ^ (build * 0x1f3e7b2c); }
+		size_t toHash() const nothrow @trusted { return structurePath.toHash() ^ filePath.toHash() ^ (build * 0x1f3e7b2c); }
 		int opCmp(ref const SourceFile rhs) const { return sortOrder(this, rhs); }
 		// "a < b" for folder structures (deepest folder first, else lexical)
 		private final static int sortOrder(ref const SourceFile a, ref const SourceFile b) {

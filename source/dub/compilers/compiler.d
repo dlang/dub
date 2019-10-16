@@ -72,7 +72,7 @@ interface Compiler {
 
 	/// Replaces high level fields with low level fields and converts
 	/// dmd flags to compiler-specific flags
-	void prepareBuildSettings(ref BuildSettings settings, BuildSetting supported_fields = BuildSetting.all) const;
+	void prepareBuildSettings(ref BuildSettings settings, in ref BuildPlatform platform, BuildSetting supported_fields = BuildSetting.all) const;
 
 	/// Removes any dflags that match one of the BuildOptions values and populates the BuildSettings.options field.
 	void extractBuildOptions(ref BuildSettings settings) const;

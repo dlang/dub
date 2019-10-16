@@ -80,7 +80,7 @@ struct URL {
 			auto si = str.countUntil('/');
 			if( si < 0 ) si = str.length;
 			auto ai = str[0 .. si].countUntil('@');
-			sizediff_t hs = 0;
+			ptrdiff_t hs = 0;
 			if( ai >= 0 ){
 				hs = ai+1;
 				auto ci = str[0 .. ai].countUntil(':');

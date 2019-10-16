@@ -27,15 +27,15 @@ class LDCCompiler : Compiler {
 	private static immutable s_options = [
 		tuple(BuildOption.debugMode, ["-d-debug"]),
 		tuple(BuildOption.releaseMode, ["-release"]),
-		//tuple(BuildOption.coverage, ["-?"]),
+		tuple(BuildOption.coverage, ["-cov"]),
 		tuple(BuildOption.debugInfo, ["-g"]),
 		tuple(BuildOption.debugInfoC, ["-gc"]),
-		//tuple(BuildOption.alwaysStackFrame, ["-?"]),
+		tuple(BuildOption.alwaysStackFrame, ["-disable-fp-elim"]),
 		//tuple(BuildOption.stackStomping, ["-?"]),
 		tuple(BuildOption.inline, ["-enable-inlining", "-Hkeep-all-bodies"]),
 		tuple(BuildOption.noBoundsCheck, ["-boundscheck=off"]),
 		tuple(BuildOption.optimize, ["-O3"]),
-		//tuple(BuildOption.profile, ["-?"]),
+		tuple(BuildOption.profile, ["-fdmd-trace-functions"]),
 		tuple(BuildOption.unittests, ["-unittest"]),
 		tuple(BuildOption.verbose, ["-v"]),
 		tuple(BuildOption.ignoreUnknownPragmas, ["-ignore"]),
@@ -80,10 +80,15 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 	{
 		string[] arch_flags;
 		switch (arch_override) {
-			default: throw new Exception("Unsupported architecture: "~arch_override);
 			case "": break;
 			case "x86": arch_flags = ["-march=x86"]; break;
 			case "x86_64": arch_flags = ["-march=x86-64"]; break;
+			default:
+				if (arch_override.canFind('-'))
+					arch_flags = ["-mtriple="~arch_override];
+				else
+					throw new Exception("Unsupported architecture: "~arch_override);
+				break;
 		}
 		settings.addDFlags(arch_flags);
 
@@ -94,7 +99,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		);
 	}
 
-	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
+	void prepareBuildSettings(ref BuildSettings settings, in ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
 	{
 		enforceBuildRequirements(settings);
 
@@ -133,7 +138,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		}
 
 		if (!(fields & BuildSetting.libs)) {
-			resolveLibs(settings);
+			resolveLibs(settings, platform);
 			settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
 		}
 
@@ -169,26 +174,30 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 	const {
 		assert(settings.targetName.length > 0, "No target name set.");
 
+		const p = platform.platform;
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
 			case TargetType.none: return null;
 			case TargetType.sourceLibrary: return null;
 			case TargetType.executable:
-				if (platform.platform.canFind("windows"))
+				if (p.canFind("windows"))
 					return settings.targetName ~ ".exe";
+				else if (p.canFind("wasm"))
+					return settings.targetName ~ ".wasm";
 				else return settings.targetName;
 			case TargetType.library:
 			case TargetType.staticLibrary:
-				if (generatesCOFF(platform)) return settings.targetName ~ ".lib";
+				if (p.canFind("windows") && !p.canFind("mingw"))
+					return settings.targetName ~ ".lib";
 				else return "lib" ~ settings.targetName ~ ".a";
 			case TargetType.dynamicLibrary:
-				if (platform.platform.canFind("windows"))
+				if (p.canFind("windows"))
 					return settings.targetName ~ ".dll";
-				else if (platform.platform.canFind("osx"))
+				else if (p.canFind("osx"))
 					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
-				if (platform.platform.canFind("windows"))
+				if (p.canFind("windows"))
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
 		}
@@ -231,7 +240,21 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
 	{
-		assert(false, "Separate linking not implemented for LDC");
+		import std.string;
+		auto tpath = NativePath(settings.targetPath) ~ getTargetFileName(settings, platform);
+		auto args = ["-of"~tpath.toNativeString()];
+		args ~= objects;
+		args ~= settings.sourceFiles;
+		if (platform.platform.canFind("linux"))
+			args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order
+		args ~= lflagsToDFlags(settings.lflags);
+		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
+
+		auto res_file = getTempFile("dub-build", ".lnk");
+		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
+
+		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
 	}
 
 	string[] lflagsToDFlags(in string[] lflags) const
@@ -244,28 +267,23 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
 	}
 
-	private static bool generatesCOFF(in BuildPlatform platform)
+	private static bool isLinkerDFlag(string arg)
 	{
-		import std.string : splitLines, strip;
-		import std.uni : toLower;
-
-		static bool[string] compiler_coff_map;
-
-		if (auto pret = platform.compilerBinary in compiler_coff_map)
-			return *pret;
-
-		auto result = executeShell(escapeShellCommand([platform.compilerBinary, "-version"]));
-		enforce (result.status == 0, "Failed to determine linker used by LDC. \""
-			~platform.compilerBinary~" -version\" failed with exit code "
-			~result.status.to!string()~".");
-
-		bool ret = result.output
-			.splitLines
-			.find!(l => l.strip.toLower.startsWith("default target:"))
-			.front
-			.canFind("msvc");
-
-		compiler_coff_map[platform.compilerBinary] = ret;
-		return ret;
+		switch (arg) {
+			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib",
+			     "-betterC", "-disable-linker-strip-dead", "-static":
+				return true;
+			default:
+				return arg.startsWith("-L")
+				    || arg.startsWith("-Xcc=")
+				    || arg.startsWith("-defaultlib=")
+				    || arg.startsWith("-flto")
+				    || arg.startsWith("-fsanitize=")
+				    || arg.startsWith("-link-")
+				    || arg.startsWith("-linker=")
+				    || arg.startsWith("-march=")
+				    || arg.startsWith("-mscrtlib=")
+				    || arg.startsWith("-mtriple=");
+		}
 	}
 }

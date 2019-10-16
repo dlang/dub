@@ -226,7 +226,11 @@ struct BuildSettingsTemplate {
 			auto files = appender!(string[]);
 
 			import dub.project : buildSettingsVars;
-			auto envVars = environment.toAA();
+			import std.typecons : Nullable;
+
+			static Nullable!(string[string]) envVarCache;
+
+			if (envVarCache.isNull) envVarCache = environment.toAA();
 
 			foreach (suffix, paths; paths_map) {
 				if (!platform.matchesSpecification(suffix))
@@ -238,7 +242,7 @@ struct BuildSettingsTemplate {
 					if (!path.absolute) path = base_path ~ path;
 					if (!existsFile(path) || !isDir(path.toNativeString())) {
 						import std.algorithm : any, find;
-						const hasVar = chain(buildSettingsVars, envVars.byKey).any!((string var) {
+						const hasVar = chain(buildSettingsVars, envVarCache.get.byKey).any!((string var) {
 							return spath.find("$"~var).length > 0 || spath.find("${"~var~"}").length > 0;
 						});
 						if (!hasVar)

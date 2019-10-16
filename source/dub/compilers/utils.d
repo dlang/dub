@@ -40,37 +40,36 @@ void enforceBuildRequirements(ref BuildSettings settings)
 	Linker files include static/dynamic libraries, resource files, object files
 	and DLL definition files.
 */
-bool isLinkerFile(string f)
+bool isLinkerFile(in ref BuildPlatform platform, string f)
 {
 	import std.path;
 	switch (extension(f)) {
 		default:
 			return false;
-		version (Windows) {
-			case ".lib", ".obj", ".res", ".def":
-				return true;
-		} else {
-			case ".a", ".o", ".so", ".dylib":
-				return true;
-		}
+		case ".lib", ".obj", ".res", ".def":
+			return platform.platform.canFind("windows");
+		case ".a", ".o", ".so", ".dylib":
+			return !platform.platform.canFind("windows");
 	}
 }
 
 unittest {
-	version (Windows) {
-		assert(isLinkerFile("test.obj"));
-		assert(isLinkerFile("test.lib"));
-		assert(isLinkerFile("test.res"));
-		assert(!isLinkerFile("test.o"));
-		assert(!isLinkerFile("test.d"));
-	} else {
-		assert(isLinkerFile("test.o"));
-		assert(isLinkerFile("test.a"));
-		assert(isLinkerFile("test.so"));
-		assert(isLinkerFile("test.dylib"));
-		assert(!isLinkerFile("test.obj"));
-		assert(!isLinkerFile("test.d"));
-	}
+	BuildPlatform p;
+
+	p.platform = ["windows"];
+	assert(isLinkerFile(p, "test.obj"));
+	assert(isLinkerFile(p, "test.lib"));
+	assert(isLinkerFile(p, "test.res"));
+	assert(!isLinkerFile(p, "test.o"));
+	assert(!isLinkerFile(p, "test.d"));
+
+	p.platform = ["something else"];
+	assert(isLinkerFile(p, "test.o"));
+	assert(isLinkerFile(p, "test.a"));
+	assert(isLinkerFile(p, "test.so"));
+	assert(isLinkerFile(p, "test.dylib"));
+	assert(!isLinkerFile(p, "test.obj"));
+	assert(!isLinkerFile(p, "test.d"));
 }
 
 
@@ -80,7 +79,7 @@ unittest {
 	This function tries to invoke "pkg-config" if possible and falls back to
 	direct flag translation if that fails.
 */
-void resolveLibs(ref BuildSettings settings)
+void resolveLibs(ref BuildSettings settings, in ref BuildPlatform platform)
 {
 	import std.string : format;
 	import std.array : array;
@@ -90,7 +89,8 @@ void resolveLibs(ref BuildSettings settings)
 	if (settings.targetType == TargetType.library || settings.targetType == TargetType.staticLibrary) {
 		logDiagnostic("Ignoring all import libraries for static library build.");
 		settings.libs = null;
-		version(Windows) settings.sourceFiles = settings.sourceFiles.filter!(f => !f.endsWith(".lib")).array;
+		if (platform.platform.canFind("windows"))
+			settings.sourceFiles = settings.sourceFiles.filter!(f => !f.endsWith(".lib")).array;
 	}
 
 	version (Posix) {
