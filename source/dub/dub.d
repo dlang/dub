@@ -559,7 +559,7 @@ class Dub {
 		import std.parallelism : TaskPool, totalCPUs;
 		// Avoid being blocked by a slow download (even on a single-threaded machines)
         auto taskPool = new TaskPool(totalCPUs.clamp(3, 6));
-		foreach (p; taskPool.parallel(versions.byKey, 1)) {
+		foreach (p; taskPool.parallel(versions.byKey.array, 1)) {
 			auto ver = versions[p]; // Workaround for DMD 2.070.0 AA issue (crashes in aaApply2 if iterating by key+value)
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
