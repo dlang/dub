@@ -77,7 +77,7 @@ struct Dependency {
 	/** Constructs a new dependency specification that matches a specific
 		version.
 	*/
-	this(in Version ver)
+	this(const Version ver)
 	{
 		m_inclusiveA = m_inclusiveB = true;
 		m_versA = ver;
