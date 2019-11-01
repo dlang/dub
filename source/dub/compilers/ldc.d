@@ -184,7 +184,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 					return settings.targetName ~ ".exe";
 				else if (p.canFind("wasm"))
 					return settings.targetName ~ ".wasm";
-				else return settings.targetName;
+				else return settings.targetName.idup;
 			case TargetType.library:
 			case TargetType.staticLibrary:
 				if (p.canFind("windows") && !p.canFind("mingw"))

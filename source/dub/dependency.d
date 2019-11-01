@@ -77,7 +77,7 @@ struct Dependency {
 	/** Constructs a new dependency specification that matches a specific
 		version.
 	*/
-	this(in Version ver)
+	this(const Version ver)
 	{
 		m_inclusiveA = m_inclusiveB = true;
 		m_versA = ver;
@@ -373,7 +373,7 @@ struct Dependency {
 		These methods are suitable for equality comparisons, as well as for
 		using `Dependency` as a key in hash or tree maps.
 	*/
-	bool opEquals(in Dependency o)
+	bool opEquals(const Dependency o)
 	const {
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
 		return o.m_inclusiveA == m_inclusiveA && o.m_inclusiveB == m_inclusiveB
@@ -382,7 +382,7 @@ struct Dependency {
 	}
 
 	/// ditto
-	int opCmp(in Dependency o)
+	int opCmp(const Dependency o)
 	const {
 		if (m_inclusiveA != o.m_inclusiveA) return m_inclusiveA < o.m_inclusiveA ? -1 : 1;
 		if (m_inclusiveB != o.m_inclusiveB) return m_inclusiveB < o.m_inclusiveB ? -1 : 1;
@@ -762,7 +762,7 @@ struct Version {
 		return compareVersions(m_version, other.m_version);
 	}
 	/// ditto
-	int opCmp(in Version other) const { return opCmp(other); }
+	int opCmp(const Version other) const { return opCmp(other); }
 
 	/// Returns the string representation of the version/branch.
 	string toString() const { return m_version; }

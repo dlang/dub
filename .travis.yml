@@ -21,8 +21,8 @@ jobs:
     - d: gdc
   include:
     - stage: test
-      d: dmd-2.086.0
-      env: [FRONTEND=2.086]
+      d: dmd-2.088.1
+      env: [FRONTEND=2.088]
     - d: dmd-2.081.1
       env: [FRONTEND=2.081]
     - d: dmd-2.080.1

@@ -217,7 +217,7 @@ config    /etc/dmd.conf
 			case TargetType.executable:
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".exe";
-				else return settings.targetName;
+				else return settings.targetName.idup;
 			case TargetType.library:
 			case TargetType.staticLibrary:
 				if (platform.platform.canFind("windows"))
