@@ -385,16 +385,19 @@ class ProjectGenerator
 		}
 
 		// 5. override string import files in dependencies
-		static void overrideStringImports(ref TargetInfo ti, TargetInfo[string] targets, string[] overrides)
+		static void overrideStringImports(ref TargetInfo target,
+			ref TargetInfo parent, TargetInfo[string] targets, string[] overrides)
 		{
 			// do not use visited here as string imports can be overridden by *any* parent
 			//
 			// special support for overriding string imports in parent packages
 			// this is a candidate for deprecation, once an alternative approach
 			// has been found
-			if (ti.buildSettings.stringImportPaths.length) {
+			if (target.buildSettings.stringImportPaths.length) {
+				bool any_override = false;
+
 				// override string import files (used for up to date checking)
-				foreach (ref f; ti.buildSettings.stringImportFiles)
+				foreach (ref f; target.buildSettings.stringImportFiles)
 				{
 					foreach (o; overrides)
 					{
@@ -402,19 +405,30 @@ class ProjectGenerator
 						if (f != o && NativePath(f).head == (op = NativePath(o)).head) {
 							logDebug("string import %s overridden by %s", f, o);
 							f = o;
-							ti.buildSettings.prependStringImportPaths(op.parentPath.toNativeString);
+							any_override = true;
 						}
 					}
 				}
+
+				// override string import paths by prepending to the list, in
+				// case there is any overlapping file
+				if (any_override)
+					target.buildSettings.prependStringImportPaths(parent.buildSettings.stringImportPaths);
 			}
-			// add to overrides for recursion
-			overrides ~= ti.buildSettings.stringImportFiles;
-			// override dependencies
-			foreach (depname; ti.dependencies)
-				overrideStringImports(targets[depname], targets, overrides);
+
+			// add all files to overrides for recursion
+			overrides ~= target.buildSettings.stringImportFiles;
+
+			// recursively override all dependencies with the accumulated files/paths
+			foreach (depname; target.dependencies)
+				overrideStringImports(targets[depname], target, targets, overrides);
 		}
 
-		overrideStringImports(targets[rootPackage.name], targets, null);
+		// push string import paths/files down to all direct and indirect
+		// dependencies, overriding their own
+		foreach (depname; roottarget.dependencies)
+			overrideStringImports(targets[depname], *roottarget, targets,
+				roottarget.buildSettings.stringImportFiles);
 
 		// remove targets without output
 		foreach (name; targets.keys)
