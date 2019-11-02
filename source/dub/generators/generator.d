@@ -174,6 +174,8 @@ class ProjectGenerator
 		import std.algorithm : remove, sort;
 		import std.range : repeat;
 
+		auto roottarget = &targets[rootPackage.name];
+
 		// 0. do shallow configuration (not including dependencies) of all packages
 		TargetType determineTargetType(const ref TargetInfo ti)
 		{
@@ -234,7 +236,7 @@ class ProjectGenerator
 
 		// add main source files to root executable
 		{
-			auto bs = &targets[rootPackage.name].buildSettings;
+			auto bs = &roottarget.buildSettings;
 			if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainSourceFiles);
 		}
 
@@ -302,7 +304,7 @@ class ProjectGenerator
 				"Package with target type \"none\" must have dependencies to build.");
 		}
 
-		collectDependencies(rootPackage, targets[rootPackage.name], targets);
+		collectDependencies(rootPackage, *roottarget, targets);
 		static if (__VERSION__ > 2070)
 			visited.clear();
 		else
@@ -322,7 +324,7 @@ class ProjectGenerator
 			}
 		}
 
-		configureDependencies(targets[rootPackage.name], targets);
+		configureDependencies(*roottarget, targets);
 
 		// 2. add Have_dependency_xyz for all direct dependencies of a target
 		// (includes incorporated non-target dependencies and their dependencies)
@@ -357,7 +359,7 @@ class ProjectGenerator
 			}
 		}
 
-		configureDependents(targets[rootPackage.name], targets);
+		configureDependents(*roottarget, targets);
 		static if (__VERSION__ > 2070)
 			visited.clear();
 		else
