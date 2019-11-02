@@ -177,6 +177,7 @@ class GDCCompiler : Compiler {
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
+			case TargetType.unlinkedObjects: return null;
 		}
 	}
 
@@ -195,6 +196,9 @@ class GDCCompiler : Compiler {
 			case TargetType.dynamicLibrary:
 				settings.addDFlags("-shared", "-fPIC");
 				break;
+			case TargetType.unlinkedObjects:
+				// no support for outputting obj files into separate folder and dub compiles all at once right now
+				throw new Exception("targetType unlinkedObjects not supported for GDC");
 		}
 
 		if (tpath is null)

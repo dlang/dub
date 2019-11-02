@@ -1,0 +1,3 @@
+name "targettype-unlinkedobjects"
+targetType "unlinkedObjects"
+sourceFiles "z.d"

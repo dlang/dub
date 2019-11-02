@@ -110,7 +110,11 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		}
 
 		// since LDC always outputs multiple object files, avoid conflicts by default
-		settings.addDFlags("-oq", "-od=.dub/obj");
+		// for unlinked objects, keep folder hierarchy for cache/up-to-date tests
+		if (settings.targetType == TargetType.unlinkedObjects)
+			settings.addDFlags("-c", "-oq", "-od=" ~ (NativePath(settings.targetPath) ~ NativePath("obj")).toNativeString());
+		else
+			settings.addDFlags("-oq", "-od=.dub/obj");
 
 		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-d-version="~s)().array());
@@ -200,6 +204,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				if (p.canFind("windows"))
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
+			case TargetType.unlinkedObjects: return null;
 		}
 	}
 
@@ -209,6 +214,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
 			case TargetType.none: assert(false, "Invalid target type: none");
 			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
+			case TargetType.unlinkedObjects: assert(false, "Invalid target type: unlinkedObjects");
 			case TargetType.executable: break;
 			case TargetType.library:
 			case TargetType.staticLibrary:
