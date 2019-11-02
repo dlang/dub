@@ -388,33 +388,38 @@ class ProjectGenerator
 		static void overrideStringImports(ref TargetInfo target,
 			ref TargetInfo parent, TargetInfo[string] targets, string[] overrides)
 		{
+			// Since string import paths are inherited from dependencies in the
+			// inheritance step above (step 3), it is guaranteed that all
+			// following dependencies will not have string import paths either,
+			// so we can skip the recursion here
+			if (!target.buildSettings.stringImportPaths.length)
+				return;
+
 			// do not use visited here as string imports can be overridden by *any* parent
 			//
 			// special support for overriding string imports in parent packages
 			// this is a candidate for deprecation, once an alternative approach
 			// has been found
-			if (target.buildSettings.stringImportPaths.length) {
-				bool any_override = false;
+			bool any_override = false;
 
-				// override string import files (used for up to date checking)
-				foreach (ref f; target.buildSettings.stringImportFiles)
+			// override string import files (used for up to date checking)
+			foreach (ref f; target.buildSettings.stringImportFiles)
+			{
+				foreach (o; overrides)
 				{
-					foreach (o; overrides)
-					{
-						NativePath op;
-						if (f != o && NativePath(f).head == (op = NativePath(o)).head) {
-							logDebug("string import %s overridden by %s", f, o);
-							f = o;
-							any_override = true;
-						}
+					NativePath op;
+					if (f != o && NativePath(f).head == (op = NativePath(o)).head) {
+						logDebug("string import %s overridden by %s", f, o);
+						f = o;
+						any_override = true;
 					}
 				}
-
-				// override string import paths by prepending to the list, in
-				// case there is any overlapping file
-				if (any_override)
-					target.buildSettings.prependStringImportPaths(parent.buildSettings.stringImportPaths);
 			}
+
+			// override string import paths by prepending to the list, in
+			// case there is any overlapping file
+			if (any_override)
+				target.buildSettings.prependStringImportPaths(parent.buildSettings.stringImportPaths);
 
 			// add all files to overrides for recursion
 			overrides ~= target.buildSettings.stringImportFiles;
