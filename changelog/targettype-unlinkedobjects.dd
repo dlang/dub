@@ -1,0 +1,7 @@
+Added targetType "unlinkedObjects"
+
+With "unlinkedObjects" all generated object files will be written into `$DUB_TARGET_PATH/obj/`. By default this is only .o files (or .obj on windows) but this is completely up to the compiler and dub doesn't restrict anything here. On LDC it's possible to specify `-output-ll` to output LLVM IR files instead or `-output-s` to output assembly files instead and they will just be put in the object folder like anything else the compiler generates.
+
+This is useful for having a separate build step taking in the raw object files and cross linking to another system or optimizing them further. It also allows to use the LLVM IR and optimize it and compile it to any other platform. With LDC it is also possible to compile the code to assembly files using this target type.
+
+This is pretty much equivalent to passing `-c` and removing the `-of` argument and only leaving `-od` to a user directory.
