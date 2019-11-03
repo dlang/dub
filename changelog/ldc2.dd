@@ -1,7 +1,0 @@
-Improved support for LDC, incl. cross-compilation
-
-The ldc2 driver now supports
-* some more command-line options (coverage, profiling, keeping stack frame),
-* separate linking,
-* cross-compilation by specifying the target triple (LDC `-mtriple`) as `--arch`, e.g., `--arch=x86_64-pc-windows-msvc`.
-  Check out https://wiki.dlang.org/Cross-compiling_with_LDC for how to setup LDC.
