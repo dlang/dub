@@ -200,6 +200,9 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	if ("default" in attrs)
 		dep.default_ = attrs["default"][0].value.get!bool;
 
+	if ("platform" in attrs)
+		dep.platform = attrs["platform"][0].value.get!string;
+
 	bs.dependencies[pkg] = dep;
 }
 
@@ -244,6 +247,7 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 		if (!d.path.empty) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
 		else attribs ~= new Attribute(null, "version", Value(d.versionSpec));
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
+		if (d.platform) attribs ~= new Attribute(null, "platform", Value(d.platform));
 		ret ~= new Tag(null, "dependency", [Value(pack)], attribs);
 	}
 	if (bs.systemDependencies !is null) add("systemDependencies", bs.systemDependencies);
@@ -398,7 +402,7 @@ x:ddoxFilterArgs "-arg3"
 x:ddoxTool "ddoxtool"
 
 dependency ":subpackage1" optional=false path="."
-dependency "somedep" version="1.0.0" optional=true
+dependency "somedep" version="1.0.0" optional=true platform="linux"
 systemDependencies "system dependencies"
 targetType "executable"
 targetName "target name"
@@ -491,9 +495,11 @@ lflags "lf3"
 	assert(rec.buildSettings.dependencies.length == 2);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].optional == false);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].path == NativePath("."));
+	assert(rec.buildSettings.dependencies["projectname:subpackage1"].platform == "");
 	assert(rec.buildSettings.dependencies["somedep"].versionSpec == "1.0.0");
 	assert(rec.buildSettings.dependencies["somedep"].optional == true);
 	assert(rec.buildSettings.dependencies["somedep"].path.empty);
+	assert(rec.buildSettings.dependencies["somedep"].platform == "linux");
 	assert(rec.buildSettings.systemDependencies == "system dependencies");
 	assert(rec.buildSettings.targetType == TargetType.executable);
 	assert(rec.buildSettings.targetName == "target name");

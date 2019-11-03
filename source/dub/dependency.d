@@ -56,6 +56,7 @@ struct Dependency {
 		NativePath m_path;
 		bool m_optional = false;
 		bool m_default = false;
+		string m_platform;
 	}
 
 	/// A Dependency, which matches every valid version.
@@ -107,6 +108,11 @@ struct Dependency {
 	@property bool default_() const { return m_default; }
 	/// ditto
 	@property void default_(bool value) { m_default = value; }
+
+	/// If set, only applies to specific platform.
+	@property string platform() const { return m_platform; }
+	/// ditto
+	@property void platform(string value) { m_platform = value; }
 
 	/// Returns true $(I iff) the version range only matches a specific version.
 	@property bool isExactVersion() const { return m_versA == m_versB; }
