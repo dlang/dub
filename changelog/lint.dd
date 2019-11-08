@@ -1,9 +1,0 @@
-Lint command added
-
-Dub supports now command `lint`, which will execute D-Scanner on the dub package.
-By default `dub lint` will execute style check. Import paths to dependent dub
-packages will be passed to D-Scanner.
-
-$(CONSOLE
-> dub lint
-)
