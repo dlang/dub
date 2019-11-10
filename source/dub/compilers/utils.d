@@ -314,19 +314,19 @@ NativePath generatePlatformProbeFile()
 			return res;
 		}
 
-		pragma(msg, } ~ `"` ~ probeBeginMark ~ `"` ~q{ );
-		pragma(msg, `{`);
-		pragma(msg,`  "compiler": "`~ determineCompiler() ~ `",`);
-		pragma(msg, `  "frontendVersion": ` ~ toString!__VERSION__ ~ `,`);
-		pragma(msg, `  "compilerVendor": "` ~ __VENDOR__ ~ `",`);
-		pragma(msg, `  "platform": [`);
-		pragma(msg, `    ` ~ determinePlatform().stringArray);
-		pragma(msg, `  ],`);
-		pragma(msg, `  "architecture": [`);
-		pragma(msg, `    ` ~ determineArchitecture().stringArray);
-		pragma(msg, `   ],`);
-		pragma(msg, `}`);
-		pragma(msg, } ~ `"` ~ probeEndMark ~ `"` ~ q{ );
+		pragma(msg, } ~ `"` ~ probeBeginMark ~ `"` ~q{
+			~ '\n' ~ `{`
+			~ '\n' ~ `  "compiler": "`~ determineCompiler() ~ `",`
+			~ '\n' ~ `  "frontendVersion": ` ~ toString!__VERSION__ ~ `,`
+			~ '\n' ~ `  "compilerVendor": "` ~ __VENDOR__ ~ `",`
+			~ '\n' ~ `  "platform": [`
+			~ '\n' ~ `    ` ~ determinePlatform().stringArray
+			~ '\n' ~ `  ],`
+			~ '\n' ~ `  "architecture": [`
+			~ '\n' ~ `    ` ~ determineArchitecture().stringArray
+			~ '\n' ~ `   ],`
+			~ '\n' ~ `}`
+			~ '\n' ~ } ~ `"` ~ probeEndMark ~ `"` ~ q{ );
 
 		string[] determinePlatform() } ~ '{' ~ platformCheck ~ '}' ~ q{
 		string[] determineArchitecture() } ~ '{' ~ archCheck ~ '}' ~ q{
