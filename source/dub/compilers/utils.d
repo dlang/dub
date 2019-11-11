@@ -298,6 +298,7 @@ NativePath generatePlatformProbeFile()
 	import dub.internal.vibecompat.core.file;
 	import dub.internal.vibecompat.data.json;
 	import dub.internal.utils;
+	import std.string : format;
 
 	// try to not use phobos in the probe to avoid long import times
 	enum probe = q{
@@ -314,23 +315,25 @@ NativePath generatePlatformProbeFile()
 			return res;
 		}
 
-		pragma(msg, } ~ `"` ~ probeBeginMark ~ `"` ~q{ );
-		pragma(msg, `{`);
-		pragma(msg,`  "compiler": "`~ determineCompiler() ~ `",`);
-		pragma(msg, `  "frontendVersion": ` ~ toString!__VERSION__ ~ `,`);
-		pragma(msg, `  "compilerVendor": "` ~ __VENDOR__ ~ `",`);
-		pragma(msg, `  "platform": [`);
-		pragma(msg, `    ` ~ determinePlatform().stringArray);
-		pragma(msg, `  ],`);
-		pragma(msg, `  "architecture": [`);
-		pragma(msg, `    ` ~ determineArchitecture().stringArray);
-		pragma(msg, `   ],`);
-		pragma(msg, `}`);
-		pragma(msg, } ~ `"` ~ probeEndMark ~ `"` ~ q{ );
+		pragma(msg, `%1$s`
+			~ '\n' ~ `{`
+			~ '\n' ~ `  "compiler": "`~ determineCompiler() ~ `",`
+			~ '\n' ~ `  "frontendVersion": ` ~ toString!__VERSION__ ~ `,`
+			~ '\n' ~ `  "compilerVendor": "` ~ __VENDOR__ ~ `",`
+			~ '\n' ~ `  "platform": [`
+			~ '\n' ~ `    ` ~ determinePlatform().stringArray
+			~ '\n' ~ `  ],`
+			~ '\n' ~ `  "architecture": [`
+			~ '\n' ~ `    ` ~ determineArchitecture().stringArray
+			~ '\n' ~ `   ],`
+			~ '\n' ~ `}`
+			~ '\n' ~ `%2$s`);
 
-		string[] determinePlatform() } ~ '{' ~ platformCheck ~ '}' ~ q{
-		string[] determineArchitecture() } ~ '{' ~ archCheck ~ '}' ~ q{
-		string determineCompiler() } ~ '{' ~ compilerCheck ~ '}';
+		string[] determinePlatform() { %3$s }
+		string[] determineArchitecture() { %4$s }
+		string determineCompiler() { %5$s }
+
+		}.format(probeBeginMark, probeEndMark, platformCheck, archCheck, compilerCheck);
 
 	auto path = getTempFile("dub_platform_probe", ".d");
 	auto fil = openFile(path, FileMode.createTrunc);
