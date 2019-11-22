@@ -479,6 +479,7 @@ struct Dependency {
 		d.m_inclusiveA = !m_inclusiveA && acmp >= 0 ? false : o.m_inclusiveA;
 		d.m_versA = acmp > 0 ? m_versA : o.m_versA;
 		d.m_inclusiveB = !m_inclusiveB && bcmp <= 0 ? false : o.m_inclusiveB;
+		if (bcmp < 0) d.m_inclusiveB = m_inclusiveB;
 		d.m_versB = bcmp < 0 ? m_versB : o.m_versB;
 		d.m_optional = m_optional && o.m_optional;
 		if (!d.valid) return invalid;
@@ -541,6 +542,9 @@ unittest {
 	assert (!m.matches(Version("1.1.0")));
 	assert (!m.matches(Version("0.0.1")));
 
+	a = Dependency("0.4.0"); b = Dependency("^0.4.0");
+	m = a.merge(b);
+	assert (m.valid(), m.toString());
 
 	// branches / head revisions
 	a = Dependency(Version.masterBranch);
