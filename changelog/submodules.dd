@@ -1,0 +1,5 @@
+Support for git submodules as packages
+
+Dub now supports the flag `--submodules`, which will scan the root folder for git submodules and add them as
+available packages.
+The git tag on the repository defines the version of the package.

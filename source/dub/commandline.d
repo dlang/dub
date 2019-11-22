@@ -11,6 +11,7 @@ import dub.compilers.compiler;
 import dub.dependency;
 import dub.dub;
 import dub.generators.generator;
+import dub.git;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
@@ -266,6 +267,10 @@ int runDubCommandLine(string[] args)
 			// parent package.
 			try dub.packageManager.getOrLoadPackage(NativePath(options.root_path));
 			catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
+
+			if (options.submodules) {
+				addGitSubmodules(dub.packageManager, NativePath(options.root_path));
+			}
 		}
 	}
 
@@ -284,12 +289,11 @@ int runDubCommandLine(string[] args)
 	}
 }
 
-
 /** Contains and parses options common to all commands.
 */
 struct CommonOptions {
 	bool verbose, vverbose, quiet, vquiet, verror;
-	bool help, annotate, bare;
+	bool help, annotate, bare, submodules;
 	string[] registry_urls;
 	string root_path;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
@@ -314,6 +318,7 @@ struct CommonOptions {
 			]);
 		args.getopt("annotate", &annotate, ["Do not perform any action, just print what would be done"]);
 		args.getopt("bare", &bare, ["Read only packages contained in the current directory"]);
+		args.getopt("submodules", &submodules, ["Include git submodules as direct packages"]);
 		args.getopt("v|verbose", &verbose, ["Print diagnostic output"]);
 		args.getopt("vverbose", &vverbose, ["Print debug output"]);
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
