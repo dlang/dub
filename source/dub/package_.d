@@ -75,24 +75,20 @@ class Package {
 			root = The directory in which the package resides (if any).
 			parent = Reference to the parent package, if the new package is a
 				sub package.
-			scm_path = The directory in which the VCS (Git) stores its state.
-				Different than root/.git for submodules.
 			version_override = Optional version to associate to the package
 				instead of the one declared in the package recipe, or the one
-				determined by invoking the VCS (Git currently).
+				determined by invoking the VCS (GIT currently).
 	*/
-	this(Json json_recipe, NativePath root = NativePath(), Package parent = null,
-		 NativePath scm_path = NativePath(), string version_override = "")
+	this(Json json_recipe, NativePath root = NativePath(), Package parent = null, string version_override = "")
 	{
 		import dub.recipe.json;
 
 		PackageRecipe recipe;
 		parseJson(recipe, json_recipe, parent ? parent.name : null);
-		this(recipe, root, parent, version_override, scm_path);
+		this(recipe, root, parent, version_override);
 	}
 	/// ditto
-	this(PackageRecipe recipe, NativePath root = NativePath(), Package parent = null,
-		 string version_override = "", NativePath scm_path = NativePath())
+	this(PackageRecipe recipe, NativePath root = NativePath(), Package parent = null, string version_override = "")
 	{
 		// save the original recipe
 		m_rawRecipe = recipe.clone;
@@ -102,15 +98,15 @@ class Package {
 
 		// try to run git to determine the version of the package if no explicit version was given
 		if (recipe.version_.length == 0 && !parent) {
-			try recipe.version_ = determineVersionFromSCM(root, scm_path);
+			try recipe.version_ = determineVersionFromSCM(root);
 			catch (Exception e) logDebug("Failed to determine version by SCM: %s", e.msg);
 
 			if (recipe.version_.length == 0) {
-				logDiagnostic("Note: Failed to determine version of package %s at %s. Assuming ~master.", recipe.name, root.toNativeString());
+				logDiagnostic("Note: Failed to determine version of package %s at %s. Assuming ~master.", recipe.name, this.path.toNativeString());
 				// TODO: Assume unknown version here?
 				// recipe.version_ = Version.unknown.toString();
 				recipe.version_ = Version.masterBranch.toString();
-			} else logDiagnostic("Determined package version using Git: %s %s", recipe.name, recipe.version_);
+			} else logDiagnostic("Determined package version using GIT: %s %s", recipe.name, recipe.version_);
 		}
 
 		m_parentPackage = parent;
@@ -150,15 +146,11 @@ class Package {
 				empty, the `root` directory will be searched for a recipe file.
 			parent = Reference to the parent package, if the new package is a
 				sub package.
-			scm_path = The directory in which the VCS (Git) stores its state.
-				Different than root/.git for submodules!
 			version_override = Optional version to associate to the package
 				instead of the one declared in the package recipe, or the one
-				determined by invoking the VCS (Git currently).
+				determined by invoking the VCS (GIT currently).
 	*/
-	static Package load(NativePath root,
-		NativePath recipe_file = NativePath.init, Package parent = null,
-		string version_override = "", NativePath scm_path = NativePath.init)
+	static Package load(NativePath root, NativePath recipe_file = NativePath.init, Package parent = null, string version_override = "")
 	{
 		import dub.recipe.io;
 
@@ -171,7 +163,7 @@ class Package {
 
 		auto recipe = readPackageRecipe(recipe_file, parent ? parent.name : null);
 
-		auto ret = new Package(recipe, root, parent, version_override, scm_path);
+		auto ret = new Package(recipe, root, parent, version_override);
 		ret.m_infoFile = recipe_file;
 		return ret;
 	}
@@ -750,24 +742,21 @@ class Package {
 	}
 }
 
-private string determineVersionFromSCM(NativePath path, NativePath scm_path)
+private string determineVersionFromSCM(NativePath path)
 {
-	if (scm_path.empty) {
-		scm_path = path ~ ".git";
-	}
 	// On Windows, which is slow at running external processes,
 	// cache the version numbers that are determined using
-	// Git to speed up the initialization phase.
+	// GIT to speed up the initialization phase.
 	version (Windows) {
 		import std.file : exists, readText;
 
-		// quickly determine head commit without invoking Git
+		// quickly determine head commit without invoking GIT
 		string head_commit;
-		auto hpath = (scm_path ~ "HEAD").toNativeString();
+		auto hpath = (path ~ ".git/HEAD").toNativeString();
 		if (exists(hpath)) {
 			auto head_ref = readText(hpath).strip();
 			if (head_ref.startsWith("ref: ")) {
-				auto rpath = (scm_path ~ head_ref[5 .. $]).toNativeString();
+				auto rpath = (path ~ (".git/"~head_ref[5 .. $])).toNativeString();
 				if (exists(rpath))
 					head_commit = readText(rpath).strip();
 			}
@@ -786,7 +775,7 @@ private string determineVersionFromSCM(NativePath path, NativePath scm_path)
 	}
 
 	// if no cache file or the HEAD commit changed, perform full detection
-	auto ret = determineVersionWithGit(path, scm_path);
+	auto ret = determineVersionWithGIT(path);
 
 	version (Windows) {
 		// update version cache file
@@ -799,19 +788,16 @@ private string determineVersionFromSCM(NativePath path, NativePath scm_path)
 	return ret;
 }
 
-// determines the version of a package that is stored in a Git working copy
+// determines the version of a package that is stored in a GIT working copy
 // by invoking the "git" executable
-private string determineVersionWithGit(NativePath path, NativePath git_dir)
+private string determineVersionWithGIT(NativePath path)
 {
-	import dub.semver;
 	import std.process;
-	import std.typecons : tuple;
+	import dub.semver;
 
+	auto git_dir = path ~ ".git";
 	if (!existsFile(git_dir) || !isDir(git_dir.toNativeString)) return null;
-	auto git_dir_params = tuple(
-		"-C", path.toNativeString(),
-		"--git-dir=" ~ git_dir.relativeTo(path).toNativeString(),
-	).expand;
+	auto git_dir_param = "--git-dir=" ~ git_dir.toNativeString();
 
 	static string exec(scope string[] params...) {
 		auto ret = executeShell(escapeShellCommand(params));
@@ -820,7 +806,7 @@ private string determineVersionWithGit(NativePath path, NativePath git_dir)
 		return null;
 	}
 
-	auto tag = exec("git", git_dir_params, "describe", "--long", "--tags");
+	auto tag = exec("git", git_dir_param, "describe", "--long", "--tags");
 	if (tag !is null) {
 		auto parts = tag.split("-");
 		auto commit = parts[$-1];
@@ -833,7 +819,7 @@ private string determineVersionWithGit(NativePath path, NativePath git_dir)
 		}
 	}
 
-	auto branch = exec("git", git_dir_params, "rev-parse", "--abbrev-ref", "HEAD");
+	auto branch = exec("git", git_dir_param, "rev-parse", "--abbrev-ref", "HEAD");
 	if (branch !is null) {
 		if (branch != "HEAD") return "~" ~ branch;
 	}

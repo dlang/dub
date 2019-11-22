@@ -4,7 +4,6 @@ source/dub/dependency.d
 source/dub/dependencyresolver.d
 source/dub/description.d
 source/dub/dub.d
-source/dub/git.d
 source/dub/init.d
 source/dub/packagemanager.d
 source/dub/packagesupplier.d
