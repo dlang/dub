@@ -71,7 +71,14 @@ private string determineVersionWithGitTool(NativePath path)
 	import std.process;
 
 	auto git_dir = path ~ ".git";
-	if (!existsFile(git_dir) || !isDir(git_dir.toNativeString)) return null;
+	if (!existsFile(git_dir)) return null;
+
+	if (!isDir(git_dir.toNativeString)) {
+		auto gitredirect = readText(git_dir.toNativeString).strip();
+		if (!gitredirect.startsWith("gitdir: ")) return null;
+		git_dir = path ~ NativePath(gitredirect.drop("gitdir: ".length));
+		if (!isDir(git_dir.toNativeString)) return null;
+	}
 	auto git_dir_param = "--git-dir=" ~ git_dir.toNativeString();
 
 	static string exec(scope string[] params...) {
