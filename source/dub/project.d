@@ -353,14 +353,21 @@ class Project {
 						continue;
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
-					vspec = m_selections.getSelectedVersion(basename);
-					if (vspec.path.empty) p = m_packageManager.getBestPackage(dep.name, vspec);
+					auto selection = m_selections.getSelectedVersion(basename);
+					if (selection.path.empty) p = m_packageManager.getBestPackage(dep.name, selection);
 					else {
-						auto path = vspec.path;
+						auto path = selection.path;
 						if (!path.absolute) path = m_rootPackage.path ~ path;
 						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
 						if (subname.length) p = m_packageManager.getSubPackage(p, subname, true);
+						// submodule folders checked out to a branch match any version (convenience)
+						if (p.version_.isBranch) selection = Dependency(m_rootPackage.path ~ selection.path);
+						else selection = Dependency(p.version_, m_rootPackage.path ~ selection.path);
 					}
+					vspec = vspec.merge(selection);
+					enforce(vspec != Dependency.invalid, format(
+						"Selected package %s doesn't match %s(%s) of %s",
+							selection, dep.name, dep.spec, pack.name));
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
 					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
 					auto bp = m_dependencies[idx].basePackage;
