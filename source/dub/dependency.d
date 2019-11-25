@@ -109,7 +109,7 @@ struct Dependency {
 	/// ditto
 	@property void default_(bool value) { m_default = value; }
 
-	/// If set, only applies to specific platform.
+	/// If set, only applies to specific platform (not implemented yet).
 	@property string platform() const { return m_platform; }
 	/// ditto
 	@property void platform(string value) { m_platform = value; }
