@@ -2333,12 +2333,11 @@ private struct PackageAndVersion
    into `name` and `version_`. */
 private PackageAndVersion splitPackageName(string packageName)
 {
-
-	// split <package>=<version-specifier>
-	auto parts = packageName.findSplit("=");
+	// split <package>@<version-specifier>
+	auto parts = packageName.findSplit("@");
 	if (parts[1].empty) {
-		// support splitting <package>@<version-specified> too
-		parts = packageName.findSplit("@");
+		// split <package>=<version-specifier>
+		parts = packageName.findSplit("=");
 	}
 
 	PackageAndVersion p;
@@ -2348,10 +2347,15 @@ private PackageAndVersion splitPackageName(string packageName)
 	return p;
 }
 
-// https://github.com/dlang/dub/issues/1681
 unittest
 {
-	auto pv = splitPackageName("");
-	assert(pv.name == "");
-	assert(pv.version_ is null);
+	// https://github.com/dlang/dub/issues/1681
+	assert(splitPackageName("") == PackageAndVersion("", null));
+
+	assert(splitPackageName("foo=1.0.1") == PackageAndVersion("foo", "1.0.1"));
+	assert(splitPackageName("foo@1.0.1") == PackageAndVersion("foo", "1.0.1"));
+	assert(splitPackageName("foo@==1.0.1") == PackageAndVersion("foo", "==1.0.1"));
+	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion("foo", ">=1.0.1"));
+	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion("foo", "~>1.0.1"));
+	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion("foo", "<1.0.1"));
 }
