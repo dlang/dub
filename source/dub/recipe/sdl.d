@@ -355,7 +355,7 @@ private void enforceSDL(bool condition, lazy string message, Tag tag, string fil
 {
 	import std.string : format;
 	if (!condition) {
-		throw new Exception(format("%s(%s): Error: %s", tag.location.file, tag.location.line, message), file, line);
+		throw new Exception(format("%s(%s): Error: %s", tag.location.file, tag.location.line + 1, message), file, line);
 	}
 }
 
