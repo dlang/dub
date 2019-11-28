@@ -69,23 +69,29 @@ private string determineVersionWithGitTool(NativePath path)
 	import std.algorithm : canFind;
 	import std.conv : to;
 	import std.process;
-
-	auto git_dir = path ~ ".git";
-	if (!existsFile(git_dir)) return null;
-
-	if (!isDir(git_dir.toNativeString)) {
-		auto gitredirect = readText(git_dir.toNativeString).strip();
-		if (!gitredirect.startsWith("gitdir: ")) return null;
-		git_dir = path ~ NativePath(gitredirect.drop("gitdir: ".length));
-		if (!isDir(git_dir.toNativeString)) return null;
-	}
-	auto git_dir_param = "--git-dir=" ~ git_dir.toNativeString();
+	import std.range : drop;
 
 	static string exec(scope string[] params...) {
 		auto ret = executeShell(escapeShellCommand(params));
-		if (ret.status == 0) return ret.output.strip;
-		logDebug("'%s' failed with exit code %s: %s", params.join(" "), ret.status, ret.output.strip);
+		if (ret.status == 0) return ret.output.chomp;
+		logDebug("'%s' failed with exit code %s: %s", params.join(" "), ret.status, ret.output.chomp);
 		return null;
+	}
+
+	version (Windows) {
+		auto git_dir = path ~ ".git";
+		if (!existsFile(git_dir)) return null;
+
+		if (!isDir(git_dir.toNativeString)) {
+			auto gitredirect = readText(git_dir.toNativeString).chomp;
+			if (!gitredirect.startsWith("gitdir: ")) return null;
+			git_dir = path ~ NativePath(gitredirect.drop("gitdir: ".length));
+			if (!isDir(git_dir.toNativeString)) return null;
+		}
+		auto git_dir_param = "--git-dir=" ~ git_dir.toNativeString;
+	} else {
+		auto git_dir = exec("git", "-C", path.toNativeString, "rev-parse", "--git-dir");
+		auto git_dir_param = "--git-dir=" ~ git_dir;
 	}
 
 	auto tag = exec("git", git_dir_param, "describe", "--long", "--tags");
