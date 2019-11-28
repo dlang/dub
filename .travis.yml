@@ -21,32 +21,18 @@ jobs:
     - d: gdc
   include:
     - stage: test
-      d: dmd-2.088.1
+      d: dmd-2.089.0,dub
+      env: [FRONTEND=2.089]
+    - d: dmd-2.088.1,dub
       env: [FRONTEND=2.088]
-    - d: dmd-2.081.1
-      env: [FRONTEND=2.081]
-    - d: dmd-2.080.1
-      env: [FRONTEND=2.080]
-    - d: dmd-2.079.1
-      env: [FRONTEND=2.078]
-    - d: dmd-2.078.1
-      env: [FRONTEND=2.078]
-    - d: dmd-2.077.1
+    - d: dmd-2.077.1,dub
       env: [FRONTEND=2.077, COVERAGE=true]
-    - d: dmd-2.076.1
+    - d: dmd-2.076.1,dub
       env: [FRONTEND=2.076]
-    - d: ldc-1.10.0
-      env: [FRONTEND=2.080]
-    - d: ldc-1.9.0
-      env: [FRONTEND=2.079]
-    - d: ldc-1.8.0
-      env: [FRONTEND=2.078]
-    - d: ldc-1.7.0
-      env: [FRONTEND=2.077]
-    - d: ldc-1.6.0
-      env: [FRONTEND=2.076]
+    - d: ldc-1.18.0,dub
+      env: [FRONTEND=2.088]
     - stage: deploy
-      d: ldc-1.15.0
+      d: ldc-1.18.0
       os: osx
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       deploy:
@@ -57,7 +43,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.15.0
+    - d: ldc-1.18.0
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       env: [ARCH=32]
       addons:
@@ -73,7 +59,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.15.0
+    - d: ldc-1.18.0
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       deploy:
         - provider: releases
@@ -83,7 +69,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.15.0
+    - d: ldc-1.18.0
       script: echo "Deploying to GitHub releases (win32) ..." && ./release-windows.sh
       addons:
         apt:
@@ -97,7 +83,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.15.0
+    - d: ldc-1.18.0
       script: echo "Deploying to GitHub releases (win64) ..." && ARCH=64 ./release-windows.sh
       addons:
         apt:
