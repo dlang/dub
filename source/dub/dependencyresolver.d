@@ -44,6 +44,7 @@ class DependencyResolver {
 	static struct TreeNode {
 		string pack;
 		Dependency config;
+		invariant (config.isExactVersion);
 	}
 
 	Dependency[string] resolve(TreeNode root, bool throw_on_failure = true)
