@@ -33,7 +33,7 @@ class DependencyResolver {
 	*/
 	static struct TreeNodes {
 		string pack;
-		Dependency configs;
+		Dependency dependency;
 		DependencyType depType = DependencyType.required;
 	}
 
@@ -154,7 +154,7 @@ class DependencyResolver {
 			bool any_config = false;
 			foreach (i, ref c; *di)
 				if (c.included) {
-					if (!matches(dep.configs, c.config))
+					if (!matches(dep.dependency, c.config))
 						c.included = false;
 					else any_config = true;
 				}
@@ -225,7 +225,7 @@ class DependencyResolver {
 
 		// should have thrown in constrainRec before reaching this
 		assert(false, format("Got no configuration for dependency %s %s of %s %s!?",
-			dep.pack, dep.configs, n.pack, n.config));
+			dep.pack, dep.dependency, n.pack, n.config));
 	}
 
 	private void purgeOptionalDependencies(TreeNode root, ref Dependency[string] configs)
@@ -281,9 +281,9 @@ class DependencyResolver {
 			foreach (d; deps) {
 				// filter out trivial self-dependencies
 				if (d[0].pack.basePackageName == failbase
-					&& matches(d[1].configs, d[0].config))
+					&& matches(d[1].dependency, d[0].config))
 					continue;
-				msg ~= format("\n  %s %s depends on %s %s", d[0].pack, d[0].config, d[1].pack, d[1].configs);
+				msg ~= format("\n  %s %s depends on %s %s", d[0].pack, d[0].config, d[1].pack, d[1].dependency);
 			}
 		}
 	}
