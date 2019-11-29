@@ -90,7 +90,6 @@ class DependencyResolver {
 	protected abstract Dependency[] getAllConfigs(string pack);
 	protected abstract Dependency[] getSpecificConfigs(string pack, PackageDependency packDependency);
 	protected abstract PackageDependency[] getChildren(TreeNode node);
-	protected abstract bool matches(Dependency configs, Dependency config);
 
 	private static struct ResolveConfig {
 		Dependency config;
@@ -166,7 +165,7 @@ class DependencyResolver {
 			bool any_config = false;
 			foreach (i, ref c; *di)
 				if (c.included) {
-					if (!matches(dep.dependency, c.config))
+					if (!dep.dependency.merge(c.config).valid)
 						c.included = false;
 					else any_config = true;
 				}
@@ -294,7 +293,7 @@ class DependencyResolver {
 			foreach (d; deps) {
 				// filter out trivial self-dependencies
 				if (d[0].pack.basePackageName == failbase
-					&& matches(d[1].dependency, d[0].config))
+					&& d[1].dependency.merge(d[0].config).valid)
 					continue;
 				msg ~= format("\n  %s %s depends on %s %s", d[0].pack, d[0].config, d[1].pack, d[1].dependency);
 			}
@@ -523,5 +522,4 @@ private class TestResolver : DependencyResolver {
 	protected override PackageDependency[] getChildren(TreeNode node) {
 		return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null);
 	}
-	protected override bool matches(Dependency configs, Dependency config) { return configs.merge(config).valid; }
 }

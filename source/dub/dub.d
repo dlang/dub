@@ -1651,12 +1651,6 @@ private class DependencyVersionResolver : DependencyResolver {
 		return ret.data;
 	}
 
-	protected override bool matches(Dependency configs, Dependency config)
-	{
-		if (!configs.path.empty) return configs.path == config.path;
-		return configs.merge(config).valid;
-	}
-
 	private Package getPackage(string name, Dependency dep)
 	{
 		auto key = PackageDependency(name, dep);
