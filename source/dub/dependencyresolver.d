@@ -27,14 +27,25 @@ import std.string;
 */
 class DependencyResolver {
 	/** Encapsulates a list of outgoing edges in the dependency graph.
-
 		A value of this type represents a single dependency with multiple
 		possible configurations for the target package.
 	*/
-	static struct TreeNodes {
+	static struct PackageDependency {
 		string pack;
 		Dependency dependency;
 		DependencyType depType = DependencyType.required;
+
+		this(string pack, Dependency dependency, DependencyType depType = DependencyType.required)
+		{
+			this.pack = pack;
+			this.dependency = dependency;
+			this.depType = depType;
+		}
+
+		this(string pack, string dependency, DependencyType depType = DependencyType.required)
+		{
+			this(pack, Dependency(dependency), depType);
+		}
 	}
 
 	/** A single node in the dependency graph.
@@ -77,8 +88,8 @@ class DependencyResolver {
 	}
 
 	protected abstract Dependency[] getAllConfigs(string pack);
-	protected abstract Dependency[] getSpecificConfigs(string pack, TreeNodes nodes);
-	protected abstract TreeNodes[] getChildren(TreeNode node);
+	protected abstract Dependency[] getSpecificConfigs(string pack, PackageDependency packDependency);
+	protected abstract PackageDependency[] getChildren(TreeNode node);
 	protected abstract bool matches(Dependency configs, Dependency config);
 
 	private static struct ResolveConfig {
@@ -177,7 +188,7 @@ class DependencyResolver {
 		in a nested stack frame. This allows any errors to properly back
 		propagate.
 	*/
-	private void constrainDependencies(TreeNode n, TreeNodes[] dependencies, size_t depidx,
+	private void constrainDependencies(TreeNode n, PackageDependency[] dependencies, size_t depidx,
 		ref ResolveContext context, ref long max_iterations)
 	{
 		if (depidx >= dependencies.length) return;
@@ -259,7 +270,8 @@ class DependencyResolver {
 
 		string failedNode;
 
-		this(TreeNode parent, TreeNodes dep, in ref ResolveContext context, string file = __FILE__, size_t line = __LINE__)
+		this(TreeNode parent, PackageDependency dep, in ref ResolveContext context,
+			 string file = __FILE__, size_t line = __LINE__)
 		{
 			auto m = format("Unresolvable dependencies to package %s:", dep.pack.basePackageName);
 			super(m, file, line);
@@ -291,9 +303,9 @@ class DependencyResolver {
 
 	final class DependencyLoadException : Exception {
 		TreeNode parent;
-		TreeNodes dependency;
+		PackageDependency dependency;
 
-		this(TreeNode parent, TreeNodes dep)
+		this(TreeNode parent, PackageDependency dep)
 		{
 			auto m = format("Failed to find any versions for package %s, referenced by %s %s",
 				dep.pack, parent.pack, parent.config);
@@ -322,17 +334,17 @@ unittest {
 	with (TestResolver) {
 		auto res = new TestResolver([
 			"a:0.0.0": [
-				TreeNodes("b", Dependency(">=1.0.0 <=2.0.0")),
-				TreeNodes("d", Dependency("1.0.0")),
-				TreeNodes("e", Dependency(">=1.0.0 <=2.0.0")),
+				PackageDependency("b", ">=1.0.0 <=2.0.0"),
+				PackageDependency("d", "1.0.0"),
+				PackageDependency("e", ">=1.0.0 <=2.0.0"),
 			],
 			"b:1.0.0": [
-				TreeNodes("c", Dependency(">=1.0.0 <=2.0.0")),
-				TreeNodes("d", Dependency("1.0.0")),
+				PackageDependency("c", ">=1.0.0 <=2.0.0"),
+				PackageDependency("d", "1.0.0"),
 			],
 			"b:2.0.0": [
-				TreeNodes("c", Dependency(">=2.0.0 <=3.0.0")),
-				TreeNodes("d", Dependency(">=1.0.0 <=2.0.0")),
+				PackageDependency("c", ">=2.0.0 <=3.0.0"),
+				PackageDependency("d", ">=1.0.0 <=2.0.0"),
 			],
 			"c:1.0.0": [], "c:2.0.0": [], "c:3.0.0": [],
 			"d:1.0.0": [], "d:2.0.0": [],
@@ -351,8 +363,8 @@ unittest {
 	// handle cyclic dependencies gracefully
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0.0.0": [TreeNodes("b", Dependency("1.0.0"))],
-			"b:1.0.0": [TreeNodes("b", Dependency("1.0.0"))],
+			"a:0.0.0": [PackageDependency("b", "1.0.0")],
+			"b:1.0.0": [PackageDependency("b", "1.0.0")],
 		]);
 		assert(res.resolve(TreeNode("a", Dependency("0.0.0"))) == ["b":Dependency("1.0.0")]);
 	}
@@ -362,7 +374,7 @@ unittest {
 	// don't choose optional dependencies by default
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0.0.0": [TreeNodes("b", Dependency("1.0.0"), DependencyType.optional)],
+			"a:0.0.0": [PackageDependency("b", "1.0.0", DependencyType.optional)],
 			"b:1.0.0": []
 		]);
 		assert(
@@ -375,7 +387,7 @@ unittest {
 	// choose default optional dependencies by default
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0.0.0": [TreeNodes("b", Dependency("1.0.0"), DependencyType.optionalDefault)],
+			"a:0.0.0": [PackageDependency("b", "1.0.0", DependencyType.optionalDefault)],
 			"b:1.0.0": []
 		]);
 		assert(
@@ -389,11 +401,11 @@ unittest {
 	with (TestResolver) {
 		auto res = new TestResolver([
 			"a:0.0.0": [
-				TreeNodes("b", Dependency("1.0.0"), DependencyType.optional),
-				TreeNodes("c", Dependency("1.0.0")),
+				PackageDependency("b", "1.0.0", DependencyType.optional),
+				PackageDependency("c", "1.0.0"),
 			],
 			"b:1.0.0": [],
-			"c:1.0.0": [TreeNodes("b", Dependency("1.0.0"))],
+			"c:1.0.0": [PackageDependency("b", "1.0.0")],
 		]);
 		assert(
 			res.resolve(TreeNode("a", Dependency("0.0.0"))) == ["b":Dependency("1.0.0"), "c":Dependency("1.0.0")],
@@ -405,9 +417,9 @@ unittest {
 	// don't choose optional dependency if non-optional outside of final dependency tree
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0.0.0": [TreeNodes("b", Dependency("1.0.0"), DependencyType.optional)],
+			"a:0.0.0": [PackageDependency("b", "1.0.0", DependencyType.optional)],
 			"b:1.0.0": [],
-			"preset:0.0.0": [TreeNodes("b", Dependency("1.0.0"))]
+			"preset:0.0.0": [PackageDependency("b", "1.0.0")]
 		]);
 		assert(
 			res.resolve(TreeNode("a", Dependency("0.0.0"))).empty,
@@ -419,9 +431,9 @@ unittest {
 	// don't choose optional dependency if non-optional in a non-selected version
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0.0.0": [TreeNodes("b", Dependency(">=1.0.0 <=2.0.0"))],
-			"b:1.0.0": [TreeNodes("c", Dependency("1.0.0"))],
-			"b:2.0.0": [TreeNodes("c", Dependency("1.0.0"), DependencyType.optional)],
+			"a:0.0.0": [PackageDependency("b", ">=1.0.0 <=2.0.0")],
+			"b:1.0.0": [PackageDependency("c", "1.0.0")],
+			"b:2.0.0": [PackageDependency("c", "1.0.0", DependencyType.optional)],
 			"c:1.0.0": []
 		]);
 		assert(res.resolve(TreeNode("a", Dependency("0.0.0"))) == ["b":Dependency("2.0.0")], to!string(res.resolve(TreeNode("a", Dependency("0.0.0")))));
@@ -432,9 +444,9 @@ unittest {
 	// make sure non-satisfiable dependencies are not a problem, even if non-optional in some dependencies
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0.0.0": [TreeNodes("b", Dependency(">=1.0.0 <=2.0.0"))],
-			"b:1.0.0": [TreeNodes("c", Dependency("2.0.0"))],
-			"b:2.0.0": [TreeNodes("c", Dependency("2.0.0"), DependencyType.optional)],
+			"a:0.0.0": [PackageDependency("b", ">=1.0.0 <=2.0.0")],
+			"b:1.0.0": [PackageDependency("c", "2.0.0")],
+			"b:2.0.0": [PackageDependency("c", "2.0.0", DependencyType.optional)],
 			"c:1.0.0": []
 		]);
 		assert(res.resolve(TreeNode("a", Dependency("0.0.0"))) == ["b":Dependency("2.0.0")], to!string(res.resolve(TreeNode("a", Dependency("0.0.0")))));
@@ -445,9 +457,12 @@ unittest {
 	// check error message for multiple conflicting dependencies
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0.0.0": [TreeNodes("b", Dependency("1.0.0")), TreeNodes("c", Dependency("1.0.0"))],
-			"b:1.0.0": [TreeNodes("d", Dependency("1.0.0"))],
-			"c:1.0.0": [TreeNodes("d", Dependency("2.0.0"))],
+			"a:0.0.0": [
+				PackageDependency("b", "1.0.0"),
+				PackageDependency("c", "1.0.0"),
+			],
+			"b:1.0.0": [PackageDependency("d", "1.0.0")],
+			"c:1.0.0": [PackageDependency("d", "2.0.0")],
 			"d:1.0.0": [],
 			"d:2.0.0": []
 		]);
@@ -467,7 +482,7 @@ unittest {
 	// check error message for invalid dependency
 	with (TestResolver) {
 		auto res = new TestResolver([
-			"a:0.0.0": [TreeNodes("b", Dependency("1.0.0"))]
+			"a:0.0.0": [PackageDependency("b", "1.0.0")]
 		]);
 		try {
 			res.resolve(TreeNode("a", Dependency("0.0.0")));
@@ -481,8 +496,8 @@ unittest {
 	with (TestResolver) {
 		auto res = new TestResolver([
 			"a:0.0.0": [
-				TreeNodes("b", Dependency("2.0.0"), DependencyType.optional),
-				TreeNodes("c", Dependency("1.0.0"))
+				PackageDependency("b", "2.0.0", DependencyType.optional),
+				PackageDependency("c", "1.0.0"),
 			],
 			"b:1.0.0": [],
 			"c:1.0.0": []
@@ -492,8 +507,8 @@ unittest {
 }
 
 private class TestResolver : DependencyResolver {
-	private TreeNodes[][string] m_children;
-	this(TreeNodes[][string] children) { m_children = children; }
+	private PackageDependency[][string] m_children;
+	this(PackageDependency[][string] children) { m_children = children; }
 	protected override Dependency[] getAllConfigs(string pack) {
 		auto ret = appender!(Dependency[]);
 		foreach (p; m_children.byKey) {
@@ -504,7 +519,9 @@ private class TestResolver : DependencyResolver {
 		ret.data.sort!"a>b"();
 		return ret.data;
 	}
-	protected override Dependency[] getSpecificConfigs(string pack, TreeNodes nodes) { return null; }
-	protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null); }
+	protected override Dependency[] getSpecificConfigs(string pack, PackageDependency packDependency) { return null; }
+	protected override PackageDependency[] getChildren(TreeNode node) {
+		return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null);
+	}
 	protected override bool matches(Dependency configs, Dependency config) { return configs.merge(config).valid; }
 }

@@ -1494,7 +1494,7 @@ private class DependencyVersionResolver : DependencyResolver {
 		Package m_rootPackage;
 		bool[string] m_packagesToUpgrade;
 		Package[PackageDependency] m_packages;
-		TreeNodes[][TreeNode] m_children;
+		PackageDependency[][TreeNode] m_children;
 	}
 
 
@@ -1577,14 +1577,16 @@ private class DependencyVersionResolver : DependencyResolver {
 		return ret;
 	}
 
-	protected override Dependency[] getSpecificConfigs(string pack, TreeNodes nodes)
+	protected override Dependency[] getSpecificConfigs(string pack, PackageDependency packDependency)
 	{
-		if (!nodes.dependency.path.empty && getPackage(pack, nodes.dependency)) return [nodes.dependency];
+		if (!packDependency.dependency.path.empty && getPackage(pack, packDependency.dependency)) {
+			return [packDependency.dependency];
+		}
 		else return null;
 	}
 
 
-	protected override TreeNodes[] getChildren(TreeNode node)
+	protected override PackageDependency[] getChildren(TreeNode node)
 	{
 		if (auto pc = node in m_children)
 			return *pc;
@@ -1593,10 +1595,10 @@ private class DependencyVersionResolver : DependencyResolver {
 		return ret;
 	}
 
-	private final TreeNodes[] getChildrenRaw(TreeNode node)
+	private final PackageDependency[] getChildrenRaw(TreeNode node)
 	{
 		import std.array : appender;
-		auto ret = appender!(TreeNodes[]);
+		auto ret = appender!(PackageDependency[]);
 		auto pack = getPackage(node.pack, node.config);
 		if (!pack) {
 			// this can hapen when the package description contains syntax errors
@@ -1620,7 +1622,7 @@ private class DependencyVersionResolver : DependencyResolver {
 						format("Dependency from %s to root package references wrong path: %s vs. %s",
 							node.pack, absdeppath.toNativeString(), desireddeppath.toNativeString()));
 				}
-				ret ~= TreeNodes(d.name, node.config);
+				ret ~= PackageDependency(d.name, node.config);
 				continue;
 			}
 
@@ -1644,7 +1646,7 @@ private class DependencyVersionResolver : DependencyResolver {
 					dt = DependencyType.optionalDefault;
 			}
 
-			ret ~= TreeNodes(d.name, dspec, dt);
+			ret ~= PackageDependency(d.name, dspec, dt);
 		}
 		return ret.data;
 	}
