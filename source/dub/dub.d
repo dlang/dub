@@ -1484,7 +1484,7 @@ enum SkipPackageSuppliers {
 	all         /// Uses only manually specified package suppliers.
 }
 
-private class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
+private class DependencyVersionResolver : DependencyResolver {
 	protected {
 		Dub m_dub;
 		UpgradeOptions m_options;
