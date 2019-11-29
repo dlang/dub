@@ -87,10 +87,11 @@ private string determineVersionWithGitTool(NativePath path)
 		auto commit = parts[$-1];
 		auto num = parts[$-2].to!int;
 		tag = parts[0 .. $-2].join("-");
-		if (tag.startsWith("v") && isValidVersion(tag[1 .. $])) {
-			if (num == 0) return tag[1 .. $];
-			else if (tag.canFind("+")) return format("%s.commit.%s.%s", tag[1 .. $], num, commit);
-			else return format("%s+commit.%s.%s", tag[1 .. $], num, commit);
+		if (tag.startsWith("v")) tag = tag[1 .. $];
+		if (isValidVersion(tag)) {
+			if (num == 0) return tag;
+			else if (tag.canFind("+")) return format("%s.commit.%s.%s", tag, num, commit);
+			else return format("%s+commit.%s.%s", tag, num, commit);
 		}
 	}
 
