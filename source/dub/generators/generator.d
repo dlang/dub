@@ -591,6 +591,10 @@ struct GeneratorSettings {
 
 	// only used for generator "build"
 	bool run, force, direct, rdmd, tempBuild, parallelBuild;
+
+	/// single file dub package
+	bool single;
+
 	string[] runArgs;
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;

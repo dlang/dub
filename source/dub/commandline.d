@@ -814,6 +814,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.rdmd = m_rdmd;
 		gensettings.tempBuild = m_tempBuild;
 		gensettings.parallelBuild = m_parallel;
+		gensettings.single = m_single;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
