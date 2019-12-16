@@ -9,7 +9,11 @@ addons:
 
 before_install:
   # Use the dub-updating fork of the installer script until https://github.com/dlang/installer/pull/301 is merged
+  - pwd
+  - wget https://raw.githubusercontent.com/wilzbach/installer-dub/master/script/install.sh -O ./install.dub.sh
+  - ls .
   - wget https://raw.githubusercontent.com/wilzbach/installer-dub/master/script/install.sh -O ~/dlang/install.dub.sh
+  - ls ~/dlang/install.dub.sh
   - . $(bash ~/dlang/install.dub.sh -a dub)
   - dub --version
 
@@ -23,89 +27,6 @@ jobs:
     - stage: test
       d: dmd-2.089.0,dub
       env: [FRONTEND=2.089]
-    - d: dmd-2.088.1,dub
-      env: [FRONTEND=2.088]
-    - d: dmd-2.077.1,dub
-      env: [FRONTEND=2.077, COVERAGE=true]
-    - d: dmd-2.076.1,dub
-      env: [FRONTEND=2.076]
-    - d: ldc-1.18.0,dub
-      env: [FRONTEND=2.088]
-    - stage: deploy
-      d: ldc-1.18.0
-      os: osx
-      script: echo "Deploying to GitHub releases ..." && ./release.sh
-      deploy:
-        - provider: releases
-          file_glob: true
-          file: bin/dub-*.tar.gz
-          skip_cleanup: true
-          api_key: $GH_REPO_TOKEN
-          on:
-            tags: true
-    - d: ldc-1.18.0
-      script: echo "Deploying to GitHub releases ..." && ./release.sh
-      env: [ARCH=32]
-      addons:
-        apt:
-          packages:
-          - g++-multilib
-          - libcurl4-openssl-dev:i386
-      deploy:
-        - provider: releases
-          file_glob: true
-          file: bin/dub-*.tar.gz
-          skip_cleanup: true
-          api_key: $GH_REPO_TOKEN
-          on:
-            tags: true
-    - d: ldc-1.18.0
-      script: echo "Deploying to GitHub releases ..." && ./release.sh
-      deploy:
-        - provider: releases
-          file_glob: true
-          file: bin/dub-*.tar.gz
-          skip_cleanup: true
-          api_key: $GH_REPO_TOKEN
-          on:
-            tags: true
-    - d: ldc-1.18.0
-      script: echo "Deploying to GitHub releases (win32) ..." && ./release-windows.sh
-      addons:
-        apt:
-          packages:
-            - p7zip-full
-      deploy:
-        - provider: releases
-          file_glob: true
-          file: bin/dub-*.zip
-          skip_cleanup: true
-          api_key: $GH_REPO_TOKEN
-          on:
-            tags: true
-    - d: ldc-1.18.0
-      script: echo "Deploying to GitHub releases (win64) ..." && ARCH=64 ./release-windows.sh
-      addons:
-        apt:
-          packages:
-            - p7zip-full
-      deploy:
-        - provider: releases
-          file_glob: true
-          file: bin/dub-*.zip
-          skip_cleanup: true
-          api_key: $GH_REPO_TOKEN
-          on:
-            tags: true
-    - stage: update-latest
-      script: echo "Deploying to GitHub pages ..." && mkdir -p docs && git describe --abbrev=0 --tags > docs/LATEST
-      deploy:
-        - provider: pages
-          skip_cleanup: true
-          local_dir: docs
-          github_token: $GH_REPO_TOKEN
-          on:
-            tags: true
 stages:
   - name: test
     if: type = pull_request or (type = push and branch = master)
