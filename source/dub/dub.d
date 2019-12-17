@@ -1201,7 +1201,6 @@ class Dub {
 		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~package_name~"'.");
 		auto final_versions = vers.filter!(v => !v.isBranch && !v.isPreRelease).array;
 		if (prefer_stable && final_versions.length) return final_versions[$-1];
-		else if (vers[$-1].isBranch) return vers[$-1];
 		else return vers[$-1];
 	}
 
