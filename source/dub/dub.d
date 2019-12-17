@@ -33,7 +33,7 @@ import std.string;
 import std.encoding : sanitize;
 
 // Set output path and options for coverage reports
-version (DigitalMars) version (D_Coverage) static if (__VERSION__ >= 2068)
+version (DigitalMars) version (D_Coverage)
 {
 	shared static this()
 	{
