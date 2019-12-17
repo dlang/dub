@@ -1,6 +1,5 @@
 language: d
-dist: trusty
-sudo: false
+dist: bionic
 
 addons:
   apt:
