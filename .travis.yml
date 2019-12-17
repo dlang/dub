@@ -6,12 +6,6 @@ addons:
     packages:
       - libevent-dev
 
-before_install:
-  # Use the dub-updating fork of the installer script until https://github.com/dlang/installer/pull/301 is merged
-  - wget https://raw.githubusercontent.com/wilzbach/installer-dub/master/script/install.sh -O ~/dlang/install.dub.sh
-  - . $(bash ~/dlang/install.dub.sh -a dub)
-  - dub --version
-
 script:
   - ./travis-ci.sh
 
@@ -31,7 +25,7 @@ jobs:
     - d: ldc-1.18.0,dub
       env: [FRONTEND=2.088]
     - stage: deploy
-      d: ldc-1.18.0
+      d: ldc-1.18.0,dub
       os: osx
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       deploy:
@@ -42,7 +36,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.18.0
+    - d: ldc-1.18.0,dub
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       env: [ARCH=32]
       addons:
@@ -58,7 +52,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.18.0
+    - d: ldc-1.18.0,dub
       script: echo "Deploying to GitHub releases ..." && ./release.sh
       deploy:
         - provider: releases
@@ -68,7 +62,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.18.0
+    - d: ldc-1.18.0,dub
       script: echo "Deploying to GitHub releases (win32) ..." && ./release-windows.sh
       addons:
         apt:
@@ -82,7 +76,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.18.0
+    - d: ldc-1.18.0,dub
       script: echo "Deploying to GitHub releases (win64) ..." && ARCH=64 ./release-windows.sh
       addons:
         apt:
