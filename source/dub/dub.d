@@ -59,7 +59,7 @@ static this()
 deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryURLs[0];
 
 /// The URL to the official package registry and it's default fallback registries.
-enum defaultRegistryURLs = [
+static immutable string[] defaultRegistryURLs = [
 	"https://code.dlang.org/",
 	"https://code-mirror.dlang.io/",
 	"https://dub-registry.herokuapp.com/",

@@ -67,7 +67,7 @@ private Json targetFolderJson(in ProjectGenerator.TargetInfo target)
 
 private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd())
 {
-	enum BUILD_TYPES = [
+	static immutable BUILD_TYPES = [
 		//"plain",
 		"debug",
 		"release",
