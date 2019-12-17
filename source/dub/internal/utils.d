@@ -105,12 +105,6 @@ static ~this()
 	}
 }
 
-bool isEmptyDir(NativePath p) {
-	foreach(DirEntry e; dirEntries(p.toNativeString(), SpanMode.shallow))
-		return false;
-	return true;
-}
-
 bool isWritableDir(NativePath p, bool create_if_missing = false)
 {
 	import std.random;
@@ -163,17 +157,6 @@ string packageInfoFileFromZip(NativePath zip, out string fileName) {
 	throw new Exception("No package descriptor found");
 }
 
-Json jsonFromZip(NativePath zip, string filename) {
-	import std.zip : ZipArchive;
-	auto f = openFile(zip, FileMode.read);
-	ubyte[] b = new ubyte[cast(size_t)f.size];
-	f.rawRead(b);
-	f.close();
-	auto archive = new ZipArchive(b);
-	auto text = stripUTF8Bom(cast(string)archive.expand(archive.directory[filename]));
-	return parseJsonString(text, zip.toNativeString~"/"~filename);
-}
-
 void writeJsonFile(NativePath path, Json json)
 {
 	auto f = openFile(path, FileMode.createTrunc);
@@ -195,11 +178,6 @@ void atomicWriteJsonFile(NativePath path, Json json)
 	f.close();
 	if (existsFile(path)) removeFile(path);
 	moveFile(tmppath, path);
-}
-
-bool isPathFromZip(string p) {
-	enforce(p.length > 0);
-	return p[$-1] == '/';
 }
 
 bool existsDirectory(NativePath path) {
