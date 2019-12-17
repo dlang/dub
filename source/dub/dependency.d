@@ -143,7 +143,6 @@ struct Dependency {
 		static import std.string;
 
 		enforce(ves.length > 0);
-		string orig = ves;
 
 		if (ves == ANY_IDENT) {
 			// Any version is good.
