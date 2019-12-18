@@ -104,7 +104,6 @@ class VisualDGenerator : ProjectGenerator {
 
 			const string[] sub = ["ActiveCfg", "Build.0"];
 			const string[] conf = [settings.buildType~"|"~settings.platform.architecture[0].vsArchitecture];
-			auto projectUuid = guid(mainpack);
 			foreach (t; targets.byKey)
 				foreach (c; conf)
 					foreach (s; sub)
@@ -155,7 +154,6 @@ class VisualDGenerator : ProjectGenerator {
 		{
 			import dub.compilers.utils : isLinkerFile;
 
-			int i = 0;
 			auto ret = appender!(char[])();
 
 			auto project_file_dir = m_project.rootPackage.path ~ projFileName(packname).parentPath;

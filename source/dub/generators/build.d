@@ -48,8 +48,6 @@ class BuildGenerator : ProjectGenerator {
 	{
 		scope (exit) cleanupTemporaries();
 
-		auto dcl = settings.compiler;
-
 		void checkPkgRequirements(const(Package) pkg)
 		{
 			const tr = pkg.recipe.toolchainRequirements;
@@ -86,7 +84,6 @@ class BuildGenerator : ProjectGenerator {
 			NativePath[] additional_dep_files;
 			auto bs = ti.buildSettings.dup;
 			foreach (ldep; ti.linkDependencies) {
-				auto dbs = targets[ldep].buildSettings;
 				if (bs.targetType != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly)) {
 					bs.addSourceFiles(target_paths[ldep].toNativeString());
 				} else {
@@ -194,9 +191,6 @@ class BuildGenerator : ProjectGenerator {
 			return false;
 		}
 
-		// determine basic build properties
-		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
-
 		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
 
 		if( buildsettings.preBuildCommands.length ){
@@ -284,9 +278,7 @@ class BuildGenerator : ProjectGenerator {
 	private void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out NativePath target_path)
 	{
 		auto cwd = NativePath(getcwd());
-
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
-		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
 
 		// make file paths relative to shrink the command line
 		foreach (ref f; buildsettings.sourceFiles) {
@@ -450,7 +442,6 @@ class BuildGenerator : ProjectGenerator {
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
 
-		NativePath target_file;
 		scope (failure) {
 			logDiagnostic("FAIL %s %s %s" , buildsettings.targetPath, buildsettings.targetName, buildsettings.targetType);
 			auto tpath = getTargetPath(buildsettings, settings);
@@ -643,8 +634,6 @@ unittest { // issue #1235 - pass no library files to compiler command line when 
 			assert(false);
 		}
 	}
-
-	auto comp = new TestCompiler;
 
 	GeneratorSettings settings;
 	settings.platform = BuildPlatform(determinePlatform(), ["x86"], "gdc", "test", 2075);

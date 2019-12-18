@@ -362,7 +362,6 @@ class PackageManager {
 
 		auto package_name = package_info["name"].get!string;
 		auto package_version = package_info["version"].get!string;
-		auto clean_package_version = package_version[package_version.startsWith("~") ? 1 : 0 .. $];
 
 		logDebug("Placing package '%s' version '%s' to location '%s' from file '%s'",
 			package_name, package_version, destination.toNativeString(), zip_file_path.toNativeString());

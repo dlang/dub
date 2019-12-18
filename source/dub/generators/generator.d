@@ -305,10 +305,7 @@ class ProjectGenerator
 		}
 
 		collectDependencies(rootPackage, *roottarget, targets);
-		static if (__VERSION__ > 2070)
-			visited.clear();
-		else
-			destroy(visited);
+		visited.clear();
 
 		// 1. downwards inherits versions, debugVersions, and inheritable build settings
 		static void configureDependencies(in ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
@@ -360,10 +357,7 @@ class ProjectGenerator
 		}
 
 		configureDependents(*roottarget, targets);
-		static if (__VERSION__ > 2070)
-			visited.clear();
-		else
-			destroy(visited);
+		visited.clear();
 
 		// 4. Filter applicable version and debug version identifiers
 		if (genSettings.filterVersions)

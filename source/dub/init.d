@@ -145,7 +145,6 @@ private void initDeimosPackage(NativePath root_path, ref PackageRecipe p, scope 
 {
 	import dub.compilers.buildsettings : TargetType;
 
-	auto name = root_path.head.toString().toLower();
 	p.description = format("Deimos Bindings for "~p.name~".");
 	p.buildSettings.importPaths[""] ~= ".";
 	p.buildSettings.targetType = TargetType.sourceLibrary;

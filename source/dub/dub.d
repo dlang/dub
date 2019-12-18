@@ -33,7 +33,7 @@ import std.string;
 import std.encoding : sanitize;
 
 // Set output path and options for coverage reports
-version (DigitalMars) version (D_Coverage) static if (__VERSION__ >= 2068)
+version (DigitalMars) version (D_Coverage)
 {
 	shared static this()
 	{
@@ -59,7 +59,7 @@ static this()
 deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryURLs[0];
 
 /// The URL to the official package registry and it's default fallback registries.
-enum defaultRegistryURLs = [
+static immutable string[] defaultRegistryURLs = [
 	"https://code.dlang.org/",
 	"https://code-mirror.dlang.io/",
 	"https://dub-registry.herokuapp.com/",
@@ -1201,7 +1201,6 @@ class Dub {
 		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~package_name~"'.");
 		auto final_versions = vers.filter!(v => !v.isBranch && !v.isPreRelease).array;
 		if (prefer_stable && final_versions.length) return final_versions[$-1];
-		else if (vers[$-1].isBranch) return vers[$-1];
 		else return vers[$-1];
 	}
 
