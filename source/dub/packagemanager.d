@@ -387,7 +387,7 @@ class PackageManager {
 		outer: foreach(ArchiveMember am; archive.directory) {
 			auto path = NativePath(am.name).bySegment.array;
 			foreach (fil; packageInfoFiles)
-				if (path.length == 2 && path[$-1].toString == fil.filename) {
+				if (path.length == 2 && path[$-1].name == fil.filename) {
 					zip_prefix = path[0 .. $-1];
 					break outer;
 				}
@@ -696,12 +696,12 @@ class PackageManager {
 		string[] ignored_files = [];
 		SHA1 sha1;
 		foreach(file; dirEntries(pack.path.toNativeString(), SpanMode.depth)) {
-			if(file.isDir && ignored_directories.canFind(NativePath(file.name).head.toString()))
+			if(file.isDir && ignored_directories.canFind(NativePath(file.name).head.name))
 				continue;
-			else if(ignored_files.canFind(NativePath(file.name).head.toString()))
+			else if(ignored_files.canFind(NativePath(file.name).head.name))
 				continue;
 
-			sha1.put(cast(ubyte[])NativePath(file.name).head.toString());
+			sha1.put(cast(ubyte[])NativePath(file.name).head.name);
 			if(file.isDir) {
 				logDebug("Hashed directory name %s", NativePath(file.name).head);
 			}

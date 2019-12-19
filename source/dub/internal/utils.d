@@ -148,7 +148,7 @@ string packageInfoFileFromZip(NativePath zip, out string fileName) {
 	foreach (ArchiveMember am; archive.directory) {
 		auto path = NativePath(am.name).bySegment.array;
 		foreach (fil; packageInfoFiles) {
-			if ((path.length == 1 && path[0] == fil.filename) || (path.length == 2 && path[$-1].toString == fil.filename)) {
+			if ((path.length == 1 && path[0] == fil.filename) || (path.length == 2 && path[$-1].name == fil.filename)) {
 				fileName = fil.filename;
 				return stripUTF8Bom(cast(string) archive.expand(archive.directory[am.name]));
 			}
@@ -612,7 +612,7 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
 	//create module name from path
 	foreach (i; 0 .. mpath.length) {
 		import std.path;
-		auto p = mpath[i].toString();
+		auto p = mpath[i].name;
 		if (p == "package.d") break;
 		if (i > 0) ret ~= ".";
 		if (i+1 < mpath.length) ret ~= p;

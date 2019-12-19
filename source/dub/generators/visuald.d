@@ -217,7 +217,7 @@ class VisualDGenerator : ProjectGenerator {
 					foreach(unused; 0..decrease)
 						ret.put("\n    </Folder>");
 					foreach(idx; 0..increase)
-						ret.formattedWrite("\n    <Folder name=\"%s\">", cur[same + idx].toString());
+						ret.formattedWrite("\n    <Folder name=\"%s\">", cur[same + idx].name);
 					lastFolder = cur;
 				}
 				ret.formattedWrite("\n      <File %spath=\"%s\" />", source.build ? "" : "tool=\"None\" ", source.filePath.toNativeString());
