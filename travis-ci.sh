@@ -59,5 +59,6 @@ fi
 # check that the man page generation still works (only once)
 if [ "$COVERAGE" = true ]; then
     source $(~/dlang/install.sh dmd --activate)
+    source $(~/dlang/install.sh dub --activate)
     dub --single -v scripts/man/gen_man.d
 fi
