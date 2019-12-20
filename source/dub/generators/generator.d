@@ -813,7 +813,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 
 	auto depNames = proj.dependencies.map!((a) => a.name).array();
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
-	runCommands(commands, env);
+	runCommands(commands, env, pack.path().toString());
 }
 
 private bool isRecursiveInvocation(string pack)

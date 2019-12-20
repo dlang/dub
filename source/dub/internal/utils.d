@@ -186,12 +186,12 @@ bool existsDirectory(NativePath path) {
 	return fi.isDirectory;
 }
 
-void runCommand(string command, string[string] env = null)
+void runCommand(string command, string[string] env = null, string workDir = null)
 {
-	runCommands((&command)[0 .. 1], env);
+	runCommands((&command)[0 .. 1], env, workDir);
 }
 
-void runCommands(in string[] commands, string[string] env = null)
+void runCommands(in string[] commands, string[string] env = null, string workDir = null)
 {
 	import std.stdio : stdin, stdout, stderr, File;
 
@@ -213,7 +213,7 @@ void runCommands(in string[] commands, string[string] env = null)
 	foreach(cmd; commands){
 		logDiagnostic("Running %s", cmd);
 		Pid pid;
-		pid = spawnShell(cmd, stdin, childStdout, childStderr, env, config);
+		pid = spawnShell(cmd, stdin, childStdout, childStderr, env, config, workDir);
 		auto exitcode = pid.wait();
 		enforce(exitcode == 0, "Command failed with exit code "
 			~ to!string(exitcode) ~ ": " ~ cmd);
