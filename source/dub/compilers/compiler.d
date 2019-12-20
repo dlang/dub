@@ -142,11 +142,6 @@ interface Compiler {
 		auto build_platform = readPlatformJsonProbe(result.output);
 		build_platform.compilerBinary = compiler_binary;
 
-		if (build_platform.compiler != this.name) {
-			logWarn(`The determined compiler type "%s" doesn't match the expected type "%s". `~
-				`This will probably result in build errors.`, build_platform.compiler, this.name);
-		}
-
 		auto ver = determineVersion(compiler_binary, result.output)
 			.strip;
 		if (ver.empty) {
