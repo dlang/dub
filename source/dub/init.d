@@ -53,7 +53,7 @@ void initPackage(NativePath root_path, string[string] deps, string type,
 	string username = getUserName();
 
 	PackageRecipe p;
-	p.name = root_path.head.toString().toLower();
+	p.name = root_path.head.name.toLower();
 	p.authors ~= username;
 	p.license = "proprietary";
 	foreach (pack, v; deps) {

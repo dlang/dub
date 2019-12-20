@@ -677,14 +677,14 @@ class Dub {
 				import std.path;
 				tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(m_project.rootPackage.path).toNativeString();
 				tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
-				custommodname = custom_main_file.head.toString().baseName(".d");
+				custommodname = custom_main_file.head.name.baseName(".d");
 			}
 
 			// prepare the list of tested modules
 			string[] import_modules;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
-					auto fname = NativePath(file).head.toString();
+					auto fname = NativePath(file).head.name;
 					if (NativePath(file).relativeTo(m_project.rootPackage.path) == NativePath(mainfil)) {
 						logWarn("Excluding main source file %s from test.", mainfil);
 						tcinfo.excludedSourceFiles[""] ~= mainfil;
@@ -1300,7 +1300,7 @@ class Dub {
 		}
 
 		auto srcfile = m_project.rootPackage.recipePath;
-		auto srcext = srcfile.head.toString().extension;
+		auto srcext = srcfile.head.name.extension;
 		if (srcext == "."~destination_file_ext) {
 			logInfo("Package format is already %s.", destination_file_ext);
 			return;

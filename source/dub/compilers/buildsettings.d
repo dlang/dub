@@ -164,9 +164,9 @@ private:
 	static void addSI(ref string[] arr, in string[] vals)
 	{
 		bool[string] existing;
-		foreach (v; arr) existing[NativePath(v).head.toString()] = true;
+		foreach (v; arr) existing[NativePath(v).head.name] = true;
 		foreach (v; vals) {
-			auto s = NativePath(v).head.toString();
+			auto s = NativePath(v).head.name;
 			if (s !in existing) {
 				existing[s] = true;
 				arr ~= v;

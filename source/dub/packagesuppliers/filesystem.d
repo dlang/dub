@@ -30,7 +30,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 			NativePath p = NativePath(d.name);
 			logDebug("Entry: %s", p);
 			enforce(to!string(p.head)[$-4..$] == ".zip");
-			auto vers = p.head.toString()[package_id.length+1..$-4];
+			auto vers = p.head.name[package_id.length+1..$-4];
 			logDebug("Version: %s", vers);
 			ret ~= Version(vers);
 		}
