@@ -182,8 +182,6 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	Dependency dep = Dependency.any;
 	auto attrs = t.attributes;
 
-	auto pv = "version" in attrs;
-
 	if ("path" in attrs) {
 		if ("version" in attrs)
 			logDiagnostic("Ignoring version specification (%s) for path based dependency %s", attrs["version"][0].value.get!string, attrs["path"][0].value.get!string);
@@ -355,7 +353,7 @@ private void enforceSDL(bool condition, lazy string message, Tag tag, string fil
 {
 	import std.string : format;
 	if (!condition) {
-		throw new Exception(format("%s(%s): Error: %s", tag.location.file, tag.location.line, message), file, line);
+		throw new Exception(format("%s(%s): Error: %s", tag.location.file, tag.location.line + 1, message), file, line);
 	}
 }
 

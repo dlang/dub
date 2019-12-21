@@ -163,7 +163,7 @@ class GDCCompiler : Compiler {
 			case TargetType.executable:
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".exe";
-				else return settings.targetName;
+				else return settings.targetName.idup;
 			case TargetType.library:
 			case TargetType.staticLibrary:
 				return "lib" ~ settings.targetName ~ ".a";

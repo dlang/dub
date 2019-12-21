@@ -10,6 +10,10 @@ if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.074.z ]; then
     dub test --compiler=${DC} -c library-nonet
 fi
 
+if [ "$FRONTEND" \> 2.087.z ]; then
+    DFLAGS='-preview=dip1000 -w -g -debug' DMD="$(command -v $DMD)" ./build.sh
+fi
+
 function clean() {
     # Hard reset of the DUB local folder is necessary as some tests
     # currently don't properly clean themselves
@@ -55,5 +59,6 @@ fi
 # check that the man page generation still works (only once)
 if [ "$COVERAGE" = true ]; then
     source $(~/dlang/install.sh dmd --activate)
+    source $(~/dlang/install.sh dub --activate)
     dub --single -v scripts/man/gen_man.d
 fi

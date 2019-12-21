@@ -26,7 +26,7 @@ import std.traits : isIntegral;
 version(DubUseCurl)
 {
 	import std.net.curl;
-	static if (__VERSION__ > 2075) public import std.net.curl : HTTPStatusException;
+	public import std.net.curl : HTTPStatusException;
 }
 
 
@@ -105,12 +105,6 @@ static ~this()
 	}
 }
 
-bool isEmptyDir(NativePath p) {
-	foreach(DirEntry e; dirEntries(p.toNativeString(), SpanMode.shallow))
-		return false;
-	return true;
-}
-
 bool isWritableDir(NativePath p, bool create_if_missing = false)
 {
 	import std.random;
@@ -154,24 +148,13 @@ string packageInfoFileFromZip(NativePath zip, out string fileName) {
 	foreach (ArchiveMember am; archive.directory) {
 		auto path = NativePath(am.name).bySegment.array;
 		foreach (fil; packageInfoFiles) {
-			if ((path.length == 1 && path[0] == fil.filename) || (path.length == 2 && path[$-1].toString == fil.filename)) {
+			if ((path.length == 1 && path[0] == fil.filename) || (path.length == 2 && path[$-1].name == fil.filename)) {
 				fileName = fil.filename;
 				return stripUTF8Bom(cast(string) archive.expand(archive.directory[am.name]));
 			}
 		}
 	}
 	throw new Exception("No package descriptor found");
-}
-
-Json jsonFromZip(NativePath zip, string filename) {
-	import std.zip : ZipArchive;
-	auto f = openFile(zip, FileMode.read);
-	ubyte[] b = new ubyte[cast(size_t)f.size];
-	f.rawRead(b);
-	f.close();
-	auto archive = new ZipArchive(b);
-	auto text = stripUTF8Bom(cast(string)archive.expand(archive.directory[filename]));
-	return parseJsonString(text, zip.toNativeString~"/"~filename);
 }
 
 void writeJsonFile(NativePath path, Json json)
@@ -197,23 +180,18 @@ void atomicWriteJsonFile(NativePath path, Json json)
 	moveFile(tmppath, path);
 }
 
-bool isPathFromZip(string p) {
-	enforce(p.length > 0);
-	return p[$-1] == '/';
-}
-
 bool existsDirectory(NativePath path) {
 	if( !existsFile(path) ) return false;
 	auto fi = getFileInfo(path);
 	return fi.isDirectory;
 }
 
-void runCommand(string command, string[string] env = null)
+void runCommand(string command, string[string] env = null, string workDir = null)
 {
-	runCommands((&command)[0 .. 1], env);
+	runCommands((&command)[0 .. 1], env, workDir);
 }
 
-void runCommands(in string[] commands, string[string] env = null)
+void runCommands(in string[] commands, string[string] env = null, string workDir = null)
 {
 	import std.stdio : stdin, stdout, stderr, File;
 
@@ -235,44 +213,15 @@ void runCommands(in string[] commands, string[string] env = null)
 	foreach(cmd; commands){
 		logDiagnostic("Running %s", cmd);
 		Pid pid;
-		pid = spawnShell(cmd, stdin, childStdout, childStderr, env, config);
+		pid = spawnShell(cmd, stdin, childStdout, childStderr, env, config, workDir);
 		auto exitcode = pid.wait();
 		enforce(exitcode == 0, "Command failed with exit code "
 			~ to!string(exitcode) ~ ": " ~ cmd);
 	}
 }
 
-version(DubUseCurl) {
-	/++
-	 Exception thrown on HTTP request failures, e.g. 404 Not Found.
-	 +/
-	static if (__VERSION__ <= 2075) class HTTPStatusException : CurlException
-	{
-		/++
-		 Params:
-		 status = The HTTP status code.
-		 msg  = The message for the exception.
-		 file = The file where the exception occurred.
-		 line = The line number where the exception occurred.
-		 next = The previous exception in the chain of exceptions, if any.
-		 +/
-		@safe pure nothrow
-			this(
-				int status,
-				string msg,
-				string file = __FILE__,
-				size_t line = __LINE__,
-				Throwable next = null)
-		{
-			this.status = status;
-			super(msg, file, line, next);
-		}
-
-		int status; /// The HTTP status code
-	}
-} else version (Have_vibe_d_http) {
+version (Have_vibe_d_http)
 	public import vibe.http.common : HTTPStatusException;
-}
 
 /**
 	Downloads a file from the specified URL.
@@ -293,27 +242,13 @@ void download(string url, string filename, uint timeout = 8)
 		auto conn = HTTP();
 		setupHTTPClient(conn, timeout);
 		logDebug("Storing %s...", url);
-		static if (__VERSION__ <= 2075)
-		{
-			try
-				std.net.curl.download(url, filename, conn);
-			catch (CurlException e)
-			{
-				if (e.msg.canFind("404"))
-					throw new HTTPStatusException(404, e.msg);
-				throw e;
-			}
-		}
-		else
-		{
-			std.net.curl.download(url, filename, conn);
-			// workaround https://issues.dlang.org/show_bug.cgi?id=18318
-			auto sl = conn.statusLine;
-			logDebug("Download %s %s", url, sl);
-			if (sl.code / 100 != 2)
-				throw new HTTPStatusException(sl.code,
-					"Downloading %s failed with %d (%s).".format(url, sl.code, sl.reason));
-		}
+		std.net.curl.download(url, filename, conn);
+		// workaround https://issues.dlang.org/show_bug.cgi?id=18318
+		auto sl = conn.statusLine;
+		logDebug("Download %s %s", url, sl);
+		if (sl.code / 100 != 2)
+			throw new HTTPStatusException(sl.code,
+				"Downloading %s failed with %d (%s).".format(url, sl.code, sl.reason));
 	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		vibe.inet.urltransfer.download(url, filename);
@@ -331,19 +266,7 @@ ubyte[] download(string url, uint timeout = 8)
 		auto conn = HTTP();
 		setupHTTPClient(conn, timeout);
 		logDebug("Getting %s...", url);
-		static if (__VERSION__ <= 2075)
-		{
-			try
-				return cast(ubyte[])get(url, conn);
-			catch (CurlException e)
-			{
-				if (e.msg.canFind("404"))
-					throw new HTTPStatusException(404, e.msg);
-				throw e;
-			}
-		}
-		else
-			return cast(ubyte[])get(url, conn);
+		return cast(ubyte[])get(url, conn);
 	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		import vibe.stream.operations;
@@ -689,7 +612,7 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
 	//create module name from path
 	foreach (i; 0 .. mpath.length) {
 		import std.path;
-		auto p = mpath[i].toString();
+		auto p = mpath[i].name;
 		if (p == "package.d") break;
 		if (i > 0) ret ~= ".";
 		if (i+1 < mpath.length) ret ~= p;

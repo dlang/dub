@@ -149,8 +149,6 @@ private void parseJson(ref ConfigurationInfo config, Json json, string package_n
 	}
 
 	enforce(!config.name.empty, "Configuration is missing a name.");
-
-	BuildSettingsTemplate bs;
 	config.buildSettings.parseJson(json, package_name);
 }
 

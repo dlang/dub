@@ -215,8 +215,8 @@ unittest {
 		ref int someTempl()() { return i; }
 	}
 
-	enum plainFields = ["i"];
-	enum fields = ["i", "p1", "p4", "p5"];
+	immutable plainFields = ["i"];
+	immutable fields = ["i", "p1", "p4", "p5"];
 
 	foreach (mem; __traits(allMembers, S)) {
 		static if (isRWField!(S, mem)) static assert(fields.canFind(mem), mem~" detected as field.");

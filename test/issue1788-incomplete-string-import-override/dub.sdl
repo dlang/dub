@@ -1,0 +1,4 @@
+name "a"
+
+dependency "b" path="b"
+dependency "c" path="c"

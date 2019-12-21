@@ -33,7 +33,7 @@ import std.string;
 import std.encoding : sanitize;
 
 // Set output path and options for coverage reports
-version (DigitalMars) version (D_Coverage) static if (__VERSION__ >= 2068)
+version (DigitalMars) version (D_Coverage)
 {
 	shared static this()
 	{
@@ -59,7 +59,7 @@ static this()
 deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryURLs[0];
 
 /// The URL to the official package registry and it's default fallback registries.
-enum defaultRegistryURLs = [
+static immutable string[] defaultRegistryURLs = [
 	"https://code.dlang.org/",
 	"https://code-mirror.dlang.io/",
 	"https://dub-registry.herokuapp.com/",
@@ -168,7 +168,7 @@ class Dub {
 		else
 			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers, skip_registry);
 
-		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
+		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings);
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
@@ -260,7 +260,7 @@ class Dub {
 	{
 		init(NativePath());
 		m_overrideSearchPath = override_path;
-		m_packageManager = new PackageManager(NativePath(), NativePath(), false);
+		m_packageManager = new PackageManager(NativePath(), NativePath(), NativePath(), false);
 		updatePackageSearchPath();
 	}
 
@@ -677,14 +677,14 @@ class Dub {
 				import std.path;
 				tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(m_project.rootPackage.path).toNativeString();
 				tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
-				custommodname = custom_main_file.head.toString().baseName(".d");
+				custommodname = custom_main_file.head.name.baseName(".d");
 			}
 
 			// prepare the list of tested modules
 			string[] import_modules;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
-					auto fname = NativePath(file).head.toString();
+					auto fname = NativePath(file).head.name;
 					if (NativePath(file).relativeTo(m_project.rootPackage.path) == NativePath(mainfil)) {
 						logWarn("Excluding main source file %s from test.", mainfil);
 						tcinfo.excludedSourceFiles[""] ~= mainfil;
@@ -862,7 +862,7 @@ class Dub {
 
 		NativePath placement;
 		final switch (location) {
-			case PlacementLocation.local: placement = m_rootPath; break;
+			case PlacementLocation.local: placement = m_rootPath ~ ".dub/packages/"; break;
 			case PlacementLocation.user: placement = m_dirs.localRepository ~ "packages/"; break;
 			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
 		}
@@ -1201,7 +1201,6 @@ class Dub {
 		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~package_name~"'.");
 		auto final_versions = vers.filter!(v => !v.isBranch && !v.isPreRelease).array;
 		if (prefer_stable && final_versions.length) return final_versions[$-1];
-		else if (vers[$-1].isBranch) return vers[$-1];
 		else return vers[$-1];
 	}
 
@@ -1301,7 +1300,7 @@ class Dub {
 		}
 
 		auto srcfile = m_project.rootPackage.recipePath;
-		auto srcext = srcfile.head.toString().extension;
+		auto srcext = srcfile.head.name.extension;
 		if (srcext == "."~destination_file_ext) {
 			logInfo("Package format is already %s.", destination_file_ext);
 			return;

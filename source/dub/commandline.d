@@ -814,6 +814,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.rdmd = m_rdmd;
 		gensettings.tempBuild = m_tempBuild;
 		gensettings.parallelBuild = m_parallel;
+		gensettings.single = m_single;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
@@ -1281,8 +1282,25 @@ class CleanCommand : Command {
 		enforce(free_args.length == 0, "Cleaning a specific package isn't possible right now.");
 
 		if (m_allPackages) {
-			foreach (p; dub.packageManager.getPackageIterator())
-				dub.cleanPackage(p.path);
+			bool any_error = false;
+
+			foreach (p; dub.packageManager.getPackageIterator()) {
+				try dub.cleanPackage(p.path);
+				catch (Exception e) {
+					logWarn("Failed to clean package %s at %s: %s", p.name, p.path, e.msg);
+					any_error = true;
+				}
+
+				foreach (sp; p.subPackages.filter!(sp => !sp.path.empty)) {
+					try dub.cleanPackage(p.path ~ sp.path);
+					catch (Exception e) {
+						logWarn("Failed to clean sub package of %s at %s: %s", p.name, p.path ~ sp.path, e.msg);
+						any_error = true;
+					}
+				}
+			}
+
+			if (any_error) return 1;
 		} else {
 			dub.cleanPackage(dub.rootPath);
 		}
@@ -2316,12 +2334,11 @@ private struct PackageAndVersion
    into `name` and `version_`. */
 private PackageAndVersion splitPackageName(string packageName)
 {
-
-	// split <package>=<version-specifier>
-	auto parts = packageName.findSplit("=");
+	// split <package>@<version-specifier>
+	auto parts = packageName.findSplit("@");
 	if (parts[1].empty) {
-		// support splitting <package>@<version-specified> too
-		parts = packageName.findSplit("@");
+		// split <package>=<version-specifier>
+		parts = packageName.findSplit("=");
 	}
 
 	PackageAndVersion p;
@@ -2331,10 +2348,15 @@ private PackageAndVersion splitPackageName(string packageName)
 	return p;
 }
 
-// https://github.com/dlang/dub/issues/1681
 unittest
 {
-	auto pv = splitPackageName("");
-	assert(pv.name == "");
-	assert(pv.version_ is null);
+	// https://github.com/dlang/dub/issues/1681
+	assert(splitPackageName("") == PackageAndVersion("", null));
+
+	assert(splitPackageName("foo=1.0.1") == PackageAndVersion("foo", "1.0.1"));
+	assert(splitPackageName("foo@1.0.1") == PackageAndVersion("foo", "1.0.1"));
+	assert(splitPackageName("foo@==1.0.1") == PackageAndVersion("foo", "==1.0.1"));
+	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion("foo", ">=1.0.1"));
+	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion("foo", "~>1.0.1"));
+	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion("foo", "<1.0.1"));
 }

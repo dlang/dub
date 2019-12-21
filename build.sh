@@ -31,7 +31,8 @@ fi
 MACOSX_DEPLOYMENT_TARGET=10.8
 
 echo Running $DMD...
-$DMD -ofbin/dub -g -O -w -version=DubUseCurl -version=DubApplication -Isource $* @build-files.txt
+DFLAGS="${DFLAGS:--g -O -w}"
+$DMD -ofbin/dub $DFLAGS -version=DubUseCurl -version=DubApplication -Isource $* @build-files.txt
 bin/dub --version
 echo DUB has been built as bin/dub.
 echo
