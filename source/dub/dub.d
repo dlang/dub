@@ -665,7 +665,6 @@ class Dub {
 			tcinfo.targetType = TargetType.executable;
 			tcinfo.targetName = test_config;
 			// HACK for vibe.d's legacy main() behavior:
-			tcinfo.versions[""] ~= "VibeCustomMain";
 			m_project.rootPackage.recipe.buildSettings.versions[""] = m_project.rootPackage.recipe.buildSettings.versions.get("", null).remove!(v => v == "VibeDefaultMain");
 			// TODO: remove this ^ once vibe.d has removed the default main implementation
 
