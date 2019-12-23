@@ -4,11 +4,9 @@ set -v -e -o pipefail
 
 source ~/dlang/*/activate # activate host compiler
 
-if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.074.z ]; then
-    vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
-    dub fetch vibe-d --version=$vibe_ver # get optional dependency
-    dub test --compiler=${DC} -c library-nonet
-fi
+vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
+dub fetch vibe-d --version=$vibe_ver # get optional dependency
+dub test --compiler=${DC} -c library-nonet
 
 if [ "$FRONTEND" \> 2.087.z ]; then
     DFLAGS='-preview=dip1000 -w -g -debug' DMD="$(command -v $DMD)" ./build.sh
