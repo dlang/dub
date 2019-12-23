@@ -24,6 +24,17 @@ if [ "$COVERAGE" = true ]; then
     dub test --compiler=${DC} -b unittest-cov
     ./build.sh -cov
 
+    wget https://codecov.io/bash -O codecov.sh
+    bash codecov.sh
+else
+    ./build.sh
+    DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
+fi
+
+## Checks that only need to be done once per CI run
+## Here the `COVERAGE` variable is abused for this purpose,
+## as it's only defined once in the whole Travis matrix
+if [ "$COVERAGE" = true ]; then
     # run tests with different compilers
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
     deactivate
@@ -39,23 +50,10 @@ if [ "$COVERAGE" = true ]; then
     source $(~/dlang/install.sh gdc-4.8.5 --activate)
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
     deactivate
-else
-    ./build.sh
-    DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
-fi
 
-if [ "$COVERAGE" = true ]; then
-    wget https://codecov.io/bash -O codecov.sh
-    bash codecov.sh
-fi
-
-# check for trailing whitespace (needs to be done only once per build)
-if [ "$COVERAGE" = true ]; then
+    # check for trailing whitespace
     find . -type f -name '*.d' -exec grep -Hn "[[:blank:]]$" {} \;
-fi
-
-# check that the man page generation still works (only once)
-if [ "$COVERAGE" = true ]; then
+    # check that the man page generation still works
     source $(~/dlang/install.sh dmd --activate)
     source $(~/dlang/install.sh dub --activate)
     dub --single -v scripts/man/gen_man.d
