@@ -12,4 +12,6 @@ For bugfixes make sure to automatically [close the issue via commit message](htt
 
 ## Backwards compatiblity
 
-DUB is a command line tool, as well as a library that can be embedded into other applications. For this reason, any change to the public API, as well as to the command line interface, needs to be carefully reviewed for possible breaking changes. No breaking changes are allowed to enter the master branch at this point. However, deprecating symbols and adding new ones is a possible way to prepare for breaking changes that will get into 2.0.0.
+DUB is a command line tool, as well as a library that can be embedded into other applications. We aim to stay backwards compatible as long as possible and as required by the SemVer specification. For this reason, any change to the public API, as well as to the command line interface, needs to be carefully reviewed for possible breaking changes. No breaking changes are allowed to enter the master branch at this point.
+
+However, to prepare for backwards-incompatible changes that go into the next major release, it is allowed to deprecate symbols, as well as to hide symbols and command line options from the documentation.
