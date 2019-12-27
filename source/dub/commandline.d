@@ -521,6 +521,7 @@ class InitCommand : Command {
 		static string input(string caption, string default_value)
 		{
 			writef("%s [%s]: ", caption, default_value);
+			stdout.flush();
 			auto inp = readln();
 			return inp.length > 1 ? inp[0 .. $-1] : default_value;
 		}
