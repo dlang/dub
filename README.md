@@ -32,7 +32,7 @@ DUB comes [precompiled](http://code.dlang.org/download) for Windows, OS X and Li
 
 The `dub` executable then just needs to be accessible from `PATH` and can be invoked from the root folder of any DUB enabled project to build and run it.
 
-If you want to build for yourself, just install [DMD](http://dlang.org/download.html) and libcurl development headers and run `./build.sh`. On Windows you can simply run `build.cmd` without installing anything besides DMD.
+If you want to build for yourself, just install a D compiler such as [DMD](http://dlang.org/download.html) and libcurl development headers and run `./build.d`.
 
 ### Arch Linux
 

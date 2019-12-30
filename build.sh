@@ -20,4 +20,4 @@ if [ "$DMD" = "" ]; then
 	exit 1
 fi
 
-$DMD -run build.d
+$DMD -run build.d $*

@@ -2,7 +2,7 @@
 
 ## Building
 
-Build a development version of dub using either `./build.sh` or `./build.cmd` on Windows.
+You can build a development version of dub using `./build.d`.
 When you already have a working dub binary, you can also just run `dub build`, though that won't update the version string.
 
 ## Changelog
