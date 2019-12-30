@@ -521,6 +521,7 @@ class PackageManager {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	deprecated("Use `remove(pack)` directly instead, the boolean has no effect")
 	void remove(in Package pack, bool force_remove)
 	{
 		remove(pack);
