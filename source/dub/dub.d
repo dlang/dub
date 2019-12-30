@@ -272,9 +272,6 @@ class Dub {
 			immutable appDataDir = environment.get("APPDATA");
 			m_dirs.userSettings = NativePath(appDataDir) ~ "dub/";
 			m_dirs.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
-
-			migrateRepositoryFromRoaming(m_dirs.userSettings ~"\\packages", m_dirs.localRepository ~ "\\packages");
-
 		} else version(Posix){
 			m_dirs.systemSettings = NativePath("/var/lib/dub/");
 			m_dirs.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
@@ -296,24 +293,6 @@ class Dub {
 
 		m_defaultArchitecture = m_config.defaultArchitecture;
 	}
-
-	version(Windows)
-	private void migrateRepositoryFromRoaming(NativePath roamingDir, NativePath localDir)
-	{
-        immutable roamingDirPath = roamingDir.toNativeString();
-	    if (!existsDirectory(roamingDir)) return;
-
-        immutable localDirPath = localDir.toNativeString();
-        logInfo("Detected a package cache in " ~ roamingDirPath ~ ". This will be migrated to " ~ localDirPath ~ ". Please wait...");
-        if (!existsDirectory(localDir))
-        {
-            mkdirRecurse(localDirPath);
-        }
-
-        runCommand(`xcopy /s /e /y "` ~ roamingDirPath ~ `" "` ~ localDirPath ~ `" > NUL`);
-        rmdirRecurse(roamingDirPath);
-	}
-
 
 	@property void dryRun(bool v) { m_dryRun = v; }
 
