@@ -260,8 +260,7 @@ class Dub {
 	{
 		init(NativePath());
 		m_overrideSearchPath = override_path;
-		m_packageManager = new PackageManager(NativePath(), NativePath(), NativePath(), false);
-		updatePackageSearchPath();
+		m_packageManager = new PackageManager(override_path);
 	}
 
 	private void init(NativePath root_path)
@@ -445,9 +444,7 @@ class Dub {
 		loadSingleFilePackage(NativePath(path));
 	}
 
-	/** Disables the default search paths and only searches a specific directory
-		for packages.
-	*/
+	deprecated("Instantiate a Dub instance with the single-argument constructor: `new Dub(path)`")
 	void overrideSearchPath(NativePath path)
 	{
 		if (!path.absolute) path = NativePath(getcwd()) ~ path;
@@ -1350,19 +1347,21 @@ class Dub {
 
 	private void updatePackageSearchPath()
 	{
+		// TODO: Remove once `overrideSearchPath` is removed
 		if (!m_overrideSearchPath.empty) {
-			m_packageManager.disableDefaultSearchPaths = true;
+			m_packageManager._disableDefaultSearchPaths = true;
 			m_packageManager.searchPath = [m_overrideSearchPath];
-		} else {
-			auto p = environment.get("DUBPATH");
-			NativePath[] paths;
-
-			version(Windows) enum pathsep = ";";
-			else enum pathsep = ":";
-			if (p.length) paths ~= p.split(pathsep).map!(p => NativePath(p))().array();
-			m_packageManager.disableDefaultSearchPaths = false;
-			m_packageManager.searchPath = paths;
+			return;
 		}
+
+		auto p = environment.get("DUBPATH");
+		NativePath[] paths;
+
+		version(Windows) enum pathsep = ";";
+		else enum pathsep = ":";
+		if (p.length) paths ~= p.split(pathsep).map!(p => NativePath(p))().array();
+		m_packageManager._disableDefaultSearchPaths = false;
+		m_packageManager.searchPath = paths;
 	}
 
 	private void determineDefaultCompiler()

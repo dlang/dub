@@ -37,6 +37,24 @@ class PackageManager {
 		bool m_disableDefaultSearchPaths = false;
 	}
 
+	/**
+	   Instantiate an instance with a single search path
+
+	   This constructor is used when dub is invoked with the '--bar' CLI switch.
+	   The instance will not look up the default repositories
+	   (e.g. ~/.dub/packages), using only `path` instead.
+
+	   Params:
+		 path = Path of the single repository
+	 */
+	this(NativePath path)
+	{
+		this.m_searchPath = [ path ];
+		this.m_disableDefaultSearchPaths = true;
+		this.refresh(true);
+	}
+
+	deprecated("Use the overload which accepts 3 `NativePath` arguments")
 	this(NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
 		m_repositories = [
@@ -69,7 +87,17 @@ class PackageManager {
 
 	/** Disables searching DUB's predefined search paths.
 	*/
+	deprecated("Instantiate a PackageManager instance with the single-argument constructor: `new PackageManager(path)`")
 	@property void disableDefaultSearchPaths(bool val)
+	{
+		this._disableDefaultSearchPaths(val);
+	}
+
+	// Non deprecated instance of the previous symbol,
+	// as `Dub.updatePackageSearchPath` calls it and while nothing in Dub app
+	// itself relies on it, just removing the call from `updatePackageSearchPath`
+	// could break the library use case.
+	package(dub) void _disableDefaultSearchPaths(bool val)
 	{
 		if (val == m_disableDefaultSearchPaths) return;
 		m_disableDefaultSearchPaths = val;
@@ -571,7 +599,7 @@ class PackageManager {
 			NativePath list_path = m_repositories[type].packagePath;
 			Package[] packs;
 			NativePath[] paths;
-			if (!m_disableDefaultSearchPaths) try {
+			try {
 				auto local_package_file = list_path ~ LocalPackagesFilename;
 				logDiagnostic("Looking for local package map at %s", local_package_file.toNativeString());
 				if( !existsFile(local_package_file) ) return;
@@ -624,9 +652,12 @@ class PackageManager {
 			m_repositories[type].localPackages = packs;
 			m_repositories[type].searchPath = paths;
 		}
-		scanLocalPackages(LocalPackageType.system);
-		scanLocalPackages(LocalPackageType.user);
-		scanLocalPackages(LocalPackageType.package_);
+		if (!m_disableDefaultSearchPaths)
+		{
+			scanLocalPackages(LocalPackageType.system);
+			scanLocalPackages(LocalPackageType.user);
+			scanLocalPackages(LocalPackageType.package_);
+		}
 
 		auto old_packages = m_packages;
 
@@ -693,9 +724,12 @@ class PackageManager {
 				}
 			}
 		}
-		loadOverrides(LocalPackageType.package_);
-		loadOverrides(LocalPackageType.user);
-		loadOverrides(LocalPackageType.system);
+		if (!m_disableDefaultSearchPaths)
+		{
+			loadOverrides(LocalPackageType.package_);
+			loadOverrides(LocalPackageType.user);
+			loadOverrides(LocalPackageType.system);
+		}
 	}
 
 	alias Hash = ubyte[];
