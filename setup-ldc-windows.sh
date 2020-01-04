@@ -2,69 +2,51 @@
 
 # sets up LDC for cross-compilation. Source this script, s.t. the new LDC is in PATH
 
-LDC_VERSION="1.13.0"
+# Make sure this version matches the version of LDC2 used in .travis.yml,
+# otherwise the compiler and the lib used might mismatch.
+LDC_VERSION="1.18.0"
 ARCH=${ARCH:-32}
 VERSION=$(git describe --abbrev=0 --tags)
 OS=windows
 
-# Step 0: install ldc
-if [ ! -f install.sh ] ; then
-	wget https://dlang.org/install.sh
-fi
-. $(bash ./install.sh -a "ldc-${LDC_VERSION}")
+# LDC should already be installed (see .travis.yml)
+# However, we need the libraries, so download them
+# We can't use the downloaded ldc2 itself, because obviously it's for Windows
 
-# for the install.sh script only
-LDC_PATH="$(dirname $(dirname $(which ldc2)))"
-
-# Step 1a: download the LDC x64 windows binaries
-if [ "${ARCH}" == 64 ] && [ ! -d "ldc2-${LDC_VERSION}-windows-x64" ] ; then
-	wget "https://github.com/ldc-developers/ldc/releases/download/v1.13.0/ldc2-${LDC_VERSION}-windows-x64.7z"
-	7z x "ldc2-${LDC_VERSION}-windows-x64.7z" > /dev/null
-	# Step 2a: Add LDC windows binaries to LDC Linux
-	if [ ! -d "${LDC_PATH}/lib-win64" ] ; then
-		cp -r ldc2-1.13.0-windows-x64/lib "${LDC_PATH}/lib-win64"
-		cat >> "$LDC_PATH"/etc/ldc2.conf <<EOF
-"x86_64-.*-windows-msvc":
-{
-	switches = [
-		"-defaultlib=phobos2-ldc,druntime-ldc",
-		"-link-defaultlib-shared=false",
-	];
-	lib-dirs = [
-		"%%ldcbinarypath%%/../lib-win64",
-	];
-};
-EOF
-	fi
-fi
-# Step 1b: download the LDC x86 windows binaries
-if [ "${ARCH}" == 32 ] && [ ! -d "ldc2-${LDC_VERSION}-windows-x86" ] ; then
-	wget "https://github.com/ldc-developers/ldc/releases/download/v1.13.0/ldc2-${LDC_VERSION}-windows-x86.7z"
-	7z x "ldc2-${LDC_VERSION}-windows-x86.7z" > /dev/null
-	# Step 2b: Add LDC windows binaries to LDC Linux
-	if [ ! -d "${LDC_PATH}/lib-win32" ] ; then
-		cp -r ldc2-1.13.0-windows-x86/lib "${LDC_PATH}/lib-win32"
-		cat >> "$LDC_PATH"/etc/ldc2.conf <<EOF
-"i686-.*-windows-msvc":
-{
-	switches = [
-		"-defaultlib=phobos2-ldc,druntime-ldc",
-		"-link-defaultlib-shared=false",
-	];
-	lib-dirs = [
-		"%%ldcbinarypath%%/../lib-win32",
-	];
-};
-EOF
-	fi
-fi
-
-# set suffices and compilation flags
-if [ "$ARCH" == "64" ] ; then
-	ARCH_SUFFIX="x86_64"
-	export DFLAGS="-mtriple=x86_64-windows-msvc"
+if [ "${ARCH}" == 64 ]; then
+	ARCH_SUFFIX='x86_64'
+	ZIP_ARCH_SUFFIX='x64'
 else
-	ARCH_SUFFIX="x86"
-	export DFLAGS="-mtriple=i686-windows-msvc"
+	ARCH_SUFFIX='i686'
+	ZIP_ARCH_SUFFIX='x86'
 fi
 
+LDC_DIR_PATH="$(pwd)/ldc2-${LDC_VERSION}-windows-${ZIP_ARCH_SUFFIX}"
+LDC_XDFLAGS="-conf=${LDC_DIR_PATH}/etc/ldc2.conf -mtriple=${ARCH_SUFFIX}-pc-windows-msvc"
+
+# Step 1: download the LDC Windows release
+# Check if the user already have it (e.g. building locally)
+if [ ! -d ${LDC_DIR_PATH} ]; then
+    if [ ! -d "ldc2-${LDC_VERSION}-windows-${ZIP_ARCH_SUFFIX}.7z" ]; then
+        wget "https://github.com/ldc-developers/ldc/releases/download/v${LDC_VERSION}/ldc2-${LDC_VERSION}-windows-${ZIP_ARCH_SUFFIX}.7z"
+    fi
+    7z x "ldc2-${LDC_VERSION}-windows-${ZIP_ARCH_SUFFIX}.7z" > /dev/null
+fi
+
+# Step 2: Generate a config file with the proper path
+cat > ${LDC_DIR_PATH}/etc/ldc2.conf <<EOF
+default:
+{
+	switches = [
+		"-defaultlib=phobos2-ldc,druntime-ldc",
+		"-link-defaultlib-shared=false",
+	];
+    post-switches = [
+        "-I${LDC_DIR_PATH}/import",
+    ];
+	lib-dirs = [
+		"${LDC_DIR_PATH}/lib/",
+		"${LDC_DIR_PATH}/lib/mingw/",
+	];
+};
+EOF

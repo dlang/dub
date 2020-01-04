@@ -8,17 +8,14 @@ BIN_NAME=dub
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $DIR
 
-# Save the rdmd used to run build.d
-RDMD=$(command -v rdmd)
-
+# Setup cross compiler
 source setup-ldc-windows.sh
 
 # Run LDC with cross-compilation
 archiveName="$BIN_NAME-$VERSION-$OS-$ARCH_SUFFIX.zip"
 echo "Building $archiveName"
 mkdir -p bin
-DMD=ldmd2 ${RDMD} ./build.d -release ${DFLAGS}
+DMD=ldmd2 ldc2 -run ./build.d -release ${LDC_XDFLAGS}
 
 cd bin
-mv "${BIN_NAME}" "${BIN_NAME}.exe"
 zip "$archiveName" "${BIN_NAME}.exe"

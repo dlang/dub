@@ -88,14 +88,6 @@ int main(string[] args)
         return 1;
     }
 
-    // Check dub
-    auto check = execute([DubBinPath, "--version"]);
-    if (check.status != 0)
-    {
-        writeln("Running newly built `dub` failed: ", check.output);
-        return 1;
-    }
-
     writeln("DUB has been built as: ", DubBinPath);
     version (Posix)
         writeln("You may want to run `sudo ln -s ", DubBinPath, " /usr/local/bin` now");
