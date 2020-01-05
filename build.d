@@ -40,6 +40,7 @@ immutable DubBinPath = RootPath.buildPath("bin", "dub");
 // Flags for DMD
 immutable OutputFlag = "-of" ~ DubBinPath;
 immutable IncludeFlag = "-I" ~ RootPath.buildPath("source");
+immutable DefaultDFLAGS = [ "-g", "-O", "-w" ];
 
 
 /// Entry point
@@ -49,28 +50,27 @@ int main(string[] args)
     // special cases (e.g. package maintainers can use it for bootstrapping),
     // not for general / everyday usage by newcomer.
     // So the following is just an heuristic / best effort approach.
-    if (args.length > 2 ||
-        (args.length == 2 && (args[1].canFind("help", "?") || args[1] == "-h")))
+    if (args.canFind("--help", "/?", "-h"))
     {
-        writeln("USAGE: ", args[0], " [version]");
+        writeln("USAGE: ./build.d [compiler args (default:", DefaultDFLAGS, "]");
+        writeln();
         writeln("  In order to build DUB, a version module must first be generated.");
-        writeln("  If one is already existing, it won't be overriden. " ~
-                "Otherwise this script will use the first argument, if any, " ~
-                "or the GITVER environment variable.");
-        writeln("  If both are empty, `git describe` will be called");
-        writeln("  Build flags can be provided via the `DFLAGS` environment variable.");
+        writeln("  If the GITVER environment variable is present, it will be used to generate the version module.");
+        writeln("  Otherwise this script will look for a pre-existing version module.");
+        writeln("  If no GITVER is provided and no version module exists, `git describe` will be called");
+        writeln("  Build flags can be provided as arguments.");
         writeln("  LDC or GDC can be used by setting the `DMD` value to " ~
                 "`ldmd2` and `gdmd` (or their path), respectively.");
         return 1;
     }
 
-    immutable dubVersion = args.length > 1 ? args[1] : environment.get("GITVER", "");
+    immutable dubVersion = environment.get("GITVER", "");
     if (!writeVersionFile(dubVersion))
         return 1;
 
     immutable dmd = getCompiler();
     if (!dmd.length) return 1;
-    immutable dflags = environment.get("DFLAGS", "-g -O -w").split();
+    const dflags = args.length > 1 ? args[1 .. $] : DefaultDFLAGS;
 
     // Compiler says no to immutable (because it can't handle the appending)
     const command = [
@@ -79,20 +79,12 @@ int main(string[] args)
         "-version=DubUseCurl", "-version=DubApplication",
         ] ~ dflags ~ [ "@build-files.txt" ];
 
-    writeln("Building dub using ", dmd, ", this may take a while...");
+    writeln("Building dub using ", dmd, " (dflags: ", dflags, "), this may take a while...");
     auto proc = execute(command);
     if (proc.status != 0)
     {
         writeln("Command `", command, "` failed, output was:");
         writeln(proc.output);
-        return 1;
-    }
-
-    // Check dub
-    auto check = execute([DubBinPath, "--version"]);
-    if (check.status != 0)
-    {
-        writeln("Running newly built `dub` failed: ", check.output);
         return 1;
     }
 

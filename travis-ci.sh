@@ -8,8 +8,10 @@ vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
 dub fetch vibe-d --version=$vibe_ver # get optional dependency
 dub test --compiler=${DC} -c library-nonet
 
+export DMD="$(command -v $DMD)"
+
 if [ "$FRONTEND" \> 2.087.z ]; then
-    DFLAGS='-preview=dip1000 -w -g -debug' DMD="$(command -v $DMD)" ./build.sh
+    ./build.d -preview=dip1000 -w -g -debug
 fi
 
 function clean() {
@@ -22,12 +24,12 @@ function clean() {
 if [ "$COVERAGE" = true ]; then
     # library-nonet fails to build with coverage (Issue 13742)
     dub test --compiler=${DC} -b unittest-cov
-    ./build.sh -cov
+    ./build.d -cov
 
     wget https://codecov.io/bash -O codecov.sh
     bash codecov.sh
 else
-    ./build.sh
+    ./build.d
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
 fi
 

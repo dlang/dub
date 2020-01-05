@@ -35,5 +35,5 @@ esac
 archiveName="dub-$VERSION-$OS-$ARCH_SUFFIX.tar.gz"
 
 echo "Building $archiveName"
-DFLAGS="-release -m$ARCH ${CUSTOM_FLAGS[@]}" DMD="$(command -v $DMD)" ./build.sh
+DMD="$(command -v $DMD)" ./build.d -release -m$ARCH ${CUSTOM_FLAGS[@]}
 tar cvfz "bin/$archiveName" -C bin dub
