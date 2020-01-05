@@ -2,13 +2,16 @@
 
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
 
-mkdir issue1099_HOME_TEMP
+postfix=$RANDOM
+HOME_STRING="issue1099_HOME_TEMP_${postfix}"
 
-export HOME=$(pwd)/issue1099_HOME_TEMP
+mkdir $HOME_STRING
+export HOME=$(pwd)/$HOME_STRING
+
 
 function cleanup {
     cd ../
-    rm -rf issue1099_HOME_TEMP
+    rm -rf $HOME
 }
 
 trap cleanup EXIT
