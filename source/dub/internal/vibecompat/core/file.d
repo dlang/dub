@@ -37,9 +37,9 @@ struct RangeFile {
 	{
 		auto sz = this.size;
 		enforce(sz <= size_t.max, "File is too big to read to memory.");
-		if ( sz == 0 ) {
-			return new ubyte[cast(size_t)sz];
-		}
+
+		if ( sz == 0 ) return null;
+
 		() @trusted { file.seek(0, SEEK_SET); } ();
 		auto ret = new ubyte[cast(size_t)sz];
 		rawRead(ret);
