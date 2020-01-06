@@ -2,6 +2,10 @@
 
 set -eux -o pipefail
 
+# Get the directory root, which is two level ahead
+ROOT_DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd )"
+cd ${ROOT_DIR}
+
 VERSION=$(git describe --abbrev=0 --tags)
 ARCH="${ARCH:-64}"
 CUSTOM_FLAGS=()
