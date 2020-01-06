@@ -2,8 +2,6 @@
 
 set -v -e -o pipefail
 
-source ~/dlang/*/activate # activate host compiler
-
 vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
 dub fetch vibe-d --version=$vibe_ver # get optional dependency
 dub test --compiler=${DC} -c library-nonet
@@ -39,7 +37,6 @@ fi
 if [ "$COVERAGE" = true ]; then
     # run tests with different compilers
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
-    deactivate
     clean
 
     export FRONTEND=2.077
