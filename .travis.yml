@@ -7,7 +7,7 @@ addons:
       - libevent-dev
 
 script:
-  - ./travis-ci.sh
+  - ./scripts/ci/travis.sh
 
 jobs:
   allow_failures:
@@ -27,7 +27,7 @@ jobs:
     - stage: deploy
       d: ldc-1.19.0,dub
       os: osx
-      script: echo "Deploying to GitHub releases ..." && ./release.sh
+      script: echo "Deploying to GitHub releases ..." && ./scripts/ci/release.sh
       deploy:
         - provider: releases
           file_glob: true
@@ -37,7 +37,7 @@ jobs:
           on:
             tags: true
     - d: ldc-1.19.0,dub
-      script: echo "Deploying to GitHub releases ..." && ./release.sh
+      script: echo "Deploying to GitHub releases ..." && ./scripts/ci/release.sh
       env: [ARCH=32]
       addons:
         apt:
@@ -53,7 +53,7 @@ jobs:
           on:
             tags: true
     - d: ldc-1.19.0,dub
-      script: echo "Deploying to GitHub releases ..." && ./release.sh
+      script: echo "Deploying to GitHub releases ..." && ./scripts/ci/release.sh
       deploy:
         - provider: releases
           file_glob: true
@@ -63,7 +63,7 @@ jobs:
           on:
             tags: true
     - d: ldc-1.19.0,dub
-      script: echo "Deploying to GitHub releases (win32) ..." && ./release-windows.sh
+      script: echo "Deploying to GitHub releases (win32) ..." && ./scripts/ci/release-windows.sh
       addons:
         apt:
           packages:
@@ -77,7 +77,7 @@ jobs:
           on:
             tags: true
     - d: ldc-1.19.0,dub
-      script: echo "Deploying to GitHub releases (win64) ..." && ARCH=64 ./release-windows.sh
+      script: echo "Deploying to GitHub releases (win64) ..." && ARCH=64 ./scripts/ci/release-windows.sh
       addons:
         apt:
           packages:

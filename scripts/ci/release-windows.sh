@@ -5,11 +5,11 @@ set -eux -o pipefail
 BIN_NAME=dub
 
 # Allow the script to be run from anywhere
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd )"
 cd $DIR
 
 # Setup cross compiler
-source setup-ldc-windows.sh
+source scripts/ci/setup-ldc-windows.sh
 
 # Run LDC with cross-compilation
 archiveName="$BIN_NAME-$VERSION-$OS-$ARCH_SUFFIX.zip"

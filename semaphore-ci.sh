@@ -38,4 +38,4 @@ else
     . $(curl --connect-timeout 5 --max-time 10 --retry 5 --retry-delay 1 --retry-max-time 60 https://dlang.org/install.sh | bash -s "$D_VERSION" -a)
 fi
 
-./travis-ci.sh
+./scripts/ci/travis.sh
