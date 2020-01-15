@@ -70,4 +70,4 @@ However, currently [2.076](https://dlang.org/changelog/2.076.0.html) is required
 # Contributing
 
 New contributers are always welcome, there's plenty to work on! For an easy start, take a look at issues marked [`bootcamp`](https://github.com/dlang/dub/labels/bootcamp)
-The contributing guidelines can be found [here](https://github.com/ankingcodes/dub/blob/master/CONTRIBUTING.md)
+The contributing guidelines can be found [here](https://github.com/dlang/dub/blob/master/CONTRIBUTING.md)
