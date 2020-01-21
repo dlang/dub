@@ -301,6 +301,10 @@ class VisualDGenerator : ProjectGenerator {
 				string versions = join(getSettings!"versions"(), " ");
 				ret.formattedWrite("    <versionids>%s</versionids>\n", versions);
 
+				// Add debug identifiers
+				string debugVersions = join(getSettings!"debugVersions"(), " ");
+				ret.formattedWrite("    <debugids>%s</debugids>\n", debugVersions);
+
 				// Add libraries, system libs need to be suffixed by ".lib".
 				string linkLibs = join(map!(a => a~".lib")(getSettings!"libs"()), " ");
 				string addLinkFiles = join(getSettings!"sourceFiles"().filter!(s => s.endsWith(".lib"))(), " ");
