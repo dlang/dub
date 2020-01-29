@@ -546,7 +546,12 @@ class BuildGenerator : ProjectGenerator {
 				auto result = prg_pid.wait();
 				settings.targetExitStatus = result;
 				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
-				enforce(result == 0, "Program exited with code "~to!string(result));
+				string error() {
+					string error = "Program exited with code "~to!string(result);
+					version (Posix) error ~= " (" ~ signalToName(-result) ~ ")";
+					return error;
+				}
+				enforce(result == 0, error());
 			}
 		} else
 			enforce(false, "Target is a library. Skipping execution.");
@@ -644,4 +649,41 @@ unittest { // issue #1235 - pass no library files to compiler command line when 
 
 	auto gen = new BuildGenerator(prj);
 	gen.generate(settings);
+}
+
+version (Posix)
+private string signalToName (int signal) {
+	import core.stdc.signal;
+	import core.sys.posix.signal;
+
+	enum sig_types = [
+		"SIGHUP",
+		"SIGINT",
+		"SIGQUIT",
+		"SIGILL",
+		"SIGABRT",
+		"SIGFPE",
+		"SIGKILL",
+		"SIGSEGV",
+		"SIGPIPE",
+		"SIGALRM",
+		"SIGTERM",
+		"SIGUSR1",
+		"SIGUSR2",
+		"SIGCHLD",
+		"SIGCONT",
+		"SIGSTOP",
+		"SIGTSTP",
+		"SIGTTIN",
+		"SIGTTOU",
+	];
+
+	final switch (signal)
+	{
+		static foreach (sig_type; sig_types)
+		{
+			case mixin(sig_type):
+				return sig_type;
+		}
+	}
 }
