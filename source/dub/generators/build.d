@@ -29,7 +29,7 @@ import std.encoding : sanitize;
 
 string getObjSuffix(in ref BuildPlatform platform)
 {
-    return platform.platform.canFind("windows") ? ".obj" : ".o";
+	return platform.platform.canFind("windows") ? ".obj" : ".o";
 }
 
 class BuildGenerator : ProjectGenerator {
