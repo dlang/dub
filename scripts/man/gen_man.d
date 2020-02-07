@@ -73,7 +73,10 @@ void writeMainManFile(CommandArgs args, CommandGroup[] commands,
 {
 	auto manFile = File(config.cwd.buildPath(fileName), "w");
 	manFile.writeHeader("DUB", config);
-	auto seeAlso = ["dmd(1)".br, "rdmd(1)"].joiner("\n").to!string;
+	auto seeAlso = ["dmd(1)", "rdmd(1)"]
+        .chain(commands.map!(a => a.commands).joiner
+               .map!(cmd => format("dub-%s(1)", cmd.name)))
+        .joiner(", ").to!string.bold;
 	scope(exit) manFile.writeFooter(seeAlso, config);
 
 	alias writeln = (m) => manFile.writeln(m);
@@ -146,7 +149,7 @@ void writeManFile(Command command, const Config config)
 	auto manFile = File(config.cwd.buildPath(fileName), "w");
 	auto manName = format("DUB-%s", command.name).toUpper;
 	manFile.writeHeader(manName, config);
-	static immutable seeAlso = ["dmd(1)".br, "dub(1)"].joiner("\n").to!string;
+	static immutable seeAlso = ["dmd(1)", "dub(1)"].map!bold.joiner(", ").to!string;
 	scope(exit) manFile.writeFooter(seeAlso, config);
 
 	alias writeln = (m) => manFile.writeln(m);
