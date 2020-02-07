@@ -1,0 +1,4 @@
+name "test-recursive"
+dependency "library-a" path="./libraryA"
+dependency "library-b" path="./libraryB"
+dependency "library-c" path="./libraryC"
