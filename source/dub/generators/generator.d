@@ -774,6 +774,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["LFLAGS"]                = join(cast(string[])build_settings.lflags," ");
 	env["VERSIONS"]              = join(cast(string[])build_settings.versions," ");
 	env["LIBS"]                  = join(cast(string[])build_settings.libs," ");
+	env["SOURCE_FILES"]          = join(cast(string[])build_settings.sourceFiles," ");
 	env["IMPORT_PATHS"]          = join(cast(string[])build_settings.importPaths," ");
 	env["STRING_IMPORT_PATHS"]   = join(cast(string[])build_settings.stringImportPaths," ");
 
