@@ -1,0 +1,13 @@
+{
+	"importPaths": [
+		"."
+	],
+	"license": "public domain",
+	"mainSourceFile": "app.d",
+	"sourceFiles": ["test.d"],
+	"name": "subpkg3",
+	"targetType": "executable",
+	"dependencies": {
+		"rootpkg:subpkg2": {"path": ".."}
+	}
+}

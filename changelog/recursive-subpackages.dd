@@ -1,0 +1,3 @@
+Added subpackages recursive test
+
+Dub now supports subpackages recursive test run. This feature can be activated by option `--recurse-subpackages`.

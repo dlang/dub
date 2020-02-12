@@ -1,0 +1,19 @@
+name "rootpkg"
+
+targetType "executable"
+mainSourceFile "source/app.d"
+
+subPackage {
+	name "subpkg1"
+	targetType "executable"
+	sourcePaths "subpkg1"
+	importPaths "subpkg1"
+	mainSourceFile "subpkg1/app.d"
+}
+subPackage {
+	name "subpkg2"
+	targetType "library"
+	sourcePaths "subpkg2"
+	importPaths "subpkg2"
+}
+subPackage "subpkg3"

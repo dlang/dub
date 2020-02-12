@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/subpkg2
+subpkg2.so
+subpkg2.dylib
+subpkg2.dll
+subpkg2.a
+subpkg2.lib
+subpkg2-test-*
+*.exe
+*.o
+*.obj
+*.lst
