@@ -40,4 +40,3 @@ cov/
 
 # Ignore auto-generated docs
 /docs
-/test/test-recurse-subpackages/*.log

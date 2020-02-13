@@ -13,3 +13,4 @@ rootpkg-test-*
 *.o
 *.obj
 *.lst
+*.log
