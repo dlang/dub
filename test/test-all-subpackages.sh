@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
-packname="test-recurse-subpackages"
+packname="test-all-subpackages"
 
 cd $(dirname "${BASH_SOURCE[0]}")/$packname
 
 testresultN=$($DUB test -q 2>&1)
-testresultR=$($DUB test -q --recurse-subpackages 2>&1)
+testresultR=$($DUB test -q --all-subpackages 2>&1)
 
 function check_contains() {
 	if ! { echo "${1}"; } | grep -cF "${2}" > /dev/null; then
