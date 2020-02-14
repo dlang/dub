@@ -966,7 +966,7 @@ class TestCommand : PackageBuildCommand {
 		bool m_combined = false;
 		bool m_parallel = false;
 		bool m_force = false;
-		bool m_recurseSubPackages = false;
+		bool m_allSubPackages = false;
 	}
 
 	this()
@@ -1010,8 +1010,8 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
-		args.getopt("recurse-subpackages", &m_recurseSubPackages, [
-			"Runs test on all subpackages recursively."
+		args.getopt("all-subpackages", &m_allSubPackages, [
+			"Runs test for while all subpackages."
 		]);
 		bool coverage = false;
 		args.getopt("coverage", &coverage, [
@@ -1055,7 +1055,7 @@ class TestCommand : PackageBuildCommand {
 
 		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
 		
-		if (m_recurseSubPackages) {
+		if (m_allSubPackages) {
 			string[] pkgNames;
 			foreach (subPkg; dub.project.rootPackage.subPackages) {
 				if (subPkg.recipe.name.length > 0) {
