@@ -2,16 +2,14 @@
 
 set -v -e -o pipefail
 
-source ~/dlang/*/activate # activate host compiler
+vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
+dub fetch vibe-d --version=$vibe_ver # get optional dependency
+dub test --compiler=${DC} -c library-nonet
 
-if [ -z "$FRONTEND" -o "$FRONTEND" \> 2.074.z ]; then
-    vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
-    dub fetch vibe-d --version=$vibe_ver # get optional dependency
-    dub test --compiler=${DC} -c library-nonet
-fi
+export DMD="$(command -v $DMD)"
 
 if [ "$FRONTEND" \> 2.087.z ]; then
-    DFLAGS='-preview=dip1000 -w -g -debug' DMD="$(command -v $DMD)" ./build.sh
+    ./build.d -preview=dip1000 -w -g -debug
 fi
 
 function clean() {
@@ -24,11 +22,21 @@ function clean() {
 if [ "$COVERAGE" = true ]; then
     # library-nonet fails to build with coverage (Issue 13742)
     dub test --compiler=${DC} -b unittest-cov
-    ./build.sh -cov
+    ./build.d -cov
 
+    wget https://codecov.io/bash -O codecov.sh
+    bash codecov.sh
+else
+    ./build.d
+    DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
+fi
+
+## Checks that only need to be done once per CI run
+## Here the `COVERAGE` variable is abused for this purpose,
+## as it's only defined once in the whole Travis matrix
+if [ "$COVERAGE" = true ]; then
     # run tests with different compilers
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
-    deactivate
     clean
 
     export FRONTEND=2.077
@@ -41,23 +49,11 @@ if [ "$COVERAGE" = true ]; then
     source $(~/dlang/install.sh gdc-4.8.5 --activate)
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
     deactivate
-else
-    ./build.sh
-    DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
-fi
 
-if [ "$COVERAGE" = true ]; then
-    wget https://codecov.io/bash -O codecov.sh
-    bash codecov.sh
-fi
-
-# check for trailing whitespace (needs to be done only once per build)
-if [ "$COVERAGE" = true ]; then
+    # check for trailing whitespace
     find . -type f -name '*.d' -exec grep -Hn "[[:blank:]]$" {} \;
-fi
-
-# check that the man page generation still works (only once)
-if [ "$COVERAGE" = true ]; then
+    # check that the man page generation still works
     source $(~/dlang/install.sh dmd --activate)
+    source $(~/dlang/install.sh dub --activate)
     dub --single -v scripts/man/gen_man.d
 fi

@@ -239,7 +239,7 @@ class Project {
 			string ret;
 			ret ~= `Please modify the "name" field in %s accordingly.`.format(m_rootPackage.recipePath.toNativeString());
 			if (!m_rootPackage.recipe.buildSettings.targetName.length) {
-				if (m_rootPackage.recipePath.head.toString().endsWith(".sdl")) {
+				if (m_rootPackage.recipePath.head.name.endsWith(".sdl")) {
 					ret ~= ` You can then add 'targetName "%s"' to keep the current executable name.`.format(m_rootPackage.name);
 				} else {
 					ret ~= ` You can then add '"targetName": "%s"' to keep the current executable name.`.format(m_rootPackage.name);
@@ -285,10 +285,10 @@ class Project {
 		}
 		foreach (c; m_rootPackage.configurations) {
 			auto bs = m_rootPackage.getBuildSettings(c);
-			foreach (p, c; bs.subConfigurations) {
+			foreach (p, subConf; bs.subConfigurations) {
 				if (p !in bs.dependencies && p !in globalbs.dependencies)
-					warnSubConfig(p, c);
-				else checkSubConfig(p, c);
+					warnSubConfig(p, subConf);
+				else checkSubConfig(p, subConf);
 			}
 		}
 
@@ -1430,7 +1430,7 @@ unittest
 
 	import std.path : dirSeparator;
 
-	static Path woSlash(Path p) { p.endsWithSlash = false; return p; }
+	static NativePath woSlash(NativePath p) { p.endsWithSlash = false; return p; }
 	// basic vars
 	assert(processVars("Hello $PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(pack.path).toNativeString);
 	assert(processVars("Hello $ROOT_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj.rootPackage.path).toNativeString.chomp(dirSeparator));

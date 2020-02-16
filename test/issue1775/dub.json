@@ -1,0 +1,5 @@
+{
+    "name": "test",
+    "targetName": "test-application",
+    "preBuildCommands": [ "[ -f issue1775.marker ]" ]
+}

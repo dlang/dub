@@ -26,7 +26,7 @@ Package Manager for the D Programming language
 
 %build
 echo build
-cd %{srcpath} && ./build.sh
+cd %{srcpath} && ./build.d
 
 %install
 echo install

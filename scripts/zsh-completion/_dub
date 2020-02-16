@@ -1,0 +1,265 @@
+#compdef dub
+
+# Useful help:
+# https://github.com/zsh-users/zsh-completions/blob/master/zsh-completions-howto.org
+# http://zsh.sourceforge.net/Doc/Release/Completion-System.html
+# http://zdharma.org/Zsh-100-Commits-Club/Zsh-Native-Scripting-Handbook.html
+#
+# Completions installed on your system, e.g. for MacOSX + Homebrew users:
+# /usr/local/Cellar/zsh/$VERSION/share/zsh/functions
+# The GIT completion is quite amazing (and equally complex)
+# The CVS completion is much easier to grok (e.g. for function dispatch)
+
+
+# Entry point
+_dub() {
+    # TODO:
+    # - Handle registry URLs
+    # - Handle multiple dub (e.g. ./bin/dub add [TAB])
+    # - Interactively query configuration (for -c and --override-config)
+    #   => Dub does not currently support this
+    # - Add ability to provide version, e.g. vibe-d@0.8.6 (see dub add)
+    # - Get registry packages if it doesn't make us lag
+    # - Query compilers
+
+    # Note that global arguments won't show up when completing commands
+    # This is on purpose, to reduce the amount of options being shown during completion,
+    # as users are much more likely to be looking for command-specific options.
+    _arguments -S -C \
+        '(* : -)'{-h,--help}'[Display general or command specific help and exit]' \
+        '(* : -)--version[Print version information and exit]' \
+        \
+        '--root=[Run as if dub was started in given path]: :_directories' \
+        '--skip-registry=[Skips searching packages on certain repositories]:mode:(none standard configured all)' \
+        '--registry=[Search the given registry URL first when resolving dependencies]:registry URL:_urls' \
+        '--bare[Read only packages contained in the current directory]' \
+        '--cache=[Puts any fetched packages in the specified location]:cache location:(local|system|user)' \
+        '--annotate[Do not perform any action, just print what would be done]' \
+        \
+        + '(verbosity)' \
+        '--vquiet[Print no messages]' \
+        '--verror[Only print errors]' \
+        {-q,--quiet}'[Only print warnings and errors]' \
+        {-v,--verbose}'[Print diagnostic output]' \
+        '--vverbose[Print debug output]' \
+        \
+        '--[End of dub arguments, the following will be sent to the program]' \
+        '*::dub command:_command_dispatch'
+}
+
+
+# Command dispatch function
+_command_dispatch() {
+    declare -a commands=(
+        init:'Initialize a new dub package'
+        run:'Build and run a dub package (default action)'
+        build:'Build a dub package (by name, or in the working directory by default)'
+        test:'Execute the tests of a dub package'
+        generate:'Generates project files using the specified generator'
+        describe:'Prints a JSON description of the project and its dependencies'
+        clean:'Removes intermediate build files and cached build results'
+        dustmite:'Create reduced test cases for build errors'
+
+        fetch:'Manually retrieves and caches a package'
+        add:'Adds dependencies to the package file'
+        remove:'Removes a cached package'
+        upgrade:'Forces an upgrade of the dependencies'
+        add-path:'Adds a default package search path'
+        remove-path:'Removes a package search path'
+        add-local:'Adds a local package directory (e.g. a git repository)'
+        remove-local:'Removes a local package directory'
+        list:'Prints a list of all local packages dub is aware of'
+        search:'Search for available packages'
+        add-override:'Adds a new package override'
+        remove-override:'Removes an existing package override'
+        list-overrides:'Prints a list of all local package overrides'
+        clean-caches:'Removes cached metadata'
+        convert:'Converts the file format of the package recipe'
+    )
+    if (( CURRENT == 1 )); then
+        _alternative \
+            'files:filename:_files -g "*.d"' \
+            "commands:dub command: _describe -t commands command commands"
+    else
+        integer ret=0
+        local cmd=${${(k)commands}[(r)$words[1]:*]%%:*}
+        if [ ! -z "$cmd" ]; then
+            _call_function ret _dub_$cmd
+        else
+           # Assume single file, it takes program arguments
+            _message "Arguments for single file package $words[1]"
+        fi
+        return 0
+    fi
+}
+
+(( $+functions[_dub_add] )) ||
+_dub_add() {
+    # TODO: Make dub list more machine-readable
+    local -a dubList=("${(@f)$(dub list)}")
+    # First element is 'Packages present in the system...'
+    # Last element is an empty line
+    dubList=(${dubList[2,$#dubList-1]})
+    local -A pkgs
+    # Collect versions and names
+    for ((i = 1; i <= ${#dubList}; i++)); do
+        pkg_name=${${=${dubList[i]}}[1]}
+        pkg_version=${${${=${dubList[i]}}[2]}%:}
+        # Subpackages are currently not supported by 'dub add' (see dlang/dub#1846)
+        if [ ! -z "${pkg_name:#*:*}" ]; then
+            pkgs[${pkg_name}]+="${pkg_version}, "
+        fi
+    done
+    # Merge versions
+    local -a packages
+    for name ver in ${(kv)pkgs}; do
+        packages+=${name}:"${ver%, }"
+    done
+
+    # Package list includes ':' which is used as description
+    #_values 'local packages' ${pkgs//:/\\:}
+
+    # Use the unique property to get rid of subpkgs
+    _describe -t packages package packages
+}
+
+(( $+functions[_dub_init] )) ||
+_dub_init() {
+    _arguments -S -C \
+        ':package directory:_directories' \
+        '*:package dependency:_dub_add' \
+        '(-t --type)'{-t,--type}'[Set the type of project to generate]:project type:((minimal\:"simple hello world project (default)" vibe.d\:"minimal HTTP server based on vibe.d" deimos\:"skeleton for C header bindings" custom\:"custom project provided by dub package"))' \
+        '(-f --format)'{-f,--format}'[Sets the format to use for the manifest file]:format:(json sdl)' \
+        '(-n --non-iteractive)'{-n,--non-iteractive}'[Do not prompt for values and use only defaults]' \
+        '(* : -)'{-h,--help}'[Display general or command specific help and exit]'
+}
+
+(( $+functions[_dub_list] )) ||
+_dub_list() {
+    _arguments -S -C \
+    '(* : -)'{-h,--help}'[Display general or command specific help and exit]'
+}
+
+# dub generate, dub build, dub run...
+(( $+functions[_dub_generate_generic] )) ||
+_dub_generate_generic() {
+    _arguments -S -C \
+    $@ \
+    '::package:_dub_add' \
+    '(* : -)'{-h,--help}'[Display general or command specific help and exit]' \
+    '(-b --build)'{-b,--build=}'[Specifies the type of build to perform]:build type:("debug (default)" plain release release-debug release-nobounds unittest profile profile-gc docs ddox cov unittest-cov syntax)' \
+    '(-c --config)'{-c,--config=}'[Builds the specified configuration]:package configuration: ' \
+    '*--override-config=[ Uses the specified configuration for a certain dependency]:dependency/config: ' \
+    '--compiler=[Specifies the compiler binary to use (can be a path)]:compiler:(dmd gdc ldc gdmd ldmd)' \
+    '(-a --arch)'{-a,--arch=}'[Force a different architecture (e.g. x86 or x86_64)]:architecture: ' \
+    '(-d --debug)*'{-d,--debug=}'[Define the specified debug version identifier when building]:Debug version: ' \
+    '--nodeps[Do not resolve missing dependencies before building]' \
+    '--build-mode=[Specifies the way the compiler and linker are invoked]:build mode:("separate (default)" allAtOnce singleFile)' \
+    '--single[Treats the package name as a filename. The file must contain a package recipe comment]:file:_files -g "*.d"' \
+    '--filter-versions[Experimental: Filter version identifiers and debug version identifiers to improve build cache efficiency]' \
+    '--combined[Tries to build the whole project in a single compiler run]' \
+    '--print-builds[Prints the list of available build types]' \
+    '--print-configs[Prints the list of available configurations]' \
+    '--print-platform[Prints the identifiers for the current build platform as used for the manifests build field]' \
+    '--parallel[Runs multiple compiler instances in parallel, if possible]'
+}
+
+(( $+functions[_dub_generate] )) ||
+_dub_generate() {
+    local curcontext="$curcontext"
+    declare -a generators=(
+        visuald:'VisualD project files',
+        sublimetext:'SublimeText project file'
+        cmake:'CMake build scripts'
+        build:'Builds the package directly (use "dub build" instead)'
+    )
+    local localArgs=(
+        ':generator: _describe -t generators generator generators'
+    )
+
+    integer ret=0
+    _call_function ret _dub_generate_generic ${(@)localArgs}
+    return ret
+}
+
+(( $+functions[_dub_build] )) ||
+_dub_build() {
+    local localArgs=(
+        $@
+        '--rdmd[Use rdmd instead of directly invoking the compiler]'
+        '(-f --force)'{-f,--force}'[Forces a recompilation even if the target is up to date]'
+        '(-y--yes)'{-y,--yes}'[Assume "yes" as answer to all interactive prompts]'
+        '(-n--non-interactive)'{-n,--non-interactive}'[Do not enter interactive mode]'
+    )
+
+    integer ret=0
+    _call_function ret _dub_generate_generic ${(@)localArgs}
+    return ret
+}
+
+(( $+functions[_dub_run] )) ||
+_dub_run() {
+    local localArgs=(
+        '--[End of dub arguments, the following will be sent to the program]'
+        '--temp-build[Builds the project in the temp folder if possible]'
+    )
+
+    integer ret=0
+    _call_function ret _dub_build ${(@)localArgs}
+    return ret
+}
+
+(( $+functions[_dub_test] )) ||
+_dub_test() {
+    local localArgs=(
+        '--main-file=[Specifies a custom file containing the main() function to use for running the tests]:main file:_files -g "*.d"'
+    )
+
+    integer ret=0
+    _call_function ret _dub_build ${(@)localArgs}
+    return ret
+}
+
+(( $+functions[_dub_describe] )) ||
+_dub_describe() {
+    local localArgs=(
+        '--import-paths[Shortcut for --data=import-paths --data-list]'
+        '--string-import-paths[Shortcut for --data=string-import-paths --data-list]'
+        '--data=[List the values of a particular build setting]:listing options: _values -s , argument main-source-file dflags lflags libs linker-files source-files versions debug-versions import-paths string-import-paths import-files options'
+        '--data-list[Output --data information in list format (line-by-line)]'
+        '--data-0[Output --data information using null-delimiters, rather than spaces or newlines]'
+    )
+
+    integer ret=0
+    _call_function ret _dub_build ${(@)localArgs}
+    return ret
+}
+
+(( $+functions[_dub_clean] )) ||
+_dub_clean() {
+    _arguments -S -C \
+        '(* : -)'{-h,--help}'[Display general or command specific help and exit]' \
+        + '(toclean)' \
+        '--all-packages[Cleans up *all* known packages (dub list)]' \
+        ':package:_dub_add'
+}
+
+(( $+functions[_dub_dustmite] )) ||
+_dub_dustmite() {
+    local localArgs=(
+        ':target directory:_directories'
+        '--compiler-status=[The expected status code of the compiler run]:status code: '
+        '--compiler-regex=[A regular expression used to match against the compiler output]:regex: '
+        '--linker-status=[The expected status code of the linker run]:status code: '
+        '--linker-regex=[A regular expression used to match against the linker output]:regex: '
+        '--program-status=[The expected status code of the built executable]:status code: '
+        '--program-regex=[A regular expression used to match against the program output]:regex: '
+        '--[End of dub arguments, the following will be sent to the program]'
+    )
+
+    integer ret=0
+    _call_function ret _dub_generate_generic ${(@)localArgs}
+    return ret
+}
+
+_dub

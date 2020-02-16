@@ -182,8 +182,6 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	Dependency dep = Dependency.any;
 	auto attrs = t.attributes;
 
-	auto pv = "version" in attrs;
-
 	if ("path" in attrs) {
 		if ("version" in attrs)
 			logDiagnostic("Ignoring version specification (%s) for path based dependency %s", attrs["version"][0].value.get!string, attrs["path"][0].value.get!string);

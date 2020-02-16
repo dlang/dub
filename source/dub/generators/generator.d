@@ -305,10 +305,7 @@ class ProjectGenerator
 		}
 
 		collectDependencies(rootPackage, *roottarget, targets);
-		static if (__VERSION__ > 2070)
-			visited.clear();
-		else
-			destroy(visited);
+		visited.clear();
 
 		// 1. downwards inherits versions, debugVersions, and inheritable build settings
 		static void configureDependencies(in ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
@@ -360,10 +357,7 @@ class ProjectGenerator
 		}
 
 		configureDependents(*roottarget, targets);
-		static if (__VERSION__ > 2070)
-			visited.clear();
-		else
-			destroy(visited);
+		visited.clear();
 
 		// 4. Filter applicable version and debug version identifiers
 		if (genSettings.filterVersions)
@@ -591,6 +585,10 @@ struct GeneratorSettings {
 
 	// only used for generator "build"
 	bool run, force, direct, rdmd, tempBuild, parallelBuild;
+
+	/// single file dub package
+	bool single;
+
 	string[] runArgs;
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;
@@ -776,6 +774,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["LFLAGS"]                = join(cast(string[])build_settings.lflags," ");
 	env["VERSIONS"]              = join(cast(string[])build_settings.versions," ");
 	env["LIBS"]                  = join(cast(string[])build_settings.libs," ");
+	env["SOURCE_FILES"]          = join(cast(string[])build_settings.sourceFiles," ");
 	env["IMPORT_PATHS"]          = join(cast(string[])build_settings.importPaths," ");
 	env["STRING_IMPORT_PATHS"]   = join(cast(string[])build_settings.stringImportPaths," ");
 
@@ -815,7 +814,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 
 	auto depNames = proj.dependencies.map!((a) => a.name).array();
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
-	runCommands(commands, env);
+	runCommands(commands, env, pack.path().toString());
 }
 
 private bool isRecursiveInvocation(string pack)

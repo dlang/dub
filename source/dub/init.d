@@ -53,7 +53,7 @@ void initPackage(NativePath root_path, string[string] deps, string type,
 	string username = getUserName();
 
 	PackageRecipe p;
-	p.name = root_path.head.toString().toLower();
+	p.name = root_path.head.name.toLower();
 	p.authors ~= username;
 	p.license = "proprietary";
 	foreach (pack, v; deps) {
@@ -145,7 +145,6 @@ private void initDeimosPackage(NativePath root_path, ref PackageRecipe p, scope 
 {
 	import dub.compilers.buildsettings : TargetType;
 
-	auto name = root_path.head.toString().toLower();
 	p.description = format("Deimos Bindings for "~p.name~".");
 	p.buildSettings.importPaths[""] ~= ".";
 	p.buildSettings.targetType = TargetType.sourceLibrary;

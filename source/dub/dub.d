@@ -33,7 +33,7 @@ import std.string;
 import std.encoding : sanitize;
 
 // Set output path and options for coverage reports
-version (DigitalMars) version (D_Coverage) static if (__VERSION__ >= 2068)
+version (DigitalMars) version (D_Coverage)
 {
 	shared static this()
 	{
@@ -59,7 +59,7 @@ static this()
 deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryURLs[0];
 
 /// The URL to the official package registry and it's default fallback registries.
-enum defaultRegistryURLs = [
+static immutable string[] defaultRegistryURLs = [
 	"https://code.dlang.org/",
 	"https://code-mirror.dlang.io/",
 	"https://dub-registry.herokuapp.com/",
@@ -168,7 +168,7 @@ class Dub {
 		else
 			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers, skip_registry);
 
-		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
+		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings);
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
@@ -260,8 +260,7 @@ class Dub {
 	{
 		init(NativePath());
 		m_overrideSearchPath = override_path;
-		m_packageManager = new PackageManager(NativePath(), NativePath(), false);
-		updatePackageSearchPath();
+		m_packageManager = new PackageManager(override_path);
 	}
 
 	private void init(NativePath root_path)
@@ -272,9 +271,6 @@ class Dub {
 			immutable appDataDir = environment.get("APPDATA");
 			m_dirs.userSettings = NativePath(appDataDir) ~ "dub/";
 			m_dirs.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
-
-			migrateRepositoryFromRoaming(m_dirs.userSettings ~"\\packages", m_dirs.localRepository ~ "\\packages");
-
 		} else version(Posix){
 			m_dirs.systemSettings = NativePath("/var/lib/dub/");
 			m_dirs.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
@@ -296,24 +292,6 @@ class Dub {
 
 		m_defaultArchitecture = m_config.defaultArchitecture;
 	}
-
-	version(Windows)
-	private void migrateRepositoryFromRoaming(NativePath roamingDir, NativePath localDir)
-	{
-        immutable roamingDirPath = roamingDir.toNativeString();
-	    if (!existsDirectory(roamingDir)) return;
-
-        immutable localDirPath = localDir.toNativeString();
-        logInfo("Detected a package cache in " ~ roamingDirPath ~ ". This will be migrated to " ~ localDirPath ~ ". Please wait...");
-        if (!existsDirectory(localDir))
-        {
-            mkdirRecurse(localDirPath);
-        }
-
-        runCommand(`xcopy /s /e /y "` ~ roamingDirPath ~ `" "` ~ localDirPath ~ `" > NUL`);
-        rmdirRecurse(roamingDirPath);
-	}
-
 
 	@property void dryRun(bool v) { m_dryRun = v; }
 
@@ -466,9 +444,7 @@ class Dub {
 		loadSingleFilePackage(NativePath(path));
 	}
 
-	/** Disables the default search paths and only searches a specific directory
-		for packages.
-	*/
+	deprecated("Instantiate a Dub instance with the single-argument constructor: `new Dub(path)`")
 	void overrideSearchPath(NativePath path)
 	{
 		if (!path.absolute) path = NativePath(getcwd()) ~ path;
@@ -664,10 +640,6 @@ class Dub {
 			BuildSettingsTemplate tcinfo = m_project.rootPackage.recipe.getConfiguration(config).buildSettings;
 			tcinfo.targetType = TargetType.executable;
 			tcinfo.targetName = test_config;
-			// HACK for vibe.d's legacy main() behavior:
-			tcinfo.versions[""] ~= "VibeCustomMain";
-			m_project.rootPackage.recipe.buildSettings.versions[""] = m_project.rootPackage.recipe.buildSettings.versions.get("", null).remove!(v => v == "VibeDefaultMain");
-			// TODO: remove this ^ once vibe.d has removed the default main implementation
 
 			auto mainfil = tcinfo.mainSourceFile;
 			if (!mainfil.length) mainfil = m_project.rootPackage.recipe.buildSettings.mainSourceFile;
@@ -677,14 +649,14 @@ class Dub {
 				import std.path;
 				tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(m_project.rootPackage.path).toNativeString();
 				tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
-				custommodname = custom_main_file.head.toString().baseName(".d");
+				custommodname = custom_main_file.head.name.baseName(".d");
 			}
 
 			// prepare the list of tested modules
 			string[] import_modules;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
-					auto fname = NativePath(file).head.toString();
+					auto fname = NativePath(file).head.name;
 					if (NativePath(file).relativeTo(m_project.rootPackage.path) == NativePath(mainfil)) {
 						logWarn("Excluding main source file %s from test.", mainfil);
 						tcinfo.excludedSourceFiles[""] ~= mainfil;
@@ -862,7 +834,7 @@ class Dub {
 
 		NativePath placement;
 		final switch (location) {
-			case PlacementLocation.local: placement = m_rootPath; break;
+			case PlacementLocation.local: placement = m_rootPath ~ ".dub/packages/"; break;
 			case PlacementLocation.user: placement = m_dirs.localRepository ~ "packages/"; break;
 			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
 		}
@@ -1201,7 +1173,6 @@ class Dub {
 		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~package_name~"'.");
 		auto final_versions = vers.filter!(v => !v.isBranch && !v.isPreRelease).array;
 		if (prefer_stable && final_versions.length) return final_versions[$-1];
-		else if (vers[$-1].isBranch) return vers[$-1];
 		else return vers[$-1];
 	}
 
@@ -1301,7 +1272,7 @@ class Dub {
 		}
 
 		auto srcfile = m_project.rootPackage.recipePath;
-		auto srcext = srcfile.head.toString().extension;
+		auto srcext = srcfile.head.name.extension;
 		if (srcext == "."~destination_file_ext) {
 			logInfo("Package format is already %s.", destination_file_ext);
 			return;
@@ -1376,19 +1347,21 @@ class Dub {
 
 	private void updatePackageSearchPath()
 	{
+		// TODO: Remove once `overrideSearchPath` is removed
 		if (!m_overrideSearchPath.empty) {
-			m_packageManager.disableDefaultSearchPaths = true;
+			m_packageManager._disableDefaultSearchPaths = true;
 			m_packageManager.searchPath = [m_overrideSearchPath];
-		} else {
-			auto p = environment.get("DUBPATH");
-			NativePath[] paths;
-
-			version(Windows) enum pathsep = ";";
-			else enum pathsep = ":";
-			if (p.length) paths ~= p.split(pathsep).map!(p => NativePath(p))().array();
-			m_packageManager.disableDefaultSearchPaths = false;
-			m_packageManager.searchPath = paths;
+			return;
 		}
+
+		auto p = environment.get("DUBPATH");
+		NativePath[] paths;
+
+		version(Windows) enum pathsep = ";";
+		else enum pathsep = ":";
+		if (p.length) paths ~= p.split(pathsep).map!(p => NativePath(p))().array();
+		m_packageManager._disableDefaultSearchPaths = false;
+		m_packageManager.searchPath = paths;
 	}
 
 	private void determineDefaultCompiler()

@@ -2,6 +2,10 @@
 
 set -eux -o pipefail
 
+# Get the directory root, which is two level ahead
+ROOT_DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd )"
+cd ${ROOT_DIR}
+
 VERSION=$(git describe --abbrev=0 --tags)
 ARCH="${ARCH:-64}"
 CUSTOM_FLAGS=()
@@ -35,5 +39,5 @@ esac
 archiveName="dub-$VERSION-$OS-$ARCH_SUFFIX.tar.gz"
 
 echo "Building $archiveName"
-DFLAGS="-release -m$ARCH ${CUSTOM_FLAGS[@]}" DMD="$(command -v $DMD)" ./build.sh
+DMD="$(command -v $DMD)" ./build.d -release -m$ARCH ${CUSTOM_FLAGS[@]}
 tar cvfz "bin/$archiveName" -C bin dub
