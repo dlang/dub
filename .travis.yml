@@ -14,18 +14,20 @@ jobs:
     - d: gdc
   include:
     - stage: test
-      d: dmd-2.090.0
-      env: [FRONTEND=2.089]
+      d: dmd-2.090.1
+      env: [FRONTEND=2.090]
     - d: dmd-2.089.1,dub
-      env: [FRONTEND=2.088]
+      env: [FRONTEND=2.089]
     - d: dmd-2.077.1,dub
       env: [FRONTEND=2.077, COVERAGE=true]
     - d: dmd-2.076.1,dub
       env: [FRONTEND=2.076]
+    - d: ldc-1.20.0
+      env: [FRONTEND=2.090]
     - d: ldc-1.19.0,dub
       env: [FRONTEND=2.089]
     - stage: deploy
-      d: ldc-1.19.0,dub
+      d: ldc-1.20.0,dub
       os: osx
       script: echo "Deploying to GitHub releases ..." && ./scripts/ci/release.sh
       deploy:
@@ -36,7 +38,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.19.0,dub
+    - d: ldc-1.20.0,dub
       script: echo "Deploying to GitHub releases ..." && ./scripts/ci/release.sh
       env: [ARCH=32]
       addons:
@@ -52,7 +54,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.19.0,dub
+    - d: ldc-1.20.0,dub
       script: echo "Deploying to GitHub releases ..." && ./scripts/ci/release.sh
       deploy:
         - provider: releases
@@ -62,7 +64,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.19.0,dub
+    - d: ldc-1.20.0,dub
       script: echo "Deploying to GitHub releases (win32) ..." && ./scripts/ci/release-windows.sh
       addons:
         apt:
@@ -76,7 +78,7 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc-1.19.0,dub
+    - d: ldc-1.20.0,dub
       script: echo "Deploying to GitHub releases (win64) ..." && ARCH=64 ./scripts/ci/release-windows.sh
       addons:
         apt:
