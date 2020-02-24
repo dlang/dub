@@ -1,0 +1,6 @@
+DUB now has zsh completion
+
+A zsh completion script is now present in `scripts/zsh-completion/_zsh`.
+It can be installed under the user's prefered `fpath` and provides completion
+for options for the most common `dub` commands, as well as list of packages
+(based on local packages), e.g. for `dub add`.

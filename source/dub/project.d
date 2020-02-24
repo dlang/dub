@@ -285,10 +285,10 @@ class Project {
 		}
 		foreach (c; m_rootPackage.configurations) {
 			auto bs = m_rootPackage.getBuildSettings(c);
-			foreach (p, c; bs.subConfigurations) {
+			foreach (p, subConf; bs.subConfigurations) {
 				if (p !in bs.dependencies && p !in globalbs.dependencies)
-					warnSubConfig(p, c);
-				else checkSubConfig(p, c);
+					warnSubConfig(p, subConf);
+				else checkSubConfig(p, subConf);
 			}
 		}
 

@@ -427,18 +427,18 @@ class Command {
 
 	private bool loadCwdPackage(Dub dub, bool warn_missing_package)
 	{
-		bool found = existsFile(dub.rootPath ~ "source/app.d");
-		if (!found)
-			foreach (f; packageInfoFiles)
-				if (existsFile(dub.rootPath ~ f.filename)) {
-					found = true;
-					break;
-				}
+		bool found;
+		foreach (f; packageInfoFiles)
+			if (existsFile(dub.rootPath ~ f.filename))
+			{
+				found = true;
+				break;
+			}
 
 		if (!found) {
 			if (warn_missing_package) {
 				logInfo("");
-				logInfo("Neither a package description file, nor source/app.d was found in");
+				logInfo("No package manifest (dub.json or dub.sdl) was found in");
 				logInfo(dub.rootPath.toNativeString());
 				logInfo("Please run DUB from the root directory of an existing package, or run");
 				logInfo("\"dub init --help\" to get information on creating a new package.");
@@ -521,6 +521,7 @@ class InitCommand : Command {
 		static string input(string caption, string default_value)
 		{
 			writef("%s [%s]: ", caption, default_value);
+			stdout.flush();
 			auto inp = readln();
 			return inp.length > 1 ? inp[0 .. $-1] : default_value;
 		}
