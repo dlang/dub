@@ -1,0 +1,4 @@
+Environment variable SOURCE_FILES added
+
+New environment variable `$SOURCE_FILES` added containing
+source files from build settings.

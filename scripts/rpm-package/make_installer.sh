@@ -3,7 +3,7 @@ set -e
 cd ../../
 DUB_PATH=`pwd`
 #rm -f ~/rpmbuild/SOURCES/dub.tar.gz
-#tar -pczf ~/rpmbuild/SOURCES/dub.tar.gz source build-files.txt build.sh LICENSE*
+#tar -pczf ~/rpmbuild/SOURCES/dub.tar.gz source build-files.txt build.d LICENSE*
 cd scripts/rpm-package/
 for i in $(git describe | tr "-" "\n"); do
 	if [ "$VER" == "" ]; then
