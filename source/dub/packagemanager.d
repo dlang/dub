@@ -108,15 +108,16 @@ class PackageManager {
 	*/
 	@property const(NativePath)[] completeSearchPath()
 	const {
-		auto ret = appender!(NativePath[])();
-		ret.put(cast(NativePath[])m_searchPath); // work around Phobos 17251
+		import std.algorithm : each;
+		bool[NativePath] set;
+		m_searchPath.each!(x => set[x] = true);
 		if (!m_disableDefaultSearchPaths) {
 			foreach (ref repo; m_repositories) {
-				ret.put(cast(NativePath[])repo.searchPath);
-				ret.put(cast(NativePath)repo.packagePath);
+				repo.searchPath.each!(x => set[x] = true);
+				set[repo.packagePath] = true;
 			}
 		}
-		return ret.data;
+		return set.keys.dup;
 	}
 
 	/** Sets additional (read-only) package cache paths to search for packages.
