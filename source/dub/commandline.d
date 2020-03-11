@@ -714,7 +714,6 @@ abstract class PackageBuildCommand : Command {
 		auto pack = dub.packageManager.getFirstPackage(package_name);
 		enforce(pack, "Failed to find a package named '"~package_name~"' locally.");
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
-		dub.rootPath = pack.path;
 		dub.loadPackage(pack);
 		return true;
 	}
