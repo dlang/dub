@@ -67,11 +67,26 @@ class PackageManager {
 	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
 		m_repositories = [
-			Repository(package_path ~ ".dub/packages/"),
-			Repository(user_path ~ "packages/"),
-			Repository(system_path ~ "packages/")];
+			Repository(repositoryPath(package_path, PlacementLocation.local)),
+			Repository(repositoryPath(user_path, PlacementLocation.user)),
+			Repository(repositoryPath(system_path, PlacementLocation.system)),
+		];
 
 		if (refresh_packages) refresh(true);
+	}
+
+	import dub.project : PlacementLocation;
+	/* Maps a placement location and path the corresponding repository path */
+	static NativePath repositoryPath(NativePath base, PlacementLocation location)
+	{
+		with (PlacementLocation) final switch (location)
+		{
+			case local:
+				return base ~ ".dub/packages";
+			case user:
+			case system:
+				return base ~ "packages/";
+		}
 	}
 
 	/** Gets/sets the list of paths to search for local packages.

@@ -1455,6 +1455,9 @@ class FetchCommand : FetchRemoveCommand {
 	override void prepare(scope CommandArgs args)
 	{
 		super.prepare(args);
+		args.getopt("shallow", &m_shallow, [
+			"do not fetch missing dependencies"
+		]);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -1465,29 +1468,57 @@ class FetchCommand : FetchRemoveCommand {
 		auto location = dub.defaultPlacementLocation;
 
 		auto name = free_args[0];
+		Package pack = fetchMainTarget(dub, location, name);
+		if (pack && !m_shallow)
+		{
+			NativePath registryPath = (){
+				import dub.project : PlacementLocation;
+				final switch (location) {
+					case PlacementLocation.system:
+						return PackageManager.repositoryPath(dub.specialDirs.systemSettings, location);
+					case PlacementLocation.user:
+						return PackageManager.repositoryPath(dub.specialDirs.localRepository, location);
+					case PlacementLocation.local:
+						return PackageManager.repositoryPath(dub.rootPath, location);
+				}
+			}();
+			dub.packageManager.customCachePaths([registryPath]);
+			dub.loadPackage(pack.path);
+			// needs to be after loadPackage, bc otherwise it has no effect
+			dub.packageManager.disableDefaultSearchPaths(true);
+			dub.project.reinit();
+			dub.upgrade(UpgradeOptions.select);
+		}
+		return 0;
+	}
 
+	Package fetchMainTarget(Dub dub, PlacementLocation location, string name)
+	{
 		FetchOptions fetchOpts;
 		fetchOpts |= FetchOptions.forceBranchUpgrade;
-		if (m_version.length) dub.fetch(name, Dependency(m_version), location, fetchOpts);
+		if (m_version.length)
+			return dub.fetch(name, Dependency(m_version), location, fetchOpts);
 		else if (name.canFind("@", "=")) {
 			const parts = name.splitPackageName;
-			dub.fetch(parts.name, Dependency(parts.version_), location, fetchOpts);
+			return dub.fetch(parts.name, Dependency(parts.version_), location, fetchOpts);
 		} else {
 			try {
-				dub.fetch(name, Dependency(">=0.0.0"), location, fetchOpts);
+				Package pack = dub.fetch(name, Dependency(">=0.0.0"), location, fetchOpts);
 				logInfo(
 					"Please note that you need to use `dub run <pkgname>` " ~
 					"or add it to dependencies of your package to actually use/run it. " ~
 					"dub does not do actual installation of packages outside of its own ecosystem.");
+				return pack;
 			}
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
 				logInfo("Retry with ~master...");
-				dub.fetch(name, Dependency("~master"), location, fetchOpts);
+				return dub.fetch(name, Dependency("~master"), location, fetchOpts);
 			}
 		}
-		return 0;
 	}
+private:
+	bool m_shallow;
 }
 
 class InstallCommand : FetchCommand {

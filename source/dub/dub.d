@@ -316,6 +316,8 @@ class Dub {
 
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
 
+	@property SpecialDirs specialDirs() const { return m_dirs; }
+
 	@property inout(Project) project() inout { return m_project; }
 
 	/** Returns the default compiler binary to use for building D code.
