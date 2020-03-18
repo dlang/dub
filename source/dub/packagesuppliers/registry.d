@@ -11,7 +11,7 @@ package enum PackagesPath = "packages";
 	$(LINK https://code.dlang.org/)) to search for available packages.
 */
 class RegistryPackageSupplier : PackageSupplier {
-	import dub.internal.utils : download, HTTPStatusException;
+	import dub.internal.utils : download, retryDownload, HTTPStatusException;
 	import dub.internal.vibecompat.core.log;
 	import dub.internal.vibecompat.data.json : parseJson, parseJsonString, serializeToJson;
 	import dub.internal.vibecompat.inet.url : URL;
@@ -57,19 +57,16 @@ class RegistryPackageSupplier : PackageSupplier {
 			return;
 		auto vers = best["version"].get!string;
 		auto url = m_registryUrl ~ NativePath(PackagesPath~"/"~packageId~"/"~vers~".zip");
-		logDiagnostic("Downloading from '%s'", url);
-		foreach(i; 0..3) {
-			try{
-				download(url, path);
-				return;
-			}
-			catch(HTTPStatusException e) {
-				if (e.status == 404) throw e;
-				else {
-					logDebug("Failed to download package %s from %s (Attempt %s of 3)", packageId, url, i + 1);
-					continue;
-				}
-			}
+		try {
+			retryDownload(url, path);
+			return;
+		}
+		catch(HTTPStatusException e) {
+			if (e.status == 404) throw e;
+			else logDebug("Failed to download package %s from %s", packageId, url);
+		}
+		catch(Exception e) {
+			logDebug("Failed to download package %s from %s", packageId, url);
 		}
 		throw new Exception("Failed to download package %s from %s".format(packageId, url));
 	}
@@ -89,37 +86,21 @@ class RegistryPackageSupplier : PackageSupplier {
 			m_metadataCache.remove(packageId);
 		}
 
-		auto url = m_registryUrl ~ NativePath(PackagesPath ~ "/" ~ packageId ~ ".json");
+		auto url = m_registryUrl ~ NativePath("api/packages/infos?packages=[\"" ~
+				packageId ~ "\"]&include_dependencies=true&minimize=true");
 
 		logDebug("Downloading metadata for %s", packageId);
-		logDebug("Getting from %s", url);
-
 		string jsonData;
-		foreach(i; 0..3) {
-			try {
-				jsonData = cast(string)download(url);
-				break;
-			}
-			catch (HTTPStatusException e)
-			{
-				if (e.status == 404) {
-					logDebug("Package %s not found at %s (404): %s", packageId, description, e.msg);
-					return Json(null);
-				}
-				else {
-					logDebug("Error getting metadata for package %s at %s (attempt %s of 3): %s", packageId, description, i + 1, e.msg);
-					if (i == 2)
-						throw e;
-					continue;
-				}
-			}
-		}
+
+		jsonData = cast(string)retryDownload(url);
+
 		Json json = parseJsonString(jsonData, url.toString());
-		// strip readme data (to save size and time)
-		foreach (ref v; json["versions"])
-			v.remove("readme");
-		m_metadataCache[packageId] = CacheEntry(json, now);
-		return json;
+		foreach (pkg, info; json.get!(Json[string]))
+		{
+			logDebug("adding %s to metadata cache", pkg);
+			m_metadataCache[pkg] = CacheEntry(info, now);
+		}
+		return json[packageId];
 	}
 
 	SearchResult[] searchPackages(string query) {
@@ -129,7 +110,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		auto url = m_registryUrl;
 		url.localURI = "/api/packages/search?q="~encodeComponent(query);
 		string data;
-		data = cast(string)download(url);
+		data = cast(string)retryDownload(url);
 		return data.parseJson.opt!(Json[])
 			.map!(j => SearchResult(j["name"].opt!string, j["description"].opt!string, j["version"].opt!string))
 			.array;

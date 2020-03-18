@@ -11,7 +11,7 @@ configuration "application" {
 	targetType "executable"
 	mainSourceFile "source/app.d"
 	libs "curl"
-	versions "DubUseCurl"
+	versions "DubUseCurl" "DubApplication"
 }
 
 configuration "library" {

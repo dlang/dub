@@ -1,0 +1,14 @@
+.dub
+docs.json
+__dummy.html
+docs/
+daughter.so
+daughter.dylib
+daughter.dll
+daughter.a
+daughter.lib
+daughter-test-*
+*.exe
+*.o
+*.obj
+*.lst

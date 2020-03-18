@@ -1,0 +1,5 @@
+name "son"
+versions "Son"
+debugVersions "dSon"
+x:versionFilters "Son"
+x:debugVersionFilters "dSon"

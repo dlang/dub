@@ -221,7 +221,6 @@ struct NativePath {
 		ret.normalize(); // needed to avoid "."~".." become "" instead of ".."
 
 		assert(!rhs.absolute, "Trying to append absolute path.");
-		size_t idx = m_nodes.length;
 		foreach(folder; rhs.m_nodes){
 			switch(folder.toString()){
 				default: ret.m_nodes = ret.m_nodes ~ folder; break;
@@ -266,9 +265,9 @@ struct NativePath {
 		return 0;
 	}
 
-	hash_t toHash()
+	size_t toHash()
 	const nothrow @trusted {
-		hash_t ret;
+		size_t ret;
 		auto strhash = &typeid(string).getHash;
 		try foreach (n; nodes) ret ^= strhash(&n.m_name);
 		catch (Exception) assert(false);

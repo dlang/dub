@@ -43,7 +43,7 @@ class Project {
 		Package[] m_dependencies;
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
-		bool m_hasAllDependencies;
+		string[] m_missingDependencies;
 		string[string] m_overriddenConfigs;
 	}
 
@@ -114,7 +114,10 @@ class Project {
 		to `selections`, or to use `Dub.upgrade` to automatically select all
 		missing dependencies.
 	*/
-	bool hasAllDependencies() const { return m_hasAllDependencies; }
+	bool hasAllDependencies() const { return m_missingDependencies.length == 0; }
+
+	/// Sorted list of missing dependencies.
+	string[] missingDependencies() { return m_missingDependencies; }
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
@@ -236,7 +239,7 @@ class Project {
 			string ret;
 			ret ~= `Please modify the "name" field in %s accordingly.`.format(m_rootPackage.recipePath.toNativeString());
 			if (!m_rootPackage.recipe.buildSettings.targetName.length) {
-				if (m_rootPackage.recipePath.head.toString().endsWith(".sdl")) {
+				if (m_rootPackage.recipePath.head.name.endsWith(".sdl")) {
 					ret ~= ` You can then add 'targetName "%s"' to keep the current executable name.`.format(m_rootPackage.name);
 				} else {
 					ret ~= ` You can then add '"targetName": "%s"' to keep the current executable name.`.format(m_rootPackage.name);
@@ -282,10 +285,10 @@ class Project {
 		}
 		foreach (c; m_rootPackage.configurations) {
 			auto bs = m_rootPackage.getBuildSettings(c);
-			foreach (p, c; bs.subConfigurations) {
+			foreach (p, subConf; bs.subConfigurations) {
 				if (p !in bs.dependencies && p !in globalbs.dependencies)
-					warnSubConfig(p, c);
-				else checkSubConfig(p, c);
+					warnSubConfig(p, subConf);
+				else checkSubConfig(p, subConf);
 			}
 		}
 
@@ -318,7 +321,7 @@ class Project {
 	void reinit()
 	{
 		m_dependencies = null;
-		m_hasAllDependencies = true;
+		m_missingDependencies = [];
 		m_packageManager.refresh(false);
 
 		void collectDependenciesRec(Package pack, int depth = 0)
@@ -346,7 +349,7 @@ class Project {
 					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, subname, false);
 					catch (Exception e) {
 						logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
-						if (is_desired) m_hasAllDependencies = false;
+						if (is_desired) m_missingDependencies ~= dep.name;
 						continue;
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
@@ -386,7 +389,7 @@ class Project {
 
 				if (!p) {
 					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
-					if (is_desired) m_hasAllDependencies = false;
+					if (is_desired) m_missingDependencies ~= dep.name;
 					continue;
 				}
 
@@ -403,6 +406,7 @@ class Project {
 			}
 		}
 		collectDependenciesRec(m_rootPackage);
+		m_missingDependencies.sort();
 	}
 
 	/// Returns the name of the root package.
@@ -786,7 +790,7 @@ class Project {
 			else static if (attributeName == "stringImportPaths")
 				bs.stringImportPaths = bs.stringImportPaths.map!(ensureTrailingSlash).array();
 
-			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 			values = bs.dflags;
 			break;
 
@@ -797,7 +801,7 @@ class Project {
 			bs.sourceFiles = null;
 			bs.targetType = TargetType.none; // Force Compiler to NOT omit dependency libs when package is a library.
 
-			compiler.prepareBuildSettings(bs, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 
 			if (bs.lflags)
 				values = compiler.lflagsToDFlags( bs.lflags );
@@ -951,6 +955,7 @@ class Project {
 			case "working-directory":
 			case "string-import-files":
 			case "copy-files":
+			case "extra-dependency-files":
 			case "pre-generate-commands":
 			case "post-generate-commands":
 			case "pre-build-commands":
@@ -981,6 +986,7 @@ class Project {
 		case "linker-files":           return listBuildSetting!"linkerFiles"(args);
 		case "source-files":           return listBuildSetting!"sourceFiles"(args);
 		case "copy-files":             return listBuildSetting!"copyFiles"(args);
+		case "extra-dependency-files": return listBuildSetting!"extraDependencyFiles"(args);
 		case "versions":               return listBuildSetting!"versions"(args);
 		case "debug-versions":         return listBuildSetting!"debugVersions"(args);
 		case "import-paths":           return listBuildSetting!"importPaths"(args);
@@ -991,6 +997,8 @@ class Project {
 		case "post-generate-commands": return listBuildSetting!"postGenerateCommands"(args);
 		case "pre-build-commands":     return listBuildSetting!"preBuildCommands"(args);
 		case "post-build-commands":    return listBuildSetting!"postBuildCommands"(args);
+		case "pre-run-commands":       return listBuildSetting!"preRunCommands"(args);
+		case "post-run-commands":      return listBuildSetting!"postRunCommands"(args);
 		case "requirements":           return listBuildSetting!"requirements"(args);
 		case "options":                return listBuildSetting!"options"(args);
 
@@ -1018,13 +1026,13 @@ class Project {
 		if (projectDescription.rootPackage in projectDescription.targetLookup) {
 			// Copy linker files from sourceFiles to linkerFiles
 			auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
-			foreach (file; target.buildSettings.sourceFiles.filter!(isLinkerFile))
+			foreach (file; target.buildSettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)))
 				target.buildSettings.addLinkerFiles(file);
 
 			// Remove linker files from sourceFiles
 			target.buildSettings.sourceFiles =
 				target.buildSettings.sourceFiles
-				.filter!(a => !isLinkerFile(a))
+				.filter!(a => !isLinkerFile(settings.platform, a))
 				.array();
 			projectDescription.lookupTarget(projectDescription.rootPackage) = target;
 		}
@@ -1143,18 +1151,23 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags));
 	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags));
 	dst.addLibs(processVars(project, pack, gsettings, settings.libs));
-	dst.addSourceFiles(processVars(project, pack, gsettings, settings.sourceFiles, true));
+	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true));
 	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true));
 	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true));
 	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true));
+	dst.addExtraDependencyFiles(processVars(project, pack, gsettings, settings.extraDependencyFiles, true));
 	dst.addVersions(processVars(project, pack, gsettings, settings.versions));
 	dst.addDebugVersions(processVars(project, pack, gsettings, settings.debugVersions));
+	dst.addVersionFilters(processVars(project, pack, gsettings, settings.versionFilters));
+	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters));
 	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true));
 	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true));
 	dst.addPreGenerateCommands(processVars(project, pack, gsettings, settings.preGenerateCommands));
 	dst.addPostGenerateCommands(processVars(project, pack, gsettings, settings.postGenerateCommands));
 	dst.addPreBuildCommands(processVars(project, pack, gsettings, settings.preBuildCommands));
 	dst.addPostBuildCommands(processVars(project, pack, gsettings, settings.postBuildCommands));
+	dst.addPreRunCommands(processVars(project, pack, gsettings, settings.preRunCommands));
+	dst.addPostRunCommands(processVars(project, pack, gsettings, settings.postRunCommands));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
 
@@ -1169,30 +1182,141 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	}
 }
 
-private string[] processVars(in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
+private string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
 {
 	auto ret = appender!(string[])();
-	processVars(ret, project, pack, gsettings, vars, are_paths);
+	processVars!glob(ret, project, pack, gsettings, vars, are_paths);
 	return ret.data;
-
 }
-private void processVars(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
+private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
 {
-	foreach (var; vars) dst.put(processVars(var, project, pack, gsettings, are_paths));
+	static if (glob)
+		alias process = processVarsWithGlob!(Project, Package);
+	else
+		alias process = processVars!(Project, Package);
+	foreach (var; vars)
+		dst.put(process(var, project, pack, gsettings, are_paths));
 }
 
-private string processVars(Project, Package)(string var, in Project project, in Package pack,in GeneratorSettings gsettings, bool is_path)
+private string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
 {
-	import std.regex : regex, replaceAll;
+	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings));
+	if (!is_path)
+		return var;
+	auto p = NativePath(var);
+	if (!p.absolute)
+		return (pack.path ~ p).toNativeString();
+	else
+		return p.toNativeString();
+}
 
-	auto varRE = regex(`\$([\w_]+)|\$\{([\w_]+)\}`);
-	var = var.replaceAll!(m => getVariable(m[1].length ? m[1] : m[2], project, pack, gsettings))(varRE);
-	if (is_path) {
-		auto p = NativePath(var);
-		if (!p.absolute) {
-			return (pack.path ~ p).toNativeString();
-		} else return p.toNativeString();
-	} else return var;
+private string[] processVarsWithGlob(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
+{
+	assert(is_path, "can't glob something that isn't a path");
+	string res = processVars(var, project, pack, gsettings, is_path);
+	// Find the unglobbed prefix and iterate from there.
+	size_t i = 0;
+	size_t sepIdx = 0;
+	loop: while (i < res.length) {
+		switch_: switch (res[i])
+		{
+		case '*', '?', '[', '{': break loop;
+		case '/': sepIdx = i; goto default;
+		default: ++i; break switch_;
+		}
+	}
+	if (i == res.length) //no globbing found in the path
+		return [res];
+	import std.path : globMatch;
+	import std.file : dirEntries, SpanMode;
+	return dirEntries(res[0 .. sepIdx], SpanMode.depth)
+		.map!(de => de.name)
+		.filter!(name => globMatch(name, res))
+		.array;
+}
+/// Expand variables using `$VAR_NAME` or `${VAR_NAME}` syntax.
+/// `$$` escapes itself and is expanded to a single `$`.
+private string expandVars(alias expandVar)(string s)
+{
+	import std.functional : not;
+
+	auto result = appender!string;
+
+	static bool isVarChar(char c)
+	{
+		import std.ascii;
+		return isAlphaNum(c) || c == '_';
+	}
+
+	while (true)
+	{
+		auto pos = s.indexOf('$');
+		if (pos < 0)
+		{
+			result.put(s);
+			return result.data;
+		}
+		result.put(s[0 .. pos]);
+		s = s[pos + 1 .. $];
+		enforce(s.length > 0, "Variable name expected at end of string");
+		switch (s[0])
+		{
+			case '$':
+				result.put("$");
+				s = s[1 .. $];
+				break;
+			case '{':
+				pos = s.indexOf('}');
+				enforce(pos >= 0, "Could not find '}' to match '${'");
+				result.put(expandVar(s[1 .. pos]));
+				s = s[pos + 1 .. $];
+				break;
+			default:
+				pos = s.representation.countUntil!(not!isVarChar);
+				if (pos < 0)
+					pos = s.length;
+				result.put(expandVar(s[0 .. pos]));
+				s = s[pos .. $];
+				break;
+		}
+	}
+}
+
+unittest
+{
+	string[string] vars =
+	[
+		"A" : "a",
+		"B" : "b",
+	];
+
+	string expandVar(string name) { auto p = name in vars; enforce(p, name); return *p; }
+
+	assert(expandVars!expandVar("") == "");
+	assert(expandVars!expandVar("x") == "x");
+	assert(expandVars!expandVar("$$") == "$");
+	assert(expandVars!expandVar("x$$") == "x$");
+	assert(expandVars!expandVar("$$x") == "$x");
+	assert(expandVars!expandVar("$$$$") == "$$");
+	assert(expandVars!expandVar("x$A") == "xa");
+	assert(expandVars!expandVar("x$$A") == "x$A");
+	assert(expandVars!expandVar("$A$B") == "ab");
+	assert(expandVars!expandVar("${A}$B") == "ab");
+	assert(expandVars!expandVar("$A${B}") == "ab");
+	assert(expandVars!expandVar("a${B}") == "ab");
+	assert(expandVars!expandVar("${A}b") == "ab");
+
+	import std.exception : assertThrown;
+	assertThrown(expandVars!expandVar("$"));
+	assertThrown(expandVars!expandVar("${}"));
+	assertThrown(expandVars!expandVar("$|"));
+	assertThrown(expandVars!expandVar("x$"));
+	assertThrown(expandVars!expandVar("$X"));
+	assertThrown(expandVars!expandVar("${"));
+	assertThrown(expandVars!expandVar("${X"));
+
+	// https://github.com/dlang/dmd/pull/9275
+	assert(expandVars!expandVar("$${DUB_EXE:-dub}") == "${DUB_EXE:-dub}");
 }
 
 // Keep the following list up-to-date if adding more build settings variables.
@@ -1203,8 +1327,10 @@ package(dub) immutable buildSettingsVars = [
 
 private string getVariable(Project, Package)(string name, in Project project, in Package pack, in GeneratorSettings gsettings)
 {
-	import std.process : environment;
+	import dub.internal.utils : getDUBExePath;
+	import std.process : environment, escapeShellFileName;
 	import std.uni : asUpperCase;
+
 	NativePath path;
 	if (name == "PACKAGE_DIR")
 		path = pack.path;
@@ -1226,6 +1352,10 @@ private string getVariable(Project, Package)(string name, in Project project, in
 		// no trailing slash for clean path concatenation (see #1392)
 		path.endsWithSlash = false;
 		return path.toNativeString();
+	}
+
+	if (name == "DUB") {
+		return getDUBExePath(gsettings.platform.compilerBinary);
 	}
 
 	if (name == "ARCH") {
@@ -1300,7 +1430,7 @@ unittest
 
 	import std.path : dirSeparator;
 
-	static Path woSlash(Path p) { p.endsWithSlash = false; return p; }
+	static NativePath woSlash(NativePath p) { p.endsWithSlash = false; return p; }
 	// basic vars
 	assert(processVars("Hello $PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(pack.path).toNativeString);
 	assert(processVars("Hello $ROOT_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj.rootPackage.path).toNativeString.chomp(dirSeparator));
@@ -1310,6 +1440,8 @@ unittest
 	assert(processVars("Hello $PACKAGE_DIR"~dirSeparator~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
 	// test with isPath
 	assert(processVars("local", proj, pack, gsettings, isPath) == (pack.path ~ "local").toNativeString);
+	assert(processVars("foo/$$ESCAPED", proj, pack, gsettings, isPath) == (pack.path ~ "foo/$ESCAPED").toNativeString);
+	assert(processVars("$$ESCAPED", proj, pack, gsettings, !isPath) == "$ESCAPED");
 	// test other env variables
 	import std.process : environment;
 	environment["MY_ENV_VAR"] = "blablabla";
@@ -1317,6 +1449,7 @@ unittest
 	assert(processVars("${MY_ENV_VAR}suffix", proj, pack, gsettings, !isPath) == "blablablasuffix");
 	assert(processVars("$MY_ENV_VAR-suffix", proj, pack, gsettings, !isPath) == "blablabla-suffix");
 	assert(processVars("$MY_ENV_VAR:suffix", proj, pack, gsettings, !isPath) == "blablabla:suffix");
+	assert(processVars("$MY_ENV_VAR$MY_ENV_VAR", proj, pack, gsettings, !isPath) == "blablablablablabla");
 	environment.remove("MY_ENV_VAR");
 }
 

@@ -45,13 +45,15 @@ void initPackage(NativePath root_path, string[string] deps, string type,
 	import dub.recipe.io : writePackageRecipe;
 
 	void enforceDoesNotExist(string filename) {
-		enforce(!existsFile(root_path ~ filename), "The target directory already contains a '"~filename~"' file. Aborting.");
+		enforce(!existsFile(root_path ~ filename),
+			"The target directory already contains a '%s' %s. Aborting."
+				.format(filename, filename.isDir ? "directory" : "file"));
 	}
 
 	string username = getUserName();
 
 	PackageRecipe p;
-	p.name = root_path.head.toString().toLower();
+	p.name = root_path.head.name.toLower();
 	p.authors ~= username;
 	p.license = "proprietary";
 	foreach (pack, v; deps) {
@@ -80,7 +82,7 @@ void initPackage(NativePath root_path, string[string] deps, string type,
 	}
 
 	switch (type) {
-		default: throw new Exception("Unknown package init type: "~type);
+		default: break;
 		case "minimal": initMinimalPackage(root_path, p, &processRecipe); break;
 		case "vibe.d": initVibeDPackage(root_path, p, &processRecipe); break;
 		case "deimos": initDeimosPackage(root_path, p, &processRecipe); break;
@@ -143,7 +145,6 @@ private void initDeimosPackage(NativePath root_path, ref PackageRecipe p, scope 
 {
 	import dub.compilers.buildsettings : TargetType;
 
-	auto name = root_path.head.toString().toLower();
 	p.description = format("Deimos Bindings for "~p.name~".");
 	p.buildSettings.importPaths[""] ~= ".";
 	p.buildSettings.targetType = TargetType.sourceLibrary;
@@ -180,6 +181,7 @@ q"{.dub
 docs.json
 __dummy.html
 docs/
+/%1$s
 %1$s.so
 %1$s.dylib
 %1$s.dll

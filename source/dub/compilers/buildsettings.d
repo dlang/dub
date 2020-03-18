@@ -31,8 +31,11 @@ struct BuildSettings {
 	string[] linkerFiles;
 	string[] sourceFiles;
 	string[] copyFiles;
+	string[] extraDependencyFiles;
 	string[] versions;
 	string[] debugVersions;
+	string[] versionFilters;
+	string[] debugVersionFilters;
 	string[] importPaths;
 	string[] stringImportPaths;
 	string[] importFiles;
@@ -41,6 +44,8 @@ struct BuildSettings {
 	string[] postGenerateCommands;
 	string[] preBuildCommands;
 	string[] postBuildCommands;
+	string[] preRunCommands;
+	string[] postRunCommands;
 	@byName BuildRequirements requirements;
 	@byName BuildOptions options;
 
@@ -67,8 +72,11 @@ struct BuildSettings {
 		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
 		addCopyFiles(bs.copyFiles);
+		addExtraDependencyFiles(bs.extraDependencyFiles);
 		addVersions(bs.versions);
 		addDebugVersions(bs.debugVersions);
+		addVersionFilters(bs.versionFilters);
+		addDebugVersionFilters(bs.debugVersionFilters);
 		addImportPaths(bs.importPaths);
 		addStringImportPaths(bs.stringImportPaths);
 		addImportFiles(bs.importFiles);
@@ -77,6 +85,8 @@ struct BuildSettings {
 		addPostGenerateCommands(bs.postGenerateCommands);
 		addPreBuildCommands(bs.preBuildCommands);
 		addPostBuildCommands(bs.postBuildCommands);
+		addPreRunCommands(bs.preRunCommands);
+		addPostRunCommands(bs.postRunCommands);
 	}
 
 	void addDFlags(in string[] value...) { dflags ~= value; }
@@ -89,8 +99,11 @@ struct BuildSettings {
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
+	void addExtraDependencyFiles(in string[] value...) { add(extraDependencyFiles, value); }
 	void addVersions(in string[] value...) { add(versions, value); }
 	void addDebugVersions(in string[] value...) { add(debugVersions, value); }
+	void addVersionFilters(in string[] value...) { add(versionFilters, value); }
+	void addDebugVersionFilters(in string[] value...) { add(debugVersionFilters, value); }
 	void addImportPaths(in string[] value...) { add(importPaths, value); }
 	void addStringImportPaths(in string[] value...) { add(stringImportPaths, value); }
 	void prependStringImportPaths(in string[] value...) { prepend(stringImportPaths, value); }
@@ -100,6 +113,8 @@ struct BuildSettings {
 	void addPostGenerateCommands(in string[] value...) { add(postGenerateCommands, value, false); }
 	void addPreBuildCommands(in string[] value...) { add(preBuildCommands, value, false); }
 	void addPostBuildCommands(in string[] value...) { add(postBuildCommands, value, false); }
+	void addPreRunCommands(in string[] value...) { add(preRunCommands, value, false); }
+	void addPostRunCommands(in string[] value...) { add(postRunCommands, value, false); }
 	void addRequirements(in BuildRequirement[] value...) { foreach (v; value) this.requirements |= v; }
 	void addRequirements(in BuildRequirements value) { this.requirements |= value; }
 	void addOptions(in BuildOption[] value...) { foreach (v; value) this.options |= v; }
@@ -149,9 +164,9 @@ private:
 	static void addSI(ref string[] arr, in string[] vals)
 	{
 		bool[string] existing;
-		foreach (v; arr) existing[NativePath(v).head.toString()] = true;
+		foreach (v; arr) existing[NativePath(v).head.name] = true;
 		foreach (v; vals) {
-			auto s = NativePath(v).head.toString();
+			auto s = NativePath(v).head.name;
 			if (s !in existing) {
 				existing[s] = true;
 				arr ~= v;
@@ -171,9 +186,9 @@ private:
 	static bool pathMatch(string path, string pattern)
 	{
 		import std.functional : memoize;
-		
+
 		alias nativePath = memoize!((string stringPath) => NativePath(stringPath));
-			
+
 		return nativePath(path) == nativePath(pattern) || globMatch(path, pattern);
 	}
 
@@ -300,9 +315,11 @@ enum BuildOption {
 	property = 1<<20,             /// DEPRECATED: Enforce property syntax (-property)
 	profileGC = 1<<21,            /// Profile runtime allocations
 	pic = 1<<22,                  /// Generate position independent code
+	betterC = 1<<23,              /// Compile in betterC mode (-betterC)
+
 	// for internal usage
-	_docs = 1<<23,                // Write ddoc to docs
-	_ddox = 1<<24                 // Compile docs.json
+	_docs = 1<<24,                // Write ddoc to docs
+	_ddox = 1<<25                 // Compile docs.json
 }
 
 	struct BuildOptions {

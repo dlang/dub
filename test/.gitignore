@@ -11,5 +11,6 @@
 custom-unittest/custom-unittest
 path-subpackage-ref/test
 subpackage-ref/test
+subpackage-common-with-sourcefile-globbing/mypackage*
 
 /test_registry

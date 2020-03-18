@@ -20,6 +20,7 @@ import std.array : join, split;
 import std.exception : enforce;
 import std.file;
 import std.range;
+import std.process : environment;
 
 
 /**
@@ -85,6 +86,8 @@ struct PackageRecipe {
 	ConfigurationInfo[] configurations;
 	BuildSettingsTemplate[string] buildTypes;
 
+	ToolchainRequirements toolchainRequirements;
+
 	SubPackage[] subPackages;
 
 	inout(ConfigurationInfo) getConfiguration(string name)
@@ -104,6 +107,44 @@ struct SubPackage
 {
 	string path;
 	PackageRecipe recipe;
+}
+
+/// Describes minimal toolchain requirements
+struct ToolchainRequirements
+{
+	import std.typecons : Tuple, tuple;
+
+	/// DUB version requirement
+	Dependency dub = Dependency.any;
+	/// D front-end version requirement
+	Dependency frontend = Dependency.any;
+	/// DMD version requirement
+	Dependency dmd = Dependency.any;
+	/// LDC version requirement
+	Dependency ldc = Dependency.any;
+	/// GDC version requirement
+	Dependency gdc = Dependency.any;
+
+	/** Get the list of supported compilers.
+
+		Returns:
+			An array of couples of compiler name and compiler requirement
+	*/
+	@property Tuple!(string, Dependency)[] supportedCompilers() const
+	{
+		Tuple!(string, Dependency)[] res;
+		if (dmd != Dependency.invalid) res ~= Tuple!(string, Dependency)("dmd", dmd);
+		if (ldc != Dependency.invalid) res ~= Tuple!(string, Dependency)("ldc", ldc);
+		if (gdc != Dependency.invalid) res ~= Tuple!(string, Dependency)("gdc", gdc);
+		return res;
+	}
+
+	bool empty()
+	const {
+		import std.algorithm.searching : all;
+		return only(dub, frontend, dmd, ldc, gdc)
+			.all!(r => r == Dependency.any);
+	}
 }
 
 
@@ -149,14 +190,19 @@ struct BuildSettingsTemplate {
 	string[][string] sourcePaths;
 	string[][string] excludedSourceFiles;
 	string[][string] copyFiles;
+	string[][string] extraDependencyFiles;
 	string[][string] versions;
 	string[][string] debugVersions;
+	string[][string] versionFilters;
+	string[][string] debugVersionFilters;
 	string[][string] importPaths;
 	string[][string] stringImportPaths;
 	string[][string] preGenerateCommands;
 	string[][string] postGenerateCommands;
 	string[][string] preBuildCommands;
 	string[][string] postBuildCommands;
+	string[][string] preRunCommands;
+	string[][string] postRunCommands;
 	BuildRequirements[string] buildRequirements;
 	BuildOptions[string] buildOptions;
 
@@ -179,6 +225,13 @@ struct BuildSettingsTemplate {
 		{
 			auto files = appender!(string[]);
 
+			import dub.project : buildSettingsVars;
+			import std.typecons : Nullable;
+
+			static Nullable!(string[string]) envVarCache;
+
+			if (envVarCache.isNull) envVarCache = environment.toAA();
+
 			foreach (suffix, paths; paths_map) {
 				if (!platform.matchesSpecification(suffix))
 					continue;
@@ -188,9 +241,8 @@ struct BuildSettingsTemplate {
 					auto path = NativePath(spath);
 					if (!path.absolute) path = base_path ~ path;
 					if (!existsFile(path) || !isDir(path.toNativeString())) {
-						import dub.project : buildSettingsVars;
 						import std.algorithm : any, find;
-						const hasVar = buildSettingsVars.any!((string var) {
+						const hasVar = chain(buildSettingsVars, envVarCache.get.byKey).any!((string var) {
 							return spath.find("$"~var).length > 0 || spath.find("${"~var~"}").length > 0;
 						});
 						if (!hasVar)
@@ -230,14 +282,19 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("sourceFiles", "addSourceFiles")(dst, platform);
 		getPlatformSetting!("excludedSourceFiles", "removeSourceFiles")(dst, platform);
 		getPlatformSetting!("copyFiles", "addCopyFiles")(dst, platform);
+		getPlatformSetting!("extraDependencyFiles", "addExtraDependencyFiles")(dst, platform);
 		getPlatformSetting!("versions", "addVersions")(dst, platform);
 		getPlatformSetting!("debugVersions", "addDebugVersions")(dst, platform);
+		getPlatformSetting!("versionFilters", "addVersionFilters")(dst, platform);
+		getPlatformSetting!("debugVersionFilters", "addDebugVersionFilters")(dst, platform);
 		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);
 		getPlatformSetting!("stringImportPaths", "addStringImportPaths")(dst, platform);
 		getPlatformSetting!("preGenerateCommands", "addPreGenerateCommands")(dst, platform);
 		getPlatformSetting!("postGenerateCommands", "addPostGenerateCommands")(dst, platform);
 		getPlatformSetting!("preBuildCommands", "addPreBuildCommands")(dst, platform);
 		getPlatformSetting!("postBuildCommands", "addPostBuildCommands")(dst, platform);
+		getPlatformSetting!("preRunCommands", "addPreRunCommands")(dst, platform);
+		getPlatformSetting!("postRunCommands", "addPostRunCommands")(dst, platform);
 		getPlatformSetting!("buildRequirements", "addRequirements")(dst, platform);
 		getPlatformSetting!("buildOptions", "addOptions")(dst, platform);
 	}
@@ -275,6 +332,103 @@ struct BuildSettingsTemplate {
 			.warnOnSpecialCompilerFlags(all_dflags, all_options, package_name, config_name);
 		}
 	}
+}
+
+package(dub) void checkPlatform(in ref ToolchainRequirements tr, BuildPlatform platform, string package_name)
+{
+	import dub.compilers.utils : dmdLikeVersionToSemverLike;
+	import std.algorithm.iteration : map;
+	import std.format : format;
+
+	string compilerver;
+	Dependency compilerspec;
+
+	switch (platform.compiler) {
+		default:
+			compilerspec = Dependency.any;
+			compilerver = "0.0.0";
+			break;
+		case "dmd":
+			compilerspec = tr.dmd;
+			compilerver = platform.compilerVersion.length
+				? dmdLikeVersionToSemverLike(platform.compilerVersion)
+				: "0.0.0";
+			break;
+		case "ldc":
+			compilerspec = tr.ldc;
+			compilerver = platform.compilerVersion;
+			if (!compilerver.length) compilerver = "0.0.0";
+			break;
+		case "gdc":
+			compilerspec = tr.gdc;
+			compilerver = platform.compilerVersion;
+			if (!compilerver.length) compilerver = "0.0.0";
+			break;
+	}
+
+	enforce(compilerspec != Dependency.invalid,
+		format(
+			"Installed %s %s is not supported by %s. Supported compiler(s):\n%s",
+			platform.compiler, platform.compilerVersion, package_name,
+			tr.supportedCompilers.map!((cs) {
+				auto str = "  - " ~ cs[0];
+				if (cs[1] != Dependency.any) str ~= ": " ~ cs[1].toString();
+				return str;
+			}).join("\n")
+		)
+	);
+
+	enforce(compilerspec.matches(compilerver),
+		format(
+			"Installed %s-%s does not comply with %s compiler requirement: %s %s\n" ~
+			"Please consider upgrading your installation.",
+			platform.compiler, platform.compilerVersion,
+			package_name, platform.compiler, compilerspec
+		)
+	);
+
+	enforce(tr.frontend.matches(dmdLikeVersionToSemverLike(platform.frontendVersionString)),
+		format(
+			"Installed %s-%s with frontend %s does not comply with %s frontend requirement: %s\n" ~
+			"Please consider upgrading your installation.",
+			platform.compiler, platform.compilerVersion,
+			platform.frontendVersionString, package_name, tr.frontend
+		)
+	);
+}
+
+package bool addRequirement(ref ToolchainRequirements req, string name, string value)
+{
+	switch (name) {
+		default: return false;
+		case "dub": req.dub = parseDependency(value); break;
+		case "frontend": req.frontend = parseDMDDependency(value); break;
+		case "ldc": req.ldc = parseDependency(value); break;
+		case "gdc": req.gdc = parseDependency(value); break;
+		case "dmd": req.dmd = parseDMDDependency(value); break;
+	}
+	return true;
+}
+
+private static Dependency parseDependency(string dep)
+{
+	if (dep == "no") return Dependency.invalid;
+	return Dependency(dep);
+}
+
+private static Dependency parseDMDDependency(string dep)
+{
+	import dub.compilers.utils : dmdLikeVersionToSemverLike;
+	import dub.dependency : Dependency;
+	import std.algorithm : map, splitter;
+	import std.array : join;
+
+	if (dep == "no") return Dependency.invalid;
+	return dep
+		.splitter(' ')
+		.map!(r => dmdLikeVersionToSemverLike(r))
+		.join(' ')
+		.Dependency;
 }
 
 private T clone(T)(ref const(T) val)

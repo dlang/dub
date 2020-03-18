@@ -4,7 +4,8 @@ Package and build manager for [D](http://dlang.org/) applications and libraries.
 
 There is a central [package registry](https://github.com/dlang/dub-registry/) located at <http://code.dlang.org>.
 
-[![GitHub tag](https://img.shields.io/github/tag/dlang/dub.svg?maxAge=86400)](#) [![Build Status](https://travis-ci.org/dlang/dub.svg?branch=master)](https://travis-ci.org/dlang/dub) [![Coverage Status](https://coveralls.io/repos/dlang/dub/badge.svg)](https://coveralls.io/r/dlang/dub)
+[![GitHub tag](https://img.shields.io/github/tag/dlang/dub.svg?maxAge=86400)](#) [![Travis](https://travis-ci.org/dlang/dub.svg?branch=master)](https://travis-ci.org/dlang/dub) [![Coverage Status](https://coveralls.io/repos/dlang/dub/badge.svg)](https://coveralls.io/r/dlang/dub)
+[![Buildkite](https://badge.buildkite.com/c54d71c42284a042b9d578e28e093dff35f20cc8528319b1b6.svg?branch=master)](https://buildkite.com/dlang/dub)
 
 ## Introduction
 
@@ -31,7 +32,7 @@ DUB comes [precompiled](http://code.dlang.org/download) for Windows, OS X and Li
 
 The `dub` executable then just needs to be accessible from `PATH` and can be invoked from the root folder of any DUB enabled project to build and run it.
 
-If you want to build for yourself, just install [DMD](http://dlang.org/download.html) and libcurl development headers and run `./build.sh`. On Windows you can simply run `build.cmd` without installing anything besides DMD.
+If you want to build for yourself, just install a D compiler such as [DMD](http://dlang.org/download.html) and libcurl development headers and run `./build.d`.
 
 ### Arch Linux
 
@@ -52,6 +53,11 @@ There is also a [MacPorts](https://www.macports.org/) package available. Type `s
 
 Daniel Jost maintains a dub package on [chocolatey](https://chocolatey.org/packages/dub). Use `cinst dub` or `cinst dub -version #.#.#` to install stable or a custom version respectively.
 
+## Alpine Linux
+
+Mathias (@Geod24) Lang maintains the Alpine Linux packages.
+It is currently part of 'edge' and can be installed through `apk --no-cache add -X http://dl-cdn.alpinelinux.org/alpine/edge/testing dub`.
+
 ## Using DUB as a library
 
 The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/dlang/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/dlang/dub/blob/master/source/dub/commandline.d).
@@ -59,8 +65,9 @@ The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a li
 ## Minimal D compiler required to build DUB
 
 In general it is always recommended to build DUB with the latest version of your D compiler.
-However, currently [2.072](https://dlang.org/changelog/2.072.0.html) is required to build DUB from source.
+However, currently [2.076](https://dlang.org/changelog/2.076.0.html) is required to build DUB from source.
 
 # Contributing
 
 New contributers are always welcome, there's plenty to work on! For an easy start, take a look at issues marked [`bootcamp`](https://github.com/dlang/dub/labels/bootcamp)
+The contributing guidelines can be found [here](https://github.com/dlang/dub/blob/master/CONTRIBUTING.md)

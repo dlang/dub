@@ -41,6 +41,9 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 					recipe.buildTypes[name] = bs;
 				}
 				break;
+			case "toolchainRequirements":
+				recipe.toolchainRequirements.parseJson(value);
+				break;
 			case "-ddoxFilterArgs": recipe.ddoxFilterArgs = deserializeJson!(string[])(value); break;
 			case "-ddoxTool": recipe.ddoxTool = value.get!string; break;
 		}
@@ -103,6 +106,9 @@ Json toJson(in ref PackageRecipe recipe)
 			types[name] = settings.toJson();
 		ret["buildTypes"] = types;
 	}
+	if (!recipe.toolchainRequirements.empty) {
+		ret["toolchainRequirements"] = recipe.toolchainRequirements.toJson();
+	}
 	if (!recipe.ddoxFilterArgs.empty) ret["-ddoxFilterArgs"] = recipe.ddoxFilterArgs.serializeToJson();
 	if (!recipe.ddoxTool.empty) ret["-ddoxTool"] = recipe.ddoxTool;
 	return ret;
@@ -143,8 +149,6 @@ private void parseJson(ref ConfigurationInfo config, Json json, string package_n
 	}
 
 	enforce(!config.name.empty, "Configuration is missing a name.");
-
-	BuildSettingsTemplate bs;
 	config.buildSettings.parseJson(json, package_name);
 }
 
@@ -212,14 +216,19 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "sourcePath": bs.sourcePaths[suffix] ~= [value.get!string]; break; // deprecated
 			case "excludedSourceFiles": bs.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "copyFiles": bs.copyFiles[suffix] = deserializeJson!(string[])(value); break;
+			case "extraDependencyFiles": bs.extraDependencyFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "versions": bs.versions[suffix] = deserializeJson!(string[])(value); break;
 			case "debugVersions": bs.debugVersions[suffix] = deserializeJson!(string[])(value); break;
+			case "-versionFilters": bs.versionFilters[suffix] = deserializeJson!(string[])(value); break;
+			case "-debugVersionFilters": bs.debugVersionFilters[suffix] = deserializeJson!(string[])(value); break;
 			case "importPaths": bs.importPaths[suffix] = deserializeJson!(string[])(value); break;
 			case "stringImportPaths": bs.stringImportPaths[suffix] = deserializeJson!(string[])(value); break;
 			case "preGenerateCommands": bs.preGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "postGenerateCommands": bs.postGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "preBuildCommands": bs.preBuildCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "postBuildCommands": bs.postBuildCommands[suffix] = deserializeJson!(string[])(value); break;
+			case "preRunCommands": bs.preRunCommands[suffix] = deserializeJson!(string[])(value); break;
+			case "postRunCommands": bs.postRunCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "buildRequirements":
 				BuildRequirements reqs;
 				foreach (req; deserializeJson!(string[])(value))
@@ -259,14 +268,19 @@ private Json toJson(in ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.sourcePaths) ret["sourcePaths"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.excludedSourceFiles) ret["excludedSourceFiles"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.copyFiles) ret["copyFiles"~suffix] = serializeToJson(arr);
+	foreach (suffix, arr; bs.extraDependencyFiles) ret["extraDependencyFiles"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.versions) ret["versions"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.debugVersions) ret["debugVersions"~suffix] = serializeToJson(arr);
+	foreach (suffix, arr; bs.versionFilters) ret["-versionFilters"~suffix] = serializeToJson(arr);
+	foreach (suffix, arr; bs.debugVersionFilters) ret["-debugVersionFilters"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.importPaths) ret["importPaths"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.stringImportPaths) ret["stringImportPaths"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.preGenerateCommands) ret["preGenerateCommands"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.postGenerateCommands) ret["postGenerateCommands"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.preBuildCommands) ret["preBuildCommands"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.postBuildCommands) ret["postBuildCommands"~suffix] = serializeToJson(arr);
+	foreach (suffix, arr; bs.preRunCommands) ret["preRunCommands"~suffix] = serializeToJson(arr);
+	foreach (suffix, arr; bs.postRunCommands) ret["postRunCommands"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.buildRequirements) {
 		string[] val;
 		foreach (i; [EnumMembers!BuildRequirement])
@@ -279,5 +293,22 @@ private Json toJson(in ref BuildSettingsTemplate bs)
 			if (arr & i) val ~= to!string(i);
 		ret["buildOptions"~suffix] = serializeToJson(val);
 	}
+	return ret;
+}
+
+private void parseJson(ref ToolchainRequirements tr, Json json)
+{
+	foreach (string name, value; json)
+		tr.addRequirement(name, value.get!string);
+}
+
+private Json toJson(in ref ToolchainRequirements tr)
+{
+	auto ret = Json.emptyObject;
+	if (tr.dub != Dependency.any) ret["dub"] = serializeToJson(tr.dub);
+	if (tr.frontend != Dependency.any) ret["frontend"] = serializeToJson(tr.frontend);
+	if (tr.dmd != Dependency.any) ret["dmd"] = serializeToJson(tr.dmd);
+	if (tr.ldc != Dependency.any) ret["ldc"] = serializeToJson(tr.ldc);
+	if (tr.gdc != Dependency.any) ret["gdc"] = serializeToJson(tr.gdc);
 	return ret;
 }

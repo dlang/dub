@@ -1,66 +1,35 @@
 language: d
-dist: trusty
-sudo: false
+dist: bionic
 
 addons:
   apt:
     packages:
       - libevent-dev
 
-before_install:
-  # Use the dub-updating fork of the installer script until https://github.com/dlang/installer/pull/301 is merged
-  - wget https://raw.githubusercontent.com/wilzbach/installer-dub/master/script/install.sh -O ~/dlang/install.dub.sh
-  - . $(bash ~/dlang/install.dub.sh -a dub)
-  - dub --version
-
 script:
-  - ./travis-ci.sh
+  - ./scripts/ci/travis.sh
 
 jobs:
   allow_failures:
     - d: gdc
   include:
     - stage: test
-      d: dmd-2.081.1
-      env: [FRONTEND=2.081]
-    - d: dmd-2.080.1
-      env: [FRONTEND=2.080]
-    - d: dmd-2.079.1
-      env: [FRONTEND=2.078]
-    - d: dmd-2.078.1
-      env: [FRONTEND=2.078]
-    - d: dmd-2.077.1
+      d: dmd-2.090.1
+      env: [FRONTEND=2.090]
+    - d: dmd-2.089.1,dub
+      env: [FRONTEND=2.089]
+    - d: dmd-2.077.1,dub
       env: [FRONTEND=2.077, COVERAGE=true]
-    - d: dmd-2.076.1
+    - d: dmd-2.076.1,dub
       env: [FRONTEND=2.076]
-    - d: dmd-2.075.1
-      env: [FRONTEND=2.075]
-    - d: dmd-2.074.1
-      env: [FRONTEND=2.074]
-    - d: dmd-2.073.2
-      env: [FRONTEND=2.073]
-    - d: dmd-2.072.2
-      env: [FRONTEND=2.072]
-    - d: ldc-1.10.0
-      env: [FRONTEND=2.080]
-    - d: ldc-1.9.0
-      env: [FRONTEND=2.079]
-    - d: ldc-1.8.0
-      env: [FRONTEND=2.078]
-    - d: ldc-1.7.0
-      env: [FRONTEND=2.077]
-    - d: ldc-1.6.0
-      env: [FRONTEND=2.076]
-    - d: ldc-1.5.0
-      env: [FRONTEND=2.075]
-    - d: ldc-1.4.0
-      env: [FRONTEND=2.074]
-    - d: ldc-1.3.0
-      env: [FRONTEND=2.073]
+    - d: ldc-1.20.0
+      env: [FRONTEND=2.090]
+    - d: ldc-1.19.0,dub
+      env: [FRONTEND=2.089]
     - stage: deploy
-      d: ldc
+      d: ldc-1.20.0,dub
       os: osx
-      script: echo "Deploying to GitHub releases ..." && ./release.sh
+      script: echo "Deploying to GitHub releases ..." && ./scripts/ci/release.sh
       deploy:
         - provider: releases
           file_glob: true
@@ -69,8 +38,8 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc
-      script: echo "Deploying to GitHub releases ..." && ./release.sh
+    - d: ldc-1.20.0,dub
+      script: echo "Deploying to GitHub releases ..." && ./scripts/ci/release.sh
       env: [ARCH=32]
       addons:
         apt:
@@ -85,12 +54,40 @@ jobs:
           api_key: $GH_REPO_TOKEN
           on:
             tags: true
-    - d: ldc
-      script: echo "Deploying to GitHub releases ..." && ./release.sh
+    - d: ldc-1.20.0,dub
+      script: echo "Deploying to GitHub releases ..." && ./scripts/ci/release.sh
       deploy:
         - provider: releases
           file_glob: true
           file: bin/dub-*.tar.gz
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            tags: true
+    - d: ldc-1.20.0,dub
+      script: echo "Deploying to GitHub releases (win32) ..." && ./scripts/ci/release-windows.sh
+      addons:
+        apt:
+          packages:
+            - p7zip-full
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.zip
+          skip_cleanup: true
+          api_key: $GH_REPO_TOKEN
+          on:
+            tags: true
+    - d: ldc-1.20.0,dub
+      script: echo "Deploying to GitHub releases (win64) ..." && ARCH=64 ./scripts/ci/release-windows.sh
+      addons:
+        apt:
+          packages:
+            - p7zip-full
+      deploy:
+        - provider: releases
+          file_glob: true
+          file: bin/dub-*.zip
           skip_cleanup: true
           api_key: $GH_REPO_TOKEN
           on:

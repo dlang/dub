@@ -9,7 +9,7 @@ import dub.packagesuppliers.packagesupplier;
 	to search for available packages.
 */
 class MavenRegistryPackageSupplier : PackageSupplier {
-	import dub.internal.utils : download, HTTPStatusException;
+	import dub.internal.utils : retryDownload, HTTPStatusException;
 	import dub.internal.vibecompat.data.json : serializeToJson;
 	import dub.internal.vibecompat.core.log;
 	import dub.internal.vibecompat.inet.url : URL;
@@ -17,6 +17,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 	import std.datetime : Clock, Duration, hours, SysTime, UTC;
 
 	private {
+		enum httpTimeout = 16;
 		URL m_mavenUrl;
 		struct CacheEntry { Json data; SysTime cacheTime; }
 		CacheEntry[string] m_metadataCache;
@@ -55,19 +56,17 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 			return;
 		auto vers = best["version"].get!string;
 		auto url = m_mavenUrl~NativePath("%s/%s/%s-%s.zip".format(packageId, vers, packageId, vers));
-		logDiagnostic("Downloading from '%s'", url);
-		foreach(i; 0..3) {
-			try{
-				download(url, path);
-				return;
-			}
-			catch(HTTPStatusException e) {
-				if (e.status == 404) throw e;
-				else {
-					logDebug("Failed to download package %s from %s (Attempt %s of 3)", packageId, url, i + 1);
-					continue;
-				}
-			}
+
+		try {
+			retryDownload(url, path, 3, httpTimeout);
+			return;
+		}
+		catch(HTTPStatusException e) {
+			if (e.status == 404) throw e;
+			else logDebug("Failed to download package %s from %s", packageId, url); 
+		}
+		catch(Exception e) {
+			logDebug("Failed to download package %s from %s", packageId, url);
 		}
 		throw new Exception("Failed to download package %s from %s".format(packageId, url));
 	}
@@ -92,27 +91,16 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		auto url = m_mavenUrl~NativePath(packageId~"/maven-metadata.xml");
 
 		logDebug("Downloading maven metadata for %s", packageId);
-		logDebug("Getting from %s", url);
-
 		string xmlData;
-		foreach(i; 0..3) {
-			try {
-				xmlData = cast(string)download(url);
-				break;
+
+		try
+			xmlData = cast(string)retryDownload(url, 3, httpTimeout);
+		catch(HTTPStatusException e) {
+			if (e.status == 404) {
+				logDebug("Maven metadata %s not found at %s (404): %s", packageId, description, e.msg);
+				return Json(null);
 			}
-			catch (HTTPStatusException e)
-			{
-				if (e.status == 404) {
-					logDebug("Maven metadata %s not found at %s (404): %s", packageId, description, e.msg);
-					return Json(null);
-				}
-				else {
-					logDebug("Error getting maven metadata for %s at %s (attempt %s of 3): %s", packageId, description, i + 1, e.msg);
-					if (i == 2)
-						throw e;
-					continue;
-				}
-			}
+			else throw e;
 		}
 
 		auto json = Json(["name": Json(packageId), "versions": Json.emptyArray]);
@@ -131,7 +119,13 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 
 	SearchResult[] searchPackages(string query)
 	{
-		return [];
+		// Only exact search is supported
+		// This enables retrival of dub packages on dub run
+		auto md = getMetadata(query);
+		if (md.type == Json.Type.null_)
+			return [];
+		auto json = getBestPackage(md, query, Dependency(">=0.0.0"), true);
+		return [SearchResult(json["name"].opt!string, "", json["version"].opt!string)];
 	}
 }
 

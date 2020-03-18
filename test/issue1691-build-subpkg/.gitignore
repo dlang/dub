@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/issue1691-build-subpkg
+issue1691-build-subpkg.so
+issue1691-build-subpkg.dylib
+issue1691-build-subpkg.dll
+issue1691-build-subpkg.a
+issue1691-build-subpkg.lib
+issue1691-build-subpkg-test-*
+*.exe
+*.o
+*.obj
+*.lst

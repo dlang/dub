@@ -16,7 +16,7 @@ import dub.version_;
 
 import core.time : Duration;
 import std.algorithm : canFind, startsWith;
-import std.array : appender;
+import std.array : appender, array;
 import std.conv : to;
 import std.exception : enforce;
 import std.file;
@@ -26,7 +26,7 @@ import std.traits : isIntegral;
 version(DubUseCurl)
 {
 	import std.net.curl;
-	static if (__VERSION__ > 2075) public import std.net.curl : HTTPStatusException;
+	public import std.net.curl : HTTPStatusException;
 }
 
 
@@ -105,12 +105,6 @@ static ~this()
 	}
 }
 
-bool isEmptyDir(NativePath p) {
-	foreach(DirEntry e; dirEntries(p.toNativeString(), SpanMode.shallow))
-		return false;
-	return true;
-}
-
 bool isWritableDir(NativePath p, bool create_if_missing = false)
 {
 	import std.random;
@@ -130,15 +124,37 @@ Json jsonFromFile(NativePath file, bool silent_fail = false) {
 	return parseJsonString(text, file.toNativeString());
 }
 
-Json jsonFromZip(NativePath zip, string filename) {
-	import std.zip : ZipArchive;
+/**
+	Read package info file content from archive.
+	File needs to be in root folder or in first
+	sub folder.
+
+	Params:
+		zip = path to archive file
+		fileName = Package file name
+	Returns:
+		package file content.
+*/
+string packageInfoFileFromZip(NativePath zip, out string fileName) {
+	import std.zip : ZipArchive, ArchiveMember;
+	import dub.package_ : packageInfoFiles;
+
 	auto f = openFile(zip, FileMode.read);
 	ubyte[] b = new ubyte[cast(size_t)f.size];
 	f.rawRead(b);
 	f.close();
 	auto archive = new ZipArchive(b);
-	auto text = stripUTF8Bom(cast(string)archive.expand(archive.directory[filename]));
-	return parseJsonString(text, zip.toNativeString~"/"~filename);
+	alias PSegment = typeof (NativePath.init.head);
+	foreach (ArchiveMember am; archive.directory) {
+		auto path = NativePath(am.name).bySegment.array;
+		foreach (fil; packageInfoFiles) {
+			if ((path.length == 1 && path[0] == fil.filename) || (path.length == 2 && path[$-1].name == fil.filename)) {
+				fileName = fil.filename;
+				return stripUTF8Bom(cast(string) archive.expand(archive.directory[am.name]));
+			}
+		}
+	}
+	throw new Exception("No package descriptor found");
 }
 
 void writeJsonFile(NativePath path, Json json)
@@ -164,23 +180,18 @@ void atomicWriteJsonFile(NativePath path, Json json)
 	moveFile(tmppath, path);
 }
 
-bool isPathFromZip(string p) {
-	enforce(p.length > 0);
-	return p[$-1] == '/';
-}
-
 bool existsDirectory(NativePath path) {
 	if( !existsFile(path) ) return false;
 	auto fi = getFileInfo(path);
 	return fi.isDirectory;
 }
 
-void runCommand(string command, string[string] env = null)
+void runCommand(string command, string[string] env = null, string workDir = null)
 {
-	runCommands((&command)[0 .. 1], env);
+	runCommands((&command)[0 .. 1], env, workDir);
 }
 
-void runCommands(in string[] commands, string[string] env = null)
+void runCommands(in string[] commands, string[string] env = null, string workDir = null)
 {
 	import std.stdio : stdin, stdout, stderr, File;
 
@@ -202,44 +213,15 @@ void runCommands(in string[] commands, string[string] env = null)
 	foreach(cmd; commands){
 		logDiagnostic("Running %s", cmd);
 		Pid pid;
-		pid = spawnShell(cmd, stdin, childStdout, childStderr, env, config);
+		pid = spawnShell(cmd, stdin, childStdout, childStderr, env, config, workDir);
 		auto exitcode = pid.wait();
 		enforce(exitcode == 0, "Command failed with exit code "
 			~ to!string(exitcode) ~ ": " ~ cmd);
 	}
 }
 
-version(DubUseCurl) {
-	/++
-	 Exception thrown on HTTP request failures, e.g. 404 Not Found.
-	 +/
-	static if (__VERSION__ <= 2075) class HTTPStatusException : CurlException
-	{
-		/++
-		 Params:
-		 status = The HTTP status code.
-		 msg  = The message for the exception.
-		 file = The file where the exception occurred.
-		 line = The line number where the exception occurred.
-		 next = The previous exception in the chain of exceptions, if any.
-		 +/
-		@safe pure nothrow
-			this(
-				int status,
-				string msg,
-				string file = __FILE__,
-				size_t line = __LINE__,
-				Throwable next = null)
-		{
-			this.status = status;
-			super(msg, file, line, next);
-		}
-
-		int status; /// The HTTP status code
-	}
-} else version (Have_vibe_d_http) {
+version (Have_vibe_d_http)
 	public import vibe.http.common : HTTPStatusException;
-}
 
 /**
 	Downloads a file from the specified URL.
@@ -260,27 +242,13 @@ void download(string url, string filename, uint timeout = 8)
 		auto conn = HTTP();
 		setupHTTPClient(conn, timeout);
 		logDebug("Storing %s...", url);
-		static if (__VERSION__ <= 2075)
-		{
-			try
-				std.net.curl.download(url, filename, conn);
-			catch (CurlException e)
-			{
-				if (e.msg.canFind("404"))
-					throw new HTTPStatusException(404, e.msg);
-				throw e;
-			}
-		}
-		else
-		{
-			std.net.curl.download(url, filename, conn);
-			// workaround https://issues.dlang.org/show_bug.cgi?id=18318
-			auto sl = conn.statusLine;
-			logDebug("Download %s %s", url, sl);
-			if (sl.code / 100 != 2)
-				throw new HTTPStatusException(sl.code,
-					"Downloading %s failed with %d (%s).".format(url, sl.code, sl.reason));
-		}
+		std.net.curl.download(url, filename, conn);
+		// workaround https://issues.dlang.org/show_bug.cgi?id=18318
+		auto sl = conn.statusLine;
+		logDebug("Download %s %s", url, sl);
+		if (sl.code / 100 != 2)
+			throw new HTTPStatusException(sl.code,
+				"Downloading %s failed with %d (%s).".format(url, sl.code, sl.reason));
 	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		vibe.inet.urltransfer.download(url, filename);
@@ -298,19 +266,7 @@ ubyte[] download(string url, uint timeout = 8)
 		auto conn = HTTP();
 		setupHTTPClient(conn, timeout);
 		logDebug("Getting %s...", url);
-		static if (__VERSION__ <= 2075)
-		{
-			try
-				return cast(ubyte[])get(url, conn);
-			catch (CurlException e)
-			{
-				if (e.msg.canFind("404"))
-					throw new HTTPStatusException(404, e.msg);
-				throw e;
-			}
-		}
-		else
-			return cast(ubyte[])get(url, conn);
+		return cast(ubyte[])get(url, conn);
 	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		import vibe.stream.operations;
@@ -323,6 +279,101 @@ ubyte[] download(string url, uint timeout = 8)
 ubyte[] download(URL url, uint timeout = 8)
 {
 	return download(url.toString(), timeout);
+}
+
+/**
+	Downloads a file from the specified URL with retry logic.
+
+	Downloads a file from the specified URL with up to n tries on failure
+	Throws: `Exception` if the download failed or `HTTPStatusException` after the nth retry or
+	on "unrecoverable failures" such as 404 not found
+	Otherwise might throw anything else that `download` throws.
+	See_Also: download
+
+	The download times out if a connection cannot be established within
+	`timeout` ms, or if the average transfer rate drops below 10 bytes / s for
+	more than `timeout` seconds.  Pass `0` as `timeout` to disable both timeout
+	mechanisms.
+
+	Note: Timeouts are only implemented when curl is used (DubUseCurl).
+**/
+void retryDownload(URL url, NativePath filename, size_t retryCount = 3, uint timeout = 8)
+{
+	foreach(i; 0..retryCount) {
+		version(DubUseCurl) {
+			try {
+				download(url, filename, timeout);
+				return;
+			}
+			catch(HTTPStatusException e) {
+				if (e.status == 404) throw e;
+				else {
+					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+					if (i == retryCount - 1) throw e;
+					else continue;
+				}
+			}
+			catch(CurlException e) {
+				logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+				continue;
+			}
+		}
+		else
+		{
+			try {
+				download(url, filename);
+				return;
+			}
+			catch(HTTPStatusException e) {
+				if (e.status == 404) throw e;
+				else {
+					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+					if (i == retryCount - 1) throw e;
+					else continue;
+				}
+			}
+		}
+	}
+	throw new Exception("Failed to download %s".format(url));
+}
+
+///ditto
+ubyte[] retryDownload(URL url, size_t retryCount = 3, uint timeout = 8)
+{
+	foreach(i; 0..retryCount) {
+		version(DubUseCurl) {
+			try {
+				return download(url, timeout);
+			}
+			catch(HTTPStatusException e) {
+				if (e.status == 404) throw e;
+				else {
+					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+					if (i == retryCount - 1) throw e;
+					else continue;
+				}
+			}
+			catch(CurlException e) {
+				logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+				continue;
+			}
+		}
+		else
+		{
+			try {
+				return download(url);
+			}
+			catch(HTTPStatusException e) {
+				if (e.status == 404) throw e;
+				else {
+					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+					if (i == retryCount - 1) throw e;
+					else continue;
+				}
+			}
+		}
+	}
+	throw new Exception("Failed to download %s".format(url));
 }
 
 /// Returns the current DUB version in semantic version format
@@ -342,6 +393,65 @@ string getDUBVersion()
 	return verstr;
 }
 
+
+/**
+	Get current executable's path if running as DUB executable,
+	or find a DUB executable if DUB is used as a library.
+	For the latter, the following locations are checked in order:
+	$(UL
+		$(LI current working directory)
+		$(LI same directory as `compilerBinary` (if supplied))
+		$(LI all components of the `$PATH` variable)
+	)
+	Params:
+		compilerBinary = optional path to a D compiler executable, used to locate DUB executable
+	Returns:
+		The path to a valid DUB executable
+	Throws:
+		an Exception if no valid DUB executable is found
+*/
+public string getDUBExePath(in string compilerBinary=null)
+{
+	version(DubApplication) {
+		import std.file : thisExePath;
+		return thisExePath();
+	}
+	else {
+		// this must be dub as a library
+		import std.algorithm : filter, map, splitter;
+		import std.array : array;
+		import std.file : exists, getcwd;
+		import std.path : chainPath, dirName;
+		import std.range : chain, only, take;
+		import std.process : environment;
+
+		version(Windows) {
+			enum exeName = "dub.exe";
+			enum pathSep = ';';
+		}
+		else {
+			enum exeName = "dub";
+			enum pathSep = ':';
+		}
+
+		auto dubLocs = only(
+			getcwd().chainPath(exeName),
+			compilerBinary.dirName.chainPath(exeName),
+		)
+		.take(compilerBinary.length ? 2 : 1)
+		.chain(
+			environment.get("PATH", "")
+				.splitter(pathSep)
+				.map!(p => p.chainPath(exeName))
+		)
+		.filter!exists;
+
+		enforce(!dubLocs.empty, "Could not find DUB executable");
+		return dubLocs.front.array;
+	}
+}
+
+
 version(DubUseCurl) {
 	void setupHTTPClient(ref HTTP conn, uint timeout)
 	{
@@ -360,7 +470,7 @@ version(DubUseCurl) {
 			conn.handle.set(CurlOption.connecttimeout, timeout);
 			// transfers time out after 8s below 10 byte/s
 			conn.handle.set(CurlOption.low_speed_limit, 10);
-			conn.handle.set(CurlOption.low_speed_time, 5);
+			conn.handle.set(CurlOption.low_speed_time, timeout);
 		}
 
 		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
@@ -502,7 +612,7 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
 	//create module name from path
 	foreach (i; 0 .. mpath.length) {
 		import std.path;
-		auto p = mpath[i].toString();
+		auto p = mpath[i].name;
 		if (p == "package.d") break;
 		if (i > 0) ret ~= ".";
 		if (i+1 < mpath.length) ret ~= p;
@@ -526,7 +636,7 @@ string getModuleNameFromContent(string content) {
 	static Regex!char comments_pattern, module_pattern;
 
 	if (!regex_initialized) {
-		comments_pattern = regex(`//[^\r\n]*\r?\n?|/\*.*?\*/|/\+.*\+/`, "g");
+		comments_pattern = regex(`//[^\r\n]*\r?\n?|/\*.*?\*/|/\+.*\+/`, "gs");
 		module_pattern = regex(`module\s+([\w\.]+)\s*;`, "g");
 		regex_initialized = true;
 	}
@@ -557,6 +667,7 @@ unittest {
 	assert(getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;") == "bar", getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;"));
 	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar;") == "bar");
 	//assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar/++/;") == "bar"); // nested comments require a context-free parser!
+	assert(getModuleNameFromContent("/*\nmodule sometest;\n*/\n\nmodule fakemath;\n") == "fakemath");
 }
 
 /**

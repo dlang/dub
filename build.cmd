@@ -1,13 +1,9 @@
 @if "%DC%"=="" set DC=dmd
 
-@echo Generating version file...
-@set GITVER=unknown
-@for /f %%i in ('git describe') do @set GITVER=%%i
-@echo module dub.version_; > source\dub\version_.d
-@echo enum dubVersion = "%GITVER%"; >> source\dub\version_.d
-
-@echo Executing %DC%...
-@%DC% -ofbin\dub.exe -g -debug -w -version=DubUseCurl -Isource curl.lib %* @build-files.txt
+@echo @@@@ WARNING @@@@@
+@echo @ This script is DEPRECATED. Use build.d directly instead @
+@echo @@@@@@@@@@@@@@@@@@
+@%DC% -run build.d
 @if errorlevel 1 exit /b 1
 
 @echo DUB has been built. You probably also want to add the following entry to your

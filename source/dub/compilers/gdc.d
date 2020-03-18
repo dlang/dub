@@ -12,6 +12,7 @@ import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
+import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
@@ -53,6 +54,17 @@ class GDCCompiler : Compiler {
 
 	@property string name() const { return "gdc"; }
 
+	string determineVersion(string compiler_binary, string verboseOutput)
+	{
+		const result = execute([
+			compiler_binary,
+			"-dumpfullversion",
+			"-dumpversion"
+		]);
+
+		return result.status == 0 ? result.output : null;
+	}
+
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
 		string[] arch_flags;
@@ -66,12 +78,14 @@ class GDCCompiler : Compiler {
 		}
 		settings.addDFlags(arch_flags);
 
-		return probePlatform(compiler_binary,
-			arch_flags ~ ["-S"],
-			arch_override);
+		return probePlatform(
+			compiler_binary,
+			arch_flags ~ ["-S", "-v"],
+			arch_override
+		);
 	}
 
-	void prepareBuildSettings(ref BuildSettings settings, BuildSetting fields = BuildSetting.all) const
+	void prepareBuildSettings(ref BuildSettings settings, in ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
 	{
 		enforceBuildRequirements(settings);
 
@@ -107,7 +121,7 @@ class GDCCompiler : Compiler {
 		}
 
 		if (!(fields & BuildSetting.libs)) {
-			resolveLibs(settings);
+			resolveLibs(settings, platform);
 			settings.addDFlags(settings.libs.map!(l => "-l"~l)().array());
 		}
 
@@ -149,13 +163,15 @@ class GDCCompiler : Compiler {
 			case TargetType.executable:
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".exe";
-				else return settings.targetName;
+				else return settings.targetName.idup;
 			case TargetType.library:
 			case TargetType.staticLibrary:
 				return "lib" ~ settings.targetName ~ ".a";
 			case TargetType.dynamicLibrary:
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".dll";
+				else if (platform.platform.canFind("osx"))
+					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
 				if (platform.platform.canFind("windows"))
@@ -206,7 +222,8 @@ class GDCCompiler : Compiler {
 			args = [ "ar", "rcs", tpath ] ~ objects;
 		} else {
 			args = platform.compilerBinary ~ objects ~ settings.sourceFiles ~ settings.lflags ~ settings.dflags.filter!(f => isLinkageFlag(f)).array;
-			version(linux) args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order by DMD
+			if (platform.platform.canFind("linux"))
+				args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order
 		}
 		logDiagnostic("%s", args.join(" "));
 		invokeTool(args, output_callback);
@@ -217,6 +234,9 @@ class GDCCompiler : Compiler {
 		string[] dflags;
 		foreach( f; lflags )
 		{
+            if ( f == "") {
+                continue;
+            }
 			dflags ~= "-Xlinker";
 			dflags ~= f;
 		}

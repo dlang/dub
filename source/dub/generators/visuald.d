@@ -104,7 +104,6 @@ class VisualDGenerator : ProjectGenerator {
 
 			const string[] sub = ["ActiveCfg", "Build.0"];
 			const string[] conf = [settings.buildType~"|"~settings.platform.architecture[0].vsArchitecture];
-			auto projectUuid = guid(mainpack);
 			foreach (t; targets.byKey)
 				foreach (c; conf)
 					foreach (s; sub)
@@ -155,7 +154,6 @@ class VisualDGenerator : ProjectGenerator {
 		{
 			import dub.compilers.utils : isLinkerFile;
 
-			int i = 0;
 			auto ret = appender!(char[])();
 
 			auto project_file_dir = m_project.rootPackage.path ~ projFileName(packname).parentPath;
@@ -194,7 +192,7 @@ class VisualDGenerator : ProjectGenerator {
 					addFile(p.recipePath.toNativeString(), false);
 
 			if (files.targetType == TargetType.staticLibrary)
-				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(s))) addFile(s, true);
+				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(settings.platform, s))) addFile(s, true);
 			else
 				foreach(s; files.sourceFiles.filter!(s => !s.endsWith(".lib"))) addFile(s, true);
 
@@ -219,7 +217,7 @@ class VisualDGenerator : ProjectGenerator {
 					foreach(unused; 0..decrease)
 						ret.put("\n    </Folder>");
 					foreach(idx; 0..increase)
-						ret.formattedWrite("\n    <Folder name=\"%s\">", cur[same + idx].toString());
+						ret.formattedWrite("\n    <Folder name=\"%s\">", cur[same + idx].name);
 					lastFolder = cur;
 				}
 				ret.formattedWrite("\n      <File %spath=\"%s\" />", source.build ? "" : "tool=\"None\" ", source.filePath.toNativeString());
@@ -455,7 +453,7 @@ class VisualDGenerator : ProjectGenerator {
 		NativePath filePath;
 		bool build;
 
-		hash_t toHash() const nothrow @trusted { return structurePath.toHash() ^ filePath.toHash() ^ (build * 0x1f3e7b2c); }
+		size_t toHash() const nothrow @trusted { return structurePath.toHash() ^ filePath.toHash() ^ (build * 0x1f3e7b2c); }
 		int opCmp(ref const SourceFile rhs) const { return sortOrder(this, rhs); }
 		// "a < b" for folder structures (deepest folder first, else lexical)
 		private final static int sortOrder(ref const SourceFile a, ref const SourceFile b) {

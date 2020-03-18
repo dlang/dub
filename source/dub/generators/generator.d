@@ -74,6 +74,7 @@ class ProjectGenerator
 
 	protected {
 		Project m_project;
+		NativePath m_tempTargetExecutablePath;
 	}
 
 	this(Project project)
@@ -101,12 +102,10 @@ class ProjectGenerator
 			prepareGeneration(pack, m_project, settings, buildSettings);
 		}
 
-		string[] mainfiles = configurePackages(m_project.rootPackage, targets, settings);
+		configurePackages(m_project.rootPackage, targets, settings);
 
 		addBuildTypeSettings(targets, settings);
 		foreach (ref t; targets.byValue) enforceBuildRequirements(t.buildSettings);
-		auto bs = &targets[m_project.rootPackage.name].buildSettings;
-		if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainfiles);
 
 		generateTargets(settings, targets);
 
@@ -114,7 +113,9 @@ class ProjectGenerator
 			BuildSettings buildsettings;
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), settings, true);
 			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
-			finalizeGeneration(pack, m_project, settings, buildsettings, NativePath(bs.targetPath), generate_binary);
+			auto bs = &targets[m_project.rootPackage.name].buildSettings;
+			auto targetPath = (m_tempTargetExecutablePath.empty) ? NativePath(bs.targetPath) : m_tempTargetExecutablePath;
+			finalizeGeneration(pack, m_project, settings, buildsettings, targetPath, generate_binary);
 		}
 
 		performPostGenerateActions(settings, targets);
@@ -158,16 +159,22 @@ class ProjectGenerator
 		compatible. This also transports all Have_dependency_xyz version
 		identifiers to `rootPackage`.
 
+		4. Filter unused versions and debugVersions from all targets. The
+		filters have previously been upwards inherited (3.) so that versions
+		used in a dependency are also applied to all dependents.
+
 		Note: The upwards inheritance is done at last so that siblings do not
 		influence each other, also see https://github.com/dlang/dub/pull/1128.
 
 		Note: Targets without output are integrated into their
 		dependents and removed from `targets`.
 	 */
-	private string[] configurePackages(Package rootPackage, TargetInfo[string] targets, GeneratorSettings genSettings)
+	private void configurePackages(Package rootPackage, TargetInfo[string] targets, GeneratorSettings genSettings)
 	{
 		import std.algorithm : remove, sort;
 		import std.range : repeat;
+
+		auto roottarget = &targets[rootPackage.name];
 
 		// 0. do shallow configuration (not including dependencies) of all packages
 		TargetType determineTargetType(const ref TargetInfo ti)
@@ -227,6 +234,16 @@ class ProjectGenerator
 			hasOutput[ti.pack.name] = generatesBinary || ti.pack is rootPackage;
 		}
 
+		// add main source files to root executable
+		{
+			auto bs = &roottarget.buildSettings;
+			if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainSourceFiles);
+		}
+
+		if (genSettings.filterVersions)
+			foreach (ref ti; targets.byValue)
+				inferVersionFilters(ti);
+
 		// mark packages as visited (only used during upwards propagation)
 		void[0][Package] visited;
 
@@ -267,7 +284,7 @@ class ProjectGenerator
 				}
 				auto depti = &targets[depname];
 				const depbs = &depti.buildSettings;
-				if (depbs.targetType == TargetType.executable)
+				if (depbs.targetType == TargetType.executable && ti.buildSettings.targetType != TargetType.none)
 					continue;
 
 				// add to (link) dependencies
@@ -282,13 +299,13 @@ class ProjectGenerator
 				if (depbs.targetType == TargetType.staticLibrary)
 					ti.linkDependencies = ti.linkDependencies.filter!(d => !depti.linkDependencies.canFind(d)).array ~ depti.linkDependencies;
 			}
+
+			enforce(!(ti.buildSettings.targetType == TargetType.none && ti.dependencies.empty),
+				"Package with target type \"none\" must have dependencies to build.");
 		}
 
-		collectDependencies(rootPackage, targets[rootPackage.name], targets);
-		static if (__VERSION__ > 2070)
-			visited.clear();
-		else
-			destroy(visited);
+		collectDependencies(rootPackage, *roottarget, targets);
+		visited.clear();
 
 		// 1. downwards inherits versions, debugVersions, and inheritable build settings
 		static void configureDependencies(in ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
@@ -304,7 +321,7 @@ class ProjectGenerator
 			}
 		}
 
-		configureDependencies(targets[rootPackage.name], targets);
+		configureDependencies(*roottarget, targets);
 
 		// 2. add Have_dependency_xyz for all direct dependencies of a target
 		// (includes incorporated non-target dependencies and their dependencies)
@@ -318,7 +335,7 @@ class ProjectGenerator
 			bs.addVersions(pkgnames.map!(pn => "Have_" ~ stripDlangSpecialChars(pn)).array);
 		}
 
-		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, ...)
+		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, versionFilters, importPaths, ...)
 		void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
 		{
 			// use `visited` here as pkgs cannot depend on themselves
@@ -335,47 +352,82 @@ class ProjectGenerator
 			{
 				auto pdepti = &targets[depname];
 				configureDependents(*pdepti, targets, level + 1);
-				mergeFromDependency(pdepti.buildSettings, ti.buildSettings);
+				mergeFromDependency(pdepti.buildSettings, ti.buildSettings, genSettings.platform);
 			}
 		}
 
-		configureDependents(targets[rootPackage.name], targets);
-		static if (__VERSION__ > 2070)
-			visited.clear();
-		else
-			destroy(visited);
+		configureDependents(*roottarget, targets);
+		visited.clear();
 
-		// 4. override string import files in dependencies
-		static void overrideStringImports(ref TargetInfo ti, TargetInfo[string] targets, string[] overrides)
+		// 4. Filter applicable version and debug version identifiers
+		if (genSettings.filterVersions)
 		{
+			foreach (name, ref ti; targets)
+			{
+				import std.algorithm.sorting : partition;
+
+				auto bs = &ti.buildSettings;
+
+				auto filtered = bs.versions.partition!(v => bs.versionFilters.canFind(v));
+				logDebug("Filtering out unused versions for %s: %s", name, filtered);
+				bs.versions = bs.versions[0 .. $ - filtered.length];
+
+				filtered = bs.debugVersions.partition!(v => bs.debugVersionFilters.canFind(v));
+				logDebug("Filtering out unused debug versions for %s: %s", name, filtered);
+				bs.debugVersions = bs.debugVersions[0 .. $ - filtered.length];
+			}
+		}
+
+		// 5. override string import files in dependencies
+		static void overrideStringImports(ref TargetInfo target,
+			ref TargetInfo parent, TargetInfo[string] targets, string[] overrides)
+		{
+			// Since string import paths are inherited from dependencies in the
+			// inheritance step above (step 3), it is guaranteed that all
+			// following dependencies will not have string import paths either,
+			// so we can skip the recursion here
+			if (!target.buildSettings.stringImportPaths.length)
+				return;
+
 			// do not use visited here as string imports can be overridden by *any* parent
 			//
 			// special support for overriding string imports in parent packages
 			// this is a candidate for deprecation, once an alternative approach
 			// has been found
-			if (ti.buildSettings.stringImportPaths.length) {
-				// override string import files (used for up to date checking)
-				foreach (ref f; ti.buildSettings.stringImportFiles)
+			bool any_override = false;
+
+			// override string import files (used for up to date checking)
+			foreach (ref f; target.buildSettings.stringImportFiles)
+			{
+				foreach (o; overrides)
 				{
-					foreach (o; overrides)
-					{
-						NativePath op;
-						if (f != o && NativePath(f).head == (op = NativePath(o)).head) {
-							logDebug("string import %s overridden by %s", f, o);
-							f = o;
-							ti.buildSettings.prependStringImportPaths(op.parentPath.toNativeString);
-						}
+					NativePath op;
+					if (f != o && NativePath(f).head == (op = NativePath(o)).head) {
+						logDebug("string import %s overridden by %s", f, o);
+						f = o;
+						any_override = true;
 					}
 				}
 			}
-			// add to overrides for recursion
-			overrides ~= ti.buildSettings.stringImportFiles;
-			// override dependencies
-			foreach (depname; ti.dependencies)
-				overrideStringImports(targets[depname], targets, overrides);
+
+			// override string import paths by prepending to the list, in
+			// case there is any overlapping file
+			if (any_override)
+				target.buildSettings.prependStringImportPaths(parent.buildSettings.stringImportPaths);
+
+			// add all files to overrides for recursion
+			overrides ~= target.buildSettings.stringImportFiles;
+
+			// recursively override all dependencies with the accumulated files/paths
+			foreach (depname; target.dependencies)
+				overrideStringImports(targets[depname], target, targets, overrides);
 		}
 
-		overrideStringImports(targets[rootPackage.name], targets, null);
+		// push string import paths/files down to all direct and indirect
+		// dependencies, overriding their own
+		foreach (depname; roottarget.dependencies)
+			overrideStringImports(targets[depname], *roottarget, targets,
+				roottarget.buildSettings.stringImportFiles);
 
 		// remove targets without output
 		foreach (name; targets.keys)
@@ -383,29 +435,119 @@ class ProjectGenerator
 			if (!hasOutput[name])
 				targets.remove(name);
 		}
+	}
 
-		return mainSourceFiles;
+	// infer applicable version identifiers
+	private static void inferVersionFilters(ref TargetInfo ti)
+	{
+		import std.algorithm.searching : any;
+		import std.file : timeLastModified;
+		import std.path : extension;
+		import std.range : chain;
+		import std.regex : ctRegex, matchAll;
+		import std.stdio : File;
+		import std.datetime : Clock, SysTime, UTC;
+		import dub.compilers.utils : isLinkerFile;
+		import dub.internal.vibecompat.data.json : Json, JSONException;
+
+		auto bs = &ti.buildSettings;
+
+		// only infer if neither version filters are specified explicitly
+		if (bs.versionFilters.length || bs.debugVersionFilters.length)
+		{
+			logDebug("Using specified versionFilters for %s: %s %s", ti.pack.name,
+				bs.versionFilters, bs.debugVersionFilters);
+			return;
+		}
+
+		// check all existing source files for version identifiers
+		static immutable dexts = [".d", ".di"];
+		auto srcs = chain(bs.sourceFiles, bs.importFiles, bs.stringImportFiles)
+			.filter!(f => dexts.canFind(f.extension)).filter!exists;
+		// try to load cached filters first
+		auto cache = ti.pack.metadataCache;
+		try
+		{
+			auto cachedFilters = cache["versionFilters"];
+			if (cachedFilters.type != Json.Type.undefined)
+				cachedFilters = cachedFilters[ti.config];
+			if (cachedFilters.type != Json.Type.undefined)
+			{
+				immutable mtime = SysTime.fromISOExtString(cachedFilters["mtime"].get!string);
+				if (!srcs.any!(src => src.timeLastModified > mtime))
+				{
+					auto versionFilters = cachedFilters["versions"][].map!(j => j.get!string).array;
+					auto debugVersionFilters = cachedFilters["debugVersions"][].map!(j => j.get!string).array;
+					logDebug("Using cached versionFilters for %s: %s %s", ti.pack.name,
+						versionFilters, debugVersionFilters);
+					bs.addVersionFilters(versionFilters);
+					bs.addDebugVersionFilters(debugVersionFilters);
+					return;
+				}
+			}
+		}
+		catch (JSONException e)
+		{
+			logWarn("Exception during loading invalid package cache %s.\n%s",
+				ti.pack.path ~ ".dub/metadata_cache.json", e);
+		}
+
+		// use ctRegex for performance reasons, only small compile time increase
+		enum verRE = ctRegex!`(?:^|\s)version\s*\(\s*([^\s]*?)\s*\)`;
+		enum debVerRE = ctRegex!`(?:^|\s)debug\s*\(\s*([^\s]*?)\s*\)`;
+
+		auto versionFilters = appender!(string[]);
+		auto debugVersionFilters = appender!(string[]);
+
+		foreach (file; srcs)
+		{
+			foreach (line; File(file).byLine)
+			{
+				foreach (m; line.matchAll(verRE))
+					if (!versionFilters.data.canFind(m[1]))
+						versionFilters.put(m[1].idup);
+				foreach (m; line.matchAll(debVerRE))
+					if (!debugVersionFilters.data.canFind(m[1]))
+						debugVersionFilters.put(m[1].idup);
+			}
+		}
+		logDebug("Using inferred versionFilters for %s: %s %s", ti.pack.name,
+			versionFilters.data, debugVersionFilters.data);
+		bs.addVersionFilters(versionFilters.data);
+		bs.addDebugVersionFilters(debugVersionFilters.data);
+
+		auto cachedFilters = cache["versionFilters"];
+		if (cachedFilters.type == Json.Type.undefined)
+			cachedFilters = cache["versionFilters"] = [ti.config: Json.emptyObject];
+		cachedFilters[ti.config] = [
+			"mtime": Json(Clock.currTime(UTC()).toISOExtString),
+			"versions": Json(versionFilters.data.map!Json.array),
+			"debugVersions": Json(debugVersionFilters.data.map!Json.array),
+		];
+		ti.pack.metadataCache = cache;
 	}
 
 	private static void mergeFromDependent(in ref BuildSettings parent, ref BuildSettings child)
 	{
 		child.addVersions(parent.versions);
 		child.addDebugVersions(parent.debugVersions);
-		child.addOptions(BuildOptions(cast(BuildOptions)parent.options & inheritedBuildOptions));
+		child.addOptions(BuildOptions(parent.options & inheritedBuildOptions));
 	}
 
-	private static void mergeFromDependency(in ref BuildSettings child, ref BuildSettings parent)
+	private static void mergeFromDependency(in ref BuildSettings child, ref BuildSettings parent, in ref BuildPlatform platform)
 	{
 		import dub.compilers.utils : isLinkerFile;
 
 		parent.addDFlags(child.dflags);
 		parent.addVersions(child.versions);
 		parent.addDebugVersions(child.debugVersions);
+		parent.addVersionFilters(child.versionFilters);
+		parent.addDebugVersionFilters(child.debugVersionFilters);
 		parent.addImportPaths(child.importPaths);
 		parent.addStringImportPaths(child.stringImportPaths);
 		// linking of static libraries is done by parent
 		if (child.targetType == TargetType.staticLibrary) {
-			parent.addSourceFiles(child.sourceFiles.filter!isLinkerFile.array);
+			parent.addSourceFiles(child.sourceFiles.filter!(f => isLinkerFile(platform, f)).array);
 			parent.addLibs(child.libs);
 			parent.addLFlags(child.lflags);
 		}
@@ -422,9 +564,8 @@ class ProjectGenerator
 			settings.compiler.extractBuildOptions(ti.buildSettings);
 
 			auto tt = ti.buildSettings.targetType;
-			bool generatesBinary = tt != TargetType.sourceLibrary && tt != TargetType.none;
-			enforce (generatesBinary || ti.pack !is m_project.rootPackage || (ti.buildSettings.options & BuildOption.syntaxOnly),
-				format("Main package must have a binary target type, not %s. Cannot build.", tt));
+			enforce (tt != TargetType.sourceLibrary || ti.pack !is m_project.rootPackage || (ti.buildSettings.options & BuildOption.syntaxOnly),
+				format("Main package must not have target type \"%s\". Cannot build.", tt));
 		}
 	}
 }
@@ -437,11 +578,17 @@ struct GeneratorSettings {
 	string buildType;
 	BuildSettings buildSettings;
 	BuildMode buildMode = BuildMode.separate;
+	int targetExitStatus;
 
 	bool combined; // compile all in one go instead of each dependency separately
+	bool filterVersions;
 
 	// only used for generator "build"
 	bool run, force, direct, rdmd, tempBuild, parallelBuild;
+
+	/// single file dub package
+	bool single;
+
 	string[] runArgs;
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;
@@ -616,9 +763,9 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	in GeneratorSettings settings, in BuildSettings build_settings)
 {
-	import std.conv;
-	import std.process;
-	import dub.internal.utils;
+	import dub.internal.utils : getDUBExePath, runCommands;
+	import std.conv : to, text;
+	import std.process : environment, escapeShellFileName;
 
 	string[string] env = environment.toAA();
 	// TODO: do more elaborate things here
@@ -627,6 +774,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["LFLAGS"]                = join(cast(string[])build_settings.lflags," ");
 	env["VERSIONS"]              = join(cast(string[])build_settings.versions," ");
 	env["LIBS"]                  = join(cast(string[])build_settings.libs," ");
+	env["SOURCE_FILES"]          = join(cast(string[])build_settings.sourceFiles," ");
 	env["IMPORT_PATHS"]          = join(cast(string[])build_settings.importPaths," ");
 	env["STRING_IMPORT_PATHS"]   = join(cast(string[])build_settings.stringImportPaths," ");
 
@@ -634,12 +782,14 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DC_BASE"]               = settings.platform.compiler;
 	env["D_FRONTEND_VER"]        = to!string(settings.platform.frontendVersion);
 
+	env["DUB_EXE"]               = getDUBExePath(settings.platform.compilerBinary);
 	env["DUB_PLATFORM"]          = join(cast(string[])settings.platform.platform," ");
 	env["DUB_ARCH"]              = join(cast(string[])settings.platform.architecture," ");
 
 	env["DUB_TARGET_TYPE"]       = to!string(build_settings.targetType);
 	env["DUB_TARGET_PATH"]       = build_settings.targetPath;
 	env["DUB_TARGET_NAME"]       = build_settings.targetName;
+	env["DUB_TARGET_EXIT_STATUS"] = settings.targetExitStatus.text;
 	env["DUB_WORKING_DIRECTORY"] = build_settings.workingDirectory;
 	env["DUB_MAIN_SOURCE_FILE"]  = build_settings.mainSourceFile;
 
@@ -650,6 +800,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_PACKAGE_DIR"]       = pack.path.toNativeString();
 	env["DUB_ROOT_PACKAGE"]      = proj.rootPackage.name;
 	env["DUB_ROOT_PACKAGE_DIR"]  = proj.rootPackage.path.toNativeString();
+	env["DUB_PACKAGE_VERSION"]   = pack.version_.toString();
 
 	env["DUB_COMBINED"]          = settings.combined?      "TRUE" : "";
 	env["DUB_RUN"]               = settings.run?           "TRUE" : "";
@@ -663,7 +814,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 
 	auto depNames = proj.dependencies.map!((a) => a.name).array();
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
-	runCommands(commands, env);
+	runCommands(commands, env, pack.path().toString());
 }
 
 private bool isRecursiveInvocation(string pack)

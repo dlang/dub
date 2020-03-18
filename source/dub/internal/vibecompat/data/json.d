@@ -136,7 +136,7 @@ struct Json {
 	/**
 		Allows assignment of D values to a JSON value.
 	*/
-	ref Json opAssign(Json v)
+	ref Json opAssign(Json v) return
 	{
 		m_type = v.m_type;
 		final switch(m_type){
@@ -1779,23 +1779,37 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 		case Json.Type.object:
 			dst.put('{');
 			bool first = true;
-			foreach( string k, ref const Json e; json ){
-				if( e.type == Json.Type.undefined ) continue;
-				if( !first ) dst.put(',');
-				first = false;
-				static if (pretty) {
+
+			static if (pretty) {
+				import std.algorithm.sorting : sort;
+				string[] keyOrder;
+				foreach (string key, ref const Json e; json) keyOrder ~= key;
+				keyOrder.sort();
+
+				foreach( key; keyOrder ){
+					if( json[key].type == Json.Type.undefined ) continue;
+					if( !first ) dst.put(',');
+					first = false;
 					dst.put('\n');
 					foreach (tab; 0 .. level+1) dst.put('\t');
+					dst.put('\"');
+					jsonEscape(dst, key);
+					dst.put(pretty ? `": ` : `":`);
+					writeJsonString!(R, pretty)(dst, json[key], level+1);
 				}
-				dst.put('\"');
-				jsonEscape(dst, k);
-				dst.put(pretty ? `": ` : `":`);
-				writeJsonString!(R, pretty)(dst, e, level+1);
-			}
-			static if (pretty) {
 				if (json.length > 0) {
 					dst.put('\n');
 					foreach (tab; 0 .. level) dst.put('\t');
+				}
+			} else {
+				foreach( string k, ref const Json e; json ){
+					if( e.type == Json.Type.undefined ) continue;
+					if( !first ) dst.put(',');
+					first = false;
+					dst.put('\"');
+					jsonEscape(dst, k);
+					dst.put(pretty ? `": ` : `":`);
+					writeJsonString!(R, pretty)(dst, e, level+1);
 				}
 			}
 			dst.put('}');
@@ -1818,13 +1832,6 @@ unittest {
 		1,
 		{}
 	]
-}` || a.toPrettyString() ==
-`{
-	"b": [
-		1,
-		{}
-	],
-	"a": []
 }`);
 }
 

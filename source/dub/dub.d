@@ -28,15 +28,12 @@ import std.conv : to;
 import std.exception : enforce;
 import std.file;
 import std.process : environment;
-import std.range : empty;
+import std.range : assumeSorted, empty;
 import std.string;
 import std.encoding : sanitize;
 
-// Workaround for libcurl liker errors when building with LDC
-version (LDC) pragma(lib, "curl");
-
 // Set output path and options for coverage reports
-version (DigitalMars) version (D_Coverage) static if (__VERSION__ >= 2068)
+version (DigitalMars) version (D_Coverage)
 {
 	shared static this()
 	{
@@ -59,13 +56,13 @@ static this()
 	registerCompiler(new LDCCompiler);
 }
 
-/// The URL to the official package registry.
-enum defaultRegistryURL = "https://code.dlang.org/";
-enum fallbackRegistryURLs = [
-	// fallback in case of HTTPS problems
-	"http://code.dlang.org/",
+deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryURLs[0];
+
+/// The URL to the official package registry and it's default fallback registries.
+static immutable string[] defaultRegistryURLs = [
+	"https://code.dlang.org/",
+	"https://codemirror.dlang.org/",
 	"https://code-mirror.dlang.io/",
-	"https://code-mirror2.dlang.io/",
 	"https://dub-registry.herokuapp.com/",
 ];
 
@@ -74,17 +71,12 @@ enum fallbackRegistryURLs = [
 	This will contain a single package supplier that points to the official
 	package registry.
 
-	See_Also: `defaultRegistryURL`
+	See_Also: `defaultRegistryURLs`
 */
 PackageSupplier[] defaultPackageSuppliers()
 {
-	logDiagnostic("Using dub registry url '%s'", defaultRegistryURL);
-	return [
-		new FallbackPackageSupplier(
-			new RegistryPackageSupplier(URL(defaultRegistryURL)),
-			fallbackRegistryURLs.map!(x => cast(PackageSupplier) new RegistryPackageSupplier(URL(x))).array
-		)
-	];
+	logDiagnostic("Using dub registry url '%s'", defaultRegistryURLs[0]);
+	return [new FallbackPackageSupplier(defaultRegistryURLs.map!getRegistryPackageSupplier.array)];
 }
 
 /** Returns a registry package supplier according to protocol.
@@ -93,12 +85,14 @@ PackageSupplier[] defaultPackageSuppliers()
 */
 PackageSupplier getRegistryPackageSupplier(string url)
 {
-	switch (url.startsWith("dub+", "mvn+"))
+	switch (url.startsWith("dub+", "mvn+", "file://"))
 	{
 		case 1:
 			return new RegistryPackageSupplier(URL(url[4..$]));
 		case 2:
 			return new MavenRegistryPackageSupplier(URL(url[4..$]));
+		case 3:
+			return new FileSystemPackageSupplier(NativePath(url[7..$]));
 		default:
 			return new RegistryPackageSupplier(URL(url));
 	}
@@ -114,6 +108,9 @@ unittest
 
 	auto mavenRegistryPackageSupplier = getRegistryPackageSupplier("mvn+http://localhost:8040/maven/libs-release/dubpackages");
 	assert(mavenRegistryPackageSupplier.description.canFind(" http://localhost:8040/maven/libs-release/dubpackages"));
+
+	auto fileSystemPackageSupplier = getRegistryPackageSupplier("file:///etc/dubpackages");
+	assert(fileSystemPackageSupplier.description.canFind(" " ~ NativePath("/etc/dubpackages").toNativeString));
 }
 
 /** Provides a high-level entry point for DUB's functionality.
@@ -165,14 +162,14 @@ class Dub {
 		m_rootPath = NativePath(root_path);
 		if (!m_rootPath.absolute) m_rootPath = NativePath(getcwd()) ~ m_rootPath;
 
-		init();
+		init(m_rootPath);
 
 		if (skip_registry == SkipPackageSuppliers.none)
 			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers);
 		else
 			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers, skip_registry);
 
-		m_packageManager = new PackageManager(m_dirs.localRepository, m_dirs.systemSettings);
+		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings);
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
@@ -262,13 +259,12 @@ class Dub {
 	*/
 	this(NativePath override_path)
 	{
-		init();
+		init(NativePath());
 		m_overrideSearchPath = override_path;
-		m_packageManager = new PackageManager(NativePath(), NativePath(), false);
-		updatePackageSearchPath();
+		m_packageManager = new PackageManager(override_path);
 	}
 
-	private void init()
+	private void init(NativePath root_path)
 	{
 		import std.file : tempDir;
 		version(Windows) {
@@ -276,9 +272,6 @@ class Dub {
 			immutable appDataDir = environment.get("APPDATA");
 			m_dirs.userSettings = NativePath(appDataDir) ~ "dub/";
 			m_dirs.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
-
-			migrateRepositoryFromRoaming(m_dirs.userSettings ~"\\packages", m_dirs.localRepository ~ "\\packages");
-
 		} else version(Posix){
 			m_dirs.systemSettings = NativePath("/var/lib/dub/");
 			m_dirs.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
@@ -293,28 +286,13 @@ class Dub {
 		m_config = new DubConfig(jsonFromFile(NativePath(thisExePath).parentPath ~ "../etc/dub/settings.json", true), m_config);
 		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), m_config);
 
+		if (!root_path.empty)
+			m_config = new DubConfig(jsonFromFile(root_path ~ "dub.settings.json", true), m_config);
+
 		determineDefaultCompiler();
 
 		m_defaultArchitecture = m_config.defaultArchitecture;
 	}
-
-	version(Windows)
-	private void migrateRepositoryFromRoaming(NativePath roamingDir, NativePath localDir)
-	{
-        immutable roamingDirPath = roamingDir.toNativeString();
-	    if (!existsDirectory(roamingDir)) return;
-
-        immutable localDirPath = localDir.toNativeString();
-        logInfo("Detected a package cache in " ~ roamingDirPath ~ ". This will be migrated to " ~ localDirPath ~ ". Please wait...");
-        if (!existsDirectory(localDir))
-        {
-            mkdirRecurse(localDirPath);
-        }
-
-        runCommand("xcopy /s /e /y " ~ roamingDirPath ~ " " ~ localDirPath ~ " > NUL");
-        rmdirRecurse(roamingDirPath);
-	}
-
 
 	@property void dryRun(bool v) { m_dryRun = v; }
 
@@ -467,9 +445,7 @@ class Dub {
 		loadSingleFilePackage(NativePath(path));
 	}
 
-	/** Disables the default search paths and only searches a specific directory
-		for packages.
-	*/
+	deprecated("Instantiate a Dub instance with the single-argument constructor: `new Dub(path)`")
 	void overrideSearchPath(NativePath path)
 	{
 		if (!path.absolute) path = NativePath(getcwd()) ~ path;
@@ -592,7 +568,17 @@ class Dub {
 			}
 		}
 
+		string[] missingDependenciesBeforeReinit = m_project.missingDependencies;
 		m_project.reinit();
+
+		if (!m_project.hasAllDependencies) {
+			auto resolvedDependencies = setDifference(
+					assumeSorted(missingDependenciesBeforeReinit),
+					assumeSorted(m_project.missingDependencies)
+				);
+			if (!resolvedDependencies.empty)
+				upgrade(options, m_project.missingDependencies);
+		}
 
 		if ((options & UpgradeOptions.select) && !(options & (UpgradeOptions.noSaveSelections | UpgradeOptions.dryRun)))
 			m_project.saveSelections();
@@ -655,10 +641,6 @@ class Dub {
 			BuildSettingsTemplate tcinfo = m_project.rootPackage.recipe.getConfiguration(config).buildSettings;
 			tcinfo.targetType = TargetType.executable;
 			tcinfo.targetName = test_config;
-			// HACK for vibe.d's legacy main() behavior:
-			tcinfo.versions[""] ~= "VibeCustomMain";
-			m_project.rootPackage.recipe.buildSettings.versions[""] = m_project.rootPackage.recipe.buildSettings.versions.get("", null).remove!(v => v == "VibeDefaultMain");
-			// TODO: remove this ^ once vibe.d has removed the default main implementation
 
 			auto mainfil = tcinfo.mainSourceFile;
 			if (!mainfil.length) mainfil = m_project.rootPackage.recipe.buildSettings.mainSourceFile;
@@ -668,14 +650,14 @@ class Dub {
 				import std.path;
 				tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(m_project.rootPackage.path).toNativeString();
 				tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
-				custommodname = custom_main_file.head.toString().baseName(".d");
+				custommodname = custom_main_file.head.name.baseName(".d");
 			}
 
 			// prepare the list of tested modules
 			string[] import_modules;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
-					auto fname = NativePath(file).head.toString();
+					auto fname = NativePath(file).head.name;
 					if (NativePath(file).relativeTo(m_project.rootPackage.path) == NativePath(mainfil)) {
 						logWarn("Excluding main source file %s from test.", mainfil);
 						tcinfo.excludedSourceFiles[""] ~= mainfil;
@@ -735,6 +717,53 @@ class Dub {
 		generator.generate(settings);
 	}
 
+	/** Executes D-Scanner tests on the current project. **/
+	void lintProject(string[] args)
+	{
+		import std.path : buildPath, buildNormalizedPath;
+
+		if (m_dryRun) return;
+
+		auto tool = "dscanner";
+
+		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
+		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
+		if (!tool_pack) {
+			logInfo("%s is not present, getting and storing it user wide", tool);
+			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+		}
+
+		auto dscanner_dub = new Dub(null, m_packageSuppliers);
+		dscanner_dub.loadPackage(tool_pack.path);
+		dscanner_dub.upgrade(UpgradeOptions.select);
+
+		auto compiler_binary = this.defaultCompiler;
+
+		GeneratorSettings settings;
+		settings.config = "application";
+		settings.compiler = getCompiler(compiler_binary);
+		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
+		settings.buildType = "debug";
+		settings.run = true;
+
+		foreach (dependencyPackage; m_project.dependencies)
+		{
+			auto cfgs = m_project.getPackageConfigs(settings.platform, null, true);
+			auto buildSettings = dependencyPackage.getBuildSettings(settings.platform, cfgs[dependencyPackage.name]);
+			foreach (importPath; buildSettings.importPaths) {
+				settings.runArgs ~= ["-I", buildNormalizedPath(dependencyPackage.path.toNativeString(), importPath.idup)];
+			}
+		}
+
+		string configFilePath = buildPath(m_project.rootPackage.path.toNativeString(), "dscanner.ini");
+		if (!args.canFind("--config") && exists(configFilePath)) {
+			settings.runArgs ~= ["--config", configFilePath];
+		}
+
+		settings.runArgs ~= args ~ [m_project.rootPackage.path.toNativeString()];
+		dscanner_dub.generateProject("build", settings);
+	}
+
 	/** Prints the specified build settings necessary for building the root package.
 	*/
 	void listProjectData(GeneratorSettings settings, string[] requestedData, ListBuildSettingsFormat list_type)
@@ -773,16 +802,25 @@ class Dub {
 
 		if (existsFile(path ~ ".dub/build")) rmdirRecurse((path ~ ".dub/build").toNativeString());
 		if (existsFile(path ~ ".dub/obj")) rmdirRecurse((path ~ ".dub/obj").toNativeString());
+		if (existsFile(path ~ ".dub/metadata_cache.json")) std.file.remove((path ~ ".dub/metadata_cache.json").toNativeString());
+
+		auto p = Package.load(path);
+		if (p.getBuildSettings().targetType == TargetType.none) {
+			foreach (sp; p.subPackages.filter!(sp => !sp.path.empty)) {
+				cleanPackage(path ~ sp.path);
+			}
+		}
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
+		auto basePackageName = getBasePackageName(packageId);
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.fetchPackageRecipe(packageId, dep, (options & FetchOptions.usePrerelease) != 0);
+				pinfo = ps.fetchPackageRecipe(basePackageName, dep, (options & FetchOptions.usePrerelease) != 0);
 				if (pinfo.type == Json.Type.null_)
 					continue;
 				supplier = ps;
@@ -797,7 +835,7 @@ class Dub {
 
 		NativePath placement;
 		final switch (location) {
-			case PlacementLocation.local: placement = m_rootPath; break;
+			case PlacementLocation.local: placement = m_rootPath ~ ".dub/packages/"; break;
 			case PlacementLocation.user: placement = m_dirs.localRepository ~ "packages/"; break;
 			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
 		}
@@ -839,14 +877,14 @@ class Dub {
 		clean_package_version = clean_package_version.replace("+", "_"); // + has special meaning for Optlink
 		if (!placement.existsFile())
 			mkdirRecurse(placement.toNativeString());
-		NativePath dstpath = placement ~ (packageId ~ "-" ~ clean_package_version);
+		NativePath dstpath = placement ~ (basePackageName ~ "-" ~ clean_package_version);
 		if (!dstpath.existsFile())
 			mkdirRecurse(dstpath.toNativeString());
 
 		// Support libraries typically used with git submodules like ae.
 		// Such libraries need to have ".." as import path but this can create
 		// import path leakage.
-		dstpath = dstpath ~ packageId;
+		dstpath = dstpath ~ basePackageName;
 
 		import std.datetime : seconds;
 		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds); // possibly wait for other dub instance
@@ -861,13 +899,14 @@ class Dub {
 		{
 			import std.zip : ZipException;
 
-			auto path = getTempFile(packageId, ".zip");
-			supplier.fetchPackage(path, packageId, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			auto path = getTempFile(basePackageName, ".zip");
+			supplier.fetchPackage(path, basePackageName, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) std.file.remove(path.toNativeString());
 			logDiagnostic("Placing to %s...", placement.toNativeString());
 
 			try {
-				return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
+				m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
+				return m_packageManager.getPackage(packageId, ver, dstpath);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
 				// rethrow the exception at the end of the loop
@@ -1106,8 +1145,9 @@ class Dub {
 	Version[] listPackageVersions(string name)
 	{
 		Version[] versions;
+		auto basePackageName = getBasePackageName(name);
 		foreach (ps; this.m_packageSuppliers) {
-			try versions ~= ps.getVersions(name);
+			try versions ~= ps.getVersions(basePackageName);
 			catch (Exception e) {
 				logWarn("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
 			}
@@ -1134,7 +1174,6 @@ class Dub {
 		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~package_name~"'.");
 		auto final_versions = vers.filter!(v => !v.isBranch && !v.isPreRelease).array;
 		if (prefer_stable && final_versions.length) return final_versions[$-1];
-		else if (vers[$-1].isBranch) return vers[$-1];
 		else return vers[$-1];
 	}
 
@@ -1151,7 +1190,8 @@ class Dub {
 	*/
 	void createEmptyPackage(NativePath path, string[] deps, string type,
 		PackageFormat format = PackageFormat.sdl,
-		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null)
+		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null,
+		string[] app_args = [])
 	{
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
@@ -1179,8 +1219,38 @@ class Dub {
 
 		initPackage(path, depVers, type, format, recipe_callback);
 
+		if (!["vibe.d", "deimos", "minimal"].canFind(type)) {
+			runCustomInitialization(path, type, app_args);
+		}
+
 		//Act smug to the user.
 		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
+	}
+
+	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
+	{
+		string packageName = type;
+		auto template_pack = m_packageManager.getBestPackage(packageName, ">=0.0.0");
+		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
+		if (!template_pack) {
+			logInfo("%s is not present, getting and storing it user wide", packageName);
+			template_pack = fetch(packageName, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+		}
+
+		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
+		auto template_dub = new Dub(null, m_packageSuppliers);
+		template_dub.loadPackage(initSubPackage);
+		auto compiler_binary = this.defaultCompiler;
+
+		GeneratorSettings settings;
+		settings.config = "application";
+		settings.compiler = getCompiler(compiler_binary);
+		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
+		settings.buildType = "debug";
+		settings.run = true;
+		settings.runArgs = runArgs;
+		initSubPackage.recipe.buildSettings.workingDirectory = path.toNativeString();
+		template_dub.generateProject("build", settings);
 	}
 
 	/** Converts the package recipe of the loaded root package to the given format.
@@ -1203,7 +1273,7 @@ class Dub {
 		}
 
 		auto srcfile = m_project.rootPackage.recipePath;
-		auto srcext = srcfile.head.toString().extension;
+		auto srcext = srcfile.head.name.extension;
 		if (srcext == "."~destination_file_ext) {
 			logInfo("Package format is already %s.", destination_file_ext);
 			return;
@@ -1247,7 +1317,7 @@ class Dub {
 		GeneratorSettings settings;
 		settings.config = "application";
 		settings.compiler = getCompiler(compiler_binary); // TODO: not using --compiler ???
-		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary);
+		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
 		settings.run = true;
 
@@ -1271,26 +1341,28 @@ class Dub {
 
 		if (!run) {
 			// TODO: ddox should copy those files itself
-			version(Windows) runCommand("xcopy /S /D "~tool_path~"public\\* docs\\");
+			version(Windows) runCommand(`xcopy /S /D "`~tool_path~`public\*" docs\`);
 			else runCommand("rsync -ru '"~tool_path~"public/' docs/");
 		}
 	}
 
 	private void updatePackageSearchPath()
 	{
+		// TODO: Remove once `overrideSearchPath` is removed
 		if (!m_overrideSearchPath.empty) {
-			m_packageManager.disableDefaultSearchPaths = true;
+			m_packageManager._disableDefaultSearchPaths = true;
 			m_packageManager.searchPath = [m_overrideSearchPath];
-		} else {
-			auto p = environment.get("DUBPATH");
-			NativePath[] paths;
-
-			version(Windows) enum pathsep = ";";
-			else enum pathsep = ":";
-			if (p.length) paths ~= p.split(pathsep).map!(p => NativePath(p))().array();
-			m_packageManager.disableDefaultSearchPaths = false;
-			m_packageManager.searchPath = paths;
+			return;
 		}
+
+		auto p = environment.get("DUBPATH");
+		NativePath[] paths;
+
+		version(Windows) enum pathsep = ";";
+		else enum pathsep = ":";
+		if (p.length) paths ~= p.split(pathsep).map!(p => NativePath(p))().array();
+		m_packageManager._disableDefaultSearchPaths = false;
+		m_packageManager.searchPath = paths;
 	}
 
 	private void determineDefaultCompiler()
@@ -1582,7 +1654,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				// note: external sub packages are handled further below
 				auto spr = basepack.getInternalSubPackage(subname);
 				if (!spr.isNull) {
-					auto sp = new Package(spr, basepack.path, basepack);
+					auto sp = new Package(spr.get, basepack.path, basepack);
 					m_remotePackages[sp.name] = sp;
 					return sp;
 				} else {

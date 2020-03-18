@@ -40,37 +40,36 @@ void enforceBuildRequirements(ref BuildSettings settings)
 	Linker files include static/dynamic libraries, resource files, object files
 	and DLL definition files.
 */
-bool isLinkerFile(string f)
+bool isLinkerFile(in ref BuildPlatform platform, string f)
 {
 	import std.path;
 	switch (extension(f)) {
 		default:
 			return false;
-		version (Windows) {
-			case ".lib", ".obj", ".res", ".def":
-				return true;
-		} else {
-			case ".a", ".o", ".so", ".dylib":
-				return true;
-		}
+		case ".lib", ".obj", ".res", ".def":
+			return platform.platform.canFind("windows");
+		case ".a", ".o", ".so", ".dylib":
+			return !platform.platform.canFind("windows");
 	}
 }
 
 unittest {
-	version (Windows) {
-		assert(isLinkerFile("test.obj"));
-		assert(isLinkerFile("test.lib"));
-		assert(isLinkerFile("test.res"));
-		assert(!isLinkerFile("test.o"));
-		assert(!isLinkerFile("test.d"));
-	} else {
-		assert(isLinkerFile("test.o"));
-		assert(isLinkerFile("test.a"));
-		assert(isLinkerFile("test.so"));
-		assert(isLinkerFile("test.dylib"));
-		assert(!isLinkerFile("test.obj"));
-		assert(!isLinkerFile("test.d"));
-	}
+	BuildPlatform p;
+
+	p.platform = ["windows"];
+	assert(isLinkerFile(p, "test.obj"));
+	assert(isLinkerFile(p, "test.lib"));
+	assert(isLinkerFile(p, "test.res"));
+	assert(!isLinkerFile(p, "test.o"));
+	assert(!isLinkerFile(p, "test.d"));
+
+	p.platform = ["something else"];
+	assert(isLinkerFile(p, "test.o"));
+	assert(isLinkerFile(p, "test.a"));
+	assert(isLinkerFile(p, "test.so"));
+	assert(isLinkerFile(p, "test.dylib"));
+	assert(!isLinkerFile(p, "test.obj"));
+	assert(!isLinkerFile(p, "test.d"));
 }
 
 
@@ -80,7 +79,7 @@ unittest {
 	This function tries to invoke "pkg-config" if possible and falls back to
 	direct flag translation if that fails.
 */
-void resolveLibs(ref BuildSettings settings)
+void resolveLibs(ref BuildSettings settings, in ref BuildPlatform platform)
 {
 	import std.string : format;
 	import std.array : array;
@@ -90,7 +89,8 @@ void resolveLibs(ref BuildSettings settings)
 	if (settings.targetType == TargetType.library || settings.targetType == TargetType.staticLibrary) {
 		logDiagnostic("Ignoring all import libraries for static library build.");
 		settings.libs = null;
-		version(Windows) settings.sourceFiles = settings.sourceFiles.filter!(f => !f.endsWith(".lib")).array;
+		if (platform.platform.canFind("windows"))
+			settings.sourceFiles = settings.sourceFiles.filter!(f => !f.endsWith(".lib")).array;
 	}
 
 	version (Posix) {
@@ -237,6 +237,56 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 	if (got_preamble) logWarn("");
 }
 
+/**
+	Turn a DMD-like version (e.g. 2.082.1) into a SemVer-like version (e.g. 2.82.1).
+    The function accepts a dependency operator prefix and some text postfix.
+    Prefix and postfix are returned verbatim.
+	Params:
+		ver	=	version string, possibly with a dependency operator prefix and some
+				test postfix.
+	Returns:
+		A Semver compliant string
+*/
+package(dub) string dmdLikeVersionToSemverLike(string ver)
+{
+	import std.algorithm : countUntil, joiner, map, skipOver, splitter;
+	import std.array : join, split;
+	import std.ascii : isDigit;
+	import std.conv : text;
+	import std.exception : enforce;
+	import std.functional : not;
+	import std.range : padRight;
+
+	const start = ver.countUntil!isDigit;
+	enforce(start != -1, "Invalid semver: "~ver);
+	const prefix = ver[0 .. start];
+	ver = ver[start .. $];
+
+	const end = ver.countUntil!(c => !c.isDigit && c != '.');
+	const postfix = end == -1 ? null : ver[end .. $];
+	auto verStr = ver[0 .. $-postfix.length];
+
+	auto comps = verStr
+		.splitter(".")
+		.map!((a) { if (a.length > 1) a.skipOver("0"); return a;})
+		.padRight("0", 3);
+
+	return text(prefix, comps.joiner("."), postfix);
+}
+
+///
+unittest {
+	assert(dmdLikeVersionToSemverLike("2.082.1") == "2.82.1");
+	assert(dmdLikeVersionToSemverLike("2.082.0") == "2.82.0");
+	assert(dmdLikeVersionToSemverLike("2.082") == "2.82.0");
+	assert(dmdLikeVersionToSemverLike("~>2.082") == "~>2.82.0");
+	assert(dmdLikeVersionToSemverLike("~>2.082-beta1") == "~>2.82.0-beta1");
+	assert(dmdLikeVersionToSemverLike("2.4.6") == "2.4.6");
+	assert(dmdLikeVersionToSemverLike("2.4.6-alpha12") == "2.4.6-alpha12");
+}
+
+private enum probeBeginMark = "__dub_probe_begin__";
+private enum probeEndMark = "__dub_probe_end__";
 
 /**
 	Generate a file that will give, at compile time, information about the compiler (architecture, frontend version...)
@@ -248,6 +298,7 @@ NativePath generatePlatformProbeFile()
 	import dub.internal.vibecompat.core.file;
 	import dub.internal.vibecompat.data.json;
 	import dub.internal.utils;
+	import std.string : format;
 
 	// try to not use phobos in the probe to avoid long import times
 	enum probe = q{
@@ -264,21 +315,25 @@ NativePath generatePlatformProbeFile()
 			return res;
 		}
 
-		pragma(msg, `{`);
-		pragma(msg,`  "compiler": "`~ determineCompiler() ~ `",`);
-		pragma(msg, `  "frontendVersion": ` ~ toString!__VERSION__ ~ `,`);
-		pragma(msg, `  "compilerVendor": "` ~ __VENDOR__ ~ `",`);
-		pragma(msg, `  "platform": [`);
-		pragma(msg, `    ` ~ determinePlatform().stringArray);
-		pragma(msg, `  ],`);
-		pragma(msg, `  "architecture": [`);
-		pragma(msg, `    ` ~ determineArchitecture().stringArray);
-		pragma(msg, `   ],`);
-		pragma(msg, `}`);
+		pragma(msg, `%1$s`
+			~ '\n' ~ `{`
+			~ '\n' ~ `  "compiler": "`~ determineCompiler() ~ `",`
+			~ '\n' ~ `  "frontendVersion": ` ~ toString!__VERSION__ ~ `,`
+			~ '\n' ~ `  "compilerVendor": "` ~ __VENDOR__ ~ `",`
+			~ '\n' ~ `  "platform": [`
+			~ '\n' ~ `    ` ~ determinePlatform().stringArray
+			~ '\n' ~ `  ],`
+			~ '\n' ~ `  "architecture": [`
+			~ '\n' ~ `    ` ~ determineArchitecture().stringArray
+			~ '\n' ~ `   ],`
+			~ '\n' ~ `}`
+			~ '\n' ~ `%2$s`);
 
-		string[] determinePlatform() } ~ '{' ~ platformCheck ~ '}' ~ q{
-		string[] determineArchitecture() } ~ '{' ~ archCheck ~ '}' ~ q{
-		string determineCompiler() } ~ '{' ~ compilerCheck ~ '}';
+		string[] determinePlatform() { %3$s }
+		string[] determineArchitecture() { %4$s }
+		string determineCompiler() { %5$s }
+
+		}.format(probeBeginMark, probeEndMark, platformCheck, archCheck, compilerCheck);
 
 	auto path = getTempFile("dub_platform_probe", ".d");
 	auto fil = openFile(path, FileMode.createTrunc);
@@ -288,11 +343,11 @@ NativePath generatePlatformProbeFile()
 }
 
 /**
-	Processes the output generated by compiling the platform probe file.
+	Processes the JSON output generated by compiling the platform probe file.
 
 	See_Also: `generatePlatformProbeFile`.
 */
-BuildPlatform readPlatformProbe(string output)
+BuildPlatform readPlatformJsonProbe(string output)
 {
 	import std.algorithm : map;
 	import std.array : array;
@@ -300,11 +355,11 @@ BuildPlatform readPlatformProbe(string output)
 	import std.string;
 
 	// work around possible additional output of the compiler
-	auto idx1 = output.indexOf("{");
-	auto idx2 = output.lastIndexOf("}");
+	auto idx1 = output.indexOf(probeBeginMark);
+	auto idx2 = output.lastIndexOf(probeEndMark);
 	enforce(idx1 >= 0 && idx1 < idx2,
 		"Unexpected platform information output - does not contain a JSON object.");
-	output = output[idx1 .. idx2+1];
+	output = output[idx1+probeBeginMark.length .. idx2];
 
 	import dub.internal.vibecompat.data.json;
 	auto json = parseJsonString(output);
