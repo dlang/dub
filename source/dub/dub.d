@@ -1440,13 +1440,15 @@ enum FetchOptions
 enum UpgradeOptions
 {
 	none = 0,
-	upgrade = 1<<1, /// Upgrade existing packages
+	/// If this is set (default on dub upgrade command) update to highest version from package suppliers.
+	/// If this is unset (--missing-only flag) only download what is specified in the selections file exactly.
+	upgrade = 1<<1,
 	preRelease = 1<<2, /// inclde pre-release versions in upgrade
-	forceRemove = 1<<3, /// Deprecated, does nothing.
+	deprecated("has no effect") forceRemove = 1<<3,
 	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
 	dryRun = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
-	/*deprecated*/ printUpgradesOnly = dryRun, /// deprecated, use dryRun instead
-	/*deprecated*/ useCachedResult = 1<<6, /// deprecated, has no effect
+	deprecated("use dryRun instead") printUpgradesOnly = dryRun,
+	deprecated("has no effect") useCachedResult = 1<<6,
 	noSaveSelections = 1<<7, /// Don't store updated selections on disk
 }
 
@@ -1487,7 +1489,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	{
 		m_rootPackage = root;
 		m_selectedVersions = selected_versions;
-		return super.resolve(TreeNode(root.name, Dependency(root.version_)), (m_options & UpgradeOptions.printUpgradesOnly) == 0);
+		return super.resolve(TreeNode(root.name, Dependency(root.version_)), (m_options & UpgradeOptions.dryRun) == 0);
 	}
 
 	protected bool isFixedPackage(string pack)
