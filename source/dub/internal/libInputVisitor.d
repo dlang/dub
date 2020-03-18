@@ -1,4 +1,4 @@
-﻿module dub.internal.libInputVisitor;
+module dub.internal.libInputVisitor;
 
 version (Have_libInputVisitor) public import libInputVisitor;
 else:
