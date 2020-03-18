@@ -18,7 +18,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 
 	this(NativePath root) { m_path = root; }
 
-	override @property string description() { return "file repository at "~m_path.toNativeString(); }
+	override @property string description() const { return "file repository at "~m_path.toNativeString(); }
 
 	Version[] getVersions(string package_id)
 	{

@@ -19,7 +19,7 @@ package abstract class AbstractFallbackPackageSupplier : PackageSupplier
 			m_suppliers[i].ps = ps;
 	}
 
-	override @property string description()
+	override @property string description() const
 	{
 		import std.algorithm.iteration : map;
 		import std.format : format;

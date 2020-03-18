@@ -15,7 +15,7 @@ interface PackageSupplier {
 	static struct SearchResult { string name, description, version_; }
 
 	/// Returns a human-readable representation of the package supplier.
-	@property string description();
+	@property string description() const;
 
 	/** Retrieves a list of all available versions(/branches) of a package.
 

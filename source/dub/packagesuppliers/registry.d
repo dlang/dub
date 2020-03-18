@@ -30,7 +30,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		m_maxCacheTime = 24.hours();
 	}
 
-	override @property string description() { return "registry at "~m_registryUrl.toString(); }
+	override @property string description() const { return "registry at "~m_registryUrl.toString(); }
 
 	Version[] getVersions(string package_id)
 	{

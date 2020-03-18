@@ -30,7 +30,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		m_maxCacheTime = 24.hours();
 	}
 
-	override @property string description() { return "maven repository at "~m_mavenUrl.toString(); }
+	override @property string description() const { return "maven repository at "~m_mavenUrl.toString(); }
 
 	Version[] getVersions(string package_id)
 	{
