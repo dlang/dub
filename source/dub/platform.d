@@ -42,6 +42,7 @@ enum string platformCheck = q{
 	version(Android) ret ~= "android";
 	version(Cygwin) ret ~= "cygwin";
 	version(MinGW) ret ~= "mingw";
+	version(PlayStation4) ret ~= "playstation4";
 	version(WebAssembly) ret ~= "wasm";
 	return ret;
 };
