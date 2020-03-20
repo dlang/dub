@@ -269,6 +269,9 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 	private static bool isLinkerDFlag(string arg)
 	{
+		if (arg.length > 2 && arg.startsWith("--"))
+			arg = arg[1 .. $]; // normalize to 1 leading hyphen
+
 		switch (arg) {
 			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib",
 			     "-betterC", "-disable-linker-strip-dead", "-static":
