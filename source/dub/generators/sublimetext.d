@@ -86,7 +86,7 @@ private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = 
 	string fileRegex;
 
 	if (buildPlatform.frontendVersion >= 2066 && buildPlatform.compiler == "dmd")
-		fileRegex = r"^(.+)\(([0-9]+)\,([0-9]+)\)\: (.*)$";
+		fileRegex = r"^(?:.*@)?(.+)\(([0-9]+)(?:\,([0-9]+))?\)\: (.*)$";
 	else
 		fileRegex = r"^(.+)\(([0-9]+)\)\:() (.*)$";
 
