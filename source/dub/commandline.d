@@ -204,6 +204,62 @@ struct CommandLineHandler
 
 		return null;
 	}
+
+	/** Get an instance of the requested command after the args are sent.
+
+		It uses getCommand to get the command instance and then calls prepare.
+		*/
+	Command prepareCommand(string name, CommandArgs args) {
+		auto cmd = getCommand(name);
+
+		if(cmd !is null || cmd.name != "help") {
+			// process command line options for the selected command
+			cmd.prepare(args);
+			enforceUsage(cmd.acceptsAppArgs || !args.hasAppArgs, name ~ " doesn't accept application arguments.");
+		}
+
+		return cmd;
+	}
+
+	/** Get a configured dub instance.
+	*/
+	Dub prepareDub() {
+		Dub dub;
+
+		if (options.bare) {
+			dub = new Dub(NativePath(getcwd()));
+			dub.rootPath = NativePath(options.root_path);
+			dub.defaultPlacementLocation = options.placementLocation;
+
+			return dub;
+		}
+
+		// initialize DUB
+		auto package_suppliers = options.registry_urls
+			.map!((url) {
+				// Allow to specify fallback mirrors as space separated urls. Undocumented as we
+				// should simply retry over all registries instead of using a special
+				// FallbackPackageSupplier.
+				auto urls = url.splitter(' ');
+				PackageSupplier ps = getRegistryPackageSupplier(urls.front);
+				urls.popFront;
+				if (!urls.empty)
+					ps = new FallbackPackageSupplier(ps ~ urls.map!getRegistryPackageSupplier.array);
+				return ps;
+			})
+			.array;
+
+		dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
+		dub.dryRun = options.annotate;
+		dub.defaultPlacementLocation = options.placementLocation;
+
+		// make the CWD package available so that for example sub packages can reference their
+		// parent package.
+		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path));
+		catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
+
+		return dub;
+	}
 }
 
 /// Can get the command names
@@ -384,8 +440,18 @@ int runDubCommandLine(string[] args)
 	args = common_args.extractAllRemainingArgs();
 
 	auto command_name_argument = CommandNameArgument(args);
-	auto cmd = handler.getCommand(command_name_argument.value);
-	args = command_name_argument.extractAllRemainingArgs();
+
+	auto command_args = new CommandArgs(command_name_argument.extractAllRemainingArgs);
+	Command cmd;
+
+	try {
+		cmd = handler.prepareCommand(command_name_argument.value, command_args);
+	} catch (Throwable e) {
+		logError("Error processing arguments: %s", e.msg);
+		logDiagnostic("Full exception: %s", e.toString().sanitize);
+		logInfo("Run 'dub help' for usage information.");
+		return 1;
+	}
 
 	if (cmd is null) {
 		logError("Unknown command: %s", command_name_argument.value);
@@ -397,19 +463,6 @@ int runDubCommandLine(string[] args)
 	if (cmd.name == "help") {
 		showHelp(handler.commands, common_args);
 		return 0;
-	}
-
-	auto command_args = new CommandArgs(args);
-
-	// process command line options for the selected command
-	try {
-		cmd.prepare(command_args);
-		enforceUsage(cmd.acceptsAppArgs || !command_args.hasAppArgs, cmd.name ~ " doesn't accept application arguments.");
-	} catch (Throwable e) {
-		logError("Error processing arguments: %s", e.msg);
-		logDiagnostic("Full exception: %s", e.toString().sanitize);
-		logInfo("Run 'dub help' for usage information.");
-		return 1;
 	}
 
 	if (handler.options.help) {
@@ -428,34 +481,7 @@ int runDubCommandLine(string[] args)
 
 	// initialize the root package
 	if (!cmd.skipDubInitialization) {
-		if (handler.options.bare) {
-			dub = new Dub(NativePath(getcwd()));
-			dub.rootPath = NativePath(handler.options.root_path);
-			dub.defaultPlacementLocation = handler.options.placementLocation;
-		} else {
-			// initialize DUB
-			auto package_suppliers = handler.options.registry_urls
-				.map!((url) {
-					// Allow to specify fallback mirrors as space separated urls. Undocumented as we
-					// should simply retry over all registries instead of using a special
-					// FallbackPackageSupplier.
-					auto urls = url.splitter(' ');
-					PackageSupplier ps = getRegistryPackageSupplier(urls.front);
-					urls.popFront;
-					if (!urls.empty)
-						ps = new FallbackPackageSupplier(ps ~ urls.map!getRegistryPackageSupplier.array);
-					return ps;
-				})
-				.array;
-			dub = new Dub(handler.options.root_path, package_suppliers, handler.options.skipRegistry);
-			dub.dryRun = handler.options.annotate;
-			dub.defaultPlacementLocation = handler.options.placementLocation;
-
-			// make the CWD package available so that for example sub packages can reference their
-			// parent package.
-			try dub.packageManager.getOrLoadPackage(NativePath(handler.options	.root_path));
-			catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
-		}
+		dub = handler.prepareDub;
 	}
 
 	// execute the command
