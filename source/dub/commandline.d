@@ -86,6 +86,9 @@ struct CommandNameArgument
 	private string[] m_args;
 
 	/** Separates the command name from the arguments.
+
+	Params:
+		args = a list of string arguments that will be processed
 	*/
 	this(string[] args)
 	{
@@ -97,14 +100,20 @@ struct CommandNameArgument
 		}
 	}
 
-	/** Returns the command name.
+	/** Retreive the command name
+
+	Returns:
+		Returns the command name if it is set, otherwise an empty string
 	*/
 	string value()
 	{
 		return m_value;
 	}
 
-	/** Returns the list of unprocessed arguments and calls `dropAllArgs`.
+	/** Returns the list of unprocessed arguments.
+
+	Returns:
+		Returns the list of aguments, without the command name
 	*/
 	string[] extractAllRemainingArgs()
 	{
@@ -149,8 +158,8 @@ struct CommandLineHandler
 
 	/** Create the list of all supported commands
 
-		Returns:
-			Returns the list of the supported command names
+	Returns:
+		Returns the list of the supported command names
 	*/
 	string[] commandNames()
 	{
@@ -186,6 +195,12 @@ struct CommandLineHandler
 
 	If there is no command requested the `run` command is returned.
 	If the `--help` argument was set, the help command will be returned as default.
+
+	Params:
+		name = the command name
+
+	Returns:
+		Returns the command instance if it exists, null otherwise
 	*/
 	Command getCommand(string name) {
 		if(name == "help" || (name == "" && options.help)) {
@@ -207,8 +222,15 @@ struct CommandLineHandler
 
 	/** Get an instance of the requested command after the args are sent.
 
-		It uses getCommand to get the command instance and then calls prepare.
-		*/
+	It uses getCommand to get the command instance and then calls prepare.
+
+	Params:
+		name = the command name
+		args = the command arguments
+
+	Returns:
+		Returns the command instance if it exists, null otherwise
+	*/
 	Command prepareCommand(string name, CommandArgs args) {
 		auto cmd = getCommand(name);
 
@@ -222,6 +244,9 @@ struct CommandLineHandler
 	}
 
 	/** Get a configured dub instance.
+
+	Returns:
+		A dub instance
 	*/
 	Dub prepareDub() {
 		Dub dub;
@@ -572,7 +597,10 @@ class CommandArgs {
 		m_args = "dummy" ~ (app_args_idx >= 0 ? args[0..app_args_idx] : args);
 	}
 
-	/** Checks if the `--version` argument is present.
+	/** Checks if the app arguments are present.
+
+	Returns:
+		A list of arguments that are present after `--` argument
 	*/
 	@property bool hasAppArgs() { return m_appArgs.length > 0; }
 
@@ -614,7 +642,7 @@ class CommandArgs {
 	}
 
 	/** Returns the list of unprocessed arguments, ignoring the app arguments,
-		and calls `dropAllArgs`.
+	and calls `dropAllArgs`.
 	*/
 	string[] extractRemainingArgs()
 	{
@@ -625,6 +653,9 @@ class CommandArgs {
 
 	/** Returns the list of unprocessed arguments, including the app arguments
 		and calls `dropAllArgs`.
+
+	Returns:
+		Returns the list of unprocessed arguments with the app arguments
 	*/
 	string[] extractAllRemainingArgs()
 	{
