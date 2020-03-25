@@ -560,7 +560,8 @@ struct CommonOptions {
 		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
-		args.getopt("version", &version_, ["Print the application version"]);
+
+		version_ = args.hasAppVersion;
 	}
 }
 
@@ -603,6 +604,14 @@ class CommandArgs {
 		A list of arguments that are present after `--` argument
 	*/
 	@property bool hasAppArgs() { return m_appArgs.length > 0; }
+
+
+	/** Checks if the `--version` argument is present.
+
+	Returns:
+		true if the application version argument is present
+	*/
+	@property bool hasAppVersion() { return m_args.length > 1 && m_args[1] == "--version"; }
 
 	/** Returns the list of app args.
 
@@ -667,6 +676,21 @@ class CommandArgs {
 
 		return ret;
 	}
+}
+
+/// It should not find the app version for an empty arg list
+unittest {
+	assert(new CommandArgs([]).hasAppVersion == false);
+}
+
+/// It should find the app version when `--version` is the first arg
+unittest {
+	assert(new CommandArgs(["--version"]).hasAppVersion == true);
+}
+
+/// It should not find the app version when `--version` is the second arg
+unittest {
+	assert(new CommandArgs(["a", "--version"]).hasAppVersion == false);
 }
 
 /// It returns an empty app arg list when `--` arg is missing
