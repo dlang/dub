@@ -132,7 +132,7 @@ unittest {
 struct CommandLineHandler
 {
 	/// The list of commands that can be handled
-	CommandGroup[] commands;
+	CommandGroup[] commandGroups;
 
 	/// General options parser
 	CommonOptions options;
@@ -144,7 +144,7 @@ struct CommandLineHandler
 	*/
 	string[] commandNames()
 	{
-		return commands.map!(g => g.commands.map!(c => c.name).array).join;
+		return commandGroups.map!(g => g.commands.map!(c => c.name).array).join;
 	}
 
 	/** Parses the general options and sets up the log level
@@ -199,7 +199,7 @@ struct CommandLineHandler
 			name = "run";
 		}
 
-		foreach (grp; commands)
+		foreach (grp; commandGroups)
 			foreach (c; grp.commands)
 				if (c.name == name) {
 					return c;
@@ -279,7 +279,7 @@ struct CommandLineHandler
 /// Can get the command names
 unittest {
 	CommandLineHandler handler;
-	handler.commands = getCommands();
+	handler.commandGroups = getCommands();
 
 	assert(handler.commandNames == ["init", "run", "build", "test", "lint", "generate",
 		"describe", "clean", "dustmite", "fetch", "install", "add", "remove", "uninstall",
@@ -352,7 +352,7 @@ unittest {
 /// It returns the `run` command by default
 unittest {
 	CommandLineHandler handler;
-	handler.commands = getCommands();
+	handler.commandGroups = getCommands();
 	assert(handler.getCommand("").name == "run");
 }
 
@@ -362,28 +362,28 @@ unittest {
 	CommandLineHandler handler;
 	auto args = new CommandArgs(["--help"]);
 	handler.prepareOptions(args);
-	handler.commands = getCommands();
+	handler.commandGroups = getCommands();
 	assert(cast(HelpCommand)handler.getCommand("") !is null);
 }
 
 /// It returns the `help` command when the `help` command is sent
 unittest {
 	CommandLineHandler handler;
-	handler.commands = getCommands();
+	handler.commandGroups = getCommands();
 	assert(cast(HelpCommand) handler.getCommand("help") !is null);
 }
 
 /// It returns the `init` command when the `init` command is sent
 unittest {
 	CommandLineHandler handler;
-	handler.commands = getCommands();
+	handler.commandGroups = getCommands();
 	assert(handler.getCommand("init").name == "init");
 }
 
 /// It returns null when a missing command is sent
 unittest {
 	CommandLineHandler handler;
-	handler.commands = getCommands();
+	handler.commandGroups = getCommands();
 	assert(handler.getCommand("missing") is null);
 }
 
@@ -470,12 +470,12 @@ int runDubCommandLine(string[] args)
 	if (cmd is null) {
 		logError("Unknown command: %s", command_name_argument.value);
 		writeln();
-		showHelp(handler.commands, common_args);
+		showHelp(handler.commandGroups, common_args);
 		return 1;
 	}
 
 	if (cast(HelpCommand)cmd !is null) {
-		showHelp(handler.commands, common_args);
+		showHelp(handler.commandGroups, common_args);
 		return 0;
 	}
 
