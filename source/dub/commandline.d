@@ -222,7 +222,7 @@ struct CommandLineHandler
 	Command prepareCommand(string name, CommandArgs args) {
 		auto cmd = getCommand(name);
 
-		if (cmd !is null || cmd.name != "help")
+		if (cmd !is null || cast(HelpCommand)cmd !is null)
 		{
 			// process command line options for the selected command
 			cmd.prepare(args);
@@ -363,14 +363,14 @@ unittest {
 	auto args = new CommandArgs(["--help"]);
 	handler.prepareOptions(args);
 	handler.commands = getCommands();
-	assert(handler.getCommand("").name == "help");
+	assert(cast(HelpCommand)handler.getCommand("") !is null);
 }
 
 /// It returns the `help` command when the `help` command is sent
 unittest {
 	CommandLineHandler handler;
 	handler.commands = getCommands();
-	assert(handler.getCommand("help").name == "help");
+	assert(cast(HelpCommand) handler.getCommand("help") !is null);
 }
 
 /// It returns the `init` command when the `init` command is sent
@@ -474,7 +474,7 @@ int runDubCommandLine(string[] args)
 		return 1;
 	}
 
-	if (cmd.name == "help") {
+	if (cast(HelpCommand)cmd !is null) {
 		showHelp(handler.commands, common_args);
 		return 0;
 	}
