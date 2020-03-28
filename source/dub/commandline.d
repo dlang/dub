@@ -174,8 +174,13 @@ struct CommandLineHandler
 
 	/** Get an instance of the requested command.
 
-	If there is no command requested the `run` command is returned.
-	If the `--help` argument was set, the help command will be returned as default.
+	If there is no command in the argument list, the `run` command is returned
+	by default.
+
+	If the `--help` argument previously handled by `prepareOptions`,
+	`this.options.help` is already `true`, with this returning the requested
+	command. If no command was requested (just dub --help) this returns the
+	help command.
 
 	Params:
 		name = the command name
@@ -184,11 +189,13 @@ struct CommandLineHandler
 		Returns the command instance if it exists, null otherwise
 	*/
 	Command getCommand(string name) {
-		if(name == "help" || (name == "" && options.help)) {
+		if (name == "help" || (name == "" && options.help))
+		{
 			return new HelpCommand();
 		}
 
-		if(name == "") {
+		if (name == "")
+		{
 			name = "run";
 		}
 
@@ -215,7 +222,8 @@ struct CommandLineHandler
 	Command prepareCommand(string name, CommandArgs args) {
 		auto cmd = getCommand(name);
 
-		if(cmd !is null || cmd.name != "help") {
+		if (cmd !is null || cmd.name != "help")
+		{
 			// process command line options for the selected command
 			cmd.prepare(args);
 			enforceUsage(cmd.acceptsAppArgs || !args.hasAppArgs, name ~ " doesn't accept application arguments.");
@@ -587,10 +595,11 @@ class CommandArgs {
 	@property bool hasAppArgs() { return m_appArgs.length > 0; }
 
 
-	/** Checks if the `--version` argument is present.
+	/** Checks if the `--version` argument is present on the first position in
+	the list.
 
 	Returns:
-		true if the application version argument is present
+		true if the application version argument was found on the first position
 	*/
 	@property bool hasAppVersion() { return m_args.length > 1 && m_args[1] == "--version"; }
 
@@ -632,7 +641,7 @@ class CommandArgs {
 	}
 
 	/** Returns the list of unprocessed arguments, ignoring the app arguments,
-	and calls `dropAllArgs`.
+	and resets the list of available source arguments.
 	*/
 	string[] extractRemainingArgs()
 	{
@@ -643,15 +652,13 @@ class CommandArgs {
 
 	/** Returns the list of unprocessed arguments, including the app arguments
 		and calls `dropAllArgs`.
-
-	Returns:
-		Returns the list of unprocessed arguments with the app arguments
 	*/
 	string[] extractAllRemainingArgs()
 	{
 		auto ret = extractRemainingArgs();
 
-		if(this.hasAppArgs) {
+		if (this.hasAppArgs)
+		{
 			ret ~= "--" ~ m_appArgs;
 		}
 
@@ -807,15 +814,17 @@ class HelpCommand : Command {
 		];
 	}
 
-	/// There is nothing to prepare
+	/// HelpCommand.prepare is not supposed to be called, use
+	/// cast(HelpCommand)this to check if help was requested before execution.
 	override void prepare(scope CommandArgs args)
 	{
-		assert(false, "There is nothing to prepare");
+		assert(false, "HelpCommand.prepare is not supposed to be called, use cast(HelpCommand)this to check if help was requested before execution.");
 	}
 
-	/// There is nothing to execute
+	/// HelpCommand.execute is not supposed to be called, use
+	/// cast(HelpCommand)this to check if help was requested before execution.
 	override int execute(Dub dub, string[] free_args, string[] app_args) {
-		assert(false, "There is nothing to execute");
+		assert(false, "HelpCommand.execute is not supposed to be called, use cast(HelpCommand)this to check if help was requested before execution.");
 	}
 }
 
