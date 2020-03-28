@@ -79,71 +79,52 @@ CommandGroup[] getCommands()
 }
 
 /** Extract the command name from the argument list
-*/
-struct CommandNameArgument
-{
-	private string m_value;
-	private string[] m_args;
-
-	/** Separates the command name from the arguments.
 
 	Params:
 		args = a list of string arguments that will be processed
-	*/
-	this(string[] args)
-	{
-		if (args.length >= 1 && !args[0].startsWith("-")) {
-			m_value = args[0];
-			m_args = args[1 .. $];
-		} else {
-			m_args = args;
-		}
-	}
-
-	/** Retreive the command name
 
 	Returns:
-		Returns the command name if it is set, otherwise an empty string
-	*/
-	string value()
-	{
-		return m_value;
+		A structure with two members. `value` is the command name
+		`remaining` is a list of unprocessed arguments
+*/
+auto extractCommandNameArgument(string[] args)
+{
+	struct Result {
+		string value;
+		string[] remaining;
 	}
 
-	/** Returns the list of unprocessed arguments.
-
-	Returns:
-		Returns the list of aguments, without the command name
-	*/
-	string[] extractAllRemainingArgs()
-	{
-		return m_args;
+	if (args.length >= 1 && !args[0].startsWith("-")) {
+		return Result(args[0], args[1 .. $]);
 	}
+
+	return Result(null, args);
 }
 
 /// It returns an empty string on when there are no args
 unittest {
-	assert(CommandNameArgument([]).value == "");
+	assert(extractCommandNameArgument([]).value == "");
+	assert(extractCommandNameArgument([]).remaining == []);
 }
 
 /// It returns the first argument when it does not start with `-`
 unittest {
-	assert(CommandNameArgument(["test"]).value == "test");
+	assert(extractCommandNameArgument(["test"]).value == "test");
 }
 
 /// There is nothing to extract when the arguments only contain the `test` cmd
 unittest {
-	assert(CommandNameArgument(["test"]).extractAllRemainingArgs == []);
+	assert(extractCommandNameArgument(["test"]).remaining == []);
 }
 
 /// It extracts two arguments when they are not a command
 unittest {
-	assert(CommandNameArgument(["-a", "-b"]).extractAllRemainingArgs == ["-a", "-b"]);
+	assert(extractCommandNameArgument(["-a", "-b"]).remaining == ["-a", "-b"]);
 }
 
 /// It returns the an empty string when it starts with `-`
 unittest {
-	assert(CommandNameArgument(["-test"]).value == "");
+	assert(extractCommandNameArgument(["-test"]).value == "");
 }
 
 /** Handles the Command Line options and commands.
@@ -464,9 +445,9 @@ int runDubCommandLine(string[] args)
 	// extract the command
 	args = common_args.extractAllRemainingArgs();
 
-	auto command_name_argument = CommandNameArgument(args);
+	auto command_name_argument = extractCommandNameArgument(args);
 
-	auto command_args = new CommandArgs(command_name_argument.extractAllRemainingArgs);
+	auto command_args = new CommandArgs(command_name_argument.remaining);
 	Command cmd;
 
 	try {
