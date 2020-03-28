@@ -144,7 +144,7 @@ struct CommandLineHandler
 	*/
 	string[] commandNames()
 	{
-		return commands.map!(g => g.commands.map!(c => c.name).array).join.array;
+		return commands.map!(g => g.commands.map!(c => c.name).array).join;
 	}
 
 	/** Parses the general options and sets up the log level
