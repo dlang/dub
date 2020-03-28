@@ -590,7 +590,7 @@ class CommandArgs {
 	/** Checks if the app arguments are present.
 
 	Returns:
-		A list of arguments that are present after `--` argument
+		true if an -- argument is given with arguments after it, otherwise false
 	*/
 	@property bool hasAppArgs() { return m_appArgs.length > 0; }
 
@@ -651,7 +651,7 @@ class CommandArgs {
 	}
 
 	/** Returns the list of unprocessed arguments, including the app arguments
-		and calls `dropAllArgs`.
+		and resets the list of available source arguments.
 	*/
 	string[] extractAllRemainingArgs()
 	{
