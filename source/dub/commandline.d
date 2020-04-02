@@ -645,6 +645,8 @@ class CommandArgs {
 	*/
 	string[] extractRemainingArgs()
 	{
+		assert(m_args !is null, "extractRemainingArgs must be called only once.");
+
 		auto ret = m_args[1 .. $];
 		m_args = null;
 		return ret;
