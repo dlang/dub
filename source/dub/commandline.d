@@ -222,7 +222,7 @@ struct CommandLineHandler
 	Command prepareCommand(string name, CommandArgs args) {
 		auto cmd = getCommand(name);
 
-		if (cmd !is null || cast(HelpCommand)cmd !is null)
+		if (cmd !is null && !(cast(HelpCommand)cmd))
 		{
 			// process command line options for the selected command
 			cmd.prepare(args);
