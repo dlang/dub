@@ -1,5 +1,0 @@
-{
-	"name": "issue1372-ignore-files-in-hidden-dirs",
-    "sourceFiles":["source/.compileMe/hello.d"]
-    
-}

@@ -2,5 +2,17 @@ import std.stdio;
 
 void main()
 {
-	writeln("Edit source/app.d to start your project.");
+    version(UseHiddenFile)
+    {
+        import hello;
+        helloFun();
+    }
+    else
+    {
+        static assert(!__traits(compiles, {
+            import hello;
+            helloFun();
+        }));
+        writeln("no hidden file compiled");
+    }
 }
