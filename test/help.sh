@@ -22,6 +22,6 @@ if ! { ${DUB} build -h | grep "Builds a package"; } then
     die 'DUB did not print the build help message, with the `-h` argument.'
 fi
 
-if ! { ${DUB} build -h | grep "Builds a package"; } then
+if ! { ${DUB} build --help | grep "Builds a package"; } then
     die 'DUB did not print the build help message, with the `--help` argument.'
 fi
