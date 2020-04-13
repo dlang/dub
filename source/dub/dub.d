@@ -62,8 +62,8 @@ deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryU
 static immutable string[] defaultRegistryURLs = [
 	"https://code.dlang.org/",
 	"https://codemirror.dlang.org/",
+	"https://dub.bytecraft.nl/",
 	"https://code-mirror.dlang.io/",
-	"https://dub-registry.herokuapp.com/",
 ];
 
 /** Returns a default list of package suppliers.
