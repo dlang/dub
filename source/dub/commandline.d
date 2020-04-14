@@ -101,29 +101,22 @@ auto extractCommandNameArgument(string[] args)
 	return Result(null, args);
 }
 
-/// It returns an empty string on when there are no args
+/// test extractCommandNameArgument usage
 unittest {
+	/// It returns an empty string on when there are no args
 	assert(extractCommandNameArgument([]).value == "");
 	assert(extractCommandNameArgument([]).remaining == []);
-}
 
-/// It returns the first argument when it does not start with `-`
-unittest {
+	/// It returns the first argument when it does not start with `-`
 	assert(extractCommandNameArgument(["test"]).value == "test");
-}
 
-/// There is nothing to extract when the arguments only contain the `test` cmd
-unittest {
+	/// There is nothing to extract when the arguments only contain the `test` cmd
 	assert(extractCommandNameArgument(["test"]).remaining == []);
-}
 
-/// It extracts two arguments when they are not a command
-unittest {
+	/// It extracts two arguments when they are not a command
 	assert(extractCommandNameArgument(["-a", "-b"]).remaining == ["-a", "-b"]);
-}
 
-/// It returns the an empty string when it starts with `-`
-unittest {
+	/// It returns the an empty string when it starts with `-`
 	assert(extractCommandNameArgument(["-test"]).value == "");
 }
 
@@ -668,41 +661,30 @@ class CommandArgs {
 	}
 }
 
-/// It should not find the app version for an empty arg list
+/// Using CommandArgs
 unittest {
+	/// It should not find the app version for an empty arg list
 	assert(new CommandArgs([]).hasAppVersion == false);
-}
 
-/// It should find the app version when `--version` is the first arg
-unittest {
+	/// It should find the app version when `--version` is the first arg
 	assert(new CommandArgs(["--version"]).hasAppVersion == true);
-}
 
-/// It should not find the app version when `--version` is the second arg
-unittest {
+	/// It should not find the app version when `--version` is the second arg
 	assert(new CommandArgs(["a", "--version"]).hasAppVersion == false);
-}
 
-/// It returns an empty app arg list when `--` arg is missing
-unittest {
+	/// It returns an empty app arg list when `--` arg is missing
 	assert(new CommandArgs(["1", "2"]).appArgs == []);
-}
 
-/// It returns an empty app arg list when `--` arg is missing
-unittest {
+	/// It returns an empty app arg list when `--` arg is missing
 	assert(new CommandArgs(["1", "2"]).appArgs == []);
-}
 
-/// It returns app args set after "--"
-unittest {
+	/// It returns app args set after "--"
 	assert(new CommandArgs(["1", "2", "--", "a"]).appArgs == ["a"]);
 	assert(new CommandArgs(["1", "2", "--"]).appArgs == []);
 	assert(new CommandArgs(["--"]).appArgs == []);
 	assert(new CommandArgs(["--", "a"]).appArgs == ["a"]);
-}
 
-/// It returns the list of all args when no args are processed
-unittest {
+	/// It returns the list of all args when no args are processed
 	assert(new CommandArgs(["1", "2", "--", "a"]).extractAllRemainingArgs == ["1", "2", "--", "a"]);
 }
 
