@@ -16,6 +16,7 @@ class RegistryPackageSupplier : PackageSupplier {
 	import dub.internal.vibecompat.data.json : parseJson, parseJsonString, serializeToJson;
 	import dub.internal.vibecompat.inet.url : URL;
 
+	import std.uri : encodeComponent;
 	import std.datetime : Clock, Duration, hours, SysTime, UTC;
 	private {
 		URL m_registryUrl;
@@ -86,8 +87,10 @@ class RegistryPackageSupplier : PackageSupplier {
 			m_metadataCache.remove(packageId);
 		}
 
-		auto url = m_registryUrl ~ NativePath("api/packages/infos?packages=[\"" ~
-				packageId ~ "\"]&include_dependencies=true&minimize=true");
+		auto url = m_registryUrl ~ NativePath("api/packages/infos");
+
+		url.queryString = "packages=" ~
+				encodeComponent(`["` ~ packageId ~ `"]`) ~ "&include_dependencies=true&minimize=true";
 
 		logDebug("Downloading metadata for %s", packageId);
 		string jsonData;
