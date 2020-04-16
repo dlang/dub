@@ -29,6 +29,9 @@ if [ "$COVERAGE" = true ]; then
 else
     ./build.d
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
+
+    ./bin/dub --config=application-nonet
+    DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
 fi
 
 ## Checks that only need to be done once per CI run

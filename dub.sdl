@@ -14,6 +14,12 @@ configuration "application" {
 	versions "DubUseCurl" "DubApplication"
 }
 
+configuration "application-nonet" {
+	dependency "vibe-d:http" version=">=0.7.30 <=0.9.0"
+	targetType "executable"
+	mainSourceFile "source/app.d"
+}
+
 configuration "library" {
 	targetType "library"
 	excludedSourceFiles "source/app.d"
