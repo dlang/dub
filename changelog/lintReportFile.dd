@@ -1,0 +1,5 @@
+Dub lint now supports --report-file argument.
+
+Dub lint can now be called with --report-file argument:
+dub lint --report-file report.json
+
