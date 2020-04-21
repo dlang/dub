@@ -1,0 +1,9 @@
+Added support for low memory compilation option to the $(LINK2 https://dub.pm/settings, dub settings file).
+
+To enable, set `defaultLowMemory` to `true`. For dmd and ldc, the `-lowmem` command-line option is added when compiling.
+
+```
+{
+    "defaultLowMemory": true
+}
+```

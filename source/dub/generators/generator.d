@@ -96,6 +96,7 @@ class ProjectGenerator
 			BuildSettings buildSettings;
 			auto config = configs[pack.name];
 			buildSettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, config), settings, true);
+			if (settings.buildSettings.options & BuildOption.lowmem) buildSettings.options |= BuildOption.lowmem;
 
 			prepareGeneration(pack, m_project, settings, buildSettings);
 

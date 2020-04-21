@@ -132,6 +132,7 @@ class Dub {
 		NativePath m_overrideSearchPath;
 		string m_defaultCompiler;
 		string m_defaultArchitecture;
+		bool m_defaultLowMemory;
 	}
 
 	/** The default placement location of fetched packages.
@@ -288,6 +289,7 @@ class Dub {
 		determineDefaultCompiler();
 
 		m_defaultArchitecture = m_config.defaultArchitecture;
+		m_defaultLowMemory = m_config.defaultLowMemory;
 	}
 
 	@property void dryRun(bool v) { m_dryRun = v; }
@@ -331,6 +333,13 @@ class Dub {
 		configuration file will be used. Otherwise null will be returned.
 	*/
 	@property string defaultArchitecture() const { return m_defaultArchitecture; }
+
+	/** Returns the default low memory option to use for building D code.
+
+		If set, the "defaultLowMemory" field of the DUB user or system
+		configuration file will be used. Otherwise false will be returned.
+	*/
+	@property bool defaultLowMemory() const { return m_defaultLowMemory; }
 
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
@@ -765,6 +774,7 @@ class Dub {
 		settings.compiler = getCompiler(compiler_binary);
 		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
+		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
 		settings.run = true;
 
 		foreach (dependencyPackage; m_project.dependencies)
@@ -1261,6 +1271,7 @@ class Dub {
 		settings.buildType = "debug";
 		settings.run = true;
 		settings.runArgs = runArgs;
+		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
 		initSubPackage.recipe.buildSettings.workingDirectory = path.toNativeString();
 		template_dub.generateProject("build", settings);
 	}
@@ -1331,6 +1342,7 @@ class Dub {
 		settings.compiler = getCompiler(compiler_binary); // TODO: not using --compiler ???
 		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
+		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
 		settings.run = true;
 
 		auto filterargs = m_project.rootPackage.recipe.ddoxFilterArgs.dup;
@@ -1832,5 +1844,13 @@ private class DubConfig {
 			return (*pv).get!string;
 		if (m_parentConfig) return m_parentConfig.defaultArchitecture;
 		return null;
+	}
+
+	@property bool defaultLowMemory()
+	const {
+		if(auto pv = "defaultLowMemory" in m_data)
+			return (*pv).get!bool;
+		if (m_parentConfig) return m_parentConfig.defaultLowMemory;
+		return false;
 	}
 }
