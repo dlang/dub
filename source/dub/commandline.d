@@ -998,6 +998,7 @@ abstract class PackageBuildCommand : Command {
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		if (!m_arch.length) m_arch = dub.defaultArchitecture;
+		if (dub.defaultLowMemory) m_buildSettings.options |= BuildOption.lowmem;
 		m_compiler = getCompiler(m_compilerName);
 		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compilerName, m_arch);
 		m_buildSettings.addDebugVersions(m_debugVersions);
@@ -1592,6 +1593,7 @@ class DescribeCommand : PackageBuildCommand {
 		settings.buildType = m_buildType;
 		settings.compiler = m_compiler;
 		settings.filterVersions = m_filterVersions;
+		settings.buildSettings.options |= m_buildSettings.options & BuildOption.lowmem;
 
 		if (m_importPaths) { m_data = ["import-paths"]; m_dataList = true; }
 		else if (m_stringImportPaths) { m_data = ["string-import-paths"]; m_dataList = true; }

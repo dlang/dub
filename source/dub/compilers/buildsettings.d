@@ -325,10 +325,11 @@ enum BuildOption {
 	profileGC = 1<<21,            /// Profile runtime allocations
 	pic = 1<<22,                  /// Generate position independent code
 	betterC = 1<<23,              /// Compile in betterC mode (-betterC)
+	lowmem = 1<<24,               /// Compile in lowmem mode (-lowmem)
 
 	// for internal usage
-	_docs = 1<<24,                // Write ddoc to docs
-	_ddox = 1<<25                 // Compile docs.json
+	_docs = 1<<25,                // Write ddoc to docs
+	_ddox = 1<<26                 // Compile docs.json
 }
 
 	struct BuildOptions {
