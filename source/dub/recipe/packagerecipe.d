@@ -250,9 +250,16 @@ struct BuildSettingsTemplate {
 						continue;
 					}
 
-					foreach (d; dirEntries(path.toNativeString(), pattern, SpanMode.depth)) {
-						import std.path : baseName;
-						if (baseName(d.name)[0] == '.' || d.isDir) continue;
+					auto pstr = path.toNativeString();
+					foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
+						import std.path : baseName, pathSplitter;
+						import std.algorithm.searching : canFind;
+						// eliminate any hidden files, or files in hidden directories. But always include
+						// files that are listed inside hidden directories that are specifically added to
+						// the project.
+						if (d.isDir || pathSplitter(d.name[pstr.length .. $])
+								   .canFind!(name => name.length && name[0] == '.'))
+							continue;
 						auto src = NativePath(d.name).relativeTo(base_path);
 						files ~= src.toNativeString();
 					}

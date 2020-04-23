@@ -26,7 +26,10 @@ enum string platformCheck = q{
 	version(Windows) ret ~= "windows";
 	version(linux) ret ~= "linux";
 	version(Posix) ret ~= "posix";
-	version(OSX) ret ~= "osx";
+	version(OSX) ret ~= ["osx", "darwin"];
+	version(iOS) ret ~= ["ios", "darwin"];
+	version(TVOS) ret ~= ["tvos", "darwin"];
+	version(WatchOS) ret ~= ["watchos", "darwin"];
 	version(FreeBSD) ret ~= "freebsd";
 	version(OpenBSD) ret ~= "openbsd";
 	version(NetBSD) ret ~= "netbsd";
@@ -42,6 +45,7 @@ enum string platformCheck = q{
 	version(Android) ret ~= "android";
 	version(Cygwin) ret ~= "cygwin";
 	version(MinGW) ret ~= "mingw";
+	version(PlayStation4) ret ~= "playstation4";
 	version(WebAssembly) ret ~= "wasm";
 	return ret;
 };

@@ -170,7 +170,7 @@ class GDCCompiler : Compiler {
 			case TargetType.dynamicLibrary:
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".dll";
-				else if (platform.platform.canFind("osx"))
+				else if (platform.platform.canFind("darwin"))
 					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:

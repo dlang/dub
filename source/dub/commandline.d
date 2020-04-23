@@ -714,7 +714,6 @@ abstract class PackageBuildCommand : Command {
 		auto pack = dub.packageManager.getFirstPackage(package_name);
 		enforce(pack, "Failed to find a package named '"~package_name~"' locally.");
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
-		dub.rootPath = pack.path;
 		dub.loadPackage(pack);
 		return true;
 	}
@@ -1052,6 +1051,7 @@ class LintCommand : PackageBuildCommand {
 		string m_errorFormat;
 		bool m_report = false;
 		string m_reportFormat;
+		string m_reportFile;
 		string[] m_importPaths;
 		string m_config;
 	}
@@ -1091,7 +1091,11 @@ class LintCommand : PackageBuildCommand {
 			"Specifies the format of the generated report."
 		]);
 
-		if (m_reportFormat) m_report = true;
+		args.getopt("report-file", &m_reportFile, [
+			"Write report to file."
+		]);
+
+		if (m_reportFormat || m_reportFile) m_report = true;
 
 		args.getopt("import-paths", &m_importPaths, [
 			"Import paths"
@@ -1118,6 +1122,7 @@ class LintCommand : PackageBuildCommand {
 		if (m_errorFormat) args ~= ["--errorFormat", m_errorFormat];
 		if (m_report) args ~= "--report";
 		if (m_reportFormat) args ~= ["--reportFormat", m_reportFormat];
+		if (m_reportFile) args ~= ["--reportFile", m_reportFile];
 		foreach (import_path; m_importPaths) args ~= ["-I", import_path];
 		if (m_config) args ~= ["--config", m_config];
 
@@ -1445,8 +1450,7 @@ class FetchCommand : FetchRemoveCommand {
 			"",
 			"Complete applications can be retrieved and run easily by e.g.",
 			"$ dub fetch vibelog --cache=local",
-			"$ cd vibelog",
-			"$ dub",
+			"$ dub run vibelog --cache=local",
 			"",
 			"This will grab all needed dependencies and compile and run the application.",
 			"",

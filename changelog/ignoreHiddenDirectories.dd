@@ -1,0 +1,11 @@
+Hidden directories are now ignored.
+
+A hidden directory on most Posix file systems starts with a period. e.g.
+`.dub`. By default, dub ignored hidden files (e.g. `.swap.file.d`), but not
+hidden directories. Some operating systems create hidden directories that dub
+would try to include for compilation. This release now will properly ignore
+hidden directories, unless those directories are specifically named in the dub
+recipe file.
+
+Note that this uses the directory name exclusively and does not check file
+attributes.

@@ -193,7 +193,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 			case TargetType.dynamicLibrary:
 				if (p.canFind("windows"))
 					return settings.targetName ~ ".dll";
-				else if (p.canFind("osx"))
+				else if (p.canFind("darwin"))
 					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
@@ -269,6 +269,9 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 	private static bool isLinkerDFlag(string arg)
 	{
+		if (arg.length > 2 && arg.startsWith("--"))
+			arg = arg[1 .. $]; // normalize to 1 leading hyphen
+
 		switch (arg) {
 			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib",
 			     "-betterC", "-disable-linker-strip-dead", "-static":
