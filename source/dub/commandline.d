@@ -986,7 +986,7 @@ abstract class PackageBuildCommand : Command {
 		]);
 	}
 
-	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug")
+	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug", Version ver = Version.unknown)
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		if (!m_arch.length) m_arch = dub.defaultArchitecture;
@@ -995,7 +995,7 @@ abstract class PackageBuildCommand : Command {
 		m_buildSettings.addDebugVersions(m_debugVersions);
 
 		m_defaultConfig = null;
-		enforce (loadSpecificPackage(dub, package_name), "Failed to load package.");
+		enforce (loadSpecificPackage(dub, package_name, ver), "Failed to load package.");
 
 		if (m_buildConfig.length != 0 && !dub.configurations.canFind(m_buildConfig))
 		{
@@ -1030,7 +1030,7 @@ abstract class PackageBuildCommand : Command {
 		}
 	}
 
-	private bool loadSpecificPackage(Dub dub, string package_name)
+	private bool loadSpecificPackage(Dub dub, string package_name, Version ver)
 	{
 		if (m_single) {
 			enforce(package_name.length, "Missing file name of single-file package.");
@@ -1052,7 +1052,9 @@ abstract class PackageBuildCommand : Command {
 
 		enforce(package_name.length, "No valid root package found - aborting.");
 
-		auto pack = dub.packageManager.getFirstPackage(package_name);
+		auto pack = ver.isUnknown
+			? dub.packageManager.getLatestPackage(package_name)
+			: dub.packageManager.getPackage(package_name, ver);
 		enforce(pack, "Failed to find a package named '"~package_name~"' locally.");
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
 		dub.loadPackage(pack);
@@ -1113,17 +1115,19 @@ class GenerateCommand : PackageBuildCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		string package_name;
+		PackageAndVersion package_info;
 		if (!m_generator.length) {
 			enforceUsage(free_args.length >= 1 && free_args.length <= 2, "Expected one or two arguments.");
 			m_generator = free_args[0];
-			if (free_args.length >= 2) package_name = free_args[1];
+			if (free_args.length >= 2) package_info = splitPackageName(free_args[1]);
 		} else {
 			enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-			if (free_args.length >= 1) package_name = free_args[0];
+			if (free_args.length >= 1) package_info = splitPackageName(free_args[0]);
 		}
 
-		setupPackage(dub, package_name);
+		string package_name = package_info.name;
+		Version package_version = package_info.version_.length == 0 ? Version.unknown : Version(package_info.version_);
+		setupPackage(dub, package_name, "debug", package_version);
 
 		if (m_printBuilds) { // FIXME: use actual package data
 			logInfo("Available build types:");
@@ -1209,7 +1213,6 @@ class BuildCommand : GenerateCommand {
 			const packageParts = splitPackageName(free_args[0]);
 			if (auto rc = fetchMissingPackages(dub, packageParts))
 				return rc;
-			free_args[0] = packageParts.name;
 		}
 		return super.execute(dub, free_args, app_args);
 	}
@@ -1364,7 +1367,7 @@ class TestCommand : PackageBuildCommand {
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
 		if (free_args.length >= 1) package_name = free_args[0];
 
-		setupPackage(dub, package_name, "unittest");
+		setupPackage(dub, package_name, "unittest", Version.unknown);
 
 		GeneratorSettings settings;
 		settings.platform = m_buildPlatform;
@@ -2699,6 +2702,7 @@ unittest
 	// https://github.com/dlang/dub/issues/1681
 	assert(splitPackageName("") == PackageAndVersion("", null));
 
+	assert(splitPackageName("foo") == PackageAndVersion("foo", null));
 	assert(splitPackageName("foo=1.0.1") == PackageAndVersion("foo", "1.0.1"));
 	assert(splitPackageName("foo@1.0.1") == PackageAndVersion("foo", "1.0.1"));
 	assert(splitPackageName("foo@==1.0.1") == PackageAndVersion("foo", "==1.0.1"));
