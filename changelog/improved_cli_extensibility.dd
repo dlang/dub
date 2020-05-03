@@ -1,0 +1,9 @@
+Improved CLI extensibility
+
+The code from the runDubCommandLine was moved to some other structs. The new
+CommandLineHandler structure takes care of the CLI state and commands, which
+allows DUB commands to be extended in other projects.
+
+The CommandArgs class now has new `hasAppArgs` and `appArgs` methods which
+allows you to get the app arguments. In addition, the `extractAllRemainingArgs`
+method will return all unused arguments and the app arguments.

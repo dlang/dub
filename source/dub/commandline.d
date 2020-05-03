@@ -28,6 +28,7 @@ import std.encoding;
 import std.exception;
 import std.file;
 import std.getopt;
+import std.path : absolutePath, buildNormalizedPath;
 import std.process;
 import std.stdio;
 import std.string;
@@ -77,6 +78,307 @@ CommandGroup[] getCommands()
 	];
 }
 
+/** Extract the command name from the argument list
+
+	Params:
+		args = a list of string arguments that will be processed
+
+	Returns:
+		A structure with two members. `value` is the command name
+		`remaining` is a list of unprocessed arguments
+*/
+auto extractCommandNameArgument(string[] args)
+{
+	struct Result {
+		string value;
+		string[] remaining;
+	}
+
+	if (args.length >= 1 && !args[0].startsWith("-")) {
+		return Result(args[0], args[1 .. $]);
+	}
+
+	return Result(null, args);
+}
+
+/// test extractCommandNameArgument usage
+unittest {
+	/// It returns an empty string on when there are no args
+	assert(extractCommandNameArgument([]).value == "");
+	assert(extractCommandNameArgument([]).remaining == []);
+
+	/// It returns the first argument when it does not start with `-`
+	assert(extractCommandNameArgument(["test"]).value == "test");
+
+	/// There is nothing to extract when the arguments only contain the `test` cmd
+	assert(extractCommandNameArgument(["test"]).remaining == []);
+
+	/// It extracts two arguments when they are not a command
+	assert(extractCommandNameArgument(["-a", "-b"]).remaining == ["-a", "-b"]);
+
+	/// It returns the an empty string when it starts with `-`
+	assert(extractCommandNameArgument(["-test"]).value == "");
+}
+
+/** Handles the Command Line options and commands.
+*/
+struct CommandLineHandler
+{
+	/// The list of commands that can be handled
+	CommandGroup[] commandGroups;
+
+	/// General options parser
+	CommonOptions options;
+
+	/** Create the list of all supported commands
+
+	Returns:
+		Returns the list of the supported command names
+	*/
+	string[] commandNames()
+	{
+		return commandGroups.map!(g => g.commands.map!(c => c.name).array).join;
+	}
+
+	/** Parses the general options and sets up the log level
+		and the root_path
+	*/
+	void prepareOptions(CommandArgs args) {
+		LogLevel loglevel = LogLevel.info;
+
+		options.prepare(args);
+
+		if (options.vverbose) loglevel = LogLevel.debug_;
+		else if (options.verbose) loglevel = LogLevel.diagnostic;
+		else if (options.vquiet) loglevel = LogLevel.none;
+		else if (options.quiet) loglevel = LogLevel.warn;
+		else if (options.verror) loglevel = LogLevel.error;
+		setLogLevel(loglevel);
+
+		if (options.root_path.empty)
+		{
+			options.root_path = getcwd();
+		}
+		else
+		{
+			options.root_path = options.root_path.absolutePath.buildNormalizedPath;
+		}
+	}
+
+	/** Get an instance of the requested command.
+
+	If there is no command in the argument list, the `run` command is returned
+	by default.
+
+	If the `--help` argument previously handled by `prepareOptions`,
+	`this.options.help` is already `true`, with this returning the requested
+	command. If no command was requested (just dub --help) this returns the
+	help command.
+
+	Params:
+		name = the command name
+
+	Returns:
+		Returns the command instance if it exists, null otherwise
+	*/
+	Command getCommand(string name) {
+		if (name == "help" || (name == "" && options.help))
+		{
+			return new HelpCommand();
+		}
+
+		if (name == "")
+		{
+			name = "run";
+		}
+
+		foreach (grp; commandGroups)
+			foreach (c; grp.commands)
+				if (c.name == name) {
+					return c;
+				}
+
+		return null;
+	}
+
+	/** Get an instance of the requested command after the args are sent.
+
+	It uses getCommand to get the command instance and then calls prepare.
+
+	Params:
+		name = the command name
+		args = the command arguments
+
+	Returns:
+		Returns the command instance if it exists, null otherwise
+	*/
+	Command prepareCommand(string name, CommandArgs args) {
+		auto cmd = getCommand(name);
+
+		if (cmd !is null && !(cast(HelpCommand)cmd))
+		{
+			// process command line options for the selected command
+			cmd.prepare(args);
+			enforceUsage(cmd.acceptsAppArgs || !args.hasAppArgs, name ~ " doesn't accept application arguments.");
+		}
+
+		return cmd;
+	}
+
+	/** Get a configured dub instance.
+
+	Returns:
+		A dub instance
+	*/
+	Dub prepareDub() {
+		Dub dub;
+
+		if (options.bare) {
+			dub = new Dub(NativePath(getcwd()));
+			dub.rootPath = NativePath(options.root_path);
+			dub.defaultPlacementLocation = options.placementLocation;
+
+			return dub;
+		}
+
+		// initialize DUB
+		auto package_suppliers = options.registry_urls
+			.map!((url) {
+				// Allow to specify fallback mirrors as space separated urls. Undocumented as we
+				// should simply retry over all registries instead of using a special
+				// FallbackPackageSupplier.
+				auto urls = url.splitter(' ');
+				PackageSupplier ps = getRegistryPackageSupplier(urls.front);
+				urls.popFront;
+				if (!urls.empty)
+					ps = new FallbackPackageSupplier(ps ~ urls.map!getRegistryPackageSupplier.array);
+				return ps;
+			})
+			.array;
+
+		dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
+		dub.dryRun = options.annotate;
+		dub.defaultPlacementLocation = options.placementLocation;
+
+		// make the CWD package available so that for example sub packages can reference their
+		// parent package.
+		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path));
+		catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
+
+		return dub;
+	}
+}
+
+/// Can get the command names
+unittest {
+	CommandLineHandler handler;
+	handler.commandGroups = getCommands();
+
+	assert(handler.commandNames == ["init", "run", "build", "test", "lint", "generate",
+		"describe", "clean", "dustmite", "fetch", "install", "add", "remove", "uninstall",
+		"upgrade", "add-path", "remove-path", "add-local", "remove-local", "list", "search",
+		"add-override", "remove-override", "list-overrides", "clean-caches", "convert"]);
+}
+
+/// It sets the cwd as root_path by default
+unittest {
+	CommandLineHandler handler;
+
+	auto args = new CommandArgs([]);
+	handler.prepareOptions(args);
+	assert(handler.options.root_path == getcwd());
+}
+
+/// It can set a custom root_path
+unittest {
+	CommandLineHandler handler;
+
+	auto args = new CommandArgs(["--root=/tmp/test"]);
+	handler.prepareOptions(args);
+	assert(handler.options.root_path == "/tmp/test");
+
+	args = new CommandArgs(["--root=./test"]);
+	handler.prepareOptions(args);
+	assert(handler.options.root_path == "./test".absolutePath.buildNormalizedPath);
+}
+
+/// It sets the info log level by default
+unittest {
+	scope(exit) setLogLevel(LogLevel.info);
+	CommandLineHandler handler;
+
+	auto args = new CommandArgs([]);
+	handler.prepareOptions(args);
+	assert(getLogLevel() == LogLevel.info);
+}
+
+/// It can set a custom error level
+unittest {
+	scope(exit) setLogLevel(LogLevel.info);
+	CommandLineHandler handler;
+
+	auto args = new CommandArgs(["--vverbose"]);
+	handler.prepareOptions(args);
+	assert(getLogLevel() == LogLevel.debug_);
+
+	handler = CommandLineHandler();
+	args = new CommandArgs(["--verbose"]);
+	handler.prepareOptions(args);
+	assert(getLogLevel() == LogLevel.diagnostic);
+
+	handler = CommandLineHandler();
+	args = new CommandArgs(["--vquiet"]);
+	handler.prepareOptions(args);
+	assert(getLogLevel() == LogLevel.none);
+
+	handler = CommandLineHandler();
+	args = new CommandArgs(["--quiet"]);
+	handler.prepareOptions(args);
+	assert(getLogLevel() == LogLevel.warn);
+
+	handler = CommandLineHandler();
+	args = new CommandArgs(["--verror"]);
+	handler.prepareOptions(args);
+	assert(getLogLevel() == LogLevel.error);
+}
+
+/// It returns the `run` command by default
+unittest {
+	CommandLineHandler handler;
+	handler.commandGroups = getCommands();
+	assert(handler.getCommand("").name == "run");
+}
+
+/// It returns the `help` command when there is none set and the --help arg
+/// was set
+unittest {
+	CommandLineHandler handler;
+	auto args = new CommandArgs(["--help"]);
+	handler.prepareOptions(args);
+	handler.commandGroups = getCommands();
+	assert(cast(HelpCommand)handler.getCommand("") !is null);
+}
+
+/// It returns the `help` command when the `help` command is sent
+unittest {
+	CommandLineHandler handler;
+	handler.commandGroups = getCommands();
+	assert(cast(HelpCommand) handler.getCommand("help") !is null);
+}
+
+/// It returns the `init` command when the `init` command is sent
+unittest {
+	CommandLineHandler handler;
+	handler.commandGroups = getCommands();
+	assert(handler.getCommand("init").name == "init");
+}
+
+/// It returns null when a missing command is sent
+unittest {
+	CommandLineHandler handler;
+	handler.commandGroups = getCommands();
+	assert(handler.getCommand("missing") is null);
+}
 
 /** Processes the given command line and executes the appropriate actions.
 
@@ -98,6 +400,9 @@ int runDubCommandLine(string[] args)
 		environment["TEMP"] = environment["TEMP"].replace("/", "\\");
 	}
 
+	auto handler = CommandLineHandler(getCommands());
+	auto commandNames = handler.commandNames();
+
 	// special stdin syntax
 	if (args.length >= 2 && args[1] == "-")
 	{
@@ -105,10 +410,6 @@ int runDubCommandLine(string[] args)
 		stdin.byChunk(4096).joiner.toFile(path.toNativeString());
 		args = args[0] ~ [path.toNativeString()] ~ args[2..$];
 	}
-
-	// create the list of all supported commands
-	CommandGroup[] commands = getCommands();
-	string[] commandNames = commands.map!(g => g.commands.map!(c => c.name).array).join.array;
 
 	// Shebang syntax support for files without .d extension
 	if (args.length >= 2 && !args[1].endsWith(".d") && !args[1].startsWith("-") && !commandNames.canFind(args[1])) {
@@ -126,96 +427,32 @@ int runDubCommandLine(string[] args)
 		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];
 	}
 
-	// split application arguments from DUB arguments
-	string[] app_args;
-	auto app_args_idx = args.countUntil("--");
-	if (app_args_idx >= 0) {
-		app_args = args[app_args_idx+1 .. $];
-		args = args[0 .. app_args_idx];
-	}
-	args = args[1 .. $]; // strip the application name
+	auto common_args = new CommandArgs(args[1..$]);
 
-	// handle direct dub options
-	if (args.length) switch (args[0])
-	{
-	case "--version":
-		showVersion();
-		return 0;
-
-	default:
-		break;
-	}
-
-	// parse general options
-	CommonOptions options;
-	LogLevel loglevel = LogLevel.info;
-
-	auto common_args = new CommandArgs(args);
-	try {
-		options.prepare(common_args);
-
-		if (options.vverbose) loglevel = LogLevel.debug_;
-		else if (options.verbose) loglevel = LogLevel.diagnostic;
-		else if (options.vquiet) loglevel = LogLevel.none;
-		else if (options.quiet) loglevel = LogLevel.warn;
-		else if (options.verror) loglevel = LogLevel.error;
-		setLogLevel(loglevel);
-	} catch (Throwable e) {
+	try handler.prepareOptions(common_args);
+	catch (Throwable e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		logInfo("Run 'dub help' for usage information.");
 		return 1;
 	}
 
-	if (options.root_path.empty)
-		options.root_path = getcwd();
-	else
+	if (handler.options.version_)
 	{
-		import std.path : absolutePath, buildNormalizedPath;
-
-		options.root_path = options.root_path.absolutePath.buildNormalizedPath;
+		showVersion();
+		return 0;
 	}
 
 	// extract the command
-	string cmdname;
-	args = common_args.extractRemainingArgs();
-	if (args.length >= 1 && !args[0].startsWith("-")) {
-		cmdname = args[0];
-		args = args[1 .. $];
-	} else {
-		if (options.help) {
-			showHelp(commands, common_args);
-			return 0;
-		}
-		cmdname = "run";
-	}
-	auto command_args = new CommandArgs(args);
+	args = common_args.extractAllRemainingArgs();
 
-	if (cmdname == "help") {
-		showHelp(commands, common_args);
-		return 0;
-	}
+	auto command_name_argument = extractCommandNameArgument(args);
 
-	// find the selected command
+	auto command_args = new CommandArgs(command_name_argument.remaining);
 	Command cmd;
-	foreach (grp; commands)
-		foreach (c; grp.commands)
-			if (c.name == cmdname) {
-				cmd = c;
-				break;
-			}
 
-	if (!cmd) {
-		logError("Unknown command: %s", cmdname);
-		writeln();
-		showHelp(commands, common_args);
-		return 1;
-	}
-
-	// process command line options for the selected command
 	try {
-		cmd.prepare(command_args);
-		enforceUsage(cmd.acceptsAppArgs || app_args.length == 0, cmd.name ~ " doesn't accept application arguments.");
+		cmd = handler.prepareCommand(command_name_argument.value, command_args);
 	} catch (Throwable e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
@@ -223,7 +460,19 @@ int runDubCommandLine(string[] args)
 		return 1;
 	}
 
-	if (options.help) {
+	if (cmd is null) {
+		logError("Unknown command: %s", command_name_argument.value);
+		writeln();
+		showHelp(handler.commandGroups, common_args);
+		return 1;
+	}
+
+	if (cast(HelpCommand)cmd !is null) {
+		showHelp(handler.commandGroups, common_args);
+		return 0;
+	}
+
+	if (handler.options.help) {
 		showCommandHelp(cmd, command_args, common_args);
 		return 0;
 	}
@@ -231,7 +480,7 @@ int runDubCommandLine(string[] args)
 	auto remaining_args = command_args.extractRemainingArgs();
 	if (remaining_args.any!(a => a.startsWith("-"))) {
 		logError("Unknown command line flags: %s", remaining_args.filter!(a => a.startsWith("-")).array.join(" "));
-		logError(`Type "dub %s -h" to get a list of all supported flags.`, cmdname);
+		logError(`Type "dub %s -h" to get a list of all supported flags.`, cmd.name);
 		return 1;
 	}
 
@@ -239,42 +488,15 @@ int runDubCommandLine(string[] args)
 
 	// initialize the root package
 	if (!cmd.skipDubInitialization) {
-		if (options.bare) {
-			dub = new Dub(NativePath(getcwd()));
-			dub.rootPath = NativePath(options.root_path);
-			dub.defaultPlacementLocation = options.placementLocation;
-		} else {
-			// initialize DUB
-			auto package_suppliers = options.registry_urls
-				.map!((url) {
-					// Allow to specify fallback mirrors as space separated urls. Undocumented as we
-					// should simply retry over all registries instead of using a special
-					// FallbackPackageSupplier.
-					auto urls = url.splitter(' ');
-					PackageSupplier ps = getRegistryPackageSupplier(urls.front);
-					urls.popFront;
-					if (!urls.empty)
-						ps = new FallbackPackageSupplier(ps ~ urls.map!getRegistryPackageSupplier.array);
-					return ps;
-				})
-				.array;
-			dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
-			dub.dryRun = options.annotate;
-			dub.defaultPlacementLocation = options.placementLocation;
-
-			// make the CWD package available so that for example sub packages can reference their
-			// parent package.
-			try dub.packageManager.getOrLoadPackage(NativePath(options.root_path));
-			catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
-		}
+		dub = handler.prepareDub;
 	}
 
 	// execute the command
-	try return cmd.execute(dub, remaining_args, app_args);
+	try return cmd.execute(dub, remaining_args, command_args.appArgs);
 	catch (UsageException e) {
 		logError("%s", e.msg);
 		logDebug("Full exception: %s", e.toString().sanitize);
-		logInfo(`Run "dub %s -h" for more information about the "%s" command.`, cmdname, cmdname);
+		logInfo(`Run "dub %s -h" for more information about the "%s" command.`, cmd.name, cmd.name);
 		return 1;
 	}
 	catch (Throwable e) {
@@ -288,7 +510,7 @@ int runDubCommandLine(string[] args)
 /** Contains and parses options common to all commands.
 */
 struct CommonOptions {
-	bool verbose, vverbose, quiet, vquiet, verror;
+	bool verbose, vverbose, quiet, vquiet, verror, version_;
 	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
@@ -320,6 +542,8 @@ struct CommonOptions {
 		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
+
+		version_ = args.hasAppVersion;
 	}
 }
 
@@ -340,6 +564,7 @@ class CommandArgs {
 	private {
 		string[] m_args;
 		Arg[] m_recognizedArgs;
+		string[] m_appArgs;
 	}
 
 	/** Initializes the list of source arguments.
@@ -349,8 +574,33 @@ class CommandArgs {
 	*/
 	this(string[] args)
 	{
-		m_args = "dummy" ~ args;
+		auto app_args_idx = args.countUntil("--");
+
+		m_appArgs = app_args_idx >= 0 ? args[app_args_idx+1 .. $] : [];
+		m_args = "dummy" ~ (app_args_idx >= 0 ? args[0..app_args_idx] : args);
 	}
+
+	/** Checks if the app arguments are present.
+
+	Returns:
+		true if an -- argument is given with arguments after it, otherwise false
+	*/
+	@property bool hasAppArgs() { return m_appArgs.length > 0; }
+
+
+	/** Checks if the `--version` argument is present on the first position in
+	the list.
+
+	Returns:
+		true if the application version argument was found on the first position
+	*/
+	@property bool hasAppVersion() { return m_args.length > 1 && m_args[1] == "--version"; }
+
+	/** Returns the list of app args.
+
+		The app args are provided after the `--` argument.
+	*/
+	@property string[] appArgs() { return m_appArgs; }
 
 	/** Returns the list of all options recognized.
 
@@ -383,16 +633,79 @@ class CommandArgs {
 		m_args = null;
 	}
 
-	/** Returns the list of unprocessed arguments and calls `dropAllArgs`.
+	/** Returns the list of unprocessed arguments, ignoring the app arguments,
+	and resets the list of available source arguments.
 	*/
 	string[] extractRemainingArgs()
 	{
+		assert(m_args !is null, "extractRemainingArgs must be called only once.");
+
 		auto ret = m_args[1 .. $];
 		m_args = null;
 		return ret;
 	}
+
+	/** Returns the list of unprocessed arguments, including the app arguments
+		and resets the list of available source arguments.
+	*/
+	string[] extractAllRemainingArgs()
+	{
+		auto ret = extractRemainingArgs();
+
+		if (this.hasAppArgs)
+		{
+			ret ~= "--" ~ m_appArgs;
+		}
+
+		return ret;
+	}
 }
 
+/// Using CommandArgs
+unittest {
+	/// It should not find the app version for an empty arg list
+	assert(new CommandArgs([]).hasAppVersion == false);
+
+	/// It should find the app version when `--version` is the first arg
+	assert(new CommandArgs(["--version"]).hasAppVersion == true);
+
+	/// It should not find the app version when `--version` is the second arg
+	assert(new CommandArgs(["a", "--version"]).hasAppVersion == false);
+
+	/// It returns an empty app arg list when `--` arg is missing
+	assert(new CommandArgs(["1", "2"]).appArgs == []);
+
+	/// It returns an empty app arg list when `--` arg is missing
+	assert(new CommandArgs(["1", "2"]).appArgs == []);
+
+	/// It returns app args set after "--"
+	assert(new CommandArgs(["1", "2", "--", "a"]).appArgs == ["a"]);
+	assert(new CommandArgs(["1", "2", "--"]).appArgs == []);
+	assert(new CommandArgs(["--"]).appArgs == []);
+	assert(new CommandArgs(["--", "a"]).appArgs == ["a"]);
+
+	/// It returns the list of all args when no args are processed
+	assert(new CommandArgs(["1", "2", "--", "a"]).extractAllRemainingArgs == ["1", "2", "--", "a"]);
+}
+
+/// It removes the extracted args
+unittest {
+	auto args = new CommandArgs(["-a", "-b", "--", "-c"]);
+	bool value;
+	args.getopt("b", &value, [""]);
+
+	assert(args.extractAllRemainingArgs == ["-a", "--", "-c"]);
+}
+
+/// It should not be able to remove app args
+unittest {
+	auto args = new CommandArgs(["-a", "-b", "--", "-c"]);
+	bool value;
+	args.getopt("-c", &value, [""]);
+
+	assert(!value);
+	assert(args.extractAllRemainingArgs == ["-a", "-b", "--", "-c"]);
+}
 
 /** Base class for all commands.
 
@@ -470,6 +783,34 @@ struct CommandGroup {
 	}
 }
 
+/******************************************************************************/
+/* HELP                                                                       */
+/******************************************************************************/
+
+class HelpCommand : Command {
+
+	this()
+	{
+		this.name = "help";
+		this.description = "Shows the help message";
+		this.helpText = [
+			"Shows the help message and the supported command options."
+		];
+	}
+
+	/// HelpCommand.prepare is not supposed to be called, use
+	/// cast(HelpCommand)this to check if help was requested before execution.
+	override void prepare(scope CommandArgs args)
+	{
+		assert(false, "HelpCommand.prepare is not supposed to be called, use cast(HelpCommand)this to check if help was requested before execution.");
+	}
+
+	/// HelpCommand.execute is not supposed to be called, use
+	/// cast(HelpCommand)this to check if help was requested before execution.
+	override int execute(Dub dub, string[] free_args, string[] app_args) {
+		assert(false, "HelpCommand.execute is not supposed to be called, use cast(HelpCommand)this to check if help was requested before execution.");
+	}
+}
 
 /******************************************************************************/
 /* INIT                                                                       */
