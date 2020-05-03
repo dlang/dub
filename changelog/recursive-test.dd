@@ -1,0 +1,3 @@
+Added dependency recursive test
+
+Dub now supports recursive test run. This feature can be activated by option `-r` or `--recursive`.

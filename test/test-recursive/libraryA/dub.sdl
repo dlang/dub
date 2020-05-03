@@ -1,0 +1,3 @@
+name "library-a"
+dependency "library-b" path="../libraryB"
+dependency "library-c" path="../libraryC"
