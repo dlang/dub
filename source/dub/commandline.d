@@ -1306,6 +1306,7 @@ class TestCommand : PackageBuildCommand {
 		bool m_combined = false;
 		bool m_parallel = false;
 		bool m_force = false;
+		bool m_allSubPackages = false;
 	}
 
 	this()
@@ -1349,6 +1350,9 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
+		args.getopt("all-subpackages", &m_allSubPackages, [
+			"Runs test for while all subpackages."
+		]);
 		bool coverage = false;
 		args.getopt("coverage", &coverage, [
 			"Enables code coverage statistics to be generated."
@@ -1363,6 +1367,15 @@ class TestCommand : PackageBuildCommand {
 		string package_name;
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
 		if (free_args.length >= 1) package_name = free_args[0];
+
+		string[] tested_packages_cache;
+		return test(dub, package_name, app_args, tested_packages_cache);
+	}
+
+	int test(Dub dub, string package_name, string[] app_args, ref string[] tested_packages)
+	{
+		if (tested_packages.canFind(package_name)) return 0; // prevent duplicate runs
+		tested_packages ~= package_name;
 
 		setupPackage(dub, package_name, "unittest");
 
@@ -1381,6 +1394,24 @@ class TestCommand : PackageBuildCommand {
 		settings.runArgs = app_args;
 
 		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
+		
+		if (m_allSubPackages) {
+			string[] pkgNames;
+			foreach (subPkg; dub.project.rootPackage.subPackages) {
+				if (subPkg.recipe.name.length > 0) {
+					auto subpkg = dub.packageManager.getSubPackage(dub.project.rootPackage, subPkg.recipe.name, false);
+					pkgNames ~= subpkg.name;
+				} else {
+					auto tmppkgpath = dub.rootPath ~ NativePath(subPkg.path);
+					auto subpkg = dub.packageManager.getOrLoadPackage(tmppkgpath, NativePath.init, true);
+					pkgNames ~= subpkg.name;
+				}
+			}
+			foreach (subPkgName; pkgNames.sort) {
+				auto status = this.test(dub, subPkgName, app_args, tested_packages);
+				if (status > 0) return status;
+			}
+		}
 		return 0;
 	}
 }

@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/rootpkg
+rootpkg.so
+rootpkg.dylib
+rootpkg.dll
+rootpkg.a
+rootpkg.lib
+rootpkg-test-*
+*.exe
+*.o
+*.obj
+*.lst
+*.log
