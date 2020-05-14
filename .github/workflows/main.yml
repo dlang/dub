@@ -1,0 +1,66 @@
+# Cross platform tests for DUB
+
+name: Testsuite
+
+# Only triggers on pushes to master & stable, as well as PR to master and stable
+# Sometimes reverts appear in the upstream repository (e.g. when the revert button
+# is clicked by a contributor with commit access), this should be tested as PR).
+#
+# Also note that Github actions does not retrigger on target branch changes,
+# hence the check on push.
+on:
+  pull_request:
+    branches:
+      - master
+      - stable
+  push:
+    branches:
+      - master
+      - stable
+      # Use this branch name in your fork to test changes
+      - github-actions
+
+jobs:
+  main:
+    name: Run
+    strategy:
+      # Default, disable if you want to debug
+      fail-fast: false
+      matrix:
+        # Latest stable version, update at will
+        # TODO: Add `windows-2019` (needs test-suite overhaul)
+        os: [ macOS-10.15, ubuntu-18.04 ]
+        dc: [ dmd-2.092.0, ldc-1.21.0, dmd-master, ldc-master ]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+
+    # Install required dependencies
+    - name: '[OSX] Install dependencies'
+      if: runner.os == 'macOS'
+      run: |
+        brew install pkg-config coreutils
+
+    - name: '[Linux] Install dependencies'
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get install -y libcurl4-openssl-dev netcat
+
+    # Compiler to test with
+    - name: Prepare compiler
+      uses: mihails-strasuns/setup-dlang@v0.5.0
+      with:
+        compiler: ${{ matrix.dc }}
+        gh_token: ${{ secrets.GITHUB_TOKEN }}
+
+    # Checkout the repository
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Test
+      env:
+        COVERAGE: false
+        # The value doesn't matter as long as it's > 2.087
+        FRONTEND: 2.091.0
+      run: |
+        ./scripts/ci/travis.sh
