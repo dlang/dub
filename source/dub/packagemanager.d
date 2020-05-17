@@ -188,9 +188,10 @@ class PackageManager {
 	/// ditto
 	Package getPackage(string name, Version ver, NativePath path)
 	{
-		auto ret = getPackage(name, path);
-		if (!ret || ret.version_ != ver) return null;
-		return ret;
+		foreach (p; getPackageIterator(name))
+			if (p.version_ == ver && p.path.startsWith(path))
+				return p;
+		return null;
 	}
 
 	/// ditto
@@ -216,6 +217,17 @@ class PackageManager {
 		foreach (ep; getPackageIterator(name))
 			return ep;
 		return null;
+	}
+
+	/** Looks up the latest package matching the given name.
+	*/
+	Package getLatestPackage(string name)
+	{
+		Package pkg;
+		foreach (ep; getPackageIterator(name))
+			if (pkg is null || pkg.version_ < ep.version_)
+				pkg = ep;
+		return pkg;
 	}
 
 	/** For a given package path, returns the corresponding package.
