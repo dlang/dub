@@ -19,3 +19,17 @@ function die() {
     exit 1
 }
 trap 'die $LINENO' ERR
+
+# Get a random port for the test to use
+# This isn't foolproof but should fail less than handcrafted approaches
+function getRandomPort() {
+    # Get the PID of this script as a way to get a random port,
+    # and make sure the value is > 1024, as ports < 1024 are priviledged
+    # and require root priviledges.
+    # We also need to make sure the value is not > ushort.max
+    PORT=$(($$ % 65536))
+    if [ $PORT -le 1024 ]; then
+        PORT=$(($PORT + 1025))
+    fi
+    echo $PORT
+}

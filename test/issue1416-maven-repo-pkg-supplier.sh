@@ -3,7 +3,7 @@ DIR=$(dirname "${BASH_SOURCE[0]}")
 
 . "$DIR"/common.sh
 
-PORT=$(($$ + 1024)) # PID + 1024
+PORT=$(getRandomPort)
 
 dub remove maven-dubpackage --non-interactive --version=* 2>/dev/null || true
 
