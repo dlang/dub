@@ -2,7 +2,7 @@
 
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
 
-PORT=$(($$ + 1024)) # PID + 1024
+PORT=$(getRandomPort)
 
 log '    Testing unconnectable registry'
 if timeout 1s $DUB fetch dub --skip-registry=all --registry=http://localhost:$PORT; then

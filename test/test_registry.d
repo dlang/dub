@@ -38,7 +38,7 @@ void main(string[] args)
 {
 	import std.conv;
 	immutable folder = readRequiredOption!string("folder", "Folder to service files from.");
-	immutable port = readRequiredOption!uint("port", "Port to use");
+	immutable port = readRequiredOption!ushort("port", "Port to use");
 	auto router = new URLRouter;
 	router.get("stop", (HTTPServerRequest req, HTTPServerResponse res){
 		res.writeVoidBody;
