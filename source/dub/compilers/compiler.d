@@ -11,6 +11,7 @@ public import dub.compilers.buildsettings;
 public import dub.platform : BuildPlatform, matchesSpecification;
 
 import dub.internal.vibecompat.core.log;
+import dub.internal.vibecompat.inet.path;
 
 import std.algorithm;
 import std.array;
