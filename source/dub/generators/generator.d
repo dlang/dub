@@ -14,13 +14,11 @@ import dub.generators.sublimetext;
 import dub.generators.visuald;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
 
 import std.algorithm : map, filter, canFind, balancedParens;
-import std.array : array;
 import std.array;
 import std.exception;
 import std.file;

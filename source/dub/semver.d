@@ -15,7 +15,6 @@
 */
 module dub.semver;
 
-import std.range;
 import std.string;
 import std.algorithm : max;
 import std.conv;

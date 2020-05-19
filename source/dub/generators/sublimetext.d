@@ -11,17 +11,12 @@ import dub.compilers.compiler;
 import dub.generators.generator;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
-import dub.internal.vibecompat.inet.path;
 import dub.packagemanager;
 import dub.project;
 
 import std.algorithm;
 import std.array;
-import std.compiler;
 import std.file;
-import std.path;
-import std.range;
-import std.string;
 
 
 class SublimeTextGenerator : ProjectGenerator {

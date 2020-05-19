@@ -11,17 +11,13 @@ import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
-import dub.internal.vibecompat.inet.url;
 import dub.package_;
 import dub.semver;
 
 import std.algorithm;
 import std.array;
 import std.exception;
-import std.regex;
 import std.string;
-import std.typecons;
-static import std.compiler;
 
 
 /** Encapsulates the name of a package along with its dependency specification.

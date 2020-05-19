@@ -13,7 +13,6 @@ import dub.generators.generator;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
