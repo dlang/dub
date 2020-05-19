@@ -295,7 +295,7 @@ unittest {
 
 	auto args = new CommandArgs(["--root=/tmp/test"]);
 	handler.prepareOptions(args);
-	assert(handler.options.root_path == "/tmp/test");
+	assert(handler.options.root_path == "/tmp/test".absolutePath.buildNormalizedPath);
 
 	args = new CommandArgs(["--root=./test"]);
 	handler.prepareOptions(args);
