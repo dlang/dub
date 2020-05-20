@@ -28,8 +28,7 @@ jobs:
       fail-fast: false
       matrix:
         # Latest stable version, update at will
-        # TODO: Add `windows-2019` (needs test-suite overhaul)
-        os: [ macOS-10.15, ubuntu-18.04 ]
+        os: [ macOS-10.15, ubuntu-18.04, windows-2019 ]
         dc: [ dmd-2.092.0, ldc-1.21.0, dmd-master, ldc-master ]
 
     runs-on: ${{ matrix.os }}
@@ -57,10 +56,19 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - name: Test
+    - name: '[POSIX] Test'
+      if: runner.os != 'Windows'
       env:
         COVERAGE: false
         # The value doesn't matter as long as it's > 2.087
         FRONTEND: 2.091.0
       run: |
         ./scripts/ci/travis.sh
+
+    - name: '[Windows] Test'
+      if: runner.os == 'Windows'
+      # Only run `dub test` to run unittests so far,
+      # the test-suite needs to be overhauled to support Windows
+      run: |
+        dub build --compiler=${{ env.DC }}
+        dub test  --compiler=${{ env.DC }}
