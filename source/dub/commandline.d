@@ -40,7 +40,7 @@ import std.path: setExtension;
 
 	Commands are grouped by category.
 */
-CommandGroup[] getCommands()
+CommandGroup[] getCommands() @safe pure nothrow
 {
 	return [
 		CommandGroup("Package creation",
@@ -572,7 +572,7 @@ class CommandArgs {
 		Note that all array entries are considered application arguments (i.e.
 		no application name entry is present as the first entry)
 	*/
-	this(string[] args)
+	this(string[] args) @safe pure nothrow
 	{
 		auto app_args_idx = args.countUntil("--");
 
@@ -776,7 +776,7 @@ struct CommandGroup {
 	/// List of commands contained inthis group
 	Command[] commands;
 
-	this(string caption, Command[] commands...)
+	this(string caption, Command[] commands...) @safe pure nothrow
 	{
 		this.caption = caption;
 		this.commands = commands.dup;
@@ -789,7 +789,7 @@ struct CommandGroup {
 
 class HelpCommand : Command {
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "help";
 		this.description = "Shows the help message";
@@ -822,7 +822,7 @@ class InitCommand : Command {
 		PackageFormat m_format = PackageFormat.json;
 		bool m_nonInteractive;
 	}
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "init";
 		this.argumentsPattern = "[<directory> [<dependency>...]]";
@@ -1074,7 +1074,7 @@ class GenerateCommand : PackageBuildCommand {
 		bool m_printPlatform, m_printBuilds, m_printConfigs;
 	}
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "generate";
 		this.argumentsPattern = "<generator> [<package>]";
@@ -1173,7 +1173,7 @@ class BuildCommand : GenerateCommand {
 		bool m_yes; // automatic yes to prompts;
 		bool m_nonInteractive;
 	}
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "build";
 		this.argumentsPattern = "[<package>]";
@@ -1276,7 +1276,7 @@ class BuildCommand : GenerateCommand {
 }
 
 class RunCommand : BuildCommand {
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "run";
 		this.argumentsPattern = "[<package>]";
@@ -1311,7 +1311,7 @@ class TestCommand : PackageBuildCommand {
 		bool m_force = false;
 	}
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "test";
 		this.argumentsPattern = "[<package>]";
@@ -1400,7 +1400,7 @@ class LintCommand : PackageBuildCommand {
 		string m_config;
 	}
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "lint";
 		this.argumentsPattern = "[<package>]";
@@ -1485,7 +1485,7 @@ class DescribeCommand : PackageBuildCommand {
 		string[] m_data;
 	}
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "describe";
 		this.argumentsPattern = "[<package>]";
@@ -1605,7 +1605,7 @@ class CleanCommand : Command {
 		bool m_allPackages;
 	}
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "clean";
 		this.argumentsPattern = "[<package>]";
@@ -1665,7 +1665,7 @@ class CleanCommand : Command {
 /******************************************************************************/
 
 class AddCommand : Command {
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "add";
 		this.argumentsPattern = "<package>[@<version-spec>] [<packages...>]";
@@ -1709,7 +1709,7 @@ class UpgradeCommand : Command {
 		bool m_dryRun = false;
 	}
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "upgrade";
 		this.argumentsPattern = "[<packages...>]";
@@ -1780,7 +1780,7 @@ class FetchRemoveCommand : Command {
 }
 
 class FetchCommand : FetchRemoveCommand {
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "fetch";
 		this.argumentsPattern = "<name>[@<version-spec>]";
@@ -1841,7 +1841,11 @@ class FetchCommand : FetchRemoveCommand {
 }
 
 class InstallCommand : FetchCommand {
-	this() { this.name = "install"; hidden = true; }
+	this() @safe pure nothrow
+    {
+        this.name = "install";
+        this.hidden = true;
+    }
 	override void prepare(scope CommandArgs args) { super.prepare(args); }
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
@@ -1855,7 +1859,7 @@ class RemoveCommand : FetchRemoveCommand {
 		bool m_nonInteractive;
 	}
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "remove";
 		this.argumentsPattern = "<name>";
@@ -1915,7 +1919,11 @@ class RemoveCommand : FetchRemoveCommand {
 }
 
 class UninstallCommand : RemoveCommand {
-	this() { this.name = "uninstall"; hidden = true; }
+	this() @safe pure nothrow
+    {
+        this.name = "uninstall";
+        this.hidden = true;
+    }
 	override void prepare(scope CommandArgs args) { super.prepare(args); }
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
@@ -1945,7 +1953,7 @@ abstract class RegistrationCommand : Command {
 }
 
 class AddPathCommand : RegistrationCommand {
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "add-path";
 		this.argumentsPattern = "<path>";
@@ -1971,7 +1979,7 @@ class AddPathCommand : RegistrationCommand {
 }
 
 class RemovePathCommand : RegistrationCommand {
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "remove-path";
 		this.argumentsPattern = "<path>";
@@ -1988,7 +1996,7 @@ class RemovePathCommand : RegistrationCommand {
 }
 
 class AddLocalCommand : RegistrationCommand {
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "add-local";
 		this.argumentsPattern = "<path> [<version>]";
@@ -2012,7 +2020,7 @@ class AddLocalCommand : RegistrationCommand {
 }
 
 class RemoveLocalCommand : RegistrationCommand {
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "remove-local";
 		this.argumentsPattern = "<path>";
@@ -2030,7 +2038,7 @@ class RemoveLocalCommand : RegistrationCommand {
 }
 
 class ListCommand : Command {
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "list";
 		this.argumentsPattern = "";
@@ -2053,7 +2061,7 @@ class ListCommand : Command {
 }
 
 class SearchCommand : Command {
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "search";
 		this.argumentsPattern = "<query>";
@@ -2098,7 +2106,7 @@ class AddOverrideCommand : Command {
 		bool m_system = false;
 	}
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "add-override";
 		this.argumentsPattern = "<package> <version-spec> <target-path/target-version>";
@@ -2140,7 +2148,7 @@ class RemoveOverrideCommand : Command {
 		bool m_system = false;
 	}
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "remove-override";
 		this.argumentsPattern = "<package> <version-spec>";
@@ -2167,7 +2175,7 @@ class RemoveOverrideCommand : Command {
 }
 
 class ListOverridesCommand : Command {
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "list-overrides";
 		this.argumentsPattern = "";
@@ -2199,7 +2207,7 @@ class ListOverridesCommand : Command {
 /******************************************************************************/
 
 class CleanCachesCommand : Command {
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "clean-caches";
 		this.argumentsPattern = "";
@@ -2233,7 +2241,7 @@ class DustmiteCommand : PackageBuildCommand {
 		bool m_combined;
 	}
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "dustmite";
 		this.argumentsPattern = "<destination-path>";
@@ -2446,7 +2454,7 @@ class ConvertCommand : Command {
 		bool m_stdout;
 	}
 
-	this()
+	this() @safe pure nothrow
 	{
 		this.name = "convert";
 		this.argumentsPattern = "";
