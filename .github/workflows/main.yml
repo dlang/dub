@@ -47,10 +47,9 @@ jobs:
 
     # Compiler to test with
     - name: Prepare compiler
-      uses: mihails-strasuns/setup-dlang@v0.5.0
+      uses: mihails-strasuns/setup-dlang@v1
       with:
         compiler: ${{ matrix.dc }}
-        gh_token: ${{ secrets.GITHUB_TOKEN }}
 
     # Checkout the repository
     - name: Checkout
