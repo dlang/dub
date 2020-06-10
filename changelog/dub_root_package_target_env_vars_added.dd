@@ -1,0 +1,4 @@
+Dub root package target environment variables added
+
+Environment variables `DUB_ROOT_PACKAGE_TARGET_TYPE`, `DUB_ROOT_PACKAGE_TARGET_PATH` 
+and `DUB_ROOT_PACKAGE_TARGET_NAME` have been added and exposed.
