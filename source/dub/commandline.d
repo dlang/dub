@@ -2239,6 +2239,7 @@ class DustmiteCommand : PackageBuildCommand {
 		string m_programRegex;
 		string m_testPackage;
 		bool m_combined;
+		bool m_noRedirect;
 	}
 
 	this() @safe pure nothrow
@@ -2266,6 +2267,7 @@ class DustmiteCommand : PackageBuildCommand {
 		args.getopt("program-regex", &m_programRegex, ["A regular expression used to match against the program output"]);
 		args.getopt("test-package", &m_testPackage, ["Perform a test run - usually only used internally"]);
 		args.getopt("combined", &m_combined, ["Builds multiple packages with one compiler run"]);
+		args.getopt("no-redirect", &m_noRedirect, ["Don't redirect stdout/stderr streams of the test command"]);
 		super.prepare(args);
 
 		// speed up loading when in test mode
@@ -2382,7 +2384,7 @@ class DustmiteCommand : PackageBuildCommand {
 
 			logInfo("Executing dustmite...");
 			auto testcmd = appender!string();
-			testcmd.formattedWrite("%s dustmite --vquiet --test-package=%s --build=%s --config=%s",
+			testcmd.formattedWrite("%s dustmite --test-package=%s --build=%s --config=%s",
 				thisExePath, prj.name, m_buildType, m_buildConfig);
 
 			if (m_compilerName.length) testcmd.formattedWrite(" \"--compiler=%s\"", m_compilerName);
@@ -2394,9 +2396,17 @@ class DustmiteCommand : PackageBuildCommand {
 			if (m_programStatusCode != int.min) testcmd.formattedWrite(" --program-status=%s", m_programStatusCode);
 			if (m_programRegex.length) testcmd.formattedWrite(" \"--program-regex=%s\"", m_programRegex);
 			if (m_combined) testcmd ~= " --combined";
+
+			// --vquiet swallows dustmite's output ...
+			if (!m_noRedirect) testcmd ~= " --vquiet";
+
 			// TODO: pass *all* original parameters
 			logDiagnostic("Running dustmite: %s", testcmd);
-			auto dmpid = spawnProcess(["dustmite", path.toNativeString(), testcmd.data]);
+
+			string[] extraArgs;
+			if (m_noRedirect) extraArgs ~= "--no-redirect";
+			const cmd = "dustmite" ~ extraArgs ~ [path.toNativeString(), testcmd.data];
+			auto dmpid = spawnProcess(cmd);
 			return dmpid.wait();
 		}
 		return 0;
