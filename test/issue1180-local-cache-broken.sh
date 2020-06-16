@@ -3,7 +3,8 @@ DIR=$(dirname "${BASH_SOURCE[0]}")
 
 . "$DIR"/common.sh
 
-PORT=$(($$ + 1024)) # PID + 1024
+PORT=$(getRandomPort)
+
 "$DUB" remove maven-dubpackage --root="$DIR/issue1180-local-cache-broken" --non-interactive --version=* 2>/dev/null || true
 
 "$DUB" build --single "$DIR"/test_registry.d

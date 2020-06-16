@@ -2,6 +2,13 @@
 
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
 
+# This test messes with the user's package directory
+# Hence it's a pretty bad test, but we need it.
+# Ideally, we should not have this run by default / run it in a container.
+# In the meantime, in order to make it pass on developer's machines,
+# we need to nuke every `dub` version in the user cache...
+$DUB remove dub -n --version=* || true
+
 $DUB fetch dub --version=1.9.0 && [ -d $HOME/.dub/packages/dub-1.9.0/dub ]
 $DUB fetch dub --version=1.10.0 && [ -d $HOME/.dub/packages/dub-1.10.0/dub ]
 if $DUB remove dub --non-interactive 2>/dev/null; then

@@ -812,6 +812,12 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 
 	env["DUB_RUN_ARGS"] = (cast(string[])settings.runArgs).map!(escapeShellFileName).join(" ");
 
+	auto cfgs = proj.getPackageConfigs(settings.platform, settings.config, true);
+	auto rootPackageBuildSettings = proj.rootPackage.getBuildSettings(settings.platform, cfgs[proj.rootPackage.name]);
+	env["DUB_ROOT_PACKAGE_TARGET_TYPE"] = to!string(rootPackageBuildSettings.targetType);
+	env["DUB_ROOT_PACKAGE_TARGET_PATH"] = rootPackageBuildSettings.targetPath;
+	env["DUB_ROOT_PACKAGE_TARGET_NAME"] = rootPackageBuildSettings.targetName;
+
 	auto depNames = proj.dependencies.map!((a) => a.name).array();
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
 	runCommands(commands, env, pack.path().toString());

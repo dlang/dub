@@ -80,7 +80,7 @@ class GDCCompiler : Compiler {
 
 		return probePlatform(
 			compiler_binary,
-			arch_flags ~ ["-S", "-v"],
+			arch_flags ~ ["-fsyntax-only", "-v"],
 			arch_override
 		);
 	}

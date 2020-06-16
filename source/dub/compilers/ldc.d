@@ -83,6 +83,8 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 			case "": break;
 			case "x86": arch_flags = ["-march=x86"]; break;
 			case "x86_64": arch_flags = ["-march=x86-64"]; break;
+			case "aarch64": arch_flags = ["-march=aarch64"]; break;
+			case "powerpc64": arch_flags = ["-march=powerpc64"]; break;
 			default:
 				if (arch_override.canFind('-'))
 					arch_flags = ["-mtriple="~arch_override];

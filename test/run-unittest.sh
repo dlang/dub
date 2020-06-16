@@ -41,7 +41,7 @@ if [ "$#" -gt 0 ]; then FILTER=$1; else FILTER=".*"; fi
 
 for script in $(ls $CURR_DIR/*.sh); do
     if [[ ! "$script" =~ $FILTER ]]; then continue; fi
-    if [ "$script" = "$(readlink -f ${BASH_SOURCE[0]})" ] || [ "$(basename $script)" = "common.sh" ]; then continue; fi
+    if [ "$script" = "$(gnureadlink ${BASH_SOURCE[0]})" ] || [ "$(basename $script)" = "common.sh" ]; then continue; fi
     if [ -e $script.min_frontend ] && [ ! -z "$FRONTEND" ] && [ ${FRONTEND} \< $(cat $script.min_frontend) ]; then continue; fi
     log "Running $script..."
     DUB=$DUB DC=$DC CURR_DIR="$CURR_DIR" $script || logError "Script failure."

@@ -19,7 +19,8 @@ $DUB remove gitcompatibledubpackage
 $DUB run -y gitcompatibledubpackage | grep "Hello DUB"
 $DUB remove gitcompatibledubpackage
 
-(! $DUB run --non-interactive gitcompatibledubpackage) 2>&1 | grep "Failed to find.*gitcompatibledubpackage.*locally"
+(! $DUB run --non-interactive gitcompatibledubpackage || true) 2>&1 | \
+    grep "Failed to find.*gitcompatibledubpackage.*locally"
 
 # check supplying versions directly
 dub_log="$($DUB run gitcompatibledubpackage@1.0.3)"
@@ -28,7 +29,7 @@ echo "$dub_log" | grep "Fetching.*1.0.3"
 $DUB remove gitcompatibledubpackage
 
 # check supplying an invalid version
-(! $DUB run gitcompatibledubpackage@0.42.43) 2>&1 | \
+(! $DUB run gitcompatibledubpackage@0.42.43 || true) 2>&1 | \
     grep 'No package gitcompatibledubpackage was found matching the dependency 0[.]42[.]43'
 
 ! $DUB remove gitcompatibledubpackage
