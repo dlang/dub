@@ -15,7 +15,7 @@ source scripts/ci/setup-ldc-windows.sh
 archiveName="$BIN_NAME-$VERSION-$OS-$ARCH_SUFFIX.zip"
 echo "Building $archiveName"
 mkdir -p bin
-DMD=ldmd2 ldc2 -run ./build.d -release ${LDC_XDFLAGS}
+DMD=ldmd2 ldc2 -run ./build.d -b release ${LDC_XDFLAGS}
 
 cd bin
 zip "$archiveName" "${BIN_NAME}.exe"

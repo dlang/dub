@@ -7,9 +7,7 @@
     based on the script's placement in the repository.
 
     Invoking it while making use of all the options would like like this:
-    DMD=ldmd2 DFLAGS="-O -inline" ./build.d my-dub-version
-    Using an environment variable for the version is also supported:
-    DMD=dmd DFLAGS="-w -g" GITVER="1.2.3" ./build.d
+    DUB= dub DMD=ldmd2 GITVER="1.2.3" ./build.d -b release
 
     Copyright: D Language Foundation
     Authors: Mathias 'Geod24' Lang
@@ -32,16 +30,12 @@ import std.string;
 immutable RootPath = __FILE_FULL_PATH__.dirName;
 /// Path to the version file
 immutable VersionFilePath = RootPath.buildPath("source", "dub", "version_.d");
-/// Path to the file containing the files to be built
-immutable SourceListPath = RootPath.buildPath("build-files.txt");
 /// Path at which the newly built `dub` binary will be
 immutable DubBinPath = RootPath.buildPath("bin", "dub");
 
 // Flags for DMD
 immutable OutputFlag = "-of" ~ DubBinPath;
 immutable IncludeFlag = "-I" ~ RootPath.buildPath("source");
-immutable DefaultDFLAGS = [ "-g", "-O", "-w" ];
-
 
 /// Entry point
 int main(string[] args)
@@ -52,34 +46,46 @@ int main(string[] args)
     // So the following is just an heuristic / best effort approach.
     if (args.canFind("--help", "/?", "-h"))
     {
-        writeln("USAGE: ./build.d [compiler args (default:", DefaultDFLAGS, "]");
+        writeln("USAGE: ./build.d [dub args]");
         writeln();
-        writeln("  In order to build DUB, a version module must first be generated.");
+        writeln("  DUB is self hosted since v1.22.0. A `dub` binary is required to build it.");
+        writeln("  The host DUB can be specified via the environment variables `HOST_DUB` or `DUB`.");
+        writeln("  If not present, it will be looked up in the PATH.");
+        writeln("  Those host dub's default compiler will be used, unless `DC`, ",
+                "`HOST_DC` (for compatibility with DMD build process), or `DMD` ",
+                "(for legacy reason) is provided.");
+        writeln("  Additionally, if a compiler is provided, a `dub` instance will ",
+                "be looked up in the same folder before the `dub` in the path is attempted.");
+        writeln("  Any extra argument will be provided verbatim to dub: this can be used e.g. ",
+                "to use a specific build mode (`-b release`)");
+        writeln();
+        writeln("  In order to build DUB, a version module must also be generated.");
         writeln("  If the GITVER environment variable is present, it will be used to generate the version module.");
         writeln("  Otherwise this script will look for a pre-existing version module.");
         writeln("  If no GITVER is provided and no version module exists, `git describe` will be called");
-        writeln("  Build flags can be provided as arguments.");
-        writeln("  LDC or GDC can be used by setting the `DMD` value to " ~
-                "`ldmd2` and `gdmd` (or their path), respectively.");
         return 1;
     }
+
+    immutable hostTools = getHostTools();
+    if (!hostTools.dub.length)
+        return 1;
 
     immutable dubVersion = environment.get("GITVER", "");
     if (!writeVersionFile(dubVersion))
         return 1;
 
-    immutable dmd = getCompiler();
-    if (!dmd.length) return 1;
-    const dflags = args.length > 1 ? args[1 .. $] : DefaultDFLAGS;
+    const extraArgs = args[1 .. $];
 
     // Compiler says no to immutable (because it can't handle the appending)
-    const command = [
-        dmd,
-        OutputFlag, IncludeFlag,
-        "-version=DubUseCurl", "-version=DubApplication",
-        ] ~ dflags ~ [ "@build-files.txt" ];
+    const(string)[] command = [ hostTools.dub, "--root", RootPath, "build" ] ~ extraArgs;
+    if (hostTools.dc.length)
+        command ~= ("--compiler=" ~ hostTools.dc);
 
-    writeln("Building dub using ", dmd, " (dflags: ", dflags, "), this may take a while...");
+    writefln("Building dub using %s (compiler: %s%s%(s %)), this may take a while...",
+             hostTools.dub, hostTools.dc.length ? hostTools.dc : "default",
+             (extraArgs.length ? ", extra arguments: " : ""),
+             (extraArgs.length ? extraArgs : null));
+
     auto proc = execute(command);
     if (proc.status != 0)
     {
@@ -154,35 +160,118 @@ enum dubVersion = "%s";
 }
 
 /**
-   Detect which compiler is available
+   Detect which `dub` && compiler is available
+
+   Since v1.22.0, `dub` is self-hosted.
+   In order for one to be able to build `dub`, a previously-built
+   version of `dub` is needed. Usage of v1.21.0 is recommended.
+
+   To provide a custom dub, the user has to set the `HOST_DUB` env variable.
+   Alternatively, if the user provides a custom compiler, the `dub` instance
+   adjacent to it will be used. If none is available, the path will be looked
+   up as a last resort.
+   A user may provide a custom compiler, or use the default detected by `dub`.
+   Examples include using LDC with a DMD-packaged `dub`, or using LDC
+   with an independent `dub` that defaults to DMD or GDC.
 
    Default to DMD, then LDC (ldmd2), then GDC (gdmd).
    If none is in the PATH, an error will be thrown.
 
-   Note:
-     It would be optimal if we could get the path of the compiler
-     invoking this script, but AFAIK this isn't possible.
+   Returns:
+     A struct containing the needed host tools.
  */
-string getCompiler ()
+HostTools getHostTools ()
 {
-    auto env = environment.get("DMD", "");
-    // If the user asked for a compiler explicitly, respect it
-    if (env.length)
-        return env;
+    HostTools result;
 
-    static immutable Compilers = [ "dmd", "ldmd2", "gdmd" ];
-    foreach (bin; Compilers)
+    // If the user asked for a compiler explicitly, respect it
+    // DC is the 'standard' variable name for a D compiler
+    if (auto env_dc = environment.get("DC", null))
+        result.dc = env_dc;
+    // This is used by the DMD build process
+    else if (auto env_host_dc = environment.get("HOST_DC", null))
+        result.dc = env_host_dc;
+    // Support legacy name
+    else if (auto env_dmd = environment.get("DMD", null))
+        result.dc = env_dmd;
+
+    if (result.dc.length && !checkRun(result.dc))
     {
-        try
-        {
-            auto pid = execute([bin, "--version"]);
-            if (pid.status == 0)
-                return bin;
-        }
-        catch (Exception e)
-            continue;
+        writeln("Error: A compiler was provided via environment variable (",
+                result.dc, ") but it does not execute with `--versiion`");
+        return HostTools.init;
     }
-    writeln("No compiler has been found in the PATH. Attempted values: ", Compilers);
-    writeln("Make sure one of those is in the PATH, or set the `DMD` variable");
+
+    // Check for user-provided `dub`
+    // Notice the priority is inversed between `DUB` and `HOST_DUB`.
+    // This is because we don't want to conflict with a user setting:
+    // the `HOST_` prefix is used *when building the tool itself*.
+    if (auto env_host_dub = environment.get("HOST_DUB", null))
+        result.dub = env_host_dub;
+    else if (auto env_dub = environment.get("DUB", null))
+        result.dub = env_dub;
+
+    if (result.dub.length)
+    {
+        if (auto working = checkRun(result.dub))
+            return result;
+        writeln("The provided dub executable (via `HOST_DUB` or `DUB`) doesn't seem to work");
+        writeln("Tried command: ", result.dub, " --version");
+        return HostTools.init;
+    }
+
+    // If it wasn't specified explicitly by the user, but the user supplied
+    // a compiler, try that
+    // Note that if the user gave a compiler in the path (e.g. `ldc2`), and
+    // dub lives next to it, then `dub` should be in the path, too,
+    // hence the `std.file.exists` call.
+    string errMsg = "";
+    if (std.file.exists(result.dc))
+    {
+        if (auto working = checkRun(result.dc.dirName.buildPath("dub")))
+        {
+            result.dub = working;
+            return result;
+        }
+        // Provide user friendly error message
+        errMsg = "no working `dub` executable was found next to \"" ~
+            result.dc ~ "\", ";
+    }
+
+    // Finally, try to get it from the path
+    if (auto path_dub = checkRun("dub"))
+    {
+        result.dub = path_dub;
+        return result;
+    }
+
+    writeln("Error: No `HOST_DUB` or `DUB` environement variable was provided, ",
+            errMsg, "and `dub` was not found in `PATH`");
+    writeln("`dub` is self hosted since v1.22.0. Please provide a binary to build");
+    writeln("If you don't have any, you can download one from https://dlang.org ",
+            "or by using the `install.sh` script (also available on dlang.org");
+    writeln("Alternatively, you can bootstrap by checking out v1.21.0 and running this script.");
+    return HostTools.init;
+}
+
+struct HostTools
+{
+    /// Host dub, cannot be null
+    string dub;
+    /// Host compiler, can be null
+    string dc;
+}
+
+/// Check if the provided program runs by calling `--version`.
+/// Returns: `bin` if it does, `null` otherwise
+string checkRun (string bin) nothrow @safe
+{
+    try
+    {
+        auto pid = execute([bin, "--version"]);
+        if (pid.status == 0)
+            return bin;
+    }
+    catch (Exception e) {}
     return null;
 }
