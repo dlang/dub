@@ -11,7 +11,7 @@ import dub.compilers.buildsettings;
 import dub.compilers.compiler;
 import dub.description;
 import dub.generators.generator;
-import dub.internal.vibecompat.inet.path;
+import vibe.inet.path;
 import dub.project;
 
 class TargetDescriptionGenerator : ProjectGenerator {

@@ -9,7 +9,7 @@ module dub.description;
 
 import dub.compilers.buildsettings;
 import dub.dependency;
-import dub.internal.vibecompat.data.serialization;
+import vibe.data.serialization;
 
 
 /**

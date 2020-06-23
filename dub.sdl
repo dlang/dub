@@ -6,6 +6,9 @@ copyright "Copyright © 2012-2016 rejectedsoftware e.K., Copyright © 2012-2014 
 license "MIT"
 
 targetPath "bin"
+dependency "vibe-core" version="~>1.9"
+dependency "vibe-d:data" version="~>0.8"
+dependency "vibe-d:inet" version="~>0.8"
 
 configuration "application" {
 	targetType "executable"

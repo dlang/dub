@@ -11,7 +11,7 @@ import dub.compilers.compiler;
 import dub.dependency;
 import dub.recipe.packagerecipe;
 
-import dub.internal.vibecompat.data.json;
+import vibe.data.json;
 
 import std.algorithm : canFind, startsWith;
 import std.conv : to;

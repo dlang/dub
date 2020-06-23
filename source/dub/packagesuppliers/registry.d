@@ -13,8 +13,8 @@ package enum PackagesPath = "packages";
 class RegistryPackageSupplier : PackageSupplier {
 	import dub.internal.utils : download, retryDownload, HTTPStatusException;
 	import dub.internal.vibecompat.core.log;
-	import dub.internal.vibecompat.data.json : parseJson, parseJsonString, serializeToJson;
-	import dub.internal.vibecompat.inet.url : URL;
+	import vibe.data.json : parseJson, parseJsonString, serializeToJson;
+	import vibe.inet.url : URL;
 
 	import std.uri : encodeComponent;
 	import std.datetime : Clock, Duration, hours, SysTime, UTC;

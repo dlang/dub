@@ -8,7 +8,7 @@
 module dub.recipe.io;
 
 import dub.recipe.packagerecipe;
-import dub.internal.vibecompat.inet.path;
+import vibe.inet.path;
 
 
 /** Reads a package recipe from a file.
@@ -63,7 +63,7 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 								 string default_package_name = null)
 {
 	import std.algorithm : endsWith;
-	import dub.internal.vibecompat.data.json;
+	import vibe.data.json;
 	import dub.recipe.json : parseJson;
 	import dub.recipe.sdl : parseSDL;
 
@@ -150,7 +150,7 @@ void writePackageRecipe(NativePath filename, const scope ref PackageRecipe recip
 void serializePackageRecipe(R)(ref R dst, const scope ref PackageRecipe recipe, string filename)
 {
 	import std.algorithm : endsWith;
-	import dub.internal.vibecompat.data.json : writeJsonString;
+	import vibe.data.json : writeJsonString;
 	import dub.recipe.json : toJson;
 	import dub.recipe.sdl : toSDL;
 

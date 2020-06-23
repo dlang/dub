@@ -7,7 +7,7 @@
 */
 module dub.compilers.buildsettings;
 
-import dub.internal.vibecompat.inet.path;
+import vibe.inet.path;
 
 import std.array : array;
 import std.algorithm : filter, any;
@@ -18,7 +18,7 @@ import std.typecons : BitFlags;
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
 struct BuildSettings {
-	import dub.internal.vibecompat.data.serialization : byName;
+	import vibe.data.serialization : byName;
 
 	TargetType targetType;
 	string targetPath;
@@ -291,7 +291,7 @@ enum BuildRequirement {
 }
 
 	struct BuildRequirements {
-		import dub.internal.vibecompat.data.serialization : ignore;
+		import vibe.data.serialization : ignore;
 
 		@ignore BitFlags!BuildRequirement values;
 		this(BuildRequirement req) { values = req; }
@@ -332,7 +332,7 @@ enum BuildOption {
 }
 
 	struct BuildOptions {
-		import dub.internal.vibecompat.data.serialization : ignore;
+		import vibe.data.serialization : ignore;
 
 		@ignore BitFlags!BuildOption values;
 		this(BuildOption opt) { values = opt; }

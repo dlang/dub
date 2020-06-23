@@ -2,7 +2,7 @@ module dub.packagesuppliers.packagesupplier;
 
 public import dub.dependency : Dependency, Version;
 public import dub.internal.vibecompat.core.file : NativePath;
-public import dub.internal.vibecompat.data.json : Json;
+public import vibe.data.json : Json;
 
 /**
 	Base interface for remote package suppliers.

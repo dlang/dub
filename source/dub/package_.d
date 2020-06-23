@@ -18,8 +18,8 @@ import dub.recipe.sdl;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.data.json;
-import dub.internal.vibecompat.inet.url;
+import vibe.data.json;
+import vibe.inet.url;
 
 import std.algorithm;
 import std.array;

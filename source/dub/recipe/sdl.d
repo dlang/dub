@@ -11,7 +11,7 @@ import dub.compilers.compiler;
 import dub.dependency;
 import dub.internal.sdlang;
 import dub.internal.vibecompat.core.log;
-import dub.internal.vibecompat.inet.path;
+import vibe.inet.path;
 import dub.recipe.packagerecipe;
 
 import std.algorithm : map;
