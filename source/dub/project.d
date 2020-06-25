@@ -256,7 +256,7 @@ class Project {
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
 
 		foreach (d; m_rootPackage.getAllDependencies())
-			if (d.spec.isExactVersion && d.spec.version_.isBranch) {
+			if (d.spec.isExactVersion && d.spec.version_.isBranch && d.spec.repository.empty) {
 				logWarn("WARNING: A deprecated branch based version specification is used "
 					~ "for the dependency %s. Please use numbered versions instead. Also "
 					~ "note that you can still use the %s file to override a certain "
@@ -341,6 +341,10 @@ class Project {
 				// need to be satisfied
 				bool is_desired = !vspec.optional || m_selections.hasSelectedVersion(basename) || (vspec.default_ && m_selections.bare);
 
+				Package resolveSubPackage(Package p, in bool silentFail) {
+					return subname.length ? m_packageManager.getSubPackage(p, subname, silentFail) : p;
+				}
+
 				if (dep.name == m_rootPackage.basePackage.name) {
 					vspec = Dependency(m_rootPackage.version_);
 					p = m_rootPackage.basePackage;
@@ -354,22 +358,30 @@ class Project {
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
 					vspec = m_selections.getSelectedVersion(basename);
-					if (vspec.path.empty) p = m_packageManager.getBestPackage(dep.name, vspec);
-					else {
+					if (!vspec.path.empty) {
 						auto path = vspec.path;
 						if (!path.absolute) path = m_rootPackage.path ~ path;
 						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-						if (subname.length) p = m_packageManager.getSubPackage(p, subname, true);
+						p = resolveSubPackage(p, true);
+					} else if (!vspec.repository.empty) {
+						p = m_packageManager.loadSCMPackage(basename, vspec);
+						p = resolveSubPackage(p, true);
+					} else {
+						p = m_packageManager.getBestPackage(dep.name, vspec);
 					}
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
 					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
 					auto bp = m_dependencies[idx].basePackage;
 					vspec = Dependency(bp.path);
-					if (subname.length) p = m_packageManager.getSubPackage(bp, subname, false);
-					else p = bp;
+					p = resolveSubPackage(bp, false);
 				} else {
 					logDiagnostic("%sVersion selection for dependency %s (%s) of %s is missing.",
 						indent, basename, dep.name, pack.name);
+				}
+
+				if (!p && !vspec.repository.empty) {
+					p = m_packageManager.loadSCMPackage(basename, vspec);
+					resolveSubPackage(p, false);
 				}
 
 				if (!p && !vspec.path.empty) {
@@ -381,7 +393,7 @@ class Project {
 						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
 						p = p.parentPackage;
 					}
-					if (subname.length) p = m_packageManager.getSubPackage(p, subname, false);
+					p = resolveSubPackage(p, false);
 					enforce(p.name == dep.name,
 						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
 							path.toNativeString(), dep.name, p.name));
@@ -1542,6 +1554,18 @@ final class SelectedVersions {
 		m_dirty = true;
 	}
 
+	/// Selects a certain Git reference for a specific package.
+	void selectVersionWithRepository(string package_id, Repository repository, string spec)
+	{
+		const dependency = Dependency(repository, spec);
+		if (auto ps = package_id in m_selections) {
+			if (ps.dep == dependency)
+				return;
+		}
+		m_selections[package_id] = Selected(dependency);
+		m_dirty = true;
+	}
+
 	/// Removes the selection for a particular package.
 	void deselectVersion(string package_id)
 	{
@@ -1604,7 +1628,12 @@ final class SelectedVersions {
 
 	static Json dependencyToJson(Dependency d)
 	{
-		if (d.path.empty) return Json(d.version_.toString());
+		if (!d.repository.empty) {
+			return serializeToJson([
+				"version": d.version_.toString(),
+				"repository": d.repository.toString,
+			]);
+		} else if (d.path.empty) return Json(d.version_.toString());
 		else return serializeToJson(["path": d.path.toString()]);
 	}
 
@@ -1612,9 +1641,12 @@ final class SelectedVersions {
 	{
 		if (j.type == Json.Type.string)
 			return Dependency(Version(j.get!string));
-		else if (j.type == Json.Type.object)
+		else if (j.type == Json.Type.object && "path" in j)
 			return Dependency(NativePath(j["path"].get!string));
-		else throw new Exception(format("Unexpected type for dependency: %s", j.type));
+		else if (j.type == Json.Type.object && "repository" in j)
+			return Dependency(Repository(j["repository"].get!string),
+				enforce("version" in j, "Expected \"version\" field in repository version object").get!string);
+		else throw new Exception(format("Unexpected type for dependency: %s", j));
 	}
 
 	Json serialize()
