@@ -1588,11 +1588,19 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				absdeppath.endsWithSlash = true;
 				auto subpack = m_dub.m_packageManager.getSubPackage(basepack, getSubPackageName(d.name), true);
 				if (subpack) {
-					auto desireddeppath = d.name == dbasename ? basepack.path : subpack.path;
+					auto desireddeppath = basepack.path;
 					desireddeppath.endsWithSlash = true;
-					enforce(d.spec.path.empty || absdeppath == desireddeppath,
-						format("Dependency from %s to root package references wrong path: %s vs. %s",
-							node.pack, absdeppath.toNativeString(), desireddeppath.toNativeString()));
+
+					auto altdeppath = d.name == dbasename ? basepack.path : subpack.path;
+					altdeppath.endsWithSlash = true;
+
+					if (absdeppath != desireddeppath)
+						logWarn("Warning: Sub package %s, referenced by %s %s must be referenced using the path to its base package",
+							subpack.name, pack.name, pack.version_);
+
+					enforce(d.spec.path.empty || absdeppath == desireddeppath || absdeppath == altdeppath,
+						format("Dependency from %s to %s uses wrong path: %s vs. %s",
+							node.pack, subpack.name, absdeppath.toNativeString(), desireddeppath.toNativeString()));
 				}
 				ret ~= TreeNodes(d.name, node.config);
 				continue;
