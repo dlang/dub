@@ -178,6 +178,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 					}
 					enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 					bs.dependencies[pkg] = deserializeJson!Dependency(verspec);
+					bs.dependencies[pkg].platform = suffix;
 				}
 				break;
 			case "systemDependencies":
@@ -249,10 +250,15 @@ private Json toJson(in ref BuildSettingsTemplate bs)
 {
 	auto ret = Json.emptyObject;
 	if( bs.dependencies !is null ){
-		auto deps = Json.emptyObject;
-		foreach( pack, d; bs.dependencies )
-			deps[pack] = serializeToJson(d);
-		ret["dependencies"] = deps;
+		Json[string] deps;
+		foreach( pack, d; bs.dependencies ){
+			string key = d.platform ? "-"~d.platform : "";
+			if (!(key in deps))
+				deps[key] = Json.emptyObject;
+			deps[key][pack] = serializeToJson(d);
+		}
+		foreach( k, v; deps )
+			ret["dependencies"~k] = v;
 	}
 	if (bs.systemDependencies !is null) ret["systemDependencies"] = bs.systemDependencies;
 	if (bs.targetType != TargetType.autodetect) ret["targetType"] = bs.targetType.to!string();
