@@ -79,7 +79,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 
 	private Json getMetadata(string packageId)
 	{
-		import std.xml;
+		import dub.internal.undead.xml;
 
 		auto now = Clock.currTime(UTC());
 		if (auto pentry = packageId in m_metadataCache) {
@@ -113,6 +113,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 			 xml.parse();
 		};
 		xml.parse();
+
 		m_metadataCache[packageId] = CacheEntry(json, now);
 		return json;
 	}
