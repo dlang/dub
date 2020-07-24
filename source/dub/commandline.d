@@ -1567,10 +1567,11 @@ class DescribeCommand : PackageBuildCommand {
 		setLogLevel(max(ll, LogLevel.warn));
 		scope (exit) setLogLevel(ll);
 
-		string package_name;
+		PackageAndVersion package_info;
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-		if (free_args.length >= 1) package_name = free_args[0];
-		setupPackage(dub, package_name);
+		if (free_args.length >= 1) package_info = splitPackageName(free_args[0]);
+		Version ver = package_info.version_.length ? Version(package_info.version_) : Version.unknown;
+		setupPackage(dub, package_info.name, "debug", ver);
 
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
