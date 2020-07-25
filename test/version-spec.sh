@@ -5,9 +5,9 @@
 $DUB add-local "$CURR_DIR/version-spec/oldfoo"
 $DUB add-local "$CURR_DIR/version-spec/newfoo"
 
-$DUB describe foo
-$DUB describe foo@1.0.0
-$DUB describe foo@0.1.0
+$DUB describe foo > /dev/null
+$DUB describe foo@1.0.0 > /dev/null
+$DUB describe foo@0.1.0 > /dev/null
 
 $DUB test foo
 $DUB test foo@1.0.0
