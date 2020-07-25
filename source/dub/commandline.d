@@ -1144,6 +1144,12 @@ class GenerateCommand : PackageBuildCommand {
 			logInfo("");
 		}
 
+		auto cfgs = dub.project.getPackageConfigs(m_buildPlatform, null, true);
+		dub.project.reinit(cfgs);
+		dub.project.removeUnusedAddedDependencies();
+		if (dub.project.selections.dirty)
+			dub.project.saveSelections();
+
 		GeneratorSettings gensettings;
 		gensettings.platform = m_buildPlatform;
 		gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
