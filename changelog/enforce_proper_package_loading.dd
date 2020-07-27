@@ -1,0 +1,5 @@
+Enforce proper package loading on 'dub update'
+
+Rather than doing `dub.loadPackage`, `enforce(loadCwdPackage...)` ensures that the package exists.
+This prevents `update` code from force-creating `dub.selections.json`, and generates a proper error message.
+That message is similar to one you get running `dub build` or `dub test` etc.
