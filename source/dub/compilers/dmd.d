@@ -120,6 +120,7 @@ config    /etc/dmd.conf
 				}
 				break;
 			case "x86": arch_flags = ["-m32"]; break;
+			case "x86_omf": arch_flags = ["-m32"]; break;
 			case "x86_64": arch_flags = ["-m64"]; break;
 			case "x86_mscoff": arch_flags = ["-m32mscoff"]; break;
 		}
@@ -130,6 +131,53 @@ config    /etc/dmd.conf
 			arch_flags ~ ["-quiet", "-c", "-o-", "-v"],
 			arch_override
 		);
+	}
+	version (Windows) version (DigitalMars) unittest
+	{
+		BuildSettings settings;
+		auto compiler = new DMDCompiler;
+		auto bp = compiler.determinePlatform(settings, "dmd", "x86");
+		assert(bp.platform.canFind("windows"));
+		assert(bp.architecture.canFind("x86"));
+		assert(bp.architecture.canFind("x86_omf"));
+		assert(!bp.architecture.canFind("x86_mscoff"));
+		settings = BuildSettings.init;
+		bp = compiler.determinePlatform(settings, "dmd", "x86_omf");
+		assert(bp.platform.canFind("windows"));
+		assert(bp.architecture.canFind("x86"));
+		assert(bp.architecture.canFind("x86_omf"));
+		assert(!bp.architecture.canFind("x86_mscoff"));
+		settings = BuildSettings.init;
+		bp = compiler.determinePlatform(settings, "dmd", "x86_mscoff");
+		assert(bp.platform.canFind("windows"));
+		assert(bp.architecture.canFind("x86"));
+		assert(!bp.architecture.canFind("x86_omf"));
+		assert(bp.architecture.canFind("x86_mscoff"));
+		settings = BuildSettings.init;
+		bp = compiler.determinePlatform(settings, "dmd", "x86_64");
+		assert(bp.platform.canFind("windows"));
+		assert(bp.architecture.canFind("x86_64"));
+		assert(!bp.architecture.canFind("x86"));
+		assert(!bp.architecture.canFind("x86_omf"));
+		assert(!bp.architecture.canFind("x86_mscoff"));
+		settings = BuildSettings.init;
+		bp = compiler.determinePlatform(settings, "dmd", "");
+		if (!isWow64.isNull && !isWow64.get) assert(bp.architecture.canFind("x86"));
+		if (!isWow64.isNull && !isWow64.get) assert(bp.architecture.canFind("x86_mscoff"));
+		if (!isWow64.isNull && !isWow64.get) assert(!bp.architecture.canFind("x86_omf"));
+		if (!isWow64.isNull &&  isWow64.get) assert(bp.architecture.canFind("x86_64"));
+	}
+	
+	version (LDC) unittest {
+		BuildSettings settings;
+		auto compiler = new DMDCompiler;
+		auto bp = compiler.determinePlatform(settings, "ldmd2", "x86");
+		assert(bp.architecture.canFind("x86"));
+		assert(!bp.architecture.canFind("x86_omf"));
+		bp = compiler.determinePlatform(settings, "ldmd2", "");
+		version (X86) assert(bp.architecture.canFind("x86"));
+		version (X86_64) assert(bp.architecture.canFind("x86_64"));
+		assert(!bp.architecture.canFind("x86_omf"));
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, in ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
