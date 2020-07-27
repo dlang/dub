@@ -1747,7 +1747,7 @@ class UpgradeCommand : Command {
 		enforceUsage(free_args.length <= 1, "Unexpected arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(!m_verify, "--verify is not yet implemented.");
-		dub.loadPackage();
+		enforce(loadCwdPackage(dub, true), "Failed to load package.");
 		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
