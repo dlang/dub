@@ -1,5 +1,8 @@
-Enforce proper package loading on 'dub update'
+Running `dub upgrade` on a package-less folder is now a no-op
 
-Rather than doing `dub.loadPackage`, `enforce(loadCwdPackage...)` ensures that the package exists.
-This prevents `update` code from force-creating `dub.selections.json`, and generates a proper error message.
-That message is similar to one you get running `dub build` or `dub test` etc.
+Prior to this change, accidentally running `dub upgrade` in a folder
+where no `dub.json` / `dub.sdl` was present would leave you with a
+`dub.selections.json` and, in some instances, an empty `.dub` folder.
+This has been fixed and running `dub upgrade` where one shouldn't
+will now only generate a friendly error message.
+
