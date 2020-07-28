@@ -898,7 +898,7 @@ class InitCommand : Command {
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
 			p.license = input("License", p.license);
-			string copyrightString = .format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
+			string copyrightString = format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
 			p.copyright = input("Copyright string", copyrightString);
 
 			while (true) {
@@ -1063,8 +1063,8 @@ abstract class PackageBuildCommand : Command {
 			? dub.packageManager.getLatestPackage(package_name)
 			: dub.packageManager.getPackage(package_name, ver);
 
-		enforce(pack, .format!"Failed to find a package named '%s%s' locally."(package_name,
-			ver.isUnknown ? "" : "@"~ver.toString()
+		enforce(pack, format!"Failed to find a package named '%s%s' locally."(package_name,
+			ver.isUnknown ? "" : "@" ~ ver.toString()
 		));
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
 		dub.loadPackage(pack);
