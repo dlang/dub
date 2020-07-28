@@ -898,7 +898,7 @@ class InitCommand : Command {
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
 			p.license = input("License", p.license);
-			string copyrightString = .format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
+			string copyrightString = format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
 			p.copyright = input("Copyright string", copyrightString);
 
 			while (true) {
@@ -986,6 +986,13 @@ abstract class PackageBuildCommand : Command {
 		]);
 	}
 
+	protected void setupVersionPackage(Dub dub, string str_package_info, string default_build_type = "debug")
+	{
+		PackageAndVersion package_info = splitPackageName(str_package_info);	
+		Version ver = package_info.version_.length ? Version(package_info.version_) : Version.unknown;
+		setupPackage(dub, package_info.name, default_build_type, ver);
+	}
+
 	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug", Version ver = Version.unknown)
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
@@ -1055,7 +1062,10 @@ abstract class PackageBuildCommand : Command {
 		auto pack = ver.isUnknown
 			? dub.packageManager.getLatestPackage(package_name)
 			: dub.packageManager.getPackage(package_name, ver);
-		enforce(pack, "Failed to find a package named '"~package_name~"' locally.");
+
+		enforce(pack, format!"Failed to find a package named '%s%s' locally."(package_name,
+			ver.isUnknown ? "" : "@" ~ ver.toString()
+		));
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
 		dub.loadPackage(pack);
 		return true;
@@ -1115,19 +1125,17 @@ class GenerateCommand : PackageBuildCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		PackageAndVersion package_info;
+		string str_package_info;
 		if (!m_generator.length) {
 			enforceUsage(free_args.length >= 1 && free_args.length <= 2, "Expected one or two arguments.");
 			m_generator = free_args[0];
-			if (free_args.length >= 2) package_info = splitPackageName(free_args[1]);
+			if (free_args.length >= 2) str_package_info = free_args[1];
 		} else {
 			enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-			if (free_args.length >= 1) package_info = splitPackageName(free_args[0]);
+			if (free_args.length >= 1) str_package_info = free_args[0];
 		}
 
-		string package_name = package_info.name;
-		Version package_version = package_info.version_.length == 0 ? Version.unknown : Version(package_info.version_);
-		setupPackage(dub, package_name, "debug", package_version);
+		setupVersionPackage(dub, str_package_info, "debug");
 
 		if (m_printBuilds) { // FIXME: use actual package data
 			logInfo("Available build types:");
@@ -1363,11 +1371,11 @@ class TestCommand : PackageBuildCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		string package_name;
+		string str_package_info;
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-		if (free_args.length >= 1) package_name = free_args[0];
+		if (free_args.length >= 1) str_package_info = free_args[0];
 
-		setupPackage(dub, package_name, "unittest", Version.unknown);
+		setupVersionPackage(dub, str_package_info, "unittest");
 
 		GeneratorSettings settings;
 		settings.platform = m_buildPlatform;
@@ -1454,9 +1462,9 @@ class LintCommand : PackageBuildCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		string package_name;
+		string str_package_info;
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-		if (free_args.length >= 1) package_name = free_args[0];
+		if (free_args.length >= 1) str_package_info = free_args[0];
 
 		string[] args;
 		if (!m_syntaxCheck && !m_styleCheck && !m_report && app_args.length == 0) { m_styleCheck = true; }
@@ -1470,7 +1478,7 @@ class LintCommand : PackageBuildCommand {
 		foreach (import_path; m_importPaths) args ~= ["-I", import_path];
 		if (m_config) args ~= ["--config", m_config];
 
-		setupPackage(dub, package_name);
+		setupVersionPackage(dub, str_package_info);
 		dub.lintProject(args ~ app_args);
 		return 0;
 	}
@@ -1567,10 +1575,10 @@ class DescribeCommand : PackageBuildCommand {
 		setLogLevel(max(ll, LogLevel.warn));
 		scope (exit) setLogLevel(ll);
 
-		string package_name;
+		string str_package_info;
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-		if (free_args.length >= 1) package_name = free_args[0];
-		setupPackage(dub, package_name);
+		if (free_args.length >= 1) str_package_info = free_args[0];
+		setupVersionPackage(dub, str_package_info);
 
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
