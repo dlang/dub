@@ -882,7 +882,7 @@ struct Version {
 		if (isSCM || other.isSCM) {
 			if (!isSCM) return -1;
 			if (!other.isSCM) return 1;
-			return (m_version == m_version) ? 0 : 1;
+			return m_version == other.m_version ? 0 : 1;
 		}
 
 		if (isBranch || other.isBranch) {
@@ -973,14 +973,15 @@ unittest {
 /// Determines whether the given string is a Git hash.
 bool isGitHash(string hash) @nogc nothrow pure @safe
 {
-	import std.ascii : isAlphaNum;
+	import std.ascii : isHexDigit;
 	import std.utf : byCodeUnit;
 
-	return hash.length >= 7 && hash.length <= 40 && hash.byCodeUnit.all!isAlphaNum;
+	return hash.length >= 7 && hash.length <= 40 && hash.byCodeUnit.all!isHexDigit;
 }
 
 @nogc nothrow pure @safe unittest {
 	assert(isGitHash("73535568b79a0b124bc1653002637a830ce0fcb8"));
 	assert(!isGitHash("735"));
 	assert(!isGitHash("73535568b79a0b124bc1-53002637a830ce0fcb8"));
+	assert(!isGitHash("73535568b79a0b124bg1"));
 }

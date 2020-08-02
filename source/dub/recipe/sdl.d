@@ -596,13 +596,13 @@ unittest {
 unittest {
 	auto sdl =
 `name "test"
-dependency "package" repository="git+https://some.url" version="asdfqwer"
+dependency "package" repository="git+https://some.url" version="12345678"
 `;
 	PackageRecipe rec;
 	parseSDL(rec, sdl, null, "testfile");
 	auto dependency = rec.buildSettings.dependencies["package"];
 	assert(!dependency.repository.empty);
-	assert(dependency.versionSpec == "asdfqwer");
+	assert(dependency.versionSpec == "12345678");
 }
 
 unittest {
@@ -610,10 +610,10 @@ unittest {
 	p.name = "test";
 
 	auto repository = Repository("git+https://some.url");
-	p.buildSettings.dependencies["package"] = Dependency(repository, "asdfqwer");
+	p.buildSettings.dependencies["package"] = Dependency(repository, "12345678");
 	auto sdl = toSDL(p).toSDLDocument();
 	assert(sdl ==
 `name "test"
-dependency "package" repository="git+https://some.url" version="asdfqwer"
+dependency "package" repository="git+https://some.url" version="12345678"
 `);
 }
