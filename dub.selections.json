@@ -1,19 +1,19 @@
 {
 	"fileVersion": 1,
 	"versions": {
-		"botan": "1.12.10",
+		"botan": "1.12.18",
 		"botan-math": "1.0.3",
-		"diet-ng": "1.6.0",
-		"eventcore": "0.8.48",
-		"libasync": "0.8.4",
+		"diet-ng": "1.7.2",
+		"eventcore": "0.9.7",
+		"libasync": "0.8.6",
 		"libev": "5.0.0+4.04",
 		"libevent": "2.0.2+2.0.16",
-		"memutils": "0.4.13",
+		"memutils": "1.0.4",
 		"mir-linux-kernel": "1.0.1",
 		"openssl": "1.1.6+1.0.1g",
 		"stdx-allocator": "2.77.5",
-		"taggedalgebraic": "0.11.8",
-		"vibe-core": "1.8.1",
-		"vibe-d": "0.8.6"
+		"taggedalgebraic": "0.11.16",
+		"vibe-core": "1.9.3",
+		"vibe-d": "0.9.0"
 	}
 }
