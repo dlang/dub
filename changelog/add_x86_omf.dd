@@ -1,0 +1,4 @@
+Added architecture x86_omf for windows-dmd
+
+In windows dmd, an architecture x86_omf is enabled for
+the platform specs when explicitly specify --arch=x86_omf or --arch=x86.
