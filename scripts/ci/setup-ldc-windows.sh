@@ -4,7 +4,7 @@
 
 # Make sure this version matches the version of LDC2 used in .travis.yml,
 # otherwise the compiler and the lib used might mismatch.
-LDC_VERSION="1.20.0"
+LDC_VERSION="1.22.0"
 ARCH=${ARCH:-32}
 VERSION=$(git describe --abbrev=0 --tags)
 OS=windows
