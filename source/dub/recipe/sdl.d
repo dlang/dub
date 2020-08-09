@@ -187,6 +187,11 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 			logDiagnostic("Ignoring version specification (%s) for path based dependency %s", attrs["version"][0].value.get!string, attrs["path"][0].value.get!string);
 		dep.versionSpec = "*";
 		dep.path = NativePath(attrs["path"][0].value.get!string);
+	} else if ("repository" in attrs) {
+		enforceSDL("version" in attrs, "Missing version specification.", t);
+
+		dep.repository = Repository(attrs["repository"][0].value.get!string);
+		dep.versionSpec = attrs["version"][0].value.get!string;
 	} else {
 		enforceSDL("version" in attrs, "Missing version specification.", t);
 		dep.versionSpec = attrs["version"][0].value.get!string;
@@ -239,6 +244,7 @@ private Tag[] toSDL(in ref BuildSettingsTemplate bs)
 
 	foreach (pack, d; bs.dependencies) {
 		Attribute[] attribs;
+		if (!d.repository.empty) attribs ~= new Attribute(null, "repository", Value(d.repository.toString()));
 		if (!d.path.empty) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
 		else attribs ~= new Attribute(null, "version", Value(d.versionSpec));
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
@@ -585,4 +591,29 @@ unittest {
 	PackageRecipe rec;
 	parseSDL(rec, sdl, null, "testfile");
 	assert("" in rec.buildSettings.sourcePaths);
+}
+
+unittest {
+	auto sdl =
+`name "test"
+dependency "package" repository="git+https://some.url" version="12345678"
+`;
+	PackageRecipe rec;
+	parseSDL(rec, sdl, null, "testfile");
+	auto dependency = rec.buildSettings.dependencies["package"];
+	assert(!dependency.repository.empty);
+	assert(dependency.versionSpec == "12345678");
+}
+
+unittest {
+	PackageRecipe p;
+	p.name = "test";
+
+	auto repository = Repository("git+https://some.url");
+	p.buildSettings.dependencies["package"] = Dependency(repository, "12345678");
+	auto sdl = toSDL(p).toSDLDocument();
+	assert(sdl ==
+`name "test"
+dependency "package" repository="git+https://some.url" version="12345678"
+`);
 }

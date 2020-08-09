@@ -254,6 +254,62 @@ class PackageManager {
 		return pack;
 	}
 
+	/** For a given SCM repository, returns the corresponding package.
+
+		An SCM repository is provided as its remote URL, the repository is cloned
+		and in the dependency speicfied commit is checked out.
+
+		If the target directory already exists, just returns the package
+		without cloning.
+
+		Params:
+			name = Package name
+			dependency = Dependency that contains the repository URL and a specific commit
+
+		Returns:
+			The package loaded from the given SCM repository or null if the
+			package couldn't be loaded.
+	*/
+	Package loadSCMPackage(string name, Dependency dependency)
+	in { assert(!dependency.repository.empty); }
+	body {
+        Package pack;
+
+        with (dependency.repository) final switch (kind)
+        {
+            case Kind.git:
+                pack = loadGitPackage(name, dependency.versionSpec, dependency.repository.remote);
+        }
+        if (pack !is null) {
+            addPackages(m_temporaryPackages, pack);
+        }
+        return pack;
+	}
+
+    private Package loadGitPackage(string name, string versionSpec, string remote)
+    {
+		import dub.internal.git : cloneRepository;
+
+		if (!versionSpec.startsWith("~") && !versionSpec.isGitHash) {
+			return null;
+		}
+
+		string gitReference = versionSpec.chompPrefix("~");
+		const destination = m_repositories[LocalPackageType.user].packagePath ~
+			NativePath(name ~ "-" ~ gitReference) ~ (name~"/");
+
+		foreach (p; getPackageIterator(name)) {
+			if (p.path == destination) {
+				return p;
+			}
+		}
+
+		if (!cloneRepository(remote, gitReference, destination.toNativeString())) {
+			return null;
+		}
+
+		return Package.load(destination);
+    }
 
 	/** Searches for the latest version of a package matching the given dependency.
 	*/

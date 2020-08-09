@@ -1,0 +1,9 @@
+{
+	"name": "git-dependency",
+	"dependencies": {
+		"gitcompatibledubpackage": {
+			"repository": "git+https://github.com/dlang-community/gitcompatibledubpackage.git",
+			"version": "ccb31bf6a655437176ec02e04c2305a8c7c90d67"
+		}
+	}
+}
