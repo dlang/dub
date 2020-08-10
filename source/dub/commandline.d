@@ -560,6 +560,7 @@ class CommandArgs {
 		Variant value;
 		string names;
 		string[] helpText;
+		bool hidden;
 	}
 	private {
 		string[] m_args;
@@ -608,7 +609,7 @@ class CommandArgs {
 	*/
 	@property const(Arg)[] recognizedArgs() { return m_recognizedArgs; }
 
-	void getopt(T)(string names, T* var, string[] help_text = null)
+	void getopt(T)(string names, T* var, string[] help_text = null, bool hidden=false)
 	{
 		foreach (ref arg; m_recognizedArgs)
 			if (names == arg.names) {
@@ -621,6 +622,7 @@ class CommandArgs {
 		arg.defaultValue = *var;
 		arg.names = names;
 		arg.helpText = help_text;
+		arg.hidden = hidden;
 		m_args.getopt(config.passThrough, names, var);
 		arg.value = *var;
 		m_recognizedArgs ~= arg;
@@ -898,7 +900,7 @@ class InitCommand : Command {
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
 			p.license = input("License", p.license);
-			string copyrightString = format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
+			string copyrightString = .format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
 			p.copyright = input("Copyright string", copyrightString);
 
 			while (true) {
@@ -1087,7 +1089,7 @@ class GenerateCommand : PackageBuildCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "generate";
-		this.argumentsPattern = "<generator> [<package>]";
+		this.argumentsPattern = "<generator> [<package>[@<version-spec>]]";
 		this.description = "Generates project files using the specified generator";
 		this.helpText = [
 			"Generates project files using one of the supported generators:",
@@ -1184,7 +1186,7 @@ class BuildCommand : GenerateCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "build";
-		this.argumentsPattern = "[<package>]";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
 		this.description = "Builds a package (uses the main package in the current working directory by default)";
 		this.helpText = [
 			"Builds a package (uses the main package in the current working directory by default)"
@@ -1287,7 +1289,7 @@ class RunCommand : BuildCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "run";
-		this.argumentsPattern = "[<package>]";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
 		this.description = "Builds and runs a package (default command)";
 		this.helpText = [
 			"Builds and runs a package (uses the main package in the current working directory by default)"
@@ -1322,7 +1324,7 @@ class TestCommand : PackageBuildCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "test";
-		this.argumentsPattern = "[<package>]";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
 		this.description = "Executes the tests of the selected package";
 		this.helpText = [
 			`Builds the package and executes all contained unit tests.`,
@@ -1411,7 +1413,7 @@ class LintCommand : PackageBuildCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "lint";
-		this.argumentsPattern = "[<package>]";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
 		this.description = "Executes the linter tests of the selected package";
 		this.helpText = [
 			`Builds the package and executes D-Scanner linter tests.`
@@ -1496,7 +1498,7 @@ class DescribeCommand : PackageBuildCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "describe";
-		this.argumentsPattern = "[<package>]";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
 		this.description = "Prints a JSON description of the project and its dependencies";
 		this.helpText = [
 			"Prints a JSON build description for the root package an all of " ~
@@ -1777,7 +1779,7 @@ class FetchRemoveCommand : Command {
 		args.getopt("version", &m_version, [
 			"Use the specified version/branch instead of the latest available match",
 			"The remove command also accepts \"*\" here as a wildcard to remove all versions of the package from the specified location"
-		]);
+		], true); // hide --version from help
 
 		args.getopt("force-remove", &m_forceRemove, [
 			"Deprecated option that does nothing"
@@ -1791,7 +1793,7 @@ class FetchCommand : FetchRemoveCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "fetch";
-		this.argumentsPattern = "<name>[@<version-spec>]";
+		this.argumentsPattern = "<package>[@<version-spec>]";
 		this.description = "Manually retrieves and caches a package";
 		this.helpText = [
 			"Note: Use \"dub add <dependency>\" if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
@@ -1826,8 +1828,11 @@ class FetchCommand : FetchRemoveCommand {
 
 		FetchOptions fetchOpts;
 		fetchOpts |= FetchOptions.forceBranchUpgrade;
-		if (m_version.length) dub.fetch(name, Dependency(m_version), location, fetchOpts);
-		else if (name.canFind("@", "=")) {
+		if (m_version.length) { // remove then --version removed
+			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
+			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
+			dub.fetch(name, Dependency(m_version), location, fetchOpts);
+		} else if (name.canFindVersionSplitter) {
 			const parts = name.splitPackageName;
 			dub.fetch(parts.name, Dependency(parts.version_), location, fetchOpts);
 		} else {
@@ -1870,7 +1875,7 @@ class RemoveCommand : FetchRemoveCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "remove";
-		this.argumentsPattern = "<name>";
+		this.argumentsPattern = "<package>[@<version-spec>]";
 		this.description = "Removes a cached package";
 		this.helpText = [
 			"Removes a package that is cached on the local system."
@@ -1918,10 +1923,18 @@ class RemoveCommand : FetchRemoveCommand {
 			}
 		}
 
-		if (m_nonInteractive || !m_version.empty)
+		if (!m_version.empty) { // remove then --version removed
+			enforceUsage(!package_id.canFindVersionSplitter, "Double version spec not allowed.");
+			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", package_id, m_version);
 			dub.remove(package_id, m_version, location);
-		else
-			dub.remove(package_id, location, &resolveVersion);
+		} else {
+			const parts = package_id.splitPackageName;
+			if (m_nonInteractive || parts.version_.length) {
+				dub.remove(parts.name, parts.version_, location);
+			} else {
+				dub.remove(package_id, location, &resolveVersion);
+			}
+		}
 		return 0;
 	}
 }
@@ -2596,6 +2609,7 @@ private void showCommandHelp(Command cmd, CommandArgs args, CommandArgs common_a
 private void writeOptions(CommandArgs args)
 {
 	foreach (arg; args.recognizedArgs) {
+		if (arg.hidden) continue;
 		auto names = arg.names.split("|");
 		assert(names.length == 1 || names.length == 2);
 		string sarg = names[0].length == 1 ? names[0] : null;
@@ -2735,4 +2749,21 @@ unittest
 	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion("foo", ">=1.0.1"));
 	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion("foo", "~>1.0.1"));
 	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion("foo", "<1.0.1"));
+}
+
+private ulong canFindVersionSplitter(string packageName)
+{
+	// see splitPackageName
+	return packageName.canFind("@", "=");
+}
+
+unittest
+{
+	assert(!canFindVersionSplitter("foo"));
+	assert(canFindVersionSplitter("foo=1.0.1"));
+	assert(canFindVersionSplitter("foo@1.0.1"));
+	assert(canFindVersionSplitter("foo@==1.0.1"));
+	assert(canFindVersionSplitter("foo@>=1.0.1"));
+	assert(canFindVersionSplitter("foo@~>1.0.1"));
+	assert(canFindVersionSplitter("foo@<1.0.1"));
 }

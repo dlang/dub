@@ -31,3 +31,11 @@ $DUB add-local "$CURR_DIR/version-spec/oldfoo"
 
 $DUB remove-local "$CURR_DIR/version-spec/newfoo"
 $DUB remove-local "$CURR_DIR/version-spec/oldfoo"
+
+$DUB fetch dub@1.9.0 && [ -d $HOME/.dub/packages/dub-1.9.0/dub ]
+$DUB fetch dub=1.10.0 && [ -d $HOME/.dub/packages/dub-1.10.0/dub ]
+$DUB remove dub@1.9.0
+$DUB remove dub=1.10.0
+if [ -d $HOME/.dub/packages/dub-1.9.0/dub ] || [ -d $HOME/.dub/packages/dub-1.10.0/dub ]; then
+    die $LINENO 'Failed to remove specified versions'
+fi
