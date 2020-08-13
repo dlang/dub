@@ -1,6 +1,6 @@
 #!/usr/bin/env dub
 /+dub.sdl:
-dependency "vibe-d" version="~>0.8.5"
+dependency "vibe-d" version="~>0.9"
 versions "VibeNoSSL"
 +/
 
