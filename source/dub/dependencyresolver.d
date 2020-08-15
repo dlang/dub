@@ -45,8 +45,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			ret ^= typeid(CONFIGS).getHash(&configs);
 			return ret;
 		}
-		bool opEqual(in ref TreeNodes other) const { return pack == other.pack && configs == other.configs; }
-		int opCmp(in ref TreeNodes other) const {
+		bool opEqual(const scope ref TreeNodes other) const { return pack == other.pack && configs == other.configs; }
+		int opCmp(const scope ref TreeNodes other) const {
 			if (pack != other.pack) return pack < other.pack ? -1 : 1;
 			if (configs != other.configs) return configs < other.configs ? -1 : 1;
 			return 0;
@@ -66,8 +66,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			ret ^= typeid(CONFIG).getHash(&config);
 			return ret;
 		}
-		bool opEqual(in ref TreeNode other) const { return pack == other.pack && config == other.config; }
-		int opCmp(in ref TreeNode other) const {
+		bool opEqual(const scope ref TreeNode other) const { return pack == other.pack && config == other.config; }
+		int opCmp(const scope ref TreeNode other) const {
 			if (pack != other.pack) return pack < other.pack ? -1 : 1;
 			if (config != other.config) return config < other.config ? -1 : 1;
 			return 0;
@@ -286,7 +286,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 		string failedNode;
 
-		this(TreeNode parent, TreeNodes dep, in ref ResolveContext context, string file = __FILE__, size_t line = __LINE__)
+		this(TreeNode parent, TreeNodes dep, const scope ref ResolveContext context, string file = __FILE__, size_t line = __LINE__)
 		{
 			auto m = format("Unresolvable dependencies to package %s:", dep.pack.basePackageName);
 			super(m, file, line);

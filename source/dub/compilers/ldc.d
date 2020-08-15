@@ -101,7 +101,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		);
 	}
 
-	void prepareBuildSettings(ref BuildSettings settings, in ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
+	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
 	{
 		enforceBuildRequirements(settings);
 

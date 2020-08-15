@@ -40,7 +40,7 @@ void enforceBuildRequirements(ref BuildSettings settings)
 	Linker files include static/dynamic libraries, resource files, object files
 	and DLL definition files.
 */
-bool isLinkerFile(in ref BuildPlatform platform, string f)
+bool isLinkerFile(const scope ref BuildPlatform platform, string f)
 {
 	import std.path;
 	switch (extension(f)) {
@@ -79,7 +79,7 @@ unittest {
 	This function tries to invoke "pkg-config" if possible and falls back to
 	direct flag translation if that fails.
 */
-void resolveLibs(ref BuildSettings settings, in ref BuildPlatform platform)
+void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platform)
 {
 	import std.string : format;
 	import std.array : array;

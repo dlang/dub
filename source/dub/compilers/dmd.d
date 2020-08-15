@@ -167,7 +167,7 @@ config    /etc/dmd.conf
 		if (!isWow64.isNull && !isWow64.get) assert(!bp.architecture.canFind("x86_omf"));
 		if (!isWow64.isNull &&  isWow64.get) assert(bp.architecture.canFind("x86_64"));
 	}
-	
+
 	version (LDC) unittest {
 		BuildSettings settings;
 		auto compiler = new DMDCompiler;
@@ -180,7 +180,8 @@ config    /etc/dmd.conf
 		assert(!bp.architecture.canFind("x86_omf"));
 	}
 
-	void prepareBuildSettings(ref BuildSettings settings, in ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
+	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform,
+                              BuildSetting fields = BuildSetting.all) const
 	{
 		enforceBuildRequirements(settings);
 
