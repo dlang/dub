@@ -308,7 +308,7 @@ class ProjectGenerator
 		visited.clear();
 
 		// 1. downwards inherits versions, debugVersions, and inheritable build settings
-		static void configureDependencies(in ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
+		static void configureDependencies(const scope ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
 		{
 			// do not use `visited` here as dependencies must inherit
 			// configurations from *all* of their parents
@@ -527,14 +527,14 @@ class ProjectGenerator
 		ti.pack.metadataCache = cache;
 	}
 
-	private static void mergeFromDependent(in ref BuildSettings parent, ref BuildSettings child)
+	private static void mergeFromDependent(const scope ref BuildSettings parent, ref BuildSettings child)
 	{
 		child.addVersions(parent.versions);
 		child.addDebugVersions(parent.debugVersions);
 		child.addOptions(BuildOptions(parent.options & inheritedBuildOptions));
 	}
 
-	private static void mergeFromDependency(in ref BuildSettings child, ref BuildSettings parent, in ref BuildPlatform platform)
+	private static void mergeFromDependency(const scope ref BuildSettings child, ref BuildSettings parent, const scope ref BuildPlatform platform)
 	{
 		import dub.compilers.utils : isLinkerFile;
 

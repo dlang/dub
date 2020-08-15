@@ -73,7 +73,7 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 		recipe.parseSubPackages(fullname, ps.opt!(Json[]));
 }
 
-Json toJson(in ref PackageRecipe recipe)
+Json toJson(const scope ref PackageRecipe recipe)
 {
 	auto ret = recipe.buildSettings.toJson();
 	ret["name"] = recipe.name;
@@ -152,7 +152,7 @@ private void parseJson(ref ConfigurationInfo config, Json json, string package_n
 	config.buildSettings.parseJson(json, package_name);
 }
 
-private Json toJson(in ref ConfigurationInfo config)
+private Json toJson(const scope ref ConfigurationInfo config)
 {
 	auto ret = config.buildSettings.toJson();
 	ret["name"] = config.name;
@@ -245,7 +245,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 	}
 }
 
-private Json toJson(in ref BuildSettingsTemplate bs)
+private Json toJson(const scope ref BuildSettingsTemplate bs)
 {
 	auto ret = Json.emptyObject;
 	if( bs.dependencies !is null ){
@@ -302,7 +302,7 @@ private void parseJson(ref ToolchainRequirements tr, Json json)
 		tr.addRequirement(name, value.get!string);
 }
 
-private Json toJson(in ref ToolchainRequirements tr)
+private Json toJson(const scope ref ToolchainRequirements tr)
 {
 	auto ret = Json.emptyObject;
 	if (tr.dub != Dependency.any) ret["dub"] = serializeToJson(tr.dub);

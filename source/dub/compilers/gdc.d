@@ -85,7 +85,7 @@ class GDCCompiler : Compiler {
 		);
 	}
 
-	void prepareBuildSettings(ref BuildSettings settings, in ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
+	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
 	{
 		enforceBuildRequirements(settings);
 

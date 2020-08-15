@@ -88,7 +88,7 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 	}
 }
 
-Tag toSDL(in ref PackageRecipe recipe)
+Tag toSDL(const scope ref PackageRecipe recipe)
 {
 	Tag ret = new Tag;
 	void add(T)(string field, T value) { ret.add(new Tag(null, field, [Value(value)])); }
@@ -217,7 +217,7 @@ private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package
 	}
 }
 
-private Tag toSDL(in ref ConfigurationInfo config)
+private Tag toSDL(const scope ref ConfigurationInfo config)
 {
 	auto ret = new Tag(null, "configuration", [Value(config.name)]);
 	if (config.platforms.length) ret.add(new Tag(null, "platforms", config.platforms[].map!(p => Value(p)).array));
@@ -225,7 +225,7 @@ private Tag toSDL(in ref ConfigurationInfo config)
 	return ret;
 }
 
-private Tag[] toSDL(in ref BuildSettingsTemplate bs)
+private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 {
 	Tag[] ret;
 	void add(string name, string value, string namespace = null) { ret ~= new Tag(namespace, name, [Value(value)]); }
