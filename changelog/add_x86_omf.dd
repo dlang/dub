@@ -1,0 +1,5 @@
+Added architecture x86_omf for windows-dmd
+
+On windows dmd the x86_omf architecture can now be used as platform
+specification using `--arch=x86_omf`. This is currently equivalent to
+the previously existing `--arch=x86` argument.
