@@ -1,0 +1,44 @@
+# Build dub on Alpine Linux, testing compatibility with Musl
+name: Alpine
+
+on:
+  pull_request:
+    branches:
+      - master
+      - stable
+  push:
+    branches:
+      - master
+      - stable
+      # Use this branch name in your fork to test changes
+      - github-actions
+
+jobs:
+  main:
+    name: Run
+    strategy:
+      # Default, disable if you want to debug
+      fail-fast: false
+      matrix:
+        include:
+# Disabled as we rely on DIP1000 `foreach (scope)` which GDC < 12 doesn't support
+#          - { dc: gdc, dcpkg: gcc-gdc, dcbin: gdc  }
+          - { dc: ldc, dcpkg: ldc,     dcbin: ldc2 }
+          - { dc: dmd, dcpkg: dmd,     dcbin: dmd  }
+
+    # OS doesn't matter, we just need Docker
+    runs-on: ubuntu-latest
+    steps:
+    # Checkout the repository
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Build
+      run: |
+        docker build -t alpine-dub-image \
+          --build-arg="DCPKG=${{ matrix.dcpkg}}" \
+          --build-arg="DCBIN=${{ matrix.dcbin}}" \
+          -f docker/Dockerfile.alpine $(pwd)
+
+    - name: Test
+      run: docker run alpine-dub-image

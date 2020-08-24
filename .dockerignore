@@ -1,0 +1,6 @@
+# Build files are ignored to avoid collision and large context
+# in the event someone hasn't run `dub clean` for a while
+*.a
+*.o
+.dub/
+test/*/.dub/
