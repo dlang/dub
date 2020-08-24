@@ -1,0 +1,23 @@
+FROM alpine:edge AS Builder
+
+# DCPKG is the name of the package, DCBIN the name of the binary
+# We need this because of the ldc / ldc2 disparity
+ARG DCPKG
+ARG DCBIN
+
+# Build dub (and install tests dependencies in the process)
+WORKDIR /root/build/
+RUN apk add --no-cache bash build-base curl curl-dev dtools dub git grep rsync $DCPKG
+ADD . /root/build/
+RUN dub test --compiler=$DCBIN && dub build --compiler=$DCBIN
+
+# Remove dub to avoid the risk of using the wrong binary
+RUN apk del dub
+
+# Used by the `run-unittest.sh` script
+ENV DUB=/root/build/bin/dub
+ENV DC=$DCBIN
+
+# Finally, just run the test-suite
+WORKDIR /root/build/test/
+ENTRYPOINT [ "/root/build/test/run-unittest.sh" ]
