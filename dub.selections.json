@@ -4,7 +4,7 @@
 		"botan": "1.12.18",
 		"botan-math": "1.0.3",
 		"diet-ng": "1.7.2",
-		"eventcore": "0.9.7",
+		"eventcore": "0.9.8",
 		"libasync": "0.8.6",
 		"libev": "5.0.0+4.04",
 		"libevent": "2.0.2+2.0.16",
@@ -12,8 +12,8 @@
 		"mir-linux-kernel": "1.0.1",
 		"openssl": "1.1.6+1.0.1g",
 		"stdx-allocator": "2.77.5",
-		"taggedalgebraic": "0.11.16",
-		"vibe-core": "1.9.3",
-		"vibe-d": "0.9.0"
+		"taggedalgebraic": "0.11.17",
+		"vibe-core": "1.10.0",
+		"vibe-d": "0.9.1"
 	}
 }
