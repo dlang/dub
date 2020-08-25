@@ -2,8 +2,6 @@
 
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
 
-DUB=dub
-
 ### It shows the general help message
 if ! { ${DUB} help | grep "Manages the DUB project in the current directory."; } then
     die 'DUB did not print the default help message, with the `help` command.'
