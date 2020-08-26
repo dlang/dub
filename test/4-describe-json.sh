@@ -13,6 +13,6 @@ function cleanup {
 trap cleanup EXIT
 
 if ! $DUB describe --compiler=$DC > "$temp_file"; then
-    die 'Printing describe JSON failed!'
+    die $LINENO 'Printing describe JSON failed!'
 fi
 

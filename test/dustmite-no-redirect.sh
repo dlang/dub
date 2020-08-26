@@ -20,7 +20,7 @@ $DUB --root=$DM_TEST dustmite --no-redirect --program-status=1 $DM_TMP &> $LOG |
 if ! grep -q "$EXPECTED" "$LOG"
 then
     cat $LOG
-    die 1
+    die $LINENO "Diff between expected and actual output"
 fi
 
 rm -rf $DM_TMP $DM_TMP.* $LOG

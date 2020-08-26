@@ -18,10 +18,10 @@ echo "Trying to download maven-dubpackage-a (1.0.5) with dependency to maven-dub
 "$DUB" upgrade --root "$DIR/issue1524-maven-upgrade-dependency-tree" --skip-registry=standard --registry=mvn+http://localhost:$PORT/maven/release/dubpackages
 
 if ! dub remove maven-dubpackage-a --non-interactive --version=1.0.5 2>/dev/null; then
-    die 'DUB did not install package "maven-dubpackage-a" from maven registry.'
+    die $LINENO 'DUB did not install package "maven-dubpackage-a" from maven registry.'
 fi
 
 if ! dub remove maven-dubpackage-b --non-interactive --version=1.0.6 2>/dev/null; then
-    die 'DUB did not install package "maven-dubpackage-b" from maven registry.'
+    die $LINENO 'DUB did not install package "maven-dubpackage-b" from maven registry.'
 fi
 

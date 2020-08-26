@@ -18,4 +18,4 @@ OUTPUT=`${CURR_DIR}/issue1447-build-settings-vars/test`
 rm -rf ${CURR_DIR}/issue1447-build-settings-vars/.dub
 rm -rf ${CURR_DIR}/issue1447-build-settings-vars/test
 
-if [[ "$OUTPUT" != "$ARCH" ]]; then die "Build settings ARCH var incorrect"; fi
+if [[ "$OUTPUT" != "$ARCH" ]]; then die $LINENO "Build settings ARCH var incorrect"; fi
