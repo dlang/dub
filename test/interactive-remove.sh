@@ -9,15 +9,15 @@
 # we need to nuke every `dub` version in the user cache...
 $DUB remove dub -n || true
 
-$DUB fetch dub --version=1.9.0 && [ -d $HOME/.dub/packages/dub-1.9.0/dub ]
-$DUB fetch dub --version=1.10.0 && [ -d $HOME/.dub/packages/dub-1.10.0/dub ]
+$DUB fetch dub@1.9.0 && [ -d $HOME/.dub/packages/dub-1.9.0/dub ]
+$DUB fetch dub@1.10.0 && [ -d $HOME/.dub/packages/dub-1.10.0/dub ]
 
 echo 1 | $DUB remove dub | tr -d '\n' | grep --ignore-case 'select.*1\.9\.0.*1\.10\.0.*'
 if [ -d $HOME/.dub/packages/dub-1.9.0/dub ]; then
     die $LINENO 'Failed to remove dub-1.9.0'
 fi
 
-$DUB fetch dub --version=1.9.0 && [ -d $HOME/.dub/packages/dub-1.9.0/dub ]
+$DUB fetch dub@1.9.0 && [ -d $HOME/.dub/packages/dub-1.9.0/dub ]
 # EOF aborts remove
 echo -xn '' | $DUB remove dub
 if [ ! -d $HOME/.dub/packages/dub-1.9.0/dub ] || [ ! -d $HOME/.dub/packages/dub-1.10.0/dub ]; then
@@ -30,7 +30,7 @@ if [ -d $HOME/.dub/packages/dub-1.9.0/dub ] || [ -d $HOME/.dub/packages/dub-1.10
     die $LINENO 'Failed to remove all version of dub'
 fi
 
-$DUB fetch dub --version=1.9.0 && [ -d $HOME/.dub/packages/dub-1.9.0/dub ]
+$DUB fetch dub@1.9.0 && [ -d $HOME/.dub/packages/dub-1.9.0/dub ]
 $DUB fetch dub@1.10.0 && [ -d $HOME/.dub/packages/dub-1.10.0/dub ]
 # is non-interactive with `--version=<version-spec>`
 $DUB remove dub@1.9.0

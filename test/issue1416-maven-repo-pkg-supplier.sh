@@ -14,16 +14,16 @@ sleep 1
 trap 'kill $PID 2>/dev/null || true' exit
 
 echo "Trying to download maven-dubpackage (1.0.5)"
-${DUB} fetch maven-dubpackage --version=1.0.5 --skip-registry=all --registry=mvn+http://localhost:$PORT/maven/release/dubpackages
+${DUB} fetch maven-dubpackage@1.0.5 --skip-registry=all --registry=mvn+http://localhost:$PORT/maven/release/dubpackages
 
-if ! ${DUB} remove maven-dubpackage --non-interactive --version=1.0.5 2>/dev/null; then
+if ! ${DUB} remove maven-dubpackage@1.0.5 2>/dev/null; then
     die $LINENO 'DUB did not install package from maven registry.'
 fi
 
 echo "Trying to download maven-dubpackage (latest)"
 ${DUB} fetch maven-dubpackage --skip-registry=all --registry=mvn+http://localhost:$PORT/maven/release/dubpackages
 
-if ! ${DUB} remove maven-dubpackage --non-interactive --version=1.0.6 2>/dev/null; then
+if ! ${DUB} remove maven-dubpackage@1.0.6 2>/dev/null; then
     die $LINENO 'DUB fetch did not install latest package from maven registry.'
 fi
 
