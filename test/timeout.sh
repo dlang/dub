@@ -7,18 +7,18 @@ PORT=$(getRandomPort)
 
 log '    Testing unconnectable registry'
 if timeout 1s $DUB fetch dub --skip-registry=all --registry=http://localhost:$PORT; then
-    die 'Fetching from unconnectable registry should fail.'
+    die $LINENO 'Fetching from unconnectable registry should fail.'
 elif [ $? -eq 124 ]; then
-    die 'Fetching from unconnectable registry should fail immediately.'
+    die $LINENO 'Fetching from unconnectable registry should fail immediately.'
 fi
 
 log '    Testing non-responding registry'
 cat | nc -l $PORT >/dev/null &
 PID=$!
 if timeout 10s $DUB fetch dub --skip-registry=all --registry=http://localhost:$PORT; then
-    die 'Fetching from non-responding registry should fail.'
+    die $LINENO 'Fetching from non-responding registry should fail.'
 elif [ $? -eq 124 ]; then
-    die 'Fetching from non-responding registry should time-out within 8s.'
+    die $LINENO 'Fetching from non-responding registry should time-out within 8s.'
 fi
 kill $PID 2>/dev/null || true
 
@@ -37,8 +37,8 @@ Content-Length: 2\r
 } | nc -l $PORT >/dev/null &
 PID=$!
 if timeout 10s time $DUB fetch dub --skip-registry=all --registry=http://localhost:$PORT; then
-    die 'Fetching from too slow registry should fail.'
+    die $LINENO 'Fetching from too slow registry should fail.'
 elif [ $? -eq 124 ]; then
-    die 'Fetching from too slow registry should time-out within 8s.'
+    die $LINENO 'Fetching from too slow registry should time-out within 8s.'
 fi
 kill $PID 2>/dev/null || true

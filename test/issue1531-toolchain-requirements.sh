@@ -3,7 +3,7 @@ set -e
 
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
 
-cat << EOF | $DUB - || die "Did not pass without toolchainRequirements"
+cat << EOF | $DUB - || die $LINENO "Did not pass without toolchainRequirements"
 /+ dub.sdl:
 +/
 void main() {}
@@ -11,7 +11,7 @@ EOF
 
 # pass test dub requirement given as $1
 function test_dub_req_pass {
-    cat << EOF | $DUB - || die "Did not pass requirement dub=\"$1\""
+    cat << EOF | $DUB - || die $LINENO "Did not pass requirement dub=\"$1\""
 /+ dub.sdl:
     toolchainRequirements dub="$1"
 +/
@@ -21,7 +21,7 @@ EOF
 
 # fail test dub requirement given as $1
 function test_dub_req_fail {
-    ! cat << EOF | $DUB - || die "Did not pass requirement dub=\"$1\""
+    ! cat << EOF | $DUB - || die $LINENO "Did not pass requirement dub=\"$1\""
 /+ dub.sdl:
     toolchainRequirements dub="$1"
 +/
@@ -44,7 +44,7 @@ elif [[ $DC == *gdc* ]]; then
     VER_REG='\) (([[:digit:]]+)(\.[[:digit:]]+\.[[:digit:]]+[A-Za-z0-9.+-]*))'
     DC_NAME=gdc
 else
-    die "Did not recognize compiler"
+    die $LINENO "Did not recognize compiler"
 fi
 if [[ $($DC --version) =~ $VER_REG ]]; then
     DC_VER=${BASH_REMATCH[1]}
@@ -54,7 +54,7 @@ if [[ $($DC --version) =~ $VER_REG ]]; then
     echo $DC version is $DC_VER
 else
     $DC --version
-    die "Could not extract compiler version"
+    die $LINENO "Could not extract compiler version"
 fi
 
 # create test app directory
@@ -76,13 +76,13 @@ EOF
 # pass test compiler requirement given as $1
 function test_cl_req_pass {
     write_cl_req $1
-    $DUB --compiler=$DC --root=$TMPDIR || die "Did not pass with $DC_NAME=\"$1\""
+    $DUB --compiler=$DC --root=$TMPDIR || die $LINENO "Did not pass with $DC_NAME=\"$1\""
 }
 
 # fail test compiler requirement given as $1
 function test_cl_req_fail {
     write_cl_req $1
-    ! $DUB --compiler=$DC --root=$TMPDIR || die "Did not fail with $DC_NAME=\"$1\""
+    ! $DUB --compiler=$DC --root=$TMPDIR || die $LINENO "Did not fail with $DC_NAME=\"$1\""
 }
 
 

@@ -19,7 +19,7 @@ sed "s#DIR#$CURR_DIR/issue1037-better-dependency-messages#" "$expected_file" > "
 $DUB upgrade 2>$temp_file && exit 1 # dub upgrade should fail
 
 if ! diff "$temp_file2" "$temp_file"; then
-    die 'output not containing conflict information'
+    die $LINENO 'output not containing conflict information'
 fi
 
 exit 0
