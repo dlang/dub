@@ -5,7 +5,7 @@ DIR=$(dirname "${BASH_SOURCE[0]}")
 
 PORT=$(getRandomPort)
 
-"$DUB" remove maven-dubpackage --root="$DIR/issue1180-local-cache-broken" --non-interactive --version=* 2>/dev/null || true
+"$DUB" remove maven-dubpackage --root="$DIR/issue1180-local-cache-broken" --non-interactive 2>/dev/null || true
 
 "$DUB" build --single "$DIR"/test_registry.d
 "$DIR"/test_registry --folder="$DIR/issue1416-maven-repo-pkg-supplier" --port=$PORT &

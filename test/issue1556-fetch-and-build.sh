@@ -3,8 +3,8 @@ DIR=$(dirname "${BASH_SOURCE[0]}")
 
 . "$DIR"/common.sh
 
-dub remove main-package --non-interactive --version=* 2>/dev/null || true
-dub remove dependency-package --non-interactive --version=* 2>/dev/null || true
+dub remove main-package --non-interactive 2>/dev/null || true
+dub remove dependency-package --non-interactive 2>/dev/null || true
 
 
 echo "Trying to fetch fs-sdl-dubpackage"
