@@ -5,7 +5,7 @@ DIR=$(dirname "${BASH_SOURCE[0]}")
 
 PORT=$(getRandomPort)
 
-$DUB remove gitcompatibledubpackage --non-interactive --version=* 2>/dev/null || true
+$DUB remove gitcompatibledubpackage --non-interactive 2>/dev/null || true
 
 "$DUB" build --single "$DIR"/test_registry.d
 "$DIR"/test_registry --folder="$DIR/issue1336-registry" --port=$PORT &
@@ -32,7 +32,7 @@ if ! zipCount=$(grep -Fc 'Failed to extract zip archive' <<<"$zipOut") || [ "$zi
 elif [ $rc -eq 124 ]; then
     die 'DUB timed out unexpectedly.'
 fi
-if dub remove gitcompatibledubpackage --non-interactive --version=* 2>/dev/null; then
+if dub remove gitcompatibledubpackage --non-interactive 2>/dev/null; then
     die 'DUB should not have installed a broken package.'
 fi
 
@@ -47,7 +47,7 @@ if ! retryCount=$(echo "$retryOut" | grep -Fc 'Bad Gateway') || [ "$retryCount" 
 elif [ $rc -eq 124 ]; then
     die 'DUB timed out unexpectedly.'
 fi
-if $DUB remove gitcompatibledubpackage --non-interactive --version=* 2>/dev/null; then
+if $DUB remove gitcompatibledubpackage --non-interactive 2>/dev/null; then
     die 'DUB should not have installed a package.'
 fi
 

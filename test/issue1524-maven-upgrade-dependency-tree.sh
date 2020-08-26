@@ -5,8 +5,8 @@ DIR=$(dirname "${BASH_SOURCE[0]}")
 
 PORT=$(getRandomPort)
 
-dub remove maven-dubpackage-a --non-interactive --version=* 2>/dev/null || true
-dub remove maven-dubpackage-b --non-interactive --version=* 2>/dev/null || true
+dub remove maven-dubpackage-a --non-interactive 2>/dev/null || true
+dub remove maven-dubpackage-b --non-interactive 2>/dev/null || true
 
 "$DUB" build --single "$DIR"/test_registry.d
 "$DIR"/test_registry --folder="$DIR/issue1524-maven-upgrade-dependency-tree" --port=$PORT &

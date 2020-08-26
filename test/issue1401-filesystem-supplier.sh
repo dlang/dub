@@ -3,8 +3,8 @@ DIR=$(dirname "${BASH_SOURCE[0]}")
 
 . "$DIR"/common.sh
 
-dub remove fs-json-dubpackage --non-interactive --version=* 2>/dev/null || true
-dub remove fs-sdl-dubpackage --non-interactive --version=* 2>/dev/null || true
+dub remove fs-json-dubpackage --non-interactive 2>/dev/null || true
+dub remove fs-sdl-dubpackage --non-interactive 2>/dev/null || true
 
 echo "Trying to get fs-sdl-dubpackage (1.0.5)"
 "$DUB" fetch fs-sdl-dubpackage --version=1.0.5 --skip-registry=all --registry=file://"$DIR"/issue1401-file-system-pkg-supplier

@@ -1026,17 +1026,9 @@ class Dub {
 	void remove(string package_id, string version_, PlacementLocation location)
 	{
 		remove(package_id, location, (in packages) {
-			if (version_ == RemoveVersionWildcard)
+			if (version_ == RemoveVersionWildcard || version_.empty)
 				return packages.length;
-			if (version_.empty && packages.length > 1) {
-				logError("Cannot remove package '" ~ package_id ~ "', there are multiple possibilities at location\n"
-						 ~ "'" ~ to!string(location) ~ "'.");
-				logError("Available versions:");
-				foreach(pack; packages)
-					logError("  %s", pack.version_);
-				throw new Exception("Please specify a individual version using --version=... or use the"
-									~ " wildcard --version=" ~ RemoveVersionWildcard ~ " to remove all versions.");
-			}
+
 			foreach (i, p; packages) {
 				if (p.version_ == Version(version_))
 					return i;
