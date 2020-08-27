@@ -5,23 +5,23 @@ DIR=$(dirname "${BASH_SOURCE[0]}")
 
 PORT=$(getRandomPort)
 
-$DUB remove gitcompatibledubpackage --non-interactive 2>/dev/null || true
+${DUB} remove gitcompatibledubpackage --non-interactive 2>/dev/null || true
 
-"$DUB" build --single "$DIR"/test_registry.d
+${DUB} build --single "$DIR"/test_registry.d
 "$DIR"/test_registry --folder="$DIR/issue1336-registry" --port=$PORT &
 PID=$!
 sleep 1
 trap 'kill $PID 2>/dev/null || true' exit
 
 echo "Trying to download gitcompatibledubpackage (1.0.4)"
-timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.4 --skip-registry=all --registry=http://localhost:$PORT
+timeout 1s ${DUB} fetch gitcompatibledubpackage --version=1.0.4 --skip-registry=all --registry=http://localhost:$PORT
 if [ $? -eq 124 ]; then
     die $LINENO 'Fetching from responsive registry should not time-out.'
 fi
-$DUB remove gitcompatibledubpackage --non-interactive --version=1.0.4
+${DUB} remove gitcompatibledubpackage --non-interactive --version=1.0.4
 
 echo "Downloads should be retried when the zip is corrupted - gitcompatibledubpackage (1.0.3)"
-zipOut=$(! timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.3 --skip-registry=all --registry=http://localhost:$PORT 2>&1)
+zipOut=$(! timeout 1s ${DUB} fetch gitcompatibledubpackage --version=1.0.3 --skip-registry=all --registry=http://localhost:$PORT 2>&1)
 rc=$?
 
 if ! zipCount=$(grep -Fc 'Failed to extract zip archive' <<<"$zipOut") || [ "$zipCount" -lt 3 ] ; then
@@ -32,12 +32,12 @@ if ! zipCount=$(grep -Fc 'Failed to extract zip archive' <<<"$zipOut") || [ "$zi
 elif [ $rc -eq 124 ]; then
     die $LINENO 'DUB timed out unexpectedly.'
 fi
-if dub remove gitcompatibledubpackage --non-interactive 2>/dev/null; then
+if ${DUB} remove gitcompatibledubpackage --non-interactive 2>/dev/null; then
     die $LINENO 'DUB should not have installed a broken package.'
 fi
 
 echo "HTTP status errors on downloads should be retried - gitcompatibledubpackage (1.0.2)"
-retryOut=$(! timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.2 --skip-registry=all --registry=http://localhost:$PORT --vverbose 2>&1)
+retryOut=$(! timeout 1s ${DUB} fetch gitcompatibledubpackage --version=1.0.2 --skip-registry=all --registry=http://localhost:$PORT --vverbose 2>&1)
 rc=$?
 if ! retryCount=$(echo "$retryOut" | grep -Fc 'Bad Gateway') || [ "$retryCount" -lt 3 ] ; then
     echo '========== +Output was ==========' >&2
@@ -47,7 +47,7 @@ if ! retryCount=$(echo "$retryOut" | grep -Fc 'Bad Gateway') || [ "$retryCount" 
 elif [ $rc -eq 124 ]; then
     die $LINENO 'DUB timed out unexpectedly.'
 fi
-if $DUB remove gitcompatibledubpackage --non-interactive 2>/dev/null; then
+if ${DUB} remove gitcompatibledubpackage --non-interactive 2>/dev/null; then
     die $LINENO 'DUB should not have installed a package.'
 fi
 
@@ -56,4 +56,4 @@ timeout 1s "$DUB" fetch gitcompatibledubpackage --version=1.0.2 --skip-registry=
 if [ $? -eq 124 ]; then
     die $LINENO 'Fetching from responsive registry should not time-out.'
 fi
-$DUB remove gitcompatibledubpackage --non-interactive --version=1.0.2
+${DUB} remove gitcompatibledubpackage --non-interactive --version=1.0.2
