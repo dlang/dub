@@ -32,6 +32,24 @@ string getObjSuffix(const scope ref BuildPlatform platform)
     return platform.platform.canFind("windows") ? ".obj" : ".o";
 }
 
+string computeBuildName(string config, GeneratorSettings settings, const string[][] hashing...)
+{
+	import std.digest;
+	import std.digest.md;
+
+	MD5 hash;
+	hash.start();
+	void addHash(in string[] strings...) { foreach (s; strings) { hash.put(cast(ubyte[])s); hash.put(0); } hash.put(0); }
+	foreach(strings; hashing)
+		addHash(strings);
+	auto hashstr = hash.finish().toHexString().idup;
+
+    return format("%s-%s-%s-%s-%s_%s-%s", config, settings.buildType,
+			settings.platform.platform.join("."),
+			settings.platform.architecture.join("."),
+			settings.platform.compiler, settings.platform.frontendVersion, hashstr);
+}
+
 class BuildGenerator : ProjectGenerator {
 	private {
 		PackageManager m_packageMan;
@@ -329,33 +347,23 @@ class BuildGenerator : ProjectGenerator {
 
 	private string computeBuildID(string config, in BuildSettings buildsettings, GeneratorSettings settings)
 	{
-		import std.digest;
-		import std.digest.md;
-		import std.bitmanip;
+		const(string[])[] hashing = [
+			buildsettings.versions,
+			buildsettings.debugVersions,
+			buildsettings.dflags,
+			buildsettings.lflags,
+			buildsettings.stringImportPaths,
+			buildsettings.importPaths,
+			settings.platform.architecture,
+			[
+				(cast(uint)buildsettings.options).to!string,
+				settings.platform.compilerBinary,
+				settings.platform.compiler,
+				settings.platform.frontendVersion.to!string,
+			],
+		];
 
-		MD5 hash;
-		hash.start();
-		void addHash(in string[] strings...) { foreach (s; strings) { hash.put(cast(ubyte[])s); hash.put(0); } hash.put(0); }
-		void addHashI(int value) { hash.put(nativeToLittleEndian(value)); }
-		addHash(buildsettings.versions);
-		addHash(buildsettings.debugVersions);
-		//addHash(buildsettings.versionLevel);
-		//addHash(buildsettings.debugLevel);
-		addHash(buildsettings.dflags);
-		addHash(buildsettings.lflags);
-		addHash((cast(uint)buildsettings.options).to!string);
-		addHash(buildsettings.stringImportPaths);
-		addHash(buildsettings.importPaths);
-		addHash(settings.platform.architecture);
-		addHash(settings.platform.compilerBinary);
-		addHash(settings.platform.compiler);
-		addHashI(settings.platform.frontendVersion);
-		auto hashstr = hash.finish().toHexString().idup;
-
-		return format("%s-%s-%s-%s-%s_%s-%s", config, settings.buildType,
-			settings.platform.platform.join("."),
-			settings.platform.architecture.join("."),
-			settings.platform.compiler, settings.platform.frontendVersion, hashstr);
+		return computeBuildName(config, settings, hashing);
 	}
 
 	private void copyTargetFile(NativePath build_path, BuildSettings buildsettings, GeneratorSettings settings)

@@ -662,6 +662,7 @@ class Dub {
 			}
 
 			// prepare the list of tested modules
+
 			string[] import_modules;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
@@ -679,11 +680,23 @@ class Dub {
 				}
 			}
 
+			NativePath mainfile;
+			if (settings.tempBuild)
+				mainfile = getTempFile("dub_test_root", ".d");
+			else {
+				import dub.generators.build : computeBuildName;
+				mainfile = m_project.rootPackage.path ~ format(".dub/code/%s_dub_test_root.d", computeBuildName(test_config, settings, import_modules));
+			}
+	
+			mkdirRecurse(mainfile.parentPath.toNativeString());
+
+			bool regenerateMainFile = settings.force || !existsFile(mainfile);
+
 			// generate main file
-			NativePath mainfile = getTempFile("dub_test_root", ".d");
 			tcinfo.sourceFiles[""] ~= mainfile.toNativeString();
 			tcinfo.mainSourceFile = mainfile.toNativeString();
-			if (!m_dryRun) {
+
+			if (!m_dryRun && regenerateMainFile) {
 				auto fil = openFile(mainfile, FileMode.createTrunc);
 				scope(exit) fil.close();
 				fil.write("module dub_test_root;\n");

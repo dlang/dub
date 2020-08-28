@@ -1,0 +1,4 @@
+Caching of generated unittest runner (dub test)
+
+For projects without a user-defined unittest configuration `dub test` generates a main file automatically.
+This main file is now being cached and won't be regenerated won subsequent runs without file changes.
