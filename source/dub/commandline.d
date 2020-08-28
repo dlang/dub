@@ -1080,6 +1080,7 @@ class GenerateCommand : PackageBuildCommand {
 		bool m_rdmd = false;
 		bool m_tempBuild = false;
 		bool m_run = false;
+		bool m_gdb = false;
 		bool m_force = false;
 		bool m_combined = false;
 		bool m_parallel = false;
@@ -1164,6 +1165,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.combined = m_combined;
 		gensettings.filterVersions = m_filterVersions;
 		gensettings.run = m_run;
+		gensettings.gdb = m_gdb;
 		gensettings.runArgs = app_args;
 		gensettings.force = m_force;
 		gensettings.rdmd = m_rdmd;
@@ -1303,6 +1305,10 @@ class RunCommand : BuildCommand {
 			"Builds the project in the temp folder if possible."
 		]);
 
+		args.getopt("gdb", &m_gdb, [
+			"Attach gdb. The gdb executable can be specified with the DEBUGGER environment variable (default 'gdb' is used)"
+		]);
+
 		super.prepare(args);
 		m_run = true;
 	}
@@ -1319,6 +1325,7 @@ class TestCommand : PackageBuildCommand {
 		bool m_combined = false;
 		bool m_parallel = false;
 		bool m_force = false;
+		bool m_gdb = false;
 	}
 
 	this() @safe pure nothrow
@@ -1368,6 +1375,9 @@ class TestCommand : PackageBuildCommand {
 		]);
 		if (coverage) m_buildType = "unittest-cov";
 
+		args.getopt("gdb", &m_gdb, [
+			"Attach gdb. The gdb executable can be specified with the DEBUGGER environment variable (default 'gdb' is used)"
+		]);
 		super.prepare(args);
 	}
 
@@ -1391,6 +1401,7 @@ class TestCommand : PackageBuildCommand {
 		settings.force = m_force;
 		settings.tempBuild = m_single;
 		settings.run = true;
+		settings.gdb = m_gdb;
 		settings.runArgs = app_args;
 
 		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));

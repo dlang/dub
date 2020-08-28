@@ -544,13 +544,20 @@ class BuildGenerator : ProjectGenerator {
 			}
 			runPreRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			logInfo("Running %s %s", exe_path_string, run_args.join(" "));
+
+			auto exec = exe_path_string ~ run_args;
+			if(settings.gdb){
+				auto gdb = environment.get("DUB_DEBUGGER", "gdb");
+				exec = [gdb, "--args"] ~ exec;
+			}
+
 			if (settings.runCallback) {
-				auto res = execute(exe_path_string ~ run_args);
+				auto res = execute(exec);
 				settings.runCallback(res.status, res.output);
 				settings.targetExitStatus = res.status;
 				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			} else {
-				auto prg_pid = spawnProcess(exe_path_string ~ run_args);
+				auto prg_pid = spawnProcess(exec);
 				auto result = prg_pid.wait();
 				settings.targetExitStatus = result;
 				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);

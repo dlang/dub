@@ -590,7 +590,7 @@ struct GeneratorSettings {
 	bool filterVersions;
 
 	// only used for generator "build"
-	bool run, force, direct, rdmd, tempBuild, parallelBuild;
+	bool run, gdb, force, direct, rdmd, tempBuild, parallelBuild;
 
 	/// single file dub package
 	bool single;

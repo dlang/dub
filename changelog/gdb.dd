@@ -1,0 +1,4 @@
+added run/test `--gdb` command line argument
+
+If `--gdb` is used, then the executable will be started with gdb attached.
+The gdb executable can be specified with the DEBUGGER environment variable.
