@@ -709,7 +709,6 @@ class Dub {
 								import core.runtime;
 								import std.exception;
 								Runtime.moduleUnitTester = () => true;
-								//runUnitTests!app(new JsonTestResultWriter("results.json"));
 								enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
 							}
 						}
