@@ -113,7 +113,7 @@ void main()
 private void initVibeDPackage(NativePath root_path, ref PackageRecipe p, scope void delegate() pre_write_callback)
 {
 	if ("vibe-d" !in p.buildSettings.dependencies)
-		p.buildSettings.dependencies["vibe-d"] = Dependency("~>0.8.2");
+		p.buildSettings.dependencies["vibe-d"] = Dependency("~>0.9");
 	p.description = "A simple vibe.d server application.";
 	pre_write_callback();
 

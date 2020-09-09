@@ -29,7 +29,7 @@ jobs:
       matrix:
         # Latest stable version, update at will
         os: [ macOS-10.15, ubuntu-18.04, windows-2019 ]
-        dc: [ dmd-2.092.0, ldc-1.21.0, dmd-master, ldc-master ]
+        dc: [ dmd-2.093.1, ldc-1.23.0, dmd-master, ldc-master ]
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -39,11 +39,12 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         brew install pkg-config coreutils
+        echo ::set-env name=PKG_CONFIG_PATH::/usr/local/opt/openssl@1.1/lib/pkgconfig/
 
     - name: '[Linux] Install dependencies'
       if: runner.os == 'Linux'
       run: |
-        sudo apt-get install -y libcurl4-openssl-dev netcat
+        sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev netcat
 
     # Compiler to test with
     - name: Prepare compiler
@@ -60,7 +61,7 @@ jobs:
       env:
         COVERAGE: false
         # The value doesn't matter as long as it's > 2.087
-        FRONTEND: 2.091.0
+        FRONTEND: 2.093.0
       run: |
         ./scripts/ci/travis.sh
 

@@ -3,7 +3,7 @@
 DIR=$(dirname "${BASH_SOURCE[0]}")
 packname="custom-dub-init-type-sample"
 
-$DUB remove custom-dub-init-dubpackage --non-interactive --version=* 2>/dev/null || true
+$DUB remove custom-dub-init-dubpackage --non-interactive 2>/dev/null || true
 $DUB init -n $packname --format sdl -t custom-dub-init-dubpackage --skip-registry=all --registry=file://"$DIR"/issue1651-custom-dub-init-type -- --foo=bar
 
 function cleanup {

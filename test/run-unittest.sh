@@ -25,7 +25,7 @@ export -f log
 export -f die
 
 if [ -z ${DUB:-} ]; then
-    die 'Variable $DUB must be defined to run the tests.'
+    die $LINENO 'Variable $DUB must be defined to run the tests.'
 fi
 
 if [ -z ${DC:-} ]; then

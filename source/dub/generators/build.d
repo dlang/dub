@@ -27,7 +27,7 @@ import std.process;
 import std.string;
 import std.encoding : sanitize;
 
-string getObjSuffix(in ref BuildPlatform platform)
+string getObjSuffix(const scope ref BuildPlatform platform)
 {
     return platform.platform.canFind("windows") ? ".obj" : ".o";
 }
@@ -412,7 +412,7 @@ class BuildGenerator : ProjectGenerator {
 	/// Calls with path that resolve to the same file on the filesystem will return the same,
 	/// unless they include different symbolic links (which are not resolved).
 
-	static string pathToObjName(in ref BuildPlatform platform, string path)
+	static string pathToObjName(const scope ref BuildPlatform platform, string path)
 	{
 		import std.digest.crc : crc32Of;
 		import std.path : buildNormalizedPath, dirSeparator, relativePath, stripDrive;
@@ -593,7 +593,7 @@ private NativePath getMainSourceFile(in Package prj)
 	return prj.path ~ "source/app.d";
 }
 
-private NativePath getTargetPath(in ref BuildSettings bs, in ref GeneratorSettings settings)
+private NativePath getTargetPath(const scope ref BuildSettings bs, const scope ref GeneratorSettings settings)
 {
 	return NativePath(bs.targetPath) ~ settings.compiler.getTargetFileName(bs, settings.platform);
 }

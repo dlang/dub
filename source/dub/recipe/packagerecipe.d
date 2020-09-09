@@ -341,7 +341,7 @@ struct BuildSettingsTemplate {
 	}
 }
 
-package(dub) void checkPlatform(in ref ToolchainRequirements tr, BuildPlatform platform, string package_name)
+package(dub) void checkPlatform(const scope ref ToolchainRequirements tr, BuildPlatform platform, string package_name)
 {
 	import dub.compilers.utils : dmdLikeVersionToSemverLike;
 	import std.algorithm.iteration : map;

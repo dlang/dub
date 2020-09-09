@@ -1,0 +1,8 @@
+Running `dub upgrade` on a package-less folder is now a no-op
+
+Prior to this change, accidentally running `dub upgrade` in a folder
+where no `dub.json` / `dub.sdl` was present would leave you with a
+`dub.selections.json` and, in some instances, an empty `.dub` folder.
+This has been fixed and running `dub upgrade` where one shouldn't
+will now only generate a friendly error message.
+

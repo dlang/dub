@@ -12,5 +12,8 @@ custom-unittest/custom-unittest
 path-subpackage-ref/test
 subpackage-ref/test
 subpackage-common-with-sourcefile-globbing/mypackage*
+version-spec/**/CMakeLists.txt
+version-spec/**/foo.cmake
+version-spec/**/foo
 
 /test_registry

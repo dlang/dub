@@ -1,0 +1,8 @@
+All commands now support `package[@<version-spec>]`, `--version` is deprecated
+
+`dub` commands had some disparity in their version handling.
+Most commands accepting a package name (e.g. `dub fetch` or `dub run`) supported
+either `package[@version-spec]`, or supported only `package` and accepted an
+option `--version=<version-spec>`.
+The latter form has now been deprecated and all commands now accept `package[@<version-spec>]`.
+Note that the absence of `@<package-spec>` still means "latest version" (except for `remove`).

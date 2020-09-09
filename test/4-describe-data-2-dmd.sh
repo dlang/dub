@@ -29,7 +29,7 @@ if ! $DUB describe --compiler=$DC --filter-versions \
     --data=import-files \
     --data=options \
     > "$temp_file"; then
-    die 'Printing project data failed!'
+    die $LINENO 'Printing project data failed!'
 fi
 
 # Create the expected output path file to compare against.
@@ -79,6 +79,6 @@ echo -n "-wi" >> "$expected_file"
 echo "" >> "$expected_file"
 
 if ! diff "$expected_file" "$temp_file"; then
-    die 'The project data did not match the expected output!'
+    die $LINENO 'The project data did not match the expected output!'
 fi
 

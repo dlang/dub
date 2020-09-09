@@ -560,6 +560,7 @@ class CommandArgs {
 		Variant value;
 		string names;
 		string[] helpText;
+		bool hidden;
 	}
 	private {
 		string[] m_args;
@@ -608,7 +609,7 @@ class CommandArgs {
 	*/
 	@property const(Arg)[] recognizedArgs() { return m_recognizedArgs; }
 
-	void getopt(T)(string names, T* var, string[] help_text = null)
+	void getopt(T)(string names, T* var, string[] help_text = null, bool hidden=false)
 	{
 		foreach (ref arg; m_recognizedArgs)
 			if (names == arg.names) {
@@ -621,6 +622,7 @@ class CommandArgs {
 		arg.defaultValue = *var;
 		arg.names = names;
 		arg.helpText = help_text;
+		arg.hidden = hidden;
 		m_args.getopt(config.passThrough, names, var);
 		arg.value = *var;
 		m_recognizedArgs ~= arg;
@@ -986,6 +988,13 @@ abstract class PackageBuildCommand : Command {
 		]);
 	}
 
+	protected void setupVersionPackage(Dub dub, string str_package_info, string default_build_type = "debug")
+	{
+		PackageAndVersion package_info = splitPackageName(str_package_info);	
+		Version ver = package_info.version_.length ? Version(package_info.version_) : Version.unknown;
+		setupPackage(dub, package_info.name, default_build_type, ver);
+	}
+
 	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug", Version ver = Version.unknown)
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
@@ -1055,7 +1064,10 @@ abstract class PackageBuildCommand : Command {
 		auto pack = ver.isUnknown
 			? dub.packageManager.getLatestPackage(package_name)
 			: dub.packageManager.getPackage(package_name, ver);
-		enforce(pack, "Failed to find a package named '"~package_name~"' locally.");
+
+		enforce(pack, format!"Failed to find a package named '%s%s' locally."(package_name,
+			ver.isUnknown ? "" : "@" ~ ver.toString()
+		));
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
 		dub.loadPackage(pack);
 		return true;
@@ -1077,7 +1089,7 @@ class GenerateCommand : PackageBuildCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "generate";
-		this.argumentsPattern = "<generator> [<package>]";
+		this.argumentsPattern = "<generator> [<package>[@<version-spec>]]";
 		this.description = "Generates project files using the specified generator";
 		this.helpText = [
 			"Generates project files using one of the supported generators:",
@@ -1115,19 +1127,17 @@ class GenerateCommand : PackageBuildCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		PackageAndVersion package_info;
+		string str_package_info;
 		if (!m_generator.length) {
 			enforceUsage(free_args.length >= 1 && free_args.length <= 2, "Expected one or two arguments.");
 			m_generator = free_args[0];
-			if (free_args.length >= 2) package_info = splitPackageName(free_args[1]);
+			if (free_args.length >= 2) str_package_info = free_args[1];
 		} else {
 			enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-			if (free_args.length >= 1) package_info = splitPackageName(free_args[0]);
+			if (free_args.length >= 1) str_package_info = free_args[0];
 		}
 
-		string package_name = package_info.name;
-		Version package_version = package_info.version_.length == 0 ? Version.unknown : Version(package_info.version_);
-		setupPackage(dub, package_name, "debug", package_version);
+		setupVersionPackage(dub, str_package_info, "debug");
 
 		if (m_printBuilds) { // FIXME: use actual package data
 			logInfo("Available build types:");
@@ -1176,7 +1186,7 @@ class BuildCommand : GenerateCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "build";
-		this.argumentsPattern = "[<package>]";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
 		this.description = "Builds a package (uses the main package in the current working directory by default)";
 		this.helpText = [
 			"Builds a package (uses the main package in the current working directory by default)"
@@ -1279,7 +1289,7 @@ class RunCommand : BuildCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "run";
-		this.argumentsPattern = "[<package>]";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
 		this.description = "Builds and runs a package (default command)";
 		this.helpText = [
 			"Builds and runs a package (uses the main package in the current working directory by default)"
@@ -1314,7 +1324,7 @@ class TestCommand : PackageBuildCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "test";
-		this.argumentsPattern = "[<package>]";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
 		this.description = "Executes the tests of the selected package";
 		this.helpText = [
 			`Builds the package and executes all contained unit tests.`,
@@ -1363,11 +1373,11 @@ class TestCommand : PackageBuildCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		string package_name;
+		string str_package_info;
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-		if (free_args.length >= 1) package_name = free_args[0];
+		if (free_args.length >= 1) str_package_info = free_args[0];
 
-		setupPackage(dub, package_name, "unittest", Version.unknown);
+		setupVersionPackage(dub, str_package_info, "unittest");
 
 		GeneratorSettings settings;
 		settings.platform = m_buildPlatform;
@@ -1403,7 +1413,7 @@ class LintCommand : PackageBuildCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "lint";
-		this.argumentsPattern = "[<package>]";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
 		this.description = "Executes the linter tests of the selected package";
 		this.helpText = [
 			`Builds the package and executes D-Scanner linter tests.`
@@ -1454,9 +1464,9 @@ class LintCommand : PackageBuildCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		string package_name;
+		string str_package_info;
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-		if (free_args.length >= 1) package_name = free_args[0];
+		if (free_args.length >= 1) str_package_info = free_args[0];
 
 		string[] args;
 		if (!m_syntaxCheck && !m_styleCheck && !m_report && app_args.length == 0) { m_styleCheck = true; }
@@ -1470,7 +1480,7 @@ class LintCommand : PackageBuildCommand {
 		foreach (import_path; m_importPaths) args ~= ["-I", import_path];
 		if (m_config) args ~= ["--config", m_config];
 
-		setupPackage(dub, package_name);
+		setupVersionPackage(dub, str_package_info);
 		dub.lintProject(args ~ app_args);
 		return 0;
 	}
@@ -1488,7 +1498,7 @@ class DescribeCommand : PackageBuildCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "describe";
-		this.argumentsPattern = "[<package>]";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
 		this.description = "Prints a JSON description of the project and its dependencies";
 		this.helpText = [
 			"Prints a JSON build description for the root package an all of " ~
@@ -1567,10 +1577,10 @@ class DescribeCommand : PackageBuildCommand {
 		setLogLevel(max(ll, LogLevel.warn));
 		scope (exit) setLogLevel(ll);
 
-		string package_name;
+		string str_package_info;
 		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
-		if (free_args.length >= 1) package_name = free_args[0];
-		setupPackage(dub, package_name);
+		if (free_args.length >= 1) str_package_info = free_args[0];
+		setupVersionPackage(dub, str_package_info);
 
 		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
@@ -1747,7 +1757,7 @@ class UpgradeCommand : Command {
 		enforceUsage(free_args.length <= 1, "Unexpected arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(!m_verify, "--verify is not yet implemented.");
-		dub.loadPackage();
+		enforce(loadCwdPackage(dub, true), "Failed to load package.");
 		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
@@ -1769,7 +1779,7 @@ class FetchRemoveCommand : Command {
 		args.getopt("version", &m_version, [
 			"Use the specified version/branch instead of the latest available match",
 			"The remove command also accepts \"*\" here as a wildcard to remove all versions of the package from the specified location"
-		]);
+		], true); // hide --version from help
 
 		args.getopt("force-remove", &m_forceRemove, [
 			"Deprecated option that does nothing"
@@ -1783,7 +1793,7 @@ class FetchCommand : FetchRemoveCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "fetch";
-		this.argumentsPattern = "<name>[@<version-spec>]";
+		this.argumentsPattern = "<package>[@<version-spec>]";
 		this.description = "Manually retrieves and caches a package";
 		this.helpText = [
 			"Note: Use \"dub add <dependency>\" if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
@@ -1818,8 +1828,11 @@ class FetchCommand : FetchRemoveCommand {
 
 		FetchOptions fetchOpts;
 		fetchOpts |= FetchOptions.forceBranchUpgrade;
-		if (m_version.length) dub.fetch(name, Dependency(m_version), location, fetchOpts);
-		else if (name.canFind("@", "=")) {
+		if (m_version.length) { // remove then --version removed
+			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
+			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
+			dub.fetch(name, Dependency(m_version), location, fetchOpts);
+		} else if (name.canFindVersionSplitter) {
 			const parts = name.splitPackageName;
 			dub.fetch(parts.name, Dependency(parts.version_), location, fetchOpts);
 		} else {
@@ -1862,7 +1875,7 @@ class RemoveCommand : FetchRemoveCommand {
 	this() @safe pure nothrow
 	{
 		this.name = "remove";
-		this.argumentsPattern = "<name>";
+		this.argumentsPattern = "<package>[@<version-spec>]";
 		this.description = "Removes a cached package";
 		this.helpText = [
 			"Removes a package that is cached on the local system."
@@ -1910,10 +1923,18 @@ class RemoveCommand : FetchRemoveCommand {
 			}
 		}
 
-		if (m_nonInteractive || !m_version.empty)
+		if (!m_version.empty) { // remove then --version removed
+			enforceUsage(!package_id.canFindVersionSplitter, "Double version spec not allowed.");
+			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", package_id, m_version);
 			dub.remove(package_id, m_version, location);
-		else
-			dub.remove(package_id, location, &resolveVersion);
+		} else {
+			const parts = package_id.splitPackageName;
+			if (m_nonInteractive || parts.version_.length) {
+				dub.remove(parts.name, parts.version_, location);
+			} else {
+				dub.remove(package_id, location, &resolveVersion);
+			}
+		}
 		return 0;
 	}
 }
@@ -2239,6 +2260,7 @@ class DustmiteCommand : PackageBuildCommand {
 		string m_programRegex;
 		string m_testPackage;
 		bool m_combined;
+		bool m_noRedirect;
 	}
 
 	this() @safe pure nothrow
@@ -2266,6 +2288,7 @@ class DustmiteCommand : PackageBuildCommand {
 		args.getopt("program-regex", &m_programRegex, ["A regular expression used to match against the program output"]);
 		args.getopt("test-package", &m_testPackage, ["Perform a test run - usually only used internally"]);
 		args.getopt("combined", &m_combined, ["Builds multiple packages with one compiler run"]);
+		args.getopt("no-redirect", &m_noRedirect, ["Don't redirect stdout/stderr streams of the test command"]);
 		super.prepare(args);
 
 		// speed up loading when in test mode
@@ -2382,7 +2405,7 @@ class DustmiteCommand : PackageBuildCommand {
 
 			logInfo("Executing dustmite...");
 			auto testcmd = appender!string();
-			testcmd.formattedWrite("%s dustmite --vquiet --test-package=%s --build=%s --config=%s",
+			testcmd.formattedWrite("%s dustmite --test-package=%s --build=%s --config=%s",
 				thisExePath, prj.name, m_buildType, m_buildConfig);
 
 			if (m_compilerName.length) testcmd.formattedWrite(" \"--compiler=%s\"", m_compilerName);
@@ -2394,9 +2417,17 @@ class DustmiteCommand : PackageBuildCommand {
 			if (m_programStatusCode != int.min) testcmd.formattedWrite(" --program-status=%s", m_programStatusCode);
 			if (m_programRegex.length) testcmd.formattedWrite(" \"--program-regex=%s\"", m_programRegex);
 			if (m_combined) testcmd ~= " --combined";
+
+			// --vquiet swallows dustmite's output ...
+			if (!m_noRedirect) testcmd ~= " --vquiet";
+
 			// TODO: pass *all* original parameters
 			logDiagnostic("Running dustmite: %s", testcmd);
-			auto dmpid = spawnProcess(["dustmite", path.toNativeString(), testcmd.data]);
+
+			string[] extraArgs;
+			if (m_noRedirect) extraArgs ~= "--no-redirect";
+			const cmd = "dustmite" ~ extraArgs ~ [path.toNativeString(), testcmd.data];
+			auto dmpid = spawnProcess(cmd);
 			return dmpid.wait();
 		}
 		return 0;
@@ -2578,6 +2609,7 @@ private void showCommandHelp(Command cmd, CommandArgs args, CommandArgs common_a
 private void writeOptions(CommandArgs args)
 {
 	foreach (arg; args.recognizedArgs) {
+		if (arg.hidden) continue;
 		auto names = arg.names.split("|");
 		assert(names.length == 1 || names.length == 2);
 		string sarg = names[0].length == 1 ? names[0] : null;
@@ -2717,4 +2749,21 @@ unittest
 	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion("foo", ">=1.0.1"));
 	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion("foo", "~>1.0.1"));
 	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion("foo", "<1.0.1"));
+}
+
+private ulong canFindVersionSplitter(string packageName)
+{
+	// see splitPackageName
+	return packageName.canFind("@", "=");
+}
+
+unittest
+{
+	assert(!canFindVersionSplitter("foo"));
+	assert(canFindVersionSplitter("foo=1.0.1"));
+	assert(canFindVersionSplitter("foo@1.0.1"));
+	assert(canFindVersionSplitter("foo@==1.0.1"));
+	assert(canFindVersionSplitter("foo@>=1.0.1"));
+	assert(canFindVersionSplitter("foo@~>1.0.1"));
+	assert(canFindVersionSplitter("foo@<1.0.1"));
 }

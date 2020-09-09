@@ -128,7 +128,7 @@ unittest { // issue #711 - configuration default target type not correct for SDL
 
 	Note that the file extension must be either "json" or "sdl".
 */
-void writePackageRecipe(string filename, in ref PackageRecipe recipe)
+void writePackageRecipe(string filename, const scope ref PackageRecipe recipe)
 {
 	import dub.internal.vibecompat.core.file : openFile, FileMode;
 	auto f = openFile(filename, FileMode.createTrunc);
@@ -137,7 +137,7 @@ void writePackageRecipe(string filename, in ref PackageRecipe recipe)
 }
 
 /// ditto
-void writePackageRecipe(NativePath filename, in ref PackageRecipe recipe)
+void writePackageRecipe(NativePath filename, const scope ref PackageRecipe recipe)
 {
 	writePackageRecipe(filename.toNativeString, recipe);
 }
@@ -147,7 +147,7 @@ void writePackageRecipe(NativePath filename, in ref PackageRecipe recipe)
 	The extension of the supplied `filename` must be either "json" or "sdl".
 	The output format is chosen accordingly.
 */
-void serializePackageRecipe(R)(ref R dst, in ref PackageRecipe recipe, string filename)
+void serializePackageRecipe(R)(ref R dst, const scope ref PackageRecipe recipe, string filename)
 {
 	import std.algorithm : endsWith;
 	import dub.internal.vibecompat.data.json : writeJsonString;
@@ -160,4 +160,3 @@ void serializePackageRecipe(R)(ref R dst, in ref PackageRecipe recipe, string fi
 		toSDL(recipe).toSDLDocument(dst);
 	else assert(false, "writePackageRecipe called with filename with unknown extension: "~filename);
 }
-

@@ -481,6 +481,9 @@ class Dub {
 					if (!path.absolute) path = this.rootPath ~ path;
 					try if (m_packageManager.getOrLoadPackage(path)) continue;
 					catch (Exception e) { logDebug("Failed to load path based selection: %s", e.toString().sanitize); }
+				} else if (!dep.repository.empty) {
+					if (m_packageManager.loadSCMPackage(getBasePackageName(p), dep))
+						continue;
 				} else {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
 					foreach (ps; m_packageSuppliers) {
@@ -511,7 +514,7 @@ class Dub {
 			string rootbasename = getBasePackageName(m_project.rootPackage.name);
 
 			foreach (p, ver; versions) {
-				if (!ver.path.empty) continue;
+				if (!ver.path.empty || !ver.repository.empty) continue;
 
 				auto basename = getBasePackageName(p);
 				if (basename == rootbasename) continue;
@@ -523,7 +526,7 @@ class Dub {
 					continue;
 				}
 				auto sver = m_project.selections.getSelectedVersion(basename);
-				if (!sver.path.empty) continue;
+				if (!sver.path.empty || !sver.repository.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
 				logInfo("Package %s would be upgraded from %s to %s.",
 					basename, sver, ver);
@@ -543,6 +546,8 @@ class Dub {
 					logDebug("Failed to load path based selection: %s", e.toString().sanitize);
 					continue;
 				}
+			} else if (!ver.repository.empty) {
+				pack = m_packageManager.loadSCMPackage(p, ver);
 			} else {
 				pack = m_packageManager.getBestPackage(p, ver);
 				if (pack && m_packageManager.isManagedPackage(pack)
@@ -559,8 +564,11 @@ class Dub {
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
-				if (ver.path.empty) m_project.selections.selectVersion(p, ver.version_);
-				else {
+				if (!ver.repository.empty) {
+					m_project.selections.selectVersionWithRepository(p, ver.repository, ver.versionSpec);
+				} else if (ver.path.empty) {
+					m_project.selections.selectVersion(p, ver.version_);
+				} else {
 					NativePath relpath = ver.path;
 					if (relpath.absolute) relpath = relpath.relativeTo(m_project.rootPackage.path);
 					m_project.selections.selectVersion(p, relpath);
@@ -701,7 +709,6 @@ class Dub {
 								import core.runtime;
 								import std.exception;
 								Runtime.moduleUnitTester = () => true;
-								//runUnitTests!app(new JsonTestResultWriter("results.json"));
 								enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
 							}
 						}
@@ -1018,17 +1025,9 @@ class Dub {
 	void remove(string package_id, string version_, PlacementLocation location)
 	{
 		remove(package_id, location, (in packages) {
-			if (version_ == RemoveVersionWildcard)
+			if (version_ == RemoveVersionWildcard || version_.empty)
 				return packages.length;
-			if (version_.empty && packages.length > 1) {
-				logError("Cannot remove package '" ~ package_id ~ "', there are multiple possibilities at location\n"
-						 ~ "'" ~ to!string(location) ~ "'.");
-				logError("Available versions:");
-				foreach(pack; packages)
-					logError("  %s", pack.version_);
-				throw new Exception("Please specify a individual version using --version=... or use the"
-									~ " wildcard --version=" ~ RemoveVersionWildcard ~ " to remove all versions.");
-			}
+
 			foreach (i, p; packages) {
 				if (p.version_ == Version(version_))
 					return i;
@@ -1553,7 +1552,10 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 	protected override Dependency[] getSpecificConfigs(string pack, TreeNodes nodes)
 	{
-		if (!nodes.configs.path.empty && getPackage(pack, nodes.configs)) return [nodes.configs];
+		if (!nodes.configs.path.empty || !nodes.configs.repository.empty) {
+			if (getPackage(pack, nodes.configs)) return [nodes.configs];
+			else return null;
+		}
 		else return null;
 	}
 
@@ -1588,11 +1590,19 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				absdeppath.endsWithSlash = true;
 				auto subpack = m_dub.m_packageManager.getSubPackage(basepack, getSubPackageName(d.name), true);
 				if (subpack) {
-					auto desireddeppath = d.name == dbasename ? basepack.path : subpack.path;
+					auto desireddeppath = basepack.path;
 					desireddeppath.endsWithSlash = true;
-					enforce(d.spec.path.empty || absdeppath == desireddeppath,
-						format("Dependency from %s to root package references wrong path: %s vs. %s",
-							node.pack, absdeppath.toNativeString(), desireddeppath.toNativeString()));
+
+					auto altdeppath = d.name == dbasename ? basepack.path : subpack.path;
+					altdeppath.endsWithSlash = true;
+
+					if (absdeppath != desireddeppath)
+						logWarn("Warning: Sub package %s, referenced by %s %s must be referenced using the path to its base package",
+							subpack.name, pack.name, pack.version_);
+
+					enforce(d.spec.path.empty || absdeppath == desireddeppath || absdeppath == altdeppath,
+						format("Dependency from %s to %s uses wrong path: %s vs. %s",
+							node.pack, subpack.name, absdeppath.toNativeString(), desireddeppath.toNativeString()));
 				}
 				ret ~= TreeNodes(d.name, node.config);
 				continue;
@@ -1673,7 +1683,10 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		if (basename == m_rootPackage.basePackage.name)
 			return m_rootPackage.basePackage;
 
-		if (!dep.path.empty) {
+		if (!dep.repository.empty) {
+			auto ret = m_dub.packageManager.loadSCMPackage(name, dep);
+			return ret !is null && dep.matches(ret.version_) ? ret : null;
+		} else if (!dep.path.empty) {
 			try {
 				auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
 				if (dep.matches(ret.version_)) return ret;

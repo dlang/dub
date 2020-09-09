@@ -40,7 +40,7 @@ if ! $DUB describe --compiler=$DC --data-list \
     --data=requirements \
     --data=options \
     > "$temp_file_normal"; then
-    die 'Printing list-style project data failed!'
+    die $LINENO 'Printing list-style project data failed!'
 fi
 
 if ! $DUB describe --compiler=$DC --data-0 --data-list \
@@ -68,26 +68,26 @@ if ! $DUB describe --compiler=$DC --data-0 --data-list \
     --data=requirements \
     --data=options \
     | xargs -0 printf "%s\n" > "$temp_file_zero_delim"; then
-    die 'Printing null-delimited list-style project data failed!'
+    die $LINENO 'Printing null-delimited list-style project data failed!'
 fi
 
 if ! diff -b -B "$temp_file_normal" "$temp_file_zero_delim"; then
-    die 'The null-delimited list-style project data did not match the expected output!'
+    die $LINENO 'The null-delimited list-style project data did not match the expected output!'
 fi
 
 # Test --import-paths
 if ! $DUB describe --compiler=$DC --import-paths \
     > "$temp_file_normal"; then
-    die 'Printing --import-paths failed!'
+    die $LINENO 'Printing --import-paths failed!'
 fi
 
 if ! $DUB describe --compiler=$DC --data-0 --import-paths \
     | xargs -0 printf "%s\n" > "$temp_file_zero_delim"; then
-    die 'Printing null-delimited --import-paths failed!'
+    die $LINENO 'Printing null-delimited --import-paths failed!'
 fi
 
 if ! diff -b -B "$temp_file_normal" "$temp_file_zero_delim"; then
-    die 'The null-delimited --import-paths data did not match the expected output!'
+    die $LINENO 'The null-delimited --import-paths data did not match the expected output!'
 fi
 
 # DMD-only beyond this point
@@ -99,29 +99,29 @@ fi
 # Test dmd-style --data=versions
 if ! $DUB describe --compiler=$DC --data=versions \
     > "$temp_file_normal"; then
-    die 'Printing dmd-style --data=versions failed!'
+    die $LINENO 'Printing dmd-style --data=versions failed!'
 fi
 
 if ! $DUB describe --compiler=$DC --data-0 --data=versions \
     | xargs -0 printf "%s " > "$temp_file_zero_delim"; then
-    die 'Printing null-delimited dmd-style --data=versions failed!'
+    die $LINENO 'Printing null-delimited dmd-style --data=versions failed!'
 fi
 
 if ! diff -b -B "$temp_file_normal" "$temp_file_zero_delim"; then
-    die 'The null-delimited dmd-style --data=versions did not match the expected output!'
+    die $LINENO 'The null-delimited dmd-style --data=versions did not match the expected output!'
 fi
 
 # Test dmd-style --data=source-files
 if ! $DUB describe --compiler=$DC --data=source-files \
     > "$temp_file_normal"; then
-    die 'Printing dmd-style --data=source-files failed!'
+    die $LINENO 'Printing dmd-style --data=source-files failed!'
 fi
 
 if ! $DUB describe --compiler=$DC --data-0 --data=source-files \
     | xargs -0 printf "'%s' " > "$temp_file_zero_delim"; then
-    die 'Printing null-delimited dmd-style --data=source-files failed!'
+    die $LINENO 'Printing null-delimited dmd-style --data=source-files failed!'
 fi
 
 if ! diff -b -B "$temp_file_normal" "$temp_file_zero_delim"; then
-    die 'The null-delimited dmd-style --data=source-files did not match the expected output!'
+    die $LINENO 'The null-delimited dmd-style --data=source-files did not match the expected output!'
 fi

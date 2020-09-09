@@ -13,7 +13,7 @@ trap cleanup EXIT
 
 if ! $DUB describe --compiler=$DC --data-list --data=target-name \
     > "$temp_file" 2>&1; then
-    die 'Printing project data failed!'
+    die $LINENO 'Printing project data failed!'
 fi
 
 # Create the expected output file to compare stdout against.
@@ -25,5 +25,5 @@ echo "$CURR_DIR/issue616-subsubpack/src/" >> "$expected_file"
 echo "issue616-describe-vs-generate-commands" >> "$expected_file"
 
 if ! diff "$expected_file" "$temp_file"; then
-    die 'The stdout output did not match the expected output!'
+    die $LINENO 'The stdout output did not match the expected output!'
 fi

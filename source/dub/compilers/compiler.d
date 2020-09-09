@@ -72,7 +72,7 @@ interface Compiler {
 
 	/// Replaces high level fields with low level fields and converts
 	/// dmd flags to compiler-specific flags
-	void prepareBuildSettings(ref BuildSettings settings, in ref BuildPlatform platform, BuildSetting supported_fields = BuildSetting.all) const;
+	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform, BuildSetting supported_fields = BuildSetting.all) const;
 
 	/// Removes any dflags that match one of the BuildOptions values and populates the BuildSettings.options field.
 	void extractBuildOptions(ref BuildSettings settings) const;
@@ -156,12 +156,6 @@ interface Compiler {
 		// cmdline option does not lead to the same string being found among
 		// `build_platform.architecture`, as it's brittle and doesn't work with triples.
 		if (build_platform.compiler != "ldc") {
-			// Hack: see #1059
-			// When compiling with --arch=x86_mscoff build_platform.architecture is equal to ["x86"] and canFind below is false.
-			// This hack prevents unnesessary warning 'Failed to apply the selected architecture x86_mscoff. Got ["x86"]'.
-			// And also makes "x86_mscoff" available as a platform specifier in the package recipe
-			if (arch_override == "x86_mscoff")
-				build_platform.architecture ~= arch_override;
 			if (arch_override.length && !build_platform.architecture.canFind(arch_override)) {
 				logWarn(`Failed to apply the selected architecture %s. Got %s.`,
 					arch_override, build_platform.architecture);
