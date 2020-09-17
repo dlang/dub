@@ -75,12 +75,14 @@ EOF
 
 # pass test compiler requirement given as $1
 function test_cl_req_pass {
+    echo "Expecting success on '$DC $1'" 2>&1
     write_cl_req $1
-    $DUB --compiler=$DC --root=$TMPDIR || die $LINENO "Did not pass with $DC_NAME=\"$1\""
+    $DUB build -q --compiler=$DC --root=$TMPDIR || die $LINENO "Did not pass with $DC_NAME=\"$1\""
 }
 
 # fail test compiler requirement given as $1
 function test_cl_req_fail {
+    echo "Expecting failure on '$DC $1'" 2>&1
     write_cl_req $1
     ! $DUB --compiler=$DC --root=$TMPDIR || die $LINENO "Did not fail with $DC_NAME=\"$1\""
 }
