@@ -1,9 +1,0 @@
-`dub remove --non-interactive` will now remove all packages by default
-
-When calling a command with a package name and no version specification,
-the latest version is usually assumed.
-While this behavior makes sense for `dub fetch` or `dub run`,
-it can come  as a surprise when cleaning up local packages through `dub remove`,
-and so previous version would simply error out when more than one version was available.
-From this version, `dub remove -n $PKGNAME` will just remove all cached versions
-of the package named `$PKGNAME`, without asking you to use `$PKGNAME@*`.
