@@ -164,11 +164,7 @@ class Dub {
 
 		init(m_rootPath);
 
-		if (skip_registry == SkipPackageSuppliers.none)
-			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers);
-		else
-			m_packageSuppliers = getPackageSuppliers(additional_package_suppliers, skip_registry);
-
+		m_packageSuppliers = getPackageSuppliers(additional_package_suppliers, skip_registry);
 		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings);
 
 		auto ccps = m_config.customCachePaths;
