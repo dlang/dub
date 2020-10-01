@@ -89,10 +89,10 @@ struct BuildSettings {
 		addPostRunCommands(bs.postRunCommands);
 	}
 
-	void addDFlags(in string[] value...) { add(dflags, value); }
+	void addDFlags(in string[] value...) { dflags ~= value; }
 	void prependDFlags(in string[] value...) { prepend(dflags, value); }
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
-	void addLFlags(in string[] value...) { add(lflags, value); }
+	void addLFlags(in string[] value...) { lflags ~= value; }
 	void addLibs(in string[] value...) { add(libs, value); }
 	void addLinkerFiles(in string[] value...) { add(linkerFiles, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
