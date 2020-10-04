@@ -112,7 +112,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		}
 
 		// since LDC always outputs multiple object files, avoid conflicts by default
-		settings.addDFlags("-oq", "-od=.dub/obj");
+		settings.addDFlags("-oq", "-od="~settings.targetPath~"/obj");
 
 		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-d-version="~s)().array());
