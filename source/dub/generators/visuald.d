@@ -313,6 +313,9 @@ class VisualDGenerator : ProjectGenerator {
 				// Unittests
 				ret.formattedWrite("    <useUnitTests>%s</useUnitTests>\n", buildsettings.options & BuildOption.unittests ? "1" : "0");
 
+				// Better C
+				ret.formattedWrite("    <betterC>%s</betterC>\n", buildsettings.options & BuildOption.betterC ? "1" : "0");
+
 				// compute directory for intermediate files (need dummy/ because of how -op determines the resulting path)
 				size_t ndummy = 0;
 				foreach (f; buildsettings.sourceFiles) {
