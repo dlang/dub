@@ -474,6 +474,9 @@ version(DubUseCurl) {
 		}
 
 		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
+
+		enum CURL_NETRC_OPTIONAL = 1;
+		conn.handle.set(CurlOption.netrc, CURL_NETRC_OPTIONAL);
 	}
 }
 
