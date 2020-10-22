@@ -40,4 +40,4 @@ archiveName="dub-$VERSION-$OS-$ARCH_SUFFIX.tar.gz"
 
 echo "Building $archiveName"
 DMD="$(command -v $DMD)" ./build.d -release -m$ARCH ${CUSTOM_FLAGS[@]}
-tar cvfz "bin/$archiveName" -C bin dub
+tar cvfz "bin/$archiveName" --owner=0 --group=0 -C bin dub
