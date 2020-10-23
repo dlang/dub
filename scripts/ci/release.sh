@@ -40,4 +40,10 @@ archiveName="dub-$VERSION-$OS-$ARCH_SUFFIX.tar.gz"
 
 echo "Building $archiveName"
 DMD="$(command -v $DMD)" ./build.d -release -m$ARCH ${CUSTOM_FLAGS[@]}
-tar cvfz "bin/$archiveName" --owner=0 --group=0 -C bin dub
+if [[ "$OSTYPE" == darwin* ]]; then
+    TAR=gtar
+else
+    TAR=tar
+fi
+
+"$TAR" cvfz "bin/$archiveName" --owner=0 --group=0 -C bin dub
