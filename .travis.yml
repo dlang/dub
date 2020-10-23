@@ -27,6 +27,11 @@ jobs:
     - stage: deploy
       d: ldc-1.22.0,dub
       os: osx
+      addons:
+        homebrew:
+          packages:
+            - gnu-tar
+          update: true
       script: echo "Deploying to GitHub releases ..." && ./scripts/ci/release.sh
       deploy:
         - provider: releases
