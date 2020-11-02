@@ -29,7 +29,7 @@ import std.encoding : sanitize;
 
 string getObjSuffix(const scope ref BuildPlatform platform)
 {
-    return platform.platform.canFind("windows") ? ".obj" : ".o";
+	return platform.platform.canFind("windows") ? ".obj" : ".o";
 }
 
 string computeBuildName(string config, GeneratorSettings settings, const string[][] hashing...)
@@ -165,7 +165,8 @@ class BuildGenerator : ProjectGenerator {
 
 		// HACK: cleanup dummy doc files, we shouldn't specialize on buildType
 		// here and the compiler shouldn't need dummy doc output.
-		if (settings.buildType == "ddox") {
+		if (settings.buildType == "ddox")
+		{
 			if ("__dummy.html".exists)
 				removeFile("__dummy.html");
 			if ("__dummy_docs".exists)
@@ -173,7 +174,8 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		// run post-build commands
-		if (!cached && buildsettings.postBuildCommands.length) {
+		if (!cached && buildsettings.postBuildCommands.length)
+		{
 			logInfo("Running post-build commands...");
 			runBuildCommands(buildsettings.postBuildCommands, pack, m_project, settings, buildsettings);
 		}
@@ -187,13 +189,15 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = NativePath(getcwd());
 
 		NativePath target_path;
-		if (settings.tempBuild) {
+		if (settings.tempBuild)
+		{
 			string packageName = pack.basePackage is null ? pack.name : pack.basePackage.name;
 			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
 		}
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
-		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
+		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files))
+		{
 			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
@@ -202,7 +206,8 @@ class BuildGenerator : ProjectGenerator {
 			return true;
 		}
 
-		if (!isWritableDir(target_path, true)) {
+		if (!isWritableDir(target_path, true))
+		{
 			if (!settings.tempBuild)
 				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
 			performDirectBuild(settings, buildsettings, pack, config, target_path);
@@ -211,7 +216,8 @@ class BuildGenerator : ProjectGenerator {
 
 		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
 
-		if( buildsettings.preBuildCommands.length ){
+		if(buildsettings.preBuildCommands.length)
+		{
 			logInfo("Running pre-build commands...");
 			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
@@ -381,7 +387,8 @@ class BuildGenerator : ProjectGenerator {
 		import std.datetime;
 
 		auto targetfile = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
-		if (!existsFile(targetfile)) {
+		if (!existsFile(targetfile))
+		{
 			logDiagnostic("Target '%s' doesn't exist, need rebuild.", targetfile.toNativeString());
 			return false;
 		}
@@ -400,15 +407,18 @@ class BuildGenerator : ProjectGenerator {
 		if (checkSelectedVersions && main_pack is m_project.rootPackage && m_project.rootPackage.getAllDependencies().length > 0)
 			allfiles ~= (main_pack.path ~ SelectedVersions.defaultFile).toNativeString();
 
-		foreach (file; allfiles.data) {
-			if (!existsFile(file)) {
+		foreach (file; allfiles.data)
+		{
+			if (!existsFile(file))
+			{
 				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
 				return false;
 			}
 			auto ftime = getFileInfo(file).timeModified;
 			if (ftime > Clock.currTime)
 				logWarn("File '%s' was modified in the future. Please re-save.", file);
-			if (ftime > targettime) {
+			if (ftime > targettime)
+			{
 				logDiagnostic("File '%s' modified, need rebuild.", file);
 				return false;
 			}
