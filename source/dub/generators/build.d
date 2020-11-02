@@ -29,7 +29,7 @@ import std.encoding : sanitize;
 
 string getObjSuffix(const scope ref BuildPlatform platform)
 {
-    return platform.platform.canFind("windows") ? ".obj" : ".o";
+	return platform.platform.canFind("windows") ? ".obj" : ".o";
 }
 
 string computeBuildName(string config, GeneratorSettings settings, const string[][] hashing...)
@@ -44,7 +44,7 @@ string computeBuildName(string config, GeneratorSettings settings, const string[
 		addHash(strings);
 	auto hashstr = hash.finish().toHexString().idup;
 
-    return format("%s-%s-%s-%s-%s_%s-%s", config, settings.buildType,
+	return format("%s-%s-%s-%s-%s_%s-%s", config, settings.buildType,
 			settings.platform.platform.join("."),
 			settings.platform.architecture.join("."),
 			settings.platform.compiler, settings.platform.frontendVersion, hashstr);
