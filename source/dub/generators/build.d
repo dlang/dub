@@ -193,7 +193,9 @@ class BuildGenerator : ProjectGenerator {
 		}
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
-		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
+		auto allfiles = listAllFiles(buildsettings, settings, pack, packages, additional_dep_files);
+
+		if (!settings.force && isUpToDate(target_path, buildsettings, settings, allfiles)) {
 			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
@@ -376,17 +378,9 @@ class BuildGenerator : ProjectGenerator {
 		hardLinkFile(src, NativePath(buildsettings.targetPath) ~ filename, true);
 	}
 
-	private bool isUpToDate(NativePath target_path, BuildSettings buildsettings, GeneratorSettings settings, in Package main_pack, in Package[] packages, in NativePath[] additional_dep_files)
+	// list all files this project is dependent on
+	private auto listAllFiles(in BuildSettings buildsettings, in GeneratorSettings settings, in Package main_pack, in Package[] packages, in NativePath[] additional_dep_files)
 	{
-		import std.datetime;
-
-		auto targetfile = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
-		if (!existsFile(targetfile)) {
-			logDiagnostic("Target '%s' doesn't exist, need rebuild.", targetfile.toNativeString());
-			return false;
-		}
-		auto targettime = getFileInfo(targetfile).timeModified;
-
 		auto allfiles = appender!(string[]);
 		allfiles ~= buildsettings.sourceFiles;
 		allfiles ~= buildsettings.importFiles;
@@ -400,7 +394,21 @@ class BuildGenerator : ProjectGenerator {
 		if (checkSelectedVersions && main_pack is m_project.rootPackage && m_project.rootPackage.getAllDependencies().length > 0)
 			allfiles ~= (main_pack.path ~ SelectedVersions.defaultFile).toNativeString();
 
-		foreach (file; allfiles.data) {
+		return allfiles.data;
+	}
+
+	private bool isUpToDate(NativePath target_path, BuildSettings buildsettings, GeneratorSettings settings, in string[] allfiles)
+	{
+		import std.datetime;
+
+		auto targetfile = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
+		if (!existsFile(targetfile)) {
+			logDiagnostic("Target '%s' doesn't exist, need rebuild.", targetfile.toNativeString());
+			return false;
+		}
+		auto targettime = getFileInfo(targetfile).timeModified;
+
+		foreach (file; allfiles) {
 			if (!existsFile(file)) {
 				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
 				return false;
