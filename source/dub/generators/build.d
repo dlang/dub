@@ -134,7 +134,7 @@ class BuildGenerator : ProjectGenerator {
 	{
 		// run the generated executable
 		auto buildsettings = targets[m_project.rootPackage.name].buildSettings.dup;
-		if (settings.run && !(buildsettings.options & BuildOption.syntaxOnly)) {
+		if (settings.run && !(buildsettings.options & BuildOption.syntaxOnly) && buildsettings.targetType != TargetType.unlinkedObjects) {
 			NativePath exe_file_path;
 			if (m_tempTargetExecutablePath.empty)
 				exe_file_path = getTargetPath(buildsettings, settings);
@@ -196,7 +196,9 @@ class BuildGenerator : ProjectGenerator {
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
 			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
-			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
+			if (buildsettings.targetType != TargetType.unlinkedObjects)
+				target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
+
 			if (!settings.tempBuild)
 				copyTargetFile(target_path, buildsettings, settings);
 			return true;
@@ -210,6 +212,10 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
+
+		if (buildsettings.targetType == TargetType.unlinkedObjects && settings.compiler.name == "dmd") {
+			logWarn("Warning: Using unlinkedObjects with dmd might result in loss of object files with multiple files of same name in different folders.");
+		}
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
@@ -368,6 +374,11 @@ class BuildGenerator : ProjectGenerator {
 
 	private void copyTargetFile(NativePath build_path, BuildSettings buildsettings, GeneratorSettings settings)
 	{
+		if (buildsettings.targetType == TargetType.unlinkedObjects) {
+			copyObjectFiles(build_path, buildsettings, settings);
+			return;
+		}
+
 		auto filename = settings.compiler.getTargetFileName(buildsettings, settings.platform);
 		auto src = build_path ~ filename;
 		logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
@@ -376,9 +387,35 @@ class BuildGenerator : ProjectGenerator {
 		hardLinkFile(src, NativePath(buildsettings.targetPath) ~ filename, true);
 	}
 
+	private void copyObjectFiles(NativePath build_path, BuildSettings buildsettings, GeneratorSettings settings)
+	{
+		import std.path : relativePath;
+
+		auto src = build_path ~ NativePath("obj");
+		auto dst = NativePath(buildsettings.targetPath) ~ NativePath("obj");
+		logDiagnostic("Copying object files from %s to %s", src, dst);
+		if (existsFile(dst))
+			rmdirRecurse(dst.toNativeString);
+		mkdirRecurse(dst.toNativeString);
+
+		auto srcs = src.toNativeString();
+		foreach (DirEntry ent; dirEntries(srcs, SpanMode.breadth)) {
+			auto rel = relativePath(ent, srcs);
+			logDebug("Copying %s to %s", rel, dst);
+			if (ent.isDir) {
+				createDirectory(dst ~ rel);
+			} else {
+				hardLinkFile(src ~ rel, dst ~ rel, true);
+			}
+		}
+	}
+
 	private bool isUpToDate(NativePath target_path, BuildSettings buildsettings, GeneratorSettings settings, in Package main_pack, in Package[] packages, in NativePath[] additional_dep_files)
 	{
 		import std.datetime;
+
+		if (buildsettings.targetType == TargetType.unlinkedObjects)
+			return areAllObjectFilesUpToDate(target_path, buildsettings, settings, main_pack, packages, additional_dep_files);
 
 		auto targetfile = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 		if (!existsFile(targetfile)) {
@@ -416,6 +453,66 @@ class BuildGenerator : ProjectGenerator {
 		return true;
 	}
 
+	private bool areAllObjectFilesUpToDate(NativePath target_path, BuildSettings buildsettings, GeneratorSettings settings, in Package main_pack, in Package[] packages, in NativePath[] additional_dep_files)
+	{
+		import std.datetime : Clock;
+
+		auto objPath = NativePath(buildsettings.targetPath) ~ NativePath("obj");
+		if (!existsFile(objPath))
+			return false;
+
+		string objectExtension;
+		if (settings.compiler.name == "ldc") {
+			if (buildsettings.dflags.canFind("-output-ll", "--output-ll")) {
+				objectExtension = ".ll";
+			} else if (buildsettings.dflags.canFind("-output-s", "--output-s")) {
+				objectExtension = ".s";
+			} else {
+				objectExtension = getObjSuffix(settings.platform);
+			}
+		} else {
+			objectExtension = getObjSuffix(settings.platform);
+		}
+
+		// TODO: test import files, string import files, extra dependency files, library files, recipe paths
+		foreach (file; buildsettings.sourceFiles) {
+			if (!existsFile(file)) {
+				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
+				return false;
+			}
+
+			auto ftime = getFileInfo(file).timeModified;
+
+			if (settings.compiler.name == "dmd") {
+				string input = NativePath(file).head.name;
+				if (!input.endsWith(".d"))
+					continue; // .di or other source files
+
+				input = input[0 .. $ - ".d".length] ~ objectExtension;
+
+				auto objFile = objPath ~ NativePath(input);
+
+				if (!existsFile(objFile)) {
+					logDiagnostic("File '%s' (determined from %s) doesn't exist, need rebuild.", objFile, file);
+					return false;
+				}
+
+				auto objTime = getFileInfo(objFile).timeModified;
+
+				if (ftime > Clock.currTime)
+					logWarn("File '%s' was modified in the future. Please re-save.", file);
+				if (ftime > objTime) {
+					logDiagnostic("File '%s' modified, need rebuild.", file);
+					return false;
+				}
+			} else {
+				// TODO: find out module name of `file` and compare it with the one in the obj output folder
+			}
+		}
+		//return true;
+		return settings.compiler.name == "dmd";
+	}
+
 	/// Output an unique name to represent the source file.
 	/// Calls with path that resolve to the same file on the filesystem will return the same,
 	/// unless they include different symbolic links (which are not resolved).
@@ -447,7 +544,7 @@ class BuildGenerator : ProjectGenerator {
 
 	private void buildWithCompiler(GeneratorSettings settings, BuildSettings buildsettings)
 	{
-		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
+		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly) && buildsettings.targetType != TargetType.unlinkedObjects;
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
 
 		scope (failure) {
@@ -603,7 +700,11 @@ private NativePath getMainSourceFile(in Package prj)
 
 private NativePath getTargetPath(const scope ref BuildSettings bs, const scope ref GeneratorSettings settings)
 {
-	return NativePath(bs.targetPath) ~ settings.compiler.getTargetFileName(bs, settings.platform);
+	auto targetName = settings.compiler.getTargetFileName(bs, settings.platform);
+	if (targetName.length)
+		return NativePath(bs.targetPath) ~ targetName;
+	else
+		return NativePath(bs.targetPath);
 }
 
 private string shrinkPath(NativePath path, NativePath base)

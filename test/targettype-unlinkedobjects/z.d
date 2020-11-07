@@ -1,0 +1,3 @@
+module z;
+
+void fooZ() {}

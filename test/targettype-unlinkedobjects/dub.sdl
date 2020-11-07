@@ -1,0 +1,4 @@
+name "targettype-unlinkedobjects"
+targetType "unlinkedObjects"
+importPaths "."
+sourceFiles "z.d"

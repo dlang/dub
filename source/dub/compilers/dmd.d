@@ -232,6 +232,11 @@ config    /etc/dmd.conf
 		if (platform.platform.canFind("posix") && (settings.options & BuildOption.pic))
 			settings.addDFlags("-fPIC");
 
+		if (settings.targetType == TargetType.unlinkedObjects) {
+			// don't use -op here because with paths going any parent folder it will mess up
+			settings.addDFlags("-c", "-od=" ~ (NativePath(settings.targetPath) ~ NativePath("obj")).toNativeString());
+		}
+
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
 	}
@@ -282,6 +287,7 @@ config    /etc/dmd.conf
 				if (platform.platform.canFind("windows"))
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
+			case TargetType.unlinkedObjects: return null;
 		}
 	}
 
@@ -291,6 +297,7 @@ config    /etc/dmd.conf
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
 			case TargetType.none: assert(false, "Invalid target type: none");
 			case TargetType.sourceLibrary: assert(false, "Invalid target type: sourceLibrary");
+			case TargetType.unlinkedObjects: assert(false, "Invalid target type: unlinkedObjects");
 			case TargetType.executable: break;
 			case TargetType.library:
 			case TargetType.staticLibrary:
