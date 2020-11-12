@@ -228,6 +228,9 @@ class VisualDGenerator : ProjectGenerator {
 			ret.put("\n  </Folder>\n</DProject>");
 
 			logDebug("About to write to '%s.visualdproj' file %s bytes", getPackageFileName(packname), ret.data.length);
+			auto basepath = NativePath(".dub/");
+			if (!isWritableDir(basepath, true))
+				throw new Exception(".dub is not writeable");
 			auto proj = openFile(projFileName(packname), FileMode.createTrunc);
 			scope(exit) proj.close();
 			proj.put(ret.data);
