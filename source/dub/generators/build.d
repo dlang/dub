@@ -210,7 +210,8 @@ class BuildGenerator : ProjectGenerator {
 			break;
 			case HashKind.sha256:
 				logWarn("Using hash-dependent build (sha256)");
-				assert(0, "not implemented yet");
+				buildCache = new Sha256DependentCache(target_path, allfiles);
+			break;
 		}
 
 		if (!settings.force && buildCache.isUpToDate)
@@ -802,6 +803,34 @@ class Sha1DependentCache : DigestDependentCache {
 			allfiles,
 			emplace!SHA1Digest(_holder),
 			buildPath(target_path.toNativeString, "filehash.sha1")
+		);
+	}
+
+	~this() {
+		destroy(_digest);
+	}
+
+	protected override ubyte[] buffer() nothrow {
+		return _buffer[];
+	}
+}
+
+class Sha256DependentCache : DigestDependentCache {
+	private {
+		import std.digest.sha : SHA256Digest;
+		import std.path : buildPath;
+
+		ubyte[32] _buffer;
+		ubyte[__traits(classInstanceSize, SHA256Digest)] _holder;
+	}
+
+	/// ditto
+	this(NativePath target_path, in string[] allfiles)
+	{
+		super(
+			allfiles,
+			emplace!SHA256Digest(_holder),
+			buildPath(target_path.toNativeString, "filehash.sha256")
 		);
 	}
 
