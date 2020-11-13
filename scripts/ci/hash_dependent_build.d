@@ -98,11 +98,6 @@ int main()
         getTimes(artifact_name, atime, mtime);
         setTimes(source_name, atime + delay, mtime + delay);
 
-        writeln("Change time of `source\\app.d to:");
-        writeln("access time: ", atime + delay);
-        writeln("modify time: ", mtime + delay);
-        writeln;
-
         // wait for the delay to avoid time related issues
         import core.thread : Thread;
         Thread.sleep(delay);
