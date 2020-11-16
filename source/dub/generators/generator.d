@@ -97,9 +97,15 @@ class ProjectGenerator
 			BuildSettings buildSettings;
 			auto config = configs[pack.name];
 			buildSettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, config), settings, true);
-			targets[pack.name] = TargetInfo(pack, [pack], config, buildSettings);
 
 			prepareGeneration(pack, m_project, settings, buildSettings);
+
+			// Regenerate buildSettings.sourceFiles
+			if (buildSettings.preGenerateCommands.length) {
+				buildSettings = BuildSettings.init;
+				buildSettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, config), settings, true);
+			}
+			targets[pack.name] = TargetInfo(pack, [pack], config, buildSettings);
 		}
 
 		configurePackages(m_project.rootPackage, targets, settings);
