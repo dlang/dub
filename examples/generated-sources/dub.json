@@ -1,11 +1,7 @@
 {
 	"name": "generated-sources",
 	"description": "Example of using pre generate commands to generate source code.",
-	"sourceFiles": [ "source/test.d" ],
 	"preGenerateCommands": [
-		"echo 'Currently, a workaround is necessary to support source-code generate through pre*Commands'",
-		"echo 'Generated source files need to be added to sourceFiles, otherwise they wont be picked up on first run'",
-		"echo 'See dlang/dub issue 1474 for more details / discussions.'",
 		"echo 'int fun() { return 42; }' > source/test.d"
 	]
 }
