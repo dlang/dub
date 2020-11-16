@@ -133,7 +133,9 @@ private:
 	// Append vals to arr without adding duplicates.
 	static void add(ref string[] arr, in string[] vals, bool noDuplicates = true)
 	{
-		arr ~= filterDuplicates(arr, vals, noDuplicates);
+		// vals might contain duplicates, add each val individually
+		foreach (val; vals)
+			arr ~= filterDuplicates(arr, [val], noDuplicates);
 	}
 
 	unittest
@@ -143,12 +145,17 @@ private:
 		assert(ary == ["-dip1000", "-vgc"]);
 		BuildSettings.add(ary, ["-dip1001", "-vgc"], false);
 		assert(ary == ["-dip1000", "-vgc", "-dip1001", "-vgc"]);
+		BuildSettings.add(ary, ["-dupflag", "-notdupflag", "-dupflag"]);
+		assert(ary == ["-dip1000", "-vgc", "-dip1001", "-vgc", "-dupflag", "-notdupflag"]);
 	}
 
 	// Prepend arr by vals without adding duplicates.
 	static void prepend(ref string[] arr, in string[] vals, bool noDuplicates = true)
 	{
-		arr = filterDuplicates(arr, vals, noDuplicates) ~ arr;
+		import std.range : retro;
+		// vals might contain duplicates, add each val individually
+		foreach (val; vals.retro)
+			arr = filterDuplicates(arr, [val], noDuplicates) ~ arr;
 	}
 
 	unittest
@@ -158,6 +165,8 @@ private:
 		assert(ary == ["-dip1000", "-vgc"]);
 		BuildSettings.prepend(ary, ["-dip1001", "-vgc"], false);
 		assert(ary == ["-dip1001", "-vgc", "-dip1000", "-vgc"]);
+		BuildSettings.prepend(ary, ["-dupflag", "-notdupflag", "-dupflag"]);
+		assert(ary == ["-notdupflag", "-dupflag", "-dip1001", "-vgc", "-dip1000", "-vgc"]);
 	}
 
 	// add string import files (avoids file name duplicates in addition to path duplicates)
