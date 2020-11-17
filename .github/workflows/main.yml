@@ -39,7 +39,7 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         brew install pkg-config coreutils
-        echo ::set-env name=PKG_CONFIG_PATH::/usr/local/opt/openssl@1.1/lib/pkgconfig/
+        echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig/" >> $GITHUB_ENV
 
     - name: '[Linux] Install dependencies'
       if: runner.os == 'Linux'
