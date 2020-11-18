@@ -1,0 +1,12 @@
+Dub will now automatically exclude `mainSourceFile` from other configurations
+
+By default, Dub uses all files it can find under its `sourcePaths`.
+However, a common pattern when dealing with multiple targets is to use
+configurations to represent said targets. In the case those targets are executables,
+users would be forced to add main files from other configurations to the
+`excludedSourceFiles` list, or store the main in a different directory outside of
+the sourcePaths.
+
+To simplify this workflow, Dub will now exclude files listed in mainSourceFile
+for other configuration. In case this is not desirable, the files need to be manually
+added to the `sourceFiles` list.

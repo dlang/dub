@@ -1,0 +1,24 @@
+{
+	"description": "A minimal D application.",
+	"name": "mutex-main",
+	"targetType": "executable",
+
+	"configurations": [
+		{
+			"name": "app",
+			"targetName": "app",
+			"mainSourceFile": "source/app.d"
+		},
+		{
+			"name": "app2",
+			"targetName": "app2",
+			"mainSourceFile": "source/app2.d"
+		},
+		{
+			"name": "failapp",
+			"targetName": "failapp",
+			"mainSourceFile": "source/app.d",
+			"sourceFiles": ["source/app2.d"]
+		}
+	]
+}
