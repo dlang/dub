@@ -178,6 +178,12 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 					}
 					enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 					bs.dependencies[pkg] = Dependency.fromJson(verspec);
+					if (verspec.type == Json.Type.object)
+					{
+						BuildSettingsTemplate dbs;
+						dbs.parseJson(verspec, package_name);
+						bs.dependencyBuildSettings[pkg] = dbs;
+					}
 				}
 				break;
 			case "systemDependencies":
