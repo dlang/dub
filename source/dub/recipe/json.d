@@ -177,7 +177,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 						pkg = package_name ~ pkg;
 					}
 					enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
-					bs.dependencies[pkg] = deserializeJson!Dependency(verspec);
+					bs.dependencies[pkg] = Dependency.fromJson(verspec);
 				}
 				break;
 			case "systemDependencies":
@@ -251,7 +251,7 @@ private Json toJson(const scope ref BuildSettingsTemplate bs)
 	if( bs.dependencies !is null ){
 		auto deps = Json.emptyObject;
 		foreach( pack, d; bs.dependencies )
-			deps[pack] = serializeToJson(d);
+			deps[pack] = d.toJson();
 		ret["dependencies"] = deps;
 	}
 	if (bs.systemDependencies !is null) ret["systemDependencies"] = bs.systemDependencies;
