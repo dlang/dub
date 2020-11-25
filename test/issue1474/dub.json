@@ -1,7 +1,8 @@
 {
 	"name": "generated-sources",
 	"description": "Example of using pre generate commands to generate source code.",
+	"sourceFiles": ["ext/*.d"],
 	"preGenerateCommands": [
-		"echo 'int fun() { return 42; }' > source/test.d"
+		"echo 'extern(C) int fun42 () { return 42; }' > ext/fortytwo.d"
 	]
 }

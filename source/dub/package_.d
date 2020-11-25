@@ -118,6 +118,7 @@ class Package {
 
 		checkDubRequirements();
 		fillWithDefaults();
+		mutuallyExcludeMainFiles();
 	}
 
 	/** Searches the given directory for package recipe files.
@@ -738,6 +739,30 @@ class Package {
 				logWarn("Warning: Multiple configurations with the name \"%s\" are defined in package \"%s\". This will most likely cause configuration resolution issues.",
 					c.name, this.name);
 			cnames[c.name] = true;
+		}
+	}
+
+	/// Exclude files listed in mainSourceFile for other configurations unless they are listed in sourceFiles
+	private void mutuallyExcludeMainFiles()
+	{
+		string[] allMainFiles;
+		foreach (ref config; m_info.configurations)
+			if (!config.buildSettings.mainSourceFile.empty())
+				allMainFiles ~= config.buildSettings.mainSourceFile;
+
+		if (allMainFiles.length == 0)
+			return;
+
+		foreach (ref config; m_info.configurations) {
+			import std.algorithm.searching : canFind;
+			auto bs = &config.buildSettings;
+			auto otherMainFiles = allMainFiles.filter!(elem => (elem != bs.mainSourceFile)).array;
+
+			if (bs.sourceFiles.length == 0)
+				bs.excludedSourceFiles[""] ~= otherMainFiles;
+			else
+				foreach (suffix, arr; bs.sourceFiles)
+					bs.excludedSourceFiles[suffix] ~= otherMainFiles.filter!(elem => !canFind(arr, elem)).array;
 		}
 	}
 }

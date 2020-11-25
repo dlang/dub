@@ -228,6 +228,9 @@ class VisualDGenerator : ProjectGenerator {
 			ret.put("\n  </Folder>\n</DProject>");
 
 			logDebug("About to write to '%s.visualdproj' file %s bytes", getPackageFileName(packname), ret.data.length);
+			auto basepath = NativePath(".dub/");
+			if (!isWritableDir(basepath, true))
+				throw new Exception(".dub is not writeable");
 			auto proj = openFile(projFileName(packname), FileMode.createTrunc);
 			scope(exit) proj.close();
 			proj.put(ret.data);
@@ -309,6 +312,9 @@ class VisualDGenerator : ProjectGenerator {
 
 				// Unittests
 				ret.formattedWrite("    <useUnitTests>%s</useUnitTests>\n", buildsettings.options & BuildOption.unittests ? "1" : "0");
+
+				// Better C
+				ret.formattedWrite("    <betterC>%s</betterC>\n", buildsettings.options & BuildOption.betterC ? "1" : "0");
 
 				// compute directory for intermediate files (need dummy/ because of how -op determines the resulting path)
 				size_t ndummy = 0;

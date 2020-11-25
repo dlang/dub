@@ -1,0 +1,5 @@
+Support for .netrc file added
+
+Basic authentication credentials defined in .netrc file
+will now be taken into account while connecting to secured
+repositories.
