@@ -1084,7 +1084,7 @@ class GenerateCommand : PackageBuildCommand {
 		bool m_combined = false;
 		bool m_parallel = false;
 		bool m_printPlatform, m_printBuilds, m_printConfigs;
-		HashKind m_hash;
+		HashKind m_hash_kind;
 	}
 
 	this() @safe pure nothrow
@@ -1171,7 +1171,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.tempBuild = m_tempBuild;
 		gensettings.parallelBuild = m_parallel;
 		gensettings.single = m_single;
-		gensettings.hashKind = m_hash;
+		gensettings.hashKind = m_hash_kind;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
@@ -1210,7 +1210,7 @@ class BuildCommand : GenerateCommand {
 		args.getopt("n|non-interactive", &m_nonInteractive, [
 			"Don't enter interactive mode."
 		]);
-		args.getopt("hash", &m_hash, [
+		args.getopt("hash", &m_hash_kind, [
 			"Use hash dependent build instead of file timestamp dependent one"
 		]);
 		super.prepare(args);
