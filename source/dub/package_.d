@@ -671,55 +671,62 @@ class Package {
 			}
 		}
 
-		// check for default source folders
-		immutable hasSP = ("" in bs.sourcePaths) !is null;
-		immutable hasIP = ("" in bs.importPaths) !is null;
-		if (!hasSP || !hasIP) {
-			foreach (defsf; ["source/", "src/"]) {
-				if (existsFile(m_path ~ defsf)) {
-					if (!hasSP) bs.sourcePaths[""] ~= defsf;
-					if (!hasIP) bs.importPaths[""] ~= defsf;
-				}
-			}
-		}
-
-		// check for default app_main
-		string app_main_file;
-		auto pkg_name = m_info.name.length ? m_info.name : "unknown";
-		foreach(sf; bs.sourcePaths.get("", null)){
-			auto p = m_path ~ sf;
-			if( !existsFile(p) ) continue;
-			foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
-				if( existsFile(p ~ fil) ) {
-					app_main_file = (NativePath(sf) ~ fil).toNativeString();
-					break;
-				}
-			}
-		}
-
 		// generate default configurations if none are defined
 		if (m_info.configurations.length == 0) {
 			if (bs.targetType == TargetType.executable) {
 				BuildSettingsTemplate app_settings;
 				app_settings.targetType = TargetType.executable;
-				if (bs.mainSourceFile.empty) app_settings.mainSourceFile = app_main_file;
 				m_info.configurations ~= ConfigurationInfo("application", app_settings);
 			} else if (bs.targetType != TargetType.none) {
 				BuildSettingsTemplate lib_settings;
-				lib_settings.targetType = bs.targetType == TargetType.autodetect ? TargetType.library : bs.targetType;
+				lib_settings.targetType = bs.targetType;
+				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
+			}
+		}
 
-				if (bs.targetType == TargetType.autodetect) {
-					if (app_main_file.length) {
-						lib_settings.excludedSourceFiles[""] ~= app_main_file;
+		foreach (ref config; m_info.configurations)
+		{
+			auto confBS = &config.buildSettings;
+			// check for default source folders
+			immutable hasSP = ("" in confBS.sourcePaths) !is null || ("" in bs.sourcePaths) !is null;
+			immutable hasIP = ("" in bs.importPaths) !is null;
 
-						BuildSettingsTemplate app_settings;
-						app_settings.targetType = TargetType.executable;
-						app_settings.mainSourceFile = app_main_file;
-						m_info.configurations ~= ConfigurationInfo("application", app_settings);
+			if (!hasSP || !hasIP) {
+				foreach (defsf; ["source/", "src/"]) {
+					if (existsFile(m_path ~ defsf)) {
+						if (!hasSP) confBS.sourcePaths[""] ~= defsf;
+						if (!hasIP) bs.importPaths[""] ~= defsf;
 					}
 				}
+			}
 
-				m_info.configurations ~= ConfigurationInfo("library", lib_settings);
+			// check for default app_main
+			string app_main_file;
+			auto pkg_name = m_info.name.length ? m_info.name : "unknown";
+			auto sourcePathsComb = bs.sourcePaths.get("", null) ~ confBS.sourcePaths.get("", null);
+			foreach(sf; sourcePathsComb){
+				auto p = m_path ~ sf;
+				if( !existsFile(p) ) continue;
+				foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
+					if( existsFile(p ~ fil) ) {
+						app_main_file = (NativePath(sf) ~ fil).toNativeString();
+						break;
+					}
+				}
+			}
+
+			if (confBS.targetType == TargetType.executable) {
+				if (bs.mainSourceFile.empty && confBS.mainSourceFile.empty)
+					confBS.mainSourceFile = app_main_file;
+			} else if (confBS.targetType == TargetType.autodetect) {
+				if (!bs.mainSourceFile.empty || !app_main_file.empty || !confBS.mainSourceFile.empty) {
+					confBS.targetType = TargetType.executable;
+					if (bs.mainSourceFile.empty && confBS.mainSourceFile.empty)
+						confBS.mainSourceFile = app_main_file;
+					config.name = "application";
+				} else {
+					confBS.targetType = TargetType.library;
+				}
 			}
 		}
 	}

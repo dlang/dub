@@ -1,0 +1,15 @@
+{
+    "name": "dub-bug",
+    "configurations": [
+        {
+            "name": "app1",
+            "targetName": "bug-app1",
+            "sourcePaths": [ "source/app1" ]
+        },
+        {
+            "name": "app2",
+            "targetName": "bug-app2",
+            "sourcePaths": [ "source/app2" ]
+        }
+    ]
+}
