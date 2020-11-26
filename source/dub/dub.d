@@ -332,6 +332,19 @@ class Dub {
 	*/
 	@property string defaultArchitecture() const { return m_defaultArchitecture; }
 
+	/** Hash algorithm used for hashing cached build artefacts.
+
+		This is used by `BuildGenerator` to calculate hash sum of source files.
+	*/
+	@property HashKind hashKind() const { return m_config.hashKind; }
+
+	unittest
+	{
+		auto dub = new Dub();
+		dub.m_config = new DubConfig(Json(["hashKind": Json("sha1")]), null);
+		assert(dub.hashKind == HashKind.sha1);
+	}
+
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
 	void loadPackage()
@@ -761,6 +774,7 @@ class Dub {
 		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
 		settings.run = true;
+		settings.hashKind = hashKind;
 
 		foreach (dependencyPackage; m_project.dependencies)
 		{
@@ -1257,6 +1271,7 @@ class Dub {
 		settings.buildType = "debug";
 		settings.run = true;
 		settings.runArgs = runArgs;
+		settings.hashKind = hashKind;
 		initSubPackage.recipe.buildSettings.workingDirectory = path.toNativeString();
 		template_dub.generateProject("build", settings);
 	}
@@ -1327,6 +1342,7 @@ class Dub {
 		settings.compiler = getCompiler(compiler_binary); // TODO: not using --compiler ???
 		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
+		settings.hashKind = hashKind;
 		settings.run = true;
 
 		auto filterargs = m_project.rootPackage.recipe.ddoxFilterArgs.dup;
@@ -1794,6 +1810,16 @@ private class DubConfig {
 			return m_parentConfig.skipRegistry;
 
 		return SkipPackageSuppliers.none;
+	}
+
+	@property HashKind hashKind()
+	const {
+		if (auto pv = "hashKind" in m_data)
+			return (pv.get!string.to!HashKind);
+		if (m_parentConfig)
+			return m_parentConfig.hashKind;
+
+		return HashKind.absence;
 	}
 
 	@property NativePath[] customCachePaths()
