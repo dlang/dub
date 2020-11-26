@@ -1334,7 +1334,7 @@ unittest
 // Keep the following list up-to-date if adding more build settings variables.
 /// List of variables that can be used in build settings
 package(dub) immutable buildSettingsVars = [
-	"ARCH", "PLATFORM", "PLATFORM_POSIX", "BUILD_TYPE"
+	"ARCH", "DUB_PLATFORM_OS", "PLATFORM", "PLATFORM_POSIX", "BUILD_TYPE"
 ];
 
 private string getVariable(Project, Package)(string name, in Project project, in Package pack, in GeneratorSettings gsettings)
@@ -1373,6 +1373,16 @@ private string getVariable(Project, Package)(string name, in Project project, in
 	if (name == "ARCH") {
 		foreach (a; gsettings.platform.architecture)
 			return a;
+		return "";
+	}
+
+	if (name == "DUB_PLATFORM_OS") {
+		import std.algorithm : filter;
+		import std.range : retro;
+		foreach (p; gsettings.platform.platform[].retro.filter!(p => p != "posix"))
+			return p;
+		foreach (p; gsettings.platform.platform.retro)
+			return p;
 		return "";
 	}
 
