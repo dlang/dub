@@ -1171,7 +1171,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.tempBuild = m_tempBuild;
 		gensettings.parallelBuild = m_parallel;
 		gensettings.single = m_single;
-		gensettings.hashKind = dub.hashKind;
+		gensettings.hashKind = (m_hash_kind != HashKind.absence) ? m_hash_kind : dub.hashKind;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
