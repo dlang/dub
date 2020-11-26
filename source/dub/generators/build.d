@@ -196,7 +196,10 @@ class BuildGenerator : ProjectGenerator {
 		auto allfiles = listAllFiles(buildsettings, settings, pack, packages, additional_dep_files);
 		BuildCache buildCache;
 		final switch(settings.hashKind) {
-			case HashKind.none:
+			case HashKind.absence:
+				logWarn("No cache build policy set");
+				goto case HashKind.time; // default value
+			case HashKind.time:
 				logWarn("Using time-dependent build");
 				buildCache = new TimeDependentCache(target_path, buildsettings, settings, allfiles);
 			break;

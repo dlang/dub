@@ -20,7 +20,7 @@ else             immutable artifact_name = TestProjectName;
 auto buildUsingHash(bool flag) {
     import std.exception : enforce;
 
-    auto dub = executeShell(buildNormalizedPath("..", "..", "bin", "dub") ~ " build --hash=%s".format(flag ? "sha256" : "none"));
+    auto dub = executeShell(buildNormalizedPath("..", "..", "bin", "dub") ~ " build --hash=%s".format(flag ? "sha256" : "time"));
     writeln("dub output:");
     import std.string : lineSplitter;
     foreach(line; dub.output.lineSplitter)

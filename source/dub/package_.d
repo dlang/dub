@@ -38,7 +38,8 @@ enum PackageFormat {
 }
 
 enum HashKind {
-	none,
+	absence,
+	time,
 	sha1,
 	sha256,
 }
