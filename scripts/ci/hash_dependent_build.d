@@ -19,12 +19,31 @@ else             immutable artifact_name = TestProjectName;
 
 enum HashKind { absence, time, sha1, sha256 }
 
+/// extract hash kind from line containing dub output
+auto extractHashKind(string str) {
+    import std.string : lineSplitter;
+
+    static enum link = ["time-dependent build":"time", "(sha1)":"sha1", "(sha256)":"sha256"];
+
+    foreach(line; str.lineSplitter)
+    {
+        foreach(e; link.byKeyValue) {
+            if (line.length >= e.key.length) {
+                if (line[$-e.key.length..$] == e.key)
+                    return e.value;
+            }
+        }
+    }
+
+    return "";
+}
+
 /// build target using given hash kind
-auto buildTargetUsing(HashKind kind) {
+auto buildTargetUsing(HashKind kind, string[string] env = null) {
     import std.exception : enforce;
 
     auto dub = executeShell(buildNormalizedPath("..", "..", "bin", "dub") ~ 
-        " build --hash=%s".format(kind));
+        " build --hash=%s".format(kind), env);
     writeln("dub output:");
     import std.string : lineSplitter;
     foreach(line; dub.output.lineSplitter)
@@ -156,6 +175,38 @@ int main()
     output = buildTargetUsing(HashKind.sha256);
     if (!checkIfRebuildTriggered(output))
         return 1;
+
+    // Tests for command line interface option, environment variable and
+    // settings file values combination
+    {
+        string[string[3]] preset = [
+            // cli        env        settings
+            ["absence", "absence", "absence"]: "time",
+            ["absence", "absence", "sha1"   ]: "sha1",
+            ["absence", "sha256",  "sha1"   ]: "sha256",
+            ["absence", "sha1",    "sha256" ]: "sha1",
+            ["sha256",  "sha1",    "time"   ]: "sha256",
+            ["sha1",    "sha256",  "time"   ]: "sha1",
+            ["sha256",  "time",    "sha1"   ]: "sha256",
+            ["sha1",    "time",    "sha256" ]: "sha1",
+        ];
+        foreach(key, value; preset)
+        {
+            import std.conv : to, text;
+            import std.stdio : File, writefln;
+
+            writefln("cli: %s\tenv: %s\tsetting: %s\tresult: %s", key[0], key[1], key[2], value);
+
+            // write to settings file
+            {
+                File("./dub.settings.json", "w").writefln("{ \"hashKind\" : \"%s\" }", key[2]);
+            }
+
+            auto output = buildTargetUsing(key[0].to!HashKind, ["DUB_HASH_KIND":key[1]]);
+            auto str = extractHashKind(output);
+            assert(str == value, text("Given ", key, " but got `", str, "` instead of `", value, "`"));
+        }
+    }
 
     // undo changes in source/app.d (i.e. restore its content)
     // dub build --hash=sha256
