@@ -1155,6 +1155,32 @@ class GenerateCommand : PackageBuildCommand {
 			logInfo("");
 		}
 
+		// Merge hash kind values got from command line option, settings file and environment
+		// Priority is:
+		// - cli option
+		// - environment
+		// - settings file
+		// - default value
+		{
+			import std.process : environment;
+			HashKind env_hash_kind;
+			string str;
+			try
+			{
+				str = environment.get("DUB_HASH_KIND");
+				if (str.length)
+					env_hash_kind = str.to!HashKind;
+			}
+			catch(Exception e)
+			{
+				logWarn("Wrong value of DUB_HASH_KIND environment variable: `%s`. Default value will be used", str);
+				env_hash_kind = HashKind.absence;
+			}
+
+			if (m_hash_kind == HashKind.absence) 
+				m_hash_kind = (env_hash_kind != HashKind.absence) ? env_hash_kind : dub.hashKind;
+		}
+
 		GeneratorSettings gensettings;
 		gensettings.platform = m_buildPlatform;
 		gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
@@ -1171,7 +1197,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.tempBuild = m_tempBuild;
 		gensettings.parallelBuild = m_parallel;
 		gensettings.single = m_single;
-		gensettings.hashKind = (m_hash_kind != HashKind.absence) ? m_hash_kind : dub.hashKind;
+		gensettings.hashKind = m_hash_kind;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
