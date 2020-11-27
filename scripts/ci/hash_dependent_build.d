@@ -17,10 +17,14 @@ immutable source_name = "source/app.d";
 version(Windows) immutable artifact_name = TestProjectName ~ ".exe";
 else             immutable artifact_name = TestProjectName;
 
-auto buildUsingHash(bool flag) {
+enum HashKind { absence, time, sha1, sha256 }
+
+/// build target using given hash kind
+auto buildTargetUsing(HashKind kind) {
     import std.exception : enforce;
 
-    auto dub = executeShell(buildNormalizedPath("..", "..", "bin", "dub") ~ " build --hash=%s".format(flag ? "sha256" : "time"));
+    auto dub = executeShell(buildNormalizedPath("..", "..", "bin", "dub") ~ 
+        " build --hash=%s".format(kind));
     writeln("dub output:");
     import std.string : lineSplitter;
     foreach(line; dub.output.lineSplitter)
@@ -32,7 +36,7 @@ auto buildUsingHash(bool flag) {
     return dub.output;
 }
 
-// compare time of the artifact to previous value (they should be equal)
+/// check dub output to determine rebuild has not been triggered
 auto checkIfNoRebuild(string output) {
     if (output.lineSplitter.any!(a=> a == "hash-dependent-build ~master: target for configuration \"application\" is up to date.")) {
         writeln("\tOk. No rebuild triggered");
@@ -43,6 +47,7 @@ auto checkIfNoRebuild(string output) {
     return false;
 }
 
+/// check dub output to determine rebuild has been triggered
 auto checkIfRebuildTriggered(string output) {
     if (output.lineSplitter.any!(a=> a == "hash-dependent-build ~master: building configuration \"application\"...")) {
         writeln("Ok. Rebuild has been triggered");
@@ -78,16 +83,16 @@ int main()
     writeln("\n---");
     writeln("Build #1 (using hash dependent cache)");
     writeln("Building the project from scratch");
-    writeln("Build should be triggered");
-    auto output = buildUsingHash(true);
+    writeln("Hash dependent build should be triggered");
+    auto output = buildTargetUsing(HashKind.sha256);
     if (!checkIfRebuildTriggered(output))
         return 1;
 
     writeln("\n---");
     writeln("Building #2 (using hash dependent cache)");
     writeln("building the project that has been built (using hash dependent cache)");
-    writeln("Build should NOT be triggered");
-    output = buildUsingHash(true);
+    writeln("Hash dependent build should NOT be triggered");
+    output = buildTargetUsing(HashKind.sha256);
     if (!checkIfNoRebuild(output))
         return 1;
 
@@ -107,8 +112,8 @@ int main()
     writeln("Build #3 (using hash dependent cache)");
     writeln("building the project that has been built (using hash dependent cache)");
     writeln("but timestamp of source file(s) has been changed to be younger");
-    writeln("Build should NOT be triggered");
-    output = buildUsingHash(true);
+    writeln("Hash dependent build should NOT be triggered");
+    output = buildTargetUsing(HashKind.sha256);
     if (!checkIfNoRebuild(output))
         return 1;
 
@@ -116,8 +121,8 @@ int main()
     writeln("build #4 (using time dependent cache)");
     writeln("building the project that has been built (using hash dependent cache)");
     writeln("but timestamp of source file(s) has been changed to be younger");
-    writeln("Build should be triggered");
-    output = buildUsingHash(false);
+    writeln("Time dependent build should be triggered");
+    output = buildTargetUsing(HashKind.time);
     if (!checkIfRebuildTriggered(output))
         return 1;
 
@@ -138,8 +143,8 @@ int main()
     writeln("build #5 (using time dependent cache)");
     writeln("building the project that has been built (using both hash- and time- dependent cache)");
     writeln("but source file(s) has been changed and timestamp of them was preserved");
-    writeln("Build should NOT be triggered");
-    output = buildUsingHash(false);
+    writeln("Time dependent build should NOT be triggered");
+    output = buildTargetUsing(HashKind.time);
     if (!checkIfNoRebuild(output))
         return 1;
 
@@ -147,8 +152,8 @@ int main()
     writeln("build #6 (using hash dependent cache)");
     writeln("building the project that has been built once (using both hash- and time- dependent cache)");
     writeln("but source file(s) has been changed and timestamp of them was preserved");
-    writeln("Build should be triggered");
-    output = buildUsingHash(true);
+    writeln("Hash dependent build should be triggered");
+    output = buildTargetUsing(HashKind.sha256);
     if (!checkIfRebuildTriggered(output))
         return 1;
 
