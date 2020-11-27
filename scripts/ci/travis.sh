@@ -1,12 +1,49 @@
 #!/usr/bin/env bash
 
-set -euvo pipefail
+set -euo pipefail
 
+# Ensure DC is available
+export DC="$(command -v ${DC:-})"
+command -v "$DC" >/dev/null || \
+  { echo >&2 '[ERROR] "$DC" should be available'; exit 1; }
+
+# Ensure that the globally installed 'dub' is not implicitly available for the testsuite.
+#
+# 1/3 Rename it to "$HOST_DUB" and hide it:
+export HOST_DUB
+HOST_DUB="$(command -v dub)" ||
+  { echo >&2 "[ERROR] 'dub' should be available"; exit 1; }
+unset DUB
+hash -p /dev/null/dub dub
+
+# 2/3 Verify that both 'dub' and "$DUB" are not available:
+dub > /dev/null 2>&1 || command -v "${DUB:-}" >/dev/null && \
+  { echo >&2 "[ERROR] 'dub' shouldn't be available"; exit 1; }
+# 3/3 Verify that "$HOST_DUB" *is* available:
+command -v "$HOST_DUB" >/dev/null || \
+  { echo >&2 '[ERROR] "$HOST_DUB" should be available'; exit 1; }
+
+echo "| Toolchain info: |"
+# Use intermediate file, to prevent "LLVM ERROR: IO failure on output stream: Broken pipe"
+# with: `ldc2 --version | head -n1` :O
+tmpfile=$(mktemp ./dub-ci-toolchain-info.XXXXXXXXXX)
+echo '---'
+echo -n '"$DC": ' && command -v "$DC" && "$DC" --version > "$tmpfile" && cat "$tmpfile" | head -n1
+echo '---'
+echo -n '"$HOST_DUB": ' && command -v "$HOST_DUB" && "$HOST_DUB" --version > "$tmpfile" && cat "$tmpfile" | head -n1
+echo '---'
+rm "$tmpfile"
+
+# Enable more verbose script execution:
+set -v
+
+# Configuration `library-nonet` can be built without vibe-d, (it's an optional
+# dependency), but we fetch it as we want to test building with it included:
 vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
-dub fetch vibe-d --version=$vibe_ver # get optional dependency
-dub test --compiler=${DC} -c library-nonet
+"$HOST_DUB" fetch vibe-d --version=$vibe_ver
 
-export DMD="$(command -v $DMD)"
+# Build configuration `library-nonet`:
+"$HOST_DUB" test --compiler=${DC} -c library-nonet
 
 if [ "$FRONTEND" \> 2.087.z ]; then
     ./build.d -preview=dip1000 -w -g -debug
@@ -21,7 +58,7 @@ function clean() {
 
 if [ "${COVERAGE:-}" = true ]; then
     # library-nonet fails to build with coverage (Issue 13742)
-    dub test --compiler=${DC} -b unittest-cov
+    "$HOST_DUB" test --compiler=${DC} -b unittest-cov
     ./build.d -cov
 
     wget https://codecov.io/bash -O codecov.sh
@@ -55,5 +92,5 @@ if [ "${COVERAGE:-}" = true ]; then
     # check that the man page generation still works
     source $(~/dlang/install.sh dmd --activate)
     source $(~/dlang/install.sh dub --activate)
-    dub --single -v scripts/man/gen_man.d
+    "$DUB" --single -v scripts/man/gen_man.d
 fi
