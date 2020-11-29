@@ -206,7 +206,8 @@ class BuildGenerator : ProjectGenerator {
 			break;
 			case HashKind.sha1:
 				logWarn("Using hash-dependent build (sha1)");
-				assert(0, "not implemented yet");
+				buildCache = new Sha1DependentCache(target_path, allfiles);
+			break;
 			case HashKind.sha256:
 				logWarn("Using hash-dependent build (sha256)");
 				assert(0, "not implemented yet");
@@ -651,6 +652,211 @@ class TimeDependentCache : BuildCache
 
 		return true;
 	}
+}
+
+class DigestDependentCache : BuildCache {
+	private {
+		import std.digest : Digest;
+		import std.stdio : File;
+
+		const(string[]) _allfiles;
+		Digest _digest;
+		string _hashFilename;
+	}
+
+	/**
+	 * Create new instance of the class
+	 *
+	 * Params:
+	 *     allfiles     = the list of files in native form
+	 *     digest       = the digest used to get hashes of source files
+	 *     hashfilename = the name of the file where hashes of source files are stored
+	 */
+	this(const(string[]) allfiles, Digest digest, string hashfilename) {
+		_allfiles = allfiles;
+		_digest = digest;
+		_hashFilename = hashfilename;
+	}
+
+	protected abstract ubyte[] buffer() nothrow;
+
+	protected bool loadHashFile(string filename, out ubyte[][string] hashes) nothrow {
+		try {
+			if (existsFile(filename))
+			{
+				import std.string : strip;
+				foreach(file; slurp!(string, "str_hash", string, "name")(filename, "%s %s"))
+				{
+					if (!fromHexString(file.str_hash, buffer))
+					{
+						logError("Failed to get hash of source files, triggering rebuild");
+						return false;
+					}
+					hashes[file.name.strip] = buffer.dup;
+				}
+				return true;
+			}
+		}
+		catch(Exception e) {
+			// any exception means that the cache is invalid
+			logError("Loading hash file failed, triggering rebuild");
+		}
+
+		return false;
+	}
+
+	protected void calculateHash(string filename) {
+		try
+		{
+			import std.algorithm : each;
+			import std.exception : ErrnoException;
+
+			enum ChunkSize = 4096;
+
+			File(filename, "r").byChunk(ChunkSize).each!(a=>_digest.put(a));
+			_digest.finish(buffer);
+		}
+		catch (ErrnoException ex)
+		{
+			import core.stdc.errno : EPERM, EACCES, ENOENT;
+
+			switch(ex.errno)
+			{
+				case EPERM:
+				case EACCES:
+					logError("%s: permission denied", filename);
+					break;
+
+				case ENOENT:
+					logError("%s: file does not exist", filename);
+					break;
+
+				default:
+					logError("%s: reading failed", filename);
+					buffer[] = 0;
+					break;
+			}
+		}
+	}
+
+	/// ditto
+	bool isUpToDate() {
+		assert(buffer.length == _digest.length);
+		ubyte[][string] hashes;
+		if (!loadHashFile(_hashFilename, hashes))
+		{
+			logDiagnostic("File `%s`: not found, triggering rebuild.", _hashFilename);
+			return false;
+		}
+
+		foreach (file; _allfiles) {
+			if (!existsFile(file)) {
+				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
+				return false;
+			}
+
+			calculateHash(file);
+
+			if (file !in hashes || buffer != hashes[file]) {
+				logWarn("File `%s`: hash was changed, triggering rebuild.", file);
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/// ditto
+	void rebuild() {
+		import std.digest : toHexString;
+
+		ubyte[][string] hashes;
+
+		foreach (file; _allfiles) {
+			if (!existsFile(file)) {
+				logError("File %s doesn't exist.", file);
+				continue;
+			}
+			calculateHash(file);
+			hashes[file] = buffer.dup;
+		}
+
+		auto file = File(_hashFilename, "w");
+		foreach(pair; hashes.byKeyValue)
+			file.writefln("%s %s", pair.value.toHexString!(LetterCase.lower), pair.key);
+	}
+}
+
+class Sha1DependentCache : DigestDependentCache {
+	private {
+		import std.digest.sha : SHA1Digest;
+		import std.path : buildPath;
+
+		ubyte[20] _buffer;
+		ubyte[__traits(classInstanceSize, SHA1Digest)] _holder;
+	}
+
+	/// ditto
+	this(NativePath target_path, in string[] allfiles)
+	{
+		super(
+			allfiles,
+			emplace!SHA1Digest(_holder),
+			buildPath(target_path.toNativeString, "filehash.sha1")
+		);
+	}
+
+	~this() {
+		destroy(_digest);
+	}
+
+	protected override ubyte[] buffer() nothrow {
+		return _buffer[];
+	}
+}
+
+/**
+ * Converts hex string to ubyte array
+ *
+ * Params:
+ *    hexBuffer = a string containing data in hex representation
+ *    byteBuffer = an output array of bytes containing converted data
+ *
+ * Returns: true if the conversion was successful
+ */
+
+private bool fromHexString(string hexBuffer, ubyte[] byteBuffer)
+{
+	enforce(byteBuffer.length == hexBuffer.length / 2, "fromHexString buffers size mismatch");
+	int i;
+	bool low;
+	foreach (ch; hexBuffer)
+	{
+		int v = cast(int) ch;
+		if (v >= '0' && v <= '9')
+			v -= '0' - 0;
+		else if (v >= 'A' && v <= 'F')
+			v -= 'A' - 10;
+		else if (v>= 'a' && v <= 'f')
+			v -= 'a' - 10;
+		else
+			return false;
+
+		if (low)
+			byteBuffer[i++] |= v & 0xF;
+		else
+			byteBuffer[i] = (v & 0xF) << 4;
+
+		low = !low;
+	}
+	assert(i == byteBuffer.length);
+	return true;
+}
+
+unittest
+{
+	ubyte[5] buffer;
+	"01090a0fff".fromHexString(buffer);
+	assert( buffer[] == [1, 9, 10, 15, 255]);
 }
 
 private NativePath getMainSourceFile(in Package prj)
