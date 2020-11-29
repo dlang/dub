@@ -197,8 +197,10 @@ class BuildGenerator : ProjectGenerator {
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		auto allfiles = listAllFiles(buildsettings, settings, pack, packages, additional_dep_files);
+		BuildCache buildCache;
+		buildCache = new TimeDependentCache(target_path, buildsettings, settings, allfiles);
 
-		if (!settings.force && isUpToDate(target_path, buildsettings, settings, allfiles))
+		if (!settings.force && buildCache.isUpToDate)
 		{
 			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
@@ -231,7 +233,10 @@ class BuildGenerator : ProjectGenerator {
 		target_binary_path = getTargetPath(cbuildsettings, settings);
 
 		if (!settings.tempBuild)
+		{
 			copyTargetFile(target_path, buildsettings, settings);
+			buildCache.rebuild;
+		}
 
 		return false;
 	}
@@ -403,37 +408,6 @@ class BuildGenerator : ProjectGenerator {
 		return allfiles.data;
 	}
 
-	private bool isUpToDate(NativePath target_path, BuildSettings buildsettings, GeneratorSettings settings, in string[] allfiles)
-	{
-		import std.datetime;
-
-		auto targetfile = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
-		if (!existsFile(targetfile))
-		{
-			logDiagnostic("Target '%s' doesn't exist, need rebuild.", targetfile.toNativeString());
-			return false;
-		}
-		auto targettime = getFileInfo(targetfile).timeModified;
-
-		foreach (file; allfiles)
-		{
-			if (!existsFile(file))
-			{
-				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
-				return false;
-			}
-			auto ftime = getFileInfo(file).timeModified;
-			if (ftime > Clock.currTime)
-				logWarn("File '%s' was modified in the future. Please re-save.", file);
-			if (ftime > targettime)
-			{
-				logDiagnostic("File '%s' modified, need rebuild.", file);
-				return false;
-			}
-		}
-		return true;
-	}
-
 	/// Output an unique name to represent the source file.
 	/// Calls with path that resolve to the same file on the filesystem will return the same,
 	/// unless they include different symbolic links (which are not resolved).
@@ -598,6 +572,72 @@ class BuildGenerator : ProjectGenerator {
 			}
 		}
 		m_temporaryFiles = null;
+	}
+}
+
+interface BuildCache
+{
+	/// recalculate cache id, should be called after successful (re)build
+	void rebuild();
+	/// returns true if all files are up to date
+	bool isUpToDate();
+}
+
+class TimeDependentCache : BuildCache
+{
+	private
+	{
+		NativePath _targetfile;
+		const(string[]) _allfiles;
+	}
+
+	/// create an instance of the build cache
+	/// target_path
+	/// buildsettings
+	/// settings
+	/// allfiles is the list of files in native form
+	this(NativePath target_path, BuildSettings buildsettings, GeneratorSettings settings, in string[] allfiles)
+	{
+		_targetfile = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
+		_allfiles = allfiles;
+	}
+
+	/// ditto
+	void rebuild()
+	{
+		// nothing to do
+	}
+
+	/// ditto
+	bool isUpToDate()
+	{
+		import std.datetime : Clock;
+
+		if (!existsFile(_targetfile))
+		{
+			logDiagnostic("Target '%s' doesn't exist, need rebuild.", _targetfile.toNativeString());
+			return false;
+		}
+
+		const targettime = getFileInfo(_targetfile).timeModified;
+		foreach (file; _allfiles)
+		{
+			if (!existsFile(file))
+			{
+				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
+				return false;
+			}
+			const ftime = getFileInfo(file).timeModified;
+			if (ftime > Clock.currTime)
+				logWarn("File '%s' was modified in the future. Please re-save.", file);
+			if (ftime > targettime)
+			{
+				logDiagnostic("File '%s' modified, need rebuild.", file);
+				return false;
+			}
+		}
+
+		return true;
 	}
 }
 
