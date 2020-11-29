@@ -72,3 +72,5 @@ jobs:
       run: |
         dub build --compiler=${{ env.DC }}
         dub test  --compiler=${{ env.DC }}
+        .\bin\dub --compiler=${{ env.DC }} --single scripts\ci\hash_dependent_build.d
+
