@@ -74,4 +74,5 @@ jobs:
       run: |
         dub build --compiler=${{ env.DC }}
         dub test  --compiler=${{ env.DC }}
+        .\bin\dub --compiler=${{ env.DC }} --single scripts\ci\hash_dependent_build.d
         dub run   --compiler=${{ env.DC }} --single test\issue2051_running_unittests_from_dub_single_file_packages_fails.d
