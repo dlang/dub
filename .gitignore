@@ -30,6 +30,7 @@ __dummy.html
 /test/expected-issue616-output
 /test/describe-project/dummy.dat
 /test/describe-project/dummy-dep1.dat
+/test/hash-dependent-build
 /test/*/main/main
 /test/*/*test-library
 /test/*/*test-application
@@ -41,3 +42,5 @@ cov/
 # Ignore auto-generated docs
 /docs
 scripts/man/dub*.1.gz
+*.exe
+bin/*.exe

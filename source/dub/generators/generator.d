@@ -619,6 +619,9 @@ struct GeneratorSettings {
 	/// single file dub package
 	bool single;
 
+	/// hash dependent build (or timestamp dependent one)
+	HashKind hashKind;
+
 	string[] runArgs;
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;

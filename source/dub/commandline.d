@@ -1083,6 +1083,7 @@ class GenerateCommand : PackageBuildCommand {
 		bool m_combined = false;
 		bool m_parallel = false;
 		bool m_printPlatform, m_printBuilds, m_printConfigs;
+		HashKind m_hash_kind;
 	}
 
 	this() @safe pure nothrow
@@ -1169,6 +1170,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.tempBuild = m_tempBuild;
 		gensettings.parallelBuild = m_parallel;
 		gensettings.single = m_single;
+		gensettings.hashKind = m_hash_kind;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
@@ -1207,6 +1209,20 @@ class BuildCommand : GenerateCommand {
 		args.getopt("n|non-interactive", &m_nonInteractive, [
 			"Don't enter interactive mode."
 		]);
+		string str;
+		args.getopt("hash", &str, [
+			"Use hash dependent build instead of file timestamp dependent one"
+		]);
+
+		// compare str to every member of HashKind dropping trailing underscore
+		// and set m_hash_kind to appropriate value. If str doesn't equal any member
+		//  of HashKind set m_hash_kind in default value
+		m_hash_kind = HashKind.default_;
+		import std.traits : EnumMembers;
+		foreach(i, member; EnumMembers!HashKind)
+			if (str == to!string(member).stripRight("_"))
+				m_hash_kind = EnumMembers!HashKind[i];
+
 		super.prepare(args);
 		m_generator = "build";
 	}

@@ -198,7 +198,19 @@ class BuildGenerator : ProjectGenerator {
 
 		auto allfiles = listAllFiles(buildsettings, settings, pack, packages, additional_dep_files);
 		BuildCache buildCache;
-		buildCache = new TimeDependentCache(target_path, buildsettings, settings, allfiles);
+		final switch(settings.hashKind)
+		{
+			case HashKind.default_:
+				logWarn("Using time-dependent build");
+				buildCache = new TimeDependentCache(target_path, buildsettings, settings, allfiles);
+			break;
+			case HashKind.sha1:
+				logWarn("Using hash-dependent build (sha1)");
+				assert(0, "not implemented yet");
+			case HashKind.sha256:
+				logWarn("Using hash-dependent build (sha256)");
+				assert(0, "not implemented yet");
+		}
 
 		if (!settings.force && buildCache.isUpToDate)
 		{

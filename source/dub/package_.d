@@ -37,6 +37,12 @@ enum PackageFormat {
 	sdl   /// SDLang based, using the ".sdl" file extension
 }
 
+enum HashKind {
+	default_,
+	sha1,
+	sha256,
+}
+
 struct FilenameAndFormat {
 	string filename;
 	PackageFormat format;
