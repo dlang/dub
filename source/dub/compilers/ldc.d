@@ -82,6 +82,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		switch (arch_override) {
 			case "": break;
 			case "x86": arch_flags = ["-march=x86"]; break;
+			case "x86_mscoff": arch_flags = ["-march=x86"]; break;
 			case "x86_64": arch_flags = ["-march=x86-64"]; break;
 			case "aarch64": arch_flags = ["-march=aarch64"]; break;
 			case "powerpc64": arch_flags = ["-march=powerpc64"]; break;
