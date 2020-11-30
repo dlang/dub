@@ -776,8 +776,6 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	string[string] env = environment.toAA();
 	// TODO: do more elaborate things here
 	// TODO: escape/quote individual items appropriately
-	env["DFLAGS"]                = join(cast(string[])build_settings.dflags, " ");
-	env["LFLAGS"]                = join(cast(string[])build_settings.lflags," ");
 	env["VERSIONS"]              = join(cast(string[])build_settings.versions," ");
 	env["LIBS"]                  = join(cast(string[])build_settings.libs," ");
 	env["SOURCE_FILES"]          = join(cast(string[])build_settings.sourceFiles," ");
