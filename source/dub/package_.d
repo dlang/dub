@@ -39,6 +39,7 @@ enum PackageFormat {
 
 enum HashKind {
 	default_,
+	time,
 	sha1,
 	sha256,
 }

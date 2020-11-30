@@ -201,6 +201,9 @@ class BuildGenerator : ProjectGenerator {
 		final switch(settings.hashKind)
 		{
 			case HashKind.default_:
+				logWarn("No cache build policy set");
+				goto case HashKind.time; // default value
+			case HashKind.time:
 				logWarn("Using time-dependent build");
 				buildCache = new TimeDependentCache(target_path, buildsettings, settings, allfiles);
 			break;
