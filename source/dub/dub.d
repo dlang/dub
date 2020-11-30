@@ -1380,7 +1380,11 @@ class Dub {
 		import std.process : environment;
 		import std.range : front;
 
-		m_defaultCompiler = m_config.defaultCompiler.expandTilde;
+		// Env takes precedence
+		if (auto envCompiler = environment.get("DC"))
+			m_defaultCompiler = envCompiler;
+		else
+			m_defaultCompiler = m_config.defaultCompiler.expandTilde;
 		if (m_defaultCompiler.length && m_defaultCompiler.isAbsolute)
 			return;
 

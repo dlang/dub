@@ -20,6 +20,8 @@ function cleanup {
 
 trap cleanup EXIT
 
+unset DC
+
 if ! { ${DUB} describe --single issue103-single-file-package.d 2>&1 || true; } | grep -cF "Unknown compiler: $(dirname $CURR_DIR)/bin/foo"; then
 	rm ../bin/foo
 	die $LINENO 'DUB did not find the local configuration with an adjacent compiler.'
