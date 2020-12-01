@@ -420,7 +420,12 @@ class BuildGenerator : ProjectGenerator {
 		allfiles ~= buildsettings.extraDependencyFiles;
 		// TODO: add library files
 		foreach (p; packages)
-			allfiles ~= (p.recipePath != NativePath.init ? p : p.basePackage).recipePath.toNativeString();
+		{
+			if (p.recipePath != NativePath.init)
+				allfiles ~=  p.recipePath.toNativeString();
+			else if (p.basePackage.recipePath != NativePath.init)
+				allfiles ~=  p.basePackage.recipePath.toNativeString();
+		}
 		foreach (f; additional_dep_files) allfiles ~= f.toNativeString();
 		bool checkSelectedVersions = !settings.single;
 		if (checkSelectedVersions && main_pack is m_project.rootPackage && m_project.rootPackage.getAllDependencies().length > 0)
