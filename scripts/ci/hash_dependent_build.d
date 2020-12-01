@@ -22,17 +22,14 @@ enum HashKind { default_, time, sha1, sha256 }
 /// extract hash kind from line containing dub output
 auto extractHashKind(string str) {
     import std.string : lineSplitter;
-
-    static enum link = ["time-dependent build":"time", "(sha1)":"sha1", "(sha256)":"sha256"];
+    import std.regex : regex, matchAll;
+    static re = regex(`hash-dependent-build ~master: (\w+\W)+configuration \"application\" (\w+\W)*\((\w+( |: ))*(sha256|sha1|time)\).`);
 
     foreach(line; str.lineSplitter)
     {
-        foreach(e; link.byKeyValue) {
-            if (line.length >= e.key.length) {
-                if (line[$-e.key.length..$] == e.key)
-                    return e.value;
-            }
-        }
+        auto m = line.matchAll(re);
+        if (!m.empty)
+            return m.front[5];
     }
 
     return "";
@@ -57,7 +54,10 @@ auto buildTargetUsing(HashKind kind, string[string] env = null) {
 
 /// check dub output to determine rebuild has not been triggered
 auto checkIfNoRebuild(string output) {
-    if (output.lineSplitter.any!(a=> a == "hash-dependent-build ~master: target for configuration \"application\" is up to date.")) {
+    import std.regex : regex, matchAll;
+    static re = regex(`hash-dependent-build ~master: target for configuration \"application\" is up to date \((sha256|sha1|time)\).`);
+
+    if (output.lineSplitter.any!(a=>!a.matchAll(re).empty)) {
         writeln("\tOk. No rebuild triggered");
         return true;
     }
@@ -68,7 +68,10 @@ auto checkIfNoRebuild(string output) {
 
 /// check dub output to determine rebuild has been triggered
 auto checkIfRebuildTriggered(string output) {
-    if (output.lineSplitter.any!(a=> a == "hash-dependent-build ~master: building configuration \"application\"...")) {
+    import std.regex : regex, matchAll;
+    static re = regex(`hash-dependent-build ~master: building configuration \"application\" \((sha256|sha1|time)\).`);
+
+    if (output.lineSplitter.any!(a=>!a.matchAll(re).empty)) {
         writeln("Ok. Rebuild has been triggered");
         return true;
     }

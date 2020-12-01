@@ -198,28 +198,30 @@ class BuildGenerator : ProjectGenerator {
 
 		auto allfiles = listAllFiles(buildsettings, settings, pack, packages, additional_dep_files);
 		BuildCache buildCache;
+		string buildPolicyStr = "(";
 		final switch(settings.hashKind)
 		{
 			case HashKind.default_:
-				logWarn("No cache build policy set");
+				buildPolicyStr ~= "default build policy: ";
 				goto case HashKind.time; // default value
 			case HashKind.time:
-				logWarn("Using time-dependent build");
+				buildPolicyStr ~= "time";
 				buildCache = new TimeDependentCache(target_path, buildsettings, settings, allfiles);
 			break;
 			case HashKind.sha1:
-				logWarn("Using hash-dependent build (sha1)");
+				buildPolicyStr ~= "sha1";
 				buildCache = new Sha1DependentCache(target_path, allfiles);
 			break;
 			case HashKind.sha256:
-				logWarn("Using hash-dependent build (sha256)");
+				buildPolicyStr ~= "sha256";
 				buildCache = new Sha256DependentCache(target_path, allfiles);
 			break;
 		}
+		buildPolicyStr ~= ")";
 
 		if (!settings.force && buildCache.isUpToDate)
 		{
-			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
+			logInfo("%s %s: target for configuration \"%s\" is up to date %s.", pack.name, pack.version_, config, buildPolicyStr);
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 			if (!settings.tempBuild)
@@ -235,7 +237,7 @@ class BuildGenerator : ProjectGenerator {
 			return false;
 		}
 
-		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
+		logInfo("%s %s: building configuration \"%s\" %s...", pack.name, pack.version_, config, buildPolicyStr);
 
 		if(buildsettings.preBuildCommands.length)
 		{
