@@ -1392,6 +1392,7 @@ class TestCommand : PackageBuildCommand {
 		settings.tempBuild = m_single;
 		settings.run = true;
 		settings.runArgs = app_args;
+		settings.single = m_single;
 
 		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
 		return 0;

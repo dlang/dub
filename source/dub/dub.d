@@ -660,6 +660,8 @@ class Dub {
 			// prepare the list of tested modules
 
 			string[] import_modules;
+			if (settings.single)
+				lbuildsettings.importPaths ~= ".";
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
 					auto fname = NativePath(file).head.name;
