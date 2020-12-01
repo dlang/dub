@@ -245,6 +245,8 @@ class BuildGenerator : ProjectGenerator {
 			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
+		buildCache.cacheSources;
+
 		// override target path
 		auto cbuildsettings = buildsettings;
 		cbuildsettings.targetPath = shrinkPath(target_path, cwd);
@@ -254,7 +256,7 @@ class BuildGenerator : ProjectGenerator {
 		if (!settings.tempBuild)
 		{
 			copyTargetFile(target_path, buildsettings, settings);
-			buildCache.rebuild;
+			buildCache.commitCache;
 		}
 
 		return false;
@@ -596,8 +598,12 @@ class BuildGenerator : ProjectGenerator {
 
 interface BuildCache
 {
-	/// recalculate cache id, should be called after successful (re)build
-	void rebuild();
+	/// called on just before building to make a snapshot of the
+	/// current source files
+	void cacheSources();
+	/// called on after successful building of the target to complete
+	/// caching
+	void commitCache();
 	/// returns true if all files are up to date
 	bool isUpToDate();
 }
@@ -622,7 +628,13 @@ class TimeDependentCache : BuildCache
 	}
 
 	/// ditto
-	void rebuild()
+	void cacheSources()
+	{
+		// nothing to do
+	}
+
+	/// ditto
+	void commitCache()
 	{
 		// nothing to do
 	}
@@ -664,24 +676,25 @@ class DigestDependentCache : BuildCache {
 	private {
 		import std.digest : Digest;
 		import std.stdio : File;
+		import std.path : baseName, buildPath;
 
 		const(string[]) _allfiles;
 		Digest _digest;
-		string _hashFilename;
+		string _hashfile_path, _tmp_postfix;
 	}
 
 	/**
 	 * Create new instance of the class
 	 *
 	 * Params:
-	 *     allfiles     = the list of files in native form
-	 *     digest       = the digest used to get hashes of source files
-	 *     hashfilename = the name of the file where hashes of source files are stored
+	 *     allfiles      = the list of files in native form
+	 *     digest        = the digest used to get hashes of source files
+	 *     hashfile_path = the path to the file where hashes of source files are stored
 	 */
-	this(const(string[]) allfiles, Digest digest, string hashfilename) {
+	this(const(string[]) allfiles, Digest digest, string hashfile_path) {
 		_allfiles = allfiles;
 		_digest = digest;
-		_hashFilename = hashfilename;
+		_hashfile_path = hashfile_path;
 	}
 
 	protected abstract ubyte[] buffer() nothrow;
@@ -749,9 +762,9 @@ class DigestDependentCache : BuildCache {
 	bool isUpToDate() {
 		assert(buffer.length == _digest.length);
 		ubyte[][string] hashes;
-		if (!loadHashFile(_hashFilename, hashes))
+		if (!loadHashFile(_hashfile_path, hashes))
 		{
-			logDiagnostic("File `%s`: not found, triggering rebuild.", _hashFilename);
+			logDiagnostic("File `%s`: not found, triggering rebuild.", _hashfile_path);
 			return false;
 		}
 
@@ -771,8 +784,8 @@ class DigestDependentCache : BuildCache {
 		return true;
 	}
 
-	/// ditto
-	void rebuild() {
+	protected void cacheSources()
+	{
 		import std.digest : toHexString;
 
 		ubyte[][string] hashes;
@@ -786,9 +799,21 @@ class DigestDependentCache : BuildCache {
 			hashes[file] = buffer.dup;
 		}
 
-		auto file = File(_hashFilename, "w");
+		{
+			import std.range : iota;
+			import std.random : MinstdRand0, randomSample, unpredictableSeed;
+
+			auto rnd = MinstdRand0(unpredictableSeed);
+			_tmp_postfix = "." ~ 26.iota.randomSample(6, rnd).map!(a=>cast(immutable char)(a+'a')).array;
+		}
+		auto file = File(_hashfile_path ~ _tmp_postfix, "w");
 		foreach(pair; hashes.byKeyValue)
 			file.writefln("%s %s", pair.value.toHexString!(LetterCase.lower), pair.key);
+	}
+
+	protected void commitCache()
+	{
+		rename(_hashfile_path ~ _tmp_postfix, _hashfile_path);
 	}
 }
 
