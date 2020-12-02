@@ -683,7 +683,7 @@ class Dub {
 				import dub.generators.build : computeBuildName;
 				mainfile = m_project.rootPackage.path ~ format(".dub/code/%s_dub_test_root.d", computeBuildName(test_config, settings, import_modules));
 			}
-	
+
 			mkdirRecurse(mainfile.parentPath.toNativeString());
 
 			bool regenerateMainFile = settings.force || !existsFile(mainfile);
@@ -707,21 +707,39 @@ class Dub {
 				if (custommodname.length) {
 					fil.write(format("import %s;\n", custommodname));
 				} else {
-					fil.write(q{
-						import std.stdio;
-						import core.runtime;
+					if (lbuildsettings.options.betterC) {
+						fil.write(q{
+							import core.runtime;
+							import core.stdc.stdio;
 
-						void main() { writeln("All unit tests have been run successfully."); }
-						shared static this() {
-							version (Have_tested) {
-								import tested;
-								import core.runtime;
-								import std.exception;
-								Runtime.moduleUnitTester = () => true;
-								enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
+							void main() { printf("All unit tests have been run successfully.\n"); }
+							shared static this() {
+								version (Have_tested) {
+									import tested;
+									import core.runtime;
+									import std.exception;
+									Runtime.moduleUnitTester = () => true;
+									enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
+								}
 							}
-						}
-					});
+						});
+					} else {
+						fil.write(q{
+							import std.stdio;
+							import core.runtime;
+
+							void main() { writeln("All unit tests have been run successfully."); }
+							shared static this() {
+								version (Have_tested) {
+									import tested;
+									import core.runtime;
+									import std.exception;
+									Runtime.moduleUnitTester = () => true;
+									enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
+								}
+							}
+						});
+					}
 				}
 			}
 			m_project.rootPackage.recipe.configurations ~= ConfigurationInfo(test_config, tcinfo);
