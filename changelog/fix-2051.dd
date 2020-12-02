@@ -1,0 +1,3 @@
+Fix #2051 "Running unit tests from DUB single file packages fails"
+
+Now dub is capable run test command in single mode like: `dub test --single yoursinglefile.d`
