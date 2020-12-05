@@ -9,6 +9,13 @@ $DUB add-local "$CURR_DIR/version-spec/oldfoo"
 [[ $($DUB describe foo@1.0.0 | grep path | head -n 1) == *"/newfoo/"* ]]
 [[ $($DUB describe foo@0.1.0 | grep path | head -n 1) == *"/oldfoo/"* ]]
 
+[[ $($DUB describe foo@'<1.0.0' | grep path | head -n 1) == *"/oldfoo/"* ]]
+[[ $($DUB describe foo@'>0.1.0' | grep path | head -n 1) == *"/newfoo/"* ]]
+[[ $($DUB describe foo@'>0.2.0' | grep path | head -n 1) == *"/newfoo/"* ]]
+[[ $($DUB describe foo@'<=0.2.0' | grep path | head -n 1) == *"/oldfoo/"* ]]
+[[ $($DUB describe foo@'*' | grep path | head -n 1) == *"/newfoo/"* ]]
+[[ $($DUB describe foo@'>0.0.1 <2.0.0' | grep path | head -n 1) == *"/newfoo/"* ]]
+
 [[ $($DUB test foo | head -n 1) == *"/newfoo/" ]]
 [[ $($DUB test foo@1.0.0 | head -n 1) == *"/newfoo/" ]]
 [[ $($DUB test foo@0.1.0 | head -n 1) == *"/oldfoo/" ]]
