@@ -991,11 +991,10 @@ abstract class PackageBuildCommand : Command {
 	protected void setupVersionPackage(Dub dub, string str_package_info, string default_build_type = "debug")
 	{
 		PackageAndVersion package_info = splitPackageName(str_package_info);	
-		Version ver = package_info.version_.length ? Version(package_info.version_) : Version.unknown;
-		setupPackage(dub, package_info.name, default_build_type, ver);
+		setupPackage(dub, package_info.name, default_build_type, package_info.version_);
 	}
 
-	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug", Version ver = Version.unknown)
+	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug", string ver = "")
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		if (!m_arch.length) m_arch = dub.defaultArchitecture;
@@ -1039,7 +1038,7 @@ abstract class PackageBuildCommand : Command {
 		}
 	}
 
-	private bool loadSpecificPackage(Dub dub, string package_name, Version ver)
+	private bool loadSpecificPackage(Dub dub, string package_name, string ver)
 	{
 		if (m_single) {
 			enforce(package_name.length, "Missing file name of single-file package.");
@@ -1061,12 +1060,12 @@ abstract class PackageBuildCommand : Command {
 
 		enforce(package_name.length, "No valid root package found - aborting.");
 
-		auto pack = ver.isUnknown
+		auto pack = ver == ""
 			? dub.packageManager.getLatestPackage(package_name)
-			: dub.packageManager.getPackage(package_name, ver);
+			: dub.packageManager.getBestPackage(package_name, ver);
 
 		enforce(pack, format!"Failed to find a package named '%s%s' locally."(package_name,
-			ver.isUnknown ? "" : "@" ~ ver.toString()
+			ver == "" ? "" : ("@" ~ ver)
 		));
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
 		dub.loadPackage(pack);
