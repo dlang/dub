@@ -29,6 +29,10 @@ $DUB add-local "$CURR_DIR/version-spec/oldfoo"
 [[ $($DUB run -n foo@1.0.0 | tail -n 1) == 'new-foo' ]]
 [[ $($DUB run -n foo@0.1.0 | tail -n 1) == 'old-foo' ]]
 
+[[ $($DUB list foo | wc -l) == '4' ]]
+[[ $($DUB list foo@0.1.0 | wc -l) == '3' ]]
+[[ $($DUB list foo@'>0.1.0' | head -n 2 | tail -n 1) == *"/newfoo"* ]]
+
 $DUB remove-local "$CURR_DIR/version-spec/newfoo"
 $DUB remove-local "$CURR_DIR/version-spec/oldfoo"
 
