@@ -69,9 +69,13 @@ jobs:
 
     - name: '[Windows] Test'
       if: runner.os == 'Windows'
+      env:
+        DUB: ${{ github.workspace }}\bin\dub.exe
       # Only run `dub test` to run unittests so far,
       # the test-suite needs to be overhauled to support Windows
       run: |
         dub build --compiler=${{ env.DC }}
         dub test  --compiler=${{ env.DC }}
         dub run   --compiler=${{ env.DC }} --single test\issue2051_running_unittests_from_dub_single_file_packages_fails.d
+        cd test
+        dub --single run-unittest.d
