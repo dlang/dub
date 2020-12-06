@@ -1,0 +1,6 @@
+Filter ability for list command
+
+For list command added optional filtration by name and version specification:
+
+    dub list foo
+    dub list foo@'>=0.1.0 <1.0.0'

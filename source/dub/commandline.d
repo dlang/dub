@@ -2062,20 +2062,28 @@ class ListCommand : Command {
 	this() @safe pure nothrow
 	{
 		this.name = "list";
-		this.argumentsPattern = "";
-		this.description = "Prints a list of all local packages dub is aware of";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
+		this.description = "Prints a list of all or selected local packages dub is aware of";
 		this.helpText = [
-			"Prints a list of all local packages. This includes all cached packages (user or system wide), all packages in the package search paths (\"dub add-path\") and all manually registered packages (\"dub add-local\")."
+			"Prints a list of all or selected local packages. This includes all cached "~
+			"packages (user or system wide), all packages in the package search paths "~
+			"(\"dub add-path\") and all manually registered packages (\"dub add-local\"). "~
+			"If package specified output filtered by package spec."
 		];
 	}
 	override void prepare(scope CommandArgs args) {}
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		enforceUsage(free_args.length == 0, "Expecting no extra arguments.");
+		enforceUsage(free_args.length <= 1, "Expecting zero or one extra arguments.");
+		const pinfo = free_args.length ? splitPackageName(free_args[0]) : PackageAndVersion("","*");
+		const pname = pinfo.name;
+		const pvlim = Dependency(pinfo.version_ == "" ? "*" : pinfo.version_);
 		enforceUsage(app_args.length == 0, "The list command supports no application arguments.");
 		logInfo("Packages present in the system and known to dub:");
-		foreach (p; dub.packageManager.getPackageIterator())
-			logInfo("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
+		foreach (p; dub.packageManager.getPackageIterator()) {
+			if ((pname == "" || pname == p.name) && pvlim.matches(p.version_))
+				logInfo("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
+		}
 		logInfo("");
 		return 0;
 	}
