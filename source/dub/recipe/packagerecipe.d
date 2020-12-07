@@ -176,6 +176,7 @@ struct ConfigurationInfo {
 /// a certain BuildPlatform.
 struct BuildSettingsTemplate {
 	Dependency[string] dependencies;
+	BuildSettingsTemplate[string] dependencyBuildSettings;
 	string systemDependencies;
 	TargetType targetType = TargetType.autodetect;
 	string targetPath;

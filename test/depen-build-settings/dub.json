@@ -1,0 +1,8 @@
+{
+	"description": "A minimal D application.",
+	"name": "depen-build-settings",
+
+	"dependencies": {
+		"depend1": { "version" : "*", "dflags" : ["-X"] }
+	}
+}
