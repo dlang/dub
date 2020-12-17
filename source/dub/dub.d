@@ -1379,7 +1379,6 @@ class Dub {
 	{
 		import std.file : thisExePath;
 		import std.path : buildPath, dirName, expandTilde, isAbsolute, isDirSeparator;
-		import std.process : environment;
 		import std.range : front;
 
 		// Env takes precedence
