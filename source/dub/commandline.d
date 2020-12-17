@@ -990,7 +990,7 @@ abstract class PackageBuildCommand : Command {
 
 	protected void setupVersionPackage(Dub dub, string str_package_info, string default_build_type = "debug")
 	{
-		PackageAndVersion package_info = splitPackageName(str_package_info);	
+		PackageAndVersion package_info = splitPackageName(str_package_info);
 		setupPackage(dub, package_info.name, default_build_type, package_info.version_);
 	}
 

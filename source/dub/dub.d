@@ -686,7 +686,7 @@ class Dub {
 				import dub.generators.build : computeBuildName;
 				mainfile = m_project.rootPackage.path ~ format(".dub/code/%s_dub_test_root.d", computeBuildName(test_config, settings, import_modules));
 			}
-	
+
 			mkdirRecurse(mainfile.parentPath.toNativeString());
 
 			bool regenerateMainFile = settings.force || !existsFile(mainfile);
