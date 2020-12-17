@@ -1396,6 +1396,15 @@ private string getVariable(Project, Package)(string name, in Project project, in
 
 	if (name == "BUILD_TYPE") return gsettings.buildType;
 
+	if (name == "DFLAGS" || name == "LFLAGS")
+	{
+		auto buildSettings = pack.getBuildSettings(gsettings.platform, gsettings.config);
+		if (name == "DFLAGS")
+			return join(buildSettings.dflags," ");
+		else if (name == "LFLAGS")
+			return join(buildSettings.lflags," ");
+	}
+
 	auto envvar = environment.get(name);
 	if (envvar !is null) return envvar;
 
@@ -1419,6 +1428,10 @@ unittest
 		}
 		string name;
 		NativePath path;
+		BuildSettings getBuildSettings(in BuildPlatform platform, string config) const
+		{
+			return BuildSettings();
+		}
 	}
 
 	static struct MockProject

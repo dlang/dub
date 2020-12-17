@@ -1,0 +1,9 @@
+{
+	"targetType": "library",
+	"description": "A minimal D application.",
+	"name": "depend1",
+
+	"dependencies": {
+		"depend2": { "version" : "*" }
+	}
+}

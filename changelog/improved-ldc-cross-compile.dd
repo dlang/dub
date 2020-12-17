@@ -1,0 +1,3 @@
+Improve ldc cross compilation
+
+Enables co-existence and parallel compilation of the same project with different settings (e.g. cross compilation) by moving `.dub/obj` to `$DUB_TARGET_PATH/obj`.

@@ -1,0 +1,10 @@
+All commands now accept a version specification
+
+Before this release dub could only get an exact version for some commands
+(`describe`, `generate`, `fetch`, etc...). All commands now accept a version specification,
+such as can be found in `dub.json` / `dub.sdl`:
+
+    dub fetch 'foo@>0.2.0'
+    dub describe foo@'>=0.3.0 <1.0.0'
+
+Note that commands such as `describe` will still not fetch from the network.

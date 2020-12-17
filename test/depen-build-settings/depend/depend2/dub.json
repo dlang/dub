@@ -1,0 +1,5 @@
+{
+	"targetType": "library",
+	"description": "A minimal D application.",
+	"name": "depend2"
+}

@@ -1,4 +1,4 @@
-﻿// SDLang-D
+// SDLang-D
 // Written in the D programming language.
 
 module dub.internal.sdlang.parser;

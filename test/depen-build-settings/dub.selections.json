@@ -1,0 +1,7 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"depend1": {"path":"depend/"},
+		"depend2": {"path":"depend/depend2/"}
+	}
+}
