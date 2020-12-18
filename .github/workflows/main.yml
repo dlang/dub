@@ -63,6 +63,8 @@ jobs:
         # The value doesn't matter as long as it's > 2.087
         FRONTEND: 2.093.0
       run: |
+        dub build --compiler=${{ env.DC }}
+        dub run   --compiler=${{ env.DC }} --single test/issue_2051_running_unittests_from_dub_single_file_packages_fails.d
         ./scripts/ci/travis.sh
 
     - name: '[Windows] Test'
@@ -72,3 +74,4 @@ jobs:
       run: |
         dub build --compiler=${{ env.DC }}
         dub test  --compiler=${{ env.DC }}
+        dub run   --compiler=${{ env.DC }} --single test\issue_2051_running_unittests_from_dub_single_file_packages_fails.d

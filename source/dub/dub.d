@@ -663,7 +663,10 @@ class Dub {
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
 					auto fname = NativePath(file).head.name;
-					if (NativePath(file).relativeTo(m_project.rootPackage.path) == NativePath(mainfil)) {
+					NativePath msf = NativePath(mainfil);
+					if (msf.absolute)
+						msf = msf.relativeTo(m_project.rootPackage.path);
+					if (NativePath(file).relativeTo(m_project.rootPackage.path) == msf) {
 						logWarn("Excluding main source file %s from test.", mainfil);
 						tcinfo.excludedSourceFiles[""] ~= mainfil;
 						continue;
@@ -817,7 +820,6 @@ class Dub {
 		// TODO: clear target files and copy files
 
 		if (existsFile(path ~ ".dub/build")) rmdirRecurse((path ~ ".dub/build").toNativeString());
-		if (existsFile(path ~ ".dub/obj")) rmdirRecurse((path ~ ".dub/obj").toNativeString());
 		if (existsFile(path ~ ".dub/metadata_cache.json")) std.file.remove((path ~ ".dub/metadata_cache.json").toNativeString());
 
 		auto p = Package.load(path);
@@ -1380,7 +1382,11 @@ class Dub {
 		import std.process : environment;
 		import std.range : front;
 
-		m_defaultCompiler = m_config.defaultCompiler.expandTilde;
+		// Env takes precedence
+		if (auto envCompiler = environment.get("DC"))
+			m_defaultCompiler = envCompiler;
+		else
+			m_defaultCompiler = m_config.defaultCompiler.expandTilde;
 		if (m_defaultCompiler.length && m_defaultCompiler.isAbsolute)
 			return;
 

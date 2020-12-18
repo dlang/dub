@@ -314,20 +314,45 @@ class ProjectGenerator
 		visited.clear();
 
 		// 1. downwards inherits versions, debugVersions, and inheritable build settings
-		static void configureDependencies(const scope ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
+		static void configureDependencies(const scope ref TargetInfo ti, TargetInfo[string] targets,
+											BuildSettings[string] dependBS, size_t level = 0)
 		{
+
+			static void applyForcedSettings(const scope ref BuildSettings forced, ref BuildSettings child) {
+				child.addDFlags(forced.dflags);
+			}
+
 			// do not use `visited` here as dependencies must inherit
 			// configurations from *all* of their parents
 			logDebug("%sConfigure dependencies of %s, deps:%(%s, %)", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
 			foreach (depname; ti.dependencies)
 			{
+				BuildSettings forcedSettings;
 				auto pti = &targets[depname];
 				mergeFromDependent(ti.buildSettings, pti.buildSettings);
-				configureDependencies(*pti, targets, level + 1);
+
+				if (auto matchedSettings = depname in dependBS)
+					forcedSettings = *matchedSettings;
+				else if (auto matchedSettings = "*" in dependBS)
+					forcedSettings = *matchedSettings;
+
+				applyForcedSettings(forcedSettings, pti.buildSettings);
+				configureDependencies(*pti, targets, ["*" : forcedSettings], level + 1);
 			}
 		}
 
-		configureDependencies(*roottarget, targets);
+		BuildSettings[string] dependencyBuildSettings;
+		foreach (key, value; rootPackage.recipe.buildSettings.dependencyBuildSettings)
+		{
+			BuildSettings buildSettings;
+			if (auto target = key in targets)
+			{
+				value.getPlatformSettings(buildSettings, genSettings.platform, target.pack.path);
+				buildSettings.processVars(m_project, target.pack, buildSettings, genSettings, true);
+				dependencyBuildSettings[key] = buildSettings;
+			}
+		}
+		configureDependencies(*roottarget, targets, dependencyBuildSettings);
 
 		// 2. add Have_dependency_xyz for all direct dependencies of a target
 		// (includes incorporated non-target dependencies and their dependencies)
@@ -776,8 +801,6 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	string[string] env = environment.toAA();
 	// TODO: do more elaborate things here
 	// TODO: escape/quote individual items appropriately
-	env["DFLAGS"]                = join(cast(string[])build_settings.dflags, " ");
-	env["LFLAGS"]                = join(cast(string[])build_settings.lflags," ");
 	env["VERSIONS"]              = join(cast(string[])build_settings.versions," ");
 	env["LIBS"]                  = join(cast(string[])build_settings.libs," ");
 	env["SOURCE_FILES"]          = join(cast(string[])build_settings.sourceFiles," ");
