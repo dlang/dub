@@ -682,7 +682,15 @@ class DigestDependentCache : BuildCache {
 		import std.stdio : File;
 		import std.path : baseName, buildPath;
 
-		const(string[]) _allfiles;
+		enum HASH_SIZE = 32;
+
+		static struct Record
+		{
+			string filename;
+			ubyte[] hash;
+		}
+
+		Record[] _files;
 		Digest _digest;
 		ubyte[][string] _hashes;
 		string _hashfile_path;
@@ -697,7 +705,10 @@ class DigestDependentCache : BuildCache {
 	 *     hashfile_path = the path to the file where hashes of source files are stored
 	 */
 	this(const(string[]) allfiles, Digest digest, string hashfile_path) {
-		_allfiles = allfiles;
+		import std.array : array;
+		import std.algorithm : map;
+
+		_files = allfiles.map!(a=>Record(a, null)).array;
 		_digest = digest;
 		_hashfile_path = hashfile_path;
 	}
@@ -773,7 +784,7 @@ class DigestDependentCache : BuildCache {
 			return false;
 		}
 
-		foreach (file; _allfiles) {
+		foreach (file; _files.map!"a.filename") {
 			if (!existsFile(file)) {
 				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
 				return false;
@@ -792,13 +803,13 @@ class DigestDependentCache : BuildCache {
 	protected void cacheSources()
 	{
 
-		foreach (file; _allfiles) {
-			if (!existsFile(file)) {
-				logError("File %s doesn't exist.", file);
+		foreach (ref rec; _files) {
+			if (!existsFile(rec.filename)) {
+				logError("File %s doesn't exist.", rec.filename);
 				continue;
 			}
-			calculateHash(file);
-			_hashes[file] = buffer.dup;
+			calculateHash(rec.filename);
+			rec.hash = buffer.dup;
 		}
 	}
 
@@ -807,8 +818,8 @@ class DigestDependentCache : BuildCache {
 		{
 			import std.digest : toHexString;
 			auto file = File(_hashfile_path ~ "_tmp", "w");
-			foreach(pair; _hashes.byKeyValue)
-				file.writefln("%s %s", pair.value.toHexString!(LetterCase.lower), pair.key);
+			foreach(ref rec; _files)
+				file.writefln("%s %s", rec.hash.toHexString!(LetterCase.lower), rec.filename);
 		}
 
 		rename(_hashfile_path ~ "_tmp", _hashfile_path);
