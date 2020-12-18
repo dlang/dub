@@ -693,7 +693,7 @@ class DigestDependentCache : BuildCache {
 		Record[] _files;
 		Digest _digest;
 		ubyte[][string] _hashes;
-		string _hashfile_path;
+		NativePath _hashfile_path;
 	}
 
 	/**
@@ -704,7 +704,7 @@ class DigestDependentCache : BuildCache {
 	 *     digest        = the digest used to get hashes of source files
 	 *     hashfile_path = the path to the file where hashes of source files are stored
 	 */
-	this(const(string[]) allfiles, Digest digest, string hashfile_path) {
+	this(const(string[]) allfiles, Digest digest, NativePath hashfile_path) {
 		import std.array : array;
 		import std.algorithm : map;
 
@@ -715,8 +715,9 @@ class DigestDependentCache : BuildCache {
 
 	protected abstract ubyte[] buffer() nothrow;
 
-	protected bool loadHashFile(string filename, out ubyte[][string] hashes) nothrow {
+	protected bool loadHashFile(NativePath fpath, out ubyte[][string] hashes) nothrow {
 		try {
+			auto filename = fpath.toNativeString;
 			if (existsFile(filename))
 			{
 				import std.string : strip;
@@ -780,7 +781,7 @@ class DigestDependentCache : BuildCache {
 		ubyte[][string] hashes;
 		if (!loadHashFile(_hashfile_path, hashes))
 		{
-			logDiagnostic("File `%s`: not found, triggering rebuild.", _hashfile_path);
+			logDiagnostic("File `%s`: not found, triggering rebuild.", _hashfile_path.toNativeString);
 			return false;
 		}
 
@@ -815,14 +816,15 @@ class DigestDependentCache : BuildCache {
 
 	protected void commitCache()
 	{
+		auto filename = _hashfile_path.toNativeString;
 		{
 			import std.digest : toHexString;
-			auto file = File(_hashfile_path ~ "_tmp", "w");
+			auto file = File(filename ~ "_tmp", "w");
 			foreach(ref rec; _files)
 				file.writefln("%s %s", rec.hash.toHexString!(LetterCase.lower), rec.filename);
 		}
 
-		rename(_hashfile_path ~ "_tmp", _hashfile_path);
+		rename(filename ~ "_tmp", filename);
 	}
 }
 
@@ -841,7 +843,7 @@ class Sha1DependentCache : DigestDependentCache {
 		super(
 			allfiles,
 			emplace!SHA1Digest(_holder),
-			buildPath(target_path.toNativeString, "filehash.sha1")
+			target_path ~ "filehash.sha1"
 		);
 	}
 
@@ -869,7 +871,7 @@ class Sha256DependentCache : DigestDependentCache {
 		super(
 			allfiles,
 			emplace!SHA256Digest(_holder),
-			buildPath(target_path.toNativeString, "filehash.sha256")
+			target_path ~ "filehash.sha256"
 		);
 	}
 
