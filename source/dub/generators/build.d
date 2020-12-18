@@ -149,8 +149,6 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = NativePath(getcwd());
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
-		auto build_id = computeBuildID(config, buildsettings, settings);
-
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
 		foreach (ref f; buildsettings.sourceFiles) f = makeRelative(f);
@@ -161,7 +159,7 @@ class BuildGenerator : ProjectGenerator {
 		bool cached = false;
 		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config, target_path);
 		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config, target_path);
-		else cached = performCachedBuild(settings, buildsettings, pack, config, build_id, packages, additional_dep_files, target_path);
+		else cached = performCachedBuild(settings, buildsettings, pack, config, packages, additional_dep_files, target_path);
 
 		// HACK: cleanup dummy doc files, we shouldn't specialize on buildType
 		// here and the compiler shouldn't need dummy doc output.
@@ -184,10 +182,11 @@ class BuildGenerator : ProjectGenerator {
 	}
 
 	private bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config,
-		string build_id, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_binary_path)
+		in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_binary_path)
 	{
 		auto cwd = NativePath(getcwd());
 
+		auto build_id = computeBuildID(config, buildsettings, settings);
 		NativePath target_path;
 		if (settings.tempBuild)
 		{
