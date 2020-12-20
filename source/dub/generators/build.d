@@ -44,10 +44,10 @@ string computeBuildName(string config, GeneratorSettings settings, const string[
 		addHash(strings);
 	auto hashstr = hash.finish().toHexString().idup;
 
-    return format("%s-%s-%s-%s-%s_%s-%s", config, settings.buildType,
+    return format("%s-%s-%s-%s-%s_v%s-%s", config, settings.buildType,
 			settings.platform.platform.join("."),
 			settings.platform.architecture.join("."),
-			settings.platform.compiler, settings.platform.frontendVersion, hashstr);
+			settings.platform.compiler, settings.platform.compilerVersion, hashstr);
 }
 
 class BuildGenerator : ProjectGenerator {
@@ -359,7 +359,7 @@ class BuildGenerator : ProjectGenerator {
 				(cast(uint)buildsettings.options).to!string,
 				settings.platform.compilerBinary,
 				settings.platform.compiler,
-				settings.platform.frontendVersion.to!string,
+				settings.platform.compilerVersion,
 			],
 		];
 
