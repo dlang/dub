@@ -686,7 +686,7 @@ class Dub {
 				import dub.generators.build : computeBuildName;
 				mainfile = m_project.rootPackage.path ~ format(".dub/code/%s_dub_test_root.d", computeBuildName(test_config, settings, import_modules));
 			}
-	
+
 			mkdirRecurse(mainfile.parentPath.toNativeString());
 
 			bool regenerateMainFile = settings.force || !existsFile(mainfile);
@@ -1379,7 +1379,6 @@ class Dub {
 	{
 		import std.file : thisExePath;
 		import std.path : buildPath, dirName, expandTilde, isAbsolute, isDirSeparator;
-		import std.process : environment;
 		import std.range : front;
 
 		// Env takes precedence
