@@ -38,6 +38,7 @@ int main()
 `#!/usr/bin/env dub
 /+ dub.sdl:
 	name "issue2051"
+	dependency "taggedalgebraic" version="~>0.11.0"
 +/
 
 version(unittest) {}
@@ -47,8 +48,15 @@ else void main()
 
 unittest
 {
-	auto input = [1721];
-	assert(input[0] == 1721);
+	import taggedalgebraic;
+
+	static union Base {
+		int i;
+		string str;
+	}
+
+	auto dummy = TaggedAlgebraic!Base(1721);
+	assert(dummy == 1721);
 }
 `		);
 	}
