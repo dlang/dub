@@ -20,24 +20,7 @@ auto executeCommand(string command)
 		writeln("\t", line);
 	writeln("--- end of dub output");
 
-	enforce(dub.status == 0, "couldn't build the project, see above");
-
-	return dub.output;
-}
-
-/// check dub output to determine rebuild has not been triggered
-auto checkUnittestsResult(string output)
-{
-	if (output.lineSplitter.any!(a=> a == "All unit tests have been run successfully."))
-	{
-		writeln("\nOk. Unittest passed.");
-		return 0;
-	}
-	else
-	{
-		writeln("\nError. Unittests failed.");
-		return 1;
-	}
+	return dub.status;
 }
 
 int main()
@@ -70,7 +53,11 @@ unittest
 `		);
 	}
 
-	return text(dub, " test --single ", filename)
-		.executeCommand
-		.checkUnittestsResult;
+	const rc1 = text(dub, " test --single ", filename).executeCommand;
+	if (rc1)
+		writeln("\nError. Unittests failed.");
+	else
+		writeln("\nOk. Unittest passed.");
+
+	return rc1;
 }
