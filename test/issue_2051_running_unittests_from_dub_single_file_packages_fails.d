@@ -67,5 +67,33 @@ unittest
 	else
 		writeln("\nOk. Unittest passed.");
 
-	return rc1;
+	// Check if dub `test` command runs unittests for single file package
+	{
+		filename = tempDir.buildPath("issue2051_fail.d");
+		auto f = File(filename, "w");
+		f.write(
+`#!/usr/bin/env dub
+/+ dub.sdl:
+	name "issue2051"
++/
+
+version(unittest) {}
+else void main()
+{
+}
+
+unittest
+{
+	assert(0);
+}
+`		);
+	}
+
+	const rc2 = text(dub, " test --single ", filename).executeCommand;
+	if (rc2)
+		writeln("\nOk. Unittests failed.");
+	else
+		writeln("\nError. Unittest passed.");
+
+	return rc1 | !rc2;
 }
