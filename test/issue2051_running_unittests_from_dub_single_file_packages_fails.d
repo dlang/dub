@@ -1,5 +1,5 @@
 /+ dub.sdl:
-   name "issue_2051_running_unittests_from_dub_single_file_packages_fails"
+   name "issue2051_running_unittests_from_dub_single_file_packages_fails"
  +/
 
 import std.algorithm : any;
