@@ -47,9 +47,9 @@ int main()
 		dub = buildPath(".", "bin", "dub");
 
 	string filename;
-	// create test_project
+	// check if the single file package with dependency compiles and runs
 	{
-		filename = tempDir.buildPath("issue_2051.d");
+		filename = tempDir.buildPath("issue2051_success.d");
 		auto f = File(filename, "w");
 		f.write(
 `#!/usr/bin/env dub
