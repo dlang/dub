@@ -8,7 +8,6 @@
 module dub.internal.vibecompat.inet.path;
 
 version (Have_vibe_core) public import vibe.core.path;
-else version (Have_vibe_d_core) public import vibe.inet.path;
 else:
 
 import std.algorithm;
