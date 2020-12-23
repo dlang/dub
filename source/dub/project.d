@@ -653,7 +653,7 @@ class Project {
 				if (shallow && pkg !is m_rootPackage)
 					psettings.sourceFiles = null;
 				processVars(dst, this, pkg, psettings, gsettings);
-				if (psettings.importPaths.empty)
+				if (!gsettings.single && psettings.importPaths.empty)
 					logWarn(`Package %s (configuration "%s") defines no import paths, use {"importPaths": [...]} or the default package directory structure to fix this.`, pkg.name, configs[pkg.name]);
 				if (psettings.mainSourceFile.empty && pkg is m_rootPackage && psettings.targetType == TargetType.executable)
 					logWarn(`Executable configuration "%s" of package %s defines no main source file, this may cause certain build modes to fail. Add an explicit "mainSourceFile" to the package description to fix this.`, configs[pkg.name], pkg.name);

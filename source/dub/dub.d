@@ -660,13 +660,15 @@ class Dub {
 			// prepare the list of tested modules
 
 			string[] import_modules;
+			if (settings.single)
+				lbuildsettings.importPaths ~= NativePath(mainfil).parentPath.toNativeString;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
 					auto fname = NativePath(file).head.name;
 					NativePath msf = NativePath(mainfil);
 					if (msf.absolute)
 						msf = msf.relativeTo(m_project.rootPackage.path);
-					if (NativePath(file).relativeTo(m_project.rootPackage.path) == msf) {
+					if (!settings.single && NativePath(file).relativeTo(m_project.rootPackage.path) == msf) {
 						logWarn("Excluding main source file %s from test.", mainfil);
 						tcinfo.excludedSourceFiles[""] ~= mainfil;
 						continue;

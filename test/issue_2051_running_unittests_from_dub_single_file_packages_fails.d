@@ -20,24 +20,7 @@ auto executeCommand(string command)
 		writeln("\t", line);
 	writeln("--- end of dub output");
 
-	enforce(dub.status == 0, "couldn't build the project, see above");
-
-	return dub.output;
-}
-
-/// check dub output to determine rebuild has not been triggered
-auto checkUnittestsResult(string output)
-{
-	if (output.lineSplitter.any!(a=> a == "All unit tests have been run successfully."))
-	{
-		writeln("\nOk. Unittest passed.");
-		return 0;
-	}
-	else
-	{
-		writeln("\nError. Unittests failed.");
-		return 1;
-	}
+	return dub.status;
 }
 
 int main()
@@ -47,9 +30,46 @@ int main()
 		dub = buildPath(".", "bin", "dub");
 
 	string filename;
-	// create test_project
+	// check if the single file package with dependency compiles and runs
 	{
-		filename = tempDir.buildPath("issue_2051.d");
+		filename = tempDir.buildPath("issue2051_success.d");
+		auto f = File(filename, "w");
+		f.write(
+`#!/usr/bin/env dub
+/+ dub.sdl:
+	name "issue2051"
+	dependency "taggedalgebraic" version="~>0.11.0"
++/
+
+version(unittest) {}
+else void main()
+{
+}
+
+unittest
+{
+	import taggedalgebraic;
+
+	static union Base {
+		int i;
+		string str;
+	}
+
+	auto dummy = TaggedAlgebraic!Base(1721);
+	assert(dummy == 1721);
+}
+`		);
+	}
+
+	const rc1 = text(dub, " test --single ", filename).executeCommand;
+	if (rc1)
+		writeln("\nError. Unittests failed.");
+	else
+		writeln("\nOk. Unittest passed.");
+
+	// Check if dub `test` command runs unittests for single file package
+	{
+		filename = tempDir.buildPath("issue2051_fail.d");
 		auto f = File(filename, "w");
 		f.write(
 `#!/usr/bin/env dub
@@ -64,13 +84,16 @@ else void main()
 
 unittest
 {
-	auto input = [1721];
-	assert(input[0] == 1721);
+	assert(0);
 }
 `		);
 	}
 
-	return text(dub, " test --single ", filename)
-		.executeCommand
-		.checkUnittestsResult;
+	const rc2 = text(dub, " test --single ", filename).executeCommand;
+	if (rc2)
+		writeln("\nOk. Unittests failed.");
+	else
+		writeln("\nError. Unittest passed.");
+
+	return rc1 | !rc2;
 }
