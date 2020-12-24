@@ -10,7 +10,7 @@ module dub.compilers.utils;
 import dub.compilers.buildsettings;
 import dub.platform : BuildPlatform, archCheck, compilerCheck, platformCheck;
 import dub.internal.vibecompat.core.log;
-import dub.internal.vibecompat.inet.path;
+import vibe.inet.path;
 import std.algorithm : canFind, endsWith, filter;
 
 
@@ -296,7 +296,7 @@ private enum probeEndMark = "__dub_probe_end__";
 NativePath generatePlatformProbeFile()
 {
 	import dub.internal.vibecompat.core.file;
-	import dub.internal.vibecompat.data.json;
+	import vibe.data.json;
 	import dub.internal.utils;
 	import std.string : format;
 
@@ -361,7 +361,7 @@ BuildPlatform readPlatformJsonProbe(string output)
 		"Unexpected platform information output - does not contain a JSON object.");
 	output = output[idx1+probeBeginMark.length .. idx2];
 
-	import dub.internal.vibecompat.data.json;
+	import vibe.data.json;
 	auto json = parseJsonString(output);
 
 	BuildPlatform build_platform;

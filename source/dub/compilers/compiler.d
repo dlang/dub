@@ -13,8 +13,8 @@ public import dub.platform : BuildPlatform, matchesSpecification;
 
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.internal.vibecompat.data.json;
-import dub.internal.vibecompat.inet.path;
+import vibe.data.json;
+import vibe.inet.path;
 import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;

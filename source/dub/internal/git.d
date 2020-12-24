@@ -7,7 +7,7 @@ import std.string;
 
 version (Windows)
 {
-	import dub.internal.vibecompat.data.json;
+	import vibe.data.json;
 
 	string determineVersionWithGit(NativePath path)
 	{

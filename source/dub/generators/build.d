@@ -13,7 +13,7 @@ import dub.generators.generator;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.internal.vibecompat.inet.path;
+import vibe.inet.path;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
@@ -612,7 +612,7 @@ unittest {
 }
 
 unittest { // issue #1235 - pass no library files to compiler command line when building a static lib
-	import dub.internal.vibecompat.data.json : parseJsonString;
+	import vibe.data.json : parseJsonString;
 	import dub.compilers.gdc : GDCCompiler;
 	import dub.platform : determinePlatform;
 

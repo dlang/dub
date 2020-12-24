@@ -13,7 +13,7 @@ import dub.dependency;
 
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.internal.vibecompat.inet.url;
+import vibe.inet.url;
 
 import std.algorithm : findSplit, sort;
 import std.array : join, split;

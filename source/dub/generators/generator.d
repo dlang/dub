@@ -14,7 +14,7 @@ import dub.generators.sublimetext;
 import dub.generators.visuald;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
-import dub.internal.vibecompat.inet.path;
+import vibe.inet.path;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
@@ -479,7 +479,7 @@ class ProjectGenerator
 		import std.stdio : File;
 		import std.datetime : Clock, SysTime, UTC;
 		import dub.compilers.utils : isLinkerFile;
-		import dub.internal.vibecompat.data.json : Json, JSONException;
+		import vibe.data.json : Json, JSONException;
 
 		auto bs = &ti.buildSettings;
 
