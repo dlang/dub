@@ -290,14 +290,14 @@ enum BuildRequirement {
 	noDefaultFlags       = 1<<9,  /// Do not issue any of the default build flags (e.g. -debug, -w, -property etc.) - use only for development purposes
 }
 
-	struct BuildRequirements {
-		import dub.internal.vibecompat.data.serialization : ignore;
+struct BuildRequirements {
+	import dub.internal.vibecompat.data.serialization : ignore;
 
-		@ignore BitFlags!BuildRequirement values;
-		this(BuildRequirement req) { values = req; }
+	@ignore BitFlags!BuildRequirement values;
+	this(BuildRequirement req) { values = req; }
 
-		alias values this;
-	}
+	alias values this;
+}
 
 enum BuildOption {
 	none = 0,                     /// Use compiler defaults
