@@ -30,7 +30,6 @@ void enforceBuildRequirements(ref BuildSettings settings)
 	if (settings.requirements & BuildRequirement.disallowOptimization) settings.options &= ~BuildOption.optimize;
 	if (settings.requirements & BuildRequirement.requireBoundsCheck) settings.options &= ~BuildOption.noBoundsCheck;
 	if (settings.requirements & BuildRequirement.requireContracts) settings.options &= ~BuildOption.releaseMode;
-	if (settings.requirements & BuildRequirement.relaxProperties) settings.options &= ~BuildOption.property;
 }
 
 

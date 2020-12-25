@@ -318,15 +318,8 @@ struct BuildSettingsTemplate {
 	void warnOnSpecialCompilerFlags(string package_name, string config_name)
 	{
 		auto nodef = false;
-		auto noprop = false;
 		foreach (req; this.buildRequirements) {
 			if (req & BuildRequirement.noDefaultFlags) nodef = true;
-			if (req & BuildRequirement.relaxProperties) noprop = true;
-		}
-
-		if (noprop) {
-			logWarn(`Warning: "buildRequirements": ["relaxProperties"] is deprecated and is now the default behavior. Note that the -property switch will probably be removed in future versions of DMD.`);
-			logWarn("");
 		}
 
 		if (nodef) {

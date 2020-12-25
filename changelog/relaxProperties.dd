@@ -1,0 +1,4 @@
+The long-deprecated `relaxProperties` build requirement has been removed
+
+Using `"buildRequirements": [ "relaxProperties" ]` has been deprecated since
+the very first release of dub, but was never removed. It has now been removed.
