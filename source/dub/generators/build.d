@@ -221,14 +221,14 @@ class BuildGenerator : ProjectGenerator {
 		if (!settings.force && buildCache.isUpToDate)
 		{
 			logInfo("%s %s: target for configuration \"%s\" is up to date %s.", pack.name, pack.version_, config, buildPolicyStr);
-			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
-			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
+			logDiagnostic("Using existing build in %s.", buildCache.targetPath.toNativeString());
+			target_binary_path = buildCache.targetPath ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 			if (!settings.tempBuild)
-				copyTargetFile(target_path, buildsettings, settings);
+				copyTargetFile(buildCache.targetPath, buildsettings, settings);
 			return true;
 		}
 
-		if (!isWritableDir(target_path, true))
+		if (!isWritableDir(buildCache.targetPath, true))
 		{
 			if (!settings.tempBuild)
 				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", buildCache.targetPath.relativeTo(cwd).toNativeString());
@@ -249,13 +249,13 @@ class BuildGenerator : ProjectGenerator {
 
 		// override target path
 		auto cbuildsettings = buildsettings;
-		cbuildsettings.targetPath = shrinkPath(target_path, cwd);
+		cbuildsettings.targetPath = shrinkPath(buildCache.targetPath, cwd);
 		buildWithCompiler(settings, cbuildsettings);
 		target_binary_path = getTargetPath(cbuildsettings, settings);
 
 		if (!settings.tempBuild)
 		{
-			copyTargetFile(target_path, buildsettings, settings);
+			copyTargetFile(buildCache.targetPath, buildsettings, settings);
 			buildCache.commitCache;
 		}
 
@@ -815,10 +815,10 @@ class DigestDependentCache : BuildCache {
 
 	protected void cacheSources()
 	{
-
 		foreach (ref rec; _files) {
 			if (!existsFile(rec.filename)) {
 				logError("File %s doesn't exist.", rec.filename);
+				rec.hash[] = 0;
 				continue;
 			}
 			calculateHash(rec.filename);
