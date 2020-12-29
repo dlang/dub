@@ -44,7 +44,7 @@ string computeBuildName(string config, GeneratorSettings settings, const string[
 		addHash(strings);
 	auto hashstr = hash.finish().toHexString().idup;
 
-    return format("%s-%s-%s-%s-%s_v%s-%s", config, settings.buildType,
+	return format("%s-%s-%s-%s-%s_v%s-%s", config, settings.buildType,
 			settings.platform.platform.join("."),
 			settings.platform.architecture.join("."),
 			settings.platform.compiler, settings.platform.compilerVersion, hashstr);
@@ -797,7 +797,8 @@ class DigestDependentCache : BuildCache {
 			return false;
 		}
 
-		foreach (file; _files.map!"a.filename") {
+		foreach (file; _files.map!"a.filename")
+		{
 			if (!existsFile(file)) {
 				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
 				return false;
@@ -805,7 +806,8 @@ class DigestDependentCache : BuildCache {
 
 			calculateHash(file);
 
-			if (file !in hashes || buffer != hashes[file]) {
+			if (file !in hashes || buffer != hashes[file])
+			{
 				logWarn("File `%s`: hash was changed, triggering rebuild.", file);
 				return false;
 			}
@@ -815,7 +817,8 @@ class DigestDependentCache : BuildCache {
 
 	protected void cacheSources()
 	{
-		foreach (ref rec; _files) {
+		foreach (ref rec; _files)
+		{
 			if (!existsFile(rec.filename)) {
 				logError("File %s doesn't exist.", rec.filename);
 				rec.hash[] = 0;
