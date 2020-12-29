@@ -683,8 +683,6 @@ class DigestDependentCache : BuildCache
 		import std.stdio : File;
 		import std.path : baseName, buildPath;
 
-		enum HASH_SIZE = 32;
-
 		static struct Record
 		{
 			string filename;
@@ -699,6 +697,8 @@ class DigestDependentCache : BuildCache
 		NativePath _target_path;
 		// the path to the directory where build artifacts of the current build cache is placed
 		NativePath _hash_target_path;
+		// the name of the file containing hash sums
+		string _hashfilename;
 	}
 
 	/**
@@ -715,9 +715,10 @@ class DigestDependentCache : BuildCache
 		import std.array : array;
 		import std.algorithm : map;
 
-		_files = allfiles.map!(a=>Record(a, null)).array;
+		_files = allfiles.map!(a=>Record(a)).array;
 		_digest = digest;
 		_target_path = target_path;
+		_hashfilename = hashfilename;
 	}
 
 	protected abstract ubyte[] buffer() nothrow;
@@ -820,10 +821,10 @@ class DigestDependentCache : BuildCache
 		// calculate new hash of all files
 		calculateHash;
 
-		auto hashfile = buildPath(targetPath.toNativeString, "hashfile");
+		auto hashfile = buildPath(targetPath.toNativeString, _hashfilename);
 		if (!loadHashFile(hashfile, hashes))
 		{
-			logDiagnostic("File `%s`: not found, triggering rebuild.", hashfile);
+			logDiagnostic("File `%s`: not found, triggering rebuild.", _hashfilename);
 			return false;
 		}
 
@@ -842,7 +843,7 @@ class DigestDependentCache : BuildCache
 	{
 		assert(_hash_target_path.length, "`isUpToDate` should be called before calling `commitCache`");
 
-		auto filename = buildPath(_hash_target_path.toNativeString, "hashfile");
+		auto filename = buildPath(_hash_target_path.toNativeString, _hashfilename);
 		{
 			import std.digest : toHexString;
 			auto file = File(filename ~ "_tmp", "w");
