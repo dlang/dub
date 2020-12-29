@@ -686,8 +686,10 @@ class TimeDependentCache : BuildCache
 	}
 }
 
-class DigestDependentCache : BuildCache {
-	private {
+class DigestDependentCache : BuildCache
+{
+	private
+	{
 		import std.digest : Digest;
 		import std.stdio : File;
 		import std.path : baseName, buildPath;
@@ -715,7 +717,8 @@ class DigestDependentCache : BuildCache {
 	 *     target path   = the path to the file cache directory
 	 *     hashfilename  = the name of the file where hashes of source files are stored
 	 */
-	this(const(string[]) allfiles, Digest digest, NativePath target_path, string hashfilename) {
+	this(const(string[]) allfiles, Digest digest, NativePath target_path, string hashfilename)
+	{
 		import std.array : array;
 		import std.algorithm : map;
 
@@ -727,8 +730,10 @@ class DigestDependentCache : BuildCache {
 
 	protected abstract ubyte[] buffer() nothrow;
 
-	protected bool loadHashFile(NativePath fpath, out ubyte[][string] hashes) nothrow {
-		try {
+	protected bool loadHashFile(NativePath fpath, out ubyte[][string] hashes) nothrow
+	{
+		try
+		{
 			auto filename = fpath.toNativeString;
 			if (existsFile(filename))
 			{
@@ -753,7 +758,8 @@ class DigestDependentCache : BuildCache {
 		return false;
 	}
 
-	protected void calculateHash(string filename) {
+	protected void calculateHash(string filename)
+	{
 		try
 		{
 			import std.algorithm : each;
@@ -788,7 +794,8 @@ class DigestDependentCache : BuildCache {
 	}
 
 	/// ditto
-	bool isUpToDate() {
+	bool isUpToDate()
+	{
 		assert(buffer.length == _digest.length);
 		ubyte[][string] hashes;
 		if (!loadHashFile(_hashfile_path, hashes))
@@ -819,7 +826,8 @@ class DigestDependentCache : BuildCache {
 	{
 		foreach (ref rec; _files)
 		{
-			if (!existsFile(rec.filename)) {
+			if (!existsFile(rec.filename))
+			{
 				logError("File %s doesn't exist.", rec.filename);
 				rec.hash[] = 0;
 				continue;
@@ -849,8 +857,10 @@ class DigestDependentCache : BuildCache {
 	}
 }
 
-class Sha1DependentCache : DigestDependentCache {
-	private {
+class Sha1DependentCache : DigestDependentCache
+{
+	private
+	{
 		import std.digest.sha : SHA1Digest;
 
 		ubyte[20] _buffer;
@@ -868,7 +878,8 @@ class Sha1DependentCache : DigestDependentCache {
 		);
 	}
 
-	~this() {
+	~this()
+	{
 		destroy(_digest);
 	}
 
@@ -877,8 +888,10 @@ class Sha1DependentCache : DigestDependentCache {
 	}
 }
 
-class Sha256DependentCache : DigestDependentCache {
-	private {
+class Sha256DependentCache : DigestDependentCache
+{
+	private
+	{
 		import std.digest.sha : SHA256Digest;
 
 		ubyte[32] _buffer;
@@ -896,11 +909,13 @@ class Sha256DependentCache : DigestDependentCache {
 		);
 	}
 
-	~this() {
+	~this()
+	{
 		destroy(_digest);
 	}
 
-	protected override ubyte[] buffer() nothrow {
+	protected override ubyte[] buffer() nothrow
+	{
 		return _buffer[];
 	}
 }
