@@ -245,8 +245,6 @@ class BuildGenerator : ProjectGenerator {
 			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
-		buildCache.cacheSources;
-
 		// override target path
 		auto cbuildsettings = buildsettings;
 		cbuildsettings.targetPath = shrinkPath(buildCache.targetPath, cwd);
@@ -603,13 +601,10 @@ class BuildGenerator : ProjectGenerator {
 
 interface BuildCache
 {
-	/// called on just before building to make a snapshot of the
-	/// current source files
-	void cacheSources();
 	/// called on after successful building of the target to complete
 	/// caching
 	void commitCache();
-	/// returns true if all files are up to date
+	/// calculates hash sum of all files and returns true if all files are up to date
 	bool isUpToDate();
 	/// return the path to the current file cache
 	NativePath targetPath();
@@ -633,12 +628,6 @@ class TimeDependentCache : BuildCache
 		_targetpath = target_path;
 		_targetfile = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 		_allfiles = allfiles;
-	}
-
-	/// ditto
-	void cacheSources()
-	{
-		// nothing to do
 	}
 
 	/// ditto
@@ -701,11 +690,15 @@ class DigestDependentCache : BuildCache
 			string filename;
 			ubyte[] hash;
 		}
-
+		// hashes of files
 		Record[] _files;
 		Digest _digest;
-		ubyte[][string] _hashes;
-		NativePath _hashfile_path, _target_path;
+		// the hash of the whole cache
+		ubyte[] _hash;
+		// the path to the directory where build artifacts of all build caches are placed
+		NativePath _target_path;
+		// the path to the directory where build artifacts of the current build cache is placed
+		NativePath _hash_target_path;
 	}
 
 	/**
@@ -725,16 +718,14 @@ class DigestDependentCache : BuildCache
 		_files = allfiles.map!(a=>Record(a, null)).array;
 		_digest = digest;
 		_target_path = target_path;
-		_hashfile_path = target_path ~ hashfilename;
 	}
 
 	protected abstract ubyte[] buffer() nothrow;
 
-	protected bool loadHashFile(NativePath fpath, out ubyte[][string] hashes) nothrow
+	protected bool loadHashFile(string filename, out ubyte[][string] hashes) nothrow
 	{
 		try
 		{
-			auto filename = fpath.toNativeString;
 			if (existsFile(filename))
 			{
 				import std.string : strip;
@@ -793,53 +784,65 @@ class DigestDependentCache : BuildCache
 		}
 	}
 
+	protected void calculateHash()
+	{
+		import std.digest.md : MD5, toHexString;
+
+		MD5 hash;
+		hash.start;
+		foreach (ref rec; _files)
+		{
+			if (!existsFile(rec.filename))
+			{
+				logError("File %s doesn't exist.", rec.filename);
+				rec.hash.length = 0;
+			}
+			else
+			{
+				calculateHash(rec.filename);
+				rec.hash = buffer.dup;
+				hash.put(rec.hash);
+			}
+		}
+
+		_hash = hash.finish.dup;
+		_hash_target_path = _target_path ~ _hash.toHexString.idup;
+	}
+
 	/// ditto
 	bool isUpToDate()
 	{
 		assert(buffer.length == _digest.length);
 		ubyte[][string] hashes;
-		if (!loadHashFile(_hashfile_path, hashes))
+
+		import std.digest.md : toHexString;
+
+		// calculate new hash of all files
+		calculateHash;
+
+		auto hashfile = buildPath(targetPath.toNativeString, "hashfile");
+		if (!loadHashFile(hashfile, hashes))
 		{
-			logDiagnostic("File `%s`: not found, triggering rebuild.", _hashfile_path.toNativeString);
+			logDiagnostic("File `%s`: not found, triggering rebuild.", hashfile);
 			return false;
 		}
 
-		foreach (file; _files.map!"a.filename")
+		foreach (rec; _files)
 		{
-			if (!existsFile(file)) {
-				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
-				return false;
-			}
-
-			calculateHash(file);
-
-			if (file !in hashes || buffer != hashes[file])
+			if (rec.filename !in hashes || rec.hash != hashes[rec.filename])
 			{
-				logWarn("File `%s`: hash was changed, triggering rebuild.", file);
+				logWarn("File `%s`: hash was changed, triggering rebuild.", rec.filename);
 				return false;
 			}
 		}
 		return true;
 	}
 
-	protected void cacheSources()
-	{
-		foreach (ref rec; _files)
-		{
-			if (!existsFile(rec.filename))
-			{
-				logError("File %s doesn't exist.", rec.filename);
-				rec.hash[] = 0;
-				continue;
-			}
-			calculateHash(rec.filename);
-			rec.hash = buffer.dup;
-		}
-	}
-
 	protected void commitCache()
 	{
-		auto filename = _hashfile_path.toNativeString;
+		assert(_hash_target_path.length, "`isUpToDate` should be called before calling `commitCache`");
+
+		auto filename = buildPath(_hash_target_path.toNativeString, "hashfile");
 		{
 			import std.digest : toHexString;
 			auto file = File(filename ~ "_tmp", "w");
@@ -853,7 +856,8 @@ class DigestDependentCache : BuildCache
 	/// ditto
 	NativePath targetPath()
 	{
-		return _target_path;
+		assert(_hash_target_path.length, "`isUpToDate` should be called before calling `targetPath`");
+		return _hash_target_path;
 	}
 }
 
