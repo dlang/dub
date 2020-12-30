@@ -153,10 +153,9 @@ int main()
 		SysTime atime, mtime;
 		getTimes(source_name, atime, mtime);
 
-		auto src = readText(source_name);
-		src ~= " ";
-		import std.file;
-		write(source_name, src);
+		import std.file : copy, append;
+		copy(source_name, source_name ~ ".tmp");
+		append(source_name, " ");
 
 		setTimes(source_name, atime, mtime);
 	}
@@ -177,6 +176,25 @@ int main()
 	writeln("Hash dependent build should be triggered");
 	output = buildTargetUsing(HashKind.sha256);
 	if (!checkIfRebuildTriggered(output))
+		return 1;
+
+	// undo changes in source/app.d (i.e. restore its content)
+	{
+		SysTime atime, mtime;
+		getTimes(source_name, atime, mtime);
+
+		import std.file : rename;
+		rename(source_name ~ ".tmp", source_name);
+
+		setTimes(source_name, atime, mtime);
+	}
+	writeln("\n---");
+	writeln("build #7 (using hash dependent cache)");
+	writeln("building the project that has been built then modifiend and then reverted");
+	writeln("the previous state");
+	writeln("Hash dependent build should NOT be triggered");
+	output = buildTargetUsing(HashKind.sha256);
+	if (!checkIfNoRebuild(output))
 		return 1;
 
 	// Tests for command line interface option, environment variable and
