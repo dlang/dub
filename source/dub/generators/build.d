@@ -841,7 +841,7 @@ class DigestDependentCache : BuildCache
 
 	protected void commitCache()
 	{
-		assert(_hash_target_path.length, "`isUpToDate` should be called before calling `commitCache`");
+		assert(!_hash_target_path.empty, "`isUpToDate` should be called before calling `commitCache`");
 
 		auto filename = buildPath(_hash_target_path.toNativeString, _hashfilename);
 		{
@@ -857,7 +857,7 @@ class DigestDependentCache : BuildCache
 	/// ditto
 	NativePath targetPath()
 	{
-		assert(_hash_target_path.length, "`isUpToDate` should be called before calling `targetPath`");
+		assert(!_hash_target_path.empty, "`isUpToDate` should be called before calling `targetPath`");
 		return _hash_target_path;
 	}
 }
