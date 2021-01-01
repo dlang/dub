@@ -1,4 +1,0 @@
-Add support for -betterC compiler flag to the visuald project generator
-
-If betterC is specified in the buildOptions, visuald project files will also be
-configured to use betterC.
