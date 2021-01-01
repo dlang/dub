@@ -1,6 +1,0 @@
-Use DC environment variable as default D compiler
-
-dub now respects the `DC` environment variable, meaning that `DC=ldc2 dub build` will behave as `dub build --compiler=ldc2`.
-In case both are supplied, the `--compiler` switch still has priority.
-Note that when DUB recursively invokes itself, for example in `preGenerateCommands`,
-it sets the `DC` variable to the compiler it is using, meaning that nested dub invocation will now use the same compiler.
