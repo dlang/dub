@@ -218,7 +218,9 @@ class BuildGenerator : ProjectGenerator {
 		}
 		buildPolicyStr ~= ")";
 
-		if (!settings.force && buildCache.isUpToDate)
+		// always call isUpToDate to set targetPath
+		auto updated = buildCache.isUpToDate;
+		if (!settings.force && updated)
 		{
 			logInfo("%s %s: target for configuration \"%s\" is up to date %s.", pack.name, pack.version_, config, buildPolicyStr);
 			logDiagnostic("Using existing build in %s.", buildCache.targetPath.toNativeString());
