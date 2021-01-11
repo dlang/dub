@@ -620,7 +620,7 @@ struct GeneratorSettings {
 	bool single;
 
 	/// hash dependent build (or timestamp dependent one)
-	HashKind hashKind;
+	BuildCachePolicy buildCachePolicy;
 
 	string[] runArgs;
 	void delegate(int status, string output) compileCallback;

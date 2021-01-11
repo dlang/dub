@@ -198,20 +198,20 @@ class BuildGenerator : ProjectGenerator {
 		auto allfiles = listAllFiles(buildsettings, settings, pack, packages, additional_dep_files);
 		BuildCache buildCache;
 		string buildPolicyStr = "(";
-		final switch(settings.hashKind)
+		final switch(settings.buildCachePolicy)
 		{
-			case HashKind.default_:
+			case BuildCachePolicy.default_:
 				buildPolicyStr ~= "default build policy: ";
-				goto case HashKind.time; // default value
-			case HashKind.time:
+				goto case BuildCachePolicy.time; // default value
+			case BuildCachePolicy.time:
 				buildPolicyStr ~= "time";
 				buildCache = new TimeDependentCache(target_path, buildsettings, settings, allfiles);
 			break;
-			case HashKind.sha1:
+			case BuildCachePolicy.sha1:
 				buildPolicyStr ~= "sha1";
 				buildCache = new Sha1DependentCache(target_path, allfiles);
 			break;
-			case HashKind.sha256:
+			case BuildCachePolicy.sha256:
 				buildPolicyStr ~= "sha256";
 				buildCache = new Sha256DependentCache(target_path, allfiles);
 			break;

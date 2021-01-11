@@ -37,7 +37,7 @@ enum PackageFormat {
 	sdl   /// SDLang based, using the ".sdl" file extension
 }
 
-enum HashKind {
+enum BuildCachePolicy {
 	default_,
 	time,
 	sha1,

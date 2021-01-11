@@ -20,7 +20,7 @@ else             immutable artifact_name = TestProjectName;
 enum HashKind { default_, time, sha1, sha256 }
 
 /// extract hash kind from line containing dub output
-auto extractHashKind(string str) {
+auto extractBuildCachePolicy(string str) {
 	import std.string : lineSplitter;
 	import std.regex : regex, matchAll;
 	static re = regex(`hash-dependent-build ~master: (\w+\W)+configuration \"application\" (\w+\W)*\((\w+( |: ))*(sha256|sha1|time)\).`);
@@ -40,7 +40,7 @@ auto buildTargetUsing(HashKind kind, string[string] env = null) {
 	import std.exception : enforce;
 
 	auto dub = executeShell(buildNormalizedPath("..", "..", "bin", "dub") ~ 
-		" build --hash=%s".format(kind), env);
+		" build --build-cache-policy=%s".format(kind), env);
 	writeln("dub output:");
 	import std.string : lineSplitter;
 	foreach(line; dub.output.lineSplitter)
@@ -220,11 +220,11 @@ int main()
 
 			// write to settings file
 			{
-				File("./dub.settings.json", "w").writefln("{ \"hashKind\" : \"%s\" }", key[2]);
+				File("./dub.settings.json", "w").writefln("{ \"buildCachePolicy\" : \"%s\" }", key[2]);
 			}
 
-			output = buildTargetUsing(key[0].to!HashKind, ["DUB_HASH_KIND":key[1]]);
-			auto str = extractHashKind(output);
+			output = buildTargetUsing(key[0].to!HashKind, ["DUB_BUILD_CACHE_POLICY":key[1]]);
+			auto str = extractBuildCachePolicy(output);
 			assert(str == value, text("Given ", key, " but got `", str, "` instead of `", value, "`"));
 		}
 	}
