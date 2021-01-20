@@ -204,6 +204,10 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 		dep.default_ = attrs["default"][0].value.get!bool;
 
 	bs.dependencies[pkg] = dep;
+
+	BuildSettingsTemplate dbs;
+	parseBuildSettings(t, dbs, package_name);
+	bs.dependencyBuildSettings[pkg] = dbs;
 }
 
 private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package_name)
@@ -248,7 +252,10 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 		if (!d.path.empty) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
 		else attribs ~= new Attribute(null, "version", Value(d.versionSpec));
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
-		ret ~= new Tag(null, "dependency", [Value(pack)], attribs);
+		auto t = new Tag(null, "dependency", [Value(pack)], attribs);
+		if (pack in bs.dependencyBuildSettings)
+			t.add(bs.dependencyBuildSettings[pack].toSDL());
+		ret ~= t;
 	}
 	if (bs.systemDependencies !is null) add("systemDependencies", bs.systemDependencies);
 	if (bs.targetType != TargetType.autodetect) add("targetType", bs.targetType.to!string());
@@ -401,7 +408,9 @@ x:ddoxFilterArgs "-arg1" "-arg2"
 x:ddoxFilterArgs "-arg3"
 x:ddoxTool "ddoxtool"
 
-dependency ":subpackage1" optional=false path="."
+dependency ":subpackage1" optional=false path="." {
+	dflags "-g" "-debug"
+}
 dependency "somedep" version="1.0.0" optional=true
 systemDependencies "system dependencies"
 targetType "executable"
@@ -495,6 +504,7 @@ lflags "lf3"
 	assert(rec.buildSettings.dependencies.length == 2);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].optional == false);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].path == NativePath("."));
+	assert(rec.buildSettings.dependencyBuildSettings["projectname:subpackage1"].dflags == ["":["-g", "-debug"]]);
 	assert(rec.buildSettings.dependencies["somedep"].versionSpec == "1.0.0");
 	assert(rec.buildSettings.dependencies["somedep"].optional == true);
 	assert(rec.buildSettings.dependencies["somedep"].path.empty);
