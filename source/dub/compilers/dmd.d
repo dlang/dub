@@ -352,7 +352,7 @@ config    /etc/dmd.conf
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
 	}
 
-	private static bool isLinkerDFlag(string arg)
+	static bool isLinkerDFlag(string arg)
 	{
 		switch (arg) {
 			default:
