@@ -355,11 +355,12 @@ config    /etc/dmd.conf
 	private static bool isLinkerDFlag(string arg)
 	{
 		switch (arg) {
-			default:
-				if (arg.startsWith("-defaultlib=")) return true;
-				return false;
-			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib", "-m32mscoff":
+			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib", "-m32mscoff", "-betterC":
 				return true;
+			default:
+				return arg.startsWith("-L")
+				    || arg.startsWith("-Xcc=")
+				    || arg.startsWith("-defaultlib=");
 		}
 	}
 }
