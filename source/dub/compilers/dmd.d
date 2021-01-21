@@ -333,7 +333,13 @@ config    /etc/dmd.conf
 		if (platform.platform.canFind("linux"))
 			args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order by DMD
 		args ~= lflagsToDFlags(settings.lflags);
-		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
+		if (platform.compiler == "ldc") {
+			// ldmd2: support the full LDC-specific list + extra "-m32mscoff", a superset of the DMD list
+			import dub.compilers.ldc : LDCCompiler;
+			args ~= settings.dflags.filter!(f => f == "-m32mscoff" || LDCCompiler.isLinkerDFlag(f)).array;
+		} else {
+			args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
+		}
 
 		auto res_file = getTempFile("dub-build", ".lnk");
 		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
@@ -352,7 +358,7 @@ config    /etc/dmd.conf
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
 	}
 
-	private static bool isLinkerDFlag(string arg)
+	static bool isLinkerDFlag(string arg)
 	{
 		switch (arg) {
 			default:
