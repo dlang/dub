@@ -15,14 +15,12 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
-import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
 import std.process;
-import std.typecons : Flag;
 
 
 /** Returns a compiler handler for a given binary name.
