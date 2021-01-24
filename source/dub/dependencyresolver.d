@@ -14,8 +14,7 @@ import std.algorithm : all, canFind, filter, map, sort;
 import std.array : appender, array, join;
 import std.conv : to;
 import std.exception : enforce;
-import std.typecons : Nullable;
-import std.string : format, indexOf, lastIndexOf;
+import std.string : format, lastIndexOf;
 
 
 /** Resolves dependency graph with multiple configurations per package.
