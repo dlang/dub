@@ -20,8 +20,7 @@ import dub.packagemanager;
 import dub.project;
 
 import std.algorithm : map, filter, canFind, balancedParens;
-import std.array : array;
-import std.array;
+import std.array : array, appender, join;
 import std.exception;
 import std.file;
 import std.string;
