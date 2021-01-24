@@ -17,11 +17,7 @@ import dub.project;
 
 import std.algorithm;
 import std.array;
-import std.compiler;
 import std.file;
-import std.path;
-import std.range;
-import std.string;
 
 
 class SublimeTextGenerator : ProjectGenerator {
