@@ -16,10 +16,8 @@ import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
-import std.conv;
 import std.exception;
 import std.file;
-import std.process;
 import std.typecons;
 
 // Determines whether the specified process is running under WOW64 or an Intel64 of x64 processor.

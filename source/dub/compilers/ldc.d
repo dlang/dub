@@ -16,10 +16,8 @@ import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
-import std.conv;
 import std.exception;
 import std.file;
-import std.process;
 import std.typecons;
 
 
