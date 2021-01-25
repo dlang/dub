@@ -8,7 +8,7 @@
 module dub.compilers.compiler;
 
 public import dub.compilers.buildsettings;
-public import dub.dependency : Dependency;
+deprecated("Please `import dub.dependency : Dependency` instead") public import dub.dependency : Dependency;
 public import dub.platform : BuildPlatform, matchesSpecification;
 
 import dub.internal.vibecompat.core.log;
