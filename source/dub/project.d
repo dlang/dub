@@ -384,7 +384,7 @@ class Project {
 					resolveSubPackage(p, false);
 				}
 
-				if (!p && !vspec.path.empty) {
+				if (!p && !vspec.path.empty && is_desired) {
 					NativePath path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
