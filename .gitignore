@@ -42,3 +42,7 @@ cov/
 # Ignore auto-generated docs
 /docs
 scripts/man/dub*.1.gz
+
+# Ignore generated files for examples
+/examples/generated-sources/generated-sources
+/examples/generated-sources/source/test.d
