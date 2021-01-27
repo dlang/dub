@@ -34,6 +34,7 @@ __dummy.html
 /test/*/*test-library
 /test/*/*test-application
 /test/*/exec-simple
+/test/issue1474/ext/fortytwo.d
 
 # Ignore coverage files
 cov/
