@@ -26,6 +26,7 @@ source/dub/compilers/utils.d
 source/dub/generators/build.d
 source/dub/generators/cmake.d
 source/dub/generators/generator.d
+source/dub/generators/ninja.d
 source/dub/generators/sublimetext.d
 source/dub/generators/targetdescription.d
 source/dub/generators/visuald.d

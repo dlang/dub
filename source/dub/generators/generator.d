@@ -12,6 +12,7 @@ import dub.generators.cmake;
 import dub.generators.build;
 import dub.generators.sublimetext;
 import dub.generators.visuald;
+import dub.generators.ninja;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
@@ -734,6 +735,9 @@ ProjectGenerator createProjectGenerator(string generator_type, Project project)
 		case "cmake":
 			logDebug("Creating CMake generator.");
 			return new CMakeGenerator(project);
+		case "ninja":
+			logDebug("Creating Ninja generator.");
+			return new NinjaGenerator(project);
 	}
 }
 
