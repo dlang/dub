@@ -256,6 +256,9 @@ class VisualDGenerator : ProjectGenerator {
 				return ret;
 			}
 
+			if (buildsettings.targetType == TargetType.none)
+				return;
+
 			foreach(architecture; settings.platform.architecture) {
 				auto arch = architecture.vsArchitecture;
 				ret.formattedWrite("  <Config name=\"%s\" platform=\"%s\">\n", to!string(type), arch);
