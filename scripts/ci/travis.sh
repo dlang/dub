@@ -28,6 +28,7 @@ if [ "$COVERAGE" = true ]; then
     bash codecov.sh
 else
     ./build.d
+    DUB=`pwd`/bin/dub DC=${DC} dub --single ./test/run-unittest.d
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
 fi
 
