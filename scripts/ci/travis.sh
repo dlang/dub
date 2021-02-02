@@ -28,7 +28,10 @@ if [ "$COVERAGE" = true ]; then
     bash codecov.sh
 else
     ./build.d
-    `pwd`/bin/dub --single scripts/ci/hash_dependent_build.d
+
+    ./bin/dub --single scripts/ci/hash_dependent_build.d
+
+    DUB=`pwd`/bin/dub DC=${DC} dub --single ./test/run-unittest.d
     DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
 fi
 

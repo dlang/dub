@@ -1,0 +1,11 @@
+{
+    "name": "extra_files",
+    "targetType": "executable",
+    "extraDependencyFiles": [
+        "shaders/*"
+    ],
+    "copyFiles": [
+        "text/LICENSE.txt",
+        "text/README.txt"
+    ]
+}

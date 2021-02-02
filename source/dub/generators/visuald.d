@@ -156,7 +156,8 @@ class VisualDGenerator : ProjectGenerator {
 
 			auto ret = appender!(char[])();
 
-			auto project_file_dir = m_project.rootPackage.path ~ projFileName(packname).parentPath;
+			auto root_package_path = m_project.rootPackage.path;
+			auto project_file_dir = root_package_path ~ projFileName(packname).parentPath;
 			ret.put("<DProject>\n");
 			ret.formattedWrite("  <ProjectGuid>%s</ProjectGuid>\n", guid(packname));
 
@@ -198,6 +199,8 @@ class VisualDGenerator : ProjectGenerator {
 
 			foreach(s; files.importFiles) addFile(s, false);
 			foreach(s; files.stringImportFiles) addFile(s, false);
+			findFilesMatchingGlobs(root_package_path, files.copyFiles, s => addFile(s, false));
+			findFilesMatchingGlobs(root_package_path, files.extraDependencyFiles, s => addFile(s, false));
 
 			// Create folders and files
 			ret.formattedWrite("  <Folder name=\"%s\">", getPackageFileName(packname));
