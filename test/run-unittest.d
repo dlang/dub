@@ -87,7 +87,7 @@ int main(string[] args)
 	//** if [ "$#" -gt 0 ]; then FILTER=$1; else FILTER=".*"; fi
 	auto filter = (args.length > 1) ? args[1] : "*";
 
-	version(linux)
+	version (Posix)
 	{
 		//** for script in $(ls $CURR_DIR/*.sh); do
 		//**     if [[ ! "$script" =~ $FILTER ]]; then continue; fi
