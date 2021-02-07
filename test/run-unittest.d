@@ -73,5 +73,16 @@ int main(string[] args)
 		}
 	}
 
+	foreach (DirEntry script; dirEntries(curr_dir, (args.length > 1) ? args[1] : "*.script.d", SpanMode.shallow))
+	{
+		const min_frontend = script.name ~ ".min_frontend";
+		if (frontend.length && exists(min_frontend) && frontend < min_frontend.readText) continue;
+		log("Running " ~ script ~ "...");
+		if (spawnProcess([dub, script.name], ["DUB":dub, "DC":dc, "CURR_DIR":curr_dir]).wait)
+			logError("Script failure.");
+		else
+			log(script.name, " status: Ok");
+	}
+
 	return any_errors;
 }
