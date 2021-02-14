@@ -20,3 +20,7 @@ fi
 if [ `grep -c -e "README.txt" .dub/extra_files.visualdproj` -ne 1 ]; then
 	die $LINENO 'Regression of issue #1053.'
 fi
+
+if [ `grep -e "README.txt" .dub/extra_files.visualdproj | grep -c -e 'copy /Y $(InputPath) $(TargetDir)'` -ne 1 ]; then
+	die $LINENO 'Copying of copyFiles seems broken for visuald.'
+fi

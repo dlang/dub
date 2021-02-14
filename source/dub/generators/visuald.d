@@ -169,38 +169,38 @@ class VisualDGenerator : ProjectGenerator {
 			// Add all files
 			auto files = targets[packname].buildSettings;
 			SourceFile[string] sourceFiles;
-			void addSourceFile(NativePath file_path, NativePath structure_path, bool build)
+			void addSourceFile(NativePath file_path, NativePath structure_path, SourceFile.Action action)
 			{
 				auto key = file_path.toString();
 				auto sf = sourceFiles.get(key, SourceFile.init);
 				sf.filePath = file_path;
-				if (!sf.build) {
-					sf.build = build;
+				if (sf.action == SourceFile.Action.none) {
+					sf.action = action;
 					sf.structurePath = structure_path;
 				}
 				sourceFiles[key] = sf;
 			}
 
-			void addFile(string s, bool build) {
+			void addFile(string s, SourceFile.Action action) {
 				auto sp = NativePath(s);
 				assert(sp.absolute, format("Source path in %s expected to be absolute: %s", packname, s));
 				//if( !sp.absolute ) sp = pack.path ~ sp;
-				addSourceFile(sp.relativeTo(project_file_dir), determineStructurePath(sp, targets[packname]), build);
+				addSourceFile(sp.relativeTo(project_file_dir), determineStructurePath(sp, targets[packname]), action);
 			}
 
 			foreach (p; targets[packname].packages)
 				if (!p.recipePath.empty)
-					addFile(p.recipePath.toNativeString(), false);
+					addFile(p.recipePath.toNativeString(), SourceFile.Action.none);
 
 			if (files.targetType == TargetType.staticLibrary)
-				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(settings.platform, s))) addFile(s, true);
+				foreach(s; files.sourceFiles.filter!(s => !isLinkerFile(settings.platform, s))) addFile(s, SourceFile.Action.build);
 			else
-				foreach(s; files.sourceFiles.filter!(s => !s.endsWith(".lib"))) addFile(s, true);
+				foreach(s; files.sourceFiles.filter!(s => !s.endsWith(".lib"))) addFile(s, SourceFile.Action.build);
 
-			foreach(s; files.importFiles) addFile(s, false);
-			foreach(s; files.stringImportFiles) addFile(s, false);
-			findFilesMatchingGlobs(root_package_path, files.copyFiles, s => addFile(s, false));
-			findFilesMatchingGlobs(root_package_path, files.extraDependencyFiles, s => addFile(s, false));
+			foreach(s; files.importFiles) addFile(s, SourceFile.Action.none);
+			foreach(s; files.stringImportFiles) addFile(s, SourceFile.Action.none);
+			findFilesMatchingGlobs(root_package_path, files.copyFiles, s => addFile(s, SourceFile.Action.copy));
+			findFilesMatchingGlobs(root_package_path, files.extraDependencyFiles, s => addFile(s, SourceFile.Action.none));
 
 			// Create folders and files
 			ret.formattedWrite("  <Folder name=\"%s\">", getPackageFileName(packname));
@@ -223,7 +223,18 @@ class VisualDGenerator : ProjectGenerator {
 						ret.formattedWrite("\n    <Folder name=\"%s\">", cur[same + idx].name);
 					lastFolder = cur;
 				}
-				ret.formattedWrite("\n      <File %spath=\"%s\" />", source.build ? "" : "tool=\"None\" ", source.filePath.toNativeString());
+				final switch (source.action) with (SourceFile.Action)
+				{
+					case none:
+						ret.formattedWrite("\n      <File path=\"%s\" tool=\"None\" />", source.filePath.toNativeString());
+						break;
+					case build:
+						ret.formattedWrite("\n      <File path=\"%s\" />", source.filePath.toNativeString());
+						break;
+					case copy:
+						ret.formattedWrite("\n      <File customcmd=\"copy /Y $(InputPath) $(TargetDir)\" path=\"%s\" tool=\"Custom\" />", source.filePath.toNativeString());
+						break;
+				}
 			}
 			// Finalize all open folders
 			foreach(unused; 0..lastFolder.length)
@@ -463,9 +474,10 @@ class VisualDGenerator : ProjectGenerator {
 	private struct SourceFile {
 		NativePath structurePath;
 		NativePath filePath;
-		bool build;
+		enum Action { none, build, copy };
+		Action action = Action.none;
 
-		size_t toHash() const nothrow @trusted { return structurePath.toHash() ^ filePath.toHash() ^ (build * 0x1f3e7b2c); }
+		size_t toHash() const nothrow @trusted { return structurePath.toHash() ^ filePath.toHash() ^ (action * 0x1f3e7b2c); }
 		int opCmp(ref const SourceFile rhs) const { return sortOrder(this, rhs); }
 		// "a < b" for folder structures (deepest folder first, else lexical)
 		private final static int sortOrder(ref const SourceFile a, ref const SourceFile b) {
