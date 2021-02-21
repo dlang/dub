@@ -7,6 +7,7 @@ version (Have_sdlang_d) public import sdlang.parser;
 else:
 
 import std.file;
+import std.variant : Algebraic;
 
 import dub.internal.libInputVisitor;
 
@@ -118,7 +119,7 @@ auto pullParseSource(string source, string filename=null)
 }
 
 /// The element of the InputRange returned by pullParseFile and pullParseSource:
-alias ParserEvent = std.variant.Algebraic!(
+alias ParserEvent = Algebraic!(
 	FileStartEvent,
 	FileEndEvent,
 	TagStartEvent,
