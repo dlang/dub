@@ -245,7 +245,7 @@ class ProjectGenerator
 		// add main source files to root executable
 		{
 			auto bs = &roottarget.buildSettings;
-			if (bs.targetType == TargetType.executable) bs.addSourceFiles(mainSourceFiles);
+			if (bs.targetType == TargetType.executable || genSettings.single) bs.addSourceFiles(mainSourceFiles);
 		}
 
 		if (genSettings.filterVersions)
