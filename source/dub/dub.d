@@ -660,13 +660,15 @@ class Dub {
 			// prepare the list of tested modules
 
 			string[] import_modules;
+			if (settings.single)
+				lbuildsettings.importPaths ~= NativePath(mainfil).parentPath.toNativeString;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
 					auto fname = NativePath(file).head.name;
 					NativePath msf = NativePath(mainfil);
 					if (msf.absolute)
 						msf = msf.relativeTo(m_project.rootPackage.path);
-					if (NativePath(file).relativeTo(m_project.rootPackage.path) == msf) {
+					if (!settings.single && NativePath(file).relativeTo(m_project.rootPackage.path) == msf) {
 						logWarn("Excluding main source file %s from test.", mainfil);
 						tcinfo.excludedSourceFiles[""] ~= mainfil;
 						continue;
@@ -686,7 +688,7 @@ class Dub {
 				import dub.generators.build : computeBuildName;
 				mainfile = m_project.rootPackage.path ~ format(".dub/code/%s_dub_test_root.d", computeBuildName(test_config, settings, import_modules));
 			}
-	
+
 			mkdirRecurse(mainfile.parentPath.toNativeString());
 
 			bool regenerateMainFile = settings.force || !existsFile(mainfile);
@@ -1379,7 +1381,6 @@ class Dub {
 	{
 		import std.file : thisExePath;
 		import std.path : buildPath, dirName, expandTilde, isAbsolute, isDirSeparator;
-		import std.process : environment;
 		import std.range : front;
 
 		// Env takes precedence

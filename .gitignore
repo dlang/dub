@@ -34,6 +34,7 @@ __dummy.html
 /test/*/*test-library
 /test/*/*test-application
 /test/*/exec-simple
+/test/issue1474/ext/fortytwo.d
 
 # Ignore coverage files
 cov/
@@ -41,3 +42,7 @@ cov/
 # Ignore auto-generated docs
 /docs
 scripts/man/dub*.1.gz
+
+# Ignore generated files for examples
+/examples/generated-sources/generated-sources
+/examples/generated-sources/source/test.d

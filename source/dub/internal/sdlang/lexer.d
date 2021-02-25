@@ -17,7 +17,6 @@ import std.traits;
 import std.typecons;
 import std.uni;
 import std.utf;
-import std.variant;
 
 import dub.internal.sdlang.exception;
 import dub.internal.sdlang.symbol;

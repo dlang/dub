@@ -14,7 +14,7 @@ import dub.generators.generator;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
-import dub.internal.vibecompat.inet.url;
+import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.packagemanager;
 import dub.packagesuppliers;
@@ -990,7 +990,7 @@ abstract class PackageBuildCommand : Command {
 
 	protected void setupVersionPackage(Dub dub, string str_package_info, string default_build_type = "debug")
 	{
-		PackageAndVersion package_info = splitPackageName(str_package_info);	
+		PackageAndVersion package_info = splitPackageName(str_package_info);
 		setupPackage(dub, package_info.name, default_build_type, package_info.version_);
 	}
 
@@ -1391,6 +1391,7 @@ class TestCommand : PackageBuildCommand {
 		settings.tempBuild = m_single;
 		settings.run = true;
 		settings.runArgs = app_args;
+		settings.single = m_single;
 
 		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
 		return 0;

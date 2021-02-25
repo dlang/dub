@@ -528,29 +528,19 @@ class BuildGenerator : ProjectGenerator {
 			if (buildsettings.workingDirectory.length) {
 				runcwd = NativePath(buildsettings.workingDirectory);
 				if (!runcwd.absolute) runcwd = cwd ~ runcwd;
-				logDiagnostic("Switching to %s", runcwd.toNativeString());
-				chdir(runcwd.toNativeString());
 			}
-			scope(exit) chdir(cwd.toNativeString());
 			if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
-			auto exe_path_string = exe_file_path.relativeTo(runcwd).toNativeString();
-			version (Posix) {
-				if (!exe_path_string.startsWith(".") && !exe_path_string.startsWith("/"))
-					exe_path_string = "./" ~ exe_path_string;
-			}
-			version (Windows) {
-				if (!exe_path_string.startsWith(".") && (exe_path_string.length < 2 || exe_path_string[1] != ':'))
-					exe_path_string = ".\\" ~ exe_path_string;
-			}
 			runPreRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
-			logInfo("Running %s %s", exe_path_string, run_args.join(" "));
+			logInfo("Running %s %s", exe_file_path.relativeTo(runcwd), run_args.join(" "));
 			if (settings.runCallback) {
-				auto res = execute(exe_path_string ~ run_args);
+				auto res = execute([ exe_file_path.toNativeString() ] ~ run_args,
+						   null, Config.none, size_t.max, runcwd.toNativeString());
 				settings.runCallback(res.status, res.output);
 				settings.targetExitStatus = res.status;
 				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			} else {
-				auto prg_pid = spawnProcess(exe_path_string ~ run_args);
+				auto prg_pid = spawnProcess([ exe_file_path.toNativeString() ] ~ run_args,
+								null, Config.none, runcwd.toNativeString());
 				auto result = prg_pid.wait();
 				settings.targetExitStatus = result;
 				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);

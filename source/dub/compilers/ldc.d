@@ -12,14 +12,11 @@ import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
-import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
-import std.conv;
 import std.exception;
 import std.file;
-import std.process;
 import std.typecons;
 
 
@@ -271,7 +268,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
 	}
 
-	private static bool isLinkerDFlag(string arg)
+	static bool isLinkerDFlag(string arg)
 	{
 		if (arg.length > 2 && arg.startsWith("--"))
 			arg = arg[1 .. $]; // normalize to 1 leading hyphen

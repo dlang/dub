@@ -12,14 +12,11 @@ import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
-import dub.recipe.packagerecipe : ToolchainRequirements;
 
 import std.algorithm;
 import std.array;
-import std.conv;
 import std.exception;
 import std.file;
-import std.process;
 import std.typecons;
 
 // Determines whether the specified process is running under WOW64 or an Intel64 of x64 processor.
@@ -333,7 +330,13 @@ config    /etc/dmd.conf
 		if (platform.platform.canFind("linux"))
 			args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order by DMD
 		args ~= lflagsToDFlags(settings.lflags);
-		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
+		if (platform.compiler == "ldc") {
+			// ldmd2: support the full LDC-specific list + extra "-m32mscoff", a superset of the DMD list
+			import dub.compilers.ldc : LDCCompiler;
+			args ~= settings.dflags.filter!(f => f == "-m32mscoff" || LDCCompiler.isLinkerDFlag(f)).array;
+		} else {
+			args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
+		}
 
 		auto res_file = getTempFile("dub-build", ".lnk");
 		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
@@ -352,14 +355,15 @@ config    /etc/dmd.conf
 		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
 	}
 
-	private static bool isLinkerDFlag(string arg)
+	static bool isLinkerDFlag(string arg)
 	{
 		switch (arg) {
-			default:
-				if (arg.startsWith("-defaultlib=")) return true;
-				return false;
-			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib", "-m32mscoff":
+			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib", "-m32mscoff", "-betterC":
 				return true;
+			default:
+				return arg.startsWith("-L")
+				    || arg.startsWith("-Xcc=")
+				    || arg.startsWith("-defaultlib=");
 		}
 	}
 }

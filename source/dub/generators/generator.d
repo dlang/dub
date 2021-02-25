@@ -20,8 +20,7 @@ import dub.packagemanager;
 import dub.project;
 
 import std.algorithm : map, filter, canFind, balancedParens;
-import std.array : array;
-import std.array;
+import std.array : array, appender, join;
 import std.exception;
 import std.file;
 import std.string;
@@ -120,7 +119,10 @@ class ProjectGenerator
 			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), settings, true);
 			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 			auto bs = &targets[m_project.rootPackage.name].buildSettings;
-			auto targetPath = (m_tempTargetExecutablePath.empty) ? NativePath(bs.targetPath) : m_tempTargetExecutablePath;
+			auto targetPath = !m_tempTargetExecutablePath.empty ? m_tempTargetExecutablePath :
+							  !bs.targetPath.empty ? NativePath(bs.targetPath) :
+							  NativePath(buildsettings.targetPath);
+
 			finalizeGeneration(pack, m_project, settings, buildsettings, targetPath, generate_binary);
 		}
 
@@ -670,6 +672,62 @@ ProjectGenerator createProjectGenerator(string generator_type, Project project)
 
 
 /**
+	Calls delegates on files and directories in the given path that match any globs.
+*/
+void findFilesMatchingGlobs(in NativePath path, in string[] globList, void delegate(string file) addFile, void delegate(string dir) addDir)
+{
+	import std.path : globMatch;
+
+	string[] globs;
+	foreach (f; globList)
+	{
+		if (f.canFind("*", "?") ||
+			(f.canFind("{") && f.balancedParens('{', '}')) ||
+			(f.canFind("[") && f.balancedParens('[', ']')))
+		{
+			globs ~= f;
+		}
+		else
+		{
+			if (f.isDir)
+				addDir(f);
+			else
+				addFile(f);
+		}
+	}
+	if (globs.length) // Search all files for glob matches
+		foreach (f; dirEntries(path.toNativeString(), SpanMode.breadth))
+			foreach (glob; globs)
+				if (f.name().globMatch(glob))
+				{
+					if (f.isDir)
+						addDir(f);
+					else
+						addFile(f);
+					break;
+				}
+}
+
+
+/**
+	Calls delegates on files in the given path that match any globs.
+
+	If a directory matches a glob, the delegate is called on all existing files inside it recursively
+	in depth-first pre-order.
+*/
+void findFilesMatchingGlobs(in NativePath path, in string[] globList, void delegate(string file) addFile)
+{
+	void addDir(string dir)
+	{
+		foreach (f; dirEntries(dir, SpanMode.breadth))
+			addFile(f);
+	}
+
+	findFilesMatchingGlobs(path, globList, addFile, &addDir);
+}
+
+
+/**
 	Runs pre-build commands and performs other required setup before project files are generated.
 */
 private void prepareGeneration(in Package pack, in Project proj, in GeneratorSettings settings,
@@ -687,8 +745,6 @@ private void prepareGeneration(in Package pack, in Project proj, in GeneratorSet
 private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSettings settings,
 	in BuildSettings buildsettings, NativePath target_path, bool generate_binary)
 {
-	import std.path : globMatch;
-
 	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running post-generate commands for %s...", pack.name);
 		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
@@ -744,40 +800,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 				} catch(Exception e) logWarn("Failed to copy %s to %s: %s", src.toNativeString(), dst.toNativeString(), e.msg);
 			}
 			logInfo("Copying files for %s...", pack.name);
-			string[] globs;
-			foreach (f; buildsettings.copyFiles)
-			{
-				if (f.canFind("*", "?") ||
-					(f.canFind("{") && f.balancedParens('{', '}')) ||
-					(f.canFind("[") && f.balancedParens('[', ']')))
-				{
-					globs ~= f;
-				}
-				else
-				{
-					if (f.isDir)
-						tryCopyDir(f);
-					else
-						tryCopyFile(f);
-				}
-			}
-			if (globs.length) // Search all files for glob matches
-			{
-				foreach (f; dirEntries(pack.path.toNativeString(), SpanMode.breadth))
-				{
-					foreach (glob; globs)
-					{
-						if (f.name().globMatch(glob))
-						{
-							if (f.isDir)
-								tryCopyDir(f);
-							else
-								tryCopyFile(f);
-							break;
-						}
-					}
-				}
-			}
+			findFilesMatchingGlobs(pack.path, buildsettings.copyFiles, &tryCopyFile, &tryCopyDir);
 		}
 
 	}
