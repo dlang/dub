@@ -21,7 +21,6 @@ int main(string[] args)
 	//**     die $LINENO 'Variable $DUB must be defined to run the tests.'
 	//** fi
 	auto dub = environment.get("DUB", "");
-	writeln("DUB: ", dub);
 	if (dub == "")
 	{
 		logError(`Environment variable "DUB" must be defined to run the tests.`);
@@ -48,7 +47,7 @@ int main(string[] args)
 	//** CURR_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 	//** FRONTEND="${FRONTEND:-}"
 	const dc_bin = baseName(dc);
-	const curr_dir = args[0].absolutePath.dirName.buildNormalizedPath;
+	const curr_dir = __FILE_FULL_PATH__.dirName();
 	const frontend = environment.get("FRONTEND", "");
 
 	//** if [ "$#" -gt 0 ]; then FILTER=$1; else FILTER=".*"; fi
