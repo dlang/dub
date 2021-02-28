@@ -1,0 +1,3 @@
+Added hash dependent build
+
+dub calculates hash sum of source files to detect if any of source files has been changed to trigger rebuilding.

@@ -332,6 +332,18 @@ class Dub {
 	*/
 	@property string defaultArchitecture() const { return m_defaultArchitecture; }
 
+	/** Build cache policy defines the way the build system detects source files changes
+		to trigger rebuilding.
+	*/
+	@property BuildCachePolicy buildCachePolicy() const { return m_config.buildCachePolicy; }
+
+	unittest
+	{
+		auto dub = new Dub();
+		dub.m_config = new DubConfig(Json(["buildCachePolicy": Json("sha1")]), null);
+		assert(dub.buildCachePolicy == BuildCachePolicy.sha1);
+	}
+
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
 	void loadPackage()
@@ -766,6 +778,7 @@ class Dub {
 		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
 		settings.run = true;
+		settings.buildCachePolicy = buildCachePolicy;
 
 		foreach (dependencyPackage; m_project.dependencies)
 		{
@@ -1261,6 +1274,7 @@ class Dub {
 		settings.buildType = "debug";
 		settings.run = true;
 		settings.runArgs = runArgs;
+		settings.buildCachePolicy = buildCachePolicy;
 		initSubPackage.recipe.buildSettings.workingDirectory = path.toNativeString();
 		template_dub.generateProject("build", settings);
 	}
@@ -1331,6 +1345,7 @@ class Dub {
 		settings.compiler = getCompiler(compiler_binary); // TODO: not using --compiler ???
 		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
+		settings.buildCachePolicy = buildCachePolicy;
 		settings.run = true;
 
 		auto filterargs = m_project.rootPackage.recipe.ddoxFilterArgs.dup;
@@ -1801,6 +1816,16 @@ private class DubConfig {
 			return m_parentConfig.skipRegistry;
 
 		return SkipPackageSuppliers.none;
+	}
+
+	@property BuildCachePolicy buildCachePolicy()
+	const {
+		if (auto pv = "buildCachePolicy" in m_data)
+			return (pv.get!string.to!BuildCachePolicy);
+		if (m_parentConfig)
+			return m_parentConfig.buildCachePolicy;
+
+		return BuildCachePolicy.default_;
 	}
 
 	@property NativePath[] customCachePaths()

@@ -29,7 +29,7 @@ import std.encoding : sanitize;
 
 string getObjSuffix(const scope ref BuildPlatform platform)
 {
-    return platform.platform.canFind("windows") ? ".obj" : ".o";
+	return platform.platform.canFind("windows") ? ".obj" : ".o";
 }
 
 string computeBuildName(string config, GeneratorSettings settings, const string[][] hashing...)
@@ -44,7 +44,7 @@ string computeBuildName(string config, GeneratorSettings settings, const string[
 		addHash(strings);
 	auto hashstr = hash.finish().toHexString().idup;
 
-    return format("%s-%s-%s-%s-%s_v%s-%s", config, settings.buildType,
+	return format("%s-%s-%s-%s-%s_v%s-%s", config, settings.buildType,
 			settings.platform.platform.join("."),
 			settings.platform.architecture.join("."),
 			settings.platform.compiler, settings.platform.compilerVersion, hashstr);
@@ -149,8 +149,6 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = NativePath(getcwd());
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
-		auto build_id = computeBuildID(config, buildsettings, settings);
-
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
 		foreach (ref f; buildsettings.sourceFiles) f = makeRelative(f);
@@ -161,11 +159,12 @@ class BuildGenerator : ProjectGenerator {
 		bool cached = false;
 		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config, target_path);
 		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config, target_path);
-		else cached = performCachedBuild(settings, buildsettings, pack, config, build_id, packages, additional_dep_files, target_path);
+		else cached = performCachedBuild(settings, buildsettings, pack, config, packages, additional_dep_files, target_path);
 
 		// HACK: cleanup dummy doc files, we shouldn't specialize on buildType
 		// here and the compiler shouldn't need dummy doc output.
-		if (settings.buildType == "ddox") {
+		if (settings.buildType == "ddox")
+		{
 			if ("__dummy.html".exists)
 				removeFile("__dummy.html");
 			if ("__dummy_docs".exists)
@@ -173,7 +172,8 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		// run post-build commands
-		if (!cached && buildsettings.postBuildCommands.length) {
+		if (!cached && buildsettings.postBuildCommands.length)
+		{
 			logInfo("Running post-build commands...");
 			runBuildCommands(buildsettings.postBuildCommands, pack, m_project, settings, buildsettings);
 		}
@@ -182,48 +182,82 @@ class BuildGenerator : ProjectGenerator {
 	}
 
 	private bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config,
-		string build_id, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_binary_path)
+		in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_binary_path)
 	{
 		auto cwd = NativePath(getcwd());
 
+		auto build_id = computeBuildID(config, buildsettings, settings);
 		NativePath target_path;
-		if (settings.tempBuild) {
+		if (settings.tempBuild)
+		{
 			string packageName = pack.basePackage is null ? pack.name : pack.basePackage.name;
 			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
 		}
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
-		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
-			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
-			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
-			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
+		auto allfiles = listAllFiles(buildsettings, settings, pack, packages, additional_dep_files);
+		BuildCache buildCache;
+		string buildPolicyStr = "(";
+		final switch(settings.buildCachePolicy)
+		{
+			case BuildCachePolicy.default_:
+				buildPolicyStr ~= "default build policy: ";
+				goto case BuildCachePolicy.time; // default value
+			case BuildCachePolicy.time:
+				buildPolicyStr ~= "time";
+				buildCache = new TimeDependentCache(target_path, buildsettings, settings, allfiles);
+			break;
+			case BuildCachePolicy.sha1:
+				buildPolicyStr ~= "sha1";
+				buildCache = new Sha1DependentCache(target_path, allfiles);
+			break;
+			case BuildCachePolicy.sha256:
+				buildPolicyStr ~= "sha256";
+				buildCache = new Sha256DependentCache(target_path, allfiles);
+			break;
+		}
+		buildPolicyStr ~= ")";
+
+		// always call isUpToDate to set targetPath
+		auto updated = buildCache.isUpToDate;
+		if (!settings.force && updated)
+		{
+			logInfo("%s %s: target for configuration \"%s\" is up to date %s.", pack.name, pack.version_, config, buildPolicyStr);
+			logDiagnostic("Using existing build in %s.", buildCache.targetPath.toNativeString());
+			target_binary_path = buildCache.targetPath ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 			if (!settings.tempBuild)
-				copyTargetFile(target_path, buildsettings, settings);
+				copyTargetFile(buildCache.targetPath, buildsettings, settings);
 			return true;
 		}
 
-		if (!isWritableDir(target_path, true)) {
+		if (!isWritableDir(buildCache.targetPath, true))
+		{
 			if (!settings.tempBuild)
-				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
-			performDirectBuild(settings, buildsettings, pack, config, target_path);
+				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", buildCache.targetPath.relativeTo(cwd).toNativeString());
+			NativePath dummy_path = void;
+			performDirectBuild(settings, buildsettings, pack, config, dummy_path);
 			return false;
 		}
 
-		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
+		logInfo("%s %s: building configuration \"%s\" %s...", pack.name, pack.version_, config, buildPolicyStr);
 
-		if( buildsettings.preBuildCommands.length ){
+		if(buildsettings.preBuildCommands.length)
+		{
 			logInfo("Running pre-build commands...");
 			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
 		// override target path
 		auto cbuildsettings = buildsettings;
-		cbuildsettings.targetPath = shrinkPath(target_path, cwd);
+		cbuildsettings.targetPath = shrinkPath(buildCache.targetPath, cwd);
 		buildWithCompiler(settings, cbuildsettings);
 		target_binary_path = getTargetPath(cbuildsettings, settings);
 
 		if (!settings.tempBuild)
-			copyTargetFile(target_path, buildsettings, settings);
+		{
+			copyTargetFile(buildCache.targetPath, buildsettings, settings);
+			buildCache.commitCache;
+		}
 
 		return false;
 	}
@@ -376,17 +410,9 @@ class BuildGenerator : ProjectGenerator {
 		hardLinkFile(src, NativePath(buildsettings.targetPath) ~ filename, true);
 	}
 
-	private bool isUpToDate(NativePath target_path, BuildSettings buildsettings, GeneratorSettings settings, in Package main_pack, in Package[] packages, in NativePath[] additional_dep_files)
+	// list all files this project is dependent on
+	private auto listAllFiles(in BuildSettings buildsettings, in GeneratorSettings settings, in Package main_pack, in Package[] packages, in NativePath[] additional_dep_files)
 	{
-		import std.datetime;
-
-		auto targetfile = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
-		if (!existsFile(targetfile)) {
-			logDiagnostic("Target '%s' doesn't exist, need rebuild.", targetfile.toNativeString());
-			return false;
-		}
-		auto targettime = getFileInfo(targetfile).timeModified;
-
 		auto allfiles = appender!(string[]);
 		allfiles ~= buildsettings.sourceFiles;
 		allfiles ~= buildsettings.importFiles;
@@ -394,26 +420,18 @@ class BuildGenerator : ProjectGenerator {
 		allfiles ~= buildsettings.extraDependencyFiles;
 		// TODO: add library files
 		foreach (p; packages)
-			allfiles ~= (p.recipePath != NativePath.init ? p : p.basePackage).recipePath.toNativeString();
+		{
+			if (p.recipePath != NativePath.init)
+				allfiles ~=  p.recipePath.toNativeString();
+			else if (p.basePackage.recipePath != NativePath.init)
+				allfiles ~=  p.basePackage.recipePath.toNativeString();
+		}
 		foreach (f; additional_dep_files) allfiles ~= f.toNativeString();
 		bool checkSelectedVersions = !settings.single;
 		if (checkSelectedVersions && main_pack is m_project.rootPackage && m_project.rootPackage.getAllDependencies().length > 0)
 			allfiles ~= (main_pack.path ~ SelectedVersions.defaultFile).toNativeString();
 
-		foreach (file; allfiles.data) {
-			if (!existsFile(file)) {
-				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
-				return false;
-			}
-			auto ftime = getFileInfo(file).timeModified;
-			if (ftime > Clock.currTime)
-				logWarn("File '%s' was modified in the future. Please re-save.", file);
-			if (ftime > targettime) {
-				logDiagnostic("File '%s' modified, need rebuild.", file);
-				return false;
-			}
-		}
-		return true;
+		return allfiles.data;
 	}
 
 	/// Output an unique name to represent the source file.
@@ -581,6 +599,377 @@ class BuildGenerator : ProjectGenerator {
 		}
 		m_temporaryFiles = null;
 	}
+}
+
+interface BuildCache
+{
+	/// called on after successful building of the target to complete
+	/// caching
+	void commitCache();
+	/// calculates hash sum of all files and returns true if all files are up to date
+	bool isUpToDate();
+	/// return the path to the current file cache
+	NativePath targetPath();
+}
+
+class TimeDependentCache : BuildCache
+{
+	private
+	{
+		NativePath _targetfile, _targetpath;
+		const(string[]) _allfiles;
+	}
+
+	/// create an instance of the build cache
+	/// target_path
+	/// buildsettings
+	/// settings
+	/// allfiles is the list of files in native form
+	this(NativePath target_path, BuildSettings buildsettings, GeneratorSettings settings, in string[] allfiles)
+	{
+		_targetpath = target_path;
+		_targetfile = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
+		_allfiles = allfiles;
+	}
+
+	/// ditto
+	void commitCache()
+	{
+		// nothing to do
+	}
+
+	/// ditto
+	bool isUpToDate()
+	{
+		import std.datetime : Clock;
+
+		if (!existsFile(_targetfile))
+		{
+			logDiagnostic("Target '%s' doesn't exist, need rebuild.", _targetfile.toNativeString());
+			return false;
+		}
+
+		const targettime = getFileInfo(_targetfile).timeModified;
+		foreach (file; _allfiles)
+		{
+			if (!existsFile(file))
+			{
+				logDiagnostic("File %s doesn't exist, triggering rebuild.", file);
+				return false;
+			}
+			const ftime = getFileInfo(file).timeModified;
+			if (ftime > Clock.currTime)
+				logWarn("File '%s' was modified in the future. Please re-save.", file);
+			if (ftime > targettime)
+			{
+				logDiagnostic("File '%s' modified, need rebuild.", file);
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	// ditto
+	NativePath targetPath()
+	{
+		return _targetpath;
+	}
+}
+
+class DigestDependentCache : BuildCache
+{
+	private
+	{
+		import std.digest : Digest;
+		import std.stdio : File;
+		import std.path : baseName, buildPath;
+
+		static struct Record
+		{
+			string filename;
+			ubyte[] hash;
+		}
+		// hashes of files
+		Record[] _files;
+		Digest _digest;
+		// the hash of the whole cache
+		ubyte[] _hash;
+		// the path to the directory where build artifacts of all build caches are placed
+		NativePath _target_path;
+		// the path to the directory where build artifacts of the current build cache is placed
+		NativePath _hash_target_path;
+		// the name of the file containing hash sums
+		string _hashfilename;
+	}
+
+	/**
+	 * Create new instance of the class
+	 *
+	 * Params:
+	 *     allfiles      = the list of files in native form
+	 *     digest        = the digest used to get hashes of source files
+	 *     target path   = the path to the file cache directory
+	 *     hashfilename  = the name of the file where hashes of source files are stored
+	 */
+	this(const(string[]) allfiles, Digest digest, NativePath target_path, string hashfilename)
+	{
+		import std.array : array;
+		import std.algorithm : map;
+
+		_files = allfiles.map!(a=>Record(a)).array;
+		_digest = digest;
+		_target_path = target_path;
+		_hashfilename = hashfilename;
+	}
+
+	protected abstract ubyte[] buffer() nothrow;
+
+	protected bool loadHashFile(string filename, out ubyte[][string] hashes) nothrow
+	{
+		try
+		{
+			if (existsFile(filename))
+			{
+				import std.string : strip;
+				foreach(file; slurp!(string, "str_hash", string, "name")(filename, "%s %s"))
+				{
+					if (!fromHexString(file.str_hash, buffer))
+					{
+						logError("Failed to get hash of source files, triggering rebuild");
+						return false;
+					}
+					hashes[file.name.strip] = buffer.dup;
+				}
+				return true;
+			}
+		}
+		catch(Exception e) {
+			// any exception means that the cache is invalid
+			logError("Loading hash file failed, triggering rebuild");
+		}
+
+		return false;
+	}
+
+	protected void calculateHash(string filename)
+	{
+		try
+		{
+			import std.algorithm : each;
+			import std.exception : ErrnoException;
+
+			enum ChunkSize = 4096;
+
+			File(filename, "r").byChunk(ChunkSize).each!(a=>_digest.put(a));
+			_digest.finish(buffer);
+		}
+		catch (ErrnoException ex)
+		{
+			import core.stdc.errno : EPERM, EACCES, ENOENT;
+
+			switch(ex.errno)
+			{
+				case EPERM:
+				case EACCES:
+					logError("%s: permission denied", filename);
+					break;
+
+				case ENOENT:
+					logError("%s: file does not exist", filename);
+					break;
+
+				default:
+					logError("%s: reading failed", filename);
+					buffer[] = 0;
+					break;
+			}
+		}
+	}
+
+	protected void calculateHash()
+	{
+		import std.digest.md : MD5, toHexString;
+
+		MD5 hash;
+		hash.start;
+		foreach (ref rec; _files)
+		{
+			if (!existsFile(rec.filename))
+			{
+				logError("File %s doesn't exist.", rec.filename);
+				rec.hash.length = 0;
+			}
+			else
+			{
+				calculateHash(rec.filename);
+				rec.hash = buffer.dup;
+				hash.put(rec.hash);
+			}
+		}
+
+		_hash = hash.finish.dup;
+		_hash_target_path = _target_path ~ _hash.toHexString.idup;
+	}
+
+	/// ditto
+	bool isUpToDate()
+	{
+		assert(buffer.length == _digest.length);
+		ubyte[][string] hashes;
+
+		import std.digest.md : toHexString;
+
+		// calculate new hash of all files
+		calculateHash;
+
+		auto hashfile = buildPath(targetPath.toNativeString, _hashfilename);
+		if (!loadHashFile(hashfile, hashes))
+		{
+			logDiagnostic("File `%s`: not found, triggering rebuild.", _hashfilename);
+			return false;
+		}
+
+		foreach (rec; _files)
+		{
+			if (rec.filename !in hashes || rec.hash != hashes[rec.filename])
+			{
+				logWarn("File `%s`: hash was changed, triggering rebuild.", rec.filename);
+				return false;
+			}
+		}
+		return true;
+	}
+
+	protected void commitCache()
+	{
+		assert(!_hash_target_path.empty, "`isUpToDate` should be called before calling `commitCache`");
+
+		auto filename = buildPath(_hash_target_path.toNativeString, _hashfilename);
+		{
+			import std.digest : toHexString;
+			auto file = File(filename ~ "_tmp", "w");
+			foreach(ref rec; _files)
+				file.writefln("%s %s", rec.hash.toHexString!(LetterCase.lower), rec.filename);
+		}
+
+		rename(filename ~ "_tmp", filename);
+	}
+
+	/// ditto
+	NativePath targetPath()
+	{
+		assert(!_hash_target_path.empty, "`isUpToDate` should be called before calling `targetPath`");
+		return _hash_target_path;
+	}
+}
+
+class Sha1DependentCache : DigestDependentCache
+{
+	private
+	{
+		import std.digest.sha : SHA1Digest;
+
+		ubyte[20] _buffer;
+		ubyte[__traits(classInstanceSize, SHA1Digest)] _holder;
+	}
+
+	/// ditto
+	this(NativePath target_path, in string[] allfiles)
+	{
+		super(
+			allfiles,
+			emplace!SHA1Digest(_holder),
+			target_path,
+			"filehash.sha1"
+		);
+	}
+
+	~this()
+	{
+		destroy(_digest);
+	}
+
+	protected override ubyte[] buffer() nothrow {
+		return _buffer[];
+	}
+}
+
+class Sha256DependentCache : DigestDependentCache
+{
+	private
+	{
+		import std.digest.sha : SHA256Digest;
+
+		ubyte[32] _buffer;
+		ubyte[__traits(classInstanceSize, SHA256Digest)] _holder;
+	}
+
+	/// ditto
+	this(NativePath target_path, in string[] allfiles)
+	{
+		super(
+			allfiles,
+			emplace!SHA256Digest(_holder),
+			target_path,
+			"filehash.sha256"
+		);
+	}
+
+	~this()
+	{
+		destroy(_digest);
+	}
+
+	protected override ubyte[] buffer() nothrow
+	{
+		return _buffer[];
+	}
+}
+
+/**
+ * Converts hex string to ubyte array
+ *
+ * Params:
+ *    hexBuffer = a string containing data in hex representation
+ *    byteBuffer = an output array of bytes containing converted data
+ *
+ * Returns: true if the conversion was successful
+ */
+
+private bool fromHexString(string hexBuffer, ubyte[] byteBuffer)
+{
+	enforce(byteBuffer.length == hexBuffer.length / 2, "fromHexString buffers size mismatch");
+	int i;
+	bool low;
+	foreach (ch; hexBuffer)
+	{
+		int v = cast(int) ch;
+		if (v >= '0' && v <= '9')
+			v -= '0' - 0;
+		else if (v >= 'A' && v <= 'F')
+			v -= 'A' - 10;
+		else if (v>= 'a' && v <= 'f')
+			v -= 'a' - 10;
+		else
+			return false;
+
+		if (low)
+			byteBuffer[i++] |= v & 0xF;
+		else
+			byteBuffer[i] = (v & 0xF) << 4;
+
+		low = !low;
+	}
+	assert(i == byteBuffer.length);
+	return true;
+}
+
+unittest
+{
+	ubyte[5] buffer;
+	"01090a0fff".fromHexString(buffer);
+	assert( buffer[] == [1, 9, 10, 15, 255]);
 }
 
 private NativePath getMainSourceFile(in Package prj)

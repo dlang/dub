@@ -1083,6 +1083,7 @@ class GenerateCommand : PackageBuildCommand {
 		bool m_combined = false;
 		bool m_parallel = false;
 		bool m_printPlatform, m_printBuilds, m_printConfigs;
+		BuildCachePolicy m_build_cache_policy;
 	}
 
 	this() @safe pure nothrow
@@ -1153,6 +1154,32 @@ class GenerateCommand : PackageBuildCommand {
 			logInfo("");
 		}
 
+		// Merge hash kind values got from command line option, settings file and environment
+		// Priority is:
+		// - cli option
+		// - environment
+		// - settings file
+		// - default value
+		{
+			import std.process : environment;
+			BuildCachePolicy env_hash_kind;
+			string str;
+			try
+			{
+				str = environment.get("DUB_BUILD_CACHE_POLICY");
+				if (str.length)
+					env_hash_kind = str.to!BuildCachePolicy;
+			}
+			catch(Exception e)
+			{
+				logWarn("Wrong value of DUB_BUILD_CACHE_POLICY environment variable: `%s`. Default value will be used", str);
+				env_hash_kind = BuildCachePolicy.default_;
+			}
+
+			if (m_build_cache_policy == BuildCachePolicy.default_) 
+				m_build_cache_policy = (env_hash_kind != BuildCachePolicy.default_) ? env_hash_kind : dub.buildCachePolicy;
+		}
+
 		GeneratorSettings gensettings;
 		gensettings.platform = m_buildPlatform;
 		gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
@@ -1169,6 +1196,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.tempBuild = m_tempBuild;
 		gensettings.parallelBuild = m_parallel;
 		gensettings.single = m_single;
+		gensettings.buildCachePolicy = m_build_cache_policy;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
@@ -1207,6 +1235,20 @@ class BuildCommand : GenerateCommand {
 		args.getopt("n|non-interactive", &m_nonInteractive, [
 			"Don't enter interactive mode."
 		]);
+		string str;
+		args.getopt("build-cache-policy", &str, [
+			"Enable using time dependent (by default) or hash dependent build"
+		]);
+
+		// compare str to every member of BuildCachePolicy dropping trailing underscore
+		// and set m_build_cache_policy to appropriate value. If str doesn't equal to any member
+		//  of BuildCachePolicy set m_build_cache_policy in default value
+		m_build_cache_policy = BuildCachePolicy.default_;
+		import std.traits : EnumMembers;
+		foreach(i, member; EnumMembers!BuildCachePolicy)
+			if (str == to!string(member).stripRight("_"))
+				m_build_cache_policy = EnumMembers!BuildCachePolicy[i];
+
 		super.prepare(args);
 		m_generator = "build";
 	}
@@ -1392,6 +1434,7 @@ class TestCommand : PackageBuildCommand {
 		settings.run = true;
 		settings.runArgs = app_args;
 		settings.single = m_single;
+		settings.buildCachePolicy = dub.buildCachePolicy;
 
 		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
 		return 0;
@@ -2330,6 +2373,8 @@ class DustmiteCommand : PackageBuildCommand {
 			gensettings.compileCallback = check(m_compilerStatusCode, m_compilerRegex);
 			gensettings.linkCallback = check(m_linkerStatusCode, m_linkerRegex);
 			gensettings.runCallback = check(m_programStatusCode, m_programRegex);
+			gensettings.buildCachePolicy = dub.buildCachePolicy;
+
 			try dub.generateProject("build", gensettings);
 			catch (DustmiteMismatchException) {
 				logInfo("Dustmite test doesn't match.");

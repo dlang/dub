@@ -16,6 +16,8 @@ __dummy.html
 /bin/dub-test-library
 /bin/libdub.a
 /bin/dub-*
+*.exe
+bin/*.exe
 
 # Ignore files or directories created by the test suite.
 /test/test.log
@@ -30,6 +32,7 @@ __dummy.html
 /test/expected-issue616-output
 /test/describe-project/dummy.dat
 /test/describe-project/dummy-dep1.dat
+/test/hash-dependent-build
 /test/*/main/main
 /test/*/*test-library
 /test/*/*test-application
@@ -42,7 +45,6 @@ cov/
 # Ignore auto-generated docs
 /docs
 scripts/man/dub*.1.gz
-
 # Ignore generated files for examples
 /examples/generated-sources/generated-sources
 /examples/generated-sources/source/test.d
