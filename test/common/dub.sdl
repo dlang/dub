@@ -1,0 +1,6 @@
+name "common"
+description "Utility package for test suite"
+authors "drug007"
+copyright "The D language Foundation"
+license "BSL-1.0"
+targetType "sourceLibrary"
