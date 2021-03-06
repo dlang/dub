@@ -175,7 +175,8 @@ class BuildGenerator : ProjectGenerator {
 		// run post-build commands
 		if (!cached && buildsettings.postBuildCommands.length) {
 			logInfo("Running post-build commands...");
-			runBuildCommands(buildsettings.postBuildCommands, pack, m_project, settings, buildsettings);
+			runBuildCommands(buildsettings.postBuildCommands, pack, m_project, settings, buildsettings,
+				[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.postBuildEnvironments]);
 		}
 
 		return cached;
@@ -213,7 +214,8 @@ class BuildGenerator : ProjectGenerator {
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
-			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
+			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings,
+				[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.preBuildEnvironments]);
 		}
 
 		// override target path
@@ -333,7 +335,8 @@ class BuildGenerator : ProjectGenerator {
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
-			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
+			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings,
+				[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.preBuildEnvironments]);
 		}
 
 		buildWithCompiler(settings, buildsettings);
@@ -532,15 +535,19 @@ class BuildGenerator : ProjectGenerator {
 			if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
 			runPreRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			logInfo("Running %s %s", exe_file_path.relativeTo(runcwd), run_args.join(" "));
+			string[string] env;
+			foreach (aa; [buildsettings.environments, buildsettings.runEnvironments])
+				foreach (k, v; aa)
+					env[k] = v;
 			if (settings.runCallback) {
 				auto res = execute([ exe_file_path.toNativeString() ] ~ run_args,
-						   null, Config.none, size_t.max, runcwd.toNativeString());
+						   env, Config.none, size_t.max, runcwd.toNativeString());
 				settings.runCallback(res.status, res.output);
 				settings.targetExitStatus = res.status;
 				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			} else {
 				auto prg_pid = spawnProcess([ exe_file_path.toNativeString() ] ~ run_args,
-								null, Config.none, runcwd.toNativeString());
+								env, Config.none, runcwd.toNativeString());
 				auto result = prg_pid.wait();
 				settings.targetExitStatus = result;
 				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
@@ -555,7 +562,8 @@ class BuildGenerator : ProjectGenerator {
 	{
 		if (buildsettings.preRunCommands.length) {
 			logInfo("Running pre-run commands...");
-			runBuildCommands(buildsettings.preRunCommands, pack, proj, settings, buildsettings);
+			runBuildCommands(buildsettings.preRunCommands, pack, proj, settings, buildsettings,
+				[buildsettings.environments, buildsettings.runEnvironments, buildsettings.preRunEnvironments]);
 		}
 	}
 
@@ -564,7 +572,8 @@ class BuildGenerator : ProjectGenerator {
 	{
 		if (buildsettings.postRunCommands.length) {
 			logInfo("Running post-run commands...");
-			runBuildCommands(buildsettings.postRunCommands, pack, proj, settings, buildsettings);
+			runBuildCommands(buildsettings.postRunCommands, pack, proj, settings, buildsettings,
+				[buildsettings.environments, buildsettings.runEnvironments, buildsettings.postRunEnvironments]);
 		}
 	}
 

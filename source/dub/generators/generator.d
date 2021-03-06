@@ -736,7 +736,8 @@ private void prepareGeneration(in Package pack, in Project proj, in GeneratorSet
 {
 	if (buildsettings.preGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running pre-generate commands for %s...", pack.name);
-		runBuildCommands(buildsettings.preGenerateCommands, pack, proj, settings, buildsettings);
+		runBuildCommands(buildsettings.preGenerateCommands, pack, proj, settings, buildsettings,
+			[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.preGenerateEnvironments]);
 	}
 }
 
@@ -748,7 +749,8 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 {
 	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running post-generate commands for %s...", pack.name);
-		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
+		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings,
+			[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.postGenerateEnvironments]);
 	}
 
 	if (generate_binary) {
@@ -816,7 +818,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	runs "dub describe" or similar functionality.
 */
 void runBuildCommands(in string[] commands, in Package pack, in Project proj,
-	in GeneratorSettings settings, in BuildSettings build_settings)
+	in GeneratorSettings settings, in BuildSettings build_settings, in string[string][] extraVars = null)
 {
 	import dub.internal.utils : getDUBExePath, runCommands;
 	import std.conv : to, text;
@@ -870,6 +872,11 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_ROOT_PACKAGE_TARGET_TYPE"] = to!string(rootPackageBuildSettings.targetType);
 	env["DUB_ROOT_PACKAGE_TARGET_PATH"] = rootPackageBuildSettings.targetPath;
 	env["DUB_ROOT_PACKAGE_TARGET_NAME"] = rootPackageBuildSettings.targetName;
+	
+	foreach (aa; extraVars) {
+		foreach (k, v; aa)
+			env[k] = v;
+	}
 
 	auto depNames = proj.dependencies.map!((a) => a.name).array();
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);

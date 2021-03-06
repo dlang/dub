@@ -204,6 +204,15 @@ struct BuildSettingsTemplate {
 	string[][string] postBuildCommands;
 	string[][string] preRunCommands;
 	string[][string] postRunCommands;
+	string[string][string] environments;
+	string[string][string] buildEnvironments;
+	string[string][string] runEnvironments;
+	string[string][string] preGenerateEnvironments;
+	string[string][string] postGenerateEnvironments;
+	string[string][string] preBuildEnvironments;
+	string[string][string] postBuildEnvironments;
+	string[string][string] preRunEnvironments;
+	string[string][string] postRunEnvironments;
 	BuildRequirements[string] buildRequirements;
 	BuildOptions[string] buildOptions;
 
@@ -303,6 +312,15 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("postBuildCommands", "addPostBuildCommands")(dst, platform);
 		getPlatformSetting!("preRunCommands", "addPreRunCommands")(dst, platform);
 		getPlatformSetting!("postRunCommands", "addPostRunCommands")(dst, platform);
+		getPlatformSetting!("environments", "addEnvironments")(dst, platform);
+		getPlatformSetting!("buildEnvironments", "addBuildEnvironments")(dst, platform);
+		getPlatformSetting!("runEnvironments", "addRunEnvironments")(dst, platform);
+		getPlatformSetting!("preGenerateEnvironments", "addPreGenerateEnvironments")(dst, platform);
+		getPlatformSetting!("postGenerateEnvironments", "addPostGenerateEnvironments")(dst, platform);
+		getPlatformSetting!("preBuildEnvironments", "addPreBuildEnvironments")(dst, platform);
+		getPlatformSetting!("postBuildEnvironments", "addPostBuildEnvironments")(dst, platform);
+		getPlatformSetting!("preRunEnvironments", "addPreRunEnvironments")(dst, platform);
+		getPlatformSetting!("postRunEnvironments", "addPostRunEnvironments")(dst, platform);
 		getPlatformSetting!("buildRequirements", "addRequirements")(dst, platform);
 		getPlatformSetting!("buildOptions", "addOptions")(dst, platform);
 	}

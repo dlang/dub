@@ -235,6 +235,15 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "postBuildCommands": bs.postBuildCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "preRunCommands": bs.preRunCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "postRunCommands": bs.postRunCommands[suffix] = deserializeJson!(string[])(value); break;
+			case "environments": bs.environments[suffix] = deserializeJson!(string[string])(value); break;
+			case "buildEnvironments": bs.buildEnvironments[suffix] = deserializeJson!(string[string])(value); break;
+			case "runEnvironments": bs.runEnvironments[suffix] = deserializeJson!(string[string])(value); break;
+			case "preGenerateEnvironments": bs.preGenerateEnvironments[suffix] = deserializeJson!(string[string])(value); break;
+			case "postGenerateEnvironments": bs.postGenerateEnvironments[suffix] = deserializeJson!(string[string])(value); break;
+			case "preBuildEnvironments": bs.preBuildEnvironments[suffix] = deserializeJson!(string[string])(value); break;
+			case "postBuildEnvironments": bs.postBuildEnvironments[suffix] = deserializeJson!(string[string])(value); break;
+			case "preRunEnvironments": bs.preRunEnvironments[suffix] = deserializeJson!(string[string])(value); break;
+			case "postRunEnvironments": bs.postRunEnvironments[suffix] = deserializeJson!(string[string])(value); break;
 			case "buildRequirements":
 				BuildRequirements reqs;
 				foreach (req; deserializeJson!(string[])(value))
@@ -287,6 +296,15 @@ private Json toJson(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.postBuildCommands) ret["postBuildCommands"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.preRunCommands) ret["preRunCommands"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.postRunCommands) ret["postRunCommands"~suffix] = serializeToJson(arr);
+	foreach (suffix, aa; bs.environments) ret["environments"~suffix] = serializeToJson(aa);
+	foreach (suffix, aa; bs.buildEnvironments) ret["buildEnvironments"~suffix] = serializeToJson(aa);
+	foreach (suffix, aa; bs.runEnvironments) ret["runEnvironments"~suffix] = serializeToJson(aa);
+	foreach (suffix, aa; bs.preGenerateEnvironments) ret["preGenerateEnvironments"~suffix] = serializeToJson(aa);
+	foreach (suffix, aa; bs.postGenerateEnvironments) ret["postGenerateEnvironments"~suffix] = serializeToJson(aa);
+	foreach (suffix, aa; bs.preBuildEnvironments) ret["preBuildEnvironments"~suffix] = serializeToJson(aa);
+	foreach (suffix, aa; bs.postBuildEnvironments) ret["postBuildEnvironments"~suffix] = serializeToJson(aa);
+	foreach (suffix, aa; bs.preRunEnvironments) ret["preRunEnvironments"~suffix] = serializeToJson(aa);
+	foreach (suffix, aa; bs.postRunEnvironments) ret["postRunEnvironments"~suffix] = serializeToJson(aa);
 	foreach (suffix, arr; bs.buildRequirements) {
 		string[] val;
 		foreach (i; [EnumMembers!BuildRequirement])
@@ -317,4 +335,56 @@ private Json toJson(const scope ref ToolchainRequirements tr)
 	if (tr.ldc != Dependency.any) ret["ldc"] = serializeToJson(tr.ldc);
 	if (tr.gdc != Dependency.any) ret["gdc"] = serializeToJson(tr.gdc);
 	return ret;
+}
+
+unittest {
+	import std.string: strip, outdent;
+	static immutable json = `
+		{
+			"name": "projectname",
+			"environments": {
+				"Var1": "env"
+			},
+			"buildEnvironments": {
+				"Var2": "buildEnv"
+			},
+			"runEnvironments": {
+				"Var3": "runEnv"
+			},
+			"preGenerateEnvironments": {
+				"Var4": "preGenEnv"
+			},
+			"postGenerateEnvironments": {
+				"Var5": "postGenEnv"
+			},
+			"preBuildEnvironments": {
+				"Var6": "preBuildEnv"
+			},
+			"postBuildEnvironments": {
+				"Var7": "postBuildEnv"
+			},
+			"preRunEnvironments": {
+				"Var8": "preRunEnv"
+			},
+			"postRunEnvironments": {
+				"Var9": "postRunEnv"
+			}
+		}
+	`.strip.outdent;
+	auto jsonValue = parseJsonString(json);
+	PackageRecipe rec1;
+	parseJson(rec1, jsonValue, null);
+	PackageRecipe rec;
+	parseJson(rec, rec1.toJson(), null); // verify that all fields are serialized properly
+	
+	assert(rec.name == "projectname");
+	assert(rec.buildSettings.environments == ["": ["Var1": "env"]]);
+	assert(rec.buildSettings.buildEnvironments == ["": ["Var2": "buildEnv"]]);
+	assert(rec.buildSettings.runEnvironments == ["": ["Var3": "runEnv"]]);
+	assert(rec.buildSettings.preGenerateEnvironments == ["": ["Var4": "preGenEnv"]]);
+	assert(rec.buildSettings.postGenerateEnvironments == ["": ["Var5": "postGenEnv"]]);
+	assert(rec.buildSettings.preBuildEnvironments == ["": ["Var6": "preBuildEnv"]]);
+	assert(rec.buildSettings.postBuildEnvironments == ["": ["Var7": "postBuildEnv"]]);
+	assert(rec.buildSettings.preRunEnvironments == ["": ["Var8": "preRunEnv"]]);
+	assert(rec.buildSettings.postRunEnvironments == ["": ["Var9": "postRunEnv"]]);
 }

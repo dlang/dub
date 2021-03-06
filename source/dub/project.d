@@ -667,9 +667,9 @@ class Project {
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
 				if (!psettings.workingDirectory.empty)
-					dst.workingDirectory = processVars(psettings.workingDirectory, this, pkg, gsettings, true);
+					dst.workingDirectory = processVars(psettings.workingDirectory, this, pkg, gsettings, true, [dst.environments, dst.buildEnvironments]);
 				if (psettings.mainSourceFile.length)
-					dst.mainSourceFile = processVars(psettings.mainSourceFile, this, pkg, gsettings, true);
+					dst.mainSourceFile = processVars(psettings.mainSourceFile, this, pkg, gsettings, true, [dst.environments, dst.buildEnvironments]);
 			}
 		}
 
@@ -890,6 +890,8 @@ class Project {
 
 				return ret;
 			}
+			else static if( is(typeof(value) == string[string]) )
+				return value.byKeyValue.map!(a => a.key ~ "=" ~ a.value);
 			else static if( is(typeof(value) == enum) )
 				return only(value);
 			else static if( is(typeof(value) == BuildRequirements) )
@@ -972,6 +974,15 @@ class Project {
 			case "post-generate-commands":
 			case "pre-build-commands":
 			case "post-build-commands":
+			case "environments":
+			case "build-environments":
+			case "run-environments":
+			case "pre-generate-environments":
+			case "post-generate-environments":
+			case "pre-build-environments":
+			case "post-build-environments":
+			case "pre-run-environments":
+			case "post-run-environments":
 				enforce(false, "--data="~requestedData~" can only be used with --data-list or --data-0.");
 				break;
 
@@ -987,32 +998,41 @@ class Project {
 		auto args = TypeTuple!(platform, configs, projectDescription, compiler, disableEscaping);
 		switch (requestedData)
 		{
-		case "target-type":            return listBuildSetting!"targetType"(args);
-		case "target-path":            return listBuildSetting!"targetPath"(args);
-		case "target-name":            return listBuildSetting!"targetName"(args);
-		case "working-directory":      return listBuildSetting!"workingDirectory"(args);
-		case "main-source-file":       return listBuildSetting!"mainSourceFile"(args);
-		case "dflags":                 return listBuildSetting!"dflags"(args);
-		case "lflags":                 return listBuildSetting!"lflags"(args);
-		case "libs":                   return listBuildSetting!"libs"(args);
-		case "linker-files":           return listBuildSetting!"linkerFiles"(args);
-		case "source-files":           return listBuildSetting!"sourceFiles"(args);
-		case "copy-files":             return listBuildSetting!"copyFiles"(args);
-		case "extra-dependency-files": return listBuildSetting!"extraDependencyFiles"(args);
-		case "versions":               return listBuildSetting!"versions"(args);
-		case "debug-versions":         return listBuildSetting!"debugVersions"(args);
-		case "import-paths":           return listBuildSetting!"importPaths"(args);
-		case "string-import-paths":    return listBuildSetting!"stringImportPaths"(args);
-		case "import-files":           return listBuildSetting!"importFiles"(args);
-		case "string-import-files":    return listBuildSetting!"stringImportFiles"(args);
-		case "pre-generate-commands":  return listBuildSetting!"preGenerateCommands"(args);
-		case "post-generate-commands": return listBuildSetting!"postGenerateCommands"(args);
-		case "pre-build-commands":     return listBuildSetting!"preBuildCommands"(args);
-		case "post-build-commands":    return listBuildSetting!"postBuildCommands"(args);
-		case "pre-run-commands":       return listBuildSetting!"preRunCommands"(args);
-		case "post-run-commands":      return listBuildSetting!"postRunCommands"(args);
-		case "requirements":           return listBuildSetting!"requirements"(args);
-		case "options":                return listBuildSetting!"options"(args);
+		case "target-type":                return listBuildSetting!"targetType"(args);
+		case "target-path":                return listBuildSetting!"targetPath"(args);
+		case "target-name":                return listBuildSetting!"targetName"(args);
+		case "working-directory":          return listBuildSetting!"workingDirectory"(args);
+		case "main-source-file":           return listBuildSetting!"mainSourceFile"(args);
+		case "dflags":                     return listBuildSetting!"dflags"(args);
+		case "lflags":                     return listBuildSetting!"lflags"(args);
+		case "libs":                       return listBuildSetting!"libs"(args);
+		case "linker-files":               return listBuildSetting!"linkerFiles"(args);
+		case "source-files":               return listBuildSetting!"sourceFiles"(args);
+		case "copy-files":                 return listBuildSetting!"copyFiles"(args);
+		case "extra-dependency-files":     return listBuildSetting!"extraDependencyFiles"(args);
+		case "versions":                   return listBuildSetting!"versions"(args);
+		case "debug-versions":             return listBuildSetting!"debugVersions"(args);
+		case "import-paths":               return listBuildSetting!"importPaths"(args);
+		case "string-import-paths":        return listBuildSetting!"stringImportPaths"(args);
+		case "import-files":               return listBuildSetting!"importFiles"(args);
+		case "string-import-files":        return listBuildSetting!"stringImportFiles"(args);
+		case "pre-generate-commands":      return listBuildSetting!"preGenerateCommands"(args);
+		case "post-generate-commands":     return listBuildSetting!"postGenerateCommands"(args);
+		case "pre-build-commands":         return listBuildSetting!"preBuildCommands"(args);
+		case "post-build-commands":        return listBuildSetting!"postBuildCommands"(args);
+		case "pre-run-commands":           return listBuildSetting!"preRunCommands"(args);
+		case "post-run-commands":          return listBuildSetting!"postRunCommands"(args);
+		case "environments":               return listBuildSetting!"environments"(args);
+		case "build-environments":         return listBuildSetting!"buildEnvironments"(args);
+		case "run-environments":           return listBuildSetting!"runEnvironments"(args);
+		case "pre-generate-environments":  return listBuildSetting!"preGenerateEnvironments"(args);
+		case "post-generate-environments": return listBuildSetting!"postGenerateEnvironments"(args);
+		case "pre-build-environments":     return listBuildSetting!"preBuildEnvironments"(args);
+		case "post-build-environments":    return listBuildSetting!"postBuildEnvironments"(args);
+		case "pre-run-environments":       return listBuildSetting!"preRunEnvironments"(args);
+		case "post-run-environments":      return listBuildSetting!"postRunEnvironments"(args);
+		case "requirements":               return listBuildSetting!"requirements"(args);
+		case "options":                    return listBuildSetting!"options"(args);
 
 		default:
 			enforce(false, "--data="~requestedData~
@@ -1160,59 +1180,89 @@ enum PlacementLocation {
 void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	BuildSettings settings, in GeneratorSettings gsettings, bool include_target_settings = false)
 {
-	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags));
-	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags));
-	dst.addLibs(processVars(project, pack, gsettings, settings.libs));
-	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true));
-	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true));
-	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true));
-	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true));
-	dst.addExtraDependencyFiles(processVars(project, pack, gsettings, settings.extraDependencyFiles, true));
-	dst.addVersions(processVars(project, pack, gsettings, settings.versions));
-	dst.addDebugVersions(processVars(project, pack, gsettings, settings.debugVersions));
-	dst.addVersionFilters(processVars(project, pack, gsettings, settings.versionFilters));
-	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters));
-	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true));
-	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true));
-	dst.addPreGenerateCommands(processVars(project, pack, gsettings, settings.preGenerateCommands));
-	dst.addPostGenerateCommands(processVars(project, pack, gsettings, settings.postGenerateCommands));
-	dst.addPreBuildCommands(processVars(project, pack, gsettings, settings.preBuildCommands));
-	dst.addPostBuildCommands(processVars(project, pack, gsettings, settings.postBuildCommands));
-	dst.addPreRunCommands(processVars(project, pack, gsettings, settings.preRunCommands));
-	dst.addPostRunCommands(processVars(project, pack, gsettings, settings.postRunCommands));
+	string[string] processVerEnvs(in string[string] targetEnvs, in string[string] defaultEnvs)
+	{
+		string[string] retEnv;
+		foreach (k, v; targetEnvs)
+			retEnv[k] = v;
+		foreach (k, v; defaultEnvs) {
+			if (k !in targetEnvs)
+				retEnv[k] = v;
+		}
+		return processVars(project, pack, gsettings, retEnv);
+	}
+	dst.addEnvironments(processVerEnvs(settings.environments, gsettings.buildSettings.environments));
+	dst.addBuildEnvironments(processVerEnvs(settings.buildEnvironments, gsettings.buildSettings.buildEnvironments));
+	dst.addRunEnvironments(processVerEnvs(settings.runEnvironments, gsettings.buildSettings.runEnvironments));
+	dst.addPreGenerateEnvironments(processVerEnvs(settings.preGenerateEnvironments, gsettings.buildSettings.preGenerateEnvironments));
+	dst.addPostGenerateEnvironments(processVerEnvs(settings.postGenerateEnvironments, gsettings.buildSettings.postGenerateEnvironments));
+	dst.addPreBuildEnvironments(processVerEnvs(settings.preBuildEnvironments, gsettings.buildSettings.preBuildEnvironments));
+	dst.addPostBuildEnvironments(processVerEnvs(settings.postBuildEnvironments, gsettings.buildSettings.postBuildEnvironments));
+	dst.addPreRunEnvironments(processVerEnvs(settings.preRunEnvironments, gsettings.buildSettings.preRunEnvironments));
+	dst.addPostRunEnvironments(processVerEnvs(settings.postRunEnvironments, gsettings.buildSettings.postRunEnvironments));
+	
+	auto buildEnvs = [dst.environments, dst.buildEnvironments];
+	auto runEnvs = [dst.environments, dst.runEnvironments];
+	auto preGenEnvs = [dst.environments, dst.preGenerateEnvironments];
+	auto postGenEnvs = [dst.environments, dst.postGenerateEnvironments];
+	auto preBuildEnvs = buildEnvs ~ [dst.preBuildEnvironments];
+	auto postBuildEnvs = buildEnvs ~ [dst.postBuildEnvironments];
+	auto preRunEnvs = runEnvs ~ [dst.preRunEnvironments];
+	auto postRunEnvs = runEnvs ~ [dst.postRunEnvironments];
+	
+	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags, false, buildEnvs));
+	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags, false, buildEnvs));
+	dst.addLibs(processVars(project, pack, gsettings, settings.libs, false, buildEnvs));
+	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true, buildEnvs));
+	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true, buildEnvs));
+	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true, buildEnvs));
+	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true, buildEnvs));
+	dst.addExtraDependencyFiles(processVars(project, pack, gsettings, settings.extraDependencyFiles, true, buildEnvs));
+	dst.addVersions(processVars(project, pack, gsettings, settings.versions, false, buildEnvs));
+	dst.addDebugVersions(processVars(project, pack, gsettings, settings.debugVersions, false, buildEnvs));
+	dst.addVersionFilters(processVars(project, pack, gsettings, settings.versionFilters, false, buildEnvs));
+	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters, false, buildEnvs));
+	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true, buildEnvs));
+	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true, buildEnvs));
+	dst.addPreGenerateCommands(processVars(project, pack, gsettings, settings.preGenerateCommands, false, preGenEnvs));
+	dst.addPostGenerateCommands(processVars(project, pack, gsettings, settings.postGenerateCommands, false, postGenEnvs));
+	dst.addPreBuildCommands(processVars(project, pack, gsettings, settings.preBuildCommands, false, preBuildEnvs));
+	dst.addPostBuildCommands(processVars(project, pack, gsettings, settings.postBuildCommands, false, postBuildEnvs));
+	dst.addPreRunCommands(processVars(project, pack, gsettings, settings.preRunCommands, false, preRunEnvs));
+	dst.addPostRunCommands(processVars(project, pack, gsettings, settings.postRunCommands, false, postRunEnvs));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
 
 	if (include_target_settings) {
 		dst.targetType = settings.targetType;
-		dst.targetPath = processVars(settings.targetPath, project, pack, gsettings, true);
+		dst.targetPath = processVars(settings.targetPath, project, pack, gsettings, true, buildEnvs);
 		dst.targetName = settings.targetName;
 		if (!settings.workingDirectory.empty)
-			dst.workingDirectory = processVars(settings.workingDirectory, project, pack, gsettings, true);
+			dst.workingDirectory = processVars(settings.workingDirectory, project, pack, gsettings, true, buildEnvs);
 		if (settings.mainSourceFile.length)
-			dst.mainSourceFile = processVars(settings.mainSourceFile, project, pack, gsettings, true);
+			dst.mainSourceFile = processVars(settings.mainSourceFile, project, pack, gsettings, true, buildEnvs);
 	}
 }
 
-private string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
+private string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false, in string[string][] extraVers = null)
 {
 	auto ret = appender!(string[])();
-	processVars!glob(ret, project, pack, gsettings, vars, are_paths);
+	processVars!glob(ret, project, pack, gsettings, vars, are_paths, extraVers);
 	return ret.data;
 }
-private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false)
+private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false, in string[string][] extraVers = null)
 {
 	static if (glob)
 		alias process = processVarsWithGlob!(Project, Package);
 	else
 		alias process = processVars!(Project, Package);
 	foreach (var; vars)
-		dst.put(process(var, project, pack, gsettings, are_paths));
+		dst.put(process(var, project, pack, gsettings, are_paths, extraVers));
 }
 
-private string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
+private string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers = null)
 {
-	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings));
+	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings, extraVers));
 	if (!is_path)
 		return var;
 	auto p = NativePath(var);
@@ -1221,11 +1271,26 @@ private string processVars(Project, Package)(string var, in Project project, in 
 	else
 		return p.toNativeString();
 }
+private string[string] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[string] vars, in string[string][] extraVers = null)
+{
+	string[string] ret;
+	processVars!glob(ret, project, pack, gsettings, vars, extraVers);
+	return ret;
+}
+private void processVars(bool glob = false)(ref string[string] dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[string] vars, in string[string][] extraVers)
+{
+	static if (glob)
+		alias process = processVarsWithGlob!(Project, Package);
+	else
+		alias process = processVars!(Project, Package);
+	foreach (k, var; vars)
+		dst[k] = process(var, project, pack, gsettings, false, extraVers);
+}
 
-private string[] processVarsWithGlob(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path)
+private string[] processVarsWithGlob(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers)
 {
 	assert(is_path, "can't glob something that isn't a path");
-	string res = processVars(var, project, pack, gsettings, is_path);
+	string res = processVars(var, project, pack, gsettings, is_path, extraVers);
 	// Find the unglobbed prefix and iterate from there.
 	size_t i = 0;
 	size_t sepIdx = 0;
@@ -1337,7 +1402,7 @@ package(dub) immutable buildSettingsVars = [
 	"ARCH", "PLATFORM", "PLATFORM_POSIX", "BUILD_TYPE"
 ];
 
-private string getVariable(Project, Package)(string name, in Project project, in Package pack, in GeneratorSettings gsettings)
+private string getVariable(Project, Package)(string name, in Project project, in Package pack, in GeneratorSettings gsettings, in string[string][] extraVars = null)
 {
 	import dub.internal.utils : getDUBExePath;
 	import std.process : environment, escapeShellFileName;
@@ -1404,6 +1469,11 @@ private string getVariable(Project, Package)(string name, in Project project, in
 		else if (name == "LFLAGS")
 			return join(buildSettings.lflags," ");
 	}
+	
+	import std.range;
+	foreach (aa; retro(extraVars))
+		if (auto exvar = name in aa)
+			return *exvar;
 
 	auto envvar = environment.get(name);
 	if (envvar !is null) return envvar;
