@@ -1,3 +1,0 @@
-More 'linker dflags' with DMD
-
-`-betterC`, `-L…` and `-Xcc=…` `dflags` are now used for linking too.
