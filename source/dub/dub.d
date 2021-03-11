@@ -701,10 +701,10 @@ class Dub {
 			mkdirRecurse(mainfile.parentPath.toNativeString());
 
 			bool regenerateMainFile = settings.force || !existsFile(mainfile);
-
+			auto escapedMainFile = mainfile.toNativeString().replace("$", "$$");
 			// generate main file
-			tcinfo.sourceFiles[""] ~= mainfile.toNativeString();
-			tcinfo.mainSourceFile = mainfile.toNativeString();
+			tcinfo.sourceFiles[""] ~= escapedMainFile;
+			tcinfo.mainSourceFile = escapedMainFile;
 
 			if (!m_dryRun && regenerateMainFile) {
 				auto fil = openFile(mainfile, FileMode.createTrunc);

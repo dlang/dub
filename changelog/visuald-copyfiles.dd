@@ -1,5 +1,0 @@
-copyFiles can now be used in VisualD projects.
-
-Files that are needed for the application to run can be specified in the `copyFiles` build option,
-which causes these files to be copied to the target path. The dub generator for VisualD now replicates
-this behaviour, so that this kind of applications can be successfully debugged in Visual Studio.
