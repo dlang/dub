@@ -165,6 +165,15 @@ struct CommandLineHandler
 		{
 			options.root_path = options.root_path.expandTilde.absolutePath.buildNormalizedPath;
 		}
+
+		if (options.colors_mode == "" || options.colors_mode == "auto") {
+			// we already detected whether to enable colors or not with initLogging() above
+			// this if case is here just to make the else below work correctly
+		} else if (options.colors_mode == "on") {
+			setLoggingColorsEnabled(true); // enable colors, no matter what
+		} else if (options.colors_mode == "off") {
+			setLoggingColorsEnabled(false); // disable colors, no matter what
+		}
 	}
 
 	/** Get an instance of the requested command.
@@ -457,18 +466,6 @@ int runDubCommandLine(string[] args)
 
 	try handler.prepareOptions(common_args);
 	catch (Exception e) {
-		if (options.colors_mode == "" || options.colors_mode == "auto") {
-			// we already detected whether to enable colors or not with initLogging() above
-			// this if case is here just to make the else below work correctly
-		} else if (options.colors_mode == "on") {
-			setLoggingColorsEnabled(true); // enable colors, no matter what
-		} else if (options.colors_mode == "off") {
-			setLoggingColorsEnabled(false); // disable colors, no matter what
-		} else {
-			logError("Invalid value for --colors option, expected {auto | on | off}");
-			logInfo("Run 'dub help' for usage information.");
-			return 1;
-		}
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		logInfo("Run 'dub help' for usage information.");
