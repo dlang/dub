@@ -2141,7 +2141,7 @@ class SearchCommand : Command {
 		justify += (~justify & 3) + 1; // round to next multiple of 4
 		foreach (desc, matches; res)
 		{
-			logInfoNoTag("%s", desc);
+			logInfoNoTag("==== %s ====", desc);
 			foreach (m; matches)
 				logInfoNoTag("  %s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
 		}
