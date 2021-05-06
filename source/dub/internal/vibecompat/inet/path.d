@@ -155,7 +155,7 @@ struct NativePath {
 	}
 
 	/// Computes the relative path from `parentPath` to this path.
-	NativePath relativeTo(const NativePath parentPath) const {
+	NativePath relativeToAux(const NativePath parentPath) const {
 		assert(this.absolute && parentPath.absolute, "Determining relative path between non-absolute paths.");
 		version(Windows){
 			// a path such as ..\C:\windows is not valid, so force the path to stay absolute in this case
@@ -178,6 +178,18 @@ struct NativePath {
 		ret ~= NativePath(m_nodes[parentPath.length-nup .. $], false);
 		ret.m_endsWithSlash = this.m_endsWithSlash;
 		return ret;
+	}
+
+	// preserves abs paths unless rooted under parentPath
+	NativePath relativeTo(const NativePath parentPath) const {
+		auto p1=this.toNativeString;
+		auto p2=parentPath.toNativeString;
+		import std.path:relativePath,buildNormalizedPath;
+		import std.string:startsWith;
+		if(p1.relativePath(p2).buildNormalizedPath.startsWith("..")){
+			return this;
+		}
+		return this.relativeToAux(parentPath);
 	}
 
 	/// The last entry of the path
@@ -473,12 +485,12 @@ unittest {
 	assert(NativePath("/foo/bar/baz/").relativeTo(NativePath("/foo")).toString == "bar/baz/");
 	assert(NativePath("/foo/bar").relativeTo(NativePath("/foo")).toString == "bar");
 	assert(NativePath("/foo/bar/").relativeTo(NativePath("/foo")).toString == "bar/");
-	assert(NativePath("/foo").relativeTo(NativePath("/foo/bar")).toString() == "..");
-	assert(NativePath("/foo/").relativeTo(NativePath("/foo/bar")).toString() == "../");
-	assert(NativePath("/foo/baz").relativeTo(NativePath("/foo/bar/baz")).toString() == "../../baz");
-	assert(NativePath("/foo/baz/").relativeTo(NativePath("/foo/bar/baz")).toString() == "../../baz/");
-	assert(NativePath("/foo/").relativeTo(NativePath("/foo/bar/baz")).toString() == "../../");
-	assert(NativePath("/foo/").relativeTo(NativePath("/foo/bar/baz/mumpitz")).toString() == "../../../");
+	assert(NativePath("/foo").relativeToAux(NativePath("/foo/bar")).toString() == "..");
+	assert(NativePath("/foo/").relativeToAux(NativePath("/foo/bar")).toString() == "../");
+	assert(NativePath("/foo/baz").relativeToAux(NativePath("/foo/bar/baz")).toString() == "../../baz");
+	assert(NativePath("/foo/baz/").relativeToAux(NativePath("/foo/bar/baz")).toString() == "../../baz/");
+	assert(NativePath("/foo/").relativeToAux(NativePath("/foo/bar/baz")).toString() == "../../");
+	assert(NativePath("/foo/").relativeToAux(NativePath("/foo/bar/baz/mumpitz")).toString() == "../../../");
 	assert(NativePath("/foo").relativeTo(NativePath("/foo")).toString() == "");
 	assert(NativePath("/foo/").relativeTo(NativePath("/foo")).toString() == "");
 }
