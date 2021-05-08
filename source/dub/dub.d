@@ -671,6 +671,7 @@ class Dub {
 			string[] import_modules;
 			if (settings.single)
 				lbuildsettings.importPaths ~= NativePath(mainfil).parentPath.toNativeString;
+			bool firstTimePackage = true;
 			foreach (file; lbuildsettings.sourceFiles) {
 				if (file.endsWith(".d")) {
 					auto fname = NativePath(file).head.name;
@@ -683,7 +684,10 @@ class Dub {
 						continue;
 					}
 					if (fname == "package.d") {
-						logWarn("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
+						if (firstTimePackage) {
+							firstTimePackage = false;
+							logWarn("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
+						}
 						continue;
 					}
 					import_modules ~= dub.internal.utils.determineModuleName(lbuildsettings, NativePath(file), m_project.rootPackage.path);
