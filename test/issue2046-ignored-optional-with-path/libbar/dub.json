@@ -1,0 +1,6 @@
+{
+	"name": "libbar",
+	"dependencies": {
+		"libfoo": {"path": "../libfoo", "version": "*", "optional": true}
+	}
+}

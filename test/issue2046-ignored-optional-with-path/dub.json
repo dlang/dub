@@ -1,0 +1,6 @@
+{
+	"name": "issue2046",
+	"dependencies": {
+		"libbar": "*"
+	}
+}

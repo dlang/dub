@@ -2,44 +2,11 @@
 /+dub.sdl:
 	name: run_unittest
 	targetName: run-unittest
+	dependency "common" path="./common"
 +/
 module run_unittest;
 
-/// Name of the log file
-enum logFile = "test.log";
-
-/// has true if some test fails
-bool any_errors = false;
-
-/// prints (non error) message to standard output and log file
-void log(Args...)(Args args)
-	if (Args.length)
-{
-	import std.conv : text;
-	import std.stdio : File, stdout;
-
-	const str = text("[INFO] ", args);
-	version(Windows) stdout.writeln(str);
-	else stdout.writeln("\033[0;33m", str, "\033[0m");
-	stdout.flush;
-	File(logFile, "a").writeln(str);
-}
-
-/// prints error message to standard error stream and log file
-/// and set any_errors var to true value to indicate that some
-/// test fails
-void logError(Args...)(Args args)
-{
-	import std.conv : text;
-	import std.stdio : File, stderr;
-
-	const str = text("[ERROR] ", args);
-	version(Windows) stderr.writeln(str);
-	else stderr.writeln("\033[0;31m", str, "\033[0m");
-	stderr.flush;
-	File(logFile, "a").writeln(str);
-	any_errors = true;
-}
+import common;
 
 int main(string[] args)
 {
@@ -54,7 +21,6 @@ int main(string[] args)
 	//**     die $LINENO 'Variable $DUB must be defined to run the tests.'
 	//** fi
 	auto dub = environment.get("DUB", "");
-	writeln("DUB: ", dub);
 	if (dub == "")
 	{
 		logError(`Environment variable "DUB" must be defined to run the tests.`);
@@ -81,13 +47,13 @@ int main(string[] args)
 	//** CURR_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 	//** FRONTEND="${FRONTEND:-}"
 	const dc_bin = baseName(dc);
-	const curr_dir = args[0].absolutePath.dirName.buildNormalizedPath;
+	const curr_dir = __FILE_FULL_PATH__.dirName();
 	const frontend = environment.get("FRONTEND", "");
 
 	//** if [ "$#" -gt 0 ]; then FILTER=$1; else FILTER=".*"; fi
 	auto filter = (args.length > 1) ? args[1] : "*";
 
-	version(linux)
+	version (Posix)
 	{
 		//** for script in $(ls $CURR_DIR/*.sh); do
 		//**     if [[ ! "$script" =~ $FILTER ]]; then continue; fi
@@ -105,6 +71,17 @@ int main(string[] args)
 			if (spawnProcess(script.name, ["DUB":dub, "DC":dc, "CURR_DIR":curr_dir]).wait)
 				logError("Script failure.");
 		}
+	}
+
+	foreach (DirEntry script; dirEntries(curr_dir, (args.length > 1) ? args[1] : "*.script.d", SpanMode.shallow))
+	{
+		const min_frontend = script.name ~ ".min_frontend";
+		if (frontend.length && exists(min_frontend) && frontend < min_frontend.readText) continue;
+		log("Running " ~ script ~ "...");
+		if (spawnProcess([dub, script.name], ["DUB":dub, "DC":dc, "CURR_DIR":curr_dir]).wait)
+			logError("Script failure.");
+		else
+			log(script.name, " status: Ok");
 	}
 
 	return any_errors;

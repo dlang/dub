@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/issue1867-lowmem
+issue1867-lowmem.so
+issue1867-lowmem.dylib
+issue1867-lowmem.dll
+issue1867-lowmem.a
+issue1867-lowmem.lib
+issue1867-lowmem-test-*
+*.exe
+*.o
+*.obj
+*.lst

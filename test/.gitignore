@@ -18,3 +18,4 @@ version-spec/**/foo
 
 /test_registry
 /issue_2051_running_unittests_from_dub_single_file_packages_fails
+/run-unittest
