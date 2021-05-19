@@ -95,17 +95,17 @@ interface Compiler {
 		This method should be used by `Compiler` implementations to invoke the
 		compiler or linker binary.
 	*/
-	protected final void invokeTool(string[] args, void delegate(int, string) output_callback)
+	protected final void invokeTool(string[] args, void delegate(int, string) output_callback, string[string] env = null)
 	{
 		import std.string;
 
 		int status;
 		if (output_callback) {
-			auto result = executeShell(escapeShellCommand(args));
+			auto result = executeShell(escapeShellCommand(args), env);
 			output_callback(result.status, result.output);
 			status = result.status;
 		} else {
-			auto compiler_pid = spawnShell(escapeShellCommand(args));
+			auto compiler_pid = spawnShell(escapeShellCommand(args), env);
 			status = compiler_pid.wait();
 		}
 

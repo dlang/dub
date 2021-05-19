@@ -71,6 +71,51 @@ class ProjectGenerator
 		string[] linkDependencies;
 	}
 
+	private struct EnvironmentVariables
+	{
+		string[string] environments;
+		string[string] buildEnvironments;
+		string[string] runEnvironments;
+		string[string] preGenerateEnvironments;
+		string[string] postGenerateEnvironments;
+		string[string] preBuildEnvironments;
+		string[string] postBuildEnvironments;
+		string[string] preRunEnvironments;
+		string[string] postRunEnvironments;
+
+		this(const scope ref BuildSettings bs)
+		{
+			update(bs);
+		}
+
+		void update(Envs)(const scope auto ref Envs envs)
+		{
+			import std.algorithm: each;
+			envs.environments.byKeyValue.each!(pair => environments[pair.key] = pair.value);
+			envs.buildEnvironments.byKeyValue.each!(pair => buildEnvironments[pair.key] = pair.value);
+			envs.runEnvironments.byKeyValue.each!(pair => runEnvironments[pair.key] = pair.value);
+			envs.preGenerateEnvironments.byKeyValue.each!(pair => preGenerateEnvironments[pair.key] = pair.value);
+			envs.postGenerateEnvironments.byKeyValue.each!(pair => postGenerateEnvironments[pair.key] = pair.value);
+			envs.preBuildEnvironments.byKeyValue.each!(pair => preBuildEnvironments[pair.key] = pair.value);
+			envs.postBuildEnvironments.byKeyValue.each!(pair => postBuildEnvironments[pair.key] = pair.value);
+			envs.preRunEnvironments.byKeyValue.each!(pair => preRunEnvironments[pair.key] = pair.value);
+			envs.postRunEnvironments.byKeyValue.each!(pair => postRunEnvironments[pair.key] = pair.value);
+		}
+
+		void updateBuildSettings(ref BuildSettings bs)
+		{
+			bs.updateEnvironments(environments);
+			bs.updateBuildEnvironments(buildEnvironments);
+			bs.updateRunEnvironments(runEnvironments);
+			bs.updatePreGenerateEnvironments(preGenerateEnvironments);
+			bs.updatePostGenerateEnvironments(postGenerateEnvironments);
+			bs.updatePreBuildEnvironments(preBuildEnvironments);
+			bs.updatePostBuildEnvironments(postBuildEnvironments);
+			bs.updatePreRunEnvironments(preRunEnvironments);
+			bs.updatePostRunEnvironments(postRunEnvironments);
+		}
+	}
+
 	protected {
 		Project m_project;
 		NativePath m_tempTargetExecutablePath;
@@ -91,23 +136,43 @@ class ProjectGenerator
 
 		string[string] configs = m_project.getPackageConfigs(settings.platform, settings.config);
 		TargetInfo[string] targets;
+		EnvironmentVariables[string] envs;
 
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
-			BuildSettings buildSettings;
 			auto config = configs[pack.name];
-			buildSettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, config), settings, true);
-			if (settings.buildSettings.options & BuildOption.lowmem) buildSettings.options |= BuildOption.lowmem;
-
-			prepareGeneration(pack, m_project, settings, buildSettings);
-
-			// Regenerate buildSettings.sourceFiles
-			if (buildSettings.preGenerateCommands.length) {
-				buildSettings = BuildSettings.init;
-				buildSettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, config), settings, true);
+			auto bs = pack.getBuildSettings(settings.platform, config);
+			targets[pack.name] = TargetInfo(pack, [pack], config, bs);
+			envs[pack.name] = EnvironmentVariables(bs);
+		}
+		foreach (pack; m_project.getTopologicalPackageList(false, null, configs)) {
+			auto ti = pack.name in targets;
+			auto parentEnvs = ti.pack.name in envs;
+			foreach (deppkgName, depInfo; pack.getDependencies(ti.config)) {
+				if (auto childEnvs = deppkgName in envs) {
+					childEnvs.update(ti.buildSettings);
+					parentEnvs.update(childEnvs);
+				}
 			}
-			targets[pack.name] = TargetInfo(pack, [pack], config, buildSettings);
+		}
+		BuildSettings makeBuildSettings(in Package pack, ref BuildSettings src)
+		{
+			BuildSettings bs;
+			if (settings.buildSettings.options & BuildOption.lowmem) bs.options |= BuildOption.lowmem;
+			BuildSettings srcbs = src.dup;
+			envs[pack.name].updateBuildSettings(srcbs);
+			bs.processVars(m_project, pack, srcbs, settings, true);
+			return bs;
 		}
 
+		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
+			BuildSettings bs = makeBuildSettings(pack, targets[pack.name].buildSettings);
+			prepareGeneration(pack, m_project, settings, bs);
+
+			// Regenerate buildSettings.sourceFiles
+			if (bs.preGenerateCommands.length)
+				bs = makeBuildSettings(pack, targets[pack.name].buildSettings);
+			targets[pack.name].buildSettings = bs;
+		}
 		configurePackages(m_project.rootPackage, targets, settings);
 
 		addBuildTypeSettings(targets, settings);
@@ -116,8 +181,9 @@ class ProjectGenerator
 		generateTargets(settings, targets);
 
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
-			BuildSettings buildsettings;
-			buildsettings.processVars(m_project, pack, pack.getBuildSettings(settings.platform, configs[pack.name]), settings, true);
+			auto config = configs[pack.name];
+			auto pkgbs  = pack.getBuildSettings(settings.platform, config);
+			BuildSettings buildsettings = makeBuildSettings(pack, pkgbs);
 			bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 			auto bs = &targets[m_project.rootPackage.name].buildSettings;
 			auto targetPath = !m_tempTargetExecutablePath.empty ? m_tempTargetExecutablePath :
@@ -736,7 +802,8 @@ private void prepareGeneration(in Package pack, in Project proj, in GeneratorSet
 {
 	if (buildsettings.preGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running pre-generate commands for %s...", pack.name);
-		runBuildCommands(buildsettings.preGenerateCommands, pack, proj, settings, buildsettings);
+		runBuildCommands(buildsettings.preGenerateCommands, pack, proj, settings, buildsettings,
+			[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.preGenerateEnvironments]);
 	}
 }
 
@@ -748,7 +815,8 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 {
 	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running post-generate commands for %s...", pack.name);
-		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
+		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings,
+			[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.postGenerateEnvironments]);
 	}
 
 	if (generate_binary) {
@@ -816,7 +884,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	runs "dub describe" or similar functionality.
 */
 void runBuildCommands(in string[] commands, in Package pack, in Project proj,
-	in GeneratorSettings settings, in BuildSettings build_settings)
+	in GeneratorSettings settings, in BuildSettings build_settings, in string[string][] extraVars = null)
 {
 	import dub.internal.utils : getDUBExePath, runCommands;
 	import std.conv : to, text;
@@ -870,6 +938,11 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_ROOT_PACKAGE_TARGET_TYPE"] = to!string(rootPackageBuildSettings.targetType);
 	env["DUB_ROOT_PACKAGE_TARGET_PATH"] = rootPackageBuildSettings.targetPath;
 	env["DUB_ROOT_PACKAGE_TARGET_NAME"] = rootPackageBuildSettings.targetName;
+	
+	foreach (aa; extraVars) {
+		foreach (k, v; aa)
+			env[k] = v;
+	}
 
 	auto depNames = proj.dependencies.map!((a) => a.name).array();
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);

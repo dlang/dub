@@ -606,6 +606,15 @@ class Package {
 		ret.postGenerateCommands = bs.postGenerateCommands;
 		ret.preBuildCommands = bs.preBuildCommands;
 		ret.postBuildCommands = bs.postBuildCommands;
+		ret.environments = bs.environments;
+		ret.buildEnvironments = bs.buildEnvironments;
+		ret.runEnvironments = bs.runEnvironments;
+		ret.preGenerateEnvironments = bs.preGenerateEnvironments;
+		ret.postGenerateEnvironments = bs.postGenerateEnvironments;
+		ret.preBuildEnvironments = bs.preBuildEnvironments;
+		ret.postBuildEnvironments = bs.postBuildEnvironments;
+		ret.preRunEnvironments = bs.preRunEnvironments;
+		ret.postRunEnvironments = bs.postRunEnvironments;
 
 		// prettify build requirements output
 		for (int i = 1; i <= BuildRequirement.max; i <<= 1)

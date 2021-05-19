@@ -167,6 +167,15 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "postBuildCommands": setting.parsePlatformStringArray(bs.postBuildCommands); break;
 		case "preRunCommands": setting.parsePlatformStringArray(bs.preRunCommands); break;
 		case "postRunCommands": setting.parsePlatformStringArray(bs.postRunCommands); break;
+		case "environments": setting.parsePlatformStringAA(bs.environments); break;
+		case "buildEnvironments": setting.parsePlatformStringAA(bs.buildEnvironments); break;
+		case "runEnvironments": setting.parsePlatformStringAA(bs.runEnvironments); break;
+		case "preGenerateEnvironments": setting.parsePlatformStringAA(bs.preGenerateEnvironments); break;
+		case "postGenerateEnvironments": setting.parsePlatformStringAA(bs.postGenerateEnvironments); break;
+		case "preBuildEnvironments": setting.parsePlatformStringAA(bs.preBuildEnvironments); break;
+		case "postBuildEnvironments": setting.parsePlatformStringAA(bs.postBuildEnvironments); break;
+		case "preRunEnvironments": setting.parsePlatformStringAA(bs.preRunEnvironments); break;
+		case "postRunEnvironments": setting.parsePlatformStringAA(bs.postRunEnvironments); break;
 		case "buildRequirements": setting.parsePlatformEnumArray!BuildRequirement(bs.buildRequirements); break;
 		case "buildOptions": setting.parsePlatformEnumArray!BuildOption(bs.buildOptions); break;
 	}
@@ -237,6 +246,12 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 		ret ~= new Tag(namespace, name, values[].map!(v => Value(v)).array,
 			suffix.length ? [new Attribute(null, "platform", Value(suffix[1 .. $]))] : null);
 	}
+	void addaa(string name, string suffix, in string[string] values, string namespace = null) {
+		foreach (k, v; values) {
+			ret ~= new Tag(namespace, name, [Value(k), Value(v)],
+				suffix.length ? [new Attribute(null, "platform", Value(suffix[1 .. $]))] : null);
+		}
+	}
 
 	string[] toNameArray(T, U)(U bits) if(is(T == enum)) {
 		string[] ret;
@@ -284,6 +299,15 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.postBuildCommands) adda("postBuildCommands", suffix, arr);
 	foreach (suffix, arr; bs.preRunCommands) adda("preRunCommands", suffix, arr);
 	foreach (suffix, arr; bs.postRunCommands) adda("postRunCommands", suffix, arr);
+	foreach (suffix, aa; bs.environments) addaa("environments", suffix, aa);
+	foreach (suffix, aa; bs.buildEnvironments) addaa("buildEnvironments", suffix, aa);
+	foreach (suffix, aa; bs.runEnvironments) addaa("runEnvironments", suffix, aa);
+	foreach (suffix, aa; bs.preGenerateEnvironments) addaa("preGenerateEnvironments", suffix, aa);
+	foreach (suffix, aa; bs.postGenerateEnvironments) addaa("postGenerateEnvironments", suffix, aa);
+	foreach (suffix, aa; bs.preBuildEnvironments) addaa("preBuildEnvironments", suffix, aa);
+	foreach (suffix, aa; bs.postBuildEnvironments) addaa("postBuildEnvironments", suffix, aa);
+	foreach (suffix, aa; bs.preRunEnvironments) addaa("preRunEnvironments", suffix, aa);
+	foreach (suffix, aa; bs.postRunEnvironments) addaa("postRunEnvironments", suffix, aa);
 	foreach (suffix, bits; bs.buildRequirements) adda("buildRequirements", suffix, toNameArray!BuildRequirement(bits));
 	foreach (suffix, bits; bs.buildOptions) adda("buildOptions", suffix, toNameArray!BuildOption(bits));
 	return ret;
@@ -349,6 +373,17 @@ private void parsePlatformStringArray(Tag t, ref string[][string] dst)
 	if ("platform" in t.attributes)
 		platform = "-" ~ t.attributes["platform"][0].value.get!string;
 	dst[platform] ~= t.values.map!(v => v.get!string).array;
+}
+private void parsePlatformStringAA(Tag t, ref string[string][string] dst)
+{
+	import std.string : format;
+	string platform;
+	if ("platform" in t.attributes)
+		platform = "-" ~ t.attributes["platform"][0].value.get!string;
+	enforceSDL(t.values.length == 2, format("Values for '%s' must be 2 required.", t.fullName), t);
+	enforceSDL(t.values[0].peek!string !is null, format("Values for '%s' must be strings.", t.fullName), t);
+	enforceSDL(t.values[1].peek!string !is null, format("Values for '%s' must be strings.", t.fullName), t);
+	dst[platform][t.values[0].get!string] = t.values[1].get!string;
 }
 
 private void parsePlatformEnumArray(E, Es)(Tag t, ref Es[string] dst)
@@ -459,6 +494,15 @@ preRunCommands "prer1" "prer2"
 preRunCommands "prer3"
 postRunCommands "postr1" "postr2"
 postRunCommands "postr3"
+environments "Var1" "env"
+buildEnvironments "Var2" "buildEnv"
+runEnvironments "Var3" "runEnv"
+preGenerateEnvironments "Var4" "preGenEnv"
+postGenerateEnvironments "Var5" "postGenEnv"
+preBuildEnvironments "Var6" "preBuildEnv"
+postBuildEnvironments "Var7" "postBuildEnv"
+preRunEnvironments "Var8" "preRunEnv"
+postRunEnvironments "Var9" "postRunEnv"
 dflags "df1" "df2"
 dflags "df3"
 lflags "lf1" "lf2"
@@ -536,6 +580,15 @@ lflags "lf3"
 	assert(rec.buildSettings.postBuildCommands == ["": ["postb1", "postb2", "postb3"]]);
 	assert(rec.buildSettings.preRunCommands == ["": ["prer1", "prer2", "prer3"]]);
 	assert(rec.buildSettings.postRunCommands == ["": ["postr1", "postr2", "postr3"]]);
+	assert(rec.buildSettings.environments == ["": ["Var1": "env"]]);
+	assert(rec.buildSettings.buildEnvironments == ["": ["Var2": "buildEnv"]]);
+	assert(rec.buildSettings.runEnvironments == ["": ["Var3": "runEnv"]]);
+	assert(rec.buildSettings.preGenerateEnvironments == ["": ["Var4": "preGenEnv"]]);
+	assert(rec.buildSettings.postGenerateEnvironments == ["": ["Var5": "postGenEnv"]]);
+	assert(rec.buildSettings.preBuildEnvironments == ["": ["Var6": "preBuildEnv"]]);
+	assert(rec.buildSettings.postBuildEnvironments == ["": ["Var7": "postBuildEnv"]]);
+	assert(rec.buildSettings.preRunEnvironments == ["": ["Var8": "preRunEnv"]]);
+	assert(rec.buildSettings.postRunEnvironments == ["": ["Var9": "postRunEnv"]]);
 	assert(rec.buildSettings.dflags == ["": ["df1", "df2", "df3"]]);
 	assert(rec.buildSettings.lflags == ["": ["lf1", "lf2", "lf3"]]);
 }

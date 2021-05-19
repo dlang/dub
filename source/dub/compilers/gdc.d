@@ -206,7 +206,11 @@ class GDCCompiler : Compiler {
 		std.file.write(res_file.toNativeString(), join(settings.dflags.map!(s => escape(s)), "\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
-		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
+		string[string] env;
+		foreach (aa; [settings.environments, settings.buildEnvironments])
+			foreach (k, v; aa)
+				env[k] = v;
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
 	}
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
@@ -224,7 +228,11 @@ class GDCCompiler : Compiler {
 				args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order
 		}
 		logDiagnostic("%s", args.join(" "));
-		invokeTool(args, output_callback);
+		string[string] env;
+		foreach (aa; [settings.environments, settings.buildEnvironments])
+			foreach (k, v; aa)
+				env[k] = v;
+		invokeTool(args, output_callback, env);
 	}
 
 	string[] lflagsToDFlags(in string[] lflags) const

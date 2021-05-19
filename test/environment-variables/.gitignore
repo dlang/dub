@@ -1,0 +1,12 @@
+*
+!.no_build
+!.no_test
+!.no_run
+!dub.json
+!dub.settings.json
+!source
+!source/app.d
+!deppkg
+!deppkg/dub.json
+!deppkg/source/deppkg/foo.d
+

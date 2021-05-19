@@ -1,0 +1,56 @@
+{
+	"name": "environment-variables",
+	"dependencies": {
+		"deppkg": {"path": "deppkg"}
+	},
+	
+	"environments": {
+		"ENVIRONMENTS": "root.environments",
+		"VAR1": "root.VAR1",
+		"VAR3": "root.VAR3",
+		"PRIORITYCHECK_DEP_ROOT": "root.PRIORITYCHECK_DEP_ROOT",
+		"PRIORITYCHECK_ROOT_DEPSPEC": "root.PRIORITYCHECK_ROOT_DEPSPEC",
+		"PRIORITYCHECK_ROOT_DEPBLDSPEC": "root.PRIORITYCHECK_ROOT_DEPBLDSPEC"
+	},
+	"buildEnvironments": {
+		"BUILD_ENVIRONMENTS":                "root.buildEnvironments",
+		"PRIORITYCHECK_ROOTBLDSPEC_DEPSPEC": "root.PRIORITYCHECK_ROOTBLDSPEC_DEPSPEC"
+	},
+	"runEnvironments": {
+		"RUN_ENVIRONMENTS": "root.runEnvironments"
+	},
+	"preGenerateEnvironments":  {
+		"PRE_GENERATE_ENVIRONMENTS":      "root.preGenerateEnvironments",
+		"PRIORITYCHECK_DEPSPEC_ROOTSPEC": "root.PRIORITYCHECK_DEPSPEC_ROOTSPEC"
+	},
+	"postGenerateEnvironments": {
+		"POST_GENERATE_ENVIRONMENTS": "root.postGenerateEnvironments"
+	},
+	"preBuildEnvironments":     {
+		"PRE_BUILD_ENVIRONMENTS":               "root.preBuildEnvironments",
+		"PRIORITYCHECK_DEPBLDSPEC_ROOTBLDSPEC": "root.PRIORITYCHECK_DEPBLDSPEC_ROOTBLDSPEC",
+		"PRIORITYCHECK_DEPSPEC_ROOTSPEC":       "root.PRIORITYCHECK_DEPSPEC_ROOTSPEC"
+	},
+	"postBuildEnvironments": {
+		"POST_BUILD_ENVIRONMENTS": "root.postBuildEnvironments"
+	},
+	"preRunEnvironments": {
+		"PRE_RUN_ENVIRONMENTS": "root.preRunEnvironments"
+	},
+	"postRunEnvironments": {
+		"POST_RUN_ENVIRONMENTS": "root.postRunEnvironments"
+	},
+	
+	"preGenerateCommands": [
+		"echo root.preGenerate: $PRIORITYCHECK_SYS_SET",
+		"echo root.preGenerate: $PRIORITYCHECK_SET_DEP",
+		"echo root.preGenerate: $PRIORITYCHECK_DEP_ROOT",
+		"echo root.preGenerate: $PRIORITYCHECK_ROOT_DEPSPEC",
+		"echo root.preGenerate: $PRIORITYCHECK_DEPSPEC_ROOTSPEC"
+	],
+	"postGenerateCommands": ["echo root.postGenerate: $VAR4"],
+	"preBuildCommands": ["echo root.preBuild: $VAR4"],
+	"postBuildCommands": ["echo root.postBuild: $VAR4"],
+	"preRunCommands": ["echo root.preRun: $VAR4"],
+	"postRunCommands": ["echo root.postRun: $VAR4"]
+}
