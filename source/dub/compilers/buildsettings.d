@@ -13,7 +13,8 @@ import std.array : array;
 import std.algorithm : filter, any;
 import std.path : globMatch;
 import std.typecons : BitFlags;
-
+import std.algorithm.iteration : uniq;
+import std.range : chain;
 
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
@@ -105,7 +106,7 @@ struct BuildSettings {
 		addPostRunCommands(bs.postRunCommands);
 	}
 
-	void addDFlags(in string[] value...) { dflags ~= value; }
+	void addDFlags(in string[] value...) { dflags = chain(dflags, value.dup).uniq.array; }
 	void prependDFlags(in string[] value...) { prepend(dflags, value); }
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { lflags ~= value; }
