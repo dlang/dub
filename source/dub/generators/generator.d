@@ -865,6 +865,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 				}
 				logDiagnostic("  %s to %s", src.toNativeString(), dst.toNativeString());
 				try {
+					mkdirRecurse(dst.parentPath().toNativeString());
 					hardLinkFile(src, dst, true);
 				} catch(Exception e) logWarn("Failed to copy %s to %s: %s", src.toNativeString(), dst.toNativeString(), e.msg);
 			}
