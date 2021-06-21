@@ -157,7 +157,7 @@ class Project {
 				foreach (d; deps) {
 					auto dependency = getDependency(d.name, true);
 					assert(dependency || d.spec.optional,
-						format("Non-optional dependency %s of %s not found in dependency tree!?.", d.name, p.name));
+						format("Non-optional dependency '%s' of '%s' not found in dependency tree!?.", d.name, p.name));
 					if(dependency) perform_rec(dependency);
 					if( ret ) return;
 				}
