@@ -1,0 +1,10 @@
+name "library"
+
+targetName "library"
+targetPath "lib"
+targetType "staticLibrary"
+
+importPaths "source"
+
+subPackage "sub/subpackage_a"
+
