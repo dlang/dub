@@ -1,0 +1,8 @@
+name "subpackage_a"
+
+targetName "subpackage_a"
+targetPath "bin"
+targetType "executable"
+
+dependency "library" path="../../"
+
