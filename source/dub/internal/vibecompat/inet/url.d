@@ -219,8 +219,8 @@ struct URL {
 		}
 		if( !m_username.empty ) {
 			if( !hideCredentials ) {
-				dst.put(m_username);
-				if( !m_password.empty ) formattedWrite(dst, ":%s", m_password);
+				dst.put(encodeComponent(m_username));
+				if( !m_password.empty ) formattedWrite(dst, ":%s", encodeComponent(m_password));
 			} else dst.put("***:***");
 			dst.put("@");
 		}
