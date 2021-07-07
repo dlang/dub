@@ -206,7 +206,7 @@ struct URL {
 	}
 
 	/// Converts this URL object to its string representation.
-	string toString()
+	string toString(bool hideCredentials = true)
 	const {
 		import std.format;
 		auto dst = appender!string();
@@ -218,10 +218,12 @@ struct URL {
 			dst.put("//");
 		}
 		if( !m_username.empty ) {
-            dst.put(m_username);
-            if( !m_password.empty ) formattedWrite(dst, ":%s", m_password);
-            dst.put("@");
-        }
+			if( !hideCredentials ) {
+				dst.put(m_username);
+				if( !m_password.empty ) formattedWrite(dst, ":%s", m_password);
+			} else dst.put("***:***");
+			dst.put("@");
+		}
 		dst.put(host);
 		if( m_port > 0 ) formattedWrite(dst, ":%d", m_port);
 		dst.put(localURI);
