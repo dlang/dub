@@ -234,7 +234,7 @@ version (Have_vibe_d_http)
 	more than `timeout` seconds.  Pass `0` as `timeout` to disable both timeout
 	mechanisms.
 
-	Note: Timeouts are only implemented when curl is used (DubUseCurl).
+	Note: Timeouts and HTTPBasicAuth are only implemented when curl is used (DubUseCurl).
 */
 void download(string url, string filename, uint timeout = 8, string safeUrl = null)
 {
@@ -260,6 +260,9 @@ void download(string url, string filename, uint timeout = 8, string safeUrl = nu
 /// ditto
 void download(URL url, NativePath filename, uint timeout = 8)
 {
+	version (Have_vibe_d_http) {
+		assert(url.username.length == 0 && url.password.length == 0, "Auth not supported yet.");
+	}
 	download(url.toString(false), filename.toNativeString(), timeout, url.toString());
 }
 /// ditto
