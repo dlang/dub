@@ -260,6 +260,11 @@ void download(string url, string filename, uint timeout = 8, string safeUrl = nu
 /// ditto
 void download(URL url, NativePath filename, uint timeout = 8)
 {
+	/**
+		Note: The reason for the restriction below is that vibe-d's urltransfer doesn't currently
+		support HTTP auth. When it is supported, this conditional assert and any associated
+		comments should be removed.
+	*/
 	version (Have_vibe_d_http) {
 		assert(url.username.length == 0 && url.password.length == 0, "Auth not supported yet.");
 	}
