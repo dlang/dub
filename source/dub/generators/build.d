@@ -609,13 +609,21 @@ private string shrinkPath(NativePath path, NativePath base)
 {
 	auto orig = path.toNativeString();
 	if (!path.absolute) return orig;
-	auto ret = path.relativeTo(base).toNativeString();
-	return ret.length < orig.length ? ret : orig;
+	version (Windows)
+	{
+		// avoid relative paths starting with `..\`: https://github.com/dlang/dub/issues/2143
+		if (!path.startsWith(base)) return orig;
+	}
+	auto rel = path.relativeTo(base).toNativeString();
+	return rel.length < orig.length ? rel : orig;
 }
 
 unittest {
 	assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/foo")) == NativePath("bar/baz").toNativeString());
-	assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/foo/baz")) == NativePath("../bar/baz").toNativeString());
+	version (Windows)
+		assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/foo/baz")) == NativePath("/foo/bar/baz").toNativeString());
+	else
+		assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/foo/baz")) == NativePath("../bar/baz").toNativeString());
 	assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/bar/")) == NativePath("/foo/bar/baz").toNativeString());
 	assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/bar/baz")) == NativePath("/foo/bar/baz").toNativeString());
 }
