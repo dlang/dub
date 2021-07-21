@@ -236,7 +236,7 @@ struct CommandLineHandler
 		if (options.bare) {
 			dub = new Dub(NativePath(getcwd()));
 			dub.rootPath = NativePath(options.root_path);
-			dub.defaultPlacementLocation = options.placementLocation;
+			dub.placementLocation = options.placementLocation;
 
 			return dub;
 		}
@@ -258,7 +258,7 @@ struct CommandLineHandler
 
 		dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
 		dub.dryRun = options.annotate;
-		dub.defaultPlacementLocation = options.placementLocation;
+		dub.placementLocation = options.placementLocation;
 
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
@@ -1289,7 +1289,7 @@ class BuildCommand : GenerateCommand {
 			dep = Dependency(p.version_);
 		}
 
-		dub.fetch(packageParts.name, dep, dub.defaultPlacementLocation, FetchOptions.none);
+		dub.fetch(packageParts.name, dep, FetchOptions.none);
 		return 0;
 	}
 }
@@ -1833,8 +1833,6 @@ class FetchCommand : FetchRemoveCommand {
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto location = dub.defaultPlacementLocation;
-
 		auto name = free_args[0];
 
 		FetchOptions fetchOpts;
@@ -1842,13 +1840,13 @@ class FetchCommand : FetchRemoveCommand {
 		if (m_version.length) { // remove then --version removed
 			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
-			dub.fetch(name, Dependency(m_version), location, fetchOpts);
+			dub.fetch(name, Dependency(m_version), fetchOpts);
 		} else if (name.canFindVersionSplitter) {
 			const parts = name.splitPackageName;
-			dub.fetch(parts.name, Dependency(parts.version_), location, fetchOpts);
+			dub.fetch(parts.name, Dependency(parts.version_), fetchOpts);
 		} else {
 			try {
-				dub.fetch(name, Dependency(">=0.0.0"), location, fetchOpts);
+				dub.fetch(name, Dependency(">=0.0.0"), fetchOpts);
 				logInfo(
 					"Please note that you need to use `dub run <pkgname>` " ~
 					"or add it to dependencies of your package to actually use/run it. " ~
@@ -1857,7 +1855,7 @@ class FetchCommand : FetchRemoveCommand {
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
 				logInfo("Retry with ~master...");
-				dub.fetch(name, Dependency("~master"), location, fetchOpts);
+				dub.fetch(name, Dependency("~master"), fetchOpts);
 			}
 		}
 		return 0;
@@ -1905,7 +1903,7 @@ class RemoveCommand : FetchRemoveCommand {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
 		auto package_id = free_args[0];
-		auto location = dub.defaultPlacementLocation;
+		auto location = dub.placementLocation;
 
 		size_t resolveVersion(in Package[] packages) {
 			// just remove only package version

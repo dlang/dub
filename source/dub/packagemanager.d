@@ -31,6 +31,7 @@ import std.zip;
 class PackageManager {
 	private {
 		Repository[] m_repositories;
+		size_t m_placementLocationRepositoryIdx;
 		NativePath[] m_searchPath;
 		Package[] m_packages;
 		Package[] m_temporaryPackages;
@@ -64,14 +65,34 @@ class PackageManager {
 		if (refresh_packages) refresh(true);
 	}
 
-	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
+	import dub.project: PlacementLocation;
+
+	this(NativePath package_path, NativePath user_path, NativePath system_path, in PlacementLocation placementLocation, bool refresh_packages = true)
 	{
 		m_repositories = [
 			Repository(package_path ~ ".dub/packages/"),
 			Repository(user_path ~ "packages/"),
 			Repository(system_path ~ "packages/")];
 
+		setPlacementLocation(placementLocation);
 		if (refresh_packages) refresh(true);
+	}
+
+	/** Placement location of fetched packages. */
+	void setPlacementLocation(PlacementLocation placement)
+	{
+		with(PlacementLocation)
+		final switch (placement)
+		{
+			case local: m_placementLocationRepositoryIdx = 0; break;
+			case user: m_placementLocationRepositoryIdx = 1; break;
+			case system: m_placementLocationRepositoryIdx = 2; break;
+		}
+	}
+
+	package NativePath placementLocationDir() const
+	{
+		return m_repositories[m_placementLocationRepositoryIdx].packagePath;
 	}
 
 	/** Gets/sets the list of paths to search for local packages.

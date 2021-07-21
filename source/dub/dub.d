@@ -122,6 +122,7 @@ unittest
 class Dub {
 	private {
 		bool m_dryRun = false;
+		PlacementLocation m_placementLocation = PlacementLocation.user;
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
 		NativePath m_rootPath;
@@ -145,14 +146,20 @@ class Dub {
 		
 	}
 
-	/** The default placement location of fetched packages.
+	/** Placement location of fetched packages.
 
 		This property can be altered, so that packages which are downloaded as part
 		of the normal upgrade process are stored in a certain location. This is
 		how the "--local" and "--system" command line switches operate.
 	*/
-	PlacementLocation defaultPlacementLocation = PlacementLocation.user;
+	PlacementLocation placementLocation() const { return m_placementLocation; }
 
+	/// ditto
+	void placementLocation(PlacementLocation placement)
+	{
+		packageManager.setPlacementLocation(placement);
+		m_placementLocation = placementLocation;
+	}
 
 	/** Initializes the instance for use with a specific root package.
 
@@ -176,7 +183,7 @@ class Dub {
 		init(m_rootPath);
 
 		m_packageSuppliers = getPackageSuppliers(additional_package_suppliers, skip_registry);
-		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings);
+		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings, placementLocation);
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
@@ -597,7 +604,7 @@ class Dub {
 
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
-			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting selected version");
+			if (!pack) fetch(p, ver, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
 				if (!ver.repository.empty) {
 					m_project.selections.selectVersionWithRepository(p, ver.repository, ver.versionSpec);
@@ -794,7 +801,7 @@ class Dub {
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
 			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			tool_pack = fetch(tool, Dependency(">=0.0.0"), FetchOptions.none);
 		}
 
 		auto dscanner_dub = new Dub(null, m_packageSuppliers);
@@ -886,7 +893,7 @@ class Dub {
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+	Package fetch(string packageId, const Dependency dep, FetchOptions options, string reason = "")
 	{
 		auto basePackageName = getBasePackageName(packageId);
 		Json pinfo;
@@ -906,15 +913,9 @@ class Dub {
 		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
 
-		NativePath placement;
-		final switch (location) {
-			case PlacementLocation.local: placement = m_rootPath ~ ".dub/packages/"; break;
-			case PlacementLocation.user: placement = m_dirs.localRepository ~ "packages/"; break;
-			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
-		}
-
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		Package existing;
+		const NativePath placement = packageManager.placementLocationDir;
 		try existing = m_packageManager.getPackage(packageId, ver, placement);
 		catch (Exception e) {
 			logWarn("Failed to load existing package %s: %s", ver, e.msg);
@@ -929,7 +930,7 @@ class Dub {
 		}
 
 		if (existing) {
-			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
+			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || placementLocation == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
 				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
 					packageId, ver, placement);
@@ -1299,7 +1300,7 @@ class Dub {
 		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
 		if (!template_pack) {
 			logInfo("%s is not present, getting and storing it user wide", packageName);
-			template_pack = fetch(packageName, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			template_pack = fetch(packageName, Dependency(">=0.0.0"), FetchOptions.none);
 		}
 
 		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
@@ -1380,7 +1381,7 @@ class Dub {
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
 			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			tool_pack = fetch(tool, Dependency(">=0.0.0"), FetchOptions.none);
 		}
 
 		auto ddox_dub = new Dub(null, m_packageSuppliers);
@@ -1815,7 +1816,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				try {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
-					m_dub.fetch(rootpack, dep, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
+					m_dub.fetch(rootpack, dep, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
