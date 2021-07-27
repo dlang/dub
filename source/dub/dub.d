@@ -716,7 +716,7 @@ class Dub {
 					if (fname == "package.d") {
 						if (firstTimePackage) {
 							firstTimePackage = false;
-							logWarn("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
+							logDiagnostic("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
 						}
 						continue;
 					}
