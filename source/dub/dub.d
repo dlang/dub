@@ -1502,11 +1502,67 @@ class Dub {
 
 		// If nothing found next to dub, search the user's PATH, starting
 		// with the compiler name from their DUB config file, if specified.
-		if (m_defaultCompiler.length)
-			compilers = m_defaultCompiler ~ compilers;
 		auto paths = environment.get("PATH", "").splitter(sep).map!NativePath;
-		auto res = compilers.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
-		m_defaultCompiler = res.empty ? compilers[0] : res.front;
+		if (m_defaultCompiler.length && paths.canFind!(p => existsFile(p ~ (m_defaultCompiler~exe))))
+			return;
+		foreach (p; paths) {
+			auto res = compilers.find!(bin => existsFile(p ~ (bin~exe)));
+			if (!res.empty) {
+				m_defaultCompiler = res.front;
+				return;
+			}
+		}
+		m_defaultCompiler = compilers[0];
+	}
+	
+	unittest
+	{
+		import std.path: buildPath, absolutePath;
+		auto dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		immutable olddc = environment.get("DC", null);
+		immutable oldpath = environment.get("PATH", null);
+		immutable testdir = "test-determineDefaultCompiler";
+		void repairenv(string name, string var)
+		{
+			if (var !is null)
+				environment[name] = var;
+			else if (name in environment)
+				environment.remove(name);
+		}
+		scope (exit) repairenv("DC", olddc);
+		scope (exit) repairenv("PATH", oldpath);
+		scope (exit) rmdirRecurse(testdir);
+		
+		version (Windows) enum sep = ";", exe = ".exe";
+		version (Posix) enum sep = ":", exe = "";
+		
+		immutable dmdpath = testdir.buildPath("dmd", "bin");
+		immutable ldcpath = testdir.buildPath("ldc", "bin");
+		mkdirRecurse(dmdpath);
+		mkdirRecurse(ldcpath);
+		immutable dmdbin = dmdpath.buildPath("dmd"~exe);
+		immutable ldcbin = ldcpath.buildPath("ldc2"~exe);
+		std.file.write(dmdbin, null);
+		std.file.write(ldcbin, null);
+		
+		environment["DC"] = dmdbin.absolutePath();
+		dub.determineDefaultCompiler();
+		assert(dub.m_defaultCompiler == dmdbin.absolutePath());
+		
+		environment["DC"] = "dmd";
+		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
+		dub.determineDefaultCompiler();
+		assert(dub.m_defaultCompiler == "dmd");
+		
+		environment["DC"] = "ldc2";
+		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
+		dub.determineDefaultCompiler();
+		assert(dub.m_defaultCompiler == "ldc2");
+		
+		environment.remove("DC");
+		environment["PATH"] = ldcpath ~ sep ~ dmdpath;
+		dub.determineDefaultCompiler();
+		assert(dub.m_defaultCompiler == "ldc2");
 	}
 
 	private NativePath makeAbsolute(NativePath p) const { return p.absolute ? p : m_rootPath ~ p; }
