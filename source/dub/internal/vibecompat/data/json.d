@@ -1484,7 +1484,7 @@ struct JsonSerializer {
 	//
 	void readDictionary(T)(scope void delegate(string) field_handler)
 	{
-		enforceJson(m_current.type == Json.Type.object, "Expected JSON object, got "~m_current.type.to!string);
+		enforceJson(m_current.type == Json.Type.object, format!"'%s': Expected JSON object, got %s"(m_current.m_name, m_current.type));
 		auto old = m_current;
 		foreach (string key, value; m_current) {
 			m_current = value;
@@ -1495,7 +1495,7 @@ struct JsonSerializer {
 
 	void readArray(T)(scope void delegate(size_t) size_callback, scope void delegate() entry_callback)
 	{
-		enforceJson(m_current.type == Json.Type.array, "Expected JSON array, got "~m_current.type.to!string);
+		enforceJson(m_current.type == Json.Type.array, format!"'%s': Expected JSON array, got %s"(m_current.m_name, m_current.type));
 		auto old = m_current;
 		size_callback(m_current.length);
 		foreach (ent; old) {
