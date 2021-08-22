@@ -318,7 +318,11 @@ config    /etc/dmd.conf
 		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
-		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
+		string[string] env;
+		foreach (aa; [settings.environments, settings.buildEnvironments])
+			foreach (k, v; aa)
+				env[k] = v;
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
 	}
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
@@ -343,7 +347,11 @@ config    /etc/dmd.conf
 		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
-		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback);
+		string[string] env;
+		foreach (aa; [settings.environments, settings.buildEnvironments])
+			foreach (k, v; aa)
+				env[k] = v;
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
 	}
 
 	string[] lflagsToDFlags(in string[] lflags) const

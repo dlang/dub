@@ -999,6 +999,15 @@ abstract class PackageBuildCommand : Command {
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		if (!m_arch.length) m_arch = dub.defaultArchitecture;
 		if (dub.defaultLowMemory) m_buildSettings.options |= BuildOption.lowmem;
+		if (dub.defaultEnvironments) m_buildSettings.addEnvironments(dub.defaultEnvironments);
+		if (dub.defaultBuildEnvironments) m_buildSettings.addBuildEnvironments(dub.defaultBuildEnvironments);
+		if (dub.defaultRunEnvironments) m_buildSettings.addRunEnvironments(dub.defaultRunEnvironments);
+		if (dub.defaultPreGenerateEnvironments) m_buildSettings.addPreGenerateEnvironments(dub.defaultPreGenerateEnvironments);
+		if (dub.defaultPostGenerateEnvironments) m_buildSettings.addPostGenerateEnvironments(dub.defaultPostGenerateEnvironments);
+		if (dub.defaultPreBuildEnvironments) m_buildSettings.addPreBuildEnvironments(dub.defaultPreBuildEnvironments);
+		if (dub.defaultPostBuildEnvironments) m_buildSettings.addPostBuildEnvironments(dub.defaultPostBuildEnvironments);
+		if (dub.defaultPreRunEnvironments) m_buildSettings.addPreRunEnvironments(dub.defaultPreRunEnvironments);
+		if (dub.defaultPostRunEnvironments) m_buildSettings.addPostRunEnvironments(dub.defaultPostRunEnvironments);
 		m_compiler = getCompiler(m_compilerName);
 		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compilerName, m_arch);
 		m_buildSettings.addDebugVersions(m_debugVersions);

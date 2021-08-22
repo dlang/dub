@@ -133,6 +133,16 @@ class Dub {
 		string m_defaultCompiler;
 		string m_defaultArchitecture;
 		bool m_defaultLowMemory;
+		string[string] m_defaultEnvironments;
+		string[string] m_defaultBuildEnvironments;
+		string[string] m_defaultRunEnvironments;
+		string[string] m_defaultPreGenerateEnvironments;
+		string[string] m_defaultPostGenerateEnvironments;
+		string[string] m_defaultPreBuildEnvironments;
+		string[string] m_defaultPostBuildEnvironments;
+		string[string] m_defaultPreRunEnvironments;
+		string[string] m_defaultPostRunEnvironments;
+		
 	}
 
 	/** The default placement location of fetched packages.
@@ -290,6 +300,15 @@ class Dub {
 
 		m_defaultArchitecture = m_config.defaultArchitecture;
 		m_defaultLowMemory = m_config.defaultLowMemory;
+		m_defaultEnvironments = m_config.defaultEnvironments;
+		m_defaultBuildEnvironments = m_config.defaultBuildEnvironments;
+		m_defaultRunEnvironments = m_config.defaultRunEnvironments;
+		m_defaultPreGenerateEnvironments = m_config.defaultPreGenerateEnvironments;
+		m_defaultPostGenerateEnvironments = m_config.defaultPostGenerateEnvironments;
+		m_defaultPreBuildEnvironments = m_config.defaultPreBuildEnvironments;
+		m_defaultPostBuildEnvironments = m_config.defaultPostBuildEnvironments;
+		m_defaultPreRunEnvironments = m_config.defaultPreRunEnvironments;
+		m_defaultPostRunEnvironments = m_config.defaultPostRunEnvironments;
 	}
 
 	@property void dryRun(bool v) { m_dryRun = v; }
@@ -340,6 +359,16 @@ class Dub {
 		configuration file will be used. Otherwise false will be returned.
 	*/
 	@property bool defaultLowMemory() const { return m_defaultLowMemory; }
+	
+	@property const(string[string]) defaultEnvironments() const { return m_defaultEnvironments; }
+	@property const(string[string]) defaultBuildEnvironments() const { return m_defaultBuildEnvironments; }
+	@property const(string[string]) defaultRunEnvironments() const { return m_defaultRunEnvironments; }
+	@property const(string[string]) defaultPreGenerateEnvironments() const { return m_defaultPreGenerateEnvironments; }
+	@property const(string[string]) defaultPostGenerateEnvironments() const { return m_defaultPostGenerateEnvironments; }
+	@property const(string[string]) defaultPreBuildEnvironments() const { return m_defaultPreBuildEnvironments; }
+	@property const(string[string]) defaultPostBuildEnvironments() const { return m_defaultPostBuildEnvironments; }
+	@property const(string[string]) defaultPreRunEnvironments() const { return m_defaultPreRunEnvironments; }
+	@property const(string[string]) defaultPostRunEnvironments() const { return m_defaultPostRunEnvironments; }
 
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
@@ -431,6 +460,7 @@ class Dub {
 		auto recipe_default_package_name = path.toString.baseName.stripExtension.strip;
 
 		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, null, recipe_default_package_name);
+		import dub.internal.vibecompat.core.log; logInfo("parsePackageRecipe %s", recipe_filename);
 		enforce(recipe.buildSettings.sourceFiles.length == 0, "Single-file packages are not allowed to specify source files.");
 		enforce(recipe.buildSettings.sourcePaths.length == 0, "Single-file packages are not allowed to specify source paths.");
 		enforce(recipe.buildSettings.importPaths.length == 0, "Single-file packages are not allowed to specify import paths.");
@@ -686,7 +716,7 @@ class Dub {
 					if (fname == "package.d") {
 						if (firstTimePackage) {
 							firstTimePackage = false;
-							logWarn("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
+							logDiagnostic("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
 						}
 						continue;
 					}
@@ -779,6 +809,15 @@ class Dub {
 		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
 		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
+		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
+		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
+		if (m_defaultRunEnvironments) settings.buildSettings.addRunEnvironments(m_defaultRunEnvironments);
+		if (m_defaultPreGenerateEnvironments) settings.buildSettings.addPreGenerateEnvironments(m_defaultPreGenerateEnvironments);
+		if (m_defaultPostGenerateEnvironments) settings.buildSettings.addPostGenerateEnvironments(m_defaultPostGenerateEnvironments);
+		if (m_defaultPreBuildEnvironments) settings.buildSettings.addPreBuildEnvironments(m_defaultPreBuildEnvironments);
+		if (m_defaultPostBuildEnvironments) settings.buildSettings.addPostBuildEnvironments(m_defaultPostBuildEnvironments);
+		if (m_defaultPreRunEnvironments) settings.buildSettings.addPreRunEnvironments(m_defaultPreRunEnvironments);
+		if (m_defaultPostRunEnvironments) settings.buildSettings.addPostRunEnvironments(m_defaultPostRunEnvironments);
 		settings.run = true;
 
 		foreach (dependencyPackage; m_project.dependencies)
@@ -1276,6 +1315,15 @@ class Dub {
 		settings.run = true;
 		settings.runArgs = runArgs;
 		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
+		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
+		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
+		if (m_defaultRunEnvironments) settings.buildSettings.addRunEnvironments(m_defaultRunEnvironments);
+		if (m_defaultPreGenerateEnvironments) settings.buildSettings.addPreGenerateEnvironments(m_defaultPreGenerateEnvironments);
+		if (m_defaultPostGenerateEnvironments) settings.buildSettings.addPostGenerateEnvironments(m_defaultPostGenerateEnvironments);
+		if (m_defaultPreBuildEnvironments) settings.buildSettings.addPreBuildEnvironments(m_defaultPreBuildEnvironments);
+		if (m_defaultPostBuildEnvironments) settings.buildSettings.addPostBuildEnvironments(m_defaultPostBuildEnvironments);
+		if (m_defaultPreRunEnvironments) settings.buildSettings.addPreRunEnvironments(m_defaultPreRunEnvironments);
+		if (m_defaultPostRunEnvironments) settings.buildSettings.addPostRunEnvironments(m_defaultPostRunEnvironments);
 		initSubPackage.recipe.buildSettings.workingDirectory = path.toNativeString();
 		template_dub.generateProject("build", settings);
 	}
@@ -1347,6 +1395,15 @@ class Dub {
 		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
 		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
+		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
+		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
+		if (m_defaultRunEnvironments) settings.buildSettings.addRunEnvironments(m_defaultRunEnvironments);
+		if (m_defaultPreGenerateEnvironments) settings.buildSettings.addPreGenerateEnvironments(m_defaultPreGenerateEnvironments);
+		if (m_defaultPostGenerateEnvironments) settings.buildSettings.addPostGenerateEnvironments(m_defaultPostGenerateEnvironments);
+		if (m_defaultPreBuildEnvironments) settings.buildSettings.addPreBuildEnvironments(m_defaultPreBuildEnvironments);
+		if (m_defaultPostBuildEnvironments) settings.buildSettings.addPostBuildEnvironments(m_defaultPostBuildEnvironments);
+		if (m_defaultPreRunEnvironments) settings.buildSettings.addPreRunEnvironments(m_defaultPreRunEnvironments);
+		if (m_defaultPostRunEnvironments) settings.buildSettings.addPostRunEnvironments(m_defaultPostRunEnvironments);
 		settings.run = true;
 
 		auto filterargs = m_project.rootPackage.recipe.ddoxFilterArgs.dup;
@@ -1445,11 +1502,67 @@ class Dub {
 
 		// If nothing found next to dub, search the user's PATH, starting
 		// with the compiler name from their DUB config file, if specified.
-		if (m_defaultCompiler.length)
-			compilers = m_defaultCompiler ~ compilers;
 		auto paths = environment.get("PATH", "").splitter(sep).map!NativePath;
-		auto res = compilers.find!(bin => paths.canFind!(p => existsFile(p ~ (bin~exe))));
-		m_defaultCompiler = res.empty ? compilers[0] : res.front;
+		if (m_defaultCompiler.length && paths.canFind!(p => existsFile(p ~ (m_defaultCompiler~exe))))
+			return;
+		foreach (p; paths) {
+			auto res = compilers.find!(bin => existsFile(p ~ (bin~exe)));
+			if (!res.empty) {
+				m_defaultCompiler = res.front;
+				return;
+			}
+		}
+		m_defaultCompiler = compilers[0];
+	}
+	
+	unittest
+	{
+		import std.path: buildPath, absolutePath;
+		auto dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		immutable olddc = environment.get("DC", null);
+		immutable oldpath = environment.get("PATH", null);
+		immutable testdir = "test-determineDefaultCompiler";
+		void repairenv(string name, string var)
+		{
+			if (var !is null)
+				environment[name] = var;
+			else if (name in environment)
+				environment.remove(name);
+		}
+		scope (exit) repairenv("DC", olddc);
+		scope (exit) repairenv("PATH", oldpath);
+		scope (exit) rmdirRecurse(testdir);
+		
+		version (Windows) enum sep = ";", exe = ".exe";
+		version (Posix) enum sep = ":", exe = "";
+		
+		immutable dmdpath = testdir.buildPath("dmd", "bin");
+		immutable ldcpath = testdir.buildPath("ldc", "bin");
+		mkdirRecurse(dmdpath);
+		mkdirRecurse(ldcpath);
+		immutable dmdbin = dmdpath.buildPath("dmd"~exe);
+		immutable ldcbin = ldcpath.buildPath("ldc2"~exe);
+		std.file.write(dmdbin, null);
+		std.file.write(ldcbin, null);
+		
+		environment["DC"] = dmdbin.absolutePath();
+		dub.determineDefaultCompiler();
+		assert(dub.m_defaultCompiler == dmdbin.absolutePath());
+		
+		environment["DC"] = "dmd";
+		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
+		dub.determineDefaultCompiler();
+		assert(dub.m_defaultCompiler == "dmd");
+		
+		environment["DC"] = "ldc2";
+		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
+		dub.determineDefaultCompiler();
+		assert(dub.m_defaultCompiler == "ldc2");
+		
+		environment.remove("DC");
+		environment["PATH"] = ldcpath ~ sep ~ dmdpath;
+		dub.determineDefaultCompiler();
+		assert(dub.m_defaultCompiler == "ldc2");
 	}
 
 	private NativePath makeAbsolute(NativePath p) const { return p.absolute ? p : m_rootPath ~ p; }
@@ -1856,5 +1969,77 @@ private class DubConfig {
 			return (*pv).get!bool;
 		if (m_parentConfig) return m_parentConfig.defaultLowMemory;
 		return false;
+	}
+	
+	@property string[string] defaultEnvironments()
+	const {
+		if (auto pv = "defaultEnvironments" in m_data)
+			return deserializeJson!(string[string])(*cast(Json*)pv);
+		if (m_parentConfig) return m_parentConfig.defaultEnvironments;
+		return null;
+	}
+	
+	@property string[string] defaultBuildEnvironments()
+	const {
+		if (auto pv = "defaultBuildEnvironments" in m_data)
+			return deserializeJson!(string[string])(*cast(Json*)pv);
+		if (m_parentConfig) return m_parentConfig.defaultBuildEnvironments;
+		return null;
+	}
+	
+	@property string[string] defaultRunEnvironments()
+	const {
+		if (auto pv = "defaultRunEnvironments" in m_data)
+			return deserializeJson!(string[string])(*cast(Json*)pv);
+		if (m_parentConfig) return m_parentConfig.defaultRunEnvironments;
+		return null;
+	}
+	
+	@property string[string] defaultPreGenerateEnvironments()
+	const {
+		if (auto pv = "defaultPreGenerateEnvironments" in m_data)
+			return deserializeJson!(string[string])(*cast(Json*)pv);
+		if (m_parentConfig) return m_parentConfig.defaultPreGenerateEnvironments;
+		return null;
+	}
+	
+	@property string[string] defaultPostGenerateEnvironments()
+	const {
+		if (auto pv = "defaultPostGenerateEnvironments" in m_data)
+			return deserializeJson!(string[string])(*cast(Json*)pv);
+		if (m_parentConfig) return m_parentConfig.defaultPostGenerateEnvironments;
+		return null;
+	}
+	
+	@property string[string] defaultPreBuildEnvironments()
+	const {
+		if (auto pv = "defaultPreBuildEnvironments" in m_data)
+			return deserializeJson!(string[string])(*cast(Json*)pv);
+		if (m_parentConfig) return m_parentConfig.defaultPreBuildEnvironments;
+		return null;
+	}
+	
+	@property string[string] defaultPostBuildEnvironments()
+	const {
+		if (auto pv = "defaultPostBuildEnvironments" in m_data)
+			return deserializeJson!(string[string])(*cast(Json*)pv);
+		if (m_parentConfig) return m_parentConfig.defaultPostBuildEnvironments;
+		return null;
+	}
+	
+	@property string[string] defaultPreRunEnvironments()
+	const {
+		if (auto pv = "defaultPreRunEnvironments" in m_data)
+			return deserializeJson!(string[string])(*cast(Json*)pv);
+		if (m_parentConfig) return m_parentConfig.defaultPreRunEnvironments;
+		return null;
+	}
+	
+	@property string[string] defaultPostRunEnvironments()
+	const {
+		if (auto pv = "defaultPostRunEnvironments" in m_data)
+			return deserializeJson!(string[string])(*cast(Json*)pv);
+		if (m_parentConfig) return m_parentConfig.defaultPostRunEnvironments;
+		return null;
 	}
 }

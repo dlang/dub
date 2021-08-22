@@ -48,18 +48,30 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	auto genPackageDownloadUrl(string packageId, Dependency dep, bool pre_release)
 	{
 		import std.array : replace;
 		import std.format : format;
+		import std.typecons : Nullable;
 		auto md = getMetadata(packageId);
 		Json best = getBestPackage(md, packageId, dep, pre_release);
-		if (best.type == Json.Type.null_)
+		Nullable!URL ret;
+		if (best.type != Json.Type.null_)
+		{
+			auto vers = best["version"].get!string;
+			ret = m_registryUrl ~ NativePath(PackagesPath~"/"~packageId~"/"~vers~".zip");
+		}
+		return ret;
+	}
+
+	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	{
+		import std.format : format;
+		auto url = genPackageDownloadUrl(packageId, dep, pre_release);
+		if(url.isNull)
 			return;
-		auto vers = best["version"].get!string;
-		auto url = m_registryUrl ~ NativePath(PackagesPath~"/"~packageId~"/"~vers~".zip");
 		try {
-			retryDownload(url, path);
+			retryDownload(url.get, path);
 			return;
 		}
 		catch(HTTPStatusException e) {

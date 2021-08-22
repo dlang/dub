@@ -13,7 +13,8 @@ import std.array : array;
 import std.algorithm : filter, any;
 import std.path : globMatch;
 import std.typecons : BitFlags;
-
+import std.algorithm.iteration : uniq;
+import std.range : chain;
 
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
@@ -46,17 +47,33 @@ struct BuildSettings {
 	string[] postBuildCommands;
 	string[] preRunCommands;
 	string[] postRunCommands;
+	string[string] environments;
+	string[string] buildEnvironments;
+	string[string] runEnvironments;
+	string[string] preGenerateEnvironments;
+	string[string] postGenerateEnvironments;
+	string[string] preBuildEnvironments;
+	string[string] postBuildEnvironments;
+	string[string] preRunEnvironments;
+	string[string] postRunEnvironments;
 	@byName BuildRequirements requirements;
 	@byName BuildOptions options;
 
 	BuildSettings dup()
 	const {
+		import std.traits: FieldNameTuple;
+		import std.algorithm: map;
+		import std.typecons: tuple;
+		import std.array: assocArray;
 		BuildSettings ret;
-		foreach (m; __traits(allMembers, BuildSettings)) {
+		foreach (m; FieldNameTuple!BuildSettings) {
 			static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m).dup)))
 				__traits(getMember, ret, m) = __traits(getMember, this, m).dup;
+			else static if (is(typeof(add(__traits(getMember, ret, m), __traits(getMember, this, m)))))
+				add(__traits(getMember, ret, m), __traits(getMember, this, m));
 			else static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m))))
 				__traits(getMember, ret, m) = __traits(getMember, this, m);
+			else static assert(0, "Cannot duplicate BuildSettings." ~ m);
 		}
 		assert(ret.targetType == targetType);
 		assert(ret.targetName == targetName);
@@ -89,7 +106,7 @@ struct BuildSettings {
 		addPostRunCommands(bs.postRunCommands);
 	}
 
-	void addDFlags(in string[] value...) { dflags ~= value; }
+	void addDFlags(in string[] value...) { dflags = chain(dflags, value.dup).uniq.array; }
 	void prependDFlags(in string[] value...) { prepend(dflags, value); }
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { lflags ~= value; }
@@ -115,6 +132,24 @@ struct BuildSettings {
 	void addPostBuildCommands(in string[] value...) { add(postBuildCommands, value, false); }
 	void addPreRunCommands(in string[] value...) { add(preRunCommands, value, false); }
 	void addPostRunCommands(in string[] value...) { add(postRunCommands, value, false); }
+	void addEnvironments(in string[string] value) { add(environments, value); }
+	void updateEnvironments(in string[string] value) { update(environments, value); }
+	void addBuildEnvironments(in string[string] value) { add(buildEnvironments, value); }
+	void updateBuildEnvironments(in string[string] value) { update(buildEnvironments, value); }
+	void addRunEnvironments(in string[string] value) { add(runEnvironments, value); }
+	void updateRunEnvironments(in string[string] value) { update(runEnvironments, value); }
+	void addPreGenerateEnvironments(in string[string] value) { add(preGenerateEnvironments, value); }
+	void updatePreGenerateEnvironments(in string[string] value) { update(preGenerateEnvironments, value); }
+	void addPostGenerateEnvironments(in string[string] value) { add(postGenerateEnvironments, value); }
+	void updatePostGenerateEnvironments(in string[string] value) { update(postGenerateEnvironments, value); }
+	void addPreBuildEnvironments(in string[string] value) { add(preBuildEnvironments, value); }
+	void updatePreBuildEnvironments(in string[string] value) { update(preBuildEnvironments, value); }
+	void addPostBuildEnvironments(in string[string] value) { add(postBuildEnvironments, value); }
+	void updatePostBuildEnvironments(in string[string] value) { update(postBuildEnvironments, value); }
+	void addPreRunEnvironments(in string[string] value) { add(preRunEnvironments, value); }
+	void updatePreRunEnvironments(in string[string] value) { update(preRunEnvironments, value); }
+	void addPostRunEnvironments(in string[string] value) { add(postRunEnvironments, value); }
+	void updatePostRunEnvironments(in string[string] value) { update(postRunEnvironments, value); }
 	void addRequirements(in BuildRequirement[] value...) { foreach (v; value) this.requirements |= v; }
 	void addRequirements(in BuildRequirements value) { this.requirements |= value; }
 	void addOptions(in BuildOption[] value...) { foreach (v; value) this.options |= v; }
@@ -136,6 +171,21 @@ private:
 		// vals might contain duplicates, add each val individually
 		foreach (val; vals)
 			arr ~= filterDuplicates(arr, [val], noDuplicates);
+	}
+	// Append vals to AA
+	static void add(ref string[string] aa, in string[string] vals)
+	{
+		// vals might contain duplicated keys, add each val individually
+		foreach (key, val; vals)
+			if (key !in aa)
+				aa[key] = val;
+	}
+	// Update vals to AA
+	static void update(ref string[string] aa, in string[string] vals)
+	{
+		// If there are duplicate keys, they will be ignored and overwritten.
+		foreach (key, val; vals)
+			aa[key] = val;
 	}
 
 	unittest

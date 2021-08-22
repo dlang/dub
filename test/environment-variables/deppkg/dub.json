@@ -1,0 +1,33 @@
+{
+	"name": "deppkg",
+	"targetType": "library",
+	
+	"environments": {
+		"VAR1": "deppkg.VAR1",
+		"VAR3": "deppkg.VAR3",
+		"VAR4": "deppkg.VAR4",
+		"PRIORITYCHECK_SET_DEP":  "deppkg.PRIORITYCHECK_SET_DEP"
+	},
+	"buildEnvironments": {
+		"PRIORITYCHECK_ROOT_DEPBLDSPEC": "deppkg.PRIORITYCHECK_ROOT_DEPBLDSPEC",
+		"PRIORITYCHECK_DEPBLDSPEC_ROOTBLDSPEC": "deppkg.PRIORITYCHECK_DEPBLDSPEC_ROOTBLDSPEC"
+	},
+	"preGenerateEnvironments": {
+		"PRIORITYCHECK_DEP_ROOT":         "deppkg.PRIORITYCHECK_DEP_ROOT",
+		"PRIORITYCHECK_ROOT_DEPSPEC":     "deppkg.PRIORITYCHECK_ROOT_DEPSPEC",
+		"PRIORITYCHECK_DEPSPEC_ROOTSPEC": "deppkg.PRIORITYCHECK_DEPSPEC_ROOTSPEC"
+	},
+	"preBuildEnvironments": {
+		"PRIORITYCHECK_ROOTBLDSPEC_DEPSPEC": "deppkg.PRIORITYCHECK_ROOTBLDSPEC_DEPSPEC",
+		"PRIORITYCHECK_DEPSPEC_ROOTSPEC":    "deppkg.PRIORITYCHECK_DEPSPEC_ROOTSPEC"
+	},
+	
+	"preBuildCommands": [
+		"echo deppkg.preBuild: $PRIORITYCHECK_ROOT_DEPBLDSPEC",
+		"echo deppkg.preBuild: $PRIORITYCHECK_DEPBLDSPEC_ROOTBLDSPEC",
+		"echo deppkg.preBuild: $PRIORITYCHECK_ROOTBLDSPEC_DEPSPEC",
+		"echo deppkg.preBuild: $PRIORITYCHECK_DEPSPEC_ROOTSPEC"
+	],
+	"postBuildCommands": ["echo deppkg.postBuild: $VAR4"],
+	"preRunCommands": ["echo deppkg.preRun: $VAR4"]
+}

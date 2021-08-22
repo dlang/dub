@@ -1,0 +1,7 @@
+{
+	"defaultEnvironments": {
+		"VAR2": "settings.VAR2",
+		"PRIORITYCHECK_SYS_SET": "setting.PRIORITYCHECK_SYS_SET",
+		"PRIORITYCHECK_SET_DEP": "setting.PRIORITYCHECK_SET_DEP"
+	}
+}

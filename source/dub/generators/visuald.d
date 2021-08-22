@@ -157,7 +157,9 @@ class VisualDGenerator : ProjectGenerator {
 			auto ret = appender!(char[])();
 
 			auto root_package_path = m_project.rootPackage.path;
-			auto project_file_dir = root_package_path ~ projFileName(packname).parentPath;
+			auto basepath = NativePath(".dub/");
+			if (!isWritableDir(basepath, true))
+				throw new Exception(".dub is not writeable");
 			ret.put("<DProject>\n");
 			ret.formattedWrite("  <ProjectGuid>%s</ProjectGuid>\n", guid(packname));
 
@@ -185,7 +187,7 @@ class VisualDGenerator : ProjectGenerator {
 				auto sp = NativePath(s);
 				assert(sp.absolute, format("Source path in %s expected to be absolute: %s", packname, s));
 				//if( !sp.absolute ) sp = pack.path ~ sp;
-				addSourceFile(sp.relativeTo(project_file_dir), determineStructurePath(sp, targets[packname]), action);
+				addSourceFile(sp.relativeTo(getWorkingDirectory() ~ basepath), determineStructurePath(sp, targets[packname]), action);
 			}
 
 			foreach (p; targets[packname].packages)
@@ -242,9 +244,6 @@ class VisualDGenerator : ProjectGenerator {
 			ret.put("\n  </Folder>\n</DProject>");
 
 			logDebug("About to write to '%s.visualdproj' file %s bytes", getPackageFileName(packname), ret.data.length);
-			auto basepath = NativePath(".dub/");
-			if (!isWritableDir(basepath, true))
-				throw new Exception(".dub is not writeable");
 			auto proj = openFile(projFileName(packname), FileMode.createTrunc);
 			scope(exit) proj.close();
 			proj.put(ret.data);
@@ -253,8 +252,8 @@ class VisualDGenerator : ProjectGenerator {
 
 		void generateProjectConfiguration(Appender!(char[]) ret, string pack, string type, GeneratorSettings settings, in TargetInfo[string] targets)
 		{
-			auto project_file_dir = m_project.rootPackage.path ~ projFileName(pack).parentPath;
 			auto buildsettings = targets[pack].buildSettings.dup;
+			auto basepath = NativePath(".dub/");
 
 			string[] getSettings(string setting)(){ return __traits(getMember, buildsettings, setting); }
 			string[] getPathSettings(string setting)()
@@ -263,7 +262,7 @@ class VisualDGenerator : ProjectGenerator {
 				auto ret = new string[settings.length];
 				foreach (i; 0 .. settings.length) {
 					// \" is interpreted as an escaped " by cmd.exe, so we need to avoid that
-					auto p = NativePath(settings[i]).relativeTo(project_file_dir);
+					auto p = NativePath(settings[i]).relativeTo(getWorkingDirectory() ~ basepath);
 					p.endsWithSlash = false;
 					ret[i] = '"' ~ p.toNativeString() ~ '"';
 				}
@@ -336,7 +335,7 @@ class VisualDGenerator : ProjectGenerator {
 				// compute directory for intermediate files (need dummy/ because of how -op determines the resulting path)
 				size_t ndummy = 0;
 				foreach (f; buildsettings.sourceFiles) {
-					auto rpath = NativePath(f).relativeTo(project_file_dir);
+					auto rpath = NativePath(f).relativeTo(getWorkingDirectory() ~ basepath);
 					size_t nd = 0;
 					foreach (s; rpath.bySegment)
 						if (s == "..")
@@ -431,7 +430,7 @@ class VisualDGenerator : ProjectGenerator {
 				auto wdir = NativePath(buildsettings.workingDirectory);
 				if (!wdir.absolute) wdir = m_project.rootPackage.path ~ wdir;
 				ret.formattedWrite("    <debugworkingdir>%s</debugworkingdir>\n",
-					wdir.relativeTo(project_file_dir).toNativeString());
+					wdir.relativeTo(getWorkingDirectory() ~ basepath).toNativeString());
 				ret.put("    <preBuildCommand />\n");
 				ret.put("    <postBuildCommand />\n");
 				ret.put("    <filesToClean>*.obj;*.cmd;*.build;*.dep</filesToClean>\n");
