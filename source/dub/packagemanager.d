@@ -272,7 +272,7 @@ class PackageManager {
 	*/
 	Package loadSCMPackage(string name, Dependency dependency)
 	in { assert(!dependency.repository.empty); }
-	body {
+	do {
         Package pack;
 
         with (dependency.repository) final switch (kind)
