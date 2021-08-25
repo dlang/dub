@@ -776,7 +776,7 @@ struct Repository
 	*/
 	@property string remote() @nogc nothrow pure @safe
 	in { assert(m_remote !is null); }
-	body
+	do
 	{
 		return m_remote;
 	}
