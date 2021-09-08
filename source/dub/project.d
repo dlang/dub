@@ -26,6 +26,7 @@ import std.datetime;
 import std.exception : enforce;
 import std.string;
 import std.encoding : sanitize;
+import std.stdio;
 
 /**
 	Represents a full project, a root package with its dependencies and package
@@ -123,12 +124,14 @@ class Project {
 	*/
 	int delegate(int delegate(ref Package)) getTopologicalPackageList(bool children_first = false, Package root_package = null, string[string] configs = null)
 	{
+		// writeln(__FUNCTION__, "(children_first:", children_first, " ,root_package.name", root_package.name, " ,configs:", configs, ")");
 		// ugly way to avoid code duplication since inout isn't compatible with foreach type inference
 		return cast(int delegate(int delegate(ref Package)))(cast(const)this).getTopologicalPackageList(children_first, root_package, configs);
 	}
 	/// ditto
 	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[string] configs = null)
 	const {
+		// writeln(__FUNCTION__, "(children_first:", children_first, " ,root_package.name", root_package.name, " ,configs:", configs, ")");
 		const(Package) rootpack = root_package ? root_package : m_rootPackage;
 
 		int iterator(int delegate(ref const Package) del)
@@ -183,6 +186,7 @@ class Project {
 	*/
 	inout(Package) getDependency(string name, bool is_optional)
 	inout {
+		// writeln("getDependency(name:", name, " is_optional:", is_optional, ")");
 		foreach(dp; m_dependencies)
 			if( dp.name == name )
 				return dp;
@@ -218,6 +222,7 @@ class Project {
 	*/
 	void overrideConfiguration(string package_, string config)
 	{
+		writeln("overrideConfiguration(package_:", package_, " config:", config, ")");
 		auto p = getDependency(package_, true);
 		enforce(p !is null,
 			format("Package '%s', marked for configuration override, is not present in dependency graph.", package_));
@@ -233,6 +238,7 @@ class Project {
 	*/
 	void validate()
 	{
+		writeln("validate() entered...");
 		// some basic package lint
 		m_rootPackage.warnOnSpecialCompilerFlags();
 		string nameSuggestion() {
@@ -295,6 +301,7 @@ class Project {
 		// check for version specification mismatches
 		bool[Package] visited;
 		void validateDependenciesRec(Package pack) {
+			writeln("validateDependenciesRec(pack.name:", pack.name, ")");
 			// perform basic package linting
 			pack.simpleLint();
 
@@ -315,11 +322,13 @@ class Project {
 			}
 		}
 		validateDependenciesRec(m_rootPackage);
+		writeln("validateDependenciesRec() done");
 	}
 
 	/// Reloads dependencies.
 	void reinit()
 	{
+		writeln("reinit() entered...");
 		m_dependencies = null;
 		m_missingDependencies = [];
 		m_packageManager.refresh(false);
@@ -419,6 +428,7 @@ class Project {
 		}
 		collectDependenciesRec(m_rootPackage);
 		m_missingDependencies.sort();
+		writeln("reinit() done");
 	}
 
 	/// Returns the name of the root package.
@@ -430,6 +440,7 @@ class Project {
 	/// Returns a map with the configuration for all packages in the dependency tree.
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
+		writeln("getPackageConfigs(platform:", platform.platform, ", config:", config, ", allow_non_library:", allow_non_library, "entered)");
 		struct Vertex { string pack, config; }
 		struct Edge { size_t from, to; }
 
@@ -509,8 +520,10 @@ class Project {
 
 		string[] allconfigs_path;
 
-		void determineDependencyConfigs(in Package p, string c)
+		void determineDependencyConfigs(in Package p, string c, size_t depth = 0)
 		{
+			// foreach (_; 0 .. depth) write(" ");
+			// writeln("determineDependencyConfigs(p.name:", p.name, ", c:", c, ")");
 			string[][string] depconfigs;
 			foreach (d; p.getAllDependencies()) {
 				auto dp = getDependency(d.name, true);
@@ -542,8 +555,10 @@ class Project {
 		}
 
 		// create a graph of all possible package configurations (package, config) -> (subpackage, subconfig)
-		void determineAllConfigs(in Package p)
+		void determineAllConfigs(in Package p, size_t depth = 0)
 		{
+			// foreach (_; 0 .. depth) write(" ");
+			// writeln("determineAllConfigs(p.name:", p.name, ")");
 			auto idx = allconfigs_path.countUntil(p.name);
 			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ p.name).join("->")));
 			allconfigs_path ~= p.name;
@@ -553,18 +568,23 @@ class Project {
 			foreach (d; p.getAllDependencies) {
 				auto dp = getDependency(d.name, true);
 				if (!dp) continue;
-				determineAllConfigs(dp);
+				determineAllConfigs(dp, depth + 1);
 			}
 
 			// for each configuration, determine the configurations usable for the dependencies
 			if (auto pc = p.name in m_overriddenConfigs)
-				determineDependencyConfigs(p, *pc);
+				determineDependencyConfigs(p, *pc, depth + 1);
 			else
 				foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library))
-					determineDependencyConfigs(p, c);
+					determineDependencyConfigs(p, c, depth + 1);
 		}
 		if (config.length) createConfig(m_rootPackage.name, config);
+		writeln("determineAllConfigs root entered...");
 		determineAllConfigs(m_rootPackage);
+		writeln("determineAllConfigs root done");
+		writeln("configs:", configs);
+
+		// TODO why is Vertex("extra-lxd", "") and Vertex("symmetry.mongo-queries", "") there
 
 		// successively remove configurations until only one configuration per package is left
 		bool changed;
@@ -597,6 +617,8 @@ class Project {
 			}
 		} while (changed);
 
+		writeln("adjusted configs:", configs);
+
 		// print out the resulting tree
 		foreach (e; edges) logDebug("    %s %s -> %s %s", configs[e.from].pack, configs[e.from].config, configs[e.to].pack, configs[e.to].config);
 
@@ -609,9 +631,16 @@ class Project {
 			ret[c.pack] = c.config;
 		}
 
+		writeln("ret:", ret);
+
 		// check for conflicts (packages missing in the final configuration graph)
 		void checkPacksRec(in Package pack) {
+			writeln("Package ", pack.name);
 			auto pc = pack.name in ret;
+			if (pc is null)
+			{
+				writeln("xxx");
+			}
 			enforce(pc !is null, "Could not resolve configuration for package "~pack.name);
 			foreach (p, dep; pack.getDependencies(*pc)) {
 				auto deppack = getDependency(p, dep.optional);
@@ -1200,7 +1229,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addPostBuildEnvironments(processVerEnvs(settings.postBuildEnvironments, gsettings.buildSettings.postBuildEnvironments));
 	dst.addPreRunEnvironments(processVerEnvs(settings.preRunEnvironments, gsettings.buildSettings.preRunEnvironments));
 	dst.addPostRunEnvironments(processVerEnvs(settings.postRunEnvironments, gsettings.buildSettings.postRunEnvironments));
-	
+
 	auto buildEnvs = [dst.environments, dst.buildEnvironments];
 	auto runEnvs = [dst.environments, dst.runEnvironments];
 	auto preGenEnvs = [dst.environments, dst.preGenerateEnvironments];
@@ -1209,7 +1238,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	auto postBuildEnvs = buildEnvs ~ [dst.postBuildEnvironments];
 	auto preRunEnvs = runEnvs ~ [dst.preRunEnvironments];
 	auto postRunEnvs = runEnvs ~ [dst.postRunEnvironments];
-	
+
 	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags, false, buildEnvs));
 	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags, false, buildEnvs));
 	dst.addLibs(processVars(project, pack, gsettings, settings.libs, false, buildEnvs));
@@ -1469,7 +1498,7 @@ private string getVariable(Project, Package)(string name, in Project project, in
 		else if (name == "LFLAGS")
 			return join(buildSettings.lflags," ");
 	}
-	
+
 	import std.range;
 	foreach (aa; retro(extraVars))
 		if (auto exvar = name in aa)
