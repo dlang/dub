@@ -7,6 +7,7 @@
 */
 module dub.recipe.io;
 
+import dub.dependency : PackageName;
 import dub.recipe.packagerecipe;
 import dub.internal.vibecompat.inet.path;
 
@@ -22,12 +23,12 @@ import dub.internal.vibecompat.inet.path;
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
-PackageRecipe readPackageRecipe(string filename, string parent_name = null)
+PackageRecipe readPackageRecipe(string filename, PackageName parent_name = PackageName.init)
 {
 	return readPackageRecipe(NativePath(filename), parent_name);
 }
 /// ditto
-PackageRecipe readPackageRecipe(NativePath filename, string parent_name = null)
+PackageRecipe readPackageRecipe(NativePath filename, PackageName parent_name = PackageName.init)
 {
 	import dub.internal.utils : stripUTF8Bom;
 	import dub.internal.vibecompat.core.file : openFile, FileMode;
@@ -59,7 +60,7 @@ PackageRecipe readPackageRecipe(NativePath filename, string parent_name = null)
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
-PackageRecipe parsePackageRecipe(string contents, string filename, string parent_name = null,
+PackageRecipe parsePackageRecipe(string contents, string filename, PackageName parent_name = PackageName.init,
 								 string default_package_name = null)
 {
 	import std.algorithm : endsWith;

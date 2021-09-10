@@ -64,14 +64,14 @@ struct ProjectDescription {
 */
 struct PackageDescription {
 	string path; /// Path to the package
-	string name; /// Qualified name of the package
+	PackageName name; /// Qualified name of the package
 	Version version_; /// Version of the package
 	string description;
 	string homepage;
 	string[] authors;
 	string copyright;
 	string license;
-	string[] dependencies;
+	PackageName[] dependencies;
 
 	bool active; /// Does this package take part in the build?
 	string configuration; /// The configuration that is built
@@ -115,12 +115,12 @@ struct PackageDescription {
 	Describes the settings necessary to build a certain binary target.
 */
 struct TargetDescription {
-	string rootPackage; /// Main package associated with this target, this is also the name of the target.
-	string[] packages; /// All packages contained in this target (e.g. for target type "sourceLibrary")
+	PackageName rootPackage; /// Main package associated with this target, this is also the name of the target.
+	PackageName[] packages; /// All packages contained in this target (e.g. for target type "sourceLibrary")
 	string rootConfiguration; /// Build configuration of the target's root package used for building
 	BuildSettings buildSettings; /// Final build settings to use when building the target
-	string[] dependencies; /// List of all dependencies of this target (package names)
-	string[] linkDependencies; /// List of all link-dependencies of this target (target names)
+	PackageName[] dependencies; /// List of all dependencies of this target (package names)
+	PackageName[] linkDependencies; /// List of all link-dependencies of this target (target names)
 }
 
 /**

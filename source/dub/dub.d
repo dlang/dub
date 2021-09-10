@@ -142,7 +142,7 @@ class Dub {
 		string[string] m_defaultPostBuildEnvironments;
 		string[string] m_defaultPreRunEnvironments;
 		string[string] m_defaultPostRunEnvironments;
-		
+
 	}
 
 	/** The default placement location of fetched packages.
@@ -359,7 +359,7 @@ class Dub {
 		configuration file will be used. Otherwise false will be returned.
 	*/
 	@property bool defaultLowMemory() const { return m_defaultLowMemory; }
-	
+
 	@property const(string[string]) defaultEnvironments() const { return m_defaultEnvironments; }
 	@property const(string[string]) defaultBuildEnvironments() const { return m_defaultBuildEnvironments; }
 	@property const(string[string]) defaultRunEnvironments() const { return m_defaultRunEnvironments; }
@@ -459,7 +459,7 @@ class Dub {
 		recipe_content = recipe_content[idx+1 .. $];
 		auto recipe_default_package_name = path.toString.baseName.stripExtension.strip;
 
-		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, null, recipe_default_package_name);
+		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, PackageName(null), recipe_default_package_name);
 		import dub.internal.vibecompat.core.log; logInfo("parsePackageRecipe %s", recipe_filename);
 		enforce(recipe.buildSettings.sourceFiles.length == 0, "Single-file packages are not allowed to specify source files.");
 		enforce(recipe.buildSettings.sourcePaths.length == 0, "Single-file packages are not allowed to specify source paths.");
@@ -504,7 +504,7 @@ class Dub {
 				be upgraded. Otherwise, all packages will be upgraded at
 				once.
 	*/
-	void upgrade(UpgradeOptions options, string[] packages_to_upgrade = null)
+	void upgrade(UpgradeOptions options, PackageName[] packages_to_upgrade = null)
 	{
 		// clear non-existent version selections
 		if (!(options & UpgradeOptions.upgrade)) {
@@ -538,7 +538,7 @@ class Dub {
 			}
 		}
 
-		Dependency[string] versions;
+		Dependency[PackageName] versions;
 		auto resolver = new DependencyVersionResolver(this, options);
 		foreach (p; packages_to_upgrade)
 			resolver.addPackageToUpgrade(p);
@@ -554,13 +554,13 @@ class Dub {
 				auto basename = getBasePackageName(p);
 				if (basename == rootbasename) continue;
 
-				if (!m_project.selections.hasSelectedVersion(basename)) {
+				if (!m_project.selections.hasSelectedVersion(PackageName(basename))) {
 					logInfo("Package %s would be selected with version %s.",
 						basename, ver);
 					any = true;
 					continue;
 				}
-				auto sver = m_project.selections.getSelectedVersion(basename);
+				auto sver = m_project.selections.getSelectedVersion(PackageName(basename));
 				if (!sver.path.empty || !sver.repository.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
 				logInfo("Package %s would be upgraded from %s to %s.",
@@ -573,7 +573,7 @@ class Dub {
 
 		foreach (p; versions.byKey) {
 			auto ver = versions[p]; // Workaround for DMD 2.070.0 AA issue (crashes in aaApply2 if iterating by key+value)
-			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
+			assert(!p._pn.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
 			if (!ver.path.empty) {
 				try pack = m_packageManager.getOrLoadPackage(ver.path);
@@ -611,7 +611,7 @@ class Dub {
 			}
 		}
 
-		string[] missingDependenciesBeforeReinit = m_project.missingDependencies;
+		PackageName[] missingDependenciesBeforeReinit = m_project.missingDependencies;
 		m_project.reinit();
 
 		if (!m_project.hasAllDependencies) {
@@ -788,7 +788,7 @@ class Dub {
 
 		if (m_dryRun) return;
 
-		auto tool = "dscanner";
+		const tool = PackageName("dscanner");
 
 		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
@@ -886,7 +886,7 @@ class Dub {
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+	Package fetch(PackageName packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
 		auto basePackageName = getBasePackageName(packageId);
 		Json pinfo;
@@ -1020,15 +1020,15 @@ class Dub {
 		is set to `RemoveVersionWildcard`.
 
 		Params:
-			package_id = Name of the package to be removed
+			package_name = Name of the package to be removed
 			location_ = Specifies the location to look for the given package
 				name/version.
 			resolve_version = Callback to select package version.
 	*/
-	void remove(string package_id, PlacementLocation location,
+	void remove(PackageName package_name, PlacementLocation location,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
-		enforce(!package_id.empty);
+		enforce(!package_name.empty);
 		if (location == PlacementLocation.local) {
 			logInfo("To remove a locally placed package, make sure you don't have any data"
 					~ "\nleft in it's directory and then simply remove the whole directory.");
@@ -1038,14 +1038,14 @@ class Dub {
 		Package[] packages;
 
 		// Retrieve packages to be removed.
-		foreach(pack; m_packageManager.getPackageIterator(package_id))
+		foreach(pack; m_packageManager.getPackageIterator(package_name))
 			if (m_packageManager.isManagedPackage(pack))
 				packages ~= pack;
 
 		// Check validity of packages to be removed.
 		if(packages.empty) {
 			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ package_id ~ "', location: '" ~ to!string(location) ~ "'"
+				~ "id: '" ~ package_name ~ "', location: '" ~ to!string(location) ~ "'"
 				~ ")");
 		}
 
@@ -1062,25 +1062,25 @@ class Dub {
 		foreach(pack; packages) {
 			try {
 				remove(pack);
-				logInfo("Removed %s, version %s.", package_id, pack.version_);
+				logInfo("Removed %s, version %s.", package_name, pack.version_);
 			} catch (Exception e) {
-				logError("Failed to remove %s %s: %s", package_id, pack.version_, e.msg);
+				logError("Failed to remove %s %s: %s", package_name, pack.version_, e.msg);
 				logInfo("Continuing with other packages (if any).");
 			}
 		}
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	void remove(string package_id, PlacementLocation location, bool force_remove,
+	void remove(PackageName package_name, PlacementLocation location, bool force_remove,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
-		remove(package_id, location, resolve_version);
+		remove(package_name, location, resolve_version);
 	}
 
 	/** Removes a specific version of a package.
 
 		Params:
-			package_id = Name of the package to be removed
+			package_name = Name of the package to be removed
 			version_ = Identifying a version or a wild card. If an empty string
 				is passed, the package will be removed from the location, if
 				there is only one version retrieved. This will throw an
@@ -1088,9 +1088,9 @@ class Dub {
 			location_ = Specifies the location to look for the given package
 				name/version.
 	 */
-	void remove(string package_id, string version_, PlacementLocation location)
+	void remove(PackageName package_name, string version_, PlacementLocation location)
 	{
-		remove(package_id, location, (in packages) {
+		remove(package_name, location, (in packages) {
 			if (version_ == RemoveVersionWildcard || version_.empty)
 				return packages.length;
 
@@ -1099,15 +1099,15 @@ class Dub {
 					return i;
 			}
 			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
+				~ "id: '" ~ package_name ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
 				~ ")");
 		});
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
+	void remove(PackageName package_name, string version_, PlacementLocation location, bool force_remove)
 	{
-		remove(package_id, version_, location);
+		remove(package_name, version_, location);
 	}
 
 	/** Adds a directory to the list of locally known packages.
@@ -1207,14 +1207,14 @@ class Dub {
 
 		See_also: `getLatestVersion`
 	*/
-	Version[] listPackageVersions(string name)
+	Version[] listPackageVersions(PackageName package_name)
 	{
 		Version[] versions;
-		auto basePackageName = getBasePackageName(name);
+		auto basePackageName = getBasePackageName(package_name);
 		foreach (ps; this.m_packageSuppliers) {
 			try versions ~= ps.getVersions(basePackageName);
 			catch (Exception e) {
-				logWarn("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
+				logWarn("Failed to get versions for package %s on provider %s: %s", package_name, ps.description, e.msg);
 			}
 		}
 		return versions.sort().uniq.array;
@@ -1233,7 +1233,7 @@ class Dub {
 
 		See_also: `listPackageVersions`
 	*/
-	Version getLatestVersion(string package_name, bool prefer_stable = true)
+	Version getLatestVersion(PackageName package_name, bool prefer_stable = true)
 	{
 		auto vers = listPackageVersions(package_name);
 		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~package_name~"'.");
@@ -1261,13 +1261,13 @@ class Dub {
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
 
-		string[string] depVers;
+		string[PackageName] depVers;
 		string[] notFound; // keep track of any failed packages in here
 		foreach (dep; deps) {
 			Version ver;
 			try {
-				ver = getLatestVersion(dep);
-				depVers[dep] = ver.isBranch ? ver.toString() : "~>" ~ ver.toString();
+				ver = getLatestVersion(PackageName(dep));
+				depVers[PackageName(dep)] = ver.isBranch ? ver.toString() : "~>" ~ ver.toString();
 			} catch (Exception e) {
 				notFound ~= dep;
 			}
@@ -1294,15 +1294,15 @@ class Dub {
 
 	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
 	{
-		string packageName = type;
-		auto template_pack = m_packageManager.getBestPackage(packageName, ">=0.0.0");
-		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
+		const package_name = PackageName(type);
+		auto template_pack = m_packageManager.getBestPackage(package_name, ">=0.0.0");
+		if (!template_pack) template_pack = m_packageManager.getBestPackage(package_name, "~master");
 		if (!template_pack) {
-			logInfo("%s is not present, getting and storing it user wide", packageName);
-			template_pack = fetch(packageName, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			logInfo("%s is not present, getting and storing it user wide", package_name);
+			template_pack = fetch(package_name, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
 		}
 
-		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
+		Package initSubPackage = m_packageManager.getSubPackage(template_pack, PackageName("init-exec"), false);
 		auto template_dub = new Dub(null, m_packageSuppliers);
 		template_dub.loadPackage(initSubPackage);
 		auto compiler_binary = this.defaultCompiler;
@@ -1514,7 +1514,7 @@ class Dub {
 		}
 		m_defaultCompiler = compilers[0];
 	}
-	
+
 	unittest
 	{
 		import std.path: buildPath, absolutePath;
@@ -1532,10 +1532,10 @@ class Dub {
 		scope (exit) repairenv("DC", olddc);
 		scope (exit) repairenv("PATH", oldpath);
 		scope (exit) rmdirRecurse(testdir);
-		
+
 		version (Windows) enum sep = ";", exe = ".exe";
 		version (Posix) enum sep = ":", exe = "";
-		
+
 		immutable dmdpath = testdir.buildPath("dmd", "bin");
 		immutable ldcpath = testdir.buildPath("ldc", "bin");
 		mkdirRecurse(dmdpath);
@@ -1544,21 +1544,21 @@ class Dub {
 		immutable ldcbin = ldcpath.buildPath("ldc2"~exe);
 		std.file.write(dmdbin, null);
 		std.file.write(ldcbin, null);
-		
+
 		environment["DC"] = dmdbin.absolutePath();
 		dub.determineDefaultCompiler();
 		assert(dub.m_defaultCompiler == dmdbin.absolutePath());
-		
+
 		environment["DC"] = "dmd";
 		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
 		dub.determineDefaultCompiler();
 		assert(dub.m_defaultCompiler == "dmd");
-		
+
 		environment["DC"] = "ldc2";
 		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
 		dub.determineDefaultCompiler();
 		assert(dub.m_defaultCompiler == "ldc2");
-		
+
 		environment.remove("DC");
 		environment["PATH"] = ldcpath ~ sep ~ dmdpath;
 		dub.determineDefaultCompiler();
@@ -1606,11 +1606,11 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	protected {
 		Dub m_dub;
 		UpgradeOptions m_options;
-		Dependency[][string] m_packageVersions;
-		Package[string] m_remotePackages;
+		Dependency[][PackageName] m_packageVersions;
+		Package[PackageName] m_remotePackages;
 		SelectedVersions m_selectedVersions;
 		Package m_rootPackage;
-		bool[string] m_packagesToUpgrade;
+		bool[PackageName] m_packagesToUpgrade;
 		Package[PackageDependency] m_packages;
 		TreeNodes[][TreeNode] m_children;
 	}
@@ -1622,24 +1622,24 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		m_options = options;
 	}
 
-	void addPackageToUpgrade(string name)
+	void addPackageToUpgrade(PackageName name)
 	{
 		m_packagesToUpgrade[name] = true;
 	}
 
-	Dependency[string] resolve(Package root, SelectedVersions selected_versions)
+	Dependency[PackageName] resolve(Package root, SelectedVersions selected_versions)
 	{
 		m_rootPackage = root;
 		m_selectedVersions = selected_versions;
 		return super.resolve(TreeNode(root.name, Dependency(root.version_)), (m_options & UpgradeOptions.printUpgradesOnly) == 0);
 	}
 
-	protected bool isFixedPackage(string pack)
+	protected bool isFixedPackage(PackageName package_name)
 	{
-		return m_packagesToUpgrade !is null && pack !in m_packagesToUpgrade;
+		return m_packagesToUpgrade !is null && package_name !in m_packagesToUpgrade;
 	}
 
-	protected override Dependency[] getAllConfigs(string pack)
+	protected override Dependency[] getAllConfigs(PackageName pack)
 	{
 		if (auto pvers = pack in m_packageVersions)
 			return *pvers;
@@ -1695,7 +1695,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return ret;
 	}
 
-	protected override Dependency[] getSpecificConfigs(string pack, TreeNodes nodes)
+	protected override Dependency[] getSpecificConfigs(PackageName pack, TreeNodes nodes)
 	{
 		if (!nodes.configs.path.empty || !nodes.configs.repository.empty) {
 			if (getPackage(pack, nodes.configs)) return [nodes.configs];
@@ -1784,7 +1784,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return configs.merge(config).valid;
 	}
 
-	private Package getPackage(string name, Dependency dep)
+	private Package getPackage(PackageName name, Dependency dep)
 	{
 		auto key = PackageDependency(name, dep);
 		if (auto pp = key in m_packages)
@@ -1794,7 +1794,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return p;
 	}
 
-	private Package getPackageRaw(string name, Dependency dep)
+	private Package getPackageRaw(PackageName name, Dependency dep)
 	{
 		auto basename = getBasePackageName(name);
 
@@ -1845,13 +1845,13 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
 			return ret;
 
-		auto key = name ~ ":" ~ dep.version_.toString();
+		auto key = PackageName(name ~ ":" ~ dep.version_.toString());
 		if (auto ret = key in m_remotePackages)
 			return *ret;
 
 		auto prerelease = (m_options & UpgradeOptions.preRelease) != 0;
 
-		auto rootpack = name.split(":")[0];
+		auto rootpack = PackageName(name._pn.split(":")[0]);
 
 		foreach (ps; m_dub.m_packageSuppliers) {
 			if (rootpack == name) {
@@ -1970,7 +1970,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultLowMemory;
 		return false;
 	}
-	
+
 	@property string[string] defaultEnvironments()
 	const {
 		if (auto pv = "defaultEnvironments" in m_data)
@@ -1978,7 +1978,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultBuildEnvironments()
 	const {
 		if (auto pv = "defaultBuildEnvironments" in m_data)
@@ -1986,7 +1986,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultBuildEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultRunEnvironments()
 	const {
 		if (auto pv = "defaultRunEnvironments" in m_data)
@@ -1994,7 +1994,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultRunEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPreGenerateEnvironments()
 	const {
 		if (auto pv = "defaultPreGenerateEnvironments" in m_data)
@@ -2002,7 +2002,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPreGenerateEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPostGenerateEnvironments()
 	const {
 		if (auto pv = "defaultPostGenerateEnvironments" in m_data)
@@ -2010,7 +2010,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPostGenerateEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPreBuildEnvironments()
 	const {
 		if (auto pv = "defaultPreBuildEnvironments" in m_data)
@@ -2018,7 +2018,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPreBuildEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPostBuildEnvironments()
 	const {
 		if (auto pv = "defaultPostBuildEnvironments" in m_data)
@@ -2026,7 +2026,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPostBuildEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPreRunEnvironments()
 	const {
 		if (auto pv = "defaultPreRunEnvironments" in m_data)
@@ -2034,7 +2034,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPreRunEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPostRunEnvironments()
 	const {
 		if (auto pv = "defaultPostRunEnvironments" in m_data)

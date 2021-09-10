@@ -20,12 +20,20 @@ import std.array;
 import std.exception;
 import std.string;
 
+/**
+   Package name.
+*/
+struct PackageName				// TODO move to dub.package_.
+{
+	string _pn;
+	alias _pn this;
+}
 
 /** Encapsulates the name of a package along with its dependency specification.
 */
 struct PackageDependency {
 	/// Name of the referenced package.
-	string name;
+	PackageName name;
 
 	/// Dependency specification used to select a particular version of the package.
 	Dependency spec;

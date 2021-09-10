@@ -33,10 +33,10 @@ class RegistryPackageSupplier : PackageSupplier {
 
 	override @property string description() { return "registry at "~m_registryUrl.toString(); }
 
-	Version[] getVersions(string package_id)
+	Version[] getVersions(PackageName package_name)
 	{
 		import std.algorithm.sorting : sort;
-		auto md = getMetadata(package_id);
+		auto md = getMetadata(package_name);
 		if (md.type == Json.Type.null_)
 			return null;
 		Version[] ret;
@@ -48,7 +48,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	auto genPackageDownloadUrl(string packageId, Dependency dep, bool pre_release)
+	auto genPackageDownloadUrl(PackageName packageId, Dependency dep, bool pre_release)
 	{
 		import std.array : replace;
 		import std.format : format;
@@ -64,7 +64,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, PackageName packageId, Dependency dep, bool pre_release)
 	{
 		import std.format : format;
 		auto url = genPackageDownloadUrl(packageId, dep, pre_release);
@@ -84,13 +84,13 @@ class RegistryPackageSupplier : PackageSupplier {
 		throw new Exception("Failed to download package %s from %s".format(packageId, url));
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	Json fetchPackageRecipe(PackageName packageId, Dependency dep, bool pre_release)
 	{
 		auto md = getMetadata(packageId);
 		return getBestPackage(md, packageId, dep, pre_release);
 	}
 
-	private Json getMetadata(string packageId)
+	private Json getMetadata(PackageName packageId)
 	{
 		auto now = Clock.currTime(UTC());
 		if (auto pentry = packageId in m_metadataCache) {
@@ -127,8 +127,9 @@ class RegistryPackageSupplier : PackageSupplier {
 		string data;
 		data = cast(string)retryDownload(url);
 		return data.parseJson.opt!(Json[])
-			.map!(j => SearchResult(j["name"].opt!string, j["description"].opt!string, j["version"].opt!string))
+			.map!(j => SearchResult(PackageName(j["name"].opt!string),
+									j["description"].opt!string,
+									j["version"].opt!string))
 			.array;
 	}
 }
-

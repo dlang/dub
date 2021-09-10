@@ -20,12 +20,12 @@ import std.conv;
 import std.string : startsWith;
 
 
-void parseSDL(ref PackageRecipe recipe, string sdl, string parent_name, string filename)
+void parseSDL(ref PackageRecipe recipe, string sdl, PackageName parent_name, string filename)
 {
 	parseSDL(recipe, parseSource(sdl, filename), parent_name);
 }
 
-void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
+void parseSDL(ref PackageRecipe recipe, Tag sdl, PackageName parent_name)
 {
 	Tag[] subpacks;
 	Tag[] configs;
@@ -59,7 +59,7 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 	}
 
 	enforceSDL(recipe.name.length > 0, "The package \"name\" field is missing or empty.", sdl);
-	string full_name = parent_name.length ? parent_name ~ ":" ~ recipe.name : recipe.name;
+	auto full_name = PackageName(parent_name.length ? parent_name ~ ":" ~ recipe.name : recipe.name);
 
 	// parse general build settings
 	parseBuildSettings(sdl, recipe.buildSettings, full_name);
@@ -125,13 +125,13 @@ Tag toSDL(const scope ref PackageRecipe recipe)
 	return ret;
 }
 
-private void parseBuildSettings(Tag settings, ref BuildSettingsTemplate bs, string package_name)
+private void parseBuildSettings(Tag settings, ref BuildSettingsTemplate bs, PackageName package_name)
 {
 	foreach (setting; settings.all.tags)
 		parseBuildSetting(setting, bs, package_name);
 }
 
-private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string package_name)
+private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, PackageName package_name)
 {
 	switch (setting.fullName) {
 		default: break;
@@ -181,7 +181,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 	}
 }
 
-private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package_name)
+private void parseDependency(Tag t, ref BuildSettingsTemplate bs, PackageName package_name)
 {
 	enforceSDL(t.values.length != 0, "Missing dependency name.", t);
 	enforceSDL(t.values.length == 1, "Multiple dependency names.", t);
@@ -219,7 +219,7 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	bs.dependencyBuildSettings[pkg] = dbs;
 }
 
-private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package_name)
+private void parseConfiguration(Tag t, ref ConfigurationInfo ret, PackageName package_name)
 {
 	ret.name = t.stringTagValue(true);
 	foreach (f; t.tags) {
@@ -330,7 +330,7 @@ private Tag toSDL(const ref ToolchainRequirements tr)
 	return new Tag(null, "toolchainRequirements", null, attrs);
 }
 
-private string expandPackageName(string name, string parent_name, Tag tag)
+private string expandPackageName(string name, PackageName parent_name, Tag tag)
 {
 	import std.algorithm : canFind;
 	import std.string : format;

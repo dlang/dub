@@ -32,10 +32,10 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 
 	override @property string description() { return "maven repository at "~m_mavenUrl.toString(); }
 
-	Version[] getVersions(string package_id)
+	Version[] getVersions(PackageName package_name)
 	{
 		import std.algorithm.sorting : sort;
-		auto md = getMetadata(package_id);
+		auto md = getMetadata(package_name);
 		if (md.type == Json.Type.null_)
 			return null;
 		Version[] ret;
@@ -47,7 +47,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, PackageName packageId, Dependency dep, bool pre_release)
 	{
 		import std.format : format;
 		auto md = getMetadata(packageId);
@@ -63,7 +63,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;
-			else logDebug("Failed to download package %s from %s", packageId, url); 
+			else logDebug("Failed to download package %s from %s", packageId, url);
 		}
 		catch(Exception e) {
 			logDebug("Failed to download package %s from %s", packageId, url);
@@ -71,13 +71,13 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		throw new Exception("Failed to download package %s from %s".format(packageId, url));
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	Json fetchPackageRecipe(PackageName packageId, Dependency dep, bool pre_release)
 	{
 		auto md = getMetadata(packageId);
 		return getBestPackage(md, packageId, dep, pre_release);
 	}
 
-	private Json getMetadata(string packageId)
+	private Json getMetadata(PackageName packageId)
 	{
 		import dub.internal.undead.xml;
 
@@ -122,11 +122,12 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 	{
 		// Only exact search is supported
 		// This enables retrival of dub packages on dub run
-		auto md = getMetadata(query);
+		auto md = getMetadata(PackageName(query));
 		if (md.type == Json.Type.null_)
 			return [];
-		auto json = getBestPackage(md, query, Dependency(">=0.0.0"), true);
-		return [SearchResult(json["name"].opt!string, "", json["version"].opt!string)];
+		auto json = getBestPackage(md, PackageName(query), Dependency(">=0.0.0"), true);
+		return [SearchResult(PackageName(json["name"].opt!string),
+							 "",
+							 json["version"].opt!string)];
 	}
 }
-

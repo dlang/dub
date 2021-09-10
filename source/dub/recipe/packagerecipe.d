@@ -30,9 +30,9 @@ import std.process : environment;
 	example, "packa:packb:packc" references a package named "packc" that is a
 	sub package of "packb", which in turn is a sub package of "packa".
 */
-string[] getSubPackagePath(string package_name) @safe pure
+string[] getSubPackagePath(PackageName package_name) @safe pure // TODO QualifiedPackageName as input
 {
-	return package_name.split(":");
+	return package_name._pn.split(":");
 }
 
 /**
@@ -40,9 +40,9 @@ string[] getSubPackagePath(string package_name) @safe pure
 
 	In case of a top level package, the qualified name is returned unmodified.
 */
-string getBasePackageName(string package_name) @safe pure
+PackageName getBasePackageName(PackageName package_name) @safe pure
 {
-	return package_name.findSplit(":")[0];
+	return typeof(return)(package_name._pn.findSplit(":")[0]);
 }
 
 /**
@@ -51,9 +51,9 @@ string getBasePackageName(string package_name) @safe pure
 	This is the part of the package name excluding the base package
 	name. See also $(D getBasePackageName).
 */
-string getSubPackageName(string package_name) @safe pure
+PackageName getSubPackageName(PackageName package_name) @safe pure
 {
-	return package_name.findSplit(":")[2];
+	return typeof(return)(package_name._pn.findSplit(":")[2]);
 }
 
 @safe unittest
@@ -73,7 +73,7 @@ string getSubPackageName(string package_name) @safe pure
 	For higher level package handling, see the $(D Package) class.
 */
 struct PackageRecipe {
-	string name;
+	PackageName name;
 	string version_;
 	string description;
 	string homepage;
@@ -81,7 +81,7 @@ struct PackageRecipe {
 	string copyright;
 	string license;
 	string[] ddoxFilterArgs;
-	string ddoxTool;
+	PackageName ddoxTool;
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
 	BuildSettingsTemplate[string] buildTypes;
@@ -175,15 +175,15 @@ struct ConfigurationInfo {
 /// It contains functions to create a specific BuildSetting, targeted at
 /// a certain BuildPlatform.
 struct BuildSettingsTemplate {
-	Dependency[string] dependencies;
-	BuildSettingsTemplate[string] dependencyBuildSettings;
+	Dependency[PackageName] dependencies;
+	BuildSettingsTemplate[PackageName] dependencyBuildSettings;
 	string systemDependencies;
 	TargetType targetType = TargetType.autodetect;
 	string targetPath;
 	string targetName;
 	string workingDirectory;
 	string mainSourceFile;
-	string[string] subConfigurations;
+	string[PackageName] subConfigurations;
 	string[][string] dflags;
 	string[][string] lflags;
 	string[][string] libs;
@@ -333,7 +333,7 @@ struct BuildSettingsTemplate {
 		}
 	}
 
-	void warnOnSpecialCompilerFlags(string package_name, string config_name)
+	void warnOnSpecialCompilerFlags(PackageName package_name, string config_name)
 	{
 		auto nodef = false;
 		auto noprop = false;
@@ -360,7 +360,7 @@ struct BuildSettingsTemplate {
 	}
 }
 
-package(dub) void checkPlatform(const scope ref ToolchainRequirements tr, BuildPlatform platform, string package_name)
+package(dub) void checkPlatform(const scope ref ToolchainRequirements tr, BuildPlatform platform, PackageName package_name)
 {
 	import dub.compilers.utils : dmdLikeVersionToSemverLike;
 	import std.algorithm.iteration : map;

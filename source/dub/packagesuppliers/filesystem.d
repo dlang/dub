@@ -1,5 +1,6 @@
 module dub.packagesuppliers.filesystem;
 
+public import dub.dependency : PackageName;
 import dub.packagesuppliers.packagesupplier;
 
 /**
@@ -20,17 +21,17 @@ class FileSystemPackageSupplier : PackageSupplier {
 
 	override @property string description() { return "file repository at "~m_path.toNativeString(); }
 
-	Version[] getVersions(string package_id)
+	Version[] getVersions(PackageName package_name)
 	{
 		import std.algorithm.sorting : sort;
 		import std.file : dirEntries, DirEntry, SpanMode;
 		import std.conv : to;
 		Version[] ret;
-		foreach (DirEntry d; dirEntries(m_path.toNativeString(), package_id~"*", SpanMode.shallow)) {
+		foreach (DirEntry d; dirEntries(m_path.toNativeString(), package_name~"*", SpanMode.shallow)) {
 			NativePath p = NativePath(d.name);
 			logDebug("Entry: %s", p);
 			enforce(to!string(p.head)[$-4..$] == ".zip");
-			auto vers = p.head.name[package_id.length+1..$-4];
+			auto vers = p.head.name[package_name.length+1..$-4];
 			logDebug("Version: %s", vers);
 			ret ~= Version(vers);
 		}
@@ -38,7 +39,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, PackageName packageId, Dependency dep, bool pre_release)
 	{
 		import dub.internal.vibecompat.core.file : copyFile, existsFile;
 		enforce(path.absolute);
@@ -48,7 +49,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		copyFile(filename, path);
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	Json fetchPackageRecipe(PackageName packageId, Dependency dep, bool pre_release)
 	{
 		import std.array : split;
 		import std.path : stripExtension;
@@ -71,7 +72,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return null;
 	}
 
-	private NativePath bestPackageFile(string packageId, Dependency dep, bool pre_release)
+	private NativePath bestPackageFile(PackageName packageId, Dependency dep, bool pre_release)
 	{
 		import std.algorithm.iteration : filter;
 		import std.array : array;
