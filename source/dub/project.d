@@ -45,7 +45,7 @@ class Project {
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
 		PackageName[] m_missingDependencies;
-		string[PackageName] m_overriddenConfigs;
+		string[PackageName] m_overriddenConfigs; // TODO ConfigName[PackageName]
 	}
 
 	/** Loads a project.
@@ -220,7 +220,7 @@ class Project {
 				dependency
 			config = Name of the configuration to force
 	*/
-	void overrideConfiguration(PackageName package_name, string config)
+	void overrideConfiguration(PackageName package_name, string config) // TODO ConfigName
 	{
 		// writeln("overrideConfiguration(package_name:", package_name, " config:", config, ")");
 		auto p = getDependency(package_name, true);
