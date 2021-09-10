@@ -734,9 +734,9 @@ class PackageManager {
 		void scanPackageFolder(NativePath path)
 		{
 			if( path.existsDirectory() ){
-				logDebug("iterating dir %s", path.toNativeString());
+				logDebug("Iterating directory %s", path.toNativeString());
 				try foreach( pdir; iterateDirectory(path) ){
-					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
+					logDebug("Iterating directory %s entry %s", path.toNativeString(), pdir.name);
 					if (!pdir.isDirectory) continue;
 
 					auto pack_path = path ~ (pdir.name ~ "/");
