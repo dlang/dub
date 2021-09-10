@@ -446,7 +446,7 @@ class Project {
 
 		Vertex[] configs;
 		Edge[] edges;
-		string[][string] parents;
+		PackageName[][PackageName] parents;
 		parents[m_rootPackage.name] = null;
 		foreach (p; getTopologicalPackageList())
 			foreach (d; p.getAllDependencies())
@@ -508,7 +508,7 @@ class Project {
 		}
 
 		bool isReachableByAllParentPacks(size_t cidx) {
-			bool[string] r;
+			bool[PackageName] r;
 			foreach (p; parents[configs[cidx].package_name]) r[p] = false;
 			foreach (e; edges) {
 				if (e.to != cidx) continue;
@@ -623,24 +623,20 @@ class Project {
 		foreach (e; edges) logDebug("    %s %s -> %s %s", configs[e.from].package_name, configs[e.from].config, configs[e.to].package_name, configs[e.to].config);
 
 		// return the resulting configuration set as an AA
-		string[PackageName] ret;
+		typeof(return) result;
 		foreach (c; configs) {
 			if (c == Vertex.init) continue; // ignore deleted configurations
-			assert(ret.get(c.package_name, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", c.package_name, c.config, ret[c.package_name]));
+			assert(result.get(c.package_name, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", c.package_name, c.config, result[c.package_name]));
 			logDebug("Using configuration '%s' for %s", c.config, c.package_name);
-			ret[c.package_name] = c.config;
+			result[c.package_name] = c.config;
 		}
 
-		writeln("ret:", ret);
+		writeln("result:", result);
 
 		// check for conflicts (packages missing in the final configuration graph)
 		void checkPacksRec(in Package pack) {
 			writeln("Package ", pack.name);
-			auto pc = pack.name in ret;
-			if (pc is null)
-			{
-				writeln("xxx");
-			}
+			auto pc = pack.name in result;
 			enforce(pc !is null, "Could not resolve configuration for package "~pack.name);
 			foreach (p, dep; pack.getDependencies(*pc)) {
 				auto deppack = getDependency(p, dep.optional);
@@ -649,7 +645,7 @@ class Project {
 		}
 		checkPacksRec(m_rootPackage);
 
-		return ret;
+		return result;
 	}
 
 	/**
