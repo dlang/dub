@@ -1718,10 +1718,10 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	{
 		import std.array : appender;
 		auto ret = appender!(TreeNodes[]);
-		auto pack = getPackage(node.pack, node.config);
+		auto pack = getPackage(node.package_name, node.config);
 		if (!pack) {
 			// this can hapen when the package description contains syntax errors
-			logDebug("Invalid package in dependency tree: %s %s", node.pack, node.config);
+			logDebug("Invalid package in dependency tree: %s %s", node.package_name, node.config);
 			return null;
 		}
 		auto basepack = pack.basePackage;
@@ -1747,7 +1747,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 					enforce(d.spec.path.empty || absdeppath == desireddeppath || absdeppath == altdeppath,
 						format("Dependency from %s to %s uses wrong path: %s vs. %s",
-							node.pack, subpack.name, absdeppath.toNativeString(), desireddeppath.toNativeString()));
+							node.package_name, subpack.name, absdeppath.toNativeString(), desireddeppath.toNativeString()));
 				}
 				ret ~= TreeNodes(d.name, node.config);
 				continue;

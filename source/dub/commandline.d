@@ -2758,15 +2758,15 @@ private PackageAndVersion splitPackageName(string package_name)
 unittest
 {
 	// https://github.com/dlang/dub/issues/1681
-	assert(splitPackageName("") == PackageAndVersion("", null));
+	assert(splitPackageName("") == PackageAndVersion(PackageName(""), null));
 
-	assert(splitPackageName("foo") == PackageAndVersion("foo", null));
-	assert(splitPackageName("foo=1.0.1") == PackageAndVersion("foo", "1.0.1"));
-	assert(splitPackageName("foo@1.0.1") == PackageAndVersion("foo", "1.0.1"));
-	assert(splitPackageName("foo@==1.0.1") == PackageAndVersion("foo", "==1.0.1"));
-	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion("foo", ">=1.0.1"));
-	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion("foo", "~>1.0.1"));
-	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion("foo", "<1.0.1"));
+	assert(splitPackageName("foo") == PackageAndVersion(PackageName("foo"), null));
+	assert(splitPackageName("foo=1.0.1") == PackageAndVersion(PackageName("foo"), "1.0.1"));
+	assert(splitPackageName("foo@1.0.1") == PackageAndVersion(PackageName("foo"), "1.0.1"));
+	assert(splitPackageName("foo@==1.0.1") == PackageAndVersion(PackageName("foo"), "==1.0.1"));
+	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion(PackageName("foo"), ">=1.0.1"));
+	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion(PackageName("foo"), "~>1.0.1"));
+	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion(PackageName("foo"), "<1.0.1"));
 }
 
 private ulong canFindVersionSplitter(string package_name)

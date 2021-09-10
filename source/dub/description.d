@@ -19,7 +19,7 @@ import dub.internal.vibecompat.data.serialization;
 	and configuration that has been selected.
 */
 struct ProjectDescription {
-	string rootPackage; /// Name of the root package being built
+	PackageName rootPackage; /// Name of the root package being built
 	string configuration; /// Name of the selected build configuration
 	string buildType; /// Name of the selected build type
 	string compiler; /// Canonical name of the compiler used (e.g. "dmd", "gdc" or "ldc")

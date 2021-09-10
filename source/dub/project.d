@@ -271,17 +271,17 @@ class Project {
 			}
 
 		// search for orphan sub configurations
-		void warnSubConfig(PackageName pack, string config) {
+		void warnSubConfig(PackageName package_name, string config) {
 			logWarn("The sub configuration directive \"%s\" -> \"%s\" "
 				~ "references a package that is not specified as a dependency "
-				~ "and will have no effect.", pack, config);
+				~ "and will have no effect.", package_name, config);
 		}
-		void checkSubConfig(PackageName pack, string config) {
-			auto p = getDependency(pack, true);
+		void checkSubConfig(PackageName package_name, string config) {
+			auto p = getDependency(package_name, true);
 			if (p && !p.configurations.canFind(config)) {
 				logWarn("The sub configuration directive \"%s\" -> \"%s\" "
 					~ "references a configuration that does not exist.",
-					pack, config);
+					package_name, config);
 			}
 		}
 		auto globalbs = m_rootPackage.getBuildSettings();
@@ -432,7 +432,7 @@ class Project {
 	}
 
 	/// Returns the name of the root package.
-	@property string name() const { return m_rootPackage ? m_rootPackage.name : "app"; }
+	@property PackageName name() const { return m_rootPackage ? m_rootPackage.name : typeof(return)("app"); }
 
 	/// Returns the names of all configurations of the root package.
 	@property string[] configurations() const { return m_rootPackage.configurations; }
@@ -441,7 +441,7 @@ class Project {
 	string[PackageName] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
 		// writeln("getPackageConfigs(platform:", platform.platform, ", config:", config, ", allow_non_library:", allow_non_library, "entered)");
-		struct Vertex { PackageName pack; string config; }
+		struct Vertex { PackageName package_name; string config; }
 		struct Edge { size_t from, to; }
 
 		Vertex[] configs;
@@ -452,30 +452,30 @@ class Project {
 			foreach (d; p.getAllDependencies())
 				parents[d.name] ~= p.name;
 
-		size_t createConfig(PackageName pack, string config) {
+		size_t createConfig(PackageName package_name, string config) {
 			foreach (i, v; configs)
-				if (v.pack == pack && v.config == config)
+				if (v.package_name == package_name && v.config == config)
 					return i;
-			assert(pack !in m_overriddenConfigs || config == m_overriddenConfigs[pack]);
-			logDebug("Add config %s %s", pack, config);
-			configs ~= Vertex(pack, config);
+			assert(package_name !in m_overriddenConfigs || config == m_overriddenConfigs[package_name]);
+			logDebug("Add config %s %s", package_name, config);
+			configs ~= Vertex(package_name, config);
 			return configs.length-1;
 		}
 
-		bool haveConfig(PackageName pack, string config) {
-			return configs.any!(c => c.pack == pack && c.config == config);
+		bool haveConfig(PackageName package_name, string config) {
+			return configs.any!(c => c.package_name == package_name && c.config == config);
 		}
 
 		size_t createEdge(size_t from, size_t to) {
 			auto idx = edges.countUntil(Edge(from, to));
 			if (idx >= 0) return idx;
-			logDebug("Including %s %s -> %s %s", configs[from].pack, configs[from].config, configs[to].pack, configs[to].config);
+			logDebug("Including %s %s -> %s %s", configs[from].package_name, configs[from].config, configs[to].package_name, configs[to].config);
 			edges ~= Edge(from, to);
 			return edges.length-1;
 		}
 
 		void removeConfig(size_t i) {
-			logDebug("Eliminating config %s for %s", configs[i].config, configs[i].pack);
+			logDebug("Eliminating config %s for %s", configs[i].config, configs[i].package_name);
 			auto had_dep_to_pack = new bool[configs.length];
 			auto still_has_dep_to_pack = new bool[configs.length];
 
@@ -483,7 +483,7 @@ class Project {
 					if (e.to == i) {
 						had_dep_to_pack[e.from] = true;
 						return false;
-					} else if (configs[e.to].pack == configs[i].pack) {
+					} else if (configs[e.to].package_name == configs[i].package_name) {
 						still_has_dep_to_pack[e.from] = true;
 					}
 					if (e.from == i) return false;
@@ -498,21 +498,21 @@ class Project {
 					removeConfig(j);
 		}
 
-		bool isReachable(PackageName pack, string conf) {
-			if (pack == configs[0].pack && configs[0].config == conf) return true;
+		bool isReachable(PackageName package_name, string conf) {
+			if (package_name == configs[0].package_name && configs[0].config == conf) return true;
 			foreach (e; edges)
-				if (configs[e.to].pack == pack && configs[e.to].config == conf)
+				if (configs[e.to].package_name == package_name && configs[e.to].config == conf)
 					return true;
 			return false;
-			//return (pack == configs[0].pack && conf == configs[0].config) || edges.canFind!(e => configs[e.to].pack == pack && configs[e.to].config == config);
+			//return (package_name == configs[0].package_name && conf == configs[0].config) || edges.canFind!(e => configs[e.to].package_name == package_name && configs[e.to].config == config);
 		}
 
 		bool isReachableByAllParentPacks(size_t cidx) {
 			bool[string] r;
-			foreach (p; parents[configs[cidx].pack]) r[p] = false;
+			foreach (p; parents[configs[cidx].package_name]) r[p] = false;
 			foreach (e; edges) {
 				if (e.to != cidx) continue;
-				if (auto pp = configs[e.from].pack in r) *pp = true;
+				if (auto pp = configs[e.from].package_name in r) *pp = true;
 			}
 			foreach (bool v; r) if (!v) return false;
 			return true;
@@ -594,7 +594,7 @@ class Project {
 			foreach (i, ref c; configs) {
 				if (c == Vertex.init) continue; // ignore deleted configurations
 				if (!isReachableByAllParentPacks(i)) {
-					writefln("%s %s NOT REACHABLE by all of (%s):", c.pack, c.config, parents[c.pack]);
+					writefln("%s %s NOT REACHABLE by all of (%s):", c.package_name, c.config, parents[c.package_name]);
 					removeConfig(i);
 					changed = true;
 				}
@@ -605,8 +605,8 @@ class Project {
 				foreach (p; getTopologicalPackageList()) {
 					size_t cnt = 0;
 					foreach (i, ref c; configs)
-						if (c.pack == p.name && ++cnt > 1) {
-							writefln("NON-PRIMARY: %s %s", c.pack, c.config);
+						if (c.package_name == p.name && ++cnt > 1) {
+							writefln("NON-PRIMARY: %s %s", c.package_name, c.config);
 							removeConfig(i);
 						}
 					if (cnt > 1) {
@@ -620,15 +620,15 @@ class Project {
 		writeln("adjusted configs:", configs);
 
 		// print out the resulting tree
-		foreach (e; edges) logDebug("    %s %s -> %s %s", configs[e.from].pack, configs[e.from].config, configs[e.to].pack, configs[e.to].config);
+		foreach (e; edges) logDebug("    %s %s -> %s %s", configs[e.from].package_name, configs[e.from].config, configs[e.to].package_name, configs[e.to].config);
 
 		// return the resulting configuration set as an AA
 		string[PackageName] ret;
 		foreach (c; configs) {
 			if (c == Vertex.init) continue; // ignore deleted configurations
-			assert(ret.get(c.pack, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", c.pack, c.config, ret[c.pack]));
-			logDebug("Using configuration '%s' for %s", c.config, c.pack);
-			ret[c.pack] = c.config;
+			assert(ret.get(c.package_name, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", c.package_name, c.config, ret[c.package_name]));
+			logDebug("Using configuration '%s' for %s", c.config, c.package_name);
+			ret[c.package_name] = c.config;
 		}
 
 		writeln("ret:", ret);

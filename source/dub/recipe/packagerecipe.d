@@ -56,14 +56,16 @@ PackageName getSubPackageName(PackageName package_name) @safe pure
 	return typeof(return)(package_name._pn.findSplit(":")[2]);
 }
 
+alias P = PackageName;
+
 @safe unittest
 {
-	assert(getSubPackagePath("packa:packb:packc") == ["packa", "packb", "packc"]);
-	assert(getSubPackagePath("pack") == ["pack"]);
-	assert(getBasePackageName("packa:packb:packc") == "packa");
-	assert(getBasePackageName("pack") == "pack");
-	assert(getSubPackageName("packa:packb:packc") == "packb:packc");
-	assert(getSubPackageName("pack") == "");
+	assert(getSubPackagePath(P("packa:packb:packc")) == ["packa", "packb", "packc"]);
+	assert(getSubPackagePath(P("pack")) == ["pack"]);
+	assert(getBasePackageName(P("packa:packb:packc")) == "packa");
+	assert(getBasePackageName(P("pack")) == "pack");
+	assert(getSubPackageName(P("packa:packb:packc")) == "packb:packc");
+	assert(getSubPackageName(P("pack")) == "");
 }
 
 /**
