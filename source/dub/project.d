@@ -222,7 +222,7 @@ class Project {
 	*/
 	void overrideConfiguration(string package_, string config)
 	{
-		writeln("overrideConfiguration(package_:", package_, " config:", config, ")");
+		// writeln("overrideConfiguration(package_:", package_, " config:", config, ")");
 		auto p = getDependency(package_, true);
 		enforce(p !is null,
 			format("Package '%s', marked for configuration override, is not present in dependency graph.", package_));
@@ -238,7 +238,7 @@ class Project {
 	*/
 	void validate()
 	{
-		writeln("validate() entered...");
+		// writeln("validate() entered...");
 		// some basic package lint
 		m_rootPackage.warnOnSpecialCompilerFlags();
 		string nameSuggestion() {
@@ -301,7 +301,7 @@ class Project {
 		// check for version specification mismatches
 		bool[Package] visited;
 		void validateDependenciesRec(Package pack) {
-			writeln("validateDependenciesRec(pack.name:", pack.name, ")");
+			// writeln("validateDependenciesRec(pack.name:", pack.name, ")");
 			// perform basic package linting
 			pack.simpleLint();
 
@@ -322,13 +322,13 @@ class Project {
 			}
 		}
 		validateDependenciesRec(m_rootPackage);
-		writeln("validateDependenciesRec() done");
+		// writeln("validateDependenciesRec() done");
 	}
 
 	/// Reloads dependencies.
 	void reinit()
 	{
-		writeln("reinit() entered...");
+		// writeln("reinit() entered...");
 		m_dependencies = null;
 		m_missingDependencies = [];
 		m_packageManager.refresh(false);
@@ -428,7 +428,7 @@ class Project {
 		}
 		collectDependenciesRec(m_rootPackage);
 		m_missingDependencies.sort();
-		writeln("reinit() done");
+		// writeln("reinit() done");
 	}
 
 	/// Returns the name of the root package.
@@ -440,7 +440,7 @@ class Project {
 	/// Returns a map with the configuration for all packages in the dependency tree.
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
-		writeln("getPackageConfigs(platform:", platform.platform, ", config:", config, ", allow_non_library:", allow_non_library, "entered)");
+		// writeln("getPackageConfigs(platform:", platform.platform, ", config:", config, ", allow_non_library:", allow_non_library, "entered)");
 		struct Vertex { string pack, config; }
 		struct Edge { size_t from, to; }
 
@@ -579,9 +579,9 @@ class Project {
 					determineDependencyConfigs(p, c, depth + 1);
 		}
 		if (config.length) createConfig(m_rootPackage.name, config);
-		writeln("determineAllConfigs root entered...");
+		// writeln("determineAllConfigs root entered...");
 		determineAllConfigs(m_rootPackage);
-		writeln("determineAllConfigs root done");
+		// writeln("determineAllConfigs root done");
 		writeln("configs:", configs);
 
 		// TODO why is Vertex("extra-lxd", "") and Vertex("symmetry.mongo-queries", "") there
@@ -594,7 +594,7 @@ class Project {
 			foreach (i, ref c; configs) {
 				if (c == Vertex.init) continue; // ignore deleted configurations
 				if (!isReachableByAllParentPacks(i)) {
-					logDebug("%s %s NOT REACHABLE by all of (%s):", c.pack, c.config, parents[c.pack]);
+					writefln("%s %s NOT REACHABLE by all of (%s):", c.pack, c.config, parents[c.pack]);
 					removeConfig(i);
 					changed = true;
 				}
@@ -606,7 +606,7 @@ class Project {
 					size_t cnt = 0;
 					foreach (i, ref c; configs)
 						if (c.pack == p.name && ++cnt > 1) {
-							logDebug("NON-PRIMARY: %s %s", c.pack, c.config);
+							writefln("NON-PRIMARY: %s %s", c.pack, c.config);
 							removeConfig(i);
 						}
 					if (cnt > 1) {

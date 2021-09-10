@@ -208,7 +208,7 @@ class VisualDGenerator : ProjectGenerator {
 			ret.formattedWrite("  <Folder name=\"%s\">", getPackageFileName(packname));
 			typeof(NativePath.init.head)[] lastFolder;
 			foreach(source; sortedSources(sourceFiles.values)) {
-				logDebug("source looking at %s", source.structurePath);
+				logDebug("Source looking at %s", source.structurePath);
 				auto cur = source.structurePath.parentPath.bySegment.array;
 				if(lastFolder != cur) {
 					size_t same = 0;

@@ -482,7 +482,7 @@ struct Dependency {
 	bool matches(ref const(Version) v) const {
 		if (this.matchesAny) return true;
 		if (this.isSCM) return true;
-		//logDebug(" try match: %s with: %s", v, this);
+		//logDebug("Trying match: %s with: %s", v, this);
 		// Master only matches master
 		if(m_versA.isBranch) {
 			enforce(m_versA == m_versB);
