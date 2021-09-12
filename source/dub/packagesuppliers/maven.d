@@ -47,15 +47,15 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, PackageName packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, PackageName package_name, Dependency dep, bool pre_release)
 	{
 		import std.format : format;
-		auto md = getMetadata(packageId);
-		Json best = getBestPackage(md, packageId, dep, pre_release);
+		auto md = getMetadata(package_name);
+		Json best = getBestPackage(md, package_name, dep, pre_release);
 		if (best.type == Json.Type.null_)
 			return;
 		auto vers = best["version"].get!string;
-		auto url = m_mavenUrl~NativePath("%s/%s/%s-%s.zip".format(packageId, vers, packageId, vers));
+		auto url = m_mavenUrl~NativePath("%s/%s/%s-%s.zip".format(package_name, vers, package_name, vers));
 
 		try {
 			retryDownload(url, path, 3, httpTimeout);
@@ -63,58 +63,58 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;
-			else logDebug("Failed to download package %s from %s", packageId, url);
+			else logDebug("Failed to download package %s from %s", package_name, url);
 		}
 		catch(Exception e) {
-			logDebug("Failed to download package %s from %s", packageId, url);
+			logDebug("Failed to download package %s from %s", package_name, url);
 		}
-		throw new Exception("Failed to download package %s from %s".format(packageId, url));
+		throw new Exception("Failed to download package %s from %s".format(package_name, url));
 	}
 
-	Json fetchPackageRecipe(PackageName packageId, Dependency dep, bool pre_release)
+	Json fetchPackageRecipe(PackageName package_name, Dependency dep, bool pre_release)
 	{
-		auto md = getMetadata(packageId);
-		return getBestPackage(md, packageId, dep, pre_release);
+		auto md = getMetadata(package_name);
+		return getBestPackage(md, package_name, dep, pre_release);
 	}
 
-	private Json getMetadata(PackageName packageId)
+	private Json getMetadata(PackageName package_name)
 	{
 		import dub.internal.undead.xml;
 
 		auto now = Clock.currTime(UTC());
-		if (auto pentry = packageId in m_metadataCache) {
+		if (auto pentry = package_name in m_metadataCache) {
 			if (pentry.cacheTime + m_maxCacheTime > now)
 				return pentry.data;
-			m_metadataCache.remove(packageId);
+			m_metadataCache.remove(package_name);
 		}
 
-		auto url = m_mavenUrl~NativePath(packageId~"/maven-metadata.xml");
+		auto url = m_mavenUrl~NativePath(package_name~"/maven-metadata.xml");
 
-		logDebug("Downloading maven metadata for %s", packageId);
+		logDebug("Downloading maven metadata for %s", package_name);
 		string xmlData;
 
 		try
 			xmlData = cast(string)retryDownload(url, 3, httpTimeout);
 		catch(HTTPStatusException e) {
 			if (e.status == 404) {
-				logDebug("Maven metadata %s not found at %s (404): %s", packageId, description, e.msg);
+				logDebug("Maven metadata %s not found at %s (404): %s", package_name, description, e.msg);
 				return Json(null);
 			}
 			else throw e;
 		}
 
-		auto json = Json(["name": Json(packageId), "versions": Json.emptyArray]);
+		auto json = Json(["name": Json(package_name), "versions": Json.emptyArray]);
 		auto xml = new DocumentParser(xmlData);
 
 		xml.onStartTag["versions"] = (ElementParser xml) {
 			 xml.onEndTag["version"] = (in Element e) {
-				json["versions"] ~= serializeToJson(["name": packageId, "version": e.text]);
+				json["versions"] ~= serializeToJson(["name": package_name, "version": e.text]);
 			 };
 			 xml.parse();
 		};
 		xml.parse();
 
-		m_metadataCache[packageId] = CacheEntry(json, now);
+		m_metadataCache[package_name] = CacheEntry(json, now);
 		return json;
 	}
 
