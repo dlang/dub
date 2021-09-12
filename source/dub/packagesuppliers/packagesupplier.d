@@ -1,6 +1,6 @@
 module dub.packagesuppliers.packagesupplier;
 
-public import dub.dependency : PackageName, Dependency, Version;
+public import dub.dependency : PackageId, Dependency, Version;
 public import dub.internal.vibecompat.core.file : NativePath;
 public import dub.internal.vibecompat.data.json : Json;
 
@@ -12,7 +12,7 @@ public import dub.internal.vibecompat.data.json : Json;
 */
 interface PackageSupplier {
 	/// Represents a single package search result.
-	static struct SearchResult { PackageName name; string description, version_; }
+	static struct SearchResult { PackageId name; string description, version_; }
 
 	/// Returns a human-readable representation of the package supplier.
 	@property string description();
@@ -22,28 +22,28 @@ interface PackageSupplier {
 		Throws: Throws an exception if the package name is not known, or if
 			an error occurred while retrieving the version list.
 	*/
-	Version[] getVersions(PackageName package_name);
+	Version[] getVersions(PackageId package_id);
 
 	/** Downloads a package and stores it as a ZIP file.
 
 		Params:
 			path = Absolute path of the target ZIP file
-			package_name = Name of the package to retrieve
+			package_id = Name of the package to retrieve
 			dep: Version constraint to match against
 			pre_release: If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	void fetchPackage(NativePath path, PackageName package_name, Dependency dep, bool pre_release);
+	void fetchPackage(NativePath path, PackageId package_id, Dependency dep, bool pre_release);
 
 	/** Retrieves only the recipe of a particular package.
 
 		Params:
-			package_name = Name of the package of which to retrieve the recipe
+			package_id = Name of the package of which to retrieve the recipe
 			dep: Version constraint to match against
 			pre_release: If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	Json fetchPackageRecipe(PackageName package_name, Dependency dep, bool pre_release);
+	Json fetchPackageRecipe(PackageId package_id, Dependency dep, bool pre_release);
 
 	/** Searches for packages matching the given search query term.
 
@@ -59,7 +59,7 @@ interface PackageSupplier {
 //       a package recipe instead of one (first get version list, then the
 //       package recipe)
 
-package Json getBestPackage(Json metadata, PackageName package_name, Dependency dep, bool pre_release)
+package Json getBestPackage(Json metadata, PackageId package_id, Dependency dep, bool pre_release)
 {
 	import std.exception : enforce;
 	if (metadata.type == Json.Type.null_)
@@ -77,6 +77,6 @@ package Json getBestPackage(Json metadata, PackageName package_name, Dependency 
 		} else if (!cur.isPreRelease && cur > bestver) best = json;
 		bestver = Version(cast(string)best["version"]);
 	}
-	enforce(best != null, "No package candidate found for "~package_name~" "~dep.toString());
+	enforce(best != null, "No package candidate found for "~package_id~" "~dep.toString());
 	return best;
 }

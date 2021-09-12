@@ -7,7 +7,7 @@
 */
 module dub.compilers.utils;
 
-import dub.dependency : PackageName;
+import dub.dependency : PackageId;
 import dub.compilers.buildsettings;
 import dub.platform : BuildPlatform, archCheck, compilerCheck, platformCheck;
 import dub.internal.vibecompat.core.log;
@@ -148,7 +148,7 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 	(`BuildRequirements`). This function will output warning messages to
 	assist the user in making the best choice.
 */
-void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, PackageName package_name, string config_name)
+void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, PackageId package_id, string config_name)
 {
 	import std.algorithm : any, endsWith, startsWith;
 	import std.range : empty;
@@ -205,8 +205,8 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, P
 		if (got_preamble) return;
 		got_preamble = true;
 		logWarn("");
-		if (config_name.empty) logWarn("## Warning for package %s ##", package_name);
-		else logWarn("## Warning for package %s, configuration %s ##", package_name, config_name);
+		if (config_name.empty) logWarn("## Warning for package %s ##", package_id);
+		else logWarn("## Warning for package %s, configuration %s ##", package_id, config_name);
 		logWarn("");
 		logWarn("The following compiler flags have been specified in the package description");
 		logWarn("file. They are handled by DUB and direct use in packages is discouraged.");

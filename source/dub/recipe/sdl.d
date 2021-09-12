@@ -20,12 +20,12 @@ import std.conv;
 import std.string : startsWith;
 
 
-void parseSDL(ref PackageRecipe recipe, string sdl, PackageName parent_name, string filename)
+void parseSDL(ref PackageRecipe recipe, string sdl, PackageId parent_name, string filename)
 {
 	parseSDL(recipe, parseSource(sdl, filename), parent_name);
 }
 
-void parseSDL(ref PackageRecipe recipe, Tag sdl, PackageName parent_name)
+void parseSDL(ref PackageRecipe recipe, Tag sdl, PackageId parent_name)
 {
 	Tag[] subpacks;
 	Tag[] configs;
@@ -59,7 +59,7 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, PackageName parent_name)
 	}
 
 	enforceSDL(recipe.name.length > 0, "The package \"name\" field is missing or empty.", sdl);
-	auto full_name = PackageName(parent_name.length ? parent_name ~ ":" ~ recipe.name : recipe.name);
+	auto full_name = PackageId(parent_name.length ? parent_name ~ ":" ~ recipe.name : recipe.name);
 
 	// parse general build settings
 	parseBuildSettings(sdl, recipe.buildSettings, full_name);
@@ -125,17 +125,17 @@ Tag toSDL(const scope ref PackageRecipe recipe)
 	return ret;
 }
 
-private void parseBuildSettings(Tag settings, ref BuildSettingsTemplate bs, PackageName package_name)
+private void parseBuildSettings(Tag settings, ref BuildSettingsTemplate bs, PackageId package_id)
 {
 	foreach (setting; settings.all.tags)
-		parseBuildSetting(setting, bs, package_name);
+		parseBuildSetting(setting, bs, package_id);
 }
 
-private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, PackageName package_name)
+private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, PackageId package_id)
 {
 	switch (setting.fullName) {
 		default: break;
-		case "dependency": parseDependency(setting, bs, package_name); break;
+		case "dependency": parseDependency(setting, bs, package_id); break;
 		case "systemDependencies": bs.systemDependencies = setting.stringTagValue; break;
 		case "targetType": bs.targetType = setting.stringTagValue.to!TargetType; break;
 		case "targetName": bs.targetName = setting.stringTagValue; break;
@@ -144,7 +144,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, Packag
 		case "subConfiguration":
 			auto args = setting.stringArrayTagValue;
 			enforceSDL(args.length == 2, "Expecting package and configuration names as arguments.", setting);
-			bs.subConfigurations[expandPackageName(args[0], package_name, setting)] = args[1];
+			bs.subConfigurations[expandPackageName(args[0], package_id, setting)] = args[1];
 			break;
 		case "dflags": setting.parsePlatformStringArray(bs.dflags); break;
 		case "lflags": setting.parsePlatformStringArray(bs.lflags); break;
@@ -181,11 +181,11 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, Packag
 	}
 }
 
-private void parseDependency(Tag t, ref BuildSettingsTemplate bs, PackageName package_name)
+private void parseDependency(Tag t, ref BuildSettingsTemplate bs, PackageId package_id)
 {
 	enforceSDL(t.values.length != 0, "Missing dependency name.", t);
 	enforceSDL(t.values.length == 1, "Multiple dependency names.", t);
-	auto pkg = expandPackageName(t.values[0].get!string, package_name, t);
+	auto pkg = expandPackageName(t.values[0].get!string, package_id, t);
 	enforceSDL(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once.", t);
 
 	Dependency dep = Dependency.any;
@@ -215,16 +215,16 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, PackageName pa
 	bs.dependencies[pkg] = dep;
 
 	BuildSettingsTemplate dbs;
-	parseBuildSettings(t, dbs, package_name);
+	parseBuildSettings(t, dbs, package_id);
 	bs.dependencyBuildSettings[pkg] = dbs;
 }
 
-private void parseConfiguration(Tag t, ref ConfigurationInfo ret, PackageName package_name)
+private void parseConfiguration(Tag t, ref ConfigurationInfo ret, PackageId package_id)
 {
 	ret.name = t.stringTagValue(true);
 	foreach (f; t.tags) {
 		switch (f.fullName) {
-			default: parseBuildSetting(f, ret.buildSettings, package_name); break;
+			default: parseBuildSetting(f, ret.buildSettings, package_id); break;
 			case "platforms": ret.platforms ~= f.stringArrayTagValue; break;
 		}
 	}
@@ -330,7 +330,7 @@ private Tag toSDL(const ref ToolchainRequirements tr)
 	return new Tag(null, "toolchainRequirements", null, attrs);
 }
 
-private PackageName expandPackageName(string name, PackageName parent_name, Tag tag)
+private PackageId expandPackageName(string name, PackageId parent_name, Tag tag)
 {
 	import std.algorithm : canFind;
 	import std.string : format;
@@ -509,9 +509,9 @@ lflags "lf1" "lf2"
 lflags "lf3"
 `;
 	PackageRecipe rec1;
-	parseSDL(rec1, sdl, PackageName(null), "testfile");
+	parseSDL(rec1, sdl, PackageId(null), "testfile");
 	PackageRecipe rec;
-	parseSDL(rec, rec1.toSDL(), PackageName(null)); // verify that all fields are serialized properly
+	parseSDL(rec, rec1.toSDL(), PackageId(null)); // verify that all fields are serialized properly
 
 	assert(rec.name == "projectname");
 	assert(rec.description == "project description");
@@ -526,7 +526,7 @@ lflags "lf3"
 	assert(rec.subPackages[1].path == "");
 	assert(rec.subPackages[1].recipe.name == "subpackage2");
 	assert(rec.subPackages[1].recipe.buildSettings.dependencies.length == 1);
-	assert(PackageName("projectname:subpackage1") in rec.subPackages[1].recipe.buildSettings.dependencies);
+	assert(PackageId("projectname:subpackage1") in rec.subPackages[1].recipe.buildSettings.dependencies);
 	assert(rec.subPackages[2].path == "pathsp3");
 	assert(rec.configurations.length == 2);
 	assert(rec.configurations[0].name == "config1");
@@ -546,19 +546,19 @@ lflags "lf3"
 	assert(rec.ddoxFilterArgs == ["-arg1", "-arg2", "-arg3"], rec.ddoxFilterArgs.to!string);
 	assert(rec.ddoxTool == "ddoxtool");
 	assert(rec.buildSettings.dependencies.length == 2);
-	assert(rec.buildSettings.dependencies[PackageName("projectname:subpackage1")].optional == false);
-	assert(rec.buildSettings.dependencies[PackageName("projectname:subpackage1")].path == NativePath("."));
-	assert(rec.buildSettings.dependencyBuildSettings[PackageName("projectname:subpackage1")].dflags == ["":["-g", "-debug"]]);
-	assert(rec.buildSettings.dependencies[PackageName("somedep")].versionSpec == "1.0.0");
-	assert(rec.buildSettings.dependencies[PackageName("somedep")].optional == true);
-	assert(rec.buildSettings.dependencies[PackageName("somedep")].path.empty);
+	assert(rec.buildSettings.dependencies[PackageId("projectname:subpackage1")].optional == false);
+	assert(rec.buildSettings.dependencies[PackageId("projectname:subpackage1")].path == NativePath("."));
+	assert(rec.buildSettings.dependencyBuildSettings[PackageId("projectname:subpackage1")].dflags == ["":["-g", "-debug"]]);
+	assert(rec.buildSettings.dependencies[PackageId("somedep")].versionSpec == "1.0.0");
+	assert(rec.buildSettings.dependencies[PackageId("somedep")].optional == true);
+	assert(rec.buildSettings.dependencies[PackageId("somedep")].path.empty);
 	assert(rec.buildSettings.systemDependencies == "system dependencies");
 	assert(rec.buildSettings.targetType == TargetType.executable);
 	assert(rec.buildSettings.targetName == "target name");
 	assert(rec.buildSettings.targetPath == "target path");
 	assert(rec.buildSettings.workingDirectory == "working directory");
 	assert(rec.buildSettings.subConfigurations.length == 1);
-	assert(rec.buildSettings.subConfigurations[PackageName("projectname:subpackage2")] == "library");
+	assert(rec.buildSettings.subConfigurations[PackageId("projectname:subpackage2")] == "library");
 	assert(rec.buildSettings.buildRequirements == ["": cast(BuildRequirements)(BuildRequirement.allowWarnings | BuildRequirement.silenceDeprecations)]);
 	assert(rec.buildSettings.buildOptions == ["": cast(BuildOptions)(BuildOption.verbose | BuildOption.ignoreUnknownPragmas)]);
 	assert(rec.buildSettings.libs == ["": ["lib1", "lib2", "lib3"]]);
@@ -604,7 +604,7 @@ dflags "-h" "-i" platform="linux"
 dflags "-j" platform="linux"
 `;
 	PackageRecipe rec;
-	parseSDL(rec, sdl, PackageName(null), "testfile");
+	parseSDL(rec, sdl, PackageId(null), "testfile");
 	assert(rec.buildSettings.dflags.length == 3);
 	assert(rec.buildSettings.dflags["-windows-x86"] == ["-a", "-b", "-c"]);
 	assert(rec.buildSettings.dflags[""] == ["-e", "-f", "-g"]);
@@ -615,23 +615,23 @@ unittest { // test for missing name field
 	import std.exception;
 	auto sdl = `description "missing name"`;
 	PackageRecipe rec;
-	assertThrown(parseSDL(rec, sdl, PackageName(null), "testfile"));
+	assertThrown(parseSDL(rec, sdl, PackageId(null), "testfile"));
 }
 
 unittest { // test single value fields
 	import std.exception;
 	PackageRecipe rec;
-	assertThrown!Exception(parseSDL(rec, `name "hello" "world"`, PackageName(null), "testfile"));
-	assertThrown!Exception(parseSDL(rec, `name`, PackageName(null), "testfile"));
-	assertThrown!Exception(parseSDL(rec, `name 10`, PackageName(null), "testfile"));
+	assertThrown!Exception(parseSDL(rec, `name "hello" "world"`, PackageId(null), "testfile"));
+	assertThrown!Exception(parseSDL(rec, `name`, PackageId(null), "testfile"));
+	assertThrown!Exception(parseSDL(rec, `name 10`, PackageId(null), "testfile"));
 	assertThrown!Exception(parseSDL(rec,
 		`name "hello" {
 			world
-		}`, PackageName(null), "testfile"));
+		}`, PackageId(null), "testfile"));
 	assertThrown!Exception(parseSDL(rec,
 		`name ""
 		versions "hello" 10`
-		, PackageName(null), "testfile"));
+		, PackageId(null), "testfile"));
 }
 
 unittest { // test basic serialization
@@ -652,7 +652,7 @@ lflags "-b" "-c"
 unittest {
 	auto sdl = "name \"test\"\nsourcePaths";
 	PackageRecipe rec;
-	parseSDL(rec, sdl, PackageName(null), "testfile");
+	parseSDL(rec, sdl, PackageId(null), "testfile");
 	assert("" in rec.buildSettings.sourcePaths);
 }
 
@@ -662,8 +662,8 @@ unittest {
 dependency "package" repository="git+https://some.url" version="12345678"
 `;
 	PackageRecipe rec;
-	parseSDL(rec, sdl, PackageName(null), "testfile");
-	auto dependency = rec.buildSettings.dependencies[PackageName("package")];
+	parseSDL(rec, sdl, PackageId(null), "testfile");
+	auto dependency = rec.buildSettings.dependencies[PackageId("package")];
 	assert(!dependency.repository.empty);
 	assert(dependency.versionSpec == "12345678");
 }
@@ -673,7 +673,7 @@ unittest {
 	p.name = "test";
 
 	auto repository = Repository("git+https://some.url");
-	p.buildSettings.dependencies[PackageName("package")] = Dependency(repository, "12345678");
+	p.buildSettings.dependencies[PackageId("package")] = Dependency(repository, "12345678");
 	auto sdl = toSDL(p).toSDLDocument();
 	assert(sdl ==
 `name "test"

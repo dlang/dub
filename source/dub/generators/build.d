@@ -7,7 +7,7 @@
 */
 module dub.generators.build;
 
-import dub.dependency : PackageName;
+import dub.dependency : PackageId;
 import dub.compilers.compiler;
 import dub.compilers.utils;
 import dub.generators.generator;
@@ -190,8 +190,8 @@ class BuildGenerator : ProjectGenerator {
 
 		NativePath target_path;
 		if (settings.tempBuild) {
-			PackageName package_name = pack.basePackage is null ? pack.name : pack.basePackage.name;
-			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", package_name, pack.version_, build_id);
+			PackageId package_id = pack.basePackage is null ? pack.name : pack.basePackage.name;
+			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", package_id, pack.version_, build_id);
 		}
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 

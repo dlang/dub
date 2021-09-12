@@ -19,7 +19,7 @@ import dub.internal.vibecompat.data.serialization;
 	and configuration that has been selected.
 */
 struct ProjectDescription {
-	PackageName rootPackage; /// Name of the root package being built
+	PackageId rootPackage; /// Name of the root package being built
 	string configuration; /// Name of the selected build configuration
 	string buildType; /// Name of the selected build type
 	string compiler; /// Canonical name of the compiler used (e.g. "dmd", "gdc" or "ldc")
@@ -64,14 +64,14 @@ struct ProjectDescription {
 */
 struct PackageDescription {
 	string path; /// Path to the package
-	PackageName name; /// Qualified name of the package
+	PackageId name; /// Qualified name of the package
 	Version version_; /// Version of the package
 	string description;
 	string homepage;
 	string[] authors;
 	string copyright;
 	string license;
-	PackageName[] dependencies;
+	PackageId[] dependencies;
 
 	bool active; /// Does this package take part in the build?
 	string configuration; /// The configuration that is built
@@ -115,12 +115,12 @@ struct PackageDescription {
 	Describes the settings necessary to build a certain binary target.
 */
 struct TargetDescription {
-	PackageName rootPackage; /// Main package associated with this target, this is also the name of the target.
-	PackageName[] packages; /// All packages contained in this target (e.g. for target type "sourceLibrary")
+	PackageId rootPackage; /// Main package associated with this target, this is also the name of the target.
+	PackageId[] packages; /// All packages contained in this target (e.g. for target type "sourceLibrary")
 	string rootConfiguration; /// Build configuration of the target's root package used for building
 	BuildSettings buildSettings; /// Final build settings to use when building the target
-	PackageName[] dependencies; /// List of all dependencies of this target (package names)
-	PackageName[] linkDependencies; /// List of all link-dependencies of this target (target names)
+	PackageId[] dependencies; /// List of all dependencies of this target (package names)
+	PackageId[] linkDependencies; /// List of all link-dependencies of this target (target names)
 }
 
 /**

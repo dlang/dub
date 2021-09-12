@@ -23,7 +23,7 @@ import std.string;
 /**
    Package name.
 */
-struct PackageName				// TODO move to dub.package_.
+struct PackageId				// TODO move to dub.package_.
 {
 	string _pn;
 	alias _pn this;
@@ -33,7 +33,7 @@ struct PackageName				// TODO move to dub.package_.
 */
 struct PackageDependency {
 	/// Name of the referenced package.
-	PackageName name;
+	PackageId name;
 
 	/// Dependency specification used to select a particular version of the package.
 	Dependency spec;

@@ -7,7 +7,7 @@
 */
 module dub.generators.generator;
 
-import dub.dependency : PackageName;
+import dub.dependency : PackageId;
 import dub.compilers.compiler;
 import dub.generators.cmake;
 import dub.generators.build;
@@ -62,14 +62,14 @@ class ProjectGenerator
 			This list includes dependencies that are not the root of a binary
 			target.
 		*/
-		PackageName[] dependencies;
+		PackageId[] dependencies;
 
 		/** List of all binary dependencies.
 
 			This list includes all dependencies that are the root of a binary
 			target.
 		*/
-		PackageName[] linkDependencies;
+		PackageId[] linkDependencies;
 	}
 
 	private struct EnvironmentVariables
@@ -135,7 +135,7 @@ class ProjectGenerator
 
 		if (!settings.config.length) settings.config = m_project.getDefaultConfiguration(settings.platform);
 
-		string[PackageName] configs = m_project.getPackageConfigs(settings.platform, settings.config);
+		string[PackageId] configs = m_project.getPackageConfigs(settings.platform, settings.config);
 		TargetInfo[string] targets;
 		EnvironmentVariables[string] envs;
 
@@ -962,7 +962,7 @@ private bool isRecursiveInvocation(string pack)
         .canFind(pack);
 }
 
-private void storeRecursiveInvokations(string[string] env, PackageName[] packs)
+private void storeRecursiveInvokations(string[string] env, PackageId[] packs)
 {
 	import std.algorithm : canFind, splitter;
 	import std.range : chain;

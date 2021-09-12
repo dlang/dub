@@ -35,18 +35,18 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		possible configurations for the target package.
 	*/
 	static struct TreeNodes {
-		PackageName package_name;
+		PackageId package_id;
 		CONFIGS configs;
 		DependencyType depType = DependencyType.required;
 
 		size_t toHash() const nothrow @trusted {
-			size_t ret = typeid(PackageName).getHash(&package_name);
+			size_t ret = typeid(PackageId).getHash(&package_id);
 			ret ^= typeid(CONFIGS).getHash(&configs);
 			return ret;
 		}
-		bool opEqual(const scope ref TreeNodes other) const { return package_name == other.package_name && configs == other.configs; }
+		bool opEqual(const scope ref TreeNodes other) const { return package_id == other.package_id && configs == other.configs; }
 		int opCmp(const scope ref TreeNodes other) const {
-			if (package_name != other.package_name) return package_name < other.package_name ? -1 : 1;
+			if (package_id != other.package_id) return package_id < other.package_id ? -1 : 1;
 			if (configs != other.configs) return configs < other.configs ? -1 : 1;
 			return 0;
 		}
@@ -57,29 +57,29 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		Nodes are a combination of a package and a single package configuration.
 	*/
 	static struct TreeNode {
-		PackageName package_name;
+		PackageId package_id;
 		CONFIG config;
 
 		size_t toHash() const nothrow @trusted {
-			size_t ret = package_name.hashOf();
+			size_t ret = package_id.hashOf();
 			ret ^= typeid(CONFIG).getHash(&config);
 			return ret;
 		}
-		bool opEqual(const scope ref TreeNode other) const { return package_name == other.package_name && config == other.config; }
+		bool opEqual(const scope ref TreeNode other) const { return package_id == other.package_id && config == other.config; }
 		int opCmp(const scope ref TreeNode other) const {
-			if (package_name != other.package_name) return package_name < other.package_name ? -1 : 1;
+			if (package_id != other.package_id) return package_id < other.package_id ? -1 : 1;
 			if (config != other.config) return config < other.config ? -1 : 1;
 			return 0;
 		}
 	}
 
-	CONFIG[PackageName] resolve(TreeNode root, bool throw_on_failure = true)
+	CONFIG[PackageId] resolve(TreeNode root, bool throw_on_failure = true)
 	{
 		// Leave the possibility to opt-out from the loop limit
 		import std.process : environment;
 		bool no_loop_limit = environment.get("DUB_NO_RESOLVE_LIMIT") !is null;
 
-		const rootbase = basePackageName(root.package_name);
+		const rootbase = basePackageName(root.package_id);
 
 		// build up the dependency graph, eliminating as many configurations/
 		// versions as possible
@@ -102,8 +102,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		return context.result;
 	}
 
-	protected abstract CONFIG[] getAllConfigs(PackageName package_name);
-	protected abstract CONFIG[] getSpecificConfigs(PackageName package_name, TreeNodes nodes);
+	protected abstract CONFIG[] getAllConfigs(PackageId package_id);
+	protected abstract CONFIG[] getSpecificConfigs(PackageId package_id, TreeNodes nodes);
 	protected abstract TreeNodes[] getChildren(TreeNode node);
 	protected abstract bool matches(CONFIGS configs, CONFIG config);
 
@@ -117,19 +117,19 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 			The key is the qualified name of the package (base + sub)
 		*/
-		void[0][PackageName] visited;
+		void[0][PackageId] visited;
 
 		/// The finally chosen configurations for each package
-		CONFIG[PackageName] result;
+		CONFIG[PackageId] result;
 
 		/// The set of available configurations for each package
-		ResolveConfig[][PackageName] configs;
+		ResolveConfig[][PackageId] configs;
 
 		/// Determines if a certain package has already been processed
-		bool isVisited(PackageName package_name) const { return (package_name in visited) !is null; }
+		bool isVisited(PackageId package_id) const { return (package_id in visited) !is null; }
 
 		/// Marks a package as processed
-		void setVisited(PackageName package_name) { visited[package_name] = (void[0]).init; }
+		void setVisited(PackageId package_id) { visited[package_id] = (void[0]).init; }
 
 		/// Returns a deep clone
 		ResolveContext clone()
@@ -137,8 +137,8 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			ResolveContext ret;
 			ret.visited = this.visited.dup;
 			ret.result = this.result.dup;
-			foreach (package_name, cfgs; this.configs) {
-				ret.configs[package_name] = cfgs.dup;
+			foreach (package_id, cfgs; this.configs) {
+				ret.configs[package_id] = cfgs.dup;
 			}
 			return ret;
 		}
@@ -150,10 +150,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 	*/
 	private void constrain(TreeNode n, ref ResolveContext context, ref long max_iterations)
 	{
-		PackageName base = n.package_name.basePackageName;
+		PackageId base = n.package_id.basePackageName;
 		assert(base in context.configs);
-		if (context.isVisited(n.package_name)) return;
-		context.setVisited(n.package_name);
+		if (context.isVisited(n.package_id)) return;
+		context.setVisited(n.package_id);
 		context.result[base] = n.config;
 		foreach (j, ref sc; context.configs[base])
 			sc.included = sc.config == n.config;
@@ -162,7 +162,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 		foreach (dep; dependencies) {
 			// lazily load all dependency configurations
-			auto depbase = basePackageName(dep.package_name);
+			auto depbase = basePackageName(dep.package_id);
 			auto di = depbase in context.configs;
 			if (!di) {
 				context.configs[depbase] =
@@ -173,7 +173,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			}
 
 			// add any dependee defined dependency configurations
-			foreach (sc; getSpecificConfigs(n.package_name, dep))
+			foreach (sc; getSpecificConfigs(n.package_id, dep))
 				if (!(*di).canFind!(c => c.config == sc))
 					*di = ResolveConfig(sc, true) ~ *di;
 
@@ -216,7 +216,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			~ " recipe that reproduces this error.");
 
 		auto dep = &dependencies[depidx];
-		auto depbase = dep.package_name.basePackageName;
+		auto depbase = dep.package_id.basePackageName;
 		auto depconfigs = context.configs[depbase];
 
 		Exception first_err;
@@ -227,7 +227,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				try {
 					// try the configuration on a cloned context
 					auto subcontext = context.clone;
-					constrain(TreeNode(dep.package_name, c.config), subcontext, max_iterations);
+					constrain(TreeNode(dep.package_id, c.config), subcontext, max_iterations);
 					constrainDependencies(n, dependencies, depidx+1, subcontext, max_iterations);
 					// if a branch succeeded, replace the current context
 					// with the one from the branch and return
@@ -252,22 +252,22 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 		// should have thrown in constrainRec before reaching this
 		assert(false, format("Got no configuration for dependency %s %s of %s %s!?",
-			dep.package_name, dep.configs, n.package_name, n.config));
+			dep.package_id, dep.configs, n.package_id, n.config));
 	}
 
-	private void purgeOptionalDependencies(TreeNode root, ref CONFIG[PackageName] configs)
+	private void purgeOptionalDependencies(TreeNode root, ref CONFIG[PackageId] configs)
 	{
-		bool[PackageName] required;
-		bool[PackageName] visited;
+		bool[PackageId] required;
+		bool[PackageId] visited;
 
 		void markRecursively(TreeNode node)
 		{
-			if (node.package_name in visited) return;
-			visited[node.package_name] = true;
-			required[node.package_name.basePackageName] = true;
+			if (node.package_id in visited) return;
+			visited[node.package_id] = true;
+			required[node.package_id.basePackageName] = true;
 			foreach (dep; getChildren(node).filter!(dep => dep.depType != DependencyType.optional))
-				if (auto dp = dep.package_name.basePackageName in configs)
-					markRecursively(TreeNode(dep.package_name, *dp));
+				if (auto dp = dep.package_id.basePackageName in configs)
+					markRecursively(TreeNode(dep.package_id, *dp));
 		}
 
 		// recursively mark all required dependencies of the concrete dependency tree
@@ -283,14 +283,14 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		import std.range : chain, only;
 		import std.typecons : tuple;
 
-		PackageName failedNode;
+		PackageId failedNode;
 
 		this(TreeNode parent, TreeNodes dep, const scope ref ResolveContext context, string file = __FILE__, size_t line = __LINE__)
 		{
-			auto m = format("Unresolvable dependencies to package %s:", dep.package_name.basePackageName);
+			auto m = format("Unresolvable dependencies to package %s:", dep.package_id.basePackageName);
 			super(m, file, line);
 
-			this.failedNode = dep.package_name;
+			this.failedNode = dep.package_id;
 
 			auto failbase = basePackageName(failedNode);
 
@@ -299,18 +299,18 @@ class DependencyResolver(CONFIGS, CONFIG) {
 				.filter!(p => p.basePackageName in context.result)
 				.map!(p => TreeNode(p, context.result[p.basePackageName]))
 				.map!(n => getChildren(n)
-					.filter!(d => d.package_name.basePackageName == failbase)
+					.filter!(d => d.package_id.basePackageName == failbase)
 					.map!(d => tuple(n, d))
 				)
 				.join
-				.sort!((a, b) => a[0].package_name < b[0].package_name);
+				.sort!((a, b) => a[0].package_id < b[0].package_id);
 
 			foreach (d; deps) {
 				// filter out trivial self-dependencies
-				if (d[0].package_name.basePackageName == failbase
+				if (d[0].package_id.basePackageName == failbase
 					&& matches(d[1].configs, d[0].config))
 					continue;
-				msg ~= format("\n  %s %s depends on %s %s", d[0].package_name, d[0].config, d[1].package_name, d[1].configs);
+				msg ~= format("\n  %s %s depends on %s %s", d[0].package_id, d[0].config, d[1].package_id, d[1].configs);
 			}
 		}
 	}
@@ -322,7 +322,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		this(TreeNode parent, TreeNodes dep)
 		{
 			auto m = format("Failed to find any versions for package %s, referenced by %s %s",
-				dep.package_name, parent.package_name, parent.config);
+				dep.package_id, parent.package_id, parent.config);
 			super(m, file, line);
 
 			this.parent = parent;
@@ -337,7 +337,7 @@ enum DependencyType {
 	optional
 }
 
-private PackageName basePackageName(PackageName p)
+private PackageId basePackageName(PackageId p)
 {
 	import std.algorithm.searching : findSplit;
 	return typeof(return)(p._pn.findSplit(":")[0]);
@@ -359,23 +359,23 @@ unittest {
 	static class TestResolver : DependencyResolver!(IntConfigs, IntConfig) {
 		private TreeNodes[][string] m_children;
 		this(TreeNodes[][string] children) { m_children = children; }
-		protected override IntConfig[] getAllConfigs(PackageName package_name) {
+		protected override IntConfig[] getAllConfigs(PackageId package_id) {
 			auto ret = appender!(IntConfig[]);
 			foreach (p; m_children.byKey) {
-				if (p.length <= package_name.length+1) continue;
-				if (p[0 .. package_name.length] != package_name || p[package_name.length] != ':') continue;
+				if (p.length <= package_id.length+1) continue;
+				if (p[0 .. package_id.length] != package_id || p[package_id.length] != ':') continue;
 				auto didx = p.lastIndexOf(':');
 				ret ~= ic(p[didx+1 .. $].to!uint);
 			}
 			ret.data.sort!"a>b"();
 			return ret.data;
 		}
-		protected override IntConfig[] getSpecificConfigs(PackageName package_name, TreeNodes nodes) { return null; }
-		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.package_name ~ ":" ~ node.config.to!string(), null); }
+		protected override IntConfig[] getSpecificConfigs(PackageId package_id, TreeNodes nodes) { return null; }
+		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.package_id ~ ":" ~ node.config.to!string(), null); }
 		protected override bool matches(IntConfigs configs, IntConfig config) { return configs.canFind(config); }
 	}
 
-	alias P = PackageName;
+	alias P = PackageId;
 
 	// properly back up if conflicts are detected along the way (d:2 vs d:1)
 	with (TestResolver) {
