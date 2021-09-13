@@ -25,8 +25,13 @@ import std.string;
 */
 struct PackageId				// TODO move to dub.package_.
 {
-	string _pn;
-	alias _pn this;
+	this(string pid) @safe pure nothrow @nogc
+	{
+		_pid = pid;
+	}
+	// TODO: remove _pid to pid?
+	string _pid;					// TODO: make private?
+	alias _pid this;
 }
 
 /** Encapsulates the name of a package along with its dependency specification.

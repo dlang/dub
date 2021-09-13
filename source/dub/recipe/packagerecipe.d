@@ -32,7 +32,7 @@ import std.process : environment;
 */
 string[] getSubPackagePath(PackageId package_id) @safe pure // TODO QualifiedPackageName as input
 {
-	return package_id._pn.split(":");
+	return package_id._pid.split(":");
 }
 
 /**
@@ -42,7 +42,7 @@ string[] getSubPackagePath(PackageId package_id) @safe pure // TODO QualifiedPac
 */
 PackageId getBasePackageName(PackageId package_id) @safe pure
 {
-	return typeof(return)(package_id._pn.findSplit(":")[0]);
+	return typeof(return)(package_id._pid.findSplit(":")[0]);
 }
 
 /**
@@ -53,7 +53,7 @@ PackageId getBasePackageName(PackageId package_id) @safe pure
 */
 PackageId getSubPackageName(PackageId package_id) @safe pure
 {
-	return typeof(return)(package_id._pn.findSplit(":")[2]);
+	return typeof(return)(package_id._pid.findSplit(":")[2]);
 }
 
 alias P = PackageId;

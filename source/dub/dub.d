@@ -573,7 +573,7 @@ class Dub {
 
 		foreach (p; versions.byKey) {
 			auto ver = versions[p]; // Workaround for DMD 2.070.0 AA issue (crashes in aaApply2 if iterating by key+value)
-			assert(!p._pn.canFind(":"), "Resolved packages contain a sub package!?: "~p);
+			assert(!p._pid.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
 			if (!ver.path.empty) {
 				try pack = m_packageManager.getOrLoadPackage(ver.path);
@@ -1851,7 +1851,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 		auto prerelease = (m_options & UpgradeOptions.preRelease) != 0;
 
-		auto rootpack = PackageId(name._pn.split(":")[0]);
+		auto rootpack = PackageId(name._pid.split(":")[0]);
 
 		foreach (ps; m_dub.m_packageSuppliers) {
 			if (rootpack == name) {

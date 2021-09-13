@@ -116,7 +116,7 @@ Json toJson(const scope ref PackageRecipe recipe)
 
 private void parseSubPackages(ref PackageRecipe recipe, PackageId parent_package_id, Json[] subPackagesJson)
 {
-	enforce(!parent_package_id._pn.canFind(":"),
+	enforce(!parent_package_id._pid.canFind(":"),
 			format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
 		parent_package_id, getBasePackageName(parent_package_id)));
 
