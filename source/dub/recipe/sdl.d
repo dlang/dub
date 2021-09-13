@@ -92,7 +92,7 @@ Tag toSDL(const scope ref PackageRecipe recipe)
 {
 	Tag ret = new Tag;
 	void add(T)(string field, T value) { ret.add(new Tag(null, field, [Value(value)])); }
-	add("name", recipe.name._pid);
+	add("name", recipe.name.pid);
 	if (recipe.version_.length) add("version", recipe.version_);
 	if (recipe.description.length) add("description", recipe.description);
 	if (recipe.homepage.length) add("homepage", recipe.homepage);
@@ -109,7 +109,7 @@ Tag toSDL(const scope ref PackageRecipe recipe)
 	}
 	if (recipe.ddoxFilterArgs.length)
 		ret.add(new Tag("x", "ddoxFilterArgs", recipe.ddoxFilterArgs.map!(a => Value(a)).array));
-	if (recipe.ddoxTool.length) ret.add(new Tag("x", "ddoxTool", [Value(recipe.ddoxTool._pid)]));
+	if (recipe.ddoxTool.length) ret.add(new Tag("x", "ddoxTool", [Value(recipe.ddoxTool.pid)]));
 	ret.add(recipe.buildSettings.toSDL());
 	foreach(config; recipe.configurations)
 		ret.add(config.toSDL());
@@ -267,7 +267,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 		if (!d.path.empty) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
 		else attribs ~= new Attribute(null, "version", Value(d.versionSpec));
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
-		auto t = new Tag(null, "dependency", [Value(pack._pid)], attribs);
+		auto t = new Tag(null, "dependency", [Value(pack.pid)], attribs);
 		if (pack in bs.dependencyBuildSettings)
 			t.add(bs.dependencyBuildSettings[pack].toSDL());
 		ret ~= t;
@@ -278,7 +278,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	if (bs.targetName.length) add("targetName", bs.targetName);
 	if (bs.workingDirectory.length) add("workingDirectory", bs.workingDirectory);
 	if (bs.mainSourceFile.length) add("mainSourceFile", bs.mainSourceFile);
-	foreach (pack, conf; bs.subConfigurations) ret ~= new Tag(null, "subConfiguration", [Value(pack._pid), Value(conf)]);
+	foreach (pack, conf; bs.subConfigurations) ret ~= new Tag(null, "subConfiguration", [Value(pack.pid), Value(conf)]);
 	foreach (suffix, arr; bs.dflags) adda("dflags", suffix, arr);
 	foreach (suffix, arr; bs.lflags) adda("lflags", suffix, arr);
 	foreach (suffix, arr; bs.libs) adda("libs", suffix, arr);

@@ -27,10 +27,13 @@ struct PackageId				// TODO move to dub.package_.
 {
 	this(string pid) @safe pure nothrow @nogc
 	{
-		_pid = pid;
+		this._pid = pid;
 	}
-	// TODO: remove _pid to pid?
-	string _pid;					// TODO: make private?
+	@property string pid() const @safe pure nothrow @nogc
+	{
+		return _pid;
+	}
+	string _pid;
 	alias _pid this;
 }
 

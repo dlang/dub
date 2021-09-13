@@ -1261,7 +1261,7 @@ class BuildCommand : GenerateCommand {
 			// the user provided a version manually
 			dep = Dependency(packageParts.version_);
 		} else {
-			if (packageParts.name._pid.startsWith(":") ||
+			if (packageParts.name.pid.startsWith(":") ||
 				dub.packageManager.getFirstPackage(packageParts.name))
 				// found locally
 				return 0;

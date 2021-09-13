@@ -340,7 +340,7 @@ enum DependencyType {
 private PackageId basePackageName(PackageId p)
 {
 	import std.algorithm.searching : findSplit;
-	return typeof(return)(p._pid.findSplit(":")[0]);
+	return typeof(return)(p.pid.findSplit(":")[0]);
 }
 
 unittest {
