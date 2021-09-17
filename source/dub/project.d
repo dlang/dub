@@ -249,9 +249,9 @@ class Project {
 		}
 		if (m_rootPackage.name != m_rootPackage.name.toLower()) {
 			logWarn(`WARNING: DUB package names should always be lower case. %s`, nameSuggestion());
-		} else if (!m_rootPackage.recipe.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
+		} else if (!m_rootPackage.recipe.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_' || ch == '.')) {
 			logWarn(`WARNING: DUB package names may only contain alphanumeric characters, `
-				~ `as well as '-' and '_'. %s`, nameSuggestion());
+				~ `as well as '-', '_' and '.'. %s`, nameSuggestion());
 		}
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
 
@@ -1200,7 +1200,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addPostBuildEnvironments(processVerEnvs(settings.postBuildEnvironments, gsettings.buildSettings.postBuildEnvironments));
 	dst.addPreRunEnvironments(processVerEnvs(settings.preRunEnvironments, gsettings.buildSettings.preRunEnvironments));
 	dst.addPostRunEnvironments(processVerEnvs(settings.postRunEnvironments, gsettings.buildSettings.postRunEnvironments));
-	
+
 	auto buildEnvs = [dst.environments, dst.buildEnvironments];
 	auto runEnvs = [dst.environments, dst.runEnvironments];
 	auto preGenEnvs = [dst.environments, dst.preGenerateEnvironments];
@@ -1209,7 +1209,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	auto postBuildEnvs = buildEnvs ~ [dst.postBuildEnvironments];
 	auto preRunEnvs = runEnvs ~ [dst.preRunEnvironments];
 	auto postRunEnvs = runEnvs ~ [dst.postRunEnvironments];
-	
+
 	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags, false, buildEnvs));
 	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags, false, buildEnvs));
 	dst.addLibs(processVars(project, pack, gsettings, settings.libs, false, buildEnvs));
@@ -1469,7 +1469,7 @@ private string getVariable(Project, Package)(string name, in Project project, in
 		else if (name == "LFLAGS")
 			return join(buildSettings.lflags," ");
 	}
-	
+
 	import std.range;
 	foreach (aa; retro(extraVars))
 		if (auto exvar = name in aa)
