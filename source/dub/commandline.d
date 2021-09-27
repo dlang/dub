@@ -2090,10 +2090,12 @@ class ListCommand : Command {
 		const pname = pinfo.name;
 		const pvlim = Dependency(pinfo.version_ == "" ? "*" : pinfo.version_);
 		enforceUsage(app_args.length == 0, "The list command supports no application arguments.");
-		logInfo("Packages present in the system and known to dub:");
+		// Printed to stdout for backwards compatibility, do not change:
+		enum header = "Packages present in the system and known to dub:";
+		stdout.writefln(header);
 		foreach (p; dub.packageManager.getPackageIterator()) {
 			if ((pname == "" || pname == p.name) && pvlim.matches(p.version_))
-				logInfo("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
+				stdout.writefln("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
 		}
 		logInfo("");
 		return 0;
