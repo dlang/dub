@@ -72,12 +72,9 @@ nothrow {
 		fiberid ^= fiberid >> 32;
 
 		if (level >= s_minLevel) {
-			File output;
-			if (level == LogLevel.info) () @trusted { output = stdout; } ();
-			else () @trusted { output = stderr; } ();
-			if (output.isOpen) {
-				output.writeln(txt.data);
-				output.flush();
+			if (stderr.isOpen) {
+				stderr.writeln(txt.data);
+				stderr.flush();
 			}
 		}
 	} catch( Exception e ){
