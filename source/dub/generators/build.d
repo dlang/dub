@@ -7,6 +7,7 @@
 */
 module dub.generators.build;
 
+import core.time : Duration;
 import dub.compilers.compiler;
 import dub.compilers.utils;
 import dub.generators.generator;

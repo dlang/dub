@@ -16,9 +16,12 @@ import std.typecons : BitFlags;
 import std.algorithm.iteration : uniq;
 import std.range : chain;
 
+enum timeoutExitStatus = 11111; // exit status for process when timed out
+
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
 struct BuildSettings {
+	import core.time : Duration;
 	import dub.internal.vibecompat.data.serialization : byName;
 
 	TargetType targetType;
@@ -56,6 +59,7 @@ struct BuildSettings {
 	string[string] postBuildEnvironments;
 	string[string] preRunEnvironments;
 	string[string] postRunEnvironments;
+	Duration timeout;
 	@byName BuildRequirements requirements;
 	@byName BuildOptions options;
 

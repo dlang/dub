@@ -7,6 +7,7 @@
 */
 module dub.compilers.dmd;
 
+import core.time : Duration;
 import dub.compilers.compiler;
 import dub.compilers.utils;
 import dub.internal.utils;
@@ -322,7 +323,7 @@ config    /etc/dmd.conf
 		foreach (aa; [settings.environments, settings.buildEnvironments])
 			foreach (k, v; aa)
 				env[k] = v;
-		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env, settings.timeout);
 	}
 
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
@@ -351,7 +352,7 @@ config    /etc/dmd.conf
 		foreach (aa; [settings.environments, settings.buildEnvironments])
 			foreach (k, v; aa)
 				env[k] = v;
-		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env, settings.timeout);
 	}
 
 	string[] lflagsToDFlags(in string[] lflags) const

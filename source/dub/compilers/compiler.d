@@ -11,6 +11,7 @@ public import dub.compilers.buildsettings;
 deprecated("Please `import dub.dependency : Dependency` instead") public import dub.dependency : Dependency;
 public import dub.platform : BuildPlatform, matchesSpecification;
 
+import core.time : Duration, dur;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
 
@@ -95,18 +96,63 @@ interface Compiler {
 		This method should be used by `Compiler` implementations to invoke the
 		compiler or linker binary.
 	*/
-	protected final void invokeTool(string[] args, void delegate(int, string) output_callback, string[string] env = null)
+	protected final void invokeTool(string[] args, void delegate(int, string) output_callback, string[string] env = null, Duration timeout = Duration.max)
 	{
 		import std.string;
 
+		string[] timeouted(string[] args) @safe pure
+		{
+			if (timeout)
+			{
+				import std.conv : to;
+				return ["timeout", timeout.total!"seconds".to!string] ~ args;
+			}
+			return args;
+		}
+
 		int status;
 		if (output_callback) {
-			auto result = executeShell(escapeShellCommand(args), env);
+			auto result = executeShell(escapeShellCommand(timeouted(args)), env); // TODO: avoid using timeoutArgs
 			output_callback(result.status, result.output);
 			status = result.status;
 		} else {
 			auto compiler_pid = spawnShell(escapeShellCommand(args), env);
-			status = compiler_pid.wait();
+			if (timeout)
+			{
+				version (Windows)
+				{
+					import std.process : waitTimeout;
+					const result = waitTimeout(compiler_pid, timeout);
+					if (result.terminated)
+						status = res.status;
+					else
+						status = timeoutExitStatus;
+				}
+			    else
+				{
+					import std.datetime : Clock;
+					const start = Clock.currTime;
+					while (1)
+					{
+						if (Clock.currTime - start >= timeout)
+						{
+							status = timeoutExitStatus;
+							break;
+						}
+						import std.process : tryWait;
+						auto result = tryWait(compiler_pid);
+						if (result.terminated)
+						{
+							status = result.status;
+							break;
+						}
+						import core.thread : Thread;
+						Thread.sleep(dur!"msecs"(1));
+					}
+				}
+			}
+			else
+				status = compiler_pid.wait();
 		}
 
 		version (Posix) if (status == -9) {

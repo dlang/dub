@@ -80,7 +80,7 @@ int main(string[] args)
         ] ~ dflags ~ [ "@build-files.txt" ];
 
     writeln("Building dub using ", dmd, " (dflags: ", dflags, "), this may take a while...");
-    auto proc = execute(command);
+    auto proc = execute(command); // TODO: support --compiler--timeout
     if (proc.status != 0)
     {
         writeln("Command `", command, "` failed, output was:");
