@@ -2128,9 +2128,9 @@ class SearchCommand : Command {
 		justify += (~justify & 3) + 1; // round to next multiple of 4
 		foreach (desc, matches; res)
 		{
-			logInfo("==== %s ====", desc);
+			stdout.writefln("==== %s ====", desc);
 			foreach (m; matches)
-				logInfo("%s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
+				stdout.writefln("%s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
 		}
 		return 0;
 	}
@@ -2230,10 +2230,10 @@ class ListOverridesCommand : Command {
 		void printList(in PackageOverride[] overrides, string caption)
 		{
 			if (overrides.length == 0) return;
-			logInfo("# %s", caption);
+			stdout.writefln("# %s", caption);
 			foreach (ovr; overrides) {
-				if (!ovr.targetPath.empty) logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetPath);
-				else logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetVersion);
+				if (!ovr.targetPath.empty) stdout.writefln("%s %s => %s", ovr.package_, ovr.version_, ovr.targetPath);
+				else stdout.writefln("%s %s => %s", ovr.package_, ovr.version_, ovr.targetVersion);
 			}
 		}
 		printList(dub.packageManager.getOverrides(LocalPackageType.user), "User wide overrides");
