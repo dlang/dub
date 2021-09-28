@@ -2282,6 +2282,7 @@ class DustmiteCommand : PackageBuildCommand {
 		bool m_noRedirect;
 		string m_strategy;
 		uint m_jobCount;		// zero means not specified
+		bool m_trace;
 	}
 
 	this() @safe pure nothrow
@@ -2312,6 +2313,7 @@ class DustmiteCommand : PackageBuildCommand {
 		args.getopt("no-redirect", &m_noRedirect, ["Don't redirect stdout/stderr streams of the test command"]);
 		args.getopt("strategy", &m_strategy, ["Set strategy (careful/lookback/pingpong/indepth/inbreadth)"]);
 		args.getopt("j", &m_jobCount, ["Set number of look-ahead processes"]);
+		args.getopt("trace", &m_trace, ["Save all attempted reductions to DIR.trace"]);
 		super.prepare(args);
 
 		// speed up loading when in test mode
@@ -2440,8 +2442,6 @@ class DustmiteCommand : PackageBuildCommand {
 			if (m_programStatusCode != int.min) testcmd.formattedWrite(" --program-status=%s", m_programStatusCode);
 			if (m_programRegex.length) testcmd.formattedWrite(" \"--program-regex=%s\"", m_programRegex);
 			if (m_combined) testcmd ~= " --combined";
-			if (m_strategy.length) testcmd.formattedWrite(" \"--strategy=%s\"", m_strategy);
-			if (m_jobCount) testcmd.formattedWrite(" \"-j%s\"", m_jobCount);
 
 			// --vquiet swallows dustmite's output ...
 			if (!m_noRedirect) testcmd ~= " --vquiet";
@@ -2451,6 +2451,10 @@ class DustmiteCommand : PackageBuildCommand {
 
 			string[] extraArgs;
 			if (m_noRedirect) extraArgs ~= "--no-redirect";
+			if (m_strategy.length) extraArgs ~= "--strategy=" ~ m_strategy;
+			if (m_jobCount) extraArgs ~= "-j" ~ m_jobCount.to!string;
+			if (m_trace) extraArgs ~= "--trace";
+
 			const cmd = "dustmite" ~ extraArgs ~ [path.toNativeString(), testcmd.data];
 			auto dmpid = spawnProcess(cmd);
 			return dmpid.wait();
