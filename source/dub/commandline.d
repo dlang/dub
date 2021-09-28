@@ -2281,6 +2281,7 @@ class DustmiteCommand : PackageBuildCommand {
 		bool m_combined;
 		bool m_noRedirect;
 		string m_strategy;
+		uint m_jobCount;		// zero means not specified
 	}
 
 	this() @safe pure nothrow
@@ -2310,6 +2311,7 @@ class DustmiteCommand : PackageBuildCommand {
 		args.getopt("combined", &m_combined, ["Builds multiple packages with one compiler run"]);
 		args.getopt("no-redirect", &m_noRedirect, ["Don't redirect stdout/stderr streams of the test command"]);
 		args.getopt("strategy", &m_strategy, ["Set strategy (careful/lookback/pingpong/indepth/inbreadth)"]);
+		args.getopt("j", &m_jobCount, ["Set number of look-ahead processes"]);
 		super.prepare(args);
 
 		// speed up loading when in test mode
@@ -2439,6 +2441,7 @@ class DustmiteCommand : PackageBuildCommand {
 			if (m_programRegex.length) testcmd.formattedWrite(" \"--program-regex=%s\"", m_programRegex);
 			if (m_combined) testcmd ~= " --combined";
 			if (m_strategy.length) testcmd.formattedWrite(" \"--strategy=%s\"", m_strategy);
+			if (m_jobCount) testcmd.formattedWrite(" \"-j%s\"", m_jobCount);
 
 			// --vquiet swallows dustmite's output ...
 			if (!m_noRedirect) testcmd ~= " --vquiet";
