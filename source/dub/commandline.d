@@ -28,7 +28,7 @@ import std.encoding;
 import std.exception;
 import std.file;
 import std.getopt;
-import std.path : absolutePath, buildNormalizedPath;
+import std.path : expandTilde, absolutePath, buildNormalizedPath;
 import std.process;
 import std.stdio;
 import std.string;
@@ -161,7 +161,7 @@ struct CommandLineHandler
 		}
 		else
 		{
-			options.root_path = options.root_path.absolutePath.buildNormalizedPath;
+			options.root_path = options.root_path.expandTilde.absolutePath.buildNormalizedPath;
 		}
 	}
 
