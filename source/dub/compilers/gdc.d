@@ -45,6 +45,7 @@ class GDCCompiler : Compiler {
 		tuple(BuildOption.deprecationErrors, ["-Werror", "-Wdeprecated"]),
 		tuple(BuildOption.property, ["-fproperty"]),
 		//tuple(BuildOption.profileGC, ["-?"]),
+		tuple(BuildOption.betterC, ["-fno-druntime"]),
 
 		tuple(BuildOption._docs, ["-fdoc-dir=docs"]),
 		tuple(BuildOption._ddox, ["-fXf=docs.json", "-fdoc-file=__dummy.html"]),
