@@ -27,15 +27,15 @@ class GDCCompiler : Compiler {
 		tuple(BuildOption.releaseMode, ["-frelease"]),
 		tuple(BuildOption.coverage, ["-fprofile-arcs", "-ftest-coverage"]),
 		tuple(BuildOption.debugInfo, ["-g"]),
-		tuple(BuildOption.debugInfoC, ["-g", "-fdebug-c"]),
+		tuple(BuildOption.debugInfoC, ["-g"]),
 		//tuple(BuildOption.alwaysStackFrame, ["-X"]),
 		//tuple(BuildOption.stackStomping, ["-X"]),
 		tuple(BuildOption.inline, ["-finline-functions"]),
 		tuple(BuildOption.noBoundsCheck, ["-fno-bounds-check"]),
-		tuple(BuildOption.optimize, ["-O3"]),
+		tuple(BuildOption.optimize, ["-O2"]),
 		tuple(BuildOption.profile, ["-pg"]),
 		tuple(BuildOption.unittests, ["-funittest"]),
-		tuple(BuildOption.verbose, ["-fd-verbose"]),
+		tuple(BuildOption.verbose, ["-v"]),
 		tuple(BuildOption.ignoreUnknownPragmas, ["-fignore-unknown-pragmas"]),
 		tuple(BuildOption.syntaxOnly, ["-fsyntax-only"]),
 		tuple(BuildOption.warnings, ["-Wall"]),
@@ -48,7 +48,7 @@ class GDCCompiler : Compiler {
 		tuple(BuildOption.betterC, ["-fno-druntime"]),
 
 		tuple(BuildOption._docs, ["-fdoc-dir=docs"]),
-		tuple(BuildOption._ddox, ["-fXf=docs.json", "-fdoc-file=__dummy.html"]),
+		tuple(BuildOption._ddox, ["-Xfdocs.json", "-fdoc-file=__dummy.html"]),
 	];
 
 	@property string name() const { return "gdc"; }
