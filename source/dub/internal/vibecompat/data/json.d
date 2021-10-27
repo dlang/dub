@@ -67,7 +67,6 @@ struct Json {
 			int line;
 		version (VibeJsonFieldNames)
 			string m_name;
-		pragma(msg, __FILE__, "(", __LINE__, ",1): Debug: ", Json.sizeof);
 	}
 
 	/** Represents the run time type of a JSON value.
