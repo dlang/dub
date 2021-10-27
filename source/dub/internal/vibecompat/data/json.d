@@ -63,12 +63,11 @@ struct Json {
 		@property ref inout(Json[]) m_array() inout { return getDataAs!(Json[])(); }
 
 		Type m_type = Type.undefined;
-
-		version (VibeJsonFieldNames) {
-			uint m_magic = 0x1337f00d; // works around Appender bug (DMD BUG 10690/10859/11357)
+		version(JsonLineNumbers)
+			int line;
+		version (VibeJsonFieldNames)
 			string m_name;
-			string m_fileName;
-		}
+		pragma(msg, __FILE__, "(", __LINE__, ",1): Debug: ", Json.sizeof);
 	}
 
 	/** Represents the run time type of a JSON value.
@@ -101,8 +100,6 @@ struct Json {
 
 	/// New JSON value of Type.Array
 	static @property Json emptyArray() { return Json(cast(Json[])null); }
-
-	version(JsonLineNumbers) int line;
 
 	/**
 		Constructor for a JSON object.
@@ -168,7 +165,9 @@ struct Json {
 	{
 		m_type = Type.array;
 		m_array = v;
-		version (VibeJsonFieldNames) { if (m_magic == 0x1337f00d) { foreach (idx, ref av; m_array) av.m_name = format("%s[%s]", m_name, idx); } else m_name = null; }
+		version (VibeJsonFieldNames)
+			foreach (idx, ref av; m_array)
+				av.m_name = format("%s[%s]", m_name, idx);
 		return v;
 	}
 	/// ditto
@@ -176,7 +175,9 @@ struct Json {
 	{
 		m_type = Type.object;
 		m_object = v;
-		version (VibeJsonFieldNames) { if (m_magic == 0x1337f00d) { foreach (key, ref av; m_object) av.m_name = format("%s.%s", m_name, key); } else m_name = null; }
+		version (VibeJsonFieldNames)
+			foreach (key, ref av; m_object)
+				av.m_name = format("%s.%s", m_name, key);
 		return v;
 	}
 
@@ -398,15 +399,15 @@ struct Json {
 	*/
 	inout(T) opCast(T)() inout { return get!T; }
 	/// ditto
-	@property inout(T) get(T)()
+	@property inout(T) get(T)(in string fileName = "DUMB_FILE_NAME")
 	inout {
-		checkType!T();
+		checkType!T(null, fileName);
 		static if (is(T == bool)) return m_bool;
 		else static if (is(T == double)) return m_float;
 		else static if (is(T == float)) return cast(T)m_float;
 		else static if (is(T == long)) return m_int;
 		else static if (is(T == ulong)) return cast(ulong)m_int;
-		else static if (is(T : long)){ enforceJson(m_int <= T.max && m_int >= T.min, "Integer conversion out of bounds error", m_fileName, line); return cast(T)m_int; }
+		else static if (is(T : long)){ enforceJson(m_int <= T.max && m_int >= T.min, "Integer conversion out of bounds error", fileName, line); return cast(T)m_int; }
 		else static if (is(T == string)) return m_string;
 		else static if (is(T == Json[])) return m_array;
 		else static if (is(T == Json[string])) return m_object;
@@ -814,7 +815,7 @@ struct Json {
 		return ret.data;
 	}
 
-	private void checkType(TYPES...)(string op = null)
+	private void checkType(TYPES...)(string op = null, in string fileName = "DUMB_FILE_NAME")
 	const {
 		bool matched = false;
 		foreach (T; TYPES) if (m_type == typeId!T) matched = true;
@@ -835,8 +836,8 @@ struct Json {
 			}
 		}
 
-		enforceJson(op.length > 0, format("Got %s, expected %s.", name, expected), m_fileName, line);
-		enforceJson(false, format("Got %s, expected %s for %s.", name, expected, op), m_fileName, line);
+		enforceJson(op.length > 0, format("Got %s, expected %s.", name, expected), fileName, line);
+		enforceJson(false, format("Got %s, expected %s for %s.", name, expected, op), fileName, line);
 	}
 
 	/*invariant()
@@ -948,7 +949,7 @@ Json parseJson(R)(ref R range, int* line = null, string filename = null)
 
 	assert(ret.type != Json.Type.undefined);
 	version(JsonLineNumbers) ret.line = curline;
-	ret.m_fileName = filename;
+	// ret.m_fileName = filename;
 	return ret;
 }
 
