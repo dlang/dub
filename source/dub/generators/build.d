@@ -371,12 +371,30 @@ class BuildGenerator : ProjectGenerator {
 
 	private void copyTargetFile(NativePath build_path, BuildSettings buildsettings, GeneratorSettings settings)
 	{
-		auto filename = settings.compiler.getTargetFileName(buildsettings, settings.platform);
-		auto src = build_path ~ filename;
-		logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
 		if (!existsFile(NativePath(buildsettings.targetPath)))
 			mkdirRecurse(buildsettings.targetPath);
-		hardLinkFile(src, NativePath(buildsettings.targetPath) ~ filename, true);
+
+		string[] filenames = [
+			settings.compiler.getTargetFileName(buildsettings, settings.platform)
+		];
+
+		// Windows: add .pdb if found
+		const tt = buildsettings.targetType;
+		if ((tt == TargetType.executable || tt == TargetType.dynamicLibrary) &&
+		    settings.platform.platform.canFind("windows"))
+		{
+			import std.path : setExtension;
+			const pdbFilename = filenames[0].setExtension(".pdb");
+			if (existsFile(build_path ~ pdbFilename))
+				filenames ~= pdbFilename;
+		}
+
+		foreach (filename; filenames)
+		{
+			auto src = build_path ~ filename;
+			logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
+			hardLinkFile(src, NativePath(buildsettings.targetPath) ~ filename, true);
+		}
 	}
 
 	private bool isUpToDate(NativePath target_path, BuildSettings buildsettings, GeneratorSettings settings, in Package main_pack, in Package[] packages, in NativePath[] additional_dep_files)
