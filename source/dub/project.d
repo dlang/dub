@@ -983,11 +983,11 @@ class Project {
 			case "post-build-environments":
 			case "pre-run-environments":
 			case "post-run-environments":
-				enforce(false, "--data="~requestedData~" can only be used with --data-list or --data-0.");
+				enforce(false, "--data="~requestedData~" can only be used with `--data-list` or `--data-list --data-0`.");
 				break;
 
 			case "requirements":
-				enforce(false, "--data=requirements can only be used with --data-list or --data-0. Use --data=options instead.");
+				enforce(false, "--data=requirements can only be used with `--data-list` or `--data-list --data-0`. Use --data=options instead.");
 				break;
 
 			default: break;
