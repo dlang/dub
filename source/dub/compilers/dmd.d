@@ -108,7 +108,7 @@ config    /etc/dmd.conf
 	{
 		string[] arch_flags;
 		switch (arch_override) {
-			default: throw new Exception("Unsupported architecture: "~arch_override);
+			default: throw new UnsupportedArchitectureException(arch_override);
 			case "":
 				// Don't use Optlink by default on Windows
 				version (Windows) {
