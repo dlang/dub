@@ -88,7 +88,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				if (arch_override.canFind('-'))
 					arch_flags = ["-mtriple="~arch_override];
 				else
-					throw new Exception("Unsupported architecture: "~arch_override);
+					throw new UnsupportedArchitectureException(arch_override);
 				break;
 		}
 		settings.addDFlags(arch_flags);

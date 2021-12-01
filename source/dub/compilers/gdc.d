@@ -67,7 +67,7 @@ class GDCCompiler : Compiler {
 	{
 		string[] arch_flags;
 		switch (arch_override) {
-			default: throw new Exception("Unsupported architecture: "~arch_override);
+			default: throw new UnsupportedArchitectureException(arch_override);
 			case "": break;
 			case "arm": arch_flags = ["-marm"]; break;
 			case "arm_thumb": arch_flags = ["-mthumb"]; break;

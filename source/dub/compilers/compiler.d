@@ -19,13 +19,31 @@ import std.array;
 import std.exception;
 import std.process;
 
+/// Exception thrown in Compiler.determinePlatform if the given architecture is
+/// not supported.
+class UnsupportedArchitectureException : Exception
+{
+	this(string architecture, string file = __FILE__, size_t line = __LINE__, Throwable nextInChain = null) pure nothrow @safe
+	{
+		super("Unsupported architecture: "~architecture, file, line, nextInChain);
+	}
+}
+
+/// Exception thrown in getCompiler if no compiler matches the given name.
+class UnknownCompilerException : Exception
+{
+	this(string compilerName, string file = __FILE__, size_t line = __LINE__, Throwable nextInChain = null) pure nothrow @safe
+	{
+		super("Unknown compiler: "~compilerName, file, line, nextInChain);
+	}
+}
 
 /** Returns a compiler handler for a given binary name.
 
 	The name will be compared against the canonical name of each registered
 	compiler handler. If no match is found, the sub strings "dmd", "gdc" and
 	"ldc", in this order, will be searched within the name. If this doesn't
-	yield a match either, an exception will be thrown.
+	yield a match either, an $(LREF UnknownCompilerException) will be thrown.
 */
 Compiler getCompiler(string name)
 {
@@ -38,7 +56,7 @@ Compiler getCompiler(string name)
 	if (name.canFind("gdc")) return getCompiler("gdc");
 	if (name.canFind("ldc")) return getCompiler("ldc");
 
-	throw new Exception("Unknown compiler: "~name);
+	throw new UnknownCompilerException(name);
 }
 
 /** Registers a new compiler handler.
