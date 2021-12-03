@@ -30,6 +30,9 @@ jobs:
         # Latest stable version, update at will
         os: [ macOS-10.15, ubuntu-18.04, windows-2019 ]
         dc: [ dmd-latest, ldc-latest, dmd-master, ldc-master ]
+        exclude:
+        - os: macOS-10.15
+          dc: dmd-latest
 
     runs-on: ${{ matrix.os }}
     steps:
