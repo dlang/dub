@@ -950,7 +950,7 @@ abstract class PackageBuildCommand : Command {
 		args.getopt("b|build", &m_buildType, [
 			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
 			"Possible names:",
-			"  debug (default), plain, release, release-debug, release-nobounds, unittest, profile, profile-gc, docs, ddox, cov, unittest-cov, syntax and custom types"
+			"  "~builtinBuildTypes.join(", ")~" and custom types"
 		]);
 		args.getopt("c|config", &m_buildConfig, [
 			"Builds the specified configuration. Configurations can be defined in dub.json"
@@ -1148,10 +1148,10 @@ class GenerateCommand : PackageBuildCommand {
 
 		setupVersionPackage(dub, str_package_info, "debug");
 
-		if (m_printBuilds) { // FIXME: use actual package data
+		if (m_printBuilds) {
 			logInfo("Available build types:");
-			foreach (tp; ["debug", "release", "unittest", "profile"])
-				logInfo("  %s", tp);
+			foreach (i, tp; dub.project.builds)
+				logInfo("  %s%s", tp, i == 0 ? " [default]" : null);
 			logInfo("");
 		}
 

@@ -427,6 +427,10 @@ class Project {
 	/// Returns the names of all configurations of the root package.
 	@property string[] configurations() const { return m_rootPackage.configurations; }
 
+	/// Returns the names of all built-in and custom build types of the root package.
+	/// The default built-in build type is the first item in the list.
+	@property string[] builds() const { return builtinBuildTypes ~ m_rootPackage.customBuildTypes; }
+
 	/// Returns a map with the configuration for all packages in the dependency tree.
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
