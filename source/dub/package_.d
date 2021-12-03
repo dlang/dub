@@ -55,6 +55,23 @@ static immutable FilenameAndFormat[] packageInfoFiles = [
 /// Returns the default package recile file name.
 @property string defaultPackageFilename() { return packageInfoFiles[0].filename; }
 
+/// All built-in build type names except for the special `$DFLAGS` build type.
+/// Has the default build type (`debug`) as first index.
+static immutable string[] builtinBuildTypes = [
+	"debug",
+	"plain",
+	"release",
+	"release-debug",
+	"release-nobounds",
+	"unittest",
+	"profile",
+	"profile-gc",
+	"docs",
+	"ddox",
+	"cov",
+	"unittest-cov",
+	"syntax"
+];
 
 /**	Represents a package, including its sub packages.
 */
@@ -253,6 +270,18 @@ class Package {
 		auto ret = appender!(string[])();
 		foreach (ref config; m_info.configurations)
 			ret.put(config.name);
+		return ret.data;
+	}
+
+	/** Returns the list of all custom build type names.
+
+		Build type contents can be accessed using `this.recipe.buildTypes`.
+	*/
+	@property string[] customBuildTypes()
+	const {
+		auto ret = appender!(string[])();
+		foreach (name; m_info.buildTypes.byKey)
+			ret.put(name);
 		return ret.data;
 	}
 
