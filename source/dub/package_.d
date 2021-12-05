@@ -393,6 +393,10 @@ class Package {
 		return ret;
 	}
 
+	string[] getBuildTypes(){
+		return m_info.buildTypes.keys;
+	}
+
 	/** Adds build type specific settings to an existing set of build settings.
 
 		This function searches the package recipe for overridden build types. If

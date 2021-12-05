@@ -1148,9 +1148,9 @@ class GenerateCommand : PackageBuildCommand {
 
 		setupVersionPackage(dub, str_package_info, "debug");
 
-		if (m_printBuilds) { // FIXME: use actual package data
+		if (m_printBuilds) {
 			logInfo("Available build types:");
-			foreach (tp; ["debug", "release", "unittest", "profile"])
+			foreach (tp; (dub.project.rootPackage.getBuildTypes() ~ ["debug", "release", "unittest", "profile"]).sort)
 				logInfo("  %s", tp);
 			logInfo("");
 		}
