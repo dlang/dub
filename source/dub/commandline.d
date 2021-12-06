@@ -988,6 +988,20 @@ abstract class PackageBuildCommand : Command {
 		]);
 	}
 
+	protected GeneratorSettings defaultGeneratorSettings()
+	{
+		GeneratorSettings gensettings;
+		gensettings.platform = m_buildPlatform;
+		gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
+		gensettings.buildType = m_buildType;
+		gensettings.buildMode = m_buildMode;
+		gensettings.compiler = m_compiler;
+		gensettings.buildSettings = m_buildSettings;
+		gensettings.filterVersions = m_filterVersions;
+		gensettings.single = m_single;
+		return gensettings;
+	}
+
 	protected void setupVersionPackage(Dub dub, string str_package_info, string default_build_type = "debug")
 	{
 		PackageAndVersion package_info = splitPackageName(str_package_info);
@@ -1012,7 +1026,6 @@ abstract class PackageBuildCommand : Command {
 		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compilerName, m_arch);
 		m_buildSettings.addDebugVersions(m_debugVersions);
 
-		m_defaultConfig = null;
 		enforce (loadSpecificPackage(dub, package_name, ver), "Failed to load package.");
 
 		if (m_buildConfig.length != 0 && !dub.configurations.canFind(m_buildConfig))
@@ -1040,6 +1053,8 @@ abstract class PackageBuildCommand : Command {
 		}
 
 		dub.project.validate();
+
+		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
 		foreach (sc; m_overrideConfigs) {
 			auto idx = sc.indexOf('/');
@@ -1155,7 +1170,6 @@ class GenerateCommand : PackageBuildCommand {
 			logInfo("");
 		}
 
-		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 		if (m_printConfigs) {
 			logInfo("Available configurations:");
 			foreach (tp; dub.configurations)
@@ -1163,22 +1177,14 @@ class GenerateCommand : PackageBuildCommand {
 			logInfo("");
 		}
 
-		GeneratorSettings gensettings;
-		gensettings.platform = m_buildPlatform;
-		gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
-		gensettings.buildType = m_buildType;
-		gensettings.buildMode = m_buildMode;
-		gensettings.compiler = m_compiler;
-		gensettings.buildSettings = m_buildSettings;
+		GeneratorSettings gensettings = defaultGeneratorSettings();
 		gensettings.combined = m_combined;
-		gensettings.filterVersions = m_filterVersions;
 		gensettings.run = m_run;
 		gensettings.runArgs = app_args;
 		gensettings.force = m_force;
 		gensettings.rdmd = m_rdmd;
 		gensettings.tempBuild = m_tempBuild;
 		gensettings.parallelBuild = m_parallel;
-		gensettings.single = m_single;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
@@ -1388,12 +1394,9 @@ class TestCommand : PackageBuildCommand {
 
 		setupVersionPackage(dub, str_package_info, "unittest");
 
-		GeneratorSettings settings;
-		settings.platform = m_buildPlatform;
+		GeneratorSettings settings = defaultGeneratorSettings();
+		settings.config = null;
 		settings.compiler = getCompiler(m_buildPlatform.compilerBinary);
-		settings.buildType = m_buildType;
-		settings.buildMode = m_buildMode;
-		settings.buildSettings = m_buildSettings;
 		settings.combined = m_combined;
 		settings.filterVersions = m_filterVersions;
 		settings.parallelBuild = m_parallel;
@@ -1401,7 +1404,6 @@ class TestCommand : PackageBuildCommand {
 		settings.tempBuild = m_single;
 		settings.run = true;
 		settings.runArgs = app_args;
-		settings.single = m_single;
 
 		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
 		return 0;
@@ -1592,17 +1594,7 @@ class DescribeCommand : PackageBuildCommand {
 		if (free_args.length >= 1) str_package_info = free_args[0];
 		setupVersionPackage(dub, str_package_info);
 
-		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
-
-		auto config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
-
-		GeneratorSettings settings;
-		settings.platform = m_buildPlatform;
-		settings.config = config;
-		settings.buildType = m_buildType;
-		settings.compiler = m_compiler;
-		settings.filterVersions = m_filterVersions;
-		settings.buildSettings.options |= m_buildSettings.options & BuildOption.lowmem;
+		GeneratorSettings settings = defaultGeneratorSettings();
 
 		if (m_importPaths) { m_data = ["import-paths"]; m_dataList = true; }
 		else if (m_stringImportPaths) { m_data = ["string-import-paths"]; m_dataList = true; }
@@ -2331,14 +2323,8 @@ class DustmiteCommand : PackageBuildCommand {
 			dub = new Dub(NativePath(getcwd()));
 
 			setupPackage(dub, m_testPackage);
-			m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
 
-			GeneratorSettings gensettings;
-			gensettings.platform = m_buildPlatform;
-			gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
-			gensettings.buildType = m_buildType;
-			gensettings.compiler = m_compiler;
-			gensettings.buildSettings = m_buildSettings;
+			GeneratorSettings gensettings = defaultGeneratorSettings();
 			gensettings.combined = m_combined;
 			gensettings.filterVersions = m_filterVersions;
 			gensettings.run = m_programStatusCode != int.min || m_programRegex.length;
