@@ -43,4 +43,11 @@
     "subConfigurations": {
         "describe-dependency-1": "my-dependency-1-config"
     },
+    "buildTypes": {
+        "custombuild": {
+            "libs": ["customlib"],
+            "buildOptions": ["betterC"],
+            "buildRequirements": ["disallowDeprecations"]
+        }
+    }
 }
