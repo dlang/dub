@@ -890,14 +890,14 @@ class Project {
 		return ret;
 	}
 
-	private string[] listBuildSetting(string attributeName)(ref GeneratorSettings settings,
+	private string[] listBuildSetting(string attributeName)(const ref GeneratorSettings settings,
 		string config, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
 		return listBuildSetting!attributeName(settings, getPackageConfigs(settings.platform, config),
 			projectDescription, compiler, disableEscaping);
 	}
 
-	private string[] listBuildSetting(string attributeName)(ref GeneratorSettings settings,
+	private string[] listBuildSetting(string attributeName)(const ref GeneratorSettings settings,
 		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
 		if (compiler)
@@ -907,7 +907,7 @@ class Project {
 	}
 
 	// Output a build setting formatted for a compiler
-	private string[] formatBuildSettingCompiler(string attributeName)(ref GeneratorSettings settings,
+	private string[] formatBuildSettingCompiler(string attributeName)(const ref GeneratorSettings settings,
 		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
 		import std.process : escapeShellFileName;
@@ -996,7 +996,7 @@ class Project {
 	}
 
 	// Output a build setting without formatting for any particular compiler
-	private string[] formatBuildSettingPlain(string attributeName)(ref GeneratorSettings settings, string[string] configs, ProjectDescription projectDescription)
+	private string[] formatBuildSettingPlain(string attributeName)(const ref GeneratorSettings settings, string[string] configs, ProjectDescription projectDescription)
 	{
 		import std.path : buildNormalizedPath, dirSeparator;
 		import std.range : only;
@@ -1109,7 +1109,7 @@ class Project {
 
 	// The "compiler" arg is for choosing which compiler the output should be formatted for,
 	// or null to imply "list" format.
-	private string[] listBuildSetting(ref GeneratorSettings settings, string[string] configs,
+	private string[] listBuildSetting(const ref GeneratorSettings settings, string[string] configs,
 		ProjectDescription projectDescription, string requestedData, Compiler compiler, bool disableEscaping)
 	{
 		// Certain data cannot be formatter for a compiler
@@ -1139,6 +1139,11 @@ class Project {
 			case "post-build-environments":
 			case "pre-run-environments":
 			case "post-run-environments":
+			case "output-path":
+			case "default-config":
+			case "configs":
+			case "default-build":
+			case "builds":
 				enforce(false, "--data="~requestedData~" can only be used with `--data-list` or `--data-list --data-0`.");
 				break;
 
@@ -1191,12 +1196,32 @@ class Project {
 		case "requirements":               return listBuildSetting!"requirements"(args);
 		case "options":                    return listBuildSetting!"options"(args);
 
+		case "output-path":                return [determineOutputPath(settings).toNativeString()];
+		case "default-config":             return [getDefaultConfiguration(settings.platform)];
+		case "configs":                    return configurations;
+		case "default-build":              return [builtinBuildTypes[0]];
+		case "builds":                     return builds;
+
 		default:
 			enforce(false, "--data="~requestedData~
 				" is not a valid option. See 'dub describe --help' for accepted --data= values.");
 		}
 
 		assert(0);
+	}
+
+	/// Returns the relative or absolute path to the output file for the given
+	/// generator settings including target name and platform specific file
+	/// extension.
+	final NativePath determineOutputPath(const ref GeneratorSettings settings)
+	{
+		return determineOutputPath(settings.platform, settings.buildSettings, settings.compiler);
+	}
+
+	/// ditto
+	NativePath determineOutputPath(const ref BuildPlatform platform, const ref BuildSettings buildSettings, const Compiler compiler)
+	{
+		return NativePath(buildSettings.targetPath) ~ compiler.getTargetFileName(buildSettings, platform);
 	}
 
 	/// Outputs requested data for the project, optionally including its dependencies.
@@ -1217,6 +1242,9 @@ class Project {
 			auto target = projectDescription.lookupTarget(projectDescription.rootPackage);
 			foreach (file; target.buildSettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)))
 				target.buildSettings.addLinkerFiles(file);
+
+			// override passed in build settings with actual final build settings
+			settings.buildSettings = target.buildSettings;
 
 			// Remove linker files from sourceFiles
 			target.buildSettings.sourceFiles =
