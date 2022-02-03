@@ -1,0 +1,5 @@
+Injection of source files from dependencies
+
+Each (sub)package now supports a source file that will be included in any executable or dynamic library that depends either directly or indirectly of it.
+
+This can be used to register and unregister elements of a package within the dependant package without requiring the dependant to acknoledge that the registration mechanism needs to take place.
