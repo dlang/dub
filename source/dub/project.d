@@ -786,7 +786,6 @@ class Project {
 		case "linkerFiles":
 		case "mainSourceFile":
 		case "importFiles":
-		case "finalBinarySourceFile":
 			values = formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
 			break;
 
@@ -838,7 +837,6 @@ class Project {
 			switch (attributeName)
 			{
 			case "mainSourceFile":
-			case "finalBinarySourceFile":
 			case "linkerFiles":
 			case "copyFiles":
 			case "importFiles":
@@ -1238,7 +1236,9 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addPostRunCommands(processVars(project, pack, gsettings, settings.postRunCommands, false, postRunEnvs));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
-	dst.addFinalBinarySourceFile(processVars(settings.finalBinarySourceFile, project, pack, gsettings, true, buildEnvs));
+
+	if (!settings.finalBinarySourceFile.empty)
+		dst.addFinalBinarySourceFile(processVars(settings.finalBinarySourceFile, project, pack, gsettings, true, buildEnvs));
 
 	if (include_target_settings) {
 		dst.targetType = settings.targetType;
