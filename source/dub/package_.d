@@ -621,6 +621,7 @@ class Package {
 			ret.targetFileName = compiler.getTargetFileName(bs, platform);
 		ret.workingDirectory = bs.workingDirectory;
 		ret.mainSourceFile = bs.mainSourceFile;
+		ret.finalBinarySourceFile = bs.finalBinarySourceFile;
 		ret.dflags = bs.dflags;
 		ret.lflags = bs.lflags;
 		ret.libs = bs.libs;

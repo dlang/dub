@@ -81,6 +81,7 @@ struct PackageDescription {
 	string targetFileName;
 	string workingDirectory;
 	string mainSourceFile;
+	string finalBinarySourceFile;
 	string[] dflags; /// Flags passed to the D compiler
 	string[] lflags; /// Flags passed to the linker
 	string[] libs; /// Librariy names to link against (typically using "-l<name>")

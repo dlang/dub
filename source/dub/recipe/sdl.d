@@ -153,6 +153,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "sourcePaths": setting.parsePlatformStringArray(bs.sourcePaths); break;
 		case "excludedSourceFiles": setting.parsePlatformStringArray(bs.excludedSourceFiles); break;
 		case "mainSourceFile": bs.mainSourceFile = setting.stringTagValue; break;
+		case "finalBinarySourceFile": bs.finalBinarySourceFile = setting.stringTagValue; break;
 		case "copyFiles": setting.parsePlatformStringArray(bs.copyFiles); break;
 		case "extraDependencyFiles": setting.parsePlatformStringArray(bs.extraDependencyFiles); break;
 		case "versions": setting.parsePlatformStringArray(bs.versions); break;
@@ -278,6 +279,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	if (bs.targetName.length) add("targetName", bs.targetName);
 	if (bs.workingDirectory.length) add("workingDirectory", bs.workingDirectory);
 	if (bs.mainSourceFile.length) add("mainSourceFile", bs.mainSourceFile);
+	if (bs.finalBinarySourceFile.length) add("finalBinarySourceFile", bs.finalBinarySourceFile);
 	foreach (pack, conf; bs.subConfigurations) ret ~= new Tag(null, "subConfiguration", [Value(pack), Value(conf)]);
 	foreach (suffix, arr; bs.dflags) adda("dflags", suffix, arr);
 	foreach (suffix, arr; bs.lflags) adda("lflags", suffix, arr);
@@ -464,6 +466,7 @@ sourcePaths "sourcepath3"
 excludedSourceFiles "excluded1" "excluded2"
 excludedSourceFiles "excluded3"
 mainSourceFile "main source"
+finalBinarySourceFile "final binary source"
 copyFiles "copy1" "copy2"
 copyFiles "copy3"
 extraDependencyFiles "extradepfile1" "extradepfile2"
@@ -566,6 +569,7 @@ lflags "lf3"
 	assert(rec.buildSettings.sourcePaths == ["": ["sourcepath1", "sourcepath2", "sourcepath3"]]);
 	assert(rec.buildSettings.excludedSourceFiles == ["": ["excluded1", "excluded2", "excluded3"]]);
 	assert(rec.buildSettings.mainSourceFile == "main source");
+	assert(rec.buildSettings.finalBinarySourceFile == "final binary source");
 	assert(rec.buildSettings.copyFiles == ["": ["copy1", "copy2", "copy3"]]);
 	assert(rec.buildSettings.extraDependencyFiles == ["": ["extradepfile1", "extradepfile2", "extradepfile3"]]);
 	assert(rec.buildSettings.versions == ["": ["version1", "version2", "version3"]]);

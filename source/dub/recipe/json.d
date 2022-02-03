@@ -209,6 +209,10 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 				enforce(suffix.empty, "mainSourceFile does not support platform customization.");
 				bs.mainSourceFile = value.get!string;
 				break;
+			case "finalBinarySourceFile":
+				enforce(suffix.empty, "finalBinarySourceFile does not support platform customization.");
+				bs.finalBinarySourceFile = value.get!string;
+				break;
 			case "subConfigurations":
 				enforce(suffix.empty, "subConfigurations does not support platform customization.");
 				bs.subConfigurations = deserializeJson!(string[string])(value);
@@ -275,6 +279,7 @@ private Json toJson(const scope ref BuildSettingsTemplate bs)
 	if (!bs.targetName.empty) ret["targetName"] = bs.targetName;
 	if (!bs.workingDirectory.empty) ret["workingDirectory"] = bs.workingDirectory;
 	if (!bs.mainSourceFile.empty) ret["mainSourceFile"] = bs.mainSourceFile;
+	if (!bs.finalBinarySourceFile.empty) ret["finalBinarySourceFile"] = bs.finalBinarySourceFile;
 	if (bs.subConfigurations.length > 0) ret["subConfigurations"] = serializeToJson(bs.subConfigurations);
 	foreach (suffix, arr; bs.dflags) ret["dflags"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.lflags) ret["lflags"~suffix] = serializeToJson(arr);
@@ -376,7 +381,7 @@ unittest {
 	parseJson(rec1, jsonValue, null);
 	PackageRecipe rec;
 	parseJson(rec, rec1.toJson(), null); // verify that all fields are serialized properly
-	
+
 	assert(rec.name == "projectname");
 	assert(rec.buildSettings.environments == ["": ["Var1": "env"]]);
 	assert(rec.buildSettings.buildEnvironments == ["": ["Var2": "buildEnv"]]);

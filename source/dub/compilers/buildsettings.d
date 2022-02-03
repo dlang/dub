@@ -26,6 +26,7 @@ struct BuildSettings {
 	string targetName;
 	string workingDirectory;
 	string mainSourceFile;
+	string finalBinarySourceFile;
 	string[] dflags;
 	string[] lflags;
 	string[] libs;
@@ -88,6 +89,7 @@ struct BuildSettings {
 		addLibs(bs.libs);
 		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
+		addFinalBinarySourceFile(bs.finalBinarySourceFile);
 		addCopyFiles(bs.copyFiles);
 		addExtraDependencyFiles(bs.extraDependencyFiles);
 		addVersions(bs.versions);
@@ -113,6 +115,7 @@ struct BuildSettings {
 	void addLibs(in string[] value...) { add(libs, value); }
 	void addLinkerFiles(in string[] value...) { add(linkerFiles, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
+	void addFinalBinarySourceFile(in string value) { this.finalBinarySourceFile = value; }
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }

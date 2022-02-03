@@ -183,6 +183,7 @@ struct BuildSettingsTemplate {
 	string targetName;
 	string workingDirectory;
 	string mainSourceFile;
+	string finalBinarySourceFile;
 	string[string] subConfigurations;
 	string[][string] dflags;
 	string[][string] lflags;
@@ -229,6 +230,11 @@ struct BuildSettingsTemplate {
 			p.normalize();
 			dst.mainSourceFile = p.toNativeString();
 			dst.addSourceFiles(dst.mainSourceFile);
+		}
+		if (!this.finalBinarySourceFile.empty) {
+			auto p = NativePath(this.finalBinarySourceFile);
+			p.normalize();
+			dst.finalBinarySourceFile = p.toNativeString();
 		}
 
 		string[] collectFiles(in string[][string] paths_map, string pattern)

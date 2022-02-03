@@ -234,8 +234,12 @@ class ProjectGenerator
 		compatible. This also transports all Have_dependency_xyz version
 		identifiers to `rootPackage`.
 
-		4. Filter unused versions and debugVersions from all targets. The
-		filters have previously been upwards inherited (3.) so that versions
+		4. Merge finalBinarySourceFile from dependencies into their dependents.
+		This is based upon binary images and will transcend direct relationships
+		including shared libraries.
+
+		5. Filter unused versions and debugVersions from all targets. The
+		filters have previously been upwards inherited (3. and 4.) so that versions
 		used in a dependency are also applied to all dependents.
 
 		Note: The upwards inheritance is done at last so that siblings do not
@@ -423,10 +427,12 @@ class ProjectGenerator
 			// embedded non-binary dependencies
 			foreach (deppack; ti.packages[1 .. $])
 				ti.buildSettings.add(targets[deppack.name].buildSettings);
+
 			// binary dependencies
 			foreach (depname; ti.dependencies)
 			{
 				auto pdepti = &targets[depname];
+
 				configureDependents(*pdepti, targets, level + 1);
 				mergeFromDependency(pdepti.buildSettings, ti.buildSettings, genSettings.platform);
 			}
@@ -435,7 +441,61 @@ class ProjectGenerator
 		configureDependents(*roottarget, targets);
 		visited.clear();
 
-		// 4. Filter applicable version and debug version identifiers
+		// 4. As an extension to configureDependents we need to copy any finalBinarySourceFile
+		// in our dependencies (ignoring targetType)
+		void configureDependentsFinalImages(TargetInfo* ti, TargetInfo[string] targets, TargetInfo* ifRootIsFinalImage = null, size_t level = 0)
+		{
+			// use `visited` here as pkgs cannot depend on themselves
+			if (ti.pack in visited)
+				return;
+			visited[ti.pack] = typeof(visited[ti.pack]).init;
+
+			logDiagnostic("%sConfiguring dependent %s, deps:%(%s, %) for finalBinarySourceFile", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
+
+			if (ifRootIsFinalImage !is null)
+			{
+				foreach (depname; ti.dependencies)
+				{
+					auto pdepti = &targets[depname];
+
+					if (ifRootIsFinalImage !is null && !pdepti.buildSettings.finalBinarySourceFile.empty)
+						ifRootIsFinalImage.buildSettings.addSourceFiles(pdepti.buildSettings.finalBinarySourceFile);
+				}
+			}
+
+
+			switch (ti.buildSettings.targetType)
+			{
+				case TargetType.executable:
+				case TargetType.dynamicLibrary:
+					ifRootIsFinalImage = ti;
+					break;
+
+				default:
+					break;
+			}
+
+			foreach (depname; ti.dependencies)
+			{
+				auto pdepti = &targets[depname];
+				configureDependentsFinalImages(pdepti, targets, ifRootIsFinalImage, level + 1);
+			}
+		}
+
+		switch (roottarget.buildSettings.targetType)
+		{
+			case TargetType.executable:
+			case TargetType.dynamicLibrary:
+				configureDependentsFinalImages(roottarget, targets, roottarget);
+				break;
+
+			default:
+				configureDependentsFinalImages(roottarget, targets);
+				break;
+		}
+		visited.clear();
+
+		// 5. Filter applicable version and debug version identifiers
 		if (genSettings.filterVersions)
 		{
 			foreach (name, ref ti; targets)
@@ -454,7 +514,7 @@ class ProjectGenerator
 			}
 		}
 
-		// 5. override string import files in dependencies
+		// 6. override string import files in dependencies
 		static void overrideStringImports(ref TargetInfo target,
 			ref TargetInfo parent, TargetInfo[string] targets, string[] overrides)
 		{
@@ -505,7 +565,7 @@ class ProjectGenerator
 			overrideStringImports(targets[depname], *roottarget, targets,
 				roottarget.buildSettings.stringImportFiles);
 
-		// 6. downwards inherits dependency build settings
+		// 7. downwards inherits dependency build settings
 		static void applyForcedSettings(const scope ref TargetInfo ti, TargetInfo[string] targets,
 											BuildSettings[string] dependBS, size_t level = 0)
 		{
@@ -669,6 +729,7 @@ class ProjectGenerator
 		parent.addDebugVersionFilters(child.debugVersionFilters);
 		parent.addImportPaths(child.importPaths);
 		parent.addStringImportPaths(child.stringImportPaths);
+		parent.addFinalBinarySourceFile(child.finalBinarySourceFile);
 		// linking of static libraries is done by parent
 		if (child.targetType == TargetType.staticLibrary) {
 			parent.addSourceFiles(child.sourceFiles.filter!(f => isLinkerFile(platform, f)).array);
@@ -962,7 +1023,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_ROOT_PACKAGE_TARGET_TYPE"] = to!string(rootPackageBuildSettings.targetType);
 	env["DUB_ROOT_PACKAGE_TARGET_PATH"] = rootPackageBuildSettings.targetPath;
 	env["DUB_ROOT_PACKAGE_TARGET_NAME"] = rootPackageBuildSettings.targetName;
-	
+
 	foreach (aa; extraVars) {
 		foreach (k, v; aa)
 			env[k] = v;
