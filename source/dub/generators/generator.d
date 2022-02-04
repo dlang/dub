@@ -416,6 +416,11 @@ class ProjectGenerator
 		}
 
 		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, versionFilters, importPaths, ...)
+
+		// We do a check for if any dependency uses final binary injection source files,
+		// otherwise can ignore that bit of workload entirely
+		bool skipFinalBinaryMerging = true;
+
 		void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
 		{
 			// use `visited` here as pkgs cannot depend on themselves
@@ -435,6 +440,9 @@ class ProjectGenerator
 
 				configureDependents(*pdepti, targets, level + 1);
 				mergeFromDependency(pdepti.buildSettings, ti.buildSettings, genSettings.platform);
+
+				if (!pdepti.buildSettings.finalBinarySourceFile.empty)
+					skipFinalBinaryMerging = false;
 			}
 		}
 
@@ -443,7 +451,7 @@ class ProjectGenerator
 
 		// 4. As an extension to configureDependents we need to copy any finalBinarySourceFile
 		// in our dependencies (ignoring targetType)
-		void configureDependentsFinalImages(TargetInfo* ti, TargetInfo[string] targets, TargetInfo* ifRootIsFinalImage = null, size_t level = 0)
+		void configureDependentsFinalImages(ref TargetInfo ti, TargetInfo[string] targets, ref TargetInfo finalBinaryTarget, size_t level = 0)
 		{
 			// use `visited` here as pkgs cannot depend on themselves
 			if (ti.pack in visited)
@@ -452,48 +460,37 @@ class ProjectGenerator
 
 			logDiagnostic("%sConfiguring dependent %s, deps:%(%s, %) for finalBinarySourceFile", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
 
-			if (ifRootIsFinalImage !is null)
-			{
-				foreach (depname; ti.dependencies)
-				{
-					auto pdepti = &targets[depname];
-
-					if (ifRootIsFinalImage !is null && !pdepti.buildSettings.finalBinarySourceFile.empty)
-						ifRootIsFinalImage.buildSettings.addSourceFiles(pdepti.buildSettings.finalBinarySourceFile);
-				}
-			}
-
-
-			switch (ti.buildSettings.targetType)
-			{
-				case TargetType.executable:
-				case TargetType.dynamicLibrary:
-					ifRootIsFinalImage = ti;
-					break;
-
-				default:
-					break;
-			}
-
 			foreach (depname; ti.dependencies)
 			{
 				auto pdepti = &targets[depname];
-				configureDependentsFinalImages(pdepti, targets, ifRootIsFinalImage, level + 1);
+
+				if (!pdepti.buildSettings.finalBinarySourceFile.empty)
+					finalBinaryTarget.buildSettings.addSourceFiles(pdepti.buildSettings.finalBinarySourceFile);
+
+				configureDependentsFinalImages(*pdepti, targets, finalBinaryTarget, level + 1);
 			}
 		}
 
-		switch (roottarget.buildSettings.targetType)
+		if (!skipFinalBinaryMerging)
 		{
-			case TargetType.executable:
-			case TargetType.dynamicLibrary:
-				configureDependentsFinalImages(roottarget, targets, roottarget);
-				break;
+			foreach (ref target; targets.byValue)
+			{
+				switch (target.buildSettings.targetType)
+				{
+					case TargetType.executable:
+					case TargetType.dynamicLibrary:
+						configureDependentsFinalImages(target, targets, target);
 
-			default:
-				configureDependentsFinalImages(roottarget, targets);
-				break;
+						// We need to clear visited for each target that is executable dynamicLibrary
+						// due to this process needing to be recursive based upon the final binary targets.
+						visited.clear();
+						break;
+
+					default:
+						break;
+				}
+			}
 		}
-		visited.clear();
 
 		// 5. Filter applicable version and debug version identifiers
 		if (genSettings.filterVersions)
