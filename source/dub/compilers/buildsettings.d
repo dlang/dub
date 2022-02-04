@@ -89,7 +89,6 @@ struct BuildSettings {
 		addLibs(bs.libs);
 		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
-		addFinalBinarySourceFile(bs.finalBinarySourceFile);
 		addCopyFiles(bs.copyFiles);
 		addExtraDependencyFiles(bs.extraDependencyFiles);
 		addVersions(bs.versions);

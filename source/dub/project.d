@@ -785,6 +785,7 @@ class Project {
 		case "dflags":
 		case "linkerFiles":
 		case "mainSourceFile":
+		case "finalBinarySourceFile":
 		case "importFiles":
 			values = formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
 			break;
@@ -837,6 +838,7 @@ class Project {
 			switch (attributeName)
 			{
 			case "mainSourceFile":
+			case "finalBinarySourceFile":
 			case "linkerFiles":
 			case "copyFiles":
 			case "importFiles":
@@ -918,7 +920,8 @@ class Project {
 			enum isRelativeFile =
 				attributeName == "sourceFiles" || attributeName == "linkerFiles" ||
 				attributeName == "importFiles" || attributeName == "stringImportFiles" ||
-				attributeName == "copyFiles" || attributeName == "mainSourceFile";
+				attributeName == "copyFiles" || attributeName == "mainSourceFile" ||
+				attributeName == "finalBinarySourceFile";
 
 			// For these, empty string means "main project directory", not "missing value"
 			enum allowEmptyString =
@@ -1007,6 +1010,7 @@ class Project {
 		case "target-name":                return listBuildSetting!"targetName"(args);
 		case "working-directory":          return listBuildSetting!"workingDirectory"(args);
 		case "main-source-file":           return listBuildSetting!"mainSourceFile"(args);
+		case "finalBinarySourceFile":      return listBuildSetting!"finalBinarySourceFile"(args);
 		case "dflags":                     return listBuildSetting!"dflags"(args);
 		case "lflags":                     return listBuildSetting!"lflags"(args);
 		case "libs":                       return listBuildSetting!"libs"(args);
