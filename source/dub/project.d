@@ -1204,7 +1204,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addPostBuildEnvironments(processVerEnvs(settings.postBuildEnvironments, gsettings.buildSettings.postBuildEnvironments));
 	dst.addPreRunEnvironments(processVerEnvs(settings.preRunEnvironments, gsettings.buildSettings.preRunEnvironments));
 	dst.addPostRunEnvironments(processVerEnvs(settings.postRunEnvironments, gsettings.buildSettings.postRunEnvironments));
-	
+
 	auto buildEnvs = [dst.environments, dst.buildEnvironments];
 	auto runEnvs = [dst.environments, dst.runEnvironments];
 	auto preGenEnvs = [dst.environments, dst.preGenerateEnvironments];
@@ -1213,7 +1213,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	auto postBuildEnvs = buildEnvs ~ [dst.postBuildEnvironments];
 	auto preRunEnvs = runEnvs ~ [dst.preRunEnvironments];
 	auto postRunEnvs = runEnvs ~ [dst.postRunEnvironments];
-	
+
 	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags, false, buildEnvs));
 	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags, false, buildEnvs));
 	dst.addLibs(processVars(project, pack, gsettings, settings.libs, false, buildEnvs));
@@ -1473,7 +1473,7 @@ private string getVariable(Project, Package)(string name, in Project project, in
 		else if (name == "LFLAGS")
 			return join(buildSettings.lflags," ");
 	}
-	
+
 	import std.range;
 	foreach (aa; retro(extraVars))
 		if (auto exvar = name in aa)

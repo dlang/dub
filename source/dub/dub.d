@@ -142,7 +142,7 @@ class Dub {
 		string[string] m_defaultPostBuildEnvironments;
 		string[string] m_defaultPreRunEnvironments;
 		string[string] m_defaultPostRunEnvironments;
-		
+
 	}
 
 	/** The default placement location of fetched packages.
@@ -359,7 +359,7 @@ class Dub {
 		configuration file will be used. Otherwise false will be returned.
 	*/
 	@property bool defaultLowMemory() const { return m_defaultLowMemory; }
-	
+
 	@property const(string[string]) defaultEnvironments() const { return m_defaultEnvironments; }
 	@property const(string[string]) defaultBuildEnvironments() const { return m_defaultBuildEnvironments; }
 	@property const(string[string]) defaultRunEnvironments() const { return m_defaultRunEnvironments; }
@@ -663,6 +663,7 @@ class Dub {
 
 		BuildSettings lbuildsettings = settings.buildSettings;
 		m_project.addBuildSettings(lbuildsettings, settings, config, null, true);
+
 		if (lbuildsettings.targetType == TargetType.none) {
 			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
 			return;
@@ -1514,7 +1515,7 @@ class Dub {
 		}
 		m_defaultCompiler = compilers[0];
 	}
-	
+
 	unittest
 	{
 		import std.path: buildPath, absolutePath;
@@ -1532,10 +1533,10 @@ class Dub {
 		scope (exit) repairenv("DC", olddc);
 		scope (exit) repairenv("PATH", oldpath);
 		scope (exit) rmdirRecurse(testdir);
-		
+
 		version (Windows) enum sep = ";", exe = ".exe";
 		version (Posix) enum sep = ":", exe = "";
-		
+
 		immutable dmdpath = testdir.buildPath("dmd", "bin");
 		immutable ldcpath = testdir.buildPath("ldc", "bin");
 		mkdirRecurse(dmdpath);
@@ -1544,21 +1545,21 @@ class Dub {
 		immutable ldcbin = ldcpath.buildPath("ldc2"~exe);
 		std.file.write(dmdbin, null);
 		std.file.write(ldcbin, null);
-		
+
 		environment["DC"] = dmdbin.absolutePath();
 		dub.determineDefaultCompiler();
 		assert(dub.m_defaultCompiler == dmdbin.absolutePath());
-		
+
 		environment["DC"] = "dmd";
 		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
 		dub.determineDefaultCompiler();
 		assert(dub.m_defaultCompiler == "dmd");
-		
+
 		environment["DC"] = "ldc2";
 		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
 		dub.determineDefaultCompiler();
 		assert(dub.m_defaultCompiler == "ldc2");
-		
+
 		environment.remove("DC");
 		environment["PATH"] = ldcpath ~ sep ~ dmdpath;
 		dub.determineDefaultCompiler();
@@ -1970,7 +1971,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultLowMemory;
 		return false;
 	}
-	
+
 	@property string[string] defaultEnvironments()
 	const {
 		if (auto pv = "defaultEnvironments" in m_data)
@@ -1978,7 +1979,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultBuildEnvironments()
 	const {
 		if (auto pv = "defaultBuildEnvironments" in m_data)
@@ -1986,7 +1987,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultBuildEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultRunEnvironments()
 	const {
 		if (auto pv = "defaultRunEnvironments" in m_data)
@@ -1994,7 +1995,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultRunEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPreGenerateEnvironments()
 	const {
 		if (auto pv = "defaultPreGenerateEnvironments" in m_data)
@@ -2002,7 +2003,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPreGenerateEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPostGenerateEnvironments()
 	const {
 		if (auto pv = "defaultPostGenerateEnvironments" in m_data)
@@ -2010,7 +2011,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPostGenerateEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPreBuildEnvironments()
 	const {
 		if (auto pv = "defaultPreBuildEnvironments" in m_data)
@@ -2018,7 +2019,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPreBuildEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPostBuildEnvironments()
 	const {
 		if (auto pv = "defaultPostBuildEnvironments" in m_data)
@@ -2026,7 +2027,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPostBuildEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPreRunEnvironments()
 	const {
 		if (auto pv = "defaultPreRunEnvironments" in m_data)
@@ -2034,7 +2035,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPreRunEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPostRunEnvironments()
 	const {
 		if (auto pv = "defaultPostRunEnvironments" in m_data)
