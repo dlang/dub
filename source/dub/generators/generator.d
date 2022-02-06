@@ -259,10 +259,10 @@ class ProjectGenerator
 				if (tt == TargetType.autodetect || tt == TargetType.library) tt = TargetType.staticLibrary;
 			} else {
 				if (tt == TargetType.autodetect || tt == TargetType.library) tt = genSettings.combined ? TargetType.sourceLibrary : TargetType.staticLibrary;
-				else if (tt == TargetType.dynamicLibrary) {
-					logWarn("Dynamic libraries are not yet supported as dependencies - building as static library.");
-					tt = TargetType.staticLibrary;
-				}
+				// else if (tt == TargetType.dynamicLibrary) {
+				// 	logWarn("Dynamic libraries are not yet supported as dependencies - building as static library.");
+				// 	tt = TargetType.staticLibrary;
+				// }
 			}
 			if (tt != TargetType.none && tt != TargetType.sourceLibrary && ti.buildSettings.sourceFiles.empty) {
 				logWarn(`Configuration '%s' of package %s contains no source files. Please add {"targetType": "none"} to its package description to avoid building it.`,
@@ -962,7 +962,7 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_ROOT_PACKAGE_TARGET_TYPE"] = to!string(rootPackageBuildSettings.targetType);
 	env["DUB_ROOT_PACKAGE_TARGET_PATH"] = rootPackageBuildSettings.targetPath;
 	env["DUB_ROOT_PACKAGE_TARGET_NAME"] = rootPackageBuildSettings.targetName;
-	
+
 	foreach (aa; extraVars) {
 		foreach (k, v; aa)
 			env[k] = v;
