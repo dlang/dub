@@ -24,7 +24,7 @@ import std.conv;
 /**
 	Validates a version string according to the SemVer specification.
 */
-bool isValidVersion(string ver)
+bool isValidVersion(string ver, bool allow_leading_zeros = false)
 pure @nogc {
 	// NOTE: this is not by spec, but to ensure sane input
 	if (ver.length > 256) return false;
@@ -32,19 +32,19 @@ pure @nogc {
 	// a
 	auto sepi = ver.indexOf('.');
 	if (sepi < 0) return false;
-	if (!isValidNumber(ver[0 .. sepi])) return false;
+	if (!isValidNumber(ver[0 .. sepi], allow_leading_zeros)) return false;
 	ver = ver[sepi+1 .. $];
 
 	// c
 	sepi = ver.indexOf('.');
 	if (sepi < 0) return false;
-	if (!isValidNumber(ver[0 .. sepi])) return false;
+	if (!isValidNumber(ver[0 .. sepi], allow_leading_zeros)) return false;
 	ver = ver[sepi+1 .. $];
 
 	// c
 	sepi = ver.indexOfAny("-+");
 	if (sepi < 0) sepi = ver.length;
-	if (!isValidNumber(ver[0 .. sepi])) return false;
+	if (!isValidNumber(ver[0 .. sepi], allow_leading_zeros)) return false;
 	ver = ver[sepi .. $];
 
 	// prerelease tail
@@ -74,6 +74,9 @@ unittest {
 	assert(!isValidVersion("01.9.0"));
 	assert(!isValidVersion("1.09.0"));
 	assert(!isValidVersion("1.9.00"));
+	assert(isValidVersion("01.9.0", true));
+	assert(isValidVersion("1.09.0", true));
+	assert(isValidVersion("1.9.00", true));
 	assert(isValidVersion("1.0.0-alpha"));
 	assert(isValidVersion("1.0.0-alpha.1"));
 	assert(isValidVersion("1.0.0-0.3.7"));
@@ -393,15 +396,15 @@ pure @nogc {
 	return true;
 }
 
-private bool isValidNumber(string str)
+private bool isValidNumber(string str, bool allow_leading_zeros = false)
 pure @nogc {
 	if (str.length < 1) return false;
 	foreach (ch; str)
 		if (ch < '0' || ch > '9')
 			return false;
 
-	// don't allow leading zeros
-	if (str[0] == '0' && str.length > 1) return false;
+	if (!allow_leading_zeros && str[0] == '0' && str.length > 1)
+		return false;
 
 	return true;
 }

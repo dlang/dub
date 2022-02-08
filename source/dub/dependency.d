@@ -829,7 +829,7 @@ struct Version {
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
 		if (vers[0] != branchPrefix && !vers.isGitHash && vers.ptr !is UNKNOWN_VERS.ptr)
-			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
+			enforce(vers.isValidVersion(true), "Invalid SemVer format: " ~ vers);
 		m_version = vers;
 	}
 
