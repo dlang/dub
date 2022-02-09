@@ -252,15 +252,21 @@ class ProjectGenerator
 		auto roottarget = &targets[rootPackage.name];
 
 		// 0. do shallow configuration (not including dependencies) of all packages
-		TargetType determineTargetType(const ref TargetInfo ti)
+		TargetType determineTargetType(const ref TargetInfo ti, const ref GeneratorSettings genSettings)
 		{
 			TargetType tt = ti.buildSettings.targetType;
 			if (ti.pack is rootPackage) {
 				if (tt == TargetType.autodetect || tt == TargetType.library) tt = TargetType.staticLibrary;
 			} else {
 				if (tt == TargetType.autodetect || tt == TargetType.library) tt = genSettings.combined ? TargetType.sourceLibrary : TargetType.staticLibrary;
-				else if (tt == TargetType.dynamicLibrary) {
-					logWarn("Dynamic libraries are not yet supported as dependencies - building as static library.");
+				else if (genSettings.platform.architecture.canFind("x86_omf") && tt == TargetType.dynamicLibrary) {
+					// Unfortunately we cannot remove this check for OMF targets,
+					// due to Optlink not producing shared libraries without a lot of user intervention.
+					// For other targets, say MSVC it'll do the right thing for the most part,
+					// export is still a problem as of this writing, which means static libraries cannot have linking to them removed.
+					// But that is for the most part up to the developer, to get it working correctly.
+
+					logWarn("Dynamic libraries are not yet supported as dependencies for Windows target OMF - building as static library.");
 					tt = TargetType.staticLibrary;
 				}
 			}
@@ -279,7 +285,7 @@ class ProjectGenerator
 		{
 			auto bs = &ti.buildSettings;
 			// determine the actual target type
-			bs.targetType = determineTargetType(ti);
+			bs.targetType = determineTargetType(ti, genSettings);
 
 			switch (bs.targetType)
 			{
