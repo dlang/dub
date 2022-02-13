@@ -832,8 +832,7 @@ private void prepareGeneration(in Package pack, in Project proj, in GeneratorSet
 {
 	if (buildsettings.preGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running pre-generate commands for %s...", pack.name);
-		runBuildCommands(buildsettings.preGenerateCommands, pack, proj, settings, buildsettings,
-			[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.preGenerateEnvironments]);
+		runBuildCommands(CommandType.preGenerate, buildsettings.preGenerateCommands, pack, proj, settings, buildsettings);
 	}
 }
 
@@ -845,8 +844,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 {
 	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running post-generate commands for %s...", pack.name);
-		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings,
-			[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.postGenerateEnvironments]);
+		runBuildCommands(CommandType.postGenerate, buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
 	}
 
 	if (generate_binary) {
@@ -913,29 +911,44 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	command execution loops. The latter could otherwise happen when a command
 	runs "dub describe" or similar functionality.
 */
-void runBuildCommands(in string[] commands, in Package pack, in Project proj,
+void runBuildCommands(CommandType type, in string[] commands, in Package pack, in Project proj,
 	in GeneratorSettings settings, in BuildSettings build_settings, in string[string][] extraVars = null)
 {
-	import dub.internal.utils : getDUBExePath, runCommands;
+	import dub.internal.utils : runCommands;
+
+	auto env = makeCommandEnvironmentVariables(type, pack, proj, settings, build_settings, extraVars);
+	auto sub_commands = processVars(proj, pack, settings, commands, false, env);
+
+	auto depNames = proj.dependencies.map!((a) => a.name).array();
+	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
+
+	runCommands(sub_commands, env.collapseEnv, pack.path().toString());
+}
+
+const(string[string])[] makeCommandEnvironmentVariables(CommandType type,
+	in Package pack, in Project proj, in GeneratorSettings settings,
+	in BuildSettings build_settings, in string[string][] extraVars = null)
+{
+	import dub.internal.utils : getDUBExePath;
 	import std.conv : to, text;
 	import std.process : environment, escapeShellFileName;
 
-	string[string] env = environment.toAA();
+	string[string] env;
 	// TODO: do more elaborate things here
 	// TODO: escape/quote individual items appropriately
-	env["VERSIONS"]              = join(cast(string[])build_settings.versions," ");
-	env["LIBS"]                  = join(cast(string[])build_settings.libs," ");
-	env["SOURCE_FILES"]          = join(cast(string[])build_settings.sourceFiles," ");
-	env["IMPORT_PATHS"]          = join(cast(string[])build_settings.importPaths," ");
-	env["STRING_IMPORT_PATHS"]   = join(cast(string[])build_settings.stringImportPaths," ");
+	env["VERSIONS"]              = join(build_settings.versions, " ");
+	env["LIBS"]                  = join(build_settings.libs, " ");
+	env["SOURCE_FILES"]          = join(build_settings.sourceFiles, " ");
+	env["IMPORT_PATHS"]          = join(build_settings.importPaths, " ");
+	env["STRING_IMPORT_PATHS"]   = join(build_settings.stringImportPaths, " ");
 
 	env["DC"]                    = settings.platform.compilerBinary;
 	env["DC_BASE"]               = settings.platform.compiler;
 	env["D_FRONTEND_VER"]        = to!string(settings.platform.frontendVersion);
 
 	env["DUB_EXE"]               = getDUBExePath(settings.platform.compilerBinary);
-	env["DUB_PLATFORM"]          = join(cast(string[])settings.platform.platform," ");
-	env["DUB_ARCH"]              = join(cast(string[])settings.platform.architecture," ");
+	env["DUB_PLATFORM"]          = join(settings.platform.platform, " ");
+	env["DUB_ARCH"]              = join(settings.platform.architecture, " ");
 
 	env["DUB_TARGET_TYPE"]       = to!string(build_settings.targetType);
 	env["DUB_TARGET_PATH"]       = build_settings.targetPath;
@@ -968,15 +981,49 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_ROOT_PACKAGE_TARGET_TYPE"] = to!string(rootPackageBuildSettings.targetType);
 	env["DUB_ROOT_PACKAGE_TARGET_PATH"] = rootPackageBuildSettings.targetPath;
 	env["DUB_ROOT_PACKAGE_TARGET_NAME"] = rootPackageBuildSettings.targetName;
-	
-	foreach (aa; extraVars) {
-		foreach (k, v; aa)
-			env[k] = v;
+
+	const(string[string])[] typeEnvVars;
+	with (build_settings) final switch (type)
+	{
+		// pre/postGenerate don't have generateEnvironments, but reuse buildEnvironments
+		case CommandType.preGenerate: typeEnvVars = [environments, buildEnvironments, preGenerateEnvironments]; break;
+		case CommandType.postGenerate: typeEnvVars = [environments, buildEnvironments, postGenerateEnvironments]; break;
+		case CommandType.preBuild: typeEnvVars = [environments, buildEnvironments, preBuildEnvironments]; break;
+		case CommandType.postBuild: typeEnvVars = [environments, buildEnvironments, postBuildEnvironments]; break;
+		case CommandType.preRun: typeEnvVars = [environments, runEnvironments, preRunEnvironments]; break;
+		case CommandType.postRun: typeEnvVars = [environments, runEnvironments, postRunEnvironments]; break;
 	}
 
-	auto depNames = proj.dependencies.map!((a) => a.name).array();
-	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
-	runCommands(commands, env, pack.path().toString());
+	return [environment.toAA()] ~ env ~ typeEnvVars ~ extraVars;
+}
+
+string[string] collapseEnv(in string[string][] envs)
+{
+	string[string] ret;
+	foreach (subEnv; envs)
+	{
+		foreach (k, v; subEnv)
+			ret[k] = v;
+	}
+	return ret;
+}
+
+/// Type to specify where CLI commands that need to be run came from. Needed for
+/// proper substitution with support for the different environments.
+enum CommandType
+{
+	/// Defined in the preGenerateCommands setting
+	preGenerate,
+	/// Defined in the postGenerateCommands setting
+	postGenerate,
+	/// Defined in the preBuildCommands setting
+	preBuild,
+	/// Defined in the postBuildCommands setting
+	postBuild,
+	/// Defined in the preRunCommands setting
+	preRun,
+	/// Defined in the postRunCommands setting
+	postRun
 }
 
 private bool isRecursiveInvocation(string pack)
@@ -985,20 +1032,22 @@ private bool isRecursiveInvocation(string pack)
 	import std.process : environment;
 
 	return environment
-        .get("DUB_PACKAGES_USED", "")
-        .splitter(",")
-        .canFind(pack);
+		.get("DUB_PACKAGES_USED", "")
+		.splitter(",")
+		.canFind(pack);
 }
 
-private void storeRecursiveInvokations(string[string] env, string[] packs)
+private void storeRecursiveInvokations(ref const(string[string])[] env, string[] packs)
 {
 	import std.algorithm : canFind, splitter;
 	import std.range : chain;
 	import std.process : environment;
 
-    env["DUB_PACKAGES_USED"] = environment
-        .get("DUB_PACKAGES_USED", "")
-        .splitter(",")
-        .chain(packs)
-        .join(",");
+	env ~= [
+		"DUB_PACKAGES_USED": environment
+			.get("DUB_PACKAGES_USED", "")
+			.splitter(",")
+			.chain(packs)
+			.join(",")
+	];
 }
