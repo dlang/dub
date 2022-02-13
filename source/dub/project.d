@@ -751,24 +751,24 @@ class Project {
 		return ret;
 	}
 
-	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
+	private string[] listBuildSetting(string attributeName)(ref GeneratorSettings settings,
 		string config, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
-		return listBuildSetting!attributeName(platform, getPackageConfigs(platform, config),
+		return listBuildSetting!attributeName(settings, getPackageConfigs(settings.platform, config),
 			projectDescription, compiler, disableEscaping);
 	}
 
-	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
+	private string[] listBuildSetting(string attributeName)(ref GeneratorSettings settings,
 		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
 		if (compiler)
-			return formatBuildSettingCompiler!attributeName(platform, configs, projectDescription, compiler, disableEscaping);
+			return formatBuildSettingCompiler!attributeName(settings, configs, projectDescription, compiler, disableEscaping);
 		else
-			return formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
+			return formatBuildSettingPlain!attributeName(settings, configs, projectDescription);
 	}
 
 	// Output a build setting formatted for a compiler
-	private string[] formatBuildSettingCompiler(string attributeName)(BuildPlatform platform,
+	private string[] formatBuildSettingCompiler(string attributeName)(ref GeneratorSettings settings,
 		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
 		import std.process : escapeShellFileName;
@@ -786,7 +786,7 @@ class Project {
 		case "linkerFiles":
 		case "mainSourceFile":
 		case "importFiles":
-			values = formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
+			values = formatBuildSettingPlain!attributeName(settings, configs, projectDescription);
 			break;
 
 		case "lflags":
@@ -806,7 +806,7 @@ class Project {
 			else static if (attributeName == "stringImportPaths")
 				bs.stringImportPaths = bs.stringImportPaths.map!(ensureTrailingSlash).array();
 
-			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, settings.platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 			values = bs.dflags;
 			break;
 
@@ -817,7 +817,7 @@ class Project {
 			bs.sourceFiles = null;
 			bs.targetType = TargetType.none; // Force Compiler to NOT omit dependency libs when package is a library.
 
-			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, settings.platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 
 			if (bs.lflags)
 				values = compiler.lflagsToDFlags( bs.lflags );
@@ -855,7 +855,7 @@ class Project {
 	}
 
 	// Output a build setting without formatting for any particular compiler
-	private string[] formatBuildSettingPlain(string attributeName)(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription)
+	private string[] formatBuildSettingPlain(string attributeName)(ref GeneratorSettings settings, string[string] configs, ProjectDescription projectDescription)
 	{
 		import std.path : buildNormalizedPath, dirSeparator;
 		import std.range : only;
@@ -872,6 +872,12 @@ class Project {
 		auto targetDescription = projectDescription.lookupTarget(projectDescription.rootPackage);
 		auto buildSettings = targetDescription.buildSettings;
 
+		string[] substituteCommands(Package pack, string[] commands, CommandType type)
+		{
+			auto env = makeCommandEnvironmentVariables(type, pack, this, settings, buildSettings);
+			return processVars(this, pack, settings, commands, false, env);
+		}
+
 		// Return any BuildSetting member attributeName as a range of strings. Don't attempt to fixup values.
 		// allowEmptyString: When the value is a string (as opposed to string[]),
 		//                   is empty string an actual permitted value instead of
@@ -879,7 +885,9 @@ class Project {
 		auto getRawBuildSetting(Package pack, bool allowEmptyString) {
 			auto value = __traits(getMember, buildSettings, attributeName);
 
-			static if( is(typeof(value) == string[]) )
+			static if( attributeName.endsWith("Commands") )
+				return substituteCommands(pack, value, mixin("CommandType.", attributeName[0 .. $ - "Commands".length]));
+			else static if( is(typeof(value) == string[]) )
 				return value;
 			else static if( is(typeof(value) == string) )
 			{
@@ -959,7 +967,7 @@ class Project {
 
 	// The "compiler" arg is for choosing which compiler the output should be formatted for,
 	// or null to imply "list" format.
-	private string[] listBuildSetting(BuildPlatform platform, string[string] configs,
+	private string[] listBuildSetting(ref GeneratorSettings settings, string[string] configs,
 		ProjectDescription projectDescription, string requestedData, Compiler compiler, bool disableEscaping)
 	{
 		// Certain data cannot be formatter for a compiler
@@ -999,7 +1007,7 @@ class Project {
 		}
 
 		import std.typetuple : TypeTuple;
-		auto args = TypeTuple!(platform, configs, projectDescription, compiler, disableEscaping);
+		auto args = TypeTuple!(settings, configs, projectDescription, compiler, disableEscaping);
 		switch (requestedData)
 		{
 		case "target-type":                return listBuildSetting!"targetType"(args);
@@ -1084,7 +1092,7 @@ class Project {
 		}
 
 		auto result = requestedData
-			.map!(dataName => listBuildSetting(settings.platform, configs, projectDescription, dataName, compiler, no_escape));
+			.map!(dataName => listBuildSetting(settings, configs, projectDescription, dataName, compiler, no_escape));
 
 		final switch (list_type) with (ListBuildSettingsFormat) {
 			case list: return result.map!(l => l.join("\n")).array();

@@ -14,3 +14,8 @@ if [ -s "$CURR_DIR/issue2192-environment-variables/package.txt" ]; then
 else
 	die $LINENO 'Expected generated package.txt file is missing.'
 fi
+
+OUTPUT=$($DUB describe --root "$CURR_DIR/issue2192-environment-variables" --skip-registry=all --data=pre-build-commands --data-list)
+if [ "$OUTPUT" != "echo 'issue2192-environment-variables' > package.txt" ]; then
+	die $LINENO 'describe did not contain subtituted values or the correct package name'
+fi
