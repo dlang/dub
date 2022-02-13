@@ -986,6 +986,8 @@ class Project {
 			case "post-generate-commands":
 			case "pre-build-commands":
 			case "post-build-commands":
+			case "pre-run-commands":
+			case "post-run-commands":
 			case "environments":
 			case "build-environments":
 			case "run-environments":

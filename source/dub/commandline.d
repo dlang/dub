@@ -1536,7 +1536,7 @@ class DescribeCommand : PackageBuildCommand {
 			"target-type, target-path, target-name, working-directory, " ~
 			"copy-files, string-import-files, pre-generate-commands, " ~
 			"post-generate-commands, pre-build-commands, post-build-commands, " ~
-			"requirements",
+			"pre-run-commands, post-run-commands, requirements",
 		];
 	}
 
