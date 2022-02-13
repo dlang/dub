@@ -90,12 +90,12 @@ struct PackageDescription {
 	string[] debugVersions; /// D debug version identifiers to set
 	string[] importPaths;
 	string[] stringImportPaths;
-	string[] preGenerateCommands; /// commands executed before creating the description
-	string[] postGenerateCommands; /// commands executed after creating the description
-	string[] preBuildCommands; /// Commands to execute prior to every build
-	string[] postBuildCommands; /// Commands to execute after every build
-	string[] preRunCommands; /// Commands to execute prior to every run
-	string[] postRunCommands; /// Commands to execute after every run
+	string[] preGenerateCommands; /// Commands executed before creating the description, with variables not substituted.
+	string[] postGenerateCommands; /// Commands executed after creating the description, with variables not substituted.
+	string[] preBuildCommands; /// Commands to execute prior to every build, with variables not substituted.
+	string[] postBuildCommands; /// Commands to execute after every build, with variables not substituted.
+	string[] preRunCommands; /// Commands to execute prior to every run, with variables not substituted.
+	string[] postRunCommands; /// Commands to execute after every run, with variables not substituted.
 	string[string] environments;
 	string[string] buildEnvironments;
 	string[string] runEnvironments;

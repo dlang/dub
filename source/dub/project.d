@@ -1206,13 +1206,6 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addPostRunEnvironments(processVerEnvs(settings.postRunEnvironments, gsettings.buildSettings.postRunEnvironments));
 
 	auto buildEnvs = [dst.environments, dst.buildEnvironments];
-	auto runEnvs = [dst.environments, dst.runEnvironments];
-	auto preGenEnvs = [dst.environments, dst.preGenerateEnvironments];
-	auto postGenEnvs = [dst.environments, dst.postGenerateEnvironments];
-	auto preBuildEnvs = buildEnvs ~ [dst.preBuildEnvironments];
-	auto postBuildEnvs = buildEnvs ~ [dst.postBuildEnvironments];
-	auto preRunEnvs = runEnvs ~ [dst.preRunEnvironments];
-	auto postRunEnvs = runEnvs ~ [dst.postRunEnvironments];
 
 	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags, false, buildEnvs));
 	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags, false, buildEnvs));
@@ -1228,14 +1221,16 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters, false, buildEnvs));
 	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true, buildEnvs));
 	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true, buildEnvs));
-	dst.addPreGenerateCommands(processVars(project, pack, gsettings, settings.preGenerateCommands, false, preGenEnvs));
-	dst.addPostGenerateCommands(processVars(project, pack, gsettings, settings.postGenerateCommands, false, postGenEnvs));
-	dst.addPreBuildCommands(processVars(project, pack, gsettings, settings.preBuildCommands, false, preBuildEnvs));
-	dst.addPostBuildCommands(processVars(project, pack, gsettings, settings.postBuildCommands, false, postBuildEnvs));
-	dst.addPreRunCommands(processVars(project, pack, gsettings, settings.preRunCommands, false, preRunEnvs));
-	dst.addPostRunCommands(processVars(project, pack, gsettings, settings.postRunCommands, false, postRunEnvs));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
+
+	// commands are substituted in dub.generators.generator : runBuildCommands
+	dst.addPreGenerateCommands(settings.preGenerateCommands);
+	dst.addPostGenerateCommands(settings.postGenerateCommands);
+	dst.addPreBuildCommands(settings.preBuildCommands);
+	dst.addPostBuildCommands(settings.postBuildCommands);
+	dst.addPreRunCommands(settings.preRunCommands);
+	dst.addPostRunCommands(settings.postRunCommands);
 
 	if (include_target_settings) {
 		dst.targetType = settings.targetType;
@@ -1248,13 +1243,13 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	}
 }
 
-private string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false, in string[string][] extraVers = null)
+string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
 {
 	auto ret = appender!(string[])();
 	processVars!glob(ret, project, pack, gsettings, vars, are_paths, extraVers);
 	return ret.data;
 }
-private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false, in string[string][] extraVers = null)
+void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
 {
 	static if (glob)
 		alias process = processVarsWithGlob!(Project, Package);
@@ -1264,7 +1259,7 @@ private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Proj
 		dst.put(process(var, project, pack, gsettings, are_paths, extraVers));
 }
 
-private string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers = null)
+string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers = null)
 {
 	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings, extraVers));
 	if (!is_path)
@@ -1275,13 +1270,13 @@ private string processVars(Project, Package)(string var, in Project project, in 
 	else
 		return p.toNativeString();
 }
-private string[string] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[string] vars, in string[string][] extraVers = null)
+string[string] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers = null)
 {
 	string[string] ret;
 	processVars!glob(ret, project, pack, gsettings, vars, extraVers);
 	return ret;
 }
-private void processVars(bool glob = false)(ref string[string] dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[string] vars, in string[string][] extraVers)
+void processVars(bool glob = false)(ref string[string] dst, in Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers)
 {
 	static if (glob)
 		alias process = processVarsWithGlob!(Project, Package);
