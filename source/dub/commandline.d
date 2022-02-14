@@ -1015,7 +1015,8 @@ abstract class PackageBuildCommand : Command {
 		m_defaultConfig = null;
 		enforce (loadSpecificPackage(dub, package_name, ver), "Failed to load package.");
 
-		if (m_buildConfig.length != 0 && !dub.configurations.canFind(m_buildConfig))
+		if (m_buildConfig.length != 0 && !dub.configurations.canFind(m_buildConfig) &&
+		    m_buildConfig != "unittest")
 		{
 			string msg = "Unknown build configuration: "~m_buildConfig;
 			enum distance = 3;
@@ -1181,8 +1182,16 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.single = m_single;
 
 		logDiagnostic("Generating using %s", m_generator);
-		dub.generateProject(m_generator, gensettings);
+
+		// With an explicitly requested `unittest` config, switch to the special test
+		// runner config (which doesn't require an existing `unittest` configuration).
+		if (m_buildConfig == "unittest")
+			dub.testProject(m_generator, gensettings, null, NativePath());
+		else
+			dub.generateProject(m_generator, gensettings);
+
 		if (m_buildType == "ddox") dub.runDdox(gensettings.run, app_args);
+
 		return 0;
 	}
 }
@@ -1403,7 +1412,7 @@ class TestCommand : PackageBuildCommand {
 		settings.runArgs = app_args;
 		settings.single = m_single;
 
-		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
+		dub.testProject("build", settings, m_buildConfig, NativePath(m_mainFile));
 		return 0;
 	}
 }
