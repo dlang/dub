@@ -10,7 +10,7 @@ import common;
 
 int main(string[] args)
 {
-	import std.algorithm : among;
+	import std.algorithm : among, endsWith;
 	import std.file : dirEntries, DirEntry, exists, getcwd, readText, SpanMode;
 	import std.format : format;
 	import std.stdio : File, writeln;
@@ -64,6 +64,8 @@ int main(string[] args)
 		//** done
 		foreach(DirEntry script; dirEntries(curr_dir, (args.length > 1) ? args[1] : "*.sh", SpanMode.shallow))
 		{
+			if (!script.name.endsWith(".sh"))
+				continue;
 			if (baseName(script.name).among("run-unittest.sh", "common.sh")) continue;
 			const min_frontend = script.name ~ ".min_frontend";
 			if (exists(min_frontend) && frontend.length && frontend < min_frontend.readText) continue;
@@ -75,6 +77,8 @@ int main(string[] args)
 
 	foreach (DirEntry script; dirEntries(curr_dir, (args.length > 1) ? args[1] : "*.script.d", SpanMode.shallow))
 	{
+		if (!script.name.endsWith(".d"))
+			continue;
 		const min_frontend = script.name ~ ".min_frontend";
 		if (frontend.length && exists(min_frontend) && frontend < min_frontend.readText) continue;
 		log("Running " ~ script ~ "...");
