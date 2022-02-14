@@ -457,9 +457,9 @@ class Dub {
 			"The first line of the recipe comment must list the recipe file name followed by a colon (e.g. \"/+ dub.sdl:\").");
 		auto recipe_filename = recipe_content[0 .. idx];
 		recipe_content = recipe_content[idx+1 .. $];
-		auto recipe_default_package_name = path.toString.baseName.stripExtension.strip;
+		auto recipe_default_package_id = path.toString.baseName.stripExtension.strip;
 
-		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, null, recipe_default_package_name);
+		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, PackageId(null), recipe_default_package_id);
 		import dub.internal.vibecompat.core.log; logInfo("parsePackageRecipe %s", recipe_filename);
 		enforce(recipe.buildSettings.sourceFiles.length == 0, "Single-file packages are not allowed to specify source files.");
 		enforce(recipe.buildSettings.sourcePaths.length == 0, "Single-file packages are not allowed to specify source paths.");
@@ -504,7 +504,7 @@ class Dub {
 				be upgraded. Otherwise, all packages will be upgraded at
 				once.
 	*/
-	void upgrade(UpgradeOptions options, string[] packages_to_upgrade = null)
+	void upgrade(UpgradeOptions options, PackageId[] packages_to_upgrade = null)
 	{
 		// clear non-existent version selections
 		if (!(options & UpgradeOptions.upgrade)) {
@@ -538,7 +538,7 @@ class Dub {
 			}
 		}
 
-		Dependency[string] versions;
+		Dependency[PackageId] versions;
 		auto resolver = new DependencyVersionResolver(this, options);
 		foreach (p; packages_to_upgrade)
 			resolver.addPackageToUpgrade(p);
@@ -554,13 +554,13 @@ class Dub {
 				auto basename = getBasePackageName(p);
 				if (basename == rootbasename) continue;
 
-				if (!m_project.selections.hasSelectedVersion(basename)) {
+				if (!m_project.selections.hasSelectedVersion(PackageId(basename))) {
 					logInfo("Package %s would be selected with version %s.",
 						basename, ver);
 					any = true;
 					continue;
 				}
-				auto sver = m_project.selections.getSelectedVersion(basename);
+				auto sver = m_project.selections.getSelectedVersion(PackageId(basename));
 				if (!sver.path.empty || !sver.repository.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
 				logInfo("Package %s would be upgraded from %s to %s.",
@@ -573,7 +573,7 @@ class Dub {
 
 		foreach (p; versions.byKey) {
 			auto ver = versions[p]; // Workaround for DMD 2.070.0 AA issue (crashes in aaApply2 if iterating by key+value)
-			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
+			assert(!p.pid.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
 			if (!ver.path.empty) {
 				try pack = m_packageManager.getOrLoadPackage(ver.path);
@@ -611,7 +611,7 @@ class Dub {
 			}
 		}
 
-		string[] missingDependenciesBeforeReinit = m_project.missingDependencies;
+		PackageId[] missingDependenciesBeforeReinit = m_project.missingDependencies;
 		m_project.reinit();
 
 		if (!m_project.hasAllDependencies) {
@@ -789,7 +789,7 @@ class Dub {
 
 		if (m_dryRun) return;
 
-		auto tool = "dscanner";
+		const tool = PackageId("dscanner");
 
 		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
@@ -887,9 +887,9 @@ class Dub {
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+	Package fetch(PackageId package_id, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
-		auto basePackageName = getBasePackageName(packageId);
+		auto basePackageName = getBasePackageName(package_id);
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
@@ -900,11 +900,11 @@ class Dub {
 				supplier = ps;
 				break;
 			} catch(Exception e) {
-				logWarn("Package %s not found for %s: %s", packageId, ps.description, e.msg);
+				logWarn("Package %s not found for %s: %s", package_id, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
-		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
+		enforce(pinfo.type != Json.Type.undefined, "No package "~package_id~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
 
 		NativePath placement;
@@ -916,7 +916,7 @@ class Dub {
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		Package existing;
-		try existing = m_packageManager.getPackage(packageId, ver, placement);
+		try existing = m_packageManager.getPackage(package_id, ver, placement);
 		catch (Exception e) {
 			logWarn("Failed to load existing package %s: %s", ver, e.msg);
 			logDiagnostic("Full error: %s", e.toString().sanitize);
@@ -925,7 +925,7 @@ class Dub {
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.version_ != Version(ver))
 				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
-					packageId, existing.version_, ver, packageId);
+					package_id, existing.version_, ver, package_id);
 			return null;
 		}
 
@@ -933,16 +933,16 @@ class Dub {
 			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
 				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
-					packageId, ver, placement);
+					package_id, ver, placement);
 				return existing;
 			} else {
-				logInfo("Removing %s %s to prepare replacement with a new version.", packageId, ver);
+				logInfo("Removing %s %s to prepare replacement with a new version.", package_id, ver);
 				if (!m_dryRun) m_packageManager.remove(existing);
 			}
 		}
 
-		if (reason.length) logInfo("Fetching %s %s (%s)...", packageId, ver, reason);
-		else logInfo("Fetching %s %s...", packageId, ver);
+		if (reason.length) logInfo("Fetching %s %s (%s)...", package_id, ver, reason);
+		else logInfo("Fetching %s %s...", package_id, ver);
 		if (m_dryRun) return null;
 
 		logDebug("Acquiring package zip file");
@@ -965,7 +965,7 @@ class Dub {
 		if (dstpath.existsFile())
 		{
 			m_packageManager.refresh(false);
-			return m_packageManager.getPackage(packageId, ver, dstpath);
+			return m_packageManager.getPackage(package_id, ver, dstpath);
 		}
 
 		// repeat download on corrupted zips, see #1336
@@ -980,9 +980,9 @@ class Dub {
 
 			try {
 				m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
-				return m_packageManager.getPackage(packageId, ver, dstpath);
+				return m_packageManager.getPackage(package_id, ver, dstpath);
 			} catch (ZipException e) {
-				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
+				logInfo("Failed to extract zip archive for %s %s...", package_id, ver);
 				// rethrow the exception at the end of the loop
 				if (i == 0)
 					throw e;
@@ -1026,7 +1026,7 @@ class Dub {
 				name/version.
 			resolve_version = Callback to select package version.
 	*/
-	void remove(string package_id, PlacementLocation location,
+	void remove(PackageId package_id, PlacementLocation location,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
 		enforce(!package_id.empty);
@@ -1072,7 +1072,7 @@ class Dub {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	void remove(string package_id, PlacementLocation location, bool force_remove,
+	void remove(PackageId package_id, PlacementLocation location, bool force_remove,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
 		remove(package_id, location, resolve_version);
@@ -1089,7 +1089,7 @@ class Dub {
 			location_ = Specifies the location to look for the given package
 				name/version.
 	 */
-	void remove(string package_id, string version_, PlacementLocation location)
+	void remove(PackageId package_id, string version_, PlacementLocation location)
 	{
 		remove(package_id, location, (in packages) {
 			if (version_ == RemoveVersionWildcard || version_.empty)
@@ -1106,7 +1106,7 @@ class Dub {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
+	void remove(PackageId package_id, string version_, PlacementLocation location, bool force_remove)
 	{
 		remove(package_id, version_, location);
 	}
@@ -1208,14 +1208,14 @@ class Dub {
 
 		See_also: `getLatestVersion`
 	*/
-	Version[] listPackageVersions(string name)
+	Version[] listPackageVersions(PackageId package_id)
 	{
 		Version[] versions;
-		auto basePackageName = getBasePackageName(name);
+		auto basePackageName = getBasePackageName(package_id);
 		foreach (ps; this.m_packageSuppliers) {
 			try versions ~= ps.getVersions(basePackageName);
 			catch (Exception e) {
-				logWarn("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
+				logWarn("Failed to get versions for package %s on provider %s: %s", package_id, ps.description, e.msg);
 			}
 		}
 		return versions.sort().uniq.array;
@@ -1228,16 +1228,16 @@ class Dub {
 		preferring "~master".
 
 		Params:
-			package_name: The name of the package in question.
+			package_id: The name of the package in question.
 			prefer_stable: If set to `true` (the default), returns the latest
 				stable version, even if there are newer pre-release versions.
 
 		See_also: `listPackageVersions`
 	*/
-	Version getLatestVersion(string package_name, bool prefer_stable = true)
+	Version getLatestVersion(PackageId package_id, bool prefer_stable = true)
 	{
-		auto vers = listPackageVersions(package_name);
-		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~package_name~"'.");
+		auto vers = listPackageVersions(package_id);
+		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~package_id~"'.");
 		auto final_versions = vers.filter!(v => !v.isBranch && !v.isPreRelease).array;
 		if (prefer_stable && final_versions.length) return final_versions[$-1];
 		else return vers[$-1];
@@ -1262,13 +1262,13 @@ class Dub {
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
 
-		string[string] depVers;
+		string[PackageId] depVers;
 		string[] notFound; // keep track of any failed packages in here
 		foreach (dep; deps) {
 			Version ver;
 			try {
-				ver = getLatestVersion(dep);
-				depVers[dep] = ver.isBranch ? ver.toString() : "~>" ~ ver.toString();
+				ver = getLatestVersion(PackageId(dep));
+				depVers[PackageId(dep)] = ver.isBranch ? ver.toString() : "~>" ~ ver.toString();
 			} catch (Exception e) {
 				notFound ~= dep;
 			}
@@ -1295,15 +1295,15 @@ class Dub {
 
 	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
 	{
-		string packageName = type;
-		auto template_pack = m_packageManager.getBestPackage(packageName, ">=0.0.0");
-		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
+		const package_id = PackageId(type);
+		auto template_pack = m_packageManager.getBestPackage(package_id, ">=0.0.0");
+		if (!template_pack) template_pack = m_packageManager.getBestPackage(package_id, "~master");
 		if (!template_pack) {
-			logInfo("%s is not present, getting and storing it user wide", packageName);
-			template_pack = fetch(packageName, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			logInfo("%s is not present, getting and storing it user wide", package_id);
+			template_pack = fetch(package_id, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
 		}
 
-		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
+		Package initSubPackage = m_packageManager.getSubPackage(template_pack, PackageId("init-exec"), false);
 		auto template_dub = new Dub(null, m_packageSuppliers);
 		template_dub.loadPackage(initSubPackage);
 		auto compiler_binary = this.defaultCompiler;
@@ -1607,11 +1607,11 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	protected {
 		Dub m_dub;
 		UpgradeOptions m_options;
-		Dependency[][string] m_packageVersions;
-		Package[string] m_remotePackages;
+		Dependency[][PackageId] m_packageVersions;
+		Package[PackageId] m_remotePackages;
 		SelectedVersions m_selectedVersions;
 		Package m_rootPackage;
-		bool[string] m_packagesToUpgrade;
+		bool[PackageId] m_packagesToUpgrade;
 		Package[PackageDependency] m_packages;
 		TreeNodes[][TreeNode] m_children;
 	}
@@ -1623,24 +1623,24 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		m_options = options;
 	}
 
-	void addPackageToUpgrade(string name)
+	void addPackageToUpgrade(PackageId name)
 	{
 		m_packagesToUpgrade[name] = true;
 	}
 
-	Dependency[string] resolve(Package root, SelectedVersions selected_versions)
+	Dependency[PackageId] resolve(Package root, SelectedVersions selected_versions)
 	{
 		m_rootPackage = root;
 		m_selectedVersions = selected_versions;
 		return super.resolve(TreeNode(root.name, Dependency(root.version_)), (m_options & UpgradeOptions.printUpgradesOnly) == 0);
 	}
 
-	protected bool isFixedPackage(string pack)
+	protected bool isFixedPackage(PackageId package_id)
 	{
-		return m_packagesToUpgrade !is null && pack !in m_packagesToUpgrade;
+		return m_packagesToUpgrade !is null && package_id !in m_packagesToUpgrade;
 	}
 
-	protected override Dependency[] getAllConfigs(string pack)
+	protected override Dependency[] getAllConfigs(PackageId pack)
 	{
 		if (auto pvers = pack in m_packageVersions)
 			return *pvers;
@@ -1696,7 +1696,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return ret;
 	}
 
-	protected override Dependency[] getSpecificConfigs(string pack, TreeNodes nodes)
+	protected override Dependency[] getSpecificConfigs(PackageId pack, TreeNodes nodes)
 	{
 		if (!nodes.configs.path.empty || !nodes.configs.repository.empty) {
 			if (getPackage(pack, nodes.configs)) return [nodes.configs];
@@ -1719,10 +1719,10 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	{
 		import std.array : appender;
 		auto ret = appender!(TreeNodes[]);
-		auto pack = getPackage(node.pack, node.config);
+		auto pack = getPackage(node.package_id, node.config);
 		if (!pack) {
 			// this can hapen when the package description contains syntax errors
-			logDebug("Invalid package in dependency tree: %s %s", node.pack, node.config);
+			logDebug("Invalid package in dependency tree: %s %s", node.package_id, node.config);
 			return null;
 		}
 		auto basepack = pack.basePackage;
@@ -1748,7 +1748,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 					enforce(d.spec.path.empty || absdeppath == desireddeppath || absdeppath == altdeppath,
 						format("Dependency from %s to %s uses wrong path: %s vs. %s",
-							node.pack, subpack.name, absdeppath.toNativeString(), desireddeppath.toNativeString()));
+							node.package_id, subpack.name, absdeppath.toNativeString(), desireddeppath.toNativeString()));
 				}
 				ret ~= TreeNodes(d.name, node.config);
 				continue;
@@ -1785,7 +1785,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return configs.merge(config).valid;
 	}
 
-	private Package getPackage(string name, Dependency dep)
+	private Package getPackage(PackageId name, Dependency dep)
 	{
 		auto key = PackageDependency(name, dep);
 		if (auto pp = key in m_packages)
@@ -1795,7 +1795,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return p;
 	}
 
-	private Package getPackageRaw(string name, Dependency dep)
+	private Package getPackageRaw(PackageId name, Dependency dep)
 	{
 		auto basename = getBasePackageName(name);
 
@@ -1846,13 +1846,13 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
 			return ret;
 
-		auto key = name ~ ":" ~ dep.version_.toString();
+		auto key = PackageId(name ~ ":" ~ dep.version_.toString());
 		if (auto ret = key in m_remotePackages)
 			return *ret;
 
 		auto prerelease = (m_options & UpgradeOptions.preRelease) != 0;
 
-		auto rootpack = name.split(":")[0];
+		auto rootpack = PackageId(name.pid.split(":")[0]);
 
 		foreach (ps; m_dub.m_packageSuppliers) {
 			if (rootpack == name) {

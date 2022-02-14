@@ -30,9 +30,9 @@ import std.process : environment;
 	example, "packa:packb:packc" references a package named "packc" that is a
 	sub package of "packb", which in turn is a sub package of "packa".
 */
-string[] getSubPackagePath(string package_name) @safe pure
+string[] getSubPackagePath(PackageId package_id) @safe pure // TODO QualifiedPackageName as input
 {
-	return package_name.split(":");
+	return package_id.pid.split(":");
 }
 
 /**
@@ -40,9 +40,9 @@ string[] getSubPackagePath(string package_name) @safe pure
 
 	In case of a top level package, the qualified name is returned unmodified.
 */
-string getBasePackageName(string package_name) @safe pure
+PackageId getBasePackageName(PackageId package_id) @safe pure
 {
-	return package_name.findSplit(":")[0];
+	return typeof(return)(package_id.pid.findSplit(":")[0]);
 }
 
 /**
@@ -51,19 +51,21 @@ string getBasePackageName(string package_name) @safe pure
 	This is the part of the package name excluding the base package
 	name. See also $(D getBasePackageName).
 */
-string getSubPackageName(string package_name) @safe pure
+PackageId getSubPackageName(PackageId package_id) @safe pure
 {
-	return package_name.findSplit(":")[2];
+	return typeof(return)(package_id.pid.findSplit(":")[2]);
 }
+
+alias P = PackageId;
 
 @safe unittest
 {
-	assert(getSubPackagePath("packa:packb:packc") == ["packa", "packb", "packc"]);
-	assert(getSubPackagePath("pack") == ["pack"]);
-	assert(getBasePackageName("packa:packb:packc") == "packa");
-	assert(getBasePackageName("pack") == "pack");
-	assert(getSubPackageName("packa:packb:packc") == "packb:packc");
-	assert(getSubPackageName("pack") == "");
+	assert(getSubPackagePath(P("packa:packb:packc")) == ["packa", "packb", "packc"]);
+	assert(getSubPackagePath(P("pack")) == ["pack"]);
+	assert(getBasePackageName(P("packa:packb:packc")) == "packa");
+	assert(getBasePackageName(P("pack")) == "pack");
+	assert(getSubPackageName(P("packa:packb:packc")) == "packb:packc");
+	assert(getSubPackageName(P("pack")) == "");
 }
 
 /**
@@ -73,7 +75,7 @@ string getSubPackageName(string package_name) @safe pure
 	For higher level package handling, see the $(D Package) class.
 */
 struct PackageRecipe {
-	string name;
+	PackageId name;
 	string version_;
 	string description;
 	string homepage;
@@ -81,7 +83,7 @@ struct PackageRecipe {
 	string copyright;
 	string license;
 	string[] ddoxFilterArgs;
-	string ddoxTool;
+	PackageId ddoxTool;
 	BuildSettingsTemplate buildSettings;
 	ConfigurationInfo[] configurations;
 	BuildSettingsTemplate[string] buildTypes;
@@ -175,15 +177,15 @@ struct ConfigurationInfo {
 /// It contains functions to create a specific BuildSetting, targeted at
 /// a certain BuildPlatform.
 struct BuildSettingsTemplate {
-	Dependency[string] dependencies;
-	BuildSettingsTemplate[string] dependencyBuildSettings;
+	Dependency[PackageId] dependencies;
+	BuildSettingsTemplate[PackageId] dependencyBuildSettings;
 	string systemDependencies;
 	TargetType targetType = TargetType.autodetect;
 	string targetPath;
 	string targetName;
 	string workingDirectory;
 	string mainSourceFile;
-	string[string] subConfigurations;
+	string[PackageId] subConfigurations;
 	string[][string] dflags;
 	string[][string] lflags;
 	string[][string] libs;
@@ -333,7 +335,7 @@ struct BuildSettingsTemplate {
 		}
 	}
 
-	void warnOnSpecialCompilerFlags(string package_name, string config_name)
+	void warnOnSpecialCompilerFlags(PackageId package_id, string config_name)
 	{
 		auto nodef = false;
 		auto noprop = false;
@@ -355,12 +357,12 @@ struct BuildSettingsTemplate {
 			BuildOptions all_options;
 			foreach (flags; this.dflags) all_dflags ~= flags;
 			foreach (options; this.buildOptions) all_options |= options;
-			.warnOnSpecialCompilerFlags(all_dflags, all_options, package_name, config_name);
+			.warnOnSpecialCompilerFlags(all_dflags, all_options, package_id, config_name);
 		}
 	}
 }
 
-package(dub) void checkPlatform(const scope ref ToolchainRequirements tr, BuildPlatform platform, string package_name)
+package(dub) void checkPlatform(const scope ref ToolchainRequirements tr, BuildPlatform platform, PackageId package_id)
 {
 	import dub.compilers.utils : dmdLikeVersionToSemverLike;
 	import std.algorithm.iteration : map;
@@ -395,7 +397,7 @@ package(dub) void checkPlatform(const scope ref ToolchainRequirements tr, BuildP
 	enforce(compilerspec != Dependency.invalid,
 		format(
 			"Installed %s %s is not supported by %s. Supported compiler(s):\n%s",
-			platform.compiler, platform.compilerVersion, package_name,
+			platform.compiler, platform.compilerVersion, package_id,
 			tr.supportedCompilers.map!((cs) {
 				auto str = "  - " ~ cs[0];
 				if (cs[1] != Dependency.any) str ~= ": " ~ cs[1].toString();
@@ -409,7 +411,7 @@ package(dub) void checkPlatform(const scope ref ToolchainRequirements tr, BuildP
 			"Installed %s-%s does not comply with %s compiler requirement: %s %s\n" ~
 			"Please consider upgrading your installation.",
 			platform.compiler, platform.compilerVersion,
-			package_name, platform.compiler, compilerspec
+			package_id, platform.compiler, compilerspec
 		)
 	);
 
@@ -418,7 +420,7 @@ package(dub) void checkPlatform(const scope ref ToolchainRequirements tr, BuildP
 			"Installed %s-%s with frontend %s does not comply with %s frontend requirement: %s\n" ~
 			"Please consider upgrading your installation.",
 			platform.compiler, platform.compilerVersion,
-			platform.frontendVersionString, package_name, tr.frontend
+			platform.frontendVersionString, package_id, tr.frontend
 		)
 	);
 }

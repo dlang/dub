@@ -179,7 +179,7 @@ class Package {
 				.format(root.toNativeString(),
 					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
 
-		auto recipe = readPackageRecipe(recipe_file, parent ? parent.name : null);
+		auto recipe = readPackageRecipe(recipe_file, parent ? parent.name : PackageId(null));
 
 		auto ret = new Package(recipe, root, parent, version_override);
 		ret.m_infoFile = recipe_file;
@@ -191,9 +191,9 @@ class Package {
 		The qualified name includes any possible parent package if this package
 		is a sub package.
 	*/
-	@property string name()
+	@property PackageId name()
 	const {
-		if (m_parentPackage) return m_parentPackage.name ~ ":" ~ m_info.name;
+		if (m_parentPackage) return typeof(return)(m_parentPackage.name ~ ":" ~ m_info.name);
 		else return m_info.name;
 	}
 
@@ -531,7 +531,7 @@ class Package {
 
 		See_Also: `getDependencies`
 	*/
-	bool hasDependency(string dependency_name, string config)
+	bool hasDependency(PackageId dependency_name, string config)
 	const {
 		if (dependency_name in m_info.buildSettings.dependencies) return true;
 		foreach (ref c; m_info.configurations)
@@ -549,9 +549,8 @@ class Package {
 
 		See_Also: `hasDependency`
 	*/
-	const(Dependency[string]) getDependencies(string config)
-	const {
-		Dependency[string] ret;
+	Dependency[PackageId] getDependencies(string config) const {
+		Dependency[PackageId] ret;
 		foreach (k, v; m_info.buildSettings.dependencies)
 			ret[k] = v;
 		foreach (ref conf; m_info.configurations)

@@ -7,6 +7,7 @@
 */
 module dub.generators.visuald;
 
+import dub.dependency : PackageId;
 import dub.compilers.compiler;
 import dub.generators.generator;
 import dub.internal.utils;
@@ -208,7 +209,7 @@ class VisualDGenerator : ProjectGenerator {
 			ret.formattedWrite("  <Folder name=\"%s\">", getPackageFileName(packname));
 			typeof(NativePath.init.head)[] lastFolder;
 			foreach(source; sortedSources(sourceFiles.values)) {
-				logDebug("source looking at %s", source.structurePath);
+				logDebug("Source looking at %s", source.structurePath);
 				auto cur = source.structurePath.parentPath.bySegment.array;
 				if(lastFolder != cur) {
 					size_t same = 0;
@@ -438,7 +439,7 @@ class VisualDGenerator : ProjectGenerator {
 			} // foreach(architecture)
 		}
 
-		void performOnDependencies(const Package main, string[string] configs, void delegate(const Package pack) op)
+		void performOnDependencies(const Package main, string[PackageId] configs, void delegate(const Package pack) op)
 		{
 			foreach (p; m_project.getTopologicalPackageList(false, main, configs)) {
 				if (p is main) continue;

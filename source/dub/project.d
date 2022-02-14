@@ -26,6 +26,7 @@ import std.datetime;
 import std.exception : enforce;
 import std.string;
 import std.encoding : sanitize;
+import std.stdio;
 
 /**
 	Represents a full project, a root package with its dependencies and package
@@ -43,8 +44,8 @@ class Project {
 		Package[] m_dependencies;
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
-		string[] m_missingDependencies;
-		string[string] m_overriddenConfigs;
+		PackageId[] m_missingDependencies;
+		string[PackageId] m_overriddenConfigs; // TODO ConfigName[PackageId]
 	}
 
 	/** Loads a project.
@@ -117,18 +118,20 @@ class Project {
 	bool hasAllDependencies() const { return m_missingDependencies.length == 0; }
 
 	/// Sorted list of missing dependencies.
-	string[] missingDependencies() { return m_missingDependencies; }
+	PackageId[] missingDependencies() { return m_missingDependencies; }
 
 	/** Allows iteration of the dependency tree in topological order
 	*/
-	int delegate(int delegate(ref Package)) getTopologicalPackageList(bool children_first = false, Package root_package = null, string[string] configs = null)
+	int delegate(int delegate(ref Package)) getTopologicalPackageList(bool children_first = false, Package root_package = null, string[PackageId] configs = null)
 	{
+		// writeln(__FUNCTION__, "(children_first:", children_first, " ,root_package.name", root_package.name, " ,configs:", configs, ")");
 		// ugly way to avoid code duplication since inout isn't compatible with foreach type inference
 		return cast(int delegate(int delegate(ref Package)))(cast(const)this).getTopologicalPackageList(children_first, root_package, configs);
 	}
 	/// ditto
-	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[string] configs = null)
+	int delegate(int delegate(ref const Package)) getTopologicalPackageList(bool children_first = false, in Package root_package = null, string[PackageId] configs = null)
 	const {
+		// writeln(__FUNCTION__, "(children_first:", children_first, " ,root_package.name", root_package.name, " ,configs:", configs, ")");
 		const(Package) rootpack = root_package ? root_package : m_rootPackage;
 
 		int iterator(int delegate(ref const Package) del)
@@ -183,6 +186,7 @@ class Project {
 	*/
 	inout(Package) getDependency(string name, bool is_optional)
 	inout {
+		// writeln("getDependency(name:", name, " is_optional:", is_optional, ")");
 		foreach(dp; m_dependencies)
 			if( dp.name == name )
 				return dp;
@@ -212,18 +216,19 @@ class Project {
 		but one configuration from the package.
 
 		Params:
-			package_ = The package for which to force selecting a certain
+			package_id = The package for which to force selecting a certain
 				dependency
 			config = Name of the configuration to force
 	*/
-	void overrideConfiguration(string package_, string config)
+	void overrideConfiguration(PackageId package_id, string config) // TODO ConfigName
 	{
-		auto p = getDependency(package_, true);
+		// writeln("overrideConfiguration(package_id:", package_id, " config:", config, ")");
+		auto p = getDependency(package_id, true);
 		enforce(p !is null,
-			format("Package '%s', marked for configuration override, is not present in dependency graph.", package_));
+			format("Package '%s', marked for configuration override, is not present in dependency graph.", package_id));
 		enforce(p.configurations.canFind(config),
-			format("Package '%s' does not have a configuration named '%s'.", package_, config));
-		m_overriddenConfigs[package_] = config;
+			format("Package '%s' does not have a configuration named '%s'.", package_id, config));
+		m_overriddenConfigs[package_id] = config;
 	}
 
 	/** Performs basic validation of various aspects of the package.
@@ -233,6 +238,7 @@ class Project {
 	*/
 	void validate()
 	{
+		// writeln("validate() entered...");
 		// some basic package lint
 		m_rootPackage.warnOnSpecialCompilerFlags();
 		string nameSuggestion() {
@@ -265,17 +271,17 @@ class Project {
 			}
 
 		// search for orphan sub configurations
-		void warnSubConfig(string pack, string config) {
+		void warnSubConfig(PackageId package_id, string config) {
 			logWarn("The sub configuration directive \"%s\" -> \"%s\" "
 				~ "references a package that is not specified as a dependency "
-				~ "and will have no effect.", pack, config);
+				~ "and will have no effect.", package_id, config);
 		}
-		void checkSubConfig(string pack, string config) {
-			auto p = getDependency(pack, true);
+		void checkSubConfig(PackageId package_id, string config) {
+			auto p = getDependency(package_id, true);
 			if (p && !p.configurations.canFind(config)) {
 				logWarn("The sub configuration directive \"%s\" -> \"%s\" "
 					~ "references a configuration that does not exist.",
-					pack, config);
+					package_id, config);
 			}
 		}
 		auto globalbs = m_rootPackage.getBuildSettings();
@@ -295,6 +301,7 @@ class Project {
 		// check for version specification mismatches
 		bool[Package] visited;
 		void validateDependenciesRec(Package pack) {
+			// writeln("validateDependenciesRec(pack.name:", pack.name, ")");
 			// perform basic package linting
 			pack.simpleLint();
 
@@ -315,11 +322,13 @@ class Project {
 			}
 		}
 		validateDependenciesRec(m_rootPackage);
+		// writeln("validateDependenciesRec() done");
 	}
 
 	/// Reloads dependencies.
 	void reinit()
 	{
+		// writeln("reinit() entered...");
 		m_dependencies = null;
 		m_missingDependencies = [];
 		m_packageManager.refresh(false);
@@ -419,10 +428,11 @@ class Project {
 		}
 		collectDependenciesRec(m_rootPackage);
 		m_missingDependencies.sort();
+		// writeln("reinit() done");
 	}
 
 	/// Returns the name of the root package.
-	@property string name() const { return m_rootPackage ? m_rootPackage.name : "app"; }
+	@property PackageId name() const { return m_rootPackage ? m_rootPackage.name : typeof(return)("app"); }
 
 	/// Returns the names of all configurations of the root package.
 	@property string[] configurations() const { return m_rootPackage.configurations; }
@@ -432,43 +442,44 @@ class Project {
 	@property string[] builds() const { return builtinBuildTypes ~ m_rootPackage.customBuildTypes; }
 
 	/// Returns a map with the configuration for all packages in the dependency tree.
-	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
+	string[PackageId] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
-		struct Vertex { string pack, config; }
+		// writeln("getPackageConfigs(platform:", platform.platform, ", config:", config, ", allow_non_library:", allow_non_library, "entered)");
+		struct Vertex { PackageId package_id; string config; }
 		struct Edge { size_t from, to; }
 
 		Vertex[] configs;
 		Edge[] edges;
-		string[][string] parents;
+		PackageId[][PackageId] parents;
 		parents[m_rootPackage.name] = null;
 		foreach (p; getTopologicalPackageList())
 			foreach (d; p.getAllDependencies())
 				parents[d.name] ~= p.name;
 
-		size_t createConfig(string pack, string config) {
+		size_t createConfig(PackageId package_id, string config) {
 			foreach (i, v; configs)
-				if (v.pack == pack && v.config == config)
+				if (v.package_id == package_id && v.config == config)
 					return i;
-			assert(pack !in m_overriddenConfigs || config == m_overriddenConfigs[pack]);
-			logDebug("Add config %s %s", pack, config);
-			configs ~= Vertex(pack, config);
+			assert(package_id !in m_overriddenConfigs || config == m_overriddenConfigs[package_id]);
+			logDebug("Add config %s %s", package_id, config);
+			configs ~= Vertex(package_id, config);
 			return configs.length-1;
 		}
 
-		bool haveConfig(string pack, string config) {
-			return configs.any!(c => c.pack == pack && c.config == config);
+		bool haveConfig(PackageId package_id, string config) {
+			return configs.any!(c => c.package_id == package_id && c.config == config);
 		}
 
 		size_t createEdge(size_t from, size_t to) {
 			auto idx = edges.countUntil(Edge(from, to));
 			if (idx >= 0) return idx;
-			logDebug("Including %s %s -> %s %s", configs[from].pack, configs[from].config, configs[to].pack, configs[to].config);
+			logDebug("Including %s %s -> %s %s", configs[from].package_id, configs[from].config, configs[to].package_id, configs[to].config);
 			edges ~= Edge(from, to);
 			return edges.length-1;
 		}
 
 		void removeConfig(size_t i) {
-			logDebug("Eliminating config %s for %s", configs[i].config, configs[i].pack);
+			logDebug("Eliminating config %s for %s", configs[i].config, configs[i].package_id);
 			auto had_dep_to_pack = new bool[configs.length];
 			auto still_has_dep_to_pack = new bool[configs.length];
 
@@ -476,7 +487,7 @@ class Project {
 					if (e.to == i) {
 						had_dep_to_pack[e.from] = true;
 						return false;
-					} else if (configs[e.to].pack == configs[i].pack) {
+					} else if (configs[e.to].package_id == configs[i].package_id) {
 						still_has_dep_to_pack[e.from] = true;
 					}
 					if (e.from == i) return false;
@@ -491,21 +502,21 @@ class Project {
 					removeConfig(j);
 		}
 
-		bool isReachable(string pack, string conf) {
-			if (pack == configs[0].pack && configs[0].config == conf) return true;
+		bool isReachable(PackageId package_id, string conf) {
+			if (package_id == configs[0].package_id && configs[0].config == conf) return true;
 			foreach (e; edges)
-				if (configs[e.to].pack == pack && configs[e.to].config == conf)
+				if (configs[e.to].package_id == package_id && configs[e.to].config == conf)
 					return true;
 			return false;
-			//return (pack == configs[0].pack && conf == configs[0].config) || edges.canFind!(e => configs[e.to].pack == pack && configs[e.to].config == config);
+			//return (package_id == configs[0].package_id && conf == configs[0].config) || edges.canFind!(e => configs[e.to].package_id == package_id && configs[e.to].config == config);
 		}
 
 		bool isReachableByAllParentPacks(size_t cidx) {
-			bool[string] r;
-			foreach (p; parents[configs[cidx].pack]) r[p] = false;
+			bool[PackageId] r;
+			foreach (p; parents[configs[cidx].package_id]) r[p] = false;
 			foreach (e; edges) {
 				if (e.to != cidx) continue;
-				if (auto pp = configs[e.from].pack in r) *pp = true;
+				if (auto pp = configs[e.from].package_id in r) *pp = true;
 			}
 			foreach (bool v; r) if (!v) return false;
 			return true;
@@ -513,8 +524,10 @@ class Project {
 
 		string[] allconfigs_path;
 
-		void determineDependencyConfigs(in Package p, string c)
+		void determineDependencyConfigs(in Package p, string c, size_t depth = 0)
 		{
+			// foreach (_; 0 .. depth) write(" ");
+			// writeln("determineDependencyConfigs(p.name:", p.name, ", c:", c, ")");
 			string[][string] depconfigs;
 			foreach (d; p.getAllDependencies()) {
 				auto dp = getDependency(d.name, true);
@@ -546,8 +559,10 @@ class Project {
 		}
 
 		// create a graph of all possible package configurations (package, config) -> (subpackage, subconfig)
-		void determineAllConfigs(in Package p)
+		void determineAllConfigs(in Package p, size_t depth = 0)
 		{
+			// foreach (_; 0 .. depth) write(" ");
+			// writeln("determineAllConfigs(p.name:", p.name, ")");
 			auto idx = allconfigs_path.countUntil(p.name);
 			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ p.name).join("->")));
 			allconfigs_path ~= p.name;
@@ -557,18 +572,23 @@ class Project {
 			foreach (d; p.getAllDependencies) {
 				auto dp = getDependency(d.name, true);
 				if (!dp) continue;
-				determineAllConfigs(dp);
+				determineAllConfigs(dp, depth + 1);
 			}
 
 			// for each configuration, determine the configurations usable for the dependencies
 			if (auto pc = p.name in m_overriddenConfigs)
-				determineDependencyConfigs(p, *pc);
+				determineDependencyConfigs(p, *pc, depth + 1);
 			else
 				foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library))
-					determineDependencyConfigs(p, c);
+					determineDependencyConfigs(p, c, depth + 1);
 		}
 		if (config.length) createConfig(m_rootPackage.name, config);
+		// writeln("determineAllConfigs root entered...");
 		determineAllConfigs(m_rootPackage);
+		// writeln("determineAllConfigs root done");
+		writeln("configs:", configs);
+
+		// TODO why is Vertex("extra-lxd", "") and Vertex("symmetry.mongo-queries", "") there
 
 		// successively remove configurations until only one configuration per package is left
 		bool changed;
@@ -578,7 +598,7 @@ class Project {
 			foreach (i, ref c; configs) {
 				if (c == Vertex.init) continue; // ignore deleted configurations
 				if (!isReachableByAllParentPacks(i)) {
-					logDebug("%s %s NOT REACHABLE by all of (%s):", c.pack, c.config, parents[c.pack]);
+					writefln("%s %s NOT REACHABLE by all of (%s):", c.package_id, c.config, parents[c.package_id]);
 					removeConfig(i);
 					changed = true;
 				}
@@ -589,8 +609,8 @@ class Project {
 				foreach (p; getTopologicalPackageList()) {
 					size_t cnt = 0;
 					foreach (i, ref c; configs)
-						if (c.pack == p.name && ++cnt > 1) {
-							logDebug("NON-PRIMARY: %s %s", c.pack, c.config);
+						if (c.package_id == p.name && ++cnt > 1) {
+							writefln("NON-PRIMARY: %s %s", c.package_id, c.config);
 							removeConfig(i);
 						}
 					if (cnt > 1) {
@@ -601,21 +621,26 @@ class Project {
 			}
 		} while (changed);
 
+		writeln("adjusted configs:", configs);
+
 		// print out the resulting tree
-		foreach (e; edges) logDebug("    %s %s -> %s %s", configs[e.from].pack, configs[e.from].config, configs[e.to].pack, configs[e.to].config);
+		foreach (e; edges) logDebug("    %s %s -> %s %s", configs[e.from].package_id, configs[e.from].config, configs[e.to].package_id, configs[e.to].config);
 
 		// return the resulting configuration set as an AA
-		string[string] ret;
+		typeof(return) result;
 		foreach (c; configs) {
 			if (c == Vertex.init) continue; // ignore deleted configurations
-			assert(ret.get(c.pack, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", c.pack, c.config, ret[c.pack]));
-			logDebug("Using configuration '%s' for %s", c.config, c.pack);
-			ret[c.pack] = c.config;
+			assert(result.get(c.package_id, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", c.package_id, c.config, result[c.package_id]));
+			logDebug("Using configuration '%s' for %s", c.config, c.package_id);
+			result[c.package_id] = c.config;
 		}
+
+		writeln("result:", result);
 
 		// check for conflicts (packages missing in the final configuration graph)
 		void checkPacksRec(in Package pack) {
-			auto pc = pack.name in ret;
+			writeln("Package ", pack.name);
+			auto pc = pack.name in result;
 			enforce(pc !is null, "Could not resolve configuration for package "~pack.name);
 			foreach (p, dep; pack.getDependencies(*pc)) {
 				auto deppack = getDependency(p, dep.optional);
@@ -624,7 +649,7 @@ class Project {
 		}
 		checkPacksRec(m_rootPackage);
 
-		return ret;
+		return result;
 	}
 
 	/**
@@ -759,7 +784,7 @@ class Project {
 	}
 
 	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
-		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
+		string[PackageId] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
 		if (compiler)
 			return formatBuildSettingCompiler!attributeName(platform, configs, projectDescription, compiler, disableEscaping);
@@ -769,7 +794,7 @@ class Project {
 
 	// Output a build setting formatted for a compiler
 	private string[] formatBuildSettingCompiler(string attributeName)(BuildPlatform platform,
-		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
+		string[PackageId] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
 		import std.process : escapeShellFileName;
 		import std.path : dirSeparator;
@@ -855,7 +880,9 @@ class Project {
 	}
 
 	// Output a build setting without formatting for any particular compiler
-	private string[] formatBuildSettingPlain(string attributeName)(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription)
+	private string[] formatBuildSettingPlain(string attributeName)(BuildPlatform platform,
+																   string[PackageId] configs,
+																   ProjectDescription projectDescription)
 	{
 		import std.path : buildNormalizedPath, dirSeparator;
 		import std.range : only;
@@ -959,7 +986,7 @@ class Project {
 
 	// The "compiler" arg is for choosing which compiler the output should be formatted for,
 	// or null to imply "list" format.
-	private string[] listBuildSetting(BuildPlatform platform, string[string] configs,
+	private string[] listBuildSetting(BuildPlatform platform, string[PackageId] configs,
 		ProjectDescription projectDescription, string requestedData, Compiler compiler, bool disableEscaping)
 	{
 		// Certain data cannot be formatter for a compiler
@@ -1564,7 +1591,7 @@ final class SelectedVersions {
 	}
 	private {
 		enum FileVersion = 1;
-		Selected[string] m_selections;
+		Selected[PackageId] m_selections;
 		bool m_dirty = false; // has changes since last save
 		bool m_bare = true;
 	}
@@ -1597,7 +1624,7 @@ final class SelectedVersions {
 	}
 
 	/// Returns a list of names for all packages that have a version selection.
-	@property string[] selectedPackages() const { return m_selections.keys; }
+	@property PackageId[] selectedPackages() const { return m_selections.keys; }
 
 	/// Determines if any changes have been made after loading the selections from a file.
 	@property bool dirty() const { return m_dirty; }
@@ -1620,7 +1647,7 @@ final class SelectedVersions {
 	}
 
 	/// Selects a certain version for a specific package.
-	void selectVersion(string package_id, Version version_)
+	void selectVersion(PackageId package_id, Version version_)
 	{
 		if (auto ps = package_id in m_selections) {
 			if (ps.dep == Dependency(version_))
@@ -1631,7 +1658,7 @@ final class SelectedVersions {
 	}
 
 	/// Selects a certain path for a specific package.
-	void selectVersion(string package_id, NativePath path)
+	void selectVersion(PackageId package_id, NativePath path)
 	{
 		if (auto ps = package_id in m_selections) {
 			if (ps.dep == Dependency(path))
@@ -1642,7 +1669,7 @@ final class SelectedVersions {
 	}
 
 	/// Selects a certain Git reference for a specific package.
-	void selectVersionWithRepository(string package_id, Repository repository, string spec)
+	void selectVersionWithRepository(PackageId package_id, Repository repository, string spec)
 	{
 		const dependency = Dependency(repository, spec);
 		if (auto ps = package_id in m_selections) {
@@ -1654,16 +1681,16 @@ final class SelectedVersions {
 	}
 
 	/// Removes the selection for a particular package.
-	void deselectVersion(string package_id)
+	void deselectVersion(PackageId package_id)
 	{
 		m_selections.remove(package_id);
 		m_dirty = true;
 	}
 
 	/// Determines if a particular package has a selection set.
-	bool hasSelectedVersion(string packageId)
+	bool hasSelectedVersion(PackageId package_id)
 	const {
-		return (packageId in m_selections) !is null;
+		return (package_id in m_selections) !is null;
 	}
 
 	/** Returns the selection for a particular package.
@@ -1673,10 +1700,10 @@ final class SelectedVersions {
 		is a path based selection, or its `Dependency.version_` property is
 		valid and it is a version selection.
 	*/
-	Dependency getSelectedVersion(string packageId)
+	Dependency getSelectedVersion(PackageId package_id)
 	const {
-		enforce(hasSelectedVersion(packageId));
-		return m_selections[packageId].dep;
+		enforce(hasSelectedVersion(package_id));
+		return m_selections[package_id].dep;
 	}
 
 	/** Stores the selections to disk.
@@ -1753,6 +1780,6 @@ final class SelectedVersions {
 		clear();
 		scope(failure) clear();
 		foreach (string p, v; json["versions"])
-			m_selections[p] = Selected(dependencyFromJson(v));
+			m_selections[PackageId(p)] = Selected(dependencyFromJson(v));
 	}
 }

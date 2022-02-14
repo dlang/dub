@@ -156,7 +156,7 @@ class PackageManager {
 		Returns:
 			The matching package or null if no match was found.
 	*/
-	Package getPackage(string name, Version ver, bool enable_overrides = true)
+	Package getPackage(PackageId name, Version ver, bool enable_overrides = true)
 	{
 		if (enable_overrides) {
 			foreach (ref repo; m_repositories)
@@ -180,13 +180,13 @@ class PackageManager {
 	}
 
 	/// ditto
-	Package getPackage(string name, string ver, bool enable_overrides = true)
+	Package getPackage(PackageId name, string ver, bool enable_overrides = true)
 	{
 		return getPackage(name, Version(ver), enable_overrides);
 	}
 
 	/// ditto
-	Package getPackage(string name, Version ver, NativePath path)
+	Package getPackage(PackageId name, Version ver, NativePath path)
 	{
 		foreach (p; getPackageIterator(name))
 			if (p.version_ == ver && p.path.startsWith(path))
@@ -195,13 +195,13 @@ class PackageManager {
 	}
 
 	/// ditto
-	Package getPackage(string name, string ver, NativePath path)
+	Package getPackage(PackageId name, string ver, NativePath path)
 	{
 		return getPackage(name, Version(ver), path);
 	}
 
 	/// ditto
-	Package getPackage(string name, NativePath path)
+	Package getPackage(PackageId name, NativePath path)
 	{
 		foreach( p; getPackageIterator(name) )
 			if (p.path.startsWith(path))
@@ -212,7 +212,7 @@ class PackageManager {
 
 	/** Looks up the first package matching the given name.
 	*/
-	Package getFirstPackage(string name)
+	Package getFirstPackage(PackageId name)
 	{
 		foreach (ep; getPackageIterator(name))
 			return ep;
@@ -221,7 +221,7 @@ class PackageManager {
 
 	/** Looks up the latest package matching the given name.
 	*/
-	Package getLatestPackage(string name)
+	Package getLatestPackage(PackageId name)
 	{
 		Package pkg;
 		foreach (ep; getPackageIterator(name))
@@ -270,7 +270,7 @@ class PackageManager {
 			The package loaded from the given SCM repository or null if the
 			package couldn't be loaded.
 	*/
-	Package loadSCMPackage(string name, Dependency dependency)
+	Package loadSCMPackage(PackageId name, Dependency dependency)
 	in { assert(!dependency.repository.empty); }
 	do {
         Package pack;
@@ -286,7 +286,7 @@ class PackageManager {
         return pack;
 	}
 
-    private Package loadGitPackage(string name, string versionSpec, string remote)
+    private Package loadGitPackage(PackageId name, string versionSpec, string remote)
     {
 		import dub.internal.git : cloneRepository;
 
@@ -313,7 +313,7 @@ class PackageManager {
 
 	/** Searches for the latest version of a package matching the given dependency.
 	*/
-	Package getBestPackage(string name, Dependency version_spec, bool enable_overrides = true)
+	Package getBestPackage(PackageId name, Dependency version_spec, bool enable_overrides = true)
 	{
 		Package ret;
 		foreach (p; getPackageIterator(name))
@@ -328,7 +328,7 @@ class PackageManager {
 	}
 
 	/// ditto
-	Package getBestPackage(string name, string version_spec)
+	Package getBestPackage(PackageId name, string version_spec)
 	{
 		return getBestPackage(name, Dependency(version_spec));
 	}
@@ -346,9 +346,9 @@ class PackageManager {
 				package is found. Otherwise will throw an exception.
 
 	*/
-	Package getSubPackage(Package base_package, string sub_name, bool silent_fail)
+	Package getSubPackage(Package base_package, PackageId sub_name, bool silent_fail)
 	{
-		foreach (p; getPackageIterator(base_package.name~":"~sub_name))
+		foreach (p; getPackageIterator(PackageId(base_package.name~":"~sub_name)))
 			if (p.parentPackage is base_package)
 				return p;
 		enforce(silent_fail, "Sub package \""~base_package.name~":"~sub_name~"\" doesn't exist.");
@@ -411,7 +411,7 @@ class PackageManager {
 
 		Returns: A delegate suitable for use with `foreach` is returned.
 	*/
-	int delegate(int delegate(ref Package)) getPackageIterator(string name)
+	int delegate(int delegate(ref Package)) getPackageIterator(PackageId name)
 	{
 		int iterator(int delegate(ref Package) del)
 		{
@@ -467,14 +467,14 @@ class PackageManager {
 	{
 		import std.range : walkLength;
 
-		auto package_name = package_info["name"].get!string;
+		auto package_id = package_info["name"].get!string;
 		auto package_version = package_info["version"].get!string;
 
 		logDebug("Placing package '%s' version '%s' to location '%s' from file '%s'",
-			package_name, package_version, destination.toNativeString(), zip_file_path.toNativeString());
+			package_id, package_version, destination.toNativeString(), zip_file_path.toNativeString());
 
 		if( existsFile(destination) ){
-			throw new Exception(format("%s (%s) needs to be removed from '%s' prior placement.", package_name, package_version, destination));
+			throw new Exception(format("%s (%s) needs to be removed from '%s' prior placement.", package_id, package_version, destination));
 		}
 
 		// open zip file
@@ -734,9 +734,9 @@ class PackageManager {
 		void scanPackageFolder(NativePath path)
 		{
 			if( path.existsDirectory() ){
-				logDebug("iterating dir %s", path.toNativeString());
+				logDebug("Iterating directory %s", path.toNativeString());
 				try foreach( pdir; iterateDirectory(path) ){
-					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
+					logDebug("Iterating directory %s entry %s", path.toNativeString(), pdir.name);
 					if (!pdir.isDirectory) continue;
 
 					auto pack_path = path ~ (pdir.name ~ "/");

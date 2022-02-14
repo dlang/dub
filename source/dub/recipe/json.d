@@ -37,7 +37,7 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 			case "buildTypes":
 				foreach (string name, settings; value) {
 					BuildSettingsTemplate bs;
-					bs.parseJson(settings, null);
+					bs.parseJson(settings, PackageId(null));
 					recipe.buildTypes[name] = bs;
 				}
 				break;
@@ -51,7 +51,7 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 
 	enforce(recipe.name.length > 0, "The package \"name\" field is missing or empty.");
 
-	auto fullname = parent_name.length ? parent_name ~ ":" ~ recipe.name : recipe.name;
+	auto fullname = PackageId(parent_name.length ? parent_name ~ ":" ~ recipe.name : recipe.name);
 
 	// parse build settings
 	recipe.buildSettings.parseJson(json, fullname);
@@ -114,10 +114,11 @@ Json toJson(const scope ref PackageRecipe recipe)
 	return ret;
 }
 
-private void parseSubPackages(ref PackageRecipe recipe, string parent_package_name, Json[] subPackagesJson)
+private void parseSubPackages(ref PackageRecipe recipe, PackageId parent_package_id, Json[] subPackagesJson)
 {
-	enforce(!parent_package_name.canFind(":"), format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
-		parent_package_name, getBasePackageName(parent_package_name)));
+	enforce(!parent_package_id.pid.canFind(":"),
+			format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
+		parent_package_id, getBasePackageName(parent_package_id)));
 
 	recipe.subPackages = new SubPackage[subPackagesJson.length];
 	foreach (i, subPackageJson; subPackagesJson) {
@@ -127,13 +128,13 @@ private void parseSubPackages(ref PackageRecipe recipe, string parent_package_na
 			recipe.subPackages[i] = SubPackage(subpath, PackageRecipe.init);
 		} else {
 			PackageRecipe subinfo;
-			subinfo.parseJson(subPackageJson, parent_package_name);
+			subinfo.parseJson(subPackageJson, parent_package_id);
 			recipe.subPackages[i] = SubPackage(null, subinfo);
 		}
 	}
 }
 
-private void parseJson(ref ConfigurationInfo config, Json json, string package_name, TargetType default_target_type = TargetType.library)
+private void parseJson(ref ConfigurationInfo config, Json json, PackageId package_id, TargetType default_target_type = TargetType.library)
 {
 	config.buildSettings.targetType = default_target_type;
 
@@ -149,7 +150,7 @@ private void parseJson(ref ConfigurationInfo config, Json json, string package_n
 	}
 
 	enforce(!config.name.empty, "Configuration is missing a name.");
-	config.buildSettings.parseJson(json, package_name);
+	config.buildSettings.parseJson(json, package_id);
 }
 
 private Json toJson(const scope ref ConfigurationInfo config)
@@ -160,9 +161,9 @@ private Json toJson(const scope ref ConfigurationInfo config)
 	return ret;
 }
 
-private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_name)
+private void parseJson(ref BuildSettingsTemplate bs, Json json, PackageId package_id)
 {
-	foreach(string name, value; json)
+	foreach (string name, value; json)
 	{
 		auto idx = indexOf(name, "-");
 		string basename, suffix;
@@ -173,16 +174,19 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "dependencies":
 				foreach (string pkg, verspec; value) {
 					if (pkg.startsWith(":")) {
-						enforce(!package_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", package_name, pkg));
-						pkg = package_name ~ pkg;
+						enforce(!package_id.canFind(':'),
+								format("Short-hand packages syntax not allowed within sub packages: %s -> %s",
+									   package_id,
+									   pkg));
+						pkg = package_id ~ pkg;
 					}
-					enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
-					bs.dependencies[pkg] = Dependency.fromJson(verspec);
+					enforce(PackageId(pkg) !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
+					bs.dependencies[PackageId(pkg)] = Dependency.fromJson(verspec); // use result of in on previous line
 					if (verspec.type == Json.Type.object)
 					{
 						BuildSettingsTemplate dbs;
-						dbs.parseJson(verspec, package_name);
-						bs.dependencyBuildSettings[pkg] = dbs;
+						dbs.parseJson(verspec, package_id);
+						bs.dependencyBuildSettings[PackageId(pkg)] = dbs;
 					}
 				}
 				break;
@@ -211,7 +215,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 				break;
 			case "subConfigurations":
 				enforce(suffix.empty, "subConfigurations does not support platform customization.");
-				bs.subConfigurations = deserializeJson!(string[string])(value);
+				bs.subConfigurations = cast(string[PackageId])deserializeJson!(string[string])(value); // TODO avoid cast
 				break;
 			case "dflags": bs.dflags[suffix] = deserializeJson!(string[])(value); break;
 			case "lflags": bs.lflags[suffix] = deserializeJson!(string[])(value); break;
@@ -376,7 +380,7 @@ unittest {
 	parseJson(rec1, jsonValue, null);
 	PackageRecipe rec;
 	parseJson(rec, rec1.toJson(), null); // verify that all fields are serialized properly
-	
+
 	assert(rec.name == "projectname");
 	assert(rec.buildSettings.environments == ["": ["Var1": "env"]]);
 	assert(rec.buildSettings.buildEnvironments == ["": ["Var2": "buildEnv"]]);

@@ -20,12 +20,28 @@ import std.array;
 import std.exception;
 import std.string;
 
+/**
+   Package name.
+*/
+struct PackageId				// TODO move to dub.package_.
+{
+	this(string pid) @safe pure nothrow @nogc
+	{
+		this._pid = pid;
+	}
+	@property string pid() const @safe pure nothrow @nogc
+	{
+		return _pid;
+	}
+	string _pid;
+	alias _pid this;
+}
 
 /** Encapsulates the name of a package along with its dependency specification.
 */
 struct PackageDependency {
 	/// Name of the referenced package.
-	string name;
+	PackageId name;
 
 	/// Dependency specification used to select a particular version of the package.
 	Dependency spec;
@@ -482,7 +498,7 @@ struct Dependency {
 	bool matches(ref const(Version) v) const {
 		if (this.matchesAny) return true;
 		if (this.isSCM) return true;
-		//logDebug(" try match: %s with: %s", v, this);
+		//logDebug("Trying match: %s with: %s", v, this);
 		// Master only matches master
 		if(m_versA.isBranch) {
 			enforce(m_versA == m_versB);

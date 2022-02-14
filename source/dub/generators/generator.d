@@ -7,6 +7,7 @@
 */
 module dub.generators.generator;
 
+import dub.dependency : PackageId;
 import dub.compilers.compiler;
 import dub.generators.cmake;
 import dub.generators.build;
@@ -61,14 +62,14 @@ class ProjectGenerator
 			This list includes dependencies that are not the root of a binary
 			target.
 		*/
-		string[] dependencies;
+		PackageId[] dependencies;
 
 		/** List of all binary dependencies.
 
 			This list includes all dependencies that are the root of a binary
 			target.
 		*/
-		string[] linkDependencies;
+		PackageId[] linkDependencies;
 	}
 
 	private struct EnvironmentVariables
@@ -134,7 +135,7 @@ class ProjectGenerator
 
 		if (!settings.config.length) settings.config = m_project.getDefaultConfiguration(settings.platform);
 
-		string[string] configs = m_project.getPackageConfigs(settings.platform, settings.config);
+		string[PackageId] configs = m_project.getPackageConfigs(settings.platform, settings.config);
 		TargetInfo[string] targets;
 		EnvironmentVariables[string] envs;
 
@@ -347,7 +348,7 @@ class ProjectGenerator
 
 			// get specified dependencies, e.g. vibe-d ~0.8.1
 			auto deps = pack.getDependencies(targets[pack.name].config);
-			logDebug("deps: %s -> %(%s, %)", pack.name, deps.byKey);
+			logDebug("Dependency is %s -> %(%s, %)", pack.name, deps.byKey);
 			foreach (depname; deps.keys.sort())
 			{
 				auto depspec = deps[depname];
@@ -485,7 +486,7 @@ class ProjectGenerator
 				{
 					NativePath op;
 					if (f != o && NativePath(f).head == (op = NativePath(o)).head) {
-						logDebug("string import %s overridden by %s", f, o);
+						logDebug("String import %s overridden by %s", f, o);
 						f = o;
 						any_override = true;
 					}
@@ -968,13 +969,14 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_ROOT_PACKAGE_TARGET_TYPE"] = to!string(rootPackageBuildSettings.targetType);
 	env["DUB_ROOT_PACKAGE_TARGET_PATH"] = rootPackageBuildSettings.targetPath;
 	env["DUB_ROOT_PACKAGE_TARGET_NAME"] = rootPackageBuildSettings.targetName;
-	
+
 	foreach (aa; extraVars) {
 		foreach (k, v; aa)
 			env[k] = v;
 	}
 
 	auto depNames = proj.dependencies.map!((a) => a.name).array();
+
 	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
 	runCommands(commands, env, pack.path().toString());
 }
@@ -990,7 +992,7 @@ private bool isRecursiveInvocation(string pack)
         .canFind(pack);
 }
 
-private void storeRecursiveInvokations(string[string] env, string[] packs)
+private void storeRecursiveInvokations(string[string] env, PackageId[] packs)
 {
 	import std.algorithm : canFind, splitter;
 	import std.range : chain;
