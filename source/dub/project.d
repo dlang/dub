@@ -249,9 +249,9 @@ class Project {
 		}
 		if (m_rootPackage.name != m_rootPackage.name.toLower()) {
 			logWarn(`WARNING: DUB package names should always be lower case. %s`, nameSuggestion());
-		} else if (!m_rootPackage.recipe.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
+		} else if (!m_rootPackage.recipe.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_' || ch == '.')) {
 			logWarn(`WARNING: DUB package names may only contain alphanumeric characters, `
-				~ `as well as '-' and '_'. %s`, nameSuggestion());
+				~ `as well as '-', '_' and '.'. %s`, nameSuggestion());
 		}
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
 
