@@ -52,6 +52,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 	{
 		import std.array : split;
 		import std.path : stripExtension;
+		import std.algorithm : startsWith, endsWith;
 		import dub.internal.utils : packageInfoFileFromZip;
 		import dub.recipe.io : parsePackageRecipe;
 		import dub.recipe.json : toJson;
@@ -61,7 +62,10 @@ class FileSystemPackageSupplier : PackageSupplier {
 		string packageFileContent = packageInfoFileFromZip(filePath, packageFileName);
 		auto recipe = parsePackageRecipe(packageFileContent, packageFileName);
 		Json json = toJson(recipe);
-		json["version"] = filePath.toNativeString().split("-")[$-1].stripExtension();
+		auto basename = filePath.head.name;
+		enforce(basename.endsWith(".zip"), "Malformed package filename: " ~ filePath.toNativeString);
+		enforce(basename.startsWith(packageId), "Malformed package filename: " ~ filePath.toNativeString);
+		json["version"] = basename[packageId.length + 1 .. $-4];
 		return json;
 	}
 
