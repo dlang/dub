@@ -610,18 +610,22 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
 	//search for module keyword in file
 	string moduleName = getModuleNameFromFile(file.to!string);
 
-	if(moduleName.length) return moduleName;
+	if(moduleName.length) {
+		assert(moduleName.length > 0, "Wasn't this module name already checked? what");
+		return moduleName;
+	}
 
 	//create module name from path
 	foreach (i; 0 .. mpath.length) {
 		import std.path;
 		auto p = mpath[i].name;
-		if (p == "package.d") break;
-		if (i > 0) ret ~= ".";
+		if (p == "package.d") break ;
+		if (ret.data.length > 0) ret ~= ".";
 		if (i+1 < mpath.length) ret ~= p;
 		else ret ~= p.baseName(".d");
 	}
 
+	assert(ret.data.length > 0, "A module name was expected to be computed, and none was.");
 	return ret.data;
 }
 

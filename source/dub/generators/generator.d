@@ -383,45 +383,21 @@ class ProjectGenerator
 		visited.clear();
 
 		// 1. downwards inherits versions, debugVersions, and inheritable build settings
-		static void configureDependencies(const scope ref TargetInfo ti, TargetInfo[string] targets,
-											BuildSettings[string] dependBS, size_t level = 0)
+		static void configureDependencies(const scope ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
 		{
-
-			static void applyForcedSettings(const scope ref BuildSettings forced, ref BuildSettings child) {
-				child.addDFlags(forced.dflags);
-			}
 
 			// do not use `visited` here as dependencies must inherit
 			// configurations from *all* of their parents
 			logDebug("%sConfigure dependencies of %s, deps:%(%s, %)", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
 			foreach (depname; ti.dependencies)
 			{
-				BuildSettings forcedSettings;
 				auto pti = &targets[depname];
 				mergeFromDependent(ti.buildSettings, pti.buildSettings);
-
-				if (auto matchedSettings = depname in dependBS)
-					forcedSettings = *matchedSettings;
-				else if (auto matchedSettings = "*" in dependBS)
-					forcedSettings = *matchedSettings;
-
-				applyForcedSettings(forcedSettings, pti.buildSettings);
-				configureDependencies(*pti, targets, ["*" : forcedSettings], level + 1);
+				configureDependencies(*pti, targets, level + 1);
 			}
 		}
 
-		BuildSettings[string] dependencyBuildSettings;
-		foreach (key, value; rootPackage.recipe.buildSettings.dependencyBuildSettings)
-		{
-			BuildSettings buildSettings;
-			if (auto target = key in targets)
-			{
-				value.getPlatformSettings(buildSettings, genSettings.platform, target.pack.path);
-				buildSettings.processVars(m_project, target.pack, buildSettings, genSettings, true);
-				dependencyBuildSettings[key] = buildSettings;
-			}
-		}
-		configureDependencies(*roottarget, targets, dependencyBuildSettings);
+		configureDependencies(*roottarget, targets);
 
 		// 2. add Have_dependency_xyz for all direct dependencies of a target
 		// (includes incorporated non-target dependencies and their dependencies)
@@ -528,6 +504,54 @@ class ProjectGenerator
 		foreach (depname; roottarget.dependencies)
 			overrideStringImports(targets[depname], *roottarget, targets,
 				roottarget.buildSettings.stringImportFiles);
+
+		// 6. downwards inherits dependency build settings
+		static void applyForcedSettings(const scope ref TargetInfo ti, TargetInfo[string] targets,
+											BuildSettings[string] dependBS, size_t level = 0)
+		{
+
+			static void apply(const scope ref BuildSettings forced, ref BuildSettings child) {
+				child.addDFlags(forced.dflags);
+			}
+
+			// apply to all dependencies
+			foreach (depname; ti.dependencies)
+			{
+				BuildSettings forcedSettings;
+				auto pti = &targets[depname];
+
+				// fetch the forced dependency build settings
+				if (auto matchedSettings = depname in dependBS)
+					forcedSettings = *matchedSettings;
+				else if (auto matchedSettings = "*" in dependBS)
+					forcedSettings = *matchedSettings;
+
+				apply(forcedSettings, pti.buildSettings);
+
+				// recursively apply forced settings to all dependencies of his dependency
+				applyForcedSettings(*pti, targets, ["*" : forcedSettings], level + 1);
+			}
+		}
+
+		// apply both top level and configuration level forced dependency build settings
+		foreach (configured_dbs; [
+			cast(const(BuildSettingsTemplate[string])) rootPackage.recipe.buildSettings.dependencyBuildSettings,
+			rootPackage.getBuildSettings(genSettings.config).dependencyBuildSettings])
+		{
+			BuildSettings[string] dependencyBuildSettings;
+			foreach (key, value; configured_dbs)
+			{
+				BuildSettings buildSettings;
+				if (auto target = key in targets)
+				{
+					// get platform specific build settings and process dub variables (BuildSettingsTemplate => BuildSettings)
+					value.getPlatformSettings(buildSettings, genSettings.platform, target.pack.path);
+					buildSettings.processVars(m_project, target.pack, buildSettings, genSettings, true);
+					dependencyBuildSettings[key] = buildSettings;
+				}
+			}
+			applyForcedSettings(*roottarget, targets, dependencyBuildSettings);
+		}
 
 		// remove targets without output
 		foreach (name; targets.keys)

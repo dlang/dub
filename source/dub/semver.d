@@ -103,7 +103,7 @@ unittest {
 */
 bool isPreReleaseVersion(string ver) pure @nogc
 in { assert(isValidVersion(ver)); }
-body {
+do {
 	foreach (i; 0 .. 2) {
 		auto di = ver.indexOf('.');
 		assert(di > 0);

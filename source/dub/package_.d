@@ -55,6 +55,23 @@ static immutable FilenameAndFormat[] packageInfoFiles = [
 /// Returns the default package recile file name.
 @property string defaultPackageFilename() { return packageInfoFiles[0].filename; }
 
+/// All built-in build type names except for the special `$DFLAGS` build type.
+/// Has the default build type (`debug`) as first index.
+static immutable string[] builtinBuildTypes = [
+	"debug",
+	"plain",
+	"release",
+	"release-debug",
+	"release-nobounds",
+	"unittest",
+	"profile",
+	"profile-gc",
+	"docs",
+	"ddox",
+	"cov",
+	"unittest-cov",
+	"syntax"
+];
 
 /**	Represents a package, including its sub packages.
 */
@@ -256,6 +273,18 @@ class Package {
 		return ret.data;
 	}
 
+	/** Returns the list of all custom build type names.
+
+		Build type contents can be accessed using `this.recipe.buildTypes`.
+	*/
+	@property string[] customBuildTypes()
+	const {
+		auto ret = appender!(string[])();
+		foreach (name; m_info.buildTypes.byKey)
+			ret.put(name);
+		return ret.data;
+	}
+
 	/** Writes the current recipe contents to a recipe file.
 
 		The parameter-less overload writes to `this.path`, which must not be
@@ -402,12 +431,9 @@ class Package {
 	*/
 	void addBuildTypeSettings(ref BuildSettings settings, in BuildPlatform platform, string build_type)
 	const {
-		if (build_type == "$DFLAGS") {
-			import std.process;
-			string dflags = environment.get("DFLAGS");
-			settings.addDFlags(dflags.split());
-			return;
-		}
+		import std.process;
+		string dflags = environment.get("DFLAGS", "");
+		settings.addDFlags(dflags.split());
 
 		if (auto pbt = build_type in m_info.buildTypes) {
 			logDiagnostic("Using custom build type '%s'.", build_type);
@@ -415,6 +441,7 @@ class Package {
 		} else {
 			with(BuildOption) switch (build_type) {
 				default: throw new Exception(format("Unknown build type for %s: '%s'", this.name, build_type));
+				case "$DFLAGS": break;
 				case "plain": break;
 				case "debug": settings.addOptions(debugMode, debugInfo); break;
 				case "release": settings.addOptions(releaseMode, optimize, inline); break;

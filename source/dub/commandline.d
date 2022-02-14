@@ -28,7 +28,7 @@ import std.encoding;
 import std.exception;
 import std.file;
 import std.getopt;
-import std.path : absolutePath, buildNormalizedPath;
+import std.path : expandTilde, absolutePath, buildNormalizedPath;
 import std.process;
 import std.stdio;
 import std.string;
@@ -161,7 +161,7 @@ struct CommandLineHandler
 		}
 		else
 		{
-			options.root_path = options.root_path.absolutePath.buildNormalizedPath;
+			options.root_path = options.root_path.expandTilde.absolutePath.buildNormalizedPath;
 		}
 	}
 
@@ -950,7 +950,7 @@ abstract class PackageBuildCommand : Command {
 		args.getopt("b|build", &m_buildType, [
 			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
 			"Possible names:",
-			"  debug (default), plain, release, release-debug, release-nobounds, unittest, profile, profile-gc, docs, ddox, cov, unittest-cov, syntax and custom types"
+			"  "~builtinBuildTypes.join(", ")~" and custom types"
 		]);
 		args.getopt("c|config", &m_buildConfig, [
 			"Builds the specified configuration. Configurations can be defined in dub.json"
@@ -1148,10 +1148,10 @@ class GenerateCommand : PackageBuildCommand {
 
 		setupVersionPackage(dub, str_package_info, "debug");
 
-		if (m_printBuilds) { // FIXME: use actual package data
+		if (m_printBuilds) {
 			logInfo("Available build types:");
-			foreach (tp; ["debug", "release", "unittest", "profile"])
-				logInfo("  %s", tp);
+			foreach (i, tp; dub.project.builds)
+				logInfo("  %s%s", tp, i == 0 ? " [default]" : null);
 			logInfo("");
 		}
 
@@ -2280,6 +2280,9 @@ class DustmiteCommand : PackageBuildCommand {
 		string m_testPackage;
 		bool m_combined;
 		bool m_noRedirect;
+		string m_strategy;
+		uint m_jobCount;		// zero means not specified
+		bool m_trace;
 	}
 
 	this() @safe pure nothrow
@@ -2308,6 +2311,9 @@ class DustmiteCommand : PackageBuildCommand {
 		args.getopt("test-package", &m_testPackage, ["Perform a test run - usually only used internally"]);
 		args.getopt("combined", &m_combined, ["Builds multiple packages with one compiler run"]);
 		args.getopt("no-redirect", &m_noRedirect, ["Don't redirect stdout/stderr streams of the test command"]);
+		args.getopt("strategy", &m_strategy, ["Set strategy (careful/lookback/pingpong/indepth/inbreadth)"]);
+		args.getopt("j", &m_jobCount, ["Set number of look-ahead processes"]);
+		args.getopt("trace", &m_trace, ["Save all attempted reductions to DIR.trace"]);
 		super.prepare(args);
 
 		// speed up loading when in test mode
@@ -2445,6 +2451,10 @@ class DustmiteCommand : PackageBuildCommand {
 
 			string[] extraArgs;
 			if (m_noRedirect) extraArgs ~= "--no-redirect";
+			if (m_strategy.length) extraArgs ~= "--strategy=" ~ m_strategy;
+			if (m_jobCount) extraArgs ~= "-j" ~ m_jobCount.to!string;
+			if (m_trace) extraArgs ~= "--trace";
+
 			const cmd = "dustmite" ~ extraArgs ~ [path.toNativeString(), testcmd.data];
 			auto dmpid = spawnProcess(cmd);
 			return dmpid.wait();
