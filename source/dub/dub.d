@@ -646,11 +646,11 @@ class Dub {
 		generator.generate(settings);
 	}
 
-	/** Executes tests on the current project.
+	/** Generate project files using the special test runner (`dub test`) configuration.
 
-		Throws an exception, if unittests failed.
+		Any existing project files will be overridden.
 	*/
-	void testProject(GeneratorSettings settings, string config, NativePath custom_main_file)
+	void testProject(string ide, GeneratorSettings settings, string config, NativePath custom_main_file)
 	{
 		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
 
@@ -665,7 +665,7 @@ class Dub {
 			if (!config.length) config = m_project.getDefaultConfiguration(settings.platform, true);
 		}
 
-		auto generator = createProjectGenerator("build", m_project);
+		auto generator = createProjectGenerator(ide, m_project);
 
 		auto test_config = format("%s-test-%s", m_project.rootPackage.name.replace(".", "-").replace(":", "-"), config);
 
@@ -673,16 +673,16 @@ class Dub {
 		m_project.addBuildSettings(lbuildsettings, settings, config, null, true);
 
 		if (lbuildsettings.targetType == TargetType.none) {
-			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
+			logInfo(`Configuration '%s' has target type "none". Skipping test runner build.`, config);
 			return;
 		}
 
 		if (lbuildsettings.targetType == TargetType.executable && config == "unittest") {
-			logInfo("Running custom 'unittest' configuration.", config);
+			logInfo("Building custom 'unittest' configuration.", config);
 			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
 			settings.config = config;
 		} else if (lbuildsettings.sourceFiles.empty) {
-			logInfo(`No source files found in configuration '%s'. Falling back to "dub -b unittest".`, config);
+			logInfo(`No source files found in configuration '%s'. Falling back to default configuration.`, config);
 			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
 			settings.config = m_project.getDefaultConfiguration(settings.platform);
 		} else {
@@ -787,6 +787,7 @@ class Dub {
 			settings.config = test_config;
 		}
 
+		if (m_dryRun) return; // TODO: pass m_dryRun to the generator
 		generator.generate(settings);
 	}
 
