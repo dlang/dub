@@ -290,7 +290,15 @@ class Dub {
 		m_dirs.temp = NativePath(tempDir);
 
 		m_config = new DubConfig(jsonFromFile(m_dirs.systemSettings ~ "settings.json", true), m_config);
-		m_config = new DubConfig(jsonFromFile(NativePath(thisExePath).parentPath ~ "../etc/dub/settings.json", true), m_config);
+
+		auto dubFolderPath = NativePath(thisExePath).parentPath;
+		m_config = new DubConfig(jsonFromFile(dubFolderPath ~ "../etc/dub/settings.json", true), m_config);
+		version (Posix) {
+			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr"))) {
+				m_config = new DubConfig(jsonFromFile(NativePath("/etc/dub/settings.json"), true), m_config);
+			}
+		}
+
 		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), m_config);
 
 		if (!root_path.empty)
