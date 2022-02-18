@@ -1604,6 +1604,14 @@ class DescribeCommand : PackageBuildCommand {
 		settings.compiler = m_compiler;
 		settings.filterVersions = m_filterVersions;
 		settings.buildSettings.options |= m_buildSettings.options & BuildOption.lowmem;
+		settings.single = m_single;
+
+		// With a requested `unittest` config, switch to the special test runner
+		// config (which doesn't require an existing `unittest` configuration).
+		if (config == "unittest") {
+			const test_config = dub.project.addTestRunnerConfiguration(settings, false);
+			if (test_config) settings.config = test_config;
+		}
 
 		if (m_importPaths) { m_data = ["import-paths"]; m_dataList = true; }
 		else if (m_stringImportPaths) { m_data = ["string-import-paths"]; m_dataList = true; }
