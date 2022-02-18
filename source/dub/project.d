@@ -226,6 +226,147 @@ class Project {
 		m_overriddenConfigs[package_] = config;
 	}
 
+	/** Adds a test runner configuration for the root package.
+
+		Params:
+			generate_main = Whether to generate the main.d file
+			base_config = Optional base configuration
+			custom_main_file = Optional path to file with custom main entry point
+
+		Returns:
+			Name of the added test runner configuration, or null for base configurations with target type `none`
+	*/
+	string addTestRunnerConfiguration(GeneratorSettings settings, bool generate_main = true, string base_config = "", NativePath custom_main_file = NativePath())
+	{
+		if (base_config.length == 0) {
+			// if a custom main file was given, favor the first library configuration, so that it can be applied
+			if (!custom_main_file.empty) base_config = getDefaultConfiguration(settings.platform, false);
+			// else look for a "unittest" configuration
+			if (!base_config.length && rootPackage.configurations.canFind("unittest")) base_config = "unittest";
+			// if not found, fall back to the first "library" configuration
+			if (!base_config.length) base_config = getDefaultConfiguration(settings.platform, false);
+			// if still nothing found, use the first executable configuration
+			if (!base_config.length) base_config = getDefaultConfiguration(settings.platform, true);
+		}
+
+		BuildSettings lbuildsettings = settings.buildSettings;
+		addBuildSettings(lbuildsettings, settings, base_config, null, true);
+
+		if (lbuildsettings.targetType == TargetType.none) {
+			logInfo(`Configuration '%s' has target type "none". Skipping test runner configuration.`, base_config);
+			return null;
+		}
+
+		if (lbuildsettings.targetType == TargetType.executable && base_config == "unittest") {
+			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
+			return base_config;
+		}
+
+		if (lbuildsettings.sourceFiles.empty) {
+			logInfo(`No source files found in configuration '%s'. Falling back to default configuration for test runner.`, base_config);
+			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
+			return getDefaultConfiguration(settings.platform);
+		}
+
+		const config = format("%s-test-%s", rootPackage.name.replace(".", "-").replace(":", "-"), base_config);
+		logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, config, base_config, lbuildsettings.targetType);
+
+		BuildSettingsTemplate tcinfo = rootPackage.recipe.getConfiguration(base_config).buildSettings;
+		tcinfo.targetType = TargetType.executable;
+		tcinfo.targetName = config;
+
+		auto mainfil = tcinfo.mainSourceFile;
+		if (!mainfil.length) mainfil = rootPackage.recipe.buildSettings.mainSourceFile;
+
+		string custommodname;
+		if (!custom_main_file.empty) {
+			import std.path;
+			tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(rootPackage.path).toNativeString();
+			tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
+			custommodname = custom_main_file.head.name.baseName(".d");
+		}
+
+		// prepare the list of tested modules
+
+		string[] import_modules;
+		if (settings.single)
+			lbuildsettings.importPaths ~= NativePath(mainfil).parentPath.toNativeString;
+		bool firstTimePackage = true;
+		foreach (file; lbuildsettings.sourceFiles) {
+			if (file.endsWith(".d")) {
+				auto fname = NativePath(file).head.name;
+				NativePath msf = NativePath(mainfil);
+				if (msf.absolute)
+					msf = msf.relativeTo(rootPackage.path);
+				if (!settings.single && NativePath(file).relativeTo(rootPackage.path) == msf) {
+					logWarn("Excluding main source file %s from test.", mainfil);
+					tcinfo.excludedSourceFiles[""] ~= mainfil;
+					continue;
+				}
+				if (fname == "package.d") {
+					if (firstTimePackage) {
+						firstTimePackage = false;
+						logDiagnostic("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
+					}
+					continue;
+				}
+				import_modules ~= dub.internal.utils.determineModuleName(lbuildsettings, NativePath(file), rootPackage.path);
+			}
+		}
+
+		NativePath mainfile;
+		if (settings.tempBuild)
+			mainfile = getTempFile("dub_test_root", ".d");
+		else {
+			import dub.generators.build : computeBuildName;
+			mainfile = rootPackage.path ~ format(".dub/code/%s_dub_test_root.d", computeBuildName(config, settings, import_modules));
+		}
+
+		auto escapedMainFile = mainfile.toNativeString().replace("$", "$$");
+		tcinfo.sourceFiles[""] ~= escapedMainFile;
+		tcinfo.mainSourceFile = escapedMainFile;
+
+		if (generate_main && (settings.force || !existsFile(mainfile))) {
+			import std.file : mkdirRecurse;
+			mkdirRecurse(mainfile.parentPath.toNativeString());
+
+			auto fil = openFile(mainfile, FileMode.createTrunc);
+			scope(exit) fil.close();
+			fil.write("module dub_test_root;\n");
+			fil.write("import std.typetuple;\n");
+			foreach (mod; import_modules) fil.write(format("static import %s;\n", mod));
+			fil.write("alias allModules = TypeTuple!(");
+			foreach (i, mod; import_modules) {
+				if (i > 0) fil.write(", ");
+				fil.write(mod);
+			}
+			fil.write(");\n");
+			if (custommodname.length) {
+				fil.write(format("import %s;\n", custommodname));
+			} else {
+				fil.write(q{
+					import std.stdio;
+					import core.runtime;
+
+					void main() { writeln("All unit tests have been run successfully."); }
+					shared static this() {
+						version (Have_tested) {
+							import tested;
+							import core.runtime;
+							import std.exception;
+							Runtime.moduleUnitTester = () => true;
+							enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
+						}
+					}
+				});
+			}
+		}
+
+		rootPackage.recipe.configurations ~= ConfigurationInfo(config, tcinfo);
+
+		return config;
+	}
+
 	/** Performs basic validation of various aspects of the package.
 
 		This will emit warnings to `stderr` if any discouraged names or
