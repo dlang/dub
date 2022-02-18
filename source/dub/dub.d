@@ -641,6 +641,13 @@ class Dub {
 	*/
 	void generateProject(string ide, GeneratorSettings settings)
 	{
+		// With a requested `unittest` config, switch to the special test runner
+		// config (which doesn't require an existing `unittest` configuration).
+		if (settings.config == "unittest") {
+			const test_config = m_project.addTestRunnerConfiguration(settings, !m_dryRun);
+			if (test_config) settings.config = test_config;
+		}
+
 		auto generator = createProjectGenerator(ide, m_project);
 		if (m_dryRun) return; // TODO: pass m_dryRun to the generator
 		generator.generate(settings);
@@ -650,7 +657,7 @@ class Dub {
 
 		Any existing project files will be overridden.
 	*/
-	void testProject(string ide, GeneratorSettings settings, string config, NativePath custom_main_file)
+	void testProject(GeneratorSettings settings, string config, NativePath custom_main_file)
 	{
 		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
 
@@ -659,8 +666,7 @@ class Dub {
 
 		settings.config = test_config;
 
-		auto generator = createProjectGenerator(ide, m_project);
-		if (m_dryRun) return; // TODO: pass m_dryRun to the generator
+		auto generator = createProjectGenerator("build", m_project);
 		generator.generate(settings);
 	}
 

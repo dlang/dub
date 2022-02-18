@@ -1182,16 +1182,8 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.single = m_single;
 
 		logDiagnostic("Generating using %s", m_generator);
-
-		// With an explicitly requested `unittest` config, switch to the special test
-		// runner config (which doesn't require an existing `unittest` configuration).
-		if (m_buildConfig == "unittest")
-			dub.testProject(m_generator, gensettings, null, NativePath());
-		else
-			dub.generateProject(m_generator, gensettings);
-
+		dub.generateProject(m_generator, gensettings);
 		if (m_buildType == "ddox") dub.runDdox(gensettings.run, app_args);
-
 		return 0;
 	}
 }
@@ -1412,7 +1404,7 @@ class TestCommand : PackageBuildCommand {
 		settings.runArgs = app_args;
 		settings.single = m_single;
 
-		dub.testProject("build", settings, m_buildConfig, NativePath(m_mainFile));
+		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
 		return 0;
 	}
 }
