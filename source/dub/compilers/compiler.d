@@ -38,6 +38,16 @@ class UnknownCompilerException : Exception
 	}
 }
 
+/// Exception thrown in invokeTool and probePlatform if running the compiler
+/// returned non-zero exit code.
+class CompilerInvocationException : Exception
+{
+	this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable nextInChain = null) pure nothrow @safe
+	{
+		super(msg, file, line, nextInChain);
+	}
+}
+
 /** Returns a compiler handler for a given binary name.
 
 	The name will be compared against the canonical name of each registered
@@ -128,10 +138,12 @@ interface Compiler {
 		}
 
 		version (Posix) if (status == -9) {
-			throw new Exception(format("%s failed with exit code %s. This may indicate that the process has run out of memory.",
-				args[0], status));
+			throw new CompilerInvocationException(
+				format("%s failed with exit code %s. This may indicate that the process has run out of memory.",
+					args[0], status));
 		}
-		enforce(status == 0, format("%s failed with exit code %s.", args[0], status));
+		enforce!CompilerInvocationException(status == 0,
+			format("%s failed with exit code %s.", args[0], status));
 	}
 
 	/** Compiles platform probe file with the specified compiler and parses its output.
@@ -149,7 +161,8 @@ interface Compiler {
 		auto fil = generatePlatformProbeFile();
 
 		auto result = executeShell(escapeShellCommand(compiler_binary ~ args ~ fil.toNativeString()));
-		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
+		enforce!CompilerInvocationException(result.status == 0,
+				format("Failed to invoke the compiler %s to determine the build platform: %s",
 				compiler_binary, result.output));
 
 		auto build_platform = readPlatformJsonProbe(result.output);
