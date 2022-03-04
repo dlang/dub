@@ -106,29 +106,70 @@ config    /etc/dmd.conf
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
+		// Set basic arch flags for the probe - might be revised based on the exact value + compiler version
 		string[] arch_flags;
-		switch (arch_override) {
-			default: throw new UnsupportedArchitectureException(arch_override);
-			case "":
-				// Don't use Optlink by default on Windows
-				version (Windows) {
-					const is64bit = isWow64();
-					if (!is64bit.isNull)
-						arch_flags = [is64bit.get ? "-m64" : "-m32mscoff"];
-				}
-				break;
-			case "x86": arch_flags = ["-m32"]; break;
-			case "x86_omf": arch_flags = ["-m32"]; break;
-			case "x86_64": arch_flags = ["-m64"]; break;
-			case "x86_mscoff": arch_flags = ["-m32mscoff"]; break;
+		if (arch_override.length)
+			arch_flags = [ arch_override != "x86_64" ? "-m32" : "-m64" ];
+		else
+		{
+			// Don't use Optlink by default on Windows
+			version (Windows) {
+				const is64bit = isWow64();
+				if (!is64bit.isNull)
+					arch_flags = [ is64bit.get ? "-m64" : "-m32" ];
+			}
 		}
-		settings.addDFlags(arch_flags);
 
-		return probePlatform(
+		BuildPlatform bp = probePlatform(
 			compiler_binary,
 			arch_flags ~ ["-quiet", "-c", "-o-", "-v"],
 			arch_override
 		);
+
+		/// Replace archticture string in `bp.archtiecture`
+		void replaceArch(const string from, const string to)
+		{
+			const idx = bp.architecture.countUntil(from);
+			if (idx != -1)
+				bp.architecture[idx] = to;
+		}
+
+		// DMD 2.099 changed the default for -m32 from OMF to MsCOFF
+		const m32IsCoff = bp.frontendVersion >= 2_099;
+
+		switch (arch_override) {
+			default: throw new UnsupportedArchitectureException(arch_override);
+			case "": break;
+			case "x86": arch_flags = ["-m32"]; break;
+			case "x86_64": arch_flags = ["-m64"]; break;
+
+			case "x86_omf":
+				if (m32IsCoff)
+				{
+					arch_flags = [ "-m32omf" ];
+					replaceArch("x86_mscoff", "x86_omf"); // Probe used the wrong default
+				}
+				else // -m32 is OMF
+				{
+					arch_flags = [ "-m32" ];
+				}
+				break;
+
+			case "x86_mscoff":
+				if (m32IsCoff)
+				{
+					arch_flags = [ "-m32" ];
+				}
+				else // -m32 is OMF
+				{
+					arch_flags = [ "-m32mscoff" ];
+					replaceArch("x86_omf", "x86_mscoff"); // Probe used the wrong default
+				}
+				break;
+		}
+		settings.addDFlags(arch_flags);
+
+		return bp;
 	}
 	version (Windows) version (DigitalMars) unittest
 	{
