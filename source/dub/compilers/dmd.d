@@ -167,15 +167,17 @@ config    /etc/dmd.conf
 	}
 
 	version (LDC) unittest {
+		import std.conv : to;
+
 		BuildSettings settings;
 		auto compiler = new DMDCompiler;
 		auto bp = compiler.determinePlatform(settings, "ldmd2", "x86");
-		assert(bp.architecture.canFind("x86"));
-		assert(!bp.architecture.canFind("x86_omf"));
+		assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
+		assert(!bp.architecture.canFind("x86_omf"), bp.architecture.to!string);
 		bp = compiler.determinePlatform(settings, "ldmd2", "");
-		version (X86) assert(bp.architecture.canFind("x86"));
-		version (X86_64) assert(bp.architecture.canFind("x86_64"));
-		assert(!bp.architecture.canFind("x86_omf"));
+		version (X86) assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
+		version (X86_64) assert(bp.architecture.canFind("x86_64"), bp.architecture.to!string);
+		assert(!bp.architecture.canFind("x86_omf"), bp.architecture.to!string);
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform,
