@@ -182,7 +182,9 @@ interface Compiler {
 		// cmdline option does not lead to the same string being found among
 		// `build_platform.architecture`, as it's brittle and doesn't work with triples.
 		if (build_platform.compiler != "ldc") {
-			if (arch_override.length && !build_platform.architecture.canFind(arch_override)) {
+			if (arch_override.length && !build_platform.architecture.canFind(arch_override) &&
+				!(build_platform.compiler == "dmd" && arch_override.among("x86_omf", "x86_mscoff")) // Will be fixed in determinePlatform
+			) {
 				logWarn(`Failed to apply the selected architecture %s. Got %s.`,
 					arch_override, build_platform.architecture);
 			}
