@@ -146,6 +146,8 @@ class BuildGenerator : ProjectGenerator {
 
 	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_path)
 	{
+		import std.path : absolutePath;
+
 		auto cwd = NativePath(getcwd());
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
@@ -175,7 +177,8 @@ class BuildGenerator : ProjectGenerator {
 		// run post-build commands
 		if (!cached && buildsettings.postBuildCommands.length) {
 			logInfo("Running post-build commands...");
-			runBuildCommands(CommandType.postBuild, buildsettings.postBuildCommands, pack, m_project, settings, buildsettings);
+			runBuildCommands(CommandType.postBuild, buildsettings.postBuildCommands, pack, m_project, settings, buildsettings,
+							 [["DUB_BUILD_PATH" : target_path.parentPath.toNativeString.absolutePath]]);
 		}
 
 		return cached;

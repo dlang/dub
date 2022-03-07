@@ -1,0 +1,15 @@
+The `$DUB_BUILD_PATH` variable was added
+
+The `$DUB_BUILD_PATH` variable is now defined inside the `postBuildCommands`
+section. It contains the absolute path in which the package was built, and can
+be used to copy by-products of the build process to their intended locations.
+
+For example, if an executable exports symbols, you will want to make the
+resulting import library and symbols export file available somewhere. That can
+be done with a `dub.json` section like this:
+-------
+    "postBuildCommands-windows": [
+        "copy /y $DUB_BUILD_PATH\\$DUB_TARGET_NAME.lib $PACKAGE_DIR\\lib"
+        "copy /y $DUB_BUILD_PATH\\$DUB_TARGET_NAME.exp $PACKAGE_DIR\\lib"
+    ],
+-------
