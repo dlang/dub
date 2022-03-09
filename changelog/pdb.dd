@@ -1,5 +1,0 @@
-Windows: Copy PDB files to `targetPath`, alongside executable/DLL
-
-If the default PDB file is generated when linking an executable or DLL
-(e.g., no `/PDB:my\path.pdb` lflag), it is now copied to the target
-directory too.
