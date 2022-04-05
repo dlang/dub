@@ -169,8 +169,10 @@ class ProjectGenerator
 			prepareGeneration(pack, m_project, settings, bs);
 
 			// Regenerate buildSettings.sourceFiles
-			if (bs.preGenerateCommands.length)
-				bs = makeBuildSettings(pack, targets[pack.name].buildSettings);
+			if (bs.preGenerateCommands.length) {
+				auto newSettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
+				bs = makeBuildSettings(pack, newSettings);
+			}
 			targets[pack.name].buildSettings = bs;
 		}
 		configurePackages(m_project.rootPackage, targets, settings);
@@ -1050,4 +1052,52 @@ private void storeRecursiveInvokations(ref const(string[string])[] env, string[]
 			.chain(packs)
 			.join(",")
 	];
+}
+
+version(Posix) {
+    // https://github.com/dlang/dub/issues/2238
+	unittest {
+		import dub.internal.vibecompat.data.json : parseJsonString;
+		import dub.compilers.gdc : GDCCompiler;
+		import std.algorithm : canFind;
+		import std.path : absolutePath;
+		import std.file : mkdirRecurse, rmdirRecurse, write;
+
+		mkdirRecurse("dubtest/preGen/source");
+		write("dubtest/preGen/source/foo.d", "");
+		scope(exit) rmdirRecurse("dubtest");
+
+		auto desc = parseJsonString(`{"name": "test", "targetType": "library", "preGenerateCommands": ["touch $PACKAGE_DIR/source/bar.d"]}`);
+		auto pack = new Package(desc, NativePath("dubtest/preGen".absolutePath));
+		auto pman = new PackageManager(pack.path, NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), false);
+		auto prj = new Project(pman, pack);
+
+		final static class TestCompiler : GDCCompiler {
+			override void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback) {
+				assert(false);
+			}
+			override void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback) {
+				assert(false);
+			}
+		}
+
+		GeneratorSettings settings;
+		settings.compiler = new TestCompiler;
+		settings.buildType = "debug";
+
+		final static class TestGenerator : ProjectGenerator {
+			this(Project project) {
+			 	super(project);
+			}
+
+			override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets) {
+                import std.conv : text;
+				const sourceFiles = targets["test"].buildSettings.sourceFiles;
+                assert(sourceFiles.canFind("dubtest/preGen/source/bar.d".absolutePath), sourceFiles.text);
+			}
+		}
+
+		auto gen = new TestGenerator(prj);
+		gen.generate(settings);
+	}
 }
