@@ -791,6 +791,7 @@ class Project {
 
 		case "lflags":
 		case "sourceFiles":
+		case "injectSourceFiles":
 		case "versions":
 		case "debugVersions":
 		case "importPaths":
@@ -838,6 +839,7 @@ class Project {
 			{
 			case "mainSourceFile":
 			case "linkerFiles":
+			case "injectSourceFiles":
 			case "copyFiles":
 			case "importFiles":
 			case "stringImportFiles":
@@ -926,7 +928,8 @@ class Project {
 			enum isRelativeFile =
 				attributeName == "sourceFiles" || attributeName == "linkerFiles" ||
 				attributeName == "importFiles" || attributeName == "stringImportFiles" ||
-				attributeName == "copyFiles" || attributeName == "mainSourceFile";
+				attributeName == "copyFiles" || attributeName == "mainSourceFile" ||
+				attributeName == "injectSourceFiles";
 
 			// For these, empty string means "main project directory", not "missing value"
 			enum allowEmptyString =
@@ -1022,6 +1025,7 @@ class Project {
 		case "libs":                       return listBuildSetting!"libs"(args);
 		case "linker-files":               return listBuildSetting!"linkerFiles"(args);
 		case "source-files":               return listBuildSetting!"sourceFiles"(args);
+		case "injectSourceFiles":          return listBuildSetting!"injectSourceFiles"(args);
 		case "copy-files":                 return listBuildSetting!"copyFiles"(args);
 		case "extra-dependency-files":     return listBuildSetting!"extraDependencyFiles"(args);
 		case "versions":                   return listBuildSetting!"versions"(args);
@@ -1241,6 +1245,9 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addPostBuildCommands(settings.postBuildCommands);
 	dst.addPreRunCommands(settings.preRunCommands);
 	dst.addPostRunCommands(settings.postRunCommands);
+
+	if (!settings.injectSourceFiles.empty)
+		dst.addInjectSourceFiles(processVars!true(project, pack, gsettings, settings.injectSourceFiles, true, buildEnvs));
 
 	if (include_target_settings) {
 		dst.targetType = settings.targetType;

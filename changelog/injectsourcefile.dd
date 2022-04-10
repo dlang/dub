@@ -1,0 +1,9 @@
+Adds injection of source files from dependencies via injectSourceFiles command
+
+Each (sub)package now supports a source file that will be included in any executable or dynamic library that depends either directly or indirectly on it.
+
+This can be used to register and unregister elements of a package within the dependant package without requiring the dependant to acknowledge that the registration mechanism needs to take place.
+
+A comparable existing feature to this is the usage of sourceLibrary target type.
+A sourceLibrary targetType defers compilation of source code until it is dependent upon by a static library, dynamic library or executable (sub)package.
+Unlike sourceLibrary the injection of source code using this feature will inject it into every dynamic library and executable that depends on it, regardless of how deep it is in the dependency graph.

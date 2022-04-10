@@ -234,8 +234,12 @@ class ProjectGenerator
 		compatible. This also transports all Have_dependency_xyz version
 		identifiers to `rootPackage`.
 
-		4. Filter unused versions and debugVersions from all targets. The
-		filters have previously been upwards inherited (3.) so that versions
+		4. Merge injectSourceFiles from dependencies into their dependents.
+		This is based upon binary images and will transcend direct relationships
+		including shared libraries.
+
+		5. Filter unused versions and debugVersions from all targets. The
+		filters have previously been upwards inherited (3. and 4.) so that versions
 		used in a dependency are also applied to all dependents.
 
 		Note: The upwards inheritance is done at last so that siblings do not
@@ -418,6 +422,11 @@ class ProjectGenerator
 		}
 
 		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, versionFilters, importPaths, ...)
+
+		// We do a check for if any dependency uses final binary injection source files,
+		// otherwise can ignore that bit of workload entirely
+		bool skipFinalBinaryMerging = true;
+
 		void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
 		{
 			// use `visited` here as pkgs cannot depend on themselves
@@ -429,19 +438,67 @@ class ProjectGenerator
 			// embedded non-binary dependencies
 			foreach (deppack; ti.packages[1 .. $])
 				ti.buildSettings.add(targets[deppack.name].buildSettings);
+
 			// binary dependencies
 			foreach (depname; ti.dependencies)
 			{
 				auto pdepti = &targets[depname];
+
 				configureDependents(*pdepti, targets, level + 1);
 				mergeFromDependency(pdepti.buildSettings, ti.buildSettings, genSettings.platform);
+
+				if (!pdepti.buildSettings.injectSourceFiles.empty)
+					skipFinalBinaryMerging = false;
 			}
 		}
 
 		configureDependents(*roottarget, targets);
 		visited.clear();
 
-		// 4. Filter applicable version and debug version identifiers
+		// 4. As an extension to configureDependents we need to copy any injectSourceFiles
+		// in our dependencies (ignoring targetType)
+		void configureDependentsFinalImages(ref TargetInfo ti, TargetInfo[string] targets, ref TargetInfo finalBinaryTarget, size_t level = 0)
+		{
+			// use `visited` here as pkgs cannot depend on themselves
+			if (ti.pack in visited)
+				return;
+			visited[ti.pack] = typeof(visited[ti.pack]).init;
+
+			logDiagnostic("%sConfiguring dependent %s, deps:%(%s, %) for injectSourceFiles", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
+
+			foreach (depname; ti.dependencies)
+			{
+				auto pdepti = &targets[depname];
+
+				if (!pdepti.buildSettings.injectSourceFiles.empty)
+					finalBinaryTarget.buildSettings.addSourceFiles(pdepti.buildSettings.injectSourceFiles);
+
+				configureDependentsFinalImages(*pdepti, targets, finalBinaryTarget, level + 1);
+			}
+		}
+
+		if (!skipFinalBinaryMerging)
+		{
+			foreach (ref target; targets.byValue)
+			{
+				switch (target.buildSettings.targetType)
+				{
+					case TargetType.executable:
+					case TargetType.dynamicLibrary:
+					configureDependentsFinalImages(target, targets, target);
+
+					// We need to clear visited for each target that is executable dynamicLibrary
+					// due to this process needing to be recursive based upon the final binary targets.
+					visited.clear();
+					break;
+
+					default:
+					break;
+				}
+			}
+		}
+
+		// 5. Filter applicable version and debug version identifiers
 		if (genSettings.filterVersions)
 		{
 			foreach (name, ref ti; targets)
@@ -460,7 +517,7 @@ class ProjectGenerator
 			}
 		}
 
-		// 5. override string import files in dependencies
+		// 6. override string import files in dependencies
 		static void overrideStringImports(ref TargetInfo target,
 			ref TargetInfo parent, TargetInfo[string] targets, string[] overrides)
 		{
@@ -511,7 +568,7 @@ class ProjectGenerator
 			overrideStringImports(targets[depname], *roottarget, targets,
 				roottarget.buildSettings.stringImportFiles);
 
-		// 6. downwards inherits dependency build settings
+		// 7. downwards inherits dependency build settings
 		static void applyForcedSettings(const scope ref TargetInfo ti, TargetInfo[string] targets,
 											BuildSettings[string] dependBS, size_t level = 0)
 		{
@@ -675,6 +732,7 @@ class ProjectGenerator
 		parent.addDebugVersionFilters(child.debugVersionFilters);
 		parent.addImportPaths(child.importPaths);
 		parent.addStringImportPaths(child.stringImportPaths);
+		parent.addInjectSourceFiles(child.injectSourceFiles);
 		// linking of static libraries is done by parent
 		if (child.targetType == TargetType.staticLibrary) {
 			parent.addSourceFiles(child.sourceFiles.filter!(f => isLinkerFile(platform, f)).array);

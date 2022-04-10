@@ -1,0 +1,19 @@
+{
+	"description": "Some test code for Have_druntime version",
+	"name": "injected-from-dependency",
+	"targetType": "executable",
+
+	"dependencies": {
+		":toload": "*"
+	},
+
+	"subPackages": [
+		{
+			"name": "toload",
+			"buildOptions": ["betterC"],
+			"sourcePaths": ["toload"],
+			"importPaths": ["toload"],
+			"injectSourceFiles": ["toload/ahook.d"]
+		}
+	]
+}
