@@ -282,7 +282,6 @@ struct BuildSettingsTemplate {
 
  		// collect source files
 		dst.addSourceFiles(collectFiles(sourcePaths, "*.d"));
-		dst.addInjectSourceFiles(collectFiles(injectSourceFiles, "*.d"));
 		auto sourceFiles = dst.sourceFiles.sort();
 
  		// collect import files and remove sources
@@ -300,6 +299,7 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("libs", "addLibs")(dst, platform);
 		getPlatformSetting!("sourceFiles", "addSourceFiles")(dst, platform);
 		getPlatformSetting!("excludedSourceFiles", "removeSourceFiles")(dst, platform);
+		getPlatformSetting!("injectSourceFiles", "addInjectSourceFiles")(dst, platform);
 		getPlatformSetting!("copyFiles", "addCopyFiles")(dst, platform);
 		getPlatformSetting!("extraDependencyFiles", "addExtraDependencyFiles")(dst, platform);
 		getPlatformSetting!("versions", "addVersions")(dst, platform);
