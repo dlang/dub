@@ -12,7 +12,7 @@
 			"name": "toload",
 			"sourcePaths": ["toload"],
 			"importPaths": ["toload"],
-			"injectSourceFiles": ["toload/ahook.d"]
+			"injectSourceFiles": ["ahook.d"]
 		}
 	]
 }
