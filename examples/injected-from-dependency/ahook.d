@@ -1,4 +1,4 @@
-module toload.ahook;
+module ahook;
 
 version(D_BetterC) {
 	pragma(crt_constructor)

@@ -1,4 +1,4 @@
 void main() {
-	import toload.vars;
+	import vars;
 	assert(valueStoredHere == 1337);
 }

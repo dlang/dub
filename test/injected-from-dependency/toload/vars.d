@@ -1,3 +1,3 @@
-module toload.vars;
+module vars;
 
 int valueStoredHere;

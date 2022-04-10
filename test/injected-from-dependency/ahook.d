@@ -1,6 +1,6 @@
-module toload.ahook;
+module ahook;
 
 shared static this() {
-	import toload.vars;
+	import vars;
 	valueStoredHere = 1337;
 }
