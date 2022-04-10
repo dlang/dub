@@ -190,6 +190,7 @@ struct BuildSettingsTemplate {
 	string[][string] sourceFiles;
 	string[][string] sourcePaths;
 	string[][string] excludedSourceFiles;
+	string[][string] injectSourceFiles;
 	string[][string] copyFiles;
 	string[][string] extraDependencyFiles;
 	string[][string] versions;
@@ -281,6 +282,7 @@ struct BuildSettingsTemplate {
 
  		// collect source files
 		dst.addSourceFiles(collectFiles(sourcePaths, "*.d"));
+		dst.addInjectSourceFiles(collectFiles(injectSourceFiles, "*.d"));
 		auto sourceFiles = dst.sourceFiles.sort();
 
  		// collect import files and remove sources

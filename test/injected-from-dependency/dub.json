@@ -1,0 +1,18 @@
+{
+	"description": "Test if source file expected to be injected was into binary",
+	"name": "injected-from-dependency",
+	"targetType": "executable",
+
+	"dependencies": {
+		":toload": "*"
+	},
+
+	"subPackages": [
+		{
+			"name": "toload",
+			"sourcePaths": ["toload"],
+			"importPaths": ["toload"],
+			"injectSourceFiles": ["toload/ahook.d"]
+		}
+	]
+}
