@@ -1,0 +1,9 @@
+{
+    "name": "toload",
+    "description": "Example to showcase injection of a source file from a dependency dependency.",
+    "targetType": "library",
+    "buildOptions": ["betterC"],
+    "sourcePaths": ["source"],
+    "importPaths": ["source"],
+    "injectSourceFiles": ["ahook.d"]
+}
