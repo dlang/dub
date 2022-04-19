@@ -1025,7 +1025,7 @@ class Project {
 		case "libs":                       return listBuildSetting!"libs"(args);
 		case "linker-files":               return listBuildSetting!"linkerFiles"(args);
 		case "source-files":               return listBuildSetting!"sourceFiles"(args);
-		case "injectSourceFiles":          return listBuildSetting!"injectSourceFiles"(args);
+		case "inject-source-files":        return listBuildSetting!"injectSourceFiles"(args);
 		case "copy-files":                 return listBuildSetting!"copyFiles"(args);
 		case "extra-dependency-files":     return listBuildSetting!"extraDependencyFiles"(args);
 		case "versions":                   return listBuildSetting!"versions"(args);
