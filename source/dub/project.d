@@ -1227,6 +1227,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true, buildEnvs));
 	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true, buildEnvs));
 	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true, buildEnvs));
+	dst.addInjectSourceFiles(processVars!true(project, pack, gsettings, settings.injectSourceFiles, true, buildEnvs));
 	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true, buildEnvs));
 	dst.addExtraDependencyFiles(processVars(project, pack, gsettings, settings.extraDependencyFiles, true, buildEnvs));
 	dst.addVersions(processVars(project, pack, gsettings, settings.versions, false, buildEnvs));
@@ -1245,9 +1246,6 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addPostBuildCommands(settings.postBuildCommands);
 	dst.addPreRunCommands(settings.preRunCommands);
 	dst.addPostRunCommands(settings.postRunCommands);
-
-	if (!settings.injectSourceFiles.empty)
-		dst.addInjectSourceFiles(processVars!true(project, pack, gsettings, settings.injectSourceFiles, true, buildEnvs));
 
 	if (include_target_settings) {
 		dst.targetType = settings.targetType;
