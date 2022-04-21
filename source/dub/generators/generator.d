@@ -169,8 +169,10 @@ class ProjectGenerator
 			prepareGeneration(pack, m_project, settings, bs);
 
 			// Regenerate buildSettings.sourceFiles
-			if (bs.preGenerateCommands.length)
-				bs = makeBuildSettings(pack, targets[pack.name].buildSettings);
+			if (bs.preGenerateCommands.length) {
+				auto newSettings = pack.getBuildSettings(settings.platform, configs[pack.name]);
+				bs = makeBuildSettings(pack, newSettings);
+			}
 			targets[pack.name].buildSettings = bs;
 		}
 		configurePackages(m_project.rootPackage, targets, settings);
@@ -234,8 +236,12 @@ class ProjectGenerator
 		compatible. This also transports all Have_dependency_xyz version
 		identifiers to `rootPackage`.
 
-		4. Filter unused versions and debugVersions from all targets. The
-		filters have previously been upwards inherited (3.) so that versions
+		4. Merge injectSourceFiles from dependencies into their dependents.
+		This is based upon binary images and will transcend direct relationships
+		including shared libraries.
+
+		5. Filter unused versions and debugVersions from all targets. The
+		filters have previously been upwards inherited (3. and 4.) so that versions
 		used in a dependency are also applied to all dependents.
 
 		Note: The upwards inheritance is done at last so that siblings do not
@@ -252,15 +258,21 @@ class ProjectGenerator
 		auto roottarget = &targets[rootPackage.name];
 
 		// 0. do shallow configuration (not including dependencies) of all packages
-		TargetType determineTargetType(const ref TargetInfo ti)
+		TargetType determineTargetType(const ref TargetInfo ti, const ref GeneratorSettings genSettings)
 		{
 			TargetType tt = ti.buildSettings.targetType;
 			if (ti.pack is rootPackage) {
 				if (tt == TargetType.autodetect || tt == TargetType.library) tt = TargetType.staticLibrary;
 			} else {
 				if (tt == TargetType.autodetect || tt == TargetType.library) tt = genSettings.combined ? TargetType.sourceLibrary : TargetType.staticLibrary;
-				else if (tt == TargetType.dynamicLibrary) {
-					logWarn("Dynamic libraries are not yet supported as dependencies - building as static library.");
+				else if (genSettings.platform.architecture.canFind("x86_omf") && tt == TargetType.dynamicLibrary) {
+					// Unfortunately we cannot remove this check for OMF targets,
+					// due to Optlink not producing shared libraries without a lot of user intervention.
+					// For other targets, say MSVC it'll do the right thing for the most part,
+					// export is still a problem as of this writing, which means static libraries cannot have linking to them removed.
+					// But that is for the most part up to the developer, to get it working correctly.
+
+					logWarn("Dynamic libraries are not yet supported as dependencies for Windows target OMF - building as static library.");
 					tt = TargetType.staticLibrary;
 				}
 			}
@@ -279,7 +291,7 @@ class ProjectGenerator
 		{
 			auto bs = &ti.buildSettings;
 			// determine the actual target type
-			bs.targetType = determineTargetType(ti);
+			bs.targetType = determineTargetType(ti, genSettings);
 
 			switch (bs.targetType)
 			{
@@ -412,6 +424,11 @@ class ProjectGenerator
 		}
 
 		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, versionFilters, importPaths, ...)
+
+		// We do a check for if any dependency uses final binary injection source files,
+		// otherwise can ignore that bit of workload entirely
+		bool skipFinalBinaryMerging = true;
+
 		void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
 		{
 			// use `visited` here as pkgs cannot depend on themselves
@@ -423,19 +440,67 @@ class ProjectGenerator
 			// embedded non-binary dependencies
 			foreach (deppack; ti.packages[1 .. $])
 				ti.buildSettings.add(targets[deppack.name].buildSettings);
+
 			// binary dependencies
 			foreach (depname; ti.dependencies)
 			{
 				auto pdepti = &targets[depname];
+
 				configureDependents(*pdepti, targets, level + 1);
 				mergeFromDependency(pdepti.buildSettings, ti.buildSettings, genSettings.platform);
+
+				if (!pdepti.buildSettings.injectSourceFiles.empty)
+					skipFinalBinaryMerging = false;
 			}
 		}
 
 		configureDependents(*roottarget, targets);
 		visited.clear();
 
-		// 4. Filter applicable version and debug version identifiers
+		// 4. As an extension to configureDependents we need to copy any injectSourceFiles
+		// in our dependencies (ignoring targetType)
+		void configureDependentsFinalImages(ref TargetInfo ti, TargetInfo[string] targets, ref TargetInfo finalBinaryTarget, size_t level = 0)
+		{
+			// use `visited` here as pkgs cannot depend on themselves
+			if (ti.pack in visited)
+				return;
+			visited[ti.pack] = typeof(visited[ti.pack]).init;
+
+			logDiagnostic("%sConfiguring dependent %s, deps:%(%s, %) for injectSourceFiles", ' '.repeat(2 * level), ti.pack.name, ti.dependencies);
+
+			foreach (depname; ti.dependencies)
+			{
+				auto pdepti = &targets[depname];
+
+				if (!pdepti.buildSettings.injectSourceFiles.empty)
+					finalBinaryTarget.buildSettings.addSourceFiles(pdepti.buildSettings.injectSourceFiles);
+
+				configureDependentsFinalImages(*pdepti, targets, finalBinaryTarget, level + 1);
+			}
+		}
+
+		if (!skipFinalBinaryMerging)
+		{
+			foreach (ref target; targets.byValue)
+			{
+				switch (target.buildSettings.targetType)
+				{
+					case TargetType.executable:
+					case TargetType.dynamicLibrary:
+					configureDependentsFinalImages(target, targets, target);
+
+					// We need to clear visited for each target that is executable dynamicLibrary
+					// due to this process needing to be recursive based upon the final binary targets.
+					visited.clear();
+					break;
+
+					default:
+					break;
+				}
+			}
+		}
+
+		// 5. Filter applicable version and debug version identifiers
 		if (genSettings.filterVersions)
 		{
 			foreach (name, ref ti; targets)
@@ -454,7 +519,7 @@ class ProjectGenerator
 			}
 		}
 
-		// 5. override string import files in dependencies
+		// 6. override string import files in dependencies
 		static void overrideStringImports(ref TargetInfo target,
 			ref TargetInfo parent, TargetInfo[string] targets, string[] overrides)
 		{
@@ -505,7 +570,7 @@ class ProjectGenerator
 			overrideStringImports(targets[depname], *roottarget, targets,
 				roottarget.buildSettings.stringImportFiles);
 
-		// 6. downwards inherits dependency build settings
+		// 7. downwards inherits dependency build settings
 		static void applyForcedSettings(const scope ref TargetInfo ti, TargetInfo[string] targets,
 											BuildSettings[string] dependBS, size_t level = 0)
 		{
@@ -669,6 +734,7 @@ class ProjectGenerator
 		parent.addDebugVersionFilters(child.debugVersionFilters);
 		parent.addImportPaths(child.importPaths);
 		parent.addStringImportPaths(child.stringImportPaths);
+		parent.addInjectSourceFiles(child.injectSourceFiles);
 		// linking of static libraries is done by parent
 		if (child.targetType == TargetType.staticLibrary) {
 			parent.addSourceFiles(child.sourceFiles.filter!(f => isLinkerFile(platform, f)).array);
@@ -826,8 +892,7 @@ private void prepareGeneration(in Package pack, in Project proj, in GeneratorSet
 {
 	if (buildsettings.preGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running pre-generate commands for %s...", pack.name);
-		runBuildCommands(buildsettings.preGenerateCommands, pack, proj, settings, buildsettings,
-			[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.preGenerateEnvironments]);
+		runBuildCommands(CommandType.preGenerate, buildsettings.preGenerateCommands, pack, proj, settings, buildsettings);
 	}
 }
 
@@ -839,8 +904,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 {
 	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
 		logInfo("Running post-generate commands for %s...", pack.name);
-		runBuildCommands(buildsettings.postGenerateCommands, pack, proj, settings, buildsettings,
-			[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.postGenerateEnvironments]);
+		runBuildCommands(CommandType.postGenerate, buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
 	}
 
 	if (generate_binary) {
@@ -907,29 +971,44 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	command execution loops. The latter could otherwise happen when a command
 	runs "dub describe" or similar functionality.
 */
-void runBuildCommands(in string[] commands, in Package pack, in Project proj,
+void runBuildCommands(CommandType type, in string[] commands, in Package pack, in Project proj,
 	in GeneratorSettings settings, in BuildSettings build_settings, in string[string][] extraVars = null)
 {
-	import dub.internal.utils : getDUBExePath, runCommands;
+	import dub.internal.utils : runCommands;
+
+	auto env = makeCommandEnvironmentVariables(type, pack, proj, settings, build_settings, extraVars);
+	auto sub_commands = processVars(proj, pack, settings, commands, false, env);
+
+	auto depNames = proj.dependencies.map!((a) => a.name).array();
+	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
+
+	runCommands(sub_commands, env.collapseEnv, pack.path().toString());
+}
+
+const(string[string])[] makeCommandEnvironmentVariables(CommandType type,
+	in Package pack, in Project proj, in GeneratorSettings settings,
+	in BuildSettings build_settings, in string[string][] extraVars = null)
+{
+	import dub.internal.utils : getDUBExePath;
 	import std.conv : to, text;
 	import std.process : environment, escapeShellFileName;
 
-	string[string] env = environment.toAA();
+	string[string] env;
 	// TODO: do more elaborate things here
 	// TODO: escape/quote individual items appropriately
-	env["VERSIONS"]              = join(cast(string[])build_settings.versions," ");
-	env["LIBS"]                  = join(cast(string[])build_settings.libs," ");
-	env["SOURCE_FILES"]          = join(cast(string[])build_settings.sourceFiles," ");
-	env["IMPORT_PATHS"]          = join(cast(string[])build_settings.importPaths," ");
-	env["STRING_IMPORT_PATHS"]   = join(cast(string[])build_settings.stringImportPaths," ");
+	env["VERSIONS"]              = join(build_settings.versions, " ");
+	env["LIBS"]                  = join(build_settings.libs, " ");
+	env["SOURCE_FILES"]          = join(build_settings.sourceFiles, " ");
+	env["IMPORT_PATHS"]          = join(build_settings.importPaths, " ");
+	env["STRING_IMPORT_PATHS"]   = join(build_settings.stringImportPaths, " ");
 
 	env["DC"]                    = settings.platform.compilerBinary;
 	env["DC_BASE"]               = settings.platform.compiler;
 	env["D_FRONTEND_VER"]        = to!string(settings.platform.frontendVersion);
 
 	env["DUB_EXE"]               = getDUBExePath(settings.platform.compilerBinary);
-	env["DUB_PLATFORM"]          = join(cast(string[])settings.platform.platform," ");
-	env["DUB_ARCH"]              = join(cast(string[])settings.platform.architecture," ");
+	env["DUB_PLATFORM"]          = join(settings.platform.platform, " ");
+	env["DUB_ARCH"]              = join(settings.platform.architecture, " ");
 
 	env["DUB_TARGET_TYPE"]       = to!string(build_settings.targetType);
 	env["DUB_TARGET_PATH"]       = build_settings.targetPath;
@@ -962,15 +1041,49 @@ void runBuildCommands(in string[] commands, in Package pack, in Project proj,
 	env["DUB_ROOT_PACKAGE_TARGET_TYPE"] = to!string(rootPackageBuildSettings.targetType);
 	env["DUB_ROOT_PACKAGE_TARGET_PATH"] = rootPackageBuildSettings.targetPath;
 	env["DUB_ROOT_PACKAGE_TARGET_NAME"] = rootPackageBuildSettings.targetName;
-	
-	foreach (aa; extraVars) {
-		foreach (k, v; aa)
-			env[k] = v;
+
+	const(string[string])[] typeEnvVars;
+	with (build_settings) final switch (type)
+	{
+		// pre/postGenerate don't have generateEnvironments, but reuse buildEnvironments
+		case CommandType.preGenerate: typeEnvVars = [environments, buildEnvironments, preGenerateEnvironments]; break;
+		case CommandType.postGenerate: typeEnvVars = [environments, buildEnvironments, postGenerateEnvironments]; break;
+		case CommandType.preBuild: typeEnvVars = [environments, buildEnvironments, preBuildEnvironments]; break;
+		case CommandType.postBuild: typeEnvVars = [environments, buildEnvironments, postBuildEnvironments]; break;
+		case CommandType.preRun: typeEnvVars = [environments, runEnvironments, preRunEnvironments]; break;
+		case CommandType.postRun: typeEnvVars = [environments, runEnvironments, postRunEnvironments]; break;
 	}
 
-	auto depNames = proj.dependencies.map!((a) => a.name).array();
-	storeRecursiveInvokations(env, proj.rootPackage.name ~ depNames);
-	runCommands(commands, env, pack.path().toString());
+	return [environment.toAA()] ~ env ~ typeEnvVars ~ extraVars;
+}
+
+string[string] collapseEnv(in string[string][] envs)
+{
+	string[string] ret;
+	foreach (subEnv; envs)
+	{
+		foreach (k, v; subEnv)
+			ret[k] = v;
+	}
+	return ret;
+}
+
+/// Type to specify where CLI commands that need to be run came from. Needed for
+/// proper substitution with support for the different environments.
+enum CommandType
+{
+	/// Defined in the preGenerateCommands setting
+	preGenerate,
+	/// Defined in the postGenerateCommands setting
+	postGenerate,
+	/// Defined in the preBuildCommands setting
+	preBuild,
+	/// Defined in the postBuildCommands setting
+	postBuild,
+	/// Defined in the preRunCommands setting
+	preRun,
+	/// Defined in the postRunCommands setting
+	postRun
 }
 
 private bool isRecursiveInvocation(string pack)
@@ -979,20 +1092,70 @@ private bool isRecursiveInvocation(string pack)
 	import std.process : environment;
 
 	return environment
-        .get("DUB_PACKAGES_USED", "")
-        .splitter(",")
-        .canFind(pack);
+		.get("DUB_PACKAGES_USED", "")
+		.splitter(",")
+		.canFind(pack);
 }
 
-private void storeRecursiveInvokations(string[string] env, string[] packs)
+private void storeRecursiveInvokations(ref const(string[string])[] env, string[] packs)
 {
 	import std.algorithm : canFind, splitter;
 	import std.range : chain;
 	import std.process : environment;
 
-    env["DUB_PACKAGES_USED"] = environment
-        .get("DUB_PACKAGES_USED", "")
-        .splitter(",")
-        .chain(packs)
-        .join(",");
+	env ~= [
+		"DUB_PACKAGES_USED": environment
+			.get("DUB_PACKAGES_USED", "")
+			.splitter(",")
+			.chain(packs)
+			.join(",")
+	];
+}
+
+version(Posix) {
+    // https://github.com/dlang/dub/issues/2238
+	unittest {
+		import dub.internal.vibecompat.data.json : parseJsonString;
+		import dub.compilers.gdc : GDCCompiler;
+		import std.algorithm : canFind;
+		import std.path : absolutePath;
+		import std.file : mkdirRecurse, rmdirRecurse, write;
+
+		mkdirRecurse("dubtest/preGen/source");
+		write("dubtest/preGen/source/foo.d", "");
+		scope(exit) rmdirRecurse("dubtest");
+
+		auto desc = parseJsonString(`{"name": "test", "targetType": "library", "preGenerateCommands": ["touch $PACKAGE_DIR/source/bar.d"]}`);
+		auto pack = new Package(desc, NativePath("dubtest/preGen".absolutePath));
+		auto pman = new PackageManager(pack.path, NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), false);
+		auto prj = new Project(pman, pack);
+
+		final static class TestCompiler : GDCCompiler {
+			override void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback) {
+				assert(false);
+			}
+			override void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback) {
+				assert(false);
+			}
+		}
+
+		GeneratorSettings settings;
+		settings.compiler = new TestCompiler;
+		settings.buildType = "debug";
+
+		final static class TestGenerator : ProjectGenerator {
+			this(Project project) {
+			 	super(project);
+			}
+
+			override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets) {
+                import std.conv : text;
+				const sourceFiles = targets["test"].buildSettings.sourceFiles;
+                assert(sourceFiles.canFind("dubtest/preGen/source/bar.d".absolutePath), sourceFiles.text);
+			}
+		}
+
+		auto gen = new TestGenerator(prj);
+		gen.generate(settings);
+	}
 }

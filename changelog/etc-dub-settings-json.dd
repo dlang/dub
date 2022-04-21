@@ -1,0 +1,9 @@
+Posix: use /etc/dub/settings.json if DUB is installed in /usr
+
+For Linux distributions that put the dub installation in /usr, there is now a
+special case that DUB will load from /etc/dub/settings.json (absolute path) if
+the installation is inside /usr.
+
+Previously settings would have attempted to be loaded from
+`/usr/etc/dub/settings.json` if installed in `/usr/bin/dub`. This is still
+loaded if it exists, but if not `/etc/dub/settings.json` will be loaded.

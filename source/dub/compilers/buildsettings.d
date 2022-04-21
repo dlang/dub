@@ -31,6 +31,7 @@ struct BuildSettings {
 	string[] libs;
 	string[] linkerFiles;
 	string[] sourceFiles;
+	string[] injectSourceFiles;
 	string[] copyFiles;
 	string[] extraDependencyFiles;
 	string[] versions;
@@ -115,6 +116,7 @@ struct BuildSettings {
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
+	void addInjectSourceFiles(in string[] value...) { add(injectSourceFiles, value); }
 	void addCopyFiles(in string[] value...) { add(copyFiles, value); }
 	void addExtraDependencyFiles(in string[] value...) { add(extraDependencyFiles, value); }
 	void addVersions(in string[] value...) { add(versions, value); }

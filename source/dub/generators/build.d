@@ -146,6 +146,8 @@ class BuildGenerator : ProjectGenerator {
 
 	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_path)
 	{
+		import std.path : absolutePath;
+
 		auto cwd = NativePath(getcwd());
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
@@ -175,8 +177,8 @@ class BuildGenerator : ProjectGenerator {
 		// run post-build commands
 		if (!cached && buildsettings.postBuildCommands.length) {
 			logInfo("Running post-build commands...");
-			runBuildCommands(buildsettings.postBuildCommands, pack, m_project, settings, buildsettings,
-				[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.postBuildEnvironments]);
+			runBuildCommands(CommandType.postBuild, buildsettings.postBuildCommands, pack, m_project, settings, buildsettings,
+							 [["DUB_BUILD_PATH" : target_path.parentPath.toNativeString.absolutePath]]);
 		}
 
 		return cached;
@@ -214,8 +216,7 @@ class BuildGenerator : ProjectGenerator {
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
-			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings,
-				[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.preBuildEnvironments]);
+			runBuildCommands(CommandType.preBuild, buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
 		// override target path
@@ -335,8 +336,7 @@ class BuildGenerator : ProjectGenerator {
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Running pre-build commands...");
-			runBuildCommands(buildsettings.preBuildCommands, pack, m_project, settings, buildsettings,
-				[buildsettings.environments, buildsettings.buildEnvironments, buildsettings.preBuildEnvironments]);
+			runBuildCommands(CommandType.preBuild, buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
 		buildWithCompiler(settings, buildsettings);
@@ -580,8 +580,7 @@ class BuildGenerator : ProjectGenerator {
 	{
 		if (buildsettings.preRunCommands.length) {
 			logInfo("Running pre-run commands...");
-			runBuildCommands(buildsettings.preRunCommands, pack, proj, settings, buildsettings,
-				[buildsettings.environments, buildsettings.runEnvironments, buildsettings.preRunEnvironments]);
+			runBuildCommands(CommandType.preRun, buildsettings.preRunCommands, pack, proj, settings, buildsettings);
 		}
 	}
 
@@ -590,8 +589,7 @@ class BuildGenerator : ProjectGenerator {
 	{
 		if (buildsettings.postRunCommands.length) {
 			logInfo("Running post-run commands...");
-			runBuildCommands(buildsettings.postRunCommands, pack, proj, settings, buildsettings,
-				[buildsettings.environments, buildsettings.runEnvironments, buildsettings.postRunEnvironments]);
+			runBuildCommands(CommandType.postRun, buildsettings.postRunCommands, pack, proj, settings, buildsettings);
 		}
 	}
 
