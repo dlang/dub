@@ -1,7 +1,0 @@
-Builds dynamicLibrary targets as dynamic libraries instead of static libraries.
-
-Dub will no longer build dynamicLibrary targetType's as staticLibrary.
-
-Except for x86_omf. This has been disabled due to numerous issues that will lead this to not doing what is expected of it.
-
-No compiler or linker flags have been added at this time, you will need to specify the relevant flag to get the compiler to link dynamically against Phobos.
