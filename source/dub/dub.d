@@ -1241,7 +1241,6 @@ class Dub {
 
 		GeneratorSettings settings = this.makeAppSettings();
 		settings.runArgs = runArgs;
-
 		initSubPackage.recipe.buildSettings.workingDirectory = path.toNativeString();
 		template_dub.generateProject("build", settings);
 	}
@@ -1366,23 +1365,23 @@ class Dub {
 		if (this.defaultLowMemory)
 			settings.buildSettings.options |= BuildOption.lowmem;
 		if (this.defaultEnvironments)
-			settings.buildSettings.addEnvironments(this.defaultEnvironments);
+			settings.buildSettings.mainUserBuildStep.addEnvironments(this.defaultEnvironments);
 		if (this.defaultBuildEnvironments)
-			settings.buildSettings.addBuildEnvironments(this.defaultBuildEnvironments);
+			settings.buildSettings.mainUserBuildStep.addBuildEnvironments(this.defaultBuildEnvironments);
 		if (this.defaultRunEnvironments)
-			settings.buildSettings.addRunEnvironments(this.defaultRunEnvironments);
+			settings.buildSettings.mainUserBuildStep.addRunEnvironments(this.defaultRunEnvironments);
 		if (this.defaultPreGenerateEnvironments)
-			settings.buildSettings.addPreGenerateEnvironments(this.defaultPreGenerateEnvironments);
+			settings.buildSettings.mainUserBuildStep.addPreGenerateEnvironments(this.defaultPreGenerateEnvironments);
 		if (this.defaultPostGenerateEnvironments)
-			settings.buildSettings.addPostGenerateEnvironments(this.defaultPostGenerateEnvironments);
+			settings.buildSettings.mainUserBuildStep.addPostGenerateEnvironments(this.defaultPostGenerateEnvironments);
 		if (this.defaultPreBuildEnvironments)
-			settings.buildSettings.addPreBuildEnvironments(this.defaultPreBuildEnvironments);
+			settings.buildSettings.mainUserBuildStep.addPreBuildEnvironments(this.defaultPreBuildEnvironments);
 		if (this.defaultPostBuildEnvironments)
-			settings.buildSettings.addPostBuildEnvironments(this.defaultPostBuildEnvironments);
+			settings.buildSettings.mainUserBuildStep.addPostBuildEnvironments(this.defaultPostBuildEnvironments);
 		if (this.defaultPreRunEnvironments)
-			settings.buildSettings.addPreRunEnvironments(this.defaultPreRunEnvironments);
+			settings.buildSettings.mainUserBuildStep.addPreRunEnvironments(this.defaultPreRunEnvironments);
 		if (this.defaultPostRunEnvironments)
-			settings.buildSettings.addPostRunEnvironments(this.defaultPostRunEnvironments);
+			settings.buildSettings.mainUserBuildStep.addPostRunEnvironments(this.defaultPostRunEnvironments);
 		settings.run = true;
 		settings.overrideToolWorkingDirectory = m_rootPath;
 

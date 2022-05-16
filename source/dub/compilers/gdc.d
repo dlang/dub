@@ -216,10 +216,8 @@ class GDCCompiler : Compiler {
 		writeFile(res_file, join(settings.dflags.map!(s => escape(s)), "\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
-		string[string] env;
-		foreach (aa; [settings.environments, settings.buildEnvironments])
-			foreach (k, v; aa)
-				env[k] = v;
+
+		string[string] env = settings.mergeEnvs!("environments", "buildEnvironments");
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, cwd, env);
 	}
 
@@ -238,10 +236,8 @@ class GDCCompiler : Compiler {
 				args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order
 		}
 		logDiagnostic("%s", args.join(" "));
-		string[string] env;
-		foreach (aa; [settings.environments, settings.buildEnvironments])
-			foreach (k, v; aa)
-				env[k] = v;
+
+		string[string] env = settings.mergeEnvs!("environments", "buildEnvironments");
 		invokeTool(args, output_callback, cwd, env);
 	}
 

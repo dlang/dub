@@ -233,12 +233,14 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		// run post-build commands
-		if (!cached && buildsettings.postBuildCommands.length) {
+		if (!cached && buildsettings.userBuildSteps.any!"a.postBuildCommands.length") {
 			logInfo("Post-build", Color.light_green, "Running commands");
-			runBuildCommands(CommandType.postBuild, buildsettings.postBuildCommands, pack, m_project, settings, buildsettings,
-							[["DUB_BUILD_PATH" : target_path is NativePath.init
-								? ""
-								: target_path.parentPath.toNativeString.absolutePath(settings.toolWorkingDirectory.toNativeString)]]);
+			runBuildCommands(CommandType.postBuild, pack, m_project, buildsettings, cwd.toNativeString(),
+				[[
+					"DUB_BUILD_PATH" : target_path is NativePath.init
+						? ""
+						: target_path.parentPath.toNativeString.absolutePath(settings.toolWorkingDirectory.toNativeString)
+				]]);
 		}
 
 		return cached;
@@ -274,9 +276,10 @@ class BuildGenerator : ProjectGenerator {
 
 		logInfo("Building", Color.light_green, "%s %s: building configuration [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
 
-		if( buildsettings.preBuildCommands.length ){
+		if( buildsettings.userBuildSteps.any!"a.preBuildCommands.length" ){
 			logInfo("Pre-build", Color.light_green, "Running commands");
-			runBuildCommands(CommandType.preBuild, buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
+			runBuildCommands(CommandType.preBuild, pack, m_project, buildsettings,
+				settings.toolWorkingDirectory.toNativeString());
 		}
 
 		// override target path
@@ -336,9 +339,9 @@ class BuildGenerator : ProjectGenerator {
 		flags ~= buildsettings.dflags;
 		flags ~= mainsrc.relativeTo(cwd).toNativeString();
 
-		if (buildsettings.preBuildCommands.length){
+		if (buildsettings.userBuildSteps.any!"a.preBuildCommands.length"){
 			logInfo("Pre-build", Color.light_green, "Running commands");
-			runCommands(buildsettings.preBuildCommands, null, cwd.toNativeString());
+			runBuildCommands(CommandType.preBuild, pack, m_project, buildsettings, cwd.toNativeString());
 		}
 
 		logInfo("Building", Color.light_green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
@@ -395,9 +398,10 @@ class BuildGenerator : ProjectGenerator {
 			target_path = getTargetPath(buildsettings, settings);
 		}
 
-		if( buildsettings.preBuildCommands.length ){
+		if( buildsettings.userBuildSteps.any!"a.preBuildCommands.length" ){
 			logInfo("Pre-build", Color.light_green, "Running commands");
-			runBuildCommands(CommandType.preBuild, buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
+			runBuildCommands(CommandType.preBuild, pack, m_project, buildsettings,
+				cwd.toNativeString());
 		}
 
 		buildWithCompiler(settings, buildsettings);
@@ -610,10 +614,7 @@ class BuildGenerator : ProjectGenerator {
 			if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
 			runPreRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			logInfo("Running", Color.green, "%s %s", exe_file_path.relativeTo(runcwd), run_args.join(" "));
-			string[string] env;
-			foreach (aa; [buildsettings.environments, buildsettings.runEnvironments])
-				foreach (k, v; aa)
-					env[k] = v;
+			string[string] env = buildsettings.mergeEnvs!("environments", "runEnvironments");
 			if (settings.runCallback) {
 				auto res = execute([ exe_file_path.toNativeString() ] ~ run_args,
 						   env, Config.none, size_t.max, runcwd.toNativeString());
@@ -635,18 +636,20 @@ class BuildGenerator : ProjectGenerator {
 	private void runPreRunCommands(in Package pack, in Project proj, in GeneratorSettings settings,
 		in BuildSettings buildsettings)
 	{
-		if (buildsettings.preRunCommands.length) {
+		if (buildsettings.userBuildSteps.any!"a.preRunCommands.length") {
 			logInfo("Pre-run", Color.light_green, "Running commands...");
-			runBuildCommands(CommandType.preRun, buildsettings.preRunCommands, pack, proj, settings, buildsettings);
+			runBuildCommands(CommandType.preRun, pack, proj, buildsettings,
+				settings.toolWorkingDirectory.toNativeString());
 		}
 	}
 
 	private void runPostRunCommands(in Package pack, in Project proj, in GeneratorSettings settings,
 		in BuildSettings buildsettings)
 	{
-		if (buildsettings.postRunCommands.length) {
+		if (buildsettings.userBuildSteps.any!"a.postRunCommands.length") {
 			logInfo("Post-run", Color.light_green, "Running commands...");
-			runBuildCommands(CommandType.postRun, buildsettings.postRunCommands, pack, proj, settings, buildsettings);
+			runBuildCommands(CommandType.postRun, pack, proj, buildsettings,
+				settings.toolWorkingDirectory.toNativeString());
 		}
 	}
 

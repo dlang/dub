@@ -811,9 +811,9 @@ class Project {
 				dst.targetPath = psettings.targetPath;
 				dst.targetName = psettings.targetName;
 				if (!psettings.workingDirectory.empty)
-					dst.workingDirectory = processVars(psettings.workingDirectory, this, pkg, gsettings, true, [dst.environments, dst.buildEnvironments]);
+					dst.workingDirectory = processVars(psettings.workingDirectory, pkg, true, [dst.mergeEnvs!("environments", "buildEnvironments")]);
 				if (psettings.mainSourceFile.length)
-					dst.mainSourceFile = processVars(psettings.mainSourceFile, this, pkg, gsettings, true, [dst.environments, dst.buildEnvironments]);
+					dst.mainSourceFile = processVars(psettings.mainSourceFile, pkg, true, [dst.mergeEnvs!("environments", "buildEnvironments")]);
 			}
 		}
 
@@ -1017,10 +1017,13 @@ class Project {
 		auto targetDescription = projectDescription.lookupTarget(projectDescription.rootPackage);
 		auto buildSettings = targetDescription.buildSettings;
 
-		string[] substituteCommands(Package pack, string[] commands, CommandType type)
+		string[] substituteCommands(Package pack, CommandType type)
 		{
-			auto env = makeCommandEnvironmentVariables(type, pack, this, settings, buildSettings);
-			return processVars(this, pack, settings, commands, false, env);
+			auto envs = makeCommandEnvironmentVariables(type, buildSettings);
+			string[] ret;
+			foreach (env; envs)
+				ret ~= processVars(pack, env.commands, false, env.env);
+			return ret;
 		}
 
 		// Return any BuildSetting member attributeName as a range of strings. Don't attempt to fixup values.
@@ -1031,7 +1034,7 @@ class Project {
 			auto value = __traits(getMember, buildSettings, attributeName);
 
 			static if( attributeName.endsWith("Commands") )
-				return substituteCommands(pack, value, mixin("CommandType.", attributeName[0 .. $ - "Commands".length]));
+				return substituteCommands(pack, mixin("CommandType.", attributeName[0 .. $ - "Commands".length]));
 			else static if( is(typeof(value) == string[]) )
 				return value;
 			else static if( is(typeof(value) == string) )
@@ -1177,21 +1180,21 @@ class Project {
 		case "string-import-paths":        return listBuildSetting!"stringImportPaths"(args);
 		case "import-files":               return listBuildSetting!"importFiles"(args);
 		case "string-import-files":        return listBuildSetting!"stringImportFiles"(args);
-		case "pre-generate-commands":      return listBuildSetting!"preGenerateCommands"(args);
-		case "post-generate-commands":     return listBuildSetting!"postGenerateCommands"(args);
-		case "pre-build-commands":         return listBuildSetting!"preBuildCommands"(args);
-		case "post-build-commands":        return listBuildSetting!"postBuildCommands"(args);
-		case "pre-run-commands":           return listBuildSetting!"preRunCommands"(args);
-		case "post-run-commands":          return listBuildSetting!"postRunCommands"(args);
-		case "environments":               return listBuildSetting!"environments"(args);
-		case "build-environments":         return listBuildSetting!"buildEnvironments"(args);
-		case "run-environments":           return listBuildSetting!"runEnvironments"(args);
-		case "pre-generate-environments":  return listBuildSetting!"preGenerateEnvironments"(args);
-		case "post-generate-environments": return listBuildSetting!"postGenerateEnvironments"(args);
-		case "pre-build-environments":     return listBuildSetting!"preBuildEnvironments"(args);
-		case "post-build-environments":    return listBuildSetting!"postBuildEnvironments"(args);
-		case "pre-run-environments":       return listBuildSetting!"preRunEnvironments"(args);
-		case "post-run-environments":      return listBuildSetting!"postRunEnvironments"(args);
+		// case "pre-generate-commands":      return listBuildSetting!"preGenerateCommands"(args);
+		// case "post-generate-commands":     return listBuildSetting!"postGenerateCommands"(args);
+		// case "pre-build-commands":         return listBuildSetting!"preBuildCommands"(args);
+		// case "post-build-commands":        return listBuildSetting!"postBuildCommands"(args);
+		// case "pre-run-commands":           return listBuildSetting!"preRunCommands"(args);
+		// case "post-run-commands":          return listBuildSetting!"postRunCommands"(args);
+		// case "environments":               return listBuildSetting!"environments"(args);
+		// case "build-environments":         return listBuildSetting!"buildEnvironments"(args);
+		// case "run-environments":           return listBuildSetting!"runEnvironments"(args);
+		// case "pre-generate-environments":  return listBuildSetting!"preGenerateEnvironments"(args);
+		// case "post-generate-environments": return listBuildSetting!"postGenerateEnvironments"(args);
+		// case "pre-build-environments":     return listBuildSetting!"preBuildEnvironments"(args);
+		// case "post-build-environments":    return listBuildSetting!"postBuildEnvironments"(args);
+		// case "pre-run-environments":       return listBuildSetting!"preRunEnvironments"(args);
+		// case "post-run-environments":      return listBuildSetting!"postRunEnvironments"(args);
 		case "requirements":               return listBuildSetting!"requirements"(args);
 		case "options":                    return listBuildSetting!"options"(args);
 
@@ -1294,6 +1297,15 @@ public alias PlacementLocation = dub.packagemanager.PlacementLocation;
 void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	BuildSettings settings, in GeneratorSettings gsettings, bool include_target_settings = false)
 {
+	// debug { import std.stdio : writeln; writeln("merge ", settings, " into ", dst); }
+	// try {throw new Exception("");}
+	// catch (Exception e) { debug { import std.stdio : writeln; try { writeln("bt: ", e); } catch (Exception) {} } }
+
+	string[string][] variables = [
+		null,
+		makeDefaultVariables(project, pack, settings, gsettings)
+	];
+
 	string[string] processVerEnvs(in string[string] targetEnvs, in string[string] defaultEnvs)
 	{
 		string[string] retEnv;
@@ -1303,77 +1315,121 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 			if (k !in targetEnvs)
 				retEnv[k] = v;
 		}
-		return processVars(project, pack, gsettings, retEnv);
+		return processVars(pack, retEnv, variables);
 	}
-	dst.addEnvironments(processVerEnvs(settings.environments, gsettings.buildSettings.environments));
-	dst.addBuildEnvironments(processVerEnvs(settings.buildEnvironments, gsettings.buildSettings.buildEnvironments));
-	dst.addRunEnvironments(processVerEnvs(settings.runEnvironments, gsettings.buildSettings.runEnvironments));
-	dst.addPreGenerateEnvironments(processVerEnvs(settings.preGenerateEnvironments, gsettings.buildSettings.preGenerateEnvironments));
-	dst.addPostGenerateEnvironments(processVerEnvs(settings.postGenerateEnvironments, gsettings.buildSettings.postGenerateEnvironments));
-	dst.addPreBuildEnvironments(processVerEnvs(settings.preBuildEnvironments, gsettings.buildSettings.preBuildEnvironments));
-	dst.addPostBuildEnvironments(processVerEnvs(settings.postBuildEnvironments, gsettings.buildSettings.postBuildEnvironments));
-	dst.addPreRunEnvironments(processVerEnvs(settings.preRunEnvironments, gsettings.buildSettings.preRunEnvironments));
-	dst.addPostRunEnvironments(processVerEnvs(settings.postRunEnvironments, gsettings.buildSettings.postRunEnvironments));
 
-	auto buildEnvs = [dst.environments, dst.buildEnvironments];
+	static foreach (envType; [
+		"environments",
+		"buildEnvironments",
+		"runEnvironments",
+		"preGenerateEnvironments",
+		"postGenerateEnvironments",
+		"preBuildEnvironments",
+		"postBuildEnvironments",
+		"preRunEnvironments",
+		"postRunEnvironments",
+	]) {
+		foreach (ref step; settings.userBuildSteps)
+		{
+			auto targetEnv = __traits(getMember, step, envType);
+			auto defaultEnv = gsettings.buildSettings.userBuildSteps.length
+				? __traits(getMember, gsettings.buildSettings.userBuildSteps[0], envType)
+				: null;
+			auto env = processVerEnvs(targetEnv, defaultEnv);
+			if (env.length)
+				__traits(getMember, dst.mainUserBuildStep, "add" ~ [cast(char)toUpper(envType[0])] ~ envType[1..$])(env);
+		}
+	}
 
-	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags, false, buildEnvs));
-	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags, false, buildEnvs));
-	dst.addLibs(processVars(project, pack, gsettings, settings.libs, false, buildEnvs));
-	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true, buildEnvs));
-	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true, buildEnvs));
-	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true, buildEnvs));
-	dst.addInjectSourceFiles(processVars!true(project, pack, gsettings, settings.injectSourceFiles, true, buildEnvs));
-	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true, buildEnvs));
-	dst.addExtraDependencyFiles(processVars(project, pack, gsettings, settings.extraDependencyFiles, true, buildEnvs));
-	dst.addVersions(processVars(project, pack, gsettings, settings.versions, false, buildEnvs));
-	dst.addDebugVersions(processVars(project, pack, gsettings, settings.debugVersions, false, buildEnvs));
-	dst.addVersionFilters(processVars(project, pack, gsettings, settings.versionFilters, false, buildEnvs));
-	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters, false, buildEnvs));
-	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true, buildEnvs));
-	dst.addCImportPaths(processVars(project, pack, gsettings, settings.cImportPaths, true, buildEnvs));
-	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true, buildEnvs));
+	// make custom environment variables (defaults or in build settings) affect other values
+	variables[0] = dst.mergeEnvs!("environments", "buildEnvironments");
+
+	dst.addDFlags(processVars(pack, settings.dflags, false, variables));
+	dst.addLFlags(processVars(pack, settings.lflags, false, variables));
+	dst.addLibs(processVars(pack, settings.libs, false, variables));
+	dst.addSourceFiles(processVars!true(pack, settings.sourceFiles, true, variables,
+		gsettings.toolWorkingDirectory.toNativeString()));
+	dst.addImportFiles(processVars(pack, settings.importFiles, true, variables));
+	dst.addStringImportFiles(processVars(pack, settings.stringImportFiles, true, variables));
+	dst.addInjectSourceFiles(processVars!true(pack, settings.injectSourceFiles, true, variables,
+		gsettings.toolWorkingDirectory.toNativeString()));
+	dst.addCopyFiles(processVars(pack, settings.copyFiles, true, variables));
+	dst.addExtraDependencyFiles(processVars(pack, settings.extraDependencyFiles, true, variables));
+	dst.addVersions(processVars(pack, settings.versions, false, variables));
+	dst.addDebugVersions(processVars(pack, settings.debugVersions, false, variables));
+	dst.addVersionFilters(processVars(pack, settings.versionFilters, false, variables));
+	dst.addDebugVersionFilters(processVars(pack, settings.debugVersionFilters, false, variables));
+	dst.addImportPaths(processVars(pack, settings.importPaths, true, variables));
+	dst.addCImportPaths(processVars(pack, settings.cImportPaths, true, variables));
+	dst.addStringImportPaths(processVars(pack, settings.stringImportPaths, true, variables));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
 
-	// commands are substituted in dub.generators.generator : runBuildCommands
-	dst.addPreGenerateCommands(settings.preGenerateCommands);
-	dst.addPostGenerateCommands(settings.postGenerateCommands);
-	dst.addPreBuildCommands(settings.preBuildCommands);
-	dst.addPostBuildCommands(settings.postBuildCommands);
-	dst.addPreRunCommands(settings.preRunCommands);
-	dst.addPostRunCommands(settings.postRunCommands);
+	// commands are substituted in dub.generators.generator : runBuildCommands using environments
+	foreach (ref step; settings.userBuildSteps) {
+		if (step.preGenerateCommands.length)
+			dst.mainUserBuildStep.addPreGenerateCommands(step.preGenerateCommands);
+		if (step.postGenerateCommands.length)
+			dst.mainUserBuildStep.addPostGenerateCommands(step.postGenerateCommands);
+		if (step.preBuildCommands.length)
+			dst.mainUserBuildStep.addPreBuildCommands(step.preBuildCommands);
+		if (step.postBuildCommands.length)
+			dst.mainUserBuildStep.addPostBuildCommands(step.postBuildCommands);
+		if (step.preRunCommands.length)
+			dst.mainUserBuildStep.addPreRunCommands(step.preRunCommands);
+		if (step.postRunCommands.length)
+			dst.mainUserBuildStep.addPostRunCommands(step.postRunCommands);
+	}
+
+	if (dst.userBuildSteps.length) {
+		// add default variables to environments for execution
+		foreach (k, v; variables[1])
+			if (k !in dst.userBuildSteps[0].environments)
+				dst.userBuildSteps[0].environments[k] = v;
+	}
 
 	if (include_target_settings) {
 		dst.targetType = settings.targetType;
-		dst.targetPath = processVars(settings.targetPath, project, pack, gsettings, true, buildEnvs);
+		dst.targetPath = processVars(settings.targetPath, pack, true, variables);
 		dst.targetName = settings.targetName;
 		if (!settings.workingDirectory.empty)
-			dst.workingDirectory = processVars(settings.workingDirectory, project, pack, gsettings, true, buildEnvs);
+			dst.workingDirectory = processVars(settings.workingDirectory, pack, true, variables);
 		if (settings.mainSourceFile.length)
-			dst.mainSourceFile = processVars(settings.mainSourceFile, project, pack, gsettings, true, buildEnvs);
+			dst.mainSourceFile = processVars(settings.mainSourceFile, pack, true, variables);
 	}
 }
 
-string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
+string[] processVars(bool glob = false)(in Package pack, in string[] values, bool are_paths, in string[string][] variables)
 {
 	auto ret = appender!(string[])();
-	processVars!glob(ret, project, pack, gsettings, vars, are_paths, extraVers);
+	processVars!glob(ret, pack, values, are_paths, variables);
 	return ret.data;
 }
-void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
+
+string[] processVars(bool glob : true)(in Package pack, in string[] values, bool are_paths, in string[string][] variables, string cwd)
 {
-	static if (glob)
-		alias process = processVarsWithGlob!(Project, Package);
-	else
-		alias process = processVars!(Project, Package);
-	foreach (var; vars)
-		dst.put(process(var, project, pack, gsettings, are_paths, extraVers));
+	auto ret = appender!(string[])();
+	processVars!glob(ret, pack, values, are_paths, variables, cwd);
+	return ret.data;
 }
 
-string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers = null)
+void processVars(bool glob = false)(ref Appender!(string[]) dst, in Package pack, in string[] values, bool are_paths, in string[string][] variables)
 {
-	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings, extraVers));
+	alias process = processVars!Package;
+	foreach (var; values)
+		dst.put(process(var, pack, are_paths, variables));
+}
+
+void processVars(bool glob : true)(ref Appender!(string[]) dst, in Package pack, in string[] values, bool are_paths, in string[string][] variables, string cwd)
+{
+	alias process = processVarsWithGlob!Package;
+	foreach (var; values)
+		dst.put(process(var, pack, are_paths, variables, cwd));
+}
+
+string processVars(Package)(string var, in Package pack, bool is_path, in string[string][] variables)
+{
+	var = var.expandVars!(varName => getVariable(varName, variables));
 	if (!is_path)
 		return var;
 	auto p = NativePath(var);
@@ -1382,26 +1438,26 @@ string processVars(Project, Package)(string var, in Project project, in Package 
 	else
 		return p.toNativeString();
 }
-string[string] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers = null)
+string[string] processVars(bool glob = false)(in Package pack, in string[string] values, in string[string][] variables = null)
 {
 	string[string] ret;
-	processVars!glob(ret, project, pack, gsettings, vars, extraVers);
+	processVars!glob(ret, pack, values, variables);
 	return ret;
 }
-void processVars(bool glob = false)(ref string[string] dst, in Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers)
+void processVars(bool glob = false)(ref string[string] dst, in Package pack, in string[string] values, in string[string][] variables)
 {
 	static if (glob)
-		alias process = processVarsWithGlob!(Project, Package);
+		alias process = processVarsWithGlob!(Package);
 	else
-		alias process = processVars!(Project, Package);
-	foreach (k, var; vars)
-		dst[k] = process(var, project, pack, gsettings, false, extraVers);
+		alias process = processVars!(Package);
+	foreach (k, var; values)
+		dst[k] = process(var, pack, false, variables);
 }
 
-private string[] processVarsWithGlob(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers)
+private string[] processVarsWithGlob(Package)(string var, in Package pack, bool is_path, in string[string][] variables, string cwd)
 {
 	assert(is_path, "can't glob something that isn't a path");
-	string res = processVars(var, project, pack, gsettings, is_path, extraVers);
+	string res = processVars(var, pack, is_path, variables);
 	// Find the unglobbed prefix and iterate from there.
 	size_t i = 0;
 	size_t sepIdx = 0;
@@ -1418,7 +1474,6 @@ private string[] processVarsWithGlob(Project, Package)(string var, in Project pr
 		return [res];
 	import std.file : dirEntries, SpanMode;
 	import std.path : buildNormalizedPath, globMatch, isAbsolute, relativePath;
-	auto cwd = gsettings.toolWorkingDirectory.toNativeString;
 	auto path = res[0 .. sepIdx];
 	bool prependCwd = false;
 	if (!isAbsolute(path))
@@ -1544,76 +1599,10 @@ package(dub) immutable buildSettingsVars = [
 	"ARCH", "PLATFORM", "PLATFORM_POSIX", "BUILD_TYPE"
 ];
 
-private string getVariable(Project, Package)(string name, in Project project, in Package pack, in GeneratorSettings gsettings, in string[string][] extraVars = null)
+private string getVariable(string name, in string[string][] variables)
 {
-	import dub.internal.utils : getDUBExePath;
-	import std.process : environment, escapeShellFileName;
-	import std.uni : asUpperCase;
-
-	NativePath path;
-	if (name == "PACKAGE_DIR")
-		path = pack.path;
-	else if (name == "ROOT_PACKAGE_DIR")
-		path = project.rootPackage.path;
-
-	if (name.endsWith("_PACKAGE_DIR")) {
-		auto pname = name[0 .. $-12];
-		foreach (prj; project.getTopologicalPackageList())
-			if (prj.name.asUpperCase.map!(a => a == '-' ? '_' : a).equal(pname))
-			{
-				path = prj.path;
-				break;
-			}
-	}
-
-	if (!path.empty)
-	{
-		// no trailing slash for clean path concatenation (see #1392)
-		path.endsWithSlash = false;
-		return path.toNativeString();
-	}
-
-	if (name == "DUB") {
-		return getDUBExePath(gsettings.platform.compilerBinary).toNativeString();
-	}
-
-	if (name == "ARCH") {
-		foreach (a; gsettings.platform.architecture)
-			return a;
-		return "";
-	}
-
-	if (name == "PLATFORM") {
-		import std.algorithm : filter;
-		foreach (p; gsettings.platform.platform.filter!(p => p != "posix"))
-			return p;
-		foreach (p; gsettings.platform.platform)
-			return p;
-		return "";
-	}
-
-	if (name == "PLATFORM_POSIX") {
-		import std.algorithm : canFind;
-		if (gsettings.platform.platform.canFind("posix"))
-			return "posix";
-		foreach (p; gsettings.platform.platform)
-			return p;
-		return "";
-	}
-
-	if (name == "BUILD_TYPE") return gsettings.buildType;
-
-	if (name == "DFLAGS" || name == "LFLAGS")
-	{
-		auto buildSettings = pack.getBuildSettings(gsettings.platform, gsettings.config);
-		if (name == "DFLAGS")
-			return join(buildSettings.dflags," ");
-		else if (name == "LFLAGS")
-			return join(buildSettings.lflags," ");
-	}
-
-	import std.range;
-	foreach (aa; retro(extraVars))
+	import std.process;
+	foreach_reverse (aa; variables)
 		if (auto exvar = name in aa)
 			return *exvar;
 
@@ -1623,10 +1612,117 @@ private string getVariable(Project, Package)(string name, in Project project, in
 	throw new Exception("Invalid variable: "~name);
 }
 
+string[string] makeDefaultVariables(Project, Package)(in Project project, in Package pack, in BuildSettings buildSettings, in GeneratorSettings gsettings)
+in(pack !is null)
+{
+	import dub.internal.utils : getDUBExePath;
+	import std.conv : text;
+	import std.process : escapeShellFileName;
+	import std.uni : asUpperCase;
+
+	string str(NativePath p)
+	{
+		if (!p.empty) {
+			p.endsWithSlash = false;
+			return p.toNativeString();
+		} else {
+			return null;
+		}
+	}
+
+	string[string] env;
+	env["PACKAGE_DIR"] = str(pack.path);
+	env["ROOT_PACKAGE_DIR"] = project !is null ? str(project.rootPackage.path) : null;
+	if (project !is null)
+		foreach (prj; project.getTopologicalPackageList())
+			env[text(prj.name.asUpperCase.map!(a => a == '-' ? '_' : a), "_PACKAGE_DIR")] = str(prj.path);
+	env["DUB"] = getDUBExePath(gsettings.platform.compilerBinary).toNativeString();
+	env["ARCH"] = {
+		foreach (a; gsettings.platform.architecture)
+			return a;
+		return "";
+	}();
+
+	env["PLATFORM"] = {
+		import std.algorithm : filter;
+		foreach (p; gsettings.platform.platform.filter!(p => p != "posix"))
+			return p;
+		foreach (p; gsettings.platform.platform)
+			return p;
+		return "";
+	}();
+
+	env["PLATFORM_POSIX"] = {
+		import std.algorithm : canFind;
+		if (gsettings.platform.platform.canFind("posix"))
+			return "posix";
+		foreach (p; gsettings.platform.platform)
+			return p;
+		return "";
+	}();
+
+	env["BUILD_TYPE"] = gsettings.buildType;
+
+	env["DFLAGS"] = join(buildSettings.dflags, " ");
+	env["LFLAGS"] = join(buildSettings.lflags, " ");
+
+	// TODO: do more elaborate things here
+	// TODO: escape/quote individual items appropriately
+	env["VERSIONS"]              = join(buildSettings.versions, " ");
+	env["LIBS"]                  = join(buildSettings.libs, " ");
+	env["SOURCE_FILES"]          = join(buildSettings.sourceFiles, " ");
+	env["IMPORT_PATHS"]          = join(buildSettings.importPaths, " ");
+	env["C_IMPORT_PATHS"]        = join(buildSettings.cImportPaths, " ");
+	env["STRING_IMPORT_PATHS"]   = join(buildSettings.stringImportPaths, " ");
+
+	env["DC"]                    = gsettings.platform.compilerBinary;
+	env["DC_BASE"]               = gsettings.platform.compiler;
+	env["D_FRONTEND_VER"]        = to!string(gsettings.platform.frontendVersion);
+
+	env["DUB_EXE"]               = getDUBExePath(gsettings.platform.compilerBinary).toNativeString();
+	env["DUB_PLATFORM"]          = join(gsettings.platform.platform, " ");
+	env["DUB_ARCH"]              = join(gsettings.platform.architecture, " ");
+
+	env["DUB_TARGET_TYPE"]       = to!string(buildSettings.targetType);
+	env["DUB_TARGET_PATH"]       = buildSettings.targetPath;
+	env["DUB_TARGET_NAME"]       = buildSettings.targetName;
+	env["DUB_TARGET_EXIT_STATUS"] = gsettings.targetExitStatus.text;
+	env["DUB_WORKING_DIRECTORY"] = buildSettings.workingDirectory;
+	env["DUB_MAIN_SOURCE_FILE"]  = buildSettings.mainSourceFile;
+
+	env["DUB_CONFIG"]            = gsettings.config;
+	env["DUB_BUILD_TYPE"]        = gsettings.buildType;
+	env["DUB_BUILD_MODE"]        = to!string(gsettings.buildMode);
+	env["DUB_PACKAGE"]           = pack.name;
+	env["DUB_PACKAGE_DIR"]       = pack.path.toNativeString();
+	env["DUB_ROOT_PACKAGE"]      = project !is null ? project.rootPackage.name : null;
+	env["DUB_ROOT_PACKAGE_DIR"]  = project !is null ? project.rootPackage.path.toNativeString() : null;
+	env["DUB_PACKAGE_VERSION"]   = pack.version_.toString();
+
+	env["DUB_COMBINED"]          = gsettings.combined?      "TRUE" : "";
+	env["DUB_RUN"]               = gsettings.run?           "TRUE" : "";
+	env["DUB_FORCE"]             = gsettings.force?         "TRUE" : "";
+	env["DUB_RDMD"]              = gsettings.rdmd?          "TRUE" : "";
+	env["DUB_TEMP_BUILD"]        = gsettings.tempBuild?     "TRUE" : "";
+	env["DUB_PARALLEL_BUILD"]    = gsettings.parallelBuild? "TRUE" : "";
+
+	env["DUB_RUN_ARGS"] = (cast(string[])gsettings.runArgs).map!(escapeShellFileName).join(" ");
+
+	if (project !is null)
+	{
+		auto cfgs = project.getPackageConfigs(gsettings.platform, gsettings.config, true);
+		auto rootPackageBuildSettings = project.rootPackage.getBuildSettings(gsettings.platform, cfgs[project.rootPackage.name]);
+		env["DUB_ROOT_PACKAGE_TARGET_TYPE"] = to!string(rootPackageBuildSettings.targetType);
+		env["DUB_ROOT_PACKAGE_TARGET_PATH"] = rootPackageBuildSettings.targetPath;
+		env["DUB_ROOT_PACKAGE_TARGET_NAME"] = rootPackageBuildSettings.targetName;
+	}
+
+	return env;
+}
 
 unittest
 {
-	static struct MockPackage
+	static class MockPackage
 	{
 		this(string name)
 		{
@@ -1644,49 +1740,67 @@ unittest
 		{
 			return BuildSettings();
 		}
+
+		@property Version version_() const { return Version("1.0.0"); }
 	}
 
-	static struct MockProject
+	static class MockProject
 	{
 		MockPackage rootPackage;
 		inout(MockPackage)[] getTopologicalPackageList() inout
 		{
 			return _dependencies;
 		}
+
+		this(MockPackage rootPackage, MockPackage[] dependencies)
+		{
+			this.rootPackage = rootPackage;
+			_dependencies = dependencies;
+		}
+
+		string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
+		const {
+			return [
+				rootPackage.name: null
+			];
+		}
+
 	private:
 		MockPackage[] _dependencies;
 	}
 
-	MockProject proj = {
-		rootPackage: MockPackage("root"),
-		_dependencies: [MockPackage("dep1"), MockPackage("dep2")]
-	};
-	auto pack = MockPackage("test");
+	MockProject proj = new MockProject(
+		new MockPackage("root"),
+		[new MockPackage("dep1"), new MockPackage("dep2")]
+	);
+	auto pack = new MockPackage("test");
 	GeneratorSettings gsettings;
 	enum isPath = true;
+
+	auto variables = [makeDefaultVariables(proj, pack, BuildSettings.init, gsettings)];
 
 	import std.path : dirSeparator;
 
 	static NativePath woSlash(NativePath p) { p.endsWithSlash = false; return p; }
 	// basic vars
-	assert(processVars("Hello $PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(pack.path).toNativeString);
-	assert(processVars("Hello $ROOT_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj.rootPackage.path).toNativeString.chomp(dirSeparator));
-	assert(processVars("Hello $DEP1_PACKAGE_DIR", proj, pack, gsettings, !isPath) == "Hello "~woSlash(proj._dependencies[0].path).toNativeString);
+	assert(processVars("Hello $PACKAGE_DIR", pack, !isPath, variables) == "Hello "~woSlash(pack.path).toNativeString);
+	assert(processVars("Hello $ROOT_PACKAGE_DIR", pack, !isPath, variables) == "Hello "~woSlash(proj.rootPackage.path).toNativeString.chomp(dirSeparator));
+	assert(processVars("Hello $DEP1_PACKAGE_DIR", pack, !isPath, variables) == "Hello "~woSlash(proj._dependencies[0].path).toNativeString);
 	// ${VAR} replacements
-	assert(processVars("Hello ${PACKAGE_DIR}"~dirSeparator~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
-	assert(processVars("Hello $PACKAGE_DIR"~dirSeparator~"foobar", proj, pack, gsettings, !isPath) == "Hello "~(pack.path ~ "foobar").toNativeString);
+	assert(processVars("Hello ${PACKAGE_DIR}"~dirSeparator~"foobar", pack, !isPath, variables) == "Hello "~(pack.path ~ "foobar").toNativeString);
+	assert(processVars("Hello $PACKAGE_DIR"~dirSeparator~"foobar", pack, !isPath, variables) == "Hello "~(pack.path ~ "foobar").toNativeString);
 	// test with isPath
-	assert(processVars("local", proj, pack, gsettings, isPath) == (pack.path ~ "local").toNativeString);
-	assert(processVars("foo/$$ESCAPED", proj, pack, gsettings, isPath) == (pack.path ~ "foo/$ESCAPED").toNativeString);
-	assert(processVars("$$ESCAPED", proj, pack, gsettings, !isPath) == "$ESCAPED");
+	assert(processVars("local", pack, isPath, variables) == (pack.path ~ "local").toNativeString);
+	assert(processVars("foo/$$ESCAPED", pack, isPath, variables) == (pack.path ~ "foo/$ESCAPED").toNativeString);
+	assert(processVars("$$ESCAPED", pack, !isPath, variables) == "$ESCAPED");
 	// test other env variables
 	import std.process : environment;
 	environment["MY_ENV_VAR"] = "blablabla";
-	assert(processVars("$MY_ENV_VAR", proj, pack, gsettings, !isPath) == "blablabla");
-	assert(processVars("${MY_ENV_VAR}suffix", proj, pack, gsettings, !isPath) == "blablablasuffix");
-	assert(processVars("$MY_ENV_VAR-suffix", proj, pack, gsettings, !isPath) == "blablabla-suffix");
-	assert(processVars("$MY_ENV_VAR:suffix", proj, pack, gsettings, !isPath) == "blablabla:suffix");
-	assert(processVars("$MY_ENV_VAR$MY_ENV_VAR", proj, pack, gsettings, !isPath) == "blablablablablabla");
+	assert(processVars("$MY_ENV_VAR", pack, !isPath, variables) == "blablabla");
+	assert(processVars("${MY_ENV_VAR}suffix", pack, !isPath, variables) == "blablablasuffix");
+	assert(processVars("$MY_ENV_VAR-suffix", pack, !isPath, variables) == "blablabla-suffix");
+	assert(processVars("$MY_ENV_VAR:suffix", pack, !isPath, variables) == "blablabla:suffix");
+	assert(processVars("$MY_ENV_VAR$MY_ENV_VAR", pack, !isPath, variables) == "blablablablablabla");
 	environment.remove("MY_ENV_VAR");
 }
 

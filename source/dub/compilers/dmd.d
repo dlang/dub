@@ -377,10 +377,8 @@ config    /etc/dmd.conf
 		writeFile(res_file, escapeArgs(args).join("\n"));
 
 		logDiagnostic("[cwd=%s] %s %s", cwd, platform.compilerBinary, escapeArgs(args).join(" "));
-		string[string] env;
-		foreach (aa; [settings.environments, settings.buildEnvironments])
-			foreach (k, v; aa)
-				env[k] = v;
+
+		string[string] env = settings.mergeEnvs!("environments", "buildEnvironments");
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, cwd, env);
 	}
 
@@ -406,10 +404,8 @@ config    /etc/dmd.conf
 		writeFile(res_file, escapeArgs(args).join("\n"));
 
 		logDiagnostic("[cwd=%s] %s %s", cwd, platform.compilerBinary, escapeArgs(args).join(" "));
-		string[string] env;
-		foreach (aa; [settings.environments, settings.buildEnvironments])
-			foreach (k, v; aa)
-				env[k] = v;
+
+		string[string] env = settings.mergeEnvs!("environments", "buildEnvironments");
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, cwd, env);
 	}
 

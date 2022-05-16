@@ -12,6 +12,8 @@ public import dub.recipe.packagerecipe;
 import dub.compilers.compiler;
 import dub.dependency;
 import dub.description;
+import dub.project;
+import dub.generators.generator;
 import dub.recipe.json;
 import dub.recipe.sdl;
 
@@ -365,7 +367,8 @@ class Package {
 		Root build settings and configuration specific settings will be
 		merged.
 	*/
-	BuildSettings getBuildSettings(in BuildPlatform platform, string config)
+	BuildSettings getBuildSettings(in BuildPlatform platform, string config,
+		Project project = null, GeneratorSettings gs = GeneratorSettings.init)
 	const {
 		BuildSettings ret;
 		m_info.buildSettings.getPlatformSettings(ret, platform, this.path);
@@ -384,7 +387,10 @@ class Package {
 		// special support for DMD style flags
 		getCompiler("dmd").extractBuildOptions(ret);
 
-		return ret;
+		BuildSettings processed;
+		processed.processVars(project, this, ret, gs, true);
+
+		return processed;
 	}
 
 	/** Returns the combination of all build settings for all configurations
@@ -625,19 +631,7 @@ class Package {
 		ret.importPaths = bs.importPaths;
 		ret.cImportPaths = bs.cImportPaths;
 		ret.stringImportPaths = bs.stringImportPaths;
-		ret.preGenerateCommands = bs.preGenerateCommands;
-		ret.postGenerateCommands = bs.postGenerateCommands;
-		ret.preBuildCommands = bs.preBuildCommands;
-		ret.postBuildCommands = bs.postBuildCommands;
-		ret.environments = bs.environments;
-		ret.buildEnvironments = bs.buildEnvironments;
-		ret.runEnvironments = bs.runEnvironments;
-		ret.preGenerateEnvironments = bs.preGenerateEnvironments;
-		ret.postGenerateEnvironments = bs.postGenerateEnvironments;
-		ret.preBuildEnvironments = bs.preBuildEnvironments;
-		ret.postBuildEnvironments = bs.postBuildEnvironments;
-		ret.preRunEnvironments = bs.preRunEnvironments;
-		ret.postRunEnvironments = bs.postRunEnvironments;
+		ret.userBuildSteps = bs.userBuildSteps;
 
 		// prettify build requirements output
 		for (int i = 1; i <= BuildRequirement.max; i <<= 1)

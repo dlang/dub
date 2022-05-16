@@ -18,6 +18,74 @@ import std.typecons : BitFlags;
 import std.algorithm.iteration : uniq;
 import std.range : chain;
 
+struct UserBuildStep {
+	/// Commands
+	/// - run before+after generation
+	/// - run before+after build
+	/// - run before+after target execution (run)
+	/// Variables are not substituted here and should be substituted through
+	/// `processVars` + using the environments variables here
+	string[] preGenerateCommands;
+	string[] postGenerateCommands; /// ditto
+	string[] preBuildCommands; /// ditto
+	string[] postBuildCommands; /// ditto
+	string[] preRunCommands; /// ditto
+	string[] postRunCommands; /// ditto
+	string[string] environments;
+	string[string] buildEnvironments;
+	string[string] runEnvironments;
+	string[string] preGenerateEnvironments;
+	string[string] postGenerateEnvironments;
+	string[string] preBuildEnvironments;
+	string[string] postBuildEnvironments;
+	string[string] preRunEnvironments;
+	string[string] postRunEnvironments;
+
+	UserBuildStep dup()
+	const {
+		import std.traits: FieldNameTuple;
+		import std.algorithm: map;
+		import std.typecons: tuple;
+		import std.array: assocArray;
+		UserBuildStep ret;
+		foreach (m; FieldNameTuple!UserBuildStep) {
+			static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m).dup)))
+				__traits(getMember, ret, m) = __traits(getMember, this, m).dup;
+			else static if (is(typeof(BuildSettings.add(__traits(getMember, ret, m), __traits(getMember, this, m)))))
+				BuildSettings.add(__traits(getMember, ret, m), __traits(getMember, this, m));
+			else static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m))))
+				__traits(getMember, ret, m) = __traits(getMember, this, m);
+			else static assert(0, "Cannot duplicate UserBuildStep." ~ m);
+		}
+		return ret;
+	}
+
+	void addPreGenerateCommands(in string[] value...) { BuildSettings.add(preGenerateCommands, value, false); }
+	void addPostGenerateCommands(in string[] value...) { BuildSettings.add(postGenerateCommands, value, false); }
+	void addPreBuildCommands(in string[] value...) { BuildSettings.add(preBuildCommands, value, false); }
+	void addPostBuildCommands(in string[] value...) { BuildSettings.add(postBuildCommands, value, false); }
+	void addPreRunCommands(in string[] value...) { BuildSettings.add(preRunCommands, value, false); }
+	void addPostRunCommands(in string[] value...) { BuildSettings.add(postRunCommands, value, false); }
+	void addEnvironments(in string[string] value) { BuildSettings.add(environments, value); }
+	void updateEnvironments(in string[string] value) { BuildSettings.update(environments, value); }
+	void addBuildEnvironments(in string[string] value) { BuildSettings.add(buildEnvironments, value); }
+	void updateBuildEnvironments(in string[string] value) { BuildSettings.update(buildEnvironments, value); }
+	void addRunEnvironments(in string[string] value) { BuildSettings.add(runEnvironments, value); }
+	void updateRunEnvironments(in string[string] value) { BuildSettings.update(runEnvironments, value); }
+	void addPreGenerateEnvironments(in string[string] value) { BuildSettings.add(preGenerateEnvironments, value); }
+	void updatePreGenerateEnvironments(in string[string] value) { BuildSettings.update(preGenerateEnvironments, value); }
+	void addPostGenerateEnvironments(in string[string] value) { BuildSettings.add(postGenerateEnvironments, value); }
+	void updatePostGenerateEnvironments(in string[string] value) { BuildSettings.update(postGenerateEnvironments, value); }
+	void addPreBuildEnvironments(in string[string] value) { BuildSettings.add(preBuildEnvironments, value); }
+	void updatePreBuildEnvironments(in string[string] value) { BuildSettings.update(preBuildEnvironments, value); }
+	void addPostBuildEnvironments(in string[string] value) { BuildSettings.add(postBuildEnvironments, value); }
+	void updatePostBuildEnvironments(in string[string] value) { BuildSettings.update(postBuildEnvironments, value); }
+	void addPreRunEnvironments(in string[string] value) { BuildSettings.add(preRunEnvironments, value); }
+	void updatePreRunEnvironments(in string[string] value) { BuildSettings.update(preRunEnvironments, value); }
+	void addPostRunEnvironments(in string[string] value) { BuildSettings.add(postRunEnvironments, value); }
+	void updatePostRunEnvironments(in string[string] value) { BuildSettings.update(postRunEnvironments, value); }
+}
+
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
 struct BuildSettings {
@@ -45,23 +113,9 @@ struct BuildSettings {
 	string[] stringImportPaths;
 	string[] importFiles;
 	string[] stringImportFiles;
-	string[] preGenerateCommands;
-	string[] postGenerateCommands;
-	string[] preBuildCommands;
-	string[] postBuildCommands;
-	string[] preRunCommands;
-	string[] postRunCommands;
-	string[string] environments;
-	string[string] buildEnvironments;
-	string[string] runEnvironments;
-	string[string] preGenerateEnvironments;
-	string[string] postGenerateEnvironments;
-	string[string] preBuildEnvironments;
-	string[string] postBuildEnvironments;
-	string[string] preRunEnvironments;
-	string[string] postRunEnvironments;
-	@byName Flags!BuildRequirement requirements;
-	@byName Flags!BuildOption options;
+	UserBuildStep[] userBuildSteps; /// custom build commands and associated environment variables, first item being the most specific/important one.
+	@byName BuildRequirements requirements;
+	@byName BuildOptions options;
 
 	BuildSettings dup()
 	const {
@@ -77,12 +131,15 @@ struct BuildSettings {
 				add(__traits(getMember, ret, m), __traits(getMember, this, m));
 			else static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m))))
 				__traits(getMember, ret, m) = __traits(getMember, this, m);
+			else static if (m == "userBuildSteps")
+				ret.addUserBuildSteps(this.userBuildSteps);
 			else static assert(0, "Cannot duplicate BuildSettings." ~ m);
 		}
 		assert(ret.targetType == targetType);
 		assert(ret.targetName == targetName);
 		assert(ret.importPaths == importPaths);
 		assert(ret.cImportPaths == cImportPaths);
+		assert(ret.userBuildSteps == userBuildSteps);
 		return ret;
 	}
 
@@ -111,23 +168,7 @@ struct BuildSettings {
 		addStringImportPaths(bs.stringImportPaths);
 		addImportFiles(bs.importFiles);
 		addStringImportFiles(bs.stringImportFiles);
-		addPreGenerateCommands(bs.preGenerateCommands);
-		addPostGenerateCommands(bs.postGenerateCommands);
-		addPreBuildCommands(bs.preBuildCommands);
-		addPostBuildCommands(bs.postBuildCommands);
-		addPreRunCommands(bs.preRunCommands);
-		addPostRunCommands(bs.postRunCommands);
-		addEnvironments(bs.environments);
-		addBuildEnvironments(bs.buildEnvironments);
-		addRunEnvironments(bs.runEnvironments);
-		addPreGenerateEnvironments(bs.preGenerateEnvironments);
-		addPostGenerateEnvironments(bs.postGenerateEnvironments);
-		addPreBuildEnvironments(bs.preBuildEnvironments);
-		addPostBuildEnvironments(bs.postBuildEnvironments);
-		addPreRunEnvironments(bs.preRunEnvironments);
-		addPostRunEnvironments(bs.postRunEnvironments);
-		addRequirements(bs.requirements);
-		addOptions(bs.options);
+		addUserBuildSteps(bs.userBuildSteps);
 	}
 
 	void addDFlags(in string[] value...) { dflags = chain(dflags, value.dup).uniq.array; }
@@ -153,36 +194,57 @@ struct BuildSettings {
 	void prependStringImportPaths(in string[] value...) { prepend(stringImportPaths, value); }
 	void addImportFiles(in string[] value...) { add(importFiles, value); }
 	void addStringImportFiles(in string[] value...) { addSI(stringImportFiles, value); }
-	void addPreGenerateCommands(in string[] value...) { add(preGenerateCommands, value, false); }
-	void addPostGenerateCommands(in string[] value...) { add(postGenerateCommands, value, false); }
-	void addPreBuildCommands(in string[] value...) { add(preBuildCommands, value, false); }
-	void addPostBuildCommands(in string[] value...) { add(postBuildCommands, value, false); }
-	void addPreRunCommands(in string[] value...) { add(preRunCommands, value, false); }
-	void addPostRunCommands(in string[] value...) { add(postRunCommands, value, false); }
-	void addEnvironments(in string[string] value) { add(environments, value); }
-	void updateEnvironments(in string[string] value) { update(environments, value); }
-	void addBuildEnvironments(in string[string] value) { add(buildEnvironments, value); }
-	void updateBuildEnvironments(in string[string] value) { update(buildEnvironments, value); }
-	void addRunEnvironments(in string[string] value) { add(runEnvironments, value); }
-	void updateRunEnvironments(in string[string] value) { update(runEnvironments, value); }
-	void addPreGenerateEnvironments(in string[string] value) { add(preGenerateEnvironments, value); }
-	void updatePreGenerateEnvironments(in string[string] value) { update(preGenerateEnvironments, value); }
-	void addPostGenerateEnvironments(in string[string] value) { add(postGenerateEnvironments, value); }
-	void updatePostGenerateEnvironments(in string[string] value) { update(postGenerateEnvironments, value); }
-	void addPreBuildEnvironments(in string[string] value) { add(preBuildEnvironments, value); }
-	void updatePreBuildEnvironments(in string[string] value) { update(preBuildEnvironments, value); }
-	void addPostBuildEnvironments(in string[string] value) { add(postBuildEnvironments, value); }
-	void updatePostBuildEnvironments(in string[string] value) { update(postBuildEnvironments, value); }
-	void addPreRunEnvironments(in string[string] value) { add(preRunEnvironments, value); }
-	void updatePreRunEnvironments(in string[string] value) { update(preRunEnvironments, value); }
-	void addPostRunEnvironments(in string[string] value) { add(postRunEnvironments, value); }
-	void updatePostRunEnvironments(in string[string] value) { update(postRunEnvironments, value); }
+	void addUserBuildSteps(in UserBuildStep[] value...) { foreach (step; value) userBuildSteps ~= step.dup; }
 	void addRequirements(in BuildRequirement[] value...) { foreach (v; value) this.requirements |= v; }
 	void addRequirements(in Flags!BuildRequirement value) { this.requirements |= value; }
 	void addOptions(in BuildOption[] value...) { foreach (v; value) this.options |= v; }
 	void addOptions(in Flags!BuildOption value) { this.options |= value; }
 	void removeOptions(in BuildOption[] value...) { foreach (v; value) this.options &= ~v; }
 	void removeOptions(in Flags!BuildOption value) { this.options &= ~value; }
+
+	ref UserBuildStep mainUserBuildStep() 
+	{
+		if (!userBuildSteps.length)
+			userBuildSteps ~= UserBuildStep.init;
+		return userBuildSteps[0];
+	}
+
+	/**
+	Merges the environments from the custom build steps into one.
+
+	Merging is done in this order:
+	---
+	string[string] merged;
+	foreach (env; envs) // specified envs parameter, last env parameter overrides all others
+		foreach_reverse (userBuildStep; userBuildSteps) // first userBuildStep overrides all others
+			foreach (k, v; userBuildStep[env])
+				merged[k] = v; // assign all key/value pairs into merged
+	---
+
+	Params:
+		envs = tuple of strings which environments (variable names of
+			UserBuildStep) to use. You need to specify "environments" to also
+			have the general environments included.
+
+	Examples:
+	---
+	string[string] env = build_settings.mergeEnvs!("environments", "buildEnvironments");
+	---
+	*/
+	string[string] mergeEnvs(envs...)() const
+	{
+		string[string] merged;
+		foreach (env; envs)
+		{
+			foreach_reverse (userBuildStep; userBuildSteps)
+			{
+				auto aa = __traits(getMember, userBuildStep, env);
+				foreach (k, v; aa)
+					merged[k] = v;
+			}
+		}
+		return merged;
+	}
 
 private:
 	static auto filterDuplicates(T)(ref string[] arr, in T vals, bool noDuplicates = true)
