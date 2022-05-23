@@ -1,0 +1,6 @@
+name "foo"
+targetType "autodetect"
+
+subPackage "sub"
+
+dependency "foo:sub" version="*"
