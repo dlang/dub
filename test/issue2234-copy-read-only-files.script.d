@@ -99,7 +99,7 @@ void makeWritable(string name)
 	{
 		import core.sys.posix.sys.stat;
 
-		name.setAttributes(name.getAttributes() | (S_IWUSR | S_IWGRP | S_IWOTH));
+		name.setAttributes(name.getAttributes() | S_IWUSR);
 	}
 	else
 		static assert("Needs implementation.");

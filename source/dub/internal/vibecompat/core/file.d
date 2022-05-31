@@ -156,8 +156,52 @@ private bool sameFile(NativePath a, NativePath b)
 	}
 }
 
+private bool isWritable(NativePath name)
+{
+	version (Windows)
+	{
+		import core.sys.windows.windows;
+
+		return (name.toNativeString.getAttributes & FILE_ATTRIBUTE_READONLY) == 0;
+	}
+	else version (Posix)
+	{
+		import core.sys.posix.sys.stat;
+
+		return (name.toNativeString.getAttributes & S_IWUSR) != 0;
+	}
+	else
+		static assert(false, "Needs implementation.");
+}
+
+private void makeWritable(NativePath name)
+{
+	makeWritable(name.toNativeString);
+}
+
+private void makeWritable(string name)
+{
+	version (Windows)
+	{
+		import core.sys.windows.windows;
+
+		name.setAttributes(name.getAttributes & ~FILE_ATTRIBUTE_READONLY);
+	}
+	else version (Posix)
+	{
+		import core.sys.posix.sys.stat;
+
+		name.setAttributes(name.getAttributes | S_IWUSR);
+	}
+	else
+		static assert(false, "Needs implementation.");
+}
+
 /**
-	Creates a hardlink.
+	Creates a hardlink if possible, a copy otherwise.
+
+	If `from` is read-only and `overwrite` is true, then a copy is made instead
+	and `to` is made writable; so that repeating the command will not fail.
 */
 void hardLinkFile(NativePath from, NativePath to, bool overwrite = false)
 {
@@ -168,22 +212,27 @@ void hardLinkFile(NativePath from, NativePath to, bool overwrite = false)
 			throw fe;
 		}
 	}
-
-	version (Windows)
+	const writeAccessChangeRequired = overwrite && !isWritable(from);
+	if (!writeAccessChangeRequired)
 	{
-		alias cstr = toUTFz!(const(wchar)*);
-		if (CreateHardLinkW(cstr(to.toNativeString), cstr(from.toNativeString)))
-			return;
-	}
-	else
-	{
-		import core.sys.posix.unistd : link;
-		alias cstr = toUTFz!(const(char)*);
-		if (!link(cstr(from.toNativeString), cstr(to.toNativeString)))
-			return;
+		version (Windows)
+		{
+			alias cstr = toUTFz!(const(wchar)*);
+			if (CreateHardLinkW(cstr(to.toNativeString), cstr(from.toNativeString)))
+				return;
+		}
+		else
+		{
+			import core.sys.posix.unistd : link;
+			alias cstr = toUTFz!(const(char)*);
+			if (!link(cstr(from.toNativeString), cstr(to.toNativeString)))
+				return;
+		}
 	}
 	// fallback to copy
 	copyFile(from, to, overwrite);
+	if (writeAccessChangeRequired)
+		to.makeWritable;
 }
 
 /**
