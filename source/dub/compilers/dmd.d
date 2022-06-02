@@ -43,6 +43,7 @@ class DMDCompiler : Compiler {
 		tuple(BuildOption.debugMode, ["-debug"]),
 		tuple(BuildOption.releaseMode, ["-release"]),
 		tuple(BuildOption.coverage, ["-cov"]),
+		tuple(BuildOption.coverageCTFE, ["-cov=ctfe"]),
 		tuple(BuildOption.debugInfo, ["-g"]),
 		tuple(BuildOption.debugInfoC, ["-g"]),
 		tuple(BuildOption.alwaysStackFrame, ["-gs"]),

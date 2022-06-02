@@ -25,6 +25,7 @@ class LDCCompiler : Compiler {
 		tuple(BuildOption.debugMode, ["-d-debug"]),
 		tuple(BuildOption.releaseMode, ["-release"]),
 		tuple(BuildOption.coverage, ["-cov"]),
+		tuple(BuildOption.coverageCTFE, ["-cov=ctfe"]),
 		tuple(BuildOption.debugInfo, ["-g"]),
 		tuple(BuildOption.debugInfoC, ["-gc"]),
 		tuple(BuildOption.alwaysStackFrame, ["-disable-fp-elim"]),

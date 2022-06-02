@@ -1372,11 +1372,18 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
+
 		bool coverage = false;
 		args.getopt("coverage", &coverage, [
 			"Enables code coverage statistics to be generated."
 		]);
 		if (coverage) m_buildType = "unittest-cov";
+
+		bool coverageCTFE = false;
+		args.getopt("coverage-ctfe", &coverageCTFE, [
+			"Enables code coverage (including CTFE) statistics to be generated."
+		]);
+		if (coverageCTFE) m_buildType = "unittest-cov-ctfe";
 
 		super.prepare(args);
 	}
