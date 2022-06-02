@@ -75,7 +75,9 @@ private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = 
 		"profile",
 		"profile-gc",
 		"cov",
+		"cov-ctfe",
 		"unittest-cov",
+		"unittest-cov-ctfe",
 		"syntax"
 		];
 

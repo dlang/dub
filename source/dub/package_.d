@@ -69,7 +69,9 @@ static immutable string[] builtinBuildTypes = [
 	"docs",
 	"ddox",
 	"cov",
+	"cov-ctfe",
 	"unittest-cov",
+	"unittest-cov-ctfe",
 	"syntax"
 ];
 
@@ -453,7 +455,9 @@ class Package {
 				case "profile": settings.addOptions(profile, optimize, inline, debugInfo); break;
 				case "profile-gc": settings.addOptions(profileGC, debugInfo); break;
 				case "cov": settings.addOptions(coverage, debugInfo); break;
+				case "cov-ctfe": settings.addOptions(coverageCTFE, debugInfo); break;
 				case "unittest-cov": settings.addOptions(unittests, coverage, debugMode, debugInfo); break;
+				case "unittest-cov-ctfe": settings.addOptions(unittests, coverageCTFE, debugMode, debugInfo); break;
 				case "syntax": settings.addOptions(syntaxOnly); break;
 			}
 		}

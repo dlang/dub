@@ -378,10 +378,11 @@ enum BuildOption {
 	pic = 1<<22,                  /// Generate position independent code
 	betterC = 1<<23,              /// Compile in betterC mode (-betterC)
 	lowmem = 1<<24,               /// Compile in lowmem mode (-lowmem)
+	coverageCTFE = 1<<25,         /// Enable code coverage analysis including at compile-time (-cov=ctfe)
 
 	// for internal usage
-	_docs = 1<<25,                // Write ddoc to docs
-	_ddox = 1<<26                 // Compile docs.json
+	_docs = 1<<26,                // Write ddoc to docs
+	_ddox = 1<<27,                // Compile docs.json
 }
 
 	struct BuildOptions {
@@ -405,7 +406,7 @@ enum BuildOption {
 	)
 */
 enum BuildOptions inheritedBuildOptions = BuildOption.debugMode | BuildOption.releaseMode
-	| BuildOption.coverage | BuildOption.debugInfo | BuildOption.debugInfoC
+	| BuildOption.coverage | BuildOption.coverageCTFE | BuildOption.debugInfo | BuildOption.debugInfoC
 	| BuildOption.alwaysStackFrame | BuildOption.stackStomping | BuildOption.inline
 	| BuildOption.noBoundsCheck | BuildOption.profile | BuildOption.ignoreUnknownPragmas
 	| BuildOption.syntaxOnly | BuildOption.warnings	| BuildOption.warningsAsErrors

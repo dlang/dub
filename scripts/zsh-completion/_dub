@@ -147,7 +147,7 @@ _dub_generate_generic() {
     $@ \
     '::package:_dub_add' \
     '(* : -)'{-h,--help}'[Display general or command specific help and exit]' \
-    '(-b --build)'{-b,--build=}'[Specifies the type of build to perform]:build type:("debug (default)" plain release release-debug release-nobounds unittest profile profile-gc docs ddox cov unittest-cov syntax)' \
+    '(-b --build)'{-b,--build=}'[Specifies the type of build to perform]:build type:("debug (default)" plain release release-debug release-nobounds unittest profile profile-gc docs ddox cov cov-ctfe unittest-cov unittest-cov-ctfe syntax)' \
     '(-c --config)'{-c,--config=}'[Builds the specified configuration]:package configuration: ' \
     '*--override-config=[ Uses the specified configuration for a certain dependency]:dependency/config: ' \
     '--compiler=[Specifies the compiler binary to use (can be a path)]:compiler:(dmd gdc ldc gdmd ldmd)' \
