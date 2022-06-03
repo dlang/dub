@@ -345,20 +345,25 @@ class Project {
 				fil.write(format("import %s;\n", custommodname));
 			} else {
 				fil.write(q{
-					import std.stdio;
-					import core.runtime;
+import core.runtime;
 
-					void main() { writeln("All unit tests have been run successfully."); }
-					shared static this() {
-						version (Have_tested) {
-							import tested;
-							import core.runtime;
-							import std.exception;
-							Runtime.moduleUnitTester = () => true;
-							enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
-						}
-					}
-				});
+void main() {
+	version (D_Coverage) {
+	} else {
+		import std.stdio : writeln;
+		writeln("All unit tests have been run successfully.");
+	}
+}
+shared static this() {
+	version (Have_tested) {
+		import tested;
+		import core.runtime;
+		import std.exception;
+		Runtime.moduleUnitTester = () => true;
+		enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
+	}
+}
+					});
 			}
 		}
 

@@ -1,3 +1,4 @@
 name "test"
 version "1.0.0"
 targetType "library"
+dflags "-cov=100"
