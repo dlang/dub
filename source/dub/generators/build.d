@@ -64,6 +64,7 @@ class BuildGenerator : ProjectGenerator {
 
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
+		import std.path : setExtension;
 		scope (exit) cleanupTemporaries();
 
 		void checkPkgRequirements(const(Package) pkg)
@@ -99,18 +100,44 @@ class BuildGenerator : ProjectGenerator {
 			foreach (dep; ti.dependencies)
 				buildTargetRec(dep);
 
-			NativePath[] additional_dep_files;
+			NativePath[] additional_dep_files, dependencyBinariesToCopy;
 			auto bs = ti.buildSettings.dup;
 			foreach (ldep; ti.linkDependencies) {
-				if (bs.targetType != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly)) {
-					bs.addSourceFiles(target_paths[ldep].toNativeString());
+				auto location = target_paths[ldep].toNativeString();
+
+				if (bs.targetType != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly) && isLinkerFile(settings.platform, location)) {
+					bs.addSourceFiles(location);
+				} else if (settings.platform.platform.canFind("windows") && location.endsWith(".dll")) {
+					// switch from linking against the dll to against the import library,
+					// and copy any dependent build artifacts if found too
+
+					const pdbFilename = location.setExtension(".pdb");
+					if (existsFile(pdbFilename))
+						dependencyBinariesToCopy ~= NativePath(pdbFilename);
+
+					const importLibraryLocation = location.setExtension(".lib");
+					if (existsFile(importLibraryLocation)) {
+						bs.addSourceFiles(importLibraryLocation);
+						dependencyBinariesToCopy ~= NativePath(importLibraryLocation);
+					}
+
+					const exportFilesLocation = location.setExtension(".exp");
+					if (existsFile(exportFilesLocation))
+						dependencyBinariesToCopy ~= NativePath(exportFilesLocation);
+
+					additional_dep_files ~= target_paths[ldep];
 				} else {
 					additional_dep_files ~= target_paths[ldep];
+				}
+
+				// copy any dynamic library dependencies to our target directory
+				if (isDynamicLibraryFile(settings.platform, location)) {
+					dependencyBinariesToCopy ~= target_paths[ldep];
 				}
 			}
 			NativePath tpath;
 			if (bs.targetType != TargetType.none)
-				if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, tpath))
+				if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, dependencyBinariesToCopy, tpath))
 					any_cached = true;
 			target_paths[target] = tpath;
 		}
@@ -120,7 +147,7 @@ class BuildGenerator : ProjectGenerator {
 			// RDMD always builds everything at once and static libraries don't need their
 			// dependencies to be built
 			NativePath tpath;
-			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null, tpath);
+			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null, null, tpath);
 		} else {
 			buildTargetRec(m_project.rootPackage.name);
 
@@ -144,7 +171,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_path)
+	private bool buildTarget(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config, in Package[] packages, in NativePath[] additional_dep_files, in NativePath[] dependencyBinariesToCopy, out NativePath target_path)
 	{
 		import std.path : absolutePath;
 
@@ -161,9 +188,9 @@ class BuildGenerator : ProjectGenerator {
 
 		// perform the actual build
 		bool cached = false;
-		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config, target_path);
-		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config, target_path);
-		else cached = performCachedBuild(settings, buildsettings, pack, config, build_id, packages, additional_dep_files, target_path);
+		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config, dependencyBinariesToCopy, target_path);
+		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config, dependencyBinariesToCopy, target_path);
+		else cached = performCachedBuild(settings, buildsettings, pack, config, build_id, packages, additional_dep_files, dependencyBinariesToCopy, target_path);
 
 		// HACK: cleanup dummy doc files, we shouldn't specialize on buildType
 		// here and the compiler shouldn't need dummy doc output.
@@ -185,7 +212,7 @@ class BuildGenerator : ProjectGenerator {
 	}
 
 	private bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config,
-		string build_id, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_binary_path)
+		string build_id, in Package[] packages, in NativePath[] additional_dep_files, in NativePath[] dependencyBinariesToCopy, out NativePath target_binary_path)
 	{
 		auto cwd = NativePath(getcwd());
 
@@ -201,14 +228,14 @@ class BuildGenerator : ProjectGenerator {
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 			if (!settings.tempBuild)
-				copyTargetFile(target_path, buildsettings, settings);
+				copyTargetFile(target_path, buildsettings, settings, dependencyBinariesToCopy);
 			return true;
 		}
 
 		if (!isWritableDir(target_path, true)) {
 			if (!settings.tempBuild)
 				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
-			performDirectBuild(settings, buildsettings, pack, config, target_path);
+			performDirectBuild(settings, buildsettings, pack, config, dependencyBinariesToCopy, target_path);
 			return false;
 		}
 
@@ -226,12 +253,12 @@ class BuildGenerator : ProjectGenerator {
 		target_binary_path = getTargetPath(cbuildsettings, settings);
 
 		if (!settings.tempBuild)
-			copyTargetFile(target_path, buildsettings, settings);
+			copyTargetFile(target_path, buildsettings, settings, dependencyBinariesToCopy);
 
 		return false;
 	}
 
-	private void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out NativePath target_path)
+	private void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, in NativePath[] dependencyBinariesToCopy, out NativePath target_path)
 	{
 		auto cwd = NativePath(getcwd());
 		//Added check for existence of [AppNameInPackagejson].d
@@ -296,7 +323,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out NativePath target_path)
+	private void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, in NativePath[] dependencyBinariesToCopy, out NativePath target_path)
 	{
 		auto cwd = NativePath(getcwd());
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
@@ -369,7 +396,7 @@ class BuildGenerator : ProjectGenerator {
 		return computeBuildName(config, settings, hashing);
 	}
 
-	private void copyTargetFile(NativePath build_path, BuildSettings buildsettings, GeneratorSettings settings)
+	private void copyTargetFile(in NativePath build_path, in BuildSettings buildsettings, in GeneratorSettings settings, in NativePath[] dependencyBinariesToCopy)
 	{
 		if (!existsFile(NativePath(buildsettings.targetPath)))
 			mkdirRecurse(buildsettings.targetPath);
@@ -378,7 +405,7 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.getTargetFileName(buildsettings, settings.platform)
 		];
 
-		// Windows: add .pdb if found
+		// Windows: add .pdb, .lib and .exp if found
 		const tt = buildsettings.targetType;
 		if ((tt == TargetType.executable || tt == TargetType.dynamicLibrary) &&
 		    settings.platform.platform.canFind("windows"))
@@ -387,6 +414,14 @@ class BuildGenerator : ProjectGenerator {
 			const pdbFilename = filenames[0].setExtension(".pdb");
 			if (existsFile(build_path ~ pdbFilename))
 				filenames ~= pdbFilename;
+
+			const importLibraryLocation = filenames[0].setExtension(".lib");
+			if (existsFile(build_path ~ importLibraryLocation))
+				filenames ~= importLibraryLocation;
+
+			const exportFilesLocation = filenames[0].setExtension(".exp");
+			if (existsFile(build_path ~ exportFilesLocation))
+				filenames ~= exportFilesLocation;
 		}
 
 		foreach (filename; filenames)
@@ -394,6 +429,11 @@ class BuildGenerator : ProjectGenerator {
 			auto src = build_path ~ filename;
 			logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
 			hardLinkFile(src, NativePath(buildsettings.targetPath) ~ filename, true);
+		}
+
+		foreach(src; dependencyBinariesToCopy) {
+			logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
+			hardLinkFile(src, NativePath(buildsettings.targetPath) ~ src.head, true);
 		}
 	}
 

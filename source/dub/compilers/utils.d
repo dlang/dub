@@ -74,6 +74,50 @@ unittest {
 
 
 /**
+	Determines if a specific file name has the extension related to dynamic libraries.
+
+	This includes dynamic libraries and for Windows pdb and import library files.
+*/
+bool isDynamicLibraryFile(const scope ref BuildPlatform platform, string f)
+{
+	import std.path;
+	switch (extension(f)) {
+		default:
+			return false;
+		case ".lib", ".pdb", ".dll":
+			return platform.platform.canFind("windows");
+		case ".so", ".dylib":
+			return !platform.platform.canFind("windows");
+	}
+}
+
+unittest {
+	BuildPlatform p;
+
+	p.platform = ["windows"];
+	assert(!isDynamicLibraryFile(p, "test.obj"));
+	assert(isDynamicLibraryFile(p, "test.lib"));
+	assert(isDynamicLibraryFile(p, "test.dll"));
+	assert(isDynamicLibraryFile(p, "test.pdb"));
+	assert(!isDynamicLibraryFile(p, "test.res"));
+	assert(!isDynamicLibraryFile(p, "test.o"));
+	assert(!isDynamicLibraryFile(p, "test.d"));
+	assert(!isDynamicLibraryFile(p, "test.dylib"));
+
+	p.platform = ["something else"];
+	assert(!isDynamicLibraryFile(p, "test.o"));
+	assert(!isDynamicLibraryFile(p, "test.a"));
+	assert(isDynamicLibraryFile(p, "test.so"));
+	assert(isDynamicLibraryFile(p, "test.dylib"));
+	assert(!isDynamicLibraryFile(p, "test.obj"));
+	assert(!isDynamicLibraryFile(p, "test.d"));
+	assert(!isDynamicLibraryFile(p, "test.lib"));
+	assert(!isDynamicLibraryFile(p, "test.dll"));
+	assert(!isDynamicLibraryFile(p, "test.pdb"));
+}
+
+
+/**
 	Replaces each referenced import library by the appropriate linker flags.
 
 	This function tries to invoke "pkg-config" if possible and falls back to
