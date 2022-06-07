@@ -76,7 +76,7 @@ unittest {
 /**
 	Determines if a specific file name has the extension related to dynamic libraries.
 
-	This includes dynamic libraries and for Windows pdb and import library files.
+	This includes dynamic libraries and for Windows pdb, export and import library files.
 */
 bool isDynamicLibraryFile(const scope ref BuildPlatform platform, string f)
 {
@@ -84,7 +84,7 @@ bool isDynamicLibraryFile(const scope ref BuildPlatform platform, string f)
 	switch (extension(f)) {
 		default:
 			return false;
-		case ".lib", ".pdb", ".dll":
+		case ".lib", ".pdb", ".dll", ".exp":
 			return platform.platform.canFind("windows");
 		case ".so", ".dylib":
 			return !platform.platform.canFind("windows");
