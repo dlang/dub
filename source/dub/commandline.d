@@ -391,6 +391,11 @@ unittest {
 */
 int runDubCommandLine(string[] args)
 {
+	static string[] toSinglePackageArgs (string args0, string file, string[] trailing)
+	{
+		return [args0, "run", "-q", "--temp-build", "--single", file, "--"] ~ trailing;
+	}
+
 	logDiagnostic("DUB version %s", getDUBVersion());
 
 	version(Windows){
@@ -403,28 +408,43 @@ int runDubCommandLine(string[] args)
 	auto handler = CommandLineHandler(getCommands());
 	auto commandNames = handler.commandNames();
 
-	// special stdin syntax
-	if (args.length >= 2 && args[1] == "-")
+	// Special syntaxes need to be handled before regular argument parsing
+	if (args.length >= 2)
 	{
-		auto path = getTempFile("app", ".d");
-		stdin.byChunk(4096).joiner.toFile(path.toNativeString());
-		args = args[0] ~ [path.toNativeString()] ~ args[2..$];
-	}
-
-	// Shebang syntax support for files without .d extension
-	if (args.length >= 2 && !args[1].endsWith(".d") && !args[1].startsWith("-") && !commandNames.canFind(args[1])) {
-		if (exists(args[1])) {
+		// Read input source code from stdin
+		if (args[1] == "-")
+		{
 			auto path = getTempFile("app", ".d");
-			copy(args[1], path.toNativeString());
-			args[1] = path.toNativeString();
-		} else if (exists(args[1].setExtension(".d"))) {
-			args[1] = args[1].setExtension(".d");
+			stdin.byChunk(4096).joiner.toFile(path.toNativeString());
+			args = toSinglePackageArgs(args[0], path.toNativeString(), args[2 .. $]);
 		}
-	}
 
-	// special single-file package shebang syntax
-	if (args.length >= 2 && args[1].endsWith(".d")) {
-		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];
+		// Dub has a shebang syntax to be able to use it as script, e.g.
+		// #/usr/bin/env dub
+		// With this approach, we need to support the file having
+		// both the `.d` extension, or having none at all.
+		// We also need to make sure arguments passed to the script
+		// are passed to the program, not `dub`, e.g.:
+		// ./my_dub_script foo bar
+		// Gives us `args = [ "dub", "./my_dub_script" "foo", "bar" ]`,
+		// which we need to interpret as:
+		// `args = [ "dub", "./my_dub_script", "--", "foo", "bar" ]`
+		else if (args[1].endsWith(".d"))
+			args = toSinglePackageArgs(args[0], args[1], args[2 .. $]);
+
+		// Here we have a problem: What if the script name is a command name ?
+		// We have to assume it isn't, and to reduce the risk of false positive
+		// we only consider the case where the file name is the first argument,
+		// as the shell invocation cannot be controlled.
+		else if (!commandNames.canFind(args[1]) && !args[1].startsWith("-")) {
+			if (exists(args[1])) {
+				auto path = getTempFile("app", ".d");
+				copy(args[1], path.toNativeString());
+				args = toSinglePackageArgs(args[0], path.toNativeString(), args[2 .. $]);
+			} else if (exists(args[1].setExtension(".d"))) {
+				args = toSinglePackageArgs(args[0], args[1].setExtension(".d"), args[2 .. $]);
+			}
+		}
 	}
 
 	auto common_args = new CommandArgs(args[1..$]);
