@@ -160,20 +160,20 @@ class GDCCompiler : Compiler {
 			case TargetType.none: return null;
 			case TargetType.sourceLibrary: return null;
 			case TargetType.executable:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".exe";
 				else return settings.targetName.idup;
 			case TargetType.library:
 			case TargetType.staticLibrary:
 				return "lib" ~ settings.targetName ~ ".a";
 			case TargetType.dynamicLibrary:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".dll";
 				else if (platform.platform.canFind("darwin"))
 					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
 		}

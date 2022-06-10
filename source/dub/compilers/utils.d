@@ -47,9 +47,9 @@ bool isLinkerFile(const scope ref BuildPlatform platform, string f)
 		default:
 			return false;
 		case ".lib", ".obj", ".res", ".def":
-			return platform.platform.canFind("windows");
+			return platform.isWindows();
 		case ".a", ".o", ".so", ".dylib":
-			return !platform.platform.canFind("windows");
+			return !platform.isWindows();
 	}
 }
 
@@ -85,9 +85,9 @@ bool isDynamicLibraryFile(const scope ref BuildPlatform platform, string f)
 		default:
 			return false;
 		case ".lib", ".pdb", ".dll", ".exp":
-			return platform.platform.canFind("windows");
+			return platform.isWindows();
 		case ".so", ".dylib":
-			return !platform.platform.canFind("windows");
+			return !platform.isWindows();
 	}
 }
 
@@ -133,7 +133,7 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 	if (settings.targetType == TargetType.library || settings.targetType == TargetType.staticLibrary) {
 		logDiagnostic("Ignoring all import libraries for static library build.");
 		settings.libs = null;
-		if (platform.platform.canFind("windows"))
+		if (platform.isWindows())
 			settings.sourceFiles = settings.sourceFiles.filter!(f => !f.endsWith(".lib")).array;
 	}
 

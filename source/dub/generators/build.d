@@ -29,7 +29,7 @@ import std.encoding : sanitize;
 
 string getObjSuffix(const scope ref BuildPlatform platform)
 {
-    return platform.platform.canFind("windows") ? ".obj" : ".o";
+    return platform.isWindows() ? ".obj" : ".o";
 }
 
 string computeBuildName(string config, GeneratorSettings settings, const string[][] hashing...)
@@ -107,7 +107,7 @@ class BuildGenerator : ProjectGenerator {
 
 				if (bs.targetType != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly) && isLinkerFile(settings.platform, location)) {
 					bs.addSourceFiles(location);
-				} else if (settings.platform.platform.canFind("windows") && location.endsWith(".dll")) {
+				} else if (settings.platform.isWindows() && location.endsWith(".dll")) {
 					// switch from linking against the dll to against the import library,
 					// and copy any dependent build artifacts if found too
 
@@ -408,7 +408,7 @@ class BuildGenerator : ProjectGenerator {
 		// Windows: add .pdb, .lib and .exp if found
 		const tt = buildsettings.targetType;
 		if ((tt == TargetType.executable || tt == TargetType.dynamicLibrary) &&
-		    settings.platform.platform.canFind("windows"))
+		    settings.platform.isWindows())
 		{
 			import std.path : setExtension;
 			const pdbFilename = filenames[0].setExtension(".pdb");
