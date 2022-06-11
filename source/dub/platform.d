@@ -266,6 +266,20 @@ struct BuildPlatform {
 		bp.frontendVersion = 2067;
 		assert(bp.frontendVersionString == "2.067");
 	}
+
+	/// Checks to see if platform field contains windows
+	bool isWindows() const {
+		import std.algorithm : canFind;
+		return this.platform.canFind("windows");
+	}
+	///
+	unittest {
+		BuildPlatform bp;
+		bp.platform = ["windows"];
+		assert(bp.isWindows);
+		bp.platform = ["posix"];
+		assert(!bp.isWindows);
+	}
 }
 
 

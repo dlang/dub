@@ -1,0 +1,9 @@
+{
+    "name": "dynlib-exe-dep",
+	"targetType": "executable",
+    "dependencies": {
+        "dynlib-simple": { "path": "../1-dynLib-simple/" }
+    },
+    "dflags-ldc": ["-link-defaultlib-shared"]
+
+}

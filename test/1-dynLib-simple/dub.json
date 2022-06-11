@@ -1,5 +1,5 @@
 {
     "name": "dynlib-simple",
     "targetType": "dynamicLibrary",
-    "dflags-ldc": ["-link-defaultlib-shared"]
+    "dflags-ldc": ["-link-defaultlib-shared", "--fvisibility=public"]
 }
