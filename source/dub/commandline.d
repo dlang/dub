@@ -762,15 +762,9 @@ class Command {
 
 	private bool loadCwdPackage(Dub dub, bool warn_missing_package)
 	{
-		bool found;
-		foreach (f; packageInfoFiles)
-			if (existsFile(dub.rootPath ~ f.filename))
-			{
-				found = true;
-				break;
-			}
+		auto filePath = Package.findPackageFile(dub.rootPath);
 
-		if (!found) {
+		if (filePath.empty) {
 			if (warn_missing_package) {
 				logInfo("");
 				logInfo("No package manifest (dub.json or dub.sdl) was found in");
