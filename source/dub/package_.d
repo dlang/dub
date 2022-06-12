@@ -21,6 +21,8 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 
+import configy.Read : StrictMode;
+
 import std.algorithm;
 import std.array;
 import std.conv;
@@ -169,8 +171,11 @@ class Package {
 			version_override = Optional version to associate to the package
 				instead of the one declared in the package recipe, or the one
 				determined by invoking the VCS (GIT currently).
+			mode = Whether to issue errors, warning, or ignore unknown keys in dub.json
 	*/
-	static Package load(NativePath root, NativePath recipe_file = NativePath.init, Package parent = null, string version_override = "")
+	static Package load(NativePath root, NativePath recipe_file = NativePath.init,
+		Package parent = null, string version_override = "",
+		StrictMode mode = StrictMode.Ignore)
 	{
 		import dub.recipe.io;
 
@@ -181,7 +186,7 @@ class Package {
 				.format(root.toNativeString(),
 					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
 
-		auto recipe = readPackageRecipe(recipe_file, parent ? parent.name : null);
+		auto recipe = readPackageRecipe(recipe_file, parent ? parent.name : null, mode);
 
 		auto ret = new Package(recipe, root, parent, version_override);
 		ret.m_infoFile = recipe_file;

@@ -14,6 +14,9 @@ import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
 import dub.package_;
+import dub.recipe.io;
+import configy.Exceptions;
+public import configy.Read : StrictMode;
 
 import std.algorithm : countUntil, filter, sort, canFind, remove;
 import std.array;
@@ -254,17 +257,19 @@ class PackageManager {
 			path = NativePath to the root directory of the package
 			recipe_path = Optional path to the recipe file of the package
 			allow_sub_packages = Also return a sub package if it resides in the given folder
+			mode = Whether to issue errors, warning, or ignore unknown keys in dub.json
 
 		Returns: The packages loaded from the given path
 		Throws: Throws an exception if no package can be loaded
 	*/
-	Package getOrLoadPackage(NativePath path, NativePath recipe_path = NativePath.init, bool allow_sub_packages = false)
+	Package getOrLoadPackage(NativePath path, NativePath recipe_path = NativePath.init,
+		bool allow_sub_packages = false, StrictMode mode = StrictMode.Ignore)
 	{
 		path.endsWithSlash = true;
 		foreach (p; getPackageIterator())
 			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
 				return p;
-		auto pack = Package.load(path, recipe_path);
+		auto pack = Package.load(path, recipe_path, null, null, mode);
 		addPackages(m_temporaryPackages, pack);
 		return pack;
 	}
@@ -790,6 +795,9 @@ class PackageManager {
 								}
 						if (!p) p = Package.load(pack_path, packageFile);
 						addPackages(m_packages, p);
+					} catch (ConfigException exc) {
+						// Confiy error message already include the path
+						logError("Invalid recipe for local package: %S", exc);
 					} catch( Exception e ){
 						logError("Failed to load package in %s: %s", pack_path, e.msg);
 						logDiagnostic("Full error: %s", e.toString().sanitize());

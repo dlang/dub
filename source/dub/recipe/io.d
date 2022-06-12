@@ -8,8 +8,9 @@
 module dub.recipe.io;
 
 import dub.recipe.packagerecipe;
+import dub.internal.logging;
 import dub.internal.vibecompat.inet.path;
-
+import configy.Read;
 
 /** Reads a package recipe from a file.
 
@@ -18,16 +19,20 @@ import dub.internal.vibecompat.inet.path;
 	Params:
 		filename = NativePath of the package recipe file
 		parent_name = Optional name of the parent package (if this is a sub package)
+		mode = Whether to issue errors, warning, or ignore unknown keys in dub.json
 
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
-PackageRecipe readPackageRecipe(string filename, string parent_name = null)
+PackageRecipe readPackageRecipe(
+	string filename, string parent_name = null, StrictMode mode = StrictMode.Ignore)
 {
-	return readPackageRecipe(NativePath(filename), parent_name);
+	return readPackageRecipe(NativePath(filename), parent_name, mode);
 }
+
 /// ditto
-PackageRecipe readPackageRecipe(NativePath filename, string parent_name = null)
+PackageRecipe readPackageRecipe(
+	NativePath filename, string parent_name = null, StrictMode mode = StrictMode.Ignore)
 {
 	import dub.internal.utils : stripUTF8Bom;
 	import dub.internal.vibecompat.core.file : openFile, FileMode;
@@ -40,7 +45,7 @@ PackageRecipe readPackageRecipe(NativePath filename, string parent_name = null)
 		text = stripUTF8Bom(cast(string)f.readAll());
 	}
 
-	return parsePackageRecipe(text, filename.toNativeString(), parent_name);
+	return parsePackageRecipe(text, filename.toNativeString(), parent_name, null, mode);
 }
 
 /** Parses an in-memory package recipe.
@@ -55,12 +60,13 @@ PackageRecipe readPackageRecipe(NativePath filename, string parent_name = null)
 		package)
 		default_package_name = Optional default package name (if no package name
 		is found in the recipe this value will be used)
+		mode = Whether to issue errors, warning, or ignore unknown keys in dub.json
 
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
 PackageRecipe parsePackageRecipe(string contents, string filename, string parent_name = null,
-								 string default_package_name = null)
+	string default_package_name = null, StrictMode mode = StrictMode.Ignore)
 {
 	import std.algorithm : endsWith;
 	import dub.compilers.buildsettings : TargetType;
@@ -72,7 +78,46 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 
 	ret.name = default_package_name;
 
-	if (filename.endsWith(".json")) parseJson(ret, parseJsonString(contents, filename), parent_name);
+	if (filename.endsWith(".json"))
+	{
+		try {
+			ret = parseConfigString!PackageRecipe(contents, filename, mode);
+			fixDependenciesNames(ret.name, ret);
+		} catch (ConfigException exc) {
+			logWarn("Your `dub.json` file use non-conventional features that are deprecated");
+			logWarn("Please adjust your `dub.json` file as those warnings will turn into errors in dub v1.40.0");
+			logWarn("Error was: %s", exc);
+			// Fallback to JSON parser
+			ret = PackageRecipe.init;
+			parseJson(ret, parseJsonString(contents, filename), parent_name);
+		} catch (Exception exc) {
+			logWarn("Your `dub.json` file use non-conventional features that are deprecated");
+			logWarn("This is most likely due to duplicated keys.");
+			logWarn("Please adjust your `dub.json` file as those warnings will turn into errors in dub v1.40.0");
+			logWarn("Error was: %s", exc);
+			// Fallback to JSON parser
+			ret = PackageRecipe.init;
+			parseJson(ret, parseJsonString(contents, filename), parent_name);
+		}
+		// `debug = ConfigFillerDebug` also enables verbose parser output
+		debug (ConfigFillerDebug)
+		{
+			import std.stdio;
+
+			PackageRecipe jsonret;
+			parseJson(jsonret, parseJsonString(contents, filename), parent_name);
+			if (ret != jsonret)
+			{
+				writeln("Content of JSON and YAML parsing differ for file: ", filename);
+				writeln("-------------------------------------------------------------------");
+				writeln("JSON (excepted): ", jsonret);
+				writeln("-------------------------------------------------------------------");
+				writeln("YAML (actual  ): ", ret);
+				writeln("========================================");
+				ret = jsonret;
+			}
+		}
+	}
 	else if (filename.endsWith(".sdl")) parseSDL(ret, contents, parent_name, filename);
 	else assert(false, "readPackageRecipe called with filename with unknown extension: "~filename);
 
@@ -193,4 +238,57 @@ void serializePackageRecipe(R)(ref R dst, const scope ref PackageRecipe recipe, 
 	else if (filename.endsWith(".sdl"))
 		toSDL(recipe).toSDLDocument(dst);
 	else assert(false, "writePackageRecipe called with filename with unknown extension: "~filename);
+}
+
+unittest {
+	import std.format;
+	import dub.dependency;
+	import dub.internal.utils : deepCompare;
+
+	static void success (string source, in PackageRecipe expected, size_t line = __LINE__) {
+		const result = parseConfigString!PackageRecipe(source, "dub.json");
+		deepCompare(result, expected, __FILE__, line);
+	}
+
+	static void error (string source, string expected, size_t line = __LINE__) {
+		try
+		{
+			auto result = parseConfigString!PackageRecipe(source, "dub.json");
+			assert(0,
+				   format("[%s:%d] Exception should have been thrown but wasn't: %s",
+						  __FILE__, line, result));
+		}
+		catch (Exception exc)
+			assert(exc.toString() == expected,
+				   format("[%s:%s] result != expected: '%s' != '%s'",
+						  __FILE__, line, exc.toString(), expected));
+	}
+
+	alias YAMLDep = typeof(BuildSettingsTemplate.dependencies[string.init]);
+	const PackageRecipe expected1 =
+	{
+		name: "foo",
+		buildSettings: {
+		dependencies: RecipeDependencyAA([
+			"repo": YAMLDep(Dependency(Repository(
+				"git+https://github.com/dlang/dmd",
+				"09d04945bdbc0cba36f7bb1e19d5bd009d4b0ff2",
+			))),
+			"path": YAMLDep(Dependency(NativePath("/foo/bar/jar/"))),
+			"version": YAMLDep(Dependency(VersionRange.fromString("~>1.0"))),
+			"version2": YAMLDep(Dependency(Version("4.2.0"))),
+		])},
+	};
+	success(
+		`{ "name": "foo", "dependencies": {
+	"repo": { "repository": "git+https://github.com/dlang/dmd",
+			  "version": "09d04945bdbc0cba36f7bb1e19d5bd009d4b0ff2" },
+	"path":    { "path": "/foo/bar/jar/" },
+	"version": { "version": "~>1.0" },
+	"version2": "4.2.0"
+}}`, expected1);
+
+
+	error(`{ "name": "bar", "dependencies": {"bad": { "repository": "git+https://github.com/dlang/dmd" }}}`,
+		"dub.json(0:41): dependencies[bad]: Need to provide a commit hash in 'version' field with 'repository' dependency");
 }
