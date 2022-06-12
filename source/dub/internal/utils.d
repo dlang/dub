@@ -20,6 +20,7 @@ import std.array : appender, array;
 import std.conv : to;
 import std.exception : enforce;
 import std.file;
+import std.format;
 import std.string : format;
 import std.process;
 import std.traits : isIntegral;
@@ -688,4 +689,54 @@ string getModuleNameFromFile(string filePath) {
 
 	logDiagnostic("Get module name from path: %s", filePath);
 	return getModuleNameFromContent(fileContent);
+}
+
+/**
+ * Compare two instances of the same type for equality,
+ * providing a rich error message on failure.
+ *
+ * This function will recurse into composite types (struct, AA, arrays)
+ * and compare element / member wise, taking opEquals into account,
+ * to provide the most accurate reason why comparison failed.
+ */
+void deepCompare (T) (
+	in T result, in T expected, string file = __FILE__, size_t line = __LINE__)
+{
+	deepCompareImpl!T(result, expected, T.stringof, file, line);
+}
+
+void deepCompareImpl (T) (
+	in T result, in T expected, string path, string file, size_t line)
+{
+	static if (is(T == struct) && !is(typeof(T.init.opEquals(T.init)) : bool))
+	{
+		static foreach (idx; 0 .. T.tupleof.length)
+			deepCompareImpl(result.tupleof[idx], expected.tupleof[idx],
+							format("%s.%s", path, __traits(identifier, T.tupleof[idx])),
+							file, line);
+	}
+	else static if (is(T : KeyT[ValueT], KeyT, ValueT))
+	{
+		if (result.length != expected.length)
+			throw new Exception(
+				format("%s: AA has different number of entries (%s != %s): %s != %s",
+					   path, result.length, expected.length, result, expected),
+				file, line);
+		foreach (key, value; expected)
+		{
+			if (auto ptr = key in result)
+				deepCompareImpl(*ptr, value, format("%s[%s]", path, key), file, line);
+			else
+				throw new Exception(
+					format("Expected key %s[%s] not present in result. %s != %s",
+						   path, key, result, expected), file, line);
+		}
+	}
+	else if (result != expected) {
+		static if (is(T == struct) && is(typeof(T.init.opEquals(T.init)) : bool))
+			path ~= ".opEquals";
+		throw new Exception(
+			format("%s: result != expected: %s != %s", path, result, expected),
+			file, line);
+	}
 }

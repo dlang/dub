@@ -65,7 +65,7 @@ class Project {
 			logWarn("There was no package description found for the application in '%s'.", project_path.toNativeString());
 			pack = new Package(PackageRecipe.init, project_path);
 		} else {
-			pack = package_manager.getOrLoadPackage(project_path, packageFile);
+			pack = package_manager.getOrLoadPackage(project_path, packageFile, false, StrictMode.Warn);
 		}
 
 		this(package_manager, pack);

@@ -286,7 +286,7 @@ struct CommandLineHandler
 
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
-		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path));
+		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath.init, false, StrictMode.Warn);
 		catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
 
 		return dub;
