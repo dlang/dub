@@ -1054,9 +1054,9 @@ shared static this() {
 				return value.byKeyValue.map!(a => a.key ~ "=" ~ a.value);
 			else static if( is(typeof(value) == enum) )
 				return only(value);
-			else static if( is(typeof(value) == BuildRequirements) )
+			else static if( is(typeof(value) == Flags!BuildRequirement) )
 				return only(cast(BuildRequirement) cast(int) value.values);
-			else static if( is(typeof(value) == BuildOptions) )
+			else static if( is(typeof(value) == Flags!BuildOption) )
 				return only(cast(BuildOption) cast(int) value.values);
 			else
 				static assert(false, "Type of BuildSettings."~attributeName~" is unsupported.");

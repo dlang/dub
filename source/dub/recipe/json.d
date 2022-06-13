@@ -246,13 +246,13 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "preRunEnvironments": bs.preRunEnvironments[suffix] = deserializeJson!(string[string])(value); break;
 			case "postRunEnvironments": bs.postRunEnvironments[suffix] = deserializeJson!(string[string])(value); break;
 			case "buildRequirements":
-				BuildRequirements reqs;
+				Flags!BuildRequirement reqs;
 				foreach (req; deserializeJson!(string[])(value))
 					reqs |= to!BuildRequirement(req);
 				bs.buildRequirements[suffix] = reqs;
 				break;
 			case "buildOptions":
-				BuildOptions options;
+				Flags!BuildOption options;
 				foreach (opt; deserializeJson!(string[])(value))
 					options |= to!BuildOption(opt);
 				bs.buildOptions[suffix] = options;

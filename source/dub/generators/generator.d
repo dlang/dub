@@ -720,7 +720,7 @@ class ProjectGenerator
 	{
 		child.addVersions(parent.versions);
 		child.addDebugVersions(parent.debugVersions);
-		child.addOptions(BuildOptions(parent.options & inheritedBuildOptions));
+		child.addOptions(Flags!BuildOption(parent.options & inheritedBuildOptions));
 	}
 
 	private static void mergeFromDependency(const scope ref BuildSettings child, ref BuildSettings parent, const scope ref BuildPlatform platform)

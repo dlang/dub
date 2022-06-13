@@ -57,8 +57,8 @@ struct BuildSettings {
 	string[string] postBuildEnvironments;
 	string[string] preRunEnvironments;
 	string[string] postRunEnvironments;
-	@byName BuildRequirements requirements;
-	@byName BuildOptions options;
+	@byName Flags!BuildRequirement requirements;
+	@byName Flags!BuildOption options;
 
 	BuildSettings dup()
 	const {
@@ -153,11 +153,11 @@ struct BuildSettings {
 	void addPostRunEnvironments(in string[string] value) { add(postRunEnvironments, value); }
 	void updatePostRunEnvironments(in string[string] value) { update(postRunEnvironments, value); }
 	void addRequirements(in BuildRequirement[] value...) { foreach (v; value) this.requirements |= v; }
-	void addRequirements(in BuildRequirements value) { this.requirements |= value; }
+	void addRequirements(in Flags!BuildRequirement value) { this.requirements |= value; }
 	void addOptions(in BuildOption[] value...) { foreach (v; value) this.options |= v; }
-	void addOptions(in BuildOptions value) { this.options |= value; }
+	void addOptions(in Flags!BuildOption value) { this.options |= value; }
 	void removeOptions(in BuildOption[] value...) { foreach (v; value) this.options &= ~v; }
-	void removeOptions(in BuildOptions value) { this.options &= ~value; }
+	void removeOptions(in Flags!BuildOption value) { this.options &= ~value; }
 
 private:
 	static auto filterDuplicates(T)(ref string[] arr, in T vals, bool noDuplicates = true)
@@ -342,15 +342,6 @@ enum BuildRequirement {
 	noDefaultFlags       = 1<<9,  /// Do not issue any of the default build flags (e.g. -debug, -w, -property etc.) - use only for development purposes
 }
 
-	struct BuildRequirements {
-		import dub.internal.vibecompat.data.serialization : ignore;
-
-		@ignore BitFlags!BuildRequirement values;
-		this(BuildRequirement req) { values = req; }
-
-		alias values this;
-	}
-
 enum BuildOption {
 	none = 0,                     /// Use compiler defaults
 	debugMode = 1<<0,             /// Compile in debug mode (enables contracts, -debug)
@@ -385,15 +376,23 @@ enum BuildOption {
 	_ddox = 1<<27,                // Compile docs.json
 }
 
-	struct BuildOptions {
-		import dub.internal.vibecompat.data.serialization : ignore;
+struct Flags (T) {
+	import dub.internal.vibecompat.data.serialization : ignore;
 
-		@ignore BitFlags!BuildOption values;
-		this(BuildOption opt) { values = opt; }
-		this(BitFlags!BuildOption v) { values = v; }
+	@ignore BitFlags!T values;
 
-		alias values this;
+	public this(T opt) @safe pure nothrow @nogc
+	{
+		this.values = opt;
 	}
+
+	public this(BitFlags!T v) @safe pure nothrow @nogc
+	{
+		this.values = v;
+	}
+
+	alias values this;
+}
 
 /**
 	All build options that will be inherited upwards in the dependency graph
@@ -405,7 +404,8 @@ enum BuildOption {
 		$(LI The option enabled meta information in dependent projects that are useful for the dependee (e.g. debug information))
 	)
 */
-enum BuildOptions inheritedBuildOptions = BuildOption.debugMode | BuildOption.releaseMode
+enum Flags!BuildOption inheritedBuildOptions =
+	BuildOption.debugMode | BuildOption.releaseMode
 	| BuildOption.coverage | BuildOption.coverageCTFE | BuildOption.debugInfo | BuildOption.debugInfoC
 	| BuildOption.alwaysStackFrame | BuildOption.stackStomping | BuildOption.inline
 	| BuildOption.noBoundsCheck | BuildOption.profile | BuildOption.ignoreUnknownPragmas
@@ -413,3 +413,9 @@ enum BuildOptions inheritedBuildOptions = BuildOption.debugMode | BuildOption.re
 	| BuildOption.ignoreDeprecations | BuildOption.deprecationWarnings
 	| BuildOption.deprecationErrors | BuildOption.property | BuildOption.profileGC
 	| BuildOption.pic;
+
+deprecated("Use `Flags!BuildOption` instead")
+public alias BuildOptions = Flags!BuildOption;
+
+deprecated("Use `Flags!BuildRequirement` instead")
+public alias BuildRequirements = Flags!BuildRequirement;
