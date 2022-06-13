@@ -187,11 +187,11 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 	equivalent.
 
 	Certain compiler flags should, instead of using compiler-specific syntax,
-	be specified as build options (`BuildOptions`) or built requirements
+	be specified as build options (`BuildOption`) or built requirements
 	(`BuildRequirements`). This function will output warning messages to
 	assist the user in making the best choice.
 */
-void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, string package_name, string config_name)
+void warnOnSpecialCompilerFlags(string[] compiler_flags, Flags!BuildOption options, string package_name, string config_name)
 {
 	import std.algorithm : any, endsWith, startsWith;
 	import std.range : empty;
