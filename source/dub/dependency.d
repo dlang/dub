@@ -13,7 +13,7 @@ import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.semver;
-import dub.logging;
+import dub.internal.logging;
 
 import std.algorithm;
 import std.array;

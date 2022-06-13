@@ -8,7 +8,7 @@
 module dub.dependencyresolver;
 
 import dub.dependency;
-import dub.logging;
+import dub.internal.logging;
 
 import std.algorithm : all, canFind, filter, map, sort;
 import std.array : appender, array, join;

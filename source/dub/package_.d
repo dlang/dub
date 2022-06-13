@@ -12,10 +12,10 @@ public import dub.recipe.packagerecipe;
 import dub.compilers.compiler;
 import dub.dependency;
 import dub.description;
-import dub.logging;
 import dub.recipe.json;
 import dub.recipe.sdl;
 
+import dub.internal.logging;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;

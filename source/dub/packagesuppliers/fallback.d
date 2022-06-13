@@ -46,7 +46,7 @@ private template fallback(T, alias func)
 {
 	import std.format : format;
 	enum fallback = q{
-		import dub.logging : logDebug;
+		import dub.internal.logging : logDebug;
 
 		Exception firstEx;
 		try

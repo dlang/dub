@@ -10,7 +10,7 @@ module dub.compilers.utils;
 import dub.compilers.buildsettings;
 import dub.platform : BuildPlatform, archCheck, compilerCheck, platformCheck;
 import dub.internal.vibecompat.inet.path;
-import dub.logging;
+import dub.internal.logging;
 
 import std.algorithm : canFind, endsWith, filter;
 

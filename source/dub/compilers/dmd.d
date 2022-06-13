@@ -11,7 +11,7 @@ import dub.compilers.compiler;
 import dub.compilers.utils;
 import dub.internal.utils;
 import dub.internal.vibecompat.inet.path;
-import dub.logging;
+import dub.internal.logging;
 
 import std.algorithm;
 import std.array;

@@ -8,7 +8,7 @@
 module dub.init;
 
 import dub.internal.vibecompat.core.file;
-import dub.logging;
+import dub.internal.logging;
 import dub.package_ : PackageFormat, packageInfoFiles, defaultPackageFilename;
 import dub.recipe.packagerecipe;
 import dub.dependency;

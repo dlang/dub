@@ -9,7 +9,7 @@ module dub.recipe.sdl;
 
 import dub.compilers.compiler;
 import dub.dependency;
-import dub.logging;
+import dub.internal.logging;
 import dub.internal.sdlang;
 import dub.internal.vibecompat.inet.path;
 import dub.recipe.packagerecipe;
