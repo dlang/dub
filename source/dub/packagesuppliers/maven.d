@@ -12,7 +12,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 	import dub.internal.utils : retryDownload, HTTPStatusException;
 	import dub.internal.vibecompat.data.json : serializeToJson;
 	import dub.internal.vibecompat.inet.url : URL;
-	import dub.logging;
+	import dub.internal.logging;
 
 	import std.datetime : Clock, Duration, hours, SysTime, UTC;
 

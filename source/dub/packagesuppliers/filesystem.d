@@ -9,7 +9,7 @@ import dub.packagesuppliers.packagesupplier;
 	the form "[package name]-[version].zip".
 */
 class FileSystemPackageSupplier : PackageSupplier {
-	import dub.logging;
+	import dub.internal.logging;
 
 	version (Have_vibe_core) import dub.internal.vibecompat.inet.path : toNativeString;
 	import std.exception : enforce;

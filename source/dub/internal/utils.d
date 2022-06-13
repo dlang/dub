@@ -12,7 +12,7 @@ import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.compilers.buildsettings : BuildSettings;
 import dub.version_;
-import dub.logging;
+import dub.internal.logging;
 
 import core.time : Duration;
 import std.algorithm : canFind, startsWith;

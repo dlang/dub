@@ -52,7 +52,7 @@
 	Authors: Giacomo De Lazzari
 */
 
-module dub.logging;
+module dub.internal.logging;
 
 import std.stdio;
 import std.array;
