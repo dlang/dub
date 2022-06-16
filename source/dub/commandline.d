@@ -94,7 +94,7 @@ auto extractCommandNameArgument(string[] args)
 		string[] remaining;
 	}
 
-	if (args.length >= 1 && !args[0].startsWith("-")) {
+	if (args.length >= 1 && !args[0].startsWith("-") && !args[0].canFind(":")) {
 		return Result(args[0], args[1 .. $]);
 	}
 
@@ -118,6 +118,10 @@ unittest {
 
 	/// It returns the an empty string when it starts with `-`
 	assert(extractCommandNameArgument(["-test"]).value == "");
+
+	// Sub package names are ignored as command names
+	assert(extractCommandNameArgument(["foo:bar"]).value == "");
+	assert(extractCommandNameArgument([":foo"]).value == "");
 }
 
 /** Handles the Command Line options and commands.
