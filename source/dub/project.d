@@ -226,6 +226,152 @@ class Project {
 		m_overriddenConfigs[package_] = config;
 	}
 
+	/** Adds a test runner configuration for the root package.
+
+		Params:
+			generate_main = Whether to generate the main.d file
+			base_config = Optional base configuration
+			custom_main_file = Optional path to file with custom main entry point
+
+		Returns:
+			Name of the added test runner configuration, or null for base configurations with target type `none`
+	*/
+	string addTestRunnerConfiguration(GeneratorSettings settings, bool generate_main = true, string base_config = "", NativePath custom_main_file = NativePath())
+	{
+		if (base_config.length == 0) {
+			// if a custom main file was given, favor the first library configuration, so that it can be applied
+			if (!custom_main_file.empty) base_config = getDefaultConfiguration(settings.platform, false);
+			// else look for a "unittest" configuration
+			if (!base_config.length && rootPackage.configurations.canFind("unittest")) base_config = "unittest";
+			// if not found, fall back to the first "library" configuration
+			if (!base_config.length) base_config = getDefaultConfiguration(settings.platform, false);
+			// if still nothing found, use the first executable configuration
+			if (!base_config.length) base_config = getDefaultConfiguration(settings.platform, true);
+		}
+
+		BuildSettings lbuildsettings = settings.buildSettings;
+		addBuildSettings(lbuildsettings, settings, base_config, null, true);
+
+		if (lbuildsettings.targetType == TargetType.none) {
+			logInfo(`Configuration '%s' has target type "none". Skipping test runner configuration.`, base_config);
+			return null;
+		}
+
+		if (lbuildsettings.targetType == TargetType.executable && base_config == "unittest") {
+			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
+			return base_config;
+		}
+
+		if (lbuildsettings.sourceFiles.empty) {
+			logInfo(`No source files found in configuration '%s'. Falling back to default configuration for test runner.`, base_config);
+			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
+			return getDefaultConfiguration(settings.platform);
+		}
+
+		const config = format("%s-test-%s", rootPackage.name.replace(".", "-").replace(":", "-"), base_config);
+		logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, config, base_config, lbuildsettings.targetType);
+
+		BuildSettingsTemplate tcinfo = rootPackage.recipe.getConfiguration(base_config).buildSettings;
+		tcinfo.targetType = TargetType.executable;
+		tcinfo.targetName = config;
+
+		auto mainfil = tcinfo.mainSourceFile;
+		if (!mainfil.length) mainfil = rootPackage.recipe.buildSettings.mainSourceFile;
+
+		string custommodname;
+		if (!custom_main_file.empty) {
+			import std.path;
+			tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(rootPackage.path).toNativeString();
+			tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
+			custommodname = custom_main_file.head.name.baseName(".d");
+		}
+
+		// prepare the list of tested modules
+
+		string[] import_modules;
+		if (settings.single)
+			lbuildsettings.importPaths ~= NativePath(mainfil).parentPath.toNativeString;
+		bool firstTimePackage = true;
+		foreach (file; lbuildsettings.sourceFiles) {
+			if (file.endsWith(".d")) {
+				auto fname = NativePath(file).head.name;
+				NativePath msf = NativePath(mainfil);
+				if (msf.absolute)
+					msf = msf.relativeTo(rootPackage.path);
+				if (!settings.single && NativePath(file).relativeTo(rootPackage.path) == msf) {
+					logWarn("Excluding main source file %s from test.", mainfil);
+					tcinfo.excludedSourceFiles[""] ~= mainfil;
+					continue;
+				}
+				if (fname == "package.d") {
+					if (firstTimePackage) {
+						firstTimePackage = false;
+						logDiagnostic("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
+					}
+					continue;
+				}
+				import_modules ~= dub.internal.utils.determineModuleName(lbuildsettings, NativePath(file), rootPackage.path);
+			}
+		}
+
+		NativePath mainfile;
+		if (settings.tempBuild)
+			mainfile = getTempFile("dub_test_root", ".d");
+		else {
+			import dub.generators.build : computeBuildName;
+			mainfile = rootPackage.path ~ format(".dub/code/%s_dub_test_root.d", computeBuildName(config, settings, import_modules));
+		}
+
+		auto escapedMainFile = mainfile.toNativeString().replace("$", "$$");
+		tcinfo.sourceFiles[""] ~= escapedMainFile;
+		tcinfo.mainSourceFile = escapedMainFile;
+
+		if (generate_main && (settings.force || !existsFile(mainfile))) {
+			import std.file : mkdirRecurse;
+			mkdirRecurse(mainfile.parentPath.toNativeString());
+
+			auto fil = openFile(mainfile, FileMode.createTrunc);
+			scope(exit) fil.close();
+			fil.write("module dub_test_root;\n");
+			fil.write("import std.typetuple;\n");
+			foreach (mod; import_modules) fil.write(format("static import %s;\n", mod));
+			fil.write("alias allModules = TypeTuple!(");
+			foreach (i, mod; import_modules) {
+				if (i > 0) fil.write(", ");
+				fil.write(mod);
+			}
+			fil.write(");\n");
+			if (custommodname.length) {
+				fil.write(format("import %s;\n", custommodname));
+			} else {
+				fil.write(q{
+import core.runtime;
+
+void main() {
+	version (D_Coverage) {
+	} else {
+		import std.stdio : writeln;
+		writeln("All unit tests have been run successfully.");
+	}
+}
+shared static this() {
+	version (Have_tested) {
+		import tested;
+		import core.runtime;
+		import std.exception;
+		Runtime.moduleUnitTester = () => true;
+		enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
+	}
+}
+					});
+			}
+		}
+
+		rootPackage.recipe.configurations ~= ConfigurationInfo(config, tcinfo);
+
+		return config;
+	}
+
 	/** Performs basic validation of various aspects of the package.
 
 		This will emit warnings to `stderr` if any discouraged names or
@@ -426,6 +572,10 @@ class Project {
 
 	/// Returns the names of all configurations of the root package.
 	@property string[] configurations() const { return m_rootPackage.configurations; }
+
+	/// Returns the names of all built-in and custom build types of the root package.
+	/// The default built-in build type is the first item in the list.
+	@property string[] builds() const { return builtinBuildTypes ~ m_rootPackage.customBuildTypes; }
 
 	/// Returns a map with the configuration for all packages in the dependency tree.
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
@@ -747,24 +897,24 @@ class Project {
 		return ret;
 	}
 
-	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
+	private string[] listBuildSetting(string attributeName)(ref GeneratorSettings settings,
 		string config, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
-		return listBuildSetting!attributeName(platform, getPackageConfigs(platform, config),
+		return listBuildSetting!attributeName(settings, getPackageConfigs(settings.platform, config),
 			projectDescription, compiler, disableEscaping);
 	}
 
-	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
+	private string[] listBuildSetting(string attributeName)(ref GeneratorSettings settings,
 		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
 		if (compiler)
-			return formatBuildSettingCompiler!attributeName(platform, configs, projectDescription, compiler, disableEscaping);
+			return formatBuildSettingCompiler!attributeName(settings, configs, projectDescription, compiler, disableEscaping);
 		else
-			return formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
+			return formatBuildSettingPlain!attributeName(settings, configs, projectDescription);
 	}
 
 	// Output a build setting formatted for a compiler
-	private string[] formatBuildSettingCompiler(string attributeName)(BuildPlatform platform,
+	private string[] formatBuildSettingCompiler(string attributeName)(ref GeneratorSettings settings,
 		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
 		import std.process : escapeShellFileName;
@@ -782,11 +932,12 @@ class Project {
 		case "linkerFiles":
 		case "mainSourceFile":
 		case "importFiles":
-			values = formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
+			values = formatBuildSettingPlain!attributeName(settings, configs, projectDescription);
 			break;
 
 		case "lflags":
 		case "sourceFiles":
+		case "injectSourceFiles":
 		case "versions":
 		case "debugVersions":
 		case "importPaths":
@@ -802,7 +953,7 @@ class Project {
 			else static if (attributeName == "stringImportPaths")
 				bs.stringImportPaths = bs.stringImportPaths.map!(ensureTrailingSlash).array();
 
-			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, settings.platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 			values = bs.dflags;
 			break;
 
@@ -813,7 +964,7 @@ class Project {
 			bs.sourceFiles = null;
 			bs.targetType = TargetType.none; // Force Compiler to NOT omit dependency libs when package is a library.
 
-			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, settings.platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 
 			if (bs.lflags)
 				values = compiler.lflagsToDFlags( bs.lflags );
@@ -834,6 +985,7 @@ class Project {
 			{
 			case "mainSourceFile":
 			case "linkerFiles":
+			case "injectSourceFiles":
 			case "copyFiles":
 			case "importFiles":
 			case "stringImportFiles":
@@ -851,7 +1003,7 @@ class Project {
 	}
 
 	// Output a build setting without formatting for any particular compiler
-	private string[] formatBuildSettingPlain(string attributeName)(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription)
+	private string[] formatBuildSettingPlain(string attributeName)(ref GeneratorSettings settings, string[string] configs, ProjectDescription projectDescription)
 	{
 		import std.path : buildNormalizedPath, dirSeparator;
 		import std.range : only;
@@ -868,6 +1020,12 @@ class Project {
 		auto targetDescription = projectDescription.lookupTarget(projectDescription.rootPackage);
 		auto buildSettings = targetDescription.buildSettings;
 
+		string[] substituteCommands(Package pack, string[] commands, CommandType type)
+		{
+			auto env = makeCommandEnvironmentVariables(type, pack, this, settings, buildSettings);
+			return processVars(this, pack, settings, commands, false, env);
+		}
+
 		// Return any BuildSetting member attributeName as a range of strings. Don't attempt to fixup values.
 		// allowEmptyString: When the value is a string (as opposed to string[]),
 		//                   is empty string an actual permitted value instead of
@@ -875,7 +1033,9 @@ class Project {
 		auto getRawBuildSetting(Package pack, bool allowEmptyString) {
 			auto value = __traits(getMember, buildSettings, attributeName);
 
-			static if( is(typeof(value) == string[]) )
+			static if( attributeName.endsWith("Commands") )
+				return substituteCommands(pack, value, mixin("CommandType.", attributeName[0 .. $ - "Commands".length]));
+			else static if( is(typeof(value) == string[]) )
 				return value;
 			else static if( is(typeof(value) == string) )
 			{
@@ -894,9 +1054,9 @@ class Project {
 				return value.byKeyValue.map!(a => a.key ~ "=" ~ a.value);
 			else static if( is(typeof(value) == enum) )
 				return only(value);
-			else static if( is(typeof(value) == BuildRequirements) )
+			else static if( is(typeof(value) == Flags!BuildRequirement) )
 				return only(cast(BuildRequirement) cast(int) value.values);
-			else static if( is(typeof(value) == BuildOptions) )
+			else static if( is(typeof(value) == Flags!BuildOption) )
 				return only(cast(BuildOption) cast(int) value.values);
 			else
 				static assert(false, "Type of BuildSettings."~attributeName~" is unsupported.");
@@ -914,7 +1074,8 @@ class Project {
 			enum isRelativeFile =
 				attributeName == "sourceFiles" || attributeName == "linkerFiles" ||
 				attributeName == "importFiles" || attributeName == "stringImportFiles" ||
-				attributeName == "copyFiles" || attributeName == "mainSourceFile";
+				attributeName == "copyFiles" || attributeName == "mainSourceFile" ||
+				attributeName == "injectSourceFiles";
 
 			// For these, empty string means "main project directory", not "missing value"
 			enum allowEmptyString =
@@ -955,7 +1116,7 @@ class Project {
 
 	// The "compiler" arg is for choosing which compiler the output should be formatted for,
 	// or null to imply "list" format.
-	private string[] listBuildSetting(BuildPlatform platform, string[string] configs,
+	private string[] listBuildSetting(ref GeneratorSettings settings, string[string] configs,
 		ProjectDescription projectDescription, string requestedData, Compiler compiler, bool disableEscaping)
 	{
 		// Certain data cannot be formatter for a compiler
@@ -974,6 +1135,8 @@ class Project {
 			case "post-generate-commands":
 			case "pre-build-commands":
 			case "post-build-commands":
+			case "pre-run-commands":
+			case "post-run-commands":
 			case "environments":
 			case "build-environments":
 			case "run-environments":
@@ -983,11 +1146,11 @@ class Project {
 			case "post-build-environments":
 			case "pre-run-environments":
 			case "post-run-environments":
-				enforce(false, "--data="~requestedData~" can only be used with --data-list or --data-0.");
+				enforce(false, "--data="~requestedData~" can only be used with `--data-list` or `--data-list --data-0`.");
 				break;
 
 			case "requirements":
-				enforce(false, "--data=requirements can only be used with --data-list or --data-0. Use --data=options instead.");
+				enforce(false, "--data=requirements can only be used with `--data-list` or `--data-list --data-0`. Use --data=options instead.");
 				break;
 
 			default: break;
@@ -995,7 +1158,7 @@ class Project {
 		}
 
 		import std.typetuple : TypeTuple;
-		auto args = TypeTuple!(platform, configs, projectDescription, compiler, disableEscaping);
+		auto args = TypeTuple!(settings, configs, projectDescription, compiler, disableEscaping);
 		switch (requestedData)
 		{
 		case "target-type":                return listBuildSetting!"targetType"(args);
@@ -1008,6 +1171,7 @@ class Project {
 		case "libs":                       return listBuildSetting!"libs"(args);
 		case "linker-files":               return listBuildSetting!"linkerFiles"(args);
 		case "source-files":               return listBuildSetting!"sourceFiles"(args);
+		case "inject-source-files":        return listBuildSetting!"injectSourceFiles"(args);
 		case "copy-files":                 return listBuildSetting!"copyFiles"(args);
 		case "extra-dependency-files":     return listBuildSetting!"extraDependencyFiles"(args);
 		case "versions":                   return listBuildSetting!"versions"(args);
@@ -1080,7 +1244,7 @@ class Project {
 		}
 
 		auto result = requestedData
-			.map!(dataName => listBuildSetting(settings.platform, configs, projectDescription, dataName, compiler, no_escape));
+			.map!(dataName => listBuildSetting(settings, configs, projectDescription, dataName, compiler, no_escape));
 
 		final switch (list_type) with (ListBuildSettingsFormat) {
 			case list: return result.map!(l => l.join("\n")).array();
@@ -1200,22 +1364,16 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addPostBuildEnvironments(processVerEnvs(settings.postBuildEnvironments, gsettings.buildSettings.postBuildEnvironments));
 	dst.addPreRunEnvironments(processVerEnvs(settings.preRunEnvironments, gsettings.buildSettings.preRunEnvironments));
 	dst.addPostRunEnvironments(processVerEnvs(settings.postRunEnvironments, gsettings.buildSettings.postRunEnvironments));
-	
+
 	auto buildEnvs = [dst.environments, dst.buildEnvironments];
-	auto runEnvs = [dst.environments, dst.runEnvironments];
-	auto preGenEnvs = [dst.environments, dst.preGenerateEnvironments];
-	auto postGenEnvs = [dst.environments, dst.postGenerateEnvironments];
-	auto preBuildEnvs = buildEnvs ~ [dst.preBuildEnvironments];
-	auto postBuildEnvs = buildEnvs ~ [dst.postBuildEnvironments];
-	auto preRunEnvs = runEnvs ~ [dst.preRunEnvironments];
-	auto postRunEnvs = runEnvs ~ [dst.postRunEnvironments];
-	
+
 	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags, false, buildEnvs));
 	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags, false, buildEnvs));
 	dst.addLibs(processVars(project, pack, gsettings, settings.libs, false, buildEnvs));
 	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true, buildEnvs));
 	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true, buildEnvs));
 	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true, buildEnvs));
+	dst.addInjectSourceFiles(processVars!true(project, pack, gsettings, settings.injectSourceFiles, true, buildEnvs));
 	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true, buildEnvs));
 	dst.addExtraDependencyFiles(processVars(project, pack, gsettings, settings.extraDependencyFiles, true, buildEnvs));
 	dst.addVersions(processVars(project, pack, gsettings, settings.versions, false, buildEnvs));
@@ -1224,14 +1382,16 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters, false, buildEnvs));
 	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true, buildEnvs));
 	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true, buildEnvs));
-	dst.addPreGenerateCommands(processVars(project, pack, gsettings, settings.preGenerateCommands, false, preGenEnvs));
-	dst.addPostGenerateCommands(processVars(project, pack, gsettings, settings.postGenerateCommands, false, postGenEnvs));
-	dst.addPreBuildCommands(processVars(project, pack, gsettings, settings.preBuildCommands, false, preBuildEnvs));
-	dst.addPostBuildCommands(processVars(project, pack, gsettings, settings.postBuildCommands, false, postBuildEnvs));
-	dst.addPreRunCommands(processVars(project, pack, gsettings, settings.preRunCommands, false, preRunEnvs));
-	dst.addPostRunCommands(processVars(project, pack, gsettings, settings.postRunCommands, false, postRunEnvs));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
+
+	// commands are substituted in dub.generators.generator : runBuildCommands
+	dst.addPreGenerateCommands(settings.preGenerateCommands);
+	dst.addPostGenerateCommands(settings.postGenerateCommands);
+	dst.addPreBuildCommands(settings.preBuildCommands);
+	dst.addPostBuildCommands(settings.postBuildCommands);
+	dst.addPreRunCommands(settings.preRunCommands);
+	dst.addPostRunCommands(settings.postRunCommands);
 
 	if (include_target_settings) {
 		dst.targetType = settings.targetType;
@@ -1244,13 +1404,13 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	}
 }
 
-private string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false, in string[string][] extraVers = null)
+string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
 {
 	auto ret = appender!(string[])();
 	processVars!glob(ret, project, pack, gsettings, vars, are_paths, extraVers);
 	return ret.data;
 }
-private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false, in string[string][] extraVers = null)
+void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
 {
 	static if (glob)
 		alias process = processVarsWithGlob!(Project, Package);
@@ -1260,7 +1420,7 @@ private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Proj
 		dst.put(process(var, project, pack, gsettings, are_paths, extraVers));
 }
 
-private string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers = null)
+string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers = null)
 {
 	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings, extraVers));
 	if (!is_path)
@@ -1271,13 +1431,13 @@ private string processVars(Project, Package)(string var, in Project project, in 
 	else
 		return p.toNativeString();
 }
-private string[string] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[string] vars, in string[string][] extraVers = null)
+string[string] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers = null)
 {
 	string[string] ret;
 	processVars!glob(ret, project, pack, gsettings, vars, extraVers);
 	return ret;
 }
-private void processVars(bool glob = false)(ref string[string] dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[string] vars, in string[string][] extraVers)
+void processVars(bool glob = false)(ref string[string] dst, in Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers)
 {
 	static if (glob)
 		alias process = processVarsWithGlob!(Project, Package);
@@ -1469,7 +1629,7 @@ private string getVariable(Project, Package)(string name, in Project project, in
 		else if (name == "LFLAGS")
 			return join(buildSettings.lflags," ");
 	}
-	
+
 	import std.range;
 	foreach (aa; retro(extraVars))
 		if (auto exvar = name in aa)

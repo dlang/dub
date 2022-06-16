@@ -43,6 +43,7 @@ class DMDCompiler : Compiler {
 		tuple(BuildOption.debugMode, ["-debug"]),
 		tuple(BuildOption.releaseMode, ["-release"]),
 		tuple(BuildOption.coverage, ["-cov"]),
+		tuple(BuildOption.coverageCTFE, ["-cov=ctfe"]),
 		tuple(BuildOption.debugInfo, ["-g"]),
 		tuple(BuildOption.debugInfoC, ["-g"]),
 		tuple(BuildOption.alwaysStackFrame, ["-gs"]),
@@ -106,54 +107,95 @@ config    /etc/dmd.conf
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
+		// Set basic arch flags for the probe - might be revised based on the exact value + compiler version
 		string[] arch_flags;
-		switch (arch_override) {
-			default: throw new Exception("Unsupported architecture: "~arch_override);
-			case "":
-				// Don't use Optlink by default on Windows
-				version (Windows) {
-					const is64bit = isWow64();
-					if (!is64bit.isNull)
-						arch_flags = [is64bit.get ? "-m64" : "-m32mscoff"];
-				}
-				break;
-			case "x86": arch_flags = ["-m32"]; break;
-			case "x86_omf": arch_flags = ["-m32"]; break;
-			case "x86_64": arch_flags = ["-m64"]; break;
-			case "x86_mscoff": arch_flags = ["-m32mscoff"]; break;
+		if (arch_override.length)
+			arch_flags = [ arch_override != "x86_64" ? "-m32" : "-m64" ];
+		else
+		{
+			// Don't use Optlink by default on Windows
+			version (Windows) {
+				const is64bit = isWow64();
+				if (!is64bit.isNull)
+					arch_flags = [ is64bit.get ? "-m64" : "-m32" ];
+			}
 		}
-		settings.addDFlags(arch_flags);
 
-		return probePlatform(
+		BuildPlatform bp = probePlatform(
 			compiler_binary,
 			arch_flags ~ ["-quiet", "-c", "-o-", "-v"],
 			arch_override
 		);
+
+		/// Replace archticture string in `bp.archtiecture`
+		void replaceArch(const string from, const string to)
+		{
+			const idx = bp.architecture.countUntil(from);
+			if (idx != -1)
+				bp.architecture[idx] = to;
+		}
+
+		// DMD 2.099 changed the default for -m32 from OMF to MsCOFF
+		const m32IsCoff = bp.frontendVersion >= 2_099;
+
+		switch (arch_override) {
+			default: throw new UnsupportedArchitectureException(arch_override);
+			case "": break;
+			case "x86": arch_flags = ["-m32"]; break;
+			case "x86_64": arch_flags = ["-m64"]; break;
+
+			case "x86_omf":
+				if (m32IsCoff)
+				{
+					arch_flags = [ "-m32omf" ];
+					replaceArch("x86_mscoff", "x86_omf"); // Probe used the wrong default
+				}
+				else // -m32 is OMF
+				{
+					arch_flags = [ "-m32" ];
+				}
+				break;
+
+			case "x86_mscoff":
+				if (m32IsCoff)
+				{
+					arch_flags = [ "-m32" ];
+				}
+				else // -m32 is OMF
+				{
+					arch_flags = [ "-m32mscoff" ];
+					replaceArch("x86_omf", "x86_mscoff"); // Probe used the wrong default
+				}
+				break;
+		}
+		settings.addDFlags(arch_flags);
+
+		return bp;
 	}
 	version (Windows) version (DigitalMars) unittest
 	{
 		BuildSettings settings;
 		auto compiler = new DMDCompiler;
 		auto bp = compiler.determinePlatform(settings, "dmd", "x86");
-		assert(bp.platform.canFind("windows"));
+		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86"));
 		assert(bp.architecture.canFind("x86_omf"));
 		assert(!bp.architecture.canFind("x86_mscoff"));
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "x86_omf");
-		assert(bp.platform.canFind("windows"));
+		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86"));
 		assert(bp.architecture.canFind("x86_omf"));
 		assert(!bp.architecture.canFind("x86_mscoff"));
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "x86_mscoff");
-		assert(bp.platform.canFind("windows"));
+		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86"));
 		assert(!bp.architecture.canFind("x86_omf"));
 		assert(bp.architecture.canFind("x86_mscoff"));
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "x86_64");
-		assert(bp.platform.canFind("windows"));
+		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86_64"));
 		assert(!bp.architecture.canFind("x86"));
 		assert(!bp.architecture.canFind("x86_omf"));
@@ -167,15 +209,17 @@ config    /etc/dmd.conf
 	}
 
 	version (LDC) unittest {
+		import std.conv : to;
+
 		BuildSettings settings;
 		auto compiler = new DMDCompiler;
 		auto bp = compiler.determinePlatform(settings, "ldmd2", "x86");
-		assert(bp.architecture.canFind("x86"));
-		assert(!bp.architecture.canFind("x86_omf"));
+		assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
+		assert(!bp.architecture.canFind("x86_omf"), bp.architecture.to!string);
 		bp = compiler.determinePlatform(settings, "ldmd2", "");
-		version (X86) assert(bp.architecture.canFind("x86"));
-		version (X86_64) assert(bp.architecture.canFind("x86_64"));
-		assert(!bp.architecture.canFind("x86_omf"));
+		version (X86) assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
+		version (X86_64) assert(bp.architecture.canFind("x86_64"), bp.architecture.to!string);
+		assert(!bp.architecture.canFind("x86_omf"), bp.architecture.to!string);
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform,
@@ -211,7 +255,7 @@ config    /etc/dmd.conf
 
 		if (!(fields & BuildSetting.libs)) {
 			resolveLibs(settings, platform);
-			if (platform.platform.canFind("windows"))
+			if (platform.isWindows())
 				settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
 			else
 				settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
@@ -262,22 +306,22 @@ config    /etc/dmd.conf
 			case TargetType.none: return null;
 			case TargetType.sourceLibrary: return null;
 			case TargetType.executable:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".exe";
 				else return settings.targetName.idup;
 			case TargetType.library:
 			case TargetType.staticLibrary:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".lib";
 				else return "lib" ~ settings.targetName ~ ".a";
 			case TargetType.dynamicLibrary:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".dll";
 				else if (platform.platform.canFind("darwin"))
 					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
 		}
@@ -295,7 +339,7 @@ config    /etc/dmd.conf
 				settings.addDFlags("-lib");
 				break;
 			case TargetType.dynamicLibrary:
-				if (platform.compiler != "dmd" || platform.platform.canFind("windows") || platform.platform.canFind("osx"))
+				if (platform.compiler != "dmd" || platform.isWindows() || platform.platform.canFind("osx"))
 					settings.addDFlags("-shared");
 				else
 					settings.prependDFlags("-shared", "-defaultlib=libphobos2.so");

@@ -221,6 +221,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "sourcePaths": bs.sourcePaths[suffix] = deserializeJson!(string[])(value); break;
 			case "sourcePath": bs.sourcePaths[suffix] ~= [value.get!string]; break; // deprecated
 			case "excludedSourceFiles": bs.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
+			case "injectSourceFiles": bs.injectSourceFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "copyFiles": bs.copyFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "extraDependencyFiles": bs.extraDependencyFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "versions": bs.versions[suffix] = deserializeJson!(string[])(value); break;
@@ -245,13 +246,13 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "preRunEnvironments": bs.preRunEnvironments[suffix] = deserializeJson!(string[string])(value); break;
 			case "postRunEnvironments": bs.postRunEnvironments[suffix] = deserializeJson!(string[string])(value); break;
 			case "buildRequirements":
-				BuildRequirements reqs;
+				Flags!BuildRequirement reqs;
 				foreach (req; deserializeJson!(string[])(value))
 					reqs |= to!BuildRequirement(req);
 				bs.buildRequirements[suffix] = reqs;
 				break;
 			case "buildOptions":
-				BuildOptions options;
+				Flags!BuildOption options;
 				foreach (opt; deserializeJson!(string[])(value))
 					options |= to!BuildOption(opt);
 				bs.buildOptions[suffix] = options;
@@ -282,6 +283,7 @@ private Json toJson(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.sourceFiles) ret["sourceFiles"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.sourcePaths) ret["sourcePaths"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.excludedSourceFiles) ret["excludedSourceFiles"~suffix] = serializeToJson(arr);
+	foreach (suffix, arr; bs.injectSourceFiles) ret["injectSourceFiles"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.copyFiles) ret["copyFiles"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.extraDependencyFiles) ret["extraDependencyFiles"~suffix] = serializeToJson(arr);
 	foreach (suffix, arr; bs.versions) ret["versions"~suffix] = serializeToJson(arr);
@@ -376,7 +378,7 @@ unittest {
 	parseJson(rec1, jsonValue, null);
 	PackageRecipe rec;
 	parseJson(rec, rec1.toJson(), null); // verify that all fields are serialized properly
-	
+
 	assert(rec.name == "projectname");
 	assert(rec.buildSettings.environments == ["": ["Var1": "env"]]);
 	assert(rec.buildSettings.buildEnvironments == ["": ["Var2": "buildEnv"]]);

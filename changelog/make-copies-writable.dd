@@ -1,0 +1,8 @@
+When `copyFiles` is used to copy read-only files, it now makes the copy writable.
+
+Previously, if the target file would already exist due to a prior run of Dub, `copyFiles` would produce an access
+denied error because the read-only target could not be overwritten. Note that if you were affected by this behaviour,
+you will need to remove those files by hand once to eliminate these errors.
+
+It is common for version control systems to mark binary files read-only in the working copy, to prevent concurrent
+edits of files in unmergeable formats.

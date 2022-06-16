@@ -391,6 +391,11 @@ unittest {
 */
 int runDubCommandLine(string[] args)
 {
+	static string[] toSinglePackageArgs (string args0, string file, string[] trailing)
+	{
+		return [args0, "run", "-q", "--temp-build", "--single", file, "--"] ~ trailing;
+	}
+
 	logDiagnostic("DUB version %s", getDUBVersion());
 
 	version(Windows){
@@ -403,28 +408,43 @@ int runDubCommandLine(string[] args)
 	auto handler = CommandLineHandler(getCommands());
 	auto commandNames = handler.commandNames();
 
-	// special stdin syntax
-	if (args.length >= 2 && args[1] == "-")
+	// Special syntaxes need to be handled before regular argument parsing
+	if (args.length >= 2)
 	{
-		auto path = getTempFile("app", ".d");
-		stdin.byChunk(4096).joiner.toFile(path.toNativeString());
-		args = args[0] ~ [path.toNativeString()] ~ args[2..$];
-	}
-
-	// Shebang syntax support for files without .d extension
-	if (args.length >= 2 && !args[1].endsWith(".d") && !args[1].startsWith("-") && !commandNames.canFind(args[1])) {
-		if (exists(args[1])) {
+		// Read input source code from stdin
+		if (args[1] == "-")
+		{
 			auto path = getTempFile("app", ".d");
-			copy(args[1], path.toNativeString());
-			args[1] = path.toNativeString();
-		} else if (exists(args[1].setExtension(".d"))) {
-			args[1] = args[1].setExtension(".d");
+			stdin.byChunk(4096).joiner.toFile(path.toNativeString());
+			args = toSinglePackageArgs(args[0], path.toNativeString(), args[2 .. $]);
 		}
-	}
 
-	// special single-file package shebang syntax
-	if (args.length >= 2 && args[1].endsWith(".d")) {
-		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];
+		// Dub has a shebang syntax to be able to use it as script, e.g.
+		// #/usr/bin/env dub
+		// With this approach, we need to support the file having
+		// both the `.d` extension, or having none at all.
+		// We also need to make sure arguments passed to the script
+		// are passed to the program, not `dub`, e.g.:
+		// ./my_dub_script foo bar
+		// Gives us `args = [ "dub", "./my_dub_script" "foo", "bar" ]`,
+		// which we need to interpret as:
+		// `args = [ "dub", "./my_dub_script", "--", "foo", "bar" ]`
+		else if (args[1].endsWith(".d"))
+			args = toSinglePackageArgs(args[0], args[1], args[2 .. $]);
+
+		// Here we have a problem: What if the script name is a command name ?
+		// We have to assume it isn't, and to reduce the risk of false positive
+		// we only consider the case where the file name is the first argument,
+		// as the shell invocation cannot be controlled.
+		else if (!commandNames.canFind(args[1]) && !args[1].startsWith("-")) {
+			if (exists(args[1])) {
+				auto path = getTempFile("app", ".d");
+				copy(args[1], path.toNativeString());
+				args = toSinglePackageArgs(args[0], path.toNativeString(), args[2 .. $]);
+			} else if (exists(args[1].setExtension(".d"))) {
+				args = toSinglePackageArgs(args[0], args[1].setExtension(".d"), args[2 .. $]);
+			}
+		}
 	}
 
 	auto common_args = new CommandArgs(args[1..$]);
@@ -950,7 +970,7 @@ abstract class PackageBuildCommand : Command {
 		args.getopt("b|build", &m_buildType, [
 			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
 			"Possible names:",
-			"  debug (default), plain, release, release-debug, release-nobounds, unittest, profile, profile-gc, docs, ddox, cov, unittest-cov, syntax and custom types"
+			"  "~builtinBuildTypes.join(", ")~" and custom types"
 		]);
 		args.getopt("c|config", &m_buildConfig, [
 			"Builds the specified configuration. Configurations can be defined in dub.json"
@@ -1015,7 +1035,8 @@ abstract class PackageBuildCommand : Command {
 		m_defaultConfig = null;
 		enforce (loadSpecificPackage(dub, package_name, ver), "Failed to load package.");
 
-		if (m_buildConfig.length != 0 && !dub.configurations.canFind(m_buildConfig))
+		if (m_buildConfig.length != 0 && !dub.configurations.canFind(m_buildConfig) &&
+		    m_buildConfig != "unittest")
 		{
 			string msg = "Unknown build configuration: "~m_buildConfig;
 			enum distance = 3;
@@ -1148,10 +1169,10 @@ class GenerateCommand : PackageBuildCommand {
 
 		setupVersionPackage(dub, str_package_info, "debug");
 
-		if (m_printBuilds) { // FIXME: use actual package data
+		if (m_printBuilds) {
 			logInfo("Available build types:");
-			foreach (tp; ["debug", "release", "unittest", "profile"])
-				logInfo("  %s", tp);
+			foreach (i, tp; dub.project.builds)
+				logInfo("  %s%s", tp, i == 0 ? " [default]" : null);
 			logInfo("");
 		}
 
@@ -1371,11 +1392,18 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("f|force", &m_force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
+
 		bool coverage = false;
 		args.getopt("coverage", &coverage, [
 			"Enables code coverage statistics to be generated."
 		]);
 		if (coverage) m_buildType = "unittest-cov";
+
+		bool coverageCTFE = false;
+		args.getopt("coverage-ctfe", &coverageCTFE, [
+			"Enables code coverage (including CTFE) statistics to be generated."
+		]);
+		if (coverageCTFE) m_buildType = "unittest-cov-ctfe";
 
 		super.prepare(args);
 	}
@@ -1536,7 +1564,7 @@ class DescribeCommand : PackageBuildCommand {
 			"target-type, target-path, target-name, working-directory, " ~
 			"copy-files, string-import-files, pre-generate-commands, " ~
 			"post-generate-commands, pre-build-commands, post-build-commands, " ~
-			"requirements",
+			"pre-run-commands, post-run-commands, requirements",
 		];
 	}
 
@@ -1603,6 +1631,14 @@ class DescribeCommand : PackageBuildCommand {
 		settings.compiler = m_compiler;
 		settings.filterVersions = m_filterVersions;
 		settings.buildSettings.options |= m_buildSettings.options & BuildOption.lowmem;
+		settings.single = m_single;
+
+		// With a requested `unittest` config, switch to the special test runner
+		// config (which doesn't require an existing `unittest` configuration).
+		if (config == "unittest") {
+			const test_config = dub.project.addTestRunnerConfiguration(settings, false);
+			if (test_config) settings.config = test_config;
+		}
 
 		if (m_importPaths) { m_data = ["import-paths"]; m_dataList = true; }
 		else if (m_stringImportPaths) { m_data = ["string-import-paths"]; m_dataList = true; }

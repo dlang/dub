@@ -1,0 +1,8 @@
+Building the special test runner configuration
+
+`dub build --config=unittest --build=unittest[-cov]` can now be used to
+mimic building the test runner executable of `dub test [--coverage]`.
+Note that this doesn't require an existing `unittest` configuration.
+
+`dub describe --config=unittest` allows to derive the path to the
+executable.

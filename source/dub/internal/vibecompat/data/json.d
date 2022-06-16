@@ -55,12 +55,12 @@ struct Json {
 		// the issues.
 		void*[2] m_data;
 		ref inout(T) getDataAs(T)() inout { static assert(T.sizeof <= m_data.sizeof); return *cast(inout(T)*)m_data.ptr; }
-		@property ref inout(long) m_int() inout { return getDataAs!long(); }
-		@property ref inout(double) m_float() inout { return getDataAs!double(); }
-		@property ref inout(bool) m_bool() inout { return getDataAs!bool(); }
-		@property ref inout(string) m_string() inout { return getDataAs!string(); }
-		@property ref inout(Json[string]) m_object() inout { return getDataAs!(Json[string])(); }
-		@property ref inout(Json[]) m_array() inout { return getDataAs!(Json[])(); }
+		@property ref inout(long) m_int() inout return { return getDataAs!long(); }
+		@property ref inout(double) m_float() inout return { return getDataAs!double(); }
+		@property ref inout(bool) m_bool() inout return { return getDataAs!bool(); }
+		@property ref inout(string) m_string() inout return { return getDataAs!string(); }
+		@property ref inout(Json[string]) m_object() inout return { return getDataAs!(Json[string])(); }
+		@property ref inout(Json[]) m_array() inout return { return getDataAs!(Json[])(); }
 
 		Type m_type = Type.undefined;
 

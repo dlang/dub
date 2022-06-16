@@ -55,6 +55,25 @@ static immutable FilenameAndFormat[] packageInfoFiles = [
 /// Returns the default package recile file name.
 @property string defaultPackageFilename() { return packageInfoFiles[0].filename; }
 
+/// All built-in build type names except for the special `$DFLAGS` build type.
+/// Has the default build type (`debug`) as first index.
+static immutable string[] builtinBuildTypes = [
+	"debug",
+	"plain",
+	"release",
+	"release-debug",
+	"release-nobounds",
+	"unittest",
+	"profile",
+	"profile-gc",
+	"docs",
+	"ddox",
+	"cov",
+	"cov-ctfe",
+	"unittest-cov",
+	"unittest-cov-ctfe",
+	"syntax"
+];
 
 /**	Represents a package, including its sub packages.
 */
@@ -256,6 +275,18 @@ class Package {
 		return ret.data;
 	}
 
+	/** Returns the list of all custom build type names.
+
+		Build type contents can be accessed using `this.recipe.buildTypes`.
+	*/
+	@property string[] customBuildTypes()
+	const {
+		auto ret = appender!(string[])();
+		foreach (name; m_info.buildTypes.byKey)
+			ret.put(name);
+		return ret.data;
+	}
+
 	/** Writes the current recipe contents to a recipe file.
 
 		The parameter-less overload writes to `this.path`, which must not be
@@ -424,7 +455,9 @@ class Package {
 				case "profile": settings.addOptions(profile, optimize, inline, debugInfo); break;
 				case "profile-gc": settings.addOptions(profileGC, debugInfo); break;
 				case "cov": settings.addOptions(coverage, debugInfo); break;
+				case "cov-ctfe": settings.addOptions(coverageCTFE, debugInfo); break;
 				case "unittest-cov": settings.addOptions(unittests, coverage, debugMode, debugInfo); break;
+				case "unittest-cov-ctfe": settings.addOptions(unittests, coverageCTFE, debugMode, debugInfo); break;
 				case "syntax": settings.addOptions(syntaxOnly); break;
 			}
 		}
@@ -595,6 +628,7 @@ class Package {
 		ret.dflags = bs.dflags;
 		ret.lflags = bs.lflags;
 		ret.libs = bs.libs;
+		ret.injectSourceFiles = bs.injectSourceFiles;
 		ret.copyFiles = bs.copyFiles;
 		ret.versions = bs.versions;
 		ret.debugVersions = bs.debugVersions;

@@ -47,9 +47,9 @@ bool isLinkerFile(const scope ref BuildPlatform platform, string f)
 		default:
 			return false;
 		case ".lib", ".obj", ".res", ".def":
-			return platform.platform.canFind("windows");
+			return platform.isWindows();
 		case ".a", ".o", ".so", ".dylib":
-			return !platform.platform.canFind("windows");
+			return !platform.isWindows();
 	}
 }
 
@@ -74,6 +74,50 @@ unittest {
 
 
 /**
+	Determines if a specific file name has the extension related to dynamic libraries.
+
+	This includes dynamic libraries and for Windows pdb, export and import library files.
+*/
+bool isDynamicLibraryFile(const scope ref BuildPlatform platform, string f)
+{
+	import std.path;
+	switch (extension(f)) {
+		default:
+			return false;
+		case ".lib", ".pdb", ".dll", ".exp":
+			return platform.isWindows();
+		case ".so", ".dylib":
+			return !platform.isWindows();
+	}
+}
+
+unittest {
+	BuildPlatform p;
+
+	p.platform = ["windows"];
+	assert(!isDynamicLibraryFile(p, "test.obj"));
+	assert(isDynamicLibraryFile(p, "test.lib"));
+	assert(isDynamicLibraryFile(p, "test.dll"));
+	assert(isDynamicLibraryFile(p, "test.pdb"));
+	assert(!isDynamicLibraryFile(p, "test.res"));
+	assert(!isDynamicLibraryFile(p, "test.o"));
+	assert(!isDynamicLibraryFile(p, "test.d"));
+	assert(!isDynamicLibraryFile(p, "test.dylib"));
+
+	p.platform = ["something else"];
+	assert(!isDynamicLibraryFile(p, "test.o"));
+	assert(!isDynamicLibraryFile(p, "test.a"));
+	assert(isDynamicLibraryFile(p, "test.so"));
+	assert(isDynamicLibraryFile(p, "test.dylib"));
+	assert(!isDynamicLibraryFile(p, "test.obj"));
+	assert(!isDynamicLibraryFile(p, "test.d"));
+	assert(!isDynamicLibraryFile(p, "test.lib"));
+	assert(!isDynamicLibraryFile(p, "test.dll"));
+	assert(!isDynamicLibraryFile(p, "test.pdb"));
+}
+
+
+/**
 	Replaces each referenced import library by the appropriate linker flags.
 
 	This function tries to invoke "pkg-config" if possible and falls back to
@@ -89,7 +133,7 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 	if (settings.targetType == TargetType.library || settings.targetType == TargetType.staticLibrary) {
 		logDiagnostic("Ignoring all import libraries for static library build.");
 		settings.libs = null;
-		if (platform.platform.canFind("windows"))
+		if (platform.isWindows())
 			settings.sourceFiles = settings.sourceFiles.filter!(f => !f.endsWith(".lib")).array;
 	}
 
@@ -143,11 +187,11 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 	equivalent.
 
 	Certain compiler flags should, instead of using compiler-specific syntax,
-	be specified as build options (`BuildOptions`) or built requirements
+	be specified as build options (`BuildOption`) or built requirements
 	(`BuildRequirements`). This function will output warning messages to
 	assist the user in making the best choice.
 */
-void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, string package_name, string config_name)
+void warnOnSpecialCompilerFlags(string[] compiler_flags, Flags!BuildOption options, string package_name, string config_name)
 {
 	import std.algorithm : any, endsWith, startsWith;
 	import std.range : empty;
@@ -170,6 +214,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 		{["-D"], "Call dub with --build=docs or --build=ddox"},
 		{["-X"], "Call dub with --build=ddox"},
 		{["-cov"], "Call dub with --build=cov or --build=unittest-cov"},
+		{["-cov=ctfe"], "Call dub with --build=cov-ctfe or --build=unittest-cov-ctfe"},
 		{["-profile"], "Call dub with --build=profile"},
 		{["-version="], `Use "versions" to specify version constants in a compiler independent way`},
 		{["-debug="], `Use "debugVersions" to specify version constants in a compiler independent way`},
@@ -186,6 +231,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 		{[BuildOption.debugMode], "Call DUB with --build=debug"},
 		{[BuildOption.releaseMode], "Call DUB with --build=release"},
 		{[BuildOption.coverage], "Call DUB with --build=cov or --build=unittest-cov"},
+		{[BuildOption.coverageCTFE], "Call DUB with --build=cov-ctfe or --build=unittest-cov-ctfe"},
 		{[BuildOption.debugInfo], "Call DUB with --build=debug"},
 		{[BuildOption.inline], "Call DUB with --build=release"},
 		{[BuildOption.noBoundsCheck], "Call DUB with --build=release-nobounds"},

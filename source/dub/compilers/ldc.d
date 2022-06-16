@@ -25,6 +25,7 @@ class LDCCompiler : Compiler {
 		tuple(BuildOption.debugMode, ["-d-debug"]),
 		tuple(BuildOption.releaseMode, ["-release"]),
 		tuple(BuildOption.coverage, ["-cov"]),
+		tuple(BuildOption.coverageCTFE, ["-cov=ctfe"]),
 		tuple(BuildOption.debugInfo, ["-g"]),
 		tuple(BuildOption.debugInfoC, ["-gc"]),
 		tuple(BuildOption.alwaysStackFrame, ["-disable-fp-elim"]),
@@ -88,7 +89,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				if (arch_override.canFind('-'))
 					arch_flags = ["-mtriple="~arch_override];
 				else
-					throw new Exception("Unsupported architecture: "~arch_override);
+					throw new UnsupportedArchitectureException(arch_override);
 				break;
 		}
 		settings.addDFlags(arch_flags);

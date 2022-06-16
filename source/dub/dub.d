@@ -142,7 +142,7 @@ class Dub {
 		string[string] m_defaultPostBuildEnvironments;
 		string[string] m_defaultPreRunEnvironments;
 		string[string] m_defaultPostRunEnvironments;
-		
+
 	}
 
 	/** The default placement location of fetched packages.
@@ -290,7 +290,15 @@ class Dub {
 		m_dirs.temp = NativePath(tempDir);
 
 		m_config = new DubConfig(jsonFromFile(m_dirs.systemSettings ~ "settings.json", true), m_config);
-		m_config = new DubConfig(jsonFromFile(NativePath(thisExePath).parentPath ~ "../etc/dub/settings.json", true), m_config);
+
+		auto dubFolderPath = NativePath(thisExePath).parentPath;
+		m_config = new DubConfig(jsonFromFile(dubFolderPath ~ "../etc/dub/settings.json", true), m_config);
+		version (Posix) {
+			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr"))) {
+				m_config = new DubConfig(jsonFromFile(NativePath("/etc/dub/settings.json"), true), m_config);
+			}
+		}
+
 		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), m_config);
 
 		if (!root_path.empty)
@@ -359,7 +367,7 @@ class Dub {
 		configuration file will be used. Otherwise false will be returned.
 	*/
 	@property bool defaultLowMemory() const { return m_defaultLowMemory; }
-	
+
 	@property const(string[string]) defaultEnvironments() const { return m_defaultEnvironments; }
 	@property const(string[string]) defaultBuildEnvironments() const { return m_defaultBuildEnvironments; }
 	@property const(string[string]) defaultRunEnvironments() const { return m_defaultRunEnvironments; }
@@ -633,151 +641,32 @@ class Dub {
 	*/
 	void generateProject(string ide, GeneratorSettings settings)
 	{
+		// With a requested `unittest` config, switch to the special test runner
+		// config (which doesn't require an existing `unittest` configuration).
+		if (settings.config == "unittest") {
+			const test_config = m_project.addTestRunnerConfiguration(settings, !m_dryRun);
+			if (test_config) settings.config = test_config;
+		}
+
 		auto generator = createProjectGenerator(ide, m_project);
 		if (m_dryRun) return; // TODO: pass m_dryRun to the generator
 		generator.generate(settings);
 	}
 
-	/** Executes tests on the current project.
+	/** Generate project files using the special test runner (`dub test`) configuration.
 
-		Throws an exception, if unittests failed.
+		Any existing project files will be overridden.
 	*/
 	void testProject(GeneratorSettings settings, string config, NativePath custom_main_file)
 	{
 		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
 
-		if (config.length == 0) {
-			// if a custom main file was given, favor the first library configuration, so that it can be applied
-			if (!custom_main_file.empty) config = m_project.getDefaultConfiguration(settings.platform, false);
-			// else look for a "unittest" configuration
-			if (!config.length && m_project.rootPackage.configurations.canFind("unittest")) config = "unittest";
-			// if not found, fall back to the first "library" configuration
-			if (!config.length) config = m_project.getDefaultConfiguration(settings.platform, false);
-			// if still nothing found, use the first executable configuration
-			if (!config.length) config = m_project.getDefaultConfiguration(settings.platform, true);
-		}
+		const test_config = m_project.addTestRunnerConfiguration(settings, !m_dryRun, config, custom_main_file);
+		if (!test_config) return; // target type "none"
+
+		settings.config = test_config;
 
 		auto generator = createProjectGenerator("build", m_project);
-
-		auto test_config = format("%s-test-%s", m_project.rootPackage.name.replace(".", "-").replace(":", "-"), config);
-
-		BuildSettings lbuildsettings = settings.buildSettings;
-		m_project.addBuildSettings(lbuildsettings, settings, config, null, true);
-		if (lbuildsettings.targetType == TargetType.none) {
-			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
-			return;
-		}
-
-		if (lbuildsettings.targetType == TargetType.executable && config == "unittest") {
-			logInfo("Running custom 'unittest' configuration.", config);
-			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
-			settings.config = config;
-		} else if (lbuildsettings.sourceFiles.empty) {
-			logInfo(`No source files found in configuration '%s'. Falling back to "dub -b unittest".`, config);
-			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
-			settings.config = m_project.getDefaultConfiguration(settings.platform);
-		} else {
-			import std.algorithm : remove;
-
-			logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, test_config, config, lbuildsettings.targetType);
-
-			BuildSettingsTemplate tcinfo = m_project.rootPackage.recipe.getConfiguration(config).buildSettings;
-			tcinfo.targetType = TargetType.executable;
-			tcinfo.targetName = test_config;
-
-			auto mainfil = tcinfo.mainSourceFile;
-			if (!mainfil.length) mainfil = m_project.rootPackage.recipe.buildSettings.mainSourceFile;
-
-			string custommodname;
-			if (!custom_main_file.empty) {
-				import std.path;
-				tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(m_project.rootPackage.path).toNativeString();
-				tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
-				custommodname = custom_main_file.head.name.baseName(".d");
-			}
-
-			// prepare the list of tested modules
-
-			string[] import_modules;
-			if (settings.single)
-				lbuildsettings.importPaths ~= NativePath(mainfil).parentPath.toNativeString;
-			bool firstTimePackage = true;
-			foreach (file; lbuildsettings.sourceFiles) {
-				if (file.endsWith(".d")) {
-					auto fname = NativePath(file).head.name;
-					NativePath msf = NativePath(mainfil);
-					if (msf.absolute)
-						msf = msf.relativeTo(m_project.rootPackage.path);
-					if (!settings.single && NativePath(file).relativeTo(m_project.rootPackage.path) == msf) {
-						logWarn("Excluding main source file %s from test.", mainfil);
-						tcinfo.excludedSourceFiles[""] ~= mainfil;
-						continue;
-					}
-					if (fname == "package.d") {
-						if (firstTimePackage) {
-							firstTimePackage = false;
-							logDiagnostic("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
-						}
-						continue;
-					}
-					import_modules ~= dub.internal.utils.determineModuleName(lbuildsettings, NativePath(file), m_project.rootPackage.path);
-				}
-			}
-
-			NativePath mainfile;
-			if (settings.tempBuild)
-				mainfile = getTempFile("dub_test_root", ".d");
-			else {
-				import dub.generators.build : computeBuildName;
-				mainfile = m_project.rootPackage.path ~ format(".dub/code/%s_dub_test_root.d", computeBuildName(test_config, settings, import_modules));
-			}
-
-			mkdirRecurse(mainfile.parentPath.toNativeString());
-
-			bool regenerateMainFile = settings.force || !existsFile(mainfile);
-			auto escapedMainFile = mainfile.toNativeString().replace("$", "$$");
-			// generate main file
-			tcinfo.sourceFiles[""] ~= escapedMainFile;
-			tcinfo.mainSourceFile = escapedMainFile;
-
-			if (!m_dryRun && regenerateMainFile) {
-				auto fil = openFile(mainfile, FileMode.createTrunc);
-				scope(exit) fil.close();
-				fil.write("module dub_test_root;\n");
-				fil.write("import std.typetuple;\n");
-				foreach (mod; import_modules) fil.write(format("static import %s;\n", mod));
-				fil.write("alias allModules = TypeTuple!(");
-				foreach (i, mod; import_modules) {
-					if (i > 0) fil.write(", ");
-					fil.write(mod);
-				}
-				fil.write(");\n");
-				if (custommodname.length) {
-					fil.write(format("import %s;\n", custommodname));
-				} else {
-					fil.write(q{
-						import std.stdio;
-						import core.runtime;
-
-						void main() { writeln("All unit tests have been run successfully."); }
-						shared static this() {
-							version (Have_tested) {
-								import tested;
-								import core.runtime;
-								import std.exception;
-								Runtime.moduleUnitTester = () => true;
-								enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
-							}
-						}
-					});
-				}
-			}
-			m_project.rootPackage.recipe.configurations ~= ConfigurationInfo(test_config, tcinfo);
-			m_project = new Project(m_packageManager, m_project.rootPackage);
-
-			settings.config = test_config;
-		}
-
 		generator.generate(settings);
 	}
 
@@ -1514,7 +1403,7 @@ class Dub {
 		}
 		m_defaultCompiler = compilers[0];
 	}
-	
+
 	unittest
 	{
 		import std.path: buildPath, absolutePath;
@@ -1532,10 +1421,10 @@ class Dub {
 		scope (exit) repairenv("DC", olddc);
 		scope (exit) repairenv("PATH", oldpath);
 		scope (exit) rmdirRecurse(testdir);
-		
+
 		version (Windows) enum sep = ";", exe = ".exe";
 		version (Posix) enum sep = ":", exe = "";
-		
+
 		immutable dmdpath = testdir.buildPath("dmd", "bin");
 		immutable ldcpath = testdir.buildPath("ldc", "bin");
 		mkdirRecurse(dmdpath);
@@ -1544,21 +1433,21 @@ class Dub {
 		immutable ldcbin = ldcpath.buildPath("ldc2"~exe);
 		std.file.write(dmdbin, null);
 		std.file.write(ldcbin, null);
-		
+
 		environment["DC"] = dmdbin.absolutePath();
 		dub.determineDefaultCompiler();
 		assert(dub.m_defaultCompiler == dmdbin.absolutePath());
-		
+
 		environment["DC"] = "dmd";
 		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
 		dub.determineDefaultCompiler();
 		assert(dub.m_defaultCompiler == "dmd");
-		
+
 		environment["DC"] = "ldc2";
 		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
 		dub.determineDefaultCompiler();
 		assert(dub.m_defaultCompiler == "ldc2");
-		
+
 		environment.remove("DC");
 		environment["PATH"] = ldcpath ~ sep ~ dmdpath;
 		dub.determineDefaultCompiler();
@@ -1970,7 +1859,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultLowMemory;
 		return false;
 	}
-	
+
 	@property string[string] defaultEnvironments()
 	const {
 		if (auto pv = "defaultEnvironments" in m_data)
@@ -1978,7 +1867,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultBuildEnvironments()
 	const {
 		if (auto pv = "defaultBuildEnvironments" in m_data)
@@ -1986,7 +1875,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultBuildEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultRunEnvironments()
 	const {
 		if (auto pv = "defaultRunEnvironments" in m_data)
@@ -1994,7 +1883,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultRunEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPreGenerateEnvironments()
 	const {
 		if (auto pv = "defaultPreGenerateEnvironments" in m_data)
@@ -2002,7 +1891,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPreGenerateEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPostGenerateEnvironments()
 	const {
 		if (auto pv = "defaultPostGenerateEnvironments" in m_data)
@@ -2010,7 +1899,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPostGenerateEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPreBuildEnvironments()
 	const {
 		if (auto pv = "defaultPreBuildEnvironments" in m_data)
@@ -2018,7 +1907,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPreBuildEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPostBuildEnvironments()
 	const {
 		if (auto pv = "defaultPostBuildEnvironments" in m_data)
@@ -2026,7 +1915,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPostBuildEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPreRunEnvironments()
 	const {
 		if (auto pv = "defaultPreRunEnvironments" in m_data)
@@ -2034,7 +1923,7 @@ private class DubConfig {
 		if (m_parentConfig) return m_parentConfig.defaultPreRunEnvironments;
 		return null;
 	}
-	
+
 	@property string[string] defaultPostRunEnvironments()
 	const {
 		if (auto pv = "defaultPostRunEnvironments" in m_data)

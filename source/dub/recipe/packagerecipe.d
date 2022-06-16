@@ -190,6 +190,7 @@ struct BuildSettingsTemplate {
 	string[][string] sourceFiles;
 	string[][string] sourcePaths;
 	string[][string] excludedSourceFiles;
+	string[][string] injectSourceFiles;
 	string[][string] copyFiles;
 	string[][string] extraDependencyFiles;
 	string[][string] versions;
@@ -213,8 +214,8 @@ struct BuildSettingsTemplate {
 	string[string][string] postBuildEnvironments;
 	string[string][string] preRunEnvironments;
 	string[string][string] postRunEnvironments;
-	BuildRequirements[string] buildRequirements;
-	BuildOptions[string] buildOptions;
+	Flags!BuildRequirement[string] buildRequirements;
+	Flags!BuildOption[string] buildOptions;
 
 
 	/// Constructs a BuildSettings object from this template.
@@ -298,6 +299,7 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("libs", "addLibs")(dst, platform);
 		getPlatformSetting!("sourceFiles", "addSourceFiles")(dst, platform);
 		getPlatformSetting!("excludedSourceFiles", "removeSourceFiles")(dst, platform);
+		getPlatformSetting!("injectSourceFiles", "addInjectSourceFiles")(dst, platform);
 		getPlatformSetting!("copyFiles", "addCopyFiles")(dst, platform);
 		getPlatformSetting!("extraDependencyFiles", "addExtraDependencyFiles")(dst, platform);
 		getPlatformSetting!("versions", "addVersions")(dst, platform);
@@ -352,7 +354,7 @@ struct BuildSettingsTemplate {
 			logWarn("");
 		} else {
 			string[] all_dflags;
-			BuildOptions all_options;
+			Flags!BuildOption all_options;
 			foreach (flags; this.dflags) all_dflags ~= flags;
 			foreach (options; this.buildOptions) all_options |= options;
 			.warnOnSpecialCompilerFlags(all_dflags, all_options, package_name, config_name);

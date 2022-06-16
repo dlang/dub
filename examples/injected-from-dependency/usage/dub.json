@@ -1,0 +1,8 @@
+{
+    "name": "runner",
+    "description": "Example to showcase injection of a source file from a dependency runner.",
+    "targetType": "executable",
+    "dependencies": {
+        "toload": {"path": "../dependency"}
+    }
+}
