@@ -45,21 +45,22 @@ struct Dependency {
 	private {
 		// Shortcut to create >=0.0.0
 		enum ANY_IDENT = "*";
-		bool m_inclusiveA = true; // A comparison > (true) or >= (false)
-		Version m_versA;
-		bool m_inclusiveB = true; // B comparison < (true) or <= (false)
-		Version m_versB;
+		VersionRange m_range;
 		NativePath m_path;
+		Repository m_repository;
 		bool m_optional = false;
 		bool m_default = false;
-		Repository m_repository;
+
 	}
 
 	/// A Dependency, which matches every valid version.
 	static @property Dependency any() { return Dependency(ANY_IDENT); }
 
 	/// An invalid dependency (with no possible version matches).
-	static @property Dependency invalid() { Dependency ret; ret.m_versA = Version.maxRelease; ret.m_versB = Version.minRelease; return ret; }
+	static @property Dependency invalid()
+	{
+		return Dependency(VersionRange(Version.maxRelease, Version.minRelease));
+	}
 
 	/** Constructs a new dependency specification from a string
 
@@ -68,7 +69,7 @@ struct Dependency {
 	*/
 	this(string spec)
 	{
-		this.versionSpec = spec;
+		this.m_range = VersionRange.fromString(spec);
 	}
 
 	/** Constructs a new dependency specification that matches a specific
@@ -76,9 +77,13 @@ struct Dependency {
 	*/
 	this(const Version ver)
 	{
-		m_inclusiveA = m_inclusiveB = true;
-		m_versA = ver;
-		m_versB = ver;
+		this(VersionRange(ver, ver));
+	}
+
+	/// Construct a version from a range of possible values
+	private this (VersionRange rng)
+	{
+		this.m_range = rng;
 	}
 
 	/** Constructs a new dependency specification that matches a specific
@@ -126,15 +131,16 @@ struct Dependency {
 	@property void default_(bool value) { m_default = value; }
 
 	/// Returns true $(I iff) the version range only matches a specific version.
-	@property bool isExactVersion() const { return m_versA == m_versB; }
+	@property bool isExactVersion() const { return this.m_range.m_versA == this.m_range.m_versB; }
 
 	/// Determines whether it is a Git dependency.
 	@property bool isSCM() const { return !repository.empty; }
 
 	/// Returns the exact version matched by the version range.
 	@property Version version_() const {
-		enforce(m_versA == m_versB, "Dependency "~this.versionSpec~" is no exact version.");
-		return m_versA;
+		enforce(this.m_range.m_versA == this.m_range.m_versB,
+				"Dependency "~this.versionSpec~" is no exact version.");
+		return this.m_range.m_versA;
 	}
 
 	/** Sets/gets the matching version range as a specification string.
@@ -160,114 +166,12 @@ struct Dependency {
 	*/
 	@property void versionSpec(string ves)
 	{
-		static import std.string;
-
-		enforce(ves.length > 0);
-
-		if (ves == ANY_IDENT) {
-			// Any version is good.
-			ves = ">=0.0.0";
-		}
-
-		if (ves.startsWith("~>")) {
-			// Shortcut: "~>x.y.z" variant. Last non-zero number will indicate
-			// the base for this so something like this: ">=x.y.z <x.(y+1).z"
-			m_inclusiveA = true;
-			m_inclusiveB = false;
-			ves = ves[2..$];
-			m_versA = Version(expandVersion(ves));
-			m_versB = Version(bumpVersion(ves) ~ "-0");
-		} else if (ves.startsWith("^")) {
-			// Shortcut: "^x.y.z" variant. "Semver compatible" - no breaking changes.
-			// if 0.x.y, ==0.x.y
-			// if x.y.z, >=x.y.z <(x+1).0.0-0
-			// ^x.y is equivalent to ^x.y.0.
-			m_inclusiveA = true;
-			m_inclusiveB = false;
-			ves = ves[1..$].expandVersion;
-			m_versA = Version(ves);
-			m_versB = Version(bumpIncompatibleVersion(ves) ~ "-0");
-		} else if (ves[0] == Version.branchPrefix || ves.isGitHash) {
-			m_inclusiveA = true;
-			m_inclusiveB = true;
-			m_versA = m_versB = Version(ves);
-		} else if (std.string.indexOf("><=", ves[0]) == -1) {
-			m_inclusiveA = true;
-			m_inclusiveB = true;
-			m_versA = m_versB = Version(ves);
-		} else {
-			auto cmpa = skipComp(ves);
-			size_t idx2 = std.string.indexOf(ves, " ");
-			if (idx2 == -1) {
-				if (cmpa == "<=" || cmpa == "<") {
-					m_versA = Version.minRelease;
-					m_inclusiveA = true;
-					m_versB = Version(ves);
-					m_inclusiveB = cmpa == "<=";
-				} else if (cmpa == ">=" || cmpa == ">") {
-					m_versA = Version(ves);
-					m_inclusiveA = cmpa == ">=";
-					m_versB = Version.maxRelease;
-					m_inclusiveB = true;
-				} else {
-					// Converts "==" to ">=a&&<=a", which makes merging easier
-					m_versA = m_versB = Version(ves);
-					m_inclusiveA = m_inclusiveB = true;
-				}
-			} else {
-				enforce(cmpa == ">" || cmpa == ">=", "First comparison operator expected to be either > or >=, not "~cmpa);
-				assert(ves[idx2] == ' ');
-				m_versA = Version(ves[0..idx2]);
-				m_inclusiveA = cmpa == ">=";
-				string v2 = ves[idx2+1..$];
-				auto cmpb = skipComp(v2);
-				enforce(cmpb == "<" || cmpb == "<=", "Second comparison operator expected to be either < or <=, not "~cmpb);
-				m_versB = Version(v2);
-				m_inclusiveB = cmpb == "<=";
-
-				enforce(!m_versA.isBranch && !m_versB.isBranch, format("Cannot compare branches: %s", ves));
-				enforce(m_versA <= m_versB, "First version must not be greater than the second one.");
-			}
-		}
+		this.m_range = VersionRange.fromString(ves);
 	}
+
 	/// ditto
-	@property string versionSpec()
-	const {
-		static import std.string;
-
-		string r;
-
-		if (this == invalid) return "invalid";
-		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
-			// Special "==" case
-			if (m_versA == Version.masterBranch) return "~master";
-			else return m_versA.toString();
-		}
-
-		// "~>", "^" case
-		if (m_inclusiveA && !m_inclusiveB && !m_versA.isBranch) {
-			auto vs = m_versA.toString();
-			auto i1 = std.string.indexOf(vs, '-'), i2 = std.string.indexOf(vs, '+');
-			auto i12 = i1 >= 0 ? i2 >= 0 ? i1 < i2 ? i1 : i2 : i1 : i2;
-			auto va = i12 >= 0 ? vs[0 .. i12] : vs;
-			auto parts = va.splitter('.').array;
-			assert(parts.length == 3, "Version string with a digit group count != 3: "~va);
-
-			foreach (i; 0 .. 3) {
-				auto vp = parts[0 .. i+1].join(".");
-				auto ve = Version(expandVersion(vp));
-				auto veb = Version(bumpVersion(vp) ~ "-0");
-				if (ve == m_versA && veb == m_versB) return "~>" ~ vp;
-
-				auto veb2 = Version(bumpIncompatibleVersion(expandVersion(vp)) ~ "-0");
-				if (ve == m_versA && veb2 == m_versB) return "^" ~ vp;
-			}
-		}
-
-		if (m_versA != Version.minRelease) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
-		if (m_versB != Version.maxRelease) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
-		if (m_versA == Version.minRelease && m_versB == Version.maxRelease) r = ">=0.0.0";
-		return r;
+	@property string versionSpec() const {
+		return this.m_range.toString();
 	}
 
 	/** Returns a modified dependency that gets mapped to a given path.
@@ -415,31 +319,28 @@ struct Dependency {
 	bool opEquals(const Dependency o)
 	const {
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
-		return o.m_inclusiveA == m_inclusiveA && o.m_inclusiveB == m_inclusiveB
-			&& o.m_versA == m_versA && o.m_versB == m_versB
+		return this.m_range == o.m_range
 			&& o.m_optional == m_optional && o.m_default == m_default;
 	}
 
 	/// ditto
 	int opCmp(const Dependency o)
 	const {
-		if (m_inclusiveA != o.m_inclusiveA) return m_inclusiveA < o.m_inclusiveA ? -1 : 1;
-		if (m_inclusiveB != o.m_inclusiveB) return m_inclusiveB < o.m_inclusiveB ? -1 : 1;
-		if (m_versA != o.m_versA) return m_versA < o.m_versA ? -1 : 1;
-		if (m_versB != o.m_versB) return m_versB < o.m_versB ? -1 : 1;
+		if (auto result = this.m_range.opCmp(o.m_range))
+			return result;
 		if (m_optional != o.m_optional) return m_optional ? -1 : 1;
 		return 0;
 	}
 
 	/// ditto
 	size_t toHash()
-	const nothrow @trusted  {
+	const nothrow @trusted	{
 		try {
 			size_t hash = 0;
-			hash = m_inclusiveA.hashOf(hash);
-			hash = m_versA.toString().hashOf(hash);
-			hash = m_inclusiveB.hashOf(hash);
-			hash = m_versB.toString().hashOf(hash);
+			hash = this.m_range.m_inclusiveA.hashOf(hash);
+			hash = this.m_range.m_versA.toString().hashOf(hash);
+			hash = this.m_range.m_inclusiveB.hashOf(hash);
+			hash = this.m_range.m_versB.toString().hashOf(hash);
 			hash = m_optional.hashOf(hash);
 			hash = m_default.hashOf(hash);
 			return hash;
@@ -452,7 +353,7 @@ struct Dependency {
 	*/
 	bool valid() const {
 		if (this.isSCM) return true;
-		return m_versA <= m_versB && doCmp(m_inclusiveA && m_inclusiveB, m_versA, m_versB);
+		return this.m_range.isValid();
 	}
 
 	/** Determines if this dependency specification matches arbitrary versions.
@@ -461,9 +362,9 @@ struct Dependency {
 	*/
 	bool matchesAny()
 	const {
-		return m_inclusiveA && m_inclusiveB
-			&& m_versA.toString() == "0.0.0"
-			&& m_versB == Version.maxRelease;
+		return this.m_range.m_inclusiveA && this.m_range.m_inclusiveB
+			&& this.m_range.m_versA == Version.minRelease
+			&& this.m_range.m_versB == Version.maxRelease;
 	}
 
 	unittest {
@@ -482,19 +383,7 @@ struct Dependency {
 	bool matches(ref const(Version) v) const {
 		if (this.matchesAny) return true;
 		if (this.isSCM) return true;
-		//logDebug(" try match: %s with: %s", v, this);
-		// Master only matches master
-		if(m_versA.isBranch) {
-			enforce(m_versA == m_versB);
-			return m_versA == v;
-		}
-		if(v.isBranch || m_versA.isBranch)
-			return m_versA == v;
-		if( !doCmp(m_inclusiveA, m_versA, v) )
-			return false;
-		if( !doCmp(m_inclusiveB, v, m_versB) )
-			return false;
-		return true;
+		return this.m_range.matches(v);
 	}
 
 	/** Merges two dependency specifications.
@@ -507,50 +396,25 @@ struct Dependency {
 	const {
 		if (this.isSCM) {
 			if (!o.isSCM) return this;
-			if (this.m_versA == o.m_versA) return this;
+			if (this.m_range == o.m_range) return this;
 			return invalid;
 		}
 		if (o.isSCM) return o;
 
 		if (this.matchesAny) return o;
 		if (o.matchesAny) return this;
-		if (m_versA.isBranch != o.m_versA.isBranch) return invalid;
-		if (m_versB.isBranch != o.m_versB.isBranch) return invalid;
-		if (m_versA.isBranch) return m_versA == o.m_versA ? this : invalid;
+		if (this.m_range.m_versA.isBranch != o.m_range.m_versA.isBranch) return invalid;
+		if (this.m_range.m_versB.isBranch != o.m_range.m_versB.isBranch) return invalid;
+		if (this.m_range.m_versA.isBranch) return this.m_range == o.m_range ? this : invalid;
 		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
 		if (() @trusted { return this.path != o.path; } ()) return invalid;
 
-		int acmp = m_versA.opCmp(o.m_versA);
-		int bcmp = m_versB.opCmp(o.m_versB);
-
 		Dependency d = this;
-		d.m_inclusiveA = !m_inclusiveA && acmp >= 0 ? false : o.m_inclusiveA;
-		d.m_versA = acmp > 0 ? m_versA : o.m_versA;
-		d.m_inclusiveB = !m_inclusiveB && bcmp <= 0 ? false : o.m_inclusiveB;
-		d.m_versB = bcmp < 0 ? m_versB : o.m_versB;
+		d.m_range.merge(o.m_range);
 		d.m_optional = m_optional && o.m_optional;
 		if (!d.valid) return invalid;
 
 		return d;
-	}
-
-	private static bool isDigit(char ch) { return ch >= '0' && ch <= '9'; }
-	private static string skipComp(ref string c) {
-		size_t idx = 0;
-		while (idx < c.length && !isDigit(c[idx]) && c[idx] != Version.branchPrefix) idx++;
-		enforce(idx < c.length, "Expected version number in version spec: "~c);
-		string cmp = idx==c.length-1||idx==0? ">=" : c[0..idx];
-		c = c[idx..$];
-		switch(cmp) {
-			default: enforce(false, "No/Unknown comparison specified: '"~cmp~"'"); return ">=";
-			case ">=": goto case; case ">": goto case;
-			case "<=": goto case; case "<": goto case;
-			case "==": return cmp;
-		}
-	}
-
-	private static bool doCmp(bool inclusive, ref const Version a, ref const Version b) {
-		return inclusive ? a <= b : a < b;
 	}
 }
 
@@ -898,6 +762,190 @@ struct Version {
 
 	/// Returns the string representation of the version/branch.
 	string toString() const { return m_version; }
+}
+
+/// A range of versions that are acceptable
+private struct VersionRange
+{
+	Version m_versA;
+	Version m_versB;
+	bool m_inclusiveA = true; // A comparison > (true) or >= (false)
+	bool m_inclusiveB = true; // B comparison < (true) or <= (false)
+
+	///
+	public int opCmp (const VersionRange o) const @safe
+	{
+		if (m_inclusiveA != o.m_inclusiveA) return m_inclusiveA < o.m_inclusiveA ? -1 : 1;
+		if (m_inclusiveB != o.m_inclusiveB) return m_inclusiveB < o.m_inclusiveB ? -1 : 1;
+		if (m_versA != o.m_versA) return m_versA < o.m_versA ? -1 : 1;
+		if (m_versB != o.m_versB) return m_versB < o.m_versB ? -1 : 1;
+		return 0;
+	}
+
+	public bool matches (ref const Version v) const @safe
+	{
+		if (m_versA.isBranch) {
+			enforce(m_versA == m_versB);
+			return m_versA == v;
+		}
+
+		if (v.isBranch)
+			return m_versA == v;
+
+		return doCmp(m_inclusiveA, m_versA, v) &&
+			doCmp(m_inclusiveB, v, m_versB);
+	}
+
+	/// Modify in place
+	public void merge (const VersionRange o) @safe
+	{
+		int acmp = m_versA.opCmp(o.m_versA);
+		int bcmp = m_versB.opCmp(o.m_versB);
+
+		this.m_inclusiveA = !m_inclusiveA && acmp >= 0 ? false : o.m_inclusiveA;
+		this.m_versA = acmp > 0 ? m_versA : o.m_versA;
+		this.m_inclusiveB = !m_inclusiveB && bcmp <= 0 ? false : o.m_inclusiveB;
+		this.m_versB = bcmp < 0 ? m_versB : o.m_versB;
+	}
+
+	public static VersionRange fromString (string ves) @safe
+	{
+		static import std.string;
+
+		enforce(ves.length > 0);
+
+		if (ves == Dependency.ANY_IDENT) {
+			// Any version is good.
+			ves = ">=0.0.0";
+		}
+
+		if (ves.startsWith("~>")) {
+			// Shortcut: "~>x.y.z" variant. Last non-zero number will indicate
+			// the base for this so something like this: ">=x.y.z <x.(y+1).z"
+			ves = ves[2..$];
+			return VersionRange(
+				Version(expandVersion(ves)), Version(bumpVersion(ves) ~ "-0"),
+				true, false);
+		}
+
+		if (ves.startsWith("^")) {
+			// Shortcut: "^x.y.z" variant. "Semver compatible" - no breaking changes.
+			// if 0.x.y, ==0.x.y
+			// if x.y.z, >=x.y.z <(x+1).0.0-0
+			// ^x.y is equivalent to ^x.y.0.
+			ves = ves[1..$].expandVersion;
+			return VersionRange(
+				Version(ves), Version(bumpIncompatibleVersion(ves) ~ "-0"),
+				true, false);
+		}
+
+		if (ves[0] == Version.branchPrefix || ves.isGitHash) {
+			auto ver = Version(ves);
+			return VersionRange(ver, ver, true, true);
+		}
+
+		if (std.string.indexOf("><=", ves[0]) == -1) {
+			auto ver = Version(ves);
+			return VersionRange(ver, ver, true, true);
+		}
+
+		auto cmpa = skipComp(ves);
+		size_t idx2 = std.string.indexOf(ves, " ");
+		if (idx2 == -1) {
+			if (cmpa == "<=" || cmpa == "<")
+				return VersionRange(Version.minRelease, Version(ves), true, (cmpa == "<="));
+
+			if (cmpa == ">=" || cmpa == ">")
+				return VersionRange(Version(ves), Version.maxRelease, (cmpa == ">="), true);
+
+			// Converts "==" to ">=a&&<=a", which makes merging easier
+			return VersionRange(Version(ves), Version(ves), true, true);
+		}
+
+		enforce(cmpa == ">" || cmpa == ">=",
+				"First comparison operator expected to be either > or >=, not " ~ cmpa);
+		assert(ves[idx2] == ' ');
+		VersionRange ret;
+		ret.m_versA = Version(ves[0..idx2]);
+		ret.m_inclusiveA = cmpa == ">=";
+		string v2 = ves[idx2+1..$];
+		auto cmpb = skipComp(v2);
+		enforce(cmpb == "<" || cmpb == "<=",
+				"Second comparison operator expected to be either < or <=, not " ~ cmpb);
+		ret.m_versB = Version(v2);
+		ret.m_inclusiveB = cmpb == "<=";
+
+		enforce(!ret.m_versA.isBranch && !ret.m_versB.isBranch,
+				format("Cannot compare branches: %s", ves));
+		enforce(ret.m_versA <= ret.m_versB,
+				"First version must not be greater than the second one.");
+
+		return ret;
+	}
+
+	/// Returns a string representation of this range
+	string toString() const @safe {
+		static import std.string;
+
+		string r;
+
+		if (this == Dependency.invalid.m_range) return "invalid";
+		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
+			// Special "==" case
+			if (m_versA == Version.masterBranch) return "~master";
+			else return m_versA.toString();
+		}
+
+		// "~>", "^" case
+		if (m_inclusiveA && !m_inclusiveB && !m_versA.isBranch) {
+			auto vs = m_versA.toString();
+			auto i1 = std.string.indexOf(vs, '-'), i2 = std.string.indexOf(vs, '+');
+			auto i12 = i1 >= 0 ? i2 >= 0 ? i1 < i2 ? i1 : i2 : i1 : i2;
+			auto va = i12 >= 0 ? vs[0 .. i12] : vs;
+			auto parts = va.splitter('.').array;
+			assert(parts.length == 3, "Version string with a digit group count != 3: "~va);
+
+			foreach (i; 0 .. 3) {
+				auto vp = parts[0 .. i+1].join(".");
+				auto ve = Version(expandVersion(vp));
+				auto veb = Version(bumpVersion(vp) ~ "-0");
+				if (ve == m_versA && veb == m_versB) return "~>" ~ vp;
+
+				auto veb2 = Version(bumpIncompatibleVersion(expandVersion(vp)) ~ "-0");
+				if (ve == m_versA && veb2 == m_versB) return "^" ~ vp;
+			}
+		}
+
+		if (m_versA != Version.minRelease) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
+		if (m_versB != Version.maxRelease) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
+		if (m_versA == Version.minRelease && m_versB == Version.maxRelease) r = ">=0.0.0";
+		return r;
+	}
+
+	public bool isValid() const @safe {
+		return m_versA <= m_versB && doCmp(m_inclusiveA && m_inclusiveB, m_versA, m_versB);
+	}
+
+	private static bool doCmp(bool inclusive, ref const Version a, ref const Version b)
+		@safe
+	{
+		return inclusive ? a <= b : a < b;
+	}
+
+	private static bool isDigit(char ch) @safe { return ch >= '0' && ch <= '9'; }
+	private static string skipComp(ref string c) @safe {
+		size_t idx = 0;
+		while (idx < c.length && !isDigit(c[idx]) && c[idx] != Version.branchPrefix) idx++;
+		enforce(idx < c.length, "Expected version number in version spec: "~c);
+		string cmp = idx==c.length-1||idx==0? ">=" : c[0..idx];
+		c = c[idx..$];
+		switch(cmp) {
+			default: enforce(false, "No/Unknown comparison specified: '"~cmp~"'"); return ">=";
+			case ">=": goto case; case ">": goto case;
+			case "<=": goto case; case "<": goto case;
+			case "==": return cmp;
+		}
+	}
 }
 
 unittest {
