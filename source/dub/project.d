@@ -77,15 +77,23 @@ class Project {
 		m_packageManager = package_manager;
 		m_rootPackage = pack;
 
-		auto selverfile = (m_rootPackage.path ~ SelectedVersions.defaultFile).toNativeString();
-		if (existsFile(selverfile)) {
-			// TODO: Remove `StrictMode.Warn` after v1.40 release
-			// The default is to error, but as the previous parser wasn't
-			// complaining, we should first warn the user.
-			auto selected = parseConfigFileSimple!Selected(selverfile, StrictMode.Warn);
-			m_selections = !selected.isNull() ?
-				new SelectedVersions(selected.get()) : new SelectedVersions();
-		} else m_selections = new SelectedVersions;
+		const absRootPackagePath = m_rootPackage.path;
+		assert(absRootPackagePath.absolute);
+		for (NativePath dir = absRootPackagePath; !dir.empty; dir = dir.parentPath) {
+			const selverfile = (dir ~ SelectedVersions.defaultFile).toNativeString();
+			if (existsFile(selverfile)) {
+				// TODO: Remove `StrictMode.Warn` after v1.40 release
+				// The default is to error, but as the previous parser wasn't
+				// complaining, we should first warn the user.
+				auto selected = parseConfigFileSimple!Selected(selverfile, StrictMode.Warn);
+				m_selections = !selected.isNull()
+					? new SelectedVersions(selected.get(), dir.relativeTo(absRootPackagePath))
+					: new SelectedVersions();
+				break;
+			}
+		}
+
+		if (!m_selections) m_selections = new SelectedVersions;
 
 		reinit();
 	}
@@ -1740,6 +1748,23 @@ final class SelectedVersions {
 		deserialize(json);
 		m_dirty = false;
 		m_bare = false;
+	}
+
+	/** Constructs a new non-empty version selection, prefixing relative path
+		selections with the specified prefix.
+
+		To be used in cases where the "dub.selections.json" file isn't located
+		in the root package directory.
+	*/
+	this(Selected data, NativePath relPathPrefix)
+	{
+		this(data);
+		if (relPathPrefix.empty) return;
+		foreach (ref dep; m_selections.versions.byValue) {
+			const depPath = dep.path;
+			if (!depPath.empty && !depPath.absolute)
+				dep = Dependency(relPathPrefix ~ depPath);
+		}
 	}
 
 	/// Returns a list of names for all packages that have a version selection.
