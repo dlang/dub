@@ -64,15 +64,9 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 	// parse general build settings
 	parseBuildSettings(sdl, recipe.buildSettings, full_name);
 
-	// determine default target type for configurations
-	auto defttype = recipe.buildSettings.targetType;
-	if (defttype == TargetType.autodetect)
-		defttype = TargetType.library;
-
 	// parse configurations
 	recipe.configurations.length = configs.length;
 	foreach (i, n; configs) {
-		recipe.configurations[i].buildSettings.targetType = defttype;
 		parseConfiguration(n, recipe.configurations[i], full_name);
 	}
 

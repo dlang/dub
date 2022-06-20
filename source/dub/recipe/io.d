@@ -63,6 +63,7 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 								 string default_package_name = null)
 {
 	import std.algorithm : endsWith;
+	import dub.compilers.buildsettings : TargetType;
 	import dub.internal.vibecompat.data.json;
 	import dub.recipe.json : parseJson;
 	import dub.recipe.sdl : parseSDL;
@@ -74,7 +75,15 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 	if (filename.endsWith(".json")) parseJson(ret, parseJsonString(contents, filename), parent_name);
 	else if (filename.endsWith(".sdl")) parseSDL(ret, contents, parent_name, filename);
 	else assert(false, "readPackageRecipe called with filename with unknown extension: "~filename);
-	return ret;
+
+	// Fix for issue #711: `targetType` should be inherited, or default to library
+	TargetType defaultTT = (ret.buildSettings.targetType == TargetType.autodetect) ?
+		TargetType.library : ret.buildSettings.targetType;
+	foreach (ref conf; ret.configurations)
+		if (conf.buildSettings.targetType == TargetType.autodetect)
+			conf.buildSettings.targetType = defaultTT;
+
+    return ret;
 }
 
 
