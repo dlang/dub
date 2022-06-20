@@ -108,6 +108,9 @@ public struct Name
 {
     ///
     public string name;
+
+    ///
+    public bool startsWith;
 }
 
 /*******************************************************************************
@@ -260,10 +263,8 @@ public struct SetInfo (T)
 
 public struct Converter (T)
 {
-    import dyaml.node;
-
     ///
-    public alias ConverterFunc = T function (Node input);
+    public alias ConverterFunc = T function (scope ConfigParser!T context);
 
     ///
     public ConverterFunc converter;
@@ -280,4 +281,30 @@ public auto converter (FT) (FT func)
     static assert(!is(RType == void),
                   "Error: Converter needs to be of the return type of the field, not `void`");
     return Converter!RType(func);
+}
+
+public interface ConfigParser (T)
+{
+    import dyaml.node;
+    import configy.Read : Context, parseFieldImpl, FieldRef;
+
+    /// Returns: the node being processed
+    public inout(Node) node () inout @safe pure nothrow @nogc;
+
+    /// Returns: current location we are parsing
+    public string path () const @safe pure nothrow @nogc;
+
+    ///
+    public final auto parseField (string FieldName) ()
+    {
+        static assert(__traits(hasMember, T, FieldName),
+            "`" ~ FieldName ~ "` is not a field of type `" ~
+            fullyQualifiedName!T ~ "`");
+
+        alias FR = FieldRef!(T, FieldName);
+        return parseFieldImpl!(FR)(this.node(), this.path(), FR.Default, this.context());
+    }
+
+    /// Internal use only
+    protected const(Context) context () const @safe pure nothrow @nogc;
 }
