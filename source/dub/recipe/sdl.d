@@ -241,12 +241,12 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	void add(string name, string value, string namespace = null) { ret ~= new Tag(namespace, name, [Value(value)]); }
 	void adda(string name, string suffix, in string[] values, string namespace = null) {
 		ret ~= new Tag(namespace, name, values[].map!(v => Value(v)).array,
-			suffix.length ? [new Attribute(null, "platform", Value(suffix[1 .. $]))] : null);
+			suffix.length ? [new Attribute(null, "platform", Value(suffix))] : null);
 	}
 	void addaa(string name, string suffix, in string[string] values, string namespace = null) {
 		foreach (k, v; values) {
 			ret ~= new Tag(namespace, name, [Value(k), Value(v)],
-				suffix.length ? [new Attribute(null, "platform", Value(suffix[1 .. $]))] : null);
+				suffix.length ? [new Attribute(null, "platform", Value(suffix))] : null);
 		}
 	}
 
@@ -369,7 +369,7 @@ private void parsePlatformStringArray(Tag t, ref string[][string] dst)
 {
 	string platform;
 	if ("platform" in t.attributes)
-		platform = "-" ~ t.attributes["platform"][0].value.get!string;
+		platform = t.attributes["platform"][0].value.get!string;
 	dst[platform] ~= t.values.map!(v => v.get!string).array;
 }
 private void parsePlatformStringAA(Tag t, ref string[string][string] dst)
@@ -377,7 +377,7 @@ private void parsePlatformStringAA(Tag t, ref string[string][string] dst)
 	import std.string : format;
 	string platform;
 	if ("platform" in t.attributes)
-		platform = "-" ~ t.attributes["platform"][0].value.get!string;
+		platform = t.attributes["platform"][0].value.get!string;
 	enforceSDL(t.values.length == 2, format("Values for '%s' must be 2 required.", t.fullName), t);
 	enforceSDL(t.values[0].peek!string !is null, format("Values for '%s' must be strings.", t.fullName), t);
 	enforceSDL(t.values[1].peek!string !is null, format("Values for '%s' must be strings.", t.fullName), t);
@@ -388,7 +388,7 @@ private void parsePlatformEnumArray(E, Es)(Tag t, ref Es[string] dst)
 {
 	string platform;
 	if ("platform" in t.attributes)
-		platform = "-" ~ t.attributes["platform"][0].value.get!string;
+		platform = t.attributes["platform"][0].value.get!string;
 	foreach (v; t.values) {
 		if (platform !in dst) dst[platform] = Es.init;
 		dst[platform] |= v.get!string.to!E;
@@ -606,9 +606,9 @@ dflags "-j" platform="linux"
 	PackageRecipe rec;
 	parseSDL(rec, sdl, null, "testfile");
 	assert(rec.buildSettings.dflags.length == 3);
-	assert(rec.buildSettings.dflags["-windows-x86"] == ["-a", "-b", "-c"]);
+	assert(rec.buildSettings.dflags["windows-x86"] == ["-a", "-b", "-c"]);
 	assert(rec.buildSettings.dflags[""] == ["-e", "-f", "-g"]);
-	assert(rec.buildSettings.dflags["-linux"] == ["-h", "-i", "-j"]);
+	assert(rec.buildSettings.dflags["linux"] == ["-h", "-i", "-j"]);
 }
 
 unittest { // test for missing name field
@@ -638,7 +638,7 @@ unittest { // test basic serialization
 	PackageRecipe p;
 	p.name = "test";
 	p.authors = ["foo", "bar"];
-	p.buildSettings.dflags["-windows"] = ["-a"];
+	p.buildSettings.dflags["windows"] = ["-a"];
 	p.buildSettings.lflags[""] = ["-b", "-c"];
 	auto sdl = toSDL(p).toSDLDocument();
 	assert(sdl ==
