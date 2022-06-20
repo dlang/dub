@@ -330,10 +330,10 @@ unittest
         @Optional ThrowingFromString fromString;
 
         @Converter!int(
-            (Node value) {
+            (scope ConfigParser!int parser) {
                 // We have to trick DMD a bit so that it infers an `int` return
                 // type but doesn't emit a "Statement is not reachable" warning
-                if (value is Node.init || value !is Node.init )
+                if (parser.node is Node.init || parser.node !is Node.init )
                     throw new Exception("You shall not pass");
                 return 42;
             })
@@ -624,4 +624,65 @@ ifaces:
 `, "/dev/null");
     assert(c.ifaces.length == 2);
     assert(c.ifaces == [ Interface("eth0", "192.168.1.42"), Interface("lo", "127.0.0.42")]);
+}
+
+unittest
+{
+    static struct Config
+    {
+        @Name("names", true)
+        string[][string] names_;
+    }
+
+    auto c = parseConfigString!Config("names-x86:\n  - John\n  - Luca\nnames:\n  - Marie", "/dev/null");
+    assert(c.names_[null] == [ "Marie" ]);
+    assert(c.names_["x86"] == [ "John", "Luca" ]);
+}
+
+unittest
+{
+    static struct PackageDef
+    {
+        string name;
+        @Optional string target;
+        int build = 42;
+    }
+
+    static struct Package
+    {
+        string path;
+        PackageDef def;
+
+        public static Package fromYAML (scope ConfigParser!Package parser)
+        {
+            if (parser.node.nodeID == NodeID.mapping)
+                return Package(null, parser.parseField!"def");
+            else
+                return Package(parser.parseField!"path");
+        }
+    }
+
+    static struct Config
+    {
+        string name;
+        Package[] deps;
+    }
+
+    auto c = parseConfigString!Config(
+`
+name: myPkg
+deps:
+  - /foo/bar
+  - name: foo
+    target: bar
+    build: 24
+  - name: fur
+  - /one/last/path
+`, "/dev/null");
+    assert(c.name == "myPkg");
+    assert(c.deps.length == 4);
+    assert(c.deps[0] == Package("/foo/bar"));
+    assert(c.deps[1] == Package(null, PackageDef("foo", "bar", 24)));
+    assert(c.deps[2] == Package(null, PackageDef("fur", null, 42)));
+    assert(c.deps[3] == Package("/one/last/path"));
 }

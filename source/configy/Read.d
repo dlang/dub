@@ -431,7 +431,7 @@ public enum StrictMode
 }
 
 /// Used to pass around configuration
-private struct Context
+package struct Context
 {
     ///
     private CLIArgs cmdln;
@@ -443,8 +443,12 @@ private struct Context
 /// Helper template for `staticMap` used for strict mode
 private enum FieldRefToName (alias FR) = FR.Name;
 
+private enum IsPattern (alias FR) = FR.Pattern;
+
 /// Returns: An alias sequence of field names, taking UDAs (`@Name` et al) into account
 private alias FieldsName (T) = staticMap!(FieldRefToName, FieldRefTuple!T);
+
+private alias Patterns (T) = staticMap!(FieldRefToName, Filter!(IsPattern, FieldRefTuple!T));
 
 /// Parse a single mapping, recurse as needed
 private T parseMapping (T)
@@ -472,10 +476,19 @@ private T parseMapping (T)
         /// First, check that all the sections found in the mapping are present in the type
         /// If not, the user might have made a typo.
         immutable string[] fieldNames = [ FieldsName!T ];
-        foreach (const ref Node key, const ref Node value; node)
+        immutable string[] patterns = [ Patterns!T ];
+    FIELD: foreach (const ref Node key, const ref Node value; node)
         {
-            if (!fieldNames.canFind(key.as!string))
+            const k = key.as!string;
+            if (!fieldNames.canFind(k))
             {
+                foreach (p; patterns)
+                    if (k.startsWith(p))
+                        // Require length because `0` would match `canFind`
+                        // and we don't want to allow `$PATTERN-`
+                        if (k[p.length .. $].length > 1 && k[p.length] == '-')
+                            continue FIELD;
+
                 if (ctx.strict == StrictMode.Warn)
                 {
                     scope exc = new UnknownKeyConfigException(
@@ -528,9 +541,47 @@ private T parseMapping (T)
 
             if (ctx.strict && FR.FieldName in node)
                 throw new ConfigExceptionImpl("'Key' field is specified twice", path, FR.FieldName, node.startMark());
-            return (*ptr).parseField!(FR)(path.addPath(FR.FieldName), default_, ctx)
+            return (*ptr).parseFieldImpl!(FR)(path.addPath(FR.FieldName), default_, ctx)
                 .dbgWriteRet("Using value '%s' from fieldDefaults for field '%s'",
                              FR.FieldName.paint(Cyan));
+        }
+
+        // This, `FR.Pattern`, and the field in `@Name` are special support for `dub`
+        static if (FR.Pattern)
+        {
+            static if (is(FR.Type : V[K], K, V))
+            {
+                static struct AAFieldRef
+                {
+                    ///
+                    private enum Ref = V.init;
+                    ///
+                    private alias Type = V;
+                }
+
+                static assert(is(K : string), "Key type should be string-like");
+            }
+            else
+                static assert(0, "Cannot have pattern on non-AA field");
+
+            AAFieldRef.Type[string] result;
+            foreach (pair; node.mapping)
+            {
+                const key = pair.key.as!string;
+                if (!key.startsWith(FR.Name))
+                    continue;
+                string suffix = key[FR.Name.length .. $];
+                if (suffix.length)
+                {
+                    if (suffix[0] == '-') suffix = suffix[1 .. $];
+                    else continue;
+                }
+
+                result[suffix] = pair.value.parseFieldImpl!(AAFieldRef)(
+                    path.addPath(key), default_.get(key, AAFieldRef.Type.init), ctx);
+            }
+            bool hack = true;
+            if (hack) return result;
         }
 
         if (auto ptr = FR.Name in node)
@@ -538,7 +589,7 @@ private T parseMapping (T)
             dbgWrite("%s: YAML field is %s in node%s",
                      FR.Name.paint(Cyan), "present".paint(Green),
                      (FR.Name == FR.FieldName ? "" : " (note that field name is overriden)").paint(Yellow));
-            return (*ptr).parseField!(FR)(path.addPath(FR.Name), default_, ctx)
+            return (*ptr).parseFieldImpl!(FR)(path.addPath(FR.Name), default_, ctx)
                 .dbgWriteRet("Using value '%s' from YAML document for field '%s'",
                              FR.FieldName.paint(Cyan));
         }
@@ -644,7 +695,7 @@ private T parseMapping (T)
 
 *******************************************************************************/
 
-private FR.Type parseField (alias FR)
+package FR.Type parseFieldImpl (alias FR)
     (Node node, string path, auto ref FR.Type defaultValue, in Context ctx)
 {
     if (node.nodeID == NodeID.invalid)
@@ -654,11 +705,17 @@ private FR.Type parseField (alias FR)
     // to peel the type
     static if (is(FR.Type : SetInfo!FT, FT))
         return FR.Type(
-            parseField!(FieldRef!(FR.Type, "value"))(node, path, defaultValue, ctx),
+            parseFieldImpl!(FieldRef!(FR.Type, "value"))(node, path, defaultValue, ctx),
             true);
 
     else static if (hasConverter!(FR.Ref))
-        return wrapException(node.viaConverter!(FR), path, node.startMark());
+        return wrapException(node.viaConverter!(FR)(path, ctx), path, node.startMark());
+
+    else static if (hasFromYAML!(FR.Type))
+    {
+        scope impl = new ConfigParserImpl!(FR.Type)(node, path, ctx);
+        return wrapException(FR.Type.fromYAML(impl), path, node.startMark());
+    }
 
     else static if (hasFromString!(FR.Type))
         return wrapException(FR.Type.fromString(node.as!string), path, node.startMark());
@@ -705,7 +762,7 @@ private FR.Type parseField (alias FR)
                 (Node.Pair pair) {
                     return tuple(
                         pair.key.get!K,
-                        pair.value.parseField!(AAFieldRef)(
+                        pair.value.parseFieldImpl!(AAFieldRef)(
                             format("%s[%s]", path, pair.key.as!string), E.init, ctx));
                 }).assocArray();
 
@@ -714,9 +771,6 @@ private FR.Type parseField (alias FR)
     {
         static if (hasUDA!(FR.Ref, Key))
         {
-            if (node.nodeID != NodeID.mapping)
-                throw new TypeConfigException(node, "mapping (object)", path);
-
             static assert(getUDAs!(FR.Ref, Key).length == 1,
                           "`" ~ fullyQualifiedName!(FR.Ref) ~
                           "` field shouldn't have more than one `Key` attribute");
@@ -726,7 +780,11 @@ private FR.Type parseField (alias FR)
                           fullyQualifiedName!E ~ "`, not a sequence of `struct`");
 
             string key = getUDAs!(FR.Ref, Key)[0].name;
-            return node.mapping().map!(
+
+            if (node.nodeID != NodeID.mapping && node.nodeID != NodeID.sequence)
+                throw new TypeConfigException(node, "mapping (object) or sequence", path);
+
+            if (node.nodeID == NodeID.mapping) return node.mapping().map!(
                 (Node.Pair pair) {
                     if (pair.value.nodeID != NodeID.mapping)
                         throw new TypeConfigException(
@@ -739,28 +797,25 @@ private FR.Type parseField (alias FR)
                         E.init, ctx, key.length ? [ key: pair.key ] : null);
                 }).array();
         }
-        else
+        if (node.nodeID != NodeID.sequence)
+            throw new TypeConfigException(node, "sequence (array)", path);
+
+        // Only those two fields are used by `parseFieldImpl`
+        static struct ArrayFieldRef
         {
-            if (node.nodeID != NodeID.sequence)
-                throw new TypeConfigException(node, "sequence (array)", path);
-
-            // Only those two fields are used by `parseField`
-            static struct ArrayFieldRef
-            {
-                ///
-                private enum Ref = E.init;
-                ///
-                private alias Type = E;
-            }
-
-            // We pass `E.init` as default value as it is not going to be used:
-            // Either there is something in the YAML document, and that will be
-            // converted, or `sequence` will not iterate.
-            return node.sequence.enumerate.map!(
-                kv => kv.value.parseField!(ArrayFieldRef)(
-                    format("%s[%s]", path, kv.index), E.init, ctx))
-                .array();
+            ///
+            private enum Ref = E.init;
+            ///
+            private alias Type = E;
         }
+
+        // We pass `E.init` as default value as it is not going to be used:
+        // Either there is something in the YAML document, and that will be
+        // converted, or `sequence` will not iterate.
+        return node.sequence.enumerate.map!(
+            kv => kv.value.parseFieldImpl!(ArrayFieldRef)(
+                format("%s[%s]", path, kv.index), E.init, ctx))
+            .array();
     }
     else
     {
@@ -902,7 +957,7 @@ private enum hasConverter (alias Field) = hasUDA!(Field, Converter);
 
 /// Provided a field reference `FR` which is known to have at least one converter,
 /// perform basic checks and return the value after applying the converter.
-private auto viaConverter (alias FR) (Node node)
+private auto viaConverter (alias FR) (Node node, string path, in Context context)
 {
     enum Converters = getUDAs!(FR.Ref, Converter);
     static assert (Converters.length,
@@ -911,7 +966,39 @@ private auto viaConverter (alias FR) (Node node)
 
     static assert(Converters.length == 1,
                   "Field `" ~ FR.FieldName ~ "` cannot have more than one `Converter`");
-    return Converters[0].converter(node);
+
+    scope impl = new ConfigParserImpl!(FR.Type)(node, path, context);
+    return Converters[0].converter(impl);
+}
+
+private final class ConfigParserImpl (T) : ConfigParser!T
+{
+    private Node node_;
+    private string path_;
+    private const(Context) context_;
+
+    /// Ctor
+    public this (Node n, string p, const Context c) scope @safe pure nothrow @nogc
+    {
+        this.node_ = n;
+        this.path_ = p;
+        this.context_ = c;
+    }
+
+    public final override inout(Node) node () inout @safe pure nothrow @nogc
+    {
+        return this.node_;
+    }
+
+    public final override string path () const @safe pure nothrow @nogc
+    {
+        return this.path_;
+    }
+
+    protected final override const(Context) context () const @safe pure nothrow @nogc
+    {
+        return this.context_;
+    }
 }
 
 /*******************************************************************************
@@ -931,7 +1018,7 @@ private auto viaConverter (alias FR) (Node node)
 
 *******************************************************************************/
 
-private template FieldRef (alias T, string name, bool forceOptional = false)
+package template FieldRef (alias T, string name, bool forceOptional = false)
 {
     // Renamed imports as the names exposed by this template clash
     // with what we import.
@@ -954,9 +1041,14 @@ private template FieldRef (alias T, string name, bool forceOptional = false)
                        "` cannot have more than one `Name` attribute");
 
         public immutable Name = getUDAs!(Ref, CAName)[0].name;
+
+        public immutable Pattern = getUDAs!(Ref, CAName)[0].startsWith;
     }
     else
+    {
         public immutable Name = FieldName;
+        public immutable Pattern = false;
+    }
 
     /// Default value of the field (may or may not be `Type.init`)
     public enum Default = __traits(getMember, T.init, name);
@@ -1108,6 +1200,9 @@ unittest
 
 /// Evaluates to `true` if `T` is a `struct` with a default ctor
 private enum hasFieldwiseCtor (T) = (is(T == struct) && is(typeof(() => T(T.init.tupleof))));
+
+/// Evaluates to `true` if `T` has a static method that is designed to work with this library
+private enum hasFromYAML (T) = is(typeof(T.fromYAML(ConfigParser!(T).init)) : T);
 
 /// Evaluates to `true` if `T` has a static method that accepts a `string` and returns a `T`
 private enum hasFromString (T) = is(typeof(T.fromString(string.init)) : T);
