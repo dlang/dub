@@ -57,13 +57,9 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 	recipe.buildSettings.parseJson(json, fullname);
 
 	if (auto pv = "configurations" in json) {
-		TargetType deftargettp = TargetType.library;
-		if (recipe.buildSettings.targetType != TargetType.autodetect)
-			deftargettp = recipe.buildSettings.targetType;
-
 		foreach (settings; *pv) {
 			ConfigurationInfo ci;
-			ci.parseJson(settings, recipe.name, deftargettp);
+			ci.parseJson(settings, recipe.name);
 			recipe.configurations ~= ci;
 		}
 	}
@@ -133,10 +129,8 @@ private void parseSubPackages(ref PackageRecipe recipe, string parent_package_na
 	}
 }
 
-private void parseJson(ref ConfigurationInfo config, Json json, string package_name, TargetType default_target_type = TargetType.library)
+private void parseJson(ref ConfigurationInfo config, Json json, string package_name)
 {
-	config.buildSettings.targetType = default_target_type;
-
 	foreach (string name, value; json) {
 		switch (name) {
 			default: break;
