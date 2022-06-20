@@ -562,8 +562,8 @@ lflags "lf3"
 	assert(rec.buildSettings.workingDirectory == "working directory");
 	assert(rec.buildSettings.subConfigurations.length == 1);
 	assert(rec.buildSettings.subConfigurations["projectname:subpackage2"] == "library");
-	assert(rec.buildSettings.buildRequirements == ["": cast(BuildRequirements)(BuildRequirement.allowWarnings | BuildRequirement.silenceDeprecations)]);
-	assert(rec.buildSettings.buildOptions == ["": cast(BuildOptions)(BuildOption.verbose | BuildOption.ignoreUnknownPragmas)]);
+	assert(rec.buildSettings.buildRequirements == ["": cast(Flags!BuildRequirement)(BuildRequirement.allowWarnings | BuildRequirement.silenceDeprecations)]);
+	assert(rec.buildSettings.buildOptions == ["": cast(Flags!BuildOption)(BuildOption.verbose | BuildOption.ignoreUnknownPragmas)]);
 	assert(rec.buildSettings.libs == ["": ["lib1", "lib2", "lib3"]]);
 	assert(rec.buildSettings.sourceFiles == ["": ["source1", "source2", "source3"]]);
 	assert(rec.buildSettings.sourcePaths == ["": ["sourcepath1", "sourcepath2", "sourcepath3"]]);
