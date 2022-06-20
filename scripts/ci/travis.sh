@@ -9,7 +9,7 @@ dub test --compiler=${DC} -c library-nonet
 export DMD="$(command -v $DMD)"
 
 if [ "$FRONTEND" \> 2.087.z ]; then
-    ./build.d -preview=dip1000 -w -g -debug
+    ./build.d -preview=dip1000 -preview=in -w -g -debug
 fi
 
 function clean() {
