@@ -160,7 +160,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 	{
 		auto idx = indexOf(name, "-");
 		string basename, suffix;
-		if( idx >= 0 ) { basename = name[0 .. idx]; suffix = name[idx .. $]; }
+		if( idx >= 0 ) { basename = name[0 .. idx]; suffix = name[idx + 1 .. $]; }
 		else basename = name;
 		switch(basename){
 			default: break;
@@ -260,6 +260,13 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 
 private Json toJson(const scope ref BuildSettingsTemplate bs)
 {
+	static string withSuffix (string pre, string post)
+	{
+		if (!post.length)
+			return pre;
+		return pre ~ "-" ~ post;
+	}
+
 	auto ret = Json.emptyObject;
 	if( bs.dependencies !is null ){
 		auto deps = Json.emptyObject;
@@ -274,47 +281,47 @@ private Json toJson(const scope ref BuildSettingsTemplate bs)
 	if (!bs.workingDirectory.empty) ret["workingDirectory"] = bs.workingDirectory;
 	if (!bs.mainSourceFile.empty) ret["mainSourceFile"] = bs.mainSourceFile;
 	if (bs.subConfigurations.length > 0) ret["subConfigurations"] = serializeToJson(bs.subConfigurations);
-	foreach (suffix, arr; bs.dflags) ret["dflags"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.lflags) ret["lflags"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.libs) ret["libs"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.sourceFiles) ret["sourceFiles"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.sourcePaths) ret["sourcePaths"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.excludedSourceFiles) ret["excludedSourceFiles"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.injectSourceFiles) ret["injectSourceFiles"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.copyFiles) ret["copyFiles"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.extraDependencyFiles) ret["extraDependencyFiles"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.versions) ret["versions"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.debugVersions) ret["debugVersions"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.versionFilters) ret["-versionFilters"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.debugVersionFilters) ret["-debugVersionFilters"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.importPaths) ret["importPaths"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.stringImportPaths) ret["stringImportPaths"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.preGenerateCommands) ret["preGenerateCommands"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.postGenerateCommands) ret["postGenerateCommands"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.preBuildCommands) ret["preBuildCommands"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.postBuildCommands) ret["postBuildCommands"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.preRunCommands) ret["preRunCommands"~suffix] = serializeToJson(arr);
-	foreach (suffix, arr; bs.postRunCommands) ret["postRunCommands"~suffix] = serializeToJson(arr);
-	foreach (suffix, aa; bs.environments) ret["environments"~suffix] = serializeToJson(aa);
-	foreach (suffix, aa; bs.buildEnvironments) ret["buildEnvironments"~suffix] = serializeToJson(aa);
-	foreach (suffix, aa; bs.runEnvironments) ret["runEnvironments"~suffix] = serializeToJson(aa);
-	foreach (suffix, aa; bs.preGenerateEnvironments) ret["preGenerateEnvironments"~suffix] = serializeToJson(aa);
-	foreach (suffix, aa; bs.postGenerateEnvironments) ret["postGenerateEnvironments"~suffix] = serializeToJson(aa);
-	foreach (suffix, aa; bs.preBuildEnvironments) ret["preBuildEnvironments"~suffix] = serializeToJson(aa);
-	foreach (suffix, aa; bs.postBuildEnvironments) ret["postBuildEnvironments"~suffix] = serializeToJson(aa);
-	foreach (suffix, aa; bs.preRunEnvironments) ret["preRunEnvironments"~suffix] = serializeToJson(aa);
-	foreach (suffix, aa; bs.postRunEnvironments) ret["postRunEnvironments"~suffix] = serializeToJson(aa);
+	foreach (suffix, arr; bs.dflags) ret[withSuffix("dflags", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.lflags) ret[withSuffix("lflags", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.libs) ret[withSuffix("libs", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.sourceFiles) ret[withSuffix("sourceFiles", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.sourcePaths) ret[withSuffix("sourcePaths", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.excludedSourceFiles) ret[withSuffix("excludedSourceFiles", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.injectSourceFiles) ret[withSuffix("injectSourceFiles", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.copyFiles) ret[withSuffix("copyFiles", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.extraDependencyFiles) ret[withSuffix("extraDependencyFiles", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.versions) ret[withSuffix("versions", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.debugVersions) ret[withSuffix("debugVersions", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.versionFilters) ret[withSuffix("-versionFilters", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.debugVersionFilters) ret[withSuffix("-debugVersionFilters", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.importPaths) ret[withSuffix("importPaths", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.stringImportPaths) ret[withSuffix("stringImportPaths", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.preGenerateCommands) ret[withSuffix("preGenerateCommands", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.postGenerateCommands) ret[withSuffix("postGenerateCommands", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.preBuildCommands) ret[withSuffix("preBuildCommands", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.postBuildCommands) ret[withSuffix("postBuildCommands", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.preRunCommands) ret[withSuffix("preRunCommands", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.postRunCommands) ret[withSuffix("postRunCommands", suffix)] = serializeToJson(arr);
+	foreach (suffix, aa; bs.environments) ret[withSuffix("environments", suffix)] = serializeToJson(aa);
+	foreach (suffix, aa; bs.buildEnvironments) ret[withSuffix("buildEnvironments", suffix)] = serializeToJson(aa);
+	foreach (suffix, aa; bs.runEnvironments) ret[withSuffix("runEnvironments", suffix)] = serializeToJson(aa);
+	foreach (suffix, aa; bs.preGenerateEnvironments) ret[withSuffix("preGenerateEnvironments", suffix)] = serializeToJson(aa);
+	foreach (suffix, aa; bs.postGenerateEnvironments) ret[withSuffix("postGenerateEnvironments", suffix)] = serializeToJson(aa);
+	foreach (suffix, aa; bs.preBuildEnvironments) ret[withSuffix("preBuildEnvironments", suffix)] = serializeToJson(aa);
+	foreach (suffix, aa; bs.postBuildEnvironments) ret[withSuffix("postBuildEnvironments", suffix)] = serializeToJson(aa);
+	foreach (suffix, aa; bs.preRunEnvironments) ret[withSuffix("preRunEnvironments", suffix)] = serializeToJson(aa);
+	foreach (suffix, aa; bs.postRunEnvironments) ret[withSuffix("postRunEnvironments", suffix)] = serializeToJson(aa);
 	foreach (suffix, arr; bs.buildRequirements) {
 		string[] val;
 		foreach (i; [EnumMembers!BuildRequirement])
 			if (arr & i) val ~= to!string(i);
-		ret["buildRequirements"~suffix] = serializeToJson(val);
+		ret[withSuffix("buildRequirements", suffix)] = serializeToJson(val);
 	}
 	foreach (suffix, arr; bs.buildOptions) {
 		string[] val;
 		foreach (i; [EnumMembers!BuildOption])
 			if (arr & i) val ~= to!string(i);
-		ret["buildOptions"~suffix] = serializeToJson(val);
+		ret[withSuffix("buildOptions", suffix)] = serializeToJson(val);
 	}
 	return ret;
 }

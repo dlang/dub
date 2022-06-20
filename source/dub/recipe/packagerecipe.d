@@ -165,7 +165,7 @@ struct ConfigurationInfo {
 	const {
 		if( platforms.empty ) return true;
 		foreach(p; platforms)
-			if( platform.matchesSpecification("-"~p) )
+			if (platform.matchesSpecification(p))
 				return true;
 		return false;
 	}
