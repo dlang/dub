@@ -77,9 +77,9 @@ class Project {
 		m_packageManager = package_manager;
 		m_rootPackage = pack;
 
-		const absRootPackagePath = m_rootPackage.path;
+		NativePath absRootPackagePath = m_rootPackage.path;
 		assert(absRootPackagePath.absolute);
-		for (NativePath dir = absRootPackagePath; !dir.empty; dir = dir.parentPath) {
+		for (NativePath dir = absRootPackagePath; dir.hasParentPath; dir = dir.parentPath) {
 			const selverfile = (dir ~ SelectedVersions.defaultFile).toNativeString();
 			if (existsFile(selverfile)) {
 				// TODO: Remove `StrictMode.Warn` after v1.40 release
