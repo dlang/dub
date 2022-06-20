@@ -182,7 +182,10 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 					{
 						BuildSettingsTemplate dbs;
 						dbs.parseJson(verspec, package_name);
-						bs.dependencyBuildSettings[pkg] = dbs;
+						// Only create an entry if there's an actual BuildSetting
+						// defined by the user.
+						if (dbs !is BuildSettingsTemplate.init)
+							bs.dependencyBuildSettings[pkg] = dbs;
 					}
 				}
 				break;

@@ -217,7 +217,9 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 
 	BuildSettingsTemplate dbs;
 	parseBuildSettings(t, dbs, package_name);
-	bs.dependencyBuildSettings[pkg] = dbs;
+	// Don't create unneeded entries
+	if (dbs !is BuildSettingsTemplate.init)
+		bs.dependencyBuildSettings[pkg] = dbs;
 }
 
 private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package_name)
