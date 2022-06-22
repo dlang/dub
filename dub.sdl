@@ -6,6 +6,7 @@ copyright "Copyright © 2012-2016 rejectedsoftware e.K., Copyright © 2012-2014 
 license "MIT"
 
 targetPath "bin"
+dflags "-preview=dip1000"
 
 configuration "application" {
 	targetType "executable"
@@ -24,13 +25,17 @@ configuration "library" {
 }
 
 configuration "library-nonet" {
-	dependency "vibe-d:http" version=">=0.9.0 <0.10.0" optional=true
+	dependency "vibe-d:http" version=">=0.9.0 <0.10.0" optional=true {
+        dflags "-preview=dip1000"
+    }
 	targetType "library"
 	excludedSourceFiles "source/app.d"
 }
 
 configuration "dynamic-library-nonet" {
-	dependency "vibe-d:http" version=">=0.9.0 <0.10.0" optional=true
+	dependency "vibe-d:http" version=">=0.9.0 <0.10.0" optional=true {
+        dflags "-preview=dip1000"
+    }
 	targetType "dynamicLibrary"
 	excludedSourceFiles "source/app.d"
 }
