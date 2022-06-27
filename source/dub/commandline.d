@@ -956,6 +956,7 @@ abstract class PackageBuildCommand : Command {
 		bool m_nodeps;
 		bool m_forceRemove = false;
 		bool m_single;
+		bool m_test = false;
 		bool m_filterVersions = false;
 	}
 
@@ -1049,7 +1050,7 @@ abstract class PackageBuildCommand : Command {
 			dub.project.reinit();
 			if (!dub.project.hasAllDependencies) {
 				logDiagnostic("Checking for missing dependencies.");
-				if (m_single) dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
+				if (m_single || m_test) dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
 				else dub.upgrade(UpgradeOptions.select);
 			}
 		}
@@ -1370,6 +1371,8 @@ class TestCommand : PackageBuildCommand {
 			`run the unit tests.`
 		];
 		this.acceptsAppArgs = true;
+
+		m_test = true;
 	}
 
 	override void prepare(scope CommandArgs args)
