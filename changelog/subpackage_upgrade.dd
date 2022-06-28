@@ -1,0 +1,5 @@
+Upgrading all sub packages at once
+
+A new "-s" switch allows to "dub upgrade" all sub packages together with the
+base package. This aims to provide a better workflow for fully reproducible
+builds and tests.
