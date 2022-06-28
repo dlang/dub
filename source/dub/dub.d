@@ -343,6 +343,8 @@ class Dub {
 
 	@property inout(Project) project() inout { return m_project; }
 
+	@property inout(PackageSupplier)[] packageSuppliers() inout { return m_packageSuppliers; }
+
 	/** Returns the default compiler binary to use for building D code.
 
 		If set, the "defaultCompiler" field of the DUB user or system
