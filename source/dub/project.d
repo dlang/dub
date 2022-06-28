@@ -345,17 +345,21 @@ class Project {
 				fil.write(format("import %s;\n", custommodname));
 			} else {
 				fil.write(q{
-import core.runtime;
-
-void main() {
-	version (D_Coverage) {
+int main(string[] args) {
+	version (Have_unit_threaded) {
+		import unit_threaded : runTests;
+		return args.runTests!allModules;
+	} else version (D_Coverage) {
+		return 0;
 	} else {
 		import std.stdio : writeln;
 		writeln("All unit tests have been run successfully.");
+		return 0;
 	}
 }
-shared static this() {
-	version (Have_tested) {
+
+version (Have_tested) {
+	shared static this() {
 		import tested;
 		import core.runtime;
 		import std.exception;

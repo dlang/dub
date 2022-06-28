@@ -1,0 +1,17 @@
+Auto-generated main module for unittest configurations now supports unit-threaded
+
+If there's a dependency on `unit-threaded`, the auto-generated main module now
+forwards all modules (of the root project being tested) to its `runTests()`.
+
+So the following `dub.sdl` skeleton now suffices to run all tests of the project,
+without having to maintain a list of modules or resort to other auto-gen solutions:
+```
+name "project"
+
+configuration "default" {
+}
+
+configuration "unittest" {
+    dependency "unit-threaded" version="~>2.0"
+}
+```
