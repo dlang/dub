@@ -322,12 +322,14 @@ class Project {
 			mainfile = getTempFile("dub_test_root", ".d");
 		else {
 			import dub.generators.build : computeBuildName;
-			mainfile = rootPackage.path ~ format(".dub/code/%s_dub_test_root.d", computeBuildName(config, settings, import_modules));
+			mainfile = rootPackage.path ~ format(".dub/code/%s/dub_test_root.d", computeBuildName(config, settings, import_modules));
 		}
 
 		auto escapedMainFile = mainfile.toNativeString().replace("$", "$$");
 		tcinfo.sourceFiles[""] ~= escapedMainFile;
 		tcinfo.mainSourceFile = escapedMainFile;
+		if (!settings.tempBuild)
+			tcinfo.importPaths[""] ~= NativePath(escapedMainFile).parentPath.toNativeString();
 
 		if (generate_main && (settings.force || !existsFile(mainfile))) {
 			import std.file : mkdirRecurse;
