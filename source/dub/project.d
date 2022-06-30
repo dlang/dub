@@ -273,7 +273,10 @@ class Project {
 
 		BuildSettingsTemplate tcinfo = rootPackage.recipe.getConfiguration(base_config).buildSettings;
 		tcinfo.targetType = TargetType.executable;
-		tcinfo.targetName = config;
+
+		// set targetName unless specified explicitly in unittest base configuration
+		if (tcinfo.targetName.empty || base_config != "unittest")
+			tcinfo.targetName = config;
 
 		auto mainfil = tcinfo.mainSourceFile;
 		if (!mainfil.length) mainfil = rootPackage.recipe.buildSettings.mainSourceFile;
