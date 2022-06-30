@@ -21,7 +21,7 @@ $DUB describe --single "$TMPDIR/no_ut.d" --config=unittest | grep -q '"targetNam
 $DUB build    --single "$TMPDIR/no_ut.d" --config=unittest --build=unittest
 "$TMPDIR/no_ut-test-library"
 
-# partial unittest config
+# partial unittest config - targetPath only
 cat > "$TMPDIR/partial_ut.d" <<EOF
 /+ dub.sdl:
 name "partial_ut"
@@ -36,7 +36,23 @@ $DUB describe --single "$TMPDIR/partial_ut.d" --config=unittest | grep -q '"targ
 $DUB build    --single "$TMPDIR/partial_ut.d" --config=unittest --build=unittest
 "$TMPDIR/bin/partial_ut-test-unittest"
 
-# full unittest config
+# partial unittest config - targetPath & targetName
+cat > "$TMPDIR/partial_ut2.d" <<EOF
+/+ dub.sdl:
+name "partial_ut2"
+targetType "library"
+configuration "unittest" {
+    targetPath "bin"
+    targetName "ut"
+}
++/
+void foo() {}
+EOF
+$DUB describe --single "$TMPDIR/partial_ut2.d" --config=unittest | grep -q '"targetName": "ut"'
+$DUB build    --single "$TMPDIR/partial_ut2.d" --config=unittest --build=unittest
+"$TMPDIR/bin/ut"
+
+# full unittest config (i.e., `executable` target type)
 cat > "$TMPDIR/full_ut.d" <<EOF
 /+ dub.sdl:
 name "full_ut"
