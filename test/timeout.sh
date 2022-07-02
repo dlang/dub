@@ -31,7 +31,7 @@ Content-Length: 2\r
 \r
 {}')
     for i in $(seq 0 $((${#res} - 1))); do
-        echo -n "${res:$i:1}"
+        echo -n "${res:$i:1}" || true
         sleep 1
     done
 } | nc -l $PORT >/dev/null &

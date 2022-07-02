@@ -1758,6 +1758,7 @@ class AddCommand : Command {
 class UpgradeCommand : Command {
 	private {
 		bool m_prerelease = false;
+		bool m_includeSubPackages = false;
 		bool m_forceRemove = false;
 		bool m_missingOnly = false;
 		bool m_verify = false;
@@ -1782,6 +1783,9 @@ class UpgradeCommand : Command {
 	{
 		args.getopt("prerelease", &m_prerelease, [
 			"Uses the latest pre-release version, even if release versions are available"
+		]);
+		args.getopt("s|sub-packages", &m_includeSubPackages, [
+			"Also upgrades dependencies of all directory based sub packages"
 		]);
 		args.getopt("verify", &m_verify, [
 			"Updates the project and performs a build. If successful, rewrites the selected versions file <to be implemented>."
@@ -1809,6 +1813,41 @@ class UpgradeCommand : Command {
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
 		if (m_dryRun) options |= UpgradeOptions.dryRun;
 		dub.upgrade(options, free_args);
+
+		auto spacks = dub.project.rootPackage
+			.subPackages
+			.filter!(sp => sp.path.length);
+
+		if (m_includeSubPackages) {
+			bool any_error = false;
+
+			// Go through each path based sub package, load it as a new instance
+			// and perform an upgrade as if the upgrade had been run from within
+			// the sub package folder. Note that we have to use separate Dub
+			// instances, because the upgrade always works on the root package
+			// of a project, which in this case are the individual sub packages.
+			foreach (sp; spacks) {
+				try {
+					auto fullpath = (dub.projectPath ~ sp.path).toNativeString();
+					logInfo("Upgrading sub package in %s", fullpath);
+					auto sdub = new Dub(fullpath, dub.packageSuppliers, SkipPackageSuppliers.all);
+					sdub.defaultPlacementLocation = dub.defaultPlacementLocation;
+					sdub.loadPackage();
+					sdub.upgrade(options, free_args);
+				} catch (Exception e) {
+					logError("Failed to update sub package at %s: %s",
+						sp.path, e.msg);
+					any_error = true;
+				}
+			}
+
+			if (any_error) return 1;
+		} else if (!spacks.empty) {
+			foreach (sp; spacks)
+				logInfo("Not upgrading sub package in %s", sp.path);
+			logInfo("\nNote: specify -s to also upgrade sub packages.");
+		}
+
 		return 0;
 	}
 }
