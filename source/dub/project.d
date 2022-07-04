@@ -329,11 +329,8 @@ class Project {
 		tcinfo.sourceFiles[""] ~= escapedMainFile;
 		tcinfo.mainSourceFile = escapedMainFile;
 		if (!settings.tempBuild) {
-			// Add the directory containing dub_test_root.d to the import paths.
-			// The directory needs to exist, e.g., for `dub describe`, so don't add if it doesn't
-			// exist *and* we are not about to generate the module.
-			if (generate_main || existsFile(mainfile.parentPath))
-				tcinfo.importPaths[""] ~= NativePath(escapedMainFile).parentPath.toNativeString();
+			// add the directory containing dub_test_root.d to the import paths
+			tcinfo.importPaths[""] ~= NativePath(escapedMainFile).parentPath.toNativeString();
 		}
 
 		if (generate_main && (settings.force || !existsFile(mainfile))) {

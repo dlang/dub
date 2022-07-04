@@ -17,7 +17,7 @@ targetType "library"
 +/
 void foo() {}
 EOF
-$DUB describe --single "$TMPDIR/no_ut.d" --config=unittest | grep -q '"targetName": "no_ut-test-library"'
+$DUB describe --single "$TMPDIR/no_ut.d" --config=unittest | grep '"targetName": "no_ut-test-library"'
 $DUB build    --single "$TMPDIR/no_ut.d" --config=unittest --build=unittest
 "$TMPDIR/no_ut-test-library"
 
@@ -32,7 +32,7 @@ configuration "unittest" {
 +/
 void foo() {}
 EOF
-$DUB describe --single "$TMPDIR/partial_ut.d" --config=unittest | grep -q '"targetName": "partial_ut-test-unittest"'
+$DUB describe --single "$TMPDIR/partial_ut.d" --config=unittest | grep '"targetName": "partial_ut-test-unittest"'
 $DUB build    --single "$TMPDIR/partial_ut.d" --config=unittest --build=unittest
 "$TMPDIR/bin/partial_ut-test-unittest"
 
@@ -48,7 +48,7 @@ configuration "unittest" {
 +/
 void foo() {}
 EOF
-$DUB describe --single "$TMPDIR/partial_ut2.d" --config=unittest | grep -q '"targetName": "ut"'
+$DUB describe --single "$TMPDIR/partial_ut2.d" --config=unittest | grep '"targetName": "ut"'
 $DUB build    --single "$TMPDIR/partial_ut2.d" --config=unittest --build=unittest
 "$TMPDIR/bin/ut"
 
@@ -64,6 +64,6 @@ configuration "unittest" {
 +/
 void main() {}
 EOF
-$DUB describe --single "$TMPDIR/full_ut.d" --config=unittest | grep -q '"targetName": "full_ut"'
+$DUB describe --single "$TMPDIR/full_ut.d" --config=unittest | grep '"targetName": "full_ut"'
 $DUB build    --single "$TMPDIR/full_ut.d" --config=unittest --build=unittest
 "$TMPDIR/bin/full_ut"

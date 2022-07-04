@@ -319,6 +319,7 @@ class Dub {
 		m_defaultPostRunEnvironments = m_config.defaultPostRunEnvironments;
 	}
 
+	@property bool dryRun() const { return m_dryRun; }
 	@property void dryRun(bool v) { m_dryRun = v; }
 
 	/** Returns the root path (usually the current working directory).
