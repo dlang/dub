@@ -173,7 +173,7 @@ class PackageManager {
 		}
 
 		foreach (p; getPackageIterator(name))
-			if (p.version_ == ver)
+			if (p.version_.matches(ver, isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard))
 				return p;
 
 		return null;

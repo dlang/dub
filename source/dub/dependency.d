@@ -863,6 +863,19 @@ struct Version {
 	/// Tests if this represents the special unknown version constant.
 	@property bool isUnknown() const { return m_version == UNKNOWN_VERS; }
 
+	/** Tests two versions for equality, according to the selected match mode.
+	*/
+	bool matches(Version other, VersionMatchMode mode = VersionMatchMode.standard)
+	const {
+		if (this != other)
+			return false;
+
+		if (mode == VersionMatchMode.strict && this.toString() != other.toString())
+			return false;
+
+		return true;
+	}
+
 	/** Compares two versions/branches for precedence.
 
 		Versions generally have precedence over branches and the master branch
@@ -898,6 +911,11 @@ struct Version {
 
 	/// Returns the string representation of the version/branch.
 	string toString() const { return m_version; }
+}
+
+enum VersionMatchMode {
+	standard,  /// Match according to SemVer rules
+	strict     /// Also include build metadata suffix in the comparison
 }
 
 unittest {
@@ -965,6 +983,11 @@ unittest {
 	assert(Version("1.0.0+a") == Version("1.0.0+b"));
 
 	assert(Version("73535568b79a0b124bc1653002637a830ce0fcb8").isSCM);
+
+	assert(Version("1.0.0").matches(Version("1.0.0+foo")));
+	assert(Version("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.standard));
+	assert(!Version("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Version("1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
 }
 
 /// Determines whether the given string is a Git hash.
