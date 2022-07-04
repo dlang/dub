@@ -316,9 +316,11 @@ class PackageManager {
 	Package getBestPackage(string name, Dependency version_spec, bool enable_overrides = true)
 	{
 		Package ret;
-		foreach (p; getPackageIterator(name))
-			if (version_spec.matches(p.version_) && (!ret || p.version_ > ret.version_))
+		foreach (p; getPackageIterator(name)) {
+			auto vmm = isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard;
+			if (version_spec.matches(p.version_, vmm) && (!ret || p.version_ > ret.version_))
 				ret = p;
+		}
 
 		if (enable_overrides && ret) {
 			if (auto ovr = getPackage(name, ret.version_))

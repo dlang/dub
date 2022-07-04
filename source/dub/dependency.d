@@ -475,11 +475,11 @@ struct Dependency {
 
 	/** Tests if the specification matches a specific version.
 	*/
-	bool matches(string vers) const { return matches(Version(vers)); }
+	bool matches(string vers, VersionMatchMode mode = VersionMatchMode.standard) const { return matches(Version(vers), mode); }
 	/// ditto
-	bool matches(const(Version) v) const { return matches(v); }
+	bool matches(const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const { return matches(v, mode); }
 	/// ditto
-	bool matches(ref const(Version) v) const {
+	bool matches(ref const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const {
 		if (this.matchesAny) return true;
 		if (this.isSCM) return true;
 		//logDebug(" try match: %s with: %s", v, this);
@@ -493,6 +493,9 @@ struct Dependency {
 		if( !doCmp(m_inclusiveA, m_versA, v) )
 			return false;
 		if( !doCmp(m_inclusiveB, v, m_versB) )
+			return false;
+		if (this.isExactVersion && mode == VersionMatchMode.strict
+			&& this.version_.toString != v.toString)
 			return false;
 		return true;
 	}
@@ -712,6 +715,13 @@ unittest {
 	b = Dependency(Version.masterBranch);
 	assert(a.merge(b) == b);
 	assert(b.merge(a) == b);
+
+	assert(Dependency("1.0.0").matches(Version("1.0.0+foo")));
+	assert(Dependency("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.standard));
+	assert(!Dependency("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Dependency("1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Dependency("~>1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Dependency("~>1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
 
 	logDebug("Dependency unittest success.");
 }
