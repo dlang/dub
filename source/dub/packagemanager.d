@@ -188,9 +188,11 @@ class PackageManager {
 	/// ditto
 	Package getPackage(string name, Version ver, NativePath path)
 	{
-		foreach (p; getPackageIterator(name))
-			if (p.version_ == ver && p.path.startsWith(path))
+		foreach (p; getPackageIterator(name)) {
+			auto pvm = isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard;
+			if (p.version_.matches(ver, pvm) && p.path.startsWith(path))
 				return p;
+		}
 		return null;
 	}
 
