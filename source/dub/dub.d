@@ -680,19 +680,6 @@ class Dub {
 
 		if (m_dryRun) return;
 
-		auto tool = "dscanner";
-
-		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
-		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
-		if (!tool_pack) {
-			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
-		}
-
-		auto dscanner_dub = new Dub(null, m_packageSuppliers);
-		dscanner_dub.loadPackage(tool_pack.path);
-		dscanner_dub.upgrade(UpgradeOptions.select);
-
 		auto compiler_binary = this.defaultCompiler;
 
 		GeneratorSettings settings;
@@ -700,6 +687,21 @@ class Dub {
 		settings.compiler = getCompiler(compiler_binary);
 		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
+
+		auto tool = "dscanner";
+		auto toolVersion = ">=" ~ getMinimalVersion(tool, settings.platform.frontendVersion);
+
+		auto tool_pack = m_packageManager.getBestPackage(tool, toolVersion);
+		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
+		if (!tool_pack) {
+			logInfo("%s is not present, getting and storing it user wide", tool);
+			tool_pack = fetch(tool, Dependency(toolVersion), defaultPlacementLocation, FetchOptions.none);
+		}
+
+		auto dscanner_dub = new Dub(null, m_packageSuppliers);
+		dscanner_dub.loadPackage(tool_pack.path);
+		dscanner_dub.upgrade(UpgradeOptions.select);
+
 		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
 		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
 		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
@@ -1134,6 +1136,33 @@ class Dub {
 		else return vers[$-1];
 	}
 
+	/** Returns the minimal version of a package known to compile without
+		warnings.
+
+		Contains a very limited knowledge base, only few packages and versions
+		are covered. Defaults to "0.0.0".
+
+		Params:
+			package_name: The name of the package in question.
+			frontendVersion: The version of the frontend that the package is to
+				be built with.
+	*/
+	static string getMinimalVersion(string package_name, int frontendVersion)
+	{
+		// See list of deprecations https://dlang.org/deprecate.html
+		switch (package_name)
+		{
+			case "dscanner":
+				if (frontendVersion >= 2097) // `body` keyword deprecated
+					return "0.12.1";
+				goto default;
+			case "ddox":
+			// If this list is extended: Update test/issue2241-minimal-version.script.d
+			default:
+				return "0.0.0";
+		}
+	}
+
 	/** Initializes a directory with a package skeleton.
 
 		Params:
@@ -1186,17 +1215,6 @@ class Dub {
 
 	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
 	{
-		string packageName = type;
-		auto template_pack = m_packageManager.getBestPackage(packageName, ">=0.0.0");
-		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
-		if (!template_pack) {
-			logInfo("%s is not present, getting and storing it user wide", packageName);
-			template_pack = fetch(packageName, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
-		}
-
-		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
-		auto template_dub = new Dub(null, m_packageSuppliers);
-		template_dub.loadPackage(initSubPackage);
 		auto compiler_binary = this.defaultCompiler;
 
 		GeneratorSettings settings;
@@ -1206,6 +1224,20 @@ class Dub {
 		settings.buildType = "debug";
 		settings.run = true;
 		settings.runArgs = runArgs;
+
+		string packageName = type;
+		auto packageVersion = ">=" ~ getMinimalVersion(packageName, settings.platform.frontendVersion);
+		auto template_pack = m_packageManager.getBestPackage(packageName, packageVersion);
+		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
+		if (!template_pack) {
+			logInfo("%s is not present, getting and storing it user wide", packageName);
+			template_pack = fetch(packageName, Dependency(packageVersion), defaultPlacementLocation, FetchOptions.none);
+		}
+
+		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
+		auto template_dub = new Dub(null, m_packageSuppliers);
+		template_dub.loadPackage(initSubPackage);
+
 		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
 		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
 		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
@@ -1264,21 +1296,6 @@ class Dub {
 
 		if (m_dryRun) return;
 
-		// allow to choose a custom ddox tool
-		auto tool = m_project.rootPackage.recipe.ddoxTool;
-		if (tool.empty) tool = "ddox";
-
-		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
-		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
-		if (!tool_pack) {
-			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
-		}
-
-		auto ddox_dub = new Dub(null, m_packageSuppliers);
-		ddox_dub.loadPackage(tool_pack.path);
-		ddox_dub.upgrade(UpgradeOptions.select);
-
 		auto compiler_binary = this.defaultCompiler;
 
 		GeneratorSettings settings;
@@ -1286,6 +1303,23 @@ class Dub {
 		settings.compiler = getCompiler(compiler_binary); // TODO: not using --compiler ???
 		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
 		settings.buildType = "debug";
+
+		// allow to choose a custom ddox tool
+		auto tool = m_project.rootPackage.recipe.ddoxTool;
+		if (tool.empty) tool = "ddox";
+		auto toolVersion = ">=" ~ getMinimalVersion(tool, settings.platform.frontendVersion);
+
+		auto tool_pack = m_packageManager.getBestPackage(tool, toolVersion);
+		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
+		if (!tool_pack) {
+			logInfo("%s is not present, getting and storing it user wide", tool);
+			tool_pack = fetch(tool, Dependency(toolVersion), defaultPlacementLocation, FetchOptions.none);
+		}
+
+		auto ddox_dub = new Dub(null, m_packageSuppliers);
+		ddox_dub.loadPackage(tool_pack.path);
+		ddox_dub.upgrade(UpgradeOptions.select);
+
 		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
 		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
 		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
