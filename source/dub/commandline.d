@@ -1634,7 +1634,7 @@ class DescribeCommand : PackageBuildCommand {
 		// With a requested `unittest` config, switch to the special test runner
 		// config (which doesn't require an existing `unittest` configuration).
 		if (config == "unittest") {
-			const test_config = dub.project.addTestRunnerConfiguration(settings, false);
+			const test_config = dub.project.addTestRunnerConfiguration(settings, !dub.dryRun);
 			if (test_config) settings.config = test_config;
 		}
 
