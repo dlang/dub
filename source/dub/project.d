@@ -38,7 +38,6 @@ import std.encoding : sanitize;
 class Project {
 	private {
 		PackageManager m_packageManager;
-		Json m_packageSettings;
 		Package m_rootPackage;
 		Package[] m_dependencies;
 		Package[][Package] m_dependees;
@@ -74,10 +73,6 @@ class Project {
 	{
 		m_packageManager = package_manager;
 		m_rootPackage = pack;
-		m_packageSettings = Json.emptyObject;
-
-		try m_packageSettings = jsonFromFile(m_rootPackage.path ~ ".dub/dub.json", true);
-		catch(Exception t) logDiagnostic("Failed to read .dub/dub.json: %s", t.msg);
 
 		auto selverfile = m_rootPackage.path ~ SelectedVersions.defaultFile;
 		if (existsFile(selverfile)) {
@@ -1286,42 +1281,6 @@ shared static this() {
 	deprecated Dependency[string] getUpgradeCache()
 	{
 		return null;
-	}
-
-	/** Sets a new set of versions for the upgrade cache.
-	*/
-	void setUpgradeCache(Dependency[string] versions)
-	{
-		logDebug("markUpToDate");
-		Json create(ref Json json, string object) {
-			if (json[object].type == Json.Type.undefined) json[object] = Json.emptyObject;
-			return json[object];
-		}
-		create(m_packageSettings, "dub");
-		m_packageSettings["dub"]["lastUpgrade"] = Clock.currTime().toISOExtString();
-
-		create(m_packageSettings["dub"], "cachedUpgrades");
-		foreach (p, d; versions)
-			m_packageSettings["dub"]["cachedUpgrades"][p] = SelectedVersions.dependencyToJson(d);
-
-		writeDubJson();
-	}
-
-	private void writeDubJson() {
-		import std.file : exists, mkdir;
-		// don't bother to write an empty file
-		if( m_packageSettings.length == 0 ) return;
-
-		try {
-			logDebug("writeDubJson");
-			auto dubpath = m_rootPackage.path~".dub";
-			if( !exists(dubpath.toNativeString()) ) mkdir(dubpath.toNativeString());
-			auto dstFile = openFile((dubpath~"dub.json").toString(), FileMode.createTrunc);
-			scope(exit) dstFile.close();
-			dstFile.writePrettyJsonString(m_packageSettings);
-		} catch( Exception e ){
-			logWarn("Could not write .dub/dub.json.");
-		}
 	}
 }
 
