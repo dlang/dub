@@ -585,7 +585,7 @@ class PackageManager {
 
 		logDebug("About to delete root folder for package '%s'.", pack.path);
 		rmdirRecurse(pack.path.toNativeString());
-		logInfo("Removed package: '"~pack.name~"'");
+		logInfo("Removed package: '%s'", pack.name);
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.

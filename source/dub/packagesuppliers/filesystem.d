@@ -42,7 +42,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 	{
 		import dub.internal.vibecompat.core.file : copyFile, existsFile;
 		enforce(path.absolute);
-		logInfo("Storing package '"~packageId~"', version requirements: %s", dep);
+		logInfo("Storing package '%s', version requirements: %s", packageId, dep);
 		auto filename = bestPackageFile(packageId, dep, pre_release);
 		enforce(existsFile(filename));
 		copyFile(filename, path);

@@ -899,7 +899,7 @@ class InitCommand : Command {
 					fmt = rawfmt.to!PackageFormat;
 					break;
 				} catch (Exception) {
-					logError("Invalid format, \""~rawfmt~"\", enter either \"sdl\" or \"json\".");
+					logError(`Invalid format '%s', enter either 'sdl' or 'json'.`, rawfmt);
 				}
 			}
 			auto author = p.authors.join(", ");
@@ -909,7 +909,7 @@ class InitCommand : Command {
 				auto nameRegex = regex(`^[a-z0-9\-_]+$`);
 				string triedName = input("Name", p.name);
 				if (triedName.matchFirst(nameRegex).empty) {
-					logError("Invalid name, \""~triedName~"\", names should consist only of lowercase alphanumeric characters, - and _.");
+					logError(`Invalid name '%s', names should consist only of lowercase alphanumeric characters, dashes ('-') and underscores ('_').`, triedName);
 				} else {
 					p.name = triedName;
 					break;
