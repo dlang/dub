@@ -125,7 +125,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		auto md = getMetadata(query);
 		if (md.type == Json.Type.null_)
 			return [];
-		auto json = getBestPackage(md, query, Dependency(">=0.0.0"), true);
+		auto json = getBestPackage(md, query, Dependency.any, true);
 		return [SearchResult(json["name"].opt!string, "", json["version"].opt!string)];
 	}
 }

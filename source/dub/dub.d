@@ -687,7 +687,7 @@ class Dub {
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
 			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			tool_pack = fetch(tool, Dependency.any, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		auto dscanner_dub = new Dub(null, m_packageSuppliers);
@@ -1192,7 +1192,7 @@ class Dub {
 		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
 		if (!template_pack) {
 			logInfo("%s is not present, getting and storing it user wide", packageName);
-			template_pack = fetch(packageName, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			template_pack = fetch(packageName, Dependency.any, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
@@ -1273,7 +1273,7 @@ class Dub {
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
 			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			tool_pack = fetch(tool, Dependency.any, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		auto ddox_dub = new Dub(null, m_packageSuppliers);
