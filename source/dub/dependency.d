@@ -349,21 +349,6 @@ struct Dependency {
 		return 0;
 	}
 
-	/// ditto
-	size_t toHash()
-	const nothrow @trusted	{
-		try {
-			size_t hash = 0;
-			hash = this.m_range.m_inclusiveA.hashOf(hash);
-			hash = this.m_range.m_versA.toString().hashOf(hash);
-			hash = this.m_range.m_inclusiveB.hashOf(hash);
-			hash = this.m_range.m_versB.toString().hashOf(hash);
-			hash = m_optional.hashOf(hash);
-			hash = m_default.hashOf(hash);
-			return hash;
-		} catch (Exception) assert(false);
-	}
-
 	/** Determines if this dependency specification is valid.
 
 		A specification is valid if it can match at least one version.
