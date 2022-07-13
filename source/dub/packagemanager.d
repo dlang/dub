@@ -223,6 +223,7 @@ class PackageManager {
 
 	/** Looks up the latest package matching the given name.
 	*/
+	deprecated("Use `getBestPackage` with `name, Dependency.any` instead")
 	Package getLatestPackage(string name)
 	{
 		Package pkg;

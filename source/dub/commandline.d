@@ -1089,9 +1089,8 @@ abstract class PackageBuildCommand : Command {
 
 		enforce(package_name.length, "No valid root package found - aborting.");
 
-		auto pack = ver == ""
-			? dub.packageManager.getLatestPackage(package_name)
-			: dub.packageManager.getBestPackage(package_name, ver);
+		auto pack = dub.packageManager.getBestPackage(
+            package_name, ver.length ? Dependency(ver) : Dependency.any);
 
 		enforce(pack, format!"Failed to find a package named '%s%s' locally."(package_name,
 			ver == "" ? "" : ("@" ~ ver)
@@ -1921,7 +1920,7 @@ class FetchCommand : FetchRemoveCommand {
 			dub.fetch(parts.name, Dependency(parts.version_), location, fetchOpts);
 		} else {
 			try {
-				dub.fetch(name, Dependency(">=0.0.0"), location, fetchOpts);
+				dub.fetch(name, Dependency.any, location, fetchOpts);
 				logInfo(
 					"Please note that you need to use `dub run <pkgname>` " ~
 					"or add it to dependencies of your package to actually use/run it. " ~
