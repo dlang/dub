@@ -63,7 +63,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;
-			else logDebug("Failed to download package %s from %s", packageId, url); 
+			else logDebug("Failed to download package %s from %s", packageId, url);
 		}
 		catch(Exception e) {
 			logDebug("Failed to download package %s from %s", packageId, url);
@@ -129,4 +129,3 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		return [SearchResult(json["name"].opt!string, "", json["version"].opt!string)];
 	}
 }
-
