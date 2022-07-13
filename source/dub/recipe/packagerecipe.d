@@ -218,6 +218,10 @@ struct BuildSettingsTemplate {
 	Flags!BuildOption[string] buildOptions;
 
 
+	BuildSettingsTemplate dup() const {
+		return clone(this);
+	}
+
 	/// Constructs a BuildSettings object from this template.
 	void getPlatformSettings(ref BuildSettings dst, in BuildPlatform platform, NativePath base_path)
 	const {
