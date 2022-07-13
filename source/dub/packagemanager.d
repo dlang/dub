@@ -704,9 +704,8 @@ class PackageManager {
 								else {
 									logWarn("Locally registered package %s %s was not found. Please run 'dub remove-local \"%s\"'.",
 										name, ver, path.toNativeString());
-									auto info = Json.emptyObject;
-									info["name"] = name;
-									pp = new Package(info, path);
+									// Store a dummy package
+									pp = new Package(PackageRecipe(name), path);
 								}
 							}
 
