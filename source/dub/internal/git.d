@@ -103,10 +103,7 @@ private string determineVersionFromGitDescribe(string describeOutput)
 	if (tag.startsWith("v") && isValidVersion(tag[1 .. $])) {
 		if (num == 0) return tag[1 .. $];
 		const i = tag.indexOf('+');
-		auto r = format("%s%scommit.%s.%s", tag[1 .. (i < 0) ? $ : i],
-			parts.length > 3 ? "." : "-", num, commit);
-		if (i > 0) r ~= tag[i .. $];
-		return r;
+		return format("%s%scommit.%s.%s", tag[1 .. $], i >= 0 ? '.' : '+', num, commit);
 	}
 	return null;
 }
@@ -115,19 +112,19 @@ unittest {
 	// tag v1.0.0
 	assert(determineVersionFromGitDescribe("v1.0.0-0-deadbeef") == "1.0.0");
 	// 1 commit after v1.0.0
-	assert(determineVersionFromGitDescribe("v1.0.0-1-deadbeef") == "1.0.0-commit.1.deadbeef");
+	assert(determineVersionFromGitDescribe("v1.0.0-1-deadbeef") == "1.0.0+commit.1.deadbeef");
 	// tag v1.0.0+2.0.0
 	assert(determineVersionFromGitDescribe("v1.0.0+2.0.0-0-deadbeef") == "1.0.0+2.0.0");
 	// 12 commits after tag v1.0.0+2.0.0
-	assert(determineVersionFromGitDescribe("v1.0.0+2.0.0-12-deadbeef") == "1.0.0-commit.12.deadbeef+2.0.0");
+	assert(determineVersionFromGitDescribe("v1.0.0+2.0.0-12-deadbeef") == "1.0.0+2.0.0.commit.12.deadbeef");
 	// tag v1.0.0-beta.1
 	assert(determineVersionFromGitDescribe("v1.0.0-beta.1-0-deadbeef") == "1.0.0-beta.1");
 	// 2 commits after tag v1.0.0-beta.1
-	assert(determineVersionFromGitDescribe("v1.0.0-beta.1-2-deadbeef") == "1.0.0-beta.1.commit.2.deadbeef");
+	assert(determineVersionFromGitDescribe("v1.0.0-beta.1-2-deadbeef") == "1.0.0-beta.1+commit.2.deadbeef");
 	// tag v1.0.0-beta.2+2.0.0
 	assert(determineVersionFromGitDescribe("v1.0.0-beta.2+2.0.0-0-deadbeef") == "1.0.0-beta.2+2.0.0");
 	// 3 commits after tag v1.0.0-beta.2+2.0.0
-	assert(determineVersionFromGitDescribe("v1.0.0-beta.2+2.0.0-3-deadbeef") == "1.0.0-beta.2.commit.3.deadbeef+2.0.0");
+	assert(determineVersionFromGitDescribe("v1.0.0-beta.2+2.0.0-3-deadbeef") == "1.0.0-beta.2+2.0.0.commit.3.deadbeef");
 
 	// invalid tags
 	assert(determineVersionFromGitDescribe("1.0.0-0-deadbeef") is null);

@@ -173,7 +173,7 @@ class PackageManager {
 		}
 
 		foreach (p; getPackageIterator(name))
-			if (p.version_ == ver)
+			if (p.version_.matches(ver, isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard))
 				return p;
 
 		return null;
@@ -188,9 +188,11 @@ class PackageManager {
 	/// ditto
 	Package getPackage(string name, Version ver, NativePath path)
 	{
-		foreach (p; getPackageIterator(name))
-			if (p.version_ == ver && p.path.startsWith(path))
+		foreach (p; getPackageIterator(name)) {
+			auto pvm = isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard;
+			if (p.version_.matches(ver, pvm) && p.path.startsWith(path))
 				return p;
+		}
 		return null;
 	}
 
@@ -316,9 +318,11 @@ class PackageManager {
 	Package getBestPackage(string name, Dependency version_spec, bool enable_overrides = true)
 	{
 		Package ret;
-		foreach (p; getPackageIterator(name))
-			if (version_spec.matches(p.version_) && (!ret || p.version_ > ret.version_))
+		foreach (p; getPackageIterator(name)) {
+			auto vmm = isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard;
+			if (version_spec.matches(p.version_, vmm) && (!ret || p.version_ > ret.version_))
 				ret = p;
+		}
 
 		if (enable_overrides && ret) {
 			if (auto ovr = getPackage(name, ret.version_))

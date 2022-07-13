@@ -535,7 +535,7 @@ class Dub {
 					foreach (ps; m_packageSuppliers) {
 						try {
 							auto versions = ps.getVersions(p);
-							if (versions.canFind!(v => dep.matches(v)))
+							if (versions.canFind!(v => dep.matches(v, VersionMatchMode.strict)))
 								continue next_pack;
 						} catch (Exception e) {
 							logWarn("Error querying versions for %s, %s: %s", p, ps.description, e.msg);
@@ -595,7 +595,8 @@ class Dub {
 			} else if (!ver.repository.empty) {
 				pack = m_packageManager.loadSCMPackage(p, ver);
 			} else {
-				pack = m_packageManager.getBestPackage(p, ver);
+				assert(ver.isExactVersion, "Resolved dependency is neither path, nor repository, nor exact version based!?");
+				pack = m_packageManager.getPackage(p, ver.version_);
 				if (pack && m_packageManager.isManagedPackage(pack)
 					&& ver.version_.isBranch && (options & UpgradeOptions.upgrade) != 0)
 				{

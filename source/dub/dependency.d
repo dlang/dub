@@ -376,13 +376,16 @@ struct Dependency {
 
 	/** Tests if the specification matches a specific version.
 	*/
-	bool matches(string vers) const { return matches(Version(vers)); }
+	bool matches(string vers, VersionMatchMode mode = VersionMatchMode.standard) const { return matches(Version(vers), mode); }
 	/// ditto
-	bool matches(const(Version) v) const { return matches(v); }
+	bool matches(const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const { return matches(v, mode); }
 	/// ditto
-	bool matches(ref const(Version) v) const {
+	bool matches(ref const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const {
 		if (this.matchesAny) return true;
 		if (this.isSCM) return true;
+		if (this.isExactVersion && mode == VersionMatchMode.strict
+			&& this.version_.toString != v.toString)
+			return false;
 		return this.m_range.matches(v);
 	}
 
@@ -577,6 +580,13 @@ unittest {
 	assert(a.merge(b) == b);
 	assert(b.merge(a) == b);
 
+	assert(Dependency("1.0.0").matches(Version("1.0.0+foo")));
+	assert(Dependency("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.standard));
+	assert(!Dependency("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Dependency("1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Dependency("~>1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Dependency("~>1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+
 	logDebug("Dependency unittest success.");
 }
 
@@ -726,6 +736,19 @@ struct Version {
 
 	/// Tests if this represents the special unknown version constant.
 	@property bool isUnknown() const { return m_version == UNKNOWN_VERS; }
+
+	/** Tests two versions for equality, according to the selected match mode.
+	*/
+	bool matches(Version other, VersionMatchMode mode = VersionMatchMode.standard)
+	const {
+		if (this != other)
+			return false;
+
+		if (mode == VersionMatchMode.strict && this.toString() != other.toString())
+			return false;
+
+		return true;
+	}
 
 	/** Compares two versions/branches for precedence.
 
@@ -948,6 +971,11 @@ private struct VersionRange
 	}
 }
 
+enum VersionMatchMode {
+	standard,  /// Match according to SemVer rules
+	strict     /// Also include build metadata suffix in the comparison
+}
+
 unittest {
 	Version a, b;
 
@@ -1013,6 +1041,11 @@ unittest {
 	assert(Version("1.0.0+a") == Version("1.0.0+b"));
 
 	assert(Version("73535568b79a0b124bc1653002637a830ce0fcb8").isSCM);
+
+	assert(Version("1.0.0").matches(Version("1.0.0+foo")));
+	assert(Version("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.standard));
+	assert(!Version("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Version("1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
 }
 
 /// Determines whether the given string is a Git hash.
