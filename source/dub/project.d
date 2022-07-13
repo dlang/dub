@@ -269,6 +269,12 @@ class Project {
 		BuildSettingsTemplate tcinfo = rootPackage.recipe.getConfiguration(base_config).buildSettings;
 		tcinfo.targetType = TargetType.executable;
 
+		// AAs in tcinfo need to be dup'd to avoid modifying the base config's buildSettings too
+		static void appendToDefaultAAEntry(ref string[][string] aa, string entry) {
+			aa = aa.dup;
+			aa[""] ~= entry;
+		}
+
 		// set targetName unless specified explicitly in unittest base configuration
 		if (tcinfo.targetName.empty || base_config != "unittest")
 			tcinfo.targetName = config;
@@ -279,8 +285,8 @@ class Project {
 		string custommodname;
 		if (!custom_main_file.empty) {
 			import std.path;
-			tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(rootPackage.path).toNativeString();
-			tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
+			appendToDefaultAAEntry(tcinfo.sourceFiles, custom_main_file.relativeTo(rootPackage.path).toNativeString());
+			appendToDefaultAAEntry(tcinfo.importPaths, custom_main_file.parentPath.toNativeString());
 			custommodname = custom_main_file.head.name.baseName(".d");
 		}
 
@@ -298,7 +304,7 @@ class Project {
 					msf = msf.relativeTo(rootPackage.path);
 				if (!settings.single && NativePath(file).relativeTo(rootPackage.path) == msf) {
 					logWarn("Excluding main source file %s from test.", mainfil);
-					tcinfo.excludedSourceFiles[""] ~= mainfil;
+					appendToDefaultAAEntry(tcinfo.excludedSourceFiles, mainfil);
 					continue;
 				}
 				if (fname == "package.d") {
@@ -321,11 +327,11 @@ class Project {
 		}
 
 		auto escapedMainFile = mainfile.toNativeString().replace("$", "$$");
-		tcinfo.sourceFiles[""] ~= escapedMainFile;
+		appendToDefaultAAEntry(tcinfo.sourceFiles, escapedMainFile);
 		tcinfo.mainSourceFile = escapedMainFile;
 		if (!settings.tempBuild) {
 			// add the directory containing dub_test_root.d to the import paths
-			tcinfo.importPaths[""] ~= NativePath(escapedMainFile).parentPath.toNativeString();
+			appendToDefaultAAEntry(tcinfo.importPaths, NativePath(escapedMainFile).parentPath.toNativeString());
 		}
 
 		if (generate_main && (settings.force || !existsFile(mainfile))) {
