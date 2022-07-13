@@ -19,6 +19,7 @@ import std.algorithm;
 import std.array;
 import std.exception;
 import std.string;
+import std.sumtype;
 
 
 /** Encapsulates the name of a package along with its dependency specification.
@@ -40,16 +41,18 @@ struct PackageDependency {
 	package name is notably not part of the dependency specification.
 */
 struct Dependency {
-	private {
-		// Shortcut to create >=0.0.0
-		enum ANY_IDENT = "*";
-		VersionRange m_range;
-		NativePath m_path;
-		Repository m_repository;
-		bool m_optional = false;
-		bool m_default = false;
+	/// We currently support 3 'types'
+	private alias Value = SumType!(VersionRange, NativePath, Repository);
 
-	}
+	/// Used by `toString`
+	private static immutable string[] BooleanOptions = [ "optional", "default" ];
+
+	// Shortcut to create >=0.0.0
+	private enum ANY_IDENT = "*";
+
+	private Value m_value;
+	private bool m_optional;
+	private bool m_default;
 
 	/// A Dependency, which matches every valid version.
 	static @property Dependency any() @safe { return Dependency(VersionRange.Any); }
@@ -81,7 +84,7 @@ struct Dependency {
 	/// Construct a version from a range of possible values
 	private this (VersionRange rng) @safe
 	{
-		this.m_range = rng;
+		this.m_value = rng;
 	}
 
 	/** Constructs a new dependency specification that matches a specific
@@ -89,8 +92,7 @@ struct Dependency {
 	*/
 	this(NativePath path) @safe
 	{
-		this(ANY_IDENT);
-		m_path = path;
+		this.m_value = path;
 	}
 
 	/** Constructs a new dependency specification that matches a specific
@@ -98,10 +100,7 @@ struct Dependency {
 	*/
 	this(Repository repository) @safe
 	{
-		this.repository = repository;
-		// Set for backward compatibility
-		auto ver = Version(repository.m_ref);
-		this.m_range = VersionRange(ver, ver, true, true);
+		this.m_value = repository;
 	}
 
 	deprecated("Instantiate the `Repository` struct with the string directy")
@@ -113,23 +112,31 @@ struct Dependency {
 	}
 
 	/// If set, overrides any version based dependency selection.
-	@property void path(NativePath value) @safe { m_path = value; }
-	/// ditto
-	@property NativePath path() const @safe { return m_path; }
-
-	/// If set, overrides any version based dependency selection.
-	@property void repository(Repository value) @safe
+	@property void path(NativePath value) @trusted
 	{
-		m_repository = value;
-		// Set for backward compatibility
-		auto ver = Version(value.m_ref);
-		this.m_range = VersionRange(ver, ver, true, true);
+		this.m_value = value;
+	}
+	/// ditto
+	@property NativePath path() const @safe
+	{
+		return this.m_value.match!(
+			(const NativePath p) => p,
+			(      any         ) => NativePath.init,
+		);
 	}
 
+	/// If set, overrides any version based dependency selection.
+	@property void repository(Repository value) @trusted
+	{
+		this.m_value = value;
+	}
 	/// ditto
 	@property Repository repository() const @safe
 	{
-		return m_repository;
+		return this.m_value.match!(
+			(const Repository p) => p,
+			(      any         ) => Repository.init,
+		);
 	}
 
 	/// Determines if the dependency is required or optional.
@@ -157,7 +164,11 @@ struct Dependency {
 	/// Returns true $(I iff) the version range only matches a specific version.
 	@property bool isExactVersion() const scope @safe
 	{
-		return this.m_range.isExactVersion();
+		return this.m_value.match!(
+			(Repository v) => false,
+			(NativePath v) => false,
+			(VersionRange v) => v.isExactVersion(),
+		);
 	}
 
 	/// Determines whether it is a Git dependency.
@@ -165,9 +176,17 @@ struct Dependency {
 
 	/// Returns the exact version matched by the version range.
 	@property Version version_() const @safe {
-		enforce(this.m_range.isExactVersion(),
+		auto range = this.m_value.tryMatch!(
+			(VersionRange v) => v,
+			(NativePath   p) => VersionRange.Any,
+			(Repository   r) {
+				auto v = Version(r.m_ref);
+				return VersionRange(v, v);
+			},
+		);
+		enforce(range.isExactVersion(),
 				"Dependency "~this.versionSpec~" is no exact version.");
-		return this.m_range.m_versA;
+		return range.m_versA;
 	}
 
 	/** Sets/gets the matching version range as a specification string.
@@ -191,14 +210,18 @@ struct Dependency {
 		comparators.
 
 	*/
-	@property void versionSpec(string ves) @safe
+	@property void versionSpec(string ves) @trusted
 	{
-		this.m_range = VersionRange.fromString(ves);
+		this.m_value = VersionRange.fromString(ves);
 	}
 
 	/// ditto
 	@property string versionSpec() const @safe {
-		return this.m_range.toString();
+		return this.m_value.match!(
+			(const VersionRange p) => p.toString(),
+			(const Repository   r) => r.m_ref,
+			(const NativePath   p) => ANY_IDENT,
+		);
 	}
 
 	/** Returns a modified dependency that gets mapped to a given path.
@@ -207,38 +230,39 @@ struct Dependency {
 		based. Otherwise, the given `path` will be prefixed to the existing
 		path.
 	*/
-	Dependency mapToPath(NativePath path)
-	const @trusted { // NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
-		if (m_path.empty || m_path.absolute) return this;
-		else {
-			Dependency ret = this;
-			ret.path = path ~ ret.path;
-			return ret;
-		}
+	Dependency mapToPath(NativePath path) const @trusted {
+		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
+		return this.m_value.match!(
+			(Repository v) => this,
+			(NativePath v) {
+				if (v.empty || v.absolute) return this;
+				return Dependency(path ~ v);
+			},
+			(VersionRange v) => this,
+		);
 	}
 
 	/** Returns a human-readable string representation of the dependency
 		specification.
 	*/
-	string toString() const @safe {
-		string ret;
+	string toString() const scope @trusted {
+		// Trusted because `SumType.match` doesn't seem to support `scope`
 
-		if (!repository.empty) {
-			ret ~= repository.toString~"#";
+		string Stringifier (T, string pre = null) (const T v)
+		{
+			const bool extra = this.optional || this.default_;
+			return format("%s%s%s%-(%s, %)%s",
+					pre, v,
+					extra ? " (" : "",
+					BooleanOptions[!this.optional .. 1 + this.default_],
+					extra ? ")" : "");
 		}
-		if (path.empty)
-			ret ~= versionSpec;
-		if (optional) {
-			if (default_) ret ~= " (optional, default)";
-			else ret ~= " (optional)";
-		}
 
-		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
-		() @trusted {
-			if (!path.empty) ret ~= "@"~path.toNativeString();
-		} ();
-
-		return ret;
+		return this.m_value.match!(
+			Stringifier!Repository,
+			Stringifier!(NativePath, "@"),
+			Stringifier!VersionRange
+		);
 	}
 
 	/** Returns a JSON representation of the dependency specification.
@@ -252,22 +276,39 @@ struct Dependency {
 		  selections = We are serializing `dub.selections.json`, don't write out
 			  `optional` and `default`.
 	*/
-	Json toJson(bool selections = false)
-	const @trusted { // NOTE Path and Json is @system in vibe.d 0.7.x and in the compatibility layer
-		Json json;
-		if (path.empty && repository.empty && (!optional || selections)) {
-			json = Json(this.versionSpec);
-		} else {
-			json = Json.emptyObject;
-			if (!path.empty) {
-				json["path"] = path.toString();
-			} else {
-				json["version"] = this.versionSpec;
-			}
-			if (!repository.empty) json["repository"] = repository.toString;
-			if (!selections && optional) json["optional"] = true;
-			if (!selections && default_) json["default"] = true;
+	Json toJson(bool selections = false) const @safe
+	{
+		// NOTE Path and Json is @system in vibe.d 0.7.x and in the compatibility layer
+		static void initJson(ref Json j, bool opt, bool def, bool s = selections)
+		{
+			j = Json.emptyObject;
+			if (!s && opt) j["optional"] = true;
+			if (!s && def) j["default"] = true;
 		}
+
+		Json json;
+		this.m_value.match!(
+			(const NativePath v) @trusted {
+				initJson(json, optional, default_);
+				json["path"] = path.toString();
+			},
+
+			(const Repository v) @trusted {
+				initJson(json, optional, default_);
+				json["repository"] = repository.toString();
+				json["version"] = repository.m_ref;
+			},
+
+			(const VersionRange v) @trusted {
+				if (!selections && (optional || default_))
+				{
+					initJson(json, optional, default_);
+					json["version"] = v.toString();
+				}
+				else
+					json = Json(v.toString());
+			},
+		);
 		return json;
 	}
 
@@ -356,15 +397,18 @@ struct Dependency {
 		These methods are suitable for equality comparisons, as well as for
 		using `Dependency` as a key in hash or tree maps.
 	*/
-	bool opEquals(scope const Dependency o) const @safe {
-		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
-		return this.m_range == o.m_range
+	bool opEquals(scope const Dependency o) const scope @safe {
+		return this.m_value == o.m_value
 			&& o.m_optional == m_optional && o.m_default == m_default;
 	}
 
 	/// ditto
 	int opCmp(scope const Dependency o) const @safe {
-		if (auto result = this.m_range.opCmp(o.m_range))
+		alias ResultMatch = match!(
+			(VersionRange r1, VersionRange r2) => r1.opCmp(r2),
+			(_1, _2) => 0,
+		);
+		if (auto result = ResultMatch(this.m_value, o.m_value))
 			return result;
 		if (m_optional != o.m_optional) return m_optional ? -1 : 1;
 		return 0;
@@ -375,15 +419,24 @@ struct Dependency {
 		A specification is valid if it can match at least one version.
 	*/
 	bool valid() const @safe {
-		if (this.isSCM) return true;
-		return this.m_range.isValid();
+		return this.m_value.match!(
+			(Repository v) => true,
+			(NativePath v) => true,
+			(VersionRange v) => v.isValid(),
+		);
 	}
 
 	/** Determines if this dependency specification matches arbitrary versions.
 
 		This is true in particular for the `any` constant.
 	*/
-	bool matchesAny() const scope @safe { return this.m_range.matchesAny(); }
+	bool matchesAny() const scope @safe {
+		return this.m_value.match!(
+			(Repository v) => true,
+			(NativePath v) => true,
+			(VersionRange v) => v.matchesAny(),
+		);
+	}
 
 	unittest {
 		assert(Dependency("*").matchesAny);
@@ -404,14 +457,12 @@ struct Dependency {
 		return matches(v, mode);
 	}
 	/// ditto
-	bool matches(ref const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const @safe
-	{
-		if (this.matchesAny) return true;
-		if (this.isSCM) return true;
-		if (this.isExactVersion && mode == VersionMatchMode.strict
-			&& this.version_.toString != v.toString)
-			return false;
-		return this.m_range.matches(v);
+	bool matches(ref const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const @safe {
+		return this.m_value.match!(
+			(Repository i) => true,
+			(NativePath i) => true,
+			(VersionRange i) => i.matchesAny() || i.matches(v, mode),
+		);
 	}
 
 	/** Merges two dependency specifications.
@@ -420,28 +471,34 @@ struct Dependency {
 		of versions matched by the individual specifications. Note that this
 		result can be invalid (i.e. not match any version).
 	*/
-	Dependency merge(ref const(Dependency) o) const @safe {
-		if (this.isSCM) {
-			if (!o.isSCM) return this;
-			if (this.m_range == o.m_range) return this;
-			return invalid;
-		}
-		if (o.isSCM) return o;
+	Dependency merge(ref const(Dependency) o) const @trusted {
+		alias Merger = match!(
+			// First check the repository. We ignore remote and simply compare ref
+			// A repository takes precedence over any other dependency for backward
+			// compatibility, but a later change should probably error out.
+			(const Repository a, const Repository b) => a.m_ref == b.m_ref ? this : invalid,
+			(const Repository a,       any         ) => this,
+			(      any         , const Repository b) => o,
 
-		if (this.matchesAny) return o;
-		if (o.matchesAny) return this;
-		if (this.m_range.m_versA.isBranch != o.m_range.m_versA.isBranch) return invalid;
-		if (this.m_range.m_versB.isBranch != o.m_range.m_versB.isBranch) return invalid;
-		if (this.m_range.m_versA.isBranch) return this.m_range == o.m_range ? this : invalid;
-		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
-		if (() @trusted { return this.path != o.path; } ()) return invalid;
+			// Likewise, path-based dependencies take precedence over versions
+			(const NativePath a, const NativePath b) => a == b ? this : invalid,
+			(const NativePath a,       any         ) => o,
+			(      any         , const NativePath b) => this,
 
-		Dependency d = this;
-		d.m_range.merge(o.m_range);
-		d.m_optional = m_optional && o.m_optional;
-		if (!d.valid) return invalid;
+			(const VersionRange a, const VersionRange b) {
+				if (a.matchesAny()) return o;
+				if (b.matchesAny()) return this;
 
-		return d;
+				VersionRange copy = a;
+				copy.merge(b);
+				if (!copy.isValid()) return invalid;
+				return Dependency(copy);
+			}
+		);
+
+		Dependency ret = Merger(this.m_value, o.m_value);
+		ret.m_optional = m_optional && o.m_optional;
+		return ret;
 	}
 }
 
