@@ -792,13 +792,9 @@ struct Version {
 	bool matches(Version other, VersionMatchMode mode = VersionMatchMode.standard)
 	const scope @safe pure
 	{
-		if (this != other)
-			return false;
-
-		if (mode == VersionMatchMode.strict && this.toString() != other.toString())
-			return false;
-
-		return true;
+		if (mode == VersionMatchMode.strict)
+			return this.toString() == other.toString();
+		return this == other;
 	}
 
 	/** Compares two versions/branches for precedence.
