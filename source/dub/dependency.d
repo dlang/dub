@@ -131,7 +131,10 @@ struct Dependency {
 	@property void default_(bool value) { m_default = value; }
 
 	/// Returns true $(I iff) the version range only matches a specific version.
-	@property bool isExactVersion() const { return this.m_range.m_versA == this.m_range.m_versB; }
+	@property bool isExactVersion() const scope @safe
+	{
+		return this.m_range.isExactVersion();
+	}
 
 	/// Determines whether it is a Git dependency.
 	@property bool isSCM() const { return !repository.empty; }
@@ -360,12 +363,7 @@ struct Dependency {
 
 		This is true in particular for the `any` constant.
 	*/
-	bool matchesAny()
-	const {
-		return this.m_range.m_inclusiveA && this.m_range.m_inclusiveB
-			&& this.m_range.m_versA == Version.minRelease
-			&& this.m_range.m_versB == Version.maxRelease;
-	}
+	bool matchesAny() const scope { return this.m_range.matchesAny(); }
 
 	unittest {
 		assert(Dependency("*").matchesAny);
@@ -851,6 +849,21 @@ private struct VersionRange
 		this.m_versA = acmp > 0 ? m_versA : o.m_versA;
 		this.m_inclusiveB = !m_inclusiveB && bcmp <= 0 ? false : o.m_inclusiveB;
 		this.m_versB = bcmp < 0 ? m_versB : o.m_versB;
+	}
+
+	/// Returns true $(I iff) the version range only matches a specific version.
+	@property bool isExactVersion() const scope @safe
+	{
+		return this.m_versA == this.m_versB;
+	}
+
+	/// Determines if this dependency specification matches arbitrary versions.
+	/// This is true in particular for the `any` constant.
+	public bool matchesAny() const scope @safe
+	{
+		return this.m_inclusiveA && this.m_inclusiveB
+			&& this.m_versA == Version.minRelease
+			&& this.m_versB == Version.maxRelease;
 	}
 
 	public static VersionRange fromString (string ves) @safe
