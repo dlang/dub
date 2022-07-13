@@ -98,9 +98,20 @@ struct Dependency {
 	/** Constructs a new dependency specification that matches a specific
 		Git reference.
 	*/
-	this(Repository repository, string spec) {
-		this.versionSpec = spec;
+	this(Repository repository)
+	{
 		this.repository = repository;
+		// Set for backward compatibility
+		auto ver = Version(repository.m_ref);
+		this.m_range = VersionRange(ver, ver, true, true);
+	}
+
+	deprecated("Instantiate the `Repository` struct with the string directy")
+	this(Repository repository, string spec)
+	{
+		assert(repository.m_ref is null);
+		repository.m_ref = spec;
+		this(repository);
 	}
 
 	/// If set, overrides any version based dependency selection.
@@ -112,6 +123,9 @@ struct Dependency {
 	@property void repository(Repository value)
 	{
 		m_repository = value;
+		// Set for backward compatibility
+		auto ver = Version(value.m_ref);
+		this.m_range = VersionRange(ver, ver, true, true);
 	}
 
 	/// ditto
@@ -246,7 +260,7 @@ struct Dependency {
 	}
 
 	@trusted unittest {
-		Dependency dependency = Dependency(Repository("git+http://localhost"), "1.0.0");
+		Dependency dependency = Dependency(Repository("git+http://localhost", "1.0.0"));
 		Json expected = Json([
 			"repository": Json("git+http://localhost"),
 			"version": Json("1.0.0")
@@ -272,8 +286,8 @@ struct Dependency {
 				enforce("version" in verspec, "No version field specified!");
 				enforce(repository.length > 0, "No repository field specified!");
 
-				dep = Dependency(Repository(repository.get!string),
-						verspec["version"].get!string);
+				dep = Dependency(Repository(
+                                     repository.get!string, verspec["version"].get!string));
 			} else {
 				enforce("version" in verspec, "No version field specified!");
 				auto ver = verspec["version"].get!string;
@@ -606,6 +620,7 @@ unittest {
 struct Repository
 {
 	private string m_remote;
+	private string m_ref;
 
 	private Kind m_kind;
 
@@ -617,18 +632,28 @@ struct Repository
 	/**
 		Params:
 			remote = Repository remote.
+			ref_   = Reference to use (SHA1, tag, branch name...)
 	 */
+	this(string remote, string ref_)
+	{
+		enforce(remote.startsWith("git+"), "Unsupported repository type");
+
+		m_remote = remote["git+".length .. $];
+		m_kind = Kind.git;
+		m_ref = ref_;
+		assert(m_remote.length);
+		assert(m_ref.length);
+	}
+
+	/// Ditto
+	deprecated("Use the constructor accepting a second parameter named `ref_`")
 	this(string remote)
 	{
-		if (remote.startsWith("git+"))
-		{
-			m_remote = remote["git+".length .. $];
-			m_kind = Kind.git;
-		}
-		else
-		{
-			throw new Exception("Unsupported repository type");
-		}
+		enforce(remote.startsWith("git+"), "Unsupported repository type");
+
+		m_remote = remote["git+".length .. $];
+		m_kind = Kind.git;
+		assert(m_remote.length);
 	}
 
 	string toString() nothrow pure @safe
@@ -653,6 +678,18 @@ struct Repository
 	do
 	{
 		return m_remote;
+	}
+
+	/**
+		Returns:
+			The reference (commit hash, branch name, tag) we are targeting
+	*/
+	@property string ref_() @nogc nothrow pure @safe
+	in { assert(m_remote !is null); }
+	in { assert(m_ref !is null); }
+	do
+	{
+		return m_ref;
 	}
 
 	/**

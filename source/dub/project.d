@@ -1764,15 +1764,21 @@ final class SelectedVersions {
 	}
 
 	/// Selects a certain Git reference for a specific package.
-	void selectVersionWithRepository(string package_id, Repository repository, string spec)
+	void selectVersionWithRepository(string package_id, Repository repository)
 	{
-		const dependency = Dependency(repository, spec);
+		const dependency = Dependency(repository);
 		if (auto ps = package_id in m_selections) {
 			if (ps.dep == dependency)
 				return;
 		}
 		m_selections[package_id] = Selected(dependency);
 		m_dirty = true;
+	}
+
+	deprecated("Move `spec` inside of the `repository` parameter")
+	void selectVersionWithRepository(string package_id, Repository repository, string spec)
+	{
+		this.selectVersionWithRepository(package_id, Repository(repository.remote(), spec));
 	}
 
 	/// Removes the selection for a particular package.
@@ -1853,8 +1859,8 @@ final class SelectedVersions {
 		else if (j.type == Json.Type.object && "path" in j)
 			return Dependency(NativePath(j["path"].get!string));
 		else if (j.type == Json.Type.object && "repository" in j)
-			return Dependency(Repository(j["repository"].get!string),
-				enforce("version" in j, "Expected \"version\" field in repository version object").get!string);
+			return Dependency(Repository(j["repository"].get!string,
+				enforce("version" in j, "Expected \"version\" field in repository version object").get!string));
 		else throw new Exception(format("Unexpected type for dependency: %s", j));
 	}
 
