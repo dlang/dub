@@ -194,8 +194,8 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	} else if ("repository" in attrs) {
 		enforceSDL("version" in attrs, "Missing version specification.", t);
 
-		dep.repository = Repository(attrs["repository"][0].value.get!string);
-		dep.versionSpec = attrs["version"][0].value.get!string;
+		dep.repository = Repository(attrs["repository"][0].value.get!string,
+                                    attrs["version"][0].value.get!string);
 	} else {
 		enforceSDL("version" in attrs, "Missing version specification.", t);
 		dep.versionSpec = attrs["version"][0].value.get!string;
@@ -672,8 +672,8 @@ unittest {
 	PackageRecipe p;
 	p.name = "test";
 
-	auto repository = Repository("git+https://some.url");
-	p.buildSettings.dependencies["package"] = Dependency(repository, "12345678");
+	auto repository = Repository("git+https://some.url", "12345678");
+	p.buildSettings.dependencies["package"] = Dependency(repository);
 	auto sdl = toSDL(p).toSDLDocument();
 	assert(sdl ==
 `name "test"
