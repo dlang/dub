@@ -32,7 +32,7 @@ string getObjSuffix(const scope ref BuildPlatform platform)
     return platform.isWindows() ? ".obj" : ".o";
 }
 
-string computeBuildName(string config, GeneratorSettings settings, const string[][] hashing...)
+string computeBuildName(string config, in GeneratorSettings settings, const string[][] hashing...)
 {
 	import std.digest;
 	import std.digest.md;

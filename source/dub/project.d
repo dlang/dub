@@ -194,7 +194,7 @@ class Project {
 				possible configuration instead of the first "executable"
 				configuration.
 	*/
-	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true)
+	string getDefaultConfiguration(in BuildPlatform platform, bool allow_non_library_configs = true)
 	const {
 		auto cfgs = getPackageConfigs(platform, null, allow_non_library_configs);
 		return cfgs[m_rootPackage.name];
@@ -231,7 +231,7 @@ class Project {
 		Returns:
 			Name of the added test runner configuration, or null for base configurations with target type `none`
 	*/
-	string addTestRunnerConfiguration(GeneratorSettings settings, bool generate_main = true, string base_config = "", NativePath custom_main_file = NativePath())
+	string addTestRunnerConfiguration(in GeneratorSettings settings, bool generate_main = true, string base_config = "", NativePath custom_main_file = NativePath())
 	{
 		if (base_config.length == 0) {
 			// if a custom main file was given, favor the first library configuration, so that it can be applied
@@ -244,7 +244,7 @@ class Project {
 			if (!base_config.length) base_config = getDefaultConfiguration(settings.platform, true);
 		}
 
-		BuildSettings lbuildsettings = settings.buildSettings;
+		BuildSettings lbuildsettings = settings.buildSettings.dup;
 		addBuildSettings(lbuildsettings, settings, base_config, null, true);
 
 		if (lbuildsettings.targetType == TargetType.none) {
