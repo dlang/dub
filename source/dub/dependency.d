@@ -54,12 +54,12 @@ struct Dependency {
 	}
 
 	/// A Dependency, which matches every valid version.
-	static @property Dependency any() { return Dependency(ANY_IDENT); }
+	static @property Dependency any() { return Dependency(VersionRange.Any); }
 
 	/// An invalid dependency (with no possible version matches).
 	static @property Dependency invalid()
 	{
-		return Dependency(VersionRange(Version.maxRelease, Version.minRelease));
+		return Dependency(VersionRange.Invalid);
 	}
 
 	/** Constructs a new dependency specification from a string
@@ -814,6 +814,11 @@ private struct VersionRange
 	Version m_versB;
 	bool m_inclusiveA = true; // A comparison > (true) or >= (false)
 	bool m_inclusiveB = true; // B comparison < (true) or <= (false)
+
+	/// Matches any version
+	public static immutable Any = VersionRange(Version.minRelease, Version.maxRelease);
+	/// Doesn't match any version
+	public static immutable Invalid = VersionRange(Version.maxRelease, Version.minRelease);
 
 	///
 	public int opCmp (scope const VersionRange o) const scope @safe
