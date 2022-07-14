@@ -194,7 +194,7 @@ class Project {
 				possible configuration instead of the first "executable"
 				configuration.
 	*/
-	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true)
+	string getDefaultConfiguration(in BuildPlatform platform, bool allow_non_library_configs = true)
 	const {
 		auto cfgs = getPackageConfigs(platform, null, allow_non_library_configs);
 		return cfgs[m_rootPackage.name];

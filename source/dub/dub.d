@@ -504,7 +504,7 @@ class Dub {
 		This forwards to `Project.getDefaultConfiguration` and requires a
 		project to be loaded.
 	*/
-	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true) const { return m_project.getDefaultConfiguration(platform, allow_non_library_configs); }
+	string getDefaultConfiguration(in BuildPlatform platform, bool allow_non_library_configs = true) const { return m_project.getDefaultConfiguration(platform, allow_non_library_configs); }
 
 	/** Attempts to upgrade the dependency selection of the loaded project.
 
