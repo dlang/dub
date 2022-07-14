@@ -60,7 +60,7 @@ struct NativePath {
 	}
 
 	/// Determines if the path is absolute.
-	@property bool absolute() const { return m_absolute; }
+	@property bool absolute() const scope @safe pure nothrow @nogc { return m_absolute; }
 
 	/// Resolves all '.' and '..' path entries as far as possible.
 	void normalize()
@@ -84,7 +84,7 @@ struct NativePath {
 
 	/// Converts the Path back to a string representation using slashes.
 	string toString()
-	const {
+	const @safe {
 		if( m_nodes.empty ) return absolute ? "/" : "";
 
 		Appender!string ret;
@@ -190,7 +190,7 @@ struct NativePath {
 	@property immutable(PathEntry)[] nodes() const { return m_nodes; }
 
 	/// The number of path entries of which this path is composed
-	@property size_t length() const { return m_nodes.length; }
+	@property size_t length() const scope @safe pure nothrow @nogc { return m_nodes.length; }
 
 	/// True if the path contains no entries
 	@property bool empty() const { return m_nodes.length == 0; }
@@ -242,7 +242,7 @@ struct NativePath {
 	void opOpAssign(string OP)(NativePath rhs) if( OP == "~" ) { auto p = this ~ rhs; m_nodes = p.m_nodes; m_endsWithSlash = rhs.m_endsWithSlash; }
 
 	/// Tests two paths for equality using '=='.
-	bool opEquals(ref const NativePath rhs) const {
+	bool opEquals(scope ref const NativePath rhs) const scope @safe {
 		if( m_absolute != rhs.m_absolute ) return false;
 		if( m_endsWithSlash != rhs.m_endsWithSlash ) return false;
 		if( m_nodes.length != rhs.length ) return false;
@@ -252,7 +252,7 @@ struct NativePath {
 		return true;
 	}
 	/// ditto
-	bool opEquals(const NativePath other) const { return opEquals(other); }
+	bool opEquals(scope const NativePath other) const scope @safe { return opEquals(other); }
 
 	int opCmp(ref const NativePath rhs) const {
 		if( m_absolute != rhs.m_absolute ) return cast(int)m_absolute - cast(int)rhs.m_absolute;
@@ -287,17 +287,17 @@ struct PathEntry {
 		m_name = str;
 	}
 
-	string toString() const pure { return m_name; }
+	string toString() const return scope @safe pure nothrow @nogc { return m_name; }
 
-	@property string name() const { return m_name; }
+	@property string name() const return scope @safe pure nothrow @nogc { return m_name; }
 
 	NativePath opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return NativePath([this, rhs], false); }
 
-	bool opEquals(ref const PathEntry rhs) const { return m_name == rhs.m_name; }
-	bool opEquals(PathEntry rhs) const { return m_name == rhs.m_name; }
-	bool opEquals(string rhs) const { return m_name == rhs; }
-	int opCmp(ref const PathEntry rhs) const { return m_name.cmp(rhs.m_name); }
-	int opCmp(string rhs) const { return m_name.cmp(rhs); }
+	bool opEquals(scope ref const PathEntry rhs) const scope @safe pure nothrow @nogc { return m_name == rhs.m_name; }
+	bool opEquals(scope PathEntry rhs) const scope @safe pure nothrow @nogc { return m_name == rhs.m_name; }
+	bool opEquals(string rhs) const scope @safe pure nothrow @nogc { return m_name == rhs; }
+	int opCmp(scope ref const PathEntry rhs) const scope @safe pure nothrow @nogc { return m_name.cmp(rhs.m_name); }
+	int opCmp(string rhs) const scope @safe pure nothrow @nogc { return m_name.cmp(rhs); }
 }
 
 private bool isValidFilename(string str)

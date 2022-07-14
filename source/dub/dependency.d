@@ -135,14 +135,26 @@ struct Dependency {
 	}
 
 	/// Determines if the dependency is required or optional.
-	@property bool optional() const { return m_optional; }
+	@property bool optional() const scope @safe pure nothrow @nogc
+	{
+		return m_optional;
+	}
 	/// ditto
-	@property void optional(bool optional) { m_optional = optional; }
+	@property void optional(bool optional) scope @safe pure nothrow @nogc
+	{
+		m_optional = optional;
+	}
 
 	/// Determines if an optional dependency should be chosen by default.
-	@property bool default_() const { return m_default; }
+	@property bool default_() const scope @safe pure nothrow @nogc
+	{
+		return m_default;
+	}
 	/// ditto
-	@property void default_(bool value) { m_default = value; }
+	@property void default_(bool value) scope @safe pure nothrow @nogc
+	{
+		m_default = value;
+	}
 
 	/// Returns true $(I iff) the version range only matches a specific version.
 	@property bool isExactVersion() const scope @safe
@@ -155,7 +167,7 @@ struct Dependency {
 
 	/// Returns the exact version matched by the version range.
 	@property Version version_() const {
-		enforce(this.m_range.m_versA == this.m_range.m_versB,
+		enforce(this.m_range.isExactVersion(),
 				"Dependency "~this.versionSpec~" is no exact version.");
 		return this.m_range.m_versA;
 	}
@@ -347,21 +359,6 @@ struct Dependency {
 			return result;
 		if (m_optional != o.m_optional) return m_optional ? -1 : 1;
 		return 0;
-	}
-
-	/// ditto
-	size_t toHash()
-	const nothrow @trusted	{
-		try {
-			size_t hash = 0;
-			hash = this.m_range.m_inclusiveA.hashOf(hash);
-			hash = this.m_range.m_versA.toString().hashOf(hash);
-			hash = this.m_range.m_inclusiveB.hashOf(hash);
-			hash = this.m_range.m_versB.toString().hashOf(hash);
-			hash = m_optional.hashOf(hash);
-			hash = m_default.hashOf(hash);
-			return hash;
-		} catch (Exception) assert(false);
 	}
 
 	/** Determines if this dependency specification is valid.
@@ -792,13 +789,9 @@ struct Version {
 	bool matches(Version other, VersionMatchMode mode = VersionMatchMode.standard)
 	const scope @safe pure
 	{
-		if (this != other)
-			return false;
-
-		if (mode == VersionMatchMode.strict && this.toString() != other.toString())
-			return false;
-
-		return true;
+		if (mode == VersionMatchMode.strict)
+			return this.toString() == other.toString();
+		return this == other;
 	}
 
 	/** Compares two versions/branches for precedence.
@@ -870,7 +863,7 @@ private struct VersionRange
 	public bool matches (ref const Version v) const @safe
 	{
 		if (m_versA.isBranch) {
-			enforce(m_versA == m_versB);
+			enforce(this.isExactVersion());
 			return m_versA == v;
 		}
 
@@ -990,7 +983,7 @@ private struct VersionRange
 		string r;
 
 		if (this == Dependency.invalid.m_range) return "invalid";
-		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
+		if (this.isExactVersion() && m_inclusiveA && m_inclusiveB) {
 			// Special "==" case
 			if (m_versA == Version.masterBranch) return "~master";
 			else return m_versA.toString();
@@ -1018,7 +1011,7 @@ private struct VersionRange
 
 		if (m_versA != Version.minRelease) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
 		if (m_versB != Version.maxRelease) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
-		if (m_versA == Version.minRelease && m_versB == Version.maxRelease) r = ">=0.0.0";
+		if (this.matchesAny()) r = ">=0.0.0";
 		return r;
 	}
 

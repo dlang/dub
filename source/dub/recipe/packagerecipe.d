@@ -465,6 +465,7 @@ private static Dependency parseDMDDependency(string dep)
 
 private T clone(T)(ref const(T) val)
 {
+	import std.sumtype;
 	import std.traits : isSomeString, isDynamicArray, isAssociativeArray, isBasicType, ValueType;
 
 	static if (is(T == immutable)) return val;
@@ -484,6 +485,8 @@ private T clone(T)(ref const(T) val)
 		foreach (k, ref f; val)
 			ret[k] = clone!V(f);
 		return ret;
+	} else static if (is(T == SumType!A, A...)) {
+		return val.match!((any) => T(clone(any)));
 	} else static if (is(T == struct)) {
 		T ret;
 		foreach (i, M; typeof(T.tupleof))
