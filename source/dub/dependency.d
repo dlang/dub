@@ -135,14 +135,26 @@ struct Dependency {
 	}
 
 	/// Determines if the dependency is required or optional.
-	@property bool optional() const { return m_optional; }
+	@property bool optional() const scope @safe pure nothrow @nogc
+	{
+		return m_optional;
+	}
 	/// ditto
-	@property void optional(bool optional) { m_optional = optional; }
+	@property void optional(bool optional) scope @safe pure nothrow @nogc
+	{
+		m_optional = optional;
+	}
 
 	/// Determines if an optional dependency should be chosen by default.
-	@property bool default_() const { return m_default; }
+	@property bool default_() const scope @safe pure nothrow @nogc
+	{
+		return m_default;
+	}
 	/// ditto
-	@property void default_(bool value) { m_default = value; }
+	@property void default_(bool value) scope @safe pure nothrow @nogc
+	{
+		m_default = value;
+	}
 
 	/// Returns true $(I iff) the version range only matches a specific version.
 	@property bool isExactVersion() const scope @safe
