@@ -54,12 +54,12 @@ struct Dependency {
 	}
 
 	/// A Dependency, which matches every valid version.
-	static @property Dependency any() { return Dependency(ANY_IDENT); }
+	static @property Dependency any() { return Dependency(VersionRange.Any); }
 
 	/// An invalid dependency (with no possible version matches).
 	static @property Dependency invalid()
 	{
-		return Dependency(VersionRange(Version.maxRelease, Version.minRelease));
+		return Dependency(VersionRange.Invalid);
 	}
 
 	/** Constructs a new dependency specification from a string
@@ -145,7 +145,10 @@ struct Dependency {
 	@property void default_(bool value) { m_default = value; }
 
 	/// Returns true $(I iff) the version range only matches a specific version.
-	@property bool isExactVersion() const { return this.m_range.m_versA == this.m_range.m_versB; }
+	@property bool isExactVersion() const scope @safe
+	{
+		return this.m_range.isExactVersion();
+	}
 
 	/// Determines whether it is a Git dependency.
 	@property bool isSCM() const { return !repository.empty; }
@@ -330,7 +333,7 @@ struct Dependency {
 		These methods are suitable for equality comparisons, as well as for
 		using `Dependency` as a key in hash or tree maps.
 	*/
-	bool opEquals(const Dependency o)
+	bool opEquals(scope const Dependency o)
 	const {
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
 		return this.m_range == o.m_range
@@ -338,7 +341,7 @@ struct Dependency {
 	}
 
 	/// ditto
-	int opCmp(const Dependency o)
+	int opCmp(scope const Dependency o)
 	const {
 		if (auto result = this.m_range.opCmp(o.m_range))
 			return result;
@@ -374,12 +377,7 @@ struct Dependency {
 
 		This is true in particular for the `any` constant.
 	*/
-	bool matchesAny()
-	const {
-		return this.m_range.m_inclusiveA && this.m_range.m_inclusiveB
-			&& this.m_range.m_versA == Version.minRelease
-			&& this.m_range.m_versB == Version.maxRelease;
-	}
+	bool matchesAny() const scope { return this.m_range.matchesAny(); }
 
 	unittest {
 		assert(Dependency("*").matchesAny);
@@ -720,7 +718,6 @@ struct Repository
 	Semantic Versioning Specification v2.0.0 at http://semver.org/).
 */
 struct Version {
-@safe:
 	private {
 		static immutable MAX_VERS = "99999.0.0";
 		static immutable UNKNOWN_VERS = "unknown";
@@ -736,7 +733,7 @@ struct Version {
 
 	/** Constructs a new `Version` from its string representation.
 	*/
-	this(string vers)
+	this(string vers) @safe pure
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
 		if (vers[0] != branchPrefix && !vers.isGitHash && vers.ptr !is UNKNOWN_VERS.ptr)
@@ -749,35 +746,52 @@ struct Version {
 		This method is equivalent to calling the constructor and is used as an
 		endpoint for the serialization framework.
 	*/
-	static Version fromString(string vers) { return Version(vers); }
+	static Version fromString(string vers) @safe pure { return Version(vers); }
 
-	bool opEquals(const Version oth) const { return opCmp(oth) == 0; }
+	bool opEquals(scope const Version oth) const scope @safe pure
+	{
+		return opCmp(oth) == 0;
+	}
 
 	/// Tests if this represents a hash instead of a version.
-	@property bool isSCM() const { return m_version.isGitHash; }
+	@property bool isSCM() const scope @safe pure nothrow @nogc
+	{
+		return m_version.isGitHash;
+	}
 
 	/// Tests if this represents a branch instead of a version.
-	@property bool isBranch() const { return m_version.length > 0 && m_version[0] == branchPrefix; }
+	@property bool isBranch() const scope @safe pure nothrow @nogc
+	{
+		return m_version.length > 0 && m_version[0] == branchPrefix;
+	}
 
 	/// Tests if this represents the master branch "~master".
-	@property bool isMaster() const { return m_version == masterString; }
+	@property bool isMaster() const scope @safe pure nothrow @nogc
+	{
+		return m_version == masterString;
+	}
 
 	/** Tests if this represents a pre-release version.
 
 		Note that branches are always considered pre-release versions.
 	*/
-	@property bool isPreRelease() const {
+	@property bool isPreRelease() const scope @safe pure nothrow @nogc
+	{
 		if (isBranch || isSCM) return true;
 		return isPreReleaseVersion(m_version);
 	}
 
 	/// Tests if this represents the special unknown version constant.
-	@property bool isUnknown() const { return m_version == UNKNOWN_VERS; }
+	@property bool isUnknown() const scope @safe pure nothrow @nogc
+	{
+		return m_version == UNKNOWN_VERS;
+	}
 
 	/** Tests two versions for equality, according to the selected match mode.
 	*/
 	bool matches(Version other, VersionMatchMode mode = VersionMatchMode.standard)
-	const {
+	const scope @safe pure
+	{
 		if (this != other)
 			return false;
 
@@ -794,8 +808,8 @@ struct Version {
 		compared using SemVer semantics, while branches are compared
 		lexicographically.
 	*/
-	int opCmp(ref const Version other)
-	const {
+	int opCmp(scope ref const Version other) const scope @safe pure
+	{
 		if (isUnknown || other.isUnknown) {
 			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, other));
 		}
@@ -818,10 +832,16 @@ struct Version {
 		return compareVersions(m_version, other.m_version);
 	}
 	/// ditto
-	int opCmp(const Version other) const { return opCmp(other); }
+	int opCmp(scope const Version other) const scope @safe pure
+	{
+		return this.opCmp(other);
+	}
 
 	/// Returns the string representation of the version/branch.
-	string toString() const { return m_version; }
+	string toString() const return scope @safe pure nothrow @nogc
+	{
+		return m_version;
+	}
 }
 
 /// A range of versions that are acceptable
@@ -832,8 +852,13 @@ private struct VersionRange
 	bool m_inclusiveA = true; // A comparison > (true) or >= (false)
 	bool m_inclusiveB = true; // B comparison < (true) or <= (false)
 
+	/// Matches any version
+	public static immutable Any = VersionRange(Version.minRelease, Version.maxRelease);
+	/// Doesn't match any version
+	public static immutable Invalid = VersionRange(Version.maxRelease, Version.minRelease);
+
 	///
-	public int opCmp (const VersionRange o) const @safe
+	public int opCmp (scope const VersionRange o) const scope @safe
 	{
 		if (m_inclusiveA != o.m_inclusiveA) return m_inclusiveA < o.m_inclusiveA ? -1 : 1;
 		if (m_inclusiveB != o.m_inclusiveB) return m_inclusiveB < o.m_inclusiveB ? -1 : 1;
@@ -866,6 +891,21 @@ private struct VersionRange
 		this.m_versA = acmp > 0 ? m_versA : o.m_versA;
 		this.m_inclusiveB = !m_inclusiveB && bcmp <= 0 ? false : o.m_inclusiveB;
 		this.m_versB = bcmp < 0 ? m_versB : o.m_versB;
+	}
+
+	/// Returns true $(I iff) the version range only matches a specific version.
+	@property bool isExactVersion() const scope @safe
+	{
+		return this.m_versA == this.m_versB;
+	}
+
+	/// Determines if this dependency specification matches arbitrary versions.
+	/// This is true in particular for the `any` constant.
+	public bool matchesAny() const scope @safe
+	{
+		return this.m_inclusiveA && this.m_inclusiveB
+			&& this.m_versA == Version.minRelease
+			&& this.m_versB == Version.maxRelease;
 	}
 
 	public static VersionRange fromString (string ves) @safe
