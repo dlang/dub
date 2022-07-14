@@ -24,7 +24,7 @@ import std.conv;
 /**
 	Validates a version string according to the SemVer specification.
 */
-bool isValidVersion(string ver)
+bool isValidVersion(scope string ver)
 pure @nogc {
 	// NOTE: this is not by spec, but to ensure sane input
 	if (ver.length > 256) return false;
@@ -101,7 +101,7 @@ unittest {
 /**
 	Determines if a given valid SemVer version has a pre-release suffix.
 */
-bool isPreReleaseVersion(string ver) pure @nogc
+bool isPreReleaseVersion(scope string ver) pure @nogc nothrow
 in { assert(isValidVersion(ver)); }
 do {
 	foreach (i; 0 .. 2) {
@@ -134,16 +134,30 @@ unittest {
 		Returns a negative number if `a` is a lower version than `b`, `0` if they are
 		equal, and a positive number otherwise.
 */
-int compareVersions(string a, string b)
+int compareVersions(scope string a, scope string b)
 pure @nogc {
+	// This needs to be a nested function as we can't pass local scope
+	// variables by `ref`
+	int compareNumber() @safe pure @nogc {
+		int res = 0;
+		while (true) {
+			if (a[0] != b[0] && res == 0) res = a[0] - b[0];
+			a = a[1 .. $]; b = b[1 .. $];
+			auto aempty = !a.length || (a[0] < '0' || a[0] > '9');
+			auto bempty = !b.length || (b[0] < '0' || b[0] > '9');
+			if (aempty != bempty) return bempty - aempty;
+			if (aempty) return res;
+		}
+	}
+
 	// compare a.b.c numerically
-	if (auto ret = compareNumber(a, b)) return ret;
+	if (auto ret = compareNumber()) return ret;
 	assert(a[0] == '.' && b[0] == '.');
 	a = a[1 .. $]; b = b[1 .. $];
-	if (auto ret = compareNumber(a, b)) return ret;
+	if (auto ret = compareNumber()) return ret;
 	assert(a[0] == '.' && b[0] == '.');
 	a = a[1 .. $]; b = b[1 .. $];
-	if (auto ret = compareNumber(a, b)) return ret;
+	if (auto ret = compareNumber()) return ret;
 
 	// give precedence to non-prerelease versions
 	bool apre = a.length > 0 && a[0] == '-';
@@ -314,7 +328,7 @@ unittest {
 	assert("1.0.0-pre.release+meta" == expandVersion("1-pre.release+meta"));
 }
 
-private int compareIdentifier(ref string a, ref string b)
+private int compareIdentifier(scope ref string a, scope ref string b)
 pure @nogc {
 	bool anumber = true;
 	bool bnumber = true;
@@ -344,20 +358,7 @@ pure @nogc {
 	}
 }
 
-private int compareNumber(ref string a, ref string b)
-pure @nogc {
-	int res = 0;
-	while (true) {
-		if (a[0] != b[0] && res == 0) res = a[0] - b[0];
-		a = a[1 .. $]; b = b[1 .. $];
-		auto aempty = !a.length || (a[0] < '0' || a[0] > '9');
-		auto bempty = !b.length || (b[0] < '0' || b[0] > '9');
-		if (aempty != bempty) return bempty - aempty;
-		if (aempty) return res;
-	}
-}
-
-private bool isValidIdentifierChain(string str, bool allow_leading_zeros = false)
+private bool isValidIdentifierChain(scope string str, bool allow_leading_zeros = false)
 pure @nogc {
 	if (str.length == 0) return false;
 	while (str.length) {
@@ -370,7 +371,7 @@ pure @nogc {
 	return true;
 }
 
-private bool isValidIdentifier(string str, bool allow_leading_zeros = false)
+private bool isValidIdentifier(scope string str, bool allow_leading_zeros = false)
 pure @nogc {
 	if (str.length < 1) return false;
 
@@ -394,7 +395,7 @@ pure @nogc {
 }
 
 private bool isValidNumber(string str)
-pure @nogc {
+pure @nogc nothrow {
 	if (str.length < 1) return false;
 	foreach (ch; str)
 		if (ch < '0' || ch > '9')
@@ -406,7 +407,7 @@ pure @nogc {
 	return true;
 }
 
-private ptrdiff_t indexOfAny(string str, in char[] chars)
+private ptrdiff_t indexOfAny(scope string str, in char[] chars)
 pure @nogc {
 	ptrdiff_t ret = -1;
 	foreach (ch; chars) {
