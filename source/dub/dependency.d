@@ -167,7 +167,7 @@ struct Dependency {
 
 	/// Returns the exact version matched by the version range.
 	@property Version version_() const {
-		enforce(this.m_range.m_versA == this.m_range.m_versB,
+		enforce(this.m_range.isExactVersion(),
 				"Dependency "~this.versionSpec~" is no exact version.");
 		return this.m_range.m_versA;
 	}
@@ -863,7 +863,7 @@ private struct VersionRange
 	public bool matches (ref const Version v) const @safe
 	{
 		if (m_versA.isBranch) {
-			enforce(m_versA == m_versB);
+			enforce(this.isExactVersion());
 			return m_versA == v;
 		}
 
@@ -983,7 +983,7 @@ private struct VersionRange
 		string r;
 
 		if (this == Dependency.invalid.m_range) return "invalid";
-		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
+		if (this.isExactVersion() && m_inclusiveA && m_inclusiveB) {
 			// Special "==" case
 			if (m_versA == Version.masterBranch) return "~master";
 			else return m_versA.toString();
@@ -1011,7 +1011,7 @@ private struct VersionRange
 
 		if (m_versA != Version.minRelease) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
 		if (m_versB != Version.maxRelease) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
-		if (m_versA == Version.minRelease && m_versB == Version.maxRelease) r = ">=0.0.0";
+		if (this.matchesAny()) r = ">=0.0.0";
 		return r;
 	}
 
