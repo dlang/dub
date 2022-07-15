@@ -8,6 +8,7 @@
 module dub.packagemanager;
 
 import dub.dependency;
+static import dub.dependency;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
@@ -273,15 +274,21 @@ class PackageManager {
 			The package loaded from the given SCM repository or null if the
 			package couldn't be loaded.
 	*/
+	deprecated("Use the overload that accepts a `dub.dependency : Repository`")
 	Package loadSCMPackage(string name, Dependency dependency)
 	in { assert(!dependency.repository.empty); }
+	do { return this.loadSCMPackage(name, dependency.repository); }
+
+	/// Ditto
+	Package loadSCMPackage(string name, dub.dependency.Repository repo)
+	in { assert(!repo.empty); }
 	do {
         Package pack;
 
-        with (dependency.repository) final switch (kind)
+        final switch (repo.kind)
         {
-            case Kind.git:
-                pack = loadGitPackage(name, dependency.versionSpec, dependency.repository.remote);
+            case repo.Kind.git:
+                pack = loadGitPackage(name, repo.ref_, repo.remote);
         }
         if (pack !is null) {
             addPackages(m_temporaryPackages, pack);
