@@ -1695,13 +1695,17 @@ final class SelectedVersions {
 	enum defaultFile = "dub.selections.json";
 
 	/// Constructs a new empty version selection.
-	this() {}
+	public this(Selected[string] data = null) @safe pure nothrow @nogc
+	{
+		this.m_selections = data;
+	}
 
 	/** Constructs a new version selection from JSON data.
 
 		The structure of the JSON document must match the contents of the
 		"dub.selections.json" file.
 	*/
+	deprecated("Pass a `dub.recipe.selection : Selected` directly")
 	this(Json data)
 	{
 		deserialize(data);
