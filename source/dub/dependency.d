@@ -69,7 +69,7 @@ struct Dependency {
 	*/
 	this(string spec)
 	{
-		this.m_range = VersionRange.fromString(spec);
+		this(VersionRange.fromString(spec));
 	}
 
 	/** Constructs a new dependency specification that matches a specific
