@@ -1726,8 +1726,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			return ret !is null && dep.matches(ret.version_) ? ret : null;
 		} else if (!dep.path.empty) {
 			try {
-				auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
-				if (dep.matches(ret.version_)) return ret;
+				return m_dub.packageManager.getOrLoadPackage(dep.path);
 			} catch (Exception e) {
 				logDiagnostic("Failed to load path based dependency %s: %s", name, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize);
