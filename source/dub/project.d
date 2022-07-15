@@ -20,6 +20,8 @@ import dub.package_;
 import dub.packagemanager;
 import dub.recipe.selection;
 
+import configy.Read;
+
 import std.algorithm;
 import std.array;
 import std.conv : to;
@@ -75,14 +77,11 @@ class Project {
 		m_packageManager = package_manager;
 		m_rootPackage = pack;
 
-		auto selverfile = m_rootPackage.path ~ SelectedVersions.defaultFile;
+		auto selverfile = (m_rootPackage.path ~ SelectedVersions.defaultFile).toNativeString();
 		if (existsFile(selverfile)) {
-			try m_selections = new SelectedVersions(selverfile);
-			catch(Exception e) {
-				logWarn("Failed to load %s: %s", SelectedVersions.defaultFile, e.msg);
-				logDiagnostic("Full error: %s", e.toString().sanitize);
-				m_selections = new SelectedVersions;
-			}
+			auto selected = parseConfigFileSimple!Selected(selverfile);
+			enforce(!selected.isNull(), "Could not read '" ~ selverfile ~ "'");
+			m_selections = new SelectedVersions(selected.get());
 		} else m_selections = new SelectedVersions;
 
 		reinit();
@@ -1681,9 +1680,16 @@ final class SelectedVersions {
 	enum defaultFile = "dub.selections.json";
 
 	/// Constructs a new empty version selection.
-	public this(Selected data = Selected(FileVersion)) @safe pure nothrow @nogc
+	public this(uint version_ = FileVersion) @safe pure nothrow @nogc
+	{
+		this.m_selections = Selected(version_);
+	}
+
+	/// Constructs a new non-empty version selection.
+	public this(Selected data) @safe pure nothrow @nogc
 	{
 		this.m_selections = data;
+		this.m_bare = false;
 	}
 
 	/** Constructs a new version selection from JSON data.
@@ -1700,6 +1706,7 @@ final class SelectedVersions {
 
 	/** Constructs a new version selections from an existing JSON file.
 	*/
+	deprecated("JSON deserialization is deprecated")
 	this(NativePath path)
 	{
 		auto json = jsonFromFile(path);
@@ -1838,6 +1845,7 @@ final class SelectedVersions {
 		return d.toJson(true);
 	}
 
+	deprecated("JSON deserialization is deprecated")
 	static Dependency dependencyFromJson(Json j)
 	{
 		if (j.type == Json.Type.string)
@@ -1861,6 +1869,7 @@ final class SelectedVersions {
 		return serialized;
 	}
 
+	deprecated("JSON deserialization is deprecated")
 	private void deserialize(Json json)
 	{
 		const fileVersion = cast(int)json["fileVersion"];
