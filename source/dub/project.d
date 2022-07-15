@@ -1843,15 +1843,10 @@ final class SelectedVersions {
 		m_bare = false;
 	}
 
+	deprecated("Use `dub.dependency : Dependency.toJson(true)`")
 	static Json dependencyToJson(Dependency d)
 	{
-		if (!d.repository.empty) {
-			return serializeToJson([
-				"version": d.version_.toString(),
-				"repository": d.repository.toString,
-			]);
-		} else if (d.path.empty) return Json(d.version_.toString());
-		else return serializeToJson(["path": d.path.toString()]);
+		return d.toJson(true);
 	}
 
 	static Dependency dependencyFromJson(Json j)
@@ -1873,7 +1868,7 @@ final class SelectedVersions {
 		serialized["fileVersion"] = m_selections.fileVersion;
 		serialized["versions"] = Json.emptyObject;
 		foreach (p, dep; m_selections.versions)
-			serialized["versions"][p] = dependencyToJson(dep);
+			serialized["versions"][p] = dep.toJson(true);
 		return serialized;
 	}
 
