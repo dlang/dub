@@ -612,7 +612,7 @@ class Dub {
 			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
 				if (!ver.repository.empty) {
-					m_project.selections.selectVersionWithRepository(p, ver.repository);
+					m_project.selections.selectVersion(p, ver.repository);
 				} else if (ver.path.empty) {
 					m_project.selections.selectVersion(p, ver.version_);
 				} else {
