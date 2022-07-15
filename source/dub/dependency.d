@@ -40,8 +40,6 @@ struct PackageDependency {
 	package name is notably not part of the dependency specification.
 */
 struct Dependency {
-@safe:
-
 	private {
 		// Shortcut to create >=0.0.0
 		enum ANY_IDENT = "*";
@@ -54,10 +52,10 @@ struct Dependency {
 	}
 
 	/// A Dependency, which matches every valid version.
-	static @property Dependency any() { return Dependency(VersionRange.Any); }
+	static @property Dependency any() @safe { return Dependency(VersionRange.Any); }
 
 	/// An invalid dependency (with no possible version matches).
-	static @property Dependency invalid()
+	static @property Dependency invalid() @safe
 	{
 		return Dependency(VersionRange.Invalid);
 	}
@@ -67,7 +65,7 @@ struct Dependency {
 		See the `versionSpec` property for a description of the accepted
 		contents of that string.
 	*/
-	this(string spec)
+	this(string spec) @safe
 	{
 		this(VersionRange.fromString(spec));
 	}
@@ -75,13 +73,13 @@ struct Dependency {
 	/** Constructs a new dependency specification that matches a specific
 		version.
 	*/
-	this(const Version ver)
+	this(const Version ver) @safe
 	{
 		this(VersionRange(ver, ver));
 	}
 
 	/// Construct a version from a range of possible values
-	private this (VersionRange rng)
+	private this (VersionRange rng) @safe
 	{
 		this.m_range = rng;
 	}
@@ -89,7 +87,7 @@ struct Dependency {
 	/** Constructs a new dependency specification that matches a specific
 		path.
 	*/
-	this(NativePath path)
+	this(NativePath path) @safe
 	{
 		this(ANY_IDENT);
 		m_path = path;
@@ -98,7 +96,7 @@ struct Dependency {
 	/** Constructs a new dependency specification that matches a specific
 		Git reference.
 	*/
-	this(Repository repository)
+	this(Repository repository) @safe
 	{
 		this.repository = repository;
 		// Set for backward compatibility
@@ -107,7 +105,7 @@ struct Dependency {
 	}
 
 	deprecated("Instantiate the `Repository` struct with the string directy")
-	this(Repository repository, string spec)
+	this(Repository repository, string spec) @safe
 	{
 		assert(repository.m_ref is null);
 		repository.m_ref = spec;
@@ -115,12 +113,12 @@ struct Dependency {
 	}
 
 	/// If set, overrides any version based dependency selection.
-	@property void path(NativePath value) { m_path = value; }
+	@property void path(NativePath value) @safe { m_path = value; }
 	/// ditto
-	@property NativePath path() const { return m_path; }
+	@property NativePath path() const @safe { return m_path; }
 
 	/// If set, overrides any version based dependency selection.
-	@property void repository(Repository value)
+	@property void repository(Repository value) @safe
 	{
 		m_repository = value;
 		// Set for backward compatibility
@@ -129,7 +127,7 @@ struct Dependency {
 	}
 
 	/// ditto
-	@property Repository repository() const
+	@property Repository repository() const @safe
 	{
 		return m_repository;
 	}
@@ -163,10 +161,10 @@ struct Dependency {
 	}
 
 	/// Determines whether it is a Git dependency.
-	@property bool isSCM() const { return !repository.empty; }
+	@property bool isSCM() const @safe { return !repository.empty; }
 
 	/// Returns the exact version matched by the version range.
-	@property Version version_() const {
+	@property Version version_() const @safe {
 		enforce(this.m_range.isExactVersion(),
 				"Dependency "~this.versionSpec~" is no exact version.");
 		return this.m_range.m_versA;
@@ -193,13 +191,13 @@ struct Dependency {
 		comparators.
 
 	*/
-	@property void versionSpec(string ves)
+	@property void versionSpec(string ves) @safe
 	{
 		this.m_range = VersionRange.fromString(ves);
 	}
 
 	/// ditto
-	@property string versionSpec() const {
+	@property string versionSpec() const @safe {
 		return this.m_range.toString();
 	}
 
@@ -222,8 +220,7 @@ struct Dependency {
 	/** Returns a human-readable string representation of the dependency
 		specification.
 	*/
-	string toString()()
-	const {
+	string toString() const @safe {
 		string ret;
 
 		if (!repository.empty) {
@@ -350,16 +347,14 @@ struct Dependency {
 		These methods are suitable for equality comparisons, as well as for
 		using `Dependency` as a key in hash or tree maps.
 	*/
-	bool opEquals(scope const Dependency o)
-	const {
+	bool opEquals(scope const Dependency o) const @safe {
 		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
 		return this.m_range == o.m_range
 			&& o.m_optional == m_optional && o.m_default == m_default;
 	}
 
 	/// ditto
-	int opCmp(scope const Dependency o)
-	const {
+	int opCmp(scope const Dependency o) const @safe {
 		if (auto result = this.m_range.opCmp(o.m_range))
 			return result;
 		if (m_optional != o.m_optional) return m_optional ? -1 : 1;
@@ -370,7 +365,7 @@ struct Dependency {
 
 		A specification is valid if it can match at least one version.
 	*/
-	bool valid() const {
+	bool valid() const @safe {
 		if (this.isSCM) return true;
 		return this.m_range.isValid();
 	}
@@ -379,7 +374,7 @@ struct Dependency {
 
 		This is true in particular for the `any` constant.
 	*/
-	bool matchesAny() const scope { return this.m_range.matchesAny(); }
+	bool matchesAny() const scope @safe { return this.m_range.matchesAny(); }
 
 	unittest {
 		assert(Dependency("*").matchesAny);
@@ -390,11 +385,18 @@ struct Dependency {
 
 	/** Tests if the specification matches a specific version.
 	*/
-	bool matches(string vers, VersionMatchMode mode = VersionMatchMode.standard) const { return matches(Version(vers), mode); }
+	bool matches(string vers, VersionMatchMode mode = VersionMatchMode.standard) const @safe
+	{
+		return matches(Version(vers), mode);
+	}
 	/// ditto
-	bool matches(const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const { return matches(v, mode); }
+	bool matches(const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const @safe
+	{
+		return matches(v, mode);
+	}
 	/// ditto
-	bool matches(ref const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const {
+	bool matches(ref const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const @safe
+	{
 		if (this.matchesAny) return true;
 		if (this.isSCM) return true;
 		if (this.isExactVersion && mode == VersionMatchMode.strict
@@ -409,8 +411,7 @@ struct Dependency {
 		of versions matched by the individual specifications. Note that this
 		result can be invalid (i.e. not match any version).
 	*/
-	Dependency merge(ref const(Dependency) o)
-	const {
+	Dependency merge(ref const(Dependency) o) const @safe {
 		if (this.isSCM) {
 			if (!o.isSCM) return this;
 			if (this.m_range == o.m_range) return this;
