@@ -249,19 +249,23 @@ struct Dependency {
 		string (`versionSpec`), while more complex specifications will be
 		represented as a JSON object with optional "version", "path", "optional"
 		and "default" fields.
+
+		Params:
+		  selections = We are serializing `dub.selections.json`, don't write out
+			  `optional` and `default`.
 	*/
-	Json toJson()
+	Json toJson(bool selections = false)
 	const @trusted { // NOTE Path and Json is @system in vibe.d 0.7.x and in the compatibility layer
 		Json json;
-		if( path.empty && repository.empty && !optional ){
+		if (path.empty && repository.empty && (!optional || selections)) {
 			json = Json(this.versionSpec);
 		} else {
 			json = Json.emptyObject;
 			json["version"] = this.versionSpec;
 			if (!path.empty) json["path"] = path.toString();
 			if (!repository.empty) json["repository"] = repository.toString;
-			if (optional) json["optional"] = true;
-			if (default_) json["default"] = true;
+			if (!selections && optional) json["optional"] = true;
+			if (!selections && default_) json["default"] = true;
 		}
 		return json;
 	}
