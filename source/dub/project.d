@@ -10,6 +10,7 @@ module dub.project;
 import dub.compilers.compiler;
 import dub.dependency;
 import dub.description;
+import dub.generators.generator;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.core.log;
@@ -17,15 +18,14 @@ import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.packagemanager;
-import dub.generators.generator;
 
 import std.algorithm;
 import std.array;
 import std.conv : to;
 import std.datetime;
+import std.encoding : sanitize;
 import std.exception : enforce;
 import std.string;
-import std.encoding : sanitize;
 
 /**
 	Represents a full project, a root package with its dependencies and package
