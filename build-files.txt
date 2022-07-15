@@ -51,4 +51,5 @@ source/dub/internal/vibecompat/inet/url.d
 source/dub/recipe/io.d
 source/dub/recipe/json.d
 source/dub/recipe/packagerecipe.d
+source/dub/recipe/selection.d
 source/dub/recipe/sdl.d

@@ -18,6 +18,7 @@ import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.packagemanager;
+import dub.recipe.selection;
 
 import std.algorithm;
 import std.array;
@@ -1680,13 +1681,9 @@ unittest
 	"dub.selections.json" within a package's directory.
 */
 final class SelectedVersions {
-	private struct Selected {
-		Dependency dep;
-		//Dependency[string] packages;
-	}
 	private {
 		enum FileVersion = 1;
-		Selected[string] m_selections;
+		Selected m_selections;
 		bool m_dirty = false; // has changes since last save
 		bool m_bare = true;
 	}
@@ -1695,7 +1692,7 @@ final class SelectedVersions {
 	enum defaultFile = "dub.selections.json";
 
 	/// Constructs a new empty version selection.
-	public this(Selected[string] data = null) @safe pure nothrow @nogc
+	public this(Selected data = Selected(FileVersion)) @safe pure nothrow @nogc
 	{
 		this.m_selections = data;
 	}
@@ -1723,7 +1720,7 @@ final class SelectedVersions {
 	}
 
 	/// Returns a list of names for all packages that have a version selection.
-	@property string[] selectedPackages() const { return m_selections.keys; }
+	@property string[] selectedPackages() const { return m_selections.versions.keys; }
 
 	/// Determines if any changes have been made after loading the selections from a file.
 	@property bool dirty() const { return m_dirty; }
@@ -1734,36 +1731,37 @@ final class SelectedVersions {
 	/// Removes all selections.
 	void clear()
 	{
-		m_selections = null;
+		m_selections.versions = null;
 		m_dirty = true;
 	}
 
 	/// Duplicates the set of selected versions from another instance.
 	void set(SelectedVersions versions)
 	{
-		m_selections = versions.m_selections.dup;
+		m_selections.fileVersion = versions.m_selections.fileVersion;
+		m_selections.versions = versions.m_selections.versions.dup;
 		m_dirty = true;
 	}
 
 	/// Selects a certain version for a specific package.
 	void selectVersion(string package_id, Version version_)
 	{
-		if (auto ps = package_id in m_selections) {
-			if (ps.dep == Dependency(version_))
+		if (auto pdep = package_id in m_selections.versions) {
+			if (*pdep == Dependency(version_))
 				return;
 		}
-		m_selections[package_id] = Selected(Dependency(version_)/*, issuer*/);
+		m_selections.versions[package_id] = Dependency(version_);
 		m_dirty = true;
 	}
 
 	/// Selects a certain path for a specific package.
 	void selectVersion(string package_id, NativePath path)
 	{
-		if (auto ps = package_id in m_selections) {
-			if (ps.dep == Dependency(path))
+		if (auto pdep = package_id in m_selections.versions) {
+			if (*pdep == Dependency(path))
 				return;
 		}
-		m_selections[package_id] = Selected(Dependency(path));
+		m_selections.versions[package_id] = Dependency(path);
 		m_dirty = true;
 	}
 
@@ -1771,11 +1769,11 @@ final class SelectedVersions {
 	void selectVersionWithRepository(string package_id, Repository repository)
 	{
 		const dependency = Dependency(repository);
-		if (auto ps = package_id in m_selections) {
-			if (ps.dep == dependency)
+		if (auto pdep = package_id in m_selections.versions) {
+			if (*pdep == dependency)
 				return;
 		}
-		m_selections[package_id] = Selected(dependency);
+		m_selections.versions[package_id] = dependency;
 		m_dirty = true;
 	}
 
@@ -1788,14 +1786,14 @@ final class SelectedVersions {
 	/// Removes the selection for a particular package.
 	void deselectVersion(string package_id)
 	{
-		m_selections.remove(package_id);
+		m_selections.versions.remove(package_id);
 		m_dirty = true;
 	}
 
 	/// Determines if a particular package has a selection set.
 	bool hasSelectedVersion(string packageId)
 	const {
-		return (packageId in m_selections) !is null;
+		return (packageId in m_selections.versions) !is null;
 	}
 
 	/** Returns the selection for a particular package.
@@ -1808,7 +1806,7 @@ final class SelectedVersions {
 	Dependency getSelectedVersion(string packageId)
 	const {
 		enforce(hasSelectedVersion(packageId));
-		return m_selections[packageId].dep;
+		return m_selections.versions[packageId];
 	}
 
 	/** Stores the selections to disk.
@@ -1872,10 +1870,10 @@ final class SelectedVersions {
 	const {
 		Json json = serializeToJson(m_selections);
 		Json serialized = Json.emptyObject;
-		serialized["fileVersion"] = FileVersion;
+		serialized["fileVersion"] = m_selections.fileVersion;
 		serialized["versions"] = Json.emptyObject;
-		foreach (p, v; m_selections)
-			serialized["versions"][p] = dependencyToJson(v.dep);
+		foreach (p, dep; m_selections.versions)
+			serialized["versions"][p] = dependencyToJson(dep);
 		return serialized;
 	}
 
@@ -1884,7 +1882,7 @@ final class SelectedVersions {
 		enforce(cast(int)json["fileVersion"] == FileVersion, "Mismatched dub.select.json version: " ~ to!string(cast(int)json["fileVersion"]) ~ "vs. " ~to!string(FileVersion));
 		clear();
 		scope(failure) clear();
-		foreach (string p, v; json["versions"])
-			m_selections[p] = Selected(dependencyFromJson(v));
+		foreach (string p, dep; json["versions"])
+			m_selections.versions[p] = dependencyFromJson(dep);
 	}
 }
