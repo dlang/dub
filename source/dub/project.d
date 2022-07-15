@@ -512,7 +512,7 @@ shared static this() {
 						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
 						p = resolveSubPackage(p, subname, true);
 					} else if (!vspec.repository.empty) {
-						p = m_packageManager.loadSCMPackage(basename, vspec);
+						p = m_packageManager.loadSCMPackage(basename, vspec.repository);
 						p = resolveSubPackage(p, subname, true);
 					} else {
 						p = m_packageManager.getBestPackage(dep.name, vspec);
@@ -528,7 +528,7 @@ shared static this() {
 				}
 
 				if (!p && !vspec.repository.empty) {
-					p = m_packageManager.loadSCMPackage(basename, vspec);
+					p = m_packageManager.loadSCMPackage(basename, vspec.repository);
 					resolveSubPackage(p, subname, false);
 				}
 
