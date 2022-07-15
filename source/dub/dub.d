@@ -549,11 +549,9 @@ class Dub {
 			}
 		}
 
-		Dependency[string] versions;
-		auto resolver = new DependencyVersionResolver(this, options);
-		foreach (p; packages_to_upgrade)
-			resolver.addPackageToUpgrade(p);
-		versions = resolver.resolve(m_project.rootPackage, m_project.selections);
+		auto resolver = new DependencyVersionResolver(
+			this, options, m_project.rootPackage, m_project.selections);
+		Dependency[string] versions = resolver.resolve(packages_to_upgrade);
 
 		if (options & UpgradeOptions.dryRun) {
 			bool any = false;
@@ -1509,22 +1507,20 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	}
 
 
-	this(Dub dub, UpgradeOptions options)
+	this(Dub dub, UpgradeOptions options, Package root, SelectedVersions selected_versions)
 	{
 		m_dub = dub;
 		m_options = options;
-	}
-
-	void addPackageToUpgrade(string name)
-	{
-		m_packagesToUpgrade[name] = true;
-	}
-
-	Dependency[string] resolve(Package root, SelectedVersions selected_versions)
-	{
 		m_rootPackage = root;
 		m_selectedVersions = selected_versions;
-		return super.resolve(TreeNode(root.name, Dependency(root.version_)), (m_options & UpgradeOptions.printUpgradesOnly) == 0);
+	}
+
+	Dependency[string] resolve(string[] filter)
+	{
+		foreach (name; filter)
+			m_packagesToUpgrade[name] = true;
+		return super.resolve(TreeNode(m_rootPackage.name, Dependency(m_rootPackage.version_)),
+			(m_options & UpgradeOptions.printUpgradesOnly) == 0);
 	}
 
 	protected bool isFixedPackage(string pack)
