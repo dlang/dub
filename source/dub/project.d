@@ -1766,7 +1766,7 @@ final class SelectedVersions {
 	}
 
 	/// Selects a certain Git reference for a specific package.
-	void selectVersionWithRepository(string package_id, Repository repository)
+	void selectVersion(string package_id, Repository repository)
 	{
 		const dependency = Dependency(repository);
 		if (auto pdep = package_id in m_selections.versions) {
@@ -1777,10 +1777,10 @@ final class SelectedVersions {
 		m_dirty = true;
 	}
 
-	deprecated("Move `spec` inside of the `repository` parameter")
+	deprecated("Move `spec` inside of the `repository` parameter and call `selectVersion`")
 	void selectVersionWithRepository(string package_id, Repository repository, string spec)
 	{
-		this.selectVersionWithRepository(package_id, Repository(repository.remote(), spec));
+		this.selectVersion(package_id, Repository(repository.remote(), spec));
 	}
 
 	/// Removes the selection for a particular package.
