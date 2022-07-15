@@ -472,6 +472,10 @@ shared static this() {
 		m_missingDependencies = [];
 		m_packageManager.refresh(false);
 
+		Package resolveSubPackage(Package p, string subname, bool silentFail) {
+			return subname.length ? m_packageManager.getSubPackage(p, subname, silentFail) : p;
+		}
+
 		void collectDependenciesRec(Package pack, int depth = 0)
 		{
 			auto indent = replicate("  ", depth);
@@ -488,10 +492,6 @@ shared static this() {
 				// non-optional and optional-default dependencies (if no selections file exists)
 				// need to be satisfied
 				bool is_desired = !vspec.optional || m_selections.hasSelectedVersion(basename) || (vspec.default_ && m_selections.bare);
-
-				Package resolveSubPackage(Package p, in bool silentFail) {
-					return subname.length ? m_packageManager.getSubPackage(p, subname, silentFail) : p;
-				}
 
 				if (dep.name == m_rootPackage.basePackage.name) {
 					vspec = Dependency(m_rootPackage.version_);
@@ -510,10 +510,10 @@ shared static this() {
 						auto path = vspec.path;
 						if (!path.absolute) path = m_rootPackage.path ~ path;
 						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-						p = resolveSubPackage(p, true);
+						p = resolveSubPackage(p, subname, true);
 					} else if (!vspec.repository.empty) {
 						p = m_packageManager.loadSCMPackage(basename, vspec);
-						p = resolveSubPackage(p, true);
+						p = resolveSubPackage(p, subname, true);
 					} else {
 						p = m_packageManager.getBestPackage(dep.name, vspec);
 					}
@@ -521,7 +521,7 @@ shared static this() {
 					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
 					auto bp = m_dependencies[idx].basePackage;
 					vspec = Dependency(bp.path);
-					p = resolveSubPackage(bp, false);
+					p = resolveSubPackage(bp, subname, false);
 				} else {
 					logDiagnostic("%sVersion selection for dependency %s (%s) of %s is missing.",
 						indent, basename, dep.name, pack.name);
@@ -529,7 +529,7 @@ shared static this() {
 
 				if (!p && !vspec.repository.empty) {
 					p = m_packageManager.loadSCMPackage(basename, vspec);
-					resolveSubPackage(p, false);
+					resolveSubPackage(p, subname, false);
 				}
 
 				if (!p && !vspec.path.empty && is_desired) {
@@ -541,7 +541,7 @@ shared static this() {
 						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
 						p = p.parentPackage;
 					}
-					p = resolveSubPackage(p, false);
+					p = resolveSubPackage(p, subname, false);
 					enforce(p.name == dep.name,
 						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
 							path.toNativeString(), dep.name, p.name));
