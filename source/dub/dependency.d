@@ -229,7 +229,8 @@ struct Dependency {
 		if (!repository.empty) {
 			ret ~= repository.toString~"#";
 		}
-		ret ~= versionSpec;
+		if (path.empty)
+			ret ~= versionSpec;
 		if (optional) {
 			if (default_) ret ~= " (optional, default)";
 			else ret ~= " (optional)";
@@ -237,7 +238,7 @@ struct Dependency {
 
 		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
 		() @trusted {
-			if (!path.empty) ret ~= " @"~path.toNativeString();
+			if (!path.empty) ret ~= "@"~path.toNativeString();
 		} ();
 
 		return ret;

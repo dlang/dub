@@ -193,7 +193,7 @@ struct NativePath {
 	@property size_t length() const scope @safe pure nothrow @nogc { return m_nodes.length; }
 
 	/// True if the path contains no entries
-	@property bool empty() const { return m_nodes.length == 0; }
+	@property bool empty() const scope @safe pure nothrow @nogc { return m_nodes.length == 0; }
 
 	/// Determines if the path ends with a slash (i.e. is a directory)
 	@property bool endsWithSlash() const { return m_endsWithSlash; }
