@@ -528,30 +528,30 @@ shared static this() {
 						indent, basename, dep.name, pack.name);
 				}
 
-				if (!p && !vspec.repository.empty) {
-					p = m_packageManager.loadSCMPackage(basename, vspec.repository);
-					resolveSubPackage(p, subname, false);
-				}
-
-				if (!p && !vspec.path.empty && is_desired) {
-					NativePath path = vspec.path;
-					if (!path.absolute) path = pack.path ~ path;
-					logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
-					p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-					if (p.parentPackage !is null) {
-						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
-						p = p.parentPackage;
+				// We didn't find the package
+				if (p is null)
+				{
+					if (!vspec.repository.empty) {
+						p = m_packageManager.loadSCMPackage(basename, vspec.repository);
+						resolveSubPackage(p, subname, false);
+					} else if (!vspec.path.empty && is_desired) {
+						NativePath path = vspec.path;
+						if (!path.absolute) path = pack.path ~ path;
+						logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
+						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
+						if (p.parentPackage !is null) {
+							logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
+							p = p.parentPackage;
+						}
+						p = resolveSubPackage(p, subname, false);
+						enforce(p.name == dep.name,
+							format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
+								path.toNativeString(), dep.name, p.name));
+					} else {
+						logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
+						if (is_desired) m_missingDependencies ~= dep.name;
+						continue;
 					}
-					p = resolveSubPackage(p, subname, false);
-					enforce(p.name == dep.name,
-						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
-							path.toNativeString(), dep.name, p.name));
-				}
-
-				if (!p) {
-					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
-					if (is_desired) m_missingDependencies ~= dep.name;
-					continue;
 				}
 
 				if (!m_dependencies.canFind(p)) {
