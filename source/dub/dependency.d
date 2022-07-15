@@ -171,9 +171,6 @@ struct Dependency {
 		);
 	}
 
-	/// Determines whether it is a Git dependency.
-	@property bool isSCM() const @safe { return !repository.empty; }
-
 	/// Returns the exact version matched by the version range.
 	@property Version version_() const @safe {
 		auto range = this.m_value.tryMatch!(
@@ -805,7 +802,7 @@ struct Version {
 	this(string vers) @safe pure
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		if (vers[0] != branchPrefix && !vers.isGitHash && vers.ptr !is UNKNOWN_VERS.ptr)
+		if (vers[0] != branchPrefix && vers.ptr !is UNKNOWN_VERS.ptr)
 			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
 		m_version = vers;
 	}
@@ -820,12 +817,6 @@ struct Version {
 	bool opEquals(scope const Version oth) const scope @safe pure
 	{
 		return opCmp(oth) == 0;
-	}
-
-	/// Tests if this represents a hash instead of a version.
-	@property bool isSCM() const scope @safe pure nothrow @nogc
-	{
-		return m_version.isGitHash;
 	}
 
 	/// Tests if this represents a branch instead of a version.
@@ -846,7 +837,7 @@ struct Version {
 	*/
 	@property bool isPreRelease() const scope @safe pure nothrow @nogc
 	{
-		if (isBranch || isSCM) return true;
+		if (isBranch) return true;
 		return isPreReleaseVersion(m_version);
 	}
 
@@ -877,12 +868,6 @@ struct Version {
 	{
 		if (isUnknown || other.isUnknown) {
 			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, other));
-		}
-
-		if (isSCM || other.isSCM) {
-			if (!isSCM) return -1;
-			if (!other.isSCM) return 1;
-			return m_version == other.m_version ? 0 : 1;
 		}
 
 		if (isBranch || other.isBranch) {
@@ -1008,7 +993,7 @@ private struct VersionRange
 				true, false);
 		}
 
-		if (ves[0] == Version.branchPrefix || ves.isGitHash) {
+		if (ves[0] == Version.branchPrefix) {
 			auto ver = Version(ves);
 			return VersionRange(ver, ver, true, true);
 		}
@@ -1185,8 +1170,6 @@ unittest {
 	assertThrown(a == b, "Failed: UNKNOWN == UNKNOWN");
 
 	assert(Version("1.0.0+a") == Version("1.0.0+b"));
-
-	assert(Version("73535568b79a0b124bc1653002637a830ce0fcb8").isSCM);
 
 	assert(Version("1.0.0").matches(Version("1.0.0+foo")));
 	assert(Version("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.standard));
