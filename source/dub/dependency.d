@@ -982,7 +982,7 @@ private struct VersionRange
 
 		string r;
 
-		if (this == Dependency.invalid.m_range) return "invalid";
+		if (this == Invalid) return "invalid";
 		if (this.isExactVersion() && m_inclusiveA && m_inclusiveB) {
 			// Special "==" case
 			if (m_versA == Version.masterBranch) return "~master";
