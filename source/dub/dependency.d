@@ -875,7 +875,8 @@ private struct VersionRange
 		return 0;
 	}
 
-	public bool matches (ref const Version v) const @safe
+	public bool matches (ref const Version v, VersionMatchMode mode = VersionMatchMode.standard)
+		const @safe
 	{
 		if (m_versA.isBranch) {
 			enforce(this.isExactVersion());
@@ -884,6 +885,9 @@ private struct VersionRange
 
 		if (v.isBranch)
 			return m_versA == v;
+
+		if (m_versA == m_versB)
+			return this.m_versA.matches(v, mode);
 
 		return doCmp(m_inclusiveA, m_versA, v) &&
 			doCmp(m_inclusiveB, v, m_versB);
