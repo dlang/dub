@@ -471,7 +471,6 @@ class Dub {
 		auto recipe_default_package_name = path.toString.baseName.stripExtension.strip;
 
 		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, null, recipe_default_package_name);
-		import dub.internal.vibecompat.core.log; logInfo("parsePackageRecipe %s", recipe_filename);
 		enforce(recipe.buildSettings.sourceFiles.length == 0, "Single-file packages are not allowed to specify source files.");
 		enforce(recipe.buildSettings.sourcePaths.length == 0, "Single-file packages are not allowed to specify source paths.");
 		enforce(recipe.buildSettings.importPaths.length == 0, "Single-file packages are not allowed to specify import paths.");
