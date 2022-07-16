@@ -187,18 +187,15 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	auto attrs = t.attributes;
 
 	if ("path" in attrs) {
-		if ("version" in attrs)
-			logDiagnostic("Ignoring version specification (%s) for path based dependency %s", attrs["version"][0].value.get!string, attrs["path"][0].value.get!string);
-		dep.versionSpec = "*";
-		dep.path = NativePath(attrs["path"][0].value.get!string);
+		dep = Dependency(NativePath(attrs["path"][0].value.get!string));
 	} else if ("repository" in attrs) {
 		enforceSDL("version" in attrs, "Missing version specification.", t);
 
-		dep.repository = Repository(attrs["repository"][0].value.get!string,
-                                    attrs["version"][0].value.get!string);
+		dep = Dependency(Repository(attrs["repository"][0].value.get!string,
+                                    attrs["version"][0].value.get!string));
 	} else {
 		enforceSDL("version" in attrs, "Missing version specification.", t);
-		dep.versionSpec = attrs["version"][0].value.get!string;
+		dep = Dependency(attrs["version"][0].value.get!string);
 	}
 
 	if ("optional" in attrs)
