@@ -1,0 +1,4 @@
+Dub now fetches dependencies in parallel
+
+Dub now uses multiple worker threads to fetch dependencies.
+For projects with many dependencies this can reduce the dependency fetch time by a half.
