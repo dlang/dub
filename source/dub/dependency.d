@@ -259,8 +259,11 @@ struct Dependency {
 			json = Json(this.versionSpec);
 		} else {
 			json = Json.emptyObject;
-			json["version"] = this.versionSpec;
-			if (!path.empty) json["path"] = path.toString();
+			if (!path.empty) {
+				json["path"] = path.toString();
+			} else {
+				json["version"] = this.versionSpec;
+			}
 			if (!repository.empty) json["repository"] = repository.toString;
 			if (!selections && optional) json["optional"] = true;
 			if (!selections && default_) json["default"] = true;
@@ -283,6 +286,12 @@ struct Dependency {
 			"version": Json("1.0.0")
 		]);
 		assert(dependency.toJson() == expected, "Failed: " ~ dependency.toJson().toPrettyString());
+	}
+
+	@trusted unittest {
+		Dependency d = Dependency(NativePath("dir"));
+		Json expected = Json([ "path": Json("dir") ]);
+		assert(d.toJson() == expected, "Failed: " ~ d.toJson().toPrettyString());
 	}
 
 	/** Constructs a new `Dependency` from its JSON representation.
