@@ -454,7 +454,7 @@ int runDubCommandLine(string[] args)
 	auto common_args = new CommandArgs(args[1..$]);
 
 	try handler.prepareOptions(common_args);
-	catch (Throwable e) {
+	catch (Exception e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		logInfo("Run 'dub help' for usage information.");
@@ -477,7 +477,7 @@ int runDubCommandLine(string[] args)
 
 	try {
 		cmd = handler.prepareCommand(command_name_argument.value, command_args);
-	} catch (Throwable e) {
+	} catch (Exception e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		logInfo("Run 'dub help' for usage information.");
@@ -523,7 +523,7 @@ int runDubCommandLine(string[] args)
 		logInfo(`Run "dub %s -h" for more information about the "%s" command.`, cmd.name, cmd.name);
 		return 1;
 	}
-	catch (Throwable e) {
+	catch (Exception e) {
 		logError("%s", e.msg);
 		logDebug("Full exception: %s", e.toString().sanitize);
 		return 2;
