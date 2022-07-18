@@ -44,6 +44,7 @@ jobs:
           - { dc: dmd-2.095.1, do_test: false }
           - { dc: dmd-2.098.1, do_test: false }
           - { dc: ldc-1.23.0 , do_test: false }
+          - { os: ubuntu-22.04, dc: gdc-12 }
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -63,8 +64,24 @@ jobs:
     # Compiler to test with
     - name: Prepare compiler
       uses: dlang-community/setup-dlang@v1
+      if: ${{ matrix.dc != 'gdc-12' }}
       with:
         compiler: ${{ matrix.dc }}
+
+    - name: Install dub
+      uses: dlang-community/setup-dlang@v1
+      if: ${{ matrix.dc == 'gdc-12' }}
+      with:
+        # Something that probably won't work
+        compiler: dmd-2.070.0
+        dub:      1.29.0
+
+    - name: '[GDC] Install & prepare'
+      if: ${{ matrix.dc == 'gdc-12' }}
+      run: |
+        dub --version
+        sudo apt-get install ${{ matrix.dc }}
+        echo "DC=${{ matrix.dc }}" >> $GITHUB_ENV
 
     # Checkout the repository
     - name: Checkout
