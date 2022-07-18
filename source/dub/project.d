@@ -1874,8 +1874,10 @@ final class SelectedVersions {
 
 	private void deserialize(Json json)
 	{
-		enforce(cast(int)json["fileVersion"] == FileVersion, "Mismatched dub.select.json version: " ~ to!string(cast(int)json["fileVersion"]) ~ "vs. " ~to!string(FileVersion));
+		const fileVersion = cast(int)json["fileVersion"];
+		enforce(fileVersion == FileVersion, "Mismatched dub.selections.json version: " ~ to!string(fileVersion) ~ " vs. " ~ to!string(FileVersion));
 		clear();
+		m_selections.fileVersion = fileVersion;
 		scope(failure) clear();
 		foreach (string p, dep; json["versions"])
 			m_selections.versions[p] = dependencyFromJson(dep);
