@@ -326,6 +326,8 @@ class Dub {
 	*/
 	@property NativePath rootPath() const { return m_rootPath; }
 	/// ditto
+	deprecated("Changing the root path is deprecated as it has non-obvious pitfalls " ~
+			   "(e.g. settings aren't reloaded). Instantiate a new `Dub` instead")
 	@property void rootPath(NativePath root_path)
 	{
 		m_rootPath = root_path;
