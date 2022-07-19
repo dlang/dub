@@ -77,13 +77,21 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 	else assert(false, "readPackageRecipe called with filename with unknown extension: "~filename);
 
 	// Fix for issue #711: `targetType` should be inherited, or default to library
-	TargetType defaultTT = (ret.buildSettings.targetType == TargetType.autodetect) ?
-		TargetType.library : ret.buildSettings.targetType;
-	foreach (ref conf; ret.configurations)
-		if (conf.buildSettings.targetType == TargetType.autodetect)
-			conf.buildSettings.targetType = defaultTT;
+	static void sanitizeTargetType(ref PackageRecipe r) {
+		TargetType defaultTT = (r.buildSettings.targetType == TargetType.autodetect) ?
+			TargetType.library : r.buildSettings.targetType;
+		foreach (ref conf; r.configurations)
+			if (conf.buildSettings.targetType == TargetType.autodetect)
+				conf.buildSettings.targetType = defaultTT;
 
-    return ret;
+		// recurse into sub packages
+		foreach (ref subPackage; r.subPackages)
+			sanitizeTargetType(subPackage.recipe);
+	}
+
+	sanitizeTargetType(ret);
+
+	return ret;
 }
 
 
@@ -129,6 +137,23 @@ unittest { // issue #711 - configuration default target type not correct for SDL
 		assert(pr.configurations.length == 1);
 		assert(pr.configurations[0].name == "a");
 		assert(pr.configurations[0].buildSettings.targetType == TargetType.executable);
+	}
+}
+
+unittest { // make sure targetType of sub packages are sanitized too
+	import dub.compilers.buildsettings : TargetType;
+	auto inputs = [
+		"dub.sdl": "name \"test\"\nsubPackage {\nname \"sub\"\ntargetType \"sourceLibrary\"\nconfiguration \"a\" {\n}\n}",
+		"dub.json": "{\"name\": \"test\", \"subPackages\": [ { \"name\": \"sub\", \"targetType\": \"sourceLibrary\", \"configurations\": [{\"name\": \"a\"}] } ] }"
+	];
+	foreach (file, content; inputs) {
+		auto pr = parsePackageRecipe(content, file);
+		assert(pr.name == "test");
+		const spr = pr.subPackages[0].recipe;
+		assert(spr.name == "sub");
+		assert(spr.configurations.length == 1);
+		assert(spr.configurations[0].name == "a");
+		assert(spr.configurations[0].buildSettings.targetType == TargetType.sourceLibrary);
 	}
 }
 
