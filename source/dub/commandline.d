@@ -238,8 +238,7 @@ struct CommandLineHandler
 		Dub dub;
 
 		if (options.bare) {
-			dub = new Dub(NativePath(getcwd()));
-			dub.rootPath = NativePath(options.root_path);
+			dub = new Dub(NativePath(options.root_path));
 			dub.defaultPlacementLocation = options.placementLocation;
 
 			return dub;
@@ -559,7 +558,7 @@ struct CommonOptions {
 			"  all: Only search registries specified with --registry",
 			]);
 		args.getopt("annotate", &annotate, ["Do not perform any action, just print what would be done"]);
-		args.getopt("bare", &bare, ["Read only packages contained in the current directory"]);
+		args.getopt("bare", &bare, ["Read only packages contained in the root directory"]);
 		args.getopt("v|verbose", &verbose, ["Print diagnostic output"]);
 		args.getopt("vverbose", &vverbose, ["Print debug output"]);
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
