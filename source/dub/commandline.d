@@ -758,8 +758,7 @@ class Command {
 		Dub dub;
 
 		if (options.bare) {
-			dub = new Dub(NativePath(getcwd()));
-			dub.rootPath = NativePath(options.root_path);
+			dub = new Dub(NativePath(options.root_path), NativePath(getcwd()));
 			dub.defaultPlacementLocation = options.placementLocation;
 
 			return dub;
@@ -2379,7 +2378,7 @@ class DustmiteCommand : PackageBuildCommand {
 	{
 		if (!m_testPackage.length)
 			return super.prepareDub(options);
-		return new Dub(NativePath(getcwd()));
+		return new Dub(NativePath(options.root_path), NativePath(getcwd()));
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
