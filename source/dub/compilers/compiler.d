@@ -113,7 +113,7 @@ interface Compiler {
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback);
 
 	/// Convert linker flags to compiler format
-	string[] lflagsToDFlags(in string[] lflags) const;
+	string[] lflagsToDFlags(const string[] lflags) const;
 
 	/// Determines compiler version
 	string determineVersion(string compiler_binary, string verboseOutput);
