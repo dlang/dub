@@ -10,7 +10,7 @@ import std.string : format;
 
 private template color_type(int offset)
 {
-	static enum type : int
+	enum type : int
 	{
 		init = 39 + offset,
 
@@ -38,7 +38,7 @@ alias color_type!0 .type fg;
 alias color_type!10 .type bg;
 
 // Text modes
-static enum mode : int
+enum mode : int
 {
 	init      = 0,
 	bold      = 1,
@@ -64,7 +64,6 @@ static enum mode : int
  * );
  * ---
  */
-
 string color(
 	const string str,
 	const fg c=fg.init,
@@ -90,71 +89,6 @@ unittest
 
 	ret = "This is red on blue blinking".color(fg.red, bg.blue, mode.blink);
 	assert(ret == "\033[5;31;44mThis is red on blue blinking\033[0m");
-
-	ret = color("This is magenta", "magenta");
-	assert(ret == "\033[35mThis is magenta\033[0m");
-}
-
-string colorHelper(const string str, const string name) pure
-{
-	int code;
-
-	switch(name)
-	{
-		case "init": code = 39; break;
-
-		case "black"  : code = 30; break;
-		case "red"    : code = 31; break;
-		case "green"  : code = 32; break;
-		case "yellow" : code = 33; break;
-		case "blue"   : code = 34; break;
-		case "magenta": code = 35; break;
-		case "cyan"   : code = 36; break;
-		case "white"  : code = 37; break;
-
-		case "light_black"  : code = 90; break;
-		case "light_red"    : code = 91; break;
-		case "light_green"  : code = 92; break;
-		case "light_yellow" : code = 93; break;
-		case "light_blue"   : code = 94; break;
-		case "light_magenta": code = 95; break;
-		case "light_cyan"   : code = 96; break;
-		case "light_white"  : code = 97; break;
-
-		case "bg_init": code = 49; break;
-
-		case "bg_black"  : code = 40; break;
-		case "bg_red"    : code = 41; break;
-		case "bg_green"  : code = 42; break;
-		case "bg_yellow" : code = 43; break;
-		case "bg_blue"   : code = 44; break;
-		case "bg_magenta": code = 45; break;
-		case "bg_cyan"   : code = 46; break;
-		case "bg_white"  : code = 47; break;
-
-		case "bg_light_black"  : code = 100; break;
-		case "bg_light_red"    : code = 101; break;
-		case "bg_light_green"  : code = 102; break;
-		case "bg_light_yellow" : code = 103; break;
-		case "bg_light_blue"   : code = 104; break;
-		case "bg_light_magenta": code = 105; break;
-		case "bg_light_cyan"   : code = 106; break;
-		case "bg_light_white"  : code = 107; break;
-
-		case "mode_init": code = 0; break;
-		case "mode_bold"     : code = 1; break;
-		case "mode_underline": code = 4; break;
-		case "mode_blink"    : code = 5; break;
-		case "mode_swap"     : code = 7; break;
-		case "mode_hide"     : code = 8; break;
-
-		default:
-			throw new Exception(
-				"Unknown fg color, bg color or mode \"" ~ name ~ "\""
-			);
-	}
-
-	return format("\033[%dm%s\033[0m", code, str);
 }
 
 string colorHelper(T)(const string str, const T t=T.init) pure
@@ -163,14 +97,10 @@ string colorHelper(T)(const string str, const T t=T.init) pure
 	return format("\033[%dm%s\033[0m", t, str);
 }
 
-alias colorHelper!bg background;
-alias colorHelper!fg foreground;
-alias colorHelper!mode style;
-
-alias background color;
-alias foreground color;
-alias style color;
-alias colorHelper color;
+alias background = colorHelper!bg;
+alias foreground = colorHelper!fg;
+alias style = colorHelper!mode;
+alias color = colorHelper;
 
 unittest
 {
