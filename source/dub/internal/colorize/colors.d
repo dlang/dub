@@ -76,19 +76,21 @@ string color(
 
 unittest
 {
+	import std.string : representation;
+
 	string ret;
 
 	ret = "This is yellow".color(fg.yellow);
-	assert(ret == "\033[33mThis is yellow\033[0m");
+	assert(ret.representation == "\033[0;33;49mThis is yellow\033[0m".representation);
 
 	ret = "This is light green".color(fg.light_green);
-	assert(ret == "\033[92mThis is light green\033[0m");
+	assert(ret.representation == "\033[0;92;49mThis is light green\033[0m".representation);
 
 	ret = "This is light blue with red background".color(fg.light_blue, bg.red);
-	assert(ret == "\033[0;94;41mThis is light blue with red background\033[0m");
+	assert(ret.representation == "\033[0;94;41mThis is light blue with red background\033[0m".representation);
 
 	ret = "This is red on blue blinking".color(fg.red, bg.blue, mode.blink);
-	assert(ret == "\033[5;31;44mThis is red on blue blinking\033[0m");
+	assert(ret.representation == "\033[5;31;44mThis is red on blue blinking\033[0m".representation);
 }
 
 string colorHelper(T)(const string str, const T t=T.init) pure
@@ -104,12 +106,13 @@ alias color = colorHelper;
 
 unittest
 {
+	import std.string : representation;
+
 	string ret;
 
 	ret = "This is red on blue blinking"
 		.foreground(fg.red)
 		.background(bg.blue)
 		.style(mode.blink);
-
-	assert(ret == "\033[5m\033[44m\033[31mThis is red on blue blinking\033[0m\033[0m\033[0m");
+	assert(ret.representation == "\033[5m\033[44m\033[31mThis is red on blue blinking\033[0m\033[0m\033[0m".representation);
 }
