@@ -268,7 +268,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
 	}
 
-	string[] lflagsToDFlags(in string[] lflags) const
+	string[] lflagsToDFlags(const string[] lflags) const
 	{
         return map!(f => "-L"~f)(lflags.filter!(f => f != "")()).array();
 	}

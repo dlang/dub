@@ -398,7 +398,7 @@ config    /etc/dmd.conf
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
 	}
 
-	string[] lflagsToDFlags(in string[] lflags) const
+	string[] lflagsToDFlags(const string[] lflags) const
 	{
         return map!(f => "-L"~f)(lflags.filter!(f => f != "")()).array();
 	}

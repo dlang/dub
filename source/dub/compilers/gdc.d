@@ -236,7 +236,7 @@ class GDCCompiler : Compiler {
 		invokeTool(args, output_callback, env);
 	}
 
-	string[] lflagsToDFlags(in string[] lflags) const
+	string[] lflagsToDFlags(const string[] lflags) const
 	{
 		string[] dflags;
 		foreach( f; lflags )
