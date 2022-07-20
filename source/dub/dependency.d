@@ -491,7 +491,7 @@ struct Dependency {
 		of versions matched by the individual specifications. Note that this
 		result can be invalid (i.e. not match any version).
 	*/
-	Dependency merge(ref const(Dependency) o) const @trusted {
+	Dependency merge_(ref const(Dependency) o) const @trusted {
 		alias Merger = match!(
 			// First check the repository. We ignore remote and simply compare ref
 			// A repository takes precedence over any other dependency for backward
@@ -560,34 +560,34 @@ unittest { // Dependency.matches(Dependency)
 
 unittest {
 	Dependency a = Dependency(">=1.1.0"), b = Dependency(">=1.3.0");
-	assert (a.merge(b).valid() && a.merge(b).versionSpec == ">=1.3.0", a.merge(b).toString());
+	assert (a.merge_(b).valid() && a.merge_(b).versionSpec == ">=1.3.0", a.merge_(b).toString());
 
 	assertThrown(Dependency("<=2.0.0 >=1.0.0"));
 	assertThrown(Dependency(">=2.0.0 <=1.0.0"));
 
 	a = Dependency(">=1.0.0 <=5.0.0"); b = Dependency(">=2.0.0");
-	assert (a.merge(b).valid() && a.merge(b).versionSpec == ">=2.0.0 <=5.0.0", a.merge(b).toString());
+	assert (a.merge_(b).valid() && a.merge_(b).versionSpec == ">=2.0.0 <=5.0.0", a.merge_(b).toString());
 
 	assertThrown(a = Dependency(">1.0.0 ==5.0.0"), "Construction is invalid");
 
 	a = Dependency(">1.0.0"); b = Dependency("<2.0.0");
-	assert (a.merge(b).valid(), a.merge(b).toString());
-	assert (a.merge(b).versionSpec == ">1.0.0 <2.0.0", a.merge(b).toString());
+	assert (a.merge_(b).valid(), a.merge_(b).toString());
+	assert (a.merge_(b).versionSpec == ">1.0.0 <2.0.0", a.merge_(b).toString());
 
 	a = Dependency(">2.0.0"); b = Dependency("<1.0.0");
-	assert (!(a.merge(b)).valid(), a.merge(b).toString());
+	assert (!(a.merge_(b)).valid(), a.merge_(b).toString());
 
 	a = Dependency(">=2.0.0"); b = Dependency("<=1.0.0");
-	assert (!(a.merge(b)).valid(), a.merge(b).toString());
+	assert (!(a.merge_(b)).valid(), a.merge_(b).toString());
 
 	a = Dependency("==2.0.0"); b = Dependency("==1.0.0");
-	assert (!(a.merge(b)).valid(), a.merge(b).toString());
+	assert (!(a.merge_(b)).valid(), a.merge_(b).toString());
 
 	a = Dependency("1.0.0"); b = Dependency("==1.0.0");
 	assert (a == b);
 
 	a = Dependency("<=2.0.0"); b = Dependency("==1.0.0");
-	Dependency m = a.merge(b);
+	Dependency m = a.merge_(b);
 	assert (m.valid(), m.toString());
 	assert (m.matches(Version("1.0.0")));
 	assert (!m.matches(Version("1.1.0")));
@@ -599,7 +599,7 @@ unittest {
 	assert(a.valid());
 	assert(a.matches(Version.masterBranch));
 	b = Dependency(Version.masterBranch);
-	m = a.merge(b);
+	m = a.merge_(b);
 	assert(m.matches(Version.masterBranch));
 
 	//assertThrown(a = Dependency(Version.MASTER_STRING ~ " <=1.0.0"), "Construction invalid");
@@ -613,9 +613,9 @@ unittest {
 
 	a = Dependency(branch1);
 	b = Dependency(branch2);
-	assert(!a.merge(b).valid, "Shouldn't be able to merge to different branches");
-	b = a.merge(a);
-	assert(b.valid, "Should be able to merge the same branches. (?)");
+	assert(!a.merge_(b).valid, "Shouldn't be able to merge_ to different branches");
+	b = a.merge_(a);
+	assert(b.valid, "Should be able to merge_ the same branches. (?)");
 	assert(a == b);
 
 	a = Dependency(branch1);
@@ -631,11 +631,11 @@ unittest {
 	a = Dependency(">=1.0.0");
 	assert(!a.optional, "Default is not optional.");
 	b = a;
-	assert(!a.merge(b).optional, "Merging two not optional dependencies wrong.");
+	assert(!a.merge_(b).optional, "Merging two not optional dependencies wrong.");
 	a.optional = true;
-	assert(!a.merge(b).optional, "Merging optional with not optional wrong.");
+	assert(!a.merge_(b).optional, "Merging optional with not optional wrong.");
 	b.optional = true;
-	assert(a.merge(b).optional, "Merging two optional dependencies wrong.");
+	assert(a.merge_(b).optional, "Merging two optional dependencies wrong.");
 
 	// SemVer's sub identifiers.
 	a = Dependency(">=1.0.0-beta");
@@ -668,13 +668,13 @@ unittest {
 
 	a = Dependency("~>0.1.1");
 	b = Dependency("==0.1.0");
-	assert(!a.merge(b).valid);
+	assert(!a.merge_(b).valid);
 	b = Dependency("==0.1.9999");
-	assert(a.merge(b).valid);
+	assert(a.merge_(b).valid);
 	b = Dependency("==0.2.0");
-	assert(!a.merge(b).valid);
+	assert(!a.merge_(b).valid);
 	b = Dependency("==0.2.0-beta.1");
-	assert(!a.merge(b).valid);
+	assert(!a.merge_(b).valid);
 
 	a = Dependency("~>1.0.1-beta");
 	b = Dependency(">=1.0.1-beta <1.1.0-0");
@@ -700,22 +700,22 @@ unittest {
 	assert(a.matches(Version("1.0.0")));
 	assert(a.matches(Version("0.0.1-pre")));
 	b = Dependency(">=1.0.1");
-	assert(b == a.merge(b));
-	assert(b == b.merge(a));
+	assert(b == a.merge_(b));
+	assert(b == b.merge_(a));
 	b = Dependency(Version.masterBranch);
-	assert(a.merge(b) == b);
-	assert(b.merge(a) == b);
+	assert(a.merge_(b) == b);
+	assert(b.merge_(a) == b);
 
 	a.optional = true;
 	assert(a.matches(Version.masterBranch));
 	assert(a.matches(Version("1.0.0")));
 	assert(a.matches(Version("0.0.1-pre")));
 	b = Dependency(">=1.0.1");
-	assert(b == a.merge(b));
-	assert(b == b.merge(a));
+	assert(b == a.merge_(b));
+	assert(b == b.merge_(a));
 	b = Dependency(Version.masterBranch);
-	assert(a.merge(b) == b);
-	assert(b.merge(a) == b);
+	assert(a.merge_(b) == b);
+	assert(b.merge_(a) == b);
 
 	assert(Dependency("1.0.0").matches(Version("1.0.0+foo")));
 	assert(Dependency("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.standard));
