@@ -105,20 +105,18 @@ extern (C) int isatty(int);
 /**
 	This function must be called at the beginning for the program, before any
 	logging occurs. It will detect whether or not stdout/stderr are a console/TTY
-	and will consequently disable colored output if needed.
+	and will consequently disable colored output if needed. Also, if a NO_COLOR
+	environment variable is defined, colors are disabled (https://no-color.org/).
 
 	Forgetting to call the function will result in ASCII escape sequences in the
-	piped output, probably an undesiderable thing.
+	piped output, probably an undesirable thing.
 */
 void initLogging()
 {
+	import std.process : environment;
 	import core.stdc.stdio;
 
-	// Initially enable colors, we'll disable them during this functions if we
-	// find any reason to
-	_printColors = true;
-
-	// The following stuff depends on the platform
+	_printColors = environment.get("NO_COLOR") == "";
 	version (Windows)
 	{
 		version (CRuntime_DigitalMars)

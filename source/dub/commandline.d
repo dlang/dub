@@ -166,13 +166,17 @@ struct CommandLineHandler
 			options.root_path = options.root_path.expandTilde.absolutePath.buildNormalizedPath;
 		}
 
-		if (options.colors_mode == "" || options.colors_mode == "auto") {
-			// we already detected whether to enable colors or not with initLogging() above
-			// this if case is here just to make the else below work correctly
-		} else if (options.colors_mode == "on") {
-			setLoggingColorsEnabled(true); // enable colors, no matter what
-		} else if (options.colors_mode == "off") {
-			setLoggingColorsEnabled(false); // disable colors, no matter what
+		final switch (options.colors_mode) with (options.colors)
+		{
+			case automatic:
+				// Use default determined in internal.logging.initLogging().
+				break;
+			case on:
+				setLoggingColorsEnabled(true);  // enable colors, no matter what
+				break;
+			case off:
+				setLoggingColorsEnabled(false); // disable colors, no matter what
+				break;
 		}
 	}
 
@@ -549,7 +553,8 @@ struct CommonOptions {
 	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
-	string colors_mode;
+	enum colors { automatic, on, off } // Style violation in support of invalid option error formatting.
+	colors colors_mode = colors.automatic;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
 	PlacementLocation placementLocation = PlacementLocation.user;
 
@@ -578,10 +583,11 @@ struct CommonOptions {
 		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
 		args.getopt("colors", &colors_mode, [
-			"Confiugre color output",
-			"  auto: Automatically turn on/off colors (default)",
-			"  on: Force colors enabled",
-			"  off: Force colors disabled"
+			"Configure colored output. Accepted values:",
+			"  automatic: Colored output on console/terminal,",
+			"             unless NO_COLOR is defined (default)",
+			"         on: Force colors enabled",
+			"        off: Force colors disabled"
 			]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 
@@ -1782,7 +1788,7 @@ class UpgradeCommand : Command {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(!m_verify, "--verify is not yet implemented.");
 		enforce(loadCwdPackage(dub, true), "Failed to load package.");
-		logInfo("Upgrading", Color.yellow, "project in %s", dub.projectPath.toNativeString());
+		logInfo("Upgrading", Color.cyan, "project in %s", dub.projectPath.toNativeString().color(Mode.bold));
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;

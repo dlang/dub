@@ -549,7 +549,7 @@ class Dub {
 				if (basename == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
-					logInfo("Upgrade", Color.yellow,
+					logInfo("Upgrade", Color.cyan,
 						"Package %s would be selected with version %s", basename, ver);
 					any = true;
 					continue;
@@ -557,7 +557,7 @@ class Dub {
 				auto sver = m_project.selections.getSelectedVersion(basename);
 				if (!sver.path.empty || !sver.repository.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
-        logInfo("Upgrade", Color.yellow,
+        logInfo("Upgrade", Color.cyan,
           "%s would be upgraded %s to %s.",
 					basename.color(Mode.bold), sver, ver);
 				any = true;
@@ -728,7 +728,7 @@ class Dub {
 	/// Cleans intermediate/cache files of the given package
 	void cleanPackage(NativePath path)
 	{
-		logInfo("Cleaning", Color.green, "package at %s", path.toNativeString());
+		logInfo("Cleaning", Color.green, "package at %s", path.toNativeString().color(Mode.bold));
 		enforce(!Package.findPackageFile(path).empty, "No package found.", path.toNativeString());
 
 		// TODO: clear target files and copy files
@@ -1141,7 +1141,7 @@ class Dub {
 		}
 
 		//Act smug to the user.
-		logInfo("Success", Color.green, "created empty project in %s", path.toNativeString());
+		logInfo("Success", Color.green, "created empty project in %s", path.toNativeString().color(Mode.bold));
 	}
 
 	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
