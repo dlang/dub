@@ -105,6 +105,8 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
 	{
 		import std.format : format;
+
+		settings.addOptions(BuildOption.warningsAsErrors);
 		enforceBuildRequirements(settings);
 
 		if (!(fields & BuildSetting.options)) {
