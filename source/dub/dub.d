@@ -1668,8 +1668,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 	protected override bool matches(Dependency configs, Dependency config)
 	{
-		if (!configs.path.empty) return configs.path == config.path;
-		return configs.merge(config).valid;
+		return configs.matches(config);
 	}
 
 	private Package getPackage(string name, Dependency dep)

@@ -451,7 +451,7 @@ shared static this() {
 				auto basename = getBasePackageName(d.name);
 				if (m_selections.hasSelectedVersion(basename)) {
 					auto selver = m_selections.getSelectedVersion(basename);
-					if (d.spec.merge(selver) == Dependency.invalid) {
+					if (!d.spec.matches(selver)) {
 						logWarn("Selected package %s %s does not match the dependency specification %s in package %s. Need to \"dub upgrade\"?",
 							basename, selver, d.spec, pack.name);
 					}
