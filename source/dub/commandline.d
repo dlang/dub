@@ -2162,10 +2162,12 @@ class ListCommand : Command {
 		const pname = pinfo.name;
 		const pvlim = Dependency(pinfo.version_ == "" ? "*" : pinfo.version_);
 		enforceUsage(app_args.length == 0, "The list command supports no application arguments.");
-		logInfo("Packages present in the system and known to dub:");
+		// Printed to stdout for backwards compatibility, do not change:
+		enum header = "Packages present in the system and known to dub:";
+		stdout.writefln(header);
 		foreach (p; dub.packageManager.getPackageIterator()) {
 			if ((pname == "" || pname == p.name) && pvlim.matches(p.version_))
-				logInfo("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
+				stdout.writefln("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
 		}
 		logInfo("");
 		return 0;
@@ -2200,9 +2202,9 @@ class SearchCommand : Command {
 		justify += (~justify & 3) + 1; // round to next multiple of 4
 		foreach (desc, matches; res)
 		{
-			logInfo("==== %s ====", desc);
+			stdout.writefln("==== %s ====", desc);
 			foreach (m; matches)
-				logInfo("%s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
+				stdout.writefln("%s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
 		}
 		return 0;
 	}
@@ -2302,10 +2304,10 @@ class ListOverridesCommand : Command {
 		void printList(in PackageOverride[] overrides, string caption)
 		{
 			if (overrides.length == 0) return;
-			logInfo("# %s", caption);
+			stdout.writefln("# %s", caption);
 			foreach (ovr; overrides) {
-				if (!ovr.targetPath.empty) logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetPath);
-				else logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetVersion);
+				if (!ovr.targetPath.empty) stdout.writefln("%s %s => %s", ovr.package_, ovr.version_, ovr.targetPath);
+				else stdout.writefln("%s %s => %s", ovr.package_, ovr.version_, ovr.targetVersion);
 			}
 		}
 		printList(dub.packageManager.getOverrides(LocalPackageType.user), "User wide overrides");
