@@ -691,25 +691,7 @@ class Dub {
 		dscanner_dub.loadPackage(tool_pack.path);
 		dscanner_dub.upgrade(UpgradeOptions.select);
 
-		auto compiler_binary = this.defaultCompiler;
-
-		GeneratorSettings settings;
-		settings.config = "application";
-		settings.compiler = getCompiler(compiler_binary);
-		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
-		settings.buildType = "debug";
-		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
-		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
-		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
-		if (m_defaultRunEnvironments) settings.buildSettings.addRunEnvironments(m_defaultRunEnvironments);
-		if (m_defaultPreGenerateEnvironments) settings.buildSettings.addPreGenerateEnvironments(m_defaultPreGenerateEnvironments);
-		if (m_defaultPostGenerateEnvironments) settings.buildSettings.addPostGenerateEnvironments(m_defaultPostGenerateEnvironments);
-		if (m_defaultPreBuildEnvironments) settings.buildSettings.addPreBuildEnvironments(m_defaultPreBuildEnvironments);
-		if (m_defaultPostBuildEnvironments) settings.buildSettings.addPostBuildEnvironments(m_defaultPostBuildEnvironments);
-		if (m_defaultPreRunEnvironments) settings.buildSettings.addPreRunEnvironments(m_defaultPreRunEnvironments);
-		if (m_defaultPostRunEnvironments) settings.buildSettings.addPostRunEnvironments(m_defaultPostRunEnvironments);
-		settings.run = true;
-
+		GeneratorSettings settings = this.makeAppSettings();
 		foreach (dependencyPackage; m_project.dependencies)
 		{
 			auto cfgs = m_project.getPackageConfigs(settings.platform, null, true);
@@ -1195,25 +1177,10 @@ class Dub {
 		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
 		auto template_dub = new Dub(null, m_packageSuppliers);
 		template_dub.loadPackage(initSubPackage);
-		auto compiler_binary = this.defaultCompiler;
 
-		GeneratorSettings settings;
-		settings.config = "application";
-		settings.compiler = getCompiler(compiler_binary);
-		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
-		settings.buildType = "debug";
-		settings.run = true;
+		GeneratorSettings settings = this.makeAppSettings();
 		settings.runArgs = runArgs;
-		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
-		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
-		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
-		if (m_defaultRunEnvironments) settings.buildSettings.addRunEnvironments(m_defaultRunEnvironments);
-		if (m_defaultPreGenerateEnvironments) settings.buildSettings.addPreGenerateEnvironments(m_defaultPreGenerateEnvironments);
-		if (m_defaultPostGenerateEnvironments) settings.buildSettings.addPostGenerateEnvironments(m_defaultPostGenerateEnvironments);
-		if (m_defaultPreBuildEnvironments) settings.buildSettings.addPreBuildEnvironments(m_defaultPreBuildEnvironments);
-		if (m_defaultPostBuildEnvironments) settings.buildSettings.addPostBuildEnvironments(m_defaultPostBuildEnvironments);
-		if (m_defaultPreRunEnvironments) settings.buildSettings.addPreRunEnvironments(m_defaultPreRunEnvironments);
-		if (m_defaultPostRunEnvironments) settings.buildSettings.addPostRunEnvironments(m_defaultPostRunEnvironments);
+
 		initSubPackage.recipe.buildSettings.workingDirectory = path.toNativeString();
 		template_dub.generateProject("build", settings);
 	}
@@ -1277,24 +1244,7 @@ class Dub {
 		ddox_dub.loadPackage(tool_pack.path);
 		ddox_dub.upgrade(UpgradeOptions.select);
 
-		auto compiler_binary = this.defaultCompiler;
-
-		GeneratorSettings settings;
-		settings.config = "application";
-		settings.compiler = getCompiler(compiler_binary); // TODO: not using --compiler ???
-		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
-		settings.buildType = "debug";
-		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
-		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
-		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
-		if (m_defaultRunEnvironments) settings.buildSettings.addRunEnvironments(m_defaultRunEnvironments);
-		if (m_defaultPreGenerateEnvironments) settings.buildSettings.addPreGenerateEnvironments(m_defaultPreGenerateEnvironments);
-		if (m_defaultPostGenerateEnvironments) settings.buildSettings.addPostGenerateEnvironments(m_defaultPostGenerateEnvironments);
-		if (m_defaultPreBuildEnvironments) settings.buildSettings.addPreBuildEnvironments(m_defaultPreBuildEnvironments);
-		if (m_defaultPostBuildEnvironments) settings.buildSettings.addPostBuildEnvironments(m_defaultPostBuildEnvironments);
-		if (m_defaultPreRunEnvironments) settings.buildSettings.addPreRunEnvironments(m_defaultPreRunEnvironments);
-		if (m_defaultPostRunEnvironments) settings.buildSettings.addPostRunEnvironments(m_defaultPostRunEnvironments);
-		settings.run = true;
+		GeneratorSettings settings = this.makeAppSettings();
 
 		auto filterargs = m_project.rootPackage.recipe.ddoxFilterArgs.dup;
 		if (filterargs.empty) filterargs = ["--min-protection=Protected", "--only-documented"];
@@ -1319,6 +1269,31 @@ class Dub {
 			version(Windows) runCommand(`xcopy /S /D "`~tool_path~`public\*" docs\`);
 			else runCommand("rsync -ru '"~tool_path~"public/' docs/");
 		}
+	}
+
+	/// Make a `GeneratorSettings` suitable to generate tools (DDOC, DScanner, etc...)
+	private GeneratorSettings makeAppSettings () const
+	{
+		GeneratorSettings settings;
+		auto compiler_binary = this.defaultCompiler;
+
+		settings.config = "application";
+		settings.buildType = "debug";
+		settings.compiler = getCompiler(compiler_binary);
+		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
+		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
+		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
+		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
+		if (m_defaultRunEnvironments) settings.buildSettings.addRunEnvironments(m_defaultRunEnvironments);
+		if (m_defaultPreGenerateEnvironments) settings.buildSettings.addPreGenerateEnvironments(m_defaultPreGenerateEnvironments);
+		if (m_defaultPostGenerateEnvironments) settings.buildSettings.addPostGenerateEnvironments(m_defaultPostGenerateEnvironments);
+		if (m_defaultPreBuildEnvironments) settings.buildSettings.addPreBuildEnvironments(m_defaultPreBuildEnvironments);
+		if (m_defaultPostBuildEnvironments) settings.buildSettings.addPostBuildEnvironments(m_defaultPostBuildEnvironments);
+		if (m_defaultPreRunEnvironments) settings.buildSettings.addPreRunEnvironments(m_defaultPreRunEnvironments);
+		if (m_defaultPostRunEnvironments) settings.buildSettings.addPostRunEnvironments(m_defaultPostRunEnvironments);
+		settings.run = true;
+
+		return settings;
 	}
 
 	private void updatePackageSearchPath()
