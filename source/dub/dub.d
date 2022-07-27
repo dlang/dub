@@ -126,23 +126,11 @@ class Dub {
 		PackageSupplier[] m_packageSuppliers;
 		NativePath m_rootPath;
 		SpecialDirs m_dirs;
-		DubConfig m_config;
+		UserConfiguration m_config;
 		NativePath m_projectPath;
 		Project m_project;
 		NativePath m_overrideSearchPath;
 		string m_defaultCompiler;
-		string m_defaultArchitecture;
-		bool m_defaultLowMemory;
-		string[string] m_defaultEnvironments;
-		string[string] m_defaultBuildEnvironments;
-		string[string] m_defaultRunEnvironments;
-		string[string] m_defaultPreGenerateEnvironments;
-		string[string] m_defaultPostGenerateEnvironments;
-		string[string] m_defaultPreBuildEnvironments;
-		string[string] m_defaultPostBuildEnvironments;
-		string[string] m_defaultPreRunEnvironments;
-		string[string] m_defaultPostRunEnvironments;
-
 	}
 
 	/** The default placement location of fetched packages.
@@ -223,7 +211,7 @@ class Dub {
 
 		if (skip_registry < SkipPackageSuppliers.configured)
 		{
-			ps ~= m_config.registryURLs
+			ps ~= m_config.registryUrls
 				.map!(url => getRegistryPackageSupplier(url))
 				.array;
 		}
@@ -245,13 +233,13 @@ class Dub {
 		scope (exit) environment.remove("DUB_REGISTRY");
 		auto dub = new Dub(".", null, SkipPackageSuppliers.none);
 
-		dub.m_config = new DubConfig(Json(["skipRegistry": Json("none")]), null);
+		dub.m_config.skipRegistry = typeof(dub.m_config.skipRegistry)(SkipPackageSuppliers.none);
 		assert(dub.getPackageSuppliers(null).length == 1);
 
-		dub.m_config = new DubConfig(Json(["skipRegistry": Json("configured")]), null);
+		dub.m_config.skipRegistry = typeof(dub.m_config.skipRegistry)(SkipPackageSuppliers.configured);
 		assert(dub.getPackageSuppliers(null).length == 0);
 
-		dub.m_config = new DubConfig(Json(["skipRegistry": Json("standard")]), null);
+		dub.m_config.skipRegistry = typeof(dub.m_config.skipRegistry)(SkipPackageSuppliers.standard);
 		assert(dub.getPackageSuppliers(null).length == 0);
 
 		environment["DUB_REGISTRY"] = "http://example.com/";
@@ -273,36 +261,31 @@ class Dub {
 
 	private void init(NativePath root_path)
 	{
+		import configy.Read;
+
 		this.m_dirs = SpecialDirs.make();
 
-		m_config = new DubConfig(jsonFromFile(m_dirs.systemSettings ~ "settings.json", true), m_config);
-
-		auto dubFolderPath = NativePath(thisExePath).parentPath;
-		m_config = new DubConfig(jsonFromFile(dubFolderPath ~ "../etc/dub/settings.json", true), m_config);
-		version (Posix) {
-			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr"))) {
-				m_config = new DubConfig(jsonFromFile(NativePath("/etc/dub/settings.json"), true), m_config);
-			}
+		void readSettingsFile (NativePath path_)
+		{
+			const path = path_.toNativeString();
+			if (path.exists)
+				this.m_config = this.m_config.merge(
+					parseConfigFile!UserConfiguration(CLIArgs(path)));
 		}
 
-		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), m_config);
+		const dubFolderPath = NativePath(thisExePath).parentPath;
 
+		readSettingsFile(m_dirs.systemSettings ~ "settings.json");
+		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json");
+		version (Posix) {
+			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr")))
+				readSettingsFile(NativePath("/etc/dub/settings.json"));
+		}
+		readSettingsFile(m_dirs.userSettings ~ "settings.json");
 		if (!root_path.empty)
-			m_config = new DubConfig(jsonFromFile(root_path ~ "dub.settings.json", true), m_config);
+			readSettingsFile(root_path ~ "dub.settings.json");
 
 		determineDefaultCompiler();
-
-		m_defaultArchitecture = m_config.defaultArchitecture;
-		m_defaultLowMemory = m_config.defaultLowMemory;
-		m_defaultEnvironments = m_config.defaultEnvironments;
-		m_defaultBuildEnvironments = m_config.defaultBuildEnvironments;
-		m_defaultRunEnvironments = m_config.defaultRunEnvironments;
-		m_defaultPreGenerateEnvironments = m_config.defaultPreGenerateEnvironments;
-		m_defaultPostGenerateEnvironments = m_config.defaultPostGenerateEnvironments;
-		m_defaultPreBuildEnvironments = m_config.defaultPreBuildEnvironments;
-		m_defaultPostBuildEnvironments = m_config.defaultPostBuildEnvironments;
-		m_defaultPreRunEnvironments = m_config.defaultPreRunEnvironments;
-		m_defaultPostRunEnvironments = m_config.defaultPostRunEnvironments;
 	}
 
 	@property bool dryRun() const { return m_dryRun; }
@@ -348,24 +331,24 @@ class Dub {
 		If set, the "defaultArchitecture" field of the DUB user or system
 		configuration file will be used. Otherwise null will be returned.
 	*/
-	@property string defaultArchitecture() const { return m_defaultArchitecture; }
+	@property string defaultArchitecture() const { return this.m_config.defaultArchitecture; }
 
 	/** Returns the default low memory option to use for building D code.
 
 		If set, the "defaultLowMemory" field of the DUB user or system
 		configuration file will be used. Otherwise false will be returned.
 	*/
-	@property bool defaultLowMemory() const { return m_defaultLowMemory; }
+	@property bool defaultLowMemory() const { return this.m_config.defaultLowMemory; }
 
-	@property const(string[string]) defaultEnvironments() const { return m_defaultEnvironments; }
-	@property const(string[string]) defaultBuildEnvironments() const { return m_defaultBuildEnvironments; }
-	@property const(string[string]) defaultRunEnvironments() const { return m_defaultRunEnvironments; }
-	@property const(string[string]) defaultPreGenerateEnvironments() const { return m_defaultPreGenerateEnvironments; }
-	@property const(string[string]) defaultPostGenerateEnvironments() const { return m_defaultPostGenerateEnvironments; }
-	@property const(string[string]) defaultPreBuildEnvironments() const { return m_defaultPreBuildEnvironments; }
-	@property const(string[string]) defaultPostBuildEnvironments() const { return m_defaultPostBuildEnvironments; }
-	@property const(string[string]) defaultPreRunEnvironments() const { return m_defaultPreRunEnvironments; }
-	@property const(string[string]) defaultPostRunEnvironments() const { return m_defaultPostRunEnvironments; }
+	@property const(string[string]) defaultEnvironments() const { return this.m_config.defaultEnvironments; }
+	@property const(string[string]) defaultBuildEnvironments() const { return this.m_config.defaultBuildEnvironments; }
+	@property const(string[string]) defaultRunEnvironments() const { return this.m_config.defaultRunEnvironments; }
+	@property const(string[string]) defaultPreGenerateEnvironments() const { return this.m_config.defaultPreGenerateEnvironments; }
+	@property const(string[string]) defaultPostGenerateEnvironments() const { return this.m_config.defaultPostGenerateEnvironments; }
+	@property const(string[string]) defaultPreBuildEnvironments() const { return this.m_config.defaultPreBuildEnvironments; }
+	@property const(string[string]) defaultPostBuildEnvironments() const { return this.m_config.defaultPostBuildEnvironments; }
+	@property const(string[string]) defaultPreRunEnvironments() const { return this.m_config.defaultPreRunEnvironments; }
+	@property const(string[string]) defaultPostRunEnvironments() const { return this.m_config.defaultPostRunEnvironments; }
 
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
@@ -1260,17 +1243,28 @@ class Dub {
 		settings.config = "application";
 		settings.buildType = "debug";
 		settings.compiler = getCompiler(compiler_binary);
-		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
-		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
-		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
-		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
-		if (m_defaultRunEnvironments) settings.buildSettings.addRunEnvironments(m_defaultRunEnvironments);
-		if (m_defaultPreGenerateEnvironments) settings.buildSettings.addPreGenerateEnvironments(m_defaultPreGenerateEnvironments);
-		if (m_defaultPostGenerateEnvironments) settings.buildSettings.addPostGenerateEnvironments(m_defaultPostGenerateEnvironments);
-		if (m_defaultPreBuildEnvironments) settings.buildSettings.addPreBuildEnvironments(m_defaultPreBuildEnvironments);
-		if (m_defaultPostBuildEnvironments) settings.buildSettings.addPostBuildEnvironments(m_defaultPostBuildEnvironments);
-		if (m_defaultPreRunEnvironments) settings.buildSettings.addPreRunEnvironments(m_defaultPreRunEnvironments);
-		if (m_defaultPostRunEnvironments) settings.buildSettings.addPostRunEnvironments(m_defaultPostRunEnvironments);
+		settings.platform = settings.compiler.determinePlatform(
+			settings.buildSettings, compiler_binary, this.defaultArchitecture);
+		if (this.defaultLowMemory)
+			settings.buildSettings.options |= BuildOption.lowmem;
+		if (this.defaultEnvironments)
+			settings.buildSettings.addEnvironments(this.defaultEnvironments);
+		if (this.defaultBuildEnvironments)
+			settings.buildSettings.addBuildEnvironments(this.defaultBuildEnvironments);
+		if (this.defaultRunEnvironments)
+			settings.buildSettings.addRunEnvironments(this.defaultRunEnvironments);
+		if (this.defaultPreGenerateEnvironments)
+			settings.buildSettings.addPreGenerateEnvironments(this.defaultPreGenerateEnvironments);
+		if (this.defaultPostGenerateEnvironments)
+			settings.buildSettings.addPostGenerateEnvironments(this.defaultPostGenerateEnvironments);
+		if (this.defaultPreBuildEnvironments)
+			settings.buildSettings.addPreBuildEnvironments(this.defaultPreBuildEnvironments);
+		if (this.defaultPostBuildEnvironments)
+			settings.buildSettings.addPostBuildEnvironments(this.defaultPostBuildEnvironments);
+		if (this.defaultPreRunEnvironments)
+			settings.buildSettings.addPreRunEnvironments(this.defaultPreRunEnvironments);
+		if (this.defaultPostRunEnvironments)
+			settings.buildSettings.addPostRunEnvironments(this.defaultPostRunEnvironments);
 		settings.run = true;
 
 		return settings;
@@ -1778,146 +1772,156 @@ private struct SpecialDirs {
 	}
 }
 
-private class DubConfig {
-	private {
-		DubConfig m_parentConfig;
-		Json m_data;
-	}
+/**
+ * User-provided configuration
+ *
+ * All fields in this struct should be optional.
+ * Fields that are *not* optional should be mandatory from the POV
+ * of the application, not the POV of file parsing.
+ * For example, git's `core.author` and `core.email` are required to commit,
+ * but the error happens on the commit, not when the gitconfig is parsed.
+ *
+ * We have multiple configuration locations, and two kinds of fields:
+ * additive and non-additive. Additive fields are fields which are the union
+ * of all configuration files (e.g. `registryURLs`). Non-additive fields
+ * will ignore values set in lower priorities configuration, although parsing
+ * must still succeed. Additive fields are marked as `@Optional`,
+ * non-additive are marked as `SetInfo`.
+ */
+private struct UserConfiguration {
+	import configy.Attributes;
 
-	this(Json data, DubConfig parent_config)
+	@Optional string[] registryUrls;
+	@Optional NativePath[] customCachePaths;
+
+	SetInfo!(SkipPackageSuppliers) skipRegistry;
+	SetInfo!(string) defaultCompiler;
+	SetInfo!(string) defaultArchitecture;
+	SetInfo!(bool) defaultLowMemory;
+
+	SetInfo!(string[string]) defaultEnvironments;
+	SetInfo!(string[string]) defaultBuildEnvironments;
+	SetInfo!(string[string]) defaultRunEnvironments;
+	SetInfo!(string[string]) defaultPreGenerateEnvironments;
+	SetInfo!(string[string]) defaultPostGenerateEnvironments;
+	SetInfo!(string[string]) defaultPreBuildEnvironments;
+	SetInfo!(string[string]) defaultPostBuildEnvironments;
+	SetInfo!(string[string]) defaultPreRunEnvironments;
+	SetInfo!(string[string]) defaultPostRunEnvironments;
+
+	/// Merge a lower priority config (`this`) with a `higher` priority config
+	public UserConfiguration merge(UserConfiguration higher)
+		return @safe pure nothrow
 	{
-		m_data = data;
-		m_parentConfig = parent_config;
+		import std.traits : hasUDA;
+		UserConfiguration result;
+
+		static foreach (idx, _; UserConfiguration.tupleof) {
+			static if (hasUDA!(UserConfiguration.tupleof[idx], Optional))
+				result.tupleof[idx] = higher.tupleof[idx] ~ this.tupleof[idx];
+			else static if (IsSetInfo!(typeof(this.tupleof[idx]))) {
+				if (higher.tupleof[idx].set)
+					result.tupleof[idx] = higher.tupleof[idx];
+				else
+					result.tupleof[idx] = this.tupleof[idx];
+			} else
+				static assert(false,
+							  "Expect `@Optional` or `SetInfo` on: `" ~
+							  __traits(identifier, this.tupleof[idx]) ~
+							  "` of type : `" ~
+							  typeof(this.tupleof[idx]).stringof ~ "`");
+		}
+
+		return result;
 	}
 
-	@property string[] registryURLs()
-	{
-		string[] ret;
-		if (auto pv = "registryUrls" in m_data)
-			ret = (*pv).deserializeJson!(string[]);
-		if (m_parentConfig) ret ~= m_parentConfig.registryURLs;
-		return ret;
-	}
+	/// Workaround multiple `E` declaration in `static foreach` when inline
+	private template IsSetInfo(T) { enum bool IsSetInfo = is(T : SetInfo!E, E); }
+}
 
-	@property SkipPackageSuppliers skipRegistry()
-	{
-		if(auto pv = "skipRegistry" in m_data)
-			return to!SkipPackageSuppliers((*pv).get!string);
+unittest {
+	import configy.Read;
 
-		if (m_parentConfig)
-			return m_parentConfig.skipRegistry;
+    const str1 = `{
+  "registryUrls": [ "http://foo.bar" ],
+  "customCachePaths": [ "foo/bar", "foo/foo" ],
 
-		return SkipPackageSuppliers.none;
-	}
+  "skipRegistry": "all",
+  "defaultCompiler": "dmd",
+  "defaultArchitecture": "fooarch",
+  "defaultLowMemory": false,
 
-	@property NativePath[] customCachePaths()
-	{
-		import std.algorithm.iteration : map;
-		import std.array : array;
+  "defaultEnvironments": {
+    "VAR2": "settings.VAR2",
+    "VAR3": "settings.VAR3",
+    "VAR4": "settings.VAR4"
+  }
+}`;
 
-		NativePath[] ret;
-		if (auto pv = "customCachePaths" in m_data)
-			ret = (*pv).deserializeJson!(string[])
-				.map!(s => NativePath(s))
-				.array;
-		if (m_parentConfig)
-			ret ~= m_parentConfig.customCachePaths;
-		return ret;
-	}
+	const str2 = `{
+  "registryUrls": [ "http://bar.foo" ],
+  "customCachePaths": [ "bar/foo", "bar/bar" ],
 
-	@property string defaultCompiler()
-	const {
-		if (auto pv = "defaultCompiler" in m_data)
-			return pv.get!string;
-		if (m_parentConfig) return m_parentConfig.defaultCompiler;
-		return null;
-	}
+  "skipRegistry": "none",
+  "defaultCompiler": "ldc",
+  "defaultArchitecture": "bararch",
+  "defaultLowMemory": true,
 
-	@property string defaultArchitecture()
-	const {
-		if(auto pv = "defaultArchitecture" in m_data)
-			return (*pv).get!string;
-		if (m_parentConfig) return m_parentConfig.defaultArchitecture;
-		return null;
-	}
+  "defaultEnvironments": {
+    "VAR": "Hi",
+  }
+}`;
 
-	@property bool defaultLowMemory()
-	const {
-		if(auto pv = "defaultLowMemory" in m_data)
-			return (*pv).get!bool;
-		if (m_parentConfig) return m_parentConfig.defaultLowMemory;
-		return false;
-	}
+	 auto c1 = parseConfigString!UserConfiguration(str1, "/dev/null");
+	 assert(c1.registryUrls == [ "http://foo.bar" ]);
+	 assert(c1.customCachePaths == [ NativePath("foo/bar"), NativePath("foo/foo") ]);
+	 assert(c1.skipRegistry == SkipPackageSuppliers.all);
+	 assert(c1.defaultCompiler == "dmd");
+	 assert(c1.defaultArchitecture == "fooarch");
+	 assert(c1.defaultLowMemory == false);
+	 assert(c1.defaultEnvironments.length == 3);
+	 assert(c1.defaultEnvironments["VAR2"] == "settings.VAR2");
+	 assert(c1.defaultEnvironments["VAR3"] == "settings.VAR3");
+	 assert(c1.defaultEnvironments["VAR4"] == "settings.VAR4");
 
-	@property string[string] defaultEnvironments()
-	const {
-		if (auto pv = "defaultEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultEnvironments;
-		return null;
-	}
+	 auto c2 = parseConfigString!UserConfiguration(str2, "/dev/null");
+	 assert(c2.registryUrls == [ "http://bar.foo" ]);
+	 assert(c2.customCachePaths == [ NativePath("bar/foo"), NativePath("bar/bar") ]);
+	 assert(c2.skipRegistry == SkipPackageSuppliers.none);
+	 assert(c2.defaultCompiler == "ldc");
+	 assert(c2.defaultArchitecture == "bararch");
+	 assert(c2.defaultLowMemory == true);
+	 assert(c2.defaultEnvironments.length == 1);
+	 assert(c2.defaultEnvironments["VAR"] == "Hi");
 
-	@property string[string] defaultBuildEnvironments()
-	const {
-		if (auto pv = "defaultBuildEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultBuildEnvironments;
-		return null;
-	}
+	 auto m1 = c2.merge(c1);
+	 // c1 takes priority, so its registryUrls is first
+	 assert(m1.registryUrls == [ "http://foo.bar", "http://bar.foo" ]);
+	 // Same with CCP
+	 assert(m1.customCachePaths == [
+		 NativePath("foo/bar"), NativePath("foo/foo"),
+		 NativePath("bar/foo"), NativePath("bar/bar"),
+	 ]);
 
-	@property string[string] defaultRunEnvironments()
-	const {
-		if (auto pv = "defaultRunEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultRunEnvironments;
-		return null;
-	}
+	 // c1 fields only
+	 assert(m1.skipRegistry == c1.skipRegistry);
+	 assert(m1.defaultCompiler == c1.defaultCompiler);
+	 assert(m1.defaultArchitecture == c1.defaultArchitecture);
+	 assert(m1.defaultLowMemory == c1.defaultLowMemory);
+	 assert(m1.defaultEnvironments == c1.defaultEnvironments);
 
-	@property string[string] defaultPreGenerateEnvironments()
-	const {
-		if (auto pv = "defaultPreGenerateEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPreGenerateEnvironments;
-		return null;
-	}
+	 auto m2 = c1.merge(c2);
+	 assert(m2.registryUrls == [ "http://bar.foo", "http://foo.bar" ]);
+	 assert(m2.customCachePaths == [
+		 NativePath("bar/foo"), NativePath("bar/bar"),
+		 NativePath("foo/bar"), NativePath("foo/foo"),
+	 ]);
+	 assert(m2.skipRegistry == c2.skipRegistry);
+	 assert(m2.defaultCompiler == c2.defaultCompiler);
+	 assert(m2.defaultArchitecture == c2.defaultArchitecture);
+	 assert(m2.defaultLowMemory == c2.defaultLowMemory);
+	 assert(m2.defaultEnvironments == c2.defaultEnvironments);
 
-	@property string[string] defaultPostGenerateEnvironments()
-	const {
-		if (auto pv = "defaultPostGenerateEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPostGenerateEnvironments;
-		return null;
-	}
-
-	@property string[string] defaultPreBuildEnvironments()
-	const {
-		if (auto pv = "defaultPreBuildEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPreBuildEnvironments;
-		return null;
-	}
-
-	@property string[string] defaultPostBuildEnvironments()
-	const {
-		if (auto pv = "defaultPostBuildEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPostBuildEnvironments;
-		return null;
-	}
-
-	@property string[string] defaultPreRunEnvironments()
-	const {
-		if (auto pv = "defaultPreRunEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPreRunEnvironments;
-		return null;
-	}
-
-	@property string[string] defaultPostRunEnvironments()
-	const {
-		if (auto pv = "defaultPostRunEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPostRunEnvironments;
-		return null;
-	}
+	 auto m3 = UserConfiguration.init.merge(c1);
+	 assert(m3 == c1);
 }
