@@ -273,21 +273,7 @@ class Dub {
 
 	private void init(NativePath root_path)
 	{
-		import std.file : tempDir;
-		version(Windows) {
-			m_dirs.systemSettings = NativePath(environment.get("ProgramData")) ~ "dub/";
-			immutable appDataDir = environment.get("APPDATA");
-			m_dirs.userSettings = NativePath(appDataDir) ~ "dub/";
-			m_dirs.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
-		} else version(Posix){
-			m_dirs.systemSettings = NativePath("/var/lib/dub/");
-			m_dirs.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
-			if (!m_dirs.userSettings.absolute)
-				m_dirs.userSettings = NativePath(getcwd()) ~ m_dirs.userSettings;
-			m_dirs.localRepository = m_dirs.userSettings;
-		}
-
-		m_dirs.temp = NativePath(tempDir);
+		this.m_dirs = SpecialDirs.make();
 
 		m_config = new DubConfig(jsonFromFile(m_dirs.systemSettings ~ "settings.json", true), m_config);
 
@@ -1760,6 +1746,28 @@ private struct SpecialDirs {
 	NativePath userSettings;
 	NativePath systemSettings;
 	NativePath localRepository;
+
+	/// Returns: An instance of `SpecialDirs` initialized from the environment
+	public static SpecialDirs make () {
+		import std.file : tempDir;
+
+		SpecialDirs result;
+		result.temp = NativePath(tempDir);
+
+		version(Windows) {
+			result.systemSettings = NativePath(environment.get("ProgramData")) ~ "dub/";
+			immutable appDataDir = environment.get("APPDATA");
+			result.userSettings = NativePath(appDataDir) ~ "dub/";
+			result.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
+		} else version(Posix) {
+			result.systemSettings = NativePath("/var/lib/dub/");
+			result.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
+			if (!result.userSettings.absolute)
+				result.userSettings = NativePath(getcwd()) ~ result.userSettings;
+			result.localRepository = result.userSettings;
+		}
+		return result;
+	}
 }
 
 private class DubConfig {
