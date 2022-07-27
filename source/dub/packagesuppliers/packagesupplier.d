@@ -29,8 +29,8 @@ interface PackageSupplier {
 		Params:
 			path = Absolute path of the target ZIP file
 			package_id = Name of the package to retrieve
-			dep: Version constraint to match against
-			pre_release: If true, matches the latest pre-release version.
+			dep = Version constraint to match against
+			pre_release = If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
 	void fetchPackage(NativePath path, string package_id, Dependency dep, bool pre_release);
@@ -39,8 +39,8 @@ interface PackageSupplier {
 
 		Params:
 			package_id = Name of the package of which to retrieve the recipe
-			dep: Version constraint to match against
-			pre_release: If true, matches the latest pre-release version.
+			dep = Version constraint to match against
+			pre_release = If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
 	Json fetchPackageRecipe(string package_id, Dependency dep, bool pre_release);
