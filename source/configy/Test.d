@@ -52,6 +52,7 @@ unittest
     }
 
     auto c1 = parseConfigString!Config("enabled: false", "/dev/null");
+    assert(!c1.enabled);
     assert(c1.name == "Jessie");
     assert(c1.age == 42);
     assert(c1.ratio == 24.42);
