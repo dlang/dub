@@ -1742,9 +1742,22 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 }
 
 private struct SpecialDirs {
+	/// The path where to store temporary files and directory
 	NativePath temp;
-	NativePath userSettings;
+	/// The system-wide dub-specific folder
 	NativePath systemSettings;
+	/// The dub-specific folder in the user home directory
+	NativePath userSettings;
+	/**
+	 * Windows-only: the local, user-specific folder
+	 *
+	 * This folder, unlike `userSettings`, does not roam, IOW an account
+	 * on a company network will not save the content of this data,
+	 * unlike `userSettings`.
+	 * On Posix, this is equivalent to `userSettings`.
+	 *
+	 * See_Also: https://docs.microsoft.com/en-us/windows/win32/shell/knownfolderid
+	 */
 	NativePath localRepository;
 
 	/// Returns: An instance of `SpecialDirs` initialized from the environment
@@ -1758,6 +1771,7 @@ private struct SpecialDirs {
 			result.systemSettings = NativePath(environment.get("ProgramData")) ~ "dub/";
 			immutable appDataDir = environment.get("APPDATA");
 			result.userSettings = NativePath(appDataDir) ~ "dub/";
+			// LOCALAPPDATA is not defined before Windows Vista
 			result.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
 		} else version(Posix) {
 			result.systemSettings = NativePath("/var/lib/dub/");
