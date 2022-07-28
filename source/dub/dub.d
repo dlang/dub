@@ -558,7 +558,7 @@ class Dub {
 				if (!sver.path.empty || !sver.repository.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
         logInfo("Upgrade", Color.cyan,
-          "%s would be upgraded %s to %s.",
+          "%s would be upgraded from %s to %s.",
 					basename.color(Mode.bold), sver, ver);
 				any = true;
 			}
