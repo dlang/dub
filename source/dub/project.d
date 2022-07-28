@@ -1294,19 +1294,8 @@ enum ListBuildSettingsFormat {
 	commandLineNul, /// NUL character separated list entries (unescaped, data lists separated by two NUL characters)
 }
 
-
-/// Indicates where a package has been or should be placed to.
-enum PlacementLocation {
-	/// Packages retrieved with 'local' will be placed in the current folder
-	/// using the package name as destination.
-	local,
-	/// Packages with 'userWide' will be placed in a folder accessible by
-	/// all of the applications from the current user.
-	user,
-	/// Packages retrieved with 'systemWide' will be placed in a shared folder,
-	/// which can be accessed by all users of the system.
-	system
-}
+deprecated("Use `dub.packagemanager : PlacementLocation` instead")
+public alias PlacementLocation = dub.packagemanager.PlacementLocation;
 
 void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	BuildSettings settings, in GeneratorSettings gsettings, bool include_target_settings = false)
