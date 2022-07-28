@@ -804,17 +804,10 @@ class Dub {
 
 		logDebug("Acquiring package zip file");
 
-		auto clean_package_version = ver[ver.startsWith("~") ? 1 : 0 .. $];
-		clean_package_version = clean_package_version.replace("+", "_"); // + has special meaning for Optlink
-		if (!placement.existsFile())
-			mkdirRecurse(placement.toNativeString());
-		NativePath dstpath = placement ~ (basePackageName ~ "-" ~ clean_package_version);
+		NativePath dstpath = PackageManager.getPackagePath(placement, basePackageName, ver);
 		if (!dstpath.existsFile())
 			mkdirRecurse(dstpath.toNativeString());
-
-		// Support libraries typically used with git submodules like ae.
-		// Such libraries need to have ".." as import path but this can create
-		// import path leakage.
+		// For libraries leaking their import path
 		dstpath = dstpath ~ basePackageName;
 
 		import std.datetime : seconds;

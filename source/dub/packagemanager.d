@@ -318,8 +318,12 @@ class PackageManager {
 		}
 
 		string gitReference = versionSpec.chompPrefix("~");
-		const destination = m_repositories[LocalPackageType.user].packagePath ~
-			NativePath(name ~ "-" ~ gitReference) ~ (name~"/");
+		NativePath destination = getPackagePath(
+			m_repositories[LocalPackageType.user].packagePath,
+			name, versionSpec);
+		// For libraries leaking their import path
+		destination ~= name;
+		destination.endsWithSlash = true;
 
 		foreach (p; getPackageIterator(name)) {
 			if (p.path == destination) {
@@ -332,7 +336,26 @@ class PackageManager {
 		}
 
 		return Package.load(destination);
-    }
+	}
+
+	/**
+	 * Get the final destination a specific package needs to be stored in.
+	 *
+	 * Note that there needs to be an extra level for libraries like `ae`
+	 * which expects their containing folder to have an exact name and use
+	 * `importPath "../"`.
+	 *
+	 * Hence the final format should be `$BASE/$NAME-$VERSION/$NAME`,
+	 * but this function returns `$BASE/$NAME-$VERSION/`
+	 */
+	package(dub) static NativePath getPackagePath (NativePath base, string name, string vers)
+	{
+		// + has special meaning for Optlink
+		string clean_vers = vers.chompPrefix("~").replace("+", "_");
+		NativePath result = base ~ (name ~ "-" ~ clean_vers);
+		result.endsWithSlash = true;
+		return result;
+	}
 
 	/** Searches for the latest version of a package matching the given dependency.
 	*/
