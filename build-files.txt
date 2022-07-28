@@ -43,7 +43,7 @@ source/dub/internal/colorize/colors.d
 source/dub/internal/colorize/cwrite.d
 source/dub/internal/colorize/package.d
 source/dub/internal/colorize/winterm.d
-source/dub/logging.d
+source/dub/internal/logging.d
 source/dub/package_.d
 source/dub/packagemanager.d
 source/dub/packagesupplier.d
