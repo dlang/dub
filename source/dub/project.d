@@ -1872,7 +1872,7 @@ final class SelectedVersions {
 	deprecated("JSON deserialization is deprecated")
 	private void deserialize(Json json)
 	{
-		const fileVersion = cast(int)json["fileVersion"];
+		const fileVersion = json["fileVersion"].get!int;
 		enforce(fileVersion == FileVersion, "Mismatched dub.selections.json version: " ~ to!string(fileVersion) ~ " vs. " ~ to!string(FileVersion));
 		clear();
 		m_selections.fileVersion = fileVersion;
