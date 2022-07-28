@@ -585,7 +585,7 @@ struct CommonOptions {
 		args.getopt("colors", &colors_mode, [
 			"Configure colored output. Accepted values:",
 			"  automatic: Colored output on console/terminal,",
-			"             unless NO_COLOR is defined (default)",
+			"             unless NO_COLOR is set and non-empty (default)",
 			"         on: Force colors enabled",
 			"        off: Force colors disabled"
 			]);
