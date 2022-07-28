@@ -1050,7 +1050,6 @@ abstract class PackageBuildCommand : Command {
 
 		if (!m_nodeps) {
 			// retrieve missing packages
-			dub.project.reinit();
 			if (!dub.project.hasAllDependencies) {
 				logDiagnostic("Checking for missing dependencies.");
 				if (m_single) dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
