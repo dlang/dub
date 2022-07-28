@@ -1,0 +1,5 @@
+'install' and 'uninstall' commands have been removed
+
+Those commands were long-deprecated aliases to `fetch` and `remove`,
+respectively, and usage of them triggered a warning.
+They are no longer listed as command in help and dub will no longer recognize them.
