@@ -944,31 +944,24 @@ class InitCommand : Command {
 
 abstract class PackageBuildCommand : Command {
 	protected {
-		string m_buildType;
-		BuildMode m_buildMode;
-		string m_buildConfig;
 		string m_compilerName;
 		string m_arch;
 		string[] m_debugVersions;
 		string[] m_overrideConfigs;
-		Compiler m_compiler;
-		BuildPlatform m_buildPlatform;
-		BuildSettings m_buildSettings;
+		GeneratorSettings baseSettings;
 		string m_defaultConfig;
 		bool m_nodeps;
 		bool m_forceRemove = false;
-		bool m_single;
-		bool m_filterVersions = false;
 	}
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("b|build", &m_buildType, [
+		args.getopt("b|build", &this.baseSettings.buildType, [
 			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
 			"Possible names:",
 			"  "~builtinBuildTypes.join(", ")~" and custom types"
 		]);
-		args.getopt("c|config", &m_buildConfig, [
+		args.getopt("c|config", &this.baseSettings.config, [
 			"Builds the specified configuration. Configurations can be defined in dub.json"
 		]);
 		args.getopt("override-config", &m_overrideConfigs, [
@@ -989,17 +982,17 @@ abstract class PackageBuildCommand : Command {
 		args.getopt("nodeps", &m_nodeps, [
 			"Do not resolve missing dependencies before building"
 		]);
-		args.getopt("build-mode", &m_buildMode, [
+		args.getopt("build-mode", &this.baseSettings.buildMode, [
 			"Specifies the way the compiler and linker are invoked. Valid values:",
 			"  separate (default), allAtOnce, singleFile"
 		]);
-		args.getopt("single", &m_single, [
+		args.getopt("single", &this.baseSettings.single, [
 			"Treats the package name as a filename. The file must contain a package recipe comment."
 		]);
 		args.getopt("force-remove", &m_forceRemove, [
 			"Deprecated option that does nothing."
 		]);
-		args.getopt("filter-versions", &m_filterVersions, [
+		args.getopt("filter-versions", &this.baseSettings.filterVersions, [
 			"[Experimental] Filter version identifiers and debug version identifiers to improve build cache efficiency."
 		]);
 	}
@@ -1014,43 +1007,45 @@ abstract class PackageBuildCommand : Command {
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		if (!m_arch.length) m_arch = dub.defaultArchitecture;
-		if (dub.defaultLowMemory) m_buildSettings.options |= BuildOption.lowmem;
-		if (dub.defaultEnvironments) m_buildSettings.addEnvironments(dub.defaultEnvironments);
-		if (dub.defaultBuildEnvironments) m_buildSettings.addBuildEnvironments(dub.defaultBuildEnvironments);
-		if (dub.defaultRunEnvironments) m_buildSettings.addRunEnvironments(dub.defaultRunEnvironments);
-		if (dub.defaultPreGenerateEnvironments) m_buildSettings.addPreGenerateEnvironments(dub.defaultPreGenerateEnvironments);
-		if (dub.defaultPostGenerateEnvironments) m_buildSettings.addPostGenerateEnvironments(dub.defaultPostGenerateEnvironments);
-		if (dub.defaultPreBuildEnvironments) m_buildSettings.addPreBuildEnvironments(dub.defaultPreBuildEnvironments);
-		if (dub.defaultPostBuildEnvironments) m_buildSettings.addPostBuildEnvironments(dub.defaultPostBuildEnvironments);
-		if (dub.defaultPreRunEnvironments) m_buildSettings.addPreRunEnvironments(dub.defaultPreRunEnvironments);
-		if (dub.defaultPostRunEnvironments) m_buildSettings.addPostRunEnvironments(dub.defaultPostRunEnvironments);
-		m_compiler = getCompiler(m_compilerName);
-		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compilerName, m_arch);
-		m_buildSettings.addDebugVersions(m_debugVersions);
+		if (dub.defaultLowMemory) this.baseSettings.buildSettings.options |= BuildOption.lowmem;
+		if (dub.defaultEnvironments) this.baseSettings.buildSettings.addEnvironments(dub.defaultEnvironments);
+		if (dub.defaultBuildEnvironments) this.baseSettings.buildSettings.addBuildEnvironments(dub.defaultBuildEnvironments);
+		if (dub.defaultRunEnvironments) this.baseSettings.buildSettings.addRunEnvironments(dub.defaultRunEnvironments);
+		if (dub.defaultPreGenerateEnvironments) this.baseSettings.buildSettings.addPreGenerateEnvironments(dub.defaultPreGenerateEnvironments);
+		if (dub.defaultPostGenerateEnvironments) this.baseSettings.buildSettings.addPostGenerateEnvironments(dub.defaultPostGenerateEnvironments);
+		if (dub.defaultPreBuildEnvironments) this.baseSettings.buildSettings.addPreBuildEnvironments(dub.defaultPreBuildEnvironments);
+		if (dub.defaultPostBuildEnvironments) this.baseSettings.buildSettings.addPostBuildEnvironments(dub.defaultPostBuildEnvironments);
+		if (dub.defaultPreRunEnvironments) this.baseSettings.buildSettings.addPreRunEnvironments(dub.defaultPreRunEnvironments);
+		if (dub.defaultPostRunEnvironments) this.baseSettings.buildSettings.addPostRunEnvironments(dub.defaultPostRunEnvironments);
+		this.baseSettings.compiler = getCompiler(m_compilerName);
+		this.baseSettings.platform = this.baseSettings.compiler.determinePlatform(this.baseSettings.buildSettings, m_compilerName, m_arch);
+		this.baseSettings.buildSettings.addDebugVersions(m_debugVersions);
 
 		m_defaultConfig = null;
 		enforce (loadSpecificPackage(dub, package_name, ver), "Failed to load package.");
 
-		if (m_buildConfig.length != 0 && !dub.configurations.canFind(m_buildConfig) &&
-		    m_buildConfig != "unittest")
+		if (this.baseSettings.config.length != 0 &&
+			!dub.configurations.canFind(this.baseSettings.config) &&
+			this.baseSettings.config != "unittest")
 		{
-			string msg = "Unknown build configuration: "~m_buildConfig;
+			string msg = "Unknown build configuration: " ~ this.baseSettings.config;
 			enum distance = 3;
-			auto match = dub.configurations.getClosestMatch(m_buildConfig, distance);
+			auto match = dub.configurations.getClosestMatch(this.baseSettings.config, distance);
 			if (match !is null) msg ~= ". Did you mean '" ~ match ~ "'?";
 			enforce(0, msg);
 		}
 
-		if (m_buildType.length == 0) {
-			if (environment.get("DFLAGS") !is null) m_buildType = "$DFLAGS";
-			else m_buildType = default_build_type;
+		if (this.baseSettings.buildType.length == 0) {
+			if (environment.get("DFLAGS") !is null) this.baseSettings.buildType = "$DFLAGS";
+			else this.baseSettings.buildType = default_build_type;
 		}
 
 		if (!m_nodeps) {
 			// retrieve missing packages
 			if (!dub.project.hasAllDependencies) {
 				logDiagnostic("Checking for missing dependencies.");
-				if (m_single) dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
+				if (this.baseSettings.single)
+					dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
 				else dub.upgrade(UpgradeOptions.select);
 			}
 		}
@@ -1066,7 +1061,7 @@ abstract class PackageBuildCommand : Command {
 
 	private bool loadSpecificPackage(Dub dub, string package_name, string ver)
 	{
-		if (m_single) {
+		if (this.baseSettings.single) {
 			enforce(package_name.length, "Missing file name of single-file package.");
 			dub.loadSingleFilePackage(package_name);
 			return true;
@@ -1101,12 +1096,6 @@ abstract class PackageBuildCommand : Command {
 class GenerateCommand : PackageBuildCommand {
 	protected {
 		string m_generator;
-		bool m_rdmd = false;
-		bool m_tempBuild = false;
-		bool m_run = false;
-		bool m_force = false;
-		bool m_combined = false;
-		bool m_parallel = false;
 		bool m_printPlatform, m_printBuilds, m_printConfigs;
 	}
 
@@ -1131,7 +1120,7 @@ class GenerateCommand : PackageBuildCommand {
 	{
 		super.prepare(args);
 
-		args.getopt("combined", &m_combined, [
+		args.getopt("combined", &this.baseSettings.combined, [
 			"Tries to build the whole project in a single compiler run."
 		]);
 
@@ -1144,7 +1133,7 @@ class GenerateCommand : PackageBuildCommand {
 		args.getopt("print-platform", &m_printPlatform, [
 			"Prints the identifiers for the current build platform as used for the build fields in dub.json"
 		]);
-		args.getopt("parallel", &m_parallel, [
+		args.getopt("parallel", &this.baseSettings.parallelBuild, [
 			"Runs multiple compiler instances in parallel, if possible."
 		]);
 	}
@@ -1170,7 +1159,7 @@ class GenerateCommand : PackageBuildCommand {
 			logInfo("");
 		}
 
-		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
+		m_defaultConfig = dub.project.getDefaultConfiguration(this.baseSettings.platform);
 		if (m_printConfigs) {
 			logInfo("Available configurations:");
 			foreach (tp; dub.configurations)
@@ -1178,26 +1167,14 @@ class GenerateCommand : PackageBuildCommand {
 			logInfo("");
 		}
 
-		GeneratorSettings gensettings;
-		gensettings.platform = m_buildPlatform;
-		gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
-		gensettings.buildType = m_buildType;
-		gensettings.buildMode = m_buildMode;
-		gensettings.compiler = m_compiler;
-		gensettings.buildSettings = m_buildSettings;
-		gensettings.combined = m_combined;
-		gensettings.filterVersions = m_filterVersions;
-		gensettings.run = m_run;
+		GeneratorSettings gensettings = this.baseSettings;
+		if (!gensettings.config.length)
+			gensettings.config = m_defaultConfig;
 		gensettings.runArgs = app_args;
-		gensettings.force = m_force;
-		gensettings.rdmd = m_rdmd;
-		gensettings.tempBuild = m_tempBuild;
-		gensettings.parallelBuild = m_parallel;
-		gensettings.single = m_single;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
-		if (m_buildType == "ddox") dub.runDdox(gensettings.run, app_args);
+		if (this.baseSettings.buildType == "ddox") dub.runDdox(gensettings.run, app_args);
 		return 0;
 	}
 }
@@ -1219,11 +1196,11 @@ class BuildCommand : GenerateCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("rdmd", &m_rdmd, [
+		args.getopt("rdmd", &this.baseSettings.rdmd, [
 			"Use rdmd instead of directly invoking the compiler"
 		]);
 
-		args.getopt("f|force", &m_force, [
+		args.getopt("f|force", &this.baseSettings.force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
 		args.getopt("y|yes", &m_yes, [
@@ -1239,7 +1216,7 @@ class BuildCommand : GenerateCommand {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		// single package files don't need to be downloaded, they are on the disk.
-		if (free_args.length < 1 || m_single)
+		if (free_args.length < 1 || this.baseSettings.single)
 			return super.execute(dub, free_args, app_args);
 
 		if (!m_nonInteractive)
@@ -1323,12 +1300,12 @@ class RunCommand : BuildCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("temp-build", &m_tempBuild, [
+		args.getopt("temp-build", &this.baseSettings.tempBuild, [
 			"Builds the project in the temp folder if possible."
 		]);
 
 		super.prepare(args);
-		m_run = true;
+		this.baseSettings.run = true;
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -1340,9 +1317,6 @@ class RunCommand : BuildCommand {
 class TestCommand : PackageBuildCommand {
 	private {
 		string m_mainFile;
-		bool m_combined = false;
-		bool m_parallel = false;
-		bool m_force = false;
 	}
 
 	this() @safe pure nothrow
@@ -1377,13 +1351,13 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("main-file", &m_mainFile, [
 			"Specifies a custom file containing the main() function to use for running the tests."
 		]);
-		args.getopt("combined", &m_combined, [
+		args.getopt("combined", &this.baseSettings.combined, [
 			"Tries to build the whole project in a single compiler run."
 		]);
-		args.getopt("parallel", &m_parallel, [
+		args.getopt("parallel", &this.baseSettings.parallelBuild, [
 			"Runs multiple compiler instances in parallel, if possible."
 		]);
-		args.getopt("f|force", &m_force, [
+		args.getopt("f|force", &this.baseSettings.force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
 
@@ -1391,13 +1365,13 @@ class TestCommand : PackageBuildCommand {
 		args.getopt("coverage", &coverage, [
 			"Enables code coverage statistics to be generated."
 		]);
-		if (coverage) m_buildType = "unittest-cov";
+		if (coverage) this.baseSettings.buildType = "unittest-cov";
 
 		bool coverageCTFE = false;
 		args.getopt("coverage-ctfe", &coverageCTFE, [
 			"Enables code coverage (including CTFE) statistics to be generated."
 		]);
-		if (coverageCTFE) m_buildType = "unittest-cov-ctfe";
+		if (coverageCTFE) this.baseSettings.buildType = "unittest-cov-ctfe";
 
 		super.prepare(args);
 	}
@@ -1410,22 +1384,12 @@ class TestCommand : PackageBuildCommand {
 
 		setupVersionPackage(dub, str_package_info, "unittest");
 
-		GeneratorSettings settings;
-		settings.platform = m_buildPlatform;
-		settings.compiler = getCompiler(m_buildPlatform.compilerBinary);
-		settings.buildType = m_buildType;
-		settings.buildMode = m_buildMode;
-		settings.buildSettings = m_buildSettings;
-		settings.combined = m_combined;
-		settings.filterVersions = m_filterVersions;
-		settings.parallelBuild = m_parallel;
-		settings.force = m_force;
-		settings.tempBuild = m_single;
+		GeneratorSettings settings = this.baseSettings;
+		settings.compiler = getCompiler(this.baseSettings.platform.compilerBinary);
 		settings.run = true;
 		settings.runArgs = app_args;
-		settings.single = m_single;
 
-		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
+		dub.testProject(settings, this.baseSettings.config, NativePath(m_mainFile));
 		return 0;
 	}
 }
@@ -1614,22 +1578,17 @@ class DescribeCommand : PackageBuildCommand {
 		if (free_args.length >= 1) str_package_info = free_args[0];
 		setupVersionPackage(dub, str_package_info);
 
-		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
+		m_defaultConfig = dub.project.getDefaultConfiguration(this.baseSettings.platform);
 
-		auto config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
-
-		GeneratorSettings settings;
-		settings.platform = m_buildPlatform;
-		settings.config = config;
-		settings.buildType = m_buildType;
-		settings.compiler = m_compiler;
-		settings.filterVersions = m_filterVersions;
-		settings.buildSettings.options |= m_buildSettings.options & BuildOption.lowmem;
-		settings.single = m_single;
+		GeneratorSettings settings = this.baseSettings;
+		if (!settings.config.length)
+			settings.config = m_defaultConfig;
+		// Ignore other options
+		settings.buildSettings.options = this.baseSettings.buildSettings.options & BuildOption.lowmem;
 
 		// With a requested `unittest` config, switch to the special test runner
 		// config (which doesn't require an existing `unittest` configuration).
-		if (config == "unittest") {
+		if (this.baseSettings.config == "unittest") {
 			const test_config = dub.project.addTestRunnerConfiguration(settings, !dub.dryRun);
 			if (test_config) settings.config = test_config;
 		}
@@ -2315,7 +2274,6 @@ class DustmiteCommand : PackageBuildCommand {
 		string m_linkerRegex;
 		string m_programRegex;
 		string m_testPackage;
-		bool m_combined;
 		bool m_noRedirect;
 		string m_strategy;
 		uint m_jobCount;		// zero means not specified
@@ -2346,7 +2304,7 @@ class DustmiteCommand : PackageBuildCommand {
 		args.getopt("program-status", &m_programStatusCode, ["The expected status code of the built executable"]);
 		args.getopt("program-regex", &m_programRegex, ["A regular expression used to match against the program output"]);
 		args.getopt("test-package", &m_testPackage, ["Perform a test run - usually only used internally"]);
-		args.getopt("combined", &m_combined, ["Builds multiple packages with one compiler run"]);
+		args.getopt("combined", &this.baseSettings.combined, ["Builds multiple packages with one compiler run"]);
 		args.getopt("no-redirect", &m_noRedirect, ["Don't redirect stdout/stderr streams of the test command"]);
 		args.getopt("strategy", &m_strategy, ["Set strategy (careful/lookback/pingpong/indepth/inbreadth)"]);
 		args.getopt("j", &m_jobCount, ["Set number of look-ahead processes"]);
@@ -2368,16 +2326,11 @@ class DustmiteCommand : PackageBuildCommand {
 			dub = new Dub(NativePath(getcwd()));
 
 			setupPackage(dub, m_testPackage);
-			m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
+			m_defaultConfig = dub.project.getDefaultConfiguration(this.baseSettings.platform);
 
-			GeneratorSettings gensettings;
-			gensettings.platform = m_buildPlatform;
-			gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
-			gensettings.buildType = m_buildType;
-			gensettings.compiler = m_compiler;
-			gensettings.buildSettings = m_buildSettings;
-			gensettings.combined = m_combined;
-			gensettings.filterVersions = m_filterVersions;
+			GeneratorSettings gensettings = this.baseSettings;
+			if (!gensettings.config.length)
+				gensettings.config = m_defaultConfig;
 			gensettings.run = m_programStatusCode != int.min || m_programRegex.length;
 			gensettings.runArgs = app_args;
 			gensettings.force = true;
@@ -2403,8 +2356,8 @@ class DustmiteCommand : PackageBuildCommand {
 
 			setupPackage(dub, null);
 			auto prj = dub.project;
-			if (m_buildConfig.empty)
-				m_buildConfig = prj.getDefaultConfiguration(m_buildPlatform);
+			if (this.baseSettings.config.empty)
+				this.baseSettings.config = prj.getDefaultConfiguration(this.baseSettings.platform);
 
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
@@ -2468,7 +2421,7 @@ class DustmiteCommand : PackageBuildCommand {
 			logInfo("Executing dustmite...");
 			auto testcmd = appender!string();
 			testcmd.formattedWrite("%s dustmite --test-package=%s --build=%s --config=%s",
-				thisExePath, prj.name, m_buildType, m_buildConfig);
+				thisExePath, prj.name, this.baseSettings.buildType, this.baseSettings.config);
 
 			if (m_compilerName.length) testcmd.formattedWrite(" \"--compiler=%s\"", m_compilerName);
 			if (m_arch.length) testcmd.formattedWrite(" --arch=%s", m_arch);
@@ -2478,7 +2431,7 @@ class DustmiteCommand : PackageBuildCommand {
 			if (m_linkerRegex.length) testcmd.formattedWrite(" \"--linker-regex=%s\"", m_linkerRegex);
 			if (m_programStatusCode != int.min) testcmd.formattedWrite(" --program-status=%s", m_programStatusCode);
 			if (m_programRegex.length) testcmd.formattedWrite(" \"--program-regex=%s\"", m_programRegex);
-			if (m_combined) testcmd ~= " --combined";
+			if (this.baseSettings.combined) testcmd ~= " --combined";
 
 			// --vquiet swallows dustmite's output ...
 			if (!m_noRedirect) testcmd ~= " --vquiet";
