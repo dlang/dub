@@ -58,10 +58,8 @@ CommandGroup[] getCommands() @safe pure nothrow
 		),
 		CommandGroup("Package management",
 			new FetchCommand,
-			new InstallCommand,
 			new AddCommand,
 			new RemoveCommand,
-			new UninstallCommand,
 			new UpgradeCommand,
 			new AddPathCommand,
 			new RemovePathCommand,
@@ -279,7 +277,7 @@ unittest {
 	handler.commandGroups = getCommands();
 
 	assert(handler.commandNames == ["init", "run", "build", "test", "lint", "generate",
-		"describe", "clean", "dustmite", "fetch", "install", "add", "remove", "uninstall",
+		"describe", "clean", "dustmite", "fetch", "add", "remove",
 		"upgrade", "add-path", "remove-path", "add-local", "remove-local", "list", "search",
 		"add-override", "remove-override", "list-overrides", "clean-caches", "convert"]);
 }
@@ -1935,20 +1933,6 @@ class FetchCommand : FetchRemoveCommand {
 	}
 }
 
-class InstallCommand : FetchCommand {
-	this() @safe pure nothrow
-    {
-        this.name = "install";
-        this.hidden = true;
-    }
-	override void prepare(scope CommandArgs args) { super.prepare(args); }
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		warnRenamed("install", "fetch");
-		return super.execute(dub, free_args, app_args);
-	}
-}
-
 class RemoveCommand : FetchRemoveCommand {
 	private {
 		bool m_nonInteractive;
@@ -2020,21 +2004,6 @@ class RemoveCommand : FetchRemoveCommand {
 		return 0;
 	}
 }
-
-class UninstallCommand : RemoveCommand {
-	this() @safe pure nothrow
-    {
-        this.name = "uninstall";
-        this.hidden = true;
-    }
-	override void prepare(scope CommandArgs args) { super.prepare(args); }
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		warnRenamed("uninstall", "remove");
-		return super.execute(dub, free_args, app_args);
-	}
-}
-
 
 /******************************************************************************/
 /* ADD/REMOVE PATH/LOCAL                                                      */
@@ -2783,11 +2752,6 @@ private class UsageException : Exception {
 	{
 		super(message, file, line, next);
 	}
-}
-
-private void warnRenamed(string prev, string curr)
-{
-	logWarn("The '%s' Command was renamed to '%s'. Please update your scripts.", prev, curr);
 }
 
 private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
