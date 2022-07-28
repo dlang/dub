@@ -27,6 +27,19 @@ import std.string;
 import std.zip;
 
 
+/// Indicates where a package has been or should be placed to.
+public enum PlacementLocation {
+	/// Packages retrieved with 'local' will be placed in the current folder
+	/// using the package name as destination.
+	local,
+	/// Packages with 'userWide' will be placed in a folder accessible by
+	/// all of the applications from the current user.
+	user,
+	/// Packages retrieved with 'systemWide' will be placed in a shared folder,
+	/// which can be accessed by all users of the system.
+	system,
+}
+
 /// The PackageManager can retrieve present packages and get / remove
 /// packages.
 class PackageManager {
