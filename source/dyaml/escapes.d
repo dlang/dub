@@ -11,7 +11,7 @@ package:
 
 import std.meta : AliasSeq;
 alias escapes = AliasSeq!('0', 'a', 'b', 't', '\t', 'n', 'v', 'f', 'r', 'e', ' ',
-                             '\"', '\\', 'N', '_', 'L', 'P');
+                          '/', '\"', '\\', 'N', '_', 'L', 'P');
 
 /// YAML hex codes specifying the length of the hex number.
 alias escapeHexCodeList = AliasSeq!('x', 'u', 'U');
@@ -32,6 +32,7 @@ dchar fromEscape(dchar escape) @safe pure nothrow @nogc
         case 'r':  return '\x0D';
         case 'e':  return '\x1B';
         case ' ':  return '\x20';
+        case '/':  return '/';
         case '\"': return '\"';
         case '\\': return '\\';
         case 'N':  return '\x85'; //'\u0085';
@@ -90,3 +91,16 @@ uint escapeHexLength(dchar hexCode) @safe pure nothrow @nogc
     }
 }
 
+// Issue #302: Support optional escaping of forward slashes in string
+// for JSON compatibility
+@safe unittest
+{
+    import dyaml.loader : Loader;
+
+    const str = `{
+    "forward/slashes": "can\/be\/optionally\/escaped"
+}`;
+
+    auto node = Loader.fromString(str).load();
+    assert(node["forward/slashes"] == "can/be/optionally/escaped");
+}
