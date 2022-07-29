@@ -1843,7 +1843,7 @@ unittest {
 	import configy.Read;
 
     const str1 = `{
-  "registryUrls": [ "http://foo.bar" ],
+  "registryUrls": [ "http://foo.bar\/optional\/escape" ],
   "customCachePaths": [ "foo/bar", "foo/foo" ],
 
   "skipRegistry": "all",
@@ -1873,7 +1873,7 @@ unittest {
 }`;
 
 	 auto c1 = parseConfigString!UserConfiguration(str1, "/dev/null");
-	 assert(c1.registryUrls == [ "http://foo.bar" ]);
+	 assert(c1.registryUrls == [ "http://foo.bar/optional/escape" ]);
 	 assert(c1.customCachePaths == [ NativePath("foo/bar"), NativePath("foo/foo") ]);
 	 assert(c1.skipRegistry == SkipPackageSuppliers.all);
 	 assert(c1.defaultCompiler == "dmd");
@@ -1896,7 +1896,7 @@ unittest {
 
 	 auto m1 = c2.merge(c1);
 	 // c1 takes priority, so its registryUrls is first
-	 assert(m1.registryUrls == [ "http://foo.bar", "http://bar.foo" ]);
+	 assert(m1.registryUrls == [ "http://foo.bar/optional/escape", "http://bar.foo" ]);
 	 // Same with CCP
 	 assert(m1.customCachePaths == [
 		 NativePath("foo/bar"), NativePath("foo/foo"),
@@ -1911,7 +1911,7 @@ unittest {
 	 assert(m1.defaultEnvironments == c1.defaultEnvironments);
 
 	 auto m2 = c1.merge(c2);
-	 assert(m2.registryUrls == [ "http://bar.foo", "http://foo.bar" ]);
+	 assert(m2.registryUrls == [ "http://bar.foo", "http://foo.bar/optional/escape" ]);
 	 assert(m2.customCachePaths == [
 		 NativePath("bar/foo"), NativePath("bar/bar"),
 		 NativePath("foo/bar"), NativePath("foo/foo"),
