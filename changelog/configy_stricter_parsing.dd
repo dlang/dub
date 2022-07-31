@@ -1,0 +1,9 @@
+dub will now warn on unrecognized settings or selections file
+
+Previously, dub was silently accepting anything it didn't recognize
+in `[dub.]settings.json` and `dub.selections.json`. While the original
+intent was to make forward-compatibility easy, it proved detrimental
+as typos would just mean the user setting was ignored.
+
+From this release, dub will now warn about any entry in its configuration files
+or in `dub.selections.json`. After 10 releases, those warnings will turn into errors.

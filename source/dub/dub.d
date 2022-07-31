@@ -267,10 +267,13 @@ class Dub {
 
 		void readSettingsFile (NativePath path_)
 		{
+			// TODO: Remove `StrictMode.Warn` after v1.40 release
+			// The default is to error, but as the previous parser wasn't
+			// complaining, we should first warn the user.
 			const path = path_.toNativeString();
 			if (path.exists)
 				this.m_config = this.m_config.merge(
-					parseConfigFile!UserConfiguration(CLIArgs(path)));
+					parseConfigFile!UserConfiguration(CLIArgs(path), StrictMode.Warn));
 		}
 
 		const dubFolderPath = NativePath(thisExePath).parentPath;
