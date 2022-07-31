@@ -1457,6 +1457,11 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 	this(Dub dub, UpgradeOptions options, Package root, SelectedVersions selected_versions)
 	{
+		if (environment.get("DUB_NO_RESOLVE_LIMIT") !is null)
+			super(ulong.max);
+		else
+		    super(1_000_000);
+
 		m_dub = dub;
 		m_options = options;
 		m_rootPackage = root;
