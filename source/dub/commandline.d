@@ -2190,7 +2190,7 @@ class AddOverrideCommand : Command {
 	{
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 3, "Expected three arguments, not "~free_args.length.to!string);
-		auto scope_ = m_system ? LocalPackageType.system : LocalPackageType.user;
+		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
 		auto pack = free_args[0];
 		auto ver = Dependency(free_args[1]);
 		if (existsFile(NativePath(free_args[2]))) {
@@ -2232,7 +2232,7 @@ class RemoveOverrideCommand : Command {
 	{
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 2, "Expected two arguments, not "~free_args.length.to!string);
-		auto scope_ = m_system ? LocalPackageType.system : LocalPackageType.user;
+		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
 		dub.packageManager.removeOverride(scope_, free_args[0], Dependency(free_args[1]));
 		return 0;
 	}
@@ -2260,8 +2260,8 @@ class ListOverridesCommand : Command {
 				else logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetVersion);
 			}
 		}
-		printList(dub.packageManager.getOverrides(LocalPackageType.user), "User wide overrides");
-		printList(dub.packageManager.getOverrides(LocalPackageType.system), "System wide overrides");
+		printList(dub.packageManager.getOverrides(PlacementLocation.user), "User wide overrides");
+		printList(dub.packageManager.getOverrides(PlacementLocation.system), "System wide overrides");
 		return 0;
 	}
 }

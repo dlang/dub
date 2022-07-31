@@ -964,7 +964,7 @@ class Dub {
 	void addLocalPackage(string path, string ver, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.addLocalPackage(makeAbsolute(path), ver, system ? LocalPackageType.system : LocalPackageType.user);
+		m_packageManager.addLocalPackage(makeAbsolute(path), ver, system ? PlacementLocation.system : PlacementLocation.user);
 	}
 
 	/** Removes a directory from the list of locally known packages.
@@ -981,7 +981,7 @@ class Dub {
 	void removeLocalPackage(string path, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.removeLocalPackage(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
+		m_packageManager.removeLocalPackage(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
 	}
 
 	/** Registers a local directory to search for packages to use for satisfying
@@ -997,7 +997,7 @@ class Dub {
 	void addSearchPath(string path, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.addSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
+		m_packageManager.addSearchPath(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
 	}
 
 	/** Unregisters a local directory search path.
@@ -1012,7 +1012,7 @@ class Dub {
 	void removeSearchPath(string path, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
+		m_packageManager.removeSearchPath(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
 	}
 
 	/** Queries all package suppliers with the given query string.
