@@ -8,7 +8,6 @@
 module dub.packagemanager;
 
 import dub.dependency;
-static import dub.dependency;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
@@ -44,7 +43,7 @@ public enum PlacementLocation {
 /// packages.
 class PackageManager {
 	private {
-		Repository[] m_repositories;
+		Location[] m_repositories;
 		NativePath[] m_searchPath;
 		Package[] m_packages;
 		Package[] m_temporaryPackages;
@@ -72,8 +71,8 @@ class PackageManager {
 	this(NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
 		m_repositories = [
-			Repository(user_path ~ "packages/"),
-			Repository(system_path ~ "packages/")];
+			Location(user_path ~ "packages/"),
+			Location(system_path ~ "packages/")];
 
 		if (refresh_packages) refresh(true);
 	}
@@ -81,9 +80,9 @@ class PackageManager {
 	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
 		m_repositories = [
-			Repository(package_path ~ ".dub/packages/"),
-			Repository(user_path ~ "packages/"),
-			Repository(system_path ~ "packages/")];
+			Location(package_path ~ ".dub/packages/"),
+			Location(user_path ~ "packages/"),
+			Location(system_path ~ "packages/")];
 
 		if (refresh_packages) refresh(true);
 	}
@@ -147,7 +146,7 @@ class PackageManager {
 		import std.array : array;
 
 		m_repositories.length = PlacementLocation.max+1;
-		m_repositories ~= custom_cache_paths.map!(p => Repository(p)).array;
+		m_repositories ~= custom_cache_paths.map!(p => Location(p)).array;
 
 		refresh(false);
 	}
@@ -293,7 +292,7 @@ class PackageManager {
 	do { return this.loadSCMPackage(name, dependency.repository); }
 
 	/// Ditto
-	Package loadSCMPackage(string name, dub.dependency.Repository repo)
+	Package loadSCMPackage(string name, Repository repo)
 	in { assert(!repo.empty); }
 	do {
         Package pack;
@@ -498,7 +497,7 @@ class PackageManager {
 	*/
 	void removeOverride(PlacementLocation scope_, string package_, Dependency version_spec)
 	{
-		Repository* rep = &m_repositories[scope_];
+		Location* rep = &m_repositories[scope_];
 		foreach (i, ovr; rep.overrides) {
 			if (ovr.package_ != package_ || ovr.version_ != version_spec)
 				continue;
@@ -985,8 +984,8 @@ enum LocalPackageType : PlacementLocation {
 private enum LocalPackagesFilename = "local-packages.json";
 private enum LocalOverridesFilename = "local-overrides.json";
 
-
-private struct Repository {
+/// A managed location (see `PlacementLocation`)
+private struct Location {
 	NativePath packagePath;
 	NativePath[] searchPath;
 	Package[] localPackages;
