@@ -85,7 +85,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		// versions as possible
 		ResolveContext context;
 		context.configs[rootbase] = [ResolveConfig(root.config, true)];
-		long loop_counter = no_loop_limit ? long.max : 1_000_000;
+		ulong loop_counter = no_loop_limit ? ulong.max : 1_000_000;
 		constrain(root, context, loop_counter);
 
 		// remove any non-default optional dependencies
@@ -148,7 +148,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 	/** Starting with a single node, fills `context` with a minimized set of
 		configurations that form valid solutions.
 	*/
-	private void constrain(TreeNode n, ref ResolveContext context, ref long max_iterations)
+	private void constrain(TreeNode n, ref ResolveContext context, ref ulong max_iterations)
 	{
 		auto base = n.pack.basePackageName;
 		assert(base in context.configs);
@@ -204,7 +204,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		propagate.
 	*/
 	private void constrainDependencies(TreeNode n, TreeNodes[] dependencies, size_t depidx,
-		ref ResolveContext context, ref long max_iterations)
+		ref ResolveContext context, ref ulong max_iterations)
 	{
 		if (depidx >= dependencies.length) return;
 
