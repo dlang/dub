@@ -785,15 +785,17 @@ class PackageManager {
 					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 					if (!pdir.isDirectory) continue;
 
+					// Old / flat directory structure, used in non-standard path
+					// Packages are stored in $ROOT/$SOMETHING/`
 					auto pack_path = path ~ (pdir.name ~ "/");
-
 					auto packageFile = Package.findPackageFile(pack_path);
 
+					// New (since 2015) managed structure:
+					// $ROOT/$NAME-$VERSION/$NAME
+					// This is the most common code path
 					if (isManagedPath(path) && packageFile.empty) {
-						// Search for a single directory within this directory which happen to be a prefix of pdir
-						// This is to support new folder structure installed over the ancient one.
 						foreach (subdir; iterateDirectory(path ~ (pdir.name ~ "/")))
-							if (subdir.isDirectory && pdir.name.startsWith(subdir.name)) {// eg: package vibe-d will be in "vibe-d-x.y.z/vibe-d"
+							if (subdir.isDirectory && pdir.name.startsWith(subdir.name)) {
 								pack_path ~= subdir.name ~ "/";
 								packageFile = Package.findPackageFile(pack_path);
 								break;
