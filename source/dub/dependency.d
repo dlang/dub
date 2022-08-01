@@ -289,8 +289,8 @@ struct Dependency {
 
 			(const Repository v) @trusted {
 				initJson(json, optional, default_);
-				json["repository"] = repository.toString();
-				json["version"] = repository.m_ref;
+				json["repository"] = v.toString();
+				json["version"] = v.m_ref;
 			},
 
 			(const VersionRange v) @trusted {
@@ -707,7 +707,7 @@ struct Repository
 		assert(m_remote.length);
 	}
 
-	string toString() nothrow pure @safe
+	string toString() const nothrow pure @safe
 	{
 		if (empty) return null;
 		string kindRepresentation;
@@ -724,7 +724,7 @@ struct Repository
 		Returns:
 			Repository URL or path.
 	*/
-	@property string remote() @nogc nothrow pure @safe
+	@property string remote() const @nogc nothrow pure @safe
 	in { assert(m_remote !is null); }
 	do
 	{
@@ -735,7 +735,7 @@ struct Repository
 		Returns:
 			The reference (commit hash, branch name, tag) we are targeting
 	*/
-	@property string ref_() @nogc nothrow pure @safe
+	@property string ref_() const @nogc nothrow pure @safe
 	in { assert(m_remote !is null); }
 	in { assert(m_ref !is null); }
 	do
@@ -747,7 +747,7 @@ struct Repository
 		Returns:
 			Repository type.
 	*/
-	@property Kind kind() @nogc nothrow pure @safe
+	@property Kind kind() const @nogc nothrow pure @safe
 	{
 		return m_kind;
 	}
