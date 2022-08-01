@@ -98,7 +98,7 @@ struct Dependency {
 	}
 
 	/// Construct a version from a range of possible values
-	private this (VersionRange rng) @safe
+	this (VersionRange rng) @safe
 	{
 		this.m_value = rng;
 	}
@@ -485,6 +485,19 @@ struct Dependency {
 		return ret;
 	}
 }
+
+/// Allow direct access to the underlying dependency
+public auto visit (Handlers...) (const auto ref Dependency dep)
+{
+    return dep.m_value.match!(Handlers);
+}
+
+//// Ditto
+public auto visit (Handlers...) (auto ref Dependency dep)
+{
+    return dep.m_value.match!(Handlers);
+}
+
 
 unittest {
 	Dependency a = Dependency(">=1.1.0"), b = Dependency(">=1.3.0");
@@ -882,12 +895,12 @@ struct Version {
 }
 
 /// A range of versions that are acceptable
-private struct VersionRange
+public struct VersionRange
 {
-	Version m_versA;
-	Version m_versB;
-	bool m_inclusiveA = true; // A comparison > (true) or >= (false)
-	bool m_inclusiveB = true; // B comparison < (true) or <= (false)
+	private Version m_versA;
+	private Version m_versB;
+	private bool m_inclusiveA = true; // A comparison > (true) or >= (false)
+	private bool m_inclusiveB = true; // B comparison < (true) or <= (false)
 
 	/// Matches any version
 	public static immutable Any = VersionRange(Version.minRelease, Version.maxRelease);
