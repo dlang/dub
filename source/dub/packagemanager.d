@@ -8,7 +8,6 @@
 module dub.packagemanager;
 
 import dub.dependency;
-static import dub.dependency;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
@@ -44,7 +43,7 @@ public enum PlacementLocation {
 /// packages.
 class PackageManager {
 	private {
-		Repository[] m_repositories;
+		Location[] m_repositories;
 		NativePath[] m_searchPath;
 		Package[] m_packages;
 		Package[] m_temporaryPackages;
@@ -72,8 +71,8 @@ class PackageManager {
 	this(NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
 		m_repositories = [
-			Repository(user_path ~ "packages/"),
-			Repository(system_path ~ "packages/")];
+			Location(user_path ~ "packages/"),
+			Location(system_path ~ "packages/")];
 
 		if (refresh_packages) refresh(true);
 	}
@@ -81,9 +80,9 @@ class PackageManager {
 	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
 		m_repositories = [
-			Repository(package_path ~ ".dub/packages/"),
-			Repository(user_path ~ "packages/"),
-			Repository(system_path ~ "packages/")];
+			Location(package_path ~ ".dub/packages/"),
+			Location(user_path ~ "packages/"),
+			Location(system_path ~ "packages/")];
 
 		if (refresh_packages) refresh(true);
 	}
@@ -146,8 +145,8 @@ class PackageManager {
 		import std.algorithm.iteration : map;
 		import std.array : array;
 
-		m_repositories.length = LocalPackageType.max+1;
-		m_repositories ~= custom_cache_paths.map!(p => Repository(p)).array;
+		m_repositories.length = PlacementLocation.max+1;
+		m_repositories ~= custom_cache_paths.map!(p => Location(p)).array;
 
 		refresh(false);
 	}
@@ -293,7 +292,7 @@ class PackageManager {
 	do { return this.loadSCMPackage(name, dependency.repository); }
 
 	/// Ditto
-	Package loadSCMPackage(string name, dub.dependency.Repository repo)
+	Package loadSCMPackage(string name, Repository repo)
 	in { assert(!repo.empty); }
 	do {
         Package pack;
@@ -319,7 +318,7 @@ class PackageManager {
 
 		string gitReference = versionSpec.chompPrefix("~");
 		NativePath destination = getPackagePath(
-			m_repositories[LocalPackageType.user].packagePath,
+			m_repositories[PlacementLocation.user].packagePath,
 			name, versionSpec);
 		// For libraries leaking their import path
 		destination ~= name;
@@ -475,20 +474,20 @@ class PackageManager {
 
 	/** Returns a list of all package overrides for the given scope.
 	*/
-	const(PackageOverride)[] getOverrides(LocalPackageType scope_)
+	const(PackageOverride)[] getOverrides(PlacementLocation scope_)
 	const {
 		return m_repositories[scope_].overrides;
 	}
 
 	/** Adds a new override for the given package.
 	*/
-	void addOverride(LocalPackageType scope_, string package_, Dependency version_spec, Version target)
+	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, Version target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
 		writeLocalPackageOverridesFile(scope_);
 	}
 	/// ditto
-	void addOverride(LocalPackageType scope_, string package_, Dependency version_spec, NativePath target)
+	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, NativePath target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
 		writeLocalPackageOverridesFile(scope_);
@@ -496,9 +495,9 @@ class PackageManager {
 
 	/** Removes an existing package override.
 	*/
-	void removeOverride(LocalPackageType scope_, string package_, Dependency version_spec)
+	void removeOverride(PlacementLocation scope_, string package_, Dependency version_spec)
 	{
-		Repository* rep = &m_repositories[scope_];
+		Location* rep = &m_repositories[scope_];
 		foreach (i, ovr; rep.overrides) {
 			if (ovr.package_ != package_ || ovr.version_ != version_spec)
 				continue;
@@ -643,7 +642,7 @@ class PackageManager {
 		remove(pack);
 	}
 
-	Package addLocalPackage(NativePath path, string verName, LocalPackageType type)
+	Package addLocalPackage(NativePath path, string verName, PlacementLocation type)
 	{
 		path.endsWithSlash = true;
 		auto pack = Package.load(path);
@@ -669,7 +668,7 @@ class PackageManager {
 		return pack;
 	}
 
-	void removeLocalPackage(NativePath path, LocalPackageType type)
+	void removeLocalPackage(NativePath path, PlacementLocation type)
 	{
 		path.endsWithSlash = true;
 
@@ -693,14 +692,14 @@ class PackageManager {
 	}
 
 	/// For the given type add another path where packages will be looked up.
-	void addSearchPath(NativePath path, LocalPackageType type)
+	void addSearchPath(NativePath path, PlacementLocation type)
 	{
 		m_repositories[type].searchPath ~= path;
 		writeLocalPackageList(type);
 	}
 
 	/// Removes a search path from the given type.
-	void removeSearchPath(NativePath path, LocalPackageType type)
+	void removeSearchPath(NativePath path, PlacementLocation type)
 	{
 		m_repositories[type].searchPath = m_repositories[type].searchPath.filter!(p => p != path)().array();
 		writeLocalPackageList(type);
@@ -711,7 +710,7 @@ class PackageManager {
 		logDiagnostic("Refreshing local packages (refresh existing: %s)...", refresh_existing_packages);
 
 		// load locally defined packages
-		void scanLocalPackages(LocalPackageType type)
+		void scanLocalPackages(PlacementLocation type)
 		{
 			NativePath list_path = m_repositories[type].packagePath;
 			Package[] packs;
@@ -770,9 +769,9 @@ class PackageManager {
 		}
 		if (!m_disableDefaultSearchPaths)
 		{
-			scanLocalPackages(LocalPackageType.system);
-			scanLocalPackages(LocalPackageType.user);
-			scanLocalPackages(LocalPackageType.package_);
+			scanLocalPackages(PlacementLocation.system);
+			scanLocalPackages(PlacementLocation.user);
+			scanLocalPackages(PlacementLocation.local);
 		}
 
 		auto old_packages = m_packages;
@@ -825,7 +824,7 @@ class PackageManager {
 		foreach (p; this.completeSearchPath)
 			scanPackageFolder(p);
 
-		void loadOverrides(LocalPackageType type)
+		void loadOverrides(PlacementLocation type)
 		{
 			m_repositories[type].overrides = null;
 			auto ovrfilepath = m_repositories[type].packagePath ~ LocalOverridesFilename;
@@ -842,9 +841,9 @@ class PackageManager {
 		}
 		if (!m_disableDefaultSearchPaths)
 		{
-			loadOverrides(LocalPackageType.package_);
-			loadOverrides(LocalPackageType.user);
-			loadOverrides(LocalPackageType.system);
+			loadOverrides(PlacementLocation.local);
+			loadOverrides(PlacementLocation.user);
+			loadOverrides(PlacementLocation.system);
 		}
 	}
 
@@ -878,7 +877,7 @@ class PackageManager {
 		return hash[].dup;
 	}
 
-	private void writeLocalPackageList(LocalPackageType type)
+	private void writeLocalPackageList(PlacementLocation type)
 	{
 		Json[] newlist;
 		foreach (p; m_repositories[type].searchPath) {
@@ -902,7 +901,7 @@ class PackageManager {
 		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
 	}
 
-	private void writeLocalPackageOverridesFile(LocalPackageType type)
+	private void writeLocalPackageOverridesFile(PlacementLocation type)
 	{
 		Json[] newlist;
 		foreach (ovr; m_repositories[type].overrides) {
@@ -975,17 +974,18 @@ struct PackageOverride {
 	}
 }
 
-enum LocalPackageType {
-	package_,
-	user,
-	system
+deprecated("Use `PlacementLocation` instead")
+enum LocalPackageType : PlacementLocation {
+	package_ = PlacementLocation.local,
+	user     = PlacementLocation.user,
+	system   = PlacementLocation.system,
 }
 
 private enum LocalPackagesFilename = "local-packages.json";
 private enum LocalOverridesFilename = "local-overrides.json";
 
-
-private struct Repository {
+/// A managed location (see `PlacementLocation`)
+private struct Location {
 	NativePath packagePath;
 	NativePath[] searchPath;
 	Package[] localPackages;
