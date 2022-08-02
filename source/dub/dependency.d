@@ -427,19 +427,13 @@ struct Dependency {
 
 		This is true in particular for the `any` constant.
 	*/
+	deprecated("Use `VersionRange.matchesAny` directly")
 	bool matchesAny() const scope @safe {
 		return this.m_value.match!(
 			(Repository v) => true,
 			(NativePath v) => true,
 			(VersionRange v) => v.matchesAny(),
 		);
-	}
-
-	unittest {
-		assert(Dependency("*").matchesAny);
-		assert(!Dependency(">0.0.0").matchesAny);
-		assert(!Dependency(">=1.0.0").matchesAny);
-		assert(!Dependency("<1.0.0").matchesAny);
 	}
 
 	/** Tests if the specification matches a specific version.
@@ -960,6 +954,13 @@ private struct VersionRange
 		return this.m_inclusiveA && this.m_inclusiveB
 			&& this.m_versA == Version.minRelease
 			&& this.m_versB == Version.maxRelease;
+	}
+
+	unittest {
+		assert(VersionRange.fromString("*").matchesAny);
+		assert(!VersionRange.fromString(">0.0.0").matchesAny);
+		assert(!VersionRange.fromString(">=1.0.0").matchesAny);
+		assert(!VersionRange.fromString("<1.0.0").matchesAny);
 	}
 
 	public static VersionRange fromString (string ves) @safe
