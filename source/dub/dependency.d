@@ -173,13 +173,10 @@ struct Dependency {
 
 	/// Returns the exact version matched by the version range.
 	@property Version version_() const @safe {
-		auto range = this.m_value.tryMatch!(
+		auto range = this.m_value.match!(
 			(VersionRange v) => v,
-			(NativePath   p) => VersionRange.Any,
-			(Repository   r) {
-				auto v = Version(r.m_ref);
-				return VersionRange(v, v);
-			},
+			(NativePath   p) => assert(0),
+			(Repository   r) => assert(0),
 		);
 		enforce(range.isExactVersion(),
 				"Dependency "~this.versionSpec~" is no exact version.");
