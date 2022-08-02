@@ -63,6 +63,22 @@ struct Dependency {
 		return Dependency(VersionRange.Invalid);
 	}
 
+	/** Constructs a new dependency specification that matches a specific
+		path.
+	*/
+	this(NativePath path) @safe
+	{
+		this.m_value = path;
+	}
+
+	/** Constructs a new dependency specification that matches a specific
+		Git reference.
+	*/
+	this(Repository repository) @safe
+	{
+		this.m_value = repository;
+	}
+
 	/** Constructs a new dependency specification from a string
 
 		See the `versionSpec` property for a description of the accepted
@@ -85,22 +101,6 @@ struct Dependency {
 	private this (VersionRange rng) @safe
 	{
 		this.m_value = rng;
-	}
-
-	/** Constructs a new dependency specification that matches a specific
-		path.
-	*/
-	this(NativePath path) @safe
-	{
-		this.m_value = path;
-	}
-
-	/** Constructs a new dependency specification that matches a specific
-		Git reference.
-	*/
-	this(Repository repository) @safe
-	{
-		this.m_value = repository;
 	}
 
 	deprecated("Instantiate the `Repository` struct with the string directy")
@@ -165,8 +165,8 @@ struct Dependency {
 	@property bool isExactVersion() const scope @safe
 	{
 		return this.m_value.match!(
-			(Repository v) => false,
 			(NativePath v) => false,
+			(Repository v) => false,
 			(VersionRange v) => v.isExactVersion(),
 		);
 	}
@@ -174,9 +174,9 @@ struct Dependency {
 	/// Returns the exact version matched by the version range.
 	@property Version version_() const @safe {
 		auto range = this.m_value.match!(
-			(VersionRange v) => v,
 			(NativePath   p) => assert(0),
 			(Repository   r) => assert(0),
+			(VersionRange v) => v,
 		);
 		enforce(range.isExactVersion(),
 				"Dependency "~this.versionSpec~" is no exact version.");
@@ -212,9 +212,9 @@ struct Dependency {
 	/// ditto
 	@property string versionSpec() const @safe {
 		return this.m_value.match!(
-			(const VersionRange p) => p.toString(),
-			(const Repository   r) => r.m_ref,
 			(const NativePath   p) => ANY_IDENT,
+			(const Repository   r) => r.m_ref,
+			(const VersionRange p) => p.toString(),
 		);
 	}
 
@@ -227,11 +227,11 @@ struct Dependency {
 	Dependency mapToPath(NativePath path) const @trusted {
 		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
 		return this.m_value.match!(
-			(Repository v) => this,
 			(NativePath v) {
 				if (v.empty || v.absolute) return this;
 				return Dependency(path ~ v);
 			},
+			(Repository v) => this,
 			(VersionRange v) => this,
 		);
 	}
@@ -414,8 +414,8 @@ struct Dependency {
 	*/
 	bool valid() const @safe {
 		return this.m_value.match!(
-			(Repository v) => true,
 			(NativePath v) => true,
+			(Repository v) => true,
 			(VersionRange v) => v.isValid(),
 		);
 	}
@@ -426,8 +426,8 @@ struct Dependency {
 	*/
 	bool matchesAny() const scope @safe {
 		return this.m_value.match!(
-			(Repository v) => true,
 			(NativePath v) => true,
+			(Repository v) => true,
 			(VersionRange v) => v.matchesAny(),
 		);
 	}
@@ -453,8 +453,8 @@ struct Dependency {
 	/// ditto
 	bool matches(ref const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const @safe {
 		return this.m_value.match!(
-			(Repository i) => true,
 			(NativePath i) => true,
+			(Repository i) => true,
 			(VersionRange i) => i.matchesAny() || i.matches(v, mode),
 		);
 	}
@@ -467,17 +467,13 @@ struct Dependency {
 	*/
 	Dependency merge(ref const(Dependency) o) const @trusted {
 		alias Merger = match!(
-			// First check the repository. We ignore remote and simply compare ref
-			// A repository takes precedence over any other dependency for backward
-			// compatibility, but a later change should probably error out.
-			(const Repository a, const Repository b) => a.m_ref == b.m_ref ? this : invalid,
-			(const Repository a,       any         ) => this,
-			(      any         , const Repository b) => o,
-
-			// Likewise, path-based dependencies take precedence over versions
 			(const NativePath a, const NativePath b) => a == b ? this : invalid,
 			(const NativePath a,       any         ) => o,
 			(      any         , const NativePath b) => this,
+
+			(const Repository a, const Repository b) => a.m_ref == b.m_ref ? this : invalid,
+			(const Repository a,       any         ) => this,
+			(      any         , const Repository b) => o,
 
 			(const VersionRange a, const VersionRange b) {
 				if (a.matchesAny()) return o;
