@@ -552,8 +552,7 @@ class Dub {
 			return;
 		}
 
-		foreach (p; versions.byKey) {
-			auto ver = versions[p]; // Workaround for DMD 2.070.0 AA issue (crashes in aaApply2 if iterating by key+value)
+		foreach (p, ver; versions) {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
 			if (!ver.path.empty) {
