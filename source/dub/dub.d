@@ -543,8 +543,8 @@ class Dub {
 				auto sver = m_project.selections.getSelectedVersion(basename);
 				if (!sver.path.empty || !sver.repository.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
-        logInfo("Upgrade", Color.cyan,
-          "%s would be upgraded from %s to %s.",
+				logInfo("Upgrade", Color.cyan,
+					"%s would be upgraded from %s to %s.",
 					basename.color(Mode.bold), sver, ver);
 				any = true;
 			}
