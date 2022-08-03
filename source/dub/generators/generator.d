@@ -7,6 +7,7 @@
 */
 module dub.generators.generator;
 
+import dub.dependency : PackageName;
 import dub.compilers.compiler;
 import dub.generators.cmake;
 import dub.generators.build;
@@ -134,7 +135,7 @@ class ProjectGenerator
 
 		if (!settings.config.length) settings.config = m_project.getDefaultConfiguration(settings.platform);
 
-		string[string] configs = m_project.getPackageConfigs(settings.platform, settings.config);
+		auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
 		TargetInfo[string] targets;
 		EnvironmentVariables[string] envs;
 
@@ -1097,7 +1098,7 @@ private bool isRecursiveInvocation(string pack)
 		.canFind(pack);
 }
 
-private void storeRecursiveInvokations(ref const(string[string])[] env, string[] packs)
+private void storeRecursiveInvokations(ref const(string[string])[] env, PackageName[] packs)
 {
 	import std.algorithm : canFind, splitter;
 	import std.range : chain;

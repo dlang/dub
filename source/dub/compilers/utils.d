@@ -7,6 +7,7 @@
 */
 module dub.compilers.utils;
 
+import dub.dependency : PackageName;
 import dub.compilers.buildsettings;
 import dub.platform : BuildPlatform, archCheck, compilerCheck, platformCheck;
 import dub.internal.vibecompat.inet.path;
@@ -191,7 +192,7 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 	(`BuildRequirements`). This function will output warning messages to
 	assist the user in making the best choice.
 */
-void warnOnSpecialCompilerFlags(string[] compiler_flags, Flags!BuildOption options, string package_name, string config_name)
+void warnOnSpecialCompilerFlags(string[] compiler_flags, Flags!BuildOption options, PackageName package_name, string config_name)
 {
 	import std.algorithm : any, endsWith, startsWith;
 	import std.range : empty;

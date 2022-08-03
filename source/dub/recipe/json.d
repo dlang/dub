@@ -21,7 +21,7 @@ import std.string : format, indexOf;
 import std.traits : EnumMembers;
 
 
-void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
+void parseJson(ref PackageRecipe recipe, Json json, PackageName parent_package_name)
 {
 	foreach (string field, value; json) {
 		switch (field) {
@@ -37,7 +37,7 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 			case "buildTypes":
 				foreach (string name, settings; value) {
 					BuildSettingsTemplate bs;
-					bs.parseJson(settings, null);
+					bs.parseJson(settings, PackageName(null));
 					recipe.buildTypes[name] = bs;
 				}
 				break;
@@ -51,7 +51,7 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 
 	enforce(recipe.name.length > 0, "The package \"name\" field is missing or empty.");
 
-	auto fullname = parent_name.length ? parent_name ~ ":" ~ recipe.name : recipe.name;
+	auto fullname = PackageName(parent_package_name.length ? parent_package_name ~ ":" ~ recipe.name : recipe.name);
 
 	// parse build settings
 	recipe.buildSettings.parseJson(json, fullname);
@@ -110,9 +110,9 @@ Json toJson(const scope ref PackageRecipe recipe)
 	return ret;
 }
 
-private void parseSubPackages(ref PackageRecipe recipe, string parent_package_name, Json[] subPackagesJson)
+private void parseSubPackages(ref PackageRecipe recipe, PackageName parent_package_name, Json[] subPackagesJson)
 {
-	enforce(!parent_package_name.canFind(":"), format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
+	enforce(!parent_package_name.value.canFind(":"), format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
 		parent_package_name, getBasePackageName(parent_package_name)));
 
 	recipe.subPackages = new SubPackage[subPackagesJson.length];
@@ -129,7 +129,7 @@ private void parseSubPackages(ref PackageRecipe recipe, string parent_package_na
 	}
 }
 
-private void parseJson(ref ConfigurationInfo config, Json json, string package_name)
+private void parseJson(ref ConfigurationInfo config, Json json, PackageName package_name)
 {
 	foreach (string name, value; json) {
 		switch (name) {
@@ -154,7 +154,7 @@ private Json toJson(const scope ref ConfigurationInfo config)
 	return ret;
 }
 
-private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_name)
+private void parseJson(ref BuildSettingsTemplate bs, Json json, PackageName package_name)
 {
 	foreach(string name, value; json)
 	{
@@ -165,10 +165,11 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 		switch(basename){
 			default: break;
 			case "dependencies":
-				foreach (string pkg, verspec; value) {
+				foreach (string pkgString, verspec; value) {
+                    auto pkg = PackageName(pkgString);
 					if (pkg.startsWith(":")) {
 						enforce(!package_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", package_name, pkg));
-						pkg = package_name ~ pkg;
+						pkg = PackageName(package_name ~ pkg);
 					}
 					enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 					bs.dependencies[pkg] = Dependency.fromJson(verspec);
@@ -208,7 +209,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 				break;
 			case "subConfigurations":
 				enforce(suffix.empty, "subConfigurations does not support platform customization.");
-				bs.subConfigurations = deserializeJson!(string[string])(value);
+				bs.subConfigurations = deserializeJson!(string[PackageName])(value);
 				break;
 			case "dflags": bs.dflags[suffix] = deserializeJson!(string[])(value); break;
 			case "lflags": bs.lflags[suffix] = deserializeJson!(string[])(value); break;
@@ -379,9 +380,9 @@ unittest {
 	`.strip.outdent;
 	auto jsonValue = parseJsonString(json);
 	PackageRecipe rec1;
-	parseJson(rec1, jsonValue, null);
+	parseJson(rec1, jsonValue, PackageName(null));
 	PackageRecipe rec;
-	parseJson(rec, rec1.toJson(), null); // verify that all fields are serialized properly
+	parseJson(rec, rec1.toJson(), PackageName(null)); // verify that all fields are serialized properly
 
 	assert(rec.name == "projectname");
 	assert(rec.buildSettings.environments == ["": ["Var1": "env"]]);

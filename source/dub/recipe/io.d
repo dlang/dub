@@ -7,6 +7,7 @@
 */
 module dub.recipe.io;
 
+import dub.dependency : PackageName;
 import dub.recipe.packagerecipe;
 import dub.internal.vibecompat.inet.path;
 
@@ -17,17 +18,17 @@ import dub.internal.vibecompat.inet.path;
 
 	Params:
 		filename = NativePath of the package recipe file
-		parent_name = Optional name of the parent package (if this is a sub package)
+		parent_package_name = Optional name of the parent package (if this is a sub package)
 
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
-PackageRecipe readPackageRecipe(string filename, string parent_name = null)
+PackageRecipe readPackageRecipe(string filename, PackageName parent_package_name = null)
 {
-	return readPackageRecipe(NativePath(filename), parent_name);
+	return readPackageRecipe(NativePath(filename), parent_package_name);
 }
 /// ditto
-PackageRecipe readPackageRecipe(NativePath filename, string parent_name = null)
+PackageRecipe readPackageRecipe(NativePath filename, PackageName parent_package_name = null)
 {
 	import dub.internal.utils : stripUTF8Bom;
 	import dub.internal.vibecompat.core.file : openFile, FileMode;
@@ -40,7 +41,7 @@ PackageRecipe readPackageRecipe(NativePath filename, string parent_name = null)
 		text = stripUTF8Bom(cast(string)f.readAll());
 	}
 
-	return parsePackageRecipe(text, filename.toNativeString(), parent_name);
+	return parsePackageRecipe(text, filename.toNativeString(), parent_package_name);
 }
 
 /** Parses an in-memory package recipe.
@@ -51,7 +52,7 @@ PackageRecipe readPackageRecipe(NativePath filename, string parent_name = null)
 		contents = The contents of the recipe file
 		filename = Name associated with the package recipe - this is only used
 			to determine the file format from the file extension
-		parent_name = Optional name of the parent package (if this is a sub
+		parent_package_name = Optional name of the parent package (if this is a sub
 		package)
 		default_package_name = Optional default package name (if no package name
 		is found in the recipe this value will be used)
@@ -59,8 +60,8 @@ PackageRecipe readPackageRecipe(NativePath filename, string parent_name = null)
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
-PackageRecipe parsePackageRecipe(string contents, string filename, string parent_name = null,
-								 string default_package_name = null)
+PackageRecipe parsePackageRecipe(string contents, string filename, PackageName parent_package_name = null,
+								 PackageName default_package_name = null)
 {
 	import std.algorithm : endsWith;
 	import dub.compilers.buildsettings : TargetType;
@@ -72,8 +73,8 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 
 	ret.name = default_package_name;
 
-	if (filename.endsWith(".json")) parseJson(ret, parseJsonString(contents, filename), parent_name);
-	else if (filename.endsWith(".sdl")) parseSDL(ret, contents, parent_name, filename);
+	if (filename.endsWith(".json")) parseJson(ret, parseJsonString(contents, filename), parent_package_name);
+	else if (filename.endsWith(".sdl")) parseSDL(ret, contents, parent_package_name, filename);
 	else assert(false, "readPackageRecipe called with filename with unknown extension: "~filename);
 
 	// Fix for issue #711: `targetType` should be inherited, or default to library

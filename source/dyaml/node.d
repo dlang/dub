@@ -610,8 +610,15 @@ struct Node
                             " out of range. Value: " ~ to!string(temp), startMark_));
                     return temp.to!T;
                 }
+                else static if(is(typeof(T.fromString(string.init)) == T))
+                {
+                    enforce(type == NodeType.string, new NodeException(
+                                "Node stores unexpected type: " ~ text(type) ~
+                                ". Expected: " ~ typeid(string).toString(), startMark_));
+                    return T.fromString(getValue!string);
+                }
                 else throw new NodeException("Node stores unexpected type: " ~ text(type) ~
-                    ". Expected: " ~ typeid(T).toString, startMark_);
+                                             ". Expected: " ~ typeid(T).toString, startMark_);
             }
         }
         /// ditto

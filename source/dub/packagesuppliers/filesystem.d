@@ -21,17 +21,17 @@ class FileSystemPackageSupplier : PackageSupplier {
 
 	override @property string description() { return "file repository at "~m_path.toNativeString(); }
 
-	Version[] getVersions(string package_id)
+	Version[] getVersions(PackageName package_name)
 	{
 		import std.algorithm.sorting : sort;
 		import std.file : dirEntries, DirEntry, SpanMode;
 		import std.conv : to;
 		Version[] ret;
-		foreach (DirEntry d; dirEntries(m_path.toNativeString(), package_id~"*", SpanMode.shallow)) {
+		foreach (DirEntry d; dirEntries(m_path.toNativeString(), package_name~"*", SpanMode.shallow)) {
 			NativePath p = NativePath(d.name);
 			logDebug("Entry: %s", p);
 			enforce(to!string(p.head)[$-4..$] == ".zip");
-			auto vers = p.head.name[package_id.length+1..$-4];
+			auto vers = p.head.name[package_name.length+1..$-4];
 			logDebug("Version: %s", vers);
 			ret ~= Version(vers);
 		}
@@ -39,17 +39,17 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, PackageName package_id, Dependency dep, bool pre_release)
 	{
 		import dub.internal.vibecompat.core.file : copyFile, existsFile;
 		enforce(path.absolute);
-		logInfo("Storing package '%s', version requirements: %s", packageId, dep);
-		auto filename = bestPackageFile(packageId, dep, pre_release);
+		logInfo("Storing package '%s', version requirements: %s", package_id, dep);
+		auto filename = bestPackageFile(package_id, dep, pre_release);
 		enforce(existsFile(filename));
 		copyFile(filename, path);
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	Json fetchPackageRecipe(PackageName package_id, Dependency dep, bool pre_release)
 	{
 		import std.array : split;
 		import std.path : stripExtension;
@@ -58,15 +58,15 @@ class FileSystemPackageSupplier : PackageSupplier {
 		import dub.recipe.io : parsePackageRecipe;
 		import dub.recipe.json : toJson;
 
-		auto filePath = bestPackageFile(packageId, dep, pre_release);
+		auto filePath = bestPackageFile(package_id, dep, pre_release);
 		string packageFileName;
 		string packageFileContent = packageInfoFileFromZip(filePath, packageFileName);
 		auto recipe = parsePackageRecipe(packageFileContent, packageFileName);
 		Json json = toJson(recipe);
 		auto basename = filePath.head.name;
 		enforce(basename.endsWith(".zip"), "Malformed package filename: " ~ filePath.toNativeString);
-		enforce(basename.startsWith(packageId), "Malformed package filename: " ~ filePath.toNativeString);
-		json["version"] = basename[packageId.length + 1 .. $-4];
+		enforce(basename.startsWith(package_id), "Malformed package filename: " ~ filePath.toNativeString);
+		json["version"] = basename[package_id.length + 1 .. $-4];
 		return json;
 	}
 
@@ -76,16 +76,16 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return null;
 	}
 
-	private NativePath bestPackageFile(string packageId, Dependency dep, bool pre_release)
+	private NativePath bestPackageFile(PackageName package_id, Dependency dep, bool pre_release)
 	{
 		import std.algorithm.iteration : filter;
 		import std.array : array;
 		import std.format : format;
 		NativePath toPath(Version ver) {
-			return m_path ~ (packageId ~ "-" ~ ver.toString() ~ ".zip");
+			return m_path ~ (package_id ~ "-" ~ ver.toString() ~ ".zip");
 		}
-		auto versions = getVersions(packageId).filter!(v => dep.matches(v)).array;
-		enforce(versions.length > 0, format("No package %s found matching %s", packageId, dep));
+		auto versions = getVersions(package_id).filter!(v => dep.matches(v)).array;
+		enforce(versions.length > 0, format("No package %s found matching %s", package_id, dep));
 		foreach_reverse (ver; versions) {
 			if (pre_release || !ver.isPreRelease)
 				return toPath(ver);

@@ -169,19 +169,19 @@ class PackageManager {
 		Returns:
 			The matching package or null if no match was found.
 	*/
-	Package getPackage(string name, Version ver, bool enable_overrides = true)
+	Package getPackage(PackageName name, Version ver, bool enable_overrides = true)
 	{
 		if (enable_overrides) {
 			foreach (ref repo; m_repositories)
 				foreach (ovr; repo.overrides)
-					if (ovr.package_ == name && ovr.version_.matches(ver)) {
+					if (ovr.name == name && ovr.version_.matches(ver)) {
 						Package pack;
 						if (!ovr.targetPath.empty) pack = getOrLoadPackage(ovr.targetPath);
 						else pack = getPackage(name, ovr.targetVersion, false);
 						if (pack) return pack;
 
 						logWarn("Package override %s %s -> %s %s doesn't reference an existing package.",
-							ovr.package_, ovr.version_, ovr.targetVersion, ovr.targetPath);
+							ovr.name, ovr.version_, ovr.targetVersion, ovr.targetPath);
 					}
 		}
 
@@ -193,13 +193,13 @@ class PackageManager {
 	}
 
 	/// ditto
-	Package getPackage(string name, string ver, bool enable_overrides = true)
+	Package getPackage(PackageName name, string ver, bool enable_overrides = true)
 	{
 		return getPackage(name, Version(ver), enable_overrides);
 	}
 
 	/// ditto
-	Package getPackage(string name, Version ver, NativePath path)
+	Package getPackage(PackageName name, Version ver, NativePath path)
 	{
 		foreach (p; getPackageIterator(name)) {
 			auto pvm = isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard;
@@ -210,13 +210,13 @@ class PackageManager {
 	}
 
 	/// ditto
-	Package getPackage(string name, string ver, NativePath path)
+	Package getPackage(PackageName name, string ver, NativePath path)
 	{
 		return getPackage(name, Version(ver), path);
 	}
 
 	/// ditto
-	Package getPackage(string name, NativePath path)
+	Package getPackage(PackageName name, NativePath path)
 	{
 		foreach( p; getPackageIterator(name) )
 			if (p.path.startsWith(path))
@@ -227,7 +227,7 @@ class PackageManager {
 
 	/** Looks up the first package matching the given name.
 	*/
-	Package getFirstPackage(string name)
+	Package getFirstPackage(PackageName name)
 	{
 		foreach (ep; getPackageIterator(name))
 			return ep;
@@ -237,7 +237,7 @@ class PackageManager {
 	/** Looks up the latest package matching the given name.
 	*/
 	deprecated("Use `getBestPackage` with `name, Dependency.any` instead")
-	Package getLatestPackage(string name)
+	Package getLatestPackage(PackageName name)
 	{
 		Package pkg;
 		foreach (ep; getPackageIterator(name))
@@ -287,12 +287,12 @@ class PackageManager {
 			package couldn't be loaded.
 	*/
 	deprecated("Use the overload that accepts a `dub.dependency : Repository`")
-	Package loadSCMPackage(string name, Dependency dependency)
+	Package loadSCMPackage(PackageName name, Dependency dependency)
 	in { assert(!dependency.repository.empty); }
 	do { return this.loadSCMPackage(name, dependency.repository); }
 
 	/// Ditto
-	Package loadSCMPackage(string name, Repository repo)
+	Package loadSCMPackage(PackageName name, Repository repo)
 	in { assert(!repo.empty); }
 	do {
         Package pack;
@@ -308,7 +308,7 @@ class PackageManager {
         return pack;
 	}
 
-    private Package loadGitPackage(string name, string versionSpec, string remote)
+    private Package loadGitPackage(PackageName name, string versionSpec, string remote)
     {
 		import dub.internal.git : cloneRepository;
 
@@ -347,7 +347,7 @@ class PackageManager {
 	 * Hence the final format should be `$BASE/$NAME-$VERSION/$NAME`,
 	 * but this function returns `$BASE/$NAME-$VERSION/`
 	 */
-	package(dub) static NativePath getPackagePath (NativePath base, string name, string vers)
+	package(dub) static NativePath getPackagePath (NativePath base, PackageName name, string vers)
 	{
 		// + has special meaning for Optlink
 		string clean_vers = vers.chompPrefix("~").replace("+", "_");
@@ -358,7 +358,7 @@ class PackageManager {
 
 	/** Searches for the latest version of a package matching the given dependency.
 	*/
-	Package getBestPackage(string name, Dependency version_spec, bool enable_overrides = true)
+	Package getBestPackage(PackageName name, Dependency version_spec, bool enable_overrides = true)
 	{
 		Package ret;
 		foreach (p; getPackageIterator(name)) {
@@ -375,7 +375,7 @@ class PackageManager {
 	}
 
 	/// ditto
-	Package getBestPackage(string name, string version_spec)
+	Package getBestPackage(PackageName name, string version_spec)
 	{
 		return getBestPackage(name, Dependency(version_spec));
 	}
@@ -393,9 +393,9 @@ class PackageManager {
 				package is found. Otherwise will throw an exception.
 
 	*/
-	Package getSubPackage(Package base_package, string sub_name, bool silent_fail)
+	Package getSubPackage(Package base_package, PackageName sub_name, bool silent_fail)
 	{
-		foreach (p; getPackageIterator(base_package.name~":"~sub_name))
+		foreach (p; getPackageIterator(PackageName(base_package.name~":"~sub_name)))
 			if (p.parentPackage is base_package)
 				return p;
 		enforce(silent_fail, "Sub package \""~base_package.name~":"~sub_name~"\" doesn't exist.");
@@ -458,7 +458,7 @@ class PackageManager {
 
 		Returns: A delegate suitable for use with `foreach` is returned.
 	*/
-	int delegate(int delegate(ref Package)) getPackageIterator(string name)
+	int delegate(int delegate(ref Package)) getPackageIterator(PackageName name)
 	{
 		int iterator(int delegate(ref Package) del)
 		{
@@ -481,31 +481,31 @@ class PackageManager {
 
 	/** Adds a new override for the given package.
 	*/
-	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, Version target)
+	void addOverride(PlacementLocation scope_, PackageName name, Dependency version_spec, Version target)
 	{
-		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
+		m_repositories[scope_].overrides ~= PackageOverride(name, version_spec, target);
 		writeLocalPackageOverridesFile(scope_);
 	}
 	/// ditto
-	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, NativePath target)
+	void addOverride(PlacementLocation scope_, PackageName name, Dependency version_spec, NativePath target)
 	{
-		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
+		m_repositories[scope_].overrides ~= PackageOverride(name, version_spec, target);
 		writeLocalPackageOverridesFile(scope_);
 	}
 
 	/** Removes an existing package override.
 	*/
-	void removeOverride(PlacementLocation scope_, string package_, Dependency version_spec)
+	void removeOverride(PlacementLocation scope_, PackageName name, Dependency version_spec)
 	{
 		Location* rep = &m_repositories[scope_];
 		foreach (i, ovr; rep.overrides) {
-			if (ovr.package_ != package_ || ovr.version_ != version_spec)
+			if (ovr.name != name || ovr.version_ != version_spec)
 				continue;
 			rep.overrides = rep.overrides[0 .. i] ~ rep.overrides[i+1 .. $];
 			writeLocalPackageOverridesFile(scope_);
 			return;
 		}
-		throw new Exception(format("No override exists for %s %s", package_, version_spec));
+		throw new Exception(format("No override exists for %s %s", name, version_spec));
 	}
 
 	/// Extracts the package supplied as a path to it's zip file to the
@@ -724,7 +724,7 @@ class PackageManager {
 				enforce(packlist.type == Json.Type.array, LocalPackagesFilename~" must contain an array.");
 				foreach( pentry; packlist ){
 					try {
-						auto name = pentry["name"].get!string;
+						auto name = PackageName(pentry["name"].get!string);
 						auto path = NativePath(pentry["path"].get!string);
 						if (name == "*") {
 							paths ~= path;
@@ -833,7 +833,7 @@ class PackageManager {
 			if (existsFile(ovrfilepath)) {
 				foreach (entry; jsonFromFile(ovrfilepath)) {
 					PackageOverride ovr;
-					ovr.package_ = entry["name"].get!string;
+					ovr.name = PackageName(entry["name"].get!string);
 					ovr.version_ = Dependency(entry["version"].get!string);
 					if (auto pv = "targetVersion" in entry) ovr.targetVersion = Version(pv.get!string);
 					if (auto pv = "targetPath" in entry) ovr.targetPath = NativePath(pv.get!string);
@@ -908,7 +908,7 @@ class PackageManager {
 		Json[] newlist;
 		foreach (ovr; m_repositories[type].overrides) {
 			auto jovr = Json.emptyObject;
-			jovr["name"] = ovr.package_;
+			jovr["name"] = ovr.name;
 			jovr["version"] = ovr.version_.versionSpec;
 			if (!ovr.targetPath.empty) jovr["targetPath"] = ovr.targetPath.toNativeString();
 			else jovr["targetVersion"] = ovr.targetVersion.toString();
@@ -956,21 +956,21 @@ class PackageManager {
 }
 
 struct PackageOverride {
-	string package_;
+	PackageName name;       // TODO: rename to package_name
 	Dependency version_;
 	Version targetVersion;
 	NativePath targetPath;
 
-	this(string package_, Dependency version_, Version target_version)
+	this(PackageName name, Dependency version_, Version target_version)
 	{
-		this.package_ = package_;
+		this.name = name;
 		this.version_ = version_;
 		this.targetVersion = target_version;
 	}
 
-	this(string package_, Dependency version_, NativePath target_path)
+	this(PackageName name, Dependency version_, NativePath target_path)
 	{
-		this.package_ = package_;
+		this.name = name;
 		this.version_ = version_;
 		this.targetPath = target_path;
 	}

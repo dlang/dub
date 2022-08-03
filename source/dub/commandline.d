@@ -956,7 +956,7 @@ class InitCommand : Command {
 		{
 			free_args ~= m_templateType;
 		}
-		dub.createEmptyPackage(NativePath(dir), free_args, m_templateType, m_format, &depCallback, app_args);
+		dub.createEmptyPackage(NativePath(dir), free_args.map!(arg => PackageName(arg)).array, m_templateType, m_format, &depCallback, app_args);
 
 		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;
@@ -1029,7 +1029,7 @@ abstract class PackageBuildCommand : Command {
 		setupPackage(dub, package_info.name, default_build_type, package_info.version_);
 	}
 
-	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug", string ver = "")
+	protected void setupPackage(Dub dub, PackageName package_name, string default_build_type = "debug", string ver = "")
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		if (!m_arch.length) m_arch = dub.defaultArchitecture;
@@ -1081,11 +1081,11 @@ abstract class PackageBuildCommand : Command {
 		foreach (sc; m_overrideConfigs) {
 			auto idx = sc.indexOf('/');
 			enforceUsage(idx >= 0, "Expected \"<package>/<configuration>\" as argument to --override-config.");
-			dub.project.overrideConfiguration(sc[0 .. idx], sc[idx+1 .. $]);
+			dub.project.overrideConfiguration(PackageName(sc[0 .. idx]), sc[idx+1 .. $]);
 		}
 	}
 
-	private bool loadSpecificPackage(Dub dub, string package_name, string ver)
+	private bool loadSpecificPackage(Dub dub, PackageName package_name, string ver)
 	{
 		if (this.baseSettings.single) {
 			enforce(package_name.length, "Missing file name of single-file package.");
@@ -1098,7 +1098,7 @@ abstract class PackageBuildCommand : Command {
 		if (loadCwdPackage(dub, from_cwd)) {
 			if (package_name.startsWith(":"))
 			{
-				auto pack = dub.packageManager.getSubPackage(dub.project.rootPackage, package_name[1 .. $], false);
+ 				auto pack = dub.packageManager.getSubPackage(dub.project.rootPackage, PackageName(package_name[1 .. $]), false);
 				dub.loadPackage(pack);
 				return true;
 			}
@@ -1279,13 +1279,13 @@ class BuildCommand : GenerateCommand {
 			// the user provided a version manually
 			dep = Dependency(packageParts.version_);
 		} else {
-			if (packageParts.name.startsWith(":") ||
+			if (packageParts.name.value.startsWith(":") ||
 				dub.packageManager.getFirstPackage(packageParts.name))
 				// found locally
 				return 0;
 
 			// search for the package and filter versions for exact matches
-			auto basePackageName = getBasePackageName(packageParts.name);
+			auto basePackageName = getBasePackageName(PackageName(packageParts.name));
 			auto search = dub.searchPackages(basePackageName)
 				.map!(tup => tup[1].find!(p => p.name == basePackageName))
 				.filter!(ps => !ps.empty);
@@ -1793,7 +1793,7 @@ class UpgradeCommand : Command {
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
 		if (m_dryRun) options |= UpgradeOptions.dryRun;
-		dub.upgrade(options, free_args);
+		dub.upgrade(options, free_args.map!(arg => PackageName(arg)).array);
 
 		auto spacks = dub.project.rootPackage
 			.subPackages
@@ -1814,7 +1814,7 @@ class UpgradeCommand : Command {
 					auto sdub = new Dub(fullpath, dub.packageSuppliers, SkipPackageSuppliers.all);
 					sdub.defaultPlacementLocation = dub.defaultPlacementLocation;
 					sdub.loadPackage();
-					sdub.upgrade(options, free_args);
+					sdub.upgrade(options, free_args.map!(arg => PackageName(arg)).array);
 				} catch (Exception e) {
 					logError("Failed to update sub package at %s: %s",
 						sp.path, e.msg);
@@ -1887,7 +1887,7 @@ class FetchCommand : FetchRemoveCommand {
 
 		auto location = dub.defaultPlacementLocation;
 
-		auto name = free_args[0];
+		const name = PackageName(free_args[0]);
 
 		FetchOptions fetchOpts;
 		fetchOpts |= FetchOptions.forceBranchUpgrade;
@@ -1943,7 +1943,7 @@ class RemoveCommand : FetchRemoveCommand {
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto package_id = free_args[0];
+		auto package_name = PackageName(free_args[0]);
 		auto location = dub.defaultPlacementLocation;
 
 		size_t resolveVersion(in Package[] packages) {
@@ -1951,7 +1951,7 @@ class RemoveCommand : FetchRemoveCommand {
 			if (packages.length == 1)
 				return 0;
 
-			writeln("Select version of '", package_id, "' to remove from location '", location, "':");
+			writeln("Select version of '", package_name, "' to remove from location '", location, "':");
 			foreach (i, pack; packages)
 				writefln("%s) %s", i + 1, pack.version_);
 			writeln(packages.length + 1, ") ", "all versions");
@@ -1974,15 +1974,15 @@ class RemoveCommand : FetchRemoveCommand {
 		}
 
 		if (!m_version.empty) { // remove then --version removed
-			enforceUsage(!package_id.canFindVersionSplitter, "Double version spec not allowed.");
-			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", package_id, m_version);
-			dub.remove(package_id, m_version, location);
+			enforceUsage(!package_name.canFindVersionSplitter, "Double version spec not allowed.");
+			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", package_name, m_version);
+			dub.remove(package_name, m_version, location);
 		} else {
-			const parts = package_id.splitPackageName;
+			const parts = package_name.splitPackageName;
 			if (m_nonInteractive || parts.version_.length) {
 				dub.remove(parts.name, parts.version_, location);
 			} else {
-				dub.remove(package_id, location, &resolveVersion);
+				dub.remove(package_name, location, &resolveVersion);
 			}
 		}
 		return 0;
@@ -2110,7 +2110,7 @@ class ListCommand : Command {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length <= 1, "Expecting zero or one extra arguments.");
-		const pinfo = free_args.length ? splitPackageName(free_args[0]) : PackageAndVersion("","*");
+		const pinfo = free_args.length ? splitPackageName(free_args[0]) : PackageAndVersion(PackageName(""),"*");
 		const pname = pinfo.name;
 		const pvlim = Dependency(pinfo.version_ == "" ? "*" : pinfo.version_);
 		enforceUsage(app_args.length == 0, "The list command supports no application arguments.");
@@ -2191,7 +2191,7 @@ class AddOverrideCommand : Command {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 3, "Expected three arguments, not "~free_args.length.to!string);
 		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
-		auto pack = free_args[0];
+		auto pack = PackageName(free_args[0]);
 		auto ver = Dependency(free_args[1]);
 		if (existsFile(NativePath(free_args[2]))) {
 			auto target = NativePath(free_args[2]);
@@ -2233,7 +2233,7 @@ class RemoveOverrideCommand : Command {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 2, "Expected two arguments, not "~free_args.length.to!string);
 		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
-		dub.packageManager.removeOverride(scope_, free_args[0], Dependency(free_args[1]));
+		dub.packageManager.removeOverride(scope_, PackageName(free_args[0]), Dependency(free_args[1]));
 		return 0;
 	}
 }
@@ -2256,8 +2256,8 @@ class ListOverridesCommand : Command {
 			if (overrides.length == 0) return;
 			logInfo("# %s", caption);
 			foreach (ovr; overrides) {
-				if (!ovr.targetPath.empty) logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetPath);
-				else logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetVersion);
+				if (!ovr.targetPath.empty) logInfo("%s %s => %s", ovr.name, ovr.version_, ovr.targetPath);
+				else logInfo("%s %s => %s", ovr.name, ovr.version_, ovr.targetVersion);
 			}
 		}
 		printList(dub.packageManager.getOverrides(PlacementLocation.user), "User wide overrides");
@@ -2301,7 +2301,7 @@ class DustmiteCommand : PackageBuildCommand {
 		string m_compilerRegex;
 		string m_linkerRegex;
 		string m_programRegex;
-		string m_testPackage;
+		PackageName m_testPackage;
 		bool m_noRedirect;
 		string m_strategy;
 		uint m_jobCount;		// zero means not specified
@@ -2331,7 +2331,7 @@ class DustmiteCommand : PackageBuildCommand {
 		args.getopt("linker-regex", &m_linkerRegex, ["A regular expression used to match against the linker output"]);
 		args.getopt("program-status", &m_programStatusCode, ["The expected status code of the built executable"]);
 		args.getopt("program-regex", &m_programRegex, ["A regular expression used to match against the program output"]);
-		args.getopt("test-package", &m_testPackage, ["Perform a test run - usually only used internally"]);
+		args.getopt("test-package", &m_testPackage.value, ["Perform a test run - usually only used internally"]);
 		args.getopt("combined", &this.baseSettings.combined, ["Builds multiple packages with one compiler run"]);
 		args.getopt("no-redirect", &m_noRedirect, ["Don't redirect stdout/stderr streams of the test command"]);
 		args.getopt("strategy", &m_strategy, ["Set strategy (careful/lookback/pingpong/indepth/inbreadth)"]);
@@ -2382,7 +2382,7 @@ class DustmiteCommand : PackageBuildCommand {
 			if (!path.absolute) path = NativePath(getcwd()) ~ path;
 			enforceUsage(!path.startsWith(dub.rootPath), "Destination path must not be a sub directory of the tested package!");
 
-			setupPackage(dub, null);
+			setupPackage(dub, PackageName.init);
 			auto prj = dub.project;
 			if (this.baseSettings.config.empty)
 				this.baseSettings.config = prj.getDefaultConfiguration(this.baseSettings.platform);
@@ -2405,17 +2405,17 @@ class DustmiteCommand : PackageBuildCommand {
 				}
 			}
 
-			static void fixPathDependency(string pack, ref Dependency dep) {
+			static void fixPathDependency(PackageName package_name, ref Dependency dep) {
 				if (!dep.path.empty) {
-					auto mainpack = getBasePackageName(pack);
+					auto mainpack = getBasePackageName(package_name);
 					dep.path = NativePath("../") ~ mainpack;
 				}
 			}
 
 			void fixPathDependencies(ref PackageRecipe recipe, NativePath base_path)
 			{
-				foreach (name, ref dep; recipe.buildSettings.dependencies)
-					fixPathDependency(name, dep);
+				foreach (package_name, ref dep; recipe.buildSettings.dependencies)
+					fixPathDependency(package_name, dep);
 
 				foreach (ref cfg; recipe.configurations)
 					foreach (name, ref dep; cfg.buildSettings.dependencies)
@@ -2736,7 +2736,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 {
 	Dependency dep;
 	const parts = splitPackageName(depspec);
-	const depname = parts.name;
+	const depname = PackageName(parts.name); // TODO: const
 	if (parts.version_)
 		dep = Dependency(parts.version_);
 	else
@@ -2745,7 +2745,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 			const ver = dub.getLatestVersion(depname);
 			dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
 		} catch (Exception e) {
-			logError("Could not find package '%s'.", depname);
+			logError("Could not find package '%s'.", depname.value);
 			logDebug("Full error: %s", e.toString().sanitize);
 			return false;
 		}
@@ -2757,23 +2757,23 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 
 private struct PackageAndVersion
 {
-	string name;
-	string version_;
+	PackageName name;
+	string version_;	// TODO: use structured type
 }
 
 /* Split <package>=<version-specifier> and <package>@<version-specifier>
    into `name` and `version_`. */
-private PackageAndVersion splitPackageName(string packageName)
+private PackageAndVersion splitPackageName(string package_name_and_version)
 {
 	// split <package>@<version-specifier>
-	auto parts = packageName.findSplit("@");
+	auto parts = package_name_and_version.findSplit("@");
 	if (parts[1].empty) {
 		// split <package>=<version-specifier>
-		parts = packageName.findSplit("=");
+		parts = package_name_and_version.findSplit("=");
 	}
 
 	PackageAndVersion p;
-	p.name = parts[0];
+	p.name = PackageName(parts[0]);
 	if (!parts[1].empty)
 		p.version_ = parts[2];
 	return p;
@@ -2782,21 +2782,21 @@ private PackageAndVersion splitPackageName(string packageName)
 unittest
 {
 	// https://github.com/dlang/dub/issues/1681
-	assert(splitPackageName("") == PackageAndVersion("", null));
+	assert(splitPackageName("") == PackageAndVersion(PackageName(""), null));
 
-	assert(splitPackageName("foo") == PackageAndVersion("foo", null));
-	assert(splitPackageName("foo=1.0.1") == PackageAndVersion("foo", "1.0.1"));
-	assert(splitPackageName("foo@1.0.1") == PackageAndVersion("foo", "1.0.1"));
-	assert(splitPackageName("foo@==1.0.1") == PackageAndVersion("foo", "==1.0.1"));
-	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion("foo", ">=1.0.1"));
-	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion("foo", "~>1.0.1"));
-	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion("foo", "<1.0.1"));
+	assert(splitPackageName("foo") == PackageAndVersion(PackageName("foo"), null));
+	assert(splitPackageName("foo=1.0.1") == PackageAndVersion(PackageName("foo"), "1.0.1"));
+	assert(splitPackageName("foo@1.0.1") == PackageAndVersion(PackageName("foo"), "1.0.1"));
+	assert(splitPackageName("foo@==1.0.1") == PackageAndVersion(PackageName("foo"), "==1.0.1"));
+	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion(PackageName("foo"), ">=1.0.1"));
+	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion(PackageName("foo"), "~>1.0.1"));
+	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion(PackageName("foo"), "<1.0.1"));
 }
 
-private ulong canFindVersionSplitter(string packageName)
+private ulong canFindVersionSplitter(string package_name_and_version)
 {
 	// see splitPackageName
-	return packageName.canFind("@", "=");
+	return package_name_and_version.canFind("@", "=");
 }
 
 unittest

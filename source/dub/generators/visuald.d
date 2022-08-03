@@ -7,6 +7,7 @@
 */
 module dub.generators.visuald;
 
+import dub.dependency : PackageName;
 import dub.compilers.compiler;
 import dub.generators.generator;
 import dub.internal.utils;
@@ -438,7 +439,7 @@ class VisualDGenerator : ProjectGenerator {
 			} // foreach(architecture)
 		}
 
-		void performOnDependencies(const Package main, string[string] configs, void delegate(const Package pack) op)
+		void performOnDependencies(const Package main, string[PackageName] configs, void delegate(const Package pack) op)
 		{
 			foreach (p; m_project.getTopologicalPackageList(false, main, configs)) {
 				if (p is main) continue;

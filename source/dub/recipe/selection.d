@@ -16,7 +16,7 @@ public struct Selected
     public uint fileVersion;
 
     /// The selected package and their matching versions
-    public YAMLSelectedDependency[string] versions;
+    public YAMLSelectedDependency[PackageName] versions;
 }
 
 
@@ -103,9 +103,9 @@ unittest
     auto s = parseConfigString!Selected(content, "/dev/null");
     assert(s.fileVersion == 1);
     assert(s.versions.length == 5);
-    assert(s.versions["simple"]     == Dependency(Version("1.5.6")));
-    assert(s.versions["branch"]     == Dependency(Version("~master")));
-    assert(s.versions["branch2"]    == Dependency(Version("~main")));
-    assert(s.versions["path"]       == Dependency(NativePath("../some/where")));
-    assert(s.versions["repository"] == Dependency(Repository("git+https://github.com/dlang/dub", "123456123456123456")));
+    assert(s.versions[PackageName("simple")]     == Dependency(Version("1.5.6")));
+    assert(s.versions[PackageName("branch")]     == Dependency(Version("~master")));
+    assert(s.versions[PackageName("branch2")]    == Dependency(Version("~main")));
+    assert(s.versions[PackageName("path")]       == Dependency(NativePath("../some/where")));
+    assert(s.versions[PackageName("repository")] == Dependency(Repository("git+https://github.com/dlang/dub", "123456123456123456")));
 }

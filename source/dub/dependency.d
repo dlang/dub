@@ -21,12 +21,27 @@ import std.exception;
 import std.string;
 import std.sumtype;
 
+/** Encapsulates the name of a package.
+*/
+struct PackageName {
+    string value;
+	this(string value) @safe pure nothrow @nogc {
+        this.value = value;
+    }
+	static typeof(this) fromString(string value) @safe pure nothrow @nogc {
+        return typeof(return)(value);
+    }
+	string toString() @trusted const scope {
+        return value.color(Mode.bold);
+    }
+    alias value this;
+}
 
 /** Encapsulates the name of a package along with its dependency specification.
 */
 struct PackageDependency {
 	/// Name of the referenced package.
-	string name;
+	PackageName name;
 
 	/// Dependency specification used to select a particular version of the package.
 	Dependency spec;

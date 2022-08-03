@@ -33,10 +33,10 @@ class RegistryPackageSupplier : PackageSupplier {
 
 	override @property string description() { return "registry at "~m_registryUrl.toString(); }
 
-	Version[] getVersions(string package_id)
+	Version[] getVersions(PackageName package_name)
 	{
 		import std.algorithm.sorting : sort;
-		auto md = getMetadata(package_id);
+		auto md = getMetadata(package_name);
 		if (md.type == Json.Type.null_)
 			return null;
 		Version[] ret;
@@ -48,26 +48,26 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	auto genPackageDownloadUrl(string packageId, Dependency dep, bool pre_release)
+	auto genPackageDownloadUrl(PackageName package_id, Dependency dep, bool pre_release)
 	{
 		import std.array : replace;
 		import std.format : format;
 		import std.typecons : Nullable;
-		auto md = getMetadata(packageId);
-		Json best = getBestPackage(md, packageId, dep, pre_release);
+		auto md = getMetadata(package_id);
+		Json best = getBestPackage(md, package_id, dep, pre_release);
 		Nullable!URL ret;
 		if (best.type != Json.Type.null_)
 		{
 			auto vers = best["version"].get!string;
-			ret = m_registryUrl ~ NativePath(PackagesPath~"/"~packageId~"/"~vers~".zip");
+			ret = m_registryUrl ~ NativePath(PackagesPath~"/"~package_id~"/"~vers~".zip");
 		}
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, PackageName package_id, Dependency dep, bool pre_release)
 	{
 		import std.format : format;
-		auto url = genPackageDownloadUrl(packageId, dep, pre_release);
+		auto url = genPackageDownloadUrl(package_id, dep, pre_release);
 		if(url.isNull)
 			return;
 		try {
@@ -76,35 +76,35 @@ class RegistryPackageSupplier : PackageSupplier {
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;
-			else logDebug("Failed to download package %s from %s", packageId, url);
+			else logDebug("Failed to download package %s from %s", package_id, url);
 		}
 		catch(Exception e) {
-			logDebug("Failed to download package %s from %s", packageId, url);
+			logDebug("Failed to download package %s from %s", package_id, url);
 		}
-		throw new Exception("Failed to download package %s from %s".format(packageId, url));
+		throw new Exception("Failed to download package %s from %s".format(package_id, url));
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	Json fetchPackageRecipe(PackageName package_id, Dependency dep, bool pre_release)
 	{
-		auto md = getMetadata(packageId);
-		return getBestPackage(md, packageId, dep, pre_release);
+		auto md = getMetadata(package_id);
+		return getBestPackage(md, package_id, dep, pre_release);
 	}
 
-	private Json getMetadata(string packageId)
+	private Json getMetadata(PackageName package_id)
 	{
 		auto now = Clock.currTime(UTC());
-		if (auto pentry = packageId in m_metadataCache) {
+		if (auto pentry = package_id in m_metadataCache) {
 			if (pentry.cacheTime + m_maxCacheTime > now)
 				return pentry.data;
-			m_metadataCache.remove(packageId);
+			m_metadataCache.remove(package_id);
 		}
 
 		auto url = m_registryUrl ~ NativePath("api/packages/infos");
 
 		url.queryString = "packages=" ~
-				encodeComponent(`["` ~ packageId ~ `"]`) ~ "&include_dependencies=true&minimize=true";
+				encodeComponent(`["` ~ package_id ~ `"]`) ~ "&include_dependencies=true&minimize=true";
 
-		logDebug("Downloading metadata for %s", packageId);
+		logDebug("Downloading metadata for %s", package_id);
 		string jsonData;
 
 		jsonData = cast(string)retryDownload(url);
@@ -115,7 +115,7 @@ class RegistryPackageSupplier : PackageSupplier {
 			logDebug("adding %s to metadata cache", pkg);
 			m_metadataCache[pkg] = CacheEntry(info, now);
 		}
-		return json[packageId];
+		return json[package_id];
 	}
 
 	SearchResult[] searchPackages(string query) {
