@@ -863,7 +863,7 @@ class HelpCommand : Command {
 class InitCommand : Command {
 	private{
 		string m_templateType = "minimal";
-		PackageFormat m_format = PackageFormat.json;
+		PackageFormat m_format = PackageFormat.sdl;
 		bool m_nonInteractive;
 	}
 	this() @safe pure nothrow
