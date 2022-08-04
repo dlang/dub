@@ -758,13 +758,7 @@ class Dub {
 		}
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
-		Package existing;
-		try existing = m_packageManager.getPackage(packageId, ver, placement);
-		catch (Exception e) {
-			logWarn("Failed to load existing package %s: %s", ver, e.msg);
-			logDiagnostic("Full error: %s", e.toString().sanitize);
-		}
-
+		Package existing = m_packageManager.getPackage(packageId, ver, placement);
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.version_ != Version(ver))
 				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
