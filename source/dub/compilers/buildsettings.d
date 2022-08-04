@@ -82,6 +82,12 @@ struct BuildSettings {
 		return ret;
 	}
 
+	/**
+	 * Merges $(LREF bs) onto `this` BuildSettings instance. This is called for 
+	 * sourceLibrary dependencies when they are included in the build to be
+	 * merged into the root package build settings as well as configuring
+	 * targets for different build types such as release or unittest-cov.
+	 */
 	void add(in BuildSettings bs)
 	{
 		addDFlags(bs.dflags);
@@ -89,6 +95,7 @@ struct BuildSettings {
 		addLibs(bs.libs);
 		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
+		addInjectSourceFiles(bs.injectSourceFiles);
 		addCopyFiles(bs.copyFiles);
 		addExtraDependencyFiles(bs.extraDependencyFiles);
 		addVersions(bs.versions);
@@ -105,6 +112,16 @@ struct BuildSettings {
 		addPostBuildCommands(bs.postBuildCommands);
 		addPreRunCommands(bs.preRunCommands);
 		addPostRunCommands(bs.postRunCommands);
+		addEnvironments(bs.environments);
+		addBuildEnvironments(bs.buildEnvironments);
+		addRunEnvironments(bs.runEnvironments);
+		addPreGenerateEnvironments(bs.preGenerateEnvironments);
+		addPostGenerateEnvironments(bs.postGenerateEnvironments);
+		addPreBuildEnvironments(bs.preBuildEnvironments);
+		addPostBuildEnvironments(bs.postBuildEnvironments);
+		addPreRunEnvironments(bs.preRunEnvironments);
+		addPostRunEnvironments(bs.postRunEnvironments);
+		addRequirements(bs.requirements);
 		addOptions(bs.options);
 	}
 

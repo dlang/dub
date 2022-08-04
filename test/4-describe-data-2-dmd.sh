@@ -72,10 +72,10 @@ echo -n "'-J$CURR_DIR/describe-dependency-3/dep3-string-import-path/' " >> "$exp
 echo -n "'$CURR_DIR/describe-dependency-2/some-path/dummy.d' " >> "$expected_file"
 # --data=options
 echo -n "-debug " >> "$expected_file"
-echo -n "-release " >> "$expected_file"
+# releaseMode is not included, even though it's specified, because the requireContracts requirement drops it
 echo -n "-g " >> "$expected_file"
+echo -n "-gx " >> "$expected_file"
 echo -n "-wi" >> "$expected_file"
-#echo -n "-gx " >> "$expected_file"  # Not sure if this (from a sourceLib dependency) should be missing from the result
 echo "" >> "$expected_file"
 
 if ! diff "$expected_file" "$temp_file"; then
