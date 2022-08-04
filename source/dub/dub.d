@@ -809,8 +809,7 @@ class Dub {
 			logDiagnostic("Placing to %s...", placement.toNativeString());
 
 			try {
-				m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
-				return m_packageManager.getPackage(packageId, ver, dstpath);
+				return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
 				// rethrow the exception at the end of the loop
