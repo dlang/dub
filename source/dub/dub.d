@@ -936,6 +936,7 @@ class Dub {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	deprecated("Use the overload without force_remove instead")
 	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
 	{
 		remove(package_id, version_, location);
