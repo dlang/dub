@@ -105,6 +105,7 @@ struct BuildSettings {
 		addPostBuildCommands(bs.postBuildCommands);
 		addPreRunCommands(bs.preRunCommands);
 		addPostRunCommands(bs.postRunCommands);
+		addOptions(bs.options);
 	}
 
 	void addDFlags(in string[] value...) { dflags = chain(dflags, value.dup).uniq.array; }
