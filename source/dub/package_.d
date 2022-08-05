@@ -196,7 +196,7 @@ class Package {
 	@property PackageName name()
 	const {
 		if (m_parentPackage) return typeof(return)(m_parentPackage.name ~ ":" ~ m_info.name);
-		else return typeof(return)(m_info.name);
+		else return m_info.name;
 	}
 
 	/** Returns the directory in which the package resides.
@@ -589,7 +589,7 @@ class Package {
 				this.recipe.configurations.map!(c => c.buildSettings.dependencies.byKeyValue)
 			)
 			.joiner()
-			.map!(d => PackageDependency(PackageName(d.key), d.value)); // TODO: make d.key of type PackageName
+			.map!(d => PackageDependency(d.key, d.value));
 	}
 
 

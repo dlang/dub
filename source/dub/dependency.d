@@ -25,6 +25,7 @@ import std.sumtype;
 */
 struct PackageName {
 	string value;
+	@disable this(PackageName name) @safe pure nothrow @nogc;
 	this(string value) @safe pure nothrow @nogc {
 		this.value = value;
 	}
