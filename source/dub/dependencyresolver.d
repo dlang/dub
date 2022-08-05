@@ -492,8 +492,6 @@ unittest {
 			res.resolve(TreeNode(PackageName("a"), ic(0)));
 			assert(false, "Expected resolve to throw.");
 		} catch (ResolveException e) {
-            import std.stdio;
-            debug writeln("e.msg:", e.msg);
             const pb = PackageName("b").toString();
             const pc = PackageName("c").toString();
             const pd = PackageName("d").toString();
