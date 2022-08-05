@@ -87,7 +87,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		CONFIG config;
 
 		size_t toHash() const nothrow @trusted {
-			size_t ret = pack.value.hashOf();
+			size_t ret = pack[].hashOf();
 			ret ^= typeid(CONFIG).getHash(&config);
 			return ret;
 		}
@@ -362,7 +362,7 @@ enum DependencyType {
 private PackageName basePackageName(PackageName p)
 {
 	import std.algorithm.searching : findSplit;
-	return typeof(return)(p.value.findSplit(":")[0]);
+	return typeof(return)(p[].findSplit(":")[0]);
 }
 
 unittest {
@@ -393,7 +393,7 @@ unittest {
 			return ret.data;
 		}
 		protected override IntConfig[] getSpecificConfigs(PackageName pack, TreeNodes nodes) { return null; }
-		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack ~ ":" ~ node.config.to!string(), null); }
+		protected override TreeNodes[] getChildren(TreeNode node) { return m_children.get(node.pack[] ~ ":" ~ node.config.to!string(), null); }
 		protected override bool matches(IntConfigs configs, IntConfig config) { return configs.canFind(config); }
 	}
 

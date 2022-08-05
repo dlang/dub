@@ -195,7 +195,7 @@ class Package {
 	*/
 	@property PackageName name()
 	const {
-		if (m_parentPackage) return typeof(return)(m_parentPackage.name ~ ":" ~ m_info.name);
+		if (m_parentPackage) return typeof(return)(m_parentPackage.name[] ~ ":" ~ m_info.name[]);
 		else return m_info.name;
 	}
 
@@ -330,7 +330,7 @@ class Package {
 		packages declared using a path must be loaded manually (or using the
 		`PackageManager`).
 	*/
-	Nullable!PackageRecipe getInternalSubPackage(string name)
+	Nullable!PackageRecipe getInternalSubPackage(PackageName name)
 	{
 		foreach (ref p; m_info.subPackages)
 			if (p.path.empty && p.recipe.name == name)
@@ -391,10 +391,10 @@ class Package {
 			found = true;
 			break;
 		}
-		assert(found || config is null, "Unknown configuration for "~m_info.name~": "~config);
+		assert(found || config is null, "Unknown configuration for "~m_info.name[]~": "~config);
 
 		// construct default target name based on package name
-		if( ret.targetName.empty ) ret.targetName = this.name.replace(":", "_");
+		if( ret.targetName.empty ) ret.targetName = this.name[].replace(":", "_");
 
 		// special support for DMD style flags
 		getCompiler("dmd").extractBuildOptions(ret);
@@ -416,7 +416,7 @@ class Package {
 			conf.buildSettings.getPlatformSettings(ret, BuildPlatform.any, this.path);
 
 		// construct default target name based on package name
-		if (ret.targetName.empty) ret.targetName = this.name.replace(":", "_");
+		if (ret.targetName.empty) ret.targetName = this.name[].replace(":", "_");
 
 		// special support for DMD style flags
 		getCompiler("dmd").extractBuildOptions(ret);
@@ -481,7 +481,7 @@ class Package {
 				break;
 			}
 		}
-		assert(found || config is null, "Invalid configuration \""~config~"\" for "~this.name);
+		assert(found || config is null, "Invalid configuration \""~config~"\" for "~this.name[]);
 		if( auto pv = dependency.name in m_info.buildSettings.subConfigurations ) return *pv;
 		return null;
 	}
@@ -726,11 +726,11 @@ class Package {
 
 		// check for default app_main
 		string app_main_file;
-		auto pkg_name = m_info.name.length ? m_info.name : "unknown";
+		auto pkg_name = m_info.name.length ? m_info.name : PackageName("unknown");
 		foreach(sf; bs.sourcePaths.get("", null)){
 			auto p = m_path ~ sf;
 			if( !existsFile(p) ) continue;
-			foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
+			foreach(fil; ["app.d", "main.d", pkg_name[] ~ "/main.d", pkg_name[] ~ "/" ~ "app.d"]){
 				if( existsFile(p ~ fil) ) {
 					app_main_file = (NativePath(sf) ~ fil).toNativeString();
 					break;

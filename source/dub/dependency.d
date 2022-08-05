@@ -24,18 +24,39 @@ import std.sumtype;
 /** Encapsulates the name of a package.
 */
 struct PackageName {
-	string value;
+	private string _value;
 	@disable this(PackageName name) @safe pure nothrow @nogc;
 	this(string value) @safe pure nothrow @nogc {
-		this.value = value;
+		this._value = value;
 	}
 	static typeof(this) fromString(string value) @safe pure nothrow @nogc {
 		return typeof(return)(value);
 	}
 	string toString() @property @trusted const scope {
-		return value.color(Mode.bold);
+		return _value.color(Mode.bold);
 	}
-	alias value this;
+    string opSlice() const @safe pure nothrow @nogc {
+        return _value;
+    }
+    size_t length() const @property @safe pure nothrow @nogc {
+        return _value.length;
+    }
+    bool opEquals(scope const(char)[] name) const @safe pure nothrow @nogc {
+        return this._value == name;
+    }
+    bool opEquals(scope const ref PackageName rhs) const @safe pure nothrow @nogc {
+        return this._value == rhs._value;
+    }
+    bool opEquals(scope const PackageName rhs) const @safe pure nothrow @nogc {
+        return this._value == rhs._value;
+    }
+    int opCmp(scope const PackageName rhs) const @safe pure nothrow @nogc {
+        if (this._value < rhs._value)
+            return -1;
+        if (this._value > rhs._value)
+            return +1;
+        return 0;
+    }
 }
 
 /** Encapsulates the name of a package along with its dependency specification.

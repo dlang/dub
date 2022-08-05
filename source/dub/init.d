@@ -53,7 +53,7 @@ void initPackage(NativePath root_path, string[PackageName] deps, string type, //
 	string username = getUserName();
 
 	PackageRecipe p;
-	p.name = root_path.head.name.toLower();
+	p.name = PackageName(root_path.head.name.toLower());
 	p.authors ~= username;
 	p.license = "proprietary";
 	foreach (pack, v; deps) {
@@ -150,7 +150,7 @@ private void initDeimosPackage(NativePath root_path, ref PackageRecipe p, scope 
 {
 	import dub.compilers.buildsettings : TargetType;
 
-	p.description = format("Deimos Bindings for "~p.name~".");
+	p.description = format("Deimos Bindings for "~p.name[]~".");
 	p.buildSettings.importPaths[""] ~= ".";
 	p.buildSettings.targetType = TargetType.sourceLibrary;
 	pre_write_callback();
@@ -174,7 +174,7 @@ private void initDeimosPackage(NativePath root_path, ref PackageRecipe p, scope 
  *   root_path = The path to the directory hosting the project
  *   pkg_name = Name of the package, to generate a list of binaries to ignore
  */
-private void writeGitignore(NativePath root_path, const(char)[] pkg_name)
+private void writeGitignore(NativePath root_path, PackageName pkg_name)
 {
     auto full_path = (root_path ~ ".gitignore").toNativeString();
 

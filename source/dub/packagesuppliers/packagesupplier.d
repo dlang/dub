@@ -77,6 +77,6 @@ package Json getBestPackage(Json metadata, PackageName name, Dependency dep, boo
 		} else if (!cur.isPreRelease && cur > bestver) best = json;
 		bestver = Version(cast(string)best["version"]);
 	}
-	enforce(best != null, "No package candidate found for "~name~" "~dep.toString());
+	enforce(best != null, "No package candidate found for "~name[]~" "~dep.toString());
 	return best;
 }

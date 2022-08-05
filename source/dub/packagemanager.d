@@ -321,7 +321,7 @@ class PackageManager {
 			m_repositories[PlacementLocation.user].packagePath,
 			name, versionSpec);
 		// For libraries leaking their import path
-		destination ~= name;
+		destination ~= name[];
 		destination.endsWithSlash = true;
 
 		foreach (p; getPackageIterator(name)) {
@@ -351,7 +351,7 @@ class PackageManager {
 	{
 		// + has special meaning for Optlink
 		string clean_vers = vers.chompPrefix("~").replace("+", "_");
-		NativePath result = base ~ (name ~ "-" ~ clean_vers);
+		NativePath result = base ~ (name[] ~ "-" ~ clean_vers);
 		result.endsWithSlash = true;
 		return result;
 	}
@@ -395,10 +395,10 @@ class PackageManager {
 	*/
 	Package getSubPackage(Package base_package, PackageName sub_name, bool silent_fail)
 	{
-		foreach (p; getPackageIterator(PackageName(base_package.name~":"~sub_name)))
+		foreach (p; getPackageIterator(PackageName(base_package.name[]~":"~sub_name[])))
 			if (p.parentPackage is base_package)
 				return p;
-		enforce(silent_fail, "Sub package \""~base_package.name~":"~sub_name~"\" doesn't exist.");
+		enforce(silent_fail, "Sub package \""~base_package.name[]~":"~sub_name[]~"\" doesn't exist.");
 		return null;
 	}
 
@@ -608,7 +608,7 @@ class PackageManager {
 	void remove(in Package pack)
 	{
 		logDebug("Remove %s, version %s, path '%s'", pack.name, pack.version_, pack.path);
-		enforce(!pack.path.empty, "Cannot remove package "~pack.name~" without a path.");
+		enforce(!pack.path.empty, "Cannot remove package "~pack.name[]~" without a path.");
 
 		// remove package from repositories' list
 		bool found = false;
@@ -628,7 +628,7 @@ class PackageManager {
 		}
 		if(!found)
 			found = removeFrom(m_packages, pack);
-		enforce(found, "Cannot remove, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
+		enforce(found, "Cannot remove, package not found: '"~ pack.name[] ~"', path: " ~ to!string(pack.path));
 
 		logDebug("About to delete root folder for package '%s'.", pack.path);
 		rmdirRecurse(pack.path.toNativeString());
@@ -681,7 +681,7 @@ class PackageManager {
 
 		string[Version] removed;
 		foreach_reverse( i; to_remove ) {
-			removed[(*packs)[i].version_] = (*packs)[i].name;
+			removed[(*packs)[i].version_] = (*packs)[i].name[];
 			*packs = (*packs)[0 .. i] ~ (*packs)[i+1 .. $];
 		}
 
@@ -892,7 +892,7 @@ class PackageManager {
 		foreach (p; m_repositories[type].localPackages) {
 			if (p.parentPackage) continue; // do not store sub packages
 			auto entry = Json.emptyObject;
-			entry["name"] = p.name;
+			entry["name"] = p.name[];
 			entry["version"] = p.version_.toString();
 			entry["path"] = p.path.toNativeString();
 			newlist ~= entry;
@@ -908,7 +908,7 @@ class PackageManager {
 		Json[] newlist;
 		foreach (ovr; m_repositories[type].overrides) {
 			auto jovr = Json.emptyObject;
-			jovr["name"] = ovr.name;
+			jovr["name"] = ovr.name[];
 			jovr["version"] = ovr.version_.versionSpec;
 			if (!ovr.targetPath.empty) jovr["targetPath"] = ovr.targetPath.toNativeString();
 			else jovr["targetVersion"] = ovr.targetVersion.toString();
@@ -948,7 +948,7 @@ class PackageManager {
 				dst_repos ~= sp;
 			} catch (Exception e) {
 				logError("Package '%s': Failed to load sub-package %s: %s", pack.name,
-					spr.path.length ? spr.path : spr.recipe.name, e.msg);
+                         spr.path.length ? PackageName(spr.path) : spr.recipe.name, e.msg);
 				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}
 		}

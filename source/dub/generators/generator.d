@@ -62,14 +62,14 @@ class ProjectGenerator
 			This list includes dependencies that are not the root of a binary
 			target.
 		*/
-		string[] dependencies;
+		PackageName[] dependencies;
 
 		/** List of all binary dependencies.
 
 			This list includes all dependencies that are the root of a binary
 			target.
 		*/
-		string[] linkDependencies;
+		PackageName[] linkDependencies;
 	}
 
 	private struct EnvironmentVariables
@@ -136,8 +136,8 @@ class ProjectGenerator
 		if (!settings.config.length) settings.config = m_project.getDefaultConfiguration(settings.platform);
 
 		auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
-		TargetInfo[string] targets;
-		EnvironmentVariables[string] envs;
+		TargetInfo[PackageName] targets;
+		EnvironmentVariables[PackageName] envs;
 
 		foreach (pack; m_project.getTopologicalPackageList(true, null, configs)) {
 			auto config = configs[pack.name];
@@ -215,14 +215,14 @@ class ProjectGenerator
 			targets = A map from package name to TargetInfo that contains all
 				binary targets to be built.
 	*/
-	protected abstract void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets);
+	protected abstract void generateTargets(GeneratorSettings settings, in TargetInfo[PackageName] targets);
 
 	/** Overridable method to be invoked after the generator process has finished.
 
 		An examples of functionality placed here is to run the application that
 		has just been built.
 	*/
-	protected void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[string] targets) {}
+	protected void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[PackageName] targets) {}
 
 	/** Configure `rootPackage` and all of it's dependencies.
 
@@ -251,7 +251,7 @@ class ProjectGenerator
 		Note: Targets without output are integrated into their
 		dependents and removed from `targets`.
 	 */
-	private void configurePackages(Package rootPackage, TargetInfo[string] targets, GeneratorSettings genSettings)
+	private void configurePackages(Package rootPackage, TargetInfo[PackageName] targets, GeneratorSettings genSettings)
 	{
 		import std.algorithm : remove, sort;
 		import std.range : repeat;
@@ -286,7 +286,7 @@ class ProjectGenerator
 		}
 
 		string[] mainSourceFiles;
-		bool[string] hasOutput;
+		bool[PackageName] hasOutput;
 
 		foreach (ref ti; targets.byValue)
 		{
@@ -336,7 +336,7 @@ class ProjectGenerator
 		void[0][Package] visited;
 
 		// collect all dependencies
-		void collectDependencies(Package pack, ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
+		void collectDependencies(Package pack, ref TargetInfo ti, TargetInfo[PackageName] targets, size_t level = 0)
 		{
 			// use `visited` here as pkgs cannot depend on themselves
 			if (pack in visited)
@@ -396,7 +396,7 @@ class ProjectGenerator
 		visited.clear();
 
 		// 1. downwards inherits versions, debugVersions, and inheritable build settings
-		static void configureDependencies(const scope ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
+		static void configureDependencies(const scope ref TargetInfo ti, TargetInfo[PackageName] targets, size_t level = 0)
 		{
 
 			// do not use `visited` here as dependencies must inherit
@@ -421,7 +421,7 @@ class ProjectGenerator
 
 			auto bs = &ti.buildSettings;
 			auto pkgnames = ti.packages.map!(p => p.name).chain(ti.dependencies);
-			bs.addVersions(pkgnames.map!(pn => "Have_" ~ stripDlangSpecialChars(pn)).array);
+			bs.addVersions(pkgnames.map!(pn => "Have_" ~ stripDlangSpecialChars(pn[])).array);
 		}
 
 		// 3. upwards inherit full build configurations (import paths, versions, debugVersions, versionFilters, importPaths, ...)
@@ -430,7 +430,7 @@ class ProjectGenerator
 		// otherwise can ignore that bit of workload entirely
 		bool skipFinalBinaryMerging = true;
 
-		void configureDependents(ref TargetInfo ti, TargetInfo[string] targets, size_t level = 0)
+		void configureDependents(ref TargetInfo ti, TargetInfo[PackageName] targets, size_t level = 0)
 		{
 			// use `visited` here as pkgs cannot depend on themselves
 			if (ti.pack in visited)
@@ -460,7 +460,7 @@ class ProjectGenerator
 
 		// 4. As an extension to configureDependents we need to copy any injectSourceFiles
 		// in our dependencies (ignoring targetType)
-		void configureDependentsFinalImages(ref TargetInfo ti, TargetInfo[string] targets, ref TargetInfo finalBinaryTarget, size_t level = 0)
+		void configureDependentsFinalImages(ref TargetInfo ti, TargetInfo[PackageName] targets, ref TargetInfo finalBinaryTarget, size_t level = 0)
 		{
 			// use `visited` here as pkgs cannot depend on themselves
 			if (ti.pack in visited)
@@ -522,7 +522,7 @@ class ProjectGenerator
 
 		// 6. override string import files in dependencies
 		static void overrideStringImports(ref TargetInfo target,
-			ref TargetInfo parent, TargetInfo[string] targets, string[] overrides)
+			ref TargetInfo parent, TargetInfo[PackageName] targets, string[] overrides)
 		{
 			// Since string import paths are inherited from dependencies in the
 			// inheritance step above (step 3), it is guaranteed that all
@@ -572,7 +572,7 @@ class ProjectGenerator
 				roottarget.buildSettings.stringImportFiles);
 
 		// 7. downwards inherits dependency build settings
-		static void applyForcedSettings(const scope ref TargetInfo ti, TargetInfo[string] targets,
+		static void applyForcedSettings(const scope ref TargetInfo ti, TargetInfo[PackageName] targets,
 											BuildSettings[string] dependBS, size_t level = 0)
 		{
 
@@ -587,7 +587,7 @@ class ProjectGenerator
 				auto pti = &targets[depname];
 
 				// fetch the forced dependency build settings
-				if (auto matchedSettings = depname in dependBS)
+				if (auto matchedSettings = depname[] in dependBS)
 					forcedSettings = *matchedSettings;
 				else if (auto matchedSettings = "*" in dependBS)
 					forcedSettings = *matchedSettings;
@@ -608,7 +608,7 @@ class ProjectGenerator
 			foreach (key, value; configured_dbs)
 			{
 				BuildSettings buildSettings;
-				if (auto target = key in targets)
+				if (auto target = PackageName(key) in targets)
 				{
 					// get platform specific build settings and process dub variables (BuildSettingsTemplate => BuildSettings)
 					value.getPlatformSettings(buildSettings, genSettings.platform, target.pack.path);
@@ -745,7 +745,7 @@ class ProjectGenerator
 	}
 
 	// configure targets for build types such as release, or unittest-cov
-	private void addBuildTypeSettings(TargetInfo[string] targets, in GeneratorSettings settings)
+	private void addBuildTypeSettings(TargetInfo[PackageName] targets, in GeneratorSettings settings)
 	{
 		foreach (ref ti; targets.byValue) {
 			ti.buildSettings.add(settings.buildSettings);
@@ -1021,9 +1021,9 @@ const(string[string])[] makeCommandEnvironmentVariables(CommandType type,
 	env["DUB_CONFIG"]            = settings.config;
 	env["DUB_BUILD_TYPE"]        = settings.buildType;
 	env["DUB_BUILD_MODE"]        = to!string(settings.buildMode);
-	env["DUB_PACKAGE"]           = pack.name;
+	env["DUB_PACKAGE"]           = pack.name[];
 	env["DUB_PACKAGE_DIR"]       = pack.path.toNativeString();
-	env["DUB_ROOT_PACKAGE"]      = proj.rootPackage.name;
+	env["DUB_ROOT_PACKAGE"]      = proj.rootPackage.name[];
 	env["DUB_ROOT_PACKAGE_DIR"]  = proj.rootPackage.path.toNativeString();
 	env["DUB_PACKAGE_VERSION"]   = pack.version_.toString();
 
@@ -1087,7 +1087,7 @@ enum CommandType
 	postRun
 }
 
-private bool isRecursiveInvocation(string pack)
+private bool isRecursiveInvocation(PackageName name)
 {
 	import std.algorithm : canFind, splitter;
 	import std.process : environment;
@@ -1095,7 +1095,7 @@ private bool isRecursiveInvocation(string pack)
 	return environment
 		.get("DUB_PACKAGES_USED", "")
 		.splitter(",")
-		.canFind(pack);
+		.canFind(name[]);
 }
 
 private void storeRecursiveInvokations(ref const(string[string])[] env, PackageName[] packs)
@@ -1108,7 +1108,7 @@ private void storeRecursiveInvokations(ref const(string[string])[] env, PackageN
 		"DUB_PACKAGES_USED": environment
 			.get("DUB_PACKAGES_USED", "")
 			.splitter(",")
-			.chain(packs)
+            .chain(packs.map!(_ => _[]))
 			.join(",")
 	];
 }
@@ -1149,9 +1149,9 @@ version(Posix) {
 			 	super(project);
 			}
 
-			override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets) {
+			override void generateTargets(GeneratorSettings settings, in TargetInfo[PackageName] targets) {
                 import std.conv : text;
-				const sourceFiles = targets["test"].buildSettings.sourceFiles;
+				const sourceFiles = targets[PackageName("test")].buildSettings.sourceFiles;
                 assert(sourceFiles.canFind("dubtest/preGen/source/bar.d".absolutePath), sourceFiles.text);
 			}
 		}

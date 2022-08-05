@@ -956,7 +956,7 @@ class InitCommand : Command {
 		{
 			free_args ~= m_templateType;
 		}
-		dub.createEmptyPackage(NativePath(dir), free_args, m_templateType, m_format, &depCallback, app_args);
+		dub.createEmptyPackage(NativePath(dir), free_args.map!(_ => PackageName(_)).array, m_templateType, m_format, &depCallback, app_args);
 
 		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;
@@ -1089,16 +1089,16 @@ abstract class PackageBuildCommand : Command {
 	{
 		if (this.baseSettings.single) {
 			enforce(name.length, "Missing file name of single-file package.");
-			dub.loadSingleFilePackage(name.value);
+			dub.loadSingleFilePackage(name[]);
 			return true;
 		}
 
-		bool from_cwd = name.length == 0 || name.value.startsWith(":");
+		bool from_cwd = name.length == 0 || name[].startsWith(":");
 		// load package in root_path to enable searching for sub packages
 		if (loadCwdPackage(dub, from_cwd)) {
-			if (name.value.startsWith(":"))
+			if (name[].startsWith(":"))
 			{
- 				auto pack = dub.packageManager.getSubPackage(dub.project.rootPackage, PackageName(name[1 .. $]), false);
+ 				auto pack = dub.packageManager.getSubPackage(dub.project.rootPackage, PackageName(name[][1 .. $]), false);
 				dub.loadPackage(pack);
 				return true;
 			}
@@ -1279,15 +1279,15 @@ class BuildCommand : GenerateCommand {
 			// the user provided a version manually
 			dep = Dependency(packageParts.version_);
 		} else {
-			if (packageParts.name.value.startsWith(":") ||
+			if (packageParts.name[].startsWith(":") ||
 				dub.packageManager.getFirstPackage(packageParts.name))
 				// found locally
 				return 0;
 
 			// search for the package and filter versions for exact matches
 			auto basePackageName = getBasePackageName(packageParts.name);
-			auto search = dub.searchPackages(basePackageName)
-				.map!(tup => tup[1].find!(p => p.name == basePackageName))
+			auto search = dub.searchPackages(basePackageName[])
+				.map!(tup => tup[1].find!(p => p.name == basePackageName[]))
 				.filter!(ps => !ps.empty);
 			if (search.empty) {
 				logWarn("Package '%s' was neither found locally nor online.", packageParts.name);
@@ -1892,11 +1892,11 @@ class FetchCommand : FetchRemoveCommand {
 		FetchOptions fetchOpts;
 		fetchOpts |= FetchOptions.forceBranchUpgrade;
 		if (m_version.length) { // remove then --version removed
-			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
+			enforceUsage(!name[].canFindVersionSplitter, "Double version spec not allowed.");
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
 			dub.fetch(name, Dependency(m_version), location, fetchOpts);
-		} else if (name.canFindVersionSplitter) {
-			const parts = name.splitPackageName;
+		} else if (name[].canFindVersionSplitter) {
+			const parts = name[].splitPackageName;
 			dub.fetch(parts.name, Dependency(parts.version_), location, fetchOpts);
 		} else {
 			try {
@@ -1974,11 +1974,11 @@ class RemoveCommand : FetchRemoveCommand {
 		}
 
 		if (!m_version.empty) { // remove then --version removed
-			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
+			enforceUsage(!name[].canFindVersionSplitter, "Double version spec not allowed.");
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
 			dub.remove(name, m_version, location);
 		} else {
-			const parts = name.splitPackageName;
+			const parts = name[].splitPackageName;
 			if (m_nonInteractive || parts.version_.length) {
 				dub.remove(parts.name, parts.version_, location);
 			} else {
@@ -2331,7 +2331,9 @@ class DustmiteCommand : PackageBuildCommand {
 		args.getopt("linker-regex", &m_linkerRegex, ["A regular expression used to match against the linker output"]);
 		args.getopt("program-status", &m_programStatusCode, ["The expected status code of the built executable"]);
 		args.getopt("program-regex", &m_programRegex, ["A regular expression used to match against the program output"]);
-		args.getopt("test-package", &m_testPackage.value, ["Perform a test run - usually only used internally"]);
+                string m_testPackage_str;
+		args.getopt("test-package", &m_testPackage_str, ["Perform a test run - usually only used internally"]);
+                m_testPackage = PackageName(m_testPackage_str);
 		args.getopt("combined", &this.baseSettings.combined, ["Builds multiple packages with one compiler run"]);
 		args.getopt("no-redirect", &m_noRedirect, ["Don't redirect stdout/stderr streams of the test command"]);
 		args.getopt("strategy", &m_strategy, ["Set strategy (careful/lookback/pingpong/indepth/inbreadth)"]);
@@ -2408,7 +2410,7 @@ class DustmiteCommand : PackageBuildCommand {
 			static void fixPathDependency(PackageName name, ref Dependency dep) {
 				if (!dep.path.empty) {
 					auto mainpack = getBasePackageName(name);
-					dep.path = NativePath("../") ~ mainpack;
+					dep.path = NativePath("../") ~ mainpack[];
 				}
 			}
 
@@ -2430,12 +2432,12 @@ class DustmiteCommand : PackageBuildCommand {
 					} else fixPathDependencies(subp.recipe, base_path);
 			}
 
-			bool[string] visited;
+			bool[PackageName] visited;
 			foreach (pack_; prj.getTopologicalPackageList()) {
 				auto pack = pack_.basePackage;
 				if (pack.name in visited) continue;
 				visited[pack.name] = true;
-				auto dst_path = path ~ pack.name;
+				auto dst_path = path ~ pack.name[];
 				logInfo("Copy package '%s' to destination folder...", pack.name);
 				copyFolderRec(pack.path, dst_path);
 

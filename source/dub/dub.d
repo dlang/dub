@@ -306,7 +306,7 @@ class Dub {
 
 	/// Returns the name listed in the dub.json of the current
 	/// application.
-	@property string projectName() const { return m_project.name; }
+	@property string projectName() const { return m_project.name[]; }
 
 	@property NativePath projectPath() const { return m_projectPath; }
 
@@ -545,7 +545,7 @@ class Dub {
 				if (ver.version_ <= sver.version_) continue;
 				logInfo("Upgrade", Color.cyan,
 					"%s would be upgraded from %s to %s.",
-					basename.color(Mode.bold), sver, ver);
+					basename, sver, ver);
 				any = true;
 			}
 			if (any) logInfo("Use \"dub upgrade\" to perform those changes");
@@ -553,7 +553,7 @@ class Dub {
 		}
 
 		foreach (p, ver; versions) {
-			assert(!p.value.canFind(":"), "Resolved packages contain a sub package!?: "~p);
+			assert(!p[].canFind(":"), "Resolved packages contain a sub package!?: "~p[]);
 			Package pack;
 			if (!ver.path.empty) {
 				try pack = m_packageManager.getOrLoadPackage(ver.path);
@@ -601,7 +601,7 @@ class Dub {
 					assumeSorted(m_project.missingDependencies)
 				);
 			if (!resolvedDependencies.empty)
-				upgrade(options, m_project.missingDependencies.map!(_ => _.value).array);
+				upgrade(options, m_project.missingDependencies.map!(_ => _[]).array);
 		}
 
 		if ((options & UpgradeOptions.select) && !(options & (UpgradeOptions.noSaveSelections | UpgradeOptions.dryRun)))
@@ -730,9 +730,9 @@ class Dub {
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(string name, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+	Package fetch(PackageName name, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
-		auto basePackageName = getBasePackageName(PackageName(name));
+		auto basePackageName = getBasePackageName(name);
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
@@ -747,7 +747,7 @@ class Dub {
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
-		enforce(pinfo.type != Json.Type.undefined, "No package "~name~" was found matching the dependency "~dep.toString());
+		enforce(pinfo.type != Json.Type.undefined, "No package "~name[]~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
 
 		NativePath placement;
@@ -759,7 +759,7 @@ class Dub {
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		Package existing;
-		try existing = m_packageManager.getPackage(PackageName(name), ver, placement);
+		try existing = m_packageManager.getPackage(name, ver, placement);
 		catch (Exception e) {
 			logWarn("Failed to load existing package %s: %s", ver, e.msg);
 			logDiagnostic("Full error: %s", e.toString().sanitize);
@@ -794,14 +794,14 @@ class Dub {
 		if (!dstpath.existsFile())
 			mkdirRecurse(dstpath.toNativeString());
 		// For libraries leaking their import path
-		dstpath = dstpath ~ basePackageName;
+		dstpath = dstpath ~ basePackageName[];
 
 		import std.datetime : seconds;
 		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds); // possibly wait for other dub instance
 		if (dstpath.existsFile())
 		{
 			m_packageManager.refresh(false);
-			return m_packageManager.getPackage(PackageName(name), ver, dstpath);
+			return m_packageManager.getPackage(name, ver, dstpath);
 		}
 
 		// repeat download on corrupted zips, see #1336
@@ -809,14 +809,14 @@ class Dub {
 		{
 			import std.zip : ZipException;
 
-			auto path = getTempFile(basePackageName, ".zip");
+			auto path = getTempFile(basePackageName[], ".zip");
 			supplier.fetchPackage(path, basePackageName, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) std.file.remove(path.toNativeString());
 			logDiagnostic("Placing to %s...", placement.toNativeString());
 
 			try {
 				m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
-				return m_packageManager.getPackage(PackageName(name), ver, dstpath);
+				return m_packageManager.getPackage(name, ver, dstpath);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", name, ver);
 				// rethrow the exception at the end of the loop
@@ -863,7 +863,7 @@ class Dub {
 				name/version.
 			resolve_version = Callback to select package version.
 	*/
-	void remove(string name, PlacementLocation location,
+	void remove(PackageName name, PlacementLocation location,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
 		enforce(!name.empty);
@@ -876,14 +876,14 @@ class Dub {
 		Package[] packages;
 
 		// Retrieve packages to be removed.
-		foreach(pack; m_packageManager.getPackageIterator(PackageName(name)))
+		foreach(pack; m_packageManager.getPackageIterator(name))
 			if (m_packageManager.isManagedPackage(pack))
 				packages ~= pack;
 
 		// Check validity of packages to be removed.
 		if(packages.empty) {
 			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ name ~ "', location: '" ~ to!string(location) ~ "'"
+				~ "id: '" ~ name[] ~ "', location: '" ~ to!string(location) ~ "'"
 				~ ")");
 		}
 
@@ -908,7 +908,7 @@ class Dub {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	void remove(string name, PlacementLocation location, bool force_remove,
+	void remove(PackageName name, PlacementLocation location, bool force_remove,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
 		remove(name, location, resolve_version);
@@ -925,7 +925,7 @@ class Dub {
 			location_ = Specifies the location to look for the given package
 				name/version.
 	 */
-	void remove(string name, string version_, PlacementLocation location)
+	void remove(PackageName name, string version_, PlacementLocation location)
 	{
 		remove(name, location, (in packages) {
 			if (version_ == RemoveVersionWildcard || version_.empty)
@@ -936,13 +936,13 @@ class Dub {
 					return i;
 			}
 			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ name ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
+				~ "id: '" ~ name[] ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
 				~ ")");
 		});
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	void remove(string name, string version_, PlacementLocation location, bool force_remove)
+	void remove(PackageName name, string version_, PlacementLocation location, bool force_remove)
 	{
 		remove(name, version_, location);
 	}
@@ -1044,10 +1044,10 @@ class Dub {
 
 		See_also: `getLatestVersion`
 	*/
-	Version[] listPackageVersions(string name)
+	Version[] listPackageVersions(PackageName name)
 	{
 		Version[] versions;
-		auto basePackageName = getBasePackageName(PackageName(name));
+		auto basePackageName = getBasePackageName(name);
 		foreach (ps; this.m_packageSuppliers) {
 			try versions ~= ps.getVersions(basePackageName);
 			catch (Exception e) {
@@ -1070,10 +1070,10 @@ class Dub {
 
 		See_also: `listPackageVersions`
 	*/
-	Version getLatestVersion(string name, bool prefer_stable = true)
+	Version getLatestVersion(PackageName name, bool prefer_stable = true)
 	{
 		auto vers = listPackageVersions(name);
-		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~name~"'.");
+		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~name[]~"'.");
 		auto final_versions = vers.filter!(v => !v.isBranch && !v.isPreRelease).array;
 		if (prefer_stable && final_versions.length) return final_versions[$-1];
 		else return vers[$-1];
@@ -1090,7 +1090,7 @@ class Dub {
 			recipe_callback = Optional callback that can be used to
 				customize the recipe before it gets written.
 	*/
-	void createEmptyPackage(NativePath path, string[] deps, string type,
+	void createEmptyPackage(NativePath path, PackageName[] deps, string type,
 		PackageFormat format = PackageFormat.sdl,
 		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null,
 		string[] app_args = [])
@@ -1099,12 +1099,12 @@ class Dub {
 		path.normalize();
 
 		string[PackageName] depVers;
-		string[] notFound; // keep track of any failed packages in here
+		PackageName[] notFound; // keep track of any failed packages in here
 		foreach (dep; deps) {
 			Version ver;
 			try {
 				ver = getLatestVersion(dep);
-				depVers[PackageName(dep)] = ver.isBranch ? ver.toString() : "~>" ~ ver.toString();
+				depVers[dep] = ver.isBranch ? ver.toString() : "~>" ~ ver.toString();
 			} catch (Exception e) {
 				notFound ~= dep;
 			}
@@ -1447,7 +1447,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	protected {
 		Dub m_dub;
 		UpgradeOptions m_options;
-		Dependency[][string] m_packageVersions;
+		Dependency[][PackageName] m_packageVersions;
 		Package[PackageName] m_remotePackages;
 		SelectedVersions m_selectedVersions;
 		Package m_rootPackage;
@@ -1688,13 +1688,13 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
 			return ret;
 
-		auto key = PackageName(name ~ ":" ~ dep.version_.toString());
+		auto key = PackageName(name[] ~ ":" ~ dep.version_.toString());
 		if (auto ret = key in m_remotePackages)
 			return *ret;
 
 		auto prerelease = (m_options & UpgradeOptions.preRelease) != 0;
 
-		auto rootpack = PackageName(name.value.split(":")[0]);
+		auto rootpack = PackageName(name[].split(":")[0]);
 
 		foreach (ps; m_dub.m_packageSuppliers) {
 			if (rootpack == name) {

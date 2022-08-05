@@ -7,6 +7,7 @@
 */
 module dub.generators.cmake;
 
+import dub.dependency : PackageName;
 import dub.compilers.buildsettings;
 import dub.generators.generator;
 import dub.internal.vibecompat.core.file;
@@ -27,11 +28,11 @@ class CMakeGenerator: ProjectGenerator
         super(project);
     }
 
-    override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
+    override void generateTargets(GeneratorSettings settings, in TargetInfo[PackageName] targets)
     {
         auto script = appender!(char[]);
         auto scripts = appender!(string[]);
-        bool[string] visited;
+        bool[PackageName] visited;
         NativePath projectRoot = m_project.rootPackage.path;
         NativePath cmakeListsPath = projectRoot ~ "CMakeLists.txt";
 
@@ -41,7 +42,7 @@ class CMakeGenerator: ProjectGenerator
                 continue;
 
             visited[name] = true;
-            name = name.sanitize;
+            name = PackageName(name[].sanitize);
             string targetType;
             string libType;
             bool addTarget = true;
@@ -95,7 +96,7 @@ class CMakeGenerator: ProjectGenerator
                 script.put(
                     "target_link_libraries(%s %s %s)\n".format(
                         name,
-                        (info.dependencies ~ info.linkDependencies).dup.stdsort.uniq.map!(s => sanitize(s)).join(" "),
+                        (info.dependencies ~ info.linkDependencies).dup.stdsort.uniq.map!(s => sanitize(s[])).join(" "),
                         info.buildSettings.libs.dup.join(" ")
                     )
                 );

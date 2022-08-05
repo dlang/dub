@@ -63,7 +63,7 @@ class BuildGenerator : ProjectGenerator {
 		m_packageMan = project.packageManager;
 	}
 
-	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
+	override void generateTargets(GeneratorSettings settings, in TargetInfo[PackageName] targets)
 	{
 		import std.path : setExtension;
 		scope (exit) cleanupTemporaries();
@@ -90,10 +90,10 @@ class BuildGenerator : ProjectGenerator {
 
 		bool any_cached = false;
 
-		NativePath[string] target_paths;
+		NativePath[PackageName] target_paths;
 
-		bool[string] visited;
-		void buildTargetRec(string target)
+		bool[PackageName] visited;
+		void buildTargetRec(PackageName target)
 		{
 			if (target in visited) return;
 			visited[target] = true;
@@ -162,7 +162,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	override void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[string] targets)
+	override void performPostGenerateActions(GeneratorSettings settings, in TargetInfo[PackageName] targets)
 	{
 		// run the generated executable
 		auto buildsettings = targets[m_project.rootPackage.name].buildSettings.dup;
@@ -656,7 +656,7 @@ class BuildGenerator : ProjectGenerator {
 
 private NativePath getMainSourceFile(in Package prj)
 {
-	foreach (f; ["source/app.d", "src/app.d", "source/"~prj.name~".d", "src/"~prj.name~".d"])
+	foreach (f; ["source/app.d", "src/app.d", "source/"~prj.name[]~".d", "src/"~prj.name[]~".d"])
 		if (existsFile(prj.path ~ f))
 			return prj.path ~ f;
 	return prj.path ~ "source/app.d";

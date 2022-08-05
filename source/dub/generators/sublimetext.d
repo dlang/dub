@@ -7,6 +7,7 @@ Authors: Nicholas Londey
 */
 module dub.generators.sublimetext;
 
+import dub.dependency : PackageName;
 import dub.compilers.compiler;
 import dub.generators.generator;
 import dub.internal.vibecompat.data.json;
@@ -27,7 +28,7 @@ class SublimeTextGenerator : ProjectGenerator {
 		super(project);
 	}
 
-	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
+	override void generateTargets(GeneratorSettings settings, in TargetInfo[PackageName] targets)
 	{
 		auto buildSettings = targets[m_project.name].buildSettings;
 		logDebug("About to generate sublime project for %s.", m_project.rootPackage.name);
@@ -41,7 +42,7 @@ class SublimeTextGenerator : ProjectGenerator {
 		auto jsonString = appender!string();
 		writePrettyJsonString(jsonString, root);
 
-		string projectPath = m_project.name ~ ".sublime-project";
+		string projectPath = m_project.name[] ~ ".sublime-project";
 
 		write(projectPath, jsonString.data);
 
@@ -53,7 +54,7 @@ class SublimeTextGenerator : ProjectGenerator {
 private Json targetFolderJson(in ProjectGenerator.TargetInfo target)
 {
 	return [
-		"name": target.pack.basePackage.name.Json,
+		"name": target.pack.basePackage.name[].Json,
 		"path": target.pack.basePackage.path.toNativeString.Json,
 		"follow_symlinks": true.Json,
 		"folder_exclude_patterns": [".dub"].map!Json.array.Json,

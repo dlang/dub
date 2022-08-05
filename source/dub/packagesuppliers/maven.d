@@ -20,7 +20,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		enum httpTimeout = 16;
 		URL m_mavenUrl;
 		struct CacheEntry { Json data; SysTime cacheTime; }
-		CacheEntry[string] m_metadataCache;
+		CacheEntry[PackageName] m_metadataCache;
 		Duration m_maxCacheTime;
 	}
 
@@ -88,7 +88,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 			m_metadataCache.remove(name);
 		}
 
-		auto url = m_mavenUrl~NativePath(name~"/maven-metadata.xml");
+		auto url = m_mavenUrl~NativePath(name[]~"/maven-metadata.xml");
 
 		logDebug("Downloading maven metadata for %s", name);
 		string xmlData;
@@ -103,12 +103,12 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 			else throw e;
 		}
 
-		auto json = Json(["name": Json(name), "versions": Json.emptyArray]);
+		auto json = Json(["name": Json(name[]), "versions": Json.emptyArray]);
 		auto xml = new DocumentParser(xmlData);
 
 		xml.onStartTag["versions"] = (ElementParser xml) {
 			 xml.onEndTag["version"] = (in Element e) {
-				json["versions"] ~= serializeToJson(["name": name, "version": e.text]);
+				json["versions"] ~= serializeToJson(["name": name[], "version": e.text]);
 			 };
 			 xml.parse();
 		};

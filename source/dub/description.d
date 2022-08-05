@@ -27,26 +27,26 @@ struct ProjectDescription {
 	string[] platform; /// Platform constants for the selected platform (e.g. `["posix", "osx"]`)
 	PackageDescription[] packages; /// All packages in the dependency tree
 	TargetDescription[] targets; /// Build targets
-	@ignore size_t[string] targetLookup; /// Target index by package name name
+	@ignore size_t[PackageName] targetLookup; /// Target index by package name name
 
 	/// Targets by name
-	ref inout(TargetDescription) lookupTarget(string name) inout
+	ref inout(TargetDescription) lookupTarget(PackageName name) inout
 	{
 		import std.exception : enforce;
 		auto pti = name in targetLookup;
-		enforce(pti !is null, "Target '"~name~"' doesn't exist. Is the target type set to \"none\" in the package recipe?");
+		enforce(pti !is null, "Target '"~name[]~"' doesn't exist. Is the target type set to \"none\" in the package recipe?");
 		return targets[*pti];
 	}
 
 	/// Projects by name
-	ref inout(PackageDescription) lookupPackage(string name) inout
+	ref inout(PackageDescription) lookupPackage(PackageName name) inout
 	{
 		foreach (ref p; packages)
 			if (p.name == name)
 			{
 				return p;
 			}
-		throw new Exception("Package '"~name~"' not found in dependency tree.");
+		throw new Exception("Package '"~name[]~"' not found in dependency tree.");
 	}
 
 	/// Root package
@@ -64,7 +64,7 @@ struct ProjectDescription {
 */
 struct PackageDescription {
 	string path; /// Path to the package
-	string name; /// Qualified name of the package
+	PackageName name; /// Qualified name of the package
 	Version version_; /// Version of the package
 	string description;
 	string homepage;
@@ -120,8 +120,8 @@ struct TargetDescription {
 	PackageName[] packages; /// All packages contained in this target (e.g. for target type "sourceLibrary")
 	string rootConfiguration; /// Build configuration of the target's root package used for building
 	BuildSettings buildSettings; /// Final build settings to use when building the target
-	string[] dependencies; /// List of all dependencies of this target (package names)
-	string[] linkDependencies; /// List of all link-dependencies of this target (target names)
+	PackageName[] dependencies; /// List of all dependencies of this target (package names)
+	PackageName[] linkDependencies; /// List of all link-dependencies of this target (target names)
 }
 
 /**

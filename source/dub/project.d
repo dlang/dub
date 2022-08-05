@@ -1535,7 +1535,7 @@ private string getVariable(Project, Package)(string name, in Project project, in
 	if (name.endsWith("_PACKAGE_DIR")) {
 		auto pname = name[0 .. $-12];
 		foreach (prj; project.getTopologicalPackageList())
-			if (prj.name.asUpperCase.map!(a => a == '-' ? '_' : a).equal(pname))
+			if (prj.name[].asUpperCase.map!(a => a == '-' ? '_' : a).equal(pname))
 			{
 				path = prj.path;
 				break;

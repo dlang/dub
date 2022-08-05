@@ -35,7 +35,7 @@ import std.uuid;
 class VisualDGenerator : ProjectGenerator {
 	private {
 		PackageManager m_pkgMgr;
-		string[string] m_projectUuids;
+		string[PackageName] m_projectUuids;
 	}
 
 	this(Project project)
@@ -44,7 +44,7 @@ class VisualDGenerator : ProjectGenerator {
 		m_pkgMgr = project.packageManager;
 	}
 
-	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
+	override void generateTargets(GeneratorSettings settings, in TargetInfo[PackageName] targets)
 	{
 		logDebug("About to generate projects for %s, with %s direct dependencies.", m_project.rootPackage.name, m_project.rootPackage.getAllDependencies().length);
 		generateProjectFiles(settings, targets);
@@ -52,7 +52,7 @@ class VisualDGenerator : ProjectGenerator {
 	}
 
 	private {
-		void generateSolutionFile(GeneratorSettings settings, in TargetInfo[string] targets)
+		void generateSolutionFile(GeneratorSettings settings, in TargetInfo[PackageName] targets)
 		{
 			auto ret = appender!(char[])();
 			auto configs = m_project.getPackageConfigs(settings.platform, settings.config);
@@ -62,8 +62,8 @@ class VisualDGenerator : ProjectGenerator {
 			ret.put("Microsoft Visual Studio Solution File, Format Version 11.00\n");
 			ret.put("# Visual Studio 2010\n");
 
-			bool[string] visited;
-			void generateSolutionEntry(string pack) {
+			bool[PackageName] visited;
+			void generateSolutionEntry(PackageName pack) {
 				if (pack in visited) return;
 				visited[pack] = true;
 
@@ -129,10 +129,10 @@ class VisualDGenerator : ProjectGenerator {
 		}
 
 
-		void generateProjectFiles(GeneratorSettings settings, in TargetInfo[string] targets)
+		void generateProjectFiles(GeneratorSettings settings, in TargetInfo[PackageName] targets)
 		{
-			bool[string] visited;
-			void performRec(string name) {
+			bool[PackageName] visited;
+			void performRec(PackageName name) {
 				if (name in visited) return;
 				visited[name] = true;
 				generateProjectFile(name, settings, targets);
@@ -143,7 +143,7 @@ class VisualDGenerator : ProjectGenerator {
 			performRec(m_project.rootPackage.name);
 		}
 
-		bool isHeaderOnlyPackage(string pack, in TargetInfo[string] targets)
+		bool isHeaderOnlyPackage(PackageName pack, in TargetInfo[PackageName] targets)
 		const {
 			auto buildsettings = targets[pack].buildSettings;
 			if (!buildsettings.sourceFiles.any!(f => f.endsWith(".d"))())
@@ -151,7 +151,7 @@ class VisualDGenerator : ProjectGenerator {
 			return false;
 		}
 
-		void generateProjectFile(string packname, GeneratorSettings settings, in TargetInfo[string] targets)
+		void generateProjectFile(PackageName packname, GeneratorSettings settings, in TargetInfo[PackageName] targets)
 		{
 			import dub.compilers.utils : isLinkerFile;
 
@@ -251,7 +251,7 @@ class VisualDGenerator : ProjectGenerator {
 			proj.flush();
 		}
 
-		void generateProjectConfiguration(Appender!(char[]) ret, string pack, string type, GeneratorSettings settings, in TargetInfo[string] targets)
+		void generateProjectConfiguration(Appender!(char[]) ret, PackageName pack, string type, GeneratorSettings settings, in TargetInfo[PackageName] targets)
 		{
 			auto buildsettings = targets[pack].buildSettings.dup;
 			auto basepath = NativePath(".dub/");
@@ -452,7 +452,7 @@ class VisualDGenerator : ProjectGenerator {
 			return "{" ~ toUpper(randomUUID().toString()) ~ "}";
 		}
 
-		string guid(string projectName) {
+		string guid(PackageName projectName) {
 			if(projectName !in m_projectUuids)
 				m_projectUuids[projectName] = generateUUID();
 			return m_projectUuids[projectName];
@@ -463,7 +463,7 @@ class VisualDGenerator : ProjectGenerator {
 			else return getPackageFileName(m_project.rootPackage.name) ~ ".sln";
 		}
 
-		NativePath projFileName(string pack) const {
+		NativePath projFileName(PackageName pack) const {
 			auto basepath = NativePath(".dub/");
 			version(DUBBING) return basepath ~ (getPackageFileName(pack) ~ ".dubbed.visualdproj");
 			else return basepath ~ (getPackageFileName(pack) ~ ".visualdproj");
@@ -544,9 +544,9 @@ private NativePath determineStructurePath(NativePath file_path, in ProjectGenera
 	return NativePath("misc/") ~ file_path.head;
 }
 
-private string getPackageFileName(string pack)
+private string getPackageFileName(PackageName pack)
 {
-	return pack.replace(":", "_");
+	return pack[].replace(":", "_");
 }
 
 private @property string vsArchitecture(string architecture)

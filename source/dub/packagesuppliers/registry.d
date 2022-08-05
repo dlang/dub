@@ -21,7 +21,7 @@ class RegistryPackageSupplier : PackageSupplier {
 	private {
 		URL m_registryUrl;
 		struct CacheEntry { Json data; SysTime cacheTime; }
-		CacheEntry[string] m_metadataCache;
+		CacheEntry[PackageName] m_metadataCache;
 		Duration m_maxCacheTime;
 	}
 
@@ -59,7 +59,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		if (best.type != Json.Type.null_)
 		{
 			auto vers = best["version"].get!string;
-			ret = m_registryUrl ~ NativePath(PackagesPath~"/"~name~"/"~vers~".zip");
+			ret = m_registryUrl ~ NativePath(PackagesPath~"/"~name[]~"/"~vers~".zip");
 		}
 		return ret;
 	}
@@ -102,7 +102,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		auto url = m_registryUrl ~ NativePath("api/packages/infos");
 
 		url.queryString = "packages=" ~
-				encodeComponent(`["` ~ name ~ `"]`) ~ "&include_dependencies=true&minimize=true";
+				encodeComponent(`["` ~ name[] ~ `"]`) ~ "&include_dependencies=true&minimize=true";
 
 		logDebug("Downloading metadata for %s", name);
 		string jsonData;
@@ -113,9 +113,9 @@ class RegistryPackageSupplier : PackageSupplier {
 		foreach (pkg, info; json.get!(Json[string]))
 		{
 			logDebug("adding %s to metadata cache", pkg);
-			m_metadataCache[pkg] = CacheEntry(info, now);
+			m_metadataCache[PackageName(pkg)] = CacheEntry(info, now);
 		}
-		return json[name];
+		return json[name[]];
 	}
 
 	SearchResult[] searchPackages(string query) {

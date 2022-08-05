@@ -27,7 +27,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		import std.file : dirEntries, DirEntry, SpanMode;
 		import std.conv : to;
 		Version[] ret;
-		foreach (DirEntry d; dirEntries(m_path.toNativeString(), name~"*", SpanMode.shallow)) {
+		foreach (DirEntry d; dirEntries(m_path.toNativeString(), name[]~"*", SpanMode.shallow)) {
 			NativePath p = NativePath(d.name);
 			logDebug("Entry: %s", p);
 			enforce(to!string(p.head)[$-4..$] == ".zip");
@@ -65,7 +65,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		Json json = toJson(recipe);
 		auto basename = filePath.head.name;
 		enforce(basename.endsWith(".zip"), "Malformed package filename: " ~ filePath.toNativeString);
-		enforce(basename.startsWith(name), "Malformed package filename: " ~ filePath.toNativeString);
+		enforce(basename.startsWith(name[]), "Malformed package filename: " ~ filePath.toNativeString);
 		json["version"] = basename[name.length + 1 .. $-4];
 		return json;
 	}
@@ -82,7 +82,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		import std.array : array;
 		import std.format : format;
 		NativePath toPath(Version ver) {
-			return m_path ~ (name ~ "-" ~ ver.toString() ~ ".zip");
+			return m_path ~ (name[] ~ "-" ~ ver.toString() ~ ".zip");
 		}
 		auto versions = getVersions(name).filter!(v => dep.matches(v)).array;
 		enforce(versions.length > 0, format("No package %s found matching %s", name, dep));

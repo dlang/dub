@@ -7,6 +7,7 @@
 */
 module dub.generators.targetdescription;
 
+import dub.dependency : PackageName;
 import dub.compilers.buildsettings;
 import dub.compilers.compiler;
 import dub.description;
@@ -16,14 +17,14 @@ import dub.project;
 
 class TargetDescriptionGenerator : ProjectGenerator {
 	TargetDescription[] targetDescriptions;
-	size_t[string] targetDescriptionLookup;
+	size_t[PackageName] targetDescriptionLookup;
 
 	this(Project project)
 	{
 		super(project);
 	}
 
-	protected override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
+	protected override void generateTargets(GeneratorSettings settings, in TargetInfo[PackageName] targets)
 	{
 		import std.algorithm : map;
 		import std.array : array;
@@ -32,8 +33,8 @@ class TargetDescriptionGenerator : ProjectGenerator {
 		targetDescriptions.length = targets.length;
 		size_t i = 0;
 
-		bool[string] visited;
-		void visitTargetRec(string target)
+		bool[PackageName] visited;
+		void visitTargetRec(PackageName target)
 		{
 			if (target in visited) return;
 			visited[target] = true;
