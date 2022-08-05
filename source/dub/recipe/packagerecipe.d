@@ -183,7 +183,7 @@ struct BuildSettingsTemplate {
 	string targetName;
 	string workingDirectory;
 	string mainSourceFile;
-	string[PackageName] subConfigurations; // TODO: Config[PackageName]
+	string[PackageName] subConfigurations;
 	string[][string] dflags;
 	string[][string] lflags;
 	string[][string] libs;
