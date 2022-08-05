@@ -2736,7 +2736,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 {
 	Dependency dep;
 	const parts = splitPackageName(depspec);
-	const depname = PackageName(parts.name); // TODO: const
+	const depname = parts.name;
 	if (parts.version_)
 		dep = Dependency(parts.version_);
 	else
