@@ -956,7 +956,7 @@ class InitCommand : Command {
 		{
 			free_args ~= m_templateType;
 		}
-		dub.createEmptyPackage(NativePath(dir), free_args.map!(arg => PackageName(arg)).array, m_templateType, m_format, &depCallback, app_args);
+		dub.createEmptyPackage(NativePath(dir), free_args, m_templateType, m_format, &depCallback, app_args);
 
 		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;
@@ -1793,7 +1793,7 @@ class UpgradeCommand : Command {
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
 		if (m_dryRun) options |= UpgradeOptions.dryRun;
-		dub.upgrade(options, free_args.map!(arg => PackageName(arg)).array);
+		dub.upgrade(options, free_args);
 
 		auto spacks = dub.project.rootPackage
 			.subPackages
@@ -1814,7 +1814,7 @@ class UpgradeCommand : Command {
 					auto sdub = new Dub(fullpath, dub.packageSuppliers, SkipPackageSuppliers.all);
 					sdub.defaultPlacementLocation = dub.defaultPlacementLocation;
 					sdub.loadPackage();
-					sdub.upgrade(options, free_args.map!(arg => PackageName(arg)).array);
+					sdub.upgrade(options, free_args);
 				} catch (Exception e) {
 					logError("Failed to update sub package at %s: %s",
 						sp.path, e.msg);

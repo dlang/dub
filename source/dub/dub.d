@@ -486,7 +486,7 @@ class Dub {
 				be upgraded. Otherwise, all packages will be upgraded at
 				once.
 	*/
-	void upgrade(UpgradeOptions options, PackageName[] packages_to_upgrade = null)
+	void upgrade(UpgradeOptions options, string[] packages_to_upgrade = null)
 	{
 		// clear non-existent version selections
 		if (!(options & UpgradeOptions.upgrade)) {
@@ -522,7 +522,7 @@ class Dub {
 
 		auto resolver = new DependencyVersionResolver(
 			this, options, m_project.rootPackage, m_project.selections);
-		Dependency[PackageName] versions = resolver.resolve(packages_to_upgrade);
+		Dependency[PackageName] versions = resolver.resolve(packages_to_upgrade.map!(arg => PackageName(arg)).array);
 
 		if (options & UpgradeOptions.dryRun) {
 			bool any = false;
@@ -601,7 +601,7 @@ class Dub {
 					assumeSorted(m_project.missingDependencies)
 				);
 			if (!resolvedDependencies.empty)
-				upgrade(options, m_project.missingDependencies);
+				upgrade(options, m_project.missingDependencies.map!(_ => _.value).array);
 		}
 
 		if ((options & UpgradeOptions.select) && !(options & (UpgradeOptions.noSaveSelections | UpgradeOptions.dryRun)))
@@ -730,9 +730,9 @@ class Dub {
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(PackageName name, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+	Package fetch(string name, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
-		auto basePackageName = getBasePackageName(name);
+		auto basePackageName = getBasePackageName(PackageName(name));
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
@@ -759,7 +759,7 @@ class Dub {
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		Package existing;
-		try existing = m_packageManager.getPackage(name, ver, placement);
+		try existing = m_packageManager.getPackage(PackageName(name), ver, placement);
 		catch (Exception e) {
 			logWarn("Failed to load existing package %s: %s", ver, e.msg);
 			logDiagnostic("Full error: %s", e.toString().sanitize);
@@ -801,7 +801,7 @@ class Dub {
 		if (dstpath.existsFile())
 		{
 			m_packageManager.refresh(false);
-			return m_packageManager.getPackage(name, ver, dstpath);
+			return m_packageManager.getPackage(PackageName(name), ver, dstpath);
 		}
 
 		// repeat download on corrupted zips, see #1336
@@ -816,7 +816,7 @@ class Dub {
 
 			try {
 				m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
-				return m_packageManager.getPackage(name, ver, dstpath);
+				return m_packageManager.getPackage(PackageName(name), ver, dstpath);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", name, ver);
 				// rethrow the exception at the end of the loop
@@ -863,7 +863,7 @@ class Dub {
 				name/version.
 			resolve_version = Callback to select package version.
 	*/
-	void remove(PackageName name, PlacementLocation location,
+	void remove(string name, PlacementLocation location,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
 		enforce(!name.empty);
@@ -876,7 +876,7 @@ class Dub {
 		Package[] packages;
 
 		// Retrieve packages to be removed.
-		foreach(pack; m_packageManager.getPackageIterator(name))
+		foreach(pack; m_packageManager.getPackageIterator(PackageName(name)))
 			if (m_packageManager.isManagedPackage(pack))
 				packages ~= pack;
 
@@ -908,7 +908,7 @@ class Dub {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	void remove(PackageName name, PlacementLocation location, bool force_remove,
+	void remove(string name, PlacementLocation location, bool force_remove,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
 		remove(name, location, resolve_version);
@@ -925,7 +925,7 @@ class Dub {
 			location_ = Specifies the location to look for the given package
 				name/version.
 	 */
-	void remove(PackageName name, string version_, PlacementLocation location)
+	void remove(string name, string version_, PlacementLocation location)
 	{
 		remove(name, location, (in packages) {
 			if (version_ == RemoveVersionWildcard || version_.empty)
@@ -942,7 +942,7 @@ class Dub {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	void remove(PackageName name, string version_, PlacementLocation location, bool force_remove)
+	void remove(string name, string version_, PlacementLocation location, bool force_remove)
 	{
 		remove(name, version_, location);
 	}
@@ -1044,10 +1044,10 @@ class Dub {
 
 		See_also: `getLatestVersion`
 	*/
-	Version[] listPackageVersions(PackageName name)
+	Version[] listPackageVersions(string name)
 	{
 		Version[] versions;
-		auto basePackageName = getBasePackageName(name);
+		auto basePackageName = getBasePackageName(PackageName(name));
 		foreach (ps; this.m_packageSuppliers) {
 			try versions ~= ps.getVersions(basePackageName);
 			catch (Exception e) {
@@ -1070,7 +1070,7 @@ class Dub {
 
 		See_also: `listPackageVersions`
 	*/
-	Version getLatestVersion(PackageName name, bool prefer_stable = true)
+	Version getLatestVersion(string name, bool prefer_stable = true)
 	{
 		auto vers = listPackageVersions(name);
 		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~name~"'.");
@@ -1084,13 +1084,13 @@ class Dub {
 		Params:
 			path = Path of the directory to create the new package in. The
 				directory will be created if it doesn't exist.
-			deps = List of dependencies to add to the package recipe.
+			deps = List of dependencies as package names to add to the package recipe.
 			type = Specifies the type of the application skeleton to use.
 			format = Determines the package recipe format to use.
 			recipe_callback = Optional callback that can be used to
 				customize the recipe before it gets written.
 	*/
-	void createEmptyPackage(NativePath path, PackageName[] deps, string type,
+	void createEmptyPackage(NativePath path, string[] deps, string type,
 		PackageFormat format = PackageFormat.sdl,
 		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null,
 		string[] app_args = [])
@@ -1104,7 +1104,7 @@ class Dub {
 			Version ver;
 			try {
 				ver = getLatestVersion(dep);
-				depVers[dep] = ver.isBranch ? ver.toString() : "~>" ~ ver.toString();
+				depVers[PackageName(dep)] = ver.isBranch ? ver.toString() : "~>" ~ ver.toString();
 			} catch (Exception e) {
 				notFound ~= dep;
 			}
