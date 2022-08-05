@@ -18,17 +18,17 @@ import dub.internal.vibecompat.inet.path;
 
 	Params:
 		filename = NativePath of the package recipe file
-		parent_package_name = Optional name of the parent package (if this is a sub package)
+		parent = Optional name of the parent package (if this is a sub package)
 
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
-PackageRecipe readPackageRecipe(string filename, PackageName parent_package_name = null)
+PackageRecipe readPackageRecipe(string filename, PackageName parent = null)
 {
-	return readPackageRecipe(NativePath(filename), parent_package_name);
+	return readPackageRecipe(NativePath(filename), parent);
 }
 /// ditto
-PackageRecipe readPackageRecipe(NativePath filename, PackageName parent_package_name = null)
+PackageRecipe readPackageRecipe(NativePath filename, PackageName parent = null)
 {
 	import dub.internal.utils : stripUTF8Bom;
 	import dub.internal.vibecompat.core.file : openFile, FileMode;
@@ -41,7 +41,7 @@ PackageRecipe readPackageRecipe(NativePath filename, PackageName parent_package_
 		text = stripUTF8Bom(cast(string)f.readAll());
 	}
 
-	return parsePackageRecipe(text, filename.toNativeString(), parent_package_name);
+	return parsePackageRecipe(text, filename.toNativeString(), parent);
 }
 
 /** Parses an in-memory package recipe.
@@ -52,7 +52,7 @@ PackageRecipe readPackageRecipe(NativePath filename, PackageName parent_package_
 		contents = The contents of the recipe file
 		filename = Name associated with the package recipe - this is only used
 			to determine the file format from the file extension
-		parent_package_name = Optional name of the parent package (if this is a sub
+		parent = Optional name of the parent package (if this is a sub
 		package)
 		default_package_name = Optional default package name (if no package name
 		is found in the recipe this value will be used)
@@ -60,7 +60,7 @@ PackageRecipe readPackageRecipe(NativePath filename, PackageName parent_package_
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
-PackageRecipe parsePackageRecipe(string contents, string filename, PackageName parent_package_name = null,
+PackageRecipe parsePackageRecipe(string contents, string filename, PackageName parent = null,
 								 PackageName default_package_name = null)
 {
 	import std.algorithm : endsWith;
@@ -73,8 +73,8 @@ PackageRecipe parsePackageRecipe(string contents, string filename, PackageName p
 
 	ret.name = default_package_name;
 
-	if (filename.endsWith(".json")) parseJson(ret, parseJsonString(contents, filename), parent_package_name);
-	else if (filename.endsWith(".sdl")) parseSDL(ret, contents, parent_package_name, filename);
+	if (filename.endsWith(".json")) parseJson(ret, parseJsonString(contents, filename), parent);
+	else if (filename.endsWith(".sdl")) parseSDL(ret, contents, parent, filename);
 	else assert(false, "readPackageRecipe called with filename with unknown extension: "~filename);
 
 	// Fix for issue #711: `targetType` should be inherited, or default to library
