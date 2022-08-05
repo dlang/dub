@@ -1285,7 +1285,7 @@ class BuildCommand : GenerateCommand {
 				return 0;
 
 			// search for the package and filter versions for exact matches
-			auto basePackageName = getBasePackageName(PackageName(packageParts.name));
+			auto basePackageName = getBasePackageName(packageParts.name);
 			auto search = dub.searchPackages(basePackageName)
 				.map!(tup => tup[1].find!(p => p.name == basePackageName))
 				.filter!(ps => !ps.empty);
