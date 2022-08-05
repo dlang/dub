@@ -31,7 +31,7 @@ struct PackageName {
 	static typeof(this) fromString(string value) @safe pure nothrow @nogc {
         return typeof(return)(value);
     }
-	string toString() @trusted const scope {
+	string toString() @property @trusted const scope {
         return value.color(Mode.bold);
     }
     alias value this;

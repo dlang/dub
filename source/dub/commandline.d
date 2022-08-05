@@ -931,11 +931,11 @@ class InitCommand : Command {
 				// Tries getting the name until a valid one is given.
 				import std.regex;
 				auto nameRegex = regex(`^[a-z0-9\-_]+$`);
-				string triedName = input("Name", p.name);
+				string triedName = input("Name", p.name.toString);
 				if (triedName.matchFirst(nameRegex).empty) {
 					logError(`Invalid name '%s', names should consist only of lowercase alphanumeric characters, dashes ('-') and underscores ('_').`, triedName);
 				} else {
-					p.name = triedName;
+					p.name = PackageName(triedName);
 					break;
 				}
 			}
@@ -1089,14 +1089,14 @@ abstract class PackageBuildCommand : Command {
 	{
 		if (this.baseSettings.single) {
 			enforce(package_name.length, "Missing file name of single-file package.");
-			dub.loadSingleFilePackage(package_name);
+			dub.loadSingleFilePackage(package_name.value);
 			return true;
 		}
 
-		bool from_cwd = package_name.length == 0 || package_name.startsWith(":");
+		bool from_cwd = package_name.length == 0 || package_name.value.startsWith(":");
 		// load package in root_path to enable searching for sub packages
 		if (loadCwdPackage(dub, from_cwd)) {
-			if (package_name.startsWith(":"))
+			if (package_name.value.startsWith(":"))
 			{
  				auto pack = dub.packageManager.getSubPackage(dub.project.rootPackage, PackageName(package_name[1 .. $]), false);
 				dub.loadPackage(pack);
