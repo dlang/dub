@@ -59,7 +59,7 @@ interface PackageSupplier {
 //       a package recipe instead of one (first get version list, then the
 //       package recipe)
 
-package Json getBestPackage(Json metadata, PackageName package_id, Dependency dep, bool pre_release)
+package Json getBestPackage(Json metadata, PackageName name, Dependency dep, bool pre_release)
 {
 	import std.exception : enforce;
 	if (metadata.type == Json.Type.null_)
@@ -77,6 +77,6 @@ package Json getBestPackage(Json metadata, PackageName package_id, Dependency de
 		} else if (!cur.isPreRelease && cur > bestver) best = json;
 		bestver = Version(cast(string)best["version"]);
 	}
-	enforce(best != null, "No package candidate found for "~package_id~" "~dep.toString());
+	enforce(best != null, "No package candidate found for "~name~" "~dep.toString());
 	return best;
 }

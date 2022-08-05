@@ -730,9 +730,9 @@ class Dub {
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
-	Package fetch(PackageName package_id, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+	Package fetch(PackageName name, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
-		auto basePackageName = getBasePackageName(package_id);
+		auto basePackageName = getBasePackageName(name);
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
@@ -743,11 +743,11 @@ class Dub {
 				supplier = ps;
 				break;
 			} catch(Exception e) {
-				logWarn("Package %s not found for %s: %s", package_id, ps.description, e.msg);
+				logWarn("Package %s not found for %s: %s", name, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
-		enforce(pinfo.type != Json.Type.undefined, "No package "~package_id~" was found matching the dependency "~dep.toString());
+		enforce(pinfo.type != Json.Type.undefined, "No package "~name~" was found matching the dependency "~dep.toString());
 		string ver = pinfo["version"].get!string;
 
 		NativePath placement;
@@ -759,7 +759,7 @@ class Dub {
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		Package existing;
-		try existing = m_packageManager.getPackage(package_id, ver, placement);
+		try existing = m_packageManager.getPackage(name, ver, placement);
 		catch (Exception e) {
 			logWarn("Failed to load existing package %s: %s", ver, e.msg);
 			logDiagnostic("Full error: %s", e.toString().sanitize);
@@ -768,7 +768,7 @@ class Dub {
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.version_ != Version(ver))
 				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
-					package_id, existing.version_, ver, package_id);
+					name, existing.version_, ver, name);
 			return null;
 		}
 
@@ -776,16 +776,16 @@ class Dub {
 			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
 				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
-					package_id, ver, placement);
+					name, ver, placement);
 				return existing;
 			} else {
-				logInfo("Removing", Color.yellow, "%s %s to prepare replacement with a new version", package_id, ver);
+				logInfo("Removing", Color.yellow, "%s %s to prepare replacement with a new version", name, ver);
 				if (!m_dryRun) m_packageManager.remove(existing);
 			}
 		}
 
-		if (reason.length) logInfo("Fetching", Color.yellow, "%s %s (%s)", package_id, ver, reason);
-		else logInfo("Fetching", Color.yellow, "%s %s", package_id, ver);
+		if (reason.length) logInfo("Fetching", Color.yellow, "%s %s (%s)", name, ver, reason);
+		else logInfo("Fetching", Color.yellow, "%s %s", name, ver);
 		if (m_dryRun) return null;
 
 		logDebug("Acquiring package zip file");
@@ -801,7 +801,7 @@ class Dub {
 		if (dstpath.existsFile())
 		{
 			m_packageManager.refresh(false);
-			return m_packageManager.getPackage(package_id, ver, dstpath);
+			return m_packageManager.getPackage(name, ver, dstpath);
 		}
 
 		// repeat download on corrupted zips, see #1336
@@ -816,9 +816,9 @@ class Dub {
 
 			try {
 				m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
-				return m_packageManager.getPackage(package_id, ver, dstpath);
+				return m_packageManager.getPackage(name, ver, dstpath);
 			} catch (ZipException e) {
-				logInfo("Failed to extract zip archive for %s %s...", package_id, ver);
+				logInfo("Failed to extract zip archive for %s %s...", name, ver);
 				// rethrow the exception at the end of the loop
 				if (i == 0)
 					throw e;
