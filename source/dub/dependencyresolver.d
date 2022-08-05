@@ -492,10 +492,15 @@ unittest {
 			res.resolve(TreeNode(PackageName("a"), ic(0)));
 			assert(false, "Expected resolve to throw.");
 		} catch (ResolveException e) {
+            import std.stdio;
+            debug writeln("e.msg:", e.msg);
+            const pb = PackageName("b").toString();
+            const pc = PackageName("c").toString();
+            const pd = PackageName("d").toString();
 			assert(e.msg ==
-				"Unresolvable dependencies to package d:"
-				~ "\n  b 1 depends on d [1]"
-				~ "\n  c 1 depends on d [2]");
+				"Unresolvable dependencies to package "~pd~":"
+				~ "\n  "~pb~" 1 depends on "~pd~" [1]"
+				~ "\n  "~pc~" 1 depends on "~pd~" [2]");
 		}
 	}
 
@@ -508,7 +513,9 @@ unittest {
 			res.resolve(TreeNode(PackageName("a"), ic(0)));
 			assert(false, "Expected resolve to throw.");
 		} catch (DependencyLoadException e) {
-			assert(e.msg == "Failed to find any versions for package b, referenced by a 0");
+            const pa = PackageName("a").toString();
+            const pb = PackageName("b").toString();
+			assert(e.msg == "Failed to find any versions for package "~pb~", referenced by "~pa~" 0");
 		}
 	}
 
