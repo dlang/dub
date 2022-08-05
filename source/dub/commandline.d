@@ -931,7 +931,7 @@ class InitCommand : Command {
 				// Tries getting the name until a valid one is given.
 				import std.regex;
 				auto nameRegex = regex(`^[a-z0-9\-_]+$`);
-				string triedName = input("Name", p.name.toString);
+				const triedName = input("Name", p.name.toString);
 				if (triedName.matchFirst(nameRegex).empty) {
 					logError(`Invalid name '%s', names should consist only of lowercase alphanumeric characters, dashes ('-') and underscores ('_').`, triedName);
 				} else {
