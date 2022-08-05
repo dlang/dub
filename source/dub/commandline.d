@@ -1686,7 +1686,7 @@ class CleanCommand : Command {
 				}
 			}
 
-			if (any_error) return 1;
+			if (any_error) return 2;
 		} else {
 			dub.cleanPackage(dub.rootPath);
 		}
@@ -1723,12 +1723,12 @@ class AddCommand : Command {
 		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		if (!loadCwdPackage(dub, true)) return 1;
+		if (!loadCwdPackage(dub, true)) return 2;
 		auto recipe = dub.project.rootPackage.rawRecipe.clone;
 
 		foreach (depspec; free_args) {
 			if (!addDependency(dub, recipe, depspec))
-				return 1;
+				return 2;
 		}
 		writePackageRecipe(dub.project.rootPackage.recipePath, recipe);
 
@@ -2142,7 +2142,7 @@ class SearchCommand : Command {
 		if (res.empty)
 		{
 			logError("No matches found.");
-			return 1;
+			return 2;
 		}
 		auto justify = res
 			.map!((descNmatches) => descNmatches[1])
@@ -2555,7 +2555,7 @@ class ConvertCommand : Command {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 0, "Unexpected arguments: "~free_args.join(" "));
 		enforceUsage(m_format.length > 0, "Missing target format file extension (--format=...).");
-		if (!loadCwdPackage(dub, true)) return 1;
+		if (!loadCwdPackage(dub, true)) return 2;
 		dub.convertRecipe(m_format, m_stdout);
 		return 0;
 	}
