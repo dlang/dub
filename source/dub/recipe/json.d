@@ -37,7 +37,7 @@ void parseJson(ref PackageRecipe recipe, Json json, PackageName parent_package_n
 			case "buildTypes":
 				foreach (string name, settings; value) {
 					BuildSettingsTemplate bs;
-					bs.parseJson(settings, PackageName(null));
+					bs.parseJson(settings, PackageName.init);
 					recipe.buildTypes[name] = bs;
 				}
 				break;
@@ -380,9 +380,9 @@ unittest {
 	`.strip.outdent;
 	auto jsonValue = parseJsonString(json);
 	PackageRecipe rec1;
-	parseJson(rec1, jsonValue, PackageName(null));
+	parseJson(rec1, jsonValue, PackageName.init);
 	PackageRecipe rec;
-	parseJson(rec, rec1.toJson(), PackageName(null)); // verify that all fields are serialized properly
+	parseJson(rec, rec1.toJson(), PackageName.init); // verify that all fields are serialized properly
 
 	assert(rec.name == "projectname");
 	assert(rec.buildSettings.environments == ["": ["Var1": "env"]]);

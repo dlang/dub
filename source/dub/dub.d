@@ -442,7 +442,7 @@ class Dub {
 		recipe_content = recipe_content[idx+1 .. $];
 		auto recipe_default_package_name = PackageName(path.toString.baseName.stripExtension.strip);
 
-		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, PackageName(null), recipe_default_package_name);
+		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, PackageName.init, recipe_default_package_name);
 		enforce(recipe.buildSettings.sourceFiles.length == 0, "Single-file packages are not allowed to specify source files.");
 		enforce(recipe.buildSettings.sourcePaths.length == 0, "Single-file packages are not allowed to specify source paths.");
 		enforce(recipe.buildSettings.importPaths.length == 0, "Single-file packages are not allowed to specify import paths.");

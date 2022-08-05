@@ -505,9 +505,9 @@ lflags "lf1" "lf2"
 lflags "lf3"
 `;
 	PackageRecipe rec1;
-	parseSDL(rec1, sdl, PackageName(null), "testfile");
+	parseSDL(rec1, sdl, PackageName.init, "testfile");
 	PackageRecipe rec;
-	parseSDL(rec, rec1.toSDL(), PackageName(null)); // verify that all fields are serialized properly
+	parseSDL(rec, rec1.toSDL(), PackageName.init); // verify that all fields are serialized properly
 
 	assert(rec.name == "projectname");
 	assert(rec.description == "project description");
@@ -601,7 +601,7 @@ dflags "-h" "-i" platform="linux"
 dflags "-j" platform="linux"
 `;
 	PackageRecipe rec;
-	parseSDL(rec, sdl, PackageName(null), "testfile");
+	parseSDL(rec, sdl, PackageName.init, "testfile");
 	assert(rec.buildSettings.dflags.length == 3);
 	assert(rec.buildSettings.dflags["windows-x86"] == ["-a", "-b", "-c"]);
 	assert(rec.buildSettings.dflags[""] == ["-e", "-f", "-g"]);
@@ -612,23 +612,23 @@ unittest { // test for missing name field
 	import std.exception;
 	auto sdl = `description "missing name"`;
 	PackageRecipe rec;
-	assertThrown(parseSDL(rec, sdl, PackageName(null), "testfile"));
+	assertThrown(parseSDL(rec, sdl, PackageName.init, "testfile"));
 }
 
 unittest { // test single value fields
 	import std.exception;
 	PackageRecipe rec;
-	assertThrown!Exception(parseSDL(rec, `name "hello" "world"`, PackageName(null), "testfile"));
-	assertThrown!Exception(parseSDL(rec, `name`, PackageName(null), "testfile"));
-	assertThrown!Exception(parseSDL(rec, `name 10`, PackageName(null), "testfile"));
+	assertThrown!Exception(parseSDL(rec, `name "hello" "world"`, PackageName.init, "testfile"));
+	assertThrown!Exception(parseSDL(rec, `name`, PackageName.init, "testfile"));
+	assertThrown!Exception(parseSDL(rec, `name 10`, PackageName.init, "testfile"));
 	assertThrown!Exception(parseSDL(rec,
 		`name "hello" {
 			world
-		}`, PackageName(null), "testfile"));
+		}`, PackageName.init, "testfile"));
 	assertThrown!Exception(parseSDL(rec,
 		`name ""
 		versions "hello" 10`
-		, PackageName(null), "testfile"));
+		, PackageName.init, "testfile"));
 }
 
 unittest { // test basic serialization
@@ -649,7 +649,7 @@ lflags "-b" "-c"
 unittest {
 	auto sdl = "name \"test\"\nsourcePaths";
 	PackageRecipe rec;
-	parseSDL(rec, sdl, PackageName(null), "testfile");
+	parseSDL(rec, sdl, PackageName.init, "testfile");
 	assert("" in rec.buildSettings.sourcePaths);
 }
 
@@ -659,7 +659,7 @@ unittest {
 dependency "package" repository="git+https://some.url" version="12345678"
 `;
 	PackageRecipe rec;
-	parseSDL(rec, sdl, PackageName(null), "testfile");
+	parseSDL(rec, sdl, PackageName.init, "testfile");
 	auto dependency = rec.buildSettings.dependencies[PackageName("package")];
 	assert(!dependency.repository.empty);
 	assert(dependency.versionSpec == "12345678");

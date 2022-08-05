@@ -103,7 +103,7 @@ class Package {
 		import dub.recipe.json;
 
 		PackageRecipe recipe;
-		parseJson(recipe, json_recipe, parent ? parent.name : PackageName(null));
+		parseJson(recipe, json_recipe, parent ? parent.name : PackageName.init);
 		this(recipe, root, parent, version_override);
 	}
 	/// ditto
@@ -181,7 +181,7 @@ class Package {
 				.format(root.toNativeString(),
 					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
 
-		auto recipe = readPackageRecipe(recipe_file, parent ? parent.name : PackageName(null));
+		auto recipe = readPackageRecipe(recipe_file, parent ? parent.name : PackageName.init);
 
 		auto ret = new Package(recipe, root, parent, version_override);
 		ret.m_infoFile = recipe_file;
