@@ -22,28 +22,28 @@ interface PackageSupplier {
 		Throws: Throws an exception if the package name is not known, or if
 			an error occurred while retrieving the version list.
 	*/
-	Version[] getVersions(PackageName package_name);
+	Version[] getVersions(PackageName name);
 
 	/** Downloads a package and stores it as a ZIP file.
 
 		Params:
 			path = Absolute path of the target ZIP file
-			package_name = Name of the package to retrieve
+			name = Name of the package to retrieve
 			dep = Version constraint to match against
 			pre_release = If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	void fetchPackage(NativePath path, PackageName package_name, Dependency dep, bool pre_release);
+	void fetchPackage(NativePath path, PackageName name, Dependency dep, bool pre_release);
 
 	/** Retrieves only the recipe of a particular package.
 
 		Params:
-			package_name = Name of the package of which to retrieve the recipe
+			name = Name of the package of which to retrieve the recipe
 			dep = Version constraint to match against
 			pre_release = If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	Json fetchPackageRecipe(PackageName package_name, Dependency dep, bool pre_release);
+	Json fetchPackageRecipe(PackageName name, Dependency dep, bool pre_release);
 
 	/** Searches for packages matching the given search query term.
 

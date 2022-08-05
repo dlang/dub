@@ -223,8 +223,8 @@ class BuildGenerator : ProjectGenerator {
 
 		NativePath target_path;
 		if (settings.tempBuild) {
-			PackageName package_name = pack.basePackage is null ? pack.name : pack.basePackage.name;
-			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", package_name, pack.version_, build_id);
+			PackageName name = pack.basePackage is null ? pack.name : pack.basePackage.name;
+			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", name, pack.version_, build_id);
 		}
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 

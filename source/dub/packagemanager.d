@@ -514,14 +514,14 @@ class PackageManager {
 	{
 		import std.range : walkLength;
 
-		auto package_name = package_info["name"].get!string;
+		auto name = package_info["name"].get!string;
 		auto package_version = package_info["version"].get!string;
 
 		logDebug("Placing package '%s' version '%s' to location '%s' from file '%s'",
-			package_name, package_version, destination.toNativeString(), zip_file_path.toNativeString());
+			name, package_version, destination.toNativeString(), zip_file_path.toNativeString());
 
 		if( existsFile(destination) ){
-			throw new Exception(format("%s (%s) needs to be removed from '%s' prior placement.", package_name, package_version, destination));
+			throw new Exception(format("%s (%s) needs to be removed from '%s' prior placement.", name, package_version, destination));
 		}
 
 		// open zip file
@@ -956,7 +956,7 @@ class PackageManager {
 }
 
 struct PackageOverride {
-	PackageName name;       // TODO: rename to package_name
+	PackageName name;       // TODO: rename to name
 	Dependency version_;
 	Version targetVersion;
 	NativePath targetPath;

@@ -33,10 +33,10 @@ class RegistryPackageSupplier : PackageSupplier {
 
 	override @property string description() { return "registry at "~m_registryUrl.toString(); }
 
-	Version[] getVersions(PackageName package_name)
+	Version[] getVersions(PackageName name)
 	{
 		import std.algorithm.sorting : sort;
-		auto md = getMetadata(package_name);
+		auto md = getMetadata(name);
 		if (md.type == Json.Type.null_)
 			return null;
 		Version[] ret;

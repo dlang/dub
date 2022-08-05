@@ -1743,56 +1743,56 @@ final class SelectedVersions {
 	}
 
 	/// Selects a certain version for a specific package.
-	void selectVersion(PackageName package_name, Version version_)
+	void selectVersion(PackageName name, Version version_)
 	{
-		if (auto pdep = package_name in m_selections.versions) {
+		if (auto pdep = name in m_selections.versions) {
 			if (*pdep == Dependency(version_))
 				return;
 		}
-		m_selections.versions[package_name] = Dependency(version_);
+		m_selections.versions[name] = Dependency(version_);
 		m_dirty = true;
 	}
 
 	/// Selects a certain path for a specific package.
-	void selectVersion(PackageName package_name, NativePath path)
+	void selectVersion(PackageName name, NativePath path)
 	{
-		if (auto pdep = package_name in m_selections.versions) {
+		if (auto pdep = name in m_selections.versions) {
 			if (*pdep == Dependency(path))
 				return;
 		}
-		m_selections.versions[package_name] = Dependency(path);
+		m_selections.versions[name] = Dependency(path);
 		m_dirty = true;
 	}
 
 	/// Selects a certain Git reference for a specific package.
-	void selectVersion(PackageName package_name, Repository repository)
+	void selectVersion(PackageName name, Repository repository)
 	{
 		const dependency = Dependency(repository);
-		if (auto pdep = package_name in m_selections.versions) {
+		if (auto pdep = name in m_selections.versions) {
 			if (*pdep == dependency)
 				return;
 		}
-		m_selections.versions[package_name] = dependency;
+		m_selections.versions[name] = dependency;
 		m_dirty = true;
 	}
 
 	deprecated("Move `spec` inside of the `repository` parameter and call `selectVersion`")
-	void selectVersionWithRepository(PackageName package_name, Repository repository, string spec)
+	void selectVersionWithRepository(PackageName name, Repository repository, string spec)
 	{
-		this.selectVersion(package_name, Repository(repository.remote(), spec));
+		this.selectVersion(name, Repository(repository.remote(), spec));
 	}
 
 	/// Removes the selection for a particular package.
-	void deselectVersion(PackageName package_name)
+	void deselectVersion(PackageName name)
 	{
-		m_selections.versions.remove(package_name);
+		m_selections.versions.remove(name);
 		m_dirty = true;
 	}
 
 	/// Determines if a particular package has a selection set.
-	bool hasSelectedVersion(PackageName package_name)
+	bool hasSelectedVersion(PackageName name)
 	const {
-		return (package_name in m_selections.versions) !is null;
+		return (name in m_selections.versions) !is null;
 	}
 
 	/** Returns the selection for a particular package.
@@ -1802,10 +1802,10 @@ final class SelectedVersions {
 		is a path based selection, or its `Dependency.version_` property is
 		valid and it is a version selection.
 	*/
-	Dependency getSelectedVersion(PackageName package_name)
+	Dependency getSelectedVersion(PackageName name)
 	const {
-		enforce(hasSelectedVersion(package_name));
-		return m_selections.versions[package_name];
+		enforce(hasSelectedVersion(name));
+		return m_selections.versions[name];
 	}
 
 	/** Stores the selections to disk.

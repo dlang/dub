@@ -119,17 +119,17 @@ Tag toSDL(const scope ref PackageRecipe recipe)
 	return ret;
 }
 
-private void parseBuildSettings(Tag settings, ref BuildSettingsTemplate bs, PackageName package_name)
+private void parseBuildSettings(Tag settings, ref BuildSettingsTemplate bs, PackageName name)
 {
 	foreach (setting; settings.all.tags)
-		parseBuildSetting(setting, bs, package_name);
+		parseBuildSetting(setting, bs, name);
 }
 
-private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, PackageName package_name)
+private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, PackageName name)
 {
 	switch (setting.fullName) {
 		default: break;
-		case "dependency": parseDependency(setting, bs, package_name); break;
+		case "dependency": parseDependency(setting, bs, name); break;
 		case "systemDependencies": bs.systemDependencies = setting.stringTagValue; break;
 		case "targetType": bs.targetType = setting.stringTagValue.to!TargetType; break;
 		case "targetName": bs.targetName = setting.stringTagValue; break;
@@ -138,7 +138,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, Packag
 		case "subConfiguration":
 			auto args = setting.stringArrayTagValue;
 			enforceSDL(args.length == 2, "Expecting package and configuration names as arguments.", setting);
-			bs.subConfigurations[expandPackageName(PackageName(args[0]), package_name, setting)] = args[1];
+			bs.subConfigurations[expandPackageName(PackageName(args[0]), name, setting)] = args[1];
 			break;
 		case "dflags": setting.parsePlatformStringArray(bs.dflags); break;
 		case "lflags": setting.parsePlatformStringArray(bs.lflags); break;
@@ -176,11 +176,11 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, Packag
 	}
 }
 
-private void parseDependency(Tag t, ref BuildSettingsTemplate bs, PackageName package_name)
+private void parseDependency(Tag t, ref BuildSettingsTemplate bs, PackageName name)
 {
 	enforceSDL(t.values.length != 0, "Missing dependency name.", t);
 	enforceSDL(t.values.length == 1, "Multiple dependency names.", t);
-	auto pkg = expandPackageName(PackageName(t.values[0].get!string), package_name, t);
+	auto pkg = expandPackageName(PackageName(t.values[0].get!string), name, t);
 	enforceSDL(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once.", t);
 
 	Dependency dep = Dependency.any;
@@ -207,18 +207,18 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, PackageName pa
 	bs.dependencies[pkg] = dep;
 
 	BuildSettingsTemplate dbs;
-	parseBuildSettings(t, dbs, package_name);
+	parseBuildSettings(t, dbs, name);
 	// Don't create unneeded entries
 	if (dbs !is BuildSettingsTemplate.init)
 		bs.dependencyBuildSettings[pkg] = dbs;
 }
 
-private void parseConfiguration(Tag t, ref ConfigurationInfo ret, PackageName package_name)
+private void parseConfiguration(Tag t, ref ConfigurationInfo ret, PackageName name)
 {
 	ret.name = t.stringTagValue(true);
 	foreach (f; t.tags) {
 		switch (f.fullName) {
-			default: parseBuildSetting(f, ret.buildSettings, package_name); break;
+			default: parseBuildSetting(f, ret.buildSettings, name); break;
 			case "platforms": ret.platforms ~= f.stringArrayTagValue; break;
 		}
 	}

@@ -21,17 +21,17 @@ class FileSystemPackageSupplier : PackageSupplier {
 
 	override @property string description() { return "file repository at "~m_path.toNativeString(); }
 
-	Version[] getVersions(PackageName package_name)
+	Version[] getVersions(PackageName name)
 	{
 		import std.algorithm.sorting : sort;
 		import std.file : dirEntries, DirEntry, SpanMode;
 		import std.conv : to;
 		Version[] ret;
-		foreach (DirEntry d; dirEntries(m_path.toNativeString(), package_name~"*", SpanMode.shallow)) {
+		foreach (DirEntry d; dirEntries(m_path.toNativeString(), name~"*", SpanMode.shallow)) {
 			NativePath p = NativePath(d.name);
 			logDebug("Entry: %s", p);
 			enforce(to!string(p.head)[$-4..$] == ".zip");
-			auto vers = p.head.name[package_name.length+1..$-4];
+			auto vers = p.head.name[name.length+1..$-4];
 			logDebug("Version: %s", vers);
 			ret ~= Version(vers);
 		}

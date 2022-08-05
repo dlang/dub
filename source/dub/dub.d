@@ -858,15 +858,15 @@ class Dub {
 		is set to `RemoveVersionWildcard`.
 
 		Params:
-			package_name = Name of the package to be removed
+			name = Name of the package to be removed
 			location_ = Specifies the location to look for the given package
 				name/version.
 			resolve_version = Callback to select package version.
 	*/
-	void remove(PackageName package_name, PlacementLocation location,
+	void remove(PackageName name, PlacementLocation location,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
-		enforce(!package_name.empty);
+		enforce(!name.empty);
 		if (location == PlacementLocation.local) {
 			logInfo("To remove a locally placed package, make sure you don't have any data"
 					~ "\nleft in it's directory and then simply remove the whole directory.");
@@ -876,14 +876,14 @@ class Dub {
 		Package[] packages;
 
 		// Retrieve packages to be removed.
-		foreach(pack; m_packageManager.getPackageIterator(package_name))
+		foreach(pack; m_packageManager.getPackageIterator(name))
 			if (m_packageManager.isManagedPackage(pack))
 				packages ~= pack;
 
 		// Check validity of packages to be removed.
 		if(packages.empty) {
 			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ package_name ~ "', location: '" ~ to!string(location) ~ "'"
+				~ "id: '" ~ name ~ "', location: '" ~ to!string(location) ~ "'"
 				~ ")");
 		}
 
@@ -901,23 +901,23 @@ class Dub {
 			try {
 				remove(pack);
 			} catch (Exception e) {
-				logError("Failed to remove %s %s: %s", package_name, pack.version_, e.msg);
+				logError("Failed to remove %s %s: %s", name, pack.version_, e.msg);
 				logInfo("Continuing with other packages (if any).");
 			}
 		}
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	void remove(PackageName package_name, PlacementLocation location, bool force_remove,
+	void remove(PackageName name, PlacementLocation location, bool force_remove,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
-		remove(package_name, location, resolve_version);
+		remove(name, location, resolve_version);
 	}
 
 	/** Removes a specific version of a package.
 
 		Params:
-			package_name = Name of the package to be removed
+			name = Name of the package to be removed
 			version_ = Identifying a version or a wild card. If an empty string
 				is passed, the package will be removed from the location, if
 				there is only one version retrieved. This will throw an
@@ -925,9 +925,9 @@ class Dub {
 			location_ = Specifies the location to look for the given package
 				name/version.
 	 */
-	void remove(PackageName package_name, string version_, PlacementLocation location)
+	void remove(PackageName name, string version_, PlacementLocation location)
 	{
-		remove(package_name, location, (in packages) {
+		remove(name, location, (in packages) {
 			if (version_ == RemoveVersionWildcard || version_.empty)
 				return packages.length;
 
@@ -936,15 +936,15 @@ class Dub {
 					return i;
 			}
 			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ package_name ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
+				~ "id: '" ~ name ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
 				~ ")");
 		});
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	void remove(PackageName package_name, string version_, PlacementLocation location, bool force_remove)
+	void remove(PackageName name, string version_, PlacementLocation location, bool force_remove)
 	{
-		remove(package_name, version_, location);
+		remove(name, version_, location);
 	}
 
 	/** Adds a directory to the list of locally known packages.
@@ -1044,14 +1044,14 @@ class Dub {
 
 		See_also: `getLatestVersion`
 	*/
-	Version[] listPackageVersions(PackageName package_name)
+	Version[] listPackageVersions(PackageName name)
 	{
 		Version[] versions;
-		auto basePackageName = getBasePackageName(package_name);
+		auto basePackageName = getBasePackageName(name);
 		foreach (ps; this.m_packageSuppliers) {
 			try versions ~= ps.getVersions(basePackageName);
 			catch (Exception e) {
-				logWarn("Failed to get versions for package %s on provider %s: %s", package_name, ps.description, e.msg);
+				logWarn("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
 			}
 		}
 		return versions.sort().uniq.array;
@@ -1064,16 +1064,16 @@ class Dub {
 		preferring "~master".
 
 		Params:
-			package_name: The name of the package in question.
+			name: The name of the package in question.
 			prefer_stable: If set to `true` (the default), returns the latest
 				stable version, even if there are newer pre-release versions.
 
 		See_also: `listPackageVersions`
 	*/
-	Version getLatestVersion(PackageName package_name, bool prefer_stable = true)
+	Version getLatestVersion(PackageName name, bool prefer_stable = true)
 	{
-		auto vers = listPackageVersions(package_name);
-		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~package_name~"'.");
+		auto vers = listPackageVersions(name);
+		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~name~"'.");
 		auto final_versions = vers.filter!(v => !v.isBranch && !v.isPreRelease).array;
 		if (prefer_stable && final_versions.length) return final_versions[$-1];
 		else return vers[$-1];
@@ -1131,12 +1131,12 @@ class Dub {
 
 	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
 	{
-		const package_name = PackageName(type);
-		auto template_pack = m_packageManager.getBestPackage(package_name, ">=0.0.0");
-		if (!template_pack) template_pack = m_packageManager.getBestPackage(package_name, "~master");
+		const name = PackageName(type);
+		auto template_pack = m_packageManager.getBestPackage(name, ">=0.0.0");
+		if (!template_pack) template_pack = m_packageManager.getBestPackage(name, "~master");
 		if (!template_pack) {
-			logInfo("%s is not present, getting and storing it user wide", package_name);
-			template_pack = fetch(package_name, Dependency.any, defaultPlacementLocation, FetchOptions.none);
+			logInfo("%s is not present, getting and storing it user wide", name);
+			template_pack = fetch(name, Dependency.any, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		Package initSubPackage = m_packageManager.getSubPackage(template_pack, PackageName("init-exec"), false);
@@ -1472,8 +1472,8 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 	Dependency[PackageName] resolve(PackageName[] filter)
 	{
-		foreach (package_name; filter)
-			m_packagesToUpgrade[package_name] = true;
+		foreach (name; filter)
+			m_packagesToUpgrade[name] = true;
 		return super.resolve(TreeNode(m_rootPackage.name, Dependency(m_rootPackage.version_)),
 			(m_options & UpgradeOptions.printUpgradesOnly) == 0);
 	}

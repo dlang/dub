@@ -1029,7 +1029,7 @@ abstract class PackageBuildCommand : Command {
 		setupPackage(dub, package_info.name, default_build_type, package_info.version_);
 	}
 
-	protected void setupPackage(Dub dub, PackageName package_name, string default_build_type = "debug", string ver = "")
+	protected void setupPackage(Dub dub, PackageName name, string default_build_type = "debug", string ver = "")
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		if (!m_arch.length) m_arch = dub.defaultArchitecture;
@@ -1048,7 +1048,7 @@ abstract class PackageBuildCommand : Command {
 		this.baseSettings.buildSettings.addDebugVersions(m_debugVersions);
 
 		m_defaultConfig = null;
-		enforce (loadSpecificPackage(dub, package_name, ver), "Failed to load package.");
+		enforce (loadSpecificPackage(dub, name, ver), "Failed to load package.");
 
 		if (this.baseSettings.config.length != 0 &&
 			!dub.configurations.canFind(this.baseSettings.config) &&
@@ -1085,32 +1085,32 @@ abstract class PackageBuildCommand : Command {
 		}
 	}
 
-	private bool loadSpecificPackage(Dub dub, PackageName package_name, string ver)
+	private bool loadSpecificPackage(Dub dub, PackageName name, string ver)
 	{
 		if (this.baseSettings.single) {
-			enforce(package_name.length, "Missing file name of single-file package.");
-			dub.loadSingleFilePackage(package_name.value);
+			enforce(name.length, "Missing file name of single-file package.");
+			dub.loadSingleFilePackage(name.value);
 			return true;
 		}
 
-		bool from_cwd = package_name.length == 0 || package_name.value.startsWith(":");
+		bool from_cwd = name.length == 0 || name.value.startsWith(":");
 		// load package in root_path to enable searching for sub packages
 		if (loadCwdPackage(dub, from_cwd)) {
-			if (package_name.value.startsWith(":"))
+			if (name.value.startsWith(":"))
 			{
- 				auto pack = dub.packageManager.getSubPackage(dub.project.rootPackage, PackageName(package_name[1 .. $]), false);
+ 				auto pack = dub.packageManager.getSubPackage(dub.project.rootPackage, PackageName(name[1 .. $]), false);
 				dub.loadPackage(pack);
 				return true;
 			}
 			if (from_cwd) return true;
 		}
 
-		enforce(package_name.length, "No valid root package found - aborting.");
+		enforce(name.length, "No valid root package found - aborting.");
 
 		auto pack = dub.packageManager.getBestPackage(
-            package_name, ver.length ? Dependency(ver) : Dependency.any);
+            name, ver.length ? Dependency(ver) : Dependency.any);
 
-		enforce(pack, format!"Failed to find a package named '%s%s' locally."(package_name,
+		enforce(pack, format!"Failed to find a package named '%s%s' locally."(name,
 			ver == "" ? "" : ("@" ~ ver)
 		));
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
@@ -1943,7 +1943,7 @@ class RemoveCommand : FetchRemoveCommand {
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto package_name = PackageName(free_args[0]);
+		auto name = PackageName(free_args[0]);
 		auto location = dub.defaultPlacementLocation;
 
 		size_t resolveVersion(in Package[] packages) {
@@ -1951,7 +1951,7 @@ class RemoveCommand : FetchRemoveCommand {
 			if (packages.length == 1)
 				return 0;
 
-			writeln("Select version of '", package_name, "' to remove from location '", location, "':");
+			writeln("Select version of '", name, "' to remove from location '", location, "':");
 			foreach (i, pack; packages)
 				writefln("%s) %s", i + 1, pack.version_);
 			writeln(packages.length + 1, ") ", "all versions");
@@ -1974,15 +1974,15 @@ class RemoveCommand : FetchRemoveCommand {
 		}
 
 		if (!m_version.empty) { // remove then --version removed
-			enforceUsage(!package_name.canFindVersionSplitter, "Double version spec not allowed.");
-			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", package_name, m_version);
-			dub.remove(package_name, m_version, location);
+			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
+			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
+			dub.remove(name, m_version, location);
 		} else {
-			const parts = package_name.splitPackageName;
+			const parts = name.splitPackageName;
 			if (m_nonInteractive || parts.version_.length) {
 				dub.remove(parts.name, parts.version_, location);
 			} else {
-				dub.remove(package_name, location, &resolveVersion);
+				dub.remove(name, location, &resolveVersion);
 			}
 		}
 		return 0;
@@ -2405,17 +2405,17 @@ class DustmiteCommand : PackageBuildCommand {
 				}
 			}
 
-			static void fixPathDependency(PackageName package_name, ref Dependency dep) {
+			static void fixPathDependency(PackageName name, ref Dependency dep) {
 				if (!dep.path.empty) {
-					auto mainpack = getBasePackageName(package_name);
+					auto mainpack = getBasePackageName(name);
 					dep.path = NativePath("../") ~ mainpack;
 				}
 			}
 
 			void fixPathDependencies(ref PackageRecipe recipe, NativePath base_path)
 			{
-				foreach (package_name, ref dep; recipe.buildSettings.dependencies)
-					fixPathDependency(package_name, dep);
+				foreach (name, ref dep; recipe.buildSettings.dependencies)
+					fixPathDependency(name, dep);
 
 				foreach (ref cfg; recipe.configurations)
 					foreach (name, ref dep; cfg.buildSettings.dependencies)
