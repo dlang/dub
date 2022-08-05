@@ -618,7 +618,7 @@ struct Node
                     return T.fromString(getValue!string);
                 }
                 else throw new NodeException("Node stores unexpected type: " ~ text(type) ~
-                                             ". Expected: " ~ typeid(T).toString, startMark_);
+                    ". Expected: " ~ typeid(T).toString, startMark_);
             }
         }
         /// ditto
