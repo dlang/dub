@@ -543,17 +543,16 @@ class Dub {
 				auto sver = m_project.selections.getSelectedVersion(basename);
 				if (!sver.path.empty || !sver.repository.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
-        logInfo("Upgrade", Color.cyan,
-          "%s would be upgraded from %s to %s.",
-					basename, sver, ver);
+				logInfo("Upgrade", Color.cyan,
+					"%s would be upgraded from %s to %s.",
+					basename.color(Mode.bold), sver, ver);
 				any = true;
 			}
 			if (any) logInfo("Use \"dub upgrade\" to perform those changes");
 			return;
 		}
 
-		foreach (p; versions.byKey) {
-			auto ver = versions[p]; // Workaround for DMD 2.070.0 AA issue (crashes in aaApply2 if iterating by key+value)
+		foreach (p, ver; versions) {
 			assert(!p.value.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
 			if (!ver.path.empty) {
