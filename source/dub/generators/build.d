@@ -230,7 +230,7 @@ class BuildGenerator : ProjectGenerator {
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
 			logInfo("Up-to-date", Color.green, "%s %s: target for configuration [%s] is up to date.",
-				pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
+				pack.name, pack.version_, config.color(Color.blue));
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 			if (!settings.tempBuild)
@@ -245,7 +245,7 @@ class BuildGenerator : ProjectGenerator {
 			return false;
 		}
 
-		logInfo("Building", Color.light_green, "%s %s: building configuration [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
+		logInfo("Building", Color.light_green, "%s %s: building configuration [%s]", pack.name, pack.version_, config.color(Color.blue));
 
 		if( buildsettings.preBuildCommands.length ){
 			logInfo("Pre-build", Color.light_green, "Running commands");
@@ -314,7 +314,7 @@ class BuildGenerator : ProjectGenerator {
 			runCommands(buildsettings.preBuildCommands);
 		}
 
-		logInfo("Building", Color.light_green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
+		logInfo("Building", Color.light_green, "%s %s [%s]", pack.name, pack.version_, config.color(Color.blue));
 
 		logInfo("Running rdmd...");
 		logDiagnostic("rdmd %s", join(flags, " "));
@@ -341,7 +341,7 @@ class BuildGenerator : ProjectGenerator {
 			f = fp.toNativeString();
 		}
 
-		logInfo("Building", Color.light_green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
+		logInfo("Building", Color.light_green, "%s %s [%s]", pack.name, pack.version_, config.color(Color.blue));
 
 		// make all target/import paths relative
 		string makeRelative(string path) {

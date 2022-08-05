@@ -545,7 +545,7 @@ class Dub {
 				if (ver.version_ <= sver.version_) continue;
         logInfo("Upgrade", Color.cyan,
           "%s would be upgraded from %s to %s.",
-					basename.color(Mode.bold), sver, ver);
+					basename, sver, ver);
 				any = true;
 			}
 			if (any) logInfo("Use \"dub upgrade\" to perform those changes");
@@ -780,13 +780,13 @@ class Dub {
 					package_id, ver, placement);
 				return existing;
 			} else {
-				logInfo("Removing", Color.yellow, "%s %s to prepare replacement with a new version", package_id.color(Mode.bold), ver);
+				logInfo("Removing", Color.yellow, "%s %s to prepare replacement with a new version", package_id, ver);
 				if (!m_dryRun) m_packageManager.remove(existing);
 			}
 		}
 
-		if (reason.length) logInfo("Fetching", Color.yellow, "%s %s (%s)", package_id.color(Mode.bold), ver, reason);
-		else logInfo("Fetching", Color.yellow, "%s %s", package_id.color(Mode.bold), ver);
+		if (reason.length) logInfo("Fetching", Color.yellow, "%s %s (%s)", package_id, ver, reason);
+		else logInfo("Fetching", Color.yellow, "%s %s", package_id, ver);
 		if (m_dryRun) return null;
 
 		logDebug("Acquiring package zip file");
@@ -838,7 +838,7 @@ class Dub {
 	*/
 	void remove(in Package pack)
 	{
-		logInfo("Removing", Color.yellow, "%s (in %s)", pack.name.color(Mode.bold), pack.path.toNativeString());
+		logInfo("Removing", Color.yellow, "%s (in %s)", pack.name, pack.path.toNativeString());
 		if (!m_dryRun) m_packageManager.remove(pack);
 	}
 

@@ -1901,7 +1901,7 @@ class FetchCommand : FetchRemoveCommand {
 		} else {
 			try {
 				dub.fetch(name, Dependency.any, location, fetchOpts);
-				logInfo("Finished", Color.green, "%s fetched", name.color(Mode.bold));
+				logInfo("Finished", Color.green, "%s fetched", name);
 				logInfo(
 					"Please note that you need to use `dub run <pkgname>` " ~
 					"or add it to dependencies of your package to actually use/run it. "
@@ -2117,7 +2117,7 @@ class ListCommand : Command {
 		logInfoNoTag("Packages present in the system and known to dub:");
 		foreach (p; dub.packageManager.getPackageIterator()) {
 			if ((pname == "" || pname == p.name) && pvlim.matches(p.version_))
-				logInfo("  %s %s: %s", p.name.color(Mode.bold), p.version_, p.path.toNativeString());
+				logInfo("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
 		}
 		logInfo("");
 		return 0;
