@@ -24,17 +24,17 @@ import std.sumtype;
 /** Encapsulates the name of a package.
 */
 struct PackageName {
-    string value;
+	string value;
 	this(string value) @safe pure nothrow @nogc {
-        this.value = value;
-    }
+		this.value = value;
+	}
 	static typeof(this) fromString(string value) @safe pure nothrow @nogc {
-        return typeof(return)(value);
-    }
+		return typeof(return)(value);
+	}
 	string toString() @property @trusted const scope {
-        return value.color(Mode.bold);
-    }
-    alias value this;
+		return value.color(Mode.bold);
+	}
+	alias value this;
 }
 
 /** Encapsulates the name of a package along with its dependency specification.
