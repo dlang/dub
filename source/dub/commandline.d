@@ -2128,10 +2128,10 @@ class SearchCommand : Command {
 	this() @safe pure nothrow
 	{
 		this.name = "search";
-		this.argumentsPattern = "<query>";
+		this.argumentsPattern = "<package-name>";
 		this.description = "Search for available packages.";
 		this.helpText = [
-			"Search all specified DUB registries for packages matching query."
+			"Search all specified providers for matching packages."
 		];
 	}
 	override void prepare(scope CommandArgs args) {}

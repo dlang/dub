@@ -758,13 +758,7 @@ class Dub {
 		}
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
-		Package existing;
-		try existing = m_packageManager.getPackage(name, ver, placement);
-		catch (Exception e) {
-			logWarn("Failed to load existing package %s: %s", ver, e.msg);
-			logDiagnostic("Full error: %s", e.toString().sanitize);
-		}
-
+		Package existing = m_packageManager.getPackage(name, ver, placement);
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.version_ != Version(ver))
 				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
@@ -815,8 +809,7 @@ class Dub {
 			logDiagnostic("Placing to %s...", placement.toNativeString());
 
 			try {
-				m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
-				return m_packageManager.getPackage(name, ver, dstpath);
+				return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", name, ver);
 				// rethrow the exception at the end of the loop
@@ -942,6 +935,7 @@ class Dub {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	deprecated("Use the overload without force_remove instead")
 	void remove(PackageName name, string version_, PlacementLocation location, bool force_remove)
 	{
 		remove(name, version_, location);
@@ -1020,17 +1014,20 @@ class Dub {
 		name of the package supplier and the second entry is the list of
 		matched packages.
 
+		Params:
+		  name = The name of the package to search for
+
 		See_Also: `PackageSupplier.searchPackages`
 	*/
-	auto searchPackages(string query)
+	auto searchPackages(string name)
 	{
 		import std.typecons : Tuple, tuple;
 		Tuple!(string, PackageSupplier.SearchResult[])[] results;
 		foreach (ps; this.m_packageSuppliers) {
 			try
-				results ~= tuple(ps.description, ps.searchPackages(query));
+				results ~= tuple(ps.description, ps.searchPackages(name));
 			catch (Exception e) {
-				logWarn("Searching %s for '%s' failed: %s", ps.description, query, e.msg);
+				logWarn("Searching %s for '%s' failed: %s", ps.description, name, e.msg);
 			}
 		}
 		return results.filter!(tup => tup[1].length);
