@@ -2745,7 +2745,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 			const ver = dub.getLatestVersion(depname);
 			dep = ver.isBranch ? Dependency(ver) : Dependency("~>" ~ ver.toString());
 		} catch (Exception e) {
-			logError("Could not find package '%s'.", depname.value);
+			logError("Could not find package '%s'.", depname);
 			logDebug("Full error: %s", e.toString().sanitize);
 			return false;
 		}
