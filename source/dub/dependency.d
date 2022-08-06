@@ -183,27 +183,7 @@ struct Dependency {
 		return range.m_versA;
 	}
 
-	/** Sets/gets the matching version range as a specification string.
-
-		The acceptable forms for this string are as follows:
-
-		$(UL
-			$(LI `"1.0.0"` - a single version in SemVer format)
-			$(LI `"==1.0.0"` - alternative single version notation)
-			$(LI `">1.0.0"` - version range with a single bound)
-			$(LI `">1.0.0 <2.0.0"` - version range with two bounds)
-			$(LI `"~>1.0.0"` - a fuzzy version range)
-			$(LI `"~>1.0"` - a fuzzy version range with partial version)
-			$(LI `"^1.0.0"` - semver compatible version range (same version if 0.x.y, ==major >=minor.patch if x.y.z))
-			$(LI `"^1.0"` - same as ^1.0.0)
-			$(LI `"~master"` - a branch name)
-			$(LI `"*" - match any version (see also `any`))
-		)
-
-		Apart from "$(LT)" and "$(GT)", "$(GT)=" and "$(LT)=" are also valid
-		comparators.
-
-	*/
+	/// Sets/gets the matching version range as a specification string.
 	@property void versionSpec(string ves) @trusted
 	{
 		this.m_value = VersionRange.fromString(ves);
@@ -894,7 +874,31 @@ struct Version {
 	}
 }
 
-/// A range of versions that are acceptable
+/**
+ * A range of versions that are acceptable
+ *
+ * While not directly described in SemVer v2.0.0, a common set
+ * of range operators have appeared among package managers.
+ * We mostly NPM's: https://semver.npmjs.com/
+ *
+ * Hence the acceptable forms for this string are as follows:
+ *
+ * $(UL
+ *  $(LI `"1.0.0"` - a single version in SemVer format)
+ *  $(LI `"==1.0.0"` - alternative single version notation)
+ *  $(LI `">1.0.0"` - version range with a single bound)
+ *  $(LI `">1.0.0 <2.0.0"` - version range with two bounds)
+ *  $(LI `"~>1.0.0"` - a fuzzy version range)
+ *  $(LI `"~>1.0"` - a fuzzy version range with partial version)
+ *  $(LI `"^1.0.0"` - semver compatible version range (same version if 0.x.y, ==major >=minor.patch if x.y.z))
+ *  $(LI `"^1.0"` - same as ^1.0.0)
+ *  $(LI `"~master"` - a branch name)
+ *  $(LI `"*" - match any version (see also `VersionRange.Any`))
+ * )
+ *
+ * Apart from "$(LT)" and "$(GT)", "$(GT)=" and "$(LT)=" are also valid
+ * comparators.
+ */
 public struct VersionRange
 {
 	private Version m_versA;
