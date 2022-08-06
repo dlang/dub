@@ -554,7 +554,7 @@ lflags "lf3"
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].optional == false);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].path == NativePath("."));
 	assert(rec.buildSettings.dependencyBuildSettings["projectname:subpackage1"].dflags == ["":["-g", "-debug"]]);
-	assert(rec.buildSettings.dependencies["somedep"].versionSpec == "1.0.0");
+	assert(rec.buildSettings.dependencies["somedep"].version_.toString() == "1.0.0");
 	assert(rec.buildSettings.dependencies["somedep"].optional == true);
 	assert(rec.buildSettings.dependencies["somedep"].path.empty);
 	assert(rec.buildSettings.systemDependencies == "system dependencies");
@@ -671,7 +671,7 @@ dependency "package" repository="git+https://some.url" version="12345678"
 	parseSDL(rec, sdl, null, "testfile");
 	auto dependency = rec.buildSettings.dependencies["package"];
 	assert(!dependency.repository.empty);
-	assert(dependency.versionSpec == "12345678");
+	assert(dependency.repository.ref_ == "12345678");
 }
 
 unittest {
