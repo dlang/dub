@@ -18,8 +18,9 @@ import configy.Utils;
 import dyaml.exception;
 import dyaml.node;
 
-import std.algorithm : map;
+import std.algorithm : filter, map;
 import std.format;
+import std.string : soundexer;
 
 /*******************************************************************************
 
@@ -306,13 +307,32 @@ public class UnknownKeyConfigException : ConfigException
         const scope @safe
     {
         const useColors = spec.spec == 'S';
-        const fmt = "Key is not a valid member of this section. There are %s valid keys: %-(%s, %)";
 
-        if (useColors)
-            formattedWrite(sink, fmt, this.fieldNames.length.paint(Yellow),
-                this.fieldNames.map!(f => f.paint(Green)));
+        // Try to find a close match, as the error is likely a typo
+        // This is especially important when the config file has a large
+        // number of fields, where the message is otherwise near-useless.
+        const origSound = soundexer(this.key);
+        auto matches = this.fieldNames.filter!(f => f.soundexer == origSound);
+        const hasMatch  = !matches.save.empty;
+
+        if (hasMatch)
+        {
+            const fmt = "Key is not a valid member of this section. Did you mean: %-(%s, %)";
+            if (useColors)
+                formattedWrite(sink, fmt, matches.map!(f => f.paint(Green)));
+            else
+                formattedWrite(sink, fmt, matches);
+        }
         else
-            formattedWrite(sink, fmt, this.fieldNames.length, this.fieldNames);
+        {
+            // No match, just print everything
+            const fmt = "Key is not a valid member of this section. There are %s valid keys: %-(%s, %)";
+            if (useColors)
+                formattedWrite(sink, fmt, this.fieldNames.length.paint(Yellow),
+                               this.fieldNames.map!(f => f.paint(Green)));
+            else
+                formattedWrite(sink, fmt, this.fieldNames.length, this.fieldNames);
+        }
     }
 }
 
