@@ -491,7 +491,13 @@ class PackageManager {
 
 	/** Returns a list of all package overrides for the given scope.
 	*/
+	deprecated(OverrideDepMsg)
 	const(PackageOverride)[] getOverrides(PlacementLocation scope_)
+	const {
+		return cast(typeof(return)) this.getOverrides_(scope_);
+	}
+
+	package(dub) const(PackageOverride_)[] getOverrides_(PlacementLocation scope_)
 	const {
 		return m_repositories[scope_].overrides;
 	}
@@ -513,15 +519,28 @@ class PackageManager {
 	}
 
 	/// Ditto
+	deprecated(OverrideDepMsg)
 	void addOverride(PlacementLocation scope_, string package_, VersionRange source, Version target)
 	{
-		m_repositories[scope_].overrides ~= PackageOverride(package_, source, target);
-		m_repositories[scope_].writeOverrides();
+		this.addOverride_(scope_, package_, source, target);
 	}
 	/// ditto
+	deprecated(OverrideDepMsg)
 	void addOverride(PlacementLocation scope_, string package_, VersionRange source, NativePath target)
 	{
-		m_repositories[scope_].overrides ~= PackageOverride(package_, source, target);
+		this.addOverride_(scope_, package_, source, target);
+	}
+
+	// Non deprecated version that is used by `commandline`. Do not use!
+	package(dub) void addOverride_(PlacementLocation scope_, string package_, VersionRange source, Version target)
+	{
+		m_repositories[scope_].overrides ~= PackageOverride_(package_, source, target);
+		m_repositories[scope_].writeOverrides();
+	}
+	// Non deprecated version that is used by `commandline`. Do not use!
+	package(dub) void addOverride_(PlacementLocation scope_, string package_, VersionRange source, NativePath target)
+	{
+		m_repositories[scope_].overrides ~= PackageOverride_(package_, source, target);
 		m_repositories[scope_].writeOverrides();
 	}
 
@@ -536,7 +555,13 @@ class PackageManager {
 		);
 	}
 
+	deprecated(OverrideDepMsg)
 	void removeOverride(PlacementLocation scope_, string package_, VersionRange src)
+	{
+		this.removeOverride_(scope_, package_, src);
+	}
+
+	package(dub) void removeOverride_(PlacementLocation scope_, string package_, VersionRange src)
 	{
 		Location* rep = &m_repositories[scope_];
 		foreach (i, ovr; rep.overrides) {
@@ -838,9 +863,11 @@ class PackageManager {
 	}
 }
 
-struct PackageOverride {
-	private alias ResolvedDep = SumType!(NativePath, Version);
+deprecated(OverrideDepMsg)
+alias PackageOverride = PackageOverride_;
 
+package(dub) struct PackageOverride_ {
+	private alias ResolvedDep = SumType!(NativePath, Version);
 	string package_;
 	VersionRange source;
 	ResolvedDep target;
@@ -943,7 +970,7 @@ private struct Location {
 	Package[] localPackages;
 
 	/// List of overrides stored at this `Location`
-	PackageOverride[] overrides;
+	PackageOverride_[] overrides;
 
 	this(NativePath path) @safe pure nothrow @nogc
 	{
@@ -955,8 +982,11 @@ private struct Location {
 		this.overrides = null;
 		auto ovrfilepath = this.packagePath ~ LocalOverridesFilename;
 		if (existsFile(ovrfilepath)) {
+			logWarn("Found local override file: %s", ovrfilepath);
+			logWarn(OverrideDepMsg);
+			logWarn("Replace with a path-based dependency in your project or a custom cache path");
 			foreach (entry; jsonFromFile(ovrfilepath)) {
-				PackageOverride ovr;
+				PackageOverride_ ovr;
 				ovr.package_ = entry["name"].get!string;
 				ovr.source = VersionRange.fromString(entry["version"].get!string);
 				if (auto pv = "targetVersion" in entry) ovr.target = Version(pv.get!string);
@@ -1122,3 +1152,6 @@ private struct Location {
 			logDiagnostic("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
 	}
 }
+
+private immutable string OverrideDepMsg =
+	"Overrides are deprecated as they are redundant with more fine-grained approaches";
