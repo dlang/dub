@@ -271,9 +271,11 @@ class Dub {
 			// The default is to error, but as the previous parser wasn't
 			// complaining, we should first warn the user.
 			const path = path_.toNativeString();
-			if (path.exists)
-				this.m_config = this.m_config.merge(
-					parseConfigFile!UserConfiguration(CLIArgs(path), StrictMode.Warn));
+			if (path.exists) {
+				auto newConf = parseConfigFileSimple!UserConfiguration(path, StrictMode.Warn);
+				if (!newConf.isNull())
+					this.m_config = this.m_config.merge(newConf.get());
+			}
 		}
 
 		const dubFolderPath = NativePath(thisExePath).parentPath;
