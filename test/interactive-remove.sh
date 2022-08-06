@@ -32,7 +32,7 @@ fi
 
 $DUB fetch dub@1.9.0 && [ -d $HOME/.dub/packages/dub-1.9.0/dub ]
 $DUB fetch dub@1.10.0 && [ -d $HOME/.dub/packages/dub-1.10.0/dub ]
-# is non-interactive with `--version=<version-spec>`
+# is non-interactive with a <version-spec>
 $DUB remove dub@1.9.0
 $DUB remove dub@1.10.0
 if [ -d $HOME/.dub/packages/dub-1.9.0/dub ] || [ -d $HOME/.dub/packages/dub-1.10.0/dub ]; then
