@@ -2752,7 +2752,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 		}
 	}
 	recipe.buildSettings.dependencies[depname] = dep;
-	logInfo("Adding dependency %s %s", depname, dep.versionSpec);
+	logInfo("Adding dependency %s %s", depname, dep.toString());
 	return true;
 }
 

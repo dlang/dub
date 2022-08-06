@@ -179,17 +179,19 @@ struct Dependency {
 			(VersionRange v) => v,
 		);
 		enforce(range.isExactVersion(),
-				"Dependency "~this.versionSpec~" is no exact version.");
+				"Dependency "~range.toString()~" is no exact version.");
 		return range.m_versA;
 	}
 
 	/// Sets/gets the matching version range as a specification string.
+	deprecated("Create a new `Dependency` instead and provide a `VersionRange`")
 	@property void versionSpec(string ves) @trusted
 	{
 		this.m_value = VersionRange.fromString(ves);
 	}
 
 	/// ditto
+	deprecated("Use `Dependency.visit` and match `VersionRange`instead")
 	@property string versionSpec() const @safe {
 		return this.m_value.match!(
 			(const NativePath   p) => ANY_IDENT,
@@ -481,19 +483,19 @@ public auto visit (Handlers...) (auto ref Dependency dep)
 
 unittest {
 	Dependency a = Dependency(">=1.1.0"), b = Dependency(">=1.3.0");
-	assert (a.merge(b).valid() && a.merge(b).versionSpec == ">=1.3.0", a.merge(b).toString());
+	assert (a.merge(b).valid() && a.merge(b).toString() == ">=1.3.0", a.merge(b).toString());
 
 	assertThrown(Dependency("<=2.0.0 >=1.0.0"));
 	assertThrown(Dependency(">=2.0.0 <=1.0.0"));
 
 	a = Dependency(">=1.0.0 <=5.0.0"); b = Dependency(">=2.0.0");
-	assert (a.merge(b).valid() && a.merge(b).versionSpec == ">=2.0.0 <=5.0.0", a.merge(b).toString());
+	assert (a.merge(b).valid() && a.merge(b).toString() == ">=2.0.0 <=5.0.0", a.merge(b).toString());
 
 	assertThrown(a = Dependency(">1.0.0 ==5.0.0"), "Construction is invalid");
 
 	a = Dependency(">1.0.0"); b = Dependency("<2.0.0");
 	assert (a.merge(b).valid(), a.merge(b).toString());
-	assert (a.merge(b).versionSpec == ">1.0.0 <2.0.0", a.merge(b).toString());
+	assert (a.merge(b).toString() == ">1.0.0 <2.0.0", a.merge(b).toString());
 
 	a = Dependency(">2.0.0"); b = Dependency("<1.0.0");
 	assert (!(a.merge(b)).valid(), a.merge(b).toString());
@@ -649,13 +651,13 @@ unittest {
 }
 
 unittest {
-	assert(Dependency("~>1.0.4").versionSpec == "~>1.0.4");
-	assert(Dependency("~>1.4").versionSpec == "~>1.4");
-	assert(Dependency("~>2").versionSpec == "~>2");
-	assert(Dependency("~>1.0.4+1.2.3").versionSpec == "~>1.0.4");
-	assert(Dependency("^0.1.2").versionSpec == "^0.1.2");
-	assert(Dependency("^1.2.3").versionSpec == "^1.2.3");
-	assert(Dependency("^1.2").versionSpec == "~>1.2"); // equivalent; prefer ~>
+	assert(VersionRange.fromString("~>1.0.4").toString() == "~>1.0.4");
+	assert(VersionRange.fromString("~>1.4").toString() == "~>1.4");
+	assert(VersionRange.fromString("~>2").toString() == "~>2");
+	assert(VersionRange.fromString("~>1.0.4+1.2.3").toString() == "~>1.0.4");
+	assert(VersionRange.fromString("^0.1.2").toString() == "^0.1.2");
+	assert(VersionRange.fromString("^1.2.3").toString() == "^1.2.3");
+	assert(VersionRange.fromString("^1.2").toString() == "~>1.2"); // equivalent; prefer ~>
 }
 
 /**
