@@ -175,7 +175,7 @@ class PackageManager {
 		if (enable_overrides) {
 			foreach (ref repo; m_repositories)
 				foreach (ovr; repo.overrides)
-					if (ovr.package_ == name && ovr.version_.matches(ver)) {
+					if (ovr.package_ == name && ovr.source.matches(ver)) {
 						Package pack = ovr.target.match!(
 							(NativePath path) => getOrLoadPackage(path),
 							(Version	vers) => getPackage(name, vers, false),
@@ -487,31 +487,55 @@ class PackageManager {
 
 	/** Adds a new override for the given package.
 	*/
+	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
 	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, Version target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
 		writeLocalPackageOverridesFile(scope_);
 	}
 	/// ditto
+	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
 	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, NativePath target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
 		writeLocalPackageOverridesFile(scope_);
 	}
 
+    /// Ditto
+	void addOverride(PlacementLocation scope_, string package_, VersionRange source, Version target)
+	{
+		m_repositories[scope_].overrides ~= PackageOverride(package_, source, target);
+		writeLocalPackageOverridesFile(scope_);
+	}
+	/// ditto
+	void addOverride(PlacementLocation scope_, string package_, VersionRange source, NativePath target)
+	{
+		m_repositories[scope_].overrides ~= PackageOverride(package_, source, target);
+		writeLocalPackageOverridesFile(scope_);
+	}
+
 	/** Removes an existing package override.
 	*/
+	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
 	void removeOverride(PlacementLocation scope_, string package_, Dependency version_spec)
+	{
+        version_spec.visit!(
+            (VersionRange src) => this.removeOverride(scope_, package_, src),
+            (any) { throw new Exception(format("No override exists for %s %s", package_, version_spec)); },
+        );
+	}
+
+	void removeOverride(PlacementLocation scope_, string package_, VersionRange src)
 	{
 		Location* rep = &m_repositories[scope_];
 		foreach (i, ovr; rep.overrides) {
-			if (ovr.package_ != package_ || ovr.version_ != version_spec)
+			if (ovr.package_ != package_ || ovr.source != src)
 				continue;
 			rep.overrides = rep.overrides[0 .. i] ~ rep.overrides[i+1 .. $];
 			writeLocalPackageOverridesFile(scope_);
 			return;
 		}
-		throw new Exception(format("No override exists for %s %s", package_, version_spec));
+		throw new Exception(format("No override exists for %s %s", package_, src));
 	}
 
 	/// Extracts the package supplied as a path to it's zip file to the
@@ -840,7 +864,7 @@ class PackageManager {
 				foreach (entry; jsonFromFile(ovrfilepath)) {
 					PackageOverride ovr;
 					ovr.package_ = entry["name"].get!string;
-					ovr.version_ = Dependency(entry["version"].get!string);
+					ovr.source = VersionRange.fromString(entry["version"].get!string);
 					if (auto pv = "targetVersion" in entry) ovr.target = Version(pv.get!string);
 					if (auto pv = "targetPath" in entry) ovr.target = NativePath(pv.get!string);
 					m_repositories[type].overrides ~= ovr;
@@ -915,7 +939,7 @@ class PackageManager {
 		foreach (ovr; m_repositories[type].overrides) {
 			auto jovr = Json.emptyObject;
 			jovr["name"] = ovr.package_;
-			jovr["version"] = ovr.version_.versionSpec;
+			jovr["version"] = ovr.source.toString();
 			ovr.target.match!(
 				(NativePath path) { jovr["targetPath"] = path.toNativeString(); },
 				(Version	vers) { jovr["targetVersion"] = vers.toString(); },
@@ -967,8 +991,25 @@ struct PackageOverride {
 	private alias ResolvedDep = SumType!(NativePath, Version);
 
 	string package_;
-	Dependency version_;
+	VersionRange source;
 	ResolvedDep target;
+
+	deprecated("Use `source` instead")
+	@property inout(Dependency) version_ () inout return @safe {
+        return Dependency(this.source);
+	}
+
+	deprecated("Assign `source` instead")
+	@property ref PackageOverride version_ (Dependency v) scope return @safe pure {
+		this.source = v.visit!(
+			(VersionRange range) => range,
+			(any) {
+                int a; if (a) return VersionRange.init; // Trick the compiler
+                throw new Exception("Cannot use anything else than a `VersionRange` for overrides");
+            },
+		);
+        return this;
+	}
 
 	deprecated("Use `target.match` directly instead")
 	@property inout(Version) targetVersion () inout return @safe pure nothrow @nogc {
@@ -998,6 +1039,7 @@ struct PackageOverride {
 		return this;
 	}
 
+	deprecated("Use the overload that accepts a `VersionRange` as 2nd argument")
 	this(string package_, Dependency version_, Version target_version)
 	{
 		this.package_ = package_;
@@ -1005,11 +1047,26 @@ struct PackageOverride {
 		this.target = target_version;
 	}
 
+	deprecated("Use the overload that accepts a `VersionRange` as 2nd argument")
 	this(string package_, Dependency version_, NativePath target_path)
 	{
 		this.package_ = package_;
 		this.version_ = version_;
 		this.target = target_path;
+	}
+
+	this(string package_, VersionRange src, Version target)
+	{
+		this.package_ = package_;
+		this.source = src;
+		this.target = target;
+	}
+
+	this(string package_, VersionRange src, NativePath target)
+	{
+		this.package_ = package_;
+		this.source = src;
+		this.target = target;
 	}
 }
 

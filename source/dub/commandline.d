@@ -2193,16 +2193,16 @@ class AddOverrideCommand : Command {
 		enforceUsage(free_args.length == 3, "Expected three arguments, not "~free_args.length.to!string);
 		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
 		auto pack = free_args[0];
-		auto ver = Dependency(free_args[1]);
+		auto source = VersionRange.fromString(free_args[1]);
 		if (existsFile(NativePath(free_args[2]))) {
 			auto target = NativePath(free_args[2]);
 			if (!target.absolute) target = NativePath(getcwd()) ~ target;
-			dub.packageManager.addOverride(scope_, pack, ver, target);
-			logInfo("Added override %s %s => %s", pack, ver, target);
+			dub.packageManager.addOverride(scope_, pack, source, target);
+			logInfo("Added override %s %s => %s", pack, source, target);
 		} else {
 			auto target = Version(free_args[2]);
-			dub.packageManager.addOverride(scope_, pack, ver, target);
-			logInfo("Added override %s %s => %s", pack, ver, target);
+			dub.packageManager.addOverride(scope_, pack, source, target);
+			logInfo("Added override %s %s => %s", pack, source, target);
 		}
 		return 0;
 	}
@@ -2234,7 +2234,8 @@ class RemoveOverrideCommand : Command {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 2, "Expected two arguments, not "~free_args.length.to!string);
 		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
-		dub.packageManager.removeOverride(scope_, free_args[0], Dependency(free_args[1]));
+		auto source = VersionRange.fromString(free_args[1]);
+		dub.packageManager.removeOverride(scope_, free_args[0], source);
 		return 0;
 	}
 }
