@@ -300,7 +300,7 @@ class PackageManager {
         final switch (repo.kind)
         {
             case repo.Kind.git:
-                pack = loadGitPackage(name, repo.ref_, repo.remote);
+                pack = loadGitPackage(name, repo);
         }
         if (pack !is null) {
             addPackages(m_temporaryPackages, pack);
@@ -308,18 +308,18 @@ class PackageManager {
         return pack;
 	}
 
-    private Package loadGitPackage(string name, string versionSpec, string remote)
+    private Package loadGitPackage(string name, in Repository repo)
     {
 		import dub.internal.git : cloneRepository;
 
-		if (!versionSpec.startsWith("~") && !versionSpec.isGitHash) {
+		if (!repo.ref_.startsWith("~") && !repo.ref_.isGitHash) {
 			return null;
 		}
 
-		string gitReference = versionSpec.chompPrefix("~");
+		string gitReference = repo.ref_.chompPrefix("~");
 		NativePath destination = getPackagePath(
 			m_repositories[PlacementLocation.user].packagePath,
-			name, versionSpec);
+			name, repo.ref_);
 		// For libraries leaking their import path
 		destination ~= name;
 		destination.endsWithSlash = true;
@@ -330,7 +330,7 @@ class PackageManager {
 			}
 		}
 
-		if (!cloneRepository(remote, gitReference, destination.toNativeString())) {
+		if (!cloneRepository(repo.remote, gitReference, destination.toNativeString())) {
 			return null;
 		}
 
