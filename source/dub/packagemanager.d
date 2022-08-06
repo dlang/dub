@@ -113,12 +113,12 @@ class PackageManager {
 	*/
 	@property const(NativePath)[] completeSearchPath()
 	const {
-		auto ret = appender!(NativePath[])();
-		ret.put(cast(NativePath[])m_searchPath); // work around Phobos 17251
+		auto ret = appender!(const(NativePath)[])();
+		ret.put(m_searchPath);
 		if (!m_disableDefaultSearchPaths) {
 			foreach (ref repo; m_repositories) {
-				ret.put(cast(NativePath[])repo.searchPath);
-				ret.put(cast(NativePath)repo.packagePath);
+				ret.put(repo.searchPath);
+				ret.put(repo.packagePath);
 			}
 		}
 		return ret.data;
