@@ -207,6 +207,8 @@ unittest
     static struct Config
     {
         string value;
+        string valhu;
+        string halvue;
     }
 
     try
@@ -216,7 +218,7 @@ unittest
     }
     catch (ConfigException exc)
     {
-        assert(exc.toString() == "/dev/null(0:0): valeu: Key is not a valid member of this section. There are 1 valid keys: value");
+        assert(exc.toString() == "/dev/null(0:0): valeu: Key is not a valid member of this section. Did you mean: value, valhu");
     }
 }
 
