@@ -257,9 +257,18 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 
 	foreach (pack, d; bs.dependencies) {
 		Attribute[] attribs;
-		if (!d.repository.empty) attribs ~= new Attribute(null, "repository", Value(d.repository.toString()));
-		if (!d.path.empty) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
-		else attribs ~= new Attribute(null, "version", Value(d.versionSpec));
+		d.visit!(
+			(const Repository	r) {
+				attribs ~= new Attribute(null, "repository", Value(r.toString()));
+				attribs ~= new Attribute(null, "version", Value(r.ref_));
+			},
+			(const NativePath	p) {
+				attribs ~= new Attribute(null, "path", Value(p.toString()));
+			},
+			(const VersionRange v) {
+				attribs ~= new Attribute(null, "version", Value(v.toString()));
+			},
+		);
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
 		auto t = new Tag(null, "dependency", [Value(pack)], attribs);
 		if (pack in bs.dependencyBuildSettings)
