@@ -103,15 +103,6 @@ class PackageManager {
 	deprecated("Instantiate a PackageManager instance with the single-argument constructor: `new PackageManager(path)`")
 	@property void disableDefaultSearchPaths(bool val)
 	{
-		this._disableDefaultSearchPaths(val);
-	}
-
-	// Non deprecated instance of the previous symbol,
-	// as `Dub.updatePackageSearchPath` calls it and while nothing in Dub app
-	// itself relies on it, just removing the call from `updatePackageSearchPath`
-	// could break the library use case.
-	package(dub) void _disableDefaultSearchPaths(bool val)
-	{
 		if (val == m_disableDefaultSearchPaths) return;
 		m_disableDefaultSearchPaths = val;
 		refresh(true);
