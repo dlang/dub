@@ -99,6 +99,9 @@ private shared LogLevel _minLevel = LogLevel.info;
 */
 private shared bool _printColors = true;
 
+/// Ditto
+public bool hasColors () @trusted nothrow @nogc { return _printColors; }
+
 // isatty() is used in initLogging() to detect whether or not we are on a TTY
 extern (C) int isatty(int);
 
