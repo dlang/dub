@@ -32,6 +32,7 @@ import std.path : expandTilde, absolutePath, buildNormalizedPath;
 import std.process;
 import std.stdio;
 import std.string;
+import std.sumtype;
 import std.typecons : Tuple, tuple;
 import std.variant;
 import std.path: setExtension;
@@ -2255,10 +2256,9 @@ class ListOverridesCommand : Command {
 		{
 			if (overrides.length == 0) return;
 			logInfo("# %s", caption);
-			foreach (ovr; overrides) {
-				if (!ovr.targetPath.empty) logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetPath);
-				else logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetVersion);
-			}
+			foreach (ovr; overrides)
+				ovr.target.match!(
+					t => logInfo("%s %s => %s", ovr.package_, ovr.version_, t));
 		}
 		printList(dub.packageManager.getOverrides(PlacementLocation.user), "User wide overrides");
 		printList(dub.packageManager.getOverrides(PlacementLocation.system), "System wide overrides");
