@@ -23,6 +23,7 @@ import std.encoding : sanitize;
 import std.exception;
 import std.file;
 import std.string;
+import std.sumtype;
 import std.zip;
 
 
@@ -175,13 +176,18 @@ class PackageManager {
 			foreach (ref repo; m_repositories)
 				foreach (ovr; repo.overrides)
 					if (ovr.package_ == name && ovr.version_.matches(ver)) {
-						Package pack;
-						if (!ovr.targetPath.empty) pack = getOrLoadPackage(ovr.targetPath);
-						else pack = getPackage(name, ovr.targetVersion, false);
+						Package pack = ovr.target.match!(
+							(NativePath path) => getOrLoadPackage(path),
+							(Version	vers) => getPackage(name, vers, false),
+						);
 						if (pack) return pack;
 
-						logWarn("Package override %s %s -> %s %s doesn't reference an existing package.",
-							ovr.package_, ovr.version_, ovr.targetVersion, ovr.targetPath);
+						ovr.target.match!(
+							(any) {
+								logWarn("Package override %s %s -> '%s' doesn't reference an existing package.",
+										ovr.package_, ovr.version_, any);
+							},
+						);
 					}
 		}
 
@@ -835,8 +841,8 @@ class PackageManager {
 					PackageOverride ovr;
 					ovr.package_ = entry["name"].get!string;
 					ovr.version_ = Dependency(entry["version"].get!string);
-					if (auto pv = "targetVersion" in entry) ovr.targetVersion = Version(pv.get!string);
-					if (auto pv = "targetPath" in entry) ovr.targetPath = NativePath(pv.get!string);
+					if (auto pv = "targetVersion" in entry) ovr.target = Version(pv.get!string);
+					if (auto pv = "targetPath" in entry) ovr.target = NativePath(pv.get!string);
 					m_repositories[type].overrides ~= ovr;
 				}
 			}
@@ -910,8 +916,10 @@ class PackageManager {
 			auto jovr = Json.emptyObject;
 			jovr["name"] = ovr.package_;
 			jovr["version"] = ovr.version_.versionSpec;
-			if (!ovr.targetPath.empty) jovr["targetPath"] = ovr.targetPath.toNativeString();
-			else jovr["targetVersion"] = ovr.targetVersion.toString();
+			ovr.target.match!(
+				(NativePath path) { jovr["targetPath"] = path.toNativeString(); },
+				(Version	vers) { jovr["targetVersion"] = vers.toString(); },
+			);
 			newlist ~= jovr;
 		}
 		auto path = m_repositories[type].packagePath;
@@ -956,23 +964,52 @@ class PackageManager {
 }
 
 struct PackageOverride {
+	private alias ResolvedDep = SumType!(NativePath, Version);
+
 	string package_;
 	Dependency version_;
-	Version targetVersion;
-	NativePath targetPath;
+	ResolvedDep target;
+
+	deprecated("Use `target.match` directly instead")
+	@property inout(Version) targetVersion () inout return @safe pure nothrow @nogc {
+		return this.target.match!(
+			(Version v) => v,
+			(any) => Version.init,
+		);
+	}
+
+	deprecated("Assign `target` directly instead")
+	@property ref PackageOverride targetVersion (Version v) scope return pure nothrow @nogc {
+		this.target = v;
+		return this;
+	}
+
+	deprecated("Use `target.match` directly instead")
+	@property inout(NativePath) targetPath () inout return @safe pure nothrow @nogc {
+		return this.target.match!(
+			(NativePath v) => v,
+			(any) => NativePath.init,
+		);
+	}
+
+	deprecated("Assign `target` directly instead")
+	@property ref PackageOverride targetPath (NativePath v) scope return pure nothrow @nogc {
+		this.target = v;
+		return this;
+	}
 
 	this(string package_, Dependency version_, Version target_version)
 	{
 		this.package_ = package_;
 		this.version_ = version_;
-		this.targetVersion = target_version;
+		this.target = target_version;
 	}
 
 	this(string package_, Dependency version_, NativePath target_path)
 	{
 		this.package_ = package_;
 		this.version_ = version_;
-		this.targetPath = target_path;
+		this.target = target_path;
 	}
 }
 
