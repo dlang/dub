@@ -730,69 +730,11 @@ class PackageManager {
 	{
 		logDiagnostic("Refreshing local packages (refresh existing: %s)...", refresh_existing_packages);
 
-		// load locally defined packages
-		void scanLocalPackages(PlacementLocation type)
-		{
-			NativePath list_path = m_repositories[type].packagePath;
-			Package[] packs;
-			NativePath[] paths;
-			try {
-				auto local_package_file = list_path ~ LocalPackagesFilename;
-				logDiagnostic("Looking for local package map at %s", local_package_file.toNativeString());
-				if( !existsFile(local_package_file) ) return;
-				logDiagnostic("Try to load local package map at %s", local_package_file.toNativeString());
-				auto packlist = jsonFromFile(list_path ~ LocalPackagesFilename);
-				enforce(packlist.type == Json.Type.array, LocalPackagesFilename~" must contain an array.");
-				foreach( pentry; packlist ){
-					try {
-						auto name = pentry["name"].get!string;
-						auto path = NativePath(pentry["path"].get!string);
-						if (name == "*") {
-							paths ~= path;
-						} else {
-							auto ver = Version(pentry["version"].get!string);
-
-							Package pp;
-							if (!refresh_existing_packages) {
-								foreach (p; m_repositories[type].localPackages)
-									if (p.path == path) {
-										pp = p;
-										break;
-									}
-							}
-
-							if (!pp) {
-								auto infoFile = Package.findPackageFile(path);
-								if (!infoFile.empty) pp = Package.load(path, infoFile);
-								else {
-									logWarn("Locally registered package %s %s was not found. Please run 'dub remove-local \"%s\"'.",
-										name, ver, path.toNativeString());
-									// Store a dummy package
-									pp = new Package(PackageRecipe(name), path);
-								}
-							}
-
-							if (pp.name != name)
-								logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, pp.name);
-							pp.version_ = ver;
-
-							addPackages(packs, pp);
-						}
-					} catch( Exception e ){
-						logWarn("Error adding local package: %s", e.msg);
-					}
-				}
-			} catch( Exception e ){
-				logDiagnostic("Loading of local package list at %s failed: %s", list_path.toNativeString(), e.msg);
-			}
-			m_repositories[type].localPackages = packs;
-			m_repositories[type].searchPath = paths;
-		}
 		if (!m_disableDefaultSearchPaths)
 		{
-			scanLocalPackages(PlacementLocation.system);
-			scanLocalPackages(PlacementLocation.user);
-			scanLocalPackages(PlacementLocation.local);
+			this.m_repositories[PlacementLocation.system].scanLocalPackages(refresh_existing_packages, this);
+			this.m_repositories[PlacementLocation.user].scanLocalPackages(refresh_existing_packages, this);
+			this.m_repositories[PlacementLocation.local].scanLocalPackages(refresh_existing_packages, this);
 		}
 
 		auto old_packages = m_packages;
@@ -847,26 +789,11 @@ class PackageManager {
 		foreach (p; this.completeSearchPath)
 			scanPackageFolder(p);
 
-		void loadOverrides(PlacementLocation type)
-		{
-			m_repositories[type].overrides = null;
-			auto ovrfilepath = m_repositories[type].packagePath ~ LocalOverridesFilename;
-			if (existsFile(ovrfilepath)) {
-				foreach (entry; jsonFromFile(ovrfilepath)) {
-					PackageOverride ovr;
-					ovr.package_ = entry["name"].get!string;
-					ovr.source = VersionRange.fromString(entry["version"].get!string);
-					if (auto pv = "targetVersion" in entry) ovr.target = Version(pv.get!string);
-					if (auto pv = "targetPath" in entry) ovr.target = NativePath(pv.get!string);
-					m_repositories[type].overrides ~= ovr;
-				}
-			}
-		}
 		if (!m_disableDefaultSearchPaths)
 		{
-			loadOverrides(PlacementLocation.local);
-			loadOverrides(PlacementLocation.user);
-			loadOverrides(PlacementLocation.system);
+			this.m_repositories[PlacementLocation.local].loadOverrides();
+			this.m_repositories[PlacementLocation.user].loadOverrides();
+			this.m_repositories[PlacementLocation.system].loadOverrides();
 		}
 	}
 
@@ -1088,5 +1015,80 @@ private struct Location {
 	this(NativePath path) @safe pure nothrow @nogc
 	{
 		this.packagePath = path;
+	}
+
+	void loadOverrides()
+	{
+		this.overrides = null;
+		auto ovrfilepath = this.packagePath ~ LocalOverridesFilename;
+		if (existsFile(ovrfilepath)) {
+			foreach (entry; jsonFromFile(ovrfilepath)) {
+				PackageOverride ovr;
+				ovr.package_ = entry["name"].get!string;
+				ovr.source = VersionRange.fromString(entry["version"].get!string);
+				if (auto pv = "targetVersion" in entry) ovr.target = Version(pv.get!string);
+				if (auto pv = "targetPath" in entry) ovr.target = NativePath(pv.get!string);
+				this.overrides ~= ovr;
+			}
+		}
+	}
+
+	// load locally defined packages
+	void scanLocalPackages(bool refresh_existing_packages, PackageManager manager)
+	{
+		NativePath list_path = this.packagePath;
+		Package[] packs;
+		NativePath[] paths;
+		try {
+			auto local_package_file = list_path ~ LocalPackagesFilename;
+			logDiagnostic("Looking for local package map at %s", local_package_file.toNativeString());
+			if (!existsFile(local_package_file)) return;
+
+			logDiagnostic("Try to load local package map at %s", local_package_file.toNativeString());
+			auto packlist = jsonFromFile(list_path ~ LocalPackagesFilename);
+			enforce(packlist.type == Json.Type.array, LocalPackagesFilename ~ " must contain an array.");
+			foreach (pentry; packlist) {
+				try {
+					auto name = pentry["name"].get!string;
+					auto path = NativePath(pentry["path"].get!string);
+					if (name == "*") {
+						paths ~= path;
+					} else {
+						auto ver = Version(pentry["version"].get!string);
+
+						Package pp;
+						if (!refresh_existing_packages) {
+							foreach (p; this.localPackages)
+								if (p.path == path) {
+									pp = p;
+									break;
+								}
+						}
+
+						if (!pp) {
+							auto infoFile = Package.findPackageFile(path);
+							if (!infoFile.empty) pp = Package.load(path, infoFile);
+							else {
+								logWarn("Locally registered package %s %s was not found. Please run 'dub remove-local \"%s\"'.",
+										name, ver, path.toNativeString());
+								// Store a dummy package
+								pp = new Package(PackageRecipe(name), path);
+							}
+						}
+
+						if (pp.name != name)
+							logWarn("Local package at %s has different name than %s (%s)", path.toNativeString(), name, pp.name);
+						pp.version_ = ver;
+						manager.addPackages(packs, pp);
+					}
+				} catch (Exception e) {
+					logWarn("Error adding local package: %s", e.msg);
+				}
+			}
+		} catch (Exception e) {
+			logDiagnostic("Loading of local package list at %s failed: %s", list_path.toNativeString(), e.msg);
+		}
+		this.localPackages = packs;
+		this.searchPath = paths;
 	}
 }
