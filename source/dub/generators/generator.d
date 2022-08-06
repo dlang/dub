@@ -573,7 +573,7 @@ class ProjectGenerator
 
 		// 7. downwards inherits dependency build settings
 		static void applyForcedSettings(const scope ref TargetInfo ti, TargetInfo[PackageName] targets,
-											BuildSettings[string] dependBS, size_t level = 0)
+                                        BuildSettings[PackageName] dependBS, size_t level = 0)
 		{
 
 			static void apply(const scope ref BuildSettings forced, ref BuildSettings child) {
@@ -587,28 +587,28 @@ class ProjectGenerator
 				auto pti = &targets[depname];
 
 				// fetch the forced dependency build settings
-				if (auto matchedSettings = depname[] in dependBS)
+				if (auto matchedSettings = depname in dependBS)
 					forcedSettings = *matchedSettings;
-				else if (auto matchedSettings = "*" in dependBS)
+				else if (auto matchedSettings = PackageName("*") in dependBS)
 					forcedSettings = *matchedSettings;
 
 				apply(forcedSettings, pti.buildSettings);
 
 				// recursively apply forced settings to all dependencies of his dependency
-				applyForcedSettings(*pti, targets, ["*" : forcedSettings], level + 1);
+				applyForcedSettings(*pti, targets, [PackageName("*") : forcedSettings], level + 1);
 			}
 		}
 
 		// apply both top level and configuration level forced dependency build settings
 		foreach (configured_dbs; [
-			cast(const(BuildSettingsTemplate[string])) rootPackage.recipe.buildSettings.dependencyBuildSettings,
+			cast(const(BuildSettingsTemplate[PackageName])) rootPackage.recipe.buildSettings.dependencyBuildSettings,
 			rootPackage.getBuildSettings(genSettings.config).dependencyBuildSettings])
 		{
-			BuildSettings[string] dependencyBuildSettings;
+			BuildSettings[PackageName] dependencyBuildSettings;
 			foreach (key, value; configured_dbs)
 			{
 				BuildSettings buildSettings;
-				if (auto target = PackageName(key) in targets)
+				if (auto target = key in targets)
 				{
 					// get platform specific build settings and process dub variables (BuildSettingsTemplate => BuildSettings)
 					value.getPlatformSettings(buildSettings, genSettings.platform, target.pack.path);

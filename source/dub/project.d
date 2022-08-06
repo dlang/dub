@@ -46,7 +46,7 @@ class Project {
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
 		PackageName[] m_missingDependencies;
-		string[string] m_overriddenConfigs;
+		string[PackageName] m_overriddenConfigs;
 	}
 
 	/** Loads a project.
@@ -184,7 +184,7 @@ class Project {
 		foreach(dp; m_dependencies)
 			if( dp.name == name )
 				return dp;
-		if (!is_optional) throw new Exception("Unknown dependency: "~name);
+		if (!is_optional) throw new Exception("Unknown dependency: "~name[]);
 		else return null;
 	}
 
@@ -266,7 +266,7 @@ class Project {
 			return getDefaultConfiguration(settings.platform);
 		}
 
-		const config = format("%s-test-%s", rootPackage.name.replace(".", "-").replace(":", "-"), base_config);
+		const config = format("%s-test-%s", rootPackage.name[].replace(".", "-").replace(":", "-"), base_config);
 		logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, config, base_config, lbuildsettings.targetType);
 
 		BuildSettingsTemplate tcinfo = rootPackage.recipe.getConfiguration(base_config).buildSettings.dup;
@@ -398,13 +398,13 @@ shared static this() {
 			}
 			return ret;
 		}
-		if (m_rootPackage.name != m_rootPackage.name.toLower()) {
+		if (m_rootPackage.name != m_rootPackage.name[].toLower()) {
 			logWarn(`WARNING: DUB package names should always be lower case. %s`, nameSuggestion());
-		} else if (!m_rootPackage.recipe.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
+		} else if (!m_rootPackage.recipe.name[].all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
 			logWarn(`WARNING: DUB package names may only contain alphanumeric characters, `
 				~ `as well as '-' and '_'. %s`, nameSuggestion());
 		}
-		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
+		enforce(!m_rootPackage.name[].canFind(' '), "Aborting due to the package name containing spaces.");
 
 		foreach (d; m_rootPackage.getAllDependencies())
 			if (d.spec.isExactVersion && d.spec.version_.isBranch && d.spec.repository.empty) {
@@ -590,7 +590,7 @@ shared static this() {
 
 		Vertex[] configs;
 		Edge[] edges;
-		string[][PackageName] parents;
+		PackageName[][PackageName] parents;
 		parents[m_rootPackage.name] = null;
 		foreach (p; getTopologicalPackageList())
 			foreach (d; p.getAllDependencies())
@@ -652,7 +652,7 @@ shared static this() {
 		}
 
 		bool isReachableByAllParentPacks(size_t cidx) {
-			bool[string] r;
+			bool[PackageName] r;
 			foreach (p; parents[configs[cidx].pack]) r[p] = false;
 			foreach (e; edges) {
 				if (e.to != cidx) continue;
@@ -666,7 +666,7 @@ shared static this() {
 
 		void determineDependencyConfigs(in Package p, string c)
 		{
-			string[][string] depconfigs;
+			string[][PackageName] depconfigs;
 			foreach (d; p.getAllDependencies()) {
 				auto dp = getDependency(d.name, true);
 				if (!dp) continue;
@@ -700,8 +700,8 @@ shared static this() {
 		void determineAllConfigs(in Package p)
 		{
 			auto idx = allconfigs_path.countUntil(p.name);
-			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ p.name).join("->")));
-			allconfigs_path ~= p.name;
+			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ p.name[]).join("->")));
+			allconfigs_path ~= p.name[];
 			scope (exit) allconfigs_path.length--;
 
 			// first, add all dependency configurations
@@ -767,7 +767,7 @@ shared static this() {
 		// check for conflicts (packages missing in the final configuration graph)
 		void checkPacksRec(in Package pack) {
 			auto pc = pack.name in ret;
-			enforce(pc !is null, "Could not resolve configuration for package "~pack.name);
+			enforce(pc !is null, "Could not resolve configuration for package "~pack.name[]);
 			foreach (p, dep; pack.getDependencies(*pc)) {
 				auto deppack = getDependency(p, dep.optional);
 				if (deppack) checkPacksRec(deppack);
@@ -798,9 +798,9 @@ shared static this() {
 
 		foreach (pkg; this.getTopologicalPackageList(false, root_package, configs)) {
 			auto pkg_path = pkg.path.toNativeString();
-			dst.addVersions(["Have_" ~ stripDlangSpecialChars(pkg.name)]);
+			dst.addVersions(["Have_" ~ stripDlangSpecialChars(pkg.name[])]);
 
-			assert(pkg.name in configs, "Missing configuration for "~pkg.name);
+			assert(pkg.name in configs, "Missing configuration for "~pkg.name[]);
 			logDebug("Gathering build settings for %s (%s)", pkg.name, configs[pkg.name]);
 
 			auto psettings = pkg.getBuildSettings(gsettings.platform, configs[pkg.name]);
@@ -1719,7 +1719,7 @@ final class SelectedVersions {
 	}
 
 	/// Returns a list of names for all packages that have a version selection.
-	@property PackageName[] selectedPackages() const { return m_selections.versions.keys; }
+	@property auto selectedPackages() const { return m_selections.versions.byKey.map!(_ => PackageName(_)); }
 
 	/// Determines if any changes have been made after loading the selections from a file.
 	@property bool dirty() const { return m_dirty; }
@@ -1745,22 +1745,22 @@ final class SelectedVersions {
 	/// Selects a certain version for a specific package.
 	void selectVersion(PackageName name, Version version_)
 	{
-		if (auto pdep = name in m_selections.versions) {
+		if (auto pdep = name[] in m_selections.versions) {
 			if (*pdep == Dependency(version_))
 				return;
 		}
-		m_selections.versions[name] = Dependency(version_);
+		m_selections.versions[name[]] = Dependency(version_);
 		m_dirty = true;
 	}
 
 	/// Selects a certain path for a specific package.
 	void selectVersion(PackageName name, NativePath path)
 	{
-		if (auto pdep = name in m_selections.versions) {
+		if (auto pdep = name[] in m_selections.versions) {
 			if (*pdep == Dependency(path))
 				return;
 		}
-		m_selections.versions[name] = Dependency(path);
+		m_selections.versions[name[]] = Dependency(path);
 		m_dirty = true;
 	}
 
@@ -1768,11 +1768,11 @@ final class SelectedVersions {
 	void selectVersion(PackageName name, Repository repository)
 	{
 		const dependency = Dependency(repository);
-		if (auto pdep = name in m_selections.versions) {
+		if (auto pdep = name[] in m_selections.versions) {
 			if (*pdep == dependency)
 				return;
 		}
-		m_selections.versions[name] = dependency;
+		m_selections.versions[name[]] = dependency;
 		m_dirty = true;
 	}
 
@@ -1785,14 +1785,14 @@ final class SelectedVersions {
 	/// Removes the selection for a particular package.
 	void deselectVersion(PackageName name)
 	{
-		m_selections.versions.remove(name);
+		m_selections.versions.remove(name[]);
 		m_dirty = true;
 	}
 
 	/// Determines if a particular package has a selection set.
 	bool hasSelectedVersion(PackageName name)
 	const {
-		return (name in m_selections.versions) !is null;
+		return (name[] in m_selections.versions) !is null;
 	}
 
 	/** Returns the selection for a particular package.
@@ -1805,7 +1805,7 @@ final class SelectedVersions {
 	Dependency getSelectedVersion(PackageName name)
 	const {
 		enforce(hasSelectedVersion(name));
-		return m_selections.versions[name];
+		return m_selections.versions[name[]];
 	}
 
 	/** Stores the selections to disk.
@@ -1881,6 +1881,6 @@ final class SelectedVersions {
 		m_selections.fileVersion = fileVersion;
 		scope(failure) clear();
 		foreach (string p, dep; json["versions"])
-			m_selections.versions[PackageName(p)] = dependencyFromJson(dep);
+			m_selections.versions[p] = dependencyFromJson(dep);
 	}
 }

@@ -26,7 +26,7 @@ void parseJson(ref PackageRecipe recipe, Json json, PackageName parent_package_n
 	foreach (string field, value; json) {
 		switch (field) {
 			default: break;
-			case "name": recipe.name = value.get!string; break;
+			case "name": recipe.name = PackageName(value.get!string); break;
 			case "version": recipe.version_ = value.get!string; break;
 			case "description": recipe.description = value.get!string; break;
 			case "homepage": recipe.homepage = value.get!string; break;
@@ -51,7 +51,7 @@ void parseJson(ref PackageRecipe recipe, Json json, PackageName parent_package_n
 
 	enforce(recipe.name.length > 0, "The package \"name\" field is missing or empty.");
 
-	auto fullname = PackageName(parent_package_name.length ? parent_package_name ~ ":" ~ recipe.name : recipe.name);
+	auto fullname = parent_package_name.length ? PackageName(parent_package_name[] ~ ":" ~ recipe.name[]) : recipe.name;
 
 	// parse build settings
 	recipe.buildSettings.parseJson(json, fullname);
@@ -72,7 +72,7 @@ void parseJson(ref PackageRecipe recipe, Json json, PackageName parent_package_n
 Json toJson(const scope ref PackageRecipe recipe)
 {
 	auto ret = recipe.buildSettings.toJson();
-	ret["name"] = recipe.name;
+	ret["name"] = recipe.name[];
 	if (!recipe.version_.empty) ret["version"] = recipe.version_;
 	if (!recipe.description.empty) ret["description"] = recipe.description;
 	if (!recipe.homepage.empty) ret["homepage"] = recipe.homepage;
@@ -112,7 +112,7 @@ Json toJson(const scope ref PackageRecipe recipe)
 
 private void parseSubPackages(ref PackageRecipe recipe, PackageName parent_package_name, Json[] subPackagesJson)
 {
-	enforce(!parent_package_name.value.canFind(":"), format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
+	enforce(!parent_package_name[].canFind(":"), format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
 		parent_package_name, getBasePackageName(parent_package_name)));
 
 	recipe.subPackages = new SubPackage[subPackagesJson.length];
@@ -167,11 +167,11 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, PackageName pack
 			case "dependencies":
 				foreach (string pkgString, verspec; value) {
                     auto pkg = PackageName(pkgString);
-					if (pkg.startsWith(":")) {
-						enforce(!package_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", package_name, pkg));
-						pkg = PackageName(package_name ~ pkg);
+					if (pkg[].startsWith(":")) {
+						enforce(!package_name[].canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", package_name, pkg));
+						pkg = PackageName(package_name[] ~ pkg[]);
 					}
-					enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
+					enforce(pkg !in bs.dependencies, "The dependency '"~pkg[]~"' is specified more than once." );
 					bs.dependencies[pkg] = Dependency.fromJson(verspec);
 					if (verspec.type == Json.Type.object)
 					{
@@ -272,7 +272,7 @@ private Json toJson(const scope ref BuildSettingsTemplate bs)
 	if( bs.dependencies !is null ){
 		auto deps = Json.emptyObject;
 		foreach( pack, d; bs.dependencies )
-			deps[pack] = d.toJson();
+			deps[pack[]] = d.toJson();
 		ret["dependencies"] = deps;
 	}
 	if (bs.systemDependencies !is null) ret["systemDependencies"] = bs.systemDependencies;

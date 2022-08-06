@@ -35,7 +35,7 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, PackageName parent_package_name
 		enforceSDL(n.name.length > 0, "Anonymous tags are not allowed at the root level.", n);
 		switch (n.fullName) {
 			default: break;
-			case "name": recipe.name = n.stringTagValue; break;
+			case "name": recipe.name = PackageName(n.stringTagValue); break;
 			case "version": recipe.version_ = n.stringTagValue; break;
 			case "description": recipe.description = n.stringTagValue; break;
 			case "homepage": recipe.homepage = n.stringTagValue; break;
@@ -59,7 +59,7 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, PackageName parent_package_name
 	}
 
 	enforceSDL(recipe.name.length > 0, "The package \"name\" field is missing or empty.", sdl);
-	const full_package_name = parent_package_name.length ? PackageName(parent_package_name ~ ":" ~ recipe.name) : recipe.name;
+	const full_package_name = parent_package_name.length ? PackageName(parent_package_name[] ~ ":" ~ recipe.name[]) : recipe.name;
 
 	// parse general build settings
 	parseBuildSettings(sdl, recipe.buildSettings, full_package_name);
@@ -86,7 +86,7 @@ Tag toSDL(const scope ref PackageRecipe recipe)
 {
 	Tag ret = new Tag;
 	void add(T)(string field, T value) { ret.add(new Tag(null, field, [Value(value)])); }
-	add("name", recipe.name.value);
+	add("name", recipe.name[]);
 	if (recipe.version_.length) add("version", recipe.version_);
 	if (recipe.description.length) add("description", recipe.description);
 	if (recipe.homepage.length) add("homepage", recipe.homepage);
@@ -181,7 +181,7 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, PackageName na
 	enforceSDL(t.values.length != 0, "Missing dependency name.", t);
 	enforceSDL(t.values.length == 1, "Multiple dependency names.", t);
 	auto pkg = expandPackageName(PackageName(t.values[0].get!string), name, t);
-	enforceSDL(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once.", t);
+	enforceSDL(pkg !in bs.dependencies, "The dependency '"~pkg[]~"' is specified more than once.", t);
 
 	Dependency dep = Dependency.any;
 	auto attrs = t.attributes;
@@ -261,7 +261,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 		if (!d.path.empty) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
 		else attribs ~= new Attribute(null, "version", Value(d.versionSpec));
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
-		auto t = new Tag(null, "dependency", [Value(pack.value)], attribs);
+		auto t = new Tag(null, "dependency", [Value(pack[])], attribs);
 		if (pack in bs.dependencyBuildSettings)
 			t.add(bs.dependencyBuildSettings[pack].toSDL());
 		ret ~= t;
@@ -272,7 +272,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	if (bs.targetName.length) add("targetName", bs.targetName);
 	if (bs.workingDirectory.length) add("workingDirectory", bs.workingDirectory);
 	if (bs.mainSourceFile.length) add("mainSourceFile", bs.mainSourceFile);
-	foreach (pack, conf; bs.subConfigurations) ret ~= new Tag(null, "subConfiguration", [Value(pack.value), Value(conf)]);
+	foreach (pack, conf; bs.subConfigurations) ret ~= new Tag(null, "subConfiguration", [Value(pack[]), Value(conf)]);
 	foreach (suffix, arr; bs.dflags) adda("dflags", suffix, arr);
 	foreach (suffix, arr; bs.lflags) adda("lflags", suffix, arr);
 	foreach (suffix, arr; bs.libs) adda("libs", suffix, arr);
@@ -329,9 +329,9 @@ private PackageName expandPackageName(PackageName name, PackageName parent_packa
 {
 	import std.algorithm : canFind;
 	import std.string : format;
-	if (name.startsWith(":")) {
-		enforceSDL(!parent_package_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", parent_package_name, name), tag);
-		return PackageName(parent_package_name ~ name);
+	if (name[].startsWith(":")) {
+		enforceSDL(!parent_package_name[].canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", parent_package_name, name), tag);
+		return PackageName(parent_package_name[] ~ name[]);
 	} else return name;
 }
 
@@ -544,7 +544,7 @@ lflags "lf3"
 	assert(rec.buildSettings.dependencies.length == 2);
 	assert(rec.buildSettings.dependencies[PackageName("projectname:subpackage1")].optional == false);
 	assert(rec.buildSettings.dependencies[PackageName("projectname:subpackage1")].path == NativePath("."));
-	assert(rec.buildSettings.dependencyBuildSettings["projectname:subpackage1"].dflags == ["":["-g", "-debug"]]);
+	assert(rec.buildSettings.dependencyBuildSettings[PackageName("projectname:subpackage1")].dflags == ["":["-g", "-debug"]]);
 	assert(rec.buildSettings.dependencies[PackageName("somedep")].versionSpec == "1.0.0");
 	assert(rec.buildSettings.dependencies[PackageName("somedep")].optional == true);
 	assert(rec.buildSettings.dependencies[PackageName("somedep")].path.empty);
@@ -633,7 +633,7 @@ unittest { // test single value fields
 
 unittest { // test basic serialization
 	PackageRecipe p;
-	p.name = "test";
+	p.name = PackageName("test");
 	p.authors = ["foo", "bar"];
 	p.buildSettings.dflags["windows"] = ["-a"];
 	p.buildSettings.lflags[""] = ["-b", "-c"];
@@ -667,7 +667,7 @@ dependency "package" repository="git+https://some.url" version="12345678"
 
 unittest {
 	PackageRecipe p;
-	p.name = "test";
+	p.name = PackageName("test");
 
 	auto repository = Repository("git+https://some.url", "12345678");
 	p.buildSettings.dependencies[PackageName("package")] = Dependency(repository);

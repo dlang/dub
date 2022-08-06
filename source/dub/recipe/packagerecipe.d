@@ -32,7 +32,7 @@ import std.process : environment;
 */
 string[] getSubPackagePath(PackageName name) @safe pure
 {
-	return name.value.split(":");
+	return name[].split(":");
 }
 
 /**
@@ -42,7 +42,7 @@ string[] getSubPackagePath(PackageName name) @safe pure
 */
 PackageName getBasePackageName(PackageName name) @safe pure
 {
-	return typeof(return)(name.value.findSplit(":")[0]);
+	return typeof(return)(name[].findSplit(":")[0]);
 }
 
 /**
@@ -53,7 +53,7 @@ PackageName getBasePackageName(PackageName name) @safe pure
 */
 PackageName getSubPackageName(PackageName name) @safe pure
 {
-	return typeof(return)(name.value.findSplit(":")[2]);
+	return typeof(return)(name[].findSplit(":")[2]);
 }
 
 @safe unittest
@@ -176,7 +176,7 @@ struct ConfigurationInfo {
 /// a certain BuildPlatform.
 struct BuildSettingsTemplate {
 	Dependency[PackageName] dependencies;
-	BuildSettingsTemplate[string] dependencyBuildSettings;
+	BuildSettingsTemplate[PackageName] dependencyBuildSettings;
 	string systemDependencies;
 	TargetType targetType = TargetType.autodetect;
 	string targetPath;
