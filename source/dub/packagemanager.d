@@ -1073,12 +1073,19 @@ private enum LocalOverridesFilename = "local-overrides.json";
 
 /// A managed location (see `PlacementLocation`)
 private struct Location {
+	/// The absolute path to the root of the location
 	NativePath packagePath;
+
+	/// Configured (extra) search paths for this `Location`
 	NativePath[] searchPath;
+
+	/// List of packages at this `Location`
 	Package[] localPackages;
+
+	/// List of overrides stored at this `Location`
 	PackageOverride[] overrides;
 
-	this(NativePath path)
+	this(NativePath path) @safe pure nothrow @nogc
 	{
 		this.packagePath = path;
 	}
