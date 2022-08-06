@@ -170,7 +170,14 @@ class Dub {
 		if (ccps.length)
 			m_packageManager.customCachePaths = ccps;
 
-		updatePackageSearchPath();
+		// TODO: Move this environment read out of the ctor
+		if (auto p = environment.get("DUBPATH")) {
+			version(Windows) enum pathsep = ";";
+			else enum pathsep = ":";
+			NativePath[] paths = p.split(pathsep)
+				.map!(p => NativePath(p))().array();
+			m_packageManager.searchPath = paths;
+		}
 	}
 
 	unittest
@@ -366,7 +373,6 @@ class Dub {
 	void loadPackage(NativePath path)
 	{
 		m_projectPath = path;
-		updatePackageSearchPath();
 		m_project = new Project(m_packageManager, m_projectPath);
 	}
 
@@ -374,7 +380,6 @@ class Dub {
 	void loadPackage(Package pack)
 	{
 		m_projectPath = pack.path;
-		updatePackageSearchPath();
 		m_project = new Project(m_packageManager, pack);
 	}
 
@@ -469,7 +474,8 @@ class Dub {
 	{
 		if (!path.absolute) path = NativePath(getcwd()) ~ path;
 		m_overrideSearchPath = path;
-		updatePackageSearchPath();
+		m_packageManager.disableDefaultSearchPaths = true;
+		m_packageManager.searchPath = [m_overrideSearchPath];
 	}
 
 	/** Gets the default configuration for a particular build platform.
@@ -1269,25 +1275,6 @@ class Dub {
 		settings.run = true;
 
 		return settings;
-	}
-
-	private void updatePackageSearchPath()
-	{
-		// TODO: Remove once `overrideSearchPath` is removed
-		if (!m_overrideSearchPath.empty) {
-			m_packageManager._disableDefaultSearchPaths = true;
-			m_packageManager.searchPath = [m_overrideSearchPath];
-			return;
-		}
-
-		auto p = environment.get("DUBPATH");
-		NativePath[] paths;
-
-		version(Windows) enum pathsep = ";";
-		else enum pathsep = ":";
-		if (p.length) paths ~= p.split(pathsep).map!(p => NativePath(p))().array();
-		m_packageManager._disableDefaultSearchPaths = false;
-		m_packageManager.searchPath = paths;
 	}
 
 	private void determineDefaultCompiler()
