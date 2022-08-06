@@ -30,7 +30,7 @@ class SublimeTextGenerator : ProjectGenerator {
 
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[PackageName] targets)
 	{
-		auto buildSettings = targets[m_project.name].buildSettings;
+		auto buildSettings = targets[m_project.packageName].buildSettings;
 		logDebug("About to generate sublime project for %s.", m_project.rootPackage.name);
 
 		auto root = Json([

@@ -572,8 +572,12 @@ shared static this() {
 		m_missingDependencies.sort();
 	}
 
-	/// Returns the name of the root package.
-	@property PackageName name() const { return m_rootPackage ? m_rootPackage.name : PackageName("app"); }
+	/// Returns the name of the root package as a `string`.
+	deprecated("Use `packageName()` instead returning a type-safer `PackageName`")
+	@property string name() const { return m_rootPackage ? m_rootPackage.name[] : "app"; }
+
+	/// Returns the name of the root package as a `PackageName`.
+	@property PackageName packageName() const { return m_rootPackage ? m_rootPackage.name : PackageName("app"); }
 
 	/// Returns the names of all configurations of the root package.
 	@property string[] configurations() const { return m_rootPackage.configurations; }
