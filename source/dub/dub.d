@@ -819,6 +819,12 @@ class Dub {
 		}
 		assert(0, "Should throw a ZipException instead.");
 	}
+    /// ditto
+	deprecated("Use the overload taking a `PackageName` as first parameter instead ")
+	Package fetch(string name, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+    {
+        return fetch(PackageName(name), dep, location, options, reason);
+    }
 
 	/** Removes a specific locally cached package.
 
@@ -899,6 +905,13 @@ class Dub {
 			}
 		}
 	}
+    /// ditto
+	deprecated("Use the overload taking a `PackageName` as first parameter instead ")
+	void remove(string name, PlacementLocation location,
+				scope size_t delegate(in Package[] packages) resolve_version)
+    {
+        remove(PackageName(name), location, resolve_version);
+    }
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
 	void remove(PackageName name, PlacementLocation location, bool force_remove,
@@ -906,6 +919,13 @@ class Dub {
 	{
 		remove(name, location, resolve_version);
 	}
+    /// ditto
+	deprecated("Use the overload taking a `PackageName` as first parameter instead ")
+	void remove(string name, PlacementLocation location, bool force_remove,
+				scope size_t delegate(in Package[] packages) resolve_version)
+    {
+        remove(PackageName(name), location, force_remove, resolve_version);
+    }
 
 	/** Removes a specific version of a package.
 
@@ -933,12 +953,24 @@ class Dub {
 				~ ")");
 		});
 	}
+    /// ditto
+	deprecated("Use the overload taking a `PackageName` as first parameter instead ")
+	void remove(string name, string version_, PlacementLocation location)
+    {
+        remove(PackageName(name), version_, location);
+    }
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	deprecated("Use the overload without force_remove instead")
+	deprecated("Use the overload without `force_remove` instead")
 	void remove(PackageName name, string version_, PlacementLocation location, bool force_remove)
 	{
 		remove(name, version_, location);
+	}
+    /// ditto
+	deprecated("Use the overload without `force_remove` taking a `PackageName` as first parameter instead")
+	void remove(string name, string version_, PlacementLocation location, bool force_remove)
+	{
+		remove(PackageName(name), version_, location);
 	}
 
 	/** Adds a directory to the list of locally known packages.
@@ -1053,6 +1085,12 @@ class Dub {
 		}
 		return versions.sort().uniq.array;
 	}
+    /// ditto
+    deprecated("Use the overload taking a `PackageName` as first parameter instead ")
+    Version[] listPackageVersions(string name)
+    {
+        return listPackageVersions(PackageName(name));
+    }
 
 	/** Returns the latest available version for a particular package.
 
@@ -1075,6 +1113,12 @@ class Dub {
 		if (prefer_stable && final_versions.length) return final_versions[$-1];
 		else return vers[$-1];
 	}
+    /// ditto
+    deprecated("Use the overload taking a `PackageName` as first parameter instead ")
+	Version getLatestVersion(string name, bool prefer_stable = true)
+    {
+        return getLatestVersion(PackageName(name), prefer_stable);
+    }
 
 	/** Initializes a directory with a package skeleton.
 
@@ -1125,6 +1169,15 @@ class Dub {
 		//Act smug to the user.
 		logInfo("Success", Color.green, "created empty project in %s", path.toNativeString().color(Mode.bold));
 	}
+    /// ditto
+    deprecated("Use the overload taking a `PackageName[]` as second parameter instead ")
+	void createEmptyPackage(NativePath path, string[] deps, string type,
+		PackageFormat format = PackageFormat.sdl,
+		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null,
+		string[] app_args = [])
+    {
+        createEmptyPackage(path, deps.map!(_ => PackageName(_)).array, type, format, recipe_callback, app_args);
+    }
 
 	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
 	{
