@@ -28,16 +28,15 @@ int main()
 	auto dub = environment.get("DUB");
 	if (!dub.length)
 		dub = buildPath(".", "bin", "dub");
-        
+
     string destinationDirectory = tempDir;
     // remove any ending slahes (which can for some reason be added at the end by tempDir, which fails on OSX) https://issues.dlang.org/show_bug.cgi?id=22738
     destinationDirectory = buildNormalizedPath(destinationDirectory);
-    
-	string filename;
+
+	const filename1 = destinationDirectory.buildPath("issue2051_success.d");
 	// check if the single file package with dependency compiles and runs
 	{
-		filename = destinationDirectory.buildPath("issue2051_success.d");
-		auto f = File(filename, "w");
+		auto f = File(filename1, "w");
 		f.write(
 `#!/usr/bin/env dub
 /+ dub.sdl:
@@ -65,16 +64,16 @@ unittest
 `		);
 	}
 
-	const rc1 = text(dub, " test --single \"", filename, "\"").executeCommand;
+	const rc1 = text(dub, " test --single \"", filename1, "\"").executeCommand;
 	if (rc1)
 		writeln("\nError. Unittests failed.");
 	else
 		writeln("\nOk. Unittest passed.");
 
 	// Check if dub `test` command runs unittests for single file package
+    const filename2 = destinationDirectory.buildPath("issue2051_fail.d");
 	{
-		filename = destinationDirectory.buildPath("issue2051_fail.d");
-		auto f = File(filename, "w");
+		auto f = File(filename2, "w");
 		f.write(
 `#!/usr/bin/env dub
 /+ dub.sdl:
@@ -93,7 +92,7 @@ unittest
 `		);
 	}
 
-	const rc2 = text(dub, " test --single \"", filename, "\"").executeCommand;
+	const rc2 = text(dub, " test --single \"", filename2, "\"").executeCommand;
 	if (rc2)
 		writeln("\nOk. Unittests failed.");
 	else
