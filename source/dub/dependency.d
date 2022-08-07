@@ -86,7 +86,7 @@ struct PackageName {
 		return typeof(return)(value);
 	}
 
-	public void toString(scope void delegate (in char[]) @safe sink) const scope @trusted
+	public void toString(scope void delegate (scope const(char)[] part) @safe sink) const scope @trusted
 	{
         auto parts = this.byPart();
         if (!parts.empty)
@@ -96,9 +96,9 @@ struct PackageName {
 			sink(part.color(Mode.bold));
 		}
 	}
-	string toString() const @safe scope { // TODO: should this simply return _value instead?
+	string toString() const @safe scope {
         Appender!string result;
-		this.toString((scope const(char)[] part) const @safe pure nothrow { result ~= part; });
+		this.toString((scope const(char)[] part) const @safe { result ~= part; });
 		return result.data[];
 	}
 
