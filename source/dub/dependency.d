@@ -36,27 +36,47 @@ struct PackageName {
     }
 
 	this(string value) {
-        // TODO: convert this to enforce(value.length, "Empty package name '%s'", value); further down the road:
+		this._value = value;
+
         if (value.length == 0) {
+            // TODO: convert this to enforce(value.length, "Empty package name '%s'", value); after deprecation phase has ended
             logWarn(`WARNING: DUB package name is empty`);
         } else if (value != value[].toLower()) {
 			logWarn(`WARNING: DUB package name is not in lower case: '%s'`, value);
 		}
-        version(none) // Disabled for now because of https://github.com/dlang/dub/pull/2360#issuecomment-1207363409.
-        {
-            import std.ascii : isLower, isDigit;
-            foreach (const idx, char c; value)
-                enforce(c.isLower || c.isDigit || c == '-' || c == '_' || c == ':' || c == '.',
-                        format("Character '%c' at index %s is not allowed in the package (full) name '%s'",
-                               c, idx, value));
-        }
-		this._value = value;
 
+        alias okSubNameChar = (c) {
+            import std.ascii : isLower, isDigit;
+            return c.isLower || c.isDigit || c == '-' || c == '_' || c == '.';
+        };
+
+        size_t partIndex = 0;
+        foreach (const part; byPart) {
+            if (partIndex != 0 &&
+                part.length == 0) {
+                logWarn(`WARNING: DUB package name path contains empty sub-names: '%s'`, value);
+            }
+            foreach (const letter; part) {
+                if (!okSubNameChar(letter)) {
+                    logWarn(`WARNING: DUB package name must only alphanumeric characters: '%s'`, value);
+                }
+            }
+            partIndex += 1;
+        }
 		version (none) {
             /* Disabled because it's used in the package recipe
                Allowing it means that a `PackageName` needs a context */
             enforce(byPart.front.length,
                     format("Package name '%s' is missing parent package name", value));
+        }
+
+        version(none) // Disabled for now because of https://github.com/dlang/dub/pull/2360#issuecomment-1207363409.
+        {
+            alias okChar = c => okSubNameChar(c) || c == separator[0];
+            foreach (const idx, char c; value)
+                enforce(okChar(c),
+                        format("Character '%c' at index %s is not allowed in the package (full) name '%s'",
+                               c, idx, value));
         }
 	}
 
@@ -93,18 +113,18 @@ struct PackageName {
         return _value.length;
     }
     bool opEquals(scope const(char)[] name) const @safe pure nothrow @nogc {
-        return this._value == name;
+        return _value == name;
     }
     bool opEquals(scope const ref PackageName rhs) const @safe pure nothrow @nogc {
-        return this._value == rhs._value;
+        return _value == rhs._value;
     }
     bool opEquals(scope const PackageName rhs) const @safe pure nothrow @nogc {
-        return this._value == rhs._value;
+        return _value == rhs._value;
     }
     int opCmp(scope const PackageName rhs) const @safe pure nothrow @nogc {
-        if (this._value < rhs._value)
+        if (_value < rhs._value)
             return -1;
-        if (this._value > rhs._value)
+        if (_value > rhs._value)
             return +1;
         return 0;
     }
