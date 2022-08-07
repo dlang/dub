@@ -52,7 +52,7 @@ struct PackageName {
 		version (none) {
             /* Disabled because it's used in the package recipe
                Allowing it means that a `PackageName` needs a context */
-            enforce(this._parts[0].length,
+            enforce(byPart.front.length,
                     format("Package name '%s' is missing parent package name", value));
         }
 	}
