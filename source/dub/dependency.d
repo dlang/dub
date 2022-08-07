@@ -70,7 +70,7 @@ struct PackageName {
         if (!parts.empty)
             sink(parts.front.color(Mode.bold));
 		foreach (const part; parts) {
-			sink(separator);
+			sink(separator);    // TODO: colorize separator aswell?
 			sink(part.color(Mode.bold));
 		}
 	}
