@@ -42,7 +42,8 @@ string[] getSubPackagePath(PackageName name) @safe pure
 */
 PackageName getBasePackageName(PackageName name)
 {
-	return typeof(return)(name[].findSplit(":")[0]);
+    import std.algorithm.searching : findSplitBefore;
+	return typeof(return)(name[].findSplitBefore(":")[0]);
 }
 
 /**
