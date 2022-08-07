@@ -57,7 +57,7 @@ struct PackageName {
         }
 	}
 
-    private auto byPart() const @safe pure nothrow @nogc { // TODO: better naming such `bySubPackage`?
+    private auto byPart() const @safe pure nothrow @nogc { // TODO: better naming such `bySubName`?
         static assert(separator.length == 1);
         import std.algorithm.iteration : splitter;
         return _value.splitter(separator[0]);
