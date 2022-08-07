@@ -31,11 +31,11 @@ struct PackageName {
 	@disable this(PackageName name) @safe pure nothrow @nogc; // TODO: maybe remove when adding of `PackageName` has been merged
 
     version(none)
-	this(scope const(char)[] value) {
+	this(scope const(char)[] value) @safe pure nothrow {
         this(value.idup);
     }
 
-	this(string value) {
+	this(string value) @safe pure nothrow {
 		this._value = value;
 
         version(none) {
@@ -82,7 +82,7 @@ struct PackageName {
         return _value.splitter(separator[0]);
     }
 
-	static typeof(this) fromString(string value) {
+	static typeof(this) fromString(string value) @safe pure nothrow {
 		return typeof(return)(value);
 	}
 
