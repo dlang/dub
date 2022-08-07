@@ -78,9 +78,9 @@ struct PackageName {
 		}
 	}
 	string toString() const @safe scope { // TODO: should this simply return _value instead?
-        string result;
-		this.toString((scope const(char)[] data) const @safe pure nothrow { result ~= data; });
-		return result;
+        Appender!string result;
+		this.toString((scope const(char)[] part) const @safe pure nothrow { result ~= part; });
+		return result.data[];
 	}
 
     string opSlice() const @safe pure nothrow @nogc {
