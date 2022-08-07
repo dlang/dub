@@ -55,7 +55,9 @@ struct PackageName {
 	}
 
     private auto byPart() const @safe pure nothrow @nogc { // TODO: better naming such `bySubPackage`?
-        return _value.splitter(separator);
+        static assert(separator.length == 1);
+        import std.algorithm.iteration : splitter;
+        return _value.splitter(separator[0]);
     }
 
 	static typeof(this) fromString(string value) @safe pure {
