@@ -44,7 +44,7 @@ struct PackageName {
             import std.ascii : isLower, isDigit;
             foreach (const idx, char c; value)
                 enforce(c.isLower || c.isDigit || c == '-' || c == '_' || c == ':' || c == '.',
-                        format("Character '%c' at index %s is not allowed in full package name '%s'",
+                        format("Character '%c' at index %s is not allowed in the package (full) name '%s'",
                                c, idx, value));
         }
 		this._value = value;
