@@ -39,11 +39,14 @@ struct PackageName {
     // TODO: activating this results in AssertErrror in unittests. Should we remove it?
     // in(value.length)
     {
-        import std.ascii : isLower, isDigit;
-		foreach (const idx, char c; value)
-			enforce(c.isLower || c.isDigit || c == '-' || c == '_' || c == ':' || c == '.',
-					format("Character '%c' at index %s is not allowed in full package name '%s'",
-						   c, idx, value));
+        version(none) // Disabled for now because of https://github.com/dlang/dub/pull/2360#issuecomment-1207363409.
+        {
+            import std.ascii : isLower, isDigit;
+            foreach (const idx, char c; value)
+                enforce(c.isLower || c.isDigit || c == '-' || c == '_' || c == ':' || c == '.',
+                        format("Character '%c' at index %s is not allowed in full package name '%s'",
+                               c, idx, value));
+        }
 		this._value = value;
 
 		version (none) {
