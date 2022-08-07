@@ -39,7 +39,9 @@ struct PackageName {
         // TODO: convert this to enforce(value.length, "Empty package name '%s'", value); further down the road:
         if (value.length == 0) {
             logWarn(`WARNING: DUB package name is empty`);
-        }
+        } else if (value != value[].toLower()) {
+			logWarn(`WARNING: DUB package name is not in lower case: '%s'`, value);
+		}
         version(none) // Disabled for now because of https://github.com/dlang/dub/pull/2360#issuecomment-1207363409.
         {
             import std.ascii : isLower, isDigit;
