@@ -40,7 +40,7 @@ string[] getSubPackagePath(PackageName name) @safe pure
 
 	In case of a top level package, the qualified name is returned unmodified.
 */
-PackageName getBasePackageName(PackageName name) @safe pure
+PackageName getBasePackageName(PackageName name)
 {
 	return typeof(return)(name[].findSplit(":")[0]);
 }
@@ -51,12 +51,12 @@ PackageName getBasePackageName(PackageName name) @safe pure
 	This is the part of the package name excluding the base package
 	name. See also $(D getBasePackageName).
 */
-PackageName getSubPackageName(PackageName name) @safe pure
+PackageName getSubPackageName(PackageName name)
 {
 	return typeof(return)(name[].findSplit(":")[2]);
 }
 
-@safe unittest
+unittest
 {
 	assert(getSubPackagePath(PackageName("packa:packb:packc")) == ["packa", "packb", "packc"]);
 	assert(getSubPackagePath(PackageName("pack")) == ["pack"]);

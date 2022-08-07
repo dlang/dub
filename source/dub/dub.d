@@ -235,6 +235,7 @@ class Dub {
 		return getPackageSuppliers(additional_package_suppliers, m_config.skipRegistry);
 	}
 
+    version(none)
 	unittest
 	{
 		scope (exit) environment.remove("DUB_REGISTRY");

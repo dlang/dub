@@ -31,14 +31,15 @@ struct PackageName {
 	@disable this(PackageName name) @safe pure nothrow @nogc; // TODO: maybe remove when adding of `PackageName` has been merged
 
     version(none)
-	this(scope const(char)[] value) @safe pure {
+	this(scope const(char)[] value) {
         this(value.idup);
     }
 
-	this(string value) @safe pure
-    // TODO: activating this results in AssertError in unittests. Should we remove it?
-    // in(value.length)
-    {
+	this(string value) {
+        // TODO: convert this to enforce(value.length, "Empty package name '%s'", value); further down the road:
+        if (value.length == 0) {
+            logWarn(`WARNING: DUB package name is empty`);
+        }
         version(none) // Disabled for now because of https://github.com/dlang/dub/pull/2360#issuecomment-1207363409.
         {
             import std.ascii : isLower, isDigit;
@@ -63,7 +64,7 @@ struct PackageName {
         return _value.splitter(separator[0]);
     }
 
-	static typeof(this) fromString(string value) @safe pure {
+	static typeof(this) fromString(string value) {
 		return typeof(return)(value);
 	}
 
