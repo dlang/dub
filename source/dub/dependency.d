@@ -24,17 +24,60 @@ import std.sumtype;
 /** Encapsulates the name of a package.
 */
 struct PackageName {
+    const enum separator = ":"; ///< Separates sub-package names.
+
 	private string _value;
-	@disable this(PackageName name) @safe pure nothrow @nogc;
-	this(string value) @safe pure nothrow @nogc {
+
+	@disable this(PackageName name) @safe pure nothrow @nogc; // TODO: maybe remove when adding of `PackageName` has been merged
+
+    version(none)
+	this(scope const(char)[] value) @safe pure {
+        this(value.idup);
+    }
+
+	this(string value) @safe pure
+    // TODO: activating this results in AssertErrror in unittests. Should we remove it?
+    // in(value.length)
+    {
+        import std.ascii : isLower, isDigit;
+		foreach (const idx, char c; value)
+			enforce(c.isLower || c.isDigit || c == '-' || c == '_' || c == ':' || c == '.',
+					format("Character '%c' at index %s is not allowed in full package name '%s'",
+						   c, idx, value));
 		this._value = value;
+
+		version (none) {
+            /* Disabled because it's used in the package recipe
+               Allowing it means that a `PackageName` needs a context */
+            enforce(this._parts[0].length,
+                    format("Package name '%s' is missing parent package name", value));
+        }
 	}
-	static typeof(this) fromString(string value) @safe pure nothrow @nogc {
+
+    private auto byPart() const @safe pure nothrow @nogc { // TODO: better naming such `bySubPackage`?
+        return _value.splitter(separator);
+    }
+
+	static typeof(this) fromString(string value) @safe pure {
 		return typeof(return)(value);
 	}
-	string toString() @property @trusted const scope {
-		return _value.color(Mode.bold);
+
+	public void toString(scope void delegate (in char[]) @safe sink) const scope @trusted
+	{
+        auto parts = this.byPart();
+        if (!parts.empty)
+            sink(parts.front.color(Mode.bold));
+		foreach (const part; parts) {
+			sink(separator);
+			sink(part.color(Mode.bold));
+		}
 	}
+	string toString() const @safe scope { // TODO: should this simply return _value instead?
+        string result;
+		this.toString((scope const(char)[] data) const @safe pure nothrow { result ~= data; });
+		return result;
+	}
+
     string opSlice() const @safe pure nothrow @nogc {
         return _value;
     }

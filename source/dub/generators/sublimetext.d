@@ -42,7 +42,7 @@ class SublimeTextGenerator : ProjectGenerator {
 		auto jsonString = appender!string();
 		writePrettyJsonString(jsonString, root);
 
-		string projectPath = m_project.name[] ~ ".sublime-project";
+		string projectPath = m_project.packageName[] ~ ".sublime-project";
 
 		write(projectPath, jsonString.data);
 

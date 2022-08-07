@@ -306,7 +306,7 @@ class Dub {
 
 	/// Returns the name listed in the dub.json of the current
 	/// application.
-	@property string projectName() const { return m_project.name[]; }
+	@property string projectName() const { return m_project.packageName[]; }
 
 	@property NativePath projectPath() const { return m_projectPath; }
 

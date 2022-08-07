@@ -2451,7 +2451,7 @@ class DustmiteCommand : PackageBuildCommand {
 			logInfo("Executing dustmite...");
 			auto testcmd = appender!string();
 			testcmd.formattedWrite("%s dustmite --test-package=%s --build=%s --config=%s",
-				thisExePath, prj.name, this.baseSettings.buildType, this.baseSettings.config);
+				thisExePath, prj.packageName, this.baseSettings.buildType, this.baseSettings.config);
 
 			if (m_compilerName.length) testcmd.formattedWrite(" \"--compiler=%s\"", m_compilerName);
 			if (m_arch.length) testcmd.formattedWrite(" --arch=%s", m_arch);
@@ -2760,7 +2760,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 private struct PackageAndVersion
 {
 	PackageName name;
-	string version_;	// TODO: use structured type
+	string version_;	// TODO: use `Version` instead of `string`
 }
 
 /* Split <package>=<version-specifier> and <package>@<version-specifier>
