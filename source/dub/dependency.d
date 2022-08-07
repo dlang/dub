@@ -36,7 +36,7 @@ struct PackageName {
     }
 
 	this(string value) @safe pure
-    // TODO: activating this results in AssertErrror in unittests. Should we remove it?
+    // TODO: activating this results in AssertError in unittests. Should we remove it?
     // in(value.length)
     {
         version(none) // Disabled for now because of https://github.com/dlang/dub/pull/2360#issuecomment-1207363409.
