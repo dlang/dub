@@ -257,9 +257,18 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 
 	foreach (pack, d; bs.dependencies) {
 		Attribute[] attribs;
-		if (!d.repository.empty) attribs ~= new Attribute(null, "repository", Value(d.repository.toString()));
-		if (!d.path.empty) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
-		else attribs ~= new Attribute(null, "version", Value(d.versionSpec));
+		d.visit!(
+			(const Repository	r) {
+				attribs ~= new Attribute(null, "repository", Value(r.toString()));
+				attribs ~= new Attribute(null, "version", Value(r.ref_));
+			},
+			(const NativePath	p) {
+				attribs ~= new Attribute(null, "path", Value(p.toString()));
+			},
+			(const VersionRange v) {
+				attribs ~= new Attribute(null, "version", Value(v.toString()));
+			},
+		);
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
 		auto t = new Tag(null, "dependency", [Value(pack[])], attribs);
 		if (pack in bs.dependencyBuildSettings)
@@ -545,7 +554,7 @@ lflags "lf3"
 	assert(rec.buildSettings.dependencies[PackageName("projectname:subpackage1")].optional == false);
 	assert(rec.buildSettings.dependencies[PackageName("projectname:subpackage1")].path == NativePath("."));
 	assert(rec.buildSettings.dependencyBuildSettings[PackageName("projectname:subpackage1")].dflags == ["":["-g", "-debug"]]);
-	assert(rec.buildSettings.dependencies[PackageName("somedep")].versionSpec == "1.0.0");
+	assert(rec.buildSettings.dependencies[PackageName("somedep")].version_.toString() == "1.0.0");
 	assert(rec.buildSettings.dependencies[PackageName("somedep")].optional == true);
 	assert(rec.buildSettings.dependencies[PackageName("somedep")].path.empty);
 	assert(rec.buildSettings.systemDependencies == "system dependencies");
@@ -662,7 +671,7 @@ dependency "package" repository="git+https://some.url" version="12345678"
 	parseSDL(rec, sdl, PackageName.init, "testfile");
 	auto dependency = rec.buildSettings.dependencies[PackageName("package")];
 	assert(!dependency.repository.empty);
-	assert(dependency.versionSpec == "12345678");
+	assert(dependency.repository.ref_ == "12345678");
 }
 
 unittest {

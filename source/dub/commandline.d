@@ -32,6 +32,7 @@ import std.path : expandTilde, absolutePath, buildNormalizedPath;
 import std.process;
 import std.stdio;
 import std.string;
+import std.sumtype;
 import std.typecons : Tuple, tuple;
 import std.variant;
 import std.path: setExtension;
@@ -1686,7 +1687,7 @@ class CleanCommand : Command {
 				}
 			}
 
-			if (any_error) return 1;
+			if (any_error) return 2;
 		} else {
 			dub.cleanPackage(dub.rootPath);
 		}
@@ -1723,12 +1724,12 @@ class AddCommand : Command {
 		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		if (!loadCwdPackage(dub, true)) return 1;
+		if (!loadCwdPackage(dub, true)) return 2;
 		auto recipe = dub.project.rootPackage.rawRecipe.clone;
 
 		foreach (depspec; free_args) {
 			if (!addDependency(dub, recipe, depspec))
-				return 1;
+				return 2;
 		}
 		writePackageRecipe(dub.project.rootPackage.recipePath, recipe);
 
@@ -2142,7 +2143,7 @@ class SearchCommand : Command {
 		if (res.empty)
 		{
 			logError("No matches found.");
-			return 1;
+			return 2;
 		}
 		auto justify = res
 			.map!((descNmatches) => descNmatches[1])
@@ -2192,16 +2193,16 @@ class AddOverrideCommand : Command {
 		enforceUsage(free_args.length == 3, "Expected three arguments, not "~free_args.length.to!string);
 		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
 		auto pack = PackageName(free_args[0]);
-		auto ver = Dependency(free_args[1]);
+		auto source = VersionRange.fromString(free_args[1]);
 		if (existsFile(NativePath(free_args[2]))) {
 			auto target = NativePath(free_args[2]);
 			if (!target.absolute) target = NativePath(getcwd()) ~ target;
-			dub.packageManager.addOverride(scope_, pack, ver, target);
-			logInfo("Added override %s %s => %s", pack, ver, target);
+			dub.packageManager.addOverride(scope_, pack, source, target);
+			logInfo("Added override %s %s => %s", pack, source, target);
 		} else {
 			auto target = Version(free_args[2]);
-			dub.packageManager.addOverride(scope_, pack, ver, target);
-			logInfo("Added override %s %s => %s", pack, ver, target);
+			dub.packageManager.addOverride(scope_, pack, source, target);
+			logInfo("Added override %s %s => %s", pack, source, target);
 		}
 		return 0;
 	}
@@ -2233,7 +2234,8 @@ class RemoveOverrideCommand : Command {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 2, "Expected two arguments, not "~free_args.length.to!string);
 		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
-		dub.packageManager.removeOverride(scope_, PackageName(free_args[0]), Dependency(free_args[1]));
+		auto source = VersionRange.fromString(free_args[1]);
+		dub.packageManager.removeOverride(scope_, PackageName(free_args[0]), source);
 		return 0;
 	}
 }
@@ -2255,10 +2257,9 @@ class ListOverridesCommand : Command {
 		{
 			if (overrides.length == 0) return;
 			logInfo("# %s", caption);
-			foreach (ovr; overrides) {
-				if (!ovr.targetPath.empty) logInfo("%s %s => %s", ovr.name, ovr.version_, ovr.targetPath);
-				else logInfo("%s %s => %s", ovr.name, ovr.version_, ovr.targetVersion);
-			}
+			foreach (ovr; overrides)
+				ovr.target.match!(
+					t => logInfo("%s %s => %s", ovr.name, ovr.version_, t));
 		}
 		printList(dub.packageManager.getOverrides(PlacementLocation.user), "User wide overrides");
 		printList(dub.packageManager.getOverrides(PlacementLocation.system), "System wide overrides");
@@ -2557,7 +2558,7 @@ class ConvertCommand : Command {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 0, "Unexpected arguments: "~free_args.join(" "));
 		enforceUsage(m_format.length > 0, "Missing target format file extension (--format=...).");
-		if (!loadCwdPackage(dub, true)) return 1;
+		if (!loadCwdPackage(dub, true)) return 2;
 		dub.convertRecipe(m_format, m_stdout);
 		return 0;
 	}
@@ -2753,7 +2754,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 		}
 	}
 	recipe.buildSettings.dependencies[depname] = dep;
-	logInfo("Adding dependency %s %s", depname, dep.versionSpec);
+	logInfo("Adding dependency %s %s", depname, dep.toString());
 	return true;
 }
 

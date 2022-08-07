@@ -156,11 +156,13 @@ import std.format;
 import std.getopt;
 import std.meta;
 import std.range;
-import std.stdio;
 import std.traits;
 import std.typecons : Nullable, nullable, tuple;
 
 static import core.time;
+
+// Dub-specific adjustments for output
+import dub.internal.logging;
 
 /// Command-line arguments
 public struct CLIArgs
@@ -304,7 +306,7 @@ public Nullable!T parseConfigFileSimple (T) (in CLIArgs args, StrictMode strict 
     {
         // Other Exception type may be thrown by D-YAML,
         // they won't include rich information.
-        stderr.writeln(exc.message());
+        logWarn("%s", exc.message());
         return typeof(return).init;
     }
 }
@@ -319,18 +321,12 @@ public Nullable!T parseConfigFileSimple (T) (in CLIArgs args, StrictMode strict 
 
 private void printException (scope ConfigException exc) @trusted
 {
-    version (Posix)
-    {
-        import core.sys.posix.unistd : isatty;
-        const colors = isatty(stderr.fileno);
-    }
-    else
-        const colors = false;
+    import dub.internal.logging;
 
-    if (colors)
-        stderr.writefln("%S", exc);
+    if (hasColors)
+        logWarn("%S", exc);
     else
-        stderr.writefln("%s", exc.message());
+        logWarn("%s", exc.message());
 }
 
 /*******************************************************************************

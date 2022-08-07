@@ -83,8 +83,8 @@ class Project {
 			// The default is to error, but as the previous parser wasn't
 			// complaining, we should first warn the user.
 			auto selected = parseConfigFileSimple!Selected(selverfile, StrictMode.Warn);
-			enforce(!selected.isNull(), "Could not read '" ~ selverfile ~ "'");
-			m_selections = new SelectedVersions(selected.get());
+			m_selections = !selected.isNull() ?
+				new SelectedVersions(selected.get()) : new SelectedVersions();
 		} else m_selections = new SelectedVersions;
 
 		reinit();

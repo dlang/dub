@@ -30,6 +30,7 @@ struct Config
 {
 	import std.datetime;
 	SysTime date;
+	string[] relatedSubCommands;
 
 	static Config init(){
 		import std.process : environment;
@@ -62,7 +63,8 @@ void writeFooter(ref File manFile, string seeAlso, const Config config)
 Copyright (c) 1999-%s by The D Language Foundation
 .SH "ONLINE DOCUMENTATION"
 .UR http://code.dlang.org/docs/commandline
-.UE http://code.dlang.org/docs/commandline
+http://code.dlang.org/docs/commandline
+.UE
 .SH "SEE ALSO"
 %s`;
 	manFile.writefln(manFooter, config.date.year, seeAlso);
@@ -116,26 +118,28 @@ string highlightArguments(string args)
 
 void writeArgs(CommandArgs args, ref File manFile)
 {
-	alias write = (m) => manFile.write(m);
+	alias write = (m) => manFile.write(m.replace(`-`, `\-`));
 	foreach (arg; args.recognizedArgs)
 	{
 		auto names = arg.names.split("|");
 		assert(names.length == 1 || names.length == 2);
 		string sarg = names[0].length == 1 ? names[0] : null;
 		string larg = names[0].length > 1 ? names[0] : names.length > 1 ? names[1] : null;
-		write(".IP ");
+		manFile.writeln(".PP");
 		if (sarg !is null) {
-			write("-%s".format(sarg));
+			write("-%s".format(sarg).bold);
 			if (larg !is null)
 				write(", ");
 		}
 		if (larg !is null) {
-			write("--%s".format(larg));
+			write("--%s".format(larg).bold);
 			if (!arg.defaultValue.peek!bool)
 				write("=VALUE");
 		}
 		manFile.writeln;
+		manFile.writeln(".RS 4");
 		manFile.writeln(arg.helpText.join("\n"));
+		manFile.writeln(".RE");
 	}
 }
 
@@ -149,11 +153,25 @@ void writeManFile(Command command, const Config config)
 	auto manFile = File(config.cwd.buildPath(fileName), "w");
 	auto manName = format("DUB-%s", command.name).toUpper;
 	manFile.writeHeader(manName, config);
-	static immutable seeAlso = ["dmd(1)", "dub(1)"].map!bold.joiner(", ").to!string;
+
+	string[] extraRelated;
+	foreach (arg; args.recognizedArgs) {
+		if (arg.names.canFind("rdmd"))
+			extraRelated ~= "rdmd(1)";
+	}
+	if (command.name == "dustmite")
+		extraRelated ~= "dustmite(1)";
+
+	const seeAlso = ["dub(1)"]
+		.chain(config.relatedSubCommands.map!(s => s.format!"dub-%s(1)"))
+		.chain(extraRelated)
+		.map!bold
+		.joiner(", ")
+		.to!string;
 	scope(exit) manFile.writeFooter(seeAlso, config);
 
 	alias writeln = (m) => manFile.writeln(m);
-	writeln(`dub \- Package and build management system for D`);
+	manFile.writefln(`dub-%s \- %s`, command.name, command.description);
 
 	writeln("SYNOPSIS".header);
 	writeln("dub %s".format(command.name).bold);
@@ -168,6 +186,25 @@ void writeManFile(Command command, const Config config)
 	writeln(command.helpText.joiner("\n\n"));
 	writeln("OPTIONS".header);
 	args.writeArgs(manFile);
+
+	static immutable exitStatus =
+`.SH EXIT STATUS
+.TP
+.BR 0
+DUB succeeded
+.TP
+.BR 1
+usage errors, unknown command line flags
+.TP
+.BR 2
+package not found, package failed to load, miscellaneous error`;
+	static immutable exitStatusDustmite =
+`.SH EXIT STATUS
+Forwards the exit code from ` ~ `dustmite(1)`.bold;
+	if (command.name == "dustmite")
+		manFile.writeln(exitStatusDustmite);
+	else
+		manFile.writeln(exitStatus);
 }
 
 void main()
@@ -183,8 +220,30 @@ void main()
 		args.writeMainManFile(commands, "dub.1", config);
 	}
 
+	string[][] relatedSubCommands = [
+		["run", "build", "test"],
+		["test", "dustmite", "lint"],
+		["describe", "gemerate"],
+		["add", "fetch"],
+		["init", "add", "convert"],
+		["add-path", "remove-path"],
+		["add-local", "remove-local"],
+		["list", "search"],
+		["add-override", "remove-override", "list-overrides"],
+		["clean-caches", "clean", "remove"],
+	];
+
 	// options for each specific command
 	foreach (cmd; commands.map!(a => a.commands).joiner) {
+		string[] related;
+		foreach (relatedList; relatedSubCommands) {
+			if (relatedList.canFind(cmd.name))
+				related ~= relatedList;
+		}
+		related = related.sort!"a<b".uniq.array;
+		related = related.remove!(c => c == cmd.name);
+		config.relatedSubCommands = related;
+
 		cmd.writeManFile(config);
 	}
 }

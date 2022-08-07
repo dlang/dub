@@ -3,7 +3,7 @@
 set -v -e -o pipefail
 
 vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
-dub fetch vibe-d --version=$vibe_ver # get optional dependency
+dub fetch vibe-d@$vibe_ver # get optional dependency
 dub test --compiler=${DC} -c library-nonet
 
 export DMD="$(command -v $DMD)"

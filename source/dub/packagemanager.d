@@ -23,6 +23,7 @@ import std.encoding : sanitize;
 import std.exception;
 import std.file;
 import std.string;
+import std.sumtype;
 import std.zip;
 
 
@@ -103,15 +104,6 @@ class PackageManager {
 	deprecated("Instantiate a PackageManager instance with the single-argument constructor: `new PackageManager(path)`")
 	@property void disableDefaultSearchPaths(bool val)
 	{
-		this._disableDefaultSearchPaths(val);
-	}
-
-	// Non deprecated instance of the previous symbol,
-	// as `Dub.updatePackageSearchPath` calls it and while nothing in Dub app
-	// itself relies on it, just removing the call from `updatePackageSearchPath`
-	// could break the library use case.
-	package(dub) void _disableDefaultSearchPaths(bool val)
-	{
 		if (val == m_disableDefaultSearchPaths) return;
 		m_disableDefaultSearchPaths = val;
 		refresh(true);
@@ -174,14 +166,19 @@ class PackageManager {
 		if (enable_overrides) {
 			foreach (ref repo; m_repositories)
 				foreach (ovr; repo.overrides)
-					if (ovr.name == name && ovr.version_.matches(ver)) {
-						Package pack;
-						if (!ovr.targetPath.empty) pack = getOrLoadPackage(ovr.targetPath);
-						else pack = getPackage(name, ovr.targetVersion, false);
+					if (ovr.name == name && ovr.source.matches(ver)) {
+						Package pack = ovr.target.match!(
+							(NativePath path) => getOrLoadPackage(path),
+							(Version	vers) => getPackage(name, vers, false),
+						);
 						if (pack) return pack;
 
-						logWarn("Package override %s %s -> %s %s doesn't reference an existing package.",
-							ovr.name, ovr.version_, ovr.targetVersion, ovr.targetPath);
+						ovr.target.match!(
+							(any) {
+								logWarn("Package override %s %s -> '%s' doesn't reference an existing package.",
+										ovr.name, ovr.version_, any);
+							},
+						);
 					}
 		}
 
@@ -300,7 +297,7 @@ class PackageManager {
         final switch (repo.kind)
         {
             case repo.Kind.git:
-                pack = loadGitPackage(name, repo.ref_, repo.remote);
+                pack = loadGitPackage(name, repo);
         }
         if (pack !is null) {
             addPackages(m_temporaryPackages, pack);
@@ -308,18 +305,18 @@ class PackageManager {
         return pack;
 	}
 
-    private Package loadGitPackage(PackageName name, string versionSpec, string remote)
+    private Package loadGitPackage(PackageName name, in Repository repo)
     {
 		import dub.internal.git : cloneRepository;
 
-		if (!versionSpec.startsWith("~") && !versionSpec.isGitHash) {
+		if (!repo.ref_.startsWith("~") && !repo.ref_.isGitHash) {
 			return null;
 		}
 
-		string gitReference = versionSpec.chompPrefix("~");
+		string gitReference = repo.ref_.chompPrefix("~");
 		NativePath destination = getPackagePath(
 			m_repositories[PlacementLocation.user].packagePath,
-			name, versionSpec);
+			name, repo.ref_);
 		// For libraries leaking their import path
 		destination ~= name[];
 		destination.endsWithSlash = true;
@@ -330,7 +327,7 @@ class PackageManager {
 			}
 		}
 
-		if (!cloneRepository(remote, gitReference, destination.toNativeString())) {
+		if (!cloneRepository(repo.remote, gitReference, destination.toNativeString())) {
 			return null;
 		}
 
@@ -481,31 +478,55 @@ class PackageManager {
 
 	/** Adds a new override for the given package.
 	*/
+	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
 	void addOverride(PlacementLocation scope_, PackageName name, Dependency version_spec, Version target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(name, version_spec, target);
 		writeLocalPackageOverridesFile(scope_);
 	}
 	/// ditto
+	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
 	void addOverride(PlacementLocation scope_, PackageName name, Dependency version_spec, NativePath target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(name, version_spec, target);
 		writeLocalPackageOverridesFile(scope_);
 	}
 
+    /// Ditto
+	void addOverride(PlacementLocation scope_, PackageName name, VersionRange source, Version target)
+	{
+		m_repositories[scope_].overrides ~= PackageOverride(name, source, target);
+		writeLocalPackageOverridesFile(scope_);
+	}
+	/// ditto
+	void addOverride(PlacementLocation scope_, PackageName name, VersionRange source, NativePath target)
+	{
+		m_repositories[scope_].overrides ~= PackageOverride(name, source, target);
+		writeLocalPackageOverridesFile(scope_);
+	}
+
 	/** Removes an existing package override.
 	*/
+	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
 	void removeOverride(PlacementLocation scope_, PackageName name, Dependency version_spec)
+	{
+        version_spec.visit!(
+            (VersionRange src) => this.removeOverride(scope_, name, src),
+            (any) { throw new Exception(format("No override exists for %s %s", name, version_spec)); },
+        );
+	}
+
+	void removeOverride(PlacementLocation scope_, PackageName name, VersionRange src)
 	{
 		Location* rep = &m_repositories[scope_];
 		foreach (i, ovr; rep.overrides) {
-			if (ovr.name != name || ovr.version_ != version_spec)
+			if (ovr.name != name || ovr.source != src)
 				continue;
 			rep.overrides = rep.overrides[0 .. i] ~ rep.overrides[i+1 .. $];
 			writeLocalPackageOverridesFile(scope_);
 			return;
 		}
-		throw new Exception(format("No override exists for %s %s", name, version_spec));
+		throw new Exception(format("No override exists for %s %s", name, src));
 	}
 
 	/// Extracts the package supplied as a path to it's zip file to the
@@ -834,9 +855,9 @@ class PackageManager {
 				foreach (entry; jsonFromFile(ovrfilepath)) {
 					PackageOverride ovr;
 					ovr.name = PackageName(entry["name"].get!string);
-					ovr.version_ = Dependency(entry["version"].get!string);
-					if (auto pv = "targetVersion" in entry) ovr.targetVersion = Version(pv.get!string);
-					if (auto pv = "targetPath" in entry) ovr.targetPath = NativePath(pv.get!string);
+					ovr.source = VersionRange.fromString(entry["version"].get!string);
+					if (auto pv = "targetVersion" in entry) ovr.target = Version(pv.get!string);
+					if (auto pv = "targetPath" in entry) ovr.target = NativePath(pv.get!string);
 					m_repositories[type].overrides ~= ovr;
 				}
 			}
@@ -909,9 +930,11 @@ class PackageManager {
 		foreach (ovr; m_repositories[type].overrides) {
 			auto jovr = Json.emptyObject;
 			jovr["name"] = ovr.name[];
-			jovr["version"] = ovr.version_.versionSpec;
-			if (!ovr.targetPath.empty) jovr["targetPath"] = ovr.targetPath.toNativeString();
-			else jovr["targetVersion"] = ovr.targetVersion.toString();
+			jovr["version"] = ovr.source.toString();
+			ovr.target.match!(
+				(NativePath path) { jovr["targetPath"] = path.toNativeString(); },
+				(Version	vers) { jovr["targetVersion"] = vers.toString(); },
+			);
 			newlist ~= jovr;
 		}
 		auto path = m_repositories[type].packagePath;
@@ -956,23 +979,85 @@ class PackageManager {
 }
 
 struct PackageOverride {
-	PackageName name;       // TODO: rename to name
-	Dependency version_;
-	Version targetVersion;
-	NativePath targetPath;
+	private alias ResolvedDep = SumType!(NativePath, Version);
 
+	PackageName name;
+	VersionRange source;
+	ResolvedDep target;
+
+	deprecated("Use `source` instead")
+	@property inout(Dependency) version_ () inout return @safe {
+        return Dependency(this.source);
+	}
+
+	deprecated("Assign `source` instead")
+	@property ref PackageOverride version_ (Dependency v) scope return @safe pure {
+		this.source = v.visit!(
+			(VersionRange range) => range,
+			(any) {
+                int a; if (a) return VersionRange.init; // Trick the compiler
+                throw new Exception("Cannot use anything else than a `VersionRange` for overrides");
+            },
+		);
+        return this;
+	}
+
+	deprecated("Use `target.match` directly instead")
+	@property inout(Version) targetVersion () inout return @safe pure nothrow @nogc {
+		return this.target.match!(
+			(Version v) => v,
+			(any) => Version.init,
+		);
+	}
+
+	deprecated("Assign `target` directly instead")
+	@property ref PackageOverride targetVersion (Version v) scope return pure nothrow @nogc {
+		this.target = v;
+		return this;
+	}
+
+	deprecated("Use `target.match` directly instead")
+	@property inout(NativePath) targetPath () inout return @safe pure nothrow @nogc {
+		return this.target.match!(
+			(NativePath v) => v,
+			(any) => NativePath.init,
+		);
+	}
+
+	deprecated("Assign `target` directly instead")
+	@property ref PackageOverride targetPath (NativePath v) scope return pure nothrow @nogc {
+		this.target = v;
+		return this;
+	}
+
+	deprecated("Use the overload that accepts a `VersionRange` as 2nd argument")
 	this(PackageName name, Dependency version_, Version target_version)
 	{
 		this.name = name;
 		this.version_ = version_;
-		this.targetVersion = target_version;
+		this.target = target_version;
 	}
 
+	deprecated("Use the overload that accepts a `VersionRange` as 2nd argument")
 	this(PackageName name, Dependency version_, NativePath target_path)
 	{
 		this.name = name;
 		this.version_ = version_;
-		this.targetPath = target_path;
+		this.target = target_path;
+	}
+
+	this(PackageName name, VersionRange src, Version target)
+	{
+		this.name = name;
+		this.source = src;
+		this.target = target;
+	}
+
+	this(PackageName name, VersionRange src, NativePath target)
+	{
+		this.name = name;
+		this.source = src;
+		this.target = target;
 	}
 }
 
