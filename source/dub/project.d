@@ -210,18 +210,18 @@ class Project {
 		but one configuration from the package.
 
 		Params:
-			package_ = The package name for which to force selecting a certain
+			name = The package name for which to force selecting a certain
 				dependency
 			config = Name of the configuration to force
 	*/
-	void overrideConfiguration(PackageName package_, string config)
+	void overrideConfiguration(PackageName name, string config)
 	{
-		auto p = getDependency(package_, true);
+		auto p = getDependency(name, true);
 		enforce(p !is null,
-			format("Package '%s', marked for configuration override, is not present in dependency graph.", package_));
+			format("Package '%s', marked for configuration override, is not present in dependency graph.", name));
 		enforce(p.configurations.canFind(config),
-			format("Package '%s' does not have a configuration named '%s'.", package_, config));
-		m_overriddenConfigs[package_] = config;
+			format("Package '%s' does not have a configuration named '%s'.", name, config));
+		m_overriddenConfigs[name] = config;
 	}
 
 	/** Adds a test runner configuration for the root package.

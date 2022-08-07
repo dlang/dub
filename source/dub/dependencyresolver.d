@@ -148,10 +148,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		ResolveConfig[][PackageName] configs;
 
 		/// Determines if a certain package has already been processed
-		bool isVisited(PackageName package_) const { return (package_ in visited) !is null; }
+		bool isVisited(PackageName name) const { return (name in visited) !is null; }
 
 		/// Marks a package as processed
-		void setVisited(PackageName package_) { visited[package_] = (void[0]).init; }
+		void setVisited(PackageName name) { visited[name] = (void[0]).init; }
 
 		/// Returns a deep clone
 		ResolveContext clone()
