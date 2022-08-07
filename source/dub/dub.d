@@ -1023,19 +1023,19 @@ class Dub {
 		matched packages.
 
 		Params:
-		  name = The name of the package to search for
+		  query = the search term to match packages on
 
 		See_Also: `PackageSupplier.searchPackages`
 	*/
-	auto searchPackages(string name)
+	auto searchPackages(string query)
 	{
 		import std.typecons : Tuple, tuple;
 		Tuple!(string, PackageSupplier.SearchResult[])[] results;
 		foreach (ps; this.m_packageSuppliers) {
 			try
-				results ~= tuple(ps.description, ps.searchPackages(name));
+				results ~= tuple(ps.description, ps.searchPackages(query));
 			catch (Exception e) {
-				logWarn("Searching %s for '%s' failed: %s", ps.description, name, e.msg);
+				logWarn("Searching %s for '%s' failed: %s", ps.description, query, e.msg);
 			}
 		}
 		return results.filter!(tup => tup[1].length);
