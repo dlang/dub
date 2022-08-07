@@ -398,7 +398,9 @@ shared static this() {
 			}
 			return ret;
 		}
-		if (m_rootPackage.name != m_rootPackage.name[].toLower()) {
+		if (m_rootPackage.name.length == 0) {
+			logWarn(`WARNING: DUB package names must not be empty. %s`, nameSuggestion());
+		} if (m_rootPackage.name != m_rootPackage.name[].toLower()) {
 			logWarn(`WARNING: DUB package names should always be lower case. %s`, nameSuggestion());
 		} else if (!m_rootPackage.recipe.name[].all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
 			logWarn(`WARNING: DUB package names may only contain alphanumeric characters, `
