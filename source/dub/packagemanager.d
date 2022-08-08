@@ -482,27 +482,27 @@ class PackageManager {
 	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, Version target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
-		writeLocalPackageOverridesFile(scope_);
+		m_repositories[scope_].writeOverrides();
 	}
 	/// ditto
 	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
 	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, NativePath target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
-		writeLocalPackageOverridesFile(scope_);
+		m_repositories[scope_].writeOverrides();
 	}
 
     /// Ditto
 	void addOverride(PlacementLocation scope_, string package_, VersionRange source, Version target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, source, target);
-		writeLocalPackageOverridesFile(scope_);
+		m_repositories[scope_].writeOverrides();
 	}
 	/// ditto
 	void addOverride(PlacementLocation scope_, string package_, VersionRange source, NativePath target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, source, target);
-		writeLocalPackageOverridesFile(scope_);
+		m_repositories[scope_].writeOverrides();
 	}
 
 	/** Removes an existing package override.
@@ -523,7 +523,7 @@ class PackageManager {
 			if (ovr.package_ != package_ || ovr.source != src)
 				continue;
 			rep.overrides = rep.overrides[0 .. i] ~ rep.overrides[i+1 .. $];
-			writeLocalPackageOverridesFile(scope_);
+			(*rep).writeOverrides();
 			return;
 		}
 		throw new Exception(format("No override exists for %s %s", package_, src));
@@ -851,24 +851,6 @@ class PackageManager {
 		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
 	}
 
-	private void writeLocalPackageOverridesFile(PlacementLocation type)
-	{
-		Json[] newlist;
-		foreach (ovr; m_repositories[type].overrides) {
-			auto jovr = Json.emptyObject;
-			jovr["name"] = ovr.package_;
-			jovr["version"] = ovr.source.toString();
-			ovr.target.match!(
-				(NativePath path) { jovr["targetPath"] = path.toNativeString(); },
-				(Version	vers) { jovr["targetVersion"] = vers.toString(); },
-			);
-			newlist ~= jovr;
-		}
-		auto path = m_repositories[type].packagePath;
-		if (!existsDirectory(path)) mkdirRecurse(path.toNativeString());
-		writeJsonFile(path ~ LocalOverridesFilename, Json(newlist));
-	}
-
 	/// Adds the package and scans for subpackages.
 	private void addPackages(ref Package[] dst_repos, Package pack)
 	const {
@@ -1031,6 +1013,24 @@ private struct Location {
 				this.overrides ~= ovr;
 			}
 		}
+	}
+
+	private void writeOverrides()
+	{
+		Json[] newlist;
+		foreach (ovr; this.overrides) {
+			auto jovr = Json.emptyObject;
+			jovr["name"] = ovr.package_;
+			jovr["version"] = ovr.source.toString();
+			ovr.target.match!(
+				(NativePath path) { jovr["targetPath"] = path.toNativeString(); },
+				(Version	vers) { jovr["targetVersion"] = vers.toString(); },
+			);
+			newlist ~= jovr;
+		}
+		auto path = this.packagePath;
+		if (!existsDirectory(path)) mkdirRecurse(path.toNativeString());
+		writeJsonFile(path ~ LocalOverridesFilename, Json(newlist));
 	}
 
 	// load locally defined packages
