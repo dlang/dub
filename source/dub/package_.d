@@ -728,7 +728,12 @@ class Package {
 		string app_main_file;
 		auto pkg_name = m_info.name.length ? m_info.name : "unknown";
 		foreach(sf; bs.sourcePaths.get("", null)){
-			auto p = m_path ~ sf;
+			NativePath p;
+			import std.path:isAbsolute;
+			if(sf.isAbsolute)
+				p=sf.NativePath;
+			else
+				p = m_path ~ sf;
 			if( !existsFile(p) ) continue;
 			foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
 				if( existsFile(p ~ fil) ) {
