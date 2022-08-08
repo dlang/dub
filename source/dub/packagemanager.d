@@ -683,7 +683,7 @@ class PackageManager {
 
 		addPackages(*packs, pack);
 
-		writeLocalPackageList(type);
+		this.m_repositories[type].writeLocalPackageList();
 
 		logInfo("Registered package: %s (version: %s)", pack.name, pack.version_);
 		return pack;
@@ -706,7 +706,7 @@ class PackageManager {
 			*packs = (*packs)[0 .. i] ~ (*packs)[i+1 .. $];
 		}
 
-		writeLocalPackageList(type);
+		this.m_repositories[type].writeLocalPackageList();
 
 		foreach(ver, name; removed)
 			logInfo("Deregistered package: %s (version: %s)", name, ver);
@@ -716,14 +716,14 @@ class PackageManager {
 	void addSearchPath(NativePath path, PlacementLocation type)
 	{
 		m_repositories[type].searchPath ~= path;
-		writeLocalPackageList(type);
+		this.m_repositories[type].writeLocalPackageList();
 	}
 
 	/// Removes a search path from the given type.
 	void removeSearchPath(NativePath path, PlacementLocation type)
 	{
 		m_repositories[type].searchPath = m_repositories[type].searchPath.filter!(p => p != path)().array();
-		writeLocalPackageList(type);
+		this.m_repositories[type].writeLocalPackageList();
 	}
 
 	void refresh(bool refresh_existing_packages)
@@ -825,30 +825,6 @@ class PackageManager {
 		auto hash = sha1.finish();
 		logDebug("Project hash: %s", hash);
 		return hash[].dup;
-	}
-
-	private void writeLocalPackageList(PlacementLocation type)
-	{
-		Json[] newlist;
-		foreach (p; m_repositories[type].searchPath) {
-			auto entry = Json.emptyObject;
-			entry["name"] = "*";
-			entry["path"] = p.toNativeString();
-			newlist ~= entry;
-		}
-
-		foreach (p; m_repositories[type].localPackages) {
-			if (p.parentPackage) continue; // do not store sub packages
-			auto entry = Json.emptyObject;
-			entry["name"] = p.name;
-			entry["version"] = p.version_.toString();
-			entry["path"] = p.path.toNativeString();
-			newlist ~= entry;
-		}
-
-		NativePath path = m_repositories[type].packagePath;
-		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
-		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
 	}
 
 	/// Adds the package and scans for subpackages.
@@ -1031,6 +1007,30 @@ private struct Location {
 		auto path = this.packagePath;
 		if (!existsDirectory(path)) mkdirRecurse(path.toNativeString());
 		writeJsonFile(path ~ LocalOverridesFilename, Json(newlist));
+	}
+
+	private void writeLocalPackageList()
+	{
+		Json[] newlist;
+		foreach (p; this.searchPath) {
+			auto entry = Json.emptyObject;
+			entry["name"] = "*";
+			entry["path"] = p.toNativeString();
+			newlist ~= entry;
+		}
+
+		foreach (p; this.localPackages) {
+			if (p.parentPackage) continue; // do not store sub packages
+			auto entry = Json.emptyObject;
+			entry["name"] = p.name;
+			entry["version"] = p.version_.toString();
+			entry["path"] = p.path.toNativeString();
+			newlist ~= entry;
+		}
+
+		NativePath path = this.packagePath;
+		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
+		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
 	}
 
 	// load locally defined packages
