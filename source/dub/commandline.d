@@ -1282,11 +1282,11 @@ class BuildCommand : GenerateCommand {
 			}
 		}
 
-		Dependency dep;
+		VersionRange dep;
 
 		if (packageParts.version_.length > 0) {
 			// the user provided a version manually
-			dep = Dependency(packageParts.version_);
+			dep = VersionRange.fromString(packageParts.version_);
 		} else {
 			if (packageParts.name.startsWith(":") ||
 				dub.packageManager.getFirstPackage(packageParts.name))
@@ -1313,7 +1313,7 @@ class BuildCommand : GenerateCommand {
 			const answer = m_yes ? true : input("Do you want to fetch '%s' now?".format(packageParts.name));
 			if (!answer)
 				return 0;
-			dep = Dependency(p.version_);
+			dep = VersionRange.fromString(p.version_);
 		}
 
 		dub.fetch(packageParts.name, dep, dub.defaultPlacementLocation, FetchOptions.none);
@@ -1903,13 +1903,13 @@ class FetchCommand : FetchRemoveCommand {
 		if (m_version.length) { // remove then --version removed
 			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
-			dub.fetch(name, Dependency(m_version), location, fetchOpts);
+			dub.fetch(name, VersionRange.fromString(m_version), location, fetchOpts);
 		} else if (name.canFindVersionSplitter) {
 			const parts = name.splitPackageName;
-			dub.fetch(parts.name, Dependency(parts.version_), location, fetchOpts);
+			dub.fetch(parts.name, VersionRange.fromString(parts.version_), location, fetchOpts);
 		} else {
 			try {
-				dub.fetch(name, Dependency.any, location, fetchOpts);
+				dub.fetch(name, VersionRange.Any, location, fetchOpts);
 				logInfo("Finished", Color.green, "%s fetched", name.color(Mode.bold));
 				logInfo(
 					"Please note that you need to use `dub run <pkgname>` " ~
@@ -1919,7 +1919,7 @@ class FetchCommand : FetchRemoveCommand {
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
 				logInfo("Retry with ~master...");
-				dub.fetch(name, Dependency("~master"), location, fetchOpts);
+				dub.fetch(name, VersionRange.fromString("~master"), location, fetchOpts);
 			}
 		}
 		return 0;
