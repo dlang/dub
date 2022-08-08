@@ -277,8 +277,8 @@ class ProjectGenerator
 				}
 			}
 			if (tt != TargetType.none && tt != TargetType.sourceLibrary && ti.buildSettings.sourceFiles.empty) {
-				logWarn(`Configuration '%s' of package %s contains no source files. Please add {"targetType": "none"} to its package description to avoid building it.`,
-						ti.config, ti.pack.name);
+				logWarn(`Configuration [%s] of package %s contains no source files. Please add %s to its package description to avoid building it.`,
+						ti.config.color(Color.blue), ti.pack.name.color(Mode.bold), `{"targetType": "none"}`.color(Mode.bold));
 				tt = TargetType.none;
 			}
 			return tt;
