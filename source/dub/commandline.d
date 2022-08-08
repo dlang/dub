@@ -534,12 +534,20 @@ int runDubCommandLine(string[] args)
 	// execute the command
 	try return cmd.execute(dub, remaining_args, command_args.appArgs);
 	catch (UsageException e) {
+		// usage exceptions get thrown before any logging, so we are
+		// making the errors more narrow to better fit on small screens.
+		tagWidth.push(5);
 		logError("%s", e.msg);
 		logDebug("Full exception: %s", e.toString().sanitize);
-		logInfo(`Run "dub %s -h" for more information about the "%s" command.`, cmd.name, cmd.name);
+		logInfo(`Run "%s" for more information about the "%s" command.`,
+			text("dub ", cmd.name, " -h").color(Mode.bold), cmd.name.color(Mode.bold));
 		return 1;
 	}
 	catch (Exception e) {
+		// most exceptions get thrown before logging, so same thing here as
+		// above. However this might be subject to change if it results in
+		// weird behavior anywhere.
+		tagWidth.push(5);
 		logError("%s", e.msg);
 		logDebug("Full exception: %s", e.toString().sanitize);
 		return 2;
