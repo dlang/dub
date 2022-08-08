@@ -219,7 +219,7 @@ struct NativePath {
 		ret.m_endsWithSlash = rhs.m_endsWithSlash;
 		ret.normalize(); // needed to avoid "."~".." become "" instead of ".."
 
-		assert(!rhs.absolute, "Trying to append absolute path.");
+		assert(!rhs.absolute, "Cannot append to absolute path `" ~ rhs.toString ~ "`");
 		foreach(folder; rhs.m_nodes){
 			switch(folder.toString()){
 				default: ret.m_nodes = ret.m_nodes ~ folder; break;
