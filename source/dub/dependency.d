@@ -90,10 +90,10 @@ struct PackageName {
 	{
         auto parts = this.byPart();
         if (!parts.empty)
-            sink(parts.front.color(Mode.bold));
+            sink(parts.front/*.color(Mode.bold)*/);
 		foreach (const part; parts) {
 			sink(separator);    // TODO: colorize separator aswell?
-			sink(part.color(Mode.bold));
+			sink(part/*.color(Mode.bold)*/);
 		}
 	}
 	string toString() const @safe scope {
