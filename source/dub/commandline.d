@@ -1287,12 +1287,13 @@ class BuildCommand : GenerateCommand {
 		if (packageParts.version_.length > 0) {
 			// the user provided a version manually
 			dep = VersionRange.fromString(packageParts.version_);
+		} else if (packageParts.name.startsWith(":")) {
+			// Subpackages are always assumed to be present
+			return 0;
+		} else if (dub.packageManager.getFirstPackage(packageParts.name)) {
+			// found locally
+			return 0;
 		} else {
-			if (packageParts.name.startsWith(":") ||
-				dub.packageManager.getFirstPackage(packageParts.name))
-				// found locally
-				return 0;
-
 			// search for the package and filter versions for exact matches
 			auto basePackageName = getBasePackageName(packageParts.name);
 			auto search = dub.searchPackages(basePackageName)
