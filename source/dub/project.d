@@ -417,16 +417,17 @@ shared static this() {
 
 		// search for orphan sub configurations
 		void warnSubConfig(string pack, string config) {
-			logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+			logWarn("The sub configuration directive \"%s\" -> [%s] "
 				~ "references a package that is not specified as a dependency "
-				~ "and will have no effect.", pack, config);
+				~ "and will have no effect.", pack.color(Mode.bold), config.color(Color.blue));
 		}
+
 		void checkSubConfig(string pack, string config) {
 			auto p = getDependency(pack, true);
 			if (p && !p.configurations.canFind(config)) {
-				logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+				logWarn("The sub configuration directive \"%s\" -> [%s] "
 					~ "references a configuration that does not exist.",
-					pack, config);
+					pack.color(Mode.bold), config.color(Color.red));
 			}
 		}
 		auto globalbs = m_rootPackage.getBuildSettings();
@@ -454,8 +455,8 @@ shared static this() {
 				if (m_selections.hasSelectedVersion(basename)) {
 					auto selver = m_selections.getSelectedVersion(basename);
 					if (d.spec.merge(selver) == Dependency.invalid) {
-						logWarn("Selected package %s %s does not match the dependency specification %s in package %s. Need to \"dub upgrade\"?",
-							basename, selver, d.spec, pack.name);
+						logWarn("Selected package %s %s does not match the dependency specification %s in package %s. Need to \"%s\"?",
+							basename.color(Mode.bold), selver, d.spec, pack.name.color(Mode.bold), "dub upgrade".color(Mode.bold));
 					}
 				}
 

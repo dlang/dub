@@ -24,13 +24,13 @@ import dub.init;
 
 import std.algorithm;
 import std.array : array, replace;
-import std.conv : to;
+import std.conv : text, to;
+import std.encoding : sanitize;
 import std.exception : enforce;
 import std.file;
 import std.process : environment;
 import std.range : assumeSorted, empty;
 import std.string;
-import std.encoding : sanitize;
 
 // Set output path and options for coverage reports
 version (DigitalMars) version (D_Coverage)
@@ -556,7 +556,7 @@ class Dub {
 					basename.color(Mode.bold), sver, ver);
 				any = true;
 			}
-			if (any) logInfo("Use \"dub upgrade\" to perform those changes");
+			if (any) logInfo("Use \"%s\" to perform those changes", "dub upgrade".color(Mode.bold));
 			return;
 		}
 
@@ -663,7 +663,7 @@ class Dub {
 		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
-			logInfo("%s is not present, getting and storing it user wide", tool);
+			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it user wide", tool);
 			tool_pack = fetch(tool, Dependency.any, defaultPlacementLocation, FetchOptions.none);
 		}
 
@@ -769,8 +769,9 @@ class Dub {
 		Package existing = m_packageManager.getPackage(packageId, ver, placement);
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.version_ != Version(ver))
-				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
-					packageId, existing.version_, ver, packageId);
+				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
+					packageId.color(Mode.bold), existing.version_, ver,
+					text("dub upgrade ", packageId).color(Mode.bold));
 			return null;
 		}
 

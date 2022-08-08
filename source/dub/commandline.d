@@ -519,8 +519,8 @@ int runDubCommandLine(string[] args)
 
 	auto remaining_args = command_args.extractRemainingArgs();
 	if (remaining_args.any!(a => a.startsWith("-"))) {
-		logError("Unknown command line flags: %s", remaining_args.filter!(a => a.startsWith("-")).array.join(" "));
-		logError(`Type "dub %s -h" to get a list of all supported flags.`, cmd.name);
+		logError("Unknown command line flags: %s", remaining_args.filter!(a => a.startsWith("-")).array.join(" ").color(Mode.bold));
+		logInfo(`Type "%s" to get a list of all supported flags.`, text("dub ", cmd.name, " -h").color(Mode.bold));
 		return 1;
 	}
 
@@ -803,12 +803,12 @@ class Command {
 
 		if (filePath.empty) {
 			if (warn_missing_package) {
-				logInfo("");
-				logInfo("No package manifest (dub.json or dub.sdl) was found in");
-				logInfo(dub.rootPath.toNativeString());
-				logInfo("Please run DUB from the root directory of an existing package, or run");
-				logInfo("\"dub init --help\" to get information on creating a new package.");
-				logInfo("");
+				logInfoNoTag("");
+				logInfoNoTag("No package manifest (dub.json or dub.sdl) was found in");
+				logInfoNoTag(dub.rootPath.toNativeString());
+				logInfoNoTag("Please run DUB from the root directory of an existing package, or run");
+				logInfoNoTag("\"%s\" to get information on creating a new package.", "dub init --help".color(Mode.bold));
+				logInfoNoTag("");
 			}
 			return false;
 		}
@@ -2126,7 +2126,7 @@ class ListCommand : Command {
 		logInfoNoTag("Packages present in the system and known to dub:");
 		foreach (p; dub.packageManager.getPackageIterator()) {
 			if ((pname == "" || pname == p.name) && pvlim.matches(p.version_))
-				logInfo("  %s %s: %s", p.name.color(Mode.bold), p.version_, p.path.toNativeString());
+				logInfoNoTag("  %s %s: %s", p.name.color(Mode.bold), p.version_, p.path.toNativeString());
 		}
 		logInfo("");
 		return 0;
@@ -2159,11 +2159,14 @@ class SearchCommand : Command {
 			.map!(m => m.name.length + m.version_.length)
 			.reduce!max + " ()".length;
 		justify += (~justify & 3) + 1; // round to next multiple of 4
+		int colorDifference = cast(int)"a".color(Mode.bold).length - 1;
+		justify += colorDifference;
 		foreach (desc, matches; res)
 		{
 			logInfoNoTag("==== %s ====", desc);
 			foreach (m; matches)
-				logInfoNoTag("  %s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
+				logInfoNoTag("  %s%s", leftJustify(m.name.color(Mode.bold)
+					~ " (" ~ m.version_ ~ ")", justify), m.description);
 		}
 		return 0;
 	}
@@ -2264,10 +2267,10 @@ class ListOverridesCommand : Command {
 		void printList(in PackageOverride[] overrides, string caption)
 		{
 			if (overrides.length == 0) return;
-			logInfo("# %s", caption);
+			logInfoNoTag("# %s", caption);
 			foreach (ovr; overrides)
 				ovr.target.match!(
-					t => logInfo("%s %s => %s", ovr.package_, ovr.version_, t));
+					t => logInfoNoTag("%s %s => %s", ovr.package_.color(Mode.bold), ovr.version_, t));
 		}
 		printList(dub.packageManager.getOverrides(PlacementLocation.user), "User wide overrides");
 		printList(dub.packageManager.getOverrides(PlacementLocation.system), "System wide overrides");
@@ -2376,11 +2379,11 @@ class DustmiteCommand : PackageBuildCommand {
 			gensettings.runCallback = check(m_programStatusCode, m_programRegex);
 			try dub.generateProject("build", gensettings);
 			catch (DustmiteMismatchException) {
-				logInfo("Dustmite test doesn't match.");
+				logInfoNoTag("Dustmite test doesn't match.");
 				return 3;
 			}
 			catch (DustmiteMatchException) {
-				logInfo("Dustmite test matches.");
+				logInfoNoTag("Dustmite test matches.");
 				return 0;
 			}
 		} else {
@@ -2445,7 +2448,7 @@ class DustmiteCommand : PackageBuildCommand {
 				if (pack.name in visited) continue;
 				visited[pack.name] = true;
 				auto dst_path = path ~ pack.name;
-				logInfo("Copy package '%s' to destination folder...", pack.name);
+				logInfo("Prepare", Color.light_blue, "Copy package %s to destination folder...", pack.name.color(Mode.bold));
 				copyFolderRec(pack.path, dst_path);
 
 				// adjust all path based dependencies
@@ -2455,7 +2458,7 @@ class DustmiteCommand : PackageBuildCommand {
 				pack.storeInfo(dst_path);
 			}
 
-			logInfo("Executing dustmite...");
+			logInfo("Starting", Color.light_green, "Executing dustmite...");
 			auto testcmd = appender!string();
 			testcmd.formattedWrite("%s dustmite --test-package=%s --build=%s --config=%s",
 				thisExePath, prj.name, this.baseSettings.buildType, this.baseSettings.config);

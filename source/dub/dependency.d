@@ -682,7 +682,7 @@ struct Repository
 	 */
 	this(string remote, string ref_)
 	{
-		enforce(remote.startsWith("git+"), "Unsupported repository type");
+		enforce(remote.startsWith("git+"), "Unsupported repository type (supports: git+URL)");
 
 		m_remote = remote["git+".length .. $];
 		m_kind = Kind.git;
@@ -695,7 +695,7 @@ struct Repository
 	deprecated("Use the constructor accepting a second parameter named `ref_`")
 	this(string remote)
 	{
-		enforce(remote.startsWith("git+"), "Unsupported repository type");
+		enforce(remote.startsWith("git+"), "Unsupported repository type (supports: git+URL)");
 
 		m_remote = remote["git+".length .. $];
 		m_kind = Kind.git;
