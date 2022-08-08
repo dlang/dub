@@ -76,8 +76,38 @@ public alias Color = fg;
 */
 public alias Mode = mode;
 
-/// The tag width in chars, defined as a constant here
-private const int TAG_WIDTH = 12;
+/// Defines the current width of logging tags for justifying in chars.
+/// Can be manipulated through push and pop.
+struct TagWidth {
+	import core.atomic;
+
+	private shared int value = 12;
+	private shared int index;
+	private shared int[16] stack;
+
+	/// Gets the tag width in chars
+	public int get() {
+		return value;
+	}
+
+	/// Changes the tag width for all following logging calls, until $(LREF pop) is called.
+	public void push(int width) {
+		int currentIndex = index;
+		index.atomicOp!"+="(1);
+		stack[currentIndex] = value;
+		assert(index < stack.length, "too many TagWidth.push without pop");
+		value = width;
+	}
+
+	/// Reverts the last $(LREF push) call.
+	public void pop() {
+		assert(index > 0);
+		value = stack[index.atomicOp!"-="(1)];
+	}
+}
+
+/// The global tag width instance used for logging.
+public __gshared TagWidth tagWidth;
 
 /// Possible log levels supported
 enum LogLevel {
@@ -201,7 +231,7 @@ void logInfo(T...)(string tag, Color tagColor, string fmt, lazy T args) nothrow
 /**
 	Shorthand function to log a message with info level, this version prints an
 	empty tag automatically (which is different from not having a tag - in this
-	case there will be an identation of TAG_WIDTH chars on the left anyway).
+	case there will be an identation of tagWidth chars on the left anyway).
 
 	Params:
 		level = The log level for the logged message
@@ -320,7 +350,7 @@ void log(T...)(
 		string result = format(fmt, args);
 
 		if (hasTag)
-			result = tag.rightJustify(TAG_WIDTH, ' ').color(tagColor, boldTag ? Mode.bold : Mode.init) ~ " " ~ result;
+			result = tag.rightJustify(tagWidth.get, ' ').color(tagColor, boldTag ? Mode.bold : Mode.init) ~ " " ~ result;
 
 		import dub.internal.colorize : cwrite;
 

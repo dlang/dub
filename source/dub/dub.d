@@ -1177,7 +1177,9 @@ class Dub {
 		auto srcfile = m_project.rootPackage.recipePath;
 		auto srcext = srcfile.head.name.extension;
 		if (srcext == "."~destination_file_ext) {
-			logInfo("Package format is already %s.", destination_file_ext);
+			// no logging before this point
+			tagWidth.push(5);
+			logError("Package format is already %s.", destination_file_ext);
 			return;
 		}
 
