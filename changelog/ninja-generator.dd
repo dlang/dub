@@ -1,0 +1,3 @@
+Added Ninja generator
+
+Now it's possible to generate Ninja files using dub with `dub generate ninja`.
