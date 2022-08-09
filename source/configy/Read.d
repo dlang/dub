@@ -401,7 +401,8 @@ public T parseConfig (T) (
                      strict == StrictMode.Warn ?
                        strict.paint(Yellow) : strict.paintIf(!!strict, Green, Red),
                      initPath.length ? initPath : "(none)");
-        return node.parseMapping!T(initPath, T.init, const(Context)(cmdln, strict), null);
+            return node.parseMapping!(StructFieldRef!T)(
+                initPath, T.init, const(Context)(cmdln, strict), null);
     case NodeID.sequence:
     case NodeID.scalar:
     case NodeID.invalid:
@@ -445,25 +446,40 @@ private enum IsPattern (alias FR) = FR.Pattern;
 private alias FieldsName (T) = staticMap!(FieldRefToName, FieldRefTuple!T);
 
 private alias Patterns (T) = staticMap!(FieldRefToName, Filter!(IsPattern, FieldRefTuple!T));
+/*******************************************************************************
 
+    Parse a mapping from `node` into an instance of `T`
+
+    Params:
+      TLFR = Top level field reference for this mapping
+      node = The YAML node object matching the struct being read
+      path = The runtime path to this mapping, used for nested types
+      defaultValue = The default value to use for `T`, which can be different
+                     from `T.init` when recursing into fields with initializers.
+      ctx = A context where properties that need to be conserved during
+            recursion are stored
+      fieldDefaults = Default value for some fields, used for `Key` recursion
+
+*******************************************************************************/
 /// Parse a single mapping, recurse as needed
-private T parseMapping (T)
-    (Node node, string path, auto ref T defaultValue, in Context ctx, in Node[string] fieldDefaults)
+private TLFR.Type parseMapping (alias TLFR)
+    (Node node, string path, auto ref TLFR.Type defaultValue,
+     in Context ctx, in Node[string] fieldDefaults)
 {
-    static assert(is(T == struct), "`parseMapping` called with wrong type (should be a `struct`)");
+    static assert(is(TLFR.Type == struct), "`parseMapping` called with wrong type (should be a `struct`)");
     assert(node.nodeID == NodeID.mapping, "Internal error: parseMapping shouldn't have been called");
 
     dbgWrite("%s: `parseMapping` called for '%s' (node entries: %s)",
-             T.stringof.paint(Cyan), path.paint(Cyan),
+             TLFR.Type.stringof.paint(Cyan), path.paint(Cyan),
              node.length.paintIf(!!node.length, Green, Red));
 
-    static foreach (FR; FieldRefTuple!T)
+    static foreach (FR; FieldRefTuple!(TLFR.Type))
     {
-        static if (FR.Name != FR.FieldName && hasMember!(T, FR.Name) &&
-                   !is(typeof(mixin("T.", FR.Name)) == function))
-            static assert (FieldRef!(T, FR.Name).Name != FR.Name,
+        static if (FR.Name != FR.FieldName && hasMember!(TLFR.Type, FR.Name) &&
+                   !is(typeof(mixin("TLFR.Type.", FR.Name)) == function))
+            static assert (FieldRef!(TLFR.Type, FR.Name).Name != FR.Name,
                            "Field `" ~ FR.FieldName ~ "` `@Name` attribute shadows field `" ~
-                           FR.Name ~ "` in `" ~ T.stringof ~ "`: Add a `@Name` attribute to `" ~
+                           FR.Name ~ "` in `" ~ TLFR.Type.stringof ~ "`: Add a `@Name` attribute to `" ~
                            FR.Name ~ "` or change that of `" ~ FR.FieldName ~ "`");
     }
 
@@ -471,8 +487,8 @@ private T parseMapping (T)
     {
         /// First, check that all the sections found in the mapping are present in the type
         /// If not, the user might have made a typo.
-        immutable string[] fieldNames = [ FieldsName!T ];
-        immutable string[] patterns = [ Patterns!T ];
+        immutable string[] fieldNames = [ FieldsName!(TLFR.Type) ];
+        immutable string[] patterns = [ Patterns!(TLFR.Type) ];
     FIELD: foreach (const ref Node key, const ref Node value; node)
         {
             const k = key.as!string;
@@ -498,10 +514,10 @@ private T parseMapping (T)
         }
     }
 
-    const enabledState = node.isMappingEnabled!T(defaultValue);
+    const enabledState = node.isMappingEnabled!(TLFR.Type)(defaultValue);
 
     if (enabledState.field != EnabledState.Field.None)
-        dbgWrite("%s: Mapping is enabled: %s", T.stringof.paint(Cyan), (!!enabledState).paintBool());
+        dbgWrite("%s: Mapping is enabled: %s", TLFR.Type.stringof.paint(Cyan), (!!enabledState).paintBool());
 
     auto convertField (alias FR) ()
     {
@@ -537,7 +553,7 @@ private T parseMapping (T)
 
             if (ctx.strict && FR.FieldName in node)
                 throw new ConfigExceptionImpl("'Key' field is specified twice", path, FR.FieldName, node.startMark());
-            return (*ptr).parseFieldImpl!(FR)(path.addPath(FR.FieldName), default_, ctx)
+            return (*ptr).parseField!(FR)(path.addPath(FR.FieldName), default_, ctx)
                 .dbgWriteRet("Using value '%s' from fieldDefaults for field '%s'",
                              FR.FieldName.paint(Cyan));
         }
@@ -553,6 +569,7 @@ private T parseMapping (T)
                     private enum Ref = V.init;
                     ///
                     private alias Type = V;
+                    private enum Optional = FR.Optional;
                 }
 
                 static assert(is(K : string), "Key type should be string-like");
@@ -573,7 +590,7 @@ private T parseMapping (T)
                     else continue;
                 }
 
-                result[suffix] = pair.value.parseFieldImpl!(AAFieldRef)(
+                result[suffix] = pair.value.parseField!(AAFieldRef)(
                     path.addPath(key), default_.get(key, AAFieldRef.Type.init), ctx);
             }
             bool hack = true;
@@ -585,7 +602,7 @@ private T parseMapping (T)
             dbgWrite("%s: YAML field is %s in node%s",
                      FR.Name.paint(Cyan), "present".paint(Green),
                      (FR.Name == FR.FieldName ? "" : " (note that field name is overriden)").paint(Yellow));
-            return (*ptr).parseFieldImpl!(FR)(path.addPath(FR.Name), default_, ctx)
+            return (*ptr).parseField!(FR)(path.addPath(FR.Name), default_, ctx)
                 .dbgWriteRet("Using value '%s' from YAML document for field '%s'",
                              FR.FieldName.paint(Cyan));
         }
@@ -598,7 +615,7 @@ private T parseMapping (T)
         // from its default value, or if it has the `Optional` UDA.
         // In that case, just return this value.
         static if (FR.Optional)
-            return FR.Default
+            return default_
                 .dbgWriteRet("Using default value '%s' for optional field '%s'", FR.FieldName.paint(Cyan));
 
         // The field is not present, but it could be because it is an optional section.
@@ -613,17 +630,16 @@ private T parseMapping (T)
         {
             const npath = path.addPath(FR.Name);
             string[string] aa;
-            return Node(aa).parseMapping!(FR.Type)(npath, FR.Default, ctx, null);
+            return Node(aa).parseMapping!(FR)(npath, default_, ctx, null);
         }
         else
             throw new MissingKeyException(path, FR.Name, node.startMark());
     }
 
-    auto convert (string FName, bool forceOptional = false) ()
+    FR.Type convert (alias FR) ()
     {
-        alias FR = FieldRef!(T, FName, forceOptional);
-        static if (__traits(getAliasThis, T).length == 1 &&
-                   __traits(getAliasThis, T)[0] == FName)
+        static if (__traits(getAliasThis, TLFR.Type).length == 1 &&
+                   __traits(getAliasThis, TLFR.Type)[0] == FR.FieldName)
         {
             static assert(FR.Name == FR.FieldName,
                           "Field `" ~ fullyQualifiedName!(FR.Ref) ~
@@ -632,8 +648,8 @@ private T parseMapping (T)
                           "Field `" ~ fullyQualifiedName!(FR.Ref) ~
                           "` is the target of an `alias this` and cannot have a `@Converter` attribute");
 
-            alias convertMaybe(string FName) = convert!(FName, FR.Optional);
-            return FR.Type(staticMap!(convertMaybe, FieldNameTuple!(FR.Type)));
+            alias convertW(string FieldName) = convert!(FieldRef!(FR.Type, FieldName, FR.Optional));
+            return FR.Type(staticMap!(convertW, FieldNameTuple!(FR.Type)));
         }
         else
             return convertField!(FR)();
@@ -645,32 +661,33 @@ private T parseMapping (T)
         scope (exit) indent--;
     }
 
-    T doValidation (T result)
+    TLFR.Type doValidation (TLFR.Type result)
     {
         static if (is(typeof(result.validate())))
         {
             if (enabledState)
             {
                 dbgWrite("%s: Calling `%s` method",
-                     T.stringof.paint(Cyan), "validate()".paint(Green));
+                     TLFR.Type.stringof.paint(Cyan), "validate()".paint(Green));
                 result.validate();
             }
             else
             {
                 dbgWrite("%s: Ignoring `%s` method on disabled mapping",
-                         T.stringof.paint(Cyan), "validate()".paint(Green));
+                         TLFR.Type.stringof.paint(Cyan), "validate()".paint(Green));
             }
         }
         else if (enabledState)
             dbgWrite("%s: No `%s` method found",
-                     T.stringof.paint(Cyan), "validate()".paint(Yellow));
+                     TLFR.Type.stringof.paint(Cyan), "validate()".paint(Yellow));
 
         return result;
     }
 
     // This might trigger things like "`this` is not accessible".
     // In this case, the user most likely needs to provide a converter.
-    return doValidation(T(staticMap!(convert, FieldNameTuple!T)));
+    alias convertWrapper(string FieldName) = convert!(FieldRef!(TLFR.Type, FieldName));
+    return doValidation(TLFR.Type(staticMap!(convertWrapper, FieldNameTuple!(TLFR.Type))));
 }
 
 /*******************************************************************************
@@ -691,7 +708,7 @@ private T parseMapping (T)
 
 *******************************************************************************/
 
-package FR.Type parseFieldImpl (alias FR)
+package FR.Type parseField (alias FR)
     (Node node, string path, auto ref FR.Type defaultValue, in Context ctx)
 {
     if (node.nodeID == NodeID.invalid)
@@ -701,7 +718,7 @@ package FR.Type parseFieldImpl (alias FR)
     // to peel the type
     static if (is(FR.Type : SetInfo!FT, FT))
         return FR.Type(
-            parseFieldImpl!(FieldRef!(FR.Type, "value"))(node, path, defaultValue, ctx),
+            parseField!(FieldRef!(FR.Type, "value"))(node, path, defaultValue, ctx),
             true);
 
     else static if (hasConverter!(FR.Ref))
@@ -720,13 +737,18 @@ package FR.Type parseFieldImpl (alias FR)
         return wrapException(FR.Type(node.as!string), path, node.startMark());
 
     else static if (is(immutable(FR.Type) == immutable(core.time.Duration)))
-        return parseDuration!(FR)(node, path, defaultValue, ctx);
+    {
+        if (node.nodeID != NodeID.mapping)
+            throw new DurationTypeConfigException(node, path);
+        return node.parseMapping!(StructFieldRef!DurationMapping)(
+            path, DurationMapping.make(defaultValue), ctx, null).opCast!Duration;
+    }
 
     else static if (is(FR.Type == struct))
     {
         if (node.nodeID != NodeID.mapping)
             throw new TypeConfigException(node, "mapping (object)", path);
-        return node.parseMapping!(FR.Type)(path, defaultValue, ctx, null);
+        return node.parseMapping!(FR)(path, defaultValue, ctx, null);
     }
 
     // Handle string early as they match the sequence rule too
@@ -758,7 +780,7 @@ package FR.Type parseFieldImpl (alias FR)
                 (Node.Pair pair) {
                     return tuple(
                         pair.key.get!K,
-                        pair.value.parseFieldImpl!(AAFieldRef)(
+                        pair.value.parseField!(AAFieldRef)(
                             format("%s[%s]", path, pair.key.as!string), E.init, ctx));
                 }).assocArray();
 
@@ -788,7 +810,7 @@ package FR.Type parseFieldImpl (alias FR)
                             "sequence of mapping (array of objects)",
                             path, null, node.startMark());
 
-                    return pair.value.parseMapping!E(
+                    return pair.value.parseMapping!(StructFieldRef!E)(
                         path.addPath(pair.key.as!string),
                         E.init, ctx, key.length ? [ key: pair.key ] : null);
                 }).array();
@@ -809,7 +831,7 @@ package FR.Type parseFieldImpl (alias FR)
         // Either there is something in the YAML document, and that will be
         // converted, or `sequence` will not iterate.
         return node.sequence.enumerate.map!(
-            kv => kv.value.parseFieldImpl!(ArrayFieldRef)(
+            kv => kv.value.parseField!(ArrayFieldRef)(
                 format("%s[%s]", path, kv.index), E.init, ctx))
             .array();
     }
@@ -863,64 +885,8 @@ private T wrapException (T) (lazy T exp, string path, Mark position,
         throw new ConstructionException(exc, path, position, file, line);
 }
 
-/*******************************************************************************
-
-    Parse a `core.time : Duration` from the YAML
-
-*******************************************************************************/
-
-private core.time.Duration parseDuration (alias FR)
-    (Node node, string path, in core.time.Duration defaultValue, in Context ctx)
-{
-    // Try second form first as it convey the developer's intent explicitly
-    static foreach (Suffix; DurationSuffixes)
-    {
-        static if (FR.Name.endsWith(Suffix))
-        {
-            // Since we don't have flow control at CT, we have to rely on `is()`
-            // check to see if variables have been defined... Ugly but it works.
-            // We would get "Warning: Statement is not reachable" otherwise.
-            enum hasMatch = true;
-
-            if (node.nodeID != NodeID.scalar)
-                throw new TypeConfigException(node, "integer value (scalar)", path);
-
-            return core.time.dur!(Suffix[1 .. $])(node.as!long);
-        }
-    }
-    // First form, sum all possible fields
-    static if (!is(typeof(hasMatch)))
-    {
-        if (node.nodeID != NodeID.mapping)
-            throw new DurationTypeConfigException(node, path, DurationSuffixes);
-        auto result = node.parseMapping!DurationPseudoMapping(
-            path, DurationPseudoMapping.init, ctx, null);
-        bool hasOneSet;
-    FOREACH: foreach (field; result.tupleof)
-            if ((hasOneSet = field.set) == true)
-                break FOREACH;
-
-        if (!hasOneSet)
-        {
-            static if (FR.Optional)
-                return defaultValue;
-            else
-                throw new ConfigExceptionImpl("Expected one of the field's values to be set",
-                                            path, null, node.startMark());
-        }
-
-        return result.opCast!Duration();
-    }
-}
-
-/// Supported suffix names
-private immutable DurationSuffixes = [
-    "_weeks", "_days", "_hours", "_minutes", "_seconds",
-    "_msecs", "_usecs", "_hnsecs", "_nsecs",
-];
-
 /// Allows us to reuse parseMapping and strict parsing
-private struct DurationPseudoMapping
+private struct DurationMapping
 {
     public SetInfo!long weeks;
     public SetInfo!long days;
@@ -931,6 +897,36 @@ private struct DurationPseudoMapping
     public SetInfo!long usecs;
     public SetInfo!long hnsecs;
     public SetInfo!long nsecs;
+
+    private static DurationMapping make (Duration def) @safe pure nothrow @nogc
+    {
+        typeof(return) result;
+        auto fullSplit = def.split();
+        result.weeks = SetInfo!long(fullSplit.weeks, fullSplit.weeks != 0);
+        result.days = SetInfo!long(fullSplit.days, fullSplit.days != 0);
+        result.hours = SetInfo!long(fullSplit.hours, fullSplit.hours != 0);
+        result.minutes = SetInfo!long(fullSplit.minutes, fullSplit.minutes != 0);
+        result.seconds = SetInfo!long(fullSplit.seconds, fullSplit.seconds != 0);
+        result.msecs = SetInfo!long(fullSplit.msecs, fullSplit.msecs != 0);
+        result.usecs = SetInfo!long(fullSplit.usecs, fullSplit.usecs != 0);
+        result.hnsecs = SetInfo!long(fullSplit.hnsecs, fullSplit.hnsecs != 0);
+        // nsecs is ignored by split as it's not representable in `Duration`
+        return result;
+    }
+
+    ///
+    public void validate () const @safe
+    {
+        // That check should never fail, as the YAML parser would error out,
+        // but better be safe than sorry.
+        foreach (field; this.tupleof)
+            if (field.set)
+                return;
+
+        throw new Exception(
+            "Expected at least one of the components (weeks, days, hours, " ~
+            "minutes, seconds, msecs, usecs, hnsecs, nsecs) to be set");
+    }
 
     ///  Allow conversion to a `Duration`
     public Duration opCast (T : Duration) () const scope @safe pure nothrow @nogc
@@ -1056,6 +1052,19 @@ package template FieldRef (alias T, string name, bool forceOptional = false)
         is(immutable(Type) == immutable(bool)) ||
         is(Type : SetInfo!FT, FT) ||
         (Default != Type.init);
+}
+
+/// A pseudo `FieldRef` used for structs which are not fields (top-level)
+private template StructFieldRef (ST)
+{
+    ///
+    public alias Type = ST;
+
+    ///
+    public enum Default = ST.init;
+
+    ///
+    public enum Optional = false;
 }
 
 /// Get a tuple of `FieldRef` from a `struct`

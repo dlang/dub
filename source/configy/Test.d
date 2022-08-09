@@ -116,6 +116,7 @@ unittest
 {
     static struct Nested { core.time.Duration timeout; }
     static struct Config { Nested node; }
+
     try
     {
         auto result = parseConfigString!Config("node:\n  timeout:", "/dev/null");
@@ -126,6 +127,11 @@ unittest
         assert(exc.toString() == "/dev/null(1:10): node.timeout: Field is of type scalar, " ~
                "but expected a mapping with at least one of: weeks, days, hours, minutes, " ~
                "seconds, msecs, usecs, hnsecs, nsecs");
+    }
+
+    {
+        auto result = parseConfigString!Nested("timeout:\n  days: 10\n  minutes: 100\n  hours: 3\n", "/dev/null");
+        assert(result.timeout == 10.days + 4.hours + 40.minutes);
     }
 }
 
@@ -578,6 +584,34 @@ unittest
     auto c = parseConfigString!Config("names:\n  - John\n  - Luca\n", "/dev/null");
     assert(c.names_ == [ "John", "Luca" ]);
     assert(c.names == 2);
+}
+
+unittest
+{
+    static struct BuildTemplate
+    {
+        string targetName;
+        string platform;
+    }
+    static struct BuildConfig
+    {
+        BuildTemplate config;
+        alias config this;
+    }
+    static struct Config
+    {
+        string name;
+
+        @Optional BuildConfig config;
+        alias config this;
+    }
+
+    auto c = parseConfigString!Config("name: dummy\n", "/dev/null");
+    assert(c.name == "dummy");
+
+    auto c2 = parseConfigString!Config("name: dummy\nplatform: windows\n", "/dev/null");
+    assert(c2.name == "dummy");
+    assert(c2.config.platform == "windows");
 }
 
 // Make sure unions don't compile
