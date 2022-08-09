@@ -286,7 +286,7 @@ public auto converter (FT) (FT func)
 public interface ConfigParser (T)
 {
     import dyaml.node;
-    import configy.Read : Context, parseFieldImpl, FieldRef;
+    import configy.Read : Context, parseFieldImpl = parseField, FieldRef;
 
     /// Returns: the node being processed
     public inout(Node) node () inout @safe pure nothrow @nogc;

@@ -254,20 +254,21 @@ package final class TypeConfigException : ConfigException
 /// Similar to a `TypeConfigException`, but specific to `Duration`
 package final class DurationTypeConfigException : ConfigException
 {
-    /// The list of valid field (a manifest constant, but we want to avoid the dependency)
-    public immutable string[] DurationSuffixes;
+    /// The list of valid fields
+    public immutable string[] DurationSuffixes = [
+        "weeks", "days",  "hours",  "minutes", "seconds",
+        "msecs", "usecs", "hnsecs", "nsecs",
+    ];
 
     /// Actual type of the node
     public string actual;
 
     /// Constructor
-    public this (Node node, string path, immutable string[] DurationSuffixes,
-                 string file = __FILE__, size_t line = __LINE__)
+    public this (Node node, string path, string file = __FILE__, size_t line = __LINE__)
         @safe nothrow
     {
         super(path, null, node.startMark(), file, line);
         this.actual = node.nodeTypeString();
-        this.DurationSuffixes = DurationSuffixes;
     }
 
     /// Format the message with or without colors
@@ -280,9 +281,9 @@ package final class DurationTypeConfigException : ConfigException
         const fmt = "Field is of type %s, but expected a mapping with at least one of: %-(%s, %)";
         if (useColors)
             formattedWrite(sink, fmt, this.actual.paint(Red),
-                           this.DurationSuffixes.map!(s => s[1 .. $].paint(Green)));
+                           this.DurationSuffixes.map!(s => s.paint(Green)));
         else
-            formattedWrite(sink, fmt, this.actual, this.DurationSuffixes.map!(s => s[1 .. $]));
+            formattedWrite(sink, fmt, this.actual, this.DurationSuffixes);
     }
 }
 
