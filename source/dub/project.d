@@ -510,17 +510,20 @@ shared static this() {
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
 					vspec = m_selections.getSelectedVersion(basename);
-					if (!vspec.path.empty) {
-						auto path = vspec.path;
-						if (!path.absolute) path = m_rootPackage.path ~ path;
-						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-						p = resolveSubPackage(p, subname, true);
-					} else if (!vspec.repository.empty) {
-						p = m_packageManager.loadSCMPackage(basename, vspec.repository);
-						p = resolveSubPackage(p, subname, true);
-					} else {
-						p = m_packageManager.getBestPackage(dep.name, vspec);
-					}
+					p = vspec.visit!(
+						(NativePath path_) {
+							auto path = path_.absolute ? path_ : m_rootPackage.path ~ path_;
+							auto tmp = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
+							return resolveSubPackage(tmp, subname, true);
+						},
+						(Repository repo) {
+							auto tmp = m_packageManager.loadSCMPackage(basename, repo);
+							return resolveSubPackage(tmp, subname, true);
+						},
+						(VersionRange range) {
+							return m_packageManager.getBestPackage(dep.name, vspec);
+						},
+					);
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
 					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
 					auto bp = m_dependencies[idx].basePackage;
