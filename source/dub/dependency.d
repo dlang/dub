@@ -76,10 +76,15 @@ struct PackageName {
         }
 	}
 
+	typeof(this) opAssign(string value) scope @safe pure nothrow @nogc { // needed if/once `alias _value this;` is removed
+        this._value = value;
+        return this;
+    }
+
     private auto byPart() const @safe pure nothrow @nogc { // TODO: better naming such `bySubName`?
         static assert(separator.length == 1);
         import std.algorithm.iteration : splitter;
-        return _value.splitter(separator[0]);
+        return this._value.splitter(separator[0]);
     }
 
 	static typeof(this) fromString(string value) @safe pure nothrow {
@@ -103,24 +108,24 @@ struct PackageName {
 	}
 
     string opSlice() const @safe pure nothrow @nogc {
-        return _value;
+        return this._value;
     }
     size_t length() const @property @safe pure nothrow @nogc {
-        return _value.length;
+        return this._value.length;
     }
     bool opEquals(scope const(char)[] name) const @safe pure nothrow @nogc {
-        return _value == name;
+        return this._value == name;
     }
     bool opEquals(scope const ref PackageName rhs) const @safe pure nothrow @nogc {
-        return _value == rhs._value;
+        return this._value == rhs._value;
     }
     bool opEquals(scope const PackageName rhs) const @safe pure nothrow @nogc {
-        return _value == rhs._value;
+        return this._value == rhs._value;
     }
     int opCmp(scope const PackageName rhs) const @safe pure nothrow @nogc {
-        if (_value < rhs._value)
+        if (this._value < rhs._value)
             return -1;
-        if (_value > rhs._value)
+        if (this._value > rhs._value)
             return +1;
         return 0;
     }
