@@ -625,7 +625,7 @@ class BuildGenerator : ProjectGenerator {
 		in BuildSettings buildsettings)
 	{
 		if (buildsettings.preRunCommands.length) {
-			logInfo("Running pre-run commands...");
+			logInfo("Pre-run", Color.light_green, "Running commands...");
 			runBuildCommands(CommandType.preRun, buildsettings.preRunCommands, pack, proj, settings, buildsettings);
 		}
 	}
@@ -634,7 +634,7 @@ class BuildGenerator : ProjectGenerator {
 		in BuildSettings buildsettings)
 	{
 		if (buildsettings.postRunCommands.length) {
-			logInfo("Running post-run commands...");
+			logInfo("Post-run", Color.light_green, "Running commands...");
 			runBuildCommands(CommandType.postRun, buildsettings.postRunCommands, pack, proj, settings, buildsettings);
 		}
 	}

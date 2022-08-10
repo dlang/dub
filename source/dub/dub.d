@@ -24,13 +24,13 @@ import dub.init;
 
 import std.algorithm;
 import std.array : array, replace;
-import std.conv : to;
+import std.conv : text, to;
+import std.encoding : sanitize;
 import std.exception : enforce;
 import std.file;
 import std.process : environment;
 import std.range : assumeSorted, empty;
 import std.string;
-import std.encoding : sanitize;
 
 // Set output path and options for coverage reports
 version (DigitalMars) version (D_Coverage)
@@ -556,7 +556,7 @@ class Dub {
 					basename, sver, ver);
 				any = true;
 			}
-			if (any) logInfo("Use \"dub upgrade\" to perform those changes");
+			if (any) logInfo("Use \"%s\" to perform those changes", "dub upgrade".color(Mode.bold));
 			return;
 		}
 
@@ -586,7 +586,7 @@ class Dub {
 
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
-			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting selected version");
+			if (!pack) fetch(p, ver.version_, defaultPlacementLocation, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
 				if (!ver.repository.empty) {
 					m_project.selections.selectVersion(p, ver.repository);
@@ -663,8 +663,8 @@ class Dub {
 		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
-			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, Dependency.any, defaultPlacementLocation, FetchOptions.none);
+			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it user wide", tool);
+			tool_pack = fetch(tool, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		auto dscanner_dub = new Dub(null, m_packageSuppliers);
@@ -738,14 +738,43 @@ class Dub {
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
+	deprecated("Use the overload that accepts either a `Version` or a `VersionRange` as second argument")
 	Package fetch(PackageName name, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+	{
+		const vrange = dep.visit!(
+			(VersionRange range) => range,
+			(any)                => throw new Exception("Cannot call `dub.fetch` with a " ~ typeof(any).stringof ~ " dependency"),
+		);
+		return this.fetch(name, vrange, location, options, reason);
+	}
+    /// Ditto
+	deprecated("Use the overload taking a `PackageName` as first parameter instead ")
+	Package fetch(string name, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+    {
+        return fetch(PackageName(name), dep, location, options, reason);
+    }
+
+	/// Ditto
+	Package fetch(PackageName name, in Version vers, PlacementLocation location, FetchOptions options, string reason = "")
+	{
+		return this.fetch(name, VersionRange(vers, vers), location, options, reason);
+	}
+	/// Ditto
+	deprecated("Use the overload taking a `PackageName` as first parameter instead ")
+	Package fetch(string name, in Version vers, PlacementLocation location, FetchOptions options, string reason = "")
+	{
+        return fetch(PackageName(name), vers, location, options, reason);
+	}
+
+	/// Ditto
+	Package fetch(PackageName name, in VersionRange range, PlacementLocation location, FetchOptions options, string reason = "")
 	{
 		auto basePackageName = getBasePackageName(name);
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.fetchPackageRecipe(basePackageName, dep, (options & FetchOptions.usePrerelease) != 0);
+				pinfo = ps.fetchPackageRecipe(basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0);
 				if (pinfo.type == Json.Type.null_)
 					continue;
 				supplier = ps;
@@ -755,7 +784,7 @@ class Dub {
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
-		enforce(pinfo.type != Json.Type.undefined, "No package "~name[]~" was found matching the dependency "~dep.toString());
+		enforce(pinfo.type != Json.Type.undefined, "No package "~name[]~" was found matching the dependency " ~ range.toString());
 		string ver = pinfo["version"].get!string;
 
 		NativePath placement;
@@ -769,8 +798,9 @@ class Dub {
 		Package existing = m_packageManager.getPackage(name, ver, placement);
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.version_ != Version(ver))
-				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
-					name, existing.version_, ver, name);
+				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
+					name, existing.version_, ver,
+					text("dub upgrade ", name).color(Mode.bold));
 			return null;
 		}
 
@@ -812,7 +842,7 @@ class Dub {
 			import std.zip : ZipException;
 
 			auto path = getTempFile(basePackageName[], ".zip");
-			supplier.fetchPackage(path, basePackageName, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			supplier.fetchPackage(path, basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) std.file.remove(path.toNativeString());
 			logDiagnostic("Placing to %s...", placement.toNativeString());
 
@@ -829,9 +859,9 @@ class Dub {
 	}
     /// ditto
 	deprecated("Use the overload taking a `PackageName` as first parameter instead ")
-	Package fetch(string name, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+	Package fetch(string name, in VersionRange range, PlacementLocation location, FetchOptions options, string reason = "")
     {
-        return fetch(PackageName(name), dep, location, options, reason);
+        return fetch(PackageName(name), range, location, options, reason);
     }
 
 	/** Removes a specific locally cached package.
@@ -1055,19 +1085,19 @@ class Dub {
 		matched packages.
 
 		Params:
-		  name = The name of the package to search for
+		  query = the search term to match packages on
 
 		See_Also: `PackageSupplier.searchPackages`
 	*/
-	auto searchPackages(string name)
+	auto searchPackages(string query)
 	{
 		import std.typecons : Tuple, tuple;
 		Tuple!(string, PackageSupplier.SearchResult[])[] results;
 		foreach (ps; this.m_packageSuppliers) {
 			try
-				results ~= tuple(ps.description, ps.searchPackages(name));
+				results ~= tuple(ps.description, ps.searchPackages(query));
 			catch (Exception e) {
-				logWarn("Searching %s for '%s' failed: %s", ps.description, name, e.msg);
+				logWarn("Searching %s for '%s' failed: %s", ps.description, query, e.msg);
 			}
 		}
 		return results.filter!(tup => tup[1].length);
@@ -1194,7 +1224,7 @@ class Dub {
 		if (!template_pack) template_pack = m_packageManager.getBestPackage(name, "~master");
 		if (!template_pack) {
 			logInfo("%s is not present, getting and storing it user wide", name);
-			template_pack = fetch(name, Dependency.any, defaultPlacementLocation, FetchOptions.none);
+			template_pack = fetch(name, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		Package initSubPackage = m_packageManager.getSubPackage(template_pack, PackageName("init-exec"), false);
@@ -1230,7 +1260,9 @@ class Dub {
 		auto srcfile = m_project.rootPackage.recipePath;
 		auto srcext = srcfile.head.name.extension;
 		if (srcext == "."~destination_file_ext) {
-			logInfo("Package format is already %s.", destination_file_ext);
+			// no logging before this point
+			tagWidth.push(5);
+			logError("Package format is already %s.", destination_file_ext);
 			return;
 		}
 
@@ -1260,7 +1292,7 @@ class Dub {
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
 			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, Dependency.any, defaultPlacementLocation, FetchOptions.none);
+			tool_pack = fetch(tool, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		auto ddox_dub = new Dub(null, m_packageSuppliers);
@@ -1723,11 +1755,12 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				return null;
 			}
 		}
+		const vers = dep.version_;
 
 		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
 			return ret;
 
-		auto key = PackageName(name[] ~ ":" ~ dep.version_.toString());
+		auto key = PackageName(name[] ~ ":" ~ vers.toString());
 		if (auto ret = key in m_remotePackages)
 			return *ret;
 
@@ -1745,15 +1778,15 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					m_remotePackages[key] = ret;
 					return ret;
 				} catch (Exception e) {
-					logDiagnostic("Metadata for %s %s could not be downloaded from %s: %s", name, dep, ps.description, e.msg);
+					logDiagnostic("Metadata for %s %s could not be downloaded from %s: %s", name, vers, ps.description, e.msg);
 					logDebug("Full error: %s", e.toString().sanitize);
 				}
 			} else {
-				logDiagnostic("Package %s not found in base package description (%s). Downloading whole package.", name, dep.version_.toString());
+				logDiagnostic("Package %s not found in base package description (%s). Downloading whole package.", name, vers.toString());
 				try {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
-					m_dub.fetch(rootpack, dep, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
+					m_dub.fetch(rootpack, vers, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);

@@ -519,8 +519,8 @@ int runDubCommandLine(string[] args)
 
 	auto remaining_args = command_args.extractRemainingArgs();
 	if (remaining_args.any!(a => a.startsWith("-"))) {
-		logError("Unknown command line flags: %s", remaining_args.filter!(a => a.startsWith("-")).array.join(" "));
-		logError(`Type "dub %s -h" to get a list of all supported flags.`, cmd.name);
+		logError("Unknown command line flags: %s", remaining_args.filter!(a => a.startsWith("-")).array.join(" ").color(Mode.bold));
+		logInfo(`Type "%s" to get a list of all supported flags.`, text("dub ", cmd.name, " -h").color(Mode.bold));
 		return 1;
 	}
 
@@ -534,12 +534,20 @@ int runDubCommandLine(string[] args)
 	// execute the command
 	try return cmd.execute(dub, remaining_args, command_args.appArgs);
 	catch (UsageException e) {
+		// usage exceptions get thrown before any logging, so we are
+		// making the errors more narrow to better fit on small screens.
+		tagWidth.push(5);
 		logError("%s", e.msg);
 		logDebug("Full exception: %s", e.toString().sanitize);
-		logInfo(`Run "dub %s -h" for more information about the "%s" command.`, cmd.name, cmd.name);
+		logInfo(`Run "%s" for more information about the "%s" command.`,
+			text("dub ", cmd.name, " -h").color(Mode.bold), cmd.name.color(Mode.bold));
 		return 1;
 	}
 	catch (Exception e) {
+		// most exceptions get thrown before logging, so same thing here as
+		// above. However this might be subject to change if it results in
+		// weird behavior anywhere.
+		tagWidth.push(5);
 		logError("%s", e.msg);
 		logDebug("Full exception: %s", e.toString().sanitize);
 		return 2;
@@ -795,12 +803,12 @@ class Command {
 
 		if (filePath.empty) {
 			if (warn_missing_package) {
-				logInfo("");
-				logInfo("No package manifest (dub.json or dub.sdl) was found in");
-				logInfo(dub.rootPath.toNativeString());
-				logInfo("Please run DUB from the root directory of an existing package, or run");
-				logInfo("\"dub init --help\" to get information on creating a new package.");
-				logInfo("");
+				logInfoNoTag("");
+				logInfoNoTag("No package manifest (dub.json or dub.sdl) was found in");
+				logInfoNoTag(dub.rootPath.toNativeString());
+				logInfoNoTag("Please run DUB from the root directory of an existing package, or run");
+				logInfoNoTag("\"%s\" to get information on creating a new package.", "dub init --help".color(Mode.bold));
+				logInfoNoTag("");
 			}
 			return false;
 		}
@@ -1274,11 +1282,11 @@ class BuildCommand : GenerateCommand {
 			}
 		}
 
-		Dependency dep;
+		VersionRange dep;
 
 		if (packageParts.version_.length > 0) {
 			// the user provided a version manually
-			dep = Dependency(packageParts.version_);
+			dep = VersionRange.fromString(packageParts.version_);
 		} else {
 			if (packageParts.name[].startsWith(":") ||
 				dub.packageManager.getFirstPackage(packageParts.name))
@@ -1305,7 +1313,7 @@ class BuildCommand : GenerateCommand {
 			const answer = m_yes ? true : input("Do you want to fetch '%s' now?".format(packageParts.name));
 			if (!answer)
 				return 0;
-			dep = Dependency(p.version_);
+			dep = VersionRange.fromString(p.version_);
 		}
 
 		dub.fetch(packageParts.name, dep, dub.defaultPlacementLocation, FetchOptions.none);
@@ -1895,13 +1903,13 @@ class FetchCommand : FetchRemoveCommand {
 		if (m_version.length) { // remove then --version removed
 			enforceUsage(!name[].canFindVersionSplitter, "Double version spec not allowed.");
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
-			dub.fetch(name, Dependency(m_version), location, fetchOpts);
+			dub.fetch(name, VersionRange.fromString(m_version), location, fetchOpts);
 		} else if (name[].canFindVersionSplitter) {
 			const parts = name[].splitPackageName;
-			dub.fetch(parts.name, Dependency(parts.version_), location, fetchOpts);
+			dub.fetch(parts.name, VersionRange.fromString(parts.version_), location, fetchOpts);
 		} else {
 			try {
-				dub.fetch(name, Dependency.any, location, fetchOpts);
+				dub.fetch(name, VersionRange.Any, location, fetchOpts);
 				logInfo("Finished", Color.green, "%s fetched", name);
 				logInfo(
 					"Please note that you need to use `dub run <pkgname>` " ~
@@ -1911,7 +1919,7 @@ class FetchCommand : FetchRemoveCommand {
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
 				logInfo("Retry with ~master...");
-				dub.fetch(name, Dependency("~master"), location, fetchOpts);
+				dub.fetch(name, VersionRange.fromString("~master"), location, fetchOpts);
 			}
 		}
 		return 0;
@@ -2118,7 +2126,7 @@ class ListCommand : Command {
 		logInfoNoTag("Packages present in the system and known to dub:");
 		foreach (p; dub.packageManager.getPackageIterator()) {
 			if ((pname == "" || pname == p.name) && pvlim.matches(p.version_))
-				logInfo("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
+				logInfoNoTag("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
 		}
 		logInfo("");
 		return 0;
@@ -2151,11 +2159,14 @@ class SearchCommand : Command {
 			.map!(m => m.name.length + m.version_.length)
 			.reduce!max + " ()".length;
 		justify += (~justify & 3) + 1; // round to next multiple of 4
+		int colorDifference = cast(int)"a".color(Mode.bold).length - 1;
+		justify += colorDifference;
 		foreach (desc, matches; res)
 		{
 			logInfoNoTag("==== %s ====", desc);
 			foreach (m; matches)
-				logInfoNoTag("  %s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
+				logInfoNoTag("  %s%s", leftJustify(m.name.color(Mode.bold)
+					~ " (" ~ m.version_ ~ ")", justify), m.description);
 		}
 		return 0;
 	}
@@ -2256,10 +2267,10 @@ class ListOverridesCommand : Command {
 		void printList(in PackageOverride[] overrides, string caption)
 		{
 			if (overrides.length == 0) return;
-			logInfo("# %s", caption);
+			logInfoNoTag("# %s", caption);
 			foreach (ovr; overrides)
 				ovr.target.match!(
-					t => logInfo("%s %s => %s", ovr.name, ovr.version_, t));
+					t => logInfoNoTag("%s %s => %s", ovr.name, ovr.version_, t));
 		}
 		printList(dub.packageManager.getOverrides(PlacementLocation.user), "User wide overrides");
 		printList(dub.packageManager.getOverrides(PlacementLocation.system), "System wide overrides");
@@ -2370,11 +2381,11 @@ class DustmiteCommand : PackageBuildCommand {
 			gensettings.runCallback = check(m_programStatusCode, m_programRegex);
 			try dub.generateProject("build", gensettings);
 			catch (DustmiteMismatchException) {
-				logInfo("Dustmite test doesn't match.");
+				logInfoNoTag("Dustmite test doesn't match.");
 				return 3;
 			}
 			catch (DustmiteMatchException) {
-				logInfo("Dustmite test matches.");
+				logInfoNoTag("Dustmite test matches.");
 				return 0;
 			}
 		} else {
@@ -2439,7 +2450,7 @@ class DustmiteCommand : PackageBuildCommand {
 				if (pack.name in visited) continue;
 				visited[pack.name] = true;
 				auto dst_path = path ~ pack.name[];
-				logInfo("Copy package '%s' to destination folder...", pack.name);
+				logInfo("Prepare", Color.light_blue, "Copy package %s to destination folder...", pack.name);
 				copyFolderRec(pack.path, dst_path);
 
 				// adjust all path based dependencies
@@ -2449,7 +2460,7 @@ class DustmiteCommand : PackageBuildCommand {
 				pack.storeInfo(dst_path);
 			}
 
-			logInfo("Executing dustmite...");
+			logInfo("Starting", Color.light_green, "Executing dustmite...");
 			auto testcmd = appender!string();
 			testcmd.formattedWrite("%s dustmite --test-package=%s --build=%s --config=%s",
 				thisExePath, prj.packageName, this.baseSettings.buildType, this.baseSettings.config);
