@@ -355,6 +355,18 @@ class PackageManager {
 
 	/** Searches for the latest version of a package matching the given dependency.
 	*/
+	Package getBestPackage(string name, VersionRange range = VersionRange.Any)
+	{
+		return this.getBestPackage(name, Dependency(range));
+	}
+
+	/// Ditto
+	Package getBestPackage(string name, Version vers)
+	{
+		return this.getBestPackage(name, VersionRange(vers, vers));
+	}
+
+	/// Ditto
 	Package getBestPackage(string name, Dependency version_spec, bool enable_overrides = true)
 	{
 		Package ret;

@@ -660,7 +660,7 @@ class Dub {
 
 		auto tool = "dscanner";
 
-		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
+		auto tool_pack = m_packageManager.getBestPackage(tool);
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
 			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it user wide", tool);
@@ -1155,7 +1155,7 @@ class Dub {
 	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
 	{
 		string packageName = type;
-		auto template_pack = m_packageManager.getBestPackage(packageName, ">=0.0.0");
+		auto template_pack = m_packageManager.getBestPackage(packageName);
 		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
 		if (!template_pack) {
 			logInfo("%s is not present, getting and storing it user wide", packageName);
