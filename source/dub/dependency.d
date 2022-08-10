@@ -26,7 +26,10 @@ import std.sumtype;
 struct PackageName {
     const enum separator = ":"; ///< Separates sub-package names.
 
-	private string _value;
+    /** Prefix with `_` to indicate that `PackageName.opSlice` is the preferred
+     * way to access the underlying string. */
+	string _value;
+    alias _value this;
 
 	@disable this(PackageName name) @safe pure nothrow @nogc; // TODO: maybe remove when adding of `PackageName` has been merged
 
@@ -123,6 +126,22 @@ struct PackageName {
             return +1;
         return 0;
     }
+}
+
+/// Test construction from string, opSlice and length.
+@safe unittest {
+    const name_ = "dub";
+    const name = PackageName(name_);
+    assert(name[] == name_);
+    assert(name.length == name_.length);
+}
+
+/// Test implicit conversion to string.
+@safe unittest {
+    const name = PackageName("dub");
+    string name_ = name;
+    const cname = PackageName("dub");
+    string cname_ = cname;
 }
 
 /** Encapsulates the name of a package along with its dependency specification.
