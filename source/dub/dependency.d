@@ -76,7 +76,7 @@ struct PackageName {
         }
 	}
 
-	typeof(this) opAssign(string value) scope @safe pure nothrow @nogc { // needed if/once `alias _value this;` is removed
+	typeof(this) opAssign(string value) return scope @safe pure nothrow @nogc { // needed if/once `alias _value this;` is removed
         this._value = value;
         return this;
     }
