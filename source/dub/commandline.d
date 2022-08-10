@@ -1116,8 +1116,8 @@ abstract class PackageBuildCommand : Command {
 
 		enforce(package_name.length, "No valid root package found - aborting.");
 
-		auto pack = dub.packageManager.getBestPackage(
-            package_name, ver.length ? Dependency(ver) : Dependency.any);
+		const vers = ver.length ? VersionRange.fromString(ver) : VersionRange.Any;
+		auto pack = dub.packageManager.getBestPackage(package_name, vers);
 
 		enforce(pack, format!"Failed to find a package named '%s%s' locally."(package_name,
 			ver == "" ? "" : ("@" ~ ver)

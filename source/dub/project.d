@@ -521,7 +521,7 @@ shared static this() {
 							return resolveSubPackage(tmp, subname, true);
 						},
 						(VersionRange range) {
-							return m_packageManager.getBestPackage(dep.name, vspec);
+							return m_packageManager.getBestPackage(dep.name, range);
 						},
 					);
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
