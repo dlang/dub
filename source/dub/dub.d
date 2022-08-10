@@ -800,7 +800,7 @@ class Dub {
 			if (existing && existing.version_ != Version(ver))
 				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
 					name, existing.version_, ver,
-					text("dub upgrade ", name).color(Mode.bold));
+					text("dub upgrade ", name));
 			return null;
 		}
 
