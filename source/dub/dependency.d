@@ -30,7 +30,6 @@ struct PackageName {
 
 	@disable this(PackageName name) @safe pure nothrow @nogc; // TODO: maybe remove when adding of `PackageName` has been merged
 
-    version(none)
 	this(scope const(char)[] value) @safe pure nothrow {
         this(value.idup);
     }
