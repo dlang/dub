@@ -31,8 +31,6 @@ struct PackageName {
 	string _value;
     alias _value this;
 
-	@disable this(PackageName name) @safe pure nothrow @nogc; // TODO: maybe remove when adding of `PackageName` has been merged
-
 	this(scope const(char)[] value) @safe pure nothrow {
         this(value.idup);
     }
