@@ -142,6 +142,13 @@ struct PackageName {
     string cname_ = cname;
 }
 
+/// Test assignment from string.
+@safe unittest {
+    const name_ = "dub";
+    auto name = PackageName(name_);
+    name = name_;
+}
+
 /** Encapsulates the name of a package along with its dependency specification.
 */
 struct PackageDependency {
