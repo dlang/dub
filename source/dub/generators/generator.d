@@ -599,9 +599,7 @@ class ProjectGenerator
 		}
 
 		// apply both top level and configuration level forced dependency build settings
-		foreach (configured_dbs; [
-			cast(const(BuildSettingsTemplate[string])) rootPackage.recipe.buildSettings.dependencyBuildSettings,
-			rootPackage.getBuildSettings(genSettings.config).dependencyBuildSettings])
+		void applyDependencyBuildSettings (const BuildSettingsTemplate[string] configured_dbs)
 		{
 			BuildSettings[string] dependencyBuildSettings;
 			foreach (key, value; configured_dbs)
@@ -617,6 +615,8 @@ class ProjectGenerator
 			}
 			applyForcedSettings(*roottarget, targets, dependencyBuildSettings);
 		}
+		applyDependencyBuildSettings(rootPackage.recipe.buildSettings.dependencyBuildSettings);
+		applyDependencyBuildSettings(rootPackage.getBuildSettings(genSettings.config).dependencyBuildSettings);
 
 		// remove targets without output
 		foreach (name; targets.keys)
