@@ -113,6 +113,12 @@ public struct Name
     public bool startsWith;
 }
 
+/// Short hand syntax
+public Name StartsWith(string name) @safe pure nothrow @nogc
+{
+    return Name(name, true);
+}
+
 /*******************************************************************************
 
     A field which carries informations about whether it was set or not
