@@ -942,7 +942,8 @@ private struct DurationMapping
 /// Evaluates to `true` if we should recurse into the struct via `parseMapping`
 private enum mightBeOptional (alias FR) = is(FR.Type == struct) &&
     !is(immutable(FR.Type) == immutable(core.time.Duration)) &&
-    !hasConverter!(FR.Ref) && !hasFromString!(FR.Type) && !hasStringCtor!(FR.Type);
+    !hasConverter!(FR.Ref) && !hasFromString!(FR.Type) &&
+    !hasStringCtor!(FR.Type) && !hasFromYAML!(FR.Type);
 
 /// Convenience template to check for the presence of converter(s)
 private enum hasConverter (alias Field) = hasUDA!(Field, Converter);
