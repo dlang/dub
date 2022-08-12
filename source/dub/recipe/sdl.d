@@ -207,10 +207,7 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	bs.dependencies[pkg] = dep;
 
 	BuildSettingsTemplate dbs;
-	parseBuildSettings(t, dbs, package_name);
-	// Don't create unneeded entries
-	if (dbs !is BuildSettingsTemplate.init)
-		bs.dependencyBuildSettings[pkg] = dbs;
+	parseBuildSettings(t, bs.dependencies[pkg].settings, package_name);
 }
 
 private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package_name)
@@ -271,8 +268,8 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 		);
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
 		auto t = new Tag(null, "dependency", [Value(pack)], attribs);
-		if (pack in bs.dependencyBuildSettings)
-			t.add(bs.dependencyBuildSettings[pack].toSDL());
+		if (d.settings !is typeof(d.settings).init)
+			t.add(d.settings.toSDL());
 		ret ~= t;
 	}
 	if (bs.systemDependencies !is null) add("systemDependencies", bs.systemDependencies);
@@ -553,7 +550,7 @@ lflags "lf3"
 	assert(rec.buildSettings.dependencies.length == 2);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].optional == false);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].path == NativePath("."));
-	assert(rec.buildSettings.dependencyBuildSettings["projectname:subpackage1"].dflags == ["":["-g", "-debug"]]);
+	assert(rec.buildSettings.dependencies["projectname:subpackage1"].settings.dflags == ["":["-g", "-debug"]]);
 	assert(rec.buildSettings.dependencies["somedep"].version_.toString() == "1.0.0");
 	assert(rec.buildSettings.dependencies["somedep"].optional == true);
 	assert(rec.buildSettings.dependencies["somedep"].path.empty);
