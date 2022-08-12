@@ -9,6 +9,8 @@ module dub.compilers.buildsettings;
 
 import dub.internal.vibecompat.inet.path;
 
+import configy.Attributes;
+
 import std.array : array;
 import std.algorithm : filter, any;
 import std.path : globMatch;
@@ -410,6 +412,50 @@ struct Flags (T) {
 	}
 
 	alias values this;
+
+	/**
+	 * Reads a list of flags from a JSON/YAML document and converts them
+	 * to our internal representation.
+	 *
+	 * Flags inside of dub code are stored as a `BitFlags`,
+	 * but they are specified in the recipe using an array of their name.
+	 * This routine handles the conversion from `string[]` to `BitFlags!T`.
+	 */
+	public static Flags!T fromYAML (scope ConfigParser!(Flags!T) p)
+	{
+		import dyaml.node;
+		import std.exception;
+		import std.conv;
+
+		enforce(p.node.nodeID == NodeID.sequence, "Should be a sequence");
+		typeof(return) res;
+		foreach (str; p.node.sequence)
+			res |= str.as!string.to!T;
+		return res;
+	}
+}
+
+unittest
+{
+	import configy.Read;
+
+	static struct Config
+	{
+		Flags!BuildRequirement flags;
+	}
+
+	auto c = parseConfigString!Config(`
+{
+	"flags": [ "allowWarnings", "noDefaultFlags", "disallowInlining" ]
+}
+`, __FILE__);
+	assert(c.flags.allowWarnings);
+	c.flags.allowWarnings = false;
+	assert(c.flags.noDefaultFlags);
+	c.flags.noDefaultFlags = false;
+	assert(c.flags.disallowInlining);
+	c.flags.disallowInlining = false;
+	assert(c.flags == c.flags.init);
 }
 
 /**
