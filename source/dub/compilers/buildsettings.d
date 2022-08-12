@@ -83,7 +83,7 @@ struct BuildSettings {
 	}
 
 	/**
-	 * Merges $(LREF bs) onto `this` BuildSettings instance. This is called for 
+	 * Merges $(LREF bs) onto `this` BuildSettings instance. This is called for
 	 * sourceLibrary dependencies when they are included in the build to be
 	 * merged into the root package build settings as well as configuring
 	 * targets for different build types such as release or unittest-cov.
