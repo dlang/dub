@@ -242,12 +242,57 @@ struct ConfigurationInfo {
 	}
 }
 
+/**
+ * A dependency with possible `BuildSettingsTemplate`
+ *
+ * Currently only `dflags` is taken into account, but the parser accepts any
+ * value that is in `BuildSettingsTemplate`.
+ * This feature was originally introduced to support `-preview`, as setting
+ * a `-preview` in `dflags` does not propagate down to dependencies.
+ */
+public struct RecipeDependency
+{
+	/// The dependency itself
+	public Dependency dependency;
+
+	/// Additional dflags, if any
+	public BuildSettingsTemplate settings;
+
+	/// Convenience alias as most uses just want to deal with the `Dependency`
+	public alias dependency this;
+}
+
+/// Type used to avoid a breaking change when `Dependency[string]`
+/// was changed to `RecipeDependency[string]`
+private struct RecipeDependencyAA
+{
+	/// The underlying data, `public` as `alias this` to `private` field doesn't
+	/// always work.
+	public RecipeDependency[string] data;
+
+	/// Expose base function, e.g. `clear`
+	alias data this;
+
+	/// Supports assignment from a `RecipeDependency` (used in the parser)
+	public void opIndexAssign(RecipeDependency dep, string key)
+		pure nothrow
+	{
+		this.data[key] = dep;
+	}
+
+	/// Supports assignment from a `Dependency`, used in user code mostly
+	public void opIndexAssign(Dependency dep, string key)
+		pure nothrow
+	{
+		this.data[key] = RecipeDependency(dep);
+	}
+}
+
 /// This keeps general information about how to build a package.
 /// It contains functions to create a specific BuildSetting, targeted at
 /// a certain BuildPlatform.
 struct BuildSettingsTemplate {
-	Dependency[string] dependencies;
-	BuildSettingsTemplate[string] dependencyBuildSettings;
+	RecipeDependencyAA dependencies;
 	string systemDependencies;
 	TargetType targetType = TargetType.autodetect;
 	string targetPath;

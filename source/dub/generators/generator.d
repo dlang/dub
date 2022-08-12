@@ -599,7 +599,7 @@ class ProjectGenerator
 		}
 
 		// apply both top level and configuration level forced dependency build settings
-		void applyDependencyBuildSettings (const BuildSettingsTemplate[string] configured_dbs)
+		void applyDependencyBuildSettings (const RecipeDependency[string] configured_dbs)
 		{
 			BuildSettings[string] dependencyBuildSettings;
 			foreach (key, value; configured_dbs)
@@ -608,15 +608,15 @@ class ProjectGenerator
 				if (auto target = key in targets)
 				{
 					// get platform specific build settings and process dub variables (BuildSettingsTemplate => BuildSettings)
-					value.getPlatformSettings(buildSettings, genSettings.platform, target.pack.path);
+					value.settings.getPlatformSettings(buildSettings, genSettings.platform, target.pack.path);
 					buildSettings.processVars(m_project, target.pack, buildSettings, genSettings, true);
 					dependencyBuildSettings[key] = buildSettings;
 				}
 			}
 			applyForcedSettings(*roottarget, targets, dependencyBuildSettings);
 		}
-		applyDependencyBuildSettings(rootPackage.recipe.buildSettings.dependencyBuildSettings);
-		applyDependencyBuildSettings(rootPackage.getBuildSettings(genSettings.config).dependencyBuildSettings);
+		applyDependencyBuildSettings(rootPackage.recipe.buildSettings.dependencies);
+		applyDependencyBuildSettings(rootPackage.getBuildSettings(genSettings.config).dependencies);
 
 		// remove targets without output
 		foreach (name; targets.keys)

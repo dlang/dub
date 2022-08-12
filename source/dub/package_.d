@@ -556,12 +556,17 @@ class Package {
 	const(Dependency[string]) getDependencies(string config)
 	const {
 		Dependency[string] ret;
-		foreach (k, v; m_info.buildSettings.dependencies)
-			ret[k] = v;
+		foreach (k, v; m_info.buildSettings.dependencies) {
+			// DMD bug: Not giving `Dependency` here leads to RangeError
+			Dependency dep = v;
+			ret[k] = dep;
+		}
 		foreach (ref conf; m_info.configurations)
 			if (conf.name == config) {
-				foreach (k, v; conf.buildSettings.dependencies)
-					ret[k] = v;
+				foreach (k, v; conf.buildSettings.dependencies) {
+					Dependency dep = v;
+					ret[k] = dep;
+				}
 				break;
 			}
 		return ret;
