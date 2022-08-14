@@ -390,10 +390,11 @@ enum BuildOption {
 	betterC = 1<<23,              /// Compile in betterC mode (-betterC)
 	lowmem = 1<<24,               /// Compile in lowmem mode (-lowmem)
 	coverageCTFE = 1<<25,         /// Enable code coverage analysis including at compile-time (-cov=ctfe)
+	color = 1<<26,                /// Colorize output (-color)
 
 	// for internal usage
-	_docs = 1<<26,                // Write ddoc to docs
-	_ddox = 1<<27,                // Compile docs.json
+	_docs = 1<<27,                // Write ddoc to docs
+	_ddox = 1<<28,                // Compile docs.json
 }
 
 struct Flags (T) {

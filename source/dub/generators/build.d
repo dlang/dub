@@ -390,7 +390,7 @@ class BuildGenerator : ProjectGenerator {
 			buildsettings.importPaths,
 			settings.platform.architecture,
 			[
-				(cast(uint)buildsettings.options).to!string,
+				(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
 				settings.platform.compilerBinary,
 				settings.platform.compiler,
 				settings.platform.compilerVersion,
