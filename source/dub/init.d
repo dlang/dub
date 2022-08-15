@@ -193,6 +193,7 @@ docs/
 %1$s.lib
 %1$s-test-*
 *.exe
+*.pdb
 *.o
 *.obj
 *.lst
