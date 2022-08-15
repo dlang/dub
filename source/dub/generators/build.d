@@ -34,15 +34,14 @@ string getObjSuffix(const scope ref BuildPlatform platform)
 
 string computeBuildName(string config, in GeneratorSettings settings, const string[][] hashing...)
 {
-	import std.digest;
-	import std.digest.md;
+	import std.digest.sha : SHA256, toHexString;
 
-	MD5 hash;
+	SHA256 hash;
 	hash.start();
 	void addHash(in string[] strings...) { foreach (s; strings) { hash.put(cast(ubyte[])s); hash.put(0); } hash.put(0); }
 	foreach(strings; hashing)
 		addHash(strings);
-	auto hashstr = hash.finish().toHexString().idup;
+	const hashstr = hash.finish().toHexString();
 
     return format("%s-%s-%s-%s-%s_v%s-%s", config, settings.buildType,
 			settings.platform.platform.join("."),
