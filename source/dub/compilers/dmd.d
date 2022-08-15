@@ -411,7 +411,7 @@ config    /etc/dmd.conf
 	static bool isLinkerDFlag(string arg)
 	{
 		switch (arg) {
-			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib", "-m32mscoff", "-betterC":
+			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib", "-m32omf", "-m32mscoff", "-betterC":
 				return true;
 			default:
 				return arg.startsWith("-L")
