@@ -810,7 +810,7 @@ class PackageManager {
 	}
 
 	alias Hash = ubyte[];
-	/// Generates a hash value for a given package.
+	/// Generates a hash digest for a given package.
 	/// Some files or folders are ignored during the generation (like .dub and
 	/// .svn folders)
 	Hash hashPackage(Package pack)
@@ -818,25 +818,25 @@ class PackageManager {
 		string[] ignored_directories = [".git", ".dub", ".svn"];
 		// something from .dub_ignore or what?
 		string[] ignored_files = [];
-		SHA1 sha1;
+		SHA256 hash;
 		foreach(file; dirEntries(pack.path.toNativeString(), SpanMode.depth)) {
 			if(file.isDir && ignored_directories.canFind(NativePath(file.name).head.name))
 				continue;
 			else if(ignored_files.canFind(NativePath(file.name).head.name))
 				continue;
 
-			sha1.put(cast(ubyte[])NativePath(file.name).head.name);
+			hash.put(cast(ubyte[])NativePath(file.name).head.name);
 			if(file.isDir) {
 				logDebug("Hashed directory name %s", NativePath(file.name).head);
 			}
 			else {
-				sha1.put(openFile(NativePath(file.name)).readAll());
+				hash.put(openFile(NativePath(file.name)).readAll());
 				logDebug("Hashed file contents from %s", NativePath(file.name).head);
 			}
 		}
-		auto hash = sha1.finish();
-		logDebug("Project hash: %s", hash);
-		return hash[].dup;
+		auto digest = hash.finish();
+		logDebug("Project hash: %s", digest);
+		return digest[].dup;
 	}
 
 	/// Adds the package and scans for subpackages.
