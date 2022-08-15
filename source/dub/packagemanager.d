@@ -820,13 +820,14 @@ class PackageManager {
 		string[] ignored_files = [];
 		SHA256 hash;
 		foreach(file; dirEntries(pack.path.toNativeString(), SpanMode.depth)) {
-			if(file.isDir && ignored_directories.canFind(NativePath(file.name).head.name))
+			const isDir = file.isDir;
+			if(isDir && ignored_directories.canFind(NativePath(file.name).head.name))
 				continue;
 			else if(ignored_files.canFind(NativePath(file.name).head.name))
 				continue;
 
 			hash.put(cast(ubyte[])NativePath(file.name).head.name);
-			if(file.isDir) {
+			if(isDir) {
 				logDebug("Hashed directory name %s", NativePath(file.name).head);
 			}
 			else {
