@@ -374,8 +374,9 @@ public class ConstructionException : ConfigException
         scope SinkType sink, in FormatSpec!char spec)
         const scope @trusted
     {
-        // Here we break the type system too, calling a `@system` function,
-        // but since it takes no parameter, why would it not be `@safe` ?
-        sink(this.next.message());
+        if (auto dyn = cast(ConfigException) this.next)
+            dyn.toString(sink, spec);
+        else
+            sink(this.next.message);
     }
 }

@@ -1,6 +1,7 @@
 source/app.d
 source/configy/Attributes.d
 source/configy/Exceptions.d
+source/configy/FieldRef.d
 source/configy/Read.d
 source/configy/Utils.d
 source/dub/commandline.d

@@ -661,3 +661,34 @@ ifaces:
     assert(c.ifaces.length == 2);
     assert(c.ifaces == [ Interface("eth0", "192.168.1.42"), Interface("lo", "127.0.0.42")]);
 }
+
+// Nested ConstructionException
+unittest
+{
+    static struct WillFail
+    {
+        string name;
+        this (string value) @safe pure
+        {
+            throw new Exception("Parsing failed!");
+        }
+    }
+
+    static struct Container
+    {
+        WillFail[] array;
+    }
+
+    static struct Config
+    {
+        Container data;
+    }
+
+    try auto c = parseConfigString!Config(`data:
+  array:
+    - Not
+    - Working
+`, "/dev/null");
+    catch (Exception exc)
+        assert(exc.toString() == `/dev/null(2:6): data.array[0]: Parsing failed!`);
+}
