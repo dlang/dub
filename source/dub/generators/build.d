@@ -77,8 +77,9 @@ class BuildGenerator : ProjectGenerator {
 			checkPkgRequirements(pkg);
 
 		auto root_ti = targets[m_project.rootPackage.name];
+		const rootTT = root_ti.buildSettings.targetType;
 
-		enforce(!(settings.rdmd && root_ti.buildSettings.targetType == TargetType.none),
+		enforce(!(settings.rdmd && rootTT == TargetType.none),
 				"Building package with target type \"none\" with rdmd is not supported yet.");
 
 		logInfo("Starting", Color.light_green,
@@ -89,6 +90,7 @@ class BuildGenerator : ProjectGenerator {
 		bool any_cached = false;
 
 		NativePath[string] target_paths;
+		NativePath[] dependencyBinariesToCopy; // to the root package output dir
 
 		bool[string] visited;
 		void buildTargetRec(string target)
@@ -101,12 +103,12 @@ class BuildGenerator : ProjectGenerator {
 			foreach (dep; ti.dependencies)
 				buildTargetRec(dep);
 
-			NativePath[] additional_dep_files, dependencyBinariesToCopy;
+			NativePath[] additional_dep_files;
 			auto bs = ti.buildSettings.dup;
-			const dependeeTT = bs.targetType;
+			const tt = bs.targetType;
 			foreach (ldep; ti.linkDependencies) {
 				const ldepPath = target_paths[ldep].toNativeString();
-				const doLink = dependeeTT != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly);
+				const doLink = tt != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly);
 
 				if (doLink && isLinkerFile(settings.platform, ldepPath))
 					bs.addSourceFiles(ldepPath);
@@ -114,12 +116,12 @@ class BuildGenerator : ProjectGenerator {
 					additional_dep_files ~= target_paths[ldep];
 
 				if (targets[ldep].buildSettings.targetType == TargetType.dynamicLibrary) {
-					// copy the .{dll,so,dylib} if the dependee is an executable or dynamic lib
-					if (dependeeTT == TargetType.executable || dependeeTT == TargetType.dynamicLibrary)
+					// copy the .{dll,so,dylib} if the root package is an executable or dynamic lib
+					if (rootTT == TargetType.executable || rootTT == TargetType.dynamicLibrary)
 						dependencyBinariesToCopy ~= NativePath(ldepPath);
 
 					if (settings.platform.isWindows()) {
-						if (dependeeTT == TargetType.executable || dependeeTT == TargetType.dynamicLibrary) {
+						if (rootTT == TargetType.executable || rootTT == TargetType.dynamicLibrary) {
 							// copy the accompanying .pdb if found
 							const pdb = ldepPath.setExtension(".pdb");
 							if (existsFile(pdb))
@@ -131,27 +133,29 @@ class BuildGenerator : ProjectGenerator {
 							// link dependee against the import lib
 							if (doLink)
 								bs.addSourceFiles(importLib);
-							// and copy if the dependee is a DLL too
-							if (dependeeTT == TargetType.dynamicLibrary)
+							// and copy if the root package is a DLL too
+							if (rootTT == TargetType.dynamicLibrary)
 								dependencyBinariesToCopy ~= NativePath(importLib);
 						}
 
-						// copy the .exp file if the dependee is a DLL (just like the import lib)
+						// copy the .exp file if the root package is a DLL (just like the import lib)
 						const exp = ldepPath.setExtension(".exp");
-						if (dependeeTT == TargetType.dynamicLibrary && existsFile(exp))
+						if (rootTT == TargetType.dynamicLibrary && existsFile(exp))
 							dependencyBinariesToCopy ~= NativePath(exp);
 					}
 				}
 			}
 			NativePath tpath;
-			if (dependeeTT != TargetType.none)
-				if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, dependencyBinariesToCopy, tpath))
+			if (tt != TargetType.none) {
+				const dbtc = target == m_project.rootPackage.name ? dependencyBinariesToCopy : null;
+				if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, dbtc, tpath))
 					any_cached = true;
+			}
 			target_paths[target] = tpath;
 		}
 
 		// build all targets
-		if (settings.rdmd || root_ti.buildSettings.targetType == TargetType.staticLibrary) {
+		if (settings.rdmd || rootTT == TargetType.staticLibrary) {
 			// RDMD always builds everything at once and static libraries don't need their
 			// dependencies to be built
 			NativePath tpath;
