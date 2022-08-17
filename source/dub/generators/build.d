@@ -409,23 +409,23 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.getTargetFileName(buildsettings, settings.platform)
 		];
 
-		// Windows: add .pdb, .lib and .exp if found
-		const tt = buildsettings.targetType;
-		if ((tt == TargetType.executable || tt == TargetType.dynamicLibrary) &&
-		    settings.platform.isWindows())
-		{
-			import std.path : setExtension;
-			const pdbFilename = filenames[0].setExtension(".pdb");
-			if (existsFile(build_path ~ pdbFilename))
-				filenames ~= pdbFilename;
+		// Windows: add .pdb (for executables and DLLs) and/or import .lib & .exp (for DLLs) if found
+		if (settings.platform.isWindows()) {
+			void addIfFound(string extension) {
+				import std.path : setExtension;
+				const candidate = filenames[0].setExtension(extension);
+				if (existsFile(build_path ~ candidate))
+					filenames ~= candidate;
+			}
 
-			const importLibraryLocation = filenames[0].setExtension(".lib");
-			if (existsFile(build_path ~ importLibraryLocation))
-				filenames ~= importLibraryLocation;
+			const tt = buildsettings.targetType;
+			if (tt == TargetType.executable || tt == TargetType.dynamicLibrary)
+				addIfFound(".pdb");
 
-			const exportFilesLocation = filenames[0].setExtension(".exp");
-			if (existsFile(build_path ~ exportFilesLocation))
-				filenames ~= exportFilesLocation;
+			if (tt == TargetType.dynamicLibrary) {
+				addIfFound(".lib");
+				addIfFound(".exp");
+			}
 		}
 
 		foreach (filename; filenames)
