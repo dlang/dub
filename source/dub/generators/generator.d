@@ -381,9 +381,9 @@ class ProjectGenerator
 				// recurse
 				collectDependencies(deppack, *depti, targets, level + 1);
 
-				// also recursively add all link dependencies of static libraries
+				// also recursively add all link dependencies of static *and* dynamic libraries
 				// preserve topological sorting of dependencies for correct link order
-				if (depbs.targetType == TargetType.staticLibrary)
+				if (depbs.targetType == TargetType.staticLibrary || depbs.targetType == TargetType.dynamicLibrary)
 					ti.linkDependencies = ti.linkDependencies.filter!(d => !depti.linkDependencies.canFind(d)).array ~ depti.linkDependencies;
 			}
 
@@ -735,8 +735,8 @@ class ProjectGenerator
 		parent.addImportPaths(child.importPaths);
 		parent.addStringImportPaths(child.stringImportPaths);
 		parent.addInjectSourceFiles(child.injectSourceFiles);
-		// linking of static libraries is done by parent
-		if (child.targetType == TargetType.staticLibrary) {
+		// linker stuff propagates up from static *and* dynamic library deps
+		if (child.targetType == TargetType.staticLibrary || child.targetType == TargetType.dynamicLibrary) {
 			parent.addSourceFiles(child.sourceFiles.filter!(f => isLinkerFile(platform, f)).array);
 			parent.addLibs(child.libs);
 			parent.addLFlags(child.lflags);
