@@ -118,6 +118,25 @@ unittest {
 
 
 /**
+	Adds a default DT_SONAME (ELF) / 'install name' (Mach-O) when linking a dynamic library.
+	This makes dependees reference their dynamic-lib deps by filename only (DT_NEEDED etc.)
+	instead of by the path used in the dependee linker cmdline, and enables loading the
+	deps from the dependee's output directory - either by setting the LD_LIBRARY_PATH
+	environment variable, or baking an rpath into the executable.
+*/
+package void addDynamicLibName(ref BuildSettings settings, in BuildPlatform platform, string fileName)
+{
+	if (!platform.isWindows()) {
+		// *pre*pend to allow the user to override it
+		if (platform.platform.canFind("darwin"))
+			settings.prependLFlags("-install_name", "@rpath/" ~ fileName);
+		else
+			settings.prependLFlags("-soname", fileName);
+	}
+}
+
+
+/**
 	Replaces each referenced import library by the appropriate linker flags.
 
 	This function tries to invoke "pkg-config" if possible and falls back to
