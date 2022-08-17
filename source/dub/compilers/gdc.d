@@ -182,6 +182,8 @@ class GDCCompiler : Compiler {
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
+		const targetFileName = getTargetFileName(settings, platform);
+
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
 			case TargetType.none: assert(false, "Invalid target type: none");
@@ -194,11 +196,12 @@ class GDCCompiler : Compiler {
 				break;
 			case TargetType.dynamicLibrary:
 				settings.addDFlags("-shared", "-fPIC");
+				addDynamicLibName(settings, platform, targetFileName);
 				break;
 		}
 
 		if (tpath is null)
-			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+			tpath = (NativePath(settings.targetPath) ~ targetFileName).toNativeString();
 		settings.addDFlags("-o", tpath);
 	}
 

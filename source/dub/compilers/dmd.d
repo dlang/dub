@@ -330,6 +330,8 @@ config    /etc/dmd.conf
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
+		const targetFileName = getTargetFileName(settings, platform);
+
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
 			case TargetType.none: assert(false, "Invalid target type: none");
@@ -344,6 +346,7 @@ config    /etc/dmd.conf
 					settings.addDFlags("-shared");
 				else
 					settings.prependDFlags("-shared", "-defaultlib=libphobos2.so");
+				addDynamicLibName(settings, platform, targetFileName);
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
@@ -351,7 +354,7 @@ config    /etc/dmd.conf
 		}
 
 		if (tpath is null)
-			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+			tpath = (NativePath(settings.targetPath) ~ targetFileName).toNativeString();
 		settings.addDFlags("-of"~tpath);
 	}
 

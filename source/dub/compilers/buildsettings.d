@@ -131,6 +131,7 @@ struct BuildSettings {
 	void prependDFlags(in string[] value...) { prepend(dflags, value); }
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { lflags ~= value; }
+	void prependLFlags(in string[] value...) { prepend(lflags, value, false); }
 	void addLibs(in string[] value...) { add(libs, value); }
 	void addLinkerFiles(in string[] value...) { add(linkerFiles, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
