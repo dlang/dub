@@ -74,50 +74,6 @@ unittest {
 
 
 /**
-	Determines if a specific file name has the extension related to dynamic libraries.
-
-	This includes dynamic libraries and for Windows pdb, export and import library files.
-*/
-bool isDynamicLibraryFile(const scope ref BuildPlatform platform, string f)
-{
-	import std.path;
-	switch (extension(f)) {
-		default:
-			return false;
-		case ".lib", ".pdb", ".dll", ".exp":
-			return platform.isWindows();
-		case ".so", ".dylib":
-			return !platform.isWindows();
-	}
-}
-
-unittest {
-	BuildPlatform p;
-
-	p.platform = ["windows"];
-	assert(!isDynamicLibraryFile(p, "test.obj"));
-	assert(isDynamicLibraryFile(p, "test.lib"));
-	assert(isDynamicLibraryFile(p, "test.dll"));
-	assert(isDynamicLibraryFile(p, "test.pdb"));
-	assert(!isDynamicLibraryFile(p, "test.res"));
-	assert(!isDynamicLibraryFile(p, "test.o"));
-	assert(!isDynamicLibraryFile(p, "test.d"));
-	assert(!isDynamicLibraryFile(p, "test.dylib"));
-
-	p.platform = ["something else"];
-	assert(!isDynamicLibraryFile(p, "test.o"));
-	assert(!isDynamicLibraryFile(p, "test.a"));
-	assert(isDynamicLibraryFile(p, "test.so"));
-	assert(isDynamicLibraryFile(p, "test.dylib"));
-	assert(!isDynamicLibraryFile(p, "test.obj"));
-	assert(!isDynamicLibraryFile(p, "test.d"));
-	assert(!isDynamicLibraryFile(p, "test.lib"));
-	assert(!isDynamicLibraryFile(p, "test.dll"));
-	assert(!isDynamicLibraryFile(p, "test.pdb"));
-}
-
-
-/**
 	Adds a default DT_SONAME (ELF) / 'install name' (Mach-O) when linking a dynamic library.
 	This makes dependees reference their dynamic-lib deps by filename only (DT_NEEDED etc.)
 	instead of by the path used in the dependee linker cmdline, and enables loading the

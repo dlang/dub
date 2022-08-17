@@ -103,41 +103,48 @@ class BuildGenerator : ProjectGenerator {
 
 			NativePath[] additional_dep_files, dependencyBinariesToCopy;
 			auto bs = ti.buildSettings.dup;
+			const dependeeTT = bs.targetType;
 			foreach (ldep; ti.linkDependencies) {
-				auto location = target_paths[ldep].toNativeString();
+				const ldepPath = target_paths[ldep].toNativeString();
+				const doLink = dependeeTT != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly);
 
-				if (bs.targetType != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly) && isLinkerFile(settings.platform, location)) {
-					bs.addSourceFiles(location);
-				} else if (settings.platform.isWindows() && location.endsWith(".dll")) {
-					// switch from linking against the dll to against the import library,
-					// and copy any dependent build artifacts if found too
+				if (doLink && isLinkerFile(settings.platform, ldepPath))
+					bs.addSourceFiles(ldepPath);
+				else
+					additional_dep_files ~= target_paths[ldep];
 
-					const pdbFilename = location.setExtension(".pdb");
-					if (existsFile(pdbFilename))
-						dependencyBinariesToCopy ~= NativePath(pdbFilename);
+				if (targets[ldep].buildSettings.targetType == TargetType.dynamicLibrary) {
+					// copy the .{dll,so,dylib} if the dependee is an executable or dynamic lib
+					if (dependeeTT == TargetType.executable || dependeeTT == TargetType.dynamicLibrary)
+						dependencyBinariesToCopy ~= NativePath(ldepPath);
 
-					const importLibraryLocation = location.setExtension(".lib");
-					if (existsFile(importLibraryLocation)) {
-						bs.addSourceFiles(importLibraryLocation);
-						dependencyBinariesToCopy ~= NativePath(importLibraryLocation);
+					if (settings.platform.isWindows()) {
+						if (dependeeTT == TargetType.executable || dependeeTT == TargetType.dynamicLibrary) {
+							// copy the accompanying .pdb if found
+							const pdb = ldepPath.setExtension(".pdb");
+							if (existsFile(pdb))
+								dependencyBinariesToCopy ~= NativePath(pdb);
+						}
+
+						const importLib = ldepPath.setExtension(".lib");
+						if (existsFile(importLib)) {
+							// link dependee against the import lib
+							if (doLink)
+								bs.addSourceFiles(importLib);
+							// and copy if the dependee is a DLL too
+							if (dependeeTT == TargetType.dynamicLibrary)
+								dependencyBinariesToCopy ~= NativePath(importLib);
+						}
+
+						// copy the .exp file if the dependee is a DLL (just like the import lib)
+						const exp = ldepPath.setExtension(".exp");
+						if (dependeeTT == TargetType.dynamicLibrary && existsFile(exp))
+							dependencyBinariesToCopy ~= NativePath(exp);
 					}
-
-					const exportFilesLocation = location.setExtension(".exp");
-					if (existsFile(exportFilesLocation))
-						dependencyBinariesToCopy ~= NativePath(exportFilesLocation);
-
-					additional_dep_files ~= target_paths[ldep];
-				} else {
-					additional_dep_files ~= target_paths[ldep];
-				}
-
-				// copy any dynamic library dependencies to our target directory
-				if (isDynamicLibraryFile(settings.platform, location)) {
-					dependencyBinariesToCopy ~= target_paths[ldep];
 				}
 			}
 			NativePath tpath;
-			if (bs.targetType != TargetType.none)
+			if (dependeeTT != TargetType.none)
 				if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, dependencyBinariesToCopy, tpath))
 					any_cached = true;
 			target_paths[target] = tpath;
