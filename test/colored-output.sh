@@ -4,14 +4,14 @@
 
 cd ${CURR_DIR}/1-exec-simple
 
-# Test --colors=off disabling colors correctly
-${DUB} build --colors=off --compiler=${DC} 2>&1 | { ! \grep $'^\x1b\[' -c; }
+# Test that --color=off disables colors correctly
+${DUB} build --color=off --compiler=${DC} 2>&1 | { ! \grep $'^\x1b\[' -c; }
 
-# Test --colors=automatic detecting no TTY
-${DUB} build --colors=automatic --compiler=${DC} 2>&1 | { ! \grep $'^\x1b\[' -c; }
+# Test that --color=automatic detects no TTY correctly
+${DUB} build --color=automatic --compiler=${DC} 2>&1 | { ! \grep $'^\x1b\[' -c; }
 
-# Test no --colors= option defaulting to automatic
+# Test that no --color= has same behaviour as --color=automatic
 ${DUB} build --compiler=${DC} 2>&1 | { ! \grep $'^\x1b\[' -c; }
 
-# Test --colors=on enabling colors in any case
-${DUB} build --colors=on --compiler=${DC} 2>&1 | \grep $'^\x1b\[' -c
+# Test that --color=on enables colors in any case
+${DUB} build --color=on --compiler=${DC} 2>&1 | \grep $'^\x1b\[' -c
