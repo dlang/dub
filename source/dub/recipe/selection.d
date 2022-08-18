@@ -44,8 +44,6 @@ private struct SelectedDependency
 /// a `Dependency` object to client code.
 private struct YAMLSelectedDependency
 {
-    private SelectedDependency representation;
-
     public Dependency actual;
     alias actual this;
 
@@ -70,7 +68,7 @@ private struct YAMLSelectedDependency
         if (p.node.nodeID == NodeID.scalar)
             return YAMLSelectedDependency(Dependency(Version(p.node.as!string)));
 
-        auto d = p.parseField!"representation";
+        auto d = p.parseAs!SelectedDependency;
         if (d.path.length)
             return YAMLSelectedDependency(Dependency(NativePath(d.path)));
         else

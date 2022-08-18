@@ -292,8 +292,8 @@ public auto converter (FT) (FT func)
 public interface ConfigParser (T)
 {
     import dyaml.node;
-    import configy.FieldRef : FieldRef;
-    import configy.Read : Context, parseFieldImpl = parseField;
+    import configy.FieldRef : StructFieldRef;
+    import configy.Read : Context, parseField;
 
     /// Returns: the node being processed
     public inout(Node) node () inout @safe pure nothrow @nogc;
@@ -302,14 +302,12 @@ public interface ConfigParser (T)
     public string path () const @safe pure nothrow @nogc;
 
     ///
-    public final auto parseField (string FieldName) ()
+    public final auto parseAs (OtherType)
+        (auto ref OtherType defaultValue = OtherType.init)
     {
-        static assert(__traits(hasMember, T, FieldName),
-            "`" ~ FieldName ~ "` is not a field of type `" ~
-            fullyQualifiedName!T ~ "`");
-
-        alias FR = FieldRef!(T, FieldName);
-        return parseFieldImpl!(FR)(this.node(), this.path(), FR.Default, this.context());
+        alias TypeFieldRef = StructFieldRef!OtherType;
+        return this.node().parseField!(TypeFieldRef)(
+            this.path(), defaultValue, this.context());
     }
 
     /// Internal use only

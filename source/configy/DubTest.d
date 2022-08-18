@@ -51,9 +51,9 @@ unittest
         public static Package fromYAML (scope ConfigParser!Package parser)
         {
             if (parser.node.nodeID == NodeID.mapping)
-                return Package(null, parser.parseField!"def");
+                return Package(null, parser.parseAs!PackageDef);
             else
-                return Package(parser.parseField!"path");
+                return Package(parser.parseAs!string);
         }
     }
 
