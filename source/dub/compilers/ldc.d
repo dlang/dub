@@ -150,8 +150,19 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 			settings.lflags = null;
 		}
 
-		if (settings.options & BuildOption.pic)
-			settings.addDFlags("-relocation-model=pic");
+		if (settings.options & BuildOption.pic) {
+			if (platform.isWindows()) {
+				/* This has nothing to do with PIC, but as the PIC option is exclusively
+				 * set internally for code that ends up in a dynamic library, explicitly
+				 * specify what `-shared` defaults to (`-shared` can't be used when
+				 * compiling only, without linking).
+				 * *Pre*pending the flags enables the user to override them.
+				 */
+				settings.prependDFlags("-fvisibility=public", "-dllimport=all");
+			} else {
+				settings.addDFlags("-relocation-model=pic");
+			}
+		}
 
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
