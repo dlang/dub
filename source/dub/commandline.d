@@ -965,7 +965,8 @@ class InitCommand : Command {
 		{
 			free_args ~= m_templateType;
 		}
-		dub.createEmptyPackage(NativePath(dir), free_args, m_templateType, m_format, &depCallback, app_args);
+		auto pkg = splitPackageName(m_templateType);
+		dub.createEmptyPackage(NativePath(dir), free_args, pkg.name, pkg.version_, m_format, &depCallback, app_args);
 
 		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;

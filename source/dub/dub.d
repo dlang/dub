@@ -1113,7 +1113,7 @@ class Dub {
 			recipe_callback = Optional callback that can be used to
 				customize the recipe before it gets written.
 	*/
-	void createEmptyPackage(NativePath path, string[] deps, string type,
+	void createEmptyPackage(NativePath path, string[] deps, string type, string typeVersion,
 		PackageFormat format = PackageFormat.sdl,
 		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null,
 		string[] app_args = [])
@@ -1145,18 +1145,19 @@ class Dub {
 		initPackage(path, depVers, type, format, recipe_callback);
 
 		if (!["vibe.d", "deimos", "minimal"].canFind(type)) {
-			runCustomInitialization(path, type, app_args);
+			runCustomInitialization(path, type, typeVersion, app_args);
 		}
 
 		//Act smug to the user.
 		logInfo("Success", Color.green, "created empty project in %s", path.toNativeString().color(Mode.bold));
 	}
 
-	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
+	private void runCustomInitialization(NativePath path, string type, string typeVersion, string[] runArgs)
 	{
 		string packageName = type;
 		auto template_pack = m_packageManager.getBestPackage(packageName);
-		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
+		if (!template_pack)
+			template_pack = m_packageManager.getBestPackage(packageName, (typeVersion is null? "~master": typeVersion));
 		if (!template_pack) {
 			logInfo("%s is not present, getting and storing it user wide", packageName);
 			template_pack = fetch(packageName, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
