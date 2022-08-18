@@ -961,11 +961,14 @@ class InitCommand : Command {
 			}
 		}
 		auto pkg = splitPackageName(m_templateType);
+		string[string]depVers;
+		if(pkg.version_ !is null)
+			depVers[pkg.name] = pkg.version_;
 		if (!["vibe.d", "deimos", "minimal"].canFind(m_templateType))
 		{
 			free_args ~= pkg.name;
 		}
-		dub.createEmptyPackage(NativePath(dir), free_args, [pkg.name: pkg.version_], pkg.name, pkg.version_, m_format, &depCallback, app_args);
+		dub.createEmptyPackage(NativePath(dir), free_args, depVers, pkg.name, pkg.version_, m_format, &depCallback, app_args);
 
 		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;

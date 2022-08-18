@@ -1161,7 +1161,7 @@ class Dub {
 			versionRange = VersionRange.fromString(typeVersion);
 		template_pack = m_packageManager.getBestPackage(packageName, versionRange);
 		if (!template_pack) {
-			logInfo("%s is not present, getting and storing it user wide", packageName);
+			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it user wide", type);
 			template_pack = fetch(packageName, versionRange, defaultPlacementLocation, FetchOptions.none);
 		}
 
@@ -1229,7 +1229,7 @@ class Dub {
 		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
-			logInfo("%s is not present, getting and storing it user wide", tool);
+			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it user wide", tool);
 			tool_pack = fetch(tool, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
 		}
 
