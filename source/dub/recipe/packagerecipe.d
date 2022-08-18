@@ -15,6 +15,8 @@ import dub.internal.logging;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
 
+import configy.Attributes;
+
 import std.algorithm : findSplit, sort;
 import std.array : join, split;
 import std.exception : enforce;
@@ -73,22 +75,91 @@ string getSubPackageName(string package_name) @safe pure
 	For higher level package handling, see the $(D Package) class.
 */
 struct PackageRecipe {
+	/**
+	 * Name of the package, used to uniquely identify the package.
+	 *
+	 * This field is the only mandatory one.
+	 * Must be comprised of only lower case ASCII alpha-numeric characters,
+	 * "-" or "_".
+	 */
 	string name;
-	string version_;
-	string description;
-	string homepage;
-	string[] authors;
-	string copyright;
-	string license;
-	string[] ddoxFilterArgs;
-	string ddoxTool;
-	BuildSettingsTemplate buildSettings;
-	ConfigurationInfo[] configurations;
-	BuildSettingsTemplate[string] buildTypes;
 
-	ToolchainRequirements toolchainRequirements;
+	/// Brief description of the package.
+	@Optional string description;
 
-	SubPackage[] subPackages;
+	/// URL of the project website
+	@Optional string homepage;
+
+	/**
+	 * List of project authors
+	 *
+	 * the suggested format is either:
+	 * "Peter Parker"
+	 * or
+	 * "Peter Parker <pparker@example.com>"
+	 */
+	@Optional string[] authors;
+
+	/// Copyright declaration string
+	@Optional string copyright;
+
+	/// License(s) under which the project can be used
+	@Optional string license;
+
+	/// Set of version requirements for DUB, compilers and/or language frontend.
+	@Optional ToolchainRequirements toolchainRequirements;
+
+	/**
+	 * Speficies an optional list of build configurations
+	 *
+	 * By default, the first configuration present in the package recipe
+	 * will be used, except for special configurations (e.g. "unittest").
+	 * A specific configuration can be chosen from the command line using
+	 * `--config=name` or `-c name`. A package can select a specific
+	 * configuration in one of its dependency by using the `subConfigurations`
+	 * build setting.
+	 * Build settings defined at the top level affect all configurations.
+	 */
+	@Optional @Key("name") ConfigurationInfo[] configurations;
+
+	/**
+	 * Defines additional custom build types or overrides the default ones
+	 *
+	 * Build types can be selected from the command line using `--build=name`
+	 * or `-b name`. The default build type is `debug`.
+	 */
+	@Optional BuildSettingsTemplate[string] buildTypes;
+
+	/**
+	 * Build settings influence the command line arguments and options passed
+	 * to the compiler and linker.
+	 *
+	 * All build settings can be present at the top level, and are optional.
+	 * Build settings can also be found in `configurations`.
+	 */
+	@Optional BuildSettingsTemplate buildSettings;
+
+	/**
+	 * Specifies a list of command line flags usable for controlling
+	 * filter behavior for `--build=ddox` [experimental]
+	 */
+	@Optional @Name("-ddoxFilterArgs") string[] ddoxFilterArgs;
+
+	/// Specify which tool to use with `--build=ddox` (experimental)
+	@Optional @Name("-ddoxTool") string ddoxTool;
+
+	/**
+	 * Sub-packages path or definitions
+	 *
+	 * Sub-packages allow to break component of a large framework into smaller
+	 * packages. In the recipe file, subpackages entry can take one of two forms:
+	 * either the path to a sub-folder where a recipe file exists,
+	 * or an object of the same format as a recipe file (or `PackageRecipe`).
+	 */
+	@Optional SubPackage[] subPackages;
+
+	/// Usually unused by users, this is set by dub automatically
+	@Optional @Name("version") string version_;
 
 	inout(ConfigurationInfo) getConfiguration(string name)
 	inout {
