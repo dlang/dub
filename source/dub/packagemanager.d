@@ -738,6 +738,38 @@ class PackageManager {
 		this.m_repositories[type].writeLocalPackageList();
 	}
 
+	bool tryReadPackage(DirEntry dent,
+						out NativePath rootDir, out NativePath recipeFile)
+	{
+		import std.path : baseName;
+		if (!dent.isDir)
+			return false;
+		const path = NativePath(dent.name);
+		// New (since 2015) managed structure:
+		// $ROOT/$NAME-$VERSION/$NAME
+		// This is the most common code path
+		if (isManagedPath(path)) { // TODO: remove?
+			foreach (DirEntry subdent; dirEntries(path.toNativeString(), SpanMode.shallow))
+			{
+				logDebug("iterating dir %s entry %s sub-entry %s", path.toNativeString(), dent.name, subdent.name);
+				if (!subdent.isDir) continue;
+				if (dent.name.baseName.startsWith(subdent.name.baseName)) {
+					rootDir = NativePath(subdent.name ~ "/");
+					recipeFile = Package.findPackageFile(rootDir);
+					return true;
+				}
+			}
+		}
+		// Old / flat directory structure, used in non-standard path
+		// Packages are stored in $ROOT/$NAME-$VERSION/`
+		if (recipeFile.empty) {
+			recipeFile = Package.findPackageFile(rootDir);
+			rootDir = NativePath(dent.name ~ "/");
+			return true;
+		}
+		return false;
+	}
+
 	void refresh(bool refresh_existing_packages)
 	{
 		logDiagnostic("Refreshing local packages (refresh existing: %s)...", refresh_existing_packages);
@@ -754,52 +786,49 @@ class PackageManager {
 		// rescan the system and user package folder
 		void scanPackageFolder(NativePath path)
 		{
-			if( path.existsDirectory() ){
-				logDebug("iterating dir %s", path.toNativeString());
-				try foreach( pdir; iterateDirectory(path) ){
-					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
-					if (!pdir.isDirectory) continue;
+			import std.stdio;
+			logDebug("iterating dir %s", path.toNativeString());
+			try
+				foreach (DirEntry dent; dirEntries(path.toNativeString(), SpanMode.shallow)) {
+					logDebug("iterating dir %s entry %s", path.toNativeString(), dent.name);
 
-					// Old / flat directory structure, used in non-standard path
-					// Packages are stored in $ROOT/$SOMETHING/`
-					auto pack_path = path ~ (pdir.name ~ "/");
-					auto packageFile = Package.findPackageFile(pack_path);
-
-					// New (since 2015) managed structure:
-					// $ROOT/$NAME-$VERSION/$NAME
-					// This is the most common code path
-					if (isManagedPath(path) && packageFile.empty) {
-						foreach (subdir; iterateDirectory(path ~ (pdir.name ~ "/")))
-							if (subdir.isDirectory && pdir.name.startsWith(subdir.name)) {
-								pack_path ~= subdir.name ~ "/";
-								packageFile = Package.findPackageFile(pack_path);
-								break;
-							}
+					string name, version_;
+					if (true) {
+						if (decodePackageRootPath(dent.name, name, version_)) {
+							debug writeln("name-version: ", name, " - ", version_);
+						} else {
+							debug writeln("read sub-directory to determine version part of: ", dent.name);
+						}
 					}
 
-					if (packageFile.empty) continue;
+					NativePath rootDir;
+					NativePath recipeFile;
+					if (!tryReadPackage(dent, rootDir, recipeFile))
+						continue;
+
 					Package p;
 					try {
 						if (!refresh_existing_packages)
 							foreach (pp; old_packages)
-								if (pp.path == pack_path) {
+								if (pp.path == rootDir) {
 									p = pp;
 									break;
 								}
-						if (!p) p = Package.load(pack_path, packageFile);
+						if (!p) p = Package.load(rootDir, recipeFile);
 						addPackages(m_packages, p);
 					} catch( Exception e ){
-						logError("Failed to load package in %s: %s", pack_path, e.msg);
+						logError("Failed to load package in %s: %s", rootDir, e.msg);
 						logDiagnostic("Full error: %s", e.toString().sanitize());
 					}
 				}
-				catch(Exception e) logDiagnostic("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
-			}
+			catch(Exception e)
+				logDiagnostic("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
 		}
 
 		m_packages = null;
 		foreach (p; this.completeSearchPath)
-			scanPackageFolder(p);
+			if (p.existsDirectory())
+				scanPackageFolder(p);
 
 		if (!m_disableDefaultSearchPaths)
 		{
@@ -874,6 +903,41 @@ class PackageManager {
 			}
 		}
 	}
+}
+
+// TODO: move to lazy Package lookup:
+static bool decodePackageRootPath(const scope string rootPath,
+								  out string name,
+								  out string version_)
+{
+	import std.path : baseName;
+	const dirName = rootPath.baseName;
+	foreach (const gitBranchSuffix; ["-main", "-master"])
+	{
+		if (dirName.endsWith(gitBranchSuffix))
+		{
+			name = dirName[0 .. $ - gitBranchSuffix.length];
+			version_ = gitBranchSuffix[1 .. $];
+			return true;
+		}
+	}
+
+	import std.ascii : isDigit;
+	size_t hi = size_t.max;
+	foreach (const i, const ch; dirName) {
+		if (ch.isDigit) {
+			hi = i;
+			break;
+		}
+	}
+	if (hi != size_t.max)
+	{
+		name = dirName[0 .. hi - 1];
+		version_ = dirName[hi .. $];
+		return true;
+	}
+
+	return false;
 }
 
 struct PackageOverride {

@@ -149,13 +149,16 @@ class Package {
 			Returns the full path to the package file, if any was found.
 			Otherwise returns an empty path.
 	*/
-	static NativePath findPackageFile(NativePath directory)
+	static NativePath findPackageFile(scope const NativePath directory)
 	{
-		foreach (file; packageInfoFiles) {
-			auto filename = directory ~ file.filename;
-			if (existsFile(filename)) return filename;
+		import std.path : baseName;
+		foreach (const DirEntry dent; dirEntries(directory.toNativeString(), SpanMode.shallow)) {
+			foreach (const FilenameAndFormat faf; packageInfoFiles) {
+				if (dent.name.baseName == faf.filename)
+					return typeof(return)(dent.name);
+			}
 		}
-		return NativePath.init;
+		return typeof(return).init;
 	}
 
 	/** Constructs a `Package` using a package that is physically present on the local file system.
