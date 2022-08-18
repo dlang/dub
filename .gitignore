@@ -18,23 +18,6 @@ __dummy.html
 /bin/dub-*
 
 # Ignore files or directories created by the test suite.
-/test/test.log
-/test/custom-source-main-bug487/custom-source-main-bug487
-/test/3-copyFiles/bin/
-/test/ignore-hidden-1/ignore-hidden-1
-/test/ignore-hidden-2/ignore-hidden-2
-/test/expected-import-path-output
-/test/expected-string-import-path-output
-/test/expected-describe-data-1-list-output
-/test/expected-describe-data-2-dmd-output
-/test/expected-issue616-output
-/test/describe-project/dummy.dat
-/test/describe-project/dummy-dep1.dat
-/test/*/main/main
-/test/*/*test-library
-/test/*/*test-application
-/test/*/exec-simple
-/test/issue1474/ext/fortytwo.d
 *.exe
 *.log
 
@@ -48,3 +31,11 @@ scripts/man/dub*.1.gz
 # Ignore generated files for examples
 /examples/generated-sources/generated-sources
 /examples/generated-sources/source/test.d
+
+dub_test_root.sh.*/
+
+test-cov-ctfe-test.lst
+test-unittest-cov-ctfe-source-mod.lst
+test-unittest-cov-ctfe-.dub-code-test-test-library-unittest-cov-ctfe-*-dub_test_root.lst
+
+example.yaml
