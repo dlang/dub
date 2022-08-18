@@ -208,7 +208,7 @@ class BuildGenerator : ProjectGenerator {
 		if (!cached && buildsettings.postBuildCommands.length) {
 			logInfo("Post-build", Color.light_green, "Running commands");
 			runBuildCommands(CommandType.postBuild, buildsettings.postBuildCommands, pack, m_project, settings, buildsettings,
-							 [["DUB_BUILD_PATH" : target_path.parentPath.toNativeString.absolutePath]]);
+							 [["DUB_BUILD_PATH" : target_path is NativePath.init ? "" : target_path.parentPath.toNativeString.absolutePath]]);
 		}
 
 		return cached;
