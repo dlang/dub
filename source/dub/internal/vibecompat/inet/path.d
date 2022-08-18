@@ -36,7 +36,7 @@ struct NativePath {
 	alias bySegment = nodes;
 
 	/// Constructs a NativePath object by parsing a path string.
-	this(string pathstr)
+	this(string pathstr) pure
 	{
 		m_nodes = splitPath(pathstr);
 		m_absolute = (pathstr.startsWith("/") || m_nodes.length > 0 && (m_nodes[0].toString().countUntil(':')>0 || m_nodes[0] == "\\"));
@@ -44,14 +44,14 @@ struct NativePath {
 	}
 
 	/// Constructs a path object from a list of PathEntry objects.
-	this(immutable(PathEntry)[] nodes, bool absolute)
+	this(immutable(PathEntry)[] nodes, bool absolute) pure nothrow
 	{
 		m_nodes = nodes;
 		m_absolute = absolute;
 	}
 
 	/// Constructs a relative path with one path entry.
-	this(PathEntry entry){
+	this(PathEntry entry) { pure nothrow
 		m_nodes = [entry];
 		m_absolute = false;
 	}
@@ -60,7 +60,7 @@ struct NativePath {
 	@property bool absolute() const scope @safe pure nothrow @nogc { return m_absolute; }
 
 	/// Resolves all '.' and '..' path entries as far as possible.
-	void normalize()
+	void normalize() pure
 	{
 		immutable(PathEntry)[] newnodes;
 		foreach( n; m_nodes ){
@@ -81,7 +81,7 @@ struct NativePath {
 
 	/// Converts the Path back to a string representation using slashes.
 	string toString()
-	const @safe {
+	const pure nothrow @safe {
 		if( m_nodes.empty ) return absolute ? "/" : "";
 
 		Appender!string ret;
@@ -114,7 +114,7 @@ struct NativePath {
 
 	/// Converts the NativePath object to a native path string (backslash as path separator on Windows).
 	string toNativeString()
-	const {
+	const pure nothrow {
 		if (m_nodes.empty) {
 			version(Windows) {
 				assert(!absolute, "Empty absolute path detected.");
@@ -143,7 +143,7 @@ struct NativePath {
 	}
 
 	/// Tests if `rhs` is an anchestor or the same as this path.
-	bool startsWith(const NativePath rhs) const {
+	bool startsWith(const NativePath rhs) const pure nothrow @nogc {
 		if( rhs.m_nodes.length > m_nodes.length ) return false;
 		foreach( i; 0 .. rhs.m_nodes.length )
 			if( m_nodes[i] != rhs.m_nodes[i] )
@@ -152,7 +152,7 @@ struct NativePath {
 	}
 
 	/// Computes the relative path from `parentPath` to this path.
-	NativePath relativeTo(const NativePath parentPath) const {
+	NativePath relativeTo(const NativePath parentPath) const /* TODO: pure */ {
 		assert(this.absolute && parentPath.absolute, "Determining relative path between non-absolute paths.");
 		version(Windows){
 			// a path such as ..\C:\windows is not valid, so force the path to stay absolute in this case
@@ -178,13 +178,13 @@ struct NativePath {
 	}
 
 	/// The last entry of the path
-	@property ref immutable(PathEntry) head() const { enforce(m_nodes.length > 0, "Getting head of empty path."); return m_nodes[$-1]; }
+	@property ref immutable(PathEntry) head() const pure { enforce(m_nodes.length > 0, "Getting head of empty path."); return m_nodes[$-1]; }
 
 	/// The parent path
 	@property NativePath parentPath() const { return this[0 .. length-1]; }
 
 	/// The ist of path entries of which this path is composed
-	@property immutable(PathEntry)[] nodes() const { return m_nodes; }
+	@property immutable(PathEntry)[] nodes() const pure nothrow { return m_nodes; }
 
 	/// The number of path entries of which this path is composed
 	@property size_t length() const scope @safe pure nothrow @nogc { return m_nodes.length; }
@@ -193,20 +193,20 @@ struct NativePath {
 	@property bool empty() const scope @safe pure nothrow @nogc { return m_nodes.length == 0; }
 
 	/// Determines if the path ends with a slash (i.e. is a directory)
-	@property bool endsWithSlash() const { return m_endsWithSlash; }
+	@property bool endsWithSlash() const pure nothrow @nogc { return m_endsWithSlash; }
 	/// ditto
 	@property void endsWithSlash(bool v) { m_endsWithSlash = v; }
 
 	/// Determines if this path goes outside of its base path (i.e. begins with '..').
-	@property bool external() const { return !m_absolute && m_nodes.length > 0 && m_nodes[0].m_name == ".."; }
+	@property bool external() const pure nothrow @nogc { return !m_absolute && m_nodes.length > 0 && m_nodes[0].m_name == ".."; }
 
 	ref immutable(PathEntry) opIndex(size_t idx) const { return m_nodes[idx]; }
-	NativePath opSlice(size_t start, size_t end) const {
+	NativePath opSlice(size_t start, size_t end) const pure nothrow {
 		auto ret = NativePath(m_nodes[start .. end], start == 0 ? absolute : false);
 		if( end == m_nodes.length ) ret.m_endsWithSlash = m_endsWithSlash;
 		return ret;
 	}
-	size_t opDollar(int dim)() const if(dim == 0) { return m_nodes.length; }
+	size_t opDollar(int dim)() const pure nothrow @nogc if(dim == 0) { return m_nodes.length; }
 
 
 	NativePath opBinary(string OP)(const NativePath rhs) const if( OP == "~" ) {
@@ -239,7 +239,7 @@ struct NativePath {
 	void opOpAssign(string OP)(NativePath rhs) if( OP == "~" ) { auto p = this ~ rhs; m_nodes = p.m_nodes; m_endsWithSlash = rhs.m_endsWithSlash; }
 
 	/// Tests two paths for equality using '=='.
-	bool opEquals(scope ref const NativePath rhs) const scope @safe {
+	bool opEquals(scope ref const NativePath rhs) const scope @safe pure nothrow @nogc {
 		if( m_absolute != rhs.m_absolute ) return false;
 		if( m_endsWithSlash != rhs.m_endsWithSlash ) return false;
 		if( m_nodes.length != rhs.length ) return false;
@@ -249,9 +249,9 @@ struct NativePath {
 		return true;
 	}
 	/// ditto
-	bool opEquals(scope const NativePath other) const scope @safe { return opEquals(other); }
+	bool opEquals(scope const NativePath other) const scope @safe pure nothrow @nogc { return opEquals(other); }
 
-	int opCmp(ref const NativePath rhs) const {
+	int opCmp(ref const NativePath rhs) const scope @safe pure nothrow @nogc {
 		if( m_absolute != rhs.m_absolute ) return cast(int)m_absolute - cast(int)rhs.m_absolute;
 		foreach( i; 0 .. min(m_nodes.length, rhs.m_nodes.length) )
 			if( m_nodes[i] != rhs.m_nodes[i] )
@@ -261,8 +261,7 @@ struct NativePath {
 		return 0;
 	}
 
-	size_t toHash()
-	const nothrow @trusted {
+	size_t toHash() const scope @trusted nothrow {
 		size_t ret;
 		auto strhash = &typeid(string).getHash;
 		try foreach (n; nodes) ret ^= strhash(&n.m_name);
