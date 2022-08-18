@@ -167,7 +167,7 @@ struct CommandLineHandler
 			options.root_path = options.root_path.expandTilde.absolutePath.buildNormalizedPath;
 		}
 
-		final switch (options.colors_mode) with (options.colors)
+		final switch (options.color_mode) with (options.color)
 		{
 			case automatic:
 				// Use default determined in internal.logging.initLogging().
@@ -562,8 +562,8 @@ struct CommonOptions {
 	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
-	enum colors { automatic, on, off } // Style violation in support of invalid option error formatting.
-	colors colors_mode = colors.automatic;
+	enum color { automatic, on, off } // Lower case "color" in support of invalid option error formatting.
+	color color_mode = color.automatic;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
 	PlacementLocation placementLocation = PlacementLocation.user;
 
@@ -591,7 +591,7 @@ struct CommonOptions {
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
-		args.getopt("colors", &colors_mode, [
+		args.getopt("color", &color_mode, [
 			"Configure colored output. Accepted values:",
 			"  automatic: Colored output on console/terminal,",
 			"             unless NO_COLOR is set and non-empty (default)",
