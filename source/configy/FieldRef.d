@@ -119,7 +119,7 @@ unittest
 }
 
 /// A pseudo `FieldRef` used for structs which are not fields (top-level)
-package template StructFieldRef (ST)
+package template StructFieldRef (ST, string DefaultName = null)
 {
     ///
     public enum Ref = ST.init;
@@ -132,6 +132,11 @@ package template StructFieldRef (ST)
 
     ///
     public enum Optional = false;
+
+    /// Some places reference their parent's Name / FieldName
+    public enum Name = DefaultName;
+    /// Ditto
+    public enum FieldName = DefaultName;
 }
 
 /// A pseudo `FieldRef` for nested types (e.g. arrays / associative arrays)
