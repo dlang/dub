@@ -129,7 +129,6 @@ class Dub {
 		UserConfiguration m_config;
 		NativePath m_projectPath;
 		Project m_project;
-		NativePath m_overrideSearchPath;
 		string m_defaultCompiler;
 	}
 
@@ -189,7 +188,6 @@ class Dub {
 	this(NativePath override_path)
 	{
 		init(NativePath());
-		m_overrideSearchPath = override_path;
 		m_packageManager = new PackageManager(override_path);
 	}
 
@@ -473,9 +471,8 @@ class Dub {
 	void overrideSearchPath(NativePath path)
 	{
 		if (!path.absolute) path = NativePath(getcwd()) ~ path;
-		m_overrideSearchPath = path;
 		m_packageManager.disableDefaultSearchPaths = true;
-		m_packageManager.searchPath = [m_overrideSearchPath];
+		m_packageManager.searchPath = [path];
 	}
 
 	/** Gets the default configuration for a particular build platform.
