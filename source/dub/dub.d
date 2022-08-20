@@ -162,7 +162,7 @@ class Dub {
 
 		init(m_rootPath);
 
-		m_packageSuppliers = getPackageSuppliers(additional_package_suppliers, skip_registry);
+		m_packageSuppliers = this.computePkgSuppliers(additional_package_suppliers, skip_registry);
 		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings);
 
 		auto ccps = m_config.customCachePaths;
@@ -249,7 +249,16 @@ class Dub {
 			skip_registry = Can be used to skip using the configured package
 				suppliers, as well as the default suppliers.
 	*/
+	deprecated("This is an implementation detail. " ~
+		"Use `packageSuppliers` to get the computed list of package " ~
+		"suppliers once a `Dub` instance has been constructed.")
 	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers, SkipPackageSuppliers skip_registry)
+	{
+		return this.computePkgSuppliers(additional_package_suppliers, skip_registry);
+	}
+
+	/// Ditto
+	private PackageSupplier[] computePkgSuppliers(PackageSupplier[] additional_package_suppliers, SkipPackageSuppliers skip_registry)
 	{
 		PackageSupplier[] ps = additional_package_suppliers;
 
@@ -275,6 +284,9 @@ class Dub {
 	}
 
 	/// ditto
+	deprecated("This is an implementation detail. " ~
+		"Use `packageSuppliers` to get the computed list of package " ~
+		"suppliers once a `Dub` instance has been constructed.")
 	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers)
 	{
 		return getPackageSuppliers(additional_package_suppliers, m_config.skipRegistry);
@@ -285,17 +297,12 @@ class Dub {
 		scope (exit) environment.remove("DUB_REGISTRY");
 		auto dub = new Dub(".", null, SkipPackageSuppliers.none);
 
-		dub.m_config.skipRegistry = typeof(dub.m_config.skipRegistry)(SkipPackageSuppliers.none);
-		assert(dub.getPackageSuppliers(null).length == 1);
-
-		dub.m_config.skipRegistry = typeof(dub.m_config.skipRegistry)(SkipPackageSuppliers.configured);
-		assert(dub.getPackageSuppliers(null).length == 0);
-
-		dub.m_config.skipRegistry = typeof(dub.m_config.skipRegistry)(SkipPackageSuppliers.standard);
-		assert(dub.getPackageSuppliers(null).length == 0);
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.none).length == 1);
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.configured).length == 0);
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard).length == 0);
 
 		environment["DUB_REGISTRY"] = "http://example.com/";
-		assert(dub.getPackageSuppliers(null).length == 1);
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard).length == 1);
 	}
 
 	@property bool dryRun() const { return m_dryRun; }
