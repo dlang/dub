@@ -373,13 +373,13 @@ struct Dependency {
 		These methods are suitable for equality comparisons, as well as for
 		using `Dependency` as a key in hash or tree maps.
 	*/
-	bool opEquals(scope const Dependency o) const scope @safe {
+	bool opEquals(in Dependency o) const scope @safe {
 		return this.m_value == o.m_value
 			&& o.m_optional == m_optional && o.m_default == m_default;
 	}
 
 	/// ditto
-	int opCmp(scope const Dependency o) const @safe {
+	int opCmp(in Dependency o) const @safe {
 		alias ResultMatch = match!(
 			(VersionRange r1, VersionRange r2) => r1.opCmp(r2),
 			(_1, _2) => 0,
@@ -422,12 +422,7 @@ struct Dependency {
 		return matches(Version(vers), mode);
 	}
 	/// ditto
-	bool matches(const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const @safe
-	{
-		return matches(v, mode);
-	}
-	/// ditto
-	bool matches(ref const(Version) v, VersionMatchMode mode = VersionMatchMode.standard) const @safe {
+	bool matches(in  Version v, VersionMatchMode mode = VersionMatchMode.standard) const @safe {
 		return this.m_value.match!(
 			(NativePath i) => true,
 			(Repository i) => true,
@@ -796,7 +791,7 @@ struct Version {
 	*/
 	static Version fromString(string vers) @safe pure { return Version(vers); }
 
-	bool opEquals(scope const Version oth) const scope @safe pure
+	bool opEquals(in Version oth) const scope @safe pure
 	{
 		return opCmp(oth) == 0;
 	}
@@ -831,7 +826,7 @@ struct Version {
 
 	/** Tests two versions for equality, according to the selected match mode.
 	*/
-	bool matches(Version other, VersionMatchMode mode = VersionMatchMode.standard)
+	bool matches(in Version other, VersionMatchMode mode = VersionMatchMode.standard)
 	const scope @safe pure
 	{
 		if (mode == VersionMatchMode.strict)
@@ -846,7 +841,7 @@ struct Version {
 		compared using SemVer semantics, while branches are compared
 		lexicographically.
 	*/
-	int opCmp(scope ref const Version other) const scope @safe pure
+	int opCmp(in Version other) const scope @safe pure
 	{
 		if (isUnknown || other.isUnknown) {
 			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, other));
@@ -862,11 +857,6 @@ struct Version {
 		}
 
 		return compareVersions(m_version, other.m_version);
-	}
-	/// ditto
-	int opCmp(scope const Version other) const scope @safe pure
-	{
-		return this.opCmp(other);
 	}
 
 	/// Returns the string representation of the version/branch.
@@ -914,7 +904,7 @@ public struct VersionRange
 	public static immutable Invalid = VersionRange(Version.maxRelease, Version.minRelease);
 
 	///
-	public int opCmp (scope const VersionRange o) const scope @safe
+	public int opCmp (in VersionRange o) const scope @safe
 	{
 		if (m_inclusiveA != o.m_inclusiveA) return m_inclusiveA < o.m_inclusiveA ? -1 : 1;
 		if (m_inclusiveB != o.m_inclusiveB) return m_inclusiveB < o.m_inclusiveB ? -1 : 1;
@@ -923,7 +913,7 @@ public struct VersionRange
 		return 0;
 	}
 
-	public bool matches (ref const Version v, VersionMatchMode mode = VersionMatchMode.standard)
+	public bool matches (in Version v, VersionMatchMode mode = VersionMatchMode.standard)
 		const @safe
 	{
 		if (m_versA.isBranch) {
@@ -1093,7 +1083,7 @@ public struct VersionRange
 		return m_versA <= m_versB && doCmp(m_inclusiveA && m_inclusiveB, m_versA, m_versB);
 	}
 
-	private static bool doCmp(bool inclusive, ref const Version a, ref const Version b)
+	private static bool doCmp(bool inclusive, in Version a, in Version b)
 		@safe
 	{
 		return inclusive ? a <= b : a < b;
