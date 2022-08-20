@@ -180,6 +180,53 @@ class Dub {
 		}
 	}
 
+	/** Initializes the instance with a single package search path, without
+		loading a package.
+
+		This constructor corresponds to the "--bare" option of the command line
+		interface. Use
+	*/
+	this(NativePath override_path)
+	{
+		init(NativePath());
+		m_overrideSearchPath = override_path;
+		m_packageManager = new PackageManager(override_path);
+	}
+
+	private void init(NativePath root_path)
+	{
+		import configy.Read;
+
+		this.m_dirs = SpecialDirs.make();
+
+		void readSettingsFile (NativePath path_)
+		{
+			// TODO: Remove `StrictMode.Warn` after v1.40 release
+			// The default is to error, but as the previous parser wasn't
+			// complaining, we should first warn the user.
+			const path = path_.toNativeString();
+			if (path.exists) {
+				auto newConf = parseConfigFileSimple!UserConfiguration(path, StrictMode.Warn);
+				if (!newConf.isNull())
+					this.m_config = this.m_config.merge(newConf.get());
+			}
+		}
+
+		const dubFolderPath = NativePath(thisExePath).parentPath;
+
+		readSettingsFile(m_dirs.systemSettings ~ "settings.json");
+		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json");
+		version (Posix) {
+			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr")))
+				readSettingsFile(NativePath("/etc/dub/settings.json"));
+		}
+		readSettingsFile(m_dirs.userSettings ~ "settings.json");
+		if (!root_path.empty)
+			readSettingsFile(root_path ~ "dub.settings.json");
+
+		determineDefaultCompiler();
+	}
+
 	unittest
 	{
 		scope (exit) environment.remove("DUB_REGISTRY");
@@ -251,53 +298,6 @@ class Dub {
 
 		environment["DUB_REGISTRY"] = "http://example.com/";
 		assert(dub.getPackageSuppliers(null).length == 1);
-	}
-
-	/** Initializes the instance with a single package search path, without
-		loading a package.
-
-		This constructor corresponds to the "--bare" option of the command line
-		interface. Use
-	*/
-	this(NativePath override_path)
-	{
-		init(NativePath());
-		m_overrideSearchPath = override_path;
-		m_packageManager = new PackageManager(override_path);
-	}
-
-	private void init(NativePath root_path)
-	{
-		import configy.Read;
-
-		this.m_dirs = SpecialDirs.make();
-
-		void readSettingsFile (NativePath path_)
-		{
-			// TODO: Remove `StrictMode.Warn` after v1.40 release
-			// The default is to error, but as the previous parser wasn't
-			// complaining, we should first warn the user.
-			const path = path_.toNativeString();
-			if (path.exists) {
-				auto newConf = parseConfigFileSimple!UserConfiguration(path, StrictMode.Warn);
-				if (!newConf.isNull())
-					this.m_config = this.m_config.merge(newConf.get());
-			}
-		}
-
-		const dubFolderPath = NativePath(thisExePath).parentPath;
-
-		readSettingsFile(m_dirs.systemSettings ~ "settings.json");
-		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json");
-		version (Posix) {
-			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr")))
-				readSettingsFile(NativePath("/etc/dub/settings.json"));
-		}
-		readSettingsFile(m_dirs.userSettings ~ "settings.json");
-		if (!root_path.empty)
-			readSettingsFile(root_path ~ "dub.settings.json");
-
-		determineDefaultCompiler();
 	}
 
 	@property bool dryRun() const { return m_dryRun; }
