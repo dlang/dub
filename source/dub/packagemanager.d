@@ -18,13 +18,14 @@ import dub.recipe.io;
 import configy.Exceptions;
 public import configy.Read : StrictMode;
 
-import std.algorithm : countUntil, filter, sort, canFind, remove;
+import std.algorithm : countUntil, filter, map, sort, canFind, remove;
 import std.array;
 import std.conv;
 import std.digest.sha;
 import std.encoding : sanitize;
 import std.exception;
 import std.file;
+import std.range;
 import std.string;
 import std.sumtype;
 import std.zip;
@@ -744,10 +745,12 @@ class PackageManager {
 		enforce(to_remove.length > 0, "No "~type.to!string()~" package found at "~path.toNativeString());
 
 		string[Version] removed;
-		foreach_reverse( i; to_remove ) {
+		foreach (i; to_remove)
 			removed[(*packs)[i].version_] = (*packs)[i].name;
-			*packs = (*packs)[0 .. i] ~ (*packs)[i+1 .. $];
-		}
+
+		*packs = (*packs).enumerate
+			.filter!(en => !to_remove.canFind(en.index))
+			.map!(en => en.value).array;
 
 		this.m_repositories[type].writeLocalPackageList();
 
