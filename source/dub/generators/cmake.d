@@ -76,8 +76,8 @@ class CMakeGenerator: ProjectGenerator
             script.put("include(UseD)\n");
             script.put(
                 "add_d_conditions(VERSION %s DEBUG %s)\n".format(
-                    info.buildSettings.versions.dup.join(" "),
-                    info.buildSettings.debugVersions.dup.join(" "),
+                    info.buildSettings.versions.join(" "),
+                    info.buildSettings.debugVersions.join(" "),
                 )
             );
 
@@ -96,7 +96,7 @@ class CMakeGenerator: ProjectGenerator
                     "target_link_libraries(%s %s %s)\n".format(
                         name,
                         (info.dependencies ~ info.linkDependencies).dup.stdsort.uniq.map!(s => sanitize(s)).join(" "),
-                        info.buildSettings.libs.dup.join(" ")
+                        info.buildSettings.libs.join(" ")
                     )
                 );
                 script.put(
