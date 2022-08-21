@@ -46,6 +46,7 @@ class GDCCompiler : Compiler {
 		tuple(BuildOption.property, ["-fproperty"]),
 		//tuple(BuildOption.profileGC, ["-?"]),
 		tuple(BuildOption.betterC, ["-fno-druntime"]),
+		tuple(BuildOption.color, ["-fdiagnostics-color=always"]),
 
 		tuple(BuildOption._docs, ["-fdoc-dir=docs"]),
 		tuple(BuildOption._ddox, ["-Xfdocs.json", "-fdoc-file=__dummy.html"]),

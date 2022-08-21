@@ -173,9 +173,17 @@ struct CommandLineHandler
 				// Use default determined in internal.logging.initLogging().
 				break;
 			case on:
+				foreach (ref grp; commandGroups)
+					foreach (ref cmd; grp.commands)
+						if (auto pc = cast(PackageBuildCommand)cmd)
+							pc.baseSettings.buildSettings.options |= BuildOption.color;
 				setLoggingColorsEnabled(true);  // enable colors, no matter what
 				break;
 			case off:
+				foreach (ref grp; commandGroups)
+					foreach (ref cmd; grp.commands)
+						if (auto pc = cast(PackageBuildCommand)cmd)
+							pc.baseSettings.buildSettings.options &= ~BuildOption.color;
 				setLoggingColorsEnabled(false); // disable colors, no matter what
 				break;
 		}
