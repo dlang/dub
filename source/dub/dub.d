@@ -163,7 +163,7 @@ class Dub {
 
 		m_packageSuppliers = this.computePkgSuppliers(additional_package_suppliers,
 			skip_registry, environment.get("DUB_REGISTRY", null));
-		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings);
+		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings, false);
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
