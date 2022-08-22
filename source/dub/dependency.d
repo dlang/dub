@@ -374,8 +374,9 @@ struct Dependency {
 		using `Dependency` as a key in hash or tree maps.
 	*/
 	bool opEquals(in Dependency o) const scope @safe {
-		return this.m_value == o.m_value
-			&& o.m_optional == m_optional && o.m_default == m_default;
+		if (o.m_optional != this.m_optional) return false;
+		if (o.m_default  != this.m_default)  return false;
+		return this.m_value == o.m_value;
 	}
 
 	/// ditto
