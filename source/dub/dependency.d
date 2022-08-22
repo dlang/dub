@@ -914,7 +914,7 @@ public struct VersionRange
 	}
 
 	public bool matches (in Version v, VersionMatchMode mode = VersionMatchMode.standard)
-		const @safe
+		const scope @safe
 	{
 		if (m_versA.isBranch) {
 			enforce(this.isExactVersion());
