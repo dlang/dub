@@ -222,8 +222,7 @@ class Dub {
 
 		// override default userSettings + localRepository if a $DPATH or
 		// $DUB_HOME environment variable is set.
-		bool overrideUserSettings;
-		bool overrideLocalRepository;
+		bool overrideDubHomeFromEnv;
 		{
 			string dubHome = environment.get("DUB_HOME");
 			if (!dubHome.length) {
@@ -233,8 +232,7 @@ class Dub {
 
 			}
 			if (dubHome.length) {
-				overrideUserSettings = true;
-				overrideLocalRepository = true;
+				overrideDubHomeFromEnv = true;
 
 				m_dirs.userSettings = NativePath(dubHome);
 				m_dirs.localRepository = m_dirs.userSettings;
@@ -254,10 +252,8 @@ class Dub {
 		//
 		// Don't use it if either $DPATH or $DUB_HOME are set, as environment
 		// variables usually take precedence over configuration.
-		if (!overrideUserSettings && this.m_config.dubHome.set) {
+		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
 			m_dirs.userSettings = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
-
-			overrideUserSettings = true;
 		}
 
 		// load user config:
@@ -267,12 +263,10 @@ class Dub {
 		if (!root_path.empty)
 			readSettingsFile(root_path ~ "dub.settings.json");
 
-		// same as overrideUserSettings above, but taking into account the
+		// same as userSettings above, but taking into account the
 		// config loaded from user settings and per-package config as well.
-		if (!overrideLocalRepository && this.m_config.dubHome.set) {
+		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
 			m_dirs.localRepository = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
-
-			overrideLocalRepository = true;
 		}
 	}
 
@@ -1879,8 +1873,6 @@ private struct UserConfiguration {
 	SetInfo!(string[string]) defaultPreRunEnvironments;
 	SetInfo!(string[string]) defaultPostRunEnvironments;
 	SetInfo!(string) dubHome;
-	SetInfo!(string) userSettings;
-	SetInfo!(string) localRepository;
 
 	/// Merge a lower priority config (`this`) with a `higher` priority config
 	public UserConfiguration merge(UserConfiguration higher)

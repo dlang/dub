@@ -21,11 +21,6 @@ In the settings.json you can set the following fields:
 ```json
 {
     "dubHome": "/path/to/dub", // sets both package store and config location
-
-    // OR
-
-    "userSettings": "/path/to/dub/settings/folder",
-    "localRepository": "/path/to/dub/repository/folder"
 }
 ```
 
@@ -35,7 +30,5 @@ The following list describes which path is going to be picked, from top to botto
 
 - `$DUB_HOME` environment variable
 - `$DPATH` environment variable
-- system-wide settings.json: `"userSettings"` property
 - system-wide settings.json: `"dubHome"` property (only for userSettings)
-- through all settings.json: `"localRepository"` property
-- through all settings.json: `"dubHome"` property (only for localRepository)
+- most specific settings.json: `"dubHome"` property (only for localRepository)
