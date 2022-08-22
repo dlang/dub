@@ -779,7 +779,7 @@ class Dub {
 			}
 		}
 		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency " ~ range.toString());
-		string ver = pinfo["version"].get!string;
+		Version ver = Version(pinfo["version"].get!string);
 
 		NativePath placement;
 		final switch (location) {
@@ -791,7 +791,7 @@ class Dub {
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		Package existing = m_packageManager.getPackage(packageId, ver, placement);
 		if (options & FetchOptions.printOnly) {
-			if (existing && existing.version_ != Version(ver))
+			if (existing && existing.version_ != ver)
 				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
 					packageId.color(Mode.bold), existing.version_, ver,
 					text("dub upgrade ", packageId).color(Mode.bold));
@@ -799,7 +799,7 @@ class Dub {
 		}
 
 		if (existing) {
-			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
+			if (!ver.isBranch() || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
 				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
 					packageId, ver, placement);
@@ -816,7 +816,7 @@ class Dub {
 
 		logDebug("Acquiring package zip file");
 
-		NativePath dstpath = PackageManager.getPackagePath(placement, basePackageName, ver);
+		NativePath dstpath = PackageManager.getPackagePath(placement, basePackageName, ver.toString());
 		if (!dstpath.existsFile())
 			mkdirRecurse(dstpath.toNativeString());
 		// For libraries leaking their import path
