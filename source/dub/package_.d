@@ -729,13 +729,13 @@ class Package {
 			// check for default app_main
 			string app_main_file;
 			auto pkg_name = m_info.name.length ? m_info.name : "unknown";
-			foreach(sf; bs.sourcePaths.get("", null)){
+			MainFileSearch: foreach_reverse(sf; bs.sourcePaths.get("", null)){
 				auto p = m_path ~ sf;
 				if( !existsFile(p) ) continue;
 				foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
 					if( existsFile(p ~ fil) ) {
 						app_main_file = (NativePath(sf) ~ fil).toNativeString();
-						break;
+						break MainFileSearch;
 					}
 				}
 			}
