@@ -1518,6 +1518,25 @@ unittest
 	assert(expandVars!expandVar("$${DUB_EXE:-dub}") == "${DUB_EXE:-dub}");
 }
 
+/// Expands the variables in the input string with the same rules as command
+/// variables inside custom dub commands.
+///
+/// Params:
+///     s = the input string where environment variables in form `$VAR` should be replaced
+///     throwIfMissing = if true, throw an exception if the given variable is not found,
+///                      otherwise replace unknown variables with the empty string.
+string expandEnvironmentVariables(string s, bool throwIfMissing = true)
+{
+	import std.process : environment;
+
+	return expandVars!((v) {
+		auto ret = environment.get(v);
+		if (ret is null && throwIfMissing)
+			throw new Exception("Specified environment variable `$" ~ v ~ "` is not set");
+		return ret;
+	})(s);
+}
+
 // Keep the following list up-to-date if adding more build settings variables.
 /// List of variables that can be used in build settings
 package(dub) immutable buildSettingsVars = [
