@@ -194,6 +194,13 @@ class Dub {
 
 	private void init(NativePath root_path)
 	{
+		loadConfigAndSetDirs(root_path);
+
+		determineDefaultCompiler();
+	}
+
+	private void loadConfigAndSetDirs(NativePath root_path)
+	{
 		import configy.Read;
 
 		this.m_dirs = SpecialDirs.make();
@@ -213,17 +220,70 @@ class Dub {
 
 		const dubFolderPath = NativePath(thisExePath).parentPath;
 
+		// override default userSettings + localRepository if a $DPATH or
+		// $DUB_HOME environment variable is set.
+		bool overrideUserSettings;
+		bool overrideLocalRepository;
+		{
+			string dpathOverride = environment.get("DUB_HOME");
+			if (!dpathOverride.length) {
+				dpathOverride = environment.get("DPATH");
+				if (dpathOverride.length)
+					dpathOverride = (NativePath(dpathOverride) ~ "dub/").toNativeString();
+
+			}
+			if (dpathOverride.length) {
+				overrideUserSettings = true;
+				overrideLocalRepository = true;
+
+				m_dirs.userSettings = NativePath(dpathOverride);
+				m_dirs.localRepository = m_dirs.userSettings;
+			}
+		}
+
 		readSettingsFile(m_dirs.systemSettings ~ "settings.json");
 		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json");
 		version (Posix) {
 			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr")))
 				readSettingsFile(NativePath("/etc/dub/settings.json"));
 		}
+
+		// Override user + local package path from /etc/dub/settings.json
+		// Then continues loading local settings from these folders. (keeping
+		// global /etc/dub/settings.json settings intact)
+		//
+		// Don't use it if either $DPATH or $DUB_HOME are set.
+		if (!overrideUserSettings) {
+			if (this.userSettingsOverride.length) {
+				m_dirs.userSettings = NativePath(this.userSettingsOverride.expandEnvironmentVariables);
+
+				overrideUserSettings = true;
+			} else if (this.dubHome.length) {
+				m_dirs.userSettings = NativePath(this.dubHome.expandEnvironmentVariables);
+
+				overrideUserSettings = true;
+			}
+		}
+
+		// load user config:
 		readSettingsFile(m_dirs.userSettings ~ "settings.json");
+
+		// load per-package config:
 		if (!root_path.empty)
 			readSettingsFile(root_path ~ "dub.settings.json");
 
-		determineDefaultCompiler();
+		// resolve directories from config
+		if (!overrideLocalRepository) {
+			if (this.localRepository.length) {
+				m_dirs.localRepository = NativePath(this.localRepository.expandEnvironmentVariables);
+
+				overrideLocalRepository = true;
+			} else if (this.dubHome.length) {
+				m_dirs.localRepository = NativePath(this.dubHome.expandEnvironmentVariables);
+
+				overrideLocalRepository = true;
+			}
+		}
 	}
 
 	unittest
@@ -304,7 +364,7 @@ class Dub {
 		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, null).length == 0);
 
 		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, "http://example.com/")
-               .length == 1);
+			.length == 1);
 	}
 
 	@property bool dryRun() const { return m_dryRun; }
@@ -368,6 +428,10 @@ class Dub {
 	@property const(string[string]) defaultPostBuildEnvironments() const { return this.m_config.defaultPostBuildEnvironments; }
 	@property const(string[string]) defaultPreRunEnvironments() const { return this.m_config.defaultPreRunEnvironments; }
 	@property const(string[string]) defaultPostRunEnvironments() const { return this.m_config.defaultPostRunEnvironments; }
+
+	private @property const(string) dubHome() const { return this.m_config.dubHome; }
+	private @property const(string) userSettingsOverride() const { return this.m_config.userSettings; }
+	private @property const(string) localRepository() const { return this.m_config.localRepository; }
 
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
@@ -1828,6 +1892,9 @@ private struct UserConfiguration {
 	SetInfo!(string[string]) defaultPostBuildEnvironments;
 	SetInfo!(string[string]) defaultPreRunEnvironments;
 	SetInfo!(string[string]) defaultPostRunEnvironments;
+	SetInfo!(string) dubHome;
+	SetInfo!(string) userSettings;
+	SetInfo!(string) localRepository;
 
 	/// Merge a lower priority config (`this`) with a `higher` priority config
 	public UserConfiguration merge(UserConfiguration higher)
