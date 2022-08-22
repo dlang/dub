@@ -225,18 +225,18 @@ class Dub {
 		bool overrideUserSettings;
 		bool overrideLocalRepository;
 		{
-			string dpathOverride = environment.get("DUB_HOME");
-			if (!dpathOverride.length) {
-				dpathOverride = environment.get("DPATH");
-				if (dpathOverride.length)
-					dpathOverride = (NativePath(dpathOverride) ~ "dub/").toNativeString();
+			string dubHome = environment.get("DUB_HOME");
+			if (!dubHome.length) {
+				auto dpath = environment.get("DPATH");
+				if (dpath.length)
+					dubHome = (NativePath(dpath) ~ "dub/").toNativeString();
 
 			}
-			if (dpathOverride.length) {
+			if (dubHome.length) {
 				overrideUserSettings = true;
 				overrideLocalRepository = true;
 
-				m_dirs.userSettings = NativePath(dpathOverride);
+				m_dirs.userSettings = NativePath(dubHome);
 				m_dirs.localRepository = m_dirs.userSettings;
 			}
 		}
@@ -248,21 +248,16 @@ class Dub {
 				readSettingsFile(NativePath("/etc/dub/settings.json"));
 		}
 
-		// Override user + local package path from /etc/dub/settings.json
+		// Override user + local package path from system / binary settings
 		// Then continues loading local settings from these folders. (keeping
 		// global /etc/dub/settings.json settings intact)
 		//
-		// Don't use it if either $DPATH or $DUB_HOME are set.
-		if (!overrideUserSettings) {
-			if (this.userSettingsOverride.length) {
-				m_dirs.userSettings = NativePath(this.userSettingsOverride.expandEnvironmentVariables);
+		// Don't use it if either $DPATH or $DUB_HOME are set, as environment
+		// variables usually take precedence over configuration.
+		if (!overrideUserSettings && this.m_config.dubHome.set) {
+			m_dirs.userSettings = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
 
-				overrideUserSettings = true;
-			} else if (this.dubHome.length) {
-				m_dirs.userSettings = NativePath(this.dubHome.expandEnvironmentVariables);
-
-				overrideUserSettings = true;
-			}
+			overrideUserSettings = true;
 		}
 
 		// load user config:
@@ -272,17 +267,12 @@ class Dub {
 		if (!root_path.empty)
 			readSettingsFile(root_path ~ "dub.settings.json");
 
-		// resolve directories from config
-		if (!overrideLocalRepository) {
-			if (this.localRepository.length) {
-				m_dirs.localRepository = NativePath(this.localRepository.expandEnvironmentVariables);
+		// same as overrideUserSettings above, but taking into account the
+		// config loaded from user settings and per-package config as well.
+		if (!overrideLocalRepository && this.m_config.dubHome.set) {
+			m_dirs.localRepository = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
 
-				overrideLocalRepository = true;
-			} else if (this.dubHome.length) {
-				m_dirs.localRepository = NativePath(this.dubHome.expandEnvironmentVariables);
-
-				overrideLocalRepository = true;
-			}
+			overrideLocalRepository = true;
 		}
 	}
 
@@ -428,10 +418,6 @@ class Dub {
 	@property const(string[string]) defaultPostBuildEnvironments() const { return this.m_config.defaultPostBuildEnvironments; }
 	@property const(string[string]) defaultPreRunEnvironments() const { return this.m_config.defaultPreRunEnvironments; }
 	@property const(string[string]) defaultPostRunEnvironments() const { return this.m_config.defaultPostRunEnvironments; }
-
-	private @property const(string) dubHome() const { return this.m_config.dubHome; }
-	private @property const(string) userSettingsOverride() const { return this.m_config.userSettings; }
-	private @property const(string) localRepository() const { return this.m_config.localRepository; }
 
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
