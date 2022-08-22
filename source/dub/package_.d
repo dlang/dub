@@ -724,22 +724,22 @@ class Package {
 			}
 		}
 
-		// check for default app_main
-		string app_main_file;
-		auto pkg_name = m_info.name.length ? m_info.name : "unknown";
-		foreach(sf; bs.sourcePaths.get("", null)){
-			auto p = m_path ~ sf;
-			if( !existsFile(p) ) continue;
-			foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
-				if( existsFile(p ~ fil) ) {
-					app_main_file = (NativePath(sf) ~ fil).toNativeString();
-					break;
-				}
-			}
-		}
-
 		// generate default configurations if none are defined
 		if (m_info.configurations.length == 0) {
+			// check for default app_main
+			string app_main_file;
+			auto pkg_name = m_info.name.length ? m_info.name : "unknown";
+			foreach(sf; bs.sourcePaths.get("", null)){
+				auto p = m_path ~ sf;
+				if( !existsFile(p) ) continue;
+				foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
+					if( existsFile(p ~ fil) ) {
+						app_main_file = (NativePath(sf) ~ fil).toNativeString();
+						break;
+					}
+				}
+			}
+
 			if (bs.targetType == TargetType.executable) {
 				BuildSettingsTemplate app_settings;
 				app_settings.targetType = TargetType.executable;
