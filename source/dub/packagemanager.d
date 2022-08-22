@@ -190,6 +190,7 @@ class PackageManager {
 	}
 
 	/// ditto
+	deprecated("Use the overload that accepts a `Version` as second argument")
 	Package getPackage(string name, string ver, bool enable_overrides = true)
 	{
 		return getPackage(name, Version(ver), enable_overrides);
@@ -207,6 +208,7 @@ class PackageManager {
 	}
 
 	/// ditto
+	deprecated("Use the overload that accepts a `Version` as second argument")
 	Package getPackage(string name, string ver, NativePath path)
 	{
 		return getPackage(name, Version(ver), path);
