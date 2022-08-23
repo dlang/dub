@@ -678,6 +678,7 @@ class CommandArgs {
 	{
 		foreach (ref arg; m_recognizedArgs)
 			if (names == arg.names) {
+				assert(help_text is null, format!("Duplicated argument '%s' must not change helptext, consider to remove the duplication")(names));
 				*var = arg.value.get!T;
 				return;
 			}
