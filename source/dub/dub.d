@@ -194,6 +194,13 @@ class Dub {
 
 	private void init(NativePath root_path)
 	{
+		loadConfigAndSetDirs(root_path);
+
+		determineDefaultCompiler();
+	}
+
+	private void loadConfigAndSetDirs(NativePath root_path)
+	{
 		import configy.Read;
 
 		this.m_dirs = SpecialDirs.make();
@@ -213,17 +220,54 @@ class Dub {
 
 		const dubFolderPath = NativePath(thisExePath).parentPath;
 
+		// override default userSettings + localRepository if a $DPATH or
+		// $DUB_HOME environment variable is set.
+		bool overrideDubHomeFromEnv;
+		{
+			string dubHome = environment.get("DUB_HOME");
+			if (!dubHome.length) {
+				auto dpath = environment.get("DPATH");
+				if (dpath.length)
+					dubHome = (NativePath(dpath) ~ "dub/").toNativeString();
+
+			}
+			if (dubHome.length) {
+				overrideDubHomeFromEnv = true;
+
+				m_dirs.userSettings = NativePath(dubHome);
+				m_dirs.localRepository = m_dirs.userSettings;
+			}
+		}
+
 		readSettingsFile(m_dirs.systemSettings ~ "settings.json");
 		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json");
 		version (Posix) {
 			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr")))
 				readSettingsFile(NativePath("/etc/dub/settings.json"));
 		}
+
+		// Override user + local package path from system / binary settings
+		// Then continues loading local settings from these folders. (keeping
+		// global /etc/dub/settings.json settings intact)
+		//
+		// Don't use it if either $DPATH or $DUB_HOME are set, as environment
+		// variables usually take precedence over configuration.
+		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
+			m_dirs.userSettings = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+		}
+
+		// load user config:
 		readSettingsFile(m_dirs.userSettings ~ "settings.json");
+
+		// load per-package config:
 		if (!root_path.empty)
 			readSettingsFile(root_path ~ "dub.settings.json");
 
-		determineDefaultCompiler();
+		// same as userSettings above, but taking into account the
+		// config loaded from user settings and per-package config as well.
+		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
+			m_dirs.localRepository = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+		}
 	}
 
 	unittest
@@ -304,7 +348,7 @@ class Dub {
 		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, null).length == 0);
 
 		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, "http://example.com/")
-               .length == 1);
+			.length == 1);
 	}
 
 	@property bool dryRun() const { return m_dryRun; }
@@ -1828,6 +1872,7 @@ private struct UserConfiguration {
 	SetInfo!(string[string]) defaultPostBuildEnvironments;
 	SetInfo!(string[string]) defaultPreRunEnvironments;
 	SetInfo!(string[string]) defaultPostRunEnvironments;
+	SetInfo!(string) dubHome;
 
 	/// Merge a lower priority config (`this`) with a `higher` priority config
 	public UserConfiguration merge(UserConfiguration higher)
