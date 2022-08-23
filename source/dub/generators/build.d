@@ -579,7 +579,7 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 
 			if (generate_binary) {
-				logInfo("Linking", Color.light_green, "%s", buildsettings.targetName.color(Mode.bold));
+				logInfo("Linking", Color.light_green, "%s => %s", buildsettings.targetName.color(Mode.bold), buildsettings.getTargetPath(settings));
 				settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback);
 			}
 		}
