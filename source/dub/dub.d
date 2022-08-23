@@ -1515,6 +1515,10 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 	this(Dub dub, UpgradeOptions options, Package root, SelectedVersions selected_versions)
 	{
+		assert(dub !is null);
+		assert(root !is null);
+		assert(selected_versions !is null);
+
 		if (environment.get("DUB_NO_RESOLVE_LIMIT") !is null)
 			super(ulong.max);
 		else
@@ -1662,11 +1666,11 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			Dependency dspec = d.spec.mapToPath(pack.path);
 
 			// if not upgrading, use the selected version
-			if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions && m_selectedVersions.hasSelectedVersion(dbasename))
+			if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(dbasename))
 				dspec = m_selectedVersions.getSelectedVersion(dbasename);
 
 			// keep selected optional dependencies and avoid non-selected optional-default dependencies by default
-			if (m_selectedVersions && !m_selectedVersions.bare) {
+			if (!m_selectedVersions.bare) {
 				if (dt == DependencyType.optionalDefault && !m_selectedVersions.hasSelectedVersion(dbasename))
 					dt = DependencyType.optional;
 				else if (dt == DependencyType.optional && m_selectedVersions.hasSelectedVersion(dbasename))
