@@ -1756,6 +1756,7 @@ final class SelectedVersions {
 	}
 
 	/// Selects a certain path for a specific package.
+	deprecated("Selecting path dependency is deprecated")
 	void selectVersion(string package_id, NativePath path)
 	{
 		if (auto pdep = package_id in m_selections.versions) {
@@ -1767,6 +1768,7 @@ final class SelectedVersions {
 	}
 
 	/// Selects a certain Git reference for a specific package.
+	deprecated("Selecting repository dependency is deprecated")
 	void selectVersion(string package_id, Repository repository)
 	{
 		const dependency = Dependency(repository);

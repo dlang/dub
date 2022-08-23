@@ -651,15 +651,14 @@ class Dub {
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			if (!pack) fetch(p, ver.version_, defaultPlacementLocation, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
-				if (!ver.repository.empty) {
-					m_project.selections.selectVersion(p, ver.repository);
-				} else if (ver.path.empty) {
-					m_project.selections.selectVersion(p, ver.version_);
-				} else {
-					NativePath relpath = ver.path;
-					if (relpath.absolute) relpath = relpath.relativeTo(m_project.rootPackage.path);
-					m_project.selections.selectVersion(p, relpath);
-				}
+				ver.visit!(
+					(VersionRange v) {
+						// `VersionRange` does not expose a way to get the exact version,
+						// so just use the `Dependency` property for now.
+						m_project.selections.selectVersion(p, ver.version_);
+					},
+					(any) { /* Ignore as we don't need to select them */ },
+				);
 			}
 		}
 
