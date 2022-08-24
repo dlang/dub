@@ -72,6 +72,8 @@ alias isBChar = among!('\n', '\r', '\u0085', '\u2028', '\u2029');
 
 alias isFlowScalarBreakSpace = among!(' ', '\t', '\0', '\n', '\r', '\u0085', '\u2028', '\u2029', '\'', '"', '\\');
 
+alias isNSAnchorName = c => !c.isWhiteSpace && !c.among!('[', ']', '{', '}', ',', '\uFEFF');
+
 /// Marked exception thrown at scanner errors.
 ///
 /// See_Also: MarkedYAMLException
@@ -763,6 +765,25 @@ struct Scanner
             reader_.sliceBuilder.write(reader_.get(length));
         }
 
+        /// Scan a string.
+        ///
+        /// Assumes that the caller is building a slice in Reader, and puts the scanned
+        /// characters into that slice.
+        void scanAnchorAliasToSlice(const Mark startMark) @safe
+        {
+            size_t length;
+            dchar c = reader_.peek();
+            while (c.isNSAnchorName)
+            {
+                c = reader_.peek(++length);
+            }
+
+            enforce(length > 0, new ScannerException("While scanning an anchor or alias",
+                startMark, expected("a printable character besides '[', ']', '{', '}' and ','", c), reader_.mark));
+
+            reader_.sliceBuilder.write(reader_.get(length));
+        }
+
         /// Scan and throw away all characters until next line break.
         void scanToNextBreak() @safe
         {
@@ -988,20 +1009,14 @@ struct Scanner
         Token scanAnchor(const TokenID id) @safe
         {
             const startMark = reader_.mark;
-            const dchar i = reader_.get();
+            reader_.forward(); // The */& character was only peeked, so we drop it now
 
             reader_.sliceBuilder.begin();
-            if(i == '*') { scanAlphaNumericToSlice!"an alias"(startMark); }
-            else         { scanAlphaNumericToSlice!"an anchor"(startMark); }
+            scanAnchorAliasToSlice(startMark);
             // On error, value is discarded as we return immediately
             char[] value = reader_.sliceBuilder.finish();
 
-            enum anchorCtx = "While scanning an anchor";
-            enum aliasCtx  = "While scanning an alias";
-            enforce(reader_.peek().isWhiteSpace ||
-                reader_.peekByte().among!('?', ':', ',', ']', '}', '%', '@'),
-                new ScannerException(i == '*' ? aliasCtx : anchorCtx, startMark,
-                    expected("alphanumeric, '-' or '_'", reader_.peek()), reader_.mark));
+            assert(!reader_.peek().isNSAnchorName, "Anchor/alias name not fully scanned");
 
             if(id == TokenID.alias_)
             {
