@@ -29,6 +29,7 @@ import dyaml.event;
 import dyaml.exception;
 import dyaml.linebreak;
 import dyaml.queue;
+import dyaml.scanner;
 import dyaml.style;
 import dyaml.tagdirective;
 
@@ -949,7 +950,7 @@ struct Emitter(Range, CharType) if (isOutputRange!(Range, CharType))
         ///Prepare anchor for output.
         static string prepareAnchor(const string anchor) @safe
             in(anchor != "",  "Anchor must not be empty")
-            in(anchor.all!(c => isAlphaNum(c) || c.among!('-', '_')), "Anchor contains invalid characters")
+            in(anchor.all!isNSAnchorName, "Anchor contains invalid characters")
         {
             return anchor;
         }

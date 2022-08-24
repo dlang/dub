@@ -16,6 +16,7 @@ import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
+import std.format;
 import std.range;
 import std.typecons;
 
@@ -357,12 +358,18 @@ struct Composer
                 merge(*pairAppender, flatten(node[0], startEvent.startMark, node[1],
                                              pairAppenderLevel + 1, nodeAppenderLevel));
             }
-            auto numUnique = pairAppender.data.dup
-                                .sort!((x,y) => x.key > y.key)
-                                .uniq!((x,y) => x.key == y.key)
-                                .walkLength;
-            enforce(numUnique == pairAppender.data.length,
-                    new ComposerException("Duplicate key found in mapping", parser_.front.startMark));
+
+            auto sorted = pairAppender.data.dup.sort!((x,y) => x.key > y.key);
+            if (sorted.length) {
+                foreach (index, const ref value; sorted[0 .. $ - 1].enumerate)
+                    if (value.key == sorted[index + 1].key) {
+                        const message = () @trusted {
+                            return format("Key '%s' appears multiple times in mapping (first: %s)",
+                                          value.key.get!string, value.key.startMark);
+                        }();
+                        throw new ComposerException(message, sorted[index + 1].key.startMark);
+                    }
+            }
 
             Node node = constructNode(startEvent.startMark, parser_.front.endMark,
                                           tag, pairAppender.data.dup);
@@ -372,4 +379,23 @@ struct Composer
             pairAppender.clear();
             return node;
         }
+}
+
+// Provide good error message on multiple keys (which JSON supports)
+@safe unittest
+{
+    import dyaml.loader : Loader;
+
+    const str = `{
+    "comment": "This is a common technique",
+    "name": "foobar",
+    "comment": "To write down comments pre-JSON5"
+}`;
+
+    try
+        auto node = Loader.fromString(str).load();
+    catch (ComposerException exc)
+        assert(exc.message() ==
+               "Key 'comment' appears multiple times in mapping " ~
+               "(first: file <unknown>,line 2,column 5)\nfile <unknown>,line 4,column 5");
 }

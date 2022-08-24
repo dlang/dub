@@ -31,8 +31,8 @@ dchar fromEscape(dchar escape) @safe pure nothrow @nogc
         case 'f':  return '\x0C';
         case 'r':  return '\x0D';
         case 'e':  return '\x1B';
-        case ' ':  return '\x20';
         case '/':  return '/';
+        case ' ':  return '\x20';
         case '\"': return '\"';
         case '\\': return '\\';
         case 'N':  return '\x85'; //'\u0085';

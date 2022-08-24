@@ -82,8 +82,10 @@ struct Loader
 
         /** Construct a Loader to load YAML from a string.
          *
-         * Params:  data = String to load YAML from. The char[] version $(B will)
-         *                 overwrite its input during parsing as D:YAML reuses memory.
+         * Params:
+         *   data = String to load YAML from. The char[] version $(B will)
+         *          overwrite its input during parsing as D:YAML reuses memory.
+         *   filename = The filename to give to the Loader, defaults to `"<unknown>"`
          *
          * Returns: Loader loading YAML from given string.
          *
@@ -91,14 +93,14 @@ struct Loader
          *
          * YAMLException if data could not be read (e.g. a decoding error)
          */
-        static Loader fromString(char[] data) @safe
+        static Loader fromString(char[] data, string filename = "<unknown>") @safe
         {
-            return Loader(cast(ubyte[])data);
+            return Loader(cast(ubyte[])data, filename);
         }
         /// Ditto
-        static Loader fromString(string data) @safe
+        static Loader fromString(string data, string filename = "<unknown>") @safe
         {
-            return fromString(data.dup);
+            return fromString(data.dup, filename);
         }
         /// Load  a char[].
         @safe unittest
