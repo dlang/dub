@@ -160,7 +160,7 @@ class Dub {
 		m_rootPath = NativePath(root_path);
 		if (!m_rootPath.absolute) m_rootPath = NativePath(getcwd()) ~ m_rootPath;
 
-		init(m_rootPath);
+		init();
 
 		m_packageSuppliers = this.computePkgSuppliers(additional_package_suppliers,
 			skip_registry, environment.get("DUB_REGISTRY", null));
@@ -188,22 +188,26 @@ class Dub {
 	*/
 	this(NativePath override_path)
 	{
-		init(NativePath());
+		init();
 		m_packageManager = new PackageManager(override_path);
 	}
 
-	private void init(NativePath root_path)
+	private void init()
 	{
-		loadConfigAndSetDirs(root_path);
-
-		determineDefaultCompiler();
+		this.m_dirs = SpecialDirs.make();
+		this.loadConfig();
+		this.determineDefaultCompiler();
 	}
 
-	private void loadConfigAndSetDirs(NativePath root_path)
+	/**
+	 * Load user configuration for this instance
+	 *
+	 * This can be overloaded in child classes to prevent library / unittest
+	 * dub from doing any kind of file IO.
+	 */
+	protected void loadConfig()
 	{
 		import configy.Read;
-
-		this.m_dirs = SpecialDirs.make();
 
 		void readSettingsFile (NativePath path_)
 		{
@@ -260,8 +264,8 @@ class Dub {
 		readSettingsFile(m_dirs.userSettings ~ "settings.json");
 
 		// load per-package config:
-		if (!root_path.empty)
-			readSettingsFile(root_path ~ "dub.settings.json");
+		if (!this.m_rootPath.empty)
+			readSettingsFile(this.m_rootPath ~ "dub.settings.json");
 
 		// same as userSettings above, but taking into account the
 		// config loaded from user settings and per-package config as well.
@@ -273,15 +277,15 @@ class Dub {
 	unittest
 	{
 		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
 		assert(dub.m_packageSuppliers.length == 0);
 		environment["DUB_REGISTRY"] = "http://example.com/";
-		dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
 		assert(dub.m_packageSuppliers.length == 1);
 		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
-		dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
 		assert(dub.m_packageSuppliers.length == 2);
-		dub = new Dub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
+		dub = new TestDub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
 		assert(dub.m_packageSuppliers.length == 3);
 	}
 
@@ -341,7 +345,7 @@ class Dub {
 
 	unittest
 	{
-		auto dub = new Dub(".", null, SkipPackageSuppliers.none);
+		auto dub = new TestDub();
 
 		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.none, null).length == 1);
 		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.configured, null).length == 0);
@@ -1415,7 +1419,7 @@ class Dub {
 	unittest
 	{
 		import std.path: buildPath, absolutePath;
-		auto dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
 		immutable olddc = environment.get("DC", null);
 		immutable oldpath = environment.get("PATH", null);
 		immutable testdir = "test-determineDefaultCompiler";
@@ -1795,6 +1799,26 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		logWarn("Package %s %s could not be loaded either locally, or from the configured package registries.", name, dep);
 		return null;
 	}
+}
+
+/**
+ * An instance of Dub that does not rely on the environment
+ *
+ * This instance of dub should not read any environment variables,
+ * nor should it do any file IO, to make it usable and reliable in unittests.
+ * Currently it reads environment variables but does not read the configuration.
+ */
+package final class TestDub : Dub
+{
+    /// Forward to base constructor
+    public this (string root = ".", PackageSupplier[] extras = null,
+                 SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+    {
+        super(root, extras, skip);
+    }
+
+    /// Avoid loading user configuration
+    protected override void loadConfig() { /* No-op */ }
 }
 
 private struct SpecialDirs {
