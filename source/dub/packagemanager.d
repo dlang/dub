@@ -48,8 +48,9 @@ public enum PlacementLocation {
 class PackageManager {
 	private {
 		Location[] m_repositories;
-		NativePath[] m_searchPath;
-		Package[] m_packages;
+		/// The extra 'internal' location, used by the PackageManager
+		/// to store path and repository-based dependencies or in bare mode.
+		Location m_internal;
 		Package[] m_temporaryPackages;
 		bool m_disableDefaultSearchPaths = false;
 	}
@@ -66,7 +67,7 @@ class PackageManager {
 	 */
 	this(NativePath path)
 	{
-		this.m_searchPath = [ path ];
+		this.m_internal.searchPath = [ path ];
 		this.m_disableDefaultSearchPaths = true;
 		this.refresh(true);
 	}
@@ -95,12 +96,12 @@ class PackageManager {
 	*/
 	@property void searchPath(NativePath[] paths)
 	{
-		if (paths == m_searchPath) return;
-		m_searchPath = paths.dup;
+		if (paths == this.m_internal.searchPath) return;
+		this.m_internal.searchPath = paths.dup;
 		refresh(false);
 	}
 	/// ditto
-	@property const(NativePath)[] searchPath() const { return m_searchPath; }
+	@property const(NativePath)[] searchPath() const { return this.m_internal.searchPath; }
 
 	/** Disables searching DUB's predefined search paths.
 	*/
@@ -117,7 +118,7 @@ class PackageManager {
 	@property const(NativePath)[] completeSearchPath()
 	const {
 		auto ret = appender!(const(NativePath)[])();
-		ret.put(m_searchPath);
+		ret.put(this.m_internal.searchPath);
 		if (!m_disableDefaultSearchPaths) {
 			foreach (ref repo; m_repositories) {
 				ret.put(repo.searchPath);
@@ -461,7 +462,7 @@ class PackageManager {
 					if (auto ret = del(p)) return ret;
 
 			// and then all packages gathered from the search path
-			foreach( p; m_packages )
+			foreach( p; this.m_internal.localPackages )
 				if( auto ret = del(p) )
 					return ret;
 			return 0;
@@ -640,7 +641,7 @@ class PackageManager {
 			// Storeinfo saved a default file, this could be different to the file from the zip.
 			removeFile(pack.recipePath);
 		pack.storeInfo();
-		addPackages(m_packages, pack);
+		addPackages(this.m_internal.localPackages, pack);
 		return pack;
 	}
 
@@ -667,7 +668,7 @@ class PackageManager {
 			}
 		}
 		if(!found)
-			found = removeFrom(m_packages, pack);
+			found = removeFrom(this.m_internal.localPackages, pack);
 		enforce(found, "Cannot remove, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
 
 		logDebug("About to delete root folder for package '%s'.", pack.path);
@@ -756,7 +757,7 @@ class PackageManager {
 			this.m_repositories[PlacementLocation.local].scanLocalPackages(refresh_existing_packages, this);
 		}
 
-		auto old_packages = m_packages;
+		auto old_packages = this.m_internal.localPackages;
 
 		// rescan the system and user package folder
 		void scanPackageFolder(NativePath path)
@@ -794,7 +795,7 @@ class PackageManager {
 									break;
 								}
 						if (!p) p = Package.load(pack_path, packageFile);
-						addPackages(m_packages, p);
+						addPackages(this.m_internal.localPackages, p);
 					} catch (ConfigException exc) {
 						// Confiy error message already include the path
 						logError("Invalid recipe for local package: %S", exc);
@@ -807,7 +808,7 @@ class PackageManager {
 			}
 		}
 
-		m_packages = null;
+		this.m_internal.localPackages = null;
 		foreach (p; this.completeSearchPath)
 			scanPackageFolder(p);
 
