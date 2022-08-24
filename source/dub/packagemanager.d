@@ -48,10 +48,16 @@ public enum PlacementLocation {
 class PackageManager {
 	private {
 		Location[] m_repositories;
-		/// The extra 'internal' location, used by the PackageManager
-		/// to store path and repository-based dependencies or in bare mode.
+		/**
+		 * The extra 'internal' location, for packages not attributable to a location.
+		 *
+		 * There are two uses for this:
+		 * - In `bare` mode, the search paths are set at this scope,
+		 *	 and packages gathered are stored in `localPackage`;
+		 * - In the general case, any path-based or SCM-based dependency
+		 *	 is loaded in `fromPath`;
+		 */
 		Location m_internal;
-		Package[] m_temporaryPackages;
 		bool m_disableDefaultSearchPaths = false;
 	}
 
@@ -271,7 +277,7 @@ class PackageManager {
 			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
 				return p;
 		auto pack = Package.load(path, recipe_path, null, null, mode);
-		addPackages(m_temporaryPackages, pack);
+		addPackages(this.m_internal.fromPath, pack);
 		return pack;
 	}
 
@@ -308,7 +314,7 @@ class PackageManager {
 				pack = loadGitPackage(name, repo);
 		}
 		if (pack !is null) {
-			addPackages(m_temporaryPackages, pack);
+			addPackages(this.m_internal.fromPath, pack);
 		}
 		return pack;
 	}
@@ -453,22 +459,18 @@ class PackageManager {
 	{
 		int iterator(int delegate(ref Package) del)
 		{
-			foreach (tp; m_temporaryPackages)
-				if (auto ret = del(tp)) return ret;
+			// Search scope by priority, internal has the highest
+			foreach (p; this.m_internal.fromPath)
+				if (auto ret = del(p)) return ret;
+			foreach (p; this.m_internal.localPackages)
+				if (auto ret = del(p)) return ret;
 
-			// first search local packages
 			foreach (ref repo; m_repositories) {
 				foreach (p; repo.localPackages)
 					if (auto ret = del(p)) return ret;
 				foreach (p; repo.fromPath)
 					if (auto ret = del(p)) return ret;
 			}
-
-			// and then all packages gathered from the search path
-			foreach (p; this.m_internal.localPackages)
-				if (auto ret = del(p)) return ret;
-			foreach (p; this.m_internal.fromPath)
-				if (auto ret = del(p)) return ret;
 			return 0;
 		}
 
@@ -1134,9 +1136,13 @@ private struct Location {
 	{
 		// If we're asked to refresh, reload the packages from scratch
 		auto existing = refresh ? null : this.fromPath;
-		this.fromPath = null;
-		if (this.packagePath !is NativePath.init)
+		if (this.packagePath !is NativePath.init) {
+			// For the internal location, we use `fromPath` to store packages
+			// loaded by the user (e.g. the project and its subpackages),
+			// so don't clean it.
+			this.fromPath = null;
 			this.scanPackageFolder(this.packagePath, mgr, existing);
+		}
 		foreach (path; this.searchPath)
 			this.scanPackageFolder(path, mgr, existing);
 	}
