@@ -1300,8 +1300,8 @@ enum ListBuildSettingsFormat {
 	commandLineNul, /// NUL character separated list entries (unescaped, data lists separated by two NUL characters)
 }
 
-deprecated("Use `dub.packagemanager : PlacementLocation` instead")
-public alias PlacementLocation = dub.packagemanager.PlacementLocation;
+deprecated("Use `dub.packagemanager : Scope` instead")
+public alias PlacementLocation = dub.packagemanager.Scope;
 
 void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	BuildSettings settings, in GeneratorSettings gsettings, bool include_target_settings = false)

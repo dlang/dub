@@ -28,7 +28,7 @@ import std.zip;
 
 
 /// Indicates where a package has been or should be placed to.
-public enum PlacementLocation {
+public enum Scope {
 	/// Packages retrieved with 'local' will be placed in the current folder
 	/// using the package name as destination.
 	local,
@@ -137,7 +137,7 @@ class PackageManager {
 		import std.algorithm.iteration : map;
 		import std.array : array;
 
-		m_repositories.length = PlacementLocation.max+1;
+		m_repositories.length = Scope.max+1;
 		m_repositories ~= custom_cache_paths.map!(p => Location(p)).array;
 
 		refresh(false);
@@ -317,7 +317,7 @@ class PackageManager {
 
 		string gitReference = repo.ref_.chompPrefix("~");
 		NativePath destination = getPackagePath(
-			m_repositories[PlacementLocation.user].packagePath,
+			m_repositories[Scope.user].packagePath,
 			name, repo.ref_);
 		// For libraries leaking their import path
 		destination ~= name;
@@ -485,54 +485,54 @@ class PackageManager {
 
 	/** Returns a list of all package overrides for the given scope.
 	*/
-	const(PackageOverride)[] getOverrides(PlacementLocation scope_)
+	const(PackageOverride)[] getOverrides(Scope where)
 	const {
-		return m_repositories[scope_].overrides;
+		return m_repositories[where].overrides;
 	}
 
 	/** Adds a new override for the given package.
 	*/
 	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
-	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, Version target)
+	void addOverride(Scope where, string package_, Dependency version_spec, Version target)
 	{
-		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
-		m_repositories[scope_].writeOverrides();
+		m_repositories[where].overrides ~= PackageOverride(package_, version_spec, target);
+		m_repositories[where].writeOverrides();
 	}
 	/// ditto
 	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
-	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, NativePath target)
+	void addOverride(Scope where, string package_, Dependency version_spec, NativePath target)
 	{
-		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
-		m_repositories[scope_].writeOverrides();
+		m_repositories[where].overrides ~= PackageOverride(package_, version_spec, target);
+		m_repositories[where].writeOverrides();
 	}
 
     /// Ditto
-	void addOverride(PlacementLocation scope_, string package_, VersionRange source, Version target)
+	void addOverride(Scope where, string package_, VersionRange source, Version target)
 	{
-		m_repositories[scope_].overrides ~= PackageOverride(package_, source, target);
-		m_repositories[scope_].writeOverrides();
+		m_repositories[where].overrides ~= PackageOverride(package_, source, target);
+		m_repositories[where].writeOverrides();
 	}
 	/// ditto
-	void addOverride(PlacementLocation scope_, string package_, VersionRange source, NativePath target)
+	void addOverride(Scope where, string package_, VersionRange source, NativePath target)
 	{
-		m_repositories[scope_].overrides ~= PackageOverride(package_, source, target);
-		m_repositories[scope_].writeOverrides();
+		m_repositories[where].overrides ~= PackageOverride(package_, source, target);
+		m_repositories[where].writeOverrides();
 	}
 
 	/** Removes an existing package override.
 	*/
 	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
-	void removeOverride(PlacementLocation scope_, string package_, Dependency version_spec)
+	void removeOverride(Scope where, string package_, Dependency version_spec)
 	{
         version_spec.visit!(
-            (VersionRange src) => this.removeOverride(scope_, package_, src),
+            (VersionRange src) => this.removeOverride(where, package_, src),
             (any) { throw new Exception(format("No override exists for %s %s", package_, version_spec)); },
         );
 	}
 
-	void removeOverride(PlacementLocation scope_, string package_, VersionRange src)
+	void removeOverride(Scope where, string package_, VersionRange src)
 	{
-		Location* rep = &m_repositories[scope_];
+		Location* rep = &m_repositories[where];
 		foreach (i, ovr; rep.overrides) {
 			if (ovr.package_ != package_ || ovr.source != src)
 				continue;
@@ -677,7 +677,7 @@ class PackageManager {
 		remove(pack);
 	}
 
-	Package addLocalPackage(NativePath path, string verName, PlacementLocation type)
+	Package addLocalPackage(NativePath path, string verName, Scope type)
 	{
 		path.endsWithSlash = true;
 		auto pack = Package.load(path);
@@ -703,7 +703,7 @@ class PackageManager {
 		return pack;
 	}
 
-	void removeLocalPackage(NativePath path, PlacementLocation type)
+	void removeLocalPackage(NativePath path, Scope type)
 	{
 		path.endsWithSlash = true;
 
@@ -727,14 +727,14 @@ class PackageManager {
 	}
 
 	/// For the given type add another path where packages will be looked up.
-	void addSearchPath(NativePath path, PlacementLocation type)
+	void addSearchPath(NativePath path, Scope type)
 	{
 		m_repositories[type].searchPath ~= path;
 		this.m_repositories[type].writeLocalPackageList();
 	}
 
 	/// Removes a search path from the given type.
-	void removeSearchPath(NativePath path, PlacementLocation type)
+	void removeSearchPath(NativePath path, Scope type)
 	{
 		m_repositories[type].searchPath = m_repositories[type].searchPath.filter!(p => p != path)().array();
 		this.m_repositories[type].writeLocalPackageList();
@@ -746,9 +746,9 @@ class PackageManager {
 
 		if (!m_disableDefaultSearchPaths)
 		{
-			this.m_repositories[PlacementLocation.system].scanLocalPackages(refresh_existing_packages, this);
-			this.m_repositories[PlacementLocation.user].scanLocalPackages(refresh_existing_packages, this);
-			this.m_repositories[PlacementLocation.local].scanLocalPackages(refresh_existing_packages, this);
+			this.m_repositories[Scope.system].scanLocalPackages(refresh_existing_packages, this);
+			this.m_repositories[Scope.user].scanLocalPackages(refresh_existing_packages, this);
+			this.m_repositories[Scope.local].scanLocalPackages(refresh_existing_packages, this);
 		}
 
 		auto old_packages = m_packages;
@@ -805,9 +805,9 @@ class PackageManager {
 
 		if (!m_disableDefaultSearchPaths)
 		{
-			this.m_repositories[PlacementLocation.local].loadOverrides();
-			this.m_repositories[PlacementLocation.user].loadOverrides();
-			this.m_repositories[PlacementLocation.system].loadOverrides();
+			this.m_repositories[Scope.local].loadOverrides();
+			this.m_repositories[Scope.user].loadOverrides();
+			this.m_repositories[Scope.system].loadOverrides();
 		}
 	}
 
@@ -961,17 +961,17 @@ struct PackageOverride {
 	}
 }
 
-deprecated("Use `PlacementLocation` instead")
-enum LocalPackageType : PlacementLocation {
-	package_ = PlacementLocation.local,
-	user     = PlacementLocation.user,
-	system   = PlacementLocation.system,
+deprecated("Use `Scope` instead")
+enum LocalPackageType : Scope {
+	package_ = Scope.local,
+	user     = Scope.user,
+	system   = Scope.system,
 }
 
 private enum LocalPackagesFilename = "local-packages.json";
 private enum LocalOverridesFilename = "local-overrides.json";
 
-/// A managed location (see `PlacementLocation`)
+/// A managed location (see `Scope`)
 private struct Location {
 	/// The absolute path to the root of the location
 	NativePath packagePath;

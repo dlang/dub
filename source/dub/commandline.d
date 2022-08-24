@@ -260,7 +260,7 @@ struct CommandLineHandler
 		if (options.bare) {
 			dub = new Dub(NativePath(getcwd()));
 			dub.rootPath = NativePath(options.root_path);
-			dub.defaultPlacementLocation = options.placementLocation;
+			dub.defaultScope = options.scope_;
 
 			return dub;
 		}
@@ -282,7 +282,7 @@ struct CommandLineHandler
 
 		dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
 		dub.dryRun = options.annotate;
-		dub.defaultPlacementLocation = options.placementLocation;
+		dub.defaultScope = options.scope_;
 
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
@@ -573,7 +573,7 @@ struct CommonOptions {
 	enum color { automatic, on, off } // Lower case "color" in support of invalid option error formatting.
 	color color_mode = color.automatic;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
-	PlacementLocation placementLocation = PlacementLocation.user;
+	Scope scope_ = Scope.user;
 
 	/// Parses all common options and stores the result in the struct instance.
 	void prepare(CommandArgs args)
@@ -606,7 +606,7 @@ struct CommonOptions {
 			"         on: Force colors enabled",
 			"        off: Force colors disabled"
 			]);
-		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
+		args.getopt("cache", &scope_, ["Puts any fetched packages in the specified location [local|system|user]."]);
 
 		version_ = args.hasAppVersion;
 	}
@@ -1325,7 +1325,7 @@ class BuildCommand : GenerateCommand {
 			dep = VersionRange.fromString(p.version_);
 		}
 
-		dub.fetch(packageParts.name, dep, dub.defaultPlacementLocation, FetchOptions.none);
+		dub.fetch(packageParts.name, dep, dub.defaultScope, FetchOptions.none);
 		return 0;
 	}
 }
@@ -1830,7 +1830,7 @@ class UpgradeCommand : Command {
 					auto fullpath = (dub.projectPath ~ sp.path).toNativeString();
 					logInfo("Upgrading sub package in %s", fullpath);
 					auto sdub = new Dub(fullpath, dub.packageSuppliers, SkipPackageSuppliers.all);
-					sdub.defaultPlacementLocation = dub.defaultPlacementLocation;
+					sdub.defaultScope = dub.defaultScope;
 					sdub.loadPackage();
 					sdub.upgrade(options, free_args);
 				} catch (Exception e) {
@@ -1903,7 +1903,7 @@ class FetchCommand : FetchRemoveCommand {
 		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto location = dub.defaultPlacementLocation;
+		auto location = dub.defaultScope;
 
 		auto name = free_args[0];
 
@@ -1962,7 +1962,7 @@ class RemoveCommand : FetchRemoveCommand {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
 		auto package_id = free_args[0];
-		auto location = dub.defaultPlacementLocation;
+		auto location = dub.defaultScope;
 
 		size_t resolveVersion(in Package[] packages) {
 			// just remove only package version
@@ -2211,7 +2211,7 @@ class AddOverrideCommand : Command {
 	{
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 3, "Expected three arguments, not "~free_args.length.to!string);
-		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
+		auto scope_ = m_system ? Scope.system : Scope.user;
 		auto pack = free_args[0];
 		auto source = VersionRange.fromString(free_args[1]);
 		if (existsFile(NativePath(free_args[2]))) {
@@ -2253,7 +2253,7 @@ class RemoveOverrideCommand : Command {
 	{
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 2, "Expected two arguments, not "~free_args.length.to!string);
-		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
+		auto scope_ = m_system ? Scope.system : Scope.user;
 		auto source = VersionRange.fromString(free_args[1]);
 		dub.packageManager.removeOverride(scope_, free_args[0], source);
 		return 0;
@@ -2281,8 +2281,8 @@ class ListOverridesCommand : Command {
 				ovr.target.match!(
 					t => logInfoNoTag("%s %s => %s", ovr.package_.color(Mode.bold), ovr.version_, t));
 		}
-		printList(dub.packageManager.getOverrides(PlacementLocation.user), "User wide overrides");
-		printList(dub.packageManager.getOverrides(PlacementLocation.system), "System wide overrides");
+		printList(dub.packageManager.getOverrides(Scope.user), "User wide overrides");
+		printList(dub.packageManager.getOverrides(Scope.system), "System wide overrides");
 		return 0;
 	}
 }

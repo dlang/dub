@@ -132,14 +132,15 @@ class Dub {
 		string m_defaultCompiler;
 	}
 
-	/** The default placement location of fetched packages.
+	/** The default placement scope of fetched packages.
 
 		This property can be altered, so that packages which are downloaded as part
-		of the normal upgrade process are stored in a certain location. This is
+		of the normal upgrade process are stored at a certain scope. This is
 		how the "--local" and "--system" command line switches operate.
 	*/
-	PlacementLocation defaultPlacementLocation = PlacementLocation.user;
+	Scope defaultScope = Scope.user;
 
+    deprecated alias defaultPlacementLocation = defaultScope;
 
 	/** Initializes the instance for use with a specific root package.
 
@@ -636,7 +637,7 @@ class Dub {
 
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
-			if (!pack) fetch(p, ver.version_, defaultPlacementLocation, fetchOpts, "getting selected version");
+			if (!pack) fetch(p, ver.version_, defaultScope, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
 				if (!ver.repository.empty) {
 					m_project.selections.selectVersion(p, ver.repository);
@@ -714,7 +715,7 @@ class Dub {
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
 			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
+			tool_pack = fetch(tool, VersionRange.Any, defaultScope, FetchOptions.none);
 		}
 
 		auto dscanner_dub = new Dub(null, m_packageSuppliers);
@@ -787,25 +788,25 @@ class Dub {
 		}
 	}
 
-	/// Fetches the package matching the dependency and places it in the specified location.
+	/// Fetches the package matching the dependency and places it in the specified scope.
 	deprecated("Use the overload that accepts either a `Version` or a `VersionRange` as second argument")
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+	Package fetch(string packageId, const Dependency dep, Scope where, FetchOptions options, string reason = "")
 	{
 		const vrange = dep.visit!(
 			(VersionRange range) => range,
 			(any)                => throw new Exception("Cannot call `dub.fetch` with a " ~ typeof(any).stringof ~ " dependency"),
 		);
-		return this.fetch(packageId, vrange, location, options, reason);
+		return this.fetch(packageId, vrange, where, options, reason);
 	}
 
 	/// Ditto
-	Package fetch(string packageId, in Version vers, PlacementLocation location, FetchOptions options, string reason = "")
+	Package fetch(string packageId, in Version vers, Scope where, FetchOptions options, string reason = "")
 	{
-		return this.fetch(packageId, VersionRange(vers, vers), location, options, reason);
+		return this.fetch(packageId, VersionRange(vers, vers), where, options, reason);
 	}
 
 	/// Ditto
-	Package fetch(string packageId, in VersionRange range, PlacementLocation location, FetchOptions options, string reason = "")
+	Package fetch(string packageId, in VersionRange range, Scope where, FetchOptions options, string reason = "")
 	{
 		auto basePackageName = getBasePackageName(packageId);
 		Json pinfo;
@@ -826,10 +827,10 @@ class Dub {
 		Version ver = Version(pinfo["version"].get!string);
 
 		NativePath placement;
-		final switch (location) {
-			case PlacementLocation.local: placement = m_rootPath ~ ".dub/packages/"; break;
-			case PlacementLocation.user: placement = m_dirs.localRepository ~ "packages/"; break;
-			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
+		final switch (where) {
+			case Scope.local: placement = m_rootPath ~ ".dub/packages/"; break;
+			case Scope.user: placement = m_dirs.localRepository ~ "packages/"; break;
+			case Scope.system: placement = m_dirs.systemSettings ~ "packages/"; break;
 		}
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
@@ -843,7 +844,7 @@ class Dub {
 		}
 
 		if (existing) {
-			if (!ver.isBranch() || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
+			if (!ver.isBranch() || !(options & FetchOptions.forceBranchUpgrade) || where == Scope.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
 				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
 					packageId, ver, placement);
@@ -923,20 +924,20 @@ class Dub {
 	/** Removes one or more versions of a locally cached package.
 
 		This will remove a given package with a specified version from the
-		given location. It will remove at most one package, unless `version_`
+		given scope. It will remove at most one package, unless `version_`
 		is set to `RemoveVersionWildcard`.
 
 		Params:
 			package_id = Name of the package to be removed
-			location_ = Specifies the location to look for the given package
+			where = Specifies the scope to look for the given package
 				name/version.
 			resolve_version = Callback to select package version.
 	*/
-	void remove(string package_id, PlacementLocation location,
+	void remove(string package_id, Scope where,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
 		enforce(!package_id.empty);
-		if (location == PlacementLocation.local) {
+		if (where == Scope.local) {
 			logInfo("To remove a locally placed package, make sure you don't have any data"
 					~ "\nleft in it's directory and then simply remove the whole directory.");
 			throw new Exception("dub cannot remove locally installed packages.");
@@ -952,7 +953,7 @@ class Dub {
 		// Check validity of packages to be removed.
 		if(packages.empty) {
 			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ package_id ~ "', location: '" ~ to!string(location) ~ "'"
+				~ "id: '" ~ package_id ~ "', scope: '" ~ to!string(where) ~ "'"
 				~ ")");
 		}
 
@@ -977,10 +978,10 @@ class Dub {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	void remove(string package_id, PlacementLocation location, bool force_remove,
+	void remove(string package_id, Scope where, bool force_remove,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
-		remove(package_id, location, resolve_version);
+		remove(package_id, where, resolve_version);
 	}
 
 	/** Removes a specific version of a package.
@@ -988,15 +989,15 @@ class Dub {
 		Params:
 			package_id = Name of the package to be removed
 			version_ = Identifying a version or a wild card. If an empty string
-				is passed, the package will be removed from the location, if
+				is passed, the package will be removed from the scope, if
 				there is only one version retrieved. This will throw an
 				exception, if there are multiple versions retrieved.
-			location_ = Specifies the location to look for the given package
+			where = Specifies the location to look for the given package
 				name/version.
 	 */
-	void remove(string package_id, string version_, PlacementLocation location)
+	void remove(string package_id, string version_, Scope where)
 	{
-		remove(package_id, location, (in packages) {
+		remove(package_id, where, (in packages) {
 			if (version_ == RemoveVersionWildcard || version_.empty)
 				return packages.length;
 
@@ -1005,16 +1006,16 @@ class Dub {
 					return i;
 			}
 			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
+				~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', scope: '" ~ to!string(where) ~ "'"
 				~ ")");
 		});
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
 	deprecated("Use the overload without force_remove instead")
-	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
+	void remove(string package_id, string version_, Scope where, bool force_remove)
 	{
-		remove(package_id, version_, location);
+		remove(package_id, version_, where);
 	}
 
 	/** Adds a directory to the list of locally known packages.
@@ -1033,7 +1034,7 @@ class Dub {
 	void addLocalPackage(string path, string ver, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.addLocalPackage(makeAbsolute(path), ver, system ? PlacementLocation.system : PlacementLocation.user);
+		m_packageManager.addLocalPackage(makeAbsolute(path), ver, system ? Scope.system : Scope.user);
 	}
 
 	/** Removes a directory from the list of locally known packages.
@@ -1050,7 +1051,7 @@ class Dub {
 	void removeLocalPackage(string path, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.removeLocalPackage(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
+		m_packageManager.removeLocalPackage(makeAbsolute(path), system ? Scope.system : Scope.user);
 	}
 
 	/** Registers a local directory to search for packages to use for satisfying
@@ -1066,7 +1067,7 @@ class Dub {
 	void addSearchPath(string path, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.addSearchPath(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
+		m_packageManager.addSearchPath(makeAbsolute(path), system ? Scope.system : Scope.user);
 	}
 
 	/** Unregisters a local directory search path.
@@ -1081,7 +1082,7 @@ class Dub {
 	void removeSearchPath(string path, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.removeSearchPath(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
+		m_packageManager.removeSearchPath(makeAbsolute(path), system ? Scope.system : Scope.user);
 	}
 
 	/** Queries all package suppliers with the given query string.
@@ -1209,7 +1210,7 @@ class Dub {
 		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
 		if (!template_pack) {
 			logInfo("%s is not present, getting and storing it user wide", packageName);
-			template_pack = fetch(packageName, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
+			template_pack = fetch(packageName, VersionRange.Any, defaultScope, FetchOptions.none);
 		}
 
 		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
@@ -1277,7 +1278,7 @@ class Dub {
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
 			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
+			tool_pack = fetch(tool, VersionRange.Any, defaultScope, FetchOptions.none);
 		}
 
 		auto ddox_dub = new Dub(null, m_packageSuppliers);
@@ -1775,7 +1776,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				try {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
-					m_dub.fetch(rootpack, vers, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
+					m_dub.fetch(rootpack, vers, m_dub.defaultScope, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
