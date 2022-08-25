@@ -1157,7 +1157,7 @@ class Dub {
 		string packageName = type;
 		Package template_pack;
 		VersionRange versionRange = VersionRange.Any;
-		if (typeVersion)
+		if (typeVersion.length)
 			versionRange = VersionRange.fromString(typeVersion);
 		template_pack = m_packageManager.getBestPackage(packageName, versionRange);
 		if (!template_pack) {
