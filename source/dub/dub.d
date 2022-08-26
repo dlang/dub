@@ -1277,7 +1277,7 @@ class Dub {
 		auto tool = m_project.rootPackage.recipe.ddoxTool;
 		if (tool.empty) tool = "ddox";
 
-		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
+		auto tool_pack = m_packageManager.getBestPackage(tool);
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
 			logInfo("%s is not present, getting and storing it user wide", tool);
