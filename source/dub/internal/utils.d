@@ -53,18 +53,21 @@ NativePath getTempFile(string prefix, string extension = null)
 }
 
 /**
-   Obtain a lock for a file at the given path. If the file cannot be locked
-   within the given duration, an exception is thrown.  The file will be created
-   if it does not yet exist. Deleting the file is not safe as another process
-   could create a new file with the same name.
-   The returned lock will get unlocked upon destruction.
-
-   Params:
-     path = path to file that gets locked
-     timeout = duration after which locking failed
-   Returns:
-     The locked file or an Exception on timeout.
-*/
+ * Obtain a lock for a file at the given path.
+ *
+ * If the file cannot be locked within the given duration,
+ * an exception is thrown. The file will be created if it does not yet exist.
+ * Deleting the file is not safe as another process could create a new file
+ * with the same name.
+ * The returned lock will get unlocked upon destruction.
+ *
+ * Params:
+ *   path = path to file that gets locked
+ *   timeout = duration after which locking failed
+ *
+ * Returns:
+ *   The locked file or an Exception on timeout.
+ */
 auto lockFile(string path, Duration timeout)
 {
 	import core.thread : Thread;
