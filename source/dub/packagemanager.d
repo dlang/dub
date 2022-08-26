@@ -294,21 +294,21 @@ class PackageManager {
 	Package loadSCMPackage(string name, Repository repo)
 	in { assert(!repo.empty); }
 	do {
-        Package pack;
+		Package pack;
 
-        final switch (repo.kind)
-        {
-            case repo.Kind.git:
-                pack = loadGitPackage(name, repo);
-        }
-        if (pack !is null) {
-            addPackages(m_temporaryPackages, pack);
-        }
-        return pack;
+		final switch (repo.kind)
+		{
+			case repo.Kind.git:
+				pack = loadGitPackage(name, repo);
+		}
+		if (pack !is null) {
+			addPackages(m_temporaryPackages, pack);
+		}
+		return pack;
 	}
 
-    private Package loadGitPackage(string name, in Repository repo)
-    {
+	private Package loadGitPackage(string name, in Repository repo)
+	{
 		import dub.internal.git : cloneRepository;
 
 		if (!repo.ref_.startsWith("~") && !repo.ref_.isGitHash) {
@@ -506,7 +506,7 @@ class PackageManager {
 		m_repositories[scope_].writeOverrides();
 	}
 
-    /// Ditto
+	/// Ditto
 	void addOverride(PlacementLocation scope_, string package_, VersionRange source, Version target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, source, target);
@@ -524,10 +524,10 @@ class PackageManager {
 	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
 	void removeOverride(PlacementLocation scope_, string package_, Dependency version_spec)
 	{
-        version_spec.visit!(
-            (VersionRange src) => this.removeOverride(scope_, package_, src),
-            (any) { throw new Exception(format("No override exists for %s %s", package_, version_spec)); },
-        );
+		version_spec.visit!(
+			(VersionRange src) => this.removeOverride(scope_, package_, src),
+			(any) { throw new Exception(format("No override exists for %s %s", package_, version_spec)); },
+		);
 	}
 
 	void removeOverride(PlacementLocation scope_, string package_, VersionRange src)
@@ -887,7 +887,7 @@ struct PackageOverride {
 
 	deprecated("Use `source` instead")
 	@property inout(Dependency) version_ () inout return @safe {
-        return Dependency(this.source);
+		return Dependency(this.source);
 	}
 
 	deprecated("Assign `source` instead")
@@ -895,11 +895,11 @@ struct PackageOverride {
 		this.source = v.visit!(
 			(VersionRange range) => range,
 			(any) {
-                int a; if (a) return VersionRange.init; // Trick the compiler
-                throw new Exception("Cannot use anything else than a `VersionRange` for overrides");
-            },
+				int a; if (a) return VersionRange.init; // Trick the compiler
+				throw new Exception("Cannot use anything else than a `VersionRange` for overrides");
+			},
 		);
-        return this;
+		return this;
 	}
 
 	deprecated("Use `target.match` directly instead")
