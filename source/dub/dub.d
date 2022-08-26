@@ -1174,13 +1174,15 @@ class Dub {
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
 
-		string[string] depVers;
+		VersionRange[string] depVers;
 		string[] notFound; // keep track of any failed packages in here
 		foreach (dep; deps) {
-			Version ver;
 			try {
-				ver = getLatestVersion(dep);
-				depVers[dep] = ver.isBranch ? ver.toString() : "~>" ~ ver.toString();
+				Version ver = getLatestVersion(dep);
+				if (ver.isBranch())
+					depVers[dep] = VersionRange(ver);
+				else
+					depVers[dep] = VersionRange.fromString("~>" ~ ver.toString());
 			} catch (Exception e) {
 				notFound ~= dep;
 			}

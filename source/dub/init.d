@@ -38,7 +38,7 @@ import std.string;
 			package recipe and the file format used to store it prior to
 			writing it to disk.
 */
-void initPackage(NativePath root_path, string[string] deps, string type,
+void initPackage(NativePath root_path, VersionRange[string] deps, string type,
 	PackageFormat format, scope RecipeCallback recipe_callback = null)
 {
 	import std.conv : to;
