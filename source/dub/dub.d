@@ -1167,7 +1167,7 @@ class Dub {
 			recipe_callback = Optional callback that can be used to
 				customize the recipe before it gets written.
 	*/
-	void createEmptyPackage(NativePath path, string[] deps, string type,
+	void createEmptyPackage(NativePath path, string[] deps, string[string] depVers, string type, string typeVersion,
 		PackageFormat format = PackageFormat.sdl,
 		scope void delegate(ref PackageRecipe, ref PackageFormat) recipe_callback = null,
 		string[] app_args = [])
@@ -1175,9 +1175,9 @@ class Dub {
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
 
-		string[string] depVers;
 		string[] notFound; // keep track of any failed packages in here
 		foreach (dep; deps) {
+			if(dep in depVers) continue;
 			Version ver;
 			try {
 				ver = getLatestVersion(dep);
@@ -1199,21 +1199,24 @@ class Dub {
 		initPackage(path, depVers, type, format, recipe_callback);
 
 		if (!["vibe.d", "deimos", "minimal"].canFind(type)) {
-			runCustomInitialization(path, type, app_args);
+			runCustomInitialization(path, type, typeVersion, app_args);
 		}
 
 		//Act smug to the user.
 		logInfo("Success", Color.green, "created empty project in %s", path.toNativeString().color(Mode.bold));
 	}
 
-	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
+	private void runCustomInitialization(NativePath path, string type, string typeVersion, string[] runArgs)
 	{
 		string packageName = type;
-		auto template_pack = m_packageManager.getBestPackage(packageName);
-		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
+		Package template_pack;
+		VersionRange versionRange = VersionRange.Any;
+		if (typeVersion.length)
+			versionRange = VersionRange.fromString(typeVersion);
+		template_pack = m_packageManager.getBestPackage(packageName, versionRange);
 		if (!template_pack) {
-			logInfo("%s is not present, getting and storing it user wide", packageName);
-			template_pack = fetch(packageName, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
+			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it user wide", type);
+			template_pack = fetch(packageName, versionRange, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
@@ -1280,7 +1283,7 @@ class Dub {
 		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
 		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
 		if (!tool_pack) {
-			logInfo("%s is not present, getting and storing it user wide", tool);
+			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it user wide", tool);
 			tool_pack = fetch(tool, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
 		}
 
