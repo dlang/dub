@@ -2427,10 +2427,13 @@ class DustmiteCommand : PackageBuildCommand {
 			}
 
 			static void fixPathDependency(string pack, ref Dependency dep) {
-				if (!dep.path.empty) {
-					auto mainpack = getBasePackageName(pack);
-					dep.path = NativePath("../") ~ mainpack;
-				}
+				dep.visit!(
+					(NativePath path) {
+						auto mainpack = getBasePackageName(pack);
+						dep = Dependency(NativePath("../") ~ mainpack);
+					},
+					(any) { /* Nothing to do */ },
+				);
 			}
 
 			void fixPathDependencies(ref PackageRecipe recipe, NativePath base_path)

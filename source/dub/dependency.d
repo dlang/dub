@@ -112,6 +112,7 @@ struct Dependency {
 	}
 
 	/// If set, overrides any version based dependency selection.
+	deprecated("Construct a new `Dependency` object instead")
 	@property void path(NativePath value) @trusted
 	{
 		this.m_value = value;
@@ -126,6 +127,7 @@ struct Dependency {
 	}
 
 	/// If set, overrides any version based dependency selection.
+	deprecated("Construct a new `Dependency` object instead")
 	@property void repository(Repository value) @trusted
 	{
 		this.m_value = value;
@@ -323,8 +325,7 @@ struct Dependency {
 				if (auto pv = "version" in verspec)
 					logDiagnostic("Ignoring version specification (%s) for path based dependency %s", pv.get!string, pp.get!string);
 
-				dep = Dependency.any;
-				dep.path = NativePath(verspec["path"].get!string);
+				dep = Dependency(NativePath(verspec["path"].get!string));
 			} else if (auto repository = "repository" in verspec) {
 				enforce("version" in verspec, "No version field specified!");
 				enforce(repository.length > 0, "No repository field specified!");
@@ -357,10 +358,9 @@ struct Dependency {
 			"path": "path/to/package"
 		}
 			`));
-		Dependency d = Dependency.any; // supposed to ignore the version spec
+		Dependency d = NativePath("path/to/package"); // supposed to ignore the version spec
 		d.optional = true;
 		d.default_ = true;
-		d.path = NativePath("path/to/package");
 		assert(d == parsed);
 		// optional and path not checked by opEquals.
 		assert(d.optional == parsed.optional);
