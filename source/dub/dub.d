@@ -1650,7 +1650,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					altdeppath.endsWithSlash = true;
 
 					if (!d.spec.path.empty && absdeppath != desireddeppath)
-						logWarn("Warning: Sub package %s, referenced by %s %s must be referenced using the path to its base package",
+						logWarn("Sub package %s, referenced by %s %s must be referenced using the path to its base package",
 							subpack.name, pack.name, pack.version_);
 
 					enforce(d.spec.path.empty || absdeppath == desireddeppath || absdeppath == altdeppath,
