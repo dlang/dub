@@ -57,7 +57,6 @@ void initPackage(NativePath root_path, VersionRange[string] deps, string type,
 	p.authors ~= username;
 	p.license = "proprietary";
 	foreach (pack, v; deps) {
-		import std.ascii : isDigit;
 		p.buildSettings.dependencies[pack] = Dependency(v);
 	}
 
