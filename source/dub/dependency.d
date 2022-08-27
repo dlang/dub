@@ -268,7 +268,7 @@ struct Dependency {
 		this.m_value.match!(
 			(const NativePath v) @trusted {
 				initJson(json, optional, default_);
-				json["path"] = path.toString();
+				json["path"] = v.toString();
 			},
 
 			(const Repository v) @trusted {
