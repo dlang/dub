@@ -553,7 +553,6 @@ lflags "lf3"
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].settings.dflags == ["":["-g", "-debug"]]);
 	assert(rec.buildSettings.dependencies["somedep"].version_.toString() == "1.0.0");
 	assert(rec.buildSettings.dependencies["somedep"].optional == true);
-	assert(rec.buildSettings.dependencies["somedep"].path.empty);
 	assert(rec.buildSettings.systemDependencies == "system dependencies");
 	assert(rec.buildSettings.targetType == TargetType.executable);
 	assert(rec.buildSettings.targetName == "target name");
