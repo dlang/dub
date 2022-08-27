@@ -407,7 +407,7 @@ shared static this() {
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
 
 		foreach (d; m_rootPackage.getAllDependencies())
-			if (d.spec.isExactVersion && d.spec.version_.isBranch && d.spec.repository.empty) {
+			if (d.spec.isExactVersion && d.spec.version_.isBranch) {
 				logWarn("WARNING: A deprecated branch based version specification is used "
 					~ "for the dependency %s. Please use numbered versions instead. Also "
 					~ "note that you can still use the %s file to override a certain "
