@@ -362,10 +362,6 @@ struct Dependency {
 		d.optional = true;
 		d.default_ = true;
 		assert(d == parsed);
-		// optional and path not checked by opEquals.
-		assert(d.optional == parsed.optional);
-		assert(d.default_ == parsed.default_);
-		assert(d.path == parsed.path);
 	}
 
 	/** Compares dependency specifications.
