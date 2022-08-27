@@ -764,7 +764,6 @@ struct Repository
 struct Version {
 	private {
 		static immutable MAX_VERS = "99999.0.0";
-		static immutable UNKNOWN_VERS = "unknown";
 		static immutable masterString = "~master";
 		enum branchPrefix = '~';
 		string m_version;
@@ -773,14 +772,13 @@ struct Version {
 	static immutable Version minRelease = Version("0.0.0");
 	static immutable Version maxRelease = Version(MAX_VERS);
 	static immutable Version masterBranch = Version(masterString);
-	static immutable Version unknown = Version(UNKNOWN_VERS);
 
 	/** Constructs a new `Version` from its string representation.
 	*/
 	this(string vers) @safe pure
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		if (vers[0] != branchPrefix && vers.ptr !is UNKNOWN_VERS.ptr)
+		if (vers[0] != branchPrefix)
 			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
 		m_version = vers;
 	}
@@ -819,12 +817,6 @@ struct Version {
 		return isPreReleaseVersion(m_version);
 	}
 
-	/// Tests if this represents the special unknown version constant.
-	@property bool isUnknown() const scope @safe pure nothrow @nogc
-	{
-		return m_version == UNKNOWN_VERS;
-	}
-
 	/** Tests two versions for equality, according to the selected match mode.
 	*/
 	bool matches(in Version other, VersionMatchMode mode = VersionMatchMode.standard)
@@ -844,10 +836,6 @@ struct Version {
 	*/
 	int opCmp(in Version other) const scope @safe pure
 	{
-		if (isUnknown || other.isUnknown) {
-			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, other));
-		}
-
 		if (isBranch || other.isBranch) {
 			if(m_version == other.m_version) return 0;
 			if (!isBranch) return 1;
@@ -1164,14 +1152,6 @@ unittest {
 	for(int i=1; i<versions.length; ++i)
 		for(int j=i-1; j>=0; --j)
 			assert(versions[j] < versions[i], "Failed: " ~ versions[j].toString() ~ "<" ~ versions[i].toString());
-
-	a = Version.unknown;
-	b = Version.minRelease;
-	assertThrown(a == b, "Failed: compared " ~ a.toString() ~ " with " ~ b.toString() ~ "");
-
-	a = Version.unknown;
-	b = Version.unknown;
-	assertThrown(a == b, "Failed: UNKNOWN == UNKNOWN");
 
 	assert(Version("1.0.0+a") == Version("1.0.0+b"));
 

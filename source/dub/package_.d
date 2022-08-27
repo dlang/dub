@@ -300,7 +300,6 @@ class Package {
 	/// ditto
 	void storeInfo(NativePath path)
 	const {
-		enforce(!version_.isUnknown, "Trying to store a package with an 'unknown' version, this is not supported.");
 		auto filename = path ~ defaultPackageFilename;
 		auto dstFile = openFile(filename.toNativeString(), FileMode.createTrunc);
 		scope(exit) dstFile.close();
