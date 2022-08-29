@@ -1893,7 +1893,7 @@ private struct UserConfiguration {
 
 	@Optional string[] registryUrls;
 	@Optional NativePath[] customCachePaths;
-	@Optional NativePath buildCacheDirectory;
+	SetInfo!(NativePath) buildCacheDirectory;
 
 	SetInfo!(SkipPackageSuppliers) skipRegistry;
 	SetInfo!(string) defaultCompiler;
