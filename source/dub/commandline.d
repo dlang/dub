@@ -1214,10 +1214,6 @@ class GenerateCommand : PackageBuildCommand {
 		if (!gensettings.config.length)
 			gensettings.config = m_defaultConfig;
 		gensettings.runArgs = app_args;
-		gensettings.force = m_force;
-		gensettings.rdmd = m_rdmd;
-		gensettings.tempBuild = m_tempBuild;
-		gensettings.parallelBuild = m_parallel;
 		gensettings.buildCacheDirectory = dub.buildCacheDirectory;
 
 		logDiagnostic("Generating using %s", m_generator);
