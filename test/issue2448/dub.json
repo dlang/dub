@@ -1,0 +1,5 @@
+{
+	"name": "use-source-files",
+	"description": "Example of using source files.",
+	"sourceFiles": ["ext/*.d"]
+}
