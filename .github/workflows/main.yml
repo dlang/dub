@@ -29,7 +29,11 @@ jobs:
       matrix:
         # Latest stable version, update at will
         os: [ macOS-11, ubuntu-18.04, windows-2019 ]
-        dc: [ dmd-latest, ldc-latest, dmd-master, ldc-master ]
+        dc:
+          - dmd-latest
+          - ldc-latest
+          - dmd-master
+#          - ldc-master
 
     runs-on: ${{ matrix.os }}
     steps:
