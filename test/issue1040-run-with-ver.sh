@@ -15,16 +15,16 @@ fi
 
 cd ${CURR_DIR}/issue1040-tmpdir
 
-$DUB fetch dub@1.17.0 --cache=local
-$DUB fetch dub@1.18.0 --cache=local
-$DUB fetch dub@1.19.0 --cache=local
+$DUB fetch dub@1.27.0 --cache=local
+$DUB fetch dub@1.28.0 --cache=local
+$DUB fetch dub@1.29.0 --cache=local
 
-if { $DUB fetch dub@1.18.0 --cache=local || true; } | grep -cF 'Fetching' > /dev/null; then
+if { $DUB fetch dub@1.28.0 --cache=local || true; } | grep -cF 'Fetching' > /dev/null; then
 	die $LINENO 'Test for doubly fetch of the specified version has failed.'
 fi
-if ! { $DUB run dub -q --cache=local -- --version || true; } | grep -cF 'DUB version 1.19.0' > /dev/null; then
+if ! { $DUB run dub -q --cache=local -- --version || true; } | grep -cF 'DUB version 1.29.0' > /dev/null; then
 	die $LINENO 'Test for selection of the latest fetched version has failed.'
 fi
-if ! { $DUB run dub@1.18.0 -q --cache=local -- --version || true; } | grep -cF 'DUB version 1.18.0' > /dev/null; then
+if ! { $DUB run dub@1.28.0 -q --cache=local -- --version || true; } | grep -cF 'DUB version 1.28.0' > /dev/null; then
 	die $LINENO 'Test for selection of the specified version has failed.'
 fi
