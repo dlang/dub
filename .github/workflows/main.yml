@@ -33,7 +33,7 @@ jobs:
           - dmd-latest
           - ldc-latest
           - dmd-master
-#          - ldc-master
+          - ldc-master
 
     runs-on: ${{ matrix.os }}
     steps:
