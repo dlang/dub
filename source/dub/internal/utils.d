@@ -605,9 +605,6 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
 			path_skip = ipath.bySegment.walkLength;
 	}
 
-	enforce(path_skip > 0,
-		format("Source file '%s' not found in any import path.", file.toNativeString()));
-
 	auto mpath = file.bySegment.array[path_skip .. $];
 	auto ret = appender!string;
 
@@ -620,13 +617,21 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
 	}
 
 	//create module name from path
-	foreach (i; 0 .. mpath.length) {
+	if (path_skip == 0)
+	{
 		import std.path;
-		auto p = mpath[i].name;
-		if (p == "package.d") break ;
-		if (ret.data.length > 0) ret ~= ".";
-		if (i+1 < mpath.length) ret ~= p;
-		else ret ~= p.baseName(".d");
+		ret ~= mpath[$-1].name.baseName(".d");
+	}
+	else
+	{
+		foreach (i; 0 .. mpath.length) {
+			import std.path;
+			auto p = mpath[i].name;
+			if (p == "package.d") break ;
+			if (ret.data.length > 0) ret ~= ".";
+			if (i+1 < mpath.length) ret ~= p;
+			else ret ~= p.baseName(".d");
+		}
 	}
 
 	assert(ret.data.length > 0, "A module name was expected to be computed, and none was.");
