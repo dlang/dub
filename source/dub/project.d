@@ -1421,6 +1421,7 @@ private string[] processVarsWithGlob(Project, Package)(string var, in Project pr
 		{
 		case '*', '?', '[', '{': break loop;
 		case '/': sepIdx = i; goto default;
+		version (Windows) { case '\\': sepIdx = i; goto default; }
 		default: ++i; break switch_;
 		}
 	}
