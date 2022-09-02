@@ -1,0 +1,9 @@
+{
+	"name": "generated-sources-and-source-files-without-glob",
+	"description": "Example of using pre generate commands and sourceFiles without glob.",
+	"sourceFiles": ["ext/fortytwo.d"],
+	"preGenerateCommands": [
+		"mkdir -p ext",
+		"echo 'extern(C) int fun42 () { return 42; }' > ext/fortytwo.d"
+	]
+}
