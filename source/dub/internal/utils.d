@@ -690,6 +690,10 @@ unittest {
  * Search for module keyword in file
  */
 string getModuleNameFromFile(string filePath) {
+	if (!filePath.exists)
+	{
+		return null;
+	}
 	string fileContent = filePath.readText;
 
 	logDiagnostic("Get module name from path: %s", filePath);
