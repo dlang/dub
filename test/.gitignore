@@ -37,6 +37,7 @@ describe-project/dummy-dep1.dat
 */*test-application
 */exec-simple
 issue1474/ext/fortytwo.d
+issue2452/ext/fortytwo.d
 
 cov-ctfe/test
 issue1003-check-empty-ld-flags/issue1003-empty-ld-flags
