@@ -239,7 +239,7 @@ class BuildGenerator : ProjectGenerator {
 		if (!isWritableDir(target_path, true)) {
 			if (!settings.tempBuild)
 				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
-			performDirectBuild(settings, buildsettings, pack, config, dependencyBinariesToCopy, target_path);
+			performDirectBuild(settings, buildsettings, pack, config, dependencyBinariesToCopy, target_binary_path);
 			return false;
 		}
 
