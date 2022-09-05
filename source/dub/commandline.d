@@ -2121,7 +2121,7 @@ class ListCommand : Command {
 			"Prints a list of all or selected local packages. This includes all cached "~
 			"packages (user or system wide), all packages in the package search paths "~
 			"(\"dub add-path\") and all manually registered packages (\"dub add-local\"). "~
-			"If package specified output filtered by package spec."
+			"If a package (and optionally a version spec) is specified, only matching packages are shown."
 		];
 	}
 	override void prepare(scope CommandArgs args) {}
