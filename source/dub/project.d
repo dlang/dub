@@ -452,13 +452,19 @@ shared static this() {
 
 			foreach (d; pack.getAllDependencies()) {
 				auto basename = getBasePackageName(d.name);
-				if (m_selections.hasSelectedVersion(basename)) {
-					auto selver = m_selections.getSelectedVersion(basename);
-					if (d.spec.merge(selver) == Dependency.invalid) {
-						logWarn("Selected package %s %s does not match the dependency specification %s in package %s. Need to \"%s\"?",
-							basename.color(Mode.bold), selver, d.spec, pack.name.color(Mode.bold), "dub upgrade".color(Mode.bold));
-					}
-				}
+				d.spec.visit!(
+					(NativePath path) { /* Valid */ },
+					(Repository repo) { /* Valid */ },
+					(VersionRange vers) {
+						if (m_selections.hasSelectedVersion(basename)) {
+							auto selver = m_selections.getSelectedVersion(basename);
+							if (d.spec.merge(selver) == Dependency.invalid) {
+								logWarn(`Selected package %s %s does not match the dependency specification %s in package %s. Need to "%s"?`,
+									basename.color(Mode.bold), selver, vers, pack.name.color(Mode.bold), "dub upgrade".color(Mode.bold));
+							}
+						}
+					},
+				);
 
 				auto deppack = getDependency(d.name, true);
 				if (deppack in visited) continue;
