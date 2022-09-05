@@ -762,50 +762,52 @@ class PackageManager {
 		// rescan the system and user package folder
 		void scanPackageFolder(NativePath path)
 		{
-			if( path.existsDirectory() ){
-				logDebug("iterating dir %s", path.toNativeString());
-				try foreach( pdir; iterateDirectory(path) ){
-					logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
-					if (!pdir.isDirectory) continue;
+			if (!path.existsDirectory())
+				return;
 
-					// Old / flat directory structure, used in non-standard path
-					// Packages are stored in $ROOT/$SOMETHING/`
-					auto pack_path = path ~ (pdir.name ~ "/");
-					auto packageFile = Package.findPackageFile(pack_path);
+			logDebug("iterating dir %s", path.toNativeString());
+			try foreach (pdir; iterateDirectory(path)) {
+				logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
+				if (!pdir.isDirectory) continue;
 
-					// New (since 2015) managed structure:
-					// $ROOT/$NAME-$VERSION/$NAME
-					// This is the most common code path
-					if (isManagedPath(path) && packageFile.empty) {
-						foreach (subdir; iterateDirectory(path ~ (pdir.name ~ "/")))
-							if (subdir.isDirectory && pdir.name.startsWith(subdir.name)) {
-								pack_path ~= subdir.name ~ "/";
-								packageFile = Package.findPackageFile(pack_path);
+				// Old / flat directory structure, used in non-standard path
+				// Packages are stored in $ROOT/$SOMETHING/`
+				auto pack_path = path ~ (pdir.name ~ "/");
+				auto packageFile = Package.findPackageFile(pack_path);
+
+				// New (since 2015) managed structure:
+				// $ROOT/$NAME-$VERSION/$NAME
+				// This is the most common code path
+				if (isManagedPath(path) && packageFile.empty) {
+					foreach (subdir; iterateDirectory(path ~ (pdir.name ~ "/")))
+						if (subdir.isDirectory && pdir.name.startsWith(subdir.name)) {
+							pack_path ~= subdir.name ~ "/";
+							packageFile = Package.findPackageFile(pack_path);
+							break;
+						}
+				}
+
+				if (packageFile.empty) continue;
+				Package p;
+				try {
+					if (!refresh_existing_packages)
+						foreach (pp; old_packages)
+							if (pp.path == pack_path) {
+								p = pp;
 								break;
 							}
-					}
-
-					if (packageFile.empty) continue;
-					Package p;
-					try {
-						if (!refresh_existing_packages)
-							foreach (pp; old_packages)
-								if (pp.path == pack_path) {
-									p = pp;
-									break;
-								}
-						if (!p) p = Package.load(pack_path, packageFile);
-						addPackages(this.m_internal.localPackages, p);
-					} catch (ConfigException exc) {
-						// Confiy error message already include the path
-						logError("Invalid recipe for local package: %S", exc);
-					} catch( Exception e ){
-						logError("Failed to load package in %s: %s", pack_path, e.msg);
-						logDiagnostic("Full error: %s", e.toString().sanitize());
-					}
+					if (!p) p = Package.load(pack_path, packageFile);
+					addPackages(this.m_internal.localPackages, p);
+				} catch (ConfigException exc) {
+					// Confiy error message already include the path
+					logError("Invalid recipe for local package: %S", exc);
+				} catch (Exception e) {
+					logError("Failed to load package in %s: %s", pack_path, e.msg);
+					logDiagnostic("Full error: %s", e.toString().sanitize());
 				}
-				catch(Exception e) logDiagnostic("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
 			}
+			catch (Exception e)
+				logDiagnostic("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
 		}
 
 		this.m_internal.localPackages = null;
