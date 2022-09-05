@@ -691,7 +691,13 @@ class PackageManager {
 			return false;
 		}
 		foreach(repo; m_repositories) {
-			if(removeFrom(repo.localPackages, pack)) {
+			if (removeFrom(repo.fromPath, pack)) {
+				found = true;
+				break;
+			}
+			// Maintain backward compatibility with pre v1.30.0 behavior,
+			// this is equivalent to remove-local
+			if (removeFrom(repo.localPackages, pack)) {
 				found = true;
 				break;
 			}
@@ -786,12 +792,9 @@ class PackageManager {
 			this.m_repositories[PlacementLocation.local].scanLocalPackages(refresh, this);
 		}
 
-		// If we're asked to refresh, reload the packages from scratch
-		auto existing_packages = refresh ? null : this.m_internal.localPackages;
-
-		this.m_internal.localPackages = null;
-		foreach (p; this.completeSearchPath)
-			this.m_internal.scanPackageFolder(p, this, existing_packages);
+		this.m_internal.scan(this, refresh);
+		foreach (ref repository; this.m_repositories)
+			repository.scan(this, refresh);
 
 		if (!m_disableDefaultSearchPaths)
 		{
@@ -1122,6 +1125,20 @@ private struct Location {
 		}
 		this.localPackages = packs;
 		this.searchPath = paths;
+	}
+
+	/**
+	 * Scan this location
+	 */
+	void scan(PackageManager mgr, bool refresh)
+	{
+		// If we're asked to refresh, reload the packages from scratch
+		auto existing = refresh ? null : this.fromPath;
+		this.fromPath = null;
+		if (this.packagePath !is NativePath.init)
+			this.scanPackageFolder(this.packagePath, mgr, existing);
+		foreach (path; this.searchPath)
+			this.scanPackageFolder(path, mgr, existing);
 	}
 
     /**
