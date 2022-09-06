@@ -1061,11 +1061,10 @@ private struct Location {
 		NativePath[] paths;
 		try {
 			auto local_package_file = list_path ~ LocalPackagesFilename;
-			logDiagnostic("Looking for local package map at %s", local_package_file.toNativeString());
 			if (!existsFile(local_package_file)) return;
 
-			logDiagnostic("Try to load local package map at %s", local_package_file.toNativeString());
-			auto packlist = jsonFromFile(list_path ~ LocalPackagesFilename);
+			logDiagnostic("Loading local package map at %s", local_package_file.toNativeString());
+			auto packlist = jsonFromFile(local_package_file);
 			enforce(packlist.type == Json.Type.array, LocalPackagesFilename ~ " must contain an array.");
 			foreach (pentry; packlist) {
 				try {
