@@ -457,12 +457,17 @@ class PackageManager {
 				if (auto ret = del(tp)) return ret;
 
 			// first search local packages
-			foreach (ref repo; m_repositories)
+			foreach (ref repo; m_repositories) {
 				foreach (p; repo.localPackages)
 					if (auto ret = del(p)) return ret;
+				foreach (p; repo.fromPath)
+					if (auto ret = del(p)) return ret;
+			}
 
 			// and then all packages gathered from the search path
 			foreach (p; this.m_internal.localPackages)
+				if (auto ret = del(p)) return ret;
+			foreach (p; this.m_internal.fromPath)
 				if (auto ret = del(p)) return ret;
 			return 0;
 		}
@@ -981,11 +986,19 @@ private struct Location {
 	/// Configured (extra) search paths for this `Location`
 	NativePath[] searchPath;
 
-	/// List of packages at this `Location`
+	/**
+	 * List of manually registered packages at this `Location`
+	 * and stored in `local-packages.json`
+	 */
 	Package[] localPackages;
 
 	/// List of overrides stored at this `Location`
 	PackageOverride_[] overrides;
+
+	/**
+	 * List of packages stored under `packagePath` and automatically detected
+	 */
+	Package[] fromPath;
 
 	this(NativePath path) @safe pure nothrow @nogc
 	{
@@ -1152,7 +1165,7 @@ private struct Location {
 						break;
 					}
 				if (!p) p = Package.load(pack_path, packageFile);
-				mgr.addPackages(this.localPackages, p);
+				mgr.addPackages(this.fromPath, p);
 			} catch (ConfigException exc) {
 				// Confiy error message already include the path
 				logError("Invalid recipe for local package: %S", exc);
