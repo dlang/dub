@@ -782,11 +782,12 @@ class PackageManager {
 			this.m_repositories[PlacementLocation.local].scanLocalPackages(refresh, this);
 		}
 
-		auto old_packages = this.m_internal.localPackages;
+		// If we're asked to refresh, reload the packages from scratch
+		auto existing_packages = refresh ? null : this.m_internal.localPackages;
 
 		this.m_internal.localPackages = null;
 		foreach (p; this.completeSearchPath)
-			this.m_internal.scanPackageFolder(p, this, refresh, old_packages);
+			this.m_internal.scanPackageFolder(p, this, existing_packages);
 
 		if (!m_disableDefaultSearchPaths)
 		{
@@ -1116,7 +1117,7 @@ private struct Location {
      * and add all packages that were found to this location.
      */
 	void scanPackageFolder(NativePath path, PackageManager mgr,
-		bool refresh, Package[] old_packages)
+		Package[] existing_packages)
 	{
 		if (!path.existsDirectory())
 			return;
@@ -1146,12 +1147,11 @@ private struct Location {
 			if (packageFile.empty) continue;
 			Package p;
 			try {
-				if (!refresh)
-					foreach (pp; old_packages)
-						if (pp.path == pack_path) {
-							p = pp;
-							break;
-						}
+				foreach (pp; existing_packages)
+					if (pp.path == pack_path) {
+						p = pp;
+						break;
+					}
 				if (!p) p = Package.load(pack_path, packageFile);
 				mgr.addPackages(this.localPackages, p);
 			} catch (ConfigException exc) {
