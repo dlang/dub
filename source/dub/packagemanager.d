@@ -771,22 +771,22 @@ class PackageManager {
 		this.m_repositories[type].writeLocalPackageList();
 	}
 
-	void refresh(bool refresh_existing_packages)
+	void refresh(bool refresh)
 	{
-		logDiagnostic("Refreshing local packages (refresh existing: %s)...", refresh_existing_packages);
+		logDiagnostic("Refreshing local packages (refresh existing: %s)...", refresh);
 
 		if (!m_disableDefaultSearchPaths)
 		{
-			this.m_repositories[PlacementLocation.system].scanLocalPackages(refresh_existing_packages, this);
-			this.m_repositories[PlacementLocation.user].scanLocalPackages(refresh_existing_packages, this);
-			this.m_repositories[PlacementLocation.local].scanLocalPackages(refresh_existing_packages, this);
+			this.m_repositories[PlacementLocation.system].scanLocalPackages(refresh, this);
+			this.m_repositories[PlacementLocation.user].scanLocalPackages(refresh, this);
+			this.m_repositories[PlacementLocation.local].scanLocalPackages(refresh, this);
 		}
 
 		auto old_packages = this.m_internal.localPackages;
 
 		this.m_internal.localPackages = null;
 		foreach (p; this.completeSearchPath)
-			this.m_internal.scanPackageFolder(p, this, refresh_existing_packages, old_packages);
+			this.m_internal.scanPackageFolder(p, this, refresh, old_packages);
 
 		if (!m_disableDefaultSearchPaths)
 		{
@@ -1054,7 +1054,7 @@ private struct Location {
 	}
 
 	// load locally defined packages
-	void scanLocalPackages(bool refresh_existing_packages, PackageManager manager)
+	void scanLocalPackages(bool refresh, PackageManager manager)
 	{
 		NativePath list_path = this.packagePath;
 		Package[] packs;
@@ -1076,7 +1076,7 @@ private struct Location {
 						auto ver = Version(pentry["version"].get!string);
 
 						Package pp;
-						if (!refresh_existing_packages) {
+						if (!refresh) {
 							foreach (p; this.localPackages)
 								if (p.path == path) {
 									pp = p;
@@ -1116,7 +1116,7 @@ private struct Location {
      * and add all packages that were found to this location.
      */
 	void scanPackageFolder(NativePath path, PackageManager mgr,
-		bool refresh_existing_packages, Package[] old_packages)
+		bool refresh, Package[] old_packages)
 	{
 		if (!path.existsDirectory())
 			return;
@@ -1146,7 +1146,7 @@ private struct Location {
 			if (packageFile.empty) continue;
 			Package p;
 			try {
-				if (!refresh_existing_packages)
+				if (!refresh)
 					foreach (pp; old_packages)
 						if (pp.path == pack_path) {
 							p = pp;
