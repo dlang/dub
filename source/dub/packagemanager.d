@@ -462,9 +462,8 @@ class PackageManager {
 					if (auto ret = del(p)) return ret;
 
 			// and then all packages gathered from the search path
-			foreach( p; this.m_internal.localPackages )
-				if( auto ret = del(p) )
-					return ret;
+			foreach (p; this.m_internal.localPackages)
+				if (auto ret = del(p)) return ret;
 			return 0;
 		}
 
