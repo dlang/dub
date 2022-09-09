@@ -958,7 +958,22 @@ enum LocalPackageType : PlacementLocation {
 private enum LocalPackagesFilename = "local-packages.json";
 private enum LocalOverridesFilename = "local-overrides.json";
 
-/// A managed location (see `PlacementLocation`)
+/**
+ * A managed location, with packages, configuration, and overrides
+ *
+ * There exists three standards locations, listed in `PlacementLocation`.
+ * The user one is the default, with the system and local one meeting
+ * different needs.
+ *
+ * Each location has a root, under which the following may be found:
+ * - A `packages/` directory, where packages are stored (see `packagePath`);
+ * - A `local-packages.json` file, with extra search paths
+ *   and manually added packages (see `dub add-local`);
+ * - A `local-overrides.json` file, with manually added overrides (`dub add-override`);
+ *
+ * Additionally, each location host a config file,
+ * which is not managed by this module, but by dub itself.
+ */
 private struct Location {
 	/// The absolute path to the root of the location
 	NativePath packagePath;
@@ -1046,11 +1061,10 @@ private struct Location {
 		NativePath[] paths;
 		try {
 			auto local_package_file = list_path ~ LocalPackagesFilename;
-			logDiagnostic("Looking for local package map at %s", local_package_file.toNativeString());
 			if (!existsFile(local_package_file)) return;
 
-			logDiagnostic("Try to load local package map at %s", local_package_file.toNativeString());
-			auto packlist = jsonFromFile(list_path ~ LocalPackagesFilename);
+			logDiagnostic("Loading local package map at %s", local_package_file.toNativeString());
+			auto packlist = jsonFromFile(local_package_file);
 			enforce(packlist.type == Json.Type.array, LocalPackagesFilename ~ " must contain an array.");
 			foreach (pentry; packlist) {
 				try {
