@@ -86,8 +86,6 @@ class Project {
 			m_selections = !selected.isNull() ?
 				new SelectedVersions(selected.get()) : new SelectedVersions();
 		} else m_selections = new SelectedVersions;
-
-		reinit();
 	}
 
 	/** List of all resolved dependencies.
