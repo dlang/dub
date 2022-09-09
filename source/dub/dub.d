@@ -1538,7 +1538,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		foreach (name; filter)
 			m_packagesToUpgrade[name] = true;
 		return super.resolve(TreeNode(m_rootPackage.name, Dependency(m_rootPackage.version_)),
-			(m_options & UpgradeOptions.printUpgradesOnly) == 0);
+			(m_options & UpgradeOptions.dryRun) == 0);
 	}
 
 	protected bool isFixedPackage(string pack)
