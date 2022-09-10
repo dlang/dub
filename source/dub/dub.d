@@ -524,14 +524,6 @@ class Dub {
 		loadSingleFilePackage(NativePath(path));
 	}
 
-	deprecated("Instantiate a Dub instance with the single-argument constructor: `new Dub(path)`")
-	void overrideSearchPath(NativePath path)
-	{
-		if (!path.absolute) path = NativePath(getcwd()) ~ path;
-		m_packageManager.disableDefaultSearchPaths = true;
-		m_packageManager.searchPath = [path];
-	}
-
 	/** Gets the default configuration for a particular build platform.
 
 		This forwards to `Project.getDefaultConfiguration` and requires a

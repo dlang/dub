@@ -78,16 +78,6 @@ class PackageManager {
 		this.refresh(true);
 	}
 
-	deprecated("Use the overload which accepts 3 `NativePath` arguments")
-	this(NativePath user_path, NativePath system_path, bool refresh_packages = true)
-	{
-		m_repositories = [
-			Location(user_path ~ "packages/"),
-			Location(system_path ~ "packages/")];
-
-		if (refresh_packages) refresh(true);
-	}
-
 	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
 		m_repositories = [
@@ -108,16 +98,6 @@ class PackageManager {
 	}
 	/// ditto
 	@property const(NativePath)[] searchPath() const { return this.m_internal.searchPath; }
-
-	/** Disables searching DUB's predefined search paths.
-	*/
-	deprecated("Instantiate a PackageManager instance with the single-argument constructor: `new PackageManager(path)`")
-	@property void disableDefaultSearchPaths(bool val)
-	{
-		if (val == m_disableDefaultSearchPaths) return;
-		m_disableDefaultSearchPaths = val;
-		refresh(true);
-	}
 
 	/** Returns the effective list of search paths, including default ones.
 	*/
