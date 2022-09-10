@@ -320,7 +320,7 @@ public struct RecipeDependency
 		return RecipeDependency(d.toDependency(), d.settings);
 	}
 
-	/// In-file of a dependency as specified by the user
+	/// In-file representation of a dependency as specified by the user
 	private struct YAMLFormat
 	{
 		@Name("version") @Optional string version_;
