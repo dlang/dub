@@ -47,9 +47,8 @@ public enum PlacementLocation {
 /// packages.
 class PackageManager {
 	private {
-		Location[] m_repositories;
 		/**
-		 * The extra 'internal' location, for packages not attributable to a location.
+		 * The 'internal' location, for packages not attributable to a location.
 		 *
 		 * There are two uses for this:
 		 * - In `bare` mode, the search paths are set at this scope,
@@ -58,6 +57,17 @@ class PackageManager {
 		 *	 is loaded in `fromPath`;
 		 */
 		Location m_internal;
+		/**
+		 * List of locations that are managed by this `PackageManager`
+		 *
+		 * The `PackageManager` can be instantiated either in 'bare' mode,
+		 * in which case this array will be empty, or in the normal mode,
+		 * this array will have 3 entries, matching values
+		 * in the `PlacementLocation` enum.
+		 *
+		 * See_Also: `Location`, `PlacementLocation`
+		 */
+		Location[] m_repositories;
 		bool m_disableDefaultSearchPaths = false;
 	}
 
