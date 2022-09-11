@@ -47,9 +47,8 @@ public enum PlacementLocation {
 /// packages.
 class PackageManager {
 	private {
-		Location[] m_repositories;
 		/**
-		 * The extra 'internal' location, for packages not attributable to a location.
+		 * The 'internal' location, for packages not attributable to a location.
 		 *
 		 * There are two uses for this:
 		 * - In `bare` mode, the search paths are set at this scope,
@@ -58,7 +57,17 @@ class PackageManager {
 		 *	 is loaded in `fromPath`;
 		 */
 		Location m_internal;
-		bool m_disableDefaultSearchPaths = false;
+		/**
+		 * List of locations that are managed by this `PackageManager`
+		 *
+		 * The `PackageManager` can be instantiated either in 'bare' mode,
+		 * in which case this array will be empty, or in the normal mode,
+		 * this array will have 3 entries, matching values
+		 * in the `PlacementLocation` enum.
+		 *
+		 * See_Also: `Location`, `PlacementLocation`
+		 */
+		Location[] m_repositories;
 	}
 
 	/**
@@ -74,7 +83,6 @@ class PackageManager {
 	this(NativePath path)
 	{
 		this.m_internal.searchPath = [ path ];
-		this.m_disableDefaultSearchPaths = true;
 		this.refresh(true);
 	}
 
@@ -105,11 +113,9 @@ class PackageManager {
 	const {
 		auto ret = appender!(const(NativePath)[])();
 		ret.put(this.m_internal.searchPath);
-		if (!m_disableDefaultSearchPaths) {
-			foreach (ref repo; m_repositories) {
-				ret.put(repo.searchPath);
-				ret.put(repo.packagePath);
-			}
+		foreach (ref repo; m_repositories) {
+			ret.put(repo.searchPath);
+			ret.put(repo.packagePath);
 		}
 		return ret.data;
 	}
@@ -767,23 +773,15 @@ class PackageManager {
 	{
 		logDiagnostic("Refreshing local packages (refresh existing: %s)...", refresh);
 
-		if (!m_disableDefaultSearchPaths)
-		{
-			this.m_repositories[PlacementLocation.system].scanLocalPackages(refresh, this);
-			this.m_repositories[PlacementLocation.user].scanLocalPackages(refresh, this);
-			this.m_repositories[PlacementLocation.local].scanLocalPackages(refresh, this);
-		}
+		foreach (ref repository; this.m_repositories)
+			repository.scanLocalPackages(refresh, this);
 
 		this.m_internal.scan(this, refresh);
 		foreach (ref repository; this.m_repositories)
 			repository.scan(this, refresh);
 
-		if (!m_disableDefaultSearchPaths)
-		{
-			this.m_repositories[PlacementLocation.local].loadOverrides();
-			this.m_repositories[PlacementLocation.user].loadOverrides();
-			this.m_repositories[PlacementLocation.system].loadOverrides();
-		}
+		foreach (ref repository; this.m_repositories)
+			repository.loadOverrides();
 	}
 
 	alias Hash = ubyte[];
