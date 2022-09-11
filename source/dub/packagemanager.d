@@ -68,7 +68,6 @@ class PackageManager {
 		 * See_Also: `Location`, `PlacementLocation`
 		 */
 		Location[] m_repositories;
-		bool m_disableDefaultSearchPaths = false;
 	}
 
 	/**
@@ -84,7 +83,6 @@ class PackageManager {
 	this(NativePath path)
 	{
 		this.m_internal.searchPath = [ path ];
-		this.m_disableDefaultSearchPaths = true;
 		this.refresh(true);
 	}
 
@@ -115,11 +113,9 @@ class PackageManager {
 	const {
 		auto ret = appender!(const(NativePath)[])();
 		ret.put(this.m_internal.searchPath);
-		if (!m_disableDefaultSearchPaths) {
-			foreach (ref repo; m_repositories) {
-				ret.put(repo.searchPath);
-				ret.put(repo.packagePath);
-			}
+		foreach (ref repo; m_repositories) {
+			ret.put(repo.searchPath);
+			ret.put(repo.packagePath);
 		}
 		return ret.data;
 	}
@@ -777,23 +773,15 @@ class PackageManager {
 	{
 		logDiagnostic("Refreshing local packages (refresh existing: %s)...", refresh);
 
-		if (!m_disableDefaultSearchPaths)
-		{
-			this.m_repositories[PlacementLocation.system].scanLocalPackages(refresh, this);
-			this.m_repositories[PlacementLocation.user].scanLocalPackages(refresh, this);
-			this.m_repositories[PlacementLocation.local].scanLocalPackages(refresh, this);
-		}
+		foreach (ref repository; this.m_repositories)
+			repository.scanLocalPackages(refresh, this);
 
 		this.m_internal.scan(this, refresh);
 		foreach (ref repository; this.m_repositories)
 			repository.scan(this, refresh);
 
-		if (!m_disableDefaultSearchPaths)
-		{
-			this.m_repositories[PlacementLocation.local].loadOverrides();
-			this.m_repositories[PlacementLocation.user].loadOverrides();
-			this.m_repositories[PlacementLocation.system].loadOverrides();
-		}
+		foreach (ref repository; this.m_repositories)
+			repository.loadOverrides();
 	}
 
 	alias Hash = ubyte[];
