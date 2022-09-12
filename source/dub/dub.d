@@ -713,7 +713,7 @@ class Dub {
 		}
 
 		auto dscanner_dub = new Dub(null, m_packageSuppliers);
-		dscanner_dub.loadPackage(tool_pack.path);
+		dscanner_dub.loadPackage(tool_pack);
 		dscanner_dub.upgrade(UpgradeOptions.select);
 
 		GeneratorSettings settings = this.makeAppSettings();
@@ -1276,7 +1276,7 @@ class Dub {
 		}
 
 		auto ddox_dub = new Dub(null, m_packageSuppliers);
-		ddox_dub.loadPackage(tool_pack.path);
+		ddox_dub.loadPackage(tool_pack);
 		ddox_dub.upgrade(UpgradeOptions.select);
 
 		GeneratorSettings settings = this.makeAppSettings();
