@@ -318,9 +318,7 @@ class PackageManager {
 		}
 
 		string gitReference = repo.ref_.chompPrefix("~");
-		NativePath destination = getPackagePath(
-			m_repositories[PlacementLocation.user].packagePath,
-			name, repo.ref_);
+		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
 		// For libraries leaking their import path
 		destination ~= name;
 		destination.endsWithSlash = true;
@@ -341,20 +339,12 @@ class PackageManager {
 	/**
 	 * Get the final destination a specific package needs to be stored in.
 	 *
-	 * Note that there needs to be an extra level for libraries like `ae`
-	 * which expects their containing folder to have an exact name and use
-	 * `importPath "../"`.
-	 *
-	 * Hence the final format should be `$BASE/$NAME-$VERSION/$NAME`,
-	 * but this function returns `$BASE/$NAME-$VERSION/`
+	 * See `Location.getPackagePath`.
 	 */
-	package(dub) static NativePath getPackagePath (NativePath base, string name, string vers)
+	package(dub) NativePath getPackagePath (PlacementLocation base, string name, string vers)
 	{
-		// + has special meaning for Optlink
-		string clean_vers = vers.chompPrefix("~").replace("+", "_");
-		NativePath result = base ~ (name ~ "-" ~ clean_vers);
-		result.endsWithSlash = true;
-		return result;
+		assert(this.m_repositories.length == 3, "getPackagePath called in bare mode");
+		return this.m_repositories[base].getPackagePath(name, vers);
 	}
 
 	/** Searches for the latest version of a package matching the given dependency.
@@ -1183,6 +1173,26 @@ private struct Location {
 		}
 		catch (Exception e)
 			logDiagnostic("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
+	}
+
+	/**
+	 * Get the final destination a specific package needs to be stored in.
+	 *
+	 * Note that there needs to be an extra level for libraries like `ae`
+	 * which expects their containing folder to have an exact name and use
+	 * `importPath "../"`.
+	 *
+	 * Hence the final format should be `$BASE/$NAME-$VERSION/$NAME`,
+	 * but this function returns `$BASE/$NAME-$VERSION/`
+	 * `$BASE` is `this.packagePath`.
+	 */
+	private NativePath getPackagePath (string name, string vers)
+	{
+		// + has special meaning for Optlink
+		string clean_vers = vers.chompPrefix("~").replace("+", "_");
+		NativePath result = this.packagePath ~ (name ~ "-" ~ clean_vers);
+		result.endsWithSlash = true;
+		return result;
 	}
 }
 
