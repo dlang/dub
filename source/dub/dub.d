@@ -127,7 +127,6 @@ class Dub {
 		NativePath m_rootPath;
 		SpecialDirs m_dirs;
 		UserConfiguration m_config;
-		NativePath m_projectPath;
 		Project m_project;
 		string m_defaultCompiler;
 	}
@@ -372,7 +371,7 @@ class Dub {
 	/// application.
 	@property string projectName() const { return m_project.name; }
 
-	@property NativePath projectPath() const { return m_projectPath; }
+	@property NativePath projectPath() const { return this.m_project.rootPackage.path; }
 
 	@property string[] configurations() const { return m_project.configurations; }
 
@@ -427,14 +426,12 @@ class Dub {
 	/// Loads the package from the specified path as the main project package.
 	void loadPackage(NativePath path)
 	{
-		m_projectPath = path;
-		m_project = new Project(m_packageManager, m_projectPath);
+		m_project = new Project(m_packageManager, path);
 	}
 
 	/// Loads a specific package as the main project package (can be a sub package)
 	void loadPackage(Package pack)
 	{
-		m_projectPath = pack.path;
 		m_project = new Project(m_packageManager, pack);
 	}
 
