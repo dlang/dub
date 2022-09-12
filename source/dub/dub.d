@@ -852,7 +852,7 @@ class Dub {
 
 		logDebug("Acquiring package zip file");
 
-		NativePath dstpath = PackageManager.getPackagePath(placement, basePackageName, ver.toString());
+		NativePath dstpath = this.m_packageManager.getPackagePath(location, basePackageName, ver.toString());
 		if (!dstpath.existsFile())
 			mkdirRecurse(dstpath.toNativeString());
 		// For libraries leaking their import path
