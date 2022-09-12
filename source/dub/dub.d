@@ -817,13 +817,6 @@ class Dub {
 		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency " ~ range.toString());
 		Version ver = Version(pinfo["version"].get!string);
 
-		NativePath placement;
-		final switch (location) {
-			case PlacementLocation.local: placement = m_rootPath ~ ".dub/packages/"; break;
-			case PlacementLocation.user: placement = m_dirs.localRepository ~ "packages/"; break;
-			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
-		}
-
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		Package existing = m_packageManager.getPackage(packageId, ver, location);
 		if (options & FetchOptions.printOnly) {
@@ -837,8 +830,8 @@ class Dub {
 		if (existing) {
 			if (!ver.isBranch() || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
-				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
-					packageId, ver, placement);
+				logDiagnostic("Package %s %s (in %s packages) is already present with the latest version, skipping upgrade.",
+					packageId, ver, location.toString);
 				return existing;
 			} else {
 				logInfo("Removing", Color.yellow, "%s %s to prepare replacement with a new version", packageId.color(Mode.bold), ver);
@@ -874,7 +867,7 @@ class Dub {
 			auto path = getTempFile(basePackageName, ".zip");
 			supplier.fetchPackage(path, basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) std.file.remove(path.toNativeString());
-			logDiagnostic("Placing to %s...", placement.toNativeString());
+			logDiagnostic("Placing to %s...", dstpath.toNativeString());
 
 			try {
 				return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);

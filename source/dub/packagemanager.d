@@ -44,6 +44,19 @@ public enum PlacementLocation {
 	system,
 }
 
+/// Converts a `PlacementLocation` to a string
+public string toString (PlacementLocation loc) @safe pure nothrow @nogc
+{
+    final switch (loc) {
+    case PlacementLocation.local:
+        return "Local";
+    case PlacementLocation.user:
+        return "User";
+    case PlacementLocation.system:
+        return "System";
+    }
+}
+
 /// The PackageManager can retrieve present packages and get / remove
 /// packages.
 class PackageManager {
