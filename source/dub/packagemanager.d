@@ -195,6 +195,7 @@ class PackageManager {
 	}
 
 	/// ditto
+	deprecated("Use the overload that takes a `PlacementLocation`")
 	Package getPackage(string name, Version ver, NativePath path)
 	{
 		foreach (p; getPackageIterator(name)) {
@@ -203,6 +204,15 @@ class PackageManager {
 				return p;
 		}
 		return null;
+	}
+
+	/// Ditto
+	Package getPackage(string name, Version ver, PlacementLocation loc)
+	{
+		// Bare mode
+		if (loc >= this.m_repositories.length)
+			return null;
+		return this.m_repositories[loc].lookup(name, ver);
 	}
 
 	/// ditto
@@ -1173,6 +1183,30 @@ private struct Location {
 		}
 		catch (Exception e)
 			logDiagnostic("Failed to enumerate %s packages: %s", path.toNativeString(), e.toString());
+	}
+
+	/**
+	 * Looks up already-loaded packages at a specific version
+	 *
+	 * Looks up a package according to this `Location`'s priority,
+	 * that is, packages from the search path and local packages
+	 * have the highest priority.
+	 *
+	 * Params:
+	 *	 name = The full name of the package to look up
+	 *	 ver  = The version to look up
+	 *
+	 * Returns:
+	 *	 A `Package` if one was found, `null` if none exists.
+	 */
+	private inout(Package) lookup(string name, Version ver) inout {
+		foreach (pkg; this.localPackages)
+			if (pkg.name == name && pkg.version_.matches(ver, VersionMatchMode.strict))
+				return pkg;
+		foreach (pkg; this.fromPath)
+			if (pkg.name == name && pkg.version_.matches(ver, VersionMatchMode.strict))
+				return pkg;
+		return null;
 	}
 
 	/**

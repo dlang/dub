@@ -825,7 +825,7 @@ class Dub {
 		}
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
-		Package existing = m_packageManager.getPackage(packageId, ver, placement);
+		Package existing = m_packageManager.getPackage(packageId, ver, location);
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.version_ != ver)
 				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
@@ -863,7 +863,7 @@ class Dub {
 		if (dstpath.existsFile())
 		{
 			m_packageManager.refresh(false);
-			return m_packageManager.getPackage(packageId, ver, dstpath);
+			return m_packageManager.getPackage(packageId, ver, location);
 		}
 
 		// repeat download on corrupted zips, see #1336
