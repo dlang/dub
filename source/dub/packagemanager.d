@@ -110,6 +110,7 @@ class PackageManager {
 
 	/** Returns the effective list of search paths, including default ones.
 	*/
+	deprecated("Use the `PackageManager` facilities instead")
 	@property const(NativePath)[] completeSearchPath()
 	const {
 		auto ret = appender!(const(NativePath)[])();
