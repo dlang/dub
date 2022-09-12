@@ -212,6 +212,7 @@ class PackageManager {
 	}
 
 	/// ditto
+	deprecated("Use another `PackageManager` API, open an issue if none suits you")
 	Package getPackage(string name, NativePath path)
 	{
 		foreach( p; getPackageIterator(name) )
