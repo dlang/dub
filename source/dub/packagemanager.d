@@ -223,6 +223,7 @@ class PackageManager {
 
 	/** Looks up the first package matching the given name.
 	*/
+	deprecated("Use `getBestPackage` instead")
 	Package getFirstPackage(string name)
 	{
 		foreach (ep; getPackageIterator(name))

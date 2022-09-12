@@ -1298,7 +1298,7 @@ class BuildCommand : GenerateCommand {
 		} else if (packageParts.name.startsWith(":")) {
 			// Subpackages are always assumed to be present
 			return 0;
-		} else if (dub.packageManager.getFirstPackage(packageParts.name)) {
+		} else if (dub.packageManager.getBestPackage(packageParts.name)) {
 			// found locally
 			return 0;
 		} else {
