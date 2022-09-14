@@ -1828,7 +1828,7 @@ class UpgradeCommand : Command {
 			foreach (sp; spacks) {
 				try {
 					auto fullpath = (dub.projectPath ~ sp.path).toNativeString();
-					logInfo("Upgrading sub package in %s", fullpath);
+					logInfo("Upgrading", Color.cyan, "sub package in %s", fullpath);
 					auto sdub = new Dub(fullpath, dub.packageSuppliers, SkipPackageSuppliers.all);
 					sdub.defaultPlacementLocation = dub.defaultPlacementLocation;
 					sdub.loadPackage();
