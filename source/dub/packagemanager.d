@@ -286,7 +286,7 @@ class PackageManager {
 		bool allow_sub_packages = false, StrictMode mode = StrictMode.Ignore)
 	{
 		path.endsWithSlash = true;
-		foreach (p; getPackageIterator())
+		foreach (p; this.m_internal.fromPath)
 			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
 				return p;
 		auto pack = Package.load(path, recipe_path, null, null, mode);
