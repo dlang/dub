@@ -845,20 +845,6 @@ class Dub {
 
 		logDebug("Acquiring package zip file");
 
-		NativePath dstpath = this.m_packageManager.getPackagePath(location, basePackageName, ver.toString());
-		if (!dstpath.existsFile())
-			mkdirRecurse(dstpath.toNativeString());
-		// For libraries leaking their import path
-		dstpath = dstpath ~ basePackageName;
-
-		import std.datetime : seconds;
-		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds); // possibly wait for other dub instance
-		if (dstpath.existsFile())
-		{
-			m_packageManager.refresh(false);
-			return m_packageManager.getPackage(packageId, ver, location);
-		}
-
 		// repeat download on corrupted zips, see #1336
 		foreach_reverse (i; 0..3)
 		{
@@ -867,10 +853,10 @@ class Dub {
 			auto path = getTempFile(basePackageName, ".zip");
 			supplier.fetchPackage(path, basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) std.file.remove(path.toNativeString());
-			logDiagnostic("Placing to %s...", dstpath.toNativeString());
+			logDiagnostic("Placing to %s...", location.toString());
 
 			try {
-				return m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
+				return m_packageManager.store(path, location, basePackageName, ver);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
 				// rethrow the exception at the end of the loop
