@@ -785,7 +785,7 @@ class Dub {
 	{
 		const vrange = dep.visit!(
 			(VersionRange range) => range,
-			(any)                => throw new Exception("Cannot call `dub.fetch` with a " ~ typeof(any).stringof ~ " dependency"),
+			function VersionRange (any) { throw new Exception("Cannot call `dub.fetch` with a " ~ typeof(any).stringof ~ " dependency"); }
 		);
 		return this.fetch(packageId, vrange, location, options, reason);
 	}
