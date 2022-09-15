@@ -583,27 +583,71 @@ class PackageManager {
 		throw new Exception(format("No override exists for %s %s", package_, src));
 	}
 
-	/// Extracts the package supplied as a path to it's zip file to the
-	/// destination and sets a version field in the package description.
+	deprecated("Use `store(NativePath source, PlacementLocation dest, string name, Version vers)`")
 	Package storeFetchedPackage(NativePath zip_file_path, Json package_info, NativePath destination)
+	{
+		return this.store_(zip_file_path, destination, package_info["name"].get!string,
+			Version(package_info["version"].get!string));
+	}
+
+	/**
+	 * Store a zip file stored at `src` into a managed location `destination`
+	 *
+	 * This will extracts the package supplied as (as a zip file) to the
+	 * `destination` and sets a version field in the package description.
+	 * In the future, we should aim not to alter the package description,
+	 * but this is done for backward compatibility.
+	 *
+	 * Params:
+	 *   src = The path to the zip file containing the package
+	 *   dest = At which `PlacementLocation`  the package should be stored
+	 *   name = Name of the package being stored
+	 *   vers = Version of the package
+	 *
+	 * Returns:
+	 *   The `Package` after it has been loaded.
+	 *
+	 * Throws:
+	 *   If the package cannot be loaded / the zip is corrupted / the package
+	 *   already exists, etc...
+	 */
+	Package store(NativePath src, PlacementLocation dest, string name, Version vers)
+	{
+		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
+		if (!dstpath.existsFile())
+			mkdirRecurse(dstpath.toNativeString());
+		// For libraries leaking their import path
+		dstpath = dstpath ~ name;
+
+		// possibly wait for other dub instance
+		import core.time : seconds;
+		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds);
+		if (dstpath.existsFile()) {
+			this.refresh(false);
+			return this.getPackage(name, vers, dest);
+		}
+		return this.store_(src, dstpath, name, vers);
+	}
+
+	/// Backward-compatibility for deprecated overload, simplify once `storeFetchedPatch`
+	/// is removed
+	private Package store_(NativePath src, NativePath destination, string name, Version vers)
 	{
 		import std.range : walkLength;
 
-		auto package_name = package_info["name"].get!string;
-		auto package_version = package_info["version"].get!string;
-
 		logDebug("Placing package '%s' version '%s' to location '%s' from file '%s'",
-			package_name, package_version, destination.toNativeString(), zip_file_path.toNativeString());
+			name, vers, destination.toNativeString(), src.toNativeString());
 
 		if( existsFile(destination) ){
-			throw new Exception(format("%s (%s) needs to be removed from '%s' prior placement.", package_name, package_version, destination));
+			throw new Exception(format("%s (%s) needs to be removed from '%s' prior placement.",
+				name, vers, destination));
 		}
 
 		// open zip file
 		ZipArchive archive;
 		{
-			logDebug("Opening file %s", zip_file_path);
-			auto f = openFile(zip_file_path, FileMode.read);
+			logDebug("Opening file %s", src);
+			auto f = openFile(src, FileMode.read);
 			scope(exit) f.close();
 			archive = new ZipArchive(f.readAll());
 		}
@@ -669,7 +713,7 @@ class PackageManager {
 		logDebug("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite dub.json (this one includes a version field)
-		auto pack = Package.load(destination, NativePath.init, null, package_info["version"].get!string);
+		auto pack = Package.load(destination, NativePath.init, null, vers.toString());
 
 		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
