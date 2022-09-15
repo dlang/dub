@@ -1138,10 +1138,11 @@ private struct Location {
 			// loaded by the user (e.g. the project and its subpackages),
 			// so don't clean it.
 			this.fromPath = null;
-			this.scanPackageFolder(this.packagePath, mgr, existing);
 		}
 		foreach (path; this.searchPath)
 			this.scanPackageFolder(path, mgr, existing);
+		if (this.packagePath !is NativePath.init)
+			this.scanPackageFolder(this.packagePath, mgr, existing);
 	}
 
     /**
