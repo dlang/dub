@@ -15,12 +15,15 @@ class RegistryPackageSupplier : PackageSupplier {
 	import dub.internal.vibecompat.data.json : parseJson, parseJsonString, serializeToJson;
 	import dub.internal.vibecompat.inet.url : URL;
 	import dub.internal.logging;
+	import dub.recipe.json;
+	import dub.recipe.packagerecipe : PackageRecipe;
+	import std.typecons : Nullable;
 
 	import std.uri : encodeComponent;
 	import std.datetime : Clock, Duration, hours, SysTime, UTC;
 	private {
 		URL m_registryUrl;
-		struct CacheEntry { Json data; SysTime cacheTime; }
+		struct CacheEntry { Metadata data; SysTime cacheTime; }
 		CacheEntry[string] m_metadataCache;
 		Duration m_maxCacheTime;
 	}
@@ -37,31 +40,28 @@ class RegistryPackageSupplier : PackageSupplier {
 	{
 		import std.algorithm.sorting : sort;
 		auto md = getMetadata(package_id);
-		if (md.type == Json.Type.null_)
+		if (md.isNull)
 			return null;
 		Version[] ret;
-		foreach (json; md["versions"]) {
-			auto cur = Version(cast(string)json["version"]);
+		foreach (recipe; md.get.versions) {
+			auto cur = Version(recipe.version_);
 			ret ~= cur;
 		}
 		ret.sort();
 		return ret;
 	}
 
-	auto genPackageDownloadUrl(string packageId, Dependency dep, bool pre_release)
+	Nullable!URL genPackageDownloadUrl(string packageId, Dependency dep, bool pre_release)
 	{
 		import std.array : replace;
 		import std.format : format;
-		import std.typecons : Nullable;
 		auto md = getMetadata(packageId);
-		Json best = getBestPackage(md, packageId, dep, pre_release);
-		Nullable!URL ret;
-		if (best.type != Json.Type.null_)
-		{
-			auto vers = best["version"].get!string;
-			ret = m_registryUrl ~ NativePath(PackagesPath~"/"~packageId~"/"~vers~".zip");
-		}
-		return ret;
+		auto best = getBestPackage(md, packageId, dep, pre_release);
+		if (best.isNull)
+			return typeof(return).init;
+		auto vers = best.get.version_;
+		auto url = m_registryUrl ~ NativePath(PackagesPath~"/"~packageId~"/"~vers~".zip");
+		return typeof(return)(url);
 	}
 
 	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
@@ -84,21 +84,35 @@ class RegistryPackageSupplier : PackageSupplier {
 		throw new Exception("Failed to download package %s from %s".format(packageId, url));
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	Nullable!PackageRecipe fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
 	{
 		auto md = getMetadata(packageId);
 		return getBestPackage(md, packageId, dep, pre_release);
 	}
 
-	private Json getMetadata(string packageId)
+	private Nullable!Metadata getMetadata(string packageId)
 	{
 		auto now = Clock.currTime(UTC());
 		if (auto pentry = packageId in m_metadataCache) {
 			if (pentry.cacheTime + m_maxCacheTime > now)
-				return pentry.data;
+				return typeof(return)(pentry.data);
 			m_metadataCache.remove(packageId);
 		}
 
+		Json json = fetchMetadata(packageId);
+		if (json.type == Json.Type.null_)
+			return typeof(return).init;
+
+		foreach (pkg, info; json.get!(Json[string]))
+		{
+			logDebug("adding %s to metadata cache", pkg);
+			auto entry = CacheEntry(Metadata.fromJson(info), now);
+			m_metadataCache[pkg] = entry;
+		}
+		return typeof(return)(m_metadataCache[packageId].data);
+	}
+
+	private Json fetchMetadata(string packageId) {
 		auto url = m_registryUrl ~ NativePath("api/packages/infos");
 
 		url.queryString = "packages=" ~
@@ -109,13 +123,7 @@ class RegistryPackageSupplier : PackageSupplier {
 
 		jsonData = cast(string)retryDownload(url);
 
-		Json json = parseJsonString(jsonData, url.toString());
-		foreach (pkg, info; json.get!(Json[string]))
-		{
-			logDebug("adding %s to metadata cache", pkg);
-			m_metadataCache[pkg] = CacheEntry(info, now);
-		}
-		return json[packageId];
+		return parseJsonString(jsonData, url.toString());
 	}
 
 	SearchResult[] searchPackages(string query) {

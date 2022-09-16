@@ -816,13 +816,14 @@ class Dub {
 	/// Ditto
 	Package fetch(string packageId, in VersionRange range, PlacementLocation location, FetchOptions options, string reason = "")
 	{
+		import std.typecons : Nullable;
 		auto basePackageName = getBasePackageName(packageId);
-		Json pinfo;
+		Nullable!PackageRecipe recipe;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.fetchPackageRecipe(basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0);
-				if (pinfo.type == Json.Type.null_)
+				recipe = ps.fetchPackageRecipe(basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0);
+				if (recipe.isNull)
 					continue;
 				supplier = ps;
 				break;
@@ -831,8 +832,8 @@ class Dub {
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
-		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency " ~ range.toString());
-		Version ver = Version(pinfo["version"].get!string);
+		enforce(!recipe.isNull, "No package "~packageId~" was found matching the dependency " ~ range.toString());
+		Version ver = Version(recipe.get.version_);
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
 		Package existing = m_packageManager.getPackage(packageId, ver, location);
@@ -1748,9 +1749,9 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			if (rootpack == name) {
 				try {
 					auto desc = ps.fetchPackageRecipe(name, dep, prerelease);
-					if (desc.type == Json.Type.null_)
+					if (desc.isNull)
 						continue;
-					auto ret = new Package(desc);
+					auto ret = new Package(desc.get);
 					m_remotePackages[key] = ret;
 					return ret;
 				} catch (Exception e) {

@@ -13,13 +13,15 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 	import dub.internal.vibecompat.data.json : serializeToJson;
 	import dub.internal.vibecompat.inet.url : URL;
 	import dub.internal.logging;
+	import dub.recipe.packagerecipe : PackageRecipe;
 
 	import std.datetime : Clock, Duration, hours, SysTime, UTC;
+	import std.typecons : Nullable;
 
 	private {
 		enum httpTimeout = 16;
 		URL m_mavenUrl;
-		struct CacheEntry { Json data; SysTime cacheTime; }
+		struct CacheEntry { Metadata data; SysTime cacheTime; }
 		CacheEntry[string] m_metadataCache;
 		Duration m_maxCacheTime;
 	}
@@ -36,11 +38,11 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 	{
 		import std.algorithm.sorting : sort;
 		auto md = getMetadata(package_id);
-		if (md.type == Json.Type.null_)
-			return null;
+		if (md.isNull)
+			return [];
 		Version[] ret;
-		foreach (json; md["versions"]) {
-			auto cur = Version(json["version"].get!string);
+		foreach (recipe; md.get.versions) {
+			auto cur = Version(recipe.version_);
 			ret ~= cur;
 		}
 		ret.sort();
@@ -51,10 +53,10 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 	{
 		import std.format : format;
 		auto md = getMetadata(packageId);
-		Json best = getBestPackage(md, packageId, dep, pre_release);
-		if (best.type == Json.Type.null_)
+		auto best = getBestPackage(md, packageId, dep, pre_release);
+		if (best.isNull)
 			return;
-		auto vers = best["version"].get!string;
+		auto vers = best.get.version_;
 		auto url = m_mavenUrl~NativePath("%s/%s/%s-%s.zip".format(packageId, vers, packageId, vers));
 
 		try {
@@ -71,20 +73,20 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		throw new Exception("Failed to download package %s from %s".format(packageId, url));
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	Nullable!PackageRecipe fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
 	{
 		auto md = getMetadata(packageId);
 		return getBestPackage(md, packageId, dep, pre_release);
 	}
 
-	private Json getMetadata(string packageId)
+	private Nullable!Metadata getMetadata(string packageId)
 	{
 		import dub.internal.undead.xml;
 
 		auto now = Clock.currTime(UTC());
 		if (auto pentry = packageId in m_metadataCache) {
 			if (pentry.cacheTime + m_maxCacheTime > now)
-				return pentry.data;
+				return typeof(return)(pentry.data);
 			m_metadataCache.remove(packageId);
 		}
 
@@ -98,7 +100,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		catch(HTTPStatusException e) {
 			if (e.status == 404) {
 				logDebug("Maven metadata %s not found at %s (404): %s", packageId, description, e.msg);
-				return Json(null);
+				return typeof(return).init;
 			}
 			else throw e;
 		}
@@ -114,8 +116,9 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		};
 		xml.parse();
 
-		m_metadataCache[packageId] = CacheEntry(json, now);
-		return json;
+		auto entry = CacheEntry(Metadata.fromJson(json), now);
+		m_metadataCache[packageId] = entry;
+		return typeof(return)(entry.data);
 	}
 
 	SearchResult[] searchPackages(string query)
@@ -123,9 +126,9 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		// Only exact search is supported
 		// This enables retrival of dub packages on dub run
 		auto md = getMetadata(query);
-		if (md.type == Json.Type.null_)
+		auto recipe = getBestPackage(md, query, Dependency.any, true);
+		if (recipe.isNull)
 			return null;
-		auto json = getBestPackage(md, query, Dependency.any, true);
-		return [SearchResult(json["name"].opt!string, "", json["version"].opt!string)];
+		return [SearchResult(recipe.get.name, "", recipe.get.version_)];
 	}
 }

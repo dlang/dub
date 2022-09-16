@@ -10,9 +10,12 @@ import dub.packagesuppliers.packagesupplier;
 */
 class FileSystemPackageSupplier : PackageSupplier {
 	import dub.internal.logging;
+	import dub.recipe.packagerecipe : PackageRecipe;
 
 	version (Have_vibe_core) import dub.internal.vibecompat.inet.path : toNativeString;
 	import std.exception : enforce;
+	import std.typecons : Nullable;
+
 	private {
 		NativePath m_path;
 	}
@@ -49,7 +52,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		copyFile(filename, path);
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	Nullable!PackageRecipe fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
 	{
 		import std.array : split;
 		import std.path : stripExtension;
@@ -59,15 +62,14 @@ class FileSystemPackageSupplier : PackageSupplier {
 		import dub.recipe.json : toJson;
 
 		auto filePath = bestPackageFile(packageId, dep, pre_release);
-		string packageFileName;
-		string packageFileContent = packageInfoFileFromZip(filePath, packageFileName);
-		auto recipe = parsePackageRecipe(packageFileContent, packageFileName);
-		Json json = toJson(recipe);
 		auto basename = filePath.head.name;
 		enforce(basename.endsWith(".zip"), "Malformed package filename: " ~ filePath.toNativeString);
 		enforce(basename.startsWith(packageId), "Malformed package filename: " ~ filePath.toNativeString);
-		json["version"] = basename[packageId.length + 1 .. $-4];
-		return json;
+
+		string packageFileName;
+		string packageFileContent = packageInfoFileFromZip(filePath, packageFileName);
+		return typeof(return)(parsePackageRecipe(packageFileContent, packageFileName));
+		// recipe.version_ = basename[packageId.length + 1 .. $-4];
 	}
 
 	SearchResult[] searchPackages(string query)
