@@ -1499,8 +1499,8 @@ class LintCommand : PackageBuildCommand {
 			"Import paths"
 		]);
 
-		args.getopt("config", &m_config, [
-			"Use the given configuration file."
+		args.getopt("dscanner-config", &m_config, [
+			"Use the given d-scanner configuration file."
 		]);
 
 		super.prepare(args);
