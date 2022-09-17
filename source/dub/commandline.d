@@ -678,7 +678,7 @@ class CommandArgs {
 	{
 		foreach (ref arg; m_recognizedArgs)
 			if (names == arg.names) {
-				assert(help_text is null);
+				assert(help_text is null, format!("Duplicated argument '%s' must not change helptext, consider to remove the duplication")(names));
 				*var = arg.value.get!T;
 				return;
 			}
@@ -1239,6 +1239,10 @@ class BuildCommand : GenerateCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
+		args.getopt("temp-build", &this.baseSettings.tempBuild, [
+			"Builds the project in the temp folder if possible."
+		]);
+
 		args.getopt("rdmd", &this.baseSettings.rdmd, [
 			"Use rdmd instead of directly invoking the compiler"
 		]);
@@ -1344,10 +1348,6 @@ class RunCommand : BuildCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("temp-build", &this.baseSettings.tempBuild, [
-			"Builds the project in the temp folder if possible."
-		]);
-
 		super.prepare(args);
 		this.baseSettings.run = true;
 	}
@@ -1392,6 +1392,10 @@ class TestCommand : PackageBuildCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
+		args.getopt("temp-build", &this.baseSettings.tempBuild, [
+			"Builds the project in the temp folder if possible."
+		]);
+
 		args.getopt("main-file", &m_mainFile, [
 			"Specifies a custom file containing the main() function to use for running the tests."
 		]);
