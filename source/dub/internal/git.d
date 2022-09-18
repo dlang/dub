@@ -1,7 +1,7 @@
 module dub.internal.git;
 
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
+import dub.internal.logging;
 import std.file;
 import std.string;
 

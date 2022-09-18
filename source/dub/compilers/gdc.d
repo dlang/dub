@@ -10,8 +10,8 @@ module dub.compilers.gdc;
 import dub.compilers.compiler;
 import dub.compilers.utils;
 import dub.internal.utils;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
+import dub.internal.logging;
 
 import std.algorithm;
 import std.array;
@@ -46,6 +46,7 @@ class GDCCompiler : Compiler {
 		tuple(BuildOption.property, ["-fproperty"]),
 		//tuple(BuildOption.profileGC, ["-?"]),
 		tuple(BuildOption.betterC, ["-fno-druntime"]),
+		tuple(BuildOption.color, ["-fdiagnostics-color=always"]),
 
 		tuple(BuildOption._docs, ["-fdoc-dir=docs"]),
 		tuple(BuildOption._ddox, ["-Xfdocs.json", "-fdoc-file=__dummy.html"]),
@@ -160,20 +161,20 @@ class GDCCompiler : Compiler {
 			case TargetType.none: return null;
 			case TargetType.sourceLibrary: return null;
 			case TargetType.executable:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".exe";
 				else return settings.targetName.idup;
 			case TargetType.library:
 			case TargetType.staticLibrary:
 				return "lib" ~ settings.targetName ~ ".a";
 			case TargetType.dynamicLibrary:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".dll";
 				else if (platform.platform.canFind("darwin"))
 					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
 		}
@@ -181,6 +182,8 @@ class GDCCompiler : Compiler {
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
+		const targetFileName = getTargetFileName(settings, platform);
+
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
 			case TargetType.none: assert(false, "Invalid target type: none");
@@ -193,11 +196,12 @@ class GDCCompiler : Compiler {
 				break;
 			case TargetType.dynamicLibrary:
 				settings.addDFlags("-shared", "-fPIC");
+				addDynamicLibName(settings, platform, targetFileName);
 				break;
 		}
 
 		if (tpath is null)
-			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+			tpath = (NativePath(settings.targetPath) ~ targetFileName).toNativeString();
 		settings.addDFlags("-o", tpath);
 	}
 
@@ -236,7 +240,7 @@ class GDCCompiler : Compiler {
 		invokeTool(args, output_callback, env);
 	}
 
-	string[] lflagsToDFlags(in string[] lflags) const
+	string[] lflagsToDFlags(const string[] lflags) const
 	{
 		string[] dflags;
 		foreach( f; lflags )

@@ -15,11 +15,13 @@ import dub.description;
 import dub.recipe.json;
 import dub.recipe.sdl;
 
+import dub.internal.logging;
 import dub.internal.utils;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
+
+import configy.Read : StrictMode;
 
 import std.algorithm;
 import std.array;
@@ -69,7 +71,9 @@ static immutable string[] builtinBuildTypes = [
 	"docs",
 	"ddox",
 	"cov",
+	"cov-ctfe",
 	"unittest-cov",
+	"unittest-cov-ctfe",
 	"syntax"
 ];
 
@@ -167,8 +171,11 @@ class Package {
 			version_override = Optional version to associate to the package
 				instead of the one declared in the package recipe, or the one
 				determined by invoking the VCS (GIT currently).
+			mode = Whether to issue errors, warning, or ignore unknown keys in dub.json
 	*/
-	static Package load(NativePath root, NativePath recipe_file = NativePath.init, Package parent = null, string version_override = "")
+	static Package load(NativePath root, NativePath recipe_file = NativePath.init,
+		Package parent = null, string version_override = "",
+		StrictMode mode = StrictMode.Ignore)
 	{
 		import dub.recipe.io;
 
@@ -179,7 +186,7 @@ class Package {
 				.format(root.toNativeString(),
 					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
 
-		auto recipe = readPackageRecipe(recipe_file, parent ? parent.name : null);
+		auto recipe = readPackageRecipe(recipe_file, parent ? parent.name : null, mode);
 
 		auto ret = new Package(recipe, root, parent, version_override);
 		ret.m_infoFile = recipe_file;
@@ -298,7 +305,6 @@ class Package {
 	/// ditto
 	void storeInfo(NativePath path)
 	const {
-		enforce(!version_.isUnknown, "Trying to store a package with an 'unknown' version, this is not supported.");
 		auto filename = path ~ defaultPackageFilename;
 		auto dstFile = openFile(filename.toNativeString(), FileMode.createTrunc);
 		scope(exit) dstFile.close();
@@ -453,7 +459,9 @@ class Package {
 				case "profile": settings.addOptions(profile, optimize, inline, debugInfo); break;
 				case "profile-gc": settings.addOptions(profileGC, debugInfo); break;
 				case "cov": settings.addOptions(coverage, debugInfo); break;
+				case "cov-ctfe": settings.addOptions(coverageCTFE, debugInfo); break;
 				case "unittest-cov": settings.addOptions(unittests, coverage, debugMode, debugInfo); break;
+				case "unittest-cov-ctfe": settings.addOptions(unittests, coverageCTFE, debugMode, debugInfo); break;
 				case "syntax": settings.addOptions(syntaxOnly); break;
 			}
 		}
@@ -552,12 +560,17 @@ class Package {
 	const(Dependency[string]) getDependencies(string config)
 	const {
 		Dependency[string] ret;
-		foreach (k, v; m_info.buildSettings.dependencies)
-			ret[k] = v;
+		foreach (k, v; m_info.buildSettings.dependencies) {
+			// DMD bug: Not giving `Dependency` here leads to RangeError
+			Dependency dep = v;
+			ret[k] = dep;
+		}
 		foreach (ref conf; m_info.configurations)
 			if (conf.name == config) {
-				foreach (k, v; conf.buildSettings.dependencies)
-					ret[k] = v;
+				foreach (k, v; conf.buildSettings.dependencies) {
+					Dependency dep = v;
+					ret[k] = dep;
+				}
 				break;
 			}
 		return ret;
@@ -720,22 +733,22 @@ class Package {
 			}
 		}
 
-		// check for default app_main
-		string app_main_file;
-		auto pkg_name = m_info.name.length ? m_info.name : "unknown";
-		foreach(sf; bs.sourcePaths.get("", null)){
-			auto p = m_path ~ sf;
-			if( !existsFile(p) ) continue;
-			foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
-				if( existsFile(p ~ fil) ) {
-					app_main_file = (NativePath(sf) ~ fil).toNativeString();
-					break;
-				}
-			}
-		}
-
 		// generate default configurations if none are defined
 		if (m_info.configurations.length == 0) {
+			// check for default app_main
+			string app_main_file;
+			auto pkg_name = m_info.name.length ? m_info.name : "unknown";
+			MainFileSearch: foreach_reverse(sf; bs.sourcePaths.get("", null)){
+				auto p = m_path ~ sf;
+				if( !existsFile(p) ) continue;
+				foreach(fil; ["app.d", "main.d", pkg_name ~ "/main.d", pkg_name ~ "/" ~ "app.d"]){
+					if( existsFile(p ~ fil) ) {
+						app_main_file = (NativePath(sf) ~ fil).toNativeString();
+						break MainFileSearch;
+					}
+				}
+			}
+
 			if (bs.targetType == TargetType.executable) {
 				BuildSettingsTemplate app_settings;
 				app_settings.targetType = TargetType.executable;

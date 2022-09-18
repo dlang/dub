@@ -12,9 +12,9 @@ import dub.dependency;
 import dub.dub;
 import dub.generators.generator;
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
+import dub.internal.logging;
 import dub.package_;
 import dub.packagemanager;
 import dub.packagesuppliers;
@@ -32,6 +32,7 @@ import std.path : expandTilde, absolutePath, buildNormalizedPath;
 import std.process;
 import std.stdio;
 import std.string;
+import std.sumtype;
 import std.typecons : Tuple, tuple;
 import std.variant;
 import std.path: setExtension;
@@ -58,10 +59,8 @@ CommandGroup[] getCommands() @safe pure nothrow
 		),
 		CommandGroup("Package management",
 			new FetchCommand,
-			new InstallCommand,
 			new AddCommand,
 			new RemoveCommand,
-			new UninstallCommand,
 			new UpgradeCommand,
 			new AddPathCommand,
 			new RemovePathCommand,
@@ -94,7 +93,7 @@ auto extractCommandNameArgument(string[] args)
 		string[] remaining;
 	}
 
-	if (args.length >= 1 && !args[0].startsWith("-")) {
+	if (args.length >= 1 && !args[0].startsWith("-") && !args[0].canFind(":")) {
 		return Result(args[0], args[1 .. $]);
 	}
 
@@ -118,6 +117,10 @@ unittest {
 
 	/// It returns the an empty string when it starts with `-`
 	assert(extractCommandNameArgument(["-test"]).value == "");
+
+	// Sub package names are ignored as command names
+	assert(extractCommandNameArgument(["foo:bar"]).value == "");
+	assert(extractCommandNameArgument([":foo"]).value == "");
 }
 
 /** Handles the Command Line options and commands.
@@ -162,6 +165,27 @@ struct CommandLineHandler
 		else
 		{
 			options.root_path = options.root_path.expandTilde.absolutePath.buildNormalizedPath;
+		}
+
+		final switch (options.color_mode) with (options.color)
+		{
+			case automatic:
+				// Use default determined in internal.logging.initLogging().
+				break;
+			case on:
+				foreach (ref grp; commandGroups)
+					foreach (ref cmd; grp.commands)
+						if (auto pc = cast(PackageBuildCommand)cmd)
+							pc.baseSettings.buildSettings.options |= BuildOption.color;
+				setLoggingColorsEnabled(true);  // enable colors, no matter what
+				break;
+			case off:
+				foreach (ref grp; commandGroups)
+					foreach (ref cmd; grp.commands)
+						if (auto pc = cast(PackageBuildCommand)cmd)
+							pc.baseSettings.buildSettings.options &= ~BuildOption.color;
+				setLoggingColorsEnabled(false); // disable colors, no matter what
+				break;
 		}
 	}
 
@@ -262,7 +286,7 @@ struct CommandLineHandler
 
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
-		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path));
+		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath.init, false, StrictMode.Warn);
 		catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
 
 		return dub;
@@ -275,7 +299,7 @@ unittest {
 	handler.commandGroups = getCommands();
 
 	assert(handler.commandNames == ["init", "run", "build", "test", "lint", "generate",
-		"describe", "clean", "dustmite", "fetch", "install", "add", "remove", "uninstall",
+		"describe", "clean", "dustmite", "fetch", "add", "remove",
 		"upgrade", "add-path", "remove-path", "add-local", "remove-local", "list", "search",
 		"add-override", "remove-override", "list-overrides", "clean-caches", "convert"]);
 }
@@ -391,6 +415,15 @@ unittest {
 */
 int runDubCommandLine(string[] args)
 {
+	static string[] toSinglePackageArgs (string args0, string file, string[] trailing)
+	{
+		return [args0, "run", "-q", "--temp-build", "--single", file, "--"] ~ trailing;
+	}
+
+	// Initialize the logging module, ensure that whether stdout/stderr are a TTY
+	// or not is detected in order to disable colors if the output isn't a console
+	initLogging();
+
 	logDiagnostic("DUB version %s", getDUBVersion());
 
 	version(Windows){
@@ -403,34 +436,49 @@ int runDubCommandLine(string[] args)
 	auto handler = CommandLineHandler(getCommands());
 	auto commandNames = handler.commandNames();
 
-	// special stdin syntax
-	if (args.length >= 2 && args[1] == "-")
+	// Special syntaxes need to be handled before regular argument parsing
+	if (args.length >= 2)
 	{
-		auto path = getTempFile("app", ".d");
-		stdin.byChunk(4096).joiner.toFile(path.toNativeString());
-		args = args[0] ~ [path.toNativeString()] ~ args[2..$];
-	}
-
-	// Shebang syntax support for files without .d extension
-	if (args.length >= 2 && !args[1].endsWith(".d") && !args[1].startsWith("-") && !commandNames.canFind(args[1])) {
-		if (exists(args[1])) {
+		// Read input source code from stdin
+		if (args[1] == "-")
+		{
 			auto path = getTempFile("app", ".d");
-			copy(args[1], path.toNativeString());
-			args[1] = path.toNativeString();
-		} else if (exists(args[1].setExtension(".d"))) {
-			args[1] = args[1].setExtension(".d");
+			stdin.byChunk(4096).joiner.toFile(path.toNativeString());
+			args = toSinglePackageArgs(args[0], path.toNativeString(), args[2 .. $]);
 		}
-	}
 
-	// special single-file package shebang syntax
-	if (args.length >= 2 && args[1].endsWith(".d")) {
-		args = args[0] ~ ["run", "-q", "--temp-build", "--single", args[1], "--"] ~ args[2 ..$];
+		// Dub has a shebang syntax to be able to use it as script, e.g.
+		// #/usr/bin/env dub
+		// With this approach, we need to support the file having
+		// both the `.d` extension, or having none at all.
+		// We also need to make sure arguments passed to the script
+		// are passed to the program, not `dub`, e.g.:
+		// ./my_dub_script foo bar
+		// Gives us `args = [ "dub", "./my_dub_script" "foo", "bar" ]`,
+		// which we need to interpret as:
+		// `args = [ "dub", "./my_dub_script", "--", "foo", "bar" ]`
+		else if (args[1].endsWith(".d"))
+			args = toSinglePackageArgs(args[0], args[1], args[2 .. $]);
+
+		// Here we have a problem: What if the script name is a command name ?
+		// We have to assume it isn't, and to reduce the risk of false positive
+		// we only consider the case where the file name is the first argument,
+		// as the shell invocation cannot be controlled.
+		else if (!commandNames.canFind(args[1]) && !args[1].startsWith("-")) {
+			if (exists(args[1])) {
+				auto path = getTempFile("app", ".d");
+				copy(args[1], path.toNativeString());
+				args = toSinglePackageArgs(args[0], path.toNativeString(), args[2 .. $]);
+			} else if (exists(args[1].setExtension(".d"))) {
+				args = toSinglePackageArgs(args[0], args[1].setExtension(".d"), args[2 .. $]);
+			}
+		}
 	}
 
 	auto common_args = new CommandArgs(args[1..$]);
 
 	try handler.prepareOptions(common_args);
-	catch (Throwable e) {
+	catch (Exception e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		logInfo("Run 'dub help' for usage information.");
@@ -453,7 +501,7 @@ int runDubCommandLine(string[] args)
 
 	try {
 		cmd = handler.prepareCommand(command_name_argument.value, command_args);
-	} catch (Throwable e) {
+	} catch (Exception e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
 		logInfo("Run 'dub help' for usage information.");
@@ -479,8 +527,8 @@ int runDubCommandLine(string[] args)
 
 	auto remaining_args = command_args.extractRemainingArgs();
 	if (remaining_args.any!(a => a.startsWith("-"))) {
-		logError("Unknown command line flags: %s", remaining_args.filter!(a => a.startsWith("-")).array.join(" "));
-		logError(`Type "dub %s -h" to get a list of all supported flags.`, cmd.name);
+		logError("Unknown command line flags: %s", remaining_args.filter!(a => a.startsWith("-")).array.join(" ").color(Mode.bold));
+		logInfo(`Type "%s" to get a list of all supported flags.`, text("dub ", cmd.name, " -h").color(Mode.bold));
 		return 1;
 	}
 
@@ -494,12 +542,20 @@ int runDubCommandLine(string[] args)
 	// execute the command
 	try return cmd.execute(dub, remaining_args, command_args.appArgs);
 	catch (UsageException e) {
+		// usage exceptions get thrown before any logging, so we are
+		// making the errors more narrow to better fit on small screens.
+		tagWidth.push(5);
 		logError("%s", e.msg);
 		logDebug("Full exception: %s", e.toString().sanitize);
-		logInfo(`Run "dub %s -h" for more information about the "%s" command.`, cmd.name, cmd.name);
+		logInfo(`Run "%s" for more information about the "%s" command.`,
+			text("dub ", cmd.name, " -h").color(Mode.bold), cmd.name.color(Mode.bold));
 		return 1;
 	}
-	catch (Throwable e) {
+	catch (Exception e) {
+		// most exceptions get thrown before logging, so same thing here as
+		// above. However this might be subject to change if it results in
+		// weird behavior anywhere.
+		tagWidth.push(5);
 		logError("%s", e.msg);
 		logDebug("Full exception: %s", e.toString().sanitize);
 		return 2;
@@ -514,6 +570,8 @@ struct CommonOptions {
 	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
+	enum color { automatic, on, off } // Lower case "color" in support of invalid option error formatting.
+	color color_mode = color.automatic;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
 	PlacementLocation placementLocation = PlacementLocation.user;
 
@@ -541,6 +599,13 @@ struct CommonOptions {
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
+		args.getopt("color", &color_mode, [
+			"Configure colored output. Accepted values:",
+			"  automatic: Colored output on console/terminal,",
+			"             unless NO_COLOR is set and non-empty (default)",
+			"         on: Force colors enabled",
+			"        off: Force colors disabled"
+			]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 
 		version_ = args.hasAppVersion;
@@ -613,7 +678,7 @@ class CommandArgs {
 	{
 		foreach (ref arg; m_recognizedArgs)
 			if (names == arg.names) {
-				assert(help_text is null);
+				assert(help_text is null, format!("Duplicated argument '%s' must not change helptext, consider to remove the duplication")(names));
 				*var = arg.value.get!T;
 				return;
 			}
@@ -742,22 +807,16 @@ class Command {
 
 	private bool loadCwdPackage(Dub dub, bool warn_missing_package)
 	{
-		bool found;
-		foreach (f; packageInfoFiles)
-			if (existsFile(dub.rootPath ~ f.filename))
-			{
-				found = true;
-				break;
-			}
+		auto filePath = Package.findPackageFile(dub.rootPath);
 
-		if (!found) {
+		if (filePath.empty) {
 			if (warn_missing_package) {
-				logInfo("");
-				logInfo("No package manifest (dub.json or dub.sdl) was found in");
-				logInfo(dub.rootPath.toNativeString());
-				logInfo("Please run DUB from the root directory of an existing package, or run");
-				logInfo("\"dub init --help\" to get information on creating a new package.");
-				logInfo("");
+				logInfoNoTag("");
+				logInfoNoTag("No package manifest (dub.json or dub.sdl) was found in");
+				logInfoNoTag(dub.rootPath.toNativeString());
+				logInfoNoTag("Please run DUB from the root directory of an existing package, or run");
+				logInfoNoTag("\"%s\" to get information on creating a new package.", "dub init --help".color(Mode.bold));
+				logInfoNoTag("");
 			}
 			return false;
 		}
@@ -881,7 +940,7 @@ class InitCommand : Command {
 					fmt = rawfmt.to!PackageFormat;
 					break;
 				} catch (Exception) {
-					logError("Invalid format, \""~rawfmt~"\", enter either \"sdl\" or \"json\".");
+					logError(`Invalid format '%s', enter either 'sdl' or 'json'.`, rawfmt);
 				}
 			}
 			auto author = p.authors.join(", ");
@@ -891,7 +950,7 @@ class InitCommand : Command {
 				auto nameRegex = regex(`^[a-z0-9\-_]+$`);
 				string triedName = input("Name", p.name);
 				if (triedName.matchFirst(nameRegex).empty) {
-					logError("Invalid name, \""~triedName~"\", names should consist only of lowercase alphanumeric characters, - and _.");
+					logError(`Invalid name '%s', names should consist only of lowercase alphanumeric characters, dashes ('-') and underscores ('_').`, triedName);
 				} else {
 					p.name = triedName;
 					break;
@@ -928,31 +987,24 @@ class InitCommand : Command {
 
 abstract class PackageBuildCommand : Command {
 	protected {
-		string m_buildType;
-		BuildMode m_buildMode;
-		string m_buildConfig;
 		string m_compilerName;
 		string m_arch;
 		string[] m_debugVersions;
 		string[] m_overrideConfigs;
-		Compiler m_compiler;
-		BuildPlatform m_buildPlatform;
-		BuildSettings m_buildSettings;
+		GeneratorSettings baseSettings;
 		string m_defaultConfig;
 		bool m_nodeps;
 		bool m_forceRemove = false;
-		bool m_single;
-		bool m_filterVersions = false;
 	}
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("b|build", &m_buildType, [
+		args.getopt("b|build", &this.baseSettings.buildType, [
 			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
 			"Possible names:",
 			"  "~builtinBuildTypes.join(", ")~" and custom types"
 		]);
-		args.getopt("c|config", &m_buildConfig, [
+		args.getopt("c|config", &this.baseSettings.config, [
 			"Builds the specified configuration. Configurations can be defined in dub.json"
 		]);
 		args.getopt("override-config", &m_overrideConfigs, [
@@ -973,17 +1025,17 @@ abstract class PackageBuildCommand : Command {
 		args.getopt("nodeps", &m_nodeps, [
 			"Do not resolve missing dependencies before building"
 		]);
-		args.getopt("build-mode", &m_buildMode, [
+		args.getopt("build-mode", &this.baseSettings.buildMode, [
 			"Specifies the way the compiler and linker are invoked. Valid values:",
 			"  separate (default), allAtOnce, singleFile"
 		]);
-		args.getopt("single", &m_single, [
+		args.getopt("single", &this.baseSettings.single, [
 			"Treats the package name as a filename. The file must contain a package recipe comment."
 		]);
 		args.getopt("force-remove", &m_forceRemove, [
 			"Deprecated option that does nothing."
 		]);
-		args.getopt("filter-versions", &m_filterVersions, [
+		args.getopt("filter-versions", &this.baseSettings.filterVersions, [
 			"[Experimental] Filter version identifiers and debug version identifiers to improve build cache efficiency."
 		]);
 	}
@@ -998,43 +1050,45 @@ abstract class PackageBuildCommand : Command {
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		if (!m_arch.length) m_arch = dub.defaultArchitecture;
-		if (dub.defaultLowMemory) m_buildSettings.options |= BuildOption.lowmem;
-		if (dub.defaultEnvironments) m_buildSettings.addEnvironments(dub.defaultEnvironments);
-		if (dub.defaultBuildEnvironments) m_buildSettings.addBuildEnvironments(dub.defaultBuildEnvironments);
-		if (dub.defaultRunEnvironments) m_buildSettings.addRunEnvironments(dub.defaultRunEnvironments);
-		if (dub.defaultPreGenerateEnvironments) m_buildSettings.addPreGenerateEnvironments(dub.defaultPreGenerateEnvironments);
-		if (dub.defaultPostGenerateEnvironments) m_buildSettings.addPostGenerateEnvironments(dub.defaultPostGenerateEnvironments);
-		if (dub.defaultPreBuildEnvironments) m_buildSettings.addPreBuildEnvironments(dub.defaultPreBuildEnvironments);
-		if (dub.defaultPostBuildEnvironments) m_buildSettings.addPostBuildEnvironments(dub.defaultPostBuildEnvironments);
-		if (dub.defaultPreRunEnvironments) m_buildSettings.addPreRunEnvironments(dub.defaultPreRunEnvironments);
-		if (dub.defaultPostRunEnvironments) m_buildSettings.addPostRunEnvironments(dub.defaultPostRunEnvironments);
-		m_compiler = getCompiler(m_compilerName);
-		m_buildPlatform = m_compiler.determinePlatform(m_buildSettings, m_compilerName, m_arch);
-		m_buildSettings.addDebugVersions(m_debugVersions);
+		if (dub.defaultLowMemory) this.baseSettings.buildSettings.options |= BuildOption.lowmem;
+		if (dub.defaultEnvironments) this.baseSettings.buildSettings.addEnvironments(dub.defaultEnvironments);
+		if (dub.defaultBuildEnvironments) this.baseSettings.buildSettings.addBuildEnvironments(dub.defaultBuildEnvironments);
+		if (dub.defaultRunEnvironments) this.baseSettings.buildSettings.addRunEnvironments(dub.defaultRunEnvironments);
+		if (dub.defaultPreGenerateEnvironments) this.baseSettings.buildSettings.addPreGenerateEnvironments(dub.defaultPreGenerateEnvironments);
+		if (dub.defaultPostGenerateEnvironments) this.baseSettings.buildSettings.addPostGenerateEnvironments(dub.defaultPostGenerateEnvironments);
+		if (dub.defaultPreBuildEnvironments) this.baseSettings.buildSettings.addPreBuildEnvironments(dub.defaultPreBuildEnvironments);
+		if (dub.defaultPostBuildEnvironments) this.baseSettings.buildSettings.addPostBuildEnvironments(dub.defaultPostBuildEnvironments);
+		if (dub.defaultPreRunEnvironments) this.baseSettings.buildSettings.addPreRunEnvironments(dub.defaultPreRunEnvironments);
+		if (dub.defaultPostRunEnvironments) this.baseSettings.buildSettings.addPostRunEnvironments(dub.defaultPostRunEnvironments);
+		this.baseSettings.compiler = getCompiler(m_compilerName);
+		this.baseSettings.platform = this.baseSettings.compiler.determinePlatform(this.baseSettings.buildSettings, m_compilerName, m_arch);
+		this.baseSettings.buildSettings.addDebugVersions(m_debugVersions);
 
 		m_defaultConfig = null;
 		enforce (loadSpecificPackage(dub, package_name, ver), "Failed to load package.");
 
-		if (m_buildConfig.length != 0 && !dub.configurations.canFind(m_buildConfig))
+		if (this.baseSettings.config.length != 0 &&
+			!dub.configurations.canFind(this.baseSettings.config) &&
+			this.baseSettings.config != "unittest")
 		{
-			string msg = "Unknown build configuration: "~m_buildConfig;
+			string msg = "Unknown build configuration: " ~ this.baseSettings.config;
 			enum distance = 3;
-			auto match = dub.configurations.getClosestMatch(m_buildConfig, distance);
+			auto match = dub.configurations.getClosestMatch(this.baseSettings.config, distance);
 			if (match !is null) msg ~= ". Did you mean '" ~ match ~ "'?";
 			enforce(0, msg);
 		}
 
-		if (m_buildType.length == 0) {
-			if (environment.get("DFLAGS") !is null) m_buildType = "$DFLAGS";
-			else m_buildType = default_build_type;
+		if (this.baseSettings.buildType.length == 0) {
+			if (environment.get("DFLAGS") !is null) this.baseSettings.buildType = "$DFLAGS";
+			else this.baseSettings.buildType = default_build_type;
 		}
 
 		if (!m_nodeps) {
 			// retrieve missing packages
-			dub.project.reinit();
 			if (!dub.project.hasAllDependencies) {
 				logDiagnostic("Checking for missing dependencies.");
-				if (m_single) dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
+				if (this.baseSettings.single)
+					dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
 				else dub.upgrade(UpgradeOptions.select);
 			}
 		}
@@ -1050,7 +1104,7 @@ abstract class PackageBuildCommand : Command {
 
 	private bool loadSpecificPackage(Dub dub, string package_name, string ver)
 	{
-		if (m_single) {
+		if (this.baseSettings.single) {
 			enforce(package_name.length, "Missing file name of single-file package.");
 			dub.loadSingleFilePackage(package_name);
 			return true;
@@ -1070,9 +1124,8 @@ abstract class PackageBuildCommand : Command {
 
 		enforce(package_name.length, "No valid root package found - aborting.");
 
-		auto pack = ver == ""
-			? dub.packageManager.getLatestPackage(package_name)
-			: dub.packageManager.getBestPackage(package_name, ver);
+		const vers = ver.length ? VersionRange.fromString(ver) : VersionRange.Any;
+		auto pack = dub.packageManager.getBestPackage(package_name, vers);
 
 		enforce(pack, format!"Failed to find a package named '%s%s' locally."(package_name,
 			ver == "" ? "" : ("@" ~ ver)
@@ -1086,12 +1139,6 @@ abstract class PackageBuildCommand : Command {
 class GenerateCommand : PackageBuildCommand {
 	protected {
 		string m_generator;
-		bool m_rdmd = false;
-		bool m_tempBuild = false;
-		bool m_run = false;
-		bool m_force = false;
-		bool m_combined = false;
-		bool m_parallel = false;
 		bool m_printPlatform, m_printBuilds, m_printConfigs;
 	}
 
@@ -1116,7 +1163,7 @@ class GenerateCommand : PackageBuildCommand {
 	{
 		super.prepare(args);
 
-		args.getopt("combined", &m_combined, [
+		args.getopt("combined", &this.baseSettings.combined, [
 			"Tries to build the whole project in a single compiler run."
 		]);
 
@@ -1129,7 +1176,7 @@ class GenerateCommand : PackageBuildCommand {
 		args.getopt("print-platform", &m_printPlatform, [
 			"Prints the identifiers for the current build platform as used for the build fields in dub.json"
 		]);
-		args.getopt("parallel", &m_parallel, [
+		args.getopt("parallel", &this.baseSettings.parallelBuild, [
 			"Runs multiple compiler instances in parallel, if possible."
 		]);
 	}
@@ -1155,7 +1202,7 @@ class GenerateCommand : PackageBuildCommand {
 			logInfo("");
 		}
 
-		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
+		m_defaultConfig = dub.project.getDefaultConfiguration(this.baseSettings.platform);
 		if (m_printConfigs) {
 			logInfo("Available configurations:");
 			foreach (tp; dub.configurations)
@@ -1163,26 +1210,14 @@ class GenerateCommand : PackageBuildCommand {
 			logInfo("");
 		}
 
-		GeneratorSettings gensettings;
-		gensettings.platform = m_buildPlatform;
-		gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
-		gensettings.buildType = m_buildType;
-		gensettings.buildMode = m_buildMode;
-		gensettings.compiler = m_compiler;
-		gensettings.buildSettings = m_buildSettings;
-		gensettings.combined = m_combined;
-		gensettings.filterVersions = m_filterVersions;
-		gensettings.run = m_run;
+		GeneratorSettings gensettings = this.baseSettings;
+		if (!gensettings.config.length)
+			gensettings.config = m_defaultConfig;
 		gensettings.runArgs = app_args;
-		gensettings.force = m_force;
-		gensettings.rdmd = m_rdmd;
-		gensettings.tempBuild = m_tempBuild;
-		gensettings.parallelBuild = m_parallel;
-		gensettings.single = m_single;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
-		if (m_buildType == "ddox") dub.runDdox(gensettings.run, app_args);
+		if (this.baseSettings.buildType == "ddox") dub.runDdox(gensettings.run, app_args);
 		return 0;
 	}
 }
@@ -1204,11 +1239,15 @@ class BuildCommand : GenerateCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("rdmd", &m_rdmd, [
+		args.getopt("temp-build", &this.baseSettings.tempBuild, [
+			"Builds the project in the temp folder if possible."
+		]);
+
+		args.getopt("rdmd", &this.baseSettings.rdmd, [
 			"Use rdmd instead of directly invoking the compiler"
 		]);
 
-		args.getopt("f|force", &m_force, [
+		args.getopt("f|force", &this.baseSettings.force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
 		args.getopt("y|yes", &m_yes, [
@@ -1224,7 +1263,7 @@ class BuildCommand : GenerateCommand {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		// single package files don't need to be downloaded, they are on the disk.
-		if (free_args.length < 1 || m_single)
+		if (free_args.length < 1 || this.baseSettings.single)
 			return super.execute(dub, free_args, app_args);
 
 		if (!m_nonInteractive)
@@ -1255,17 +1294,18 @@ class BuildCommand : GenerateCommand {
 			}
 		}
 
-		Dependency dep;
+		VersionRange dep;
 
 		if (packageParts.version_.length > 0) {
 			// the user provided a version manually
-			dep = Dependency(packageParts.version_);
+			dep = VersionRange.fromString(packageParts.version_);
+		} else if (packageParts.name.startsWith(":")) {
+			// Subpackages are always assumed to be present
+			return 0;
+		} else if (dub.packageManager.getBestPackage(packageParts.name)) {
+			// found locally
+			return 0;
 		} else {
-			if (packageParts.name.startsWith(":") ||
-				dub.packageManager.getFirstPackage(packageParts.name))
-				// found locally
-				return 0;
-
 			// search for the package and filter versions for exact matches
 			auto basePackageName = getBasePackageName(packageParts.name);
 			auto search = dub.searchPackages(basePackageName)
@@ -1286,7 +1326,7 @@ class BuildCommand : GenerateCommand {
 			const answer = m_yes ? true : input("Do you want to fetch '%s' now?".format(packageParts.name));
 			if (!answer)
 				return 0;
-			dep = Dependency(p.version_);
+			dep = VersionRange.fromString(p.version_);
 		}
 
 		dub.fetch(packageParts.name, dep, dub.defaultPlacementLocation, FetchOptions.none);
@@ -1308,12 +1348,8 @@ class RunCommand : BuildCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("temp-build", &m_tempBuild, [
-			"Builds the project in the temp folder if possible."
-		]);
-
 		super.prepare(args);
-		m_run = true;
+		this.baseSettings.run = true;
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -1325,9 +1361,6 @@ class RunCommand : BuildCommand {
 class TestCommand : PackageBuildCommand {
 	private {
 		string m_mainFile;
-		bool m_combined = false;
-		bool m_parallel = false;
-		bool m_force = false;
 	}
 
 	this() @safe pure nothrow
@@ -1359,23 +1392,34 @@ class TestCommand : PackageBuildCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
+		args.getopt("temp-build", &this.baseSettings.tempBuild, [
+			"Builds the project in the temp folder if possible."
+		]);
+
 		args.getopt("main-file", &m_mainFile, [
 			"Specifies a custom file containing the main() function to use for running the tests."
 		]);
-		args.getopt("combined", &m_combined, [
+		args.getopt("combined", &this.baseSettings.combined, [
 			"Tries to build the whole project in a single compiler run."
 		]);
-		args.getopt("parallel", &m_parallel, [
+		args.getopt("parallel", &this.baseSettings.parallelBuild, [
 			"Runs multiple compiler instances in parallel, if possible."
 		]);
-		args.getopt("f|force", &m_force, [
+		args.getopt("f|force", &this.baseSettings.force, [
 			"Forces a recompilation even if the target is up to date"
 		]);
+
 		bool coverage = false;
 		args.getopt("coverage", &coverage, [
 			"Enables code coverage statistics to be generated."
 		]);
-		if (coverage) m_buildType = "unittest-cov";
+		if (coverage) this.baseSettings.buildType = "unittest-cov";
+
+		bool coverageCTFE = false;
+		args.getopt("coverage-ctfe", &coverageCTFE, [
+			"Enables code coverage (including CTFE) statistics to be generated."
+		]);
+		if (coverageCTFE) this.baseSettings.buildType = "unittest-cov-ctfe";
 
 		super.prepare(args);
 	}
@@ -1388,22 +1432,12 @@ class TestCommand : PackageBuildCommand {
 
 		setupVersionPackage(dub, str_package_info, "unittest");
 
-		GeneratorSettings settings;
-		settings.platform = m_buildPlatform;
-		settings.compiler = getCompiler(m_buildPlatform.compilerBinary);
-		settings.buildType = m_buildType;
-		settings.buildMode = m_buildMode;
-		settings.buildSettings = m_buildSettings;
-		settings.combined = m_combined;
-		settings.filterVersions = m_filterVersions;
-		settings.parallelBuild = m_parallel;
-		settings.force = m_force;
-		settings.tempBuild = m_single;
+		GeneratorSettings settings = this.baseSettings;
+		settings.compiler = getCompiler(this.baseSettings.platform.compilerBinary);
 		settings.run = true;
 		settings.runArgs = app_args;
-		settings.single = m_single;
 
-		dub.testProject(settings, m_buildConfig, NativePath(m_mainFile));
+		dub.testProject(settings, this.baseSettings.config, NativePath(m_mainFile));
 		return 0;
 	}
 }
@@ -1465,8 +1499,8 @@ class LintCommand : PackageBuildCommand {
 			"Import paths"
 		]);
 
-		args.getopt("config", &m_config, [
-			"Use the given configuration file."
+		args.getopt("dscanner-config", &m_config, [
+			"Use the given d-scanner configuration file."
 		]);
 
 		super.prepare(args);
@@ -1592,17 +1626,20 @@ class DescribeCommand : PackageBuildCommand {
 		if (free_args.length >= 1) str_package_info = free_args[0];
 		setupVersionPackage(dub, str_package_info);
 
-		m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
+		m_defaultConfig = dub.project.getDefaultConfiguration(this.baseSettings.platform);
 
-		auto config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
+		GeneratorSettings settings = this.baseSettings;
+		if (!settings.config.length)
+			settings.config = m_defaultConfig;
+		// Ignore other options
+		settings.buildSettings.options = this.baseSettings.buildSettings.options & BuildOption.lowmem;
 
-		GeneratorSettings settings;
-		settings.platform = m_buildPlatform;
-		settings.config = config;
-		settings.buildType = m_buildType;
-		settings.compiler = m_compiler;
-		settings.filterVersions = m_filterVersions;
-		settings.buildSettings.options |= m_buildSettings.options & BuildOption.lowmem;
+		// With a requested `unittest` config, switch to the special test runner
+		// config (which doesn't require an existing `unittest` configuration).
+		if (this.baseSettings.config == "unittest") {
+			const test_config = dub.project.addTestRunnerConfiguration(settings, !dub.dryRun);
+			if (test_config) settings.config = test_config;
+		}
 
 		if (m_importPaths) { m_data = ["import-paths"]; m_dataList = true; }
 		else if (m_stringImportPaths) { m_data = ["string-import-paths"]; m_dataList = true; }
@@ -1671,7 +1708,7 @@ class CleanCommand : Command {
 				}
 			}
 
-			if (any_error) return 1;
+			if (any_error) return 2;
 		} else {
 			dub.cleanPackage(dub.rootPath);
 		}
@@ -1708,12 +1745,12 @@ class AddCommand : Command {
 		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		if (!loadCwdPackage(dub, true)) return 1;
+		if (!loadCwdPackage(dub, true)) return 2;
 		auto recipe = dub.project.rootPackage.rawRecipe.clone;
 
 		foreach (depspec; free_args) {
 			if (!addDependency(dub, recipe, depspec))
-				return 1;
+				return 2;
 		}
 		writePackageRecipe(dub.project.rootPackage.recipePath, recipe);
 
@@ -1724,6 +1761,7 @@ class AddCommand : Command {
 class UpgradeCommand : Command {
 	private {
 		bool m_prerelease = false;
+		bool m_includeSubPackages = false;
 		bool m_forceRemove = false;
 		bool m_missingOnly = false;
 		bool m_verify = false;
@@ -1749,6 +1787,9 @@ class UpgradeCommand : Command {
 		args.getopt("prerelease", &m_prerelease, [
 			"Uses the latest pre-release version, even if release versions are available"
 		]);
+		args.getopt("s|sub-packages", &m_includeSubPackages, [
+			"Also upgrades dependencies of all directory based sub packages"
+		]);
 		args.getopt("verify", &m_verify, [
 			"Updates the project and performs a build. If successful, rewrites the selected versions file <to be implemented>."
 		]);
@@ -1769,12 +1810,47 @@ class UpgradeCommand : Command {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(!m_verify, "--verify is not yet implemented.");
 		enforce(loadCwdPackage(dub, true), "Failed to load package.");
-		logInfo("Upgrading project in %s", dub.projectPath.toNativeString());
+		logInfo("Upgrading", Color.cyan, "project in %s", dub.projectPath.toNativeString().color(Mode.bold));
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
 		if (m_dryRun) options |= UpgradeOptions.dryRun;
 		dub.upgrade(options, free_args);
+
+		auto spacks = dub.project.rootPackage
+			.subPackages
+			.filter!(sp => sp.path.length);
+
+		if (m_includeSubPackages) {
+			bool any_error = false;
+
+			// Go through each path based sub package, load it as a new instance
+			// and perform an upgrade as if the upgrade had been run from within
+			// the sub package folder. Note that we have to use separate Dub
+			// instances, because the upgrade always works on the root package
+			// of a project, which in this case are the individual sub packages.
+			foreach (sp; spacks) {
+				try {
+					auto fullpath = (dub.projectPath ~ sp.path).toNativeString();
+					logInfo("Upgrading", Color.cyan, "sub package in %s", fullpath);
+					auto sdub = new Dub(fullpath, dub.packageSuppliers, SkipPackageSuppliers.all);
+					sdub.defaultPlacementLocation = dub.defaultPlacementLocation;
+					sdub.loadPackage();
+					sdub.upgrade(options, free_args);
+				} catch (Exception e) {
+					logError("Failed to update sub package at %s: %s",
+						sp.path, e.msg);
+					any_error = true;
+				}
+			}
+
+			if (any_error) return 1;
+		} else if (!spacks.empty) {
+			foreach (sp; spacks)
+				logInfo("Not upgrading sub package in %s", sp.path);
+			logInfo("\nNote: specify -s to also upgrade sub packages.");
+		}
+
 		return 0;
 	}
 }
@@ -1818,8 +1894,6 @@ class FetchCommand : FetchRemoveCommand {
 			"$ dub run vibelog --cache=local",
 			"",
 			"This will grab all needed dependencies and compile and run the application.",
-			"",
-			"Note: DUB does not do a system installation of packages. Packages are instead only registered within DUB's internal ecosystem. Generation of native system packages/installers may be added later as a separate feature."
 		];
 	}
 
@@ -1842,39 +1916,26 @@ class FetchCommand : FetchRemoveCommand {
 		if (m_version.length) { // remove then --version removed
 			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
-			dub.fetch(name, Dependency(m_version), location, fetchOpts);
+			dub.fetch(name, VersionRange.fromString(m_version), location, fetchOpts);
 		} else if (name.canFindVersionSplitter) {
 			const parts = name.splitPackageName;
-			dub.fetch(parts.name, Dependency(parts.version_), location, fetchOpts);
+			dub.fetch(parts.name, VersionRange.fromString(parts.version_), location, fetchOpts);
 		} else {
 			try {
-				dub.fetch(name, Dependency(">=0.0.0"), location, fetchOpts);
+				dub.fetch(name, VersionRange.Any, location, fetchOpts);
+				logInfo("Finished", Color.green, "%s fetched", name.color(Mode.bold));
 				logInfo(
 					"Please note that you need to use `dub run <pkgname>` " ~
-					"or add it to dependencies of your package to actually use/run it. " ~
-					"dub does not do actual installation of packages outside of its own ecosystem.");
+					"or add it to dependencies of your package to actually use/run it. "
+				);
 			}
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
 				logInfo("Retry with ~master...");
-				dub.fetch(name, Dependency("~master"), location, fetchOpts);
+				dub.fetch(name, VersionRange.fromString("~master"), location, fetchOpts);
 			}
 		}
 		return 0;
-	}
-}
-
-class InstallCommand : FetchCommand {
-	this() @safe pure nothrow
-    {
-        this.name = "install";
-        this.hidden = true;
-    }
-	override void prepare(scope CommandArgs args) { super.prepare(args); }
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		warnRenamed("install", "fetch");
-		return super.execute(dub, free_args, app_args);
 	}
 }
 
@@ -1949,21 +2010,6 @@ class RemoveCommand : FetchRemoveCommand {
 		return 0;
 	}
 }
-
-class UninstallCommand : RemoveCommand {
-	this() @safe pure nothrow
-    {
-        this.name = "uninstall";
-        this.hidden = true;
-    }
-	override void prepare(scope CommandArgs args) { super.prepare(args); }
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		warnRenamed("uninstall", "remove");
-		return super.execute(dub, free_args, app_args);
-	}
-}
-
 
 /******************************************************************************/
 /* ADD/REMOVE PATH/LOCAL                                                      */
@@ -2079,7 +2125,7 @@ class ListCommand : Command {
 			"Prints a list of all or selected local packages. This includes all cached "~
 			"packages (user or system wide), all packages in the package search paths "~
 			"(\"dub add-path\") and all manually registered packages (\"dub add-local\"). "~
-			"If package specified output filtered by package spec."
+			"If a package (and optionally a version spec) is specified, only matching packages are shown."
 		];
 	}
 	override void prepare(scope CommandArgs args) {}
@@ -2090,10 +2136,10 @@ class ListCommand : Command {
 		const pname = pinfo.name;
 		const pvlim = Dependency(pinfo.version_ == "" ? "*" : pinfo.version_);
 		enforceUsage(app_args.length == 0, "The list command supports no application arguments.");
-		logInfo("Packages present in the system and known to dub:");
+		logInfoNoTag("Packages present in the system and known to dub:");
 		foreach (p; dub.packageManager.getPackageIterator()) {
 			if ((pname == "" || pname == p.name) && pvlim.matches(p.version_))
-				logInfo("  %s %s: %s", p.name, p.version_, p.path.toNativeString());
+				logInfoNoTag("  %s %s: %s", p.name.color(Mode.bold), p.version_, p.path.toNativeString());
 		}
 		logInfo("");
 		return 0;
@@ -2104,10 +2150,10 @@ class SearchCommand : Command {
 	this() @safe pure nothrow
 	{
 		this.name = "search";
-		this.argumentsPattern = "<query>";
+		this.argumentsPattern = "<package-name>";
 		this.description = "Search for available packages.";
 		this.helpText = [
-			"Search all specified DUB registries for packages matching query."
+			"Search all specified providers for matching packages."
 		];
 	}
 	override void prepare(scope CommandArgs args) {}
@@ -2118,7 +2164,7 @@ class SearchCommand : Command {
 		if (res.empty)
 		{
 			logError("No matches found.");
-			return 1;
+			return 2;
 		}
 		auto justify = res
 			.map!((descNmatches) => descNmatches[1])
@@ -2126,11 +2172,14 @@ class SearchCommand : Command {
 			.map!(m => m.name.length + m.version_.length)
 			.reduce!max + " ()".length;
 		justify += (~justify & 3) + 1; // round to next multiple of 4
+		int colorDifference = cast(int)"a".color(Mode.bold).length - 1;
+		justify += colorDifference;
 		foreach (desc, matches; res)
 		{
-			logInfo("==== %s ====", desc);
+			logInfoNoTag("==== %s ====", desc);
 			foreach (m; matches)
-				logInfo("%s%s", leftJustify(m.name ~ " (" ~ m.version_ ~ ")", justify), m.description);
+				logInfoNoTag("  %s%s", leftJustify(m.name.color(Mode.bold)
+					~ " (" ~ m.version_ ~ ")", justify), m.description);
 		}
 		return 0;
 	}
@@ -2146,13 +2195,19 @@ class AddOverrideCommand : Command {
 		bool m_system = false;
 	}
 
+	static immutable string DeprecationMessage =
+		"This command is deprecated. Use path based dependency, custom cache path, " ~
+		"or edit `dub.selections.json` to achieve the same results.";
+
+
 	this() @safe pure nothrow
 	{
 		this.name = "add-override";
 		this.argumentsPattern = "<package> <version-spec> <target-path/target-version>";
 		this.description = "Adds a new package override.";
-		this.helpText = [
-		];
+
+		this.hidden = true;
+		this.helpText = [ DeprecationMessage ];
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -2164,20 +2219,21 @@ class AddOverrideCommand : Command {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
+		logWarn(DeprecationMessage);
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 3, "Expected three arguments, not "~free_args.length.to!string);
-		auto scope_ = m_system ? LocalPackageType.system : LocalPackageType.user;
+		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
 		auto pack = free_args[0];
-		auto ver = Dependency(free_args[1]);
+		auto source = VersionRange.fromString(free_args[1]);
 		if (existsFile(NativePath(free_args[2]))) {
 			auto target = NativePath(free_args[2]);
 			if (!target.absolute) target = NativePath(getcwd()) ~ target;
-			dub.packageManager.addOverride(scope_, pack, ver, target);
-			logInfo("Added override %s %s => %s", pack, ver, target);
+			dub.packageManager.addOverride_(scope_, pack, source, target);
+			logInfo("Added override %s %s => %s", pack, source, target);
 		} else {
 			auto target = Version(free_args[2]);
-			dub.packageManager.addOverride(scope_, pack, ver, target);
-			logInfo("Added override %s %s => %s", pack, ver, target);
+			dub.packageManager.addOverride_(scope_, pack, source, target);
+			logInfo("Added override %s %s => %s", pack, source, target);
 		}
 		return 0;
 	}
@@ -2193,8 +2249,9 @@ class RemoveOverrideCommand : Command {
 		this.name = "remove-override";
 		this.argumentsPattern = "<package> <version-spec>";
 		this.description = "Removes an existing package override.";
-		this.helpText = [
-		];
+
+		this.hidden = true;
+		this.helpText = [ AddOverrideCommand.DeprecationMessage ];
 	}
 
 	override void prepare(scope CommandArgs args)
@@ -2206,10 +2263,12 @@ class RemoveOverrideCommand : Command {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
+		logWarn(AddOverrideCommand.DeprecationMessage);
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 2, "Expected two arguments, not "~free_args.length.to!string);
-		auto scope_ = m_system ? LocalPackageType.system : LocalPackageType.user;
-		dub.packageManager.removeOverride(scope_, free_args[0], Dependency(free_args[1]));
+		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
+		auto source = VersionRange.fromString(free_args[1]);
+		dub.packageManager.removeOverride_(scope_, free_args[0], source);
 		return 0;
 	}
 }
@@ -2220,24 +2279,25 @@ class ListOverridesCommand : Command {
 		this.name = "list-overrides";
 		this.argumentsPattern = "";
 		this.description = "Prints a list of all local package overrides";
-		this.helpText = [
-			"Prints a list of all overridden packages added via \"dub add-override\"."
-		];
+
+		this.hidden = true;
+		this.helpText = [ AddOverrideCommand.DeprecationMessage ];
 	}
 	override void prepare(scope CommandArgs args) {}
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		void printList(in PackageOverride[] overrides, string caption)
+		logWarn(AddOverrideCommand.DeprecationMessage);
+
+		void printList(in PackageOverride_[] overrides, string caption)
 		{
 			if (overrides.length == 0) return;
-			logInfo("# %s", caption);
-			foreach (ovr; overrides) {
-				if (!ovr.targetPath.empty) logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetPath);
-				else logInfo("%s %s => %s", ovr.package_, ovr.version_, ovr.targetVersion);
-			}
+			logInfoNoTag("# %s", caption);
+			foreach (ovr; overrides)
+				ovr.target.match!(
+					t => logInfoNoTag("%s %s => %s", ovr.package_.color(Mode.bold), ovr.version_, t));
 		}
-		printList(dub.packageManager.getOverrides(LocalPackageType.user), "User wide overrides");
-		printList(dub.packageManager.getOverrides(LocalPackageType.system), "System wide overrides");
+		printList(dub.packageManager.getOverrides_(PlacementLocation.user), "User wide overrides");
+		printList(dub.packageManager.getOverrides_(PlacementLocation.system), "System wide overrides");
 		return 0;
 	}
 }
@@ -2278,7 +2338,6 @@ class DustmiteCommand : PackageBuildCommand {
 		string m_linkerRegex;
 		string m_programRegex;
 		string m_testPackage;
-		bool m_combined;
 		bool m_noRedirect;
 		string m_strategy;
 		uint m_jobCount;		// zero means not specified
@@ -2309,7 +2368,7 @@ class DustmiteCommand : PackageBuildCommand {
 		args.getopt("program-status", &m_programStatusCode, ["The expected status code of the built executable"]);
 		args.getopt("program-regex", &m_programRegex, ["A regular expression used to match against the program output"]);
 		args.getopt("test-package", &m_testPackage, ["Perform a test run - usually only used internally"]);
-		args.getopt("combined", &m_combined, ["Builds multiple packages with one compiler run"]);
+		args.getopt("combined", &this.baseSettings.combined, ["Builds multiple packages with one compiler run"]);
 		args.getopt("no-redirect", &m_noRedirect, ["Don't redirect stdout/stderr streams of the test command"]);
 		args.getopt("strategy", &m_strategy, ["Set strategy (careful/lookback/pingpong/indepth/inbreadth)"]);
 		args.getopt("j", &m_jobCount, ["Set number of look-ahead processes"]);
@@ -2331,16 +2390,11 @@ class DustmiteCommand : PackageBuildCommand {
 			dub = new Dub(NativePath(getcwd()));
 
 			setupPackage(dub, m_testPackage);
-			m_defaultConfig = dub.project.getDefaultConfiguration(m_buildPlatform);
+			m_defaultConfig = dub.project.getDefaultConfiguration(this.baseSettings.platform);
 
-			GeneratorSettings gensettings;
-			gensettings.platform = m_buildPlatform;
-			gensettings.config = m_buildConfig.length ? m_buildConfig : m_defaultConfig;
-			gensettings.buildType = m_buildType;
-			gensettings.compiler = m_compiler;
-			gensettings.buildSettings = m_buildSettings;
-			gensettings.combined = m_combined;
-			gensettings.filterVersions = m_filterVersions;
+			GeneratorSettings gensettings = this.baseSettings;
+			if (!gensettings.config.length)
+				gensettings.config = m_defaultConfig;
 			gensettings.run = m_programStatusCode != int.min || m_programRegex.length;
 			gensettings.runArgs = app_args;
 			gensettings.force = true;
@@ -2349,11 +2403,11 @@ class DustmiteCommand : PackageBuildCommand {
 			gensettings.runCallback = check(m_programStatusCode, m_programRegex);
 			try dub.generateProject("build", gensettings);
 			catch (DustmiteMismatchException) {
-				logInfo("Dustmite test doesn't match.");
+				logInfoNoTag("Dustmite test doesn't match.");
 				return 3;
 			}
 			catch (DustmiteMatchException) {
-				logInfo("Dustmite test matches.");
+				logInfoNoTag("Dustmite test matches.");
 				return 0;
 			}
 		} else {
@@ -2366,8 +2420,8 @@ class DustmiteCommand : PackageBuildCommand {
 
 			setupPackage(dub, null);
 			auto prj = dub.project;
-			if (m_buildConfig.empty)
-				m_buildConfig = prj.getDefaultConfiguration(m_buildPlatform);
+			if (this.baseSettings.config.empty)
+				this.baseSettings.config = prj.getDefaultConfiguration(this.baseSettings.platform);
 
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
@@ -2388,10 +2442,13 @@ class DustmiteCommand : PackageBuildCommand {
 			}
 
 			static void fixPathDependency(string pack, ref Dependency dep) {
-				if (!dep.path.empty) {
-					auto mainpack = getBasePackageName(pack);
-					dep.path = NativePath("../") ~ mainpack;
-				}
+				dep.visit!(
+					(NativePath path) {
+						auto mainpack = getBasePackageName(pack);
+						dep = Dependency(NativePath("../") ~ mainpack);
+					},
+					(any) { /* Nothing to do */ },
+				);
 			}
 
 			void fixPathDependencies(ref PackageRecipe recipe, NativePath base_path)
@@ -2418,7 +2475,7 @@ class DustmiteCommand : PackageBuildCommand {
 				if (pack.name in visited) continue;
 				visited[pack.name] = true;
 				auto dst_path = path ~ pack.name;
-				logInfo("Copy package '%s' to destination folder...", pack.name);
+				logInfo("Prepare", Color.light_blue, "Copy package %s to destination folder...", pack.name.color(Mode.bold));
 				copyFolderRec(pack.path, dst_path);
 
 				// adjust all path based dependencies
@@ -2428,10 +2485,10 @@ class DustmiteCommand : PackageBuildCommand {
 				pack.storeInfo(dst_path);
 			}
 
-			logInfo("Executing dustmite...");
+			logInfo("Starting", Color.light_green, "Executing dustmite...");
 			auto testcmd = appender!string();
 			testcmd.formattedWrite("%s dustmite --test-package=%s --build=%s --config=%s",
-				thisExePath, prj.name, m_buildType, m_buildConfig);
+				thisExePath, prj.name, this.baseSettings.buildType, this.baseSettings.config);
 
 			if (m_compilerName.length) testcmd.formattedWrite(" \"--compiler=%s\"", m_compilerName);
 			if (m_arch.length) testcmd.formattedWrite(" --arch=%s", m_arch);
@@ -2441,7 +2498,7 @@ class DustmiteCommand : PackageBuildCommand {
 			if (m_linkerRegex.length) testcmd.formattedWrite(" \"--linker-regex=%s\"", m_linkerRegex);
 			if (m_programStatusCode != int.min) testcmd.formattedWrite(" --program-status=%s", m_programStatusCode);
 			if (m_programRegex.length) testcmd.formattedWrite(" \"--program-regex=%s\"", m_programRegex);
-			if (m_combined) testcmd ~= " --combined";
+			if (this.baseSettings.combined) testcmd ~= " --combined";
 
 			// --vquiet swallows dustmite's output ...
 			if (!m_noRedirect) testcmd ~= " --vquiet";
@@ -2537,7 +2594,7 @@ class ConvertCommand : Command {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 0, "Unexpected arguments: "~free_args.join(" "));
 		enforceUsage(m_format.length > 0, "Missing target format file extension (--format=...).");
-		if (!loadCwdPackage(dub, true)) return 1;
+		if (!loadCwdPackage(dub, true)) return 2;
 		dub.convertRecipe(m_format, m_stdout);
 		return 0;
 	}
@@ -2714,11 +2771,6 @@ private class UsageException : Exception {
 	}
 }
 
-private void warnRenamed(string prev, string curr)
-{
-	logWarn("The '%s' Command was renamed to '%s'. Please update your scripts.", prev, curr);
-}
-
 private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 {
 	Dependency dep;
@@ -2738,7 +2790,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 		}
 	}
 	recipe.buildSettings.dependencies[depname] = dep;
-	logInfo("Adding dependency %s %s", depname, dep.versionSpec);
+	logInfo("Adding dependency %s %s", depname, dep.toString());
 	return true;
 }
 

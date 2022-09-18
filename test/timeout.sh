@@ -31,10 +31,10 @@ Content-Length: 2\r
 \r
 {}')
     for i in $(seq 0 $((${#res} - 1))); do
-        echo -n "${res:$i:1}"
+        echo -n "${res:$i:1}" || true
         sleep 1
     done
-} | nc -l $PORT >/dev/null &
+} | tail -n +1 | nc -l $PORT >/dev/null &
 PID=$!
 if timeout 10s time $DUB fetch dub --skip-registry=all --registry=http://localhost:$PORT; then
     die $LINENO 'Fetching from too slow registry should fail.'

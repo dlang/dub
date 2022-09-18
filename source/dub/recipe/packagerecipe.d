@@ -10,10 +10,12 @@ module dub.recipe.packagerecipe;
 import dub.compilers.compiler;
 import dub.compilers.utils : warnOnSpecialCompilerFlags;
 import dub.dependency;
+import dub.internal.logging;
 
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
+
+import configy.Attributes;
 
 import std.algorithm : findSplit, sort;
 import std.array : join, split;
@@ -73,22 +75,92 @@ string getSubPackageName(string package_name) @safe pure
 	For higher level package handling, see the $(D Package) class.
 */
 struct PackageRecipe {
+	/**
+	 * Name of the package, used to uniquely identify the package.
+	 *
+	 * This field is the only mandatory one.
+	 * Must be comprised of only lower case ASCII alpha-numeric characters,
+	 * "-" or "_".
+	 */
 	string name;
-	string version_;
-	string description;
-	string homepage;
-	string[] authors;
-	string copyright;
-	string license;
-	string[] ddoxFilterArgs;
-	string ddoxTool;
-	BuildSettingsTemplate buildSettings;
-	ConfigurationInfo[] configurations;
-	BuildSettingsTemplate[string] buildTypes;
 
-	ToolchainRequirements toolchainRequirements;
+	/// Brief description of the package.
+	@Optional string description;
 
-	SubPackage[] subPackages;
+	/// URL of the project website
+	@Optional string homepage;
+
+	/**
+	 * List of project authors
+	 *
+	 * the suggested format is either:
+	 * "Peter Parker"
+	 * or
+	 * "Peter Parker <pparker@example.com>"
+	 */
+	@Optional string[] authors;
+
+	/// Copyright declaration string
+	@Optional string copyright;
+
+	/// License(s) under which the project can be used
+	@Optional string license;
+
+	/// Set of version requirements for DUB, compilers and/or language frontend.
+	@Optional ToolchainRequirements toolchainRequirements;
+
+	/**
+	 * Speficies an optional list of build configurations
+	 *
+	 * By default, the first configuration present in the package recipe
+	 * will be used, except for special configurations (e.g. "unittest").
+	 * A specific configuration can be chosen from the command line using
+	 * `--config=name` or `-c name`. A package can select a specific
+	 * configuration in one of its dependency by using the `subConfigurations`
+	 * build setting.
+	 * Build settings defined at the top level affect all configurations.
+	 */
+	@Optional @Key("name") ConfigurationInfo[] configurations;
+
+	/**
+	 * Defines additional custom build types or overrides the default ones
+	 *
+	 * Build types can be selected from the command line using `--build=name`
+	 * or `-b name`. The default build type is `debug`.
+	 */
+	@Optional BuildSettingsTemplate[string] buildTypes;
+
+	/**
+	 * Build settings influence the command line arguments and options passed
+	 * to the compiler and linker.
+	 *
+	 * All build settings can be present at the top level, and are optional.
+	 * Build settings can also be found in `configurations`.
+	 */
+	@Optional BuildSettingsTemplate buildSettings;
+	alias buildSettings this;
+
+	/**
+	 * Specifies a list of command line flags usable for controlling
+	 * filter behavior for `--build=ddox` [experimental]
+	 */
+	@Optional @Name("-ddoxFilterArgs") string[] ddoxFilterArgs;
+
+	/// Specify which tool to use with `--build=ddox` (experimental)
+	@Optional @Name("-ddoxTool") string ddoxTool;
+
+	/**
+	 * Sub-packages path or definitions
+	 *
+	 * Sub-packages allow to break component of a large framework into smaller
+	 * packages. In the recipe file, subpackages entry can take one of two forms:
+	 * either the path to a sub-folder where a recipe file exists,
+	 * or an object of the same format as a recipe file (or `PackageRecipe`).
+	 */
+	@Optional SubPackage[] subPackages;
+
+	/// Usually unused by users, this is set by dub automatically
+	@Optional @Name("version") string version_;
 
 	inout(ConfigurationInfo) getConfiguration(string name)
 	inout {
@@ -107,6 +179,27 @@ struct SubPackage
 {
 	string path;
 	PackageRecipe recipe;
+
+	/**
+	 * Given a YAML parser, recurses into `recipe` or use `path`
+	 * depending on the node type.
+	 *
+	 * Two formats are supported for `subpackages`: a string format,
+	 * which is just the path to the subpackage, and embedding the
+	 * full subpackage recipe into the parent package recipe.
+	 *
+	 * To support such a dual syntax, Configy requires the use
+	 * of a `fromYAML` method, as it exposes the underlying format.
+	 */
+	static SubPackage fromYAML (scope ConfigParser!SubPackage p)
+	{
+		import dyaml.node;
+
+		if (p.node.nodeID == NodeID.mapping)
+			return SubPackage(null, p.parseAs!PackageRecipe);
+		else
+			return SubPackage(p.parseAs!string);
+	}
 }
 
 /// Describes minimal toolchain requirements
@@ -114,15 +207,23 @@ struct ToolchainRequirements
 {
 	import std.typecons : Tuple, tuple;
 
+	// TODO: We can remove `@Optional` once bosagora/configy#30 is resolved,
+	// currently it fails because `Dependency.opCmp` is not CTFE-able.
+
 	/// DUB version requirement
+	@Optional @converter((scope ConfigParser!Dependency p) => p.node.as!string.parseDependency)
 	Dependency dub = Dependency.any;
 	/// D front-end version requirement
+	@Optional @converter((scope ConfigParser!Dependency p) => p.node.as!string.parseDMDDependency)
 	Dependency frontend = Dependency.any;
 	/// DMD version requirement
+	@Optional @converter((scope ConfigParser!Dependency p) => p.node.as!string.parseDMDDependency)
 	Dependency dmd = Dependency.any;
 	/// LDC version requirement
+	@Optional @converter((scope ConfigParser!Dependency p) => p.node.as!string.parseDependency)
 	Dependency ldc = Dependency.any;
 	/// GDC version requirement
+	@Optional @converter((scope ConfigParser!Dependency p) => p.node.as!string.parseDependency)
 	Dependency gdc = Dependency.any;
 
 	/** Get the list of supported compilers.
@@ -151,8 +252,20 @@ struct ToolchainRequirements
 /// Bundles information about a build configuration.
 struct ConfigurationInfo {
 	string name;
-	string[] platforms;
-	BuildSettingsTemplate buildSettings;
+	@Optional string[] platforms;
+	@Optional BuildSettingsTemplate buildSettings;
+	alias buildSettings this;
+
+	/**
+	 * Equivalent to the default constructor, used by Configy
+	 */
+	this(string name, string[] p, BuildSettingsTemplate build_settings)
+		@safe pure nothrow @nogc
+	{
+		this.name = name;
+		this.platforms = p;
+		this.buildSettings = build_settings;
+	}
 
 	this(string name, BuildSettingsTemplate build_settings)
 	{
@@ -165,9 +278,132 @@ struct ConfigurationInfo {
 	const {
 		if( platforms.empty ) return true;
 		foreach(p; platforms)
-			if( platform.matchesSpecification("-"~p) )
+			if (platform.matchesSpecification(p))
 				return true;
 		return false;
+	}
+}
+
+/**
+ * A dependency with possible `BuildSettingsTemplate`
+ *
+ * Currently only `dflags` is taken into account, but the parser accepts any
+ * value that is in `BuildSettingsTemplate`.
+ * This feature was originally introduced to support `-preview`, as setting
+ * a `-preview` in `dflags` does not propagate down to dependencies.
+ */
+public struct RecipeDependency
+{
+	/// The dependency itself
+	public Dependency dependency;
+
+	/// Additional dflags, if any
+	public BuildSettingsTemplate settings;
+
+	/// Convenience alias as most uses just want to deal with the `Dependency`
+	public alias dependency this;
+
+	/**
+	 * Read a `Dependency` and `BuildSettingsTemplate` from the config file
+	 *
+	 * Required to support both short and long form
+	 */
+	static RecipeDependency fromYAML (scope ConfigParser!RecipeDependency p)
+	{
+		import dyaml.node;
+
+		if (p.node.nodeID == NodeID.scalar) {
+			auto d = YAMLFormat(p.node.as!string);
+			return RecipeDependency(d.toDependency());
+		}
+		auto d = p.parseAs!YAMLFormat;
+		return RecipeDependency(d.toDependency(), d.settings);
+	}
+
+	/// In-file representation of a dependency as specified by the user
+	private struct YAMLFormat
+	{
+		@Name("version") @Optional string version_;
+		@Optional string path;
+		@Optional string repository;
+		bool optional;
+		@Name("default") bool default_;
+
+		@Optional BuildSettingsTemplate settings;
+		alias settings this;
+
+		/**
+		 * Used by Configy to provide rich error message when parsing.
+		 *
+		 * Exceptions thrown from `validate` methods will be wrapped with field/file
+		 * informations and rethrown from Configy, providing the user
+		 * with the location of the configuration that triggered the error.
+		 */
+		public void validate () const
+		{
+			enforce(this.optional || !this.default_,
+				"Setting default to 'true' has no effect if 'optional' is not set");
+			enforce(this.version_.length || this.path.length || this.repository.length,
+				"Need to provide one of the following fields: 'version', 'path', or 'repository'");
+
+			enforce(!this.path.length || !this.repository.length,
+				"Cannot provide a 'path' dependency if a repository dependency is used");
+			enforce(!this.repository.length || this.version_.length,
+				"Need to provide a commit hash in 'version' field with 'repository' dependency");
+
+			// Need to deprecate this as it's fairly common
+			version (none) {
+				enforce(!this.path.length || !this.version_.length,
+					"Cannot provide a 'path' dependency if a 'version' dependency is used");
+			}
+		}
+
+		/// Turns this struct into a `Dependency`
+		public Dependency toDependency () const
+		{
+			auto result = () {
+				if (this.path.length)
+					return Dependency(NativePath(this.path));
+				if (this.repository.length)
+					return Dependency(Repository(this.repository, this.version_));
+				return Dependency(VersionRange.fromString(this.version_));
+			}();
+			result.optional = this.optional;
+			result.default_ = this.default_;
+			return result;
+		}
+	}
+}
+
+/// Type used to avoid a breaking change when `Dependency[string]`
+/// was changed to `RecipeDependency[string]`
+package struct RecipeDependencyAA
+{
+	/// The underlying data, `public` as `alias this` to `private` field doesn't
+	/// always work.
+	public RecipeDependency[string] data;
+
+	/// Expose base function, e.g. `clear`
+	alias data this;
+
+	/// Supports assignment from a `RecipeDependency` (used in the parser)
+	public void opIndexAssign(RecipeDependency dep, string key)
+		pure nothrow
+	{
+		this.data[key] = dep;
+	}
+
+	/// Supports assignment from a `Dependency`, used in user code mostly
+	public void opIndexAssign(Dependency dep, string key)
+		pure nothrow
+	{
+		this.data[key] = RecipeDependency(dep);
+	}
+
+	/// Configy doesn't like `alias this` to an AA
+	static RecipeDependencyAA fromYAML (scope ConfigParser!RecipeDependencyAA p)
+	{
+		return RecipeDependencyAA(p.parseAs!(typeof(this.data)));
 	}
 }
 
@@ -175,48 +411,54 @@ struct ConfigurationInfo {
 /// It contains functions to create a specific BuildSetting, targeted at
 /// a certain BuildPlatform.
 struct BuildSettingsTemplate {
-	Dependency[string] dependencies;
-	BuildSettingsTemplate[string] dependencyBuildSettings;
-	string systemDependencies;
-	TargetType targetType = TargetType.autodetect;
-	string targetPath;
-	string targetName;
-	string workingDirectory;
-	string mainSourceFile;
-	string[string] subConfigurations;
-	string[][string] dflags;
-	string[][string] lflags;
-	string[][string] libs;
-	string[][string] sourceFiles;
-	string[][string] sourcePaths;
-	string[][string] excludedSourceFiles;
-	string[][string] injectSourceFiles;
-	string[][string] copyFiles;
-	string[][string] extraDependencyFiles;
-	string[][string] versions;
-	string[][string] debugVersions;
-	string[][string] versionFilters;
-	string[][string] debugVersionFilters;
-	string[][string] importPaths;
-	string[][string] stringImportPaths;
-	string[][string] preGenerateCommands;
-	string[][string] postGenerateCommands;
-	string[][string] preBuildCommands;
-	string[][string] postBuildCommands;
-	string[][string] preRunCommands;
-	string[][string] postRunCommands;
-	string[string][string] environments;
-	string[string][string] buildEnvironments;
-	string[string][string] runEnvironments;
-	string[string][string] preGenerateEnvironments;
-	string[string][string] postGenerateEnvironments;
-	string[string][string] preBuildEnvironments;
-	string[string][string] postBuildEnvironments;
-	string[string][string] preRunEnvironments;
-	string[string][string] postRunEnvironments;
-	BuildRequirements[string] buildRequirements;
-	BuildOptions[string] buildOptions;
+	@Optional RecipeDependencyAA dependencies;
+	@Optional string systemDependencies;
+	@Optional TargetType targetType = TargetType.autodetect;
+	@Optional string targetPath;
+	@Optional string targetName;
+	@Optional string workingDirectory;
+	@Optional string mainSourceFile;
+	@Optional string[string] subConfigurations;
+	@StartsWith("dflags") string[][string] dflags;
+	@StartsWith("lflags") string[][string] lflags;
+	@StartsWith("libs") string[][string] libs;
+	@StartsWith("sourceFiles") string[][string] sourceFiles;
+	@StartsWith("sourcePaths") string[][string] sourcePaths;
+	@StartsWith("excludedSourceFiles") string[][string] excludedSourceFiles;
+	@StartsWith("injectSourceFiles") string[][string] injectSourceFiles;
+	@StartsWith("copyFiles") string[][string] copyFiles;
+	@StartsWith("extraDependencyFiles") string[][string] extraDependencyFiles;
+	@StartsWith("versions") string[][string] versions;
+	@StartsWith("debugVersions") string[][string] debugVersions;
+	@StartsWith("versionFilters") string[][string] versionFilters;
+	@StartsWith("debugVersionFilters") string[][string] debugVersionFilters;
+	@StartsWith("importPaths") string[][string] importPaths;
+	@StartsWith("stringImportPaths") string[][string] stringImportPaths;
+	@StartsWith("preGenerateCommands") string[][string] preGenerateCommands;
+	@StartsWith("postGenerateCommands") string[][string] postGenerateCommands;
+	@StartsWith("preBuildCommands") string[][string] preBuildCommands;
+	@StartsWith("postBuildCommands") string[][string] postBuildCommands;
+	@StartsWith("preRunCommands") string[][string] preRunCommands;
+	@StartsWith("postRunCommands") string[][string] postRunCommands;
+	@StartsWith("environments") string[string][string] environments;
+	@StartsWith("buildEnvironments")string[string][string] buildEnvironments;
+	@StartsWith("runEnvironments") string[string][string] runEnvironments;
+	@StartsWith("preGenerateEnvironments") string[string][string] preGenerateEnvironments;
+	@StartsWith("postGenerateEnvironments") string[string][string] postGenerateEnvironments;
+	@StartsWith("preBuildEnvironments") string[string][string] preBuildEnvironments;
+	@StartsWith("postBuildEnvironments") string[string][string] postBuildEnvironments;
+	@StartsWith("preRunEnvironments") string[string][string] preRunEnvironments;
+	@StartsWith("postRunEnvironments") string[string][string] postRunEnvironments;
 
+	@StartsWith("buildRequirements") @Optional
+	Flags!BuildRequirement[string] buildRequirements;
+	@StartsWith("buildOptions") @Optional
+	Flags!BuildOption[string] buildOptions;
+
+
+	BuildSettingsTemplate dup() const {
+		return clone(this);
+	}
 
 	/// Constructs a BuildSettings object from this template.
 	void getPlatformSettings(ref BuildSettings dst, in BuildPlatform platform, NativePath base_path)
@@ -354,7 +596,7 @@ struct BuildSettingsTemplate {
 			logWarn("");
 		} else {
 			string[] all_dflags;
-			BuildOptions all_options;
+			Flags!BuildOption all_options;
 			foreach (flags; this.dflags) all_dflags ~= flags;
 			foreach (options; this.buildOptions) all_options |= options;
 			.warnOnSpecialCompilerFlags(all_dflags, all_options, package_name, config_name);
@@ -461,6 +703,7 @@ private static Dependency parseDMDDependency(string dep)
 
 private T clone(T)(ref const(T) val)
 {
+	import std.sumtype;
 	import std.traits : isSomeString, isDynamicArray, isAssociativeArray, isBasicType, ValueType;
 
 	static if (is(T == immutable)) return val;
@@ -480,6 +723,8 @@ private T clone(T)(ref const(T) val)
 		foreach (k, ref f; val)
 			ret[k] = clone!V(f);
 		return ret;
+	} else static if (is(T == SumType!A, A...)) {
+		return val.match!((any) => T(clone(any)));
 	} else static if (is(T == struct)) {
 		T ret;
 		foreach (i, M; typeof(T.tupleof))
@@ -506,4 +751,27 @@ unittest { // issue #1407 - duplicate main source file
 		t.getPlatformSettings(bs, BuildPlatform.init, NativePath("/"));
 		assert(bs.sourceFiles == ["src\\foo.d"]);
 	}}
+}
+
+/**
+ * Edit all dependency names from `:foo` to `name:foo`.
+ *
+ * TODO: Remove the special case in the parser and remove this hack.
+ */
+package void fixDependenciesNames (T) (string root, ref T aggr) nothrow
+{
+	static foreach (idx, FieldRef; T.tupleof) {
+		static if (is(immutable typeof(FieldRef) == immutable RecipeDependencyAA)) {
+			string[] toReplace;
+			foreach (key; aggr.tupleof[idx].byKey)
+				if (key.length && key[0] == ':')
+					toReplace ~= key;
+			foreach (k; toReplace) {
+				aggr.tupleof[idx][root ~ k] = aggr.tupleof[idx][k];
+				aggr.tupleof[idx].data.remove(k);
+			}
+		}
+		else static if (is(typeof(FieldRef) == struct))
+			fixDependenciesNames(root, aggr.tupleof[idx]);
+	}
 }

@@ -2,7 +2,7 @@
 
 set -eu -o pipefail
 set -x
-$DUB remove --version="*" gitcompatibledubpackage || true
+$DUB remove 'gitcompatibledubpackage@*' || true
 
 # check whether the interactive run mode works
 echo "y" | $DUB run gitcompatibledubpackage | grep "Hello DUB"

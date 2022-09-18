@@ -9,9 +9,9 @@ module dub.generators.cmake;
 
 import dub.compilers.buildsettings;
 import dub.generators.generator;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
+import dub.internal.logging;
 import dub.project;
 
 import std.algorithm: map, uniq;
@@ -76,8 +76,8 @@ class CMakeGenerator: ProjectGenerator
             script.put("include(UseD)\n");
             script.put(
                 "add_d_conditions(VERSION %s DEBUG %s)\n".format(
-                    info.buildSettings.versions.dup.join(" "),
-                    info.buildSettings.debugVersions.dup.join(" "),
+                    info.buildSettings.versions.join(" "),
+                    info.buildSettings.debugVersions.join(" "),
                 )
             );
 
@@ -96,7 +96,7 @@ class CMakeGenerator: ProjectGenerator
                     "target_link_libraries(%s %s %s)\n".format(
                         name,
                         (info.dependencies ~ info.linkDependencies).dup.stdsort.uniq.map!(s => sanitize(s)).join(" "),
-                        info.buildSettings.libs.dup.join(" ")
+                        info.buildSettings.libs.join(" ")
                     )
                 );
                 script.put(
@@ -114,13 +114,16 @@ class CMakeGenerator: ProjectGenerator
             file.close;
             script.shrinkTo(0);
             scripts.put(filename);
+
+            logInfo("Generated", Color.green, "%s.cmake", name);
         }
 
         if(!cmakeListsPath.existsFile)
         {
             logWarn("You must use a fork of CMake which has D support for these scripts to function properly.");
             logWarn("It is available at https://github.com/trentforkert/cmake");
-            logInfo("Generating default CMakeLists.txt");
+            logDiagnostic("Generating default CMakeLists.txt");
+
             script.put("cmake_minimum_required(VERSION 3.0)\n");
             script.put("project(%s D)\n".format(m_project.rootPackage.name));
 
@@ -131,6 +134,8 @@ class CMakeGenerator: ProjectGenerator
 
             file.write(script.data);
             file.close;
+
+            logInfo("Generated", Color.green, "CMakeLists.txt (default)");
         }
     }
 }

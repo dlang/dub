@@ -13,8 +13,8 @@ import dub.generators.build;
 import dub.generators.sublimetext;
 import dub.generators.visuald;
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
+import dub.internal.logging;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
@@ -277,8 +277,8 @@ class ProjectGenerator
 				}
 			}
 			if (tt != TargetType.none && tt != TargetType.sourceLibrary && ti.buildSettings.sourceFiles.empty) {
-				logWarn(`Configuration '%s' of package %s contains no source files. Please add {"targetType": "none"} to its package description to avoid building it.`,
-						ti.config, ti.pack.name);
+				logWarn(`Configuration [%s] of package %s contains no source files. Please add %s to its package description to avoid building it.`,
+						ti.config.color(Color.blue), ti.pack.name.color(Mode.bold), `{"targetType": "none"}`.color(Mode.bold));
 				tt = TargetType.none;
 			}
 			return tt;
@@ -381,9 +381,9 @@ class ProjectGenerator
 				// recurse
 				collectDependencies(deppack, *depti, targets, level + 1);
 
-				// also recursively add all link dependencies of static libraries
+				// also recursively add all link dependencies of static *and* dynamic libraries
 				// preserve topological sorting of dependencies for correct link order
-				if (depbs.targetType == TargetType.staticLibrary)
+				if (depbs.targetType == TargetType.staticLibrary || depbs.targetType == TargetType.dynamicLibrary)
 					ti.linkDependencies = ti.linkDependencies.filter!(d => !depti.linkDependencies.canFind(d)).array ~ depti.linkDependencies;
 			}
 
@@ -599,9 +599,7 @@ class ProjectGenerator
 		}
 
 		// apply both top level and configuration level forced dependency build settings
-		foreach (configured_dbs; [
-			cast(const(BuildSettingsTemplate[string])) rootPackage.recipe.buildSettings.dependencyBuildSettings,
-			rootPackage.getBuildSettings(genSettings.config).dependencyBuildSettings])
+		void applyDependencyBuildSettings (const RecipeDependency[string] configured_dbs)
 		{
 			BuildSettings[string] dependencyBuildSettings;
 			foreach (key, value; configured_dbs)
@@ -610,13 +608,15 @@ class ProjectGenerator
 				if (auto target = key in targets)
 				{
 					// get platform specific build settings and process dub variables (BuildSettingsTemplate => BuildSettings)
-					value.getPlatformSettings(buildSettings, genSettings.platform, target.pack.path);
+					value.settings.getPlatformSettings(buildSettings, genSettings.platform, target.pack.path);
 					buildSettings.processVars(m_project, target.pack, buildSettings, genSettings, true);
 					dependencyBuildSettings[key] = buildSettings;
 				}
 			}
 			applyForcedSettings(*roottarget, targets, dependencyBuildSettings);
 		}
+		applyDependencyBuildSettings(rootPackage.recipe.buildSettings.dependencies);
+		applyDependencyBuildSettings(rootPackage.getBuildSettings(genSettings.config).dependencies);
 
 		// remove targets without output
 		foreach (name; targets.keys)
@@ -720,7 +720,7 @@ class ProjectGenerator
 	{
 		child.addVersions(parent.versions);
 		child.addDebugVersions(parent.debugVersions);
-		child.addOptions(BuildOptions(parent.options & inheritedBuildOptions));
+		child.addOptions(Flags!BuildOption(parent.options & inheritedBuildOptions));
 	}
 
 	private static void mergeFromDependency(const scope ref BuildSettings child, ref BuildSettings parent, const scope ref BuildPlatform platform)
@@ -735,8 +735,8 @@ class ProjectGenerator
 		parent.addImportPaths(child.importPaths);
 		parent.addStringImportPaths(child.stringImportPaths);
 		parent.addInjectSourceFiles(child.injectSourceFiles);
-		// linking of static libraries is done by parent
-		if (child.targetType == TargetType.staticLibrary) {
+		// linker stuff propagates up from static *and* dynamic library deps
+		if (child.targetType == TargetType.staticLibrary || child.targetType == TargetType.dynamicLibrary) {
 			parent.addSourceFiles(child.sourceFiles.filter!(f => isLinkerFile(platform, f)).array);
 			parent.addLibs(child.libs);
 			parent.addLFlags(child.lflags);
@@ -891,7 +891,7 @@ private void prepareGeneration(in Package pack, in Project proj, in GeneratorSet
 	in BuildSettings buildsettings)
 {
 	if (buildsettings.preGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
-		logInfo("Running pre-generate commands for %s...", pack.name);
+		logInfo("Pre-gen", Color.light_green, "Running commands for %s", pack.name);
 		runBuildCommands(CommandType.preGenerate, buildsettings.preGenerateCommands, pack, proj, settings, buildsettings);
 	}
 }
@@ -903,7 +903,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	in BuildSettings buildsettings, NativePath target_path, bool generate_binary)
 {
 	if (buildsettings.postGenerateCommands.length && !isRecursiveInvocation(pack.name)) {
-		logInfo("Running post-generate commands for %s...", pack.name);
+		logInfo("Post-gen", Color.light_green, "Running commands for %s", pack.name);
 		runBuildCommands(CommandType.postGenerate, buildsettings.postGenerateCommands, pack, proj, settings, buildsettings);
 	}
 

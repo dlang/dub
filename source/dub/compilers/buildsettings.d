@@ -9,6 +9,8 @@ module dub.compilers.buildsettings;
 
 import dub.internal.vibecompat.inet.path;
 
+import configy.Attributes;
+
 import std.array : array;
 import std.algorithm : filter, any;
 import std.path : globMatch;
@@ -57,8 +59,8 @@ struct BuildSettings {
 	string[string] postBuildEnvironments;
 	string[string] preRunEnvironments;
 	string[string] postRunEnvironments;
-	@byName BuildRequirements requirements;
-	@byName BuildOptions options;
+	@byName Flags!BuildRequirement requirements;
+	@byName Flags!BuildOption options;
 
 	BuildSettings dup()
 	const {
@@ -82,6 +84,12 @@ struct BuildSettings {
 		return ret;
 	}
 
+	/**
+	 * Merges $(LREF bs) onto `this` BuildSettings instance. This is called for
+	 * sourceLibrary dependencies when they are included in the build to be
+	 * merged into the root package build settings as well as configuring
+	 * targets for different build types such as release or unittest-cov.
+	 */
 	void add(in BuildSettings bs)
 	{
 		addDFlags(bs.dflags);
@@ -89,6 +97,7 @@ struct BuildSettings {
 		addLibs(bs.libs);
 		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
+		addInjectSourceFiles(bs.injectSourceFiles);
 		addCopyFiles(bs.copyFiles);
 		addExtraDependencyFiles(bs.extraDependencyFiles);
 		addVersions(bs.versions);
@@ -105,12 +114,24 @@ struct BuildSettings {
 		addPostBuildCommands(bs.postBuildCommands);
 		addPreRunCommands(bs.preRunCommands);
 		addPostRunCommands(bs.postRunCommands);
+		addEnvironments(bs.environments);
+		addBuildEnvironments(bs.buildEnvironments);
+		addRunEnvironments(bs.runEnvironments);
+		addPreGenerateEnvironments(bs.preGenerateEnvironments);
+		addPostGenerateEnvironments(bs.postGenerateEnvironments);
+		addPreBuildEnvironments(bs.preBuildEnvironments);
+		addPostBuildEnvironments(bs.postBuildEnvironments);
+		addPreRunEnvironments(bs.preRunEnvironments);
+		addPostRunEnvironments(bs.postRunEnvironments);
+		addRequirements(bs.requirements);
+		addOptions(bs.options);
 	}
 
 	void addDFlags(in string[] value...) { dflags = chain(dflags, value.dup).uniq.array; }
 	void prependDFlags(in string[] value...) { prepend(dflags, value); }
 	void removeDFlags(in string[] value...) { remove(dflags, value); }
 	void addLFlags(in string[] value...) { lflags ~= value; }
+	void prependLFlags(in string[] value...) { prepend(lflags, value, false); }
 	void addLibs(in string[] value...) { add(libs, value); }
 	void addLinkerFiles(in string[] value...) { add(linkerFiles, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
@@ -153,11 +174,11 @@ struct BuildSettings {
 	void addPostRunEnvironments(in string[string] value) { add(postRunEnvironments, value); }
 	void updatePostRunEnvironments(in string[string] value) { update(postRunEnvironments, value); }
 	void addRequirements(in BuildRequirement[] value...) { foreach (v; value) this.requirements |= v; }
-	void addRequirements(in BuildRequirements value) { this.requirements |= value; }
+	void addRequirements(in Flags!BuildRequirement value) { this.requirements |= value; }
 	void addOptions(in BuildOption[] value...) { foreach (v; value) this.options |= v; }
-	void addOptions(in BuildOptions value) { this.options |= value; }
+	void addOptions(in Flags!BuildOption value) { this.options |= value; }
 	void removeOptions(in BuildOption[] value...) { foreach (v; value) this.options &= ~v; }
-	void removeOptions(in BuildOptions value) { this.options &= ~value; }
+	void removeOptions(in Flags!BuildOption value) { this.options &= ~value; }
 
 private:
 	static auto filterDuplicates(T)(ref string[] arr, in T vals, bool noDuplicates = true)
@@ -342,15 +363,6 @@ enum BuildRequirement {
 	noDefaultFlags       = 1<<9,  /// Do not issue any of the default build flags (e.g. -debug, -w, -property etc.) - use only for development purposes
 }
 
-	struct BuildRequirements {
-		import dub.internal.vibecompat.data.serialization : ignore;
-
-		@ignore BitFlags!BuildRequirement values;
-		this(BuildRequirement req) { values = req; }
-
-		alias values this;
-	}
-
 enum BuildOption {
 	none = 0,                     /// Use compiler defaults
 	debugMode = 1<<0,             /// Compile in debug mode (enables contracts, -debug)
@@ -378,21 +390,75 @@ enum BuildOption {
 	pic = 1<<22,                  /// Generate position independent code
 	betterC = 1<<23,              /// Compile in betterC mode (-betterC)
 	lowmem = 1<<24,               /// Compile in lowmem mode (-lowmem)
+	coverageCTFE = 1<<25,         /// Enable code coverage analysis including at compile-time (-cov=ctfe)
+	color = 1<<26,                /// Colorize output (-color)
 
 	// for internal usage
-	_docs = 1<<25,                // Write ddoc to docs
-	_ddox = 1<<26                 // Compile docs.json
+	_docs = 1<<27,                // Write ddoc to docs
+	_ddox = 1<<28,                // Compile docs.json
 }
 
-	struct BuildOptions {
-		import dub.internal.vibecompat.data.serialization : ignore;
+struct Flags (T) {
+	import dub.internal.vibecompat.data.serialization : ignore;
 
-		@ignore BitFlags!BuildOption values;
-		this(BuildOption opt) { values = opt; }
-		this(BitFlags!BuildOption v) { values = v; }
+	@ignore BitFlags!T values;
 
-		alias values this;
+	public this(T opt) @safe pure nothrow @nogc
+	{
+		this.values = opt;
 	}
+
+	public this(BitFlags!T v) @safe pure nothrow @nogc
+	{
+		this.values = v;
+	}
+
+	alias values this;
+
+	/**
+	 * Reads a list of flags from a JSON/YAML document and converts them
+	 * to our internal representation.
+	 *
+	 * Flags inside of dub code are stored as a `BitFlags`,
+	 * but they are specified in the recipe using an array of their name.
+	 * This routine handles the conversion from `string[]` to `BitFlags!T`.
+	 */
+	public static Flags!T fromYAML (scope ConfigParser!(Flags!T) p)
+	{
+		import dyaml.node;
+		import std.exception;
+		import std.conv;
+
+		enforce(p.node.nodeID == NodeID.sequence, "Should be a sequence");
+		typeof(return) res;
+		foreach (str; p.node.sequence)
+			res |= str.as!string.to!T;
+		return res;
+	}
+}
+
+unittest
+{
+	import configy.Read;
+
+	static struct Config
+	{
+		Flags!BuildRequirement flags;
+	}
+
+	auto c = parseConfigString!Config(`
+{
+	"flags": [ "allowWarnings", "noDefaultFlags", "disallowInlining" ]
+}
+`, __FILE__);
+	assert(c.flags.allowWarnings);
+	c.flags.allowWarnings = false;
+	assert(c.flags.noDefaultFlags);
+	c.flags.noDefaultFlags = false;
+	assert(c.flags.disallowInlining);
+	c.flags.disallowInlining = false;
+	assert(c.flags == c.flags.init);
+}
 
 /**
 	All build options that will be inherited upwards in the dependency graph
@@ -404,11 +470,18 @@ enum BuildOption {
 		$(LI The option enabled meta information in dependent projects that are useful for the dependee (e.g. debug information))
 	)
 */
-enum BuildOptions inheritedBuildOptions = BuildOption.debugMode | BuildOption.releaseMode
-	| BuildOption.coverage | BuildOption.debugInfo | BuildOption.debugInfoC
+enum Flags!BuildOption inheritedBuildOptions =
+	BuildOption.debugMode | BuildOption.releaseMode
+	| BuildOption.coverage | BuildOption.coverageCTFE | BuildOption.debugInfo | BuildOption.debugInfoC
 	| BuildOption.alwaysStackFrame | BuildOption.stackStomping | BuildOption.inline
 	| BuildOption.noBoundsCheck | BuildOption.profile | BuildOption.ignoreUnknownPragmas
 	| BuildOption.syntaxOnly | BuildOption.warnings	| BuildOption.warningsAsErrors
 	| BuildOption.ignoreDeprecations | BuildOption.deprecationWarnings
 	| BuildOption.deprecationErrors | BuildOption.property | BuildOption.profileGC
 	| BuildOption.pic;
+
+deprecated("Use `Flags!BuildOption` instead")
+public alias BuildOptions = Flags!BuildOption;
+
+deprecated("Use `Flags!BuildRequirement` instead")
+public alias BuildRequirements = Flags!BuildRequirement;

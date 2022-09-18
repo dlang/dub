@@ -12,9 +12,9 @@ import dub.dependency;
 import dub.dependencyresolver;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
+import dub.internal.logging;
 import dub.package_;
 import dub.packagemanager;
 import dub.packagesuppliers;
@@ -24,13 +24,13 @@ import dub.init;
 
 import std.algorithm;
 import std.array : array, replace;
-import std.conv : to;
+import std.conv : text, to;
+import std.encoding : sanitize;
 import std.exception : enforce;
 import std.file;
 import std.process : environment;
 import std.range : assumeSorted, empty;
 import std.string;
-import std.encoding : sanitize;
 
 // Set output path and options for coverage reports
 version (DigitalMars) version (D_Coverage)
@@ -126,23 +126,9 @@ class Dub {
 		PackageSupplier[] m_packageSuppliers;
 		NativePath m_rootPath;
 		SpecialDirs m_dirs;
-		DubConfig m_config;
-		NativePath m_projectPath;
+		UserConfiguration m_config;
 		Project m_project;
-		NativePath m_overrideSearchPath;
 		string m_defaultCompiler;
-		string m_defaultArchitecture;
-		bool m_defaultLowMemory;
-		string[string] m_defaultEnvironments;
-		string[string] m_defaultBuildEnvironments;
-		string[string] m_defaultRunEnvironments;
-		string[string] m_defaultPreGenerateEnvironments;
-		string[string] m_defaultPostGenerateEnvironments;
-		string[string] m_defaultPreBuildEnvironments;
-		string[string] m_defaultPostBuildEnvironments;
-		string[string] m_defaultPreRunEnvironments;
-		string[string] m_defaultPostRunEnvironments;
-
 	}
 
 	/** The default placement location of fetched packages.
@@ -173,30 +159,132 @@ class Dub {
 		m_rootPath = NativePath(root_path);
 		if (!m_rootPath.absolute) m_rootPath = NativePath(getcwd()) ~ m_rootPath;
 
-		init(m_rootPath);
+		init();
 
-		m_packageSuppliers = getPackageSuppliers(additional_package_suppliers, skip_registry);
+		m_packageSuppliers = this.computePkgSuppliers(additional_package_suppliers,
+			skip_registry, environment.get("DUB_REGISTRY", null));
 		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings);
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
 			m_packageManager.customCachePaths = ccps;
 
-		updatePackageSearchPath();
+		// TODO: Move this environment read out of the ctor
+		if (auto p = environment.get("DUBPATH")) {
+			version(Windows) enum pathsep = ";";
+			else enum pathsep = ":";
+			NativePath[] paths = p.split(pathsep)
+				.map!(p => NativePath(p))().array();
+			m_packageManager.searchPath = paths;
+		}
+	}
+
+	/** Initializes the instance with a single package search path, without
+		loading a package.
+
+		This constructor corresponds to the "--bare" option of the command line
+		interface. Use
+	*/
+	this(NativePath override_path)
+	{
+		init();
+		m_packageManager = new PackageManager(override_path);
+	}
+
+	private void init()
+	{
+		this.m_dirs = SpecialDirs.make();
+		this.loadConfig();
+		this.determineDefaultCompiler();
+	}
+
+	/**
+	 * Load user configuration for this instance
+	 *
+	 * This can be overloaded in child classes to prevent library / unittest
+	 * dub from doing any kind of file IO.
+	 */
+	protected void loadConfig()
+	{
+		import configy.Read;
+
+		void readSettingsFile (NativePath path_)
+		{
+			// TODO: Remove `StrictMode.Warn` after v1.40 release
+			// The default is to error, but as the previous parser wasn't
+			// complaining, we should first warn the user.
+			const path = path_.toNativeString();
+			if (path.exists) {
+				auto newConf = parseConfigFileSimple!UserConfiguration(path, StrictMode.Warn);
+				if (!newConf.isNull())
+					this.m_config = this.m_config.merge(newConf.get());
+			}
+		}
+
+		const dubFolderPath = NativePath(thisExePath).parentPath;
+
+		// override default userSettings + localRepository if a $DPATH or
+		// $DUB_HOME environment variable is set.
+		bool overrideDubHomeFromEnv;
+		{
+			string dubHome = environment.get("DUB_HOME");
+			if (!dubHome.length) {
+				auto dpath = environment.get("DPATH");
+				if (dpath.length)
+					dubHome = (NativePath(dpath) ~ "dub/").toNativeString();
+
+			}
+			if (dubHome.length) {
+				overrideDubHomeFromEnv = true;
+
+				m_dirs.userSettings = NativePath(dubHome);
+				m_dirs.localRepository = m_dirs.userSettings;
+			}
+		}
+
+		readSettingsFile(m_dirs.systemSettings ~ "settings.json");
+		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json");
+		version (Posix) {
+			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr")))
+				readSettingsFile(NativePath("/etc/dub/settings.json"));
+		}
+
+		// Override user + local package path from system / binary settings
+		// Then continues loading local settings from these folders. (keeping
+		// global /etc/dub/settings.json settings intact)
+		//
+		// Don't use it if either $DPATH or $DUB_HOME are set, as environment
+		// variables usually take precedence over configuration.
+		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
+			m_dirs.userSettings = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+		}
+
+		// load user config:
+		readSettingsFile(m_dirs.userSettings ~ "settings.json");
+
+		// load per-package config:
+		if (!this.m_rootPath.empty)
+			readSettingsFile(this.m_rootPath ~ "dub.settings.json");
+
+		// same as userSettings above, but taking into account the
+		// config loaded from user settings and per-package config as well.
+		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
+			m_dirs.localRepository = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+		}
 	}
 
 	unittest
 	{
 		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
 		assert(dub.m_packageSuppliers.length == 0);
 		environment["DUB_REGISTRY"] = "http://example.com/";
-		dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
 		assert(dub.m_packageSuppliers.length == 1);
 		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
-		dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
 		assert(dub.m_packageSuppliers.length == 2);
-		dub = new Dub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
+		dub = new TestDub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
 		assert(dub.m_packageSuppliers.length == 3);
 	}
 
@@ -209,13 +297,24 @@ class Dub {
 			skip_registry = Can be used to skip using the configured package
 				suppliers, as well as the default suppliers.
 	*/
+	deprecated("This is an implementation detail. " ~
+		"Use `packageSuppliers` to get the computed list of package " ~
+		"suppliers once a `Dub` instance has been constructed.")
 	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers, SkipPackageSuppliers skip_registry)
+	{
+		return this.computePkgSuppliers(additional_package_suppliers, skip_registry, environment.get("DUB_REGISTRY", null));
+	}
+
+	/// Ditto
+	private PackageSupplier[] computePkgSuppliers(
+		PackageSupplier[] additional_package_suppliers, SkipPackageSuppliers skip_registry,
+		string dub_registry_var)
 	{
 		PackageSupplier[] ps = additional_package_suppliers;
 
 		if (skip_registry < SkipPackageSuppliers.all)
 		{
-			ps ~= environment.get("DUB_REGISTRY", null)
+			ps ~= dub_registry_var
 				.splitter(";")
 				.map!(url => getRegistryPackageSupplier(url))
 				.array;
@@ -223,7 +322,7 @@ class Dub {
 
 		if (skip_registry < SkipPackageSuppliers.configured)
 		{
-			ps ~= m_config.registryURLs
+			ps ~= m_config.registryUrls
 				.map!(url => getRegistryPackageSupplier(url))
 				.array;
 		}
@@ -235,6 +334,9 @@ class Dub {
 	}
 
 	/// ditto
+	deprecated("This is an implementation detail. " ~
+		"Use `packageSuppliers` to get the computed list of package " ~
+		"suppliers once a `Dub` instance has been constructed.")
 	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers)
 	{
 		return getPackageSuppliers(additional_package_suppliers, m_config.skipRegistry);
@@ -242,83 +344,17 @@ class Dub {
 
 	unittest
 	{
-		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new Dub(".", null, SkipPackageSuppliers.none);
+		auto dub = new TestDub();
 
-		dub.m_config = new DubConfig(Json(["skipRegistry": Json("none")]), null);
-		assert(dub.getPackageSuppliers(null).length == 1);
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.none, null).length == 1);
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.configured, null).length == 0);
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, null).length == 0);
 
-		dub.m_config = new DubConfig(Json(["skipRegistry": Json("configured")]), null);
-		assert(dub.getPackageSuppliers(null).length == 0);
-
-		dub.m_config = new DubConfig(Json(["skipRegistry": Json("standard")]), null);
-		assert(dub.getPackageSuppliers(null).length == 0);
-
-		environment["DUB_REGISTRY"] = "http://example.com/";
-		assert(dub.getPackageSuppliers(null).length == 1);
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, "http://example.com/")
+			.length == 1);
 	}
 
-	/** Initializes the instance with a single package search path, without
-		loading a package.
-
-		This constructor corresponds to the "--bare" option of the command line
-		interface. Use
-	*/
-	this(NativePath override_path)
-	{
-		init(NativePath());
-		m_overrideSearchPath = override_path;
-		m_packageManager = new PackageManager(override_path);
-	}
-
-	private void init(NativePath root_path)
-	{
-		import std.file : tempDir;
-		version(Windows) {
-			m_dirs.systemSettings = NativePath(environment.get("ProgramData")) ~ "dub/";
-			immutable appDataDir = environment.get("APPDATA");
-			m_dirs.userSettings = NativePath(appDataDir) ~ "dub/";
-			m_dirs.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
-		} else version(Posix){
-			m_dirs.systemSettings = NativePath("/var/lib/dub/");
-			m_dirs.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
-			if (!m_dirs.userSettings.absolute)
-				m_dirs.userSettings = NativePath(getcwd()) ~ m_dirs.userSettings;
-			m_dirs.localRepository = m_dirs.userSettings;
-		}
-
-		m_dirs.temp = NativePath(tempDir);
-
-		m_config = new DubConfig(jsonFromFile(m_dirs.systemSettings ~ "settings.json", true), m_config);
-
-		auto dubFolderPath = NativePath(thisExePath).parentPath;
-		m_config = new DubConfig(jsonFromFile(dubFolderPath ~ "../etc/dub/settings.json", true), m_config);
-		version (Posix) {
-			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr"))) {
-				m_config = new DubConfig(jsonFromFile(NativePath("/etc/dub/settings.json"), true), m_config);
-			}
-		}
-
-		m_config = new DubConfig(jsonFromFile(m_dirs.userSettings ~ "settings.json", true), m_config);
-
-		if (!root_path.empty)
-			m_config = new DubConfig(jsonFromFile(root_path ~ "dub.settings.json", true), m_config);
-
-		determineDefaultCompiler();
-
-		m_defaultArchitecture = m_config.defaultArchitecture;
-		m_defaultLowMemory = m_config.defaultLowMemory;
-		m_defaultEnvironments = m_config.defaultEnvironments;
-		m_defaultBuildEnvironments = m_config.defaultBuildEnvironments;
-		m_defaultRunEnvironments = m_config.defaultRunEnvironments;
-		m_defaultPreGenerateEnvironments = m_config.defaultPreGenerateEnvironments;
-		m_defaultPostGenerateEnvironments = m_config.defaultPostGenerateEnvironments;
-		m_defaultPreBuildEnvironments = m_config.defaultPreBuildEnvironments;
-		m_defaultPostBuildEnvironments = m_config.defaultPostBuildEnvironments;
-		m_defaultPreRunEnvironments = m_config.defaultPreRunEnvironments;
-		m_defaultPostRunEnvironments = m_config.defaultPostRunEnvironments;
-	}
-
+	@property bool dryRun() const { return m_dryRun; }
 	@property void dryRun(bool v) { m_dryRun = v; }
 
 	/** Returns the root path (usually the current working directory).
@@ -335,13 +371,15 @@ class Dub {
 	/// application.
 	@property string projectName() const { return m_project.name; }
 
-	@property NativePath projectPath() const { return m_projectPath; }
+	@property NativePath projectPath() const { return this.m_project.rootPackage.path; }
 
 	@property string[] configurations() const { return m_project.configurations; }
 
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
 
 	@property inout(Project) project() inout { return m_project; }
+
+	@property inout(PackageSupplier)[] packageSuppliers() inout { return m_packageSuppliers; }
 
 	/** Returns the default compiler binary to use for building D code.
 
@@ -359,24 +397,24 @@ class Dub {
 		If set, the "defaultArchitecture" field of the DUB user or system
 		configuration file will be used. Otherwise null will be returned.
 	*/
-	@property string defaultArchitecture() const { return m_defaultArchitecture; }
+	@property string defaultArchitecture() const { return this.m_config.defaultArchitecture; }
 
 	/** Returns the default low memory option to use for building D code.
 
 		If set, the "defaultLowMemory" field of the DUB user or system
 		configuration file will be used. Otherwise false will be returned.
 	*/
-	@property bool defaultLowMemory() const { return m_defaultLowMemory; }
+	@property bool defaultLowMemory() const { return this.m_config.defaultLowMemory; }
 
-	@property const(string[string]) defaultEnvironments() const { return m_defaultEnvironments; }
-	@property const(string[string]) defaultBuildEnvironments() const { return m_defaultBuildEnvironments; }
-	@property const(string[string]) defaultRunEnvironments() const { return m_defaultRunEnvironments; }
-	@property const(string[string]) defaultPreGenerateEnvironments() const { return m_defaultPreGenerateEnvironments; }
-	@property const(string[string]) defaultPostGenerateEnvironments() const { return m_defaultPostGenerateEnvironments; }
-	@property const(string[string]) defaultPreBuildEnvironments() const { return m_defaultPreBuildEnvironments; }
-	@property const(string[string]) defaultPostBuildEnvironments() const { return m_defaultPostBuildEnvironments; }
-	@property const(string[string]) defaultPreRunEnvironments() const { return m_defaultPreRunEnvironments; }
-	@property const(string[string]) defaultPostRunEnvironments() const { return m_defaultPostRunEnvironments; }
+	@property const(string[string]) defaultEnvironments() const { return this.m_config.defaultEnvironments; }
+	@property const(string[string]) defaultBuildEnvironments() const { return this.m_config.defaultBuildEnvironments; }
+	@property const(string[string]) defaultRunEnvironments() const { return this.m_config.defaultRunEnvironments; }
+	@property const(string[string]) defaultPreGenerateEnvironments() const { return this.m_config.defaultPreGenerateEnvironments; }
+	@property const(string[string]) defaultPostGenerateEnvironments() const { return this.m_config.defaultPostGenerateEnvironments; }
+	@property const(string[string]) defaultPreBuildEnvironments() const { return this.m_config.defaultPreBuildEnvironments; }
+	@property const(string[string]) defaultPostBuildEnvironments() const { return this.m_config.defaultPostBuildEnvironments; }
+	@property const(string[string]) defaultPreRunEnvironments() const { return this.m_config.defaultPreRunEnvironments; }
+	@property const(string[string]) defaultPostRunEnvironments() const { return this.m_config.defaultPostRunEnvironments; }
 
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
@@ -388,16 +426,12 @@ class Dub {
 	/// Loads the package from the specified path as the main project package.
 	void loadPackage(NativePath path)
 	{
-		m_projectPath = path;
-		updatePackageSearchPath();
-		m_project = new Project(m_packageManager, m_projectPath);
+		m_project = new Project(m_packageManager, path);
 	}
 
 	/// Loads a specific package as the main project package (can be a sub package)
 	void loadPackage(Package pack)
 	{
-		m_projectPath = pack.path;
-		updatePackageSearchPath();
 		m_project = new Project(m_packageManager, pack);
 	}
 
@@ -468,7 +502,6 @@ class Dub {
 		auto recipe_default_package_name = path.toString.baseName.stripExtension.strip;
 
 		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, null, recipe_default_package_name);
-		import dub.internal.vibecompat.core.log; logInfo("parsePackageRecipe %s", recipe_filename);
 		enforce(recipe.buildSettings.sourceFiles.length == 0, "Single-file packages are not allowed to specify source files.");
 		enforce(recipe.buildSettings.sourcePaths.length == 0, "Single-file packages are not allowed to specify source paths.");
 		enforce(recipe.buildSettings.importPaths.length == 0, "Single-file packages are not allowed to specify import paths.");
@@ -488,20 +521,12 @@ class Dub {
 		loadSingleFilePackage(NativePath(path));
 	}
 
-	deprecated("Instantiate a Dub instance with the single-argument constructor: `new Dub(path)`")
-	void overrideSearchPath(NativePath path)
-	{
-		if (!path.absolute) path = NativePath(getcwd()) ~ path;
-		m_overrideSearchPath = path;
-		updatePackageSearchPath();
-	}
-
 	/** Gets the default configuration for a particular build platform.
 
 		This forwards to `Project.getDefaultConfiguration` and requires a
 		project to be loaded.
 	*/
-	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true) const { return m_project.getDefaultConfiguration(platform, allow_non_library_configs); }
+	string getDefaultConfiguration(in BuildPlatform platform, bool allow_non_library_configs = true) const { return m_project.getDefaultConfiguration(platform, allow_non_library_configs); }
 
 	/** Attempts to upgrade the dependency selection of the loaded project.
 
@@ -525,7 +550,7 @@ class Dub {
 					try if (m_packageManager.getOrLoadPackage(path)) continue;
 					catch (Exception e) { logDebug("Failed to load path based selection: %s", e.toString().sanitize); }
 				} else if (!dep.repository.empty) {
-					if (m_packageManager.loadSCMPackage(getBasePackageName(p), dep))
+					if (m_packageManager.loadSCMPackage(getBasePackageName(p), dep.repository))
 						continue;
 				} else {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
@@ -546,11 +571,9 @@ class Dub {
 			}
 		}
 
-		Dependency[string] versions;
-		auto resolver = new DependencyVersionResolver(this, options);
-		foreach (p; packages_to_upgrade)
-			resolver.addPackageToUpgrade(p);
-		versions = resolver.resolve(m_project.rootPackage, m_project.selections);
+		auto resolver = new DependencyVersionResolver(
+			this, options, m_project.rootPackage, m_project.selections);
+		Dependency[string] versions = resolver.resolve(packages_to_upgrade);
 
 		if (options & UpgradeOptions.dryRun) {
 			bool any = false;
@@ -563,24 +586,24 @@ class Dub {
 				if (basename == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
-					logInfo("Package %s would be selected with version %s.",
-						basename, ver);
+					logInfo("Upgrade", Color.cyan,
+						"Package %s would be selected with version %s", basename, ver);
 					any = true;
 					continue;
 				}
 				auto sver = m_project.selections.getSelectedVersion(basename);
 				if (!sver.path.empty || !sver.repository.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
-				logInfo("Package %s would be upgraded from %s to %s.",
-					basename, sver, ver);
+				logInfo("Upgrade", Color.cyan,
+					"%s would be upgraded from %s to %s.",
+					basename.color(Mode.bold), sver, ver);
 				any = true;
 			}
-			if (any) logInfo("Use \"dub upgrade\" to perform those changes.");
+			if (any) logInfo("Use \"%s\" to perform those changes", "dub upgrade".color(Mode.bold));
 			return;
 		}
 
-		foreach (p; versions.byKey) {
-			auto ver = versions[p]; // Workaround for DMD 2.070.0 AA issue (crashes in aaApply2 if iterating by key+value)
+		foreach (p, ver; versions) {
 			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
 			Package pack;
 			if (!ver.path.empty) {
@@ -590,7 +613,7 @@ class Dub {
 					continue;
 				}
 			} else if (!ver.repository.empty) {
-				pack = m_packageManager.loadSCMPackage(p, ver);
+				pack = m_packageManager.loadSCMPackage(p, ver.repository);
 			} else {
 				assert(ver.isExactVersion, "Resolved dependency is neither path, nor repository, nor exact version based!?");
 				pack = m_packageManager.getPackage(p, ver.version_);
@@ -606,10 +629,10 @@ class Dub {
 
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
-			if (!pack) fetch(p, ver, defaultPlacementLocation, fetchOpts, "getting selected version");
+			if (!pack) fetch(p, ver.version_, defaultPlacementLocation, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
 				if (!ver.repository.empty) {
-					m_project.selections.selectVersionWithRepository(p, ver.repository, ver.versionSpec);
+					m_project.selections.selectVersion(p, ver.repository);
 				} else if (ver.path.empty) {
 					m_project.selections.selectVersion(p, ver.version_);
 				} else {
@@ -642,152 +665,32 @@ class Dub {
 	*/
 	void generateProject(string ide, GeneratorSettings settings)
 	{
+		// With a requested `unittest` config, switch to the special test runner
+		// config (which doesn't require an existing `unittest` configuration).
+		if (settings.config == "unittest") {
+			const test_config = m_project.addTestRunnerConfiguration(settings, !m_dryRun);
+			if (test_config) settings.config = test_config;
+		}
+
 		auto generator = createProjectGenerator(ide, m_project);
 		if (m_dryRun) return; // TODO: pass m_dryRun to the generator
 		generator.generate(settings);
 	}
 
-	/** Executes tests on the current project.
+	/** Generate project files using the special test runner (`dub test`) configuration.
 
-		Throws an exception, if unittests failed.
+		Any existing project files will be overridden.
 	*/
 	void testProject(GeneratorSettings settings, string config, NativePath custom_main_file)
 	{
 		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
 
-		if (config.length == 0) {
-			// if a custom main file was given, favor the first library configuration, so that it can be applied
-			if (!custom_main_file.empty) config = m_project.getDefaultConfiguration(settings.platform, false);
-			// else look for a "unittest" configuration
-			if (!config.length && m_project.rootPackage.configurations.canFind("unittest")) config = "unittest";
-			// if not found, fall back to the first "library" configuration
-			if (!config.length) config = m_project.getDefaultConfiguration(settings.platform, false);
-			// if still nothing found, use the first executable configuration
-			if (!config.length) config = m_project.getDefaultConfiguration(settings.platform, true);
-		}
+		const test_config = m_project.addTestRunnerConfiguration(settings, !m_dryRun, config, custom_main_file);
+		if (!test_config) return; // target type "none"
+
+		settings.config = test_config;
 
 		auto generator = createProjectGenerator("build", m_project);
-
-		auto test_config = format("%s-test-%s", m_project.rootPackage.name.replace(".", "-").replace(":", "-"), config);
-
-		BuildSettings lbuildsettings = settings.buildSettings;
-		m_project.addBuildSettings(lbuildsettings, settings, config, null, true);
-
-		if (lbuildsettings.targetType == TargetType.none) {
-			logInfo(`Configuration '%s' has target type "none". Skipping test.`, config);
-			return;
-		}
-
-		if (lbuildsettings.targetType == TargetType.executable && config == "unittest") {
-			logInfo("Running custom 'unittest' configuration.", config);
-			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
-			settings.config = config;
-		} else if (lbuildsettings.sourceFiles.empty) {
-			logInfo(`No source files found in configuration '%s'. Falling back to "dub -b unittest".`, config);
-			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
-			settings.config = m_project.getDefaultConfiguration(settings.platform);
-		} else {
-			import std.algorithm : remove;
-
-			logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, test_config, config, lbuildsettings.targetType);
-
-			BuildSettingsTemplate tcinfo = m_project.rootPackage.recipe.getConfiguration(config).buildSettings;
-			tcinfo.targetType = TargetType.executable;
-			tcinfo.targetName = test_config;
-
-			auto mainfil = tcinfo.mainSourceFile;
-			if (!mainfil.length) mainfil = m_project.rootPackage.recipe.buildSettings.mainSourceFile;
-
-			string custommodname;
-			if (!custom_main_file.empty) {
-				import std.path;
-				tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(m_project.rootPackage.path).toNativeString();
-				tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
-				custommodname = custom_main_file.head.name.baseName(".d");
-			}
-
-			// prepare the list of tested modules
-
-			string[] import_modules;
-			if (settings.single)
-				lbuildsettings.importPaths ~= NativePath(mainfil).parentPath.toNativeString;
-			bool firstTimePackage = true;
-			foreach (file; lbuildsettings.sourceFiles) {
-				if (file.endsWith(".d")) {
-					auto fname = NativePath(file).head.name;
-					NativePath msf = NativePath(mainfil);
-					if (msf.absolute)
-						msf = msf.relativeTo(m_project.rootPackage.path);
-					if (!settings.single && NativePath(file).relativeTo(m_project.rootPackage.path) == msf) {
-						logWarn("Excluding main source file %s from test.", mainfil);
-						tcinfo.excludedSourceFiles[""] ~= mainfil;
-						continue;
-					}
-					if (fname == "package.d") {
-						if (firstTimePackage) {
-							firstTimePackage = false;
-							logDiagnostic("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
-						}
-						continue;
-					}
-					import_modules ~= dub.internal.utils.determineModuleName(lbuildsettings, NativePath(file), m_project.rootPackage.path);
-				}
-			}
-
-			NativePath mainfile;
-			if (settings.tempBuild)
-				mainfile = getTempFile("dub_test_root", ".d");
-			else {
-				import dub.generators.build : computeBuildName;
-				mainfile = m_project.rootPackage.path ~ format(".dub/code/%s_dub_test_root.d", computeBuildName(test_config, settings, import_modules));
-			}
-
-			mkdirRecurse(mainfile.parentPath.toNativeString());
-
-			bool regenerateMainFile = settings.force || !existsFile(mainfile);
-			auto escapedMainFile = mainfile.toNativeString().replace("$", "$$");
-			// generate main file
-			tcinfo.sourceFiles[""] ~= escapedMainFile;
-			tcinfo.mainSourceFile = escapedMainFile;
-
-			if (!m_dryRun && regenerateMainFile) {
-				auto fil = openFile(mainfile, FileMode.createTrunc);
-				scope(exit) fil.close();
-				fil.write("module dub_test_root;\n");
-				fil.write("import std.typetuple;\n");
-				foreach (mod; import_modules) fil.write(format("static import %s;\n", mod));
-				fil.write("alias allModules = TypeTuple!(");
-				foreach (i, mod; import_modules) {
-					if (i > 0) fil.write(", ");
-					fil.write(mod);
-				}
-				fil.write(");\n");
-				if (custommodname.length) {
-					fil.write(format("import %s;\n", custommodname));
-				} else {
-					fil.write(q{
-						import std.stdio;
-						import core.runtime;
-
-						void main() { writeln("All unit tests have been run successfully."); }
-						shared static this() {
-							version (Have_tested) {
-								import tested;
-								import core.runtime;
-								import std.exception;
-								Runtime.moduleUnitTester = () => true;
-								enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
-							}
-						}
-					});
-				}
-			}
-			m_project.rootPackage.recipe.configurations ~= ConfigurationInfo(test_config, tcinfo);
-			m_project = new Project(m_packageManager, m_project.rootPackage);
-
-			settings.config = test_config;
-		}
-
 		generator.generate(settings);
 	}
 
@@ -800,36 +703,17 @@ class Dub {
 
 		auto tool = "dscanner";
 
-		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
-		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
+		auto tool_pack = m_packageManager.getBestPackage(tool);
 		if (!tool_pack) {
-			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it user wide", tool);
+			tool_pack = fetch(tool, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		auto dscanner_dub = new Dub(null, m_packageSuppliers);
-		dscanner_dub.loadPackage(tool_pack.path);
+		dscanner_dub.loadPackage(tool_pack);
 		dscanner_dub.upgrade(UpgradeOptions.select);
 
-		auto compiler_binary = this.defaultCompiler;
-
-		GeneratorSettings settings;
-		settings.config = "application";
-		settings.compiler = getCompiler(compiler_binary);
-		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
-		settings.buildType = "debug";
-		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
-		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
-		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
-		if (m_defaultRunEnvironments) settings.buildSettings.addRunEnvironments(m_defaultRunEnvironments);
-		if (m_defaultPreGenerateEnvironments) settings.buildSettings.addPreGenerateEnvironments(m_defaultPreGenerateEnvironments);
-		if (m_defaultPostGenerateEnvironments) settings.buildSettings.addPostGenerateEnvironments(m_defaultPostGenerateEnvironments);
-		if (m_defaultPreBuildEnvironments) settings.buildSettings.addPreBuildEnvironments(m_defaultPreBuildEnvironments);
-		if (m_defaultPostBuildEnvironments) settings.buildSettings.addPostBuildEnvironments(m_defaultPostBuildEnvironments);
-		if (m_defaultPreRunEnvironments) settings.buildSettings.addPreRunEnvironments(m_defaultPreRunEnvironments);
-		if (m_defaultPostRunEnvironments) settings.buildSettings.addPostRunEnvironments(m_defaultPostRunEnvironments);
-		settings.run = true;
-
+		GeneratorSettings settings = this.makeAppSettings();
 		foreach (dependencyPackage; m_project.dependencies)
 		{
 			auto cfgs = m_project.getPackageConfigs(settings.platform, null, true);
@@ -879,7 +763,7 @@ class Dub {
 	/// Cleans intermediate/cache files of the given package
 	void cleanPackage(NativePath path)
 	{
-		logInfo("Cleaning package at %s...", path.toNativeString());
+		logInfo("Cleaning", Color.green, "package at %s", path.toNativeString().color(Mode.bold));
 		enforce(!Package.findPackageFile(path).empty, "No package found.", path.toNativeString());
 
 		// TODO: clear target files and copy files
@@ -896,14 +780,31 @@ class Dub {
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
+	deprecated("Use the overload that accepts either a `Version` or a `VersionRange` as second argument")
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
+	{
+		const vrange = dep.visit!(
+			(VersionRange range) => range,
+			function VersionRange (any) { throw new Exception("Cannot call `dub.fetch` with a " ~ typeof(any).stringof ~ " dependency"); }
+		);
+		return this.fetch(packageId, vrange, location, options, reason);
+	}
+
+	/// Ditto
+	Package fetch(string packageId, in Version vers, PlacementLocation location, FetchOptions options, string reason = "")
+	{
+		return this.fetch(packageId, VersionRange(vers, vers), location, options, reason);
+	}
+
+	/// Ditto
+	Package fetch(string packageId, in VersionRange range, PlacementLocation location, FetchOptions options, string reason = "")
 	{
 		auto basePackageName = getBasePackageName(packageId);
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.fetchPackageRecipe(basePackageName, dep, (options & FetchOptions.usePrerelease) != 0);
+				pinfo = ps.fetchPackageRecipe(basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0);
 				if (pinfo.type == Json.Type.null_)
 					continue;
 				supplier = ps;
@@ -913,69 +814,36 @@ class Dub {
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
-		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency "~dep.toString());
-		string ver = pinfo["version"].get!string;
-
-		NativePath placement;
-		final switch (location) {
-			case PlacementLocation.local: placement = m_rootPath ~ ".dub/packages/"; break;
-			case PlacementLocation.user: placement = m_dirs.localRepository ~ "packages/"; break;
-			case PlacementLocation.system: placement = m_dirs.systemSettings ~ "packages/"; break;
-		}
+		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency " ~ range.toString());
+		Version ver = Version(pinfo["version"].get!string);
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
-		Package existing;
-		try existing = m_packageManager.getPackage(packageId, ver, placement);
-		catch (Exception e) {
-			logWarn("Failed to load existing package %s: %s", ver, e.msg);
-			logDiagnostic("Full error: %s", e.toString().sanitize);
-		}
-
+		Package existing = m_packageManager.getPackage(packageId, ver, location);
 		if (options & FetchOptions.printOnly) {
-			if (existing && existing.version_ != Version(ver))
-				logInfo("A new version for %s is available (%s -> %s). Run \"dub upgrade %s\" to switch.",
-					packageId, existing.version_, ver, packageId);
+			if (existing && existing.version_ != ver)
+				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
+					packageId.color(Mode.bold), existing.version_, ver,
+					text("dub upgrade ", packageId).color(Mode.bold));
 			return null;
 		}
 
 		if (existing) {
-			if (!ver.startsWith("~") || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
+			if (!ver.isBranch() || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
-				logDiagnostic("Package %s %s (%s) is already present with the latest version, skipping upgrade.",
-					packageId, ver, placement);
+				logDiagnostic("Package %s %s (in %s packages) is already present with the latest version, skipping upgrade.",
+					packageId, ver, location.toString);
 				return existing;
 			} else {
-				logInfo("Removing %s %s to prepare replacement with a new version.", packageId, ver);
+				logInfo("Removing", Color.yellow, "%s %s to prepare replacement with a new version", packageId.color(Mode.bold), ver);
 				if (!m_dryRun) m_packageManager.remove(existing);
 			}
 		}
 
-		if (reason.length) logInfo("Fetching %s %s (%s)...", packageId, ver, reason);
-		else logInfo("Fetching %s %s...", packageId, ver);
+		if (reason.length) logInfo("Fetching", Color.yellow, "%s %s (%s)", packageId.color(Mode.bold), ver, reason);
+		else logInfo("Fetching", Color.yellow, "%s %s", packageId.color(Mode.bold), ver);
 		if (m_dryRun) return null;
 
 		logDebug("Acquiring package zip file");
-
-		auto clean_package_version = ver[ver.startsWith("~") ? 1 : 0 .. $];
-		clean_package_version = clean_package_version.replace("+", "_"); // + has special meaning for Optlink
-		if (!placement.existsFile())
-			mkdirRecurse(placement.toNativeString());
-		NativePath dstpath = placement ~ (basePackageName ~ "-" ~ clean_package_version);
-		if (!dstpath.existsFile())
-			mkdirRecurse(dstpath.toNativeString());
-
-		// Support libraries typically used with git submodules like ae.
-		// Such libraries need to have ".." as import path but this can create
-		// import path leakage.
-		dstpath = dstpath ~ basePackageName;
-
-		import std.datetime : seconds;
-		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds); // possibly wait for other dub instance
-		if (dstpath.existsFile())
-		{
-			m_packageManager.refresh(false);
-			return m_packageManager.getPackage(packageId, ver, dstpath);
-		}
 
 		// repeat download on corrupted zips, see #1336
 		foreach_reverse (i; 0..3)
@@ -983,13 +851,12 @@ class Dub {
 			import std.zip : ZipException;
 
 			auto path = getTempFile(basePackageName, ".zip");
-			supplier.fetchPackage(path, basePackageName, dep, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			supplier.fetchPackage(path, basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) std.file.remove(path.toNativeString());
-			logDiagnostic("Placing to %s...", placement.toNativeString());
+			logDiagnostic("Placing to %s...", location.toString());
 
 			try {
-				m_packageManager.storeFetchedPackage(path, pinfo, dstpath);
-				return m_packageManager.getPackage(packageId, ver, dstpath);
+				return m_packageManager.store(path, location, basePackageName, ver);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
 				// rethrow the exception at the end of the loop
@@ -1010,11 +877,12 @@ class Dub {
 	*/
 	void remove(in Package pack)
 	{
-		logInfo("Removing %s in %s", pack.name, pack.path.toNativeString());
+		logInfo("Removing", Color.yellow, "%s (in %s)", pack.name.color(Mode.bold), pack.path.toNativeString());
 		if (!m_dryRun) m_packageManager.remove(pack);
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	deprecated("Use `remove(pack)` directly instead, the boolean has no effect")
 	void remove(in Package pack, bool force_remove)
 	{
 		remove(pack);
@@ -1072,7 +940,6 @@ class Dub {
 		foreach(pack; packages) {
 			try {
 				remove(pack);
-				logInfo("Removed %s, version %s.", package_id, pack.version_);
 			} catch (Exception e) {
 				logError("Failed to remove %s %s: %s", package_id, pack.version_, e.msg);
 				logInfo("Continuing with other packages (if any).");
@@ -1115,6 +982,7 @@ class Dub {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	deprecated("Use the overload without force_remove instead")
 	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
 	{
 		remove(package_id, version_, location);
@@ -1136,7 +1004,7 @@ class Dub {
 	void addLocalPackage(string path, string ver, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.addLocalPackage(makeAbsolute(path), ver, system ? LocalPackageType.system : LocalPackageType.user);
+		m_packageManager.addLocalPackage(makeAbsolute(path), ver, system ? PlacementLocation.system : PlacementLocation.user);
 	}
 
 	/** Removes a directory from the list of locally known packages.
@@ -1153,7 +1021,7 @@ class Dub {
 	void removeLocalPackage(string path, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.removeLocalPackage(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
+		m_packageManager.removeLocalPackage(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
 	}
 
 	/** Registers a local directory to search for packages to use for satisfying
@@ -1169,7 +1037,7 @@ class Dub {
 	void addSearchPath(string path, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.addSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
+		m_packageManager.addSearchPath(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
 	}
 
 	/** Unregisters a local directory search path.
@@ -1184,7 +1052,7 @@ class Dub {
 	void removeSearchPath(string path, bool system)
 	{
 		if (m_dryRun) return;
-		m_packageManager.removeSearchPath(makeAbsolute(path), system ? LocalPackageType.system : LocalPackageType.user);
+		m_packageManager.removeSearchPath(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
 	}
 
 	/** Queries all package suppliers with the given query string.
@@ -1192,6 +1060,9 @@ class Dub {
 		Returns a list of tuples, where the first entry is the human readable
 		name of the package supplier and the second entry is the list of
 		matched packages.
+
+		Params:
+		  query = the search term to match packages on
 
 		See_Also: `PackageSupplier.searchPackages`
 	*/
@@ -1271,13 +1142,15 @@ class Dub {
 		if (!path.absolute) path = m_rootPath ~ path;
 		path.normalize();
 
-		string[string] depVers;
+		VersionRange[string] depVers;
 		string[] notFound; // keep track of any failed packages in here
 		foreach (dep; deps) {
-			Version ver;
 			try {
-				ver = getLatestVersion(dep);
-				depVers[dep] = ver.isBranch ? ver.toString() : "~>" ~ ver.toString();
+				Version ver = getLatestVersion(dep);
+				if (ver.isBranch())
+					depVers[dep] = VersionRange(ver);
+				else
+					depVers[dep] = VersionRange.fromString("~>" ~ ver.toString());
 			} catch (Exception e) {
 				notFound ~= dep;
 			}
@@ -1299,41 +1172,25 @@ class Dub {
 		}
 
 		//Act smug to the user.
-		logInfo("Successfully created an empty project in '%s'.", path.toNativeString());
+		logInfo("Success", Color.green, "created empty project in %s", path.toNativeString().color(Mode.bold));
 	}
 
 	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
 	{
 		string packageName = type;
-		auto template_pack = m_packageManager.getBestPackage(packageName, ">=0.0.0");
-		if (!template_pack) template_pack = m_packageManager.getBestPackage(packageName, "~master");
+		auto template_pack = m_packageManager.getBestPackage(packageName);
 		if (!template_pack) {
 			logInfo("%s is not present, getting and storing it user wide", packageName);
-			template_pack = fetch(packageName, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			template_pack = fetch(packageName, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
 		auto template_dub = new Dub(null, m_packageSuppliers);
 		template_dub.loadPackage(initSubPackage);
-		auto compiler_binary = this.defaultCompiler;
 
-		GeneratorSettings settings;
-		settings.config = "application";
-		settings.compiler = getCompiler(compiler_binary);
-		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
-		settings.buildType = "debug";
-		settings.run = true;
+		GeneratorSettings settings = this.makeAppSettings();
 		settings.runArgs = runArgs;
-		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
-		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
-		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
-		if (m_defaultRunEnvironments) settings.buildSettings.addRunEnvironments(m_defaultRunEnvironments);
-		if (m_defaultPreGenerateEnvironments) settings.buildSettings.addPreGenerateEnvironments(m_defaultPreGenerateEnvironments);
-		if (m_defaultPostGenerateEnvironments) settings.buildSettings.addPostGenerateEnvironments(m_defaultPostGenerateEnvironments);
-		if (m_defaultPreBuildEnvironments) settings.buildSettings.addPreBuildEnvironments(m_defaultPreBuildEnvironments);
-		if (m_defaultPostBuildEnvironments) settings.buildSettings.addPostBuildEnvironments(m_defaultPostBuildEnvironments);
-		if (m_defaultPreRunEnvironments) settings.buildSettings.addPreRunEnvironments(m_defaultPreRunEnvironments);
-		if (m_defaultPostRunEnvironments) settings.buildSettings.addPostRunEnvironments(m_defaultPostRunEnvironments);
+
 		initSubPackage.recipe.buildSettings.workingDirectory = path.toNativeString();
 		template_dub.generateProject("build", settings);
 	}
@@ -1360,7 +1217,9 @@ class Dub {
 		auto srcfile = m_project.rootPackage.recipePath;
 		auto srcext = srcfile.head.name.extension;
 		if (srcext == "."~destination_file_ext) {
-			logInfo("Package format is already %s.", destination_file_ext);
+			// no logging before this point
+			tagWidth.push(5);
+			logError("Package format is already %s.", destination_file_ext);
 			return;
 		}
 
@@ -1386,35 +1245,17 @@ class Dub {
 		auto tool = m_project.rootPackage.recipe.ddoxTool;
 		if (tool.empty) tool = "ddox";
 
-		auto tool_pack = m_packageManager.getBestPackage(tool, ">=0.0.0");
-		if (!tool_pack) tool_pack = m_packageManager.getBestPackage(tool, "~master");
+		auto tool_pack = m_packageManager.getBestPackage(tool);
 		if (!tool_pack) {
 			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, Dependency(">=0.0.0"), defaultPlacementLocation, FetchOptions.none);
+			tool_pack = fetch(tool, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		auto ddox_dub = new Dub(null, m_packageSuppliers);
-		ddox_dub.loadPackage(tool_pack.path);
+		ddox_dub.loadPackage(tool_pack);
 		ddox_dub.upgrade(UpgradeOptions.select);
 
-		auto compiler_binary = this.defaultCompiler;
-
-		GeneratorSettings settings;
-		settings.config = "application";
-		settings.compiler = getCompiler(compiler_binary); // TODO: not using --compiler ???
-		settings.platform = settings.compiler.determinePlatform(settings.buildSettings, compiler_binary, m_defaultArchitecture);
-		settings.buildType = "debug";
-		if (m_defaultLowMemory) settings.buildSettings.options |= BuildOption.lowmem;
-		if (m_defaultEnvironments) settings.buildSettings.addEnvironments(m_defaultEnvironments);
-		if (m_defaultBuildEnvironments) settings.buildSettings.addBuildEnvironments(m_defaultBuildEnvironments);
-		if (m_defaultRunEnvironments) settings.buildSettings.addRunEnvironments(m_defaultRunEnvironments);
-		if (m_defaultPreGenerateEnvironments) settings.buildSettings.addPreGenerateEnvironments(m_defaultPreGenerateEnvironments);
-		if (m_defaultPostGenerateEnvironments) settings.buildSettings.addPostGenerateEnvironments(m_defaultPostGenerateEnvironments);
-		if (m_defaultPreBuildEnvironments) settings.buildSettings.addPreBuildEnvironments(m_defaultPreBuildEnvironments);
-		if (m_defaultPostBuildEnvironments) settings.buildSettings.addPostBuildEnvironments(m_defaultPostBuildEnvironments);
-		if (m_defaultPreRunEnvironments) settings.buildSettings.addPreRunEnvironments(m_defaultPreRunEnvironments);
-		if (m_defaultPostRunEnvironments) settings.buildSettings.addPostRunEnvironments(m_defaultPostRunEnvironments);
-		settings.run = true;
+		GeneratorSettings settings = this.makeAppSettings();
 
 		auto filterargs = m_project.rootPackage.recipe.ddoxFilterArgs.dup;
 		if (filterargs.empty) filterargs = ["--min-protection=Protected", "--only-documented"];
@@ -1441,23 +1282,40 @@ class Dub {
 		}
 	}
 
-	private void updatePackageSearchPath()
+	/// Make a `GeneratorSettings` suitable to generate tools (DDOC, DScanner, etc...)
+	private GeneratorSettings makeAppSettings () const
 	{
-		// TODO: Remove once `overrideSearchPath` is removed
-		if (!m_overrideSearchPath.empty) {
-			m_packageManager._disableDefaultSearchPaths = true;
-			m_packageManager.searchPath = [m_overrideSearchPath];
-			return;
-		}
+		GeneratorSettings settings;
+		auto compiler_binary = this.defaultCompiler;
 
-		auto p = environment.get("DUBPATH");
-		NativePath[] paths;
+		settings.config = "application";
+		settings.buildType = "debug";
+		settings.compiler = getCompiler(compiler_binary);
+		settings.platform = settings.compiler.determinePlatform(
+			settings.buildSettings, compiler_binary, this.defaultArchitecture);
+		if (this.defaultLowMemory)
+			settings.buildSettings.options |= BuildOption.lowmem;
+		if (this.defaultEnvironments)
+			settings.buildSettings.addEnvironments(this.defaultEnvironments);
+		if (this.defaultBuildEnvironments)
+			settings.buildSettings.addBuildEnvironments(this.defaultBuildEnvironments);
+		if (this.defaultRunEnvironments)
+			settings.buildSettings.addRunEnvironments(this.defaultRunEnvironments);
+		if (this.defaultPreGenerateEnvironments)
+			settings.buildSettings.addPreGenerateEnvironments(this.defaultPreGenerateEnvironments);
+		if (this.defaultPostGenerateEnvironments)
+			settings.buildSettings.addPostGenerateEnvironments(this.defaultPostGenerateEnvironments);
+		if (this.defaultPreBuildEnvironments)
+			settings.buildSettings.addPreBuildEnvironments(this.defaultPreBuildEnvironments);
+		if (this.defaultPostBuildEnvironments)
+			settings.buildSettings.addPostBuildEnvironments(this.defaultPostBuildEnvironments);
+		if (this.defaultPreRunEnvironments)
+			settings.buildSettings.addPreRunEnvironments(this.defaultPreRunEnvironments);
+		if (this.defaultPostRunEnvironments)
+			settings.buildSettings.addPostRunEnvironments(this.defaultPostRunEnvironments);
+		settings.run = true;
 
-		version(Windows) enum pathsep = ";";
-		else enum pathsep = ":";
-		if (p.length) paths ~= p.split(pathsep).map!(p => NativePath(p))().array();
-		m_packageManager._disableDefaultSearchPaths = false;
-		m_packageManager.searchPath = paths;
+		return settings;
 	}
 
 	private void determineDefaultCompiler()
@@ -1528,7 +1386,7 @@ class Dub {
 	unittest
 	{
 		import std.path: buildPath, absolutePath;
-		auto dub = new Dub(".", null, SkipPackageSuppliers.configured);
+		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
 		immutable olddc = environment.get("DC", null);
 		immutable oldpath = environment.get("PATH", null);
 		immutable testdir = "test-determineDefaultCompiler";
@@ -1626,22 +1484,29 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	}
 
 
-	this(Dub dub, UpgradeOptions options)
+	this(Dub dub, UpgradeOptions options, Package root, SelectedVersions selected_versions)
 	{
+		assert(dub !is null);
+		assert(root !is null);
+		assert(selected_versions !is null);
+
+		if (environment.get("DUB_NO_RESOLVE_LIMIT") !is null)
+			super(ulong.max);
+		else
+		    super(1_000_000);
+
 		m_dub = dub;
 		m_options = options;
-	}
-
-	void addPackageToUpgrade(string name)
-	{
-		m_packagesToUpgrade[name] = true;
-	}
-
-	Dependency[string] resolve(Package root, SelectedVersions selected_versions)
-	{
 		m_rootPackage = root;
 		m_selectedVersions = selected_versions;
-		return super.resolve(TreeNode(root.name, Dependency(root.version_)), (m_options & UpgradeOptions.printUpgradesOnly) == 0);
+	}
+
+	Dependency[string] resolve(string[] filter)
+	{
+		foreach (name; filter)
+			m_packagesToUpgrade[name] = true;
+		return super.resolve(TreeNode(m_rootPackage.name, Dependency(m_rootPackage.version_)),
+			(m_options & UpgradeOptions.dryRun) == 0);
 	}
 
 	protected bool isFixedPackage(string pack)
@@ -1752,7 +1617,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					altdeppath.endsWithSlash = true;
 
 					if (!d.spec.path.empty && absdeppath != desireddeppath)
-						logWarn("Warning: Sub package %s, referenced by %s %s must be referenced using the path to its base package",
+						logWarn("Sub package %s, referenced by %s %s must be referenced using the path to its base package",
 							subpack.name, pack.name, pack.version_);
 
 					enforce(d.spec.path.empty || absdeppath == desireddeppath || absdeppath == altdeppath,
@@ -1772,11 +1637,11 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			Dependency dspec = d.spec.mapToPath(pack.path);
 
 			// if not upgrading, use the selected version
-			if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions && m_selectedVersions.hasSelectedVersion(dbasename))
+			if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(dbasename))
 				dspec = m_selectedVersions.getSelectedVersion(dbasename);
 
 			// keep selected optional dependencies and avoid non-selected optional-default dependencies by default
-			if (m_selectedVersions && !m_selectedVersions.bare) {
+			if (!m_selectedVersions.bare) {
 				if (dt == DependencyType.optionalDefault && !m_selectedVersions.hasSelectedVersion(dbasename))
 					dt = DependencyType.optional;
 				else if (dt == DependencyType.optional && m_selectedVersions.hasSelectedVersion(dbasename))
@@ -1839,23 +1704,23 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			return m_rootPackage.basePackage;
 
 		if (!dep.repository.empty) {
-			auto ret = m_dub.packageManager.loadSCMPackage(name, dep);
+			auto ret = m_dub.packageManager.loadSCMPackage(name, dep.repository);
 			return ret !is null && dep.matches(ret.version_) ? ret : null;
 		} else if (!dep.path.empty) {
 			try {
-				auto ret = m_dub.packageManager.getOrLoadPackage(dep.path);
-				if (dep.matches(ret.version_)) return ret;
+				return m_dub.packageManager.getOrLoadPackage(dep.path);
 			} catch (Exception e) {
 				logDiagnostic("Failed to load path based dependency %s: %s", name, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize);
 				return null;
 			}
 		}
+		const vers = dep.version_;
 
 		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
 			return ret;
 
-		auto key = name ~ ":" ~ dep.version_.toString();
+		auto key = name ~ ":" ~ vers.toString();
 		if (auto ret = key in m_remotePackages)
 			return *ret;
 
@@ -1873,15 +1738,15 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					m_remotePackages[key] = ret;
 					return ret;
 				} catch (Exception e) {
-					logDiagnostic("Metadata for %s %s could not be downloaded from %s: %s", name, dep, ps.description, e.msg);
+					logDiagnostic("Metadata for %s %s could not be downloaded from %s: %s", name, vers, ps.description, e.msg);
 					logDebug("Full error: %s", e.toString().sanitize);
 				}
 			} else {
-				logDiagnostic("Package %s not found in base package description (%s). Downloading whole package.", name, dep.version_.toString());
+				logDiagnostic("Package %s not found in base package description (%s). Downloading whole package.", name, vers.toString());
 				try {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
-					m_dub.fetch(rootpack, dep, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
+					m_dub.fetch(rootpack, vers, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
@@ -1903,153 +1768,220 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	}
 }
 
-private struct SpecialDirs {
-	NativePath temp;
-	NativePath userSettings;
-	NativePath systemSettings;
-	NativePath localRepository;
+/**
+ * An instance of Dub that does not rely on the environment
+ *
+ * This instance of dub should not read any environment variables,
+ * nor should it do any file IO, to make it usable and reliable in unittests.
+ * Currently it reads environment variables but does not read the configuration.
+ */
+package final class TestDub : Dub
+{
+    /// Forward to base constructor
+    public this (string root = ".", PackageSupplier[] extras = null,
+                 SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+    {
+        super(root, extras, skip);
+    }
+
+    /// Avoid loading user configuration
+    protected override void loadConfig() { /* No-op */ }
 }
 
-private class DubConfig {
-	private {
-		DubConfig m_parentConfig;
-		Json m_data;
-	}
+private struct SpecialDirs {
+	/// The path where to store temporary files and directory
+	NativePath temp;
+	/// The system-wide dub-specific folder
+	NativePath systemSettings;
+	/// The dub-specific folder in the user home directory
+	NativePath userSettings;
+	/**
+	 * Windows-only: the local, user-specific folder
+	 *
+	 * This folder, unlike `userSettings`, does not roam, IOW an account
+	 * on a company network will not save the content of this data,
+	 * unlike `userSettings`.
+	 * On Posix, this is equivalent to `userSettings`.
+	 *
+	 * See_Also: https://docs.microsoft.com/en-us/windows/win32/shell/knownfolderid
+	 */
+	NativePath localRepository;
 
-	this(Json data, DubConfig parent_config)
+	/// Returns: An instance of `SpecialDirs` initialized from the environment
+	public static SpecialDirs make () {
+		import std.file : tempDir;
+
+		SpecialDirs result;
+		result.temp = NativePath(tempDir);
+
+		version(Windows) {
+			result.systemSettings = NativePath(environment.get("ProgramData")) ~ "dub/";
+			immutable appDataDir = environment.get("APPDATA");
+			result.userSettings = NativePath(appDataDir) ~ "dub/";
+			// LOCALAPPDATA is not defined before Windows Vista
+			result.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
+		} else version(Posix) {
+			result.systemSettings = NativePath("/var/lib/dub/");
+			result.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
+			if (!result.userSettings.absolute)
+				result.userSettings = NativePath(getcwd()) ~ result.userSettings;
+			result.localRepository = result.userSettings;
+		}
+		return result;
+	}
+}
+
+/**
+ * User-provided configuration
+ *
+ * All fields in this struct should be optional.
+ * Fields that are *not* optional should be mandatory from the POV
+ * of the application, not the POV of file parsing.
+ * For example, git's `core.author` and `core.email` are required to commit,
+ * but the error happens on the commit, not when the gitconfig is parsed.
+ *
+ * We have multiple configuration locations, and two kinds of fields:
+ * additive and non-additive. Additive fields are fields which are the union
+ * of all configuration files (e.g. `registryURLs`). Non-additive fields
+ * will ignore values set in lower priorities configuration, although parsing
+ * must still succeed. Additive fields are marked as `@Optional`,
+ * non-additive are marked as `SetInfo`.
+ */
+private struct UserConfiguration {
+	import configy.Attributes;
+
+	@Optional string[] registryUrls;
+	@Optional NativePath[] customCachePaths;
+
+	SetInfo!(SkipPackageSuppliers) skipRegistry;
+	SetInfo!(string) defaultCompiler;
+	SetInfo!(string) defaultArchitecture;
+	SetInfo!(bool) defaultLowMemory;
+
+	SetInfo!(string[string]) defaultEnvironments;
+	SetInfo!(string[string]) defaultBuildEnvironments;
+	SetInfo!(string[string]) defaultRunEnvironments;
+	SetInfo!(string[string]) defaultPreGenerateEnvironments;
+	SetInfo!(string[string]) defaultPostGenerateEnvironments;
+	SetInfo!(string[string]) defaultPreBuildEnvironments;
+	SetInfo!(string[string]) defaultPostBuildEnvironments;
+	SetInfo!(string[string]) defaultPreRunEnvironments;
+	SetInfo!(string[string]) defaultPostRunEnvironments;
+	SetInfo!(string) dubHome;
+
+	/// Merge a lower priority config (`this`) with a `higher` priority config
+	public UserConfiguration merge(UserConfiguration higher)
+		return @safe pure nothrow
 	{
-		m_data = data;
-		m_parentConfig = parent_config;
+		import std.traits : hasUDA;
+		UserConfiguration result;
+
+		static foreach (idx, _; UserConfiguration.tupleof) {
+			static if (hasUDA!(UserConfiguration.tupleof[idx], Optional))
+				result.tupleof[idx] = higher.tupleof[idx] ~ this.tupleof[idx];
+			else static if (IsSetInfo!(typeof(this.tupleof[idx]))) {
+				if (higher.tupleof[idx].set)
+					result.tupleof[idx] = higher.tupleof[idx];
+				else
+					result.tupleof[idx] = this.tupleof[idx];
+			} else
+				static assert(false,
+							  "Expect `@Optional` or `SetInfo` on: `" ~
+							  __traits(identifier, this.tupleof[idx]) ~
+							  "` of type : `" ~
+							  typeof(this.tupleof[idx]).stringof ~ "`");
+		}
+
+		return result;
 	}
 
-	@property string[] registryURLs()
-	{
-		string[] ret;
-		if (auto pv = "registryUrls" in m_data)
-			ret = (*pv).deserializeJson!(string[]);
-		if (m_parentConfig) ret ~= m_parentConfig.registryURLs;
-		return ret;
-	}
+	/// Workaround multiple `E` declaration in `static foreach` when inline
+	private template IsSetInfo(T) { enum bool IsSetInfo = is(T : SetInfo!E, E); }
+}
 
-	@property SkipPackageSuppliers skipRegistry()
-	{
-		if(auto pv = "skipRegistry" in m_data)
-			return to!SkipPackageSuppliers((*pv).get!string);
+unittest {
+	import configy.Read;
 
-		if (m_parentConfig)
-			return m_parentConfig.skipRegistry;
+    const str1 = `{
+  "registryUrls": [ "http://foo.bar\/optional\/escape" ],
+  "customCachePaths": [ "foo/bar", "foo/foo" ],
 
-		return SkipPackageSuppliers.none;
-	}
+  "skipRegistry": "all",
+  "defaultCompiler": "dmd",
+  "defaultArchitecture": "fooarch",
+  "defaultLowMemory": false,
 
-	@property NativePath[] customCachePaths()
-	{
-		import std.algorithm.iteration : map;
-		import std.array : array;
+  "defaultEnvironments": {
+    "VAR2": "settings.VAR2",
+    "VAR3": "settings.VAR3",
+    "VAR4": "settings.VAR4"
+  }
+}`;
 
-		NativePath[] ret;
-		if (auto pv = "customCachePaths" in m_data)
-			ret = (*pv).deserializeJson!(string[])
-				.map!(s => NativePath(s))
-				.array;
-		if (m_parentConfig)
-			ret ~= m_parentConfig.customCachePaths;
-		return ret;
-	}
+	const str2 = `{
+  "registryUrls": [ "http://bar.foo" ],
+  "customCachePaths": [ "bar/foo", "bar/bar" ],
 
-	@property string defaultCompiler()
-	const {
-		if (auto pv = "defaultCompiler" in m_data)
-			return pv.get!string;
-		if (m_parentConfig) return m_parentConfig.defaultCompiler;
-		return null;
-	}
+  "skipRegistry": "none",
+  "defaultCompiler": "ldc",
+  "defaultArchitecture": "bararch",
+  "defaultLowMemory": true,
 
-	@property string defaultArchitecture()
-	const {
-		if(auto pv = "defaultArchitecture" in m_data)
-			return (*pv).get!string;
-		if (m_parentConfig) return m_parentConfig.defaultArchitecture;
-		return null;
-	}
+  "defaultEnvironments": {
+    "VAR": "Hi",
+  }
+}`;
 
-	@property bool defaultLowMemory()
-	const {
-		if(auto pv = "defaultLowMemory" in m_data)
-			return (*pv).get!bool;
-		if (m_parentConfig) return m_parentConfig.defaultLowMemory;
-		return false;
-	}
+	 auto c1 = parseConfigString!UserConfiguration(str1, "/dev/null");
+	 assert(c1.registryUrls == [ "http://foo.bar/optional/escape" ]);
+	 assert(c1.customCachePaths == [ NativePath("foo/bar"), NativePath("foo/foo") ]);
+	 assert(c1.skipRegistry == SkipPackageSuppliers.all);
+	 assert(c1.defaultCompiler == "dmd");
+	 assert(c1.defaultArchitecture == "fooarch");
+	 assert(c1.defaultLowMemory == false);
+	 assert(c1.defaultEnvironments.length == 3);
+	 assert(c1.defaultEnvironments["VAR2"] == "settings.VAR2");
+	 assert(c1.defaultEnvironments["VAR3"] == "settings.VAR3");
+	 assert(c1.defaultEnvironments["VAR4"] == "settings.VAR4");
 
-	@property string[string] defaultEnvironments()
-	const {
-		if (auto pv = "defaultEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultEnvironments;
-		return null;
-	}
+	 auto c2 = parseConfigString!UserConfiguration(str2, "/dev/null");
+	 assert(c2.registryUrls == [ "http://bar.foo" ]);
+	 assert(c2.customCachePaths == [ NativePath("bar/foo"), NativePath("bar/bar") ]);
+	 assert(c2.skipRegistry == SkipPackageSuppliers.none);
+	 assert(c2.defaultCompiler == "ldc");
+	 assert(c2.defaultArchitecture == "bararch");
+	 assert(c2.defaultLowMemory == true);
+	 assert(c2.defaultEnvironments.length == 1);
+	 assert(c2.defaultEnvironments["VAR"] == "Hi");
 
-	@property string[string] defaultBuildEnvironments()
-	const {
-		if (auto pv = "defaultBuildEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultBuildEnvironments;
-		return null;
-	}
+	 auto m1 = c2.merge(c1);
+	 // c1 takes priority, so its registryUrls is first
+	 assert(m1.registryUrls == [ "http://foo.bar/optional/escape", "http://bar.foo" ]);
+	 // Same with CCP
+	 assert(m1.customCachePaths == [
+		 NativePath("foo/bar"), NativePath("foo/foo"),
+		 NativePath("bar/foo"), NativePath("bar/bar"),
+	 ]);
 
-	@property string[string] defaultRunEnvironments()
-	const {
-		if (auto pv = "defaultRunEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultRunEnvironments;
-		return null;
-	}
+	 // c1 fields only
+	 assert(m1.skipRegistry == c1.skipRegistry);
+	 assert(m1.defaultCompiler == c1.defaultCompiler);
+	 assert(m1.defaultArchitecture == c1.defaultArchitecture);
+	 assert(m1.defaultLowMemory == c1.defaultLowMemory);
+	 assert(m1.defaultEnvironments == c1.defaultEnvironments);
 
-	@property string[string] defaultPreGenerateEnvironments()
-	const {
-		if (auto pv = "defaultPreGenerateEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPreGenerateEnvironments;
-		return null;
-	}
+	 auto m2 = c1.merge(c2);
+	 assert(m2.registryUrls == [ "http://bar.foo", "http://foo.bar/optional/escape" ]);
+	 assert(m2.customCachePaths == [
+		 NativePath("bar/foo"), NativePath("bar/bar"),
+		 NativePath("foo/bar"), NativePath("foo/foo"),
+	 ]);
+	 assert(m2.skipRegistry == c2.skipRegistry);
+	 assert(m2.defaultCompiler == c2.defaultCompiler);
+	 assert(m2.defaultArchitecture == c2.defaultArchitecture);
+	 assert(m2.defaultLowMemory == c2.defaultLowMemory);
+	 assert(m2.defaultEnvironments == c2.defaultEnvironments);
 
-	@property string[string] defaultPostGenerateEnvironments()
-	const {
-		if (auto pv = "defaultPostGenerateEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPostGenerateEnvironments;
-		return null;
-	}
-
-	@property string[string] defaultPreBuildEnvironments()
-	const {
-		if (auto pv = "defaultPreBuildEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPreBuildEnvironments;
-		return null;
-	}
-
-	@property string[string] defaultPostBuildEnvironments()
-	const {
-		if (auto pv = "defaultPostBuildEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPostBuildEnvironments;
-		return null;
-	}
-
-	@property string[string] defaultPreRunEnvironments()
-	const {
-		if (auto pv = "defaultPreRunEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPreRunEnvironments;
-		return null;
-	}
-
-	@property string[string] defaultPostRunEnvironments()
-	const {
-		if (auto pv = "defaultPostRunEnvironments" in m_data)
-			return deserializeJson!(string[string])(*cast(Json*)pv);
-		if (m_parentConfig) return m_parentConfig.defaultPostRunEnvironments;
-		return null;
-	}
+	 auto m3 = UserConfiguration.init.merge(c1);
+	 assert(m3 == c1);
 }

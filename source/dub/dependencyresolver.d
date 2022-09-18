@@ -8,7 +8,7 @@
 module dub.dependencyresolver;
 
 import dub.dependency;
-import dub.internal.vibecompat.core.log;
+import dub.internal.logging;
 
 import std.algorithm : all, canFind, filter, map, sort;
 import std.array : appender, array, join;
@@ -29,6 +29,32 @@ import std.string : format, lastIndexOf;
 	can be defined in terms of a version range.
 */
 class DependencyResolver(CONFIGS, CONFIG) {
+	/// Maximum number of loop rounds to do
+	protected ulong loop_limit;
+
+	/**
+	 * Construct an instance of this class
+	 *
+	 * Params:
+	 *	 limit = Maximum number of loop rounds to do
+	 */
+	public this (ulong limit) inout scope @safe pure nothrow @nogc
+	{
+		this.loop_limit = limit;
+	}
+
+	/// Compatibility overload
+	deprecated("Use the overload that accepts a `ulong limit` argument")
+	public this () scope @safe
+	{
+		// Leave the possibility to opt-out from the loop limit
+		import std.process : environment;
+		if (environment.get("DUB_NO_RESOLVE_LIMIT") !is null)
+			this(ulong.max);
+		else
+			this(1_000_000);
+	}
+
 	/** Encapsulates a list of outgoing edges in the dependency graph.
 
 		A value of this type represents a single dependency with multiple
@@ -75,17 +101,13 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 	CONFIG[string] resolve(TreeNode root, bool throw_on_failure = true)
 	{
-		// Leave the possibility to opt-out from the loop limit
-		import std.process : environment;
-		bool no_loop_limit = environment.get("DUB_NO_RESOLVE_LIMIT") !is null;
-
 		auto rootbase = root.pack.basePackageName;
 
 		// build up the dependency graph, eliminating as many configurations/
 		// versions as possible
 		ResolveContext context;
 		context.configs[rootbase] = [ResolveConfig(root.config, true)];
-		long loop_counter = no_loop_limit ? long.max : 1_000_000;
+		ulong loop_counter = this.loop_limit;
 		constrain(root, context, loop_counter);
 
 		// remove any non-default optional dependencies
@@ -148,7 +170,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 	/** Starting with a single node, fills `context` with a minimized set of
 		configurations that form valid solutions.
 	*/
-	private void constrain(TreeNode n, ref ResolveContext context, ref long max_iterations)
+	private void constrain(TreeNode n, ref ResolveContext context, ref ulong max_iterations)
 	{
 		auto base = n.pack.basePackageName;
 		assert(base in context.configs);
@@ -204,7 +226,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		propagate.
 	*/
 	private void constrainDependencies(TreeNode n, TreeNodes[] dependencies, size_t depidx,
-		ref ResolveContext context, ref long max_iterations)
+		ref ResolveContext context, ref ulong max_iterations)
 	{
 		if (depidx >= dependencies.length) return;
 
@@ -358,7 +380,7 @@ unittest {
 
 	static class TestResolver : DependencyResolver!(IntConfigs, IntConfig) {
 		private TreeNodes[][string] m_children;
-		this(TreeNodes[][string] children) { m_children = children; }
+		this(TreeNodes[][string] children) { super(ulong.max); m_children = children; }
 		protected override IntConfig[] getAllConfigs(string pack) {
 			auto ret = appender!(IntConfig[]);
 			foreach (p; m_children.byKey) {

@@ -9,7 +9,8 @@ import dub.packagesuppliers.packagesupplier;
 	the form "[package name]-[version].zip".
 */
 class FileSystemPackageSupplier : PackageSupplier {
-	import dub.internal.vibecompat.core.log;
+	import dub.internal.logging;
+
 	version (Have_vibe_core) import dub.internal.vibecompat.inet.path : toNativeString;
 	import std.exception : enforce;
 	private {
@@ -42,7 +43,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 	{
 		import dub.internal.vibecompat.core.file : copyFile, existsFile;
 		enforce(path.absolute);
-		logInfo("Storing package '"~packageId~"', version requirements: %s", dep);
+		logInfo("Storing package '%s', version requirements: %s", packageId, dep);
 		auto filename = bestPackageFile(packageId, dep, pre_release);
 		enforce(existsFile(filename));
 		copyFile(filename, path);

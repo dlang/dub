@@ -1,0 +1,28 @@
+name "parent"
+dependency "dep1" path="../dep1"
+
+configuration "dynlib" {
+    targetType "dynamicLibrary"
+    targetPath "output/dynlib"
+    subConfiguration "dep1" "dynlib"
+}
+
+configuration "dynlib_static" {
+    targetType "dynamicLibrary"
+    targetPath "output/dynlib_static"
+    subConfiguration "dep1" "library"
+}
+
+configuration "exe_static" {
+    targetType "executable"
+    targetPath "output/exe_static"
+    subConfiguration "dep1" "library"
+}
+
+configuration "exe_dynamic" {
+    targetType "executable"
+    targetPath "output/exe_dynamic"
+    subConfiguration "dep1" "dynlib"
+    dflags "-link-defaultlib-shared" platform="ldc"
+    dflags "-defaultlib=libphobos2.so" platform="linux-dmd"
+}

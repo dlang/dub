@@ -11,7 +11,7 @@ import dub.compilers.compiler;
 import dub.generators.generator;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
+import dub.internal.logging;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
@@ -124,7 +124,7 @@ class VisualDGenerator : ProjectGenerator {
 			sln.put(ret.data);
 			sln.flush();
 
-			logInfo("Solution '%s' generated.", solutionFileName());
+			logInfo("Generated", Color.green, "%s (solution)", solutionFileName());
 		}
 
 

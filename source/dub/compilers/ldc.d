@@ -10,8 +10,8 @@ module dub.compilers.ldc;
 import dub.compilers.compiler;
 import dub.compilers.utils;
 import dub.internal.utils;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
+import dub.internal.logging;
 
 import std.algorithm;
 import std.array;
@@ -25,6 +25,7 @@ class LDCCompiler : Compiler {
 		tuple(BuildOption.debugMode, ["-d-debug"]),
 		tuple(BuildOption.releaseMode, ["-release"]),
 		tuple(BuildOption.coverage, ["-cov"]),
+		tuple(BuildOption.coverageCTFE, ["-cov=ctfe"]),
 		tuple(BuildOption.debugInfo, ["-g"]),
 		tuple(BuildOption.debugInfoC, ["-gc"]),
 		tuple(BuildOption.alwaysStackFrame, ["-disable-fp-elim"]),
@@ -46,6 +47,7 @@ class LDCCompiler : Compiler {
 		//tuple(BuildOption.profileGC, ["-?"]),
 		tuple(BuildOption.betterC, ["-betterC"]),
 		tuple(BuildOption.lowmem, ["-lowmem"]),
+		tuple(BuildOption.color, ["-enable-color"]),
 
 		tuple(BuildOption._docs, ["-Dd=docs"]),
 		tuple(BuildOption._ddox, ["-Xf=docs.json", "-Dd=__dummy_docs"]),
@@ -149,8 +151,19 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 			settings.lflags = null;
 		}
 
-		if (settings.options & BuildOption.pic)
-			settings.addDFlags("-relocation-model=pic");
+		if (settings.options & BuildOption.pic) {
+			if (platform.isWindows()) {
+				/* This has nothing to do with PIC, but as the PIC option is exclusively
+				 * set internally for code that ends up in a dynamic library, explicitly
+				 * specify what `-shared` defaults to (`-shared` can't be used when
+				 * compiling only, without linking).
+				 * *Pre*pending the flags enables the user to override them.
+				 */
+				settings.prependDFlags("-fvisibility=public", "-dllimport=all");
+			} else {
+				settings.addDFlags("-relocation-model=pic");
+			}
+		}
 
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);
@@ -207,6 +220,8 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
+		const targetFileName = getTargetFileName(settings, platform);
+
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
 			case TargetType.none: assert(false, "Invalid target type: none");
@@ -218,6 +233,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				break;
 			case TargetType.dynamicLibrary:
 				settings.addDFlags("-shared");
+				addDynamicLibName(settings, platform, targetFileName);
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
@@ -225,7 +241,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		}
 
 		if (tpath is null)
-			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+			tpath = (NativePath(settings.targetPath) ~ targetFileName).toNativeString();
 		settings.addDFlags("-of"~tpath);
 	}
 
@@ -267,7 +283,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
 	}
 
-	string[] lflagsToDFlags(in string[] lflags) const
+	string[] lflagsToDFlags(const string[] lflags) const
 	{
         return map!(f => "-L"~f)(lflags.filter!(f => f != "")()).array();
 	}

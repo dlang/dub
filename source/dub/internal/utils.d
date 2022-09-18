@@ -8,11 +8,11 @@
 module dub.internal.utils;
 
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.compilers.buildsettings : BuildSettings;
 import dub.version_;
+import dub.internal.logging;
 
 import core.time : Duration;
 import std.algorithm : canFind, startsWith;
@@ -20,6 +20,7 @@ import std.array : appender, array;
 import std.conv : to;
 import std.exception : enforce;
 import std.file;
+import std.format;
 import std.string : format;
 import std.process;
 import std.traits : isIntegral;
@@ -53,18 +54,21 @@ NativePath getTempFile(string prefix, string extension = null)
 }
 
 /**
-   Obtain a lock for a file at the given path. If the file cannot be locked
-   within the given duration, an exception is thrown.  The file will be created
-   if it does not yet exist. Deleting the file is not safe as another process
-   could create a new file with the same name.
-   The returned lock will get unlocked upon destruction.
-
-   Params:
-     path = path to file that gets locked
-     timeout = duration after which locking failed
-   Returns:
-     The locked file or an Exception on timeout.
-*/
+ * Obtain a lock for a file at the given path.
+ *
+ * If the file cannot be locked within the given duration,
+ * an exception is thrown. The file will be created if it does not yet exist.
+ * Deleting the file is not safe as another process could create a new file
+ * with the same name.
+ * The returned lock will get unlocked upon destruction.
+ *
+ * Params:
+ *   path = path to file that gets locked
+ *   timeout = duration after which locking failed
+ *
+ * Returns:
+ *   The locked file or an Exception on timeout.
+ */
 auto lockFile(string path, Duration timeout)
 {
 	import core.thread : Thread;
@@ -601,9 +605,6 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
 			path_skip = ipath.bySegment.walkLength;
 	}
 
-	enforce(path_skip > 0,
-		format("Source file '%s' not found in any import path.", file.toNativeString()));
-
 	auto mpath = file.bySegment.array[path_skip .. $];
 	auto ret = appender!string;
 
@@ -616,13 +617,21 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
 	}
 
 	//create module name from path
-	foreach (i; 0 .. mpath.length) {
+	if (path_skip == 0)
+	{
 		import std.path;
-		auto p = mpath[i].name;
-		if (p == "package.d") break ;
-		if (ret.data.length > 0) ret ~= ".";
-		if (i+1 < mpath.length) ret ~= p;
-		else ret ~= p.baseName(".d");
+		ret ~= mpath[$-1].name.baseName(".d");
+	}
+	else
+	{
+		foreach (i; 0 .. mpath.length) {
+			import std.path;
+			auto p = mpath[i].name;
+			if (p == "package.d") break ;
+			if (ret.data.length > 0) ret ~= ".";
+			if (i+1 < mpath.length) ret ~= p;
+			else ret ~= p.baseName(".d");
+		}
 	}
 
 	assert(ret.data.length > 0, "A module name was expected to be computed, and none was.");
@@ -681,8 +690,62 @@ unittest {
  * Search for module keyword in file
  */
 string getModuleNameFromFile(string filePath) {
+	if (!filePath.exists)
+	{
+		return null;
+	}
 	string fileContent = filePath.readText;
 
-	logDiagnostic("Get module name from path: " ~ filePath);
+	logDiagnostic("Get module name from path: %s", filePath);
 	return getModuleNameFromContent(fileContent);
+}
+
+/**
+ * Compare two instances of the same type for equality,
+ * providing a rich error message on failure.
+ *
+ * This function will recurse into composite types (struct, AA, arrays)
+ * and compare element / member wise, taking opEquals into account,
+ * to provide the most accurate reason why comparison failed.
+ */
+void deepCompare (T) (
+	in T result, in T expected, string file = __FILE__, size_t line = __LINE__)
+{
+	deepCompareImpl!T(result, expected, T.stringof, file, line);
+}
+
+void deepCompareImpl (T) (
+	in T result, in T expected, string path, string file, size_t line)
+{
+	static if (is(T == struct) && !is(typeof(T.init.opEquals(T.init)) : bool))
+	{
+		static foreach (idx; 0 .. T.tupleof.length)
+			deepCompareImpl(result.tupleof[idx], expected.tupleof[idx],
+							format("%s.%s", path, __traits(identifier, T.tupleof[idx])),
+							file, line);
+	}
+	else static if (is(T : KeyT[ValueT], KeyT, ValueT))
+	{
+		if (result.length != expected.length)
+			throw new Exception(
+				format("%s: AA has different number of entries (%s != %s): %s != %s",
+					   path, result.length, expected.length, result, expected),
+				file, line);
+		foreach (key, value; expected)
+		{
+			if (auto ptr = key in result)
+				deepCompareImpl(*ptr, value, format("%s[%s]", path, key), file, line);
+			else
+				throw new Exception(
+					format("Expected key %s[%s] not present in result. %s != %s",
+						   path, key, result, expected), file, line);
+		}
+	}
+	else if (result != expected) {
+		static if (is(T == struct) && is(typeof(T.init.opEquals(T.init)) : bool))
+			path ~= ".opEquals";
+		throw new Exception(
+			format("%s: result != expected: %s != %s", path, result, expected),
+			file, line);
+	}
 }

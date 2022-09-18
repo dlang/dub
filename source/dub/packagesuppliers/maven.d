@@ -11,8 +11,8 @@ import dub.packagesuppliers.packagesupplier;
 class MavenRegistryPackageSupplier : PackageSupplier {
 	import dub.internal.utils : retryDownload, HTTPStatusException;
 	import dub.internal.vibecompat.data.json : serializeToJson;
-	import dub.internal.vibecompat.core.log;
 	import dub.internal.vibecompat.inet.url : URL;
+	import dub.internal.logging;
 
 	import std.datetime : Clock, Duration, hours, SysTime, UTC;
 
@@ -63,7 +63,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;
-			else logDebug("Failed to download package %s from %s", packageId, url); 
+			else logDebug("Failed to download package %s from %s", packageId, url);
 		}
 		catch(Exception e) {
 			logDebug("Failed to download package %s from %s", packageId, url);
@@ -125,8 +125,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		auto md = getMetadata(query);
 		if (md.type == Json.Type.null_)
 			return [];
-		auto json = getBestPackage(md, query, Dependency(">=0.0.0"), true);
+		auto json = getBestPackage(md, query, Dependency.any, true);
 		return [SearchResult(json["name"].opt!string, "", json["version"].opt!string)];
 	}
 }
-

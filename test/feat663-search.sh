@@ -10,6 +10,6 @@ fi
 if ! OUTPUT=$(${DUB} search '"dub-registry"' -v 2>&1); then
     die $LINENO '`dub search "dub-registry"` failed' "$OUTPUT"
 fi
-if ! grep -q '^dub-registry (.*)\s'<<<"$OUTPUT"; then
-    die $LINENO '`grep -q '"'"'^dub-registry (.*)\s'"'"'` failed' "$OUTPUT"
+if ! grep -q '^\s\sdub-registry (.*)\s'<<<"$OUTPUT"; then
+    die $LINENO '`grep -q '"'"'^\s\sdub-registry (.*)\s'"'"'` failed' "$OUTPUT"
 fi

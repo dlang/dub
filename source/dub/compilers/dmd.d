@@ -10,8 +10,8 @@ module dub.compilers.dmd;
 import dub.compilers.compiler;
 import dub.compilers.utils;
 import dub.internal.utils;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
+import dub.internal.logging;
 
 import std.algorithm;
 import std.array;
@@ -43,6 +43,7 @@ class DMDCompiler : Compiler {
 		tuple(BuildOption.debugMode, ["-debug"]),
 		tuple(BuildOption.releaseMode, ["-release"]),
 		tuple(BuildOption.coverage, ["-cov"]),
+		tuple(BuildOption.coverageCTFE, ["-cov=ctfe"]),
 		tuple(BuildOption.debugInfo, ["-g"]),
 		tuple(BuildOption.debugInfoC, ["-g"]),
 		tuple(BuildOption.alwaysStackFrame, ["-gs"]),
@@ -64,6 +65,7 @@ class DMDCompiler : Compiler {
 		tuple(BuildOption.profileGC, ["-profile=gc"]),
 		tuple(BuildOption.betterC, ["-betterC"]),
 		tuple(BuildOption.lowmem, ["-lowmem"]),
+		tuple(BuildOption.color, ["-color"]),
 
 		tuple(BuildOption._docs, ["-Dddocs"]),
 		tuple(BuildOption._ddox, ["-Xfdocs.json", "-Df__dummy.html"]),
@@ -176,25 +178,25 @@ config    /etc/dmd.conf
 		BuildSettings settings;
 		auto compiler = new DMDCompiler;
 		auto bp = compiler.determinePlatform(settings, "dmd", "x86");
-		assert(bp.platform.canFind("windows"));
+		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86"));
 		assert(bp.architecture.canFind("x86_omf"));
 		assert(!bp.architecture.canFind("x86_mscoff"));
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "x86_omf");
-		assert(bp.platform.canFind("windows"));
+		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86"));
 		assert(bp.architecture.canFind("x86_omf"));
 		assert(!bp.architecture.canFind("x86_mscoff"));
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "x86_mscoff");
-		assert(bp.platform.canFind("windows"));
+		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86"));
 		assert(!bp.architecture.canFind("x86_omf"));
 		assert(bp.architecture.canFind("x86_mscoff"));
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "x86_64");
-		assert(bp.platform.canFind("windows"));
+		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86_64"));
 		assert(!bp.architecture.canFind("x86"));
 		assert(!bp.architecture.canFind("x86_omf"));
@@ -254,7 +256,7 @@ config    /etc/dmd.conf
 
 		if (!(fields & BuildSetting.libs)) {
 			resolveLibs(settings, platform);
-			if (platform.platform.canFind("windows"))
+			if (platform.isWindows())
 				settings.addSourceFiles(settings.libs.map!(l => l~".lib")().array());
 			else
 				settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
@@ -305,22 +307,22 @@ config    /etc/dmd.conf
 			case TargetType.none: return null;
 			case TargetType.sourceLibrary: return null;
 			case TargetType.executable:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".exe";
 				else return settings.targetName.idup;
 			case TargetType.library:
 			case TargetType.staticLibrary:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".lib";
 				else return "lib" ~ settings.targetName ~ ".a";
 			case TargetType.dynamicLibrary:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".dll";
 				else if (platform.platform.canFind("darwin"))
 					return "lib" ~ settings.targetName ~ ".dylib";
 				else return "lib" ~ settings.targetName ~ ".so";
 			case TargetType.object:
-				if (platform.platform.canFind("windows"))
+				if (platform.isWindows())
 					return settings.targetName ~ ".obj";
 				else return settings.targetName ~ ".o";
 		}
@@ -328,6 +330,8 @@ config    /etc/dmd.conf
 
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string tpath = null) const
 	{
+		const targetFileName = getTargetFileName(settings, platform);
+
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
 			case TargetType.none: assert(false, "Invalid target type: none");
@@ -338,10 +342,11 @@ config    /etc/dmd.conf
 				settings.addDFlags("-lib");
 				break;
 			case TargetType.dynamicLibrary:
-				if (platform.compiler != "dmd" || platform.platform.canFind("windows") || platform.platform.canFind("osx"))
+				if (platform.compiler != "dmd" || platform.isWindows() || platform.platform.canFind("osx"))
 					settings.addDFlags("-shared");
 				else
 					settings.prependDFlags("-shared", "-defaultlib=libphobos2.so");
+				addDynamicLibName(settings, platform, targetFileName);
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
@@ -349,7 +354,7 @@ config    /etc/dmd.conf
 		}
 
 		if (tpath is null)
-			tpath = (NativePath(settings.targetPath) ~ getTargetFileName(settings, platform)).toNativeString();
+			tpath = (NativePath(settings.targetPath) ~ targetFileName).toNativeString();
 		settings.addDFlags("-of"~tpath);
 	}
 
@@ -397,7 +402,7 @@ config    /etc/dmd.conf
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
 	}
 
-	string[] lflagsToDFlags(in string[] lflags) const
+	string[] lflagsToDFlags(const string[] lflags) const
 	{
         return map!(f => "-L"~f)(lflags.filter!(f => f != "")()).array();
 	}
@@ -410,7 +415,7 @@ config    /etc/dmd.conf
 	static bool isLinkerDFlag(string arg)
 	{
 		switch (arg) {
-			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib", "-m32mscoff", "-betterC":
+			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib", "-m32omf", "-m32mscoff", "-betterC":
 				return true;
 			default:
 				return arg.startsWith("-L")

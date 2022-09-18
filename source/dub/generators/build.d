@@ -12,8 +12,8 @@ import dub.compilers.utils;
 import dub.generators.generator;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
+import dub.internal.logging;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
@@ -29,20 +29,19 @@ import std.encoding : sanitize;
 
 string getObjSuffix(const scope ref BuildPlatform platform)
 {
-    return platform.platform.canFind("windows") ? ".obj" : ".o";
+    return platform.isWindows() ? ".obj" : ".o";
 }
 
-string computeBuildName(string config, GeneratorSettings settings, const string[][] hashing...)
+string computeBuildName(string config, in GeneratorSettings settings, const string[][] hashing...)
 {
-	import std.digest;
-	import std.digest.md;
+	import std.digest.sha : SHA256, toHexString;
 
-	MD5 hash;
+	SHA256 hash;
 	hash.start();
 	void addHash(in string[] strings...) { foreach (s; strings) { hash.put(cast(ubyte[])s); hash.put(0); } hash.put(0); }
 	foreach(strings; hashing)
 		addHash(strings);
-	auto hashstr = hash.finish().toHexString().idup;
+	const hashstr = hash.finish().toHexString();
 
     return format("%s-%s-%s-%s-%s_v%s-%s", config, settings.buildType,
 			settings.platform.platform.join("."),
@@ -64,6 +63,7 @@ class BuildGenerator : ProjectGenerator {
 
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
+		import std.path : setExtension;
 		scope (exit) cleanupTemporaries();
 
 		void checkPkgRequirements(const(Package) pkg)
@@ -77,16 +77,23 @@ class BuildGenerator : ProjectGenerator {
 			checkPkgRequirements(pkg);
 
 		auto root_ti = targets[m_project.rootPackage.name];
+		const rootTT = root_ti.buildSettings.targetType;
 
-		enforce(!(settings.rdmd && root_ti.buildSettings.targetType == TargetType.none),
+		enforce(!(settings.rdmd && rootTT == TargetType.none),
 				"Building package with target type \"none\" with rdmd is not supported yet.");
 
-		logInfo("Performing \"%s\" build using %s for %-(%s, %).",
-			settings.buildType, settings.platform.compilerBinary, settings.platform.architecture);
+		logInfo("Starting", Color.light_green,
+		    "Performing \"%s\" build using %s for %-(%s, %).",
+			settings.buildType.color(Color.magenta), settings.platform.compilerBinary,
+			settings.platform.architecture);
 
 		bool any_cached = false;
 
 		NativePath[string] target_paths;
+
+		NativePath[] dynamicLibDepsFilesToCopy; // to the root package output dir
+		const copyDynamicLibDepsLinkerFiles = rootTT == TargetType.dynamicLibrary || rootTT == TargetType.none;
+		const copyDynamicLibDepsRuntimeFiles = copyDynamicLibDepsLinkerFiles || rootTT == TargetType.executable;
 
 		bool[string] visited;
 		void buildTargetRec(string target)
@@ -101,32 +108,81 @@ class BuildGenerator : ProjectGenerator {
 
 			NativePath[] additional_dep_files;
 			auto bs = ti.buildSettings.dup;
+			const tt = bs.targetType;
 			foreach (ldep; ti.linkDependencies) {
-				if (bs.targetType != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly)) {
-					bs.addSourceFiles(target_paths[ldep].toNativeString());
-				} else {
+				const ldepPath = target_paths[ldep].toNativeString();
+				const doLink = tt != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly);
+
+				if (doLink && isLinkerFile(settings.platform, ldepPath))
+					bs.addSourceFiles(ldepPath);
+				else
 					additional_dep_files ~= target_paths[ldep];
+
+				if (targets[ldep].buildSettings.targetType == TargetType.dynamicLibrary) {
+					// copy the .{dll,so,dylib}
+					if (copyDynamicLibDepsRuntimeFiles)
+						dynamicLibDepsFilesToCopy ~= NativePath(ldepPath);
+
+					if (settings.platform.isWindows()) {
+						// copy the accompanying .pdb if found
+						if (copyDynamicLibDepsRuntimeFiles) {
+							const pdb = ldepPath.setExtension(".pdb");
+							if (existsFile(pdb))
+								dynamicLibDepsFilesToCopy ~= NativePath(pdb);
+						}
+
+						const importLib = ldepPath.setExtension(".lib");
+						if (existsFile(importLib)) {
+							// link dependee against the import lib
+							if (doLink)
+								bs.addSourceFiles(importLib);
+							// and copy
+							if (copyDynamicLibDepsLinkerFiles)
+								dynamicLibDepsFilesToCopy ~= NativePath(importLib);
+						}
+
+						// copy the .exp file if found
+						const exp = ldepPath.setExtension(".exp");
+						if (copyDynamicLibDepsLinkerFiles && existsFile(exp))
+							dynamicLibDepsFilesToCopy ~= NativePath(exp);
+					}
 				}
 			}
 			NativePath tpath;
-			if (bs.targetType != TargetType.none)
+			if (tt != TargetType.none) {
 				if (buildTarget(settings, bs, ti.pack, ti.config, ti.packages, additional_dep_files, tpath))
 					any_cached = true;
+			}
 			target_paths[target] = tpath;
 		}
 
 		// build all targets
-		if (settings.rdmd || root_ti.buildSettings.targetType == TargetType.staticLibrary) {
+		if (settings.rdmd || rootTT == TargetType.staticLibrary) {
 			// RDMD always builds everything at once and static libraries don't need their
 			// dependencies to be built
 			NativePath tpath;
 			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null, tpath);
-		} else {
-			buildTargetRec(m_project.rootPackage.name);
+			return;
+		}
 
-			if (any_cached) {
-				logInfo("To force a rebuild of up-to-date targets, run again with --force.");
+		buildTargetRec(m_project.rootPackage.name);
+
+		if (dynamicLibDepsFilesToCopy.length) {
+			const rootTargetPath = root_ti.buildSettings.targetPath;
+
+			if (!existsFile(rootTargetPath))
+				mkdirRecurse(rootTargetPath);
+
+			foreach (src; dynamicLibDepsFilesToCopy) {
+				logDiagnostic("Copying target from %s to %s", src.toNativeString(), rootTargetPath);
+				hardLinkFile(src, NativePath(rootTargetPath) ~ src.head, true);
 			}
+		}
+
+		if (any_cached) {
+			logInfo("Finished", Color.green,
+				"To force a rebuild of up-to-date targets, run again with --force"
+			);
 		}
 	}
 
@@ -176,9 +232,9 @@ class BuildGenerator : ProjectGenerator {
 
 		// run post-build commands
 		if (!cached && buildsettings.postBuildCommands.length) {
-			logInfo("Running post-build commands...");
+			logInfo("Post-build", Color.light_green, "Running commands");
 			runBuildCommands(CommandType.postBuild, buildsettings.postBuildCommands, pack, m_project, settings, buildsettings,
-							 [["DUB_BUILD_PATH" : target_path.parentPath.toNativeString.absolutePath]]);
+							 [["DUB_BUILD_PATH" : target_path is NativePath.init ? "" : target_path.parentPath.toNativeString.absolutePath]]);
 		}
 
 		return cached;
@@ -197,7 +253,8 @@ class BuildGenerator : ProjectGenerator {
 		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
-			logInfo("%s %s: target for configuration \"%s\" is up to date.", pack.name, pack.version_, config);
+			logInfo("Up-to-date", Color.green, "%s %s: target for configuration [%s] is up to date.",
+				pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
 			logDiagnostic("Using existing build in %s.", target_path.toNativeString());
 			target_binary_path = target_path ~ settings.compiler.getTargetFileName(buildsettings, settings.platform);
 			if (!settings.tempBuild)
@@ -212,10 +269,10 @@ class BuildGenerator : ProjectGenerator {
 			return false;
 		}
 
-		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
+		logInfo("Building", Color.light_green, "%s %s: building configuration [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
 
 		if( buildsettings.preBuildCommands.length ){
-			logInfo("Running pre-build commands...");
+			logInfo("Pre-build", Color.light_green, "Running commands");
 			runBuildCommands(CommandType.preBuild, buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
@@ -277,11 +334,11 @@ class BuildGenerator : ProjectGenerator {
 		flags ~= mainsrc.relativeTo(cwd).toNativeString();
 
 		if (buildsettings.preBuildCommands.length){
-			logInfo("Running pre-build commands...");
+			logInfo("Pre-build", Color.light_green, "Running commands");
 			runCommands(buildsettings.preBuildCommands);
 		}
 
-		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
+		logInfo("Building", Color.light_green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
 
 		logInfo("Running rdmd...");
 		logDiagnostic("rdmd %s", join(flags, " "));
@@ -308,7 +365,7 @@ class BuildGenerator : ProjectGenerator {
 			f = fp.toNativeString();
 		}
 
-		logInfo("%s %s: building configuration \"%s\"...", pack.name, pack.version_, config);
+		logInfo("Building", Color.light_green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
 
 		// make all target/import paths relative
 		string makeRelative(string path) {
@@ -335,7 +392,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		if( buildsettings.preBuildCommands.length ){
-			logInfo("Running pre-build commands...");
+			logInfo("Pre-build", Color.light_green, "Running commands");
 			runBuildCommands(CommandType.preBuild, buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
@@ -359,7 +416,7 @@ class BuildGenerator : ProjectGenerator {
 			buildsettings.importPaths,
 			settings.platform.architecture,
 			[
-				(cast(uint)buildsettings.options).to!string,
+				(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
 				settings.platform.compilerBinary,
 				settings.platform.compiler,
 				settings.platform.compilerVersion,
@@ -369,7 +426,7 @@ class BuildGenerator : ProjectGenerator {
 		return computeBuildName(config, settings, hashing);
 	}
 
-	private void copyTargetFile(NativePath build_path, BuildSettings buildsettings, GeneratorSettings settings)
+	private void copyTargetFile(in NativePath build_path, in BuildSettings buildsettings, in GeneratorSettings settings)
 	{
 		if (!existsFile(NativePath(buildsettings.targetPath)))
 			mkdirRecurse(buildsettings.targetPath);
@@ -378,15 +435,23 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.getTargetFileName(buildsettings, settings.platform)
 		];
 
-		// Windows: add .pdb if found
-		const tt = buildsettings.targetType;
-		if ((tt == TargetType.executable || tt == TargetType.dynamicLibrary) &&
-		    settings.platform.platform.canFind("windows"))
-		{
-			import std.path : setExtension;
-			const pdbFilename = filenames[0].setExtension(".pdb");
-			if (existsFile(build_path ~ pdbFilename))
-				filenames ~= pdbFilename;
+		// Windows: add .pdb (for executables and DLLs) and/or import .lib & .exp (for DLLs) if found
+		if (settings.platform.isWindows()) {
+			void addIfFound(string extension) {
+				import std.path : setExtension;
+				const candidate = filenames[0].setExtension(extension);
+				if (existsFile(build_path ~ candidate))
+					filenames ~= candidate;
+			}
+
+			const tt = buildsettings.targetType;
+			if (tt == TargetType.executable || tt == TargetType.dynamicLibrary)
+				addIfFound(".pdb");
+
+			if (tt == TargetType.dynamicLibrary) {
+				addIfFound(".lib");
+				addIfFound(".exp");
+			}
 		}
 
 		foreach (filename; filenames)
@@ -485,7 +550,7 @@ class BuildGenerator : ProjectGenerator {
 			auto objs = new string[](srcs.walkLength);
 
 			void compileSource(size_t i, string src) {
-				logInfo("Compiling %s...", src);
+				logInfo("Compiling", Color.light_green, "%s", src);
 				const objPath = pathToObjName(settings.platform, src);
 				objs[i] = compileUnit(src, objPath, buildsettings, settings);
 			}
@@ -496,7 +561,7 @@ class BuildGenerator : ProjectGenerator {
 				foreach (i, src; srcs.array) compileSource(i, src);
 			}
 
-			logInfo("Linking...");
+			logInfo("Linking", Color.light_green, "%s", buildsettings.targetName.color(Mode.bold));
 			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)).array;
 			settings.compiler.setTarget(lbuildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(lbuildsettings, settings.platform, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
@@ -535,7 +600,11 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
 
 			if (generate_binary) {
-				logInfo("Linking...");
+				if (settings.tempBuild) {
+					logInfo("Linking", Color.light_green, "%s => %s", buildsettings.targetName.color(Mode.bold), buildsettings.getTargetPath(settings));
+				} else {
+					logInfo("Linking", Color.light_green, "%s", buildsettings.targetName.color(Mode.bold));
+				}
 				settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback);
 			}
 		}
@@ -552,7 +621,7 @@ class BuildGenerator : ProjectGenerator {
 			}
 			if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
 			runPreRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
-			logInfo("Running %s %s", exe_file_path.relativeTo(runcwd), run_args.join(" "));
+			logInfo("Running", Color.green, "%s %s", exe_file_path.relativeTo(runcwd), run_args.join(" "));
 			string[string] env;
 			foreach (aa; [buildsettings.environments, buildsettings.runEnvironments])
 				foreach (k, v; aa)
@@ -579,7 +648,7 @@ class BuildGenerator : ProjectGenerator {
 		in BuildSettings buildsettings)
 	{
 		if (buildsettings.preRunCommands.length) {
-			logInfo("Running pre-run commands...");
+			logInfo("Pre-run", Color.light_green, "Running commands...");
 			runBuildCommands(CommandType.preRun, buildsettings.preRunCommands, pack, proj, settings, buildsettings);
 		}
 	}
@@ -588,7 +657,7 @@ class BuildGenerator : ProjectGenerator {
 		in BuildSettings buildsettings)
 	{
 		if (buildsettings.postRunCommands.length) {
-			logInfo("Running post-run commands...");
+			logInfo("Post-run", Color.light_green, "Running commands...");
 			runBuildCommands(CommandType.postRun, buildsettings.postRunCommands, pack, proj, settings, buildsettings);
 		}
 	}
