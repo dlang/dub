@@ -248,49 +248,6 @@ struct CommandLineHandler
 
 		return cmd;
 	}
-
-	/** Get a configured dub instance.
-
-	Returns:
-		A dub instance
-	*/
-	Dub prepareDub() {
-		Dub dub;
-
-		if (options.bare) {
-			dub = new Dub(NativePath(getcwd()));
-			dub.rootPath = NativePath(options.root_path);
-			dub.defaultPlacementLocation = options.placementLocation;
-
-			return dub;
-		}
-
-		// initialize DUB
-		auto package_suppliers = options.registry_urls
-			.map!((url) {
-				// Allow to specify fallback mirrors as space separated urls. Undocumented as we
-				// should simply retry over all registries instead of using a special
-				// FallbackPackageSupplier.
-				auto urls = url.splitter(' ');
-				PackageSupplier ps = getRegistryPackageSupplier(urls.front);
-				urls.popFront;
-				if (!urls.empty)
-					ps = new FallbackPackageSupplier(ps ~ urls.map!getRegistryPackageSupplier.array);
-				return ps;
-			})
-			.array;
-
-		dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
-		dub.dryRun = options.annotate;
-		dub.defaultPlacementLocation = options.placementLocation;
-
-		// make the CWD package available so that for example sub packages can reference their
-		// parent package.
-		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath.init, false, StrictMode.Warn);
-		catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
-
-		return dub;
-	}
 }
 
 /// Can get the command names
@@ -532,12 +489,8 @@ int runDubCommandLine(string[] args)
 		return 1;
 	}
 
-	Dub dub;
-
 	// initialize the root package
-	if (!cmd.skipDubInitialization) {
-		dub = handler.prepareDub;
-	}
+	Dub dub = cmd.prepareDub(handler.options);
 
 	// execute the command
 	try return cmd.execute(dub, remaining_args, command_args.appArgs);
@@ -787,7 +740,6 @@ class Command {
 	string[] helpText;
 	bool acceptsAppArgs;
 	bool hidden = false; // used for deprecated commands
-	bool skipDubInitialization = false;
 
 	/** Parses all known command line options without executing any actions.
 
@@ -798,6 +750,47 @@ class Command {
 		Only `args.getopt` should be called within this method.
 	*/
 	abstract void prepare(scope CommandArgs args);
+
+	/**
+	 * Initialize the dub instance used by `execute`
+	 */
+	public Dub prepareDub(CommonOptions options) {
+		Dub dub;
+
+		if (options.bare) {
+			dub = new Dub(NativePath(getcwd()));
+			dub.rootPath = NativePath(options.root_path);
+			dub.defaultPlacementLocation = options.placementLocation;
+
+			return dub;
+		}
+
+		// initialize DUB
+		auto package_suppliers = options.registry_urls
+			.map!((url) {
+				// Allow to specify fallback mirrors as space separated urls. Undocumented as we
+				// should simply retry over all registries instead of using a special
+				// FallbackPackageSupplier.
+				auto urls = url.splitter(' ');
+				PackageSupplier ps = getRegistryPackageSupplier(urls.front);
+				urls.popFront;
+				if (!urls.empty)
+					ps = new FallbackPackageSupplier(ps ~ urls.map!getRegistryPackageSupplier.array);
+				return ps;
+			})
+			.array;
+
+		dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
+		dub.dryRun = options.annotate;
+		dub.defaultPlacementLocation = options.placementLocation;
+
+		// make the CWD package available so that for example sub packages can reference their
+		// parent package.
+		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath.init, false, StrictMode.Warn);
+		catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
+
+		return dub;
+	}
 
 	/** Executes the actual action.
 
@@ -2377,9 +2370,16 @@ class DustmiteCommand : PackageBuildCommand {
 
 		// speed up loading when in test mode
 		if (m_testPackage.length) {
-			skipDubInitialization = true;
 			m_nodeps = true;
 		}
+	}
+
+	/// Returns: A minimally-initialized dub instance in test mode
+	override Dub prepareDub(CommonOptions options)
+	{
+		if (!m_testPackage.length)
+			return super.prepareDub(options);
+		return new Dub(NativePath(getcwd()));
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -2387,8 +2387,6 @@ class DustmiteCommand : PackageBuildCommand {
 		import std.format : formattedWrite;
 
 		if (m_testPackage.length) {
-			dub = new Dub(NativePath(getcwd()));
-
 			setupPackage(dub, m_testPackage);
 			m_defaultConfig = dub.project.getDefaultConfiguration(this.baseSettings.platform);
 
