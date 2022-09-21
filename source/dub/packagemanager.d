@@ -701,12 +701,28 @@ class PackageManager {
 			} else {
 				if( !existsDirectory(dst_path.parentPath) )
 					mkdirRecurse(dst_path.parentPath.toNativeString());
+				// for symlinks on posix systems, use the symlink function to
+				// create them. Windows default unzip doesn't handle symlinks,
+				// so we don't need to worry about it for Windows.
+				version(Posix) {
+					import core.sys.posix.sys.stat;
+					if( S_ISLNK(cast(mode_t)a.fileAttributes) ){
+						import core.sys.posix.unistd;
+						// need to convert name and target to zero-terminated string
+						auto target = toStringz(cast(const(char)[])archive.expand(a));
+						auto dstFile = toStringz(dst_path.toNativeString());
+						enforce(symlink(target, dstFile) == 0, "Error creating symlink: " ~ dst_path.toNativeString());
+						goto symlink_exit;
+					}
+				}
+
 				{
 					auto dstFile = openFile(dst_path, FileMode.createTrunc);
 					scope(exit) dstFile.close();
 					dstFile.put(archive.expand(a));
 				}
 				setAttributes(dst_path.toNativeString(), a);
+symlink_exit:
 				++countFiles;
 			}
 		}
