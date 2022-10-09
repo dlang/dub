@@ -183,12 +183,27 @@ class Dub {
 		loading a package.
 
 		This constructor corresponds to the "--bare" option of the command line
-		interface. Use
+		interface.
+
+		Params:
+		  root = The root path of the Dub instance itself.
+		  pkg_root = The root of the location where packages are located
+					 Only packages under this location will be accessible.
+					 Note that packages at the top levels will be ignored.
 	*/
-	this(NativePath override_path)
+	this(NativePath root, NativePath pkg_root)
 	{
+		// Note: We're doing `init()` before setting the `rootPath`,
+		// to prevent `init` from reading the project's settings.
 		init();
-		m_packageManager = new PackageManager(override_path);
+		this.m_rootPath = root;
+		m_packageManager = new PackageManager(pkg_root);
+	}
+
+	deprecated("Use the overload that takes `(NativePath pkg_root, NativePath root)`")
+	this(NativePath pkg_root)
+	{
+		this(pkg_root, pkg_root);
 	}
 
 	private void init()
@@ -361,6 +376,8 @@ class Dub {
 	*/
 	@property NativePath rootPath() const { return m_rootPath; }
 	/// ditto
+	deprecated("Changing the root path is deprecated as it has non-obvious pitfalls " ~
+			   "(e.g. settings aren't reloaded). Instantiate a new `Dub` instead")
 	@property void rootPath(NativePath root_path)
 	{
 		m_rootPath = root_path;
