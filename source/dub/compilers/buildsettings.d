@@ -18,7 +18,7 @@ import std.typecons : BitFlags;
 import std.algorithm.iteration : uniq;
 import std.range : chain;
 
-enum timeoutExitStatus = 11111; // exit status for process when timed out
+enum timeoutExitStatus = 124; // exit status for process when timed out. `timeout` also uses 124.
 
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
