@@ -8,7 +8,7 @@
 module dub.init;
 
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
+import dub.internal.logging;
 import dub.package_ : PackageFormat, packageInfoFiles, defaultPackageFilename;
 import dub.recipe.packagerecipe;
 import dub.dependency;
@@ -38,7 +38,7 @@ import std.string;
 			package recipe and the file format used to store it prior to
 			writing it to disk.
 */
-void initPackage(NativePath root_path, string[string] deps, string type,
+void initPackage(NativePath root_path, VersionRange[string] deps, string type,
 	PackageFormat format, scope RecipeCallback recipe_callback = null)
 {
 	import std.conv : to;
@@ -57,7 +57,6 @@ void initPackage(NativePath root_path, string[string] deps, string type,
 	p.authors ~= username;
 	p.license = "proprietary";
 	foreach (pack, v; deps) {
-		import std.ascii : isDigit;
 		p.buildSettings.dependencies[pack] = Dependency(v);
 	}
 
@@ -193,6 +192,7 @@ docs/
 %1$s.lib
 %1$s-test-*
 *.exe
+*.pdb
 *.o
 *.obj
 *.lst

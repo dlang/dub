@@ -1,0 +1,5 @@
+name "framework"
+targetType "none"
+
+dependency "dep1" path="../dep1"
+subConfiguration "dep1" "dynlib"

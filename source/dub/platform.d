@@ -188,16 +188,14 @@ string determineCompiler()
 */
 bool matchesSpecification(in BuildPlatform platform, const(char)[] specification)
 {
-	import std.string : format;
+	import std.string : chompPrefix, format;
 	import std.algorithm : canFind, splitter;
 	import std.exception : enforce;
 
 	if (specification.empty) return true;
 	if (platform == BuildPlatform.any) return true;
 
-	auto splitted = specification.splitter('-');
-	assert(!splitted.empty, "No valid platform specification! The leading hyphen is required!");
-	splitted.popFront(); // Drop leading empty match.
+	auto splitted = specification.chompPrefix("-").splitter('-');
 	enforce(!splitted.empty, format("Platform specification, if present, must not be empty: \"%s\"", specification));
 
 	if (platform.platform.canFind(splitted.front)) {
@@ -220,16 +218,19 @@ bool matchesSpecification(in BuildPlatform platform, const(char)[] specification
 
 ///
 unittest {
-	auto platform=BuildPlatform(["posix", "linux"], ["x86_64"], "dmd");
+	auto platform = BuildPlatform(["posix", "linux"], ["x86_64"], "dmd");
 	assert(platform.matchesSpecification(""));
-	assert(platform.matchesSpecification("-posix"));
-	assert(platform.matchesSpecification("-linux"));
-	assert(platform.matchesSpecification("-linux-dmd"));
-	assert(platform.matchesSpecification("-linux-x86_64-dmd"));
+	assert(platform.matchesSpecification("posix"));
+	assert(platform.matchesSpecification("linux"));
+	assert(platform.matchesSpecification("linux-dmd"));
+	assert(platform.matchesSpecification("linux-x86_64-dmd"));
+	assert(platform.matchesSpecification("x86_64"));
+	assert(!platform.matchesSpecification("windows"));
+	assert(!platform.matchesSpecification("ldc"));
+	assert(!platform.matchesSpecification("windows-dmd"));
+
+	// Before PR#2279, a leading '-' was required
 	assert(platform.matchesSpecification("-x86_64"));
-	assert(!platform.matchesSpecification("-windows"));
-	assert(!platform.matchesSpecification("-ldc"));
-	assert(!platform.matchesSpecification("-windows-dmd"));
 }
 
 /// Represents a platform a package can be build upon.
@@ -266,6 +267,18 @@ struct BuildPlatform {
 		bp.frontendVersion = 2067;
 		assert(bp.frontendVersionString == "2.067");
 	}
+
+	/// Checks to see if platform field contains windows
+	bool isWindows() const {
+		import std.algorithm : canFind;
+		return this.platform.canFind("windows");
+	}
+	///
+	unittest {
+		BuildPlatform bp;
+		bp.platform = ["windows"];
+		assert(bp.isWindows);
+		bp.platform = ["posix"];
+		assert(!bp.isWindows);
+	}
 }
-
-

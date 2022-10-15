@@ -1,0 +1,4 @@
+The two new build types `cov-ctfe` and `unittest-cov-ctfe` have been added.
+
+These extend the existing build types `cov` and `unittest-cov` respectively by
+appending `-cov=ctfe` to the set of flags passed to the compiler.

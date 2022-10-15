@@ -1,0 +1,14 @@
+Output will now be colorized
+
+Dub output has been improved to be more human readable,
+which means the most important informations in the output
+will now be colorized / bold.
+
+As is usual with CLI tools, this behavior is automatically
+turned on whether the output is a TTY. To force the old output
+in the presence of a TTY, use `--color=off`. To force colored
+output in the absence of a TTY, use `--color=on`.
+
+The `--color` flag, if set to `on` or `off`, is automatically
+forwarded to the compiler. This is especially useful for CI
+pipelines to ensure human-readable output.

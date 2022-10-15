@@ -122,16 +122,18 @@ echo >> "$expected_file"
 # --data=requirements
 echo "allowWarnings" >> "$expected_file"
 echo "disallowInlining" >> "$expected_file"
-#echo "requireContracts" >> "$expected_file"  # Not sure if this (from a sourceLib dependency) should be missing from the result
+echo "requireContracts" >> "$expected_file"
 echo >> "$expected_file"
 # --data=options
 echo "debugMode" >> "$expected_file"
-echo "releaseMode" >> "$expected_file"
+# releaseMode is not included, even though it's specified, because the requireContracts requirement drops it
 echo "debugInfo" >> "$expected_file"
+echo "stackStomping" >> "$expected_file"
 echo "warnings" >> "$expected_file"
-#echo "stackStomping" >> "$expected_file"  # Not sure if this (from a sourceLib dependency) should be missing from the result
 
 if ! diff "$expected_file" "$temp_file"; then
+    echo "Result:"
+    cat "$temp_file"
     die $LINENO 'The project data did not match the expected output!'
 fi
 

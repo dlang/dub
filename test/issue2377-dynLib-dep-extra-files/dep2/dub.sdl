@@ -1,0 +1,11 @@
+name "dep2"
+
+configuration "library" {
+    targetType "staticLibrary"
+    targetPath "output/library"
+}
+
+configuration "dynlib" {
+    targetType "dynamicLibrary"
+    targetPath "output/dynlib"
+}

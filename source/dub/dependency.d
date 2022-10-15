@@ -8,17 +8,18 @@
 module dub.dependency;
 
 import dub.internal.utils;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.semver;
+import dub.internal.logging;
 
 import std.algorithm;
 import std.array;
 import std.exception;
 import std.string;
+import std.sumtype;
 
 
 /** Encapsulates the name of a package along with its dependency specification.
@@ -40,234 +41,165 @@ struct PackageDependency {
 	package name is notably not part of the dependency specification.
 */
 struct Dependency {
-@safe:
+	/// We currently support 3 'types'
+	private alias Value = SumType!(VersionRange, NativePath, Repository);
 
-	private {
-		// Shortcut to create >=0.0.0
-		enum ANY_IDENT = "*";
-		bool m_inclusiveA = true; // A comparison > (true) or >= (false)
-		Version m_versA;
-		bool m_inclusiveB = true; // B comparison < (true) or <= (false)
-		Version m_versB;
-		NativePath m_path;
-		bool m_optional = false;
-		bool m_default = false;
-		Repository m_repository;
-	}
+	/// Used by `toString`
+	private static immutable string[] BooleanOptions = [ "optional", "default" ];
+
+	// Shortcut to create >=0.0.0
+	private enum ANY_IDENT = "*";
+
+	private Value m_value;
+	private bool m_optional;
+	private bool m_default;
 
 	/// A Dependency, which matches every valid version.
-	static @property Dependency any() { return Dependency(ANY_IDENT); }
+	static @property Dependency any() @safe { return Dependency(VersionRange.Any); }
 
 	/// An invalid dependency (with no possible version matches).
-	static @property Dependency invalid() { Dependency ret; ret.m_versA = Version.maxRelease; ret.m_versB = Version.minRelease; return ret; }
+	static @property Dependency invalid() @safe
+	{
+		return Dependency(VersionRange.Invalid);
+	}
+
+	/** Constructs a new dependency specification that matches a specific
+		path.
+	*/
+	this(NativePath path) @safe
+	{
+		this.m_value = path;
+	}
+
+	/** Constructs a new dependency specification that matches a specific
+		Git reference.
+	*/
+	this(Repository repository) @safe
+	{
+		this.m_value = repository;
+	}
 
 	/** Constructs a new dependency specification from a string
 
 		See the `versionSpec` property for a description of the accepted
 		contents of that string.
 	*/
-	this(string spec)
+	this(string spec) @safe
 	{
-		this.versionSpec = spec;
+		this(VersionRange.fromString(spec));
 	}
 
 	/** Constructs a new dependency specification that matches a specific
 		version.
 	*/
-	this(const Version ver)
+	this(const Version ver) @safe
 	{
-		m_inclusiveA = m_inclusiveB = true;
-		m_versA = ver;
-		m_versB = ver;
+		this(VersionRange(ver, ver));
 	}
 
-	/** Constructs a new dependency specification that matches a specific
-		path.
-	*/
-	this(NativePath path)
+	/// Construct a version from a range of possible values
+	this (VersionRange rng) @safe
 	{
-		this(ANY_IDENT);
-		m_path = path;
+		this.m_value = rng;
 	}
 
-	/** Constructs a new dependency specification that matches a specific
-		Git reference.
-	*/
-	this(Repository repository, string spec) {
-		this.versionSpec = spec;
-		this.repository = repository;
+	deprecated("Instantiate the `Repository` struct with the string directy")
+	this(Repository repository, string spec) @safe
+	{
+		assert(repository.m_ref is null);
+		repository.m_ref = spec;
+		this(repository);
 	}
 
 	/// If set, overrides any version based dependency selection.
-	@property void path(NativePath value) { m_path = value; }
-	/// ditto
-	@property NativePath path() const { return m_path; }
-
-	/// If set, overrides any version based dependency selection.
-	@property void repository(Repository value)
+	deprecated("Construct a new `Dependency` object instead")
+	@property void path(NativePath value) @trusted
 	{
-		m_repository = value;
+		this.m_value = value;
+	}
+	/// ditto
+	@property NativePath path() const @safe
+	{
+		return this.m_value.match!(
+			(const NativePath p) => p,
+			(      any         ) => NativePath.init,
+		);
 	}
 
-	/// ditto
-	@property Repository repository() const
+	/// If set, overrides any version based dependency selection.
+	deprecated("Construct a new `Dependency` object instead")
+	@property void repository(Repository value) @trusted
 	{
-		return m_repository;
+		this.m_value = value;
+	}
+	/// ditto
+	@property Repository repository() const @safe
+	{
+		return this.m_value.match!(
+			(const Repository p) => p,
+			(      any         ) => Repository.init,
+		);
 	}
 
 	/// Determines if the dependency is required or optional.
-	@property bool optional() const { return m_optional; }
+	@property bool optional() const scope @safe pure nothrow @nogc
+	{
+		return m_optional;
+	}
 	/// ditto
-	@property void optional(bool optional) { m_optional = optional; }
+	@property void optional(bool optional) scope @safe pure nothrow @nogc
+	{
+		m_optional = optional;
+	}
 
 	/// Determines if an optional dependency should be chosen by default.
-	@property bool default_() const { return m_default; }
+	@property bool default_() const scope @safe pure nothrow @nogc
+	{
+		return m_default;
+	}
 	/// ditto
-	@property void default_(bool value) { m_default = value; }
+	@property void default_(bool value) scope @safe pure nothrow @nogc
+	{
+		m_default = value;
+	}
 
 	/// Returns true $(I iff) the version range only matches a specific version.
-	@property bool isExactVersion() const { return m_versA == m_versB; }
-
-	/// Determines whether it is a Git dependency.
-	@property bool isSCM() const { return !repository.empty; }
+	@property bool isExactVersion() const scope @safe
+	{
+		return this.m_value.match!(
+			(NativePath v) => false,
+			(Repository v) => false,
+			(VersionRange v) => v.isExactVersion(),
+		);
+	}
 
 	/// Returns the exact version matched by the version range.
-	@property Version version_() const {
-		enforce(m_versA == m_versB, "Dependency "~this.versionSpec~" is no exact version.");
-		return m_versA;
+	@property Version version_() const @safe {
+		auto range = this.m_value.match!(
+			(NativePath   p) => assert(0),
+			(Repository   r) => assert(0),
+			(VersionRange v) => v,
+		);
+		enforce(range.isExactVersion(),
+				"Dependency "~range.toString()~" is no exact version.");
+		return range.m_versA;
 	}
 
-	/** Sets/gets the matching version range as a specification string.
-
-		The acceptable forms for this string are as follows:
-
-		$(UL
-			$(LI `"1.0.0"` - a single version in SemVer format)
-			$(LI `"==1.0.0"` - alternative single version notation)
-			$(LI `">1.0.0"` - version range with a single bound)
-			$(LI `">1.0.0 <2.0.0"` - version range with two bounds)
-			$(LI `"~>1.0.0"` - a fuzzy version range)
-			$(LI `"~>1.0"` - a fuzzy version range with partial version)
-			$(LI `"^1.0.0"` - semver compatible version range (same version if 0.x.y, ==major >=minor.patch if x.y.z))
-			$(LI `"^1.0"` - same as ^1.0.0)
-			$(LI `"~master"` - a branch name)
-			$(LI `"*" - match any version (see also `any`))
-		)
-
-		Apart from "$(LT)" and "$(GT)", "$(GT)=" and "$(LT)=" are also valid
-		comparators.
-
-	*/
-	@property void versionSpec(string ves)
+	/// Sets/gets the matching version range as a specification string.
+	deprecated("Create a new `Dependency` instead and provide a `VersionRange`")
+	@property void versionSpec(string ves) @trusted
 	{
-		static import std.string;
-
-		enforce(ves.length > 0);
-
-		if (ves == ANY_IDENT) {
-			// Any version is good.
-			ves = ">=0.0.0";
-		}
-
-		if (ves.startsWith("~>")) {
-			// Shortcut: "~>x.y.z" variant. Last non-zero number will indicate
-			// the base for this so something like this: ">=x.y.z <x.(y+1).z"
-			m_inclusiveA = true;
-			m_inclusiveB = false;
-			ves = ves[2..$];
-			m_versA = Version(expandVersion(ves));
-			m_versB = Version(bumpVersion(ves) ~ "-0");
-		} else if (ves.startsWith("^")) {
-			// Shortcut: "^x.y.z" variant. "Semver compatible" - no breaking changes.
-			// if 0.x.y, ==0.x.y
-			// if x.y.z, >=x.y.z <(x+1).0.0-0
-			// ^x.y is equivalent to ^x.y.0.
-			m_inclusiveA = true;
-			m_inclusiveB = false;
-			ves = ves[1..$].expandVersion;
-			m_versA = Version(ves);
-			m_versB = Version(bumpIncompatibleVersion(ves) ~ "-0");
-		} else if (ves[0] == Version.branchPrefix || ves.isGitHash) {
-			m_inclusiveA = true;
-			m_inclusiveB = true;
-			m_versA = m_versB = Version(ves);
-		} else if (std.string.indexOf("><=", ves[0]) == -1) {
-			m_inclusiveA = true;
-			m_inclusiveB = true;
-			m_versA = m_versB = Version(ves);
-		} else {
-			auto cmpa = skipComp(ves);
-			size_t idx2 = std.string.indexOf(ves, " ");
-			if (idx2 == -1) {
-				if (cmpa == "<=" || cmpa == "<") {
-					m_versA = Version.minRelease;
-					m_inclusiveA = true;
-					m_versB = Version(ves);
-					m_inclusiveB = cmpa == "<=";
-				} else if (cmpa == ">=" || cmpa == ">") {
-					m_versA = Version(ves);
-					m_inclusiveA = cmpa == ">=";
-					m_versB = Version.maxRelease;
-					m_inclusiveB = true;
-				} else {
-					// Converts "==" to ">=a&&<=a", which makes merging easier
-					m_versA = m_versB = Version(ves);
-					m_inclusiveA = m_inclusiveB = true;
-				}
-			} else {
-				enforce(cmpa == ">" || cmpa == ">=", "First comparison operator expected to be either > or >=, not "~cmpa);
-				assert(ves[idx2] == ' ');
-				m_versA = Version(ves[0..idx2]);
-				m_inclusiveA = cmpa == ">=";
-				string v2 = ves[idx2+1..$];
-				auto cmpb = skipComp(v2);
-				enforce(cmpb == "<" || cmpb == "<=", "Second comparison operator expected to be either < or <=, not "~cmpb);
-				m_versB = Version(v2);
-				m_inclusiveB = cmpb == "<=";
-
-				enforce(!m_versA.isBranch && !m_versB.isBranch, format("Cannot compare branches: %s", ves));
-				enforce(m_versA <= m_versB, "First version must not be greater than the second one.");
-			}
-		}
+		this.m_value = VersionRange.fromString(ves);
 	}
+
 	/// ditto
-	@property string versionSpec()
-	const {
-		static import std.string;
-
-		string r;
-
-		if (this == invalid) return "invalid";
-		if (m_versA == m_versB && m_inclusiveA && m_inclusiveB) {
-			// Special "==" case
-			if (m_versA == Version.masterBranch) return "~master";
-			else return m_versA.toString();
-		}
-
-		// "~>", "^" case
-		if (m_inclusiveA && !m_inclusiveB && !m_versA.isBranch) {
-			auto vs = m_versA.toString();
-			auto i1 = std.string.indexOf(vs, '-'), i2 = std.string.indexOf(vs, '+');
-			auto i12 = i1 >= 0 ? i2 >= 0 ? i1 < i2 ? i1 : i2 : i1 : i2;
-			auto va = i12 >= 0 ? vs[0 .. i12] : vs;
-			auto parts = va.splitter('.').array;
-			assert(parts.length == 3, "Version string with a digit group count != 3: "~va);
-
-			foreach (i; 0 .. 3) {
-				auto vp = parts[0 .. i+1].join(".");
-				auto ve = Version(expandVersion(vp));
-				auto veb = Version(bumpVersion(vp) ~ "-0");
-				if (ve == m_versA && veb == m_versB) return "~>" ~ vp;
-
-				auto veb2 = Version(bumpIncompatibleVersion(expandVersion(vp)) ~ "-0");
-				if (ve == m_versA && veb2 == m_versB) return "^" ~ vp;
-			}
-		}
-
-		if (m_versA != Version.minRelease) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
-		if (m_versB != Version.maxRelease) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
-		if (m_versA == Version.minRelease && m_versB == Version.maxRelease) r = ">=0.0.0";
-		return r;
+	deprecated("Use `Dependency.visit` and match `VersionRange`instead")
+	@property string versionSpec() const @safe {
+		return this.m_value.match!(
+			(const NativePath   p) => ANY_IDENT,
+			(const Repository   r) => r.m_ref,
+			(const VersionRange p) => p.toString(),
+		);
 	}
 
 	/** Returns a modified dependency that gets mapped to a given path.
@@ -276,38 +208,39 @@ struct Dependency {
 		based. Otherwise, the given `path` will be prefixed to the existing
 		path.
 	*/
-	Dependency mapToPath(NativePath path)
-	const @trusted { // NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
-		if (m_path.empty || m_path.absolute) return this;
-		else {
-			Dependency ret = this;
-			ret.path = path ~ ret.path;
-			return ret;
-		}
+	Dependency mapToPath(NativePath path) const @trusted {
+		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
+		return this.m_value.match!(
+			(NativePath v) {
+				if (v.empty || v.absolute) return this;
+				return Dependency(path ~ v);
+			},
+			(Repository v) => this,
+			(VersionRange v) => this,
+		);
 	}
 
 	/** Returns a human-readable string representation of the dependency
 		specification.
 	*/
-	string toString()()
-	const {
-		string ret;
+	string toString() const scope @trusted {
+		// Trusted because `SumType.match` doesn't seem to support `scope`
 
-		if (!repository.empty) {
-			ret ~= repository.toString~"#";
+		string Stringifier (T, string pre = null) (const T v)
+		{
+			const bool extra = this.optional || this.default_;
+			return format("%s%s%s%-(%s, %)%s",
+					pre, v,
+					extra ? " (" : "",
+					BooleanOptions[!this.optional .. 1 + this.default_],
+					extra ? ")" : "");
 		}
-		ret ~= versionSpec;
-		if (optional) {
-			if (default_) ret ~= " (optional, default)";
-			else ret ~= " (optional)";
-		}
 
-		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
-		() @trusted {
-			if (!path.empty) ret ~= " @"~path.toNativeString();
-		} ();
-
-		return ret;
+		return this.m_value.match!(
+			Stringifier!Repository,
+			Stringifier!(NativePath, "@"),
+			Stringifier!VersionRange
+		);
 	}
 
 	/** Returns a JSON representation of the dependency specification.
@@ -316,20 +249,44 @@ struct Dependency {
 		string (`versionSpec`), while more complex specifications will be
 		represented as a JSON object with optional "version", "path", "optional"
 		and "default" fields.
+
+		Params:
+		  selections = We are serializing `dub.selections.json`, don't write out
+			  `optional` and `default`.
 	*/
-	Json toJson()
-	const @trusted { // NOTE Path and Json is @system in vibe.d 0.7.x and in the compatibility layer
-		Json json;
-		if( path.empty && repository.empty && !optional ){
-			json = Json(this.versionSpec);
-		} else {
-			json = Json.emptyObject;
-			json["version"] = this.versionSpec;
-			if (!path.empty) json["path"] = path.toString();
-			if (!repository.empty) json["repository"] = repository.toString;
-			if (optional) json["optional"] = true;
-			if (default_) json["default"] = true;
+	Json toJson(bool selections = false) const @safe
+	{
+		// NOTE Path and Json is @system in vibe.d 0.7.x and in the compatibility layer
+		static void initJson(ref Json j, bool opt, bool def, bool s = selections)
+		{
+			j = Json.emptyObject;
+			if (!s && opt) j["optional"] = true;
+			if (!s && def) j["default"] = true;
 		}
+
+		Json json;
+		this.m_value.match!(
+			(const NativePath v) @trusted {
+				initJson(json, optional, default_);
+				json["path"] = v.toString();
+			},
+
+			(const Repository v) @trusted {
+				initJson(json, optional, default_);
+				json["repository"] = v.toString();
+				json["version"] = v.m_ref;
+			},
+
+			(const VersionRange v) @trusted {
+				if (!selections && (optional || default_))
+				{
+					initJson(json, optional, default_);
+					json["version"] = v.toString();
+				}
+				else
+					json = Json(v.toString());
+			},
+		);
 		return json;
 	}
 
@@ -342,12 +299,18 @@ struct Dependency {
 	}
 
 	@trusted unittest {
-		Dependency dependency = Dependency(Repository("git+http://localhost"), "1.0.0");
+		Dependency dependency = Dependency(Repository("git+http://localhost", "1.0.0"));
 		Json expected = Json([
 			"repository": Json("git+http://localhost"),
 			"version": Json("1.0.0")
 		]);
 		assert(dependency.toJson() == expected, "Failed: " ~ dependency.toJson().toPrettyString());
+	}
+
+	@trusted unittest {
+		Dependency d = Dependency(NativePath("dir"));
+		Json expected = Json([ "path": Json("dir") ]);
+		assert(d.toJson() == expected, "Failed: " ~ d.toJson().toPrettyString());
 	}
 
 	/** Constructs a new `Dependency` from its JSON representation.
@@ -362,14 +325,13 @@ struct Dependency {
 				if (auto pv = "version" in verspec)
 					logDiagnostic("Ignoring version specification (%s) for path based dependency %s", pv.get!string, pp.get!string);
 
-				dep = Dependency.any;
-				dep.path = NativePath(verspec["path"].get!string);
+				dep = Dependency(NativePath(verspec["path"].get!string));
 			} else if (auto repository = "repository" in verspec) {
 				enforce("version" in verspec, "No version field specified!");
 				enforce(repository.length > 0, "No repository field specified!");
 
-				dep = Dependency(Repository(repository.get!string),
-						verspec["version"].get!string);
+				dep = Dependency(Repository(
+                                     repository.get!string, verspec["version"].get!string));
 			} else {
 				enforce("version" in verspec, "No version field specified!");
 				auto ver = verspec["version"].get!string;
@@ -396,15 +358,10 @@ struct Dependency {
 			"path": "path/to/package"
 		}
 			`));
-		Dependency d = Dependency.any; // supposed to ignore the version spec
+		Dependency d = NativePath("path/to/package"); // supposed to ignore the version spec
 		d.optional = true;
 		d.default_ = true;
-		d.path = NativePath("path/to/package");
 		assert(d == parsed);
-		// optional and path not checked by opEquals.
-		assert(d.optional == parsed.optional);
-		assert(d.default_ == parsed.default_);
-		assert(d.path == parsed.path);
 	}
 
 	/** Compares dependency specifications.
@@ -412,89 +369,62 @@ struct Dependency {
 		These methods are suitable for equality comparisons, as well as for
 		using `Dependency` as a key in hash or tree maps.
 	*/
-	bool opEquals(const Dependency o)
-	const {
-		// TODO(mdondorff): Check if not comparing the path is correct for all clients.
-		return o.m_inclusiveA == m_inclusiveA && o.m_inclusiveB == m_inclusiveB
-			&& o.m_versA == m_versA && o.m_versB == m_versB
-			&& o.m_optional == m_optional && o.m_default == m_default;
+	bool opEquals(in Dependency o) const scope @safe {
+		if (o.m_optional != this.m_optional) return false;
+		if (o.m_default  != this.m_default)  return false;
+		return this.m_value == o.m_value;
 	}
 
 	/// ditto
-	int opCmp(const Dependency o)
-	const {
-		if (m_inclusiveA != o.m_inclusiveA) return m_inclusiveA < o.m_inclusiveA ? -1 : 1;
-		if (m_inclusiveB != o.m_inclusiveB) return m_inclusiveB < o.m_inclusiveB ? -1 : 1;
-		if (m_versA != o.m_versA) return m_versA < o.m_versA ? -1 : 1;
-		if (m_versB != o.m_versB) return m_versB < o.m_versB ? -1 : 1;
+	int opCmp(in Dependency o) const @safe {
+		alias ResultMatch = match!(
+			(VersionRange r1, VersionRange r2) => r1.opCmp(r2),
+			(_1, _2) => 0,
+		);
+		if (auto result = ResultMatch(this.m_value, o.m_value))
+			return result;
 		if (m_optional != o.m_optional) return m_optional ? -1 : 1;
 		return 0;
-	}
-
-	/// ditto
-	size_t toHash()
-	const nothrow @trusted  {
-		try {
-			size_t hash = 0;
-			hash = m_inclusiveA.hashOf(hash);
-			hash = m_versA.toString().hashOf(hash);
-			hash = m_inclusiveB.hashOf(hash);
-			hash = m_versB.toString().hashOf(hash);
-			hash = m_optional.hashOf(hash);
-			hash = m_default.hashOf(hash);
-			return hash;
-		} catch (Exception) assert(false);
 	}
 
 	/** Determines if this dependency specification is valid.
 
 		A specification is valid if it can match at least one version.
 	*/
-	bool valid() const {
-		if (this.isSCM) return true;
-		return m_versA <= m_versB && doCmp(m_inclusiveA && m_inclusiveB, m_versA, m_versB);
+	bool valid() const @safe {
+		return this.m_value.match!(
+			(NativePath v) => true,
+			(Repository v) => true,
+			(VersionRange v) => v.isValid(),
+		);
 	}
 
 	/** Determines if this dependency specification matches arbitrary versions.
 
 		This is true in particular for the `any` constant.
 	*/
-	bool matchesAny()
-	const {
-		return m_inclusiveA && m_inclusiveB
-			&& m_versA.toString() == "0.0.0"
-			&& m_versB == Version.maxRelease;
-	}
-
-	unittest {
-		assert(Dependency("*").matchesAny);
-		assert(!Dependency(">0.0.0").matchesAny);
-		assert(!Dependency(">=1.0.0").matchesAny);
-		assert(!Dependency("<1.0.0").matchesAny);
+	deprecated("Use `VersionRange.matchesAny` directly")
+	bool matchesAny() const scope @safe {
+		return this.m_value.match!(
+			(NativePath v) => true,
+			(Repository v) => true,
+			(VersionRange v) => v.matchesAny(),
+		);
 	}
 
 	/** Tests if the specification matches a specific version.
 	*/
-	bool matches(string vers) const { return matches(Version(vers)); }
+	bool matches(string vers, VersionMatchMode mode = VersionMatchMode.standard) const @safe
+	{
+		return matches(Version(vers), mode);
+	}
 	/// ditto
-	bool matches(const(Version) v) const { return matches(v); }
-	/// ditto
-	bool matches(ref const(Version) v) const {
-		if (this.matchesAny) return true;
-		if (this.isSCM) return true;
-		//logDebug(" try match: %s with: %s", v, this);
-		// Master only matches master
-		if(m_versA.isBranch) {
-			enforce(m_versA == m_versB);
-			return m_versA == v;
-		}
-		if(v.isBranch || m_versA.isBranch)
-			return m_versA == v;
-		if( !doCmp(m_inclusiveA, m_versA, v) )
-			return false;
-		if( !doCmp(m_inclusiveB, v, m_versB) )
-			return false;
-		return true;
+	bool matches(in  Version v, VersionMatchMode mode = VersionMatchMode.standard) const @safe {
+		return this.m_value.match!(
+			(NativePath i) => true,
+			(Repository i) => true,
+			(VersionRange i) => i.matchesAny() || i.matches(v, mode),
+		);
 	}
 
 	/** Merges two dependency specifications.
@@ -503,72 +433,61 @@ struct Dependency {
 		of versions matched by the individual specifications. Note that this
 		result can be invalid (i.e. not match any version).
 	*/
-	Dependency merge(ref const(Dependency) o)
-	const {
-		if (this.isSCM) {
-			if (!o.isSCM) return this;
-			if (this.m_versA == o.m_versA) return this;
-			return invalid;
-		}
-		if (o.isSCM) return o;
+	Dependency merge(ref const(Dependency) o) const @trusted {
+		alias Merger = match!(
+			(const NativePath a, const NativePath b) => a == b ? this : invalid,
+			(const NativePath a,       any         ) => o,
+			(      any         , const NativePath b) => this,
 
-		if (this.matchesAny) return o;
-		if (o.matchesAny) return this;
-		if (m_versA.isBranch != o.m_versA.isBranch) return invalid;
-		if (m_versB.isBranch != o.m_versB.isBranch) return invalid;
-		if (m_versA.isBranch) return m_versA == o.m_versA ? this : invalid;
-		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
-		if (() @trusted { return this.path != o.path; } ()) return invalid;
+			(const Repository a, const Repository b) => a.m_ref == b.m_ref ? this : invalid,
+			(const Repository a,       any         ) => this,
+			(      any         , const Repository b) => o,
 
-		int acmp = m_versA.opCmp(o.m_versA);
-		int bcmp = m_versB.opCmp(o.m_versB);
+			(const VersionRange a, const VersionRange b) {
+				if (a.matchesAny()) return o;
+				if (b.matchesAny()) return this;
 
-		Dependency d = this;
-		d.m_inclusiveA = !m_inclusiveA && acmp >= 0 ? false : o.m_inclusiveA;
-		d.m_versA = acmp > 0 ? m_versA : o.m_versA;
-		d.m_inclusiveB = !m_inclusiveB && bcmp <= 0 ? false : o.m_inclusiveB;
-		d.m_versB = bcmp < 0 ? m_versB : o.m_versB;
-		d.m_optional = m_optional && o.m_optional;
-		if (!d.valid) return invalid;
+				VersionRange copy = a;
+				copy.merge(b);
+				if (!copy.isValid()) return invalid;
+				return Dependency(copy);
+			}
+		);
 
-		return d;
-	}
-
-	private static bool isDigit(char ch) { return ch >= '0' && ch <= '9'; }
-	private static string skipComp(ref string c) {
-		size_t idx = 0;
-		while (idx < c.length && !isDigit(c[idx]) && c[idx] != Version.branchPrefix) idx++;
-		enforce(idx < c.length, "Expected version number in version spec: "~c);
-		string cmp = idx==c.length-1||idx==0? ">=" : c[0..idx];
-		c = c[idx..$];
-		switch(cmp) {
-			default: enforce(false, "No/Unknown comparison specified: '"~cmp~"'"); return ">=";
-			case ">=": goto case; case ">": goto case;
-			case "<=": goto case; case "<": goto case;
-			case "==": return cmp;
-		}
-	}
-
-	private static bool doCmp(bool inclusive, ref const Version a, ref const Version b) {
-		return inclusive ? a <= b : a < b;
+		Dependency ret = Merger(this.m_value, o.m_value);
+		ret.m_optional = m_optional && o.m_optional;
+		return ret;
 	}
 }
 
+/// Allow direct access to the underlying dependency
+public auto visit (Handlers...) (const auto ref Dependency dep)
+{
+    return dep.m_value.match!(Handlers);
+}
+
+//// Ditto
+public auto visit (Handlers...) (auto ref Dependency dep)
+{
+    return dep.m_value.match!(Handlers);
+}
+
+
 unittest {
 	Dependency a = Dependency(">=1.1.0"), b = Dependency(">=1.3.0");
-	assert (a.merge(b).valid() && a.merge(b).versionSpec == ">=1.3.0", a.merge(b).toString());
+	assert (a.merge(b).valid() && a.merge(b).toString() == ">=1.3.0", a.merge(b).toString());
 
 	assertThrown(Dependency("<=2.0.0 >=1.0.0"));
 	assertThrown(Dependency(">=2.0.0 <=1.0.0"));
 
 	a = Dependency(">=1.0.0 <=5.0.0"); b = Dependency(">=2.0.0");
-	assert (a.merge(b).valid() && a.merge(b).versionSpec == ">=2.0.0 <=5.0.0", a.merge(b).toString());
+	assert (a.merge(b).valid() && a.merge(b).toString() == ">=2.0.0 <=5.0.0", a.merge(b).toString());
 
 	assertThrown(a = Dependency(">1.0.0 ==5.0.0"), "Construction is invalid");
 
 	a = Dependency(">1.0.0"); b = Dependency("<2.0.0");
 	assert (a.merge(b).valid(), a.merge(b).toString());
-	assert (a.merge(b).versionSpec == ">1.0.0 <2.0.0", a.merge(b).toString());
+	assert (a.merge(b).toString() == ">1.0.0 <2.0.0", a.merge(b).toString());
 
 	a = Dependency(">2.0.0"); b = Dependency("<1.0.0");
 	assert (!(a.merge(b)).valid(), a.merge(b).toString());
@@ -713,17 +632,24 @@ unittest {
 	assert(a.merge(b) == b);
 	assert(b.merge(a) == b);
 
+	assert(Dependency("1.0.0").matches(Version("1.0.0+foo")));
+	assert(Dependency("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.standard));
+	assert(!Dependency("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Dependency("1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Dependency("~>1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Dependency("~>1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+
 	logDebug("Dependency unittest success.");
 }
 
 unittest {
-	assert(Dependency("~>1.0.4").versionSpec == "~>1.0.4");
-	assert(Dependency("~>1.4").versionSpec == "~>1.4");
-	assert(Dependency("~>2").versionSpec == "~>2");
-	assert(Dependency("~>1.0.4+1.2.3").versionSpec == "~>1.0.4");
-	assert(Dependency("^0.1.2").versionSpec == "^0.1.2");
-	assert(Dependency("^1.2.3").versionSpec == "^1.2.3");
-	assert(Dependency("^1.2").versionSpec == "~>1.2"); // equivalent; prefer ~>
+	assert(VersionRange.fromString("~>1.0.4").toString() == "~>1.0.4");
+	assert(VersionRange.fromString("~>1.4").toString() == "~>1.4");
+	assert(VersionRange.fromString("~>2").toString() == "~>2");
+	assert(VersionRange.fromString("~>1.0.4+1.2.3").toString() == "~>1.0.4");
+	assert(VersionRange.fromString("^0.1.2").toString() == "^0.1.2");
+	assert(VersionRange.fromString("^1.2.3").toString() == "^1.2.3");
+	assert(VersionRange.fromString("^1.2").toString() == "~>1.2"); // equivalent; prefer ~>
 }
 
 /**
@@ -732,6 +658,7 @@ unittest {
 struct Repository
 {
 	private string m_remote;
+	private string m_ref;
 
 	private Kind m_kind;
 
@@ -743,21 +670,31 @@ struct Repository
 	/**
 		Params:
 			remote = Repository remote.
+			ref_   = Reference to use (SHA1, tag, branch name...)
 	 */
-	this(string remote)
+	this(string remote, string ref_)
 	{
-		if (remote.startsWith("git+"))
-		{
-			m_remote = remote["git+".length .. $];
-			m_kind = Kind.git;
-		}
-		else
-		{
-			throw new Exception("Unsupported repository type");
-		}
+		enforce(remote.startsWith("git+"), "Unsupported repository type (supports: git+URL)");
+
+		m_remote = remote["git+".length .. $];
+		m_kind = Kind.git;
+		m_ref = ref_;
+		assert(m_remote.length);
+		assert(m_ref.length);
 	}
 
-	string toString() nothrow pure @safe
+	/// Ditto
+	deprecated("Use the constructor accepting a second parameter named `ref_`")
+	this(string remote)
+	{
+		enforce(remote.startsWith("git+"), "Unsupported repository type (supports: git+URL)");
+
+		m_remote = remote["git+".length .. $];
+		m_kind = Kind.git;
+		assert(m_remote.length);
+	}
+
+	string toString() const nothrow pure @safe
 	{
 		if (empty) return null;
 		string kindRepresentation;
@@ -774,7 +711,7 @@ struct Repository
 		Returns:
 			Repository URL or path.
 	*/
-	@property string remote() @nogc nothrow pure @safe
+	@property string remote() const @nogc nothrow pure @safe
 	in { assert(m_remote !is null); }
 	do
 	{
@@ -783,9 +720,21 @@ struct Repository
 
 	/**
 		Returns:
+			The reference (commit hash, branch name, tag) we are targeting
+	*/
+	@property string ref_() const @nogc nothrow pure @safe
+	in { assert(m_remote !is null); }
+	in { assert(m_ref !is null); }
+	do
+	{
+		return m_ref;
+	}
+
+	/**
+		Returns:
 			Repository type.
 	*/
-	@property Kind kind() @nogc nothrow pure @safe
+	@property Kind kind() const @nogc nothrow pure @safe
 	{
 		return m_kind;
 	}
@@ -809,10 +758,8 @@ struct Repository
 	Semantic Versioning Specification v2.0.0 at http://semver.org/).
 */
 struct Version {
-@safe:
 	private {
 		static immutable MAX_VERS = "99999.0.0";
-		static immutable UNKNOWN_VERS = "unknown";
 		static immutable masterString = "~master";
 		enum branchPrefix = '~';
 		string m_version;
@@ -821,14 +768,13 @@ struct Version {
 	static immutable Version minRelease = Version("0.0.0");
 	static immutable Version maxRelease = Version(MAX_VERS);
 	static immutable Version masterBranch = Version(masterString);
-	static immutable Version unknown = Version(UNKNOWN_VERS);
 
 	/** Constructs a new `Version` from its string representation.
 	*/
-	this(string vers)
+	this(string vers) @safe pure
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
-		if (vers[0] != branchPrefix && !vers.isGitHash && vers.ptr !is UNKNOWN_VERS.ptr)
+		if (vers[0] != branchPrefix)
 			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);
 		m_version = vers;
 	}
@@ -838,30 +784,44 @@ struct Version {
 		This method is equivalent to calling the constructor and is used as an
 		endpoint for the serialization framework.
 	*/
-	static Version fromString(string vers) { return Version(vers); }
+	static Version fromString(string vers) @safe pure { return Version(vers); }
 
-	bool opEquals(const Version oth) const { return opCmp(oth) == 0; }
-
-	/// Tests if this represents a hash instead of a version.
-	@property bool isSCM() const { return m_version.isGitHash; }
+	bool opEquals(in Version oth) const scope @safe pure
+	{
+		return opCmp(oth) == 0;
+	}
 
 	/// Tests if this represents a branch instead of a version.
-	@property bool isBranch() const { return m_version.length > 0 && m_version[0] == branchPrefix; }
+	@property bool isBranch() const scope @safe pure nothrow @nogc
+	{
+		return m_version.length > 0 && m_version[0] == branchPrefix;
+	}
 
 	/// Tests if this represents the master branch "~master".
-	@property bool isMaster() const { return m_version == masterString; }
+	@property bool isMaster() const scope @safe pure nothrow @nogc
+	{
+		return m_version == masterString;
+	}
 
 	/** Tests if this represents a pre-release version.
 
 		Note that branches are always considered pre-release versions.
 	*/
-	@property bool isPreRelease() const {
-		if (isBranch || isSCM) return true;
+	@property bool isPreRelease() const scope @safe pure nothrow @nogc
+	{
+		if (isBranch) return true;
 		return isPreReleaseVersion(m_version);
 	}
 
-	/// Tests if this represents the special unknown version constant.
-	@property bool isUnknown() const { return m_version == UNKNOWN_VERS; }
+	/** Tests two versions for equality, according to the selected match mode.
+	*/
+	bool matches(in Version other, VersionMatchMode mode = VersionMatchMode.standard)
+	const scope @safe pure
+	{
+		if (mode == VersionMatchMode.strict)
+			return this.toString() == other.toString();
+		return this == other;
+	}
 
 	/** Compares two versions/branches for precedence.
 
@@ -870,18 +830,8 @@ struct Version {
 		compared using SemVer semantics, while branches are compared
 		lexicographically.
 	*/
-	int opCmp(ref const Version other)
-	const {
-		if (isUnknown || other.isUnknown) {
-			throw new Exception("Can't compare unknown versions! (this: %s, other: %s)".format(this, other));
-		}
-
-		if (isSCM || other.isSCM) {
-			if (!isSCM) return -1;
-			if (!other.isSCM) return 1;
-			return m_version == other.m_version ? 0 : 1;
-		}
-
+	int opCmp(in Version other) const scope @safe pure
+	{
 		if (isBranch || other.isBranch) {
 			if(m_version == other.m_version) return 0;
 			if (!isBranch) return 1;
@@ -893,11 +843,256 @@ struct Version {
 
 		return compareVersions(m_version, other.m_version);
 	}
-	/// ditto
-	int opCmp(const Version other) const { return opCmp(other); }
 
 	/// Returns the string representation of the version/branch.
-	string toString() const { return m_version; }
+	string toString() const return scope @safe pure nothrow @nogc
+	{
+		return m_version;
+	}
+}
+
+/**
+ * A range of versions that are acceptable
+ *
+ * While not directly described in SemVer v2.0.0, a common set
+ * of range operators have appeared among package managers.
+ * We mostly NPM's: https://semver.npmjs.com/
+ *
+ * Hence the acceptable forms for this string are as follows:
+ *
+ * $(UL
+ *  $(LI `"1.0.0"` - a single version in SemVer format)
+ *  $(LI `"==1.0.0"` - alternative single version notation)
+ *  $(LI `">1.0.0"` - version range with a single bound)
+ *  $(LI `">1.0.0 <2.0.0"` - version range with two bounds)
+ *  $(LI `"~>1.0.0"` - a fuzzy version range)
+ *  $(LI `"~>1.0"` - a fuzzy version range with partial version)
+ *  $(LI `"^1.0.0"` - semver compatible version range (same version if 0.x.y, ==major >=minor.patch if x.y.z))
+ *  $(LI `"^1.0"` - same as ^1.0.0)
+ *  $(LI `"~master"` - a branch name)
+ *  $(LI `"*" - match any version (see also `VersionRange.Any`))
+ * )
+ *
+ * Apart from "$(LT)" and "$(GT)", "$(GT)=" and "$(LT)=" are also valid
+ * comparators.
+ */
+public struct VersionRange
+{
+	private Version m_versA;
+	private Version m_versB;
+	private bool m_inclusiveA = true; // A comparison > (true) or >= (false)
+	private bool m_inclusiveB = true; // B comparison < (true) or <= (false)
+
+	/// Matches any version
+	public static immutable Any = VersionRange(Version.minRelease, Version.maxRelease);
+	/// Doesn't match any version
+	public static immutable Invalid = VersionRange(Version.maxRelease, Version.minRelease);
+
+	///
+	public int opCmp (in VersionRange o) const scope @safe
+	{
+		if (m_inclusiveA != o.m_inclusiveA) return m_inclusiveA < o.m_inclusiveA ? -1 : 1;
+		if (m_inclusiveB != o.m_inclusiveB) return m_inclusiveB < o.m_inclusiveB ? -1 : 1;
+		if (m_versA != o.m_versA) return m_versA < o.m_versA ? -1 : 1;
+		if (m_versB != o.m_versB) return m_versB < o.m_versB ? -1 : 1;
+		return 0;
+	}
+
+	public bool matches (in Version v, VersionMatchMode mode = VersionMatchMode.standard)
+		const scope @safe
+	{
+		if (m_versA.isBranch) {
+			enforce(this.isExactVersion());
+			return m_versA == v;
+		}
+
+		if (v.isBranch)
+			return m_versA == v;
+
+		if (m_versA == m_versB)
+			return this.m_versA.matches(v, mode);
+
+		return doCmp(m_inclusiveA, m_versA, v) &&
+			doCmp(m_inclusiveB, v, m_versB);
+	}
+
+	/// Modify in place
+	public void merge (const VersionRange o) @safe
+	{
+		int acmp = m_versA.opCmp(o.m_versA);
+		int bcmp = m_versB.opCmp(o.m_versB);
+
+		this.m_inclusiveA = !m_inclusiveA && acmp >= 0 ? false : o.m_inclusiveA;
+		this.m_versA = acmp > 0 ? m_versA : o.m_versA;
+		this.m_inclusiveB = !m_inclusiveB && bcmp <= 0 ? false : o.m_inclusiveB;
+		this.m_versB = bcmp < 0 ? m_versB : o.m_versB;
+	}
+
+	/// Returns true $(I iff) the version range only matches a specific version.
+	@property bool isExactVersion() const scope @safe
+	{
+		return this.m_versA == this.m_versB;
+	}
+
+	/// Determines if this dependency specification matches arbitrary versions.
+	/// This is true in particular for the `any` constant.
+	public bool matchesAny() const scope @safe
+	{
+		return this.m_inclusiveA && this.m_inclusiveB
+			&& this.m_versA == Version.minRelease
+			&& this.m_versB == Version.maxRelease;
+	}
+
+	unittest {
+		assert(VersionRange.fromString("*").matchesAny);
+		assert(!VersionRange.fromString(">0.0.0").matchesAny);
+		assert(!VersionRange.fromString(">=1.0.0").matchesAny);
+		assert(!VersionRange.fromString("<1.0.0").matchesAny);
+	}
+
+	public static VersionRange fromString (string ves) @safe
+	{
+		static import std.string;
+
+		enforce(ves.length > 0);
+
+		if (ves == Dependency.ANY_IDENT) {
+			// Any version is good.
+			ves = ">=0.0.0";
+		}
+
+		if (ves.startsWith("~>")) {
+			// Shortcut: "~>x.y.z" variant. Last non-zero number will indicate
+			// the base for this so something like this: ">=x.y.z <x.(y+1).z"
+			ves = ves[2..$];
+			return VersionRange(
+				Version(expandVersion(ves)), Version(bumpVersion(ves) ~ "-0"),
+				true, false);
+		}
+
+		if (ves.startsWith("^")) {
+			// Shortcut: "^x.y.z" variant. "Semver compatible" - no breaking changes.
+			// if 0.x.y, ==0.x.y
+			// if x.y.z, >=x.y.z <(x+1).0.0-0
+			// ^x.y is equivalent to ^x.y.0.
+			ves = ves[1..$].expandVersion;
+			return VersionRange(
+				Version(ves), Version(bumpIncompatibleVersion(ves) ~ "-0"),
+				true, false);
+		}
+
+		if (ves[0] == Version.branchPrefix) {
+			auto ver = Version(ves);
+			return VersionRange(ver, ver, true, true);
+		}
+
+		if (std.string.indexOf("><=", ves[0]) == -1) {
+			auto ver = Version(ves);
+			return VersionRange(ver, ver, true, true);
+		}
+
+		auto cmpa = skipComp(ves);
+		size_t idx2 = std.string.indexOf(ves, " ");
+		if (idx2 == -1) {
+			if (cmpa == "<=" || cmpa == "<")
+				return VersionRange(Version.minRelease, Version(ves), true, (cmpa == "<="));
+
+			if (cmpa == ">=" || cmpa == ">")
+				return VersionRange(Version(ves), Version.maxRelease, (cmpa == ">="), true);
+
+			// Converts "==" to ">=a&&<=a", which makes merging easier
+			return VersionRange(Version(ves), Version(ves), true, true);
+		}
+
+		enforce(cmpa == ">" || cmpa == ">=",
+				"First comparison operator expected to be either > or >=, not " ~ cmpa);
+		assert(ves[idx2] == ' ');
+		VersionRange ret;
+		ret.m_versA = Version(ves[0..idx2]);
+		ret.m_inclusiveA = cmpa == ">=";
+		string v2 = ves[idx2+1..$];
+		auto cmpb = skipComp(v2);
+		enforce(cmpb == "<" || cmpb == "<=",
+				"Second comparison operator expected to be either < or <=, not " ~ cmpb);
+		ret.m_versB = Version(v2);
+		ret.m_inclusiveB = cmpb == "<=";
+
+		enforce(!ret.m_versA.isBranch && !ret.m_versB.isBranch,
+				format("Cannot compare branches: %s", ves));
+		enforce(ret.m_versA <= ret.m_versB,
+				"First version must not be greater than the second one.");
+
+		return ret;
+	}
+
+	/// Returns a string representation of this range
+	string toString() const @safe {
+		static import std.string;
+
+		string r;
+
+		if (this == Invalid) return "invalid";
+		if (this.isExactVersion() && m_inclusiveA && m_inclusiveB) {
+			// Special "==" case
+			if (m_versA == Version.masterBranch) return "~master";
+			else return m_versA.toString();
+		}
+
+		// "~>", "^" case
+		if (m_inclusiveA && !m_inclusiveB && !m_versA.isBranch) {
+			auto vs = m_versA.toString();
+			auto i1 = std.string.indexOf(vs, '-'), i2 = std.string.indexOf(vs, '+');
+			auto i12 = i1 >= 0 ? i2 >= 0 ? i1 < i2 ? i1 : i2 : i1 : i2;
+			auto va = i12 >= 0 ? vs[0 .. i12] : vs;
+			auto parts = va.splitter('.').array;
+			assert(parts.length == 3, "Version string with a digit group count != 3: "~va);
+
+			foreach (i; 0 .. 3) {
+				auto vp = parts[0 .. i+1].join(".");
+				auto ve = Version(expandVersion(vp));
+				auto veb = Version(bumpVersion(vp) ~ "-0");
+				if (ve == m_versA && veb == m_versB) return "~>" ~ vp;
+
+				auto veb2 = Version(bumpIncompatibleVersion(expandVersion(vp)) ~ "-0");
+				if (ve == m_versA && veb2 == m_versB) return "^" ~ vp;
+			}
+		}
+
+		if (m_versA != Version.minRelease) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
+		if (m_versB != Version.maxRelease) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
+		if (this.matchesAny()) r = ">=0.0.0";
+		return r;
+	}
+
+	public bool isValid() const @safe {
+		return m_versA <= m_versB && doCmp(m_inclusiveA && m_inclusiveB, m_versA, m_versB);
+	}
+
+	private static bool doCmp(bool inclusive, in Version a, in Version b)
+		@safe
+	{
+		return inclusive ? a <= b : a < b;
+	}
+
+	private static bool isDigit(char ch) @safe { return ch >= '0' && ch <= '9'; }
+	private static string skipComp(ref string c) @safe {
+		size_t idx = 0;
+		while (idx < c.length && !isDigit(c[idx]) && c[idx] != Version.branchPrefix) idx++;
+		enforce(idx < c.length, "Expected version number in version spec: "~c);
+		string cmp = idx==c.length-1||idx==0? ">=" : c[0..idx];
+		c = c[idx..$];
+		switch(cmp) {
+			default: enforce(false, "No/Unknown comparison specified: '"~cmp~"'"); return ">=";
+			case ">=": goto case; case ">": goto case;
+			case "<=": goto case; case "<": goto case;
+			case "==": return cmp;
+		}
+	}
+}
+
+enum VersionMatchMode {
+	standard,  /// Match according to SemVer rules
+	strict     /// Also include build metadata suffix in the comparison
 }
 
 unittest {
@@ -954,17 +1149,12 @@ unittest {
 		for(int j=i-1; j>=0; --j)
 			assert(versions[j] < versions[i], "Failed: " ~ versions[j].toString() ~ "<" ~ versions[i].toString());
 
-	a = Version.unknown;
-	b = Version.minRelease;
-	assertThrown(a == b, "Failed: compared " ~ a.toString() ~ " with " ~ b.toString() ~ "");
-
-	a = Version.unknown;
-	b = Version.unknown;
-	assertThrown(a == b, "Failed: UNKNOWN == UNKNOWN");
-
 	assert(Version("1.0.0+a") == Version("1.0.0+b"));
 
-	assert(Version("73535568b79a0b124bc1653002637a830ce0fcb8").isSCM);
+	assert(Version("1.0.0").matches(Version("1.0.0+foo")));
+	assert(Version("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.standard));
+	assert(!Version("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+	assert(Version("1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
 }
 
 /// Determines whether the given string is a Git hash.

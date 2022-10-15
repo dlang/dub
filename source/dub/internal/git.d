@@ -1,7 +1,7 @@
 module dub.internal.git;
 
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
+import dub.internal.logging;
 import std.file;
 import std.string;
 
@@ -65,9 +65,6 @@ else
 // by invoking the "git" executable
 private string determineVersionWithGitTool(NativePath path)
 {
-	import dub.semver;
-	import std.algorithm : canFind;
-	import std.conv : to;
 	import std.process;
 
 	auto git_dir = path ~ ".git";
@@ -81,17 +78,9 @@ private string determineVersionWithGitTool(NativePath path)
 		return null;
 	}
 
-	auto tag = exec("git", git_dir_param, "describe", "--long", "--tags");
-	if (tag !is null) {
-		auto parts = tag.split("-");
-		auto commit = parts[$-1];
-		auto num = parts[$-2].to!int;
-		tag = parts[0 .. $-2].join("-");
-		if (tag.startsWith("v") && isValidVersion(tag[1 .. $])) {
-			if (num == 0) return tag[1 .. $];
-			else if (tag.canFind("+")) return format("%s.commit.%s.%s", tag[1 .. $], num, commit);
-			else return format("%s+commit.%s.%s", tag[1 .. $], num, commit);
-		}
+	if (const describeOutput = exec("git", git_dir_param, "describe", "--long", "--tags")) {
+		if (const ver = determineVersionFromGitDescribe(describeOutput))
+			return ver;
 	}
 
 	auto branch = exec("git", git_dir_param, "rev-parse", "--abbrev-ref", "HEAD");
@@ -100,6 +89,46 @@ private string determineVersionWithGitTool(NativePath path)
 	}
 
 	return null;
+}
+
+private string determineVersionFromGitDescribe(string describeOutput)
+{
+	import dub.semver : isValidVersion;
+	import std.conv : to;
+
+	const parts = describeOutput.split("-");
+	const commit = parts[$-1];
+	const num = parts[$-2].to!int;
+	const tag = parts[0 .. $-2].join("-");
+	if (tag.startsWith("v") && isValidVersion(tag[1 .. $])) {
+		if (num == 0) return tag[1 .. $];
+		const i = tag.indexOf('+');
+		return format("%s%scommit.%s.%s", tag[1 .. $], i >= 0 ? '.' : '+', num, commit);
+	}
+	return null;
+}
+
+unittest {
+	// tag v1.0.0
+	assert(determineVersionFromGitDescribe("v1.0.0-0-deadbeef") == "1.0.0");
+	// 1 commit after v1.0.0
+	assert(determineVersionFromGitDescribe("v1.0.0-1-deadbeef") == "1.0.0+commit.1.deadbeef");
+	// tag v1.0.0+2.0.0
+	assert(determineVersionFromGitDescribe("v1.0.0+2.0.0-0-deadbeef") == "1.0.0+2.0.0");
+	// 12 commits after tag v1.0.0+2.0.0
+	assert(determineVersionFromGitDescribe("v1.0.0+2.0.0-12-deadbeef") == "1.0.0+2.0.0.commit.12.deadbeef");
+	// tag v1.0.0-beta.1
+	assert(determineVersionFromGitDescribe("v1.0.0-beta.1-0-deadbeef") == "1.0.0-beta.1");
+	// 2 commits after tag v1.0.0-beta.1
+	assert(determineVersionFromGitDescribe("v1.0.0-beta.1-2-deadbeef") == "1.0.0-beta.1+commit.2.deadbeef");
+	// tag v1.0.0-beta.2+2.0.0
+	assert(determineVersionFromGitDescribe("v1.0.0-beta.2+2.0.0-0-deadbeef") == "1.0.0-beta.2+2.0.0");
+	// 3 commits after tag v1.0.0-beta.2+2.0.0
+	assert(determineVersionFromGitDescribe("v1.0.0-beta.2+2.0.0-3-deadbeef") == "1.0.0-beta.2+2.0.0.commit.3.deadbeef");
+
+	// invalid tags
+	assert(determineVersionFromGitDescribe("1.0.0-0-deadbeef") is null);
+	assert(determineVersionFromGitDescribe("v1.0-0-deadbeef") is null);
 }
 
 /** Clones a repository into a new directory.

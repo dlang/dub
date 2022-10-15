@@ -1,0 +1,14 @@
+name "dep1"
+dependency "dep2" path="../dep2"
+
+configuration "library" {
+    targetType "staticLibrary"
+    targetPath "output/library"
+    subConfiguration "dep2" "library"
+}
+
+configuration "dynlib" {
+    targetType "dynamicLibrary"
+    targetPath "output/dynlib"
+    subConfiguration "dep2" "dynlib"
+}

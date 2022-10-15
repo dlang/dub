@@ -15,18 +15,48 @@ import core.time : Duration, dur;
 import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
 
+import dub.internal.logging;
+
 import std.algorithm;
 import std.array;
 import std.exception;
 import std.process;
 
+/// Exception thrown in Compiler.determinePlatform if the given architecture is
+/// not supported.
+class UnsupportedArchitectureException : Exception
+{
+	this(string architecture, string file = __FILE__, size_t line = __LINE__, Throwable nextInChain = null) pure nothrow @safe
+	{
+		super("Unsupported architecture: "~architecture, file, line, nextInChain);
+	}
+}
+
+/// Exception thrown in getCompiler if no compiler matches the given name.
+class UnknownCompilerException : Exception
+{
+	this(string compilerName, string file = __FILE__, size_t line = __LINE__, Throwable nextInChain = null) pure nothrow @safe
+	{
+		super("Unknown compiler: "~compilerName, file, line, nextInChain);
+	}
+}
+
+/// Exception thrown in invokeTool and probePlatform if running the compiler
+/// returned non-zero exit code.
+class CompilerInvocationException : Exception
+{
+	this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable nextInChain = null) pure nothrow @safe
+	{
+		super(msg, file, line, nextInChain);
+	}
+}
 
 /** Returns a compiler handler for a given binary name.
 
 	The name will be compared against the canonical name of each registered
 	compiler handler. If no match is found, the sub strings "dmd", "gdc" and
 	"ldc", in this order, will be searched within the name. If this doesn't
-	yield a match either, an exception will be thrown.
+	yield a match either, an $(LREF UnknownCompilerException) will be thrown.
 */
 Compiler getCompiler(string name)
 {
@@ -39,7 +69,7 @@ Compiler getCompiler(string name)
 	if (name.canFind("gdc")) return getCompiler("gdc");
 	if (name.canFind("ldc")) return getCompiler("ldc");
 
-	throw new Exception("Unknown compiler: "~name);
+	throw new UnknownCompilerException(name);
 }
 
 /** Registers a new compiler handler.
@@ -86,7 +116,7 @@ interface Compiler {
 	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback);
 
 	/// Convert linker flags to compiler format
-	string[] lflagsToDFlags(in string[] lflags) const;
+	string[] lflagsToDFlags(const string[] lflags) const;
 
 	/// Determines compiler version
 	string determineVersion(string compiler_binary, string verboseOutput);
@@ -156,10 +186,12 @@ interface Compiler {
 		}
 
 		version (Posix) if (status == -9) {
-			throw new Exception(format("%s failed with exit code %s. This may indicate that the process has run out of memory.",
-				args[0], status));
+			throw new CompilerInvocationException(
+				format("%s failed with exit code %s. This may indicate that the process has run out of memory.",
+					args[0], status));
 		}
-		enforce(status == 0, format("%s failed with exit code %s.", args[0], status));
+		enforce!CompilerInvocationException(status == 0,
+			format("%s failed with exit code %s.", args[0], status));
 	}
 
 	/** Compiles platform probe file with the specified compiler and parses its output.
@@ -177,7 +209,8 @@ interface Compiler {
 		auto fil = generatePlatformProbeFile();
 
 		auto result = executeShell(escapeShellCommand(compiler_binary ~ args ~ fil.toNativeString()));
-		enforce(result.status == 0, format("Failed to invoke the compiler %s to determine the build platform: %s",
+		enforce!CompilerInvocationException(result.status == 0,
+				format("Failed to invoke the compiler %s to determine the build platform: %s",
 				compiler_binary, result.output));
 
 		auto build_platform = readPlatformJsonProbe(result.output);
@@ -197,7 +230,9 @@ interface Compiler {
 		// cmdline option does not lead to the same string being found among
 		// `build_platform.architecture`, as it's brittle and doesn't work with triples.
 		if (build_platform.compiler != "ldc") {
-			if (arch_override.length && !build_platform.architecture.canFind(arch_override)) {
+			if (arch_override.length && !build_platform.architecture.canFind(arch_override) &&
+				!(build_platform.compiler == "dmd" && arch_override.among("x86_omf", "x86_mscoff")) // Will be fixed in determinePlatform
+			) {
 				logWarn(`Failed to apply the selected architecture %s. Got %s.`,
 					arch_override, build_platform.architecture);
 			}

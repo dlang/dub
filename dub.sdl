@@ -12,6 +12,9 @@ configuration "application" {
 	mainSourceFile "source/app.d"
 	libs "curl"
 	versions "DubUseCurl" "DubApplication"
+	// Uncomment to get rich output about the file parsing and json <-> YAML
+	// integrity checks
+	//debugVersions "ConfigFillerDebug"
 }
 
 configuration "library" {

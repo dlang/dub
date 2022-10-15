@@ -10,22 +10,25 @@ module dub.project;
 import dub.compilers.compiler;
 import dub.dependency;
 import dub.description;
+import dub.generators.generator;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
+import dub.internal.logging;
 import dub.package_;
 import dub.packagemanager;
-import dub.generators.generator;
+import dub.recipe.selection;
+
+import configy.Read;
 
 import std.algorithm;
 import std.array;
 import std.conv : to;
 import std.datetime;
+import std.encoding : sanitize;
 import std.exception : enforce;
 import std.string;
-import std.encoding : sanitize;
 
 /**
 	Represents a full project, a root package with its dependencies and package
@@ -38,7 +41,6 @@ import std.encoding : sanitize;
 class Project {
 	private {
 		PackageManager m_packageManager;
-		Json m_packageSettings;
 		Package m_rootPackage;
 		Package[] m_dependencies;
 		Package[][Package] m_dependees;
@@ -63,7 +65,7 @@ class Project {
 			logWarn("There was no package description found for the application in '%s'.", project_path.toNativeString());
 			pack = new Package(PackageRecipe.init, project_path);
 		} else {
-			pack = package_manager.getOrLoadPackage(project_path, packageFile);
+			pack = package_manager.getOrLoadPackage(project_path, packageFile, false, StrictMode.Warn);
 		}
 
 		this(package_manager, pack);
@@ -74,19 +76,15 @@ class Project {
 	{
 		m_packageManager = package_manager;
 		m_rootPackage = pack;
-		m_packageSettings = Json.emptyObject;
 
-		try m_packageSettings = jsonFromFile(m_rootPackage.path ~ ".dub/dub.json", true);
-		catch(Exception t) logDiagnostic("Failed to read .dub/dub.json: %s", t.msg);
-
-		auto selverfile = m_rootPackage.path ~ SelectedVersions.defaultFile;
+		auto selverfile = (m_rootPackage.path ~ SelectedVersions.defaultFile).toNativeString();
 		if (existsFile(selverfile)) {
-			try m_selections = new SelectedVersions(selverfile);
-			catch(Exception e) {
-				logWarn("Failed to load %s: %s", SelectedVersions.defaultFile, e.msg);
-				logDiagnostic("Full error: %s", e.toString().sanitize);
-				m_selections = new SelectedVersions;
-			}
+			// TODO: Remove `StrictMode.Warn` after v1.40 release
+			// The default is to error, but as the previous parser wasn't
+			// complaining, we should first warn the user.
+			auto selected = parseConfigFileSimple!Selected(selverfile, StrictMode.Warn);
+			m_selections = !selected.isNull() ?
+				new SelectedVersions(selected.get()) : new SelectedVersions();
 		} else m_selections = new SelectedVersions;
 
 		reinit();
@@ -199,7 +197,7 @@ class Project {
 				possible configuration instead of the first "executable"
 				configuration.
 	*/
-	string getDefaultConfiguration(BuildPlatform platform, bool allow_non_library_configs = true)
+	string getDefaultConfiguration(in BuildPlatform platform, bool allow_non_library_configs = true)
 	const {
 		auto cfgs = getPackageConfigs(platform, null, allow_non_library_configs);
 		return cfgs[m_rootPackage.name];
@@ -224,6 +222,159 @@ class Project {
 		enforce(p.configurations.canFind(config),
 			format("Package '%s' does not have a configuration named '%s'.", package_, config));
 		m_overriddenConfigs[package_] = config;
+	}
+
+	/** Adds a test runner configuration for the root package.
+
+		Params:
+			generate_main = Whether to generate the main.d file
+			base_config = Optional base configuration
+			custom_main_file = Optional path to file with custom main entry point
+
+		Returns:
+			Name of the added test runner configuration, or null for base configurations with target type `none`
+	*/
+	string addTestRunnerConfiguration(in GeneratorSettings settings, bool generate_main = true, string base_config = "", NativePath custom_main_file = NativePath())
+	{
+		if (base_config.length == 0) {
+			// if a custom main file was given, favor the first library configuration, so that it can be applied
+			if (!custom_main_file.empty) base_config = getDefaultConfiguration(settings.platform, false);
+			// else look for a "unittest" configuration
+			if (!base_config.length && rootPackage.configurations.canFind("unittest")) base_config = "unittest";
+			// if not found, fall back to the first "library" configuration
+			if (!base_config.length) base_config = getDefaultConfiguration(settings.platform, false);
+			// if still nothing found, use the first executable configuration
+			if (!base_config.length) base_config = getDefaultConfiguration(settings.platform, true);
+		}
+
+		BuildSettings lbuildsettings = settings.buildSettings.dup;
+		addBuildSettings(lbuildsettings, settings, base_config, null, true);
+
+		if (lbuildsettings.targetType == TargetType.none) {
+			logInfo(`Configuration '%s' has target type "none". Skipping test runner configuration.`, base_config);
+			return null;
+		}
+
+		if (lbuildsettings.targetType == TargetType.executable && base_config == "unittest") {
+			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
+			return base_config;
+		}
+
+		if (lbuildsettings.sourceFiles.empty) {
+			logInfo(`No source files found in configuration '%s'. Falling back to default configuration for test runner.`, base_config);
+			if (!custom_main_file.empty) logWarn("Ignoring custom main file.");
+			return getDefaultConfiguration(settings.platform);
+		}
+
+		const config = format("%s-test-%s", rootPackage.name.replace(".", "-").replace(":", "-"), base_config);
+		logInfo(`Generating test runner configuration '%s' for '%s' (%s).`, config, base_config, lbuildsettings.targetType);
+
+		BuildSettingsTemplate tcinfo = rootPackage.recipe.getConfiguration(base_config).buildSettings.dup;
+		tcinfo.targetType = TargetType.executable;
+
+		// set targetName unless specified explicitly in unittest base configuration
+		if (tcinfo.targetName.empty || base_config != "unittest")
+			tcinfo.targetName = config;
+
+		auto mainfil = tcinfo.mainSourceFile;
+		if (!mainfil.length) mainfil = rootPackage.recipe.buildSettings.mainSourceFile;
+
+		string custommodname;
+		if (!custom_main_file.empty) {
+			import std.path;
+			tcinfo.sourceFiles[""] ~= custom_main_file.relativeTo(rootPackage.path).toNativeString();
+			tcinfo.importPaths[""] ~= custom_main_file.parentPath.toNativeString();
+			custommodname = custom_main_file.head.name.baseName(".d");
+		}
+
+		// prepare the list of tested modules
+
+		string[] import_modules;
+		if (settings.single)
+			lbuildsettings.importPaths ~= NativePath(mainfil).parentPath.toNativeString;
+		bool firstTimePackage = true;
+		foreach (file; lbuildsettings.sourceFiles) {
+			if (file.endsWith(".d")) {
+				auto fname = NativePath(file).head.name;
+				NativePath msf = NativePath(mainfil);
+				if (msf.absolute)
+					msf = msf.relativeTo(rootPackage.path);
+				if (!settings.single && NativePath(file).relativeTo(rootPackage.path) == msf) {
+					logWarn("Excluding main source file %s from test.", mainfil);
+					tcinfo.excludedSourceFiles[""] ~= mainfil;
+					continue;
+				}
+				if (fname == "package.d") {
+					if (firstTimePackage) {
+						firstTimePackage = false;
+						logDiagnostic("Excluding package.d file from test due to https://issues.dlang.org/show_bug.cgi?id=11847");
+					}
+					continue;
+				}
+				import_modules ~= dub.internal.utils.determineModuleName(lbuildsettings, NativePath(file), rootPackage.path);
+			}
+		}
+
+		NativePath mainfile;
+		if (settings.tempBuild)
+			mainfile = getTempFile("dub_test_root", ".d");
+		else {
+			import dub.generators.build : computeBuildName;
+			mainfile = rootPackage.path ~ format(".dub/code/%s/dub_test_root.d", computeBuildName(config, settings, import_modules));
+		}
+
+		auto escapedMainFile = mainfile.toNativeString().replace("$", "$$");
+		tcinfo.sourceFiles[""] ~= escapedMainFile;
+		tcinfo.mainSourceFile = escapedMainFile;
+		if (!settings.tempBuild) {
+			// add the directory containing dub_test_root.d to the import paths
+			tcinfo.importPaths[""] ~= NativePath(escapedMainFile).parentPath.toNativeString();
+		}
+
+		if (generate_main && (settings.force || !existsFile(mainfile))) {
+			import std.file : mkdirRecurse;
+			mkdirRecurse(mainfile.parentPath.toNativeString());
+
+			auto fil = openFile(mainfile, FileMode.createTrunc);
+			scope(exit) fil.close();
+			fil.write("module dub_test_root;\n");
+			fil.write("import std.typetuple;\n");
+			foreach (mod; import_modules) fil.write(format("static import %s;\n", mod));
+			fil.write("alias allModules = TypeTuple!(");
+			foreach (i, mod; import_modules) {
+				if (i > 0) fil.write(", ");
+				fil.write(mod);
+			}
+			fil.write(");\n");
+			if (custommodname.length) {
+				fil.write(format("import %s;\n", custommodname));
+			} else {
+				fil.write(q{
+import core.runtime;
+
+void main() {
+	version (D_Coverage) {
+	} else {
+		import std.stdio : writeln;
+		writeln("All unit tests have been run successfully.");
+	}
+}
+shared static this() {
+	version (Have_tested) {
+		import tested;
+		import core.runtime;
+		import std.exception;
+		Runtime.moduleUnitTester = () => true;
+		enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
+	}
+}
+					});
+			}
+		}
+
+		rootPackage.recipe.configurations ~= ConfigurationInfo(config, tcinfo);
+
+		return config;
 	}
 
 	/** Performs basic validation of various aspects of the package.
@@ -256,7 +407,7 @@ class Project {
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
 
 		foreach (d; m_rootPackage.getAllDependencies())
-			if (d.spec.isExactVersion && d.spec.version_.isBranch && d.spec.repository.empty) {
+			if (d.spec.isExactVersion && d.spec.version_.isBranch) {
 				logWarn("WARNING: A deprecated branch based version specification is used "
 					~ "for the dependency %s. Please use numbered versions instead. Also "
 					~ "note that you can still use the %s file to override a certain "
@@ -266,16 +417,17 @@ class Project {
 
 		// search for orphan sub configurations
 		void warnSubConfig(string pack, string config) {
-			logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+			logWarn("The sub configuration directive \"%s\" -> [%s] "
 				~ "references a package that is not specified as a dependency "
-				~ "and will have no effect.", pack, config);
+				~ "and will have no effect.", pack.color(Mode.bold), config.color(Color.blue));
 		}
+
 		void checkSubConfig(string pack, string config) {
 			auto p = getDependency(pack, true);
 			if (p && !p.configurations.canFind(config)) {
-				logWarn("The sub configuration directive \"%s\" -> \"%s\" "
+				logWarn("The sub configuration directive \"%s\" -> [%s] "
 					~ "references a configuration that does not exist.",
-					pack, config);
+					pack.color(Mode.bold), config.color(Color.red));
 			}
 		}
 		auto globalbs = m_rootPackage.getBuildSettings();
@@ -300,13 +452,19 @@ class Project {
 
 			foreach (d; pack.getAllDependencies()) {
 				auto basename = getBasePackageName(d.name);
-				if (m_selections.hasSelectedVersion(basename)) {
-					auto selver = m_selections.getSelectedVersion(basename);
-					if (d.spec.merge(selver) == Dependency.invalid) {
-						logWarn("Selected package %s %s does not match the dependency specification %s in package %s. Need to \"dub upgrade\"?",
-							basename, selver, d.spec, pack.name);
-					}
-				}
+				d.spec.visit!(
+					(NativePath path) { /* Valid */ },
+					(Repository repo) { /* Valid */ },
+					(VersionRange vers) {
+						if (m_selections.hasSelectedVersion(basename)) {
+							auto selver = m_selections.getSelectedVersion(basename);
+							if (d.spec.merge(selver) == Dependency.invalid) {
+								logWarn(`Selected package %s %s does not match the dependency specification %s in package %s. Need to "%s"?`,
+									basename.color(Mode.bold), selver, vers, pack.name.color(Mode.bold), "dub upgrade".color(Mode.bold));
+							}
+						}
+					},
+				);
 
 				auto deppack = getDependency(d.name, true);
 				if (deppack in visited) continue;
@@ -323,6 +481,10 @@ class Project {
 		m_dependencies = null;
 		m_missingDependencies = [];
 		m_packageManager.refresh(false);
+
+		Package resolveSubPackage(Package p, string subname, bool silentFail) {
+			return subname.length ? m_packageManager.getSubPackage(p, subname, silentFail) : p;
+		}
 
 		void collectDependenciesRec(Package pack, int depth = 0)
 		{
@@ -341,10 +503,6 @@ class Project {
 				// need to be satisfied
 				bool is_desired = !vspec.optional || m_selections.hasSelectedVersion(basename) || (vspec.default_ && m_selections.bare);
 
-				Package resolveSubPackage(Package p, in bool silentFail) {
-					return subname.length ? m_packageManager.getSubPackage(p, subname, silentFail) : p;
-				}
-
 				if (dep.name == m_rootPackage.basePackage.name) {
 					vspec = Dependency(m_rootPackage.version_);
 					p = m_rootPackage.basePackage;
@@ -358,51 +516,54 @@ class Project {
 					}
 				} else if (m_selections.hasSelectedVersion(basename)) {
 					vspec = m_selections.getSelectedVersion(basename);
-					if (!vspec.path.empty) {
-						auto path = vspec.path;
-						if (!path.absolute) path = m_rootPackage.path ~ path;
-						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-						p = resolveSubPackage(p, true);
-					} else if (!vspec.repository.empty) {
-						p = m_packageManager.loadSCMPackage(basename, vspec);
-						p = resolveSubPackage(p, true);
-					} else {
-						p = m_packageManager.getBestPackage(dep.name, vspec);
-					}
+					p = vspec.visit!(
+						(NativePath path_) {
+							auto path = path_.absolute ? path_ : m_rootPackage.path ~ path_;
+							auto tmp = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
+							return resolveSubPackage(tmp, subname, true);
+						},
+						(Repository repo) {
+							auto tmp = m_packageManager.loadSCMPackage(basename, repo);
+							return resolveSubPackage(tmp, subname, true);
+						},
+						(VersionRange range) {
+							return m_packageManager.getBestPackage(dep.name, range);
+						},
+					);
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
 					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
 					auto bp = m_dependencies[idx].basePackage;
 					vspec = Dependency(bp.path);
-					p = resolveSubPackage(bp, false);
+					p = resolveSubPackage(bp, subname, false);
 				} else {
 					logDiagnostic("%sVersion selection for dependency %s (%s) of %s is missing.",
 						indent, basename, dep.name, pack.name);
 				}
 
-				if (!p && !vspec.repository.empty) {
-					p = m_packageManager.loadSCMPackage(basename, vspec);
-					resolveSubPackage(p, false);
-				}
-
-				if (!p && !vspec.path.empty && is_desired) {
-					NativePath path = vspec.path;
-					if (!path.absolute) path = pack.path ~ path;
-					logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
-					p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-					if (p.parentPackage !is null) {
-						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
-						p = p.parentPackage;
+				// We didn't find the package
+				if (p is null)
+				{
+					if (!vspec.repository.empty) {
+						p = m_packageManager.loadSCMPackage(basename, vspec.repository);
+						resolveSubPackage(p, subname, false);
+					} else if (!vspec.path.empty && is_desired) {
+						NativePath path = vspec.path;
+						if (!path.absolute) path = pack.path ~ path;
+						logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
+						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
+						if (p.parentPackage !is null) {
+							logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
+							p = p.parentPackage;
+						}
+						p = resolveSubPackage(p, subname, false);
+						enforce(p.name == dep.name,
+							format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
+								path.toNativeString(), dep.name, p.name));
+					} else {
+						logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
+						if (is_desired) m_missingDependencies ~= dep.name;
+						continue;
 					}
-					p = resolveSubPackage(p, false);
-					enforce(p.name == dep.name,
-						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
-							path.toNativeString(), dep.name, p.name));
-				}
-
-				if (!p) {
-					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
-					if (is_desired) m_missingDependencies ~= dep.name;
-					continue;
 				}
 
 				if (!m_dependencies.canFind(p)) {
@@ -426,6 +587,10 @@ class Project {
 
 	/// Returns the names of all configurations of the root package.
 	@property string[] configurations() const { return m_rootPackage.configurations; }
+
+	/// Returns the names of all built-in and custom build types of the root package.
+	/// The default built-in build type is the first item in the list.
+	@property string[] builds() const { return builtinBuildTypes ~ m_rootPackage.customBuildTypes; }
 
 	/// Returns a map with the configuration for all packages in the dependency tree.
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
@@ -747,24 +912,24 @@ class Project {
 		return ret;
 	}
 
-	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
+	private string[] listBuildSetting(string attributeName)(ref GeneratorSettings settings,
 		string config, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
-		return listBuildSetting!attributeName(platform, getPackageConfigs(platform, config),
+		return listBuildSetting!attributeName(settings, getPackageConfigs(settings.platform, config),
 			projectDescription, compiler, disableEscaping);
 	}
 
-	private string[] listBuildSetting(string attributeName)(BuildPlatform platform,
+	private string[] listBuildSetting(string attributeName)(ref GeneratorSettings settings,
 		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
 		if (compiler)
-			return formatBuildSettingCompiler!attributeName(platform, configs, projectDescription, compiler, disableEscaping);
+			return formatBuildSettingCompiler!attributeName(settings, configs, projectDescription, compiler, disableEscaping);
 		else
-			return formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
+			return formatBuildSettingPlain!attributeName(settings, configs, projectDescription);
 	}
 
 	// Output a build setting formatted for a compiler
-	private string[] formatBuildSettingCompiler(string attributeName)(BuildPlatform platform,
+	private string[] formatBuildSettingCompiler(string attributeName)(ref GeneratorSettings settings,
 		string[string] configs, ProjectDescription projectDescription, Compiler compiler, bool disableEscaping)
 	{
 		import std.process : escapeShellFileName;
@@ -782,11 +947,12 @@ class Project {
 		case "linkerFiles":
 		case "mainSourceFile":
 		case "importFiles":
-			values = formatBuildSettingPlain!attributeName(platform, configs, projectDescription);
+			values = formatBuildSettingPlain!attributeName(settings, configs, projectDescription);
 			break;
 
 		case "lflags":
 		case "sourceFiles":
+		case "injectSourceFiles":
 		case "versions":
 		case "debugVersions":
 		case "importPaths":
@@ -802,7 +968,7 @@ class Project {
 			else static if (attributeName == "stringImportPaths")
 				bs.stringImportPaths = bs.stringImportPaths.map!(ensureTrailingSlash).array();
 
-			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, settings.platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 			values = bs.dflags;
 			break;
 
@@ -813,7 +979,7 @@ class Project {
 			bs.sourceFiles = null;
 			bs.targetType = TargetType.none; // Force Compiler to NOT omit dependency libs when package is a library.
 
-			compiler.prepareBuildSettings(bs, platform, BuildSetting.all & ~to!BuildSetting(attributeName));
+			compiler.prepareBuildSettings(bs, settings.platform, BuildSetting.all & ~to!BuildSetting(attributeName));
 
 			if (bs.lflags)
 				values = compiler.lflagsToDFlags( bs.lflags );
@@ -834,6 +1000,7 @@ class Project {
 			{
 			case "mainSourceFile":
 			case "linkerFiles":
+			case "injectSourceFiles":
 			case "copyFiles":
 			case "importFiles":
 			case "stringImportFiles":
@@ -851,7 +1018,7 @@ class Project {
 	}
 
 	// Output a build setting without formatting for any particular compiler
-	private string[] formatBuildSettingPlain(string attributeName)(BuildPlatform platform, string[string] configs, ProjectDescription projectDescription)
+	private string[] formatBuildSettingPlain(string attributeName)(ref GeneratorSettings settings, string[string] configs, ProjectDescription projectDescription)
 	{
 		import std.path : buildNormalizedPath, dirSeparator;
 		import std.range : only;
@@ -868,6 +1035,12 @@ class Project {
 		auto targetDescription = projectDescription.lookupTarget(projectDescription.rootPackage);
 		auto buildSettings = targetDescription.buildSettings;
 
+		string[] substituteCommands(Package pack, string[] commands, CommandType type)
+		{
+			auto env = makeCommandEnvironmentVariables(type, pack, this, settings, buildSettings);
+			return processVars(this, pack, settings, commands, false, env);
+		}
+
 		// Return any BuildSetting member attributeName as a range of strings. Don't attempt to fixup values.
 		// allowEmptyString: When the value is a string (as opposed to string[]),
 		//                   is empty string an actual permitted value instead of
@@ -875,7 +1048,9 @@ class Project {
 		auto getRawBuildSetting(Package pack, bool allowEmptyString) {
 			auto value = __traits(getMember, buildSettings, attributeName);
 
-			static if( is(typeof(value) == string[]) )
+			static if( attributeName.endsWith("Commands") )
+				return substituteCommands(pack, value, mixin("CommandType.", attributeName[0 .. $ - "Commands".length]));
+			else static if( is(typeof(value) == string[]) )
 				return value;
 			else static if( is(typeof(value) == string) )
 			{
@@ -894,9 +1069,9 @@ class Project {
 				return value.byKeyValue.map!(a => a.key ~ "=" ~ a.value);
 			else static if( is(typeof(value) == enum) )
 				return only(value);
-			else static if( is(typeof(value) == BuildRequirements) )
+			else static if( is(typeof(value) == Flags!BuildRequirement) )
 				return only(cast(BuildRequirement) cast(int) value.values);
-			else static if( is(typeof(value) == BuildOptions) )
+			else static if( is(typeof(value) == Flags!BuildOption) )
 				return only(cast(BuildOption) cast(int) value.values);
 			else
 				static assert(false, "Type of BuildSettings."~attributeName~" is unsupported.");
@@ -914,7 +1089,8 @@ class Project {
 			enum isRelativeFile =
 				attributeName == "sourceFiles" || attributeName == "linkerFiles" ||
 				attributeName == "importFiles" || attributeName == "stringImportFiles" ||
-				attributeName == "copyFiles" || attributeName == "mainSourceFile";
+				attributeName == "copyFiles" || attributeName == "mainSourceFile" ||
+				attributeName == "injectSourceFiles";
 
 			// For these, empty string means "main project directory", not "missing value"
 			enum allowEmptyString =
@@ -955,7 +1131,7 @@ class Project {
 
 	// The "compiler" arg is for choosing which compiler the output should be formatted for,
 	// or null to imply "list" format.
-	private string[] listBuildSetting(BuildPlatform platform, string[string] configs,
+	private string[] listBuildSetting(ref GeneratorSettings settings, string[string] configs,
 		ProjectDescription projectDescription, string requestedData, Compiler compiler, bool disableEscaping)
 	{
 		// Certain data cannot be formatter for a compiler
@@ -974,6 +1150,8 @@ class Project {
 			case "post-generate-commands":
 			case "pre-build-commands":
 			case "post-build-commands":
+			case "pre-run-commands":
+			case "post-run-commands":
 			case "environments":
 			case "build-environments":
 			case "run-environments":
@@ -983,11 +1161,11 @@ class Project {
 			case "post-build-environments":
 			case "pre-run-environments":
 			case "post-run-environments":
-				enforce(false, "--data="~requestedData~" can only be used with --data-list or --data-0.");
+				enforce(false, "--data="~requestedData~" can only be used with `--data-list` or `--data-list --data-0`.");
 				break;
 
 			case "requirements":
-				enforce(false, "--data=requirements can only be used with --data-list or --data-0. Use --data=options instead.");
+				enforce(false, "--data=requirements can only be used with `--data-list` or `--data-list --data-0`. Use --data=options instead.");
 				break;
 
 			default: break;
@@ -995,7 +1173,7 @@ class Project {
 		}
 
 		import std.typetuple : TypeTuple;
-		auto args = TypeTuple!(platform, configs, projectDescription, compiler, disableEscaping);
+		auto args = TypeTuple!(settings, configs, projectDescription, compiler, disableEscaping);
 		switch (requestedData)
 		{
 		case "target-type":                return listBuildSetting!"targetType"(args);
@@ -1008,6 +1186,7 @@ class Project {
 		case "libs":                       return listBuildSetting!"libs"(args);
 		case "linker-files":               return listBuildSetting!"linkerFiles"(args);
 		case "source-files":               return listBuildSetting!"sourceFiles"(args);
+		case "inject-source-files":        return listBuildSetting!"injectSourceFiles"(args);
 		case "copy-files":                 return listBuildSetting!"copyFiles"(args);
 		case "extra-dependency-files":     return listBuildSetting!"extraDependencyFiles"(args);
 		case "versions":                   return listBuildSetting!"versions"(args);
@@ -1080,7 +1259,7 @@ class Project {
 		}
 
 		auto result = requestedData
-			.map!(dataName => listBuildSetting(settings.platform, configs, projectDescription, dataName, compiler, no_escape));
+			.map!(dataName => listBuildSetting(settings, configs, projectDescription, dataName, compiler, no_escape));
 
 		final switch (list_type) with (ListBuildSettingsFormat) {
 			case list: return result.map!(l => l.join("\n")).array();
@@ -1116,42 +1295,6 @@ class Project {
 	{
 		return null;
 	}
-
-	/** Sets a new set of versions for the upgrade cache.
-	*/
-	void setUpgradeCache(Dependency[string] versions)
-	{
-		logDebug("markUpToDate");
-		Json create(ref Json json, string object) {
-			if (json[object].type == Json.Type.undefined) json[object] = Json.emptyObject;
-			return json[object];
-		}
-		create(m_packageSettings, "dub");
-		m_packageSettings["dub"]["lastUpgrade"] = Clock.currTime().toISOExtString();
-
-		create(m_packageSettings["dub"], "cachedUpgrades");
-		foreach (p, d; versions)
-			m_packageSettings["dub"]["cachedUpgrades"][p] = SelectedVersions.dependencyToJson(d);
-
-		writeDubJson();
-	}
-
-	private void writeDubJson() {
-		import std.file : exists, mkdir;
-		// don't bother to write an empty file
-		if( m_packageSettings.length == 0 ) return;
-
-		try {
-			logDebug("writeDubJson");
-			auto dubpath = m_rootPackage.path~".dub";
-			if( !exists(dubpath.toNativeString()) ) mkdir(dubpath.toNativeString());
-			auto dstFile = openFile((dubpath~"dub.json").toString(), FileMode.createTrunc);
-			scope(exit) dstFile.close();
-			dstFile.writePrettyJsonString(m_packageSettings);
-		} catch( Exception e ){
-			logWarn("Could not write .dub/dub.json.");
-		}
-	}
 }
 
 
@@ -1163,19 +1306,8 @@ enum ListBuildSettingsFormat {
 	commandLineNul, /// NUL character separated list entries (unescaped, data lists separated by two NUL characters)
 }
 
-
-/// Indicates where a package has been or should be placed to.
-enum PlacementLocation {
-	/// Packages retrieved with 'local' will be placed in the current folder
-	/// using the package name as destination.
-	local,
-	/// Packages with 'userWide' will be placed in a folder accessible by
-	/// all of the applications from the current user.
-	user,
-	/// Packages retrieved with 'systemWide' will be placed in a shared folder,
-	/// which can be accessed by all users of the system.
-	system
-}
+deprecated("Use `dub.packagemanager : PlacementLocation` instead")
+public alias PlacementLocation = dub.packagemanager.PlacementLocation;
 
 void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	BuildSettings settings, in GeneratorSettings gsettings, bool include_target_settings = false)
@@ -1200,22 +1332,16 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addPostBuildEnvironments(processVerEnvs(settings.postBuildEnvironments, gsettings.buildSettings.postBuildEnvironments));
 	dst.addPreRunEnvironments(processVerEnvs(settings.preRunEnvironments, gsettings.buildSettings.preRunEnvironments));
 	dst.addPostRunEnvironments(processVerEnvs(settings.postRunEnvironments, gsettings.buildSettings.postRunEnvironments));
-	
+
 	auto buildEnvs = [dst.environments, dst.buildEnvironments];
-	auto runEnvs = [dst.environments, dst.runEnvironments];
-	auto preGenEnvs = [dst.environments, dst.preGenerateEnvironments];
-	auto postGenEnvs = [dst.environments, dst.postGenerateEnvironments];
-	auto preBuildEnvs = buildEnvs ~ [dst.preBuildEnvironments];
-	auto postBuildEnvs = buildEnvs ~ [dst.postBuildEnvironments];
-	auto preRunEnvs = runEnvs ~ [dst.preRunEnvironments];
-	auto postRunEnvs = runEnvs ~ [dst.postRunEnvironments];
-	
+
 	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags, false, buildEnvs));
 	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags, false, buildEnvs));
 	dst.addLibs(processVars(project, pack, gsettings, settings.libs, false, buildEnvs));
 	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true, buildEnvs));
 	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true, buildEnvs));
 	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true, buildEnvs));
+	dst.addInjectSourceFiles(processVars!true(project, pack, gsettings, settings.injectSourceFiles, true, buildEnvs));
 	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true, buildEnvs));
 	dst.addExtraDependencyFiles(processVars(project, pack, gsettings, settings.extraDependencyFiles, true, buildEnvs));
 	dst.addVersions(processVars(project, pack, gsettings, settings.versions, false, buildEnvs));
@@ -1224,14 +1350,16 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters, false, buildEnvs));
 	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true, buildEnvs));
 	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true, buildEnvs));
-	dst.addPreGenerateCommands(processVars(project, pack, gsettings, settings.preGenerateCommands, false, preGenEnvs));
-	dst.addPostGenerateCommands(processVars(project, pack, gsettings, settings.postGenerateCommands, false, postGenEnvs));
-	dst.addPreBuildCommands(processVars(project, pack, gsettings, settings.preBuildCommands, false, preBuildEnvs));
-	dst.addPostBuildCommands(processVars(project, pack, gsettings, settings.postBuildCommands, false, postBuildEnvs));
-	dst.addPreRunCommands(processVars(project, pack, gsettings, settings.preRunCommands, false, preRunEnvs));
-	dst.addPostRunCommands(processVars(project, pack, gsettings, settings.postRunCommands, false, postRunEnvs));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
+
+	// commands are substituted in dub.generators.generator : runBuildCommands
+	dst.addPreGenerateCommands(settings.preGenerateCommands);
+	dst.addPostGenerateCommands(settings.postGenerateCommands);
+	dst.addPreBuildCommands(settings.preBuildCommands);
+	dst.addPostBuildCommands(settings.postBuildCommands);
+	dst.addPreRunCommands(settings.preRunCommands);
+	dst.addPostRunCommands(settings.postRunCommands);
 
 	if (include_target_settings) {
 		dst.targetType = settings.targetType;
@@ -1244,13 +1372,13 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	}
 }
 
-private string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false, in string[string][] extraVers = null)
+string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
 {
 	auto ret = appender!(string[])();
 	processVars!glob(ret, project, pack, gsettings, vars, are_paths, extraVers);
 	return ret.data;
 }
-private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[] vars, bool are_paths = false, in string[string][] extraVers = null)
+void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
 {
 	static if (glob)
 		alias process = processVarsWithGlob!(Project, Package);
@@ -1260,7 +1388,7 @@ private void processVars(bool glob = false)(ref Appender!(string[]) dst, in Proj
 		dst.put(process(var, project, pack, gsettings, are_paths, extraVers));
 }
 
-private string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers = null)
+string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers = null)
 {
 	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings, extraVers));
 	if (!is_path)
@@ -1271,13 +1399,13 @@ private string processVars(Project, Package)(string var, in Project project, in 
 	else
 		return p.toNativeString();
 }
-private string[string] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, string[string] vars, in string[string][] extraVers = null)
+string[string] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers = null)
 {
 	string[string] ret;
 	processVars!glob(ret, project, pack, gsettings, vars, extraVers);
 	return ret;
 }
-private void processVars(bool glob = false)(ref string[string] dst, in Project project, in Package pack, in GeneratorSettings gsettings, string[string] vars, in string[string][] extraVers)
+void processVars(bool glob = false)(ref string[string] dst, in Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers)
 {
 	static if (glob)
 		alias process = processVarsWithGlob!(Project, Package);
@@ -1299,6 +1427,7 @@ private string[] processVarsWithGlob(Project, Package)(string var, in Project pr
 		{
 		case '*', '?', '[', '{': break loop;
 		case '/': sepIdx = i; goto default;
+		version (Windows) { case '\\': sepIdx = i; goto default; }
 		default: ++i; break switch_;
 		}
 	}
@@ -1396,6 +1525,25 @@ unittest
 	assert(expandVars!expandVar("$${DUB_EXE:-dub}") == "${DUB_EXE:-dub}");
 }
 
+/// Expands the variables in the input string with the same rules as command
+/// variables inside custom dub commands.
+///
+/// Params:
+///     s = the input string where environment variables in form `$VAR` should be replaced
+///     throwIfMissing = if true, throw an exception if the given variable is not found,
+///                      otherwise replace unknown variables with the empty string.
+string expandEnvironmentVariables(string s, bool throwIfMissing = true)
+{
+	import std.process : environment;
+
+	return expandVars!((v) {
+		auto ret = environment.get(v);
+		if (ret is null && throwIfMissing)
+			throw new Exception("Specified environment variable `$" ~ v ~ "` is not set");
+		return ret;
+	})(s);
+}
+
 // Keep the following list up-to-date if adding more build settings variables.
 /// List of variables that can be used in build settings
 package(dub) immutable buildSettingsVars = [
@@ -1469,7 +1617,7 @@ private string getVariable(Project, Package)(string name, in Project project, in
 		else if (name == "LFLAGS")
 			return join(buildSettings.lflags," ");
 	}
-	
+
 	import std.range;
 	foreach (aa; retro(extraVars))
 		if (auto exvar = name in aa)
@@ -1554,13 +1702,9 @@ unittest
 	"dub.selections.json" within a package's directory.
 */
 final class SelectedVersions {
-	private struct Selected {
-		Dependency dep;
-		//Dependency[string] packages;
-	}
 	private {
 		enum FileVersion = 1;
-		Selected[string] m_selections;
+		Selected m_selections;
 		bool m_dirty = false; // has changes since last save
 		bool m_bare = true;
 	}
@@ -1569,13 +1713,24 @@ final class SelectedVersions {
 	enum defaultFile = "dub.selections.json";
 
 	/// Constructs a new empty version selection.
-	this() {}
+	public this(uint version_ = FileVersion) @safe pure nothrow @nogc
+	{
+		this.m_selections = Selected(version_);
+	}
+
+	/// Constructs a new non-empty version selection.
+	public this(Selected data) @safe pure nothrow @nogc
+	{
+		this.m_selections = data;
+		this.m_bare = false;
+	}
 
 	/** Constructs a new version selection from JSON data.
 
 		The structure of the JSON document must match the contents of the
 		"dub.selections.json" file.
 	*/
+	deprecated("Pass a `dub.recipe.selection : Selected` directly")
 	this(Json data)
 	{
 		deserialize(data);
@@ -1584,6 +1739,7 @@ final class SelectedVersions {
 
 	/** Constructs a new version selections from an existing JSON file.
 	*/
+	deprecated("JSON deserialization is deprecated")
 	this(NativePath path)
 	{
 		auto json = jsonFromFile(path);
@@ -1593,7 +1749,7 @@ final class SelectedVersions {
 	}
 
 	/// Returns a list of names for all packages that have a version selection.
-	@property string[] selectedPackages() const { return m_selections.keys; }
+	@property string[] selectedPackages() const { return m_selections.versions.keys; }
 
 	/// Determines if any changes have been made after loading the selections from a file.
 	@property bool dirty() const { return m_dirty; }
@@ -1604,62 +1760,69 @@ final class SelectedVersions {
 	/// Removes all selections.
 	void clear()
 	{
-		m_selections = null;
+		m_selections.versions = null;
 		m_dirty = true;
 	}
 
 	/// Duplicates the set of selected versions from another instance.
 	void set(SelectedVersions versions)
 	{
-		m_selections = versions.m_selections.dup;
+		m_selections.fileVersion = versions.m_selections.fileVersion;
+		m_selections.versions = versions.m_selections.versions.dup;
 		m_dirty = true;
 	}
 
 	/// Selects a certain version for a specific package.
 	void selectVersion(string package_id, Version version_)
 	{
-		if (auto ps = package_id in m_selections) {
-			if (ps.dep == Dependency(version_))
+		if (auto pdep = package_id in m_selections.versions) {
+			if (*pdep == Dependency(version_))
 				return;
 		}
-		m_selections[package_id] = Selected(Dependency(version_)/*, issuer*/);
+		m_selections.versions[package_id] = Dependency(version_);
 		m_dirty = true;
 	}
 
 	/// Selects a certain path for a specific package.
 	void selectVersion(string package_id, NativePath path)
 	{
-		if (auto ps = package_id in m_selections) {
-			if (ps.dep == Dependency(path))
+		if (auto pdep = package_id in m_selections.versions) {
+			if (*pdep == Dependency(path))
 				return;
 		}
-		m_selections[package_id] = Selected(Dependency(path));
+		m_selections.versions[package_id] = Dependency(path);
 		m_dirty = true;
 	}
 
 	/// Selects a certain Git reference for a specific package.
-	void selectVersionWithRepository(string package_id, Repository repository, string spec)
+	void selectVersion(string package_id, Repository repository)
 	{
-		const dependency = Dependency(repository, spec);
-		if (auto ps = package_id in m_selections) {
-			if (ps.dep == dependency)
+		const dependency = Dependency(repository);
+		if (auto pdep = package_id in m_selections.versions) {
+			if (*pdep == dependency)
 				return;
 		}
-		m_selections[package_id] = Selected(dependency);
+		m_selections.versions[package_id] = dependency;
 		m_dirty = true;
+	}
+
+	deprecated("Move `spec` inside of the `repository` parameter and call `selectVersion`")
+	void selectVersionWithRepository(string package_id, Repository repository, string spec)
+	{
+		this.selectVersion(package_id, Repository(repository.remote(), spec));
 	}
 
 	/// Removes the selection for a particular package.
 	void deselectVersion(string package_id)
 	{
-		m_selections.remove(package_id);
+		m_selections.versions.remove(package_id);
 		m_dirty = true;
 	}
 
 	/// Determines if a particular package has a selection set.
 	bool hasSelectedVersion(string packageId)
 	const {
-		return (packageId in m_selections) !is null;
+		return (packageId in m_selections.versions) !is null;
 	}
 
 	/** Returns the selection for a particular package.
@@ -1672,7 +1835,7 @@ final class SelectedVersions {
 	Dependency getSelectedVersion(string packageId)
 	const {
 		enforce(hasSelectedVersion(packageId));
-		return m_selections[packageId].dep;
+		return m_selections.versions[packageId];
 	}
 
 	/** Stores the selections to disk.
@@ -1709,17 +1872,13 @@ final class SelectedVersions {
 		m_bare = false;
 	}
 
+	deprecated("Use `dub.dependency : Dependency.toJson(true)`")
 	static Json dependencyToJson(Dependency d)
 	{
-		if (!d.repository.empty) {
-			return serializeToJson([
-				"version": d.version_.toString(),
-				"repository": d.repository.toString,
-			]);
-		} else if (d.path.empty) return Json(d.version_.toString());
-		else return serializeToJson(["path": d.path.toString()]);
+		return d.toJson(true);
 	}
 
+	deprecated("JSON deserialization is deprecated")
 	static Dependency dependencyFromJson(Json j)
 	{
 		if (j.type == Json.Type.string)
@@ -1727,8 +1886,8 @@ final class SelectedVersions {
 		else if (j.type == Json.Type.object && "path" in j)
 			return Dependency(NativePath(j["path"].get!string));
 		else if (j.type == Json.Type.object && "repository" in j)
-			return Dependency(Repository(j["repository"].get!string),
-				enforce("version" in j, "Expected \"version\" field in repository version object").get!string);
+			return Dependency(Repository(j["repository"].get!string,
+				enforce("version" in j, "Expected \"version\" field in repository version object").get!string));
 		else throw new Exception(format("Unexpected type for dependency: %s", j));
 	}
 
@@ -1736,19 +1895,22 @@ final class SelectedVersions {
 	const {
 		Json json = serializeToJson(m_selections);
 		Json serialized = Json.emptyObject;
-		serialized["fileVersion"] = FileVersion;
+		serialized["fileVersion"] = m_selections.fileVersion;
 		serialized["versions"] = Json.emptyObject;
-		foreach (p, v; m_selections)
-			serialized["versions"][p] = dependencyToJson(v.dep);
+		foreach (p, dep; m_selections.versions)
+			serialized["versions"][p] = dep.toJson(true);
 		return serialized;
 	}
 
+	deprecated("JSON deserialization is deprecated")
 	private void deserialize(Json json)
 	{
-		enforce(cast(int)json["fileVersion"] == FileVersion, "Mismatched dub.select.json version: " ~ to!string(cast(int)json["fileVersion"]) ~ "vs. " ~to!string(FileVersion));
+		const fileVersion = json["fileVersion"].get!int;
+		enforce(fileVersion == FileVersion, "Mismatched dub.selections.json version: " ~ to!string(fileVersion) ~ " vs. " ~ to!string(FileVersion));
 		clear();
+		m_selections.fileVersion = fileVersion;
 		scope(failure) clear();
-		foreach (string p, v; json["versions"])
-			m_selections[p] = Selected(dependencyFromJson(v));
+		foreach (string p, dep; json["versions"])
+			m_selections.versions[p] = dependencyFromJson(dep);
 	}
 }

@@ -9,8 +9,8 @@ module dub.recipe.sdl;
 
 import dub.compilers.compiler;
 import dub.dependency;
+import dub.internal.logging;
 import dub.internal.sdlang;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
 import dub.recipe.packagerecipe;
 
@@ -64,15 +64,9 @@ void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 	// parse general build settings
 	parseBuildSettings(sdl, recipe.buildSettings, full_name);
 
-	// determine default target type for configurations
-	auto defttype = recipe.buildSettings.targetType;
-	if (defttype == TargetType.autodetect)
-		defttype = TargetType.library;
-
 	// parse configurations
 	recipe.configurations.length = configs.length;
 	foreach (i, n; configs) {
-		recipe.configurations[i].buildSettings.targetType = defttype;
 		parseConfiguration(n, recipe.configurations[i], full_name);
 	}
 
@@ -153,6 +147,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "sourcePaths": setting.parsePlatformStringArray(bs.sourcePaths); break;
 		case "excludedSourceFiles": setting.parsePlatformStringArray(bs.excludedSourceFiles); break;
 		case "mainSourceFile": bs.mainSourceFile = setting.stringTagValue; break;
+		case "injectSourceFiles": setting.parsePlatformStringArray(bs.injectSourceFiles); break;
 		case "copyFiles": setting.parsePlatformStringArray(bs.copyFiles); break;
 		case "extraDependencyFiles": setting.parsePlatformStringArray(bs.extraDependencyFiles); break;
 		case "versions": setting.parsePlatformStringArray(bs.versions); break;
@@ -192,18 +187,15 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	auto attrs = t.attributes;
 
 	if ("path" in attrs) {
-		if ("version" in attrs)
-			logDiagnostic("Ignoring version specification (%s) for path based dependency %s", attrs["version"][0].value.get!string, attrs["path"][0].value.get!string);
-		dep.versionSpec = "*";
-		dep.path = NativePath(attrs["path"][0].value.get!string);
+		dep = Dependency(NativePath(attrs["path"][0].value.get!string));
 	} else if ("repository" in attrs) {
 		enforceSDL("version" in attrs, "Missing version specification.", t);
 
-		dep.repository = Repository(attrs["repository"][0].value.get!string);
-		dep.versionSpec = attrs["version"][0].value.get!string;
+		dep = Dependency(Repository(attrs["repository"][0].value.get!string,
+                                    attrs["version"][0].value.get!string));
 	} else {
 		enforceSDL("version" in attrs, "Missing version specification.", t);
-		dep.versionSpec = attrs["version"][0].value.get!string;
+		dep = Dependency(attrs["version"][0].value.get!string);
 	}
 
 	if ("optional" in attrs)
@@ -215,8 +207,7 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 	bs.dependencies[pkg] = dep;
 
 	BuildSettingsTemplate dbs;
-	parseBuildSettings(t, dbs, package_name);
-	bs.dependencyBuildSettings[pkg] = dbs;
+	parseBuildSettings(t, bs.dependencies[pkg].settings, package_name);
 }
 
 private void parseConfiguration(Tag t, ref ConfigurationInfo ret, string package_name)
@@ -244,12 +235,12 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	void add(string name, string value, string namespace = null) { ret ~= new Tag(namespace, name, [Value(value)]); }
 	void adda(string name, string suffix, in string[] values, string namespace = null) {
 		ret ~= new Tag(namespace, name, values[].map!(v => Value(v)).array,
-			suffix.length ? [new Attribute(null, "platform", Value(suffix[1 .. $]))] : null);
+			suffix.length ? [new Attribute(null, "platform", Value(suffix))] : null);
 	}
 	void addaa(string name, string suffix, in string[string] values, string namespace = null) {
 		foreach (k, v; values) {
 			ret ~= new Tag(namespace, name, [Value(k), Value(v)],
-				suffix.length ? [new Attribute(null, "platform", Value(suffix[1 .. $]))] : null);
+				suffix.length ? [new Attribute(null, "platform", Value(suffix))] : null);
 		}
 	}
 
@@ -263,13 +254,22 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 
 	foreach (pack, d; bs.dependencies) {
 		Attribute[] attribs;
-		if (!d.repository.empty) attribs ~= new Attribute(null, "repository", Value(d.repository.toString()));
-		if (!d.path.empty) attribs ~= new Attribute(null, "path", Value(d.path.toString()));
-		else attribs ~= new Attribute(null, "version", Value(d.versionSpec));
+		d.visit!(
+			(const Repository	r) {
+				attribs ~= new Attribute(null, "repository", Value(r.toString()));
+				attribs ~= new Attribute(null, "version", Value(r.ref_));
+			},
+			(const NativePath	p) {
+				attribs ~= new Attribute(null, "path", Value(p.toString()));
+			},
+			(const VersionRange v) {
+				attribs ~= new Attribute(null, "version", Value(v.toString()));
+			},
+		);
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
 		auto t = new Tag(null, "dependency", [Value(pack)], attribs);
-		if (pack in bs.dependencyBuildSettings)
-			t.add(bs.dependencyBuildSettings[pack].toSDL());
+		if (d.settings !is typeof(d.settings).init)
+			t.add(d.settings.toSDL());
 		ret ~= t;
 	}
 	if (bs.systemDependencies !is null) add("systemDependencies", bs.systemDependencies);
@@ -285,6 +285,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.sourceFiles) adda("sourceFiles", suffix, arr);
 	foreach (suffix, arr; bs.sourcePaths) adda("sourcePaths", suffix, arr);
 	foreach (suffix, arr; bs.excludedSourceFiles) adda("excludedSourceFiles", suffix, arr);
+	foreach (suffix, arr; bs.injectSourceFiles) adda("injectSourceFiles", suffix, arr);
 	foreach (suffix, arr; bs.copyFiles) adda("copyFiles", suffix, arr);
 	foreach (suffix, arr; bs.extraDependencyFiles) adda("extraDependencyFiles", suffix, arr);
 	foreach (suffix, arr; bs.versions) adda("versions", suffix, arr);
@@ -371,7 +372,7 @@ private void parsePlatformStringArray(Tag t, ref string[][string] dst)
 {
 	string platform;
 	if ("platform" in t.attributes)
-		platform = "-" ~ t.attributes["platform"][0].value.get!string;
+		platform = t.attributes["platform"][0].value.get!string;
 	dst[platform] ~= t.values.map!(v => v.get!string).array;
 }
 private void parsePlatformStringAA(Tag t, ref string[string][string] dst)
@@ -379,7 +380,7 @@ private void parsePlatformStringAA(Tag t, ref string[string][string] dst)
 	import std.string : format;
 	string platform;
 	if ("platform" in t.attributes)
-		platform = "-" ~ t.attributes["platform"][0].value.get!string;
+		platform = t.attributes["platform"][0].value.get!string;
 	enforceSDL(t.values.length == 2, format("Values for '%s' must be 2 required.", t.fullName), t);
 	enforceSDL(t.values[0].peek!string !is null, format("Values for '%s' must be strings.", t.fullName), t);
 	enforceSDL(t.values[1].peek!string !is null, format("Values for '%s' must be strings.", t.fullName), t);
@@ -390,7 +391,7 @@ private void parsePlatformEnumArray(E, Es)(Tag t, ref Es[string] dst)
 {
 	string platform;
 	if ("platform" in t.attributes)
-		platform = "-" ~ t.attributes["platform"][0].value.get!string;
+		platform = t.attributes["platform"][0].value.get!string;
 	foreach (v; t.values) {
 		if (platform !in dst) dst[platform] = Es.init;
 		dst[platform] |= v.get!string.to!E;
@@ -464,6 +465,7 @@ sourcePaths "sourcepath3"
 excludedSourceFiles "excluded1" "excluded2"
 excludedSourceFiles "excluded3"
 mainSourceFile "main source"
+injectSourceFiles "finalbinarysourcefile.d" "extrafile"
 copyFiles "copy1" "copy2"
 copyFiles "copy3"
 extraDependencyFiles "extradepfile1" "extradepfile2"
@@ -548,10 +550,9 @@ lflags "lf3"
 	assert(rec.buildSettings.dependencies.length == 2);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].optional == false);
 	assert(rec.buildSettings.dependencies["projectname:subpackage1"].path == NativePath("."));
-	assert(rec.buildSettings.dependencyBuildSettings["projectname:subpackage1"].dflags == ["":["-g", "-debug"]]);
-	assert(rec.buildSettings.dependencies["somedep"].versionSpec == "1.0.0");
+	assert(rec.buildSettings.dependencies["projectname:subpackage1"].settings.dflags == ["":["-g", "-debug"]]);
+	assert(rec.buildSettings.dependencies["somedep"].version_.toString() == "1.0.0");
 	assert(rec.buildSettings.dependencies["somedep"].optional == true);
-	assert(rec.buildSettings.dependencies["somedep"].path.empty);
 	assert(rec.buildSettings.systemDependencies == "system dependencies");
 	assert(rec.buildSettings.targetType == TargetType.executable);
 	assert(rec.buildSettings.targetName == "target name");
@@ -559,14 +560,15 @@ lflags "lf3"
 	assert(rec.buildSettings.workingDirectory == "working directory");
 	assert(rec.buildSettings.subConfigurations.length == 1);
 	assert(rec.buildSettings.subConfigurations["projectname:subpackage2"] == "library");
-	assert(rec.buildSettings.buildRequirements == ["": cast(BuildRequirements)(BuildRequirement.allowWarnings | BuildRequirement.silenceDeprecations)]);
-	assert(rec.buildSettings.buildOptions == ["": cast(BuildOptions)(BuildOption.verbose | BuildOption.ignoreUnknownPragmas)]);
+	assert(rec.buildSettings.buildRequirements == ["": cast(Flags!BuildRequirement)(BuildRequirement.allowWarnings | BuildRequirement.silenceDeprecations)]);
+	assert(rec.buildSettings.buildOptions == ["": cast(Flags!BuildOption)(BuildOption.verbose | BuildOption.ignoreUnknownPragmas)]);
 	assert(rec.buildSettings.libs == ["": ["lib1", "lib2", "lib3"]]);
 	assert(rec.buildSettings.sourceFiles == ["": ["source1", "source2", "source3"]]);
 	assert(rec.buildSettings.sourcePaths == ["": ["sourcepath1", "sourcepath2", "sourcepath3"]]);
 	assert(rec.buildSettings.excludedSourceFiles == ["": ["excluded1", "excluded2", "excluded3"]]);
 	assert(rec.buildSettings.mainSourceFile == "main source");
-	assert(rec.buildSettings.copyFiles == ["": ["copy1", "copy2", "copy3"]]);
+	assert(rec.buildSettings.sourceFiles == ["": ["source1", "source2", "source3"]]);
+	assert(rec.buildSettings.injectSourceFiles == ["": ["finalbinarysourcefile.d", "extrafile"]]);
 	assert(rec.buildSettings.extraDependencyFiles == ["": ["extradepfile1", "extradepfile2", "extradepfile3"]]);
 	assert(rec.buildSettings.versions == ["": ["version1", "version2", "version3"]]);
 	assert(rec.buildSettings.debugVersions == ["": ["debug1", "debug2", "debug3"]]);
@@ -606,9 +608,9 @@ dflags "-j" platform="linux"
 	PackageRecipe rec;
 	parseSDL(rec, sdl, null, "testfile");
 	assert(rec.buildSettings.dflags.length == 3);
-	assert(rec.buildSettings.dflags["-windows-x86"] == ["-a", "-b", "-c"]);
+	assert(rec.buildSettings.dflags["windows-x86"] == ["-a", "-b", "-c"]);
 	assert(rec.buildSettings.dflags[""] == ["-e", "-f", "-g"]);
-	assert(rec.buildSettings.dflags["-linux"] == ["-h", "-i", "-j"]);
+	assert(rec.buildSettings.dflags["linux"] == ["-h", "-i", "-j"]);
 }
 
 unittest { // test for missing name field
@@ -638,7 +640,7 @@ unittest { // test basic serialization
 	PackageRecipe p;
 	p.name = "test";
 	p.authors = ["foo", "bar"];
-	p.buildSettings.dflags["-windows"] = ["-a"];
+	p.buildSettings.dflags["windows"] = ["-a"];
 	p.buildSettings.lflags[""] = ["-b", "-c"];
 	auto sdl = toSDL(p).toSDLDocument();
 	assert(sdl ==
@@ -665,15 +667,15 @@ dependency "package" repository="git+https://some.url" version="12345678"
 	parseSDL(rec, sdl, null, "testfile");
 	auto dependency = rec.buildSettings.dependencies["package"];
 	assert(!dependency.repository.empty);
-	assert(dependency.versionSpec == "12345678");
+	assert(dependency.repository.ref_ == "12345678");
 }
 
 unittest {
 	PackageRecipe p;
 	p.name = "test";
 
-	auto repository = Repository("git+https://some.url");
-	p.buildSettings.dependencies["package"] = Dependency(repository, "12345678");
+	auto repository = Repository("git+https://some.url", "12345678");
+	p.buildSettings.dependencies["package"] = Dependency(repository);
 	auto sdl = toSDL(p).toSDLDocument();
 	assert(sdl ==
 `name "test"

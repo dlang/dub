@@ -1,0 +1,9 @@
+The override system is deprecated
+
+Dub had an "override" system, allowing a specific version or version range
+to be overriden by a specific package.
+This override system was developed with a purely version-based approach in mind,
+however since its inception, more ways to specify dependencies have been added,
+making the override approach redundant and less flexible than other approaches.
+From this release, dub will warn you if it finds an override file,
+or when using the `dub add-override` / `dub remove-override` commands.

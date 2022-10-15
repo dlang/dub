@@ -1,0 +1,11 @@
+{
+    "name": "dynlib-exe-dep",
+	"targetType": "executable",
+    "dependencies": {
+        "dynlib-simple": { "path": "../1-dynLib-simple/" }
+    },
+    "lflags-linux": ["-rpath", "$$ORIGIN"],
+    "lflags-darwin": ["-rpath", "@executable_path"],
+    "dflags-ldc": ["-link-defaultlib-shared"]
+
+}

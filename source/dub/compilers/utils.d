@@ -9,10 +9,10 @@ module dub.compilers.utils;
 
 import dub.compilers.buildsettings;
 import dub.platform : BuildPlatform, archCheck, compilerCheck, platformCheck;
-import dub.internal.vibecompat.core.log;
 import dub.internal.vibecompat.inet.path;
-import std.algorithm : canFind, endsWith, filter;
+import dub.internal.logging;
 
+import std.algorithm : canFind, endsWith, filter;
 
 /**
 	Alters the build options to comply with the specified build requirements.
@@ -47,9 +47,9 @@ bool isLinkerFile(const scope ref BuildPlatform platform, string f)
 		default:
 			return false;
 		case ".lib", ".obj", ".res", ".def":
-			return platform.platform.canFind("windows");
+			return platform.isWindows();
 		case ".a", ".o", ".so", ".dylib":
-			return !platform.platform.canFind("windows");
+			return !platform.isWindows();
 	}
 }
 
@@ -74,6 +74,25 @@ unittest {
 
 
 /**
+	Adds a default DT_SONAME (ELF) / 'install name' (Mach-O) when linking a dynamic library.
+	This makes dependees reference their dynamic-lib deps by filename only (DT_NEEDED etc.)
+	instead of by the path used in the dependee linker cmdline, and enables loading the
+	deps from the dependee's output directory - either by setting the LD_LIBRARY_PATH
+	environment variable, or baking an rpath into the executable.
+*/
+package void addDynamicLibName(ref BuildSettings settings, in BuildPlatform platform, string fileName)
+{
+	if (!platform.isWindows()) {
+		// *pre*pend to allow the user to override it
+		if (platform.platform.canFind("darwin"))
+			settings.prependLFlags("-install_name", "@rpath/" ~ fileName);
+		else
+			settings.prependLFlags("-soname", fileName);
+	}
+}
+
+
+/**
 	Replaces each referenced import library by the appropriate linker flags.
 
 	This function tries to invoke "pkg-config" if possible and falls back to
@@ -89,7 +108,7 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 	if (settings.targetType == TargetType.library || settings.targetType == TargetType.staticLibrary) {
 		logDiagnostic("Ignoring all import libraries for static library build.");
 		settings.libs = null;
-		if (platform.platform.canFind("windows"))
+		if (platform.isWindows())
 			settings.sourceFiles = settings.sourceFiles.filter!(f => !f.endsWith(".lib")).array;
 	}
 
@@ -143,11 +162,11 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 	equivalent.
 
 	Certain compiler flags should, instead of using compiler-specific syntax,
-	be specified as build options (`BuildOptions`) or built requirements
+	be specified as build options (`BuildOption`) or built requirements
 	(`BuildRequirements`). This function will output warning messages to
 	assist the user in making the best choice.
 */
-void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, string package_name, string config_name)
+void warnOnSpecialCompilerFlags(string[] compiler_flags, Flags!BuildOption options, string package_name, string config_name)
 {
 	import std.algorithm : any, endsWith, startsWith;
 	import std.range : empty;
@@ -170,6 +189,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 		{["-D"], "Call dub with --build=docs or --build=ddox"},
 		{["-X"], "Call dub with --build=ddox"},
 		{["-cov"], "Call dub with --build=cov or --build=unittest-cov"},
+		{["-cov=ctfe"], "Call dub with --build=cov-ctfe or --build=unittest-cov-ctfe"},
 		{["-profile"], "Call dub with --build=profile"},
 		{["-version="], `Use "versions" to specify version constants in a compiler independent way`},
 		{["-debug="], `Use "debugVersions" to specify version constants in a compiler independent way`},
@@ -186,6 +206,7 @@ void warnOnSpecialCompilerFlags(string[] compiler_flags, BuildOptions options, s
 		{[BuildOption.debugMode], "Call DUB with --build=debug"},
 		{[BuildOption.releaseMode], "Call DUB with --build=release"},
 		{[BuildOption.coverage], "Call DUB with --build=cov or --build=unittest-cov"},
+		{[BuildOption.coverageCTFE], "Call DUB with --build=cov-ctfe or --build=unittest-cov-ctfe"},
 		{[BuildOption.debugInfo], "Call DUB with --build=debug"},
 		{[BuildOption.inline], "Call DUB with --build=release"},
 		{[BuildOption.noBoundsCheck], "Call DUB with --build=release-nobounds"},

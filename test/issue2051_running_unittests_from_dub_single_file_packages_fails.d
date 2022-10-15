@@ -7,7 +7,7 @@ import std.conv : text;
 import std.file : tempDir;
 import std.stdio : File, writeln;
 import std.string : lineSplitter;
-import std.path : buildPath;
+import std.path : buildPath, buildNormalizedPath;
 import std.process : environment, executeShell;
 
 auto executeCommand(string command)
@@ -28,11 +28,15 @@ int main()
 	auto dub = environment.get("DUB");
 	if (!dub.length)
 		dub = buildPath(".", "bin", "dub");
-
+        
+    string destinationDirectory = tempDir;
+    // remove any ending slahes (which can for some reason be added at the end by tempDir, which fails on OSX) https://issues.dlang.org/show_bug.cgi?id=22738
+    destinationDirectory = buildNormalizedPath(destinationDirectory);
+    
 	string filename;
 	// check if the single file package with dependency compiles and runs
 	{
-		filename = tempDir.buildPath("issue2051_success.d");
+		filename = destinationDirectory.buildPath("issue2051_success.d");
 		auto f = File(filename, "w");
 		f.write(
 `#!/usr/bin/env dub
@@ -61,7 +65,7 @@ unittest
 `		);
 	}
 
-	const rc1 = text(dub, " test --single ", filename).executeCommand;
+	const rc1 = text(dub, " test --single \"", filename, "\"").executeCommand;
 	if (rc1)
 		writeln("\nError. Unittests failed.");
 	else
@@ -69,7 +73,7 @@ unittest
 
 	// Check if dub `test` command runs unittests for single file package
 	{
-		filename = tempDir.buildPath("issue2051_fail.d");
+		filename = destinationDirectory.buildPath("issue2051_fail.d");
 		auto f = File(filename, "w");
 		f.write(
 `#!/usr/bin/env dub
@@ -89,7 +93,7 @@ unittest
 `		);
 	}
 
-	const rc2 = text(dub, " test --single ", filename).executeCommand;
+	const rc2 = text(dub, " test --single \"", filename, "\"").executeCommand;
 	if (rc2)
 		writeln("\nOk. Unittests failed.");
 	else

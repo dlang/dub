@@ -1,0 +1,3 @@
+module vars;
+
+int valueStoredHere;

@@ -1,7 +1,7 @@
 module dynlib.app;
 import std.stdio;
 
-void entry()
+export void entry()
 {
     writeln(__FUNCTION__);
 }
