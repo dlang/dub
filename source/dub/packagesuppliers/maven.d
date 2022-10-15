@@ -124,7 +124,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		// This enables retrival of dub packages on dub run
 		auto md = getMetadata(query);
 		if (md.type == Json.Type.null_)
-			return [];
+			return null;
 		auto json = getBestPackage(md, query, Dependency.any, true);
 		return [SearchResult(json["name"].opt!string, "", json["version"].opt!string)];
 	}
