@@ -1691,7 +1691,9 @@ struct Node
                                Pair(k3, Node(cast(real)1.0)),
                                Pair(k4, Node("yarly"))]);
 
-            foreach(scope string key, scope Node value; nmap2)
+            // DUB: `scope` in `foreach` not supported before 2.098
+            int dummy; // Otherwise the delegate is infered as a function
+            nmap2.opApply((scope string key, scope Node value)
             {
                 switch(key)
                 {
@@ -1701,7 +1703,8 @@ struct Node
                     case "14": assert(value.as!string == "yarly"); break;
                     default:   assert(false);
                 }
-            }
+                return dummy;
+            });
             const nmap3 = nmap2;
 
             foreach(const Node key, const Node value; nmap3)

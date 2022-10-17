@@ -392,38 +392,45 @@ public:
             tag = tid;
         }
 
-        static if (isCopyable!(const(T)))
+        // DUB: Those traits compile work around bugs in < v2.098
+        static if (!__traits(compiles, { T c = const(T).init; }))
         {
-            static if (IndexOf!(const(T), Map!(ConstOf, Types)) == tid)
+            static if (isCopyable!(const(T)))
             {
-                /// ditto
-                this(const(T) value) const
+                static if (IndexOf!(const(T), Map!(ConstOf, Types)) == tid)
                 {
-                    __traits(getMember, storage, Storage.memberName!T) = value;
-                    tag = tid;
+                    /// ditto
+                    this(const(T) value) const
+                    {
+                        __traits(getMember, storage, Storage.memberName!T) = value;
+                        tag = tid;
+                    }
                 }
             }
-        }
-        else
-        {
-            @disable this(const(T) value) const;
+            else
+            {
+                @disable this(const(T) value) const;
+            }
         }
 
-        static if (isCopyable!(immutable(T)))
+        static if (!__traits(compiles, { T c = immutable(T).init; }))
         {
-            static if (IndexOf!(immutable(T), Map!(ImmutableOf, Types)) == tid)
+            static if (isCopyable!(immutable(T)))
             {
-                /// ditto
-                this(immutable(T) value) immutable
+                static if (IndexOf!(immutable(T), Map!(ImmutableOf, Types)) == tid)
                 {
-                    __traits(getMember, storage, Storage.memberName!T) = value;
-                    tag = tid;
+                    /// ditto
+                    this(immutable(T) value) immutable
+                    {
+                        __traits(getMember, storage, Storage.memberName!T) = value;
+                        tag = tid;
+                    }
                 }
             }
-        }
-        else
-        {
-            @disable this(immutable(T) value) immutable;
+            else
+            {
+                @disable this(immutable(T) value) immutable;
+            }
         }
 
         static if (isCopyable!(inout(T)))
