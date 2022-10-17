@@ -382,7 +382,8 @@ struct Composer
 }
 
 // Provide good error message on multiple keys (which JSON supports)
-@safe unittest
+// DUB: This unittest is `@safe` from v2.100 as `message` was made `@safe`, not before
+unittest
 {
     import dyaml.loader : Loader;
 
