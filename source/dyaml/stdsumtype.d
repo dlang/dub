@@ -237,7 +237,7 @@ import std.meta : AliasSeq, Filter, IndexOf = staticIndexOf, Map = staticMap;
 import std.meta : NoDuplicates;
 import std.meta : anySatisfy, allSatisfy;
 import std.traits : hasElaborateCopyConstructor, hasElaborateDestructor;
-import std.traits : isAssignable, isCopyable, isStaticArray, isRvalueAssignable;
+import std.traits : isAssignable, isCopyable, isStaticArray;
 import std.traits : ConstOf, ImmutableOf, InoutOf, TemplateArgsOf;
 
 // FIXME: std.sumtype : `std.traits : DeducedParameterType` and `std.conv : toCtString`
@@ -250,6 +250,12 @@ private template DeducedParameterType(T)
     else
         alias DeducedParameterType = T;
 }
+
+/// Compatibility with < v2.095.0
+private struct __InoutWorkaroundStruct{}
+private @property T rvalueOf(T)(inout __InoutWorkaroundStruct = __InoutWorkaroundStruct.init);
+private @property ref T lvalueOf(T)(inout __InoutWorkaroundStruct = __InoutWorkaroundStruct.init);
+private enum isRvalueAssignable(Lhs, Rhs = Lhs) = __traits(compiles, { lvalueOf!Lhs = rvalueOf!Rhs; });
 
 import std.typecons : ReplaceTypeUnless;
 import std.typecons : Flag;
