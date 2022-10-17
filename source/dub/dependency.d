@@ -15,11 +15,12 @@ import dub.package_;
 import dub.semver;
 import dub.internal.logging;
 
+import dyaml.stdsumtype;
+
 import std.algorithm;
 import std.array;
 import std.exception;
 import std.string;
-import std.sumtype;
 
 
 /** Encapsulates the name of a package along with its dependency specification.
