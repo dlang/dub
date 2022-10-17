@@ -26,7 +26,7 @@ module dyaml.stdsumtype;
 version (D_BetterC) {} else
 @safe unittest
 {
-    import std.math.operations : isClose;
+    import std.math : isClose;
 
     struct Fahrenheit { double degrees; }
     struct Celsius { double degrees; }
@@ -93,10 +93,10 @@ version (D_BetterC) {} else
 version (D_BetterC) {} else
 @safe unittest
 {
-    import std.math.operations : isClose;
-    import std.math.trigonometry : cos;
-    import std.math.constants : PI;
-    import std.math.algebraic : sqrt;
+    import std.math : isClose;
+    import std.math : cos;
+    import std.math : PI;
+    import std.math : sqrt;
 
     struct Rectangular { double x, y; }
     struct Polar { double r, theta; }
@@ -854,7 +854,7 @@ public:
      */
     void toString(this This, Sink, Char)(ref Sink sink, const ref FormatSpec!Char fmt)
     {
-        import std.format.write : formatValue;
+        import std.format : formatValue;
 
         this.match!((ref value) {
             formatValue(sink, value, fmt);
@@ -2265,7 +2265,7 @@ version (unittest)
     }
     else
     {
-        import std.math.operations : isClose;
+        import std.math : isClose;
     }
 }
 
