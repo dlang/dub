@@ -382,7 +382,10 @@ public:
             static if (isCopyable!T)
             {
                 // Workaround for https://issues.dlang.org/show_bug.cgi?id=21542
-                __traits(getMember, storage, Storage.memberName!T) = __ctfe ? value : forward!value;
+                if (__ctfe)
+                    __traits(getMember, storage, Storage.memberName!T) = value;
+                else
+                    __traits(getMember, storage, Storage.memberName!T) = forward!value;
             }
             else
             {
