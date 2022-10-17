@@ -28,7 +28,7 @@ jobs:
       fail-fast: false
       matrix:
         # Latest stable version, update at will
-        os: [ macOS-11, ubuntu-18.04, windows-2019 ]
+        os: [ macOS-11, ubuntu-20.04, windows-2019 ]
         dc:
           - dmd-latest
           - ldc-latest
@@ -58,7 +58,7 @@ jobs:
 
     # Checkout the repository
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: '[POSIX] Test'
       if: runner.os != 'Windows'
