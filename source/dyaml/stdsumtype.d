@@ -232,7 +232,7 @@ version (D_BetterC) {} else
     assert(pprint(*myExpr) == "(a + (2 * b))");
 }
 
-import std.format.spec : FormatSpec, singleSpec;
+import std.format : FormatSpec, singleSpec;
 import std.meta : AliasSeq, Filter, IndexOf = staticIndexOf, Map = staticMap;
 import std.meta : NoDuplicates;
 import std.meta : anySatisfy, allSatisfy;
