@@ -173,6 +173,7 @@ config    /etc/dmd.conf
 
 		return bp;
 	}
+
 	version (Windows) version (DigitalMars) unittest
 	{
 		BuildSettings settings;
@@ -180,8 +181,9 @@ config    /etc/dmd.conf
 		auto bp = compiler.determinePlatform(settings, "dmd", "x86");
 		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86"));
-		assert(bp.architecture.canFind("x86_omf"));
-		assert(!bp.architecture.canFind("x86_mscoff"));
+		const defaultOMF = (bp.frontendVersion < 2_099);
+		assert(bp.architecture.canFind("x86_omf")	 == defaultOMF);
+		assert(bp.architecture.canFind("x86_mscoff") != defaultOMF);
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "x86_omf");
 		assert(bp.isWindows());
