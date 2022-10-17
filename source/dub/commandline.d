@@ -21,6 +21,8 @@ import dub.packagesuppliers;
 import dub.project;
 import dub.internal.utils : getDUBVersion, getClosestMatch, getTempFile;
 
+import dyaml.stdsumtype;
+
 import std.algorithm;
 import std.array;
 import std.conv;
@@ -32,7 +34,6 @@ import std.path : expandTilde, absolutePath, buildNormalizedPath;
 import std.process;
 import std.stdio;
 import std.string;
-import std.sumtype;
 import std.typecons : Tuple, tuple;
 import std.variant;
 import std.path: setExtension;

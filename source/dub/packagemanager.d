@@ -18,6 +18,8 @@ import dub.recipe.io;
 import configy.Exceptions;
 public import configy.Read : StrictMode;
 
+import dyaml.stdsumtype;
+
 import std.algorithm : countUntil, filter, map, sort, canFind, remove;
 import std.array;
 import std.conv;
@@ -27,7 +29,6 @@ import std.exception;
 import std.file;
 import std.range;
 import std.string;
-import std.sumtype;
 import std.zip;
 
 
