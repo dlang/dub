@@ -1506,8 +1506,10 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.buildDeep = m_deep;
 
 		logDiagnostic("Generating using %s", m_generator);
-		dub.generateProject(m_generator, gensettings);
-		if (this.baseSettings.buildType == "ddox") dub.runDdox(gensettings.run, app_args);
+		if (this.baseSettings.buildType == "ddox")
+			dub.runDdox(gensettings.run, app_args);
+		else
+			dub.generateProject(m_generator, gensettings);
 		return 0;
 	}
 }
