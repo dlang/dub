@@ -480,7 +480,7 @@ shared static this() {
 	{
 		m_dependencies = null;
 		m_missingDependencies = [];
-		m_packageManager.refresh(false);
+		m_packageManager.refresh();
 
 		Package resolveSubPackage(Package p, string subname, bool silentFail) {
 			return subname.length ? m_packageManager.getSubPackage(p, subname, silentFail) : p;
