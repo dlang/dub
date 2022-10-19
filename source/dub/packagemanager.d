@@ -371,21 +371,47 @@ class PackageManager {
 		return this.m_repositories[base].getPackagePath(name, vers);
 	}
 
-	/** Searches for the latest version of a package matching the given dependency.
-	*/
-	Package getBestPackage(string name, VersionRange range = VersionRange.Any)
-	{
-		return this.getBestPackage(name, Dependency(range));
-	}
-
-	/// Ditto
+	/**
+	 * Searches for the latest version of a package matching the version range.
+	 *
+	 * This will search the local filesystem only (it doesn't connect
+	 * to the registry) for the "best" (highest version) that matches `range`.
+	 * An overload with a single version exists to search for an exact version.
+	 *
+	 * Params:
+	 *   name = Package name to search for
+	 *   vers = Exact version to search for
+	 *   range = Range of versions to search for, defaults to any
+	 *
+	 * Returns:
+	 *	 The best package matching the parameters, or `null` if none was found.
+	 */
 	Package getBestPackage(string name, Version vers)
 	{
 		return this.getBestPackage(name, VersionRange(vers, vers));
 	}
 
 	/// Ditto
+	Package getBestPackage(string name, VersionRange range = VersionRange.Any)
+	{
+		return this.getBestPackage_(name, Dependency(range));
+	}
+
+	/// Ditto
+	Package getBestPackage(string name, string range)
+	{
+		return this.getBestPackage(name, VersionRange.fromString(range));
+	}
+
+	/// Ditto
+	deprecated("`getBestPackage` should only be used with a `Version` or `VersionRange` argument")
 	Package getBestPackage(string name, Dependency version_spec, bool enable_overrides = true)
+	{
+		return this.getBestPackage_(name, version_spec, enable_overrides);
+	}
+
+	// TODO: Merge this into `getBestPackage(string, VersionRange)`
+	private Package getBestPackage_(string name, Dependency version_spec, bool enable_overrides = true)
 	{
 		Package ret;
 		foreach (p; getPackageIterator(name)) {
@@ -399,12 +425,6 @@ class PackageManager {
 				return ovr;
 		}
 		return ret;
-	}
-
-	/// ditto
-	Package getBestPackage(string name, string version_spec)
-	{
-		return getBestPackage(name, Dependency(version_spec));
 	}
 
 	/** Gets the a specific sub package.

@@ -1709,8 +1709,6 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
 					return null;
 				}
-			} else if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep)) {
-				return ret;
 			} else {
 				logDiagnostic("External sub package %s %s not found.", name, dep.version_);
 				return null;
@@ -1735,7 +1733,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		}
 		const vers = dep.version_;
 
-		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
+		if (auto ret = m_dub.m_packageManager.getBestPackage(name, vers))
 			return ret;
 
 		auto key = name ~ ":" ~ vers.toString();
@@ -1765,7 +1763,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
 					m_dub.fetch(rootpack, vers, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
-					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
+					auto ret = m_dub.m_packageManager.getBestPackage(name, vers);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
 						return null;
