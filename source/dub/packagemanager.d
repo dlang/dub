@@ -98,7 +98,7 @@ class PackageManager {
 	this(NativePath path)
 	{
 		this.m_internal.searchPath = [ path ];
-		this.refresh(true);
+		this.refresh();
 	}
 
 	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
@@ -108,7 +108,7 @@ class PackageManager {
 			Location(user_path ~ "packages/"),
 			Location(system_path ~ "packages/")];
 
-		if (refresh_packages) refresh(true);
+		if (refresh_packages) refresh();
 	}
 
 	/** Gets/sets the list of paths to search for local packages.
@@ -117,7 +117,7 @@ class PackageManager {
 	{
 		if (paths == this.m_internal.searchPath) return;
 		this.m_internal.searchPath = paths.dup;
-		refresh(false);
+		this.refresh();
 	}
 	/// ditto
 	@property const(NativePath)[] searchPath() const { return this.m_internal.searchPath; }
@@ -152,7 +152,7 @@ class PackageManager {
 		m_repositories.length = PlacementLocation.max+1;
 		m_repositories ~= custom_cache_paths.map!(p => Location(p)).array;
 
-		refresh(false);
+		this.refresh();
 	}
 
 
@@ -624,7 +624,7 @@ class PackageManager {
 		import core.time : seconds;
 		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds);
 		if (dstpath.existsFile()) {
-			this.refresh(false);
+			this.refresh();
 			return this.getPackage(name, vers, dest);
 		}
 		return this.store_(src, dstpath, name, vers);
@@ -849,9 +849,23 @@ symlink_exit:
 		this.m_repositories[type].writeLocalPackageList();
 	}
 
+	deprecated("Use `refresh()` without boolean argument(same as `refresh(false)`")
 	void refresh(bool refresh)
 	{
-		logDiagnostic("Refreshing local packages (refresh existing: %s)...", refresh);
+		if (refresh)
+			logDiagnostic("Refreshing local packages (refresh existing: true)...");
+		this.refresh_(refresh);
+	}
+
+	void refresh()
+	{
+		this.refresh_(false);
+	}
+
+	private void refresh_(bool refresh)
+	{
+		if (!refresh)
+			logDiagnostic("Scanning local packages...");
 
 		foreach (ref repository; this.m_repositories)
 			repository.scanLocalPackages(refresh, this);
