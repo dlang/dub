@@ -965,6 +965,7 @@ class Dub {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	deprecated("Use the overload without the 3rd argument (`force_remove`) instead")
 	void remove(string package_id, PlacementLocation location, bool force_remove,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
