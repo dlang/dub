@@ -527,7 +527,9 @@ shared static this() {
 							return resolveSubPackage(tmp, subname, true);
 						},
 						(VersionRange range) {
-							return m_packageManager.getBestPackage(dep.name, range);
+							// See `dub.recipe.selection : SelectedDependency.fromYAML`
+							assert(range.isExactVersion());
+							return m_packageManager.getPackage(dep.name, vspec.version_);
 						},
 					);
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
