@@ -337,39 +337,11 @@ class Project {
 
 			auto fil = openFile(mainfile, FileMode.createTrunc);
 			scope(exit) fil.close();
-			fil.write("module dub_test_root;\n");
-			fil.write("import std.typetuple;\n");
-			foreach (mod; import_modules) fil.write(format("static import %s;\n", mod));
-			fil.write("alias allModules = TypeTuple!(");
-			foreach (i, mod; import_modules) {
-				if (i > 0) fil.write(", ");
-				fil.write(mod);
-			}
-			fil.write(");\n");
-			if (custommodname.length) {
-				fil.write(format("import %s;\n", custommodname));
-			} else {
-				fil.write(q{
-import core.runtime;
-
-void main() {
-	version (D_Coverage) {
-	} else {
-		import std.stdio : writeln;
-		writeln("All unit tests have been run successfully.");
-	}
-}
-shared static this() {
-	version (Have_tested) {
-		import tested;
-		import core.runtime;
-		import std.exception;
-		Runtime.moduleUnitTester = () => true;
-		enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
-	}
-}
-					});
-			}
+			const runnerCode = custommodname.length ?
+				format("import %s;", custommodname) : DefaultTestRunnerCode;
+			const content = TestRunnerTemplate.format(
+				import_modules, import_modules, runnerCode);
+			fil.write(content);
 		}
 
 		rootPackage.recipe.configurations ~= ConfigurationInfo(config, tcinfo);
@@ -1915,3 +1887,41 @@ final class SelectedVersions {
 			m_selections.versions[p] = dependencyFromJson(dep);
 	}
 }
+
+/// The template code from which the test runner is generated
+private immutable TestRunnerTemplate = q{
+module dub_test_root;
+
+import std.typetuple;
+
+%-(static import %s;
+%);
+
+alias allModules = TypeTuple!(
+    %-(%s, %)
+);
+
+%s
+};
+
+/// The default test runner that gets used if none is provided
+private immutable DefaultTestRunnerCode = q{
+import core.runtime;
+
+void main() {
+	version (D_Coverage) {
+	} else {
+		import std.stdio : writeln;
+		writeln("All unit tests have been run successfully.");
+	}
+}
+shared static this() {
+	version (Have_tested) {
+		import tested;
+		import core.runtime;
+		import std.exception;
+		Runtime.moduleUnitTester = () => true;
+		enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
+	}
+}
+};
