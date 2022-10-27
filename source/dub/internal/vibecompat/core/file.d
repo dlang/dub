@@ -7,7 +7,7 @@
 */
 module dub.internal.vibecompat.core.file;
 
-public import dub.internal.vibecompat.inet.url;
+public import dub.internal.vibecompat.inet.path;
 
 import dub.internal.logging;
 
