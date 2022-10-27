@@ -132,8 +132,8 @@ struct NativePath {
 
 		foreach( i, f; m_nodes ){
 			version(Windows) { if( i > 0 ) ret.put('\\'); }
-			version(Posix) { if( i > 0 ) ret.put('/'); }
-			else { enforce("Unsupported OS"); }
+			else version(Posix) { if( i > 0 ) ret.put('/'); }
+			else { static assert(0, "Unsupported OS"); }
 			ret.put(f.toString());
 		}
 
