@@ -11,7 +11,6 @@ import dub.packagesuppliers.packagesupplier;
 class FileSystemPackageSupplier : PackageSupplier {
 	import dub.internal.logging;
 
-	version (Have_vibe_core) import dub.internal.vibecompat.inet.path : toNativeString;
 	import std.exception : enforce;
 	private {
 		NativePath m_path;
