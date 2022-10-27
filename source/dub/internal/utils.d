@@ -23,13 +23,9 @@ import std.file;
 import std.format;
 import std.string : format;
 import std.process;
+import std.net.curl;
+public import std.net.curl : HTTPStatusException;
 import std.traits : isIntegral;
-version(DubUseCurl)
-{
-	import std.net.curl;
-	public import std.net.curl : HTTPStatusException;
-}
-
 
 private NativePath[] temporary_files;
 
@@ -224,9 +220,6 @@ void runCommands(in string[] commands, string[string] env = null, string workDir
 	}
 }
 
-version (Have_vibe_d_http)
-	public import vibe.http.common : HTTPStatusException;
-
 /**
 	Downloads a file from the specified URL.
 
@@ -237,48 +230,36 @@ version (Have_vibe_d_http)
 	`timeout` ms, or if the average transfer rate drops below 10 bytes / s for
 	more than `timeout` seconds.  Pass `0` as `timeout` to disable both timeout
 	mechanisms.
-
-	Note: Timeouts are only implemented when curl is used (DubUseCurl).
 */
 void download(string url, string filename, uint timeout = 8)
 {
-	version(DubUseCurl) {
-		auto conn = HTTP();
-		setupHTTPClient(conn, timeout);
-		logDebug("Storing %s...", url);
-		std.net.curl.download(url, filename, conn);
-		// workaround https://issues.dlang.org/show_bug.cgi?id=18318
-		auto sl = conn.statusLine;
-		logDebug("Download %s %s", url, sl);
-		if (sl.code / 100 != 2)
-			throw new HTTPStatusException(sl.code,
-				"Downloading %s failed with %d (%s).".format(url, sl.code, sl.reason));
-	} else version (Have_vibe_d_http) {
-		import vibe.inet.urltransfer;
-		vibe.inet.urltransfer.download(url, filename);
-	} else assert(false);
+	auto conn = HTTP();
+	setupHTTPClient(conn, timeout);
+	logDebug("Storing %s...", url);
+	std.net.curl.download(url, filename, conn);
+	// workaround https://issues.dlang.org/show_bug.cgi?id=18318
+	auto sl = conn.statusLine;
+	logDebug("Download %s %s", url, sl);
+	if (sl.code / 100 != 2)
+		throw new HTTPStatusException(sl.code,
+			"Downloading %s failed with %d (%s).".format(url, sl.code, sl.reason));
 }
+
 /// ditto
 void download(URL url, NativePath filename, uint timeout = 8)
 {
 	download(url.toString(), filename.toNativeString(), timeout);
 }
+
 /// ditto
 ubyte[] download(string url, uint timeout = 8)
 {
-	version(DubUseCurl) {
-		auto conn = HTTP();
-		setupHTTPClient(conn, timeout);
-		logDebug("Getting %s...", url);
-		return cast(ubyte[])get(url, conn);
-	} else version (Have_vibe_d_http) {
-		import vibe.inet.urltransfer;
-		import vibe.stream.operations;
-		ubyte[] ret;
-		vibe.inet.urltransfer.download(url, (scope input) { ret = input.readAll(); });
-		return ret;
-	} else assert(false);
+	auto conn = HTTP();
+	setupHTTPClient(conn, timeout);
+	logDebug("Getting %s...", url);
+	return cast(ubyte[])get(url, conn);
 }
+
 /// ditto
 ubyte[] download(URL url, uint timeout = 8)
 {
@@ -298,44 +279,25 @@ ubyte[] download(URL url, uint timeout = 8)
 	`timeout` ms, or if the average transfer rate drops below 10 bytes / s for
 	more than `timeout` seconds.  Pass `0` as `timeout` to disable both timeout
 	mechanisms.
-
-	Note: Timeouts are only implemented when curl is used (DubUseCurl).
 **/
 void retryDownload(URL url, NativePath filename, size_t retryCount = 3, uint timeout = 8)
 {
 	foreach(i; 0..retryCount) {
-		version(DubUseCurl) {
-			try {
-				download(url, filename, timeout);
-				return;
-			}
-			catch(HTTPStatusException e) {
-				if (e.status == 404) throw e;
-				else {
-					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
-					if (i == retryCount - 1) throw e;
-					else continue;
-				}
-			}
-			catch(CurlException e) {
+		try {
+			download(url, filename, timeout);
+			return;
+		}
+		catch(HTTPStatusException e) {
+			if (e.status == 404) throw e;
+			else {
 				logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
-				continue;
+				if (i == retryCount - 1) throw e;
+				else continue;
 			}
 		}
-		else
-		{
-			try {
-				download(url, filename);
-				return;
-			}
-			catch(HTTPStatusException e) {
-				if (e.status == 404) throw e;
-				else {
-					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
-					if (i == retryCount - 1) throw e;
-					else continue;
-				}
-			}
+		catch(CurlException e) {
+			logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+			continue;
 		}
 	}
 	throw new Exception("Failed to download %s".format(url));
@@ -345,36 +307,20 @@ void retryDownload(URL url, NativePath filename, size_t retryCount = 3, uint tim
 ubyte[] retryDownload(URL url, size_t retryCount = 3, uint timeout = 8)
 {
 	foreach(i; 0..retryCount) {
-		version(DubUseCurl) {
-			try {
-				return download(url, timeout);
-			}
-			catch(HTTPStatusException e) {
-				if (e.status == 404) throw e;
-				else {
-					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
-					if (i == retryCount - 1) throw e;
-					else continue;
-				}
-			}
-			catch(CurlException e) {
+		try {
+			return download(url, timeout);
+		}
+		catch(HTTPStatusException e) {
+			if (e.status == 404) throw e;
+			else {
 				logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
-				continue;
+				if (i == retryCount - 1) throw e;
+				else continue;
 			}
 		}
-		else
-		{
-			try {
-				return download(url);
-			}
-			catch(HTTPStatusException e) {
-				if (e.status == 404) throw e;
-				else {
-					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
-					if (i == retryCount - 1) throw e;
-					else continue;
-				}
-			}
+		catch(CurlException e) {
+			logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+			continue;
 		}
 	}
 	throw new Exception("Failed to download %s".format(url));
@@ -456,32 +402,30 @@ public string getDUBExePath(in string compilerBinary=null)
 }
 
 
-version(DubUseCurl) {
-	void setupHTTPClient(ref HTTP conn, uint timeout)
-	{
-		static if( is(typeof(&conn.verifyPeer)) )
-			conn.verifyPeer = false;
+void setupHTTPClient(ref HTTP conn, uint timeout)
+{
+	static if( is(typeof(&conn.verifyPeer)) )
+		conn.verifyPeer = false;
 
-		auto proxy = environment.get("http_proxy", null);
-		if (proxy.length) conn.proxy = proxy;
+	auto proxy = environment.get("http_proxy", null);
+	if (proxy.length) conn.proxy = proxy;
 
-		auto noProxy = environment.get("no_proxy", null);
-		if (noProxy.length) conn.handle.set(CurlOption.noproxy, noProxy);
+	auto noProxy = environment.get("no_proxy", null);
+	if (noProxy.length) conn.handle.set(CurlOption.noproxy, noProxy);
 
-		conn.handle.set(CurlOption.encoding, "");
-		if (timeout) {
-			// connection (TLS+TCP) times out after 8s
-			conn.handle.set(CurlOption.connecttimeout, timeout);
-			// transfers time out after 8s below 10 byte/s
-			conn.handle.set(CurlOption.low_speed_limit, 10);
-			conn.handle.set(CurlOption.low_speed_time, timeout);
-		}
-
-		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
-
-		enum CURL_NETRC_OPTIONAL = 1;
-		conn.handle.set(CurlOption.netrc, CURL_NETRC_OPTIONAL);
+	conn.handle.set(CurlOption.encoding, "");
+	if (timeout) {
+		// connection (TLS+TCP) times out after 8s
+		conn.handle.set(CurlOption.connecttimeout, timeout);
+		// transfers time out after 8s below 10 byte/s
+		conn.handle.set(CurlOption.low_speed_limit, 10);
+		conn.handle.set(CurlOption.low_speed_time, timeout);
 	}
+
+	conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
+
+	enum CURL_NETRC_OPTIONAL = 1;
+	conn.handle.set(CurlOption.netrc, CURL_NETRC_OPTIONAL);
 }
 
 string stripUTF8Bom(string str)
