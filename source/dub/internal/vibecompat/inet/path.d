@@ -300,13 +300,6 @@ struct PathEntry {
 	int opCmp(string rhs) const scope @safe pure nothrow @nogc { return m_name.cmp(rhs); }
 }
 
-private bool isValidFilename(string str)
-{
-	foreach( ch; str )
-		if( ch == '/' || /*ch == ':' ||*/ ch == '\\' ) return false;
-	return true;
-}
-
 /// Joins two path strings. subpath must be relative.
 string joinPath(string basepath, string subpath)
 {
