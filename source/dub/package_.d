@@ -306,9 +306,7 @@ class Package {
 	void storeInfo(NativePath path)
 	const {
 		auto filename = path ~ defaultPackageFilename;
-		auto dstFile = openFile(filename.toNativeString(), FileMode.createTrunc);
-		scope(exit) dstFile.close();
-		dstFile.writePrettyJsonString(m_info.toJson());
+		writeJsonFile(filename, m_info.toJson());
 	}
 
 	/// Get the metadata cache for this package
