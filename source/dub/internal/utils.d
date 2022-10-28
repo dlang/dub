@@ -110,7 +110,7 @@ bool isWritableDir(NativePath p, bool create_if_missing = false)
 	import std.random;
 	auto fname = p ~ format("__dub_write_test_%08X", uniform(0, uint.max));
 	if (create_if_missing && !exists(p.toNativeString())) mkdirRecurse(p.toNativeString());
-	try openFile(fname, FileMode.createTrunc).close();
+	try writeFile(fname, "Canary");
 	catch (Exception) return false;
 	remove(fname.toNativeString());
 	return true;
@@ -118,9 +118,7 @@ bool isWritableDir(NativePath p, bool create_if_missing = false)
 
 Json jsonFromFile(NativePath file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.emptyObject;
-	auto f = openFile(file.toNativeString(), FileMode.read);
-	scope(exit) f.close();
-	auto text = stripUTF8Bom(cast(string)f.readAll());
+	auto text = stripUTF8Bom(cast(string)readFile(file));
 	return parseJsonString(text, file.toNativeString());
 }
 
@@ -139,10 +137,7 @@ string packageInfoFileFromZip(NativePath zip, out string fileName) {
 	import std.zip : ZipArchive, ArchiveMember;
 	import dub.package_ : packageInfoFiles;
 
-	auto f = openFile(zip, FileMode.read);
-	ubyte[] b = new ubyte[cast(size_t)f.size];
-	f.rawRead(b);
-	f.close();
+	auto b = readFile(zip);
 	auto archive = new ZipArchive(b);
 	alias PSegment = typeof (NativePath.init.head);
 	foreach (ArchiveMember am; archive.directory) {
@@ -159,9 +154,9 @@ string packageInfoFileFromZip(NativePath zip, out string fileName) {
 
 void writeJsonFile(NativePath path, Json json)
 {
-	auto f = openFile(path, FileMode.createTrunc);
-	scope(exit) f.close();
-	f.writePrettyJsonString(json);
+	auto app = appender!string();
+	app.writePrettyJsonString(json);
+	writeFile(path, app.data);
 }
 
 /// Performs a write->delete->rename sequence to atomically "overwrite" the destination file
@@ -169,13 +164,9 @@ void atomicWriteJsonFile(NativePath path, Json json)
 {
 	import std.random : uniform;
 	auto tmppath = path.parentPath ~ format("%s.%s.tmp", path.head, uniform(0, int.max));
-	auto f = openFile(tmppath, FileMode.createTrunc);
-	scope (failure) {
-		f.close();
-		removeFile(tmppath);
-	}
-	f.writePrettyJsonString(json);
-	f.close();
+	auto app = appender!string();
+	app.writePrettyJsonString(json);
+	writeFile(tmppath, app.data);
 	if (existsFile(path)) removeFile(path);
 	moveFile(tmppath, path);
 }

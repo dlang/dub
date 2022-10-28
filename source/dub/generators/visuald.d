@@ -119,11 +119,7 @@ class VisualDGenerator : ProjectGenerator {
 
 			// Writing solution file
 			logDebug("About to write to .sln file with %s bytes", to!string(ret.data.length));
-			auto sln = openFile(solutionFileName(), FileMode.createTrunc);
-			scope(exit) sln.close();
-			sln.put(ret.data);
-			sln.flush();
-
+			NativePath(solutionFileName()).writeFile(ret.data);
 			logInfo("Generated", Color.green, "%s (solution)", solutionFileName());
 		}
 
@@ -244,10 +240,7 @@ class VisualDGenerator : ProjectGenerator {
 			ret.put("\n  </Folder>\n</DProject>");
 
 			logDebug("About to write to '%s.visualdproj' file %s bytes", getPackageFileName(packname), ret.data.length);
-			auto proj = openFile(projFileName(packname), FileMode.createTrunc);
-			scope(exit) proj.close();
-			proj.put(ret.data);
-			proj.flush();
+			projFileName(packname).writeFile(ret.data);
 		}
 
 		void generateProjectConfiguration(Appender!(char[]) ret, string pack, string type, GeneratorSettings settings, in TargetInfo[string] targets)

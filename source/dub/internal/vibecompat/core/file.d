@@ -22,57 +22,17 @@ import std.string;
 import std.utf;
 
 
-/* Add output range support to File
-*/
-struct RangeFile {
-@safe:
-	std.stdio.File file;
-
-	void put(scope const ubyte[] bytes) @trusted { file.rawWrite(bytes); }
-	void put(scope const char[] str) { put(cast(const(ubyte)[])str); }
-	void put(char ch) @trusted { put((&ch)[0 .. 1]); }
-	void put(dchar ch) { char[4] chars; put(chars[0 .. encode(chars, ch)]); }
-
-	ubyte[] readAll()
-	{
-		auto sz = this.size;
-		enforce(sz <= size_t.max, "File is too big to read to memory.");
-		() @trusted { file.seek(0, SEEK_SET); } ();
-		auto ret = new ubyte[cast(size_t)sz];
-		rawRead(ret);
-		return ret;
-	}
-
-	void rawRead(ubyte[] dst) @trusted { enforce(file.rawRead(dst).length == dst.length, "Failed to readall bytes from file."); }
-	void write(string str) { put(str); }
-	void close() @trusted { file.close(); }
-	void flush() @trusted { file.flush(); }
-	@property ulong size() @trusted { return file.size; }
-}
-
-
-/**
-	Opens a file stream with the specified mode.
-*/
-RangeFile openFile(NativePath path, FileMode mode = FileMode.read)
+/// Writes `buffer` to a file
+public void writeFile(NativePath path, const void[] buffer)
 {
-	string fmode;
-	final switch(mode){
-		case FileMode.read: fmode = "rb"; break;
-		case FileMode.readWrite: fmode = "r+b"; break;
-		case FileMode.createTrunc: fmode = "wb"; break;
-		case FileMode.append: fmode = "ab"; break;
-	}
-	auto ret = std.stdio.File(path.toNativeString(), fmode);
-	assert(ret.isOpen);
-	return RangeFile(ret);
-}
-/// ditto
-RangeFile openFile(string path, FileMode mode = FileMode.read)
-{
-	return openFile(NativePath(path), mode);
+	std.file.write(path.toNativeString(), buffer);
 }
 
+/// Returns the content of a file
+public ubyte[] readFile(NativePath path)
+{
+	return cast(ubyte[]) std.file.read(path.toNativeString());
+}
 
 /**
 	Moves or renames a file.

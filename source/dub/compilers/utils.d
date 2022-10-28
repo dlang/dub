@@ -357,8 +357,7 @@ NativePath generatePlatformProbeFile()
 		}.format(probeBeginMark, probeEndMark, platformCheck, archCheck, compilerCheck);
 
 	auto path = getTempFile("dub_platform_probe", ".d");
-	auto fil = openFile(path, FileMode.createTrunc);
-	fil.write(probe);
+	writeFile(path, probe);
 
 	return path;
 }

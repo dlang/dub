@@ -335,13 +335,11 @@ class Project {
 			import std.file : mkdirRecurse;
 			mkdirRecurse(mainfile.parentPath.toNativeString());
 
-			auto fil = openFile(mainfile, FileMode.createTrunc);
-			scope(exit) fil.close();
 			const runnerCode = custommodname.length ?
 				format("import %s;", custommodname) : DefaultTestRunnerCode;
 			const content = TestRunnerTemplate.format(
 				import_modules, import_modules, runnerCode);
-			fil.write(content);
+			writeFile(mainfile, content);
 		}
 
 		rootPackage.recipe.configurations ~= ConfigurationInfo(config, tcinfo);
@@ -1820,27 +1818,27 @@ final class SelectedVersions {
 	void save(NativePath path)
 	{
 		Json json = serialize();
-		auto file = openFile(path, FileMode.createTrunc);
-		scope(exit) file.close();
+		auto result = appender!string();
 
 		assert(json.type == Json.Type.object);
 		assert(json.length == 2);
 		assert(json["versions"].type != Json.Type.undefined);
 
-		file.write("{\n\t\"fileVersion\": ");
-		file.writeJsonString(json["fileVersion"]);
-		file.write(",\n\t\"versions\": {");
+		result.put("{\n\t\"fileVersion\": ");
+		result.writeJsonString(json["fileVersion"]);
+		result.put(",\n\t\"versions\": {");
 		auto vers = json["versions"].get!(Json[string]);
 		bool first = true;
 		foreach (k; vers.byKey.array.sort()) {
-			if (!first) file.write(",");
+			if (!first) result.put(",");
 			else first = false;
-			file.write("\n\t\t");
-			file.writeJsonString(Json(k));
-			file.write(": ");
-			file.writeJsonString(vers[k]);
+			result.put("\n\t\t");
+			result.writeJsonString(Json(k));
+			result.put(": ");
+			result.writeJsonString(vers[k]);
 		}
-		file.write("\n\t}\n}\n");
+		result.put("\n\t}\n}\n");
+		path.writeFile(result.data);
 		m_dirty = false;
 		m_bare = false;
 	}

@@ -710,9 +710,7 @@ class PackageManager {
 		ZipArchive archive;
 		{
 			logDebug("Opening file %s", src);
-			auto f = openFile(src, FileMode.read);
-			scope(exit) f.close();
-			archive = new ZipArchive(f.readAll());
+			archive = new ZipArchive(readFile(src));
 		}
 
 		logDebug("Extracting from zip.");
@@ -779,11 +777,7 @@ class PackageManager {
 					}
 				}
 
-				{
-					auto dstFile = openFile(dst_path, FileMode.createTrunc);
-					scope(exit) dstFile.close();
-					dstFile.put(archive.expand(a));
-				}
+				writeFile(dst_path, archive.expand(a));
 				setAttributes(dst_path.toNativeString(), a);
 symlink_exit:
 				++countFiles;
@@ -974,7 +968,7 @@ symlink_exit:
 				logDebug("Hashed directory name %s", NativePath(file.name).head);
 			}
 			else {
-				hash.put(openFile(NativePath(file.name)).readAll());
+				hash.put(cast(ubyte[]) readFile(NativePath(file.name)));
 				logDebug("Hashed file contents from %s", NativePath(file.name).head);
 			}
 		}
