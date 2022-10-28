@@ -34,7 +34,7 @@ PackageRecipe readPackageRecipe(
 PackageRecipe readPackageRecipe(
 	NativePath filename, string parent_name = null, StrictMode mode = StrictMode.Ignore)
 {
-	import dub.internal.utils : stripUTF8Bom;
+	import dub.internal.utf : processText;
 	import dub.internal.vibecompat.core.file : openFile, FileMode;
 
 	string text;
@@ -42,7 +42,7 @@ PackageRecipe readPackageRecipe(
 	{
 		auto f = openFile(filename.toNativeString(), FileMode.read);
 		scope(exit) f.close();
-		text = stripUTF8Bom(cast(string)f.readAll());
+		text = (cast(immutable(ubyte)[])f.readAll()).processText();
 	}
 
 	return parsePackageRecipe(text, filename.toNativeString(), parent_name, null, mode);

@@ -7,6 +7,7 @@
 */
 module dub.internal.utils;
 
+import dub.internal.utf;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
@@ -124,7 +125,7 @@ Json jsonFromFile(NativePath file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.emptyObject;
 	auto f = openFile(file.toNativeString(), FileMode.read);
 	scope(exit) f.close();
-	auto text = stripUTF8Bom(cast(string)f.readAll());
+	auto text = (cast(immutable(ubyte)[])f.readAll()).processText();
 	return parseJsonString(text, file.toNativeString());
 }
 
@@ -154,7 +155,8 @@ string packageInfoFileFromZip(NativePath zip, out string fileName) {
 		foreach (fil; packageInfoFiles) {
 			if ((path.length == 1 && path[0] == fil.filename) || (path.length == 2 && path[$-1].name == fil.filename)) {
 				fileName = fil.filename;
-				return stripUTF8Bom(cast(string) archive.expand(archive.directory[am.name]));
+				return (cast(immutable(ubyte)[]) archive.expand(archive.directory[am.name]))
+					.processText(false);
 			}
 		}
 	}
@@ -482,13 +484,6 @@ version(DubUseCurl) {
 		enum CURL_NETRC_OPTIONAL = 1;
 		conn.handle.set(CurlOption.netrc, CURL_NETRC_OPTIONAL);
 	}
-}
-
-string stripUTF8Bom(string str)
-{
-	if( str.length >= 3 && str[0 .. 3] == [0xEF, 0xBB, 0xBF] )
-		return str[3 ..$];
-	return str;
 }
 
 private bool isNumber(string str) {
