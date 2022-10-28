@@ -786,7 +786,7 @@ class Dub {
 		// TODO: clear target files and copy files
 
 		if (existsFile(path ~ ".dub/build")) rmdirRecurse((path ~ ".dub/build").toNativeString());
-		if (existsFile(path ~ ".dub/metadata_cache.json")) std.file.remove((path ~ ".dub/metadata_cache.json").toNativeString());
+		if (existsFile(path ~ ".dub/metadata_cache.json")) removeFile((path ~ ".dub/metadata_cache.json"));
 
 		auto p = Package.load(path);
 		if (p.getBuildSettings().targetType == TargetType.none) {
@@ -869,7 +869,7 @@ class Dub {
 
 			auto path = getTempFile(basePackageName, ".zip");
 			supplier.fetchPackage(path, basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
-			scope(exit) std.file.remove(path.toNativeString());
+			scope(exit) removeFile(path);
 			logDiagnostic("Placing to %s...", location.toString());
 
 			try {
