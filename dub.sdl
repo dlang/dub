@@ -10,7 +10,6 @@ targetPath "bin"
 configuration "application" {
 	targetType "executable"
 	mainSourceFile "source/app.d"
-	libs "curl"
 	versions "DubApplication"
 	// Uncomment to get rich output about the file parsing and json <-> YAML
 	// integrity checks
