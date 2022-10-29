@@ -171,12 +171,6 @@ void atomicWriteJsonFile(NativePath path, Json json)
 	moveFile(tmppath, path);
 }
 
-bool existsDirectory(NativePath path) {
-	if( !existsFile(path) ) return false;
-	auto fi = getFileInfo(path);
-	return fi.isDirectory;
-}
-
 void runCommand(string command, string[string] env = null, string workDir = null)
 {
 	runCommands((&command)[0 .. 1], env, workDir);

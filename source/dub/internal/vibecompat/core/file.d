@@ -219,6 +219,13 @@ bool existsFile(string path)
 	return std.file.exists(path);
 }
 
+/// Checks if a directory exists
+bool existsDirectory(NativePath path) {
+	if( !existsFile(path) ) return false;
+	auto fi = getFileInfo(path);
+	return fi.isDirectory;
+}
+
 /** Stores information about the specified file/directory into 'info'
 
 	Returns false if the file does not exist.
