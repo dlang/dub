@@ -530,7 +530,7 @@ struct BuildSettingsTemplate {
  		// collect import files and remove sources
 		import std.algorithm : copy, setDifference;
 
-		auto importFiles = collectFiles(importPaths, "*.{d,di}").sort();
+		auto importFiles = collectFiles(importPaths, "*.{d,di,h}").sort();
 		immutable nremoved = importFiles.setDifference(sourceFiles).copy(importFiles.release).length;
 		importFiles = importFiles[0 .. $ - nremoved];
 		dst.addImportFiles(importFiles.release);
