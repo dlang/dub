@@ -294,7 +294,7 @@ class Project {
 			lbuildsettings.importPaths ~= NativePath(mainfil).parentPath.toNativeString;
 		bool firstTimePackage = true;
 		foreach (file; lbuildsettings.sourceFiles) {
-			if (file.endsWith(".d")) {
+			if (file.isSourceFile) {
 				auto fname = NativePath(file).head.name;
 				NativePath msf = NativePath(mainfil);
 				if (msf.absolute)
