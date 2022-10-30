@@ -735,3 +735,90 @@ void deepCompareImpl (T) (
 			file, line);
 	}
 }
+
+/**
+ * Determines if a specific file name is suitable source file for the D compiler.
+ *
+ *	Source files include .d, .c and .i files.
+ *
+ * Params:
+ *   f = filename to check
+ * Returns:
+ */
+bool isSourceFile(string f)
+{
+	import std.path;
+	switch (extension(f)) {
+		default:
+			return false;
+		case ".d", ".c", ".i":
+			return true;
+	}
+}
+
+unittest {
+	assert(isSourceFile("test.c"));
+	assert(isSourceFile("test.d"));
+	assert(isSourceFile("test.i"));
+	assert(!isSourceFile("test.o"));
+	assert(!isSourceFile("test.h"));
+}
+
+/**
+ * Determines if a specific file name is suitable header file for the D compiler.
+ *
+ *	Header files include .di and .h
+ *
+ * Params:
+ *   f = filename to check
+ * Returns:
+ */
+bool isHeaderFile(string f)
+{
+	import std.path;
+	switch (extension(f)) {
+		default:
+			return false;
+		case ".di", ".h":
+			return true;
+	}
+}
+
+unittest {
+	assert(!isHeaderFile("test.c"));
+	assert(!isHeaderFile("test.d"));
+	assert(!isHeaderFile("test.i"));
+	assert(!isHeaderFile("test.o"));
+	assert(isHeaderFile("test.di"));
+	assert(isHeaderFile("test.h"));
+}
+
+/**
+ * Determines if a specific file name is a ImportC input file for the D compiler.
+ *
+ *	Header files include .c, .i and .h
+ *
+ * Params:
+ *   f = filename to check
+ * Returns:
+ */
+bool isImportCFile(string f)
+{
+	import std.path;
+	switch (extension(f)) {
+		default:
+			return false;
+		case ".c", ".i", ".h":
+			return true;
+	}
+}
+
+unittest {
+	assert(isImportCFile("test.c"));
+	assert(isImportCFile("test.i"));
+	assert(isImportCFile("test.h"));
+	assert(!isImportCFile("test.d"));
+	assert(!isImportCFile("test.o"));
+	assert(!isImportCFile("test.di"));
+}
+
