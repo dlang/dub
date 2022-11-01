@@ -1033,7 +1033,7 @@ public struct VersionRange
 
 		string r;
 
-		if (this == Invalid) return "invalid";
+		if (this == Invalid) return "no";
 		if (this.isExactVersion() && m_inclusiveA && m_inclusiveB) {
 			// Special "==" case
 			if (m_versA == Version.masterBranch) return "~master";
