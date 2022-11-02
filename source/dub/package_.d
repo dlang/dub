@@ -21,7 +21,7 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 
-import configy.Read : StrictMode;
+import dub.internal.configy.Read : StrictMode;
 
 import std.algorithm;
 import std.array;

@@ -20,7 +20,7 @@ import dub.package_;
 import dub.packagemanager;
 import dub.recipe.selection;
 
-import configy.Read;
+import dub.internal.configy.Read;
 
 import std.algorithm;
 import std.array;

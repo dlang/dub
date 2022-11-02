@@ -221,7 +221,7 @@ class Dub {
 	 */
 	protected void loadConfig()
 	{
-		import configy.Read;
+		import dub.internal.configy.Read;
 
 		void readSettingsFile (NativePath path_)
 		{
@@ -1864,7 +1864,7 @@ private struct SpecialDirs {
  * non-additive are marked as `SetInfo`.
  */
 private struct UserConfiguration {
-	import configy.Attributes;
+	import dub.internal.configy.Attributes : Optional, SetInfo;
 
 	@Optional string[] registryUrls;
 	@Optional NativePath[] customCachePaths;
@@ -1916,7 +1916,7 @@ private struct UserConfiguration {
 }
 
 unittest {
-	import configy.Read;
+	import dub.internal.configy.Read;
 
     const str1 = `{
   "registryUrls": [ "http://foo.bar\/optional\/escape" ],

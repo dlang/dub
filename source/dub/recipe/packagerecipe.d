@@ -15,7 +15,7 @@ import dub.internal.logging;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
 
-import configy.Attributes;
+import dub.internal.configy.Attributes;
 
 import std.algorithm : findSplit, sort;
 import std.array : join, split;
@@ -193,7 +193,7 @@ struct SubPackage
 	 */
 	static SubPackage fromYAML (scope ConfigParser!SubPackage p)
 	{
-		import dyaml.node;
+		import dub.internal.dyaml.node;
 
 		if (p.node.nodeID == NodeID.mapping)
 			return SubPackage(null, p.parseAs!PackageRecipe);
@@ -310,7 +310,7 @@ public struct RecipeDependency
 	 */
 	static RecipeDependency fromYAML (scope ConfigParser!RecipeDependency p)
 	{
-		import dyaml.node;
+		import dub.internal.dyaml.node;
 
 		if (p.node.nodeID == NodeID.scalar) {
 			auto d = YAMLFormat(p.node.as!string);
@@ -703,7 +703,7 @@ private static Dependency parseDMDDependency(string dep)
 
 private T clone(T)(ref const(T) val)
 {
-	import dyaml.stdsumtype;
+	import dub.internal.dyaml.stdsumtype;
 	import std.traits : isSomeString, isDynamicArray, isAssociativeArray, isBasicType, ValueType;
 
 	static if (is(T == immutable)) return val;
