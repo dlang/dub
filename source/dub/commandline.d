@@ -21,7 +21,7 @@ import dub.packagesuppliers;
 import dub.project;
 import dub.internal.utils : getDUBVersion, getClosestMatch, getTempFile;
 
-import dyaml.stdsumtype;
+import dub.internal.dyaml.stdsumtype;
 
 import std.algorithm;
 import std.array;

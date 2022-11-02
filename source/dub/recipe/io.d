@@ -11,7 +11,7 @@ import dub.recipe.packagerecipe;
 import dub.internal.logging;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
-import configy.Read;
+import dub.internal.configy.Read;
 
 /** Reads a package recipe from a file.
 

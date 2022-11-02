@@ -6,7 +6,7 @@ module dub.recipe.selection;
 import dub.dependency;
 import dub.internal.vibecompat.core.file : NativePath;
 
-import configy.Attributes;
+import dub.internal.configy.Attributes;
 
 import std.exception;
 
@@ -43,7 +43,7 @@ private struct SelectedDependency
     /// Read a `Dependency` from the config file - Required to support both short and long form
     static SelectedDependency fromYAML (scope ConfigParser!SelectedDependency p)
     {
-        import dyaml.node;
+        import dub.internal.dyaml.node;
 
         if (p.node.nodeID == NodeID.scalar)
             return SelectedDependency(Dependency(Version(p.node.as!string)));
@@ -84,7 +84,7 @@ private struct SelectedDependency
 // Ensure we can read all type of dependencies
 unittest
 {
-    import configy.Read : parseConfigString;
+    import dub.internal.configy.Read : parseConfigString;
     import dub.internal.vibecompat.core.file : NativePath;
 
     immutable string content = `{

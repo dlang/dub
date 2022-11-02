@@ -15,10 +15,10 @@ import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
 import dub.package_;
 import dub.recipe.io;
-import configy.Exceptions;
-public import configy.Read : StrictMode;
+import dub.internal.configy.Exceptions;
+public import dub.internal.configy.Read : StrictMode;
 
-import dyaml.stdsumtype;
+import dub.internal.dyaml.stdsumtype;
 
 import std.algorithm : countUntil, filter, map, sort, canFind, remove;
 import std.array;

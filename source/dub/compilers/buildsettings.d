@@ -9,7 +9,7 @@ module dub.compilers.buildsettings;
 
 import dub.internal.vibecompat.inet.path;
 
-import configy.Attributes;
+import dub.internal.configy.Attributes;
 
 import std.array : array;
 import std.algorithm : filter, any;
@@ -425,7 +425,7 @@ struct Flags (T) {
 	 */
 	public static Flags!T fromYAML (scope ConfigParser!(Flags!T) p)
 	{
-		import dyaml.node;
+		import dub.internal.dyaml.node;
 		import std.exception;
 		import std.conv;
 
@@ -439,7 +439,7 @@ struct Flags (T) {
 
 unittest
 {
-	import configy.Read;
+	import dub.internal.configy.Read;
 
 	static struct Config
 	{
