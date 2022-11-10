@@ -380,6 +380,9 @@ config    /etc/dmd.conf
 		import std.string;
 		auto tpath = NativePath(settings.targetPath) ~ getTargetFileName(settings, platform);
 		auto args = ["-of"~tpath.toNativeString()];
+		// Fix for https://stackoverflow.com/questions/19901934/libpthread-so-0-error-adding-symbols-dso-missing-from-command-line
+		if (platform.platform.canFind("linux"))
+			args ~= "-L--copy-dt-needed-entries"; // avoids linker errors due to missing DSO on commandline problem
 		args ~= objects;
 		args ~= settings.sourceFiles;
 		if (platform.platform.canFind("linux"))
