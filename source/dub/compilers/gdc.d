@@ -228,7 +228,11 @@ class GDCCompiler : Compiler {
 			assert(tpath !is null, "setTarget should be called before invoke");
 			args = [ "ar", "rcs", tpath ] ~ objects;
 		} else {
-			args = platform.compilerBinary ~ objects ~ settings.sourceFiles ~ settings.lflags ~ settings.dflags.filter!(f => isLinkageFlag(f)).array;
+			args ~= platform.compilerBinary;
+			// Fix for https://stackoverflow.com/questions/19901934/libpthread-so-0-error-adding-symbols-dso-missing-from-command-line
+			if (platform.platform.canFind("linux"))
+				args ~= "-L--copy-dt-needed-entries"; // avoids linker errors due to missing DSO on commandline problem
+			args ~= objects ~ settings.sourceFiles ~ settings.lflags ~ settings.dflags.filter!(f => isLinkageFlag(f)).array;
 			if (platform.platform.canFind("linux"))
 				args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order
 		}
