@@ -1,4 +1,0 @@
-The shortcut syntax for "dub run" is now also available for sub packages.
-
-Invoking dub as "dub :subpackage" is now equivalent to "dub run :subpackage",
-analogous to just "dub" being equivalent to "dub run".
