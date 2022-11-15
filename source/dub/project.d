@@ -332,8 +332,7 @@ class Project {
 		}
 
 		if (generate_main && (settings.force || !existsFile(mainfile))) {
-			import std.file : mkdirRecurse;
-			mkdirRecurse(mainfile.parentPath.toNativeString());
+		    ensureDirectory(mainfile.parentPath);
 
 			const runnerCode = custommodname.length ?
 				format("import %s;", custommodname) : DefaultTestRunnerCode;

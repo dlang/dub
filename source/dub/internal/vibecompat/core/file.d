@@ -244,14 +244,10 @@ FileInfo getFileInfo(string path)
 /**
 	Creates a new directory.
 */
-void createDirectory(NativePath path)
+void ensureDirectory(NativePath path)
 {
-	mkdir(path.toNativeString());
-}
-/// ditto
-void createDirectory(string path)
-{
-	createDirectory(NativePath(path));
+	if (!existsDirectory(path))
+		mkdirRecurse(path.toNativeString());
 }
 
 /**

@@ -2423,7 +2423,7 @@ class DustmiteCommand : PackageBuildCommand {
 
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
-				mkdirRecurse(dstfolder.toNativeString());
+				ensureDirectory(dstfolder);
 				foreach (de; iterateDirectory(folder.toNativeString())) {
 					if (de.name.startsWith(".")) continue;
 					if (de.isDirectory) {

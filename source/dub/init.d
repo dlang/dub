@@ -62,8 +62,7 @@ void initPackage(NativePath root_path, VersionRange[string] deps, string type,
 
 	//Check to see if a target directory needs to be created
 	if (!root_path.empty) {
-		if (!existsFile(root_path))
-			createDirectory(root_path);
+		ensureDirectory(root_path);
 	}
 
 	//Make sure we do not overwrite anything accidentally
@@ -98,7 +97,7 @@ private void initMinimalPackage(NativePath root_path, ref PackageRecipe p, scope
 	p.description = "A minimal D application.";
 	pre_write_callback();
 
-	createDirectory(root_path ~ "source");
+	ensureDirectory(root_path ~ "source");
 	write((root_path ~ "source/app.d").toNativeString(),
 q{import std.stdio;
 
@@ -116,9 +115,9 @@ private void initVibeDPackage(NativePath root_path, ref PackageRecipe p, scope v
 	p.description = "A simple vibe.d server application.";
 	pre_write_callback();
 
-	createDirectory(root_path ~ "source");
-	createDirectory(root_path ~ "views");
-	createDirectory(root_path ~ "public");
+	ensureDirectory(root_path ~ "source");
+	ensureDirectory(root_path ~ "views");
+	ensureDirectory(root_path ~ "public");
 	write((root_path ~ "source/app.d").toNativeString(),
 q{import vibe.vibe;
 
@@ -153,8 +152,8 @@ private void initDeimosPackage(NativePath root_path, ref PackageRecipe p, scope 
 	p.buildSettings.targetType = TargetType.sourceLibrary;
 	pre_write_callback();
 
-	createDirectory(root_path ~ "C");
-	createDirectory(root_path ~ "deimos");
+	ensureDirectory(root_path ~ "C");
+	ensureDirectory(root_path ~ "deimos");
 }
 
 /**
