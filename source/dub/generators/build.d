@@ -168,14 +168,13 @@ class BuildGenerator : ProjectGenerator {
 		buildTargetRec(m_project.rootPackage.name);
 
 		if (dynamicLibDepsFilesToCopy.length) {
-			const rootTargetPath = root_ti.buildSettings.targetPath;
+			const rootTargetPath = NativePath(root_ti.buildSettings.targetPath);
 
-			if (!existsFile(rootTargetPath))
-				mkdirRecurse(rootTargetPath);
-
+			ensureDirectory(rootTargetPath);
 			foreach (src; dynamicLibDepsFilesToCopy) {
-				logDiagnostic("Copying target from %s to %s", src.toNativeString(), rootTargetPath);
-				hardLinkFile(src, NativePath(rootTargetPath) ~ src.head, true);
+				logDiagnostic("Copying target from %s to %s",
+					src.toNativeString(), rootTargetPath.toNativeString());
+				hardLinkFile(src, rootTargetPath ~ src.head, true);
 			}
 		}
 
@@ -428,8 +427,7 @@ class BuildGenerator : ProjectGenerator {
 
 	private void copyTargetFile(in NativePath build_path, in BuildSettings buildsettings, in GeneratorSettings settings)
 	{
-		if (!existsFile(NativePath(buildsettings.targetPath)))
-			mkdirRecurse(buildsettings.targetPath);
+		ensureDirectory(NativePath(buildsettings.targetPath));
 
 		string[] filenames = [
 			settings.compiler.getTargetFileName(buildsettings, settings.platform)

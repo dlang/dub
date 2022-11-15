@@ -485,7 +485,7 @@ class Dub {
 	void loadSingleFilePackage(NativePath path)
 	{
 		import dub.recipe.io : parsePackageRecipe;
-		import std.file : mkdirRecurse, readText;
+		import std.file : readText;
 		import std.path : baseName, stripExtension;
 
 		path = makeAbsolute(path);

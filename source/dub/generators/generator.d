@@ -908,13 +908,12 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	}
 
 	if (generate_binary) {
-		if (!exists(buildsettings.targetPath))
-			mkdirRecurse(buildsettings.targetPath);
+		ensureDirectory(NativePath(buildsettings.targetPath));
 
 		if (buildsettings.copyFiles.length) {
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
-				mkdirRecurse(dstfolder.toNativeString());
+				ensureDirectory(dstfolder);
 				foreach (de; iterateDirectory(folder.toNativeString())) {
 					if (de.isDirectory) {
 						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
@@ -1119,7 +1118,7 @@ version(Posix) {
 		import dub.compilers.gdc : GDCCompiler;
 		import std.algorithm : canFind;
 		import std.path : absolutePath;
-		import std.file : mkdirRecurse, rmdirRecurse, write;
+		import std.file : rmdirRecurse, write;
 
 		mkdirRecurse("dubtest/preGen/source");
 		write("dubtest/preGen/source/foo.d", "");

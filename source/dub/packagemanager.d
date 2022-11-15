@@ -681,8 +681,7 @@ class PackageManager {
 	Package store(NativePath src, PlacementLocation dest, string name, Version vers)
 	{
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
-		if (!dstpath.existsFile())
-			mkdirRecurse(dstpath.toNativeString());
+		ensureDirectory(dstpath);
 		// For libraries leaking their import path
 		dstpath = dstpath ~ name;
 
@@ -750,7 +749,7 @@ class PackageManager {
 		}
 
 		// extract & place
-		mkdirRecurse(destination.toNativeString());
+		ensureDirectory(destination);
 		logDebug("Copying all files...");
 		int countFiles = 0;
 		foreach(ArchiveMember a; archive.directory) {
@@ -760,11 +759,9 @@ class PackageManager {
 
 			logDebug("Creating %s", cleanedPath);
 			if( dst_path.endsWithSlash ){
-				if( !existsDirectory(dst_path) )
-					mkdirRecurse(dst_path.toNativeString());
+				ensureDirectory(dst_path);
 			} else {
-				if( !existsDirectory(dst_path.parentPath) )
-					mkdirRecurse(dst_path.parentPath.toNativeString());
+				ensureDirectory(dst_path.parentPath);
 				// for symlinks on posix systems, use the symlink function to
 				// create them. Windows default unzip doesn't handle symlinks,
 				// so we don't need to worry about it for Windows.
@@ -1186,7 +1183,7 @@ private struct Location {
 			newlist ~= jovr;
 		}
 		auto path = this.packagePath;
-		if (!existsDirectory(path)) mkdirRecurse(path.toNativeString());
+		ensureDirectory(path);
 		writeJsonFile(path ~ LocalOverridesFilename, Json(newlist));
 	}
 
@@ -1210,7 +1207,7 @@ private struct Location {
 		}
 
 		NativePath path = this.packagePath;
-		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
+		ensureDirectory(path);
 		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
 	}
 
