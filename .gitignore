@@ -11,6 +11,7 @@ __dummy.html
 
 # Ignore build files.
 /bin/dub
+/bin/__test__library-nonet__
 /bin/__test__library__
 /bin/dub-test-library
 /bin/libdub.a
