@@ -30,7 +30,8 @@ jobs:
         # Latest stable version, update at will
         os: [ macOS-11, ubuntu-20.04, windows-2019 ]
         dc:
-          - dmd-latest
+          #- dmd-latest
+          - dmd-2.100.2
           - ldc-latest
           - dmd-master
           - ldc-master
