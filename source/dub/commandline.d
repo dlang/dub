@@ -885,9 +885,9 @@ class InitCommand : Command {
 			"Initializes an empty package of the specified type in the given directory.",
 			"By default, the current working directory is used.",
 			"",
-			"Custom templates can be defined by packages by providing a sub-package called \"init\".",
-			"The \"init\" subpackage is compiled and executed inside the destination folder after the base project directory has been created.",
-			"Free arguments \"dub init -t custom -- free args\" are passed into the \"init\" subpackage as app arguments."
+			"Custom templates can be defined by packages by providing a sub-package called \"init-exec\".",
+			"The \"init-exec\" subpackage is compiled and executed inside the destination folder after the base project directory has been created.",
+			"Free arguments \"dub init -t custom -- free args\" are passed into the \"init-exec\" subpackage as app arguments."
 		];
 		this.acceptsAppArgs = true;
 	}
