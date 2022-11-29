@@ -8,9 +8,10 @@
 module dub.dub;
 
 import dub.compilers.compiler;
-import dub.data.settings : SPS = SkipPackageSuppliers, Settings;
+import dub.data.settings : SPS = SkipPackageSuppliers, Settings, InternalSettings, OldSettings;
 import dub.dependency;
 import dub.dependencyresolver;
+import dub.internal.configy.Attributes : Optional, SetInfo;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
@@ -127,7 +128,7 @@ class Dub {
 		PackageSupplier[] m_packageSuppliers;
 		NativePath m_rootPath;
 		SpecialDirs m_dirs;
-		Settings m_config;
+		InternalSettings m_config;
 		Project m_project;
 		string m_defaultCompiler;
 	}
@@ -166,7 +167,7 @@ class Dub {
 			skip_registry, environment.get("DUB_REGISTRY", null));
 		m_packageManager = new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
 
-		auto ccps = m_config.customCachePaths;
+		auto ccps = m_config.dub.extraPackages;
 		if (ccps.length)
 			m_packageManager.customCachePaths = ccps;
 
@@ -224,16 +225,33 @@ class Dub {
 	{
 		import dub.internal.configy.Read;
 
-		void readSettingsFile (NativePath path_)
+		void readSettingsFile (NativePath path_noext_)
 		{
+			const path_noext = path_noext_.toNativeString();
+
+			const yaml_path = path_noext ~ ".yaml";
+			if (yaml_path.exists) {
+				auto newConf = parseConfigFileSimple!Settings(yaml_path);
+				if (!newConf.isNull())
+					this.m_config.config = this.m_config.merge(newConf.get());
+				return;
+			}
+
 			// TODO: Remove `StrictMode.Warn` after v1.40 release
 			// The default is to error, but as the previous parser wasn't
 			// complaining, we should first warn the user.
-			const path = path_.toNativeString();
-			if (path.exists) {
-				auto newConf = parseConfigFileSimple!Settings(path, StrictMode.Warn);
+			const json_path = path_noext ~ ".json";
+			if (json_path.exists) {
+				// Disabled until v1.31 (or later) is released so we start supporting
+				// the new format for a new version before we deprecate the old one.
+				version (all) {
+					logWarn("A deprecated JSON settings file was found at: %s", json_path);
+					logWarn("Support for `settings.json` is deprecated, use `settings.yaml` instead");
+				}
+				auto newConf = parseConfigFileSimple!OldSettings(json_path);
 				if (!newConf.isNull())
-					this.m_config = this.m_config.merge(newConf.get());
+					this.m_config.config = this.m_config.merge(
+						newConf.get(), this.m_config.registryUrls, this.m_config.skipRegistry);
 			}
 		}
 
@@ -259,11 +277,11 @@ class Dub {
 			}
 		}
 
-		readSettingsFile(m_dirs.systemSettings ~ "settings.json");
-		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json");
+		readSettingsFile(m_dirs.systemSettings ~ "settings");
+		readSettingsFile(dubFolderPath ~ "../etc/dub/settings");
 		version (Posix) {
 			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr")))
-				readSettingsFile(NativePath("/etc/dub/settings.json"));
+				readSettingsFile(NativePath("/etc/dub/settings"));
 		}
 
 		// Override user + local package path from system / binary settings
@@ -272,22 +290,32 @@ class Dub {
 		//
 		// Don't use it if either $DPATH or $DUB_HOME are set, as environment
 		// variables usually take precedence over configuration.
-		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
-			m_dirs.userSettings = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+		if (!overrideDubHomeFromEnv && this.m_config.dub.home.set) {
+			m_dirs.userSettings = NativePath(this.m_config.dub.home.expandEnvironmentVariables);
 		}
 
 		// load user config:
-		readSettingsFile(m_dirs.userSettings ~ "settings.json");
+		readSettingsFile(m_dirs.userSettings ~ "settings");
 
 		// load per-package config:
 		if (!this.m_rootPath.empty)
-			readSettingsFile(this.m_rootPath ~ "dub.settings.json");
+			readSettingsFile(this.m_rootPath ~ "dub.settings");
 
 		// same as userSettings above, but taking into account the
 		// config loaded from user settings and per-package config as well.
-		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
-			m_dirs.userPackages = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+		if (!overrideDubHomeFromEnv && this.m_config.dub.home.set) {
+			m_dirs.userPackages = NativePath(this.m_config.dub.home.expandEnvironmentVariables);
 			m_dirs.cache = m_dirs.userPackages ~ "cache";
+        }
+
+		if (this.m_config.registryUrls.length && this.m_config.fetch.registries.set) {
+			logError("Cannot mix settings.json `registryUrls` with settings.yaml `fetch.registries`");
+			logError("`registryUrls` will be ignored");
+		}
+
+		if (this.m_config.skipRegistry.set && this.m_config.fetch.registries.set) {
+			logError("Cannot mix settings.json `skipRegistry` with settings.yaml `fetch.registries`");
+			logError("`skipRegistry` value be ignored - the `standard` behavior will apply");
 		}
 	}
 
@@ -417,24 +445,24 @@ class Dub {
 		If set, the "defaultArchitecture" field of the DUB user or system
 		configuration file will be used. Otherwise null will be returned.
 	*/
-	@property string defaultArchitecture() const { return this.m_config.defaultArchitecture; }
+	@property string defaultArchitecture() const { return this.m_config.build.architecture; }
 
 	/** Returns the default low memory option to use for building D code.
 
 		If set, the "defaultLowMemory" field of the DUB user or system
 		configuration file will be used. Otherwise false will be returned.
 	*/
-	@property bool defaultLowMemory() const { return this.m_config.defaultLowMemory; }
+	@property bool defaultLowMemory() const { return this.m_config.build.lowmem; }
 
-	@property const(string[string]) defaultEnvironments() const { return this.m_config.defaultEnvironments; }
-	@property const(string[string]) defaultBuildEnvironments() const { return this.m_config.defaultBuildEnvironments; }
-	@property const(string[string]) defaultRunEnvironments() const { return this.m_config.defaultRunEnvironments; }
-	@property const(string[string]) defaultPreGenerateEnvironments() const { return this.m_config.defaultPreGenerateEnvironments; }
-	@property const(string[string]) defaultPostGenerateEnvironments() const { return this.m_config.defaultPostGenerateEnvironments; }
-	@property const(string[string]) defaultPreBuildEnvironments() const { return this.m_config.defaultPreBuildEnvironments; }
-	@property const(string[string]) defaultPostBuildEnvironments() const { return this.m_config.defaultPostBuildEnvironments; }
-	@property const(string[string]) defaultPreRunEnvironments() const { return this.m_config.defaultPreRunEnvironments; }
-	@property const(string[string]) defaultPostRunEnvironments() const { return this.m_config.defaultPostRunEnvironments; }
+	@property const(string[string]) defaultEnvironments() const { return this.m_config.dub.environment; }
+	@property const(string[string]) defaultBuildEnvironments() const { return this.m_config.build.environment; }
+	@property const(string[string]) defaultRunEnvironments() const { return this.m_config.run.environment; }
+	@property const(string[string]) defaultPreGenerateEnvironments() const { return this.m_config.generate.preGenerateEnvironment; }
+	@property const(string[string]) defaultPostGenerateEnvironments() const { return this.m_config.generate.postGenerateEnvironment; }
+	@property const(string[string]) defaultPreBuildEnvironments() const { return this.m_config.build.preBuildEnvironment; }
+	@property const(string[string]) defaultPostBuildEnvironments() const { return this.m_config.build.postBuildEnvironment; }
+	@property const(string[string]) defaultPreRunEnvironments() const { return this.m_config.run.preRunEnvironment; }
+	@property const(string[string]) defaultPostRunEnvironments() const { return this.m_config.run.postRunEnvironment; }
 
 	/** Loads the package that resides within the configured `rootPath`.
 	*/
@@ -1392,7 +1420,7 @@ class Dub {
 		if (auto envCompiler = environment.get("DC"))
 			m_defaultCompiler = envCompiler;
 		else
-			m_defaultCompiler = m_config.defaultCompiler.expandTilde;
+			m_defaultCompiler = m_config.build.compiler.expandTilde;
 		if (m_defaultCompiler.length && m_defaultCompiler.isAbsolute)
 			return;
 
