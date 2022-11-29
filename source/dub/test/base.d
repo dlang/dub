@@ -285,10 +285,10 @@ public class TestDub : Dub
     }
 
     /// Avoid loading user configuration
-    protected override Settings loadConfig(ref SpecialDirs dirs) const
+    protected override InternalSettings loadConfig(ref SpecialDirs dirs) const
     {
         dirs = Paths;
-        return Settings.init;
+        return typeof(return).init;
     }
 
 	///
