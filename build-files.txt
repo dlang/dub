@@ -6,6 +6,7 @@ source/dub/compilers/dmd.d
 source/dub/compilers/gdc.d
 source/dub/compilers/ldc.d
 source/dub/compilers/utils.d
+source/dub/data/settings.d
 source/dub/dependency.d
 source/dub/dependencyresolver.d
 source/dub/description.d
