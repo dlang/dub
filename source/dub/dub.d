@@ -163,7 +163,7 @@ class Dub {
 
 		m_packageSuppliers = this.computePkgSuppliers(additional_package_suppliers,
 			skip_registry, environment.get("DUB_REGISTRY", null));
-		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings, false);
+		m_packageManager = new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
@@ -238,7 +238,7 @@ class Dub {
 
 		const dubFolderPath = NativePath(thisExePath).parentPath;
 
-		// override default userSettings + localRepository if a $DPATH or
+		// override default userSettings + userPackages if a $DPATH or
 		// $DUB_HOME environment variable is set.
 		bool overrideDubHomeFromEnv;
 		{
@@ -253,7 +253,7 @@ class Dub {
 				overrideDubHomeFromEnv = true;
 
 				m_dirs.userSettings = NativePath(dubHome);
-				m_dirs.localRepository = m_dirs.userSettings;
+				m_dirs.userPackages = m_dirs.userSettings;
 			}
 		}
 
@@ -284,7 +284,7 @@ class Dub {
 		// same as userSettings above, but taking into account the
 		// config loaded from user settings and per-package config as well.
 		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
-			m_dirs.localRepository = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+			m_dirs.userPackages = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
 		}
 	}
 
@@ -1812,16 +1812,17 @@ private struct SpecialDirs {
 	/// The dub-specific folder in the user home directory
 	NativePath userSettings;
 	/**
-	 * Windows-only: the local, user-specific folder
+	 * User location where to install packages
 	 *
-	 * This folder, unlike `userSettings`, does not roam, IOW an account
-	 * on a company network will not save the content of this data,
+	 * On Windows, this folder, unlike `userSettings`, does not roam,
+	 * so an account on a company network will not save the content of this data,
 	 * unlike `userSettings`.
-	 * On Posix, this is equivalent to `userSettings`.
+	 *
+	 * On Posix, this is currently equivalent to `userSettings`.
 	 *
 	 * See_Also: https://docs.microsoft.com/en-us/windows/win32/shell/knownfolderid
 	 */
-	NativePath localRepository;
+	NativePath userPackages;
 
 	/// Returns: An instance of `SpecialDirs` initialized from the environment
 	public static SpecialDirs make () {
@@ -1835,13 +1836,13 @@ private struct SpecialDirs {
 			immutable appDataDir = environment.get("APPDATA");
 			result.userSettings = NativePath(appDataDir) ~ "dub/";
 			// LOCALAPPDATA is not defined before Windows Vista
-			result.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
+			result.userPackages = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
 		} else version(Posix) {
 			result.systemSettings = NativePath("/var/lib/dub/");
 			result.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
 			if (!result.userSettings.absolute)
 				result.userSettings = NativePath(getcwd()) ~ result.userSettings;
-			result.localRepository = result.userSettings;
+			result.userPackages = result.userSettings;
 		}
 		return result;
 	}
