@@ -35,7 +35,7 @@ public enum SkipPackageSuppliers {
  * must still succeed. Additive fields are marked as `@Optional`,
  * non-additive are marked as `SetInfo`.
  */
-package(dub) struct UserConfiguration {
+package(dub) struct Settings {
     @Optional string[] registryUrls;
     @Optional NativePath[] customCachePaths;
 
@@ -56,14 +56,14 @@ package(dub) struct UserConfiguration {
     SetInfo!(string) dubHome;
 
     /// Merge a lower priority config (`this`) with a `higher` priority config
-    public UserConfiguration merge(UserConfiguration higher)
+    public Settings merge(Settings higher)
         return @safe pure nothrow
     {
         import std.traits : hasUDA;
-        UserConfiguration result;
+        Settings result;
 
-        static foreach (idx, _; UserConfiguration.tupleof) {
-            static if (hasUDA!(UserConfiguration.tupleof[idx], Optional))
+        static foreach (idx, _; Settings.tupleof) {
+            static if (hasUDA!(Settings.tupleof[idx], Optional))
                 result.tupleof[idx] = higher.tupleof[idx] ~ this.tupleof[idx];
             else static if (IsSetInfo!(typeof(this.tupleof[idx]))) {
                 if (higher.tupleof[idx].set)
@@ -118,7 +118,7 @@ unittest {
   }
 }`;
 
-     auto c1 = parseConfigString!UserConfiguration(str1, "/dev/null");
+     auto c1 = parseConfigString!Settings(str1, "/dev/null");
      assert(c1.registryUrls == [ "http://foo.bar/optional/escape" ]);
      assert(c1.customCachePaths == [ NativePath("foo/bar"), NativePath("foo/foo") ]);
      assert(c1.skipRegistry == SkipPackageSuppliers.all);
@@ -130,7 +130,7 @@ unittest {
      assert(c1.defaultEnvironments["VAR3"] == "settings.VAR3");
      assert(c1.defaultEnvironments["VAR4"] == "settings.VAR4");
 
-     auto c2 = parseConfigString!UserConfiguration(str2, "/dev/null");
+     auto c2 = parseConfigString!Settings(str2, "/dev/null");
      assert(c2.registryUrls == [ "http://bar.foo" ]);
      assert(c2.customCachePaths == [ NativePath("bar/foo"), NativePath("bar/bar") ]);
      assert(c2.skipRegistry == SkipPackageSuppliers.none);
@@ -168,6 +168,6 @@ unittest {
      assert(m2.defaultLowMemory == c2.defaultLowMemory);
      assert(m2.defaultEnvironments == c2.defaultEnvironments);
 
-     auto m3 = UserConfiguration.init.merge(c1);
+     auto m3 = Settings.init.merge(c1);
      assert(m3 == c1);
 }
