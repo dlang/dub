@@ -640,6 +640,7 @@ class Package {
 		ret.versions = bs.versions;
 		ret.debugVersions = bs.debugVersions;
 		ret.importPaths = bs.importPaths;
+		ret.cImportPaths = bs.cImportPaths;
 		ret.stringImportPaths = bs.stringImportPaths;
 		ret.preGenerateCommands = bs.preGenerateCommands;
 		ret.postGenerateCommands = bs.postGenerateCommands;
@@ -723,12 +724,14 @@ class Package {
 		immutable hasSP = ("" in bs.sourcePaths) !is null;
 		immutable hasCSP = ("" in bs.cSourcePaths) !is null;
 		immutable hasIP = ("" in bs.importPaths) !is null;
+		immutable hasCIP = ("" in bs.cImportPaths) !is null;
 		if (!hasSP || !hasIP) {
 			foreach (defsf; ["source/", "src/"]) {
 				if (existsFile(m_path ~ defsf)) {
 					if (!hasSP) bs.sourcePaths[""] ~= defsf;
 					if (!hasCSP) bs.cSourcePaths[""] ~= defsf;
 					if (!hasIP) bs.importPaths[""] ~= defsf;
+					if (!hasCIP) bs.cImportPaths[""] ~= defsf;
 				}
 			}
 		}

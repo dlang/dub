@@ -524,10 +524,12 @@ class Dub {
 		enforce(recipe.buildSettings.sourcePaths.length == 0, "Single-file packages are not allowed to specify source paths.");
 		enforce(recipe.buildSettings.cSourcePaths.length == 0, "Single-file packages are not allowed to specify C source paths.");
 		enforce(recipe.buildSettings.importPaths.length == 0, "Single-file packages are not allowed to specify import paths.");
+		enforce(recipe.buildSettings.cImportPaths.length == 0, "Single-file packages are not allowed to specify C import paths.");
 		recipe.buildSettings.sourceFiles[""] = [path.toNativeString()];
 		recipe.buildSettings.sourcePaths[""] = [];
 		recipe.buildSettings.cSourcePaths[""] = [];
 		recipe.buildSettings.importPaths[""] = [];
+		recipe.buildSettings.cImportPaths[""] = [];
 		recipe.buildSettings.mainSourceFile = path.toNativeString();
 		if (recipe.buildSettings.targetType == TargetType.autodetect)
 			recipe.buildSettings.targetType = TargetType.executable;
@@ -740,6 +742,9 @@ class Dub {
 			auto buildSettings = dependencyPackage.getBuildSettings(settings.platform, cfgs[dependencyPackage.name]);
 			foreach (importPath; buildSettings.importPaths) {
 				settings.runArgs ~= ["-I", buildNormalizedPath(dependencyPackage.path.toNativeString(), importPath.idup)];
+			}
+			foreach (cimportPath; buildSettings.cImportPaths) {
+				settings.runArgs ~= ["-I", buildNormalizedPath(dependencyPackage.path.toNativeString(), cimportPath.idup)];
 			}
 		}
 

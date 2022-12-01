@@ -578,13 +578,13 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
 {
 	import std.algorithm : map;
 	import std.array : array;
-	import std.range : walkLength;
+	import std.range : walkLength, chain;
 
 	assert(base_path.absolute);
 	if (!file.absolute) file = base_path ~ file;
 
 	size_t path_skip = 0;
-	foreach (ipath; settings.importPaths.map!(p => NativePath(p))) {
+	foreach (ipath; chain(settings.importPaths, settings.cImportPaths).map!(p => NativePath(p))) {
 		if (!ipath.absolute) ipath = base_path ~ ipath;
 		assert(!ipath.empty);
 		if (file.startsWith(ipath) && ipath.bySegment.walkLength > path_skip)

@@ -90,6 +90,7 @@ struct PackageDescription {
 	string[] versions; /// D version identifiers to set
 	string[] debugVersions; /// D debug version identifiers to set
 	string[] importPaths;
+	string[] cImportPaths;
 	string[] stringImportPaths;
 	string[] preGenerateCommands; /// Commands executed before creating the description, with variables not substituted.
 	string[] postGenerateCommands; /// Commands executed after creating the description, with variables not substituted.
