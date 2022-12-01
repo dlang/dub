@@ -249,7 +249,8 @@ class BuildGenerator : ProjectGenerator {
 			string packageName = pack.basePackage is null ? pack.name : pack.basePackage.name;
 			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
 		}
-		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
+		else
+			target_path = packageCache(settings.cache, pack) ~ "build/" ~ build_id;
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
 			logInfo("Up-to-date", Color.green, "%s %s: target for configuration [%s] is up to date.",

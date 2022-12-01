@@ -1629,6 +1629,7 @@ class DescribeCommand : PackageBuildCommand {
 		GeneratorSettings settings = this.baseSettings;
 		if (!settings.config.length)
 			settings.config = m_defaultConfig;
+		settings.cache = dub.cachePathDontUse(); // See function's description
 		// Ignore other options
 		settings.buildSettings.options = this.baseSettings.buildSettings.options & BuildOption.lowmem;
 
@@ -1688,27 +1689,10 @@ class CleanCommand : Command {
 		enforce(free_args.length == 0, "Cleaning a specific package isn't possible right now.");
 
 		if (m_allPackages) {
-			bool any_error = false;
-
-			foreach (p; dub.packageManager.getPackageIterator()) {
-				try dub.cleanPackage(p.path);
-				catch (Exception e) {
-					logWarn("Failed to clean package %s at %s: %s", p.name, p.path, e.msg);
-					any_error = true;
-				}
-
-				foreach (sp; p.subPackages.filter!(sp => !sp.path.empty)) {
-					try dub.cleanPackage(p.path ~ sp.path);
-					catch (Exception e) {
-						logWarn("Failed to clean sub package of %s at %s: %s", p.name, p.path ~ sp.path, e.msg);
-						any_error = true;
-					}
-				}
-			}
-
-			if (any_error) return 2;
+			dub.clean();
 		} else {
-			dub.cleanPackage(dub.rootPath);
+			dub.loadPackage();
+			dub.clean(dub.project.rootPackage);
 		}
 
 		return 0;

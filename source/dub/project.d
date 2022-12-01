@@ -320,7 +320,9 @@ class Project {
 			mainfile = getTempFile("dub_test_root", ".d");
 		else {
 			import dub.generators.build : computeBuildName;
-			mainfile = rootPackage.path ~ format(".dub/code/%s/dub_test_root.d", computeBuildName(config, settings, import_modules));
+			mainfile = packageCache(settings.cache, this.rootPackage) ~
+				format("code/%s/dub_test_root.d",
+					computeBuildName(config, settings, import_modules));
 		}
 
 		auto escapedMainFile = mainfile.toNativeString().replace("$", "$$");

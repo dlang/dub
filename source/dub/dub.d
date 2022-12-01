@@ -255,6 +255,7 @@ class Dub {
 
 				m_dirs.userSettings = NativePath(dubHome);
 				m_dirs.userPackages = m_dirs.userSettings;
+				m_dirs.cache = m_dirs.userPackages ~ "cache";
 			}
 		}
 
@@ -286,6 +287,7 @@ class Dub {
 		// config loaded from user settings and per-package config as well.
 		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
 			m_dirs.userPackages = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+			m_dirs.cache = m_dirs.userPackages ~ "cache";
 		}
 	}
 
@@ -683,6 +685,7 @@ class Dub {
 	*/
 	void generateProject(string ide, GeneratorSettings settings)
 	{
+		settings.cache = this.m_dirs.cache;
 		// With a requested `unittest` config, switch to the special test runner
 		// config (which doesn't require an existing `unittest` configuration).
 		if (settings.config == "unittest") {
@@ -701,6 +704,7 @@ class Dub {
 	*/
 	void testProject(GeneratorSettings settings, string config, NativePath custom_main_file)
 	{
+		settings.cache = this.m_dirs.cache;
 		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
 
 		const test_config = m_project.addTestRunnerConfiguration(settings, !m_dryRun, config, custom_main_file);
@@ -778,23 +782,36 @@ class Dub {
 		if (delimiter != "\0\0") writeln();
 	}
 
-	/// Cleans intermediate/cache files of the given package
+	/// Cleans intermediate/cache files of the given package (or all packages)
+	deprecated("Use `clean(Package)` instead")
 	void cleanPackage(NativePath path)
 	{
-		logInfo("Cleaning", Color.green, "package at %s", path.toNativeString().color(Mode.bold));
-		enforce(!Package.findPackageFile(path).empty, "No package found.", path.toNativeString());
+		auto ppack = Package.findPackageFile(path);
+		enforce(!ppack.empty, "No package found.", path.toNativeString());
+		this.clean(Package.load(path, ppack));
+	}
+
+	/// Ditto
+	void clean()
+	{
+		const cache = this.m_dirs.cache;
+		logInfo("Cleaning", Color.green, "all artifacts at %s",
+			cache.toNativeString().color(Mode.bold));
+		if (existsFile(cache))
+			rmdirRecurse(cache.toNativeString());
+	}
+
+	/// Ditto
+	void clean(Package pack)
+	{
+		const cache = this.packageCache(pack);
+		logInfo("Cleaning", Color.green, "artifacts for package %s at %s",
+			pack.name.color(Mode.bold),
+			cache.toNativeString().color(Mode.bold));
 
 		// TODO: clear target files and copy files
-
-		if (existsFile(path ~ ".dub/build")) rmdirRecurse((path ~ ".dub/build").toNativeString());
-		if (existsFile(path ~ ".dub/metadata_cache.json")) removeFile((path ~ ".dub/metadata_cache.json"));
-
-		auto p = Package.load(path);
-		if (p.getBuildSettings().targetType == TargetType.none) {
-			foreach (sp; p.subPackages.filter!(sp => !sp.path.empty)) {
-				cleanPackage(path ~ sp.path);
-			}
-		}
+		if (existsFile(cache))
+			rmdirRecurse(cache.toNativeString());
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
@@ -1299,6 +1316,25 @@ class Dub {
 			version(Windows) runCommand(`xcopy /S /D "`~tool_path~`public\*" docs\`);
 			else runCommand("rsync -ru '"~tool_path~"public/' docs/");
 		}
+	}
+
+	/**
+	 * Compute and returns the path were artifacts are stored
+	 *
+	 * Expose `dub.generator.generator : packageCache` with this instance's
+	 * configured cache.
+	 */
+	protected NativePath packageCache (Package pkg) const
+	{
+		return .packageCache(this.m_dirs.cache, pkg);
+	}
+
+	/// Exposed because `commandLine` replicates `generateProject` for `dub describe`
+	/// instead of treating it like a regular generator... Remove this once the
+	/// flaw is fixed, and don't add more calls to this function!
+	package(dub) NativePath cachePathDontUse () const @safe pure nothrow @nogc
+	{
+		return this.m_dirs.cache;
 	}
 
 	/// Make a `GeneratorSettings` suitable to generate tools (DDOC, DScanner, etc...)
@@ -1820,6 +1856,20 @@ private struct SpecialDirs {
 	 */
 	NativePath userPackages;
 
+	/**
+	 * Location at which build/generation artifact will be written
+	 *
+	 * All build artifacts are stored under a single build cache,
+	 * which is usually located under `$HOME/.dub/cache/` on POSIX,
+	 * and `%LOCALAPPDATA%/dub/cache` on Windows.
+	 *
+	 * Versions of dub prior to v1.31.0 used to store  artifact under the
+	 * project directory, but this led to issues with packages stored on
+	 * read-only filesystem / location, and lingering artifacts scattered
+	 * through the filesystem.
+	 */
+	NativePath cache;
+
 	/// Returns: An instance of `SpecialDirs` initialized from the environment
 	public static SpecialDirs make () {
 		import std.file : tempDir;
@@ -1840,6 +1890,7 @@ private struct SpecialDirs {
 				result.userSettings = NativePath(getcwd()) ~ result.userSettings;
 			result.userPackages = result.userSettings;
 		}
+		result.cache = result.userPackages ~ "cache";
 		return result;
 	}
 }
