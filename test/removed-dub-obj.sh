@@ -2,14 +2,20 @@
 
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
 cd ${CURR_DIR}/removed-dub-obj
-rm -rf .dub
+
+DUB_CACHE_PATH="$HOME/.dub/cache/removed-dub-obj/"
+
+rm -rf $DUB_CACHE_PATH
 
 ${DUB} build --compiler=${DC}
 
-[ -d ".dub/obj" ] && die $LINENO '.dub/obj was found'
+[ -d "$DUB_CACHE_PATH/obj" ] && die $LINENO "$DUB_CACHE_PATH/obj was found"
 
 if [[ ${DC} == *"ldc"* ]]; then
-    [ -f .dub/build/library-*ldc*/obj/test.o* ] || die $LINENO '.dub/build/library-*ldc*/obj/test.o* was not found'
+    if [ ! -f $DUB_CACHE_PATH/~master/build/library-*ldc*/obj/test.o* ]; then
+        ls -lR $DUB_CACHE_PATH
+        die $LINENO '$DUB_CACHE_PATH/~master/build/library-*ldc*/obj/test.o* was not found'
+    fi
 fi
 
 exit 0
