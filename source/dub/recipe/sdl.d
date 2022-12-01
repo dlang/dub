@@ -156,6 +156,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "x:versionFilters": setting.parsePlatformStringArray(bs.versionFilters); break;
 		case "x:debugVersionFilters": setting.parsePlatformStringArray(bs.debugVersionFilters); break;
 		case "importPaths": setting.parsePlatformStringArray(bs.importPaths); break;
+		case "cImportPaths": setting.parsePlatformStringArray(bs.cImportPaths); break;
 		case "stringImportPaths": setting.parsePlatformStringArray(bs.stringImportPaths); break;
 		case "preGenerateCommands": setting.parsePlatformStringArray(bs.preGenerateCommands); break;
 		case "postGenerateCommands": setting.parsePlatformStringArray(bs.postGenerateCommands); break;
@@ -295,6 +296,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.versionFilters) adda("versionFilters", suffix, arr, "x");
 	foreach (suffix, arr; bs.debugVersionFilters) adda("debugVersionFilters", suffix, arr, "x");
 	foreach (suffix, arr; bs.importPaths) adda("importPaths", suffix, arr);
+	foreach (suffix, arr; bs.cImportPaths) adda("cImportPaths", suffix, arr);
 	foreach (suffix, arr; bs.stringImportPaths) adda("stringImportPaths", suffix, arr);
 	foreach (suffix, arr; bs.preGenerateCommands) adda("preGenerateCommands", suffix, arr);
 	foreach (suffix, arr; bs.postGenerateCommands) adda("postGenerateCommands", suffix, arr);
@@ -486,6 +488,8 @@ x:debugVersionFilters "debug3"
 x:debugVersionFilters
 importPaths "import1" "import2"
 importPaths "import3"
+cImportPaths "cimport1" "cimport2"
+cImportPaths "cimport3"
 stringImportPaths "string1" "string2"
 stringImportPaths "string3"
 preGenerateCommands "preg1" "preg2"
@@ -580,6 +584,7 @@ lflags "lf3"
 	assert(rec.buildSettings.versionFilters == ["": ["version1", "version2", "version3"]]);
 	assert(rec.buildSettings.debugVersionFilters == ["": ["debug1", "debug2", "debug3"]]);
 	assert(rec.buildSettings.importPaths == ["": ["import1", "import2", "import3"]]);
+	assert(rec.buildSettings.cImportPaths == ["": ["cimport1", "cimport2", "cimport3"]]);
 	assert(rec.buildSettings.stringImportPaths == ["": ["string1", "string2", "string3"]]);
 	assert(rec.buildSettings.preGenerateCommands == ["": ["preg1", "preg2", "preg3"]]);
 	assert(rec.buildSettings.postGenerateCommands == ["": ["postg1", "postg2", "postg3"]]);

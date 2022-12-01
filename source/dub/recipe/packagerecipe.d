@@ -434,6 +434,7 @@ struct BuildSettingsTemplate {
 	@StartsWith("versionFilters") string[][string] versionFilters;
 	@StartsWith("debugVersionFilters") string[][string] debugVersionFilters;
 	@StartsWith("importPaths") string[][string] importPaths;
+	@StartsWith("cImportPaths") string[][string] cImportPaths;
 	@StartsWith("stringImportPaths") string[][string] stringImportPaths;
 	@StartsWith("preGenerateCommands") string[][string] preGenerateCommands;
 	@StartsWith("postGenerateCommands") string[][string] postGenerateCommands;
@@ -531,10 +532,12 @@ struct BuildSettingsTemplate {
  		// collect import files and remove sources
 		import std.algorithm : copy, setDifference;
 
-		auto importFiles = collectFiles(importPaths, "*.{d,di,h}").sort();
+		auto importFiles =
+            chain(collectFiles(importPaths, "*.{d,di}"), collectFiles(cImportPaths, "*.h"))
+            .sort();
 		immutable nremoved = importFiles.setDifference(sourceFiles).copy(importFiles.release).length;
 		importFiles = importFiles[0 .. $ - nremoved];
-		dst.addImportFiles(importFiles.release);
+		dst.addImportFiles(importFiles.release.array);
 
 		dst.addStringImportFiles(collectFiles(stringImportPaths, "*"));
 
@@ -551,6 +554,7 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("versionFilters", "addVersionFilters")(dst, platform);
 		getPlatformSetting!("debugVersionFilters", "addDebugVersionFilters")(dst, platform);
 		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);
+		getPlatformSetting!("cImportPaths", "addCImportPaths")(dst, platform);
 		getPlatformSetting!("stringImportPaths", "addStringImportPaths")(dst, platform);
 		getPlatformSetting!("preGenerateCommands", "addPreGenerateCommands")(dst, platform);
 		getPlatformSetting!("postGenerateCommands", "addPostGenerateCommands")(dst, platform);
