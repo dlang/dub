@@ -424,6 +424,7 @@ struct BuildSettingsTemplate {
 	@StartsWith("libs") string[][string] libs;
 	@StartsWith("sourceFiles") string[][string] sourceFiles;
 	@StartsWith("sourcePaths") string[][string] sourcePaths;
+	@StartsWith("cSourcePaths") string[][string] cSourcePaths;
 	@StartsWith("excludedSourceFiles") string[][string] excludedSourceFiles;
 	@StartsWith("injectSourceFiles") string[][string] injectSourceFiles;
 	@StartsWith("copyFiles") string[][string] copyFiles;
@@ -524,7 +525,7 @@ struct BuildSettingsTemplate {
 
  		// collect source files
 		dst.addSourceFiles(collectFiles(sourcePaths, "*.d"));
-		dst.addSourceFiles(collectFiles(sourcePaths, "*.c"));
+		dst.addSourceFiles(collectFiles(cSourcePaths, "*.c"));
 		auto sourceFiles = dst.sourceFiles.sort();
 
  		// collect import files and remove sources

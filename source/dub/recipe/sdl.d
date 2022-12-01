@@ -145,6 +145,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "libs": setting.parsePlatformStringArray(bs.libs); break;
 		case "sourceFiles": setting.parsePlatformStringArray(bs.sourceFiles); break;
 		case "sourcePaths": setting.parsePlatformStringArray(bs.sourcePaths); break;
+		case "cSourcePaths": setting.parsePlatformStringArray(bs.cSourcePaths); break;
 		case "excludedSourceFiles": setting.parsePlatformStringArray(bs.excludedSourceFiles); break;
 		case "mainSourceFile": bs.mainSourceFile = setting.stringTagValue; break;
 		case "injectSourceFiles": setting.parsePlatformStringArray(bs.injectSourceFiles); break;
@@ -284,6 +285,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.libs) adda("libs", suffix, arr);
 	foreach (suffix, arr; bs.sourceFiles) adda("sourceFiles", suffix, arr);
 	foreach (suffix, arr; bs.sourcePaths) adda("sourcePaths", suffix, arr);
+	foreach (suffix, arr; bs.cSourcePaths) adda("cSourcePaths", suffix, arr);
 	foreach (suffix, arr; bs.excludedSourceFiles) adda("excludedSourceFiles", suffix, arr);
 	foreach (suffix, arr; bs.injectSourceFiles) adda("injectSourceFiles", suffix, arr);
 	foreach (suffix, arr; bs.copyFiles) adda("copyFiles", suffix, arr);
@@ -462,6 +464,8 @@ sourceFiles "source1" "source2"
 sourceFiles "source3"
 sourcePaths "sourcepath1" "sourcepath2"
 sourcePaths "sourcepath3"
+cSourcePaths "csourcepath1" "csourcepath2"
+cSourcePaths "csourcepath3"
 excludedSourceFiles "excluded1" "excluded2"
 excludedSourceFiles "excluded3"
 mainSourceFile "main source"
@@ -565,6 +569,7 @@ lflags "lf3"
 	assert(rec.buildSettings.libs == ["": ["lib1", "lib2", "lib3"]]);
 	assert(rec.buildSettings.sourceFiles == ["": ["source1", "source2", "source3"]]);
 	assert(rec.buildSettings.sourcePaths == ["": ["sourcepath1", "sourcepath2", "sourcepath3"]]);
+	assert(rec.buildSettings.cSourcePaths == ["": ["csourcepath1", "csourcepath2", "csourcepath3"]]);
 	assert(rec.buildSettings.excludedSourceFiles == ["": ["excluded1", "excluded2", "excluded3"]]);
 	assert(rec.buildSettings.mainSourceFile == "main source");
 	assert(rec.buildSettings.sourceFiles == ["": ["source1", "source2", "source3"]]);
@@ -656,6 +661,13 @@ unittest {
 	PackageRecipe rec;
 	parseSDL(rec, sdl, null, "testfile");
 	assert("" in rec.buildSettings.sourcePaths);
+}
+
+unittest {
+	auto sdl = "name \"test\"\ncSourcePaths";
+	PackageRecipe rec;
+	parseSDL(rec, sdl, null, "testfile");
+	assert("" in rec.buildSettings.cSourcePaths);
 }
 
 unittest {

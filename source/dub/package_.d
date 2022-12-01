@@ -721,11 +721,13 @@ class Package {
 
 		// check for default source folders
 		immutable hasSP = ("" in bs.sourcePaths) !is null;
+		immutable hasCSP = ("" in bs.cSourcePaths) !is null;
 		immutable hasIP = ("" in bs.importPaths) !is null;
 		if (!hasSP || !hasIP) {
 			foreach (defsf; ["source/", "src/"]) {
 				if (existsFile(m_path ~ defsf)) {
 					if (!hasSP) bs.sourcePaths[""] ~= defsf;
+					if (!hasCSP) bs.cSourcePaths[""] ~= defsf;
 					if (!hasIP) bs.importPaths[""] ~= defsf;
 				}
 			}

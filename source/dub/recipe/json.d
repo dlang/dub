@@ -209,6 +209,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "files":
 			case "sourceFiles": bs.sourceFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "sourcePaths": bs.sourcePaths[suffix] = deserializeJson!(string[])(value); break;
+			case "cSourcePaths": bs.cSourcePaths[suffix] = deserializeJson!(string[])(value); break;
 			case "sourcePath": bs.sourcePaths[suffix] ~= [value.get!string]; break; // deprecated
 			case "excludedSourceFiles": bs.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "injectSourceFiles": bs.injectSourceFiles[suffix] = deserializeJson!(string[])(value); break;
@@ -279,6 +280,7 @@ private Json toJson(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.libs) ret[withSuffix("libs", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.sourceFiles) ret[withSuffix("sourceFiles", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.sourcePaths) ret[withSuffix("sourcePaths", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.cSourcePaths) ret[withSuffix("cSourcePaths", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.excludedSourceFiles) ret[withSuffix("excludedSourceFiles", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.injectSourceFiles) ret[withSuffix("injectSourceFiles", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.copyFiles) ret[withSuffix("copyFiles", suffix)] = serializeToJson(arr);

@@ -4,6 +4,7 @@
     "targetType": "library",
     "buildOptions": ["betterC"],
     "sourcePaths": ["source"],
+    "cSourcePaths": ["c-source"],
     "importPaths": ["source"],
     "injectSourceFiles": ["ahook.d"]
 }
