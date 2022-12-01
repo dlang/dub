@@ -8,7 +8,7 @@
 module dub.dub;
 
 import dub.compilers.compiler;
-import dub.data.settings : SPS = SkipPackageSuppliers, UserConfiguration;
+import dub.data.settings : SPS = SkipPackageSuppliers, Settings;
 import dub.dependency;
 import dub.dependencyresolver;
 import dub.internal.utils;
@@ -127,7 +127,7 @@ class Dub {
 		PackageSupplier[] m_packageSuppliers;
 		NativePath m_rootPath;
 		SpecialDirs m_dirs;
-		UserConfiguration m_config;
+		Settings m_config;
 		Project m_project;
 		string m_defaultCompiler;
 	}
@@ -231,7 +231,7 @@ class Dub {
 			// complaining, we should first warn the user.
 			const path = path_.toNativeString();
 			if (path.exists) {
-				auto newConf = parseConfigFileSimple!UserConfiguration(path, StrictMode.Warn);
+				auto newConf = parseConfigFileSimple!Settings(path, StrictMode.Warn);
 				if (!newConf.isNull())
 					this.m_config = this.m_config.merge(newConf.get());
 			}
