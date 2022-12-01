@@ -42,6 +42,7 @@ struct BuildSettings {
 	string[] versionFilters;
 	string[] debugVersionFilters;
 	string[] importPaths;
+	string[] cImportPaths;
 	string[] stringImportPaths;
 	string[] importFiles;
 	string[] stringImportFiles;
@@ -82,6 +83,7 @@ struct BuildSettings {
 		assert(ret.targetType == targetType);
 		assert(ret.targetName == targetName);
 		assert(ret.importPaths == importPaths);
+		assert(ret.cImportPaths == cImportPaths);
 		return ret;
 	}
 
@@ -106,6 +108,7 @@ struct BuildSettings {
 		addVersionFilters(bs.versionFilters);
 		addDebugVersionFilters(bs.debugVersionFilters);
 		addImportPaths(bs.importPaths);
+		addCImportPaths(bs.cImportPaths);
 		addStringImportPaths(bs.stringImportPaths);
 		addImportFiles(bs.importFiles);
 		addStringImportFiles(bs.stringImportFiles);
@@ -146,6 +149,7 @@ struct BuildSettings {
 	void addVersionFilters(in string[] value...) { add(versionFilters, value); }
 	void addDebugVersionFilters(in string[] value...) { add(debugVersionFilters, value); }
 	void addImportPaths(in string[] value...) { add(importPaths, value); }
+	void addCImportPaths(in string[] value...) { add(cImportPaths, value); }
 	void addStringImportPaths(in string[] value...) { add(stringImportPaths, value); }
 	void prependStringImportPaths(in string[] value...) { prepend(stringImportPaths, value); }
 	void addImportFiles(in string[] value...) { add(importFiles, value); }
@@ -330,12 +334,13 @@ enum BuildSetting {
 	versions          = 1<<5,
 	debugVersions     = 1<<6,
 	importPaths       = 1<<7,
-	stringImportPaths = 1<<8,
-	options           = 1<<9,
+	cImportPaths       = 1<<8,
+	stringImportPaths = 1<<9,
+	options           = 1<<10,
 	none = 0,
 	commandLine = dflags|copyFiles,
 	commandLineSeparate = commandLine|lflags,
-	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|debugVersions|importPaths|stringImportPaths|options,
+	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|debugVersions|importPaths|cImportPaths|stringImportPaths|options,
 	noOptions = all & ~options
 }
 
