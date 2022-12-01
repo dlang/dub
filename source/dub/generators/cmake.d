@@ -84,6 +84,9 @@ class CMakeGenerator: ProjectGenerator
             foreach(directory; info.buildSettings.importPaths)
                 script.put("include_directories(%s)\n".format(directory.sanitizeSlashes));
 
+            foreach(directory; info.buildSettings.cImportPaths)
+                script.put("c_include_directories(%s)\n".format(directory.sanitizeSlashes));
+
             if(addTarget)
             {
                 script.put("add_%s(%s %s\n".format(targetType, name, libType));

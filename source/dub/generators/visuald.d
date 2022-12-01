@@ -302,8 +302,9 @@ class VisualDGenerator : ProjectGenerator {
 
 				// include paths and string imports
 				string imports = join(getPathSettings!"importPaths"(), " ");
+				string cimports = join(getPathSettings!"cImportPaths"(), " ");
 				string stringImports = join(getPathSettings!"stringImportPaths"(), " ");
-				ret.formattedWrite("    <imppath>%s</imppath>\n", imports);
+				ret.formattedWrite("    <imppath>%s %s</imppath>\n", imports, cimports);
 				ret.formattedWrite("    <fileImppath>%s</fileImppath>\n", stringImports);
 
 				ret.formattedWrite("    <program>%s</program>\n", "$(DMDInstallDir)windows\\bin\\dmd.exe"); // FIXME: use the actually selected compiler!

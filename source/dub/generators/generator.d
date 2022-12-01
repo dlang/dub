@@ -733,6 +733,7 @@ class ProjectGenerator
 		parent.addVersionFilters(child.versionFilters);
 		parent.addDebugVersionFilters(child.debugVersionFilters);
 		parent.addImportPaths(child.importPaths);
+		parent.addCImportPaths(child.cImportPaths);
 		parent.addStringImportPaths(child.stringImportPaths);
 		parent.addInjectSourceFiles(child.injectSourceFiles);
 		// linker stuff propagates up from static *and* dynamic library deps
@@ -999,6 +1000,7 @@ const(string[string])[] makeCommandEnvironmentVariables(CommandType type,
 	env["LIBS"]                  = join(build_settings.libs, " ");
 	env["SOURCE_FILES"]          = join(build_settings.sourceFiles, " ");
 	env["IMPORT_PATHS"]          = join(build_settings.importPaths, " ");
+	env["C_IMPORT_PATHS"]        = join(build_settings.cImportPaths, " ");
 	env["STRING_IMPORT_PATHS"]   = join(build_settings.stringImportPaths, " ");
 
 	env["DC"]                    = settings.platform.compilerBinary;
