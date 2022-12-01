@@ -211,6 +211,7 @@ class BuildGenerator : ProjectGenerator {
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
 		foreach (ref f; buildsettings.sourceFiles) f = makeRelative(f);
+		foreach (ref f; buildsettings.cSourceFiles) f = makeRelative(f);
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
 

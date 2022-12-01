@@ -922,6 +922,7 @@ class Project {
 
 		case "lflags":
 		case "sourceFiles":
+		case "cSourceFiles":
 		case "injectSourceFiles":
 		case "versions":
 		case "debugVersions":
@@ -975,6 +976,7 @@ class Project {
 			case "importFiles":
 			case "stringImportFiles":
 			case "sourceFiles":
+			case "cSourceFiles":
 			case "importPaths":
 			case "stringImportPaths":
 				return values.map!(escapeShellFileName).array();

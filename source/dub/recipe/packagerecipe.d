@@ -525,7 +525,7 @@ struct BuildSettingsTemplate {
 
  		// collect source files
 		dst.addSourceFiles(collectFiles(sourcePaths, "*.d"));
-		dst.addSourceFiles(collectFiles(cSourcePaths, "*.c"));
+		dst.addSourceFiles(collectFiles(cSourcePaths, "*.{c,i}"));
 		auto sourceFiles = dst.sourceFiles.sort();
 
  		// collect import files and remove sources

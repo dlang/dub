@@ -33,6 +33,7 @@ struct BuildSettings {
 	string[] libs;
 	string[] linkerFiles;
 	string[] sourceFiles;
+	string[] cSourceFiles;
 	string[] injectSourceFiles;
 	string[] copyFiles;
 	string[] extraDependencyFiles;
