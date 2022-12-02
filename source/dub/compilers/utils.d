@@ -35,18 +35,6 @@ void enforceBuildRequirements(ref BuildSettings settings)
 
 
 /**
- * Determine, if the compiler hast ImportC support
- *
- * Note: Discuss and implement, move this to appropriate place!
- *
- * Returns: true or false
- */
-bool haveImportCSupport()
-{
-	assert(false, "Implement " ~ __PRETTY_FUNCTION__);
-}
-
-/**
 	Determines if a specific file name has the extension of a linker file.
 
 	Linker files include static/dynamic libraries, resource files, object files
