@@ -999,6 +999,7 @@ const(string[string])[] makeCommandEnvironmentVariables(CommandType type,
 	env["VERSIONS"]              = join(build_settings.versions, " ");
 	env["LIBS"]                  = join(build_settings.libs, " ");
 	env["SOURCE_FILES"]          = join(build_settings.sourceFiles, " ");
+	env["C_SOURCE_FILES"]        = join(build_settings.cSourceFiles, " ");
 	env["IMPORT_PATHS"]          = join(build_settings.importPaths, " ");
 	env["C_IMPORT_PATHS"]        = join(build_settings.cImportPaths, " ");
 	env["STRING_IMPORT_PATHS"]   = join(build_settings.stringImportPaths, " ");
