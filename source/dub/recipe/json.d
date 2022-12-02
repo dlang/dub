@@ -290,6 +290,7 @@ private Json toJson(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.debugVersions) ret[withSuffix("debugVersions", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.versionFilters) ret[withSuffix("-versionFilters", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.debugVersionFilters) ret[withSuffix("-debugVersionFilters", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.importPaths) ret[withSuffix("importPaths", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.cImportPaths) ret[withSuffix("cImportPaths", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.stringImportPaths) ret[withSuffix("stringImportPaths", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.preGenerateCommands) ret[withSuffix("preGenerateCommands", suffix)] = serializeToJson(arr);
