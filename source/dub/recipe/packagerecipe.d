@@ -533,11 +533,12 @@ struct BuildSettingsTemplate {
 		import std.algorithm : copy, setDifference;
 
 		auto importFiles =
-            chain(collectFiles(importPaths, "*.{d,di}"), collectFiles(cImportPaths, "*.h"))
-            .sort();
+			chain(collectFiles(importPaths, "*.{d,di}"), collectFiles(cImportPaths, "*.h"))
+			.array()
+			.sort();
 		immutable nremoved = importFiles.setDifference(sourceFiles).copy(importFiles.release).length;
 		importFiles = importFiles[0 .. $ - nremoved];
-		dst.addImportFiles(importFiles.release.array);
+		dst.addImportFiles(importFiles.release);
 
 		dst.addStringImportFiles(collectFiles(stringImportPaths, "*"));
 
