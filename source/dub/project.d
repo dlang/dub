@@ -1315,6 +1315,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags, false, buildEnvs));
 	dst.addLibs(processVars(project, pack, gsettings, settings.libs, false, buildEnvs));
 	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true, buildEnvs));
+	dst.addCSourceFiles(processVars!true(project, pack, gsettings, settings.cSourceFiles, true, buildEnvs));
 	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true, buildEnvs));
 	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true, buildEnvs));
 	dst.addInjectSourceFiles(processVars!true(project, pack, gsettings, settings.injectSourceFiles, true, buildEnvs));

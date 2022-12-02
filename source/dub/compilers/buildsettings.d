@@ -139,6 +139,7 @@ struct BuildSettings {
 	void addLibs(in string[] value...) { add(libs, value); }
 	void addLinkerFiles(in string[] value...) { add(linkerFiles, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
+	void addCSourceFiles(in string[] value...) { add(cSourceFiles, value); }
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
 	void removeSourceFiles(in string[] value...) { removePaths(sourceFiles, value); }
 	void addInjectSourceFiles(in string[] value...) { add(injectSourceFiles, value); }
