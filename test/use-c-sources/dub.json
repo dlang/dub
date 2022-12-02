@@ -1,0 +1,11 @@
+{
+    "toolchainRequirements": {
+        "dub": ">=1.29.0",
+        "frontend": ">=2.101.0"
+    },
+    "cSourcePaths": [
+        "source"
+    ],
+    "description": "A minimal D application using ImportC and C sources in a dub project.",
+    "name": "use-c-sources"
+}
