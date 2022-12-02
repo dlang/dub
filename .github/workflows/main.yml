@@ -34,7 +34,7 @@ jobs:
           - dmd-2.100.2
           - ldc-latest
           - dmd-master
-          - ldc-master
+#          - ldc-master
           # This is the bootstrap compiler used to compile the releases
           - ldc-1.23.0
           # Some intermediate compilers for good measure
