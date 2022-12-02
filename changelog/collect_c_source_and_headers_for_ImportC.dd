@@ -1,5 +1,4 @@
-
-Add new keywords 'cSourcePaths' and 'cImportPaths'
+Add new properties 'cSourcePaths' and 'cImportPaths' to SDL/JSON
 
 `cSourcePaths` passes the C source files in all specified directories to the compiler.
 All C sources found in the given directories for 'cImportPaths' are passed to the D compiler.
