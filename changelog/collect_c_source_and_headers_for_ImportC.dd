@@ -1,7 +1,7 @@
 
 Add new keywords 'cSourcePaths' and 'cImportPaths'
 
-The first keyword is added to enable collection of C source files in all 'directories' specified with 'cSourcePaths'.
+`cSourcePaths` passes the C source files in all specified directories to the compiler.
 All C sources found in the given directories for 'cImportPaths' are passed to the D compiler.
 This ensures backward compatible behaviour for projects that stored C sources aside of D source file, while porting them to D.
 
