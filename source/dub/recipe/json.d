@@ -209,6 +209,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "files":
 			case "sourceFiles": bs.sourceFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "sourcePaths": bs.sourcePaths[suffix] = deserializeJson!(string[])(value); break;
+			case "cSourcePaths": bs.cSourcePaths[suffix] = deserializeJson!(string[])(value); break;
 			case "sourcePath": bs.sourcePaths[suffix] ~= [value.get!string]; break; // deprecated
 			case "excludedSourceFiles": bs.excludedSourceFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "injectSourceFiles": bs.injectSourceFiles[suffix] = deserializeJson!(string[])(value); break;
@@ -219,6 +220,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "-versionFilters": bs.versionFilters[suffix] = deserializeJson!(string[])(value); break;
 			case "-debugVersionFilters": bs.debugVersionFilters[suffix] = deserializeJson!(string[])(value); break;
 			case "importPaths": bs.importPaths[suffix] = deserializeJson!(string[])(value); break;
+			case "cImportPaths": bs.cImportPaths[suffix] = deserializeJson!(string[])(value); break;
 			case "stringImportPaths": bs.stringImportPaths[suffix] = deserializeJson!(string[])(value); break;
 			case "preGenerateCommands": bs.preGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
 			case "postGenerateCommands": bs.postGenerateCommands[suffix] = deserializeJson!(string[])(value); break;
@@ -279,6 +281,7 @@ private Json toJson(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.libs) ret[withSuffix("libs", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.sourceFiles) ret[withSuffix("sourceFiles", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.sourcePaths) ret[withSuffix("sourcePaths", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.cSourcePaths) ret[withSuffix("cSourcePaths", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.excludedSourceFiles) ret[withSuffix("excludedSourceFiles", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.injectSourceFiles) ret[withSuffix("injectSourceFiles", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.copyFiles) ret[withSuffix("copyFiles", suffix)] = serializeToJson(arr);
@@ -288,6 +291,7 @@ private Json toJson(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.versionFilters) ret[withSuffix("-versionFilters", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.debugVersionFilters) ret[withSuffix("-debugVersionFilters", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.importPaths) ret[withSuffix("importPaths", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.cImportPaths) ret[withSuffix("cImportPaths", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.stringImportPaths) ret[withSuffix("stringImportPaths", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.preGenerateCommands) ret[withSuffix("preGenerateCommands", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.postGenerateCommands) ret[withSuffix("postGenerateCommands", suffix)] = serializeToJson(arr);

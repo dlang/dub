@@ -934,6 +934,7 @@ class Project {
 		case "versions":
 		case "debugVersions":
 		case "importPaths":
+		case "cImportPaths":
 		case "stringImportPaths":
 		case "options":
 			auto bs = buildSettings.dup;
@@ -943,6 +944,8 @@ class Project {
 			auto ensureTrailingSlash = (string path) => path.endsWith(dirSeparator) ? path : path ~ dirSeparator;
 			static if (attributeName == "importPaths")
 				bs.importPaths = bs.importPaths.map!(ensureTrailingSlash).array();
+			else static if (attributeName == "cImportPaths")
+				bs.cImportPaths = bs.cImportPaths.map!(ensureTrailingSlash).array();
 			else static if (attributeName == "stringImportPaths")
 				bs.stringImportPaths = bs.stringImportPaths.map!(ensureTrailingSlash).array();
 
@@ -984,6 +987,7 @@ class Project {
 			case "stringImportFiles":
 			case "sourceFiles":
 			case "importPaths":
+			case "CImportPaths":
 			case "stringImportPaths":
 				return values.map!(escapeShellFileName).array();
 
@@ -1060,7 +1064,7 @@ class Project {
 		auto getFixedBuildSetting(Package pack) {
 			// Is relative path(s) to a directory?
 			enum isRelativeDirectory =
-				attributeName == "importPaths" || attributeName == "stringImportPaths" ||
+				attributeName == "importPaths" || attributeName == "cImportPaths" || attributeName == "stringImportPaths" ||
 				attributeName == "targetPath" || attributeName == "workingDirectory";
 
 			// Is relative path(s) to a file?
@@ -1327,6 +1331,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addVersionFilters(processVars(project, pack, gsettings, settings.versionFilters, false, buildEnvs));
 	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters, false, buildEnvs));
 	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true, buildEnvs));
+	dst.addCImportPaths(processVars(project, pack, gsettings, settings.cImportPaths, true, buildEnvs));
 	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true, buildEnvs));
 	dst.addRequirements(settings.requirements);
 	dst.addOptions(settings.options);
