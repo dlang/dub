@@ -426,6 +426,7 @@ struct BuildSettingsTemplate {
 	@StartsWith("libs") string[][string] libs;
 	@StartsWith("sourceFiles") string[][string] sourceFiles;
 	@StartsWith("sourcePaths") string[][string] sourcePaths;
+	@StartsWith("cSourcePaths") string[][string] cSourcePaths;
 	@StartsWith("excludedSourceFiles") string[][string] excludedSourceFiles;
 	@StartsWith("injectSourceFiles") string[][string] injectSourceFiles;
 	@StartsWith("copyFiles") string[][string] copyFiles;
@@ -435,6 +436,7 @@ struct BuildSettingsTemplate {
 	@StartsWith("versionFilters") string[][string] versionFilters;
 	@StartsWith("debugVersionFilters") string[][string] debugVersionFilters;
 	@StartsWith("importPaths") string[][string] importPaths;
+	@StartsWith("cImportPaths") string[][string] cImportPaths;
 	@StartsWith("stringImportPaths") string[][string] stringImportPaths;
 	@StartsWith("preGenerateCommands") string[][string] preGenerateCommands;
 	@StartsWith("postGenerateCommands") string[][string] postGenerateCommands;
@@ -524,14 +526,18 @@ struct BuildSettingsTemplate {
 			return files.data;
 		}
 
- 		// collect source files
+ 		// collect source files. Note: D source from 'sourcePaths' and C sources from 'cSourcePaths' are joint into 'sourceFiles'
 		dst.addSourceFiles(collectFiles(sourcePaths, "*.d"));
+		dst.addSourceFiles(collectFiles(cSourcePaths, "*.{c,i}"));
 		auto sourceFiles = dst.sourceFiles.sort();
 
  		// collect import files and remove sources
 		import std.algorithm : copy, setDifference;
 
-		auto importFiles = collectFiles(importPaths, "*.{d,di}").sort();
+		auto importFiles =
+			chain(collectFiles(importPaths, "*.{d,di}"), collectFiles(cImportPaths, "*.h"))
+			.array()
+			.sort();
 		immutable nremoved = importFiles.setDifference(sourceFiles).copy(importFiles.release).length;
 		importFiles = importFiles[0 .. $ - nremoved];
 		dst.addImportFiles(importFiles.release);
@@ -551,6 +557,7 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("versionFilters", "addVersionFilters")(dst, platform);
 		getPlatformSetting!("debugVersionFilters", "addDebugVersionFilters")(dst, platform);
 		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);
+		getPlatformSetting!("cImportPaths", "addCImportPaths")(dst, platform);
 		getPlatformSetting!("stringImportPaths", "addStringImportPaths")(dst, platform);
 		getPlatformSetting!("preGenerateCommands", "addPreGenerateCommands")(dst, platform);
 		getPlatformSetting!("postGenerateCommands", "addPostGenerateCommands")(dst, platform);

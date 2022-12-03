@@ -131,6 +131,11 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 			settings.importPaths = null;
 		}
 
+		if (!(fields & BuildSetting.cImportPaths)) {
+			settings.addDFlags(settings.cImportPaths.map!(s => "-I"~s)().array());
+			settings.cImportPaths = null;
+		}
+
 		if (!(fields & BuildSetting.stringImportPaths)) {
 			settings.addDFlags(settings.stringImportPaths.map!(s => "-J"~s)().array());
 			settings.stringImportPaths = null;

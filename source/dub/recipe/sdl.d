@@ -145,6 +145,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "libs": setting.parsePlatformStringArray(bs.libs); break;
 		case "sourceFiles": setting.parsePlatformStringArray(bs.sourceFiles); break;
 		case "sourcePaths": setting.parsePlatformStringArray(bs.sourcePaths); break;
+		case "cSourcePaths": setting.parsePlatformStringArray(bs.cSourcePaths); break;
 		case "excludedSourceFiles": setting.parsePlatformStringArray(bs.excludedSourceFiles); break;
 		case "mainSourceFile": bs.mainSourceFile = setting.stringTagValue; break;
 		case "injectSourceFiles": setting.parsePlatformStringArray(bs.injectSourceFiles); break;
@@ -155,6 +156,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs, string
 		case "x:versionFilters": setting.parsePlatformStringArray(bs.versionFilters); break;
 		case "x:debugVersionFilters": setting.parsePlatformStringArray(bs.debugVersionFilters); break;
 		case "importPaths": setting.parsePlatformStringArray(bs.importPaths); break;
+		case "cImportPaths": setting.parsePlatformStringArray(bs.cImportPaths); break;
 		case "stringImportPaths": setting.parsePlatformStringArray(bs.stringImportPaths); break;
 		case "preGenerateCommands": setting.parsePlatformStringArray(bs.preGenerateCommands); break;
 		case "postGenerateCommands": setting.parsePlatformStringArray(bs.postGenerateCommands); break;
@@ -284,6 +286,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.libs) adda("libs", suffix, arr);
 	foreach (suffix, arr; bs.sourceFiles) adda("sourceFiles", suffix, arr);
 	foreach (suffix, arr; bs.sourcePaths) adda("sourcePaths", suffix, arr);
+	foreach (suffix, arr; bs.cSourcePaths) adda("cSourcePaths", suffix, arr);
 	foreach (suffix, arr; bs.excludedSourceFiles) adda("excludedSourceFiles", suffix, arr);
 	foreach (suffix, arr; bs.injectSourceFiles) adda("injectSourceFiles", suffix, arr);
 	foreach (suffix, arr; bs.copyFiles) adda("copyFiles", suffix, arr);
@@ -293,6 +296,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.versionFilters) adda("versionFilters", suffix, arr, "x");
 	foreach (suffix, arr; bs.debugVersionFilters) adda("debugVersionFilters", suffix, arr, "x");
 	foreach (suffix, arr; bs.importPaths) adda("importPaths", suffix, arr);
+	foreach (suffix, arr; bs.cImportPaths) adda("cImportPaths", suffix, arr);
 	foreach (suffix, arr; bs.stringImportPaths) adda("stringImportPaths", suffix, arr);
 	foreach (suffix, arr; bs.preGenerateCommands) adda("preGenerateCommands", suffix, arr);
 	foreach (suffix, arr; bs.postGenerateCommands) adda("postGenerateCommands", suffix, arr);
@@ -476,6 +480,8 @@ sourceFiles "source1" "source2"
 sourceFiles "source3"
 sourcePaths "sourcepath1" "sourcepath2"
 sourcePaths "sourcepath3"
+cSourcePaths "csourcepath1" "csourcepath2"
+cSourcePaths "csourcepath3"
 excludedSourceFiles "excluded1" "excluded2"
 excludedSourceFiles "excluded3"
 mainSourceFile "main source"
@@ -496,6 +502,8 @@ x:debugVersionFilters "debug3"
 x:debugVersionFilters
 importPaths "import1" "import2"
 importPaths "import3"
+cImportPaths "cimport1" "cimport2"
+cImportPaths "cimport3"
 stringImportPaths "string1" "string2"
 stringImportPaths "string3"
 preGenerateCommands "preg1" "preg2"
@@ -579,6 +587,7 @@ lflags "lf3"
 	assert(rec.buildSettings.libs == ["": ["lib1", "lib2", "lib3"]]);
 	assert(rec.buildSettings.sourceFiles == ["": ["source1", "source2", "source3"]]);
 	assert(rec.buildSettings.sourcePaths == ["": ["sourcepath1", "sourcepath2", "sourcepath3"]]);
+	assert(rec.buildSettings.cSourcePaths == ["": ["csourcepath1", "csourcepath2", "csourcepath3"]]);
 	assert(rec.buildSettings.excludedSourceFiles == ["": ["excluded1", "excluded2", "excluded3"]]);
 	assert(rec.buildSettings.mainSourceFile == "main source");
 	assert(rec.buildSettings.sourceFiles == ["": ["source1", "source2", "source3"]]);
@@ -589,6 +598,7 @@ lflags "lf3"
 	assert(rec.buildSettings.versionFilters == ["": ["version1", "version2", "version3"]]);
 	assert(rec.buildSettings.debugVersionFilters == ["": ["debug1", "debug2", "debug3"]]);
 	assert(rec.buildSettings.importPaths == ["": ["import1", "import2", "import3"]]);
+	assert(rec.buildSettings.cImportPaths == ["": ["cimport1", "cimport2", "cimport3"]]);
 	assert(rec.buildSettings.stringImportPaths == ["": ["string1", "string2", "string3"]]);
 	assert(rec.buildSettings.preGenerateCommands == ["": ["preg1", "preg2", "preg3"]]);
 	assert(rec.buildSettings.postGenerateCommands == ["": ["postg1", "postg2", "postg3"]]);
@@ -670,6 +680,13 @@ unittest {
 	PackageRecipe rec;
 	parseSDL(rec, sdl, null, "testfile");
 	assert("" in rec.buildSettings.sourcePaths);
+}
+
+unittest {
+	auto sdl = "name \"test\"\ncSourcePaths";
+	PackageRecipe rec;
+	parseSDL(rec, sdl, null, "testfile");
+	assert("" in rec.buildSettings.cSourcePaths);
 }
 
 unittest {
