@@ -1053,7 +1053,7 @@ const(string[string])[] makeCommandEnvironmentVariables(CommandType type,
 	env["DC_BASE"]               = settings.platform.compiler;
 	env["D_FRONTEND_VER"]        = to!string(settings.platform.frontendVersion);
 
-	env["DUB_EXE"]               = getDUBExePath(settings.platform.compilerBinary);
+	env["DUB_EXE"]               = getDUBExePath(settings.platform.compilerBinary).toNativeString();
 	env["DUB_PLATFORM"]          = join(settings.platform.platform, " ");
 	env["DUB_ARCH"]              = join(settings.platform.architecture, " ");
 
