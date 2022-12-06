@@ -381,11 +381,11 @@ string getDUBVersion()
 	Throws:
 		an Exception if no valid DUB executable is found
 */
-public string getDUBExePath(in string compilerBinary=null)
+public NativePath getDUBExePath(in string compilerBinary=null)
 {
 	version(DubApplication) {
 		import std.file : thisExePath;
-		return thisExePath();
+		return NativePath(thisExePath());
 	}
 	else {
 		// this must be dub as a library
@@ -418,7 +418,7 @@ public string getDUBExePath(in string compilerBinary=null)
 		.filter!exists;
 
 		enforce(!dubLocs.empty, "Could not find DUB executable");
-		return dubLocs.front.array;
+		return NativePath(dubLocs.front.array);
 	}
 }
 

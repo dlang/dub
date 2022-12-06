@@ -1569,7 +1569,7 @@ private string getVariable(Project, Package)(string name, in Project project, in
 	}
 
 	if (name == "DUB") {
-		return getDUBExePath(gsettings.platform.compilerBinary);
+		return getDUBExePath(gsettings.platform.compilerBinary).toNativeString();
 	}
 
 	if (name == "ARCH") {
