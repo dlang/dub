@@ -21,8 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-# Disabled as we rely on DIP1000 `foreach (scope)` which GDC < 12 doesn't support
-#          - { dc: gdc, dcpkg: gcc-gdc, dcbin: gdc  }
+          - { dc: gdc, dcpkg: gcc-gdc, dcbin: gdc  }
           - { dc: ldc, dcpkg: ldc,     dcbin: ldc2 }
           - { dc: dmd, dcpkg: dmd,     dcbin: dmd  }
 
