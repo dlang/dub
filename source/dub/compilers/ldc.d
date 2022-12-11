@@ -10,13 +10,13 @@ module dub.compilers.ldc;
 import dub.compilers.compiler;
 import dub.compilers.utils;
 import dub.internal.utils;
+import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
 
 import std.algorithm;
 import std.array;
 import std.exception;
-import std.file;
 import std.typecons;
 
 
@@ -250,7 +250,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		auto res_file = getTempFile("dub-build", ".rsp");
 		const(string)[] args = settings.dflags;
 		if (platform.frontendVersion >= 2066) args ~= "-vcolumns";
-		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
+		writeFile(res_file, escapeArgs(args).join("\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
 		string[string] env;
@@ -273,7 +273,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 
 		auto res_file = getTempFile("dub-build", ".lnk");
-		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
+		writeFile(res_file, escapeArgs(args).join("\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
 		string[string] env;
