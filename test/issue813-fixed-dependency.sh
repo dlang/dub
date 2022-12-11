@@ -7,18 +7,18 @@ rm -rf sub/.dub
 rm -rf sub/sub/.dub
 
 echo "verify that we can build sub without add-local"
-${DUB} build --compiler=${DC} --force sub
+${DUB} build --compiler=${DC} --force --root=sub
 
 rm -rf sub/.dub
 rm -rf sub/sub/.dub
 
 echo "verify that we can build sub with add-local"
 ${DUB} add-local sub
-${DUB} build --compiler=${DC} --force sub
+${DUB} build --compiler=${DC} --force --root=sub
 
+${DUB} remove-local sub
 rm -rf sub/.dub
 rm -rf sub/sub/.dub
-${DUB} remove-local sub
 
 echo "verify that we can build main application"
-${DUB} build --compiler=${DC} main
+${DUB} build --compiler=${DC} --root=main
