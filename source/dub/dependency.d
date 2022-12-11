@@ -15,7 +15,7 @@ import dub.package_;
 import dub.semver;
 import dub.internal.logging;
 
-import dub.internal.dyaml.stdsumtype;
+import dub.internal.stdsumtype;
 
 import std.algorithm;
 import std.array;

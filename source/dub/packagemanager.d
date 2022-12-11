@@ -18,7 +18,7 @@ import dub.recipe.io;
 import dub.internal.configy.Exceptions;
 public import dub.internal.configy.Read : StrictMode;
 
-import dub.internal.dyaml.stdsumtype;
+import dub.internal.stdsumtype;
 
 import std.algorithm : countUntil, filter, map, sort, canFind, remove;
 import std.array;

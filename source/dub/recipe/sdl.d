@@ -9,6 +9,7 @@ module dub.recipe.sdl;
 
 import dub.compilers.compiler;
 import dub.dependency;
+import dub.internal.stdsumtype;
 import dub.internal.logging;
 import dub.internal.sdlang;
 import dub.internal.vibecompat.inet.path;
@@ -17,8 +18,7 @@ import dub.recipe.packagerecipe;
 import std.algorithm : map;
 import std.array : array;
 import std.conv;
-import std.string : startsWith;
-
+import std.string : startsWith, format;
 
 void parseSDL(ref PackageRecipe recipe, string sdl, string parent_name, string filename)
 {
@@ -180,29 +180,29 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, string package
 {
 	enforceSDL(t.values.length != 0, "Missing dependency name.", t);
 	enforceSDL(t.values.length == 1, "Multiple dependency names.", t);
-	auto pkg = expandPackageName(t.values[0].get!string, package_name, t);
+	auto pkg = expandPackageName(t.values[0].expect!string(t), package_name, t);
 	enforceSDL(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once.", t);
 
 	Dependency dep = Dependency.any;
 	auto attrs = t.attributes;
 
 	if ("path" in attrs) {
-		dep = Dependency(NativePath(attrs["path"][0].value.get!string));
+		dep = Dependency(NativePath(attrs["path"][0].value.expect!string(t, t.fullName ~ " path")));
 	} else if ("repository" in attrs) {
 		enforceSDL("version" in attrs, "Missing version specification.", t);
 
-		dep = Dependency(Repository(attrs["repository"][0].value.get!string,
-                                    attrs["version"][0].value.get!string));
+		dep = Dependency(Repository(attrs["repository"][0].value.expect!string(t, t.fullName ~ " repository"),
+                                    attrs["version"][0].value.expect!string(t, t.fullName ~ " version")));
 	} else {
 		enforceSDL("version" in attrs, "Missing version specification.", t);
-		dep = Dependency(attrs["version"][0].value.get!string);
+		dep = Dependency(attrs["version"][0].value.expect!string(t, t.fullName ~ " version"));
 	}
 
 	if ("optional" in attrs)
-		dep.optional = attrs["optional"][0].value.get!bool;
+		dep.optional = attrs["optional"][0].value.expect!bool(t, t.fullName ~ " optional");
 
 	if ("default" in attrs)
-		dep.default_ = attrs["default"][0].value.get!bool;
+		dep.default_ = attrs["default"][0].value.expect!bool(t, t.fullName ~ " default");
 
 	bs.dependencies[pkg] = dep;
 
@@ -317,7 +317,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 private void parseToolchainRequirements(ref ToolchainRequirements tr, Tag tag)
 {
 	foreach (attr; tag.attributes)
-		tr.addRequirement(attr.name, attr.value.get!string);
+		tr.addRequirement(attr.name, attr.value.expect!string(tag));
 }
 
 private Tag toSDL(const ref ToolchainRequirements tr)
@@ -334,7 +334,6 @@ private Tag toSDL(const ref ToolchainRequirements tr)
 private string expandPackageName(string name, string parent_name, Tag tag)
 {
 	import std.algorithm : canFind;
-	import std.string : format;
 	if (name.startsWith(":")) {
 		enforceSDL(!parent_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", parent_name, name), tag);
 		return parent_name ~ name;
@@ -343,64 +342,79 @@ private string expandPackageName(string name, string parent_name, Tag tag)
 
 private string stringTagValue(Tag t, bool allow_child_tags = false)
 {
-	import std.string : format;
 	enforceSDL(t.values.length > 0, format("Missing string value for '%s'.", t.fullName), t);
 	enforceSDL(t.values.length == 1, format("Expected only one value for '%s'.", t.fullName), t);
-	enforceSDL(t.values[0].peek!string !is null, format("Expected value of type string for '%s'.", t.fullName), t);
 	enforceSDL(allow_child_tags || t.tags.length == 0, format("No child tags allowed for '%s'.", t.fullName), t);
 	// Q: should attributes be disallowed, or just ignored for forward compatibility reasons?
 	//enforceSDL(t.attributes.length == 0, format("No attributes allowed for '%s'.", t.fullName), t);
-	return t.values[0].get!string;
+	return t.values[0].expect!string(t);
+}
+
+private T expect(T)(
+	Value value,
+	Tag errorInfo,
+	string customFieldName = null,
+	string file = __FILE__,
+	int line = __LINE__
+)
+{
+	return value.match!(
+		(T v) => v,
+		(fallback)
+		{
+			enforceSDL(false, format("Expected value of type " ~ T.stringof ~ " for '%s', but got %s.",
+				customFieldName.length ? customFieldName : errorInfo.fullName,
+				typeof(fallback).stringof),
+				errorInfo, file, line);
+			return T.init;
+		}
+	);
 }
 
 private string[] stringArrayTagValue(Tag t, bool allow_child_tags = false)
 {
-	import std.string : format;
 	enforceSDL(allow_child_tags || t.tags.length == 0, format("No child tags allowed for '%s'.", t.fullName), t);
 	// Q: should attributes be disallowed, or just ignored for forward compatibility reasons?
 	//enforceSDL(t.attributes.length == 0, format("No attributes allowed for '%s'.", t.fullName), t);
 
 	string[] ret;
-	foreach (v; t.values) {
-		enforceSDL(t.values[0].peek!string !is null, format("Values for '%s' must be strings.", t.fullName), t);
-		ret ~= v.get!string;
+	foreach (i, v; t.values) {
+		ret ~= v.expect!string(t, text(t.fullName, "[", i, "]"));
 	}
 	return ret;
 }
 
-private void parsePlatformStringArray(Tag t, ref string[][string] dst)
+private string getPlatformSuffix(Tag t, string file = __FILE__, int line = __LINE__)
 {
 	string platform;
 	if ("platform" in t.attributes)
-		platform = t.attributes["platform"][0].value.get!string;
-	dst[platform] ~= t.values.map!(v => v.get!string).array;
+		platform = t.attributes["platform"][0].value.expect!string(t, t.fullName ~ " platform", file, line);
+	return platform;
+}
+
+private void parsePlatformStringArray(Tag t, ref string[][string] dst)
+{
+	string platform = t.getPlatformSuffix;
+	dst[platform] ~= t.values.map!(v => v.expect!string(t)).array;
 }
 private void parsePlatformStringAA(Tag t, ref string[string][string] dst)
 {
-	import std.string : format;
-	string platform;
-	if ("platform" in t.attributes)
-		platform = t.attributes["platform"][0].value.get!string;
+	string platform = t.getPlatformSuffix;
 	enforceSDL(t.values.length == 2, format("Values for '%s' must be 2 required.", t.fullName), t);
-	enforceSDL(t.values[0].peek!string !is null, format("Values for '%s' must be strings.", t.fullName), t);
-	enforceSDL(t.values[1].peek!string !is null, format("Values for '%s' must be strings.", t.fullName), t);
-	dst[platform][t.values[0].get!string] = t.values[1].get!string;
+	dst[platform][t.values[0].expect!string(t)] = t.values[1].expect!string(t);
 }
 
 private void parsePlatformEnumArray(E, Es)(Tag t, ref Es[string] dst)
 {
-	string platform;
-	if ("platform" in t.attributes)
-		platform = t.attributes["platform"][0].value.get!string;
+	string platform = t.getPlatformSuffix;
 	foreach (v; t.values) {
 		if (platform !in dst) dst[platform] = Es.init;
-		dst[platform] |= v.get!string.to!E;
+		dst[platform] |= v.expect!string(t).to!E;
 	}
 }
 
 private void enforceSDL(bool condition, lazy string message, Tag tag, string file = __FILE__, int line = __LINE__)
 {
-	import std.string : format;
 	if (!condition) {
 		throw new Exception(format("%s(%s): Error: %s", tag.location.file, tag.location.line + 1, message), file, line);
 	}

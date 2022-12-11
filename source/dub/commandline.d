@@ -21,7 +21,7 @@ import dub.packagesuppliers;
 import dub.project;
 import dub.internal.utils : getDUBVersion, getClosestMatch, getTempFile;
 
-import dub.internal.dyaml.stdsumtype;
+import dub.internal.stdsumtype;
 
 import std.algorithm;
 import std.array;
@@ -35,7 +35,6 @@ import std.process;
 import std.stdio;
 import std.string;
 import std.typecons : Tuple, tuple;
-import std.variant;
 import std.path: setExtension;
 
 /** Retrieves a list of all available commands.
@@ -575,8 +574,10 @@ struct CommonOptions {
 */
 class CommandArgs {
 	struct Arg {
-		Variant defaultValue;
-		Variant value;
+		alias Value = SumType!(string[], string, bool, int, uint);
+
+		Value defaultValue;
+		Value value;
 		string names;
 		string[] helpText;
 		bool hidden;
@@ -630,20 +631,25 @@ class CommandArgs {
 
 	void getopt(T)(string names, T* var, string[] help_text = null, bool hidden=false)
 	{
+		import std.traits : OriginalType;
+
 		foreach (ref arg; m_recognizedArgs)
 			if (names == arg.names) {
 				assert(help_text is null, format!("Duplicated argument '%s' must not change helptext, consider to remove the duplication")(names));
-				*var = arg.value.get!T;
+				*var = arg.value.match!(
+					(OriginalType!T v) => cast(T)v,
+					(_) => assert(false, "value from previous getopt has different type than the current getopt call"))
+				;
 				return;
 			}
 		assert(help_text.length > 0);
 		Arg arg;
-		arg.defaultValue = *var;
+		arg.defaultValue = Arg.Value(cast(OriginalType!T)*var);
 		arg.names = names;
 		arg.helpText = help_text;
 		arg.hidden = hidden;
 		m_args.getopt(config.passThrough, names, var);
-		arg.value = *var;
+		arg.value = Arg.Value(cast(OriginalType!T)*var);
 		m_recognizedArgs ~= arg;
 	}
 
@@ -2694,13 +2700,16 @@ private void writeOptions(CommandArgs args)
 		} else writeWS(longArgColumn);
 		size_t col = longArgColumn;
 		if (larg !is null) {
-			if (arg.defaultValue.peek!bool) {
-				writef("--%s", larg);
-				col += larg.length + 2;
-			} else {
-				writef("--%s=VALUE", larg);
-				col += larg.length + 8;
-			}
+			arg.defaultValue.match!(
+				(bool b) {
+					writef("--%s", larg);
+					col += larg.length + 2;
+				},
+				(_) {
+					writef("--%s=VALUE", larg);
+					col += larg.length + 8;
+				}
+			);
 		}
 		if (col < descColumn) {
 			writeWS(descColumn - col);

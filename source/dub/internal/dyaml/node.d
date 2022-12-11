@@ -24,7 +24,7 @@ import std.typecons;
 
 // FIXME: Switch back to upstream's when v2.101 is the oldest
 // supported version (recommended: after v2.111 release).
-import dub.internal.dyaml.stdsumtype;
+import dub.internal.stdsumtype;
 
 import dub.internal.dyaml.event;
 import dub.internal.dyaml.exception;

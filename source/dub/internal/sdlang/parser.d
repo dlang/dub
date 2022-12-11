@@ -7,7 +7,6 @@ version (Have_sdlang_d) public import sdlang.parser;
 else:
 
 import std.file;
-import std.variant : Algebraic;
 
 import dub.internal.libInputVisitor;
 
@@ -17,6 +16,8 @@ import dub.internal.sdlang.lexer;
 import dub.internal.sdlang.symbol;
 import dub.internal.sdlang.token;
 import dub.internal.sdlang.util;
+
+import dub.internal.stdsumtype;
 
 /// Returns root tag.
 Tag parseFile(string filename)
@@ -119,7 +120,7 @@ auto pullParseSource(string source, string filename=null)
 }
 
 /// The element of the InputRange returned by pullParseFile and pullParseSource:
-alias ParserEvent = Algebraic!(
+alias ParserEvent = SumType!(
 	FileStartEvent,
 	FileEndEvent,
 	TagStartEvent,
@@ -483,41 +484,41 @@ private struct DOMParser
 		auto eventRange = inputVisitor!ParserEvent( parser );
 		foreach(event; eventRange)
 		{
-			if(auto e = event.peek!TagStartEvent())
-			{
-				auto newTag = new Tag(currTag, e.namespace, e.name);
-				newTag.location = e.location;
+			event.match!(
+				(TagStartEvent e)
+				{
+					auto newTag = new Tag(currTag, e.namespace, e.name);
+					newTag.location = e.location;
 
-				currTag = newTag;
-			}
-			else if(event.peek!TagEndEvent())
-			{
-				currTag = currTag.parent;
+					currTag = newTag;
+				},
+				(TagEndEvent _)
+				{
+					currTag = currTag.parent;
 
-				if(!currTag)
-					parser.error("Internal Error: Received an extra TagEndEvent");
-			}
-			else if(auto e = event.peek!ValueEvent())
-			{
-				currTag.add(e.value);
-			}
-			else if(auto e = event.peek!AttributeEvent())
-			{
-				auto attr = new Attribute(e.namespace, e.name, e.value, e.location);
-				currTag.add(attr);
-			}
-			else if(event.peek!FileStartEvent())
-			{
-				// Do nothing
-			}
-			else if(event.peek!FileEndEvent())
-			{
-				// There shouldn't be another parent.
-				if(currTag.parent)
-					parser.error("Internal Error: Unexpected end of file, not enough TagEndEvent");
-			}
-			else
-				parser.error("Internal Error: Received unknown parser event");
+					if(!currTag)
+						parser.error("Internal Error: Received an extra TagEndEvent");
+				},
+				(ValueEvent e)
+				{
+					currTag.add(e.value);
+				},
+				(AttributeEvent e)
+				{
+					auto attr = new Attribute(e.namespace, e.name, e.value, e.location);
+					currTag.add(attr);
+				},
+				(FileStartEvent _)
+				{
+					// Do nothing
+				},
+				(FileEndEvent _)
+				{
+					// There shouldn't be another parent.
+					if(currTag.parent)
+						parser.error("Internal Error: Unexpected end of file, not enough TagEndEvent");
+				}
+			);
 		}
 
 		return currTag;

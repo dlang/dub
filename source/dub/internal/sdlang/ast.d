@@ -23,6 +23,8 @@ import dub.internal.sdlang.exception;
 import dub.internal.sdlang.token;
 import dub.internal.sdlang.util;
 
+import dub.internal.stdsumtype;
+
 class Attribute
 {
 	Value    value;
@@ -1102,7 +1104,10 @@ class Tag
 
 		// Values
 		foreach(val; values)
-			buf.put("    (%s): %s\n".format(.toString(val.type), val));
+			buf.put("    (%s): %s\n".format(
+				val.match!(v => typeof(v).stringof),
+				val
+			));
 
 		// Attributes
 		foreach(attrNamespace; _attributes.keys.sort())
@@ -1116,7 +1121,9 @@ class Tag
 
 			buf.put(
 				"    %s%s(%s): %s\n".format(
-					namespaceStr, attr._name, .toString(attr.value.type), attr.value
+					namespaceStr, attr._name,
+					attr.value.match!(v => typeof(v).stringof),
+					attr.value
 				)
 			);
 		}
