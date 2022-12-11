@@ -6,18 +6,19 @@ rm -rf main/.dub
 rm -rf sub/.dub
 rm -rf sub/sub/.dub
 
-# verify that we can build sub without add-local
-${DUB} build --bare --compiler=${DC} sub
+echo "verify that we can build sub without add-local"
+${DUB} build --bare --compiler=${DC} --force sub
 
 rm -rf sub/.dub
 rm -rf sub/sub/.dub
 
-# verify that we can build sub with add-local
+echo "verify that we can build sub with add-local"
 ${DUB} add-local sub
-${DUB} build --bare --compiler=${DC} sub
+${DUB} build --bare --compiler=${DC} --force sub
 
 rm -rf sub/.dub
 rm -rf sub/sub/.dub
+${DUB} remove-local sub
 
-# verify that we can build main application
+echo "verify that we can build main application"
 ${DUB} build --bare --compiler=${DC} main
