@@ -656,7 +656,7 @@ class CommandArgs {
 		getopt!T(names, var, null, help_text, hidden);
 	}
 
-	void getopt(T)(string names, T* var, void delegate(string, string) parseValue, string[] help_text = null, bool hidden=false)
+	void getopt(T)(string names, T* var, void delegate(string, string) @safe parseValue, string[] help_text = null, bool hidden=false)
 	{
 		foreach (ref arg; m_recognizedArgs)
 			if (names == arg.names) {
