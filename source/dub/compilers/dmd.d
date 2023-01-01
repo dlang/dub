@@ -10,13 +10,13 @@ module dub.compilers.dmd;
 import dub.compilers.compiler;
 import dub.compilers.utils;
 import dub.internal.utils;
+import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
 
 import std.algorithm;
 import std.array;
 import std.exception;
-import std.file;
 import std.typecons;
 
 // Determines whether the specified process is running under WOW64 or an Intel64 of x64 processor.
@@ -173,6 +173,7 @@ config    /etc/dmd.conf
 
 		return bp;
 	}
+
 	version (Windows) version (DigitalMars) unittest
 	{
 		BuildSettings settings;
@@ -180,8 +181,9 @@ config    /etc/dmd.conf
 		auto bp = compiler.determinePlatform(settings, "dmd", "x86");
 		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86"));
-		assert(bp.architecture.canFind("x86_omf"));
-		assert(!bp.architecture.canFind("x86_mscoff"));
+		const defaultOMF = (bp.frontendVersion < 2_099);
+		assert(bp.architecture.canFind("x86_omf")	 == defaultOMF);
+		assert(bp.architecture.canFind("x86_mscoff") != defaultOMF);
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "x86_omf");
 		assert(bp.isWindows());
@@ -363,7 +365,7 @@ config    /etc/dmd.conf
 		auto res_file = getTempFile("dub-build", ".rsp");
 		const(string)[] args = settings.dflags;
 		if (platform.frontendVersion >= 2066) args ~= "-vcolumns";
-		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
+		writeFile(res_file, escapeArgs(args).join("\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
 		string[string] env;
@@ -392,7 +394,7 @@ config    /etc/dmd.conf
 		}
 
 		auto res_file = getTempFile("dub-build", ".lnk");
-		std.file.write(res_file.toNativeString(), escapeArgs(args).join("\n"));
+		writeFile(res_file, escapeArgs(args).join("\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
 		string[string] env;

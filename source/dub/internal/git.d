@@ -46,7 +46,7 @@ version (Windows)
 		if (head_commit.length) {
 			import dub.internal.utils : atomicWriteJsonFile;
 
-			if (!existsFile(path ~".dub")) createDirectory(path ~ ".dub");
+			ensureDirectory(path ~ ".dub");
 			atomicWriteJsonFile(vcachepath, Json(["commit": Json(head_commit), "version": Json(ret)]));
 		}
 

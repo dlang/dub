@@ -132,8 +132,8 @@ struct NativePath {
 
 		foreach( i, f; m_nodes ){
 			version(Windows) { if( i > 0 ) ret.put('\\'); }
-			version(Posix) { if( i > 0 ) ret.put('/'); }
-			else { enforce("Unsupported OS"); }
+			else version(Posix) { if( i > 0 ) ret.put('/'); }
+			else { static assert(0, "Unsupported OS"); }
 			ret.put(f.toString());
 		}
 
@@ -298,13 +298,6 @@ struct PathEntry {
 	bool opEquals(string rhs) const scope @safe pure nothrow @nogc { return m_name == rhs; }
 	int opCmp(scope ref const PathEntry rhs) const scope @safe pure nothrow @nogc { return m_name.cmp(rhs.m_name); }
 	int opCmp(string rhs) const scope @safe pure nothrow @nogc { return m_name.cmp(rhs); }
-}
-
-private bool isValidFilename(string str)
-{
-	foreach( ch; str )
-		if( ch == '/' || /*ch == ':' ||*/ ch == '\\' ) return false;
-	return true;
 }
 
 /// Joins two path strings. subpath must be relative.

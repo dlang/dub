@@ -20,7 +20,7 @@ import dub.package_;
 import dub.packagemanager;
 import dub.recipe.selection;
 
-import configy.Read;
+import dub.internal.configy.Read;
 
 import std.algorithm;
 import std.array;
@@ -320,7 +320,9 @@ class Project {
 			mainfile = getTempFile("dub_test_root", ".d");
 		else {
 			import dub.generators.build : computeBuildName;
-			mainfile = rootPackage.path ~ format(".dub/code/%s/dub_test_root.d", computeBuildName(config, settings, import_modules));
+			mainfile = packageCache(settings.cache, this.rootPackage) ~
+				format("code/%s/dub_test_root.d",
+					computeBuildName(config, settings, import_modules));
 		}
 
 		auto escapedMainFile = mainfile.toNativeString().replace("$", "$$");
@@ -332,44 +334,13 @@ class Project {
 		}
 
 		if (generate_main && (settings.force || !existsFile(mainfile))) {
-			import std.file : mkdirRecurse;
-			mkdirRecurse(mainfile.parentPath.toNativeString());
+		    ensureDirectory(mainfile.parentPath);
 
-			auto fil = openFile(mainfile, FileMode.createTrunc);
-			scope(exit) fil.close();
-			fil.write("module dub_test_root;\n");
-			fil.write("import std.typetuple;\n");
-			foreach (mod; import_modules) fil.write(format("static import %s;\n", mod));
-			fil.write("alias allModules = TypeTuple!(");
-			foreach (i, mod; import_modules) {
-				if (i > 0) fil.write(", ");
-				fil.write(mod);
-			}
-			fil.write(");\n");
-			if (custommodname.length) {
-				fil.write(format("import %s;\n", custommodname));
-			} else {
-				fil.write(q{
-import core.runtime;
-
-void main() {
-	version (D_Coverage) {
-	} else {
-		import std.stdio : writeln;
-		writeln("All unit tests have been run successfully.");
-	}
-}
-shared static this() {
-	version (Have_tested) {
-		import tested;
-		import core.runtime;
-		import std.exception;
-		Runtime.moduleUnitTester = () => true;
-		enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
-	}
-}
-					});
-			}
+			const runnerCode = custommodname.length ?
+				format("import %s;", custommodname) : DefaultTestRunnerCode;
+			const content = TestRunnerTemplate.format(
+				import_modules, import_modules, runnerCode);
+			writeFile(mainfile, content);
 		}
 
 		rootPackage.recipe.configurations ~= ConfigurationInfo(config, tcinfo);
@@ -480,7 +451,6 @@ shared static this() {
 	{
 		m_dependencies = null;
 		m_missingDependencies = [];
-		m_packageManager.refresh(false);
 
 		Package resolveSubPackage(Package p, string subname, bool silentFail) {
 			return subname.length ? m_packageManager.getSubPackage(p, subname, silentFail) : p;
@@ -527,7 +497,9 @@ shared static this() {
 							return resolveSubPackage(tmp, subname, true);
 						},
 						(VersionRange range) {
-							return m_packageManager.getBestPackage(dep.name, range);
+							// See `dub.recipe.selection : SelectedDependency.fromYAML`
+							assert(range.isExactVersion());
+							return m_packageManager.getPackage(dep.name, vspec.version_);
 						},
 					);
 				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
@@ -1847,27 +1819,27 @@ final class SelectedVersions {
 	void save(NativePath path)
 	{
 		Json json = serialize();
-		auto file = openFile(path, FileMode.createTrunc);
-		scope(exit) file.close();
+		auto result = appender!string();
 
 		assert(json.type == Json.Type.object);
 		assert(json.length == 2);
 		assert(json["versions"].type != Json.Type.undefined);
 
-		file.write("{\n\t\"fileVersion\": ");
-		file.writeJsonString(json["fileVersion"]);
-		file.write(",\n\t\"versions\": {");
+		result.put("{\n\t\"fileVersion\": ");
+		result.writeJsonString(json["fileVersion"]);
+		result.put(",\n\t\"versions\": {");
 		auto vers = json["versions"].get!(Json[string]);
 		bool first = true;
 		foreach (k; vers.byKey.array.sort()) {
-			if (!first) file.write(",");
+			if (!first) result.put(",");
 			else first = false;
-			file.write("\n\t\t");
-			file.writeJsonString(Json(k));
-			file.write(": ");
-			file.writeJsonString(vers[k]);
+			result.put("\n\t\t");
+			result.writeJsonString(Json(k));
+			result.put(": ");
+			result.writeJsonString(vers[k]);
 		}
-		file.write("\n\t}\n}\n");
+		result.put("\n\t}\n}\n");
+		path.writeFile(result.data);
 		m_dirty = false;
 		m_bare = false;
 	}
@@ -1914,3 +1886,41 @@ final class SelectedVersions {
 			m_selections.versions[p] = dependencyFromJson(dep);
 	}
 }
+
+/// The template code from which the test runner is generated
+private immutable TestRunnerTemplate = q{
+module dub_test_root;
+
+import std.typetuple;
+
+%-(static import %s;
+%);
+
+alias allModules = TypeTuple!(
+    %-(%s, %)
+);
+
+%s
+};
+
+/// The default test runner that gets used if none is provided
+private immutable DefaultTestRunnerCode = q{
+import core.runtime;
+
+void main() {
+	version (D_Coverage) {
+	} else {
+		import std.stdio : writeln;
+		writeln("All unit tests have been run successfully.");
+	}
+}
+shared static this() {
+	version (Have_tested) {
+		import tested;
+		import core.runtime;
+		import std.exception;
+		Runtime.moduleUnitTester = () => true;
+		enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
+	}
+}
+};

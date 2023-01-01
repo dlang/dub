@@ -12,7 +12,9 @@ import dub.generators.cmake;
 import dub.generators.build;
 import dub.generators.sublimetext;
 import dub.generators.visuald;
+import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
 import dub.package_;
@@ -654,7 +656,10 @@ class ProjectGenerator
 		auto srcs = chain(bs.sourceFiles, bs.importFiles, bs.stringImportFiles)
 			.filter!(f => dexts.canFind(f.extension)).filter!exists;
 		// try to load cached filters first
-		auto cache = ti.pack.metadataCache;
+		const cacheFilePath = packageCache(NativePath(ti.buildSettings.targetPath), ti.pack)
+			~ "metadata_cache.json";
+		enum silent_fail = true;
+		auto cache = jsonFromFile(cacheFilePath, silent_fail);
 		try
 		{
 			auto cachedFilters = cache["versionFilters"];
@@ -713,7 +718,9 @@ class ProjectGenerator
 			"versions": Json(versionFilters.data.map!Json.array),
 			"debugVersions": Json(debugVersionFilters.data.map!Json.array),
 		];
-		ti.pack.metadataCache = cache;
+        enum create_if_missing = true;
+        if (isWritableDir(cacheFilePath.parentPath, create_if_missing))
+            writeJsonFile(cacheFilePath, cache);
 	}
 
 	private static void mergeFromDependent(const scope ref BuildSettings parent, ref BuildSettings child)
@@ -760,8 +767,38 @@ class ProjectGenerator
 	}
 }
 
+/**
+ * Compute and returns the path were artifacts are stored for a given package
+ *
+ * Artifacts are usually stored in:
+ * `$DUB_HOME/cache/$PKG_NAME/$PKG_VERSION[/+$SUB_PKG_NAME]/`
+ * Note that the leading `+` in the subpackage name is to avoid any ambiguity.
+ * Build artifacts are usually stored in a subfolder named "build",
+ * as their names are based on user-supplied values.
+ *
+ * Params:
+ *   cachePath = Base path at which the build cache is located,
+ *               e.g. `$HOME/.dub/cache/`
+ *	 pkg = The package. Cannot be `null`.
+ */
+package(dub) NativePath packageCache(NativePath cachePath, in Package pkg)
+{
+	import std.algorithm.searching : findSplit;
+
+	assert(pkg !is null);
+	assert(!cachePath.empty);
+
+	// For subpackages
+	if (const names = pkg.name.findSplit(":"))
+		return cachePath ~ names[0] ~ pkg.version_.toString()
+			~ ("+" ~ names[2]);
+	// For regular packages
+	return cachePath ~ pkg.name ~ pkg.version_.toString();
+}
+
 
 struct GeneratorSettings {
+	NativePath cache;
 	BuildPlatform platform;
 	Compiler compiler;
 	string config;
@@ -908,13 +945,12 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	}
 
 	if (generate_binary) {
-		if (!exists(buildsettings.targetPath))
-			mkdirRecurse(buildsettings.targetPath);
+		ensureDirectory(NativePath(buildsettings.targetPath));
 
 		if (buildsettings.copyFiles.length) {
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
-				mkdirRecurse(dstfolder.toNativeString());
+				ensureDirectory(dstfolder);
 				foreach (de; iterateDirectory(folder.toNativeString())) {
 					if (de.isDirectory) {
 						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
@@ -1119,7 +1155,7 @@ version(Posix) {
 		import dub.compilers.gdc : GDCCompiler;
 		import std.algorithm : canFind;
 		import std.path : absolutePath;
-		import std.file : mkdirRecurse, rmdirRecurse, write;
+		import std.file : rmdirRecurse, write;
 
 		mkdirRecurse("dubtest/preGen/source");
 		write("dubtest/preGen/source/foo.d", "");

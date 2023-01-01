@@ -21,13 +21,12 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 
-import configy.Read : StrictMode;
+import dub.internal.configy.Read : StrictMode;
 
 import std.algorithm;
 import std.array;
 import std.conv;
 import std.exception;
-import std.file;
 import std.range;
 import std.string;
 import std.typecons : Nullable;
@@ -306,25 +305,7 @@ class Package {
 	void storeInfo(NativePath path)
 	const {
 		auto filename = path ~ defaultPackageFilename;
-		auto dstFile = openFile(filename.toNativeString(), FileMode.createTrunc);
-		scope(exit) dstFile.close();
-		dstFile.writePrettyJsonString(m_info.toJson());
-	}
-
-	/// Get the metadata cache for this package
-	@property Json metadataCache()
-	{
-		enum silent_fail = true;
-		return jsonFromFile(m_path ~ ".dub/metadata_cache.json", silent_fail);
-	}
-
-	/// Write metadata cache for this package
-	@property void metadataCache(Json json)
-	{
-		enum create_if_missing = true;
-		if (isWritableDir(m_path ~ ".dub", create_if_missing))
-			writeJsonFile(m_path ~ ".dub/metadata_cache.json", json);
-		// TODO: store elsewhere
+		writeJsonFile(filename, m_info.toJson());
 	}
 
 	/** Returns the package recipe of a non-path-based sub package.

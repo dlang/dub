@@ -25,7 +25,7 @@ import std.conv;
 	Validates a version string according to the SemVer specification.
 */
 bool isValidVersion(scope string ver)
-pure @nogc {
+pure @nogc nothrow {
 	// NOTE: this is not by spec, but to ensure sane input
 	if (ver.length > 256) return false;
 
@@ -359,7 +359,7 @@ pure @nogc {
 }
 
 private bool isValidIdentifierChain(scope string str, bool allow_leading_zeros = false)
-pure @nogc {
+pure @nogc nothrow {
 	if (str.length == 0) return false;
 	while (str.length) {
 		auto end = str.indexOf('.');
@@ -372,7 +372,7 @@ pure @nogc {
 }
 
 private bool isValidIdentifier(scope string str, bool allow_leading_zeros = false)
-pure @nogc {
+pure @nogc nothrow {
 	if (str.length < 1) return false;
 
 	bool numeric = true;
@@ -408,7 +408,7 @@ pure @nogc nothrow {
 }
 
 private ptrdiff_t indexOfAny(scope string str, in char[] chars)
-pure @nogc {
+pure @nogc nothrow {
 	ptrdiff_t ret = -1;
 	foreach (ch; chars) {
 		auto idx = str.indexOf(ch);

@@ -15,11 +15,12 @@ import dub.package_;
 import dub.semver;
 import dub.internal.logging;
 
+import dub.internal.dyaml.stdsumtype;
+
 import std.algorithm;
 import std.array;
 import std.exception;
 import std.string;
-import std.sumtype;
 
 
 /** Encapsulates the name of a package along with its dependency specification.
@@ -176,8 +177,9 @@ struct Dependency {
 	/// Returns the exact version matched by the version range.
 	@property Version version_() const @safe {
 		auto range = this.m_value.match!(
-			(NativePath   p) => assert(0),
-			(Repository   r) => assert(0),
+			// Can be simplified to `=> assert(0)` once we drop support for v2.096
+			(NativePath   p) { int dummy; if (dummy) return VersionRange.init; assert(0); },
+			(Repository   r) { int dummy; if (dummy) return VersionRange.init; assert(0); },
 			(VersionRange v) => v,
 		);
 		enforce(range.isExactVersion(),

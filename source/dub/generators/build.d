@@ -168,14 +168,13 @@ class BuildGenerator : ProjectGenerator {
 		buildTargetRec(m_project.rootPackage.name);
 
 		if (dynamicLibDepsFilesToCopy.length) {
-			const rootTargetPath = root_ti.buildSettings.targetPath;
+			const rootTargetPath = NativePath(root_ti.buildSettings.targetPath);
 
-			if (!existsFile(rootTargetPath))
-				mkdirRecurse(rootTargetPath);
-
+			ensureDirectory(rootTargetPath);
 			foreach (src; dynamicLibDepsFilesToCopy) {
-				logDiagnostic("Copying target from %s to %s", src.toNativeString(), rootTargetPath);
-				hardLinkFile(src, NativePath(rootTargetPath) ~ src.head, true);
+				logDiagnostic("Copying target from %s to %s",
+					src.toNativeString(), rootTargetPath.toNativeString());
+				hardLinkFile(src, rootTargetPath ~ src.head, true);
 			}
 		}
 
@@ -207,7 +206,7 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = NativePath(getcwd());
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
-		auto build_id = computeBuildID(config, buildsettings, settings);
+		auto build_id = buildsettings.computeBuildID(config, settings);
 
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
@@ -250,7 +249,8 @@ class BuildGenerator : ProjectGenerator {
 			string packageName = pack.basePackage is null ? pack.name : pack.basePackage.name;
 			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
 		}
-		else target_path = pack.path ~ format(".dub/build/%s/", build_id);
+		else
+			target_path = packageCache(settings.cache, pack) ~ "build/" ~ build_id;
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
 			logInfo("Up-to-date", Color.green, "%s %s: target for configuration [%s] is up to date.",
@@ -405,31 +405,9 @@ class BuildGenerator : ProjectGenerator {
 		}
 	}
 
-	private string computeBuildID(string config, in BuildSettings buildsettings, GeneratorSettings settings)
-	{
-		const(string[])[] hashing = [
-			buildsettings.versions,
-			buildsettings.debugVersions,
-			buildsettings.dflags,
-			buildsettings.lflags,
-			buildsettings.stringImportPaths,
-			buildsettings.importPaths,
-			settings.platform.architecture,
-			[
-				(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
-				settings.platform.compilerBinary,
-				settings.platform.compiler,
-				settings.platform.compilerVersion,
-			],
-		];
-
-		return computeBuildName(config, settings, hashing);
-	}
-
 	private void copyTargetFile(in NativePath build_path, in BuildSettings buildsettings, in GeneratorSettings settings)
 	{
-		if (!existsFile(NativePath(buildsettings.targetPath)))
-			mkdirRecurse(buildsettings.targetPath);
+		ensureDirectory(NativePath(buildsettings.targetPath));
 
 		string[] filenames = [
 			settings.compiler.getTargetFileName(buildsettings, settings.platform)
@@ -675,6 +653,38 @@ class BuildGenerator : ProjectGenerator {
 		}
 		m_temporaryFiles = null;
 	}
+}
+
+/**
+ * Provides a unique (per build) identifier
+ *
+ * When building a package, it is important to have a unique but stable
+ * identifier to differentiate builds and allow their caching.
+ * This function provides such an identifier.
+ * Example:
+ * ```
+ * application-debug-linux.posix-x86_64-dmd_v2.100.2-D80285212AEC1FF9855F18AD52C68B9EEB5C7690609C224575F920096FB1965B
+ * ```
+ */
+private string computeBuildID(in BuildSettings buildsettings, string config, GeneratorSettings settings)
+{
+	const(string[])[] hashing = [
+		buildsettings.versions,
+		buildsettings.debugVersions,
+		buildsettings.dflags,
+		buildsettings.lflags,
+		buildsettings.stringImportPaths,
+		buildsettings.importPaths,
+		settings.platform.architecture,
+		[
+			(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
+			settings.platform.compilerBinary,
+			settings.platform.compiler,
+			settings.platform.compilerVersion,
+		],
+	];
+
+	return computeBuildName(config, settings, hashing);
 }
 
 private NativePath getMainSourceFile(in Package prj)

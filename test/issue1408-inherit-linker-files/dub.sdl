@@ -10,5 +10,5 @@ subPackage {
 	sourceFiles "dep.d"
 	sourceFiles "lib/liblib.a" platform="posix"
 	sourceFiles "lib/lib.lib" platform="windows"
-	preBuildCommands "dub build --root=\"$PACKAGE_DIR/lib\""
+	preBuildCommands "$DUB_EXE build --root=\"$PACKAGE_DIR/lib\""
 }

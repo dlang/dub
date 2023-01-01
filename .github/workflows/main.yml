@@ -28,12 +28,23 @@ jobs:
       fail-fast: false
       matrix:
         # Latest stable version, update at will
-        os: [ macOS-11, ubuntu-18.04, windows-2019 ]
+        os: [ macOS-11, ubuntu-20.04, windows-2019 ]
         dc:
-          - dmd-latest
+          #- dmd-latest
+          - dmd-2.100.2
           - ldc-latest
           - dmd-master
-          - ldc-master
+#          - ldc-master
+          # This is the bootstrap compiler used to compile the releases
+          - ldc-1.23.0
+          # Some intermediate compilers for good measure
+          - dmd-2.095.1
+          - dmd-2.098.1
+        include:
+          - { do_test: true }
+          - { dc: dmd-2.095.1, do_test: false }
+          - { dc: dmd-2.098.1, do_test: false }
+          - { dc: ldc-1.23.0 , do_test: false }
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -58,7 +69,7 @@ jobs:
 
     # Checkout the repository
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: '[POSIX] Test'
       if: runner.os != 'Windows'
@@ -68,8 +79,10 @@ jobs:
         FRONTEND: 2.095.0
       run: |
         dub build --compiler=${{ env.DC }}
-        dub run   --compiler=${{ env.DC }} --single test/issue2051_running_unittests_from_dub_single_file_packages_fails.d
-        ./scripts/ci/travis.sh
+        if [[ ${{ matrix.do_test }} == 'true' ]]; then
+          dub run   --compiler=${{ env.DC }} --single test/issue2051_running_unittests_from_dub_single_file_packages_fails.d
+          ./scripts/ci/travis.sh
+        fi
 
     - name: '[Windows] Test'
       if: runner.os == 'Windows'
@@ -79,8 +92,10 @@ jobs:
       # the test-suite needs to be overhauled to support Windows
       run: |
         dub build --compiler=${{ env.DC }}
-        dub test  --compiler=${{ env.DC }}
-        dub run   --compiler=${{ env.DC }} --single test\issue2051_running_unittests_from_dub_single_file_packages_fails.d
-        cd test
-        dub --single run-unittest.d
-      shell: pwsh
+        if [[ ${{ matrix.do_test }} == 'true' ]]; then
+          dub test  --compiler=${{ env.DC }}
+          dub run   --compiler=${{ env.DC }} --single test/issue2051_running_unittests_from_dub_single_file_packages_fails.d
+          cd test
+          dub --single run-unittest.d
+        fi
+      shell: bash

@@ -9,8 +9,9 @@ module dub.recipe.io;
 
 import dub.recipe.packagerecipe;
 import dub.internal.logging;
+import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
-import configy.Read;
+import dub.internal.configy.Read;
 
 /** Reads a package recipe from a file.
 
@@ -35,16 +36,8 @@ PackageRecipe readPackageRecipe(
 	NativePath filename, string parent_name = null, StrictMode mode = StrictMode.Ignore)
 {
 	import dub.internal.utils : stripUTF8Bom;
-	import dub.internal.vibecompat.core.file : openFile, FileMode;
 
-	string text;
-
-	{
-		auto f = openFile(filename.toNativeString(), FileMode.read);
-		scope(exit) f.close();
-		text = stripUTF8Bom(cast(string)f.readAll());
-	}
-
+	string text = stripUTF8Bom(cast(string)readFile(filename));
 	return parsePackageRecipe(text, filename.toNativeString(), parent_name, null, mode);
 }
 
@@ -209,16 +202,16 @@ unittest { // make sure targetType of sub packages are sanitized too
 */
 void writePackageRecipe(string filename, const scope ref PackageRecipe recipe)
 {
-	import dub.internal.vibecompat.core.file : openFile, FileMode;
-	auto f = openFile(filename, FileMode.createTrunc);
-	scope(exit) f.close();
-	serializePackageRecipe(f, recipe, filename);
+	writePackageRecipe(NativePath(filename), recipe);
 }
 
 /// ditto
 void writePackageRecipe(NativePath filename, const scope ref PackageRecipe recipe)
 {
-	writePackageRecipe(filename.toNativeString, recipe);
+	import std.array;
+	auto app = appender!string();
+	serializePackageRecipe(app, recipe, filename.toNativeString());
+	writeFile(filename, app.data);
 }
 
 /** Converts a package recipe to its textual representation.

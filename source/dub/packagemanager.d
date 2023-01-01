@@ -15,8 +15,10 @@ import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
 import dub.package_;
 import dub.recipe.io;
-import configy.Exceptions;
-public import configy.Read : StrictMode;
+import dub.internal.configy.Exceptions;
+public import dub.internal.configy.Read : StrictMode;
+
+import dub.internal.dyaml.stdsumtype;
 
 import std.algorithm : countUntil, filter, map, sort, canFind, remove;
 import std.array;
@@ -27,7 +29,6 @@ import std.exception;
 import std.file;
 import std.range;
 import std.string;
-import std.sumtype;
 import std.zip;
 
 
@@ -82,6 +83,18 @@ class PackageManager {
 		 * See_Also: `Location`, `PlacementLocation`
 		 */
 		Location[] m_repositories;
+		/**
+		 * Whether `refresh` has been called or not
+		 *
+		 * Dub versions because v1.31 eagerly scan all available repositories,
+		 * leading to slowdown for the most common operation - `dub build` with
+		 * already resolved dependencies.
+		 * From v1.31 onwards, those locations are not scanned eagerly,
+		 * unless one of the function requiring eager scanning does,
+		 * such as `getBestPackage` - as it needs to iterate the list
+		 * of available packages.
+		 */
+		bool m_initialized;
 	}
 
 	/**
@@ -97,7 +110,7 @@ class PackageManager {
 	this(NativePath path)
 	{
 		this.m_internal.searchPath = [ path ];
-		this.refresh(true);
+		this.refresh();
 	}
 
 	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
@@ -107,7 +120,7 @@ class PackageManager {
 			Location(user_path ~ "packages/"),
 			Location(system_path ~ "packages/")];
 
-		if (refresh_packages) refresh(true);
+		if (refresh_packages) refresh();
 	}
 
 	/** Gets/sets the list of paths to search for local packages.
@@ -116,7 +129,7 @@ class PackageManager {
 	{
 		if (paths == this.m_internal.searchPath) return;
 		this.m_internal.searchPath = paths.dup;
-		refresh(false);
+		this.refresh();
 	}
 	/// ditto
 	@property const(NativePath)[] searchPath() const { return this.m_internal.searchPath; }
@@ -151,9 +164,43 @@ class PackageManager {
 		m_repositories.length = PlacementLocation.max+1;
 		m_repositories ~= custom_cache_paths.map!(p => Location(p)).array;
 
-		refresh(false);
+		this.refresh();
 	}
 
+	/**
+	 * Looks up a package, first in the list of loaded packages,
+	 * then directly on the file system.
+	 *
+	 * This function allows for lazy loading of packages, without needing to
+	 * first scan all the available locations (as `refresh` does).
+	 *
+	 * Note:
+	 * This function does not take overrides into account. Overrides need
+	 * to be resolved by the caller before `lookup` is called.
+	 * Additionally, if a package of the same version is loaded in multiple
+	 * locations, the first one matching (local > user > system)
+	 * will be returned.
+	 *
+	 * Params:
+	 *	 name  = The full name of the package to look up
+	 *	 vers = The version the package must match
+	 *
+	 * Returns:
+	 *	 A `Package` if one was found, `null` if none exists.
+	 */
+	private Package lookup (string name, Version vers) {
+		if (!this.m_initialized)
+			this.refresh();
+
+		if (auto pkg = this.m_internal.lookup(name, vers, this))
+			return pkg;
+
+		foreach (ref location; this.m_repositories)
+			if (auto p = location.load(name, vers, this))
+				return p;
+
+		return null;
+	}
 
 	/** Looks up a specific package.
 
@@ -193,11 +240,7 @@ class PackageManager {
 					}
 		}
 
-		foreach (p; getPackageIterator(name))
-			if (p.version_.matches(ver, isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard))
-				return p;
-
-		return null;
+		return this.lookup(name, ver);
 	}
 
 	/// ditto
@@ -225,7 +268,7 @@ class PackageManager {
 		// Bare mode
 		if (loc >= this.m_repositories.length)
 			return null;
-		return this.m_repositories[loc].lookup(name, ver);
+		return this.m_repositories[loc].load(name, ver, this);
 	}
 
 	/// ditto
@@ -370,21 +413,47 @@ class PackageManager {
 		return this.m_repositories[base].getPackagePath(name, vers);
 	}
 
-	/** Searches for the latest version of a package matching the given dependency.
-	*/
-	Package getBestPackage(string name, VersionRange range = VersionRange.Any)
-	{
-		return this.getBestPackage(name, Dependency(range));
-	}
-
-	/// Ditto
+	/**
+	 * Searches for the latest version of a package matching the version range.
+	 *
+	 * This will search the local filesystem only (it doesn't connect
+	 * to the registry) for the "best" (highest version) that matches `range`.
+	 * An overload with a single version exists to search for an exact version.
+	 *
+	 * Params:
+	 *   name = Package name to search for
+	 *   vers = Exact version to search for
+	 *   range = Range of versions to search for, defaults to any
+	 *
+	 * Returns:
+	 *	 The best package matching the parameters, or `null` if none was found.
+	 */
 	Package getBestPackage(string name, Version vers)
 	{
 		return this.getBestPackage(name, VersionRange(vers, vers));
 	}
 
 	/// Ditto
+	Package getBestPackage(string name, VersionRange range = VersionRange.Any)
+	{
+		return this.getBestPackage_(name, Dependency(range));
+	}
+
+	/// Ditto
+	Package getBestPackage(string name, string range)
+	{
+		return this.getBestPackage(name, VersionRange.fromString(range));
+	}
+
+	/// Ditto
+	deprecated("`getBestPackage` should only be used with a `Version` or `VersionRange` argument")
 	Package getBestPackage(string name, Dependency version_spec, bool enable_overrides = true)
+	{
+		return this.getBestPackage_(name, version_spec, enable_overrides);
+	}
+
+	// TODO: Merge this into `getBestPackage(string, VersionRange)`
+	private Package getBestPackage_(string name, Dependency version_spec, bool enable_overrides = true)
 	{
 		Package ret;
 		foreach (p; getPackageIterator(name)) {
@@ -398,12 +467,6 @@ class PackageManager {
 				return ovr;
 		}
 		return ret;
-	}
-
-	/// ditto
-	Package getBestPackage(string name, string version_spec)
-	{
-		return getBestPackage(name, Dependency(version_spec));
 	}
 
 	/** Gets the a specific sub package.
@@ -433,7 +496,7 @@ class PackageManager {
 
 		Managed packages can be upgraded and removed.
 	*/
-	bool isManagedPackage(Package pack)
+	bool isManagedPackage(const(Package) pack)
 	const {
 		auto ppath = pack.basePackage.path;
 		return isManagedPath(ppath);
@@ -460,6 +523,10 @@ class PackageManager {
 	*/
 	int delegate(int delegate(ref Package)) getPackageIterator()
 	{
+		// See `m_initialized` documentation
+		if (!this.m_initialized)
+			this.refresh();
+
 		int iterator(int delegate(ref Package) del)
 		{
 			// Search scope by priority, internal has the highest
@@ -614,8 +681,7 @@ class PackageManager {
 	Package store(NativePath src, PlacementLocation dest, string name, Version vers)
 	{
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
-		if (!dstpath.existsFile())
-			mkdirRecurse(dstpath.toNativeString());
+		ensureDirectory(dstpath);
 		// For libraries leaking their import path
 		dstpath = dstpath ~ name;
 
@@ -623,7 +689,6 @@ class PackageManager {
 		import core.time : seconds;
 		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds);
 		if (dstpath.existsFile()) {
-			this.refresh(false);
 			return this.getPackage(name, vers, dest);
 		}
 		return this.store_(src, dstpath, name, vers);
@@ -647,9 +712,7 @@ class PackageManager {
 		ZipArchive archive;
 		{
 			logDebug("Opening file %s", src);
-			auto f = openFile(src, FileMode.read);
-			scope(exit) f.close();
-			archive = new ZipArchive(f.readAll());
+			archive = new ZipArchive(readFile(src));
 		}
 
 		logDebug("Extracting from zip.");
@@ -686,7 +749,7 @@ class PackageManager {
 		}
 
 		// extract & place
-		mkdirRecurse(destination.toNativeString());
+		ensureDirectory(destination);
 		logDebug("Copying all files...");
 		int countFiles = 0;
 		foreach(ArchiveMember a; archive.directory) {
@@ -696,11 +759,9 @@ class PackageManager {
 
 			logDebug("Creating %s", cleanedPath);
 			if( dst_path.endsWithSlash ){
-				if( !existsDirectory(dst_path) )
-					mkdirRecurse(dst_path.toNativeString());
+				ensureDirectory(dst_path);
 			} else {
-				if( !existsDirectory(dst_path.parentPath) )
-					mkdirRecurse(dst_path.parentPath.toNativeString());
+				ensureDirectory(dst_path.parentPath);
 				// for symlinks on posix systems, use the symlink function to
 				// create them. Windows default unzip doesn't handle symlinks,
 				// so we don't need to worry about it for Windows.
@@ -716,11 +777,7 @@ class PackageManager {
 					}
 				}
 
-				{
-					auto dstFile = openFile(dst_path, FileMode.createTrunc);
-					scope(exit) dstFile.close();
-					dstFile.put(archive.expand(a));
-				}
+				writeFile(dst_path, archive.expand(a));
 				setAttributes(dst_path.toNativeString(), a);
 symlink_exit:
 				++countFiles;
@@ -785,6 +842,12 @@ symlink_exit:
 
 	Package addLocalPackage(NativePath path, string verName, PlacementLocation type)
 	{
+		// As we iterate over `localPackages` we need it to be populated
+		// In theory we could just populate that specific repository,
+		// but multiple calls would then become inefficient.
+		if (!this.m_initialized)
+			this.refresh();
+
 		path.endsWithSlash = true;
 		auto pack = Package.load(path);
 		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
@@ -811,8 +874,13 @@ symlink_exit:
 
 	void removeLocalPackage(NativePath path, PlacementLocation type)
 	{
-		path.endsWithSlash = true;
+		// As we iterate over `localPackages` we need it to be populated
+		// In theory we could just populate that specific repository,
+		// but multiple calls would then become inefficient.
+		if (!this.m_initialized)
+			this.refresh();
 
+		path.endsWithSlash = true;
 		Package[]* packs = &m_repositories[type].localPackages;
 		size_t[] to_remove;
 		foreach( i, entry; *packs )
@@ -848,9 +916,23 @@ symlink_exit:
 		this.m_repositories[type].writeLocalPackageList();
 	}
 
+	deprecated("Use `refresh()` without boolean argument(same as `refresh(false)`")
 	void refresh(bool refresh)
 	{
-		logDiagnostic("Refreshing local packages (refresh existing: %s)...", refresh);
+		if (refresh)
+			logDiagnostic("Refreshing local packages (refresh existing: true)...");
+		this.refresh_(refresh);
+	}
+
+	void refresh()
+	{
+		this.refresh_(false);
+	}
+
+	private void refresh_(bool refresh)
+	{
+		if (!refresh)
+			logDiagnostic("Scanning local packages...");
 
 		foreach (ref repository; this.m_repositories)
 			repository.scanLocalPackages(refresh, this);
@@ -861,6 +943,7 @@ symlink_exit:
 
 		foreach (ref repository; this.m_repositories)
 			repository.loadOverrides();
+		this.m_initialized = true;
 	}
 
 	alias Hash = ubyte[];
@@ -885,7 +968,7 @@ symlink_exit:
 				logDebug("Hashed directory name %s", NativePath(file.name).head);
 			}
 			else {
-				hash.put(openFile(NativePath(file.name)).readAll());
+				hash.put(cast(ubyte[]) readFile(NativePath(file.name)));
 				logDebug("Hashed file contents from %s", NativePath(file.name).head);
 			}
 		}
@@ -1100,7 +1183,7 @@ private struct Location {
 			newlist ~= jovr;
 		}
 		auto path = this.packagePath;
-		if (!existsDirectory(path)) mkdirRecurse(path.toNativeString());
+		ensureDirectory(path);
 		writeJsonFile(path ~ LocalOverridesFilename, Json(newlist));
 	}
 
@@ -1124,7 +1207,7 @@ private struct Location {
 		}
 
 		NativePath path = this.packagePath;
-		if( !existsDirectory(path) ) mkdirRecurse(path.toNativeString());
+		ensureDirectory(path);
 		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
 	}
 
@@ -1273,14 +1356,52 @@ private struct Location {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	private inout(Package) lookup(string name, Version ver) inout {
+	private inout(Package) lookup(string name, Version ver, PackageManager mgr) inout {
 		foreach (pkg; this.localPackages)
-			if (pkg.name == name && pkg.version_.matches(ver, VersionMatchMode.strict))
+			if (pkg.name == name && pkg.version_.matches(ver, VersionMatchMode.standard))
 				return pkg;
-		foreach (pkg; this.fromPath)
-			if (pkg.name == name && pkg.version_.matches(ver, VersionMatchMode.strict))
+		foreach (pkg; this.fromPath) {
+			auto pvm = mgr.isManagedPackage(pkg) ? VersionMatchMode.strict : VersionMatchMode.standard;
+			if (pkg.name == name && pkg.version_.matches(ver, pvm))
 				return pkg;
+		}
 		return null;
+	}
+
+	/**
+	 * Looks up a package, first in the list of loaded packages,
+	 * then directly on the file system.
+	 *
+	 * This function allows for lazy loading of packages, without needing to
+	 * first scan all the available locations (as `scan` does).
+	 *
+	 * Params:
+	 *	 name  = The full name of the package to look up
+	 *	 vers  = The version the package must match
+	 *	 mgr   = The `PackageManager` to use for adding packages
+	 *
+	 * Returns:
+	 *	 A `Package` if one was found, `null` if none exists.
+	 */
+	private Package load (string name, Version vers, PackageManager mgr)
+	{
+		if (auto pkg = this.lookup(name, vers, mgr))
+			return pkg;
+
+		string versStr = vers.toString();
+		const lookupName = getBasePackageName(name);
+		const path = this.getPackagePath(lookupName, versStr) ~ (lookupName ~ "/");
+		if (!path.existsDirectory())
+			return null;
+
+		logDiagnostic("Lazily loading package %s:%s from %s", lookupName, vers, path);
+		auto p = Package.load(path);
+		enforce(
+			p.version_ == vers,
+			format("Package %s located in %s has a different version than its path: Got %s, expected %s",
+				name, path, p.version_, vers));
+		mgr.addPackages(this.fromPath, p);
+		return p;
 	}
 
 	/**

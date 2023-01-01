@@ -8,6 +8,7 @@
 module dub.dub;
 
 import dub.compilers.compiler;
+import dub.data.settings : SPS = SkipPackageSuppliers, Settings;
 import dub.dependency;
 import dub.dependencyresolver;
 import dub.internal.utils;
@@ -126,7 +127,7 @@ class Dub {
 		PackageSupplier[] m_packageSuppliers;
 		NativePath m_rootPath;
 		SpecialDirs m_dirs;
-		UserConfiguration m_config;
+		Settings m_config;
 		Project m_project;
 		string m_defaultCompiler;
 	}
@@ -163,7 +164,7 @@ class Dub {
 
 		m_packageSuppliers = this.computePkgSuppliers(additional_package_suppliers,
 			skip_registry, environment.get("DUB_REGISTRY", null));
-		m_packageManager = new PackageManager(m_rootPath, m_dirs.localRepository, m_dirs.systemSettings);
+		m_packageManager = new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
@@ -221,7 +222,7 @@ class Dub {
 	 */
 	protected void loadConfig()
 	{
-		import configy.Read;
+		import dub.internal.configy.Read;
 
 		void readSettingsFile (NativePath path_)
 		{
@@ -230,7 +231,7 @@ class Dub {
 			// complaining, we should first warn the user.
 			const path = path_.toNativeString();
 			if (path.exists) {
-				auto newConf = parseConfigFileSimple!UserConfiguration(path, StrictMode.Warn);
+				auto newConf = parseConfigFileSimple!Settings(path, StrictMode.Warn);
 				if (!newConf.isNull())
 					this.m_config = this.m_config.merge(newConf.get());
 			}
@@ -238,7 +239,7 @@ class Dub {
 
 		const dubFolderPath = NativePath(thisExePath).parentPath;
 
-		// override default userSettings + localRepository if a $DPATH or
+		// override default userSettings + userPackages if a $DPATH or
 		// $DUB_HOME environment variable is set.
 		bool overrideDubHomeFromEnv;
 		{
@@ -253,7 +254,8 @@ class Dub {
 				overrideDubHomeFromEnv = true;
 
 				m_dirs.userSettings = NativePath(dubHome);
-				m_dirs.localRepository = m_dirs.userSettings;
+				m_dirs.userPackages = m_dirs.userSettings;
+				m_dirs.cache = m_dirs.userPackages ~ "cache";
 			}
 		}
 
@@ -284,7 +286,8 @@ class Dub {
 		// same as userSettings above, but taking into account the
 		// config loaded from user settings and per-package config as well.
 		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
-			m_dirs.localRepository = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+			m_dirs.userPackages = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+			m_dirs.cache = m_dirs.userPackages ~ "cache";
 		}
 	}
 
@@ -485,7 +488,7 @@ class Dub {
 	void loadSingleFilePackage(NativePath path)
 	{
 		import dub.recipe.io : parsePackageRecipe;
-		import std.file : mkdirRecurse, readText;
+		import std.file : readText;
 		import std.path : baseName, stripExtension;
 
 		path = makeAbsolute(path);
@@ -682,6 +685,7 @@ class Dub {
 	*/
 	void generateProject(string ide, GeneratorSettings settings)
 	{
+		settings.cache = this.m_dirs.cache;
 		// With a requested `unittest` config, switch to the special test runner
 		// config (which doesn't require an existing `unittest` configuration).
 		if (settings.config == "unittest") {
@@ -700,6 +704,7 @@ class Dub {
 	*/
 	void testProject(GeneratorSettings settings, string config, NativePath custom_main_file)
 	{
+		settings.cache = this.m_dirs.cache;
 		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
 
 		const test_config = m_project.addTestRunnerConfiguration(settings, !m_dryRun, config, custom_main_file);
@@ -777,23 +782,36 @@ class Dub {
 		if (delimiter != "\0\0") writeln();
 	}
 
-	/// Cleans intermediate/cache files of the given package
+	/// Cleans intermediate/cache files of the given package (or all packages)
+	deprecated("Use `clean(Package)` instead")
 	void cleanPackage(NativePath path)
 	{
-		logInfo("Cleaning", Color.green, "package at %s", path.toNativeString().color(Mode.bold));
-		enforce(!Package.findPackageFile(path).empty, "No package found.", path.toNativeString());
+		auto ppack = Package.findPackageFile(path);
+		enforce(!ppack.empty, "No package found.", path.toNativeString());
+		this.clean(Package.load(path, ppack));
+	}
+
+	/// Ditto
+	void clean()
+	{
+		const cache = this.m_dirs.cache;
+		logInfo("Cleaning", Color.green, "all artifacts at %s",
+			cache.toNativeString().color(Mode.bold));
+		if (existsFile(cache))
+			rmdirRecurse(cache.toNativeString());
+	}
+
+	/// Ditto
+	void clean(Package pack)
+	{
+		const cache = this.packageCache(pack);
+		logInfo("Cleaning", Color.green, "artifacts for package %s at %s",
+			pack.name.color(Mode.bold),
+			cache.toNativeString().color(Mode.bold));
 
 		// TODO: clear target files and copy files
-
-		if (existsFile(path ~ ".dub/build")) rmdirRecurse((path ~ ".dub/build").toNativeString());
-		if (existsFile(path ~ ".dub/metadata_cache.json")) std.file.remove((path ~ ".dub/metadata_cache.json").toNativeString());
-
-		auto p = Package.load(path);
-		if (p.getBuildSettings().targetType == TargetType.none) {
-			foreach (sp; p.subPackages.filter!(sp => !sp.path.empty)) {
-				cleanPackage(path ~ sp.path);
-			}
-		}
+		if (existsFile(cache))
+			rmdirRecurse(cache.toNativeString());
 	}
 
 	/// Fetches the package matching the dependency and places it in the specified location.
@@ -869,7 +887,7 @@ class Dub {
 
 			auto path = getTempFile(basePackageName, ".zip");
 			supplier.fetchPackage(path, basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
-			scope(exit) std.file.remove(path.toNativeString());
+			scope(exit) removeFile(path);
 			logDiagnostic("Placing to %s...", location.toString());
 
 			try {
@@ -965,6 +983,7 @@ class Dub {
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
+	deprecated("Use the overload without the 3rd argument (`force_remove`) instead")
 	void remove(string package_id, PlacementLocation location, bool force_remove,
 				scope size_t delegate(in Package[] packages) resolve_version)
 	{
@@ -1299,6 +1318,25 @@ class Dub {
 		}
 	}
 
+	/**
+	 * Compute and returns the path were artifacts are stored
+	 *
+	 * Expose `dub.generator.generator : packageCache` with this instance's
+	 * configured cache.
+	 */
+	protected NativePath packageCache (Package pkg) const
+	{
+		return .packageCache(this.m_dirs.cache, pkg);
+	}
+
+	/// Exposed because `commandLine` replicates `generateProject` for `dub describe`
+	/// instead of treating it like a regular generator... Remove this once the
+	/// flaw is fixed, and don't add more calls to this function!
+	package(dub) NativePath cachePathDontUse () const @safe pure nothrow @nogc
+	{
+		return this.m_dirs.cache;
+	}
+
 	/// Make a `GeneratorSettings` suitable to generate tools (DDOC, DScanner, etc...)
 	private GeneratorSettings makeAppSettings () const
 	{
@@ -1480,12 +1518,7 @@ enum UpgradeOptions
 }
 
 /// Determines which of the default package suppliers are queried for packages.
-enum SkipPackageSuppliers {
-	none,       /// Uses all configured package suppliers.
-	standard,   /// Does not use the default package suppliers (`defaultPackageSuppliers`).
-	configured, /// Does not use default suppliers or suppliers configured in DUB's configuration file
-	all         /// Uses only manually specified package suppliers.
-}
+public alias SkipPackageSuppliers = SPS;
 
 private class DependencyVersionResolver : DependencyResolver!(Dependency, Dependency) {
 	protected {
@@ -1708,8 +1741,6 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
 					return null;
 				}
-			} else if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep)) {
-				return ret;
 			} else {
 				logDiagnostic("External sub package %s %s not found.", name, dep.version_);
 				return null;
@@ -1734,7 +1765,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		}
 		const vers = dep.version_;
 
-		if (auto ret = m_dub.m_packageManager.getBestPackage(name, dep))
+		if (auto ret = m_dub.m_packageManager.getBestPackage(name, vers))
 			return ret;
 
 		auto key = name ~ ":" ~ vers.toString();
@@ -1764,7 +1795,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
 					m_dub.fetch(rootpack, vers, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
-					auto ret = m_dub.m_packageManager.getBestPackage(name, dep);
+					auto ret = m_dub.m_packageManager.getBestPackage(name, vers);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
 						return null;
@@ -1813,16 +1844,31 @@ private struct SpecialDirs {
 	/// The dub-specific folder in the user home directory
 	NativePath userSettings;
 	/**
-	 * Windows-only: the local, user-specific folder
+	 * User location where to install packages
 	 *
-	 * This folder, unlike `userSettings`, does not roam, IOW an account
-	 * on a company network will not save the content of this data,
+	 * On Windows, this folder, unlike `userSettings`, does not roam,
+	 * so an account on a company network will not save the content of this data,
 	 * unlike `userSettings`.
-	 * On Posix, this is equivalent to `userSettings`.
+	 *
+	 * On Posix, this is currently equivalent to `userSettings`.
 	 *
 	 * See_Also: https://docs.microsoft.com/en-us/windows/win32/shell/knownfolderid
 	 */
-	NativePath localRepository;
+	NativePath userPackages;
+
+	/**
+	 * Location at which build/generation artifact will be written
+	 *
+	 * All build artifacts are stored under a single build cache,
+	 * which is usually located under `$HOME/.dub/cache/` on POSIX,
+	 * and `%LOCALAPPDATA%/dub/cache` on Windows.
+	 *
+	 * Versions of dub prior to v1.31.0 used to store  artifact under the
+	 * project directory, but this led to issues with packages stored on
+	 * read-only filesystem / location, and lingering artifacts scattered
+	 * through the filesystem.
+	 */
+	NativePath cache;
 
 	/// Returns: An instance of `SpecialDirs` initialized from the environment
 	public static SpecialDirs make () {
@@ -1836,169 +1882,15 @@ private struct SpecialDirs {
 			immutable appDataDir = environment.get("APPDATA");
 			result.userSettings = NativePath(appDataDir) ~ "dub/";
 			// LOCALAPPDATA is not defined before Windows Vista
-			result.localRepository = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
+			result.userPackages = NativePath(environment.get("LOCALAPPDATA", appDataDir)) ~ "dub";
 		} else version(Posix) {
 			result.systemSettings = NativePath("/var/lib/dub/");
 			result.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
 			if (!result.userSettings.absolute)
 				result.userSettings = NativePath(getcwd()) ~ result.userSettings;
-			result.localRepository = result.userSettings;
+			result.userPackages = result.userSettings;
 		}
+		result.cache = result.userPackages ~ "cache";
 		return result;
 	}
-}
-
-/**
- * User-provided configuration
- *
- * All fields in this struct should be optional.
- * Fields that are *not* optional should be mandatory from the POV
- * of the application, not the POV of file parsing.
- * For example, git's `core.author` and `core.email` are required to commit,
- * but the error happens on the commit, not when the gitconfig is parsed.
- *
- * We have multiple configuration locations, and two kinds of fields:
- * additive and non-additive. Additive fields are fields which are the union
- * of all configuration files (e.g. `registryURLs`). Non-additive fields
- * will ignore values set in lower priorities configuration, although parsing
- * must still succeed. Additive fields are marked as `@Optional`,
- * non-additive are marked as `SetInfo`.
- */
-private struct UserConfiguration {
-	import configy.Attributes;
-
-	@Optional string[] registryUrls;
-	@Optional NativePath[] customCachePaths;
-
-	SetInfo!(SkipPackageSuppliers) skipRegistry;
-	SetInfo!(string) defaultCompiler;
-	SetInfo!(string) defaultArchitecture;
-	SetInfo!(bool) defaultLowMemory;
-
-	SetInfo!(string[string]) defaultEnvironments;
-	SetInfo!(string[string]) defaultBuildEnvironments;
-	SetInfo!(string[string]) defaultRunEnvironments;
-	SetInfo!(string[string]) defaultPreGenerateEnvironments;
-	SetInfo!(string[string]) defaultPostGenerateEnvironments;
-	SetInfo!(string[string]) defaultPreBuildEnvironments;
-	SetInfo!(string[string]) defaultPostBuildEnvironments;
-	SetInfo!(string[string]) defaultPreRunEnvironments;
-	SetInfo!(string[string]) defaultPostRunEnvironments;
-	SetInfo!(string) dubHome;
-
-	/// Merge a lower priority config (`this`) with a `higher` priority config
-	public UserConfiguration merge(UserConfiguration higher)
-		return @safe pure nothrow
-	{
-		import std.traits : hasUDA;
-		UserConfiguration result;
-
-		static foreach (idx, _; UserConfiguration.tupleof) {
-			static if (hasUDA!(UserConfiguration.tupleof[idx], Optional))
-				result.tupleof[idx] = higher.tupleof[idx] ~ this.tupleof[idx];
-			else static if (IsSetInfo!(typeof(this.tupleof[idx]))) {
-				if (higher.tupleof[idx].set)
-					result.tupleof[idx] = higher.tupleof[idx];
-				else
-					result.tupleof[idx] = this.tupleof[idx];
-			} else
-				static assert(false,
-							  "Expect `@Optional` or `SetInfo` on: `" ~
-							  __traits(identifier, this.tupleof[idx]) ~
-							  "` of type : `" ~
-							  typeof(this.tupleof[idx]).stringof ~ "`");
-		}
-
-		return result;
-	}
-
-	/// Workaround multiple `E` declaration in `static foreach` when inline
-	private template IsSetInfo(T) { enum bool IsSetInfo = is(T : SetInfo!E, E); }
-}
-
-unittest {
-	import configy.Read;
-
-    const str1 = `{
-  "registryUrls": [ "http://foo.bar\/optional\/escape" ],
-  "customCachePaths": [ "foo/bar", "foo/foo" ],
-
-  "skipRegistry": "all",
-  "defaultCompiler": "dmd",
-  "defaultArchitecture": "fooarch",
-  "defaultLowMemory": false,
-
-  "defaultEnvironments": {
-    "VAR2": "settings.VAR2",
-    "VAR3": "settings.VAR3",
-    "VAR4": "settings.VAR4"
-  }
-}`;
-
-	const str2 = `{
-  "registryUrls": [ "http://bar.foo" ],
-  "customCachePaths": [ "bar/foo", "bar/bar" ],
-
-  "skipRegistry": "none",
-  "defaultCompiler": "ldc",
-  "defaultArchitecture": "bararch",
-  "defaultLowMemory": true,
-
-  "defaultEnvironments": {
-    "VAR": "Hi",
-  }
-}`;
-
-	 auto c1 = parseConfigString!UserConfiguration(str1, "/dev/null");
-	 assert(c1.registryUrls == [ "http://foo.bar/optional/escape" ]);
-	 assert(c1.customCachePaths == [ NativePath("foo/bar"), NativePath("foo/foo") ]);
-	 assert(c1.skipRegistry == SkipPackageSuppliers.all);
-	 assert(c1.defaultCompiler == "dmd");
-	 assert(c1.defaultArchitecture == "fooarch");
-	 assert(c1.defaultLowMemory == false);
-	 assert(c1.defaultEnvironments.length == 3);
-	 assert(c1.defaultEnvironments["VAR2"] == "settings.VAR2");
-	 assert(c1.defaultEnvironments["VAR3"] == "settings.VAR3");
-	 assert(c1.defaultEnvironments["VAR4"] == "settings.VAR4");
-
-	 auto c2 = parseConfigString!UserConfiguration(str2, "/dev/null");
-	 assert(c2.registryUrls == [ "http://bar.foo" ]);
-	 assert(c2.customCachePaths == [ NativePath("bar/foo"), NativePath("bar/bar") ]);
-	 assert(c2.skipRegistry == SkipPackageSuppliers.none);
-	 assert(c2.defaultCompiler == "ldc");
-	 assert(c2.defaultArchitecture == "bararch");
-	 assert(c2.defaultLowMemory == true);
-	 assert(c2.defaultEnvironments.length == 1);
-	 assert(c2.defaultEnvironments["VAR"] == "Hi");
-
-	 auto m1 = c2.merge(c1);
-	 // c1 takes priority, so its registryUrls is first
-	 assert(m1.registryUrls == [ "http://foo.bar/optional/escape", "http://bar.foo" ]);
-	 // Same with CCP
-	 assert(m1.customCachePaths == [
-		 NativePath("foo/bar"), NativePath("foo/foo"),
-		 NativePath("bar/foo"), NativePath("bar/bar"),
-	 ]);
-
-	 // c1 fields only
-	 assert(m1.skipRegistry == c1.skipRegistry);
-	 assert(m1.defaultCompiler == c1.defaultCompiler);
-	 assert(m1.defaultArchitecture == c1.defaultArchitecture);
-	 assert(m1.defaultLowMemory == c1.defaultLowMemory);
-	 assert(m1.defaultEnvironments == c1.defaultEnvironments);
-
-	 auto m2 = c1.merge(c2);
-	 assert(m2.registryUrls == [ "http://bar.foo", "http://foo.bar/optional/escape" ]);
-	 assert(m2.customCachePaths == [
-		 NativePath("bar/foo"), NativePath("bar/bar"),
-		 NativePath("foo/bar"), NativePath("foo/foo"),
-	 ]);
-	 assert(m2.skipRegistry == c2.skipRegistry);
-	 assert(m2.defaultCompiler == c2.defaultCompiler);
-	 assert(m2.defaultArchitecture == c2.defaultArchitecture);
-	 assert(m2.defaultLowMemory == c2.defaultLowMemory);
-	 assert(m2.defaultEnvironments == c2.defaultEnvironments);
-
-	 auto m3 = UserConfiguration.init.merge(c1);
-	 assert(m3 == c1);
 }

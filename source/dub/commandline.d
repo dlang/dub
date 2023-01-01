@@ -21,6 +21,8 @@ import dub.packagesuppliers;
 import dub.project;
 import dub.internal.utils : getDUBVersion, getClosestMatch, getTempFile;
 
+import dub.internal.dyaml.stdsumtype;
+
 import std.algorithm;
 import std.array;
 import std.conv;
@@ -32,7 +34,6 @@ import std.path : expandTilde, absolutePath, buildNormalizedPath;
 import std.process;
 import std.stdio;
 import std.string;
-import std.sumtype;
 import std.typecons : Tuple, tuple;
 import std.variant;
 import std.path: setExtension;
@@ -881,7 +882,12 @@ class InitCommand : Command {
 		this.argumentsPattern = "[<directory> [<dependency>...]]";
 		this.description = "Initializes an empty package skeleton";
 		this.helpText = [
-			"Initializes an empty package of the specified type in the given directory. By default, the current working directory is used."
+			"Initializes an empty package of the specified type in the given directory.",
+			"By default, the current working directory is used.",
+			"",
+			"Custom templates can be defined by packages by providing a sub-package called \"init-exec\". No default source files are added in this case.",
+			"The \"init-exec\" subpackage is compiled and executed inside the destination folder after the base project directory has been created.",
+			"Free arguments \"dub init -t custom -- free args\" are passed into the \"init-exec\" subpackage as app arguments."
 		];
 		this.acceptsAppArgs = true;
 	}
@@ -1623,6 +1629,7 @@ class DescribeCommand : PackageBuildCommand {
 		GeneratorSettings settings = this.baseSettings;
 		if (!settings.config.length)
 			settings.config = m_defaultConfig;
+		settings.cache = dub.cachePathDontUse(); // See function's description
 		// Ignore other options
 		settings.buildSettings.options = this.baseSettings.buildSettings.options & BuildOption.lowmem;
 
@@ -1682,27 +1689,10 @@ class CleanCommand : Command {
 		enforce(free_args.length == 0, "Cleaning a specific package isn't possible right now.");
 
 		if (m_allPackages) {
-			bool any_error = false;
-
-			foreach (p; dub.packageManager.getPackageIterator()) {
-				try dub.cleanPackage(p.path);
-				catch (Exception e) {
-					logWarn("Failed to clean package %s at %s: %s", p.name, p.path, e.msg);
-					any_error = true;
-				}
-
-				foreach (sp; p.subPackages.filter!(sp => !sp.path.empty)) {
-					try dub.cleanPackage(p.path ~ sp.path);
-					catch (Exception e) {
-						logWarn("Failed to clean sub package of %s at %s: %s", p.name, p.path ~ sp.path, e.msg);
-						any_error = true;
-					}
-				}
-			}
-
-			if (any_error) return 2;
+			dub.clean();
 		} else {
-			dub.cleanPackage(dub.rootPath);
+			dub.loadPackage();
+			dub.clean(dub.project.rootPackage);
 		}
 
 		return 0;
@@ -2422,7 +2412,7 @@ class DustmiteCommand : PackageBuildCommand {
 
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
-				mkdirRecurse(dstfolder.toNativeString());
+				ensureDirectory(dstfolder);
 				foreach (de; iterateDirectory(folder.toNativeString())) {
 					if (de.name.startsWith(".")) continue;
 					if (de.isDirectory) {

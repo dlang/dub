@@ -1,0 +1,9 @@
+DUB API breaking change: `Package.metadataCache` setter and getter have been removed
+
+Those two functions were used to provide access to the metadata cache file
+to the generator. They were never intended for public consumption,
+and the JSON file format was not stable.
+
+Due to the introduction of the build cache, they needed to be removed,
+as there was no way to provide a sensible transition path, and they should be unused.
+If you have a use case for it, please open an issue in dub repository.
