@@ -217,7 +217,7 @@ class BuildGenerator : ProjectGenerator {
 		// perform the actual build
 		bool cached = false;
 		if (settings.rdmd) performRDMDBuild(settings, buildsettings, pack, config, target_path);
-		else if (settings.direct || !generate_binary) performDirectBuild(settings, buildsettings, pack, config, target_path);
+		else if (!generate_binary) performDirectBuild(settings, buildsettings, pack, config, target_path);
 		else cached = performCachedBuild(settings, buildsettings, pack, config, build_id, packages, additional_dep_files, target_path);
 
 		// HACK: cleanup dummy doc files, we shouldn't specialize on buildType

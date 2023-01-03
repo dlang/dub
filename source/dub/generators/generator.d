@@ -811,7 +811,7 @@ struct GeneratorSettings {
 	bool filterVersions;
 
 	// only used for generator "build"
-	bool run, force, direct, rdmd, tempBuild, parallelBuild;
+	bool run, force, rdmd, tempBuild, parallelBuild;
 
 	/// single file dub package
 	bool single;
@@ -1065,7 +1065,6 @@ const(string[string])[] makeCommandEnvironmentVariables(CommandType type,
 	env["DUB_COMBINED"]          = settings.combined?      "TRUE" : "";
 	env["DUB_RUN"]               = settings.run?           "TRUE" : "";
 	env["DUB_FORCE"]             = settings.force?         "TRUE" : "";
-	env["DUB_DIRECT"]            = settings.direct?        "TRUE" : "";
 	env["DUB_RDMD"]              = settings.rdmd?          "TRUE" : "";
 	env["DUB_TEMP_BUILD"]        = settings.tempBuild?     "TRUE" : "";
 	env["DUB_PARALLEL_BUILD"]    = settings.parallelBuild? "TRUE" : "";
