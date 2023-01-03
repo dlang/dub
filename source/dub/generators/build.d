@@ -242,8 +242,6 @@ class BuildGenerator : ProjectGenerator {
 	private bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config,
 		string build_id, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_binary_path)
 	{
-		auto cwd = NativePath(getcwd());
-
 		NativePath target_path;
 		if (settings.tempBuild) {
 			string packageName = pack.basePackage is null ? pack.name : pack.basePackage.name;
@@ -264,7 +262,7 @@ class BuildGenerator : ProjectGenerator {
 
 		if (!isWritableDir(target_path, true)) {
 			if (!settings.tempBuild)
-				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path.relativeTo(cwd).toNativeString());
+				logInfo("Build directory %s is not writable. Falling back to direct build in the system's temp folder.", target_path);
 			performDirectBuild(settings, buildsettings, pack, config, target_path);
 			return false;
 		}
@@ -278,7 +276,7 @@ class BuildGenerator : ProjectGenerator {
 
 		// override target path
 		auto cbuildsettings = buildsettings;
-		cbuildsettings.targetPath = shrinkPath(target_path, cwd);
+		cbuildsettings.targetPath = target_path.toNativeString();
 		buildWithCompiler(settings, cbuildsettings);
 		target_binary_path = getTargetPath(cbuildsettings, settings);
 
