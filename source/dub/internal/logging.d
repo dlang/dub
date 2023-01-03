@@ -199,8 +199,8 @@ void setLoggingColorsEnabled(bool enabled)
 	or tag color required (since there will be no tag).
 
 	Params:
-		level = The log level for the logged message
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
+		args = Arguments matching the format string
 */
 void logDebug(T...)(string fmt, lazy T args) nothrow
 {
@@ -220,8 +220,8 @@ void logDiagnostic(T...)(string fmt, lazy T args) nothrow
 	Params:
 		tag = The string the tag at the beginning of the line should contain
 		tagColor = The color the tag string should have
-		level = The log level for the logged message
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
+		args = Arguments matching the format string
 */
 void logInfo(T...)(string tag, Color tagColor, string fmt, lazy T args) nothrow
 {
@@ -234,8 +234,8 @@ void logInfo(T...)(string tag, Color tagColor, string fmt, lazy T args) nothrow
 	case there will be an identation of tagWidth chars on the left anyway).
 
 	Params:
-		level = The log level for the logged message
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
+		args = Arguments matching the format string
 */
 void logInfo(T...)(string fmt, lazy T args) nothrow if (!is(T[0] : Color))
 {
@@ -247,8 +247,8 @@ void logInfo(T...)(string fmt, lazy T args) nothrow if (!is(T[0] : Color))
 	print a tag at all, it effectively just prints the given string.
 
 	Params:
-		level = The log level for the logged message
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
+		args = Arguments matching the format string
 */
 void logInfoNoTag(T...)(string fmt, lazy T args) nothrow if (!is(T[0] : Color))
 {
@@ -261,8 +261,8 @@ void logInfoNoTag(T...)(string fmt, lazy T args) nothrow if (!is(T[0] : Color))
 
 	Params:
 		tag = The string the tag at the beginning of the line should contain
-		level = The log level for the logged message
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
+		args = Arguments matching the format string
 */
 void logWarnTag(T...)(string tag, string fmt, lazy T args) nothrow
 {
@@ -274,8 +274,8 @@ void logWarnTag(T...)(string tag, string fmt, lazy T args) nothrow
 	tag "Warning". The tag color is also fixed to yellow.
 
 	Params:
-		level = The log level for the logged message
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
+		args = Arguments matching the format string
 */
 void logWarn(T...)(string fmt, lazy T args) nothrow
 {
@@ -288,8 +288,8 @@ void logWarn(T...)(string fmt, lazy T args) nothrow
 
 	Params:
 		tag = The string the tag at the beginning of the line should contain
-		level = The log level for the logged message
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
+		args = Arguments matching the format string
 */
 void logErrorTag(T...)(string tag, string fmt, lazy T args) nothrow
 {
@@ -301,8 +301,8 @@ void logErrorTag(T...)(string tag, string fmt, lazy T args) nothrow
 	tag "Error". The tag color is also fixed to red.
 
 	Params:
-		level = The log level for the logged message
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
+		args = Arguments matching the format string
 */
 void logError(T...)(string fmt, lazy T args) nothrow
 {
@@ -322,6 +322,7 @@ void logError(T...)(string fmt, lazy T args) nothrow
 		tag = The string the tag at the beginning of the line should contain
 		tagColor = The color the tag string should have
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
+		args = Arguments matching the format string
 */
 void log(T...)(
 	LogLevel level,
@@ -382,8 +383,8 @@ void log(T...)(
 
 	Params:
 		str = The string to color
-		color = The color to apply
-		mode = An optional mode, such as bold/underline/etc...
+		c = The color to apply
+		m = An optional mode, such as bold/underline/etc...
 */
 string color(const string str, const Color c, const Mode m = Mode.init)
 {
@@ -402,7 +403,7 @@ string color(const string str, const Color c, const Mode m = Mode.init)
 
 	Params:
 		str = The string to color
-		mode = The mode, such as bold/underline/etc...
+		m = The mode, such as bold/underline/etc...
 */
 string color(const string str, const Mode m = Mode.init)
 {
