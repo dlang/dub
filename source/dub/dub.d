@@ -934,7 +934,7 @@ class Dub {
 
 		Params:
 			package_id = Name of the package to be removed
-			location_ = Specifies the location to look for the given package
+			location = Specifies the location to look for the given package
 				name/version.
 			resolve_version = Callback to select package version.
 	*/
@@ -998,7 +998,7 @@ class Dub {
 				is passed, the package will be removed from the location, if
 				there is only one version retrieved. This will throw an
 				exception, if there are multiple versions retrieved.
-			location_ = Specifies the location to look for the given package
+			location = Specifies the location to look for the given package
 				name/version.
 	 */
 	void remove(string package_id, string version_, PlacementLocation location)
@@ -1144,8 +1144,8 @@ class Dub {
 		preferring "~master".
 
 		Params:
-			package_name: The name of the package in question.
-			prefer_stable: If set to `true` (the default), returns the latest
+			package_name = The name of the package in question.
+			prefer_stable = If set to `true` (the default), returns the latest
 				stable version, even if there are newer pre-release versions.
 
 		See_also: `listPackageVersions`
@@ -1169,6 +1169,7 @@ class Dub {
 			format = Determines the package recipe format to use.
 			recipe_callback = Optional callback that can be used to
 				customize the recipe before it gets written.
+			app_args = Arguments to provide to the custom initialization routine.
 	*/
 	void createEmptyPackage(NativePath path, string[] deps, string type,
 		PackageFormat format = PackageFormat.sdl,
