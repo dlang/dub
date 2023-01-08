@@ -3,30 +3,11 @@
 dependency "dub" path="../.."
 +/
 
-import std.algorithm, std.conv, std.format, std.path, std.range, std.stdio;
+import std.algorithm, std.conv, std.format, std.path, std.range;
+import std.stdio : File;
 import dub.commandline;
 
-string italic(string w)
-{
-	return `\fI` ~ w ~ `\fR`;
-}
-
-string bold(string w)
-{
-	return `\fB` ~ w ~ `\fR`;
-}
-
-string header(string heading)
-{
-	return ".SH " ~ heading;
-}
-
-string br(string s)
-{
-	return ".BR " ~ s;
-}
-
-struct Config
+static struct Config
 {
 	import std.datetime;
 	SysTime date;
@@ -46,165 +27,443 @@ struct Config
 	string cwd;
 }
 
-void writeHeader(ref File manFile, string manName, const Config config)
+struct ManWriter
 {
-	static immutable manHeader =
+	enum Mode
+	{
+		man, markdown
+	}
+
+	File output;
+	Mode mode;
+
+	string escapeWord(string s)
+	{
+		final switch (mode) {
+			case Mode.man: return s.replace(`\`, `\\`).replace(`-`, `\-`).replace(`.`, `\&.`);
+			case Mode.markdown: return s.replace(`<`, `&lt;`).replace(`>`, `&gt;`);
+		}
+	}
+
+	string escapeFulltext(string s)
+	{
+		final switch (mode) {
+			case Mode.man: return s;
+			case Mode.markdown: return s.replace(`<`, `&lt;`).replace(`>`, `&gt;`);
+		}
+	}
+
+	string italic(string w)
+	{
+		final switch (mode) {
+			case Mode.man: return `\fI` ~ w ~ `\fR`;
+			case Mode.markdown: return `<i>` ~ w ~ `</i>`;
+		}
+	}
+
+	string bold(string w)
+	{
+		final switch (mode) {
+			case Mode.man: return `\fB` ~ w ~ `\fR`;
+			case Mode.markdown: return `<b>` ~ w ~ `</b>`;
+		}
+	}
+
+	string header(string heading)
+	{
+		final switch (mode) {
+			case Mode.man: return ".SH " ~ heading;
+			case Mode.markdown: return "## " ~ heading;
+		}
+	}
+
+	string subheader(string heading)
+	{
+		final switch (mode) {
+			case Mode.man: return ".SS " ~ heading;
+			case Mode.markdown: return "### " ~ heading;
+		}
+	}
+
+	string url(string urlAndText)
+	{
+		return url(urlAndText, urlAndText);
+	}
+
+	string url(string url, string text)
+	{
+		final switch (mode) {
+			case Mode.man: return ".UR" ~ url ~ "\n" ~ text ~ "\n.UE";
+			case Mode.markdown: return format!"[%s](%s)"(text, url);
+		}
+	}
+
+	string autolink(string s)
+	{
+		final switch (mode) {
+			case Mode.man: return s;
+			case Mode.markdown:
+				auto sanitized = s
+					.replace("<b>", "")
+					.replace("</b>", "")
+					.replace("<i>", "")
+					.replace("</i>", "")
+					.replace("*", "");
+				if (sanitized.startsWith("dub") && sanitized.endsWith("(1)")) {
+					sanitized = sanitized[0 .. $ - 3];
+					return url(sanitized ~ ".md", s);
+				}
+				return s;
+		}
+	}
+
+	/// Links subcommands in the main dub.md file (converts the subcommand name
+	/// like `init` into a link to `dub-init.md`)
+	string specialLinkMainCmd(string s)
+	{
+		final switch (mode) {
+			case Mode.man: return s;
+			case Mode.markdown: return url("dub-" ~ s ~ ".md", s);
+		}
+	}
+
+	void write(T...)(T args)
+	{
+		output.write(args);
+	}
+
+	void writeln(T...)(T args)
+	{
+		output.writeln(args);
+	}
+
+	void writefln(T...)(T args)
+	{
+		output.writefln(args);
+	}
+
+	void writeHeader(string manName, const Config config)
+	{
+		import std.uni : toLower;
+
+		final switch (mode)
+		{
+			case Mode.man:
+				static immutable manHeader =
 `.TH %s 1 "%s" "The D Language Foundation" "The D Language Foundation"
 .SH NAME`;
-	manFile.writefln(manHeader, manName, config.date.toISOExtString.take(10));
-}
+				writefln(manHeader, manName, config.date.toISOExtString.take(10));
+				break;
+			case Mode.markdown:
+				writefln("# %s(1)", manName.toLower);
+				break;
+		}
+	}
 
-void writeFooter(ref File manFile, string seeAlso, const Config config)
-{
-	static immutable manFooter =
-`.SH FILES
-\fIdub\&.sdl\fR, \fIdub\&.json\fR
-.SH AUTHOR
-Copyright (c) 1999-%s by The D Language Foundation
-.SH "ONLINE DOCUMENTATION"
-.UR http://code.dlang.org/docs/commandline
-http://code.dlang.org/docs/commandline
-.UE
-.SH "SEE ALSO"
-%s`;
-	manFile.writefln(manFooter, config.date.year, seeAlso);
+	void writeFooter(string seeAlso, const Config config)
+	{
+		const manFooter =
+			header("FILES") ~ '\n'
+			~ italic(escapeWord("dub.sdl")) ~ ", " ~ italic(escapeWord("dub.json")) ~ '\n'
+			~ header("AUTHOR") ~ '\n'
+			~ `Copyright (c) 1999-%s by The D Language Foundation` ~ '\n'
+			~ header("ONLINE DOCUMENTATION") ~ '\n'
+			~ url(`http://code.dlang.org/docs/commandline`) ~ '\n'
+			~ header("SEE ALSO");
+		writefln(manFooter, config.date.year);
+		writeln(seeAlso);
+	}
+
+	string highlightArguments(string args)
+	{
+		import std.regex : regex, replaceAll;
+		static auto re = regex("<([^>]*)>");
+		const reReplacement = escapeWord("<%s>").format(italic(escapeWord(`$1`)));
+		auto ret = args.replaceAll(re, reReplacement);
+		if (ret.length) ret ~= ' ';
+		return ret;
+	}
+
+	void beginArgs(string cmd)
+	{
+		if (mode == Mode.markdown)
+			writeln("\n<dl>\n");
+	}
+
+	void endArgs()
+	{
+		if (mode == Mode.markdown)
+			writeln("\n</dl>\n");
+	}
+
+	void writeArgName(string cmd, string name)
+	{
+		import std.regex : regex, replaceAll;
+		final switch ( mode )
+		{
+			case Mode.man:
+				writeln(".PP");
+				writeln(name);
+				break;
+			case Mode.markdown:
+				string nameEscape = name.replaceAll(regex("[^a-zA-Z0-9_-]+"), "-");
+				writeln();
+				writefln(`<dt id="option-%s--%s" class="option-argname">`, cmd, nameEscape);
+				writefln(`<a class="anchor" href="#option-%s--%s"></a>`, cmd, nameEscape);
+				writeln();
+				writeln(name);
+				writeln();
+				writeln(`</dt>`);
+				writeln();
+				break;
+		}
+	}
+
+	void beginArgDescription()
+	{
+		final switch ( mode )
+		{
+			case Mode.man:
+				writeln(".RS 4");
+				break;
+			case Mode.markdown:
+				writeln();
+				writefln(`<dd markdown="1" class="option-desc">`);
+				writeln();
+				break;
+		}
+	}
+
+	void endArgDescription()
+	{
+		final switch ( mode )
+		{
+			case Mode.man:
+				writeln(".RE");
+				break;
+			case Mode.markdown:
+				writeln();
+				writefln(`</dd>`);
+				writeln();
+				break;
+		}
+	}
+
+	void writeArgs(string cmdName, CommandArgs args)
+	{
+		beginArgs(cmdName);
+		foreach (arg; args.recognizedArgs)
+		{
+			auto names = arg.names.split("|");
+			assert(names.length == 1 || names.length == 2);
+			string sarg = names[0].length == 1 ? names[0] : null;
+			string larg = names[0].length > 1 ? names[0] : names.length > 1 ? names[1] : null;
+			string name;
+			if (sarg !is null) {
+				name ~= bold(escapeWord("-%s".format(sarg)));
+				if (larg !is null)
+					name ~= ", ";
+			}
+			if (larg !is null) {
+				name ~= bold(escapeWord("--%s".format(larg)));
+				if (!arg.defaultValue.peek!bool)
+					name ~= escapeWord("=") ~ italic("VALUE");
+			}
+			writeArgName(cmdName, name);
+			beginArgDescription();
+			writeln(arg.helpText.join(mode == Mode.man ? "\n" : "\n\n"));
+			endArgDescription();
+		}
+		endArgs();
+	}
+
+	void writeDefinition(string key, string definition)
+	{
+		final switch (mode)
+		{
+		case Mode.man:
+			writeln(".TP");
+			writeln(bold(key));
+			writeln(definition);
+			break;
+		case Mode.markdown:
+			writeln(`<dt markdown="1">`);
+			writeln();
+			writeln(bold(key));
+			writeln();
+			writeln("</dt>");
+			writeln(`<dd markdown="1">`);
+			writeln();
+			writeln(definition);
+			writeln();
+			writeln("</dd>");
+			break;
+		}
+	}
+
+	void beginDefinitionList()
+	{
+		final switch (mode)
+		{
+		case Mode.man:
+			break;
+		case Mode.markdown:
+			writeln();
+			writeln(`<dl markdown="1">`);
+			writeln();
+			break;
+		}
+	}
+
+	void endDefinitionList()
+	{
+		final switch (mode)
+		{
+		case Mode.man:
+			break;
+		case Mode.markdown:
+			writeln("\n</dl>\n");
+			break;
+		}
+	}
+
+	void writeDefaultExitCodes()
+	{
+		string[2][] exitCodes = [
+			["0", "DUB succeeded"],
+			["1", "usage errors, unknown command line flags"],
+			["2", "package not found, package failed to load, miscellaneous error"]
+		];
+
+		final switch (mode)
+		{
+		case Mode.man:
+			foreach (cm; exitCodes) {
+				writeln(".TP");
+				writeln(".BR ", cm[0]);
+				writeln(cm[1]);
+			}
+			break;
+		case Mode.markdown:
+			beginDefinitionList();
+			foreach (cm; exitCodes) {
+				writeDefinition(cm[0], cm[1]);
+			}
+			endDefinitionList();
+			break;
+		}
+	}
 }
 
 void writeMainManFile(CommandArgs args, CommandGroup[] commands,
-					  string fileName, const Config config)
+                      string fileName, const Config config)
 {
-	auto manFile = File(config.cwd.buildPath(fileName), "w");
+	auto manFile = ManWriter(
+		File(config.cwd.buildPath(fileName), "w"),
+		fileName.endsWith(".md") ? ManWriter.Mode.markdown : ManWriter.Mode.man
+	);
 	manFile.writeHeader("DUB", config);
-	auto seeAlso = ["dmd(1)", "rdmd(1)"]
-        .chain(commands.map!(a => a.commands).joiner
-               .map!(cmd => format("dub-%s(1)", cmd.name)))
-        .joiner(", ").to!string.bold;
+	auto seeAlso = [
+			manFile.autolink(manFile.bold("dmd") ~ "(1)"),
+			manFile.autolink(manFile.bold("rdmd") ~ "(1)")
+		]
+		.chain(commands
+			.map!(a => a.commands)
+			.joiner
+			.map!(cmd => manFile.autolink(manFile.bold("dub-" ~ cmd.name) ~ "(1)")))
+		.joiner(", ")
+		.to!string;
 	scope(exit) manFile.writeFooter(seeAlso, config);
 
 	alias writeln = (m) => manFile.writeln(m);
 	writeln(`dub \- Package and build management system for D`);
-	writeln("SYNOPSIS".header);
-	writeln(`.B dub
-[\-\-version]
-[\fICOMMAND\fR]
-[\fIOPTIONS\&.\&.\&.\fR]
-[\-\- [\fIAPPLICATION ARGUMENTS\&.\&.\&.\fR]]`);
+	writeln(manFile.header("SYNOPSIS"));
+	writeln(manFile.bold("dub") ~ text(
+		" [",
+		manFile.escapeWord("--version"),
+		"] [",
+		manFile.italic("COMMAND"),
+		"] [",
+		manFile.italic(manFile.escapeWord("OPTIONS...")),
+		"] ", manFile.escapeWord("--"), " [",
+		manFile.italic(manFile.escapeWord("APPLICATION ARGUMENTS...")),
+		"]"
+	));
 
-	writeln("DESCRIPTION".header);
-	writeln(`Manages the DUB project in the current directory\&. DUB can serve as a build
+	writeln(manFile.header("DESCRIPTION"));
+	writeln(`Manages the DUB project in the current directory. DUB can serve as a build
 system and a package manager, automatically keeping track of project's
 dependencies \- both downloading them and linking them into the application.`);
 
-	writeln(".SH COMMANDS");
+	writeln(manFile.header("COMMANDS"));
+	manFile.beginDefinitionList();
 	foreach (grp; commands) {
 		foreach (cmd; grp.commands) {
-			writeln(".TP");
-			writeln(cmd.name.bold);
-			writeln(cmd.helpText.joiner("\n"));
+			manFile.writeDefinition(manFile.specialLinkMainCmd(cmd.name), cmd.helpText.join(
+				manFile.mode == ManWriter.Mode.markdown ? "\n\n" : "\n"
+			));
 		}
-	}
+	}  
+  
+  
 
-	writeln("COMMON OPTIONS".header);
-	args.writeArgs(manFile);
+	writeln(manFile.header("COMMON OPTIONS"));
+	manFile.writeArgs("-", args);
 }
 
-string highlightArguments(string args)
-{
-	import std.regex : regex, replaceAll;
-	static auto re = regex("<([^>]*)>");
-	static const reReplacement = "<%s>".format(`$1`.italic);
-	return args.replaceAll(re, reReplacement);
-}
-
-void writeArgs(CommandArgs args, ref File manFile)
-{
-	alias write = (m) => manFile.write(m.replace(`-`, `\-`));
-	foreach (arg; args.recognizedArgs)
-	{
-		auto names = arg.names.split("|");
-		assert(names.length == 1 || names.length == 2);
-		string sarg = names[0].length == 1 ? names[0] : null;
-		string larg = names[0].length > 1 ? names[0] : names.length > 1 ? names[1] : null;
-		manFile.writeln(".PP");
-		if (sarg !is null) {
-			write("-%s".format(sarg).bold);
-			if (larg !is null)
-				write(", ");
-		}
-		if (larg !is null) {
-			write("--%s".format(larg).bold);
-			if (!arg.defaultValue.peek!bool)
-				write("=VALUE");
-		}
-		manFile.writeln;
-		manFile.writeln(".RS 4");
-		manFile.writeln(arg.helpText.join("\n"));
-		manFile.writeln(".RE");
-	}
-}
-
-void writeManFile(Command command, const Config config)
+void writeManFile(Command command, const Config config, ManWriter.Mode mode)
 {
 	import std.uni : toUpper;
 
 	auto args = new CommandArgs(null);
 	command.prepare(args);
-	string fileName = format("dub-%s.1", command.name);
-	auto manFile = File(config.cwd.buildPath(fileName), "w");
+	string fileName = format(mode == ManWriter.Mode.markdown ? "dub-%s.md" : "dub-%s.1", command.name);
+	auto manFile = ManWriter(File(config.cwd.buildPath(fileName), "w"), mode);
 	auto manName = format("DUB-%s", command.name).toUpper;
 	manFile.writeHeader(manName, config);
 
 	string[] extraRelated;
 	foreach (arg; args.recognizedArgs) {
 		if (arg.names.canFind("rdmd"))
-			extraRelated ~= "rdmd(1)";
+			extraRelated ~= manFile.autolink(manFile.bold("rdmd") ~ "(1)");
 	}
 	if (command.name == "dustmite")
-		extraRelated ~= "dustmite(1)";
+		extraRelated ~= manFile.autolink(manFile.bold("dustmite") ~ "(1)");
 
-	const seeAlso = ["dub(1)"]
-		.chain(config.relatedSubCommands.map!(s => s.format!"dub-%s(1)"))
+	const seeAlso = [manFile.autolink(manFile.bold("dub") ~ "(1)")]
+		.chain(config.relatedSubCommands.map!(s => manFile.autolink(manFile.bold("dub-" ~ s) ~ "(1)")))
 		.chain(extraRelated)
-		.map!bold
 		.joiner(", ")
 		.to!string;
 	scope(exit) manFile.writeFooter(seeAlso, config);
 
 	alias writeln = (m) => manFile.writeln(m);
-	manFile.writefln(`dub-%s \- %s`, command.name, command.description);
 
-	writeln("SYNOPSIS".header);
-	writeln("dub %s".format(command.name).bold);
-	writeln(command.argumentsPattern.highlightArguments);
-	writeln(`OPTIONS\&.\&.\&.`.italic);
+	manFile.writefln(`dub-%s \- %s`, command.name, manFile.escapeFulltext(command.description));
+
+	writeln(manFile.header("SYNOPSIS"));
+	manFile.write(manFile.bold("dub %s ".format(command.name)));
+	manFile.write(manFile.highlightArguments(command.argumentsPattern));
+	writeln(manFile.italic(manFile.escapeWord(`OPTIONS...`)));
 	if (command.acceptsAppArgs)
 	{
-		writeln("[-- <%s>]".format("application arguments...".italic));
+		writeln("[-- <%s>]".format(manFile.italic(manFile.escapeWord("application arguments..."))));
 	}
 
-	writeln("DESCRIPTION".header);
-	writeln(command.helpText.joiner("\n\n"));
-	writeln("OPTIONS".header);
-	args.writeArgs(manFile);
+	writeln(manFile.header("DESCRIPTION"));
+	writeln(manFile.escapeFulltext(command.helpText.join("\n\n")));
+	writeln(manFile.header("OPTIONS"));
+	manFile.writeArgs(command.name, args);
 
-	static immutable exitStatus =
-`.SH EXIT STATUS
-.TP
-.BR 0
-DUB succeeded
-.TP
-.BR 1
-usage errors, unknown command line flags
-.TP
-.BR 2
-package not found, package failed to load, miscellaneous error`;
-	static immutable exitStatusDustmite =
-`.SH EXIT STATUS
-Forwards the exit code from ` ~ `dustmite(1)`.bold;
-	if (command.name == "dustmite")
-		manFile.writeln(exitStatusDustmite);
-	else
-		manFile.writeln(exitStatus);
+	writeln(manFile.subheader("COMMON OPTIONS"));
+	manFile.writeln("See ", manFile.autolink(manFile.bold("dub") ~ "(1)"));
+
+	manFile.writeln(manFile.header("EXIT STATUS"));
+	if (command.name == "dustmite") {
+		manFile.writeln("Forwards the exit code from " ~ manFile.autolink(manFile.bold(`dustmite`) ~ `(1)`));
+	} else {
+		manFile.writeDefaultExitCodes();
+	}
 }
 
 void main()
@@ -218,12 +477,13 @@ void main()
 		auto args = new CommandArgs(null);
 		options.prepare(args);
 		args.writeMainManFile(commands, "dub.1", config);
+		args.writeMainManFile(commands, "dub.md", config);
 	}
 
 	string[][] relatedSubCommands = [
 		["run", "build", "test"],
 		["test", "dustmite", "lint"],
-		["describe", "gemerate"],
+		["describe", "generate"],
 		["add", "fetch"],
 		["init", "add", "convert"],
 		["add-path", "remove-path"],
@@ -244,6 +504,7 @@ void main()
 		related = related.remove!(c => c == cmd.name);
 		config.relatedSubCommands = related;
 
-		cmd.writeManFile(config);
+		cmd.writeManFile(config, ManWriter.Mode.man);
+		cmd.writeManFile(config, ManWriter.Mode.markdown);
 	}
 }
