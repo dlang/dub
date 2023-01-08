@@ -10,13 +10,13 @@ module dub.compilers.gdc;
 import dub.compilers.compiler;
 import dub.compilers.utils;
 import dub.internal.utils;
+import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
 
 import std.algorithm;
 import std.array;
 import std.exception;
-import std.file;
 import std.process;
 import std.typecons;
 
@@ -208,7 +208,7 @@ class GDCCompiler : Compiler {
 	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
 	{
 		auto res_file = getTempFile("dub-build", ".rsp");
-		std.file.write(res_file.toNativeString(), join(settings.dflags.map!(s => escape(s)), "\n"));
+		writeFile(res_file, join(settings.dflags.map!(s => escape(s)), "\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, join(cast(string[])settings.dflags, " "));
 		string[string] env;

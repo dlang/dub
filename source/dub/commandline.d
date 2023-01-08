@@ -167,7 +167,7 @@ struct CommandLineHandler
 			options.root_path = options.root_path.expandTilde.absolutePath.buildNormalizedPath;
 		}
 
-		final switch (options.color_mode) with (options.color)
+		final switch (options.colorMode) with (options.Color)
 		{
 			case automatic:
 				// Use default determined in internal.logging.initLogging().
@@ -523,10 +523,33 @@ struct CommonOptions {
 	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
-	enum color { automatic, on, off } // Lower case "color" in support of invalid option error formatting.
-	color color_mode = color.automatic;
+	enum Color { automatic, on, off }
+	Color colorMode = Color.automatic;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
 	PlacementLocation placementLocation = PlacementLocation.user;
+
+	deprecated("Use `Color` instead, the previous naming was a limitation of error message formatting")
+	alias color = Color;
+	deprecated("Use `colorMode` instead")
+	alias color_mode = colorMode;
+
+	private void parseColor(string option, string value) @safe
+	{
+		// `automatic`, `on`, `off` are there for backwards compatibility
+		// `auto`, `always`, `never` is being used for compatibility with most
+		// other development and linux tools, after evaluating what other tools
+		// are doing, to help users intuitively pick correct values.
+		// See https://github.com/dlang/dub/issues/2410 for discussion
+		if (!value.length || value == "auto" || value == "automatic")
+			colorMode = Color.automatic;
+		else if (value == "always" || value == "on")
+			colorMode = Color.on;
+		else if (value == "never" || value == "off")
+			colorMode = Color.off;
+		else
+			throw new ConvException("Unable to parse argument '--" ~ option ~ "=" ~ value
+				~ "', supported values: --color[=auto], --color=always, --color=never");
+	}
 
 	/// Parses all common options and stores the result in the struct instance.
 	void prepare(CommandArgs args)
@@ -552,12 +575,12 @@ struct CommonOptions {
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
-		args.getopt("color", &color_mode, [
+		args.getopt("color", &colorMode, &parseColor, [
 			"Configure colored output. Accepted values:",
-			"  automatic: Colored output on console/terminal,",
+			"       auto: Colored output on console/terminal,",
 			"             unless NO_COLOR is set and non-empty (default)",
-			"         on: Force colors enabled",
-			"        off: Force colors disabled"
+			"     always: Force colors enabled",
+			"      never: Force colors disabled"
 			]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 
@@ -631,6 +654,11 @@ class CommandArgs {
 
 	void getopt(T)(string names, T* var, string[] help_text = null, bool hidden=false)
 	{
+		getopt!T(names, var, null, help_text, hidden);
+	}
+
+	void getopt(T)(string names, T* var, void delegate(string, string) @safe parseValue, string[] help_text = null, bool hidden=false)
+	{
 		import std.traits : OriginalType;
 
 		foreach (ref arg; m_recognizedArgs)
@@ -648,7 +676,10 @@ class CommandArgs {
 		arg.names = names;
 		arg.helpText = help_text;
 		arg.hidden = hidden;
-		m_args.getopt(config.passThrough, names, var);
+		if (parseValue is null)
+			m_args.getopt(config.passThrough, names, var);
+		else
+			m_args.getopt(config.passThrough, names, parseValue);
 		arg.value = Arg.Value(cast(OriginalType!T)*var);
 		m_recognizedArgs ~= arg;
 	}

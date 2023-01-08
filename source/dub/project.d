@@ -227,6 +227,7 @@ class Project {
 	/** Adds a test runner configuration for the root package.
 
 		Params:
+			settings = The generator settings to use
 			generate_main = Whether to generate the main.d file
 			base_config = Optional base configuration
 			custom_main_file = Optional path to file with custom main entry point
@@ -822,7 +823,6 @@ class Project {
 		Params:
 			dst = The `BuildSettings` instance to add the build settings to
 			gsettings = Target generator settings
-			build_type = Name of the build type
 			for_root_package = Selects if the build settings are for the root
 				package or for one of the dependencies. Unittest flags will
 				only be added to the root package.

@@ -493,7 +493,7 @@ struct BuildSettingsTemplate {
 					enforce(!spath.empty, "Paths must not be empty strings.");
 					auto path = NativePath(spath);
 					if (!path.absolute) path = base_path ~ path;
-					if (!existsFile(path) || !isDir(path.toNativeString())) {
+					if (!existsDirectory(path)) {
 						import std.algorithm : any, find;
 						const hasVar = chain(buildSettingsVars, envVarCache.get.byKey).any!((string var) {
 							return spath.find("$"~var).length > 0 || spath.find("${"~var~"}").length > 0;

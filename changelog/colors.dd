@@ -1,0 +1,6 @@
+The `--color` argument now accepts values `auto`, `never`, `always`
+
+The previous `automatic`, `on`, `off` values are still supported, but
+undocumented, because they are used in almost no other program like this. For
+consistency, with other Linux tools especially, we have implemented and switched
+the defaults to the widely-used `auto`, `never`, `always` values.
