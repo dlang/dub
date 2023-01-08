@@ -30,28 +30,7 @@ version(DubUseCurl)
 	public import std.net.curl : HTTPStatusException;
 }
 
-
-private NativePath[] temporary_files;
-
-NativePath getTempDir()
-{
-	return NativePath(std.file.tempDir());
-}
-
-NativePath getTempFile(string prefix, string extension = null)
-{
-	import std.uuid : randomUUID;
-	import std.array: replace;
-
-	string fileName = prefix ~ "-" ~ randomUUID.toString() ~ extension;
-
-	if (extension !is null && extension == ".d")
-		fileName = fileName.replace("-", "_");
-
-	auto path = getTempDir() ~ fileName;
-	temporary_files ~= path;
-	return path;
-}
+public import dub.internal.temp_files;
 
 /**
  * Obtain a lock for a file at the given path.
@@ -96,16 +75,6 @@ auto lockFile(string path, Duration timeout)
 		if (dur < 1024.msecs) // exponentially increase sleep time
 			dur *= 2;
 		Thread.sleep(dur);
-	}
-}
-
-static ~this()
-{
-	foreach (path; temporary_files)
-	{
-		auto spath = path.toNativeString();
-		if (spath.exists)
-			std.file.remove(spath);
 	}
 }
 

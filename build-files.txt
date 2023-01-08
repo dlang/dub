@@ -58,6 +58,7 @@ source/dub/internal/sdlang/token.d
 source/dub/internal/sdlang/util.d
 source/dub/internal/tinyendian.d
 source/dub/internal/undead/xml.d
+source/dub/internal/temp_files.d
 source/dub/internal/utils.d
 source/dub/internal/vibecompat/core/file.d
 source/dub/internal/vibecompat/data/json.d
