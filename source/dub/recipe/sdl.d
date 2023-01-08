@@ -9,7 +9,7 @@ module dub.recipe.sdl;
 
 import dub.compilers.compiler;
 import dub.dependency;
-import dub.internal.stdsumtype;
+import dub.internal.dyaml.stdsumtype;
 import dub.internal.logging;
 import dub.internal.sdlang;
 import dub.internal.vibecompat.inet.path;

@@ -21,7 +21,7 @@ import dub.packagesuppliers;
 import dub.project;
 import dub.internal.utils : getDUBVersion, getClosestMatch, getTempFile;
 
-import dub.internal.stdsumtype;
+import dub.internal.dyaml.stdsumtype;
 
 import std.algorithm;
 import std.array;
@@ -672,7 +672,7 @@ class CommandArgs {
 			}
 		assert(help_text.length > 0);
 		Arg arg;
-		arg.defaultValue = Arg.Value(cast(OriginalType!T)*var);
+		arg.defaultValue = cast(OriginalType!T)*var;
 		arg.names = names;
 		arg.helpText = help_text;
 		arg.hidden = hidden;
@@ -680,7 +680,7 @@ class CommandArgs {
 			m_args.getopt(config.passThrough, names, var);
 		else
 			m_args.getopt(config.passThrough, names, parseValue);
-		arg.value = Arg.Value(cast(OriginalType!T)*var);
+		arg.value = cast(OriginalType!T)*var;
 		m_recognizedArgs ~= arg;
 	}
 

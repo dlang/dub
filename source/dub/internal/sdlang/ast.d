@@ -23,7 +23,7 @@ import dub.internal.sdlang.exception;
 import dub.internal.sdlang.token;
 import dub.internal.sdlang.util;
 
-import dub.internal.stdsumtype;
+import dub.internal.dyaml.stdsumtype;
 
 class Attribute
 {

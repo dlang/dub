@@ -703,7 +703,7 @@ private static Dependency parseDMDDependency(string dep)
 
 private T clone(T)(ref const(T) val)
 {
-	import dub.internal.stdsumtype;
+	import dub.internal.dyaml.stdsumtype;
 	import std.traits : isSomeString, isDynamicArray, isAssociativeArray, isBasicType, ValueType;
 
 	static if (is(T == immutable)) return val;

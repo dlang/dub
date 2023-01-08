@@ -17,7 +17,7 @@ import dub.internal.sdlang.symbol;
 import dub.internal.sdlang.token;
 import dub.internal.sdlang.util;
 
-import dub.internal.stdsumtype;
+import dub.internal.dyaml.stdsumtype;
 
 /// Returns root tag.
 Tag parseFile(string filename)

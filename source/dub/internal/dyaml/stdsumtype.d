@@ -20,7 +20,7 @@ License: Boost License 1.0
 Authors: Paul Backus
 Source: $(PHOBOSSRC std/sumtype.d)
 +/
-module dub.internal.stdsumtype;
+module dub.internal.dyaml.stdsumtype;
 
 /// $(DIVID basic-usage,$(H3 Basic usage))
 version (D_BetterC) {} else

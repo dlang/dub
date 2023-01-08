@@ -14,7 +14,7 @@ import std.range;
 import std.string;
 import std.typetuple;
 
-import dub.internal.stdsumtype;
+import dub.internal.dyaml.stdsumtype;
 
 import dub.internal.sdlang.symbol;
 import dub.internal.sdlang.util;
