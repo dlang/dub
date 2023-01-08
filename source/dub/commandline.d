@@ -666,8 +666,12 @@ class CommandArgs {
 				assert(help_text is null, format!("Duplicated argument '%s' must not change helptext, consider to remove the duplication")(names));
 				*var = arg.value.match!(
 					(OriginalType!T v) => cast(T)v,
-					(_) => assert(false, "value from previous getopt has different type than the current getopt call"))
-				;
+					(_) {
+						if (false)
+							return T.init;
+						assert(false, "value from previous getopt has different type than the current getopt call");
+					}
+				);
 				return;
 			}
 		assert(help_text.length > 0);
