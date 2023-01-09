@@ -95,7 +95,7 @@ final class Reader
         ///                   `"<unknown>"` if the buffer is the contents of a string.
         ///
         /// Throws:  ReaderException on a UTF decoding error or if there are
-        ///          nonprintable Unicode characters illegal in YAML.
+        ///          non-printable Unicode characters illegal in YAML.
         this(ubyte[] buffer, string name = "<unknown>") @safe pure
         {
             name_ = name;

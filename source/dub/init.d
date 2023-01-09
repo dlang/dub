@@ -164,7 +164,7 @@ private void initDeimosPackage(NativePath root_path, ref PackageRecipe p, scope 
  * most users. However, this file is not mandatory for `dub` to do its job,
  * so we do not depend on the content.
  * One important use case we need to support is people running `dub init` on
- * a Github-initialized repository. Those might already contain a `.gitignore`
+ * a GitHub-initialized repository. Those might already contain a `.gitignore`
  * (and a README and a LICENSE), thus we should not bail out if the file already
  * exists, just ignore it.
  *

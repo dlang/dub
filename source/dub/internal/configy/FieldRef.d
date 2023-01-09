@@ -33,7 +33,7 @@ import std.traits;
 
     To prevent this from happening, we always pass around a `FieldRef`,
     which wraps the parent struct type (`T`), the name of the field
-    as `FieldName`, and other informations.
+    as `FieldName`, and other information.
 
     To avoid any issue, eponymous usage is also avoided, hence the reference
     needs to be accessed using `Ref`.

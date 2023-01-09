@@ -89,7 +89,7 @@ class PackageManager {
 		 * Dub versions because v1.31 eagerly scan all available repositories,
 		 * leading to slowdown for the most common operation - `dub build` with
 		 * already resolved dependencies.
-		 * From v1.31 onwards, those locations are not scanned eagerly,
+		 * From v1.31 onward, those locations are not scanned eagerly,
 		 * unless one of the function requiring eager scanning does,
 		 * such as `getBestPackage` - as it needs to iterate the list
 		 * of available packages.
@@ -100,7 +100,7 @@ class PackageManager {
 	/**
 	   Instantiate an instance with a single search path
 
-	   This constructor is used when dub is invoked with the '--bar' CLI switch.
+	   This constructor is used when dub is invoked with the '--bare' CLI switch.
 	   The instance will not look up the default repositories
 	   (e.g. ~/.dub/packages), using only `path` instead.
 
@@ -340,7 +340,7 @@ class PackageManager {
 	/** For a given SCM repository, returns the corresponding package.
 
 		An SCM repository is provided as its remote URL, the repository is cloned
-		and in the dependency speicfied commit is checked out.
+		and in the dependency specified commit is checked out.
 
 		If the target directory already exists, just returns the package
 		without cloning.
@@ -416,7 +416,7 @@ class PackageManager {
 	/**
 	 * Searches for the latest version of a package matching the version range.
 	 *
-	 * This will search the local filesystem only (it doesn't connect
+	 * This will search the local file system only (it doesn't connect
 	 * to the registry) for the "best" (highest version) that matches `range`.
 	 * An overload with a single version exists to search for an exact version.
 	 *
@@ -717,7 +717,7 @@ class PackageManager {
 
 		logDebug("Extracting from zip.");
 
-		// In a github zip, the actual contents are in a subfolder
+		// In a GitHub zip, the actual contents are in a sub-folder
 		alias PSegment = typeof(NativePath.init.head);
 		PSegment[] zip_prefix;
 		outer: foreach(ArchiveMember am; archive.directory) {
@@ -899,7 +899,7 @@ symlink_exit:
 		this.m_repositories[type].writeLocalPackageList();
 
 		foreach(ver, name; removed)
-			logInfo("Deregistered package: %s (version: %s)", name, ver);
+			logInfo("De-registered package: %s (version: %s)", name, ver);
 	}
 
 	/// For the given type add another path where packages will be looked up.
@@ -977,13 +977,13 @@ symlink_exit:
 		return digest[].dup;
 	}
 
-	/// Adds the package and scans for subpackages.
+	/// Adds the package and scans for sub-packages.
 	private void addPackages(ref Package[] dst_repos, Package pack)
 	const {
 		// Add the main package.
 		dst_repos ~= pack;
 
-		// Additionally to the internally defined subpackages, whose metadata
+		// Additionally to the internally defined sub-packages, whose metadata
 		// is loaded with the main dub.json, load all externally defined
 		// packages after the package is available with all the data.
 		foreach (spr; pack.subPackages) {
@@ -1001,7 +1001,7 @@ symlink_exit:
 				sp = Package.load(path, NativePath.init, pack);
 			} else sp = new Package(spr.recipe, pack.path, pack);
 
-			// Add the subpackage.
+			// Add the sub-package.
 			try {
 				dst_repos ~= sp;
 			} catch (Exception e) {
@@ -1278,7 +1278,7 @@ private struct Location {
 		auto existing = refresh ? null : this.fromPath;
 		if (this.packagePath !is NativePath.init) {
 			// For the internal location, we use `fromPath` to store packages
-			// loaded by the user (e.g. the project and its subpackages),
+			// loaded by the user (e.g. the project and its sub-packages),
 			// so don't clean it.
 			this.fromPath = null;
 		}
@@ -1331,7 +1331,7 @@ private struct Location {
 				if (!p) p = Package.load(pack_path, packageFile);
 				mgr.addPackages(this.fromPath, p);
 			} catch (ConfigException exc) {
-				// Confiy error message already include the path
+				// Configy error message already include the path
 				logError("Invalid recipe for local package: %S", exc);
 			} catch (Exception e) {
 				logError("Failed to load package in %s: %s", pack_path, e.msg);

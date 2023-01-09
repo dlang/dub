@@ -104,7 +104,7 @@ struct Dependency {
 		this.m_value = rng;
 	}
 
-	deprecated("Instantiate the `Repository` struct with the string directy")
+	deprecated("Instantiate the `Repository` struct with the string directly")
 	this(Repository repository, string spec) @safe
 	{
 		assert(repository.m_ref is null);

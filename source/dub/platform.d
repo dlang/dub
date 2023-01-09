@@ -6,7 +6,7 @@
 	CI slave machines.
 
 	It also contains means to match build platforms against a platform
-	specification string as used in package reciptes.
+	specification string as used in package recipes.
 
 	Copyright: © 2012-2017 rejectedsoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
@@ -59,7 +59,7 @@ enum string archCheck = q{
 	version(X86) version(CRuntime_DigitalMars) ret ~= "x86_omf";
 	// Hack: see #1059
 	// When compiling with --arch=x86_mscoff build_platform.architecture is equal to ["x86"] and canFind below is false.
-	// This hack prevents unnesessary warning 'Failed to apply the selected architecture x86_mscoff. Got ["x86"]'.
+	// This hack prevents unnecessary warning 'Failed to apply the selected architecture x86_mscoff. Got ["x86"]'.
 	// And also makes "x86_mscoff" available as a platform specifier in the package recipe
 	version(X86) version(CRuntime_Microsoft) ret ~= "x86_mscoff";
 	version(X86_64) ret ~= "x86_64";
@@ -177,7 +177,7 @@ string determineCompiler()
 	`"-dmd"`, `"-arm"`, `"-arm-dmd"`, `"-windows-dmd"`
 
 	Params:
-		platform = The build platform to match agains the platform specification
+		platform = The build platform to match against the platform specification
 	    specification = The specification being matched. It must either be an
 	    	empty string or start with a dash.
 

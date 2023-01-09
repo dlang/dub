@@ -679,7 +679,7 @@ class Project {
 					createEdge(cidx, createConfig(d.name, sc));
 		}
 
-		// create a graph of all possible package configurations (package, config) -> (subpackage, subconfig)
+		// create a graph of all possible package configurations (package, config) -> (sub-package, sub-config)
 		void determineAllConfigs(in Package p)
 		{
 			auto idx = allconfigs_path.countUntil(p.name);

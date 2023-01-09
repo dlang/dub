@@ -360,7 +360,7 @@ struct Scanner
                 // restrictive than what the specification requires.
                 // if(pedantic_ && flowLevel_ > 0 && indent_ > column)
                 // {
-                //     throw new ScannerException("Invalid intendation or unclosed '[' or '{'",
+                //     throw new ScannerException("Invalid indentation or unclosed '[' or '{'",
                 //                                reader_.mark)
                 // }
                 return;
@@ -399,7 +399,7 @@ struct Scanner
         ///Add STREAM-END token.
         void fetchStreamEnd() @safe
         {
-            //Set intendation to -1 .
+            //Set indentation to -1 .
             unwindIndent(-1);
             removePossibleSimpleKey();
             allowSimpleKey_ = false;
@@ -412,7 +412,7 @@ struct Scanner
         /// Add DIRECTIVE token.
         void fetchDirective() @safe
         {
-            // Set intendation to -1 .
+            // Set indentation to -1 .
             unwindIndent(-1);
             // Reset simple keys.
             removePossibleSimpleKey();
@@ -497,7 +497,7 @@ struct Scanner
         void blockChecks(string type, TokenID id)()
         {
             enum context = type ~ " keys are not allowed here";
-            // Are we allowed to start a key (not neccesarily a simple one)?
+            // Are we allowed to start a key (not necessarily a simple one)?
             enforce(allowSimpleKey_, new ScannerException(context, reader_.mark));
 
             if(addIndent(reader_.column))
@@ -1001,7 +1001,7 @@ struct Scanner
         /// The specification does not restrict characters for anchors and
         /// aliases. This may lead to problems, for instance, the document:
         ///   [ *alias, value ]
-        /// can be interpteted in two ways, as
+        /// can be interpreted in two ways, as
         ///   [ "value" ]
         /// and
         ///   [ *alias , "value" ]
@@ -1208,7 +1208,7 @@ struct Scanner
                 }
             }
 
-            // If chompint is Keep, we keep (commit) the last scanned line breaks
+            // If chomping is Keep, we keep (commit) the last scanned line breaks
             // (which are at the end of the scalar). Otherwise re remove them (end the
             // transaction).
             if(chomping == Chomping.keep)  { breaksTransaction.commit(); }
@@ -1360,7 +1360,7 @@ struct Scanner
             return endMark;
         }
 
-        /// Scan a qouted flow scalar token with specified quotes.
+        /// Scan a quoted flow scalar token with specified quotes.
         Token scanFlowScalar(const ScalarStyle quotes) @safe
         {
             const startMark = reader_.mark;
@@ -1381,7 +1381,7 @@ struct Scanner
             return scalarToken(startMark, reader_.mark, slice, quotes);
         }
 
-        /// Scan nonspace characters in a flow scalar.
+        /// Scan non-space characters in a flow scalar.
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.

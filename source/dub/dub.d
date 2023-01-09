@@ -457,7 +457,7 @@ class Dub {
 
 	/** Loads a single file package.
 
-		Single-file packages are D files that contain a package receipe comment
+		Single-file packages are D files that contain a package recipe comment
 		at their top. A recipe comment must be a nested `/+ ... +/` style
 		comment, containing the virtual recipe file name and a colon, followed by the
 		recipe contents (what would normally be in dub.sdl/dub.json).
@@ -894,7 +894,7 @@ class Dub {
 				return m_packageManager.store(path, location, basePackageName, ver);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
-				// rethrow the exception at the end of the loop
+				// re-throw the exception at the end of the loop
 				if (i == 0)
 					throw e;
 			}
@@ -1076,7 +1076,7 @@ class Dub {
 		m_packageManager.addSearchPath(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
 	}
 
-	/** Unregisters a local directory search path.
+	/** Un-registers a local directory search path.
 
 		Params:
 			path = Path to a directory containing package directories
@@ -1509,7 +1509,7 @@ enum UpgradeOptions
 {
 	none = 0,
 	upgrade = 1<<1, /// Upgrade existing packages
-	preRelease = 1<<2, /// inclde pre-release versions in upgrade
+	preRelease = 1<<2, /// include pre-release versions in upgrade
 	forceRemove = 1<<3, /// Deprecated, does nothing.
 	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
 	dryRun = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
@@ -1646,7 +1646,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		auto ret = appender!(TreeNodes[]);
 		auto pack = getPackage(node.pack, node.config);
 		if (!pack) {
-			// this can hapen when the package description contains syntax errors
+			// this can happen when the package description contains syntax errors
 			logDebug("Invalid package in dependency tree: %s %s", node.pack, node.config);
 			return null;
 		}
@@ -1866,8 +1866,8 @@ private struct SpecialDirs {
 	 *
 	 * Versions of dub prior to v1.31.0 used to store  artifact under the
 	 * project directory, but this led to issues with packages stored on
-	 * read-only filesystem / location, and lingering artifacts scattered
-	 * through the filesystem.
+	 * read-only file system / location, and lingering artifacts scattered
+	 * through the file system.
 	 */
 	NativePath cache;
 

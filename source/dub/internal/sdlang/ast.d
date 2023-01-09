@@ -145,14 +145,14 @@ class Attribute
 		auto allAttrsIndex = _parent.allAttributes.countUntil(this);
 		_parent.allAttributes.removeIndex(allAttrsIndex);
 
-		// Remove from _parent.attributeIndicies
-		auto sameNamespaceAttrs = _parent.attributeIndicies[_namespace];
-		auto attrIndiciesIndex = sameNamespaceAttrs.countUntil(allAttrsIndex);
-		_parent.attributeIndicies[_namespace].removeIndex(attrIndiciesIndex);
+		// Remove from _parent.attributeIndices
+		auto sameNamespaceAttrs = _parent.attributeIndices[_namespace];
+		auto attrIndicesIndex = sameNamespaceAttrs.countUntil(allAttrsIndex);
+		_parent.attributeIndices[_namespace].removeIndex(attrIndicesIndex);
 
-		// Fixup other indicies
-		foreach(ns, ref nsAttrIndicies; _parent.attributeIndicies)
-		foreach(k, ref v; nsAttrIndicies)
+		// Fixup other indices
+		foreach(ns, ref nsAttrIndices; _parent.attributeIndices)
+		foreach(k, ref v; nsAttrIndices)
 		if(v > allAttrsIndex)
 			v--;
 
@@ -316,8 +316,8 @@ class Tag
 	private Tag[]       allTags;       // In same order as specified in SDL file.
 	private string[]    allNamespaces; // In same order as specified in SDL file.
 
-	private size_t[][string] attributeIndicies; // allAttributes[ attributes[namespace][i] ]
-	private size_t[][string] tagIndicies;       // allTags[ tags[namespace][i] ]
+	private size_t[][string] attributeIndices; // allAttributes[ attributes[namespace][i] ]
+	private size_t[][string] tagIndices;       // allTags[ tags[namespace][i] ]
 
 	private Attribute[][string][string] _attributes; // attributes[namespace or "*"][name][i]
 	private Tag[][string][string]       _tags;       // tags[namespace or "*"][name][i]
@@ -359,7 +359,7 @@ class Tag
 		attr._parent = this;
 
 		allAttributes ~= attr;
-		attributeIndicies[attr._namespace] ~= allAttributes.length-1;
+		attributeIndices[attr._namespace] ~= allAttributes.length-1;
 		_attributes[attr._namespace][attr._name] ~= attr;
 		_attributes["*"]            [attr._name] ~= attr;
 
@@ -393,7 +393,7 @@ class Tag
 		tag._parent = this;
 
 		allTags ~= tag;
-		tagIndicies[tag._namespace] ~= allTags.length-1;
+		tagIndices[tag._namespace] ~= allTags.length-1;
 		_tags[tag._namespace][tag._name] ~= tag;
 		_tags["*"]           [tag._name] ~= tag;
 
@@ -433,14 +433,14 @@ class Tag
 		auto allTagsIndex = _parent.allTags.countUntil(this);
 		_parent.allTags.removeIndex(allTagsIndex);
 
-		// Remove from _parent.tagIndicies
-		auto sameNamespaceTags = _parent.tagIndicies[_namespace];
-		auto tagIndiciesIndex = sameNamespaceTags.countUntil(allTagsIndex);
-		_parent.tagIndicies[_namespace].removeIndex(tagIndiciesIndex);
+		// Remove from _parent.tagIndices
+		auto sameNamespaceTags = _parent.tagIndices[_namespace];
+		auto tagIndicesIndex = sameNamespaceTags.countUntil(allTagsIndex);
+		_parent.tagIndices[_namespace].removeIndex(tagIndicesIndex);
 
-		// Fixup other indicies
-		foreach(ns, ref nsTagIndicies; _parent.tagIndicies)
-		foreach(k, ref v; nsTagIndicies)
+		// Fixup other indices
+		foreach(ns, ref nsTagIndices; _parent.tagIndices)
+		foreach(k, ref v; nsTagIndices)
 		if(v > allTagsIndex)
 			v--;
 
@@ -452,24 +452,24 @@ class Tag
 
 	private void removeNamespaceIfEmpty(string namespace)
 	{
-		// If namespace has no attributes, remove it from attributeIndicies/_attributes
-		if(namespace in attributeIndicies && attributeIndicies[namespace].length == 0)
+		// If namespace has no attributes, remove it from attributeIndices/_attributes
+		if(namespace in attributeIndices && attributeIndices[namespace].length == 0)
 		{
-			attributeIndicies.remove(namespace);
+			attributeIndices.remove(namespace);
 			_attributes.remove(namespace);
 		}
 
-		// If namespace has no tags, remove it from tagIndicies/_tags
-		if(namespace in tagIndicies && tagIndicies[namespace].length == 0)
+		// If namespace has no tags, remove it from tagIndices/_tags
+		if(namespace in tagIndices && tagIndices[namespace].length == 0)
 		{
-			tagIndicies.remove(namespace);
+			tagIndices.remove(namespace);
 			_tags.remove(namespace);
 		}
 
 		// If namespace is now empty, remove it from allNamespaces
 		if(
-			namespace !in tagIndicies &&
-			namespace !in attributeIndicies
+			namespace !in tagIndices &&
+			namespace !in attributeIndices
 		)
 		{
 			auto allNamespacesIndex = allNamespaces.length - allNamespaces.find(namespace).length;
@@ -584,7 +584,7 @@ class Tag
 		}
 	}
 
-	struct MemberRange(T, string allMembers, string memberIndicies, string membersGrouped)
+	struct MemberRange(T, string allMembers, string memberIndices, string membersGrouped)
 	{
 		private Tag tag;
 		private string namespace; // "*" indicates "all namespaces" (ok since it's not a valid namespace name)
@@ -602,8 +602,8 @@ class Tag
 
 			if(namespace == "*")
 				initialEndIndex = mixin("tag."~allMembers~".length");
-			else if(namespace in mixin("tag."~memberIndicies))
-				initialEndIndex = mixin("tag."~memberIndicies~"[namespace].length");
+			else if(namespace in mixin("tag."~memberIndices))
+				initialEndIndex = mixin("tag."~memberIndices~"[namespace].length");
 			else
 				initialEndIndex = 0;
 
@@ -694,7 +694,7 @@ class Tag
 			if(namespace == "*")
 				return mixin("tag."~allMembers~"[ frontIndex+index ]");
 			else
-				return mixin("tag."~allMembers~"[ tag."~memberIndicies~"[namespace][frontIndex+index] ]");
+				return mixin("tag."~allMembers~"[ tag."~memberIndices~"[namespace][frontIndex+index] ]");
 		}
 
 		alias NamedMemberRange!(T,membersGrouped) ThisNamedMemberRange;
@@ -862,8 +862,8 @@ class Tag
 			if(frontIndex == 0 && endIndex == tag.allNamespaces.length)
 			{
 				return
-					namespace in tag.attributeIndicies ||
-					namespace in tag.tagIndicies;
+					namespace in tag.attributeIndices ||
+					namespace in tag.tagIndices;
 			}
 			else
 				// Slower fallback method
@@ -878,8 +878,8 @@ class Tag
 		TagRange tags;
 	}
 
-	alias MemberRange!(Attribute, "allAttributes", "attributeIndicies", "_attributes") AttributeRange;
-	alias MemberRange!(Tag,       "allTags",       "tagIndicies",       "_tags"      ) TagRange;
+	alias MemberRange!(Attribute, "allAttributes", "attributeIndices", "_attributes") AttributeRange;
+	alias MemberRange!(Tag,       "allTags",       "tagIndices",       "_tags"      ) TagRange;
 	static assert(isRandomAccessRange!AttributeRange);
 	static assert(isRandomAccessRange!TagRange);
 	static assert(isRandomAccessRange!NamespaceRange);

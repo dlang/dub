@@ -145,7 +145,7 @@ struct NativePath {
 		return ret.data;
 	}
 
-	/// Tests if `rhs` is an anchestor or the same as this path.
+	/// Tests if `rhs` is an ancestor or the same as this path.
 	bool startsWith(const NativePath rhs) const {
 		if( rhs.m_nodes.length > m_nodes.length ) return false;
 		foreach( i; 0 .. rhs.m_nodes.length )
@@ -186,7 +186,7 @@ struct NativePath {
 	/// The parent path
 	@property NativePath parentPath() const { return this[0 .. length-1]; }
 
-	/// The ist of path entries of which this path is composed
+	/// The list of path entries of which this path is composed
 	@property immutable(PathEntry)[] nodes() const { return m_nodes; }
 
 	/// The number of path entries of which this path is composed
@@ -300,7 +300,7 @@ struct PathEntry {
 	int opCmp(string rhs) const scope @safe pure nothrow @nogc { return m_name.cmp(rhs); }
 }
 
-/// Joins two path strings. subpath must be relative.
+/// Joins two path strings. sub-path must be relative.
 string joinPath(string basepath, string subpath)
 {
 	NativePath p1 = NativePath(basepath);

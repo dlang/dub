@@ -360,7 +360,7 @@ class Package {
 
 	/** Returns all BuildSettings for the given platform and configuration.
 
-		This will gather the effective build settings declared in tha package
+		This will gather the effective build settings declared in the package
 		recipe for when building on a particular platform and configuration.
 		Root build settings and configuration specific settings will be
 		merged.
@@ -760,7 +760,7 @@ class Package {
 		if (m_parentPackage) {
 			if (m_parentPackage.path != path) {
 				if (this.recipe.license.length && this.recipe.license != m_parentPackage.recipe.license)
-					logWarn("Warning: License in subpackage %s is different than its parent package, this is discouraged.", name);
+					logWarn("Warning: License in sub-package %s is different than its parent package, this is discouraged.", name);
 			}
 		}
 		if (name.empty) logWarn("Warning: The package in %s has no name.", path);
