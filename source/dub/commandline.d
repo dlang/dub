@@ -867,7 +867,7 @@ struct CommandGroup {
 	/// Caption of the command category
 	string caption;
 
-	/// List of commands contained inthis group
+	/// List of commands contained in this group
 	Command[] commands;
 
 	this(string caption, Command[] commands...) @safe pure nothrow
@@ -926,8 +926,8 @@ class InitCommand : Command {
 			"By default, the current working directory is used.",
 			"",
 			"Custom templates can be defined by packages by providing a sub-package called \"init-exec\". No default source files are added in this case.",
-			"The \"init-exec\" subpackage is compiled and executed inside the destination folder after the base project directory has been created.",
-			"Free arguments \"dub init -t custom -- free args\" are passed into the \"init-exec\" subpackage as app arguments."
+			"The \"init-exec\" sub-package is compiled and executed inside the destination folder after the base project directory has been created.",
+			"Free arguments \"dub init -t custom -- free args\" are passed into the \"init-exec\" sub-package as app arguments."
 		];
 		this.acceptsAppArgs = true;
 	}
@@ -1338,7 +1338,7 @@ class BuildCommand : GenerateCommand {
 			// the user provided a version manually
 			dep = VersionRange.fromString(packageParts.version_);
 		} else if (packageParts.name.startsWith(":")) {
-			// Subpackages are always assumed to be present
+			// Sub-packages are always assumed to be present
 			return 0;
 		} else if (dub.packageManager.getBestPackage(packageParts.name)) {
 			// found locally

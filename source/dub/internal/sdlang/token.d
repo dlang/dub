@@ -59,7 +59,7 @@ struct DateTimeFracUnknownZone
 }
 
 /++
-SDL's datatypes map to D's datatypes as described below.
+SDL's data-types map to D's datatypes as described below.
 Most are straightforward, but take special note of the date/time-related types.
 
 Boolean:                       bool
@@ -323,7 +323,7 @@ void toSDLString(Sink)(ubyte[] value, ref Sink sink) if(isOutputRange!(Sink,char
 	sink.put(']');
 }
 
-/// This only represents terminals. Nonterminals aren't
+/// This only represents terminals. Non-terminals aren't
 /// constructed since the AST is directly built during parsing.
 struct Token
 {

@@ -870,7 +870,7 @@ unittest {
 	static struct Box(T) {
 		T value;
 	}
-	// Also to berepresented as the boxed value when serialized, but has
+	// Also to be represented as the boxed value when serialized, but has
 	// a different way to access the value.
 	static struct Box2(T) {
 		private T v;

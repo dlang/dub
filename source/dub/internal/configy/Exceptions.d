@@ -97,7 +97,7 @@ public abstract class ConfigException : Exception
 
     public override string toString () scope
     {
-        // Need to be overriden otherwise the overload is shadowed
+        // Need to be overridden, otherwise the overload is shadowed
         return super.toString();
     }
 

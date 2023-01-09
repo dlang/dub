@@ -462,7 +462,7 @@ class Lexer
 		static keywordsInited = false;
 		if(!keywordsInited)
 		{
-			// Value (as a std.variant-based type) can't be statically inited
+			// Value (as a std.variant-based type) can't be statically init-ed
 			keywords[0] = Key("true",  Value(true ));
 			keywords[1] = Key("false", Value(false));
 			keywords[2] = Key("on",    Value(true ));
@@ -621,7 +621,7 @@ class Lexer
 			}
 		}
 		else if(isNewline(ch))
-			error("Newline not alowed in character literal.");
+			error("Newline not allowed in character literal.");
 		else
 			value = ch;
 		advanceChar(ErrorOnEOF.Yes); // Skip the character itself
@@ -1340,7 +1340,7 @@ class Lexer
 	/// Advances past whitespace and comments
 	private void eatWhite(bool allowComments=true)
 	{
-		// -- Comment/Whitepace Lexer -------------
+		// -- Comment/Whitespace Lexer -------------
 
 		enum State
 		{

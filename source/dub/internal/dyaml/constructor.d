@@ -49,7 +49,7 @@ class ConstructorException : YAMLException
 /** Constructs YAML values.
  *
  * Each YAML scalar, sequence or mapping has a tag specifying its data type.
- * Constructor uses user-specifyable functions to create a node of desired
+ * Constructor uses user-specifiable functions to create a node of desired
  * data type from a scalar, sequence or mapping.
  *
  *

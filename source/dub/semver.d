@@ -1,8 +1,8 @@
 /**
-	Implementes version validation and comparison according to the semantic
+	Implements version validation and comparison according to the semantic
 	versioning specification.
 
-	The general format of a semantiv version is: a.b.c[-x.y...][+x.y...]
+	The general format of a semantic version is: a.b.c[-x.y...][+x.y...]
 	a/b/c must be integer numbers with no leading zeros, and x/y/... must be
 	either numbers or identifiers containing only ASCII alphabetic characters
 	or hyphens. Identifiers may not start with a digit.
@@ -229,7 +229,7 @@ unittest {
 	minor version will be selected. If the patch or minor versions are skipped,
 	the next major version will be selected.
 
-	This function corresponds to the semantivs of the "~>" comparison operator's
+	This function corresponds to the semantics of the "~>" comparison operator's
 	upper bound.
 
 	The semantics of this are the same as for the "approximate" version
@@ -249,7 +249,7 @@ pure {
 	auto to_inc = splitted.length == 3? 1 : 0;
 	splitted = splitted[0 .. to_inc+1];
 	splitted[to_inc] = to!string(to!int(splitted[to_inc]) + 1);
-	// Fill up to three compontents to make valid SemVer version.
+	// Fill up to three components to make valid SemVer version.
 	while (splitted.length < 3) splitted ~= "0";
 	return splitted.join(".");
 }
@@ -269,7 +269,7 @@ unittest {
 
 	Prerelease and build metadata information is removed.
 
-	This implements the "^" comparison operator, which represents "nonbreaking semver compatibility."
+	This implements the "^" comparison operator, which represents "non-breaking SemVer compatibility."
 	With 0.x.y releases, any release can break.
 	With x.y.z releases, only major releases can break.
 */
@@ -299,7 +299,7 @@ unittest {
 /**
 	Takes a partial version and expands it to a valid SemVer version.
 
-	This function corresponds to the semantivs of the "~>" comparison operator's
+	This function corresponds to the semantics of the "~>" comparison operator's
 	lower bound.
 
 	See_Also: `bumpVersion`
@@ -322,7 +322,7 @@ unittest {
 	assert("1.0.0" == expandVersion("1"));
 	assert("1.0.0" == expandVersion("1.0"));
 	assert("1.0.0" == expandVersion("1.0.0"));
-	// These are rather excotic variants...
+	// These are rather exotic variants...
 	assert("1.0.0-pre.release" == expandVersion("1-pre.release"));
 	assert("1.0.0+meta" == expandVersion("1+meta"));
 	assert("1.0.0-pre.release+meta" == expandVersion("1-pre.release+meta"));
@@ -345,7 +345,7 @@ pure @nogc {
 	}
 
 	if (anumber && bnumber) {
-		// the !empty value might be an indentifier instead of a number, but identifiers always have precedence
+		// the !empty value might be an identifier instead of a number, but identifiers always have precedence
 		if (aempty != bempty) return bempty - aempty;
 		return res;
 	} else {

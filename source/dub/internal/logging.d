@@ -2,7 +2,7 @@
 	Handles all the console output of the Dub package manager, by providing useful
 	methods for handling colored text. The module also disables colors when stdout
 	and stderr are not a TTY in order to avoid ASCII escape sequences in piped
-	output. The module can autodetect and configure itself in this regard by
+	output. The module can auto-detect and configure itself in this regard by
 	calling initLogging() at the beginning of the program. But, whether to color
 	text or not can also be set manually with setLoggingColorsEnabled(bool).
 
@@ -12,8 +12,8 @@
 	 '----------'
 	 fixed width
 
-	the "tag" part can be colored (most oftenly will be) and always has a fixed
-	width, which is defined as a const at the beginning of this module.
+	the "tag" part can be colored (most often will be) and always has a fixed
+	width, which is defined as a constant at the beginning of this module.
 
 	The output for the log levels debug and diagnostic will be just the plain
 	string.
@@ -231,7 +231,7 @@ void logInfo(T...)(string tag, Color tagColor, string fmt, lazy T args) nothrow
 /**
 	Shorthand function to log a message with info level, this version prints an
 	empty tag automatically (which is different from not having a tag - in this
-	case there will be an identation of tagWidth chars on the left anyway).
+	case there will be an indentation of tagWidth chars on the left anyway).
 
 	Params:
 		fmt = See http://dlang.org/phobos/std_format.html#format-string
@@ -377,7 +377,7 @@ void log(T...)(
 
 	logInfo("Tag", Color.green, "My %s log message", "colored".color(Color.red));
 
-	without worring whether or not colored output is enabled or not.
+	without worrying whether or not colored output is enabled or not.
 
 	Also a mode can be specified, such as bold/underline/etc...
 

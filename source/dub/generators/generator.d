@@ -772,8 +772,8 @@ class ProjectGenerator
  *
  * Artifacts are usually stored in:
  * `$DUB_HOME/cache/$PKG_NAME/$PKG_VERSION[/+$SUB_PKG_NAME]/`
- * Note that the leading `+` in the subpackage name is to avoid any ambiguity.
- * Build artifacts are usually stored in a subfolder named "build",
+ * Note that the leading `+` in the sub-package name is to avoid any ambiguity.
+ * Build artifacts are usually stored in a sub-folder named "build",
  * as their names are based on user-supplied values.
  *
  * Params:
@@ -1013,7 +1013,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 
 /** Runs a list of build commands for a particular package.
 
-	This function sets all DUB speficic environment variables and makes sure
+	This function sets all DUB specific environment variables and makes sure
 	that recursive dub invocations are detected and don't result in infinite
 	command execution loops. The latter could otherwise happen when a command
 	runs "dub describe" or similar functionality.

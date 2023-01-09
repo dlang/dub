@@ -121,7 +121,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 	SearchResult[] searchPackages(string query)
 	{
 		// Only exact search is supported
-		// This enables retrival of dub packages on dub run
+		// This enables retrieval of dub packages on dub run
 		auto md = getMetadata(query);
 		if (md.type == Json.Type.null_)
 			return null;

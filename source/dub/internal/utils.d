@@ -59,7 +59,7 @@ auto lockFile(string path, Duration timeout)
 	{
 		// The Lock can't be unlinked as someone could try to lock an already
 		// opened fd while a new file with the same name gets created.
-		// Exclusive filesystem locks (O_EXCL, mkdir) could be deleted but
+		// Exclusive file system locks (O_EXCL, mkdir) could be deleted but
 		// aren't automatically freed when a process terminates, see #1149.
 		private File f;
 	}

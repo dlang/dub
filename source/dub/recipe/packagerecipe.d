@@ -110,7 +110,7 @@ struct PackageRecipe {
 	@Optional ToolchainRequirements toolchainRequirements;
 
 	/**
-	 * Speficies an optional list of build configurations
+	 * Specifies an optional list of build configurations
 	 *
 	 * By default, the first configuration present in the package recipe
 	 * will be used, except for special configurations (e.g. "unittest").
@@ -153,7 +153,7 @@ struct PackageRecipe {
 	 * Sub-packages path or definitions
 	 *
 	 * Sub-packages allow to break component of a large framework into smaller
-	 * packages. In the recipe file, subpackages entry can take one of two forms:
+	 * packages. In the recipe file, sub-packages entry can take one of two forms:
 	 * either the path to a sub-folder where a recipe file exists,
 	 * or an object of the same format as a recipe file (or `PackageRecipe`).
 	 */
@@ -184,9 +184,9 @@ struct SubPackage
 	 * Given a YAML parser, recurses into `recipe` or use `path`
 	 * depending on the node type.
 	 *
-	 * Two formats are supported for `subpackages`: a string format,
-	 * which is just the path to the subpackage, and embedding the
-	 * full subpackage recipe into the parent package recipe.
+	 * Two formats are supported for sub-packages: a string format,
+	 * which is just the path to the sub-package, and embedding the
+	 * full sub-package recipe into the parent package recipe.
 	 *
 	 * To support such a dual syntax, Configy requires the use
 	 * of a `fromYAML` method, as it exposes the underlying format.
@@ -336,7 +336,7 @@ public struct RecipeDependency
 		 * Used by Configy to provide rich error message when parsing.
 		 *
 		 * Exceptions thrown from `validate` methods will be wrapped with field/file
-		 * informations and rethrown from Configy, providing the user
+		 * information and rethrown from Configy, providing the user
 		 * with the location of the configuration that triggered the error.
 		 */
 		public void validate () const

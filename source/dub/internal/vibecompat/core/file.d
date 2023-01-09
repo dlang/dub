@@ -56,7 +56,7 @@ void moveFile(string from, string to)
 		from = NativePath of the source file
 		to = NativePath for the destination file
 		overwrite = If true, any file existing at the destination path will be
-			overwritten. If this is false, an excpetion will be thrown should
+			overwritten. If this is false, an exception will be thrown should
 			a file already exist at the destination path.
 
 	Throws:
