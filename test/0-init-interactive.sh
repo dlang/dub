@@ -27,8 +27,10 @@ function runTest {
 runTest '0\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.sdl
 # select package format out of bounds
 runTest '3\n0\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.sdl
-# select package format not numeric
-runTest 'sdl\n0\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.sdl
+# select package format not numeric, but in list
+runTest 'sdl\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.sdl
+# selected value not numeric and not in list
+runTest 'sdlf\n0\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.sdl
 # default name
 runTest '0\n\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.default_name.dub.sdl
 # json package format

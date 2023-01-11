@@ -1048,7 +1048,7 @@ class InitCommand : Command {
 					if (option_idx < options.length)
 						return options[option_idx];
 				}
-				else if (free_choice)
+				else if (free_choice || options.canFind(choice))
 					return choice;
 				logError("Select an option between 1 and %u%s.", options.length,
 						 free_choice ? " or enter a custom value" : null);
