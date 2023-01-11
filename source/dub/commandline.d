@@ -990,13 +990,13 @@ class InitCommand : Command {
 
 		static string input(string caption, string default_value)
 		{
-			writef("%s [%s]: ", caption, default_value);
+			writef("%s [%s]: ", caption.color(Mode.bold), default_value);
 			stdout.flush();
 			auto inp = readln();
 			return inp.length > 1 ? inp[0 .. $-1] : default_value;
 		}
 
-		static string select(string caption, bool free_choice, string default_value, string[] options...)
+		static string select(string caption, bool free_choice, string default_value, const string[] options...)
 		{
 			assert(options.length);
 			import std.math : floor, log10;
@@ -1020,14 +1020,14 @@ class InitCommand : Command {
 			auto user_to_idx = (size_t i) => cast(uint)i - 1;
 
 			assert(default_idx >= 0);
-			writeln(free_choice ? "Select or enter " : "Select ", caption);
+			writeln((free_choice ? "Select or enter " : "Select ").color(Mode.bold), caption.color(Mode.bold), ":".color(Mode.bold));
 			foreach (i, option; options_matrix)
 			{
 				if (i != 0 && (i % num_columns) == 0) writeln();
 				if (!option.length)
 					continue;
 				auto user_id = idx_to_user(option);
-				writef("%*u) %s", ndigits(options.length), user_id,
+				writef("%*u)".color(Color.cyan, Mode.bold) ~ " %s", ndigits(options.length), user_id,
 					leftJustifier(option, max_width));
 			}
 			writeln();
@@ -1055,6 +1055,110 @@ class InitCommand : Command {
 			}
 		}
 
+		static string license_select(string def)
+		{
+			static immutable licenses = [
+				"BSL-1.0 (Boost)",
+				"MIT",
+				"Unlicense",
+				"Apache-",
+				"-1.0",
+				"-1.1",
+				"-2.0",
+				"AGPL-",
+				"-1.0-only",
+				"-1.0-or-later",
+				"-3.0-only",
+				"-3.0-or-later",
+				"GPL-",
+				"-2.0-only",
+				"-2.0-or-later",
+				"-3.0-only",
+				"-3.0-or-later",
+				"LGPL-",
+				"-2.0-only",
+				"-2.0-or-later",
+				"-2.1-only",
+				"-2.1-or-later",
+				"-3.0-only",
+				"-3.0-or-later",
+				"BSD-",
+				"-1-Clause",
+				"-2-Clause",
+				"-3-Clause",
+				"-4-Clause",
+				"MPL- (Mozilla)",
+				"-1.0",
+				"-1.1",
+				"-2.0",
+				"-2.0-no-copyleft-exception",
+				"Zlib",
+				"proprietary",
+			];
+
+			static string sanitize(string license)
+			{
+				auto desc = license.countUntil(" (");
+				if (desc != -1)
+					license = license[0 .. desc];
+				return license;
+			}
+
+			string[] root;
+			foreach (l; licenses)
+				if (!l.startsWith("-"))
+					root ~= l;
+
+			string result;
+			while (true)
+			{
+				string picked;
+				if (result.length)
+				{
+					auto start = licenses.countUntil!(a => a == result || a.startsWith(result ~ " (")) + 1;
+					auto end = start;
+					while (end < licenses.length && licenses[end].startsWith("-"))
+						end++;
+					picked = select(
+						"variant of " ~ result[0 .. $ - 1],
+						false,
+						"(back)",
+						// https://dub.pm/package-format-json.html#licenses
+						licenses[start .. end].map!"a[1..$]".array ~ "(back)"
+					);
+					if (picked == "(back)")
+					{
+						result = null;
+						continue;
+					}
+					picked = sanitize(picked);
+				}
+				else
+				{
+					picked = select(
+						"an SPDX license-identifier ("
+							~ "https://spdx.org/licenses/".color(Color.light_blue, Mode.underline)
+							~ ")".color(Mode.bold),
+						true,
+						def,
+						// https://dub.pm/package-format-json.html#licenses
+						root
+					);
+					picked = sanitize(picked);
+				}
+				if (picked == def)
+					return def;
+
+				if (result.length)
+					result ~= picked;
+				else
+					result = picked;
+
+				if (!result.endsWith("-"))
+					return result;
+			}
+		}
+
 		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
 			import std.datetime: Clock;
 
@@ -1077,13 +1181,7 @@ class InitCommand : Command {
 			}
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
-			p.license = select(
-				"a license (https://choosealicense.com/)",
-				free_choice,
-				p.license,
-				"MIT", "BSL-1.0 (Boost)", "public domain", "GPL-3.0", "BSD 3-clause", "BSD 2-clause",
-				"GPL-2.0", "LGPL-3.0", "Apache-2.0", "MPL-2.0 (Mozilla)", "AGPL-3.0", "proprietary"
-			);
+			p.license = license_select(p.license);
 			string copyrightString = .format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
 			p.copyright = input("Copyright string", copyrightString);
 
