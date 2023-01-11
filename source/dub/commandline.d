@@ -1004,15 +1004,34 @@ class InitCommand : Command {
 
 			immutable default_idx = options.countUntil(default_value);
 			immutable max_width = options.map!(s => s.length).reduce!max + ndigits(options.length) + "  ".length;
-			assert(default_idx >= 0);
-			writeln(free_choice ? "Select or enter " : "Select ", caption);
+			immutable num_columns = max(1, 82 / max_width);
+			immutable num_rows = (options.length + num_columns - 1) / num_columns;
+
+			string[] options_matrix;
+			options_matrix.length = num_rows * num_columns;
 			foreach (i, option; options)
 			{
-				if (i && !(i % 4)) writeln();
-				writef("%u) %s", i, leftJustifier(option, max_width - ndigits(i + 1)));
+				size_t y = i % num_rows;
+				size_t x = i / num_rows;
+				options_matrix[x + y * num_columns] = option;
+			}
+
+			auto idx_to_user = (string option) => cast(uint)options.countUntil(option) + 1;
+			auto user_to_idx = (size_t i) => cast(uint)i - 1;
+
+			assert(default_idx >= 0);
+			writeln(free_choice ? "Select or enter " : "Select ", caption);
+			foreach (i, option; options_matrix)
+			{
+				if (i != 0 && (i % num_columns) == 0) writeln();
+				if (!option.length)
+					continue;
+				auto user_id = idx_to_user(option);
+				writef("%*u) %s", ndigits(options.length), user_id,
+					leftJustifier(option, max_width));
 			}
 			writeln();
-			immutable default_choice = default_idx.to!string;
+			immutable default_choice = (default_idx + 1).to!string;
 			while (true)
 			{
 				auto choice = input(free_choice ? "?" : "#?", default_choice);
@@ -1021,7 +1040,7 @@ class InitCommand : Command {
 				choice = choice.strip;
 				uint option_idx = uint.max;
 				try
-					option_idx = to!uint(choice);
+					option_idx = cast(uint)user_to_idx(to!uint(choice));
 				catch (ConvException)
 				{}
 				if (option_idx != uint.max)
@@ -1031,7 +1050,7 @@ class InitCommand : Command {
 				}
 				else if (free_choice)
 					return choice;
-				logError("Select an option between 0 and %u%s.", options.length - 1,
+				logError("Select an option between 1 and %u%s.", options.length,
 						 free_choice ? " or enter a custom value" : null);
 			}
 		}
