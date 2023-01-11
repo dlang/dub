@@ -38,8 +38,8 @@ runTest '2\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.json
 # default package format
 runTest '\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.json
 # select license
-runTest '1\ntest\ndesc\nauthor\n4\ncopy\n\n' 0-init-interactive.license_gpl3.dub.sdl
+runTest '1\ntest\ndesc\nauthor\n6\n3\ncopy\n\n' 0-init-interactive.license_gpl3.dub.sdl
 # select license out of bounds
-runTest '1\ntest\ndesc\nauthor\n21\n4\ncopy\n\n' 0-init-interactive.license_gpl3.dub.sdl
+runTest '1\ntest\ndesc\nauthor\n21\n6\n3\ncopy\n\n' 0-init-interactive.license_gpl3.dub.sdl
 # default license
 runTest '1\ntest\ndesc\nauthor\n\ncopy\n\n' 0-init-interactive.license_proprietary.dub.sdl
