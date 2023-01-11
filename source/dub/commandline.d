@@ -1060,7 +1060,7 @@ class InitCommand : Command {
 			static immutable licenses = [
 				"BSL-1.0 (Boost)",
 				"MIT",
-				"Unlicense",
+				"Unlicense (public domain)",
 				"Apache-",
 				"-1.0",
 				"-1.1",
@@ -1092,7 +1092,15 @@ class InitCommand : Command {
 				"-1.1",
 				"-2.0",
 				"-2.0-no-copyleft-exception",
+				"EUPL-",
+				"-1.0",
+				"-1.1",
+				"-2.0",
+				"CC- (Creative Commons)",
+				"-BY-4.0 (Attribution 4.0 International)",
+				"-BY-SA-4.0 (Attribution Share Alike 4.0 International)",
 				"Zlib",
+				"ISC",
 				"proprietary",
 			];
 
