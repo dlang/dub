@@ -11,10 +11,10 @@ function runTest {
     local inp=$1
     local comp=$2
     local dub_ext=${comp##*.}
-    echo -e $inp | $DUB init $packname &>/dev/null
+    local outp=$(echo -e $inp | $DUB init $packname)
     if [ ! -e $packname/dub.$dub_ext ]; then # it failed
         cleanup
-        die $LINENO "No dub.$dub_ext file has been generated for test $comp."
+        die $LINENO "No dub.$dub_ext file has been generated for test $comp with input '$inp'. Output: $outp"
     fi
     if ! diff $packname/dub.$dub_ext "$CURR_DIR"/$comp; then
 	cleanup
