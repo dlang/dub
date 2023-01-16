@@ -33,7 +33,7 @@ class SublimeTextGenerator : ProjectGenerator {
 		logDebug("About to generate sublime project for %s.", m_project.rootPackage.name);
 
 		auto root = Json([
-			"folders": targets.byValue.map!(f => targetFolderJson(f)).array.Json,
+			"folders": (targets.byValue.map!(f => targetFolderJson(f)).array ~ buildSettings.importPaths.map!Json.array).Json,
 			"build_systems": buildSystems(settings.platform),
 			"settings": [ "include_paths": buildSettings.importPaths.map!Json.array.Json ].Json,
 		]);
