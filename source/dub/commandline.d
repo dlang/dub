@@ -8,6 +8,7 @@
 module dub.commandline;
 
 import dub.compilers.compiler;
+import core.time : Duration;
 import dub.dependency;
 import dub.dub;
 import dub.generators.generator;
@@ -2365,6 +2366,9 @@ class DustmiteCommand : PackageBuildCommand {
 		string m_strategy;
 		uint m_jobCount;		// zero means not specified
 		bool m_trace;
+		ulong m_compilerTimeoutS;
+		ulong m_linkerTimeoutS;
+		ulong m_programTimeoutS;
 	}
 
 	this() @safe pure nothrow
@@ -2386,10 +2390,13 @@ class DustmiteCommand : PackageBuildCommand {
 	{
 		args.getopt("compiler-status", &m_compilerStatusCode, ["The expected status code of the compiler run"]);
 		args.getopt("compiler-regex", &m_compilerRegex, ["A regular expression used to match against the compiler output"]);
+		args.getopt("compiler-timeout", &m_compilerTimeoutS, ["The expected timeout (in whole seconds) of the compiler run"]);
 		args.getopt("linker-status", &m_linkerStatusCode, ["The expected status code of the linker run"]);
 		args.getopt("linker-regex", &m_linkerRegex, ["A regular expression used to match against the linker output"]);
-		args.getopt("program-status", &m_programStatusCode, ["The expected status code of the built executable"]);
-		args.getopt("program-regex", &m_programRegex, ["A regular expression used to match against the program output"]);
+		args.getopt("linker-timeout", &m_linkerTimeoutS, ["The expected timeout (in whole seconds) of the linker run"]);
+		args.getopt("program-status", &m_programStatusCode, ["The expected status code of the built executable run"]);
+		args.getopt("program-regex", &m_programRegex, ["A regular expression used to match against the built executable run output"]);
+		args.getopt("program-timeout", &m_programTimeoutS, ["The expected timeout (in whole seconds) of the built executable run"]);
 		args.getopt("test-package", &m_testPackage, ["Perform a test run - usually only used internally"]);
 		args.getopt("combined", &this.baseSettings.combined, ["Builds multiple packages with one compiler run"]);
 		args.getopt("no-redirect", &m_noRedirect, ["Don't redirect stdout/stderr streams of the test command"]);
