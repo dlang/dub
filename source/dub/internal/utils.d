@@ -15,6 +15,8 @@ import dub.version_;
 import dub.internal.logging;
 
 import core.time : Duration;
+import core.stdc.signal;
+import core.stdc.stdlib: exit;
 import std.algorithm : canFind, startsWith;
 import std.array : appender, array;
 import std.conv : to;
@@ -97,6 +99,18 @@ auto lockFile(string path, Duration timeout)
 			dur *= 2;
 		Thread.sleep(dur);
 	}
+}
+
+shared static this()
+{
+    signal(SIGINT, &handleSigInt);
+}
+
+extern(C) @nogc @system nothrow 
+void handleSigInt(int sig)
+{
+    exit(sig);
+    // Properly call module destructor on sigint
 }
 
 static ~this()
