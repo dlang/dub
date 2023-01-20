@@ -5,6 +5,7 @@ dependency "dub" path="../.."
 
 import std.algorithm, std.conv, std.format, std.path, std.range;
 import std.stdio : File;
+import dub.internal.dyaml.stdsumtype;
 import dub.commandline;
 
 static struct Config
@@ -266,7 +267,7 @@ struct ManWriter
 			}
 			if (larg !is null) {
 				name ~= bold(escapeWord("--%s".format(larg)));
-				if (!arg.defaultValue.peek!bool)
+				if (arg.defaultValue.match!((bool b) => false, _ => true))
 					name ~= escapeWord("=") ~ italic("VALUE");
 			}
 			writeArgName(cmdName, name);
