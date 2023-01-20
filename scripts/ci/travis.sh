@@ -33,28 +33,10 @@ else
 fi
 
 ## Checks that only need to be done once per CI run
-## Here the `COVERAGE` variable is abused for this purpose,
-## as it's only defined once in the whole Travis matrix
-if [ "$COVERAGE" = true ]; then
-    # run tests with different compilers
-    DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
-    clean
-
-    export FRONTEND=2.077
-    source $(~/dlang/install.sh ldc-1.7.0 --activate)
-    DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
-    deactivate
-    clean
-
-    export FRONTEND=2.068
-    source $(~/dlang/install.sh gdc-4.8.5 --activate)
-    DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
-    deactivate
-
+## We choose to run them only on ldc-latest
+if [[ "$CI_DC" == "ldc-latest" && "$CI_OS" =~ ^ubuntu.* ]]; then
     # check for trailing whitespace
     find . -type f -name '*.d' -exec grep -Hn "[[:blank:]]$" {} \;
     # check that the man page generation still works
-    source $(~/dlang/install.sh dmd --activate)
-    source $(~/dlang/install.sh dub --activate)
     dub --single -v scripts/man/gen_man.d
 fi

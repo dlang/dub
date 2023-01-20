@@ -75,6 +75,8 @@ jobs:
       if: runner.os != 'Windows'
       env:
         COVERAGE: false
+        CI_DC: ${{ matrix.dc }}
+        CI_OS: ${{ matrix.os }}
         # The value doesn't matter as long as it's > 2.087
         FRONTEND: 2.095.0
       run: |
