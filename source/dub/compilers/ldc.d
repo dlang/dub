@@ -245,7 +245,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		settings.addDFlags("-of"~tpath);
 	}
 
-	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
+	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback, NativePath cwd)
 	{
 		auto res_file = getTempFile("dub-build", ".rsp");
 		const(string)[] args = settings.dflags;
@@ -257,10 +257,10 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		foreach (aa; [settings.environments, settings.buildEnvironments])
 			foreach (k, v; aa)
 				env[k] = v;
-		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, cwd, env);
 	}
 
-	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
+	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback, NativePath cwd)
 	{
 		import std.string;
 		auto tpath = NativePath(settings.targetPath) ~ getTargetFileName(settings, platform);
@@ -280,7 +280,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		foreach (aa; [settings.environments, settings.buildEnvironments])
 			foreach (k, v; aa)
 				env[k] = v;
-		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, cwd, env);
 	}
 
 	string[] lflagsToDFlags(const string[] lflags) const

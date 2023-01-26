@@ -360,22 +360,26 @@ config    /etc/dmd.conf
 		settings.addDFlags("-of"~tpath);
 	}
 
-	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
+	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback, NativePath cwd)
 	{
 		auto res_file = getTempFile("dub-build", ".rsp");
+		// clean-up early to avoid build-up of temporaries when invoke is called
+		// many times in one DUB session. (e.g. when using DUB as a library)
+		scope (exit)
+			removeFile(res_file);
 		const(string)[] args = settings.dflags;
 		if (platform.frontendVersion >= 2066) args ~= "-vcolumns";
 		writeFile(res_file, escapeArgs(args).join("\n"));
 
-		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
+		logDiagnostic("[cwd=%s] %s %s", cwd, platform.compilerBinary, escapeArgs(args).join(" "));
 		string[string] env;
 		foreach (aa; [settings.environments, settings.buildEnvironments])
 			foreach (k, v; aa)
 				env[k] = v;
-		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, cwd, env);
 	}
 
-	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
+	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback, NativePath cwd)
 	{
 		import std.string;
 		auto tpath = NativePath(settings.targetPath) ~ getTargetFileName(settings, platform);
@@ -396,12 +400,12 @@ config    /etc/dmd.conf
 		auto res_file = getTempFile("dub-build", ".lnk");
 		writeFile(res_file, escapeArgs(args).join("\n"));
 
-		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
+		logDiagnostic("[cwd=%s] %s %s", cwd, platform.compilerBinary, escapeArgs(args).join(" "));
 		string[string] env;
 		foreach (aa; [settings.environments, settings.buildEnvironments])
 			foreach (k, v; aa)
 				env[k] = v;
-		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, cwd, env);
 	}
 
 	string[] lflagsToDFlags(const string[] lflags) const

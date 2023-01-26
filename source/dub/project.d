@@ -1405,10 +1405,21 @@ private string[] processVarsWithGlob(Project, Package)(string var, in Project pr
 	}
 	if (i == res.length) //no globbing found in the path
 		return [res];
-	import std.path : globMatch;
 	import std.file : dirEntries, SpanMode;
-	return dirEntries(res[0 .. sepIdx], SpanMode.depth)
-		.map!(de => de.name)
+	import std.path : buildNormalizedPath, globMatch, isAbsolute, relativePath;
+	auto cwd = gsettings.toolWorkingDirectory.toNativeString;
+	auto path = res[0 .. sepIdx];
+	bool prependCwd = false;
+	if (!isAbsolute(path))
+	{
+		prependCwd = true;
+		path = buildNormalizedPath(cwd, path);
+	}
+
+	return dirEntries(path, SpanMode.depth)
+		.map!(de => prependCwd
+			? de.name.relativePath(cwd)
+			: de.name)
 		.filter!(name => globMatch(name, res))
 		.array;
 }

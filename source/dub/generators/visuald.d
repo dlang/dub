@@ -183,7 +183,7 @@ class VisualDGenerator : ProjectGenerator {
 				auto sp = NativePath(s);
 				assert(sp.absolute, format("Source path in %s expected to be absolute: %s", packname, s));
 				//if( !sp.absolute ) sp = pack.path ~ sp;
-				addSourceFile(sp.relativeTo(getWorkingDirectory() ~ basepath), determineStructurePath(sp, targets[packname]), action);
+				addSourceFile(sp.relativeTo(settings.toolWorkingDirectory ~ basepath), determineStructurePath(sp, targets[packname]), action);
 			}
 
 			foreach (p; targets[packname].packages)
@@ -245,6 +245,7 @@ class VisualDGenerator : ProjectGenerator {
 
 		void generateProjectConfiguration(Appender!(char[]) ret, string pack, string type, GeneratorSettings settings, in TargetInfo[string] targets)
 		{
+			auto cwd = settings.toolWorkingDirectory;
 			auto buildsettings = targets[pack].buildSettings.dup;
 			auto basepath = NativePath(".dub/");
 
@@ -255,7 +256,7 @@ class VisualDGenerator : ProjectGenerator {
 				auto ret = new string[settings.length];
 				foreach (i; 0 .. settings.length) {
 					// \" is interpreted as an escaped " by cmd.exe, so we need to avoid that
-					auto p = NativePath(settings[i]).relativeTo(getWorkingDirectory() ~ basepath);
+					auto p = NativePath(settings[i]).relativeTo(cwd ~ basepath);
 					p.endsWithSlash = false;
 					ret[i] = '"' ~ p.toNativeString() ~ '"';
 				}
@@ -328,7 +329,7 @@ class VisualDGenerator : ProjectGenerator {
 				// compute directory for intermediate files (need dummy/ because of how -op determines the resulting path)
 				size_t ndummy = 0;
 				foreach (f; buildsettings.sourceFiles) {
-					auto rpath = NativePath(f).relativeTo(getWorkingDirectory() ~ basepath);
+					auto rpath = NativePath(f).relativeTo(cwd ~ basepath);
 					size_t nd = 0;
 					foreach (s; rpath.bySegment)
 						if (s == "..")
@@ -423,7 +424,7 @@ class VisualDGenerator : ProjectGenerator {
 				auto wdir = NativePath(buildsettings.workingDirectory);
 				if (!wdir.absolute) wdir = m_project.rootPackage.path ~ wdir;
 				ret.formattedWrite("    <debugworkingdir>%s</debugworkingdir>\n",
-					wdir.relativeTo(getWorkingDirectory() ~ basepath).toNativeString());
+					wdir.relativeTo(cwd ~ basepath).toNativeString());
 				ret.put("    <preBuildCommand />\n");
 				ret.put("    <postBuildCommand />\n");
 				ret.put("    <filesToClean>*.obj;*.cmd;*.build;*.dep</filesToClean>\n");
