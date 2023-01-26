@@ -145,12 +145,24 @@ void atomicWriteJsonFile(NativePath path, Json json)
 	moveFile(tmppath, path);
 }
 
-void runCommand(string command, string[string] env = null, string workDir = null)
+deprecated("specify a working directory explicitly")
+void runCommand(string command, string[string] env = null)
+{
+	runCommands((&command)[0 .. 1], env, null);
+}
+
+void runCommand(string command, string[string] env, string workDir)
 {
 	runCommands((&command)[0 .. 1], env, workDir);
 }
 
-void runCommands(in string[] commands, string[string] env = null, string workDir = null)
+deprecated("specify a working directory explicitly")
+void runCommands(in string[] commands, string[string] env = null)
+{
+	runCommands(commands, env, null);
+}
+
+void runCommands(in string[] commands, string[string] env, string workDir)
 {
 	import std.stdio : stdin, stdout, stderr, File;
 

@@ -16,7 +16,7 @@ import dub.dependency;
 import std.exception;
 import std.file;
 import std.format;
-import std.process;
+import std.process : environment;
 import std.string;
 
 

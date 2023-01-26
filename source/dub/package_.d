@@ -418,7 +418,7 @@ class Package {
 	*/
 	void addBuildTypeSettings(ref BuildSettings settings, in BuildPlatform platform, string build_type)
 	const {
-		import std.process;
+		import std.process : environment;
 		string dflags = environment.get("DFLAGS", "");
 		settings.addDFlags(dflags.split());
 
