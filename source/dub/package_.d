@@ -760,7 +760,7 @@ class Package {
 		if (m_parentPackage) {
 			if (m_parentPackage.path != path) {
 				if (this.recipe.license.length && this.recipe.license != m_parentPackage.recipe.license)
-					logWarn("Warning: License in subpackage %s is different than it's parent package, this is discouraged.", name);
+					logWarn("Warning: License in subpackage %s is different than its parent package, this is discouraged.", name);
 			}
 		}
 		if (name.empty) logWarn("Warning: The package in %s has no name.", path);
