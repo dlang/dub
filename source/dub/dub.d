@@ -1076,7 +1076,7 @@ class Dub {
 		m_packageManager.addSearchPath(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
 	}
 
-	/** Un-registers a local directory search path.
+	/** Deregisters a local directory search path.
 
 		Params:
 			path = Path to a directory containing package directories

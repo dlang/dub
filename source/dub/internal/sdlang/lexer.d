@@ -462,7 +462,7 @@ class Lexer
 		static keywordsInited = false;
 		if(!keywordsInited)
 		{
-			// Value (as a std.variant-based type) can't be statically init-ed
+			// Value (as a std.variant-based type) can't be statically initialized
 			keywords[0] = Key("true",  Value(true ));
 			keywords[1] = Key("false", Value(false));
 			keywords[2] = Key("on",    Value(true ));
