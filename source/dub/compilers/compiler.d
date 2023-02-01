@@ -12,6 +12,7 @@ deprecated("Please `import dub.dependency : Dependency` instead") public import 
 public import dub.platform : BuildPlatform, matchesSpecification;
 
 import dub.internal.vibecompat.inet.path;
+import dub.internal.vibecompat.core.file;
 
 import dub.internal.logging;
 
@@ -108,10 +109,24 @@ interface Compiler {
 	void setTarget(ref BuildSettings settings, in BuildPlatform platform, string targetPath = null) const;
 
 	/// Invokes the compiler using the given flags
-	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback);
+	deprecated("specify the working directory")
+	final void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
+	{
+		invoke(settings, platform, output_callback, getWorkingDirectory());
+	}
+
+	/// ditto
+	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback, NativePath cwd);
 
 	/// Invokes the underlying linker directly
-	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback);
+	deprecated("specify the working directory")
+	final void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
+	{
+		invokeLinker(settings, platform, objects, output_callback, getWorkingDirectory());
+	}
+
+	/// ditto
+	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback, NativePath cwd);
 
 	/// Convert linker flags to compiler format
 	string[] lflagsToDFlags(const string[] lflags) const;
@@ -124,17 +139,26 @@ interface Compiler {
 		This method should be used by `Compiler` implementations to invoke the
 		compiler or linker binary.
 	*/
+	deprecated("specify the working directory")
 	protected final void invokeTool(string[] args, void delegate(int, string) output_callback, string[string] env = null)
+	{
+		invokeTool(args, output_callback, getWorkingDirectory(), env);
+	}
+
+	/// ditto
+	protected final void invokeTool(string[] args, void delegate(int, string) output_callback, NativePath cwd, string[string] env = null)
 	{
 		import std.string;
 
 		int status;
 		if (output_callback) {
-			auto result = executeShell(escapeShellCommand(args), env);
+			auto result = executeShell(escapeShellCommand(args),
+				env, Config.none, size_t.max, cwd.toNativeString());
 			output_callback(result.status, result.output);
 			status = result.status;
 		} else {
-			auto compiler_pid = spawnShell(escapeShellCommand(args), env);
+			auto compiler_pid = spawnShell(escapeShellCommand(args),
+				env, Config.none, cwd.toNativeString());
 			status = compiler_pid.wait();
 		}
 

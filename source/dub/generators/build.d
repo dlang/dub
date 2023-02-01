@@ -203,7 +203,7 @@ class BuildGenerator : ProjectGenerator {
 	{
 		import std.path : absolutePath;
 
-		auto cwd = NativePath(getcwd());
+		auto cwd = settings.toolWorkingDirectory;
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
 		auto build_id = buildsettings.computeBuildID(config, settings);
@@ -233,7 +233,9 @@ class BuildGenerator : ProjectGenerator {
 		if (!cached && buildsettings.postBuildCommands.length) {
 			logInfo("Post-build", Color.light_green, "Running commands");
 			runBuildCommands(CommandType.postBuild, buildsettings.postBuildCommands, pack, m_project, settings, buildsettings,
-							 [["DUB_BUILD_PATH" : target_path is NativePath.init ? "" : target_path.parentPath.toNativeString.absolutePath]]);
+							[["DUB_BUILD_PATH" : target_path is NativePath.init
+								? ""
+								: target_path.parentPath.toNativeString.absolutePath(settings.toolWorkingDirectory.toNativeString)]]);
 		}
 
 		return cached;
@@ -288,7 +290,7 @@ class BuildGenerator : ProjectGenerator {
 
 	private void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out NativePath target_path)
 	{
-		auto cwd = NativePath(getcwd());
+		auto cwd = settings.toolWorkingDirectory;
 		//Added check for existence of [AppNameInPackagejson].d
 		//If exists, use that as the starting file.
 		NativePath mainsrc;
@@ -333,14 +335,14 @@ class BuildGenerator : ProjectGenerator {
 
 		if (buildsettings.preBuildCommands.length){
 			logInfo("Pre-build", Color.light_green, "Running commands");
-			runCommands(buildsettings.preBuildCommands);
+			runCommands(buildsettings.preBuildCommands, null, cwd.toNativeString());
 		}
 
 		logInfo("Building", Color.light_green, "%s %s [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
 
 		logInfo("Running rdmd...");
 		logDiagnostic("rdmd %s", join(flags, " "));
-		auto rdmd_pid = spawnProcess("rdmd" ~ flags);
+		auto rdmd_pid = spawnProcess("rdmd" ~ flags, null, Config.none, cwd.toNativeString());
 		auto result = rdmd_pid.wait();
 		enforce(result == 0, "Build command failed with exit code "~to!string(result));
 
@@ -353,7 +355,7 @@ class BuildGenerator : ProjectGenerator {
 
 	private void performDirectBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out NativePath target_path)
 	{
-		auto cwd = NativePath(getcwd());
+		auto cwd = settings.toolWorkingDirectory;
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
 		// make file paths relative to shrink the command line
@@ -481,13 +483,19 @@ class BuildGenerator : ProjectGenerator {
 	/// Output an unique name to represent the source file.
 	/// Calls with path that resolve to the same file on the filesystem will return the same,
 	/// unless they include different symbolic links (which are not resolved).
-
+	deprecated("Use the overload taking in the current working directory")
 	static string pathToObjName(const scope ref BuildPlatform platform, string path)
+	{
+		return pathToObjName(platform, path, getWorkingDirectory);
+	}
+
+	/// ditto
+	static string pathToObjName(const scope ref BuildPlatform platform, string path, NativePath cwd)
 	{
 		import std.digest.crc : crc32Of;
 		import std.path : buildNormalizedPath, dirSeparator, relativePath, stripDrive;
 		if (path.endsWith(".d")) path = path[0 .. $-2];
-		auto ret = buildNormalizedPath(getcwd(), path).replace(dirSeparator, ".");
+		auto ret = buildNormalizedPath(cwd.toNativeString(), path).replace(dirSeparator, ".");
 		auto idx = ret.lastIndexOf('.');
 		const objSuffix = getObjSuffix(platform);
 		return idx < 0 ? ret ~ objSuffix : format("%s_%(%02x%)%s", ret[idx+1 .. $], crc32Of(ret[0 .. idx]), objSuffix);
@@ -503,7 +511,7 @@ class BuildGenerator : ProjectGenerator {
 		bs.targetType = TargetType.object;
 		gs.compiler.prepareBuildSettings(bs, gs.platform, BuildSetting.commandLine);
 		gs.compiler.setTarget(bs, gs.platform, objPath);
-		gs.compiler.invoke(bs, gs.platform, gs.compileCallback);
+		gs.compiler.invoke(bs, gs.platform, gs.compileCallback, gs.toolWorkingDirectory);
 		return objPath;
 	}
 
@@ -527,7 +535,7 @@ class BuildGenerator : ProjectGenerator {
 
 			void compileSource(size_t i, string src) {
 				logInfo("Compiling", Color.light_green, "%s", src);
-				const objPath = pathToObjName(settings.platform, src);
+				const objPath = pathToObjName(settings.platform, src, settings.toolWorkingDirectory);
 				objs[i] = compileUnit(src, objPath, buildsettings, settings);
 			}
 
@@ -541,7 +549,7 @@ class BuildGenerator : ProjectGenerator {
 			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)).array;
 			settings.compiler.setTarget(lbuildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(lbuildsettings, settings.platform, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
-			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs, settings.linkCallback);
+			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs, settings.linkCallback, settings.toolWorkingDirectory);
 
 		// NOTE: separate compile/link is not yet enabled for GDC.
 		} else if (generate_binary && (settings.buildMode == BuildMode.allAtOnce || settings.compiler.name == "gdc" || is_static_library)) {
@@ -553,7 +561,7 @@ class BuildGenerator : ProjectGenerator {
 			settings.compiler.prepareBuildSettings(buildsettings, settings.platform, BuildSetting.commandLine);
 
 			// invoke the compiler
-			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
+			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback, settings.toolWorkingDirectory);
 		} else {
 			// determine path for the temporary object file
 			string tempobjname = buildsettings.targetName ~ getObjSuffix(settings.platform);
@@ -573,7 +581,7 @@ class BuildGenerator : ProjectGenerator {
 
 			settings.compiler.prepareBuildSettings(buildsettings, settings.platform, BuildSetting.commandLine);
 
-			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback);
+			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback, settings.toolWorkingDirectory);
 
 			if (generate_binary) {
 				if (settings.tempBuild) {
@@ -581,7 +589,7 @@ class BuildGenerator : ProjectGenerator {
 				} else {
 					logInfo("Linking", Color.light_green, "%s", buildsettings.targetName.color(Mode.bold));
 				}
-				settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback);
+				settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback, settings.toolWorkingDirectory);
 			}
 		}
 	}
@@ -589,7 +597,7 @@ class BuildGenerator : ProjectGenerator {
 	private void runTarget(NativePath exe_file_path, in BuildSettings buildsettings, string[] run_args, GeneratorSettings settings)
 	{
 		if (buildsettings.targetType == TargetType.executable) {
-			auto cwd = NativePath(getcwd());
+			auto cwd = settings.toolWorkingDirectory;
 			auto runcwd = cwd;
 			if (buildsettings.workingDirectory.length) {
 				runcwd = NativePath(buildsettings.workingDirectory);
@@ -735,10 +743,10 @@ unittest { // issue #1235 - pass no library files to compiler command line when 
 	auto prj = new Project(pman, pack);
 
 	final static class TestCompiler : GDCCompiler {
-		override void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback) {
+		override void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback, NativePath cwd) {
 			assert(!settings.dflags[].any!(f => f.canFind("bar")));
 		}
-		override void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback) {
+		override void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback, NativePath cwd) {
 			assert(false);
 		}
 	}

@@ -17,7 +17,7 @@ import dub.internal.logging;
 import std.algorithm;
 import std.array;
 import std.exception;
-import std.process;
+import std.process : execute;
 import std.typecons;
 
 
@@ -205,7 +205,7 @@ class GDCCompiler : Compiler {
 		settings.addDFlags("-o", tpath);
 	}
 
-	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback)
+	void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback, NativePath cwd)
 	{
 		auto res_file = getTempFile("dub-build", ".rsp");
 		writeFile(res_file, join(settings.dflags.map!(s => escape(s)), "\n"));
@@ -215,10 +215,10 @@ class GDCCompiler : Compiler {
 		foreach (aa; [settings.environments, settings.buildEnvironments])
 			foreach (k, v; aa)
 				env[k] = v;
-		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, env);
+		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, cwd, env);
 	}
 
-	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback)
+	void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback, NativePath cwd)
 	{
 		import std.string;
 		string[] args;
@@ -237,7 +237,7 @@ class GDCCompiler : Compiler {
 		foreach (aa; [settings.environments, settings.buildEnvironments])
 			foreach (k, v; aa)
 				env[k] = v;
-		invokeTool(args, output_callback, env);
+		invokeTool(args, output_callback, cwd, env);
 	}
 
 	string[] lflagsToDFlags(const string[] lflags) const

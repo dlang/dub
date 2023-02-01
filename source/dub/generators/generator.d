@@ -806,6 +806,7 @@ struct GeneratorSettings {
 	BuildSettings buildSettings;
 	BuildMode buildMode = BuildMode.separate;
 	int targetExitStatus;
+	NativePath overrideToolWorkingDirectory;
 
 	bool combined; // compile all in one go instead of each dependency separately
 	bool filterVersions;
@@ -820,6 +821,16 @@ struct GeneratorSettings {
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;
 	void delegate(int status, string output) runCallback;
+
+	/// Returns `overrideToolWorkingDirectory` or if that's not set, just the
+	/// current working directory of the application. This may differ if dub is
+	/// called with the `--root` parameter or when using DUB as a library.
+	NativePath toolWorkingDirectory() const
+	{
+		return overrideToolWorkingDirectory is NativePath.init
+			? getWorkingDirectory()
+			: overrideToolWorkingDirectory;
+	}
 }
 
 
@@ -1166,10 +1177,10 @@ version(Posix) {
 		auto prj = new Project(pman, pack);
 
 		final static class TestCompiler : GDCCompiler {
-			override void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback) {
+			override void invoke(in BuildSettings settings, in BuildPlatform platform, void delegate(int, string) output_callback, NativePath cwd) {
 				assert(false);
 			}
-			override void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback) {
+			override void invokeLinker(in BuildSettings settings, in BuildPlatform platform, string[] objects, void delegate(int, string) output_callback, NativePath cwd) {
 				assert(false);
 			}
 		}
