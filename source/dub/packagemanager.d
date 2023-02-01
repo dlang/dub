@@ -899,7 +899,7 @@ symlink_exit:
 		this.m_repositories[type].writeLocalPackageList();
 
 		foreach(ver, name; removed)
-			logInfo("De-registered package: %s (version: %s)", name, ver);
+			logInfo("Deregistered package: %s (version: %s)", name, ver);
 	}
 
 	/// For the given type add another path where packages will be looked up.

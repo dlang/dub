@@ -295,7 +295,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		// recursively mark all required dependencies of the concrete dependency tree
 		markRecursively(root);
 
-		// remove all un-marked configurations
+		// remove all unmarked configurations
 		foreach (p; configs.keys.dup)
 			if (p !in required)
 				configs.remove(p);
