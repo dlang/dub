@@ -34,7 +34,7 @@ class SublimeTextGenerator : ProjectGenerator {
 
 		auto root = Json([
 			"folders": targets.byValue.map!(f => targetFolderJson(f)).array.Json,
-			"build_systems": buildSystems(settings.platform),
+			"build_systems": buildSystems(settings.platform, settings.toolWorkingDirectory.toNativeString()),
 			"settings": [ "include_paths": buildSettings.importPaths.map!Json.array.Json ].Json,
 		]);
 
@@ -61,7 +61,7 @@ private Json targetFolderJson(in ProjectGenerator.TargetInfo target)
 }
 
 
-private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory = getcwd())
+private Json buildSystems(BuildPlatform buildPlatform, string workingDiretory)
 {
 	static immutable BUILD_TYPES = [
 		//"plain",
@@ -123,5 +123,5 @@ unittest
 	auto buildPlatform = BuildPlatform();
 	buildPlatform.architecture ~= "x86_64";
 
-	auto result = buildPlatform.buildSystems.toString;
+	auto result = buildPlatform.buildSystems(getcwd()).toString;
 }

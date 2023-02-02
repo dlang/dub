@@ -30,12 +30,11 @@ import std.encoding;
 import std.exception;
 import std.file;
 import std.getopt;
-import std.path : expandTilde, absolutePath, buildNormalizedPath;
-import std.process;
+import std.path : absolutePath, buildNormalizedPath, expandTilde, setExtension;
+import std.process : environment, spawnProcess, wait;
 import std.stdio;
 import std.string;
 import std.typecons : Tuple, tuple;
-import std.path: setExtension;
 
 /** Retrieves a list of all available commands.
 
@@ -800,7 +799,7 @@ class Command {
 		Dub dub;
 
 		if (options.bare) {
-			dub = new Dub(NativePath(options.root_path), NativePath(getcwd()));
+			dub = new Dub(NativePath(options.root_path), getWorkingDirectory());
 			dub.defaultPlacementLocation = options.placementLocation;
 
 			return dub;
@@ -2250,7 +2249,7 @@ class AddOverrideCommand : Command {
 		auto source = VersionRange.fromString(free_args[1]);
 		if (existsFile(NativePath(free_args[2]))) {
 			auto target = NativePath(free_args[2]);
-			if (!target.absolute) target = NativePath(getcwd()) ~ target;
+			if (!target.absolute) target = getWorkingDirectory() ~ target;
 			dub.packageManager.addOverride_(scope_, pack, source, target);
 			logInfo("Added override %s %s => %s", pack, source, target);
 		} else {
@@ -2409,7 +2408,7 @@ class DustmiteCommand : PackageBuildCommand {
 	{
 		if (!m_testPackage.length)
 			return super.prepareDub(options);
-		return new Dub(NativePath(options.root_path), NativePath(getcwd()));
+		return new Dub(NativePath(options.root_path), getWorkingDirectory());
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -2443,7 +2442,7 @@ class DustmiteCommand : PackageBuildCommand {
 			auto path = NativePath(free_args[0]);
 			path.normalize();
 			enforceUsage(!path.empty, "Destination path must not be empty.");
-			if (!path.absolute) path = NativePath(getcwd()) ~ path;
+			if (!path.absolute) path = getWorkingDirectory() ~ path;
 			enforceUsage(!path.startsWith(dub.rootPath), "Destination path must not be a sub directory of the tested package!");
 
 			setupPackage(dub, null);

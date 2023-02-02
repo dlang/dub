@@ -158,7 +158,7 @@ class Dub {
 			SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
 	{
 		m_rootPath = NativePath(root_path);
-		if (!m_rootPath.absolute) m_rootPath = NativePath(getcwd()) ~ m_rootPath;
+		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
 
 		init();
 
@@ -384,7 +384,7 @@ class Dub {
 	@property void rootPath(NativePath root_path)
 	{
 		m_rootPath = root_path;
-		if (!m_rootPath.absolute) m_rootPath = NativePath(getcwd()) ~ m_rootPath;
+		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
 	}
 
 	/// Returns the name listed in the dub.json of the current
@@ -686,6 +686,8 @@ class Dub {
 	void generateProject(string ide, GeneratorSettings settings)
 	{
 		settings.cache = this.m_dirs.cache;
+		if (settings.overrideToolWorkingDirectory is NativePath.init)
+			settings.overrideToolWorkingDirectory = m_rootPath;
 		// With a requested `unittest` config, switch to the special test runner
 		// config (which doesn't require an existing `unittest` configuration).
 		if (settings.config == "unittest") {
@@ -705,7 +707,9 @@ class Dub {
 	void testProject(GeneratorSettings settings, string config, NativePath custom_main_file)
 	{
 		settings.cache = this.m_dirs.cache;
-		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = getWorkingDirectory() ~ custom_main_file;
+		if (settings.overrideToolWorkingDirectory is NativePath.init)
+			settings.overrideToolWorkingDirectory = m_rootPath;
+		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = m_rootPath ~ custom_main_file;
 
 		const test_config = m_project.addTestRunnerConfiguration(settings, !m_dryRun, config, custom_main_file);
 		if (!test_config) return; // target type "none"
@@ -760,6 +764,9 @@ class Dub {
 	{
 		import std.stdio;
 		import std.ascii : newline;
+
+		if (settings.overrideToolWorkingDirectory is NativePath.init)
+			settings.overrideToolWorkingDirectory = m_rootPath;
 
 		// Split comma-separated lists
 		string[] requestedDataSplit =
@@ -1314,8 +1321,8 @@ class Dub {
 
 		if (!run) {
 			// TODO: ddox should copy those files itself
-			version(Windows) runCommand(`xcopy /S /D "`~tool_path~`public\*" docs\`);
-			else runCommand("rsync -ru '"~tool_path~"public/' docs/");
+			version(Windows) runCommand(`xcopy /S /D "`~tool_path~`public\*" docs\`, null, m_rootPath.toNativeString());
+			else runCommand("rsync -ru '"~tool_path~"public/' docs/", null, m_rootPath.toNativeString());
 		}
 	}
 
@@ -1370,6 +1377,7 @@ class Dub {
 		if (this.defaultPostRunEnvironments)
 			settings.buildSettings.addPostRunEnvironments(this.defaultPostRunEnvironments);
 		settings.run = true;
+		settings.overrideToolWorkingDirectory = m_rootPath;
 
 		return settings;
 	}
@@ -1888,7 +1896,7 @@ private struct SpecialDirs {
 			result.systemSettings = NativePath("/var/lib/dub/");
 			result.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
 			if (!result.userSettings.absolute)
-				result.userSettings = NativePath(getcwd()) ~ result.userSettings;
+				result.userSettings = getWorkingDirectory() ~ result.userSettings;
 			result.userPackages = result.userSettings;
 		}
 		result.cache = result.userPackages ~ "cache";
