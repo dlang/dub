@@ -1916,22 +1916,33 @@ alias allModules = TypeTuple!(
 
 /// The default test runner that gets used if none is provided
 private immutable DefaultTestRunnerCode = q{
-import core.runtime;
-
-void main() {
-	version (D_Coverage) {
+	version(D_BetterC) {
+		extern(C) int main() {
+			foreach (module_; allModules) {
+				foreach (unitTest; __traits(getUnitTests, module_)) {
+					unitTest();
+				}
+			}
+			import core.stdc.stdio : puts;
+			puts("All unit tests have been run successfully.");
+			return 0;
+		}
 	} else {
-		import std.stdio : writeln;
-		writeln("All unit tests have been run successfully.");
+		void main() {
+			version (D_Coverage) {
+			} else {
+				import std.stdio : writeln;
+				writeln("All unit tests have been run successfully.");
+			}
+		}
+		shared static this() {
+			version (Have_tested) {
+				import tested;
+				import core.runtime;
+				import std.exception;
+				Runtime.moduleUnitTester = () => true;
+				enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
+			}
+		}
 	}
-}
-shared static this() {
-	version (Have_tested) {
-		import tested;
-		import core.runtime;
-		import std.exception;
-		Runtime.moduleUnitTester = () => true;
-		enforce(runUnitTests!allModules(new ConsoleTestResultWriter), "Unit tests failed.");
-	}
-}
 };
