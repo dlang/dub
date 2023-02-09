@@ -234,7 +234,7 @@ class PackageManager {
 						ovr.target.match!(
 							(any) {
 								logWarn("Package override %s %s -> '%s' doesn't reference an existing package.",
-										ovr.package_, ovr.version_, any);
+										ovr.package_, ovr.source, any);
 							},
 						);
 					}
