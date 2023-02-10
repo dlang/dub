@@ -356,7 +356,8 @@ class Project {
 	*/
 	void validate()
 	{
-		bool isSDL = m_rootPackage.recipePath.head.name.endsWith(".sdl");
+		bool isSDL = !m_rootPackage.recipePath.empty
+			&& m_rootPackage.recipePath.head.name.endsWith(".sdl");
 
 		// some basic package lint
 		m_rootPackage.warnOnSpecialCompilerFlags();
