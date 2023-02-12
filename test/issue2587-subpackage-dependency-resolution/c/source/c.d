@@ -1,0 +1,5 @@
+module c;
+
+void doC()
+{
+}

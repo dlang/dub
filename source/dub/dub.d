@@ -1631,7 +1631,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	protected override Dependency[] getSpecificConfigs(string pack, TreeNodes nodes)
 	{
 		if (!nodes.configs.path.empty || !nodes.configs.repository.empty) {
-			if (getPackage(pack, nodes.configs)) return [nodes.configs];
+			if (getPackage(nodes.pack, nodes.configs)) return [nodes.configs];
 			else return null;
 		}
 		else return null;
