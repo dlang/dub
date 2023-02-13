@@ -1,0 +1,14 @@
+{
+	"name": "b",
+	"dependencies": {
+		"b:sub":"*"
+	},
+	"subPackages": [
+		{
+			"name": "sub",
+			"dependencies": {
+				"c": {"path":"../c"}
+			}
+		}
+	]
+}

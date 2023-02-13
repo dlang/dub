@@ -1252,6 +1252,8 @@ class GenerateCommand : PackageBuildCommand {
 		if (!gensettings.config.length)
 			gensettings.config = m_defaultConfig;
 		gensettings.runArgs = app_args;
+		// legacy compatibility, default working directory is always CWD
+		gensettings.overrideToolWorkingDirectory = getWorkingDirectory();
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);

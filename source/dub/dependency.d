@@ -215,7 +215,10 @@ struct Dependency {
 		return this.m_value.match!(
 			(NativePath v) {
 				if (v.empty || v.absolute) return this;
-				return Dependency(path ~ v);
+				auto ret = Dependency(path ~ v);
+				ret.m_default = m_default;
+				ret.m_optional = m_optional;
+				return ret;
 			},
 			(Repository v) => this,
 			(VersionRange v) => this,

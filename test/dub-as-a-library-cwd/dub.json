@@ -1,5 +1,6 @@
 {
 	"name": "dub-as-a-library-cwd",
+	"workingDirectory": ".",
 	"dependencies": {
 		"dub": {
 			"path": "../.."
