@@ -864,7 +864,7 @@ class Dub {
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.version_ != ver)
 				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
-					packageId.color(Mode.bold), existing.version_, ver,
+					packageId.color(Mode.bold), existing, ver,
 					text("dub upgrade ", packageId).color(Mode.bold));
 			return null;
 		}
@@ -983,7 +983,7 @@ class Dub {
 			try {
 				remove(pack);
 			} catch (Exception e) {
-				logError("Failed to remove %s %s: %s", package_id, pack.version_, e.msg);
+				logError("Failed to remove %s %s: %s", package_id, pack, e.msg);
 				logInfo("Continuing with other packages (if any).");
 			}
 		}
@@ -1632,7 +1632,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	protected override Dependency[] getSpecificConfigs(string pack, TreeNodes nodes)
 	{
 		if (!nodes.configs.path.empty || !nodes.configs.repository.empty) {
-			if (getPackage(pack, nodes.configs)) return [nodes.configs];
+			if (getPackage(nodes.pack, nodes.configs)) return [nodes.configs];
 			else return null;
 		}
 		else return null;
@@ -1677,7 +1677,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 					if (!d.spec.path.empty && absdeppath != desireddeppath)
 						logWarn("Sub package %s, referenced by %s %s must be referenced using the path to its base package",
-							subpack.name, pack.name, pack.version_);
+							subpack.name, pack.name, pack);
 
 					enforce(d.spec.path.empty || absdeppath == desireddeppath || absdeppath == altdeppath,
 						format("Dependency from %s to %s uses wrong path: %s vs. %s",
@@ -1747,11 +1747,11 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					m_remotePackages[sp.name] = sp;
 					return sp;
 				} else {
-					logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep.version_);
+					logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep);
 					return null;
 				}
 			} else {
-				logDiagnostic("External sub package %s %s not found.", name, dep.version_);
+				logDiagnostic("External sub package %s %s not found.", name, dep);
 				return null;
 			}
 		}
@@ -1806,7 +1806,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					m_dub.fetch(rootpack, vers, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, vers);
 					if (!ret) {
-						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep.version_, name);
+						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep, name);
 						return null;
 					}
 					m_remotePackages[key] = ret;

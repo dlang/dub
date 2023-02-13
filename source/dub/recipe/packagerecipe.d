@@ -38,7 +38,8 @@ string[] getSubPackagePath(string package_name) @safe pure
 }
 
 /**
-	Returns the name of the top level package for a given (sub) package name.
+	Returns the name of the top level package for a given (sub) package name of
+	format `"basePackageName"` or `"basePackageName:subPackageName"`.
 
 	In case of a top level package, the qualified name is returned unmodified.
 */
@@ -48,7 +49,8 @@ string getBasePackageName(string package_name) @safe pure
 }
 
 /**
-	Returns the qualified sub package part of the given package name.
+	Returns the qualified sub package part of the given package name of format
+	`"basePackageName:subPackageName"`, or empty string if none.
 
 	This is the part of the package name excluding the base package
 	name. See also $(D getBasePackageName).
