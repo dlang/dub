@@ -473,13 +473,12 @@ int runDubCommandLine(string[] args)
 			foreach (Command command; key.commands)
 			{
 				if (levenshteinDistance(command_name_argument.value, command.name) < 4) {
-					logInfo("Did you mean '%s'?", command.name);
+					logInfo("Did you mean '%s?", command.name);
 				}
 			}
 		}
 
 		writeln();
-		showHelp(handler.commandGroups, common_args);
 		return 1;
 	}
 
