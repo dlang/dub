@@ -1,0 +1,28 @@
+`dub select`, `dub deselect`, `dub upgrade -l`
+
+DUB now exposes CLI commands to interact with the dub.selections.json file:
+
+`dub select` can be used to select or change a dependency inside
+dub.selections.json.
+
+`dub deselect` can be used to remove a dependency from dub.selections.json.
+
+`dub upgrade --list` (or `-l`) now does a dry-run and lists all the existing
+packages + packages to upgrade in an easy-to-read interface. This can be
+combined with `--missing-only` (now available as `-m` as well) to show what is
+being done internally when running `dub build`. Both an upgrade as well as
+listing can be done by running `dub upgrade --list --dry-run=false` or
+`dub upgrade -l -dfalse`.
+
+Example output:
+
+```
+     Listing selected dependencies in /path/to/project
+             Use "dub upgrade" to perform those changes
+         diet-ng  1.8.1
+       eventcore  0.9.20 -> 0.9.22
+           libev  5.0.0+4.04
+        libevent  2.0.2+2.0.16
+ taggedalgebraic  0.11.22
+       vibe-core  1.22.4 -> 1.22.6
+```

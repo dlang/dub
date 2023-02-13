@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/dub-upgrade-list
+dub-upgrade-list.so
+dub-upgrade-list.dylib
+dub-upgrade-list.dll
+dub-upgrade-list.a
+dub-upgrade-list.lib
+dub-upgrade-list-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst

@@ -225,6 +225,28 @@ struct Dependency {
 		);
 	}
 
+	/** Returns a modified dependency that's relative to a given path, if the
+		path was absolute.
+
+		This function will return an unmodified `Dependency` if it is not path
+		based or not absolute. Otherwise, the given `path` will be prefixed to
+		the existing path.
+	*/
+	Dependency absoluteToRelative(NativePath basePath) const @trusted {
+		// NOTE Path is @system in vibe.d 0.7.x and in the compatibility layer
+		return this.m_value.match!(
+			(NativePath v) {
+				if (v.empty || !v.absolute) return this;
+				auto ret = Dependency(v.relativeTo(basePath));
+				ret.m_default = m_default;
+				ret.m_optional = m_optional;
+				return ret;
+			},
+			(Repository v) => this,
+			(VersionRange v) => this,
+		);
+	}
+
 	/** Returns a human-readable string representation of the dependency
 		specification.
 	*/

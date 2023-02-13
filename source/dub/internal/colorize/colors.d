@@ -42,10 +42,13 @@ enum mode : int
 {
 	init      = 0,
 	bold      = 1,
+	faint     = 2,
+	italic    = 3,
 	underline = 4,
 	blink     = 5,
 	swap      = 7,
-	hide      = 8
+	hide      = 8,
+	crossedOut = 9,
 }
 
 /**

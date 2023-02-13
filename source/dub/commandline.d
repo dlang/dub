@@ -66,6 +66,8 @@ CommandGroup[] getCommands() @safe pure nothrow
 			new AddLocalCommand,
 			new RemoveLocalCommand,
 			new ListCommand,
+			new SelectCommand,
+			new DeselectCommand,
 			new SearchCommand,
 			new AddOverrideCommand,
 			new RemoveOverrideCommand,
@@ -254,10 +256,12 @@ unittest {
 	CommandLineHandler handler;
 	handler.commandGroups = getCommands();
 
-	assert(handler.commandNames == ["init", "run", "build", "test", "lint", "generate",
-		"describe", "clean", "dustmite", "fetch", "add", "remove",
-		"upgrade", "add-path", "remove-path", "add-local", "remove-local", "list", "search",
-		"add-override", "remove-override", "list-overrides", "clean-caches", "convert"]);
+	assert(handler.commandNames == ["init", "run", "build", "test", "lint",
+		"generate", "describe", "clean", "dustmite", "fetch", "add", "remove",
+		"upgrade", "add-path", "remove-path", "add-local", "remove-local",
+		"list", "select", "deselect", "search", "add-override",
+		"remove-override", "list-overrides", "clean-caches", "convert"
+	]);
 }
 
 /// It sets the cwd as root_path by default
@@ -1803,6 +1807,7 @@ class UpgradeCommand : Command {
 		bool m_missingOnly = false;
 		bool m_verify = false;
 		bool m_dryRun = false;
+		bool m_printList = false;
 	}
 
 	this() @safe pure nothrow
@@ -1815,7 +1820,19 @@ class UpgradeCommand : Command {
 			"",
 			"This will update the versions stored in the selections file ("~SelectedVersions.defaultFile~") accordingly.",
 			"",
-			"If one or more package names are specified, only those dependencies will be upgraded. Otherwise all direct and indirect dependencies of the root package will get upgraded."
+			"If one or more package names are specified, only those dependencies will be upgraded. Otherwise all direct and indirect dependencies of the root package will get upgraded.",
+			"",
+			"List output format: (not script-safe)",
+			"",
+			"Each line is a dependency, as listed in dub.selections.json. This "~
+				"command simulates a `dub upgrade --missing-only`, like when running "~
+				"`dub build`, to see what isn't currently selected.",
+			"",
+			"Dependencies that don't have any selection yet are shown with `*NEW*` in their line.",
+			"",
+			"Dependencies that are upgraded are in format `oldVer -> newVer`.",
+			"",
+			"Dependencies that are not matching the recipe specification are shown as `(outdated)`.",
 		];
 	}
 
@@ -1830,10 +1847,15 @@ class UpgradeCommand : Command {
 		args.getopt("verify", &m_verify, [
 			"Updates the project and performs a build. If successful, rewrites the selected versions file <to be implemented>."
 		]);
-		args.getopt("dry-run", &m_dryRun, [
+		args.getopt("l|list", &m_printList, [
+			"List selected packages. Implies --dry-run, unless --dry-run=false is specified. Combines well with [-m|--missing-only]."
+		]);
+		if (m_printList)
+			m_dryRun = true;
+		args.getopt("d|dry-run", &m_dryRun, [
 			"Only print what would be upgraded, but don't actually upgrade anything."
 		]);
-		args.getopt("missing-only", &m_missingOnly, [
+		args.getopt("m|missing-only", &m_missingOnly, [
 			"Performs an upgrade only for dependencies that don't yet have a version selected. This is also done automatically before each build."
 		]);
 		args.getopt("force-remove", &m_forceRemove, [
@@ -1847,12 +1869,22 @@ class UpgradeCommand : Command {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(!m_verify, "--verify is not yet implemented.");
 		enforce(loadCwdPackage(dub, true), "Failed to load package.");
-		logInfo("Upgrading", Color.cyan, "project in %s", dub.projectPath.toNativeString().color(Mode.bold));
+		if (m_printList && m_dryRun)
+			logInfo("Listing", Color.cyan, "selected dependencies in %s", dub.projectPath.toNativeString().color(Mode.bold));
+		else
+			logInfo("Upgrading", Color.cyan, "project in %s", dub.projectPath.toNativeString().color(Mode.bold));
+
+		auto oldSelection = m_printList ? dub.project.selections.dup : null;
+
 		auto options = UpgradeOptions.upgrade|UpgradeOptions.select;
 		if (m_missingOnly) options &= ~UpgradeOptions.upgrade;
 		if (m_prerelease) options |= UpgradeOptions.preRelease;
-		if (m_dryRun) options |= UpgradeOptions.dryRun;
+		if (m_dryRun) options |= UpgradeOptions.dryRun | UpgradeOptions.noSaveSelections;
+		if (m_printList && m_dryRun) options |= UpgradeOptions.dryRunSelect;
 		dub.upgrade(options, free_args);
+
+		if (m_printList)
+			printList(dub, oldSelection);
 
 		auto spacks = dub.project.rootPackage
 			.subPackages
@@ -1889,6 +1921,66 @@ class UpgradeCommand : Command {
 		}
 
 		return 0;
+	}
+
+	private void printList(Dub dub, SelectedVersions oldSelection)
+	{
+		auto allPackages = dub.project.selections.selectedPackages;
+		allPackages.sort!"a<b";
+		if (allPackages.length == 0)
+			return;
+		auto removed = oldSelection.selectedPackages;
+
+		Dependency[string] directDepSpecs;
+		foreach (kv; dub.project.rootPackage.getAllDependencies())
+			directDepSpecs[kv.name] = kv.spec;
+
+		auto leftColumnWidth = allPackages.map!(v => v.length).maxElement
+			+ "".color(Mode.bold).length;
+		bool shownAnything = false;
+		foreach (pkg; allPackages) {
+			removed = removed.remove!(p => p == pkg);
+			shownAnything = true;
+
+			auto newVer = dub.project.selections.getSelectedVersion(pkg);
+			auto oldVer = newVer;
+
+			string tags;
+
+			if (newVer.isExactVersion)
+				if (auto spec = pkg in directDepSpecs)
+					if (!(*spec).matches(newVer.version_, VersionMatchMode.strict))
+						tags ~= "  (outdated)".color(Color.red, Mode.faint);
+
+			if (!oldSelection.hasSelectedVersion(pkg)) {
+				// did not have selection before building
+				tags ~= "  *NEW*".color(Mode.faint);
+			} else {
+				oldVer = oldSelection.getSelectedVersion(pkg);
+			}
+
+			if (oldVer == newVer) {
+				logInfoNoTag("%*s  %s%s",
+					leftColumnWidth,
+					pkg.color(Mode.bold),
+					newVer,
+					tags);
+			} else {
+				logInfoNoTag("%*s  %s -> %s%s",
+					leftColumnWidth,
+					pkg.color(Mode.bold),
+					oldVer.toString.color(Mode.faint),
+					newVer,
+					tags);
+			}
+		}
+		foreach (pkg; removed) {
+			shownAnything = true;
+				logInfoNoTag("%*s  %s",
+					leftColumnWidth,
+					pkg.color(Mode.crossedOut),
+					"(removed)".color(Color.red, Mode.faint));
+		}
 	}
 }
 
@@ -2179,6 +2271,118 @@ class ListCommand : Command {
 				logInfoNoTag("  %s %s: %s", p.name.color(Mode.bold), p.version_, p.path.toNativeString());
 		}
 		logInfo("");
+		return 0;
+	}
+}
+
+class SelectCommand : Command {
+	this() @safe pure nothrow
+	{
+		this.name = "select";
+		this.argumentsPattern = "<package> <version>|<package> <path>|<package> <repository> <commit>";
+		this.description = "Management for dependency selections";
+		this.helpText = [
+			"Adds or changes a selected dependency (dub.selections.json)",
+			"",
+			"When two arguments are given, the first argument is the package name to select, "~
+				"followed by a single version or a path to a package folder",
+			"",
+			"When three arguments are given, the first argument is the package name to select, "~
+				"followed by a repository, followed by the exact commit.",
+		];
+	}
+
+	override void prepare(scope CommandArgs args) {}
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforce(loadCwdPackage(dub, true), "Failed to load package.");
+
+		if (free_args.length == 2)
+			return selectPackage(dub, free_args[0], free_args[1]);
+		else if (free_args.length == 3)
+			return selectPackageScm(dub, free_args[0], free_args[1], free_args[2]);
+		else
+			throw new UsageException("Expecting either two or three free arguments.");
+	}
+
+	protected int selectPackage(Dub dub, string pack, string versionSpec)
+	{
+		bool assumeFile;
+		if (versionSpec.startsWith("~/")) {
+			versionSpec = versionSpec.expandTilde;
+			assumeFile = true;
+		}
+
+		Dependency dep;
+		if (existsDirectory(NativePath(versionSpec))) {
+			dep = Dependency(NativePath(versionSpec));
+		} else if (assumeFile) {
+			logError("Folder %s not found", versionSpec.color(Mode.bold));
+		} else {
+			dep = Dependency(versionSpec);
+		}
+
+		return updateAndSave(dub, pack, dep);
+	}
+
+	protected int selectPackageScm(Dub dub, string pack, string remote, string ref_)
+	{
+		Dependency dep = Dependency(Repository(remote, ref_));
+		return updateAndSave(dub, pack, dep);
+	}
+
+	protected int updateAndSave(Dub dub, string pack, Dependency dep)
+	{
+		if (dub.project.selections.hasSelectedVersion(pack)) {
+			auto oldVer = dub.project.selections.getSelectedVersion(pack);
+			if (oldVer != dep) {
+				logInfoNoTag("%s  %s -> %s", pack.color(Mode.bold), oldVer.toString.color(Mode.faint), dep);
+			} else {
+				logInfoNoTag("%s  %s  %s", pack.color(Mode.bold), dep, "(no change)".color(Mode.faint));
+			}
+		} else {
+			logInfoNoTag("%s  %s  %s", pack.color(Mode.bold), dep, "*NEW*".color(Mode.faint));
+		}
+		dub.project.selections.selectVersion(pack, dep);
+		dub.project.saveSelections();
+		return 0;
+	}
+}
+
+class DeselectCommand : Command {
+	this() @safe pure nothrow
+	{
+		this.name = "deselect";
+		this.argumentsPattern = "<package>";
+		this.description = "Management for dependency selections";
+		this.helpText = [
+			"Command to remove a selection from dub.selections.json",
+			"",
+			"After being removed, if the package is depended upon, it may be "~
+				"re-added on the next `dub upgrade` or build command."
+		];
+	}
+
+	override void prepare(scope CommandArgs args) {}
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforce(loadCwdPackage(dub, true), "Failed to load package.");
+
+		if (free_args.length == 1)
+			return deselectPackage(dub, free_args[0]);
+		else
+			throw new UsageException("Expecting exactly 1 free argument.");
+	}
+
+	protected int deselectPackage(Dub dub, string pack)
+	{
+		if (dub.project.selections.hasSelectedVersion(pack)) {
+			dub.project.selections.deselectVersion(pack);
+			logInfo("Deselected %s", pack.color(Mode.bold));
+		} else {
+			logInfo("Package %s was not selected", pack.color(Mode.bold));
+		}
+		dub.project.saveSelections();
 		return 0;
 	}
 }

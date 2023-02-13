@@ -203,6 +203,11 @@ class Package {
 		else return m_info.name;
 	}
 
+	@property string baseName()
+	const {
+		return m_parentPackage ? m_parentPackage.name : m_info.name;
+	}
+
 	/** Returns the directory in which the package resides.
 
 		Note that this can be empty for packages that are not stored in the

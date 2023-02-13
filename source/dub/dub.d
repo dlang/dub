@@ -606,17 +606,26 @@ class Dub {
 				if (basename == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
-					logInfo("Upgrade", Color.cyan,
-						"Package %s would be selected with version %s", basename, ver);
+					if ((options & UpgradeOptions.dryRunSelect) && p != m_project.rootPackage.name) {
+						m_project.selections.selectVersion(p, ver.absoluteToRelative(m_project.rootPackage.path));
+					} else {
+						logInfo("Upgrade", Color.cyan,
+							"Package %s would be selected with version %s", basename, ver);
+					}
 					any = true;
 					continue;
 				}
 				auto sver = m_project.selections.getSelectedVersion(basename);
 				if (!sver.path.empty || !sver.repository.empty) continue;
 				if (ver.version_ <= sver.version_) continue;
-				logInfo("Upgrade", Color.cyan,
-					"%s would be upgraded from %s to %s.",
-					basename.color(Mode.bold), sver, ver);
+
+				if ((options & UpgradeOptions.dryRunSelect) && p != m_project.rootPackage.name) {
+					m_project.selections.selectVersion(p, ver.absoluteToRelative(m_project.rootPackage.path));
+				} else {
+					logInfo("Upgrade", Color.cyan,
+						"%s would be upgraded from %s to %s.",
+						basename.color(Mode.bold), sver, ver);
+				}
 				any = true;
 			}
 			if (any) logInfo("Use \"%s\" to perform those changes", "dub upgrade".color(Mode.bold));
@@ -651,15 +660,7 @@ class Dub {
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			if (!pack) fetch(p, ver.version_, defaultPlacementLocation, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
-				if (!ver.repository.empty) {
-					m_project.selections.selectVersion(p, ver.repository);
-				} else if (ver.path.empty) {
-					m_project.selections.selectVersion(p, ver.version_);
-				} else {
-					NativePath relpath = ver.path;
-					if (relpath.absolute) relpath = relpath.relativeTo(m_project.rootPackage.path);
-					m_project.selections.selectVersion(p, relpath);
-				}
+				m_project.selections.selectVersion(p, ver.absoluteToRelative(m_project.rootPackage.path));
 			}
 		}
 
@@ -1524,6 +1525,9 @@ enum UpgradeOptions
 	/*deprecated*/ printUpgradesOnly = dryRun, /// deprecated, use dryRun instead
 	/*deprecated*/ useCachedResult = 1<<6, /// deprecated, has no effect
 	noSaveSelections = 1<<7, /// Don't store updated selections on disk
+	dryRunSelect = 1<<8, /// Even in dry-run, still update the dub.selections.json file with the upgraded versions
+
+	offlineSelect = dryRun | dryRunSelect | noSaveSelections,
 }
 
 /// Determines which of the default package suppliers are queried for packages.
