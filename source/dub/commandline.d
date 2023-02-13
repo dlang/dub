@@ -466,6 +466,18 @@ int runDubCommandLine(string[] args)
 
 	if (cmd is null) {
 		logError("Unknown command: %s", command_name_argument.value);
+		import std.algorithm.iteration : filter;
+		import std.uni : toUpper;
+		foreach (CommandGroup key; handler.commandGroups)
+		{
+			foreach (Command command; key.commands)
+			{
+				if (levenshteinDistance(command_name_argument.value, command.name) < 4) {
+					logInfo("Did you mean '%s'?", command.name);
+				}
+			}
+		}
+
 		writeln();
 		showHelp(handler.commandGroups, common_args);
 		return 1;
