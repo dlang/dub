@@ -465,9 +465,22 @@ int runDubCommandLine(string[] args)
 	}
 
 	if (cmd is null) {
+		logInfoNoTag("USAGE: dub [--version] [<command>] [<options...>] [-- [<application arguments...>]]");
+		logInfoNoTag("");
 		logError("Unknown command: %s", command_name_argument.value);
-		writeln();
-		showHelp(handler.commandGroups, common_args);
+		import std.algorithm.iteration : filter;
+		import std.uni : toUpper;
+		foreach (CommandGroup key; handler.commandGroups)
+		{
+			foreach (Command command; key.commands)
+			{
+				if (levenshteinDistance(command_name_argument.value, command.name) < 4) {
+					logInfo("Did you mean '%s'?", command.name);
+				}
+			}
+		}
+
+		logInfoNoTag("");
 		return 1;
 	}
 
