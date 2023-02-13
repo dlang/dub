@@ -465,6 +465,8 @@ int runDubCommandLine(string[] args)
 	}
 
 	if (cmd is null) {
+		logInfoNoTag("USAGE: dub [--version] [<command>] [<options...>] [-- [<application arguments...>]]");
+		writeln();
 		logError("Unknown command: %s", command_name_argument.value);
 		import std.algorithm.iteration : filter;
 		import std.uni : toUpper;
