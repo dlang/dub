@@ -356,13 +356,16 @@ class Project {
 	*/
 	void validate()
 	{
+		bool isSDL = !m_rootPackage.recipePath.empty
+			&& m_rootPackage.recipePath.head.name.endsWith(".sdl");
+
 		// some basic package lint
 		m_rootPackage.warnOnSpecialCompilerFlags();
 		string nameSuggestion() {
 			string ret;
 			ret ~= `Please modify the "name" field in %s accordingly.`.format(m_rootPackage.recipePath.toNativeString());
 			if (!m_rootPackage.recipe.buildSettings.targetName.length) {
-				if (m_rootPackage.recipePath.head.name.endsWith(".sdl")) {
+				if (isSDL) {
 					ret ~= ` You can then add 'targetName "%s"' to keep the current executable name.`.format(m_rootPackage.name);
 				} else {
 					ret ~= ` You can then add '"targetName": "%s"' to keep the current executable name.`.format(m_rootPackage.name);
@@ -371,20 +374,23 @@ class Project {
 			return ret;
 		}
 		if (m_rootPackage.name != m_rootPackage.name.toLower()) {
-			logWarn(`WARNING: DUB package names should always be lower case. %s`, nameSuggestion());
+			logWarn(`DUB package names should always be lower case. %s`, nameSuggestion());
 		} else if (!m_rootPackage.recipe.name.all!(ch => ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_')) {
-			logWarn(`WARNING: DUB package names may only contain alphanumeric characters, `
+			logWarn(`DUB package names may only contain alphanumeric characters, `
 				~ `as well as '-' and '_'. %s`, nameSuggestion());
 		}
 		enforce(!m_rootPackage.name.canFind(' '), "Aborting due to the package name containing spaces.");
 
 		foreach (d; m_rootPackage.getAllDependencies())
 			if (d.spec.isExactVersion && d.spec.version_.isBranch) {
-				logWarn("WARNING: A deprecated branch based version specification is used "
-					~ "for the dependency %s. Please use numbered versions instead. Also "
-					~ "note that you can still use the %s file to override a certain "
-					~ "dependency to use a branch instead.",
-					d.name, SelectedVersions.defaultFile);
+				string suggestion = isSDL
+					? format(`dependency "%s" repository="git+<git url>" version="<commit>"`, d.name)
+					: format(`"%s": {"repository": "git+<git url>", "version": "<commit>"}`, d.name);
+				logWarn("Dependency '%s' depends on git branch '%s', which is deprecated.",
+					d.name.color(Mode.bold), d.spec.version_.toString.color(Mode.bold));
+				logWarnTag("", "Specify the git repository and commit hash in your %s:",
+					(isSDL ? "dub.sdl" : "dub.json").color(Mode.bold));
+				logWarnTag("", "%s", suggestion.color(Mode.bold));
 			}
 
 		// search for orphan sub configurations
