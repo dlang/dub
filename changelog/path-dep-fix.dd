@@ -1,7 +1,0 @@
-Path dependencies of path-based sub-packages have been fixed
-
-Path-based dependencies in path-based sub-packages in DUB v1.30.0 and 1.31.0
-have had regressed and didn't resolve properly. (dub.selections.json could be
-used to workaround this issue before)
-
-From this release, these resolve properly again.
