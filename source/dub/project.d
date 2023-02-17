@@ -1146,7 +1146,7 @@ class Project {
 			case "post-build-environments":
 			case "pre-run-environments":
 			case "post-run-environments":
-			case "output-path":
+			case "output-paths":
 			case "default-config":
 			case "configs":
 			case "default-build":
@@ -1203,7 +1203,7 @@ class Project {
 		case "requirements":               return listBuildSetting!"requirements"(args);
 		case "options":                    return listBuildSetting!"options"(args);
 
-		case "output-path":                return [determineOutputPath(settings).toNativeString()];
+		case "output-paths":               return determineOutputPaths(settings).map!"a.toNativeString".array;
 		case "default-config":             return [getDefaultConfiguration(settings.platform)];
 		case "configs":                    return configurations;
 		case "default-build":              return [builtinBuildTypes[0]];
@@ -1220,15 +1220,18 @@ class Project {
 	/// Returns the relative or absolute path to the output file for the given
 	/// generator settings including target name and platform specific file
 	/// extension.
-	final NativePath determineOutputPath(const ref GeneratorSettings settings)
+	final NativePath[] determineOutputPaths(const ref GeneratorSettings settings)
 	{
-		return determineOutputPath(settings.platform, settings.buildSettings, settings.compiler);
+		return determineOutputPaths(settings.platform, settings.buildSettings, settings.compiler);
 	}
 
 	/// ditto
-	NativePath determineOutputPath(const ref BuildPlatform platform, const ref BuildSettings buildSettings, const Compiler compiler)
+	NativePath[] determineOutputPaths(const ref BuildPlatform platform, const ref BuildSettings buildSettings, const Compiler compiler)
 	{
-		return NativePath(buildSettings.targetPath) ~ compiler.getTargetFileName(buildSettings, platform);
+		auto root = NativePath(buildSettings.targetPath);
+		if (!root.absolute)
+			root = m_rootPackage.path ~ root;
+		return [root ~ compiler.getTargetFileName(buildSettings, platform)];
 	}
 
 	/// Outputs requested data for the project, optionally including its dependencies.
