@@ -34,19 +34,21 @@ string getObjSuffix(const scope ref BuildPlatform platform)
 
 string computeBuildName(string config, in GeneratorSettings settings, const string[][] hashing...)
 {
-	import std.digest.sha : SHA256, toHexString;
+	import std.digest.sha : SHA256;
+	import std.base64 : Base64URL;
 
 	SHA256 hash;
 	hash.start();
 	void addHash(in string[] strings...) { foreach (s; strings) { hash.put(cast(ubyte[])s); hash.put(0); } hash.put(0); }
 	foreach(strings; hashing)
 		addHash(strings);
-	const hashstr = hash.finish().toHexString();
+	addHash(settings.platform.platform);
+	addHash(settings.platform.architecture);
+	addHash(settings.platform.compiler);
+	addHash(settings.platform.compilerVersion);
+	const hashstr = Base64URL.encode(hash.finish()[0 .. $ / 2]).stripRight("=");
 
-    return format("%s-%s-%s-%s-%s_v%s-%s", config, settings.buildType,
-			settings.platform.platform.join("."),
-			settings.platform.architecture.join("."),
-			settings.platform.compiler, settings.platform.compilerVersion, hashstr);
+	return format("%s-%s-%s", config, settings.buildType, hashstr);
 }
 
 class BuildGenerator : ProjectGenerator {
