@@ -11,6 +11,7 @@ configuration "application" {
 	targetType "executable"
 	mainSourceFile "source/app.d"
 	versions "DubUseCurl" "DubApplication"
+	excludedSourceFiles "source/dub/test/*"
 	// Uncomment to get rich output about the file parsing and json <-> YAML
 	// integrity checks
 	//debugVersions "ConfigFillerDebug"
