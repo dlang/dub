@@ -62,7 +62,7 @@ public class TestCLIApp
     public ~this ()
     {
         // destroy dir
-        //std.file.rmdirRecurse(this.dir);
+        std.file.rmdirRecurse(this.dir);
         this.dir = null;
     }
 
