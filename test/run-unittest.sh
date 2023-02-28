@@ -37,11 +37,22 @@ DC_BIN=$(basename "$DC")
 CURR_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 FRONTEND="${FRONTEND:-}"
 
+if [ -z ${FRONTEND:-} ]; then
+    if [ "$DC_BIN" == "ldc2" ]; then
+        FRONTEND=$(ldc2 --version | grep -Po "based on DMD v\K(2\.\d+\.\d)")
+    fi
+    if [ "$DC_BIN" == "dmd" ]; then
+        FRONTEND=$(dmd --version | grep -Po "D Compiler v\K(2\.\d+\.\d)")
+    fi
+fi
+
+echo "Running unittests with $DC_BIN (frontend=$FRONTEND)"
+
 if [ "$#" -gt 0 ]; then FILTER=$1; else FILTER=".*"; fi
 
 for pack in $(ls -d $CURR_DIR/*/); do
     if [[ ! "$pack" =~ $FILTER ]]; then continue; fi
-    if [ -e $pack/.min_frontend ] && [ ! -z "$FRONTEND" -a "$FRONTEND" \< $(cat $pack/.min_frontend) ]; then continue; fi
+    if [ -f $pack/.min_frontend ] && [ ! -z "$FRONTEND" -a "$FRONTEND" \< $(cat $pack/.min_frontend) ]; then continue; fi
 
     # First we build the packages
     if [ ! -e $pack/.no_build ] && [ ! -e $pack/.no_build_$DC_BIN ]; then # For sourceLibrary
