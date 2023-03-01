@@ -34,6 +34,7 @@ import std.string;
 			version.
 		type = The type of package skeleton to create. Can currently be
 			"minimal", "vibe.d" or "deimos"
+		format = Format in which the recipe will be written (SDL / JSON)
 		recipe_callback = Optional callback that can be used to customize the
 			package recipe and the file format used to store it prior to
 			writing it to disk.
@@ -163,7 +164,7 @@ private void initDeimosPackage(NativePath root_path, ref PackageRecipe p, scope 
  * most users. However, this file is not mandatory for `dub` to do its job,
  * so we do not depend on the content.
  * One important use case we need to support is people running `dub init` on
- * a Github-initialized repository. Those might already contain a `.gitignore`
+ * a GitHub-initialized repository. Those might already contain a `.gitignore`
  * (and a README and a LICENSE), thus we should not bail out if the file already
  * exists, just ignore it.
  *

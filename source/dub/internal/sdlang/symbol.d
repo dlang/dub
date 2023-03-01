@@ -38,7 +38,7 @@ private Symbol _symbol(string name)
 /// Symbol is essentially the "type" of a Token.
 /// Token is like an instance of a Symbol.
 ///
-/// This only represents terminals. Nonterminal tokens aren't
+/// This only represents terminals. Non-terminal tokens aren't
 /// constructed since the AST is built directly during parsing.
 ///
 /// You can't create a Symbol directly. Instead, use the 'symbol'

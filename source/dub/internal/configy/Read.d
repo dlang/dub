@@ -98,7 +98,7 @@
 
       Those forms are mutually exclusive, so a field with a unit suffix
       will error out if a mapping is used. This prevents surprises and ensures
-      that the error message, if any, is consistent accross user input.
+      that the error message, if any, is consistent across user input.
 
       To disable or change this behavior, one may use a `Converter` instead.
 
@@ -109,7 +109,7 @@
       This can be useful to catch typos or outdated configuration options.
 
     Post_Validation:
-      Some configuration will require validation accross multiple sections.
+      Some configuration will require validation across multiple sections.
       For example, two sections may be mutually exclusive as a whole,
       or may have fields which are mutually exclusive with another section's
       field(s). This kind of dependence is hard to account for declaratively,
@@ -232,7 +232,7 @@ public struct CLIArgs
     {
         return getopt(
             args,
-            // `caseInsensistive` is the default, but we need something
+            // `caseInsensitive` is the default, but we need something
             // with the same type for the ternary
             passThrough ? config.keepEndOfOptions : config.caseInsensitive,
             // Also the default, same reasoning
@@ -682,7 +682,7 @@ private TLFR.Type parseMapping (alias TLFR)
 
     Because a `struct` can be filled from either a mapping or a scalar,
     this function will first try the converter / fromString / string ctor
-    methods before defaulting to fieldwise construction.
+    methods before defaulting to field-wise construction.
 
     Note that optional fields are checked before recursion happens,
     so this method does not do this check.
@@ -997,7 +997,7 @@ private EnabledState isMappingEnabled (M) (Node node, auto ref M default_)
     }
 }
 
-/// Retun value of `isMappingEnabled`
+/// Return value of `isMappingEnabled`
 private struct EnabledState
 {
     /// Used to determine which field controls a mapping enabled state

@@ -457,7 +457,7 @@ class Dub {
 
 	/** Loads a single file package.
 
-		Single-file packages are D files that contain a package receipe comment
+		Single-file packages are D files that contain a package recipe comment
 		at their top. A recipe comment must be a nested `/+ ... +/` style
 		comment, containing the virtual recipe file name and a colon, followed by the
 		recipe contents (what would normally be in dub.sdl/dub.json).
@@ -901,7 +901,7 @@ class Dub {
 				return m_packageManager.store(path, location, basePackageName, ver);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
-				// rethrow the exception at the end of the loop
+				// re-throw the exception at the end of the loop
 				if (i == 0)
 					throw e;
 			}
@@ -941,7 +941,7 @@ class Dub {
 
 		Params:
 			package_id = Name of the package to be removed
-			location_ = Specifies the location to look for the given package
+			location = Specifies the location to look for the given package
 				name/version.
 			resolve_version = Callback to select package version.
 	*/
@@ -1005,7 +1005,7 @@ class Dub {
 				is passed, the package will be removed from the location, if
 				there is only one version retrieved. This will throw an
 				exception, if there are multiple versions retrieved.
-			location_ = Specifies the location to look for the given package
+			location = Specifies the location to look for the given package
 				name/version.
 	 */
 	void remove(string package_id, string version_, PlacementLocation location)
@@ -1083,7 +1083,7 @@ class Dub {
 		m_packageManager.addSearchPath(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
 	}
 
-	/** Unregisters a local directory search path.
+	/** Deregisters a local directory search path.
 
 		Params:
 			path = Path to a directory containing package directories
@@ -1151,8 +1151,8 @@ class Dub {
 		preferring "~master".
 
 		Params:
-			package_name: The name of the package in question.
-			prefer_stable: If set to `true` (the default), returns the latest
+			package_name = The name of the package in question.
+			prefer_stable = If set to `true` (the default), returns the latest
 				stable version, even if there are newer pre-release versions.
 
 		See_also: `listPackageVersions`
@@ -1176,6 +1176,7 @@ class Dub {
 			format = Determines the package recipe format to use.
 			recipe_callback = Optional callback that can be used to
 				customize the recipe before it gets written.
+			app_args = Arguments to provide to the custom initialization routine.
 	*/
 	void createEmptyPackage(NativePath path, string[] deps, string type,
 		PackageFormat format = PackageFormat.sdl,
@@ -1516,7 +1517,7 @@ enum UpgradeOptions
 {
 	none = 0,
 	upgrade = 1<<1, /// Upgrade existing packages
-	preRelease = 1<<2, /// inclde pre-release versions in upgrade
+	preRelease = 1<<2, /// include pre-release versions in upgrade
 	forceRemove = 1<<3, /// Deprecated, does nothing.
 	select = 1<<4, /// Update the dub.selections.json file with the upgraded versions
 	dryRun = 1<<5, /// Instead of downloading new packages, just print a message to notify the user of their existence
@@ -1653,7 +1654,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		auto ret = appender!(TreeNodes[]);
 		auto pack = getPackage(node.pack, node.config);
 		if (!pack) {
-			// this can hapen when the package description contains syntax errors
+			// this can happen when the package description contains syntax errors
 			logDebug("Invalid package in dependency tree: %s %s", node.pack, node.config);
 			return null;
 		}
@@ -1873,8 +1874,8 @@ private struct SpecialDirs {
 	 *
 	 * Versions of dub prior to v1.31.0 used to store  artifact under the
 	 * project directory, but this led to issues with packages stored on
-	 * read-only filesystem / location, and lingering artifacts scattered
-	 * through the filesystem.
+	 * read-only file system / location, and lingering artifacts scattered
+	 * through the file system.
 	 */
 	NativePath cache;
 

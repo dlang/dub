@@ -83,8 +83,8 @@ struct PackageDescription {
 	string mainSourceFile;
 	string[] dflags; /// Flags passed to the D compiler
 	string[] lflags; /// Flags passed to the linker
-	string[] libs; /// Librariy names to link against (typically using "-l<name>")
-	string[] injectSourceFiles; /// Files that should be injected when this package is dependend upon by a binary image.
+	string[] libs; /// Library names to link against (typically using "-l<name>")
+	string[] injectSourceFiles; /// Files that should be injected when this package is dependent upon by a binary image.
 	string[] copyFiles; /// Files to copy to the target directory
 	string[] extraDependencyFiles; /// Files to check for rebuild dub project
 	string[] versions; /// D version identifiers to set

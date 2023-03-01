@@ -35,7 +35,6 @@ import std.process : environment, spawnProcess, wait;
 import std.stdio;
 import std.string;
 import std.typecons : Tuple, tuple;
-import std.variant;
 
 /** Retrieves a list of all available commands.
 
@@ -167,7 +166,7 @@ struct CommandLineHandler
 			options.root_path = options.root_path.expandTilde.absolutePath.buildNormalizedPath;
 		}
 
-		final switch (options.color_mode) with (options.color)
+		final switch (options.colorMode) with (options.Color)
 		{
 			case automatic:
 				// Use default determined in internal.logging.initLogging().
@@ -466,9 +465,22 @@ int runDubCommandLine(string[] args)
 	}
 
 	if (cmd is null) {
+		logInfoNoTag("USAGE: dub [--version] [<command>] [<options...>] [-- [<application arguments...>]]");
+		logInfoNoTag("");
 		logError("Unknown command: %s", command_name_argument.value);
-		writeln();
-		showHelp(handler.commandGroups, common_args);
+		import std.algorithm.iteration : filter;
+		import std.uni : toUpper;
+		foreach (CommandGroup key; handler.commandGroups)
+		{
+			foreach (Command command; key.commands)
+			{
+				if (levenshteinDistance(command_name_argument.value, command.name) < 4) {
+					logInfo("Did you mean '%s'?", command.name);
+				}
+			}
+		}
+
+		logInfoNoTag("");
 		return 1;
 	}
 
@@ -523,10 +535,33 @@ struct CommonOptions {
 	bool help, annotate, bare;
 	string[] registry_urls;
 	string root_path;
-	enum color { automatic, on, off } // Lower case "color" in support of invalid option error formatting.
-	color color_mode = color.automatic;
+	enum Color { automatic, on, off }
+	Color colorMode = Color.automatic;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
 	PlacementLocation placementLocation = PlacementLocation.user;
+
+	deprecated("Use `Color` instead, the previous naming was a limitation of error message formatting")
+	alias color = Color;
+	deprecated("Use `colorMode` instead")
+	alias color_mode = colorMode;
+
+	private void parseColor(string option, string value) @safe
+	{
+		// `automatic`, `on`, `off` are there for backwards compatibility
+		// `auto`, `always`, `never` is being used for compatibility with most
+		// other development and linux tools, after evaluating what other tools
+		// are doing, to help users intuitively pick correct values.
+		// See https://github.com/dlang/dub/issues/2410 for discussion
+		if (!value.length || value == "auto" || value == "automatic")
+			colorMode = Color.automatic;
+		else if (value == "always" || value == "on")
+			colorMode = Color.on;
+		else if (value == "never" || value == "off")
+			colorMode = Color.off;
+		else
+			throw new ConvException("Unable to parse argument '--" ~ option ~ "=" ~ value
+				~ "', supported values: --color[=auto], --color=always, --color=never");
+	}
 
 	/// Parses all common options and stores the result in the struct instance.
 	void prepare(CommandArgs args)
@@ -552,12 +587,12 @@ struct CommonOptions {
 		args.getopt("q|quiet", &quiet, ["Only print warnings and errors"]);
 		args.getopt("verror", &verror, ["Only print errors"]);
 		args.getopt("vquiet", &vquiet, ["Print no messages"]);
-		args.getopt("color", &color_mode, [
+		args.getopt("color", &colorMode, &parseColor, [
 			"Configure colored output. Accepted values:",
-			"  automatic: Colored output on console/terminal,",
+			"       auto: Colored output on console/terminal,",
 			"             unless NO_COLOR is set and non-empty (default)",
-			"         on: Force colors enabled",
-			"        off: Force colors disabled"
+			"     always: Force colors enabled",
+			"      never: Force colors disabled"
 			]);
 		args.getopt("cache", &placementLocation, ["Puts any fetched packages in the specified location [local|system|user]."]);
 
@@ -574,8 +609,10 @@ struct CommonOptions {
 */
 class CommandArgs {
 	struct Arg {
-		Variant defaultValue;
-		Variant value;
+		alias Value = SumType!(string[], string, bool, int, uint);
+
+		Value defaultValue;
+		Value value;
 		string names;
 		string[] helpText;
 		bool hidden;
@@ -629,20 +666,37 @@ class CommandArgs {
 
 	void getopt(T)(string names, T* var, string[] help_text = null, bool hidden=false)
 	{
+		getopt!T(names, var, null, help_text, hidden);
+	}
+
+	void getopt(T)(string names, T* var, void delegate(string, string) @safe parseValue, string[] help_text = null, bool hidden=false)
+	{
+		import std.traits : OriginalType;
+
 		foreach (ref arg; m_recognizedArgs)
 			if (names == arg.names) {
 				assert(help_text is null, format!("Duplicated argument '%s' must not change helptext, consider to remove the duplication")(names));
-				*var = arg.value.get!T;
+				*var = arg.value.match!(
+					(OriginalType!T v) => cast(T)v,
+					(_) {
+						if (false)
+							return T.init;
+						assert(false, "value from previous getopt has different type than the current getopt call");
+					}
+				);
 				return;
 			}
 		assert(help_text.length > 0);
 		Arg arg;
-		arg.defaultValue = *var;
+		arg.defaultValue = cast(OriginalType!T)*var;
 		arg.names = names;
 		arg.helpText = help_text;
 		arg.hidden = hidden;
-		m_args.getopt(config.passThrough, names, var);
-		arg.value = *var;
+		if (parseValue is null)
+			m_args.getopt(config.passThrough, names, var);
+		else
+			m_args.getopt(config.passThrough, names, parseValue);
+		arg.value = cast(OriginalType!T)*var;
 		m_recognizedArgs ~= arg;
 	}
 
@@ -826,7 +880,7 @@ struct CommandGroup {
 	/// Caption of the command category
 	string caption;
 
-	/// List of commands contained inthis group
+	/// List of commands contained in this group
 	Command[] commands;
 
 	this(string caption, Command[] commands...) @safe pure nothrow
@@ -885,8 +939,8 @@ class InitCommand : Command {
 			"By default, the current working directory is used.",
 			"",
 			"Custom templates can be defined by packages by providing a sub-package called \"init-exec\". No default source files are added in this case.",
-			"The \"init-exec\" subpackage is compiled and executed inside the destination folder after the base project directory has been created.",
-			"Free arguments \"dub init -t custom -- free args\" are passed into the \"init-exec\" subpackage as app arguments."
+			"The \"init-exec\" sub-package is compiled and executed inside the destination folder after the base project directory has been created.",
+			"Free arguments \"dub init -t custom -- free args\" are passed into the \"init-exec\" sub-package as app arguments."
 		];
 		this.acceptsAppArgs = true;
 	}
@@ -1299,7 +1353,7 @@ class BuildCommand : GenerateCommand {
 			// the user provided a version manually
 			dep = VersionRange.fromString(packageParts.version_);
 		} else if (packageParts.name.startsWith(":")) {
-			// Subpackages are always assumed to be present
+			// Sub-packages are always assumed to be present
 			return 0;
 		} else if (dub.packageManager.getBestPackage(packageParts.name)) {
 			// found locally
@@ -2695,13 +2749,16 @@ private void writeOptions(CommandArgs args)
 		} else writeWS(longArgColumn);
 		size_t col = longArgColumn;
 		if (larg !is null) {
-			if (arg.defaultValue.peek!bool) {
-				writef("--%s", larg);
-				col += larg.length + 2;
-			} else {
-				writef("--%s=VALUE", larg);
-				col += larg.length + 8;
-			}
+			arg.defaultValue.match!(
+				(bool b) {
+					writef("--%s", larg);
+					col += larg.length + 2;
+				},
+				(_) {
+					writef("--%s=VALUE", larg);
+					col += larg.length + 8;
+				}
+			);
 		}
 		if (col < descColumn) {
 			writeWS(descColumn - col);

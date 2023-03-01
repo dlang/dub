@@ -13,7 +13,8 @@ import std.datetime;
 import std.range;
 import std.string;
 import std.typetuple;
-import std.variant;
+
+import dub.internal.dyaml.stdsumtype;
 
 import dub.internal.sdlang.symbol;
 import dub.internal.sdlang.util;
@@ -58,7 +59,7 @@ struct DateTimeFracUnknownZone
 }
 
 /++
-SDL's datatypes map to D's datatypes as described below.
+SDL's data-types map to D's datatypes as described below.
 Most are straightforward, but take special note of the date/time-related types.
 
 Boolean:                       bool
@@ -80,16 +81,16 @@ Date Time (with a known timezone):    SysTime
 Date Time (with an unknown timezone): DateTimeFracUnknownZone
 +/
 alias TypeTuple!(
+	typeof(null),
 	bool,
 	string, dchar,
 	int, long,
 	float, double, real,
 	Date, DateTimeFrac, SysTime, DateTimeFracUnknownZone, Duration,
 	ubyte[],
-	typeof(null),
 ) ValueTypes;
 
-alias Algebraic!( ValueTypes ) Value; ///ditto
+alias SumType!ValueTypes Value; /// ditto
 
 template isSDLSink(T)
 {
@@ -124,16 +125,7 @@ string toSDLString(T)(T value) if(
 
 void toSDLString(Sink)(Value value, ref Sink sink) if(isOutputRange!(Sink,char))
 {
-	foreach(T; ValueTypes)
-	{
-		if(value.type == typeid(T))
-		{
-			toSDLString( value.get!T(), sink );
-			return;
-		}
-	}
-
-	throw new Exception("Internal SDLang-D error: Unhandled type of Value. Contains: "~value.toString());
+	value.match!(v => toSDLString(v, sink));
 }
 
 void toSDLString(Sink)(typeof(null) value, ref Sink sink) if(isOutputRange!(Sink,char))
@@ -331,7 +323,7 @@ void toSDLString(Sink)(ubyte[] value, ref Sink sink) if(isOutputRange!(Sink,char
 	sink.put(']');
 }
 
-/// This only represents terminals. Nonterminals aren't
+/// This only represents terminals. Non-terminals aren't
 /// constructed since the AST is directly built during parsing.
 struct Token
 {
@@ -362,7 +354,6 @@ struct Token
 	{
 		if(
 			this.symbol     != b.symbol     ||
-			this.value.type != b.value.type ||
 			this.value      != b.value
 		)
 			return false;

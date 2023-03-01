@@ -429,7 +429,7 @@ struct Node
 
         /** Equality test.
          *
-         * If T is Node, recursively compares all subnodes.
+         * If T is Node, recursively compares all sub-nodes.
          * This might be quite expensive if testing entire documents.
          *
          * If T is not Node, gets a value of type T from the node and tests
@@ -486,7 +486,7 @@ struct Node
 
         /** Get the value of the node as specified type.
          *
-         * If the specifed type does not match type in the node,
+         * If the specified type does not match type in the node,
          * conversion is attempted. The stringConversion template
          * parameter can be used to disable conversion from non-string
          * types to strings.
@@ -494,8 +494,8 @@ struct Node
          * Numeric values are range checked, throwing if out of range of
          * requested type.
          *
-         * Timestamps are stored as std.datetime.SysTime.
-         * Binary values are decoded and stored as ubyte[].
+         * Timestamps are stored as `std.datetime.SysTime`.
+         * Binary values are decoded and stored as `ubyte[]`.
          *
          * To get a null value, use get!YAMLNull . This is to
          * prevent getting null values for types such as strings or classes.
@@ -1126,7 +1126,7 @@ struct Node
          *
          * If the node is a mapping and no key matches index, a new key-value
          * pair is added to the mapping. In sequences the index must be in
-         * range. This ensures behavior siilar to D arrays and associative
+         * range. This ensures behavior similar to D arrays and associative
          * arrays.
          *
          * To set element at a null index, use YAMLNull for index.
@@ -1899,7 +1899,7 @@ struct Node
             assert("a" in iNode);
         }
 
-        /** Remove first (if any) occurence of a value in a collection.
+        /** Remove first (if any) occurrence of a value in a collection.
          *
          * This method can only be called on collection nodes.
          *
@@ -1950,7 +1950,7 @@ struct Node
          * key matches index.
          *
          * If the node is a mapping and no key matches index, nothing is removed
-         * and no exception is thrown. This ensures behavior siilar to D arrays
+         * and no exception is thrown. This ensures behavior similar to D arrays
          * and associative arrays.
          *
          * Params:  index = Index to remove at.

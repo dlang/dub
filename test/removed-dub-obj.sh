@@ -12,9 +12,9 @@ ${DUB} build --compiler=${DC}
 [ -d "$DUB_CACHE_PATH/obj" ] && die $LINENO "$DUB_CACHE_PATH/obj was found"
 
 if [[ ${DC} == *"ldc"* ]]; then
-    if [ ! -f $DUB_CACHE_PATH/~master/build/library-*ldc*/obj/test.o* ]; then
+    if [ ! -f $DUB_CACHE_PATH/~master/build/library-*/obj/test.o* ]; then
         ls -lR $DUB_CACHE_PATH
-        die $LINENO '$DUB_CACHE_PATH/~master/build/library-*ldc*/obj/test.o* was not found'
+        die $LINENO '$DUB_CACHE_PATH/~master/build/library-*/obj/test.o* was not found'
     fi
 fi
 

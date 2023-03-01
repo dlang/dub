@@ -121,7 +121,7 @@ public Name StartsWith(string name) @safe pure nothrow @nogc
 
 /*******************************************************************************
 
-    A field which carries informations about whether it was set or not
+    A field which carries information about whether it was set or not
 
     Some configurations may need to know which fields were set explicitly while
     keeping defaults. An example of this is a `struct` where at least one field

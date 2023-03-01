@@ -104,7 +104,7 @@ struct Dependency {
 		this.m_value = rng;
 	}
 
-	deprecated("Instantiate the `Repository` struct with the string directy")
+	deprecated("Instantiate the `Repository` struct with the string directly")
 	this(Repository repository, string spec) @safe
 	{
 		assert(repository.m_ref is null);
@@ -875,7 +875,7 @@ struct Version {
  *  $(LI `"^1.0.0"` - semver compatible version range (same version if 0.x.y, ==major >=minor.patch if x.y.z))
  *  $(LI `"^1.0"` - same as ^1.0.0)
  *  $(LI `"~master"` - a branch name)
- *  $(LI `"*" - match any version (see also `VersionRange.Any`))
+ *  $(LI `"*"` - match any version (see also `VersionRange.Any`))
  * )
  *
  * Apart from "$(LT)" and "$(GT)", "$(GT)=" and "$(LT)=" are also valid

@@ -59,7 +59,7 @@ auto lockFile(string path, Duration timeout)
 	{
 		// The Lock can't be unlinked as someone could try to lock an already
 		// opened fd while a new file with the same name gets created.
-		// Exclusive filesystem locks (O_EXCL, mkdir) could be deleted but
+		// Exclusive file system locks (O_EXCL, mkdir) could be deleted but
 		// aren't automatically freed when a process terminates, see #1149.
 		private File f;
 	}
@@ -381,11 +381,11 @@ string getDUBVersion()
 	Throws:
 		an Exception if no valid DUB executable is found
 */
-public string getDUBExePath(in string compilerBinary=null)
+public NativePath getDUBExePath(in string compilerBinary=null)
 {
 	version(DubApplication) {
 		import std.file : thisExePath;
-		return thisExePath();
+		return NativePath(thisExePath());
 	}
 	else {
 		// this must be dub as a library
@@ -418,7 +418,7 @@ public string getDUBExePath(in string compilerBinary=null)
 		.filter!exists;
 
 		enforce(!dubLocs.empty, "Could not find DUB executable");
-		return dubLocs.front.array;
+		return NativePath(dubLocs.front.array);
 	}
 }
 

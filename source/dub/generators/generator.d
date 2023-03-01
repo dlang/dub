@@ -772,8 +772,8 @@ class ProjectGenerator
  *
  * Artifacts are usually stored in:
  * `$DUB_HOME/cache/$PKG_NAME/$PKG_VERSION[/+$SUB_PKG_NAME]/`
- * Note that the leading `+` in the subpackage name is to avoid any ambiguity.
- * Build artifacts are usually stored in a subfolder named "build",
+ * Note that the leading `+` in the sub-package name is to avoid any ambiguity.
+ * Build artifacts are usually stored in a sub-folder named "build",
  * as their names are based on user-supplied values.
  *
  * Params:
@@ -812,7 +812,7 @@ struct GeneratorSettings {
 	bool filterVersions;
 
 	// only used for generator "build"
-	bool run, force, direct, rdmd, tempBuild, parallelBuild;
+	bool run, force, rdmd, tempBuild, parallelBuild;
 
 	/// single file dub package
 	bool single;
@@ -1013,7 +1013,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 
 /** Runs a list of build commands for a particular package.
 
-	This function sets all DUB speficic environment variables and makes sure
+	This function sets all DUB specific environment variables and makes sure
 	that recursive dub invocations are detected and don't result in infinite
 	command execution loops. The latter could otherwise happen when a command
 	runs "dub describe" or similar functionality.
@@ -1053,7 +1053,7 @@ const(string[string])[] makeCommandEnvironmentVariables(CommandType type,
 	env["DC_BASE"]               = settings.platform.compiler;
 	env["D_FRONTEND_VER"]        = to!string(settings.platform.frontendVersion);
 
-	env["DUB_EXE"]               = getDUBExePath(settings.platform.compilerBinary);
+	env["DUB_EXE"]               = getDUBExePath(settings.platform.compilerBinary).toNativeString();
 	env["DUB_PLATFORM"]          = join(settings.platform.platform, " ");
 	env["DUB_ARCH"]              = join(settings.platform.architecture, " ");
 
@@ -1076,7 +1076,6 @@ const(string[string])[] makeCommandEnvironmentVariables(CommandType type,
 	env["DUB_COMBINED"]          = settings.combined?      "TRUE" : "";
 	env["DUB_RUN"]               = settings.run?           "TRUE" : "";
 	env["DUB_FORCE"]             = settings.force?         "TRUE" : "";
-	env["DUB_DIRECT"]            = settings.direct?        "TRUE" : "";
 	env["DUB_RDMD"]              = settings.rdmd?          "TRUE" : "";
 	env["DUB_TEMP_BUILD"]        = settings.tempBuild?     "TRUE" : "";
 	env["DUB_PARALLEL_BUILD"]    = settings.parallelBuild? "TRUE" : "";

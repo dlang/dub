@@ -127,7 +127,7 @@ unittest
 
 
 /**
-	Determins if a member is a public, non-static data field.
+	Determines if a member is a public, non-static data field.
 */
 template isRWPlainField(T, string M)
 {

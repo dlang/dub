@@ -88,7 +88,7 @@ struct BuildSettings {
 	 * Merges $(LREF bs) onto `this` BuildSettings instance. This is called for
 	 * sourceLibrary dependencies when they are included in the build to be
 	 * merged into the root package build settings as well as configuring
-	 * targets for different build types such as release or unittest-cov.
+	 * targets for different build types such as `release` or `unittest-cov`.
 	 */
 	void add(in BuildSettings bs)
 	{
@@ -188,14 +188,14 @@ private:
 			: vals;
 	}
 
-	// Append vals to arr without adding duplicates.
+	// Append `vals` to `arr` without adding duplicates.
 	static void add(ref string[] arr, in string[] vals, bool noDuplicates = true)
 	{
 		// vals might contain duplicates, add each val individually
 		foreach (val; vals)
 			arr ~= filterDuplicates(arr, [val], noDuplicates);
 	}
-	// Append vals to AA
+	// Append `vals` to `aa`
 	static void add(ref string[string] aa, in string[string] vals)
 	{
 		// vals might contain duplicated keys, add each val individually
@@ -203,7 +203,7 @@ private:
 			if (key !in aa)
 				aa[key] = val;
 	}
-	// Update vals to AA
+	// Update `vals` to `aa`
 	static void update(ref string[string] aa, in string[string] vals)
 	{
 		// If there are duplicate keys, they will be ignored and overwritten.
@@ -222,7 +222,7 @@ private:
 		assert(ary == ["-dip1000", "-vgc", "-dip1001", "-vgc", "-dupflag", "-notdupflag"]);
 	}
 
-	// Prepend arr by vals without adding duplicates.
+	// Prepend `arr` by `vals` without adding duplicates.
 	static void prepend(ref string[] arr, in string[] vals, bool noDuplicates = true)
 	{
 		import std.range : retro;
@@ -389,7 +389,7 @@ enum BuildOption {
 	profileGC = 1<<21,            /// Profile runtime allocations
 	pic = 1<<22,                  /// Generate position independent code
 	betterC = 1<<23,              /// Compile in betterC mode (-betterC)
-	lowmem = 1<<24,               /// Compile in lowmem mode (-lowmem)
+	lowmem = 1<<24,               /// Compile in low-memory mode (-lowmem)
 	coverageCTFE = 1<<25,         /// Enable code coverage analysis including at compile-time (-cov=ctfe)
 	color = 1<<26,                /// Colorize output (-color)
 

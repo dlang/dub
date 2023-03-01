@@ -30,7 +30,7 @@ package:
 struct Serializer
 {
     private:
-        ///Resolver used to determine which tags are automaticaly resolvable.
+        ///Resolver used to determine which tags are automatically resolvable.
         Resolver resolver_;
 
         ///Do all document starts have to be specified explicitly?
@@ -56,7 +56,7 @@ struct Serializer
          * Construct a Serializer.
          *
          * Params:
-         *          resolver      = Resolver used to determine which tags are automaticaly resolvable.
+         *          resolver      = Resolver used to determine which tags are automatically resolvable.
          *          explicitStart = Do all document starts have to be specified explicitly?
          *          explicitEnd   = Do all document ends have to be specified explicitly?
          *          YAMLVersion   = YAML version string.
@@ -108,9 +108,9 @@ struct Serializer
          * Used to prevent associating every single repeating scalar with an
          * anchor/alias - only nodes long enough can use anchors.
          *
-         * Params:  node = Node to check for anchorability.
+         * Params:  node = Node to check for anchor-ability.
          *
-         * Returns: True if the node is anchorable, false otherwise.
+         * Returns: True if the node is anchor-able, false otherwise.
          */
         static bool anchorable(ref Node node) @safe
         {
@@ -142,7 +142,7 @@ struct Serializer
             assert(anchorable(node6));
         }
 
-        ///Add an anchor to the node if it's anchorable and not anchored yet.
+        ///Add an anchor to the node if it's anchor-able and not anchored yet.
         void anchorNode(ref Node node) @safe
         {
             if(!anchorable(node)){return;}
@@ -187,7 +187,7 @@ struct Serializer
             return appender.data;
         }
 
-        ///Serialize a node and all its subnodes.
+        ///Serialize a node and all its sub-nodes.
         void serializeNode(EmitterT)(ref EmitterT emitter, ref Node node) @safe
         {
             //If the node has an anchor, emit an anchor (as aliasEvent) on the

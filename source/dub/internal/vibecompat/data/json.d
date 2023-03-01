@@ -1731,6 +1731,7 @@ struct JsonStringSerializer(R, bool pretty = false)
 	Params:
 		dst   = References the string output range to which the result is written.
 		json  = Specifies the JSON value that is to be stringified.
+		level = The nesting level at which to write the JSON object (for pretty output).
 
 	See_Also: Json.toString, writePrettyJsonString
 */

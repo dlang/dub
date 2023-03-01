@@ -128,7 +128,7 @@ config    /etc/dmd.conf
 			arch_override
 		);
 
-		/// Replace archticture string in `bp.archtiecture`
+		/// Replace architecture string in `bp.architecture`
 		void replaceArch(const string from, const string to)
 		{
 			const idx = bp.architecture.countUntil(from);

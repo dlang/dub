@@ -58,6 +58,10 @@ Daniel Jost maintains a dub package on [chocolatey](https://chocolatey.org/packa
 Mathias (@Geod24) Lang maintains the Alpine Linux packages.
 It is currently part of 'edge' and can be installed through `apk --no-cache add -X http://dl-cdn.alpinelinux.org/alpine/edge/testing dub`.
 
+## OpenBSD
+
+Brian Callahan (bcallah@) maintains the OpenBSD package. Use `pkg_add dub` to install it.
+
 ## Using DUB as a library
 
 The [DUB package of DUB](http://code.dlang.org/packages/dub) can be used as a library to load or manipulate packages, or to resemble any functionality of the command line tool. The former task can be achieved by using the [Package class](https://github.com/dlang/dub/blob/master/source/dub/package_.d#L40). For examples on how to replicate the command line functionality, see [commandline.d](https://github.com/dlang/dub/blob/master/source/dub/commandline.d).
