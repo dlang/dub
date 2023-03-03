@@ -1,10 +1,16 @@
 #!/usr/bin/env dub
 /+dub.sdl:
-dependency "vibe-d" version="~>0.9"
+dependency "vibe-d:http" version="~>0.9"
 versions "VibeNoSSL"
 +/
 
-import vibe.d;
+import std.array;
+import vibe.core.args;
+import vibe.core.core;
+import vibe.core.path;
+import vibe.http.fileserver;
+import vibe.http.router;
+import vibe.http.server;
 
 /*
 Provide a special API File Handler as Vibe.d's builtin serveStaticFiles
