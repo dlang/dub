@@ -1,0 +1,69 @@
+name: PR Info
+
+# This workflow builds the whole project once and:
+# - comments build deprecations/warnings (highlighting new ones since last tested PR)
+
+on:
+  pull_request:
+    branches:
+      - master
+      - stable
+
+jobs:
+  pr_info:
+    name: PR Info
+    runs-on: ubuntu-20.04
+    steps:
+    - name: 'Prepare sticky comment'
+      # commit of v2.5.0
+      # same one used again at the bottom of the file to update the comment.
+      uses: marocchino/sticky-pull-request-comment@3d60a5b2dae89d44e0c6ddc69dd7536aec2071cd
+      with:
+        message: |
+          Thanks for your Pull Request and making D better!
+
+          This comment will automatically be updated to summarize some statistics in a few minutes.
+        only_create: true
+
+    - name: '[Linux] Install dependencies'
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev netcat
+
+    # Compiler to test with
+    - name: Prepare compiler
+      uses: dlang-community/setup-dlang@v1
+      with:
+        compiler: ldc-latest
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Checkout old stuff, with new comment script
+      run: |
+        git checkout ${{ github.base_ref }}
+        git checkout ${{ github.sha }} -- ./scripts/ci/summary_comment.sh ./scripts/ci/summary_comment_diff.sh
+
+    # first dump old info
+
+    - name: Check pre-PR status
+      run: ./scripts/ci/summary_comment.sh | tee ../OLD_OUTPUT.txt
+
+    - name: Checkout PR target
+      run: |
+        git checkout ${{ github.sha }}
+        git clean -fd
+        git reset --hard
+
+    - name: Evaluate PR
+      run: ./scripts/ci/summary_comment.sh | tee ../NEW_OUTPUT.txt
+
+    - name: Generate comment
+      run: ./scripts/ci/summary_comment_diff.sh ../OLD_OUTPUT.txt ../NEW_OUTPUT.txt | tee comment.txt
+
+    - name: Update GitHub comment
+      uses: marocchino/sticky-pull-request-comment@3d60a5b2dae89d44e0c6ddc69dd7536aec2071cd
+      with:
+        path: comment.txt
