@@ -97,7 +97,32 @@ class BuildGenerator : ProjectGenerator {
 		const copyDynamicLibDepsLinkerFiles = rootTT == TargetType.dynamicLibrary || rootTT == TargetType.none;
 		const copyDynamicLibDepsRuntimeFiles = copyDynamicLibDepsLinkerFiles || rootTT == TargetType.executable;
 
-		bool[string] visited;
+		// Check to see if given a compiler and platform target
+		//  are Windows and linking using a MSVC link compatible linker.
+		const isWindowsCOFF = settings.compiler.isWindowsCOFF(settings.platform);
+
+		bool[string] visited, visitedStaticInDll;
+
+		void visitStaticLibsInDll(ref BuildSettings bs, string target) {
+			if (target in visitedStaticInDll) return;
+			visitedStaticInDll[target] = true;
+
+			auto ti = targets[target];
+			if (ti.buildSettings.targetType != TargetType.staticLibrary)
+				return;
+
+			const ldepPath = target_paths[target].toNativeString();
+
+			// Add the MSVC link /WHOLEARCHIVE flag with static library path passed in
+			//  the purpose of this is to allow all exports from a static library to contribute
+			//  towards the dll's exports.
+			bs.addLFlags("/WHOLEARCHIVE:" ~ ldepPath);
+
+			foreach (ldep; ti.linkDependencies) {
+				visitStaticLibsInDll(bs, ldep);
+			}
+		}
+
 		void buildTargetRec(string target)
 		{
 			if (target in visited) return;
@@ -111,6 +136,17 @@ class BuildGenerator : ProjectGenerator {
 			NativePath[] additional_dep_files;
 			auto bs = ti.buildSettings.dup;
 			const tt = bs.targetType;
+
+			// Windows only behavior for DLL's with static library dependencies
+			if (tt == TargetType.dynamicLibrary && isWindowsCOFF) {
+				// discover all static libraries that are going into our DLL
+				visitedStaticInDll = null;
+
+				foreach (ldep; ti.linkDependencies) {
+					visitStaticLibsInDll(bs, ldep);
+				}
+			}
+
 			foreach (ldep; ti.linkDependencies) {
 				const ldepPath = target_paths[ldep].toNativeString();
 				const doLink = tt != TargetType.staticLibrary && !(bs.options & BuildOption.syntaxOnly);
