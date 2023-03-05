@@ -434,4 +434,10 @@ config    /etc/dmd.conf
 				    || arg.startsWith("-defaultlib=");
 		}
 	}
+
+	bool isWindowsCOFF(in BuildPlatform platform)
+	{
+		// x86_omf and x86_mscoff shouldn't be something you have to worry about here, but just in case something leaks
+		return platform.isWindows && platform.architecture.canFind("x86", "x86_64", "x86_mscoff") && !platform.architecture.canFind("x86_omf");
+	}
 }
