@@ -355,17 +355,19 @@ enum TargetType {
 }
 
 enum BuildRequirement {
-	none = 0,                     /// No special requirements
-	allowWarnings        = 1<<0,  /// Warnings do not abort compilation
-	silenceWarnings      = 1<<1,  /// Don't show warnings
-	disallowDeprecations = 1<<2,  /// Using deprecated features aborts compilation
-	silenceDeprecations  = 1<<3,  /// Don't show deprecation warnings
-	disallowInlining     = 1<<4,  /// Avoid function inlining, even in release builds
-	disallowOptimization = 1<<5,  /// Avoid optimizations, even in release builds
-	requireBoundsCheck   = 1<<6,  /// Always perform bounds checks
-	requireContracts     = 1<<7,  /// Leave assertions and contracts enabled in release builds
-	relaxProperties      = 1<<8,  /// DEPRECATED: Do not enforce strict property handling (-property)
-	noDefaultFlags       = 1<<9,  /// Do not issue any of the default build flags (e.g. -debug, -w, -property etc.) - use only for development purposes
+	none = 0,                               /// No special requirements
+	allowWarnings                = 1<<0,    /// Warnings do not abort compilation
+	silenceWarnings              = 1<<1,    /// Don't show warnings
+	disallowDeprecations         = 1<<2,    /// Using deprecated features aborts compilation
+	silenceDeprecations          = 1<<3,    /// Don't show deprecation warnings
+	disallowInlining             = 1<<4,    /// Avoid function inlining, even in release builds
+	disallowOptimization         = 1<<5,    /// Avoid optimizations, even in release builds
+	requireBoundsCheck           = 1<<6,    /// Always perform bounds checks
+	requireContracts             = 1<<7,    /// Leave assertions and contracts enabled in release builds
+	relaxProperties              = 1<<8,    /// DEPRECATED: Do not enforce strict property handling (-property)
+	noDefaultFlags               = 1<<9,    /// Do not issue any of the default build flags (e.g. -debug, -w, -property etc.) - use only for development purposes
+	allowDLLObjectFileEliding    = 1 << 10, /// Do not force all object files in static libraries to form a DLL
+	allowDLLObjectFileElidingAll = 1 << 11, /// Do not force all object files in static libraries to form a DLL for entire dependency tree
 }
 
 enum BuildOption {

@@ -100,10 +100,42 @@ class BuildGenerator : ProjectGenerator {
 		// Check to see if given a compiler and platform target
 		//  are Windows and linking using a MSVC link compatible linker.
 		const isWindowsCOFF = settings.compiler.isWindowsCOFF(settings.platform);
+		bool anyAllowDLLEliding = isWindowsCOFF;
+
+		// Prevent forcing of DLL eliding if allowDLLObjectFileElidingAll is provided by any target in our dependency tree
+		if (isWindowsCOFF) {
+			foreach(dep, ref ti; targets) {
+				if (ti.buildSettings.requirements.allowDLLObjectFileElidingAll) {
+					anyAllowDLLEliding = false;
+					break;
+				}
+			}
+		}
 
 		bool[string] visited, visitedStaticInDll;
 
-		void visitStaticLibsInDll(ref BuildSettings bs, string target) {
+		// Windows only behavior
+		// check a given target and its dependencies to see if we want to allow eliding of object files
+		bool doesAllowElideStaticLibsInDll(string target) {
+			if (target in visitedStaticInDll) return false;
+			visitedStaticInDll[target] = true;
+
+			auto ti = targets[target];
+			if (ti.buildSettings.targetType != TargetType.staticLibrary)
+				return false;
+			else if (ti.buildSettings.requirements.allowDLLObjectFileEliding)
+				return true;
+
+			foreach (ldep; ti.linkDependencies) {
+				if (doesAllowElideStaticLibsInDll(ldep))
+					return true;
+			}
+
+			return false;
+		}
+
+		// Windows only behavior
+		void elideStaticLibsInDll(ref BuildSettings bs, string target) {
 			if (target in visitedStaticInDll) return;
 			visitedStaticInDll[target] = true;
 
@@ -119,7 +151,7 @@ class BuildGenerator : ProjectGenerator {
 			bs.addLFlags("/WHOLEARCHIVE:" ~ ldepPath);
 
 			foreach (ldep; ti.linkDependencies) {
-				visitStaticLibsInDll(bs, ldep);
+				elideStaticLibsInDll(bs, ldep);
 			}
 		}
 
@@ -138,12 +170,23 @@ class BuildGenerator : ProjectGenerator {
 			const tt = bs.targetType;
 
 			// Windows only behavior for DLL's with static library dependencies
-			if (tt == TargetType.dynamicLibrary && isWindowsCOFF) {
+			if (tt == TargetType.dynamicLibrary && anyAllowDLLEliding && !bs.requirements.allowDLLObjectFileEliding) {
 				// discover all static libraries that are going into our DLL
-				visitedStaticInDll = null;
+				bool allowEliding;
 
-				foreach (ldep; ti.linkDependencies) {
-					visitStaticLibsInDll(bs, ldep);
+				// allow eliding in this DLL if it or any static library dependencies are marked as requiring it.
+				visitedStaticInDll = null;
+				foreach(ldep; ti.linkDependencies) {
+					allowEliding = doesAllowElideStaticLibsInDll(ldep);
+					if (allowEliding)
+						break;
+				}
+
+				if (!allowEliding) {
+					visitedStaticInDll = null;
+					foreach (ldep; ti.linkDependencies) {
+						elideStaticLibsInDll(bs, ldep);
+					}
 				}
 			}
 

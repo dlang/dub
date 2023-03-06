@@ -6,3 +6,10 @@ This pulls them in automatically for linkers compatible with Microsoft's linker 
 It does not affect executables, although DLL's being built as dependencies by DUB will include it.
 
 If you have previously used a linker script (.def) or ``/WHOLEARCHIVE`` you may be able to remove them from your builds.
+
+Warning: This may have the unfortunate side affect of preventing previously working builds of DLLs to no longer link.
+If this occurs use the build requirement flags of ``allowDLLObjectFileEliding`` or ``allowDLLObjectFileElidingAll`` via the ``buildRequirements`` directive.
+The difference between the two is that the latter can be applied anywhere in the dependency tree and the former must be placed on the DLL package recipe or any of its static library dependencies.
+
+Warning: DLL's may grow in size compared to previous versions of dub due to all the object files being included by default.
+If it was working for you previously, you may allow eliding.
