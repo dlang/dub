@@ -322,10 +322,4 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				    || arg.startsWith("-mtriple=");
 		}
 	}
-
-	bool isWindowsCOFF(in BuildPlatform platform)
-	{
-		// What will happen on ARM Windows? Who knows. Once LDC ships for ARM, lets find out!
-		return platform.isWindows();
-	}
 }
