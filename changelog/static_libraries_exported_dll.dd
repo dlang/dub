@@ -1,8 +1,0 @@
-Static libraries now contribute towards DLL exports on Windows
-
-Previously if you did not explicitly pull in an object file within a static library, it was elided by the linker automatically.
-This pulls them in automatically for linkers compatible with Microsoft's linker via the ``/WHOLEARCHIVE:file`` flag. Supports LLD.
-
-It does not affect executables, although DLL's being built as dependencies by DUB will include it.
-
-If you have previously used a linker script (.def) or ``/WHOLEARCHIVE`` you may be able to remove them from your builds.

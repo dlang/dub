@@ -217,9 +217,6 @@ interface Compiler {
 
 		return build_platform;
 	}
-
-	/// Given a platform specification, determine if a compiler is on Windows and PE-COFF with MSVC link compatible linker.
-	bool isWindowsCOFF(in BuildPlatform platform);
 }
 
 private {

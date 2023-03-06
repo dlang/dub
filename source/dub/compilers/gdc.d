@@ -259,11 +259,6 @@ class GDCCompiler : Compiler {
 
 		return  dflags;
 	}
-
-	bool isWindowsCOFF(in BuildPlatform platform)
-	{
-		return false;
-	}
 }
 
 private string extractTarget(const string[] args) { auto i = args.countUntil("-o"); return i >= 0 ? args[i+1] : null; }
