@@ -6,7 +6,7 @@ rm -rf "$DPATH"
 cd "${CURR_DIR}/dpath-variable"
 "${DUB}" upgrade
 
-if [[ ! -f "$DPATH/dub/packages/gitcompatibledubpackage-1.0.1/gitcompatibledubpackage/dub.json" ]]; then
+if [[ ! -f "$DPATH/dub/packages/gitcompatibledubpackage/1.0.1/gitcompatibledubpackage/dub.json" ]]; then
 	die $LINENO 'Did not get dependencies installed into $DPATH.'
 fi
 
@@ -24,6 +24,6 @@ trap cleanup EXIT
 
 "${DUB}" upgrade
 
-if [[ ! -f "$DPATH_ALIAS/dub2/packages/gitcompatibledubpackage-1.0.1/gitcompatibledubpackage/dub.json" ]]; then
+if [[ ! -f "$DPATH_ALIAS/dub2/packages/gitcompatibledubpackage/1.0.1/gitcompatibledubpackage/dub.json" ]]; then
 	die $LINENO 'Did not get dependencies installed into dubHome (set from config).'
 fi

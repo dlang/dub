@@ -1298,29 +1298,8 @@ private struct Location {
 		if (!path.existsDirectory())
 			return;
 
-		logDebug("iterating dir %s", path.toNativeString());
-		try foreach (pdir; iterateDirectory(path)) {
-			logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
-			if (!pdir.isDirectory) continue;
-
-			// Old / flat directory structure, used in non-standard path
-			// Packages are stored in $ROOT/$SOMETHING/`
-			auto pack_path = path ~ (pdir.name ~ "/");
-			auto packageFile = Package.findPackageFile(pack_path);
-
-			// New (since 2015) managed structure:
-			// $ROOT/$NAME-$VERSION/$NAME
-			// This is the most common code path
-			if (mgr.isManagedPath(path) && packageFile.empty) {
-				foreach (subdir; iterateDirectory(path ~ (pdir.name ~ "/")))
-					if (subdir.isDirectory && pdir.name.startsWith(subdir.name)) {
-						pack_path ~= subdir.name ~ "/";
-						packageFile = Package.findPackageFile(pack_path);
-						break;
-					}
-			}
-
-			if (packageFile.empty) continue;
+		void loadInternal (NativePath pack_path, NativePath packageFile)
+		{
 			Package p;
 			try {
 				foreach (pp; existing_packages)
@@ -1336,6 +1315,38 @@ private struct Location {
 			} catch (Exception e) {
 				logError("Failed to load package in %s: %s", pack_path, e.msg);
 				logDiagnostic("Full error: %s", e.toString().sanitize());
+			}
+		}
+
+		logDebug("iterating dir %s", path.toNativeString());
+		try foreach (pdir; iterateDirectory(path)) {
+			logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
+			if (!pdir.isDirectory) continue;
+
+			// Old / flat directory structure, used in non-standard path
+			// Packages are stored in $ROOT/$SOMETHING/`
+			const pack_path = path ~ (pdir.name ~ "/");
+			auto packageFile = Package.findPackageFile(pack_path);
+			if (!packageFile.empty) {
+				// Deprecated unmanaged directory structure
+				logWarn("Package at path '%s' should be under '%s'",
+						pack_path.toNativeString().color(Mode.bold),
+						(pack_path ~ "$VERSION" ~ pdir.name).toNativeString().color(Mode.bold));
+				logWarn("The package will no longer be detected starting from v1.42.0");
+				loadInternal(pack_path, packageFile);
+			}
+
+			// Managed structure: $ROOT/$NAME/$VERSION/$NAME
+			// This is the most common code path
+			else if (mgr.isManagedPath(path)) {
+				// Iterate over versions of a package
+				foreach (versdir; iterateDirectory(pack_path)) {
+					if (!versdir.isDirectory) continue;
+					auto vers_path = pack_path ~ versdir.name ~ (pdir.name ~ "/");
+					if (!vers_path.existsDirectory()) continue;
+					packageFile = Package.findPackageFile(vers_path);
+					loadInternal(vers_path, packageFile);
+				}
 			}
 		}
 		catch (Exception e)
@@ -1417,9 +1428,7 @@ private struct Location {
 	 */
 	private NativePath getPackagePath (string name, string vers)
 	{
-		// + has special meaning for Optlink
-		string clean_vers = vers.chompPrefix("~").replace("+", "_");
-		NativePath result = this.packagePath ~ (name ~ "-" ~ clean_vers);
+		NativePath result = this.packagePath ~ name ~ vers;
 		result.endsWithSlash = true;
 		return result;
 	}
