@@ -2511,18 +2511,26 @@ struct Node
         const scope @safe
     {
         this.value_.match!(
-            (const bool v)        => formattedWrite(sink, v ? "true" : "false"),
-            (const long v)        => formattedWrite(sink, "%s", v),
-            (const Node[] v)      => formattedWrite(sink, "[%(%s, %)]", v),
-            (const ubyte[] v)     => formattedWrite(sink, "%s", v),
-            (const string v)      => formattedWrite(sink, `"%s"`, v),
-            (const Node.Pair[] v) => formattedWrite(sink, "{%(%s, %)}", v),
-            (const SysTime v)     => formattedWrite(sink, "%s", v),
-            (const YAMLNull v)    => formattedWrite(sink, "%s", v),
-            (const YAMLMerge v)   => formattedWrite(sink, "%s", v),
-            (const real v)        => formattedWrite(sink, "%s", v),
-            (const YAMLInvalid v) => formattedWrite(sink, "%s", v),
+            (scope const bool v)        => formattedWrite(sink, v ? "true" : "false"),
+            (scope const long v)        => formattedWrite(sink, "%s", v),
+            (scope const Node[] v)      => formattedWrite(sink, "[%(%s, %)]", v),
+            (scope const ubyte[] v)     => formattedWrite(sink, "%s", v),
+            (scope const string v)      => formattedWrite(sink, `"%s"`, v),
+            (scope const Node.Pair[] v) => formattedWrite(sink, "{%(%s, %)}", v),
+            (scope const SysTime v)     => formattedWrite(sink, "%s", v),
+            (scope const YAMLNull v)    => formattedWrite(sink, "%s", v),
+            (scope const YAMLMerge v)   => formattedWrite(sink, "%s", v),
+            (scope const real v)        => formattedWrite(sink, "%s", v),
+            (scope const YAMLInvalid v) => formattedWrite(sink, "%s", v),
         );
+    }
+
+    /// ditto
+    public string toString() const scope @safe
+    {
+        auto ret = appender!string;
+        toString(ret);
+        return ret.data;
     }
 }
 
