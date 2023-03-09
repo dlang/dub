@@ -4,10 +4,16 @@ name: PR Info
 # - comments build deprecations/warnings (highlighting new ones since last tested PR)
 
 on:
-  pull_request:
+  # NOTE: high sensitivity, as GITHUB_TOKEN is in the context of the dub repository here and may do harm
+  # use just `pull_request` if you copy paste this elsewhere
+  pull_request_target:
+    types: [opened, synchronize, reopened]
     branches:
       - master
       - stable
+  push:
+    branches:
+      - test-pr_info
 
 jobs:
   pr_info:
@@ -44,7 +50,7 @@ jobs:
     - name: Checkout old stuff, with new comment script
       run: |
         git checkout ${{ github.base_ref }}
-        git checkout ${{ github.sha }} -- ./scripts/ci/summary_comment.sh ./scripts/ci/summary_comment_diff.sh
+        git checkout ${{ github.base_ref }} -- ./scripts/ci/summary_comment.sh ./scripts/ci/summary_comment_diff.sh
 
     # first dump old info
 
@@ -53,9 +59,10 @@ jobs:
 
     - name: Checkout PR target
       run: |
-        git checkout ${{ github.sha }}
+        git checkout ${{ github.head_ref }}
         git clean -fd
         git reset --hard
+        git checkout ${{ github.base_ref }} -- ./scripts/ci/summary_comment.sh ./scripts/ci/summary_comment_diff.sh
 
     - name: Evaluate PR
       run: ./scripts/ci/summary_comment.sh | tee ../NEW_OUTPUT.txt
