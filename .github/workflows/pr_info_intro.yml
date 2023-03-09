@@ -1,0 +1,25 @@
+name: PR Info (pre-comment)
+
+on:
+  # NOTE: high probability for security vulnerabilities if doing ANYTHING in
+  # this file other than commenting something!
+  pull_request_target:
+    branches:
+      - master
+      - stable
+
+jobs:
+  intro_comment:
+    name: Make intro comment
+    runs-on: ubuntu-20.04
+    steps:
+    - name: 'Prepare sticky comment'
+      # commit of v2.5.0
+      # same one used again at the bottom of the file to update the comment.
+      uses: marocchino/sticky-pull-request-comment@3d60a5b2dae89d44e0c6ddc69dd7536aec2071cd
+      with:
+        message: |
+          Thanks for your Pull Request and making D better!
+
+          This comment will automatically be updated to summarize some statistics in a few minutes.
+        only_create: true
