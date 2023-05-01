@@ -623,6 +623,7 @@ class Package {
 		ret.versions = bs.versions;
 		ret.debugVersions = bs.debugVersions;
 		ret.importPaths = bs.importPaths;
+		ret.cImportPaths = bs.cImportPaths;
 		ret.stringImportPaths = bs.stringImportPaths;
 		ret.preGenerateCommands = bs.preGenerateCommands;
 		ret.postGenerateCommands = bs.postGenerateCommands;

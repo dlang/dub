@@ -1,0 +1,68 @@
+name: PR Info
+
+# This workflow builds the whole project once and:
+# - comments build deprecations/warnings (highlighting new ones since last tested PR)
+
+on:
+  pull_request:
+    branches:
+      - master
+      - stable
+
+jobs:
+  pr_info:
+    name: PR Info
+    runs-on: ubuntu-20.04
+    steps:
+    # we first create a comment thanking the user in pr_info_intro.yml
+    # (separate step due to needing GITHUB_TOKEN access)
+
+    - name: '[Linux] Install dependencies'
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev netcat
+
+    # Compiler to test with
+    - name: Prepare compiler
+      uses: dlang-community/setup-dlang@v1
+      with:
+        compiler: ldc-latest
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Checkout old stuff, with new comment script
+      run: |
+        git checkout ${{ github.base_ref }}
+        git checkout ${{ github.sha }} -- ./scripts/ci/summary_comment.sh ./scripts/ci/summary_comment_diff.sh
+
+    # first dump old info
+
+    - name: Check pre-PR status
+      run: ./scripts/ci/summary_comment.sh | tee ../OLD_OUTPUT.txt
+
+    - name: Checkout PR target
+      run: |
+        git checkout ${{ github.sha }}
+        git clean -fd
+        git reset --hard
+
+    - name: Evaluate PR
+      run: ./scripts/ci/summary_comment.sh | tee ../NEW_OUTPUT.txt
+
+    - name: Generate comment
+      run: ./scripts/ci/summary_comment_diff.sh ../OLD_OUTPUT.txt ../NEW_OUTPUT.txt | tee comment.txt
+
+    - name: Prepare comment for upload
+      run: |
+        mkdir -p ./pr
+        mv comment.txt pr
+        echo ${{ github.event.number }} > ./pr/NR
+
+    - name: upload comment to high-trust action making the comment
+      uses: actions/upload-artifact@v2
+      with:
+        name: pr
+        path: pr/

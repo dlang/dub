@@ -214,6 +214,7 @@ class BuildGenerator : ProjectGenerator {
 		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
 		foreach (ref f; buildsettings.sourceFiles) f = makeRelative(f);
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
+		foreach (ref p; buildsettings.cImportPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
 
 		// perform the actual build
@@ -378,6 +379,7 @@ class BuildGenerator : ProjectGenerator {
 		}
 		buildsettings.targetPath = makeRelative(buildsettings.targetPath);
 		foreach (ref p; buildsettings.importPaths) p = makeRelative(p);
+		foreach (ref p; buildsettings.cImportPaths) p = makeRelative(p);
 		foreach (ref p; buildsettings.stringImportPaths) p = makeRelative(p);
 
 		bool is_temp_target = false;
@@ -683,6 +685,7 @@ private string computeBuildID(in BuildSettings buildsettings, string config, Gen
 		buildsettings.lflags,
 		buildsettings.stringImportPaths,
 		buildsettings.importPaths,
+		buildsettings.cImportPaths,
 		settings.platform.architecture,
 		[
 			(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
