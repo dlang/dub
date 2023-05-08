@@ -1,0 +1,4 @@
+name "pkg"
+targetType "executable"
+sourceFiles "prog.d"
+importPaths ".."
