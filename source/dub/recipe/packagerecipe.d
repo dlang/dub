@@ -494,6 +494,14 @@ struct BuildSettingsTemplate {
 					continue;
 
 				foreach (spath; paths) {
+					// exclude paths outside projects' roots from recursive globbing
+					import std.algorithm : startsWith;
+					import std.path : pathSplitter;
+					if (spath.pathSplitter.startsWith("..".only)) {
+						logDiagnostic("Not globbing path outside project root: %s", spath);
+						continue;
+					}
+
 					enforce(!spath.empty, "Paths must not be empty strings.");
 					auto path = NativePath(spath);
 					if (!path.absolute) path = base_path ~ path;
