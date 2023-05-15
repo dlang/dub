@@ -490,6 +490,11 @@ private TLFR.Type parseMapping (alias TLFR)
                         if (k[p.length .. $].length > 1 && k[p.length] == '-')
                             continue FIELD;
 
+                // Ignore key starting with _ (escape hatch for comments in JSON).
+                // See: DUB Issue #2567
+                if (k.startsWith("_"))
+                    continue FIELD;
+
                 if (ctx.strict == StrictMode.Warn)
                 {
                     scope exc = new UnknownKeyConfigException(
