@@ -20,17 +20,29 @@ void main()
     const fetchProgram = [
         environment["DUB"],
         "fetch",
-        "vibe-d@0.9.6",
+        "gitcompatibledubpackage@1.0.4",
     ];
     auto dubFetch = spawnProcess(fetchProgram, stdin, stdout, stderr, env);
     wait(dubFetch);
-    const buildProgram = [
+
+    const buildProgramLib = [
         environment["DUB"],
         "build",
         "--build=debug",
-        "vibe-d:http@0.9.6",
+        "--config=lib",
+        "gitcompatibledubpackage@1.0.4",
     ];
-    auto dubBuild = spawnProcess(buildProgram, stdin, stdout, stderr, env);
+    auto dubBuild = spawnProcess(buildProgramLib, stdin, stdout, stderr, env);
+    wait(dubBuild);
+
+    const buildProgramExe = [
+        environment["DUB"],
+        "build",
+        "--build=debug",
+        "--config=exe",
+        "gitcompatibledubpackage@1.0.4",
+    ];
+    dubBuild = spawnProcess(buildProgramExe, stdin, stdout, stderr, env);
     wait(dubBuild);
 
     scope (success)
@@ -39,12 +51,13 @@ void main()
         rmdirRecurse(dubhome);
     }
 
-    const buildDbPath = buildNormalizedPath(dubhome, "cache", "vibe-d", "0.9.6", "+http", "db.json");
+    const buildDbPath = buildNormalizedPath(dubhome, "cache", "gitcompatibledubpackage", "1.0.4", "db.json");
     assert(exists(buildDbPath), buildDbPath ~ " should exist");
     const buildDbStr = readText(buildDbPath);
     auto json = parseJSON(buildDbStr);
     assert(json.type == JSONType.array, "build db should be an array");
-    assert(json.array.length == 1);
+    assert(json.array.length == 2, "build db should have 2 entries");
+
     auto db = json.array[0].object;
 
     void assertArray(string field)
@@ -67,12 +80,29 @@ void main()
     assertString("compiler");
     assertString("compilerBinary");
     assertString("compilerVersion");
-    assertString("configuration", "library");
-    assertString("package", "vibe-d:http");
+    assertString("configuration", "lib");
+    assertString("package", "gitcompatibledubpackage");
     assertArray("platform");
     assertString("targetBinaryPath");
-    assertString("version", "0.9.6");
+    assertString("version", "1.0.4");
 
-    const binName = db["targetBinaryPath"].str;
+    auto binName = db["targetBinaryPath"].str;
+    assert(isFile(binName), "expected " ~ binName ~ " to be a file.");
+
+    db = json.array[1].object;
+
+    assertArray("architecture");
+    assertString("buildId");
+    assertString("buildType", "debug");
+    assertString("compiler");
+    assertString("compilerBinary");
+    assertString("compilerVersion");
+    assertString("configuration", "exe");
+    assertString("package", "gitcompatibledubpackage");
+    assertArray("platform");
+    assertString("targetBinaryPath");
+    assertString("version", "1.0.4");
+
+    binName = db["targetBinaryPath"].str;
     assert(isFile(binName), "expected " ~ binName ~ " to be a file.");
 }
