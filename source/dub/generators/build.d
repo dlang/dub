@@ -321,7 +321,7 @@ class BuildGenerator : ProjectGenerator {
 			db = Json.emptyArray;
 		}
 
-		foreach (entry; db) {
+		foreach_reverse (entry; db) {
 			if (entry["buildId"].get!string == build_id) {
 				// duplicate
 				return;
