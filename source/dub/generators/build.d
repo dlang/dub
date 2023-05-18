@@ -299,12 +299,12 @@ class BuildGenerator : ProjectGenerator {
 		import dub.internal.vibecompat.data.json;
 		import core.time : seconds;
 
-		// Generate a `build-db.json` in the package version cache directory.
+		// Generate a `db.json` in the package version cache directory.
 		// This is read by 3rd party software (e.g. Meson) in order to find
 		// relevant build artifacts in Dub's cache.
 
-		enum jsonFileName = "build-db.json";
-		enum lockFileName = "build-db.lock";
+		enum jsonFileName = "db.json";
+		enum lockFileName = "db.lock";
 
 		const pkgCacheDir = packageCache(settings.cache, pack);
 		auto lock = lockFile((pkgCacheDir ~ lockFileName).toNativeString(), 3.seconds);
