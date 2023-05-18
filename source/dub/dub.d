@@ -1883,6 +1883,11 @@ private struct SpecialDirs {
 	 * project directory, but this led to issues with packages stored on
 	 * read-only file system / location, and lingering artifacts scattered
 	 * through the file system.
+	 *
+	 * Dub writes in the cache directory some Json description files
+	 * of the available artifacts. These files are intended to be read by
+	 * 3rd party software (e.g. Meson). The default cache location specified
+	 * in this function should therefore not change across future Dub versions.
 	 */
 	NativePath cache;
 
