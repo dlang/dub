@@ -285,10 +285,57 @@ class BuildGenerator : ProjectGenerator {
 		buildWithCompiler(settings, cbuildsettings);
 		target_binary_path = getTargetPath(cbuildsettings, settings);
 
-		if (!settings.tempBuild)
+		if (!settings.tempBuild) {
 			copyTargetFile(target_path, buildsettings, settings);
+			updateCacheDatabase(settings, cbuildsettings, pack, config, build_id, target_binary_path.toNativeString());
+		}
 
 		return false;
+	}
+
+	private void updateCacheDatabase(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config,
+		string build_id, string target_binary_path)
+	{
+		import dub.internal.vibecompat.data.json;
+		import core.time : seconds;
+
+		// Generate a `build-db.json` in the package version cache directory.
+		// This is read by 3rd party software (e.g. Meson) in order to find
+		// relevant build artifacts in Dub's cache.
+
+		enum jsonFileName = "build-db.json";
+		enum lockFileName = "build-db.lock";
+
+		const pkgCacheDir = packageCache(settings.cache, pack);
+		auto lock = lockFile((pkgCacheDir ~ lockFileName).toNativeString(), 3.seconds);
+
+		const dbPath = pkgCacheDir ~ jsonFileName;
+		const dbPathStr = dbPath.toNativeString();
+		Json db;
+		if (exists(dbPathStr)) {
+			const text = stripUTF8Bom(cast(string)readFile(dbPath));
+			db = parseJsonString(text, dbPathStr);
+			enforce(db.type == Json.Type.array, "Expected a JSON array in " ~ dbPathStr);
+		}
+		else {
+			db = Json.emptyArray;
+		}
+		Json entry = Json.emptyObject;
+
+		entry["package"] = pack.name;
+		entry["configuration"] = config;
+		entry["buildType"] = settings.buildType;
+		entry["compiler"] = settings.platform.compiler;
+		entry["compilerVersion"] = settings.platform.compilerVersion;
+		entry["compilerBinary"] = settings.platform.compilerBinary;
+		entry["architecture"] = serializeToJson(settings.platform.architecture);
+		entry["platform"] = serializeToJson(settings.platform.platform);
+		entry["buildId"] = build_id;
+		entry["targetBinaryPath"] = target_binary_path;
+
+		db ~= entry;
+
+		writeFile(dbPath, representation(db.toPrettyString()));
 	}
 
 	private void performRDMDBuild(GeneratorSettings settings, ref BuildSettings buildsettings, in Package pack, string config, out NativePath target_path)
