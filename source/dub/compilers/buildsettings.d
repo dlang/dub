@@ -405,6 +405,7 @@ enum BuildOption {
 
 struct Flags (T) {
 	import dub.internal.vibecompat.data.serialization : ignore;
+	import dub.internal.vibecompat.data.json : Json;
 
 	@ignore BitFlags!T values;
 
@@ -419,6 +420,39 @@ struct Flags (T) {
 	}
 
 	alias values this;
+
+	public Json toJson() const
+	{
+		import std.conv : to;
+		import std.traits : EnumMembers;
+
+		auto json = Json.emptyArray;
+
+		static foreach (em; EnumMembers!T) {
+			static if (em != 0) {
+				if (values & em) {
+					json ~= em.to!string;
+				}
+			}
+		}
+
+		return json;
+	}
+
+	public static Flags!T fromJson(Json json)
+	{
+		import std.conv : to;
+		import std.exception : enforce;
+
+		BitFlags!T flags;
+
+		enforce(json.type == Json.Type.array, "Should be an array");
+		foreach (jval; json) {
+			flags |= jval.get!string.to!T;
+		}
+
+		return Flags!T(flags);
+	}
 
 	/**
 	 * Reads a list of flags from a JSON/YAML document and converts them
@@ -440,6 +474,16 @@ struct Flags (T) {
 			res |= str.as!string.to!T;
 		return res;
 	}
+}
+
+unittest
+{
+	import dub.internal.vibecompat.data.json;
+
+	auto opts = Flags!BuildOption(BuildOption.debugMode | BuildOption.debugInfo | BuildOption.warningsAsErrors);
+	const str = serializeToJsonString(opts);
+	assert(str == `["debugMode","debugInfo","warningsAsErrors"]`);
+	assert(deserializeJson!(typeof(opts))(str) == opts);
 }
 
 unittest
