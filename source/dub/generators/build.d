@@ -330,16 +330,17 @@ class BuildGenerator : ProjectGenerator {
 
 		Json entry = Json.emptyObject;
 
-		entry["package"] = pack.name;
-		entry["configuration"] = config;
+		entry["architecture"] = serializeToJson(settings.platform.architecture);
+		entry["buildId"] = build_id;
 		entry["buildType"] = settings.buildType;
 		entry["compiler"] = settings.platform.compiler;
-		entry["compilerVersion"] = settings.platform.compilerVersion;
 		entry["compilerBinary"] = settings.platform.compilerBinary;
-		entry["architecture"] = serializeToJson(settings.platform.architecture);
+		entry["compilerVersion"] = settings.platform.compilerVersion;
+		entry["configuration"] = config;
+		entry["package"] = pack.name;
 		entry["platform"] = serializeToJson(settings.platform.platform);
-		entry["buildId"] = build_id;
 		entry["targetBinaryPath"] = target_binary_path;
+		entry["version"] = pack.version_.toString();
 
 		db ~= entry;
 
