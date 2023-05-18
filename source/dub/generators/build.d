@@ -320,6 +320,14 @@ class BuildGenerator : ProjectGenerator {
 		else {
 			db = Json.emptyArray;
 		}
+
+		foreach (entry; db) {
+			if (entry["buildId"].get!string == build_id) {
+				// duplicate
+				return;
+			}
+		}
+
 		Json entry = Json.emptyObject;
 
 		entry["package"] = pack.name;
