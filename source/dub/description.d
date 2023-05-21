@@ -121,6 +121,7 @@ struct TargetDescription {
 	string[] packages; /// All packages contained in this target (e.g. for target type "sourceLibrary")
 	string rootConfiguration; /// Build configuration of the target's root package used for building
 	BuildSettings buildSettings; /// Final build settings to use when building the target
+	string cacheArtifactPath; /// The full path of the built target in the cache
 	string[] dependencies; /// List of all dependencies of this target (package names)
 	string[] linkDependencies; /// List of all link-dependencies of this target (target names)
 }
