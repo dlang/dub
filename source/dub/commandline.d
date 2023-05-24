@@ -1041,6 +1041,7 @@ abstract class PackageBuildCommand : Command {
 		string m_compilerName;
 		string m_arch;
 		string[] m_debugVersions;
+		string[] m_dVersions;
 		string[] m_overrideConfigs;
 		GeneratorSettings baseSettings;
 		string m_defaultConfig;
@@ -1071,7 +1072,12 @@ abstract class PackageBuildCommand : Command {
 			"Force a different architecture (e.g. x86 or x86_64)"
 		]);
 		args.getopt("d|debug", &m_debugVersions, [
-			"Define the specified debug version identifier when building - can be used multiple times"
+			"Define the specified `debug` version identifier when building - can be used multiple times"
+		]);
+		args.getopt("d-version", &m_dVersions, [
+			"Define the specified `version` identifier when building - can be used multiple times.",
+			"Use sparingly, with great power comes great responsibility! For commonly used or combined versions "
+				~ "and versions that dependees should be able to use, create configurations in your package."
 		]);
 		args.getopt("nodeps", &m_nodeps, [
 			"Do not resolve missing dependencies before building"
@@ -1114,6 +1120,7 @@ abstract class PackageBuildCommand : Command {
 		this.baseSettings.compiler = getCompiler(m_compilerName);
 		this.baseSettings.platform = this.baseSettings.compiler.determinePlatform(this.baseSettings.buildSettings, m_compilerName, m_arch);
 		this.baseSettings.buildSettings.addDebugVersions(m_debugVersions);
+		this.baseSettings.buildSettings.addVersions(m_dVersions);
 
 		m_defaultConfig = null;
 		enforce (loadSpecificPackage(dub, package_name, ver), "Failed to load package.");
