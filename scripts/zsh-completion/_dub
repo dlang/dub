@@ -153,6 +153,7 @@ _dub_generate_generic() {
     '--compiler=[Specifies the compiler binary to use (can be a path)]:compiler:(dmd gdc ldc gdmd ldmd)' \
     '(-a --arch)'{-a,--arch=}'[Force a different architecture (e.g. x86 or x86_64)]:architecture: ' \
     '(-d --debug)*'{-d,--debug=}'[Define the specified debug version identifier when building]:Debug version: ' \
+    '--d-version=[Define the specified version identifier when building]:Version identifier: ' \
     '--nodeps[Do not resolve missing dependencies before building]' \
     '--build-mode=[Specifies the way the compiler and linker are invoked]:build mode:("separate (default)" allAtOnce singleFile)' \
     '--single[Treats the package name as a filename. The file must contain a package recipe comment]:file:_files -g "*.d"' \
