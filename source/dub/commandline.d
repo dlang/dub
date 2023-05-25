@@ -1198,6 +1198,7 @@ class GenerateCommand : PackageBuildCommand {
 	protected {
 		string m_generator;
 		bool m_printPlatform, m_printBuilds, m_printConfigs;
+		bool m_deep; // only set in BuildCommand
 	}
 
 	this() @safe pure nothrow
@@ -1274,6 +1275,7 @@ class GenerateCommand : PackageBuildCommand {
 		gensettings.runArgs = app_args;
 		// legacy compatibility, default working directory is always CWD
 		gensettings.overrideToolWorkingDirectory = getWorkingDirectory();
+		gensettings.buildDeep = m_deep;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
@@ -1315,6 +1317,9 @@ class BuildCommand : GenerateCommand {
 		]);
 		args.getopt("n|non-interactive", &m_nonInteractive, [
 			"Don't enter interactive mode."
+		]);
+		args.getopt("d|deep", &m_deep, [
+			"Build all dependencies, even when main target is a static library."
 		]);
 		super.prepare(args);
 		m_generator = "build";

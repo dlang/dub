@@ -159,9 +159,9 @@ class BuildGenerator : ProjectGenerator {
 		}
 
 		// build all targets
-		if (settings.rdmd || rootTT == TargetType.staticLibrary) {
+		if (settings.rdmd || (rootTT == TargetType.staticLibrary && !settings.buildDeep)) {
 			// RDMD always builds everything at once and static libraries don't need their
-			// dependencies to be built
+			// dependencies to be built, unless --deep flag is specified
 			NativePath tpath;
 			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null, tpath);
 			return;

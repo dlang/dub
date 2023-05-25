@@ -824,6 +824,9 @@ struct GeneratorSettings {
 	/// single file dub package
 	bool single;
 
+	/// build all dependencies for static libraries
+	bool buildDeep;
+
 	string[] runArgs;
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;
