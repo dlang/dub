@@ -34,8 +34,12 @@ fi
 
 # Create the expected output path file to compare against.
 expected_file="$CURR_DIR/expected-describe-data-2-dmd-output"
+
+# check if escaping is required
+. "$CURR_DIR/4-describe-data-check-escape"
+
 # --data=main-source-file
-echo -n "'$CURR_DIR/describe-project/src/dummy.d' " > "$expected_file"
+echo -n "$(escaped "$CURR_DIR/describe-project/src/dummy.d") " > "$expected_file"
 # --data=dflags
 echo -n "--some-dflag " >> "$expected_file"
 echo -n "--another-dflag " >> "$expected_file"
@@ -46,12 +50,12 @@ echo -n "-L--another-lflag " >> "$expected_file"
 echo -n "-L-lsomelib " >> "$expected_file"
 echo -n "-L-lanotherlib " >> "$expected_file"
 # --data=linker-files
-echo -n "'$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a' " >> "$expected_file"
-echo -n "'$CURR_DIR/describe-project/some.a' " >> "$expected_file"
-echo -n "'$CURR_DIR/describe-dependency-1/dep.a' " >> "$expected_file"
+echo -n "$(escaped "$CURR_DIR/describe-dependency-3/libdescribe-dependency-3.a") " >> "$expected_file"
+echo -n "$(escaped "$CURR_DIR/describe-project/some.a") " >> "$expected_file"
+echo -n "$(escaped "$CURR_DIR/describe-dependency-1/dep.a") " >> "$expected_file"
 # --data=source-files
-echo -n "'$CURR_DIR/describe-project/src/dummy.d' " >> "$expected_file"
-echo -n "'$CURR_DIR/describe-dependency-1/source/dummy.d' " >> "$expected_file"
+echo -n "$(escaped "$CURR_DIR/describe-project/src/dummy.d") " >> "$expected_file"
+echo -n "$(escaped "$CURR_DIR/describe-dependency-1/source/dummy.d") " >> "$expected_file"
 # --data=versions
 echo -n "-version=someVerIdent " >> "$expected_file"
 echo -n "-version=anotherVerIdent " >> "$expected_file"
@@ -60,16 +64,16 @@ echo -n "-version=Have_describe_dependency_3 " >> "$expected_file"
 echo -n "-debug=someDebugVerIdent " >> "$expected_file"
 echo -n "-debug=anotherDebugVerIdent " >> "$expected_file"
 # --data=import-paths
-echo -n "'-I$CURR_DIR/describe-project/src/' " >> "$expected_file"
-echo -n "'-I$CURR_DIR/describe-dependency-1/source/' " >> "$expected_file"
-echo -n "'-I$CURR_DIR/describe-dependency-2/some-path/' " >> "$expected_file"
-echo -n "'-I$CURR_DIR/describe-dependency-3/dep3-source/' " >> "$expected_file"
+echo -n "$(escaped "-I$CURR_DIR/describe-project/src/") " >> "$expected_file"
+echo -n "$(escaped "-I$CURR_DIR/describe-dependency-1/source/") " >> "$expected_file"
+echo -n "$(escaped "-I$CURR_DIR/describe-dependency-2/some-path/") " >> "$expected_file"
+echo -n "$(escaped "-I$CURR_DIR/describe-dependency-3/dep3-source/") " >> "$expected_file"
 # --data=string-import-paths
-echo -n "'-J$CURR_DIR/describe-project/views/' " >> "$expected_file"
-echo -n "'-J$CURR_DIR/describe-dependency-2/some-extra-string-import-path/' " >> "$expected_file"
-echo -n "'-J$CURR_DIR/describe-dependency-3/dep3-string-import-path/' " >> "$expected_file"
+echo -n "$(escaped "-J$CURR_DIR/describe-project/views/") " >> "$expected_file"
+echo -n "$(escaped "-J$CURR_DIR/describe-dependency-2/some-extra-string-import-path/") " >> "$expected_file"
+echo -n "$(escaped "-J$CURR_DIR/describe-dependency-3/dep3-string-import-path/") " >> "$expected_file"
 # --data=import-files
-echo -n "'$CURR_DIR/describe-dependency-2/some-path/dummy.d' " >> "$expected_file"
+echo -n "$(escaped "$CURR_DIR/describe-dependency-2/some-path/dummy.d") " >> "$expected_file"
 # --data=options
 echo -n "-debug " >> "$expected_file"
 # releaseMode is not included, even though it's specified, because the requireContracts requirement drops it
