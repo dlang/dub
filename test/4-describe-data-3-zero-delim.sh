@@ -111,6 +111,9 @@ if ! diff -b -B "$temp_file_normal" "$temp_file_zero_delim"; then
     die $LINENO 'The null-delimited dmd-style --data=versions did not match the expected output!'
 fi
 
+# check if escaping is required
+. "$CURR_DIR/4-describe-data-check-escape"
+
 # Test dmd-style --data=source-files
 if ! $DUB describe --compiler=$DC --data=source-files \
     > "$temp_file_normal"; then
@@ -118,7 +121,7 @@ if ! $DUB describe --compiler=$DC --data=source-files \
 fi
 
 if ! $DUB describe --compiler=$DC --data-0 --data=source-files \
-    | xargs -0 printf "'%s' " > "$temp_file_zero_delim"; then
+    | xargs -0 printf "$(escaped "%s") " > "$temp_file_zero_delim"; then
     die $LINENO 'Printing null-delimited dmd-style --data=source-files failed!'
 fi
 
