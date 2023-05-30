@@ -1970,6 +1970,7 @@ public class SelectedVersions {
 
 /// The template code from which the test runner is generated
 private immutable TestRunnerTemplate = q{
+deprecated // allow silently using deprecated symbols
 module dub_test_root;
 
 import std.typetuple;

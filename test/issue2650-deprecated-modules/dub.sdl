@@ -1,0 +1,3 @@
+name "issue2650"
+targetType "sourceLibrary"
+buildRequirements "disallowDeprecations"
