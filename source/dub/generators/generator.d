@@ -963,7 +963,8 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	}
 
 	if (generate_binary) {
-		ensureDirectory(NativePath(buildsettings.targetPath));
+		if (!settings.tempBuild)
+			ensureDirectory(NativePath(buildsettings.targetPath));
 
 		if (buildsettings.copyFiles.length) {
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
