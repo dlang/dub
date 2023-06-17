@@ -473,6 +473,11 @@ class Project {
 				Dependency vspec = dep.spec;
 				Package p;
 
+				if (vspec.optional && vspec.path() != NativePath.init && !existsDirectory(vspec.path())) {
+					logDiagnostic("%sOptional dependency %s path %s does not exist, not using.", indent, dep.name, vspec.path());
+					continue;
+				}
+
 				auto basename = getBasePackageName(dep.name);
 				auto subname = getSubPackageName(dep.name);
 

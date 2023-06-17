@@ -1,0 +1,5 @@
+name "pr2663-optional-path"
+targetType "executable"
+
+dependency "existent" path="existent" optional=true
+dependency "nonexistent" path="nonexistent" optional=true
