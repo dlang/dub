@@ -344,7 +344,7 @@ class Project {
 			writeFile(mainfile, content);
 		}
 
-		rootPackage.recipe.configurations ~= ConfigurationInfo(config, tcinfo);
+		rootPackage.addTestConfiguration(ConfigurationInfo(config, tcinfo));
 
 		return config;
 	}

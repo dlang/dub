@@ -1241,8 +1241,10 @@ class Dub {
 
 		GeneratorSettings settings = this.makeAppSettings();
 		settings.runArgs = runArgs;
+		// used for compiler commands and for the CWD of the tool itself, or as
+		// base for relative paths.
+		settings.overrideToolWorkingDirectory = path;
 
-		initSubPackage.recipe.buildSettings.workingDirectory = path.toNativeString();
 		template_dub.generateProject("build", settings);
 	}
 
@@ -1293,7 +1295,7 @@ class Dub {
 		if (m_dryRun) return;
 
 		// allow to choose a custom ddox tool
-		auto tool = m_project.rootPackage.recipe.ddoxTool;
+		string tool = m_project.rootPackage.recipe.ddoxTool;
 		if (tool.empty) tool = "ddox";
 
 		auto tool_pack = m_packageManager.getBestPackage(tool);
