@@ -48,6 +48,7 @@ for cmd in run build test generate describe dustmite
 	complete -c dub -n "contains '$cmd' (commandline -poc)" -s c -l config             -r -d "Build configuration"
 	complete -c dub -n "contains '$cmd' (commandline -poc)" -s a -l arch               -r -d "Force architecture"
 	complete -c dub -n "contains '$cmd' (commandline -poc)" -s d -l debug              -r -d "Debug identifier"
+	complete -c dub -n "contains '$cmd' (commandline -poc)" -s d -l d-version          -r -d "Version identifier"
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l nodeps                -d "No dependency check"
 	complete -c dub -n "contains '$cmd' (commandline -poc)" -s b -l build           -u -x -d "Build type"                        -a "debug plain release release-debug release-nobounds unittest profile profile-gc docs ddox cov cov-ctfe unittest-cov unittest-cov-ctfe syntax"
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l build-mode         -x -d "How compiler & linker are invoked" -a "separate allAtOnce singleFile"

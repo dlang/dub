@@ -771,9 +771,15 @@ class ProjectGenerator
 /**
  * Compute and returns the path were artifacts are stored for a given package
  *
- * Artifacts are usually stored in:
+ * Artifacts are stored in:
  * `$DUB_HOME/cache/$PKG_NAME/$PKG_VERSION[/+$SUB_PKG_NAME]/`
  * Note that the leading `+` in the sub-package name is to avoid any ambiguity.
+ *
+ * Dub writes in the returned path a Json description file of the available
+ * artifacts in this cache location. This Json file is read by 3rd party
+ * software (e.g. Meson). Returned path should therefore not change across
+ * future Dub versions.
+ *
  * Build artifacts are usually stored in a sub-folder named "build",
  * as their names are based on user-supplied values.
  *
@@ -957,7 +963,8 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 	}
 
 	if (generate_binary) {
-		ensureDirectory(NativePath(buildsettings.targetPath));
+		if (!settings.tempBuild)
+			ensureDirectory(NativePath(buildsettings.targetPath));
 
 		if (buildsettings.copyFiles.length) {
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
