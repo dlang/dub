@@ -61,7 +61,7 @@ fi
 rm ../etc/dub/settings.json
 echo "Empty file named ldc2." > ../bin/ldc2
 
-if ! { ${DUB} describe --single issue103-single-file-package.d 2>&1 || true; } | grep -cF "Failed to invoke the compiler $(dirname $CURR_DIR)/bin/ldc2 to determine the build platform"; then
+if ! { ${DUB} describe --single issue103-single-file-package.d 2>&1 || true; } | grep -cF "Failed to execute '$(dirname $CURR_DIR)/bin/ldc2'"; then
 	rm ../bin/ldc2
 	die $LINENO 'DUB did not find ldc2 adjacent to it.'
 fi
