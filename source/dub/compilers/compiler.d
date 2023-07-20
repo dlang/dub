@@ -152,12 +152,12 @@ interface Compiler {
 
 		int status;
 		if (output_callback) {
-			auto result = executeShell(escapeShellCommand(args),
+			auto result = execute(args,
 				env, Config.none, size_t.max, cwd.toNativeString());
 			output_callback(result.status, result.output);
 			status = result.status;
 		} else {
-			auto compiler_pid = spawnShell(escapeShellCommand(args),
+			auto compiler_pid = spawnProcess(args,
 				env, Config.none, cwd.toNativeString());
 			status = compiler_pid.wait();
 		}
@@ -185,7 +185,7 @@ interface Compiler {
 
 		auto fil = generatePlatformProbeFile();
 
-		auto result = executeShell(escapeShellCommand(compiler_binary ~ args ~ fil.toNativeString()));
+		auto result = execute(compiler_binary ~ args ~ fil.toNativeString());
 		enforce!CompilerInvocationException(result.status == 0,
 				format("Failed to invoke the compiler %s to determine the build platform: %s",
 				compiler_binary, result.output));
