@@ -1,6 +1,0 @@
-Exposed `--d-versions` CLI flag
-
-You can now specify `--d-versions=Xyz` to basically insert `version = Xyz;` into
-all D source files. This is the same as specifying `versions` in your dub.sdl /
-dub.json file, but from the CLI and unrelated to any build types or
-configurations.
