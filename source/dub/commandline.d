@@ -534,7 +534,7 @@ struct CommonOptions {
 	bool verbose, vverbose, quiet, vquiet, verror, version_;
 	bool help, annotate, bare;
 	string[] registry_urls;
-	string root_path;
+	string root_path, recipeFile;
 	enum Color { automatic, on, off }
 	Color colorMode = Color.automatic;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
@@ -568,6 +568,7 @@ struct CommonOptions {
 	{
 		args.getopt("h|help", &help, ["Display general or command specific help"]);
 		args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
+		args.getopt("recipe", &recipeFile, ["Make dub use custom path as its recipe file"]);
 		args.getopt("registry", &registry_urls, [
 			"Search the given registry URL first when resolving dependencies. Can be specified multiple times. Available registry types:",
 			"  DUB: URL to DUB registry (default)",
@@ -812,7 +813,7 @@ class Command {
 		Dub dub;
 
 		if (options.bare) {
-			dub = new Dub(NativePath(options.root_path), getWorkingDirectory());
+			dub = new Dub(NativePath(options.root_path), getWorkingDirectory(), NativePath(options.recipeFile));
 			dub.defaultPlacementLocation = options.placementLocation;
 
 			return dub;
@@ -839,7 +840,7 @@ class Command {
 
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
-		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath.init, false, StrictMode.Warn);
+		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath(options.recipeFile), false, StrictMode.Warn);
 		catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
 
 		return dub;
@@ -1167,6 +1168,7 @@ abstract class PackageBuildCommand : Command {
 			dub.loadSingleFilePackage(package_name);
 			return true;
 		}
+
 
 		bool from_cwd = package_name.length == 0 || package_name.startsWith(":");
 		// load package in root_path to enable searching for sub packages
@@ -2430,7 +2432,7 @@ class DustmiteCommand : PackageBuildCommand {
 	{
 		if (!m_testPackage.length)
 			return super.prepareDub(options);
-		return new Dub(NativePath(options.root_path), getWorkingDirectory());
+		return new Dub(NativePath(options.root_path), getWorkingDirectory(), NativePath(options.recipeFile));
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)

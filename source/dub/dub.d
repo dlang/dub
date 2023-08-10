@@ -125,7 +125,7 @@ class Dub {
 		bool m_dryRun = false;
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
-		NativePath m_rootPath;
+		NativePath m_rootPath, m_recipeFile;
 		SpecialDirs m_dirs;
 		Settings m_config;
 		Project m_project;
@@ -191,20 +191,22 @@ class Dub {
 		  pkg_root = The root of the location where packages are located
 					 Only packages under this location will be accessible.
 					 Note that packages at the top levels will be ignored.
+		  recipeFile = A file containing a dub build recipe
 	*/
-	this(NativePath root, NativePath pkg_root)
+	this(NativePath root, NativePath pkg_root, NativePath recipeFile)
 	{
 		// Note: We're doing `init()` before setting the `rootPath`,
 		// to prevent `init` from reading the project's settings.
 		init();
 		this.m_rootPath = root;
+		this.m_recipeFile = recipeFile;
 		m_packageManager = new PackageManager(pkg_root);
 	}
 
 	deprecated("Use the overload that takes `(NativePath pkg_root, NativePath root)`")
 	this(NativePath pkg_root)
 	{
-		this(pkg_root, pkg_root);
+		this(pkg_root, pkg_root, pkg_root);
 	}
 
 	private void init()
@@ -440,7 +442,7 @@ class Dub {
 	*/
 	void loadPackage()
 	{
-		loadPackage(m_rootPath);
+		loadPackage(!m_recipeFile.empty ? m_recipeFile : m_rootPath);
 	}
 
 	/// Loads the package from the specified path as the main project package.
