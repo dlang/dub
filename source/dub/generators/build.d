@@ -48,7 +48,8 @@ string computeBuildName(string config, in GeneratorSettings settings, const stri
 	addHash(settings.platform.compilerVersion);
 	const hashstr = Base64URL.encode(hash.finish()[0 .. $ / 2]).stripRight("=");
 
-	return format("%s-%s-%s", config, settings.buildType, hashstr);
+	
+	return format("%s-%s-%s-%s", config, settings.buildType, settings.recipeName, hashstr);
 }
 
 class BuildGenerator : ProjectGenerator {
@@ -747,10 +748,9 @@ private string computeBuildID(in BuildSettings buildsettings, string config, Gen
 			(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
 			settings.platform.compilerBinary,
 			settings.platform.compiler,
-			settings.platform.compilerVersion,
+			settings.platform.compilerVersion
 		],
 	];
-
 	return computeBuildName(config, settings, hashing);
 }
 

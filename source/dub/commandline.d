@@ -813,7 +813,7 @@ class Command {
 		Dub dub;
 
 		if (options.bare) {
-			dub = new Dub(NativePath(options.root_path), getWorkingDirectory(), NativePath(options.recipeFile));
+			dub = new Dub(NativePath(options.root_path), getWorkingDirectory());
 			dub.defaultPlacementLocation = options.placementLocation;
 
 			return dub;
@@ -837,7 +837,7 @@ class Command {
 		dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
 		dub.dryRun = options.annotate;
 		dub.defaultPlacementLocation = options.placementLocation;
-
+		dub.mainRecipePath = options.recipeFile;
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
 		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath(options.recipeFile), false, StrictMode.Warn);
@@ -1274,6 +1274,7 @@ class GenerateCommand : PackageBuildCommand {
 		if (!gensettings.config.length)
 			gensettings.config = m_defaultConfig;
 		gensettings.runArgs = app_args;
+		gensettings.recipeName = dub.mainRecipePath;
 		// legacy compatibility, default working directory is always CWD
 		gensettings.overrideToolWorkingDirectory = getWorkingDirectory();
 
@@ -2432,7 +2433,7 @@ class DustmiteCommand : PackageBuildCommand {
 	{
 		if (!m_testPackage.length)
 			return super.prepareDub(options);
-		return new Dub(NativePath(options.root_path), getWorkingDirectory(), NativePath(options.recipeFile));
+		return new Dub(NativePath(options.root_path), getWorkingDirectory());
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
