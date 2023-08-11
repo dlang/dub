@@ -133,8 +133,6 @@ class Dub {
 		string m_defaultCompiler;
 	}
 
-	///Whenever the switch --recipe= is supplied, this member will be populated.
-
 	/** The default placement location of fetched packages.
 
 		This property can be altered, so that packages which are downloaded as part
@@ -395,10 +393,10 @@ class Dub {
 	@property string projectName() const { return m_project.name; }
 
 	@property string mainRecipePath() const { return m_mainRecipePath; }
+	/// Whenever the switch --recipe= is supplied, this member will be populated.
 	@property string mainRecipePath(string recipePath) 
 	{ 
-		import std.path:stripExtension, baseName;
-		return m_mainRecipePath = recipePath.baseName.stripExtension;
+		return m_mainRecipePath = recipePath;
 	}
 
 

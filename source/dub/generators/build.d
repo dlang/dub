@@ -48,8 +48,13 @@ string computeBuildName(string config, in GeneratorSettings settings, const stri
 	addHash(settings.platform.compilerVersion);
 	const hashstr = Base64URL.encode(hash.finish()[0 .. $ / 2]).stripRight("=");
 
-	
-	return format("%s-%s-%s-%s", config, settings.buildType, settings.recipeName, hashstr);
+	if(settings.recipeName != "")
+	{
+		import std.path:stripExtension, baseName;
+		string recipeName = settings.recipeName.baseName.stripExtension;
+		return format("%s-%s-%s-%s", config, settings.buildType, recipeName, hashstr);
+	}
+	return format("%s-%s-%s", config, settings.buildType, hashstr);
 }
 
 class BuildGenerator : ProjectGenerator {
