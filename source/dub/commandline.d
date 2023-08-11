@@ -568,7 +568,7 @@ struct CommonOptions {
 	{
 		args.getopt("h|help", &help, ["Display general or command specific help"]);
 		args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
-		args.getopt("recipe", &recipeFile, ["Make dub use custom path as its recipe file"]);
+		args.getopt("recipe", &recipeFile, ["Loads a custom recipe path instead of dub.json/dub.sdl"]);
 		args.getopt("registry", &registry_urls, [
 			"Search the given registry URL first when resolving dependencies. Can be specified multiple times. Available registry types:",
 			"  DUB: URL to DUB registry (default)",
