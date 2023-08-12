@@ -89,6 +89,17 @@ class BuildGenerator : ProjectGenerator {
 			settings.buildType.color(Color.magenta), settings.platform.compilerBinary,
 			settings.platform.architecture);
 
+		if (settings.rdmd || (rootTT == TargetType.staticLibrary && !settings.buildDeep)) {
+			// Only build the main target.
+			// RDMD always builds everything at once and static libraries don't need their
+			// dependencies to be built, unless --deep flag is specified
+			NativePath tpath;
+			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null, tpath);
+			return;
+		}
+
+		// Recursive build starts here
+
 		bool any_cached = false;
 
 		NativePath[string] target_paths;
@@ -156,15 +167,6 @@ class BuildGenerator : ProjectGenerator {
 					any_cached = true;
 			}
 			target_paths[target] = tpath;
-		}
-
-		// build all targets
-		if (settings.rdmd || (rootTT == TargetType.staticLibrary && !settings.buildDeep)) {
-			// RDMD always builds everything at once and static libraries don't need their
-			// dependencies to be built, unless --deep flag is specified
-			NativePath tpath;
-			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null, tpath);
-			return;
 		}
 
 		buildTargetRec(m_project.rootPackage.name);
