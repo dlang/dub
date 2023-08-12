@@ -52,6 +52,7 @@ string computeBuildName(string config, in GeneratorSettings settings, const stri
 	{
 		import std.path:stripExtension, baseName;
 		string recipeName = settings.recipeName.baseName.stripExtension;
+		addHash(settings.recipeName);
 		return format("%s-%s-%s-%s", config, settings.buildType, recipeName, hashstr);
 	}
 	return format("%s-%s-%s", config, settings.buildType, hashstr);
