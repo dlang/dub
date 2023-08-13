@@ -809,6 +809,7 @@ struct GeneratorSettings {
 	BuildPlatform platform;
 	Compiler compiler;
 	string config;
+	string recipeName;
 	string buildType;
 	BuildSettings buildSettings;
 	BuildMode buildMode = BuildMode.separate;

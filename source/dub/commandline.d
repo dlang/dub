@@ -501,11 +501,13 @@ int runDubCommandLine(string[] args)
 		return 1;
 	}
 
-	// initialize the root package
-	Dub dub = cmd.prepareDub(handler.options);
+	try {
+		// initialize the root package
+		Dub dub = cmd.prepareDub(handler.options);
 
-	// execute the command
-	try return cmd.execute(dub, remaining_args, command_args.appArgs);
+		// execute the command
+		return cmd.execute(dub, remaining_args, command_args.appArgs);
+	}
 	catch (UsageException e) {
 		// usage exceptions get thrown before any logging, so we are
 		// making the errors more narrow to better fit on small screens.
@@ -534,7 +536,7 @@ struct CommonOptions {
 	bool verbose, vverbose, quiet, vquiet, verror, version_;
 	bool help, annotate, bare;
 	string[] registry_urls;
-	string root_path;
+	string root_path, recipeFile;
 	enum Color { automatic, on, off }
 	Color colorMode = Color.automatic;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
@@ -568,6 +570,7 @@ struct CommonOptions {
 	{
 		args.getopt("h|help", &help, ["Display general or command specific help"]);
 		args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
+		args.getopt("recipe", &recipeFile, ["Loads a custom recipe path instead of dub.json/dub.sdl"]);
 		args.getopt("registry", &registry_urls, [
 			"Search the given registry URL first when resolving dependencies. Can be specified multiple times. Available registry types:",
 			"  DUB: URL to DUB registry (default)",
@@ -836,11 +839,25 @@ class Command {
 		dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
 		dub.dryRun = options.annotate;
 		dub.defaultPlacementLocation = options.placementLocation;
-
+		dub.mainRecipePath = options.recipeFile;
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
-		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath.init, false, StrictMode.Warn);
-		catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
+		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath(options.recipeFile), false, StrictMode.Warn);
+		catch (Exception e) {
+			// by default we ignore CWD package load fails in prepareDUB, since
+			// they will fail again later when they are actually requested. This
+			// is done to provide custom options to the loading logic and should
+			// ideally be moved elsewhere. (This catch has been around since 10
+			// years when it was first introduced in _app.d_)
+			logDiagnostic("No valid package found in current working directory: %s", e.msg);
+
+			// for now, we work around not knowing if the package is needed or
+			// not, simply by trusting the user to only use `--recipe` when the
+			// recipe file actually exists, otherwise we throw the error.
+			bool loadMustSucceed = options.recipeFile.length > 0;
+			if (loadMustSucceed)
+				throw e;
+		}
 
 		return dub;
 	}
@@ -1168,6 +1185,7 @@ abstract class PackageBuildCommand : Command {
 			return true;
 		}
 
+
 		bool from_cwd = package_name.length == 0 || package_name.startsWith(":");
 		// load package in root_path to enable searching for sub packages
 		if (loadCwdPackage(dub, from_cwd)) {
@@ -1272,6 +1290,7 @@ class GenerateCommand : PackageBuildCommand {
 		if (!gensettings.config.length)
 			gensettings.config = m_defaultConfig;
 		gensettings.runArgs = app_args;
+		gensettings.recipeName = dub.mainRecipePath;
 		// legacy compatibility, default working directory is always CWD
 		gensettings.overrideToolWorkingDirectory = getWorkingDirectory();
 

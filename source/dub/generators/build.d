@@ -46,8 +46,16 @@ string computeBuildName(string config, in GeneratorSettings settings, const stri
 	addHash(settings.platform.architecture);
 	addHash(settings.platform.compiler);
 	addHash(settings.platform.compilerVersion);
+	if(settings.recipeName != "")
+		addHash(settings.recipeName);
 	const hashstr = Base64URL.encode(hash.finish()[0 .. $ / 2]).stripRight("=");
 
+	if(settings.recipeName != "")
+	{
+		import std.path:stripExtension, baseName;
+		string recipeName = settings.recipeName.baseName.stripExtension;
+		return format("%s-%s-%s-%s", config, settings.buildType, recipeName, hashstr);
+	}
 	return format("%s-%s-%s", config, settings.buildType, hashstr);
 }
 
@@ -747,10 +755,9 @@ private string computeBuildID(in BuildSettings buildsettings, string config, Gen
 			(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
 			settings.platform.compilerBinary,
 			settings.platform.compiler,
-			settings.platform.compilerVersion,
+			settings.platform.compilerVersion
 		],
 	];
-
 	return computeBuildName(config, settings, hashing);
 }
 
