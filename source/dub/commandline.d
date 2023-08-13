@@ -501,11 +501,13 @@ int runDubCommandLine(string[] args)
 		return 1;
 	}
 
-	// initialize the root package
-	Dub dub = cmd.prepareDub(handler.options);
+	try {
+		// initialize the root package
+		Dub dub = cmd.prepareDub(handler.options);
 
-	// execute the command
-	try return cmd.execute(dub, remaining_args, command_args.appArgs);
+		// execute the command
+		return cmd.execute(dub, remaining_args, command_args.appArgs);
+	}
 	catch (UsageException e) {
 		// usage exceptions get thrown before any logging, so we are
 		// making the errors more narrow to better fit on small screens.
@@ -841,7 +843,21 @@ class Command {
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
 		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath(options.recipeFile), false, StrictMode.Warn);
-		catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
+		catch (Exception e) {
+			// by default we ignore CWD package load fails in prepareDUB, since
+			// they will fail again later when they are actually requested. This
+			// is done to provide custom options to the loading logic and should
+			// ideally be moved elsewhere. (This catch has been around since 10
+			// years when it was first introduced in _app.d_)
+			logDiagnostic("No valid package found in current working directory: %s", e.msg);
+
+			// for now, we work around not knowing if the package is needed or
+			// not, simply by trusting the user to only use `--recipe` when the
+			// recipe file actually exists, otherwise we throw the error.
+			bool loadMustSucceed = options.recipeFile.length > 0;
+			if (loadMustSucceed)
+				throw e;
+		}
 
 		return dub;
 	}
