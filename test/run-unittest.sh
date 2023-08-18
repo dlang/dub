@@ -39,10 +39,10 @@ FRONTEND="${FRONTEND:-}"
 
 if [ -z ${FRONTEND:-} ]; then
     if [ "$DC_BIN" == "ldc2" ]; then
-        FRONTEND=$(ldc2 --version | grep -Po "based on DMD v\K(2\.\d+\.\d)")
+        FRONTEND=$(ldc2 --version | grep 'based on DMD v2.' | sed -E -n 's/^.*DMD v(2\.[0-9]+\.[0-9]).*$/\1/p')
     fi
     if [ "$DC_BIN" == "dmd" ]; then
-        FRONTEND=$(dmd --version | grep -Po "D Compiler v\K(2\.\d+\.\d)")
+        FRONTEND=$(dmd --version | grep 'D Compiler v2.' | sed -E -n 's/^.*D Compiler v(2\.[0-9]+\.[0-9]).*$/\1/p')
     fi
 fi
 
