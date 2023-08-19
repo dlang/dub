@@ -2,5 +2,6 @@
 	"fileVersion": 1,
 	"versions": {
 		"pkg1": {"path":"pkg1"}
-	}
+	},
+	"inheritable": true
 }

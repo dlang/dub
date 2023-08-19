@@ -17,6 +17,10 @@ public struct Selected
 
     /// The selected package and their matching versions
     public SelectedDependency[string] versions;
+
+    /// Whether this dub.selections.json can be inherited by nested projects
+    /// without local dub.selections.json
+    @Optional public bool inheritable;
 }
 
 
@@ -106,4 +110,24 @@ unittest
     assert(s.versions["branch2"]    == Dependency(Version("~main")));
     assert(s.versions["path"]       == Dependency(NativePath("../some/where")));
     assert(s.versions["repository"] == Dependency(Repository("git+https://github.com/dlang/dub", "123456123456123456")));
+    assert(!s.inheritable);
+}
+
+// with optional `inheritable` Boolean
+unittest
+{
+    import dub.internal.configy.Read : parseConfigString;
+
+    immutable string content = `{
+    "fileVersion": 1,
+    "versions": {
+        "simple": "1.5.6",
+    },
+    "inheritable": true
+}`;
+
+    auto s = parseConfigString!Selected(content, "/dev/null");
+    assert(s.fileVersion == 1);
+    assert(s.versions.length == 1);
+    assert(s.inheritable);
 }

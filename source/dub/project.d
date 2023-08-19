@@ -86,9 +86,9 @@ class Project {
 				// The default is to error, but as the previous parser wasn't
 				// complaining, we should first warn the user.
 				auto selected = parseConfigFileSimple!Selected(selverfile, StrictMode.Warn);
-				m_selections = !selected.isNull()
-					? new SelectedVersions(selected.get(), dir.relativeTo(absRootPackagePath))
-					: new SelectedVersions();
+				const isValid = !selected.isNull() && (dir == absRootPackagePath || selected.get().inheritable);
+				if (isValid)
+					m_selections = new SelectedVersions(selected.get(), dir.relativeTo(absRootPackagePath));
 				break;
 			}
 		}
@@ -1788,6 +1788,7 @@ final class SelectedVersions {
 	{
 		m_selections.fileVersion = versions.m_selections.fileVersion;
 		m_selections.versions = versions.m_selections.versions.dup;
+		m_selections.inheritable = versions.m_selections.inheritable;
 		m_dirty = true;
 	}
 
@@ -1869,7 +1870,7 @@ final class SelectedVersions {
 		auto result = appender!string();
 
 		assert(json.type == Json.Type.object);
-		assert(json.length == 2);
+		assert(json.length == 2 || json.length == 3);
 		assert(json["versions"].type != Json.Type.undefined);
 
 		result.put("{\n\t\"fileVersion\": ");
@@ -1885,7 +1886,10 @@ final class SelectedVersions {
 			result.put(": ");
 			result.writeJsonString(vers[k]);
 		}
-		result.put("\n\t}\n}\n");
+		result.put("\n\t}");
+		if (m_selections.inheritable)
+			result.put(",\n\t\"inheritable\": true");
+		result.put("\n}\n");
 		path.writeFile(result.data);
 		m_dirty = false;
 		m_bare = false;
@@ -1918,6 +1922,8 @@ final class SelectedVersions {
 		serialized["versions"] = Json.emptyObject;
 		foreach (p, dep; m_selections.versions)
 			serialized["versions"][p] = dep.toJson(true);
+		if (m_selections.inheritable)
+			serialized["inheritable"] = true;
 		return serialized;
 	}
 
@@ -1931,6 +1937,8 @@ final class SelectedVersions {
 		scope(failure) clear();
 		foreach (string p, dep; json["versions"])
 			m_selections.versions[p] = dependencyFromJson(dep);
+		if (auto p = "inheritable" in json)
+			m_selections.inheritable = p.get!bool;
 	}
 }
 
