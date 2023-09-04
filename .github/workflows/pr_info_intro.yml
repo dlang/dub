@@ -8,6 +8,9 @@ on:
       - master
       - stable
 
+permissions:
+  pull-requests: write
+
 jobs:
   intro_comment:
     name: Make intro comment
