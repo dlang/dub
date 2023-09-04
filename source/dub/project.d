@@ -987,7 +987,7 @@ class Project {
 			case "stringImportFiles":
 			case "sourceFiles":
 			case "importPaths":
-			case "CImportPaths":
+			case "cImportPaths":
 			case "stringImportPaths":
 				return values.map!(escapeShellFileName).array();
 
