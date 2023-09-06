@@ -1000,7 +1000,7 @@ class InitCommand : Command {
 		{
 			assert(options.length);
 			import std.math : floor, log10;
-			auto ndigits = (size_t val) => val.log10.floor.to!uint + 1;
+			auto ndigits = (size_t val) => log10(cast(double) val).floor.to!uint + 1;
 
 			immutable default_idx = options.countUntil(default_value);
 			immutable max_width = options.map!(s => s.length).reduce!max + ndigits(options.length) + "  ".length;
