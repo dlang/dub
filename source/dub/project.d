@@ -29,6 +29,7 @@ import std.datetime;
 import std.encoding : sanitize;
 import std.exception : enforce;
 import std.string;
+import std.typecons : Nullable;
 
 /**
 	Represents a full project, a root package with its dependencies and package
@@ -78,22 +79,10 @@ class Project {
 		m_rootPackage = pack;
 
 		NativePath absRootPackagePath = m_rootPackage.path;
-		assert(absRootPackagePath.absolute);
-		for (NativePath dir = absRootPackagePath; dir.hasParentPath; dir = dir.parentPath) {
-			const selverfile = (dir ~ SelectedVersions.defaultFile).toNativeString();
-			if (existsFile(selverfile)) {
-				// TODO: Remove `StrictMode.Warn` after v1.40 release
-				// The default is to error, but as the previous parser wasn't
-				// complaining, we should first warn the user.
-				auto selected = parseConfigFileSimple!Selected(selverfile, StrictMode.Warn);
-				const isValid = !selected.isNull() && (dir == absRootPackagePath || selected.get().inheritable);
-				if (isValid)
-					m_selections = new SelectedVersions(selected.get(), dir.relativeTo(absRootPackagePath));
-				break;
-			}
-		}
-
-		if (!m_selections) m_selections = new SelectedVersions;
+		auto lookupResult = lookupAndParseSelectionsFile(absRootPackagePath);
+		m_selections = lookupResult.isNull()
+			? new SelectedVersions
+			: lookupResult.get().selectedVersions;
 
 		reinit();
 	}
@@ -1990,3 +1979,39 @@ private immutable DefaultTestRunnerCode = q{
 		}
 	}
 };
+
+
+struct SelverLookupResult {
+	NativePath absolutePath; // to dub.selections.json
+	SelectedVersions selectedVersions;
+}
+
+// Does both lookup *and* parsing because a parent dir's dub.selections.json
+// file is only inherited if it has `"inheritable": true` (=> needs parsing).
+Nullable!SelverLookupResult lookupAndParseSelectionsFile(NativePath absRootPackagePath)
+	in(absRootPackagePath.absolute)
+{
+	alias N = typeof(return);
+
+	// check for dub.selections.json in root package dir first, then walk up its
+	// parent directories
+	for (NativePath dir = absRootPackagePath; dir.hasParentPath; dir = dir.parentPath) {
+		const selverfile = dir ~ SelectedVersions.defaultFile;
+		if (existsFile(selverfile)) {
+			// TODO: Remove `StrictMode.Warn` after v1.40 release
+			// The default is to error, but as the previous parser wasn't
+			// complaining, we should first warn the user.
+			auto selected = parseConfigFileSimple!Selected(selverfile.toNativeString(), StrictMode.Warn);
+			const isValid = !selected.isNull() && (dir == absRootPackagePath || selected.get().inheritable);
+			if (isValid) {
+				return N(SelverLookupResult(
+					selverfile,
+					new SelectedVersions(selected.get(), dir.relativeTo(absRootPackagePath))
+				));
+			}
+			break;
+		}
+	}
+
+	return N.init;
+}
