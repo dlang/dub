@@ -97,7 +97,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 		return probePlatform(
 			compiler_binary,
-			arch_flags ~ ["-c", "-o-", "-v"],
+			arch_flags ~ ["-betterC", "-c", "-o-", "-v"],
 			arch_override
 		);
 	}

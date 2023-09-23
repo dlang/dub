@@ -124,7 +124,7 @@ config    /etc/dmd.conf
 
 		BuildPlatform bp = probePlatform(
 			compiler_binary,
-			arch_flags ~ ["-quiet", "-c", "-o-", "-v"],
+			arch_flags ~ ["-betterC", "-quiet", "-c", "-o-", "-v"],
 			arch_override
 		);
 
