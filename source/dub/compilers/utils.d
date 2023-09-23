@@ -326,10 +326,18 @@ NativePath generatePlatformProbeFile()
 	enum probe = q{
 		module object;
 
+		template _d_arrayappendcTXImpl(Tarr : T[], T)
+		{
+			ref Tarr _d_arrayappendcTX(return ref scope Tarr px, ulong n) @trusted pure nothrow
+			{
+				// this should never be called, since we use CTFE only
+				// avoids linker errors when compiler attempts to emit a call to this
+				assert(false);
+			}
+		}
+
 		extern(C) int main() { return 0; }
 		alias string = immutable(char)[];
-
-		template toString(int v) { enum toString = v.stringof; }
 
 		/* This is done in this cursed way for compat reasons */
 		enum PLATFORMS = determinePlatform();
@@ -337,20 +345,18 @@ NativePath generatePlatformProbeFile()
 
 		pragma(msg, `%1$s`);
 		pragma(msg, `{`);
-		pragma(msg, `"compiler": "`~ determineCompiler() ~ `",`);
-		pragma(msg, `"frontendVersion": ` ~ toString!__VERSION__ ~ `,`);
-		pragma(msg, `"compilerVendor": "` ~ __VENDOR__ ~ `",`);
+		pragma(msg, `"compiler": "`, determineCompiler(), `",`);
+		pragma(msg, `"frontendVersion": `, cast(int)__VERSION__, `,`);
+		pragma(msg, `"compilerVendor": "`, __VENDOR__, `",`);
 		pragma(msg, `"platform": [`);
 		static foreach(i, pf; PLATFORMS) {
 			pragma(msg, i+1 < PLATFORMS.length ? "\"" ~ pf ~ "\"," : "\"" ~ pf ~ "\"");
 		}
-		pragma(msg, `],`);
-		pragma(msg, `"architecture": [`);
+		pragma(msg, `], "architecture": [`);
 		static foreach(i, pf; ARCHS) {
 			pragma(msg, i+1 < ARCHS.length ? "\"" ~ pf ~ "\"," : "\"" ~ pf ~ "\"");
 		}
-		pragma(msg, `],`);
-		pragma(msg, `}`);
+		pragma(msg, `]}`);
 		pragma(msg, `%2$s`);
 
 		string[] determinePlatform() {
@@ -397,12 +403,17 @@ BuildPlatform readPlatformJsonProbe(string output)
 	output = output[idx1+probeBeginMark.length .. idx2];
 
 	import dub.internal.vibecompat.data.json;
-	auto json = parseJsonString(output);
+	try {
+		auto json = parseJsonString(output);
 
-	BuildPlatform build_platform;
-	build_platform.platform = json["platform"].get!(Json[]).map!(e => e.get!string()).array();
-	build_platform.architecture = json["architecture"].get!(Json[]).map!(e => e.get!string()).array();
-	build_platform.compiler = json["compiler"].get!string;
-	build_platform.frontendVersion = json["frontendVersion"].get!int;
-	return build_platform;
+		BuildPlatform build_platform;
+		build_platform.platform = json["platform"].get!(Json[]).map!(e => e.get!string()).array();
+		build_platform.architecture = json["architecture"].get!(Json[]).map!(e => e.get!string()).array();
+		build_platform.compiler = json["compiler"].get!string;
+		build_platform.frontendVersion = json["frontendVersion"].get!int;
+		return build_platform;
+	} catch (Exception e) {
+		enforce(false, "Unable to parse platform probe result\n\n" ~ output ~ "\n\n" ~ e.msg);
+		assert(false);
+	}
 }
