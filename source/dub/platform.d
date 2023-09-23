@@ -49,7 +49,40 @@ enum string platformCheck = q{
 		version(PlayStation4) ret ~= "playstation4";
 		version(WebAssembly) ret ~= "wasm";
 		return ret;
-	} else assert(0);
+	} else {
+		version(D_BetterC) {
+
+			// Case that we want to avoid for DMD
+			assert(0);
+		} else {
+			string[] ret;
+			version(Windows) ret ~= "windows";
+			version(linux) ret ~= "linux";
+			version(Posix) ret ~= "posix";
+			version(OSX) ret ~= ["osx", "darwin"];
+			version(iOS) ret ~= ["ios", "darwin"];
+			version(TVOS) ret ~= ["tvos", "darwin"];
+			version(WatchOS) ret ~= ["watchos", "darwin"];
+			version(FreeBSD) ret ~= "freebsd";
+			version(OpenBSD) ret ~= "openbsd";
+			version(NetBSD) ret ~= "netbsd";
+			version(DragonFlyBSD) ret ~= "dragonflybsd";
+			version(BSD) ret ~= "bsd";
+			version(Solaris) ret ~= "solaris";
+			version(AIX) ret ~= "aix";
+			version(Haiku) ret ~= "haiku";
+			version(SkyOS) ret ~= "skyos";
+			version(SysV3) ret ~= "sysv3";
+			version(SysV4) ret ~= "sysv4";
+			version(Hurd) ret ~= "hurd";
+			version(Android) ret ~= "android";
+			version(Cygwin) ret ~= "cygwin";
+			version(MinGW) ret ~= "mingw";
+			version(PlayStation4) ret ~= "playstation4";
+			version(WebAssembly) ret ~= "wasm";
+			return ret;
+		}
+	}
 };
 
 /// private
@@ -102,7 +135,61 @@ enum string archCheck = q{
 		version(Alpha_SoftFP) ret ~= "alpha_softfp";
 		version(Alpha_HardFP) ret ~= "alpha_hardfp";
 		return ret;
-	} else assert(0);
+	} else {
+		version(D_BetterC) {
+
+			// Case that we want to avoid for DMD
+			assert(0);
+		} else {
+			string[] ret;
+			version(X86) ret ~= "x86";
+			// Hack: see #1535
+			// Makes "x86_omf" available as a platform specifier in the package recipe
+			version(X86) version(CRuntime_DigitalMars) ret ~= "x86_omf";
+			// Hack: see #1059
+			// When compiling with --arch=x86_mscoff build_platform.architecture is equal to ["x86"] and canFind below is false.
+			// This hack prevents unnecessary warning 'Failed to apply the selected architecture x86_mscoff. Got ["x86"]'.
+			// And also makes "x86_mscoff" available as a platform specifier in the package recipe
+			version(X86) version(CRuntime_Microsoft) ret ~= "x86_mscoff";
+			version(X86_64) ret ~= "x86_64";
+			version(ARM) ret ~= "arm";
+			version(AArch64) ret ~= "aarch64";
+			version(ARM_Thumb) ret ~= "arm_thumb";
+			version(ARM_SoftFloat) ret ~= "arm_softfloat";
+			version(ARM_HardFloat) ret ~= "arm_hardfloat";
+			version(PPC) ret ~= "ppc";
+			version(PPC_SoftFP) ret ~= "ppc_softfp";
+			version(PPC_HardFP) ret ~= "ppc_hardfp";
+			version(PPC64) ret ~= "ppc64";
+			version(IA64) ret ~= "ia64";
+			version(MIPS) ret ~= "mips";
+			version(MIPS32) ret ~= "mips32";
+			version(MIPS64) ret ~= "mips64";
+			version(MIPS_O32) ret ~= "mips_o32";
+			version(MIPS_N32) ret ~= "mips_n32";
+			version(MIPS_O64) ret ~= "mips_o64";
+			version(MIPS_N64) ret ~= "mips_n64";
+			version(MIPS_EABI) ret ~= "mips_eabi";
+			version(MIPS_NoFloat) ret ~= "mips_nofloat";
+			version(MIPS_SoftFloat) ret ~= "mips_softfloat";
+			version(MIPS_HardFloat) ret ~= "mips_hardfloat";
+			version(SPARC) ret ~= "sparc";
+			version(SPARC_V8Plus) ret ~= "sparc_v8plus";
+			version(SPARC_SoftFP) ret ~= "sparc_softfp";
+			version(SPARC_HardFP) ret ~= "sparc_hardfp";
+			version(SPARC64) ret ~= "sparc64";
+			version(S390) ret ~= "s390";
+			version(S390X) ret ~= "s390x";
+			version(HPPA) ret ~= "hppa";
+			version(HPPA64) ret ~= "hppa64";
+			version(SH) ret ~= "sh";
+			version(SH64) ret ~= "sh64";
+			version(Alpha) ret ~= "alpha";
+			version(Alpha_SoftFP) ret ~= "alpha_softfp";
+			version(Alpha_HardFP) ret ~= "alpha_hardfp";
+			return ret;
+		}
+	}
 };
 
 /// private
