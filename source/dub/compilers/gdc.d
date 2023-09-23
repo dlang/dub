@@ -80,7 +80,7 @@ class GDCCompiler : Compiler {
 
 		return probePlatform(
 			compiler_binary,
-			arch_flags ~ ["-fno-druntime", "-fsyntax-only", "-v"],
+			arch_flags ~ ["-fno-druntime", "-nophoboslib", "-fsyntax-only", "-v"],
 			arch_override
 		);
 	}

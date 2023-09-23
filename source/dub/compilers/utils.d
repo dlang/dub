@@ -322,33 +322,36 @@ NativePath generatePlatformProbeFile()
 	import std.string : format;
 
 	// try to not use phobos in the probe to avoid long import times
+	// HACK: GDC has a bug in which it will try to compile in CTFE sections
 	enum probe = q{
-		module dub_platform_probe;
+		module object;
+
+		extern(C) int main() { return 0; }
+		alias string = immutable(char)[];
 
 		template toString(int v) { enum toString = v.stringof; }
-		string stringArray(string[] ary) {
-			string res;
-			foreach (i, e; ary) {
-				if (i)
-					res ~= ", ";
-				res ~= '"' ~ e ~ '"';
-			}
-			return res;
-		}
 
-		pragma(msg, `%1$s`
-			~ '\n' ~ `{`
-			~ '\n' ~ `  "compiler": "`~ determineCompiler() ~ `",`
-			~ '\n' ~ `  "frontendVersion": ` ~ toString!__VERSION__ ~ `,`
-			~ '\n' ~ `  "compilerVendor": "` ~ __VENDOR__ ~ `",`
-			~ '\n' ~ `  "platform": [`
-			~ '\n' ~ `    ` ~ determinePlatform().stringArray
-			~ '\n' ~ `  ],`
-			~ '\n' ~ `  "architecture": [`
-			~ '\n' ~ `    ` ~ determineArchitecture().stringArray
-			~ '\n' ~ `   ],`
-			~ '\n' ~ `}`
-			~ '\n' ~ `%2$s`);
+		/* This is done in this cursed way for compat reasons */
+		enum PLATFORMS = determinePlatform();
+		enum ARCHS = determineArchitecture();
+
+		pragma(msg, `%1$s`);
+		pragma(msg, `{`);
+		pragma(msg, `"compiler": "`~ determineCompiler() ~ `",`);
+		pragma(msg, `"frontendVersion": ` ~ toString!__VERSION__ ~ `,`);
+		pragma(msg, `"compilerVendor": "` ~ __VENDOR__ ~ `",`);
+		pragma(msg, `"platform": [`);
+		static foreach(i, pf; PLATFORMS) {
+			pragma(msg, i+1 < PLATFORMS.length ? "\"" ~ pf ~ "\"," : "\"" ~ pf ~ "\"");
+		}
+		pragma(msg, `],`);
+		pragma(msg, `"architecture": [`);
+		static foreach(i, pf; ARCHS) {
+			pragma(msg, i+1 < ARCHS.length ? "\"" ~ pf ~ "\"," : "\"" ~ pf ~ "\"");
+		}
+		pragma(msg, `],`);
+		pragma(msg, `}`);
+		pragma(msg, `%2$s`);
 
 		string[] determinePlatform() { %3$s }
 		string[] determineArchitecture() { %4$s }
