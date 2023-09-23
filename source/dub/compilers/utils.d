@@ -353,8 +353,20 @@ NativePath generatePlatformProbeFile()
 		pragma(msg, `}`);
 		pragma(msg, `%2$s`);
 
-		string[] determinePlatform() { %3$s }
-		string[] determineArchitecture() { %4$s }
+		string[] determinePlatform() {
+			if (__ctfe) {
+				%3$s
+			} else {
+				assert(0);
+			}
+		}
+		string[] determineArchitecture() {
+			if (__ctfe) {
+				%4$s
+			} else {
+				assert(0);
+			}
+		}
 		string determineCompiler() { %5$s }
 
 		}.format(probeBeginMark, probeEndMark, platformCheck, archCheck, compilerCheck);
