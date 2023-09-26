@@ -1878,7 +1878,6 @@ class DescribeCommand : PackageBuildCommand {
 		GeneratorSettings settings = this.baseSettings;
 		if (!settings.config.length)
 			settings.config = m_defaultConfig;
-		settings.cache = dub.cachePathDontUse(); // See function's description
 		// Ignore other options
 		settings.buildSettings.options = this.baseSettings.buildSettings.options & BuildOption.lowmem;
 

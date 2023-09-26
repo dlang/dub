@@ -263,7 +263,7 @@ class BuildGenerator : ProjectGenerator {
 			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
 		}
 		else
-			target_path = targetCacheDir(settings.cache, pack, build_id);
+			target_path = m_packageMan.targetCacheDir(pack, build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
 			logInfo("Up-to-date", Color.green, "%s %s: target for configuration [%s] is up to date.",
@@ -316,7 +316,7 @@ class BuildGenerator : ProjectGenerator {
 		enum jsonFileName = "db.json";
 		enum lockFileName = "db.lock";
 
-		const pkgCacheDir = packageCache(settings.cache, pack);
+		const pkgCacheDir = m_packageMan.packageCache(pack);
 		auto lock = lockFile((pkgCacheDir ~ lockFileName).toNativeString(), 3.seconds);
 
 		const dbPath = pkgCacheDir ~ jsonFileName;
@@ -777,7 +777,7 @@ unittest { // issue #1235 - pass no library files to compiler command line when 
 
 	auto desc = parseJsonString(`{"name": "test", "targetType": "library", "sourceFiles": ["foo.d", "`~libfile~`"]}`);
 	auto pack = new Package(desc, NativePath("/tmp/fooproject"));
-	auto pman = new PackageManager(pack.path, NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), false);
+	auto pman = new PackageManager(pack.path, NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), NativePath("/tmp/cache/"), false);
 	auto prj = new Project(pman, pack);
 
 	final static class TestCompiler : GDCCompiler {

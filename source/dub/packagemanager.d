@@ -95,6 +95,15 @@ class PackageManager {
 		 * of available packages.
 		 */
 		bool m_initialized;
+		/**
+		 * Path where build artifacts are stored, e.g. `~/.dub/cache/` on POSIX.
+		 *
+		 * See dub.d SpecialDirs.cache for more details.
+		 *
+		 * To initialize with default DUB values, instantiate an instance of
+		 * `DUB` and access its packageManager.
+		 */
+		NativePath m_cachePath;
 	}
 
 	/**
@@ -107,18 +116,41 @@ class PackageManager {
 	   Params:
 		 path = Path of the single repository
 	 */
+	deprecated("Obtain the package manager from `Dub` or instantiate with a cache path where binaries should go")
 	this(NativePath path)
 	{
 		this.m_internal.searchPath = [ path ];
 		this.refresh();
 	}
 
+	/// ditto
+	this(NativePath path, NativePath cachePath)
+	{
+		this.m_internal.searchPath = [ path ];
+		this.m_cachePath = cachePath;
+		this.refresh();
+	}
+
+	deprecated("Obtain the package manager from `Dub` or instantiate with a cache path where binaries should go")
 	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
 		m_repositories = [
 			Location(package_path ~ ".dub/packages/"),
 			Location(user_path ~ "packages/"),
 			Location(system_path ~ "packages/")];
+
+		if (refresh_packages) refresh();
+	}
+
+	/// ditto
+	this(NativePath package_path, NativePath user_path, NativePath system_path, NativePath cache_path, bool refresh_packages = true)
+	{
+		m_repositories = [
+			Location(package_path ~ ".dub/packages/"),
+			Location(user_path ~ "packages/"),
+			Location(system_path ~ "packages/")];
+
+		m_cachePath = cache_path;
 
 		if (refresh_packages) refresh();
 	}
@@ -1010,6 +1042,51 @@ symlink_exit:
 				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}
 		}
+	}
+
+	/**
+	 * Compute and returns the path were artifacts are stored for a given package
+	 *
+	 * Artifacts are stored in:
+	 * `$DUB_HOME/cache/$PKG_NAME/$PKG_VERSION[/+$SUB_PKG_NAME]/`
+	 * Note that the leading `+` in the sub-package name is to avoid any ambiguity.
+	 *
+	 * Dub writes in the returned path a Json description file of the available
+	 * artifacts in this cache location. This Json file is read by 3rd party
+	 * software (e.g. Meson). Returned path should therefore not change across
+	 * future Dub versions.
+	 *
+	 * Build artifacts are usually stored in a sub-folder named "build",
+	 * as their names are based on user-supplied values.
+	 *
+	 * Params:
+	 *	 pkg = The package. Cannot be `null`.
+	 */
+	package(dub) NativePath packageCache(in Package pkg) const
+	{
+		import std.algorithm.searching : findSplit;
+
+		assert(pkg !is null);
+		assert(!m_cachePath.empty, "cannot use packageCache when no package cache path has been specified in constructor");
+
+		// For subpackages
+		if (const names = pkg.name.findSplit(":"))
+			return m_cachePath ~ names[0] ~ pkg.version_.toString()
+				~ ("+" ~ names[2]);
+		// For regular packages
+		return m_cachePath ~ pkg.name ~ pkg.version_.toString();
+	}
+
+	/**
+	 * Compute and return the directory where a target should be cached.
+	 *
+	 * Params:
+	 *	 pkg = The package. Cannot be `null`.
+	 *   buildId = The build identifier of the target.
+	 */
+	package(dub) NativePath targetCacheDir(in Package pkg, string buildId) const
+	{
+		return packageCache(pkg) ~ "build" ~ buildId;
 	}
 }
 
