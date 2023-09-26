@@ -326,13 +326,22 @@ NativePath generatePlatformProbeFile()
 	enum probe = q{
 		module object;
 
-		template _d_arrayappendcTXImpl(Tarr : T[], T)
+		static if (__VERSION__ < 2104)
 		{
-			ref Tarr _d_arrayappendcTX(return ref scope Tarr px, ulong n) @trusted pure nothrow
+			// Work around bug that in older FE versions CTFE would still emit
+			// symbol calls to druntime, which we don't have with betterC
+
+			// Starting with DMD 2.104 this is no problem anymore however, so we
+			// don't need to use this hack there.
+
+			template _d_arrayappendcTXImpl(Tarr : T[], T)
 			{
-				// this should never be called, since we use CTFE only
-				// avoids linker errors when compiler attempts to emit a call to this
-				assert(false);
+				ref Tarr _d_arrayappendcTX(return ref scope Tarr px, ulong n) @trusted pure nothrow
+				{
+					// this should never be called, since we use CTFE only
+					// avoids linker errors when compiler attempts to emit a call to this
+					assert(false);
+				}
 			}
 		}
 
