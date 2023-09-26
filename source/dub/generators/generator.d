@@ -842,6 +842,9 @@ struct GeneratorSettings {
 			? getWorkingDirectory()
 			: overrideToolWorkingDirectory;
 	}
+
+	deprecated("This is no longer used, the cache is inside PackageManager now. If you use a project instantiated from a `Dub` instance, the cache defaults to the real DUB cache, e.g. ~/.dub/cache")
+	NativePath cache;
 }
 
 
