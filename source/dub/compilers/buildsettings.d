@@ -40,6 +40,8 @@ struct BuildSettings {
 	string[] debugVersions;
 	string[] versionFilters;
 	string[] debugVersionFilters;
+	string[] specifiedSourcePaths; /// sourcePaths, before globbing for *.d and writing into sourceFiles
+	string[] specifiedCSourcePaths; /// cSourcePaths, before globbing for *.{c,i} and writing into sourceFiles
 	string[] importPaths;
 	string[] cImportPaths;
 	string[] stringImportPaths;
@@ -106,6 +108,8 @@ struct BuildSettings {
 		addDebugVersions(bs.debugVersions);
 		addVersionFilters(bs.versionFilters);
 		addDebugVersionFilters(bs.debugVersionFilters);
+		addSpecifiedSourcePaths(bs.specifiedSourcePaths);
+		addSpecifiedCSourcePaths(bs.specifiedCSourcePaths);
 		addImportPaths(bs.importPaths);
 		addCImportPaths(bs.cImportPaths);
 		addStringImportPaths(bs.stringImportPaths);
@@ -147,6 +151,8 @@ struct BuildSettings {
 	void addDebugVersions(in string[] value...) { add(debugVersions, value); }
 	void addVersionFilters(in string[] value...) { add(versionFilters, value); }
 	void addDebugVersionFilters(in string[] value...) { add(debugVersionFilters, value); }
+	void addSpecifiedSourcePaths(in string[] value...) { add(specifiedSourcePaths, value); }
+	void addSpecifiedCSourcePaths(in string[] value...) { add(specifiedCSourcePaths, value); }
 	void addImportPaths(in string[] value...) { add(importPaths, value); }
 	void addCImportPaths(in string[] value...) { add(cImportPaths, value); }
 	void addStringImportPaths(in string[] value...) { add(stringImportPaths, value); }
