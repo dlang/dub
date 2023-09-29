@@ -99,6 +99,10 @@ enum string archCheck = q{
 	version(Alpha) ret ~= "alpha";
 	version(Alpha_SoftFP) ret ~= "alpha_softfp";
 	version(Alpha_HardFP) ret ~= "alpha_hardfp";
+	version(LoongArch32) ret ~= "loongarch32";
+	version(LoongArch64) ret ~= "loongarch64";
+	version(LoongArch_SoftFloat) ret ~= "loongarch_softfloat";
+	version(LoongArch_HardFloat) ret ~= "loongarch_hardfloat";
 	return ret;
 };
 
