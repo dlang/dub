@@ -1,0 +1,22 @@
+Made deprecations, warnings and errors consistent across compilers
+
+With DMD and LDC there is a special "Deprecation" compile log message class, which
+does not abort the build, even if `buildOptions "warningsAsErrors"` is set. With
+GDC this special log class doesn't exist, so previously DUB would have aborted
+compilation on deprecations due to the warningsAsErrors build option being set
+by default.
+
+DMD and LDC didn't abort the build at all if `buildOptions "deprecationWarnings"`
+was set, even if `"warningsAsErrors"` was (implicitly or explicitly) set.
+
+Now the behavior is consistent across all compilers:
+
+- deprecations are not treated as errors inside GDC with the default `"warningsAsErrors"` flag anymore
+    - from this release on, the old GDC behavior can be replicated across all compilers using `buildOptions "deprecationWarnings"`
+    - to do this with previous DUB versions, use `buildOptions "deprecationErrors"` if you haven't manually disabled the default warningsAsErrors behavior.
+- `"deprecationWarnings"` now implies `"deprecationErrors"` if `"warningsAsErrors"` is set (the default)
+
+Internally for GDC DUB will now emit `-Wno-error=deprecated` when build option
+`"warningsAsError"` is on, not aborting the build, when there is a deprecation.
+Note that GDC will still print "Warning" for deprecations, but not abort the
+build.

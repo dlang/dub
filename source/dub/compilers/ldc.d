@@ -43,6 +43,7 @@ class LDCCompiler : Compiler {
 		tuple(BuildOption.ignoreDeprecations, ["-d"]),
 		tuple(BuildOption.deprecationWarnings, ["-dw"]),
 		tuple(BuildOption.deprecationErrors, ["-de"]),
+		tuple(BuildOption.deprecationWarnings | BuildOption.warningsAsErrors, ["-de"]),
 		tuple(BuildOption.property, ["-property"]),
 		//tuple(BuildOption.profileGC, ["-?"]),
 		tuple(BuildOption.betterC, ["-betterC"]),
@@ -109,7 +110,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 		if (!(fields & BuildSetting.options)) {
 			foreach (t; s_options)
-				if (settings.options & t[0])
+				if ((settings.options & t[0]) == BitFlags!BuildOption(t[0]))
 					settings.addDFlags(t[1]);
 		}
 

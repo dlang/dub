@@ -38,11 +38,12 @@ class GDCCompiler : Compiler {
 		tuple(BuildOption.verbose, ["-v"]),
 		tuple(BuildOption.ignoreUnknownPragmas, ["-fignore-unknown-pragmas"]),
 		tuple(BuildOption.syntaxOnly, ["-fsyntax-only"]),
-		tuple(BuildOption.warnings, ["-Wall"]),
-		tuple(BuildOption.warningsAsErrors, ["-Werror", "-Wall"]),
+		tuple(BuildOption.warnings, ["-Wall", "-Wextra"]),
+		tuple(BuildOption.warningsAsErrors, ["-Werror", "-Wall", "-Wextra", "-Wno-error=deprecated"]),
 		tuple(BuildOption.ignoreDeprecations, ["-Wno-deprecated"]),
 		tuple(BuildOption.deprecationWarnings, ["-Wdeprecated"]),
-		tuple(BuildOption.deprecationErrors, ["-Werror", "-Wdeprecated"]),
+		tuple(BuildOption.deprecationErrors, ["-Werror=deprecated"]),
+		tuple(BuildOption.deprecationWarnings | BuildOption.warningsAsErrors, ["-Werror=deprecated"]),
 		tuple(BuildOption.property, ["-fproperty"]),
 		//tuple(BuildOption.profileGC, ["-?"]),
 		tuple(BuildOption.betterC, ["-fno-druntime"]),
@@ -91,7 +92,7 @@ class GDCCompiler : Compiler {
 
 		if (!(fields & BuildSetting.options)) {
 			foreach (t; s_options)
-				if (settings.options & t[0])
+				if ((settings.options & t[0]) == BitFlags!BuildOption(t[0]))
 					settings.addDFlags(t[1]);
 		}
 
