@@ -716,8 +716,9 @@ private T clone(T)(ref const(T) val)
 	import std.traits : isSomeString, isDynamicArray, isAssociativeArray, isBasicType, ValueType;
 
 	static if (is(T == immutable)) return val;
-	else static if (isBasicType!T) return val;
-	else static if (isDynamicArray!T) {
+	else static if (isBasicType!T || is(T Base == enum) && isBasicType!Base) {
+		return val;
+	} else static if (isDynamicArray!T) {
 		alias V = typeof(T.init[0]);
 		static if (is(V == immutable)) return val;
 		else {
