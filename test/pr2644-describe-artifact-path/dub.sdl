@@ -1,0 +1,2 @@
+name "pr2644-describe-artifact-path";
+targetType "executable";

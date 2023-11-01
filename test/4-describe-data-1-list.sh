@@ -30,6 +30,10 @@ if ! $DUB describe --compiler=$DC --filter-versions \
     --data=pre-build-commands \
     --data=post-build-commands \
     '--data=requirements, options' \
+    --data=default-config \
+    --data=configs \
+    --data=default-build \
+    --data=builds \
     > "$temp_file"; then
     die $LINENO 'Printing project data failed!'
 fi
@@ -130,6 +134,33 @@ echo "debugMode" >> "$expected_file"
 echo "debugInfo" >> "$expected_file"
 echo "stackStomping" >> "$expected_file"
 echo "warnings" >> "$expected_file"
+echo >> "$expected_file"
+# --data=default-config
+echo "my-project-config" >> "$expected_file"
+echo >> "$expected_file"
+# --data=configs
+echo "my-project-config" >> "$expected_file"
+echo >> "$expected_file"
+# --data=default-build
+echo "debug" >> "$expected_file"
+echo >> "$expected_file"
+# --data=builds
+echo "debug" >> "$expected_file"
+echo "plain" >> "$expected_file"
+echo "release" >> "$expected_file"
+echo "release-debug" >> "$expected_file"
+echo "release-nobounds" >> "$expected_file"
+echo "unittest" >> "$expected_file"
+echo "profile" >> "$expected_file"
+echo "profile-gc" >> "$expected_file"
+echo "docs" >> "$expected_file"
+echo "ddox" >> "$expected_file"
+echo "cov" >> "$expected_file"
+echo "cov-ctfe" >> "$expected_file"
+echo "unittest-cov" >> "$expected_file"
+echo "unittest-cov-ctfe" >> "$expected_file"
+echo "syntax" >> "$expected_file"
+# echo >> "$expected_file"
 
 if ! diff "$expected_file" "$temp_file"; then
     echo "Result:"

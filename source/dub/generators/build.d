@@ -46,8 +46,16 @@ string computeBuildName(string config, in GeneratorSettings settings, const stri
 	addHash(settings.platform.architecture);
 	addHash(settings.platform.compiler);
 	addHash(settings.platform.compilerVersion);
+	if(settings.recipeName != "")
+		addHash(settings.recipeName);
 	const hashstr = Base64URL.encode(hash.finish()[0 .. $ / 2]).stripRight("=");
 
+	if(settings.recipeName != "")
+	{
+		import std.path:stripExtension, baseName;
+		string recipeName = settings.recipeName.baseName.stripExtension;
+		return format("%s-%s-%s-%s", config, settings.buildType, recipeName, hashstr);
+	}
 	return format("%s-%s-%s", config, settings.buildType, hashstr);
 }
 
@@ -88,6 +96,17 @@ class BuildGenerator : ProjectGenerator {
 		    "Performing \"%s\" build using %s for %-(%s, %).",
 			settings.buildType.color(Color.magenta), settings.platform.compilerBinary,
 			settings.platform.architecture);
+
+		if (settings.rdmd || (rootTT == TargetType.staticLibrary && !settings.buildDeep)) {
+			// Only build the main target.
+			// RDMD always builds everything at once and static libraries don't need their
+			// dependencies to be built, unless --deep flag is specified
+			NativePath tpath;
+			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null, tpath);
+			return;
+		}
+
+		// Recursive build starts here
 
 		bool any_cached = false;
 
@@ -156,15 +175,6 @@ class BuildGenerator : ProjectGenerator {
 					any_cached = true;
 			}
 			target_paths[target] = tpath;
-		}
-
-		// build all targets
-		if (settings.rdmd || rootTT == TargetType.staticLibrary) {
-			// RDMD always builds everything at once and static libraries don't need their
-			// dependencies to be built
-			NativePath tpath;
-			buildTarget(settings, root_ti.buildSettings.dup, m_project.rootPackage, root_ti.config, root_ti.packages, null, tpath);
-			return;
 		}
 
 		buildTargetRec(m_project.rootPackage.name);
@@ -253,7 +263,7 @@ class BuildGenerator : ProjectGenerator {
 			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
 		}
 		else
-			target_path = packageCache(settings.cache, pack) ~ "build/" ~ build_id;
+			target_path = targetCacheDir(settings.cache, pack, build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
 			logInfo("Up-to-date", Color.green, "%s %s: target for configuration [%s] is up to date.",
@@ -719,39 +729,6 @@ class BuildGenerator : ProjectGenerator {
 		}
 		m_temporaryFiles = null;
 	}
-}
-
-/**
- * Provides a unique (per build) identifier
- *
- * When building a package, it is important to have a unique but stable
- * identifier to differentiate builds and allow their caching.
- * This function provides such an identifier.
- * Example:
- * ```
- * application-debug-linux.posix-x86_64-dmd_v2.100.2-D80285212AEC1FF9855F18AD52C68B9EEB5C7690609C224575F920096FB1965B
- * ```
- */
-private string computeBuildID(in BuildSettings buildsettings, string config, GeneratorSettings settings)
-{
-	const(string[])[] hashing = [
-		buildsettings.versions,
-		buildsettings.debugVersions,
-		buildsettings.dflags,
-		buildsettings.lflags,
-		buildsettings.stringImportPaths,
-		buildsettings.importPaths,
-		buildsettings.cImportPaths,
-		settings.platform.architecture,
-		[
-			(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
-			settings.platform.compilerBinary,
-			settings.platform.compiler,
-			settings.platform.compilerVersion,
-		],
-	];
-
-	return computeBuildName(config, settings, hashing);
 }
 
 private NativePath getMainSourceFile(in Package prj)

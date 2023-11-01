@@ -1,0 +1,19 @@
+dmd_ver=$($DC --version | grep -Eo "v2\.[0-9][0-9][0-9].[0-9]")
+dmd_minor=$(echo $dmd_ver | grep -Eo "[0-9][0-9][0-9]")
+dmd_micro=${dmd_ver: -1}
+
+if [[ $dmd_minor$dmd_micro < 1022 || "$CURR_DIR" =~ [[:space:]] ]]; then
+    echo "Expecting escaped paths"
+    escape=1
+else
+    echo "Not expecting escaped paths"
+    escape=0
+fi
+
+function escaped {
+    if [ $escape -eq 1 ]; then
+        echo -n "'$1'"
+    else
+        echo -n "$1"
+    fi
+}

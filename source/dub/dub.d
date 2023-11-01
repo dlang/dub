@@ -126,6 +126,7 @@ class Dub {
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
 		NativePath m_rootPath;
+		string m_mainRecipePath;
 		SpecialDirs m_dirs;
 		Settings m_config;
 		Project m_project;
@@ -390,6 +391,14 @@ class Dub {
 	/// Returns the name listed in the dub.json of the current
 	/// application.
 	@property string projectName() const { return m_project.name; }
+
+	@property string mainRecipePath() const { return m_mainRecipePath; }
+	/// Whenever the switch --recipe= is supplied, this member will be populated.
+	@property string mainRecipePath(string recipePath) 
+	{ 
+		return m_mainRecipePath = recipePath;
+	}
+
 
 	@property NativePath projectPath() const { return this.m_project.rootPackage.path; }
 

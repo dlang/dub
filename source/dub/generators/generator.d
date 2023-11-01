@@ -803,12 +803,61 @@ package(dub) NativePath packageCache(NativePath cachePath, in Package pkg)
 	return cachePath ~ pkg.name ~ pkg.version_.toString();
 }
 
+/**
+ * Compute and return the directory where a target should be cached.
+ *
+ * Params:
+ *   cachePath = Base path at which the build cache is located,
+ *               e.g. `$HOME/.dub/cache/`
+ *	 pkg = The package. Cannot be `null`.
+ *   buildId = The build identifier of the target.
+ */
+package(dub) NativePath targetCacheDir(NativePath cachePath, in Package pkg, string buildId)
+{
+	return packageCache(cachePath, pkg) ~ "build" ~ buildId;
+}
+
+/**
+ * Provides a unique (per build) identifier
+ *
+ * When building a package, it is important to have a unique but stable
+ * identifier to differentiate builds and allow their caching.
+ * This function provides such an identifier.
+ * Example:
+ * ```
+ * library-debug-Z7qINYX4IxM8muBSlyNGrw
+ * ```
+ */
+package(dub) string computeBuildID(in BuildSettings buildsettings, string config, GeneratorSettings settings)
+{
+	import std.conv : to;
+
+	const(string[])[] hashing = [
+		buildsettings.versions,
+		buildsettings.debugVersions,
+		buildsettings.dflags,
+		buildsettings.lflags,
+		buildsettings.stringImportPaths,
+		buildsettings.importPaths,
+		buildsettings.cImportPaths,
+		settings.platform.architecture,
+		[
+			(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
+			settings.platform.compilerBinary,
+			settings.platform.compiler,
+			settings.platform.compilerVersion,
+		],
+	];
+
+	return computeBuildName(config, settings, hashing);
+}
 
 struct GeneratorSettings {
 	NativePath cache;
 	BuildPlatform platform;
 	Compiler compiler;
 	string config;
+	string recipeName;
 	string buildType;
 	BuildSettings buildSettings;
 	BuildMode buildMode = BuildMode.separate;
@@ -823,6 +872,9 @@ struct GeneratorSettings {
 
 	/// single file dub package
 	bool single;
+
+	/// build all dependencies for static libraries
+	bool buildDeep;
 
 	string[] runArgs;
 	void delegate(int status, string output) compileCallback;

@@ -501,11 +501,13 @@ int runDubCommandLine(string[] args)
 		return 1;
 	}
 
-	// initialize the root package
-	Dub dub = cmd.prepareDub(handler.options);
+	try {
+		// initialize the root package
+		Dub dub = cmd.prepareDub(handler.options);
 
-	// execute the command
-	try return cmd.execute(dub, remaining_args, command_args.appArgs);
+		// execute the command
+		return cmd.execute(dub, remaining_args, command_args.appArgs);
+	}
 	catch (UsageException e) {
 		// usage exceptions get thrown before any logging, so we are
 		// making the errors more narrow to better fit on small screens.
@@ -534,7 +536,7 @@ struct CommonOptions {
 	bool verbose, vverbose, quiet, vquiet, verror, version_;
 	bool help, annotate, bare;
 	string[] registry_urls;
-	string root_path;
+	string root_path, recipeFile;
 	enum Color { automatic, on, off }
 	Color colorMode = Color.automatic;
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
@@ -568,6 +570,7 @@ struct CommonOptions {
 	{
 		args.getopt("h|help", &help, ["Display general or command specific help"]);
 		args.getopt("root", &root_path, ["Path to operate in instead of the current working dir"]);
+		args.getopt("recipe", &recipeFile, ["Loads a custom recipe path instead of dub.json/dub.sdl"]);
 		args.getopt("registry", &registry_urls, [
 			"Search the given registry URL first when resolving dependencies. Can be specified multiple times. Available registry types:",
 			"  DUB: URL to DUB registry (default)",
@@ -836,11 +839,25 @@ class Command {
 		dub = new Dub(options.root_path, package_suppliers, options.skipRegistry);
 		dub.dryRun = options.annotate;
 		dub.defaultPlacementLocation = options.placementLocation;
-
+		dub.mainRecipePath = options.recipeFile;
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
-		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath.init, false, StrictMode.Warn);
-		catch (Exception e) { logDiagnostic("No valid package found in current working directory: %s", e.msg); }
+		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath(options.recipeFile), false, StrictMode.Warn);
+		catch (Exception e) {
+			// by default we ignore CWD package load fails in prepareDUB, since
+			// they will fail again later when they are actually requested. This
+			// is done to provide custom options to the loading logic and should
+			// ideally be moved elsewhere. (This catch has been around since 10
+			// years when it was first introduced in _app.d_)
+			logDiagnostic("No valid package found in current working directory: %s", e.msg);
+
+			// for now, we work around not knowing if the package is needed or
+			// not, simply by trusting the user to only use `--recipe` when the
+			// recipe file actually exists, otherwise we throw the error.
+			bool loadMustSucceed = options.recipeFile.length > 0;
+			if (loadMustSucceed)
+				throw e;
+		}
 
 		return dub;
 	}
@@ -973,10 +990,181 @@ class InitCommand : Command {
 
 		static string input(string caption, string default_value)
 		{
-			writef("%s [%s]: ", caption, default_value);
+			writef("%s [%s]: ", caption.color(Mode.bold), default_value);
 			stdout.flush();
 			auto inp = readln();
 			return inp.length > 1 ? inp[0 .. $-1] : default_value;
+		}
+
+		static string select(string caption, bool free_choice, string default_value, const string[] options...)
+		{
+			assert(options.length);
+			import std.math : floor, log10;
+			auto ndigits = (size_t val) => log10(cast(double) val).floor.to!uint + 1;
+
+			immutable default_idx = options.countUntil(default_value);
+			immutable max_width = options.map!(s => s.length).reduce!max + ndigits(options.length) + "  ".length;
+			immutable num_columns = max(1, 82 / max_width);
+			immutable num_rows = (options.length + num_columns - 1) / num_columns;
+
+			string[] options_matrix;
+			options_matrix.length = num_rows * num_columns;
+			foreach (i, option; options)
+			{
+				size_t y = i % num_rows;
+				size_t x = i / num_rows;
+				options_matrix[x + y * num_columns] = option;
+			}
+
+			auto idx_to_user = (string option) => cast(uint)options.countUntil(option) + 1;
+			auto user_to_idx = (size_t i) => cast(uint)i - 1;
+
+			assert(default_idx >= 0);
+			writeln((free_choice ? "Select or enter " : "Select ").color(Mode.bold), caption.color(Mode.bold), ":".color(Mode.bold));
+			foreach (i, option; options_matrix)
+			{
+				if (i != 0 && (i % num_columns) == 0) writeln();
+				if (!option.length)
+					continue;
+				auto user_id = idx_to_user(option);
+				writef("%*u)".color(Color.cyan, Mode.bold) ~ " %s", ndigits(options.length), user_id,
+					leftJustifier(option, max_width));
+			}
+			writeln();
+			immutable default_choice = (default_idx + 1).to!string;
+			while (true)
+			{
+				auto choice = input(free_choice ? "?" : "#?", default_choice);
+				if (choice is default_choice)
+					return default_value;
+				choice = choice.strip;
+				uint option_idx = uint.max;
+				try
+					option_idx = cast(uint)user_to_idx(to!uint(choice));
+				catch (ConvException)
+				{}
+				if (option_idx != uint.max)
+				{
+					if (option_idx < options.length)
+						return options[option_idx];
+				}
+				else if (free_choice || options.canFind(choice))
+					return choice;
+				logError("Select an option between 1 and %u%s.", options.length,
+						 free_choice ? " or enter a custom value" : null);
+			}
+		}
+
+		static string license_select(string def)
+		{
+			static immutable licenses = [
+				"BSL-1.0 (Boost)",
+				"MIT",
+				"Unlicense (public domain)",
+				"Apache-",
+				"-1.0",
+				"-1.1",
+				"-2.0",
+				"AGPL-",
+				"-1.0-only",
+				"-1.0-or-later",
+				"-3.0-only",
+				"-3.0-or-later",
+				"GPL-",
+				"-2.0-only",
+				"-2.0-or-later",
+				"-3.0-only",
+				"-3.0-or-later",
+				"LGPL-",
+				"-2.0-only",
+				"-2.0-or-later",
+				"-2.1-only",
+				"-2.1-or-later",
+				"-3.0-only",
+				"-3.0-or-later",
+				"BSD-",
+				"-1-Clause",
+				"-2-Clause",
+				"-3-Clause",
+				"-4-Clause",
+				"MPL- (Mozilla)",
+				"-1.0",
+				"-1.1",
+				"-2.0",
+				"-2.0-no-copyleft-exception",
+				"EUPL-",
+				"-1.0",
+				"-1.1",
+				"-2.0",
+				"CC- (Creative Commons)",
+				"-BY-4.0 (Attribution 4.0 International)",
+				"-BY-SA-4.0 (Attribution Share Alike 4.0 International)",
+				"Zlib",
+				"ISC",
+				"proprietary",
+			];
+
+			static string sanitize(string license)
+			{
+				auto desc = license.countUntil(" (");
+				if (desc != -1)
+					license = license[0 .. desc];
+				return license;
+			}
+
+			string[] root;
+			foreach (l; licenses)
+				if (!l.startsWith("-"))
+					root ~= l;
+
+			string result;
+			while (true)
+			{
+				string picked;
+				if (result.length)
+				{
+					auto start = licenses.countUntil!(a => a == result || a.startsWith(result ~ " (")) + 1;
+					auto end = start;
+					while (end < licenses.length && licenses[end].startsWith("-"))
+						end++;
+					picked = select(
+						"variant of " ~ result[0 .. $ - 1],
+						false,
+						"(back)",
+						// https://dub.pm/package-format-json.html#licenses
+						licenses[start .. end].map!"a[1..$]".array ~ "(back)"
+					);
+					if (picked == "(back)")
+					{
+						result = null;
+						continue;
+					}
+					picked = sanitize(picked);
+				}
+				else
+				{
+					picked = select(
+						"an SPDX license-identifier ("
+							~ "https://spdx.org/licenses/".color(Color.light_blue, Mode.underline)
+							~ ")".color(Mode.bold),
+						true,
+						def,
+						// https://dub.pm/package-format-json.html#licenses
+						root
+					);
+					picked = sanitize(picked);
+				}
+				if (picked == def)
+					return def;
+
+				if (result.length)
+					result ~= picked;
+				else
+					result = picked;
+
+				if (!result.endsWith("-"))
+					return result;
+			}
 		}
 
 		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
@@ -984,16 +1172,8 @@ class InitCommand : Command {
 
 			if (m_nonInteractive) return;
 
-			while (true) {
-				string rawfmt = input("Package recipe format (sdl/json)", fmt.to!string);
-				if (!rawfmt.length) break;
-				try {
-					fmt = rawfmt.to!PackageFormat;
-					break;
-				} catch (Exception) {
-					logError(`Invalid format '%s', enter either 'sdl' or 'json'.`, rawfmt);
-				}
-			}
+			enum free_choice = true;
+			fmt = select("a package recipe format", !free_choice, fmt.to!string, "sdl", "json").to!PackageFormat;
 			auto author = p.authors.join(", ");
 			while (true) {
 				// Tries getting the name until a valid one is given.
@@ -1009,7 +1189,7 @@ class InitCommand : Command {
 			}
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
-			p.license = input("License", p.license);
+			p.license = license_select(p.license);
 			string copyrightString = .format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
 			p.copyright = input("Copyright string", copyrightString);
 
@@ -1168,6 +1348,7 @@ abstract class PackageBuildCommand : Command {
 			return true;
 		}
 
+
 		bool from_cwd = package_name.length == 0 || package_name.startsWith(":");
 		// load package in root_path to enable searching for sub packages
 		if (loadCwdPackage(dub, from_cwd)) {
@@ -1198,6 +1379,7 @@ class GenerateCommand : PackageBuildCommand {
 	protected {
 		string m_generator;
 		bool m_printPlatform, m_printBuilds, m_printConfigs;
+		bool m_deep; // only set in BuildCommand
 	}
 
 	this() @safe pure nothrow
@@ -1272,8 +1454,10 @@ class GenerateCommand : PackageBuildCommand {
 		if (!gensettings.config.length)
 			gensettings.config = m_defaultConfig;
 		gensettings.runArgs = app_args;
+		gensettings.recipeName = dub.mainRecipePath;
 		// legacy compatibility, default working directory is always CWD
 		gensettings.overrideToolWorkingDirectory = getWorkingDirectory();
+		gensettings.buildDeep = m_deep;
 
 		logDiagnostic("Generating using %s", m_generator);
 		dub.generateProject(m_generator, gensettings);
@@ -1315,6 +1499,9 @@ class BuildCommand : GenerateCommand {
 		]);
 		args.getopt("n|non-interactive", &m_nonInteractive, [
 			"Don't enter interactive mode."
+		]);
+		args.getopt("d|deep", &m_deep, [
+			"Build all dependencies, even when main target is a static library."
 		]);
 		super.prepare(args);
 		m_generator = "build";

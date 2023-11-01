@@ -72,7 +72,7 @@ private string determineVersionWithGitTool(NativePath path)
 	auto git_dir_param = "--git-dir=" ~ git_dir.toNativeString();
 
 	static string exec(scope string[] params...) {
-		auto ret = executeShell(escapeShellCommand(params));
+		auto ret = execute(params);
 		if (ret.status == 0) return ret.output.strip;
 		logDebug("'%s' failed with exit code %s: %s", params.join(" "), ret.status, ret.output.strip);
 		return null;

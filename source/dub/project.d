@@ -987,7 +987,7 @@ class Project {
 			case "stringImportFiles":
 			case "sourceFiles":
 			case "importPaths":
-			case "CImportPaths":
+			case "cImportPaths":
 			case "stringImportPaths":
 				return values.map!(escapeShellFileName).array();
 
@@ -1143,6 +1143,10 @@ class Project {
 			case "post-build-environments":
 			case "pre-run-environments":
 			case "post-run-environments":
+			case "default-config":
+			case "configs":
+			case "default-build":
+			case "builds":
 				enforce(false, "--data="~requestedData~" can only be used with `--data-list` or `--data-list --data-0`.");
 				break;
 
@@ -1194,6 +1198,10 @@ class Project {
 		case "post-run-environments":      return listBuildSetting!"postRunEnvironments"(args);
 		case "requirements":               return listBuildSetting!"requirements"(args);
 		case "options":                    return listBuildSetting!"options"(args);
+		case "default-config":             return [getDefaultConfiguration(settings.platform)];
+		case "configs":                    return configurations;
+		case "default-build":              return [builds[0]];
+		case "builds":                     return builds;
 
 		default:
 			enforce(false, "--data="~requestedData~
