@@ -456,7 +456,7 @@ class Package {
 		FIXME: The `platform` parameter is currently ignored, as the
 			`"subConfigurations"` field doesn't support platform suffixes.
 	*/
-	string getSubConfiguration(string config, in Package dependency, in BuildPlatform platform)
+	string getSubConfiguration(string config, scope const Package dependency, in BuildPlatform platform)
 	const {
 		bool found = false;
 		foreach(ref c; m_info.configurations){

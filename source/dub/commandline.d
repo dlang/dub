@@ -43,10 +43,10 @@ import std.typecons : Tuple, tuple;
 CommandGroup[] getCommands() @safe pure nothrow
 {
 	return [
-		CommandGroup("Package creation",
+		CommandGroup("Package creation", [
 			new InitCommand
-		),
-		CommandGroup("Build, test and run",
+		]),
+		CommandGroup("Build, test and run", [
 			new RunCommand,
 			new BuildCommand,
 			new TestCommand,
@@ -55,8 +55,8 @@ CommandGroup[] getCommands() @safe pure nothrow
 			new DescribeCommand,
 			new CleanCommand,
 			new DustmiteCommand
-		),
-		CommandGroup("Package management",
+		]),
+		CommandGroup("Package management", [
 			new FetchCommand,
 			new AddCommand,
 			new RemoveCommand,
@@ -72,7 +72,7 @@ CommandGroup[] getCommands() @safe pure nothrow
 			new ListOverridesCommand,
 			new CleanCachesCommand,
 			new ConvertCommand,
-		)
+		])
 	];
 }
 
@@ -900,10 +900,10 @@ struct CommandGroup {
 	/// List of commands contained in this group
 	Command[] commands;
 
-	this(string caption, Command[] commands...) @safe pure nothrow
+	this(return string caption, return Command[] commands) @safe pure nothrow
 	{
 		this.caption = caption;
-		this.commands = commands.dup;
+		this.commands = commands;
 	}
 }
 

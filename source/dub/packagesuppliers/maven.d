@@ -107,7 +107,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		auto xml = new DocumentParser(xmlData);
 
 		xml.onStartTag["versions"] = (ElementParser xml) {
-			 xml.onEndTag["version"] = (in Element e) {
+			 xml.onEndTag["version"] = (scope const Element e) {
 				json["versions"] ~= serializeToJson(["name": packageId, "version": e.text]);
 			 };
 			 xml.parse();

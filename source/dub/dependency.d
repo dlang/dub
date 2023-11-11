@@ -776,7 +776,7 @@ struct Version {
 
 	/** Constructs a new `Version` from its string representation.
 	*/
-	this(string vers) @safe pure
+	this(return string vers) @safe pure
 	{
 		enforce(vers.length > 1, "Version strings must not be empty.");
 		if (vers[0] != branchPrefix)
@@ -789,7 +789,7 @@ struct Version {
 		This method is equivalent to calling the constructor and is used as an
 		endpoint for the serialization framework.
 	*/
-	static Version fromString(string vers) @safe pure { return Version(vers); }
+	static Version fromString(return string vers) @safe pure { return Version(vers); }
 
 	bool opEquals(in Version oth) const scope @safe pure
 	{
@@ -922,7 +922,7 @@ public struct VersionRange
 	}
 
 	/// Modify in place
-	public void merge (const VersionRange o) @safe
+	public void merge (return const VersionRange o) @safe scope
 	{
 		int acmp = m_versA.opCmp(o.m_versA);
 		int bcmp = m_versB.opCmp(o.m_versB);
@@ -955,7 +955,7 @@ public struct VersionRange
 		assert(!VersionRange.fromString("<1.0.0").matchesAny);
 	}
 
-	public static VersionRange fromString (string ves) @safe
+	public static VersionRange fromString (return string ves) @safe
 	{
 		static import std.string;
 
@@ -1012,10 +1012,10 @@ public struct VersionRange
 		enforce(cmpa == ">" || cmpa == ">=",
 				"First comparison operator expected to be either > or >=, not " ~ cmpa);
 		assert(ves[idx2] == ' ');
+		string v2 = ves[idx2+1..$];
 		VersionRange ret;
 		ret.m_versA = Version(ves[0..idx2]);
 		ret.m_inclusiveA = cmpa == ">=";
-		string v2 = ves[idx2+1..$];
 		auto cmpb = skipComp(v2);
 		enforce(cmpb == "<" || cmpb == "<=",
 				"Second comparison operator expected to be either < or <=, not " ~ cmpb);
@@ -1080,7 +1080,7 @@ public struct VersionRange
 	}
 
 	private static bool isDigit(char ch) @safe { return ch >= '0' && ch <= '9'; }
-	private static string skipComp(ref string c) @safe {
+	private static string skipComp(scope string c) @safe {
 		size_t idx = 0;
 		while (idx < c.length && !isDigit(c[idx]) && c[idx] != Version.branchPrefix) idx++;
 		enforce(idx < c.length, "Expected version number in version spec: "~c);
@@ -1088,9 +1088,11 @@ public struct VersionRange
 		c = c[idx..$];
 		switch(cmp) {
 			default: enforce(false, "No/Unknown comparison specified: '"~cmp~"'"); return ">=";
-			case ">=": goto case; case ">": goto case;
-			case "<=": goto case; case "<": goto case;
-			case "==": return cmp;
+			case ">=": return ">=";
+			case ">": return ">";
+			case "<=": return "<=";
+			case "<": return "<";
+			case "==": return "==";
 		}
 	}
 }

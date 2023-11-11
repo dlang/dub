@@ -238,7 +238,7 @@ unittest {
 
 	See_Also: `expandVersion`
 */
-string bumpVersion(string ver)
+string bumpVersion(scope string ver)
 pure {
 	// Cut off metadata and prerelease information.
 	auto mi = ver.indexOfAny("+-");
@@ -273,7 +273,7 @@ unittest {
 	With 0.x.y releases, any release can break.
 	With x.y.z releases, only major releases can break.
 */
-string bumpIncompatibleVersion(string ver)
+string bumpIncompatibleVersion(scope string ver)
 pure {
 	// Cut off metadata and prerelease information.
 	auto mi = ver.indexOfAny("+-");
@@ -304,7 +304,7 @@ unittest {
 
 	See_Also: `bumpVersion`
 */
-string expandVersion(string ver)
+string expandVersion(scope string ver)
 pure {
 	auto mi = ver.indexOfAny("+-");
 	auto sub = "";

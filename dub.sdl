@@ -4,6 +4,9 @@ authors "Sönke Ludwig" "Martin Nowak" "Matthias Dondorff" "Sebastian Wilzbach" 
 	"more than 80 contributors total"
 copyright "Copyright © 2012-2016 rejectedsoftware e.K., Copyright © 2012-2014 Matthias Dondorff"
 license "MIT"
+dflags "-preview=in" platform="ldc"
+dflags "-preview=in" platform="dmd"
+dflags "-fpreview=in" platform="gdc"
 
 targetPath "bin"
 

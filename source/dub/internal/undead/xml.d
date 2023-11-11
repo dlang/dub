@@ -1754,7 +1754,7 @@ class DocumentParser : ElementParser
 class ElementParser
 {
     alias Handler = void delegate(string);
-    alias ElementHandler = void delegate(in Element element);
+    alias ElementHandler = void delegate(scope const Element element);
     alias ParserHandler = void delegate(ElementParser parser);
 
     private
@@ -2850,7 +2850,7 @@ EOS";
         assert(xml.tag.attr["thing"] == "What & Up");
     };
 
-    xml.onEndTag["Test"] = (in Element e) {
+    xml.onEndTag["Test"] = (scope const Element e) {
         assert(e.text() == "What & Up Second");
     };
     xml.parse();

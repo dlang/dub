@@ -1299,7 +1299,7 @@ enum ListBuildSettingsFormat {
 deprecated("Use `dub.packagemanager : PlacementLocation` instead")
 public alias PlacementLocation = dub.packagemanager.PlacementLocation;
 
-void processVars(ref BuildSettings dst, in Project project, in Package pack,
+void processVars(ref BuildSettings dst, scope const Project project, in Package pack,
 	BuildSettings settings, in GeneratorSettings gsettings, bool include_target_settings = false)
 {
 	string[string] processVerEnvs(in string[string] targetEnvs, in string[string] defaultEnvs)
@@ -1363,13 +1363,13 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	}
 }
 
-string[] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
+string[] processVars(bool glob = false)(scope const Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
 {
 	auto ret = appender!(string[])();
 	processVars!glob(ret, project, pack, gsettings, vars, are_paths, extraVers);
 	return ret.data;
 }
-void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
+void processVars(bool glob = false)(ref Appender!(string[]) dst, scope const Project project, in Package pack, in GeneratorSettings gsettings, in string[] vars, bool are_paths = false, in string[string][] extraVers = null)
 {
 	static if (glob)
 		alias process = processVarsWithGlob!(Project, Package);
@@ -1379,7 +1379,7 @@ void processVars(bool glob = false)(ref Appender!(string[]) dst, in Project proj
 		dst.put(process(var, project, pack, gsettings, are_paths, extraVers));
 }
 
-string processVars(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers = null)
+string processVars(Project, Package)(string var, scope const Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers = null)
 {
 	var = var.expandVars!(varName => getVariable(varName, project, pack, gsettings, extraVers));
 	if (!is_path)
@@ -1390,13 +1390,13 @@ string processVars(Project, Package)(string var, in Project project, in Package 
 	else
 		return p.toNativeString();
 }
-string[string] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers = null)
+string[string] processVars(bool glob = false)(scope const Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers = null)
 {
 	string[string] ret;
 	processVars!glob(ret, project, pack, gsettings, vars, extraVers);
 	return ret;
 }
-void processVars(bool glob = false)(ref string[string] dst, in Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers)
+void processVars(bool glob = false)(ref string[string] dst, scope const Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers)
 {
 	static if (glob)
 		alias process = processVarsWithGlob!(Project, Package);
@@ -1406,7 +1406,7 @@ void processVars(bool glob = false)(ref string[string] dst, in Project project, 
 		dst[k] = process(var, project, pack, gsettings, false, extraVers);
 }
 
-private string[] processVarsWithGlob(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers)
+private string[] processVarsWithGlob(Project, Package)(string var, scope const Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers)
 {
 	assert(is_path, "can't glob something that isn't a path");
 	string res = processVars(var, project, pack, gsettings, is_path, extraVers);
@@ -1552,7 +1552,7 @@ package(dub) immutable buildSettingsVars = [
 	"ARCH", "PLATFORM", "PLATFORM_POSIX", "BUILD_TYPE"
 ];
 
-private string getVariable(Project, Package)(string name, in Project project, in Package pack, in GeneratorSettings gsettings, in string[string][] extraVars = null)
+private string getVariable(Project, Package)(string name, scope const Project project, in Package pack, in GeneratorSettings gsettings, in string[string][] extraVars = null)
 {
 	import dub.internal.utils : getDUBExePath;
 	import std.process : environment, escapeShellFileName;
