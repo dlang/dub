@@ -1,0 +1,16 @@
+Automatic setting of ``LD_LIBRARY_PATH`` on Posix to executable directory.
+
+When using dub to run a D program via ``run`` or ``test`` operations it will now automatically add for Posix targets except for OSX the ``LD_LIBRARY_PATH`` environment variable to the directory of the executable.
+
+This enables shared library dependencies to work in these operations without setting the RPATH variable.
+It is however still your responsibility to set the RPATH variable when handling installation or prior to debugging.
+This can be done quite conveniently using the ``patchelf`` program via:
+
+```sh
+patchelf --force-rpath --set-rpath ~/projects/myproject ./executable
+```
+
+OSX support has been disabled, support for ``DYLD_FALLBACK_LIBRARY_PATH`` has been written, however this will need separate testing as OSX has some weird behavior surrounding these environment variables.
+It may not be required as OSX is supposed to look in the current working directory for shared libraries by default, similar to Windows.
+
+As a consequence of this change the environment variables ``LD_LIBRARY_PATH``, ``DYLD_LIBRARY_PATH``, and ``DYLD_FALLBACK_LIBRARY_PATH`` all support appending when used as an environment variable instead of overriding.

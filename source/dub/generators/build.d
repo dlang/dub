@@ -676,19 +676,89 @@ class BuildGenerator : ProjectGenerator {
 			if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
 			runPreRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			logInfo("Running", Color.green, "%s %s", exe_file_path.relativeTo(runcwd), run_args.join(" "));
+
 			string[string] env;
-			foreach (aa; [buildsettings.environments, buildsettings.runEnvironments])
-				foreach (k, v; aa)
-					env[k] = v;
+
+			{
+				// When providing an AA to std.process it'll ignore the parent environment if Config.newEnv is set,
+				//  so don't forget to copy over the global environment, otherwise it won't pass it into the child process.
+				// We'll do this because we want full control over the variables as we're overriding and appending to some.
+				env = environment.toAA;
+
+				// copy environment variables over to run with
+				foreach (aa; [buildsettings.environments, buildsettings.runEnvironments]) {
+					foreach (k, v; aa) {
+						switch(k) {
+							case "LD_LIBRARY_PATH":
+							case "DYLD_LIBRARY_PATH":
+							case "DYLD_FALLBACK_LIBRARY_PATH":
+								// for these we probably want to go with an append only approach, rather than setting it
+
+								if (k in env) {
+									env[k] = env[k] ~ ":" ~ v;
+									break;
+								} else
+									goto default;
+
+							default:
+								env[k] = v;
+								break;
+						}
+					}
+				}
+
+				// set the executable directory into the library search path if required
+				string exe_directory = exe_file_path.parentPath.toNativeString;
+
+				version(OSX) {
+					// We should not need to deal with OSX under the condition of when the current working directory
+					//  is the directory of the executable.
+					// This has similar behavior to Windows.
+
+					// However OSX is quite weird, just having a slash in an appropriete environment variable
+					//  DYLD_FALLBACK_LIBRARY_PATH, DYLD_LIBRARY_PATH, or LD_LIBRARY_PATH will lead to different behaviors.
+					// These behaviors are not always desirable and has lead to Homebrew community ignoring it completely.
+
+					// For the time being we won't support setting DYLD_FALLBACK_LIBRARY_PATH although it is implemented.
+					// Due to being unable to test the scenario when cwd != executable directory.
+
+					version(none) {
+						string previous = env.get("DYLD_FALLBACK_LIBRARY_PATH", null);
+
+						if (previous.length > 0) {
+							env["DYLD_FALLBACK_LIBRARY_PATH"] = exe_directory ~ ":" ~ previous;
+						} else
+							env["DYLD_FALLBACK_LIBRARY_PATH"] = exe_directory;
+					}
+				} else version(Posix) {
+					// When on Posix, we also want to ensure LD_LIBRARY_PATH is set to the programs directory
+					// By setting this environment variable we ensure any shared libraries in the same directory as
+					//  our program will be found and loaded automatically.
+					// If we don't do this, dub run and dub test may not run due to missing shared libraries being found.
+
+					// Alternatively you can use patchelf, set LD_LIBRARY_PATH manually or set RPATH during linking.
+					// I.e. patchelf --force-rpath --set-rpath ~/projects/ProjectSidero/eventloop/examples/networking ./example_networking
+					// Or: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/projects/ProjectSidero/eventloop/examples/networking
+					// For a D compiler this should work: -L-rpath=.
+
+					string previous = env.get("LD_LIBRARY_PATH", null);
+
+					if (previous.length > 0) {
+						env["LD_LIBRARY_PATH"] = exe_directory ~ ":" ~ previous;
+					} else
+						env["LD_LIBRARY_PATH"] = exe_directory;
+				}
+			}
+
 			if (settings.runCallback) {
 				auto res = execute([ exe_file_path.toNativeString() ] ~ run_args,
-						   env, Config.none, size_t.max, runcwd.toNativeString());
+						   env, Config.newEnv, size_t.max, runcwd.toNativeString());
 				settings.runCallback(res.status, res.output);
 				settings.targetExitStatus = res.status;
 				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			} else {
 				auto prg_pid = spawnProcess([ exe_file_path.toNativeString() ] ~ run_args,
-								env, Config.none, runcwd.toNativeString());
+								env, Config.newEnv, runcwd.toNativeString());
 				auto result = prg_pid.wait();
 				settings.targetExitStatus = result;
 				runPostRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
