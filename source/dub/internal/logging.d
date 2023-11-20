@@ -333,40 +333,7 @@ void log(T...)(
 	lazy T args
 ) nothrow
 {
-	if (level < _minLevel)
-		return;
-
-	auto hasTag = true;
-	if (level <= LogLevel.diagnostic)
-		hasTag = false;
-	if (disableTag)
-		hasTag = false;
-
-	auto boldTag = false;
-	if (level >= LogLevel.warn)
-		boldTag = true;
-
-	try
-	{
-		string result = format(fmt, args);
-
-		if (hasTag)
-			result = tag.rightJustify(tagWidth.get, ' ').color(tagColor, boldTag ? Mode.bold : Mode.init) ~ " " ~ result;
-
-		import dub.internal.colorize : cwrite;
-
-		File output = (level <= LogLevel.info) ? stdout : stderr;
-
-		if (output.isOpen)
-		{
-			output.cwrite(result, "\n");
-			output.flush();
-		}
-	}
-	catch (Exception e)
-	{
-		debug assert(false, e.msg);
-	}
+	DereferredLogState().log(level, disableTag, tag, tagColor, fmt, args);
 }
 
 /**
@@ -413,4 +380,90 @@ string color(const string str, const Mode m = Mode.init)
 		return dub.internal.colorize.color(str, fg.init, bg.init, m);
 	else
 		return str;
+}
+
+/**
+	Deferrement of logging so each logger state may be parallelized without cross messages.
+*/
+struct DereferredLogState
+{
+	import std.array : Appender;
+
+	bool enabled;
+
+	@disable this(this);
+
+	~this() nothrow
+	{
+		foreach (li; output.data)
+		{
+			writeOut(li.text, li.isError);
+		}
+	}
+
+	///
+	void log(T...)(LogLevel level, bool disableTag, string tag, Color tagColor,
+			string fmt, lazy T args) nothrow
+	{
+		if (level < _minLevel)
+			return;
+
+		auto hasTag = true;
+		if (level <= LogLevel.diagnostic)
+			hasTag = false;
+		if (disableTag)
+			hasTag = false;
+
+		auto boldTag = false;
+		if (level >= LogLevel.warn)
+			boldTag = true;
+
+		try
+		{
+			string result = format(fmt, args);
+			string prefix = hasTag ? (tag.rightJustify(tagWidth.get, ' ')
+					.color(tagColor, boldTag ? Mode.bold : Mode.init) ~ " ") : null;
+
+			const useErr = level > LogLevel.info;
+			string text = prefix ~ result ~ "\n";
+
+			if (enabled)
+				output ~= LogItem(text, useErr);
+			else
+				writeOut(text, useErr);
+		}
+		catch (Exception e)
+		{
+			debug assert(false, e.msg);
+		}
+	}
+
+private:
+	Appender!(LogItem[]) output;
+
+	void writeOut(string text, bool useStdErr) nothrow
+	{
+		import dub.internal.colorize : cwrite;
+
+		try
+		{
+			File output = useStdErr ? stderr : stdout;
+
+			if (output.isOpen)
+			{
+				output.cwrite(text);
+				output.flush();
+			}
+		}
+		catch (Exception e)
+		{
+			debug assert(false, e.msg);
+		}
+	}
+
+	struct LogItem
+	{
+		string text;
+		bool isError;
+	}
 }
