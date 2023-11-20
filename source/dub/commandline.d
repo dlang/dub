@@ -371,6 +371,8 @@ unittest {
 */
 int runDubCommandLine(string[] args)
 {
+	import std.file : tempDir;
+
 	static string[] toSinglePackageArgs (string args0, string file, string[] trailing)
 	{
 		return [args0, "run", "-q", "--temp-build", "--single", file, "--"] ~ trailing;
@@ -382,11 +384,24 @@ int runDubCommandLine(string[] args)
 
 	logDiagnostic("DUB version %s", getDUBVersion());
 
-	version(Windows){
-		// rdmd uses $TEMP to compute a temporary path. since cygwin substitutes backslashes
-		// with slashes, this causes OPTLINK to fail (it thinks path segments are options)
-		// we substitute the other way around here to fix this.
-		environment["TEMP"] = environment["TEMP"].replace("/", "\\");
+	{
+		version(Windows) {
+			// Guarantee that this environment variable is set
+			//  this is specifically needed because of the Windows fix that follows this statement.
+			// While it probably isn't needed for all targets, it does simplify things a bit.
+			// Question is can it be more generic? Probably not due to $TMP
+			if ("TEMP" !in environment)
+				environment["TEMP"] = tempDir();
+
+			// rdmd uses $TEMP to compute a temporary path. since cygwin substitutes backslashes
+			// with slashes, this causes OPTLINK to fail (it thinks path segments are options)
+			// we substitute the other way around here to fix this.
+
+			// In case the environment variable TEMP is empty (it should never be), we'll swap out
+			//  opIndex in favor of get with the fallback.
+
+			environment["TEMP"] = environment.get("TEMP", null).replace("/", "\\");
+		}
 	}
 
 	auto handler = CommandLineHandler(getCommands());
