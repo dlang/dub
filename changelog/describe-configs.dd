@@ -1,6 +1,0 @@
-Added `default-config`, `configs`, `default-build`, `builds` data to dub describe
-
-- `default-config` will be a single string that is the `--config` configuration that DUB would pick when not provided any configuration such as in a simple `dub build` call
-- `configs` is a list of all available configurations (default generated application and/or library, or the manually specified ones in the recipe)
-- `default-build` will be a single string that is the `--build` build type that DUB would pick when not provided any (currently always "debug")
-- `builds` is a list of all available build types (built-in + custom defined)

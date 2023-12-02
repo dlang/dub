@@ -1,3 +1,0 @@
-Dub init now has a select menu for package format and license
-
-When creating a package using `dub init` you are now prompted to select a license for the package.
