@@ -4,6 +4,9 @@ public import dub.dependency : Dependency, Version;
 public import dub.internal.vibecompat.core.file : NativePath;
 public import dub.internal.vibecompat.data.json : Json;
 
+import dub.recipe.packagerecipe : PackageRecipe;
+import std.typecons : Nullable;
+
 /**
 	Base interface for remote package suppliers.
 
@@ -43,7 +46,7 @@ interface PackageSupplier {
 			pre_release = If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	Json fetchPackageRecipe(string package_id, Dependency dep, bool pre_release);
+	Nullable!PackageRecipe fetchPackageRecipe(string package_id, Dependency dep, bool pre_release);
 
 	/** Searches for packages matching the given search query term.
 
@@ -53,30 +56,52 @@ interface PackageSupplier {
 	SearchResult[] searchPackages(string query);
 }
 
+struct Metadata {
+	PackageRecipe[] versions;
+	static auto fromJson(Json json)
+	{
+		PackageRecipe[] versions;
+		foreach (ver; json["versions"]) {
+			import dub.recipe.json : parseJson;
+			PackageRecipe recipe;
+			parseJson(recipe, ver, null);
+			versions ~= recipe;
+		}
+		return Metadata(versions);
+	}
+}
+
 // TODO: Could drop the "best package" behavior and let retrievePackage/
 //       getPackageDescription take a Version instead of Dependency. But note
 //       this means that two requests to the registry are necessary to retrieve
 //       a package recipe instead of one (first get version list, then the
 //       package recipe)
 
-package Json getBestPackage(Json metadata, string packageId, Dependency dep, bool pre_release)
+package Nullable!PackageRecipe getBestPackage(Nullable!Metadata metadata, string packageId, Dependency dep, bool pre_release)
+{
+	if (metadata.isNull)
+		return typeof(return).init;
+
+	auto best = getBestPackage(metadata.get, packageId, dep, pre_release);
+	return typeof(return)(best);
+}
+
+package PackageRecipe getBestPackage(Metadata metadata, string packageId, Dependency dep, bool pre_release)
 {
 	import std.exception : enforce;
-	if (metadata.type == Json.Type.null_)
-		return metadata;
-	Json best = null;
+	Nullable!PackageRecipe best;
 	Version bestver;
-	foreach (json; metadata["versions"]) {
-		auto cur = Version(json["version"].get!string);
+	foreach (recipe; metadata.versions) {
+		auto cur = Version(recipe.version_);
 		if (!dep.matches(cur)) continue;
-		if (best == null) best = json;
+		if (best.isNull) best = recipe;
 		else if (pre_release) {
-			if (cur > bestver) best = json;
+			if (cur > bestver) best = recipe;
 		} else if (bestver.isPreRelease) {
-			if (!cur.isPreRelease || cur > bestver) best = json;
-		} else if (!cur.isPreRelease && cur > bestver) best = json;
-		bestver = Version(cast(string)best["version"]);
+			if (!cur.isPreRelease || cur > bestver) best = recipe;
+		} else if (!cur.isPreRelease && cur > bestver) best = recipe;
+		bestver = Version(best.get.version_);
 	}
-	enforce(best != null, "No package candidate found for "~packageId~" "~dep.toString());
-	return best;
+	enforce(!best.isNull, "No package candidate found for "~packageId~" "~dep.toString());
+	return best.get;
 }
