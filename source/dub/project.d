@@ -545,7 +545,7 @@ class Project {
 					}
 				}
 
-				if (!m_dependencies.canFind(p)) {
+				if (p !is null && !m_dependencies.canFind(p)) {
 					logDiagnostic("%sFound dependency %s %s", indent, dep.name, vspec.toString());
 					m_dependencies ~= p;
 					if (basename == m_rootPackage.basePackage.name)
