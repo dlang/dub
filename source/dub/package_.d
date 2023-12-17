@@ -669,7 +669,6 @@ class Package {
 
 	private void checkDubRequirements()
 	{
-		import dub.dependency : Dependency;
 		import dub.semver : isValidVersion;
 		import dub.version_ : dubVersion;
 		import std.exception : enforce;
@@ -677,12 +676,7 @@ class Package {
 		const dep = m_info.toolchainRequirements.dub;
 
 		static assert(dubVersion.length);
-		static if (dubVersion[0] == 'v') {
-			enum dv = dubVersion[1 .. $];
-		}
-		else {
-			enum dv = dubVersion;
-		}
+		immutable dv = dubVersion[(dubVersion[0] == 'v') .. $];
 		static assert(isValidVersion(dv));
 
 		enforce(dep.matches(dv),
