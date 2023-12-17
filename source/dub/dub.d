@@ -33,20 +33,6 @@ import std.process : environment;
 import std.range : assumeSorted, empty;
 import std.string;
 
-// Set output path and options for coverage reports
-version (DigitalMars) version (D_Coverage)
-{
-	shared static this()
-	{
-		import core.runtime, std.file, std.path, std.stdio;
-		dmd_coverSetMerge(true);
-		auto path = buildPath(dirName(thisExePath()), "../cov");
-		if (!path.exists)
-			mkdir(path);
-		dmd_coverDestPath(path);
-	}
-}
-
 static this()
 {
 	import dub.compilers.dmd : DMDCompiler;
