@@ -1987,7 +1987,6 @@ class AddCommand : Command {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		import dub.recipe.io : readPackageRecipe, writePackageRecipe;
-		import dub.internal.vibecompat.core.file : existsFile;
 		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
