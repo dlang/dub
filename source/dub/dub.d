@@ -394,8 +394,8 @@ class Dub {
 
 	@property string mainRecipePath() const { return m_mainRecipePath; }
 	/// Whenever the switch --recipe= is supplied, this member will be populated.
-	@property string mainRecipePath(string recipePath) 
-	{ 
+	@property string mainRecipePath(string recipePath)
+	{
 		return m_mainRecipePath = recipePath;
 	}
 
