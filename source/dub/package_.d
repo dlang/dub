@@ -51,6 +51,7 @@ static immutable FilenameAndFormat[] packageInfoFiles = [
 ];
 
 /// Returns a list of all recognized package recipe file names in descending order of precedence.
+deprecated("Open an issue if this is needed")
 @property string[] packageInfoFilenames() { return packageInfoFiles.map!(f => cast(string)f.filename).array; }
 
 /// Returns the default package recile file name.
