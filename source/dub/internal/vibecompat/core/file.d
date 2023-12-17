@@ -277,12 +277,6 @@ int delegate(scope int delegate(ref FileInfo)) iterateDirectory(NativePath path)
 	}
 	return &iterator;
 }
-/// ditto
-int delegate(scope int delegate(ref FileInfo)) iterateDirectory(string path)
-{
-	return iterateDirectory(NativePath(path));
-}
-
 
 /**
 	Returns the current working directory.

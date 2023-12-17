@@ -2677,7 +2677,7 @@ class DustmiteCommand : PackageBuildCommand {
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
 				ensureDirectory(dstfolder);
-				foreach (de; iterateDirectory(folder.toNativeString())) {
+				foreach (de; iterateDirectory(folder)) {
 					if (de.name.startsWith(".")) continue;
 					if (de.isDirectory) {
 						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
