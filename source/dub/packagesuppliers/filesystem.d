@@ -26,12 +26,16 @@ class FileSystemPackageSupplier : PackageSupplier {
 		import std.algorithm.sorting : sort;
 		import std.file : dirEntries, DirEntry, SpanMode;
 		import std.conv : to;
+		import dub.semver : isValidVersion;
 		Version[] ret;
-		foreach (DirEntry d; dirEntries(m_path.toNativeString(), package_id~"*", SpanMode.shallow)) {
+		foreach (DirEntry d; dirEntries(m_path.toNativeString(), package_id~"*.zip", SpanMode.shallow)) {
 			NativePath p = NativePath(d.name);
-			logDebug("Entry: %s", p);
-			enforce(to!string(p.head)[$-4..$] == ".zip");
 			auto vers = p.head.name[package_id.length+1..$-4];
+			if (!isValidVersion(vers)) {
+				logDebug("Ignoring entry '%s' because it isn't a version of package '%s'", p, package_id);
+				continue;
+			}
+			logDebug("Entry: %s", p);
 			logDebug("Version: %s", vers);
 			ret ~= Version(vers);
 		}
