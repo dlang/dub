@@ -994,10 +994,6 @@ symlink_exit:
 				p.normalize();
 				enforce(!p.absolute, "Sub package paths must be sub paths of the parent package.");
 				auto path = pack.path ~ p;
-				if (!existsFile(path)) {
-					logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
-					continue;
-				}
 				sp = Package.load(path, NativePath.init, pack);
 			} else sp = new Package(spr.recipe, pack.path, pack);
 
