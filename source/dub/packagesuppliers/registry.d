@@ -1,5 +1,6 @@
 module dub.packagesuppliers.registry;
 
+import dub.dependency;
 import dub.packagesuppliers.packagesupplier;
 
 package enum PackagesPath = "packages";
@@ -48,7 +49,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	auto genPackageDownloadUrl(string packageId, Dependency dep, bool pre_release)
+	auto genPackageDownloadUrl(string packageId, in VersionRange dep, bool pre_release)
 	{
 		import std.array : replace;
 		import std.format : format;
@@ -64,7 +65,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, string packageId, in VersionRange dep, bool pre_release)
 	{
 		import std.format : format;
 		auto url = genPackageDownloadUrl(packageId, dep, pre_release);
@@ -84,7 +85,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		throw new Exception("Failed to download package %s from %s".format(packageId, url));
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	Json fetchPackageRecipe(string packageId, in VersionRange dep, bool pre_release)
 	{
 		auto md = getMetadata(packageId);
 		return getBestPackage(md, packageId, dep, pre_release);

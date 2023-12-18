@@ -1,6 +1,7 @@
 module dub.packagesuppliers.packagesupplier;
 
-public import dub.dependency : Dependency, Version;
+public import dub.dependency : Dependency, Version, VersionRange;
+import dub.dependency : visit;
 public import dub.internal.vibecompat.core.file : NativePath;
 public import dub.internal.vibecompat.data.json : Json;
 
@@ -33,7 +34,19 @@ interface PackageSupplier {
 			pre_release = If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	void fetchPackage(NativePath path, string package_id, Dependency dep, bool pre_release);
+	void fetchPackage(NativePath path, string package_id, in VersionRange dep, bool pre_release);
+
+    deprecated("Use the overload that accepts a `VersionRange` instead")
+	final void fetchPackage(NativePath path, string package_id, Dependency dep, bool pre_release)
+    {
+        return dep.visit!(
+            (const VersionRange rng) {
+                return this.fetchPackage(path, package_id, rng, pre_release);
+            }, (any) {
+                assert(0, "Trying to fetch a package with a non-version dependency: " ~ any.toString());
+            },
+        );
+    }
 
 	/** Retrieves only the recipe of a particular package.
 
@@ -43,7 +56,19 @@ interface PackageSupplier {
 			pre_release = If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	Json fetchPackageRecipe(string package_id, Dependency dep, bool pre_release);
+	Json fetchPackageRecipe(string package_id, in VersionRange dep, bool pre_release);
+
+    deprecated("Use the overload that accepts a `VersionRange` instead")
+	final Json fetchPackageRecipe(string package_id, Dependency dep, bool pre_release)
+    {
+        return dep.visit!(
+            (const VersionRange rng) {
+                return this.fetchPackageRecipe(package_id, rng, pre_release);
+            }, (any) {
+                return Json.init;
+            },
+        );
+    }
 
 	/** Searches for packages matching the given search query term.
 
@@ -59,7 +84,7 @@ interface PackageSupplier {
 //       a package recipe instead of one (first get version list, then the
 //       package recipe)
 
-package Json getBestPackage(Json metadata, string packageId, Dependency dep, bool pre_release)
+package Json getBestPackage(Json metadata, string packageId, in VersionRange dep, bool pre_release)
 {
 	import std.exception : enforce;
 	if (metadata.type == Json.Type.null_)
