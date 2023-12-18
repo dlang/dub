@@ -39,7 +39,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, string packageId, in VersionRange dep, bool pre_release)
 	{
 		import dub.internal.vibecompat.core.file : copyFile, existsFile;
 		enforce(path.absolute);
@@ -49,7 +49,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		copyFile(filename, path);
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	Json fetchPackageRecipe(string packageId, in VersionRange dep, bool pre_release)
 	{
 		import std.array : split;
 		import std.path : stripExtension;
@@ -76,7 +76,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return null;
 	}
 
-	private NativePath bestPackageFile(string packageId, Dependency dep, bool pre_release)
+	private NativePath bestPackageFile(string packageId, in VersionRange dep, bool pre_release)
 	{
 		import std.algorithm.iteration : filter;
 		import std.array : array;

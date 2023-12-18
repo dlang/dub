@@ -848,7 +848,7 @@ class Dub {
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.fetchPackageRecipe(basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0);
+				pinfo = ps.fetchPackageRecipe(basePackageName, range, (options & FetchOptions.usePrerelease) != 0);
 				if (pinfo.type == Json.Type.null_)
 					continue;
 				supplier = ps;
@@ -895,7 +895,7 @@ class Dub {
 			import std.zip : ZipException;
 
 			auto path = getTempFile(basePackageName, ".zip");
-			supplier.fetchPackage(path, basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			supplier.fetchPackage(path, basePackageName, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) removeFile(path);
 			logDiagnostic("Placing to %s...", location.toString());
 
@@ -1790,7 +1790,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		foreach (ps; m_dub.m_packageSuppliers) {
 			if (rootpack == name) {
 				try {
-					auto desc = ps.fetchPackageRecipe(name, dep, prerelease);
+					auto desc = ps.fetchPackageRecipe(name, VersionRange(vers, vers), prerelease);
 					if (desc.type == Json.Type.null_)
 						continue;
 					auto ret = new Package(desc);

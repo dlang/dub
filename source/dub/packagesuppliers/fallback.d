@@ -29,8 +29,8 @@ package abstract class AbstractFallbackPackageSupplier : PackageSupplier
 
 	// Workaround https://issues.dlang.org/show_bug.cgi?id=2525
 	abstract override Version[] getVersions(string package_id);
-	abstract override void fetchPackage(NativePath path, string package_id, Dependency dep, bool pre_release);
-	abstract override Json fetchPackageRecipe(string package_id, Dependency dep, bool pre_release);
+	abstract override void fetchPackage(NativePath path, string package_id, in VersionRange dep, bool pre_release);
+	abstract override Json fetchPackageRecipe(string package_id, in VersionRange dep, bool pre_release);
 	abstract override SearchResult[] searchPackages(string query);
 }
 
