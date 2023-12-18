@@ -795,9 +795,7 @@ class Dub {
 	deprecated("Use `clean(Package)` instead")
 	void cleanPackage(NativePath path)
 	{
-		auto ppack = Package.findPackageFile(path);
-		enforce(!ppack.empty, "No package found.", path.toNativeString());
-		this.clean(Package.load(path, ppack));
+		this.clean(Package.load(path));
 	}
 
 	/// Ditto
