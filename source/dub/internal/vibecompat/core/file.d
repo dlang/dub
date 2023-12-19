@@ -253,23 +253,15 @@ void ensureDirectory(NativePath path)
 /**
 	Enumerates all files in the specified directory.
 */
-void listDirectory(NativePath path, scope bool delegate(FileInfo info) del)
-{
-	foreach( DirEntry ent; dirEntries(path.toNativeString(), SpanMode.shallow) )
-		if( !del(makeFileInfo(ent)) )
-			break;
-}
-
-/// ditto
 int delegate(scope int delegate(ref FileInfo)) iterateDirectory(NativePath path)
 {
 	int iterator(scope int delegate(ref FileInfo) del){
-		int ret = 0;
-		listDirectory(path, (fi){
-			ret = del(fi);
-			return ret == 0;
-		});
-		return ret;
+		foreach (DirEntry ent; dirEntries(path.toNativeString(), SpanMode.shallow)) {
+			auto fi = makeFileInfo(ent);
+			if (auto res = del(fi))
+				return res;
+		}
+		return 0;
 	}
 	return &iterator;
 }
