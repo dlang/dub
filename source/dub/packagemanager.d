@@ -61,7 +61,7 @@ public string toString (PlacementLocation loc) @safe pure nothrow @nogc
 /// The PackageManager can retrieve present packages and get / remove
 /// packages.
 class PackageManager {
-	private {
+	protected {
 		/**
 		 * The 'internal' location, for packages not attributable to a location.
 		 *
