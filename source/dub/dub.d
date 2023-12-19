@@ -198,7 +198,7 @@ class Dub {
 	{
 		this.m_dirs = SpecialDirs.make();
 		this.loadConfig();
-		this.determineDefaultCompiler();
+		this.m_defaultCompiler = this.determineDefaultCompiler();
 	}
 
 	/**
@@ -1382,29 +1382,40 @@ class Dub {
 		return settings;
 	}
 
-	private void determineDefaultCompiler()
+	/**
+	 * Determine the default compiler to use for this instance
+	 *
+	 * The default compiler will be used unless --compiler is specified.
+	 * The environment variable `DC` will take precedence over anything,
+	 * followed by the configuration. If nothing is found, the folder in
+	 * which `dub` is installed will be searched, and if nothing is found,
+	 * the $PATH will be searched.
+	 * In the majority of cases, as we distribute `dub` alongside the compiler,
+	 * it will be found once the directory in which dub reside is searched.
+	 *
+	 * Returns: The value to use for the default compiler.
+	 */
+	protected string determineDefaultCompiler() const
 	{
 		import std.file : thisExePath;
 		import std.path : buildPath, dirName, expandTilde, isAbsolute, isDirSeparator;
 		import std.range : front;
 
 		// Env takes precedence
+		string result;
 		if (auto envCompiler = environment.get("DC"))
-			m_defaultCompiler = envCompiler;
+			result = envCompiler;
 		else
-			m_defaultCompiler = m_config.defaultCompiler.expandTilde;
-		if (m_defaultCompiler.length && m_defaultCompiler.isAbsolute)
-			return;
+			result = this.m_config.defaultCompiler.expandTilde;
+		if (result.length && result.isAbsolute)
+			return result;
 
 		static immutable BinaryPrefix = `$DUB_BINARY_PATH`;
-		if(m_defaultCompiler.startsWith(BinaryPrefix))
-		{
-			m_defaultCompiler = thisExePath().dirName() ~ m_defaultCompiler[BinaryPrefix.length .. $];
-			return;
-		}
+		if (result.startsWith(BinaryPrefix))
+			return thisExePath().dirName() ~ result[BinaryPrefix.length .. $];
 
-		if (!find!isDirSeparator(m_defaultCompiler).empty)
-			throw new Exception("defaultCompiler specified in a DUB config file cannot use an unqualified relative path:\n\n" ~ m_defaultCompiler ~
+		if (!find!isDirSeparator(result).empty)
+			throw new Exception("defaultCompiler specified in a DUB config file cannot use an unqualified relative path:\n\n" ~ result ~
 			"\n\nUse \"$DUB_BINARY_PATH/../path/you/want\" instead.");
 
 		version (Windows) enum sep = ";", exe = ".exe";
@@ -1413,38 +1424,30 @@ class Dub {
 		auto compilers = ["dmd", "gdc", "gdmd", "ldc2", "ldmd2"];
 		// If a compiler name is specified, look for it next to dub.
 		// Otherwise, look for any of the common compilers adjacent to dub.
-		if (m_defaultCompiler.length)
+		if (result.length)
 		{
-			string compilerPath = buildPath(thisExePath().dirName(), m_defaultCompiler ~ exe);
+			string compilerPath = buildPath(thisExePath().dirName(), result ~ exe);
 			if (existsFile(compilerPath))
-			{
-				m_defaultCompiler = compilerPath;
-				return;
-			}
+				return compilerPath;
 		}
 		else
 		{
 			auto nextFound = compilers.find!(bin => existsFile(buildPath(thisExePath().dirName(), bin ~ exe)));
 			if (!nextFound.empty)
-			{
-				m_defaultCompiler = buildPath(thisExePath().dirName(),  nextFound.front ~ exe);
-				return;
-			}
+				return buildPath(thisExePath().dirName(),  nextFound.front ~ exe);
 		}
 
 		// If nothing found next to dub, search the user's PATH, starting
 		// with the compiler name from their DUB config file, if specified.
 		auto paths = environment.get("PATH", "").splitter(sep).map!NativePath;
-		if (m_defaultCompiler.length && paths.canFind!(p => existsFile(p ~ (m_defaultCompiler~exe))))
-			return;
+		if (result.length && paths.canFind!(p => existsFile(p ~ (result ~ exe))))
+			return result;
 		foreach (p; paths) {
 			auto res = compilers.find!(bin => existsFile(p ~ (bin~exe)));
-			if (!res.empty) {
-				m_defaultCompiler = res.front;
-				return;
-			}
+			if (!res.empty)
+				return res.front;
 		}
-		m_defaultCompiler = compilers[0];
+		return compilers[0];
 	}
 
 	unittest
@@ -1478,23 +1481,19 @@ class Dub {
 		std.file.write(ldcbin, null);
 
 		environment["DC"] = dmdbin.absolutePath();
-		dub.determineDefaultCompiler();
-		assert(dub.m_defaultCompiler == dmdbin.absolutePath());
+		assert(dub.determineDefaultCompiler() == dmdbin.absolutePath());
 
 		environment["DC"] = "dmd";
 		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
-		dub.determineDefaultCompiler();
-		assert(dub.m_defaultCompiler == "dmd");
+		assert(dub.determineDefaultCompiler() == "dmd");
 
 		environment["DC"] = "ldc2";
 		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
-		dub.determineDefaultCompiler();
-		assert(dub.m_defaultCompiler == "ldc2");
+		assert(dub.determineDefaultCompiler() == "ldc2");
 
 		environment.remove("DC");
 		environment["PATH"] = ldcpath ~ sep ~ dmdpath;
-		dub.determineDefaultCompiler();
-		assert(dub.m_defaultCompiler == "ldc2");
+		assert(dub.determineDefaultCompiler() == "ldc2");
 	}
 
 	private NativePath makeAbsolute(NativePath p) const { return p.absolute ? p : m_rootPath ~ p; }
