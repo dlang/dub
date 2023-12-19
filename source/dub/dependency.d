@@ -13,7 +13,6 @@ import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.package_;
 import dub.semver;
-import dub.internal.logging;
 
 import dub.internal.dyaml.stdsumtype;
 
@@ -327,9 +326,6 @@ struct Dependency {
 		Dependency dep;
 		if( verspec.type == Json.Type.object ){
 			if( auto pp = "path" in verspec ) {
-				if (auto pv = "version" in verspec)
-					logDiagnostic("Ignoring version specification (%s) for path based dependency %s", pv.get!string, pp.get!string);
-
 				dep = Dependency(NativePath(verspec["path"].get!string));
 			} else if (auto repository = "repository" in verspec) {
 				enforce("version" in verspec, "No version field specified!");
@@ -643,8 +639,6 @@ unittest {
 	assert(Dependency("1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
 	assert(Dependency("~>1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
 	assert(Dependency("~>1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
-
-	logDebug("Dependency unittest success.");
 }
 
 unittest {
