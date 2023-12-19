@@ -1734,8 +1734,8 @@ unittest
 	This is the runtime representation of the information contained in
 	"dub.selections.json" within a package's directory.
 */
-final class SelectedVersions {
-	private {
+public class SelectedVersions {
+	protected {
 		enum FileVersion = 1;
 		Selected m_selections;
 		bool m_dirty = false; // has changes since last save
