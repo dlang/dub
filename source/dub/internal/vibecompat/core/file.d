@@ -259,11 +259,7 @@ void listDirectory(NativePath path, scope bool delegate(FileInfo info) del)
 		if( !del(makeFileInfo(ent)) )
 			break;
 }
-/// ditto
-void listDirectory(string path, scope bool delegate(FileInfo info) del)
-{
-	listDirectory(NativePath(path), del);
-}
+
 /// ditto
 int delegate(scope int delegate(ref FileInfo)) iterateDirectory(NativePath path)
 {
