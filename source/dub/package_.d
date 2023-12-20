@@ -677,11 +677,10 @@ class Package {
 		const dep = m_info.toolchainRequirements.dub;
 
 		static assert(dubVersion.length);
-		immutable dv = dubVersion[(dubVersion[0] == 'v') .. $];
-		static assert(isValidVersion(dv));
+		immutable dv = Version(dubVersion[(dubVersion[0] == 'v') .. $]);
 
 		enforce(dep.matches(dv),
-			"dub-" ~ dv ~ " does not comply with toolchainRequirements.dub "
+			"dub-" ~ dv.toString() ~ " does not comply with toolchainRequirements.dub "
 			~ "specification: " ~ m_info.toolchainRequirements.dub.toString()
 			~ "\nPlease consider upgrading your DUB installation");
 	}
