@@ -615,7 +615,6 @@ struct BuildSettingsTemplate {
 
 package(dub) void checkPlatform(const scope ref ToolchainRequirements tr, BuildPlatform platform, string package_name)
 {
-	import dub.compilers.utils : dmdLikeVersionToSemverLike;
 	import std.algorithm.iteration : map;
 	import std.format : format;
 
@@ -697,7 +696,6 @@ private static Dependency parseDependency(string dep)
 
 private static Dependency parseDMDDependency(string dep)
 {
-	import dub.compilers.utils : dmdLikeVersionToSemverLike;
 	import dub.dependency : Dependency;
 	import std.algorithm : map, splitter;
 	import std.array : join;
@@ -784,4 +782,52 @@ package void fixDependenciesNames (T) (string root, ref T aggr) nothrow
 		else static if (is(typeof(FieldRef) == struct))
 			fixDependenciesNames(root, aggr.tupleof[idx]);
 	}
+}
+
+/**
+	Turn a DMD-like version (e.g. 2.082.1) into a SemVer-like version (e.g. 2.82.1).
+    The function accepts a dependency operator prefix and some text postfix.
+    Prefix and postfix are returned verbatim.
+	Params:
+		ver	=	version string, possibly with a dependency operator prefix and some
+				test postfix.
+	Returns:
+		A Semver compliant string
+*/
+private string dmdLikeVersionToSemverLike(string ver)
+{
+	import std.algorithm : countUntil, joiner, map, skipOver, splitter;
+	import std.array : join, split;
+	import std.ascii : isDigit;
+	import std.conv : text;
+	import std.exception : enforce;
+	import std.functional : not;
+	import std.range : padRight;
+
+	const start = ver.countUntil!isDigit;
+	enforce(start != -1, "Invalid semver: "~ver);
+	const prefix = ver[0 .. start];
+	ver = ver[start .. $];
+
+	const end = ver.countUntil!(c => !c.isDigit && c != '.');
+	const postfix = end == -1 ? null : ver[end .. $];
+	auto verStr = ver[0 .. $-postfix.length];
+
+	auto comps = verStr
+		.splitter(".")
+		.map!((a) { if (a.length > 1) a.skipOver("0"); return a;})
+		.padRight("0", 3);
+
+	return text(prefix, comps.joiner("."), postfix);
+}
+
+///
+unittest {
+	assert(dmdLikeVersionToSemverLike("2.082.1") == "2.82.1");
+	assert(dmdLikeVersionToSemverLike("2.082.0") == "2.82.0");
+	assert(dmdLikeVersionToSemverLike("2.082") == "2.82.0");
+	assert(dmdLikeVersionToSemverLike("~>2.082") == "~>2.82.0");
+	assert(dmdLikeVersionToSemverLike("~>2.082-beta1") == "~>2.82.0-beta1");
+	assert(dmdLikeVersionToSemverLike("2.4.6") == "2.4.6");
+	assert(dmdLikeVersionToSemverLike("2.4.6-alpha12") == "2.4.6-alpha12");
 }
