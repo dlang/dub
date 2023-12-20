@@ -332,11 +332,11 @@ private void parseJson(ref ToolchainRequirements tr, Json json)
 private Json toJson(const scope ref ToolchainRequirements tr)
 {
 	auto ret = Json.emptyObject;
-	if (tr.dub != Dependency.any) ret["dub"] = serializeToJson(tr.dub);
-	if (tr.frontend != Dependency.any) ret["frontend"] = serializeToJson(tr.frontend);
-	if (tr.dmd != Dependency.any) ret["dmd"] = serializeToJson(tr.dmd);
-	if (tr.ldc != Dependency.any) ret["ldc"] = serializeToJson(tr.ldc);
-	if (tr.gdc != Dependency.any) ret["gdc"] = serializeToJson(tr.gdc);
+	if (tr.dub != VersionRange.Any) ret["dub"] = serializeToJson(tr.dub);
+	if (tr.frontend != VersionRange.Any) ret["frontend"] = serializeToJson(tr.frontend);
+	if (tr.dmd != VersionRange.Any) ret["dmd"] = serializeToJson(tr.dmd);
+	if (tr.ldc != VersionRange.Any) ret["ldc"] = serializeToJson(tr.ldc);
+	if (tr.gdc != VersionRange.Any) ret["gdc"] = serializeToJson(tr.gdc);
 	return ret;
 }
 
