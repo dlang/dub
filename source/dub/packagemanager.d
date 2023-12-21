@@ -440,6 +440,7 @@ class PackageManager {
 	}
 
 	/// Ditto
+	deprecated("Use the overload that accepts a `Version` or a `VersionRange`")
 	Package getBestPackage(string name, string range)
 	{
 		return this.getBestPackage(name, VersionRange.fromString(range));
