@@ -456,7 +456,8 @@ class Dub {
 	/// Loads a specific package as the main project package (can be a sub package)
 	void loadPackage(Package pack)
 	{
-		m_project = new Project(m_packageManager, pack);
+		auto selections = Project.loadSelections(pack);
+		m_project = new Project(m_packageManager, pack, selections);
 	}
 
 	/** Loads a single file package.
