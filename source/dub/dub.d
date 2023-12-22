@@ -154,7 +154,7 @@ class Dub {
 
 		const registry_var = environment.get("DUB_REGISTRY", null);
 		m_packageSuppliers = this.makePackageSuppliers(base, skip, registry_var);
-		m_packageManager = new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
+		m_packageManager = this.makePackageManager();
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
@@ -195,6 +195,19 @@ class Dub {
 	this(NativePath pkg_root)
 	{
 		this(pkg_root, pkg_root);
+	}
+
+	/**
+	 * Get the `PackageManager` instance to use for this `Dub` instance
+	 *
+	 * The `PackageManager` is a central component of `Dub` as it allows to
+	 * store and retrieve packages from the file system. In unittests, or more
+	 * generally in a library setup, one may wish to provide a custom
+	 * implementation, which can be done by overriding this method.
+	 */
+	protected PackageManager makePackageManager() const
+	{
+		return new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
 	}
 
 	protected void init()
