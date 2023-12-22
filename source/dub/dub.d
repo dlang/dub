@@ -722,8 +722,6 @@ class Dub {
 	/** Executes D-Scanner tests on the current project. **/
 	void lintProject(string[] args)
 	{
-		import std.path : buildPath, buildNormalizedPath;
-
 		if (m_dryRun) return;
 
 		auto tool = "dscanner";
@@ -744,14 +742,14 @@ class Dub {
 			auto cfgs = m_project.getPackageConfigs(settings.platform, null, true);
 			auto buildSettings = dependencyPackage.getBuildSettings(settings.platform, cfgs[dependencyPackage.name]);
 			foreach (importPath; buildSettings.importPaths) {
-				settings.runArgs ~= ["-I", buildNormalizedPath(dependencyPackage.path.toNativeString(), importPath.idup)];
+				settings.runArgs ~= ["-I", (dependencyPackage.path ~ importPath).toNativeString()];
 			}
 			foreach (cimportPath; buildSettings.cImportPaths) {
-				settings.runArgs ~= ["-I", buildNormalizedPath(dependencyPackage.path.toNativeString(), cimportPath.idup)];
+				settings.runArgs ~= ["-I", (dependencyPackage.path ~ cimportPath).toNativeString()];
 			}
 		}
 
-		string configFilePath = buildPath(m_project.rootPackage.path.toNativeString(), "dscanner.ini");
+		string configFilePath = (m_project.rootPackage.path ~ "dscanner.ini").toNativeString();
 		if (!args.canFind("--config") && exists(configFilePath)) {
 			settings.runArgs ~= ["--config", configFilePath];
 		}
