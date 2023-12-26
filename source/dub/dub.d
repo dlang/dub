@@ -60,6 +60,7 @@ static immutable string[] defaultRegistryURLs = [
 
 	See_Also: `defaultRegistryURLs`
 */
+deprecated("This function wasn't intended for public use - open an issue with Dub if you need it")
 PackageSupplier[] defaultPackageSuppliers()
 {
 	logDiagnostic("Using dub registry url '%s'", defaultRegistryURLs[0]);
@@ -70,6 +71,7 @@ PackageSupplier[] defaultPackageSuppliers()
 
 	Allowed protocols are dub+http(s):// and maven+http(s)://.
 */
+deprecated("This function wasn't intended for public use - open an issue with Dub if you need it")
 PackageSupplier getRegistryPackageSupplier(string url)
 {
 	switch (url.startsWith("dub+", "mvn+", "file://"))
@@ -85,7 +87,7 @@ PackageSupplier getRegistryPackageSupplier(string url)
 	}
 }
 
-unittest
+deprecated unittest
 {
 	auto dubRegistryPackageSupplier = getRegistryPackageSupplier("dub+https://code.dlang.org");
 	assert(dubRegistryPackageSupplier.description.canFind(" https://code.dlang.org"));
@@ -320,19 +322,21 @@ class Dub {
 		{
 			ps ~= registry_var
 				.splitter(";")
-				.map!(url => getRegistryPackageSupplier(url))
+				.map!(url => this.makePackageSupplier(url))
 				.array;
 		}
 
 		if (skip < SkipPackageSuppliers.configured)
 		{
 			ps ~= m_config.registryUrls
-				.map!(url => getRegistryPackageSupplier(url))
+				.map!(url => this.makePackageSupplier(url))
 				.array;
 		}
 
 		if (skip < SkipPackageSuppliers.standard)
-			ps ~= defaultPackageSuppliers();
+			ps ~= new FallbackPackageSupplier(
+				defaultRegistryURLs.map!(url => this.makePackageSupplier(url))
+				.array);
 
 		return ps;
 	}
@@ -361,6 +365,34 @@ class Dub {
 		assert(dub.makePackageSuppliers(null, SkipPackageSuppliers.standard, null).length == 0);
 		assert(dub.makePackageSuppliers(null, SkipPackageSuppliers.standard, "http://example.com/")
 			.length == 1);
+	}
+
+	/**
+	 * Instantiate a `PackageSupplier` according to a given URL
+	 *
+	 * This is a factory function for `PackageSupplier`. Child classes may
+	 * wish to override this to implement their own `PackageSupplier` logic,
+	 * be it by extending this method's ability or replacing it.
+	 *
+	 * Params:
+	 *	 url = The URL of the `PackageSupplier`.
+	 *
+	 * Returns:
+	 *	 A new instance of a `PackageSupplier`.
+	 */
+	protected PackageSupplier makePackageSupplier(string url) const
+	{
+		switch (url.startsWith("dub+", "mvn+", "file://"))
+		{
+		case 1:
+			return new RegistryPackageSupplier(URL(url[4..$]));
+		case 2:
+			return new MavenRegistryPackageSupplier(URL(url[4..$]));
+		case 3:
+			return new FileSystemPackageSupplier(NativePath(url[7..$]));
+		default:
+			return new RegistryPackageSupplier(URL(url));
+		}
 	}
 
 	/// ditto
