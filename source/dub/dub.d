@@ -292,21 +292,6 @@ class Dub {
         return result;
     }
 
-	unittest
-	{
-		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 0);
-		environment["DUB_REGISTRY"] = "http://example.com/";
-		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 1);
-		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
-		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 2);
-		dub = new TestDub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 3);
-	}
-
 	/** Get the list of package suppliers.
 
 		Params:
@@ -352,6 +337,28 @@ class Dub {
 		return ps;
 	}
 
+	unittest
+	{
+		scope (exit) environment.remove("DUB_REGISTRY");
+		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 0);
+		environment["DUB_REGISTRY"] = "http://example.com/";
+		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 1);
+		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
+		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 2);
+		dub = new TestDub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
+		assert(dub.m_packageSuppliers.length == 3);
+
+		dub = new TestDub();
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.none, null).length == 1);
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.configured, null).length == 0);
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, null).length == 0);
+		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, "http://example.com/")
+			.length == 1);
+	}
+
 	/// ditto
 	deprecated("This is an implementation detail. " ~
 		"Use `packageSuppliers` to get the computed list of package " ~
@@ -359,18 +366,6 @@ class Dub {
 	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers)
 	{
 		return getPackageSuppliers(additional_package_suppliers, m_config.skipRegistry);
-	}
-
-	unittest
-	{
-		auto dub = new TestDub();
-
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.none, null).length == 1);
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.configured, null).length == 0);
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, null).length == 0);
-
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, "http://example.com/")
-			.length == 1);
 	}
 
 	@property bool dryRun() const { return m_dryRun; }
