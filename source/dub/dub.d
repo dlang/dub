@@ -1839,7 +1839,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
  * nor should it do any file IO, to make it usable and reliable in unittests.
  * Currently it reads environment variables but does not read the configuration.
  */
-version(unittest) package final class TestDub : Dub
+version(unittest) package class TestDub : Dub
 {
     /// Forward to base constructor
     public this (string root = ".", PackageSupplier[] extras = null,
