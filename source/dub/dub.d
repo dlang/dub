@@ -197,7 +197,7 @@ class Dub {
 	private void init()
 	{
 		this.m_dirs = SpecialDirs.make();
-		this.loadConfig();
+		this.m_config = this.loadConfig(this.m_dirs);
 		this.m_defaultCompiler = this.determineDefaultCompiler();
 	}
 
@@ -206,12 +206,23 @@ class Dub {
 	 *
 	 * This can be overloaded in child classes to prevent library / unittest
 	 * dub from doing any kind of file IO.
+	 * As this routine is used during initialization, the only assumption made
+	 * in the base implementation is that `m_rootPath` has been populated.
+	 * Child implementation should not rely on any other field in the base
+	 * class having been populated.
+	 *
+	 * Params:
+	 *	 dirs = An instance of `SpecialDirs` to read from and write to,
+	 *			as the configurations being read might set a `dubHome`.
+	 *
+	 * Returns:
+	 *	 A populated `Settings` instance.
 	 */
-	protected void loadConfig()
+	protected Settings loadConfig(ref SpecialDirs dirs) const
 	{
 		import dub.internal.configy.Read;
 
-		void readSettingsFile (NativePath path_)
+		static void readSettingsFile (NativePath path_, ref Settings current)
 		{
 			// TODO: Remove `StrictMode.Warn` after v1.40 release
 			// The default is to error, but as the previous parser wasn't
@@ -220,10 +231,11 @@ class Dub {
 			if (path.exists) {
 				auto newConf = parseConfigFileSimple!Settings(path, StrictMode.Warn);
 				if (!newConf.isNull())
-					this.m_config = this.m_config.merge(newConf.get());
+					current = current.merge(newConf.get());
 			}
 		}
 
+		Settings result;
 		const dubFolderPath = NativePath(thisExePath).parentPath;
 
 		// override default userSettings + userPackages if a $DPATH or
@@ -240,17 +252,17 @@ class Dub {
 			if (dubHome.length) {
 				overrideDubHomeFromEnv = true;
 
-				m_dirs.userSettings = NativePath(dubHome);
-				m_dirs.userPackages = m_dirs.userSettings;
-				m_dirs.cache = m_dirs.userPackages ~ "cache";
+				dirs.userSettings = NativePath(dubHome);
+				dirs.userPackages = dirs.userSettings;
+				dirs.cache = dirs.userPackages ~ "cache";
 			}
 		}
 
-		readSettingsFile(m_dirs.systemSettings ~ "settings.json");
-		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json");
+		readSettingsFile(dirs.systemSettings ~ "settings.json", result);
+		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json", result);
 		version (Posix) {
 			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr")))
-				readSettingsFile(NativePath("/etc/dub/settings.json"));
+				readSettingsFile(NativePath("/etc/dub/settings.json"), result);
 		}
 
 		// Override user + local package path from system / binary settings
@@ -259,24 +271,26 @@ class Dub {
 		//
 		// Don't use it if either $DPATH or $DUB_HOME are set, as environment
 		// variables usually take precedence over configuration.
-		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
-			m_dirs.userSettings = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+		if (!overrideDubHomeFromEnv && result.dubHome.set) {
+			dirs.userSettings = NativePath(result.dubHome.expandEnvironmentVariables);
 		}
 
 		// load user config:
-		readSettingsFile(m_dirs.userSettings ~ "settings.json");
+		readSettingsFile(dirs.userSettings ~ "settings.json", result);
 
 		// load per-package config:
 		if (!this.m_rootPath.empty)
-			readSettingsFile(this.m_rootPath ~ "dub.settings.json");
+			readSettingsFile(this.m_rootPath ~ "dub.settings.json", result);
 
 		// same as userSettings above, but taking into account the
 		// config loaded from user settings and per-package config as well.
-		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
-			m_dirs.userPackages = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
-			m_dirs.cache = m_dirs.userPackages ~ "cache";
+		if (!overrideDubHomeFromEnv && result.dubHome.set) {
+			dirs.userPackages = NativePath(result.dubHome.expandEnvironmentVariables);
+			dirs.cache = dirs.userPackages ~ "cache";
 		}
-	}
+
+        return result;
+    }
 
 	unittest
 	{
@@ -1840,8 +1854,12 @@ version(unittest) package final class TestDub : Dub
         super(root, extras, skip);
     }
 
-    /// Avoid loading user configuration
-    protected override void loadConfig() { /* No-op */ }
+	/// Avoid loading user configuration
+	protected override Settings loadConfig(ref SpecialDirs dirs) const
+	{
+		// No-op
+		return Settings.init;
+	}
 }
 
 private struct SpecialDirs {
