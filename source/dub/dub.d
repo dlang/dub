@@ -151,7 +151,7 @@ class Dub {
 
 		m_packageSuppliers = this.computePkgSuppliers(additional_package_suppliers,
 			skip_registry, environment.get("DUB_REGISTRY", null));
-		m_packageManager = new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
+		m_packageManager = new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, m_dirs.cache, false);
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
@@ -185,7 +185,7 @@ class Dub {
 		// to prevent `init` from reading the project's settings.
 		init();
 		this.m_rootPath = root;
-		m_packageManager = new PackageManager(pkg_root);
+		m_packageManager = new PackageManager(pkg_root, m_dirs.cache);
 	}
 
 	deprecated("Use the overload that takes `(NativePath pkg_root, NativePath root)`")
@@ -694,7 +694,6 @@ class Dub {
 	*/
 	void generateProject(string ide, GeneratorSettings settings)
 	{
-		settings.cache = this.m_dirs.cache;
 		if (settings.overrideToolWorkingDirectory is NativePath.init)
 			settings.overrideToolWorkingDirectory = m_rootPath;
 		// With a requested `unittest` config, switch to the special test runner
@@ -715,7 +714,6 @@ class Dub {
 	*/
 	void testProject(GeneratorSettings settings, string config, NativePath custom_main_file)
 	{
-		settings.cache = this.m_dirs.cache;
 		if (settings.overrideToolWorkingDirectory is NativePath.init)
 			settings.overrideToolWorkingDirectory = m_rootPath;
 		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = m_rootPath ~ custom_main_file;
@@ -1335,22 +1333,14 @@ class Dub {
 	}
 
 	/**
-	 * Compute and returns the path were artifacts are stored
+	 * Compute and returns the path were artifacts are stored for the given
+	 * package.
 	 *
-	 * Expose `dub.generator.generator : packageCache` with this instance's
-	 * configured cache.
+	 * See `dub.packagemanager : PackageManager.packageCache`
 	 */
 	protected NativePath packageCache (Package pkg) const
 	{
-		return .packageCache(this.m_dirs.cache, pkg);
-	}
-
-	/// Exposed because `commandLine` replicates `generateProject` for `dub describe`
-	/// instead of treating it like a regular generator... Remove this once the
-	/// flaw is fixed, and don't add more calls to this function!
-	package(dub) NativePath cachePathDontUse () const @safe pure nothrow @nogc
-	{
-		return this.m_dirs.cache;
+		return m_packageManager.packageCache(pkg);
 	}
 
 	/// Make a `GeneratorSettings` suitable to generate tools (DDOC, DScanner, etc...)

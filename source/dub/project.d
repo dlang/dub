@@ -352,7 +352,7 @@ class Project {
 			mainfile = getTempFile("dub_test_root", ".d");
 		else {
 			import dub.generators.build : computeBuildName;
-			mainfile = packageCache(settings.cache, this.rootPackage) ~
+			mainfile = m_packageManager.packageCache(this.rootPackage) ~
 				format("code/%s/dub_test_root.d",
 					computeBuildName(config, settings, import_modules));
 		}

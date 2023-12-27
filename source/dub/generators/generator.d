@@ -121,11 +121,13 @@ class ProjectGenerator
 	protected {
 		Project m_project;
 		NativePath m_tempTargetExecutablePath;
+		PackageManager m_packageMan;
 	}
 
 	this(Project project)
 	{
 		m_project = project;
+		m_packageMan = project.packageManager;
 	}
 
 	/** Performs the full generator process.
@@ -331,7 +333,7 @@ class ProjectGenerator
 
 		if (genSettings.filterVersions)
 			foreach (ref ti; targets.byValue)
-				inferVersionFilters(ti);
+				inferVersionFilters(m_packageMan, ti);
 
 		// mark packages as visited (only used during upwards propagation)
 		void[0][Package] visited;
@@ -629,7 +631,7 @@ class ProjectGenerator
 	}
 
 	// infer applicable version identifiers
-	private static void inferVersionFilters(ref TargetInfo ti)
+	private static void inferVersionFilters(PackageManager packageManager, ref TargetInfo ti)
 	{
 		import std.algorithm.searching : any;
 		import std.file : timeLastModified;
@@ -656,7 +658,7 @@ class ProjectGenerator
 		auto srcs = chain(bs.sourceFiles, bs.importFiles, bs.stringImportFiles)
 			.filter!(f => dexts.canFind(f.extension)).filter!exists;
 		// try to load cached filters first
-		const cacheFilePath = packageCache(NativePath(ti.buildSettings.targetPath), ti.pack)
+		const cacheFilePath = packageManager.packageCache(ti.pack)
 			~ "metadata_cache.json";
 		enum silent_fail = true;
 		auto cache = jsonFromFile(cacheFilePath, silent_fail);
@@ -683,7 +685,7 @@ class ProjectGenerator
 		catch (JSONException e)
 		{
 			logWarn("Exception during loading invalid package cache %s.\n%s",
-				ti.pack.path ~ ".dub/metadata_cache.json", e);
+				cacheFilePath.toNativeString(), e);
 		}
 
 		// use ctRegex for performance reasons, only small compile time increase
@@ -769,55 +771,6 @@ class ProjectGenerator
 }
 
 /**
- * Compute and returns the path were artifacts are stored for a given package
- *
- * Artifacts are stored in:
- * `$DUB_HOME/cache/$PKG_NAME/$PKG_VERSION[/+$SUB_PKG_NAME]/`
- * Note that the leading `+` in the sub-package name is to avoid any ambiguity.
- *
- * Dub writes in the returned path a Json description file of the available
- * artifacts in this cache location. This Json file is read by 3rd party
- * software (e.g. Meson). Returned path should therefore not change across
- * future Dub versions.
- *
- * Build artifacts are usually stored in a sub-folder named "build",
- * as their names are based on user-supplied values.
- *
- * Params:
- *   cachePath = Base path at which the build cache is located,
- *               e.g. `$HOME/.dub/cache/`
- *	 pkg = The package. Cannot be `null`.
- */
-package(dub) NativePath packageCache(NativePath cachePath, in Package pkg)
-{
-	import std.algorithm.searching : findSplit;
-
-	assert(pkg !is null);
-	assert(!cachePath.empty);
-
-	// For subpackages
-	if (const names = pkg.name.findSplit(":"))
-		return cachePath ~ names[0] ~ pkg.version_.toString()
-			~ ("+" ~ names[2]);
-	// For regular packages
-	return cachePath ~ pkg.name ~ pkg.version_.toString();
-}
-
-/**
- * Compute and return the directory where a target should be cached.
- *
- * Params:
- *   cachePath = Base path at which the build cache is located,
- *               e.g. `$HOME/.dub/cache/`
- *	 pkg = The package. Cannot be `null`.
- *   buildId = The build identifier of the target.
- */
-package(dub) NativePath targetCacheDir(NativePath cachePath, in Package pkg, string buildId)
-{
-	return packageCache(cachePath, pkg) ~ "build" ~ buildId;
-}
-
-/**
  * Provides a unique (per build) identifier
  *
  * When building a package, it is important to have a unique but stable
@@ -853,7 +806,6 @@ package(dub) string computeBuildID(in BuildSettings buildsettings, string config
 }
 
 struct GeneratorSettings {
-	NativePath cache;
 	BuildPlatform platform;
 	Compiler compiler;
 	string config;
@@ -890,6 +842,9 @@ struct GeneratorSettings {
 			? getWorkingDirectory()
 			: overrideToolWorkingDirectory;
 	}
+
+	deprecated("This is no longer used, the cache is inside PackageManager now. If you use a project instantiated from a `Dub` instance, the cache defaults to the real DUB cache, e.g. ~/.dub/cache")
+	NativePath cache;
 }
 
 
@@ -1234,7 +1189,7 @@ version(Posix) {
 
 		auto desc = parseJsonString(`{"name": "test", "targetType": "library", "preGenerateCommands": ["touch $PACKAGE_DIR/source/bar.d"]}`);
 		auto pack = new Package(desc, NativePath("dubtest/preGen".absolutePath));
-		auto pman = new PackageManager(pack.path, NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), false);
+		auto pman = new PackageManager(pack.path, NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), NativePath("/tmp/cache/"), false);
 		auto prj = new Project(pman, pack);
 
 		final static class TestCompiler : GDCCompiler {

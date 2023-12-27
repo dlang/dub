@@ -12,15 +12,21 @@ import dub.compilers.compiler;
 import dub.description;
 import dub.generators.generator;
 import dub.internal.vibecompat.inet.path;
+import dub.packagemanager;
 import dub.project;
 
 class TargetDescriptionGenerator : ProjectGenerator {
 	TargetDescription[] targetDescriptions;
 	size_t[string] targetDescriptionLookup;
 
+	private {
+		PackageManager m_packageMan;
+	}
+
 	this(Project project)
 	{
 		super(project);
+		m_packageMan = project.packageManager;
 	}
 
 	protected override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
@@ -47,7 +53,7 @@ class TargetDescriptionGenerator : ProjectGenerator {
 			d.buildSettings = ti.buildSettings.dup;
 			const buildId = computeBuildID(d.buildSettings, ti.config, settings);
 			const filename = settings.compiler.getTargetFileName(d.buildSettings, settings.platform);
-			d.cacheArtifactPath = (targetCacheDir(settings.cache, ti.pack, buildId) ~ filename).toNativeString();
+			d.cacheArtifactPath = (m_packageMan.targetCacheDir(ti.pack, buildId) ~ filename).toNativeString();
 			d.dependencies = ti.dependencies.dup;
 			d.linkDependencies = ti.linkDependencies.dup;
 
