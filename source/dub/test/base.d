@@ -168,6 +168,9 @@ public class TestSelectedVersions : SelectedVersions {
  */
 package class TestPackageManager : PackageManager
 {
+    /// List of all SCM packages that can be fetched by this instance
+    protected Package[Repository] scm;
+
     this()
     {
         NativePath pkg = NativePath("/tmp/dub-testsuite-nonexistant/packages/");
@@ -224,6 +227,43 @@ package class TestPackageManager : PackageManager
 		return null;
     }
 
+	/**
+	 * Re-Implementation of `loadSCMPackage`.
+	 *
+	 * The base implementation will do a `git` clone, which we would like to avoid.
+	 * Instead, we allow unittests to explicitly define what packages should be
+	 * reachable in a given test.
+	 */
+	public override Package loadSCMPackage(string name, Repository repo)
+	{
+        import std.string : chompPrefix;
+
+		// We're trying to match `loadGitPackage` as much as possible
+		if (!repo.ref_.startsWith("~") && !repo.ref_.isGitHash)
+			return null;
+
+		string gitReference = repo.ref_.chompPrefix("~");
+		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
+		destination ~= name;
+		destination.endsWithSlash = true;
+
+		foreach (p; getPackageIterator(name))
+			if (p.path == destination)
+				return p;
+
+		return this.loadSCMRepository(name, repo);
+	}
+
+	/// The private part of `loadSCMPackage`
+	protected Package loadSCMRepository(string name, Repository repo)
+	{
+		if (auto prepo = repo in this.scm) {
+            this.add(*prepo);
+            return *prepo;
+        }
+		return null;
+	}
+
     /**
      * Adds a `Package` to this `PackageManager`
      *
@@ -238,6 +278,12 @@ package class TestPackageManager : PackageManager
 		this.m_internal.fromPath ~= pkg;
 		return pkg;
 	}
+
+    /// Add a reachable SCM package to this `PackageManager`
+    public void addTestSCMPackage(Repository repo, Package pkg)
+    {
+        this.scm[repo] = pkg;
+    }
 }
 
 /**

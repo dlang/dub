@@ -491,7 +491,9 @@ class Project {
 		m_missingDependencies = [];
 
 		Package resolveSubPackage(Package p, string subname, bool silentFail) {
-			return subname.length ? m_packageManager.getSubPackage(p, subname, silentFail) : p;
+			if (!subname.length || p is null)
+				return p;
+			return m_packageManager.getSubPackage(p, subname, silentFail);
 		}
 
 		void collectDependenciesRec(Package pack, int depth = 0)
@@ -556,6 +558,9 @@ class Project {
 					if (!vspec.repository.empty) {
 						p = m_packageManager.loadSCMPackage(basename, vspec.repository);
 						resolveSubPackage(p, subname, false);
+						enforce(p !is null,
+							"Unable to fetch '%s@%s' using git - does the repository and version exists?".format(
+								dep.name, vspec.repository));
 					} else if (!vspec.path.empty && is_desired) {
 						NativePath path = vspec.path;
 						if (!path.absolute) path = pack.path ~ path;
