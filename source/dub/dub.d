@@ -151,7 +151,7 @@ class Dub {
 		init();
 
 		const registry_var = environment.get("DUB_REGISTRY", null);
-		m_packageSuppliers = this.computePkgSuppliers(base, skip, registry_var);
+		m_packageSuppliers = this.makePackageSuppliers(base, skip, registry_var);
 		m_packageManager = new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
 
 		auto ccps = m_config.customCachePaths;
@@ -307,11 +307,11 @@ class Dub {
 		"suppliers once a `Dub` instance has been constructed.")
 	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] base, SkipPackageSuppliers skip)
 	{
-		return this.computePkgSuppliers(base, skip, environment.get("DUB_REGISTRY", null));
+		return this.makePackageSuppliers(base, skip, environment.get("DUB_REGISTRY", null));
 	}
 
 	/// Ditto
-	private PackageSupplier[] computePkgSuppliers(PackageSupplier[] base,
+	private PackageSupplier[] makePackageSuppliers(PackageSupplier[] base,
 		SkipPackageSuppliers skip, string registry_var)
 	{
 		PackageSupplier[] ps = base;
@@ -352,10 +352,10 @@ class Dub {
 		assert(dub.m_packageSuppliers.length == 3);
 
 		dub = new TestDub();
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.none, null).length == 1);
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.configured, null).length == 0);
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, null).length == 0);
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, "http://example.com/")
+		assert(dub.makePackageSuppliers(null, SkipPackageSuppliers.none, null).length == 1);
+		assert(dub.makePackageSuppliers(null, SkipPackageSuppliers.configured, null).length == 0);
+		assert(dub.makePackageSuppliers(null, SkipPackageSuppliers.standard, null).length == 0);
+		assert(dub.makePackageSuppliers(null, SkipPackageSuppliers.standard, "http://example.com/")
 			.length == 1);
 	}
 
