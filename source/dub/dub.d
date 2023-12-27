@@ -337,8 +337,12 @@ class Dub {
 		return ps;
 	}
 
+	// Note: This test rely on the environment, which is not how unittests should work.
+	// This should be removed / refactored to keep coverage without affecting the env.
 	unittest
 	{
+		import dub.test.base : TestDub;
+
 		scope (exit) environment.remove("DUB_REGISTRY");
 		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 0);
@@ -1458,9 +1462,13 @@ class Dub {
 		return compilers[0];
 	}
 
+	// This test also relies on the environment and the filesystem,
+	// as the `makePackageSuppliers` does, and should be refactored.
 	unittest
 	{
+		import dub.test.base : TestDub;
 		import std.path: buildPath, absolutePath;
+
 		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
 		immutable olddc = environment.get("DC", null);
 		immutable oldpath = environment.get("PATH", null);
@@ -1829,30 +1837,6 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 		logWarn("Package %s %s could not be loaded either locally, or from the configured package registries.", name, dep);
 		return null;
-	}
-}
-
-/**
- * An instance of Dub that does not rely on the environment
- *
- * This instance of dub should not read any environment variables,
- * nor should it do any file IO, to make it usable and reliable in unittests.
- * Currently it reads environment variables but does not read the configuration.
- */
-version(unittest) package class TestDub : Dub
-{
-    /// Forward to base constructor
-    public this (string root = ".", PackageSupplier[] extras = null,
-                 SkipPackageSuppliers skip = SkipPackageSuppliers.none)
-    {
-        super(root, extras, skip);
-    }
-
-	/// Avoid loading user configuration
-	protected override Settings loadConfig(ref SpecialDirs dirs) const
-	{
-		// No-op
-		return Settings.init;
 	}
 }
 
