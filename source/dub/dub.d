@@ -135,22 +135,23 @@ class Dub {
 
 		Params:
 			root_path = Path to the root package
-			additional_package_suppliers = A list of package suppliers to try
-				before the suppliers found in the configurations files and the
-				`defaultPackageSuppliers`.
-			skip_registry = Can be used to skip using the configured package
-				suppliers, as well as the default suppliers.
+			base = A list of package suppliers that are always present
+				   (regardless of `skip`) and take precedence over the default
+				   and configured `PackageSupplier`. This setting is currently
+				   not used by the dub application but useful for libraries.
+			skip = Can be used to skip using the configured package	suppliers,
+					as well as the default suppliers.
 	*/
-	this(string root_path = ".", PackageSupplier[] additional_package_suppliers = null,
-			SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
+	this(string root_path = ".", PackageSupplier[] base = null,
+			SkipPackageSuppliers skip = SkipPackageSuppliers.none)
 	{
 		m_rootPath = NativePath(root_path);
 		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
 
 		init();
 
-		m_packageSuppliers = this.computePkgSuppliers(additional_package_suppliers,
-			skip_registry, environment.get("DUB_REGISTRY", null));
+		const registry_var = environment.get("DUB_REGISTRY", null);
+		m_packageSuppliers = this.computePkgSuppliers(base, skip, registry_var);
 		m_packageManager = new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
 
 		auto ccps = m_config.customCachePaths;
@@ -298,40 +299,39 @@ class Dub {
 			additional_package_suppliers = A list of package suppliers to try
 				before the suppliers found in the configurations files and the
 				`defaultPackageSuppliers`.
-			skip_registry = Can be used to skip using the configured package
-				suppliers, as well as the default suppliers.
+			skip = Can be used to skip using the configured package suppliers,
+				   as well as the default suppliers.
 	*/
 	deprecated("This is an implementation detail. " ~
 		"Use `packageSuppliers` to get the computed list of package " ~
 		"suppliers once a `Dub` instance has been constructed.")
-	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers, SkipPackageSuppliers skip_registry)
+	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] base, SkipPackageSuppliers skip)
 	{
-		return this.computePkgSuppliers(additional_package_suppliers, skip_registry, environment.get("DUB_REGISTRY", null));
+		return this.computePkgSuppliers(base, skip, environment.get("DUB_REGISTRY", null));
 	}
 
 	/// Ditto
-	private PackageSupplier[] computePkgSuppliers(
-		PackageSupplier[] additional_package_suppliers, SkipPackageSuppliers skip_registry,
-		string dub_registry_var)
+	private PackageSupplier[] computePkgSuppliers(PackageSupplier[] base,
+		SkipPackageSuppliers skip, string registry_var)
 	{
-		PackageSupplier[] ps = additional_package_suppliers;
+		PackageSupplier[] ps = base;
 
-		if (skip_registry < SkipPackageSuppliers.all)
+		if (skip < SkipPackageSuppliers.all)
 		{
-			ps ~= dub_registry_var
+			ps ~= registry_var
 				.splitter(";")
 				.map!(url => getRegistryPackageSupplier(url))
 				.array;
 		}
 
-		if (skip_registry < SkipPackageSuppliers.configured)
+		if (skip < SkipPackageSuppliers.configured)
 		{
 			ps ~= m_config.registryUrls
 				.map!(url => getRegistryPackageSupplier(url))
 				.array;
 		}
 
-		if (skip_registry < SkipPackageSuppliers.standard)
+		if (skip < SkipPackageSuppliers.standard)
 			ps ~= defaultPackageSuppliers();
 
 		return ps;
