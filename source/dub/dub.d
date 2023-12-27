@@ -107,7 +107,7 @@ unittest
 	the command line interface.
 */
 class Dub {
-	private {
+	protected {
 		bool m_dryRun = false;
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
@@ -195,7 +195,7 @@ class Dub {
 		this(pkg_root, pkg_root);
 	}
 
-	private void init()
+	protected void init()
 	{
 		this.m_dirs = SpecialDirs.make();
 		this.m_config = this.loadConfig(this.m_dirs);
@@ -311,7 +311,7 @@ class Dub {
 	}
 
 	/// Ditto
-	private PackageSupplier[] makePackageSuppliers(PackageSupplier[] base,
+	protected PackageSupplier[] makePackageSuppliers(PackageSupplier[] base,
 		SkipPackageSuppliers skip, string registry_var)
 	{
 		PackageSupplier[] ps = base;
@@ -1856,7 +1856,7 @@ version(unittest) package class TestDub : Dub
 	}
 }
 
-private struct SpecialDirs {
+package struct SpecialDirs {
 	/// The path where to store temporary files and directory
 	NativePath temp;
 	/// The system-wide dub-specific folder
