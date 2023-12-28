@@ -243,21 +243,6 @@ class PackageManager {
 		return this.lookup(name, ver);
 	}
 
-    /**
-     * Adds a `Package` to this `PackageManager`
-     *
-     * This is currently only available in unittests as it is a convenience
-     * function used by `TestDub`, but could be generalized once IO has been
-     * abstracted away from this class.
-     */
-	version (unittest) Package add(Package pkg)
-	{
-		// See `PackageManager.addPackages` for inspiration.
-		assert(!pkg.subPackages.length, "Subpackages are not yet supported");
-		this.m_internal.fromPath ~= pkg;
-		return pkg;
-	}
-
 	/// ditto
 	deprecated("Use the overload that accepts a `Version` as second argument")
 	Package getPackage(string name, string ver, bool enable_overrides = true)
