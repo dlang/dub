@@ -83,6 +83,17 @@ public class TestDub : Dub
 	public alias loadPackage = Dub.loadPackage;
 
 	/**
+	 * Returns a fully typed `TestPackageManager`
+	 *
+	 * This exposes the fully typed `PackageManager`, so that client
+	 * can call convenience functions on it directly.
+	 */
+	public override @property inout(TestPackageManager) packageManager() inout
+	{
+		return cast(inout(TestPackageManager)) this.m_packageManager;
+	}
+
+	/**
 	 * Creates a package with the provided recipe
 	 *
 	 * This is a convenience function provided to create a package based on
@@ -212,6 +223,21 @@ package class TestPackageManager : PackageManager
 
 		return null;
     }
+
+    /**
+     * Adds a `Package` to this `PackageManager`
+     *
+     * This is currently only available in unittests as it is a convenience
+     * function used by `TestDub`, but could be generalized once IO has been
+     * abstracted away from this class.
+     */
+	public Package add(Package pkg)
+	{
+		// See `PackageManager.addPackages` for inspiration.
+		assert(!pkg.subPackages.length, "Subpackages are not yet supported");
+		this.m_internal.fromPath ~= pkg;
+		return pkg;
+	}
 }
 
 /**
