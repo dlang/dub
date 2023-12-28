@@ -2176,8 +2176,7 @@ class FetchCommand : FetchRemoveCommand {
 			}
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
-				logInfo("Retry with ~master...");
-				dub.fetch(name, VersionRange.fromString("~master"), location, fetchOpts);
+				return 1;
 			}
 		}
 		return 0;
