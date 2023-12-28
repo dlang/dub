@@ -2,6 +2,47 @@
 
     Base utilities (types, functions) used in tests
 
+    The main type in this module is `TestDub`. `TestDub` is a class that
+    inherits from `Dub` and inject dependencies in it to avoid relying on IO.
+    First and foremost, by overriding `makePackageManager` and returning a
+    `TestPackageManager` instead, we avoid hitting the local filesystem and
+    instead present a view of the "local packages" that is fully in-memory.
+    Likewise, by providing a `MockPackageSupplier`, we can imitate the behavior
+    of the registry without relying on it.
+
+    Leftover_IO:
+    Note that reliance on IO was originally all over the place in the Dub
+    codebase. For this reason, **new tests might find themselves doing I/O**.
+    When that happens, one should isolate the place which does I/O and refactor
+    the code to make dependency injection possible and practical.
+    An example of this is any place calling `Package.load`, `readPackageRecipe`,
+    or `Package.findPackageFile`.
+
+    Supported_features:
+    In order to make writing tests possible and practical, not every features
+    where implemented in `TestDub`. Notably, path-based packages are not
+    supported at the moment, as they would need a better filesystem abstraction.
+    However, it would be desirable to add support for them at some point in the
+    future.
+
+    Writing_tests:
+    `TestDub` exposes a few extra features to make writing tests easier.
+    Ideally, those extra features should be kept to a minimum, as a convenient
+    API for writing tests is likely to be a convenient API for library and
+    application developers as well.
+    It is expected that most tests will be centered about the `Project`,
+    also known as the "main package" that is loaded and drives Dub's logic
+    when common operations such as `dub build` are performed.
+    A minimalistic and documented unittest can be found in this module,
+    showing the various features of the test framework.
+
+    Logging:
+    Dub writes to stdout / stderr in various places. While it would be desirable
+    to do dependency injection on it, the benefits brought by doing so currently
+    doesn't justify the amount of work required. If unittests for some reason
+    trigger messages being written to stdout/stderr, make sure that the logging
+    functions are being used instead of bare `write` / `writeln`.
+
 *******************************************************************************/
 
 module dub.test.base;
@@ -18,6 +59,50 @@ public import dub.package_;
 import dub.packagemanager;
 import dub.packagesuppliers.packagesupplier;
 import dub.project;
+
+/// Example of a simple unittest for a project with a single dependency
+unittest
+{
+    // `a` will be loaded as the project while `b` will be loaded
+    // as a simple package. The recipe files can be in JSON or SDL format,
+    // here we use both to demonstrate this.
+    const a = `{ "name": "a", "dependencies": { "b": "~>1.0" } }`;
+    const b = `name "b"`;
+
+    // Enabling this would provide some more verbose output, which makes
+    // debugging a failing unittest much easier.
+    version (none) {
+        enableLogging();
+        scope(exit) disableLogging();
+    }
+
+    scope dub = new TestDub();
+    // Let the `PackageManager` know about the `b` package
+    dub.addTestPackage(b, Version("1.0.0"), PackageFormat.sdl);
+    // And about our main package
+    auto mainPackage = dub.addTestPackage(a, Version("1.0.0"));
+    // `Dub.loadPackage` will set this package as the project
+    // While not required, it follows the common Dub use case.
+    dub.loadPackage(mainPackage);
+    // This triggers the dependency resolution process that happens
+    // when one does not have a selection file in the project.
+    // Dub will resolve dependencies and generate the selection file
+    // (in memory). If your test has set dependencies / no dependencies,
+    // this will not be needed.
+    dub.upgrade(UpgradeOptions.select);
+
+    // Simple tests can be performed using the public API
+    assert(dub.project.hasAllDependencies(), "project has missing dependencies");
+    assert(dub.project.getDependency("b", true), "Missing 'b' dependency");
+    // While it is important to make your tests fail before you make them pass,
+    // as is common with TDD, it can also be useful to test simple assumptions
+    // as part of your basic tests. Here we want to make sure `getDependency`
+    // doesn't always return something regardless of its first argument.
+    // Note that this package segments modules by categories, e.g. dependencies,
+    // and tests are run serially in a module, so one may rely on previous tests
+    // having passed to avoid repeating some assumptions.
+    assert(dub.project.getDependency("no", true) is null, "Returned unexpected dependency");
+}
 
 // TODO: Remove and handle logging the same way we handle other IO
 import dub.internal.logging;
