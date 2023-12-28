@@ -86,6 +86,7 @@ class Package {
 		PackageRecipe m_info;
 		PackageRecipe m_rawRecipe;
 		Package m_parentPackage;
+		ConfigurationInfo m_testConfiguration;
 	}
 
 	/** Constructs a `Package` using an in-memory package recipe.
@@ -220,14 +221,15 @@ class Package {
 	/// ditto
 	@property void version_(Version value) { assert(m_parentPackage is null); m_info.version_ = value.toString(); }
 
-	/** Accesses the recipe contents of this package.
+	/** Accesses the recipe contents of this package. (only loaded once or after
+		reloading)
 
 		The recipe contains any default values and configurations added by DUB.
-		To access the raw user recipe, use the `rawRecipe` property.
+		To access or modify the raw user recipe, use the `rawRecipe` property.
 
 		See_Also: `rawRecipe`
 	*/
-	@property ref inout(PackageRecipe) recipe() inout { return m_info; }
+	@property ref const(PackageRecipe) recipe() const { return m_info; }
 
 	/** Accesses the original package recipe.
 
@@ -237,7 +239,7 @@ class Package {
 
 		See_Also: `recipe`
 	*/
-	@property ref const(PackageRecipe) rawRecipe() const { return m_rawRecipe; }
+	@property ref inout(PackageRecipe) rawRecipe() inout { return m_rawRecipe; }
 
 	/** Returns the path to the package recipe file.
 
@@ -306,7 +308,7 @@ class Package {
 	void storeInfo(NativePath path)
 	const {
 		auto filename = path ~ defaultPackageFilename;
-		writeJsonFile(filename, m_info.toJson());
+		writeJsonFile(filename, m_rawRecipe.toJson());
 	}
 
 	/** Returns the package recipe of a non-path-based sub package.
@@ -447,6 +449,14 @@ class Package {
 				case "syntax": settings.addOptions(syntaxOnly); break;
 			}
 		}
+	}
+
+	void addTestConfiguration(ConfigurationInfo config)
+	{
+		assert(m_testConfiguration is ConfigurationInfo.init,
+			"can't call addTestConfiguration twice!");
+		m_info.configurations ~= config;
+		m_testConfiguration = config;
 	}
 
 	/** Returns the selected configuration for a certain dependency.
