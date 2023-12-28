@@ -913,7 +913,8 @@ class Dub {
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
-		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency " ~ range.toString());
+		enforce(!pinfo.type.among(Json.Type.undefined, Json.Type.null_),
+				"No package " ~ packageId ~ " was found matching the dependency " ~ range.toString());
 		Version ver = Version(pinfo["version"].get!string);
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
