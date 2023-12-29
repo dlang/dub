@@ -485,7 +485,18 @@ class Project {
 		validateDependenciesRec(m_rootPackage);
 	}
 
-	/// Reloads dependencies.
+	/**
+	 * Reloads dependencies
+	 *
+	 * This function goes through the project and make sure that all
+	 * required packages are loaded. To do so, it uses information
+	 * both from the recipe file (`dub.json`) and from the selections
+	 * file (`dub.selections.json`).
+	 *
+	 * In the process, it populates the `dependencies`, `missingDependencies`,
+	 * and `hasAllDependencies` properties, which can only be relied on
+	 * once this has run once (the constructor always calls this).
+	 */
 	void reinit()
 	{
 		m_dependencies = null;
