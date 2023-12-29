@@ -501,112 +501,114 @@ class Project {
 	{
 		m_dependencies = null;
 		m_missingDependencies = [];
-
-		Package resolveSubPackage(Package p, string subname, bool silentFail) {
-			if (!subname.length || p is null)
-				return p;
-			return m_packageManager.getSubPackage(p, subname, silentFail);
-		}
-
-		void collectDependenciesRec(Package pack, int depth = 0)
-		{
-			auto indent = replicate("  ", depth);
-			logDebug("%sCollecting dependencies for %s", indent, pack.name);
-			indent ~= "  ";
-
-			foreach (dep; pack.getAllDependencies()) {
-				Dependency vspec = dep.spec;
-				Package p;
-
-				auto basename = getBasePackageName(dep.name);
-				auto subname = getSubPackageName(dep.name);
-
-				// non-optional and optional-default dependencies (if no selections file exists)
-				// need to be satisfied
-				bool is_desired = !vspec.optional || m_selections.hasSelectedVersion(basename) || (vspec.default_ && m_selections.bare);
-
-				if (dep.name == m_rootPackage.basePackage.name) {
-					vspec = Dependency(m_rootPackage.version_);
-					p = m_rootPackage.basePackage;
-				} else if (basename == m_rootPackage.basePackage.name) {
-					vspec = Dependency(m_rootPackage.version_);
-					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, subname, false);
-					catch (Exception e) {
-						logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
-						if (is_desired) m_missingDependencies ~= dep.name;
-						continue;
-					}
-				} else if (m_selections.hasSelectedVersion(basename)) {
-					vspec = m_selections.getSelectedVersion(basename);
-					p = vspec.visit!(
-						(NativePath path_) {
-							auto path = path_.absolute ? path_ : m_rootPackage.path ~ path_;
-							auto tmp = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-							return resolveSubPackage(tmp, subname, true);
-						},
-						(Repository repo) {
-							auto tmp = m_packageManager.loadSCMPackage(basename, repo);
-							return resolveSubPackage(tmp, subname, true);
-						},
-						(VersionRange range) {
-							// See `dub.recipe.selection : SelectedDependency.fromYAML`
-							assert(range.isExactVersion());
-							return m_packageManager.getPackage(dep.name, vspec.version_);
-						},
-					);
-				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
-					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
-					auto bp = m_dependencies[idx].basePackage;
-					vspec = Dependency(bp.path);
-					p = resolveSubPackage(bp, subname, false);
-				} else {
-					logDiagnostic("%sVersion selection for dependency %s (%s) of %s is missing.",
-						indent, basename, dep.name, pack.name);
-				}
-
-				// We didn't find the package
-				if (p is null)
-				{
-					if (!vspec.repository.empty) {
-						p = m_packageManager.loadSCMPackage(basename, vspec.repository);
-						resolveSubPackage(p, subname, false);
-						enforce(p !is null,
-							"Unable to fetch '%s@%s' using git - does the repository and version exists?".format(
-								dep.name, vspec.repository));
-					} else if (!vspec.path.empty && is_desired) {
-						NativePath path = vspec.path;
-						if (!path.absolute) path = pack.path ~ path;
-						logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
-						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-						if (p.parentPackage !is null) {
-							logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
-							p = p.parentPackage;
-						}
-						p = resolveSubPackage(p, subname, false);
-						enforce(p.name == dep.name,
-							format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
-								path.toNativeString(), dep.name, p.name));
-					} else {
-						logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
-						if (is_desired) m_missingDependencies ~= dep.name;
-						continue;
-					}
-				}
-
-				if (!m_dependencies.canFind(p)) {
-					logDiagnostic("%sFound dependency %s %s", indent, dep.name, vspec.toString());
-					m_dependencies ~= p;
-					if (basename == m_rootPackage.basePackage.name)
-						p.warnOnSpecialCompilerFlags();
-					collectDependenciesRec(p, depth+1);
-				}
-
-				m_dependees[p] ~= pack;
-				//enforce(p !is null, "Failed to resolve dependency "~dep.name~" "~vspec.toString());
-			}
-		}
 		collectDependenciesRec(m_rootPackage);
 		m_missingDependencies.sort();
+	}
+
+	/// Implementation of `reinit`
+	private void collectDependenciesRec(Package pack, int depth = 0)
+	{
+		auto indent = replicate("  ", depth);
+		logDebug("%sCollecting dependencies for %s", indent, pack.name);
+		indent ~= "  ";
+
+		foreach (dep; pack.getAllDependencies()) {
+			Dependency vspec = dep.spec;
+			Package p;
+
+			auto basename = getBasePackageName(dep.name);
+			auto subname = getSubPackageName(dep.name);
+
+			// non-optional and optional-default dependencies (if no selections file exists)
+			// need to be satisfied
+			bool is_desired = !vspec.optional || m_selections.hasSelectedVersion(basename) || (vspec.default_ && m_selections.bare);
+
+			if (dep.name == m_rootPackage.basePackage.name) {
+				vspec = Dependency(m_rootPackage.version_);
+				p = m_rootPackage.basePackage;
+			} else if (basename == m_rootPackage.basePackage.name) {
+				vspec = Dependency(m_rootPackage.version_);
+				try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, subname, false);
+				catch (Exception e) {
+					logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
+					if (is_desired) m_missingDependencies ~= dep.name;
+					continue;
+				}
+			} else if (m_selections.hasSelectedVersion(basename)) {
+				vspec = m_selections.getSelectedVersion(basename);
+				p = vspec.visit!(
+					(NativePath path_) {
+						auto path = path_.absolute ? path_ : m_rootPackage.path ~ path_;
+						auto tmp = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
+						return resolveSubPackage(tmp, subname, true);
+					},
+					(Repository repo) {
+						auto tmp = m_packageManager.loadSCMPackage(basename, repo);
+						return resolveSubPackage(tmp, subname, true);
+					},
+					(VersionRange range) {
+						// See `dub.recipe.selection : SelectedDependency.fromYAML`
+						assert(range.isExactVersion());
+						return m_packageManager.getPackage(dep.name, vspec.version_);
+					},
+				);
+			} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
+				auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
+				auto bp = m_dependencies[idx].basePackage;
+				vspec = Dependency(bp.path);
+				p = resolveSubPackage(bp, subname, false);
+			} else {
+				logDiagnostic("%sVersion selection for dependency %s (%s) of %s is missing.",
+					indent, basename, dep.name, pack.name);
+			}
+
+			// We didn't find the package
+			if (p is null)
+			{
+				if (!vspec.repository.empty) {
+					p = m_packageManager.loadSCMPackage(basename, vspec.repository);
+					resolveSubPackage(p, subname, false);
+					enforce(p !is null,
+						"Unable to fetch '%s@%s' using git - does the repository and version exists?".format(
+							dep.name, vspec.repository));
+				} else if (!vspec.path.empty && is_desired) {
+					NativePath path = vspec.path;
+					if (!path.absolute) path = pack.path ~ path;
+					logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
+					p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
+					if (p.parentPackage !is null) {
+						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
+						p = p.parentPackage;
+					}
+					p = resolveSubPackage(p, subname, false);
+					enforce(p.name == dep.name,
+						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
+							path.toNativeString(), dep.name, p.name));
+				} else {
+					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
+					if (is_desired) m_missingDependencies ~= dep.name;
+					continue;
+				}
+			}
+
+			if (!m_dependencies.canFind(p)) {
+				logDiagnostic("%sFound dependency %s %s", indent, dep.name, vspec.toString());
+				m_dependencies ~= p;
+				if (basename == m_rootPackage.basePackage.name)
+					p.warnOnSpecialCompilerFlags();
+				collectDependenciesRec(p, depth+1);
+			}
+
+			m_dependees[p] ~= pack;
+			//enforce(p !is null, "Failed to resolve dependency "~dep.name~" "~vspec.toString());
+		}
+	}
+
+	/// Convenience function used by `reinit`
+	private Package resolveSubPackage(Package p, string subname, bool silentFail) {
+		if (!subname.length || p is null)
+			return p;
+		return m_packageManager.getSubPackage(p, subname, silentFail);
 	}
 
 	/// Returns the name of the root package.
