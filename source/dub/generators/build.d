@@ -61,14 +61,12 @@ string computeBuildName(string config, in GeneratorSettings settings, const stri
 
 class BuildGenerator : ProjectGenerator {
 	private {
-		PackageManager m_packageMan;
 		NativePath[] m_temporaryFiles;
 	}
 
 	this(Project project)
 	{
 		super(project);
-		m_packageMan = project.packageManager;
 	}
 
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
