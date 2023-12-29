@@ -33,14 +33,12 @@ import std.uuid;
 
 class VisualDGenerator : ProjectGenerator {
 	private {
-		PackageManager m_pkgMgr;
 		string[string] m_projectUuids;
 	}
 
 	this(Project project)
 	{
 		super(project);
-		m_pkgMgr = project.packageManager;
 	}
 
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)

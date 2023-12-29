@@ -135,6 +135,7 @@ class Project {
 	@property inout(SelectedVersions) selections() inout { return m_selections; }
 
 	/// Package manager instance used by the project.
+	deprecated("Use `Dub.packageManager` instead")
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
 
 	/** Determines if all dependencies necessary to build have been collected.
