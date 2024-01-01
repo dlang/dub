@@ -33,20 +33,6 @@ import std.process : environment;
 import std.range : assumeSorted, empty;
 import std.string;
 
-// Set output path and options for coverage reports
-version (DigitalMars) version (D_Coverage)
-{
-	shared static this()
-	{
-		import core.runtime, std.file, std.path, std.stdio;
-		dmd_coverSetMerge(true);
-		auto path = buildPath(dirName(thisExePath()), "../cov");
-		if (!path.exists)
-			mkdir(path);
-		dmd_coverDestPath(path);
-	}
-}
-
 static this()
 {
 	import dub.compilers.dmd : DMDCompiler;
@@ -74,6 +60,7 @@ static immutable string[] defaultRegistryURLs = [
 
 	See_Also: `defaultRegistryURLs`
 */
+deprecated("This function wasn't intended for public use - open an issue with Dub if you need it")
 PackageSupplier[] defaultPackageSuppliers()
 {
 	logDiagnostic("Using dub registry url '%s'", defaultRegistryURLs[0]);
@@ -84,6 +71,7 @@ PackageSupplier[] defaultPackageSuppliers()
 
 	Allowed protocols are dub+http(s):// and maven+http(s)://.
 */
+deprecated("This function wasn't intended for public use - open an issue with Dub if you need it")
 PackageSupplier getRegistryPackageSupplier(string url)
 {
 	switch (url.startsWith("dub+", "mvn+", "file://"))
@@ -99,7 +87,7 @@ PackageSupplier getRegistryPackageSupplier(string url)
 	}
 }
 
-unittest
+deprecated unittest
 {
 	auto dubRegistryPackageSupplier = getRegistryPackageSupplier("dub+https://code.dlang.org");
 	assert(dubRegistryPackageSupplier.description.canFind(" https://code.dlang.org"));
@@ -121,7 +109,7 @@ unittest
 	the command line interface.
 */
 class Dub {
-	private {
+	protected {
 		bool m_dryRun = false;
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
@@ -149,23 +137,24 @@ class Dub {
 
 		Params:
 			root_path = Path to the root package
-			additional_package_suppliers = A list of package suppliers to try
-				before the suppliers found in the configurations files and the
-				`defaultPackageSuppliers`.
-			skip_registry = Can be used to skip using the configured package
-				suppliers, as well as the default suppliers.
+			base = A list of package suppliers that are always present
+				   (regardless of `skip`) and take precedence over the default
+				   and configured `PackageSupplier`. This setting is currently
+				   not used by the dub application but useful for libraries.
+			skip = Can be used to skip using the configured package	suppliers,
+					as well as the default suppliers.
 	*/
-	this(string root_path = ".", PackageSupplier[] additional_package_suppliers = null,
-			SkipPackageSuppliers skip_registry = SkipPackageSuppliers.none)
+	this(string root_path = ".", PackageSupplier[] base = null,
+			SkipPackageSuppliers skip = SkipPackageSuppliers.none)
 	{
 		m_rootPath = NativePath(root_path);
 		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
 
 		init();
 
-		m_packageSuppliers = this.computePkgSuppliers(additional_package_suppliers,
-			skip_registry, environment.get("DUB_REGISTRY", null));
-		m_packageManager = new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
+		const registry_var = environment.get("DUB_REGISTRY", null);
+		m_packageSuppliers = this.makePackageSuppliers(base, skip, registry_var);
+		m_packageManager = this.makePackageManager();
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)
@@ -208,11 +197,24 @@ class Dub {
 		this(pkg_root, pkg_root);
 	}
 
-	private void init()
+	/**
+	 * Get the `PackageManager` instance to use for this `Dub` instance
+	 *
+	 * The `PackageManager` is a central component of `Dub` as it allows to
+	 * store and retrieve packages from the file system. In unittests, or more
+	 * generally in a library setup, one may wish to provide a custom
+	 * implementation, which can be done by overriding this method.
+	 */
+	protected PackageManager makePackageManager() const
+	{
+		return new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
+	}
+
+	protected void init()
 	{
 		this.m_dirs = SpecialDirs.make();
-		this.loadConfig();
-		this.determineDefaultCompiler();
+		this.m_config = this.loadConfig(this.m_dirs);
+		this.m_defaultCompiler = this.determineDefaultCompiler();
 	}
 
 	/**
@@ -220,12 +222,23 @@ class Dub {
 	 *
 	 * This can be overloaded in child classes to prevent library / unittest
 	 * dub from doing any kind of file IO.
+	 * As this routine is used during initialization, the only assumption made
+	 * in the base implementation is that `m_rootPath` has been populated.
+	 * Child implementation should not rely on any other field in the base
+	 * class having been populated.
+	 *
+	 * Params:
+	 *	 dirs = An instance of `SpecialDirs` to read from and write to,
+	 *			as the configurations being read might set a `dubHome`.
+	 *
+	 * Returns:
+	 *	 A populated `Settings` instance.
 	 */
-	protected void loadConfig()
+	protected Settings loadConfig(ref SpecialDirs dirs) const
 	{
 		import dub.internal.configy.Read;
 
-		void readSettingsFile (NativePath path_)
+		static void readSettingsFile (NativePath path_, ref Settings current)
 		{
 			// TODO: Remove `StrictMode.Warn` after v1.40 release
 			// The default is to error, but as the previous parser wasn't
@@ -234,10 +247,11 @@ class Dub {
 			if (path.exists) {
 				auto newConf = parseConfigFileSimple!Settings(path, StrictMode.Warn);
 				if (!newConf.isNull())
-					this.m_config = this.m_config.merge(newConf.get());
+					current = current.merge(newConf.get());
 			}
 		}
 
+		Settings result;
 		const dubFolderPath = NativePath(thisExePath).parentPath;
 
 		// override default userSettings + userPackages if a $DPATH or
@@ -254,17 +268,17 @@ class Dub {
 			if (dubHome.length) {
 				overrideDubHomeFromEnv = true;
 
-				m_dirs.userSettings = NativePath(dubHome);
-				m_dirs.userPackages = m_dirs.userSettings;
-				m_dirs.cache = m_dirs.userPackages ~ "cache";
+				dirs.userSettings = NativePath(dubHome);
+				dirs.userPackages = dirs.userSettings;
+				dirs.cache = dirs.userPackages ~ "cache";
 			}
 		}
 
-		readSettingsFile(m_dirs.systemSettings ~ "settings.json");
-		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json");
+		readSettingsFile(dirs.systemSettings ~ "settings.json", result);
+		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json", result);
 		version (Posix) {
 			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr")))
-				readSettingsFile(NativePath("/etc/dub/settings.json"));
+				readSettingsFile(NativePath("/etc/dub/settings.json"), result);
 		}
 
 		// Override user + local package path from system / binary settings
@@ -273,39 +287,26 @@ class Dub {
 		//
 		// Don't use it if either $DPATH or $DUB_HOME are set, as environment
 		// variables usually take precedence over configuration.
-		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
-			m_dirs.userSettings = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
+		if (!overrideDubHomeFromEnv && result.dubHome.set) {
+			dirs.userSettings = NativePath(result.dubHome.expandEnvironmentVariables);
 		}
 
 		// load user config:
-		readSettingsFile(m_dirs.userSettings ~ "settings.json");
+		readSettingsFile(dirs.userSettings ~ "settings.json", result);
 
 		// load per-package config:
 		if (!this.m_rootPath.empty)
-			readSettingsFile(this.m_rootPath ~ "dub.settings.json");
+			readSettingsFile(this.m_rootPath ~ "dub.settings.json", result);
 
 		// same as userSettings above, but taking into account the
 		// config loaded from user settings and per-package config as well.
-		if (!overrideDubHomeFromEnv && this.m_config.dubHome.set) {
-			m_dirs.userPackages = NativePath(this.m_config.dubHome.expandEnvironmentVariables);
-			m_dirs.cache = m_dirs.userPackages ~ "cache";
+		if (!overrideDubHomeFromEnv && result.dubHome.set) {
+			dirs.userPackages = NativePath(result.dubHome.expandEnvironmentVariables);
+			dirs.cache = dirs.userPackages ~ "cache";
 		}
-	}
 
-	unittest
-	{
-		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 0);
-		environment["DUB_REGISTRY"] = "http://example.com/";
-		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 1);
-		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
-		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 2);
-		dub = new TestDub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
-		assert(dub.m_packageSuppliers.length == 3);
-	}
+        return result;
+    }
 
 	/** Get the list of package suppliers.
 
@@ -313,43 +314,98 @@ class Dub {
 			additional_package_suppliers = A list of package suppliers to try
 				before the suppliers found in the configurations files and the
 				`defaultPackageSuppliers`.
-			skip_registry = Can be used to skip using the configured package
-				suppliers, as well as the default suppliers.
+			skip = Can be used to skip using the configured package suppliers,
+				   as well as the default suppliers.
 	*/
 	deprecated("This is an implementation detail. " ~
 		"Use `packageSuppliers` to get the computed list of package " ~
 		"suppliers once a `Dub` instance has been constructed.")
-	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers, SkipPackageSuppliers skip_registry)
+	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] base, SkipPackageSuppliers skip)
 	{
-		return this.computePkgSuppliers(additional_package_suppliers, skip_registry, environment.get("DUB_REGISTRY", null));
+		return this.makePackageSuppliers(base, skip, environment.get("DUB_REGISTRY", null));
 	}
 
 	/// Ditto
-	private PackageSupplier[] computePkgSuppliers(
-		PackageSupplier[] additional_package_suppliers, SkipPackageSuppliers skip_registry,
-		string dub_registry_var)
+	protected PackageSupplier[] makePackageSuppliers(PackageSupplier[] base,
+		SkipPackageSuppliers skip, string registry_var)
 	{
-		PackageSupplier[] ps = additional_package_suppliers;
+		PackageSupplier[] ps = base;
 
-		if (skip_registry < SkipPackageSuppliers.all)
+		if (skip < SkipPackageSuppliers.all)
 		{
-			ps ~= dub_registry_var
+			ps ~= registry_var
 				.splitter(";")
-				.map!(url => getRegistryPackageSupplier(url))
+				.map!(url => this.makePackageSupplier(url))
 				.array;
 		}
 
-		if (skip_registry < SkipPackageSuppliers.configured)
+		if (skip < SkipPackageSuppliers.configured)
 		{
 			ps ~= m_config.registryUrls
-				.map!(url => getRegistryPackageSupplier(url))
+				.map!(url => this.makePackageSupplier(url))
 				.array;
 		}
 
-		if (skip_registry < SkipPackageSuppliers.standard)
-			ps ~= defaultPackageSuppliers();
+		if (skip < SkipPackageSuppliers.standard)
+			ps ~= new FallbackPackageSupplier(
+				defaultRegistryURLs.map!(url => this.makePackageSupplier(url))
+				.array);
 
 		return ps;
+	}
+
+	// Note: This test rely on the environment, which is not how unittests should work.
+	// This should be removed / refactored to keep coverage without affecting the env.
+	unittest
+	{
+		import dub.test.base : TestDub;
+
+		scope (exit) environment.remove("DUB_REGISTRY");
+		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.packageSuppliers.length == 0);
+		environment["DUB_REGISTRY"] = "http://example.com/";
+		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.packageSuppliers.length == 1);
+		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
+		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		assert(dub.packageSuppliers.length == 2);
+		dub = new TestDub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
+		assert(dub.packageSuppliers.length == 3);
+
+		dub = new TestDub();
+		assert(dub.makePackageSuppliers(null, SkipPackageSuppliers.none, null).length == 1);
+		assert(dub.makePackageSuppliers(null, SkipPackageSuppliers.configured, null).length == 0);
+		assert(dub.makePackageSuppliers(null, SkipPackageSuppliers.standard, null).length == 0);
+		assert(dub.makePackageSuppliers(null, SkipPackageSuppliers.standard, "http://example.com/")
+			.length == 1);
+	}
+
+	/**
+	 * Instantiate a `PackageSupplier` according to a given URL
+	 *
+	 * This is a factory function for `PackageSupplier`. Child classes may
+	 * wish to override this to implement their own `PackageSupplier` logic,
+	 * be it by extending this method's ability or replacing it.
+	 *
+	 * Params:
+	 *	 url = The URL of the `PackageSupplier`.
+	 *
+	 * Returns:
+	 *	 A new instance of a `PackageSupplier`.
+	 */
+	protected PackageSupplier makePackageSupplier(string url) const
+	{
+		switch (url.startsWith("dub+", "mvn+", "file://"))
+		{
+		case 1:
+			return new RegistryPackageSupplier(URL(url[4..$]));
+		case 2:
+			return new MavenRegistryPackageSupplier(URL(url[4..$]));
+		case 3:
+			return new FileSystemPackageSupplier(NativePath(url[7..$]));
+		default:
+			return new RegistryPackageSupplier(URL(url));
+		}
 	}
 
 	/// ditto
@@ -359,18 +415,6 @@ class Dub {
 	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers)
 	{
 		return getPackageSuppliers(additional_package_suppliers, m_config.skipRegistry);
-	}
-
-	unittest
-	{
-		auto dub = new TestDub();
-
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.none, null).length == 1);
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.configured, null).length == 0);
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, null).length == 0);
-
-		assert(dub.computePkgSuppliers(null, SkipPackageSuppliers.standard, "http://example.com/")
-			.length == 1);
 	}
 
 	@property bool dryRun() const { return m_dryRun; }
@@ -394,8 +438,8 @@ class Dub {
 
 	@property string mainRecipePath() const { return m_mainRecipePath; }
 	/// Whenever the switch --recipe= is supplied, this member will be populated.
-	@property string mainRecipePath(string recipePath) 
-	{ 
+	@property string mainRecipePath(string recipePath)
+	{
 		return m_mainRecipePath = recipePath;
 	}
 
@@ -461,7 +505,8 @@ class Dub {
 	/// Loads a specific package as the main project package (can be a sub package)
 	void loadPackage(Package pack)
 	{
-		m_project = new Project(m_packageManager, pack);
+		auto selections = Project.loadSelections(pack);
+		m_project = new Project(m_packageManager, pack, selections);
 	}
 
 	/** Loads a single file package.
@@ -736,8 +781,6 @@ class Dub {
 	/** Executes D-Scanner tests on the current project. **/
 	void lintProject(string[] args)
 	{
-		import std.path : buildPath, buildNormalizedPath;
-
 		if (m_dryRun) return;
 
 		auto tool = "dscanner";
@@ -758,14 +801,14 @@ class Dub {
 			auto cfgs = m_project.getPackageConfigs(settings.platform, null, true);
 			auto buildSettings = dependencyPackage.getBuildSettings(settings.platform, cfgs[dependencyPackage.name]);
 			foreach (importPath; buildSettings.importPaths) {
-				settings.runArgs ~= ["-I", buildNormalizedPath(dependencyPackage.path.toNativeString(), importPath.idup)];
+				settings.runArgs ~= ["-I", (dependencyPackage.path ~ importPath).toNativeString()];
 			}
 			foreach (cimportPath; buildSettings.cImportPaths) {
-				settings.runArgs ~= ["-I", buildNormalizedPath(dependencyPackage.path.toNativeString(), cimportPath.idup)];
+				settings.runArgs ~= ["-I", (dependencyPackage.path ~ cimportPath).toNativeString()];
 			}
 		}
 
-		string configFilePath = buildPath(m_project.rootPackage.path.toNativeString(), "dscanner.ini");
+		string configFilePath = (m_project.rootPackage.path ~ "dscanner.ini").toNativeString();
 		if (!args.canFind("--config") && exists(configFilePath)) {
 			settings.runArgs ~= ["--config", configFilePath];
 		}
@@ -809,9 +852,7 @@ class Dub {
 	deprecated("Use `clean(Package)` instead")
 	void cleanPackage(NativePath path)
 	{
-		auto ppack = Package.findPackageFile(path);
-		enforce(!ppack.empty, "No package found.", path.toNativeString());
-		this.clean(Package.load(path, ppack));
+		this.clean(Package.load(path));
 	}
 
 	/// Ditto
@@ -862,7 +903,7 @@ class Dub {
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.fetchPackageRecipe(basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0);
+				pinfo = ps.fetchPackageRecipe(basePackageName, range, (options & FetchOptions.usePrerelease) != 0);
 				if (pinfo.type == Json.Type.null_)
 					continue;
 				supplier = ps;
@@ -872,7 +913,8 @@ class Dub {
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
-		enforce(pinfo.type != Json.Type.undefined, "No package "~packageId~" was found matching the dependency " ~ range.toString());
+		enforce(!pinfo.type.among(Json.Type.undefined, Json.Type.null_),
+				"No package " ~ packageId ~ " was found matching the dependency " ~ range.toString());
 		Version ver = Version(pinfo["version"].get!string);
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
@@ -909,7 +951,7 @@ class Dub {
 			import std.zip : ZipException;
 
 			auto path = getTempFile(basePackageName, ".zip");
-			supplier.fetchPackage(path, basePackageName, Dependency(range), (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			supplier.fetchPackage(path, basePackageName, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) removeFile(path);
 			logDiagnostic("Placing to %s...", location.toString());
 
@@ -1398,29 +1440,40 @@ class Dub {
 		return settings;
 	}
 
-	private void determineDefaultCompiler()
+	/**
+	 * Determine the default compiler to use for this instance
+	 *
+	 * The default compiler will be used unless --compiler is specified.
+	 * The environment variable `DC` will take precedence over anything,
+	 * followed by the configuration. If nothing is found, the folder in
+	 * which `dub` is installed will be searched, and if nothing is found,
+	 * the $PATH will be searched.
+	 * In the majority of cases, as we distribute `dub` alongside the compiler,
+	 * it will be found once the directory in which dub reside is searched.
+	 *
+	 * Returns: The value to use for the default compiler.
+	 */
+	protected string determineDefaultCompiler() const
 	{
 		import std.file : thisExePath;
 		import std.path : buildPath, dirName, expandTilde, isAbsolute, isDirSeparator;
 		import std.range : front;
 
 		// Env takes precedence
+		string result;
 		if (auto envCompiler = environment.get("DC"))
-			m_defaultCompiler = envCompiler;
+			result = envCompiler;
 		else
-			m_defaultCompiler = m_config.defaultCompiler.expandTilde;
-		if (m_defaultCompiler.length && m_defaultCompiler.isAbsolute)
-			return;
+			result = this.m_config.defaultCompiler.expandTilde;
+		if (result.length && result.isAbsolute)
+			return result;
 
 		static immutable BinaryPrefix = `$DUB_BINARY_PATH`;
-		if(m_defaultCompiler.startsWith(BinaryPrefix))
-		{
-			m_defaultCompiler = thisExePath().dirName() ~ m_defaultCompiler[BinaryPrefix.length .. $];
-			return;
-		}
+		if (result.startsWith(BinaryPrefix))
+			return thisExePath().dirName() ~ result[BinaryPrefix.length .. $];
 
-		if (!find!isDirSeparator(m_defaultCompiler).empty)
-			throw new Exception("defaultCompiler specified in a DUB config file cannot use an unqualified relative path:\n\n" ~ m_defaultCompiler ~
+		if (!find!isDirSeparator(result).empty)
+			throw new Exception("defaultCompiler specified in a DUB config file cannot use an unqualified relative path:\n\n" ~ result ~
 			"\n\nUse \"$DUB_BINARY_PATH/../path/you/want\" instead.");
 
 		version (Windows) enum sep = ";", exe = ".exe";
@@ -1429,43 +1482,39 @@ class Dub {
 		auto compilers = ["dmd", "gdc", "gdmd", "ldc2", "ldmd2"];
 		// If a compiler name is specified, look for it next to dub.
 		// Otherwise, look for any of the common compilers adjacent to dub.
-		if (m_defaultCompiler.length)
+		if (result.length)
 		{
-			string compilerPath = buildPath(thisExePath().dirName(), m_defaultCompiler ~ exe);
+			string compilerPath = buildPath(thisExePath().dirName(), result ~ exe);
 			if (existsFile(compilerPath))
-			{
-				m_defaultCompiler = compilerPath;
-				return;
-			}
+				return compilerPath;
 		}
 		else
 		{
 			auto nextFound = compilers.find!(bin => existsFile(buildPath(thisExePath().dirName(), bin ~ exe)));
 			if (!nextFound.empty)
-			{
-				m_defaultCompiler = buildPath(thisExePath().dirName(),  nextFound.front ~ exe);
-				return;
-			}
+				return buildPath(thisExePath().dirName(),  nextFound.front ~ exe);
 		}
 
 		// If nothing found next to dub, search the user's PATH, starting
 		// with the compiler name from their DUB config file, if specified.
 		auto paths = environment.get("PATH", "").splitter(sep).map!NativePath;
-		if (m_defaultCompiler.length && paths.canFind!(p => existsFile(p ~ (m_defaultCompiler~exe))))
-			return;
+		if (result.length && paths.canFind!(p => existsFile(p ~ (result ~ exe))))
+			return result;
 		foreach (p; paths) {
 			auto res = compilers.find!(bin => existsFile(p ~ (bin~exe)));
-			if (!res.empty) {
-				m_defaultCompiler = res.front;
-				return;
-			}
+			if (!res.empty)
+				return res.front;
 		}
-		m_defaultCompiler = compilers[0];
+		return compilers[0];
 	}
 
+	// This test also relies on the environment and the filesystem,
+	// as the `makePackageSuppliers` does, and should be refactored.
 	unittest
 	{
+		import dub.test.base : TestDub;
 		import std.path: buildPath, absolutePath;
+
 		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
 		immutable olddc = environment.get("DC", null);
 		immutable oldpath = environment.get("PATH", null);
@@ -1494,23 +1543,19 @@ class Dub {
 		std.file.write(ldcbin, null);
 
 		environment["DC"] = dmdbin.absolutePath();
-		dub.determineDefaultCompiler();
-		assert(dub.m_defaultCompiler == dmdbin.absolutePath());
+		assert(dub.determineDefaultCompiler() == dmdbin.absolutePath());
 
 		environment["DC"] = "dmd";
 		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
-		dub.determineDefaultCompiler();
-		assert(dub.m_defaultCompiler == "dmd");
+		assert(dub.determineDefaultCompiler() == "dmd");
 
 		environment["DC"] = "ldc2";
 		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
-		dub.determineDefaultCompiler();
-		assert(dub.m_defaultCompiler == "ldc2");
+		assert(dub.determineDefaultCompiler() == "ldc2");
 
 		environment.remove("DC");
 		environment["PATH"] = ldcpath ~ sep ~ dmdpath;
-		dub.determineDefaultCompiler();
-		assert(dub.m_defaultCompiler == "ldc2");
+		assert(dub.determineDefaultCompiler() == "ldc2");
 	}
 
 	private NativePath makeAbsolute(NativePath p) const { return p.absolute ? p : m_rootPath ~ p; }
@@ -1804,7 +1849,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		foreach (ps; m_dub.m_packageSuppliers) {
 			if (rootpack == name) {
 				try {
-					auto desc = ps.fetchPackageRecipe(name, dep, prerelease);
+					auto desc = ps.fetchPackageRecipe(name, VersionRange(vers, vers), prerelease);
 					if (desc.type == Json.Type.null_)
 						continue;
 					auto ret = new Package(desc);
@@ -1841,27 +1886,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	}
 }
 
-/**
- * An instance of Dub that does not rely on the environment
- *
- * This instance of dub should not read any environment variables,
- * nor should it do any file IO, to make it usable and reliable in unittests.
- * Currently it reads environment variables but does not read the configuration.
- */
-package final class TestDub : Dub
-{
-    /// Forward to base constructor
-    public this (string root = ".", PackageSupplier[] extras = null,
-                 SkipPackageSuppliers skip = SkipPackageSuppliers.none)
-    {
-        super(root, extras, skip);
-    }
-
-    /// Avoid loading user configuration
-    protected override void loadConfig() { /* No-op */ }
-}
-
-private struct SpecialDirs {
+package struct SpecialDirs {
 	/// The path where to store temporary files and directory
 	NativePath temp;
 	/// The system-wide dub-specific folder

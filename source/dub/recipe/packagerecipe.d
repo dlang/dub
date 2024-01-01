@@ -213,32 +213,32 @@ struct ToolchainRequirements
 	// currently it fails because `Dependency.opCmp` is not CTFE-able.
 
 	/// DUB version requirement
-	@Optional @converter((scope ConfigParser!Dependency p) => p.node.as!string.parseDependency)
-	Dependency dub = Dependency.any;
+	@Optional @converter((scope ConfigParser!VersionRange p) => p.node.as!string.parseVersionRange)
+	VersionRange dub = VersionRange.Any;
 	/// D front-end version requirement
-	@Optional @converter((scope ConfigParser!Dependency p) => p.node.as!string.parseDMDDependency)
-	Dependency frontend = Dependency.any;
+	@Optional @converter((scope ConfigParser!VersionRange p) => p.node.as!string.parseDMDDependency)
+	VersionRange frontend = VersionRange.Any;
 	/// DMD version requirement
-	@Optional @converter((scope ConfigParser!Dependency p) => p.node.as!string.parseDMDDependency)
-	Dependency dmd = Dependency.any;
+	@Optional @converter((scope ConfigParser!VersionRange p) => p.node.as!string.parseDMDDependency)
+	VersionRange dmd = VersionRange.Any;
 	/// LDC version requirement
-	@Optional @converter((scope ConfigParser!Dependency p) => p.node.as!string.parseDependency)
-	Dependency ldc = Dependency.any;
+	@Optional @converter((scope ConfigParser!VersionRange p) => p.node.as!string.parseVersionRange)
+	VersionRange ldc = VersionRange.Any;
 	/// GDC version requirement
-	@Optional @converter((scope ConfigParser!Dependency p) => p.node.as!string.parseDependency)
-	Dependency gdc = Dependency.any;
+	@Optional @converter((scope ConfigParser!VersionRange p) => p.node.as!string.parseVersionRange)
+	VersionRange gdc = VersionRange.Any;
 
 	/** Get the list of supported compilers.
 
 		Returns:
 			An array of couples of compiler name and compiler requirement
 	*/
-	@property Tuple!(string, Dependency)[] supportedCompilers() const
+	@property Tuple!(string, VersionRange)[] supportedCompilers() const
 	{
-		Tuple!(string, Dependency)[] res;
-		if (dmd != Dependency.invalid) res ~= Tuple!(string, Dependency)("dmd", dmd);
-		if (ldc != Dependency.invalid) res ~= Tuple!(string, Dependency)("ldc", ldc);
-		if (gdc != Dependency.invalid) res ~= Tuple!(string, Dependency)("gdc", gdc);
+		Tuple!(string, VersionRange)[] res;
+		if (dmd != VersionRange.Invalid) res ~= Tuple!(string, VersionRange)("dmd", dmd);
+		if (ldc != VersionRange.Invalid) res ~= Tuple!(string, VersionRange)("ldc", ldc);
+		if (gdc != VersionRange.Invalid) res ~= Tuple!(string, VersionRange)("gdc", gdc);
 		return res;
 	}
 
@@ -246,7 +246,7 @@ struct ToolchainRequirements
 	const {
 		import std.algorithm.searching : all;
 		return only(dub, frontend, dmd, ldc, gdc)
-			.all!(r => r == Dependency.any);
+			.all!(r => r == VersionRange.Any);
 	}
 }
 
@@ -615,43 +615,44 @@ struct BuildSettingsTemplate {
 
 package(dub) void checkPlatform(const scope ref ToolchainRequirements tr, BuildPlatform platform, string package_name)
 {
-	import dub.compilers.utils : dmdLikeVersionToSemverLike;
 	import std.algorithm.iteration : map;
 	import std.format : format;
 
-	string compilerver;
-	Dependency compilerspec;
+	Version compilerver;
+	VersionRange compilerspec;
 
 	switch (platform.compiler) {
 		default:
-			compilerspec = Dependency.any;
-			compilerver = "0.0.0";
+			compilerspec = VersionRange.Any;
+			compilerver = Version.minRelease;
 			break;
 		case "dmd":
 			compilerspec = tr.dmd;
 			compilerver = platform.compilerVersion.length
-				? dmdLikeVersionToSemverLike(platform.compilerVersion)
-				: "0.0.0";
+				? Version(dmdLikeVersionToSemverLike(platform.compilerVersion))
+				: Version.minRelease;
 			break;
 		case "ldc":
 			compilerspec = tr.ldc;
-			compilerver = platform.compilerVersion;
-			if (!compilerver.length) compilerver = "0.0.0";
+			compilerver = platform.compilerVersion.length
+				? Version(platform.compilerVersion)
+				: Version.minRelease;
 			break;
 		case "gdc":
 			compilerspec = tr.gdc;
-			compilerver = platform.compilerVersion;
-			if (!compilerver.length) compilerver = "0.0.0";
+			compilerver = platform.compilerVersion.length
+				? Version(platform.compilerVersion)
+				: Version.minRelease;
 			break;
 	}
 
-	enforce(compilerspec != Dependency.invalid,
+	enforce(compilerspec != VersionRange.Invalid,
 		format(
 			"Installed %s %s is not supported by %s. Supported compiler(s):\n%s",
 			platform.compiler, platform.compilerVersion, package_name,
 			tr.supportedCompilers.map!((cs) {
 				auto str = "  - " ~ cs[0];
-				if (cs[1] != Dependency.any) str ~= ": " ~ cs[1].toString();
+				if (cs[1] != VersionRange.Any) str ~= ": " ~ cs[1].toString();
 				return str;
 			}).join("\n")
 		)
@@ -666,7 +667,7 @@ package(dub) void checkPlatform(const scope ref ToolchainRequirements tr, BuildP
 		)
 	);
 
-	enforce(tr.frontend.matches(dmdLikeVersionToSemverLike(platform.frontendVersionString)),
+	enforce(tr.frontend.matches(Version(dmdLikeVersionToSemverLike(platform.frontendVersionString))),
 		format(
 			"Installed %s-%s with frontend %s does not comply with %s frontend requirement: %s\n" ~
 			"Please consider upgrading your installation.",
@@ -680,34 +681,31 @@ package bool addRequirement(ref ToolchainRequirements req, string name, string v
 {
 	switch (name) {
 		default: return false;
-		case "dub": req.dub = parseDependency(value); break;
+		case "dub": req.dub = parseVersionRange(value); break;
 		case "frontend": req.frontend = parseDMDDependency(value); break;
-		case "ldc": req.ldc = parseDependency(value); break;
-		case "gdc": req.gdc = parseDependency(value); break;
+		case "ldc": req.ldc = parseVersionRange(value); break;
+		case "gdc": req.gdc = parseVersionRange(value); break;
 		case "dmd": req.dmd = parseDMDDependency(value); break;
 	}
 	return true;
 }
 
-private static Dependency parseDependency(string dep)
+private VersionRange parseVersionRange(string dep)
 {
-	if (dep == "no") return Dependency.invalid;
-	return Dependency(dep);
+	if (dep == "no") return VersionRange.Invalid;
+	return VersionRange.fromString(dep);
 }
 
-private static Dependency parseDMDDependency(string dep)
+private VersionRange parseDMDDependency(string dep)
 {
-	import dub.compilers.utils : dmdLikeVersionToSemverLike;
-	import dub.dependency : Dependency;
 	import std.algorithm : map, splitter;
 	import std.array : join;
 
-	if (dep == "no") return Dependency.invalid;
-	return dep
+	if (dep == "no") return VersionRange.Invalid;
+	return VersionRange.fromString(dep
 		.splitter(' ')
 		.map!(r => dmdLikeVersionToSemverLike(r))
-		.join(' ')
-		.Dependency;
+		.join(' '));
 }
 
 private T clone(T)(ref const(T) val)
@@ -784,4 +782,52 @@ package void fixDependenciesNames (T) (string root, ref T aggr) nothrow
 		else static if (is(typeof(FieldRef) == struct))
 			fixDependenciesNames(root, aggr.tupleof[idx]);
 	}
+}
+
+/**
+	Turn a DMD-like version (e.g. 2.082.1) into a SemVer-like version (e.g. 2.82.1).
+    The function accepts a dependency operator prefix and some text postfix.
+    Prefix and postfix are returned verbatim.
+	Params:
+		ver	=	version string, possibly with a dependency operator prefix and some
+				test postfix.
+	Returns:
+		A Semver compliant string
+*/
+private string dmdLikeVersionToSemverLike(string ver)
+{
+	import std.algorithm : countUntil, joiner, map, skipOver, splitter;
+	import std.array : join, split;
+	import std.ascii : isDigit;
+	import std.conv : text;
+	import std.exception : enforce;
+	import std.functional : not;
+	import std.range : padRight;
+
+	const start = ver.countUntil!isDigit;
+	enforce(start != -1, "Invalid semver: "~ver);
+	const prefix = ver[0 .. start];
+	ver = ver[start .. $];
+
+	const end = ver.countUntil!(c => !c.isDigit && c != '.');
+	const postfix = end == -1 ? null : ver[end .. $];
+	auto verStr = ver[0 .. $-postfix.length];
+
+	auto comps = verStr
+		.splitter(".")
+		.map!((a) { if (a.length > 1) a.skipOver("0"); return a;})
+		.padRight("0", 3);
+
+	return text(prefix, comps.joiner("."), postfix);
+}
+
+///
+unittest {
+	assert(dmdLikeVersionToSemverLike("2.082.1") == "2.82.1");
+	assert(dmdLikeVersionToSemverLike("2.082.0") == "2.82.0");
+	assert(dmdLikeVersionToSemverLike("2.082") == "2.82.0");
+	assert(dmdLikeVersionToSemverLike("~>2.082") == "~>2.82.0");
+	assert(dmdLikeVersionToSemverLike("~>2.082-beta1") == "~>2.82.0-beta1");
+	assert(dmdLikeVersionToSemverLike("2.4.6") == "2.4.6");
+	assert(dmdLikeVersionToSemverLike("2.4.6-alpha12") == "2.4.6-alpha12");
 }

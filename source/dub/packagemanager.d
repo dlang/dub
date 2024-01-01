@@ -61,7 +61,7 @@ public string toString (PlacementLocation loc) @safe pure nothrow @nogc
 /// The PackageManager can retrieve present packages and get / remove
 /// packages.
 class PackageManager {
-	private {
+	protected {
 		/**
 		 * The 'internal' location, for packages not attributable to a location.
 		 *
@@ -188,7 +188,7 @@ class PackageManager {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	private Package lookup (string name, Version vers) {
+	protected Package lookup (string name, Version vers) {
 		if (!this.m_initialized)
 			this.refresh();
 
@@ -440,6 +440,7 @@ class PackageManager {
 	}
 
 	/// Ditto
+	deprecated("Use the overload that accepts a `Version` or a `VersionRange`")
 	Package getBestPackage(string name, string range)
 	{
 		return this.getBestPackage(name, VersionRange.fromString(range));
@@ -994,10 +995,6 @@ symlink_exit:
 				p.normalize();
 				enforce(!p.absolute, "Sub package paths must be sub paths of the parent package.");
 				auto path = pack.path ~ p;
-				if (!existsFile(path)) {
-					logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
-					continue;
-				}
 				sp = Package.load(path, NativePath.init, pack);
 			} else sp = new Package(spr.recipe, pack.path, pack);
 
@@ -1124,7 +1121,7 @@ private enum LocalOverridesFilename = "local-overrides.json";
  * Additionally, each location host a config file,
  * which is not managed by this module, but by dub itself.
  */
-private struct Location {
+package struct Location {
 	/// The absolute path to the root of the location
 	NativePath packagePath;
 
@@ -1367,7 +1364,7 @@ private struct Location {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	private inout(Package) lookup(string name, Version ver, PackageManager mgr) inout {
+	inout(Package) lookup(string name, Version ver, PackageManager mgr) inout {
 		foreach (pkg; this.localPackages)
 			if (pkg.name == name && pkg.version_.matches(ver, VersionMatchMode.standard))
 				return pkg;
@@ -1394,7 +1391,7 @@ private struct Location {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	private Package load (string name, Version vers, PackageManager mgr)
+	Package load (string name, Version vers, PackageManager mgr)
 	{
 		if (auto pkg = this.lookup(name, vers, mgr))
 			return pkg;
@@ -1426,7 +1423,7 @@ private struct Location {
 	 * but this function returns `$BASE/$NAME-$VERSION/`
 	 * `$BASE` is `this.packagePath`.
 	 */
-	private NativePath getPackagePath (string name, string vers)
+	NativePath getPackagePath (string name, string vers)
 	{
 		NativePath result = this.packagePath ~ name ~ vers;
 		result.endsWithSlash = true;

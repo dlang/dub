@@ -71,23 +71,54 @@ class Project {
 		this(package_manager, pack);
 	}
 
-	/// ditto
+	/// Ditto
 	this(PackageManager package_manager, Package pack)
+	{
+		auto selections = Project.loadSelections(pack);
+		this(package_manager, pack, selections);
+	}
+
+	/// ditto
+	this(PackageManager package_manager, Package pack, SelectedVersions selections)
 	{
 		m_packageManager = package_manager;
 		m_rootPackage = pack;
-
-		auto selverfile = (m_rootPackage.path ~ SelectedVersions.defaultFile).toNativeString();
-		if (existsFile(selverfile)) {
-			// TODO: Remove `StrictMode.Warn` after v1.40 release
-			// The default is to error, but as the previous parser wasn't
-			// complaining, we should first warn the user.
-			auto selected = parseConfigFileSimple!Selected(selverfile, StrictMode.Warn);
-			m_selections = !selected.isNull() ?
-				new SelectedVersions(selected.get()) : new SelectedVersions();
-		} else m_selections = new SelectedVersions;
-
+		m_selections = selections;
 		reinit();
+	}
+
+	/**
+	 * Loads a project's `dub.selections.json` and returns it
+	 *
+	 * This function will load `dub.selections.json` from the path at which
+	 * `pack` is located, and returned the resulting `SelectedVersions`.
+	 * If no `dub.selections.json` is found, an empty `SelectedVersions`
+	 * is returned.
+	 *
+	 * Params:
+	 *	 pack = Package to load the selection file from.
+	 *
+	 * Returns:
+	 *	 Always a non-null instance.
+	 */
+	static package SelectedVersions loadSelections(in Package pack)
+	{
+		auto selverfile = (pack.path ~ SelectedVersions.defaultFile).toNativeString();
+
+		// No file exists
+		if (!existsFile(selverfile))
+			return new SelectedVersions();
+
+		// TODO: Remove `StrictMode.Warn` after v1.40 release
+		// The default is to error, but as the previous parser wasn't
+		// complaining, we should first warn the user.
+		auto selected = parseConfigFileSimple!Selected(selverfile, StrictMode.Warn);
+
+		// Parsing error, it will be displayed to the user
+		if (selected.isNull())
+			return new SelectedVersions();
+
+		return new SelectedVersions(selected.get());
 	}
 
 	/** List of all resolved dependencies.
@@ -104,6 +135,7 @@ class Project {
 	@property inout(SelectedVersions) selections() inout { return m_selections; }
 
 	/// Package manager instance used by the project.
+	deprecated("Use `Dub.packageManager` instead")
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
 
 	/** Determines if all dependencies necessary to build have been collected.
@@ -460,7 +492,9 @@ class Project {
 		m_missingDependencies = [];
 
 		Package resolveSubPackage(Package p, string subname, bool silentFail) {
-			return subname.length ? m_packageManager.getSubPackage(p, subname, silentFail) : p;
+			if (!subname.length || p is null)
+				return p;
+			return m_packageManager.getSubPackage(p, subname, silentFail);
 		}
 
 		void collectDependenciesRec(Package pack, int depth = 0)
@@ -525,6 +559,9 @@ class Project {
 					if (!vspec.repository.empty) {
 						p = m_packageManager.loadSCMPackage(basename, vspec.repository);
 						resolveSubPackage(p, subname, false);
+						enforce(p !is null,
+							"Unable to fetch '%s@%s' using git - does the repository and version exists?".format(
+								dep.name, vspec.repository));
 					} else if (!vspec.path.empty && is_desired) {
 						NativePath path = vspec.path;
 						if (!path.absolute) path = pack.path ~ path;
@@ -1703,8 +1740,8 @@ unittest
 	This is the runtime representation of the information contained in
 	"dub.selections.json" within a package's directory.
 */
-final class SelectedVersions {
-	private {
+public class SelectedVersions {
+	protected {
 		enum FileVersion = 1;
 		Selected m_selections;
 		bool m_dirty = false; // has changes since last save

@@ -1022,7 +1022,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
 				ensureDirectory(dstfolder);
-				foreach (de; iterateDirectory(folder.toNativeString())) {
+				foreach (de; iterateDirectory(folder)) {
 					if (de.isDirectory) {
 						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
 					} else {

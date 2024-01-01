@@ -4,7 +4,7 @@
 module dub.recipe.selection;
 
 import dub.dependency;
-import dub.internal.vibecompat.core.file : NativePath;
+import dub.internal.vibecompat.inet.path : NativePath;
 
 import dub.internal.configy.Attributes;
 
@@ -85,7 +85,6 @@ private struct SelectedDependency
 unittest
 {
     import dub.internal.configy.Read : parseConfigString;
-    import dub.internal.vibecompat.core.file : NativePath;
 
     immutable string content = `{
     "fileVersion": 1,

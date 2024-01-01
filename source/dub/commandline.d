@@ -1987,7 +1987,6 @@ class AddCommand : Command {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		import dub.recipe.io : readPackageRecipe, writePackageRecipe;
-		import dub.internal.vibecompat.core.file : existsFile;
 		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
@@ -2177,8 +2176,7 @@ class FetchCommand : FetchRemoveCommand {
 			}
 			catch(Exception e){
 				logInfo("Getting a release version failed: %s", e.msg);
-				logInfo("Retry with ~master...");
-				dub.fetch(name, VersionRange.fromString("~master"), location, fetchOpts);
+				return 1;
 			}
 		}
 		return 0;
@@ -2677,7 +2675,7 @@ class DustmiteCommand : PackageBuildCommand {
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
 				ensureDirectory(dstfolder);
-				foreach (de; iterateDirectory(folder.toNativeString())) {
+				foreach (de; iterateDirectory(folder)) {
 					if (de.name.startsWith(".")) continue;
 					if (de.isDirectory) {
 						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
@@ -2714,7 +2712,7 @@ class DustmiteCommand : PackageBuildCommand {
 				foreach (ref subp; recipe.subPackages)
 					if (subp.path.length) {
 						auto sub_path = base_path ~ NativePath(subp.path);
-						auto pack = prj.packageManager.getOrLoadPackage(sub_path);
+						auto pack = dub.packageManager.getOrLoadPackage(sub_path);
 						fixPathDependencies(pack.recipe, sub_path);
 						pack.storeInfo(sub_path);
 					} else fixPathDependencies(subp.recipe, base_path);

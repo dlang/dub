@@ -51,6 +51,7 @@ static immutable FilenameAndFormat[] packageInfoFiles = [
 ];
 
 /// Returns a list of all recognized package recipe file names in descending order of precedence.
+deprecated("Open an issue if this is needed")
 @property string[] packageInfoFilenames() { return packageInfoFiles.map!(f => cast(string)f.filename).array; }
 
 /// Returns the default package recile file name.
@@ -669,7 +670,6 @@ class Package {
 
 	private void checkDubRequirements()
 	{
-		import dub.dependency : Dependency;
 		import dub.semver : isValidVersion;
 		import dub.version_ : dubVersion;
 		import std.exception : enforce;
@@ -677,16 +677,10 @@ class Package {
 		const dep = m_info.toolchainRequirements.dub;
 
 		static assert(dubVersion.length);
-		static if (dubVersion[0] == 'v') {
-			enum dv = dubVersion[1 .. $];
-		}
-		else {
-			enum dv = dubVersion;
-		}
-		static assert(isValidVersion(dv));
+		immutable dv = Version(dubVersion[(dubVersion[0] == 'v') .. $]);
 
 		enforce(dep.matches(dv),
-			"dub-" ~ dv ~ " does not comply with toolchainRequirements.dub "
+			"dub-" ~ dv.toString() ~ " does not comply with toolchainRequirements.dub "
 			~ "specification: " ~ m_info.toolchainRequirements.dub.toString()
 			~ "\nPlease consider upgrading your DUB installation");
 	}

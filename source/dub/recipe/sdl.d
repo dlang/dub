@@ -327,11 +327,11 @@ private void parseToolchainRequirements(ref ToolchainRequirements tr, Tag tag)
 private Tag toSDL(const ref ToolchainRequirements tr)
 {
 	Attribute[] attrs;
-	if (tr.dub != Dependency.any) attrs ~= new Attribute("dub", Value(tr.dub.toString()));
-	if (tr.frontend != Dependency.any) attrs ~= new Attribute("frontend", Value(tr.frontend.toString()));
-	if (tr.dmd != Dependency.any) attrs ~= new Attribute("dmd", Value(tr.dmd.toString()));
-	if (tr.ldc != Dependency.any) attrs ~= new Attribute("ldc", Value(tr.ldc.toString()));
-	if (tr.gdc != Dependency.any) attrs ~= new Attribute("gdc", Value(tr.gdc.toString()));
+	if (tr.dub != VersionRange.Any) attrs ~= new Attribute("dub", Value(tr.dub.toString()));
+	if (tr.frontend != VersionRange.Any) attrs ~= new Attribute("frontend", Value(tr.frontend.toString()));
+	if (tr.dmd != VersionRange.Any) attrs ~= new Attribute("dmd", Value(tr.dmd.toString()));
+	if (tr.ldc != VersionRange.Any) attrs ~= new Attribute("ldc", Value(tr.ldc.toString()));
+	if (tr.gdc != VersionRange.Any) attrs ~= new Attribute("gdc", Value(tr.gdc.toString()));
 	return new Tag(null, "toolchainRequirements", null, attrs);
 }
 
@@ -562,11 +562,11 @@ lflags "lf3"
 	assert(rec.buildTypes.length == 2);
 	assert(rec.buildTypes["debug"].dflags == ["": ["-g", "-debug"]]);
 	assert(rec.buildTypes["release"].dflags == ["": ["-release", "-O"]]);
-	assert(rec.toolchainRequirements.dub == Dependency("~>1.11.0"));
-	assert(rec.toolchainRequirements.frontend == Dependency.any);
-	assert(rec.toolchainRequirements.dmd == Dependency("~>2.82.0"));
-	assert(rec.toolchainRequirements.ldc == Dependency.any);
-	assert(rec.toolchainRequirements.gdc == Dependency.any);
+	assert(rec.toolchainRequirements.dub == VersionRange.fromString("~>1.11.0"));
+	assert(rec.toolchainRequirements.frontend == VersionRange.Any);
+	assert(rec.toolchainRequirements.dmd == VersionRange.fromString("~>2.82.0"));
+	assert(rec.toolchainRequirements.ldc == VersionRange.Any);
+	assert(rec.toolchainRequirements.gdc == VersionRange.Any);
 	assert(rec.ddoxFilterArgs == ["-arg1", "-arg2", "-arg3"], rec.ddoxFilterArgs.to!string);
 	assert(rec.ddoxTool == "ddoxtool");
 	assert(rec.buildSettings.dependencies.length == 2);

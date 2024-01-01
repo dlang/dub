@@ -47,7 +47,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	void fetchPackage(NativePath path, string packageId, in VersionRange dep, bool pre_release)
 	{
 		import std.format : format;
 		auto md = getMetadata(packageId);
@@ -71,7 +71,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		throw new Exception("Failed to download package %s from %s".format(packageId, url));
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	Json fetchPackageRecipe(string packageId, in VersionRange dep, bool pre_release)
 	{
 		auto md = getMetadata(packageId);
 		return getBestPackage(md, packageId, dep, pre_release);
@@ -125,7 +125,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		auto md = getMetadata(query);
 		if (md.type == Json.Type.null_)
 			return null;
-		auto json = getBestPackage(md, query, Dependency.any, true);
+		auto json = getBestPackage(md, query, VersionRange.Any, true);
 		return [SearchResult(json["name"].opt!string, "", json["version"].opt!string)];
 	}
 }
