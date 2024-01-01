@@ -289,27 +289,17 @@ package class TestPackageManager : PackageManager
         // Do nothing
     }
 
-    /**
-     * Looks up a specific package
-     *
-     * Unlike its parent class, no lazy loading is performed.
-     * Additionally, as they are already deprecated, overrides are
-     * disabled and not available.
-     */
-	public override Package getPackage(string name, Version vers, bool enable_overrides = false)
+	/**
+	 * Loads a `Package`
+	 *
+	 * This is currently not implemented, and any call to it will trigger
+	 * an assert, as that would otherwise be an access to the filesystem.
+	 */
+	protected override Package load(NativePath path, NativePath recipe = NativePath.init,
+		Package parent = null, string version_ = null,
+		StrictMode mode = StrictMode.Ignore) const
     {
-        //assert(!enable_overrides, "Overrides are not implemented for TestPackageManager");
-
-        // Implementation inspired from `PackageManager.lookup`,
-        // except we replaced `load` with `lookup`.
-        if (auto pkg = this.m_internal.lookup(name, vers, this))
-			return pkg;
-
-		foreach (ref location; this.m_repositories)
-			if (auto p = location.lookup(name, vers, this))
-				return p;
-
-		return null;
+        assert(0, "`TestPackageManager.load` is not implemented");
     }
 
 	/**
