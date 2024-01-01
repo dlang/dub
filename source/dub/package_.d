@@ -80,9 +80,10 @@ static immutable string[] builtinBuildTypes = [
 /**	Represents a package, including its sub packages.
 */
 class Package {
+	// `package` visibility as it is set from the PackageManager
+	package NativePath m_infoFile;
 	private {
 		NativePath m_path;
-		NativePath m_infoFile;
 		PackageRecipe m_info;
 		PackageRecipe m_rawRecipe;
 		Package m_parentPackage;
@@ -173,6 +174,7 @@ class Package {
 				determined by invoking the VCS (GIT currently).
 			mode = Whether to issue errors, warning, or ignore unknown keys in dub.json
 	*/
+	deprecated("Use `PackageManager.getOrLoadPackage` instead of loading packages directly")
 	static Package load(NativePath root, NativePath recipe_file = NativePath.init,
 		Package parent = null, string version_override = "",
 		StrictMode mode = StrictMode.Ignore)

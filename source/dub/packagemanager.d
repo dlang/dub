@@ -332,9 +332,52 @@ class PackageManager {
 		foreach (p; this.m_internal.fromPath)
 			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
 				return p;
-		auto pack = Package.load(path, recipe_path, null, null, mode);
+		auto pack = this.load(path, recipe_path, null, null, mode);
 		addPackages(this.m_internal.fromPath, pack);
 		return pack;
+	}
+
+	/**
+	 * Loads a `Package` from the filesystem
+	 *
+	 * This is called when a `Package` needs to be loaded from the path.
+	 * This does not change the internal state of the `PackageManager`,
+	 * it simply loads the `Package` and returns it - it is up to the caller
+	 * to call `addPackages`.
+	 *
+	 * Throws:
+	 *   If no package can be found at the `path` / with the `recipe`.
+	 *
+	 * Params:
+	 *     path = The directory in which the package resides.
+	 *     recipe = Optional path to the package recipe file. If left empty,
+	 *              the `path` directory will be searched for a recipe file.
+	 *     parent = Reference to the parent package, if the new package is a
+	 *              sub package.
+	 *     version_ = Optional version to associate to the package instead of
+	 *                the one declared in the package recipe, or the one
+	 *                determined by invoking the VCS (GIT currently).
+	 *     mode = Whether to issue errors, warning, or ignore unknown keys in
+	 *            dub.json
+	 *
+	 * Returns: A populated `Package`.
+	 */
+	protected Package load(NativePath path, NativePath recipe = NativePath.init,
+		Package parent = null, string version_ = null,
+		StrictMode mode = StrictMode.Ignore) const
+	{
+		if (recipe.empty)
+			recipe = Package.findPackageFile(path);
+
+		enforce(!recipe.empty,
+			"No package file found in %s, expected one of %s"
+				.format(path.toNativeString(),
+					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
+
+		auto content = readPackageRecipe(recipe, parent ? parent.name : null, mode);
+		auto ret = new Package(content, path, parent, version_);
+		ret.m_infoFile = recipe;
+		return ret;
 	}
 
 	/** For a given SCM repository, returns the corresponding package.
@@ -399,7 +442,7 @@ class PackageManager {
 			return null;
 		}
 
-		return Package.load(destination);
+		return this.load(destination);
 	}
 
 	/**
@@ -787,7 +830,7 @@ symlink_exit:
 		logDebug("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite dub.json (this one includes a version field)
-		auto pack = Package.load(destination, NativePath.init, null, vers.toString());
+		auto pack = this.load(destination, NativePath.init, null, vers.toString());
 
 		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
@@ -850,7 +893,7 @@ symlink_exit:
 			this.refresh();
 
 		path.endsWithSlash = true;
-		auto pack = Package.load(path);
+		auto pack = this.load(path);
 		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
 		if (verName.length)
 			pack.version_ = Version(verName);
@@ -995,7 +1038,7 @@ symlink_exit:
 				p.normalize();
 				enforce(!p.absolute, "Sub package paths must be sub paths of the parent package.");
 				auto path = pack.path ~ p;
-				sp = Package.load(path, NativePath.init, pack);
+				sp = this.load(path, NativePath.init, pack);
 			} else sp = new Package(spr.recipe, pack.path, pack);
 
 			// Add the sub-package.
@@ -1241,7 +1284,7 @@ package struct Location {
 
 						if (!pp) {
 							auto infoFile = Package.findPackageFile(path);
-							if (!infoFile.empty) pp = Package.load(path, infoFile);
+							if (!infoFile.empty) pp = manager.load(path, infoFile);
 							else {
 								logWarn("Locally registered package %s %s was not found. Please run 'dub remove-local \"%s\"'.",
 										name, ver, path.toNativeString());
@@ -1304,7 +1347,7 @@ package struct Location {
 						p = pp;
 						break;
 					}
-				if (!p) p = Package.load(pack_path, packageFile);
+				if (!p) p = mgr.load(pack_path, packageFile);
 				mgr.addPackages(this.fromPath, p);
 			} catch (ConfigException exc) {
 				// Configy error message already include the path
@@ -1403,7 +1446,7 @@ package struct Location {
 			return null;
 
 		logDiagnostic("Lazily loading package %s:%s from %s", lookupName, vers, path);
-		auto p = Package.load(path);
+		auto p = mgr.load(path);
 		enforce(
 			p.version_ == vers,
 			format("Package %s located in %s has a different version than its path: Got %s, expected %s",
