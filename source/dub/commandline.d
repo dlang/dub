@@ -1295,10 +1295,10 @@ abstract class PackageBuildCommand : Command {
 	protected void setupVersionPackage(Dub dub, string str_package_info, string default_build_type = "debug")
 	{
 		PackageAndVersion package_info = splitPackageName(str_package_info);
-		setupPackage(dub, package_info.name, default_build_type, package_info.version_);
+		setupPackage(dub, package_info.name, default_build_type, package_info.range);
 	}
 
-	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug", string ver = "")
+	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug", VersionRange range = VersionRange.Any)
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		if (!m_arch.length) m_arch = dub.defaultArchitecture;
@@ -1318,7 +1318,7 @@ abstract class PackageBuildCommand : Command {
 		this.baseSettings.buildSettings.addVersions(m_dVersions);
 
 		m_defaultConfig = null;
-		enforce (loadSpecificPackage(dub, package_name, ver), "Failed to load package.");
+		enforce(loadSpecificPackage(dub, package_name, range), "Failed to load package.");
 
 		if (this.baseSettings.config.length != 0 &&
 			!dub.configurations.canFind(this.baseSettings.config) &&
@@ -1355,7 +1355,7 @@ abstract class PackageBuildCommand : Command {
 		}
 	}
 
-	private bool loadSpecificPackage(Dub dub, string package_name, string ver)
+	private bool loadSpecificPackage(Dub dub, string package_name, VersionRange vers)
 	{
 		if (this.baseSettings.single) {
 			enforce(package_name.length, "Missing file name of single-file package.");
@@ -1378,11 +1378,10 @@ abstract class PackageBuildCommand : Command {
 
 		enforce(package_name.length, "No valid root package found - aborting.");
 
-		const vers = ver.length ? VersionRange.fromString(ver) : VersionRange.Any;
 		auto pack = dub.packageManager.getBestPackage(package_name, vers);
 
 		enforce(pack, format!"Failed to find a package named '%s%s' locally."(package_name,
-			ver == "" ? "" : ("@" ~ ver)
+			vers == VersionRange.Any ? "" : ("@" ~ vers.toString())
 		));
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
 		dub.loadPackage(pack);
@@ -1558,9 +1557,9 @@ class BuildCommand : GenerateCommand {
 
 		VersionRange dep;
 
-		if (packageParts.version_.length > 0) {
+		if (packageParts.range != VersionRange.Any) {
 			// the user provided a version manually
-			dep = VersionRange.fromString(packageParts.version_);
+			dep = packageParts.range;
 		} else if (packageParts.name.startsWith(":")) {
 			// Sub-packages are always assumed to be present
 			return 0;
@@ -2164,7 +2163,7 @@ class FetchCommand : FetchRemoveCommand {
 			dub.fetch(name, VersionRange.fromString(m_version), location, fetchOpts);
 		} else if (name.canFindVersionSplitter) {
 			const parts = name.splitPackageName;
-			dub.fetch(parts.name, VersionRange.fromString(parts.version_), location, fetchOpts);
+			dub.fetch(parts.name, parts.range, location, fetchOpts);
 		} else {
 			try {
 				dub.fetch(name, VersionRange.Any, location, fetchOpts);
@@ -2245,8 +2244,10 @@ class RemoveCommand : FetchRemoveCommand {
 			dub.remove(package_id, m_version, location);
 		} else {
 			const parts = package_id.splitPackageName;
-			if (m_nonInteractive || parts.version_.length) {
-				dub.remove(parts.name, parts.version_, location);
+            const explicit = package_id.canFindVersionSplitter;
+			if (m_nonInteractive || explicit || parts.range != VersionRange.Any) {
+                const str = parts.range.matchesAny() ? "*" : parts.range.toString();
+				dub.remove(parts.name, str, location);
 			} else {
 				dub.remove(package_id, location, &resolveVersion);
 			}
@@ -2376,13 +2377,12 @@ class ListCommand : Command {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length <= 1, "Expecting zero or one extra arguments.");
-		const pinfo = free_args.length ? splitPackageName(free_args[0]) : PackageAndVersion("","*");
+		const pinfo = free_args.length ? splitPackageName(free_args[0]) : PackageAndVersion("",VersionRange.Any);
 		const pname = pinfo.name;
-		const pvlim = Dependency(pinfo.version_ == "" ? "*" : pinfo.version_);
 		enforceUsage(app_args.length == 0, "The list command supports no application arguments.");
 		logInfoNoTag("Packages present in the system and known to dub:");
 		foreach (p; dub.packageManager.getPackageIterator()) {
-			if ((pname == "" || pname == p.name) && pvlim.matches(p.version_))
+			if ((pname == "" || pname == p.name) && pinfo.range.matches(p.version_))
 				logInfoNoTag("  %s %s: %s", p.name.color(Mode.bold), p.version_, p.path.toNativeString());
 		}
 		logInfo("");
@@ -3028,9 +3028,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 	Dependency dep;
 	const parts = splitPackageName(depspec);
 	const depname = parts.name;
-	if (parts.version_)
-		dep = Dependency(parts.version_);
-	else
+	if (parts.range == VersionRange.Any)
 	{
 		try {
 			const ver = dub.getLatestVersion(depname);
@@ -3041,6 +3039,8 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 			return false;
 		}
 	}
+	else
+		dep = Dependency(parts.range);
 	recipe.buildSettings.dependencies[depname] = dep;
 	logInfo("Adding dependency %s %s", depname, dep.toString());
 	return true;
@@ -3049,7 +3049,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 private struct PackageAndVersion
 {
 	string name;
-	string version_;
+	VersionRange range;
 }
 
 /* Split <package>=<version-specifier> and <package>@<version-specifier>
@@ -3065,23 +3065,24 @@ private PackageAndVersion splitPackageName(string packageName)
 
 	PackageAndVersion p;
 	p.name = parts[0];
-	if (!parts[1].empty)
-		p.version_ = parts[2];
+	p.range = !parts[1].empty
+		? VersionRange.fromString(parts[2])
+		: VersionRange.Any;
 	return p;
 }
 
 unittest
 {
 	// https://github.com/dlang/dub/issues/1681
-	assert(splitPackageName("") == PackageAndVersion("", null));
+	assert(splitPackageName("") == PackageAndVersion("", VersionRange.Any));
 
-	assert(splitPackageName("foo") == PackageAndVersion("foo", null));
-	assert(splitPackageName("foo=1.0.1") == PackageAndVersion("foo", "1.0.1"));
-	assert(splitPackageName("foo@1.0.1") == PackageAndVersion("foo", "1.0.1"));
-	assert(splitPackageName("foo@==1.0.1") == PackageAndVersion("foo", "==1.0.1"));
-	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion("foo", ">=1.0.1"));
-	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion("foo", "~>1.0.1"));
-	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion("foo", "<1.0.1"));
+	assert(splitPackageName("foo") == PackageAndVersion("foo", VersionRange.Any));
+	assert(splitPackageName("foo=1.0.1") == PackageAndVersion("foo", VersionRange.fromString("1.0.1")));
+	assert(splitPackageName("foo@1.0.1") == PackageAndVersion("foo", VersionRange.fromString("1.0.1")));
+	assert(splitPackageName("foo@==1.0.1") == PackageAndVersion("foo", VersionRange.fromString("==1.0.1")));
+	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion("foo", VersionRange.fromString(">=1.0.1")));
+	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion("foo", VersionRange.fromString("~>1.0.1")));
+	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion("foo", VersionRange.fromString("<1.0.1")));
 }
 
 private ulong canFindVersionSplitter(string packageName)
