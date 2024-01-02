@@ -57,6 +57,7 @@ class Project {
 			project_path = Path of the root package to load
 			pack = An existing `Package` instance to use as the root package
 	*/
+	deprecated("Load the package using `PackageManager.getOrLoadPackage` then call the `(PackageManager, Package)` overload")
 	this(PackageManager package_manager, NativePath project_path)
 	{
 		Package pack;
