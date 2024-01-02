@@ -1294,11 +1294,11 @@ abstract class PackageBuildCommand : Command {
 
 	protected void setupVersionPackage(Dub dub, string str_package_info, string default_build_type = "debug")
 	{
-		UserPackageDesc package_info = UserPackageDesc.fromString(str_package_info);
-		setupPackage(dub, package_info.name, default_build_type, package_info.range);
+		UserPackageDesc udesc = UserPackageDesc.fromString(str_package_info);
+		setupPackage(dub, udesc, default_build_type);
 	}
 
-	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug", VersionRange range = VersionRange.Any)
+	protected void setupPackage(Dub dub, UserPackageDesc udesc, string default_build_type = "debug")
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		if (!m_arch.length) m_arch = dub.defaultArchitecture;
@@ -1318,7 +1318,7 @@ abstract class PackageBuildCommand : Command {
 		this.baseSettings.buildSettings.addVersions(m_dVersions);
 
 		m_defaultConfig = null;
-		enforce(loadSpecificPackage(dub, package_name, range), "Failed to load package.");
+		enforce(loadSpecificPackage(dub, udesc), "Failed to load package.");
 
 		if (this.baseSettings.config.length != 0 &&
 			!dub.configurations.canFind(this.baseSettings.config) &&
@@ -1355,34 +1355,33 @@ abstract class PackageBuildCommand : Command {
 		}
 	}
 
-	private bool loadSpecificPackage(Dub dub, string package_name, VersionRange vers)
+	private bool loadSpecificPackage(Dub dub, UserPackageDesc udesc)
 	{
 		if (this.baseSettings.single) {
-			enforce(package_name.length, "Missing file name of single-file package.");
-			dub.loadSingleFilePackage(package_name);
+			enforce(udesc.name.length, "Missing file name of single-file package.");
+			dub.loadSingleFilePackage(udesc.name);
 			return true;
 		}
 
 
-		bool from_cwd = package_name.length == 0 || package_name.startsWith(":");
+		bool from_cwd = udesc.name.length == 0 || udesc.name.startsWith(":");
 		// load package in root_path to enable searching for sub packages
 		if (loadCwdPackage(dub, from_cwd)) {
-			if (package_name.startsWith(":"))
+			if (udesc.name.startsWith(":"))
 			{
-				auto pack = dub.packageManager.getSubPackage(dub.project.rootPackage, package_name[1 .. $], false);
+				auto pack = dub.packageManager.getSubPackage(
+					dub.project.rootPackage, udesc.name[1 .. $], false);
 				dub.loadPackage(pack);
 				return true;
 			}
 			if (from_cwd) return true;
 		}
 
-		enforce(package_name.length, "No valid root package found - aborting.");
+		enforce(udesc.name.length, "No valid root package found - aborting.");
 
-		auto pack = dub.packageManager.getBestPackage(package_name, vers);
+		auto pack = dub.packageManager.getBestPackage(udesc.name, udesc.range);
 
-		enforce(pack, format!"Failed to find a package named '%s%s' locally."(package_name,
-			vers == VersionRange.Any ? "" : ("@" ~ vers.toString())
-		));
+		enforce(pack, format!"Failed to find package '%s' locally."(udesc));
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
 		dub.loadPackage(pack);
 		return true;
@@ -2638,7 +2637,7 @@ class DustmiteCommand : PackageBuildCommand {
 		import std.format : formattedWrite;
 
 		if (m_testPackage.length) {
-			setupPackage(dub, m_testPackage);
+			setupPackage(dub, UserPackageDesc(m_testPackage));
 			m_defaultConfig = dub.project.getDefaultConfiguration(this.baseSettings.platform);
 
 			GeneratorSettings gensettings = this.baseSettings;
@@ -2667,7 +2666,7 @@ class DustmiteCommand : PackageBuildCommand {
 			if (!path.absolute) path = getWorkingDirectory() ~ path;
 			enforceUsage(!path.startsWith(dub.rootPath), "Destination path must not be a sub directory of the tested package!");
 
-			setupPackage(dub, null);
+			setupPackage(dub, UserPackageDesc.init);
 			auto prj = dub.project;
 			if (this.baseSettings.config.empty)
 				this.baseSettings.config = prj.getDefaultConfiguration(this.baseSettings.platform);
@@ -3057,7 +3056,15 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 private struct UserPackageDesc
 {
 	string name;
-	VersionRange range;
+	VersionRange range = VersionRange.Any;
+
+	/// Provides a string representation for the user
+	public string toString() const
+	{
+		if (this.range.matchesAny())
+			return this.name;
+		return format("%s@%s", this.name, range);
+	}
 
 	/**
 	 * Breaks down a user-provided string into its name and version range
