@@ -1294,7 +1294,7 @@ abstract class PackageBuildCommand : Command {
 
 	protected void setupVersionPackage(Dub dub, string str_package_info, string default_build_type = "debug")
 	{
-		PackageAndVersion package_info = splitPackageName(str_package_info);
+		UserPackageDesc package_info = UserPackageDesc.fromString(str_package_info);
 		setupPackage(dub, package_info.name, default_build_type, package_info.range);
 	}
 
@@ -1529,14 +1529,14 @@ class BuildCommand : GenerateCommand {
 
 		if (!m_nonInteractive)
 		{
-			const packageParts = splitPackageName(free_args[0]);
+			const packageParts = UserPackageDesc.fromString(free_args[0]);
 			if (auto rc = fetchMissingPackages(dub, packageParts))
 				return rc;
 		}
 		return super.execute(dub, free_args, app_args);
 	}
 
-	private int fetchMissingPackages(Dub dub, in PackageAndVersion packageParts)
+	private int fetchMissingPackages(Dub dub, in UserPackageDesc packageParts)
 	{
 
 		static bool input(string caption, bool default_value = true) {
@@ -2162,7 +2162,7 @@ class FetchCommand : FetchRemoveCommand {
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
 			dub.fetch(name, VersionRange.fromString(m_version), location, fetchOpts);
 		} else if (name.canFindVersionSplitter) {
-			const parts = name.splitPackageName;
+			const parts = UserPackageDesc.fromString(name);
 			dub.fetch(parts.name, parts.range, location, fetchOpts);
 		} else {
 			try {
@@ -2243,7 +2243,7 @@ class RemoveCommand : FetchRemoveCommand {
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", package_id, m_version);
 			dub.remove(package_id, m_version, location);
 		} else {
-			const parts = package_id.splitPackageName;
+			const parts = UserPackageDesc.fromString(package_id);
             const explicit = package_id.canFindVersionSplitter;
 			if (m_nonInteractive || explicit || parts.range != VersionRange.Any) {
                 const str = parts.range.matchesAny() ? "*" : parts.range.toString();
@@ -2377,7 +2377,7 @@ class ListCommand : Command {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length <= 1, "Expecting zero or one extra arguments.");
-		const pinfo = free_args.length ? splitPackageName(free_args[0]) : PackageAndVersion("",VersionRange.Any);
+		const pinfo = free_args.length ? UserPackageDesc.fromString(free_args[0]) : UserPackageDesc("",VersionRange.Any);
 		const pname = pinfo.name;
 		enforceUsage(app_args.length == 0, "The list command supports no application arguments.");
 		logInfoNoTag("Packages present in the system and known to dub:");
@@ -3026,7 +3026,7 @@ private class UsageException : Exception {
 private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 {
 	Dependency dep;
-	const parts = splitPackageName(depspec);
+	const parts = UserPackageDesc.fromString(depspec);
 	const depname = parts.name;
 	if (parts.range == VersionRange.Any)
 	{
@@ -3046,48 +3046,73 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 	return true;
 }
 
-private struct PackageAndVersion
+/**
+ * A user-provided package description
+ *
+ * User provided package description currently only covers packages
+ * referenced by their name with an associated version.
+ * Hence there is an implicit assumption that they are in the registry.
+ * Future improvements could support `Dependency` instead of `VersionRange`.
+ */
+private struct UserPackageDesc
 {
 	string name;
 	VersionRange range;
-}
 
-/* Split <package>=<version-specifier> and <package>@<version-specifier>
-   into `name` and `version_`. */
-private PackageAndVersion splitPackageName(string packageName)
-{
-	// split <package>@<version-specifier>
-	auto parts = packageName.findSplit("@");
-	if (parts[1].empty) {
-		// split <package>=<version-specifier>
-		parts = packageName.findSplit("=");
+	/**
+	 * Breaks down a user-provided string into its name and version range
+	 *
+	 * User-provided strings (via the command line) are either in the form
+	 * `<package>=<version-specifier>` or `<package>@<version-specifier>`.
+	 * As it is more explicit, we recommend the latter (the `@` version
+	 * is not used by names or `VersionRange`, but `=` is).
+	 *
+	 * If no version range is provided, the returned struct has its `range`
+	 * property set to `VersionRange.Any` as this is the most usual usage
+	 * in the command line. Some cakkers may want to distinguish between
+	 * user-provided version and implicit version, but this is discouraged.
+	 *
+	 * Params:
+	 *   str = User-provided string
+	 *
+	 * Returns:
+	 *   A populated struct.
+	 */
+	static UserPackageDesc fromString(string packageName)
+	{
+		// split <package>@<version-specifier>
+		auto parts = packageName.findSplit("@");
+		if (parts[1].empty) {
+			// split <package>=<version-specifier>
+			parts = packageName.findSplit("=");
+		}
+
+		UserPackageDesc p;
+		p.name = parts[0];
+		p.range = !parts[1].empty
+			? VersionRange.fromString(parts[2])
+			: VersionRange.Any;
+		return p;
 	}
-
-	PackageAndVersion p;
-	p.name = parts[0];
-	p.range = !parts[1].empty
-		? VersionRange.fromString(parts[2])
-		: VersionRange.Any;
-	return p;
 }
 
 unittest
 {
 	// https://github.com/dlang/dub/issues/1681
-	assert(splitPackageName("") == PackageAndVersion("", VersionRange.Any));
+	assert(UserPackageDesc.fromString("") == UserPackageDesc("", VersionRange.Any));
 
-	assert(splitPackageName("foo") == PackageAndVersion("foo", VersionRange.Any));
-	assert(splitPackageName("foo=1.0.1") == PackageAndVersion("foo", VersionRange.fromString("1.0.1")));
-	assert(splitPackageName("foo@1.0.1") == PackageAndVersion("foo", VersionRange.fromString("1.0.1")));
-	assert(splitPackageName("foo@==1.0.1") == PackageAndVersion("foo", VersionRange.fromString("==1.0.1")));
-	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion("foo", VersionRange.fromString(">=1.0.1")));
-	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion("foo", VersionRange.fromString("~>1.0.1")));
-	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion("foo", VersionRange.fromString("<1.0.1")));
+	assert(UserPackageDesc.fromString("foo") == UserPackageDesc("foo", VersionRange.Any));
+	assert(UserPackageDesc.fromString("foo=1.0.1") == UserPackageDesc("foo", VersionRange.fromString("1.0.1")));
+	assert(UserPackageDesc.fromString("foo@1.0.1") == UserPackageDesc("foo", VersionRange.fromString("1.0.1")));
+	assert(UserPackageDesc.fromString("foo@==1.0.1") == UserPackageDesc("foo", VersionRange.fromString("==1.0.1")));
+	assert(UserPackageDesc.fromString("foo@>=1.0.1") == UserPackageDesc("foo", VersionRange.fromString(">=1.0.1")));
+	assert(UserPackageDesc.fromString("foo@~>1.0.1") == UserPackageDesc("foo", VersionRange.fromString("~>1.0.1")));
+	assert(UserPackageDesc.fromString("foo@<1.0.1") == UserPackageDesc("foo", VersionRange.fromString("<1.0.1")));
 }
 
 private ulong canFindVersionSplitter(string packageName)
 {
-	// see splitPackageName
+	// see UserPackageDesc.fromString
 	return packageName.canFind("@", "=");
 }
 
