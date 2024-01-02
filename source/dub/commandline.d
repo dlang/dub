@@ -2118,51 +2118,138 @@ class FetchRemoveCommand : Command {
 }
 
 class FetchCommand : FetchRemoveCommand {
+	private enum FetchStatus
+	{
+		/// Package is already present and on the right version
+		Present = 0,
+		/// Package was fetched from the registry
+		Fetched = 1,
+		/// Attempts at fetching the package failed
+		Failed = 2,
+	}
+
+	protected bool recursive;
+	protected size_t[FetchStatus.max + 1] result;
+
 	this() @safe pure nothrow
 	{
 		this.name = "fetch";
 		this.argumentsPattern = "<package>[@<version-spec>]";
-		this.description = "Manually retrieves and caches a package";
+		this.description = "Explicitly retrieves and caches packages";
 		this.helpText = [
-			"Note: Use \"dub add <dependency>\" if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
+			"When run with one or more arguments, regardless of the location it is run in,",
+			"it will fetch the packages matching the argument(s).",
+			"Examples:",
+			"$ dub fetch vibe-d",
+			"$ dub fetch vibe-d@v0.9.0 --cache=local --recursive",
 			"",
-			"Explicit retrieval/removal of packages is only needed when you want to put packages in a place where several applications can share them. If you just have a dependency to add, use the `add` command. Dub will do the rest for you.",
+			"When run in a project with no arguments, it will fetch all dependencies for that project.",
+			"If the project doesn't have set dependencies (no 'dub.selections.json'), it will also perform dependency resolution.",
+			"Example:",
+			"$ cd myProject && dub fetch",
 			"",
-			"Without specified options, placement/removal will default to a user wide shared location.",
-			"",
-			"Complete applications can be retrieved and run easily by e.g.",
-			"$ dub fetch vibelog --cache=local",
-			"$ dub run vibelog --cache=local",
-			"",
-			"This will grab all needed dependencies and compile and run the application.",
+			"Note that the 'build', 'run', and any other command that need packages will automatically perform fetch,",
+			"hence it is not generally necessary to run this command before any other."
 		];
 	}
 
 	override void prepare(scope CommandArgs args)
 	{
+		args.getopt("r|recursive", &this.recursive, [
+			"Also fetches dependencies of specified packages",
+		]);
 		super.prepare(args);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto location = dub.defaultPlacementLocation;
-
-		auto name = free_args[0];
-
-		FetchOptions fetchOpts;
-		fetchOpts |= FetchOptions.forceBranchUpgrade;
-		if (m_version.length) { // remove then --version removed
-			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
+		// remove then --version removed
+		if (m_version.length) {
+			enforceUsage(free_args.length == 1, "Expecting exactly one argument when using --version.");
+			const name = free_args[0];
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
-			dub.fetch(name, VersionRange.fromString(m_version), location, fetchOpts);
-		} else {
-			const parts = UserPackageDesc.fromString(name);
-			dub.fetch(parts.name, parts.range, location, fetchOpts);
+			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
+			this.fetchPackage(dub, UserPackageDesc(name, VersionRange.fromString(m_version)));
+			return this.result[FetchStatus.Failed] ? 1 : 0;
 		}
-		return 0;
+
+		// Fetches dependencies of the project
+		// This is obviously mutually exclusive with the below foreach
+		if (!free_args.length) {
+			if (!this.loadCwdPackage(dub, true))
+				return 1;
+			// retrieve missing packages
+			if (!dub.project.hasAllDependencies) {
+				logInfo("Resolving", Color.green, "missing dependencies for project");
+				dub.upgrade(UpgradeOptions.select);
+			}
+			else
+				logInfo("All %s dependencies are already present locally",
+						dub.project.dependencies.length);
+			return 0;
+		}
+
+        // Fetches packages named explicitly
+		foreach (name; free_args) {
+			const udesc = UserPackageDesc.fromString(name);
+			this.fetchPackage(dub, udesc);
+		}
+        // Note that this does not include packages indirectly fetched.
+        // Hence it is not currently displayed in the no-argument version,
+        // and will only include directly mentioned packages in the arg version.
+		logInfoNoTag("%s packages fetched, %s already present, %s failed",
+				this.result[FetchStatus.Fetched], this.result[FetchStatus.Present],
+				this.result[FetchStatus.Failed]);
+		return this.result[FetchStatus.Failed] ? 1 : 0;
+	}
+
+    /// Shell around `fetchSinglePackage` with logs and recursion support
+    private void fetchPackage(Dub dub, UserPackageDesc udesc)
+    {
+        auto r = this.fetchSinglePackage(dub, udesc);
+        this.result[r] += 1;
+        final switch (r) {
+        case FetchStatus.Failed:
+            // Error displayed in `fetchPackage` as it has more information
+            // However we need to return here as we can't recurse.
+            return;
+        case FetchStatus.Present:
+            logInfo("Existing", Color.green, "package %s found locally", udesc);
+            break;
+        case FetchStatus.Fetched:
+            logInfo("Fetched", Color.green, "package %s successfully", udesc);
+            break;
+        }
+        if (this.recursive) {
+            auto pack = dub.packageManager.getBestPackage(udesc.name, udesc.range);
+            auto proj = new Project(dub.packageManager, pack);
+            if (!proj.hasAllDependencies) {
+				logInfo("Resolving", Color.green, "missing dependencies for project");
+				dub.loadPackage(pack);
+				dub.upgrade(UpgradeOptions.select);
+			}
+        }
+    }
+
+	/// Implementation for argument version
+	private FetchStatus fetchSinglePackage(Dub dub, UserPackageDesc udesc)
+	{
+		auto fspkg = dub.packageManager.getBestPackage(udesc.name, udesc.range);
+		// Avoid dub fetch if the package is present on the filesystem.
+		if (fspkg !is null && udesc.range.isExactVersion())
+			return FetchStatus.Present;
+
+		try {
+			auto pkg = dub.fetch(udesc.name, udesc.range, dub.defaultPlacementLocation,
+				FetchOptions.forceBranchUpgrade);
+			assert(pkg !is null, "dub.fetch returned a null Package");
+			return pkg is fspkg ? FetchStatus.Present : FetchStatus.Fetched;
+		} catch (Exception e) {
+			logError("Fetching %s failed: %s", udesc, e.msg);
+			return FetchStatus.Failed;
+		}
 	}
 }
 
