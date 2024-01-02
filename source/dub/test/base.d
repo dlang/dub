@@ -152,12 +152,6 @@ public class TestDub : Dub
         return new MockPackageSupplier(url);
     }
 
-	/// Loads the package from the specified path as the main project package.
-	public override void loadPackage(NativePath path)
-	{
-		assert(0, "Not implemented");
-	}
-
 	/// Loads a specific package as the main project package (can be a sub package)
 	public override void loadPackage(Package pack)
 	{

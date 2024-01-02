@@ -499,7 +499,9 @@ class Dub {
 	/// Loads the package from the specified path as the main project package.
 	void loadPackage(NativePath path)
 	{
-		m_project = new Project(m_packageManager, path);
+		auto pack = this.m_packageManager.getOrLoadPackage(
+			path, NativePath.init, false, StrictMode.Warn);
+		this.loadPackage(pack);
 	}
 
 	/// Loads a specific package as the main project package (can be a sub package)
