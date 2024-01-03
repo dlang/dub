@@ -123,12 +123,34 @@ public void disableLogging()
  * This instance of dub should not read any environment variables,
  * nor should it do any file IO, to make it usable and reliable in unittests.
  * Currently it reads environment variables but does not read the configuration.
+ *
+ * Note that since the design of Dub was centered on the file system for so long,
+ * `NativePath` is still a core part of how one interacts with this class.
+ * In order to be as close to the production code as possible, this class
+ * use the following conventions:
+ * - The project is located under `/dub/project/`;
+ * - The user and system packages are under `/dub/user/packages/` and
+ *   `/dub/system/packages/`, respectively;
+ * Those paths don't need to exists, but they are what one might see
+ * when writing and debugging unittests.
  */
 public class TestDub : Dub
 {
+    /// Convenience constants for use in unittets
+    public static immutable ProjectPath = "/dub/project/";
+    /// Ditto
+    public static immutable SpecialDirs Paths = {
+        temp: "/dub/temp/",
+        systemSettings: "/dub/system/",
+        userSettings: "/dub/user/",
+        userPackages: "/dub/user/",
+        cache: "/dub/user/cache/",
+    };
+
     /// Forward to base constructor
-    public this (string root = ".", PackageSupplier[] extras = null,
-                 SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+    public this (string root = ProjectPath,
+        PackageSupplier[] extras = null,
+        SkipPackageSuppliers skip = SkipPackageSuppliers.none)
     {
         super(root, extras, skip);
     }
@@ -136,7 +158,7 @@ public class TestDub : Dub
     /// Avoid loading user configuration
     protected override Settings loadConfig(ref SpecialDirs dirs) const
     {
-        // No-op
+        dirs = Paths;
         return Settings.init;
     }
 
@@ -252,10 +274,10 @@ package class TestPackageManager : PackageManager
 
     this()
     {
-        NativePath pkg = NativePath("/tmp/dub-testsuite-nonexistant/packages/");
-        NativePath user = NativePath("/tmp/dub-testsuite-nonexistant/user/");
-        NativePath system = NativePath("/tmp/dub-testsuite-nonexistant/system/");
-        super(pkg, user, system, false);
+        NativePath local = NativePath(TestDub.ProjectPath);
+        NativePath user = TestDub.Paths.userSettings;
+        NativePath system = TestDub.Paths.systemSettings;
+        super(local, user, system, false);
     }
 
     /// Disabled as semantic are not implementable unless a virtual FS is created
