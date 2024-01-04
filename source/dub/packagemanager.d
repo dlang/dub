@@ -553,11 +553,9 @@ class PackageManager {
 	*/
 	bool isManagedPath(NativePath path)
 	const {
-		foreach (rep; m_repositories) {
-			NativePath rpath = rep.packagePath;
-			if (path.startsWith(rpath))
+		foreach (rep; m_repositories)
+			if (rep.isManaged(path))
 				return true;
-		}
 		return false;
 	}
 
@@ -1471,6 +1469,11 @@ package struct Location {
 		NativePath result = this.packagePath ~ name ~ vers;
 		result.endsWithSlash = true;
 		return result;
+	}
+
+	/// Determines if a specific path is within a DUB managed Location.
+	bool isManaged(NativePath path) const {
+		return path.startsWith(this.packagePath);
 	}
 }
 
