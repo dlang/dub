@@ -291,7 +291,7 @@ package class TestPackageManager : PackageManager
 	 */
 	protected override Package load(NativePath path, NativePath recipe = NativePath.init,
 		Package parent = null, string version_ = null,
-		StrictMode mode = StrictMode.Ignore) const
+		StrictMode mode = StrictMode.Ignore)
     {
         assert(0, "`TestPackageManager.load` is not implemented");
     }

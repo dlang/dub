@@ -364,7 +364,7 @@ class PackageManager {
 	 */
 	protected Package load(NativePath path, NativePath recipe = NativePath.init,
 		Package parent = null, string version_ = null,
-		StrictMode mode = StrictMode.Ignore) const
+		StrictMode mode = StrictMode.Ignore)
 	{
 		if (recipe.empty)
 			recipe = Package.findPackageFile(path);
@@ -1023,7 +1023,7 @@ symlink_exit:
 
 	/// Adds the package and scans for sub-packages.
 	private void addPackages(ref Package[] dst_repos, Package pack)
-	const {
+	{
 		// Add the main package.
 		dst_repos ~= pack;
 
