@@ -192,7 +192,7 @@ class PackageManager {
 		if (!this.m_initialized)
 			this.refresh();
 
-		if (auto pkg = this.m_internal.lookup(name, vers, this))
+		if (auto pkg = this.m_internal.lookup(name, vers))
 			return pkg;
 
 		foreach (ref location; this.m_repositories)
@@ -1407,15 +1407,19 @@ package struct Location {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	inout(Package) lookup(string name, Version ver, PackageManager mgr) inout {
+	inout(Package) lookup(string name, Version ver) inout {
 		foreach (pkg; this.localPackages)
 			if (pkg.name == name && pkg.version_.matches(ver, VersionMatchMode.standard))
 				return pkg;
-		foreach (pkg; this.fromPath) {
-			auto pvm = mgr.isManagedPackage(pkg) ? VersionMatchMode.strict : VersionMatchMode.standard;
+		// Any Package under `fromPath` will be managed, unless the Location
+		// is `PackageManager.m_internal`.
+		// This is to avoid matching git versions with regular versions,
+		// as can be seen in #2262.
+		const pvm = this.packagePath !is NativePath.init
+			? VersionMatchMode.strict : VersionMatchMode.standard;
+		foreach (pkg; this.fromPath)
 			if (pkg.name == name && pkg.version_.matches(ver, pvm))
 				return pkg;
-		}
 		return null;
 	}
 
@@ -1436,7 +1440,7 @@ package struct Location {
 	 */
 	Package load (string name, Version vers, PackageManager mgr)
 	{
-		if (auto pkg = this.lookup(name, vers, mgr))
+		if (auto pkg = this.lookup(name, vers))
 			return pkg;
 
 		string versStr = vers.toString();
