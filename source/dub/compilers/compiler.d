@@ -177,27 +177,29 @@ interface Compiler {
 			args			=	arguments for the probe compilation
 			arch_override	=	special handler for x86_mscoff
 	*/
-	protected final BuildPlatform probePlatform(string compiler_binary, string[] args,
-		string arch_override)
+	protected final BuildPlatform probePlatform(string compiler_binary, string[] args, string arch_override)
 	{
-		import dub.compilers.utils : generatePlatformProbeFile, readPlatformJsonProbe;
+		import dub.compilers.utils : generatePlatformProbeFile, readPlatformSDLProbe;
 		import std.string : format, strip;
 
-		auto fil = generatePlatformProbeFile();
+		NativePath fil = generatePlatformProbeFile();
+		string betterC_flag = "-betterC";
+		if (compiler_binary == "gdc")
+			betterC_flag = "-fno-druntime";
 
-		auto result = execute(compiler_binary ~ args ~ fil.toNativeString());
+		auto result = execute(compiler_binary ~ args ~ betterC_flag ~ fil.toNativeString());
 		enforce!CompilerInvocationException(result.status == 0,
 				format("Failed to invoke the compiler %s to determine the build platform: %s",
 				compiler_binary, result.output));
+		BuildPlatform build_platform;
 
-		auto build_platform = readPlatformJsonProbe(result.output);
+		build_platform = readPlatformSDLProbe(result.output);
+		string ver = determineVersion(compiler_binary, result.output).strip;
 		build_platform.compilerBinary = compiler_binary;
 
-		auto ver = determineVersion(compiler_binary, result.output)
-			.strip;
 		if (ver.empty) {
 			logWarn(`Could not probe the compiler version for "%s". ` ~
-				`Toolchain requirements might be ineffective`, build_platform.compiler);
+					`Toolchain requirements might be ineffective`, build_platform.compiler);
 		}
 		else {
 			build_platform.compilerVersion = ver;
