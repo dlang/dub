@@ -7,6 +7,7 @@ license "MIT"
 
 targetPath "bin"
 
+dflags "-preview=in"
 // Deprecated module(s)
 excludedSourceFiles "source/dub/packagesupplier.d"
 
