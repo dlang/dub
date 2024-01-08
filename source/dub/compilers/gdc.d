@@ -87,6 +87,8 @@ class GDCCompiler : Compiler {
 
 	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
 	{
+		// Note: On GDC, warnings are not error by default, because `-Werror=deprecated`
+		// is turned on when `-Werror` is given...
 		enforceBuildRequirements(settings);
 
 		if (!(fields & BuildSetting.options)) {

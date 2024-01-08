@@ -46,11 +46,6 @@ if [ "$COVERAGE" = true ]; then
     deactivate
     clean
 
-    export FRONTEND=2.068
-    source $(~/dlang/install.sh gdc-4.8.5 --activate)
-    DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
-    deactivate
-
     # check for trailing whitespace
     find . -type f -name '*.d' -exec grep -Hn "[[:blank:]]$" {} \;
     # check that the man page generation still works

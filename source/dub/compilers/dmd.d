@@ -228,6 +228,7 @@ config    /etc/dmd.conf
 	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform,
                               BuildSetting fields = BuildSetting.all) const
 	{
+		settings.addOptions(BuildOption.warningsAsErrors);
 		enforceBuildRequirements(settings);
 
 		if (!(fields & BuildSetting.options)) {
