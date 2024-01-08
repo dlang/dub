@@ -192,7 +192,7 @@ class PackageManager {
 		if (!this.m_initialized)
 			this.refresh();
 
-		if (auto pkg = this.m_internal.lookup(name, vers, this))
+		if (auto pkg = this.m_internal.lookup(name, vers))
 			return pkg;
 
 		foreach (ref location; this.m_repositories)
@@ -1405,12 +1405,13 @@ package struct Location {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	inout(Package) lookup(string name, Version ver, PackageManager mgr) inout {
+	inout(Package) lookup(string name, Version ver) inout {
 		foreach (pkg; this.localPackages)
 			if (pkg.name == name && pkg.version_.matches(ver, VersionMatchMode.standard))
 				return pkg;
 		foreach (pkg; this.fromPath) {
-			auto pvm = mgr.isManagedPackage(pkg) ? VersionMatchMode.strict : VersionMatchMode.standard;
+			auto pvm = this.isManaged(pkg.basePackage.path) ?
+				VersionMatchMode.strict : VersionMatchMode.standard;
 			if (pkg.name == name && pkg.version_.matches(ver, pvm))
 				return pkg;
 		}
@@ -1434,7 +1435,7 @@ package struct Location {
 	 */
 	Package load (string name, Version vers, PackageManager mgr)
 	{
-		if (auto pkg = this.lookup(name, vers, mgr))
+		if (auto pkg = this.lookup(name, vers))
 			return pkg;
 
 		string versStr = vers.toString();
