@@ -7,6 +7,9 @@ license "MIT"
 
 targetPath "bin"
 
+// Deprecated module(s)
+excludedSourceFiles "source/dub/packagesupplier.d"
+
 configuration "application" {
 	targetType "executable"
 	mainSourceFile "source/app.d"
