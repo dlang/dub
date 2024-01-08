@@ -7,6 +7,9 @@ license "MIT"
 
 targetPath "bin"
 
+excludedSourceFiles \
+	"source/dub/packagesupplier.d" # superseded with dub.packagesuppliers
+
 configuration "application" {
 	targetType "executable"
 	mainSourceFile "source/app.d"
