@@ -101,7 +101,7 @@ void copyFile(string from, string to)
 	copyFile(NativePath(from), NativePath(to));
 }
 
-version (Windows) extern(Windows) int CreateHardLinkW(in wchar* to, in wchar* from, void* attr=null);
+version (Windows) extern(Windows) int CreateHardLinkW(const(wchar)* to, const(wchar)* from, void* attr=null);
 
 // guess whether 2 files are identical, ignores filename and content
 private bool sameFile(NativePath a, NativePath b)
