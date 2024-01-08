@@ -139,6 +139,9 @@ class Project {
 	deprecated("Use `Dub.packageManager` instead")
 	@property inout(PackageManager) packageManager() inout { return m_packageManager; }
 
+	/// All package configurations that have been overriden with $(LREF overrideConfiguration) so far.
+	@property inout(string[string]) overriddenConfigs() inout { return m_overriddenConfigs; }
+
 	/** Determines if all dependencies necessary to build have been collected.
 
 		If this function returns `false`, it may be necessary to add more entries
@@ -1801,6 +1804,13 @@ public class SelectedVersions {
 		m_bare = false;
 	}
 
+	SelectedVersions dup() const
+	{
+		auto ret = new SelectedVersions();
+		ret.m_selections = m_selections.dup;
+		return ret;
+	}
+
 	/// Returns a list of names for all packages that have a version selection.
 	@property string[] selectedPackages() const { return m_selections.versions.keys; }
 
@@ -1825,38 +1835,33 @@ public class SelectedVersions {
 		m_dirty = true;
 	}
 
+	/// Selects the exact dependency for a specific package.
+	void selectVersion(string package_id, Dependency d)
+	{
+		if (auto pdep = package_id in m_selections.versions) {
+			if (*pdep == d)
+				return;
+		}
+		m_selections.versions[package_id] = d;
+		m_dirty = true;
+	}
+
 	/// Selects a certain version for a specific package.
 	void selectVersion(string package_id, Version version_)
 	{
-		if (auto pdep = package_id in m_selections.versions) {
-			if (*pdep == Dependency(version_))
-				return;
-		}
-		m_selections.versions[package_id] = Dependency(version_);
-		m_dirty = true;
+		selectVersion(package_id, Dependency(version_));
 	}
 
 	/// Selects a certain path for a specific package.
 	void selectVersion(string package_id, NativePath path)
 	{
-		if (auto pdep = package_id in m_selections.versions) {
-			if (*pdep == Dependency(path))
-				return;
-		}
-		m_selections.versions[package_id] = Dependency(path);
-		m_dirty = true;
+		selectVersion(package_id, Dependency(path));
 	}
 
 	/// Selects a certain Git reference for a specific package.
 	void selectVersion(string package_id, Repository repository)
 	{
-		const dependency = Dependency(repository);
-		if (auto pdep = package_id in m_selections.versions) {
-			if (*pdep == dependency)
-				return;
-		}
-		m_selections.versions[package_id] = dependency;
-		m_dirty = true;
+		selectVersion(package_id, Dependency(repository));
 	}
 
 	deprecated("Move `spec` inside of the `repository` parameter and call `selectVersion`")

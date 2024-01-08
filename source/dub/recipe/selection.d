@@ -17,6 +17,15 @@ public struct Selected
 
     /// The selected package and their matching versions
     public SelectedDependency[string] versions;
+
+    Selected dup() const
+    {
+        Selected ret;
+        ret.fileVersion = fileVersion;
+        foreach (k, v; versions)
+            ret.versions[k] = v;
+        return ret;
+    }
 }
 
 

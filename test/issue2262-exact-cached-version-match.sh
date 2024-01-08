@@ -47,3 +47,4 @@ fi
 
 # clean up
 rm -f $PACK_PATH/dub.selections.json
+dub remove gitcompatibledubpackage@* -n || true

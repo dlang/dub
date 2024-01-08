@@ -1,0 +1,6 @@
+{
+	"dependencies": {
+		"gitcompatibledubpackage": "~>1.0.4"
+	},
+	"name": "dub-upgrade-list"
+}
