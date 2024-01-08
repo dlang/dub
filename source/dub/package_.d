@@ -101,6 +101,7 @@ class Package {
 				instead of the one declared in the package recipe, or the one
 				determined by invoking the VCS (GIT currently).
 	*/
+	deprecated("Provide an already parsed PackageRecipe instead of a JSON object")
 	this(Json json_recipe, NativePath root = NativePath(), Package parent = null, string version_override = "")
 	{
 		import dub.recipe.json;
