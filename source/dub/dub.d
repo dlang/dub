@@ -1793,6 +1793,8 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 	private Package getPackageRaw(string name, Dependency dep)
 	{
+		import dub.recipe.json;
+
 		auto basename = getBasePackageName(name);
 
 		// for sub packages, first try to get them from the base package
@@ -1854,7 +1856,9 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					auto desc = ps.fetchPackageRecipe(name, VersionRange(vers, vers), prerelease);
 					if (desc.type == Json.Type.null_)
 						continue;
-					auto ret = new Package(desc);
+					PackageRecipe recipe;
+					parseJson(recipe, desc, null);
+					auto ret = new Package(recipe);
 					m_remotePackages[key] = ret;
 					return ret;
 				} catch (Exception e) {
