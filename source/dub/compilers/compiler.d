@@ -183,11 +183,8 @@ interface Compiler {
 		import std.string : format, strip;
 
 		NativePath fil = generatePlatformProbeFile();
-		string betterC_flag = "-betterC";
-		if (compiler_binary == "gdc")
-			betterC_flag = "-fno-druntime";
 
-		auto result = execute(compiler_binary ~ args ~ betterC_flag ~ fil.toNativeString());
+		auto result = execute(compiler_binary ~ args ~ fil.toNativeString());
 		enforce!CompilerInvocationException(result.status == 0,
 				format("Failed to invoke the compiler %s to determine the build platform: %s",
 				compiler_binary, result.output));

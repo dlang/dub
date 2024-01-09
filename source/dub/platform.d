@@ -115,83 +115,6 @@ enum string compilerCheck = q{
 	else return null;
 };
 
-
-enum string platformCheckPragmas = q{
-	version(Windows) pragma(msg, ` "windows"`);
-	version(linux) pragma(msg, ` "linux"`);
-	version(Posix) pragma(msg, ` "posix"`);
-	version(OSX) pragma(msg, ` "osx" "darwin"`);
-	version(iOS) pragma(msg, ` "ios" "darwin"`);
-	version(TVOS) pragma(msg, ` "tvos" "darwin"`);
-	version(WatchOS) pragma(msg, ` "watchos" "darwin"`);
-	version(FreeBSD) pragma(msg, ` "freebsd"`);
-	version(OpenBSD) pragma(msg, ` "openbsd"`);
-	version(NetBSD) pragma(msg, ` "netbsd"`);
-	version(DragonFlyBSD) pragma(msg, ` "dragonflybsd"`);
-	version(BSD) pragma(msg, ` "bsd"`);
-	version(Solaris) pragma(msg, ` "solaris"`);
-	version(AIX) pragma(msg, ` "aix"`);
-	version(Haiku) pragma(msg, ` "haiku"`);
-	version(SkyOS) pragma(msg, ` "skyos"`);
-	version(SysV3) pragma(msg, ` "sysv3"`);
-	version(SysV4) pragma(msg, ` "sysv4"`);
-	version(Hurd) pragma(msg, ` "hurd"`);
-	version(Android) pragma(msg, ` "android"`);
-	version(Cygwin) pragma(msg, ` "cygwin"`);
-	version(MinGW) pragma(msg, ` "mingw"`);
-	version(PlayStation4) pragma(msg, ` "playstation4"`);
-	version(WebAssembly) pragma(msg, ` "wasm"`);
-};
-
-enum string archCheckPragmas = q{
-
-	version(X86) pragma(msg, ` "x86"`);
-	// Hack: see #1535
-	// Makes "x86_omf" available as a platform specifier in the package recipe
-	version(X86) version(CRuntime_DigitalMars) pragma(msg, ` "x86_omf"`);
-	// Hack: see #1059
-	// When compiling with --arch=x86_mscoff build_platform.architecture is equal to ["x86"] and canFind below is false.
-	// This hack prevents unnecessary warning 'Failed to apply the selected architecture x86_mscoff. Got ["x86"]'.
-	// And also makes "x86_mscoff" available as a platform specifier in the package recipe
-	version(X86) version(CRuntime_Microsoft) pragma(msg, ` "x86_mscoff"`);
-	version(X86_64) pragma(msg, ` "x86_64"`);
-	version(ARM) pragma(msg, ` "arm"`);
-	version(AArch64) pragma(msg, ` "aarch64"`);
-	version(ARM_Thumb) pragma(msg, ` "arm_thumb"`);
-	version(ARM_SoftFloat) pragma(msg, ` "arm_softfloat"`);
-	version(ARM_HardFloat) pragma(msg, ` "arm_hardfloat"`);
-	version(PPC) pragma(msg, ` "ppc"`);
-	version(PPC_SoftFP) pragma(msg, ` "ppc_softfp"`);
-	version(PPC_HardFP) pragma(msg, ` "ppc_hardfp"`);
-	version(PPC64) pragma(msg, ` "ppc64"`);
-	version(IA64) pragma(msg, ` "ia64"`);
-	version(MIPS) pragma(msg, ` "mips"`);
-	version(MIPS32) pragma(msg, ` "mips32"`);
-	version(MIPS64) pragma(msg, ` "mips64"`);
-	version(MIPS_O32) pragma(msg, ` "mips_o32"`);
-	version(MIPS_N32) pragma(msg, ` "mips_n32"`);
-	version(MIPS_O64) pragma(msg, ` "mips_o64"`);
-	version(MIPS_N64) pragma(msg, ` "mips_n64"`);
-	version(MIPS_EABI) pragma(msg, ` "mips_eabi"`);
-	version(MIPS_NoFloat) pragma(msg, ` "mips_nofloat"`);
-	version(MIPS_SoftFloat) pragma(msg, ` "mips_softfloat"`);
-	version(MIPS_HardFloat) pragma(msg, ` "mips_hardfloat"`);
-	version(SPARC) pragma(msg, ` "sparc"`);
-	version(SPARC_V8Plus) pragma(msg, ` "sparc_v8plus"`);
-	version(SPARC_SoftFP) pragma(msg, ` "sparc_softfp"`);
-	version(SPARC_HardFP) pragma(msg, ` "sparc_hardfp"`);
-	version(SPARC64) pragma(msg, ` "sparc64"`);
-	version(S390) pragma(msg, ` "s390"`);
-	version(S390X) pragma(msg, ` "s390x"`);
-	version(HPPA) pragma(msg, ` "hppa"`);
-	version(HPPA64) pragma(msg, ` "hppa64"`);
-	version(SH) pragma(msg, ` "sh"`);
-	version(SH64) pragma(msg, ` "sh64"`);
-	version(Alpha) pragma(msg, ` "alpha"`);
-	version(Alpha_SoftFP) pragma(msg, ` "alpha_softfp"`);
-	version(Alpha_HardFP) pragma(msg, ` "alpha_hardfp"`);
-};
-
 /// private
 enum string compilerCheckPragmas = q{
 	version(DigitalMars) pragma(msg, ` "dmd"`);
@@ -199,6 +122,13 @@ enum string compilerCheckPragmas = q{
 	else version(LDC) pragma(msg, ` "ldc"`);
 	else version(SDC) pragma(msg, ` "sdc"`);
 };
+
+/// private, converts the above appender strings to pragmas
+string pragmaGen(string str) {
+	import std.string : replace;
+	return str.replace("return ret;", "").replace("string[] ret;", "").replace(`["`, `"`).replace(`", "`,`" "`).replace(`"]`, `"`).replace(`;`, "`);").replace("ret ~= ", "pragma(msg, ` ");
+}
+
 
 /** Determines the full build platform used for the current build.
 

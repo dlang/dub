@@ -8,7 +8,7 @@
 module dub.compilers.utils;
 
 import dub.compilers.buildsettings;
-import dub.platform : BuildPlatform, archCheckPragmas, compilerCheckPragmas, platformCheckPragmas;
+import dub.platform : BuildPlatform, archCheck, compilerCheckPragmas, platformCheck, pragmaGen;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
 
@@ -268,6 +268,7 @@ private enum probeEndMark = "__dub_probe_end__";
 */
 NativePath generatePlatformProbeFile()
 {
+
 	import dub.internal.vibecompat.core.file;
 	import dub.internal.utils;
 	import std.string : format;
@@ -298,11 +299,10 @@ NativePath generatePlatformProbeFile()
 		%5$s
 		pragma(msg, `\n`);
 		pragma(msg, `%3$s`);
-	}.format(moduleInfo, probeBeginMark, probeEndMark, platformCheckPragmas, archCheckPragmas, compilerCheckPragmas);
+	}.format(moduleInfo, probeBeginMark, probeEndMark, pragmaGen(platformCheck), pragmaGen(archCheck), compilerCheckPragmas);
 
 	auto path = getTempFile("dub_platform_probe", ".d");
 	writeFile(path, probe);
-
 	return path;
 }
 
