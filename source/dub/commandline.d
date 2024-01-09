@@ -2160,22 +2160,9 @@ class FetchCommand : FetchRemoveCommand {
 			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
 			dub.fetch(name, VersionRange.fromString(m_version), location, fetchOpts);
-		} else if (name.canFindVersionSplitter) {
+		} else {
 			const parts = UserPackageDesc.fromString(name);
 			dub.fetch(parts.name, parts.range, location, fetchOpts);
-		} else {
-			try {
-				dub.fetch(name, VersionRange.Any, location, fetchOpts);
-				logInfo("Finished", Color.green, "%s fetched", name.color(Mode.bold));
-				logInfo(
-					"Please note that you need to use `dub run <pkgname>` " ~
-					"or add it to dependencies of your package to actually use/run it. "
-				);
-			}
-			catch(Exception e){
-				logInfo("Getting a release version failed: %s", e.msg);
-				return 1;
-			}
 		}
 		return 0;
 	}
