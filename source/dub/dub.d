@@ -1279,13 +1279,18 @@ class Dub {
 		logInfo("Success", Color.green, "created empty project in %s", path.toNativeString().color(Mode.bold));
 	}
 
-	private void runCustomInitialization(NativePath path, string type, string[] runArgs)
+	/**
+	 * Run initialization code from a template project
+	 *
+	 * Looks up a project, then get its `init-exec` subpackage,
+	 * and run this to initialize the repository with a default structure.
+	 */
+	private void runCustomInitialization(NativePath path, string name, string[] runArgs)
 	{
-		string packageName = type;
-		auto template_pack = m_packageManager.getBestPackage(packageName);
+		auto template_pack = m_packageManager.getBestPackage(name);
 		if (!template_pack) {
-			logInfo("%s is not present, getting and storing it user wide", packageName);
-			template_pack = fetch(packageName, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
+			logInfo("%s is not present, getting and storing it user wide", name);
+			template_pack = fetch(name, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
 		}
 
 		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
