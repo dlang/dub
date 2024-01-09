@@ -188,15 +188,13 @@ interface Compiler {
 		enforce!CompilerInvocationException(result.status == 0,
 				format("Failed to invoke the compiler %s to determine the build platform: %s",
 				compiler_binary, result.output));
-		BuildPlatform build_platform;
-
-		build_platform = readPlatformSDLProbe(result.output);
+		BuildPlatform build_platform = readPlatformSDLProbe(result.output);
 		string ver = determineVersion(compiler_binary, result.output).strip;
 		build_platform.compilerBinary = compiler_binary;
 
 		if (ver.empty) {
 			logWarn(`Could not probe the compiler version for "%s". ` ~
-					`Toolchain requirements might be ineffective`, build_platform.compiler);
+				`Toolchain requirements might be ineffective`, build_platform.compiler);
 		}
 		else {
 			build_platform.compilerVersion = ver;

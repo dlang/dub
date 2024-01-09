@@ -268,7 +268,6 @@ private enum probeEndMark = "__dub_probe_end__";
 */
 NativePath generatePlatformProbeFile()
 {
-
 	import dub.internal.vibecompat.core.file;
 	import dub.internal.utils;
 	import std.string : format;
@@ -278,7 +277,7 @@ NativePath generatePlatformProbeFile()
 		alias string = const(char)[];
 	};
 
-	// try to not use phobos in the probe to avoid long import times
+	// avoid druntime so that this compiles without a compiler's builtin object.d
 	enum probe = q{
 		%1$s
 		pragma(msg, `%2$s`);
