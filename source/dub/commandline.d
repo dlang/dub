@@ -1537,7 +1537,6 @@ class BuildCommand : GenerateCommand {
 
 	private int fetchMissingPackages(Dub dub, in UserPackageDesc packageParts)
 	{
-
 		static bool input(string caption, bool default_value = true) {
 			writef("%s [%s]: ", caption, default_value ? "Y/n" : "y/N");
 			auto inp = readln();
@@ -1554,42 +1553,41 @@ class BuildCommand : GenerateCommand {
 			}
 		}
 
-		VersionRange dep;
-
-		if (packageParts.range != VersionRange.Any) {
-			// the user provided a version manually
-			dep = packageParts.range;
-		} else if (packageParts.name.startsWith(":")) {
-			// Sub-packages are always assumed to be present
+		// Local subpackages are always assumed to be present
+		if (packageParts.name.startsWith(":"))
 			return 0;
-		} else if (dub.packageManager.getBestPackage(packageParts.name)) {
-			// found locally
+
+		const baseName = getBasePackageName(packageParts.name);
+		// Found locally
+		if (dub.packageManager.getBestPackage(baseName, packageParts.range))
 			return 0;
-		} else {
-			// search for the package and filter versions for exact matches
-			auto basePackageName = getBasePackageName(packageParts.name);
-			auto search = dub.searchPackages(basePackageName)
-				.map!(tup => tup[1].find!(p => p.name == basePackageName))
-				.filter!(ps => !ps.empty);
-			if (search.empty) {
-				logWarn("Package '%s' was neither found locally nor online.", packageParts.name);
-				return 2;
-			}
 
-			const p = search.front.front;
-			logInfo("Package '%s' was not found locally but is available online:", packageParts.name);
-			logInfo("---");
-			logInfo("Description: %s", p.description);
-			logInfo("Version: %s", p.version_);
-			logInfo("---");
-
-			const answer = m_yes ? true : input("Do you want to fetch '%s' now?".format(packageParts.name));
-			if (!answer)
-				return 0;
-			dep = VersionRange.fromString(p.version_);
+		// Non-interactive, either via flag, or because a version was provided
+		if (m_yes || !packageParts.range.matchesAny()) {
+			dub.fetch(baseName, packageParts.range, dub.defaultPlacementLocation,
+				FetchOptions.none);
+			return 0;
+		}
+		// Otherwise we go the long way of asking the user.
+		// search for the package and filter versions for exact matches
+		auto search = dub.searchPackages(baseName)
+			.map!(tup => tup[1].find!(p => p.name == baseName))
+			.filter!(ps => !ps.empty);
+		if (search.empty) {
+			logWarn("Package '%s' was neither found locally nor online.", packageParts);
+			return 2;
 		}
 
-		dub.fetch(packageParts.name, dep, dub.defaultPlacementLocation, FetchOptions.none);
+		const p = search.front.front;
+		logInfo("Package '%s' was not found locally but is available online:", packageParts);
+		logInfo("---");
+		logInfo("Description: %s", p.description);
+		logInfo("Version: %s", p.version_);
+		logInfo("---");
+
+		if (input("Do you want to fetch '%s@%s' now?".format(packageParts, p.version_)))
+			dub.fetch(baseName, VersionRange.fromString(p.version_),
+				dub.defaultPlacementLocation, FetchOptions.none);
 		return 0;
 	}
 }
