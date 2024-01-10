@@ -114,6 +114,21 @@ enum string compilerCheck = q{
 	else return null;
 };
 
+/// private
+enum string compilerCheckPragmas = q{
+	version(DigitalMars) pragma(msg, ` "dmd"`);
+	else version(GNU) pragma(msg, ` "gdc"`);
+	else version(LDC) pragma(msg, ` "ldc"`);
+	else version(SDC) pragma(msg, ` "sdc"`);
+};
+
+/// private, converts the above appender strings to pragmas
+string pragmaGen(string str) {
+	import std.string : replace;
+	return str.replace("return ret;", "").replace("string[] ret;", "").replace(`["`, `"`).replace(`", "`,`" "`).replace(`"]`, `"`).replace(`;`, "`);").replace("ret ~= ", "pragma(msg, ` ");
+}
+
+
 /** Determines the full build platform used for the current build.
 
 	Note that the `BuildPlatform.compilerBinary` field will be left empty.
