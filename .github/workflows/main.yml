@@ -32,21 +32,23 @@ jobs:
         # Latest stable version, update at will
         os: [ macOS-11, ubuntu-20.04, windows-2019 ]
         dc:
+          # Always test latest as that is what we use to compile on release
           - dmd-latest
-          - dmd-2.100.2
           - ldc-latest
+          # Provide some testing for upstream
           - dmd-master
           - ldc-master
-          # This is the bootstrap compiler used to compile the releases
-          - ldc-1.23.0
-          # Some intermediate compilers for good measure
-          - dmd-2.095.1
+          # Test some intermediate versions
+          - ldc-1.26.0
           - dmd-2.098.1
+          - dmd-2.101.1
+          - dmd-2.104.2
         include:
-          - { do_test: true }
-          - { dc: dmd-2.095.1, do_test: false }
-          - { dc: dmd-2.098.1, do_test: false }
-          - { dc: ldc-1.23.0 , do_test: false }
+          - { do_test: false }
+          - { dc: dmd-latest, do_test: true }
+          - { dc: ldc-latest, do_test: true }
+          - { dc: dmd-master, do_test: true }
+          - { dc: ldc-master, do_test: true }
 
     runs-on: ${{ matrix.os }}
     steps:
