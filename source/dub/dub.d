@@ -64,7 +64,7 @@ deprecated("This function wasn't intended for public use - open an issue with Du
 PackageSupplier[] defaultPackageSuppliers()
 {
 	logDiagnostic("Using dub registry url '%s'", defaultRegistryURLs[0]);
-	return [new FallbackPackageSupplier(defaultRegistryURLs.map!getRegistryPackageSupplier.array)];
+	return [new FallbackPackageSupplier(defaultRegistryURLs.map!_getRegistryPackageSupplier.array)];
 }
 
 /** Returns a registry package supplier according to protocol.
@@ -73,6 +73,13 @@ PackageSupplier[] defaultPackageSuppliers()
 */
 deprecated("This function wasn't intended for public use - open an issue with Dub if you need it")
 PackageSupplier getRegistryPackageSupplier(string url)
+{
+    return _getRegistryPackageSupplier(url);
+}
+
+// Private to avoid a bug in `defaultPackageSuppliers` with `map` triggering a deprecation
+// even though the context is deprecated.
+private PackageSupplier _getRegistryPackageSupplier(string url)
 {
 	switch (url.startsWith("dub+", "mvn+", "file://"))
 	{
