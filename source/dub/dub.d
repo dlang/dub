@@ -1104,10 +1104,17 @@ class Dub {
 
 		See_Also: `removeLocalPackage`
 	*/
+	deprecated("Use `addLocalPackage(string, string, PlacementLocation)` instead")
 	void addLocalPackage(string path, string ver, bool system)
 	{
+		this.addLocalPackage(path, ver, system ? PlacementLocation.system : PlacementLocation.user);
+	}
+
+	/// Ditto
+	void addLocalPackage(string path, string ver, PlacementLocation loc)
+	{
 		if (m_dryRun) return;
-		m_packageManager.addLocalPackage(makeAbsolute(path), ver, system ? PlacementLocation.system : PlacementLocation.user);
+		this.m_packageManager.addLocalPackage(makeAbsolute(path), ver, loc);
 	}
 
 	/** Removes a directory from the list of locally known packages.
@@ -1121,10 +1128,17 @@ class Dub {
 
 		See_Also: `addLocalPackage`
 	*/
+	deprecated("Use `removeLocalPackage(string, string, PlacementLocation)` instead")
 	void removeLocalPackage(string path, bool system)
 	{
+		this.removeLocalPackage(path, system ? PlacementLocation.system : PlacementLocation.user);
+	}
+
+	/// Ditto
+	void removeLocalPackage(string path, PlacementLocation loc)
+	{
 		if (m_dryRun) return;
-		m_packageManager.removeLocalPackage(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
+		this.m_packageManager.removeLocalPackage(makeAbsolute(path), loc);
 	}
 
 	/** Registers a local directory to search for packages to use for satisfying
@@ -1137,10 +1151,17 @@ class Dub {
 
 		See_Also: `removeSearchPath`
 	*/
+	deprecated("Use `addSearchPath(string, PlacementLocation)` instead")
 	void addSearchPath(string path, bool system)
 	{
+		this.addSearchPath(path, system ? PlacementLocation.system : PlacementLocation.user);
+	}
+
+	/// Ditto
+	void addSearchPath(string path, PlacementLocation loc)
+	{
 		if (m_dryRun) return;
-		m_packageManager.addSearchPath(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
+		this.m_packageManager.addSearchPath(makeAbsolute(path), loc);
 	}
 
 	/** Deregisters a local directory search path.
@@ -1152,10 +1173,17 @@ class Dub {
 
 		See_Also: `addSearchPath`
 	*/
+	deprecated("Use `removeSearchPath(string, PlacementLocation)` instead")
 	void removeSearchPath(string path, bool system)
 	{
+		this.removeSearchPath(path, system ? PlacementLocation.system : PlacementLocation.user);
+	}
+
+	/// Ditto
+	void removeSearchPath(string path, PlacementLocation loc)
+	{
 		if (m_dryRun) return;
-		m_packageManager.removeSearchPath(makeAbsolute(path), system ? PlacementLocation.system : PlacementLocation.user);
+		this.m_packageManager.removeSearchPath(makeAbsolute(path), loc);
 	}
 
 	/** Queries all package suppliers with the given query string.
