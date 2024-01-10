@@ -2339,8 +2339,8 @@ abstract class RegistrationCommand : Command {
 	override void prepare(scope CommandArgs args)
 	{
 		args.getopt("system", &m_system, [
-			"Register system-wide instead of user-wide"
-		]);
+			"DEPRECATED: Use --cache=system instead"
+		], true);
 	}
 
 	abstract override int execute(Dub dub, string[] free_args, string[] app_args);
@@ -2367,7 +2367,12 @@ class AddPathCommand : RegistrationCommand {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length == 1, "Missing search path.");
-		dub.addSearchPath(free_args[0], m_system);
+		enforceUsage(!this.m_system || dub.defaultPlacementLocation == PlacementLocation.user,
+			"Cannot use both --system and --cache, prefer --cache");
+		if (this.m_system)
+			dub.addSearchPath(free_args[0], PlacementLocation.system);
+		else
+			dub.addSearchPath(free_args[0], dub.defaultPlacementLocation);
 		return 0;
 	}
 }
@@ -2384,7 +2389,12 @@ class RemovePathCommand : RegistrationCommand {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length == 1, "Expected one argument.");
-		dub.removeSearchPath(free_args[0], m_system);
+		enforceUsage(!this.m_system || dub.defaultPlacementLocation == PlacementLocation.user,
+			"Cannot use both --system and --cache, prefer --cache");
+		if (this.m_system)
+			dub.removeSearchPath(free_args[0], PlacementLocation.system);
+		else
+			dub.removeSearchPath(free_args[0], dub.defaultPlacementLocation);
 		return 0;
 	}
 }
@@ -2406,9 +2416,16 @@ class AddLocalCommand : RegistrationCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		enforceUsage(free_args.length == 1 || free_args.length == 2, "Expecting one or two arguments.");
+		enforceUsage(free_args.length == 1 || free_args.length == 2,
+			"Expecting one or two arguments.");
+		enforceUsage(!this.m_system || dub.defaultPlacementLocation == PlacementLocation.user,
+			"Cannot use both --system and --cache, prefer --cache");
+
 		string ver = free_args.length == 2 ? free_args[1] : null;
-		dub.addLocalPackage(free_args[0], ver, m_system);
+		if (this.m_system)
+			dub.addLocalPackage(free_args[0], ver, PlacementLocation.system);
+		else
+			dub.addLocalPackage(free_args[0], ver, dub.defaultPlacementLocation);
 		return 0;
 	}
 }
@@ -2425,8 +2442,15 @@ class RemoveLocalCommand : RegistrationCommand {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length >= 1, "Missing package path argument.");
-		enforceUsage(free_args.length <= 1, "Expected the package path to be the only argument.");
-		dub.removeLocalPackage(free_args[0], m_system);
+		enforceUsage(free_args.length <= 1,
+			"Expected the package path to be the only argument.");
+		enforceUsage(!this.m_system || dub.defaultPlacementLocation == PlacementLocation.user,
+			"Cannot use both --system and --cache, prefer --cache");
+
+		if (this.m_system)
+			dub.removeLocalPackage(free_args[0], PlacementLocation.system);
+		else
+			dub.removeLocalPackage(free_args[0], dub.defaultPlacementLocation);
 		return 0;
 	}
 }
