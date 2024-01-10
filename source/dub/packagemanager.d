@@ -167,6 +167,25 @@ class PackageManager {
 		this.refresh();
 	}
 
+	/** Override (read-only) package cache paths to search for packages.
+
+		Cache paths have the same structure as the default cache paths, such as
+		".dub/packages/".
+
+		Note that previously set custom paths will be removed when setting this
+		property.
+	*/
+	@property void overrideCachePaths(NativePath[] override_cache_paths)
+	{
+		import std.algorithm.iteration : map;
+		import std.array : array;
+
+		m_repositories.length = PlacementLocation.max+1;
+		m_repositories = override_cache_paths.map!(p => Location(p)).array;
+
+		this.refresh();
+	}
+
 	/**
 	 * Looks up a package, first in the list of loaded packages,
 	 * then directly on the file system.

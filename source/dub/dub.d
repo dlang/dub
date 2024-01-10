@@ -160,6 +160,10 @@ class Dub {
 		if (ccps.length)
 			m_packageManager.customCachePaths = ccps;
 
+		auto ocps = m_config.overrideCachePaths;
+		if (ocps.length)
+			m_packageManager.overrideCachePaths = ocps;
+
 		// TODO: Move this environment read out of the ctor
 		if (auto p = environment.get("DUBPATH")) {
 			version(Windows) enum pathsep = ";";

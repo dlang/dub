@@ -38,6 +38,7 @@ public enum SkipPackageSuppliers {
 package(dub) struct Settings {
     @Optional string[] registryUrls;
     @Optional NativePath[] customCachePaths;
+    @Optional NativePath[] overrideCachePaths;
 
     SetInfo!(SkipPackageSuppliers) skipRegistry;
     SetInfo!(string) defaultCompiler;
@@ -159,6 +160,93 @@ unittest {
      auto m2 = c1.merge(c2);
      assert(m2.registryUrls == [ "http://bar.foo", "http://foo.bar/optional/escape" ]);
      assert(m2.customCachePaths == [
+         NativePath("bar/foo"), NativePath("bar/bar"),
+         NativePath("foo/bar"), NativePath("foo/foo"),
+     ]);
+     assert(m2.skipRegistry == c2.skipRegistry);
+     assert(m2.defaultCompiler == c2.defaultCompiler);
+     assert(m2.defaultArchitecture == c2.defaultArchitecture);
+     assert(m2.defaultLowMemory == c2.defaultLowMemory);
+     assert(m2.defaultEnvironments == c2.defaultEnvironments);
+
+     auto m3 = Settings.init.merge(c1);
+     assert(m3 == c1);
+}
+
+unittest {
+    import dub.internal.configy.Read;
+
+    const str1 = `{
+  "registryUrls": [ "http://foo.bar\/optional\/escape" ],
+  "overrideCachePaths": [ "foo/bar", "foo/foo" ],
+
+  "skipRegistry": "all",
+  "defaultCompiler": "dmd",
+  "defaultArchitecture": "fooarch",
+  "defaultLowMemory": false,
+
+  "defaultEnvironments": {
+    "VAR2": "settings.VAR2",
+    "VAR3": "settings.VAR3",
+    "VAR4": "settings.VAR4"
+  }
+}`;
+
+    const str2 = `{
+  "registryUrls": [ "http://bar.foo" ],
+  "overrideCachePaths": [ "bar/foo", "bar/bar" ],
+
+  "skipRegistry": "none",
+  "defaultCompiler": "ldc",
+  "defaultArchitecture": "bararch",
+  "defaultLowMemory": true,
+
+  "defaultEnvironments": {
+    "VAR": "Hi",
+  }
+}`;
+
+     auto c1 = parseConfigString!Settings(str1, "/dev/null");
+     assert(c1.registryUrls == [ "http://foo.bar/optional/escape" ]);
+     assert(c1.overrideCachePaths == [ NativePath("foo/bar"), NativePath("foo/foo") ]);
+     assert(c1.skipRegistry == SkipPackageSuppliers.all);
+     assert(c1.defaultCompiler == "dmd");
+     assert(c1.defaultArchitecture == "fooarch");
+     assert(c1.defaultLowMemory == false);
+     assert(c1.defaultEnvironments.length == 3);
+     assert(c1.defaultEnvironments["VAR2"] == "settings.VAR2");
+     assert(c1.defaultEnvironments["VAR3"] == "settings.VAR3");
+     assert(c1.defaultEnvironments["VAR4"] == "settings.VAR4");
+
+     auto c2 = parseConfigString!Settings(str2, "/dev/null");
+     assert(c2.registryUrls == [ "http://bar.foo" ]);
+     assert(c2.overrideCachePaths == [ NativePath("bar/foo"), NativePath("bar/bar") ]);
+     assert(c2.skipRegistry == SkipPackageSuppliers.none);
+     assert(c2.defaultCompiler == "ldc");
+     assert(c2.defaultArchitecture == "bararch");
+     assert(c2.defaultLowMemory == true);
+     assert(c2.defaultEnvironments.length == 1);
+     assert(c2.defaultEnvironments["VAR"] == "Hi");
+
+     auto m1 = c2.merge(c1);
+     // c1 takes priority, so its registryUrls is first
+     assert(m1.registryUrls == [ "http://foo.bar/optional/escape", "http://bar.foo" ]);
+     // Same with CCP
+     assert(m1.overrideCachePaths == [
+         NativePath("foo/bar"), NativePath("foo/foo"),
+         NativePath("bar/foo"), NativePath("bar/bar"),
+     ]);
+
+     // c1 fields only
+     assert(m1.skipRegistry == c1.skipRegistry);
+     assert(m1.defaultCompiler == c1.defaultCompiler);
+     assert(m1.defaultArchitecture == c1.defaultArchitecture);
+     assert(m1.defaultLowMemory == c1.defaultLowMemory);
+     assert(m1.defaultEnvironments == c1.defaultEnvironments);
+
+     auto m2 = c1.merge(c2);
+     assert(m2.registryUrls == [ "http://bar.foo", "http://foo.bar/optional/escape" ]);
+     assert(m2.overrideCachePaths == [
          NativePath("bar/foo"), NativePath("bar/bar"),
          NativePath("foo/bar"), NativePath("foo/foo"),
      ]);

@@ -286,6 +286,12 @@ package class TestPackageManager : PackageManager
         assert(0, "Function not implemented");
     }
 
+    /// Disabled as semantic are not implementable unless a virtual FS is created
+	public override @property void overrideCachePaths(NativePath[] override_cache_paths)
+    {
+        assert(0, "Function not implemented");
+    }
+
     /// Ditto
     public override Package store(NativePath src, PlacementLocation dest, string name, Version vers)
     {
