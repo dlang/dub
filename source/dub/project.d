@@ -104,6 +104,9 @@ class Project {
 	 */
 	static package SelectedVersions loadSelections(in Package pack)
 	{
+		import dub.version_;
+		import dub.internal.dyaml.stdsumtype;
+
 		auto selverfile = (pack.path ~ SelectedVersions.defaultFile).toNativeString();
 
 		// No file exists
@@ -113,13 +116,23 @@ class Project {
 		// TODO: Remove `StrictMode.Warn` after v1.40 release
 		// The default is to error, but as the previous parser wasn't
 		// complaining, we should first warn the user.
-		auto selected = parseConfigFileSimple!Selected(selverfile, StrictMode.Warn);
+		auto selected = parseConfigFileSimple!SelectionsFile(selverfile, StrictMode.Warn);
 
 		// Parsing error, it will be displayed to the user
 		if (selected.isNull())
 			return new SelectedVersions();
 
-		return new SelectedVersions(selected.get());
+		return selected.get().content.match!(
+			(Selections!0 s) {
+				logWarnTag("Unsupported version",
+					"File %s has fileVersion %s, which is not yet supported by DUB %s.",
+					selverfile, s.fileVersion, dubVersion);
+				logWarn("Ignoring selections file. Use a newer DUB version " ~
+					"and set the appropriate toolchainRequirements in your recipe file");
+				return new SelectedVersions();
+			},
+			(Selections!1 s) => new SelectedVersions(s),
+		);
 	}
 
 	/** List of all resolved dependencies.
@@ -1757,7 +1770,7 @@ unittest
 public class SelectedVersions {
 	protected {
 		enum FileVersion = 1;
-		Selected m_selections;
+		Selections!1 m_selections;
 		bool m_dirty = false; // has changes since last save
 		bool m_bare = true;
 	}
@@ -1766,13 +1779,14 @@ public class SelectedVersions {
 	enum defaultFile = "dub.selections.json";
 
 	/// Constructs a new empty version selection.
-	public this(uint version_ = FileVersion) @safe pure nothrow @nogc
+	public this(uint version_ = FileVersion) @safe pure
 	{
-		this.m_selections = Selected(version_);
+		enforce(version_ == 1, "Unsupported file version");
+		this.m_selections = Selections!1(version_);
 	}
 
 	/// Constructs a new non-empty version selection.
-	public this(Selected data) @safe pure nothrow @nogc
+	public this(Selections!1 data) @safe pure nothrow @nogc
 	{
 		this.m_selections = data;
 		this.m_bare = false;
