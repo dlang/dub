@@ -242,13 +242,13 @@ public class TestSelectedVersions : SelectedVersions {
 	import dub.recipe.selection;
 
 	/// Forward to parent's constructor
-	public this(uint version_ = FileVersion) @safe pure nothrow @nogc
+	public this(uint version_ = FileVersion) @safe pure
 	{
 		super(version_);
 	}
 
 	/// Ditto
-	public this(Selected data) @safe pure nothrow @nogc
+	public this(Selections!1 data) @safe pure nothrow @nogc
 	{
 		super(data);
 	}

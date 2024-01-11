@@ -1,5 +1,10 @@
 /**
- * Contains type definition for `dub.selections.json`
+ * Contains type definition for the selections file
+ *
+ * The selections file, commonly known by its file name
+ * `dub.selections.json`, is used by Dub to store resolved
+ * dependencies. Its purpose is identical to other package
+ * managers' lock file.
  */
 module dub.recipe.selection;
 
@@ -7,16 +12,99 @@ import dub.dependency;
 import dub.internal.vibecompat.inet.path : NativePath;
 
 import dub.internal.configy.Attributes;
+import dub.internal.dyaml.stdsumtype;
 
 import std.exception;
 
-public struct Selected
-{
-    /// The current version of the file format
-    public uint fileVersion;
+deprecated("Use either `Selections!1` or `SelectionsFile` instead")
+public alias Selected = Selections!1;
 
-    /// The selected package and their matching versions
-    public SelectedDependency[string] versions;
+/**
+ * Top level type for `dub.selections.json`
+ *
+ * To support multiple version, we expose a `SumType` which
+ * contains the "real" version being parsed.
+ */
+public struct SelectionsFile
+{
+    /// Private alias to avoid repetition
+    private alias DataType = SumType!(Selections!0, Selections!1);
+
+    /**
+     * Get the `fileVersion` of this selection file
+     *
+     * The `fileVersion` is always present, no matter the version.
+     * This is a convenience function that matches any version and allows
+     * one to retrieve it.
+     *
+     * Note that the `fileVersion` can be an unsupported version.
+     */
+    public uint fileVersion () const @safe pure nothrow @nogc
+    {
+        return this.content.match!((s) => s.fileVersion);
+    }
+
+    /**
+     * The content of this selections file
+     *
+     * The underlying content can be accessed using
+     * `dub.internal.yaml.stdsumtype : match`, for example:
+     * ---
+     * SelectionsFile file = readSelectionsFile();
+     * file.content.match!(
+     *     (Selections!0 s) => logWarn("Unsupported version: %s", s.fileVersion),
+     *     (Selections!1 s) => logWarn("Old version (1), please upgrade!"),
+     *     (Selections!2 s) => logInfo("You are up to date"),
+     * );
+     * ---
+     */
+    public DataType content;
+
+    /**
+     * Deserialize the selections file according to its version
+     *
+     * This will first deserialize the `fileVersion` only, and then
+     * the expected version if it is supported. Unsupported versions
+     * will be returned inside a `Selections!0` struct,
+     * which only contains a `fileVersion`.
+     */
+    public static SelectionsFile fromYAML (scope ConfigParser!SelectionsFile parser)
+    {
+        import dub.internal.configy.Read;
+
+        static struct OnlyVersion { uint fileVersion; }
+
+        auto vers = parseConfig!OnlyVersion(
+            CLIArgs.init, parser.node, StrictMode.Ignore);
+
+        switch (vers.fileVersion) {
+        case 1:
+            return SelectionsFile(DataType(parser.parseAs!(Selections!1)));
+        default:
+            return SelectionsFile(DataType(Selections!0(vers.fileVersion)));
+        }
+    }
+}
+
+/**
+ * A specific version of the selections file
+ *
+ * Currently, only two instantiations of this struct are possible:
+ * - `Selections!0` is an invalid/unsupported version;
+ * - `Selections!1` is the most widespread version;
+ */
+public struct Selections (ushort Version)
+{
+    ///
+    public uint fileVersion = Version;
+
+    static if (Version == 0) { /* Invalid version */ }
+    else static if (Version == 1) {
+        /// The selected package and their matching versions
+        public SelectedDependency[string] versions;
+    }
+    else
+        static assert(false, "This version is not supported");
 }
 
 
@@ -97,12 +185,26 @@ unittest
     }
 }`;
 
-    auto s = parseConfigString!Selected(content, "/dev/null");
-    assert(s.fileVersion == 1);
+    auto file = parseConfigString!SelectionsFile(content, "/dev/null");
+    assert(file.fileVersion == 1);
+    auto s = file.content.match!(
+        (Selections!1 s) => s,
+        (s) { assert(0); return Selections!(1).init; },
+    );
     assert(s.versions.length == 5);
     assert(s.versions["simple"]     == Dependency(Version("1.5.6")));
     assert(s.versions["branch"]     == Dependency(Version("~master")));
     assert(s.versions["branch2"]    == Dependency(Version("~main")));
     assert(s.versions["path"]       == Dependency(NativePath("../some/where")));
     assert(s.versions["repository"] == Dependency(Repository("git+https://github.com/dlang/dub", "123456123456123456")));
+}
+
+// Test reading an unsupported version
+unittest
+{
+    import dub.internal.configy.Read : parseConfigString;
+
+    immutable string content = `{"fileVersion": 9999, "thisis": "notrecognized"}`;
+    auto s = parseConfigString!SelectionsFile(content, "/dev/null");
+    assert(s.fileVersion == 9999);
 }
