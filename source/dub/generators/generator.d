@@ -479,7 +479,7 @@ class ProjectGenerator
 			{
 				foreach (name, ref ti; targets)
 				{
-					if (&ti != roottarget)
+					if (&ti != roottarget && ti.buildSettings.targetType != TargetType.dynamicLibrary)
 					{
 						import std.range : chain;
 						ti.buildSettings.dflags = ti.buildSettings.dflags
