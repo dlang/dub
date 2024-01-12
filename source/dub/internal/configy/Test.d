@@ -692,3 +692,127 @@ unittest
     catch (Exception exc)
         assert(exc.toString() == `/dev/null(2:6): data.array[0]: Parsing failed!`);
 }
+
+/// Test for error message: Has to be versioned out, uncomment to check manually
+unittest
+{
+    static struct Nested
+    {
+        int field1;
+
+        private this (string arg) {}
+    }
+
+    static struct Config
+    {
+        Nested nested;
+    }
+
+    static struct Config2
+    {
+        Nested nested;
+        alias nested this;
+    }
+
+    version(none) auto c1 = parseConfigString!Config(null, null);
+    version(none) auto c2 = parseConfigString!Config2(null, null);
+}
+
+/// Test support for `fromYAML` hook
+unittest
+{
+    static struct PackageDef
+    {
+        string name;
+        @Optional string target;
+        int build = 42;
+    }
+
+    static struct Package
+    {
+        string path;
+        PackageDef def;
+
+        public static Package fromYAML (scope ConfigParser!Package parser)
+        {
+            if (parser.node.nodeID == NodeID.mapping)
+                return Package(null, parser.parseAs!PackageDef);
+            else
+                return Package(parser.parseAs!string);
+        }
+    }
+
+    static struct Config
+    {
+        string name;
+        Package[] deps;
+    }
+
+    auto c = parseConfigString!Config(
+`
+name: myPkg
+deps:
+  - /foo/bar
+  - name: foo
+    target: bar
+    build: 24
+  - name: fur
+  - /one/last/path
+`, "/dev/null");
+    assert(c.name == "myPkg");
+    assert(c.deps.length == 4);
+    assert(c.deps[0] == Package("/foo/bar"));
+    assert(c.deps[1] == Package(null, PackageDef("foo", "bar", 24)));
+    assert(c.deps[2] == Package(null, PackageDef("fur", null, 42)));
+    assert(c.deps[3] == Package("/one/last/path"));
+}
+
+/// Test top level hook (fromYAML / fromString)
+unittest
+{
+    static struct Version1 {
+        uint fileVersion;
+        uint value;
+    }
+
+    static struct Version2 {
+        uint fileVersion;
+        string str;
+    }
+
+    static struct Config
+    {
+        uint fileVersion;
+        union {
+            Version1 v1;
+            Version2 v2;
+        }
+        static Config fromYAML (scope ConfigParser!Config parser)
+        {
+            static struct OnlyVersion { uint fileVersion; }
+            auto vers = parseConfig!OnlyVersion(
+                CLIArgs.init, parser.node, StrictMode.Ignore);
+            switch (vers.fileVersion) {
+            case 1:
+                return Config(1, parser.parseAs!Version1);
+            case 2:
+                Config conf = Config(2);
+                conf.v2 = parser.parseAs!Version2;
+                return conf;
+            default:
+                assert(0);
+            }
+        }
+    }
+
+    auto v1 = parseConfigString!Config("fileVersion: 1\nvalue: 42", "/dev/null");
+    auto v2 = parseConfigString!Config("fileVersion: 2\nstr: hello world", "/dev/null");
+
+    assert(v1.fileVersion == 1);
+    assert(v1.v1.fileVersion == 1);
+    assert(v1.v1.value == 42);
+
+    assert(v2.fileVersion == 2);
+    assert(v2.v2.fileVersion == 2);
+    assert(v2.v2.str == "hello world");
+}

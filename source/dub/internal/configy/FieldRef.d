@@ -118,7 +118,14 @@ unittest
     static assert(FieldRefTuple!(FieldRefTuple!(Config3)[0].Type)[1].Name == "notStr2");
 }
 
-/// A pseudo `FieldRef` used for structs which are not fields (top-level)
+/**
+ * A pseudo `FieldRef` used for structs which are not fields (top-level)
+ *
+ * Params:
+ *   ST = Type for which this pseudo-FieldRef is
+ *   DefaultName = A name to give to this FieldRef, default to `null`,
+ *                 but required to prevent forward references in `parseAs`.
+ */
 package template StructFieldRef (ST, string DefaultName = null)
 {
     ///
