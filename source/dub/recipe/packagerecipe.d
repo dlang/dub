@@ -32,9 +32,16 @@ import std.process : environment;
 	example, "packa:packb:packc" references a package named "packc" that is a
 	sub package of "packb", which in turn is a sub package of "packa".
 */
+deprecated("This function is not supported as subpackages cannot be nested")
 string[] getSubPackagePath(string package_name) @safe pure
 {
 	return package_name.split(":");
+}
+
+deprecated @safe unittest
+{
+	assert(getSubPackagePath("packa:packb:packc") == ["packa", "packb", "packc"]);
+	assert(getSubPackagePath("pack") == ["pack"]);
 }
 
 /**
@@ -62,8 +69,6 @@ string getSubPackageName(string package_name) @safe pure
 
 @safe unittest
 {
-	assert(getSubPackagePath("packa:packb:packc") == ["packa", "packb", "packc"]);
-	assert(getSubPackagePath("pack") == ["pack"]);
 	assert(getBasePackageName("packa:packb:packc") == "packa");
 	assert(getBasePackageName("pack") == "pack");
 	assert(getSubPackageName("packa:packb:packc") == "packb:packc");
