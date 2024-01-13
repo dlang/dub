@@ -422,10 +422,6 @@ class Package {
 	*/
 	void addBuildTypeSettings(ref BuildSettings settings, in BuildPlatform platform, string build_type)
 	const {
-		import std.process : environment;
-		string dflags = environment.get("DFLAGS", "");
-		settings.addDFlags(dflags.split());
-
 		if (auto pbt = build_type in m_info.buildTypes) {
 			logDiagnostic("Using custom build type '%s'.", build_type);
 			pbt.getPlatformSettings(settings, platform, this.path);
@@ -450,6 +446,11 @@ class Package {
 				case "syntax": settings.addOptions(syntaxOnly); break;
 			}
 		}
+
+		// Add environment DFLAGS last so that user specified values are not overriden by us.
+		import std.process : environment;
+		string dflags = environment.get("DFLAGS", "");
+		settings.addDFlags(dflags.split());
 	}
 
 	/** Returns the selected configuration for a certain dependency.
