@@ -7,7 +7,10 @@ license "MIT"
 
 targetPath "bin"
 
-dflags "-preview=in"
+dflags "-preview=in" platform="dmd"
+dflags "-preview=in" platform="ldc"
+//Disabled due to ICEs in gdc.
+//dflags "-fpreview=in" platform="gdc"
 // Deprecated module(s)
 excludedSourceFiles "source/dub/packagesupplier.d"
 
