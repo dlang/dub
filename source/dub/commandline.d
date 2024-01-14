@@ -1557,7 +1557,7 @@ class BuildCommand : GenerateCommand {
 		if (packageParts.name.startsWith(":"))
 			return 0;
 
-		const baseName = getBasePackageName(packageParts.name);
+		const baseName = PackageName(packageParts.name).main;
 		// Found locally
 		if (dub.packageManager.getBestPackage(baseName, packageParts.range))
 			return 0;
@@ -2788,7 +2788,7 @@ class DustmiteCommand : PackageBuildCommand {
 			static void fixPathDependency(string pack, ref Dependency dep) {
 				dep.visit!(
 					(NativePath path) {
-						auto mainpack = getBasePackageName(pack);
+						auto mainpack = PackageName(pack).main;
 						dep = Dependency(NativePath("../") ~ mainpack);
 					},
 					(any) { /* Nothing to do */ },

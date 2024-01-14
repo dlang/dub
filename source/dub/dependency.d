@@ -18,12 +18,79 @@ import std.array;
 import std.exception;
 import std.string;
 
+/// Represents a fully-qualified package name
+public struct PackageName
+{
+	/// The underlying full name of the package
+	private string fullName;
+	/// Where the separator lies, if any
+	private size_t separator;
+
+	/// For compatibility in `PackageDependency`
+	alias toString this;
+
+	/// Creates a new instance of this struct
+	public this(string fn) @safe pure
+	{
+		this.fullName = fn;
+		if (auto idx = fn.indexOf(':'))
+			this.separator = idx > 0 ? idx : fn.length;
+		else // We were given `:foo`
+			assert(0, "Argument to PackageName constructor needs to be " ~
+				"a fully qualified string");
+	}
+
+	/// Private constructor to have nothrow / @nogc
+	private this(string fn, size_t sep) @safe pure nothrow @nogc
+	{
+		this.fullName = fn;
+		this.separator = sep;
+	}
+
+	/// The base package name in which the subpackages may live
+	public PackageName main () const return @safe pure nothrow @nogc
+	{
+		return PackageName(this.fullName[0 .. this.separator], this.separator);
+	}
+
+	/// The subpackage name, or an empty string if there isn't
+	public string sub () const return @safe pure nothrow @nogc
+	{
+		// Return `null` instead of an empty string so that
+		// it can be used in a boolean context, e.g.
+		// `if (name.sub)` would be true with empty string
+		return this.separator < this.fullName.length
+			? this.fullName[this.separator + 1 .. $]
+			: null;
+	}
+
+	/// Human readable representation
+	public string toString () const return scope @safe pure nothrow @nogc
+	{
+		return this.fullName;
+	}
+}
 
 /** Encapsulates the name of a package along with its dependency specification.
 */
 struct PackageDependency {
+	/// Backward compatibility
+	deprecated("Use the constructor that accepts a `PackageName` as first argument")
+	this(string n, Dependency s = Dependency.init) @safe pure
+	{
+		this.name = PackageName(n);
+		this.spec = s;
+	}
+
+	// Remove once deprecated overload is gone
+	this(PackageName n, Dependency s = Dependency.init) @safe pure nothrow @nogc
+	{
+		this.name = n;
+		this.spec = s;
+	}
+
 	/// Name of the referenced package.
-	string name;
+	PackageName name;
 
 	/// Dependency specification used to select a particular version of the package.
 	Dependency spec;

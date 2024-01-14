@@ -188,7 +188,7 @@ class PackageManager {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	protected Package lookup (string name, Version vers) {
+	protected Package lookup (PackageName name, Version vers) {
 		if (!this.m_initialized)
 			this.refresh();
 
@@ -240,7 +240,7 @@ class PackageManager {
 					}
 		}
 
-		return this.lookup(name, ver);
+		return this.lookup(PackageName(name), ver);
 	}
 
 	/// ditto
@@ -268,7 +268,7 @@ class PackageManager {
 		// Bare mode
 		if (loc >= this.m_repositories.length)
 			return null;
-		return this.m_repositories[loc].load(name, ver, this);
+		return this.m_repositories[loc].load(PackageName(name), ver, this);
 	}
 
 	/// ditto
@@ -374,7 +374,9 @@ class PackageManager {
 				.format(path.toNativeString(),
 					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
 
-		auto content = readPackageRecipe(recipe, parent ? parent.name : null, mode);
+		const PackageName pname = parent
+			? PackageName(parent.name) : PackageName.init;
+		auto content = readPackageRecipe(recipe, pname, mode);
 		auto ret = new Package(content, path, parent, version_);
 		ret.m_infoFile = recipe;
 		return ret;
@@ -1433,13 +1435,13 @@ package struct Location {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	Package load (string name, Version vers, PackageManager mgr)
+	Package load (PackageName name, Version vers, PackageManager mgr)
 	{
 		if (auto pkg = this.lookup(name, vers))
 			return pkg;
 
 		string versStr = vers.toString();
-		const lookupName = getBasePackageName(name);
+		const lookupName = name.main;
 		const path = this.getPackagePath(lookupName, versStr) ~ (lookupName ~ "/");
 		if (!path.existsDirectory())
 			return null;
