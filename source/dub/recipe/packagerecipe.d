@@ -50,6 +50,7 @@ deprecated @safe unittest
 
 	In case of a top level package, the qualified name is returned unmodified.
 */
+deprecated("Use `dub.dependency : PackageName(arg).main` instead")
 string getBasePackageName(string package_name) @safe pure
 {
 	return package_name.findSplit(":")[0];
@@ -62,12 +63,13 @@ string getBasePackageName(string package_name) @safe pure
 	This is the part of the package name excluding the base package
 	name. See also $(D getBasePackageName).
 */
+deprecated("Use `dub.dependency : PackageName(arg).sub` instead")
 string getSubPackageName(string package_name) @safe pure
 {
 	return package_name.findSplit(":")[2];
 }
 
-@safe unittest
+deprecated @safe unittest
 {
 	assert(getBasePackageName("packa:packb:packc") == "packa");
 	assert(getBasePackageName("pack") == "pack");

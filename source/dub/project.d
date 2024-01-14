@@ -462,7 +462,7 @@ class Project {
 			pack.simpleLint();
 
 			foreach (d; pack.getAllDependencies()) {
-				auto basename = getBasePackageName(d.name);
+				auto basename = d.name.main;
 				d.spec.visit!(
 					(NativePath path) { /* Valid */ },
 					(Repository repo) { /* Valid */ },
@@ -517,8 +517,8 @@ class Project {
 			Dependency vspec = dep.spec;
 			Package p;
 
-			auto basename = getBasePackageName(dep.name);
-			auto subname = getSubPackageName(dep.name);
+			auto basename = dep.name.main;
+			auto subname = dep.name.sub;
 
 			// non-optional and optional-default dependencies (if no selections file exists)
 			// need to be satisfied

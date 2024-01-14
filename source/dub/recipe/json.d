@@ -20,8 +20,14 @@ import std.range;
 import std.string : format, indexOf;
 import std.traits : EnumMembers;
 
+deprecated("Use the overload that takes a `PackageName` as 3rd argument")
+void parseJson(ref PackageRecipe recipe, Json json, string parent)
+{
+    const PackageName pname = parent ? PackageName(parent) : PackageName.init;
+	parseJson(recipe, json, pname);
+}
 
-void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
+void parseJson(ref PackageRecipe recipe, Json json, in PackageName parent = PackageName.init)
 {
 	foreach (string field, value; json) {
 		switch (field) {
@@ -51,7 +57,9 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 
 	enforce(recipe.name.length > 0, "The package \"name\" field is missing or empty.");
 
-	auto fullname = parent_name.length ? parent_name ~ ":" ~ recipe.name : recipe.name;
+	auto fullname = parent.length
+		? PackageName(parent ~ ":" ~ recipe.name)
+		: PackageName(recipe.name);
 
 	// parse build settings
 	recipe.buildSettings.parseJson(json, fullname);
@@ -110,10 +118,10 @@ Json toJson(const scope ref PackageRecipe recipe)
 	return ret;
 }
 
-private void parseSubPackages(ref PackageRecipe recipe, string parent_package_name, Json[] subPackagesJson)
+private void parseSubPackages(ref PackageRecipe recipe, in PackageName parent, Json[] subPackagesJson)
 {
-	enforce(!parent_package_name.canFind(":"), format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
-		parent_package_name, getBasePackageName(parent_package_name)));
+	enforce(!parent.sub, format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
+		parent, parent.main));
 
 	recipe.subPackages = new SubPackage[subPackagesJson.length];
 	foreach (i, subPackageJson; subPackagesJson) {
@@ -123,7 +131,7 @@ private void parseSubPackages(ref PackageRecipe recipe, string parent_package_na
 			recipe.subPackages[i] = SubPackage(subpath, PackageRecipe.init);
 		} else {
 			PackageRecipe subinfo;
-			subinfo.parseJson(subPackageJson, parent_package_name);
+			subinfo.parseJson(subPackageJson, parent);
 			recipe.subPackages[i] = SubPackage(null, subinfo);
 		}
 	}
@@ -376,9 +384,10 @@ unittest {
 	`.strip.outdent;
 	auto jsonValue = parseJsonString(json);
 	PackageRecipe rec1;
-	parseJson(rec1, jsonValue, null);
+	parseJson(rec1, jsonValue);
 	PackageRecipe rec;
-	parseJson(rec, rec1.toJson(), null); // verify that all fields are serialized properly
+	// verify that all fields are serialized properly
+	parseJson(rec, rec1.toJson());
 
 	assert(rec.name == "projectname");
 	assert(rec.buildSettings.environments == ["": ["Var1": "env"]]);

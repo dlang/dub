@@ -584,7 +584,8 @@ class Dub {
 		recipe_content = recipe_content[idx+1 .. $];
 		auto recipe_default_package_name = path.toString.baseName.stripExtension.strip;
 
-		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, null, recipe_default_package_name);
+		const PackageName empty;
+		auto recipe = parsePackageRecipe(recipe_content, recipe_filename, empty, recipe_default_package_name);
 		enforce(recipe.buildSettings.sourceFiles.length == 0, "Single-file packages are not allowed to specify source files.");
 		enforce(recipe.buildSettings.sourcePaths.length == 0, "Single-file packages are not allowed to specify source paths.");
 		enforce(recipe.buildSettings.cSourcePaths.length == 0, "Single-file packages are not allowed to specify C source paths.");
@@ -637,7 +638,7 @@ class Dub {
 					try if (m_packageManager.getOrLoadPackage(path)) continue;
 					catch (Exception e) { logDebug("Failed to load path based selection: %s", e.toString().sanitize); }
 				} else if (!dep.repository.empty) {
-					if (m_packageManager.loadSCMPackage(getBasePackageName(p), dep.repository))
+					if (m_packageManager.loadSCMPackage(PackageName(p).main, dep.repository))
 						continue;
 				} else {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
@@ -664,12 +665,12 @@ class Dub {
 
 		if (options & UpgradeOptions.dryRun) {
 			bool any = false;
-			string rootbasename = getBasePackageName(m_project.rootPackage.name);
+			string rootbasename = PackageName(m_project.rootPackage.name).main;
 
 			foreach (p, ver; versions) {
 				if (!ver.path.empty || !ver.repository.empty) continue;
 
-				auto basename = getBasePackageName(p);
+				auto basename = PackageName(p).main;
 				if (basename == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
@@ -907,7 +908,7 @@ class Dub {
 	/// Ditto
 	Package fetch(string packageId, in VersionRange range, PlacementLocation location, FetchOptions options, string reason = "")
 	{
-		auto basePackageName = getBasePackageName(packageId);
+		auto basePackageName = PackageName(packageId).main;
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
@@ -1229,7 +1230,7 @@ class Dub {
 	Version[] listPackageVersions(string name)
 	{
 		Version[] versions;
-		auto basePackageName = getBasePackageName(name);
+		auto basePackageName = PackageName(name).main;
 		foreach (ps; this.m_packageSuppliers) {
 			try versions ~= ps.getVersions(basePackageName);
 			catch (Exception e) {
@@ -1719,7 +1720,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 		// filter out invalid/unreachable dependency specs
 		versions = versions.filter!((v) {
-				bool valid = getPackage(pack, Dependency(v)) !is null;
+				bool valid = getPackage(PackageName(pack), Dependency(v)) !is null;
 				if (!valid) logDiagnostic("Excluding invalid dependency specification %s %s from dependency resolution process.", pack, v);
 				return valid;
 			}).array;
@@ -1735,7 +1736,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	protected override Dependency[] getSpecificConfigs(string pack, TreeNodes nodes)
 	{
 		if (!nodes.configs.path.empty || !nodes.configs.repository.empty) {
-			if (getPackage(nodes.pack, nodes.configs)) return [nodes.configs];
+			if (getPackage(PackageName(nodes.pack), nodes.configs)) return [nodes.configs];
 			else return null;
 		}
 		else return null;
@@ -1755,7 +1756,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	{
 		import std.array : appender;
 		auto ret = appender!(TreeNodes[]);
-		auto pack = getPackage(node.pack, node.config);
+		auto pack = getPackage(PackageName(node.pack), node.config);
 		if (!pack) {
 			// this can happen when the package description contains syntax errors
 			logDebug("Invalid package in dependency tree: %s %s", node.pack, node.config);
@@ -1764,13 +1765,13 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		auto basepack = pack.basePackage;
 
 		foreach (d; pack.getAllDependenciesRange()) {
-			auto dbasename = getBasePackageName(d.name);
+			auto dbasename = PackageName(d.name).main;
 
 			// detect dependencies to the root package (or sub packages thereof)
 			if (dbasename == basepack.name) {
 				auto absdeppath = d.spec.mapToPath(pack.path).path;
 				absdeppath.endsWithSlash = true;
-				auto subpack = m_dub.m_packageManager.getSubPackage(basepack, getSubPackageName(d.name), true);
+				auto subpack = m_dub.m_packageManager.getSubPackage(basepack, PackageName(d.name).sub, true);
 				if (subpack) {
 					auto desireddeppath = basepack.path;
 					desireddeppath.endsWithSlash = true;
@@ -1821,7 +1822,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return configs.merge(config).valid;
 	}
 
-	private Package getPackage(string name, Dependency dep)
+	private Package getPackage(PackageName name, Dependency dep)
 	{
 		auto key = PackageDependency(name, dep);
 		if (auto pp = key in m_packages)
@@ -1831,16 +1832,16 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return p;
 	}
 
-	private Package getPackageRaw(string name, Dependency dep)
+	private Package getPackageRaw(PackageName name, Dependency dep)
 	{
 		import dub.recipe.json;
 
-		auto basename = getBasePackageName(name);
+		auto basename = name.main;
 
 		// for sub packages, first try to get them from the base package
 		if (basename != name) {
-			auto subname = getSubPackageName(name);
-			auto basepack = getPackage(basename, dep);
+			auto subname = name.sub;
+			auto basepack = getPackage(name.main, dep);
 			if (!basepack) return null;
 			if (auto sp = m_dub.m_packageManager.getSubPackage(basepack, subname, true)) {
 				return sp;
@@ -1895,7 +1896,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					if (desc.type == Json.Type.null_)
 						continue;
 					PackageRecipe recipe;
-					parseJson(recipe, desc, null);
+					parseJson(recipe, desc);
 					auto ret = new Package(recipe);
 					m_remotePackages[key] = ret;
 					return ret;
