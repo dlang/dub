@@ -1888,10 +1888,8 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 		auto prerelease = (m_options & UpgradeOptions.preRelease) != 0;
 
-		auto rootpack = name.split(":")[0];
-
 		foreach (ps; m_dub.m_packageSuppliers) {
-			if (rootpack == name) {
+			if (basename == name) {
 				try {
 					auto desc = ps.fetchPackageRecipe(name, VersionRange(vers, vers), prerelease);
 					if (desc.type == Json.Type.null_)
@@ -1910,16 +1908,16 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				try {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
-					m_dub.fetch(rootpack, vers, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
+					m_dub.fetch(basename, vers, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, vers);
 					if (!ret) {
-						logWarn("Package %s %s doesn't have a sub package %s", rootpack, dep, name);
+						logWarn("Package %s %s doesn't have a sub package %s", basename, dep, name);
 						return null;
 					}
 					m_remotePackages[key] = ret;
 					return ret;
 				} catch (Exception e) {
-					logDiagnostic("Package %s could not be downloaded from %s: %s", rootpack, ps.description, e.msg);
+					logDiagnostic("Package %s could not be downloaded from %s: %s", basename, ps.description, e.msg);
 					logDebug("Full error: %s", e.toString().sanitize);
 				}
 			}
