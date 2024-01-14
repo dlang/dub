@@ -25,6 +25,7 @@ import dub.internal.configy.Read;
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
+deprecated("Use the overload that accepts a `NativePath` as first argument")
 PackageRecipe readPackageRecipe(
 	string filename, string parent_name = null, StrictMode mode = StrictMode.Ignore)
 {
