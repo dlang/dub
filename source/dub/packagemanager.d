@@ -1022,7 +1022,7 @@ symlink_exit:
 	}
 
 	/// Adds the package and scans for sub-packages.
-	private void addPackages(ref Package[] dst_repos, Package pack)
+	protected void addPackages(ref Package[] dst_repos, Package pack)
 	{
 		// Add the main package.
 		dst_repos ~= pack;
