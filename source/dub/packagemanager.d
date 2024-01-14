@@ -9,7 +9,7 @@ module dub.packagemanager;
 
 import dub.dependency;
 import dub.internal.utils;
-import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.core.file : FileInfo;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
@@ -760,6 +760,8 @@ class PackageManager {
 	Package store(NativePath src, PlacementLocation dest, in PackageName name,
 		in Version vers)
 	{
+		import dub.internal.vibecompat.core.file;
+
 		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
 		ensureDirectory(dstpath.parentPath());
@@ -779,6 +781,7 @@ class PackageManager {
 	private Package store_(NativePath src, NativePath destination,
 		in PackageName name, in Version vers)
 	{
+		import dub.internal.vibecompat.core.file;
 		import std.range : walkLength;
 
 		logDebug("Placing package '%s' version '%s' to location '%s' from file '%s'",
@@ -1033,6 +1036,8 @@ symlink_exit:
 	/// .svn folders)
 	Hash hashPackage(Package pack)
 	{
+		import dub.internal.vibecompat.core.file;
+
 		string[] ignored_directories = [".git", ".dub", ".svn"];
 		// something from .dub_ignore or what?
 		string[] ignored_files = [];
@@ -1087,6 +1092,23 @@ symlink_exit:
 				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}
 		}
+	}
+
+	/// Used for dependency injection in `Location`
+	protected bool existsDirectory(NativePath path)
+	{
+		static import dub.internal.vibecompat.core.file;
+		return dub.internal.vibecompat.core.file.existsDirectory(path);
+	}
+
+	/// Ditto
+	protected alias IterateDirDg = int delegate(scope int delegate(ref FileInfo));
+
+	/// Ditto
+	protected IterateDirDg iterateDirectory(NativePath path)
+	{
+		static import dub.internal.vibecompat.core.file;
+		return dub.internal.vibecompat.core.file.iterateDirectory(path);
 	}
 }
 
@@ -1229,6 +1251,8 @@ package struct Location {
 
 	void loadOverrides()
 	{
+		import dub.internal.vibecompat.core.file;
+
 		this.overrides = null;
 		auto ovrfilepath = this.packagePath ~ LocalOverridesFilename;
 		if (existsFile(ovrfilepath)) {
@@ -1248,6 +1272,8 @@ package struct Location {
 
 	private void writeOverrides()
 	{
+		import dub.internal.vibecompat.core.file;
+
 		Json[] newlist;
 		foreach (ovr; this.overrides) {
 			auto jovr = Json.emptyObject;
@@ -1266,6 +1292,8 @@ package struct Location {
 
 	private void writeLocalPackageList()
 	{
+		import dub.internal.vibecompat.core.file;
+
 		Json[] newlist;
 		foreach (p; this.searchPath) {
 			auto entry = Json.emptyObject;
@@ -1291,6 +1319,8 @@ package struct Location {
 	// load locally defined packages
 	void scanLocalPackages(bool refresh, PackageManager manager)
 	{
+		import dub.internal.vibecompat.core.file;
+
 		NativePath list_path = this.packagePath;
 		Package[] packs;
 		NativePath[] paths;
@@ -1372,7 +1402,7 @@ package struct Location {
 	void scanPackageFolder(NativePath path, PackageManager mgr,
 		Package[] existing_packages)
 	{
-		if (!path.existsDirectory())
+		if (!mgr.existsDirectory(path))
 			return;
 
 		void loadInternal (NativePath pack_path, NativePath packageFile)
@@ -1396,7 +1426,7 @@ package struct Location {
 		}
 
 		logDebug("iterating dir %s", path.toNativeString());
-		try foreach (pdir; iterateDirectory(path)) {
+		try foreach (pdir; mgr.iterateDirectory(path)) {
 			logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 			if (!pdir.isDirectory) continue;
 
@@ -1417,10 +1447,10 @@ package struct Location {
 			// This is the most common code path
 			else if (mgr.isManagedPath(path)) {
 				// Iterate over versions of a package
-				foreach (versdir; iterateDirectory(pack_path)) {
+				foreach (versdir; mgr.iterateDirectory(pack_path)) {
 					if (!versdir.isDirectory) continue;
 					auto vers_path = pack_path ~ versdir.name ~ (pdir.name ~ "/");
-					if (!vers_path.existsDirectory()) continue;
+					if (!mgr.existsDirectory(vers_path)) continue;
 					packageFile = Package.findPackageFile(vers_path);
 					loadInternal(vers_path, packageFile);
 				}
@@ -1480,7 +1510,7 @@ package struct Location {
 
 		string versStr = vers.toString();
 		const path = this.getPackagePath(name, versStr);
-		if (!path.existsDirectory())
+		if (!mgr.existsDirectory(path))
 			return null;
 
 		logDiagnostic("Lazily loading package %s:%s from %s", name.main, vers, path);

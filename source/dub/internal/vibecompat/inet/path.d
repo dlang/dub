@@ -47,7 +47,7 @@ struct NativePath {
 	}
 
 	/// Constructs a path object from a list of PathEntry objects.
-	this(immutable(PathEntry)[] nodes, bool absolute)
+	this(immutable(PathEntry)[] nodes, bool absolute = false)
 	{
 		m_nodes = nodes;
 		m_absolute = absolute;

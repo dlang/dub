@@ -51,15 +51,20 @@ version (unittest):
 
 import std.array;
 public import std.algorithm;
+import std.exception;
 import std.format;
+import std.string;
 
 import dub.data.settings;
 public import dub.dependency;
 public import dub.dub;
 public import dub.package_;
+import dub.internal.vibecompat.core.file : FileInfo;
+import dub.internal.vibecompat.inet.path;
 import dub.packagemanager;
 import dub.packagesuppliers.packagesupplier;
 import dub.project;
+import dub.recipe.io : parsePackageRecipe;
 
 /// Example of a simple unittest for a project with a single dependency
 unittest
@@ -79,9 +84,9 @@ unittest
 
     scope dub = new TestDub();
     // Let the `PackageManager` know about the `b` package
-    dub.addTestPackage(b, Version("1.0.0"), PackageFormat.sdl);
+    dub.addTestPackage("b", Version("1.0.0"), b, PackageFormat.sdl);
     // And about our main package
-    auto mainPackage = dub.addTestPackage(a, Version("1.0.0"));
+    auto mainPackage = dub.addTestPackage("a", Version("1.0.0"), a);
     // `Dub.loadPackage` will set this package as the project
     // While not required, it follows the common Dub use case.
     dub.loadPackage(mainPackage);
@@ -216,7 +221,6 @@ public class TestDub : Dub
 	 */
 	public Package makeTestPackage(string str, Version vers, PackageFormat fmt = PackageFormat.json)
 	{
-		import dub.recipe.io;
 		final switch (fmt) {
 			case PackageFormat.json:
 				auto recipe = parsePackageRecipe(str, "dub.json");
@@ -229,11 +233,12 @@ public class TestDub : Dub
 		}
 	}
 
-    /// Ditto
-	public Package addTestPackage(string str, Version vers, PackageFormat fmt = PackageFormat.json)
-    {
-        return this.packageManager.add(this.makeTestPackage(str, vers, fmt));
-    }
+	/// Ditto
+	public Package addTestPackage(string name, Version vers, string content,
+		PackageFormat fmt = PackageFormat.json)
+	{
+		return this.packageManager.add(PackageName(name), vers, content, fmt);
+	}
 }
 
 /**
@@ -272,12 +277,15 @@ package class TestPackageManager : PackageManager
 {
     /// List of all SCM packages that can be fetched by this instance
     protected Package[Repository] scm;
+    /// The virtual filesystem that this PackageManager acts on
+    protected FSEntry fs;
 
     this()
     {
         NativePath local = NativePath(TestDub.ProjectPath);
         NativePath user = TestDub.Paths.userSettings;
         NativePath system = TestDub.Paths.systemSettings;
+        this.fs = new FSEntry();
         super(local, user, system, false);
     }
 
@@ -305,10 +313,20 @@ package class TestPackageManager : PackageManager
      *
      * Note: Deprecated `refresh(bool)` does IO, but it's deprecated
      */
-    public override void refresh()
-    {
-        // Do nothing
-    }
+	public override void refresh()
+	{
+		// Local packages are not yet implemented
+		version (none) {
+			foreach (ref repository; this.m_repositories)
+				repository.scanLocalPackages(false, this);
+		}
+		this.m_internal.scan(this, false);
+		foreach (ref repository; this.m_repositories)
+			repository.scan(this, false);
+
+		// Removed override loading usually done here as they are deprecated
+		this.m_initialized = true;
+	}
 
 	/**
 	 * Loads a `Package`
@@ -319,9 +337,37 @@ package class TestPackageManager : PackageManager
 	protected override Package load(NativePath path, NativePath recipe = NativePath.init,
 		Package parent = null, string version_ = null,
 		StrictMode mode = StrictMode.Ignore)
-    {
-        assert(0, "`TestPackageManager.load` is not implemented");
-    }
+	{
+		import dub.internal.utils : stripUTF8Bom;
+		if (recipe.empty)
+			recipe = this.findPackageFile(path);
+
+		enforce(!recipe.empty,
+			"No package file found in %s, expected one of %s"
+				.format(path.toNativeString(),
+					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
+
+		const PackageName parent_name = parent
+			? PackageName(parent.name) : PackageName.init;
+
+		string text = stripUTF8Bom(cast(string)this.fs.readFile(recipe));
+		auto content = parsePackageRecipe(text, recipe.toNativeString(),
+			parent_name, null, mode);
+
+		auto ret = new Package(content, path, parent, version_);
+		ret.m_infoFile = recipe;
+		return ret;
+	}
+
+	/// Reimplementation of `Package.findPackageFile`
+	public NativePath findPackageFile(NativePath directory)
+	{
+		foreach (file; packageInfoFiles) {
+			auto filename = directory ~ file.filename;
+			if (this.fs.existsFile(filename)) return filename;
+		}
+		return NativePath.init;
+	}
 
 	/**
 	 * Re-Implementation of `loadSCMPackage`.
@@ -352,8 +398,8 @@ package class TestPackageManager : PackageManager
 	protected Package loadSCMRepository(in PackageName name, in Repository repo)
 	{
 		if (auto prepo = repo in this.scm) {
-            this.add(*prepo);
-            return *prepo;
+			this.addPackages(this.m_internal.fromPath, *prepo);
+			return *prepo;
         }
 		return null;
 	}
@@ -365,18 +411,63 @@ package class TestPackageManager : PackageManager
      * function used by `TestDub`, but could be generalized once IO has been
      * abstracted away from this class.
      */
-	public Package add(Package pkg)
+	public Package add(in PackageName pkg, in Version vers, string content,
+		PackageFormat fmt, PlacementLocation loc = PlacementLocation.user)
 	{
-		// See `PackageManager.addPackages` for inspiration.
-		assert(!pkg.subPackages.length, "Subpackages are not yet supported");
-		this.m_internal.fromPath ~= pkg;
-		return pkg;
+		import dub.recipe.io : serializePackageRecipe;
+
+		auto path = this.getPackagePath(loc, pkg, vers.toString());
+		this.fs.mkdir(path);
+
+		final switch (fmt) {
+		case PackageFormat.json:
+			path ~= "dub.json";
+			break;
+		case PackageFormat.sdl:
+			path ~= "dub.sdl";
+			break;
+		}
+
+		auto recipe = parsePackageRecipe(content, path.toNativeString());
+		recipe.version_ = vers.toString();
+		auto app = appender!string();
+		serializePackageRecipe(app, recipe, path.toNativeString());
+		this.fs.writeFile(path, app.data());
+
+		this.refresh();
+		return this.getPackage(pkg, vers, loc);
 	}
 
     /// Add a reachable SCM package to this `PackageManager`
     public void addTestSCMPackage(Repository repo, Package pkg)
     {
         this.scm[repo] = pkg;
+    }
+
+    ///
+    protected override bool existsDirectory(NativePath path)
+    {
+        return this.fs.existsDirectory(path);
+    }
+
+    ///
+    protected override IterateDirDg iterateDirectory(NativePath path)
+    {
+        enforce(this.fs.existsDirectory(path),
+            path.toNativeString() ~ " does not exists or is not a directory");
+        auto dir = this.fs.lookup(path);
+        int iterator(scope int delegate(ref FileInfo) del) {
+            foreach (c; dir.children) {
+                FileInfo fi;
+                fi.name = c.name;
+                fi.size = (c.type == FSEntry.Type.Directory) ? 0 : c.content.length;
+                fi.isDirectory = (c.type == FSEntry.Type.Directory);
+                if (auto res = del(fi))
+                    return res;
+            }
+            return 0;
+        }
+        return &iterator;
     }
 }
 
@@ -440,5 +531,158 @@ public class MockPackageSupplier : PackageSupplier
     public override SearchResult[] searchPackages(string query)
     {
         assert(0, this.url ~ " - searchPackages not implemented for: " ~ query);
+    }
+}
+
+/// An abstract filesystem representation
+public class FSEntry
+{
+    /// Type of file system entry
+    public enum Type {
+        Directory,
+        File,
+    }
+
+    /// Ditto
+    protected Type type;
+    /// The name of this node
+    protected string name;
+    /// The parent of this entry (can be null for the root)
+    protected FSEntry parent;
+    union {
+        /// Children for this FSEntry (with type == Directory)
+        protected FSEntry[] children;
+        /// Content for this FDEntry (with type == File)
+        protected ubyte[] content;
+    }
+
+    /// Creates a new FSEntry
+    private this (FSEntry p, Type t, string n)
+    {
+        this.type = t;
+        this.parent = p;
+        this.name = n;
+    }
+
+    /// Create the root of the filesystem, only usable from this module
+    private this (bool initialize = true)
+    {
+        this.type = Type.Directory;
+
+        if (initialize) {
+            /// Create the base structure
+            this.mkdir(TestDub.Paths.temp);
+            this.mkdir(TestDub.Paths.systemSettings);
+            this.mkdir(TestDub.Paths.userSettings);
+            this.mkdir(TestDub.Paths.userPackages);
+            this.mkdir(TestDub.Paths.cache);
+
+            this.mkdir(NativePath(TestDub.ProjectPath));
+        }
+    }
+
+    /// Get a direct children node, returns `null` if it can't be found
+    protected FSEntry lookup(string name)
+    {
+        assert(!name.canFind('/'));
+        foreach (c; this.children)
+            if (c.name == name)
+                return c;
+        return null;
+    }
+
+    /// Returns: A path relative to `this.path`
+    protected NativePath relativePath(NativePath path)
+    {
+        assert(!path.absolute() || path.startsWith(this.path),
+               "Calling relativePath with a differently rooted path");
+        return path.absolute() ? path.relativeTo(this.path) : path;
+    }
+
+    /// Get an arbitrarily nested children node
+    protected FSEntry lookup(NativePath path)
+    {
+        auto relp = this.relativePath(path);
+        if (relp.empty)
+            return this;
+        auto segments = relp.bySegment;
+        if (auto c = this.lookup(segments.front.name)) {
+            segments.popFront();
+            return !segments.empty ? c.lookup(NativePath(segments)) : c;
+        }
+        return null;
+    }
+
+    /// Returns: The `path` of this FSEntry
+    public NativePath path() const
+    {
+        if (this.parent is null)
+            return NativePath("/");
+        auto thisPath = this.parent.path ~ this.name;
+        thisPath.endsWithSlash = (this.type == Type.Directory);
+        return thisPath;
+    }
+
+    /// Implements `mkdir -p`, returns the created directory
+    public FSEntry mkdir (NativePath path)
+    {
+        auto relp = this.relativePath(path);
+        // Check if the child already exists
+        auto segments = relp.bySegment;
+        auto child = this.lookup(segments.front.name);
+        if (child is null) {
+            child = new FSEntry(this, Type.Directory, segments.front.name);
+            this.children ~= child;
+        }
+        // Recurse if needed
+        segments.popFront();
+        return !segments.empty ? child.mkdir(NativePath(segments)) : child;
+    }
+
+    /// Checks the existence of a file
+    public bool existsFile (NativePath path)
+    {
+        auto entry = this.lookup(path);
+        return entry !is null && entry.type == Type.File;
+    }
+
+    /// Checks the existence of a directory
+    public bool existsDirectory (NativePath path)
+    {
+        auto entry = this.lookup(path);
+        return entry !is null && entry.type == Type.Directory;
+    }
+
+    /// Reads a file, returns the content as `ubyte[]`
+    public ubyte[] readFile (NativePath path)
+    {
+        auto entry = this.lookup(path);
+        enforce(entry.type == Type.File, "Trying to read a directory");
+        return entry.content.dup;
+    }
+
+    /// Write to this file
+    public void writeFile (NativePath path, const(char)[] data)
+    {
+        this.writeFile(path, data.representation);
+    }
+
+    /// Ditto
+    public void writeFile (NativePath path, const(ubyte)[] data)
+    {
+        if (auto file = this.lookup(path)) {
+            enforce(file.type == Type.File,
+                "Trying to write to directory: " ~ path.toNativeString());
+            file.content = data.dup;
+        } else {
+            auto parentPath = path.parentPath();
+            auto parent = this.lookup(parentPath);
+            enforce(parent !is null, "No such directory: " ~ parentPath.toNativeString());
+            enforce(parent.type == Type.Directory,
+                "Parent path is not a directory: " ~ parentPath.toNativeString());
+            auto file = new FSEntry(parent, Type.File, path.head.name());
+            file.content = data.dup;
+            parent.children ~= file;
+        }
     }
 }

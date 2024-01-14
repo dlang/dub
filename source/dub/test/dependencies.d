@@ -39,9 +39,9 @@ dependency "c" version="*"
     const c = `name "c"`;
 
     scope dub = new TestDub();
-    dub.addTestPackage(c, Version("1.0.0"), PackageFormat.sdl);
-    dub.addTestPackage(b, Version("1.0.0"), PackageFormat.sdl);
-    dub.loadPackage(dub.addTestPackage(a, Version("1.0.0"), PackageFormat.sdl));
+    dub.addTestPackage(`c`, Version("1.0.0"), c, PackageFormat.sdl);
+    dub.addTestPackage(`b`, Version("1.0.0"), b, PackageFormat.sdl);
+    dub.loadPackage(dub.addTestPackage(`a`, Version("1.0.0"), a, PackageFormat.sdl));
 
     dub.upgrade(UpgradeOptions.select);
 
@@ -63,9 +63,9 @@ dependency "c" version="*"
     const c = `name "c"`;
 
     scope dub = new TestDub();
-    dub.addTestPackage(c, Version("1.0.0"), PackageFormat.sdl);
-    dub.addTestPackage(b, Version("1.0.0"), PackageFormat.sdl);
-    dub.loadPackage(dub.addTestPackage(a, Version("1.0.0"), PackageFormat.sdl));
+    dub.addTestPackage(`c`, Version("1.0.0"), c, PackageFormat.sdl);
+    dub.addTestPackage(`b`, Version("1.0.0"), b, PackageFormat.sdl);
+    dub.loadPackage(dub.addTestPackage(`a`, Version("1.0.0"), a, PackageFormat.sdl));
 
     dub.upgrade(UpgradeOptions.select);
 
@@ -91,10 +91,10 @@ dependency "d" version="*"
     const d = `name "d"`;
 
     scope dub = new TestDub();
-    dub.addTestPackage(d, Version("1.0.0"), PackageFormat.sdl);
-    dub.addTestPackage(c, Version("1.0.0"), PackageFormat.sdl);
-    dub.addTestPackage(b, Version("1.0.0"), PackageFormat.sdl);
-    dub.loadPackage(dub.addTestPackage(a, Version("1.0.0"), PackageFormat.sdl));
+    dub.addTestPackage(`d`, Version("1.0.0"), d, PackageFormat.sdl);
+    dub.addTestPackage(`c`, Version("1.0.0"), c, PackageFormat.sdl);
+    dub.addTestPackage(`b`, Version("1.0.0"), b, PackageFormat.sdl);
+    dub.loadPackage(dub.addTestPackage(`a`, Version("1.0.0"), a, PackageFormat.sdl));
 
     dub.upgrade(UpgradeOptions.select);
 
@@ -113,7 +113,7 @@ dependency "b" version="*"
 `;
 
     scope dub = new TestDub();
-    dub.loadPackage(dub.addTestPackage(a, Version("1.0.0"), PackageFormat.sdl));
+    dub.loadPackage(dub.addTestPackage(`a`, Version("1.0.0"), a, PackageFormat.sdl));
 
     try
         dub.upgrade(UpgradeOptions.select);
@@ -125,7 +125,7 @@ dependency "b" version="*"
     assert(dub.project.getDependency("no", true) is null, "Returned unexpected dependency");
 
     // Add the missing dependency to our PackageManager
-    dub.addTestPackage(`name "b"`, Version("1.0.0"), PackageFormat.sdl);
+    dub.addTestPackage(`b`, Version("1.0.0"), `name "b"`, PackageFormat.sdl);
     dub.upgrade(UpgradeOptions.select);
     assert(dub.project.hasAllDependencies(), "project have missing dependencies");
     assert(dub.project.getDependency("b", true), "Missing 'b' dependency");

@@ -31,20 +31,20 @@ unittest
     // Invalid URL, valid hash
     const a = Template.format("a", "git+https://nope.nope", ValidHash);
     try
-        dub.loadPackage(dub.addTestPackage(a, Version("1.0.0")));
+        dub.loadPackage(dub.addTestPackage(`a`, Version("1.0.0"), a));
     catch (Exception exc)
         assert(exc.message.canFind("Unable to fetch"));
 
     // Valid URL, invalid hash
     const b = Template.format("b", ValidURL, "invalid");
     try
-        dub.loadPackage(dub.addTestPackage(b, Version("1.0.0")));
+        dub.loadPackage(dub.addTestPackage(`b`, Version("1.0.0"), b));
     catch (Exception exc)
         assert(exc.message.canFind("Unable to fetch"));
 
     // Valid URL, valid hash
     const c = Template.format("c", ValidURL, ValidHash);
-    dub.loadPackage(dub.addTestPackage(c, Version("1.0.0")));
+    dub.loadPackage(dub.addTestPackage(`c`, Version("1.0.0"), c));
     assert(dub.project.hasAllDependencies());
     assert(dub.project.getDependency("dep1", true), "Missing 'dep1' dependency");
 }
