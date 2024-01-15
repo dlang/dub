@@ -430,9 +430,6 @@ class PackageManager {
 
 		string gitReference = repo.ref_.chompPrefix("~");
 		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
-		// For libraries leaking their import path
-		destination ~= name;
-		destination.endsWithSlash = true;
 
 		foreach (p; getPackageIterator(name)) {
 			if (p.path == destination) {
@@ -725,13 +722,12 @@ class PackageManager {
 	Package store(NativePath src, PlacementLocation dest, string name, Version vers)
 	{
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
-		ensureDirectory(dstpath);
-		// For libraries leaking their import path
-		dstpath = dstpath ~ name;
+		ensureDirectory(dstpath.parentPath());
+		const lockPath = dstpath.parentPath() ~ ".lock";
 
 		// possibly wait for other dub instance
 		import core.time : seconds;
-		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds);
+		auto lock = lockFile(lockPath.toNativeString(), 30.seconds);
 		if (dstpath.existsFile()) {
 			return this.getPackage(name, vers, dest);
 		}
@@ -1441,12 +1437,11 @@ package struct Location {
 			return pkg;
 
 		string versStr = vers.toString();
-		const lookupName = name.main;
-		const path = this.getPackagePath(lookupName, versStr) ~ (lookupName ~ "/");
+		const path = this.getPackagePath(name.main, versStr);
 		if (!path.existsDirectory())
 			return null;
 
-		logDiagnostic("Lazily loading package %s:%s from %s", lookupName, vers, path);
+		logDiagnostic("Lazily loading package %s:%s from %s", name.main, vers, path);
 		auto p = mgr.load(path);
 		enforce(
 			p.version_ == vers,
@@ -1463,13 +1458,12 @@ package struct Location {
 	 * which expects their containing folder to have an exact name and use
 	 * `importPath "../"`.
 	 *
-	 * Hence the final format should be `$BASE/$NAME-$VERSION/$NAME`,
-	 * but this function returns `$BASE/$NAME-$VERSION/`
+	 * Hence the final format returned is `$BASE/$NAME/$VERSION/$NAME`,
 	 * `$BASE` is `this.packagePath`.
 	 */
 	NativePath getPackagePath (string name, string vers)
 	{
-		NativePath result = this.packagePath ~ name ~ vers;
+		NativePath result = this.packagePath ~ name ~ vers ~ name;
 		result.endsWithSlash = true;
 		return result;
 	}
