@@ -335,8 +335,6 @@ package class TestPackageManager : PackageManager
 
 		string gitReference = repo.ref_.chompPrefix("~");
 		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
-		destination ~= name;
-		destination.endsWithSlash = true;
 
 		foreach (p; getPackageIterator(name))
 			if (p.path == destination)
