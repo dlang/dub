@@ -568,7 +568,7 @@ class Project {
 					(VersionRange range) {
 						// See `dub.recipe.selection : SelectedDependency.fromYAML`
 						assert(range.isExactVersion());
-						return m_packageManager.getPackage(dep.name.toString(), vspec.version_);
+						return m_packageManager.getPackage(dep.name, vspec.version_);
 					},
 				);
 			} else if (m_dependencies.canFind!(d => PackageName(d.name).main == basename)) {

@@ -219,12 +219,12 @@ class PackageManager {
 		Returns:
 			The matching package or null if no match was found.
 	*/
-	Package getPackage(string name, Version ver, bool enable_overrides = true)
+	Package getPackage(in PackageName name, in Version ver, bool enable_overrides = true)
 	{
 		if (enable_overrides) {
 			foreach (ref repo; m_repositories)
 				foreach (ovr; repo.overrides)
-					if (ovr.package_ == name && ovr.source.matches(ver)) {
+					if (ovr.package_ == name.toString() && ovr.source.matches(ver)) {
 						Package pack = ovr.target.match!(
 							(NativePath path) => getOrLoadPackage(path),
 							(Version	vers) => getPackage(name, vers, false),
@@ -240,7 +240,13 @@ class PackageManager {
 					}
 		}
 
-		return this.lookup(PackageName(name), ver);
+		return this.lookup(name, ver);
+	}
+
+	deprecated("Use the overload that accepts a `PackageName` instead")
+	Package getPackage(string name, Version ver, bool enable_overrides = true)
+	{
+		return this.getPackage(PackageName(name), ver, enable_overrides);
 	}
 
 	/// ditto
@@ -263,12 +269,19 @@ class PackageManager {
 	}
 
 	/// Ditto
+	deprecated("Use the overload that accepts a `PackageName` instead")
 	Package getPackage(string name, Version ver, PlacementLocation loc)
+	{
+		return this.getPackage(PackageName(name), ver, loc);
+	}
+
+	/// Ditto
+	Package getPackage(in PackageName name, in Version ver, PlacementLocation loc)
 	{
 		// Bare mode
 		if (loc >= this.m_repositories.length)
 			return null;
-		return this.m_repositories[loc].load(PackageName(name), ver, this);
+		return this.m_repositories[loc].load(name, ver, this);
 	}
 
 	/// ditto
@@ -475,13 +488,27 @@ class PackageManager {
 	 * Returns:
 	 *	 The best package matching the parameters, or `null` if none was found.
 	 */
+	deprecated("Use the overload that accepts a `PackageName` instead")
 	Package getBestPackage(string name, Version vers)
+	{
+		return this.getBestPackage(PackageName(name), vers);
+	}
+
+	/// Ditto
+	Package getBestPackage(in PackageName name, in Version vers)
 	{
 		return this.getBestPackage(name, VersionRange(vers, vers));
 	}
 
 	/// Ditto
+	deprecated("Use the overload that accepts a `PackageName` instead")
 	Package getBestPackage(string name, VersionRange range = VersionRange.Any)
+	{
+		return this.getBestPackage(PackageName(name), range);
+	}
+
+	/// Ditto
+	Package getBestPackage(in PackageName name, in VersionRange range = VersionRange.Any)
 	{
 		return this.getBestPackage_(name, Dependency(range));
 	}
@@ -497,14 +524,15 @@ class PackageManager {
 	deprecated("`getBestPackage` should only be used with a `Version` or `VersionRange` argument")
 	Package getBestPackage(string name, Dependency version_spec, bool enable_overrides = true)
 	{
-		return this.getBestPackage_(name, version_spec, enable_overrides);
+		return this.getBestPackage_(PackageName(name), version_spec, enable_overrides);
 	}
 
 	// TODO: Merge this into `getBestPackage(string, VersionRange)`
-	private Package getBestPackage_(string name, Dependency version_spec, bool enable_overrides = true)
+	private Package getBestPackage_(in PackageName name, in Dependency version_spec,
+		bool enable_overrides = true)
 	{
 		Package ret;
-		foreach (p; getPackageIterator(name)) {
+		foreach (p; getPackageIterator(name.toString())) {
 			auto vmm = isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard;
 			if (version_spec.matches(p.version_, vmm) && (!ret || p.version_ > ret.version_))
 				ret = p;
@@ -696,7 +724,8 @@ class PackageManager {
 	deprecated("Use `store(NativePath source, PlacementLocation dest, string name, Version vers)`")
 	Package storeFetchedPackage(NativePath zip_file_path, Json package_info, NativePath destination)
 	{
-		return this.store_(zip_file_path, destination, package_info["name"].get!string,
+		return this.store_(zip_file_path, destination,
+			PackageName(package_info["name"].get!string),
 			Version(package_info["version"].get!string));
 	}
 
@@ -721,11 +750,18 @@ class PackageManager {
 	 *   If the package cannot be loaded / the zip is corrupted / the package
 	 *   already exists, etc...
 	 */
+	deprecated("Use the overload that accepts a `PackageName` instead")
 	Package store(NativePath src, PlacementLocation dest, string name, Version vers)
 	{
-		const name_ = PackageName(name);
-		assert(!name_.sub.length, "Cannot store a subpackage, use main package instead");
-		NativePath dstpath = this.getPackagePath(dest, name_, vers.toString());
+		return this.store(src, dest, PackageName(name), vers);
+	}
+
+	/// Ditto
+	Package store(NativePath src, PlacementLocation dest, in PackageName name,
+		in Version vers)
+	{
+		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
+		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
 		ensureDirectory(dstpath.parentPath());
 		const lockPath = dstpath.parentPath() ~ ".lock";
 
@@ -740,7 +776,8 @@ class PackageManager {
 
 	/// Backward-compatibility for deprecated overload, simplify once `storeFetchedPatch`
 	/// is removed
-	private Package store_(NativePath src, NativePath destination, string name, Version vers)
+	private Package store_(NativePath src, NativePath destination,
+		in PackageName name, in Version vers)
 	{
 		import std.range : walkLength;
 
@@ -1436,7 +1473,7 @@ package struct Location {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	Package load (PackageName name, Version vers, PackageManager mgr)
+	Package load (in PackageName name, Version vers, PackageManager mgr)
 	{
 		if (auto pkg = this.lookup(name, vers))
 			return pkg;

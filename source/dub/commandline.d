@@ -1379,7 +1379,8 @@ abstract class PackageBuildCommand : Command {
 
 		enforce(udesc.name.length, "No valid root package found - aborting.");
 
-		auto pack = dub.packageManager.getBestPackage(udesc.name, udesc.range);
+		auto pack = dub.packageManager.getBestPackage(
+			PackageName(udesc.name), udesc.range);
 
 		enforce(pack, format!"Failed to find package '%s' locally."(udesc));
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
@@ -1559,7 +1560,7 @@ class BuildCommand : GenerateCommand {
 
 		const baseName = PackageName(packageParts.name).main;
 		// Found locally
-		if (dub.packageManager.getBestPackage(baseName.toString(), packageParts.range))
+		if (dub.packageManager.getBestPackage(baseName, packageParts.range))
 			return 0;
 
 		// Non-interactive, either via flag, or because a version was provided
@@ -2221,7 +2222,8 @@ class FetchCommand : FetchRemoveCommand {
             break;
         }
         if (this.recursive) {
-            auto pack = dub.packageManager.getBestPackage(udesc.name, udesc.range);
+            auto pack = dub.packageManager.getBestPackage(
+				PackageName(udesc.name), udesc.range);
             auto proj = new Project(dub.packageManager, pack);
             if (!proj.hasAllDependencies) {
 				logInfo("Resolving", Color.green, "missing dependencies for project");
@@ -2234,7 +2236,8 @@ class FetchCommand : FetchRemoveCommand {
 	/// Implementation for argument version
 	private FetchStatus fetchSinglePackage(Dub dub, UserPackageDesc udesc)
 	{
-		auto fspkg = dub.packageManager.getBestPackage(udesc.name, udesc.range);
+		auto fspkg = dub.packageManager.getBestPackage(
+			PackageName(udesc.name), udesc.range);
 		// Avoid dub fetch if the package is present on the filesystem.
 		if (fspkg !is null && udesc.range.isExactVersion())
 			return FetchStatus.Present;

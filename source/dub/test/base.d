@@ -283,6 +283,7 @@ package class TestPackageManager : PackageManager
 
     // Re-introduce hidden/deprecated overloads
     public alias loadSCMPackage = PackageManager.loadSCMPackage;
+    public alias store = PackageManager.store;
 
     /// Disabled as semantic are not implementable unless a virtual FS is created
 	public override @property void customCachePaths(NativePath[] custom_cache_paths)
@@ -291,7 +292,7 @@ package class TestPackageManager : PackageManager
     }
 
     /// Ditto
-    public override Package store(NativePath src, PlacementLocation dest, string name, Version vers)
+    public override Package store(NativePath src, PlacementLocation dest, in PackageName name, in Version vers)
     {
         assert(0, "Function not implemented");
     }

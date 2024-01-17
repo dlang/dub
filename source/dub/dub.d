@@ -642,7 +642,7 @@ class Dub {
 					if (m_packageManager.loadSCMPackage(name, dep.repository))
 						continue;
 				} else {
-					if (m_packageManager.getPackage(p, dep.version_)) continue;
+					if (m_packageManager.getPackage(name, dep.version_)) continue;
 					foreach (ps; m_packageSuppliers) {
 						try {
 							auto versions = ps.getVersions(name);
@@ -706,7 +706,7 @@ class Dub {
 				pack = m_packageManager.loadSCMPackage(name, ver.repository);
 			} else {
 				assert(ver.isExactVersion, "Resolved dependency is neither path, nor repository, nor exact version based!?");
-				pack = m_packageManager.getPackage(p, ver.version_);
+				pack = m_packageManager.getPackage(name, ver.version_);
 				if (pack && m_packageManager.isManagedPackage(pack)
 					&& ver.version_.isBranch && (options & UpgradeOptions.upgrade) != 0)
 				{
@@ -797,7 +797,7 @@ class Dub {
 
 		auto tool = PackageName("dscanner");
 
-		auto tool_pack = m_packageManager.getBestPackage(tool.toString());
+		auto tool_pack = m_packageManager.getBestPackage(tool);
 		if (!tool_pack) {
 			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it locally", tool);
 			tool_pack = this.fetch(tool);
@@ -989,7 +989,7 @@ class Dub {
 		Version ver = Version(pinfo["version"].get!string);
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
-		Package existing = m_packageManager.getPackage(name.toString(), ver, location);
+		Package existing = m_packageManager.getPackage(name, ver, location);
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.version_ != ver)
 				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
@@ -1029,7 +1029,7 @@ class Dub {
 			logDiagnostic("Placing to %s...", location.toString());
 
 			try {
-				return m_packageManager.store(path, location, name.main.toString(), ver);
+				return m_packageManager.store(path, location, name.main, ver);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s@%s...", name, ver);
 				// re-throw the exception at the end of the loop
@@ -1403,7 +1403,7 @@ class Dub {
 	private void runCustomInitialization(NativePath path, string name, string[] runArgs)
 	{
 		auto name_ = PackageName(name);
-		auto template_pack = m_packageManager.getBestPackage(name);
+		auto template_pack = m_packageManager.getBestPackage(name_);
 		if (!template_pack) {
 			logInfo("%s is not present, getting and storing it locally", name);
 			template_pack = fetch(name_);
@@ -1471,7 +1471,7 @@ class Dub {
 			? PackageName("ddox")
 			: PackageName(m_project.rootPackage.recipe.ddoxTool);
 
-		auto tool_pack = m_packageManager.getBestPackage(tool.toString());
+		auto tool_pack = m_packageManager.getBestPackage(tool);
 		if (!tool_pack) {
 			logInfo("%s is not present, getting and storing it user wide", tool);
 			tool_pack = this.fetch(tool);
@@ -1948,7 +1948,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		}
 		const vers = dep.version_;
 
-		if (auto ret = m_dub.m_packageManager.getBestPackage(name.toString(), vers))
+		if (auto ret = m_dub.m_packageManager.getBestPackage(name, vers))
 			return ret;
 
 		auto key = name.toString() ~ ":" ~ vers.toString();
@@ -1978,7 +1978,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
 					m_dub.fetch(name.main, vers, fetchOpts, m_dub.defaultPlacementLocation, "need sub package description");
-					auto ret = m_dub.m_packageManager.getBestPackage(name.toString(), vers);
+					auto ret = m_dub.m_packageManager.getBestPackage(name, vers);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", name.main, dep, name);
 						return null;
