@@ -1909,18 +1909,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			if (!basepack) return null;
 			if (auto sp = m_dub.m_packageManager.getSubPackage(basepack, subname, true))
 				return sp;
-			if (!basepack.subPackages.canFind!(p => p.path.length)) {
-				// note: external sub packages are handled further below
-				auto spr = basepack.getInternalSubPackage(subname);
-				if (!spr.isNull) {
-					auto sp = new Package(spr.get, basepack.path, basepack);
-					m_remotePackages[sp.name] = sp;
-					return sp;
-				}
-				logDiagnostic("Sub package %s doesn't exist in %s %s.", name, name.main, dep);
-				return null;
-			}
-			logDiagnostic("External sub package %s %s not found.", name, dep);
+			logDiagnostic("Subpackage %s@%s not found.", name, dep);
 			return null;
 		}
 

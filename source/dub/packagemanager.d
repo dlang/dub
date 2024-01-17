@@ -515,9 +515,6 @@ class PackageManager {
 
 	/** Gets the a specific sub package.
 
-		In contrast to `Package.getSubPackage`, this function supports path
-		based sub packages.
-
 		Params:
 			base_package = The package from which to get a sub package
 			sub_name = Name of the sub package (not prefixed with the base
