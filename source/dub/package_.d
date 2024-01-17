@@ -312,13 +312,7 @@ class Package {
 		writeJsonFile(filename, m_info.toJson());
 	}
 
-	/** Returns the package recipe of a non-path-based sub package.
-
-		For sub packages that are declared within the package recipe of the
-		parent package, this function will return the corresponding recipe. Sub
-		packages declared using a path must be loaded manually (or using the
-		`PackageManager`).
-	*/
+	deprecated("Use `PackageManager.getSubPackage` instead")
 	Nullable!PackageRecipe getInternalSubPackage(string name)
 	{
 		foreach (ref p; m_info.subPackages)
