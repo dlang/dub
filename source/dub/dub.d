@@ -1836,40 +1836,37 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	{
 		import dub.recipe.json;
 
-		auto basename = name.main;
-
 		// for sub packages, first try to get them from the base package
-		if (basename != name) {
+		if (name.main != name) {
 			auto subname = name.sub;
 			auto basepack = getPackage(name.main, dep);
 			if (!basepack) return null;
-			if (auto sp = m_dub.m_packageManager.getSubPackage(basepack, subname, true)) {
+			if (auto sp = m_dub.m_packageManager.getSubPackage(basepack, subname, true))
 				return sp;
-			} else if (!basepack.subPackages.canFind!(p => p.path.length)) {
+			if (!basepack.subPackages.canFind!(p => p.path.length)) {
 				// note: external sub packages are handled further below
 				auto spr = basepack.getInternalSubPackage(subname);
 				if (!spr.isNull) {
 					auto sp = new Package(spr.get, basepack.path, basepack);
 					m_remotePackages[sp.name] = sp;
 					return sp;
-				} else {
-					logDiagnostic("Sub package %s doesn't exist in %s %s.", name, basename, dep);
-					return null;
 				}
-			} else {
-				logDiagnostic("External sub package %s %s not found.", name, dep);
+				logDiagnostic("Sub package %s doesn't exist in %s %s.", name, name.main, dep);
 				return null;
 			}
+			logDiagnostic("External sub package %s %s not found.", name, dep);
+			return null;
 		}
 
 		// shortcut if the referenced package is the root package
-		if (basename == m_rootPackage.basePackage.name)
+		if (name.main == m_rootPackage.basePackage.name)
 			return m_rootPackage.basePackage;
 
 		if (!dep.repository.empty) {
 			auto ret = m_dub.packageManager.loadSCMPackage(name, dep.repository);
 			return ret !is null && dep.matches(ret.version_) ? ret : null;
-		} else if (!dep.path.empty) {
+		}
+		if (!dep.path.empty) {
 			try {
 				return m_dub.packageManager.getOrLoadPackage(dep.path);
 			} catch (Exception e) {
@@ -1890,7 +1887,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		auto prerelease = (m_options & UpgradeOptions.preRelease) != 0;
 
 		foreach (ps; m_dub.m_packageSuppliers) {
-			if (basename == name) {
+			if (name.main == name) {
 				try {
 					auto desc = ps.fetchPackageRecipe(name, VersionRange(vers, vers), prerelease);
 					if (desc.type == Json.Type.null_)
@@ -1909,16 +1906,16 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				try {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
-					m_dub.fetch(basename, vers, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
+					m_dub.fetch(name.main, vers, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, vers);
 					if (!ret) {
-						logWarn("Package %s %s doesn't have a sub package %s", basename, dep, name);
+						logWarn("Package %s %s doesn't have a sub package %s", name.main, dep, name);
 						return null;
 					}
 					m_remotePackages[key] = ret;
 					return ret;
 				} catch (Exception e) {
-					logDiagnostic("Package %s could not be downloaded from %s: %s", basename, ps.description, e.msg);
+					logDiagnostic("Package %s could not be downloaded from %s: %s", name.main, ps.description, e.msg);
 					logDebug("Full error: %s", e.toString().sanitize);
 				}
 			}
