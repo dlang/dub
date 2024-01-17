@@ -408,11 +408,12 @@ class PackageManager {
 	in { assert(!repo.empty); }
 	do {
 		Package pack;
+		const name_ = PackageName(name);
 
 		final switch (repo.kind)
 		{
 			case repo.Kind.git:
-				pack = loadGitPackage(name, repo);
+				pack = loadGitPackage(name_, repo);
 		}
 		if (pack !is null) {
 			addPackages(this.m_internal.fromPath, pack);
@@ -420,7 +421,7 @@ class PackageManager {
 		return pack;
 	}
 
-	private Package loadGitPackage(string name, in Repository repo)
+	private Package loadGitPackage(in PackageName name, in Repository repo)
 	{
 		import dub.internal.git : cloneRepository;
 
@@ -449,7 +450,7 @@ class PackageManager {
 	 *
 	 * See `Location.getPackagePath`.
 	 */
-	package(dub) NativePath getPackagePath (PlacementLocation base, string name, string vers)
+	package(dub) NativePath getPackagePath(PlacementLocation base, in PackageName name, string vers)
 	{
 		assert(this.m_repositories.length == 3, "getPackagePath called in bare mode");
 		return this.m_repositories[base].getPackagePath(name, vers);
@@ -721,7 +722,9 @@ class PackageManager {
 	 */
 	Package store(NativePath src, PlacementLocation dest, string name, Version vers)
 	{
-		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
+		const name_ = PackageName(name);
+		assert(!name_.sub.length, "Cannot store a subpackage, use main package instead");
+		NativePath dstpath = this.getPackagePath(dest, name_, vers.toString());
 		ensureDirectory(dstpath.parentPath());
 		const lockPath = dstpath.parentPath() ~ ".lock";
 
@@ -1437,7 +1440,7 @@ package struct Location {
 			return pkg;
 
 		string versStr = vers.toString();
-		const path = this.getPackagePath(name.main, versStr);
+		const path = this.getPackagePath(name, versStr);
 		if (!path.existsDirectory())
 			return null;
 
@@ -1460,10 +1463,20 @@ package struct Location {
 	 *
 	 * Hence the final format returned is `$BASE/$NAME/$VERSION/$NAME`,
 	 * `$BASE` is `this.packagePath`.
+	 *
+	 * Params:
+	 *   name = The package name - if the name is that of a subpackage,
+	 *          only the path to the main package is returned, as the
+	 *          subpackage path can only be known after reading the recipe.
+	 *   vers = A version string. Typed as a string because git hashes
+	 *          can be used with this function.
+	 *
+	 * Returns:
+	 *   An absolute `NativePath` nested in this location.
 	 */
-	NativePath getPackagePath (string name, string vers)
+	NativePath getPackagePath (in PackageName name, string vers)
 	{
-		NativePath result = this.packagePath ~ name ~ vers ~ name;
+		NativePath result = this.packagePath ~ name.main ~ vers ~ name.main;
 		result.endsWithSlash = true;
 		return result;
 	}
