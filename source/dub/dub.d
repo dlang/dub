@@ -631,14 +631,15 @@ class Dub {
 		if (!(options & UpgradeOptions.upgrade)) {
 			next_pack:
 			foreach (p; m_project.selections.selectedPackages) {
-				auto dep = m_project.selections.getSelectedVersion(p);
+				const name = PackageName(p); // Always a main package name
+				auto dep = m_project.selections.getSelectedVersion(name);
 				if (!dep.path.empty) {
 					auto path = dep.path;
 					if (!path.absolute) path = this.rootPath ~ path;
 					try if (m_packageManager.getOrLoadPackage(path)) continue;
 					catch (Exception e) { logDebug("Failed to load path based selection: %s", e.toString().sanitize); }
 				} else if (!dep.repository.empty) {
-					if (m_packageManager.loadSCMPackage(PackageName(p).main, dep.repository))
+					if (m_packageManager.loadSCMPackage(name, dep.repository))
 						continue;
 				} else {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
@@ -655,7 +656,7 @@ class Dub {
 				}
 
 				logWarn("Selected package %s %s doesn't exist. Using latest matching version instead.", p, dep);
-				m_project.selections.deselectVersion(p);
+				m_project.selections.deselectVersion(name);
 			}
 		}
 
@@ -692,7 +693,8 @@ class Dub {
 		}
 
 		foreach (p, ver; versions) {
-			assert(!p.canFind(":"), "Resolved packages contain a sub package!?: "~p);
+			const name = PackageName(p);
+			assert(!name.sub, "Resolved packages contain a sub package!?: " ~ p);
 			Package pack;
 			if (!ver.path.empty) {
 				try pack = m_packageManager.getOrLoadPackage(ver.path);
@@ -720,13 +722,13 @@ class Dub {
 			if (!pack) fetch(p, ver.version_, defaultPlacementLocation, fetchOpts, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
 				if (!ver.repository.empty) {
-					m_project.selections.selectVersion(p, ver.repository);
+					m_project.selections.selectVersion(name, ver.repository);
 				} else if (ver.path.empty) {
-					m_project.selections.selectVersion(p, ver.version_);
+					m_project.selections.selectVersion(name, ver.version_);
 				} else {
 					NativePath relpath = ver.path;
 					if (relpath.absolute) relpath = relpath.relativeTo(m_project.rootPackage.path);
-					m_project.selections.selectVersion(p, relpath);
+					m_project.selections.selectVersion(name, relpath);
 				}
 			}
 		}
@@ -1682,8 +1684,9 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		if (auto pvers = pack in m_packageVersions)
 			return *pvers;
 
-		if ((!(m_options & UpgradeOptions.upgrade) || isFixedPackage(pack)) && m_selectedVersions.hasSelectedVersion(pack)) {
-			auto ret = [m_selectedVersions.getSelectedVersion(pack)];
+		const name = PackageName(pack);
+		if ((!(m_options & UpgradeOptions.upgrade) || isFixedPackage(pack)) && m_selectedVersions.hasSelectedVersion(name)) {
+			auto ret = [m_selectedVersions.getSelectedVersion(name)];
 			logDiagnostic("Using fixed selection %s %s", pack, ret[0]);
 			m_packageVersions[pack] = ret;
 			return ret;
