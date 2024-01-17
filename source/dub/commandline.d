@@ -1564,8 +1564,7 @@ class BuildCommand : GenerateCommand {
 
 		// Non-interactive, either via flag, or because a version was provided
 		if (m_yes || !packageParts.range.matchesAny()) {
-			dub.fetch(baseName, packageParts.range, dub.defaultPlacementLocation,
-				FetchOptions.none);
+			dub.fetch(baseName, packageParts.range);
 			return 0;
 		}
 		// Otherwise we go the long way of asking the user.
@@ -1586,8 +1585,7 @@ class BuildCommand : GenerateCommand {
 		logInfo("---");
 
 		if (input("Do you want to fetch '%s@%s' now?".format(packageParts, p.version_)))
-			dub.fetch(baseName, VersionRange.fromString(p.version_),
-				dub.defaultPlacementLocation, FetchOptions.none);
+			dub.fetch(baseName, VersionRange.fromString(p.version_));
 		return 0;
 	}
 }
@@ -2242,7 +2240,7 @@ class FetchCommand : FetchRemoveCommand {
 			return FetchStatus.Present;
 
 		try {
-			auto pkg = dub.fetch(udesc.name, udesc.range, dub.defaultPlacementLocation,
+			auto pkg = dub.fetch(PackageName(udesc.name), udesc.range,
 				FetchOptions.forceBranchUpgrade);
 			assert(pkg !is null, "dub.fetch returned a null Package");
 			return pkg is fspkg ? FetchStatus.Present : FetchStatus.Fetched;

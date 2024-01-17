@@ -719,7 +719,7 @@ class Dub {
 
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
-			if (!pack) fetch(p, ver.version_, defaultPlacementLocation, fetchOpts, "getting selected version");
+			if (!pack) this.fetch(name, ver.version_, fetchOpts, defaultPlacementLocation, "getting selected version");
 			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
 				if (!ver.repository.empty) {
 					m_project.selections.selectVersion(name, ver.repository);
@@ -795,12 +795,12 @@ class Dub {
 	{
 		if (m_dryRun) return;
 
-		auto tool = "dscanner";
+		auto tool = PackageName("dscanner");
 
 		auto tool_pack = m_packageManager.getBestPackage(tool);
 		if (!tool_pack) {
-			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
+			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it locally", tool);
+			tool_pack = this.fetch(tool);
 		}
 
 		auto dscanner_dub = new Dub(null, m_packageSuppliers);
@@ -890,7 +890,6 @@ class Dub {
 			rmdirRecurse(cache.toNativeString());
 	}
 
-	/// Fetches the package matching the dependency and places it in the specified location.
 	deprecated("Use the overload that accepts either a `Version` or a `VersionRange` as second argument")
 	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
 	{
@@ -901,16 +900,75 @@ class Dub {
 		return this.fetch(packageId, vrange, location, options, reason);
 	}
 
-	/// Ditto
-	Package fetch(string packageId, in Version vers, PlacementLocation location, FetchOptions options, string reason = "")
+	deprecated("Use `fetch(PackageName, Version, [FetchOptions, PlacementLocation, string])`")
+	Package fetch(string name, in Version vers, PlacementLocation location, FetchOptions options, string reason = "")
 	{
-		return this.fetch(packageId, VersionRange(vers, vers), location, options, reason);
+		const n = PackageName(name);
+		return this.fetch(n, VersionRange(vers, vers), location, options, reason);
+	}
+
+	deprecated("Use `fetch(PackageName, VersionRange, [FetchOptions, PlacementLocation, string])`")
+	Package fetch(string name, in VersionRange range, PlacementLocation location, FetchOptions options, string reason = "")
+	{
+		const n = PackageName(name);
+		return this.fetch(n, range, options, location, reason);
+	}
+
+	/**
+	 * Fetches a missing package and stores it locally
+	 *
+	 * This will query the configured PackageSuppliers for a package
+	 * matching the `range` specification, store it locally, and load
+	 * it in the `PackageManager`. Note that unlike the command line
+	 * version, this function is not idempotent and will remove an
+	 * existing package and re-download it.
+	 *
+	 * Params:
+	 *   name = Name of the package to retrieve. Subpackages will lead
+	 *          to the main package being retrieved and the subpackage
+	 *          being returned (if it exists).
+	 *   vers = For `Version` overloads, the exact version to return.
+	 *   range = The `VersionRange` to match. Default to `Any` to fetch
+	 *           the latest version.
+	 *   options = A set of options used for fetching / matching versions.
+	 *   location = Where to store the retrieved package. Default to the
+	 *              configured `defaultPlacementLocation`.
+	 *   reason = Optionally, the reason for retriving this package.
+	 *            This is used only for logging.
+	 *
+	 * Returns:
+	 *	 The fetched or loaded `Package`, or `null` in dry-run mode.
+	 *
+	 * Throws:
+	 *	 If the package cannot be fetched or loaded.
+	 */
+	Package fetch(in PackageName name, in Version vers,
+		FetchOptions options = FetchOptions.none, string reason = "")
+	{
+		return this.fetch(name, VersionRange(vers, vers), options,
+			this.defaultPlacementLocation, reason);
 	}
 
 	/// Ditto
-	Package fetch(string packageId, in VersionRange range, PlacementLocation location, FetchOptions options, string reason = "")
+	Package fetch(in PackageName name, in Version vers, FetchOptions options,
+		PlacementLocation location, string reason = "")
 	{
-		auto basePackageName = PackageName(packageId).main;
+		return this.fetch(name, VersionRange(vers, vers), options,
+			this.defaultPlacementLocation, reason);
+	}
+
+	/// Ditto
+	Package fetch(in PackageName name, in VersionRange range = VersionRange.Any,
+		FetchOptions options = FetchOptions.none, string reason = "")
+	{
+		return this.fetch(name, range, options, this.defaultPlacementLocation, reason);
+	}
+
+	/// Ditto
+	Package fetch(in PackageName name, in VersionRange range, FetchOptions options,
+		PlacementLocation location, string reason = "")
+	{
+		auto basePackageName = name.main;
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
@@ -921,21 +979,22 @@ class Dub {
 				supplier = ps;
 				break;
 			} catch(Exception e) {
-				logWarn("Package %s not found for %s: %s", packageId, ps.description, e.msg);
+				logWarn("Package %s not found for %s: %s", name, ps.description, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize());
 			}
 		}
 		enforce(!pinfo.type.among(Json.Type.undefined, Json.Type.null_),
-				"No package " ~ packageId ~ " was found matching the dependency " ~ range.toString());
+			"No package %s was found matching the dependency %s"
+				.format(name, range));
 		Version ver = Version(pinfo["version"].get!string);
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
-		Package existing = m_packageManager.getPackage(packageId, ver, location);
+		Package existing = m_packageManager.getPackage(name, ver, location);
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.version_ != ver)
 				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
-					packageId.color(Mode.bold), existing, ver,
-					text("dub upgrade ", packageId).color(Mode.bold));
+                    name.toString().color(Mode.bold), existing, ver,
+					text("dub upgrade ", name).color(Mode.bold));
 			return null;
 		}
 
@@ -943,16 +1002,18 @@ class Dub {
 			if (!ver.isBranch() || !(options & FetchOptions.forceBranchUpgrade) || location == PlacementLocation.local) {
 				// TODO: support git working trees by performing a "git pull" instead of this
 				logDiagnostic("Package %s %s (in %s packages) is already present with the latest version, skipping upgrade.",
-					packageId, ver, location.toString);
+					name, ver, location.toString);
 				return existing;
 			} else {
-				logInfo("Removing", Color.yellow, "%s %s to prepare replacement with a new version", packageId.color(Mode.bold), ver);
+				logInfo("Removing", Color.yellow, "%s %s to prepare " ~
+					"replacement with a new version", name.toString().color(Mode.bold),
+					ver);
 				if (!m_dryRun) m_packageManager.remove(existing);
 			}
 		}
 
-		if (reason.length) logInfo("Fetching", Color.yellow, "%s %s (%s)", packageId.color(Mode.bold), ver, reason);
-		else logInfo("Fetching", Color.yellow, "%s %s", packageId.color(Mode.bold), ver);
+		if (reason.length) logInfo("Fetching", Color.yellow, "%s %s (%s)", name.toString().color(Mode.bold), ver, reason);
+		else logInfo("Fetching", Color.yellow, "%s %s", name.toString().color(Mode.bold), ver);
 		if (m_dryRun) return null;
 
 		logDebug("Acquiring package zip file");
@@ -970,7 +1031,7 @@ class Dub {
 			try {
 				return m_packageManager.store(path, location, basePackageName, ver);
 			} catch (ZipException e) {
-				logInfo("Failed to extract zip archive for %s %s...", packageId, ver);
+				logInfo("Failed to extract zip archive for %s@%s...", name, ver);
 				// re-throw the exception at the end of the loop
 				if (i == 0)
 					throw e;
@@ -1325,10 +1386,11 @@ class Dub {
 	 */
 	private void runCustomInitialization(NativePath path, string name, string[] runArgs)
 	{
+		auto name_ = PackageName(name);
 		auto template_pack = m_packageManager.getBestPackage(name);
 		if (!template_pack) {
-			logInfo("%s is not present, getting and storing it user wide", name);
-			template_pack = fetch(name, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
+			logInfo("%s is not present, getting and storing it locally", name);
+			template_pack = fetch(name_);
 		}
 
 		Package initSubPackage = m_packageManager.getSubPackage(template_pack, "init-exec", false);
@@ -1389,13 +1451,14 @@ class Dub {
 		if (m_dryRun) return;
 
 		// allow to choose a custom ddox tool
-		auto tool = m_project.rootPackage.recipe.ddoxTool;
-		if (tool.empty) tool = "ddox";
+		auto tool = m_project.rootPackage.recipe.ddoxTool.empty
+			? PackageName("ddox")
+			: PackageName(m_project.rootPackage.recipe.ddoxTool);
 
 		auto tool_pack = m_packageManager.getBestPackage(tool);
 		if (!tool_pack) {
 			logInfo("%s is not present, getting and storing it user wide", tool);
-			tool_pack = fetch(tool, VersionRange.Any, defaultPlacementLocation, FetchOptions.none);
+			tool_pack = this.fetch(tool);
 		}
 
 		auto ddox_dub = new Dub(null, m_packageSuppliers);
@@ -1909,7 +1972,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				try {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
-					m_dub.fetch(name.main, vers, m_dub.defaultPlacementLocation, fetchOpts, "need sub package description");
+					m_dub.fetch(name.main, vers, fetchOpts, m_dub.defaultPlacementLocation, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, vers);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", name.main, dep, name);
