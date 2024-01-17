@@ -333,8 +333,9 @@ package class TestPackageManager : PackageManager
 		if (!repo.ref_.startsWith("~") && !repo.ref_.isGitHash)
 			return null;
 
+		const name_ = PackageName(name);
 		string gitReference = repo.ref_.chompPrefix("~");
-		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
+		NativePath destination = this.getPackagePath(PlacementLocation.user, name_, repo.ref_);
 
 		foreach (p; getPackageIterator(name))
 			if (p.path == destination)
