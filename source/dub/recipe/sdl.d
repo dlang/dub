@@ -23,17 +23,13 @@ import std.string : startsWith, format;
 deprecated("Use `parseSDL(PackageRecipe, string, PackageName, string)` instead")
 void parseSDL(ref PackageRecipe recipe, string sdl, string parent_name, string filename)
 {
-	// Work around broken compiler overload resolution (seen at v2.106)
-	scope void function(ref PackageRecipe, Tag, in PackageName) func = &parseSDL;
-	func(recipe, parseSource(sdl, filename), PackageName(parent_name));
+	parseSDL(recipe, parseSource(sdl, filename), PackageName(parent_name));
 }
 
 deprecated("Use `parseSDL(PackageRecipe, Tag, PackageName)` instead")
 void parseSDL(ref PackageRecipe recipe, Tag sdl, string parent_name)
 {
-	// Work around broken compiler overload resolution (seen at v2.106)
-	scope void function(ref PackageRecipe, Tag, in PackageName) func = &parseSDL;
-	func(recipe, sdl, PackageName(parent_name));
+	parseSDL(recipe, sdl, PackageName(parent_name));
 }
 
 void parseSDL(ref PackageRecipe recipe, string sdl, in PackageName parent,
@@ -449,9 +445,7 @@ private void enforceSDL(bool condition, lazy string message, Tag tag, string fil
 // Just a wrapper around `parseSDL` for easier testing
 version (unittest) private void parseSDLTest(ref PackageRecipe recipe, string sdl)
 {
-	// Work around broken compiler overload resolution (seen at v2.106)
-	scope void function(ref PackageRecipe, Tag, in PackageName) func = &parseSDL;
-	func(recipe, parseSource(sdl, "testfile"), PackageName.init);
+	parseSDL(recipe, parseSource(sdl, "testfile"), PackageName.init);
 }
 
 unittest { // test all possible fields

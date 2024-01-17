@@ -196,10 +196,10 @@ class Project {
 					auto depmap = p.getDependencies(cfg);
 					deps = depmap.byKey.map!(k => PackageDependency(k, depmap[k])).array;
 				}
-				deps.sort!((a, b) => a.name < b.name);
+				deps.sort!((a, b) => a.name.toString() < b.name.toString());
 
 				foreach (d; deps) {
-					auto dependency = getDependency(d.name, true);
+					auto dependency = getDependency(d.name.toString(), true);
 					assert(dependency || d.spec.optional,
 						format("Non-optional dependency '%s' of '%s' not found in dependency tree!?.", d.name, p.name));
 					if(dependency) perform_rec(dependency);
@@ -433,7 +433,8 @@ class Project {
 					? format(`dependency "%s" repository="git+<git url>" version="<commit>"`, d.name)
 					: format(`"%s": {"repository": "git+<git url>", "version": "<commit>"}`, d.name);
 				logWarn("Dependency '%s' depends on git branch '%s', which is deprecated.",
-					d.name.color(Mode.bold), d.spec.version_.toString.color(Mode.bold));
+					d.name.toString().color(Mode.bold),
+					d.spec.version_.toString.color(Mode.bold));
 				logWarnTag("", "Specify the git repository and commit hash in your %s:",
 					(isSDL ? "dub.sdl" : "dub.json").color(Mode.bold));
 				logWarnTag("", "%s", suggestion.color(Mode.bold));
@@ -446,25 +447,25 @@ class Project {
 				~ "and will have no effect.", pack.color(Mode.bold), config.color(Color.blue));
 		}
 
-		void checkSubConfig(string pack, string config) {
-			auto p = getDependency(pack, true);
+		void checkSubConfig(in PackageName name, string config) {
+			auto p = getDependency(name.toString(), true);
 			if (p && !p.configurations.canFind(config)) {
 				logWarn("The sub configuration directive \"%s\" -> [%s] "
 					~ "references a configuration that does not exist.",
-					pack.color(Mode.bold), config.color(Color.red));
+					name.toString().color(Mode.bold), config.color(Color.red));
 			}
 		}
 		auto globalbs = m_rootPackage.getBuildSettings();
 		foreach (p, c; globalbs.subConfigurations) {
 			if (p !in globalbs.dependencies) warnSubConfig(p, c);
-			else checkSubConfig(p, c);
+			else checkSubConfig(PackageName(p), c);
 		}
 		foreach (c; m_rootPackage.configurations) {
 			auto bs = m_rootPackage.getBuildSettings(c);
 			foreach (p, subConf; bs.subConfigurations) {
 				if (p !in bs.dependencies && p !in globalbs.dependencies)
 					warnSubConfig(p, subConf);
-				else checkSubConfig(p, subConf);
+				else checkSubConfig(PackageName(p), subConf);
 			}
 		}
 
@@ -483,14 +484,18 @@ class Project {
 						if (m_selections.hasSelectedVersion(basename)) {
 							auto selver = m_selections.getSelectedVersion(basename);
 							if (d.spec.merge(selver) == Dependency.invalid) {
-								logWarn(`Selected package %s %s does not match the dependency specification %s in package %s. Need to "%s"?`,
-									basename.color(Mode.bold), selver, vers, pack.name.color(Mode.bold), "dub upgrade".color(Mode.bold));
+								logWarn(`Selected package %s@%s does not match ` ~
+								   `the dependency specification %s in ` ~
+								   `package %s. Need to "%s"?`,
+									basename.toString().color(Mode.bold), selver,
+									vers, pack.name.color(Mode.bold),
+									"dub upgrade".color(Mode.bold));
 							}
 						}
 					},
 				);
 
-				auto deppack = getDependency(d.name, true);
+				auto deppack = getDependency(d.name.toString(), true);
 				if (deppack in visited) continue;
 				visited[deppack] = true;
 				if (deppack) validateDependenciesRec(deppack);
@@ -537,15 +542,15 @@ class Project {
 			// need to be satisfied
 			bool is_desired = !vspec.optional || m_selections.hasSelectedVersion(basename) || (vspec.default_ && m_selections.bare);
 
-			if (dep.name == m_rootPackage.basePackage.name) {
+			if (dep.name.toString() == m_rootPackage.basePackage.name) {
 				vspec = Dependency(m_rootPackage.version_);
 				p = m_rootPackage.basePackage;
-			} else if (basename == m_rootPackage.basePackage.name) {
+			} else if (basename.toString() == m_rootPackage.basePackage.name) {
 				vspec = Dependency(m_rootPackage.version_);
 				try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, subname, false);
 				catch (Exception e) {
 					logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
-					if (is_desired) m_missingDependencies ~= dep.name;
+					if (is_desired) m_missingDependencies ~= dep.name.toString();
 					continue;
 				}
 			} else if (m_selections.hasSelectedVersion(basename)) {
@@ -557,17 +562,17 @@ class Project {
 						return resolveSubPackage(tmp, subname, true);
 					},
 					(Repository repo) {
-						auto tmp = m_packageManager.loadSCMPackage(basename, repo);
+						auto tmp = m_packageManager.loadSCMPackage(basename.toString(), repo);
 						return resolveSubPackage(tmp, subname, true);
 					},
 					(VersionRange range) {
 						// See `dub.recipe.selection : SelectedDependency.fromYAML`
 						assert(range.isExactVersion());
-						return m_packageManager.getPackage(dep.name, vspec.version_);
+						return m_packageManager.getPackage(dep.name.toString(), vspec.version_);
 					},
 				);
-			} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
-				auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
+			} else if (m_dependencies.canFind!(d => PackageName(d.name).main == basename)) {
+				auto idx = m_dependencies.countUntil!(d => PackageName(d.name).main == basename);
 				auto bp = m_dependencies[idx].basePackage;
 				vspec = Dependency(bp.path);
 				p = resolveSubPackage(bp, subname, false);
@@ -580,7 +585,7 @@ class Project {
 			if (p is null)
 			{
 				if (!vspec.repository.empty) {
-					p = m_packageManager.loadSCMPackage(basename, vspec.repository);
+					p = m_packageManager.loadSCMPackage(basename.toString(), vspec.repository);
 					resolveSubPackage(p, subname, false);
 					enforce(p !is null,
 						"Unable to fetch '%s@%s' using git - does the repository and version exists?".format(
@@ -595,12 +600,12 @@ class Project {
 						p = p.parentPackage;
 					}
 					p = resolveSubPackage(p, subname, false);
-					enforce(p.name == dep.name,
+					enforce(p.name == dep.name.toString(),
 						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
 							path.toNativeString(), dep.name, p.name));
 				} else {
 					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
-					if (is_desired) m_missingDependencies ~= dep.name;
+					if (is_desired) m_missingDependencies ~= dep.name.toString();
 					continue;
 				}
 			}
@@ -608,7 +613,7 @@ class Project {
 			if (!m_dependencies.canFind(p)) {
 				logDiagnostic("%sFound dependency %s %s", indent, dep.name, vspec.toString());
 				m_dependencies ~= p;
-				if (basename == m_rootPackage.basePackage.name)
+				if (basename.toString() == m_rootPackage.basePackage.name)
 					p.warnOnSpecialCompilerFlags();
 				collectDependenciesRec(p, depth+1);
 			}
@@ -647,7 +652,7 @@ class Project {
 		parents[m_rootPackage.name] = null;
 		foreach (p; getTopologicalPackageList())
 			foreach (d; p.getAllDependencies())
-				parents[d.name] ~= p.name;
+				parents[d.name.toString()] ~= p.name;
 
 		size_t createConfig(string pack, string config) {
 			foreach (i, v; configs)
@@ -721,7 +726,7 @@ class Project {
 		{
 			string[][string] depconfigs;
 			foreach (d; p.getAllDependencies()) {
-				auto dp = getDependency(d.name, true);
+				auto dp = getDependency(d.name.toString(), true);
 				if (!dp) continue;
 
 				string[] cfgs;
@@ -731,7 +736,7 @@ class Project {
 					if (!subconf.empty) cfgs = [subconf];
 					else cfgs = dp.getPlatformConfigurations(platform);
 				}
-				cfgs = cfgs.filter!(c => haveConfig(d.name, c)).array;
+				cfgs = cfgs.filter!(c => haveConfig(d.name.toString(), c)).array;
 
 				// if no valid configuration was found for a dependency, don't include the
 				// current configuration
@@ -739,14 +744,14 @@ class Project {
 					logDebug("Skip %s %s (missing configuration for %s)", p.name, c, dp.name);
 					return;
 				}
-				depconfigs[d.name] = cfgs;
+				depconfigs[d.name.toString()] = cfgs;
 			}
 
 			// add this configuration to the graph
 			size_t cidx = createConfig(p.name, c);
 			foreach (d; p.getAllDependencies())
-				foreach (sc; depconfigs.get(d.name, null))
-					createEdge(cidx, createConfig(d.name, sc));
+				foreach (sc; depconfigs.get(d.name.toString(), null))
+					createEdge(cidx, createConfig(d.name.toString(), sc));
 		}
 
 		// create a graph of all possible package configurations (package, config) -> (sub-package, sub-config)
@@ -759,7 +764,7 @@ class Project {
 
 			// first, add all dependency configurations
 			foreach (d; p.getAllDependencies) {
-				auto dp = getDependency(d.name, true);
+				auto dp = getDependency(d.name.toString(), true);
 				if (!dp) continue;
 				determineAllConfigs(dp);
 			}
@@ -1893,11 +1898,11 @@ public class SelectedVersions {
 	/// Internal implementation of selectVersion
 	private void selectVersionInternal(in PackageName name, in Dependency dep)
 	{
-		if (auto pdep = name.main in m_selections.versions) {
+		if (auto pdep = name.main.toString() in m_selections.versions) {
 			if (*pdep == dep)
 				return;
 		}
-		m_selections.versions[name.main] = dep;
+		m_selections.versions[name.main.toString()] = dep;
 		m_dirty = true;
 	}
 
@@ -1918,7 +1923,7 @@ public class SelectedVersions {
 	/// Ditto
 	void deselectVersion(in PackageName name)
 	{
-		m_selections.versions.remove(name);
+		m_selections.versions.remove(name.main.toString());
 		m_dirty = true;
 	}
 
@@ -1932,7 +1937,7 @@ public class SelectedVersions {
 	/// Ditto
 	bool hasSelectedVersion(in PackageName name) const
 	{
-		return (name.main in m_selections.versions) !is null;
+		return (name.main.toString() in m_selections.versions) !is null;
 	}
 
 	/** Returns the selection for a particular package.
@@ -1953,7 +1958,7 @@ public class SelectedVersions {
 	Dependency getSelectedVersion(in PackageName name) const
 	{
 		enforce(hasSelectedVersion(name));
-		return m_selections.versions[name.main];
+		return m_selections.versions[name.main.toString()];
 	}
 
 	/** Stores the selections to disk.

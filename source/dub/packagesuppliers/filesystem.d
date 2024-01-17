@@ -31,7 +31,7 @@ class FileSystemPackageSupplier : PackageSupplier {
         const zipFileGlob = name.main.toString() ~ "*.zip";
 		foreach (DirEntry d; dirEntries(m_path.toNativeString(), zipFileGlob, SpanMode.shallow)) {
 			NativePath p = NativePath(d.name);
-			auto vers = p.head.name[name.main.length+1..$-4];
+			auto vers = p.head.name[name.main.toString().length+1..$-4];
 			if (!isValidVersion(vers)) {
 				logDebug("Ignoring entry '%s' because it isn't a version of package '%s'", p, name.main);
 				continue;

@@ -26,9 +26,6 @@ public struct PackageName
 	/// Where the separator lies, if any
 	private size_t separator;
 
-	/// For compatibility in `PackageDependency`
-	alias toString this;
-
 	/// Creates a new instance of this struct
 	public this(string fn) @safe pure
 	{

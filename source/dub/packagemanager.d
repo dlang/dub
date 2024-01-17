@@ -432,7 +432,7 @@ class PackageManager {
 		string gitReference = repo.ref_.chompPrefix("~");
 		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
 
-		foreach (p; getPackageIterator(name)) {
+		foreach (p; getPackageIterator(name.toString())) {
 			if (p.path == destination) {
 				return p;
 			}
@@ -1474,7 +1474,8 @@ package struct Location {
 	 */
 	NativePath getPackagePath (in PackageName name, string vers)
 	{
-		NativePath result = this.packagePath ~ name.main ~ vers ~ name.main;
+		NativePath result = this.packagePath ~ name.main.toString() ~ vers ~
+			name.main.toString();
 		result.endsWithSlash = true;
 		return result;
 	}

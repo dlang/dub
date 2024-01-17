@@ -60,7 +60,8 @@ class RegistryPackageSupplier : PackageSupplier {
 		if (best.type != Json.Type.null_)
 		{
 			auto vers = best["version"].get!string;
-			ret = m_registryUrl ~ NativePath(PackagesPath~"/"~name.main~"/"~vers~".zip");
+			ret = m_registryUrl ~ NativePath(
+				"%s/%s/%s.zip".format(PackagesPath, name.main, vers));
 		}
 		return ret;
 	}
@@ -106,7 +107,8 @@ class RegistryPackageSupplier : PackageSupplier {
 		auto url = m_registryUrl ~ NativePath("api/packages/infos");
 
 		url.queryString = "packages=" ~
-				encodeComponent(`["` ~ name.main ~ `"]`) ~ "&include_dependencies=true&minimize=true";
+			encodeComponent(`["` ~ name.main.toString() ~ `"]`) ~
+			"&include_dependencies=true&minimize=true";
 
 		logDebug("Downloading metadata for %s", name.main);
 		string jsonData;
@@ -119,7 +121,7 @@ class RegistryPackageSupplier : PackageSupplier {
 			logDebug("adding %s to metadata cache", pkg);
 			m_metadataCache[PackageName(pkg)] = CacheEntry(info, now);
 		}
-		return json[name.main];
+		return json[name.main.toString()];
 	}
 
 	SearchResult[] searchPackages(string query) {
