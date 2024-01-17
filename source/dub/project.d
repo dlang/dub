@@ -1332,8 +1332,9 @@ class Project {
 	void saveSelections()
 	{
 		assert(m_selections !is null, "Cannot save selections for non-disk based project (has no selections).");
-		if (m_selections.hasSelectedVersion(m_rootPackage.basePackage.name))
-			m_selections.deselectVersion(m_rootPackage.basePackage.name);
+		const name = PackageName(m_rootPackage.basePackage.name);
+		if (m_selections.hasSelectedVersion(name))
+			m_selections.deselectVersion(name);
 
 		auto path = m_rootPackage.path ~ SelectedVersions.defaultFile;
 		if (m_selections.dirty || !existsFile(path))
@@ -1762,11 +1763,16 @@ unittest
 	environment.remove("MY_ENV_VAR");
 }
 
-/** Holds and stores a set of version selections for package dependencies.
-
-	This is the runtime representation of the information contained in
-	"dub.selections.json" within a package's directory.
-*/
+/**
+ * Holds and stores a set of version selections for package dependencies.
+ *
+ * This is the runtime representation of the information contained in
+ * "dub.selections.json" within a package's directory.
+ *
+ * Note that as subpackages share the same version as their main package,
+ * this class will treat any subpackage reference as a reference to its
+ * main package.
+ */
 public class SelectedVersions {
 	protected {
 		enum FileVersion = 1;
@@ -1840,36 +1846,58 @@ public class SelectedVersions {
 	}
 
 	/// Selects a certain version for a specific package.
+	deprecated("Use the overload that accepts a `PackageName`")
 	void selectVersion(string package_id, Version version_)
 	{
-		if (auto pdep = package_id in m_selections.versions) {
-			if (*pdep == Dependency(version_))
-				return;
-		}
-		m_selections.versions[package_id] = Dependency(version_);
-		m_dirty = true;
+		const name = PackageName(package_id);
+		return this.selectVersion(name, version_);
+	}
+
+	/// Ditto
+	void selectVersion(in PackageName name, Version version_)
+	{
+		const dep = Dependency(version_);
+		this.selectVersionInternal(name, dep);
 	}
 
 	/// Selects a certain path for a specific package.
+	deprecated("Use the overload that accepts a `PackageName`")
 	void selectVersion(string package_id, NativePath path)
 	{
-		if (auto pdep = package_id in m_selections.versions) {
-			if (*pdep == Dependency(path))
-				return;
-		}
-		m_selections.versions[package_id] = Dependency(path);
-		m_dirty = true;
+		const name = PackageName(package_id);
+		return this.selectVersion(name, path);
+	}
+
+	/// Ditto
+	void selectVersion(in PackageName name, NativePath path)
+	{
+		const dep = Dependency(path);
+		this.selectVersionInternal(name, dep);
 	}
 
 	/// Selects a certain Git reference for a specific package.
+	deprecated("Use the overload that accepts a `PackageName`")
 	void selectVersion(string package_id, Repository repository)
 	{
-		const dependency = Dependency(repository);
-		if (auto pdep = package_id in m_selections.versions) {
-			if (*pdep == dependency)
+		const name = PackageName(package_id);
+		return this.selectVersion(name, repository);
+	}
+
+	/// Ditto
+	void selectVersion(in PackageName name, Repository repository)
+	{
+		const dep = Dependency(repository);
+		this.selectVersionInternal(name, dep);
+	}
+
+	/// Internal implementation of selectVersion
+	private void selectVersionInternal(in PackageName name, in Dependency dep)
+	{
+		if (auto pdep = name.main in m_selections.versions) {
+			if (*pdep == dep)
 				return;
 		}
-		m_selections.versions[package_id] = dependency;
+		m_selections.versions[name.main] = dep;
 		m_dirty = true;
 	}
 
@@ -1880,16 +1908,31 @@ public class SelectedVersions {
 	}
 
 	/// Removes the selection for a particular package.
+	deprecated("Use the overload that accepts a `PackageName`")
 	void deselectVersion(string package_id)
 	{
-		m_selections.versions.remove(package_id);
+		const n = PackageName(package_id);
+		this.deselectVersion(n);
+	}
+
+	/// Ditto
+	void deselectVersion(in PackageName name)
+	{
+		m_selections.versions.remove(name);
 		m_dirty = true;
 	}
 
 	/// Determines if a particular package has a selection set.
-	bool hasSelectedVersion(string packageId)
-	const {
-		return (packageId in m_selections.versions) !is null;
+	deprecated("Use the overload that accepts a `PackageName`")
+	bool hasSelectedVersion(string packageId) const {
+		const name = PackageName(packageId);
+		return this.hasSelectedVersion(name);
+	}
+
+	/// Ditto
+	bool hasSelectedVersion(in PackageName name) const
+	{
+		return (name.main in m_selections.versions) !is null;
 	}
 
 	/** Returns the selection for a particular package.
@@ -1899,10 +1942,18 @@ public class SelectedVersions {
 		is a path based selection, or its `Dependency.version_` property is
 		valid and it is a version selection.
 	*/
-	Dependency getSelectedVersion(string packageId)
-	const {
-		enforce(hasSelectedVersion(packageId));
-		return m_selections.versions[packageId];
+	deprecated("Use the overload that accepts a `PackageName`")
+	Dependency getSelectedVersion(string packageId) const
+	{
+		const name = PackageName(packageId);
+		return this.getSelectedVersion(name);
+	}
+
+	/// Ditto
+	Dependency getSelectedVersion(in PackageName name) const
+	{
+		enforce(hasSelectedVersion(name));
+		return m_selections.versions[name.main];
 	}
 
 	/** Stores the selections to disk.
