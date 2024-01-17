@@ -639,7 +639,7 @@ class Dub {
 					try if (m_packageManager.getOrLoadPackage(path)) continue;
 					catch (Exception e) { logDebug("Failed to load path based selection: %s", e.toString().sanitize); }
 				} else if (!dep.repository.empty) {
-					if (m_packageManager.loadSCMPackage(name, dep.repository))
+					if (m_packageManager.loadSCMPackage(name.toString(), dep.repository))
 						continue;
 				} else {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
@@ -666,13 +666,13 @@ class Dub {
 
 		if (options & UpgradeOptions.dryRun) {
 			bool any = false;
-			string rootbasename = PackageName(m_project.rootPackage.name).main;
+			string rootbasename = PackageName(m_project.rootPackage.name).main.toString();
 
 			foreach (p, ver; versions) {
 				if (!ver.path.empty || !ver.repository.empty) continue;
 
 				auto basename = PackageName(p).main;
-				if (basename == rootbasename) continue;
+				if (basename.toString() == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
 					logInfo("Upgrade", Color.cyan,
@@ -685,7 +685,7 @@ class Dub {
 				if (ver.version_ <= sver.version_) continue;
 				logInfo("Upgrade", Color.cyan,
 					"%s would be upgraded from %s to %s.",
-					basename.color(Mode.bold), sver, ver);
+					basename.toString().color(Mode.bold), sver, ver);
 				any = true;
 			}
 			if (any) logInfo("Use \"%s\" to perform those changes", "dub upgrade".color(Mode.bold));
@@ -703,7 +703,7 @@ class Dub {
 					continue;
 				}
 			} else if (!ver.repository.empty) {
-				pack = m_packageManager.loadSCMPackage(name, ver.repository);
+				pack = m_packageManager.loadSCMPackage(name.toString(), ver.repository);
 			} else {
 				assert(ver.isExactVersion, "Resolved dependency is neither path, nor repository, nor exact version based!?");
 				pack = m_packageManager.getPackage(p, ver.version_);
@@ -797,7 +797,7 @@ class Dub {
 
 		auto tool = PackageName("dscanner");
 
-		auto tool_pack = m_packageManager.getBestPackage(tool);
+		auto tool_pack = m_packageManager.getBestPackage(tool.toString());
 		if (!tool_pack) {
 			logInfo("Hint", Color.light_blue, "%s is not present, getting and storing it locally", tool);
 			tool_pack = this.fetch(tool);
@@ -904,7 +904,7 @@ class Dub {
 	Package fetch(string name, in Version vers, PlacementLocation location, FetchOptions options, string reason = "")
 	{
 		const n = PackageName(name);
-		return this.fetch(n, VersionRange(vers, vers), location, options, reason);
+		return this.fetch(n, VersionRange(vers, vers), options, location, reason);
 	}
 
 	deprecated("Use `fetch(PackageName, VersionRange, [FetchOptions, PlacementLocation, string])`")
@@ -973,7 +973,7 @@ class Dub {
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.fetchPackageRecipe(basePackageName, range, (options & FetchOptions.usePrerelease) != 0);
+				pinfo = ps.fetchPackageRecipe(name.main, range, (options & FetchOptions.usePrerelease) != 0);
 				if (pinfo.type == Json.Type.null_)
 					continue;
 				supplier = ps;
@@ -989,7 +989,7 @@ class Dub {
 		Version ver = Version(pinfo["version"].get!string);
 
 		// always upgrade branch based versions - TODO: actually check if there is a new commit available
-		Package existing = m_packageManager.getPackage(name, ver, location);
+		Package existing = m_packageManager.getPackage(name.toString(), ver, location);
 		if (options & FetchOptions.printOnly) {
 			if (existing && existing.version_ != ver)
 				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
@@ -1023,13 +1023,13 @@ class Dub {
 		{
 			import std.zip : ZipException;
 
-			auto path = getTempFile(basePackageName, ".zip");
-			supplier.fetchPackage(path, basePackageName, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			auto path = getTempFile(basePackageName.toString(), ".zip");
+			supplier.fetchPackage(path, name.main, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) removeFile(path);
 			logDiagnostic("Placing to %s...", location.toString());
 
 			try {
-				return m_packageManager.store(path, location, basePackageName, ver);
+				return m_packageManager.store(path, location, name.main.toString(), ver);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s@%s...", name, ver);
 				// re-throw the exception at the end of the loop
@@ -1471,7 +1471,7 @@ class Dub {
 			? PackageName("ddox")
 			: PackageName(m_project.rootPackage.recipe.ddoxTool);
 
-		auto tool_pack = m_packageManager.getBestPackage(tool);
+		auto tool_pack = m_packageManager.getBestPackage(tool.toString());
 		if (!tool_pack) {
 			logInfo("%s is not present, getting and storing it user wide", tool);
 			tool_pack = this.fetch(tool);
@@ -1847,18 +1847,18 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		auto basepack = pack.basePackage;
 
 		foreach (d; pack.getAllDependenciesRange()) {
-			auto dbasename = PackageName(d.name).main;
+			auto dbasename = d.name.main.toString();
 
 			// detect dependencies to the root package (or sub packages thereof)
 			if (dbasename == basepack.name) {
 				auto absdeppath = d.spec.mapToPath(pack.path).path;
 				absdeppath.endsWithSlash = true;
-				auto subpack = m_dub.m_packageManager.getSubPackage(basepack, PackageName(d.name).sub, true);
+				auto subpack = m_dub.m_packageManager.getSubPackage(basepack, d.name.sub, true);
 				if (subpack) {
 					auto desireddeppath = basepack.path;
 					desireddeppath.endsWithSlash = true;
 
-					auto altdeppath = d.name == dbasename ? basepack.path : subpack.path;
+					auto altdeppath = d.name == d.name.main ? basepack.path : subpack.path;
 					altdeppath.endsWithSlash = true;
 
 					if (!d.spec.path.empty && absdeppath != desireddeppath)
@@ -1869,7 +1869,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 						format("Dependency from %s to %s uses wrong path: %s vs. %s",
 							node.pack, subpack.name, absdeppath.toNativeString(), desireddeppath.toNativeString()));
 				}
-				ret ~= TreeNodes(d.name, node.config);
+				ret ~= TreeNodes(d.name.toString(), node.config);
 				continue;
 			}
 
@@ -1882,18 +1882,18 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			Dependency dspec = d.spec.mapToPath(pack.path);
 
 			// if not upgrading, use the selected version
-			if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(dbasename))
-				dspec = m_selectedVersions.getSelectedVersion(dbasename);
+			if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(d.name.main))
+				dspec = m_selectedVersions.getSelectedVersion(d.name.main);
 
 			// keep selected optional dependencies and avoid non-selected optional-default dependencies by default
 			if (!m_selectedVersions.bare) {
-				if (dt == DependencyType.optionalDefault && !m_selectedVersions.hasSelectedVersion(dbasename))
+				if (dt == DependencyType.optionalDefault && !m_selectedVersions.hasSelectedVersion(d.name.main))
 					dt = DependencyType.optional;
-				else if (dt == DependencyType.optional && m_selectedVersions.hasSelectedVersion(dbasename))
+				else if (dt == DependencyType.optional && m_selectedVersions.hasSelectedVersion(d.name.main))
 					dt = DependencyType.optionalDefault;
 			}
 
-			ret ~= TreeNodes(d.name, dspec, dt);
+			ret ~= TreeNodes(d.name.toString(), dspec, dt);
 		}
 		return ret.data;
 	}
@@ -1930,11 +1930,11 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		}
 
 		// shortcut if the referenced package is the root package
-		if (name.main == m_rootPackage.basePackage.name)
+		if (name.main.toString() == m_rootPackage.basePackage.name)
 			return m_rootPackage.basePackage;
 
 		if (!dep.repository.empty) {
-			auto ret = m_dub.packageManager.loadSCMPackage(name, dep.repository);
+			auto ret = m_dub.packageManager.loadSCMPackage(name.toString(), dep.repository);
 			return ret !is null && dep.matches(ret.version_) ? ret : null;
 		}
 		if (!dep.path.empty) {
@@ -1948,10 +1948,10 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		}
 		const vers = dep.version_;
 
-		if (auto ret = m_dub.m_packageManager.getBestPackage(name, vers))
+		if (auto ret = m_dub.m_packageManager.getBestPackage(name.toString(), vers))
 			return ret;
 
-		auto key = name ~ ":" ~ vers.toString();
+		auto key = name.toString() ~ ":" ~ vers.toString();
 		if (auto ret = key in m_remotePackages)
 			return *ret;
 
@@ -1978,7 +1978,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
 					m_dub.fetch(name.main, vers, fetchOpts, m_dub.defaultPlacementLocation, "need sub package description");
-					auto ret = m_dub.m_packageManager.getBestPackage(name, vers);
+					auto ret = m_dub.m_packageManager.getBestPackage(name.toString(), vers);
 					if (!ret) {
 						logWarn("Package %s %s doesn't have a sub package %s", name.main, dep, name);
 						return null;

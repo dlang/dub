@@ -1559,7 +1559,7 @@ class BuildCommand : GenerateCommand {
 
 		const baseName = PackageName(packageParts.name).main;
 		// Found locally
-		if (dub.packageManager.getBestPackage(baseName, packageParts.range))
+		if (dub.packageManager.getBestPackage(baseName.toString(), packageParts.range))
 			return 0;
 
 		// Non-interactive, either via flag, or because a version was provided
@@ -1569,8 +1569,8 @@ class BuildCommand : GenerateCommand {
 		}
 		// Otherwise we go the long way of asking the user.
 		// search for the package and filter versions for exact matches
-		auto search = dub.searchPackages(baseName)
-			.map!(tup => tup[1].find!(p => p.name == baseName))
+		auto search = dub.searchPackages(baseName.toString())
+			.map!(tup => tup[1].find!(p => p.name == baseName.toString()))
 			.filter!(ps => !ps.empty);
 		if (search.empty) {
 			logWarn("Package '%s' was neither found locally nor online.", packageParts);
@@ -3133,7 +3133,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 	}
 	else
 		dep = Dependency(parts.range);
-	recipe.buildSettings.dependencies[depname] = dep;
+	recipe.buildSettings.dependencies[depname.toString()] = dep;
 	logInfo("Adding dependency %s %s", depname, dep.toString());
 	return true;
 }

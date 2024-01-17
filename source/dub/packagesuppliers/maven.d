@@ -106,12 +106,18 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 			else throw e;
 		}
 
-		auto json = Json(["name": Json(name.main), "versions": Json.emptyArray]);
+		auto json = Json([
+			"name": Json(name.main.toString()),
+			"versions": Json.emptyArray
+		]);
 		auto xml = new DocumentParser(xmlData);
 
 		xml.onStartTag["versions"] = (ElementParser xml) {
 			 xml.onEndTag["version"] = (in Element e) {
-				json["versions"] ~= serializeToJson(["name": name.main, "version": e.text]);
+				json["versions"] ~= serializeToJson([
+					"name": name.main.toString(),
+					"version": e.text,
+				]);
 			 };
 			 xml.parse();
 		};
