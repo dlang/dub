@@ -703,7 +703,7 @@ class Dub {
 					continue;
 				}
 			} else if (!ver.repository.empty) {
-				pack = m_packageManager.loadSCMPackage(p, ver.repository);
+				pack = m_packageManager.loadSCMPackage(name, ver.repository);
 			} else {
 				assert(ver.isExactVersion, "Resolved dependency is neither path, nor repository, nor exact version based!?");
 				pack = m_packageManager.getPackage(p, ver.version_);
