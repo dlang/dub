@@ -645,7 +645,7 @@ class Dub {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
 					foreach (ps; m_packageSuppliers) {
 						try {
-							auto versions = ps.getVersions(p);
+							auto versions = ps.getVersions(name);
 							if (versions.canFind!(v => dep.matches(v, VersionMatchMode.strict)))
 								continue next_pack;
 						} catch (Exception e) {
@@ -1290,17 +1290,23 @@ class Dub {
 
 		See_also: `getLatestVersion`
 	*/
-	Version[] listPackageVersions(string name)
+	Version[] listPackageVersions(in PackageName name)
 	{
 		Version[] versions;
-		auto basePackageName = PackageName(name).main;
 		foreach (ps; this.m_packageSuppliers) {
-			try versions ~= ps.getVersions(basePackageName);
+			try versions ~= ps.getVersions(name);
 			catch (Exception e) {
 				logWarn("Failed to get versions for package %s on provider %s: %s", name, ps.description, e.msg);
 			}
 		}
 		return versions.sort().uniq.array;
+	}
+
+	deprecated("Use `listPackageVersions(PackageName)`")
+	Version[] listPackageVersions(string name)
+	{
+		const n = PackageName(name);
+		return this.listPackageVersions(n);
 	}
 
 	/** Returns the latest available version for a particular package.
@@ -1310,19 +1316,28 @@ class Dub {
 		preferring "~master".
 
 		Params:
-			package_name = The name of the package in question.
+			name = The name of the package in question.
 			prefer_stable = If set to `true` (the default), returns the latest
 				stable version, even if there are newer pre-release versions.
 
 		See_also: `listPackageVersions`
 	*/
-	Version getLatestVersion(string package_name, bool prefer_stable = true)
+	Version getLatestVersion(in PackageName name, bool prefer_stable = true)
 	{
-		auto vers = listPackageVersions(package_name);
-		enforce(!vers.empty, "Failed to find any valid versions for a package name of '"~package_name~"'.");
+		auto vers = this.listPackageVersions(name);
+		enforce(!vers.empty,
+			"Failed to find any valid versions for a package name of '%s'."
+			.format(name));
 		auto final_versions = vers.filter!(v => !v.isBranch && !v.isPreRelease).array;
 		if (prefer_stable && final_versions.length) return final_versions[$-1];
 		else return vers[$-1];
+	}
+
+	deprecated("Use `getLatestVersion(PackageName, bool)`")
+	Version getLatestVersion(string name, bool prefer_stable = true)
+	{
+		const n = PackageName(name);
+		return this.getLatestVersion(n, prefer_stable);
 	}
 
 	/** Initializes a directory with a package skeleton.
@@ -1348,8 +1363,9 @@ class Dub {
 		VersionRange[string] depVers;
 		string[] notFound; // keep track of any failed packages in here
 		foreach (dep; deps) {
+			const name = PackageName(dep);
 			try {
-				Version ver = getLatestVersion(dep);
+				Version ver = this.getLatestVersion(name);
 				if (ver.isBranch())
 					depVers[dep] = VersionRange(ver);
 				else
@@ -1762,7 +1778,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 		foreach (ps; m_dub.m_packageSuppliers) {
 			try {
-				auto vers = ps.getVersions(pack);
+				auto vers = ps.getVersions(name);
 				vers.reverse();
 				if (!vers.length) {
 					logDiagnostic("No versions for %s for %s", pack, ps.description);

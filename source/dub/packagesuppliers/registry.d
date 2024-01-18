@@ -22,7 +22,7 @@ class RegistryPackageSupplier : PackageSupplier {
 	private {
 		URL m_registryUrl;
 		struct CacheEntry { Json data; SysTime cacheTime; }
-		CacheEntry[string] m_metadataCache;
+		CacheEntry[PackageName] m_metadataCache;
 		Duration m_maxCacheTime;
 	}
 
@@ -34,10 +34,10 @@ class RegistryPackageSupplier : PackageSupplier {
 
 	override @property string description() { return "registry at "~m_registryUrl.toString(); }
 
-	Version[] getVersions(string package_id)
+	override Version[] getVersions(in PackageName name)
 	{
 		import std.algorithm.sorting : sort;
-		auto md = getMetadata(package_id);
+		auto md = getMetadata(name);
 		if (md.type == Json.Type.null_)
 			return null;
 		Version[] ret;
@@ -49,26 +49,28 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	auto genPackageDownloadUrl(string packageId, in VersionRange dep, bool pre_release)
+	auto genPackageDownloadUrl(in PackageName name, in VersionRange dep, bool pre_release)
 	{
 		import std.array : replace;
 		import std.format : format;
 		import std.typecons : Nullable;
-		auto md = getMetadata(packageId);
-		Json best = getBestPackage(md, packageId, dep, pre_release);
+		auto md = getMetadata(name);
+		Json best = getBestPackage(md, name, dep, pre_release);
 		Nullable!URL ret;
 		if (best.type != Json.Type.null_)
 		{
 			auto vers = best["version"].get!string;
-			ret = m_registryUrl ~ NativePath(PackagesPath~"/"~packageId~"/"~vers~".zip");
+			ret = m_registryUrl ~ NativePath(PackagesPath~"/"~name.main~"/"~vers~".zip");
 		}
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, in VersionRange dep, bool pre_release)
+	override void fetchPackage(in NativePath path, in PackageName name,
+		in VersionRange dep, bool pre_release)
 	{
 		import std.format : format;
-		auto url = genPackageDownloadUrl(packageId, dep, pre_release);
+
+		auto url = genPackageDownloadUrl(name, dep, pre_release);
 		if(url.isNull)
 			return;
 		try {
@@ -77,35 +79,36 @@ class RegistryPackageSupplier : PackageSupplier {
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;
-			else logDebug("Failed to download package %s from %s", packageId, url);
+			else logDebug("Failed to download package %s from %s", name.main, url);
 		}
 		catch(Exception e) {
-			logDebug("Failed to download package %s from %s", packageId, url);
+			logDebug("Failed to download package %s from %s", name.main, url);
 		}
-		throw new Exception("Failed to download package %s from %s".format(packageId, url));
+		throw new Exception("Failed to download package %s from %s".format(name.main, url));
 	}
 
-	Json fetchPackageRecipe(string packageId, in VersionRange dep, bool pre_release)
+	override Json fetchPackageRecipe(in PackageName name, in VersionRange dep,
+		bool pre_release)
 	{
-		auto md = getMetadata(packageId);
-		return getBestPackage(md, packageId, dep, pre_release);
+		auto md = getMetadata(name);
+		return getBestPackage(md, name, dep, pre_release);
 	}
 
-	private Json getMetadata(string packageId)
+	private Json getMetadata(in PackageName name)
 	{
 		auto now = Clock.currTime(UTC());
-		if (auto pentry = packageId in m_metadataCache) {
+		if (auto pentry = name.main in m_metadataCache) {
 			if (pentry.cacheTime + m_maxCacheTime > now)
 				return pentry.data;
-			m_metadataCache.remove(packageId);
+			m_metadataCache.remove(name.main);
 		}
 
 		auto url = m_registryUrl ~ NativePath("api/packages/infos");
 
 		url.queryString = "packages=" ~
-				encodeComponent(`["` ~ packageId ~ `"]`) ~ "&include_dependencies=true&minimize=true";
+				encodeComponent(`["` ~ name.main ~ `"]`) ~ "&include_dependencies=true&minimize=true";
 
-		logDebug("Downloading metadata for %s", packageId);
+		logDebug("Downloading metadata for %s", name.main);
 		string jsonData;
 
 		jsonData = cast(string)retryDownload(url);
@@ -114,9 +117,9 @@ class RegistryPackageSupplier : PackageSupplier {
 		foreach (pkg, info; json.get!(Json[string]))
 		{
 			logDebug("adding %s to metadata cache", pkg);
-			m_metadataCache[pkg] = CacheEntry(info, now);
+			m_metadataCache[PackageName(pkg)] = CacheEntry(info, now);
 		}
-		return json[packageId];
+		return json[name.main];
 	}
 
 	SearchResult[] searchPackages(string query) {
