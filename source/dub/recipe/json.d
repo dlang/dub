@@ -43,7 +43,7 @@ void parseJson(ref PackageRecipe recipe, Json json, in PackageName parent = Pack
 			case "buildTypes":
 				foreach (string name, settings; value) {
 					BuildSettingsTemplate bs;
-					bs.parseJson(settings, null);
+					bs.parseJson(settings, PackageName.init);
 					recipe.buildTypes[name] = bs;
 				}
 				break;
@@ -57,8 +57,8 @@ void parseJson(ref PackageRecipe recipe, Json json, in PackageName parent = Pack
 
 	enforce(recipe.name.length > 0, "The package \"name\" field is missing or empty.");
 
-	auto fullname = parent.length
-		? PackageName(parent ~ ":" ~ recipe.name)
+	const fullname = parent.toString().length
+		? PackageName(parent.toString() ~ ":" ~ recipe.name)
 		: PackageName(recipe.name);
 
 	// parse build settings
@@ -67,7 +67,7 @@ void parseJson(ref PackageRecipe recipe, Json json, in PackageName parent = Pack
 	if (auto pv = "configurations" in json) {
 		foreach (settings; *pv) {
 			ConfigurationInfo ci;
-			ci.parseJson(settings, recipe.name);
+			ci.parseJson(settings, fullname);
 			recipe.configurations ~= ci;
 		}
 	}
@@ -137,7 +137,7 @@ private void parseSubPackages(ref PackageRecipe recipe, in PackageName parent, J
 	}
 }
 
-private void parseJson(ref ConfigurationInfo config, Json json, string package_name)
+private void parseJson(ref ConfigurationInfo config, Json json, in PackageName pname)
 {
 	foreach (string name, value; json) {
 		switch (name) {
@@ -151,7 +151,7 @@ private void parseJson(ref ConfigurationInfo config, Json json, string package_n
 	}
 
 	enforce(!config.name.empty, "Configuration is missing a name.");
-	config.buildSettings.parseJson(json, package_name);
+	config.buildSettings.parseJson(json, pname);
 }
 
 private Json toJson(const scope ref ConfigurationInfo config)
@@ -162,7 +162,7 @@ private Json toJson(const scope ref ConfigurationInfo config)
 	return ret;
 }
 
-private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_name)
+private void parseJson(ref BuildSettingsTemplate bs, Json json, in PackageName pname)
 {
 	foreach(string name, value; json)
 	{
@@ -175,13 +175,15 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "dependencies":
 				foreach (string pkg, verspec; value) {
 					if (pkg.startsWith(":")) {
-						enforce(!package_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", package_name, pkg));
-						pkg = package_name ~ pkg;
+						enforce(!pname.sub.length,
+							"Short-hand packages syntax not allowed within " ~
+							"sub packages: %s -> %s".format(pname, pkg));
+						pkg = pname.toString() ~ pkg;
 					}
 					enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 					bs.dependencies[pkg] = Dependency.fromJson(verspec);
 					if (verspec.type == Json.Type.object)
-						bs.dependencies[pkg].settings.parseJson(verspec, package_name);
+						bs.dependencies[pkg].settings.parseJson(verspec, pname);
 				}
 				break;
 			case "systemDependencies":
