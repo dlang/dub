@@ -281,6 +281,9 @@ package class TestPackageManager : PackageManager
         super(local, user, system, false);
     }
 
+    // Re-introduce hidden/deprecated overloads
+    public alias loadSCMPackage = PackageManager.loadSCMPackage;
+
     /// Disabled as semantic are not implementable unless a virtual FS is created
 	public override @property void customCachePaths(NativePath[] custom_cache_paths)
     {
@@ -326,7 +329,7 @@ package class TestPackageManager : PackageManager
 	 * Instead, we allow unittests to explicitly define what packages should be
 	 * reachable in a given test.
 	 */
-	public override Package loadSCMPackage(string name, Repository repo)
+	public override Package loadSCMPackage(in PackageName name, in Repository repo)
 	{
         import std.string : chompPrefix;
 
@@ -334,11 +337,10 @@ package class TestPackageManager : PackageManager
 		if (!repo.ref_.startsWith("~") && !repo.ref_.isGitHash)
 			return null;
 
-		const name_ = PackageName(name);
 		string gitReference = repo.ref_.chompPrefix("~");
-		NativePath destination = this.getPackagePath(PlacementLocation.user, name_, repo.ref_);
+		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
 
-		foreach (p; getPackageIterator(name))
+		foreach (p; getPackageIterator(name.toString()))
 			if (p.path == destination)
 				return p;
 
@@ -346,7 +348,7 @@ package class TestPackageManager : PackageManager
 	}
 
 	/// The private part of `loadSCMPackage`
-	protected Package loadSCMRepository(string name, Repository repo)
+	protected Package loadSCMRepository(in PackageName name, in Repository repo)
 	{
 		if (auto prepo = repo in this.scm) {
             this.add(*prepo);
