@@ -1914,7 +1914,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return p;
 	}
 
-	private Package getPackageRaw(PackageName name, Dependency dep)
+	private Package getPackageRaw(in PackageName name, Dependency dep)
 	{
 		import dub.recipe.json;
 
