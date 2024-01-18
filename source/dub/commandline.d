@@ -2783,11 +2783,10 @@ class DustmiteCommand : PackageBuildCommand {
 				}
 			}
 
-			static void fixPathDependency(string pack, ref Dependency dep) {
+			static void fixPathDependency(in PackageName name, ref Dependency dep) {
 				dep.visit!(
 					(NativePath path) {
-						auto mainpack = PackageName(pack).main;
-						dep = Dependency(NativePath("../") ~ mainpack);
+						dep = Dependency(NativePath("../") ~ name.main.toString());
 					},
 					(any) { /* Nothing to do */ },
 				);
@@ -2796,11 +2795,11 @@ class DustmiteCommand : PackageBuildCommand {
 			void fixPathDependencies(ref PackageRecipe recipe, NativePath base_path)
 			{
 				foreach (name, ref dep; recipe.buildSettings.dependencies)
-					fixPathDependency(name, dep);
+					fixPathDependency(PackageName(name), dep);
 
 				foreach (ref cfg; recipe.configurations)
 					foreach (name, ref dep; cfg.buildSettings.dependencies)
-						fixPathDependency(name, dep);
+						fixPathDependency(PackageName(name), dep);
 
 				foreach (ref subp; recipe.subPackages)
 					if (subp.path.length) {
