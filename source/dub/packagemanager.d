@@ -188,7 +188,7 @@ class PackageManager {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	protected Package lookup (PackageName name, Version vers) {
+	protected Package lookup (in PackageName name, in Version vers) {
 		if (!this.m_initialized)
 			this.refresh();
 
@@ -1403,14 +1403,15 @@ package struct Location {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	inout(Package) lookup(string name, Version ver) inout {
+	inout(Package) lookup(in PackageName name, in Version ver) inout {
 		foreach (pkg; this.localPackages)
-			if (pkg.name == name && pkg.version_.matches(ver, VersionMatchMode.standard))
+			if (pkg.name == name.toString() &&
+				pkg.version_.matches(ver, VersionMatchMode.standard))
 				return pkg;
 		foreach (pkg; this.fromPath) {
 			auto pvm = this.isManaged(pkg.basePackage.path) ?
 				VersionMatchMode.strict : VersionMatchMode.standard;
-			if (pkg.name == name && pkg.version_.matches(ver, pvm))
+			if (pkg.name == name.toString() && pkg.version_.matches(ver, pvm))
 				return pkg;
 		}
 		return null;
