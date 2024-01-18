@@ -562,7 +562,7 @@ class Project {
 						return resolveSubPackage(tmp, subname, true);
 					},
 					(Repository repo) {
-						auto tmp = m_packageManager.loadSCMPackage(basename.toString(), repo);
+						auto tmp = m_packageManager.loadSCMPackage(basename, repo);
 						return resolveSubPackage(tmp, subname, true);
 					},
 					(VersionRange range) {
@@ -585,7 +585,7 @@ class Project {
 			if (p is null)
 			{
 				if (!vspec.repository.empty) {
-					p = m_packageManager.loadSCMPackage(basename.toString(), vspec.repository);
+					p = m_packageManager.loadSCMPackage(basename, vspec.repository);
 					resolveSubPackage(p, subname, false);
 					enforce(p !is null,
 						"Unable to fetch '%s@%s' using git - does the repository and version exists?".format(

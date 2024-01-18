@@ -639,7 +639,7 @@ class Dub {
 					try if (m_packageManager.getOrLoadPackage(path)) continue;
 					catch (Exception e) { logDebug("Failed to load path based selection: %s", e.toString().sanitize); }
 				} else if (!dep.repository.empty) {
-					if (m_packageManager.loadSCMPackage(name.toString(), dep.repository))
+					if (m_packageManager.loadSCMPackage(name, dep.repository))
 						continue;
 				} else {
 					if (m_packageManager.getPackage(p, dep.version_)) continue;
@@ -703,7 +703,7 @@ class Dub {
 					continue;
 				}
 			} else if (!ver.repository.empty) {
-				pack = m_packageManager.loadSCMPackage(name.toString(), ver.repository);
+				pack = m_packageManager.loadSCMPackage(name, ver.repository);
 			} else {
 				assert(ver.isExactVersion, "Resolved dependency is neither path, nor repository, nor exact version based!?");
 				pack = m_packageManager.getPackage(p, ver.version_);
@@ -1934,7 +1934,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			return m_rootPackage.basePackage;
 
 		if (!dep.repository.empty) {
-			auto ret = m_dub.packageManager.loadSCMPackage(name.toString(), dep.repository);
+			auto ret = m_dub.packageManager.loadSCMPackage(name, dep.repository);
 			return ret !is null && dep.matches(ret.version_) ? ret : null;
 		}
 		if (!dep.path.empty) {

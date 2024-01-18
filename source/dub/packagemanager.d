@@ -398,27 +398,31 @@ class PackageManager {
 			The package loaded from the given SCM repository or null if the
 			package couldn't be loaded.
 	*/
-	deprecated("Use the overload that accepts a `dub.dependency : Repository`")
-	Package loadSCMPackage(string name, Dependency dependency)
-	in { assert(!dependency.repository.empty); }
-	do { return this.loadSCMPackage(name, dependency.repository); }
-
-	/// Ditto
-	Package loadSCMPackage(string name, Repository repo)
+	Package loadSCMPackage(in PackageName name, in Repository repo)
 	in { assert(!repo.empty); }
 	do {
 		Package pack;
-		const name_ = PackageName(name);
 
 		final switch (repo.kind)
 		{
 			case repo.Kind.git:
-				pack = loadGitPackage(name_, repo);
+				pack = loadGitPackage(name, repo);
 		}
 		if (pack !is null) {
 			addPackages(this.m_internal.fromPath, pack);
 		}
 		return pack;
+	}
+
+	deprecated("Use the overload that accepts a `dub.dependency : Repository`")
+	Package loadSCMPackage(string name, Dependency dependency)
+	in { assert(!dependency.repository.empty); }
+	do { return this.loadSCMPackage(name, dependency.repository); }
+
+	deprecated("Use `loadSCMPackage(PackageName, Repository)`")
+	Package loadSCMPackage(string name, Repository repo)
+	{
+		return this.loadSCMPackage(PackageName(name), repo);
 	}
 
 	private Package loadGitPackage(in PackageName name, in Repository repo)
