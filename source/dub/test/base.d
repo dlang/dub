@@ -51,6 +51,7 @@ version (unittest):
 
 import std.array;
 public import std.algorithm;
+import std.format;
 
 import dub.data.settings;
 public import dub.dependency;
@@ -385,7 +386,7 @@ package class TestPackageManager : PackageManager
 public class MockPackageSupplier : PackageSupplier
 {
     /// Mapping of package name to packages, ordered by `Version`
-    protected Package[][string] pkgs;
+    protected Package[][PackageName] pkgs;
 
     /// URL this was instantiated with
     protected string url;
@@ -403,27 +404,28 @@ public class MockPackageSupplier : PackageSupplier
     }
 
     ///
-    public override Version[] getVersions(string package_id)
+    public override Version[] getVersions(in PackageName name)
     {
-        if (auto ppkgs = package_id in this.pkgs)
+        if (auto ppkgs = name.main in this.pkgs)
             return (*ppkgs).map!(pkg => pkg.version_).array;
         return null;
     }
 
     ///
-    public override void fetchPackage(
-        NativePath path, string package_id, in VersionRange dep, bool pre_release)
+    public override void fetchPackage(in NativePath path, in PackageName name,
+        in VersionRange dep, bool pre_release)
     {
-        assert(0, this.url ~ " - fetchPackage not implemented for: " ~ package_id);
+        assert(0, "%s - fetchPackage not implemented for: %s"
+            .format(this.url, name.main));
     }
 
     ///
-    public override Json fetchPackageRecipe(
-        string package_id, in VersionRange dep, bool pre_release)
+    public override Json fetchPackageRecipe(in PackageName name,
+        in VersionRange dep, bool pre_release)
     {
         import dub.recipe.json;
 
-        if (auto ppkgs = package_id in this.pkgs)
+        if (auto ppkgs = name.main in this.pkgs)
             foreach_reverse (pkg; *ppkgs)
                 if ((!pkg.version_.isPreRelease || pre_release) &&
                     dep.matches(pkg.version_))

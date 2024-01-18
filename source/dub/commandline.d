@@ -3119,7 +3119,7 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 {
 	Dependency dep;
 	const parts = UserPackageDesc.fromString(depspec);
-	const depname = parts.name;
+	const depname = PackageName(parts.name);
 	if (parts.range == VersionRange.Any)
 	{
 		try {
