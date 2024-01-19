@@ -134,9 +134,9 @@ version "1.2.0"`, PackageFormat.sdl);
         // This is required
         pkg.writeFile(NativePath(`dub.sdl`), `name "b"`);
         // Any other files can be present, as a normal package
-        pkg.mkdir(NativePath("source/b/"));
-        pkg.writeFile(
-            NativePath("main.d"), "module b.main; void main() {}");
+        const pkgDir = NativePath("source/") ~ NativePath("b/");
+        pkg.mkdir(pkgDir);
+        pkg.writeFile(pkgDir ~ NativePath("main.d"), "module b.main; void main() {}");
     });
     // Fetch the package from the registry
     dub.upgrade(UpgradeOptions.select | UpgradeOptions.upgrade);
@@ -482,7 +482,7 @@ public class MockPackageSupplier : PackageSupplier
         pkgRecipe.version_ = vers.toString();
         const name = PackageName(pkgRecipe.name);
         this.pkgs[name][vers] = PkgData(
-            pkgRecipe, pkgRoot.serializeToZip("%s-%s/".format(name, vers)));
+            pkgRecipe, pkgRoot.serializeToZip(PosixPath("%s-%s/".format(name, vers))));
     }
 
     ///
