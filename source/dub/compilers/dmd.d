@@ -257,7 +257,7 @@ config    /etc/dmd.conf
 		}
 
 		if (!(fields & BuildSetting.cImportPaths)) {
-			settings.addDFlags(settings.cImportPaths.map!(s => "-I"~s)().array());
+			settings.addDFlags(settings.cImportPaths.map!(s => "-P-I"~s)().array());
 			settings.cImportPaths = null;
 		}
 
