@@ -364,6 +364,8 @@ public class FSEntry
     /// Creates a new FSEntry
     package(dub) this (FSEntry p, Type t, string n)
     {
+        assert(n.length);
+
         // Avoid 'DOS File Times cannot hold dates prior to 1980.' exception
         import std.datetime.date;
         SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
