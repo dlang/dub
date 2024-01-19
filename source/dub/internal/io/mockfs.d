@@ -74,10 +74,7 @@ public final class MockFS : Filesystem {
         import std.algorithm.iteration : reduce;
 
         const abs = path.absolute();
-        auto segments = path.bySegment;
-        // `library-nonet` (using vibe.d) has an empty front for absolute path,
-        // while our built-in module (in vibecompat) does not.
-        if (abs && segments.front.name.length == 0) segments.popFront();
+        auto segments = this.adaptPath(path);
         reduce!((FSEntry dir, segment) => dir.mkdir(segment.name))(
             (abs ? this.root : this.cwd), segments);
     }
@@ -242,15 +239,25 @@ public final class MockFS : Filesystem {
 
     /**
      * Converts an `Filesystem` and its children to a `ZipFile`
+     *
+     * Because a Zip file always contains a POSIX filesystem, this takes
+     * the root path as PosixPath and uses it through the whole function.
      */
-    public ubyte[] serializeToZip (string rootPath) {
+    public ubyte[] serializeToZip (PosixPath rootPath) {
         import std.path;
         import std.zip;
 
         scope z = new ZipArchive();
-        void addToZip(scope string dir, scope FSEntry e) {
+        void addToZip(scope PosixPath dir, scope FSEntry e) {
+            if (e is this.root) {
+                foreach (c; e.children)
+                    addToZip(rootPath, c);
+                return;
+            }
+
             auto m = new ArchiveMember();
-            m.name = dir.buildPath(e.name);
+            const archivePath = dir ~ PosixPath(e.name);
+            m.name = archivePath.toString();
             m.fileAttributes = e.attributes.attrs;
             m.time = e.attributes.modification;
 
@@ -262,7 +269,7 @@ public final class MockFS : Filesystem {
                     m.name ~= '/';
                 z.addMember(m);
                 foreach (c; e.children)
-                    addToZip(m.name, c);
+                    addToZip(archivePath, c);
                 break;
             case FSEntry.Type.File:
                 m.expandedData = e.content;
@@ -307,15 +314,30 @@ public final class MockFS : Filesystem {
         import std.algorithm.iteration : reduce;
 
         const abs = path.absolute();
-        auto segments = path.bySegment;
-        // `library-nonet` (using vibe.d) has an empty front for absolute path,
-        // while our built-in module (in vibecompat) does not.
-        if (abs && segments.front.name.length == 0) segments.popFront();
+        auto segments = this.adaptPath(path);
         // Casting away constness because no good way to do this with `inout`,
         // but `FSEntry.lookup` is `inout` too.
         return cast(inout(FSEntry)) reduce!(
             (FSEntry dir, segment) => dir ? dir.lookup(segment.name) : null)
             (cast() (abs ? this.root : this.cwd), segments);
+    }
+
+    /// helper function for code common between `mkdir` and `lookup`
+    private auto adaptPath (in NativePath path) const scope {
+        if (!path.absolute()) return path.bySegment;
+        auto segments = path.bySegment;
+        // `library-nonet` (using vibe.d) has an empty front for absolute path,
+        // while our built-in module (in vibecompat) does not.
+        if (segments.front.name.length == 0)
+            segments.popFront();
+        // A path such as `C:\foo` gets turned into `[ "", "C:", "foo" ]`,
+        // so after dropping the empty segment we need to drop the drive
+        version (Windows) if (!segments.empty) {
+            enforce(this.root.name == segments.front.name,
+                "Cannot mkdir new drive '" ~ segments.front.name ~ '"');
+            segments.popFront();
+        }
+        return segments;
     }
 }
 
@@ -364,6 +386,8 @@ public class FSEntry
     /// Creates a new FSEntry
     package(dub) this (FSEntry p, Type t, string n)
     {
+        assert(n.length);
+
         // Avoid 'DOS File Times cannot hold dates prior to 1980.' exception
         import std.datetime.date;
         SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
@@ -506,10 +530,10 @@ unittest {
     alias P = NativePath;
     scope fs = new MockFS();
 
-    version (Windows) immutable NativePath root = NativePath(`C:\`);
+    version (Windows) immutable NativePath root = NativePath(`C:`);
     else              immutable NativePath root = NativePath(`/`);
 
-    assert(fs.getcwd == root);
+    assert(fs.getcwd == root, fs.getcwd.toString());
     // We shouldn't be able to chdir into a non-existent directory
     assertThrown(fs.chdir(P("foo/bar")));
     // Even with an absolute path

@@ -69,7 +69,9 @@ source/dub/internal/vibecompat/core/file.d
 source/dub/internal/vibecompat/data/json.d
 source/dub/internal/vibecompat/data/serialization.d
 source/dub/internal/vibecompat/inet/path.d
+source/dub/internal/vibecompat/inet/path2.d
 source/dub/internal/vibecompat/inet/url.d
+source/dub/internal/vibecompat/inet/urlencode.d
 source/dub/internal/colorize/colors.d
 source/dub/internal/colorize/cwrite.d
 source/dub/internal/colorize/package.d

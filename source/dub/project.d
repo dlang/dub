@@ -339,7 +339,7 @@ class Project {
 				NativePath msf = NativePath(mainfil);
 				if (msf.absolute)
 					msf = msf.relativeTo(rootPackage.path);
-				if (!settings.single && NativePath(file).relativeTo(rootPackage.path) == msf) {
+				if (!settings.single && NativePath(file).relativeTo(rootPackage.path) == msf.normalized()) {
 					logWarn("Excluding main source file %s from test.", mainfil);
 					tcinfo.excludedSourceFiles[""] ~= mainfil;
 					continue;

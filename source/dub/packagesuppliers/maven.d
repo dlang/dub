@@ -11,6 +11,7 @@ import dub.packagesuppliers.packagesupplier;
 class MavenRegistryPackageSupplier : PackageSupplier {
 	import dub.internal.utils : retryDownload, HTTPStatusException;
 	import dub.internal.vibecompat.data.json : serializeToJson;
+	import dub.internal.vibecompat.inet.path : InetPath;
 	import dub.internal.vibecompat.inet.url : URL;
 	import dub.internal.logging;
 
@@ -56,7 +57,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		if (best.type == Json.Type.null_)
 			return null;
 		auto vers = best["version"].get!string;
-		auto url = m_mavenUrl ~ NativePath(
+		auto url = m_mavenUrl ~ InetPath(
 			"%s/%s/%s-%s.zip".format(name.main, vers, name.main, vers));
 
 		try {
@@ -90,7 +91,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 			m_metadataCache.remove(name.main);
 		}
 
-		auto url = m_mavenUrl ~ NativePath(name.main.toString() ~ "/maven-metadata.xml");
+		auto url = m_mavenUrl ~ InetPath(name.main.toString() ~ "/maven-metadata.xml");
 
 		logDebug("Downloading maven metadata for %s", name.main);
 		string xmlData;
