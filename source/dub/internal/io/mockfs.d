@@ -351,6 +351,8 @@ public class FSEntry
     /// Creates a new FSEntry
     package(dub) this (FSEntry p, Type t, string n)
     {
+        assert(n.length);
+
         // Avoid 'DOS File Times cannot hold dates prior to 1980.' exception
         import std.datetime.date;
         SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
@@ -392,6 +394,9 @@ public class FSEntry
                 `FSEntry.lookup should not be called with absolute paths`);
         auto segments = path.bySegment;
         if (segments.empty) return this;
+        // `/foo`.bySegment results in [`/`, `foo`] so drop the `/`
+        if (!segments.front.name.length && this.parent is null)
+            segments.popFront();
         if (auto next = this.lookup(segments.front.name)) {
             segments.popFront();
             return next.lookup(NativePath(segments));
@@ -470,6 +475,8 @@ public class FSEntry
             .format(this.path, path));
         // Check if the child already exists
         auto segments = path.bySegment;
+        if (!segments.front.name.length && this.parent is null)
+            segments.popFront();
         auto child = this.lookup(segments.front.name);
         if (child is null) {
             child = new FSEntry(this, Type.Directory, segments.front.name);
