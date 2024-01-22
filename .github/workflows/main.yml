@@ -111,3 +111,6 @@ jobs:
           test/run-unittest.sh
         fi
       shell: bash
+
+    - name: Codecov
+      uses: codecov/codecov-action@v3
