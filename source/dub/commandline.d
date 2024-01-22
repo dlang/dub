@@ -2313,15 +2313,15 @@ class RemoveCommand : FetchRemoveCommand {
 		if (!m_version.empty) { // remove then --version removed
 			enforceUsage(!package_id.canFindVersionSplitter, "Double version spec not allowed.");
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", package_id, m_version);
-			dub.remove(package_id, m_version, location);
+			dub.remove(PackageName(package_id), m_version, location);
 		} else {
 			const parts = UserPackageDesc.fromString(package_id);
             const explicit = package_id.canFindVersionSplitter;
 			if (m_nonInteractive || explicit || parts.range != VersionRange.Any) {
                 const str = parts.range.matchesAny() ? "*" : parts.range.toString();
-				dub.remove(parts.name, str, location);
+				dub.remove(PackageName(parts.name), str, location);
 			} else {
-				dub.remove(package_id, location, &resolveVersion);
+				dub.remove(PackageName(package_id), location, &resolveVersion);
 			}
 		}
 		return 0;

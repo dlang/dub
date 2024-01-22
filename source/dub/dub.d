@@ -1071,15 +1071,17 @@ class Dub {
 		is set to `RemoveVersionWildcard`.
 
 		Params:
-			package_id = Name of the package to be removed
+			name = Name of the package to be removed
 			location = Specifies the location to look for the given package
 				name/version.
 			resolve_version = Callback to select package version.
 	*/
-	void remove(string package_id, PlacementLocation location,
-				scope size_t delegate(in Package[] packages) resolve_version)
+	void remove(in PackageName name, PlacementLocation location,
+		scope size_t delegate(in Package[] packages) resolve_version)
 	{
-		enforce(!package_id.empty);
+		enforce(name.main.toString().length);
+		enforce(!name.sub.length, "Cannot remove subpackage %s, remove %s instead"
+			.format(name, name.main));
 		if (location == PlacementLocation.local) {
 			logInfo("To remove a locally placed package, make sure you don't have any data"
 					~ "\nleft in it's directory and then simply remove the whole directory.");
@@ -1089,16 +1091,13 @@ class Dub {
 		Package[] packages;
 
 		// Retrieve packages to be removed.
-		foreach(pack; m_packageManager.getPackageIterator(package_id))
+		foreach(pack; m_packageManager.getPackageIterator(name.toString()))
 			if (m_packageManager.isManagedPackage(pack))
 				packages ~= pack;
 
 		// Check validity of packages to be removed.
-		if(packages.empty) {
-			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ package_id ~ "', location: '" ~ to!string(location) ~ "'"
-				~ ")");
-		}
+		enforce(!packages.empty, "Cannot find package '%s' to remove at %s location"
+			.format(name, location.toString()));
 
 		// Sort package list in ascending version order
 		packages.sort!((a, b) => a.version_ < b.version_);
@@ -1114,10 +1113,17 @@ class Dub {
 			try {
 				remove(pack);
 			} catch (Exception e) {
-				logError("Failed to remove %s %s: %s", package_id, pack, e.msg);
+				logError("Failed to remove %s %s: %s", name, pack, e.msg);
 				logInfo("Continuing with other packages (if any).");
 			}
 		}
+	}
+
+	deprecated("Use `remove(PackageName, PlacementLocation, delegate)`")
+	void remove(string name, PlacementLocation location,
+		scope size_t delegate(in Package[] packages) resolve_version)
+	{
+		this.remove(PackageName(name), location, resolve_version);
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
@@ -1131,7 +1137,7 @@ class Dub {
 	/** Removes a specific version of a package.
 
 		Params:
-			package_id = Name of the package to be removed
+			name = Name of the package to be removed
 			version_ = Identifying a version or a wild card. If an empty string
 				is passed, the package will be removed from the location, if
 				there is only one version retrieved. This will throw an
@@ -1139,9 +1145,9 @@ class Dub {
 			location = Specifies the location to look for the given package
 				name/version.
 	 */
-	void remove(string package_id, string version_, PlacementLocation location)
+	void remove(in PackageName name, string version_, PlacementLocation location)
 	{
-		remove(package_id, location, (in packages) {
+		remove(name, location, (in packages) {
 			if (version_ == RemoveVersionWildcard || version_.empty)
 				return packages.length;
 
@@ -1149,10 +1155,15 @@ class Dub {
 				if (p.version_ == Version(version_))
 					return i;
 			}
-			throw new Exception("Cannot find package to remove. ("
-				~ "id: '" ~ package_id ~ "', version: '" ~ version_ ~ "', location: '" ~ to!string(location) ~ "'"
-				~ ")");
+			throw new Exception("Cannot find package '%s@%s' to remove at %s location"
+				.format(name, version_, location.toString()));
 		});
+	}
+
+	deprecated("Use `remove(PackageName, string, PlacementLocation)`")
+	void remove(string name, string version_, PlacementLocation location)
+	{
+		this.remove(PackageName(name), version_, location);
 	}
 
 	/// Compatibility overload. Use the version without a `force_remove` argument instead.
