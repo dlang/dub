@@ -968,7 +968,6 @@ class Dub {
 	Package fetch(in PackageName name, in VersionRange range, FetchOptions options,
 		PlacementLocation location, string reason = "")
 	{
-		auto basePackageName = name.main;
 		Json pinfo;
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
@@ -994,7 +993,7 @@ class Dub {
 			if (existing && existing.version_ != ver)
 				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
                     name.toString().color(Mode.bold), existing, ver,
-					text("dub upgrade ", name).color(Mode.bold));
+					text("dub upgrade ", name.main).color(Mode.bold));
 			return null;
 		}
 
@@ -1023,7 +1022,7 @@ class Dub {
 		{
 			import std.zip : ZipException;
 
-			auto path = getTempFile(basePackageName.toString(), ".zip");
+			auto path = getTempFile(name.main.toString(), ".zip");
 			supplier.fetchPackage(path, name.main, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			scope(exit) removeFile(path);
 			logDiagnostic("Placing to %s...", location.toString());
