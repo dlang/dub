@@ -885,6 +885,7 @@ symlink_exit:
 	{
 		logDebug("Remove %s, version %s, path '%s'", pack.name, pack.version_, pack.path);
 		enforce(!pack.path.empty, "Cannot remove package "~pack.name~" without a path.");
+		enforce(pack.parentPackage is null, "Cannot remove subpackage %s".format(pack.name));
 
 		// remove package from repositories' list
 		bool found = false;
