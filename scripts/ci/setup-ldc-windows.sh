@@ -2,7 +2,7 @@
 
 # sets up LDC for cross-compilation. Source this script, s.t. the new LDC is in PATH
 
-# Make sure this version matches the version of LDC2 used in .travis.yml,
+# Make sure this version matches the version of LDC2 used in the CI configuration
 # otherwise the compiler and the lib used might mismatch.
 LDC_VERSION="1.22.0"
 ARCH=${ARCH:-32}
