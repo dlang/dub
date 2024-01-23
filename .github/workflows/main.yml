@@ -100,9 +100,7 @@ jobs:
     - name: '[POSIX] Test'
       if: runner.os != 'Windows'
       env:
-        COVERAGE: false
-        # The value doesn't matter as long as it's > 2.087
-        FRONTEND: 2.095.0
+        COVERAGE: true
       run: |
         dub build --compiler=${{ env.DC }}
         if [[ ${{ matrix.do_test }} == 'true' ]]; then
