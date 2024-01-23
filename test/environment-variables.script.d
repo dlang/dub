@@ -15,7 +15,7 @@ void main()
 	// preRunCommands       uses system.environments < settings.environments < deppkg.environments < root.environments < deppkg.runEnvironments < root.runEnvironments < deppkg.preRunEnvironments < root.preRunEnvironments
 	// User application     uses system.environments < settings.environments < deppkg.environments < root.environments < deppkg.runEnvironments < root.runEnvironments
 	// postRunCommands      uses system.environments < settings.environments < deppkg.environments < root.environments < deppkg.runEnvironments < root.runEnvironments < deppkg.postRunEnvironments < root.postRunEnvironments
-	
+
 	// Test cases covers:
 	// preGenerateCommands [in root]
 	//      priority check: system.environments < settings.environments
@@ -50,30 +50,30 @@ void main()
 	], Config.none, size_t.max, currDir.buildPath("environment-variables"));
 	scope (failure)
 		writeln("environment-variables test failed... Testing stdout is:\n-----\n", res.output);
-	
+
 	// preGenerateCommands [in root]
 	assert(res.output.canFind("root.preGenerate: setting.PRIORITYCHECK_SYS_SET"),       "preGenerate environment variables priority check is failed.");
 	assert(res.output.canFind("root.preGenerate: deppkg.PRIORITYCHECK_SET_DEP"),        "preGenerate environment variables priority check is failed.");
 	assert(res.output.canFind("root.preGenerate: deppkg.PRIORITYCHECK_DEP_ROOT"),       "preGenerate environment variables priority check is failed.");
 	assert(res.output.canFind("root.preGenerate: deppkg.PRIORITYCHECK_ROOT_DEPSPEC"),   "preGenerate environment variables priority check is failed.");
 	assert(res.output.canFind("root.preGenerate: root.PRIORITYCHECK_DEPSPEC_ROOTSPEC"), "preGenerate environment variables priority check is failed.");
-	
+
 	// postGenerateCommands [in root]
 	assert(res.output.canFind("root.postGenerate: deppkg.VAR4", "postGenerate environment variables expantion check is failed."));
-	
+
 	// preBuildCommands [in deppkg]
 	assert(res.output.canFind("deppkg.preBuild: deppkg.PRIORITYCHECK_ROOT_DEPBLDSPEC"),      "preBuild environment variables priority check is failed.");
 	assert(res.output.canFind("deppkg.preBuild: root.PRIORITYCHECK_DEPBLDSPEC_ROOTBLDSPEC"), "preBuild environment variables priority check is failed.");
 	assert(res.output.canFind("deppkg.preBuild: deppkg.PRIORITYCHECK_ROOTBLDSPEC_DEPSPEC"),  "preBuild environment variables priority check is failed.");
 	assert(res.output.canFind("deppkg.preBuild: root.PRIORITYCHECK_DEPSPEC_ROOTSPEC"),       "preBuild environment variables priority check is failed.");
-	
+
 	// postBuildCommands [in deppkg]
 	assert(res.output.canFind("deppkg.postBuild: deppkg.VAR4"), "postBuild environment variables expantion check is failed.");
-	
+
 	// preRunCommands [in deppkg][in root]
 	assert(!res.output.canFind("deppkg.preRun: deppkg.VAR4"),   "preRun that is defined dependent library does not call.");
 	assert(res.output.canFind("root.preRun: deppkg.VAR4"),      "preRun environment variables expantion check is failed.");
-	
+
 	// Application run
 	assert(res.output.canFind("app.run: root.VAR1"),                "run environment variables expantion check is failed.");
 	assert(res.output.canFind("app.run: settings.VAR2"),            "run environment variables expantion check is failed.");
@@ -81,7 +81,7 @@ void main()
 	assert(res.output.canFind("app.run: deppkg.VAR4"),              "run environment variables expantion check is failed.");
 	assert(res.output.canFind("app.run: system.VAR5"),              "run environment variables expantion check is failed.");
 	assert(res.output.canFind("app.run: system.SYSENVVAREXPCHECK"), "run environment variables expantion check is failed.");
-	
+
 	// postRunCommands [in deppkg][in root]
 	assert(!res.output.canFind("deppkg.postRun: deppkg.VAR4"),  "postRunCommands that is defined dependent library does not call.");
 	assert(res.output.canFind("root.postRun: deppkg.VAR4"),     "postRun environment variables expantion check is failed.");

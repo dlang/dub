@@ -23,6 +23,28 @@ on:
       - github-actions
 
 jobs:
+  single_checks:
+    name: "Single sanity check"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install latest DMD
+        uses: dlang-community/setup-dlang@v1
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Run tests
+        run: |
+          # check for trailing whitespace
+          TRAILING_WS_COUNT=$(find . -type f -name '*.d' -exec grep -Hn "[[:blank:]]$" {} \; | wc -l)
+          if [ $TRAILING_WS_COUNT -ne 0 ]; then
+              echo "========================================"
+              find . -type f -name '*.d' -exec grep -Hn "[[:blank:]]$" {} \;
+              echo "========================================"
+              echo "The files above have trailing whitespace"
+              exit 1
+          fi
+          # check that the man page generation still works
+          dub --single -v scripts/man/gen_man.d
+
   main:
     name: Run
     strategy:
