@@ -1005,14 +1005,15 @@ class InitCommand : Command {
 
 		static string input(string caption, string default_value)
 		{
-			writef("%s [%s]: ", caption.color(Mode.bold), default_value);
-			stdout.flush();
+			import dub.internal.colorize;
+			cwritef("%s [%s]: ", caption.color(Mode.bold), default_value);
 			auto inp = readln();
 			return inp.length > 1 ? inp[0 .. $-1] : default_value;
 		}
 
 		static string select(string caption, bool free_choice, string default_value, const string[] options...)
 		{
+			import dub.internal.colorize.cwrite;
 			assert(options.length);
 			import std.math : floor, log10;
 			auto ndigits = (size_t val) => log10(cast(double) val).floor.to!uint + 1;
@@ -1035,17 +1036,17 @@ class InitCommand : Command {
 			auto user_to_idx = (size_t i) => cast(uint)i - 1;
 
 			assert(default_idx >= 0);
-			writeln((free_choice ? "Select or enter " : "Select ").color(Mode.bold), caption.color(Mode.bold), ":".color(Mode.bold));
+			cwriteln((free_choice ? "Select or enter " : "Select ").color(Mode.bold), caption.color(Mode.bold), ":".color(Mode.bold));
 			foreach (i, option; options_matrix)
 			{
-				if (i != 0 && (i % num_columns) == 0) writeln();
+				if (i != 0 && (i % num_columns) == 0) cwriteln();
 				if (!option.length)
 					continue;
 				auto user_id = idx_to_user(option);
-				writef("%*u)".color(Color.cyan, Mode.bold) ~ " %s", ndigits(options.length), user_id,
+				cwritef("%*u)".color(Color.cyan, Mode.bold) ~ " %s", ndigits(options.length), user_id,
 					leftJustifier(option, max_width));
 			}
-			writeln();
+			cwriteln();
 			immutable default_choice = (default_idx + 1).to!string;
 			while (true)
 			{
