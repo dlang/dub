@@ -787,18 +787,12 @@ class PackageManager {
 		logDebug("Placing package '%s' version '%s' to location '%s' from file '%s'",
 			name, vers, destination.toNativeString(), src.toNativeString());
 
-		if( existsFile(destination) ){
-			throw new Exception(format("%s (%s) needs to be removed from '%s' prior placement.",
-				name, vers, destination));
-		}
+		enforce(!existsFile(destination),
+			"%s (%s) needs to be removed from '%s' prior placement."
+			.format(name, vers, destination));
 
-		// open zip file
-		ZipArchive archive;
-		{
-			logDebug("Opening file %s", src);
-			archive = new ZipArchive(readFile(src));
-		}
-
+		logDebug("Opening file %s", src);
+		ZipArchive archive = new ZipArchive(readFile(src));
 		logDebug("Extracting from zip.");
 
 		// In a GitHub zip, the actual contents are in a sub-folder
@@ -842,7 +836,7 @@ class PackageManager {
 			auto dst_path = destination ~ cleanedPath;
 
 			logDebug("Creating %s", cleanedPath);
-			if( dst_path.endsWithSlash ){
+			if (dst_path.endsWithSlash) {
 				ensureDirectory(dst_path);
 			} else {
 				ensureDirectory(dst_path.parentPath);
