@@ -207,13 +207,13 @@ unittest
         (Selections!1 s) => s,
         (s) { assert(0); return Selections!(1).init; },
     );
+    assert(!s.inheritable);
     assert(s.versions.length == 5);
     assert(s.versions["simple"]     == Dependency(Version("1.5.6")));
     assert(s.versions["branch"]     == Dependency(Version("~master")));
     assert(s.versions["branch2"]    == Dependency(Version("~main")));
     assert(s.versions["path"]       == Dependency(NativePath("../some/where")));
     assert(s.versions["repository"] == Dependency(Repository("git+https://github.com/dlang/dub", "123456123456123456")));
-    assert(!s.inheritable);
 }
 
 // with optional `inheritable` Boolean
@@ -223,16 +223,16 @@ unittest
 
     immutable string content = `{
     "fileVersion": 1,
+    "inheritable": true,
     "versions": {
         "simple": "1.5.6",
-    },
-    "inheritable": true
+    }
 }`;
 
     auto s = parseConfigString!Selected(content, "/dev/null");
     assert(s.fileVersion == 1);
-    assert(s.versions.length == 1);
     assert(s.inheritable);
+    assert(s.versions.length == 1);
 }
 
 // Test reading an unsupported version

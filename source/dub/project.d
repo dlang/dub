@@ -1990,6 +1990,8 @@ public class SelectedVersions {
 
 		result.put("{\n\t\"fileVersion\": ");
 		result.writeJsonString(json["fileVersion"]);
+		if (m_selections.inheritable)
+			result.put(",\n\t\"inheritable\": true");
 		result.put(",\n\t\"versions\": {");
 		auto vers = json["versions"].get!(Json[string]);
 		bool first = true;
@@ -2001,10 +2003,7 @@ public class SelectedVersions {
 			result.put(": ");
 			result.writeJsonString(vers[k]);
 		}
-		result.put("\n\t}");
-		if (m_selections.inheritable)
-			result.put(",\n\t\"inheritable\": true");
-		result.put("\n}\n");
+		result.put("\n\t}\n}\n");
 		path.writeFile(result.data);
 		m_dirty = false;
 		m_bare = false;
@@ -2034,11 +2033,11 @@ public class SelectedVersions {
 		Json json = serializeToJson(m_selections);
 		Json serialized = Json.emptyObject;
 		serialized["fileVersion"] = m_selections.fileVersion;
+		if (m_selections.inheritable)
+			serialized["inheritable"] = true;
 		serialized["versions"] = Json.emptyObject;
 		foreach (p, dep; m_selections.versions)
 			serialized["versions"][p] = dep.toJson(true);
-		if (m_selections.inheritable)
-			serialized["inheritable"] = true;
 		return serialized;
 	}
 
@@ -2050,10 +2049,10 @@ public class SelectedVersions {
 		clear();
 		m_selections.fileVersion = fileVersion;
 		scope(failure) clear();
-		foreach (string p, dep; json["versions"])
-			m_selections.versions[p] = dependencyFromJson(dep);
 		if (auto p = "inheritable" in json)
 			m_selections.inheritable = p.get!bool;
+		foreach (string p, dep; json["versions"])
+			m_selections.versions[p] = dependencyFromJson(dep);
 	}
 }
 
