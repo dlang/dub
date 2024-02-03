@@ -21,17 +21,22 @@ class FileSystemPackageSupplier : PackageSupplier {
 
 	override @property string description() { return "file repository at "~m_path.toNativeString(); }
 
-	Version[] getVersions(string package_id)
+	Version[] getVersions(in PackageName name)
 	{
 		import std.algorithm.sorting : sort;
 		import std.file : dirEntries, DirEntry, SpanMode;
 		import std.conv : to;
+		import dub.semver : isValidVersion;
 		Version[] ret;
-		foreach (DirEntry d; dirEntries(m_path.toNativeString(), package_id~"*", SpanMode.shallow)) {
+        const zipFileGlob = name.main.toString() ~ "*.zip";
+		foreach (DirEntry d; dirEntries(m_path.toNativeString(), zipFileGlob, SpanMode.shallow)) {
 			NativePath p = NativePath(d.name);
+			auto vers = p.head.name[name.main.toString().length+1..$-4];
+			if (!isValidVersion(vers)) {
+				logDebug("Ignoring entry '%s' because it isn't a version of package '%s'", p, name.main);
+				continue;
+			}
 			logDebug("Entry: %s", p);
-			enforce(to!string(p.head)[$-4..$] == ".zip");
-			auto vers = p.head.name[package_id.length+1..$-4];
 			logDebug("Version: %s", vers);
 			ret ~= Version(vers);
 		}
@@ -39,17 +44,19 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	override void fetchPackage(in NativePath path, in PackageName name,
+		in VersionRange dep, bool pre_release)
 	{
 		import dub.internal.vibecompat.core.file : copyFile, existsFile;
 		enforce(path.absolute);
-		logInfo("Storing package '%s', version requirements: %s", packageId, dep);
-		auto filename = bestPackageFile(packageId, dep, pre_release);
+		logInfo("Storing package '%s', version requirements: %s", name.main, dep);
+		auto filename = bestPackageFile(name, dep, pre_release);
 		enforce(existsFile(filename));
 		copyFile(filename, path);
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	override Json fetchPackageRecipe(in PackageName name, in VersionRange dep,
+		bool pre_release)
 	{
 		import std.array : split;
 		import std.path : stripExtension;
@@ -58,15 +65,16 @@ class FileSystemPackageSupplier : PackageSupplier {
 		import dub.recipe.io : parsePackageRecipe;
 		import dub.recipe.json : toJson;
 
-		auto filePath = bestPackageFile(packageId, dep, pre_release);
+		auto filePath = bestPackageFile(name, dep, pre_release);
 		string packageFileName;
 		string packageFileContent = packageInfoFileFromZip(filePath, packageFileName);
 		auto recipe = parsePackageRecipe(packageFileContent, packageFileName);
 		Json json = toJson(recipe);
 		auto basename = filePath.head.name;
 		enforce(basename.endsWith(".zip"), "Malformed package filename: " ~ filePath.toNativeString);
-		enforce(basename.startsWith(packageId), "Malformed package filename: " ~ filePath.toNativeString);
-		json["version"] = basename[packageId.length + 1 .. $-4];
+		enforce(basename.startsWith(name.main.toString()),
+			"Malformed package filename: " ~ filePath.toNativeString);
+		json["version"] = basename[name.main.toString().length + 1 .. $-4];
 		return json;
 	}
 
@@ -76,16 +84,17 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return null;
 	}
 
-	private NativePath bestPackageFile(string packageId, Dependency dep, bool pre_release)
+	private NativePath bestPackageFile(in PackageName name, in VersionRange dep,
+		bool pre_release)
 	{
 		import std.algorithm.iteration : filter;
 		import std.array : array;
 		import std.format : format;
 		NativePath toPath(Version ver) {
-			return m_path ~ (packageId ~ "-" ~ ver.toString() ~ ".zip");
+			return m_path ~ "%s-%s.zip".format(name.main, ver);
 		}
-		auto versions = getVersions(packageId).filter!(v => dep.matches(v)).array;
-		enforce(versions.length > 0, format("No package %s found matching %s", packageId, dep));
+		auto versions = getVersions(name).filter!(v => dep.matches(v)).array;
+		enforce(versions.length > 0, format("No package %s found matching %s", name.main, dep));
 		foreach_reverse (ver; versions) {
 			if (pre_release || !ver.isPreRelease)
 				return toPath(ver);

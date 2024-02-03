@@ -7,13 +7,9 @@
 */
 module dub.dependency;
 
-import dub.internal.utils;
-import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
-import dub.package_;
 import dub.semver;
-import dub.internal.logging;
 
 import dub.internal.dyaml.stdsumtype;
 
@@ -22,12 +18,76 @@ import std.array;
 import std.exception;
 import std.string;
 
+/// Represents a fully-qualified package name
+public struct PackageName
+{
+	/// The underlying full name of the package
+	private string fullName;
+	/// Where the separator lies, if any
+	private size_t separator;
+
+	/// Creates a new instance of this struct
+	public this(string fn) @safe pure
+	{
+		this.fullName = fn;
+		if (auto idx = fn.indexOf(':'))
+			this.separator = idx > 0 ? idx : fn.length;
+		else // We were given `:foo`
+			assert(0, "Argument to PackageName constructor needs to be " ~
+				"a fully qualified string");
+	}
+
+	/// Private constructor to have nothrow / @nogc
+	private this(string fn, size_t sep) @safe pure nothrow @nogc
+	{
+		this.fullName = fn;
+		this.separator = sep;
+	}
+
+	/// The base package name in which the subpackages may live
+	public PackageName main () const return @safe pure nothrow @nogc
+	{
+		return PackageName(this.fullName[0 .. this.separator], this.separator);
+	}
+
+	/// The subpackage name, or an empty string if there isn't
+	public string sub () const return @safe pure nothrow @nogc
+	{
+		// Return `null` instead of an empty string so that
+		// it can be used in a boolean context, e.g.
+		// `if (name.sub)` would be true with empty string
+		return this.separator < this.fullName.length
+			? this.fullName[this.separator + 1 .. $]
+			: null;
+	}
+
+	/// Human readable representation
+	public string toString () const return scope @safe pure nothrow @nogc
+	{
+		return this.fullName;
+	}
+}
 
 /** Encapsulates the name of a package along with its dependency specification.
 */
 struct PackageDependency {
+	/// Backward compatibility
+	deprecated("Use the constructor that accepts a `PackageName` as first argument")
+	this(string n, Dependency s = Dependency.init) @safe pure
+	{
+		this.name = PackageName(n);
+		this.spec = s;
+	}
+
+	// Remove once deprecated overload is gone
+	this(PackageName n, Dependency s = Dependency.init) @safe pure nothrow @nogc
+	{
+		this.name = n;
+		this.spec = s;
+	}
+
 	/// Name of the referenced package.
-	string name;
+	PackageName name;
 
 	/// Dependency specification used to select a particular version of the package.
 	Dependency spec;
@@ -327,9 +387,6 @@ struct Dependency {
 		Dependency dep;
 		if( verspec.type == Json.Type.object ){
 			if( auto pp = "path" in verspec ) {
-				if (auto pv = "version" in verspec)
-					logDiagnostic("Ignoring version specification (%s) for path based dependency %s", pv.get!string, pp.get!string);
-
 				dep = Dependency(NativePath(verspec["path"].get!string));
 			} else if (auto repository = "repository" in verspec) {
 				enforce("version" in verspec, "No version field specified!");
@@ -643,8 +700,6 @@ unittest {
 	assert(Dependency("1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
 	assert(Dependency("~>1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
 	assert(Dependency("~>1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
-
-	logDebug("Dependency unittest success.");
 }
 
 unittest {

@@ -28,11 +28,11 @@ int main()
 	auto dub = environment.get("DUB");
 	if (!dub.length)
 		dub = buildPath(".", "bin", "dub");
-        
+
     string destinationDirectory = tempDir;
     // remove any ending slahes (which can for some reason be added at the end by tempDir, which fails on OSX) https://issues.dlang.org/show_bug.cgi?id=22738
     destinationDirectory = buildNormalizedPath(destinationDirectory);
-    
+
 	string filename;
 	// check if the single file package with dependency compiles and runs
 	{

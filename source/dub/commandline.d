@@ -371,6 +371,8 @@ unittest {
 */
 int runDubCommandLine(string[] args)
 {
+	import std.file : tempDir;
+
 	static string[] toSinglePackageArgs (string args0, string file, string[] trailing)
 	{
 		return [args0, "run", "-q", "--temp-build", "--single", file, "--"] ~ trailing;
@@ -382,11 +384,24 @@ int runDubCommandLine(string[] args)
 
 	logDiagnostic("DUB version %s", getDUBVersion());
 
-	version(Windows){
-		// rdmd uses $TEMP to compute a temporary path. since cygwin substitutes backslashes
-		// with slashes, this causes OPTLINK to fail (it thinks path segments are options)
-		// we substitute the other way around here to fix this.
-		environment["TEMP"] = environment["TEMP"].replace("/", "\\");
+	{
+		version(Windows) {
+			// Guarantee that this environment variable is set
+			//  this is specifically needed because of the Windows fix that follows this statement.
+			// While it probably isn't needed for all targets, it does simplify things a bit.
+			// Question is can it be more generic? Probably not due to $TMP
+			if ("TEMP" !in environment)
+				environment["TEMP"] = tempDir();
+
+			// rdmd uses $TEMP to compute a temporary path. since cygwin substitutes backslashes
+			// with slashes, this causes OPTLINK to fail (it thinks path segments are options)
+			// we substitute the other way around here to fix this.
+
+			// In case the environment variable TEMP is empty (it should never be), we'll swap out
+			//  opIndex in favor of get with the fallback.
+
+			environment["TEMP"] = environment.get("TEMP", null).replace("/", "\\");
+		}
 	}
 
 	auto handler = CommandLineHandler(getCommands());
@@ -990,10 +1005,182 @@ class InitCommand : Command {
 
 		static string input(string caption, string default_value)
 		{
-			writef("%s [%s]: ", caption, default_value);
-			stdout.flush();
+			import dub.internal.colorize;
+			cwritef("%s [%s]: ", caption.color(Mode.bold), default_value);
 			auto inp = readln();
 			return inp.length > 1 ? inp[0 .. $-1] : default_value;
+		}
+
+		static string select(string caption, bool free_choice, string default_value, const string[] options...)
+		{
+			import dub.internal.colorize.cwrite;
+			assert(options.length);
+			import std.math : floor, log10;
+			auto ndigits = (size_t val) => log10(cast(double) val).floor.to!uint + 1;
+
+			immutable default_idx = options.countUntil(default_value);
+			immutable max_width = options.map!(s => s.length).reduce!max + ndigits(options.length) + "  ".length;
+			immutable num_columns = max(1, 82 / max_width);
+			immutable num_rows = (options.length + num_columns - 1) / num_columns;
+
+			string[] options_matrix;
+			options_matrix.length = num_rows * num_columns;
+			foreach (i, option; options)
+			{
+				size_t y = i % num_rows;
+				size_t x = i / num_rows;
+				options_matrix[x + y * num_columns] = option;
+			}
+
+			auto idx_to_user = (string option) => cast(uint)options.countUntil(option) + 1;
+			auto user_to_idx = (size_t i) => cast(uint)i - 1;
+
+			assert(default_idx >= 0);
+			cwriteln((free_choice ? "Select or enter " : "Select ").color(Mode.bold), caption.color(Mode.bold), ":".color(Mode.bold));
+			foreach (i, option; options_matrix)
+			{
+				if (i != 0 && (i % num_columns) == 0) cwriteln();
+				if (!option.length)
+					continue;
+				auto user_id = idx_to_user(option);
+				cwritef("%*u)".color(Color.cyan, Mode.bold) ~ " %s", ndigits(options.length), user_id,
+					leftJustifier(option, max_width));
+			}
+			cwriteln();
+			immutable default_choice = (default_idx + 1).to!string;
+			while (true)
+			{
+				auto choice = input(free_choice ? "?" : "#?", default_choice);
+				if (choice is default_choice)
+					return default_value;
+				choice = choice.strip;
+				uint option_idx = uint.max;
+				try
+					option_idx = cast(uint)user_to_idx(to!uint(choice));
+				catch (ConvException)
+				{}
+				if (option_idx != uint.max)
+				{
+					if (option_idx < options.length)
+						return options[option_idx];
+				}
+				else if (free_choice || options.canFind(choice))
+					return choice;
+				logError("Select an option between 1 and %u%s.", options.length,
+						 free_choice ? " or enter a custom value" : null);
+			}
+		}
+
+		static string license_select(string def)
+		{
+			static immutable licenses = [
+				"BSL-1.0 (Boost)",
+				"MIT",
+				"Unlicense (public domain)",
+				"Apache-",
+				"-1.0",
+				"-1.1",
+				"-2.0",
+				"AGPL-",
+				"-1.0-only",
+				"-1.0-or-later",
+				"-3.0-only",
+				"-3.0-or-later",
+				"GPL-",
+				"-2.0-only",
+				"-2.0-or-later",
+				"-3.0-only",
+				"-3.0-or-later",
+				"LGPL-",
+				"-2.0-only",
+				"-2.0-or-later",
+				"-2.1-only",
+				"-2.1-or-later",
+				"-3.0-only",
+				"-3.0-or-later",
+				"BSD-",
+				"-1-Clause",
+				"-2-Clause",
+				"-3-Clause",
+				"-4-Clause",
+				"MPL- (Mozilla)",
+				"-1.0",
+				"-1.1",
+				"-2.0",
+				"-2.0-no-copyleft-exception",
+				"EUPL-",
+				"-1.0",
+				"-1.1",
+				"-2.0",
+				"CC- (Creative Commons)",
+				"-BY-4.0 (Attribution 4.0 International)",
+				"-BY-SA-4.0 (Attribution Share Alike 4.0 International)",
+				"Zlib",
+				"ISC",
+				"proprietary",
+			];
+
+			static string sanitize(string license)
+			{
+				auto desc = license.countUntil(" (");
+				if (desc != -1)
+					license = license[0 .. desc];
+				return license;
+			}
+
+			string[] root;
+			foreach (l; licenses)
+				if (!l.startsWith("-"))
+					root ~= l;
+
+			string result;
+			while (true)
+			{
+				string picked;
+				if (result.length)
+				{
+					auto start = licenses.countUntil!(a => a == result || a.startsWith(result ~ " (")) + 1;
+					auto end = start;
+					while (end < licenses.length && licenses[end].startsWith("-"))
+						end++;
+					picked = select(
+						"variant of " ~ result[0 .. $ - 1],
+						false,
+						"(back)",
+						// https://dub.pm/package-format-json.html#licenses
+						licenses[start .. end].map!"a[1..$]".array ~ "(back)"
+					);
+					if (picked == "(back)")
+					{
+						result = null;
+						continue;
+					}
+					picked = sanitize(picked);
+				}
+				else
+				{
+					picked = select(
+						"an SPDX license-identifier ("
+							~ "https://spdx.org/licenses/".color(Color.light_blue, Mode.underline)
+							~ ")".color(Mode.bold),
+						true,
+						def,
+						// https://dub.pm/package-format-json.html#licenses
+						root
+					);
+					picked = sanitize(picked);
+				}
+				if (picked == def)
+					return def;
+
+				if (result.length)
+					result ~= picked;
+				else
+					result = picked;
+
+				if (!result.endsWith("-"))
+					return result;
+			}
 		}
 
 		void depCallback(ref PackageRecipe p, ref PackageFormat fmt) {
@@ -1001,16 +1188,8 @@ class InitCommand : Command {
 
 			if (m_nonInteractive) return;
 
-			while (true) {
-				string rawfmt = input("Package recipe format (sdl/json)", fmt.to!string);
-				if (!rawfmt.length) break;
-				try {
-					fmt = rawfmt.to!PackageFormat;
-					break;
-				} catch (Exception) {
-					logError(`Invalid format '%s', enter either 'sdl' or 'json'.`, rawfmt);
-				}
-			}
+			enum free_choice = true;
+			fmt = select("a package recipe format", !free_choice, fmt.to!string, "sdl", "json").to!PackageFormat;
 			auto author = p.authors.join(", ");
 			while (true) {
 				// Tries getting the name until a valid one is given.
@@ -1026,7 +1205,7 @@ class InitCommand : Command {
 			}
 			p.description = input("Description", p.description);
 			p.authors = input("Author name", author).split(",").map!(a => a.strip).array;
-			p.license = input("License", p.license);
+			p.license = license_select(p.license);
 			string copyrightString = .format("Copyright © %s, %-(%s, %)", Clock.currTime().year, p.authors);
 			p.copyright = input("Copyright string", copyrightString);
 
@@ -1116,11 +1295,11 @@ abstract class PackageBuildCommand : Command {
 
 	protected void setupVersionPackage(Dub dub, string str_package_info, string default_build_type = "debug")
 	{
-		PackageAndVersion package_info = splitPackageName(str_package_info);
-		setupPackage(dub, package_info.name, default_build_type, package_info.version_);
+		UserPackageDesc udesc = UserPackageDesc.fromString(str_package_info);
+		setupPackage(dub, udesc, default_build_type);
 	}
 
-	protected void setupPackage(Dub dub, string package_name, string default_build_type = "debug", string ver = "")
+	protected void setupPackage(Dub dub, UserPackageDesc udesc, string default_build_type = "debug")
 	{
 		if (!m_compilerName.length) m_compilerName = dub.defaultCompiler;
 		if (!m_arch.length) m_arch = dub.defaultArchitecture;
@@ -1140,7 +1319,7 @@ abstract class PackageBuildCommand : Command {
 		this.baseSettings.buildSettings.addVersions(m_dVersions);
 
 		m_defaultConfig = null;
-		enforce (loadSpecificPackage(dub, package_name, ver), "Failed to load package.");
+		enforce(loadSpecificPackage(dub, udesc), "Failed to load package.");
 
 		if (this.baseSettings.config.length != 0 &&
 			!dub.configurations.canFind(this.baseSettings.config) &&
@@ -1177,35 +1356,34 @@ abstract class PackageBuildCommand : Command {
 		}
 	}
 
-	private bool loadSpecificPackage(Dub dub, string package_name, string ver)
+	private bool loadSpecificPackage(Dub dub, UserPackageDesc udesc)
 	{
 		if (this.baseSettings.single) {
-			enforce(package_name.length, "Missing file name of single-file package.");
-			dub.loadSingleFilePackage(package_name);
+			enforce(udesc.name.length, "Missing file name of single-file package.");
+			dub.loadSingleFilePackage(udesc.name);
 			return true;
 		}
 
 
-		bool from_cwd = package_name.length == 0 || package_name.startsWith(":");
+		bool from_cwd = udesc.name.length == 0 || udesc.name.startsWith(":");
 		// load package in root_path to enable searching for sub packages
 		if (loadCwdPackage(dub, from_cwd)) {
-			if (package_name.startsWith(":"))
+			if (udesc.name.startsWith(":"))
 			{
-				auto pack = dub.packageManager.getSubPackage(dub.project.rootPackage, package_name[1 .. $], false);
+				auto pack = dub.packageManager.getSubPackage(
+					dub.project.rootPackage, udesc.name[1 .. $], false);
 				dub.loadPackage(pack);
 				return true;
 			}
 			if (from_cwd) return true;
 		}
 
-		enforce(package_name.length, "No valid root package found - aborting.");
+		enforce(udesc.name.length, "No valid root package found - aborting.");
 
-		const vers = ver.length ? VersionRange.fromString(ver) : VersionRange.Any;
-		auto pack = dub.packageManager.getBestPackage(package_name, vers);
+		auto pack = dub.packageManager.getBestPackage(
+			PackageName(udesc.name), udesc.range);
 
-		enforce(pack, format!"Failed to find a package named '%s%s' locally."(package_name,
-			ver == "" ? "" : ("@" ~ ver)
-		));
+		enforce(pack, format!"Failed to find package '%s' locally."(udesc));
 		logInfo("Building package %s in %s", pack.name, pack.path.toNativeString());
 		dub.loadPackage(pack);
 		return true;
@@ -1352,16 +1530,15 @@ class BuildCommand : GenerateCommand {
 
 		if (!m_nonInteractive)
 		{
-			const packageParts = splitPackageName(free_args[0]);
+			const packageParts = UserPackageDesc.fromString(free_args[0]);
 			if (auto rc = fetchMissingPackages(dub, packageParts))
 				return rc;
 		}
 		return super.execute(dub, free_args, app_args);
 	}
 
-	private int fetchMissingPackages(Dub dub, in PackageAndVersion packageParts)
+	private int fetchMissingPackages(Dub dub, in UserPackageDesc packageParts)
 	{
-
 		static bool input(string caption, bool default_value = true) {
 			writef("%s [%s]: ", caption, default_value ? "Y/n" : "y/N");
 			auto inp = readln();
@@ -1378,42 +1555,39 @@ class BuildCommand : GenerateCommand {
 			}
 		}
 
-		VersionRange dep;
-
-		if (packageParts.version_.length > 0) {
-			// the user provided a version manually
-			dep = VersionRange.fromString(packageParts.version_);
-		} else if (packageParts.name.startsWith(":")) {
-			// Sub-packages are always assumed to be present
+		// Local subpackages are always assumed to be present
+		if (packageParts.name.startsWith(":"))
 			return 0;
-		} else if (dub.packageManager.getBestPackage(packageParts.name)) {
-			// found locally
+
+		const baseName = PackageName(packageParts.name).main;
+		// Found locally
+		if (dub.packageManager.getBestPackage(baseName, packageParts.range))
 			return 0;
-		} else {
-			// search for the package and filter versions for exact matches
-			auto basePackageName = getBasePackageName(packageParts.name);
-			auto search = dub.searchPackages(basePackageName)
-				.map!(tup => tup[1].find!(p => p.name == basePackageName))
-				.filter!(ps => !ps.empty);
-			if (search.empty) {
-				logWarn("Package '%s' was neither found locally nor online.", packageParts.name);
-				return 2;
-			}
 
-			const p = search.front.front;
-			logInfo("Package '%s' was not found locally but is available online:", packageParts.name);
-			logInfo("---");
-			logInfo("Description: %s", p.description);
-			logInfo("Version: %s", p.version_);
-			logInfo("---");
-
-			const answer = m_yes ? true : input("Do you want to fetch '%s' now?".format(packageParts.name));
-			if (!answer)
-				return 0;
-			dep = VersionRange.fromString(p.version_);
+		// Non-interactive, either via flag, or because a version was provided
+		if (m_yes || !packageParts.range.matchesAny()) {
+			dub.fetch(baseName, packageParts.range);
+			return 0;
+		}
+		// Otherwise we go the long way of asking the user.
+		// search for the package and filter versions for exact matches
+		auto search = dub.searchPackages(baseName.toString())
+			.map!(tup => tup[1].find!(p => p.name == baseName.toString()))
+			.filter!(ps => !ps.empty);
+		if (search.empty) {
+			logWarn("Package '%s' was neither found locally nor online.", packageParts);
+			return 2;
 		}
 
-		dub.fetch(packageParts.name, dep, dub.defaultPlacementLocation, FetchOptions.none);
+		const p = search.front.front;
+		logInfo("Package '%s' was not found locally but is available online:", packageParts);
+		logInfo("---");
+		logInfo("Description: %s", p.description);
+		logInfo("Version: %s", p.version_);
+		logInfo("---");
+
+		if (input("Do you want to fetch '%s@%s' now?".format(packageParts, p.version_)))
+			dub.fetch(baseName, VersionRange.fromString(p.version_));
 		return 0;
 	}
 }
@@ -1809,7 +1983,6 @@ class AddCommand : Command {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		import dub.recipe.io : readPackageRecipe, writePackageRecipe;
-		import dub.internal.vibecompat.core.file : existsFile;
 		enforceUsage(free_args.length != 0, "Expected one or more arguments.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
@@ -1945,65 +2118,140 @@ class FetchRemoveCommand : Command {
 }
 
 class FetchCommand : FetchRemoveCommand {
+	private enum FetchStatus
+	{
+		/// Package is already present and on the right version
+		Present = 0,
+		/// Package was fetched from the registry
+		Fetched = 1,
+		/// Attempts at fetching the package failed
+		Failed = 2,
+	}
+
+	protected bool recursive;
+	protected size_t[FetchStatus.max + 1] result;
+
 	this() @safe pure nothrow
 	{
 		this.name = "fetch";
 		this.argumentsPattern = "<package>[@<version-spec>]";
-		this.description = "Manually retrieves and caches a package";
+		this.description = "Explicitly retrieves and caches packages";
 		this.helpText = [
-			"Note: Use \"dub add <dependency>\" if you just want to use a certain package as a dependency, you don't have to explicitly fetch packages.",
+			"When run with one or more arguments, regardless of the location it is run in,",
+			"it will fetch the packages matching the argument(s).",
+			"Examples:",
+			"$ dub fetch vibe-d",
+			"$ dub fetch vibe-d@v0.9.0 --cache=local --recursive",
 			"",
-			"Explicit retrieval/removal of packages is only needed when you want to put packages in a place where several applications can share them. If you just have a dependency to add, use the `add` command. Dub will do the rest for you.",
+			"When run in a project with no arguments, it will fetch all dependencies for that project.",
+			"If the project doesn't have set dependencies (no 'dub.selections.json'), it will also perform dependency resolution.",
+			"Example:",
+			"$ cd myProject && dub fetch",
 			"",
-			"Without specified options, placement/removal will default to a user wide shared location.",
-			"",
-			"Complete applications can be retrieved and run easily by e.g.",
-			"$ dub fetch vibelog --cache=local",
-			"$ dub run vibelog --cache=local",
-			"",
-			"This will grab all needed dependencies and compile and run the application.",
+			"Note that the 'build', 'run', and any other command that need packages will automatically perform fetch,",
+			"hence it is not generally necessary to run this command before any other."
 		];
 	}
 
 	override void prepare(scope CommandArgs args)
 	{
+		args.getopt("r|recursive", &this.recursive, [
+			"Also fetches dependencies of specified packages",
+		]);
 		super.prepare(args);
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		enforceUsage(free_args.length == 1, "Expecting exactly one argument.");
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 
-		auto location = dub.defaultPlacementLocation;
-
-		auto name = free_args[0];
-
-		FetchOptions fetchOpts;
-		fetchOpts |= FetchOptions.forceBranchUpgrade;
-		if (m_version.length) { // remove then --version removed
-			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
+		// remove then --version removed
+		if (m_version.length) {
+			enforceUsage(free_args.length == 1, "Expecting exactly one argument when using --version.");
+			const name = free_args[0];
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", name, m_version);
-			dub.fetch(name, VersionRange.fromString(m_version), location, fetchOpts);
-		} else if (name.canFindVersionSplitter) {
-			const parts = name.splitPackageName;
-			dub.fetch(parts.name, VersionRange.fromString(parts.version_), location, fetchOpts);
-		} else {
-			try {
-				dub.fetch(name, VersionRange.Any, location, fetchOpts);
-				logInfo("Finished", Color.green, "%s fetched", name.color(Mode.bold));
-				logInfo(
-					"Please note that you need to use `dub run <pkgname>` " ~
-					"or add it to dependencies of your package to actually use/run it. "
-				);
-			}
-			catch(Exception e){
-				logInfo("Getting a release version failed: %s", e.msg);
-				logInfo("Retry with ~master...");
-				dub.fetch(name, VersionRange.fromString("~master"), location, fetchOpts);
-			}
+			enforceUsage(!name.canFindVersionSplitter, "Double version spec not allowed.");
+			this.fetchPackage(dub, UserPackageDesc(name, VersionRange.fromString(m_version)));
+			return this.result[FetchStatus.Failed] ? 1 : 0;
 		}
-		return 0;
+
+		// Fetches dependencies of the project
+		// This is obviously mutually exclusive with the below foreach
+		if (!free_args.length) {
+			if (!this.loadCwdPackage(dub, true))
+				return 1;
+			// retrieve missing packages
+			if (!dub.project.hasAllDependencies) {
+				logInfo("Resolving", Color.green, "missing dependencies for project");
+				dub.upgrade(UpgradeOptions.select);
+			}
+			else
+				logInfo("All %s dependencies are already present locally",
+						dub.project.dependencies.length);
+			return 0;
+		}
+
+        // Fetches packages named explicitly
+		foreach (name; free_args) {
+			const udesc = UserPackageDesc.fromString(name);
+			this.fetchPackage(dub, udesc);
+		}
+        // Note that this does not include packages indirectly fetched.
+        // Hence it is not currently displayed in the no-argument version,
+        // and will only include directly mentioned packages in the arg version.
+		logInfoNoTag("%s packages fetched, %s already present, %s failed",
+				this.result[FetchStatus.Fetched], this.result[FetchStatus.Present],
+				this.result[FetchStatus.Failed]);
+		return this.result[FetchStatus.Failed] ? 1 : 0;
+	}
+
+    /// Shell around `fetchSinglePackage` with logs and recursion support
+    private void fetchPackage(Dub dub, UserPackageDesc udesc)
+    {
+        auto r = this.fetchSinglePackage(dub, udesc);
+        this.result[r] += 1;
+        final switch (r) {
+        case FetchStatus.Failed:
+            // Error displayed in `fetchPackage` as it has more information
+            // However we need to return here as we can't recurse.
+            return;
+        case FetchStatus.Present:
+            logInfo("Existing", Color.green, "package %s found locally", udesc);
+            break;
+        case FetchStatus.Fetched:
+            logInfo("Fetched", Color.green, "package %s successfully", udesc);
+            break;
+        }
+        if (this.recursive) {
+            auto pack = dub.packageManager.getBestPackage(
+				PackageName(udesc.name), udesc.range);
+            auto proj = new Project(dub.packageManager, pack);
+            if (!proj.hasAllDependencies) {
+				logInfo("Resolving", Color.green, "missing dependencies for project");
+				dub.loadPackage(pack);
+				dub.upgrade(UpgradeOptions.select);
+			}
+        }
+    }
+
+	/// Implementation for argument version
+	private FetchStatus fetchSinglePackage(Dub dub, UserPackageDesc udesc)
+	{
+		auto fspkg = dub.packageManager.getBestPackage(
+			PackageName(udesc.name), udesc.range);
+		// Avoid dub fetch if the package is present on the filesystem.
+		if (fspkg !is null && udesc.range.isExactVersion())
+			return FetchStatus.Present;
+
+		try {
+			auto pkg = dub.fetch(PackageName(udesc.name), udesc.range,
+				FetchOptions.forceBranchUpgrade);
+			assert(pkg !is null, "dub.fetch returned a null Package");
+			return pkg is fspkg ? FetchStatus.Present : FetchStatus.Fetched;
+		} catch (Exception e) {
+			logError("Fetching %s failed: %s", udesc, e.msg);
+			return FetchStatus.Failed;
+		}
 	}
 }
 
@@ -2066,13 +2314,15 @@ class RemoveCommand : FetchRemoveCommand {
 		if (!m_version.empty) { // remove then --version removed
 			enforceUsage(!package_id.canFindVersionSplitter, "Double version spec not allowed.");
 			logWarn("The '--version' parameter was deprecated, use %s@%s. Please update your scripts.", package_id, m_version);
-			dub.remove(package_id, m_version, location);
+			dub.remove(PackageName(package_id), m_version, location);
 		} else {
-			const parts = package_id.splitPackageName;
-			if (m_nonInteractive || parts.version_.length) {
-				dub.remove(parts.name, parts.version_, location);
+			const parts = UserPackageDesc.fromString(package_id);
+            const explicit = package_id.canFindVersionSplitter;
+			if (m_nonInteractive || explicit || parts.range != VersionRange.Any) {
+                const str = parts.range.matchesAny() ? "*" : parts.range.toString();
+				dub.remove(PackageName(parts.name), str, location);
 			} else {
-				dub.remove(package_id, location, &resolveVersion);
+				dub.remove(PackageName(package_id), location, &resolveVersion);
 			}
 		}
 		return 0;
@@ -2091,8 +2341,8 @@ abstract class RegistrationCommand : Command {
 	override void prepare(scope CommandArgs args)
 	{
 		args.getopt("system", &m_system, [
-			"Register system-wide instead of user-wide"
-		]);
+			"DEPRECATED: Use --cache=system instead"
+		], true);
 	}
 
 	abstract override int execute(Dub dub, string[] free_args, string[] app_args);
@@ -2119,7 +2369,12 @@ class AddPathCommand : RegistrationCommand {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length == 1, "Missing search path.");
-		dub.addSearchPath(free_args[0], m_system);
+		enforceUsage(!this.m_system || dub.defaultPlacementLocation == PlacementLocation.user,
+			"Cannot use both --system and --cache, prefer --cache");
+		if (this.m_system)
+			dub.addSearchPath(free_args[0], PlacementLocation.system);
+		else
+			dub.addSearchPath(free_args[0], dub.defaultPlacementLocation);
 		return 0;
 	}
 }
@@ -2136,7 +2391,12 @@ class RemovePathCommand : RegistrationCommand {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length == 1, "Expected one argument.");
-		dub.removeSearchPath(free_args[0], m_system);
+		enforceUsage(!this.m_system || dub.defaultPlacementLocation == PlacementLocation.user,
+			"Cannot use both --system and --cache, prefer --cache");
+		if (this.m_system)
+			dub.removeSearchPath(free_args[0], PlacementLocation.system);
+		else
+			dub.removeSearchPath(free_args[0], dub.defaultPlacementLocation);
 		return 0;
 	}
 }
@@ -2158,9 +2418,16 @@ class AddLocalCommand : RegistrationCommand {
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
-		enforceUsage(free_args.length == 1 || free_args.length == 2, "Expecting one or two arguments.");
+		enforceUsage(free_args.length == 1 || free_args.length == 2,
+			"Expecting one or two arguments.");
+		enforceUsage(!this.m_system || dub.defaultPlacementLocation == PlacementLocation.user,
+			"Cannot use both --system and --cache, prefer --cache");
+
 		string ver = free_args.length == 2 ? free_args[1] : null;
-		dub.addLocalPackage(free_args[0], ver, m_system);
+		if (this.m_system)
+			dub.addLocalPackage(free_args[0], ver, PlacementLocation.system);
+		else
+			dub.addLocalPackage(free_args[0], ver, dub.defaultPlacementLocation);
 		return 0;
 	}
 }
@@ -2177,8 +2444,15 @@ class RemoveLocalCommand : RegistrationCommand {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length >= 1, "Missing package path argument.");
-		enforceUsage(free_args.length <= 1, "Expected the package path to be the only argument.");
-		dub.removeLocalPackage(free_args[0], m_system);
+		enforceUsage(free_args.length <= 1,
+			"Expected the package path to be the only argument.");
+		enforceUsage(!this.m_system || dub.defaultPlacementLocation == PlacementLocation.user,
+			"Cannot use both --system and --cache, prefer --cache");
+
+		if (this.m_system)
+			dub.removeLocalPackage(free_args[0], PlacementLocation.system);
+		else
+			dub.removeLocalPackage(free_args[0], dub.defaultPlacementLocation);
 		return 0;
 	}
 }
@@ -2200,13 +2474,12 @@ class ListCommand : Command {
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
 		enforceUsage(free_args.length <= 1, "Expecting zero or one extra arguments.");
-		const pinfo = free_args.length ? splitPackageName(free_args[0]) : PackageAndVersion("","*");
+		const pinfo = free_args.length ? UserPackageDesc.fromString(free_args[0]) : UserPackageDesc("",VersionRange.Any);
 		const pname = pinfo.name;
-		const pvlim = Dependency(pinfo.version_ == "" ? "*" : pinfo.version_);
 		enforceUsage(app_args.length == 0, "The list command supports no application arguments.");
 		logInfoNoTag("Packages present in the system and known to dub:");
 		foreach (p; dub.packageManager.getPackageIterator()) {
-			if ((pname == "" || pname == p.name) && pvlim.matches(p.version_))
+			if ((pname == "" || pname == p.name) && pinfo.range.matches(p.version_))
 				logInfoNoTag("  %s %s: %s", p.name.color(Mode.bold), p.version_, p.path.toNativeString());
 		}
 		logInfo("");
@@ -2462,7 +2735,7 @@ class DustmiteCommand : PackageBuildCommand {
 		import std.format : formattedWrite;
 
 		if (m_testPackage.length) {
-			setupPackage(dub, m_testPackage);
+			setupPackage(dub, UserPackageDesc(m_testPackage));
 			m_defaultConfig = dub.project.getDefaultConfiguration(this.baseSettings.platform);
 
 			GeneratorSettings gensettings = this.baseSettings;
@@ -2491,7 +2764,7 @@ class DustmiteCommand : PackageBuildCommand {
 			if (!path.absolute) path = getWorkingDirectory() ~ path;
 			enforceUsage(!path.startsWith(dub.rootPath), "Destination path must not be a sub directory of the tested package!");
 
-			setupPackage(dub, null);
+			setupPackage(dub, UserPackageDesc.init);
 			auto prj = dub.project;
 			if (this.baseSettings.config.empty)
 				this.baseSettings.config = prj.getDefaultConfiguration(this.baseSettings.platform);
@@ -2499,7 +2772,7 @@ class DustmiteCommand : PackageBuildCommand {
 			void copyFolderRec(NativePath folder, NativePath dstfolder)
 			{
 				ensureDirectory(dstfolder);
-				foreach (de; iterateDirectory(folder.toNativeString())) {
+				foreach (de; iterateDirectory(folder)) {
 					if (de.name.startsWith(".")) continue;
 					if (de.isDirectory) {
 						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
@@ -2514,11 +2787,10 @@ class DustmiteCommand : PackageBuildCommand {
 				}
 			}
 
-			static void fixPathDependency(string pack, ref Dependency dep) {
+			static void fixPathDependency(in PackageName name, ref Dependency dep) {
 				dep.visit!(
 					(NativePath path) {
-						auto mainpack = getBasePackageName(pack);
-						dep = Dependency(NativePath("../") ~ mainpack);
+						dep = Dependency(NativePath("../") ~ name.main.toString());
 					},
 					(any) { /* Nothing to do */ },
 				);
@@ -2527,16 +2799,16 @@ class DustmiteCommand : PackageBuildCommand {
 			void fixPathDependencies(ref PackageRecipe recipe, NativePath base_path)
 			{
 				foreach (name, ref dep; recipe.buildSettings.dependencies)
-					fixPathDependency(name, dep);
+					fixPathDependency(PackageName(name), dep);
 
 				foreach (ref cfg; recipe.configurations)
 					foreach (name, ref dep; cfg.buildSettings.dependencies)
-						fixPathDependency(name, dep);
+						fixPathDependency(PackageName(name), dep);
 
 				foreach (ref subp; recipe.subPackages)
 					if (subp.path.length) {
 						auto sub_path = base_path ~ NativePath(subp.path);
-						auto pack = prj.packageManager.getOrLoadPackage(sub_path);
+						auto pack = dub.packageManager.getOrLoadPackage(sub_path);
 						fixPathDependencies(pack.recipe, sub_path);
 						pack.storeInfo(sub_path);
 					} else fixPathDependencies(subp.recipe, base_path);
@@ -2850,11 +3122,9 @@ private class UsageException : Exception {
 private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 {
 	Dependency dep;
-	const parts = splitPackageName(depspec);
-	const depname = parts.name;
-	if (parts.version_)
-		dep = Dependency(parts.version_);
-	else
+	const parts = UserPackageDesc.fromString(depspec);
+	const depname = PackageName(parts.name);
+	if (parts.range == VersionRange.Any)
 	{
 		try {
 			const ver = dub.getLatestVersion(depname);
@@ -2865,52 +3135,88 @@ private bool addDependency(Dub dub, ref PackageRecipe recipe, string depspec)
 			return false;
 		}
 	}
-	recipe.buildSettings.dependencies[depname] = dep;
+	else
+		dep = Dependency(parts.range);
+	recipe.buildSettings.dependencies[depname.toString()] = dep;
 	logInfo("Adding dependency %s %s", depname, dep.toString());
 	return true;
 }
 
-private struct PackageAndVersion
+/**
+ * A user-provided package description
+ *
+ * User provided package description currently only covers packages
+ * referenced by their name with an associated version.
+ * Hence there is an implicit assumption that they are in the registry.
+ * Future improvements could support `Dependency` instead of `VersionRange`.
+ */
+private struct UserPackageDesc
 {
 	string name;
-	string version_;
-}
+	VersionRange range = VersionRange.Any;
 
-/* Split <package>=<version-specifier> and <package>@<version-specifier>
-   into `name` and `version_`. */
-private PackageAndVersion splitPackageName(string packageName)
-{
-	// split <package>@<version-specifier>
-	auto parts = packageName.findSplit("@");
-	if (parts[1].empty) {
-		// split <package>=<version-specifier>
-		parts = packageName.findSplit("=");
+	/// Provides a string representation for the user
+	public string toString() const
+	{
+		if (this.range.matchesAny())
+			return this.name;
+		return format("%s@%s", this.name, range);
 	}
 
-	PackageAndVersion p;
-	p.name = parts[0];
-	if (!parts[1].empty)
-		p.version_ = parts[2];
-	return p;
+	/**
+	 * Breaks down a user-provided string into its name and version range
+	 *
+	 * User-provided strings (via the command line) are either in the form
+	 * `<package>=<version-specifier>` or `<package>@<version-specifier>`.
+	 * As it is more explicit, we recommend the latter (the `@` version
+	 * is not used by names or `VersionRange`, but `=` is).
+	 *
+	 * If no version range is provided, the returned struct has its `range`
+	 * property set to `VersionRange.Any` as this is the most usual usage
+	 * in the command line. Some cakkers may want to distinguish between
+	 * user-provided version and implicit version, but this is discouraged.
+	 *
+	 * Params:
+	 *   str = User-provided string
+	 *
+	 * Returns:
+	 *   A populated struct.
+	 */
+	static UserPackageDesc fromString(string packageName)
+	{
+		// split <package>@<version-specifier>
+		auto parts = packageName.findSplit("@");
+		if (parts[1].empty) {
+			// split <package>=<version-specifier>
+			parts = packageName.findSplit("=");
+		}
+
+		UserPackageDesc p;
+		p.name = parts[0];
+		p.range = !parts[1].empty
+			? VersionRange.fromString(parts[2])
+			: VersionRange.Any;
+		return p;
+	}
 }
 
 unittest
 {
 	// https://github.com/dlang/dub/issues/1681
-	assert(splitPackageName("") == PackageAndVersion("", null));
+	assert(UserPackageDesc.fromString("") == UserPackageDesc("", VersionRange.Any));
 
-	assert(splitPackageName("foo") == PackageAndVersion("foo", null));
-	assert(splitPackageName("foo=1.0.1") == PackageAndVersion("foo", "1.0.1"));
-	assert(splitPackageName("foo@1.0.1") == PackageAndVersion("foo", "1.0.1"));
-	assert(splitPackageName("foo@==1.0.1") == PackageAndVersion("foo", "==1.0.1"));
-	assert(splitPackageName("foo@>=1.0.1") == PackageAndVersion("foo", ">=1.0.1"));
-	assert(splitPackageName("foo@~>1.0.1") == PackageAndVersion("foo", "~>1.0.1"));
-	assert(splitPackageName("foo@<1.0.1") == PackageAndVersion("foo", "<1.0.1"));
+	assert(UserPackageDesc.fromString("foo") == UserPackageDesc("foo", VersionRange.Any));
+	assert(UserPackageDesc.fromString("foo=1.0.1") == UserPackageDesc("foo", VersionRange.fromString("1.0.1")));
+	assert(UserPackageDesc.fromString("foo@1.0.1") == UserPackageDesc("foo", VersionRange.fromString("1.0.1")));
+	assert(UserPackageDesc.fromString("foo@==1.0.1") == UserPackageDesc("foo", VersionRange.fromString("==1.0.1")));
+	assert(UserPackageDesc.fromString("foo@>=1.0.1") == UserPackageDesc("foo", VersionRange.fromString(">=1.0.1")));
+	assert(UserPackageDesc.fromString("foo@~>1.0.1") == UserPackageDesc("foo", VersionRange.fromString("~>1.0.1")));
+	assert(UserPackageDesc.fromString("foo@<1.0.1") == UserPackageDesc("foo", VersionRange.fromString("<1.0.1")));
 }
 
 private ulong canFindVersionSplitter(string packageName)
 {
-	// see splitPackageName
+	// see UserPackageDesc.fromString
 	return packageName.canFind("@", "=");
 }
 

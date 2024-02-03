@@ -9,7 +9,7 @@ module dub.packagemanager;
 
 import dub.dependency;
 import dub.internal.utils;
-import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.core.file : FileInfo;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
@@ -61,7 +61,7 @@ public string toString (PlacementLocation loc) @safe pure nothrow @nogc
 /// The PackageManager can retrieve present packages and get / remove
 /// packages.
 class PackageManager {
-	private {
+	protected {
 		/**
 		 * The 'internal' location, for packages not attributable to a location.
 		 *
@@ -188,11 +188,11 @@ class PackageManager {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	private Package lookup (string name, Version vers) {
+	protected Package lookup (in PackageName name, in Version vers) {
 		if (!this.m_initialized)
 			this.refresh();
 
-		if (auto pkg = this.m_internal.lookup(name, vers, this))
+		if (auto pkg = this.m_internal.lookup(name, vers))
 			return pkg;
 
 		foreach (ref location; this.m_repositories)
@@ -219,12 +219,12 @@ class PackageManager {
 		Returns:
 			The matching package or null if no match was found.
 	*/
-	Package getPackage(string name, Version ver, bool enable_overrides = true)
+	Package getPackage(in PackageName name, in Version ver, bool enable_overrides = true)
 	{
 		if (enable_overrides) {
 			foreach (ref repo; m_repositories)
 				foreach (ovr; repo.overrides)
-					if (ovr.package_ == name && ovr.source.matches(ver)) {
+					if (ovr.package_ == name.toString() && ovr.source.matches(ver)) {
 						Package pack = ovr.target.match!(
 							(NativePath path) => getOrLoadPackage(path),
 							(Version	vers) => getPackage(name, vers, false),
@@ -241,6 +241,12 @@ class PackageManager {
 		}
 
 		return this.lookup(name, ver);
+	}
+
+	deprecated("Use the overload that accepts a `PackageName` instead")
+	Package getPackage(string name, Version ver, bool enable_overrides = true)
+	{
+		return this.getPackage(PackageName(name), ver, enable_overrides);
 	}
 
 	/// ditto
@@ -263,7 +269,14 @@ class PackageManager {
 	}
 
 	/// Ditto
+	deprecated("Use the overload that accepts a `PackageName` instead")
 	Package getPackage(string name, Version ver, PlacementLocation loc)
+	{
+		return this.getPackage(PackageName(name), ver, loc);
+	}
+
+	/// Ditto
+	Package getPackage(in PackageName name, in Version ver, PlacementLocation loc)
 	{
 		// Bare mode
 		if (loc >= this.m_repositories.length)
@@ -332,9 +345,54 @@ class PackageManager {
 		foreach (p; this.m_internal.fromPath)
 			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
 				return p;
-		auto pack = Package.load(path, recipe_path, null, null, mode);
+		auto pack = this.load(path, recipe_path, null, null, mode);
 		addPackages(this.m_internal.fromPath, pack);
 		return pack;
+	}
+
+	/**
+	 * Loads a `Package` from the filesystem
+	 *
+	 * This is called when a `Package` needs to be loaded from the path.
+	 * This does not change the internal state of the `PackageManager`,
+	 * it simply loads the `Package` and returns it - it is up to the caller
+	 * to call `addPackages`.
+	 *
+	 * Throws:
+	 *   If no package can be found at the `path` / with the `recipe`.
+	 *
+	 * Params:
+	 *     path = The directory in which the package resides.
+	 *     recipe = Optional path to the package recipe file. If left empty,
+	 *              the `path` directory will be searched for a recipe file.
+	 *     parent = Reference to the parent package, if the new package is a
+	 *              sub package.
+	 *     version_ = Optional version to associate to the package instead of
+	 *                the one declared in the package recipe, or the one
+	 *                determined by invoking the VCS (GIT currently).
+	 *     mode = Whether to issue errors, warning, or ignore unknown keys in
+	 *            dub.json
+	 *
+	 * Returns: A populated `Package`.
+	 */
+	protected Package load(NativePath path, NativePath recipe = NativePath.init,
+		Package parent = null, string version_ = null,
+		StrictMode mode = StrictMode.Ignore)
+	{
+		if (recipe.empty)
+			recipe = Package.findPackageFile(path);
+
+		enforce(!recipe.empty,
+			"No package file found in %s, expected one of %s"
+				.format(path.toNativeString(),
+					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
+
+		const PackageName pname = parent
+			? PackageName(parent.name) : PackageName.init;
+		auto content = readPackageRecipe(recipe, pname, mode);
+		auto ret = new Package(content, path, parent, version_);
+		ret.m_infoFile = recipe;
+		return ret;
 	}
 
 	/** For a given SCM repository, returns the corresponding package.
@@ -353,13 +411,7 @@ class PackageManager {
 			The package loaded from the given SCM repository or null if the
 			package couldn't be loaded.
 	*/
-	deprecated("Use the overload that accepts a `dub.dependency : Repository`")
-	Package loadSCMPackage(string name, Dependency dependency)
-	in { assert(!dependency.repository.empty); }
-	do { return this.loadSCMPackage(name, dependency.repository); }
-
-	/// Ditto
-	Package loadSCMPackage(string name, Repository repo)
+	Package loadSCMPackage(in PackageName name, in Repository repo)
 	in { assert(!repo.empty); }
 	do {
 		Package pack;
@@ -375,7 +427,18 @@ class PackageManager {
 		return pack;
 	}
 
-	private Package loadGitPackage(string name, in Repository repo)
+	deprecated("Use the overload that accepts a `dub.dependency : Repository`")
+	Package loadSCMPackage(string name, Dependency dependency)
+	in { assert(!dependency.repository.empty); }
+	do { return this.loadSCMPackage(name, dependency.repository); }
+
+	deprecated("Use `loadSCMPackage(PackageName, Repository)`")
+	Package loadSCMPackage(string name, Repository repo)
+	{
+		return this.loadSCMPackage(PackageName(name), repo);
+	}
+
+	private Package loadGitPackage(in PackageName name, in Repository repo)
 	{
 		import dub.internal.git : cloneRepository;
 
@@ -385,11 +448,8 @@ class PackageManager {
 
 		string gitReference = repo.ref_.chompPrefix("~");
 		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
-		// For libraries leaking their import path
-		destination ~= name;
-		destination.endsWithSlash = true;
 
-		foreach (p; getPackageIterator(name)) {
+		foreach (p; getPackageIterator(name.toString())) {
 			if (p.path == destination) {
 				return p;
 			}
@@ -399,7 +459,7 @@ class PackageManager {
 			return null;
 		}
 
-		return Package.load(destination);
+		return this.load(destination);
 	}
 
 	/**
@@ -407,7 +467,7 @@ class PackageManager {
 	 *
 	 * See `Location.getPackagePath`.
 	 */
-	package(dub) NativePath getPackagePath (PlacementLocation base, string name, string vers)
+	package(dub) NativePath getPackagePath(PlacementLocation base, in PackageName name, string vers)
 	{
 		assert(this.m_repositories.length == 3, "getPackagePath called in bare mode");
 		return this.m_repositories[base].getPackagePath(name, vers);
@@ -428,18 +488,33 @@ class PackageManager {
 	 * Returns:
 	 *	 The best package matching the parameters, or `null` if none was found.
 	 */
+	deprecated("Use the overload that accepts a `PackageName` instead")
 	Package getBestPackage(string name, Version vers)
+	{
+		return this.getBestPackage(PackageName(name), vers);
+	}
+
+	/// Ditto
+	Package getBestPackage(in PackageName name, in Version vers)
 	{
 		return this.getBestPackage(name, VersionRange(vers, vers));
 	}
 
 	/// Ditto
+	deprecated("Use the overload that accepts a `PackageName` instead")
 	Package getBestPackage(string name, VersionRange range = VersionRange.Any)
+	{
+		return this.getBestPackage(PackageName(name), range);
+	}
+
+	/// Ditto
+	Package getBestPackage(in PackageName name, in VersionRange range = VersionRange.Any)
 	{
 		return this.getBestPackage_(name, Dependency(range));
 	}
 
 	/// Ditto
+	deprecated("Use the overload that accepts a `Version` or a `VersionRange`")
 	Package getBestPackage(string name, string range)
 	{
 		return this.getBestPackage(name, VersionRange.fromString(range));
@@ -449,14 +524,15 @@ class PackageManager {
 	deprecated("`getBestPackage` should only be used with a `Version` or `VersionRange` argument")
 	Package getBestPackage(string name, Dependency version_spec, bool enable_overrides = true)
 	{
-		return this.getBestPackage_(name, version_spec, enable_overrides);
+		return this.getBestPackage_(PackageName(name), version_spec, enable_overrides);
 	}
 
 	// TODO: Merge this into `getBestPackage(string, VersionRange)`
-	private Package getBestPackage_(string name, Dependency version_spec, bool enable_overrides = true)
+	private Package getBestPackage_(in PackageName name, in Dependency version_spec,
+		bool enable_overrides = true)
 	{
 		Package ret;
-		foreach (p; getPackageIterator(name)) {
+		foreach (p; getPackageIterator(name.toString())) {
 			auto vmm = isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard;
 			if (version_spec.matches(p.version_, vmm) && (!ret || p.version_ > ret.version_))
 				ret = p;
@@ -470,9 +546,6 @@ class PackageManager {
 	}
 
 	/** Gets the a specific sub package.
-
-		In contrast to `Package.getSubPackage`, this function supports path
-		based sub packages.
 
 		Params:
 			base_package = The package from which to get a sub package
@@ -509,11 +582,9 @@ class PackageManager {
 	*/
 	bool isManagedPath(NativePath path)
 	const {
-		foreach (rep; m_repositories) {
-			NativePath rpath = rep.packagePath;
-			if (path.startsWith(rpath))
+		foreach (rep; m_repositories)
+			if (rep.isManaged(path))
 				return true;
-		}
 		return false;
 	}
 
@@ -653,7 +724,8 @@ class PackageManager {
 	deprecated("Use `store(NativePath source, PlacementLocation dest, string name, Version vers)`")
 	Package storeFetchedPackage(NativePath zip_file_path, Json package_info, NativePath destination)
 	{
-		return this.store_(zip_file_path, destination, package_info["name"].get!string,
+		return this.store_(zip_file_path, destination,
+			PackageName(package_info["name"].get!string),
 			Version(package_info["version"].get!string));
 	}
 
@@ -678,16 +750,26 @@ class PackageManager {
 	 *   If the package cannot be loaded / the zip is corrupted / the package
 	 *   already exists, etc...
 	 */
+	deprecated("Use the overload that accepts a `PackageName` instead")
 	Package store(NativePath src, PlacementLocation dest, string name, Version vers)
 	{
+		return this.store(src, dest, PackageName(name), vers);
+	}
+
+	/// Ditto
+	Package store(NativePath src, PlacementLocation dest, in PackageName name,
+		in Version vers)
+	{
+		import dub.internal.vibecompat.core.file;
+
+		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
-		ensureDirectory(dstpath);
-		// For libraries leaking their import path
-		dstpath = dstpath ~ name;
+		ensureDirectory(dstpath.parentPath());
+		const lockPath = dstpath.parentPath() ~ ".lock";
 
 		// possibly wait for other dub instance
 		import core.time : seconds;
-		auto lock = lockFile(dstpath.toNativeString() ~ ".lock", 30.seconds);
+		auto lock = lockFile(lockPath.toNativeString(), 30.seconds);
 		if (dstpath.existsFile()) {
 			return this.getPackage(name, vers, dest);
 		}
@@ -696,25 +778,21 @@ class PackageManager {
 
 	/// Backward-compatibility for deprecated overload, simplify once `storeFetchedPatch`
 	/// is removed
-	private Package store_(NativePath src, NativePath destination, string name, Version vers)
+	private Package store_(NativePath src, NativePath destination,
+		in PackageName name, in Version vers)
 	{
+		import dub.internal.vibecompat.core.file;
 		import std.range : walkLength;
 
 		logDebug("Placing package '%s' version '%s' to location '%s' from file '%s'",
 			name, vers, destination.toNativeString(), src.toNativeString());
 
-		if( existsFile(destination) ){
-			throw new Exception(format("%s (%s) needs to be removed from '%s' prior placement.",
-				name, vers, destination));
-		}
+		enforce(!existsFile(destination),
+			"%s (%s) needs to be removed from '%s' prior placement."
+			.format(name, vers, destination));
 
-		// open zip file
-		ZipArchive archive;
-		{
-			logDebug("Opening file %s", src);
-			archive = new ZipArchive(readFile(src));
-		}
-
+		logDebug("Opening file %s", src);
+		ZipArchive archive = new ZipArchive(readFile(src));
 		logDebug("Extracting from zip.");
 
 		// In a GitHub zip, the actual contents are in a sub-folder
@@ -758,7 +836,7 @@ class PackageManager {
 			auto dst_path = destination ~ cleanedPath;
 
 			logDebug("Creating %s", cleanedPath);
-			if( dst_path.endsWithSlash ){
+			if (dst_path.endsWithSlash) {
 				ensureDirectory(dst_path);
 			} else {
 				ensureDirectory(dst_path.parentPath);
@@ -786,7 +864,7 @@ symlink_exit:
 		logDebug("%s file(s) copied.", to!string(countFiles));
 
 		// overwrite dub.json (this one includes a version field)
-		auto pack = Package.load(destination, NativePath.init, null, vers.toString());
+		auto pack = this.load(destination, NativePath.init, null, vers.toString());
 
 		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
@@ -801,6 +879,7 @@ symlink_exit:
 	{
 		logDebug("Remove %s, version %s, path '%s'", pack.name, pack.version_, pack.path);
 		enforce(!pack.path.empty, "Cannot remove package "~pack.name~" without a path.");
+		enforce(pack.parentPackage is null, "Cannot remove subpackage %s".format(pack.name));
 
 		// remove package from repositories' list
 		bool found = false;
@@ -849,7 +928,7 @@ symlink_exit:
 			this.refresh();
 
 		path.endsWithSlash = true;
-		auto pack = Package.load(path);
+		auto pack = this.load(path);
 		enforce(pack.name.length, "The package has no name, defined in: " ~ path.toString());
 		if (verName.length)
 			pack.version_ = Version(verName);
@@ -952,6 +1031,8 @@ symlink_exit:
 	/// .svn folders)
 	Hash hashPackage(Package pack)
 	{
+		import dub.internal.vibecompat.core.file;
+
 		string[] ignored_directories = [".git", ".dub", ".svn"];
 		// something from .dub_ignore or what?
 		string[] ignored_files = [];
@@ -978,8 +1059,8 @@ symlink_exit:
 	}
 
 	/// Adds the package and scans for sub-packages.
-	private void addPackages(ref Package[] dst_repos, Package pack)
-	const {
+	protected void addPackages(ref Package[] dst_repos, Package pack)
+	{
 		// Add the main package.
 		dst_repos ~= pack;
 
@@ -994,11 +1075,7 @@ symlink_exit:
 				p.normalize();
 				enforce(!p.absolute, "Sub package paths must be sub paths of the parent package.");
 				auto path = pack.path ~ p;
-				if (!existsFile(path)) {
-					logError("Package %s declared a sub-package, definition file is missing: %s", pack.name, path.toNativeString());
-					continue;
-				}
-				sp = Package.load(path, NativePath.init, pack);
+				sp = this.load(path, NativePath.init, pack);
 			} else sp = new Package(spr.recipe, pack.path, pack);
 
 			// Add the sub-package.
@@ -1010,6 +1087,23 @@ symlink_exit:
 				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}
 		}
+	}
+
+	/// Used for dependency injection in `Location`
+	protected bool existsDirectory(NativePath path)
+	{
+		static import dub.internal.vibecompat.core.file;
+		return dub.internal.vibecompat.core.file.existsDirectory(path);
+	}
+
+	/// Ditto
+	protected alias IterateDirDg = int delegate(scope int delegate(ref FileInfo));
+
+	/// Ditto
+	protected IterateDirDg iterateDirectory(NativePath path)
+	{
+		static import dub.internal.vibecompat.core.file;
+		return dub.internal.vibecompat.core.file.iterateDirectory(path);
 	}
 }
 
@@ -1124,7 +1218,7 @@ private enum LocalOverridesFilename = "local-overrides.json";
  * Additionally, each location host a config file,
  * which is not managed by this module, but by dub itself.
  */
-private struct Location {
+package struct Location {
 	/// The absolute path to the root of the location
 	NativePath packagePath;
 
@@ -1152,6 +1246,8 @@ private struct Location {
 
 	void loadOverrides()
 	{
+		import dub.internal.vibecompat.core.file;
+
 		this.overrides = null;
 		auto ovrfilepath = this.packagePath ~ LocalOverridesFilename;
 		if (existsFile(ovrfilepath)) {
@@ -1171,6 +1267,8 @@ private struct Location {
 
 	private void writeOverrides()
 	{
+		import dub.internal.vibecompat.core.file;
+
 		Json[] newlist;
 		foreach (ovr; this.overrides) {
 			auto jovr = Json.emptyObject;
@@ -1189,6 +1287,8 @@ private struct Location {
 
 	private void writeLocalPackageList()
 	{
+		import dub.internal.vibecompat.core.file;
+
 		Json[] newlist;
 		foreach (p; this.searchPath) {
 			auto entry = Json.emptyObject;
@@ -1214,6 +1314,8 @@ private struct Location {
 	// load locally defined packages
 	void scanLocalPackages(bool refresh, PackageManager manager)
 	{
+		import dub.internal.vibecompat.core.file;
+
 		NativePath list_path = this.packagePath;
 		Package[] packs;
 		NativePath[] paths;
@@ -1244,7 +1346,7 @@ private struct Location {
 
 						if (!pp) {
 							auto infoFile = Package.findPackageFile(path);
-							if (!infoFile.empty) pp = Package.load(path, infoFile);
+							if (!infoFile.empty) pp = manager.load(path, infoFile);
 							else {
 								logWarn("Locally registered package %s %s was not found. Please run 'dub remove-local \"%s\"'.",
 										name, ver, path.toNativeString());
@@ -1295,7 +1397,7 @@ private struct Location {
 	void scanPackageFolder(NativePath path, PackageManager mgr,
 		Package[] existing_packages)
 	{
-		if (!path.existsDirectory())
+		if (!mgr.existsDirectory(path))
 			return;
 
 		void loadInternal (NativePath pack_path, NativePath packageFile)
@@ -1307,7 +1409,7 @@ private struct Location {
 						p = pp;
 						break;
 					}
-				if (!p) p = Package.load(pack_path, packageFile);
+				if (!p) p = mgr.load(pack_path, packageFile);
 				mgr.addPackages(this.fromPath, p);
 			} catch (ConfigException exc) {
 				// Configy error message already include the path
@@ -1319,7 +1421,7 @@ private struct Location {
 		}
 
 		logDebug("iterating dir %s", path.toNativeString());
-		try foreach (pdir; iterateDirectory(path)) {
+		try foreach (pdir; mgr.iterateDirectory(path)) {
 			logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 			if (!pdir.isDirectory) continue;
 
@@ -1338,12 +1440,12 @@ private struct Location {
 
 			// Managed structure: $ROOT/$NAME/$VERSION/$NAME
 			// This is the most common code path
-			else if (mgr.isManagedPath(path)) {
+			else {
 				// Iterate over versions of a package
-				foreach (versdir; iterateDirectory(pack_path)) {
+				foreach (versdir; mgr.iterateDirectory(pack_path)) {
 					if (!versdir.isDirectory) continue;
 					auto vers_path = pack_path ~ versdir.name ~ (pdir.name ~ "/");
-					if (!vers_path.existsDirectory()) continue;
+					if (!mgr.existsDirectory(vers_path)) continue;
 					packageFile = Package.findPackageFile(vers_path);
 					loadInternal(vers_path, packageFile);
 				}
@@ -1367,13 +1469,15 @@ private struct Location {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	private inout(Package) lookup(string name, Version ver, PackageManager mgr) inout {
+	inout(Package) lookup(in PackageName name, in Version ver) inout {
 		foreach (pkg; this.localPackages)
-			if (pkg.name == name && pkg.version_.matches(ver, VersionMatchMode.standard))
+			if (pkg.name == name.toString() &&
+				pkg.version_.matches(ver, VersionMatchMode.standard))
 				return pkg;
 		foreach (pkg; this.fromPath) {
-			auto pvm = mgr.isManagedPackage(pkg) ? VersionMatchMode.strict : VersionMatchMode.standard;
-			if (pkg.name == name && pkg.version_.matches(ver, pvm))
+			auto pvm = this.isManaged(pkg.basePackage.path) ?
+				VersionMatchMode.strict : VersionMatchMode.standard;
+			if (pkg.name == name.toString() && pkg.version_.matches(ver, pvm))
 				return pkg;
 		}
 		return null;
@@ -1394,19 +1498,18 @@ private struct Location {
 	 * Returns:
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
-	private Package load (string name, Version vers, PackageManager mgr)
+	Package load (in PackageName name, Version vers, PackageManager mgr)
 	{
-		if (auto pkg = this.lookup(name, vers, mgr))
+		if (auto pkg = this.lookup(name, vers))
 			return pkg;
 
 		string versStr = vers.toString();
-		const lookupName = getBasePackageName(name);
-		const path = this.getPackagePath(lookupName, versStr) ~ (lookupName ~ "/");
-		if (!path.existsDirectory())
+		const path = this.getPackagePath(name, versStr);
+		if (!mgr.existsDirectory(path))
 			return null;
 
-		logDiagnostic("Lazily loading package %s:%s from %s", lookupName, vers, path);
-		auto p = Package.load(path);
+		logDiagnostic("Lazily loading package %s:%s from %s", name.main, vers, path);
+		auto p = mgr.load(path);
 		enforce(
 			p.version_ == vers,
 			format("Package %s located in %s has a different version than its path: Got %s, expected %s",
@@ -1422,15 +1525,30 @@ private struct Location {
 	 * which expects their containing folder to have an exact name and use
 	 * `importPath "../"`.
 	 *
-	 * Hence the final format should be `$BASE/$NAME-$VERSION/$NAME`,
-	 * but this function returns `$BASE/$NAME-$VERSION/`
+	 * Hence the final format returned is `$BASE/$NAME/$VERSION/$NAME`,
 	 * `$BASE` is `this.packagePath`.
+	 *
+	 * Params:
+	 *   name = The package name - if the name is that of a subpackage,
+	 *          only the path to the main package is returned, as the
+	 *          subpackage path can only be known after reading the recipe.
+	 *   vers = A version string. Typed as a string because git hashes
+	 *          can be used with this function.
+	 *
+	 * Returns:
+	 *   An absolute `NativePath` nested in this location.
 	 */
-	private NativePath getPackagePath (string name, string vers)
+	NativePath getPackagePath (in PackageName name, string vers)
 	{
-		NativePath result = this.packagePath ~ name ~ vers;
+		NativePath result = this.packagePath ~ name.main.toString() ~ vers ~
+			name.main.toString();
 		result.endsWithSlash = true;
 		return result;
+	}
+
+	/// Determines if a specific path is within a DUB managed Location.
+	bool isManaged(NativePath path) const {
+		return path.startsWith(this.packagePath);
 	}
 }
 

@@ -9,6 +9,20 @@ module app;
 
 import dub.commandline;
 
+// Set output path and options for coverage reports
+version (DigitalMars) version (D_Coverage)
+{
+	shared static this()
+	{
+		import core.runtime, std.file, std.path, std.stdio;
+		dmd_coverSetMerge(true);
+		auto path = buildPath(dirName(thisExePath()), "../cov");
+		if (!path.exists)
+			mkdir(path);
+		dmd_coverDestPath(path);
+	}
+}
+
 /**
  * Workaround https://github.com/dlang/dub/issues/1812
  *

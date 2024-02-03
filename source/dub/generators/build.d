@@ -61,14 +61,12 @@ string computeBuildName(string config, in GeneratorSettings settings, const stri
 
 class BuildGenerator : ProjectGenerator {
 	private {
-		PackageManager m_packageMan;
 		NativePath[] m_temporaryFiles;
 	}
 
 	this(Project project)
 	{
 		super(project);
-		m_packageMan = project.packageManager;
 	}
 
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
@@ -263,7 +261,7 @@ class BuildGenerator : ProjectGenerator {
 			m_tempTargetExecutablePath = target_path = getTempDir() ~ format(".dub/build/%s-%s/%s/", packageName, pack.version_, build_id);
 		}
 		else
-			target_path = packageCache(settings.cache, pack) ~ "build/" ~ build_id;
+			target_path = targetCacheDir(settings.cache, pack, build_id);
 
 		if (!settings.force && isUpToDate(target_path, buildsettings, settings, pack, packages, additional_dep_files)) {
 			logInfo("Up-to-date", Color.green, "%s %s: target for configuration [%s] is up to date.",
@@ -729,38 +727,6 @@ class BuildGenerator : ProjectGenerator {
 		}
 		m_temporaryFiles = null;
 	}
-}
-
-/**
- * Provides a unique (per build) identifier
- *
- * When building a package, it is important to have a unique but stable
- * identifier to differentiate builds and allow their caching.
- * This function provides such an identifier.
- * Example:
- * ```
- * application-debug-linux.posix-x86_64-dmd_v2.100.2-D80285212AEC1FF9855F18AD52C68B9EEB5C7690609C224575F920096FB1965B
- * ```
- */
-private string computeBuildID(in BuildSettings buildsettings, string config, GeneratorSettings settings)
-{
-	const(string[])[] hashing = [
-		buildsettings.versions,
-		buildsettings.debugVersions,
-		buildsettings.dflags,
-		buildsettings.lflags,
-		buildsettings.stringImportPaths,
-		buildsettings.importPaths,
-		buildsettings.cImportPaths,
-		settings.platform.architecture,
-		[
-			(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
-			settings.platform.compilerBinary,
-			settings.platform.compiler,
-			settings.platform.compilerVersion
-		],
-	];
-	return computeBuildName(config, settings, hashing);
 }
 
 private NativePath getMainSourceFile(in Package prj)

@@ -230,6 +230,11 @@ config    /etc/dmd.conf
 	{
 		enforceBuildRequirements(settings);
 
+		// Keep the current dflags at the end of the array so that they will overwrite other flags.
+		// This allows user $DFLAGS to modify flags added by us.
+		const dflagsTail = settings.dflags;
+		settings.dflags = [];
+
 		if (!(fields & BuildSetting.options)) {
 			foreach (t; s_options)
 				if (settings.options & t[0])
@@ -281,6 +286,8 @@ config    /etc/dmd.conf
 
 		if (platform.platform.canFind("posix") && (settings.options & BuildOption.pic))
 			settings.addDFlags("-fPIC");
+
+		settings.addDFlags(dflagsTail);
 
 		assert(fields & BuildSetting.dflags);
 		assert(fields & BuildSetting.copyFiles);

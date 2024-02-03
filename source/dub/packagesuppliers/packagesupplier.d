@@ -1,6 +1,7 @@
 module dub.packagesuppliers.packagesupplier;
 
-public import dub.dependency : Dependency, Version;
+public import dub.dependency : PackageName, Dependency, Version, VersionRange;
+import dub.dependency : visit;
 public import dub.internal.vibecompat.core.file : NativePath;
 public import dub.internal.vibecompat.data.json : Json;
 
@@ -22,18 +23,38 @@ interface PackageSupplier {
 		Throws: Throws an exception if the package name is not known, or if
 			an error occurred while retrieving the version list.
 	*/
-	Version[] getVersions(string package_id);
+	deprecated("Use `getVersions(PackageName)` instead")
+	final Version[] getVersions(string name)
+	{
+		return this.getVersions(PackageName(name));
+	}
+
+	Version[] getVersions(in PackageName name);
+
 
 	/** Downloads a package and stores it as a ZIP file.
 
 		Params:
 			path = Absolute path of the target ZIP file
-			package_id = Name of the package to retrieve
+			name = Name of the package to retrieve
 			dep = Version constraint to match against
 			pre_release = If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	void fetchPackage(NativePath path, string package_id, Dependency dep, bool pre_release);
+	void fetchPackage(in NativePath path, in PackageName name,
+		in VersionRange dep, bool pre_release);
+
+    deprecated("Use `fetchPackage(NativePath, PackageName, VersionRange, bool)` instead")
+	final void fetchPackage(NativePath path, string name, Dependency dep, bool pre_release)
+    {
+        return dep.visit!(
+            (const VersionRange rng) {
+                return this.fetchPackage(path, PackageName(name), rng, pre_release);
+            }, (any) {
+                assert(0, "Trying to fetch a package with a non-version dependency: " ~ any.toString());
+            },
+        );
+    }
 
 	/** Retrieves only the recipe of a particular package.
 
@@ -43,7 +64,19 @@ interface PackageSupplier {
 			pre_release = If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	Json fetchPackageRecipe(string package_id, Dependency dep, bool pre_release);
+	Json fetchPackageRecipe(in PackageName name, in VersionRange dep, bool pre_release);
+
+    deprecated("Use `fetchPackageRecipe(PackageName, VersionRange, bool)` instead")
+	final Json fetchPackageRecipe(string name, Dependency dep, bool pre_release)
+    {
+        return dep.visit!(
+            (const VersionRange rng) {
+                return this.fetchPackageRecipe(PackageName(name), rng, pre_release);
+            }, (any) {
+                return Json.init;
+            },
+        );
+    }
 
 	/** Searches for packages matching the given search query term.
 
@@ -59,9 +92,12 @@ interface PackageSupplier {
 //       a package recipe instead of one (first get version list, then the
 //       package recipe)
 
-package Json getBestPackage(Json metadata, string packageId, Dependency dep, bool pre_release)
+package Json getBestPackage(Json metadata, in PackageName name,
+	in VersionRange dep, bool pre_release)
 {
 	import std.exception : enforce;
+	import std.format : format;
+
 	if (metadata.type == Json.Type.null_)
 		return metadata;
 	Json best = null;
@@ -77,6 +113,7 @@ package Json getBestPackage(Json metadata, string packageId, Dependency dep, boo
 		} else if (!cur.isPreRelease && cur > bestver) best = json;
 		bestver = Version(cast(string)best["version"]);
 	}
-	enforce(best != null, "No package candidate found for "~packageId~" "~dep.toString());
+	enforce(best != null,
+		"No package candidate found for %s@%s".format(name.main, dep));
 	return best;
 }

@@ -2,8 +2,12 @@
 	"name": "generated-sources-and-source-files-without-glob",
 	"description": "Example of using pre generate commands and sourceFiles without glob.",
 	"sourceFiles": ["ext/fortytwo.d"],
-	"preGenerateCommands": [
+	"preGenerateCommands-posix": [
 		"mkdir -p ext",
 		"echo 'extern(C) int fun42 () { return 42; }' > ext/fortytwo.d"
+	],
+	"preGenerateCommands-windows": [
+		"if not exist ext mkdir ext",
+		"echo extern(C) int fun42 () { return 42; } > ext/fortytwo.d"
 	]
 }

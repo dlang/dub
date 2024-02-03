@@ -51,6 +51,7 @@ static immutable FilenameAndFormat[] packageInfoFiles = [
 ];
 
 /// Returns a list of all recognized package recipe file names in descending order of precedence.
+deprecated("Open an issue if this is needed")
 @property string[] packageInfoFilenames() { return packageInfoFiles.map!(f => cast(string)f.filename).array; }
 
 /// Returns the default package recile file name.
@@ -79,9 +80,10 @@ static immutable string[] builtinBuildTypes = [
 /**	Represents a package, including its sub packages.
 */
 class Package {
+	// `package` visibility as it is set from the PackageManager
+	package NativePath m_infoFile;
 	private {
 		NativePath m_path;
-		NativePath m_infoFile;
 		PackageRecipe m_info;
 		PackageRecipe m_rawRecipe;
 		Package m_parentPackage;
@@ -99,6 +101,7 @@ class Package {
 				instead of the one declared in the package recipe, or the one
 				determined by invoking the VCS (GIT currently).
 	*/
+	deprecated("Provide an already parsed PackageRecipe instead of a JSON object")
 	this(Json json_recipe, NativePath root = NativePath(), Package parent = null, string version_override = "")
 	{
 		import dub.recipe.json;
@@ -172,6 +175,7 @@ class Package {
 				determined by invoking the VCS (GIT currently).
 			mode = Whether to issue errors, warning, or ignore unknown keys in dub.json
 	*/
+	deprecated("Use `PackageManager.getOrLoadPackage` instead of loading packages directly")
 	static Package load(NativePath root, NativePath recipe_file = NativePath.init,
 		Package parent = null, string version_override = "",
 		StrictMode mode = StrictMode.Ignore)
@@ -308,13 +312,7 @@ class Package {
 		writeJsonFile(filename, m_info.toJson());
 	}
 
-	/** Returns the package recipe of a non-path-based sub package.
-
-		For sub packages that are declared within the package recipe of the
-		parent package, this function will return the corresponding recipe. Sub
-		packages declared using a path must be loaded manually (or using the
-		`PackageManager`).
-	*/
+	deprecated("Use `PackageManager.getSubPackage` instead")
 	Nullable!PackageRecipe getInternalSubPackage(string name)
 	{
 		foreach (ref p; m_info.subPackages)
@@ -418,10 +416,6 @@ class Package {
 	*/
 	void addBuildTypeSettings(ref BuildSettings settings, in BuildPlatform platform, string build_type)
 	const {
-		import std.process : environment;
-		string dflags = environment.get("DFLAGS", "");
-		settings.addDFlags(dflags.split());
-
 		if (auto pbt = build_type in m_info.buildTypes) {
 			logDiagnostic("Using custom build type '%s'.", build_type);
 			pbt.getPlatformSettings(settings, platform, this.path);
@@ -446,6 +440,11 @@ class Package {
 				case "syntax": settings.addOptions(syntaxOnly); break;
 			}
 		}
+
+		// Add environment DFLAGS last so that user specified values are not overriden by us.
+		import std.process : environment;
+		string dflags = environment.get("DFLAGS", "");
+		settings.addDFlags(dflags.split());
 	}
 
 	/** Returns the selected configuration for a certain dependency.
@@ -669,7 +668,6 @@ class Package {
 
 	private void checkDubRequirements()
 	{
-		import dub.dependency : Dependency;
 		import dub.semver : isValidVersion;
 		import dub.version_ : dubVersion;
 		import std.exception : enforce;
@@ -677,16 +675,10 @@ class Package {
 		const dep = m_info.toolchainRequirements.dub;
 
 		static assert(dubVersion.length);
-		static if (dubVersion[0] == 'v') {
-			enum dv = dubVersion[1 .. $];
-		}
-		else {
-			enum dv = dubVersion;
-		}
-		static assert(isValidVersion(dv));
+		immutable dv = Version(dubVersion[(dubVersion[0] == 'v') .. $]);
 
 		enforce(dep.matches(dv),
-			"dub-" ~ dv ~ " does not comply with toolchainRequirements.dub "
+			"dub-" ~ dv.toString() ~ " does not comply with toolchainRequirements.dub "
 			~ "specification: " ~ m_info.toolchainRequirements.dub.toString()
 			~ "\nPlease consider upgrading your DUB installation");
 	}

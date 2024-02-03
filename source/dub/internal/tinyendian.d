@@ -122,7 +122,7 @@ auto fixUTFByteOrder(ubyte[] array) @safe @nogc pure nothrow
     static immutable Endian[5] bomEndian = [ endian,
                                              Endian.littleEndian,
                                              Endian.bigEndian,
-                                             Endian.littleEndian, 
+                                             Endian.littleEndian,
                                              Endian.bigEndian ];
 
     // Documented in function ddoc.

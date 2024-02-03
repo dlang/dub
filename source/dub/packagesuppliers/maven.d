@@ -20,7 +20,7 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		enum httpTimeout = 16;
 		URL m_mavenUrl;
 		struct CacheEntry { Json data; SysTime cacheTime; }
-		CacheEntry[string] m_metadataCache;
+		CacheEntry[PackageName] m_metadataCache;
 		Duration m_maxCacheTime;
 	}
 
@@ -32,10 +32,10 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 
 	override @property string description() { return "maven repository at "~m_mavenUrl.toString(); }
 
-	Version[] getVersions(string package_id)
+	override Version[] getVersions(in PackageName name)
 	{
 		import std.algorithm.sorting : sort;
-		auto md = getMetadata(package_id);
+		auto md = getMetadata(name.main);
 		if (md.type == Json.Type.null_)
 			return null;
 		Version[] ret;
@@ -47,15 +47,17 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	void fetchPackage(NativePath path, string packageId, Dependency dep, bool pre_release)
+	override void fetchPackage(in NativePath path, in PackageName name,
+		in VersionRange dep, bool pre_release)
 	{
 		import std.format : format;
-		auto md = getMetadata(packageId);
-		Json best = getBestPackage(md, packageId, dep, pre_release);
+		auto md = getMetadata(name.main);
+		Json best = getBestPackage(md, name.main, dep, pre_release);
 		if (best.type == Json.Type.null_)
 			return;
 		auto vers = best["version"].get!string;
-		auto url = m_mavenUrl~NativePath("%s/%s/%s-%s.zip".format(packageId, vers, packageId, vers));
+		auto url = m_mavenUrl ~ NativePath(
+			"%s/%s/%s-%s.zip".format(name.main, vers, name.main, vers));
 
 		try {
 			retryDownload(url, path, 3, httpTimeout);
@@ -63,58 +65,65 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;
-			else logDebug("Failed to download package %s from %s", packageId, url);
+			else logDebug("Failed to download package %s from %s", name.main, url);
 		}
 		catch(Exception e) {
-			logDebug("Failed to download package %s from %s", packageId, url);
+			logDebug("Failed to download package %s from %s", name.main, url);
 		}
-		throw new Exception("Failed to download package %s from %s".format(packageId, url));
+		throw new Exception("Failed to download package %s from %s".format(name.main, url));
 	}
 
-	Json fetchPackageRecipe(string packageId, Dependency dep, bool pre_release)
+	override Json fetchPackageRecipe(in PackageName name, in VersionRange dep,
+		bool pre_release)
 	{
-		auto md = getMetadata(packageId);
-		return getBestPackage(md, packageId, dep, pre_release);
+		auto md = getMetadata(name);
+		return getBestPackage(md, name, dep, pre_release);
 	}
 
-	private Json getMetadata(string packageId)
+	private Json getMetadata(in PackageName name)
 	{
 		import dub.internal.undead.xml;
 
 		auto now = Clock.currTime(UTC());
-		if (auto pentry = packageId in m_metadataCache) {
+		if (auto pentry = name.main in m_metadataCache) {
 			if (pentry.cacheTime + m_maxCacheTime > now)
 				return pentry.data;
-			m_metadataCache.remove(packageId);
+			m_metadataCache.remove(name.main);
 		}
 
-		auto url = m_mavenUrl~NativePath(packageId~"/maven-metadata.xml");
+		auto url = m_mavenUrl ~ NativePath(name.main.toString() ~ "/maven-metadata.xml");
 
-		logDebug("Downloading maven metadata for %s", packageId);
+		logDebug("Downloading maven metadata for %s", name.main);
 		string xmlData;
 
 		try
 			xmlData = cast(string)retryDownload(url, 3, httpTimeout);
 		catch(HTTPStatusException e) {
 			if (e.status == 404) {
-				logDebug("Maven metadata %s not found at %s (404): %s", packageId, description, e.msg);
+				logDebug("Maven metadata %s not found at %s (404): %s", name.main, description, e.msg);
 				return Json(null);
 			}
 			else throw e;
 		}
 
-		auto json = Json(["name": Json(packageId), "versions": Json.emptyArray]);
+		auto json = Json([
+			"name": Json(name.main.toString()),
+			"versions": Json.emptyArray
+		]);
 		auto xml = new DocumentParser(xmlData);
 
 		xml.onStartTag["versions"] = (ElementParser xml) {
 			 xml.onEndTag["version"] = (in Element e) {
-				json["versions"] ~= serializeToJson(["name": packageId, "version": e.text]);
+				json["versions"] ~= serializeToJson([
+					"name": name.main.toString(),
+					"version": e.text,
+				]);
 			 };
 			 xml.parse();
 		};
 		xml.parse();
 
-		m_metadataCache[packageId] = CacheEntry(json, now);
+		m_metadataCache[name.main] = CacheEntry(json, now);
 		return json;
 	}
 
@@ -122,10 +131,10 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 	{
 		// Only exact search is supported
 		// This enables retrieval of dub packages on dub run
-		auto md = getMetadata(query);
+		auto md = getMetadata(PackageName(query));
 		if (md.type == Json.Type.null_)
 			return null;
-		auto json = getBestPackage(md, query, Dependency.any, true);
+		auto json = getBestPackage(md, PackageName(query), VersionRange.Any, true);
 		return [SearchResult(json["name"].opt!string, "", json["version"].opt!string)];
 	}
 }
