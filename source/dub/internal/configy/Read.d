@@ -794,13 +794,28 @@ package FR.Type parseField (alias FR)
         if (node.nodeID != NodeID.sequence)
             throw new TypeConfigException(node, "sequence (array)", path);
 
+        typeof(return) validateLength (E[] res)
+        {
+            static if (is(FR.Type : E_[k], E_, size_t k))
+            {
+                if (res.length != k)
+                    throw new ArrayLengthException(
+                        res.length, k, path, null, node.startMark());
+                return res[0 .. k];
+            }
+            else
+                return res;
+        }
+
         // We pass `E.init` as default value as it is not going to be used:
         // Either there is something in the YAML document, and that will be
         // converted, or `sequence` will not iterate.
-        return node.sequence.enumerate.map!(
+        return validateLength(
+            node.sequence.enumerate.map!(
             kv => kv.value.parseField!(NestedFieldRef!(E, FR))(
                 format("%s[%s]", path, kv.index), E.init, ctx))
-            .array();
+            .array()
+        );
     }
     else
     {

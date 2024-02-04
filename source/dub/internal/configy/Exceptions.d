@@ -380,3 +380,38 @@ public class ConstructionException : ConfigException
             sink(this.next.message);
     }
 }
+
+/// Thrown when an array read from config does not match a static array size
+public class ArrayLengthException : ConfigException
+{
+    private size_t actual;
+    private size_t expected;
+
+    /// Constructor
+    public this (size_t actual, size_t expected,
+                 string path, string key, Mark position,
+                 string file = __FILE__, size_t line = __LINE__)
+        @safe pure nothrow @nogc
+    {
+        assert(actual != expected);
+        this.actual = actual;
+        this.expected = expected;
+        super(path, key, position, file, line);
+    }
+
+    /// Format the message with or without colors
+    protected override void formatMessage (
+        scope SinkType sink, in FormatSpec!char spec)
+        const scope @trusted
+    {
+        import core.internal.string : unsignedToTempString;
+
+        char[20] buffer = void;
+        sink("Too ");
+        sink((this.actual > this.expected) ? "many" : "few");
+        sink(" entries for sequence: Expected ");
+        sink(unsignedToTempString(this.expected, buffer));
+        sink(", got ");
+        sink(unsignedToTempString(this.actual, buffer));
+    }
+}

@@ -73,11 +73,20 @@ package template FieldRef (alias T, string name, bool forceOptional = false)
 
     /// Evaluates to `true` if this field is to be considered optional
     /// (does not need to be present in the YAML document)
-    public enum Optional = forceOptional ||
-        hasUDA!(Ref, CAOptional) ||
-        is(immutable(Type) == immutable(bool)) ||
-        is(Type : SetInfo!FT, FT) ||
-        (Default != Type.init);
+    static if (forceOptional || hasUDA!(Ref, CAOptional))
+        public enum Optional = true;
+    // Booleans are always optional
+    else static if (is(immutable(Type) == immutable(bool)))
+        public enum Optional = true;
+    // A mandatory SetInfo would not make sense
+    else static if (is(Type : SetInfo!FT, FT))
+        public enum Optional = true;
+    // Use `is` to avoid calling `opEquals` which might not be CTFEable,
+    // except for static arrays as that triggers a deprecation warning.
+    else static if (is(Type : E[k], E, size_t k))
+        public enum Optional = (Default[] !is Type.init[]);
+    else
+        public enum Optional = (Default !is Type.init);
 }
 
 unittest
