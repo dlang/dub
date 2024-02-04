@@ -66,6 +66,19 @@ public struct PackageName
 	{
 		return this.fullName;
 	}
+
+    ///
+    public int opCmp (in PackageName other) const scope @safe pure nothrow @nogc
+    {
+        import core.internal.string : dstrcmp;
+        return dstrcmp(this.toString(), other.toString());
+    }
+
+    ///
+    public bool opEquals (in PackageName other) const scope @safe pure nothrow @nogc
+    {
+        return this.toString() == other.toString();
+    }
 }
 
 /** Encapsulates the name of a package along with its dependency specification.
