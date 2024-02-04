@@ -816,3 +816,114 @@ unittest
     assert(v2.v2.fileVersion == 2);
     assert(v2.v2.str == "hello world");
 }
+
+/// Don't call `opCmp` / `opEquals` as they might not be CTFEable
+/// Also various tests around static arrays
+unittest
+{
+    static struct NonCTFEAble
+    {
+        int value;
+
+        public bool opEquals (const NonCTFEAble other) const scope
+        {
+            assert(0);
+        }
+
+        public bool opEquals (const ref NonCTFEAble other) const scope
+        {
+            assert(0);
+        }
+
+        public int opCmp (const NonCTFEAble other) const scope
+        {
+            assert(0);
+        }
+
+        public int opCmp (const ref NonCTFEAble other) const scope
+        {
+            assert(0);
+        }
+    }
+
+    static struct Config
+    {
+        NonCTFEAble fixed;
+        @Name("static") NonCTFEAble[3] static_;
+        NonCTFEAble[] dynamic;
+    }
+
+    auto c = parseConfigString!Config(`fixed:
+  value: 42
+static:
+  - value: 84
+  - value: 126
+  - value: 168
+dynamic:
+  - value: 420
+  - value: 840
+`, "/dev/null");
+
+    assert(c.fixed.value == 42);
+    assert(c.static_[0].value == 84);
+    assert(c.static_[1].value == 126);
+    assert(c.static_[2].value == 168);
+    assert(c.dynamic.length == 2);
+    assert(c.dynamic[0].value == 420);
+    assert(c.dynamic[1].value == 840);
+
+    try parseConfigString!Config(`fixed:
+  value: 42
+dynamic:
+  - value: 420
+  - value: 840
+`, "/dev/null");
+    catch (ConfigException e)
+        assert(e.toString() == "/dev/null(0:0): static: Required key was not found in configuration or command line arguments");
+
+    try parseConfigString!Config(`fixed:
+  value: 42
+static:
+  - value: 1
+  - value: 2
+dynamic:
+  - value: 420
+  - value: 840
+`, "/dev/null");
+    catch (ConfigException e)
+        assert(e.toString() == "/dev/null(3:2): static: Too few entries for sequence: Expected 3, got 2");
+
+    try parseConfigString!Config(`fixed:
+  value: 42
+static:
+  - value: 1
+  - value: 2
+  - value: 3
+  - value: 4
+dynamic:
+  - value: 420
+  - value: 840
+`, "/dev/null");
+    catch (ConfigException e)
+        assert(e.toString() == "/dev/null(3:2): static: Too many entries for sequence: Expected 3, got 4");
+
+    // Check that optional static array work
+    static struct ConfigOpt
+    {
+        NonCTFEAble fixed;
+        @Name("static") NonCTFEAble[3] static_ = [
+            NonCTFEAble(69),
+            NonCTFEAble(70),
+            NonCTFEAble(71),
+        ];
+    }
+
+    auto c1 = parseConfigString!ConfigOpt(`fixed:
+  value: 1100
+`, "/dev/null");
+
+    assert(c1.fixed.value == 1100);
+    assert(c1.static_[0].value == 69);
+    assert(c1.static_[1].value == 70);
+    assert(c1.static_[2].value == 71);
+}
