@@ -15,7 +15,8 @@ if [ "$COVERAGE" = true ]; then
     dub test --compiler=${DC} -b unittest-cov
     ./build.d -cov
 else
+    dub test --compiler=${DC} -b unittest-cov
     ./build.d
-    DUB=`pwd`/bin/dub DC=${DC} dub --single ./test/run-unittest.d
-    DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
 fi
+DUB=`pwd`/bin/dub DC=${DC} dub --single ./test/run-unittest.d
+DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
