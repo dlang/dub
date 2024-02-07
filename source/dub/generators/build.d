@@ -216,7 +216,7 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = settings.toolWorkingDirectory;
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
-		auto build_id = buildsettings.computeBuildID(config, settings);
+		auto build_id = buildsettings.computeBuildID(pack.path, config, settings);
 
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
