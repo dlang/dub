@@ -82,44 +82,58 @@ CommandGroup[] getCommands() @safe pure nothrow
 		args = a list of string arguments that will be processed
 
 	Returns:
-		A structure with two members. `value` is the command name
-		`remaining` is a list of unprocessed arguments
+		The command name that was found (may be null).
 */
-auto extractCommandNameArgument(string[] args)
+string commandNameArgument(ref string[] args)
 {
-	struct Result {
-		string value;
-		string[] remaining;
-	}
-
 	if (args.length >= 1 && !args[0].startsWith("-") && !args[0].canFind(":")) {
-		return Result(args[0], args[1 .. $]);
+		const result = args[0];
+		args = args[1 .. $];
+		return result;
 	}
-
-	return Result(null, args);
+	return null;
 }
 
 /// test extractCommandNameArgument usage
 unittest {
-	/// It returns an empty string on when there are no args
-	assert(extractCommandNameArgument([]).value == "");
-	assert(extractCommandNameArgument([]).remaining == []);
+    {
+        string[] args;
+        /// It returns an empty string on when there are no args
+        assert(commandNameArgument(args) is null);
+        assert(!args.length);
+    }
 
-	/// It returns the first argument when it does not start with `-`
-	assert(extractCommandNameArgument(["test"]).value == "test");
+    {
+        string[] args = [ "test" ];
+        /// It returns the first argument when it does not start with `-`
+        assert(commandNameArgument(args) == "test");
+        /// There is nothing to extract when the arguments only contain the `test` cmd
+        assert(!args.length);
+    }
 
-	/// There is nothing to extract when the arguments only contain the `test` cmd
-	assert(extractCommandNameArgument(["test"]).remaining == []);
+    {
+        string[] args = [ "-a", "-b" ];
+        /// It extracts two arguments when they are not a command
+        assert(commandNameArgument(args) is null);
+        assert(args == ["-a", "-b"]);
+    }
 
-	/// It extracts two arguments when they are not a command
-	assert(extractCommandNameArgument(["-a", "-b"]).remaining == ["-a", "-b"]);
+    {
+        string[] args = [ "-test" ];
+        /// It returns the an empty string when it starts with `-`
+        assert(commandNameArgument(args) is null);
+        assert(args.length == 1);
+    }
 
-	/// It returns the an empty string when it starts with `-`
-	assert(extractCommandNameArgument(["-test"]).value == "");
-
-	// Sub package names are ignored as command names
-	assert(extractCommandNameArgument(["foo:bar"]).value == "");
-	assert(extractCommandNameArgument([":foo"]).value == "");
+    {
+        string[] args = [ "foo:bar" ];
+        // Sub package names are ignored as command names
+        assert(commandNameArgument(args) is null);
+        assert(args.length == 1);
+        args[0] = ":foo";
+        assert(commandNameArgument(args) is null);
+        assert(args.length == 1);
+    }
 }
 
 /** Handles the Command Line options and commands.
@@ -464,14 +478,12 @@ int runDubCommandLine(string[] args)
 
 	// extract the command
 	args = common_args.extractAllRemainingArgs();
-
-	auto command_name_argument = extractCommandNameArgument(args);
-
-	auto command_args = new CommandArgs(command_name_argument.remaining);
+	const command_name = commandNameArgument(args);
+	auto command_args = new CommandArgs(args);
 	Command cmd;
 
 	try {
-		cmd = handler.prepareCommand(command_name_argument.value, command_args);
+		cmd = handler.prepareCommand(command_name, command_args);
 	} catch (Exception e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
@@ -482,14 +494,14 @@ int runDubCommandLine(string[] args)
 	if (cmd is null) {
 		logInfoNoTag("USAGE: dub [--version] [<command>] [<options...>] [-- [<application arguments...>]]");
 		logInfoNoTag("");
-		logError("Unknown command: %s", command_name_argument.value);
+		logError("Unknown command: %s", command_name);
 		import std.algorithm.iteration : filter;
 		import std.uni : toUpper;
 		foreach (CommandGroup key; handler.commandGroups)
 		{
 			foreach (Command command; key.commands)
 			{
-				if (levenshteinDistance(command_name_argument.value, command.name) < 4) {
+				if (levenshteinDistance(command_name, command.name) < 4) {
 					logInfo("Did you mean '%s'?", command.name);
 				}
 			}
