@@ -159,7 +159,7 @@ struct CommandLineHandler
 	/** Parses the general options and sets up the log level
 		and the root_path
 	*/
-	void prepareOptions(CommandArgs args) {
+	string[] prepareOptions(CommandArgs args) {
 		LogLevel loglevel = LogLevel.info;
 
 		options.prepare(args);
@@ -200,6 +200,7 @@ struct CommandLineHandler
 				setLoggingColorsEnabled(false); // disable colors, no matter what
 				break;
 		}
+		return args.extractAllRemainingArgs();
 	}
 
 	/** Get an instance of the requested command.
@@ -461,7 +462,8 @@ int runDubCommandLine(string[] args)
 
 	auto common_args = new CommandArgs(args[1..$]);
 
-	try handler.prepareOptions(common_args);
+	try
+		args = handler.prepareOptions(common_args);
 	catch (Exception e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
@@ -475,8 +477,6 @@ int runDubCommandLine(string[] args)
 		return 0;
 	}
 
-	// extract the command
-	args = common_args.extractAllRemainingArgs();
 	const command_name = commandNameArgument(args);
 	auto command_args = new CommandArgs(args);
 	Command cmd;
