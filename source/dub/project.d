@@ -483,7 +483,7 @@ class Project {
 					(VersionRange vers) {
 						if (m_selections.hasSelectedVersion(basename)) {
 							auto selver = m_selections.getSelectedVersion(basename);
-							if (d.spec.merge(selver) == Dependency.invalid) {
+							if (d.spec.merge(selver) == Dependency.Invalid) {
 								logWarn(`Selected package %s@%s does not match ` ~
 								   `the dependency specification %s in ` ~
 								   `package %s. Need to "%s"?`,
