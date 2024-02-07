@@ -153,7 +153,7 @@ struct CommandLineHandler
 	*/
 	string[] commandNames()
 	{
-		return commandGroups.map!(g => g.commands.map!(c => c.name).array).join;
+		return commandGroups.map!(g => g.commands).joiner.map!(c => c.name).array;
 	}
 
 	/** Parses the general options and sets up the log level
@@ -419,7 +419,6 @@ int runDubCommandLine(string[] args)
 	}
 
 	auto handler = CommandLineHandler(getCommands());
-	auto commandNames = handler.commandNames();
 
 	// Special syntaxes need to be handled before regular argument parsing
 	if (args.length >= 2)
@@ -449,7 +448,7 @@ int runDubCommandLine(string[] args)
 		// We have to assume it isn't, and to reduce the risk of false positive
 		// we only consider the case where the file name is the first argument,
 		// as the shell invocation cannot be controlled.
-		else if (!commandNames.canFind(args[1]) && !args[1].startsWith("-")) {
+		else if (handler.getCommand(args[1]) is null && !args[1].startsWith("-")) {
 			if (exists(args[1])) {
 				auto path = getTempFile("app", ".d");
 				copy(args[1], path.toNativeString());
