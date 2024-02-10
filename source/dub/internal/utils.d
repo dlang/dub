@@ -205,21 +205,24 @@ version (Have_vibe_d_http)
 	more than `timeout` seconds.  Pass `0` as `timeout` to disable both timeout
 	mechanisms.
 
-	Note: Timeouts are only implemented when curl is used (DubUseCurl).
+	Note: Timeouts and HTTPBasicAuth are only implemented when curl is used (DubUseCurl).
 */
-void download(string url, string filename, uint timeout = 8)
+void download(string url, string filename, uint timeout = 8, string safeUrl = null)
 {
+	if( safeUrl == null ) {
+		safeUrl = url;
+	}
 	version(DubUseCurl) {
 		auto conn = HTTP();
 		setupHTTPClient(conn, timeout);
-		logDebug("Storing %s...", url);
+		logDebug("Storing %s...", safeUrl);
 		std.net.curl.download(url, filename, conn);
 		// workaround https://issues.dlang.org/show_bug.cgi?id=18318
 		auto sl = conn.statusLine;
-		logDebug("Download %s %s", url, sl);
+		logDebug("Download %s %s", safeUrl, sl);
 		if (sl.code / 100 != 2)
 			throw new HTTPStatusException(sl.code,
-				"Downloading %s failed with %d (%s).".format(url, sl.code, sl.reason));
+				"Downloading %s failed with %d (%s).".format(safeUrl, sl.code, sl.reason));
 	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		vibe.inet.urltransfer.download(url, filename);
@@ -228,15 +231,26 @@ void download(string url, string filename, uint timeout = 8)
 /// ditto
 void download(URL url, NativePath filename, uint timeout = 8)
 {
-	download(url.toString(), filename.toNativeString(), timeout);
+	/**
+		Note: The reason for the restriction below is that vibe-d's urltransfer doesn't currently
+		support HTTP auth. When it is supported, this conditional assert and any associated
+		comments should be removed.
+	*/
+	version (Have_vibe_d_http) {
+		assert(url.username.length == 0 && url.password.length == 0, "Auth not supported yet.");
+	}
+	download(url.toString(false), filename.toNativeString(), timeout, url.toString());
 }
 /// ditto
-ubyte[] download(string url, uint timeout = 8)
+ubyte[] download(string url, uint timeout = 8, string safeUrl = null)
 {
+	if( safeUrl == null ) {
+		safeUrl = url;
+	}
 	version(DubUseCurl) {
 		auto conn = HTTP();
 		setupHTTPClient(conn, timeout);
-		logDebug("Getting %s...", url);
+		logDebug("Getting %s...", safeUrl);
 		return cast(ubyte[])get(url, conn);
 	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
@@ -249,7 +263,7 @@ ubyte[] download(string url, uint timeout = 8)
 /// ditto
 ubyte[] download(URL url, uint timeout = 8)
 {
-	return download(url.toString(), timeout);
+	return download(url.toString(false), timeout, url.toString());
 }
 
 /**
