@@ -164,6 +164,26 @@ public class TestDub : Dub
         super(root, extras, skip);
     }
 
+    /***************************************************************************
+
+        Instantiate a new `TestDub` instance with the provided filesystem state
+
+        This exposes the raw virtual filesystem to the user, allowing any kind
+        of customization to happen: Empty directory, non-writeable ones, etc...
+
+        Params:
+          dg = Delegate to be called with the filesystem, before `TestDub`
+               instantiation is performed;
+
+    ***************************************************************************/
+
+    public this (scope void delegate(scope FSEntry root) dg)
+    {
+        this.fs = new FSEntry();
+        dg(this.fs);
+        super(ProjectPath.toNativeString(), null, SkipPackageSuppliers.none);
+    }
+
     /// Avoid loading user configuration
     protected override Settings loadConfig(ref SpecialDirs dirs) const
     {
