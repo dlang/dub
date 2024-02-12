@@ -290,7 +290,7 @@ package class TestPackageManager : PackageManager
         NativePath user = TestDub.Paths.userSettings;
         NativePath system = TestDub.Paths.systemSettings;
         this.fs = filesystem;
-        super(local, user, system, false);
+        super(local, user, system);
     }
 
     // Re-introduce hidden/deprecated overloads
