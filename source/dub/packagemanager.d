@@ -440,8 +440,6 @@ class PackageManager {
 
 	private Package loadGitPackage(in PackageName name, in Repository repo)
 	{
-		import dub.internal.git : cloneRepository;
-
 		if (!repo.ref_.startsWith("~") && !repo.ref_.isGitHash) {
 			return null;
 		}
@@ -455,11 +453,27 @@ class PackageManager {
 			}
 		}
 
-		if (!cloneRepository(repo.remote, gitReference, destination.toNativeString())) {
+		if (!this.gitClone(repo.remote, gitReference, destination))
 			return null;
-		}
 
 		return this.load(destination);
+	}
+
+	/**
+	 * Perform a `git clone` operation at `dest` using `repo`
+	 *
+	 * Params:
+	 *   remote = The remote to clone from
+	 *   gitref = The git reference to use
+	 *   dest   = Where the result of git clone operation is to be stored
+	 *
+	 * Returns:
+	 *	 Whether or not the clone operation was successfull.
+	 */
+	protected bool gitClone(string remote, string gitref, in NativePath dest)
+	{
+		static import dub.internal.git;
+		return dub.internal.git.cloneRepository(remote, gitref, dest.toNativeString());
 	}
 
 	/**
