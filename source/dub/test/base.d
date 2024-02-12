@@ -142,6 +142,8 @@ public void disableLogging()
  */
 public class TestDub : Dub
 {
+    /// The virtual filesystem that this instance acts on
+    public FSEntry fs;
     /// Convenience constants for use in unittets
     public static immutable ProjectPath = NativePath("/dub/project/");
     /// Ditto
@@ -158,6 +160,7 @@ public class TestDub : Dub
         PackageSupplier[] extras = null,
         SkipPackageSuppliers skip = SkipPackageSuppliers.none)
     {
+        this.fs = new FSEntry();
         super(root, extras, skip);
     }
 
@@ -169,9 +172,10 @@ public class TestDub : Dub
     }
 
 	///
-	protected override PackageManager makePackageManager() const
+	protected override PackageManager makePackageManager()
 	{
-		return new TestPackageManager();
+		assert(this.fs !is null);
+		return new TestPackageManager(this.fs);
 	}
 
     /// See `MockPackageSupplier` documentation for this class' implementation
@@ -280,12 +284,12 @@ package class TestPackageManager : PackageManager
     /// The virtual filesystem that this PackageManager acts on
     protected FSEntry fs;
 
-    this()
+    this(FSEntry filesystem)
     {
         NativePath local = TestDub.ProjectPath;
         NativePath user = TestDub.Paths.userSettings;
         NativePath system = TestDub.Paths.systemSettings;
-        this.fs = new FSEntry();
+        this.fs = filesystem;
         super(local, user, system, false);
     }
 
