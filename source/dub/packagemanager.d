@@ -419,12 +419,8 @@ class PackageManager {
 		final switch (repo.kind)
 		{
 			case repo.Kind.git:
-				pack = loadGitPackage(name, repo);
+				return this.loadGitPackage(name, repo);
 		}
-		if (pack !is null) {
-			addPackages(this.m_internal.fromPath, pack);
-		}
-		return pack;
 	}
 
 	deprecated("Use the overload that accepts a `dub.dependency : Repository`")
@@ -456,7 +452,10 @@ class PackageManager {
 		if (!this.gitClone(repo.remote, gitReference, destination))
 			return null;
 
-		return this.load(destination);
+		Package result = this.load(destination);
+		if (result !is null)
+			this.addPackages(this.m_internal.fromPath, result);
+		return result;
 	}
 
 	/**
