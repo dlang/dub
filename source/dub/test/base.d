@@ -143,7 +143,7 @@ public void disableLogging()
 public class TestDub : Dub
 {
     /// Convenience constants for use in unittets
-    public static immutable ProjectPath = "/dub/project/";
+    public static immutable ProjectPath = NativePath("/dub/project/");
     /// Ditto
     public static immutable SpecialDirs Paths = {
         temp: "/dub/temp/",
@@ -154,7 +154,7 @@ public class TestDub : Dub
     };
 
     /// Forward to base constructor
-    public this (string root = ProjectPath,
+    public this (string root = ProjectPath.toNativeString(),
         PackageSupplier[] extras = null,
         SkipPackageSuppliers skip = SkipPackageSuppliers.none)
     {
@@ -282,7 +282,7 @@ package class TestPackageManager : PackageManager
 
     this()
     {
-        NativePath local = NativePath(TestDub.ProjectPath);
+        NativePath local = TestDub.ProjectPath;
         NativePath user = TestDub.Paths.userSettings;
         NativePath system = TestDub.Paths.systemSettings;
         this.fs = new FSEntry();
@@ -577,7 +577,7 @@ public class FSEntry
             this.mkdir(TestDub.Paths.userPackages);
             this.mkdir(TestDub.Paths.cache);
 
-            this.mkdir(NativePath(TestDub.ProjectPath));
+            this.mkdir(TestDub.ProjectPath);
         }
     }
 
