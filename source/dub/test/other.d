@@ -23,10 +23,7 @@ unittest
 
     scope dub = new TestDub();
     dub.packageManager.addTestSCMPackage(
-        Repository(ValidURL, ValidHash),
-        // Note: SCM package are always marked as using `~master`
-        dub.makeTestPackage(`{ "name": "dep1" }`, Version(`~master`)),
-    );
+        Repository(ValidURL, ValidHash), `{ "name": "dep1" }`);
 
     // Invalid URL, valid hash
     const a = Template.format("a", "git+https://nope.nope", ValidHash);

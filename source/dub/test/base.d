@@ -299,8 +299,28 @@ public class TestSelectedVersions : SelectedVersions {
  */
 package class TestPackageManager : PackageManager
 {
+    /// `loadSCMPackage` will strip some part of the remote / repository,
+    /// which we need to mimic to provide a usable API.
+    private struct GitReference {
+        ///
+        this (in Repository repo) {
+            this.remote = repo.remote.chompPrefix("git+");
+            this.ref_ = repo.ref_.chompPrefix("~");
+        }
+
+        ///
+        this (in string remote, in string gitref) {
+            this.remote = remote;
+            this.ref_ = gitref;
+        }
+
+        string remote;
+        string ref_;
+    }
+
+
     /// List of all SCM packages that can be fetched by this instance
-    protected Package[Repository] scm;
+    protected string[GitReference] scm;
     /// The virtual filesystem that this PackageManager acts on
     protected FSEntry fs;
 
@@ -314,7 +334,6 @@ package class TestPackageManager : PackageManager
     }
 
     // Re-introduce hidden/deprecated overloads
-    public alias loadSCMPackage = PackageManager.loadSCMPackage;
     public alias store = PackageManager.store;
 
     /// Disabled as semantic are not implementable unless a virtual FS is created
@@ -394,38 +413,19 @@ package class TestPackageManager : PackageManager
 	}
 
 	/**
-	 * Re-Implementation of `loadSCMPackage`.
+	 * Re-Implementation of `gitClone`.
 	 *
-	 * The base implementation will do a `git` clone, which we would like to avoid.
-	 * Instead, we allow unittests to explicitly define what packages should be
-	 * reachable in a given test.
+	 * The base implementation will do a `git` clone, to the file-system.
+	 * We need to mock both the `git` part and the write to the file system.
 	 */
-	public override Package loadSCMPackage(in PackageName name, in Repository repo)
+	protected override bool gitClone(string remote, string gitref, in NativePath dest)
 	{
-        import std.string : chompPrefix;
-
-		// We're trying to match `loadGitPackage` as much as possible
-		if (!repo.ref_.startsWith("~") && !repo.ref_.isGitHash)
-			return null;
-
-		string gitReference = repo.ref_.chompPrefix("~");
-		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
-
-		foreach (p; getPackageIterator(name.toString()))
-			if (p.path == destination)
-				return p;
-
-		return this.loadSCMRepository(name, repo);
-	}
-
-	/// The private part of `loadSCMPackage`
-	protected Package loadSCMRepository(in PackageName name, in Repository repo)
-	{
-		if (auto prepo = repo in this.scm) {
-			this.addPackages(this.m_internal.fromPath, *prepo);
-			return *prepo;
+        if (auto pstr = GitReference(remote, gitref) in this.scm) {
+            this.fs.mkdir(dest);
+            this.fs.writeFile(dest ~ "dub.json", *pstr);
+            return true;
         }
-		return null;
+        return false;
 	}
 
     /**
@@ -463,9 +463,9 @@ package class TestPackageManager : PackageManager
 	}
 
     /// Add a reachable SCM package to this `PackageManager`
-    public void addTestSCMPackage(Repository repo, Package pkg)
+    public void addTestSCMPackage(in Repository repo, string dub_json)
     {
-        this.scm[repo] = pkg;
+        this.scm[GitReference(repo)] = dub_json;
     }
 
     ///
