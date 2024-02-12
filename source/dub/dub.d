@@ -212,7 +212,7 @@ class Dub {
 	 * generally in a library setup, one may wish to provide a custom
 	 * implementation, which can be done by overriding this method.
 	 */
-	protected PackageManager makePackageManager() const
+	protected PackageManager makePackageManager()
 	{
 		return new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
 	}
