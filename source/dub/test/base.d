@@ -69,12 +69,6 @@ import dub.recipe.io : parsePackageRecipe;
 /// Example of a simple unittest for a project with a single dependency
 unittest
 {
-    // `a` will be loaded as the project while `b` will be loaded
-    // as a simple package. The recipe files can be in JSON or SDL format,
-    // here we use both to demonstrate this.
-    const a = `{ "name": "a", "dependencies": { "b": "~>1.0" } }`;
-    const b = `name "b"`;
-
     // Enabling this would provide some more verbose output, which makes
     // debugging a failing unittest much easier.
     version (none) {
@@ -82,14 +76,24 @@ unittest
         scope(exit) disableLogging();
     }
 
-    scope dub = new TestDub();
-    // Let the `PackageManager` know about the `b` package
-    dub.addTestPackage("b", Version("1.0.0"), b, PackageFormat.sdl);
-    // And about our main package
-    auto mainPackage = dub.addTestPackage("a", Version("1.0.0"), a);
+    // Initialization is best done as a delegate passed to `TestDub` constructor,
+    // which receives an `FSEntry` representing the root of the filesystem.
+    // Various low-level functions are exposed (mkdir, writeFile, ...),
+    // as well as higher-level functions (`writePackageFile`).
+    scope dub = new TestDub((scope FSEntry root) {
+            // `a` will be loaded as the project while `b` will be loaded
+            // as a simple package. The recipe files can be in JSON or SDL format,
+            // here we use both to demonstrate this.
+            root.writeFile(TestDub.ProjectPath ~ "dub.json",
+                `{ "name": "a", "dependencies": { "b": "~>1.0" } }`);
+            // Note that you currently need to add the `version` to the package
+            root.writePackageFile("b", "1.0.0", `name "b"
+version "1.0.0"`, PackageFormat.sdl);
+    });
+
     // `Dub.loadPackage` will set this package as the project
     // While not required, it follows the common Dub use case.
-    dub.loadPackage(mainPackage);
+    dub.loadPackage();
     // This triggers the dependency resolution process that happens
     // when one does not have a selection file in the project.
     // Dub will resolve dependencies and generate the selection file
@@ -230,46 +234,6 @@ public class TestDub : Dub
 	public override @property inout(TestPackageManager) packageManager() inout
 	{
 		return cast(inout(TestPackageManager)) this.m_packageManager;
-	}
-
-	/**
-	 * Creates a package with the provided recipe
-	 *
-	 * This is a convenience function provided to create a package based on
-	 * a given recipe. This is to allow test-cases to be written based off
-	 * issues more easily.
-     *
-     * In order for the `Package` to be visible to `Dub`, use `addTestPackage`,
-     * as `makeTestPackage` simply creates the `Package` without adding it.
-	 *
-	 * Params:
-	 *	 str = The string representation of the `PackageRecipe`
-	 *	 recipe = The `PackageRecipe` to use
-	 *	 vers = The version the package is at, e.g. `Version("1.0.0")`
-	 *	 fmt = The format `str` is in, either JSON or SDL
-	 *
-	 * Returns:
-	 *	 The created `Package` instance
-	 */
-	public Package makeTestPackage(string str, Version vers, PackageFormat fmt = PackageFormat.json)
-	{
-		final switch (fmt) {
-			case PackageFormat.json:
-				auto recipe = parsePackageRecipe(str, "dub.json");
-                recipe.version_ = vers.toString();
-                return new Package(recipe);
-			case PackageFormat.sdl:
-				auto recipe = parsePackageRecipe(str, "dub.sdl");
-                recipe.version_ = vers.toString();
-                return new Package(recipe);
-		}
-	}
-
-	/// Ditto
-	public Package addTestPackage(string name, Version vers, string content,
-		PackageFormat fmt = PackageFormat.json)
-	{
-		return this.packageManager.add(PackageName(name), vers, content, fmt);
 	}
 }
 
@@ -434,40 +398,6 @@ package class TestPackageManager : PackageManager
             return true;
         }
         return false;
-	}
-
-    /**
-     * Adds a `Package` to this `PackageManager`
-     *
-     * This is currently only available in unittests as it is a convenience
-     * function used by `TestDub`, but could be generalized once IO has been
-     * abstracted away from this class.
-     */
-	public Package add(in PackageName pkg, in Version vers, string content,
-		PackageFormat fmt, PlacementLocation loc = PlacementLocation.user)
-	{
-		import dub.recipe.io : serializePackageRecipe;
-
-		auto path = this.getPackagePath(loc, pkg, vers.toString());
-		this.fs.mkdir(path);
-
-		final switch (fmt) {
-		case PackageFormat.json:
-			path ~= "dub.json";
-			break;
-		case PackageFormat.sdl:
-			path ~= "dub.sdl";
-			break;
-		}
-
-		auto recipe = parsePackageRecipe(content, path.toNativeString());
-		recipe.version_ = vers.toString();
-		auto app = appender!string();
-		serializePackageRecipe(app, recipe, path.toNativeString());
-		this.fs.writeFile(path, app.data());
-
-		this.refresh();
-		return this.getPackage(pkg, vers, loc);
 	}
 
     /// Add a reachable SCM package to this `PackageManager`
@@ -644,6 +574,94 @@ public class FSEntry
         }
         return null;
     }
+
+    /*+*************************************************************************
+
+        Utility function
+
+        Below this banners are functions that are provided for the convenience
+        of writing tests for `Dub`.
+
+    ***************************************************************************/
+
+    /// Prints a visual representation of the filesystem to stdout for debugging
+    public void print(bool content = false)
+    {
+        import std.range : repeat;
+        static import std.stdio;
+
+        size_t indent;
+        for (FSEntry p = this.parent; p !is null; p = p.parent)
+            indent++;
+        // Don't print anything (even a newline) for root
+        if (this.parent is null)
+            std.stdio.write('/');
+        else
+            std.stdio.write('|', '-'.repeat(indent), ' ', this.name, ' ');
+
+        final switch (this.type) {
+        case Type.Directory:
+            std.stdio.writeln('(', this.children.length, " entries):");
+            foreach (c; this.children)
+                c.print(content);
+            break;
+        case Type.File:
+            if (!content)
+                std.stdio.writeln('(', this.content.length, " bytes)");
+            else if (this.name.endsWith(".json") || this.name.endsWith(".sdl"))
+                std.stdio.writeln('(', this.content.length, " bytes): ",
+                    cast(string) this.content);
+            else
+                std.stdio.writeln('(', this.content.length, " bytes): ",
+                    this.content);
+            break;
+        }
+    }
+
+    /// Writes a package file for package `name` of version `vers` at `loc`.
+    public void writePackageFile (in string name, in string vers, in string recipe,
+        in PackageFormat fmt = PackageFormat.json,
+        in PlacementLocation location = PlacementLocation.user)
+    {
+        const path = FSEntry.getPackagePath(name, vers, location);
+        this.mkdir(path).writeFile(
+            NativePath(fmt == PackageFormat.json ? "dub.json" : "dub.sdl"),
+            recipe);
+    }
+
+    /// Returns: The final destination a specific package needs to be stored in
+    public static NativePath getPackagePath(in string name_, string vers,
+        PlacementLocation location = PlacementLocation.user)
+    {
+        PackageName name = PackageName(name_);
+        // Keep in sync with `dub.packagemanager: PackageManager.getPackagePath`
+        // and `Location.getPackagePath`
+        NativePath result (in NativePath base)
+        {
+            NativePath res = base ~ name.main.toString() ~ vers ~
+                name.main.toString();
+            res.endsWithSlash = true;
+            return res;
+        }
+
+        final switch (location) {
+        case PlacementLocation.user:
+            return result(TestDub.Paths.userSettings ~ "packages/");
+        case PlacementLocation.system:
+            return result(TestDub.Paths.systemSettings ~ "packages/");
+        case PlacementLocation.local:
+            return result(TestDub.ProjectPath ~ "/.dub/packages/");
+        }
+    }
+
+    /*+*************************************************************************
+
+        Public filesystem functions
+
+        Below this banners are functions which mimic the behavior of a file
+        system.
+
+    ***************************************************************************/
 
     /// Returns: The `path` of this FSEntry
     public NativePath path() const
