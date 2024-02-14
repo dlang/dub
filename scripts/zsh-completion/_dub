@@ -250,10 +250,13 @@ _dub_dustmite() {
     local localArgs=(
         ':target directory:_directories'
         '--compiler-status=[The expected status code of the compiler run]:status code: '
+        '--compiler-text=[A (sub) string used to match against the compiler output]:regex: '
         '--compiler-regex=[A regular expression used to match against the compiler output]:regex: '
         '--linker-status=[The expected status code of the linker run]:status code: '
+        '--linker-text=[A (sub) string used to match against the linker output]:text: '
         '--linker-regex=[A regular expression used to match against the linker output]:regex: '
         '--program-status=[The expected status code of the built executable]:status code: '
+        '--program-text=[A (sub) string used to match against the program output]:text: '
         '--program-regex=[A regular expression used to match against the program output]:regex: '
         '--[End of dub arguments, the following will be sent to the program]'
     )
