@@ -578,7 +578,7 @@ class Package {
 				this.recipe.configurations.map!(c => c.buildSettings.dependencies.byKeyValue)
 			)
 			.joiner()
-			.map!(d => PackageDependency(d.key, d.value));
+			.map!(d => PackageDependency(PackageName(d.key), d.value));
 	}
 
 
