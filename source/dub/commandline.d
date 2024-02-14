@@ -2646,7 +2646,7 @@ class ListOverridesCommand : Command {
 			logInfoNoTag("# %s", caption);
 			foreach (ovr; overrides)
 				ovr.target.match!(
-					t => logInfoNoTag("%s %s => %s", ovr.package_.color(Mode.bold), ovr.version_, t));
+					t => logInfoNoTag("%s %s => %s", ovr.package_.color(Mode.bold), ovr.source, t));
 		}
 		printList(dub.packageManager.getOverrides_(PlacementLocation.user), "User wide overrides");
 		printList(dub.packageManager.getOverrides_(PlacementLocation.system), "System wide overrides");
