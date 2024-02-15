@@ -207,7 +207,7 @@ version (Have_vibe_d_http)
 
 	Note: Timeouts are only implemented when curl is used (DubUseCurl).
 */
-void download(string url, string filename, uint timeout = 8)
+private void download(string url, string filename, uint timeout = 8)
 {
 	version(DubUseCurl) {
 		auto conn = HTTP();
@@ -226,12 +226,12 @@ void download(string url, string filename, uint timeout = 8)
 	} else assert(false);
 }
 /// ditto
-void download(URL url, NativePath filename, uint timeout = 8)
+private void download(URL url, NativePath filename, uint timeout = 8)
 {
 	download(url.toString(), filename.toNativeString(), timeout);
 }
 /// ditto
-ubyte[] download(string url, uint timeout = 8)
+private ubyte[] download(string url, uint timeout = 8)
 {
 	version(DubUseCurl) {
 		auto conn = HTTP();
@@ -247,7 +247,7 @@ ubyte[] download(string url, uint timeout = 8)
 	} else assert(false);
 }
 /// ditto
-ubyte[] download(URL url, uint timeout = 8)
+private ubyte[] download(URL url, uint timeout = 8)
 {
 	return download(url.toString(), timeout);
 }

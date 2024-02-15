@@ -12,7 +12,7 @@ package enum PackagesPath = "packages";
 	$(LINK https://code.dlang.org/)) to search for available packages.
 */
 class RegistryPackageSupplier : PackageSupplier {
-	import dub.internal.utils : download, retryDownload, HTTPStatusException;
+	import dub.internal.utils : retryDownload, HTTPStatusException;
 	import dub.internal.vibecompat.data.json : parseJson, parseJsonString, serializeToJson;
 	import dub.internal.vibecompat.inet.url : URL;
 	import dub.internal.logging;
