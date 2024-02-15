@@ -694,19 +694,27 @@ public class FSEntry
     /// Ditto
     public void writeFile (NativePath path, const(ubyte)[] data)
     {
+        enforce(!path.endsWithSlash(),
+            "Cannot write to directory: " ~ path.toNativeString());
         if (auto file = this.lookup(path)) {
+            // If the file already exists, override it
             enforce(file.type == Type.File,
                 "Trying to write to directory: " ~ path.toNativeString());
             file.content = data.dup;
-        } else {
+        } else if (path.hasParentPath()) {
+            // If we're not in the right `FSEntry`, recurse
             auto parentPath = path.parentPath();
             auto parent = this.lookup(parentPath);
-            enforce(parent !is null, "No such directory: " ~ parentPath.toNativeString());
+            enforce(parent !is null,
+                "No such directory: " ~ parentPath.toNativeString());
             enforce(parent.type == Type.Directory,
                 "Parent path is not a directory: " ~ parentPath.toNativeString());
+            return parent.writeFile(NativePath(path.head), data);
+        } else {
+            // We're in the right `FSEntry`, create the file
             auto file = new FSEntry(parent, Type.File, path.head.name());
             file.content = data.dup;
-            parent.children ~= file;
+            this.children ~= file;
         }
     }
 }
