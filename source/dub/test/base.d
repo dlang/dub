@@ -144,15 +144,23 @@ public class TestDub : Dub
 {
     /// The virtual filesystem that this instance acts on
     public FSEntry fs;
-    /// Convenience constants for use in unittets
-    public static immutable ProjectPath = NativePath("/dub/project/");
+
+    /// Convenience constants for use in unittests
+    version (Windows)
+        public static immutable Root = NativePath("T:\\dub\\");
+    else
+        public static immutable Root = NativePath("/dub/");
+
+    /// Ditto
+    public static immutable ProjectPath = Root ~ "project";
+
     /// Ditto
     public static immutable SpecialDirs Paths = {
-        temp: "/dub/temp/",
-        systemSettings: "/dub/system/",
-        userSettings: "/dub/user/",
-        userPackages: "/dub/user/",
-        cache: "/dub/user/cache/",
+        temp: Root ~ "temp/",
+        systemSettings: Root ~ "system/",
+        userSettings: Root ~ "user/",
+        userPackages: Root ~ "user/",
+        cache: Root ~ "user/" ~ "cache/",
     };
 
     /// Forward to base constructor
