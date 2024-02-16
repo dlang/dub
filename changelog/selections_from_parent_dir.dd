@@ -1,0 +1,15 @@
+`dub.selections.json` files are now looked up in parent directories too
+
+In case the root package directory doesn't contain a `dub.selections.json`
+file, dub now looks in parent directories too and potentially uses the
+first (deepest) one it finds - iff that JSON file contains an optional
+new `"inheritable": true` flag.
+
+This allows using a 'central' `dub.selections.json` file for a repository
+containing multiple dub projects, making it automatically apply to all
+builds in that source tree if located in the repository root directory
+(unless a local `dub.selections.json` overrides it).
+
+Such an inherited selections file is never mutated when running dub for a
+nested project, i.e., changes are always saved to a *local*
+`dub.selections.json` file.

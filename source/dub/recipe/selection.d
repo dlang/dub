@@ -45,6 +45,18 @@ public struct SelectionsFile
     }
 
     /**
+     * Whether this dub.selections.json can be inherited by nested projects
+     * without local dub.selections.json
+     */
+    public bool inheritable () const @safe pure nothrow @nogc
+    {
+        return this.content.match!(
+            (const Selections!0 _) => false,
+            (const Selections!1 s) => s.inheritable,
+        );
+    }
+
+    /**
      * The content of this selections file
      *
      * The underlying content can be accessed using
@@ -102,6 +114,10 @@ public struct Selections (ushort Version)
     else static if (Version == 1) {
         /// The selected package and their matching versions
         public SelectedDependency[string] versions;
+
+        /// Whether this dub.selections.json can be inherited by nested projects
+        /// without local dub.selections.json
+        @Optional public bool inheritable;
     }
     else
         static assert(false, "This version is not supported");
@@ -191,12 +207,32 @@ unittest
         (Selections!1 s) => s,
         (s) { assert(0); return Selections!(1).init; },
     );
+    assert(!s.inheritable);
     assert(s.versions.length == 5);
     assert(s.versions["simple"]     == Dependency(Version("1.5.6")));
     assert(s.versions["branch"]     == Dependency(Version("~master")));
     assert(s.versions["branch2"]    == Dependency(Version("~main")));
     assert(s.versions["path"]       == Dependency(NativePath("../some/where")));
     assert(s.versions["repository"] == Dependency(Repository("git+https://github.com/dlang/dub", "123456123456123456")));
+}
+
+// with optional `inheritable` Boolean
+unittest
+{
+    import dub.internal.configy.Read : parseConfigString;
+
+    immutable string content = `{
+    "fileVersion": 1,
+    "inheritable": true,
+    "versions": {
+        "simple": "1.5.6",
+    }
+}`;
+
+    auto s = parseConfigString!Selected(content, "/dev/null");
+    assert(s.fileVersion == 1);
+    assert(s.inheritable);
+    assert(s.versions.length == 1);
 }
 
 // Test reading an unsupported version

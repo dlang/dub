@@ -1,0 +1,5 @@
+name "pkg2"
+targetType "library"
+
+# don't specify a path, require dub.selections.json to make it path-based
+dependency "pkg1" version="*"

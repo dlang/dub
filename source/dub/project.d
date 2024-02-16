@@ -29,6 +29,7 @@ import std.datetime;
 import std.encoding : sanitize;
 import std.exception : enforce;
 import std.string;
+import std.typecons : Nullable;
 
 /**
 	Represents a full project, a root package with its dependencies and package
@@ -107,31 +108,24 @@ class Project {
 		import dub.version_;
 		import dub.internal.dyaml.stdsumtype;
 
-		auto selverfile = (pack.path ~ SelectedVersions.defaultFile).toNativeString();
-
-		// No file exists
-		if (!existsFile(selverfile))
+		auto lookupResult = lookupAndParseSelectionsFile(pack.path);
+		if (lookupResult.isNull()) // no file, or parsing error (displayed to the user)
 			return new SelectedVersions();
 
-		// TODO: Remove `StrictMode.Warn` after v1.40 release
-		// The default is to error, but as the previous parser wasn't
-		// complaining, we should first warn the user.
-		auto selected = parseConfigFileSimple!SelectionsFile(selverfile, StrictMode.Warn);
-
-		// Parsing error, it will be displayed to the user
-		if (selected.isNull())
-			return new SelectedVersions();
-
-		return selected.get().content.match!(
+		auto r = lookupResult.get();
+		return r.selectionsFile.content.match!(
 			(Selections!0 s) {
 				logWarnTag("Unsupported version",
 					"File %s has fileVersion %s, which is not yet supported by DUB %s.",
-					selverfile, s.fileVersion, dubVersion);
+					r.absolutePath, s.fileVersion, dubVersion);
 				logWarn("Ignoring selections file. Use a newer DUB version " ~
 					"and set the appropriate toolchainRequirements in your recipe file");
 				return new SelectedVersions();
 			},
-			(Selections!1 s) => new SelectedVersions(s),
+			(Selections!1 s) {
+				auto selectionsDir = r.absolutePath.parentPath;
+				return new SelectedVersions(s, selectionsDir.relativeTo(pack.path));
+			},
 		);
 	}
 
@@ -1803,6 +1797,23 @@ public class SelectedVersions {
 		this.m_bare = false;
 	}
 
+	/** Constructs a new non-empty version selection, prefixing relative path
+		selections with the specified prefix.
+
+		To be used in cases where the "dub.selections.json" file isn't located
+		in the root package directory.
+	*/
+	public this(Selections!1 data, NativePath relPathPrefix)
+	{
+		this(data);
+		if (relPathPrefix.empty) return;
+		foreach (ref dep; m_selections.versions.byValue) {
+			const depPath = dep.path;
+			if (!depPath.empty && !depPath.absolute)
+				dep = Dependency(relPathPrefix ~ depPath);
+		}
+	}
+
 	/** Constructs a new version selection from JSON data.
 
 		The structure of the JSON document must match the contents of the
@@ -1847,6 +1858,7 @@ public class SelectedVersions {
 	{
 		m_selections.fileVersion = versions.m_selections.fileVersion;
 		m_selections.versions = versions.m_selections.versions.dup;
+		m_selections.inheritable = versions.m_selections.inheritable;
 		m_dirty = true;
 	}
 
@@ -1973,11 +1985,13 @@ public class SelectedVersions {
 		auto result = appender!string();
 
 		assert(json.type == Json.Type.object);
-		assert(json.length == 2);
+		assert(json.length == 2 || json.length == 3);
 		assert(json["versions"].type != Json.Type.undefined);
 
 		result.put("{\n\t\"fileVersion\": ");
 		result.writeJsonString(json["fileVersion"]);
+		if (m_selections.inheritable)
+			result.put(",\n\t\"inheritable\": true");
 		result.put(",\n\t\"versions\": {");
 		auto vers = json["versions"].get!(Json[string]);
 		bool first = true;
@@ -2018,6 +2032,8 @@ public class SelectedVersions {
 	const {
 		Json serialized = Json.emptyObject;
 		serialized["fileVersion"] = m_selections.fileVersion;
+		if (m_selections.inheritable)
+			serialized["inheritable"] = true;
 		serialized["versions"] = Json.emptyObject;
 		foreach (p, dep; m_selections.versions)
 			serialized["versions"][p] = dep.toJson(true);
@@ -2032,6 +2048,8 @@ public class SelectedVersions {
 		clear();
 		m_selections.fileVersion = fileVersion;
 		scope(failure) clear();
+		if (auto p = "inheritable" in json)
+			m_selections.inheritable = p.get!bool;
 		foreach (string p, dep; json["versions"])
 			m_selections.versions[p] = dependencyFromJson(dep);
 	}
@@ -2086,3 +2104,35 @@ private immutable DefaultTestRunnerCode = q{
 		}
 	}
 };
+
+
+struct SelectionsFileLookupResult {
+	NativePath absolutePath; // to dub.selections.json
+	SelectionsFile selectionsFile;
+}
+
+// Does both lookup *and* parsing because a parent dir's dub.selections.json
+// file is only inherited if it has `"inheritable": true` (=> needs parsing).
+Nullable!SelectionsFileLookupResult lookupAndParseSelectionsFile(NativePath absRootPackagePath)
+	in(absRootPackagePath.absolute)
+{
+	alias N = typeof(return);
+
+	// check for dub.selections.json in root package dir first, then walk up its
+	// parent directories
+	for (NativePath dir = absRootPackagePath; dir.hasParentPath; dir = dir.parentPath) {
+		const selverfile = dir ~ SelectedVersions.defaultFile;
+		if (existsFile(selverfile)) {
+			// TODO: Remove `StrictMode.Warn` after v1.40 release
+			// The default is to error, but as the previous parser wasn't
+			// complaining, we should first warn the user.
+			auto selected = parseConfigFileSimple!SelectionsFile(selverfile.toNativeString(), StrictMode.Warn);
+			const isValid = !selected.isNull() && (dir == absRootPackagePath || selected.get().inheritable);
+			if (isValid)
+				return N(SelectionsFileLookupResult(selverfile, selected.get()));
+			break;
+		}
+	}
+
+	return N.init;
+}
