@@ -2016,7 +2016,6 @@ public class SelectedVersions {
 
 	Json serialize()
 	const {
-		Json json = serializeToJson(m_selections);
 		Json serialized = Json.emptyObject;
 		serialized["fileVersion"] = m_selections.fileVersion;
 		serialized["versions"] = Json.emptyObject;
