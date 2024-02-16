@@ -65,6 +65,7 @@ import dub.packagemanager;
 import dub.packagesuppliers.packagesupplier;
 import dub.project;
 import dub.recipe.io : parsePackageRecipe;
+import dub.recipe.selection;
 
 /// Example of a simple unittest for a project with a single dependency
 unittest
@@ -219,7 +220,7 @@ public class TestDub : Dub
 	/// Loads a specific package as the main project package (can be a sub package)
 	public override void loadPackage(Package pack)
 	{
-		m_project = new Project(m_packageManager, pack, new TestSelectedVersions());
+		m_project = new Project(m_packageManager, pack, new SelectedVersions());
 	}
 
 	/// Reintroduce parent overloads
@@ -234,31 +235,6 @@ public class TestDub : Dub
 	public override @property inout(TestPackageManager) packageManager() inout
 	{
 		return cast(inout(TestPackageManager)) this.m_packageManager;
-	}
-}
-
-/**
- *
- */
-public class TestSelectedVersions : SelectedVersions {
-	import dub.recipe.selection;
-
-	/// Forward to parent's constructor
-	public this(uint version_ = FileVersion) @safe pure
-	{
-		super(version_);
-	}
-
-	/// Ditto
-	public this(Selections!1 data) @safe pure nothrow @nogc
-	{
-		super(data);
-	}
-
-	/// Do not do IO
-	public override void save(NativePath path)
-	{
-		// No-op
 	}
 }
 
@@ -399,6 +375,16 @@ package class TestPackageManager : PackageManager
         }
         return false;
 	}
+
+    /// Save the `dub.selections.json` to the vfs
+    public override void writeSelections(in Package project,
+        in Selections!1 selections, bool overwrite = true)
+    {
+        const path = project.path ~ "dub.selections.json";
+        if (!overwrite && this.fs.existsFile(path))
+            return;
+        this.fs.writeFile(path, selectionsToString(selections));
+    }
 
     /// Add a reachable SCM package to this `PackageManager`
     public void addTestSCMPackage(in Repository repo, string dub_json)

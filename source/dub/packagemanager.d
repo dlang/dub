@@ -15,6 +15,7 @@ import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
 import dub.package_;
 import dub.recipe.io;
+import dub.recipe.selection;
 import dub.internal.configy.Exceptions;
 public import dub.internal.configy.Read : StrictMode;
 
@@ -1069,6 +1070,69 @@ symlink_exit:
 		auto digest = hash.finish();
 		logDebug("Project hash: %s", digest);
 		return digest[].dup;
+	}
+
+	/**
+	 * Writes the selections file (`dub.selections.json`)
+	 *
+	 * The selections file is only used for the root package / project.
+	 * However, due to it being a filesystem interaction, it is managed
+	 * from the `PackageManager`.
+	 *
+	 * Params:
+	 *   project = The root package / project to read the selections file for.
+	 *   selections = The `SelectionsFile` to write.
+	 *   overwrite = Whether to overwrite an existing selections file.
+	 *               True by default.
+	 */
+	public void writeSelections(in Package project, in Selections!1 selections,
+		bool overwrite = true)
+	{
+		import dub.internal.vibecompat.core.file;
+
+		const path = project.path ~ "dub.selections.json";
+		if (!overwrite && existsFile(path))
+			return;
+		writeFile(path, selectionsToString(selections));
+	}
+
+	/// Package function to avoid code duplication with deprecated
+	/// SelectedVersions.save, merge with `writeSelections` in
+	/// the future.
+	package static string selectionsToString (in Selections!1 s)
+	{
+		Json json = selectionsToJSON(s);
+		assert(json.type == Json.Type.object);
+		assert(json.length == 2);
+		assert(json["versions"].type != Json.Type.undefined);
+
+		auto result = appender!string();
+		result.put("{\n\t\"fileVersion\": ");
+		result.writeJsonString(json["fileVersion"]);
+		result.put(",\n\t\"versions\": {");
+		auto vers = json["versions"].get!(Json[string]);
+		bool first = true;
+		foreach (k; vers.byKey.array.sort()) {
+			if (!first) result.put(",");
+			else first = false;
+			result.put("\n\t\t");
+			result.writeJsonString(Json(k));
+			result.put(": ");
+			result.writeJsonString(vers[k]);
+		}
+		result.put("\n\t}\n}\n");
+		return result.data;
+	}
+
+	/// Ditto
+	package static Json selectionsToJSON (in Selections!1 s)
+	{
+		Json serialized = Json.emptyObject;
+		serialized["fileVersion"] = s.fileVersion;
+		serialized["versions"] = Json.emptyObject;
+		foreach (p, dep; s.versions)
+			serialized["versions"][p] = dep.toJson(true);
+		return serialized;
 	}
 
 	/// Adds the package and scans for sub-packages.
