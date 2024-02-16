@@ -1453,7 +1453,7 @@ package struct Location {
 
 			// Managed structure: $ROOT/$NAME/$VERSION/$NAME
 			// This is the most common code path
-			else {
+			else if (mgr.isManagedPath(path)) {
 				// Iterate over versions of a package
 				foreach (versdir; mgr.iterateDirectory(pack_path)) {
 					if (!versdir.isDirectory) continue;
