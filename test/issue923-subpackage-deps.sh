@@ -2,10 +2,13 @@
 
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
 cd ${CURR_DIR}/issue923-subpackage-deps
-rm -f main/~master/main/dub.selections.json
-${DUB} build -f --bare --compiler=${DC} main
+rm -rf main/.dub
+rm -rf a/.dub
+rm -rf b/.dub
+rm -f main/dub.selections.json
+${DUB} build --bare --compiler=${DC} main
 
 
-if ! grep -c -e \"b\" main/~master/main/dub.selections.json; then
+if ! grep -c -e \"b\" main/dub.selections.json; then
 	die $LINENO 'Dependency b not resolved.'
 fi

@@ -1438,30 +1438,41 @@ package struct Location {
 			logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 			if (!pdir.isDirectory) continue;
 
-			// Old / flat directory structure, used in non-standard path
-			// Packages are stored in $ROOT/$SOMETHING/`
 			const pack_path = path ~ (pdir.name ~ "/");
 			auto packageFile = Package.findPackageFile(pack_path);
-			if (!packageFile.empty) {
-				// Deprecated unmanaged directory structure
-				logWarn("Package at path '%s' should be under '%s'",
-						pack_path.toNativeString().color(Mode.bold),
-						(pack_path ~ "$VERSION" ~ pdir.name).toNativeString().color(Mode.bold));
-				logWarn("The package will no longer be detected starting from v1.42.0");
-				loadInternal(pack_path, packageFile);
-			}
 
-			// Managed structure: $ROOT/$NAME/$VERSION/$NAME
-			// This is the most common code path
-			else {
-				// Iterate over versions of a package
-				foreach (versdir; mgr.iterateDirectory(pack_path)) {
-					if (!versdir.isDirectory) continue;
-					auto vers_path = pack_path ~ versdir.name ~ (pdir.name ~ "/");
-					if (!mgr.existsDirectory(vers_path)) continue;
-					packageFile = Package.findPackageFile(vers_path);
-					loadInternal(vers_path, packageFile);
+			if (isManaged(path)) {
+				// Old / flat directory structure, used in non-standard path
+				// Packages are stored in $ROOT/$SOMETHING/`
+				if (!packageFile.empty) {
+					// Deprecated flat managed directory structure
+					logWarn("Package at path '%s' should be under '%s'",
+							pack_path.toNativeString().color(Mode.bold),
+							(pack_path ~ "$VERSION" ~ pdir.name).toNativeString().color(Mode.bold));
+					logWarn("The package will no longer be detected starting from v1.42.0");
+					loadInternal(pack_path, packageFile);
+				} else {
+					// New managed structure: $ROOT/$NAME/$VERSION/$NAME
+					// This is the most common code path
+
+					// Iterate over versions of a package
+					foreach (versdir; mgr.iterateDirectory(pack_path)) {
+						if (!versdir.isDirectory) continue;
+						auto vers_path = pack_path ~ versdir.name ~ (pdir.name ~ "/");
+						if (!mgr.existsDirectory(vers_path)) continue;
+						packageFile = Package.findPackageFile(vers_path);
+						loadInternal(vers_path, packageFile);
+					}
 				}
+			} else {
+				// Unmanaged directories (dub add-path) are always stored as a
+				// flat list of packages, as these are the working copies managed
+				// by the user. The nested structure should not be supported,
+				// even optionally, because that would lead to bogus "no package
+				// file found" errors in case the internal directory structure
+				// accidentally matches the $NAME/$VERSION/$NAME scheme
+				if (!packageFile.empty)
+					loadInternal(pack_path, packageFile);
 			}
 		}
 		catch (Exception e)
