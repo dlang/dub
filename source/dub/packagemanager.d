@@ -1415,15 +1415,15 @@ package struct Location {
 
 		void loadInternal (NativePath pack_path, NativePath packageFile)
 		{
-			Package p;
+			import std.algorithm.searching : find;
+
+			// If the package has already been loaded, no need to re-load it.
+			auto rng = existing_packages.find!(pp => pp.path == pack_path);
+			if (!rng.empty)
+				return mgr.addPackages(this.fromPath, rng.front);
+
 			try {
-				foreach (pp; existing_packages)
-					if (pp.path == pack_path) {
-						p = pp;
-						break;
-					}
-				if (!p) p = mgr.load(pack_path, packageFile);
-				mgr.addPackages(this.fromPath, p);
+				mgr.addPackages(this.fromPath, mgr.load(pack_path, packageFile));
 			} catch (ConfigException exc) {
 				// Configy error message already include the path
 				logError("Invalid recipe for local package: %S", exc);
