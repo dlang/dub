@@ -1441,7 +1441,7 @@ package struct Location {
 			const pack_path = path ~ (pdir.name ~ "/");
 			auto packageFile = Package.findPackageFile(pack_path);
 
-			if (mgr.isManagedPath(path)) {
+			if (isManaged(path)) {
 				// Old / flat directory structure, used in non-standard path
 				// Packages are stored in $ROOT/$SOMETHING/`
 				if (!packageFile.empty) {
