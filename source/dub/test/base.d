@@ -87,24 +87,25 @@ unittest
             // here we use both to demonstrate this.
             root.writeFile(TestDub.ProjectPath ~ "dub.json",
                 `{ "name": "a", "dependencies": { "b": "~>1.0" } }`);
+            root.writeFile(TestDub.ProjectPath ~ "dub.selections.json",
+                           `{"fileVersion": 1, "versions": {"b": "1.1.0"}}`);
             // Note that you currently need to add the `version` to the package
             root.writePackageFile("b", "1.0.0", `name "b"
 version "1.0.0"`, PackageFormat.sdl);
+            root.writePackageFile("b", "1.1.0", `name "b"
+version "1.1.0"`, PackageFormat.sdl);
+            root.writePackageFile("b", "1.2.0", `name "b"
+version "1.2.0"`, PackageFormat.sdl);
     });
 
     // `Dub.loadPackage` will set this package as the project
     // While not required, it follows the common Dub use case.
     dub.loadPackage();
-    // This triggers the dependency resolution process that happens
-    // when one does not have a selection file in the project.
-    // Dub will resolve dependencies and generate the selection file
-    // (in memory). If your test has set dependencies / no dependencies,
-    // this will not be needed.
-    dub.upgrade(UpgradeOptions.select);
 
     // Simple tests can be performed using the public API
     assert(dub.project.hasAllDependencies(), "project has missing dependencies");
     assert(dub.project.getDependency("b", true), "Missing 'b' dependency");
+    assert(dub.project.getDependency("b", true).version_ == Version("1.1.0"));
     // While it is important to make your tests fail before you make them pass,
     // as is common with TDD, it can also be useful to test simple assumptions
     // as part of your basic tests. Here we want to make sure `getDependency`
@@ -113,6 +114,18 @@ version "1.0.0"`, PackageFormat.sdl);
     // and tests are run serially in a module, so one may rely on previous tests
     // having passed to avoid repeating some assumptions.
     assert(dub.project.getDependency("no", true) is null, "Returned unexpected dependency");
+
+    // This triggers the dependency resolution process that happens
+    // when one does not have a selection file in the project.
+    // Dub will resolve dependencies and generate the selection file
+    // (in memory). If your test has set dependencies / no dependencies,
+    // this will not be needed.
+    dub.upgrade(UpgradeOptions.select);
+    assert(dub.project.getDependency("b", true).version_ == Version("1.1.0"));
+
+    /// Now actually upgrade dependencies in memory
+    dub.upgrade(UpgradeOptions.select | UpgradeOptions.upgrade);
+    assert(dub.project.getDependency("b", true).version_ == Version("1.2.0"));
 }
 
 // TODO: Remove and handle logging the same way we handle other IO
@@ -220,7 +233,8 @@ public class TestDub : Dub
 	/// Loads a specific package as the main project package (can be a sub package)
 	public override void loadPackage(Package pack)
 	{
-		m_project = new Project(m_packageManager, pack, new SelectedVersions());
+        auto selections = this.packageManager.loadSelections(pack);
+		m_project = new Project(m_packageManager, pack, selections);
 	}
 
 	/// Reintroduce parent overloads
@@ -280,6 +294,43 @@ package class TestPackageManager : PackageManager
         this.fs = filesystem;
         super(local, user, system, false);
     }
+
+    /// Port of `Project.loadSelections`
+    SelectedVersions loadSelections(in Package pack)
+	{
+		import dub.version_;
+        import dub.internal.configy.Read;
+		import dub.internal.dyaml.stdsumtype;
+
+		auto selverfile = (pack.path ~ SelectedVersions.defaultFile);
+		// No file exists
+		if (!this.fs.existsFile(selverfile))
+			return new SelectedVersions();
+
+        SelectionsFile selected;
+        try
+        {
+            const content = cast(string) this.fs.readFile(selverfile);
+            selected = parseConfigString!SelectionsFile(
+                content, selverfile.toNativeString());
+        }
+        catch (Exception exc) {
+            logError("Error loading %s: %s", selverfile, exc.message());
+			return new SelectedVersions();
+        }
+
+		return selected.content.match!(
+			(Selections!0 s) {
+				logWarnTag("Unsupported version",
+					"File %s has fileVersion %s, which is not yet supported by DUB %s.",
+					selverfile, s.fileVersion, dubVersion);
+				logWarn("Ignoring selections file. Use a newer DUB version " ~
+					"and set the appropriate toolchainRequirements in your recipe file");
+				return new SelectedVersions();
+			},
+			(Selections!1 s) => new SelectedVersions(s),
+		);
+	}
 
     // Re-introduce hidden/deprecated overloads
     public alias store = PackageManager.store;
