@@ -310,7 +310,7 @@ package class TestPackageManager : PackageManager
         SelectionsFile selected;
         try
         {
-            const content = cast(string) this.fs.readFile(selverfile);
+            const content = this.fs.readText(selverfile);
             selected = parseConfigString!SelectionsFile(
                 content, selverfile.toNativeString());
         }
@@ -380,7 +380,6 @@ package class TestPackageManager : PackageManager
 		Package parent = null, string version_ = null,
 		StrictMode mode = StrictMode.Ignore)
 	{
-		import dub.internal.utils : stripUTF8Bom;
 		if (recipe.empty)
 			recipe = this.findPackageFile(path);
 
@@ -392,7 +391,7 @@ package class TestPackageManager : PackageManager
 		const PackageName parent_name = parent
 			? PackageName(parent.name) : PackageName.init;
 
-		string text = stripUTF8Bom(cast(string)this.fs.readFile(recipe));
+		string text = this.fs.readText(recipe);
 		auto content = parsePackageRecipe(text, recipe.toNativeString(),
 			parent_name, null, mode);
 
@@ -746,6 +745,18 @@ public class FSEntry
         auto entry = this.lookup(path);
         enforce(entry.type == Type.File, "Trying to read a directory");
         return entry.content.dup;
+    }
+
+    /// Reads a file, returns the content as text
+    public string readText (NativePath path)
+    {
+        import std.utf : validate;
+
+        auto entry = this.lookup(path);
+        enforce(entry.type == Type.File, "Trying to read a directory");
+        // Ignore BOM: If it's needed for a test, add support for it.
+        validate(cast(const(char[])) entry.content);
+        return cast(string) entry.content.idup();
     }
 
     /// Write to this file

@@ -321,7 +321,7 @@ class BuildGenerator : ProjectGenerator {
 		const dbPathStr = dbPath.toNativeString();
 		Json db;
 		if (exists(dbPathStr)) {
-			const text = stripUTF8Bom(cast(string)readFile(dbPath));
+			const text = readText(dbPath);
 			db = parseJsonString(text, dbPathStr);
 			enforce(db.type == Json.Type.array, "Expected a JSON array in " ~ dbPathStr);
 		}

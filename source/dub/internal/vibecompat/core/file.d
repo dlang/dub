@@ -34,6 +34,12 @@ public ubyte[] readFile(NativePath path)
 	return cast(ubyte[]) std.file.read(path.toNativeString());
 }
 
+/// Returns the content of a file as text
+public string readText(NativePath path)
+{
+    return std.file.readText(path.toNativeString());
+}
+
 /**
 	Moves or renames a file.
 */
