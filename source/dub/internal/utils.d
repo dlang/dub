@@ -92,7 +92,7 @@ bool isWritableDir(NativePath p, bool create_if_missing = false)
 
 Json jsonFromFile(NativePath file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.emptyObject;
-	auto text = stripUTF8Bom(cast(string)readFile(file));
+	auto text = readText(file);
 	return parseJsonString(text, file.toNativeString());
 }
 
@@ -451,7 +451,7 @@ version(DubUseCurl) {
 	}
 }
 
-string stripUTF8Bom(string str)
+private string stripUTF8Bom(string str)
 {
 	if( str.length >= 3 && str[0 .. 3] == [0xEF, 0xBB, 0xBF] )
 		return str[3 ..$];
