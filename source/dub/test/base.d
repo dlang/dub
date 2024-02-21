@@ -788,7 +788,7 @@ public class FSEntry
             return parent.writeFile(NativePath(path.head), data);
         } else {
             // We're in the right `FSEntry`, create the file
-            auto file = new FSEntry(parent, Type.File, path.head.name());
+            auto file = new FSEntry(this, Type.File, path.head.name());
             file.content = data.dup;
             this.children ~= file;
         }
