@@ -592,6 +592,34 @@ public class FSEntry
         return null;
     }
 
+    /** Get the parent `FSEntry` of a `NativePath`
+     *
+     * If the parent doesn't exist, an `Exception` will be thrown
+     * unless `silent` is provided. If the parent path is a file,
+     * an `Exception` will be thrown regardless of `silent`.
+     *
+     * Params:
+     *   path = The path to look up the parent for
+     *   silent = Whether to error on non-existing parent,
+     *            default to `false`.
+     */
+    protected inout(FSEntry) getParent(NativePath path, bool silent = false)
+        inout return scope
+    {
+        // Relative path in the current directory
+        if (!path.hasParentPath())
+            return this;
+
+        // If we're not in the right `FSEntry`, recurse
+        const parentPath = path.parentPath();
+        auto p = this.lookup(parentPath);
+        enforce(silent || p !is null,
+            "No such directory: " ~ parentPath.toNativeString());
+        enforce(p is null || p.type == Type.Directory,
+            "Parent path is not a directory: " ~ parentPath.toNativeString());
+        return p;
+    }
+
     /// Returns: A path relative to `this.path`
     protected NativePath relativePath(NativePath path) const scope
     {
@@ -753,20 +781,71 @@ public class FSEntry
             enforce(file.type == Type.File,
                 "Trying to write to directory: " ~ path.toNativeString());
             file.content = data.dup;
-        } else if (path.hasParentPath()) {
-            // If we're not in the right `FSEntry`, recurse
-            auto parentPath = path.parentPath();
-            auto parent = this.lookup(parentPath);
-            enforce(parent !is null,
-                "No such directory: " ~ parentPath.toNativeString());
-            enforce(parent.type == Type.Directory,
-                "Parent path is not a directory: " ~ parentPath.toNativeString());
-            return parent.writeFile(NativePath(path.head), data);
         } else {
-            // We're in the right `FSEntry`, create the file
-            auto file = new FSEntry(this, Type.File, path.head.name());
+            auto p = this.getParent(path);
+            auto file = new FSEntry(p, Type.File, path.head.name());
             file.content = data.dup;
-            this.children ~= file;
+            p.children ~= file;
+        }
+    }
+
+    /** Remove a file
+     *
+     * Always error if the target is a directory.
+     * Does not error if the target does not exists
+     * and `force` is set to `true`.
+     *
+     * Params:
+     *   path = Path to the file to remove
+     *   force = Whether to ignore non-existing file,
+     *           default to `false`.
+     */
+    public void removeFile (NativePath path, bool force = false)
+    {
+        import std.algorithm.searching : countUntil;
+
+        assert(!path.empty, "Empty path provided to `removeFile`");
+        enforce(!path.endsWithSlash(),
+            "Cannot remove file with directory path: " ~ path.toNativeString());
+        auto p = this.getParent(path, force);
+        const idx = p.children.countUntil!(e => e.name == path.head.name());
+        if (idx < 0) {
+            enforce(force,
+                "removeFile: No such file: " ~ path.toNativeString());
+        } else {
+            enforce(p.children[idx].type == Type.File,
+                "removeFile called on a directory: " ~ path.toNativeString());
+            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
+        }
+    }
+
+    /** Remove a directory
+     *
+     * Remove an existing empty directory.
+     * If `force` is set to `true`, no error will be thrown
+     * if the directory is empty or non-existing.
+     *
+     * Params:
+     *   path = Path to the directory to remove
+     *   force = Whether to ignore non-existing / non-empty directories,
+     *           default to `false`.
+     */
+    public void removeDir (NativePath path, bool force = false)
+    {
+        import std.algorithm.searching : countUntil;
+
+        assert(!path.empty, "Empty path provided to `removeFile`");
+        auto p = this.getParent(path, force);
+        const idx = p.children.countUntil!(e => e.name == path.head.name());
+        if (idx < 0) {
+            enforce(force,
+                "removeDir: No such directory: " ~ path.toNativeString());
+        } else {
+            enforce(p.children[idx].type == Type.Directory,
+                "removeDir called on a file: " ~ path.toNativeString());
+            enforce(force || p.children[idx].children.length == 0,
+                "removeDir called on non-empty directory: " ~ path.toNativeString());
+            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
         }
     }
 }
