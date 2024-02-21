@@ -368,15 +368,15 @@ class Dub {
 		import dub.test.base : TestDub;
 
 		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		auto dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 0);
 		environment["DUB_REGISTRY"] = "http://example.com/";
-		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 1);
 		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
-		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 2);
-		dub = new TestDub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
+		dub = new TestDub(null, ".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 3);
 
 		dub = new TestDub();
@@ -1648,7 +1648,7 @@ class Dub {
 		import dub.test.base : TestDub;
 		import std.path: buildPath, absolutePath;
 
-		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		auto dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
 		immutable olddc = environment.get("DC", null);
 		immutable oldpath = environment.get("PATH", null);
 		immutable testdir = "test-determineDefaultCompiler";
