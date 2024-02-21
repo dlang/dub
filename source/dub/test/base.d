@@ -479,7 +479,7 @@ package class TestPackageManager : PackageManager
 public class MockPackageSupplier : PackageSupplier
 {
     /// Mapping of package name to packages, ordered by `Version`
-    protected Package[][PackageName] pkgs;
+    protected Package[Version][PackageName] pkgs;
 
     /// URL this was instantiated with
     protected string url;
@@ -500,7 +500,7 @@ public class MockPackageSupplier : PackageSupplier
     public override Version[] getVersions(in PackageName name)
     {
         if (auto ppkgs = name.main in this.pkgs)
-            return (*ppkgs).map!(pkg => pkg.version_).array;
+            return (*ppkgs).keys;
         return null;
     }
 
@@ -518,12 +518,14 @@ public class MockPackageSupplier : PackageSupplier
     {
         import dub.recipe.json;
 
+        Package match;
         if (auto ppkgs = name.main in this.pkgs)
-            foreach_reverse (pkg; *ppkgs)
-                if ((!pkg.version_.isPreRelease || pre_release) &&
-                    dep.matches(pkg.version_))
-                    return toJson(pkg.recipe);
-        return Json.init;
+            foreach (vers, pkg; *ppkgs)
+                if ((!vers.isPreRelease || pre_release) &&
+                    dep.matches(vers) &&
+                    (match is null || match.version_ < vers))
+                    match = pkg;
+        return match is null ? Json.init : toJson(match.recipe);
     }
 
     ///
