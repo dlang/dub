@@ -653,17 +653,6 @@ public class FSEntry
         }
     }
 
-    /// Writes a package file for package `name` of version `vers` at `loc`.
-    public void writePackageFile (in string name, in string vers, in string recipe,
-        in PackageFormat fmt = PackageFormat.json,
-        in PlacementLocation location = PlacementLocation.user)
-    {
-        const path = FSEntry.getPackagePath(name, vers, location);
-        this.mkdir(path).writeFile(
-            NativePath(fmt == PackageFormat.json ? "dub.json" : "dub.sdl"),
-            recipe);
-    }
-
     /// Returns: The final destination a specific package needs to be stored in
     public static NativePath getPackagePath(in string name_, string vers,
         PlacementLocation location = PlacementLocation.user)
@@ -790,4 +779,28 @@ public class FSEntry
             this.children ~= file;
         }
     }
+}
+
+/**
+ * Convenience function to write a package file
+ *
+ * Allows to write a package file (and only a package file) for a certain
+ * package name and version.
+ *
+ * Params:
+ *   root = The root FSEntry
+ *   name = The package name (typed as string for convenience)
+ *   vers = The package version
+ *   recipe = The text of the package recipe
+ *   fmt = The format used for `recipe` (default to JSON)
+ *   location = Where to place the package (default to user location)
+ */
+public void writePackageFile (FSEntry root, in string name, in string vers,
+    in string recipe, in PackageFormat fmt = PackageFormat.json,
+    in PlacementLocation location = PlacementLocation.user)
+{
+    const path = FSEntry.getPackagePath(name, vers, location);
+    root.mkdir(path).writeFile(
+        NativePath(fmt == PackageFormat.json ? "dub.json" : "dub.sdl"),
+        recipe);
 }
