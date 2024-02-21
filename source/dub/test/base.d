@@ -51,6 +51,7 @@ version (unittest):
 
 import std.array;
 public import std.algorithm;
+import std.datetime.systime;
 import std.exception;
 import std.format;
 import std.string;
@@ -460,8 +461,15 @@ package class TestPackageManager : PackageManager
             foreach (c; dir.children) {
                 FileInfo fi;
                 fi.name = c.name;
-                fi.size = (c.type == FSEntry.Type.Directory) ? 0 : c.content.length;
-                fi.isDirectory = (c.type == FSEntry.Type.Directory);
+                fi.timeModified = c.attributes.modification;
+                final switch (c.attributes.type) {
+                case FSEntry.Type.File:
+                    fi.size = c.content.length;
+                    break;
+                case FSEntry.Type.Directory:
+                    fi.isDirectory = true;
+                    break;
+                }
                 if (auto res = del(fi))
                     return res;
             }
@@ -540,13 +548,25 @@ public class MockPackageSupplier : PackageSupplier
 public class FSEntry
 {
     /// Type of file system entry
-    public enum Type {
+    public enum Type : ubyte {
         Directory,
         File,
     }
 
+    /// List FSEntry attributes
+    protected struct Attributes {
+        /// The type of FSEntry, see `FSEntry.Type`
+        public Type type;
+        /// System-specific attributes for this `FSEntry`
+        public uint attrs;
+        /// Last access time
+        public SysTime access;
+        /// Last modification time
+        public SysTime modification;
+    }
     /// Ditto
-    protected Type type;
+    protected Attributes attributes;
+
     /// The name of this node
     protected string name;
     /// The parent of this entry (can be null for the root)
@@ -561,7 +581,7 @@ public class FSEntry
     /// Creates a new FSEntry
     private this (FSEntry p, Type t, string n)
     {
-        this.type = t;
+        this.attributes.type = t;
         this.parent = p;
         this.name = n;
     }
@@ -569,7 +589,7 @@ public class FSEntry
     /// Create the root of the filesystem, only usable from this module
     private this ()
     {
-        this.type = Type.Directory;
+        this.attributes.type = Type.Directory;
     }
 
     /// Get a direct children node, returns `null` if it can't be found
@@ -619,7 +639,7 @@ public class FSEntry
         auto p = this.lookup(parentPath);
         enforce(silent || p !is null,
             "No such directory: " ~ parentPath.toNativeString());
-        enforce(p is null || p.type == Type.Directory,
+        enforce(p is null || p.attributes.type == Type.Directory,
             "Parent path is not a directory: " ~ parentPath.toNativeString());
         return p;
     }
@@ -656,7 +676,7 @@ public class FSEntry
         else
             std.stdio.write('|', '-'.repeat(indent), ' ', this.name, ' ');
 
-        final switch (this.type) {
+        final switch (this.attributes.type) {
         case Type.Directory:
             std.stdio.writeln('(', this.children.length, " entries):");
             foreach (c; this.children)
@@ -715,7 +735,7 @@ public class FSEntry
         if (this.parent is null)
             return NativePath("/");
         auto thisPath = this.parent.path ~ this.name;
-        thisPath.endsWithSlash = (this.type == Type.Directory);
+        thisPath.endsWithSlash = (this.attributes.type == Type.Directory);
         return thisPath;
     }
 
@@ -739,21 +759,21 @@ public class FSEntry
     public bool existsFile (NativePath path) const scope
     {
         auto entry = this.lookup(path);
-        return entry !is null && entry.type == Type.File;
+        return entry !is null && entry.attributes.type == Type.File;
     }
 
     /// Checks the existence of a directory
     public bool existsDirectory (NativePath path) const scope
     {
         auto entry = this.lookup(path);
-        return entry !is null && entry.type == Type.Directory;
+        return entry !is null && entry.attributes.type == Type.Directory;
     }
 
     /// Reads a file, returns the content as `ubyte[]`
     public ubyte[] readFile (NativePath path) const scope
     {
         auto entry = this.lookup(path);
-        enforce(entry.type == Type.File, "Trying to read a directory");
+        enforce(entry.attributes.type == Type.File, "Trying to read a directory");
         return entry.content.dup;
     }
 
@@ -763,7 +783,7 @@ public class FSEntry
         import std.utf : validate;
 
         auto entry = this.lookup(path);
-        enforce(entry.type == Type.File, "Trying to read a directory");
+        enforce(entry.attributes.type == Type.File, "Trying to read a directory");
         // Ignore BOM: If it's needed for a test, add support for it.
         validate(cast(const(char[])) entry.content);
         return cast(string) entry.content.idup();
@@ -782,7 +802,7 @@ public class FSEntry
             "Cannot write to directory: " ~ path.toNativeString());
         if (auto file = this.lookup(path)) {
             // If the file already exists, override it
-            enforce(file.type == Type.File,
+            enforce(file.attributes.type == Type.File,
                 "Trying to write to directory: " ~ path.toNativeString());
             file.content = data.dup;
         } else {
@@ -817,7 +837,7 @@ public class FSEntry
             enforce(force,
                 "removeFile: No such file: " ~ path.toNativeString());
         } else {
-            enforce(p.children[idx].type == Type.File,
+            enforce(p.children[idx].attributes.type == Type.File,
                 "removeFile called on a directory: " ~ path.toNativeString());
             p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
         }
@@ -845,12 +865,32 @@ public class FSEntry
             enforce(force,
                 "removeDir: No such directory: " ~ path.toNativeString());
         } else {
-            enforce(p.children[idx].type == Type.Directory,
+            enforce(p.children[idx].attributes.type == Type.Directory,
                 "removeDir called on a file: " ~ path.toNativeString());
             enforce(force || p.children[idx].children.length == 0,
                 "removeDir called on non-empty directory: " ~ path.toNativeString());
             p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
         }
+    }
+
+    /// Implement `std.file.setTimes`
+    public void setTimes(in NativePath path, in SysTime accessTime,
+        in SysTime modificationTime)
+    {
+        auto e = this.lookup(path);
+        enforce(e !is null,
+            "setTimes: No such file or directory: " ~ path.toNativeString());
+        e.attributes.access = accessTime;
+        e.attributes.modification = modificationTime;
+    }
+
+    /// Implement `std.file.setAttributes`
+    public void setAttributes(in NativePath path, uint attributes)
+    {
+        auto e = this.lookup(path);
+        enforce(e !is null,
+            "setTimes: No such file or directory: " ~ path.toNativeString());
+        e.attributes.attrs = attributes;
     }
 }
 
