@@ -44,15 +44,14 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	override void fetchPackage(in NativePath path, in PackageName name,
+	override ubyte[] fetchPackage(in PackageName name,
 		in VersionRange dep, bool pre_release)
 	{
-		import dub.internal.vibecompat.core.file : copyFile, existsFile;
-		enforce(path.absolute);
+		import dub.internal.vibecompat.core.file : readFile, existsFile;
 		logInfo("Storing package '%s', version requirements: %s", name.main, dep);
 		auto filename = bestPackageFile(name, dep, pre_release);
 		enforce(existsFile(filename));
-		copyFile(filename, path);
+		return readFile(filename);
 	}
 
 	override Json fetchPackageRecipe(in PackageName name, in VersionRange dep,

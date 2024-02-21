@@ -738,7 +738,9 @@ class PackageManager {
 	deprecated("Use `store(NativePath source, PlacementLocation dest, string name, Version vers)`")
 	Package storeFetchedPackage(NativePath zip_file_path, Json package_info, NativePath destination)
 	{
-		return this.store_(zip_file_path, destination,
+		import dub.internal.vibecompat.core.file;
+
+		return this.store_(readFile(zip_file_path), destination,
 			PackageName(package_info["name"].get!string),
 			Version(package_info["version"].get!string));
 	}
@@ -776,6 +778,16 @@ class PackageManager {
 	{
 		import dub.internal.vibecompat.core.file;
 
+		auto data = readFile(src);
+		return this.store(data, dest, name, vers);
+	}
+
+	/// Ditto
+	Package store(ubyte[] data, PlacementLocation dest,
+		in PackageName name, in Version vers)
+	{
+		import dub.internal.vibecompat.core.file;
+
 		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
 		ensureDirectory(dstpath.parentPath());
@@ -787,26 +799,25 @@ class PackageManager {
 		if (this.existsFile(dstpath)) {
 			return this.getPackage(name, vers, dest);
 		}
-		return this.store_(src, dstpath, name, vers);
+		return this.store_(data, dstpath, name, vers);
 	}
 
 	/// Backward-compatibility for deprecated overload, simplify once `storeFetchedPatch`
 	/// is removed
-	private Package store_(NativePath src, NativePath destination,
+	private Package store_(ubyte[] data, NativePath destination,
 		in PackageName name, in Version vers)
 	{
 		import dub.internal.vibecompat.core.file;
 		import std.range : walkLength;
 
-		logDebug("Placing package '%s' version '%s' to location '%s' from file '%s'",
-			name, vers, destination.toNativeString(), src.toNativeString());
+		logDebug("Placing package '%s' version '%s' to location '%s'",
+			name, vers, destination.toNativeString());
 
 		enforce(!this.existsFile(destination),
 			"%s (%s) needs to be removed from '%s' prior placement."
 			.format(name, vers, destination));
 
-		logDebug("Opening file %s", src);
-		ZipArchive archive = new ZipArchive(readFile(src));
+		ZipArchive archive = new ZipArchive(data);
 		logDebug("Extracting from zip.");
 
 		// In a GitHub zip, the actual contents are in a sub-folder
