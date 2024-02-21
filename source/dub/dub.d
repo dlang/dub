@@ -1021,13 +1021,11 @@ class Dub {
 		{
 			import std.zip : ZipException;
 
-			auto path = getTempFile(name.main.toString(), ".zip");
-			supplier.fetchPackage(path, name.main, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
-			scope(exit) removeFile(path);
+			auto data = supplier.fetchPackage(name.main, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			logDiagnostic("Placing to %s...", location.toString());
 
 			try {
-				return m_packageManager.store(path, location, name.main, ver);
+				return m_packageManager.store(data, location, name.main, ver);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s@%s...", name, ver);
 				// re-throw the exception at the end of the loop

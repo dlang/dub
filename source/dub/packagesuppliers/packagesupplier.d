@@ -32,17 +32,25 @@ interface PackageSupplier {
 	Version[] getVersions(in PackageName name);
 
 
-	/** Downloads a package and stores it as a ZIP file.
+	/** Downloads a package and returns its binary content
 
 		Params:
-			path = Absolute path of the target ZIP file
 			name = Name of the package to retrieve
 			dep = Version constraint to match against
 			pre_release = If true, matches the latest pre-release version.
 				Otherwise prefers stable versions.
 	*/
-	void fetchPackage(in NativePath path, in PackageName name,
-		in VersionRange dep, bool pre_release);
+	ubyte[] fetchPackage(in PackageName name, in VersionRange dep,
+		bool pre_release);
+
+	deprecated("Use `writeFile(path, fetchPackage(PackageName, VersionRange, bool))` instead")
+	final void fetchPackage(in NativePath path, in PackageName name,
+		in VersionRange dep, bool pre_release)
+	{
+		import dub.internal.vibecompat.core.file : writeFile;
+		if (auto res = this.fetchPackage(name, dep, pre_release))
+			writeFile(path, res);
+	}
 
     deprecated("Use `fetchPackage(NativePath, PackageName, VersionRange, bool)` instead")
 	final void fetchPackage(NativePath path, string name, Dependency dep, bool pre_release)

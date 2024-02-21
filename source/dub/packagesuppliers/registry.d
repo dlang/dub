@@ -66,17 +66,15 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	override void fetchPackage(in NativePath path, in PackageName name,
+	override ubyte[] fetchPackage(in PackageName name,
 		in VersionRange dep, bool pre_release)
 	{
 		import std.format : format;
 
 		auto url = genPackageDownloadUrl(name, dep, pre_release);
-		if(url.isNull)
-			return;
+		if(url.isNull) return null;
 		try {
-			retryDownload(url.get, path);
-			return;
+			return retryDownload(url.get);
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;

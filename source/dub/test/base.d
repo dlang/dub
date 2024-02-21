@@ -501,7 +501,7 @@ public class MockPackageSupplier : PackageSupplier
     }
 
     ///
-    public override void fetchPackage(in NativePath path, in PackageName name,
+    public override ubyte[] fetchPackage(in PackageName name,
         in VersionRange dep, bool pre_release)
     {
         assert(0, "%s - fetchPackage not implemented for: %s"
