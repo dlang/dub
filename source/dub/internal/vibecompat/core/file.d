@@ -293,9 +293,6 @@ struct FileInfo {
 	/// Time of the last modification
 	SysTime timeModified;
 
-	/// Time of creation (not available on all operating systems/file systems)
-	SysTime timeCreated;
-
 	/// True if this is a symlink to an actual file
 	bool isSymlink;
 
@@ -332,8 +329,6 @@ private FileInfo makeFileInfo(DirEntry ent)
 		ret.isDirectory = ent.isDir;
 		ret.size = ent.size;
 		ret.timeModified = ent.timeLastModified;
-		version(Windows) ret.timeCreated = ent.timeCreated;
-		else ret.timeCreated = ent.timeLastModified;
 	} catch (Exception e) {
 		logDiagnostic("Failed to get extended file information for %s: %s", ret.name, e.msg);
 	}
