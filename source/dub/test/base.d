@@ -202,7 +202,14 @@ public class TestDub : Dub
         PackageSupplier[] extras = null,
         SkipPackageSuppliers skip = SkipPackageSuppliers.none)
     {
+        /// Create the fs & its base structure
         this.fs = new FSEntry();
+        this.fs.mkdir(Paths.temp);
+        this.fs.mkdir(Paths.systemSettings);
+        this.fs.mkdir(Paths.userSettings);
+        this.fs.mkdir(Paths.userPackages);
+        this.fs.mkdir(Paths.cache);
+        this.fs.mkdir(ProjectPath);
         if (dg !is null) dg(this.fs);
         super(root, extras, skip);
     }
@@ -562,20 +569,9 @@ public class FSEntry
     }
 
     /// Create the root of the filesystem, only usable from this module
-    private this (bool initialize = true)
+    private this ()
     {
         this.type = Type.Directory;
-
-        if (initialize) {
-            /// Create the base structure
-            this.mkdir(TestDub.Paths.temp);
-            this.mkdir(TestDub.Paths.systemSettings);
-            this.mkdir(TestDub.Paths.userSettings);
-            this.mkdir(TestDub.Paths.userPackages);
-            this.mkdir(TestDub.Paths.cache);
-
-            this.mkdir(TestDub.ProjectPath);
-        }
     }
 
     /// Get a direct children node, returns `null` if it can't be found
