@@ -181,15 +181,6 @@ public class TestDub : Dub
         cache: Root ~ "user/" ~ "cache/",
     };
 
-    /// Forward to base constructor
-    public this (string root = ProjectPath.toNativeString(),
-        PackageSupplier[] extras = null,
-        SkipPackageSuppliers skip = SkipPackageSuppliers.none)
-    {
-        this.fs = new FSEntry();
-        super(root, extras, skip);
-    }
-
     /***************************************************************************
 
         Instantiate a new `TestDub` instance with the provided filesystem state
@@ -200,14 +191,20 @@ public class TestDub : Dub
         Params:
           dg = Delegate to be called with the filesystem, before `TestDub`
                instantiation is performed;
+          root = The root path for this instance (forwarded to Dub)
+          extras = Extras `PackageSupplier`s (forwarded to Dub)
+          skip = What `PackageSupplier`s to skip (forwarded to Dub)
 
     ***************************************************************************/
 
-    public this (scope void delegate(scope FSEntry root) dg)
+    public this (scope void delegate(scope FSEntry root) dg = null,
+        string root = ProjectPath.toNativeString(),
+        PackageSupplier[] extras = null,
+        SkipPackageSuppliers skip = SkipPackageSuppliers.none)
     {
         this.fs = new FSEntry();
-        dg(this.fs);
-        super(ProjectPath.toNativeString(), null, SkipPackageSuppliers.none);
+        if (dg !is null) dg(this.fs);
+        super(root, extras, skip);
     }
 
     /// Avoid loading user configuration
