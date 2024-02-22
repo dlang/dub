@@ -579,7 +579,7 @@ public class FSEntry
     }
 
     /// Get a direct children node, returns `null` if it can't be found
-    protected FSEntry lookup(string name)
+    protected inout(FSEntry) lookup(string name) inout return scope
     {
         assert(!name.canFind('/'));
         foreach (c; this.children)
@@ -588,16 +588,8 @@ public class FSEntry
         return null;
     }
 
-    /// Returns: A path relative to `this.path`
-    protected NativePath relativePath(NativePath path)
-    {
-        assert(!path.absolute() || path.startsWith(this.path),
-               "Calling relativePath with a differently rooted path");
-        return path.absolute() ? path.relativeTo(this.path) : path;
-    }
-
     /// Get an arbitrarily nested children node
-    protected FSEntry lookup(NativePath path)
+    protected inout(FSEntry) lookup(NativePath path) inout return scope
     {
         auto relp = this.relativePath(path);
         if (relp.empty)
@@ -610,6 +602,14 @@ public class FSEntry
         return null;
     }
 
+    /// Returns: A path relative to `this.path`
+    protected NativePath relativePath(NativePath path) const scope
+    {
+        assert(!path.absolute() || path.startsWith(this.path),
+               "Calling relativePath with a differently rooted path");
+        return path.absolute() ? path.relativeTo(this.path) : path;
+    }
+
     /*+*************************************************************************
 
         Utility function
@@ -620,13 +620,13 @@ public class FSEntry
     ***************************************************************************/
 
     /// Prints a visual representation of the filesystem to stdout for debugging
-    public void print(bool content = false)
+    public void print(bool content = false) const scope
     {
         import std.range : repeat;
         static import std.stdio;
 
         size_t indent;
-        for (FSEntry p = this.parent; p !is null; p = p.parent)
+        for (auto p = &this.parent; (*p) !is null; p = &p.parent)
             indent++;
         // Don't print anything (even a newline) for root
         if (this.parent is null)
@@ -688,7 +688,7 @@ public class FSEntry
     ***************************************************************************/
 
     /// Returns: The `path` of this FSEntry
-    public NativePath path() const
+    public NativePath path() const scope
     {
         if (this.parent is null)
             return NativePath("/");
@@ -698,7 +698,7 @@ public class FSEntry
     }
 
     /// Implements `mkdir -p`, returns the created directory
-    public FSEntry mkdir (NativePath path)
+    public FSEntry mkdir (NativePath path) scope
     {
         auto relp = this.relativePath(path);
         // Check if the child already exists
@@ -714,21 +714,21 @@ public class FSEntry
     }
 
     /// Checks the existence of a file
-    public bool existsFile (NativePath path)
+    public bool existsFile (NativePath path) const scope
     {
         auto entry = this.lookup(path);
         return entry !is null && entry.type == Type.File;
     }
 
     /// Checks the existence of a directory
-    public bool existsDirectory (NativePath path)
+    public bool existsDirectory (NativePath path) const scope
     {
         auto entry = this.lookup(path);
         return entry !is null && entry.type == Type.Directory;
     }
 
     /// Reads a file, returns the content as `ubyte[]`
-    public ubyte[] readFile (NativePath path)
+    public ubyte[] readFile (NativePath path) const scope
     {
         auto entry = this.lookup(path);
         enforce(entry.type == Type.File, "Trying to read a directory");
@@ -736,7 +736,7 @@ public class FSEntry
     }
 
     /// Reads a file, returns the content as text
-    public string readText (NativePath path)
+    public string readText (NativePath path) const scope
     {
         import std.utf : validate;
 
@@ -748,13 +748,13 @@ public class FSEntry
     }
 
     /// Write to this file
-    public void writeFile (NativePath path, const(char)[] data)
+    public void writeFile (NativePath path, const(char)[] data) scope
     {
         this.writeFile(path, data.representation);
     }
 
     /// Ditto
-    public void writeFile (NativePath path, const(ubyte)[] data)
+    public void writeFile (NativePath path, const(ubyte)[] data) scope
     {
         enforce(!path.endsWithSlash(),
             "Cannot write to directory: " ~ path.toNativeString());
