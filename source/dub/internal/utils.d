@@ -237,7 +237,7 @@ private ubyte[] download(string url, uint timeout = 8)
 		auto conn = HTTP();
 		setupHTTPClient(conn, timeout);
 		logDebug("Getting %s...", url);
-		return cast(ubyte[])get(url, conn);
+		return get!(HTTP, ubyte)(url, conn);
 	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		import vibe.stream.operations;
