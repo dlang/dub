@@ -319,13 +319,15 @@ ubyte[] retryDownload(URL url, size_t retryCount = 3, uint timeout = 8)
 			catch(HTTPStatusException e) {
 				if (e.status == 404) throw e;
 				else {
-					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+					logDebug("Failed to download %s (Attempt %s of %s): %s",
+						url, i + 1, retryCount, e.message);
 					if (i == retryCount - 1) throw e;
 					else continue;
 				}
 			}
 			catch(CurlException e) {
-				logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+				logDebug("Failed to download %s (Attempt %s of %s): %s",
+					url, i + 1, retryCount, e.message);
 				continue;
 			}
 		}
