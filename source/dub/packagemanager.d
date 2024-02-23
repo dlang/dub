@@ -390,7 +390,9 @@ class PackageManager {
 
 		const PackageName pname = parent
 			? PackageName(parent.name) : PackageName.init;
-		auto content = readPackageRecipe(recipe, pname, mode);
+		string text = this.readText(recipe);
+		auto content = parsePackageRecipe(
+			text, recipe.toNativeString(), pname, null, mode);
 		auto ret = new Package(content, path, parent, version_);
 		ret.m_infoFile = recipe;
 		return ret;
@@ -1219,6 +1221,13 @@ symlink_exit:
 	{
 		static import dub.internal.vibecompat.core.file;
 		return dub.internal.vibecompat.core.file.writeFile(path, data);
+	}
+
+	/// Ditto
+	protected string readText(NativePath path)
+	{
+		static import dub.internal.vibecompat.core.file;
+		return dub.internal.vibecompat.core.file.readText(path);
 	}
 
 	/// Ditto

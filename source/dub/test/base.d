@@ -369,36 +369,6 @@ package class TestPackageManager : PackageManager
 	}
 
 	/**
-	 * Loads a `Package`
-	 *
-	 * This is currently not implemented, and any call to it will trigger
-	 * an assert, as that would otherwise be an access to the filesystem.
-	 */
-	protected override Package load(NativePath path, NativePath recipe = NativePath.init,
-		Package parent = null, string version_ = null,
-		StrictMode mode = StrictMode.Ignore)
-	{
-		if (recipe.empty)
-			recipe = this.findPackageFile(path);
-
-		enforce(!recipe.empty,
-			"No package file found in %s, expected one of %s"
-				.format(path.toNativeString(),
-					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
-
-		const PackageName parent_name = parent
-			? PackageName(parent.name) : PackageName.init;
-
-		string text = this.fs.readText(recipe);
-		auto content = parsePackageRecipe(text, recipe.toNativeString(),
-			parent_name, null, mode);
-
-		auto ret = new Package(content, path, parent, version_);
-		ret.m_infoFile = recipe;
-		return ret;
-	}
-
-	/**
 	 * Re-Implementation of `gitClone`.
 	 *
 	 * The base implementation will do a `git` clone, to the file-system.
@@ -442,6 +412,12 @@ package class TestPackageManager : PackageManager
     protected override void writeFile(NativePath path, const(char)[] data)
     {
         return this.fs.writeFile(path, data);
+    }
+
+    ///
+    protected override string readText(NativePath path)
+    {
+        return this.fs.readText(path);
     }
 
     ///
