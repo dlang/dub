@@ -1448,8 +1448,6 @@ package struct Location {
 	// load locally defined packages
 	void scanLocalPackages(bool refresh, PackageManager manager)
 	{
-		import dub.internal.vibecompat.core.file;
-
 		NativePath list_path = this.packagePath;
 		Package[] packs;
 		NativePath[] paths;
@@ -1458,7 +1456,9 @@ package struct Location {
 			if (!manager.existsFile(local_package_file)) return;
 
 			logDiagnostic("Loading local package map at %s", local_package_file.toNativeString());
-			auto packlist = jsonFromFile(local_package_file);
+			const text = manager.readText(local_package_file);
+			auto packlist = parseJsonString(
+				text, local_package_file.toNativeString());
 			enforce(packlist.type == Json.Type.array, LocalPackagesFilename ~ " must contain an array.");
 			foreach (pentry; packlist) {
 				try {
