@@ -153,6 +153,7 @@ class Package {
 			Returns the full path to the package file, if any was found.
 			Otherwise returns an empty path.
 	*/
+	deprecated("Use `PackageManager.findPackageFile`")
 	static NativePath findPackageFile(NativePath directory)
 	{
 		foreach (file; packageInfoFiles) {

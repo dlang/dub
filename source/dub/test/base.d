@@ -398,16 +398,6 @@ package class TestPackageManager : PackageManager
 		return ret;
 	}
 
-	/// Reimplementation of `Package.findPackageFile`
-	public NativePath findPackageFile(NativePath directory)
-	{
-		foreach (file; packageInfoFiles) {
-			auto filename = directory ~ file.filename;
-			if (this.fs.existsFile(filename)) return filename;
-		}
-		return NativePath.init;
-	}
-
 	/**
 	 * Re-Implementation of `gitClone`.
 	 *
