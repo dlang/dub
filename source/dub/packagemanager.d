@@ -689,14 +689,14 @@ class PackageManager {
 	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, Version target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
-		m_repositories[scope_].writeOverrides();
+		m_repositories[scope_].writeOverrides(this);
 	}
 	/// ditto
 	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
 	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, NativePath target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
-		m_repositories[scope_].writeOverrides();
+		m_repositories[scope_].writeOverrides(this);
 	}
 
 	/// Ditto
@@ -716,13 +716,13 @@ class PackageManager {
 	package(dub) void addOverride_(PlacementLocation scope_, string package_, VersionRange source, Version target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride_(package_, source, target);
-		m_repositories[scope_].writeOverrides();
+		m_repositories[scope_].writeOverrides(this);
 	}
 	// Non deprecated version that is used by `commandline`. Do not use!
 	package(dub) void addOverride_(PlacementLocation scope_, string package_, VersionRange source, NativePath target)
 	{
 		m_repositories[scope_].overrides ~= PackageOverride_(package_, source, target);
-		m_repositories[scope_].writeOverrides();
+		m_repositories[scope_].writeOverrides(this);
 	}
 
 	/** Removes an existing package override.
@@ -749,7 +749,7 @@ class PackageManager {
 			if (ovr.package_ != package_ || ovr.source != src)
 				continue;
 			rep.overrides = rep.overrides[0 .. i] ~ rep.overrides[i+1 .. $];
-			(*rep).writeOverrides();
+			(*rep).writeOverrides(this);
 			return;
 		}
 		throw new Exception(format("No override exists for %s %s", package_, src));
@@ -990,7 +990,7 @@ symlink_exit:
 
 		addPackages(*packs, pack);
 
-		this.m_repositories[type].writeLocalPackageList();
+		this.m_repositories[type].writeLocalPackageList(this);
 
 		logInfo("Registered package: %s (version: %s)", pack.name, pack.version_);
 		return pack;
@@ -1020,7 +1020,7 @@ symlink_exit:
 			.filter!(en => !to_remove.canFind(en.index))
 			.map!(en => en.value).array;
 
-		this.m_repositories[type].writeLocalPackageList();
+		this.m_repositories[type].writeLocalPackageList(this);
 
 		foreach(ver, name; removed)
 			logInfo("Deregistered package: %s (version: %s)", name, ver);
@@ -1030,14 +1030,14 @@ symlink_exit:
 	void addSearchPath(NativePath path, PlacementLocation type)
 	{
 		m_repositories[type].searchPath ~= path;
-		this.m_repositories[type].writeLocalPackageList();
+		this.m_repositories[type].writeLocalPackageList(this);
 	}
 
 	/// Removes a search path from the given type.
 	void removeSearchPath(NativePath path, PlacementLocation type)
 	{
 		m_repositories[type].searchPath = m_repositories[type].searchPath.filter!(p => p != path)().array();
-		this.m_repositories[type].writeLocalPackageList();
+		this.m_repositories[type].writeLocalPackageList(this);
 	}
 
 	deprecated("Use `refresh()` without boolean argument(same as `refresh(false)`")
@@ -1200,6 +1200,13 @@ symlink_exit:
 	{
 		static import dub.internal.vibecompat.core.file;
 		return dub.internal.vibecompat.core.file.existsDirectory(path);
+	}
+
+	/// Ditto
+	protected void ensureDirectory(NativePath path)
+	{
+		static import dub.internal.vibecompat.core.file;
+		return dub.internal.vibecompat.core.file.ensureDirectory(path);
 	}
 
 	/// Ditto
@@ -1399,10 +1406,8 @@ package struct Location {
 		}
 	}
 
-	private void writeOverrides()
+	private void writeOverrides(PackageManager mgr)
 	{
-		import dub.internal.vibecompat.core.file;
-
 		Json[] newlist;
 		foreach (ovr; this.overrides) {
 			auto jovr = Json.emptyObject;
@@ -1415,14 +1420,14 @@ package struct Location {
 			newlist ~= jovr;
 		}
 		auto path = this.packagePath;
-		ensureDirectory(path);
-		writeJsonFile(path ~ LocalOverridesFilename, Json(newlist));
+		mgr.ensureDirectory(path);
+		auto app = appender!string();
+		app.writePrettyJsonString(Json(newlist));
+		mgr.writeFile(path ~ LocalOverridesFilename, app.data);
 	}
 
-	private void writeLocalPackageList()
+	private void writeLocalPackageList(PackageManager mgr)
 	{
-		import dub.internal.vibecompat.core.file;
-
 		Json[] newlist;
 		foreach (p; this.searchPath) {
 			auto entry = Json.emptyObject;
@@ -1441,8 +1446,10 @@ package struct Location {
 		}
 
 		NativePath path = this.packagePath;
-		ensureDirectory(path);
-		writeJsonFile(path ~ LocalPackagesFilename, Json(newlist));
+		mgr.ensureDirectory(path);
+		auto app = appender!string();
+		app.writePrettyJsonString(Json(newlist));
+		mgr.writeFile(path ~ LocalPackagesFilename, app.data);
 	}
 
 	// load locally defined packages
