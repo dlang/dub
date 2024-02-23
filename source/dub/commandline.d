@@ -896,7 +896,7 @@ class Command {
 
 	private bool loadCwdPackage(Dub dub, bool warn_missing_package)
 	{
-		auto filePath = Package.findPackageFile(dub.rootPath);
+		auto filePath = dub.packageManager.findPackageFile(dub.rootPath);
 
 		if (filePath.empty) {
 			if (warn_missing_package) {

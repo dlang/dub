@@ -381,7 +381,7 @@ class PackageManager {
 		StrictMode mode = StrictMode.Ignore)
 	{
 		if (recipe.empty)
-			recipe = Package.findPackageFile(path);
+			recipe = this.findPackageFile(path);
 
 		enforce(!recipe.empty,
 			"No package file found in %s, expected one of %s"
@@ -394,6 +394,24 @@ class PackageManager {
 		auto ret = new Package(content, path, parent, version_);
 		ret.m_infoFile = recipe;
 		return ret;
+	}
+
+	/** Searches the given directory for package recipe files.
+	 *
+	 * Params:
+	 *   directory = The directory to search
+	 *
+	 * Returns:
+	 *   Returns the full path to the package file, if any was found.
+	 *   Otherwise returns an empty path.
+	 */
+	public NativePath findPackageFile(NativePath directory)
+	{
+		foreach (file; packageInfoFiles) {
+			auto filename = directory ~ file.filename;
+			if (this.existsFile(filename)) return filename;
+		}
+		return NativePath.init;
 	}
 
 	/** For a given SCM repository, returns the corresponding package.
@@ -1452,7 +1470,7 @@ package struct Location {
 						}
 
 						if (!pp) {
-							auto infoFile = Package.findPackageFile(path);
+							auto infoFile = manager.findPackageFile(path);
 							if (!infoFile.empty) pp = manager.load(path, infoFile);
 							else {
 								logWarn("Locally registered package %s %s was not found. Please run 'dub remove-local \"%s\"'.",
@@ -1533,7 +1551,7 @@ package struct Location {
 			if (!pdir.isDirectory) continue;
 
 			const pack_path = path ~ (pdir.name ~ "/");
-			auto packageFile = Package.findPackageFile(pack_path);
+			auto packageFile = mgr.findPackageFile(pack_path);
 
 			if (isManaged(path)) {
 				// Old / flat directory structure, used in non-standard path
@@ -1554,7 +1572,7 @@ package struct Location {
 						if (!versdir.isDirectory) continue;
 						auto vers_path = pack_path ~ versdir.name ~ (pdir.name ~ "/");
 						if (!mgr.existsDirectory(vers_path)) continue;
-						packageFile = Package.findPackageFile(vers_path);
+						packageFile = mgr.findPackageFile(vers_path);
 						loadInternal(vers_path, packageFile);
 					}
 				}
