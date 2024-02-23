@@ -345,29 +345,6 @@ package class TestPackageManager : PackageManager
         assert(0, "Function not implemented");
     }
 
-    /**
-     * This function usually scans the filesystem for packages.
-     *
-     * We don't want to do IO access and rely on users adding the packages
-     * before the test starts instead.
-     *
-     * Note: Deprecated `refresh(bool)` does IO, but it's deprecated
-     */
-	public override void refresh()
-	{
-		// Local packages are not yet implemented
-		version (none) {
-			foreach (ref repository; this.m_repositories)
-				repository.scanLocalPackages(false, this);
-		}
-		this.m_internal.scan(this, false);
-		foreach (ref repository; this.m_repositories)
-			repository.scan(this, false);
-
-		// Removed override loading usually done here as they are deprecated
-		this.m_initialized = true;
-	}
-
 	/**
 	 * Re-Implementation of `gitClone`.
 	 *

@@ -1066,7 +1066,7 @@ symlink_exit:
 			repository.scan(this, refresh);
 
 		foreach (ref repository; this.m_repositories)
-			repository.loadOverrides();
+			repository.loadOverrides(this);
 		this.m_initialized = true;
 	}
 
@@ -1378,17 +1378,17 @@ package struct Location {
 		this.packagePath = path;
 	}
 
-	void loadOverrides()
+	void loadOverrides(PackageManager mgr)
 	{
-		import dub.internal.vibecompat.core.file;
-
 		this.overrides = null;
 		auto ovrfilepath = this.packagePath ~ LocalOverridesFilename;
-		if (existsFile(ovrfilepath)) {
+		if (mgr.existsFile(ovrfilepath)) {
 			logWarn("Found local override file: %s", ovrfilepath);
 			logWarn(OverrideDepMsg);
 			logWarn("Replace with a path-based dependency in your project or a custom cache path");
-			foreach (entry; jsonFromFile(ovrfilepath)) {
+			const text = mgr.readText(ovrfilepath);
+			auto json = parseJsonString(text, ovrfilepath.toNativeString());
+			foreach (entry; json) {
 				PackageOverride_ ovr;
 				ovr.package_ = entry["name"].get!string;
 				ovr.source = VersionRange.fromString(entry["version"].get!string);
