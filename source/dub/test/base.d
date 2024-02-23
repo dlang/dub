@@ -374,6 +374,12 @@ package class TestPackageManager : PackageManager
     }
 
     ///
+    protected override void ensureDirectory(NativePath path)
+    {
+        this.fs.mkdir(path);
+    }
+
+    ///
     protected override bool existsFile(NativePath path)
     {
         return this.fs.existsFile(path);
