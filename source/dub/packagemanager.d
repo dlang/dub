@@ -784,7 +784,7 @@ class PackageManager {
 		// possibly wait for other dub instance
 		import core.time : seconds;
 		auto lock = lockFile(lockPath.toNativeString(), 30.seconds);
-		if (dstpath.existsFile()) {
+		if (this.existsFile(dstpath)) {
 			return this.getPackage(name, vers, dest);
 		}
 		return this.store_(src, dstpath, name, vers);
@@ -801,7 +801,7 @@ class PackageManager {
 		logDebug("Placing package '%s' version '%s' to location '%s' from file '%s'",
 			name, vers, destination.toNativeString(), src.toNativeString());
 
-		enforce(!existsFile(destination),
+		enforce(!this.existsFile(destination),
 			"%s (%s) needs to be removed from '%s' prior placement."
 			.format(name, vers, destination));
 
@@ -869,7 +869,7 @@ class PackageManager {
 					}
 				}
 
-				writeFile(dst_path, archive.expand(a));
+				this.writeFile(dst_path, archive.expand(a));
 				setAttributes(dst_path.toNativeString(), a);
 symlink_exit:
 				++countFiles;
@@ -1088,12 +1088,10 @@ symlink_exit:
 	public void writeSelections(in Package project, in Selections!1 selections,
 		bool overwrite = true)
 	{
-		import dub.internal.vibecompat.core.file;
-
 		const path = project.path ~ "dub.selections.json";
-		if (!overwrite && existsFile(path))
+		if (!overwrite && this.existsFile(path))
 			return;
-		writeFile(path, selectionsToString(selections));
+		this.writeFile(path, selectionsToString(selections));
 	}
 
 	/// Package function to avoid code duplication with deprecated
@@ -1166,11 +1164,32 @@ symlink_exit:
 		}
 	}
 
-	/// Used for dependency injection in `Location`
+	/// Used for dependency injection
 	protected bool existsDirectory(NativePath path)
 	{
 		static import dub.internal.vibecompat.core.file;
 		return dub.internal.vibecompat.core.file.existsDirectory(path);
+	}
+
+	/// Ditto
+	protected bool existsFile(NativePath path)
+	{
+		static import dub.internal.vibecompat.core.file;
+		return dub.internal.vibecompat.core.file.existsFile(path);
+	}
+
+	/// Ditto
+	protected void writeFile(NativePath path, const(ubyte)[] data)
+	{
+		static import dub.internal.vibecompat.core.file;
+		return dub.internal.vibecompat.core.file.writeFile(path, data);
+	}
+
+	/// Ditto
+	protected void writeFile(NativePath path, const(char)[] data)
+	{
+		static import dub.internal.vibecompat.core.file;
+		return dub.internal.vibecompat.core.file.writeFile(path, data);
 	}
 
 	/// Ditto
@@ -1398,7 +1417,7 @@ package struct Location {
 		NativePath[] paths;
 		try {
 			auto local_package_file = list_path ~ LocalPackagesFilename;
-			if (!existsFile(local_package_file)) return;
+			if (!manager.existsFile(local_package_file)) return;
 
 			logDiagnostic("Loading local package map at %s", local_package_file.toNativeString());
 			auto packlist = jsonFromFile(local_package_file);

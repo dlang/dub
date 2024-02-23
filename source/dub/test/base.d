@@ -424,16 +424,6 @@ package class TestPackageManager : PackageManager
         return false;
 	}
 
-    /// Save the `dub.selections.json` to the vfs
-    public override void writeSelections(in Package project,
-        in Selections!1 selections, bool overwrite = true)
-    {
-        const path = project.path ~ "dub.selections.json";
-        if (!overwrite && this.fs.existsFile(path))
-            return;
-        this.fs.writeFile(path, selectionsToString(selections));
-    }
-
     /// Add a reachable SCM package to this `PackageManager`
     public void addTestSCMPackage(in Repository repo, string dub_json)
     {
@@ -444,6 +434,24 @@ package class TestPackageManager : PackageManager
     protected override bool existsDirectory(NativePath path)
     {
         return this.fs.existsDirectory(path);
+    }
+
+    ///
+    protected override bool existsFile(NativePath path)
+    {
+        return this.fs.existsFile(path);
+    }
+
+    ///
+    protected override void writeFile(NativePath path, const(ubyte)[] data)
+    {
+        return this.fs.writeFile(path, data);
+    }
+
+    ///
+    protected override void writeFile(NativePath path, const(char)[] data)
+    {
+        return this.fs.writeFile(path, data);
     }
 
     ///
