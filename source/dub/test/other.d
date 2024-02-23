@@ -46,3 +46,36 @@ unittest
     assert(dub.project.hasAllDependencies());
     assert(dub.project.getDependency("dep1", true), "Missing 'dep1' dependency");
 }
+
+// Test for https://github.com/dlang/dub/pull/2481
+// Make sure packages found with `add-path` take priority.
+unittest
+{
+    const AddPathDir = TestDub.Paths.temp ~ "addpath/";
+    const BDir = AddPathDir ~ "b/";
+    scope dub = new TestDub((scope FSEntry root) {
+            root.writeFile(TestDub.ProjectPath ~ "dub.json",
+                `{ "name": "a", "dependencies": { "b": "~>1.0" } }`);
+
+            root.writePackageFile("b", "1.0.0", `name "b"
+version "1.0.0"`, PackageFormat.sdl);
+            root.mkdir(BDir);
+            root.writeFile(BDir ~ "dub.json", `{"name": "b", "version": "1.0.0" }`);
+    });
+
+    dub.loadPackage();
+    assert(!dub.project.hasAllDependencies());
+    dub.upgrade(UpgradeOptions.select);
+    // Test that without add-path, we get a package in the userPackage
+    const oldDir = dub.project.getDependency("b", true).path();
+    assert(oldDir == TestDub.Paths.userPackages ~ "packages/b/1.0.0/b/",
+           oldDir.toNativeString());
+    // Now run `add-path`
+    dub.addSearchPath(AddPathDir.toNativeString(), dub.defaultPlacementLocation);
+    // We need a new instance to test
+    scope newDub = dub.newTest();
+    newDub.loadPackage();
+    assert(newDub.project.hasAllDependencies());
+    const actualDir = newDub.project.getDependency("b", true).path();
+    assert(actualDir == BDir, actualDir.toNativeString());
+}
