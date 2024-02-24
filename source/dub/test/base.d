@@ -203,15 +203,62 @@ public class TestDub : Dub
         SkipPackageSuppliers skip = SkipPackageSuppliers.none)
     {
         /// Create the fs & its base structure
-        this.fs = new FSEntry();
-        this.fs.mkdir(Paths.temp);
-        this.fs.mkdir(Paths.systemSettings);
-        this.fs.mkdir(Paths.userSettings);
-        this.fs.mkdir(Paths.userPackages);
-        this.fs.mkdir(Paths.cache);
-        this.fs.mkdir(ProjectPath);
-        if (dg !is null) dg(this.fs);
+        auto fs_ = new FSEntry();
+        fs_.mkdir(Paths.temp);
+        fs_.mkdir(Paths.systemSettings);
+        fs_.mkdir(Paths.userSettings);
+        fs_.mkdir(Paths.userPackages);
+        fs_.mkdir(Paths.cache);
+        fs_.mkdir(ProjectPath);
+        if (dg !is null) dg(fs_);
+        this(fs_, root, extras, skip);
+    }
+
+    /// Workaround https://issues.dlang.org/show_bug.cgi?id=24388 when called
+    /// when called with (null, ...).
+    public this (typeof(null) _,
+        string root = ProjectPath.toNativeString(),
+        PackageSupplier[] extras = null,
+        SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+    {
+        alias TType = void delegate(scope FSEntry);
+        this(TType.init, root, extras, skip);
+    }
+
+    /// Internal constructor
+    private this(FSEntry fs_, string root, PackageSupplier[] extras,
+        SkipPackageSuppliers skip)
+    {
+        this.fs = fs_;
         super(root, extras, skip);
+    }
+
+    /***************************************************************************
+
+        Get a new `Dub` instance with the same filesystem
+
+        This creates a new `TestDub` instance with the existing filesystem,
+        allowing one to write tests that would normally require multiple Dub
+        instantiation (e.g. test that `fetch` is idempotent).
+        Like the main `TestDub` constructor, it allows to do modifications to
+        the filesystem before the new instantiation is made.
+
+        Params:
+          dg = Delegate to be called with the filesystem, before `TestDub`
+               instantiation is performed;
+
+        Returns:
+          A new `TestDub` instance referencing the same filesystem as `this`.
+
+    ***************************************************************************/
+
+    public TestDub newTest (scope void delegate(scope FSEntry root) dg = null,
+        string root = ProjectPath.toNativeString(),
+        PackageSupplier[] extras = null,
+        SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+    {
+        if (dg !is null) dg(this.fs);
+        return new TestDub(this.fs, root, extras, skip);
     }
 
     /// Avoid loading user configuration
