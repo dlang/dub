@@ -60,7 +60,7 @@ public import dub.dependency;
 public import dub.dub;
 public import dub.package_;
 import dub.internal.vibecompat.core.file : FileInfo;
-import dub.internal.vibecompat.inet.path;
+public import dub.internal.vibecompat.inet.path;
 import dub.packagemanager;
 import dub.packagesuppliers.packagesupplier;
 import dub.project;
