@@ -806,8 +806,6 @@ class PackageManager {
 	Package store(ubyte[] data, PlacementLocation dest,
 		in PackageName name, in Version vers)
 	{
-		import dub.internal.vibecompat.core.file;
-
 		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
 		this.ensureDirectory(dstpath.parentPath());
@@ -827,7 +825,6 @@ class PackageManager {
 	private Package store_(ubyte[] data, NativePath destination,
 		in PackageName name, in Version vers)
 	{
-		import dub.internal.vibecompat.core.file;
 		import std.range : walkLength;
 
 		logDebug("Placing package '%s' version '%s' to location '%s'",
