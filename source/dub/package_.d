@@ -113,6 +113,10 @@ class Package {
 	/// ditto
 	this(PackageRecipe recipe, NativePath root = NativePath(), Package parent = null, string version_override = "")
 	{
+		// dbg(root);
+		// dbg(recipe);
+		// dbg(version_override);
+
 		// save the original recipe
 		m_rawRecipe = recipe.clone;
 

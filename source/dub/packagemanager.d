@@ -96,7 +96,8 @@ class PackageManager {
 		 * of available packages.
 		 */
 		bool m_initialized;
-	}
+    }
+	bool m_dbgFlag;
 
 	/**
 	   Instantiate an instance with a single search path
@@ -190,15 +191,25 @@ class PackageManager {
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
 	protected Package lookup (in PackageName name, in Version vers) {
-		if (!this.m_initialized)
-			this.refresh();
+		if (m_dbgFlag) dbg("lookup: ENTERED: ", name, " version:", vers);
+		// if (!this.m_initialized)
+		// 	this.refresh();
 
-		if (auto pkg = this.m_internal.lookup(name, vers))
+		if (auto pkg = this.m_internal.lookup(name, vers)) {
+			if (m_dbgFlag) dbg("lookup: internal: ", name, " => ", pkg.tupleof);
 			return pkg;
+		}
 
 		foreach (ref location; this.m_repositories)
-			if (auto p = location.load(name, vers, this))
+			if (auto p = location.load(name, vers, this)) {
+				if (m_dbgFlag) dbg("lookup: hit: ", name, " => ", p.tupleof);
+			}
+
+		foreach (ref location; this.m_repositories)
+			if (auto p = location.load(name, vers, this)) {
+				if (m_dbgFlag) dbg("lookup: location: ", name, " => ", p.tupleof);
 				return p;
+			}
 
 		return null;
 	}
@@ -1029,6 +1040,7 @@ symlink_exit:
 	/// For the given type add another path where packages will be looked up.
 	void addSearchPath(NativePath path, PlacementLocation type)
 	{
+		refreshIfNotInitialized();
 		m_repositories[type].searchPath ~= path;
 		this.m_repositories[type].writeLocalPackageList(this);
 	}
@@ -1051,6 +1063,12 @@ symlink_exit:
 	void refresh()
 	{
 		this.refresh_(false);
+	}
+
+	void refreshIfNotInitialized()
+	{
+		if (!m_initialized)
+			refresh();
 	}
 
 	private void refresh_(bool refresh)

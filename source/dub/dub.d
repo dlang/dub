@@ -116,7 +116,7 @@ deprecated unittest
 	the command line interface.
 */
 class Dub {
-	protected {
+	public {
 		bool m_dryRun = false;
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
