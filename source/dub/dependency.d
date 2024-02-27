@@ -851,6 +851,7 @@ struct Version {
 	*/
 	this(string vers) @safe pure
 	{
+		assert(vers.length > 1);
 		enforce(vers.length > 1, "Version strings must not be empty.");
 		if (vers[0] != branchPrefix)
 			enforce(vers.isValidVersion(), "Invalid SemVer format: " ~ vers);

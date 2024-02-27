@@ -84,9 +84,55 @@ class Package {
 	package NativePath m_infoFile;
 	private {
 		NativePath m_path;
-		PackageRecipe m_info;
+		PackageRecipe _m_info;
+		@property ref inout(PackageRecipe) m_info() inout {
+			loadCachedRecipe();
+			return _m_info;
+		}
 		PackageRecipe m_rawRecipe;
 		Package m_parentPackage;
+		string _m_version_override;
+		StrictMode _m_mode;
+	}
+
+	private void loadCachedRecipe() const {
+		if (_m_info.name !is null) {
+			// dbg("REUSING cache: path:", m_path);
+			return;
+		}
+
+		dbg("LOADING cache: path:", m_path, " recipePath:", recipePath);
+
+		import std.file : readText;
+		import dub.recipe.io : parsePackageRecipe;
+
+		auto mutableThis = (cast()this);
+
+		const parentName = m_parentPackage ? PackageName(m_parentPackage.name) : PackageName.init;
+		const text = readText(m_infoFile.toNativeString());
+		mutableThis._m_info = parsePackageRecipe(text, m_infoFile.toNativeString(), parentName, null, _m_mode);
+
+		mutableThis.m_rawRecipe = _m_info.clone;
+
+		if (!_m_version_override.empty)
+			mutableThis._m_info.version_ = _m_version_override;
+
+		// try to run git to determine the version of the package if no explicit version was given
+		if (_m_info.version_.length == 0 && !m_parentPackage) {
+			try mutableThis._m_info.version_ = determineVersionFromSCM(m_path);
+			catch (Exception e) logDebug("Failed to determine version by SCM: %s", e.msg);
+
+			if (mutableThis._m_info.version_.length == 0) {
+				logDiagnostic("Note: Failed to determine version of package %s at %s. Assuming ~master.", _m_info.name, this.path.toNativeString());
+				// TODO: Assume unknown version here?
+				// _m_info.version_ = Version.unknown.toString();
+				mutableThis._m_info.version_ = Version.masterBranch.toString();
+			} else logDiagnostic("Determined package version using GIT: %s %s", _m_info.name, recipe.version_);
+		}
+
+		mutableThis.checkDubRequirements();
+		mutableThis.fillWithDefaults();
+		mutableThis.mutuallyExcludeMainFiles();
 	}
 
 	/** Constructs a `Package` using an in-memory package recipe.
@@ -137,11 +183,23 @@ class Package {
 		m_path.endsWithSlash = true;
 
 		// use the given recipe as the basis
-		m_info = recipe;
+		_m_info = recipe;
 
 		checkDubRequirements();
 		fillWithDefaults();
 		mutuallyExcludeMainFiles();
+	}
+	/// ditto
+	this(NativePath root = NativePath(), NativePath recipePath = NativePath(),
+		 Package parent = null, string version_override = "",
+		 StrictMode mode = StrictMode.Ignore)
+	{
+		m_parentPackage = parent;
+		m_path = root;
+		m_path.endsWithSlash = true;
+		m_infoFile = recipePath;
+		_m_version_override = version_override;
+		_m_mode = mode;
 	}
 
 	/** Searches the given directory for package recipe files.
@@ -241,7 +299,7 @@ class Package {
 
 		See_Also: `recipe`
 	*/
-	@property ref const(PackageRecipe) rawRecipe() const { return m_rawRecipe; }
+	@property ref const(PackageRecipe) rawRecipe() const { loadCachedRecipe(); return m_rawRecipe; }
 
 	/** Returns the path to the package recipe file.
 

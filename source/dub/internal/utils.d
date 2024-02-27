@@ -32,6 +32,16 @@ version(DubUseCurl)
 
 public import dub.internal.temp_files;
 
+void dbg(Args...)(scope Args args,
+				  const string file = __FILE_FULL_PATH__,
+				  const uint line = __LINE__,
+				  const string fun = __FUNCTION__) @trusted pure nothrow @nogc {
+	import std.stdio : stderr, writeln;
+	try
+		debug stderr.writeln(file, "(", line, ",1):", " Debug: \"", args, "\"");
+	catch (Exception) { }
+}
+
 /**
  * Obtain a lock for a file at the given path.
  *

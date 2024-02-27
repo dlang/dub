@@ -360,11 +360,11 @@ class PackageManager {
 	 * to call `addPackages`.
 	 *
 	 * Throws:
-	 *   If no package can be found at the `path` / with the `recipe`.
+	 *   If no package can be found at the `path` / with the `recipePath`.
 	 *
 	 * Params:
 	 *     path = The directory in which the package resides.
-	 *     recipe = Optional path to the package recipe file. If left empty,
+	 *     recipePath = Optional path to the package recipe file. If left empty,
 	 *              the `path` directory will be searched for a recipe file.
 	 *     parent = Reference to the parent package, if the new package is a
 	 *              sub package.
@@ -376,26 +376,52 @@ class PackageManager {
 	 *
 	 * Returns: A populated `Package`.
 	 */
-	protected Package load(NativePath path, NativePath recipe = NativePath.init,
+	protected Package load(NativePath path, NativePath recipePath = NativePath.init,
 		Package parent = null, string version_ = null,
 		StrictMode mode = StrictMode.Ignore)
 	{
-		if (recipe.empty)
-			recipe = this.findPackageFile(path);
+		if (recipePath.empty)
+			recipePath = this.findPackageFile(path);
 
-		enforce(!recipe.empty,
+		enforce(!recipePath.empty,
 			"No package file found in %s, expected one of %s"
 				.format(path.toNativeString(),
 					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
 
-		const PackageName pname = parent
-			? PackageName(parent.name) : PackageName.init;
-		string text = this.readText(recipe);
+		import std.file : exists;
+		if (recipePath.toString.startsWith("/home/per/.dub/packages/mir-core/1.7.0/mir-core"))
+			dbg("recipePath:", recipePath, " exists: ", recipePath.toString.exists);
+
+		/* initial conversion from dub.sdl to dub.json needs to be eager for
+           now, however, some sub-package dub.sdl's are not convert to dub.json
+           which means that these need to be rescanned after every call to dub. */
+
+		if (recipePath.toString.endsWith("dub.sdl") ||
+			!recipePath.toString.exists) // dub test pass non-existing (non-empty) paths
+			return loadEagerly(path, recipePath, parent, version_);
+		return loadLazily(path, recipePath, parent, version_);
+	}
+
+	private Package loadEagerly(NativePath path, NativePath recipePath = NativePath.init,
+		Package parent = null, string version_ = null,
+		StrictMode mode = StrictMode.Ignore)
+	{
+		dbg("EAGERLY: path:", path, " recipePath:", recipePath);
+		const parentName = parent ? PackageName(parent.name) : PackageName.init;
+		string text = this.readText(recipePath);
 		auto content = parsePackageRecipe(
-			text, recipe.toNativeString(), pname, null, mode);
+			text, recipePath.toNativeString(), parentName, null, mode);
 		auto ret = new Package(content, path, parent, version_);
-		ret.m_infoFile = recipe;
+		ret.m_infoFile = recipePath;
 		return ret;
+	}
+
+	private Package loadLazily(NativePath path, NativePath recipePath = NativePath.init,
+		Package parent = null, string version_ = null,
+		StrictMode mode = StrictMode.Ignore)
+	{
+		dbg("LAZILY: path:", path, " recipePath:", recipePath);
+		return new Package(path, recipePath, parent, version_, mode);
 	}
 
 	/** Searches the given directory for package recipe files.
