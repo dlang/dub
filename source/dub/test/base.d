@@ -384,15 +384,6 @@ package class TestPackageManager : PackageManager
 		);
 	}
 
-    // Re-introduce hidden/deprecated overloads
-    public alias store = PackageManager.store;
-
-    /// Ditto
-    public override Package store(NativePath src, PlacementLocation dest, in PackageName name, in Version vers)
-    {
-        assert(0, "Function not implemented");
-    }
-
 	/**
 	 * Re-Implementation of `gitClone`.
 	 *
@@ -452,6 +443,12 @@ package class TestPackageManager : PackageManager
     }
 
     ///
+    protected override void removeFile(NativePath path)
+    {
+        return this.fs.removeFile(path);
+    }
+
+    ///
     protected override IterateDirDg iterateDirectory(NativePath path)
     {
         enforce(this.fs.existsDirectory(path),
@@ -476,6 +473,19 @@ package class TestPackageManager : PackageManager
             return 0;
         }
         return &iterator;
+    }
+
+    /// Ditto
+    protected override void setTimes(in NativePath path, in SysTime accessTime,
+        in SysTime modificationTime)
+    {
+        this.fs.setTimes(path, accessTime, modificationTime);
+    }
+
+    /// Ditto
+    protected override void setAttributes(in NativePath path, uint attributes)
+    {
+        this.fs.setAttributes(path, attributes);
     }
 }
 
