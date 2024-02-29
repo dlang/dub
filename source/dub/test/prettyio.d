@@ -2,7 +2,7 @@
  *
  * Test: dmd -I.. -i -unittest -version=show -main -run prettyio.d
  */
-module nxt.prettyio;
+module dub.prettyio;
 
 /++ Wrapper symbol when printing paths and URLs to standard out (`stdout`) and standard error (`stderr`).
  +/
