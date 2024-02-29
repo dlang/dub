@@ -1041,11 +1041,15 @@ symlink_exit:
 	void addSearchPath(NativePath path, PlacementLocation type)
 	{
 		foreach (ref repo; m_repositories) {
-			dbg("repo: ", repo);
 			repo.localPackages = [];
 		}
 
 		m_repositories[type].searchPath ~= path;
+		m_repositories[type].fromPath = []; // invalidate
+		import dub.prettyio;
+		this.cwritePretty();
+
+		refresh();
 
 		this.m_repositories[type].writeLocalPackageList(this);
 	}

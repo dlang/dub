@@ -11,7 +11,7 @@ version (unittest):
 import std.algorithm;
 import std.format;
 import dub.test.base;
-import nxt.prettyio;
+import dub.prettyio;
 
 // https://github.com/dlang/dub/issues/2696
 unittest
