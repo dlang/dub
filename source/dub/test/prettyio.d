@@ -15,23 +15,25 @@ void cwritePretty(T)(T arg, in size_t depth = 0, in char[] fieldName = [], in ch
 	cwritePrettyHelper!(T)(arg, depth, fieldName, indent, lterm, showType, ptrs);
 }
 private void cwritePrettyHelper(T)(T arg, in size_t depth = 0, in char[] fieldName = [], in char[] indent = "\t", in char[] lterm = "\n", in bool showType = true, ref scope const(void)*[] ptrs) {
+	import std.traits : isArray, isSomeString, isSomeChar, isPointer, hasMember;
+	import std.range.primitives : ElementType;
+
 	void cwriteIndent() {
 		foreach (_; 0 .. depth) cwrite(indent);
 	}
+
 	void cwriteFieldName() {
 		if (fieldName) cwrite(fieldName, ": ");
 	}
+
 	void cwriteTypeName() {
 		if (showType) cwrite(T.stringof, " ");
 	}
+
 	void cwriteAddress(in void* ptr) {
 		cwrite('@', ptr);
 	}
-	import std.traits : isArray, isSomeString, isSomeChar, isPointer, hasMember;
-	import std.range.primitives : ElementType;
-	cwriteIndent();
-	cwriteFieldName();
-	cwriteTypeName();
+
 	static if (is(T == struct) || is(T == class) || is(T == union)) {
 		import std.traits : FieldNameTuple;
 		void cwriteMembers() {
@@ -39,7 +41,28 @@ private void cwritePrettyHelper(T)(T arg, in size_t depth = 0, in char[] fieldNa
 				cwritePrettyHelper(__traits(getMember, arg, memberName), depth + 1,
 								   memberName, indent, lterm, showType, ptrs);
 		}
+		void cwriteAggregate() {
+			/* TODO: Using class.toString requires special care here because
+			   Object.toString defaults to its qualified type name: */
+			static if ((is(T == struct) || is(T == union)) && hasMember!(T, "toString")) {
+				const str = arg.toString;
+				if (str !is null)
+					cwrite('"', str, '"', lterm);
+				else
+					cwrite("[]", lterm); // TODO: use cwriteMembers(); instead
+			} else {
+				cwrite("{", lterm);
+				cwriteMembers();
+				cwriteIndent();
+				cwrite("}", lterm);
+			}
+		}
 	}
+
+	cwriteIndent();
+	cwriteFieldName();
+	cwriteTypeName();
+
 	static if (is(T == class)) {
 		const(void)* ptr;
 		() @trusted { ptr = cast(void*)arg; }();
@@ -52,40 +75,19 @@ private void cwritePrettyHelper(T)(T arg, in size_t depth = 0, in char[] fieldNa
 			if (ix != -1) { // `ptr` already printed
 				cwrite("#", ix, lterm); // Emacs-Lisp-style back-reference
 			} else {
-				cwrite("#", ptrs.length, ' '); // Emacs-Lisp-style back-reference
-				cwrite("{", lterm);
 				ptrs ~= ptr;
-				cwriteMembers();
-				cwriteIndent();
-				cwrite("}", lterm);
+				cwrite("#", ptrs.length, ' '); // Emacs-Lisp-style back-reference
+				cwriteAggregate();
 			}
 		}
-	} else static if (is(T == union)) {
-		import std.traits : FieldNameTuple;
-		cwrite("{", lterm);
-		cwriteMembers();
-		cwriteIndent();
-		cwrite("}", lterm);
-	} else static if (is(T == struct)) {
-		static if (hasMember!(T, "toString")) {
-			const str = arg.toString;
-			if (str !is null)
-				cwrite('"', str, '"', lterm);
-			else
-				cwrite("[]", lterm);
-		} else {
-			cwrite("{", lterm);
-			cwriteMembers();
-			cwriteIndent();
-			cwrite("}", lterm);
-		}
+	} else static if (is(T == union) || is(T == struct)) {
+		cwriteAggregate();
     } else static if (isPointer!T) {
 		const ptr = cast(void*)arg;
 		cwriteAddress(ptr);
 		if (arg is null) {
 			cwrite(lterm);
 		} else {
-			import nxt.algorithm : indexOf;
 			const ix = ptrs.indexOf(ptr);
 			cwrite(' ');
 			if (ix != -1) { // `ptr` already printed
