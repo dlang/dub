@@ -1046,9 +1046,6 @@ symlink_exit:
 
 		m_repositories[type].searchPath ~= path;
 		m_repositories[type].fromPath = []; // invalidate
-		import dub.prettyio;
-
-		refresh();
 
 		this.m_repositories[type].writeLocalPackageList(this);
 	}

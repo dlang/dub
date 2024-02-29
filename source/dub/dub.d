@@ -1243,6 +1243,8 @@ class Dub {
 		if (m_dryRun) return;
 		this.m_packageManager.addSearchPath(makeAbsolute(path), loc);
 		this.m_project.reinit();
+		import dub.prettyio;
+		this.m_project.cwritePretty(0, "m_project", Format("\t", "\n", true, true));
 	}
 
 	/** Deregisters a local directory search path.

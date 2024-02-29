@@ -74,8 +74,8 @@ version "1.0.0"`, PackageFormat.sdl);
     assert(oldDir == TestDub.Paths.userPackages ~ "packages/b/1.0.0/b/",
            oldDir.toNativeString());
     // Now run `add-path`
-    (cast(Dub)tdub).cwritePretty();
     tdub.addSearchPath(AddPathDir.toNativeString(), tdub.defaultPlacementLocation);
+    // (cast(Dub)tdub).cwritePretty();
     // We need a new instance to test
     scope newDub = tdub.newTest();
 

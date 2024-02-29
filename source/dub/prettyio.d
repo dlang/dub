@@ -1,136 +1,164 @@
 /** Pretty Printing.
  *
  * Test: dmd -I.. -i -unittest -version=show -main -run prettyio.d
+ *
+ * TODO: Reuse cwritePretty and cwritePrettyHelper to implement automatic binary serialization.
  */
 module dub.prettyio;
 
-/++ Wrapper symbol when printing paths and URLs to standard out (`stdout`) and standard error (`stderr`).
+/++ Format of pretty printing.
  +/
-private static immutable string pathWrapperSymbol = `"`;
+struct Format {
+	/++ Indentation character.
+     +/
+	string indentation = "\t";
+
+	/++ New line terminator.
+		See: https://en.wikipedia.org/wiki/Newline
+     +/
+	string newline = "\n";
+
+	/++ Flags that (field) types should be shown.
+     +/
+	bool showType = false;
+
+	/++ Flags that `.init` values should be hidden.
+     +/
+	bool hideInit = false;
+}
 
 /++ Colorized pretty print `arg`.
  +/
-void cwritePretty(T)(T arg, in size_t depth = 0, in char[] fieldName = [], in char[] indent = "\t", in char[] lterm = "\n", in bool showType = true) {
+void cwritePretty(T)(T arg, in size_t depth = 0, in char[] name = [],
+					 in Format fmt = Format.init) {
 	scope const(void)*[] ptrs;
-	cwritePrettyHelper!(T)(arg, depth, fieldName, indent, lterm, showType, ptrs);
+	cwritePrettyHelper!(T)(arg, depth, name, fmt, ptrs);
 }
-private void cwritePrettyHelper(T)(T arg, in size_t depth = 0, in char[] fieldName = [], in char[] indent = "\t", in char[] lterm = "\n", in bool showType = true, ref scope const(void)*[] ptrs) {
+
+private void cwritePrettyHelper(T)(T arg, in size_t depth = 0, in char[] name = [],
+								   in Format fmt = Format.init, ref scope const(void)*[] ptrs) {
 	import std.traits : isArray, isSomeString, isSomeChar, isPointer, hasMember;
-	import std.range.primitives : ElementType;
 
-	void cwriteIndent() {
-		foreach (_; 0 .. depth) cwrite(indent);
+	void doIndent() {
+		foreach (_; 0 .. depth) cwrite(fmt.indentation);
 	}
 
-	void cwriteFieldName() {
-		if (fieldName) cwrite(fieldName, ": ");
+	void doFieldName() {
+		if (name) cwrite(name, ": ");
 	}
 
-	void cwriteTypeName() {
-		if (showType) cwrite(T.stringof, " ");
+	void doTypeName() {
+		if (fmt.showType) cwrite(T.stringof, " ");
 	}
 
-	void cwriteAddress(in void* ptr) {
+	void doAddress(in void* ptr) {
 		cwrite('@', ptr);
 	}
 
 	static if (is(T == struct) || is(T == class) || is(T == union)) {
 		import std.traits : FieldNameTuple;
-		void cwriteMembers() {
+		void doMembers() {
 			foreach (memberName; FieldNameTuple!T)
 				cwritePrettyHelper(__traits(getMember, arg, memberName), depth + 1,
-								   memberName, indent, lterm, showType, ptrs);
+								   memberName, fmt, ptrs);
 		}
-		void cwriteAggregate() {
+		void doAggregate() {
 			/* TODO: Using class.toString requires special care here because
 			   Object.toString defaults to its qualified type name: */
 			static if ((is(T == struct) || is(T == union)) && hasMember!(T, "toString")) {
 				const str = arg.toString;
 				if (str !is null)
-					cwrite('"', str, '"', lterm);
+					cwrite('"', str, '"', fmt.newline);
 				else
-					cwrite("[]", lterm); // TODO: use cwriteMembers(); instead
+					cwrite("[]", fmt.newline); // TODO: use cwriteMembers(); instead
 			} else {
-				cwrite("{", lterm);
-				cwriteMembers();
-				cwriteIndent();
-				cwrite("}", lterm);
+				if (fmt.hideInit && arg is arg.init) {
+					cwrite(".init", fmt.newline);
+				} else {
+					cwrite("{", fmt.newline);
+					doMembers();
+					doIndent();
+					cwrite("}", fmt.newline);
+				}
 			}
 		}
 	}
 
-	cwriteIndent();
-	cwriteFieldName();
-	cwriteTypeName();
+	doIndent();
+	doFieldName();
+	doTypeName();
 
 	static if (is(T == class)) {
 		const(void)* ptr;
 		() @trusted { ptr = cast(void*)arg; }();
-		cwriteAddress(ptr);
+		doAddress(ptr);
 		if (arg is null) {
-			cwrite(lterm);
+			cwrite(fmt.newline);
 		} else {
 			const ix = ptrs.indexOf(ptr);
 			cwrite(' ');
 			if (ix != -1) { // `ptr` already printed
-				cwrite("#", ix, lterm); // Emacs-Lisp-style back-reference
+				cwrite("#", ix, fmt.newline); // Emacs-Lisp-style back-reference
 			} else {
 				ptrs ~= ptr;
 				cwrite("#", ptrs.length, ' '); // Emacs-Lisp-style back-reference
-				cwriteAggregate();
+				doAggregate();
 			}
 		}
 	} else static if (is(T == union) || is(T == struct)) {
-		cwriteAggregate();
+		doAggregate();
     } else static if (isPointer!T) {
 		const ptr = cast(void*)arg;
-		cwriteAddress(ptr);
+		doAddress(ptr);
 		if (arg is null) {
-			cwrite(lterm);
+			cwrite(fmt.newline);
 		} else {
 			const ix = ptrs.indexOf(ptr);
 			cwrite(' ');
 			if (ix != -1) { // `ptr` already printed
-				cwrite("#", ix, lterm); // Emacs-Lisp-style back-reference
+				cwrite("#", ix, fmt.newline); // Emacs-Lisp-style back-reference
 			} else {
 				cwrite("#", ptrs.length, " -> "); // Emacs-Lisp-style back-reference
 				ptrs ~= ptr;
-				static if (is(immutable typeof(*arg))) {
-					cwritePrettyHelper(*arg, depth, [], indent, lterm, showType, ptrs);
+				static if (is(immutable typeof(*arg))) { // `arg` is not `void*`
+					cwritePrettyHelper(*arg, depth, [], fmt, ptrs);
 				}
 			}
 		}
     } else static if (isSomeString!T) {
 		if (arg !is null)
-			cwrite('"', arg, '"', lterm);
+			cwrite('"', arg, '"', fmt.newline);
 		else
-			cwrite("[]", lterm);
+			cwrite("[]", fmt.newline);
     } else static if (isSomeChar!T) {
-        cwrite(`'`, arg, `'`, lterm);
+        cwrite(`'`, arg, `'`, fmt.newline);
     } else static if (isArray!T) {
         cwrite("[");
 		if (arg.length) { // non-empty
+			import std.range.primitives : ElementType;
 			alias E = ElementType!(T);
 			enum scalarE = __traits(isScalar, E);
 			static if (!scalarE)
-				cwrite(lterm);
+				cwrite(fmt.newline);
 			foreach (const i, ref element; arg) {
 				static if (scalarE) {
 					if (i != 0)
 						cwrite(',');
-					cwritePrettyHelper(element, 0, [], [], [], false, ptrs);
+					cwritePrettyHelper(element, 0, [],
+									   Format([], [], false, false), ptrs);
 				} else {
-					cwritePrettyHelper(element, depth + 1, [], indent, lterm, showType, ptrs);
+					cwritePrettyHelper(element, depth + 1, [],
+									   fmt, ptrs);
 				}
 			}
 			static if (!scalarE)
-				cwriteIndent();
+				doIndent();
 		}
-		cwrite("]", lterm);
+		cwrite("]", fmt.newline);
     } else static if (__traits(isAssociativeArray, T)) {
-        cwrite(arg, lterm);
+        cwrite(arg, fmt.newline);
     } else {
-        cwrite(arg, lterm);
+        cwrite(arg, fmt.newline);
     }
 }
 
@@ -164,11 +192,14 @@ void cwrite(T...)(T args) {
 	}}
 }
 
+/++ Wrapper symbol when printing paths and URLs to standard out (`stdout`) and standard error (`stderr`).
+ +/
+private static immutable string pathWrapperSymbol = `"`;
+
 /++ Colorized version of `std.stdio.writeln`.
  +/
 void cwriteln(T...)(T args) {
 	import std.stdio : swln = writeln;
-	// TODO: is this ok?:
 	cwrite!(T)(args);
 	swln();
 }
@@ -203,6 +234,7 @@ unittest {
 		real[3] r3;
 		int[string] ais = ["a":1, "b":2];
 		P[string] ps = ["a":P(1,2,3)];
+		P p0;
 		P* pp0 = null;
 		P* pp1 = new P(1,2,3);
 		U u;
@@ -228,8 +260,10 @@ unittest {
 
 	S s = S(10, 20.5);
     Top top = { s, [s,s], new Cls(1), null, "example", [1, 2, 3] };
-    top.cwritePretty(0, "top", "\t", "\n");
-    top.cwritePretty(0, "top", "\t", "\n", false);
+    top.cwritePretty(0, "top", Format("\t", "\n", false, false));
+    top.cwritePretty(0, "top", Format("\t", "\n", false, true));
+    top.cwritePretty(0, "top", Format("\t", "\n", true, false));
+    top.cwritePretty(0, "top", Format("\t", "\n", true, true));
 }
 
 /** Array-specialization of `indexOf` with default predicate.
