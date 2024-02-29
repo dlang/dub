@@ -11,6 +11,7 @@ version (unittest):
 import std.algorithm;
 import std.format;
 import dub.test.base;
+import dub.test.prettyio;
 
 // https://github.com/dlang/dub/issues/2696
 unittest
@@ -62,6 +63,7 @@ version "1.0.0"`, PackageFormat.sdl);
             root.mkdir(BDir);
             root.writeFile(BDir ~ "dub.json", `{"name": "b", "version": "1.0.0" }`);
     });
+    dub.cwritePretty(0, "dub");
 	dub.m_packageManager.m_dbgFlag = false;
 
     dub.loadPackage();
@@ -79,7 +81,8 @@ version "1.0.0"`, PackageFormat.sdl);
     assert(newDub.project.hasAllDependencies());
     const actualDir = newDub.project.getDependency("b", true).path();
 	import dub.internal.logging;
-	// dbg(actualDir);
-	// dbg(BDir);
-    // assert(actualDir == BDir, actualDir.toNativeString());
+	dbg(actualDir);
+	dbg(BDir);
+
+    assert(actualDir == BDir, actualDir.toNativeString());
 }

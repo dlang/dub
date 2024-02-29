@@ -1040,9 +1040,18 @@ symlink_exit:
 	/// For the given type add another path where packages will be looked up.
 	void addSearchPath(NativePath path, PlacementLocation type)
 	{
-		refreshIfNotInitialized();
+		dbg("internal: ", m_internal);
+		m_internal.localPackages = [];
+		foreach (ref repo; m_repositories) {
+			dbg("repo: ", repo);
+			repo.localPackages = [];
+		}
+
 		m_repositories[type].searchPath ~= path;
+
 		this.m_repositories[type].writeLocalPackageList(this);
+
+		m_initialized = false;
 	}
 
 	/// Removes a search path from the given type.
