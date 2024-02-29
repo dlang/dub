@@ -32,7 +32,7 @@ private void cwritePrettyHelper(T)(T arg, in size_t depth = 0, in char[] fieldNa
 	void cwriteAddress(in void* ptr) {
 		cwrite('@', ptr);
 	}
-	import std.traits : isArray, isSomeString, isSomeChar, isPointer;
+	import std.traits : isArray, isSomeString, isSomeChar, isPointer, hasMember;
 	import std.range.primitives : ElementType;
 	cwriteIndent();
 	cwriteFieldName();
@@ -65,10 +65,18 @@ private void cwritePrettyHelper(T)(T arg, in size_t depth = 0, in char[] fieldNa
 				}
 			}
 		} else {
-			cwrite("{", lterm);
-			cwriteMembers();
-			cwriteIndent();
-			cwrite("}", lterm);
+			static if (hasMember!(T, "toString")) {
+				const str = arg.toString;
+				if (str !is null)
+					cwrite('"', str, '"', lterm);
+				else
+					cwrite("[]", lterm);
+			} else {
+				cwrite("{", lterm);
+				cwriteMembers();
+				cwriteIndent();
+				cwrite("}", lterm);
+			}
 		}
     } else static if (isPointer!T) {
 		const ptr = cast(void*)arg;
