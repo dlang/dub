@@ -64,9 +64,6 @@ version "1.0.0"`, PackageFormat.sdl);
             root.writeFile(BDir ~ "dub.json", `{"name": "b", "version": "1.0.0" }`);
     });
 
-	auto dub = cast(Dub)tdub;
-    dub.cwritePretty(0, "dub");
-
 	tdub.m_packageManager.m_dbgFlag = false;
 
     tdub.loadPackage();
@@ -78,14 +75,16 @@ version "1.0.0"`, PackageFormat.sdl);
            oldDir.toNativeString());
     // Now run `add-path`
     tdub.addSearchPath(AddPathDir.toNativeString(), tdub.defaultPlacementLocation);
+    (cast(Dub)tdub).cwritePretty();
     // We need a new instance to test
     scope newDub = tdub.newTest();
+
     newDub.loadPackage();
+
     assert(newDub.project.hasAllDependencies());
     const actualDir = newDub.project.getDependency("b", true).path();
 	import dub.internal.logging;
 	dbg(actualDir);
 	dbg(BDir);
-
-    // assert(actualDir == BDir, actualDir.toNativeString());
+	assert(actualDir == BDir, actualDir.toNativeString());
 }
