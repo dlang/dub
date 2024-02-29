@@ -14,6 +14,11 @@ dflags "-preview=in" platform="ldc"
 // Deprecated module(s)
 excludedSourceFiles "source/dub/packagesupplier.d"
 
+dflags "-fsanitize=address" platform="posix-ldc"
+dflags "-debug" platform="dmd"
+dflags "--d-debug" platform="ldc"
+lflags "--export-dynamic" platform="posix" # for ASan backtraces
+
 configuration "application" {
 	targetType "executable"
 	mainSourceFile "source/app.d"
