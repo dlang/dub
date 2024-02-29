@@ -21,13 +21,8 @@ private void cwritePrettyHelper(T)(T arg, in size_t depth = 0, in char[] fieldNa
 	void cwriteFieldName() {
 		if (fieldName) cwrite(fieldName, ": ");
 	}
-	static immutable typeName = T.stringof;
 	void cwriteTypeName() {
-		// static if (is(T == struct))
-		// 	cwrite("struct ");
-		// else if (is(T == class))
-		// 	cwrite("class ");
-		if (showType) cwrite(typeName, " ");
+		if (showType) cwrite(T.stringof, " ");
 	}
 	void cwriteAddress(in void* ptr) {
 		cwrite('@', ptr);
@@ -37,46 +32,52 @@ private void cwritePrettyHelper(T)(T arg, in size_t depth = 0, in char[] fieldNa
 	cwriteIndent();
 	cwriteFieldName();
 	cwriteTypeName();
-    static if (is(T == struct) || is(T == class)) { // TODO: union
+	static if (is(T == struct) || is(T == class) || is(T == union)) {
 		import std.traits : FieldNameTuple;
 		void cwriteMembers() {
 			foreach (memberName; FieldNameTuple!T)
 				cwritePrettyHelper(__traits(getMember, arg, memberName), depth + 1,
-							 memberName, indent, lterm, showType, ptrs);
+								   memberName, indent, lterm, showType, ptrs);
 		}
-		static if (is(T == class)) {
-			const(void)* ptr;
-			() @trusted { ptr = cast(void*)arg; }();
-			cwriteAddress(ptr);
-			if (arg is null) {
-				cwrite(lterm);
-			} else {
-				const ix = ptrs.indexOf(ptr);
-				cwrite(' ');
-				if (ix != -1) { // `ptr` already printed
-					cwrite("#", ix, lterm); // Emacs-Lisp-style back-reference
-				} else {
-					cwrite("#", ptrs.length, ' '); // Emacs-Lisp-style back-reference
-					cwrite("{", lterm);
-					ptrs ~= ptr;
-					cwriteMembers();
-					cwriteIndent();
-					cwrite("}", lterm);
-				}
-			}
+	}
+	static if (is(T == class)) {
+		const(void)* ptr;
+		() @trusted { ptr = cast(void*)arg; }();
+		cwriteAddress(ptr);
+		if (arg is null) {
+			cwrite(lterm);
 		} else {
-			static if (hasMember!(T, "toString")) {
-				const str = arg.toString;
-				if (str !is null)
-					cwrite('"', str, '"', lterm);
-				else
-					cwrite("[]", lterm);
+			const ix = ptrs.indexOf(ptr);
+			cwrite(' ');
+			if (ix != -1) { // `ptr` already printed
+				cwrite("#", ix, lterm); // Emacs-Lisp-style back-reference
 			} else {
+				cwrite("#", ptrs.length, ' '); // Emacs-Lisp-style back-reference
 				cwrite("{", lterm);
+				ptrs ~= ptr;
 				cwriteMembers();
 				cwriteIndent();
 				cwrite("}", lterm);
 			}
+		}
+	} else static if (is(T == union)) {
+		import std.traits : FieldNameTuple;
+		cwrite("{", lterm);
+		cwriteMembers();
+		cwriteIndent();
+		cwrite("}", lterm);
+	} else static if (is(T == struct)) {
+		static if (hasMember!(T, "toString")) {
+			const str = arg.toString;
+			if (str !is null)
+				cwrite('"', str, '"', lterm);
+			else
+				cwrite("[]", lterm);
+		} else {
+			cwrite("{", lterm);
+			cwriteMembers();
+			cwriteIndent();
+			cwrite("}", lterm);
 		}
     } else static if (isPointer!T) {
 		const ptr = cast(void*)arg;
@@ -92,31 +93,38 @@ private void cwritePrettyHelper(T)(T arg, in size_t depth = 0, in char[] fieldNa
 			} else {
 				cwrite("#", ptrs.length, " -> "); // Emacs-Lisp-style back-reference
 				ptrs ~= ptr;
-				cwritePrettyHelper(*arg, depth, [], indent, lterm, showType, ptrs);
+				static if (is(immutable typeof(*arg))) {
+					cwritePrettyHelper(*arg, depth, [], indent, lterm, showType, ptrs);
+				}
 			}
 		}
     } else static if (isSomeString!T) {
-        cwrite('"', arg, '"', lterm);
+		if (arg !is null)
+			cwrite('"', arg, '"', lterm);
+		else
+			cwrite("[]", lterm);
     } else static if (isSomeChar!T) {
         cwrite(`'`, arg, `'`, lterm);
     } else static if (isArray!T) {
         cwrite("[");
-		alias E = ElementType!(T);
-        foreach (ref element; arg) {
-			static if (__traits(isScalar, E)) {
-				cwritePrettyHelper(element, 0, [], [], [], false, ptrs);
-				cwrite(',');
-			} else {
-				cwriteln();
-				cwritePrettyHelper(element, depth + 1, [], indent, lterm, showType, ptrs);
+		if (arg.length) { // non-empty
+			alias E = ElementType!(T);
+			enum scalarE = __traits(isScalar, E);
+			static if (!scalarE)
+				cwrite(lterm);
+			foreach (const i, ref element; arg) {
+				static if (scalarE) {
+					if (i != 0)
+						cwrite(',');
+					cwritePrettyHelper(element, 0, [], [], [], false, ptrs);
+				} else {
+					cwritePrettyHelper(element, depth + 1, [], indent, lterm, showType, ptrs);
+				}
 			}
+			static if (!scalarE)
+				cwriteIndent();
 		}
-		static if (__traits(isScalar, E)) {
-			cwrite("]", lterm);
-		} else {
-			cwriteIndent();
-			cwrite("]", lterm);
-		}
+		cwrite("]", lterm);
     } else static if (__traits(isAssociativeArray, T)) {
         cwrite(arg, lterm);
     } else {
@@ -171,11 +179,22 @@ unittest {
 		double z;
 	}
 
+	@safe union U {
+		void* ptr;
+		size_t word;
+	}
+
 	@safe struct S {
 		int x;
 		double y;
 		char[3] c3 = "abc";
+		wchar[3] wc3 = "abc";
+		dchar[3] dc3 = "abc";
 		string w3 = "xyz";
+		wstring ws3 = "xyz";
+		dstring ds3 = "xyz";
+		string ns = []; // null string
+		string s = ""; // non-null empty string
 		int[3] i3;
 		float[3] f3;
 		double[3] d3;
@@ -184,6 +203,7 @@ unittest {
 		P[string] ps = ["a":P(1,2,3)];
 		P* pp0 = null;
 		P* pp1 = new P(1,2,3);
+		U u;
 	}
 
 	@safe class Cls {
@@ -207,6 +227,7 @@ unittest {
 	S s = S(10, 20.5);
     Top top = { s, [s,s], new Cls(1), null, "example", [1, 2, 3] };
     top.cwritePretty(0, "top", "\t", "\n");
+    top.cwritePretty(0, "top", "\t", "\n", false);
 }
 
 /** Array-specialization of `indexOf` with default predicate.
