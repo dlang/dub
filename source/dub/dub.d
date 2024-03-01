@@ -1241,9 +1241,7 @@ class Dub {
 		import dub.prettyio;
 		if (m_dryRun) return;
 		this.m_packageManager.addSearchPath(makeAbsolute(path), loc);
-		this.m_project.cwritePretty(0, "m_project before reinit", Format("\t", "\n", true, true));
 		this.m_project.reinit();
-		this.m_project.cwritePretty(0, "m_project after reinnit", Format("\t", "\n", true, true));
 	}
 
 	/** Deregisters a local directory search path.
