@@ -1193,7 +1193,6 @@ class Dub {
 	{
 		if (m_dryRun) return;
 		this.m_packageManager.addLocalPackage(makeAbsolute(path), ver, loc);
-		this.m_project.reinit();
 	}
 
 	/** Removes a directory from the list of locally known packages.
@@ -1218,7 +1217,6 @@ class Dub {
 	{
 		if (m_dryRun) return;
 		this.m_packageManager.removeLocalPackage(makeAbsolute(path), loc);
-		this.m_project.reinit();
 	}
 
 	/** Registers a local directory to search for packages to use for satisfying
@@ -1243,8 +1241,9 @@ class Dub {
 		import dub.prettyio;
 		if (m_dryRun) return;
 		this.m_packageManager.addSearchPath(makeAbsolute(path), loc);
-		this.m_project.cwritePretty(0, "m_project", Format("\t", "\n", true, true));
+		this.m_project.cwritePretty(0, "m_project before reinit", Format("\t", "\n", true, true));
 		this.m_project.reinit();
+		this.m_project.cwritePretty(0, "m_project after reinnit", Format("\t", "\n", true, true));
 	}
 
 	/** Deregisters a local directory search path.
@@ -1267,7 +1266,6 @@ class Dub {
 	{
 		if (m_dryRun) return;
 		this.m_packageManager.removeSearchPath(makeAbsolute(path), loc);
-		this.m_project.reinit();
 	}
 
 	/** Queries all package suppliers with the given query string.
