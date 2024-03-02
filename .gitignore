@@ -16,6 +16,7 @@ __dummy.html
 /bin/dub-test-library
 /bin/libdub.a
 /bin/dub-*
+/bin/dub.*
 
 # Ignore files or directories created by the test suite.
 *.exe

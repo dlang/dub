@@ -47,7 +47,7 @@ struct NativePath {
 	}
 
 	/// Constructs a path object from a list of PathEntry objects.
-	this(immutable(PathEntry)[] nodes, bool absolute)
+	this(immutable(PathEntry)[] nodes, bool absolute = false)
 	{
 		m_nodes = nodes;
 		m_absolute = absolute;
@@ -185,6 +185,8 @@ struct NativePath {
 
 	/// The parent path
 	@property NativePath parentPath() const { return this[0 .. length-1]; }
+	/// Forward compatibility with vibe-d
+	@property bool hasParentPath() const { return length > 1; }
 
 	/// The list of path entries of which this path is composed
 	@property immutable(PathEntry)[] nodes() const { return m_nodes; }

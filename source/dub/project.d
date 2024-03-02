@@ -57,6 +57,7 @@ class Project {
 			project_path = Path of the root package to load
 			pack = An existing `Package` instance to use as the root package
 	*/
+	deprecated("Load the package using `PackageManager.getOrLoadPackage` then call the `(PackageManager, Package)` overload")
 	this(PackageManager package_manager, NativePath project_path)
 	{
 		Package pack;
@@ -103,6 +104,9 @@ class Project {
 	 */
 	static package SelectedVersions loadSelections(in Package pack)
 	{
+		import dub.version_;
+		import dub.internal.dyaml.stdsumtype;
+
 		auto selverfile = (pack.path ~ SelectedVersions.defaultFile).toNativeString();
 
 		// No file exists
@@ -112,13 +116,23 @@ class Project {
 		// TODO: Remove `StrictMode.Warn` after v1.40 release
 		// The default is to error, but as the previous parser wasn't
 		// complaining, we should first warn the user.
-		auto selected = parseConfigFileSimple!Selected(selverfile, StrictMode.Warn);
+		auto selected = parseConfigFileSimple!SelectionsFile(selverfile, StrictMode.Warn);
 
 		// Parsing error, it will be displayed to the user
 		if (selected.isNull())
 			return new SelectedVersions();
 
-		return new SelectedVersions(selected.get());
+		return selected.get().content.match!(
+			(Selections!0 s) {
+				logWarnTag("Unsupported version",
+					"File %s has fileVersion %s, which is not yet supported by DUB %s.",
+					selverfile, s.fileVersion, dubVersion);
+				logWarn("Ignoring selections file. Use a newer DUB version " ~
+					"and set the appropriate toolchainRequirements in your recipe file");
+				return new SelectedVersions();
+			},
+			(Selections!1 s) => new SelectedVersions(s),
+		);
 	}
 
 	/** List of all resolved dependencies.
@@ -180,12 +194,12 @@ class Project {
 				if (!cfg.length) deps = p.getAllDependencies();
 				else {
 					auto depmap = p.getDependencies(cfg);
-					deps = depmap.byKey.map!(k => PackageDependency(k, depmap[k])).array;
+					deps = depmap.byKey.map!(k => PackageDependency(PackageName(k), depmap[k])).array;
 				}
-				deps.sort!((a, b) => a.name < b.name);
+				deps.sort!((a, b) => a.name.toString() < b.name.toString());
 
 				foreach (d; deps) {
-					auto dependency = getDependency(d.name, true);
+					auto dependency = getDependency(d.name.toString(), true);
 					assert(dependency || d.spec.optional,
 						format("Non-optional dependency '%s' of '%s' not found in dependency tree!?.", d.name, p.name));
 					if(dependency) perform_rec(dependency);
@@ -419,7 +433,8 @@ class Project {
 					? format(`dependency "%s" repository="git+<git url>" version="<commit>"`, d.name)
 					: format(`"%s": {"repository": "git+<git url>", "version": "<commit>"}`, d.name);
 				logWarn("Dependency '%s' depends on git branch '%s', which is deprecated.",
-					d.name.color(Mode.bold), d.spec.version_.toString.color(Mode.bold));
+					d.name.toString().color(Mode.bold),
+					d.spec.version_.toString.color(Mode.bold));
 				logWarnTag("", "Specify the git repository and commit hash in your %s:",
 					(isSDL ? "dub.sdl" : "dub.json").color(Mode.bold));
 				logWarnTag("", "%s", suggestion.color(Mode.bold));
@@ -432,25 +447,25 @@ class Project {
 				~ "and will have no effect.", pack.color(Mode.bold), config.color(Color.blue));
 		}
 
-		void checkSubConfig(string pack, string config) {
-			auto p = getDependency(pack, true);
+		void checkSubConfig(in PackageName name, string config) {
+			auto p = getDependency(name.toString(), true);
 			if (p && !p.configurations.canFind(config)) {
 				logWarn("The sub configuration directive \"%s\" -> [%s] "
 					~ "references a configuration that does not exist.",
-					pack.color(Mode.bold), config.color(Color.red));
+					name.toString().color(Mode.bold), config.color(Color.red));
 			}
 		}
 		auto globalbs = m_rootPackage.getBuildSettings();
 		foreach (p, c; globalbs.subConfigurations) {
 			if (p !in globalbs.dependencies) warnSubConfig(p, c);
-			else checkSubConfig(p, c);
+			else checkSubConfig(PackageName(p), c);
 		}
 		foreach (c; m_rootPackage.configurations) {
 			auto bs = m_rootPackage.getBuildSettings(c);
 			foreach (p, subConf; bs.subConfigurations) {
 				if (p !in bs.dependencies && p !in globalbs.dependencies)
 					warnSubConfig(p, subConf);
-				else checkSubConfig(p, subConf);
+				else checkSubConfig(PackageName(p), subConf);
 			}
 		}
 
@@ -461,22 +476,26 @@ class Project {
 			pack.simpleLint();
 
 			foreach (d; pack.getAllDependencies()) {
-				auto basename = getBasePackageName(d.name);
+				auto basename = d.name.main;
 				d.spec.visit!(
 					(NativePath path) { /* Valid */ },
 					(Repository repo) { /* Valid */ },
 					(VersionRange vers) {
 						if (m_selections.hasSelectedVersion(basename)) {
 							auto selver = m_selections.getSelectedVersion(basename);
-							if (d.spec.merge(selver) == Dependency.invalid) {
-								logWarn(`Selected package %s %s does not match the dependency specification %s in package %s. Need to "%s"?`,
-									basename.color(Mode.bold), selver, vers, pack.name.color(Mode.bold), "dub upgrade".color(Mode.bold));
+							if (d.spec.merge(selver) == Dependency.Invalid) {
+								logWarn(`Selected package %s@%s does not match ` ~
+								   `the dependency specification %s in ` ~
+								   `package %s. Need to "%s"?`,
+									basename.toString().color(Mode.bold), selver,
+									vers, pack.name.color(Mode.bold),
+									"dub upgrade".color(Mode.bold));
 							}
 						}
 					},
 				);
 
-				auto deppack = getDependency(d.name, true);
+				auto deppack = getDependency(d.name.toString(), true);
 				if (deppack in visited) continue;
 				visited[deppack] = true;
 				if (deppack) validateDependenciesRec(deppack);
@@ -485,117 +504,130 @@ class Project {
 		validateDependenciesRec(m_rootPackage);
 	}
 
-	/// Reloads dependencies.
+	/**
+	 * Reloads dependencies
+	 *
+	 * This function goes through the project and make sure that all
+	 * required packages are loaded. To do so, it uses information
+	 * both from the recipe file (`dub.json`) and from the selections
+	 * file (`dub.selections.json`).
+	 *
+	 * In the process, it populates the `dependencies`, `missingDependencies`,
+	 * and `hasAllDependencies` properties, which can only be relied on
+	 * once this has run once (the constructor always calls this).
+	 */
 	void reinit()
 	{
 		m_dependencies = null;
 		m_missingDependencies = [];
-
-		Package resolveSubPackage(Package p, string subname, bool silentFail) {
-			if (!subname.length || p is null)
-				return p;
-			return m_packageManager.getSubPackage(p, subname, silentFail);
-		}
-
-		void collectDependenciesRec(Package pack, int depth = 0)
-		{
-			auto indent = replicate("  ", depth);
-			logDebug("%sCollecting dependencies for %s", indent, pack.name);
-			indent ~= "  ";
-
-			foreach (dep; pack.getAllDependencies()) {
-				Dependency vspec = dep.spec;
-				Package p;
-
-				auto basename = getBasePackageName(dep.name);
-				auto subname = getSubPackageName(dep.name);
-
-				// non-optional and optional-default dependencies (if no selections file exists)
-				// need to be satisfied
-				bool is_desired = !vspec.optional || m_selections.hasSelectedVersion(basename) || (vspec.default_ && m_selections.bare);
-
-				if (dep.name == m_rootPackage.basePackage.name) {
-					vspec = Dependency(m_rootPackage.version_);
-					p = m_rootPackage.basePackage;
-				} else if (basename == m_rootPackage.basePackage.name) {
-					vspec = Dependency(m_rootPackage.version_);
-					try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, subname, false);
-					catch (Exception e) {
-						logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
-						if (is_desired) m_missingDependencies ~= dep.name;
-						continue;
-					}
-				} else if (m_selections.hasSelectedVersion(basename)) {
-					vspec = m_selections.getSelectedVersion(basename);
-					p = vspec.visit!(
-						(NativePath path_) {
-							auto path = path_.absolute ? path_ : m_rootPackage.path ~ path_;
-							auto tmp = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-							return resolveSubPackage(tmp, subname, true);
-						},
-						(Repository repo) {
-							auto tmp = m_packageManager.loadSCMPackage(basename, repo);
-							return resolveSubPackage(tmp, subname, true);
-						},
-						(VersionRange range) {
-							// See `dub.recipe.selection : SelectedDependency.fromYAML`
-							assert(range.isExactVersion());
-							return m_packageManager.getPackage(dep.name, vspec.version_);
-						},
-					);
-				} else if (m_dependencies.canFind!(d => getBasePackageName(d.name) == basename)) {
-					auto idx = m_dependencies.countUntil!(d => getBasePackageName(d.name) == basename);
-					auto bp = m_dependencies[idx].basePackage;
-					vspec = Dependency(bp.path);
-					p = resolveSubPackage(bp, subname, false);
-				} else {
-					logDiagnostic("%sVersion selection for dependency %s (%s) of %s is missing.",
-						indent, basename, dep.name, pack.name);
-				}
-
-				// We didn't find the package
-				if (p is null)
-				{
-					if (!vspec.repository.empty) {
-						p = m_packageManager.loadSCMPackage(basename, vspec.repository);
-						resolveSubPackage(p, subname, false);
-						enforce(p !is null,
-							"Unable to fetch '%s@%s' using git - does the repository and version exists?".format(
-								dep.name, vspec.repository));
-					} else if (!vspec.path.empty && is_desired) {
-						NativePath path = vspec.path;
-						if (!path.absolute) path = pack.path ~ path;
-						logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
-						p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-						if (p.parentPackage !is null) {
-							logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
-							p = p.parentPackage;
-						}
-						p = resolveSubPackage(p, subname, false);
-						enforce(p.name == dep.name,
-							format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
-								path.toNativeString(), dep.name, p.name));
-					} else {
-						logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
-						if (is_desired) m_missingDependencies ~= dep.name;
-						continue;
-					}
-				}
-
-				if (!m_dependencies.canFind(p)) {
-					logDiagnostic("%sFound dependency %s %s", indent, dep.name, vspec.toString());
-					m_dependencies ~= p;
-					if (basename == m_rootPackage.basePackage.name)
-						p.warnOnSpecialCompilerFlags();
-					collectDependenciesRec(p, depth+1);
-				}
-
-				m_dependees[p] ~= pack;
-				//enforce(p !is null, "Failed to resolve dependency "~dep.name~" "~vspec.toString());
-			}
-		}
 		collectDependenciesRec(m_rootPackage);
 		m_missingDependencies.sort();
+	}
+
+	/// Implementation of `reinit`
+	private void collectDependenciesRec(Package pack, int depth = 0)
+	{
+		auto indent = replicate("  ", depth);
+		logDebug("%sCollecting dependencies for %s", indent, pack.name);
+		indent ~= "  ";
+
+		foreach (dep; pack.getAllDependencies()) {
+			Dependency vspec = dep.spec;
+			Package p;
+
+			auto basename = dep.name.main;
+			auto subname = dep.name.sub;
+
+			// non-optional and optional-default dependencies (if no selections file exists)
+			// need to be satisfied
+			bool is_desired = !vspec.optional || m_selections.hasSelectedVersion(basename) || (vspec.default_ && m_selections.bare);
+
+			if (dep.name.toString() == m_rootPackage.basePackage.name) {
+				vspec = Dependency(m_rootPackage.version_);
+				p = m_rootPackage.basePackage;
+			} else if (basename.toString() == m_rootPackage.basePackage.name) {
+				vspec = Dependency(m_rootPackage.version_);
+				try p = m_packageManager.getSubPackage(m_rootPackage.basePackage, subname, false);
+				catch (Exception e) {
+					logDiagnostic("%sError getting sub package %s: %s", indent, dep.name, e.msg);
+					if (is_desired) m_missingDependencies ~= dep.name.toString();
+					continue;
+				}
+			} else if (m_selections.hasSelectedVersion(basename)) {
+				vspec = m_selections.getSelectedVersion(basename);
+				p = vspec.visit!(
+					(NativePath path_) {
+						auto path = path_.absolute ? path_ : m_rootPackage.path ~ path_;
+						auto tmp = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
+						return resolveSubPackage(tmp, subname, true);
+					},
+					(Repository repo) {
+						auto tmp = m_packageManager.loadSCMPackage(basename, repo);
+						return resolveSubPackage(tmp, subname, true);
+					},
+					(VersionRange range) {
+						// See `dub.recipe.selection : SelectedDependency.fromYAML`
+						assert(range.isExactVersion());
+						return m_packageManager.getPackage(dep.name, vspec.version_);
+					},
+				);
+			} else if (m_dependencies.canFind!(d => PackageName(d.name).main == basename)) {
+				auto idx = m_dependencies.countUntil!(d => PackageName(d.name).main == basename);
+				auto bp = m_dependencies[idx].basePackage;
+				vspec = Dependency(bp.path);
+				p = resolveSubPackage(bp, subname, false);
+			} else {
+				logDiagnostic("%sVersion selection for dependency %s (%s) of %s is missing.",
+					indent, basename, dep.name, pack.name);
+			}
+
+			// We didn't find the package
+			if (p is null)
+			{
+				if (!vspec.repository.empty) {
+					p = m_packageManager.loadSCMPackage(basename, vspec.repository);
+					resolveSubPackage(p, subname, false);
+					enforce(p !is null,
+						"Unable to fetch '%s@%s' using git - does the repository and version exists?".format(
+							dep.name, vspec.repository));
+				} else if (!vspec.path.empty && is_desired) {
+					NativePath path = vspec.path;
+					if (!path.absolute) path = pack.path ~ path;
+					logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
+					p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
+					if (p.parentPackage !is null) {
+						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
+						p = p.parentPackage;
+					}
+					p = resolveSubPackage(p, subname, false);
+					enforce(p.name == dep.name.toString(),
+						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
+							path.toNativeString(), dep.name, p.name));
+				} else {
+					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
+					if (is_desired) m_missingDependencies ~= dep.name.toString();
+					continue;
+				}
+			}
+
+			if (!m_dependencies.canFind(p)) {
+				logDiagnostic("%sFound dependency %s %s", indent, dep.name, vspec.toString());
+				m_dependencies ~= p;
+				if (basename.toString() == m_rootPackage.basePackage.name)
+					p.warnOnSpecialCompilerFlags();
+				collectDependenciesRec(p, depth+1);
+			}
+
+			m_dependees[p] ~= pack;
+			//enforce(p !is null, "Failed to resolve dependency "~dep.name~" "~vspec.toString());
+		}
+	}
+
+	/// Convenience function used by `reinit`
+	private Package resolveSubPackage(Package p, string subname, bool silentFail) {
+		if (!subname.length || p is null)
+			return p;
+		return m_packageManager.getSubPackage(p, subname, silentFail);
 	}
 
 	/// Returns the name of the root package.
@@ -620,7 +652,7 @@ class Project {
 		parents[m_rootPackage.name] = null;
 		foreach (p; getTopologicalPackageList())
 			foreach (d; p.getAllDependencies())
-				parents[d.name] ~= p.name;
+				parents[d.name.toString()] ~= p.name;
 
 		size_t createConfig(string pack, string config) {
 			foreach (i, v; configs)
@@ -694,7 +726,7 @@ class Project {
 		{
 			string[][string] depconfigs;
 			foreach (d; p.getAllDependencies()) {
-				auto dp = getDependency(d.name, true);
+				auto dp = getDependency(d.name.toString(), true);
 				if (!dp) continue;
 
 				string[] cfgs;
@@ -704,7 +736,7 @@ class Project {
 					if (!subconf.empty) cfgs = [subconf];
 					else cfgs = dp.getPlatformConfigurations(platform);
 				}
-				cfgs = cfgs.filter!(c => haveConfig(d.name, c)).array;
+				cfgs = cfgs.filter!(c => haveConfig(d.name.toString(), c)).array;
 
 				// if no valid configuration was found for a dependency, don't include the
 				// current configuration
@@ -712,14 +744,14 @@ class Project {
 					logDebug("Skip %s %s (missing configuration for %s)", p.name, c, dp.name);
 					return;
 				}
-				depconfigs[d.name] = cfgs;
+				depconfigs[d.name.toString()] = cfgs;
 			}
 
 			// add this configuration to the graph
 			size_t cidx = createConfig(p.name, c);
 			foreach (d; p.getAllDependencies())
-				foreach (sc; depconfigs.get(d.name, null))
-					createEdge(cidx, createConfig(d.name, sc));
+				foreach (sc; depconfigs.get(d.name.toString(), null))
+					createEdge(cidx, createConfig(d.name.toString(), sc));
 		}
 
 		// create a graph of all possible package configurations (package, config) -> (sub-package, sub-config)
@@ -732,7 +764,7 @@ class Project {
 
 			// first, add all dependency configurations
 			foreach (d; p.getAllDependencies) {
-				auto dp = getDependency(d.name, true);
+				auto dp = getDependency(d.name.toString(), true);
 				if (!dp) continue;
 				determineAllConfigs(dp);
 			}
@@ -1305,12 +1337,12 @@ class Project {
 	void saveSelections()
 	{
 		assert(m_selections !is null, "Cannot save selections for non-disk based project (has no selections).");
-		if (m_selections.hasSelectedVersion(m_rootPackage.basePackage.name))
-			m_selections.deselectVersion(m_rootPackage.basePackage.name);
-
-		auto path = m_rootPackage.path ~ SelectedVersions.defaultFile;
-		if (m_selections.dirty || !existsFile(path))
-			m_selections.save(path);
+		const name = PackageName(m_rootPackage.basePackage.name);
+		if (m_selections.hasSelectedVersion(name))
+			m_selections.deselectVersion(name);
+		this.m_packageManager.writeSelections(
+			this.m_rootPackage, this.m_selections.m_selections,
+			this.m_selections.dirty);
 	}
 
 	deprecated bool isUpgradeCacheUpToDate()
@@ -1735,15 +1767,20 @@ unittest
 	environment.remove("MY_ENV_VAR");
 }
 
-/** Holds and stores a set of version selections for package dependencies.
-
-	This is the runtime representation of the information contained in
-	"dub.selections.json" within a package's directory.
-*/
+/**
+ * Holds and stores a set of version selections for package dependencies.
+ *
+ * This is the runtime representation of the information contained in
+ * "dub.selections.json" within a package's directory.
+ *
+ * Note that as subpackages share the same version as their main package,
+ * this class will treat any subpackage reference as a reference to its
+ * main package.
+ */
 public class SelectedVersions {
 	protected {
 		enum FileVersion = 1;
-		Selected m_selections;
+		Selections!1 m_selections;
 		bool m_dirty = false; // has changes since last save
 		bool m_bare = true;
 	}
@@ -1752,13 +1789,14 @@ public class SelectedVersions {
 	enum defaultFile = "dub.selections.json";
 
 	/// Constructs a new empty version selection.
-	public this(uint version_ = FileVersion) @safe pure nothrow @nogc
+	public this(uint version_ = FileVersion) @safe pure
 	{
-		this.m_selections = Selected(version_);
+		enforce(version_ == 1, "Unsupported file version");
+		this.m_selections = Selections!1(version_);
 	}
 
 	/// Constructs a new non-empty version selection.
-	public this(Selected data) @safe pure nothrow @nogc
+	public this(Selections!1 data) @safe pure nothrow @nogc
 	{
 		this.m_selections = data;
 		this.m_bare = false;
@@ -1812,36 +1850,58 @@ public class SelectedVersions {
 	}
 
 	/// Selects a certain version for a specific package.
+	deprecated("Use the overload that accepts a `PackageName`")
 	void selectVersion(string package_id, Version version_)
 	{
-		if (auto pdep = package_id in m_selections.versions) {
-			if (*pdep == Dependency(version_))
-				return;
-		}
-		m_selections.versions[package_id] = Dependency(version_);
-		m_dirty = true;
+		const name = PackageName(package_id);
+		return this.selectVersion(name, version_);
+	}
+
+	/// Ditto
+	void selectVersion(in PackageName name, Version version_)
+	{
+		const dep = Dependency(version_);
+		this.selectVersionInternal(name, dep);
 	}
 
 	/// Selects a certain path for a specific package.
+	deprecated("Use the overload that accepts a `PackageName`")
 	void selectVersion(string package_id, NativePath path)
 	{
-		if (auto pdep = package_id in m_selections.versions) {
-			if (*pdep == Dependency(path))
-				return;
-		}
-		m_selections.versions[package_id] = Dependency(path);
-		m_dirty = true;
+		const name = PackageName(package_id);
+		return this.selectVersion(name, path);
+	}
+
+	/// Ditto
+	void selectVersion(in PackageName name, NativePath path)
+	{
+		const dep = Dependency(path);
+		this.selectVersionInternal(name, dep);
 	}
 
 	/// Selects a certain Git reference for a specific package.
+	deprecated("Use the overload that accepts a `PackageName`")
 	void selectVersion(string package_id, Repository repository)
 	{
-		const dependency = Dependency(repository);
-		if (auto pdep = package_id in m_selections.versions) {
-			if (*pdep == dependency)
+		const name = PackageName(package_id);
+		return this.selectVersion(name, repository);
+	}
+
+	/// Ditto
+	void selectVersion(in PackageName name, Repository repository)
+	{
+		const dep = Dependency(repository);
+		this.selectVersionInternal(name, dep);
+	}
+
+	/// Internal implementation of selectVersion
+	private void selectVersionInternal(in PackageName name, in Dependency dep)
+	{
+		if (auto pdep = name.main.toString() in m_selections.versions) {
+			if (*pdep == dep)
 				return;
 		}
-		m_selections.versions[package_id] = dependency;
+		m_selections.versions[name.main.toString()] = dep;
 		m_dirty = true;
 	}
 
@@ -1852,16 +1912,31 @@ public class SelectedVersions {
 	}
 
 	/// Removes the selection for a particular package.
+	deprecated("Use the overload that accepts a `PackageName`")
 	void deselectVersion(string package_id)
 	{
-		m_selections.versions.remove(package_id);
+		const n = PackageName(package_id);
+		this.deselectVersion(n);
+	}
+
+	/// Ditto
+	void deselectVersion(in PackageName name)
+	{
+		m_selections.versions.remove(name.main.toString());
 		m_dirty = true;
 	}
 
 	/// Determines if a particular package has a selection set.
-	bool hasSelectedVersion(string packageId)
-	const {
-		return (packageId in m_selections.versions) !is null;
+	deprecated("Use the overload that accepts a `PackageName`")
+	bool hasSelectedVersion(string packageId) const {
+		const name = PackageName(packageId);
+		return this.hasSelectedVersion(name);
+	}
+
+	/// Ditto
+	bool hasSelectedVersion(in PackageName name) const
+	{
+		return (name.main.toString() in m_selections.versions) !is null;
 	}
 
 	/** Returns the selection for a particular package.
@@ -1871,10 +1946,18 @@ public class SelectedVersions {
 		is a path based selection, or its `Dependency.version_` property is
 		valid and it is a version selection.
 	*/
-	Dependency getSelectedVersion(string packageId)
-	const {
-		enforce(hasSelectedVersion(packageId));
-		return m_selections.versions[packageId];
+	deprecated("Use the overload that accepts a `PackageName`")
+	Dependency getSelectedVersion(string packageId) const
+	{
+		const name = PackageName(packageId);
+		return this.getSelectedVersion(name);
+	}
+
+	/// Ditto
+	Dependency getSelectedVersion(in PackageName name) const
+	{
+		enforce(hasSelectedVersion(name));
+		return m_selections.versions[name.main.toString()];
 	}
 
 	/** Stores the selections to disk.
@@ -1883,30 +1966,10 @@ public class SelectedVersions {
 		should be used as the file name and the directory should be the root
 		directory of the project's root package.
 	*/
+	deprecated("Use `PackageManager.writeSelections` to write a `SelectionsFile`")
 	void save(NativePath path)
 	{
-		Json json = serialize();
-		auto result = appender!string();
-
-		assert(json.type == Json.Type.object);
-		assert(json.length == 2);
-		assert(json["versions"].type != Json.Type.undefined);
-
-		result.put("{\n\t\"fileVersion\": ");
-		result.writeJsonString(json["fileVersion"]);
-		result.put(",\n\t\"versions\": {");
-		auto vers = json["versions"].get!(Json[string]);
-		bool first = true;
-		foreach (k; vers.byKey.array.sort()) {
-			if (!first) result.put(",");
-			else first = false;
-			result.put("\n\t\t");
-			result.writeJsonString(Json(k));
-			result.put(": ");
-			result.writeJsonString(vers[k]);
-		}
-		result.put("\n\t}\n}\n");
-		path.writeFile(result.data);
+		path.writeFile(PackageManager.selectionsToString(this.m_selections));
 		m_dirty = false;
 		m_bare = false;
 	}
@@ -1930,15 +1993,9 @@ public class SelectedVersions {
 		else throw new Exception(format("Unexpected type for dependency: %s", j));
 	}
 
-	Json serialize()
-	const {
-		Json json = serializeToJson(m_selections);
-		Json serialized = Json.emptyObject;
-		serialized["fileVersion"] = m_selections.fileVersion;
-		serialized["versions"] = Json.emptyObject;
-		foreach (p, dep; m_selections.versions)
-			serialized["versions"][p] = dep.toJson(true);
-		return serialized;
+	deprecated("JSON serialization is deprecated")
+	Json serialize() const {
+		return PackageManager.selectionsToJSON(this.m_selections);
 	}
 
 	deprecated("JSON deserialization is deprecated")
@@ -1956,6 +2013,7 @@ public class SelectedVersions {
 
 /// The template code from which the test runner is generated
 private immutable TestRunnerTemplate = q{
+deprecated // allow silently using deprecated symbols
 module dub_test_root;
 
 import std.typetuple;

@@ -21,14 +21,17 @@
       To mark a field as optional even with its default value,
       use the `Optional` UDA: `@Optional int count = 0;`.
 
-    Converter:
-      Because config structs may contain complex types such as
-      a Phobos type, a user-defined `Amount`, or Vibe.d's `URL`,
-      one may need to apply a converter to a struct's field.
-      Converters are functions that take a YAML `Node` as argument
-      and return a type that is implicitly convertible to the field type
-      (usually just the field type). They offer the most power to users,
-      as they can inspect the YAML structure, but should be used as a last resort.
+    fromYAML:
+      Because config structs may contain complex types outside of the project's
+      control (e.g. a Phobos type, Vibe.d's `URL`, etc...) or one may want
+      the config format to be more dynamic (e.g. by exposing union-like behavior),
+      one may need to apply more custom logic than what Configy does.
+      For this use case, one can define a `fromYAML` static method in the type:
+      `static S fromYAML(scope ConfigParser!S parser)`, where `S` is the type of
+      the enclosing structure. Structs with `fromYAML` will have this method
+      called instead of going through the normal parsing rules.
+      The `ConfigParser` exposes the current path of the field, as well as the
+      raw YAML `Node` itself, allowing for maximum flexibility.
 
     Composite_Types:
       Processing starts from a `struct` at the top level, and recurse into
@@ -400,8 +403,8 @@ public T parseConfig (T) (
                      fullyQualifiedName!T,
                      strict == StrictMode.Warn ?
                        strict.paint(Yellow) : strict.paintIf(!!strict, Green, Red));
-            return node.parseMapping!(StructFieldRef!T)(
-                null, T.init, const(Context)(cmdln, strict), null);
+            return node.parseField!(StructFieldRef!T)(
+                null, T.init, const(Context)(cmdln, strict));
     case NodeID.sequence:
     case NodeID.scalar:
     case NodeID.invalid:
@@ -791,13 +794,28 @@ package FR.Type parseField (alias FR)
         if (node.nodeID != NodeID.sequence)
             throw new TypeConfigException(node, "sequence (array)", path);
 
+        typeof(return) validateLength (E[] res)
+        {
+            static if (is(FR.Type : E_[k], E_, size_t k))
+            {
+                if (res.length != k)
+                    throw new ArrayLengthException(
+                        res.length, k, path, null, node.startMark());
+                return res[0 .. k];
+            }
+            else
+                return res;
+        }
+
         // We pass `E.init` as default value as it is not going to be used:
         // Either there is something in the YAML document, and that will be
         // converted, or `sequence` will not iterate.
-        return node.sequence.enumerate.map!(
+        return validateLength(
+            node.sequence.enumerate.map!(
             kv => kv.value.parseField!(NestedFieldRef!(E, FR))(
                 format("%s[%s]", path, kv.index), E.init, ctx))
-            .array();
+            .array()
+        );
     }
     else
     {

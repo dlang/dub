@@ -20,8 +20,14 @@ import std.range;
 import std.string : format, indexOf;
 import std.traits : EnumMembers;
 
+deprecated("Use the overload that takes a `PackageName` as 3rd argument")
+void parseJson(ref PackageRecipe recipe, Json json, string parent)
+{
+    const PackageName pname = parent ? PackageName(parent) : PackageName.init;
+	parseJson(recipe, json, pname);
+}
 
-void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
+void parseJson(ref PackageRecipe recipe, Json json, in PackageName parent = PackageName.init)
 {
 	foreach (string field, value; json) {
 		switch (field) {
@@ -37,7 +43,7 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 			case "buildTypes":
 				foreach (string name, settings; value) {
 					BuildSettingsTemplate bs;
-					bs.parseJson(settings, null);
+					bs.parseJson(settings, PackageName.init);
 					recipe.buildTypes[name] = bs;
 				}
 				break;
@@ -51,7 +57,9 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 
 	enforce(recipe.name.length > 0, "The package \"name\" field is missing or empty.");
 
-	auto fullname = parent_name.length ? parent_name ~ ":" ~ recipe.name : recipe.name;
+	const fullname = parent.toString().length
+		? PackageName(parent.toString() ~ ":" ~ recipe.name)
+		: PackageName(recipe.name);
 
 	// parse build settings
 	recipe.buildSettings.parseJson(json, fullname);
@@ -59,7 +67,7 @@ void parseJson(ref PackageRecipe recipe, Json json, string parent_name)
 	if (auto pv = "configurations" in json) {
 		foreach (settings; *pv) {
 			ConfigurationInfo ci;
-			ci.parseJson(settings, recipe.name);
+			ci.parseJson(settings, fullname);
 			recipe.configurations ~= ci;
 		}
 	}
@@ -110,10 +118,10 @@ Json toJson(const scope ref PackageRecipe recipe)
 	return ret;
 }
 
-private void parseSubPackages(ref PackageRecipe recipe, string parent_package_name, Json[] subPackagesJson)
+private void parseSubPackages(ref PackageRecipe recipe, in PackageName parent, Json[] subPackagesJson)
 {
-	enforce(!parent_package_name.canFind(":"), format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
-		parent_package_name, getBasePackageName(parent_package_name)));
+	enforce(!parent.sub, format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
+		parent, parent.main));
 
 	recipe.subPackages = new SubPackage[subPackagesJson.length];
 	foreach (i, subPackageJson; subPackagesJson) {
@@ -123,13 +131,13 @@ private void parseSubPackages(ref PackageRecipe recipe, string parent_package_na
 			recipe.subPackages[i] = SubPackage(subpath, PackageRecipe.init);
 		} else {
 			PackageRecipe subinfo;
-			subinfo.parseJson(subPackageJson, parent_package_name);
+			subinfo.parseJson(subPackageJson, parent);
 			recipe.subPackages[i] = SubPackage(null, subinfo);
 		}
 	}
 }
 
-private void parseJson(ref ConfigurationInfo config, Json json, string package_name)
+private void parseJson(ref ConfigurationInfo config, Json json, in PackageName pname)
 {
 	foreach (string name, value; json) {
 		switch (name) {
@@ -143,7 +151,7 @@ private void parseJson(ref ConfigurationInfo config, Json json, string package_n
 	}
 
 	enforce(!config.name.empty, "Configuration is missing a name.");
-	config.buildSettings.parseJson(json, package_name);
+	config.buildSettings.parseJson(json, pname);
 }
 
 private Json toJson(const scope ref ConfigurationInfo config)
@@ -154,7 +162,7 @@ private Json toJson(const scope ref ConfigurationInfo config)
 	return ret;
 }
 
-private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_name)
+private void parseJson(ref BuildSettingsTemplate bs, Json json, in PackageName pname)
 {
 	foreach(string name, value; json)
 	{
@@ -167,13 +175,15 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, string package_n
 			case "dependencies":
 				foreach (string pkg, verspec; value) {
 					if (pkg.startsWith(":")) {
-						enforce(!package_name.canFind(':'), format("Short-hand packages syntax not allowed within sub packages: %s -> %s", package_name, pkg));
-						pkg = package_name ~ pkg;
+						enforce(!pname.sub.length,
+							"Short-hand packages syntax not allowed within " ~
+							"sub packages: %s -> %s".format(pname, pkg));
+						pkg = pname.toString() ~ pkg;
 					}
 					enforce(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once." );
 					bs.dependencies[pkg] = Dependency.fromJson(verspec);
 					if (verspec.type == Json.Type.object)
-						bs.dependencies[pkg].settings.parseJson(verspec, package_name);
+						bs.dependencies[pkg].settings.parseJson(verspec, pname);
 				}
 				break;
 			case "systemDependencies":
@@ -376,9 +386,10 @@ unittest {
 	`.strip.outdent;
 	auto jsonValue = parseJsonString(json);
 	PackageRecipe rec1;
-	parseJson(rec1, jsonValue, null);
+	parseJson(rec1, jsonValue);
 	PackageRecipe rec;
-	parseJson(rec, rec1.toJson(), null); // verify that all fields are serialized properly
+	// verify that all fields are serialized properly
+	parseJson(rec, rec1.toJson());
 
 	assert(rec.name == "projectname");
 	assert(rec.buildSettings.environments == ["": ["Var1": "env"]]);

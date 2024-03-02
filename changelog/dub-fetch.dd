@@ -1,0 +1,21 @@
+The fetch command now supports multiple arguments, recursive fetch, and is project-aware
+
+Previously, `dub fetch` could only fetch a single package,
+and was working independently of the working directory.
+
+With this release, support for multiple packages have
+been added, such that the following is now possible:
+---
+$ dub fetch vibe-d@0.9.0 vibe-d@0.9.1 vibe-d@0.9.2
+---
+
+When called with no argument, `dub fetch` used to error out.
+However, it will now attempt to fetch dependencies for the
+current project, if any exists.
+
+Finally, when fetching a package, it might be useful to fetch
+all its dependencies. This is done automatically for projects,
+and can now be done for direct fetch as well:
+---
+$ dub fetch --recursive vibe-d@0.9.0 vibe-d@0.9.1
+---

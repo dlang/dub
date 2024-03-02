@@ -32,9 +32,16 @@ import std.process : environment;
 	example, "packa:packb:packc" references a package named "packc" that is a
 	sub package of "packb", which in turn is a sub package of "packa".
 */
+deprecated("This function is not supported as subpackages cannot be nested")
 string[] getSubPackagePath(string package_name) @safe pure
 {
 	return package_name.split(":");
+}
+
+deprecated @safe unittest
+{
+	assert(getSubPackagePath("packa:packb:packc") == ["packa", "packb", "packc"]);
+	assert(getSubPackagePath("pack") == ["pack"]);
 }
 
 /**
@@ -43,6 +50,7 @@ string[] getSubPackagePath(string package_name) @safe pure
 
 	In case of a top level package, the qualified name is returned unmodified.
 */
+deprecated("Use `dub.dependency : PackageName(arg).main` instead")
 string getBasePackageName(string package_name) @safe pure
 {
 	return package_name.findSplit(":")[0];
@@ -55,15 +63,14 @@ string getBasePackageName(string package_name) @safe pure
 	This is the part of the package name excluding the base package
 	name. See also $(D getBasePackageName).
 */
+deprecated("Use `dub.dependency : PackageName(arg).sub` instead")
 string getSubPackageName(string package_name) @safe pure
 {
 	return package_name.findSplit(":")[2];
 }
 
-@safe unittest
+deprecated @safe unittest
 {
-	assert(getSubPackagePath("packa:packb:packc") == ["packa", "packb", "packc"]);
-	assert(getSubPackagePath("pack") == ["pack"]);
 	assert(getBasePackageName("packa:packb:packc") == "packa");
 	assert(getBasePackageName("pack") == "pack");
 	assert(getSubPackageName("packa:packb:packc") == "packb:packc");

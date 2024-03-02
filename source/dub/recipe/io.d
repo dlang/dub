@@ -7,6 +7,7 @@
 */
 module dub.recipe.io;
 
+import dub.dependency : PackageName;
 import dub.recipe.packagerecipe;
 import dub.internal.logging;
 import dub.internal.vibecompat.core.file;
@@ -19,26 +20,34 @@ import dub.internal.configy.Read;
 
 	Params:
 		filename = NativePath of the package recipe file
-		parent_name = Optional name of the parent package (if this is a sub package)
+		parent = Optional name of the parent package (if this is a sub package)
 		mode = Whether to issue errors, warning, or ignore unknown keys in dub.json
 
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
+deprecated("Use the overload that accepts a `NativePath` as first argument")
 PackageRecipe readPackageRecipe(
-	string filename, string parent_name = null, StrictMode mode = StrictMode.Ignore)
+	string filename, string parent = null, StrictMode mode = StrictMode.Ignore)
 {
-	return readPackageRecipe(NativePath(filename), parent_name, mode);
+	return readPackageRecipe(NativePath(filename), parent, mode);
 }
 
 /// ditto
+deprecated("Use the overload that accepts a `PackageName` as second argument")
 PackageRecipe readPackageRecipe(
-	NativePath filename, string parent_name = null, StrictMode mode = StrictMode.Ignore)
+	NativePath filename, string parent, StrictMode mode = StrictMode.Ignore)
 {
-	import dub.internal.utils : stripUTF8Bom;
+	return readPackageRecipe(filename, parent.length ? PackageName(parent) : PackageName.init, mode);
+}
 
-	string text = stripUTF8Bom(cast(string)readFile(filename));
-	return parsePackageRecipe(text, filename.toNativeString(), parent_name, null, mode);
+
+/// ditto
+PackageRecipe readPackageRecipe(NativePath filename,
+	in PackageName parent = PackageName.init, StrictMode mode = StrictMode.Ignore)
+{
+	string text = readText(filename);
+	return parsePackageRecipe(text, filename.toNativeString(), parent, null, mode);
 }
 
 /** Parses an in-memory package recipe.
@@ -49,7 +58,7 @@ PackageRecipe readPackageRecipe(
 		contents = The contents of the recipe file
 		filename = Name associated with the package recipe - this is only used
 			to determine the file format from the file extension
-		parent_name = Optional name of the parent package (if this is a sub
+		parent = Optional name of the parent package (if this is a sub
 		package)
 		default_package_name = Optional default package name (if no package name
 		is found in the recipe this value will be used)
@@ -58,7 +67,18 @@ PackageRecipe readPackageRecipe(
 	Returns: Returns the package recipe contents
 	Throws: Throws an exception if an I/O or syntax error occurs
 */
-PackageRecipe parsePackageRecipe(string contents, string filename, string parent_name = null,
+deprecated("Use the overload that accepts a `PackageName` as 3rd argument")
+PackageRecipe parsePackageRecipe(string contents, string filename, string parent,
+	string default_package_name = null, StrictMode mode = StrictMode.Ignore)
+{
+    return parsePackageRecipe(contents, filename, parent.length ?
+        PackageName(parent) : PackageName.init,
+        default_package_name, mode);
+}
+
+/// Ditto
+PackageRecipe parsePackageRecipe(string contents, string filename,
+    in PackageName parent = PackageName.init,
 	string default_package_name = null, StrictMode mode = StrictMode.Ignore)
 {
 	import std.algorithm : endsWith;
@@ -82,7 +102,7 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 			logWarn("Error was: %s", exc);
 			// Fallback to JSON parser
 			ret = PackageRecipe.init;
-			parseJson(ret, parseJsonString(contents, filename), parent_name);
+			parseJson(ret, parseJsonString(contents, filename), parent);
 		} catch (Exception exc) {
 			logWarn("Your `dub.json` file use non-conventional features that are deprecated");
 			logWarn("This is most likely due to duplicated keys.");
@@ -90,7 +110,7 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 			logWarn("Error was: %s", exc);
 			// Fallback to JSON parser
 			ret = PackageRecipe.init;
-			parseJson(ret, parseJsonString(contents, filename), parent_name);
+			parseJson(ret, parseJsonString(contents, filename), parent);
 		}
 		// `debug = ConfigFillerDebug` also enables verbose parser output
 		debug (ConfigFillerDebug)
@@ -111,7 +131,7 @@ PackageRecipe parsePackageRecipe(string contents, string filename, string parent
 			}
 		}
 	}
-	else if (filename.endsWith(".sdl")) parseSDL(ret, contents, parent_name, filename);
+	else if (filename.endsWith(".sdl")) parseSDL(ret, contents, parent, filename);
 	else assert(false, "readPackageRecipe called with filename with unknown extension: "~filename);
 
 	// Fix for issue #711: `targetType` should be inherited, or default to library

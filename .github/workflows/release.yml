@@ -1,0 +1,113 @@
+# When a release is published, build the assets and upload them
+name: Build release assets
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  # First we define a job with a matrix that will build all relevant assets,
+  # and collect them in a temporary storage using `actions/upload-artifacts`
+  build:
+    name: 'Build artifacts for ${{ github.event.release.tag_name }}'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ macOS-11, ubuntu-20.04, windows-2019 ]
+        arch: [ x86_64 ]
+        include:
+          - { os: windows-2019, arch: i686 }
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      ## Dependencies
+      - name: '[OSX] Install dependencies'
+        if: runner.os == 'macOS'
+        run: |
+          brew install pkg-config coreutils
+          echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig/" >> $GITHUB_ENV
+      - name: '[Linux] Install dependencies'
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+
+      ## Boileterplate (compiler/repo)
+      - name: Install compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ldc-latest
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      ## Actually build the releases
+      - name: '[POSIX] Build release'
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        env:
+          GITVER: ${{ github.event.release.tag_name }}
+          DMD: "ldmd2"
+          ARCH_TRIPLE: ${{ matrix.arch }}-${{ runner.os == 'linux' &&  'pc-linux' || 'apple-darwin' }}
+        run: |
+          ldc2 -run ./build.d -release -mtriple=${ARCH_TRIPLE}
+          pushd bin
+          if [ ${{ runner.os }} == 'Linux' ]; then
+            tar -c -f 'dub-${{ github.event.release.tag_name }}-linux-${{ matrix.arch }}.tar.gz' -v -z --owner=0 --group=0 dub
+          else
+            gtar -c -f 'dub-${{ github.event.release.tag_name }}-osx-${{ matrix.arch }}.tar.gz' -v -z --owner=0 --group=0 dub
+          fi
+          popd
+      - name: '[Windows] Build release'
+        if: runner.os == 'Windows'
+        env:
+          GITVER: ${{ github.event.release.tag_name }}
+          DMD: "ldmd2"
+        run: |
+          ldc2 -run ./build.d -release -mtriple=${{ matrix.arch }}-pc-windows-msvc
+          pushd bin
+          7z a dub-${{ github.event.release.tag_name }}-windows-${{ matrix.arch }}.zip dub.exe
+          popd
+
+      - name: 'Upload temporary binaries'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dub-release-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            bin/dub-${{ github.event.release.tag_name }}-*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Uploads collected builds to the release
+  release:
+    name: "Update release artifacts"
+    runs-on: ubuntu-latest
+    needs:
+      - build
+
+    steps:
+      - name: Download artifacts to release
+        uses: actions/download-artifact@v4
+        with:
+          path: ~/artifacts/
+
+      - name: List all artifacts included in the release
+        id: list-artifacts
+        shell: bash
+        run: |
+          set -euox pipefail
+          ls -aulR ~/artifacts
+          echo "artifacts_directory=$HOME/artifacts" >> $GITHUB_OUTPUT
+
+      - name: Update release artifacts
+        uses: ncipollo/release-action@v1
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          tag: ${{ github.event.release.tag_name }}
+          artifacts: ${{ steps.list-artifacts.outputs.artifacts_directory }}/*/*
+          # Keep the existing state of the release
+          allowUpdates: true
+          artifactErrorsFailBuild: true
+          omitNameDuringUpdate: true
+          omitBodyDuringUpdate: true
+          omitPrereleaseDuringUpdate: true

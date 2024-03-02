@@ -80,9 +80,10 @@ static immutable string[] builtinBuildTypes = [
 /**	Represents a package, including its sub packages.
 */
 class Package {
+	// `package` visibility as it is set from the PackageManager
+	package NativePath m_infoFile;
 	private {
 		NativePath m_path;
-		NativePath m_infoFile;
 		PackageRecipe m_info;
 		PackageRecipe m_rawRecipe;
 		Package m_parentPackage;
@@ -100,6 +101,7 @@ class Package {
 				instead of the one declared in the package recipe, or the one
 				determined by invoking the VCS (GIT currently).
 	*/
+	deprecated("Provide an already parsed PackageRecipe instead of a JSON object")
 	this(Json json_recipe, NativePath root = NativePath(), Package parent = null, string version_override = "")
 	{
 		import dub.recipe.json;
@@ -151,6 +153,7 @@ class Package {
 			Returns the full path to the package file, if any was found.
 			Otherwise returns an empty path.
 	*/
+	deprecated("Use `PackageManager.findPackageFile`")
 	static NativePath findPackageFile(NativePath directory)
 	{
 		foreach (file; packageInfoFiles) {
@@ -173,6 +176,7 @@ class Package {
 				determined by invoking the VCS (GIT currently).
 			mode = Whether to issue errors, warning, or ignore unknown keys in dub.json
 	*/
+	deprecated("Use `PackageManager.getOrLoadPackage` instead of loading packages directly")
 	static Package load(NativePath root, NativePath recipe_file = NativePath.init,
 		Package parent = null, string version_override = "",
 		StrictMode mode = StrictMode.Ignore)
@@ -309,13 +313,7 @@ class Package {
 		writeJsonFile(filename, m_info.toJson());
 	}
 
-	/** Returns the package recipe of a non-path-based sub package.
-
-		For sub packages that are declared within the package recipe of the
-		parent package, this function will return the corresponding recipe. Sub
-		packages declared using a path must be loaded manually (or using the
-		`PackageManager`).
-	*/
+	deprecated("Use `PackageManager.getSubPackage` instead")
 	Nullable!PackageRecipe getInternalSubPackage(string name)
 	{
 		foreach (ref p; m_info.subPackages)
@@ -419,10 +417,6 @@ class Package {
 	*/
 	void addBuildTypeSettings(ref BuildSettings settings, in BuildPlatform platform, string build_type)
 	const {
-		import std.process : environment;
-		string dflags = environment.get("DFLAGS", "");
-		settings.addDFlags(dflags.split());
-
 		if (auto pbt = build_type in m_info.buildTypes) {
 			logDiagnostic("Using custom build type '%s'.", build_type);
 			pbt.getPlatformSettings(settings, platform, this.path);
@@ -447,6 +441,11 @@ class Package {
 				case "syntax": settings.addOptions(syntaxOnly); break;
 			}
 		}
+
+		// Add environment DFLAGS last so that user specified values are not overriden by us.
+		import std.process : environment;
+		string dflags = environment.get("DFLAGS", "");
+		settings.addDFlags(dflags.split());
 	}
 
 	/** Returns the selected configuration for a certain dependency.
@@ -580,7 +579,7 @@ class Package {
 				this.recipe.configurations.map!(c => c.buildSettings.dependencies.byKeyValue)
 			)
 			.joiner()
-			.map!(d => PackageDependency(d.key, d.value));
+			.map!(d => PackageDependency(PackageName(d.key), d.value));
 	}
 
 

@@ -92,7 +92,7 @@ bool isWritableDir(NativePath p, bool create_if_missing = false)
 
 Json jsonFromFile(NativePath file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.emptyObject;
-	auto text = stripUTF8Bom(cast(string)readFile(file));
+	auto text = readText(file);
 	return parseJsonString(text, file.toNativeString());
 }
 
@@ -207,7 +207,7 @@ version (Have_vibe_d_http)
 
 	Note: Timeouts are only implemented when curl is used (DubUseCurl).
 */
-void download(string url, string filename, uint timeout = 8)
+private void download(string url, string filename, uint timeout = 8)
 {
 	version(DubUseCurl) {
 		auto conn = HTTP();
@@ -226,18 +226,18 @@ void download(string url, string filename, uint timeout = 8)
 	} else assert(false);
 }
 /// ditto
-void download(URL url, NativePath filename, uint timeout = 8)
+private void download(URL url, NativePath filename, uint timeout = 8)
 {
 	download(url.toString(), filename.toNativeString(), timeout);
 }
 /// ditto
-ubyte[] download(string url, uint timeout = 8)
+private ubyte[] download(string url, uint timeout = 8)
 {
 	version(DubUseCurl) {
 		auto conn = HTTP();
 		setupHTTPClient(conn, timeout);
 		logDebug("Getting %s...", url);
-		return cast(ubyte[])get(url, conn);
+		return get!(HTTP, ubyte)(url, conn);
 	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		import vibe.stream.operations;
@@ -247,7 +247,7 @@ ubyte[] download(string url, uint timeout = 8)
 	} else assert(false);
 }
 /// ditto
-ubyte[] download(URL url, uint timeout = 8)
+private ubyte[] download(URL url, uint timeout = 8)
 {
 	return download(url.toString(), timeout);
 }
@@ -319,13 +319,15 @@ ubyte[] retryDownload(URL url, size_t retryCount = 3, uint timeout = 8)
 			catch(HTTPStatusException e) {
 				if (e.status == 404) throw e;
 				else {
-					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+					logDebug("Failed to download %s (Attempt %s of %s): %s",
+						url, i + 1, retryCount, e.message);
 					if (i == retryCount - 1) throw e;
 					else continue;
 				}
 			}
 			catch(CurlException e) {
-				logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+				logDebug("Failed to download %s (Attempt %s of %s): %s",
+					url, i + 1, retryCount, e.message);
 				continue;
 			}
 		}
@@ -451,7 +453,7 @@ version(DubUseCurl) {
 	}
 }
 
-string stripUTF8Bom(string str)
+private string stripUTF8Bom(string str)
 {
 	if( str.length >= 3 && str[0 .. 3] == [0xEF, 0xBB, 0xBF] )
 		return str[3 ..$];

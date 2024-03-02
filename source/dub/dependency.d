@@ -18,12 +18,89 @@ import std.array;
 import std.exception;
 import std.string;
 
+/// Represents a fully-qualified package name
+public struct PackageName
+{
+	/// The underlying full name of the package
+	private string fullName;
+	/// Where the separator lies, if any
+	private size_t separator;
+
+	/// Creates a new instance of this struct
+	public this(string fn) @safe pure
+	{
+		this.fullName = fn;
+		if (auto idx = fn.indexOf(':'))
+			this.separator = idx > 0 ? idx : fn.length;
+		else // We were given `:foo`
+			assert(0, "Argument to PackageName constructor needs to be " ~
+				"a fully qualified string");
+	}
+
+	/// Private constructor to have nothrow / @nogc
+	private this(string fn, size_t sep) @safe pure nothrow @nogc
+	{
+		this.fullName = fn;
+		this.separator = sep;
+	}
+
+	/// The base package name in which the subpackages may live
+	public PackageName main () const return @safe pure nothrow @nogc
+	{
+		return PackageName(this.fullName[0 .. this.separator], this.separator);
+	}
+
+	/// The subpackage name, or an empty string if there isn't
+	public string sub () const return @safe pure nothrow @nogc
+	{
+		// Return `null` instead of an empty string so that
+		// it can be used in a boolean context, e.g.
+		// `if (name.sub)` would be true with empty string
+		return this.separator < this.fullName.length
+			? this.fullName[this.separator + 1 .. $]
+			: null;
+	}
+
+	/// Human readable representation
+	public string toString () const return scope @safe pure nothrow @nogc
+	{
+		return this.fullName;
+	}
+
+    ///
+    public int opCmp (in PackageName other) const scope @safe pure nothrow @nogc
+    {
+        import core.internal.string : dstrcmp;
+        return dstrcmp(this.toString(), other.toString());
+    }
+
+    ///
+    public bool opEquals (in PackageName other) const scope @safe pure nothrow @nogc
+    {
+        return this.toString() == other.toString();
+    }
+}
 
 /** Encapsulates the name of a package along with its dependency specification.
 */
 struct PackageDependency {
+	/// Backward compatibility
+	deprecated("Use the constructor that accepts a `PackageName` as first argument")
+	this(string n, Dependency s = Dependency.init) @safe pure
+	{
+		this.name = PackageName(n);
+		this.spec = s;
+	}
+
+	// Remove once deprecated overload is gone
+	this(PackageName n, Dependency s = Dependency.init) @safe pure nothrow @nogc
+	{
+		this.name = n;
+		this.spec = s;
+	}
+
 	/// Name of the referenced package.
-	string name;
+	PackageName name;
 
 	/// Dependency specification used to select a particular version of the package.
 	Dependency spec;
@@ -47,14 +124,19 @@ struct Dependency {
 	// Shortcut to create >=0.0.0
 	private enum ANY_IDENT = "*";
 
-	private Value m_value;
+	private Value m_value = Value(VersionRange.Invalid);
 	private bool m_optional;
 	private bool m_default;
 
 	/// A Dependency, which matches every valid version.
-	static @property Dependency any() @safe { return Dependency(VersionRange.Any); }
+	public static immutable Dependency Any = Dependency(VersionRange.Any);
 
 	/// An invalid dependency (with no possible version matches).
+	public static immutable Dependency Invalid = Dependency(VersionRange.Invalid);
+
+	deprecated("Use `Dependency.Any` instead")
+	static @property Dependency any() @safe { return Dependency(VersionRange.Any); }
+	deprecated("Use `Dependency.Invalid` instead")
 	static @property Dependency invalid() @safe
 	{
 		return Dependency(VersionRange.Invalid);
@@ -433,11 +515,11 @@ struct Dependency {
 	*/
 	Dependency merge(ref const(Dependency) o) const @trusted {
 		alias Merger = match!(
-			(const NativePath a, const NativePath b) => a == b ? this : invalid,
+			(const NativePath a, const NativePath b) => a == b ? this : Invalid,
 			(const NativePath a,       any         ) => o,
 			(      any         , const NativePath b) => this,
 
-			(const Repository a, const Repository b) => a.m_ref == b.m_ref ? this : invalid,
+			(const Repository a, const Repository b) => a.m_ref == b.m_ref ? this : Invalid,
 			(const Repository a,       any         ) => this,
 			(      any         , const Repository b) => o,
 
@@ -447,7 +529,7 @@ struct Dependency {
 
 				VersionRange copy = a;
 				copy.merge(b);
-				if (!copy.isValid()) return invalid;
+				if (!copy.isValid()) return Invalid;
 				return Dependency(copy);
 			}
 		);
@@ -605,7 +687,7 @@ unittest {
 	assert(a.valid);
 	assert(a.version_ == Version("~d2test"));
 
-	a = Dependency.any;
+	a = Dependency.Any;
 	assert(!a.optional);
 	assert(a.valid);
 	assertThrown(a.version_);

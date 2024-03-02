@@ -828,7 +828,8 @@ package(dub) NativePath targetCacheDir(NativePath cachePath, in Package pkg, str
  * library-debug-Z7qINYX4IxM8muBSlyNGrw
  * ```
  */
-package(dub) string computeBuildID(in BuildSettings buildsettings, string config, GeneratorSettings settings)
+package(dub) string computeBuildID(in BuildSettings buildsettings,
+	in NativePath packagePath, string config, GeneratorSettings settings)
 {
 	import std.conv : to;
 
@@ -843,6 +844,8 @@ package(dub) string computeBuildID(in BuildSettings buildsettings, string config
 		settings.platform.architecture,
 		[
 			(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
+			// Needed for things such as `__FULL_FILE_PATH__`
+			packagePath.toNativeString(),
 			settings.platform.compilerBinary,
 			settings.platform.compiler,
 			settings.platform.compilerVersion,

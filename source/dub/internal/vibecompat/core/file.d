@@ -34,6 +34,12 @@ public ubyte[] readFile(NativePath path)
 	return cast(ubyte[]) std.file.read(path.toNativeString());
 }
 
+/// Returns the content of a file as text
+public string readText(NativePath path)
+{
+    return std.file.readText(path.toNativeString());
+}
+
 /**
 	Moves or renames a file.
 */
@@ -101,7 +107,7 @@ void copyFile(string from, string to)
 	copyFile(NativePath(from), NativePath(to));
 }
 
-version (Windows) extern(Windows) int CreateHardLinkW(in wchar* to, in wchar* from, void* attr=null);
+version (Windows) extern(Windows) int CreateHardLinkW(const(wchar)* to, const(wchar)* from, void* attr=null);
 
 // guess whether 2 files are identical, ignores filename and content
 private bool sameFile(NativePath a, NativePath b)
@@ -287,9 +293,6 @@ struct FileInfo {
 	/// Time of the last modification
 	SysTime timeModified;
 
-	/// Time of creation (not available on all operating systems/file systems)
-	SysTime timeCreated;
-
 	/// True if this is a symlink to an actual file
 	bool isSymlink;
 
@@ -326,8 +329,6 @@ private FileInfo makeFileInfo(DirEntry ent)
 		ret.isDirectory = ent.isDir;
 		ret.size = ent.size;
 		ret.timeModified = ent.timeLastModified;
-		version(Windows) ret.timeCreated = ent.timeCreated;
-		else ret.timeCreated = ent.timeLastModified;
 	} catch (Exception e) {
 		logDiagnostic("Failed to get extended file information for %s: %s", ret.name, e.msg);
 	}

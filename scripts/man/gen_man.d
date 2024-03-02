@@ -404,9 +404,9 @@ dependencies \- both downloading them and linking them into the application.`);
 				manFile.mode == ManWriter.Mode.markdown ? "\n\n" : "\n"
 			));
 		}
-	}  
-  
-  
+	}
+
+
 
 	writeln(manFile.header("COMMON OPTIONS"));
 	manFile.writeArgs("-", args);

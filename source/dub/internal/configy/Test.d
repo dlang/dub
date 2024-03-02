@@ -692,3 +692,238 @@ unittest
     catch (Exception exc)
         assert(exc.toString() == `/dev/null(2:6): data.array[0]: Parsing failed!`);
 }
+
+/// Test for error message: Has to be versioned out, uncomment to check manually
+unittest
+{
+    static struct Nested
+    {
+        int field1;
+
+        private this (string arg) {}
+    }
+
+    static struct Config
+    {
+        Nested nested;
+    }
+
+    static struct Config2
+    {
+        Nested nested;
+        alias nested this;
+    }
+
+    version(none) auto c1 = parseConfigString!Config(null, null);
+    version(none) auto c2 = parseConfigString!Config2(null, null);
+}
+
+/// Test support for `fromYAML` hook
+unittest
+{
+    static struct PackageDef
+    {
+        string name;
+        @Optional string target;
+        int build = 42;
+    }
+
+    static struct Package
+    {
+        string path;
+        PackageDef def;
+
+        public static Package fromYAML (scope ConfigParser!Package parser)
+        {
+            if (parser.node.nodeID == NodeID.mapping)
+                return Package(null, parser.parseAs!PackageDef);
+            else
+                return Package(parser.parseAs!string);
+        }
+    }
+
+    static struct Config
+    {
+        string name;
+        Package[] deps;
+    }
+
+    auto c = parseConfigString!Config(
+`
+name: myPkg
+deps:
+  - /foo/bar
+  - name: foo
+    target: bar
+    build: 24
+  - name: fur
+  - /one/last/path
+`, "/dev/null");
+    assert(c.name == "myPkg");
+    assert(c.deps.length == 4);
+    assert(c.deps[0] == Package("/foo/bar"));
+    assert(c.deps[1] == Package(null, PackageDef("foo", "bar", 24)));
+    assert(c.deps[2] == Package(null, PackageDef("fur", null, 42)));
+    assert(c.deps[3] == Package("/one/last/path"));
+}
+
+/// Test top level hook (fromYAML / fromString)
+unittest
+{
+    static struct Version1 {
+        uint fileVersion;
+        uint value;
+    }
+
+    static struct Version2 {
+        uint fileVersion;
+        string str;
+    }
+
+    static struct Config
+    {
+        uint fileVersion;
+        union {
+            Version1 v1;
+            Version2 v2;
+        }
+        static Config fromYAML (scope ConfigParser!Config parser)
+        {
+            static struct OnlyVersion { uint fileVersion; }
+            auto vers = parseConfig!OnlyVersion(
+                CLIArgs.init, parser.node, StrictMode.Ignore);
+            switch (vers.fileVersion) {
+            case 1:
+                return Config(1, parser.parseAs!Version1);
+            case 2:
+                Config conf = Config(2);
+                conf.v2 = parser.parseAs!Version2;
+                return conf;
+            default:
+                assert(0);
+            }
+        }
+    }
+
+    auto v1 = parseConfigString!Config("fileVersion: 1\nvalue: 42", "/dev/null");
+    auto v2 = parseConfigString!Config("fileVersion: 2\nstr: hello world", "/dev/null");
+
+    assert(v1.fileVersion == 1);
+    assert(v1.v1.fileVersion == 1);
+    assert(v1.v1.value == 42);
+
+    assert(v2.fileVersion == 2);
+    assert(v2.v2.fileVersion == 2);
+    assert(v2.v2.str == "hello world");
+}
+
+/// Don't call `opCmp` / `opEquals` as they might not be CTFEable
+/// Also various tests around static arrays
+unittest
+{
+    static struct NonCTFEAble
+    {
+        int value;
+
+        public bool opEquals (const NonCTFEAble other) const scope
+        {
+            assert(0);
+        }
+
+        public bool opEquals (const ref NonCTFEAble other) const scope
+        {
+            assert(0);
+        }
+
+        public int opCmp (const NonCTFEAble other) const scope
+        {
+            assert(0);
+        }
+
+        public int opCmp (const ref NonCTFEAble other) const scope
+        {
+            assert(0);
+        }
+    }
+
+    static struct Config
+    {
+        NonCTFEAble fixed;
+        @Name("static") NonCTFEAble[3] static_;
+        NonCTFEAble[] dynamic;
+    }
+
+    auto c = parseConfigString!Config(`fixed:
+  value: 42
+static:
+  - value: 84
+  - value: 126
+  - value: 168
+dynamic:
+  - value: 420
+  - value: 840
+`, "/dev/null");
+
+    assert(c.fixed.value == 42);
+    assert(c.static_[0].value == 84);
+    assert(c.static_[1].value == 126);
+    assert(c.static_[2].value == 168);
+    assert(c.dynamic.length == 2);
+    assert(c.dynamic[0].value == 420);
+    assert(c.dynamic[1].value == 840);
+
+    try parseConfigString!Config(`fixed:
+  value: 42
+dynamic:
+  - value: 420
+  - value: 840
+`, "/dev/null");
+    catch (ConfigException e)
+        assert(e.toString() == "/dev/null(0:0): static: Required key was not found in configuration or command line arguments");
+
+    try parseConfigString!Config(`fixed:
+  value: 42
+static:
+  - value: 1
+  - value: 2
+dynamic:
+  - value: 420
+  - value: 840
+`, "/dev/null");
+    catch (ConfigException e)
+        assert(e.toString() == "/dev/null(3:2): static: Too few entries for sequence: Expected 3, got 2");
+
+    try parseConfigString!Config(`fixed:
+  value: 42
+static:
+  - value: 1
+  - value: 2
+  - value: 3
+  - value: 4
+dynamic:
+  - value: 420
+  - value: 840
+`, "/dev/null");
+    catch (ConfigException e)
+        assert(e.toString() == "/dev/null(3:2): static: Too many entries for sequence: Expected 3, got 4");
+
+    // Check that optional static array work
+    static struct ConfigOpt
+    {
+        NonCTFEAble fixed;
+        @Name("static") NonCTFEAble[3] static_ = [
+            NonCTFEAble(69),
+            NonCTFEAble(70),
+            NonCTFEAble(71),
+        ];
+    }
+
+    auto c1 = parseConfigString!ConfigOpt(`fixed:
+  value: 1100
+`, "/dev/null");
+
+    assert(c1.fixed.value == 1100);
+    assert(c1.static_[0].value == 69);
+    assert(c1.static_[1].value == 70);
+    assert(c1.static_[2].value == 71);
+}
