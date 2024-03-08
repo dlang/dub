@@ -28,7 +28,7 @@ import std.array;
 import std.conv;
 import std.encoding;
 import std.exception;
-import std.file;
+static import std.file;
 import std.getopt;
 import std.path : absolutePath, buildNormalizedPath, expandTilde, setExtension;
 import std.process : environment, spawnProcess, wait;
@@ -173,7 +173,7 @@ struct CommandLineHandler
 
 		if (options.root_path.empty)
 		{
-			options.root_path = getcwd();
+			options.root_path = std.file.getcwd();
 		}
 		else
 		{
@@ -281,7 +281,7 @@ unittest {
 
 	auto args = new CommandArgs([]);
 	handler.prepareOptions(args);
-	assert(handler.options.root_path == getcwd());
+	assert(handler.options.root_path == std.file.getcwd());
 }
 
 /// It can set a custom root_path
@@ -386,8 +386,6 @@ unittest {
 */
 int runDubCommandLine(string[] args)
 {
-	import std.file : tempDir;
-
 	static string[] toSinglePackageArgs (string args0, string file, string[] trailing)
 	{
 		return [args0, "run", "-q", "--temp-build", "--single", file, "--"] ~ trailing;
@@ -406,7 +404,7 @@ int runDubCommandLine(string[] args)
 			// While it probably isn't needed for all targets, it does simplify things a bit.
 			// Question is can it be more generic? Probably not due to $TMP
 			if ("TEMP" !in environment)
-				environment["TEMP"] = tempDir();
+				environment["TEMP"] = std.file.tempDir();
 
 			// rdmd uses $TEMP to compute a temporary path. since cygwin substitutes backslashes
 			// with slashes, this causes OPTLINK to fail (it thinks path segments are options)
@@ -450,11 +448,11 @@ int runDubCommandLine(string[] args)
 		// we only consider the case where the file name is the first argument,
 		// as the shell invocation cannot be controlled.
 		else if (handler.getCommand(args[1]) is null && !args[1].startsWith("-")) {
-			if (exists(args[1])) {
+			if (std.file.exists(args[1])) {
 				auto path = getTempFile("app", ".d");
-				copy(args[1], path.toNativeString());
+				std.file.copy(args[1], path.toNativeString());
 				args = toSinglePackageArgs(args[0], path.toNativeString(), args[2 .. $]);
-			} else if (exists(args[1].setExtension(".d"))) {
+			} else if (std.file.exists(args[1].setExtension(".d"))) {
 				args = toSinglePackageArgs(args[0], args[1].setExtension(".d"), args[2 .. $]);
 			}
 		}
@@ -2844,7 +2842,7 @@ class DustmiteCommand : PackageBuildCommand {
 			logInfo("Starting", Color.light_green, "Executing dustmite...");
 			auto testcmd = appender!string();
 			testcmd.formattedWrite("%s dustmite --test-package=%s --build=%s --config=%s",
-				thisExePath, prj.name, this.baseSettings.buildType, this.baseSettings.config);
+				std.file.thisExePath, prj.name, this.baseSettings.buildType, this.baseSettings.config);
 
 			if (m_compilerName.length) testcmd.formattedWrite(" \"--compiler=%s\"", m_compilerName);
 			if (m_arch.length) testcmd.formattedWrite(" --arch=%s", m_arch);
