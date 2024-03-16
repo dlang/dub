@@ -11,6 +11,7 @@ version (unittest):
 import std.algorithm;
 import std.format;
 import dub.test.base;
+import dub.prettyio;
 
 // https://github.com/dlang/dub/issues/2696
 unittest
@@ -53,7 +54,7 @@ unittest
 {
     const AddPathDir = TestDub.Paths.temp ~ "addpath/";
     const BDir = AddPathDir ~ "b/";
-    scope dub = new TestDub((scope FSEntry root) {
+    scope tdub = new TestDub((scope FSEntry root) {
             root.writeFile(TestDub.ProjectPath ~ "dub.json",
                 `{ "name": "a", "dependencies": { "b": "~>1.0" } }`);
 
@@ -63,19 +64,27 @@ version "1.0.0"`, PackageFormat.sdl);
             root.writeFile(BDir ~ "dub.json", `{"name": "b", "version": "1.0.0" }`);
     });
 
-    dub.loadPackage();
-    assert(!dub.project.hasAllDependencies());
-    dub.upgrade(UpgradeOptions.select);
+	tdub.m_packageManager.m_dbgFlag = false;
+
+    tdub.loadPackage();
+    assert(!tdub.project.hasAllDependencies());
+    tdub.upgrade(UpgradeOptions.select);
     // Test that without add-path, we get a package in the userPackage
-    const oldDir = dub.project.getDependency("b", true).path();
+    const oldDir = tdub.project.getDependency("b", true).path();
     assert(oldDir == TestDub.Paths.userPackages ~ "packages/b/1.0.0/b/",
            oldDir.toNativeString());
     // Now run `add-path`
-    dub.addSearchPath(AddPathDir.toNativeString(), dub.defaultPlacementLocation);
+    tdub.addSearchPath(AddPathDir.toNativeString(), tdub.defaultPlacementLocation);
+    // (cast(Dub)tdub).cwritePretty();
     // We need a new instance to test
-    scope newDub = dub.newTest();
+    scope newDub = tdub.newTest();
+
     newDub.loadPackage();
+
     assert(newDub.project.hasAllDependencies());
     const actualDir = newDub.project.getDependency("b", true).path();
-    assert(actualDir == BDir, actualDir.toNativeString());
+	import dub.internal.logging;
+	dbg(actualDir);
+	dbg(BDir);
+	assert(actualDir == BDir, actualDir.toNativeString());
 }

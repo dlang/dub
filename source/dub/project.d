@@ -518,9 +518,12 @@ class Project {
 	 */
 	void reinit()
 	{
+		import dub.prettyio;
 		m_dependencies = null;
 		m_missingDependencies = [];
-		collectDependenciesRec(m_rootPackage);
+		this.m_rootPackage.cwritePretty(0, "m_rootPackage before collectDependenciesRec", Format("\t", "\n", true, true));
+		collectDependenciesRec(m_rootPackage); // TODO: investigate
+		this.m_rootPackage.cwritePretty(0, "m_rootPackage after collectDependenciesRec", Format("\t", "\n", true, true));
 		m_missingDependencies.sort();
 	}
 

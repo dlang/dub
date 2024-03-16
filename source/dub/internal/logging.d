@@ -414,3 +414,18 @@ string color(const string str, const Mode m = Mode.init)
 	else
 		return str;
 }
+
+/** Debug print `args` followed by a newline.
+ *
+ * Similar to Rust's `dbg` macro introduced in version 1.32.
+ */
+void dbg(Args...)(scope Args args,
+				  const string file = __FILE_FULL_PATH__,
+				  const uint line = __LINE__,
+				  const string fun = __FUNCTION__) @trusted pure nothrow @nogc
+{
+	import std.stdio : stderr, writeln;
+	try
+		debug stderr.writeln(file, "(", line, ",1):", " Debug: \"", args, "\"");
+	catch (Exception) { }
+}

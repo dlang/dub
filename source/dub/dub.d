@@ -116,7 +116,7 @@ deprecated unittest
 	the command line interface.
 */
 class Dub {
-	protected {
+	public {
 		bool m_dryRun = false;
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
@@ -1238,8 +1238,10 @@ class Dub {
 	/// Ditto
 	void addSearchPath(string path, PlacementLocation loc)
 	{
+		import dub.prettyio;
 		if (m_dryRun) return;
 		this.m_packageManager.addSearchPath(makeAbsolute(path), loc);
+		this.m_project.reinit();
 	}
 
 	/** Deregisters a local directory search path.
