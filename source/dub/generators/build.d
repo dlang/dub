@@ -294,8 +294,13 @@ class BuildGenerator : ProjectGenerator {
 		target_binary_path = getTargetPath(cbuildsettings, settings);
 
 		if (!settings.tempBuild) {
-			copyTargetFile(target_path, buildsettings, settings);
-			updateCacheDatabase(settings, cbuildsettings, pack, config, build_id, target_binary_path.toNativeString());
+            try {
+                copyTargetFile(target_path, buildsettings, settings);
+                updateCacheDatabase(settings, cbuildsettings, pack, config, build_id, target_binary_path.toNativeString());
+            } catch (std.file.FileException e) {
+                logWarn("Can't copy result to target, leaving it in the cache.");
+                logDiagnostic("Full error: %s", e.toString().sanitize);
+            }
 		}
 
 		return false;
