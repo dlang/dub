@@ -137,7 +137,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		}
 
 		if (!(fields & BuildSetting.cImportPaths)) {
-			settings.addDFlags(settings.cImportPaths.map!(s => "-I"~s)().array());
+			settings.addDFlags(settings.cImportPaths.map!(s => "-P-I"~s)().array());
 			settings.cImportPaths = null;
 		}
 
