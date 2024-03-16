@@ -1,0 +1,9 @@
+{
+	"name": "dub-as-a-library-generator",
+	"workingDirectory": ".",
+	"dependencies": {
+		"dub": {
+			"path": "../.."
+		}
+	}
+}
