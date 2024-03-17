@@ -118,9 +118,6 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 					settings.addDFlags(t[1]);
 		}
 
-		// since LDC always outputs multiple object files, avoid conflicts by default
-		settings.addDFlags("--oq", format("-od=%s/obj", settings.targetPath));
-
 		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-d-version="~s)().array());
 			settings.versions = null;
@@ -241,7 +238,9 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 			case TargetType.executable: break;
 			case TargetType.library:
 			case TargetType.staticLibrary:
-				settings.addDFlags("-lib");
+				// -oq: name object files uniquely (so the files don't collide)
+				// -cleanup-obj: remove object files after archiving to static lib, and put them in a unique temp directory
+				settings.addDFlags("-lib", "-oq", "-cleanup-obj");
 				break;
 			case TargetType.dynamicLibrary:
 				settings.addDFlags("-shared");
