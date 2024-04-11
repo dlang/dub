@@ -609,29 +609,81 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
 
 /**
  * Search for module keyword in D Code
+ * A primitive parser to skip comments and whitespace to get
+ * the module's name from the module declaration.
  */
 string getModuleNameFromContent(string content) {
-	import std.regex;
-	import std.string;
+	import std.ascii: isAlpha, isAlphaNum;
+	import core.exception: RangeError;
 
-	content = content.strip;
-	if (!content.length) return null;
+	enum keyword = "module";
 
-	static bool regex_initialized = false;
-	static Regex!char comments_pattern, module_pattern;
+	size_t i = 0;
+	auto foundKeyword = false;
 
-	if (!regex_initialized) {
-		comments_pattern = regex(`//[^\r\n]*\r?\n?|/\*.*?\*/|/\+.*\+/`, "gs");
-		module_pattern = regex(`module\s+([\w\.]+)\s*;`, "g");
-		regex_initialized = true;
+	auto ch() {
+		return content[i];
 	}
 
-	content = replaceAll(content, comments_pattern, " ");
-	auto result = matchFirst(content, module_pattern);
+	try {
+		while(i < content.length) {
+			if(ch == keyword[0] && content[i .. i + keyword.length] == keyword) {
+				// -1 because the end of the loop will advance by 1
+				i += keyword.length - 1;
+				foundKeyword = true;
+			}
+			else if(ch == '/') {
+				++i;
+				// line comment?
+				if(ch == '/') {
+					while(ch != '\n')
+						++i;
+				}
+				// block comment?
+				else if(ch == '*') {
+					++i;
+					while(ch != '*' && content[i + 1] != '/')
+						++i;
+					++i; // skip over closing '/'
+				}
+				// nested comment?
+				else if(ch == '+') {
+					++i;
 
-	if (!result.empty) return result[1];
+					size_t level = 1;
 
-	return null;
+					while(level > 0) {
+						if(ch == '/') {
+							++i;
+							if(ch == '+') {
+								++i;
+								++level;
+							}
+						}
+						if(ch == '+') {
+							++i;
+							if(ch == '/') {
+								--level;
+							}
+						}
+						++i;
+					}
+				}
+			}
+			else if(isAlpha(ch) && foundKeyword) {
+				const start = i;
+				while(isAlphaNum(ch) || ch == '.') {
+					++i;
+				}
+				return content[start .. i];
+			}
+			++i;
+		}
+
+		return "";
+	} catch(RangeError) {
+		return "";
+	}
 }
 
 unittest {
@@ -648,10 +700,12 @@ unittest {
 	assert(getModuleNameFromContent("/+ module foo; +/\nmodule bar;") == "bar");
 	assert(getModuleNameFromContent("/+ /+ module foo; +/ +/\nmodule bar;") == "bar");
 	assert(getModuleNameFromContent("// module foo;\nmodule bar; // module foo;") == "bar");
-	assert(getModuleNameFromContent("// module foo;\nmodule// module foo;\nbar//module foo;\n;// module foo;") == "bar");
+
+	assert(getModuleNameFromContent("// module foo;\nmodule// module foo;\nbar//module foo;\n;// module foo;") == "bar", "argh: " ~ getModuleNameFromContent("// module foo;\nmodule// module foo;\nbar//module foo;\n;// module foo;"));
+
 	assert(getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;") == "bar", getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;"));
 	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar;") == "bar");
-	//assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar/++/;") == "bar"); // nested comments require a context-free parser!
+	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar/++/;") == "bar");
 	assert(getModuleNameFromContent("/*\nmodule sometest;\n*/\n\nmodule fakemath;\n") == "fakemath");
 }
 
