@@ -496,9 +496,11 @@ int runDubCommandLine(string[] args)
 		import std.uni : toUpper;
 		foreach (CommandGroup key; handler.commandGroups)
 		{
-			foreach (Command command; key.commands)
-			{
-				if (levenshteinDistance(command_name, command.name) < 4) {
+			auto similarCommands = key.commands.filter!(cmd => levenshteinDistance(command_name, cmd.name) < 4).array();
+			if (similarCommands) {
+				sort!((a, b) => levenshteinDistance(command_name, a.name) < levenshteinDistance(
+					command_name, b.name))(similarCommands);
+				foreach (command; similarCommands) {
 					logInfo("Did you mean '%s'?", command.name);
 				}
 			}
