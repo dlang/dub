@@ -46,9 +46,7 @@ PackageRecipe readPackageRecipe(
 PackageRecipe readPackageRecipe(NativePath filename,
 	in PackageName parent = PackageName.init, StrictMode mode = StrictMode.Ignore)
 {
-	import dub.internal.utils : stripUTF8Bom;
-
-	string text = stripUTF8Bom(cast(string)readFile(filename));
+	string text = readText(filename);
 	return parsePackageRecipe(text, filename.toNativeString(), parent, null, mode);
 }
 

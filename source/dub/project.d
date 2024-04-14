@@ -188,7 +188,7 @@ class Project {
 				if (!cfg.length) deps = p.getAllDependencies();
 				else {
 					auto depmap = p.getDependencies(cfg);
-					deps = depmap.byKey.map!(k => PackageDependency(k, depmap[k])).array;
+					deps = depmap.byKey.map!(k => PackageDependency(PackageName(k), depmap[k])).array;
 				}
 				deps.sort!((a, b) => a.name.toString() < b.name.toString());
 
@@ -477,7 +477,7 @@ class Project {
 					(VersionRange vers) {
 						if (m_selections.hasSelectedVersion(basename)) {
 							auto selver = m_selections.getSelectedVersion(basename);
-							if (d.spec.merge(selver) == Dependency.invalid) {
+							if (d.spec.merge(selver) == Dependency.Invalid) {
 								logWarn(`Selected package %s@%s does not match ` ~
 								   `the dependency specification %s in ` ~
 								   `package %s. Need to "%s"?`,
@@ -1334,10 +1334,9 @@ class Project {
 		const name = PackageName(m_rootPackage.basePackage.name);
 		if (m_selections.hasSelectedVersion(name))
 			m_selections.deselectVersion(name);
-
-		auto path = m_rootPackage.path ~ SelectedVersions.defaultFile;
-		if (m_selections.dirty || !existsFile(path))
-			m_selections.save(path);
+		this.m_packageManager.writeSelections(
+			this.m_rootPackage, this.m_selections.m_selections,
+			this.m_selections.dirty);
 	}
 
 	deprecated bool isUpgradeCacheUpToDate()
@@ -1979,32 +1978,10 @@ public class SelectedVersions {
 		should be used as the file name and the directory should be the root
 		directory of the project's root package.
 	*/
+	deprecated("Use `PackageManager.writeSelections` to write a `SelectionsFile`")
 	void save(NativePath path)
 	{
-		Json json = serialize();
-		auto result = appender!string();
-
-		assert(json.type == Json.Type.object);
-		assert(json.length == 2 || json.length == 3);
-		assert(json["versions"].type != Json.Type.undefined);
-
-		result.put("{\n\t\"fileVersion\": ");
-		result.writeJsonString(json["fileVersion"]);
-		if (m_selections.inheritable)
-			result.put(",\n\t\"inheritable\": true");
-		result.put(",\n\t\"versions\": {");
-		auto vers = json["versions"].get!(Json[string]);
-		bool first = true;
-		foreach (k; vers.byKey.array.sort()) {
-			if (!first) result.put(",");
-			else first = false;
-			result.put("\n\t\t");
-			result.writeJsonString(Json(k));
-			result.put(": ");
-			result.writeJsonString(vers[k]);
-		}
-		result.put("\n\t}\n}\n");
-		path.writeFile(result.data);
+		path.writeFile(PackageManager.selectionsToString(this.m_selections));
 		m_dirty = false;
 		m_bare = false;
 	}
@@ -2028,17 +2005,9 @@ public class SelectedVersions {
 		else throw new Exception(format("Unexpected type for dependency: %s", j));
 	}
 
-	Json serialize()
-	const {
-		Json json = serializeToJson(m_selections);
-		Json serialized = Json.emptyObject;
-		serialized["fileVersion"] = m_selections.fileVersion;
-		if (m_selections.inheritable)
-			serialized["inheritable"] = true;
-		serialized["versions"] = Json.emptyObject;
-		foreach (p, dep; m_selections.versions)
-			serialized["versions"][p] = dep.toJson(true);
-		return serialized;
+	deprecated("JSON serialization is deprecated")
+	Json serialize() const {
+		return PackageManager.selectionsToJSON(this.m_selections);
 	}
 
 	deprecated("JSON deserialization is deprecated")
@@ -2121,7 +2090,7 @@ Nullable!SelectionsFileLookupResult lookupAndParseSelectionsFile(NativePath absR
 
 	// check for dub.selections.json in root package dir first, then walk up its
 	// parent directories
-	for (NativePath dir = absRootPackagePath; dir.hasParentPath; dir = dir.parentPath) {
+	for (NativePath dir = absRootPackagePath; !dir.empty; dir = dir.hasParentPath ? dir.parentPath : NativePath.init) {
 		const selverfile = dir ~ SelectedVersions.defaultFile;
 		if (existsFile(selverfile)) {
 			// TODO: Remove `StrictMode.Warn` after v1.40 release

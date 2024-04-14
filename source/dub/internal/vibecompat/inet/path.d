@@ -183,10 +183,10 @@ struct NativePath {
 	/// The last entry of the path
 	@property ref immutable(PathEntry) head() const { enforce(m_nodes.length > 0, "Getting head of empty path."); return m_nodes[$-1]; }
 
-	@property bool hasParentPath() const { return !empty(); }
-
 	/// The parent path
 	@property NativePath parentPath() const { return this[0 .. length-1]; }
+	/// Forward compatibility with vibe-d
+	@property bool hasParentPath() const { return length > 1; }
 
 	/// The list of path entries of which this path is composed
 	@property immutable(PathEntry)[] nodes() const { return m_nodes; }

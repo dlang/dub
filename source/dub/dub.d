@@ -212,7 +212,7 @@ class Dub {
 	 * generally in a library setup, one may wish to provide a custom
 	 * implementation, which can be done by overriding this method.
 	 */
-	protected PackageManager makePackageManager() const
+	protected PackageManager makePackageManager()
 	{
 		return new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
 	}
@@ -368,15 +368,15 @@ class Dub {
 		import dub.test.base : TestDub;
 
 		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		auto dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 0);
 		environment["DUB_REGISTRY"] = "http://example.com/";
-		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 1);
 		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
-		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 2);
-		dub = new TestDub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
+		dub = new TestDub(null, ".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 3);
 
 		dub = new TestDub();
@@ -662,7 +662,7 @@ class Dub {
 
 		auto resolver = new DependencyVersionResolver(
 			this, options, m_project.rootPackage, m_project.selections);
-		Dependency[string] versions = resolver.resolve(packages_to_upgrade);
+		Dependency[PackageName] versions = resolver.resolve(packages_to_upgrade);
 
 		if (options & UpgradeOptions.dryRun) {
 			bool any = false;
@@ -671,7 +671,7 @@ class Dub {
 			foreach (p, ver; versions) {
 				if (!ver.path.empty || !ver.repository.empty) continue;
 
-				auto basename = PackageName(p).main;
+				auto basename = p.main;
 				if (basename.toString() == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
@@ -692,9 +692,8 @@ class Dub {
 			return;
 		}
 
-		foreach (p, ver; versions) {
-			const name = PackageName(p);
-			assert(!name.sub, "Resolved packages contain a sub package!?: " ~ p);
+		foreach (name, ver; versions) {
+			assert(!name.sub, "Resolved packages contain a sub package!?: " ~ name.toString());
 			Package pack;
 			if (!ver.path.empty) {
 				try pack = m_packageManager.getOrLoadPackage(ver.path);
@@ -711,7 +710,7 @@ class Dub {
 					&& ver.version_.isBranch && (options & UpgradeOptions.upgrade) != 0)
 				{
 					// TODO: only re-install if there is actually a new commit available
-					logInfo("Re-installing branch based dependency %s %s", p, ver.toString());
+					logInfo("Re-installing branch based dependency %s %s", name, ver.toString());
 					m_packageManager.remove(pack);
 					pack = null;
 				}
@@ -720,7 +719,7 @@ class Dub {
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
 			if (!pack) this.fetch(name, ver.version_, fetchOpts, defaultPlacementLocation, "getting selected version");
-			if ((options & UpgradeOptions.select) && p != m_project.rootPackage.name) {
+			if ((options & UpgradeOptions.select) && name.toString() != m_project.rootPackage.name) {
 				if (!ver.repository.empty) {
 					m_project.selections.selectVersion(name, ver.repository);
 				} else if (ver.path.empty) {
@@ -1022,13 +1021,11 @@ class Dub {
 		{
 			import std.zip : ZipException;
 
-			auto path = getTempFile(name.main.toString(), ".zip");
-			supplier.fetchPackage(path, name.main, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
-			scope(exit) removeFile(path);
+			auto data = supplier.fetchPackage(name.main, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			logDiagnostic("Placing to %s...", location.toString());
 
 			try {
-				return m_packageManager.store(path, location, name.main, ver);
+				return m_packageManager.store(data, location, name.main, ver);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s@%s...", name, ver);
 				// re-throw the exception at the end of the loop
@@ -1649,7 +1646,7 @@ class Dub {
 		import dub.test.base : TestDub;
 		import std.path: buildPath, absolutePath;
 
-		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		auto dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
 		immutable olddc = environment.get("DC", null);
 		immutable oldpath = environment.get("PATH", null);
 		immutable testdir = "test-determineDefaultCompiler";
@@ -1728,11 +1725,11 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	protected {
 		Dub m_dub;
 		UpgradeOptions m_options;
-		Dependency[][string] m_packageVersions;
+		Dependency[][PackageName] m_packageVersions;
 		Package[string] m_remotePackages;
 		SelectedVersions m_selectedVersions;
 		Package m_rootPackage;
-		bool[string] m_packagesToUpgrade;
+		bool[PackageName] m_packagesToUpgrade;
 		Package[PackageDependency] m_packages;
 		TreeNodes[][TreeNode] m_children;
 	}
@@ -1755,27 +1752,26 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		m_selectedVersions = selected_versions;
 	}
 
-	Dependency[string] resolve(string[] filter)
+	Dependency[PackageName] resolve(string[] filter)
 	{
 		foreach (name; filter)
-			m_packagesToUpgrade[name] = true;
-		return super.resolve(TreeNode(m_rootPackage.name, Dependency(m_rootPackage.version_)),
+			m_packagesToUpgrade[PackageName(name)] = true;
+		return super.resolve(TreeNode(PackageName(m_rootPackage.name), Dependency(m_rootPackage.version_)),
 			(m_options & UpgradeOptions.dryRun) == 0);
 	}
 
-	protected bool isFixedPackage(string pack)
+	protected bool isFixedPackage(in PackageName pack)
 	{
 		return m_packagesToUpgrade !is null && pack !in m_packagesToUpgrade;
 	}
 
-	protected override Dependency[] getAllConfigs(string pack)
+	protected override Dependency[] getAllConfigs(in PackageName pack)
 	{
 		if (auto pvers = pack in m_packageVersions)
 			return *pvers;
 
-		const name = PackageName(pack);
-		if ((!(m_options & UpgradeOptions.upgrade) || isFixedPackage(pack)) && m_selectedVersions.hasSelectedVersion(name)) {
-			auto ret = [m_selectedVersions.getSelectedVersion(name)];
+		if ((!(m_options & UpgradeOptions.upgrade) || isFixedPackage(pack)) && m_selectedVersions.hasSelectedVersion(pack)) {
+			auto ret = [m_selectedVersions.getSelectedVersion(pack)];
 			logDiagnostic("Using fixed selection %s %s", pack, ret[0]);
 			m_packageVersions[pack] = ret;
 			return ret;
@@ -1783,12 +1779,12 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 		logDiagnostic("Search for versions of %s (%s package suppliers)", pack, m_dub.m_packageSuppliers.length);
 		Version[] versions;
-		foreach (p; m_dub.packageManager.getPackageIterator(pack))
+		foreach (p; m_dub.packageManager.getPackageIterator(pack.toString()))
 			versions ~= p.version_;
 
 		foreach (ps; m_dub.m_packageSuppliers) {
 			try {
-				auto vers = ps.getVersions(name);
+				auto vers = ps.getVersions(pack);
 				vers.reverse();
 				if (!vers.length) {
 					logDiagnostic("No versions for %s for %s", pack, ps.description);
@@ -1812,7 +1808,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 		// filter out invalid/unreachable dependency specs
 		versions = versions.filter!((v) {
-				bool valid = getPackage(PackageName(pack), Dependency(v)) !is null;
+				bool valid = getPackage(pack, Dependency(v)) !is null;
 				if (!valid) logDiagnostic("Excluding invalid dependency specification %s %s from dependency resolution process.", pack, v);
 				return valid;
 			}).array;
@@ -1825,10 +1821,10 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		return ret;
 	}
 
-	protected override Dependency[] getSpecificConfigs(string pack, TreeNodes nodes)
+	protected override Dependency[] getSpecificConfigs(in PackageName pack, TreeNodes nodes)
 	{
 		if (!nodes.configs.path.empty || !nodes.configs.repository.empty) {
-			if (getPackage(PackageName(nodes.pack), nodes.configs)) return [nodes.configs];
+			if (getPackage(nodes.pack, nodes.configs)) return [nodes.configs];
 			else return null;
 		}
 		else return null;
@@ -1848,7 +1844,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 	{
 		import std.array : appender;
 		auto ret = appender!(TreeNodes[]);
-		auto pack = getPackage(PackageName(node.pack), node.config);
+		auto pack = getPackage(node.pack, node.config);
 		if (!pack) {
 			// this can happen when the package description contains syntax errors
 			logDebug("Invalid package in dependency tree: %s %s", node.pack, node.config);
@@ -1879,7 +1875,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 						format("Dependency from %s to %s uses wrong path: %s vs. %s",
 							node.pack, subpack.name, absdeppath.toNativeString(), desireddeppath.toNativeString()));
 				}
-				ret ~= TreeNodes(d.name.toString(), node.config);
+				ret ~= TreeNodes(d.name, node.config);
 				continue;
 			}
 
@@ -1903,7 +1899,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					dt = DependencyType.optionalDefault;
 			}
 
-			ret ~= TreeNodes(d.name.toString(), dspec, dt);
+			ret ~= TreeNodes(d.name, dspec, dt);
 		}
 		return ret.data;
 	}

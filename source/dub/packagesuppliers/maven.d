@@ -47,21 +47,20 @@ class MavenRegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	override void fetchPackage(in NativePath path, in PackageName name,
+	override ubyte[] fetchPackage(in PackageName name,
 		in VersionRange dep, bool pre_release)
 	{
 		import std.format : format;
 		auto md = getMetadata(name.main);
 		Json best = getBestPackage(md, name.main, dep, pre_release);
 		if (best.type == Json.Type.null_)
-			return;
+			return null;
 		auto vers = best["version"].get!string;
 		auto url = m_mavenUrl ~ NativePath(
 			"%s/%s/%s-%s.zip".format(name.main, vers, name.main, vers));
 
 		try {
-			retryDownload(url, path, 3, httpTimeout);
-			return;
+			return retryDownload(url, 3, httpTimeout);
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;

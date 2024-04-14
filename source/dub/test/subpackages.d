@@ -17,13 +17,14 @@ import dub.test.base;
 /// Test of the PackageManager APIs
 unittest
 {
-    const a = `{ "name": "a", "dependencies": { "b:a": "~>1.0", "b:b": "~>1.0" } }`;
-    const b = `{ "name": "b", "subPackages": [ { "name": "a" }, { "name": "b" } ] }`;
+    scope dub = new TestDub((scope FSEntry root) {
+        root.writeFile(TestDub.ProjectPath ~ "dub.json",
+            `{ "name": "a", "dependencies": { "b:a": "~>1.0", "b:b": "~>1.0" } }`);
+        root.writePackageFile("b", "1.0.0",
+            `{ "name": "b", "version": "1.0.0", "subPackages": [ { "name": "a" }, { "name": "b" } ] }`);
+    });
+    dub.loadPackage();
 
-    scope dub = new TestDub();
-    dub.addTestPackage(`b`, Version("1.0.0"), b);
-    auto mainPackage = dub.addTestPackage(`a`, Version("1.0.0"), a);
-    dub.loadPackage(mainPackage);
     dub.upgrade(UpgradeOptions.select);
 
     assert(dub.project.hasAllDependencies(), "project has missing dependencies");

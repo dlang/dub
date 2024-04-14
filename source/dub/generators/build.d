@@ -216,7 +216,7 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = settings.toolWorkingDirectory;
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
-		auto build_id = buildsettings.computeBuildID(config, settings);
+		auto build_id = buildsettings.computeBuildID(pack.path, config, settings);
 
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
@@ -321,7 +321,7 @@ class BuildGenerator : ProjectGenerator {
 		const dbPathStr = dbPath.toNativeString();
 		Json db;
 		if (exists(dbPathStr)) {
-			const text = stripUTF8Bom(cast(string)readFile(dbPath));
+			const text = readText(dbPath);
 			db = parseJsonString(text, dbPathStr);
 			enforce(db.type == Json.Type.array, "Expected a JSON array in " ~ dbPathStr);
 		}

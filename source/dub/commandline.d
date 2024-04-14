@@ -28,7 +28,7 @@ import std.array;
 import std.conv;
 import std.encoding;
 import std.exception;
-import std.file;
+static import std.file;
 import std.getopt;
 import std.path : absolutePath, buildNormalizedPath, expandTilde, setExtension;
 import std.process : environment, spawnProcess, wait;
@@ -82,44 +82,58 @@ CommandGroup[] getCommands() @safe pure nothrow
 		args = a list of string arguments that will be processed
 
 	Returns:
-		A structure with two members. `value` is the command name
-		`remaining` is a list of unprocessed arguments
+		The command name that was found (may be null).
 */
-auto extractCommandNameArgument(string[] args)
+string commandNameArgument(ref string[] args)
 {
-	struct Result {
-		string value;
-		string[] remaining;
-	}
-
 	if (args.length >= 1 && !args[0].startsWith("-") && !args[0].canFind(":")) {
-		return Result(args[0], args[1 .. $]);
+		const result = args[0];
+		args = args[1 .. $];
+		return result;
 	}
-
-	return Result(null, args);
+	return null;
 }
 
 /// test extractCommandNameArgument usage
 unittest {
-	/// It returns an empty string on when there are no args
-	assert(extractCommandNameArgument([]).value == "");
-	assert(extractCommandNameArgument([]).remaining == []);
+    {
+        string[] args;
+        /// It returns an empty string on when there are no args
+        assert(commandNameArgument(args) is null);
+        assert(!args.length);
+    }
 
-	/// It returns the first argument when it does not start with `-`
-	assert(extractCommandNameArgument(["test"]).value == "test");
+    {
+        string[] args = [ "test" ];
+        /// It returns the first argument when it does not start with `-`
+        assert(commandNameArgument(args) == "test");
+        /// There is nothing to extract when the arguments only contain the `test` cmd
+        assert(!args.length);
+    }
 
-	/// There is nothing to extract when the arguments only contain the `test` cmd
-	assert(extractCommandNameArgument(["test"]).remaining == []);
+    {
+        string[] args = [ "-a", "-b" ];
+        /// It extracts two arguments when they are not a command
+        assert(commandNameArgument(args) is null);
+        assert(args == ["-a", "-b"]);
+    }
 
-	/// It extracts two arguments when they are not a command
-	assert(extractCommandNameArgument(["-a", "-b"]).remaining == ["-a", "-b"]);
+    {
+        string[] args = [ "-test" ];
+        /// It returns the an empty string when it starts with `-`
+        assert(commandNameArgument(args) is null);
+        assert(args.length == 1);
+    }
 
-	/// It returns the an empty string when it starts with `-`
-	assert(extractCommandNameArgument(["-test"]).value == "");
-
-	// Sub package names are ignored as command names
-	assert(extractCommandNameArgument(["foo:bar"]).value == "");
-	assert(extractCommandNameArgument([":foo"]).value == "");
+    {
+        string[] args = [ "foo:bar" ];
+        // Sub package names are ignored as command names
+        assert(commandNameArgument(args) is null);
+        assert(args.length == 1);
+        args[0] = ":foo";
+        assert(commandNameArgument(args) is null);
+        assert(args.length == 1);
+    }
 }
 
 /** Handles the Command Line options and commands.
@@ -139,13 +153,13 @@ struct CommandLineHandler
 	*/
 	string[] commandNames()
 	{
-		return commandGroups.map!(g => g.commands.map!(c => c.name).array).join;
+		return commandGroups.map!(g => g.commands).joiner.map!(c => c.name).array;
 	}
 
 	/** Parses the general options and sets up the log level
 		and the root_path
 	*/
-	void prepareOptions(CommandArgs args) {
+	string[] prepareOptions(CommandArgs args) {
 		LogLevel loglevel = LogLevel.info;
 
 		options.prepare(args);
@@ -159,7 +173,7 @@ struct CommandLineHandler
 
 		if (options.root_path.empty)
 		{
-			options.root_path = getcwd();
+			options.root_path = std.file.getcwd();
 		}
 		else
 		{
@@ -186,6 +200,7 @@ struct CommandLineHandler
 				setLoggingColorsEnabled(false); // disable colors, no matter what
 				break;
 		}
+		return args.extractAllRemainingArgs();
 	}
 
 	/** Get an instance of the requested command.
@@ -266,7 +281,7 @@ unittest {
 
 	auto args = new CommandArgs([]);
 	handler.prepareOptions(args);
-	assert(handler.options.root_path == getcwd());
+	assert(handler.options.root_path == std.file.getcwd());
 }
 
 /// It can set a custom root_path
@@ -371,8 +386,6 @@ unittest {
 */
 int runDubCommandLine(string[] args)
 {
-	import std.file : tempDir;
-
 	static string[] toSinglePackageArgs (string args0, string file, string[] trailing)
 	{
 		return [args0, "run", "-q", "--temp-build", "--single", file, "--"] ~ trailing;
@@ -391,7 +404,7 @@ int runDubCommandLine(string[] args)
 			// While it probably isn't needed for all targets, it does simplify things a bit.
 			// Question is can it be more generic? Probably not due to $TMP
 			if ("TEMP" !in environment)
-				environment["TEMP"] = tempDir();
+				environment["TEMP"] = std.file.tempDir();
 
 			// rdmd uses $TEMP to compute a temporary path. since cygwin substitutes backslashes
 			// with slashes, this causes OPTLINK to fail (it thinks path segments are options)
@@ -405,7 +418,6 @@ int runDubCommandLine(string[] args)
 	}
 
 	auto handler = CommandLineHandler(getCommands());
-	auto commandNames = handler.commandNames();
 
 	// Special syntaxes need to be handled before regular argument parsing
 	if (args.length >= 2)
@@ -435,12 +447,12 @@ int runDubCommandLine(string[] args)
 		// We have to assume it isn't, and to reduce the risk of false positive
 		// we only consider the case where the file name is the first argument,
 		// as the shell invocation cannot be controlled.
-		else if (!commandNames.canFind(args[1]) && !args[1].startsWith("-")) {
-			if (exists(args[1])) {
+		else if (handler.getCommand(args[1]) is null && !args[1].startsWith("-")) {
+			if (std.file.exists(args[1])) {
 				auto path = getTempFile("app", ".d");
-				copy(args[1], path.toNativeString());
+				std.file.copy(args[1], path.toNativeString());
 				args = toSinglePackageArgs(args[0], path.toNativeString(), args[2 .. $]);
-			} else if (exists(args[1].setExtension(".d"))) {
+			} else if (std.file.exists(args[1].setExtension(".d"))) {
 				args = toSinglePackageArgs(args[0], args[1].setExtension(".d"), args[2 .. $]);
 			}
 		}
@@ -448,7 +460,8 @@ int runDubCommandLine(string[] args)
 
 	auto common_args = new CommandArgs(args[1..$]);
 
-	try handler.prepareOptions(common_args);
+	try
+		args = handler.prepareOptions(common_args);
 	catch (Exception e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
@@ -462,16 +475,12 @@ int runDubCommandLine(string[] args)
 		return 0;
 	}
 
-	// extract the command
-	args = common_args.extractAllRemainingArgs();
-
-	auto command_name_argument = extractCommandNameArgument(args);
-
-	auto command_args = new CommandArgs(command_name_argument.remaining);
+	const command_name = commandNameArgument(args);
+	auto command_args = new CommandArgs(args);
 	Command cmd;
 
 	try {
-		cmd = handler.prepareCommand(command_name_argument.value, command_args);
+		cmd = handler.prepareCommand(command_name, command_args);
 	} catch (Exception e) {
 		logError("Error processing arguments: %s", e.msg);
 		logDiagnostic("Full exception: %s", e.toString().sanitize);
@@ -482,14 +491,14 @@ int runDubCommandLine(string[] args)
 	if (cmd is null) {
 		logInfoNoTag("USAGE: dub [--version] [<command>] [<options...>] [-- [<application arguments...>]]");
 		logInfoNoTag("");
-		logError("Unknown command: %s", command_name_argument.value);
+		logError("Unknown command: %s", command_name);
 		import std.algorithm.iteration : filter;
 		import std.uni : toUpper;
 		foreach (CommandGroup key; handler.commandGroups)
 		{
 			foreach (Command command; key.commands)
 			{
-				if (levenshteinDistance(command_name_argument.value, command.name) < 4) {
+				if (levenshteinDistance(command_name, command.name) < 4) {
 					logInfo("Did you mean '%s'?", command.name);
 				}
 			}
@@ -885,7 +894,7 @@ class Command {
 
 	private bool loadCwdPackage(Dub dub, bool warn_missing_package)
 	{
-		auto filePath = Package.findPackageFile(dub.rootPath);
+		auto filePath = dub.packageManager.findPackageFile(dub.rootPath);
 
 		if (filePath.empty) {
 			if (warn_missing_package) {
@@ -2635,7 +2644,7 @@ class ListOverridesCommand : Command {
 			logInfoNoTag("# %s", caption);
 			foreach (ovr; overrides)
 				ovr.target.match!(
-					t => logInfoNoTag("%s %s => %s", ovr.package_.color(Mode.bold), ovr.version_, t));
+					t => logInfoNoTag("%s %s => %s", ovr.package_.color(Mode.bold), ovr.source, t));
 		}
 		printList(dub.packageManager.getOverrides_(PlacementLocation.user), "User wide overrides");
 		printList(dub.packageManager.getOverrides_(PlacementLocation.system), "System wide overrides");
@@ -2833,7 +2842,7 @@ class DustmiteCommand : PackageBuildCommand {
 			logInfo("Starting", Color.light_green, "Executing dustmite...");
 			auto testcmd = appender!string();
 			testcmd.formattedWrite("%s dustmite --test-package=%s --build=%s --config=%s",
-				thisExePath, prj.name, this.baseSettings.buildType, this.baseSettings.config);
+				std.file.thisExePath, prj.name, this.baseSettings.buildType, this.baseSettings.config);
 
 			if (m_compilerName.length) testcmd.formattedWrite(" \"--compiler=%s\"", m_compilerName);
 			if (m_arch.length) testcmd.formattedWrite(" --arch=%s", m_arch);

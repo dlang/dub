@@ -66,6 +66,19 @@ public struct PackageName
 	{
 		return this.fullName;
 	}
+
+    ///
+    public int opCmp (in PackageName other) const scope @safe pure nothrow @nogc
+    {
+        import core.internal.string : dstrcmp;
+        return dstrcmp(this.toString(), other.toString());
+    }
+
+    ///
+    public bool opEquals (in PackageName other) const scope @safe pure nothrow @nogc
+    {
+        return this.toString() == other.toString();
+    }
 }
 
 /** Encapsulates the name of a package along with its dependency specification.
@@ -111,14 +124,19 @@ struct Dependency {
 	// Shortcut to create >=0.0.0
 	private enum ANY_IDENT = "*";
 
-	private Value m_value;
+	private Value m_value = Value(VersionRange.Invalid);
 	private bool m_optional;
 	private bool m_default;
 
 	/// A Dependency, which matches every valid version.
-	static @property Dependency any() @safe { return Dependency(VersionRange.Any); }
+	public static immutable Dependency Any = Dependency(VersionRange.Any);
 
 	/// An invalid dependency (with no possible version matches).
+	public static immutable Dependency Invalid = Dependency(VersionRange.Invalid);
+
+	deprecated("Use `Dependency.Any` instead")
+	static @property Dependency any() @safe { return Dependency(VersionRange.Any); }
+	deprecated("Use `Dependency.Invalid` instead")
 	static @property Dependency invalid() @safe
 	{
 		return Dependency(VersionRange.Invalid);
@@ -497,11 +515,11 @@ struct Dependency {
 	*/
 	Dependency merge(ref const(Dependency) o) const @trusted {
 		alias Merger = match!(
-			(const NativePath a, const NativePath b) => a == b ? this : invalid,
+			(const NativePath a, const NativePath b) => a == b ? this : Invalid,
 			(const NativePath a,       any         ) => o,
 			(      any         , const NativePath b) => this,
 
-			(const Repository a, const Repository b) => a.m_ref == b.m_ref ? this : invalid,
+			(const Repository a, const Repository b) => a.m_ref == b.m_ref ? this : Invalid,
 			(const Repository a,       any         ) => this,
 			(      any         , const Repository b) => o,
 
@@ -511,7 +529,7 @@ struct Dependency {
 
 				VersionRange copy = a;
 				copy.merge(b);
-				if (!copy.isValid()) return invalid;
+				if (!copy.isValid()) return Invalid;
 				return Dependency(copy);
 			}
 		);
@@ -669,7 +687,7 @@ unittest {
 	assert(a.valid);
 	assert(a.version_ == Version("~d2test"));
 
-	a = Dependency.any;
+	a = Dependency.Any;
 	assert(!a.optional);
 	assert(a.valid);
 	assertThrown(a.version_);

@@ -34,6 +34,12 @@ public ubyte[] readFile(NativePath path)
 	return cast(ubyte[]) std.file.read(path.toNativeString());
 }
 
+/// Returns the content of a file as text
+public string readText(NativePath path)
+{
+    return std.file.readText(path.toNativeString());
+}
+
 /**
 	Moves or renames a file.
 */
@@ -246,8 +252,7 @@ FileInfo getFileInfo(string path)
 */
 void ensureDirectory(NativePath path)
 {
-	if (!existsDirectory(path))
-		mkdirRecurse(path.toNativeString());
+	mkdirRecurse(path.toNativeString());
 }
 
 /**
@@ -287,9 +292,6 @@ struct FileInfo {
 	/// Time of the last modification
 	SysTime timeModified;
 
-	/// Time of creation (not available on all operating systems/file systems)
-	SysTime timeCreated;
-
 	/// True if this is a symlink to an actual file
 	bool isSymlink;
 
@@ -326,8 +328,6 @@ private FileInfo makeFileInfo(DirEntry ent)
 		ret.isDirectory = ent.isDir;
 		ret.size = ent.size;
 		ret.timeModified = ent.timeLastModified;
-		version(Windows) ret.timeCreated = ent.timeCreated;
-		else ret.timeCreated = ent.timeLastModified;
 	} catch (Exception e) {
 		logDiagnostic("Failed to get extended file information for %s: %s", ret.name, e.msg);
 	}
