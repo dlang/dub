@@ -613,17 +613,22 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
  * the module's name from the module declaration.
  */
 string getModuleNameFromContent(string content) {
-	import std.ascii: isAlpha, isAlphaNum;
+	import std.ascii: isAlpha, isAlphaNum, isWhite;
 	import std.algorithm: among;
 	import core.exception: RangeError;
 
 	enum keyword = "module";
 
 	size_t i = 0;
+	size_t startIndex = 0, endIndex = 0;
 	auto foundKeyword = false;
 
 	auto ch() {
 		return content[i];
+	}
+
+	static bool isIdentChar(in char c) {
+		return !isWhite(c) && c != '/' && c != ';';
 	}
 
 	try {
@@ -671,16 +676,26 @@ string getModuleNameFromContent(string content) {
 					}
 				}
 			}
-			else if((isAlpha(ch) || ch == '_') && foundKeyword) {
-				const start = i;
-				while(isAlphaNum(ch) || ch.among('.', '_')) {
+			else if(isIdentChar(ch) && foundKeyword) {
+				if(startIndex == 0)
+					startIndex = i;
+				++i; // skip the first char of the name
+				while(isIdentChar(ch)) {
 					++i;
 				}
-				return content[start .. i];
+				// when we get here, either we're at the end of the module's identifier,
+				// or there are comments afterwards
+				if(endIndex == 0) {
+					endIndex = i;
+				}
+				if(!isIdentChar(ch))
+					return content[startIndex .. endIndex];
+				else continue;
+			} else if(!isIdentChar(ch) && foundKeyword && startIndex != 0) {
+				return content[startIndex .. endIndex];
 			}
 			++i;
 		}
-
 		return "";
 	} catch(RangeError) {
 		return "";
@@ -689,7 +704,7 @@ string getModuleNameFromContent(string content) {
 
 unittest {
 	assert(getModuleNameFromContent("") == "");
-	assert(getModuleNameFromContent("module myPackage.myModule;") == "myPackage.myModule");
+	assert(getModuleNameFromContent("module myPackage.myModule;") == "myPackage.myModule", getModuleNameFromContent("module myPackage.myModule;"));
 	assert(getModuleNameFromContent("module \t\n myPackage.myModule \t\r\n;") == "myPackage.myModule");
 	assert(getModuleNameFromContent("// foo\nmodule bar;") == "bar");
 	assert(getModuleNameFromContent("/*\nfoo\n*/\nmodule bar;") == "bar");
@@ -702,7 +717,7 @@ unittest {
 	assert(getModuleNameFromContent("/+ /+ module foo; +/ +/\nmodule bar;") == "bar");
 	assert(getModuleNameFromContent("// module foo;\nmodule bar; // module foo;") == "bar");
 
-	assert(getModuleNameFromContent("// module foo;\nmodule// module foo;\nbar//module foo;\n;// module foo;") == "bar", "argh: " ~ getModuleNameFromContent("// module foo;\nmodule// module foo;\nbar//module foo;\n;// module foo;"));
+	assert(getModuleNameFromContent("// module foo;\nmodule// module foo;\nbar//module foo;\n;// module foo;") == "bar");
 
 	assert(getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;") == "bar", getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;"));
 	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar;") == "bar");
@@ -711,6 +726,8 @@ unittest {
 	assert(getModuleNameFromContent("module foo_bar;") == "foo_bar");
 	assert(getModuleNameFromContent("module _foo_bar;") == "_foo_bar");
 	assert(getModuleNameFromContent("/++ ++/\nmodule foo;") == "foo");
+	assert(getModuleNameFromContent("module pokémon;") == "pokémon");
+	assert(getModuleNameFromContent("module éclair;") == "éclair");
 }
 
 /**
