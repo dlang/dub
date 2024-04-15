@@ -665,7 +665,7 @@ string getModuleNameFromContent(string content) {
 							++i;
 							if(ch == '/') {
 								--level;
-							}
+							} else continue;
 						}
 						++i;
 					}
@@ -710,6 +710,7 @@ unittest {
 	assert(getModuleNameFromContent("/*\nmodule sometest;\n*/\n\nmodule fakemath;\n") == "fakemath");
 	assert(getModuleNameFromContent("module foo_bar;") == "foo_bar");
 	assert(getModuleNameFromContent("module _foo_bar;") == "_foo_bar");
+	assert(getModuleNameFromContent("/++ ++/\nmodule foo;") == "foo");
 }
 
 /**
