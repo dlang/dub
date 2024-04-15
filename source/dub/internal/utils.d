@@ -614,6 +614,7 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
  */
 string getModuleNameFromContent(string content) {
 	import std.ascii: isAlpha, isAlphaNum;
+	import std.algorithm: among;
 	import core.exception: RangeError;
 
 	enum keyword = "module";
@@ -670,9 +671,9 @@ string getModuleNameFromContent(string content) {
 					}
 				}
 			}
-			else if(isAlpha(ch) && foundKeyword) {
+			else if((isAlpha(ch) || ch == '_') && foundKeyword) {
 				const start = i;
-				while(isAlphaNum(ch) || ch == '.') {
+				while(isAlphaNum(ch) || ch.among('.', '_')) {
 					++i;
 				}
 				return content[start .. i];
@@ -707,6 +708,8 @@ unittest {
 	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar;") == "bar");
 	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar/++/;") == "bar");
 	assert(getModuleNameFromContent("/*\nmodule sometest;\n*/\n\nmodule fakemath;\n") == "fakemath");
+	assert(getModuleNameFromContent("module foo_bar;") == "foo_bar");
+	assert(getModuleNameFromContent("module _foo_bar;") == "_foo_bar");
 }
 
 /**
