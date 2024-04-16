@@ -48,9 +48,7 @@ deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryU
 /// The URL to the official package registry and it's default fallback registries.
 static immutable string[] defaultRegistryURLs = [
 	"https://code.dlang.org/",
-	"https://codemirror.dlang.org/",
-	"https://dub.bytecraft.nl/",
-	"https://code-mirror.dlang.io/",
+	"https://codemirror.dlang.org/"
 ];
 
 /** Returns a default list of package suppliers.
