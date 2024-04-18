@@ -648,7 +648,7 @@ string getModuleNameFromContent(string content) {
 				// block comment?
 				else if(ch == '*') {
 					++i;
-					while(ch != '*' && content[i + 1] != '/')
+					while(ch != '*' || content[i + 1] != '/')
 						++i;
 					++i; // skip over closing '/'
 				}
@@ -728,6 +728,8 @@ unittest {
 	assert(getModuleNameFromContent("/++ ++/\nmodule foo;") == "foo");
 	assert(getModuleNameFromContent("module pokémon;") == "pokémon");
 	assert(getModuleNameFromContent("module éclair;") == "éclair");
+	assert(getModuleNameFromContent("/** module foo*/ module bar;") == "bar");
+	assert(getModuleNameFromContent("/* / module foo*/ module bar;") == "bar");
 }
 
 /**
