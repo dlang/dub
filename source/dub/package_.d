@@ -573,13 +573,18 @@ class Package {
 	// Left as package until the final API for this has been found
 	package auto getAllDependenciesRange()
 	const {
+		import std.algorithm: sort, uniq;
+		import std.array: array;
 		return
 			chain(
 				only(this.recipe.buildSettings.dependencies.byKeyValue),
 				this.recipe.configurations.map!(c => c.buildSettings.dependencies.byKeyValue)
 			)
 			.joiner()
-			.map!(d => PackageDependency(PackageName(d.key), d.value));
+			.map!(d => PackageDependency(PackageName(d.key), d.value))
+			.array
+			.sort
+			.uniq;
 	}
 
 
