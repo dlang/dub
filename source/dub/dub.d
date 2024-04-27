@@ -157,6 +157,13 @@ class Dub {
 
 		init();
 
+		if (skip == SkipPackageSuppliers.default_) {
+			// If unspecified on the command line, take
+			// the value from the configuration files, or
+			// default to none.
+			skip = m_config.skipRegistry.set ? m_config.skipRegistry.value : SkipPackageSuppliers.none;
+		}
+
 		const registry_var = environment.get("DUB_REGISTRY", null);
 		m_packageSuppliers = this.makePackageSuppliers(base, skip, registry_var);
 		m_packageManager = this.makePackageManager();

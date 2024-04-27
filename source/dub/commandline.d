@@ -565,7 +565,7 @@ struct CommonOptions {
 	string root_path, recipeFile;
 	enum Color { automatic, on, off }
 	Color colorMode = Color.automatic;
-	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
+	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.default_;
 	PlacementLocation placementLocation = PlacementLocation.user;
 
 	deprecated("Use `Color` instead, the previous naming was a limitation of error message formatting")
@@ -591,6 +591,30 @@ struct CommonOptions {
 				~ "', supported values: --color[=auto], --color=always, --color=never");
 	}
 
+	private void parseSkipRegistry(string option, string value) @safe
+	{
+		// We only want to support `none`, `standard`, `configured`, and `all`.
+		// We use a separate function to prevent getopt from parsing SkipPackageSuppliers.default_.
+		assert(option == "skip-registry",
+		       "parseSkipRegistry called with unknown option '" ~ option ~ "'");
+		switch (value) with (SkipPackageSuppliers) {
+		case "none":
+			skipRegistry = none;
+			break;
+		case "standard":
+			skipRegistry = standard;
+			break;
+		case "configured":
+			skipRegistry = configured;
+			break;
+		case "all":
+			skipRegistry = all;
+			break;
+		default:
+			throw new GetOptException("skip-registry only accepts 'none', 'standard', 'configured', and 'all', not '" ~ value ~ "'");
+		}
+	}
+
 	/// Parses all common options and stores the result in the struct instance.
 	void prepare(CommandArgs args)
 	{
@@ -602,7 +626,7 @@ struct CommonOptions {
 			"  DUB: URL to DUB registry (default)",
 			"  Maven: URL to Maven repository + group id containing dub packages as artifacts. E.g. mvn+http://localhost:8040/maven/libs-release/dubpackages",
 			]);
-		args.getopt("skip-registry", &skipRegistry, [
+		args.getopt("skip-registry", &skipRegistry, &parseSkipRegistry, [
 			"Sets a mode for skipping the search on certain package registry types:",
 			"  none: Search all configured or default registries (default)",
 			"  standard: Don't search the main registry (e.g. "~defaultRegistryURLs[0]~")",
