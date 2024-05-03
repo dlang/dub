@@ -697,14 +697,6 @@ class Project {
 			return (Vertex(pack_idx, config) in configs_set) !is null;
 		}
 
-		size_t createEdge(size_t from, size_t to) {
-			auto idx = edges.countUntil(Edge(from, to));
-			if (idx >= 0) return idx;
-			logDebug("Including %s %s -> %s %s", configs[from].pack, configs[from].config, configs[to].pack, configs[to].config);
-			edges ~= Edge(from, to);
-			return edges.length-1;
-		}
-
 		void removeConfig(size_t i) {
 			logDebug("Eliminating config %s for %s", configs[i].config, configs[i].pack);
 			auto had_dep_to_pack = new bool[configs.length];
@@ -762,6 +754,15 @@ class Project {
 		string[][] depconfigs = new string[][](package_list.length);
 		void determineDependencyConfigs(size_t pack_idx, string c)
 		{
+			void[0][Edge] edges_set;
+			void createEdge(size_t from, size_t to) {
+				if (Edge(from, to) in edges_set)
+					return;
+				logDebug("Including %s %s -> %s %s", configs[from].pack, configs[from].config, configs[to].pack, configs[to].config);
+				edges ~= Edge(from, to);
+				edges_set[Edge(from, to)] = (void[0]).init;
+			}
+
 			auto p = package_list[pack_idx];
 			auto pname = package_names[pack_idx];
 			auto pdeps = package_dependencies[pack_idx];
