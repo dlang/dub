@@ -43,6 +43,7 @@ class Project {
 		PackageManager m_packageManager;
 		Package m_rootPackage;
 		Package[] m_dependencies;
+		Package[string] m_dependenciesByName;
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
 		string[] m_missingDependencies;
@@ -227,9 +228,8 @@ class Project {
 	*/
 	inout(Package) getDependency(string name, bool is_optional)
 	inout {
-		foreach(dp; m_dependencies)
-			if( dp.name == name )
-				return dp;
+		if (auto pp = name in m_dependenciesByName)
+			return *pp;
 		if (!is_optional) throw new Exception("Unknown dependency: "~name);
 		else return null;
 	}
@@ -519,8 +519,10 @@ class Project {
 	void reinit()
 	{
 		m_dependencies = null;
+		m_dependenciesByName = null;
 		m_missingDependencies = [];
 		collectDependenciesRec(m_rootPackage);
+		foreach (p; m_dependencies) m_dependenciesByName[p.name] = p;
 		m_missingDependencies.sort();
 	}
 
