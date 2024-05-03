@@ -698,18 +698,25 @@ class Project {
 			auto had_dep_to_pack = new bool[configs.length];
 			auto still_has_dep_to_pack = new bool[configs.length];
 
-			edges = edges.filter!((e) {
-					if (e.to == i) {
-						had_dep_to_pack[e.from] = true;
-						return false;
-					} else if (configs[e.to].pack == configs[i].pack) {
-						still_has_dep_to_pack[e.from] = true;
-					}
-					if (e.from == i) return false;
-					return true;
-				}).array;
+			// eliminate all edges that connect to config 'i'
+			size_t eti = 0;
+			foreach (ei, e; edges) {
+				if (e.to == i) {
+					had_dep_to_pack[e.from] = true;
+					continue;
+				} else if (configs[e.to].pack == configs[i].pack) {
+					still_has_dep_to_pack[e.from] = true;
+				}
+				if (e.from == i) continue;
 
-			configs[i] = Vertex.init; // mark config as removed
+				// keep edge
+				if (eti != ei) edges[eti] = edges[ei];
+				eti++;
+			}
+			edges = edges[0 .. eti];
+
+			// mark config as removed
+			configs[i] = Vertex.init;
 
 			// also remove any configs that cannot be satisfied anymore
 			foreach (j; 0 .. configs.length)
