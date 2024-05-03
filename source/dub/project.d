@@ -646,6 +646,7 @@ class Project {
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
 		import std.typecons : Rebindable, rebindable;
+		import std.range : only;
 
 		struct Vertex { size_t pack = size_t.max; string config; }
 		struct Edge { size_t from, to; }
@@ -775,24 +776,28 @@ class Project {
 				auto dp = package_map.get(d.name.toString(), size_t.max);
 				if (dp == size_t.max) continue;
 
-				depconfigs[dp] = null;
+				depconfigs[dp].length = 0;
+				depconfigs[dp].assumeSafeAppend;
 
-				string[] cfgs;
-				if (auto pc = package_names[dp] in m_overriddenConfigs) cfgs = [*pc];
-				else {
-					auto subconf = p.getSubConfiguration(c, package_list[dp], platform);
-					if (!subconf.empty) cfgs = [subconf];
-					else cfgs = package_list[dp].getPlatformConfigurations(platform);
+				void setConfigs(R)(R configs) {
+					configs
+						.filter!(c => haveConfig(dp, c))
+						.each!((c) { depconfigs[dp] ~= c; });
 				}
-				cfgs = cfgs.filter!(c => haveConfig(dp, c)).array;
+				if (auto pc = package_names[dp] in m_overriddenConfigs) {
+					setConfigs(only(*pc));
+				} else {
+					auto subconf = p.getSubConfiguration(c, package_list[dp], platform);
+					if (!subconf.empty) setConfigs(only(subconf));
+					else setConfigs(package_list[dp].getPlatformConfigurations(platform));
+				}
 
 				// if no valid configuration was found for a dependency, don't include the
 				// current configuration
-				if (!cfgs.length) {
+				if (!depconfigs[dp].length) {
 					logDebug("Skip %s %s (missing configuration for %s)", pname, c, package_names[dp]);
 					return;
 				}
-				depconfigs[dp] = cfgs;
 			}
 
 			// add this configuration to the graph
