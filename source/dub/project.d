@@ -649,6 +649,7 @@ class Project {
 		struct Edge { size_t from, to; }
 
 		Vertex[] configs;
+		void[0][Vertex] configs_set;
 		Edge[] edges;
 
 		// cached package information to avoid continuous re-computation
@@ -683,12 +684,14 @@ class Project {
 			auto pname = package_names[pack_idx];
 			assert(pname !in m_overriddenConfigs || config == m_overriddenConfigs[pname]);
 			logDebug("Add config %s %s", pname, config);
-			configs ~= Vertex(pack_idx, config);
+			auto cfg = Vertex(pack_idx, config);
+			configs ~= cfg;
+			configs_set[cfg] = (void[0]).init;
 			return configs.length-1;
 		}
 
 		bool haveConfig(size_t pack_idx, string config) {
-			return configs.any!(c => c.pack == pack_idx && c.config == config);
+			return (Vertex(pack_idx, config) in configs_set) !is null;
 		}
 
 		size_t createEdge(size_t from, size_t to) {
@@ -722,6 +725,7 @@ class Project {
 			edges = edges[0 .. eti];
 
 			// mark config as removed
+			configs_set.remove(configs[i]);
 			configs[i] = Vertex.init;
 
 			// also remove any configs that cannot be satisfied anymore
@@ -752,8 +756,7 @@ class Project {
 			return true;
 		}
 
-		string[] allconfigs_path;
-
+		string[][] depconfigs = new string[][](package_list.length);
 		void determineDependencyConfigs(size_t pack_idx, string c)
 		{
 			auto p = package_list[pack_idx];
@@ -766,7 +769,6 @@ class Project {
 			if(haveConfig(pack_idx, c) && !(config.length && pname == m_rootPackage.name && config == c))
 				return;
 
-			string[][string] depconfigs;
 			foreach (d; pdeps) {
 				auto dp = package_map.get(d.name.toString(), size_t.max);
 				if (dp == size_t.max) continue;
@@ -788,17 +790,20 @@ class Project {
 					logDebug("Skip %s %s (missing configuration for %s)", pname, c, package_names[dp]);
 					return;
 				}
-				depconfigs[d.name.toString()] = cfgs;
+				depconfigs[dp] = cfgs;
 			}
 
 			// add this configuration to the graph
 			size_t cidx = createConfig(pack_idx, c);
-			foreach (d; pdeps)
-				foreach (sc; depconfigs.get(d.name.toString(), null))
-					createEdge(cidx, createConfig(package_map[d.name.toString()], sc));
+			foreach (d; pdeps) {
+				if (auto pdp = d.name.toString() in package_map)
+					foreach (sc; depconfigs[*pdp])
+						createEdge(cidx, createConfig(*pdp, sc));
+			}
 		}
 
 		// create a graph of all possible package configurations (package, config) -> (sub-package, sub-config)
+		string[] allconfigs_path;
 		void determineAllConfigs(size_t pack_idx)
 		{
 			auto p = package_list[pack_idx];
