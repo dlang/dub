@@ -798,7 +798,10 @@ class Project {
 			auto idx = allconfigs_path.countUntil(pname);
 			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ pname).join("->")));
 			allconfigs_path ~= pname;
-			scope (exit) allconfigs_path.length--;
+			scope (exit) {
+				allconfigs_path.length--;
+				allconfigs_path.assumeSafeAppend;
+			}
 
 			// first, add all dependency configurations
 			foreach (d; pdeps) {
