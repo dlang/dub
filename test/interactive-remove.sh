@@ -8,33 +8,35 @@
 # In the meantime, in order to make it pass on developer's machines,
 # we need to nuke every `dub` version in the user cache...
 $DUB remove dub -n || true
+DUBPKGPATH=${DPATH+"$DPATH/dub/packages/dub"}
+DUBPKGPATH=${DUBPKGPATH:-"$HOME/.dub/packages/dub"}
 
-$DUB fetch dub@1.9.0 && [ -d $HOME/.dub/packages/dub/1.9.0/dub ]
-$DUB fetch dub@1.10.0 && [ -d $HOME/.dub/packages/dub/1.10.0/dub ]
+$DUB fetch dub@1.9.0 && [ -d $DUBPKGPATH/1.9.0/dub ]
+$DUB fetch dub@1.10.0 && [ -d $DUBPKGPATH/1.10.0/dub ]
 
 echo 1 | $DUB remove dub | tr -d '\n' | grep --ignore-case 'select.*1\.9\.0.*1\.10\.0.*'
-if [ -d $HOME/.dub/packages/dub/1.9.0/dub ]; then
+if [ -d $DUBPKGPATH/1.9.0/dub ]; then
     die $LINENO 'Failed to remove dub-1.9.0'
 fi
 
-$DUB fetch dub@1.9.0 && [ -d $HOME/.dub/packages/dub/1.9.0/dub ]
+$DUB fetch dub@1.9.0 && [ -d $DUBPKGPATH/1.9.0/dub ]
 # EOF aborts remove
 echo -xn '' | $DUB remove dub
-if [ ! -d $HOME/.dub/packages/dub/1.9.0/dub ] || [ ! -d $HOME/.dub/packages/dub/1.10.0/dub ]; then
+if [ ! -d $DUBPKGPATH/1.9.0/dub ] || [ ! -d $DUBPKGPATH/1.10.0/dub ]; then
     die $LINENO 'Aborted dub still removed a package'
 fi
 
 # validates input
 echo -e 'abc\n4\n-1\n3' | $DUB remove dub
-if [ -d $HOME/.dub/packages/dub/1.9.0/dub ] || [ -d $HOME/.dub/packages/dub/1.10.0/dub ]; then
+if [ -d $DUBPKGPATH/1.9.0/dub ] || [ -d $DUBPKGPATH/1.10.0/dub ]; then
     die $LINENO 'Failed to remove all version of dub'
 fi
 
-$DUB fetch dub@1.9.0 && [ -d $HOME/.dub/packages/dub/1.9.0/dub ]
-$DUB fetch dub@1.10.0 && [ -d $HOME/.dub/packages/dub/1.10.0/dub ]
+$DUB fetch dub@1.9.0 && [ -d $DUBPKGPATH/1.9.0/dub ]
+$DUB fetch dub@1.10.0 && [ -d $DUBPKGPATH/1.10.0/dub ]
 # is non-interactive with a <version-spec>
 $DUB remove dub@1.9.0
 $DUB remove dub@1.10.0
-if [ -d $HOME/.dub/packages/dub/1.9.0/dub ] || [ -d $HOME/.dub/packages/dub/1.10.0/dub ]; then
+if [ -d $DUBPKGPATH/1.9.0/dub ] || [ -d $DUBPKGPATH/1.10.0/dub ]; then
     die $LINENO 'Failed to non-interactively remove specified versions'
 fi

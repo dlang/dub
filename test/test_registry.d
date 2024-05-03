@@ -57,6 +57,6 @@ void main(string[] args)
 	router.get("/fallback/*", folder.serveStaticFiles(new HTTPFileServerSettings("/fallback")));
 	router.get("/api/*", apiFileHandler("/", folder));
 	router.get("/fallback/api/*", apiFileHandler("/fallback/", folder));
-	listenHTTP(text(":", port), router);
+	listenHTTP(text("localhost:", port), router);
 	runApplication();
 }
