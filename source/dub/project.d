@@ -733,14 +733,16 @@ class Project {
 			//return (pack == configs[0].pack && conf == configs[0].config) || edges.canFind!(e => configs[e.to].pack == pack && configs[e.to].config == config);
 		}
 
+		bool[string] reachable; // reused to avoid continuous re-allocation
 		bool isReachableByAllParentPacks(size_t cidx) {
-			bool[string] r;
-			foreach (p; parents[configs[cidx].pack]) r[p] = false;
+			foreach (p; parents[configs[cidx].pack]) reachable[p] = false;
 			foreach (e; edges) {
 				if (e.to != cidx) continue;
-				if (auto pp = configs[e.from].pack in r) *pp = true;
+				if (auto pp = configs[e.from].pack in reachable) *pp = true;
 			}
-			foreach (bool v; r) if (!v) return false;
+			foreach (p; parents[configs[cidx].pack])
+				if (!reachable[p])
+					return false;
 			return true;
 		}
 
