@@ -643,6 +643,8 @@ class Project {
 	/// Returns a map with the configuration for all packages in the dependency tree.
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
+		import std.typecons : Rebindable, rebindable;
+
 		struct Vertex { string pack, config; }
 		struct Edge { size_t from, to; }
 
@@ -650,9 +652,24 @@ class Project {
 		Edge[] edges;
 		string[][string] parents;
 		parents[m_rootPackage.name] = null;
-		foreach (p; getTopologicalPackageList())
-			foreach (d; p.getAllDependencies())
-				parents[d.name.toString()] ~= p.name;
+		// cached package information to avoid continuous re-computation
+		// during the resolution process
+		const(Package)[] package_list;
+		Rebindable!(const(Package))[string] package_map;
+		string[const(Package)] package_names;
+		PackageDependency[][const(Package)] package_dependencies;
+
+		package_list.reserve(m_dependencies.length);
+		foreach (p; getTopologicalPackageList()) {
+			auto pname = p.name;
+			auto pdeps = p.getAllDependencies();
+			package_list ~= p;
+			package_map[pname] = p;
+			package_names[p] = pname;
+			package_dependencies[p] = pdeps;
+			foreach (d; pdeps)
+				parents[d.name.toString()] ~= pname;
+		}
 
 		size_t createConfig(string pack, string config) {
 			foreach (i, v; configs)
@@ -724,16 +741,18 @@ class Project {
 
 		void determineDependencyConfigs(in Package p, string c)
 		{
+			auto pname = package_names[p];
+			auto pdeps = package_dependencies[p];
 
 			// below we call createConfig for the main package if
 			// config.length is not zero.  Carry on for that case,
 			// otherwise we've handle the pair (p, c) already
-			if(haveConfig(p.name, c) && !(config.length && p.name == m_rootPackage.name && config == c))
+			if(haveConfig(pname, c) && !(config.length && pname == m_rootPackage.name && config == c))
 				return;
 
 			string[][string] depconfigs;
-			foreach (d; p.getAllDependencies()) {
-				auto dp = getDependency(d.name.toString(), true);
+			foreach (d; pdeps) {
+				auto dp = package_map.get(d.name.toString(), rebindable(const(Package).init));
 				if (!dp) continue;
 
 				string[] cfgs;
@@ -748,15 +767,15 @@ class Project {
 				// if no valid configuration was found for a dependency, don't include the
 				// current configuration
 				if (!cfgs.length) {
-					logDebug("Skip %s %s (missing configuration for %s)", p.name, c, dp.name);
+					logDebug("Skip %s %s (missing configuration for %s)", pname, c, dp.name);
 					return;
 				}
 				depconfigs[d.name.toString()] = cfgs;
 			}
 
 			// add this configuration to the graph
-			size_t cidx = createConfig(p.name, c);
-			foreach (d; p.getAllDependencies())
+			size_t cidx = createConfig(pname, c);
+			foreach (d; pdeps)
 				foreach (sc; depconfigs.get(d.name.toString(), null))
 					createEdge(cidx, createConfig(d.name.toString(), sc));
 		}
@@ -764,20 +783,23 @@ class Project {
 		// create a graph of all possible package configurations (package, config) -> (sub-package, sub-config)
 		void determineAllConfigs(in Package p)
 		{
-			auto idx = allconfigs_path.countUntil(p.name);
-			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ p.name).join("->")));
-			allconfigs_path ~= p.name;
+			auto pname = package_names[p];
+			auto pdeps = package_dependencies[p];
+
+			auto idx = allconfigs_path.countUntil(pname);
+			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ pname).join("->")));
+			allconfigs_path ~= pname;
 			scope (exit) allconfigs_path.length--;
 
 			// first, add all dependency configurations
-			foreach (d; p.getAllDependencies) {
-				auto dp = getDependency(d.name.toString(), true);
+			foreach (d; pdeps) {
+				auto dp = package_map.get(d.name.toString(), rebindable(const(Package).init));
 				if (!dp) continue;
 				determineAllConfigs(dp);
 			}
 
 			// for each configuration, determine the configurations usable for the dependencies
-			if (auto pc = p.name in m_overriddenConfigs)
+			if (auto pc = pname in m_overriddenConfigs)
 				determineDependencyConfigs(p, *pc);
 			else
 				foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library))
@@ -802,10 +824,10 @@ class Project {
 
 			// when all edges are cleaned up, pick one package and remove all but one config
 			if (!changed) {
-				foreach (p; getTopologicalPackageList()) {
+				foreach (p; package_list) {
 					size_t cnt = 0;
 					foreach (i, ref c; configs)
-						if (c.pack == p.name && ++cnt > 1) {
+						if (c.pack == package_names[p] && ++cnt > 1) {
 							logDebug("NON-PRIMARY: %s %s", c.pack, c.config);
 							removeConfig(i);
 						}
