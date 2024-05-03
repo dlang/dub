@@ -887,15 +887,19 @@ class Project {
 		}
 
 		// check for conflicts (packages missing in the final configuration graph)
-		void checkPacksRec(in Package pack) {
-			auto pc = pack.name in ret;
-			enforce(pc !is null, "Could not resolve configuration for package "~pack.name);
-			foreach (p, dep; pack.getDependencies(*pc)) {
+		auto visited = new bool[](package_list.length);
+		void checkPacksRec(size_t pack_idx) {
+			if (visited[pack_idx]) return;
+			visited[pack_idx] = true;
+			auto pname = package_names[pack_idx];
+			auto pc = pname in ret;
+			enforce(pc !is null, "Could not resolve configuration for package "~pname);
+			foreach (p, dep; package_list[pack_idx].getDependencies(*pc)) {
 				auto deppack = getDependency(p, dep.optional);
-				if (deppack) checkPacksRec(deppack);
+				if (deppack) checkPacksRec(package_list.countUntil(deppack));
 			}
 		}
-		checkPacksRec(m_rootPackage);
+		checkPacksRec(0);
 
 		return ret;
 	}
