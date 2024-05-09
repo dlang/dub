@@ -99,6 +99,12 @@ struct PackageDependency {
 		this.spec = s;
 	}
 
+	int opCmp(in typeof(this) other) @safe const {
+		return name == other.name
+			? spec.opCmp(other.spec)
+			: name.opCmp(other.name);
+	}
+
 	/// Name of the referenced package.
 	PackageName name;
 

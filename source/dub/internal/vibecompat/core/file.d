@@ -252,8 +252,7 @@ FileInfo getFileInfo(string path)
 */
 void ensureDirectory(NativePath path)
 {
-	if (!existsDirectory(path))
-		mkdirRecurse(path.toNativeString());
+	mkdirRecurse(path.toNativeString());
 }
 
 /**

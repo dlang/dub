@@ -724,6 +724,13 @@ class Project {
 
 		void determineDependencyConfigs(in Package p, string c)
 		{
+
+			// below we call createConfig for the main package if
+			// config.length is not zero.  Carry on for that case,
+			// otherwise we've handle the pair (p, c) already
+			if(haveConfig(p.name, c) && !(config.length && p.name == m_rootPackage.name && config == c))
+				return;
+
 			string[][string] depconfigs;
 			foreach (d; p.getAllDependencies()) {
 				auto dp = getDependency(d.name.toString(), true);

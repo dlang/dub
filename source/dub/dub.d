@@ -48,9 +48,7 @@ deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryU
 /// The URL to the official package registry and it's default fallback registries.
 static immutable string[] defaultRegistryURLs = [
 	"https://code.dlang.org/",
-	"https://codemirror.dlang.org/",
-	"https://dub.bytecraft.nl/",
-	"https://code-mirror.dlang.io/",
+	"https://codemirror.dlang.org/"
 ];
 
 /** Returns a default list of package suppliers.
@@ -158,6 +156,13 @@ class Dub {
 		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
 
 		init();
+
+		if (skip == SkipPackageSuppliers.default_) {
+			// If unspecified on the command line, take
+			// the value from the configuration files, or
+			// default to none.
+			skip = m_config.skipRegistry.set ? m_config.skipRegistry.value : SkipPackageSuppliers.none;
+		}
 
 		const registry_var = environment.get("DUB_REGISTRY", null);
 		m_packageSuppliers = this.makePackageSuppliers(base, skip, registry_var);

@@ -24,10 +24,10 @@ import dub.internal.dyaml.stdsumtype;
 import std.algorithm : countUntil, filter, map, sort, canFind, remove;
 import std.array;
 import std.conv;
+import std.datetime.systime;
 import std.digest.sha;
 import std.encoding : sanitize;
 import std.exception;
-import std.file;
 import std.range;
 import std.string;
 import std.zip;
@@ -810,7 +810,7 @@ class PackageManager {
 
 		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
-		ensureDirectory(dstpath.parentPath());
+		this.ensureDirectory(dstpath.parentPath());
 		const lockPath = dstpath.parentPath() ~ ".lock";
 
 		// possibly wait for other dub instance
@@ -861,18 +861,18 @@ class PackageManager {
 			else return NativePath(path.bySegment.array[zip_prefix.length .. $]);
 		}
 
-		static void setAttributes(string path, ArchiveMember am)
+		void setAttributes(NativePath path, ArchiveMember am)
 		{
 			import std.datetime : DosFileTimeToSysTime;
 
 			auto mtime = DosFileTimeToSysTime(am.time);
-			setTimes(path, mtime, mtime);
+			this.setTimes(path, mtime, mtime);
 			if (auto attrs = am.fileAttributes)
-				std.file.setAttributes(path, attrs);
+				this.setAttributes(path, attrs);
 		}
 
 		// extract & place
-		ensureDirectory(destination);
+		this.ensureDirectory(destination);
 		logDebug("Copying all files...");
 		int countFiles = 0;
 		foreach(ArchiveMember a; archive.directory) {
@@ -882,9 +882,9 @@ class PackageManager {
 
 			logDebug("Creating %s", cleanedPath);
 			if (dst_path.endsWithSlash) {
-				ensureDirectory(dst_path);
+				this.ensureDirectory(dst_path);
 			} else {
-				ensureDirectory(dst_path.parentPath);
+				this.ensureDirectory(dst_path.parentPath);
 				// for symlinks on posix systems, use the symlink function to
 				// create them. Windows default unzip doesn't handle symlinks,
 				// so we don't need to worry about it for Windows.
@@ -901,7 +901,7 @@ class PackageManager {
 				}
 
 				this.writeFile(dst_path, archive.expand(a));
-				setAttributes(dst_path.toNativeString(), a);
+				setAttributes(dst_path, a);
 symlink_exit:
 				++countFiles;
 			}
@@ -913,7 +913,7 @@ symlink_exit:
 
 		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
-			removeFile(pack.recipePath);
+			this.removeFile(pack.recipePath);
 		pack.storeInfo();
 		addPackages(this.m_internal.localPackages, pack);
 		return pack;
@@ -953,6 +953,7 @@ symlink_exit:
 		enforce(found, "Cannot remove, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
 
 		logDebug("About to delete root folder for package '%s'.", pack.path);
+		import std.file : rmdirRecurse;
 		rmdirRecurse(pack.path.toNativeString());
 		logInfo("Removed", Color.yellow, "%s %s", pack.name.color(Mode.bold), pack.version_);
 	}
@@ -1076,6 +1077,7 @@ symlink_exit:
 	/// .svn folders)
 	Hash hashPackage(Package pack)
 	{
+		import std.file;
 		import dub.internal.vibecompat.core.file;
 
 		string[] ignored_directories = [".git", ".dub", ".svn"];
@@ -1245,6 +1247,29 @@ symlink_exit:
 	{
 		static import dub.internal.vibecompat.core.file;
 		return dub.internal.vibecompat.core.file.iterateDirectory(path);
+	}
+
+	/// Ditto
+	protected void removeFile(NativePath path)
+	{
+		static import dub.internal.vibecompat.core.file;
+		return dub.internal.vibecompat.core.file.removeFile(path);
+	}
+
+	/// Ditto
+	protected void setTimes(in NativePath path, in SysTime accessTime,
+		in SysTime modificationTime)
+	{
+		static import std.file;
+		std.file.setTimes(
+			path.toNativeString(), accessTime, modificationTime);
+	}
+
+	/// Ditto
+	protected void setAttributes(in NativePath path, uint attributes)
+	{
+		static import std.file;
+		std.file.setAttributes(path.toNativeString(), attributes);
 	}
 }
 
