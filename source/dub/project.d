@@ -725,15 +725,6 @@ class Project {
 					removeConfig(j);
 		}
 
-		bool isReachable(size_t pack, string conf) {
-			if (pack == configs[0].pack && configs[0].config == conf) return true;
-			foreach (e; edges)
-				if (configs[e.to].pack == pack && configs[e.to].config == conf)
-					return true;
-			return false;
-			//return (pack == configs[0].pack && conf == configs[0].config) || edges.canFind!(e => configs[e.to].pack == pack && configs[e.to].config == config);
-		}
-
 		bool[] reachable = new bool[package_list.length]; // reused to avoid continuous re-allocation
 		bool isReachableByAllParentPacks(size_t cidx) {
 			foreach (p; parents[configs[cidx].pack]) reachable[p] = false;
