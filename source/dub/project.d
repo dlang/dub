@@ -648,29 +648,10 @@ class Project {
 		import std.typecons : Rebindable, rebindable;
 		import std.range : only;
 
-		static struct PackageInfo {
-			const(Package) package_;
-			size_t[] parents;
-			string name;
-			PackageDependency[] dependencies;
-		}
-		PackageInfo[] packages;
-		size_t[string] package_map;
-
 		// prepare by collecting information about all packages in the project
 		// qualified names and dependencies are cached, to avoid recomputing
 		// them multiple times during the algorithm
-		packages.reserve(m_dependencies.length);
-		foreach (p; getTopologicalPackageList()) {
-			auto pname = p.name;
-			package_map[pname] = packages.length;
-			packages ~= PackageInfo(p, null, pname, p.getAllDependencies());
-		}
-		foreach (pack_idx, pack_info; packages)
-			foreach (d; pack_info.dependencies)
-				if (auto pi = d.name.toString() in package_map)
-					packages[*pi].parents ~= pack_idx;
-
+		auto packages = collectPackageInformation();
 
 		// graph of the project's package configuration dependencies
 		// (package, config) -> (sub-package, sub-config)
@@ -761,7 +742,7 @@ class Project {
 				return;
 
 			foreach (d; pack.dependencies) {
-				auto dp = package_map.get(d.name.toString(), size_t.max);
+				auto dp = packages.getPackageIndex(d.name.toString());
 				if (dp == size_t.max) continue;
 
 				depconfigs[dp].length = 0;
@@ -791,7 +772,7 @@ class Project {
 			// add this configuration to the graph
 			size_t cidx = createConfig(pack_idx, c);
 			foreach (d; pack.dependencies) {
-				if (auto pdp = d.name.toString() in package_map)
+				if (auto pdp = d.name.toString() in packages)
 					foreach (sc; depconfigs[*pdp])
 						createEdge(cidx, createConfig(*pdp, sc));
 			}
@@ -812,7 +793,7 @@ class Project {
 
 			// first, add all dependency configurations
 			foreach (d; pack.dependencies)
-				if (auto pi = d.name.toString() in package_map)
+				if (auto pi = d.name.toString() in packages)
 					determineAllConfigs(*pi);
 
 			// for each configuration, determine the configurations usable for the dependencies
@@ -884,11 +865,55 @@ class Project {
 			enforce(pc !is null, "Could not resolve configuration for package "~pname);
 			foreach (p, dep; packages[pack_idx].package_.getDependencies(*pc)) {
 				auto deppack = getDependency(p, dep.optional);
-				if (deppack) checkPacksRec(packages.countUntil!(p => p.package_ is deppack));
+				if (deppack) checkPacksRec(packages[].countUntil!(p => p.package_ is deppack));
 			}
 		}
 		checkPacksRec(0);
 
+		return ret;
+	}
+
+	/** Returns an ordered list of all packages with the additional possibility
+		to look up by name.
+	*/
+	private auto collectPackageInformation()
+	const {
+		static struct PackageInfo {
+			const(Package) package_;
+			size_t[] parents;
+			string name;
+			PackageDependency[] dependencies;
+		}
+
+		static struct PackageInfoAccessor {
+			private {
+				PackageInfo[] m_packages;
+				size_t[string] m_packageMap;
+			}
+
+			private void initialize(P)(P all_packages, size_t reserve_count)
+			{
+				m_packages.reserve(reserve_count);
+				foreach (p; all_packages) {
+					auto pname = p.name;
+					m_packageMap[pname] = m_packages.length;
+					m_packages ~= PackageInfo(p, null, pname, p.getAllDependencies());
+				}
+				foreach (pack_idx, ref pack_info; m_packages)
+					foreach (d; pack_info.dependencies)
+						if (auto pi = d.name.toString() in m_packageMap)
+							m_packages[*pi].parents ~= pack_idx;
+			}
+
+			size_t length() const { return m_packages.length; }
+			const(PackageInfo)[] opIndex() const { return m_packages; }
+			ref const(PackageInfo) opIndex(size_t package_index) const { return m_packages[package_index]; }
+			size_t getPackageIndex(string package_name) const { return m_packageMap.get(package_name, size_t.max); }
+			const(size_t)* opBinaryRight(string op = "in")(string package_name) const { return package_name in m_packageMap; }
+		}
+
+		PackageInfoAccessor ret;
+		ret.initialize(getTopologicalPackageList(), m_dependencies.length);
 		return ret;
 	}
 
