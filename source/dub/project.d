@@ -648,43 +648,40 @@ class Project {
 		import std.typecons : Rebindable, rebindable;
 		import std.range : only;
 
-		struct Vertex { size_t pack = size_t.max; string config; }
-		struct Edge { size_t from, to; }
+		static struct PackageInfo {
+			const(Package) package_;
+			// cached package information to avoid continuous re-computation
+			// during the resolution process:
+			size_t[] parents;
+			string name;
+			PackageDependency[] dependencies;
+		}
+		static struct Vertex { size_t pack = size_t.max; string config; }
+		static struct Edge { size_t from, to; }
 
 		Vertex[] configs;
 		void[0][Vertex] configs_set;
 		Edge[] edges;
-
-		// cached package information to avoid continuous re-computation
-		// during the resolution process
+		PackageInfo[] packages;
 		size_t[string] package_map;
-		size_t[][] parents;
-		const(Package)[] package_list;
-		string[] package_names;
-		PackageDependency[][] package_dependencies;
-		package_list.reserve(m_dependencies.length);
-		package_names.reserve(m_dependencies.length);
-		package_dependencies.reserve(m_dependencies.length);
+
+		packages.reserve(m_dependencies.length);
 		foreach (p; getTopologicalPackageList()) {
 			auto pname = p.name;
-			package_map[pname] = package_list.length;
-			package_list ~= p;
-			package_names ~= pname;
-			package_dependencies ~= p.getAllDependencies();
+			package_map[pname] = packages.length;
+			packages ~= PackageInfo(p, null, pname, p.getAllDependencies());
 		}
-		parents.length = package_list.length;
-		foreach (pack_idx, pack_deps; package_dependencies) {
-			foreach (d; pack_deps)
+		foreach (pack_idx, pack_info; packages)
+			foreach (d; pack_info.dependencies)
 				if (auto pi = d.name.toString() in package_map)
-					parents[*pi] ~= pack_idx;
-		}
+					packages[*pi].parents ~= pack_idx;
 
 		size_t createConfig(size_t pack_idx, string config) {
 			foreach (i, v; configs)
 				if (v.pack == pack_idx && v.config == config)
 					return i;
 
-			auto pname = package_names[pack_idx];
+			auto pname = packages[pack_idx].name;
 			assert(pname !in m_overriddenConfigs || config == m_overriddenConfigs[pname]);
 			logDebug("Add config %s %s", pname, config);
 			auto cfg = Vertex(pack_idx, config);
@@ -725,20 +722,20 @@ class Project {
 					removeConfig(j);
 		}
 
-		bool[] reachable = new bool[package_list.length]; // reused to avoid continuous re-allocation
+		bool[] reachable = new bool[packages.length]; // reused to avoid continuous re-allocation
 		bool isReachableByAllParentPacks(size_t cidx) {
-			foreach (p; parents[configs[cidx].pack]) reachable[p] = false;
+			foreach (p; packages[configs[cidx].pack].parents) reachable[p] = false;
 			foreach (e; edges) {
 				if (e.to != cidx) continue;
 				reachable[configs[e.from].pack] = true;
 			}
-			foreach (p; parents[configs[cidx].pack])
+			foreach (p; packages[configs[cidx].pack].parents)
 				if (!reachable[p])
 					return false;
 			return true;
 		}
 
-		string[][] depconfigs = new string[][](package_list.length);
+		string[][] depconfigs = new string[][](packages.length);
 		void determineDependencyConfigs(size_t pack_idx, string c)
 		{
 			void[0][Edge] edges_set;
@@ -750,17 +747,15 @@ class Project {
 				edges_set[Edge(from, to)] = (void[0]).init;
 			}
 
-			auto p = package_list[pack_idx];
-			auto pname = package_names[pack_idx];
-			auto pdeps = package_dependencies[pack_idx];
+			auto pack = &packages[pack_idx];
 
 			// below we call createConfig for the main package if
 			// config.length is not zero.  Carry on for that case,
 			// otherwise we've handle the pair (p, c) already
-			if(haveConfig(pack_idx, c) && !(config.length && pname == m_rootPackage.name && config == c))
+			if(haveConfig(pack_idx, c) && !(config.length && pack.name == m_rootPackage.name && config == c))
 				return;
 
-			foreach (d; pdeps) {
+			foreach (d; pack.dependencies) {
 				auto dp = package_map.get(d.name.toString(), size_t.max);
 				if (dp == size_t.max) continue;
 
@@ -772,25 +767,25 @@ class Project {
 						.filter!(c => haveConfig(dp, c))
 						.each!((c) { depconfigs[dp] ~= c; });
 				}
-				if (auto pc = package_names[dp] in m_overriddenConfigs) {
+				if (auto pc = packages[dp].name in m_overriddenConfigs) {
 					setConfigs(only(*pc));
 				} else {
-					auto subconf = p.getSubConfiguration(c, package_list[dp], platform);
+					auto subconf = pack.package_.getSubConfiguration(c, packages[dp].package_, platform);
 					if (!subconf.empty) setConfigs(only(subconf));
-					else setConfigs(package_list[dp].getPlatformConfigurations(platform));
+					else setConfigs(packages[dp].package_.getPlatformConfigurations(platform));
 				}
 
 				// if no valid configuration was found for a dependency, don't include the
 				// current configuration
 				if (!depconfigs[dp].length) {
-					logDebug("Skip %s %s (missing configuration for %s)", pname, c, package_names[dp]);
+					logDebug("Skip %s %s (missing configuration for %s)", pack.name, c, packages[dp].name);
 					return;
 				}
 			}
 
 			// add this configuration to the graph
 			size_t cidx = createConfig(pack_idx, c);
-			foreach (d; pdeps) {
+			foreach (d; pack.dependencies) {
 				if (auto pdp = d.name.toString() in package_map)
 					foreach (sc; depconfigs[*pdp])
 						createEdge(cidx, createConfig(*pdp, sc));
@@ -801,31 +796,29 @@ class Project {
 		string[] allconfigs_path;
 		void determineAllConfigs(size_t pack_idx)
 		{
-			auto p = package_list[pack_idx];
-			auto pname = package_names[pack_idx];
-			auto pdeps = package_dependencies[pack_idx];
+			auto pack = &packages[pack_idx];
 
-			auto idx = allconfigs_path.countUntil(pname);
-			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ pname).join("->")));
-			allconfigs_path ~= pname;
+			auto idx = allconfigs_path.countUntil(pack.name);
+			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ pack.name).join("->")));
+			allconfigs_path ~= pack.name;
 			scope (exit) {
 				allconfigs_path.length--;
 				allconfigs_path.assumeSafeAppend;
 			}
 
 			// first, add all dependency configurations
-			foreach (d; pdeps)
+			foreach (d; pack.dependencies)
 				if (auto pi = d.name.toString() in package_map)
 					determineAllConfigs(*pi);
 
 			// for each configuration, determine the configurations usable for the dependencies
-			if (auto pc = pname in m_overriddenConfigs)
+			if (auto pc = pack.name in m_overriddenConfigs)
 				determineDependencyConfigs(pack_idx, *pc);
 			else
-				foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library))
+				foreach (c; pack.package_.getPlatformConfigurations(platform, pack.package_ is m_rootPackage && allow_non_library))
 					determineDependencyConfigs(pack_idx, c);
 		}
-		assert(package_list[0] is m_rootPackage);
+		assert(packages[0].package_ is m_rootPackage);
 		if (config.length) createConfig(0, config);
 		determineAllConfigs(0);
 
@@ -837,7 +830,7 @@ class Project {
 			foreach (i, ref c; configs) {
 				if (c == Vertex.init) continue; // ignore deleted configurations
 				if (!isReachableByAllParentPacks(i)) {
-					logDebug("%s %s NOT REACHABLE by all of (%s):", c.pack, c.config, parents[c.pack]);
+					logDebug("%s %s NOT REACHABLE by all of (%s):", c.pack, c.config, packages[c.pack].parents);
 					removeConfig(i);
 					changed = true;
 				}
@@ -845,7 +838,7 @@ class Project {
 
 			// when all edges are cleaned up, pick one package and remove all but one config
 			if (!changed) {
-				foreach (pidx, p; package_list) {
+				foreach (pidx; 0 .. packages.length) {
 					size_t cnt = 0;
 					foreach (i, ref c; configs)
 						if (c.pack == pidx && ++cnt > 1) {
@@ -867,23 +860,23 @@ class Project {
 		string[string] ret;
 		foreach (c; configs) {
 			if (c == Vertex.init) continue; // ignore deleted configurations
-			auto pname = package_names[c.pack];
+			auto pname = packages[c.pack].name;
 			assert(ret.get(pname, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", pname, c.config, ret[pname]));
 			logDebug("Using configuration '%s' for %s", c.config, pname);
 			ret[pname] = c.config;
 		}
 
 		// check for conflicts (packages missing in the final configuration graph)
-		auto visited = new bool[](package_list.length);
+		auto visited = new bool[](packages.length);
 		void checkPacksRec(size_t pack_idx) {
 			if (visited[pack_idx]) return;
 			visited[pack_idx] = true;
-			auto pname = package_names[pack_idx];
+			auto pname = packages[pack_idx].name;
 			auto pc = pname in ret;
 			enforce(pc !is null, "Could not resolve configuration for package "~pname);
-			foreach (p, dep; package_list[pack_idx].getDependencies(*pc)) {
+			foreach (p, dep; packages[pack_idx].package_.getDependencies(*pc)) {
 				auto deppack = getDependency(p, dep.optional);
-				if (deppack) checkPacksRec(package_list.countUntil(deppack));
+				if (deppack) checkPacksRec(packages.countUntil!(p => p.package_ is deppack));
 			}
 		}
 		checkPacksRec(0);
