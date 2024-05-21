@@ -702,22 +702,18 @@ class Project {
 			auto had_dep_to_pack = new bool[configs.length];
 			auto still_has_dep_to_pack = new bool[configs.length];
 
-			// eliminate all edges that connect to config 'config_index'
-			size_t eti = 0;
-			foreach (ei, e; edges) {
+			// eliminate all edges that connect to config 'config_index' and
+			// track all connected configs
+			edges = edges.filterInPlace!((e) {
 				if (e.to == config_index) {
 					had_dep_to_pack[e.from] = true;
-					continue;
+					return false;
 				} else if (configs[e.to].pack == configs[config_index].pack) {
 					still_has_dep_to_pack[e.from] = true;
 				}
-				if (e.from == config_index) continue;
 
-				// keep edge
-				if (eti != ei) edges[eti] = edges[ei];
-				eti++;
-			}
-			edges = edges[0 .. eti];
+				return e.from != config_index;
+			});
 
 			// mark config as removed
 			configs_set.remove(configs[config_index]);
