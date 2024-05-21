@@ -650,21 +650,16 @@ class Project {
 
 		static struct PackageInfo {
 			const(Package) package_;
-			// cached package information to avoid continuous re-computation
-			// during the resolution process:
 			size_t[] parents;
 			string name;
 			PackageDependency[] dependencies;
 		}
-		static struct Vertex { size_t pack = size_t.max; string config; }
-		static struct Edge { size_t from, to; }
-
-		Vertex[] configs;
-		void[0][Vertex] configs_set;
-		Edge[] edges;
 		PackageInfo[] packages;
 		size_t[string] package_map;
 
+		// prepare by collecting information about all packages in the project
+		// qualified names and dependencies are cached, to avoid recomputing
+		// them multiple times during the algorithm
 		packages.reserve(m_dependencies.length);
 		foreach (p; getTopologicalPackageList()) {
 			auto pname = p.name;
@@ -675,6 +670,16 @@ class Project {
 			foreach (d; pack_info.dependencies)
 				if (auto pi = d.name.toString() in package_map)
 					packages[*pi].parents ~= pack_idx;
+
+
+		// graph of the project's package configuration dependencies
+		// (package, config) -> (sub-package, sub-config)
+		static struct Vertex { size_t pack = size_t.max; string config; }
+		static struct Edge { size_t from, to; }
+		Vertex[] configs;
+		void[0][Vertex] configs_set;
+		Edge[] edges;
+
 
 		size_t createConfig(size_t pack_idx, string config) {
 			foreach (i, v; configs)
@@ -792,7 +797,6 @@ class Project {
 			}
 		}
 
-		// create a graph of all possible package configurations (package, config) -> (sub-package, sub-config)
 		string[] allconfigs_path;
 		void determineAllConfigs(size_t pack_idx)
 		{
@@ -818,11 +822,15 @@ class Project {
 				foreach (c; pack.package_.getPlatformConfigurations(platform, pack.package_ is m_rootPackage && allow_non_library))
 					determineDependencyConfigs(pack_idx, c);
 		}
+
+
+		// first, create a graph of all possible package configurations
 		assert(packages[0].package_ is m_rootPackage);
 		if (config.length) createConfig(0, config);
 		determineAllConfigs(0);
 
-		// successively remove configurations until only one configuration per package is left
+		// then, successively remove configurations until only one configuration
+		// per package is left
 		bool changed;
 		do {
 			// remove all configs that are not reachable by all parent packages
