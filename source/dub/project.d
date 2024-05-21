@@ -697,21 +697,21 @@ class Project {
 			return (Vertex(pack_idx, config) in configs_set) !is null;
 		}
 
-		void removeConfig(size_t i) {
-			logDebug("Eliminating config %s for %s", configs[i].config, configs[i].pack);
+		void removeConfig(size_t config_index) {
+			logDebug("Eliminating config %s for %s", configs[config_index].config, configs[config_index].pack);
 			auto had_dep_to_pack = new bool[configs.length];
 			auto still_has_dep_to_pack = new bool[configs.length];
 
-			// eliminate all edges that connect to config 'i'
+			// eliminate all edges that connect to config 'config_index'
 			size_t eti = 0;
 			foreach (ei, e; edges) {
-				if (e.to == i) {
+				if (e.to == config_index) {
 					had_dep_to_pack[e.from] = true;
 					continue;
-				} else if (configs[e.to].pack == configs[i].pack) {
+				} else if (configs[e.to].pack == configs[config_index].pack) {
 					still_has_dep_to_pack[e.from] = true;
 				}
-				if (e.from == i) continue;
+				if (e.from == config_index) continue;
 
 				// keep edge
 				if (eti != ei) edges[eti] = edges[ei];
@@ -720,12 +720,12 @@ class Project {
 			edges = edges[0 .. eti];
 
 			// mark config as removed
-			configs_set.remove(configs[i]);
-			configs[i] = Vertex.init;
+			configs_set.remove(configs[config_index]);
+			configs[config_index] = Vertex.init;
 
 			// also remove any configs that cannot be satisfied anymore
 			foreach (j; 0 .. configs.length)
-				if (j != i && had_dep_to_pack[j] && !still_has_dep_to_pack[j])
+				if (j != config_index && had_dep_to_pack[j] && !still_has_dep_to_pack[j])
 					removeConfig(j);
 		}
 
