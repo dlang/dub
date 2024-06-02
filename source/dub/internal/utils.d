@@ -634,7 +634,7 @@ string getModuleNameFromContent(string content) {
 
 	try {
 		while(i < content.length) {
-			if(ch == keyword[0] && content[i .. i + keyword.length] == keyword) {
+			if(!foundKeyword && ch == keyword[0] && content[i .. i + keyword.length] == keyword) {
 				// -1 because the end of the loop will advance by 1
 				i += keyword.length - 1;
 				foundKeyword = true;
@@ -731,6 +731,8 @@ unittest {
 	assert(getModuleNameFromContent("module éclair;") == "éclair");
 	assert(getModuleNameFromContent("/** module foo*/ module bar;") == "bar");
 	assert(getModuleNameFromContent("/* / module foo*/ module bar;") == "bar");
+
+	assert(getModuleNameFromContent("module modules.foo;") == "modules.foo");
 }
 
 /**
