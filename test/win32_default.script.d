@@ -63,7 +63,7 @@ int main()
 		// Test with different --arch
 		const string[2][] tests = [
 			[ "x86",        "Default"	],
-			[ "x86_omf",    "OMF"		],
+			[ "x86_omf",    "MsCoff"	],
 			[ "x86_mscoff", "MsCoff"	],
 			[ "x86_64",		"MsCoff64"	],
 		];
