@@ -79,3 +79,26 @@ version "1.0.0"`, PackageFormat.sdl);
     const actualDir = newDub.project.getDependency("b", true).path();
     assert(actualDir == BDir, actualDir.toNativeString());
 }
+
+// Check that SCM-only dependencies don't lead to a scan of the FS
+unittest
+{
+    const ValidURL = `git+https://example.com/dlang/dub`;
+    // Taken from a commit in the dub repository
+    const ValidHash = "54339dff7ce9ec24eda550f8055354f712f15800";
+    const Template = `{"name": "%s", "version": "1.0.0", "dependencies": {
+"dep1": { "repository": "%s", "version": "%s" }}}`;
+
+    scope dub = new TestDub((scope FSEntry fs) {
+        // This should never be read
+        fs.writePackageFile("poison", "1.0.0", `poison`);
+        fs.writeFile(TestDub.ProjectPath ~ "dub.json",
+             `{ "name": "a", "dependencies": {"b": { "repository": "` ~
+             ValidURL ~ `", "version": "` ~ ValidHash ~ `" }} }`);
+    });
+    dub.packageManager.addTestSCMPackage(
+        Repository(ValidURL, ValidHash), `{"name":"b"}`);
+
+    dub.loadPackage();
+    assert(dub.project.hasAllDependencies());
+}
