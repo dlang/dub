@@ -77,7 +77,10 @@ PackageSupplier getRegistryPackageSupplier(string url)
 
 // Private to avoid a bug in `defaultPackageSuppliers` with `map` triggering a deprecation
 // even though the context is deprecated.
-private PackageSupplier _getRegistryPackageSupplier(string url)
+// Also used from `commandline`. Note that this is replaced by a method
+// in the `Dub` class, to allow for proper dependency injection,
+// but `commandline` is currently completely excluded.
+package(dub) PackageSupplier _getRegistryPackageSupplier(string url)
 {
 	switch (url.startsWith("dub+", "mvn+", "file://"))
 	{

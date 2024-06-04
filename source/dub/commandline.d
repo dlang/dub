@@ -878,10 +878,10 @@ class Command {
 				// should simply retry over all registries instead of using a special
 				// FallbackPackageSupplier.
 				auto urls = url.splitter(' ');
-				PackageSupplier ps = getRegistryPackageSupplier(urls.front);
+				PackageSupplier ps = _getRegistryPackageSupplier(urls.front);
 				urls.popFront;
 				if (!urls.empty)
-					ps = new FallbackPackageSupplier(ps ~ urls.map!getRegistryPackageSupplier.array);
+					ps = new FallbackPackageSupplier(ps ~ urls.map!_getRegistryPackageSupplier.array);
 				return ps;
 			})
 			.array;
