@@ -30,6 +30,7 @@ import std.encoding : sanitize;
 import std.exception;
 import std.range;
 import std.string;
+import std.typecons;
 import std.zip;
 
 
@@ -1106,6 +1107,41 @@ symlink_exit:
 		auto digest = hash.finish();
 		logDebug("Project hash: %s", digest);
 		return digest[].dup;
+	}
+
+	/**
+	 * Loads the selections file (`dub.selections.json`)
+	 *
+	 * The selections file is only used for the root package / project.
+	 * However, due to it being a filesystem interaction, it is managed
+	 * from the `PackageManager`.
+	 *
+	 * Under normal conditions, either `null` is returned (if no selection
+	 * file exists or parsing encountered an error), or a `SelectionFile`
+	 * is returned. Note that the returned `SelectionsFile` might use an
+	 * unsupported version (see `SelectionsFile` documentation).
+	 *
+	 * Note that this is currently not part of the public API, and won't be
+	 * until there is a clear need for it.
+	 *
+	 * Params:
+	 *   project = The `Package` for which to load a selection file.
+	 *
+	 * Returns:
+	 *   The parsed `SelectionsFile`, or a null instance if none exists.
+	 */
+	package final Nullable!SelectionsFile readSelections(in Package project) {
+		import dub.internal.configy.Read;
+
+		const path = (project.path ~ "dub.selections.json");
+		if (!this.existsFile(path))
+			return typeof(return).init;
+		const content = this.readText(path);
+		// TODO: Remove `StrictMode.Warn` after v1.40 release
+		// The default is to error, but as the previous parser wasn't
+		// complaining, we should first warn the user.
+		return wrapException(parseConfigString!SelectionsFile(
+			content, path.toNativeString(), StrictMode.Warn));
 	}
 
 	/**
