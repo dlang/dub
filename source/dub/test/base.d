@@ -784,6 +784,11 @@ public class FSEntry
     {
         auto entry = this.lookup(path);
         enforce(entry.attributes.type == Type.File, "Trying to read a directory");
+        // This is a hack to make poisoning a file possible.
+        // However, it is rather crude and doesn't allow to poison directory.
+        // Consider introducing a derived type to allow it.
+        assert(entry.content != "poison".representation,
+            "Trying to access poisoned path: " ~ path.toNativeString());
         return entry.content.dup;
     }
 
@@ -792,11 +797,11 @@ public class FSEntry
     {
         import std.utf : validate;
 
-        auto entry = this.lookup(path);
-        enforce(entry.attributes.type == Type.File, "Trying to read a directory");
+        const content = this.readFile(path);
         // Ignore BOM: If it's needed for a test, add support for it.
-        validate(cast(const(char[])) entry.content);
-        return cast(string) entry.content.idup();
+        validate(cast(const(char[])) content);
+        // `readFile` just `dup` the content, so it's safe to cast.
+        return cast(string) content;
     }
 
     /// Write to this file

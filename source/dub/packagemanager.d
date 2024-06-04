@@ -464,13 +464,19 @@ class PackageManager {
 		string gitReference = repo.ref_.chompPrefix("~");
 		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
 
-		foreach (p; getPackageIterator(name.toString())) {
-			if (p.path == destination) {
-				return p;
-			}
-		}
-
-		if (!this.gitClone(repo.remote, gitReference, destination))
+		// Before doing a git clone, let's see if the package exists locally
+		if (this.existsDirectory(destination)) {
+			// It exists, check if we already loaded it.
+			// Either we loaded it on refresh and it's in PlacementLocation.user,
+			// or we just added it and it's in m_internal.
+			foreach (p; this.m_internal.fromPath)
+				if (p.path == destination)
+					return p;
+			if (this.m_repositories.length)
+				foreach (p; this.m_repositories[PlacementLocation.user].fromPath)
+					if (p.path == destination)
+						return p;
+		} else if (!this.gitClone(repo.remote, gitReference, destination))
 			return null;
 
 		Package result = this.load(destination);
