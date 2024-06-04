@@ -282,16 +282,6 @@ public class TestDub : Dub
         return new MockPackageSupplier(url);
     }
 
-	/// Loads a specific package as the main project package (can be a sub package)
-	public override void loadPackage(Package pack)
-	{
-        auto selections = this.packageManager.loadSelections(pack);
-		m_project = new Project(m_packageManager, pack, selections);
-	}
-
-	/// Reintroduce parent overloads
-	public alias loadPackage = Dub.loadPackage;
-
 	/**
 	 * Returns a fully typed `TestPackageManager`
 	 *
@@ -346,43 +336,6 @@ package class TestPackageManager : PackageManager
         this.fs = filesystem;
         super(local, user, system, false);
     }
-
-    /// Port of `Project.loadSelections`
-    SelectedVersions loadSelections(in Package pack)
-	{
-		import dub.version_;
-        import dub.internal.configy.Read;
-		import dub.internal.dyaml.stdsumtype;
-
-		auto selverfile = (pack.path ~ SelectedVersions.defaultFile);
-		// No file exists
-		if (!this.fs.existsFile(selverfile))
-			return new SelectedVersions();
-
-        SelectionsFile selected;
-        try
-        {
-            const content = this.fs.readText(selverfile);
-            selected = parseConfigString!SelectionsFile(
-                content, selverfile.toNativeString());
-        }
-        catch (Exception exc) {
-            logError("Error loading %s: %s", selverfile, exc.message());
-			return new SelectedVersions();
-        }
-
-		return selected.content.match!(
-			(Selections!0 s) {
-				logWarnTag("Unsupported version",
-					"File %s has fileVersion %s, which is not yet supported by DUB %s.",
-					selverfile, s.fileVersion, dubVersion);
-				logWarn("Ignoring selections file. Use a newer DUB version " ~
-					"and set the appropriate toolchainRequirements in your recipe file");
-				return new SelectedVersions();
-			},
-			(Selections!1 s) => new SelectedVersions(s),
-		);
-	}
 
 	/**
 	 * Re-Implementation of `gitClone`.

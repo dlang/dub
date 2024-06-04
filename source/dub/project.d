@@ -76,7 +76,7 @@ class Project {
 	/// Ditto
 	this(PackageManager package_manager, Package pack)
 	{
-		auto selections = Project.loadSelections(pack);
+		auto selections = Project.loadSelections(pack, package_manager);
 		this(package_manager, pack, selections);
 	}
 
@@ -103,31 +103,22 @@ class Project {
 	 * Returns:
 	 *	 Always a non-null instance.
 	 */
-	static package SelectedVersions loadSelections(in Package pack)
+	static package SelectedVersions loadSelections(in Package pack, PackageManager mgr)
 	{
 		import dub.version_;
 		import dub.internal.dyaml.stdsumtype;
 
-		auto selverfile = (pack.path ~ SelectedVersions.defaultFile).toNativeString();
-
-		// No file exists
-		if (!existsFile(selverfile))
-			return new SelectedVersions();
-
-		// TODO: Remove `StrictMode.Warn` after v1.40 release
-		// The default is to error, but as the previous parser wasn't
-		// complaining, we should first warn the user.
-		auto selected = parseConfigFileSimple!SelectionsFile(selverfile, StrictMode.Warn);
-
-		// Parsing error, it will be displayed to the user
+		auto selected = mgr.readSelections(pack);
+		// Parsing error that will be displayed to the user or just no selections
 		if (selected.isNull())
 			return new SelectedVersions();
 
 		return selected.get().content.match!(
 			(Selections!0 s) {
 				logWarnTag("Unsupported version",
-					"File %s has fileVersion %s, which is not yet supported by DUB %s.",
-					selverfile, s.fileVersion, dubVersion);
+					"File %s/dub.selections.json has fileVersion %s, which " ~
+					"is not yet supported by DUB %s.",
+					pack.path, s.fileVersion, dubVersion);
 				logWarn("Ignoring selections file. Use a newer DUB version " ~
 					"and set the appropriate toolchainRequirements in your recipe file");
 				return new SelectedVersions();
