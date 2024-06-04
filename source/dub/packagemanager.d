@@ -86,17 +86,27 @@ class PackageManager {
 		 */
 		Location[] m_repositories;
 		/**
-		 * Whether `refresh` has been called or not
+		 * Whether `refreshLocal` / `refreshCache` has been called or not
 		 *
-		 * Dub versions because v1.31 eagerly scan all available repositories,
-		 * leading to slowdown for the most common operation - `dub build` with
-		 * already resolved dependencies.
-		 * From v1.31 onward, those locations are not scanned eagerly,
-		 * unless one of the function requiring eager scanning does,
-		 * such as `getBestPackage` - as it needs to iterate the list
-		 * of available packages.
+		 * User local cache can get pretty large, and we want to avoid our build
+		 * time being dependent on their size. However, in order to support
+		 * local packages and overrides, we were scanning the whole cache prior
+		 * to v1.39.0 (although attempts at fixing this behavior were made
+		 * earlier). Those booleans record whether we have been semi-initialized
+		 * (local packages and overrides have been loaded) or fully initialized
+		 * (all caches have been scanned), the later still being required for
+		 * some API (e.g. `getBestPackage` or `getPackageIterator`).
 		 */
-		bool m_initialized;
+		enum InitializationState {
+			/// No `refresh*` function has been called
+			none,
+			/// `refreshLocal` has been called
+			partial,
+			/// `refreshCache` (and `refreshLocal`) has been called
+			full,
+		}
+		/// Ditto
+		InitializationState m_state;
 	}
 
 	/**
@@ -191,8 +201,10 @@ class PackageManager {
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
 	protected Package lookup (in PackageName name, in Version vers) {
-		if (!this.m_initialized)
-			this.refresh();
+		// This is the only place we can get away with lazy initialization,
+		// since we know exactly what package and version we want.
+		// However, it is also the most often called API.
+		this.ensureInitialized(InitializationState.partial);
 
 		if (auto pkg = this.m_internal.lookup(name, vers))
 			return pkg;
@@ -635,9 +647,8 @@ class PackageManager {
 	*/
 	int delegate(int delegate(ref Package)) getPackageIterator()
 	{
-		// See `m_initialized` documentation
-		if (!this.m_initialized)
-			this.refresh();
+		// This API requires full knowledge of the package cache
+		this.ensureInitialized(InitializationState.full);
 
 		int iterator(int delegate(ref Package) del)
 		{
@@ -974,8 +985,7 @@ symlink_exit:
 		// As we iterate over `localPackages` we need it to be populated
 		// In theory we could just populate that specific repository,
 		// but multiple calls would then become inefficient.
-		if (!this.m_initialized)
-			this.refresh();
+		this.ensureInitialized(InitializationState.full);
 
 		path.endsWithSlash = true;
 		auto pack = this.load(path);
@@ -1006,8 +1016,7 @@ symlink_exit:
 		// As we iterate over `localPackages` we need it to be populated
 		// In theory we could just populate that specific repository,
 		// but multiple calls would then become inefficient.
-		if (!this.m_initialized)
-			this.refresh();
+		this.ensureInitialized(InitializationState.full);
 
 		path.endsWithSlash = true;
 		Package[]* packs = &m_repositories[type].localPackages;
@@ -1050,29 +1059,52 @@ symlink_exit:
 	{
 		if (refresh)
 			logDiagnostic("Refreshing local packages (refresh existing: true)...");
-		this.refresh_(refresh);
+		else
+			logDiagnostic("Scanning local packages...");
+
+		this.refreshLocal(refresh);
+		this.refreshCache(refresh);
 	}
 
 	void refresh()
 	{
-		this.refresh_(false);
+		logDiagnostic("Scanning local packages...");
+		this.refreshLocal(false);
+		this.refreshCache(false);
 	}
 
-	private void refresh_(bool refresh)
+	/// Private API to ensure a level of initialization
+	private void ensureInitialized(InitializationState state)
 	{
-		if (!refresh)
-			logDiagnostic("Scanning local packages...");
+		if (this.m_state >= state)
+			return;
+		if (state == InitializationState.partial)
+			this.refreshLocal(false);
+		else
+			this.refresh();
+	}
 
+	/// Refresh pay-as-you-go: Only load local packages, not the full cache
+	private void refreshLocal(bool refresh) {
 		foreach (ref repository; this.m_repositories)
 			repository.scanLocalPackages(refresh, this);
-
 		this.m_internal.scan(this, refresh);
+		foreach (ref repository; this.m_repositories) {
+			auto existing = refresh ? null : repository.fromPath;
+			foreach (path; repository.searchPath)
+				repository.scanPackageFolder(path, this, existing);
+			repository.loadOverrides(this);
+		}
+		if (this.m_state < InitializationState.partial)
+			this.m_state = InitializationState.partial;
+	}
+
+	/// Refresh the full cache, a potentially expensive operation
+	private void refreshCache(bool refresh)
+	{
 		foreach (ref repository; this.m_repositories)
 			repository.scan(this, refresh);
-
-		foreach (ref repository; this.m_repositories)
-			repository.loadOverrides(this);
-		this.m_initialized = true;
+		this.m_state = InitializationState.full;
 	}
 
 	alias Hash = ubyte[];
