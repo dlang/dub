@@ -188,14 +188,6 @@ struct Dependency {
 		this.m_value = rng;
 	}
 
-	deprecated("Instantiate the `Repository` struct with the string directly")
-	this(Repository repository, string spec) @safe
-	{
-		assert(repository.m_ref is null);
-		repository.m_ref = spec;
-		this(repository);
-	}
-
 	/// If set, overrides any version based dependency selection.
 	deprecated("Construct a new `Dependency` object instead")
 	@property void path(NativePath value) @trusted
@@ -765,17 +757,6 @@ struct Repository
 		m_ref = ref_;
 		assert(m_remote.length);
 		assert(m_ref.length);
-	}
-
-	/// Ditto
-	deprecated("Use the constructor accepting a second parameter named `ref_`")
-	this(string remote)
-	{
-		enforce(remote.startsWith("git+"), "Unsupported repository type (supports: git+URL)");
-
-		m_remote = remote["git+".length .. $];
-		m_kind = Kind.git;
-		assert(m_remote.length);
 	}
 
 	string toString() const nothrow pure @safe

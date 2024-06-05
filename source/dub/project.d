@@ -1977,12 +1977,6 @@ public class SelectedVersions {
 		m_dirty = true;
 	}
 
-	deprecated("Move `spec` inside of the `repository` parameter and call `selectVersion`")
-	void selectVersionWithRepository(string package_id, Repository repository, string spec)
-	{
-		this.selectVersion(package_id, Repository(repository.remote(), spec));
-	}
-
 	/// Removes the selection for a particular package.
 	deprecated("Use the overload that accepts a `PackageName`")
 	void deselectVersion(string package_id)
