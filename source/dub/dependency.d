@@ -188,13 +188,7 @@ struct Dependency {
 		this.m_value = rng;
 	}
 
-	/// If set, overrides any version based dependency selection.
-	deprecated("Construct a new `Dependency` object instead")
-	@property void path(NativePath value) @trusted
-	{
-		this.m_value = value;
-	}
-	/// ditto
+	/// The path this `Dependency` matches, or `NativePath.init`
 	@property NativePath path() const @safe
 	{
 		return this.m_value.match!(
@@ -203,13 +197,7 @@ struct Dependency {
 		);
 	}
 
-	/// If set, overrides any version based dependency selection.
-	deprecated("Construct a new `Dependency` object instead")
-	@property void repository(Repository value) @trusted
-	{
-		this.m_value = value;
-	}
-	/// ditto
+	/// The repository this `Dependency` matches, or `Repository.init`
 	@property Repository repository() const @safe
 	{
 		return this.m_value.match!(
