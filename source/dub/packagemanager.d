@@ -267,16 +267,6 @@ class PackageManager {
 		return this.m_repositories[loc].load(name, ver, this);
 	}
 
-	/// ditto
-	deprecated("Use another `PackageManager` API, open an issue if none suits you")
-	Package getPackage(string name, NativePath path)
-	{
-		foreach( p; getPackageIterator(name) )
-			if (p.path.startsWith(path))
-				return p;
-		return null;
-	}
-
 	/** For a given package path, returns the corresponding package.
 
 		If the package is already loaded, a reference is returned. Otherwise
