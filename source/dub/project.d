@@ -1874,18 +1874,6 @@ public class SelectedVersions {
 		this.m_bare = false;
 	}
 
-	/** Constructs a new version selection from JSON data.
-
-		The structure of the JSON document must match the contents of the
-		"dub.selections.json" file.
-	*/
-	deprecated("Pass a `dub.recipe.selection : Selected` directly")
-	this(Json data)
-	{
-		deserialize(data);
-		m_dirty = false;
-	}
-
 	/** Constructs a new version selections from an existing JSON file.
 	*/
 	deprecated("JSON deserialization is deprecated")
