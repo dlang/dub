@@ -206,12 +206,6 @@ class Dub {
 		m_packageManager = new PackageManager(pkg_root);
 	}
 
-	deprecated("Use the overload that takes `(NativePath pkg_root, NativePath root)`")
-	this(NativePath pkg_root)
-	{
-		this(pkg_root, pkg_root);
-	}
-
 	/**
 	 * Get the `PackageManager` instance to use for this `Dub` instance
 	 *
@@ -417,14 +411,6 @@ class Dub {
 	/** Returns the root path (usually the current working directory).
 	*/
 	@property NativePath rootPath() const { return m_rootPath; }
-	/// ditto
-	deprecated("Changing the root path is deprecated as it has non-obvious pitfalls " ~
-			   "(e.g. settings aren't reloaded). Instantiate a new `Dub` instead")
-	@property void rootPath(NativePath root_path)
-	{
-		m_rootPath = root_path;
-		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
-	}
 
 	/// Returns the name listed in the dub.json of the current
 	/// application.
