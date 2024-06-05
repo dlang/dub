@@ -277,17 +277,6 @@ class PackageManager {
 		return null;
 	}
 
-
-	/** Looks up the first package matching the given name.
-	*/
-	deprecated("Use `getBestPackage` instead")
-	Package getFirstPackage(string name)
-	{
-		foreach (ep; getPackageIterator(name))
-			return ep;
-		return null;
-	}
-
 	/** For a given package path, returns the corresponding package.
 
 		If the package is already loaded, a reference is returned. Otherwise
