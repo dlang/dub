@@ -894,16 +894,6 @@ class Dub {
 			rmdirRecurse(cache.toNativeString());
 	}
 
-	deprecated("Use the overload that accepts either a `Version` or a `VersionRange` as second argument")
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
-	{
-		const vrange = dep.visit!(
-			(VersionRange range) => range,
-			function VersionRange (any) { throw new Exception("Cannot call `dub.fetch` with a " ~ typeof(any).stringof ~ " dependency"); }
-		);
-		return this.fetch(packageId, vrange, location, options, reason);
-	}
-
 	deprecated("Use `fetch(PackageName, Version, [FetchOptions, PlacementLocation, string])`")
 	Package fetch(string name, in Version vers, PlacementLocation location, FetchOptions options, string reason = "")
 	{
