@@ -1871,17 +1871,6 @@ public class SelectedVersions {
 		this.m_bare = false;
 	}
 
-	/** Constructs a new version selections from an existing JSON file.
-	*/
-	deprecated("JSON deserialization is deprecated")
-	this(NativePath path)
-	{
-		auto json = jsonFromFile(path);
-		deserialize(json);
-		m_dirty = false;
-		m_bare = false;
-	}
-
 	/// Returns a list of names for all packages that have a version selection.
 	@property string[] selectedPackages() const { return m_selections.versions.keys; }
 
@@ -2025,34 +2014,9 @@ public class SelectedVersions {
 		m_bare = false;
 	}
 
-	deprecated("JSON deserialization is deprecated")
-	static Dependency dependencyFromJson(Json j)
-	{
-		if (j.type == Json.Type.string)
-			return Dependency(Version(j.get!string));
-		else if (j.type == Json.Type.object && "path" in j)
-			return Dependency(NativePath(j["path"].get!string));
-		else if (j.type == Json.Type.object && "repository" in j)
-			return Dependency(Repository(j["repository"].get!string,
-				enforce("version" in j, "Expected \"version\" field in repository version object").get!string));
-		else throw new Exception(format("Unexpected type for dependency: %s", j));
-	}
-
 	deprecated("JSON serialization is deprecated")
 	Json serialize() const {
 		return PackageManager.selectionsToJSON(this.m_selections);
-	}
-
-	deprecated("JSON deserialization is deprecated")
-	private void deserialize(Json json)
-	{
-		const fileVersion = json["fileVersion"].get!int;
-		enforce(fileVersion == FileVersion, "Mismatched dub.selections.json version: " ~ to!string(fileVersion) ~ " vs. " ~ to!string(FileVersion));
-		clear();
-		m_selections.fileVersion = fileVersion;
-		scope(failure) clear();
-		foreach (string p, dep; json["versions"])
-			m_selections.versions[p] = dependencyFromJson(dep);
 	}
 }
 
