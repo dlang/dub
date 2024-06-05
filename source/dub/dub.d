@@ -255,12 +255,9 @@ class Dub {
 
 		static void readSettingsFile (NativePath path_, ref Settings current)
 		{
-			// TODO: Remove `StrictMode.Warn` after v1.40 release
-			// The default is to error, but as the previous parser wasn't
-			// complaining, we should first warn the user.
 			const path = path_.toNativeString();
 			if (path.exists) {
-				auto newConf = parseConfigFileSimple!Settings(path, StrictMode.Warn);
+				auto newConf = parseConfigFileSimple!Settings(path);
 				if (!newConf.isNull())
 					current = current.merge(newConf.get());
 			}

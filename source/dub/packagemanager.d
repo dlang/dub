@@ -1039,11 +1039,8 @@ symlink_exit:
 		if (!this.existsFile(path))
 			return typeof(return).init;
 		const content = this.readText(path);
-		// TODO: Remove `StrictMode.Warn` after v1.40 release
-		// The default is to error, but as the previous parser wasn't
-		// complaining, we should first warn the user.
 		return wrapException(parseConfigString!SelectionsFile(
-			content, path.toNativeString(), StrictMode.Warn));
+			content, path.toNativeString()));
 	}
 
 	/**
