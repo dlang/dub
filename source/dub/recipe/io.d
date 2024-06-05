@@ -83,8 +83,6 @@ PackageRecipe parsePackageRecipe(string contents, string filename,
 {
 	import std.algorithm : endsWith;
 	import dub.compilers.buildsettings : TargetType;
-	import dub.internal.vibecompat.data.json;
-	import dub.recipe.json : parseJson;
 	import dub.recipe.sdl : parseSDL;
 
 	PackageRecipe ret;
@@ -93,43 +91,8 @@ PackageRecipe parsePackageRecipe(string contents, string filename,
 
 	if (filename.endsWith(".json"))
 	{
-		try {
-			ret = parseConfigString!PackageRecipe(contents, filename, mode);
-			fixDependenciesNames(ret.name, ret);
-		} catch (ConfigException exc) {
-			logWarn("Your `dub.json` file use non-conventional features that are deprecated");
-			logWarn("Please adjust your `dub.json` file as those warnings will turn into errors in dub v1.40.0");
-			logWarn("Error was: %s", exc);
-			// Fallback to JSON parser
-			ret = PackageRecipe.init;
-			parseJson(ret, parseJsonString(contents, filename), parent);
-		} catch (Exception exc) {
-			logWarn("Your `dub.json` file use non-conventional features that are deprecated");
-			logWarn("This is most likely due to duplicated keys.");
-			logWarn("Please adjust your `dub.json` file as those warnings will turn into errors in dub v1.40.0");
-			logWarn("Error was: %s", exc);
-			// Fallback to JSON parser
-			ret = PackageRecipe.init;
-			parseJson(ret, parseJsonString(contents, filename), parent);
-		}
-		// `debug = ConfigFillerDebug` also enables verbose parser output
-		debug (ConfigFillerDebug)
-		{
-			import std.stdio;
-
-			PackageRecipe jsonret;
-			parseJson(jsonret, parseJsonString(contents, filename), parent_name);
-			if (ret != jsonret)
-			{
-				writeln("Content of JSON and YAML parsing differ for file: ", filename);
-				writeln("-------------------------------------------------------------------");
-				writeln("JSON (excepted): ", jsonret);
-				writeln("-------------------------------------------------------------------");
-				writeln("YAML (actual  ): ", ret);
-				writeln("========================================");
-				ret = jsonret;
-			}
-		}
+		ret = parseConfigString!PackageRecipe(contents, filename, mode);
+		fixDependenciesNames(ret.name, ret);
 	}
 	else if (filename.endsWith(".sdl")) parseSDL(ret, contents, parent, filename);
 	else assert(false, "readPackageRecipe called with filename with unknown extension: "~filename);
