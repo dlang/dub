@@ -1160,13 +1160,6 @@ class Dub {
 		this.remove(PackageName(name), version_, location);
 	}
 
-	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	deprecated("Use the overload without force_remove instead")
-	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
-	{
-		remove(package_id, version_, location);
-	}
-
 	/** Adds a directory to the list of locally known packages.
 
 		Forwards to `PackageManager.addLocalPackage`.
