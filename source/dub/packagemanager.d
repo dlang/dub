@@ -302,18 +302,6 @@ class PackageManager {
 		return null;
 	}
 
-	/** Looks up the latest package matching the given name.
-	*/
-	deprecated("Use `getBestPackage` with `name, Dependency.any` instead")
-	Package getLatestPackage(string name)
-	{
-		Package pkg;
-		foreach (ep; getPackageIterator(name))
-			if (pkg is null || pkg.version_ < ep.version_)
-				pkg = ep;
-		return pkg;
-	}
-
 	/** For a given package path, returns the corresponding package.
 
 		If the package is already loaded, a reference is returned. Otherwise
