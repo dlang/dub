@@ -323,21 +323,12 @@ class Dub {
 	/** Get the list of package suppliers.
 
 		Params:
-			additional_package_suppliers = A list of package suppliers to try
+			base = A list of package suppliers to try
 				before the suppliers found in the configurations files and the
 				`defaultPackageSuppliers`.
 			skip = Can be used to skip using the configured package suppliers,
 				   as well as the default suppliers.
 	*/
-	deprecated("This is an implementation detail. " ~
-		"Use `packageSuppliers` to get the computed list of package " ~
-		"suppliers once a `Dub` instance has been constructed.")
-	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] base, SkipPackageSuppliers skip)
-	{
-		return this.makePackageSuppliers(base, skip, environment.get("DUB_REGISTRY", null));
-	}
-
-	/// Ditto
 	protected PackageSupplier[] makePackageSuppliers(PackageSupplier[] base,
 		SkipPackageSuppliers skip, string registry_var)
 	{
@@ -418,15 +409,6 @@ class Dub {
 		default:
 			return new RegistryPackageSupplier(URL(url));
 		}
-	}
-
-	/// ditto
-	deprecated("This is an implementation detail. " ~
-		"Use `packageSuppliers` to get the computed list of package " ~
-		"suppliers once a `Dub` instance has been constructed.")
-	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers)
-	{
-		return getPackageSuppliers(additional_package_suppliers, m_config.skipRegistry);
 	}
 
 	@property bool dryRun() const { return m_dryRun; }
