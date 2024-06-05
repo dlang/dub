@@ -2028,12 +2028,6 @@ public class SelectedVersions {
 		m_bare = false;
 	}
 
-	deprecated("Use `dub.dependency : Dependency.toJson(true)`")
-	static Json dependencyToJson(Dependency d)
-	{
-		return d.toJson(true);
-	}
-
 	deprecated("JSON deserialization is deprecated")
 	static Dependency dependencyFromJson(Json j)
 	{
