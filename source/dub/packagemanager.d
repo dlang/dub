@@ -240,13 +240,6 @@ class PackageManager {
 	}
 
 	/// ditto
-	deprecated("Use the overload that accepts a `Version` as second argument")
-	Package getPackage(string name, string ver, bool enable_overrides = true)
-	{
-		return getPackage(name, Version(ver));
-	}
-
-	/// ditto
 	deprecated("Use the overload that takes a `PlacementLocation`")
 	Package getPackage(string name, Version ver, NativePath path)
 	{
@@ -272,13 +265,6 @@ class PackageManager {
 		if (loc >= this.m_repositories.length)
 			return null;
 		return this.m_repositories[loc].load(name, ver, this);
-	}
-
-	/// ditto
-	deprecated("Use the overload that accepts a `Version` as second argument")
-	Package getPackage(string name, string ver, NativePath path)
-	{
-		return getPackage(name, Version(ver), path);
 	}
 
 	/// ditto
