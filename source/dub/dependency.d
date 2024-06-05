@@ -477,19 +477,6 @@ struct Dependency {
 		);
 	}
 
-	/** Determines if this dependency specification matches arbitrary versions.
-
-		This is true in particular for the `any` constant.
-	*/
-	deprecated("Use `VersionRange.matchesAny` directly")
-	bool matchesAny() const scope @safe {
-		return this.m_value.match!(
-			(NativePath v) => true,
-			(Repository v) => true,
-			(VersionRange v) => v.matchesAny(),
-		);
-	}
-
 	/** Tests if the specification matches a specific version.
 	*/
 	bool matches(string vers, VersionMatchMode mode = VersionMatchMode.standard) const @safe
