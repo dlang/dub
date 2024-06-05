@@ -421,11 +421,6 @@ class PackageManager {
 		}
 	}
 
-	deprecated("Use the overload that accepts a `dub.dependency : Repository`")
-	Package loadSCMPackage(string name, Dependency dependency)
-	in { assert(!dependency.repository.empty); }
-	do { return this.loadSCMPackage(name, dependency.repository); }
-
 	deprecated("Use `loadSCMPackage(PackageName, Repository)`")
 	Package loadSCMPackage(string name, Repository repo)
 	{
