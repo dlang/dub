@@ -146,20 +146,6 @@ class PackageManager {
 	/// ditto
 	@property const(NativePath)[] searchPath() const { return this.m_internal.searchPath; }
 
-	/** Returns the effective list of search paths, including default ones.
-	*/
-	deprecated("Use the `PackageManager` facilities instead")
-	@property const(NativePath)[] completeSearchPath()
-	const {
-		auto ret = appender!(const(NativePath)[])();
-		ret.put(this.m_internal.searchPath);
-		foreach (ref repo; m_repositories) {
-			ret.put(repo.searchPath);
-			ret.put(repo.packagePath);
-		}
-		return ret.data;
-	}
-
 	/** Sets additional (read-only) package cache paths to search for packages.
 
 		Cache paths have the same structure as the default cache paths, such as
