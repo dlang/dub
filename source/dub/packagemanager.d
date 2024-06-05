@@ -1211,13 +1211,6 @@ symlink_exit:
 	}
 }
 
-deprecated("Use `PlacementLocation` instead")
-enum LocalPackageType : PlacementLocation {
-	package_ = PlacementLocation.local,
-	user     = PlacementLocation.user,
-	system   = PlacementLocation.system,
-}
-
 private enum LocalPackagesFilename = "local-packages.json";
 
 /**
