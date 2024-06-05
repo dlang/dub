@@ -579,16 +579,6 @@ class PackageManager {
 		return &iterator;
 	}
 
-	deprecated("Use `store(NativePath source, PlacementLocation dest, string name, Version vers)`")
-	Package storeFetchedPackage(NativePath zip_file_path, Json package_info, NativePath destination)
-	{
-		import dub.internal.vibecompat.core.file;
-
-		return this.store_(readFile(zip_file_path), destination,
-			PackageName(package_info["name"].get!string),
-			Version(package_info["version"].get!string));
-	}
-
 	/**
 	 * Store a zip file stored at `src` into a managed location `destination`
 	 *
