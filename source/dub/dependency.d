@@ -166,7 +166,7 @@ struct Dependency {
 
 	/** Constructs a new dependency specification from a string
 
-		See the `versionSpec` property for a description of the accepted
+		See the `VersionRange` type for a description of the accepted
 		contents of that string.
 	*/
 	this(string spec) @safe
@@ -261,23 +261,6 @@ struct Dependency {
 		enforce(range.isExactVersion(),
 				"Dependency "~range.toString()~" is no exact version.");
 		return range.m_versA;
-	}
-
-	/// Sets/gets the matching version range as a specification string.
-	deprecated("Create a new `Dependency` instead and provide a `VersionRange`")
-	@property void versionSpec(string ves) @trusted
-	{
-		this.m_value = VersionRange.fromString(ves);
-	}
-
-	/// ditto
-	deprecated("Use `Dependency.visit` and match `VersionRange`instead")
-	@property string versionSpec() const @safe {
-		return this.m_value.match!(
-			(const NativePath   p) => ANY_IDENT,
-			(const Repository   r) => r.m_ref,
-			(const VersionRange p) => p.toString(),
-		);
 	}
 
 	/** Returns a modified dependency that gets mapped to a given path.
