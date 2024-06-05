@@ -10,13 +10,8 @@ import common;
 
 int main(string[] args)
 {
-	import std.algorithm : among, endsWith, startsWith, count;
-	import std.file : dirEntries, DirEntry, exists, getcwd, readText, SpanMode;
-	import std.format : format;
-	import std.stdio : File, writeln;
-	import std.path : absolutePath, buildPath, baseName, dirName, stripExtension, globMatch;
-	import std.process : environment, spawnProcess, spawnShell, wait, ProcessConfig = Config;
-	import std.string: cmp, splitLines;
+	import std.algorithm, std.file, std.format, std.stdio, std.path, std.process, std.string;
+	alias ProcessConfig = std.process.Config;
 
 	//** if [ -z ${DUB:-} ]; then
 	//**     die $LINENO 'Variable $DUB must be defined to run the tests.'
@@ -108,13 +103,12 @@ int main(string[] args)
 
 		//#First we build the packages
 		//if [ ! -e $pack/.no_build ] && [ ! -e $pack/.no_build_$DC_BIN ]; then # For sourceLibrary
-		bool build;
-		if (!pack.name.buildPath(".no_build").exists
+		bool build = (!pack.name.buildPath(".no_build").exists
 			&& !pack.name.buildPath(".no_build_" ~ dc_bin).exists
-			&& !pack.name.buildPath(".no_build_" ~ os).exists)
+			&& !pack.name.buildPath(".no_build_" ~ os).exists);
+		if (build)
 		{
 			//build=1
-			build = true;
 			//if [ -e $pack/.fail_build ]; then
 			//    log "Building $pack, expected failure..."
 			//    $DUB build --force --root=$pack --compiler=$DC 2>/dev/null && logError "Error: Failure expected, but build passed."
