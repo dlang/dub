@@ -225,18 +225,6 @@ class PackageManager {
 		return this.getPackage(PackageName(name), ver);
 	}
 
-	/// ditto
-	deprecated("Use the overload that takes a `PlacementLocation`")
-	Package getPackage(string name, Version ver, NativePath path)
-	{
-		foreach (p; getPackageIterator(name)) {
-			auto pvm = isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard;
-			if (p.version_.matches(ver, pvm) && p.path.startsWith(path))
-				return p;
-		}
-		return null;
-	}
-
 	/// Ditto
 	deprecated("Use the overload that accepts a `PackageName` instead")
 	Package getPackage(string name, Version ver, PlacementLocation loc)
