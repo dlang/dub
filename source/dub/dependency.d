@@ -1116,6 +1116,7 @@ public struct VersionRange
 		string r;
 
 		if (this == Invalid) return "no";
+		if (this.matchesAny()) return "*";
 		if (this.isExactVersion() && m_inclusiveA && m_inclusiveB) {
 			// Special "==" case
 			if (m_versA == Version.masterBranch) return "~master";
@@ -1142,9 +1143,12 @@ public struct VersionRange
 			}
 		}
 
-		if (m_versA != Version.minRelease) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
-		if (m_versB != Version.maxRelease) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
-		if (this.matchesAny()) r = ">=0.0.0";
+		if (m_versA != Version.minRelease || !m_inclusiveA)
+			r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
+		if (m_versB != Version.maxRelease || !m_inclusiveB)
+			r ~= (r.length == 0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~
+				m_versB.toString();
+
 		return r;
 	}
 
@@ -1239,6 +1243,13 @@ unittest {
 	assert(Version("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.standard));
 	assert(!Version("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
 	assert(Version("1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+}
+
+// Erased version specification for dependency, converted to "" instead of ">0.0.0"
+// https://github.com/dlang/dub/issues/2901
+unittest
+{
+    assert(VersionRange.fromString(">0.0.0").toString() == ">0.0.0");
 }
 
 /// Determines whether the given string is a Git hash.
