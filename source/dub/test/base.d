@@ -559,15 +559,26 @@ public class FSEntry
     /// Creates a new FSEntry
     private this (FSEntry p, Type t, string n)
     {
+        // Avoid 'DOS File Times cannot hold dates prior to 1980.' exception
+        import std.datetime.date;
+        SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
+
         this.attributes.type = t;
         this.parent = p;
         this.name = n;
+        this.attributes.access = DefaultTime;
+        this.attributes.modification = DefaultTime;
     }
 
     /// Create the root of the filesystem, only usable from this module
     private this ()
     {
+        import std.datetime.date;
+        SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
+
         this.attributes.type = Type.Directory;
+        this.attributes.access = DefaultTime;
+        this.attributes.modification = DefaultTime;
     }
 
     /// Get a direct children node, returns `null` if it can't be found
