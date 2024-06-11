@@ -146,21 +146,9 @@ void atomicWriteJsonFile(NativePath path, Json json)
 	moveFile(tmppath, path);
 }
 
-deprecated("specify a working directory explicitly")
-void runCommand(string command, string[string] env = null)
-{
-	runCommands((&command)[0 .. 1], env, null);
-}
-
 void runCommand(string command, string[string] env, string workDir)
 {
 	runCommands((&command)[0 .. 1], env, workDir);
-}
-
-deprecated("specify a working directory explicitly")
-void runCommands(in string[] commands, string[string] env = null)
-{
-	runCommands(commands, env, null);
 }
 
 void runCommands(in string[] commands, string[string] env, string workDir)
