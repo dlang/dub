@@ -568,11 +568,6 @@ struct CommonOptions {
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.default_;
 	PlacementLocation placementLocation = PlacementLocation.user;
 
-	deprecated("Use `Color` instead, the previous naming was a limitation of error message formatting")
-	alias color = Color;
-	deprecated("Use `colorMode` instead")
-	alias color_mode = colorMode;
-
 	private void parseColor(string option, string value) @safe
 	{
 		// `automatic`, `on`, `off` are there for backwards compatibility
