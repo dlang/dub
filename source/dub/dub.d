@@ -408,7 +408,7 @@ class Dub {
 	 * Returns:
 	 *	 A new instance of a `PackageSupplier`.
 	 */
-	protected PackageSupplier makePackageSupplier(string url) const
+	protected PackageSupplier makePackageSupplier(string url)
 	{
 		switch (url.startsWith("dub+", "mvn+", "file://"))
 		{
