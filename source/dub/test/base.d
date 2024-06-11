@@ -736,6 +736,7 @@ public class FSEntry
     public ubyte[] readFile (NativePath path) const scope
     {
         auto entry = this.lookup(path);
+        enforce(entry !is null, "No such file: " ~ path.toNativeString());
         enforce(entry.attributes.type == Type.File, "Trying to read a directory");
         // This is a hack to make poisoning a file possible.
         // However, it is rather crude and doesn't allow to poison directory.
