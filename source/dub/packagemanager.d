@@ -840,7 +840,7 @@ class PackageManager {
 
 	/// Backward-compatibility for deprecated overload, simplify once `storeFetchedPatch`
 	/// is removed
-	private Package store_(ubyte[] data, NativePath destination,
+	protected Package store_(ubyte[] data, NativePath destination,
 		in PackageName name, in Version vers)
 	{
 		import dub.recipe.json : toJson;
