@@ -359,6 +359,21 @@ package class TestPackageManager : PackageManager
         this.scm[GitReference(repo)] = dub_json;
     }
 
+	/// Overriden because we currently don't have a way to do dependency
+    /// injection on `dub.internal.utils : lockFile`.
+	public override Package store(ubyte[] data, PlacementLocation dest,
+		in PackageName name, in Version vers)
+	{
+        // Most of the code is copied from the base method
+		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
+		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
+		this.ensureDirectory(dstpath.parentPath());
+
+		if (this.existsFile(dstpath))
+			return this.getPackage(name, vers, dest);
+		return this.store_(data, dstpath, name, vers);
+	}
+
     ///
     protected override bool existsDirectory(NativePath path)
     {
