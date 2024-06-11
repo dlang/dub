@@ -843,6 +843,7 @@ class PackageManager {
 	private Package store_(ubyte[] data, NativePath destination,
 		in PackageName name, in Version vers)
 	{
+		import dub.recipe.json : toJson;
 		import std.range : walkLength;
 
 		logDebug("Placing package '%s' version '%s' to location '%s'",
@@ -929,7 +930,9 @@ symlink_exit:
 		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
 			this.removeFile(pack.recipePath);
-		pack.storeInfo();
+		auto app = appender!string();
+		app.writePrettyJsonString(pack.recipe.toJson());
+		this.writeFile(pack.recipePath.parentPath ~ defaultPackageFilename, app.data);
 		addPackages(this.m_internal.localPackages, pack);
 		return pack;
 	}
