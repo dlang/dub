@@ -496,9 +496,11 @@ int runDubCommandLine(string[] args)
 		import std.uni : toUpper;
 		foreach (CommandGroup key; handler.commandGroups)
 		{
-			foreach (Command command; key.commands)
-			{
-				if (levenshteinDistance(command_name, command.name) < 4) {
+			auto similarCommands = key.commands.filter!(cmd => levenshteinDistance(command_name, cmd.name) < 4).array();
+			if (similarCommands) {
+				sort!((a, b) => levenshteinDistance(command_name, a.name) < levenshteinDistance(
+					command_name, b.name))(similarCommands);
+				foreach (command; similarCommands) {
 					logInfo("Did you mean '%s'?", command.name);
 				}
 			}
@@ -563,13 +565,8 @@ struct CommonOptions {
 	string root_path, recipeFile;
 	enum Color { automatic, on, off }
 	Color colorMode = Color.automatic;
-	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.none;
+	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.default_;
 	PlacementLocation placementLocation = PlacementLocation.user;
-
-	deprecated("Use `Color` instead, the previous naming was a limitation of error message formatting")
-	alias color = Color;
-	deprecated("Use `colorMode` instead")
-	alias color_mode = colorMode;
 
 	private void parseColor(string option, string value) @safe
 	{
@@ -589,6 +586,30 @@ struct CommonOptions {
 				~ "', supported values: --color[=auto], --color=always, --color=never");
 	}
 
+	private void parseSkipRegistry(string option, string value) @safe
+	{
+		// We only want to support `none`, `standard`, `configured`, and `all`.
+		// We use a separate function to prevent getopt from parsing SkipPackageSuppliers.default_.
+		assert(option == "skip-registry",
+		       "parseSkipRegistry called with unknown option '" ~ option ~ "'");
+		switch (value) with (SkipPackageSuppliers) {
+		case "none":
+			skipRegistry = none;
+			break;
+		case "standard":
+			skipRegistry = standard;
+			break;
+		case "configured":
+			skipRegistry = configured;
+			break;
+		case "all":
+			skipRegistry = all;
+			break;
+		default:
+			throw new GetOptException("skip-registry only accepts 'none', 'standard', 'configured', and 'all', not '" ~ value ~ "'");
+		}
+	}
+
 	/// Parses all common options and stores the result in the struct instance.
 	void prepare(CommandArgs args)
 	{
@@ -600,7 +621,7 @@ struct CommonOptions {
 			"  DUB: URL to DUB registry (default)",
 			"  Maven: URL to Maven repository + group id containing dub packages as artifacts. E.g. mvn+http://localhost:8040/maven/libs-release/dubpackages",
 			]);
-		args.getopt("skip-registry", &skipRegistry, [
+		args.getopt("skip-registry", &skipRegistry, &parseSkipRegistry, [
 			"Sets a mode for skipping the search on certain package registry types:",
 			"  none: Search all configured or default registries (default)",
 			"  standard: Don't search the main registry (e.g. "~defaultRegistryURLs[0]~")",
@@ -852,10 +873,10 @@ class Command {
 				// should simply retry over all registries instead of using a special
 				// FallbackPackageSupplier.
 				auto urls = url.splitter(' ');
-				PackageSupplier ps = getRegistryPackageSupplier(urls.front);
+				PackageSupplier ps = _getRegistryPackageSupplier(urls.front);
 				urls.popFront;
 				if (!urls.empty)
-					ps = new FallbackPackageSupplier(ps ~ urls.map!getRegistryPackageSupplier.array);
+					ps = new FallbackPackageSupplier(ps ~ urls.map!_getRegistryPackageSupplier.array);
 				return ps;
 			})
 			.array;

@@ -48,9 +48,7 @@ deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryU
 /// The URL to the official package registry and it's default fallback registries.
 static immutable string[] defaultRegistryURLs = [
 	"https://code.dlang.org/",
-	"https://codemirror.dlang.org/",
-	"https://dub.bytecraft.nl/",
-	"https://code-mirror.dlang.io/",
+	"https://codemirror.dlang.org/"
 ];
 
 /** Returns a default list of package suppliers.
@@ -79,7 +77,10 @@ PackageSupplier getRegistryPackageSupplier(string url)
 
 // Private to avoid a bug in `defaultPackageSuppliers` with `map` triggering a deprecation
 // even though the context is deprecated.
-private PackageSupplier _getRegistryPackageSupplier(string url)
+// Also used from `commandline`. Note that this is replaced by a method
+// in the `Dub` class, to allow for proper dependency injection,
+// but `commandline` is currently completely excluded.
+package(dub) PackageSupplier _getRegistryPackageSupplier(string url)
 {
 	switch (url.startsWith("dub+", "mvn+", "file://"))
 	{
@@ -158,6 +159,13 @@ class Dub {
 		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
 
 		init();
+
+		if (skip == SkipPackageSuppliers.default_) {
+			// If unspecified on the command line, take
+			// the value from the configuration files, or
+			// default to none.
+			skip = m_config.skipRegistry.set ? m_config.skipRegistry.value : SkipPackageSuppliers.none;
+		}
 
 		const registry_var = environment.get("DUB_REGISTRY", null);
 		m_packageSuppliers = this.makePackageSuppliers(base, skip, registry_var);
@@ -400,7 +408,7 @@ class Dub {
 	 * Returns:
 	 *	 A new instance of a `PackageSupplier`.
 	 */
-	protected PackageSupplier makePackageSupplier(string url) const
+	protected PackageSupplier makePackageSupplier(string url)
 	{
 		switch (url.startsWith("dub+", "mvn+", "file://"))
 		{
@@ -514,7 +522,7 @@ class Dub {
 	/// Loads a specific package as the main project package (can be a sub package)
 	void loadPackage(Package pack)
 	{
-		auto selections = Project.loadSelections(pack);
+		auto selections = Project.loadSelections(pack, m_packageManager);
 		m_project = new Project(m_packageManager, pack, selections);
 	}
 

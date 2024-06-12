@@ -766,15 +766,17 @@ unittest {
 }
 
 unittest { // issue #1235 - pass no library files to compiler command line when building a static lib
-	import dub.internal.vibecompat.data.json : parseJsonString;
+	import dub.recipe.io : parsePackageRecipe;
 	import dub.compilers.gdc : GDCCompiler;
 	import dub.platform : determinePlatform;
 
 	version (Windows) auto libfile = "bar.lib";
 	else auto libfile = "bar.a";
 
-	auto desc = parseJsonString(`{"name": "test", "targetType": "library", "sourceFiles": ["foo.d", "`~libfile~`"]}`);
-	auto pack = new Package(desc, NativePath("/tmp/fooproject"));
+	auto recipe = parsePackageRecipe(
+        `{"name":"test", "targetType":"library", "sourceFiles":["foo.d", "`~libfile~`"]}`,
+        `/tmp/fooproject/dub.json`);
+	auto pack = new Package(recipe, NativePath("/tmp/fooproject"));
 	auto pman = new PackageManager(pack.path, NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), false);
 	auto prj = new Project(pman, pack);
 

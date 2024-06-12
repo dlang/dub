@@ -1,5 +1,6 @@
 {
     "name": "test",
     "targetName": "test-application",
-    "preBuildCommands": [ "[ -f issue1775.marker ]" ]
+    "preBuildCommands-posix": [ "[ -f issue1775.marker ]" ],
+    "preBuildCommands-windows": [ "if not exist issue1775.marker exit /b 1" ]
 }

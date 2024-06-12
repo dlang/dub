@@ -6,10 +6,6 @@
            "versions": [ "Default" ]
        },
        {
-           "name": "OMF",
-           "versions": [ "OMF" ]
-       },
-       {
            "name": "MsCoff",
            "versions": [ "MsCoff" ]
        },
@@ -25,12 +21,7 @@ module dynlib.app;
 pragma(msg, "Frontend: ", __VERSION__);
 
 // Object format should match the expectation
-version (OMF)
-{
-    enum expSize = 4;
-    enum expFormat = "omf";
-}
-else version (MsCoff)
+version (MsCoff)
 {
     // Should be a 32 bit build
     version (Is64)  enum expSize = 8;

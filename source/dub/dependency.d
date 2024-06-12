@@ -99,6 +99,12 @@ struct PackageDependency {
 		this.spec = s;
 	}
 
+	int opCmp(in typeof(this) other) @safe const {
+		return name == other.name
+			? spec.opCmp(other.spec)
+			: name.opCmp(other.name);
+	}
+
 	/// Name of the referenced package.
 	PackageName name;
 
@@ -723,7 +729,10 @@ unittest {
 unittest {
 	assert(VersionRange.fromString("~>1.0.4").toString() == "~>1.0.4");
 	assert(VersionRange.fromString("~>1.4").toString() == "~>1.4");
-	assert(VersionRange.fromString("~>2").toString() == "~>2");
+	// https://github.com/dlang/dub/issues/2830
+	assert(VersionRange.fromString("~>2").toString() == "~>2.0");
+	assert(VersionRange.fromString("~>5.0").toString() == "~>5.0");
+
 	assert(VersionRange.fromString("~>1.0.4+1.2.3").toString() == "~>1.0.4");
 	assert(VersionRange.fromString("^0.1.2").toString() == "^0.1.2");
 	assert(VersionRange.fromString("^1.2.3").toString() == "^1.2.3");
@@ -1110,6 +1119,7 @@ public struct VersionRange
 		string r;
 
 		if (this == Invalid) return "no";
+		if (this.matchesAny()) return "*";
 		if (this.isExactVersion() && m_inclusiveA && m_inclusiveB) {
 			// Special "==" case
 			if (m_versA == Version.masterBranch) return "~master";
@@ -1125,7 +1135,10 @@ public struct VersionRange
 			auto parts = va.splitter('.').array;
 			assert(parts.length == 3, "Version string with a digit group count != 3: "~va);
 
-			foreach (i; 0 .. 3) {
+			// Start at 1 because the notation `~>1` and `^1` are equivalent
+			// to `~>1.0` and `^1.0`, and the latter are better understood
+			// and recognized by users. See for example issue 2830.
+			foreach (i; 1 .. 3) {
 				auto vp = parts[0 .. i+1].join(".");
 				auto ve = Version(expandVersion(vp));
 				auto veb = Version(bumpVersion(vp) ~ "-0");
@@ -1136,9 +1149,12 @@ public struct VersionRange
 			}
 		}
 
-		if (m_versA != Version.minRelease) r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
-		if (m_versB != Version.maxRelease) r ~= (r.length==0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~ m_versB.toString();
-		if (this.matchesAny()) r = ">=0.0.0";
+		if (m_versA != Version.minRelease || !m_inclusiveA)
+			r = (m_inclusiveA ? ">=" : ">") ~ m_versA.toString();
+		if (m_versB != Version.maxRelease || !m_inclusiveB)
+			r ~= (r.length == 0 ? "" : " ") ~ (m_inclusiveB ? "<=" : "<") ~
+				m_versB.toString();
+
 		return r;
 	}
 
@@ -1233,6 +1249,13 @@ unittest {
 	assert(Version("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.standard));
 	assert(!Version("1.0.0").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
 	assert(Version("1.0.0+foo").matches(Version("1.0.0+foo"), VersionMatchMode.strict));
+}
+
+// Erased version specification for dependency, converted to "" instead of ">0.0.0"
+// https://github.com/dlang/dub/issues/2901
+unittest
+{
+    assert(VersionRange.fromString(">0.0.0").toString() == ">0.0.0");
 }
 
 /// Determines whether the given string is a Git hash.

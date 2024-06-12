@@ -127,6 +127,18 @@ version "1.2.0"`, PackageFormat.sdl);
     /// Now actually upgrade dependencies in memory
     dub.upgrade(UpgradeOptions.select | UpgradeOptions.upgrade);
     assert(dub.project.getDependency("b", true).version_ == Version("1.2.0"));
+
+    /// Adding a package to the registry require the version and at list a recipe
+    dub.getRegistry().add(Version("1.3.0"), (scope FSEntry pkg) {
+        // This is required
+        pkg.writeFile(NativePath(`dub.sdl`), `name "b"`);
+        // Any other files can be present, as a normal package
+        pkg.mkdir(NativePath("source/b/")).writeFile(
+            NativePath("main.d"), "module b.main; void main() {}");
+    });
+    // Fetch the package from the registry
+    dub.upgrade(UpgradeOptions.select | UpgradeOptions.upgrade);
+    assert(dub.project.getDependency("b", true).version_ == Version("1.3.0"));
 }
 
 // TODO: Remove and handle logging the same way we handle other IO
@@ -163,6 +175,16 @@ public class TestDub : Dub
 {
     /// The virtual filesystem that this instance acts on
     public FSEntry fs;
+
+    /**
+     * Redundant reference to the registry
+     *
+     * We currently create 2 `MockPackageSupplier`s hidden behind a
+     * `FallbackPackageSupplier` (see base implementation).
+     * The fallback is never used, and we need to provide the user
+     * a mean to access the registry so they can add packages to it.
+     */
+    protected MockPackageSupplier registry;
 
     /// Convenience constants for use in unittests
     version (Windows)
@@ -277,20 +299,13 @@ public class TestDub : Dub
 	}
 
     /// See `MockPackageSupplier` documentation for this class' implementation
-    protected override PackageSupplier makePackageSupplier(string url) const
+    protected override PackageSupplier makePackageSupplier(string url)
     {
-        return new MockPackageSupplier(url);
+        auto r = new MockPackageSupplier(url);
+        if (this.registry is null)
+            this.registry = r;
+        return r;
     }
-
-	/// Loads a specific package as the main project package (can be a sub package)
-	public override void loadPackage(Package pack)
-	{
-        auto selections = this.packageManager.loadSelections(pack);
-		m_project = new Project(m_packageManager, pack, selections);
-	}
-
-	/// Reintroduce parent overloads
-	public alias loadPackage = Dub.loadPackage;
 
 	/**
 	 * Returns a fully typed `TestPackageManager`
@@ -302,6 +317,20 @@ public class TestDub : Dub
 	{
 		return cast(inout(TestPackageManager)) this.m_packageManager;
 	}
+
+    /**
+     * Returns a fully-typed `MockPackageSupplier`
+     *
+     * This exposes the first (and usually sole) `PackageSupplier` if typed
+     * as `MockPackageSupplier` so that client can call convenience functions
+     * on it directly.
+     */
+    public @property inout(MockPackageSupplier) getRegistry() inout
+    {
+        // This will not work with `SkipPackageSupplier`.
+        assert(this.registry !is null, "The registry hasn't been instantiated?");
+		return this.registry;
+    }
 }
 
 /**
@@ -347,43 +376,6 @@ package class TestPackageManager : PackageManager
         super(local, user, system, false);
     }
 
-    /// Port of `Project.loadSelections`
-    SelectedVersions loadSelections(in Package pack)
-	{
-		import dub.version_;
-        import dub.internal.configy.Read;
-		import dub.internal.dyaml.stdsumtype;
-
-		auto selverfile = (pack.path ~ SelectedVersions.defaultFile);
-		// No file exists
-		if (!this.fs.existsFile(selverfile))
-			return new SelectedVersions();
-
-        SelectionsFile selected;
-        try
-        {
-            const content = this.fs.readText(selverfile);
-            selected = parseConfigString!SelectionsFile(
-                content, selverfile.toNativeString());
-        }
-        catch (Exception exc) {
-            logError("Error loading %s: %s", selverfile, exc.message());
-			return new SelectedVersions();
-        }
-
-		return selected.content.match!(
-			(Selections!0 s) {
-				logWarnTag("Unsupported version",
-					"File %s has fileVersion %s, which is not yet supported by DUB %s.",
-					selverfile, s.fileVersion, dubVersion);
-				logWarn("Ignoring selections file. Use a newer DUB version " ~
-					"and set the appropriate toolchainRequirements in your recipe file");
-				return new SelectedVersions();
-			},
-			(Selections!1 s) => new SelectedVersions(s),
-		);
-	}
-
 	/**
 	 * Re-Implementation of `gitClone`.
 	 *
@@ -405,6 +397,21 @@ package class TestPackageManager : PackageManager
     {
         this.scm[GitReference(repo)] = dub_json;
     }
+
+	/// Overriden because we currently don't have a way to do dependency
+    /// injection on `dub.internal.utils : lockFile`.
+	public override Package store(ubyte[] data, PlacementLocation dest,
+		in PackageName name, in Version vers)
+	{
+        // Most of the code is copied from the base method
+		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
+		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
+		this.ensureDirectory(dstpath.parentPath());
+
+		if (this.existsFile(dstpath))
+			return this.getPackage(name, vers, dest);
+		return this.store_(data, dstpath, name, vers);
+	}
 
     ///
     protected override bool existsDirectory(NativePath path)
@@ -497,8 +504,16 @@ package class TestPackageManager : PackageManager
  */
 public class MockPackageSupplier : PackageSupplier
 {
-    /// Mapping of package name to packages, ordered by `Version`
-    protected Package[Version][PackageName] pkgs;
+    /// Internal duplication to avoid having to deserialize the zip content
+    private struct PkgData {
+        ///
+        PackageRecipe recipe;
+        ///
+        ubyte[] data;
+    }
+
+    /// Mapping of package name to package zip data, ordered by `Version`
+    protected PkgData[Version][PackageName] pkgs;
 
     /// URL this was instantiated with
     protected string url;
@@ -507,6 +522,48 @@ public class MockPackageSupplier : PackageSupplier
     public this(string url)
     {
         this.url = url;
+    }
+
+    /**
+     * Adds a package to this `PackageSupplier`
+     *
+     * The registry API bakes in Zip files / binary data.
+     * When adding a package here, just provide an `FSEntry`
+     * representing the package directory, which will be converted
+     * to ZipFile / `ubyte[]` and returned by `fetchPackage`.
+     *
+     * This use a delegate approach similar to `TestDub` constructor:
+     * a delegate must be provided to initialize the package content.
+     * The delegate will be called once and is expected to contain,
+     * at its root, the package.
+     *
+     * The name of the package will be defined from the recipe file.
+     * It's version, however, must be provided as parameter.
+     *
+     * Params:
+     *   vers = The `Version` of this package.
+     *   dg = A delegate that will populate its parameter with the
+     *        content of the package.
+     */
+    public void add (in Version vers, scope void delegate(scope FSEntry root) dg)
+    {
+        scope pkgRoot = new FSEntry();
+        dg(pkgRoot);
+
+        scope recipe = pkgRoot.lookup("dub.json");
+        if (recipe is null) recipe = pkgRoot.lookup("dub.sdl");
+        if (recipe is null) recipe = pkgRoot.lookup("package.json");
+        // Note: If you want to provide an invalid package, override
+        // [Mock]PackageSupplier. Most tests will expect a well-behaving
+        // registry so this assert is here to help with writing tests.
+        assert(recipe !is null,
+               "No package recipe found: Expected dub.json or dub.sdl");
+        auto pkgRecipe = parsePackageRecipe(
+            pkgRoot.readText(NativePath(recipe.name)), recipe.name);
+        pkgRecipe.version_ = vers.toString();
+        const name = PackageName(pkgRecipe.name);
+        this.pkgs[name][vers] = PkgData(
+            pkgRecipe, pkgRoot.serializeToZip("%s-%s/".format(name, vers)));
     }
 
     ///
@@ -527,8 +584,7 @@ public class MockPackageSupplier : PackageSupplier
     public override ubyte[] fetchPackage(in PackageName name,
         in VersionRange dep, bool pre_release)
     {
-        assert(0, "%s - fetchPackage not implemented for: %s"
-            .format(this.url, name.main));
+        return this.getBestMatch(name, dep, pre_release).data;
     }
 
     ///
@@ -537,14 +593,30 @@ public class MockPackageSupplier : PackageSupplier
     {
         import dub.recipe.json;
 
-        Package match;
-        if (auto ppkgs = name.main in this.pkgs)
-            foreach (vers, pkg; *ppkgs)
-                if ((!vers.isPreRelease || pre_release) &&
-                    dep.matches(vers) &&
-                    (match is null || match.version_ < vers))
-                    match = pkg;
-        return match is null ? Json.init : toJson(match.recipe);
+        auto match = this.getBestMatch(name, dep, pre_release);
+        if (!match.data.length)
+            return Json.init;
+        auto res = toJson(match.recipe);
+        return res;
+    }
+
+    ///
+    protected PkgData getBestMatch (
+        in PackageName name, in VersionRange dep, bool pre_release)
+    {
+        auto ppkgs = name.main in this.pkgs;
+        if (ppkgs is null)
+            return typeof(return).init;
+
+        PkgData match;
+        foreach (vers, pr; *ppkgs)
+            if ((!vers.isPreRelease || pre_release) &&
+                dep.matches(vers) &&
+                (!match.data.length || Version(match.recipe.version_) < vers)) {
+                match.recipe = pr.recipe;
+                match.data = pr.data;
+            }
+        return match;
     }
 
     ///
@@ -591,15 +663,26 @@ public class FSEntry
     /// Creates a new FSEntry
     private this (FSEntry p, Type t, string n)
     {
+        // Avoid 'DOS File Times cannot hold dates prior to 1980.' exception
+        import std.datetime.date;
+        SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
+
         this.attributes.type = t;
         this.parent = p;
         this.name = n;
+        this.attributes.access = DefaultTime;
+        this.attributes.modification = DefaultTime;
     }
 
     /// Create the root of the filesystem, only usable from this module
     private this ()
     {
+        import std.datetime.date;
+        SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
+
         this.attributes.type = Type.Directory;
+        this.attributes.access = DefaultTime;
+        this.attributes.modification = DefaultTime;
     }
 
     /// Get a direct children node, returns `null` if it can't be found
@@ -783,7 +866,13 @@ public class FSEntry
     public ubyte[] readFile (NativePath path) const scope
     {
         auto entry = this.lookup(path);
+        enforce(entry !is null, "No such file: " ~ path.toNativeString());
         enforce(entry.attributes.type == Type.File, "Trying to read a directory");
+        // This is a hack to make poisoning a file possible.
+        // However, it is rather crude and doesn't allow to poison directory.
+        // Consider introducing a derived type to allow it.
+        assert(entry.content != "poison".representation,
+            "Trying to access poisoned path: " ~ path.toNativeString());
         return entry.content.dup;
     }
 
@@ -792,11 +881,11 @@ public class FSEntry
     {
         import std.utf : validate;
 
-        auto entry = this.lookup(path);
-        enforce(entry.attributes.type == Type.File, "Trying to read a directory");
+        const content = this.readFile(path);
         // Ignore BOM: If it's needed for a test, add support for it.
-        validate(cast(const(char[])) entry.content);
-        return cast(string) entry.content.idup();
+        validate(cast(const(char[])) content);
+        // `readFile` just `dup` the content, so it's safe to cast.
+        return cast(string) content;
     }
 
     /// Write to this file
@@ -926,4 +1015,37 @@ public void writePackageFile (FSEntry root, in string name, in string vers,
     root.mkdir(path).writeFile(
         NativePath(fmt == PackageFormat.json ? "dub.json" : "dub.sdl"),
         recipe);
+}
+
+/**
+ * Converts an `FSEntry` and its children to a `ZipFile`
+ */
+public ubyte[] serializeToZip (scope FSEntry root, string rootPath) {
+    import std.path;
+    import std.zip;
+
+    scope z = new ZipArchive();
+    void addToZip(scope string dir, scope FSEntry e) {
+        auto m = new ArchiveMember();
+        m.name = dir.buildPath(e.name);
+        m.fileAttributes = e.attributes.attrs;
+        m.time = e.attributes.modification;
+
+        final switch (e.attributes.type) {
+        case FSEntry.Type.Directory:
+            // We need to ensure the directory entry ends with a slash
+            // otherwise it will be considered as a file.
+            if (m.name[$-1] != '/')
+                m.name ~= '/';
+            z.addMember(m);
+            foreach (c; e.children)
+                addToZip(m.name, c);
+            break;
+        case FSEntry.Type.File:
+            m.expandedData = e.content;
+            z.addMember(m);
+        }
+    }
+    addToZip(rootPath, root);
+    return cast(ubyte[]) z.build();
 }

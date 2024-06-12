@@ -30,6 +30,7 @@ import std.encoding : sanitize;
 import std.exception;
 import std.range;
 import std.string;
+import std.typecons;
 import std.zip;
 
 
@@ -59,6 +60,11 @@ public string toString (PlacementLocation loc) @safe pure nothrow @nogc
     }
 }
 
+struct SelectionsFileLookupResult {
+	NativePath absolutePath; // to dub.selections.json
+	SelectionsFile selectionsFile;
+}
+
 /// The PackageManager can retrieve present packages and get / remove
 /// packages.
 class PackageManager {
@@ -85,17 +91,27 @@ class PackageManager {
 		 */
 		Location[] m_repositories;
 		/**
-		 * Whether `refresh` has been called or not
+		 * Whether `refreshLocal` / `refreshCache` has been called or not
 		 *
-		 * Dub versions because v1.31 eagerly scan all available repositories,
-		 * leading to slowdown for the most common operation - `dub build` with
-		 * already resolved dependencies.
-		 * From v1.31 onward, those locations are not scanned eagerly,
-		 * unless one of the function requiring eager scanning does,
-		 * such as `getBestPackage` - as it needs to iterate the list
-		 * of available packages.
+		 * User local cache can get pretty large, and we want to avoid our build
+		 * time being dependent on their size. However, in order to support
+		 * local packages and overrides, we were scanning the whole cache prior
+		 * to v1.39.0 (although attempts at fixing this behavior were made
+		 * earlier). Those booleans record whether we have been semi-initialized
+		 * (local packages and overrides have been loaded) or fully initialized
+		 * (all caches have been scanned), the later still being required for
+		 * some API (e.g. `getBestPackage` or `getPackageIterator`).
 		 */
-		bool m_initialized;
+		enum InitializationState {
+			/// No `refresh*` function has been called
+			none,
+			/// `refreshLocal` has been called
+			partial,
+			/// `refreshCache` (and `refreshLocal`) has been called
+			full,
+		}
+		/// Ditto
+		InitializationState m_state;
 	}
 
 	/**
@@ -190,8 +206,10 @@ class PackageManager {
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
 	protected Package lookup (in PackageName name, in Version vers) {
-		if (!this.m_initialized)
-			this.refresh();
+		// This is the only place we can get away with lazy initialization,
+		// since we know exactly what package and version we want.
+		// However, it is also the most often called API.
+		this.ensureInitialized(InitializationState.partial);
 
 		if (auto pkg = this.m_internal.lookup(name, vers))
 			return pkg;
@@ -464,13 +482,19 @@ class PackageManager {
 		string gitReference = repo.ref_.chompPrefix("~");
 		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
 
-		foreach (p; getPackageIterator(name.toString())) {
-			if (p.path == destination) {
-				return p;
-			}
-		}
-
-		if (!this.gitClone(repo.remote, gitReference, destination))
+		// Before doing a git clone, let's see if the package exists locally
+		if (this.existsDirectory(destination)) {
+			// It exists, check if we already loaded it.
+			// Either we loaded it on refresh and it's in PlacementLocation.user,
+			// or we just added it and it's in m_internal.
+			foreach (p; this.m_internal.fromPath)
+				if (p.path == destination)
+					return p;
+			if (this.m_repositories.length)
+				foreach (p; this.m_repositories[PlacementLocation.user].fromPath)
+					if (p.path == destination)
+						return p;
+		} else if (!this.gitClone(repo.remote, gitReference, destination))
 			return null;
 
 		Package result = this.load(destination);
@@ -628,9 +652,8 @@ class PackageManager {
 	*/
 	int delegate(int delegate(ref Package)) getPackageIterator()
 	{
-		// See `m_initialized` documentation
-		if (!this.m_initialized)
-			this.refresh();
+		// This API requires full knowledge of the package cache
+		this.ensureInitialized(InitializationState.full);
 
 		int iterator(int delegate(ref Package) del)
 		{
@@ -806,8 +829,6 @@ class PackageManager {
 	Package store(ubyte[] data, PlacementLocation dest,
 		in PackageName name, in Version vers)
 	{
-		import dub.internal.vibecompat.core.file;
-
 		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
 		this.ensureDirectory(dstpath.parentPath());
@@ -824,10 +845,10 @@ class PackageManager {
 
 	/// Backward-compatibility for deprecated overload, simplify once `storeFetchedPatch`
 	/// is removed
-	private Package store_(ubyte[] data, NativePath destination,
+	protected Package store_(ubyte[] data, NativePath destination,
 		in PackageName name, in Version vers)
 	{
-		import dub.internal.vibecompat.core.file;
+		import dub.recipe.json : toJson;
 		import std.range : walkLength;
 
 		logDebug("Placing package '%s' version '%s' to location '%s'",
@@ -914,7 +935,9 @@ symlink_exit:
 		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
 			this.removeFile(pack.recipePath);
-		pack.storeInfo();
+		auto app = appender!string();
+		app.writePrettyJsonString(pack.recipe.toJson());
+		this.writeFile(pack.recipePath.parentPath ~ defaultPackageFilename, app.data);
 		addPackages(this.m_internal.localPackages, pack);
 		return pack;
 	}
@@ -970,8 +993,7 @@ symlink_exit:
 		// As we iterate over `localPackages` we need it to be populated
 		// In theory we could just populate that specific repository,
 		// but multiple calls would then become inefficient.
-		if (!this.m_initialized)
-			this.refresh();
+		this.ensureInitialized(InitializationState.full);
 
 		path.endsWithSlash = true;
 		auto pack = this.load(path);
@@ -1002,8 +1024,7 @@ symlink_exit:
 		// As we iterate over `localPackages` we need it to be populated
 		// In theory we could just populate that specific repository,
 		// but multiple calls would then become inefficient.
-		if (!this.m_initialized)
-			this.refresh();
+		this.ensureInitialized(InitializationState.full);
 
 		path.endsWithSlash = true;
 		Package[]* packs = &m_repositories[type].localPackages;
@@ -1046,29 +1067,52 @@ symlink_exit:
 	{
 		if (refresh)
 			logDiagnostic("Refreshing local packages (refresh existing: true)...");
-		this.refresh_(refresh);
+		else
+			logDiagnostic("Scanning local packages...");
+
+		this.refreshLocal(refresh);
+		this.refreshCache(refresh);
 	}
 
 	void refresh()
 	{
-		this.refresh_(false);
+		logDiagnostic("Scanning local packages...");
+		this.refreshLocal(false);
+		this.refreshCache(false);
 	}
 
-	private void refresh_(bool refresh)
+	/// Private API to ensure a level of initialization
+	private void ensureInitialized(InitializationState state)
 	{
-		if (!refresh)
-			logDiagnostic("Scanning local packages...");
+		if (this.m_state >= state)
+			return;
+		if (state == InitializationState.partial)
+			this.refreshLocal(false);
+		else
+			this.refresh();
+	}
 
+	/// Refresh pay-as-you-go: Only load local packages, not the full cache
+	private void refreshLocal(bool refresh) {
 		foreach (ref repository; this.m_repositories)
 			repository.scanLocalPackages(refresh, this);
-
 		this.m_internal.scan(this, refresh);
+		foreach (ref repository; this.m_repositories) {
+			auto existing = refresh ? null : repository.fromPath;
+			foreach (path; repository.searchPath)
+				repository.scanPackageFolder(path, this, existing);
+			repository.loadOverrides(this);
+		}
+		if (this.m_state < InitializationState.partial)
+			this.m_state = InitializationState.partial;
+	}
+
+	/// Refresh the full cache, a potentially expensive operation
+	private void refreshCache(bool refresh)
+	{
 		foreach (ref repository; this.m_repositories)
 			repository.scan(this, refresh);
-
-		foreach (ref repository; this.m_repositories)
-			repository.loadOverrides(this);
-		this.m_initialized = true;
+		this.m_state = InitializationState.full;
 	}
 
 	alias Hash = ubyte[];
@@ -1103,6 +1147,49 @@ symlink_exit:
 		auto digest = hash.finish();
 		logDebug("Project hash: %s", digest);
 		return digest[].dup;
+	}
+
+	/**
+	 * Loads the selections file (`dub.selections.json`)
+	 *
+	 * The selections file is only used for the root package / project.
+	 * However, due to it being a filesystem interaction, it is managed
+	 * from the `PackageManager`.
+	 *
+	 * Params:
+	 *   absProjectPath = The absolute path to the root package/project for
+	 *                    which to load the selections file.
+	 *
+	 * Returns:
+	 *   Either `null` (if no selections file exists or parsing encountered an error),
+	 *   or a `SelectionsFileLookupResult`. Note that the nested `SelectionsFile`
+	 *   might use an unsupported version (see `SelectionsFile` documentation).
+	 */
+	final Nullable!SelectionsFileLookupResult readSelections(in NativePath absProjectPath)
+	in(absProjectPath.absolute) {
+		import dub.internal.configy.Read;
+
+		alias N = typeof(return);
+
+		// check for dub.selections.json in root project dir first, then walk up its
+		// parent directories and look for inheritable dub.selections.json files
+		for (NativePath dir = absProjectPath; !dir.empty; dir = dir.hasParentPath ? dir.parentPath : NativePath.init) {
+			const path = dir ~ "dub.selections.json";
+			if (!this.existsFile(path))
+				continue;
+			const content = this.readText(path);
+			// TODO: Remove `StrictMode.Warn` after v1.40 release
+			// The default is to error, but as the previous parser wasn't
+			// complaining, we should first warn the user.
+			auto selections = wrapException(parseConfigString!SelectionsFile(
+				content, path.toNativeString(), StrictMode.Warn));
+			const isValid = !selections.isNull() && (dir == absProjectPath || selections.get().inheritable);
+			if (isValid)
+				return N(SelectionsFileLookupResult(path, selections.get()));
+			break; // stop at the first invalid file
+		}
+
+		return N.init;
 	}
 
 	/**
