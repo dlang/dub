@@ -1,7 +1,0 @@
-{
-	"fileVersion": 1,
-	"inheritable": true,
-	"versions": {
-		"pkg1": {"path":"pkg1"}
-	}
-}
