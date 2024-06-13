@@ -229,10 +229,8 @@ unittest
     }
 }`;
 
-    auto s = parseConfigString!Selected(content, "/dev/null");
-    assert(s.fileVersion == 1);
+    auto s = parseConfigString!SelectionsFile(content, "/dev/null");
     assert(s.inheritable);
-    assert(s.versions.length == 1);
 }
 
 // Test reading an unsupported version
