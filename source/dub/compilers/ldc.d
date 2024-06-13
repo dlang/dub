@@ -243,10 +243,9 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				if (platform.frontendVersion >= 2071) {
 					settings.addDFlags("-cleanup-obj");
 				}
-				if (platform.frontendVersion >= 2095) {
-					// since LDC v1.25, -cleanup-obj additionally defaults to a unique temp -od directory
-				} else {
-					// resort to a unique-ish -od directory
+				if (platform.frontendVersion < 2095) {
+					// Since LDC v1.25, -cleanup-obj defaults to a unique temp -od directory
+					// We need to resort to a unique-ish -od directory before that
 					settings.addDFlags("-od=" ~ settings.targetPath ~ "/obj");
 				}
 				break;
