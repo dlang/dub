@@ -49,3 +49,65 @@ dependency "pkg1" version="*"`);
     assert(nestedContent == dubSelectionsJsonContent.replace(`{"path":"pkg1"}`, `{"path":"../pkg1"}`),
         "Unexpected nestedContent:\n" ~ nestedContent);
 }
+
+// a non-inheritable dub.selections.json breaks the inheritance chain
+unittest
+{
+    const root = TestDub.ProjectPath ~ "root";
+    const root_a = root ~ "a";
+    const root_a_b = root_a ~ "b";
+
+    scope dub = new TestDub((scope FSEntry fs) {
+        // inheritable root/dub.selections.json
+        fs.mkdir(root).writeFile(NativePath("dub.selections.json"), `{
+	"fileVersion": 1,
+	"inheritable": true,
+	"versions": {
+		"dub": "1.38.0"
+	}
+}
+`);
+        // non-inheritable root/a/dub.selections.json
+        fs.mkdir(root_a).writeFile(NativePath("dub.selections.json"), `{
+	"fileVersion": 1,
+	"versions": {
+		"dub": "1.37.0"
+	}
+}
+`);
+        // empty root/a/b/ directory
+        fs.mkdir(root_a_b);
+    });
+
+    // no selections for root/a/b/
+    {
+        const result = dub.packageManager.readSelections(root_a_b);
+        assert(result.isNull());
+    }
+
+    // local selections for root/a/
+    {
+        const result = dub.packageManager.readSelections(root_a);
+        assert(!result.isNull());
+        assert(result.get().absolutePath == root_a ~ "dub.selections.json");
+        assert(!result.get().selectionsFile.inheritable);
+    }
+
+    // local selections for root/
+    {
+        const result = dub.packageManager.readSelections(root);
+        assert(!result.isNull());
+        assert(result.get().absolutePath == root ~ "dub.selections.json");
+        assert(result.get().selectionsFile.inheritable);
+    }
+
+    // after removing non-inheritable root/a/dub.selections.json: inherited root selections for root/a/b/
+    {
+        dub.fs.removeFile(root_a ~ "dub.selections.json");
+
+        const result = dub.packageManager.readSelections(root_a_b);
+        assert(!result.isNull());
+        assert(result.get().absolutePath == root ~ "dub.selections.json");
+        assert(result.get().selectionsFile.inheritable);
+    }
+}
