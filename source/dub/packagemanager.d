@@ -60,8 +60,12 @@ public string toString (PlacementLocation loc) @safe pure nothrow @nogc
     }
 }
 
+/// A SelectionsFile associated with its file-system path.
 struct SelectionsFileLookupResult {
-	NativePath absolutePath; // to dub.selections.json
+	/// The absolute path to the dub.selections.json file
+	/// (potentially inherited from a parent directory of the root package).
+	NativePath absolutePath;
+	/// The parsed dub.selections.json file.
 	SelectionsFile selectionsFile;
 }
 
@@ -1165,8 +1169,8 @@ symlink_exit:
 	 *   or a `SelectionsFileLookupResult`. Note that the nested `SelectionsFile`
 	 *   might use an unsupported version (see `SelectionsFile` documentation).
 	 */
-	final Nullable!SelectionsFileLookupResult readSelections(in NativePath absProjectPath)
-	in(absProjectPath.absolute) {
+	Nullable!SelectionsFileLookupResult readSelections(in NativePath absProjectPath)
+	in (absProjectPath.absolute) {
 		import dub.internal.configy.Read;
 
 		alias N = typeof(return);
