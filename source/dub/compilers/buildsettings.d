@@ -528,9 +528,3 @@ enum Flags!BuildOption inheritedBuildOptions =
 	| BuildOption.ignoreDeprecations | BuildOption.deprecationWarnings
 	| BuildOption.deprecationErrors | BuildOption.property | BuildOption.profileGC
 	| BuildOption.pic;
-
-deprecated("Use `Flags!BuildOption` instead")
-public alias BuildOptions = Flags!BuildOption;
-
-deprecated("Use `Flags!BuildRequirement` instead")
-public alias BuildRequirements = Flags!BuildRequirement;

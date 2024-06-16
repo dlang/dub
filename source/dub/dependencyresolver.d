@@ -43,18 +43,6 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		this.loop_limit = limit;
 	}
 
-	/// Compatibility overload
-	deprecated("Use the overload that accepts a `ulong limit` argument")
-	public this () scope @safe
-	{
-		// Leave the possibility to opt-out from the loop limit
-		import std.process : environment;
-		if (environment.get("DUB_NO_RESOLVE_LIMIT") !is null)
-			this(ulong.max);
-		else
-			this(1_000_000);
-	}
-
 	/** Encapsulates a list of outgoing edges in the dependency graph.
 
 		A value of this type represents a single dependency with multiple

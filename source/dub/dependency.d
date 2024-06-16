@@ -166,7 +166,7 @@ struct Dependency {
 
 	/** Constructs a new dependency specification from a string
 
-		See the `versionSpec` property for a description of the accepted
+		See the `VersionRange` type for a description of the accepted
 		contents of that string.
 	*/
 	this(string spec) @safe
@@ -188,21 +188,7 @@ struct Dependency {
 		this.m_value = rng;
 	}
 
-	deprecated("Instantiate the `Repository` struct with the string directly")
-	this(Repository repository, string spec) @safe
-	{
-		assert(repository.m_ref is null);
-		repository.m_ref = spec;
-		this(repository);
-	}
-
-	/// If set, overrides any version based dependency selection.
-	deprecated("Construct a new `Dependency` object instead")
-	@property void path(NativePath value) @trusted
-	{
-		this.m_value = value;
-	}
-	/// ditto
+	/// The path this `Dependency` matches, or `NativePath.init`
 	@property NativePath path() const @safe
 	{
 		return this.m_value.match!(
@@ -211,13 +197,7 @@ struct Dependency {
 		);
 	}
 
-	/// If set, overrides any version based dependency selection.
-	deprecated("Construct a new `Dependency` object instead")
-	@property void repository(Repository value) @trusted
-	{
-		this.m_value = value;
-	}
-	/// ditto
+	/// The repository this `Dependency` matches, or `Repository.init`
 	@property Repository repository() const @safe
 	{
 		return this.m_value.match!(
@@ -269,23 +249,6 @@ struct Dependency {
 		enforce(range.isExactVersion(),
 				"Dependency "~range.toString()~" is no exact version.");
 		return range.m_versA;
-	}
-
-	/// Sets/gets the matching version range as a specification string.
-	deprecated("Create a new `Dependency` instead and provide a `VersionRange`")
-	@property void versionSpec(string ves) @trusted
-	{
-		this.m_value = VersionRange.fromString(ves);
-	}
-
-	/// ditto
-	deprecated("Use `Dependency.visit` and match `VersionRange`instead")
-	@property string versionSpec() const @safe {
-		return this.m_value.match!(
-			(const NativePath   p) => ANY_IDENT,
-			(const Repository   r) => r.m_ref,
-			(const VersionRange p) => p.toString(),
-		);
 	}
 
 	/** Returns a modified dependency that gets mapped to a given path.
@@ -482,19 +445,6 @@ struct Dependency {
 			(NativePath v) => true,
 			(Repository v) => true,
 			(VersionRange v) => v.isValid(),
-		);
-	}
-
-	/** Determines if this dependency specification matches arbitrary versions.
-
-		This is true in particular for the `any` constant.
-	*/
-	deprecated("Use `VersionRange.matchesAny` directly")
-	bool matchesAny() const scope @safe {
-		return this.m_value.match!(
-			(NativePath v) => true,
-			(Repository v) => true,
-			(VersionRange v) => v.matchesAny(),
 		);
 	}
 
@@ -768,17 +718,6 @@ struct Repository
 		m_ref = ref_;
 		assert(m_remote.length);
 		assert(m_ref.length);
-	}
-
-	/// Ditto
-	deprecated("Use the constructor accepting a second parameter named `ref_`")
-	this(string remote)
-	{
-		enforce(remote.startsWith("git+"), "Unsupported repository type (supports: git+URL)");
-
-		m_remote = remote["git+".length .. $];
-		m_kind = Kind.git;
-		assert(m_remote.length);
 	}
 
 	string toString() const nothrow pure @safe

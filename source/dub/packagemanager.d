@@ -146,20 +146,6 @@ class PackageManager {
 	/// ditto
 	@property const(NativePath)[] searchPath() const { return this.m_internal.searchPath; }
 
-	/** Returns the effective list of search paths, including default ones.
-	*/
-	deprecated("Use the `PackageManager` facilities instead")
-	@property const(NativePath)[] completeSearchPath()
-	const {
-		auto ret = appender!(const(NativePath)[])();
-		ret.put(this.m_internal.searchPath);
-		foreach (ref repo; m_repositories) {
-			ret.put(repo.searchPath);
-			ret.put(repo.packagePath);
-		}
-		return ret.data;
-	}
-
 	/** Sets additional (read-only) package cache paths to search for packages.
 
 		Cache paths have the same structure as the default cache paths, such as
@@ -187,11 +173,8 @@ class PackageManager {
 	 * first scan all the available locations (as `refresh` does).
 	 *
 	 * Note:
-	 * This function does not take overrides into account. Overrides need
-	 * to be resolved by the caller before `lookup` is called.
-	 * Additionally, if a package of the same version is loaded in multiple
-	 * locations, the first one matching (local > user > system)
-	 * will be returned.
+	 * If a package of the same version is loaded in multiple locations,
+	 * the first one matching (local > user > system) will be returned.
 	 *
 	 * Params:
 	 *	 name  = The full name of the package to look up
@@ -227,59 +210,19 @@ class PackageManager {
 			ver = The exact version of the package to query
 			path = An exact path that the package must reside in. Note that
 				the package must still be registered in the package manager.
-			enable_overrides = Apply the local package override list before
-				returning a package (enabled by default)
 
 		Returns:
 			The matching package or null if no match was found.
 	*/
-	Package getPackage(in PackageName name, in Version ver, bool enable_overrides = true)
+	Package getPackage(in PackageName name, in Version ver)
 	{
-		if (enable_overrides) {
-			foreach (ref repo; m_repositories)
-				foreach (ovr; repo.overrides)
-					if (ovr.package_ == name.toString() && ovr.source.matches(ver)) {
-						Package pack = ovr.target.match!(
-							(NativePath path) => getOrLoadPackage(path),
-							(Version	vers) => getPackage(name, vers, false),
-						);
-						if (pack) return pack;
-
-						ovr.target.match!(
-							(any) {
-								logWarn("Package override %s %s -> '%s' doesn't reference an existing package.",
-										ovr.package_, ovr.source, any);
-							},
-						);
-					}
-		}
-
 		return this.lookup(name, ver);
 	}
 
 	deprecated("Use the overload that accepts a `PackageName` instead")
 	Package getPackage(string name, Version ver, bool enable_overrides = true)
 	{
-		return this.getPackage(PackageName(name), ver, enable_overrides);
-	}
-
-	/// ditto
-	deprecated("Use the overload that accepts a `Version` as second argument")
-	Package getPackage(string name, string ver, bool enable_overrides = true)
-	{
-		return getPackage(name, Version(ver), enable_overrides);
-	}
-
-	/// ditto
-	deprecated("Use the overload that takes a `PlacementLocation`")
-	Package getPackage(string name, Version ver, NativePath path)
-	{
-		foreach (p; getPackageIterator(name)) {
-			auto pvm = isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard;
-			if (p.version_.matches(ver, pvm) && p.path.startsWith(path))
-				return p;
-		}
-		return null;
+		return this.getPackage(PackageName(name), ver);
 	}
 
 	/// Ditto
@@ -296,46 +239,6 @@ class PackageManager {
 		if (loc >= this.m_repositories.length)
 			return null;
 		return this.m_repositories[loc].load(name, ver, this);
-	}
-
-	/// ditto
-	deprecated("Use the overload that accepts a `Version` as second argument")
-	Package getPackage(string name, string ver, NativePath path)
-	{
-		return getPackage(name, Version(ver), path);
-	}
-
-	/// ditto
-	deprecated("Use another `PackageManager` API, open an issue if none suits you")
-	Package getPackage(string name, NativePath path)
-	{
-		foreach( p; getPackageIterator(name) )
-			if (p.path.startsWith(path))
-				return p;
-		return null;
-	}
-
-
-	/** Looks up the first package matching the given name.
-	*/
-	deprecated("Use `getBestPackage` instead")
-	Package getFirstPackage(string name)
-	{
-		foreach (ep; getPackageIterator(name))
-			return ep;
-		return null;
-	}
-
-	/** Looks up the latest package matching the given name.
-	*/
-	deprecated("Use `getBestPackage` with `name, Dependency.any` instead")
-	Package getLatestPackage(string name)
-	{
-		Package pkg;
-		foreach (ep; getPackageIterator(name))
-			if (pkg is null || pkg.version_ < ep.version_)
-				pkg = ep;
-		return pkg;
 	}
 
 	/** For a given package path, returns the corresponding package.
@@ -457,11 +360,6 @@ class PackageManager {
 		}
 	}
 
-	deprecated("Use the overload that accepts a `dub.dependency : Repository`")
-	Package loadSCMPackage(string name, Dependency dependency)
-	in { assert(!dependency.repository.empty); }
-	do { return this.loadSCMPackage(name, dependency.repository); }
-
 	deprecated("Use `loadSCMPackage(PackageName, Repository)`")
 	Package loadSCMPackage(string name, Repository repo)
 	{
@@ -577,23 +475,17 @@ class PackageManager {
 	deprecated("`getBestPackage` should only be used with a `Version` or `VersionRange` argument")
 	Package getBestPackage(string name, Dependency version_spec, bool enable_overrides = true)
 	{
-		return this.getBestPackage_(PackageName(name), version_spec, enable_overrides);
+		return this.getBestPackage_(PackageName(name), version_spec);
 	}
 
 	// TODO: Merge this into `getBestPackage(string, VersionRange)`
-	private Package getBestPackage_(in PackageName name, in Dependency version_spec,
-		bool enable_overrides = true)
+	private Package getBestPackage_(in PackageName name, in Dependency version_spec)
 	{
 		Package ret;
 		foreach (p; getPackageIterator(name.toString())) {
 			auto vmm = isManagedPackage(p) ? VersionMatchMode.strict : VersionMatchMode.standard;
 			if (version_spec.matches(p.version_, vmm) && (!ret || p.version_ > ret.version_))
 				ret = p;
-		}
-
-		if (enable_overrides && ret) {
-			if (auto ovr = getPackage(name, ret.version_))
-				return ovr;
 		}
 		return ret;
 	}
@@ -685,102 +577,6 @@ class PackageManager {
 		}
 
 		return &iterator;
-	}
-
-
-	/** Returns a list of all package overrides for the given scope.
-	*/
-	deprecated(OverrideDepMsg)
-	const(PackageOverride)[] getOverrides(PlacementLocation scope_)
-	const {
-		return cast(typeof(return)) this.getOverrides_(scope_);
-	}
-
-	package(dub) const(PackageOverride_)[] getOverrides_(PlacementLocation scope_)
-	const {
-		return m_repositories[scope_].overrides;
-	}
-
-	/** Adds a new override for the given package.
-	*/
-	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
-	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, Version target)
-	{
-		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
-		m_repositories[scope_].writeOverrides(this);
-	}
-	/// ditto
-	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
-	void addOverride(PlacementLocation scope_, string package_, Dependency version_spec, NativePath target)
-	{
-		m_repositories[scope_].overrides ~= PackageOverride(package_, version_spec, target);
-		m_repositories[scope_].writeOverrides(this);
-	}
-
-	/// Ditto
-	deprecated(OverrideDepMsg)
-	void addOverride(PlacementLocation scope_, string package_, VersionRange source, Version target)
-	{
-		this.addOverride_(scope_, package_, source, target);
-	}
-	/// ditto
-	deprecated(OverrideDepMsg)
-	void addOverride(PlacementLocation scope_, string package_, VersionRange source, NativePath target)
-	{
-		this.addOverride_(scope_, package_, source, target);
-	}
-
-	// Non deprecated version that is used by `commandline`. Do not use!
-	package(dub) void addOverride_(PlacementLocation scope_, string package_, VersionRange source, Version target)
-	{
-		m_repositories[scope_].overrides ~= PackageOverride_(package_, source, target);
-		m_repositories[scope_].writeOverrides(this);
-	}
-	// Non deprecated version that is used by `commandline`. Do not use!
-	package(dub) void addOverride_(PlacementLocation scope_, string package_, VersionRange source, NativePath target)
-	{
-		m_repositories[scope_].overrides ~= PackageOverride_(package_, source, target);
-		m_repositories[scope_].writeOverrides(this);
-	}
-
-	/** Removes an existing package override.
-	*/
-	deprecated("Use the overload that accepts a `VersionRange` as 3rd argument")
-	void removeOverride(PlacementLocation scope_, string package_, Dependency version_spec)
-	{
-		version_spec.visit!(
-			(VersionRange src) => this.removeOverride(scope_, package_, src),
-			(any) { throw new Exception(format("No override exists for %s %s", package_, version_spec)); },
-		);
-	}
-
-	deprecated(OverrideDepMsg)
-	void removeOverride(PlacementLocation scope_, string package_, VersionRange src)
-	{
-		this.removeOverride_(scope_, package_, src);
-	}
-
-	package(dub) void removeOverride_(PlacementLocation scope_, string package_, VersionRange src)
-	{
-		Location* rep = &m_repositories[scope_];
-		foreach (i, ovr; rep.overrides) {
-			if (ovr.package_ != package_ || ovr.source != src)
-				continue;
-			rep.overrides = rep.overrides[0 .. i] ~ rep.overrides[i+1 .. $];
-			(*rep).writeOverrides(this);
-			return;
-		}
-		throw new Exception(format("No override exists for %s %s", package_, src));
-	}
-
-	deprecated("Use `store(NativePath source, PlacementLocation dest, string name, Version vers)`")
-	Package storeFetchedPackage(NativePath zip_file_path, Json package_info, NativePath destination)
-	{
-		import dub.internal.vibecompat.core.file;
-
-		return this.store_(readFile(zip_file_path), destination,
-			PackageName(package_info["name"].get!string),
-			Version(package_info["version"].get!string));
 	}
 
 	/**
@@ -1172,11 +968,8 @@ symlink_exit:
 		if (!this.existsFile(path))
 			return typeof(return).init;
 		const content = this.readText(path);
-		// TODO: Remove `StrictMode.Warn` after v1.40 release
-		// The default is to error, but as the previous parser wasn't
-		// complaining, we should first warn the user.
 		return wrapException(parseConfigString!SelectionsFile(
-			content, path.toNativeString(), StrictMode.Warn));
+			content, path.toNativeString()));
 	}
 
 	/**
@@ -1347,103 +1140,10 @@ symlink_exit:
 	}
 }
 
-deprecated(OverrideDepMsg)
-alias PackageOverride = PackageOverride_;
-
-package(dub) struct PackageOverride_ {
-	private alias ResolvedDep = SumType!(NativePath, Version);
-	string package_;
-	VersionRange source;
-	ResolvedDep target;
-
-	deprecated("Use `source` instead")
-	@property inout(Dependency) version_ () inout return @safe {
-		return Dependency(this.source);
-	}
-
-	deprecated("Assign `source` instead")
-	@property ref PackageOverride version_ (Dependency v) scope return @safe pure {
-		this.source = v.visit!(
-			(VersionRange range) => range,
-			(any) {
-				int a; if (a) return VersionRange.init; // Trick the compiler
-				throw new Exception("Cannot use anything else than a `VersionRange` for overrides");
-			},
-		);
-		return this;
-	}
-
-	deprecated("Use `target.match` directly instead")
-	@property inout(Version) targetVersion () inout return @safe pure nothrow @nogc {
-		return this.target.match!(
-			(Version v) => v,
-			(any) => Version.init,
-		);
-	}
-
-	deprecated("Assign `target` directly instead")
-	@property ref PackageOverride targetVersion (Version v) scope return pure nothrow @nogc {
-		this.target = v;
-		return this;
-	}
-
-	deprecated("Use `target.match` directly instead")
-	@property inout(NativePath) targetPath () inout return @safe pure nothrow @nogc {
-		return this.target.match!(
-			(NativePath v) => v,
-			(any) => NativePath.init,
-		);
-	}
-
-	deprecated("Assign `target` directly instead")
-	@property ref PackageOverride targetPath (NativePath v) scope return pure nothrow @nogc {
-		this.target = v;
-		return this;
-	}
-
-	deprecated("Use the overload that accepts a `VersionRange` as 2nd argument")
-	this(string package_, Dependency version_, Version target_version)
-	{
-		this.package_ = package_;
-		this.version_ = version_;
-		this.target = target_version;
-	}
-
-	deprecated("Use the overload that accepts a `VersionRange` as 2nd argument")
-	this(string package_, Dependency version_, NativePath target_path)
-	{
-		this.package_ = package_;
-		this.version_ = version_;
-		this.target = target_path;
-	}
-
-	this(string package_, VersionRange src, Version target)
-	{
-		this.package_ = package_;
-		this.source = src;
-		this.target = target;
-	}
-
-	this(string package_, VersionRange src, NativePath target)
-	{
-		this.package_ = package_;
-		this.source = src;
-		this.target = target;
-	}
-}
-
-deprecated("Use `PlacementLocation` instead")
-enum LocalPackageType : PlacementLocation {
-	package_ = PlacementLocation.local,
-	user     = PlacementLocation.user,
-	system   = PlacementLocation.system,
-}
-
 private enum LocalPackagesFilename = "local-packages.json";
-private enum LocalOverridesFilename = "local-overrides.json";
 
 /**
- * A managed location, with packages, configuration, and overrides
+ * A managed location, with packages, and configuration
  *
  * There exists three standards locations, listed in `PlacementLocation`.
  * The user one is the default, with the system and local one meeting
@@ -1453,7 +1153,6 @@ private enum LocalOverridesFilename = "local-overrides.json";
  * - A `packages/` directory, where packages are stored (see `packagePath`);
  * - A `local-packages.json` file, with extra search paths
  *   and manually added packages (see `dub add-local`);
- * - A `local-overrides.json` file, with manually added overrides (`dub add-override`);
  *
  * Additionally, each location host a config file,
  * which is not managed by this module, but by dub itself.
@@ -1471,9 +1170,6 @@ package struct Location {
 	 */
 	Package[] localPackages;
 
-	/// List of overrides stored at this `Location`
-	PackageOverride_[] overrides;
-
 	/**
 	 * List of packages stored under `packagePath` and automatically detected
 	 */
@@ -1482,47 +1178,6 @@ package struct Location {
 	this(NativePath path) @safe pure nothrow @nogc
 	{
 		this.packagePath = path;
-	}
-
-	void loadOverrides(PackageManager mgr)
-	{
-		this.overrides = null;
-		auto ovrfilepath = this.packagePath ~ LocalOverridesFilename;
-		if (mgr.existsFile(ovrfilepath)) {
-			logWarn("Found local override file: %s", ovrfilepath);
-			logWarn(OverrideDepMsg);
-			logWarn("Replace with a path-based dependency in your project or a custom cache path");
-			const text = mgr.readText(ovrfilepath);
-			auto json = parseJsonString(text, ovrfilepath.toNativeString());
-			foreach (entry; json) {
-				PackageOverride_ ovr;
-				ovr.package_ = entry["name"].get!string;
-				ovr.source = VersionRange.fromString(entry["version"].get!string);
-				if (auto pv = "targetVersion" in entry) ovr.target = Version(pv.get!string);
-				if (auto pv = "targetPath" in entry) ovr.target = NativePath(pv.get!string);
-				this.overrides ~= ovr;
-			}
-		}
-	}
-
-	private void writeOverrides(PackageManager mgr)
-	{
-		Json[] newlist;
-		foreach (ovr; this.overrides) {
-			auto jovr = Json.emptyObject;
-			jovr["name"] = ovr.package_;
-			jovr["version"] = ovr.source.toString();
-			ovr.target.match!(
-				(NativePath path) { jovr["targetPath"] = path.toNativeString(); },
-				(Version	vers) { jovr["targetVersion"] = vers.toString(); },
-			);
-			newlist ~= jovr;
-		}
-		auto path = this.packagePath;
-		mgr.ensureDirectory(path);
-		auto app = appender!string();
-		app.writePrettyJsonString(Json(newlist));
-		mgr.writeFile(path ~ LocalOverridesFilename, app.data);
 	}
 
 	private void writeLocalPackageList(PackageManager mgr)
@@ -1802,6 +1457,3 @@ package struct Location {
 		return path.startsWith(this.packagePath);
 	}
 }
-
-private immutable string OverrideDepMsg =
-	"Overrides are deprecated as they are redundant with more fine-grained approaches";

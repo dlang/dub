@@ -206,12 +206,6 @@ class Dub {
 		m_packageManager = new PackageManager(pkg_root);
 	}
 
-	deprecated("Use the overload that takes `(NativePath pkg_root, NativePath root)`")
-	this(NativePath pkg_root)
-	{
-		this(pkg_root, pkg_root);
-	}
-
 	/**
 	 * Get the `PackageManager` instance to use for this `Dub` instance
 	 *
@@ -255,12 +249,9 @@ class Dub {
 
 		static void readSettingsFile (NativePath path_, ref Settings current)
 		{
-			// TODO: Remove `StrictMode.Warn` after v1.40 release
-			// The default is to error, but as the previous parser wasn't
-			// complaining, we should first warn the user.
 			const path = path_.toNativeString();
 			if (path.exists) {
-				auto newConf = parseConfigFileSimple!Settings(path, StrictMode.Warn);
+				auto newConf = parseConfigFileSimple!Settings(path);
 				if (!newConf.isNull())
 					current = current.merge(newConf.get());
 			}
@@ -326,21 +317,12 @@ class Dub {
 	/** Get the list of package suppliers.
 
 		Params:
-			additional_package_suppliers = A list of package suppliers to try
+			base = A list of package suppliers to try
 				before the suppliers found in the configurations files and the
 				`defaultPackageSuppliers`.
 			skip = Can be used to skip using the configured package suppliers,
 				   as well as the default suppliers.
 	*/
-	deprecated("This is an implementation detail. " ~
-		"Use `packageSuppliers` to get the computed list of package " ~
-		"suppliers once a `Dub` instance has been constructed.")
-	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] base, SkipPackageSuppliers skip)
-	{
-		return this.makePackageSuppliers(base, skip, environment.get("DUB_REGISTRY", null));
-	}
-
-	/// Ditto
 	protected PackageSupplier[] makePackageSuppliers(PackageSupplier[] base,
 		SkipPackageSuppliers skip, string registry_var)
 	{
@@ -423,29 +405,12 @@ class Dub {
 		}
 	}
 
-	/// ditto
-	deprecated("This is an implementation detail. " ~
-		"Use `packageSuppliers` to get the computed list of package " ~
-		"suppliers once a `Dub` instance has been constructed.")
-	public PackageSupplier[] getPackageSuppliers(PackageSupplier[] additional_package_suppliers)
-	{
-		return getPackageSuppliers(additional_package_suppliers, m_config.skipRegistry);
-	}
-
 	@property bool dryRun() const { return m_dryRun; }
 	@property void dryRun(bool v) { m_dryRun = v; }
 
 	/** Returns the root path (usually the current working directory).
 	*/
 	@property NativePath rootPath() const { return m_rootPath; }
-	/// ditto
-	deprecated("Changing the root path is deprecated as it has non-obvious pitfalls " ~
-			   "(e.g. settings aren't reloaded). Instantiate a new `Dub` instead")
-	@property void rootPath(NativePath root_path)
-	{
-		m_rootPath = root_path;
-		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
-	}
 
 	/// Returns the name listed in the dub.json of the current
 	/// application.
@@ -897,16 +862,6 @@ class Dub {
 			rmdirRecurse(cache.toNativeString());
 	}
 
-	deprecated("Use the overload that accepts either a `Version` or a `VersionRange` as second argument")
-	Package fetch(string packageId, const Dependency dep, PlacementLocation location, FetchOptions options, string reason = "")
-	{
-		const vrange = dep.visit!(
-			(VersionRange range) => range,
-			function VersionRange (any) { throw new Exception("Cannot call `dub.fetch` with a " ~ typeof(any).stringof ~ " dependency"); }
-		);
-		return this.fetch(packageId, vrange, location, options, reason);
-	}
-
 	deprecated("Use `fetch(PackageName, Version, [FetchOptions, PlacementLocation, string])`")
 	Package fetch(string name, in Version vers, PlacementLocation location, FetchOptions options, string reason = "")
 	{
@@ -1058,13 +1013,6 @@ class Dub {
 		if (!m_dryRun) m_packageManager.remove(pack);
 	}
 
-	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	deprecated("Use `remove(pack)` directly instead, the boolean has no effect")
-	void remove(in Package pack, bool force_remove)
-	{
-		remove(pack);
-	}
-
 	/// @see remove(string, string, RemoveLocation)
 	enum RemoveVersionWildcard = "*";
 
@@ -1168,13 +1116,6 @@ class Dub {
 	void remove(string name, string version_, PlacementLocation location)
 	{
 		this.remove(PackageName(name), version_, location);
-	}
-
-	/// Compatibility overload. Use the version without a `force_remove` argument instead.
-	deprecated("Use the overload without force_remove instead")
-	void remove(string package_id, string version_, PlacementLocation location, bool force_remove)
-	{
-		remove(package_id, version_, location);
 	}
 
 	/** Adds a directory to the list of locally known packages.

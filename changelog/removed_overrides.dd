@@ -1,0 +1,9 @@
+The override system has been removed
+
+The override system was deprecated in v1.30.0 as it was neither
+widely used nor generally useful given Dub's available feature set.
+With this release, it is now completely removed.
+
+This means that the commands `add-override`, `remove-override`,
+`list-override`, and the interaction with `local-overrides.json`
+have been removed, along with all the associated APIs.

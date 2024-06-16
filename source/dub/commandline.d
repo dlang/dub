@@ -67,9 +67,6 @@ CommandGroup[] getCommands() @safe pure nothrow
 			new RemoveLocalCommand,
 			new ListCommand,
 			new SearchCommand,
-			new AddOverrideCommand,
-			new RemoveOverrideCommand,
-			new ListOverridesCommand,
 			new CleanCachesCommand,
 			new ConvertCommand,
 		)
@@ -272,7 +269,7 @@ unittest {
 	assert(handler.commandNames == ["init", "run", "build", "test", "lint", "generate",
 		"describe", "clean", "dustmite", "fetch", "add", "remove",
 		"upgrade", "add-path", "remove-path", "add-local", "remove-local", "list", "search",
-		"add-override", "remove-override", "list-overrides", "clean-caches", "convert"]);
+		"clean-caches", "convert"]);
 }
 
 /// It sets the cwd as root_path by default
@@ -2552,123 +2549,6 @@ class SearchCommand : Command {
 				logInfoNoTag("  %s%s", leftJustify(m.name.color(Mode.bold)
 					~ " (" ~ m.version_ ~ ")", justify), m.description);
 		}
-		return 0;
-	}
-}
-
-
-/******************************************************************************/
-/* OVERRIDES                                                                  */
-/******************************************************************************/
-
-class AddOverrideCommand : Command {
-	private {
-		bool m_system = false;
-	}
-
-	static immutable string DeprecationMessage =
-		"This command is deprecated. Use path based dependency, custom cache path, " ~
-		"or edit `dub.selections.json` to achieve the same results.";
-
-
-	this() @safe pure nothrow
-	{
-		this.name = "add-override";
-		this.argumentsPattern = "<package> <version-spec> <target-path/target-version>";
-		this.description = "Adds a new package override.";
-
-		this.hidden = true;
-		this.helpText = [ DeprecationMessage ];
-	}
-
-	override void prepare(scope CommandArgs args)
-	{
-		args.getopt("system", &m_system, [
-			"Register system-wide instead of user-wide"
-		]);
-	}
-
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		logWarn(DeprecationMessage);
-		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
-		enforceUsage(free_args.length == 3, "Expected three arguments, not "~free_args.length.to!string);
-		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
-		auto pack = free_args[0];
-		auto source = VersionRange.fromString(free_args[1]);
-		if (existsFile(NativePath(free_args[2]))) {
-			auto target = NativePath(free_args[2]);
-			if (!target.absolute) target = getWorkingDirectory() ~ target;
-			dub.packageManager.addOverride_(scope_, pack, source, target);
-			logInfo("Added override %s %s => %s", pack, source, target);
-		} else {
-			auto target = Version(free_args[2]);
-			dub.packageManager.addOverride_(scope_, pack, source, target);
-			logInfo("Added override %s %s => %s", pack, source, target);
-		}
-		return 0;
-	}
-}
-
-class RemoveOverrideCommand : Command {
-	private {
-		bool m_system = false;
-	}
-
-	this() @safe pure nothrow
-	{
-		this.name = "remove-override";
-		this.argumentsPattern = "<package> <version-spec>";
-		this.description = "Removes an existing package override.";
-
-		this.hidden = true;
-		this.helpText = [ AddOverrideCommand.DeprecationMessage ];
-	}
-
-	override void prepare(scope CommandArgs args)
-	{
-		args.getopt("system", &m_system, [
-			"Register system-wide instead of user-wide"
-		]);
-	}
-
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		logWarn(AddOverrideCommand.DeprecationMessage);
-		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
-		enforceUsage(free_args.length == 2, "Expected two arguments, not "~free_args.length.to!string);
-		auto scope_ = m_system ? PlacementLocation.system : PlacementLocation.user;
-		auto source = VersionRange.fromString(free_args[1]);
-		dub.packageManager.removeOverride_(scope_, free_args[0], source);
-		return 0;
-	}
-}
-
-class ListOverridesCommand : Command {
-	this() @safe pure nothrow
-	{
-		this.name = "list-overrides";
-		this.argumentsPattern = "";
-		this.description = "Prints a list of all local package overrides";
-
-		this.hidden = true;
-		this.helpText = [ AddOverrideCommand.DeprecationMessage ];
-	}
-	override void prepare(scope CommandArgs args) {}
-	override int execute(Dub dub, string[] free_args, string[] app_args)
-	{
-		logWarn(AddOverrideCommand.DeprecationMessage);
-
-		void printList(in PackageOverride_[] overrides, string caption)
-		{
-			if (overrides.length == 0) return;
-			logInfoNoTag("# %s", caption);
-			foreach (ovr; overrides)
-				ovr.target.match!(
-					t => logInfoNoTag("%s %s => %s", ovr.package_.color(Mode.bold), ovr.source, t));
-		}
-		printList(dub.packageManager.getOverrides_(PlacementLocation.user), "User wide overrides");
-		printList(dub.packageManager.getOverrides_(PlacementLocation.system), "System wide overrides");
 		return 0;
 	}
 }

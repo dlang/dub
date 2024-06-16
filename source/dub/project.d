@@ -1437,9 +1437,6 @@ enum ListBuildSettingsFormat {
 	commandLineNul, /// NUL character separated list entries (unescaped, data lists separated by two NUL characters)
 }
 
-deprecated("Use `dub.packagemanager : PlacementLocation` instead")
-public alias PlacementLocation = dub.packagemanager.PlacementLocation;
-
 void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	BuildSettings settings, in GeneratorSettings gsettings, bool include_target_settings = false)
 {
@@ -1874,29 +1871,6 @@ public class SelectedVersions {
 		this.m_bare = false;
 	}
 
-	/** Constructs a new version selection from JSON data.
-
-		The structure of the JSON document must match the contents of the
-		"dub.selections.json" file.
-	*/
-	deprecated("Pass a `dub.recipe.selection : Selected` directly")
-	this(Json data)
-	{
-		deserialize(data);
-		m_dirty = false;
-	}
-
-	/** Constructs a new version selections from an existing JSON file.
-	*/
-	deprecated("JSON deserialization is deprecated")
-	this(NativePath path)
-	{
-		auto json = jsonFromFile(path);
-		deserialize(json);
-		m_dirty = false;
-		m_bare = false;
-	}
-
 	/// Returns a list of names for all packages that have a version selection.
 	@property string[] selectedPackages() const { return m_selections.versions.keys; }
 
@@ -1977,12 +1951,6 @@ public class SelectedVersions {
 		m_dirty = true;
 	}
 
-	deprecated("Move `spec` inside of the `repository` parameter and call `selectVersion`")
-	void selectVersionWithRepository(string package_id, Repository repository, string spec)
-	{
-		this.selectVersion(package_id, Repository(repository.remote(), spec));
-	}
-
 	/// Removes the selection for a particular package.
 	deprecated("Use the overload that accepts a `PackageName`")
 	void deselectVersion(string package_id)
@@ -2046,40 +2014,9 @@ public class SelectedVersions {
 		m_bare = false;
 	}
 
-	deprecated("Use `dub.dependency : Dependency.toJson(true)`")
-	static Json dependencyToJson(Dependency d)
-	{
-		return d.toJson(true);
-	}
-
-	deprecated("JSON deserialization is deprecated")
-	static Dependency dependencyFromJson(Json j)
-	{
-		if (j.type == Json.Type.string)
-			return Dependency(Version(j.get!string));
-		else if (j.type == Json.Type.object && "path" in j)
-			return Dependency(NativePath(j["path"].get!string));
-		else if (j.type == Json.Type.object && "repository" in j)
-			return Dependency(Repository(j["repository"].get!string,
-				enforce("version" in j, "Expected \"version\" field in repository version object").get!string));
-		else throw new Exception(format("Unexpected type for dependency: %s", j));
-	}
-
 	deprecated("JSON serialization is deprecated")
 	Json serialize() const {
 		return PackageManager.selectionsToJSON(this.m_selections);
-	}
-
-	deprecated("JSON deserialization is deprecated")
-	private void deserialize(Json json)
-	{
-		const fileVersion = json["fileVersion"].get!int;
-		enforce(fileVersion == FileVersion, "Mismatched dub.selections.json version: " ~ to!string(fileVersion) ~ " vs. " ~ to!string(FileVersion));
-		clear();
-		m_selections.fileVersion = fileVersion;
-		scope(failure) clear();
-		foreach (string p, dep; json["versions"])
-			m_selections.versions[p] = dependencyFromJson(dep);
 	}
 }
 
