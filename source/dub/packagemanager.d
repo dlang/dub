@@ -8,8 +8,8 @@
 module dub.packagemanager;
 
 import dub.dependency;
+import dub.internal.io.filesystem;
 import dub.internal.utils;
-import dub.internal.vibecompat.core.file : FileInfo;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
@@ -116,6 +116,8 @@ class PackageManager {
 		}
 		/// Ditto
 		InitializationState m_state;
+		/// The `Filesystem` object, used to interact with directory / files
+		Filesystem fs;
 	}
 
 	/**
@@ -130,18 +132,38 @@ class PackageManager {
 	 */
 	this(NativePath path)
 	{
+		import dub.internal.io.realfs;
+		this.fs = new RealFS();
 		this.m_internal.searchPath = [ path ];
 		this.refresh();
 	}
 
 	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
-		m_repositories = [
-			Location(package_path ~ ".dub/packages/"),
-			Location(user_path ~ "packages/"),
-			Location(system_path ~ "packages/")];
-
+		import dub.internal.io.realfs;
+		this(new RealFS(), package_path ~ ".dub/packages/",
+			user_path ~ "packages/", system_path ~ "packages/");
 		if (refresh_packages) refresh();
+	}
+
+	/**
+	 * Instantiate a `PackageManager` with the provided `Filesystem` and paths
+	 *
+	 * Unlike the other overload, paths are taken as-if, e.g. `packages/` is not
+	 * appended to them.
+	 *
+	 * Params:
+	 *   fs = Filesystem abstraction to handle all folder/file I/O.
+	 *   local = Path to the local package cache (usually the one in the project),
+	 *           whih takes preference over `user` and `system`.
+	 *   user = Path to the user package cache (usually ~/.dub/packages/), takes
+	 *          precedence over `system` but not over `local`.
+	 *   system = Path to the system package cache, this has the least precedence.
+	 */
+	public this(Filesystem fs, NativePath local, NativePath user, NativePath system)
+	{
+		this.fs = fs;
+		this.m_repositories = [ Location(local), Location(user), Location(system) ];
 	}
 
 	/** Gets/sets the list of paths to search for local packages.
@@ -412,7 +434,7 @@ class PackageManager {
 
 		const PackageName pname = parent
 			? PackageName(parent.name) : PackageName.init;
-		string text = this.readText(recipe);
+		string text = this.fs.readText(recipe);
 		auto content = parsePackageRecipe(
 			text, recipe.toNativeString(), pname, null, mode);
 		auto ret = new Package(content, path, parent, version_);
@@ -433,7 +455,7 @@ class PackageManager {
 	{
 		foreach (file; packageInfoFiles) {
 			auto filename = directory ~ file.filename;
-			if (this.existsFile(filename)) return filename;
+			if (this.fs.existsFile(filename)) return filename;
 		}
 		return NativePath.init;
 	}
@@ -487,7 +509,7 @@ class PackageManager {
 		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
 
 		// Before doing a git clone, let's see if the package exists locally
-		if (this.existsDirectory(destination)) {
+		if (this.fs.existsDirectory(destination)) {
 			// It exists, check if we already loaded it.
 			// Either we loaded it on refresh and it's in PlacementLocation.user,
 			// or we just added it and it's in m_internal.
@@ -835,13 +857,13 @@ class PackageManager {
 	{
 		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
-		this.ensureDirectory(dstpath.parentPath());
+		this.fs.mkdir(dstpath.parentPath());
 		const lockPath = dstpath.parentPath() ~ ".lock";
 
 		// possibly wait for other dub instance
 		import core.time : seconds;
 		auto lock = lockFile(lockPath.toNativeString(), 30.seconds);
-		if (this.existsFile(dstpath)) {
+		if (this.fs.existsFile(dstpath)) {
 			return this.getPackage(name, vers, dest);
 		}
 		return this.store_(data, dstpath, name, vers);
@@ -858,7 +880,7 @@ class PackageManager {
 		logDebug("Placing package '%s' version '%s' to location '%s'",
 			name, vers, destination.toNativeString());
 
-		enforce(!this.existsFile(destination),
+		enforce(!this.fs.existsFile(destination),
 			"%s (%s) needs to be removed from '%s' prior placement."
 			.format(name, vers, destination));
 
@@ -891,13 +913,13 @@ class PackageManager {
 			import std.datetime : DosFileTimeToSysTime;
 
 			auto mtime = DosFileTimeToSysTime(am.time);
-			this.setTimes(path, mtime, mtime);
+			this.fs.setTimes(path, mtime, mtime);
 			if (auto attrs = am.fileAttributes)
-				this.setAttributes(path, attrs);
+				this.fs.setAttributes(path, attrs);
 		}
 
 		// extract & place
-		this.ensureDirectory(destination);
+		this.fs.mkdir(destination);
 		logDebug("Copying all files...");
 		int countFiles = 0;
 		foreach(ArchiveMember a; archive.directory) {
@@ -907,9 +929,9 @@ class PackageManager {
 
 			logDebug("Creating %s", cleanedPath);
 			if (dst_path.endsWithSlash) {
-				this.ensureDirectory(dst_path);
+				this.fs.mkdir(dst_path);
 			} else {
-				this.ensureDirectory(dst_path.parentPath);
+				this.fs.mkdir(dst_path.parentPath);
 				// for symlinks on posix systems, use the symlink function to
 				// create them. Windows default unzip doesn't handle symlinks,
 				// so we don't need to worry about it for Windows.
@@ -925,7 +947,7 @@ class PackageManager {
 					}
 				}
 
-				this.writeFile(dst_path, archive.expand(a));
+				this.fs.writeFile(dst_path, archive.expand(a));
 				setAttributes(dst_path, a);
 symlink_exit:
 				++countFiles;
@@ -938,10 +960,10 @@ symlink_exit:
 
 		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
-			this.removeFile(pack.recipePath);
+			this.fs.removeFile(pack.recipePath);
 		auto app = appender!string();
 		app.writePrettyJsonString(pack.recipe.toJson());
-		this.writeFile(pack.recipePath.parentPath ~ defaultPackageFilename, app.data);
+		this.fs.writeFile(pack.recipePath.parentPath ~ defaultPackageFilename, app.data);
 		addPackages(this.m_internal.localPackages, pack);
 		return pack;
 	}
@@ -1179,7 +1201,7 @@ symlink_exit:
 		// parent directories and look for inheritable dub.selections.json files
 		const path = this.findSelections(absProjectPath);
 		if (path.empty) return N.init;
-		const content = this.readText(path);
+		const content = this.fs.readText(path);
 		// TODO: Remove `StrictMode.Warn` after v1.40 release
 		// The default is to error, but as the previous parser wasn't
 		// complaining, we should first warn the user.
@@ -1198,7 +1220,7 @@ symlink_exit:
 	private NativePath findSelections(in NativePath dir)
 	{
 		const path = dir ~ "dub.selections.json";
-		if (this.existsFile(path))
+		if (this.fs.existsFile(path))
 			return path;
 		if (!dir.hasParentPath)
 			return NativePath.init;
@@ -1223,9 +1245,9 @@ symlink_exit:
 		bool overwrite = true)
 	{
 		const path = project.path ~ "dub.selections.json";
-		if (!overwrite && this.existsFile(path))
+		if (!overwrite && this.fs.existsFile(path))
 			return;
-		this.writeFile(path, selectionsToString(selections));
+		this.fs.writeFile(path, selectionsToString(selections));
 	}
 
 	/// Package function to avoid code duplication with deprecated
@@ -1300,81 +1322,6 @@ symlink_exit:
 				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}
 		}
-	}
-
-	/// Used for dependency injection
-	protected bool existsDirectory(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.existsDirectory(path);
-	}
-
-	/// Ditto
-	protected void ensureDirectory(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.ensureDirectory(path);
-	}
-
-	/// Ditto
-	protected bool existsFile(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.existsFile(path);
-	}
-
-	/// Ditto
-	protected void writeFile(NativePath path, const(ubyte)[] data)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.writeFile(path, data);
-	}
-
-	/// Ditto
-	protected void writeFile(NativePath path, const(char)[] data)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.writeFile(path, data);
-	}
-
-	/// Ditto
-	protected string readText(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.readText(path);
-	}
-
-	/// Ditto
-	protected alias IterateDirDg = int delegate(scope int delegate(ref FileInfo));
-
-	/// Ditto
-	protected IterateDirDg iterateDirectory(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.iterateDirectory(path);
-	}
-
-	/// Ditto
-	protected void removeFile(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.removeFile(path);
-	}
-
-	/// Ditto
-	protected void setTimes(in NativePath path, in SysTime accessTime,
-		in SysTime modificationTime)
-	{
-		static import std.file;
-		std.file.setTimes(
-			path.toNativeString(), accessTime, modificationTime);
-	}
-
-	/// Ditto
-	protected void setAttributes(in NativePath path, uint attributes)
-	{
-		static import std.file;
-		std.file.setAttributes(path.toNativeString(), attributes);
 	}
 }
 
@@ -1519,11 +1466,11 @@ package struct Location {
 	{
 		this.overrides = null;
 		auto ovrfilepath = this.packagePath ~ LocalOverridesFilename;
-		if (mgr.existsFile(ovrfilepath)) {
+		if (mgr.fs.existsFile(ovrfilepath)) {
 			logWarn("Found local override file: %s", ovrfilepath);
 			logWarn(OverrideDepMsg);
 			logWarn("Replace with a path-based dependency in your project or a custom cache path");
-			const text = mgr.readText(ovrfilepath);
+			const text = mgr.fs.readText(ovrfilepath);
 			auto json = parseJsonString(text, ovrfilepath.toNativeString());
 			foreach (entry; json) {
 				PackageOverride_ ovr;
@@ -1550,10 +1497,10 @@ package struct Location {
 			newlist ~= jovr;
 		}
 		auto path = this.packagePath;
-		mgr.ensureDirectory(path);
+		mgr.fs.mkdir(path);
 		auto app = appender!string();
 		app.writePrettyJsonString(Json(newlist));
-		mgr.writeFile(path ~ LocalOverridesFilename, app.data);
+		mgr.fs.writeFile(path ~ LocalOverridesFilename, app.data);
 	}
 
 	private void writeLocalPackageList(PackageManager mgr)
@@ -1576,10 +1523,10 @@ package struct Location {
 		}
 
 		NativePath path = this.packagePath;
-		mgr.ensureDirectory(path);
+		mgr.fs.mkdir(path);
 		auto app = appender!string();
 		app.writePrettyJsonString(Json(newlist));
-		mgr.writeFile(path ~ LocalPackagesFilename, app.data);
+		mgr.fs.writeFile(path ~ LocalPackagesFilename, app.data);
 	}
 
 	// load locally defined packages
@@ -1590,10 +1537,10 @@ package struct Location {
 		NativePath[] paths;
 		try {
 			auto local_package_file = list_path ~ LocalPackagesFilename;
-			if (!manager.existsFile(local_package_file)) return;
+			if (!manager.fs.existsFile(local_package_file)) return;
 
 			logDiagnostic("Loading local package map at %s", local_package_file.toNativeString());
-			const text = manager.readText(local_package_file);
+			const text = manager.fs.readText(local_package_file);
 			auto packlist = parseJsonString(
 				text, local_package_file.toNativeString());
 			enforce(packlist.type == Json.Type.array, LocalPackagesFilename ~ " must contain an array.");
@@ -1668,7 +1615,7 @@ package struct Location {
 	void scanPackageFolder(NativePath path, PackageManager mgr,
 		Package[] existing_packages)
 	{
-		if (!mgr.existsDirectory(path))
+		if (!mgr.fs.existsDirectory(path))
 			return;
 
 		void loadInternal (NativePath pack_path, NativePath packageFile)
@@ -1692,7 +1639,7 @@ package struct Location {
 		}
 
 		logDebug("iterating dir %s", path.toNativeString());
-		try foreach (pdir; mgr.iterateDirectory(path)) {
+		try foreach (pdir; mgr.fs.iterateDirectory(path)) {
 			logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 			if (!pdir.isDirectory) continue;
 
@@ -1714,10 +1661,10 @@ package struct Location {
 					// This is the most common code path
 
 					// Iterate over versions of a package
-					foreach (versdir; mgr.iterateDirectory(pack_path)) {
+					foreach (versdir; mgr.fs.iterateDirectory(pack_path)) {
 						if (!versdir.isDirectory) continue;
 						auto vers_path = pack_path ~ versdir.name ~ (pdir.name ~ "/");
-						if (!mgr.existsDirectory(vers_path)) continue;
+						if (!mgr.fs.existsDirectory(vers_path)) continue;
 						packageFile = mgr.findPackageFile(vers_path);
 						loadInternal(vers_path, packageFile);
 					}
@@ -1787,7 +1734,7 @@ package struct Location {
 
 		string versStr = vers.toString();
 		const path = this.getPackagePath(name, versStr);
-		if (!mgr.existsDirectory(path))
+		if (!mgr.fs.existsDirectory(path))
 			return null;
 
 		logDiagnostic("Lazily loading package %s:%s from %s", name.main, vers, path);

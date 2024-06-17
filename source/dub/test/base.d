@@ -60,8 +60,9 @@ import dub.data.settings;
 public import dub.dependency;
 public import dub.dub;
 public import dub.package_;
+import dub.internal.io.mockfs;
 import dub.internal.vibecompat.core.file : FileInfo;
-public import dub.internal.vibecompat.inet.path;
+public import dub.internal.io.filesystem;
 import dub.packagemanager;
 import dub.packagesuppliers.packagesupplier;
 import dub.project;
@@ -82,7 +83,7 @@ unittest
     // which receives an `FSEntry` representing the root of the filesystem.
     // Various low-level functions are exposed (mkdir, writeFile, ...),
     // as well as higher-level functions (`writePackageFile`).
-    scope dub = new TestDub((scope FSEntry root) {
+    scope dub = new TestDub((scope Filesystem root) {
             // `a` will be loaded as the project while `b` will be loaded
             // as a simple package. The recipe files can be in JSON or SDL format,
             // here we use both to demonstrate this.
@@ -129,11 +130,12 @@ version "1.2.0"`, PackageFormat.sdl);
     assert(dub.project.getDependency("b", true).version_ == Version("1.2.0"));
 
     /// Adding a package to the registry require the version and at list a recipe
-    dub.getRegistry().add(Version("1.3.0"), (scope FSEntry pkg) {
+    dub.getRegistry().add(Version("1.3.0"), (scope Filesystem pkg) {
         // This is required
         pkg.writeFile(NativePath(`dub.sdl`), `name "b"`);
         // Any other files can be present, as a normal package
-        pkg.mkdir(NativePath("source/b/")).writeFile(
+        pkg.mkdir(NativePath("source/b/"));
+        pkg.writeFile(
             NativePath("main.d"), "module b.main; void main() {}");
     });
     // Fetch the package from the registry
@@ -174,7 +176,7 @@ public void disableLogging()
 public class TestDub : Dub
 {
     /// The virtual filesystem that this instance acts on
-    public FSEntry fs;
+    public MockFS fs;
 
     /**
      * Redundant reference to the registry
@@ -220,13 +222,13 @@ public class TestDub : Dub
 
     ***************************************************************************/
 
-    public this (scope void delegate(scope FSEntry root) dg = null,
+    public this (scope void delegate(scope Filesystem root) dg = null,
         string root = ProjectPath.toNativeString(),
         PackageSupplier[] extras = null,
         SkipPackageSuppliers skip = SkipPackageSuppliers.none)
     {
         /// Create the fs & its base structure
-        auto fs_ = new FSEntry();
+        auto fs_ = new MockFS();
         fs_.mkdir(Paths.temp);
         fs_.mkdir(Paths.systemSettings);
         fs_.mkdir(Paths.userSettings);
@@ -244,12 +246,12 @@ public class TestDub : Dub
         PackageSupplier[] extras = null,
         SkipPackageSuppliers skip = SkipPackageSuppliers.none)
     {
-        alias TType = void delegate(scope FSEntry);
+        alias TType = void delegate(scope Filesystem);
         this(TType.init, root, extras, skip);
     }
 
     /// Internal constructor
-    private this(FSEntry fs_, string root, PackageSupplier[] extras,
+    private this(MockFS fs_, string root, PackageSupplier[] extras,
         SkipPackageSuppliers skip)
     {
         this.fs = fs_;
@@ -275,7 +277,7 @@ public class TestDub : Dub
 
     ***************************************************************************/
 
-    public TestDub newTest (scope void delegate(scope FSEntry root) dg = null,
+    public TestDub newTest (scope void delegate(scope Filesystem root) dg = null,
         string root = ProjectPath.toNativeString(),
         PackageSupplier[] extras = null,
         SkipPackageSuppliers skip = SkipPackageSuppliers.none)
@@ -364,16 +366,13 @@ package class TestPackageManager : PackageManager
 
     /// List of all SCM packages that can be fetched by this instance
     protected string[GitReference] scm;
-    /// The virtual filesystem that this PackageManager acts on
-    protected FSEntry fs;
 
-    this(FSEntry filesystem)
+    this(Filesystem filesystem)
     {
-        NativePath local = TestDub.ProjectPath;
-        NativePath user = TestDub.Paths.userSettings;
-        NativePath system = TestDub.Paths.systemSettings;
-        this.fs = filesystem;
-        super(local, user, system, false);
+        NativePath local = TestDub.ProjectPath ~ ".dub/packages/";
+        NativePath user = TestDub.Paths.userSettings ~ "packages/";
+        NativePath system = TestDub.Paths.systemSettings ~ "packages/";
+        super(filesystem, local, user, system);
     }
 
 	/**
@@ -406,94 +405,12 @@ package class TestPackageManager : PackageManager
         // Most of the code is copied from the base method
 		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
-		this.ensureDirectory(dstpath.parentPath());
+		this.fs.mkdir(dstpath.parentPath());
 
-		if (this.existsFile(dstpath))
+		if (this.fs.existsFile(dstpath))
 			return this.getPackage(name, vers, dest);
 		return this.store_(data, dstpath, name, vers);
 	}
-
-    ///
-    protected override bool existsDirectory(NativePath path)
-    {
-        return this.fs.existsDirectory(path);
-    }
-
-    ///
-    protected override void ensureDirectory(NativePath path)
-    {
-        this.fs.mkdir(path);
-    }
-
-    ///
-    protected override bool existsFile(NativePath path)
-    {
-        return this.fs.existsFile(path);
-    }
-
-    ///
-    protected override void writeFile(NativePath path, const(ubyte)[] data)
-    {
-        return this.fs.writeFile(path, data);
-    }
-
-    ///
-    protected override void writeFile(NativePath path, const(char)[] data)
-    {
-        return this.fs.writeFile(path, data);
-    }
-
-    ///
-    protected override string readText(NativePath path)
-    {
-        return this.fs.readText(path);
-    }
-
-    ///
-    protected override void removeFile(NativePath path)
-    {
-        return this.fs.removeFile(path);
-    }
-
-    ///
-    protected override IterateDirDg iterateDirectory(NativePath path)
-    {
-        enforce(this.fs.existsDirectory(path),
-            path.toNativeString() ~ " does not exists or is not a directory");
-        auto dir = this.fs.lookup(path);
-        int iterator(scope int delegate(ref FileInfo) del) {
-            foreach (c; dir.children) {
-                FileInfo fi;
-                fi.name = c.name;
-                fi.timeModified = c.attributes.modification;
-                final switch (c.attributes.type) {
-                case FSEntry.Type.File:
-                    fi.size = c.content.length;
-                    break;
-                case FSEntry.Type.Directory:
-                    fi.isDirectory = true;
-                    break;
-                }
-                if (auto res = del(fi))
-                    return res;
-            }
-            return 0;
-        }
-        return &iterator;
-    }
-
-    /// Ditto
-    protected override void setTimes(in NativePath path, in SysTime accessTime,
-        in SysTime modificationTime)
-    {
-        this.fs.setTimes(path, accessTime, modificationTime);
-    }
-
-    /// Ditto
-    protected override void setAttributes(in NativePath path, uint attributes)
-    {
-        this.fs.setAttributes(path, attributes);
-    }
 }
 
 /**
@@ -528,7 +445,7 @@ public class MockPackageSupplier : PackageSupplier
      * Adds a package to this `PackageSupplier`
      *
      * The registry API bakes in Zip files / binary data.
-     * When adding a package here, just provide an `FSEntry`
+     * When adding a package here, just provide an `Filesystem`
      * representing the package directory, which will be converted
      * to ZipFile / `ubyte[]` and returned by `fetchPackage`.
      *
@@ -545,21 +462,23 @@ public class MockPackageSupplier : PackageSupplier
      *   dg = A delegate that will populate its parameter with the
      *        content of the package.
      */
-    public void add (in Version vers, scope void delegate(scope FSEntry root) dg)
+    public void add (in Version vers, scope void delegate(scope Filesystem root) dg)
     {
-        scope pkgRoot = new FSEntry();
+        scope pkgRoot = new MockFS();
         dg(pkgRoot);
 
-        scope recipe = pkgRoot.lookup("dub.json");
-        if (recipe is null) recipe = pkgRoot.lookup("dub.sdl");
-        if (recipe is null) recipe = pkgRoot.lookup("package.json");
+        string recipe = pkgRoot.existsFile(NativePath("dub.json")) ? "dub.json" : null;
+        if (recipe is null)
+            recipe = pkgRoot.existsFile(NativePath("dub.sdl")) ? "dub.sdl" : null;
+        if (recipe is null)
+            recipe = pkgRoot.existsFile(NativePath("package.json")) ? "package.json" : null;
         // Note: If you want to provide an invalid package, override
         // [Mock]PackageSupplier. Most tests will expect a well-behaving
         // registry so this assert is here to help with writing tests.
         assert(recipe !is null,
                "No package recipe found: Expected dub.json or dub.sdl");
         auto pkgRecipe = parsePackageRecipe(
-            pkgRoot.readText(NativePath(recipe.name)), recipe.name);
+            pkgRoot.readText(NativePath(recipe)), recipe);
         pkgRecipe.version_ = vers.toString();
         const name = PackageName(pkgRecipe.name);
         this.pkgs[name][vers] = PkgData(
@@ -626,374 +545,6 @@ public class MockPackageSupplier : PackageSupplier
     }
 }
 
-/// An abstract filesystem representation
-public class FSEntry
-{
-    /// Type of file system entry
-    public enum Type : ubyte {
-        Directory,
-        File,
-    }
-
-    /// List FSEntry attributes
-    protected struct Attributes {
-        /// The type of FSEntry, see `FSEntry.Type`
-        public Type type;
-        /// System-specific attributes for this `FSEntry`
-        public uint attrs;
-        /// Last access time
-        public SysTime access;
-        /// Last modification time
-        public SysTime modification;
-    }
-    /// Ditto
-    protected Attributes attributes;
-
-    /// The name of this node
-    protected string name;
-    /// The parent of this entry (can be null for the root)
-    protected FSEntry parent;
-    union {
-        /// Children for this FSEntry (with type == Directory)
-        protected FSEntry[] children;
-        /// Content for this FDEntry (with type == File)
-        protected ubyte[] content;
-    }
-
-    /// Creates a new FSEntry
-    private this (FSEntry p, Type t, string n)
-    {
-        // Avoid 'DOS File Times cannot hold dates prior to 1980.' exception
-        import std.datetime.date;
-        SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
-
-        this.attributes.type = t;
-        this.parent = p;
-        this.name = n;
-        this.attributes.access = DefaultTime;
-        this.attributes.modification = DefaultTime;
-    }
-
-    /// Create the root of the filesystem, only usable from this module
-    private this ()
-    {
-        import std.datetime.date;
-        SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
-
-        this.attributes.type = Type.Directory;
-        this.attributes.access = DefaultTime;
-        this.attributes.modification = DefaultTime;
-    }
-
-    /// Get a direct children node, returns `null` if it can't be found
-    protected inout(FSEntry) lookup(string name) inout return scope
-    {
-        assert(!name.canFind('/'));
-        foreach (c; this.children)
-            if (c.name == name)
-                return c;
-        return null;
-    }
-
-    /// Get an arbitrarily nested children node
-    protected inout(FSEntry) lookup(NativePath path) inout return scope
-    {
-        auto relp = this.relativePath(path);
-        relp.normalize(); // try to get rid of `..`
-        if (relp.empty)
-            return this;
-        auto segments = relp.bySegment;
-        if (auto c = this.lookup(segments.front.name)) {
-            segments.popFront();
-            return !segments.empty ? c.lookup(NativePath(segments)) : c;
-        }
-        return null;
-    }
-
-    /** Get the parent `FSEntry` of a `NativePath`
-     *
-     * If the parent doesn't exist, an `Exception` will be thrown
-     * unless `silent` is provided. If the parent path is a file,
-     * an `Exception` will be thrown regardless of `silent`.
-     *
-     * Params:
-     *   path = The path to look up the parent for
-     *   silent = Whether to error on non-existing parent,
-     *            default to `false`.
-     */
-    protected inout(FSEntry) getParent(NativePath path, bool silent = false)
-        inout return scope
-    {
-        // Relative path in the current directory
-        if (!path.hasParentPath())
-            return this;
-
-        // If we're not in the right `FSEntry`, recurse
-        const parentPath = path.parentPath();
-        auto p = this.lookup(parentPath);
-        enforce(silent || p !is null,
-            "No such directory: " ~ parentPath.toNativeString());
-        enforce(p is null || p.attributes.type == Type.Directory,
-            "Parent path is not a directory: " ~ parentPath.toNativeString());
-        return p;
-    }
-
-    /// Returns: A path relative to `this.path`
-    protected NativePath relativePath(NativePath path) const scope
-    {
-        assert(!path.absolute() || path.startsWith(this.path),
-               "Calling relativePath with a differently rooted path");
-        return path.absolute() ? path.relativeTo(this.path) : path;
-    }
-
-    /*+*************************************************************************
-
-        Utility function
-
-        Below this banners are functions that are provided for the convenience
-        of writing tests for `Dub`.
-
-    ***************************************************************************/
-
-    /// Prints a visual representation of the filesystem to stdout for debugging
-    public void print(bool content = false) const scope
-    {
-        import std.range : repeat;
-        static import std.stdio;
-
-        size_t indent;
-        for (auto p = &this.parent; (*p) !is null; p = &p.parent)
-            indent++;
-        // Don't print anything (even a newline) for root
-        if (this.parent is null)
-            std.stdio.write('/');
-        else
-            std.stdio.write('|', '-'.repeat(indent), ' ', this.name, ' ');
-
-        final switch (this.attributes.type) {
-        case Type.Directory:
-            std.stdio.writeln('(', this.children.length, " entries):");
-            foreach (c; this.children)
-                c.print(content);
-            break;
-        case Type.File:
-            if (!content)
-                std.stdio.writeln('(', this.content.length, " bytes)");
-            else if (this.name.endsWith(".json") || this.name.endsWith(".sdl"))
-                std.stdio.writeln('(', this.content.length, " bytes): ",
-                    cast(string) this.content);
-            else
-                std.stdio.writeln('(', this.content.length, " bytes): ",
-                    this.content);
-            break;
-        }
-    }
-
-    /// Returns: The final destination a specific package needs to be stored in
-    public static NativePath getPackagePath(in string name_, string vers,
-        PlacementLocation location = PlacementLocation.user)
-    {
-        PackageName name = PackageName(name_);
-        // Keep in sync with `dub.packagemanager: PackageManager.getPackagePath`
-        // and `Location.getPackagePath`
-        NativePath result (in NativePath base)
-        {
-            NativePath res = base ~ name.main.toString() ~ vers ~
-                name.main.toString();
-            res.endsWithSlash = true;
-            return res;
-        }
-
-        final switch (location) {
-        case PlacementLocation.user:
-            return result(TestDub.Paths.userSettings ~ "packages/");
-        case PlacementLocation.system:
-            return result(TestDub.Paths.systemSettings ~ "packages/");
-        case PlacementLocation.local:
-            return result(TestDub.ProjectPath ~ "/.dub/packages/");
-        }
-    }
-
-    /*+*************************************************************************
-
-        Public filesystem functions
-
-        Below this banners are functions which mimic the behavior of a file
-        system.
-
-    ***************************************************************************/
-
-    /// Returns: The `path` of this FSEntry
-    public NativePath path() const scope
-    {
-        if (this.parent is null)
-            return NativePath("/");
-        auto thisPath = this.parent.path ~ this.name;
-        thisPath.endsWithSlash = (this.attributes.type == Type.Directory);
-        return thisPath;
-    }
-
-    /// Implements `mkdir -p`, returns the created directory
-    public FSEntry mkdir (NativePath path) scope
-    {
-        auto relp = this.relativePath(path);
-        // Check if the child already exists
-        auto segments = relp.bySegment;
-        auto child = this.lookup(segments.front.name);
-        if (child is null) {
-            child = new FSEntry(this, Type.Directory, segments.front.name);
-            this.children ~= child;
-        }
-        // Recurse if needed
-        segments.popFront();
-        return !segments.empty ? child.mkdir(NativePath(segments)) : child;
-    }
-
-    /// Checks the existence of a file
-    public bool existsFile (NativePath path) const scope
-    {
-        auto entry = this.lookup(path);
-        return entry !is null && entry.attributes.type == Type.File;
-    }
-
-    /// Checks the existence of a directory
-    public bool existsDirectory (NativePath path) const scope
-    {
-        auto entry = this.lookup(path);
-        return entry !is null && entry.attributes.type == Type.Directory;
-    }
-
-    /// Reads a file, returns the content as `ubyte[]`
-    public ubyte[] readFile (NativePath path) const scope
-    {
-        auto entry = this.lookup(path);
-        enforce(entry !is null, "No such file: " ~ path.toNativeString());
-        enforce(entry.attributes.type == Type.File, "Trying to read a directory");
-        // This is a hack to make poisoning a file possible.
-        // However, it is rather crude and doesn't allow to poison directory.
-        // Consider introducing a derived type to allow it.
-        assert(entry.content != "poison".representation,
-            "Trying to access poisoned path: " ~ path.toNativeString());
-        return entry.content.dup;
-    }
-
-    /// Reads a file, returns the content as text
-    public string readText (NativePath path) const scope
-    {
-        import std.utf : validate;
-
-        const content = this.readFile(path);
-        // Ignore BOM: If it's needed for a test, add support for it.
-        validate(cast(const(char[])) content);
-        // `readFile` just `dup` the content, so it's safe to cast.
-        return cast(string) content;
-    }
-
-    /// Write to this file
-    public void writeFile (NativePath path, const(char)[] data) scope
-    {
-        this.writeFile(path, data.representation);
-    }
-
-    /// Ditto
-    public void writeFile (NativePath path, const(ubyte)[] data) scope
-    {
-        enforce(!path.endsWithSlash(),
-            "Cannot write to directory: " ~ path.toNativeString());
-        if (auto file = this.lookup(path)) {
-            // If the file already exists, override it
-            enforce(file.attributes.type == Type.File,
-                "Trying to write to directory: " ~ path.toNativeString());
-            file.content = data.dup;
-        } else {
-            auto p = this.getParent(path);
-            auto file = new FSEntry(p, Type.File, path.head.name());
-            file.content = data.dup;
-            p.children ~= file;
-        }
-    }
-
-    /** Remove a file
-     *
-     * Always error if the target is a directory.
-     * Does not error if the target does not exists
-     * and `force` is set to `true`.
-     *
-     * Params:
-     *   path = Path to the file to remove
-     *   force = Whether to ignore non-existing file,
-     *           default to `false`.
-     */
-    public void removeFile (NativePath path, bool force = false)
-    {
-        import std.algorithm.searching : countUntil;
-
-        assert(!path.empty, "Empty path provided to `removeFile`");
-        enforce(!path.endsWithSlash(),
-            "Cannot remove file with directory path: " ~ path.toNativeString());
-        auto p = this.getParent(path, force);
-        const idx = p.children.countUntil!(e => e.name == path.head.name());
-        if (idx < 0) {
-            enforce(force,
-                "removeFile: No such file: " ~ path.toNativeString());
-        } else {
-            enforce(p.children[idx].attributes.type == Type.File,
-                "removeFile called on a directory: " ~ path.toNativeString());
-            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
-        }
-    }
-
-    /** Remove a directory
-     *
-     * Remove an existing empty directory.
-     * If `force` is set to `true`, no error will be thrown
-     * if the directory is empty or non-existing.
-     *
-     * Params:
-     *   path = Path to the directory to remove
-     *   force = Whether to ignore non-existing / non-empty directories,
-     *           default to `false`.
-     */
-    public void removeDir (NativePath path, bool force = false)
-    {
-        import std.algorithm.searching : countUntil;
-
-        assert(!path.empty, "Empty path provided to `removeFile`");
-        auto p = this.getParent(path, force);
-        const idx = p.children.countUntil!(e => e.name == path.head.name());
-        if (idx < 0) {
-            enforce(force,
-                "removeDir: No such directory: " ~ path.toNativeString());
-        } else {
-            enforce(p.children[idx].attributes.type == Type.Directory,
-                "removeDir called on a file: " ~ path.toNativeString());
-            enforce(force || p.children[idx].children.length == 0,
-                "removeDir called on non-empty directory: " ~ path.toNativeString());
-            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
-        }
-    }
-
-    /// Implement `std.file.setTimes`
-    public void setTimes(in NativePath path, in SysTime accessTime,
-        in SysTime modificationTime)
-    {
-        auto e = this.lookup(path);
-        enforce(e !is null,
-            "setTimes: No such file or directory: " ~ path.toNativeString());
-        e.attributes.access = accessTime;
-        e.attributes.modification = modificationTime;
-    }
-
-    /// Implement `std.file.setAttributes`
-    public void setAttributes(in NativePath path, uint attributes)
-    {
-        auto e = this.lookup(path);
-        enforce(e !is null,
-            "setTimes: No such file or directory: " ~ path.toNativeString());
-        e.attributes.attrs = attributes;
-    }
-}
-
 /**
  * Convenience function to write a package file
  *
@@ -1001,52 +552,45 @@ public class FSEntry
  * package name and version.
  *
  * Params:
- *   root = The root FSEntry
+ *   root = The root Filesystem
  *   name = The package name (typed as string for convenience)
  *   vers = The package version
  *   recipe = The text of the package recipe
  *   fmt = The format used for `recipe` (default to JSON)
  *   location = Where to place the package (default to user location)
  */
-public void writePackageFile (FSEntry root, in string name, in string vers,
+public void writePackageFile (Filesystem root, in string name, in string vers,
     in string recipe, in PackageFormat fmt = PackageFormat.json,
     in PlacementLocation location = PlacementLocation.user)
 {
-    const path = FSEntry.getPackagePath(name, vers, location);
-    root.mkdir(path).writeFile(
-        NativePath(fmt == PackageFormat.json ? "dub.json" : "dub.sdl"),
+    const path = getPackagePath(name, vers, location);
+    root.mkdir(path);
+    root.writeFile(
+        path ~ (fmt == PackageFormat.json ? "dub.json" : "dub.sdl"),
         recipe);
 }
 
-/**
- * Converts an `FSEntry` and its children to a `ZipFile`
- */
-public ubyte[] serializeToZip (scope FSEntry root, string rootPath) {
-    import std.path;
-    import std.zip;
-
-    scope z = new ZipArchive();
-    void addToZip(scope string dir, scope FSEntry e) {
-        auto m = new ArchiveMember();
-        m.name = dir.buildPath(e.name);
-        m.fileAttributes = e.attributes.attrs;
-        m.time = e.attributes.modification;
-
-        final switch (e.attributes.type) {
-        case FSEntry.Type.Directory:
-            // We need to ensure the directory entry ends with a slash
-            // otherwise it will be considered as a file.
-            if (m.name[$-1] != '/')
-                m.name ~= '/';
-            z.addMember(m);
-            foreach (c; e.children)
-                addToZip(m.name, c);
-            break;
-        case FSEntry.Type.File:
-            m.expandedData = e.content;
-            z.addMember(m);
-        }
+/// Returns: The final destination a specific package needs to be stored in
+public static NativePath getPackagePath(in string name_, string vers,
+    PlacementLocation location = PlacementLocation.user)
+{
+    PackageName name = PackageName(name_);
+    // Keep in sync with `dub.packagemanager: PackageManager.getPackagePath`
+    // and `Location.getPackagePath`
+    NativePath result (in NativePath base)
+    {
+        NativePath res = base ~ name.main.toString() ~ vers ~
+            name.main.toString();
+        res.endsWithSlash = true;
+        return res;
     }
-    addToZip(rootPath, root);
-    return cast(ubyte[]) z.build();
+
+    final switch (location) {
+    case PlacementLocation.user:
+        return result(TestDub.Paths.userSettings ~ "packages/");
+    case PlacementLocation.system:
+        return result(TestDub.Paths.systemSettings ~ "packages/");
+    case PlacementLocation.local:
+        return result(TestDub.ProjectPath ~ "/.dub/packages/");
+    }
 }

@@ -29,10 +29,12 @@ unittest
 }
 `;
 
-    scope dub = new TestDub((scope FSEntry fs) {
-        fs.mkdir(pkg1Dir).writeFile(NativePath("dub.sdl"), `name "pkg1"
+    scope dub = new TestDub((scope Filesystem fs) {
+        fs.mkdir(pkg1Dir);
+        fs.writeFile(pkg1Dir ~ "dub.sdl", `name "pkg1"
 targetType "none"`);
-        fs.mkdir(pkg2Dir).writeFile(NativePath("dub.sdl"), `name "pkg2"
+        fs.mkdir(pkg2Dir);
+        fs.writeFile(pkg2Dir ~ "dub.sdl", `name "pkg2"
 targetType "library"
 
 # don't specify a path, require inherited dub.selections.json to make it path-based (../pkg1)
@@ -66,9 +68,10 @@ unittest
     const root_a = root ~ "a";
     const root_a_b = root_a ~ "b";
 
-    scope dub_ = new TestDub((scope FSEntry fs) {
+    scope dub_ = new TestDub((scope Filesystem fs) {
         // inheritable root/dub.selections.json
-        fs.mkdir(root).writeFile(NativePath("dub.selections.json"), `{
+        fs.mkdir(root);
+        fs.writeFile(root ~ "dub.selections.json", `{
 	"fileVersion": 1,
 	"inheritable": true,
 	"versions": {
@@ -77,7 +80,8 @@ unittest
 }
 `);
         // non-inheritable root/a/dub.selections.json
-        fs.mkdir(root_a).writeFile(NativePath("dub.selections.json"), `{
+        fs.mkdir(root_a);
+        fs.writeFile(root_a ~ "dub.selections.json", `{
 	"fileVersion": 1,
 	"versions": {
 		"dub": "1.37.0"
@@ -133,7 +137,7 @@ unittest
 
     // after removing non-inheritable root/a/dub.selections.json: inherited root selections for root/a/b/
     {
-        auto dub = dub_.newTest((scope FSEntry fs) {
+        auto dub = dub_.newTest((scope Filesystem fs) {
             fs.removeFile(root_a ~ "dub.selections.json");
         });
         const result = dub.packageManager.readSelections(root_a_b);
