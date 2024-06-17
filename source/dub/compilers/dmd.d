@@ -174,10 +174,20 @@ config    /etc/dmd.conf
 	version (LDC) unittest {
 		import std.conv : to;
 
+		version (ARM)
+			enum isARM = true;
+		version (AArch64)
+			enum isARM = true;
+		else
+			enum isARM = false;
+
 		BuildSettings settings;
 		auto compiler = new DMDCompiler;
 		auto bp = compiler.determinePlatform(settings, "ldmd2", "x86");
-		assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
+		static if (isARM)
+			assert(bp.architecture.canFind("arm"), bp.architecture.to!string);
+		else
+			assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
 		bp = compiler.determinePlatform(settings, "ldmd2", "");
 		version (X86) assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
 		version (X86_64) assert(bp.architecture.canFind("x86_64"), bp.architecture.to!string);
