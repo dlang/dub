@@ -76,7 +76,7 @@ class Project {
 	/// Ditto
 	this(PackageManager package_manager, Package pack)
 	{
-		auto selections = Project.loadSelections(pack, package_manager);
+		auto selections = Project.loadSelections(pack.path, package_manager);
 		this(package_manager, pack, selections);
 	}
 
@@ -98,17 +98,17 @@ class Project {
 	 * is returned.
 	 *
 	 * Params:
-	 *	 pack = Package to load the selection file from.
+	 *	 packPath = Absolute path of the Package to load the selection file from.
 	 *
 	 * Returns:
 	 *	 Always a non-null instance.
 	 */
-	static package SelectedVersions loadSelections(in Package pack, PackageManager mgr)
+	static package SelectedVersions loadSelections(in NativePath packPath, PackageManager mgr)
 	{
 		import dub.version_;
 		import dub.internal.dyaml.stdsumtype;
 
-		auto lookupResult = mgr.readSelections(pack.path);
+		auto lookupResult = mgr.readSelections(packPath);
 		if (lookupResult.isNull()) // no file, or parsing error (displayed to the user)
 			return new SelectedVersions();
 
@@ -124,7 +124,7 @@ class Project {
 			},
 			(Selections!1 s) {
 				auto selectionsDir = r.absolutePath.parentPath;
-				return new SelectedVersions(s, selectionsDir.relativeTo(pack.path));
+				return new SelectedVersions(s, selectionsDir.relativeTo(packPath));
 			},
 		);
 	}
