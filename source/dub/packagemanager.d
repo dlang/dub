@@ -1177,23 +1177,33 @@ symlink_exit:
 
 		// check for dub.selections.json in root project dir first, then walk up its
 		// parent directories and look for inheritable dub.selections.json files
-		for (NativePath dir = absProjectPath; !dir.empty; dir = dir.hasParentPath ? dir.parentPath : NativePath.init) {
-			const path = dir ~ "dub.selections.json";
-			if (!this.existsFile(path))
-				continue;
-			const content = this.readText(path);
-			// TODO: Remove `StrictMode.Warn` after v1.40 release
-			// The default is to error, but as the previous parser wasn't
-			// complaining, we should first warn the user.
-			auto selections = wrapException(parseConfigString!SelectionsFile(
-				content, path.toNativeString(), StrictMode.Warn));
-			const isValid = !selections.isNull() && (dir == absProjectPath || selections.get().inheritable);
-			if (isValid)
-				return N(SelectionsFileLookupResult(path, selections.get()));
-			break; // stop at the first invalid file
-		}
+		const path = this.findSelections(absProjectPath);
+		if (path.empty) return N.init;
+		const content = this.readText(path);
+		// TODO: Remove `StrictMode.Warn` after v1.40 release
+		// The default is to error, but as the previous parser wasn't
+		// complaining, we should first warn the user.
+		auto selections = wrapException(parseConfigString!SelectionsFile(
+			content, path.toNativeString(), StrictMode.Warn));
+		// Could not parse file
+		if (selections.isNull())
+			return N.init;
+		// Non-inheritable selections found
+		if (!path.startsWith(absProjectPath) && !selections.get().inheritable)
+			return N.init;
+		return N(SelectionsFileLookupResult(path, selections.get()));
+	}
 
-		return N.init;
+	/// Helper function to walk up the filesystem and find `dub.selections.json`
+	private NativePath findSelections(in NativePath dir)
+	{
+		const path = dir ~ "dub.selections.json";
+		if (this.existsFile(path))
+			return path;
+		if (!dir.hasParentPath)
+			return NativePath.init;
+		return this.findSelections(dir.parentPath);
+
 	}
 
 	/**
