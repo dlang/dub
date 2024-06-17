@@ -48,7 +48,7 @@ jobs:
         env:
           GITVER: ${{ github.event.release.tag_name }}
           DMD: "ldmd2"
-          ARCH_TRIPLE: ${{ matrix.arch }}-${{ runner.os == 'linux' &&  'pc-linux' || 'apple-darwin' }}
+          ARCH_TRIPLE: ${{ matrix.arch }}-${{ runner.os == 'linux' && 'pc-linux' || 'apple-darwin' }}
         run: |
           ldc2 -run ./build.d -release -mtriple=${ARCH_TRIPLE}
           pushd bin
