@@ -14,10 +14,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ macOS-11, ubuntu-20.04, windows-2019 ]
+        os: [ macOS-12, ubuntu-20.04, windows-2019 ]
         arch: [ x86_64 ]
         include:
           - { os: windows-2019, arch: i686 }
+          - { os: macOS-latest, arch: arm64 }
 
     runs-on: ${{ matrix.os }}
     steps:
