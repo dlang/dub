@@ -60,6 +60,15 @@ public string toString (PlacementLocation loc) @safe pure nothrow @nogc
     }
 }
 
+/// A SelectionsFile associated with its file-system path.
+struct SelectionsFileLookupResult {
+	/// The absolute path to the dub.selections.json file
+	/// (potentially inherited from a parent directory of the root package).
+	NativePath absolutePath;
+	/// The parsed dub.selections.json file.
+	SelectionsFile selectionsFile;
+}
+
 /// The PackageManager can retrieve present packages and get / remove
 /// packages.
 class PackageManager {
@@ -1151,32 +1160,50 @@ symlink_exit:
 	 * However, due to it being a filesystem interaction, it is managed
 	 * from the `PackageManager`.
 	 *
-	 * Under normal conditions, either `null` is returned (if no selection
-	 * file exists or parsing encountered an error), or a `SelectionFile`
-	 * is returned. Note that the returned `SelectionsFile` might use an
-	 * unsupported version (see `SelectionsFile` documentation).
-	 *
-	 * Note that this is currently not part of the public API, and won't be
-	 * until there is a clear need for it.
-	 *
 	 * Params:
-	 *   project = The `Package` for which to load a selection file.
+	 *   absProjectPath = The absolute path to the root package/project for
+	 *                    which to load the selections file.
 	 *
 	 * Returns:
-	 *   The parsed `SelectionsFile`, or a null instance if none exists.
+	 *   Either `null` (if no selections file exists or parsing encountered an error),
+	 *   or a `SelectionsFileLookupResult`. Note that the nested `SelectionsFile`
+	 *   might use an unsupported version (see `SelectionsFile` documentation).
 	 */
-	package final Nullable!SelectionsFile readSelections(in Package project) {
+	Nullable!SelectionsFileLookupResult readSelections(in NativePath absProjectPath)
+	in (absProjectPath.absolute) {
 		import dub.internal.configy.Read;
 
-		const path = (project.path ~ "dub.selections.json");
-		if (!this.existsFile(path))
-			return typeof(return).init;
+		alias N = typeof(return);
+
+		// check for dub.selections.json in root project dir first, then walk up its
+		// parent directories and look for inheritable dub.selections.json files
+		const path = this.findSelections(absProjectPath);
+		if (path.empty) return N.init;
 		const content = this.readText(path);
 		// TODO: Remove `StrictMode.Warn` after v1.40 release
 		// The default is to error, but as the previous parser wasn't
 		// complaining, we should first warn the user.
-		return wrapException(parseConfigString!SelectionsFile(
+		auto selections = wrapException(parseConfigString!SelectionsFile(
 			content, path.toNativeString(), StrictMode.Warn));
+		// Could not parse file
+		if (selections.isNull())
+			return N.init;
+		// Non-inheritable selections found
+		if (!path.startsWith(absProjectPath) && !selections.get().inheritable)
+			return N.init;
+		return N(SelectionsFileLookupResult(path, selections.get()));
+	}
+
+	/// Helper function to walk up the filesystem and find `dub.selections.json`
+	private NativePath findSelections(in NativePath dir)
+	{
+		const path = dir ~ "dub.selections.json";
+		if (this.existsFile(path))
+			return path;
+		if (!dir.hasParentPath)
+			return NativePath.init;
+		return this.findSelections(dir.parentPath);
+
 	}
 
 	/**
@@ -1208,12 +1235,14 @@ symlink_exit:
 	{
 		Json json = selectionsToJSON(s);
 		assert(json.type == Json.Type.object);
-		assert(json.length == 2);
+		assert(json.length == 2 || json.length == 3);
 		assert(json["versions"].type != Json.Type.undefined);
 
 		auto result = appender!string();
 		result.put("{\n\t\"fileVersion\": ");
 		result.writeJsonString(json["fileVersion"]);
+		if (s.inheritable)
+			result.put(",\n\t\"inheritable\": true");
 		result.put(",\n\t\"versions\": {");
 		auto vers = json["versions"].get!(Json[string]);
 		bool first = true;
@@ -1234,6 +1263,8 @@ symlink_exit:
 	{
 		Json serialized = Json.emptyObject;
 		serialized["fileVersion"] = s.fileVersion;
+		if (s.inheritable)
+			serialized["inheritable"] = true;
 		serialized["versions"] = Json.emptyObject;
 		foreach (p, dep; s.versions)
 			serialized["versions"][p] = dep.toJson(true);

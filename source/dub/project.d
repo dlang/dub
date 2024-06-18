@@ -76,7 +76,7 @@ class Project {
 	/// Ditto
 	this(PackageManager package_manager, Package pack)
 	{
-		auto selections = Project.loadSelections(pack, package_manager);
+		auto selections = Project.loadSelections(pack.path, package_manager);
 		this(package_manager, pack, selections);
 	}
 
@@ -98,32 +98,34 @@ class Project {
 	 * is returned.
 	 *
 	 * Params:
-	 *	 pack = Package to load the selection file from.
+	 *	 packPath = Absolute path of the Package to load the selection file from.
 	 *
 	 * Returns:
 	 *	 Always a non-null instance.
 	 */
-	static package SelectedVersions loadSelections(in Package pack, PackageManager mgr)
+	static package SelectedVersions loadSelections(in NativePath packPath, PackageManager mgr)
 	{
 		import dub.version_;
 		import dub.internal.dyaml.stdsumtype;
 
-		auto selected = mgr.readSelections(pack);
-		// Parsing error that will be displayed to the user or just no selections
-		if (selected.isNull())
+		auto lookupResult = mgr.readSelections(packPath);
+		if (lookupResult.isNull()) // no file, or parsing error (displayed to the user)
 			return new SelectedVersions();
 
-		return selected.get().content.match!(
+		auto r = lookupResult.get();
+		return r.selectionsFile.content.match!(
 			(Selections!0 s) {
 				logWarnTag("Unsupported version",
-					"File %s/dub.selections.json has fileVersion %s, which " ~
-					"is not yet supported by DUB %s.",
-					pack.path, s.fileVersion, dubVersion);
+					"File %s has fileVersion %s, which is not yet supported by DUB %s.",
+					r.absolutePath, s.fileVersion, dubVersion);
 				logWarn("Ignoring selections file. Use a newer DUB version " ~
 					"and set the appropriate toolchainRequirements in your recipe file");
 				return new SelectedVersions();
 			},
-			(Selections!1 s) => new SelectedVersions(s),
+			(Selections!1 s) {
+				auto selectionsDir = r.absolutePath.parentPath;
+				return new SelectedVersions(s, selectionsDir.relativeTo(packPath));
+			},
 		);
 	}
 
@@ -1874,6 +1876,23 @@ public class SelectedVersions {
 		this.m_bare = false;
 	}
 
+	/** Constructs a new non-empty version selection, prefixing relative path
+		selections with the specified prefix.
+
+		To be used in cases where the "dub.selections.json" file isn't located
+		in the root package directory.
+	*/
+	public this(Selections!1 data, NativePath relPathPrefix)
+	{
+		this(data);
+		if (relPathPrefix.empty) return;
+		foreach (ref dep; m_selections.versions.byValue) {
+			const depPath = dep.path;
+			if (!depPath.empty && !depPath.absolute)
+				dep = Dependency(relPathPrefix ~ depPath);
+		}
+	}
+
 	/** Constructs a new version selection from JSON data.
 
 		The structure of the JSON document must match the contents of the
@@ -1918,6 +1937,7 @@ public class SelectedVersions {
 	{
 		m_selections.fileVersion = versions.m_selections.fileVersion;
 		m_selections.versions = versions.m_selections.versions.dup;
+		m_selections.inheritable = versions.m_selections.inheritable;
 		m_dirty = true;
 	}
 
@@ -2078,6 +2098,8 @@ public class SelectedVersions {
 		clear();
 		m_selections.fileVersion = fileVersion;
 		scope(failure) clear();
+		if (auto p = "inheritable" in json)
+			m_selections.inheritable = p.get!bool;
 		foreach (string p, dep; json["versions"])
 			m_selections.versions[p] = dependencyFromJson(dep);
 	}

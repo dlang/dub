@@ -699,6 +699,7 @@ public class FSEntry
     protected inout(FSEntry) lookup(NativePath path) inout return scope
     {
         auto relp = this.relativePath(path);
+        relp.normalize(); // try to get rid of `..`
         if (relp.empty)
             return this;
         auto segments = relp.bySegment;
