@@ -14,12 +14,10 @@ permissions:
 jobs:
   intro_comment:
     name: Make intro comment
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - name: 'Prepare sticky comment'
-      # commit of v2.5.0
-      # same one used again at the bottom of the file to update the comment.
-      uses: marocchino/sticky-pull-request-comment@3d60a5b2dae89d44e0c6ddc69dd7536aec2071cd
+      uses: marocchino/sticky-pull-request-comment@2.9.0
       with:
         message: |
           Thanks for your Pull Request and making D better!
