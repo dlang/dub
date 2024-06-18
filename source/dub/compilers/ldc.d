@@ -104,7 +104,6 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
 	{
-		import std.format : format;
 		enforceBuildRequirements(settings);
 
 		// Keep the current dflags at the end of the array so that they will overwrite other flags.
@@ -117,9 +116,6 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				if (settings.options & t[0])
 					settings.addDFlags(t[1]);
 		}
-
-		// since LDC always outputs multiple object files, avoid conflicts by default
-		settings.addDFlags("--oq", format("-od=%s/obj", settings.targetPath));
 
 		if (!(fields & BuildSetting.versions)) {
 			settings.addDFlags(settings.versions.map!(s => "-d-version="~s)().array());
@@ -241,7 +237,17 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 			case TargetType.executable: break;
 			case TargetType.library:
 			case TargetType.staticLibrary:
-				settings.addDFlags("-lib");
+				// -oq: name object files uniquely (so the files don't collide)
+				settings.addDFlags("-lib", "-oq");
+				// -cleanup-obj (supported since LDC v1.1): remove object files after archiving to static lib
+				if (platform.frontendVersion >= 2071) {
+					settings.addDFlags("-cleanup-obj");
+				}
+				if (platform.frontendVersion < 2095) {
+					// Since LDC v1.25, -cleanup-obj defaults to a unique temp -od directory
+					// We need to resort to a unique-ish -od directory before that
+					settings.addDFlags("-od=" ~ settings.targetPath ~ "/obj");
+				}
 				break;
 			case TargetType.dynamicLibrary:
 				settings.addDFlags("-shared");
