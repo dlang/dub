@@ -118,13 +118,19 @@ public final class MockFS : Filesystem {
     public override void setTimes (in NativePath path, in SysTime accessTime,
         in SysTime modificationTime)
     {
-        this.cwd.setTimes(path, accessTime, modificationTime);
+        auto e = this.cwd.lookup(path);
+        enforce(e !is null,
+            "setTimes: No such file or directory: " ~ path.toNativeString());
+        e.setTimes(accessTime, modificationTime);
     }
 
     /// Ditto
     public override void setAttributes (in NativePath path, uint attributes)
     {
-        this.cwd.setAttributes(path, attributes);
+        auto e = this.cwd.lookup(path);
+        enforce(e !is null,
+            "setAttributes: No such file or directory: " ~ path.toNativeString());
+        e.setAttributes(attributes);
     }
 
     /**
@@ -484,22 +490,15 @@ public class FSEntry
     }
 
     /// Implement `std.file.setTimes`
-    public void setTimes (in NativePath path, in SysTime accessTime,
-        in SysTime modificationTime)
+    public void setTimes (in SysTime accessTime, in SysTime modificationTime)
     {
-        auto e = this.lookup(path);
-        enforce(e !is null,
-            "setTimes: No such file or directory: " ~ path.toNativeString());
-        e.attributes.access = accessTime;
-        e.attributes.modification = modificationTime;
+        this.attributes.access = accessTime;
+        this.attributes.modification = modificationTime;
     }
 
     /// Implement `std.file.setAttributes`
-    public void setAttributes (in NativePath path, uint attributes)
+    public void setAttributes (uint attributes)
     {
-        auto e = this.lookup(path);
-        enforce(e !is null,
-            "setTimes: No such file or directory: " ~ path.toNativeString());
-        e.attributes.attrs = attributes;
+        this.attributes.attrs = attributes;
     }
 }
