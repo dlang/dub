@@ -34,7 +34,8 @@ public final class MockFS : Filesystem {
     ///
     public override bool existsDirectory (in NativePath path) const scope
     {
-        return this.cwd.existsDirectory(path);
+        auto entry = this.cwd.lookup(path);
+        return entry !is null && entry.isDirectory();
     }
 
     /// Ditto
@@ -46,7 +47,8 @@ public final class MockFS : Filesystem {
     /// Ditto
     public override bool existsFile (in NativePath path) const scope
     {
-        return this.cwd.existsFile(path);
+        auto entry = this.cwd.lookup(path);
+        return entry !is null && entry.isFile();
     }
 
     /// Ditto
@@ -78,7 +80,7 @@ public final class MockFS : Filesystem {
     /// Ditto
     public override IterateDirDg iterateDirectory (in NativePath path) scope
     {
-        enforce(this.cwd.existsDirectory(path),
+        enforce(this.existsDirectory(path),
             path.toNativeString() ~ " does not exists or is not a directory");
         auto dir = this.cwd.lookup(path);
         int iterator(scope int delegate(ref dub.internal.vibecompat.core.file.FileInfo) del) {
@@ -365,18 +367,16 @@ public class FSEntry
         return !segments.empty ? child.mkdir(NativePath(segments)) : child;
     }
 
-    /// Checks the existence of a file
-    public bool existsFile (in NativePath path) const scope
+    ///
+    public bool isFile () const scope
     {
-        auto entry = this.lookup(path);
-        return entry !is null && entry.attributes.type == Type.File;
+        return this.attributes.type == Type.File;
     }
 
-    /// Checks the existence of a directory
-    public bool existsDirectory (in NativePath path) const scope
+    ///
+    public bool isDirectory () const scope
     {
-        auto entry = this.lookup(path);
-        return entry !is null && entry.attributes.type == Type.Directory;
+        return this.attributes.type == Type.Directory;
     }
 
     /// Reads a file, returns the content as `ubyte[]`
