@@ -366,11 +366,14 @@ string getDUBVersion()
 		$(LI all components of the `$PATH` variable)
 	)
 	Params:
-		compilerBinary = optional path to a D compiler executable, used to locate DUB executable
+		compilerBinary = optional path to a D compiler executable, used to
+		locate DUB executable
 	Returns:
-		The path to a valid DUB executable
+		The path to a valid DUB executable. The `tryGetDUBExePath` function may
+		return null if no valid DUB executable is found.
 	Throws:
-		an Exception if no valid DUB executable is found
+		an Exception if no valid DUB executable is found (only with the
+		`getDUBExePath` function)
 */
 public NativePath getDUBExePath(in string compilerBinary=null)
 {
@@ -383,7 +386,7 @@ public NativePath getDUBExePath(in string compilerBinary=null)
 		import std.algorithm : filter, map, splitter;
 		import std.array : array;
 		import std.file : exists, getcwd;
-		import std.path : chainPath, dirName;
+		import std.path : buildPath, dirName;
 		import std.range : chain, only, take;
 		import std.process : environment;
 
@@ -397,19 +400,19 @@ public NativePath getDUBExePath(in string compilerBinary=null)
 		}
 
 		auto dubLocs = only(
-			getcwd().chainPath(exeName),
-			compilerBinary.dirName.chainPath(exeName),
+			getcwd().buildPath(exeName), // chainPath somehow corrupts memory here
+			compilerBinary.dirName.buildPath(exeName),
 		)
 		.take(compilerBinary.length ? 2 : 1)
 		.chain(
 			environment.get("PATH", "")
 				.splitter(pathSep)
-				.map!(p => p.chainPath(exeName))
+				.map!(p => p.buildPath(exeName))
 		)
 		.filter!exists;
 
 		enforce(!dubLocs.empty, "Could not find DUB executable");
-		return NativePath(dubLocs.front.array);
+		return NativePath(dubLocs.front);
 	}
 }
 
