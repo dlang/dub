@@ -20,6 +20,7 @@ import dub.package_;
 import dub.packagemanager;
 import dub.packagesuppliers;
 import dub.project;
+import dub.recipe.selection : IntegrityTag;
 import dub.generators.generator;
 import dub.init;
 
@@ -726,8 +727,14 @@ class Dub {
 
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
-			if (!pack) this.fetch(name, ver.version_, fetchOpts, defaultPlacementLocation, "getting selected version");
-			if ((options & UpgradeOptions.select) && name.toString() != m_project.rootPackage.name) {
+			if (!pack) {
+				auto tag = this.m_project.selections.getIntegrityTag(name);
+				const isInitTag = tag is typeof(tag).init;
+				this.fetch(name, ver.version_, fetchOpts, defaultPlacementLocation, tag);
+				if (isInitTag)
+					this.m_project.selections.selectVersion(name, ver.version_, tag);
+			}
+			else if ((options & UpgradeOptions.select) && name.toString() != m_project.rootPackage.name) {
 				if (!ver.repository.empty) {
 					m_project.selections.selectVersion(name, ver.repository);
 				} else if (ver.path.empty) {
@@ -940,6 +947,10 @@ class Dub {
 	 *   options = A set of options used for fetching / matching versions.
 	 *   location = Where to store the retrieved package. Default to the
 	 *              configured `defaultPlacementLocation`.
+	 *   tag = Dual-purpose `IntegrityTag` parameter. If it is specified
+	 *         (in its non-`init` state), then it will be used to verify
+	 *         the content of the download. If it is left in its init state,
+	 *         it will be populated with a sha512 checksum post-download.
 	 *   reason = Optionally, the reason for retriving this package.
 	 *            This is used only for logging.
 	 *
@@ -952,28 +963,48 @@ class Dub {
 	Package fetch(in PackageName name, in Version vers,
 		FetchOptions options = FetchOptions.none, string reason = "")
 	{
+		IntegrityTag empty;
 		return this.fetch(name, VersionRange(vers, vers), options,
-			this.defaultPlacementLocation, reason);
+			this.defaultPlacementLocation, empty, reason);
 	}
 
 	/// Ditto
 	Package fetch(in PackageName name, in Version vers, FetchOptions options,
 		PlacementLocation location, string reason = "")
 	{
+		IntegrityTag empty;
 		return this.fetch(name, VersionRange(vers, vers), options,
-			this.defaultPlacementLocation, reason);
+			this.defaultPlacementLocation, empty, reason);
+	}
+
+	/// Ditto
+	Package fetch(in PackageName name, in Version vers, FetchOptions options,
+		PlacementLocation location, ref IntegrityTag integrity)
+	{
+		return this.fetch(name, VersionRange(vers, vers), options,
+			this.defaultPlacementLocation, integrity, "getting selected version");
 	}
 
 	/// Ditto
 	Package fetch(in PackageName name, in VersionRange range = VersionRange.Any,
 		FetchOptions options = FetchOptions.none, string reason = "")
 	{
-		return this.fetch(name, range, options, this.defaultPlacementLocation, reason);
+		IntegrityTag empty;
+		return this.fetch(name, range, options, this.defaultPlacementLocation,
+			empty, reason);
 	}
 
 	/// Ditto
 	Package fetch(in PackageName name, in VersionRange range, FetchOptions options,
 		PlacementLocation location, string reason = "")
+	{
+		IntegrityTag empty;
+		return this.fetch(name, range, options, location, empty, reason);
+	}
+
+	/// Ditto
+	Package fetch(in PackageName name, in VersionRange range, FetchOptions options,
+		PlacementLocation location, ref IntegrityTag tag, string reason = "")
 	{
 		Json pinfo;
 		PackageSupplier supplier;
@@ -1030,6 +1061,12 @@ class Dub {
 			import std.zip : ZipException;
 
 			auto data = supplier.fetchPackage(name.main, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			if (tag !is IntegrityTag.init)
+				enforce(tag.matches(data), ("Hash of downloaded package does " ~
+					"not match integrity tag for %s@%s - This can happen if " ~
+					"the version has been re-tagged").format(name.main, range));
+			else
+				tag = IntegrityTag.make(data);
 			logDiagnostic("Placing to %s...", location.toString());
 
 			try {

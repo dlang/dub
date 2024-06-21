@@ -1291,7 +1291,7 @@ symlink_exit:
 			serialized["inheritable"] = true;
 		serialized["versions"] = Json.emptyObject;
 		foreach (p, dep; s.versions)
-			serialized["versions"][p] = dep.toJson(true);
+			serialized["versions"][p] = dep.toJsonDep();
 		return serialized;
 	}
 

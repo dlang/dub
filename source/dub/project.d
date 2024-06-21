@@ -1944,14 +1944,19 @@ public class SelectedVersions {
 	void selectVersion(string package_id, Version version_)
 	{
 		const name = PackageName(package_id);
-		return this.selectVersion(name, version_);
+		return this.selectVersionInternal(name, Dependency(version_));
 	}
 
 	/// Ditto
-	void selectVersion(in PackageName name, Version version_)
+	void selectVersion(in PackageName name, Version version_, in IntegrityTag tag = IntegrityTag.init)
 	{
-		const dep = Dependency(version_);
-		this.selectVersionInternal(name, dep);
+		auto dep = SelectedDependency(Dependency(version_), tag);
+		if (auto pdep = name.main.toString() in this.m_selections.versions) {
+			if (*pdep == dep)
+				return;
+		}
+		this.m_selections.versions[name.main.toString()] = dep;
+		this.m_dirty = true;
 	}
 
 	/// Selects a certain path for a specific package.
@@ -2048,6 +2053,14 @@ public class SelectedVersions {
 	{
 		enforce(hasSelectedVersion(name));
 		return m_selections.versions[name.main.toString()];
+	}
+
+	/// Returns: The `IntegrityTag` associated to the version, or `.init` if none
+	IntegrityTag getIntegrityTag(in PackageName name) const
+	{
+		if (auto ptr = name.main.toString() in this.m_selections.versions)
+			return (*ptr).integrity;
+		return typeof(return).init;
 	}
 
 	/** Stores the selections to disk.
