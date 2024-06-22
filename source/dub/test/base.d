@@ -234,7 +234,7 @@ public class TestDub : Dub
         fs_.mkdir(ProjectPath);
         fs_.chdir(Root);
         if (dg !is null) dg(fs_);
-        this(fs_, root, extras, skip);
+        super(fs_, root, extras, skip);
     }
 
     /// Workaround https://issues.dlang.org/show_bug.cgi?id=24388 when called
@@ -252,8 +252,7 @@ public class TestDub : Dub
     private this(Filesystem fs_, string root, PackageSupplier[] extras,
         SkipPackageSuppliers skip)
     {
-        super.fs = fs_;
-        super(root, extras, skip);
+        super(fs_, root, extras, skip);
     }
 
     /***************************************************************************

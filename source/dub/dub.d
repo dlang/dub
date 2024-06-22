@@ -157,6 +157,13 @@ class Dub {
 	this(string root_path = ".", PackageSupplier[] base = null,
 			SkipPackageSuppliers skip = SkipPackageSuppliers.none)
 	{
+		this(new RealFS(), root_path, base, skip);
+	}
+
+	package this (Filesystem fs, string root_path, PackageSupplier[] base = null,
+		SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+	{
+		this.fs = fs;
 		m_rootPath = NativePath(root_path);
 		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
 
@@ -203,9 +210,10 @@ class Dub {
 	{
 		// Note: We're doing `init()` before setting the `rootPath`,
 		// to prevent `init` from reading the project's settings.
+		this.fs = new RealFS();
 		init();
 		this.m_rootPath = root;
-		m_packageManager = new PackageManager(pkg_root);
+		m_packageManager = new PackageManager(pkg_root, this.fs);
 	}
 
 	deprecated("Use the overload that takes `(NativePath pkg_root, NativePath root)`")
@@ -224,7 +232,10 @@ class Dub {
 	 */
 	protected PackageManager makePackageManager()
 	{
-		return new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
+		const local =  this.m_rootPath ~ ".dub/packages/";
+		const user =  m_dirs.userPackages ~ "packages/";
+		const system = m_dirs.systemSettings ~ "packages/";
+		return new PackageManager(this.fs, local, user, system);
 	}
 
 	protected void init()
