@@ -1005,8 +1005,7 @@ symlink_exit:
 		enforce(found, "Cannot remove, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
 
 		logDebug("About to delete root folder for package '%s'.", pack.path);
-		import std.file : rmdirRecurse;
-		rmdirRecurse(pack.path.toNativeString());
+		this.fs.removeDir(pack.path, true);
 		logInfo("Removed", Color.yellow, "%s %s", pack.name.color(Mode.bold), pack.version_);
 	}
 
