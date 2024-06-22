@@ -11,6 +11,7 @@ import dub.compilers.compiler;
 import dub.data.settings : SPS = SkipPackageSuppliers, Settings;
 import dub.dependency;
 import dub.dependencyresolver;
+import dub.internal.io.realfs;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
@@ -118,6 +119,7 @@ deprecated unittest
 */
 class Dub {
 	protected {
+		Filesystem fs;
 		bool m_dryRun = false;
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
