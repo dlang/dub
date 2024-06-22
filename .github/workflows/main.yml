@@ -61,7 +61,7 @@ jobs:
           - dmd-master
           - ldc-master
           # Test some intermediate versions
-          - ldc-1.26.0
+          - ldc-1.29.0
           - dmd-2.099.1
           - dmd-2.102.2
           - dmd-2.105.3
