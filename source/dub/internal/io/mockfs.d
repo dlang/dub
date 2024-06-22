@@ -39,7 +39,7 @@ public final class MockFS : Filesystem {
         public this (char dir = 'C') scope
         {
             this.root = this.cwd = new FSEntry();
-            this.root.name = dir ~ ':';
+            this.root.name = [ dir, ':' ];
         }
     } else {
         public this () scope
