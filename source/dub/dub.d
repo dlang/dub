@@ -13,7 +13,6 @@ import dub.dependency;
 import dub.dependencyresolver;
 import dub.internal.io.realfs;
 import dub.internal.utils;
-import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.internal.logging;
@@ -30,7 +29,7 @@ import std.array : array, replace;
 import std.conv : text, to;
 import std.encoding : sanitize;
 import std.exception : enforce;
-import std.file;
+import std.file : tempDir, thisExePath;
 import std.process : environment;
 import std.range : assumeSorted, empty;
 import std.string;
@@ -166,7 +165,7 @@ class Dub {
 	{
 		this.fs = fs;
 		m_rootPath = NativePath(root_path);
-		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
+		if (!m_rootPath.absolute) m_rootPath = fs.getcwd() ~ m_rootPath;
 
 		init();
 
@@ -241,7 +240,7 @@ class Dub {
 
 	protected void init()
 	{
-		this.m_dirs = SpecialDirs.make();
+		this.m_dirs = SpecialDirs.make(this.fs);
 		this.m_config = this.loadConfig(this.m_dirs);
 		this.m_defaultCompiler = this.determineDefaultCompiler();
 	}
@@ -267,13 +266,13 @@ class Dub {
 	{
 		import dub.internal.configy.easy;
 
-		static void readSettingsFile (NativePath path_, ref Settings current)
+		static void readSettingsFile (in Filesystem fs, NativePath path_, ref Settings current)
 		{
 			// TODO: Remove `StrictMode.Warn` after v1.40 release
 			// The default is to error, but as the previous parser wasn't
 			// complaining, we should first warn the user.
 			const path = path_.toNativeString();
-			if (path.exists) {
+			if (fs.existsFile(path_)) {
 				auto newConf = parseConfigFileSimple!Settings(path, StrictMode.Warn);
 				if (!newConf.isNull())
 					current = current.merge(newConf.get());
@@ -303,11 +302,11 @@ class Dub {
 			}
 		}
 
-		readSettingsFile(dirs.systemSettings ~ "settings.json", result);
-		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json", result);
+		readSettingsFile(this.fs, dirs.systemSettings ~ "settings.json", result);
+		readSettingsFile(this.fs, dubFolderPath ~ "../etc/dub/settings.json", result);
 		version (Posix) {
 			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr")))
-				readSettingsFile(NativePath("/etc/dub/settings.json"), result);
+				readSettingsFile(this.fs, NativePath("/etc/dub/settings.json"), result);
 		}
 
 		// Override user + local package path from system / binary settings
@@ -321,11 +320,11 @@ class Dub {
 		}
 
 		// load user config:
-		readSettingsFile(dirs.userSettings ~ "settings.json", result);
+		readSettingsFile(this.fs, dirs.userSettings ~ "settings.json", result);
 
 		// load per-package config:
 		if (!this.m_rootPath.empty)
-			readSettingsFile(this.m_rootPath ~ "dub.settings.json", result);
+			readSettingsFile(this.fs, this.m_rootPath ~ "dub.settings.json", result);
 
 		// same as userSettings above, but taking into account the
 		// config loaded from user settings and per-package config as well.
@@ -458,7 +457,7 @@ class Dub {
 	@property void rootPath(NativePath root_path)
 	{
 		m_rootPath = root_path;
-		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
+		if (!m_rootPath.absolute) m_rootPath = this.fs.getcwd() ~ m_rootPath;
 	}
 
 	/// Returns the name listed in the dub.json of the current
@@ -573,12 +572,11 @@ class Dub {
 	void loadSingleFilePackage(NativePath path)
 	{
 		import dub.recipe.io : parsePackageRecipe;
-		import std.file : readText;
 		import std.path : baseName, stripExtension;
 
 		path = makeAbsolute(path);
 
-		string file_content = readText(path.toNativeString());
+		string file_content = this.fs.readText(path);
 
 		if (file_content.startsWith("#!")) {
 			auto idx = file_content.indexOf('\n');
@@ -847,9 +845,9 @@ class Dub {
 			}
 		}
 
-		string configFilePath = (m_project.rootPackage.path ~ "dscanner.ini").toNativeString();
-		if (!args.canFind("--config") && exists(configFilePath)) {
-			settings.runArgs ~= ["--config", configFilePath];
+		const configFilePath = (m_project.rootPackage.path ~ "dscanner.ini");
+		if (!args.canFind("--config") && this.fs.existsFile(configFilePath)) {
+			settings.runArgs ~= ["--config", configFilePath.toNativeString()];
 		}
 
 		settings.runArgs ~= args ~ [m_project.rootPackage.path.toNativeString()];
@@ -900,8 +898,7 @@ class Dub {
 		const cache = this.m_dirs.cache;
 		logInfo("Cleaning", Color.green, "all artifacts at %s",
 			cache.toNativeString().color(Mode.bold));
-		if (existsFile(cache))
-			rmdirRecurse(cache.toNativeString());
+		this.fs.removeDir(cache, true);
 	}
 
 	/// Ditto
@@ -911,10 +908,8 @@ class Dub {
 		logInfo("Cleaning", Color.green, "artifacts for package %s at %s",
 			pack.name.color(Mode.bold),
 			cache.toNativeString().color(Mode.bold));
-
 		// TODO: clear target files and copy files
-		if (existsFile(cache))
-			rmdirRecurse(cache.toNativeString());
+		this.fs.removeDir(cache, true);
 	}
 
 	deprecated("Use the overload that accepts either a `Version` or a `VersionRange` as second argument")
@@ -1514,7 +1509,7 @@ class Dub {
 		}
 
 		writePackageRecipe(srcfile.parentPath ~ ("dub."~destination_file_ext), m_project.rootPackage.rawRecipe);
-		removeFile(srcfile);
+		this.fs.removeFile(srcfile);
 	}
 
 	/** Runs DDOX to generate or serve documentation.
@@ -1644,7 +1639,6 @@ class Dub {
 	 */
 	protected string determineDefaultCompiler() const
 	{
-		import std.file : thisExePath;
 		import std.path : buildPath, dirName, expandTilde, isAbsolute, isDirSeparator;
 		import std.range : front;
 
@@ -1674,12 +1668,13 @@ class Dub {
 		if (result.length)
 		{
 			string compilerPath = buildPath(thisExePath().dirName(), result ~ exe);
-			if (existsFile(compilerPath))
+			if (this.fs.existsFile(NativePath(compilerPath)))
 				return compilerPath;
 		}
 		else
 		{
-			auto nextFound = compilers.find!(bin => existsFile(buildPath(thisExePath().dirName(), bin ~ exe)));
+			auto nextFound = compilers.find!(
+				bin => this.fs.existsFile(NativePath(buildPath(thisExePath().dirName(), bin ~ exe))));
 			if (!nextFound.empty)
 				return buildPath(thisExePath().dirName(),  nextFound.front ~ exe);
 		}
@@ -1687,10 +1682,10 @@ class Dub {
 		// If nothing found next to dub, search the user's PATH, starting
 		// with the compiler name from their DUB config file, if specified.
 		auto paths = environment.get("PATH", "").splitter(sep).map!NativePath;
-		if (result.length && paths.canFind!(p => existsFile(p ~ (result ~ exe))))
+		if (result.length && paths.canFind!(p => this.fs.existsFile(p ~ (result ~ exe))))
 			return result;
 		foreach (p; paths) {
-			auto res = compilers.find!(bin => existsFile(p ~ (bin~exe)));
+			auto res = compilers.find!(bin => this.fs.existsFile(p ~ (bin~exe)));
 			if (!res.empty)
 				return res.front;
 		}
@@ -1704,7 +1699,7 @@ class Dub {
 		import dub.test.base : TestDub;
 
 		auto dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
-		immutable testdir = getWorkingDirectory() ~ "test-determineDefaultCompiler";
+		immutable testdir = dub.fs.getcwd() ~ "test-determineDefaultCompiler";
 
 		immutable olddc = environment.get("DC", null);
 		immutable oldpath = environment.get("PATH", null);
@@ -1717,19 +1712,18 @@ class Dub {
 		}
 		scope (exit) repairenv("DC", olddc);
 		scope (exit) repairenv("PATH", oldpath);
-		scope (exit) std.file.rmdirRecurse(testdir.toNativeString());
 
 		version (Windows) enum sep = ";", exe = ".exe";
 		version (Posix) enum sep = ":", exe = "";
 
 		immutable dmdpath = testdir ~ "dmd" ~ "bin";
 		immutable ldcpath = testdir ~ "ldc" ~ "bin";
-		ensureDirectory(dmdpath);
-		ensureDirectory(ldcpath);
+		dub.fs.mkdir(dmdpath);
+		dub.fs.mkdir(ldcpath);
 		immutable dmdbin = dmdpath ~ ("dmd" ~ exe);
 		immutable ldcbin = ldcpath ~ ("ldc2" ~ exe);
-		writeFile(dmdbin, null);
-		writeFile(ldcbin, null);
+		dub.fs.writeFile(dmdbin, "dmd");
+		dub.fs.writeFile(ldcbin, "ldc");
 
 		environment["DC"] = dmdbin.toNativeString();
 		assert(dub.determineDefaultCompiler() == dmdbin.toNativeString());
@@ -2106,9 +2100,14 @@ package struct SpecialDirs {
 	NativePath cache;
 
 	/// Returns: An instance of `SpecialDirs` initialized from the environment
+	deprecated("Use the overload that accepts a `Filesystem`")
 	public static SpecialDirs make () {
-		import std.file : tempDir;
+		scope fs = new RealFS();
+		return SpecialDirs.make(fs);
+	}
 
+	/// Ditto
+	public static SpecialDirs make (scope Filesystem fs) {
 		SpecialDirs result;
 		result.temp = NativePath(tempDir);
 
@@ -2122,7 +2121,7 @@ package struct SpecialDirs {
 			result.systemSettings = NativePath("/var/lib/dub/");
 			result.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
 			if (!result.userSettings.absolute)
-				result.userSettings = getWorkingDirectory() ~ result.userSettings;
+				result.userSettings = fs.getcwd() ~ result.userSettings;
 			result.userPackages = result.userSettings;
 		}
 		result.cache = result.userPackages ~ "cache";
