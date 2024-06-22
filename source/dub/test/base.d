@@ -175,9 +175,6 @@ public void disableLogging()
  */
 public class TestDub : Dub
 {
-    /// The virtual filesystem that this instance acts on
-    public MockFS fs;
-
     /**
      * Redundant reference to the registry
      *
@@ -237,7 +234,7 @@ public class TestDub : Dub
         fs_.mkdir(ProjectPath);
         fs_.chdir(Root);
         if (dg !is null) dg(fs_);
-        this(fs_, root, extras, skip);
+        super(fs_, root, extras, skip);
     }
 
     /// Workaround https://issues.dlang.org/show_bug.cgi?id=24388 when called
@@ -252,11 +249,10 @@ public class TestDub : Dub
     }
 
     /// Internal constructor
-    private this(MockFS fs_, string root, PackageSupplier[] extras,
+    private this(Filesystem fs_, string root, PackageSupplier[] extras,
         SkipPackageSuppliers skip)
     {
-        this.fs = fs_;
-        super(root, extras, skip);
+        super(fs_, root, extras, skip);
     }
 
     /***************************************************************************
@@ -333,6 +329,14 @@ public class TestDub : Dub
         // This will not work with `SkipPackageSupplier`.
         assert(this.registry !is null, "The registry hasn't been instantiated?");
 		return this.registry;
+    }
+
+    /**
+     * Exposes our test filesystem to unittests
+     */
+    public @property inout(Filesystem) fs() inout
+    {
+        return super.fs;
     }
 }
 
