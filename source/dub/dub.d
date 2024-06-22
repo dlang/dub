@@ -1652,12 +1652,12 @@ class Dub {
 	unittest
 	{
 		import dub.test.base : TestDub;
-		import std.path: buildPath, absolutePath;
 
 		auto dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
+		immutable testdir = getWorkingDirectory() ~ "test-determineDefaultCompiler";
+
 		immutable olddc = environment.get("DC", null);
 		immutable oldpath = environment.get("PATH", null);
-		immutable testdir = "test-determineDefaultCompiler";
 		void repairenv(string name, string var)
 		{
 			if (var !is null)
@@ -1667,33 +1667,33 @@ class Dub {
 		}
 		scope (exit) repairenv("DC", olddc);
 		scope (exit) repairenv("PATH", oldpath);
-		scope (exit) rmdirRecurse(testdir);
+		scope (exit) std.file.rmdirRecurse(testdir.toNativeString());
 
 		version (Windows) enum sep = ";", exe = ".exe";
 		version (Posix) enum sep = ":", exe = "";
 
-		immutable dmdpath = testdir.buildPath("dmd", "bin");
-		immutable ldcpath = testdir.buildPath("ldc", "bin");
-		mkdirRecurse(dmdpath);
-		mkdirRecurse(ldcpath);
-		immutable dmdbin = dmdpath.buildPath("dmd"~exe);
-		immutable ldcbin = ldcpath.buildPath("ldc2"~exe);
-		std.file.write(dmdbin, null);
-		std.file.write(ldcbin, null);
+		immutable dmdpath = testdir ~ "dmd" ~ "bin";
+		immutable ldcpath = testdir ~ "ldc" ~ "bin";
+		ensureDirectory(dmdpath);
+		ensureDirectory(ldcpath);
+		immutable dmdbin = dmdpath ~ ("dmd" ~ exe);
+		immutable ldcbin = ldcpath ~ ("ldc2" ~ exe);
+		writeFile(dmdbin, null);
+		writeFile(ldcbin, null);
 
-		environment["DC"] = dmdbin.absolutePath();
-		assert(dub.determineDefaultCompiler() == dmdbin.absolutePath());
+		environment["DC"] = dmdbin.toNativeString();
+		assert(dub.determineDefaultCompiler() == dmdbin.toNativeString());
 
 		environment["DC"] = "dmd";
-		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
+		environment["PATH"] = dmdpath.toNativeString() ~ sep ~ ldcpath.toNativeString();
 		assert(dub.determineDefaultCompiler() == "dmd");
 
 		environment["DC"] = "ldc2";
-		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
+		environment["PATH"] = dmdpath.toNativeString() ~ sep ~ ldcpath.toNativeString();
 		assert(dub.determineDefaultCompiler() == "ldc2");
 
 		environment.remove("DC");
-		environment["PATH"] = ldcpath ~ sep ~ dmdpath;
+		environment["PATH"] = ldcpath.toNativeString() ~ sep ~ dmdpath.toNativeString();
 		assert(dub.determineDefaultCompiler() == "ldc2");
 	}
 
