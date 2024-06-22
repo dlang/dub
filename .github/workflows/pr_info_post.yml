@@ -46,7 +46,7 @@ jobs:
         echo "PR_ID=$PR_ID" >> $GITHUB_ENV
 
     - name: Update GitHub comment
-      uses: marocchino/sticky-pull-request-comment@2.9.0
+      uses: marocchino/sticky-pull-request-comment@v2.9.0
       with:
         path: ./comment.txt
         number: ${{ env.PR_ID }}
