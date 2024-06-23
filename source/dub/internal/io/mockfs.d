@@ -456,6 +456,7 @@ public class FSEntry
 
         if (this.parent is null)
             return NativePath(RootPath);
+        assert(!NativePath(this.name).absolute, this.name);
         auto thisPath = this.parent.path ~ this.name;
         thisPath.endsWithSlash = (this.attributes.type == Type.Directory);
         return thisPath;
