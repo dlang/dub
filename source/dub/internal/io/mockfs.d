@@ -58,13 +58,6 @@ public final class MockFS : Filesystem {
         return this.cwd.writeFile(path, data);
     }
 
-    /// Ditto
-    public override void writeFile (in NativePath path, const(char)[] data)
-        scope
-    {
-        return this.cwd.writeFile(path, data);
-    }
-
     /// Reads a file, returns the content as `ubyte[]`
     public override ubyte[] readFile (in NativePath path) const scope
     {
@@ -403,12 +396,6 @@ public class FSEntry
         validate(cast(const(char[])) content);
         // `readFile` just `dup` the content, so it's safe to cast.
         return cast(string) content;
-    }
-
-    /// Write to this file
-    public void writeFile (in NativePath path, const(char)[] data) scope
-    {
-        this.writeFile(path, data.representation);
     }
 
     /// Ditto

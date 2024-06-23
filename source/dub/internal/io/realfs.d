@@ -53,13 +53,6 @@ public final class RealFS : Filesystem {
 		return dub.internal.vibecompat.core.file.writeFile(path, data);
 	}
 
-	/// Ditto
-	protected override void writeFile (in NativePath path, const(char)[] data)
-        scope
-	{
-		return dub.internal.vibecompat.core.file.writeFile(path, data);
-	}
-
     /// Reads a file, returns the content as `ubyte[]`
     public override ubyte[] readFile (in NativePath path) const scope
     {

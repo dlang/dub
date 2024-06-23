@@ -51,7 +51,12 @@ public interface Filesystem
     public abstract string readText (in NativePath path) const scope;
 
     /// Write to this file
-    public abstract void writeFile (in NativePath path, const(char)[] data) scope;
+    public final void writeFile (in NativePath path, const(char)[] data) scope
+    {
+        import std.string : representation;
+
+        this.writeFile(path, data.representation);
+    }
 
     /// Ditto
     public abstract void writeFile (in NativePath path, const(ubyte)[] data) scope;
