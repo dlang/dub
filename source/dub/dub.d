@@ -164,6 +164,9 @@ class Dub {
 	{
 		this.fs = fs;
 		m_rootPath = NativePath(root_path);
+        import std.stdio;
+        writeln("root_path: ", root_path);
+        writeln("m_rootPath: ", this.m_rootPath.toNativeString());
 		if (!m_rootPath.absolute) m_rootPath = fs.getcwd() ~ m_rootPath;
 
 		init();
@@ -1663,6 +1666,9 @@ class Dub {
 
 		auto dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
 		immutable testdir = dub.fs.getcwd() ~ "test-determineDefaultCompiler";
+        import std.stdio;
+        writeln("CWD: ", dub.fs.getcwd());
+        writeln("testdir: ", testdir);
 
 		immutable olddc = environment.get("DC", null);
 		immutable oldpath = environment.get("PATH", null);
