@@ -235,6 +235,7 @@ public class TestDub : Dub
         fs_.mkdir(Paths.userPackages);
         fs_.mkdir(Paths.cache);
         fs_.mkdir(ProjectPath);
+        fs_.chdir(Root);
         if (dg !is null) dg(fs_);
         this(fs_, root, extras, skip);
     }
