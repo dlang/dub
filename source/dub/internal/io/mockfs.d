@@ -55,19 +55,45 @@ public final class MockFS : Filesystem {
     public override void writeFile (in NativePath path, const(ubyte)[] data)
         scope
     {
-        return this.cwd.writeFile(path, data);
+        enforce(!path.endsWithSlash(),
+            "Cannot write to directory: " ~ path.toNativeString());
+        if (auto file = this.cwd.lookup(path)) {
+            // If the file already exists, override it
+            enforce(file.isFile(),
+                "Trying to write to directory: " ~ path.toNativeString());
+            file.content = data.dup;
+        } else {
+            auto p = this.cwd.getParent(path);
+            auto file = new FSEntry(p, FSEntry.Type.File, path.head.name());
+            file.content = data.dup;
+            p.children ~= file;
+        }
     }
 
     /// Reads a file, returns the content as `ubyte[]`
     public override ubyte[] readFile (in NativePath path) const scope
     {
-        return this.cwd.readFile(path);
+        auto entry = this.cwd.lookup(path);
+        enforce(entry !is null, "No such file: " ~ path.toNativeString());
+        enforce(entry.isFile(), "Trying to read a directory");
+        // This is a hack to make poisoning a file possible.
+        // However, it is rather crude and doesn't allow to poison directory.
+        // Consider introducing a derived type to allow it.
+        assert(entry.content != "poison".representation,
+            "Trying to access poisoned path: " ~ path.toNativeString());
+        return entry.content.dup;
     }
 
-    /// Ditto
+    /// Reads a file, returns the content as text
     public override string readText (in NativePath path) const scope
     {
-        return this.cwd.readText(path);
+        import std.utf : validate;
+
+        const content = this.readFile(path);
+        // Ignore BOM: If it's needed for a test, add support for it.
+        validate(cast(const(char[])) content);
+        // `readFile` just `dup` the content, so it's safe to cast.
+        return cast(string) content;
     }
 
     /// Ditto
@@ -370,50 +396,6 @@ public class FSEntry
     public bool isDirectory () const scope
     {
         return this.attributes.type == Type.Directory;
-    }
-
-    /// Reads a file, returns the content as `ubyte[]`
-    public ubyte[] readFile (in NativePath path) const scope
-    {
-        auto entry = this.lookup(path);
-        enforce(entry !is null, "No such file: " ~ path.toNativeString());
-        enforce(entry.attributes.type == Type.File, "Trying to read a directory");
-        // This is a hack to make poisoning a file possible.
-        // However, it is rather crude and doesn't allow to poison directory.
-        // Consider introducing a derived type to allow it.
-        assert(entry.content != "poison".representation,
-            "Trying to access poisoned path: " ~ path.toNativeString());
-        return entry.content.dup;
-    }
-
-    /// Reads a file, returns the content as text
-    public string readText (in NativePath path) const scope
-    {
-        import std.utf : validate;
-
-        const content = this.readFile(path);
-        // Ignore BOM: If it's needed for a test, add support for it.
-        validate(cast(const(char[])) content);
-        // `readFile` just `dup` the content, so it's safe to cast.
-        return cast(string) content;
-    }
-
-    /// Ditto
-    public void writeFile (in NativePath path, const(ubyte)[] data) scope
-    {
-        enforce(!path.endsWithSlash(),
-            "Cannot write to directory: " ~ path.toNativeString());
-        if (auto file = this.lookup(path)) {
-            // If the file already exists, override it
-            enforce(file.attributes.type == Type.File,
-                "Trying to write to directory: " ~ path.toNativeString());
-            file.content = data.dup;
-        } else {
-            auto p = this.getParent(path);
-            auto file = new FSEntry(p, Type.File, path.head.name());
-            file.content = data.dup;
-            p.children ~= file;
-        }
     }
 
     /** Remove a file
