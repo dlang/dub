@@ -32,8 +32,7 @@ version (DigitalMars) version (D_Coverage)
  *
  * https://dlang.org/changelog/2.087.0.html#gc_parallel
  */
-static if (__VERSION__ >= 2087)
-    extern(C) __gshared string[] rt_options = [ "gcopt=parallel:0" ];
+extern(C) __gshared string[] rt_options = [ "gcopt=parallel:0" ];
 
 int main(string[] args)
 {
