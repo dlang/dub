@@ -376,15 +376,15 @@ class Dub {
 		import dub.test.base : TestDub;
 
 		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
+		auto dub = new TestDub(null, "/dub/project/", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 0);
 		environment["DUB_REGISTRY"] = "http://example.com/";
-		dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(null, "/dub/project/", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 1);
 		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
-		dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(null, "/dub/project/", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 2);
-		dub = new TestDub(null, ".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
+		dub = new TestDub(null, "/dub/project/", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 3);
 
 		dub = new TestDub();

@@ -17,7 +17,7 @@ import dub.test.base;
 /// Test of the PackageManager APIs
 unittest
 {
-    scope dub = new TestDub((scope FSEntry root) {
+    scope dub = new TestDub((scope Filesystem root) {
         root.writeFile(TestDub.ProjectPath ~ "dub.json",
             `{ "name": "a", "dependencies": { "b:a": "~>1.0", "b:b": "~>1.0" } }`);
         root.writePackageFile("b", "1.0.0",

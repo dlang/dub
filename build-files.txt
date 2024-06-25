@@ -47,6 +47,8 @@ source/dub/internal/dyaml/style.d
 source/dub/internal/dyaml/tagdirective.d
 source/dub/internal/dyaml/token.d
 source/dub/internal/git.d
+source/dub/internal/io/filesystem.d
+source/dub/internal/io/realfs.d
 source/dub/internal/libInputVisitor.d
 source/dub/internal/sdlang/ast.d
 source/dub/internal/sdlang/exception.d

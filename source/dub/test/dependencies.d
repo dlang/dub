@@ -31,7 +31,7 @@ import dub.test.base;
 // Ensure that simple dependencies get resolved correctly
 unittest
 {
-    scope dub = new TestDub((scope FSEntry root) {
+    scope dub = new TestDub((scope Filesystem root) {
             root.writeFile(TestDub.ProjectPath ~ "dub.sdl", `name "a"
 version "1.0.0"
 dependency "b" version="*"
@@ -55,7 +55,7 @@ version "1.0.0"`, PackageFormat.sdl);
 // Test that indirect dependencies get resolved correctly
 unittest
 {
-    scope dub = new TestDub((scope FSEntry root) {
+    scope dub = new TestDub((scope Filesystem root) {
             root.writeFile(TestDub.ProjectPath ~ "dub.sdl", `name "a"
 dependency "b" version="*"`);
             root.writePackageFile("b", "1.0.0", `name "b"
@@ -77,7 +77,7 @@ version "1.0.0"`, PackageFormat.sdl);
 // Simple diamond dependency
 unittest
 {
-    scope dub = new TestDub((scope FSEntry root) {
+    scope dub = new TestDub((scope Filesystem root) {
             root.writeFile(TestDub.ProjectPath ~ "dub.sdl", `name "a"
 dependency "b" version="*"
 dependency "c" version="*"`);
@@ -105,7 +105,7 @@ version "1.0.0"`, PackageFormat.sdl);
 // Missing dependencies trigger an error
 unittest
 {
-    scope dub = new TestDub((scope FSEntry root) {
+    scope dub = new TestDub((scope Filesystem root) {
             root.writeFile(TestDub.ProjectPath ~ "dub.sdl", `name "a"
 dependency "b" version="*"`);
     });
