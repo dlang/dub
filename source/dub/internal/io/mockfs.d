@@ -41,7 +41,10 @@ public final class MockFS : Filesystem {
     /// Ditto
     public override void mkdir (in NativePath path) scope
     {
-        this.cwd.mkdir(path);
+        if (!path.absolute())
+            this.cwd.mkdir(path);
+        else
+            this.root().mkdir(path);
     }
 
     /// Ditto
@@ -185,6 +188,15 @@ public final class MockFS : Filesystem {
         }
         addToZip(rootPath, this.cwd);
         return cast(ubyte[]) z.build();
+    }
+
+    /// Returns: The root of the filesystem
+    protected inout(FSEntry) root () inout scope return
+    {
+        static inout(FSEntry) recurse (inout(FSEntry) e) {
+            return e.parent is null ? e : recurse(e.parent);
+        }
+        return recurse(this.cwd);
     }
 }
 
@@ -370,21 +382,42 @@ public class FSEntry
         return thisPath;
     }
 
-    /// Implements `mkdir -p`, returns the created directory
+    /**
+     * Create or returns a child directory named `name`
+     *
+     * If the child directory already exists, returns it.
+     * If a child with the same name exists but it is not a directory,
+     * throw an `Exception`. Otherwise, create `name` and returns it.
+     *
+     * The `string` overload only create a child of the current directory,
+     * while the `NativePath` overload may recurse as needed.
+     *
+     * Returns: A non-`null` `FSEntry` that is a directory.
+     */
+    public FSEntry mkdir (in string name) scope
+    {
+        // Check if the child already exists
+        if (auto child = this.lookup(name))
+            return child;
+        auto child = new FSEntry(this, Type.Directory, name);
+        this.children ~= child;
+        return child;
+    }
+
+    /// Ditto
     public FSEntry mkdir (in NativePath path) scope
     {
-        auto relp = this.relativePath(path);
-        // Check if the child already exists
-        auto segments = relp.bySegment;
-        auto child = this.lookup(segments.front.name);
-        if (child is null) {
-            child = new FSEntry(this, Type.Directory, segments.front.name);
-            this.children ~= child;
-        }
-        // Recurse if needed
-        segments.popFront();
-        return !segments.empty ? child.mkdir(NativePath(segments)) : child;
-    }
+        assert(!path.absolute() || this.parent is null,
+               "Cannot call " ~ this.path.toNativeString() ~
+               " `FSEntry.mkdir` with an absolute path");
+         // Check if the child already exists
+         auto segments = path.bySegment;
+         auto child = this.mkdir(segments.front.name);
+         // Recurse if needed
+         segments.popFront();
+         return !segments.empty ? child.mkdir(NativePath(segments)) : child;
+     }
+
 
     ///
     public bool isFile () const scope
