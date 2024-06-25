@@ -451,8 +451,11 @@ public class FSEntry
     /// Returns: The `path` of this FSEntry
     public NativePath path () const scope
     {
+        version (Windows) enum RootPath = "T:\\";
+        else              enum RootPath = "/";
+
         if (this.parent is null)
-            return NativePath("/");
+            return NativePath(RootPath);
         auto thisPath = this.parent.path ~ this.name;
         thisPath.endsWithSlash = (this.attributes.type == Type.Directory);
         return thisPath;
