@@ -81,7 +81,7 @@ public final class MockFS : Filesystem {
                 "Trying to write to directory: " ~ path.toNativeString());
             file.content = data.dup;
         } else {
-            auto p = this.cwd.getParent(path);
+            auto p = this.getParent(path);
             auto file = new FSEntry(p, FSEntry.Type.File, path.head.name());
             file.content = data.dup;
             p.children ~= file;
@@ -141,16 +141,64 @@ public final class MockFS : Filesystem {
         return &iterator;
     }
 
-    /// Ditto
+    /** Remove a file
+     *
+     * Always error if the target is a directory.
+     * Does not error if the target does not exists
+     * and `force` is set to `true`.
+     *
+     * Params:
+     *   path = Path to the file to remove
+     *   force = Whether to ignore non-existing file,
+     *           default to `false`.
+     */
     public override void removeFile (in NativePath path, bool force = false) scope
     {
-        return this.cwd.removeFile(path);
+        import std.algorithm.searching : countUntil;
+
+        assert(!path.empty, "Empty path provided to `removeFile`");
+        enforce(!path.endsWithSlash(),
+            "Cannot remove file with directory path: " ~ path.toNativeString());
+        auto p = this.getParent(path, force);
+        const idx = p.children.countUntil!(e => e.name == path.head.name());
+        if (idx < 0) {
+            enforce(force,
+                "removeFile: No such file: " ~ path.toNativeString());
+        } else {
+            enforce(p.children[idx].isFile(),
+                "removeFile called on a directory: " ~ path.toNativeString());
+            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
+        }
     }
 
-    ///
+    /** Remove a directory
+     *
+     * Remove an existing empty directory.
+     * If `force` is set to `true`, no error will be thrown
+     * if the directory is empty or non-existing.
+     *
+     * Params:
+     *   path = Path to the directory to remove
+     *   force = Whether to ignore non-existing / non-empty directories,
+     *           default to `false`.
+     */
     public override void removeDir (in NativePath path, bool force = false)
     {
-        this.cwd.removeDir(path, force);
+        import std.algorithm.searching : countUntil;
+
+        assert(!path.empty, "Empty path provided to `removeFile`");
+        auto p = this.getParent(path, force);
+        const idx = p.children.countUntil!(e => e.name == path.head.name());
+        if (idx < 0) {
+            enforce(force,
+                "removeDir: No such directory: " ~ path.toNativeString());
+        } else {
+            enforce(p.children[idx].isDirectory(),
+                "removeDir called on a file: " ~ path.toNativeString());
+            enforce(force || p.children[idx].children.length == 0,
+                "removeDir called on non-empty directory: " ~ path.toNativeString());
+            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
+        }
     }
 
     /// Ditto
@@ -212,6 +260,34 @@ public final class MockFS : Filesystem {
             return e.parent is null ? e : recurse(e.parent);
         }
         return recurse(this.cwd);
+    }
+
+    /** Get the parent `FSEntry` of a `NativePath`
+     *
+     * If the parent doesn't exist, an `Exception` will be thrown
+     * unless `silent` is provided. If the parent path is a file,
+     * an `Exception` will be thrown regardless of `silent`.
+     *
+     * Params:
+     *   path = The path to look up the parent for
+     *   silent = Whether to error on non-existing parent,
+     *            default to `false`.
+     */
+    protected inout(FSEntry) getParent(NativePath path, bool silent = false)
+        inout return scope
+    {
+        // Relative path in the current directory
+        if (!path.hasParentPath())
+            return this.cwd;
+
+        // If we're not in the right `FSEntry`, recurse
+        const parentPath = path.parentPath();
+        auto p = this.cwd.lookup(parentPath);
+        enforce(silent || p !is null,
+            "No such directory: " ~ parentPath.toNativeString());
+        enforce(p is null || p.isDirectory(),
+            "Parent path is not a directory: " ~ parentPath.toNativeString());
+        return p;
     }
 }
 
@@ -301,34 +377,6 @@ public class FSEntry
             return !segments.empty ? c.lookup(NativePath(segments)) : c;
         }
         return null;
-    }
-
-    /** Get the parent `FSEntry` of a `NativePath`
-     *
-     * If the parent doesn't exist, an `Exception` will be thrown
-     * unless `silent` is provided. If the parent path is a file,
-     * an `Exception` will be thrown regardless of `silent`.
-     *
-     * Params:
-     *   path = The path to look up the parent for
-     *   silent = Whether to error on non-existing parent,
-     *            default to `false`.
-     */
-    protected inout(FSEntry) getParent(NativePath path, bool silent = false)
-        inout return scope
-    {
-        // Relative path in the current directory
-        if (!path.hasParentPath())
-            return this;
-
-        // If we're not in the right `FSEntry`, recurse
-        const parentPath = path.parentPath();
-        auto p = this.lookup(parentPath);
-        enforce(silent || p !is null,
-            "No such directory: " ~ parentPath.toNativeString());
-        enforce(p is null || p.attributes.type == Type.Directory,
-            "Parent path is not a directory: " ~ parentPath.toNativeString());
-        return p;
     }
 
     /// Returns: A path relative to `this.path`
@@ -448,66 +496,6 @@ public class FSEntry
     public bool isDirectory () const scope
     {
         return this.attributes.type == Type.Directory;
-    }
-
-    /** Remove a file
-     *
-     * Always error if the target is a directory.
-     * Does not error if the target does not exists
-     * and `force` is set to `true`.
-     *
-     * Params:
-     *   path = Path to the file to remove
-     *   force = Whether to ignore non-existing file,
-     *           default to `false`.
-     */
-    public void removeFile (in NativePath path, bool force = false)
-    {
-        import std.algorithm.searching : countUntil;
-
-        assert(!path.empty, "Empty path provided to `removeFile`");
-        enforce(!path.endsWithSlash(),
-            "Cannot remove file with directory path: " ~ path.toNativeString());
-        auto p = this.getParent(path, force);
-        const idx = p.children.countUntil!(e => e.name == path.head.name());
-        if (idx < 0) {
-            enforce(force,
-                "removeFile: No such file: " ~ path.toNativeString());
-        } else {
-            enforce(p.children[idx].attributes.type == Type.File,
-                "removeFile called on a directory: " ~ path.toNativeString());
-            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
-        }
-    }
-
-    /** Remove a directory
-     *
-     * Remove an existing empty directory.
-     * If `force` is set to `true`, no error will be thrown
-     * if the directory is empty or non-existing.
-     *
-     * Params:
-     *   path = Path to the directory to remove
-     *   force = Whether to ignore non-existing / non-empty directories,
-     *           default to `false`.
-     */
-    public void removeDir (in NativePath path, bool force = false)
-    {
-        import std.algorithm.searching : countUntil;
-
-        assert(!path.empty, "Empty path provided to `removeFile`");
-        auto p = this.getParent(path, force);
-        const idx = p.children.countUntil!(e => e.name == path.head.name());
-        if (idx < 0) {
-            enforce(force,
-                "removeDir: No such directory: " ~ path.toNativeString());
-        } else {
-            enforce(p.children[idx].attributes.type == Type.Directory,
-                "removeDir called on a file: " ~ path.toNativeString());
-            enforce(force || p.children[idx].children.length == 0,
-                "removeDir called on non-empty directory: " ~ path.toNativeString());
-            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
-        }
     }
 
     /// Implement `std.file.setTimes`
