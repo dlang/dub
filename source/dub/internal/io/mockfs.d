@@ -40,7 +40,7 @@ public final class MockFS : Filesystem {
 
     public override void chdir (in NativePath path) scope
     {
-        auto tmp = this.cwd.lookup(path);
+        auto tmp = this.lookup(path);
         enforce(tmp !is null, "No such directory: " ~ path.toNativeString());
         enforce(tmp.isDirectory(), "Cannot chdir into non-directory: " ~ path.toNativeString());
         this.cwd = tmp;
@@ -49,7 +49,7 @@ public final class MockFS : Filesystem {
     ///
     public override bool existsDirectory (in NativePath path) const scope
     {
-        auto entry = this.cwd.lookup(path);
+        auto entry = this.lookup(path);
         return entry !is null && entry.isDirectory();
     }
 
@@ -65,7 +65,7 @@ public final class MockFS : Filesystem {
     /// Ditto
     public override bool existsFile (in NativePath path) const scope
     {
-        auto entry = this.cwd.lookup(path);
+        auto entry = this.lookup(path);
         return entry !is null && entry.isFile();
     }
 
@@ -75,7 +75,7 @@ public final class MockFS : Filesystem {
     {
         enforce(!path.endsWithSlash(),
             "Cannot write to directory: " ~ path.toNativeString());
-        if (auto file = this.cwd.lookup(path)) {
+        if (auto file = this.lookup(path)) {
             // If the file already exists, override it
             enforce(file.isFile(),
                 "Trying to write to directory: " ~ path.toNativeString());
@@ -91,7 +91,7 @@ public final class MockFS : Filesystem {
     /// Reads a file, returns the content as `ubyte[]`
     public override ubyte[] readFile (in NativePath path) const scope
     {
-        auto entry = this.cwd.lookup(path);
+        auto entry = this.lookup(path);
         enforce(entry !is null, "No such file: " ~ path.toNativeString());
         enforce(entry.isFile(), "Trying to read a directory");
         // This is a hack to make poisoning a file possible.
@@ -119,7 +119,7 @@ public final class MockFS : Filesystem {
     {
         enforce(this.existsDirectory(path),
             path.toNativeString() ~ " does not exists or is not a directory");
-        auto dir = this.cwd.lookup(path);
+        auto dir = this.lookup(path);
         int iterator(scope int delegate(ref dub.internal.vibecompat.core.file.FileInfo) del) {
             foreach (c; dir.children) {
                 dub.internal.vibecompat.core.file.FileInfo fi;
@@ -205,7 +205,7 @@ public final class MockFS : Filesystem {
     public override void setTimes (in NativePath path, in SysTime accessTime,
         in SysTime modificationTime)
     {
-        auto e = this.cwd.lookup(path);
+        auto e = this.lookup(path);
         enforce(e !is null,
             "setTimes: No such file or directory: " ~ path.toNativeString());
         e.setTimes(accessTime, modificationTime);
@@ -214,7 +214,7 @@ public final class MockFS : Filesystem {
     /// Ditto
     public override void setAttributes (in NativePath path, uint attributes)
     {
-        auto e = this.cwd.lookup(path);
+        auto e = this.lookup(path);
         enforce(e !is null,
             "setAttributes: No such file or directory: " ~ path.toNativeString());
         e.setAttributes(attributes);
@@ -253,6 +253,14 @@ public final class MockFS : Filesystem {
         return cast(ubyte[]) z.build();
     }
 
+    /// Returns: The `FSEntry` matching path if one exists, or `null`
+    protected inout(FSEntry) lookup (in NativePath path) inout scope return
+    {
+        if (path.absolute())
+            return this.root().lookup(path);
+        return this.cwd.lookup(path);
+    }
+
     /// Returns: The root of the filesystem
     protected inout(FSEntry) root () inout scope return
     {
@@ -282,7 +290,7 @@ public final class MockFS : Filesystem {
 
         // If we're not in the right `FSEntry`, recurse
         const parentPath = path.parentPath();
-        auto p = this.cwd.lookup(parentPath);
+        auto p = this.lookup(parentPath);
         enforce(silent || p !is null,
             "No such directory: " ~ parentPath.toNativeString());
         enforce(p is null || p.isDirectory(),
@@ -365,13 +373,14 @@ public class FSEntry
     }
 
     /// Get an arbitrarily nested children node
-    protected inout(FSEntry) lookup(NativePath path) inout return scope
+    protected inout(FSEntry) lookup (NativePath path) inout return scope
     {
-        auto relp = this.relativePath(path);
-        relp.normalize(); // try to get rid of `..`
-        if (relp.empty)
+        assert(!path.absolute() || this.parent is null,
+               "Cannot call `FSEntry.lookup` with absolute path");
+        path.normalize(); // try to get rid of `..`
+        if (path.empty)
             return this;
-        auto segments = relp.bySegment;
+        auto segments = path.bySegment;
         if (auto c = this.lookup(segments.front.name)) {
             segments.popFront();
             return !segments.empty ? c.lookup(NativePath(segments)) : c;
