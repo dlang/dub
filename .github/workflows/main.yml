@@ -122,7 +122,7 @@ jobs:
           # FIXME: DMD fails a few tests on Windows; remove them for now
           if [[ '${{ matrix.dc }}' = dmd* ]]; then
             # DLL support is lacking
-            rm -rf test/{1-dynLib-simple,2-dynLib-dep,2-dynLib-with-staticLib-dep}
+            rm -rf test/{1-dynLib-simple,2-dynLib-dep,2-dynLib-with-staticLib-dep,dynLib-monolith}
             # Unicode in paths too
             rm -rf test/issue130-unicode-СНА*
             # ImportC probably requires set-up MSVC environment variables
