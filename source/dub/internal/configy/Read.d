@@ -296,11 +296,14 @@ public Nullable!T parseConfigFileSimple (T) (string path, StrictMode strict = St
 /// Ditto
 public Nullable!T parseConfigFileSimple (T) (in CLIArgs args, StrictMode strict = StrictMode.Error)
 {
+    return wrapException(parseConfigFile!T(args, strict));
+}
+
+/// Ditto
+public Nullable!T wrapException (T) (lazy T parseCall)
+{
     try
-    {
-        Node root = Loader.fromFile(args.config_path).load();
-        return nullable(parseConfig!T(args, root, strict));
-    }
+        return nullable(parseCall);
     catch (ConfigException exc)
     {
         exc.printException();

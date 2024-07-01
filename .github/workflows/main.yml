@@ -133,4 +133,5 @@ jobs:
       shell: bash
 
     - name: Codecov
+      if: matrix.do_test && runner.os != 'Windows'
       uses: codecov/codecov-action@v4

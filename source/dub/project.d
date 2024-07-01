@@ -43,6 +43,7 @@ class Project {
 		PackageManager m_packageManager;
 		Package m_rootPackage;
 		Package[] m_dependencies;
+		Package[string] m_dependenciesByName;
 		Package[][Package] m_dependees;
 		SelectedVersions m_selections;
 		string[] m_missingDependencies;
@@ -75,7 +76,7 @@ class Project {
 	/// Ditto
 	this(PackageManager package_manager, Package pack)
 	{
-		auto selections = Project.loadSelections(pack);
+		auto selections = Project.loadSelections(pack.path, package_manager);
 		this(package_manager, pack, selections);
 	}
 
@@ -97,41 +98,34 @@ class Project {
 	 * is returned.
 	 *
 	 * Params:
-	 *	 pack = Package to load the selection file from.
+	 *	 packPath = Absolute path of the Package to load the selection file from.
 	 *
 	 * Returns:
 	 *	 Always a non-null instance.
 	 */
-	static package SelectedVersions loadSelections(in Package pack)
+	static package SelectedVersions loadSelections(in NativePath packPath, PackageManager mgr)
 	{
 		import dub.version_;
 		import dub.internal.dyaml.stdsumtype;
 
-		auto selverfile = (pack.path ~ SelectedVersions.defaultFile).toNativeString();
-
-		// No file exists
-		if (!existsFile(selverfile))
+		auto lookupResult = mgr.readSelections(packPath);
+		if (lookupResult.isNull()) // no file, or parsing error (displayed to the user)
 			return new SelectedVersions();
 
-		// TODO: Remove `StrictMode.Warn` after v1.40 release
-		// The default is to error, but as the previous parser wasn't
-		// complaining, we should first warn the user.
-		auto selected = parseConfigFileSimple!SelectionsFile(selverfile, StrictMode.Warn);
-
-		// Parsing error, it will be displayed to the user
-		if (selected.isNull())
-			return new SelectedVersions();
-
-		return selected.get().content.match!(
+		auto r = lookupResult.get();
+		return r.selectionsFile.content.match!(
 			(Selections!0 s) {
 				logWarnTag("Unsupported version",
 					"File %s has fileVersion %s, which is not yet supported by DUB %s.",
-					selverfile, s.fileVersion, dubVersion);
+					r.absolutePath, s.fileVersion, dubVersion);
 				logWarn("Ignoring selections file. Use a newer DUB version " ~
 					"and set the appropriate toolchainRequirements in your recipe file");
 				return new SelectedVersions();
 			},
-			(Selections!1 s) => new SelectedVersions(s),
+			(Selections!1 s) {
+				auto selectionsDir = r.absolutePath.parentPath;
+				return new SelectedVersions(s, selectionsDir.relativeTo(packPath));
+			},
 		);
 	}
 
@@ -227,9 +221,8 @@ class Project {
 	*/
 	inout(Package) getDependency(string name, bool is_optional)
 	inout {
-		foreach(dp; m_dependencies)
-			if( dp.name == name )
-				return dp;
+		if (auto pp = name in m_dependenciesByName)
+			return *pp;
 		if (!is_optional) throw new Exception("Unknown dependency: "~name);
 		else return null;
 	}
@@ -519,8 +512,10 @@ class Project {
 	void reinit()
 	{
 		m_dependencies = null;
+		m_dependenciesByName = null;
 		m_missingDependencies = [];
 		collectDependenciesRec(m_rootPackage);
+		foreach (p; m_dependencies) m_dependenciesByName[p.name] = p;
 		m_missingDependencies.sort();
 	}
 
@@ -643,150 +638,173 @@ class Project {
 	/// Returns a map with the configuration for all packages in the dependency tree.
 	string[string] getPackageConfigs(in BuildPlatform platform, string config, bool allow_non_library = true)
 	const {
-		struct Vertex { string pack, config; }
-		struct Edge { size_t from, to; }
+		import std.typecons : Rebindable, rebindable;
+		import std.range : only;
 
+		// prepare by collecting information about all packages in the project
+		// qualified names and dependencies are cached, to avoid recomputing
+		// them multiple times during the algorithm
+		auto packages = collectPackageInformation();
+
+		// graph of the project's package configuration dependencies
+		// (package, config) -> (sub-package, sub-config)
+		static struct Vertex { size_t pack = size_t.max; string config; }
+		static struct Edge { size_t from, to; }
 		Vertex[] configs;
+		void[0][Vertex] configs_set;
 		Edge[] edges;
-		string[][string] parents;
-		parents[m_rootPackage.name] = null;
-		foreach (p; getTopologicalPackageList())
-			foreach (d; p.getAllDependencies())
-				parents[d.name.toString()] ~= p.name;
 
-		size_t createConfig(string pack, string config) {
+
+		size_t createConfig(size_t pack_idx, string config) {
 			foreach (i, v; configs)
-				if (v.pack == pack && v.config == config)
+				if (v.pack == pack_idx && v.config == config)
 					return i;
-			assert(pack !in m_overriddenConfigs || config == m_overriddenConfigs[pack]);
-			logDebug("Add config %s %s", pack, config);
-			configs ~= Vertex(pack, config);
+
+			auto pname = packages[pack_idx].name;
+			assert(pname !in m_overriddenConfigs || config == m_overriddenConfigs[pname]);
+			logDebug("Add config %s %s", pname, config);
+			auto cfg = Vertex(pack_idx, config);
+			configs ~= cfg;
+			configs_set[cfg] = (void[0]).init;
 			return configs.length-1;
 		}
 
-		bool haveConfig(string pack, string config) {
-			return configs.any!(c => c.pack == pack && c.config == config);
+		bool haveConfig(size_t pack_idx, string config) {
+			return (Vertex(pack_idx, config) in configs_set) !is null;
 		}
 
-		size_t createEdge(size_t from, size_t to) {
-			auto idx = edges.countUntil(Edge(from, to));
-			if (idx >= 0) return idx;
-			logDebug("Including %s %s -> %s %s", configs[from].pack, configs[from].config, configs[to].pack, configs[to].config);
-			edges ~= Edge(from, to);
-			return edges.length-1;
-		}
-
-		void removeConfig(size_t i) {
-			logDebug("Eliminating config %s for %s", configs[i].config, configs[i].pack);
+		void removeConfig(size_t config_index) {
+			logDebug("Eliminating config %s for %s", configs[config_index].config, configs[config_index].pack);
 			auto had_dep_to_pack = new bool[configs.length];
 			auto still_has_dep_to_pack = new bool[configs.length];
 
-			edges = edges.filter!((e) {
-					if (e.to == i) {
-						had_dep_to_pack[e.from] = true;
-						return false;
-					} else if (configs[e.to].pack == configs[i].pack) {
-						still_has_dep_to_pack[e.from] = true;
-					}
-					if (e.from == i) return false;
-					return true;
-				}).array;
+			// eliminate all edges that connect to config 'config_index' and
+			// track all connected configs
+			edges = edges.filterInPlace!((e) {
+				if (e.to == config_index) {
+					had_dep_to_pack[e.from] = true;
+					return false;
+				} else if (configs[e.to].pack == configs[config_index].pack) {
+					still_has_dep_to_pack[e.from] = true;
+				}
 
-			configs[i] = Vertex.init; // mark config as removed
+				return e.from != config_index;
+			});
+
+			// mark config as removed
+			configs_set.remove(configs[config_index]);
+			configs[config_index] = Vertex.init;
 
 			// also remove any configs that cannot be satisfied anymore
 			foreach (j; 0 .. configs.length)
-				if (j != i && had_dep_to_pack[j] && !still_has_dep_to_pack[j])
+				if (j != config_index && had_dep_to_pack[j] && !still_has_dep_to_pack[j])
 					removeConfig(j);
 		}
 
-		bool isReachable(string pack, string conf) {
-			if (pack == configs[0].pack && configs[0].config == conf) return true;
-			foreach (e; edges)
-				if (configs[e.to].pack == pack && configs[e.to].config == conf)
-					return true;
-			return false;
-			//return (pack == configs[0].pack && conf == configs[0].config) || edges.canFind!(e => configs[e.to].pack == pack && configs[e.to].config == config);
-		}
-
+		bool[] reachable = new bool[packages.length]; // reused to avoid continuous re-allocation
 		bool isReachableByAllParentPacks(size_t cidx) {
-			bool[string] r;
-			foreach (p; parents[configs[cidx].pack]) r[p] = false;
+			foreach (p; packages[configs[cidx].pack].parents) reachable[p] = false;
 			foreach (e; edges) {
 				if (e.to != cidx) continue;
-				if (auto pp = configs[e.from].pack in r) *pp = true;
+				reachable[configs[e.from].pack] = true;
 			}
-			foreach (bool v; r) if (!v) return false;
+			foreach (p; packages[configs[cidx].pack].parents)
+				if (!reachable[p])
+					return false;
 			return true;
 		}
 
-		string[] allconfigs_path;
-
-		void determineDependencyConfigs(in Package p, string c)
+		string[][] depconfigs = new string[][](packages.length);
+		void determineDependencyConfigs(size_t pack_idx, string c)
 		{
+			void[0][Edge] edges_set;
+			void createEdge(size_t from, size_t to) {
+				if (Edge(from, to) in edges_set)
+					return;
+				logDebug("Including %s %s -> %s %s", configs[from].pack, configs[from].config, configs[to].pack, configs[to].config);
+				edges ~= Edge(from, to);
+				edges_set[Edge(from, to)] = (void[0]).init;
+			}
+
+			auto pack = &packages[pack_idx];
 
 			// below we call createConfig for the main package if
 			// config.length is not zero.  Carry on for that case,
 			// otherwise we've handle the pair (p, c) already
-			if(haveConfig(p.name, c) && !(config.length && p.name == m_rootPackage.name && config == c))
+			if(haveConfig(pack_idx, c) && !(config.length && pack.name == m_rootPackage.name && config == c))
 				return;
 
-			string[][string] depconfigs;
-			foreach (d; p.getAllDependencies()) {
-				auto dp = getDependency(d.name.toString(), true);
-				if (!dp) continue;
+			foreach (d; pack.dependencies) {
+				auto dp = packages.getPackageIndex(d.name.toString());
+				if (dp == size_t.max) continue;
 
-				string[] cfgs;
-				if (auto pc = dp.name in m_overriddenConfigs) cfgs = [*pc];
-				else {
-					auto subconf = p.getSubConfiguration(c, dp, platform);
-					if (!subconf.empty) cfgs = [subconf];
-					else cfgs = dp.getPlatformConfigurations(platform);
+				depconfigs[dp].length = 0;
+				depconfigs[dp].assumeSafeAppend;
+
+				void setConfigs(R)(R configs) {
+					configs
+						.filter!(c => haveConfig(dp, c))
+						.each!((c) { depconfigs[dp] ~= c; });
 				}
-				cfgs = cfgs.filter!(c => haveConfig(d.name.toString(), c)).array;
+				if (auto pc = packages[dp].name in m_overriddenConfigs) {
+					setConfigs(only(*pc));
+				} else {
+					auto subconf = pack.package_.getSubConfiguration(c, packages[dp].package_, platform);
+					if (!subconf.empty) setConfigs(only(subconf));
+					else setConfigs(packages[dp].package_.getPlatformConfigurations(platform));
+				}
 
 				// if no valid configuration was found for a dependency, don't include the
 				// current configuration
-				if (!cfgs.length) {
-					logDebug("Skip %s %s (missing configuration for %s)", p.name, c, dp.name);
+				if (!depconfigs[dp].length) {
+					logDebug("Skip %s %s (missing configuration for %s)", pack.name, c, packages[dp].name);
 					return;
 				}
-				depconfigs[d.name.toString()] = cfgs;
 			}
 
 			// add this configuration to the graph
-			size_t cidx = createConfig(p.name, c);
-			foreach (d; p.getAllDependencies())
-				foreach (sc; depconfigs.get(d.name.toString(), null))
-					createEdge(cidx, createConfig(d.name.toString(), sc));
+			size_t cidx = createConfig(pack_idx, c);
+			foreach (d; pack.dependencies) {
+				if (auto pdp = d.name.toString() in packages)
+					foreach (sc; depconfigs[*pdp])
+						createEdge(cidx, createConfig(*pdp, sc));
+			}
 		}
 
-		// create a graph of all possible package configurations (package, config) -> (sub-package, sub-config)
-		void determineAllConfigs(in Package p)
+		string[] allconfigs_path;
+		void determineAllConfigs(size_t pack_idx)
 		{
-			auto idx = allconfigs_path.countUntil(p.name);
-			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ p.name).join("->")));
-			allconfigs_path ~= p.name;
-			scope (exit) allconfigs_path.length--;
+			auto pack = &packages[pack_idx];
 
-			// first, add all dependency configurations
-			foreach (d; p.getAllDependencies) {
-				auto dp = getDependency(d.name.toString(), true);
-				if (!dp) continue;
-				determineAllConfigs(dp);
+			auto idx = allconfigs_path.countUntil(pack.name);
+			enforce(idx < 0, format("Detected dependency cycle: %s", (allconfigs_path[idx .. $] ~ pack.name).join("->")));
+			allconfigs_path ~= pack.name;
+			scope (exit) {
+				allconfigs_path.length--;
+				allconfigs_path.assumeSafeAppend;
 			}
 
-			// for each configuration, determine the configurations usable for the dependencies
-			if (auto pc = p.name in m_overriddenConfigs)
-				determineDependencyConfigs(p, *pc);
-			else
-				foreach (c; p.getPlatformConfigurations(platform, p is m_rootPackage && allow_non_library))
-					determineDependencyConfigs(p, c);
-		}
-		if (config.length) createConfig(m_rootPackage.name, config);
-		determineAllConfigs(m_rootPackage);
+			// first, add all dependency configurations
+			foreach (d; pack.dependencies)
+				if (auto pi = d.name.toString() in packages)
+					determineAllConfigs(*pi);
 
-		// successively remove configurations until only one configuration per package is left
+			// for each configuration, determine the configurations usable for the dependencies
+			if (auto pc = pack.name in m_overriddenConfigs)
+				determineDependencyConfigs(pack_idx, *pc);
+			else
+				foreach (c; pack.package_.getPlatformConfigurations(platform, pack.package_ is m_rootPackage && allow_non_library))
+					determineDependencyConfigs(pack_idx, c);
+		}
+
+
+		// first, create a graph of all possible package configurations
+		assert(packages[0].package_ is m_rootPackage);
+		if (config.length) createConfig(0, config);
+		determineAllConfigs(0);
+
+		// then, successively remove configurations until only one configuration
+		// per package is left
 		bool changed;
 		do {
 			// remove all configs that are not reachable by all parent packages
@@ -794,7 +812,7 @@ class Project {
 			foreach (i, ref c; configs) {
 				if (c == Vertex.init) continue; // ignore deleted configurations
 				if (!isReachableByAllParentPacks(i)) {
-					logDebug("%s %s NOT REACHABLE by all of (%s):", c.pack, c.config, parents[c.pack]);
+					logDebug("%s %s NOT REACHABLE by all of (%s):", c.pack, c.config, packages[c.pack].parents);
 					removeConfig(i);
 					changed = true;
 				}
@@ -802,10 +820,10 @@ class Project {
 
 			// when all edges are cleaned up, pick one package and remove all but one config
 			if (!changed) {
-				foreach (p; getTopologicalPackageList()) {
+				foreach (pidx; 0 .. packages.length) {
 					size_t cnt = 0;
 					foreach (i, ref c; configs)
-						if (c.pack == p.name && ++cnt > 1) {
+						if (c.pack == pidx && ++cnt > 1) {
 							logDebug("NON-PRIMARY: %s %s", c.pack, c.config);
 							removeConfig(i);
 						}
@@ -824,22 +842,71 @@ class Project {
 		string[string] ret;
 		foreach (c; configs) {
 			if (c == Vertex.init) continue; // ignore deleted configurations
-			assert(ret.get(c.pack, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", c.pack, c.config, ret[c.pack]));
-			logDebug("Using configuration '%s' for %s", c.config, c.pack);
-			ret[c.pack] = c.config;
+			auto pname = packages[c.pack].name;
+			assert(ret.get(pname, c.config) == c.config, format("Conflicting configurations for %s found: %s vs. %s", pname, c.config, ret[pname]));
+			logDebug("Using configuration '%s' for %s", c.config, pname);
+			ret[pname] = c.config;
 		}
 
 		// check for conflicts (packages missing in the final configuration graph)
-		void checkPacksRec(in Package pack) {
-			auto pc = pack.name in ret;
-			enforce(pc !is null, "Could not resolve configuration for package "~pack.name);
-			foreach (p, dep; pack.getDependencies(*pc)) {
+		auto visited = new bool[](packages.length);
+		void checkPacksRec(size_t pack_idx) {
+			if (visited[pack_idx]) return;
+			visited[pack_idx] = true;
+			auto pname = packages[pack_idx].name;
+			auto pc = pname in ret;
+			enforce(pc !is null, "Could not resolve configuration for package "~pname);
+			foreach (p, dep; packages[pack_idx].package_.getDependencies(*pc)) {
 				auto deppack = getDependency(p, dep.optional);
-				if (deppack) checkPacksRec(deppack);
+				if (deppack) checkPacksRec(packages[].countUntil!(p => p.package_ is deppack));
 			}
 		}
-		checkPacksRec(m_rootPackage);
+		checkPacksRec(0);
 
+		return ret;
+	}
+
+	/** Returns an ordered list of all packages with the additional possibility
+		to look up by name.
+	*/
+	private auto collectPackageInformation()
+	const {
+		static struct PackageInfo {
+			const(Package) package_;
+			size_t[] parents;
+			string name;
+			PackageDependency[] dependencies;
+		}
+
+		static struct PackageInfoAccessor {
+			private {
+				PackageInfo[] m_packages;
+				size_t[string] m_packageMap;
+			}
+
+			private void initialize(P)(P all_packages, size_t reserve_count)
+			{
+				m_packages.reserve(reserve_count);
+				foreach (p; all_packages) {
+					auto pname = p.name;
+					m_packageMap[pname] = m_packages.length;
+					m_packages ~= PackageInfo(p, null, pname, p.getAllDependencies());
+				}
+				foreach (pack_idx, ref pack_info; m_packages)
+					foreach (d; pack_info.dependencies)
+						if (auto pi = d.name.toString() in m_packageMap)
+							m_packages[*pi].parents ~= pack_idx;
+			}
+
+			size_t length() const { return m_packages.length; }
+			const(PackageInfo)[] opIndex() const { return m_packages; }
+			ref const(PackageInfo) opIndex(size_t package_index) const { return m_packages[package_index]; }
+			size_t getPackageIndex(string package_name) const { return m_packageMap.get(package_name, size_t.max); }
+			const(size_t)* opBinaryRight(string op = "in")(string package_name) const { return package_name in m_packageMap; }
+		}
+
+		PackageInfoAccessor ret;
+		ret.initialize(getTopologicalPackageList(), m_dependencies.length);
 		return ret;
 	}
 
@@ -1809,6 +1876,23 @@ public class SelectedVersions {
 		this.m_bare = false;
 	}
 
+	/** Constructs a new non-empty version selection, prefixing relative path
+		selections with the specified prefix.
+
+		To be used in cases where the "dub.selections.json" file isn't located
+		in the root package directory.
+	*/
+	public this(Selections!1 data, NativePath relPathPrefix)
+	{
+		this(data);
+		if (relPathPrefix.empty) return;
+		foreach (ref dep; m_selections.versions.byValue) {
+			const depPath = dep.path;
+			if (!depPath.empty && !depPath.absolute)
+				dep = Dependency(relPathPrefix ~ depPath);
+		}
+	}
+
 	/** Constructs a new version selection from JSON data.
 
 		The structure of the JSON document must match the contents of the
@@ -1853,6 +1937,7 @@ public class SelectedVersions {
 	{
 		m_selections.fileVersion = versions.m_selections.fileVersion;
 		m_selections.versions = versions.m_selections.versions.dup;
+		m_selections.inheritable = versions.m_selections.inheritable;
 		m_dirty = true;
 	}
 
@@ -2013,6 +2098,8 @@ public class SelectedVersions {
 		clear();
 		m_selections.fileVersion = fileVersion;
 		scope(failure) clear();
+		if (auto p = "inheritable" in json)
+			m_selections.inheritable = p.get!bool;
 		foreach (string p, dep; json["versions"])
 			m_selections.versions[p] = dependencyFromJson(dep);
 	}

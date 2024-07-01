@@ -21,6 +21,7 @@ import std.conv : to;
 import std.exception : enforce;
 import std.file;
 import std.format;
+import std.range;
 import std.string : format;
 import std.process;
 import std.traits : isIntegral;
@@ -145,21 +146,9 @@ void atomicWriteJsonFile(NativePath path, Json json)
 	moveFile(tmppath, path);
 }
 
-deprecated("specify a working directory explicitly")
-void runCommand(string command, string[string] env = null)
-{
-	runCommands((&command)[0 .. 1], env, null);
-}
-
 void runCommand(string command, string[string] env, string workDir)
 {
 	runCommands((&command)[0 .. 1], env, workDir);
-}
-
-deprecated("specify a working directory explicitly")
-void runCommands(in string[] commands, string[string] env = null)
-{
-	runCommands(commands, env, null);
 }
 
 void runCommands(in string[] commands, string[string] env, string workDir)
@@ -796,4 +785,42 @@ void deepCompareImpl (T) (
 			format("%s: result != expected: %s != %s", path, result, expected),
 			file, line);
 	}
+}
+
+/** Filters a forward range with the given predicate and returns a prefix range.
+
+	This function filters elements in-place, as opposed to returning a new
+	range. This can be particularly useful when working with arrays, as this
+	does not require any memory allocations.
+
+	This function guarantees that `pred` is called exactly once per element and
+	deterministically destroys any elements for which `pred` returns `false`.
+*/
+auto filterInPlace(alias pred, R)(R elems)
+	if (isForwardRange!R)
+{
+	import std.algorithm.mutation : move;
+
+	R telems = elems.save;
+	bool any_removed = false;
+	size_t nret = 0;
+	foreach (ref el; elems.save) {
+		if (pred(el)) {
+			if (any_removed) move(el, telems.front);
+			telems.popFront();
+			nret++;
+		} else any_removed = true;
+	}
+	return elems.takeExactly(nret);
+}
+
+///
+unittest {
+	int[] arr = [1, 2, 3, 4, 5, 6, 7, 8];
+
+	arr = arr.filterInPlace!(e => e % 2 == 0);
+	assert(arr == [2, 4, 6, 8]);
+
+	arr = arr.filterInPlace!(e => e < 5);
+	assert(arr == [2, 4]);
 }

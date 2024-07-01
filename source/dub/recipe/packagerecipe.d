@@ -709,6 +709,8 @@ private VersionRange parseDMDDependency(string dep)
 	import std.array : join;
 
 	if (dep == "no") return VersionRange.Invalid;
+	// `dmdLikeVersionToSemverLike` does not handle this, VersionRange does
+	if (dep == "*")	 return VersionRange.Any;
 	return VersionRange.fromString(dep
 		.splitter(' ')
 		.map!(r => dmdLikeVersionToSemverLike(r))

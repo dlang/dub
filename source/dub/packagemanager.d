@@ -8,8 +8,8 @@
 module dub.packagemanager;
 
 import dub.dependency;
+import dub.internal.io.filesystem;
 import dub.internal.utils;
-import dub.internal.vibecompat.core.file : FileInfo;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
@@ -30,6 +30,7 @@ import std.encoding : sanitize;
 import std.exception;
 import std.range;
 import std.string;
+import std.typecons;
 import std.zip;
 
 
@@ -59,6 +60,15 @@ public string toString (PlacementLocation loc) @safe pure nothrow @nogc
     }
 }
 
+/// A SelectionsFile associated with its file-system path.
+struct SelectionsFileLookupResult {
+	/// The absolute path to the dub.selections.json file
+	/// (potentially inherited from a parent directory of the root package).
+	NativePath absolutePath;
+	/// The parsed dub.selections.json file.
+	SelectionsFile selectionsFile;
+}
+
 /// The PackageManager can retrieve present packages and get / remove
 /// packages.
 class PackageManager {
@@ -85,17 +95,29 @@ class PackageManager {
 		 */
 		Location[] m_repositories;
 		/**
-		 * Whether `refresh` has been called or not
+		 * Whether `refreshLocal` / `refreshCache` has been called or not
 		 *
-		 * Dub versions because v1.31 eagerly scan all available repositories,
-		 * leading to slowdown for the most common operation - `dub build` with
-		 * already resolved dependencies.
-		 * From v1.31 onward, those locations are not scanned eagerly,
-		 * unless one of the function requiring eager scanning does,
-		 * such as `getBestPackage` - as it needs to iterate the list
-		 * of available packages.
+		 * User local cache can get pretty large, and we want to avoid our build
+		 * time being dependent on their size. However, in order to support
+		 * local packages and overrides, we were scanning the whole cache prior
+		 * to v1.39.0 (although attempts at fixing this behavior were made
+		 * earlier). Those booleans record whether we have been semi-initialized
+		 * (local packages and overrides have been loaded) or fully initialized
+		 * (all caches have been scanned), the later still being required for
+		 * some API (e.g. `getBestPackage` or `getPackageIterator`).
 		 */
-		bool m_initialized;
+		enum InitializationState {
+			/// No `refresh*` function has been called
+			none,
+			/// `refreshLocal` has been called
+			partial,
+			/// `refreshCache` (and `refreshLocal`) has been called
+			full,
+		}
+		/// Ditto
+		InitializationState m_state;
+		/// The `Filesystem` object, used to interact with directory / files
+		Filesystem fs;
 	}
 
 	/**
@@ -110,18 +132,38 @@ class PackageManager {
 	 */
 	this(NativePath path)
 	{
+		import dub.internal.io.realfs;
+		this.fs = new RealFS();
 		this.m_internal.searchPath = [ path ];
 		this.refresh();
 	}
 
 	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
-		m_repositories = [
-			Location(package_path ~ ".dub/packages/"),
-			Location(user_path ~ "packages/"),
-			Location(system_path ~ "packages/")];
-
+		import dub.internal.io.realfs;
+		this(new RealFS(), package_path ~ ".dub/packages/",
+			user_path ~ "packages/", system_path ~ "packages/");
 		if (refresh_packages) refresh();
+	}
+
+	/**
+	 * Instantiate a `PackageManager` with the provided `Filesystem` and paths
+	 *
+	 * Unlike the other overload, paths are taken as-if, e.g. `packages/` is not
+	 * appended to them.
+	 *
+	 * Params:
+	 *   fs = Filesystem abstraction to handle all folder/file I/O.
+	 *   local = Path to the local package cache (usually the one in the project),
+	 *           whih takes preference over `user` and `system`.
+	 *   user = Path to the user package cache (usually ~/.dub/packages/), takes
+	 *          precedence over `system` but not over `local`.
+	 *   system = Path to the system package cache, this has the least precedence.
+	 */
+	public this(Filesystem fs, NativePath local, NativePath user, NativePath system)
+	{
+		this.fs = fs;
+		this.m_repositories = [ Location(local), Location(user), Location(system) ];
 	}
 
 	/** Gets/sets the list of paths to search for local packages.
@@ -190,8 +232,10 @@ class PackageManager {
 	 *	 A `Package` if one was found, `null` if none exists.
 	 */
 	protected Package lookup (in PackageName name, in Version vers) {
-		if (!this.m_initialized)
-			this.refresh();
+		// This is the only place we can get away with lazy initialization,
+		// since we know exactly what package and version we want.
+		// However, it is also the most often called API.
+		this.ensureInitialized(InitializationState.partial);
 
 		if (auto pkg = this.m_internal.lookup(name, vers))
 			return pkg;
@@ -390,7 +434,7 @@ class PackageManager {
 
 		const PackageName pname = parent
 			? PackageName(parent.name) : PackageName.init;
-		string text = this.readText(recipe);
+		string text = this.fs.readText(recipe);
 		auto content = parsePackageRecipe(
 			text, recipe.toNativeString(), pname, null, mode);
 		auto ret = new Package(content, path, parent, version_);
@@ -411,7 +455,7 @@ class PackageManager {
 	{
 		foreach (file; packageInfoFiles) {
 			auto filename = directory ~ file.filename;
-			if (this.existsFile(filename)) return filename;
+			if (this.fs.existsFile(filename)) return filename;
 		}
 		return NativePath.init;
 	}
@@ -464,13 +508,19 @@ class PackageManager {
 		string gitReference = repo.ref_.chompPrefix("~");
 		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
 
-		foreach (p; getPackageIterator(name.toString())) {
-			if (p.path == destination) {
-				return p;
-			}
-		}
-
-		if (!this.gitClone(repo.remote, gitReference, destination))
+		// Before doing a git clone, let's see if the package exists locally
+		if (this.fs.existsDirectory(destination)) {
+			// It exists, check if we already loaded it.
+			// Either we loaded it on refresh and it's in PlacementLocation.user,
+			// or we just added it and it's in m_internal.
+			foreach (p; this.m_internal.fromPath)
+				if (p.path == destination)
+					return p;
+			if (this.m_repositories.length)
+				foreach (p; this.m_repositories[PlacementLocation.user].fromPath)
+					if (p.path == destination)
+						return p;
+		} else if (!this.gitClone(repo.remote, gitReference, destination))
 			return null;
 
 		Package result = this.load(destination);
@@ -628,9 +678,8 @@ class PackageManager {
 	*/
 	int delegate(int delegate(ref Package)) getPackageIterator()
 	{
-		// See `m_initialized` documentation
-		if (!this.m_initialized)
-			this.refresh();
+		// This API requires full knowledge of the package cache
+		this.ensureInitialized(InitializationState.full);
 
 		int iterator(int delegate(ref Package) del)
 		{
@@ -806,17 +855,15 @@ class PackageManager {
 	Package store(ubyte[] data, PlacementLocation dest,
 		in PackageName name, in Version vers)
 	{
-		import dub.internal.vibecompat.core.file;
-
 		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
 		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
-		this.ensureDirectory(dstpath.parentPath());
+		this.fs.mkdir(dstpath.parentPath());
 		const lockPath = dstpath.parentPath() ~ ".lock";
 
 		// possibly wait for other dub instance
 		import core.time : seconds;
 		auto lock = lockFile(lockPath.toNativeString(), 30.seconds);
-		if (this.existsFile(dstpath)) {
+		if (this.fs.existsFile(dstpath)) {
 			return this.getPackage(name, vers, dest);
 		}
 		return this.store_(data, dstpath, name, vers);
@@ -824,16 +871,16 @@ class PackageManager {
 
 	/// Backward-compatibility for deprecated overload, simplify once `storeFetchedPatch`
 	/// is removed
-	private Package store_(ubyte[] data, NativePath destination,
+	protected Package store_(ubyte[] data, NativePath destination,
 		in PackageName name, in Version vers)
 	{
-		import dub.internal.vibecompat.core.file;
+		import dub.recipe.json : toJson;
 		import std.range : walkLength;
 
 		logDebug("Placing package '%s' version '%s' to location '%s'",
 			name, vers, destination.toNativeString());
 
-		enforce(!this.existsFile(destination),
+		enforce(!this.fs.existsFile(destination),
 			"%s (%s) needs to be removed from '%s' prior placement."
 			.format(name, vers, destination));
 
@@ -866,13 +913,13 @@ class PackageManager {
 			import std.datetime : DosFileTimeToSysTime;
 
 			auto mtime = DosFileTimeToSysTime(am.time);
-			this.setTimes(path, mtime, mtime);
+			this.fs.setTimes(path, mtime, mtime);
 			if (auto attrs = am.fileAttributes)
-				this.setAttributes(path, attrs);
+				this.fs.setAttributes(path, attrs);
 		}
 
 		// extract & place
-		this.ensureDirectory(destination);
+		this.fs.mkdir(destination);
 		logDebug("Copying all files...");
 		int countFiles = 0;
 		foreach(ArchiveMember a; archive.directory) {
@@ -882,9 +929,9 @@ class PackageManager {
 
 			logDebug("Creating %s", cleanedPath);
 			if (dst_path.endsWithSlash) {
-				this.ensureDirectory(dst_path);
+				this.fs.mkdir(dst_path);
 			} else {
-				this.ensureDirectory(dst_path.parentPath);
+				this.fs.mkdir(dst_path.parentPath);
 				// for symlinks on posix systems, use the symlink function to
 				// create them. Windows default unzip doesn't handle symlinks,
 				// so we don't need to worry about it for Windows.
@@ -900,7 +947,7 @@ class PackageManager {
 					}
 				}
 
-				this.writeFile(dst_path, archive.expand(a));
+				this.fs.writeFile(dst_path, archive.expand(a));
 				setAttributes(dst_path, a);
 symlink_exit:
 				++countFiles;
@@ -913,8 +960,10 @@ symlink_exit:
 
 		if (pack.recipePath.head != defaultPackageFilename)
 			// Storeinfo saved a default file, this could be different to the file from the zip.
-			this.removeFile(pack.recipePath);
-		pack.storeInfo();
+			this.fs.removeFile(pack.recipePath);
+		auto app = appender!string();
+		app.writePrettyJsonString(pack.recipe.toJson());
+		this.fs.writeFile(pack.recipePath.parentPath ~ defaultPackageFilename, app.data);
 		addPackages(this.m_internal.localPackages, pack);
 		return pack;
 	}
@@ -970,8 +1019,7 @@ symlink_exit:
 		// As we iterate over `localPackages` we need it to be populated
 		// In theory we could just populate that specific repository,
 		// but multiple calls would then become inefficient.
-		if (!this.m_initialized)
-			this.refresh();
+		this.ensureInitialized(InitializationState.full);
 
 		path.endsWithSlash = true;
 		auto pack = this.load(path);
@@ -1002,8 +1050,7 @@ symlink_exit:
 		// As we iterate over `localPackages` we need it to be populated
 		// In theory we could just populate that specific repository,
 		// but multiple calls would then become inefficient.
-		if (!this.m_initialized)
-			this.refresh();
+		this.ensureInitialized(InitializationState.full);
 
 		path.endsWithSlash = true;
 		Package[]* packs = &m_repositories[type].localPackages;
@@ -1046,29 +1093,52 @@ symlink_exit:
 	{
 		if (refresh)
 			logDiagnostic("Refreshing local packages (refresh existing: true)...");
-		this.refresh_(refresh);
+		else
+			logDiagnostic("Scanning local packages...");
+
+		this.refreshLocal(refresh);
+		this.refreshCache(refresh);
 	}
 
 	void refresh()
 	{
-		this.refresh_(false);
+		logDiagnostic("Scanning local packages...");
+		this.refreshLocal(false);
+		this.refreshCache(false);
 	}
 
-	private void refresh_(bool refresh)
+	/// Private API to ensure a level of initialization
+	private void ensureInitialized(InitializationState state)
 	{
-		if (!refresh)
-			logDiagnostic("Scanning local packages...");
+		if (this.m_state >= state)
+			return;
+		if (state == InitializationState.partial)
+			this.refreshLocal(false);
+		else
+			this.refresh();
+	}
 
+	/// Refresh pay-as-you-go: Only load local packages, not the full cache
+	private void refreshLocal(bool refresh) {
 		foreach (ref repository; this.m_repositories)
 			repository.scanLocalPackages(refresh, this);
-
 		this.m_internal.scan(this, refresh);
+		foreach (ref repository; this.m_repositories) {
+			auto existing = refresh ? null : repository.fromPath;
+			foreach (path; repository.searchPath)
+				repository.scanPackageFolder(path, this, existing);
+			repository.loadOverrides(this);
+		}
+		if (this.m_state < InitializationState.partial)
+			this.m_state = InitializationState.partial;
+	}
+
+	/// Refresh the full cache, a potentially expensive operation
+	private void refreshCache(bool refresh)
+	{
 		foreach (ref repository; this.m_repositories)
 			repository.scan(this, refresh);
-
-		foreach (ref repository; this.m_repositories)
-			repository.loadOverrides(this);
-		this.m_initialized = true;
+		this.m_state = InitializationState.full;
 	}
 
 	alias Hash = ubyte[];
@@ -1106,6 +1176,59 @@ symlink_exit:
 	}
 
 	/**
+	 * Loads the selections file (`dub.selections.json`)
+	 *
+	 * The selections file is only used for the root package / project.
+	 * However, due to it being a filesystem interaction, it is managed
+	 * from the `PackageManager`.
+	 *
+	 * Params:
+	 *   absProjectPath = The absolute path to the root package/project for
+	 *                    which to load the selections file.
+	 *
+	 * Returns:
+	 *   Either `null` (if no selections file exists or parsing encountered an error),
+	 *   or a `SelectionsFileLookupResult`. Note that the nested `SelectionsFile`
+	 *   might use an unsupported version (see `SelectionsFile` documentation).
+	 */
+	Nullable!SelectionsFileLookupResult readSelections(in NativePath absProjectPath)
+	in (absProjectPath.absolute) {
+		import dub.internal.configy.Read;
+
+		alias N = typeof(return);
+
+		// check for dub.selections.json in root project dir first, then walk up its
+		// parent directories and look for inheritable dub.selections.json files
+		const path = this.findSelections(absProjectPath);
+		if (path.empty) return N.init;
+		const content = this.fs.readText(path);
+		// TODO: Remove `StrictMode.Warn` after v1.40 release
+		// The default is to error, but as the previous parser wasn't
+		// complaining, we should first warn the user.
+		auto selections = wrapException(parseConfigString!SelectionsFile(
+			content, path.toNativeString(), StrictMode.Warn));
+		// Could not parse file
+		if (selections.isNull())
+			return N.init;
+		// Non-inheritable selections found
+		if (!path.startsWith(absProjectPath) && !selections.get().inheritable)
+			return N.init;
+		return N(SelectionsFileLookupResult(path, selections.get()));
+	}
+
+	/// Helper function to walk up the filesystem and find `dub.selections.json`
+	private NativePath findSelections(in NativePath dir)
+	{
+		const path = dir ~ "dub.selections.json";
+		if (this.fs.existsFile(path))
+			return path;
+		if (!dir.hasParentPath)
+			return NativePath.init;
+		return this.findSelections(dir.parentPath);
+
+	}
+
+	/**
 	 * Writes the selections file (`dub.selections.json`)
 	 *
 	 * The selections file is only used for the root package / project.
@@ -1122,9 +1245,9 @@ symlink_exit:
 		bool overwrite = true)
 	{
 		const path = project.path ~ "dub.selections.json";
-		if (!overwrite && this.existsFile(path))
+		if (!overwrite && this.fs.existsFile(path))
 			return;
-		this.writeFile(path, selectionsToString(selections));
+		this.fs.writeFile(path, selectionsToString(selections));
 	}
 
 	/// Package function to avoid code duplication with deprecated
@@ -1134,12 +1257,14 @@ symlink_exit:
 	{
 		Json json = selectionsToJSON(s);
 		assert(json.type == Json.Type.object);
-		assert(json.length == 2);
+		assert(json.length == 2 || json.length == 3);
 		assert(json["versions"].type != Json.Type.undefined);
 
 		auto result = appender!string();
 		result.put("{\n\t\"fileVersion\": ");
 		result.writeJsonString(json["fileVersion"]);
+		if (s.inheritable)
+			result.put(",\n\t\"inheritable\": true");
 		result.put(",\n\t\"versions\": {");
 		auto vers = json["versions"].get!(Json[string]);
 		bool first = true;
@@ -1160,6 +1285,8 @@ symlink_exit:
 	{
 		Json serialized = Json.emptyObject;
 		serialized["fileVersion"] = s.fileVersion;
+		if (s.inheritable)
+			serialized["inheritable"] = true;
 		serialized["versions"] = Json.emptyObject;
 		foreach (p, dep; s.versions)
 			serialized["versions"][p] = dep.toJson(true);
@@ -1195,81 +1322,6 @@ symlink_exit:
 				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}
 		}
-	}
-
-	/// Used for dependency injection
-	protected bool existsDirectory(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.existsDirectory(path);
-	}
-
-	/// Ditto
-	protected void ensureDirectory(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.ensureDirectory(path);
-	}
-
-	/// Ditto
-	protected bool existsFile(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.existsFile(path);
-	}
-
-	/// Ditto
-	protected void writeFile(NativePath path, const(ubyte)[] data)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.writeFile(path, data);
-	}
-
-	/// Ditto
-	protected void writeFile(NativePath path, const(char)[] data)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.writeFile(path, data);
-	}
-
-	/// Ditto
-	protected string readText(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.readText(path);
-	}
-
-	/// Ditto
-	protected alias IterateDirDg = int delegate(scope int delegate(ref FileInfo));
-
-	/// Ditto
-	protected IterateDirDg iterateDirectory(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.iterateDirectory(path);
-	}
-
-	/// Ditto
-	protected void removeFile(NativePath path)
-	{
-		static import dub.internal.vibecompat.core.file;
-		return dub.internal.vibecompat.core.file.removeFile(path);
-	}
-
-	/// Ditto
-	protected void setTimes(in NativePath path, in SysTime accessTime,
-		in SysTime modificationTime)
-	{
-		static import std.file;
-		std.file.setTimes(
-			path.toNativeString(), accessTime, modificationTime);
-	}
-
-	/// Ditto
-	protected void setAttributes(in NativePath path, uint attributes)
-	{
-		static import std.file;
-		std.file.setAttributes(path.toNativeString(), attributes);
 	}
 }
 
@@ -1414,11 +1466,11 @@ package struct Location {
 	{
 		this.overrides = null;
 		auto ovrfilepath = this.packagePath ~ LocalOverridesFilename;
-		if (mgr.existsFile(ovrfilepath)) {
+		if (mgr.fs.existsFile(ovrfilepath)) {
 			logWarn("Found local override file: %s", ovrfilepath);
 			logWarn(OverrideDepMsg);
 			logWarn("Replace with a path-based dependency in your project or a custom cache path");
-			const text = mgr.readText(ovrfilepath);
+			const text = mgr.fs.readText(ovrfilepath);
 			auto json = parseJsonString(text, ovrfilepath.toNativeString());
 			foreach (entry; json) {
 				PackageOverride_ ovr;
@@ -1445,10 +1497,10 @@ package struct Location {
 			newlist ~= jovr;
 		}
 		auto path = this.packagePath;
-		mgr.ensureDirectory(path);
+		mgr.fs.mkdir(path);
 		auto app = appender!string();
 		app.writePrettyJsonString(Json(newlist));
-		mgr.writeFile(path ~ LocalOverridesFilename, app.data);
+		mgr.fs.writeFile(path ~ LocalOverridesFilename, app.data);
 	}
 
 	private void writeLocalPackageList(PackageManager mgr)
@@ -1471,10 +1523,10 @@ package struct Location {
 		}
 
 		NativePath path = this.packagePath;
-		mgr.ensureDirectory(path);
+		mgr.fs.mkdir(path);
 		auto app = appender!string();
 		app.writePrettyJsonString(Json(newlist));
-		mgr.writeFile(path ~ LocalPackagesFilename, app.data);
+		mgr.fs.writeFile(path ~ LocalPackagesFilename, app.data);
 	}
 
 	// load locally defined packages
@@ -1485,10 +1537,10 @@ package struct Location {
 		NativePath[] paths;
 		try {
 			auto local_package_file = list_path ~ LocalPackagesFilename;
-			if (!manager.existsFile(local_package_file)) return;
+			if (!manager.fs.existsFile(local_package_file)) return;
 
 			logDiagnostic("Loading local package map at %s", local_package_file.toNativeString());
-			const text = manager.readText(local_package_file);
+			const text = manager.fs.readText(local_package_file);
 			auto packlist = parseJsonString(
 				text, local_package_file.toNativeString());
 			enforce(packlist.type == Json.Type.array, LocalPackagesFilename ~ " must contain an array.");
@@ -1563,7 +1615,7 @@ package struct Location {
 	void scanPackageFolder(NativePath path, PackageManager mgr,
 		Package[] existing_packages)
 	{
-		if (!mgr.existsDirectory(path))
+		if (!mgr.fs.existsDirectory(path))
 			return;
 
 		void loadInternal (NativePath pack_path, NativePath packageFile)
@@ -1587,7 +1639,7 @@ package struct Location {
 		}
 
 		logDebug("iterating dir %s", path.toNativeString());
-		try foreach (pdir; mgr.iterateDirectory(path)) {
+		try foreach (pdir; mgr.fs.iterateDirectory(path)) {
 			logDebug("iterating dir %s entry %s", path.toNativeString(), pdir.name);
 			if (!pdir.isDirectory) continue;
 
@@ -1609,10 +1661,10 @@ package struct Location {
 					// This is the most common code path
 
 					// Iterate over versions of a package
-					foreach (versdir; mgr.iterateDirectory(pack_path)) {
+					foreach (versdir; mgr.fs.iterateDirectory(pack_path)) {
 						if (!versdir.isDirectory) continue;
 						auto vers_path = pack_path ~ versdir.name ~ (pdir.name ~ "/");
-						if (!mgr.existsDirectory(vers_path)) continue;
+						if (!mgr.fs.existsDirectory(vers_path)) continue;
 						packageFile = mgr.findPackageFile(vers_path);
 						loadInternal(vers_path, packageFile);
 					}
@@ -1682,7 +1734,7 @@ package struct Location {
 
 		string versStr = vers.toString();
 		const path = this.getPackagePath(name, versStr);
-		if (!mgr.existsDirectory(path))
+		if (!mgr.fs.existsDirectory(path))
 			return null;
 
 		logDiagnostic("Lazily loading package %s:%s from %s", name.main, vers, path);

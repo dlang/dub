@@ -568,11 +568,6 @@ struct CommonOptions {
 	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.default_;
 	PlacementLocation placementLocation = PlacementLocation.user;
 
-	deprecated("Use `Color` instead, the previous naming was a limitation of error message formatting")
-	alias color = Color;
-	deprecated("Use `colorMode` instead")
-	alias color_mode = colorMode;
-
 	private void parseColor(string option, string value) @safe
 	{
 		// `automatic`, `on`, `off` are there for backwards compatibility
@@ -878,10 +873,10 @@ class Command {
 				// should simply retry over all registries instead of using a special
 				// FallbackPackageSupplier.
 				auto urls = url.splitter(' ');
-				PackageSupplier ps = getRegistryPackageSupplier(urls.front);
+				PackageSupplier ps = _getRegistryPackageSupplier(urls.front);
 				urls.popFront;
 				if (!urls.empty)
-					ps = new FallbackPackageSupplier(ps ~ urls.map!getRegistryPackageSupplier.array);
+					ps = new FallbackPackageSupplier(ps ~ urls.map!_getRegistryPackageSupplier.array);
 				return ps;
 			})
 			.array;

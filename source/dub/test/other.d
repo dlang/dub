@@ -21,7 +21,7 @@ unittest
     const Template = `{"name": "%s", "version": "1.0.0", "dependencies": {
 "dep1": { "repository": "%s", "version": "%s" }}}`;
 
-    scope dub = new TestDub((scope FSEntry fs) {
+    scope dub = new TestDub((scope Filesystem fs) {
         // Invalid URL, valid hash
         fs.writePackageFile("a", "1.0.0", Template.format("a", "git+https://nope.nope", ValidHash));
         // Valid URL, invalid hash
@@ -53,7 +53,7 @@ unittest
 {
     const AddPathDir = TestDub.Paths.temp ~ "addpath/";
     const BDir = AddPathDir ~ "b/";
-    scope dub = new TestDub((scope FSEntry root) {
+    scope dub = new TestDub((scope Filesystem root) {
             root.writeFile(TestDub.ProjectPath ~ "dub.json",
                 `{ "name": "a", "dependencies": { "b": "~>1.0" } }`);
 
@@ -78,4 +78,45 @@ version "1.0.0"`, PackageFormat.sdl);
     assert(newDub.project.hasAllDependencies());
     const actualDir = newDub.project.getDependency("b", true).path();
     assert(actualDir == BDir, actualDir.toNativeString());
+}
+
+// Check that SCM-only dependencies don't lead to a scan of the FS
+unittest
+{
+    const ValidURL = `git+https://example.com/dlang/dub`;
+    // Taken from a commit in the dub repository
+    const ValidHash = "54339dff7ce9ec24eda550f8055354f712f15800";
+    const Template = `{"name": "%s", "version": "1.0.0", "dependencies": {
+"dep1": { "repository": "%s", "version": "%s" }}}`;
+
+    scope dub = new TestDub((scope Filesystem fs) {
+        // This should never be read
+        fs.writePackageFile("poison", "1.0.0", `poison`);
+        fs.writeFile(TestDub.ProjectPath ~ "dub.json",
+             `{ "name": "a", "dependencies": {"b": { "repository": "` ~
+             ValidURL ~ `", "version": "` ~ ValidHash ~ `" }} }`);
+    });
+    dub.packageManager.addTestSCMPackage(
+        Repository(ValidURL, ValidHash), `{"name":"b"}`);
+
+    dub.loadPackage();
+    assert(dub.project.hasAllDependencies());
+}
+
+// Check that a simple build does not lead to the cache being scanned
+unittest
+{
+    scope dub = new TestDub((scope Filesystem fs) {
+        // This should never be read
+        fs.writePackageFile("b", "1.0.0", `poison`);
+        fs.writePackageFile("b", "1.1.0", `poison`);
+        // Dependency resolution may trigger scan, so we need a selections file
+        fs.writeFile(TestDub.ProjectPath ~ "dub.json",
+             `{ "name": "a", "dependencies": {"b":"~>1.0"}}`);
+        fs.writeFile(TestDub.ProjectPath ~ "dub.selections.json",
+             `{"fileVersion":1,"versions":{"b":"1.0.4"}}`);
+        fs.writePackageFile("b", "1.0.4", `{"name":"b","version":"1.0.4"}`);
+    });
+    dub.loadPackage();
+    assert(dub.project.hasAllDependencies());
 }

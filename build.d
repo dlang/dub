@@ -4,12 +4,12 @@
     Standalone build script for DUB
 
     This script can be called from anywhere, as it deduces absolute paths
-    based on the script's placement in the repository.
+    based on the script's location in the source tree.
 
-    Invoking it while making use of all the options would like like this:
-    DMD=ldmd2 DFLAGS="-O -inline" ./build.d my-dub-version
-    Using an environment variable for the version is also supported:
-    DMD=dmd DFLAGS="-w -g" GITVER="1.2.3" ./build.d
+    Invoking it while making use of all the options would look like this:
+        DMD=ldmd2 GITVER="1.2.3" ./build.d -O -inline
+    The GITVER environment variable determines the version of
+    the repository to build against.
 
     Copyright: D Language Foundation
     Authors: Mathias 'Geod24' Lang
