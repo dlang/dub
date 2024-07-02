@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install latest DMD
-        uses: dlang-community/setup-dlang@v1
+        uses: dlang-community/setup-dlang@v2
       - name: Checkout
         uses: actions/checkout@v4
       - name: Run tests
@@ -89,7 +89,7 @@ jobs:
 
     # Compiler to test with
     - name: Prepare compiler
-      uses: dlang-community/setup-dlang@v1
+      uses: dlang-community/setup-dlang@v2
       with:
         compiler: ${{ matrix.dc }}
 
@@ -113,10 +113,10 @@ jobs:
       env:
         DUB: ${{ github.workspace }}\bin\dub.exe
       run: |
-        dub build --compiler=${{ env.DC }}
+        dub build --compiler="${{ env.DC }}"
         if [[ ${{ matrix.do_test }} == 'true' ]]; then
-          dub test  --compiler=${{ env.DC }}
-          dub run   --compiler=${{ env.DC }} --single test/issue2051_running_unittests_from_dub_single_file_packages_fails.d
+          dub test  --compiler="${{ env.DC }}"
+          dub run   --compiler="${{ env.DC }}" --single test/issue2051_running_unittests_from_dub_single_file_packages_fails.d
           dub --single test/run-unittest.d
 
           # FIXME: DMD fails a few tests on Windows; remove them for now
