@@ -195,7 +195,7 @@ unittest {
     import std.exception : assertThrown;
 
     const str1 = `{
-  "skipRegistry": "all"
-`;
+  "skipRegistry": "default_"
+}`;
     assertThrown!Exception(parseConfigString!Settings(str1, "/dev/null"));
 }
