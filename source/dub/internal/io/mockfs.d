@@ -22,9 +22,9 @@ public final class MockFS : Filesystem {
 
     ///
     version (Windows) {
-        public this (char drive = 'C') scope
+        public this (string root = "C:") scope
         {
-            this.cwd = new FSEntry(drive);
+            this.cwd = new FSEntry(root);
         }
     } else {
         public this () scope
@@ -348,15 +348,12 @@ public class FSEntry
     }
 
     /// Create the root of the filesystem, only usable from this module
-    package(dub) this (char drive = 0)
+    package(dub) this (string name = null)
     {
         import std.datetime.date;
         SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
 
-        if (drive) {
-            assert(drive >= 'A' && drive <= 'Z');
-            this.name = drive ~ `:\`;
-        }
+        this.name = name;
         this.attributes.type = Type.Directory;
         this.attributes.access = DefaultTime;
         this.attributes.modification = DefaultTime;
@@ -451,11 +448,8 @@ public class FSEntry
     /// Returns: The `path` of this FSEntry
     public NativePath path () const scope
     {
-        version (Windows) enum RootPath = "T:\\";
-        else              enum RootPath = "/";
-
         if (this.parent is null)
-            return NativePath(RootPath);
+            return this.name.length ? NativePath(this.name) : NativePath("/");
         assert(!NativePath(this.name).absolute, this.name);
         auto thisPath = this.parent.path ~ this.name;
         thisPath.endsWithSlash = (this.attributes.type == Type.Directory);
