@@ -21,9 +21,16 @@ public final class MockFS : Filesystem {
     private FSEntry cwd;
 
     ///
-    public this () scope
-    {
-        this.cwd = new FSEntry();
+    version (Windows) {
+        public this (char drive = 'C') scope
+        {
+            this.cwd = new FSEntry(drive);
+        }
+    } else {
+        public this () scope
+        {
+            this.cwd = new FSEntry();
+        }
     }
 
     public override NativePath getcwd () const scope
@@ -249,11 +256,15 @@ public class FSEntry
     }
 
     /// Create the root of the filesystem, only usable from this module
-    package(dub) this ()
+    package(dub) this (char drive = 0)
     {
         import std.datetime.date;
         SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
 
+        if (drive) {
+            assert(drive >= 'A' && drive <= 'Z');
+            this.name = drive ~ `:\`;
+        }
         this.attributes.type = Type.Directory;
         this.attributes.access = DefaultTime;
         this.attributes.modification = DefaultTime;
