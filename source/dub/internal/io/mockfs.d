@@ -23,10 +23,29 @@ public final class MockFS : Filesystem {
     ///
     private FSEntry root;
 
-    ///
-    public this () scope
-    {
-        this.root = this.cwd = new FSEntry();
+    /***************************************************************************
+
+        Instantiate a `MockFS` with a given root
+
+        A parameter-less overload exists for POSIX, while on Windows a parameter
+        needs to be provided, as Windows' root has a drive letter.
+
+        Params:
+          root = The name of the root, e.g. "C:\"
+
+    ***************************************************************************/
+
+    version (Windows) {
+        public this (char dir = 'C') scope
+        {
+            this.root = this.cwd = new FSEntry();
+            this.root.name = [ dir, ':' ];
+        }
+    } else {
+        public this () scope
+        {
+            this.root = this.cwd = new FSEntry();
+        }
     }
 
     public override NativePath getcwd () const scope
@@ -439,7 +458,8 @@ public class FSEntry
     public NativePath path () const scope
     {
         if (this.parent is null)
-            return NativePath("/");
+            // The first runtime branch is for Windows, the second for POSIX
+            return this.name ? NativePath(this.name) : NativePath("/");
         auto thisPath = this.parent.path ~ this.name;
         thisPath.endsWithSlash = (this.attributes.type == Type.Directory);
         return thisPath;
@@ -479,5 +499,39 @@ public class FSEntry
     public void setAttributes (uint attributes)
     {
         this.attributes.attrs = attributes;
+    }
+}
+
+unittest {
+    alias P = NativePath;
+    scope fs = new MockFS();
+
+    version (Windows) immutable NativePath root = NativePath(`C:\`);
+    else              immutable NativePath root = NativePath(`/`);
+
+    assert(fs.getcwd == root);
+    // We shouldn't be able to chdir into a non-existent directory
+    assertThrown(fs.chdir(P("foo/bar")));
+    // Even with an absolute path
+    assertThrown(fs.chdir(root ~ "foo/bar"));
+    // Now we should be
+    fs.mkdir(P("foo/bar"));
+    fs.chdir(P("foo/bar"));
+    assert(fs.getcwd == root ~ "foo/bar/", fs.getcwd.toNativeString());
+    // chdir with absolute path
+    fs.chdir(root ~ "foo");
+    assert(fs.getcwd == root ~ "foo/", fs.getcwd.toNativeString());
+    // This still does not exists
+    assertThrown(fs.chdir(root ~ "bar"));
+    // Test pseudo entries / meta locations
+    version (POSIX) {
+        fs.chdir(P("."));
+        assert(fs.getcwd == P("/foo/"));
+        fs.chdir(P(".."));
+        assert(fs.getcwd == P("/"));
+        fs.chdir(P("."));
+        assert(fs.getcwd == P("/"));
+        fs.chdir(NativePath("/foo/bar/../"));
+        assert(fs.getcwd == P("/foo/"));
     }
 }
