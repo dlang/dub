@@ -190,7 +190,7 @@ public class TestDub : Dub
 
     /// Convenience constants for use in unittests
     version (Windows)
-        public static immutable Root = NativePath("T:\\dub\\");
+        public static immutable Root = NativePath(`C:\dub\`);
     else
         public static immutable Root = NativePath("/dub/");
 
