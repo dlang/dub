@@ -130,14 +130,15 @@ class PackageManager {
 	   Params:
 		 path = Path of the single repository
 	 */
-	this(NativePath path)
+	this(NativePath path, Filesystem fs = null)
 	{
 		import dub.internal.io.realfs;
-		this.fs = new RealFS();
+		this.fs = fs !is null ? fs : new RealFS();
 		this.m_internal.searchPath = [ path ];
 		this.refresh();
 	}
 
+	deprecated("Use the overload that accepts a `Filesystem`")
 	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
 		import dub.internal.io.realfs;
@@ -1002,8 +1003,7 @@ symlink_exit:
 		enforce(found, "Cannot remove, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
 
 		logDebug("About to delete root folder for package '%s'.", pack.path);
-		import std.file : rmdirRecurse;
-		rmdirRecurse(pack.path.toNativeString());
+		this.fs.removeDir(pack.path, true);
 		logInfo("Removed", Color.yellow, "%s %s", pack.name.color(Mode.bold), pack.version_);
 	}
 
