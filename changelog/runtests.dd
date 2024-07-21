@@ -1,4 +1,5 @@
-# Add runtests sub command
+Add runtests sub command
+
 The `runtests` subcommand enables the execution of integration tests in a unified environment.
 Users prepare integration tests by placing test scripts in either the `test` directory or a directory specified by the `--testdir` argument.
 Test scripts can be in the following formats:
