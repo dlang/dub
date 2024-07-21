@@ -1,0 +1,4 @@
+name "fail-check-test"
+
+dependency "runtests" path="../.."
+subConfiguration "runtests" "lib"
