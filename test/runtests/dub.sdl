@@ -1,0 +1,13 @@
+name "runtests"
+
+configuration "exe" {
+	targetType "executable"
+	importPaths "srcexe"
+	sourcePaths "srcexe"
+}
+
+configuration "lib" {
+	targetType "library"
+	importPaths "srclib"
+	sourcePaths "srclib"
+}

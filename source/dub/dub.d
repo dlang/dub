@@ -153,7 +153,8 @@ class Dub {
 					as well as the default suppliers.
 	*/
 	this(string root_path = ".", PackageSupplier[] base = null,
-			SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+			SkipPackageSuppliers skip = SkipPackageSuppliers.none,
+			PackageManager package_manager = null)
 	{
 		m_rootPath = NativePath(root_path);
 		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
@@ -169,7 +170,7 @@ class Dub {
 
 		const registry_var = environment.get("DUB_REGISTRY", null);
 		m_packageSuppliers = this.makePackageSuppliers(base, skip, registry_var);
-		m_packageManager = this.makePackageManager();
+		m_packageManager = package_manager ? package_manager : this.makePackageManager();
 
 		auto ccps = m_config.customCachePaths;
 		if (ccps.length)

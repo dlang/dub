@@ -1,0 +1,4 @@
+name "runtest-testcase-04"
+
+dependency "runtests" path="../.."
+subConfiguration "runtests" "lib"
