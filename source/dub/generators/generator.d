@@ -828,7 +828,8 @@ package(dub) NativePath targetCacheDir(NativePath cachePath, in Package pkg, str
  * library-debug-Z7qINYX4IxM8muBSlyNGrw
  * ```
  */
-package(dub) string computeBuildID(in BuildSettings buildsettings, string config, GeneratorSettings settings)
+package(dub) string computeBuildID(in BuildSettings buildsettings,
+	in NativePath packagePath, string config, GeneratorSettings settings)
 {
 	import std.conv : to;
 
@@ -843,6 +844,8 @@ package(dub) string computeBuildID(in BuildSettings buildsettings, string config
 		settings.platform.architecture,
 		[
 			(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id
+			// Needed for things such as `__FULL_FILE_PATH__`
+			packagePath.toNativeString(),
 			settings.platform.compilerBinary,
 			settings.platform.compiler,
 			settings.platform.compilerVersion,
@@ -1222,7 +1225,7 @@ private void storeRecursiveInvokations(ref const(string[string])[] env, string[]
 version(Posix) {
     // https://github.com/dlang/dub/issues/2238
 	unittest {
-		import dub.internal.vibecompat.data.json : parseJsonString;
+		import dub.recipe.io : parsePackageRecipe;
 		import dub.compilers.gdc : GDCCompiler;
 		import std.algorithm : canFind;
 		import std.path : absolutePath;
@@ -1232,8 +1235,10 @@ version(Posix) {
 		write("dubtest/preGen/source/foo.d", "");
 		scope(exit) rmdirRecurse("dubtest");
 
-		auto desc = parseJsonString(`{"name": "test", "targetType": "library", "preGenerateCommands": ["touch $PACKAGE_DIR/source/bar.d"]}`);
-		auto pack = new Package(desc, NativePath("dubtest/preGen".absolutePath));
+		auto recipe = parsePackageRecipe(
+			`{"name":"test", "targetType":"library", "preGenerateCommands":["touch $PACKAGE_DIR/source/bar.d"]}`,
+			`dubtest/preGen/dub.json`);
+		auto pack = new Package(recipe, NativePath("dubtest/preGen".absolutePath));
 		auto pman = new PackageManager(pack.path, NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), false);
 		auto prj = new Project(pman, pack);
 

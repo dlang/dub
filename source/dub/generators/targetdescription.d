@@ -45,7 +45,7 @@ class TargetDescriptionGenerator : ProjectGenerator {
 			d.packages = ti.packages.map!(p => p.name).array;
 			d.rootConfiguration = ti.config;
 			d.buildSettings = ti.buildSettings.dup;
-			const buildId = computeBuildID(d.buildSettings, ti.config, settings);
+			const buildId = computeBuildID(d.buildSettings, ti.pack.path, ti.config, settings);
 			const filename = settings.compiler.getTargetFileName(d.buildSettings, settings.platform);
 			d.cacheArtifactPath = (targetCacheDir(settings.cache, ti.pack, buildId) ~ filename).toNativeString();
 			d.dependencies = ti.dependencies.dup;

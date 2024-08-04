@@ -12,7 +12,7 @@ package enum PackagesPath = "packages";
 	$(LINK https://code.dlang.org/)) to search for available packages.
 */
 class RegistryPackageSupplier : PackageSupplier {
-	import dub.internal.utils : download, retryDownload, HTTPStatusException;
+	import dub.internal.utils : retryDownload, HTTPStatusException;
 	import dub.internal.vibecompat.data.json : parseJson, parseJsonString, serializeToJson;
 	import dub.internal.vibecompat.inet.url : URL;
 	import dub.internal.logging;
@@ -66,17 +66,15 @@ class RegistryPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	override void fetchPackage(in NativePath path, in PackageName name,
+	override ubyte[] fetchPackage(in PackageName name,
 		in VersionRange dep, bool pre_release)
 	{
 		import std.format : format;
 
 		auto url = genPackageDownloadUrl(name, dep, pre_release);
-		if(url.isNull)
-			return;
+		if(url.isNull) return null;
 		try {
-			retryDownload(url.get, path);
-			return;
+			return retryDownload(url.get);
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;

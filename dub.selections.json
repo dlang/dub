@@ -4,18 +4,18 @@
 		"botan": "1.12.19",
 		"botan-math": "1.0.3",
 		"diet-ng": "1.8.1",
-		"eventcore": "0.9.27",
+		"eventcore": "0.9.30",
 		"libasync": "0.8.6",
 		"libev": "5.0.0+4.04",
 		"libevent": "2.0.2+2.0.16",
 		"memutils": "1.0.10",
 		"mir-linux-kernel": "1.0.1",
 		"openssl": "3.3.3",
-		"openssl-static": "1.0.2+3.0.8",
+		"openssl-static": "1.0.5+3.0.8",
 		"stdx-allocator": "2.77.5",
-		"taggedalgebraic": "0.11.22",
-		"vibe-container": "1.0.1",
-		"vibe-core": "2.7.1",
-		"vibe-d": "0.9.7"
+		"taggedalgebraic": "0.11.23",
+		"vibe-container": "1.3.1",
+		"vibe-core": "2.8.5",
+		"vibe-d": "0.9.8"
 	}
 }

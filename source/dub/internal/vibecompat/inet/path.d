@@ -185,6 +185,8 @@ struct NativePath {
 
 	/// The parent path
 	@property NativePath parentPath() const { return this[0 .. length-1]; }
+	/// Forward compatibility with vibe-d
+	@property bool hasParentPath() const { return length > 1; }
 
 	/// The list of path entries of which this path is composed
 	@property immutable(PathEntry)[] nodes() const { return m_nodes; }
@@ -219,7 +221,8 @@ struct NativePath {
 		ret.m_endsWithSlash = rhs.m_endsWithSlash;
 		ret.normalize(); // needed to avoid "."~".." become "" instead of ".."
 
-		assert(!rhs.absolute, "Trying to append absolute path.");
+		assert(!rhs.absolute, "Trying to append absolute path: " ~
+			this.toNativeString() ~ " ~ " ~ rhs.toNativeString());
 		foreach(folder; rhs.m_nodes){
 			switch(folder.toString()){
 				default: ret.m_nodes = ret.m_nodes ~ folder; break;

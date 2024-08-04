@@ -202,7 +202,7 @@ private void parseDependency(Tag t, ref BuildSettingsTemplate bs, in PackageName
 	auto pkg = expandPackageName(t.values[0].expect!string(t), name, t);
 	enforceSDL(pkg !in bs.dependencies, "The dependency '"~pkg~"' is specified more than once.", t);
 
-	Dependency dep = Dependency.any;
+	Dependency dep = Dependency.Any;
 	auto attrs = t.attributes;
 
 	if ("path" in attrs) {

@@ -12,7 +12,7 @@ on:
 jobs:
   pr_info:
     name: PR Info
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     # we first create a comment thanking the user in pr_info_intro.yml
     # (separate step due to needing GITHUB_TOKEN access)
@@ -29,7 +29,7 @@ jobs:
         compiler: ldc-latest
 
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 

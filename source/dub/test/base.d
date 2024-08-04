@@ -51,6 +51,7 @@ version (unittest):
 
 import std.array;
 public import std.algorithm;
+import std.datetime.systime;
 import std.exception;
 import std.format;
 import std.string;
@@ -59,22 +60,18 @@ import dub.data.settings;
 public import dub.dependency;
 public import dub.dub;
 public import dub.package_;
+import dub.internal.io.mockfs;
 import dub.internal.vibecompat.core.file : FileInfo;
-import dub.internal.vibecompat.inet.path;
+public import dub.internal.io.filesystem;
 import dub.packagemanager;
 import dub.packagesuppliers.packagesupplier;
 import dub.project;
 import dub.recipe.io : parsePackageRecipe;
+import dub.recipe.selection;
 
 /// Example of a simple unittest for a project with a single dependency
 unittest
 {
-    // `a` will be loaded as the project while `b` will be loaded
-    // as a simple package. The recipe files can be in JSON or SDL format,
-    // here we use both to demonstrate this.
-    const a = `{ "name": "a", "dependencies": { "b": "~>1.0" } }`;
-    const b = `name "b"`;
-
     // Enabling this would provide some more verbose output, which makes
     // debugging a failing unittest much easier.
     version (none) {
@@ -82,24 +79,35 @@ unittest
         scope(exit) disableLogging();
     }
 
-    scope dub = new TestDub();
-    // Let the `PackageManager` know about the `b` package
-    dub.addTestPackage("b", Version("1.0.0"), b, PackageFormat.sdl);
-    // And about our main package
-    auto mainPackage = dub.addTestPackage("a", Version("1.0.0"), a);
+    // Initialization is best done as a delegate passed to `TestDub` constructor,
+    // which receives an `FSEntry` representing the root of the filesystem.
+    // Various low-level functions are exposed (mkdir, writeFile, ...),
+    // as well as higher-level functions (`writePackageFile`).
+    scope dub = new TestDub((scope Filesystem root) {
+            // `a` will be loaded as the project while `b` will be loaded
+            // as a simple package. The recipe files can be in JSON or SDL format,
+            // here we use both to demonstrate this.
+            root.writeFile(TestDub.ProjectPath ~ "dub.json",
+                `{ "name": "a", "dependencies": { "b": "~>1.0" } }`);
+            root.writeFile(TestDub.ProjectPath ~ "dub.selections.json",
+                           `{"fileVersion": 1, "versions": {"b": "1.1.0"}}`);
+            // Note that you currently need to add the `version` to the package
+            root.writePackageFile("b", "1.0.0", `name "b"
+version "1.0.0"`, PackageFormat.sdl);
+            root.writePackageFile("b", "1.1.0", `name "b"
+version "1.1.0"`, PackageFormat.sdl);
+            root.writePackageFile("b", "1.2.0", `name "b"
+version "1.2.0"`, PackageFormat.sdl);
+    });
+
     // `Dub.loadPackage` will set this package as the project
     // While not required, it follows the common Dub use case.
-    dub.loadPackage(mainPackage);
-    // This triggers the dependency resolution process that happens
-    // when one does not have a selection file in the project.
-    // Dub will resolve dependencies and generate the selection file
-    // (in memory). If your test has set dependencies / no dependencies,
-    // this will not be needed.
-    dub.upgrade(UpgradeOptions.select);
+    dub.loadPackage();
 
     // Simple tests can be performed using the public API
     assert(dub.project.hasAllDependencies(), "project has missing dependencies");
     assert(dub.project.getDependency("b", true), "Missing 'b' dependency");
+    assert(dub.project.getDependency("b", true).version_ == Version("1.1.0"));
     // While it is important to make your tests fail before you make them pass,
     // as is common with TDD, it can also be useful to test simple assumptions
     // as part of your basic tests. Here we want to make sure `getDependency`
@@ -108,6 +116,31 @@ unittest
     // and tests are run serially in a module, so one may rely on previous tests
     // having passed to avoid repeating some assumptions.
     assert(dub.project.getDependency("no", true) is null, "Returned unexpected dependency");
+
+    // This triggers the dependency resolution process that happens
+    // when one does not have a selection file in the project.
+    // Dub will resolve dependencies and generate the selection file
+    // (in memory). If your test has set dependencies / no dependencies,
+    // this will not be needed.
+    dub.upgrade(UpgradeOptions.select);
+    assert(dub.project.getDependency("b", true).version_ == Version("1.1.0"));
+
+    /// Now actually upgrade dependencies in memory
+    dub.upgrade(UpgradeOptions.select | UpgradeOptions.upgrade);
+    assert(dub.project.getDependency("b", true).version_ == Version("1.2.0"));
+
+    /// Adding a package to the registry require the version and at list a recipe
+    dub.getRegistry().add(Version("1.3.0"), (scope Filesystem pkg) {
+        // This is required
+        pkg.writeFile(NativePath(`dub.sdl`), `name "b"`);
+        // Any other files can be present, as a normal package
+        pkg.mkdir(NativePath("source/b/"));
+        pkg.writeFile(
+            NativePath("main.d"), "module b.main; void main() {}");
+    });
+    // Fetch the package from the registry
+    dub.upgrade(UpgradeOptions.select | UpgradeOptions.upgrade);
+    assert(dub.project.getDependency("b", true).version_ == Version("1.3.0"));
 }
 
 // TODO: Remove and handle logging the same way we handle other IO
@@ -142,23 +175,115 @@ public void disableLogging()
  */
 public class TestDub : Dub
 {
-    /// Convenience constants for use in unittets
-    public static immutable ProjectPath = "/dub/project/";
+    /// The virtual filesystem that this instance acts on
+    public MockFS fs;
+
+    /**
+     * Redundant reference to the registry
+     *
+     * We currently create 2 `MockPackageSupplier`s hidden behind a
+     * `FallbackPackageSupplier` (see base implementation).
+     * The fallback is never used, and we need to provide the user
+     * a mean to access the registry so they can add packages to it.
+     */
+    protected MockPackageSupplier registry;
+
+    /// Convenience constants for use in unittests
+    version (Windows)
+        public static immutable Root = NativePath("T:\\dub\\");
+    else
+        public static immutable Root = NativePath("/dub/");
+
+    /// Ditto
+    public static immutable ProjectPath = Root ~ "project";
+
     /// Ditto
     public static immutable SpecialDirs Paths = {
-        temp: "/dub/temp/",
-        systemSettings: "/dub/system/",
-        userSettings: "/dub/user/",
-        userPackages: "/dub/user/",
-        cache: "/dub/user/cache/",
+        temp: Root ~ "temp/",
+        systemSettings: Root ~ "system/",
+        userSettings: Root ~ "user/",
+        userPackages: Root ~ "user/",
+        cache: Root ~ "user/" ~ "cache/",
     };
 
-    /// Forward to base constructor
-    public this (string root = ProjectPath,
+    /***************************************************************************
+
+        Instantiate a new `TestDub` instance with the provided filesystem state
+
+        This exposes the raw virtual filesystem to the user, allowing any kind
+        of customization to happen: Empty directory, non-writeable ones, etc...
+
+        Params:
+          dg = Delegate to be called with the filesystem, before `TestDub`
+               instantiation is performed;
+          root = The root path for this instance (forwarded to Dub)
+          extras = Extras `PackageSupplier`s (forwarded to Dub)
+          skip = What `PackageSupplier`s to skip (forwarded to Dub)
+
+    ***************************************************************************/
+
+    public this (scope void delegate(scope Filesystem root) dg = null,
+        string root = ProjectPath.toNativeString(),
         PackageSupplier[] extras = null,
         SkipPackageSuppliers skip = SkipPackageSuppliers.none)
     {
+        /// Create the fs & its base structure
+        auto fs_ = new MockFS();
+        fs_.mkdir(Paths.temp);
+        fs_.mkdir(Paths.systemSettings);
+        fs_.mkdir(Paths.userSettings);
+        fs_.mkdir(Paths.userPackages);
+        fs_.mkdir(Paths.cache);
+        fs_.mkdir(ProjectPath);
+        if (dg !is null) dg(fs_);
+        this(fs_, root, extras, skip);
+    }
+
+    /// Workaround https://issues.dlang.org/show_bug.cgi?id=24388 when called
+    /// when called with (null, ...).
+    public this (typeof(null) _,
+        string root = ProjectPath.toNativeString(),
+        PackageSupplier[] extras = null,
+        SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+    {
+        alias TType = void delegate(scope Filesystem);
+        this(TType.init, root, extras, skip);
+    }
+
+    /// Internal constructor
+    private this(MockFS fs_, string root, PackageSupplier[] extras,
+        SkipPackageSuppliers skip)
+    {
+        this.fs = fs_;
         super(root, extras, skip);
+    }
+
+    /***************************************************************************
+
+        Get a new `Dub` instance with the same filesystem
+
+        This creates a new `TestDub` instance with the existing filesystem,
+        allowing one to write tests that would normally require multiple Dub
+        instantiation (e.g. test that `fetch` is idempotent).
+        Like the main `TestDub` constructor, it allows to do modifications to
+        the filesystem before the new instantiation is made.
+
+        Params:
+          dg = Delegate to be called with the filesystem, before `TestDub`
+               instantiation is performed;
+
+        Returns:
+          A new `TestDub` instance referencing the same filesystem as `this`.
+
+    ***************************************************************************/
+
+    public TestDub newTest (scope void delegate(scope Filesystem root) dg = null,
+        string root = ProjectPath.toNativeString(),
+        PackageSupplier[] extras = null,
+        SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+    {
+        if (dg !is null) dg(this.fs);
+        return new TestDub(this.fs, root, extras, skip);
     }
 
     /// Avoid loading user configuration
@@ -169,25 +294,20 @@ public class TestDub : Dub
     }
 
 	///
-	protected override PackageManager makePackageManager() const
+	protected override PackageManager makePackageManager()
 	{
-		return new TestPackageManager();
+		assert(this.fs !is null);
+		return new TestPackageManager(this.fs);
 	}
 
     /// See `MockPackageSupplier` documentation for this class' implementation
-    protected override PackageSupplier makePackageSupplier(string url) const
+    protected override PackageSupplier makePackageSupplier(string url)
     {
-        return new MockPackageSupplier(url);
+        auto r = new MockPackageSupplier(url);
+        if (this.registry is null)
+            this.registry = r;
+        return r;
     }
-
-	/// Loads a specific package as the main project package (can be a sub package)
-	public override void loadPackage(Package pack)
-	{
-		m_project = new Project(m_packageManager, pack, new TestSelectedVersions());
-	}
-
-	/// Reintroduce parent overloads
-	public alias loadPackage = Dub.loadPackage;
 
 	/**
 	 * Returns a fully typed `TestPackageManager`
@@ -200,70 +320,19 @@ public class TestDub : Dub
 		return cast(inout(TestPackageManager)) this.m_packageManager;
 	}
 
-	/**
-	 * Creates a package with the provided recipe
-	 *
-	 * This is a convenience function provided to create a package based on
-	 * a given recipe. This is to allow test-cases to be written based off
-	 * issues more easily.
+    /**
+     * Returns a fully-typed `MockPackageSupplier`
      *
-     * In order for the `Package` to be visible to `Dub`, use `addTestPackage`,
-     * as `makeTestPackage` simply creates the `Package` without adding it.
-	 *
-	 * Params:
-	 *	 str = The string representation of the `PackageRecipe`
-	 *	 recipe = The `PackageRecipe` to use
-	 *	 vers = The version the package is at, e.g. `Version("1.0.0")`
-	 *	 fmt = The format `str` is in, either JSON or SDL
-	 *
-	 * Returns:
-	 *	 The created `Package` instance
-	 */
-	public Package makeTestPackage(string str, Version vers, PackageFormat fmt = PackageFormat.json)
-	{
-		final switch (fmt) {
-			case PackageFormat.json:
-				auto recipe = parsePackageRecipe(str, "dub.json");
-                recipe.version_ = vers.toString();
-                return new Package(recipe);
-			case PackageFormat.sdl:
-				auto recipe = parsePackageRecipe(str, "dub.sdl");
-                recipe.version_ = vers.toString();
-                return new Package(recipe);
-		}
-	}
-
-	/// Ditto
-	public Package addTestPackage(string name, Version vers, string content,
-		PackageFormat fmt = PackageFormat.json)
-	{
-		return this.packageManager.add(PackageName(name), vers, content, fmt);
-	}
-}
-
-/**
- *
- */
-public class TestSelectedVersions : SelectedVersions {
-	import dub.recipe.selection;
-
-	/// Forward to parent's constructor
-	public this(uint version_ = FileVersion) @safe pure
-	{
-		super(version_);
-	}
-
-	/// Ditto
-	public this(Selections!1 data) @safe pure nothrow @nogc
-	{
-		super(data);
-	}
-
-	/// Do not do IO
-	public override void save(NativePath path)
-	{
-		// No-op
-	}
+     * This exposes the first (and usually sole) `PackageSupplier` if typed
+     * as `MockPackageSupplier` so that client can call convenience functions
+     * on it directly.
+     */
+    public @property inout(MockPackageSupplier) getRegistry() inout
+    {
+        // This will not work with `SkipPackageSupplier`.
+        assert(this.registry !is null, "The registry hasn't been instantiated?");
+		return this.registry;
+    }
 }
 
 /**
@@ -275,200 +344,73 @@ public class TestSelectedVersions : SelectedVersions {
  */
 package class TestPackageManager : PackageManager
 {
-    /// List of all SCM packages that can be fetched by this instance
-    protected Package[Repository] scm;
-    /// The virtual filesystem that this PackageManager acts on
-    protected FSEntry fs;
-
-    this()
-    {
-        NativePath local = NativePath(TestDub.ProjectPath);
-        NativePath user = TestDub.Paths.userSettings;
-        NativePath system = TestDub.Paths.systemSettings;
-        this.fs = new FSEntry();
-        super(local, user, system, false);
-    }
-
-    // Re-introduce hidden/deprecated overloads
-    public alias loadSCMPackage = PackageManager.loadSCMPackage;
-    public alias store = PackageManager.store;
-
-    /// Disabled as semantic are not implementable unless a virtual FS is created
-	public override @property void customCachePaths(NativePath[] custom_cache_paths)
-    {
-        assert(0, "Function not implemented");
-    }
-
-    /// Ditto
-    public override Package store(NativePath src, PlacementLocation dest, in PackageName name, in Version vers)
-    {
-        assert(0, "Function not implemented");
-    }
-
-    /**
-     * This function usually scans the filesystem for packages.
-     *
-     * We don't want to do IO access and rely on users adding the packages
-     * before the test starts instead.
-     *
-     * Note: Deprecated `refresh(bool)` does IO, but it's deprecated
-     */
-	public override void refresh()
-	{
-		// Local packages are not yet implemented
-		version (none) {
-			foreach (ref repository; this.m_repositories)
-				repository.scanLocalPackages(false, this);
-		}
-		this.m_internal.scan(this, false);
-		foreach (ref repository; this.m_repositories)
-			repository.scan(this, false);
-
-		// Removed override loading usually done here as they are deprecated
-		this.m_initialized = true;
-	}
-
-	/**
-	 * Loads a `Package`
-	 *
-	 * This is currently not implemented, and any call to it will trigger
-	 * an assert, as that would otherwise be an access to the filesystem.
-	 */
-	protected override Package load(NativePath path, NativePath recipe = NativePath.init,
-		Package parent = null, string version_ = null,
-		StrictMode mode = StrictMode.Ignore)
-	{
-		import dub.internal.utils : stripUTF8Bom;
-		if (recipe.empty)
-			recipe = this.findPackageFile(path);
-
-		enforce(!recipe.empty,
-			"No package file found in %s, expected one of %s"
-				.format(path.toNativeString(),
-					packageInfoFiles.map!(f => cast(string)f.filename).join("/")));
-
-		const PackageName parent_name = parent
-			? PackageName(parent.name) : PackageName.init;
-
-		string text = stripUTF8Bom(cast(string)this.fs.readFile(recipe));
-		auto content = parsePackageRecipe(text, recipe.toNativeString(),
-			parent_name, null, mode);
-
-		auto ret = new Package(content, path, parent, version_);
-		ret.m_infoFile = recipe;
-		return ret;
-	}
-
-	/// Reimplementation of `Package.findPackageFile`
-	public NativePath findPackageFile(NativePath directory)
-	{
-		foreach (file; packageInfoFiles) {
-			auto filename = directory ~ file.filename;
-			if (this.fs.existsFile(filename)) return filename;
-		}
-		return NativePath.init;
-	}
-
-	/**
-	 * Re-Implementation of `loadSCMPackage`.
-	 *
-	 * The base implementation will do a `git` clone, which we would like to avoid.
-	 * Instead, we allow unittests to explicitly define what packages should be
-	 * reachable in a given test.
-	 */
-	public override Package loadSCMPackage(in PackageName name, in Repository repo)
-	{
-        import std.string : chompPrefix;
-
-		// We're trying to match `loadGitPackage` as much as possible
-		if (!repo.ref_.startsWith("~") && !repo.ref_.isGitHash)
-			return null;
-
-		string gitReference = repo.ref_.chompPrefix("~");
-		NativePath destination = this.getPackagePath(PlacementLocation.user, name, repo.ref_);
-
-		foreach (p; getPackageIterator(name.toString()))
-			if (p.path == destination)
-				return p;
-
-		return this.loadSCMRepository(name, repo);
-	}
-
-	/// The private part of `loadSCMPackage`
-	protected Package loadSCMRepository(in PackageName name, in Repository repo)
-	{
-		if (auto prepo = repo in this.scm) {
-			this.addPackages(this.m_internal.fromPath, *prepo);
-			return *prepo;
+    /// `loadSCMPackage` will strip some part of the remote / repository,
+    /// which we need to mimic to provide a usable API.
+    private struct GitReference {
+        ///
+        this (in Repository repo) {
+            this.remote = repo.remote.chompPrefix("git+");
+            this.ref_ = repo.ref_.chompPrefix("~");
         }
-		return null;
-	}
 
-    /**
-     * Adds a `Package` to this `PackageManager`
-     *
-     * This is currently only available in unittests as it is a convenience
-     * function used by `TestDub`, but could be generalized once IO has been
-     * abstracted away from this class.
-     */
-	public Package add(in PackageName pkg, in Version vers, string content,
-		PackageFormat fmt, PlacementLocation loc = PlacementLocation.user)
+        ///
+        this (in string remote, in string gitref) {
+            this.remote = remote;
+            this.ref_ = gitref;
+        }
+
+        string remote;
+        string ref_;
+    }
+
+
+    /// List of all SCM packages that can be fetched by this instance
+    protected string[GitReference] scm;
+
+    this(Filesystem filesystem)
+    {
+        NativePath local = TestDub.ProjectPath ~ ".dub/packages/";
+        NativePath user = TestDub.Paths.userSettings ~ "packages/";
+        NativePath system = TestDub.Paths.systemSettings ~ "packages/";
+        super(filesystem, local, user, system);
+    }
+
+	/**
+	 * Re-Implementation of `gitClone`.
+	 *
+	 * The base implementation will do a `git` clone, to the file-system.
+	 * We need to mock both the `git` part and the write to the file system.
+	 */
+	protected override bool gitClone(string remote, string gitref, in NativePath dest)
 	{
-		import dub.recipe.io : serializePackageRecipe;
-
-		auto path = this.getPackagePath(loc, pkg, vers.toString());
-		this.fs.mkdir(path);
-
-		final switch (fmt) {
-		case PackageFormat.json:
-			path ~= "dub.json";
-			break;
-		case PackageFormat.sdl:
-			path ~= "dub.sdl";
-			break;
-		}
-
-		auto recipe = parsePackageRecipe(content, path.toNativeString());
-		recipe.version_ = vers.toString();
-		auto app = appender!string();
-		serializePackageRecipe(app, recipe, path.toNativeString());
-		this.fs.writeFile(path, app.data());
-
-		this.refresh();
-		return this.getPackage(pkg, vers, loc);
+        if (auto pstr = GitReference(remote, gitref) in this.scm) {
+            this.fs.mkdir(dest);
+            this.fs.writeFile(dest ~ "dub.json", *pstr);
+            return true;
+        }
+        return false;
 	}
 
     /// Add a reachable SCM package to this `PackageManager`
-    public void addTestSCMPackage(Repository repo, Package pkg)
+    public void addTestSCMPackage(in Repository repo, string dub_json)
     {
-        this.scm[repo] = pkg;
+        this.scm[GitReference(repo)] = dub_json;
     }
 
-    ///
-    protected override bool existsDirectory(NativePath path)
-    {
-        return this.fs.existsDirectory(path);
-    }
+	/// Overriden because we currently don't have a way to do dependency
+    /// injection on `dub.internal.utils : lockFile`.
+	public override Package store(ubyte[] data, PlacementLocation dest,
+		in PackageName name, in Version vers)
+	{
+        // Most of the code is copied from the base method
+		assert(!name.sub.length, "Cannot store a subpackage, use main package instead");
+		NativePath dstpath = this.getPackagePath(dest, name, vers.toString());
+		this.fs.mkdir(dstpath.parentPath());
 
-    ///
-    protected override IterateDirDg iterateDirectory(NativePath path)
-    {
-        enforce(this.fs.existsDirectory(path),
-            path.toNativeString() ~ " does not exists or is not a directory");
-        auto dir = this.fs.lookup(path);
-        int iterator(scope int delegate(ref FileInfo) del) {
-            foreach (c; dir.children) {
-                FileInfo fi;
-                fi.name = c.name;
-                fi.size = (c.type == FSEntry.Type.Directory) ? 0 : c.content.length;
-                fi.isDirectory = (c.type == FSEntry.Type.Directory);
-                if (auto res = del(fi))
-                    return res;
-            }
-            return 0;
-        }
-        return &iterator;
-    }
+		if (this.fs.existsFile(dstpath))
+			return this.getPackage(name, vers, dest);
+		return this.store_(data, dstpath, name, vers);
+	}
 }
 
 /**
@@ -479,8 +421,16 @@ package class TestPackageManager : PackageManager
  */
 public class MockPackageSupplier : PackageSupplier
 {
-    /// Mapping of package name to packages, ordered by `Version`
-    protected Package[][PackageName] pkgs;
+    /// Internal duplication to avoid having to deserialize the zip content
+    private struct PkgData {
+        ///
+        PackageRecipe recipe;
+        ///
+        ubyte[] data;
+    }
+
+    /// Mapping of package name to package zip data, ordered by `Version`
+    protected PkgData[Version][PackageName] pkgs;
 
     /// URL this was instantiated with
     protected string url;
@@ -489,6 +439,50 @@ public class MockPackageSupplier : PackageSupplier
     public this(string url)
     {
         this.url = url;
+    }
+
+    /**
+     * Adds a package to this `PackageSupplier`
+     *
+     * The registry API bakes in Zip files / binary data.
+     * When adding a package here, just provide an `Filesystem`
+     * representing the package directory, which will be converted
+     * to ZipFile / `ubyte[]` and returned by `fetchPackage`.
+     *
+     * This use a delegate approach similar to `TestDub` constructor:
+     * a delegate must be provided to initialize the package content.
+     * The delegate will be called once and is expected to contain,
+     * at its root, the package.
+     *
+     * The name of the package will be defined from the recipe file.
+     * It's version, however, must be provided as parameter.
+     *
+     * Params:
+     *   vers = The `Version` of this package.
+     *   dg = A delegate that will populate its parameter with the
+     *        content of the package.
+     */
+    public void add (in Version vers, scope void delegate(scope Filesystem root) dg)
+    {
+        scope pkgRoot = new MockFS();
+        dg(pkgRoot);
+
+        string recipe = pkgRoot.existsFile(NativePath("dub.json")) ? "dub.json" : null;
+        if (recipe is null)
+            recipe = pkgRoot.existsFile(NativePath("dub.sdl")) ? "dub.sdl" : null;
+        if (recipe is null)
+            recipe = pkgRoot.existsFile(NativePath("package.json")) ? "package.json" : null;
+        // Note: If you want to provide an invalid package, override
+        // [Mock]PackageSupplier. Most tests will expect a well-behaving
+        // registry so this assert is here to help with writing tests.
+        assert(recipe !is null,
+               "No package recipe found: Expected dub.json or dub.sdl");
+        auto pkgRecipe = parsePackageRecipe(
+            pkgRoot.readText(NativePath(recipe)), recipe);
+        pkgRecipe.version_ = vers.toString();
+        const name = PackageName(pkgRecipe.name);
+        this.pkgs[name][vers] = PkgData(
+            pkgRecipe, pkgRoot.serializeToZip("%s-%s/".format(name, vers)));
     }
 
     ///
@@ -501,16 +495,15 @@ public class MockPackageSupplier : PackageSupplier
     public override Version[] getVersions(in PackageName name)
     {
         if (auto ppkgs = name.main in this.pkgs)
-            return (*ppkgs).map!(pkg => pkg.version_).array;
+            return (*ppkgs).keys;
         return null;
     }
 
     ///
-    public override void fetchPackage(in NativePath path, in PackageName name,
+    public override ubyte[] fetchPackage(in PackageName name,
         in VersionRange dep, bool pre_release)
     {
-        assert(0, "%s - fetchPackage not implemented for: %s"
-            .format(this.url, name.main));
+        return this.getBestMatch(name, dep, pre_release).data;
     }
 
     ///
@@ -519,12 +512,30 @@ public class MockPackageSupplier : PackageSupplier
     {
         import dub.recipe.json;
 
-        if (auto ppkgs = name.main in this.pkgs)
-            foreach_reverse (pkg; *ppkgs)
-                if ((!pkg.version_.isPreRelease || pre_release) &&
-                    dep.matches(pkg.version_))
-                    return toJson(pkg.recipe);
-        return Json.init;
+        auto match = this.getBestMatch(name, dep, pre_release);
+        if (!match.data.length)
+            return Json.init;
+        auto res = toJson(match.recipe);
+        return res;
+    }
+
+    ///
+    protected PkgData getBestMatch (
+        in PackageName name, in VersionRange dep, bool pre_release)
+    {
+        auto ppkgs = name.main in this.pkgs;
+        if (ppkgs is null)
+            return typeof(return).init;
+
+        PkgData match;
+        foreach (vers, pr; *ppkgs)
+            if ((!vers.isPreRelease || pre_release) &&
+                dep.matches(vers) &&
+                (!match.data.length || Version(match.recipe.version_) < vers)) {
+                match.recipe = pr.recipe;
+                match.data = pr.data;
+            }
+        return match;
     }
 
     ///
@@ -534,155 +545,52 @@ public class MockPackageSupplier : PackageSupplier
     }
 }
 
-/// An abstract filesystem representation
-public class FSEntry
+/**
+ * Convenience function to write a package file
+ *
+ * Allows to write a package file (and only a package file) for a certain
+ * package name and version.
+ *
+ * Params:
+ *   root = The root Filesystem
+ *   name = The package name (typed as string for convenience)
+ *   vers = The package version
+ *   recipe = The text of the package recipe
+ *   fmt = The format used for `recipe` (default to JSON)
+ *   location = Where to place the package (default to user location)
+ */
+public void writePackageFile (Filesystem root, in string name, in string vers,
+    in string recipe, in PackageFormat fmt = PackageFormat.json,
+    in PlacementLocation location = PlacementLocation.user)
 {
-    /// Type of file system entry
-    public enum Type {
-        Directory,
-        File,
-    }
+    const path = getPackagePath(name, vers, location);
+    root.mkdir(path);
+    root.writeFile(
+        path ~ (fmt == PackageFormat.json ? "dub.json" : "dub.sdl"),
+        recipe);
+}
 
-    /// Ditto
-    protected Type type;
-    /// The name of this node
-    protected string name;
-    /// The parent of this entry (can be null for the root)
-    protected FSEntry parent;
-    union {
-        /// Children for this FSEntry (with type == Directory)
-        protected FSEntry[] children;
-        /// Content for this FDEntry (with type == File)
-        protected ubyte[] content;
-    }
-
-    /// Creates a new FSEntry
-    private this (FSEntry p, Type t, string n)
+/// Returns: The final destination a specific package needs to be stored in
+public static NativePath getPackagePath(in string name_, string vers,
+    PlacementLocation location = PlacementLocation.user)
+{
+    PackageName name = PackageName(name_);
+    // Keep in sync with `dub.packagemanager: PackageManager.getPackagePath`
+    // and `Location.getPackagePath`
+    NativePath result (in NativePath base)
     {
-        this.type = t;
-        this.parent = p;
-        this.name = n;
+        NativePath res = base ~ name.main.toString() ~ vers ~
+            name.main.toString();
+        res.endsWithSlash = true;
+        return res;
     }
 
-    /// Create the root of the filesystem, only usable from this module
-    private this (bool initialize = true)
-    {
-        this.type = Type.Directory;
-
-        if (initialize) {
-            /// Create the base structure
-            this.mkdir(TestDub.Paths.temp);
-            this.mkdir(TestDub.Paths.systemSettings);
-            this.mkdir(TestDub.Paths.userSettings);
-            this.mkdir(TestDub.Paths.userPackages);
-            this.mkdir(TestDub.Paths.cache);
-
-            this.mkdir(NativePath(TestDub.ProjectPath));
-        }
-    }
-
-    /// Get a direct children node, returns `null` if it can't be found
-    protected FSEntry lookup(string name)
-    {
-        assert(!name.canFind('/'));
-        foreach (c; this.children)
-            if (c.name == name)
-                return c;
-        return null;
-    }
-
-    /// Returns: A path relative to `this.path`
-    protected NativePath relativePath(NativePath path)
-    {
-        assert(!path.absolute() || path.startsWith(this.path),
-               "Calling relativePath with a differently rooted path");
-        return path.absolute() ? path.relativeTo(this.path) : path;
-    }
-
-    /// Get an arbitrarily nested children node
-    protected FSEntry lookup(NativePath path)
-    {
-        auto relp = this.relativePath(path);
-        if (relp.empty)
-            return this;
-        auto segments = relp.bySegment;
-        if (auto c = this.lookup(segments.front.name)) {
-            segments.popFront();
-            return !segments.empty ? c.lookup(NativePath(segments)) : c;
-        }
-        return null;
-    }
-
-    /// Returns: The `path` of this FSEntry
-    public NativePath path() const
-    {
-        if (this.parent is null)
-            return NativePath("/");
-        auto thisPath = this.parent.path ~ this.name;
-        thisPath.endsWithSlash = (this.type == Type.Directory);
-        return thisPath;
-    }
-
-    /// Implements `mkdir -p`, returns the created directory
-    public FSEntry mkdir (NativePath path)
-    {
-        auto relp = this.relativePath(path);
-        // Check if the child already exists
-        auto segments = relp.bySegment;
-        auto child = this.lookup(segments.front.name);
-        if (child is null) {
-            child = new FSEntry(this, Type.Directory, segments.front.name);
-            this.children ~= child;
-        }
-        // Recurse if needed
-        segments.popFront();
-        return !segments.empty ? child.mkdir(NativePath(segments)) : child;
-    }
-
-    /// Checks the existence of a file
-    public bool existsFile (NativePath path)
-    {
-        auto entry = this.lookup(path);
-        return entry !is null && entry.type == Type.File;
-    }
-
-    /// Checks the existence of a directory
-    public bool existsDirectory (NativePath path)
-    {
-        auto entry = this.lookup(path);
-        return entry !is null && entry.type == Type.Directory;
-    }
-
-    /// Reads a file, returns the content as `ubyte[]`
-    public ubyte[] readFile (NativePath path)
-    {
-        auto entry = this.lookup(path);
-        enforce(entry.type == Type.File, "Trying to read a directory");
-        return entry.content.dup;
-    }
-
-    /// Write to this file
-    public void writeFile (NativePath path, const(char)[] data)
-    {
-        this.writeFile(path, data.representation);
-    }
-
-    /// Ditto
-    public void writeFile (NativePath path, const(ubyte)[] data)
-    {
-        if (auto file = this.lookup(path)) {
-            enforce(file.type == Type.File,
-                "Trying to write to directory: " ~ path.toNativeString());
-            file.content = data.dup;
-        } else {
-            auto parentPath = path.parentPath();
-            auto parent = this.lookup(parentPath);
-            enforce(parent !is null, "No such directory: " ~ parentPath.toNativeString());
-            enforce(parent.type == Type.Directory,
-                "Parent path is not a directory: " ~ parentPath.toNativeString());
-            auto file = new FSEntry(parent, Type.File, path.head.name());
-            file.content = data.dup;
-            parent.children ~= file;
-        }
+    final switch (location) {
+    case PlacementLocation.user:
+        return result(TestDub.Paths.userSettings ~ "packages/");
+    case PlacementLocation.system:
+        return result(TestDub.Paths.systemSettings ~ "packages/");
+    case PlacementLocation.local:
+        return result(TestDub.ProjectPath ~ "/.dub/packages/");
     }
 }

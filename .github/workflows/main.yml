@@ -30,7 +30,7 @@ jobs:
       - name: Install latest DMD
         uses: dlang-community/setup-dlang@v1
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Run tests
         run: |
           # check for trailing whitespace
@@ -52,7 +52,7 @@ jobs:
       fail-fast: false
       matrix:
         # Latest stable version, update at will
-        os: [ macOS-11, ubuntu-20.04, windows-2019 ]
+        os: [ macOS-12, ubuntu-20.04, windows-2019 ]
         dc:
           # Always test latest as that is what we use to compile on release
           - dmd-latest
@@ -61,10 +61,10 @@ jobs:
           - dmd-master
           - ldc-master
           # Test some intermediate versions
-          - ldc-1.26.0
-          - dmd-2.098.1
-          - dmd-2.101.1
-          - dmd-2.104.2
+          - ldc-1.29.0
+          - dmd-2.099.1
+          - dmd-2.102.2
+          - dmd-2.105.3
         include:
           - { do_test: false }
           - { dc: dmd-latest, do_test: true }
@@ -95,7 +95,7 @@ jobs:
 
     # Checkout the repository
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: '[POSIX] Test'
       if: runner.os != 'Windows'
@@ -133,4 +133,5 @@ jobs:
       shell: bash
 
     - name: Codecov
-      uses: codecov/codecov-action@v3
+      if: matrix.do_test && runner.os != 'Windows'
+      uses: codecov/codecov-action@v4

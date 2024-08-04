@@ -1,6 +1,10 @@
 module dub.packagesuppliers.filesystem;
 
+import dub.internal.logging;
+import dub.internal.vibecompat.inet.path;
 import dub.packagesuppliers.packagesupplier;
+
+import std.exception : enforce;
 
 /**
 	File system based package supplier.
@@ -9,10 +13,6 @@ import dub.packagesuppliers.packagesupplier;
 	the form "[package name]-[version].zip".
 */
 class FileSystemPackageSupplier : PackageSupplier {
-	import dub.internal.logging;
-
-	version (Have_vibe_core) import dub.internal.vibecompat.inet.path : toNativeString;
-	import std.exception : enforce;
 	private {
 		NativePath m_path;
 	}
@@ -44,15 +44,14 @@ class FileSystemPackageSupplier : PackageSupplier {
 		return ret;
 	}
 
-	override void fetchPackage(in NativePath path, in PackageName name,
+	override ubyte[] fetchPackage(in PackageName name,
 		in VersionRange dep, bool pre_release)
 	{
-		import dub.internal.vibecompat.core.file : copyFile, existsFile;
-		enforce(path.absolute);
+		import dub.internal.vibecompat.core.file : readFile, existsFile;
 		logInfo("Storing package '%s', version requirements: %s", name.main, dep);
 		auto filename = bestPackageFile(name, dep, pre_release);
 		enforce(existsFile(filename));
-		copyFile(filename, path);
+		return readFile(filename);
 	}
 
 	override Json fetchPackageRecipe(in PackageName name, in VersionRange dep,

@@ -7,12 +7,13 @@ set -euo pipefail
 
 TMPDIR=$(mktemp -d "$(basename "$0").XXXXXX")
 
+pushd "$TMPDIR"
 function cleanup {
+    popd
     rm -rf "$TMPDIR"
 }
 trap cleanup EXIT
 
-cd "$TMPDIR"
 
 echo 'name "foo"' > dub.sdl
 

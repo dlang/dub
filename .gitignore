@@ -1,11 +1,24 @@
 *.o
 *.obj
+*.pdb
 *~
 
-.dub
-.directory
-dub.selections.json
+# Unknown hidden files
+.*
+!.gitignore
+!/.github
+!/.editorconfig
+!/.codecov.yml
 
+# Unknown script files
+/*.sh
+/*.bat
+/*.cmd
+!/build.cmd
+!/build.sh
+
+# dub generation files
+dub.selections.json
 docs.json
 __dummy.html
 
@@ -20,7 +33,22 @@ __dummy.html
 
 # Ignore files or directories created by the test suite.
 *.exe
+*.lib
 *.log
+/test/*/*
+/test/*.*
+!/test/*.d
+!/test/*.d.min_frontend
+!/test/*.sh
+!/test/*.sh.min_frontend
+!/test/*/.no_*
+!/test/*/.min_frontend
+!/test/*/.fail_build
+!/test/*/dub.json
+!/test/*/dub.sdl
+!/test/*/dub.settings.json
+!/test/*/source/
+!/test/*/src/
 
 # Ignore coverage files
 cov/

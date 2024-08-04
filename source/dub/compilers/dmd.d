@@ -128,46 +128,14 @@ config    /etc/dmd.conf
 			arch_override
 		);
 
-		/// Replace architecture string in `bp.architecture`
-		void replaceArch(const string from, const string to)
-		{
-			const idx = bp.architecture.countUntil(from);
-			if (idx != -1)
-				bp.architecture[idx] = to;
-		}
-
-		// DMD 2.099 changed the default for -m32 from OMF to MsCOFF
-		const m32IsCoff = bp.frontendVersion >= 2_099;
-
 		switch (arch_override) {
 			default: throw new UnsupportedArchitectureException(arch_override);
 			case "": break;
-			case "x86": arch_flags = ["-m32"]; break;
+			// DMD 2.099  made MsCOFF the default, and DMD v2.109 removed OMF
+			// support. Default everything to MsCOFF, people wanting to use OMF
+			// should use an older DMD / dub.
+			case "x86", "x86_omf", "x86_mscoff": arch_flags = ["-m32"]; break;
 			case "x86_64": arch_flags = ["-m64"]; break;
-
-			case "x86_omf":
-				if (m32IsCoff)
-				{
-					arch_flags = [ "-m32omf" ];
-					replaceArch("x86_mscoff", "x86_omf"); // Probe used the wrong default
-				}
-				else // -m32 is OMF
-				{
-					arch_flags = [ "-m32" ];
-				}
-				break;
-
-			case "x86_mscoff":
-				if (m32IsCoff)
-				{
-					arch_flags = [ "-m32" ];
-				}
-				else // -m32 is OMF
-				{
-					arch_flags = [ "-m32mscoff" ];
-					replaceArch("x86_omf", "x86_mscoff"); // Probe used the wrong default
-				}
-				break;
 		}
 		settings.addDFlags(arch_flags);
 
@@ -181,33 +149,22 @@ config    /etc/dmd.conf
 		auto bp = compiler.determinePlatform(settings, "dmd", "x86");
 		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86"));
-		const defaultOMF = (bp.frontendVersion < 2_099);
-		assert(bp.architecture.canFind("x86_omf")	 == defaultOMF);
-		assert(bp.architecture.canFind("x86_mscoff") != defaultOMF);
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "x86_omf");
 		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86"));
-		assert(bp.architecture.canFind("x86_omf"));
-		assert(!bp.architecture.canFind("x86_mscoff"));
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "x86_mscoff");
 		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86"));
-		assert(!bp.architecture.canFind("x86_omf"));
-		assert(bp.architecture.canFind("x86_mscoff"));
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "x86_64");
 		assert(bp.isWindows());
 		assert(bp.architecture.canFind("x86_64"));
 		assert(!bp.architecture.canFind("x86"));
-		assert(!bp.architecture.canFind("x86_omf"));
-		assert(!bp.architecture.canFind("x86_mscoff"));
 		settings = BuildSettings.init;
 		bp = compiler.determinePlatform(settings, "dmd", "");
 		if (!isWow64.isNull && !isWow64.get) assert(bp.architecture.canFind("x86"));
-		if (!isWow64.isNull && !isWow64.get) assert(bp.architecture.canFind("x86_mscoff"));
-		if (!isWow64.isNull && !isWow64.get) assert(!bp.architecture.canFind("x86_omf"));
 		if (!isWow64.isNull &&  isWow64.get) assert(bp.architecture.canFind("x86_64"));
 	}
 
@@ -218,11 +175,9 @@ config    /etc/dmd.conf
 		auto compiler = new DMDCompiler;
 		auto bp = compiler.determinePlatform(settings, "ldmd2", "x86");
 		assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
-		assert(!bp.architecture.canFind("x86_omf"), bp.architecture.to!string);
 		bp = compiler.determinePlatform(settings, "ldmd2", "");
 		version (X86) assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
 		version (X86_64) assert(bp.architecture.canFind("x86_64"), bp.architecture.to!string);
-		assert(!bp.architecture.canFind("x86_omf"), bp.architecture.to!string);
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform,
@@ -433,7 +388,7 @@ config    /etc/dmd.conf
 	static bool isLinkerDFlag(string arg)
 	{
 		switch (arg) {
-			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib", "-m32omf", "-m32mscoff", "-betterC":
+			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib", "-betterC":
 				return true;
 			default:
 				return arg.startsWith("-L")

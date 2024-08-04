@@ -216,7 +216,7 @@ class BuildGenerator : ProjectGenerator {
 		auto cwd = settings.toolWorkingDirectory;
 		bool generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 
-		auto build_id = buildsettings.computeBuildID(config, settings);
+		auto build_id = buildsettings.computeBuildID(pack.path, config, settings);
 
 		// make all paths relative to shrink the command line
 		string makeRelative(string path) { return shrinkPath(NativePath(path), cwd); }
@@ -321,7 +321,7 @@ class BuildGenerator : ProjectGenerator {
 		const dbPathStr = dbPath.toNativeString();
 		Json db;
 		if (exists(dbPathStr)) {
-			const text = stripUTF8Bom(cast(string)readFile(dbPath));
+			const text = readText(dbPath);
 			db = parseJsonString(text, dbPathStr);
 			enforce(db.type == Json.Type.array, "Expected a JSON array in " ~ dbPathStr);
 		}
@@ -766,15 +766,17 @@ unittest {
 }
 
 unittest { // issue #1235 - pass no library files to compiler command line when building a static lib
-	import dub.internal.vibecompat.data.json : parseJsonString;
+	import dub.recipe.io : parsePackageRecipe;
 	import dub.compilers.gdc : GDCCompiler;
 	import dub.platform : determinePlatform;
 
 	version (Windows) auto libfile = "bar.lib";
 	else auto libfile = "bar.a";
 
-	auto desc = parseJsonString(`{"name": "test", "targetType": "library", "sourceFiles": ["foo.d", "`~libfile~`"]}`);
-	auto pack = new Package(desc, NativePath("/tmp/fooproject"));
+	auto recipe = parsePackageRecipe(
+        `{"name":"test", "targetType":"library", "sourceFiles":["foo.d", "`~libfile~`"]}`,
+        `/tmp/fooproject/dub.json`);
+	auto pack = new Package(recipe, NativePath("/tmp/fooproject"));
 	auto pman = new PackageManager(pack.path, NativePath("/tmp/foo/"), NativePath("/tmp/foo/"), false);
 	auto prj = new Project(pman, pack);
 

@@ -48,9 +48,7 @@ deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryU
 /// The URL to the official package registry and it's default fallback registries.
 static immutable string[] defaultRegistryURLs = [
 	"https://code.dlang.org/",
-	"https://codemirror.dlang.org/",
-	"https://dub.bytecraft.nl/",
-	"https://code-mirror.dlang.io/",
+	"https://codemirror.dlang.org/"
 ];
 
 /** Returns a default list of package suppliers.
@@ -79,7 +77,10 @@ PackageSupplier getRegistryPackageSupplier(string url)
 
 // Private to avoid a bug in `defaultPackageSuppliers` with `map` triggering a deprecation
 // even though the context is deprecated.
-private PackageSupplier _getRegistryPackageSupplier(string url)
+// Also used from `commandline`. Note that this is replaced by a method
+// in the `Dub` class, to allow for proper dependency injection,
+// but `commandline` is currently completely excluded.
+package(dub) PackageSupplier _getRegistryPackageSupplier(string url)
 {
 	switch (url.startsWith("dub+", "mvn+", "file://"))
 	{
@@ -159,6 +160,13 @@ class Dub {
 
 		init();
 
+		if (skip == SkipPackageSuppliers.default_) {
+			// If unspecified on the command line, take
+			// the value from the configuration files, or
+			// default to none.
+			skip = m_config.skipRegistry.set ? m_config.skipRegistry.value : SkipPackageSuppliers.none;
+		}
+
 		const registry_var = environment.get("DUB_REGISTRY", null);
 		m_packageSuppliers = this.makePackageSuppliers(base, skip, registry_var);
 		m_packageManager = this.makePackageManager();
@@ -212,7 +220,7 @@ class Dub {
 	 * generally in a library setup, one may wish to provide a custom
 	 * implementation, which can be done by overriding this method.
 	 */
-	protected PackageManager makePackageManager() const
+	protected PackageManager makePackageManager()
 	{
 		return new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
 	}
@@ -368,15 +376,15 @@ class Dub {
 		import dub.test.base : TestDub;
 
 		scope (exit) environment.remove("DUB_REGISTRY");
-		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		auto dub = new TestDub(null, "/dub/project/", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 0);
 		environment["DUB_REGISTRY"] = "http://example.com/";
-		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(null, "/dub/project/", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 1);
 		environment["DUB_REGISTRY"] = "http://example.com/;http://foo.com/";
-		dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		dub = new TestDub(null, "/dub/project/", null, SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 2);
-		dub = new TestDub(".", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
+		dub = new TestDub(null, "/dub/project/", [new RegistryPackageSupplier(URL("http://bar.com/"))], SkipPackageSuppliers.configured);
 		assert(dub.packageSuppliers.length == 3);
 
 		dub = new TestDub();
@@ -400,7 +408,7 @@ class Dub {
 	 * Returns:
 	 *	 A new instance of a `PackageSupplier`.
 	 */
-	protected PackageSupplier makePackageSupplier(string url) const
+	protected PackageSupplier makePackageSupplier(string url)
 	{
 		switch (url.startsWith("dub+", "mvn+", "file://"))
 		{
@@ -514,7 +522,7 @@ class Dub {
 	/// Loads a specific package as the main project package (can be a sub package)
 	void loadPackage(Package pack)
 	{
-		auto selections = Project.loadSelections(pack);
+		auto selections = Project.loadSelections(pack.path, m_packageManager);
 		m_project = new Project(m_packageManager, pack, selections);
 	}
 
@@ -1021,13 +1029,11 @@ class Dub {
 		{
 			import std.zip : ZipException;
 
-			auto path = getTempFile(name.main.toString(), ".zip");
-			supplier.fetchPackage(path, name.main, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
-			scope(exit) removeFile(path);
+			auto data = supplier.fetchPackage(name.main, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			logDiagnostic("Placing to %s...", location.toString());
 
 			try {
-				return m_packageManager.store(path, location, name.main, ver);
+				return m_packageManager.store(data, location, name.main, ver);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s@%s...", name, ver);
 				// re-throw the exception at the end of the loop
@@ -1646,12 +1652,12 @@ class Dub {
 	unittest
 	{
 		import dub.test.base : TestDub;
-		import std.path: buildPath, absolutePath;
 
-		auto dub = new TestDub(".", null, SkipPackageSuppliers.configured);
+		auto dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
+		immutable testdir = getWorkingDirectory() ~ "test-determineDefaultCompiler";
+
 		immutable olddc = environment.get("DC", null);
 		immutable oldpath = environment.get("PATH", null);
-		immutable testdir = "test-determineDefaultCompiler";
 		void repairenv(string name, string var)
 		{
 			if (var !is null)
@@ -1661,33 +1667,33 @@ class Dub {
 		}
 		scope (exit) repairenv("DC", olddc);
 		scope (exit) repairenv("PATH", oldpath);
-		scope (exit) rmdirRecurse(testdir);
+		scope (exit) std.file.rmdirRecurse(testdir.toNativeString());
 
 		version (Windows) enum sep = ";", exe = ".exe";
 		version (Posix) enum sep = ":", exe = "";
 
-		immutable dmdpath = testdir.buildPath("dmd", "bin");
-		immutable ldcpath = testdir.buildPath("ldc", "bin");
-		mkdirRecurse(dmdpath);
-		mkdirRecurse(ldcpath);
-		immutable dmdbin = dmdpath.buildPath("dmd"~exe);
-		immutable ldcbin = ldcpath.buildPath("ldc2"~exe);
-		std.file.write(dmdbin, null);
-		std.file.write(ldcbin, null);
+		immutable dmdpath = testdir ~ "dmd" ~ "bin";
+		immutable ldcpath = testdir ~ "ldc" ~ "bin";
+		ensureDirectory(dmdpath);
+		ensureDirectory(ldcpath);
+		immutable dmdbin = dmdpath ~ ("dmd" ~ exe);
+		immutable ldcbin = ldcpath ~ ("ldc2" ~ exe);
+		writeFile(dmdbin, null);
+		writeFile(ldcbin, null);
 
-		environment["DC"] = dmdbin.absolutePath();
-		assert(dub.determineDefaultCompiler() == dmdbin.absolutePath());
+		environment["DC"] = dmdbin.toNativeString();
+		assert(dub.determineDefaultCompiler() == dmdbin.toNativeString());
 
 		environment["DC"] = "dmd";
-		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
+		environment["PATH"] = dmdpath.toNativeString() ~ sep ~ ldcpath.toNativeString();
 		assert(dub.determineDefaultCompiler() == "dmd");
 
 		environment["DC"] = "ldc2";
-		environment["PATH"] = dmdpath ~ sep ~ ldcpath;
+		environment["PATH"] = dmdpath.toNativeString() ~ sep ~ ldcpath.toNativeString();
 		assert(dub.determineDefaultCompiler() == "ldc2");
 
 		environment.remove("DC");
-		environment["PATH"] = ldcpath ~ sep ~ dmdpath;
+		environment["PATH"] = ldcpath.toNativeString() ~ sep ~ dmdpath.toNativeString();
 		assert(dub.determineDefaultCompiler() == "ldc2");
 	}
 

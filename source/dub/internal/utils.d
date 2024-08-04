@@ -21,6 +21,7 @@ import std.conv : to;
 import std.exception : enforce;
 import std.file;
 import std.format;
+import std.range;
 import std.string : format;
 import std.process;
 import std.traits : isIntegral;
@@ -92,7 +93,7 @@ bool isWritableDir(NativePath p, bool create_if_missing = false)
 
 Json jsonFromFile(NativePath file, bool silent_fail = false) {
 	if( silent_fail && !existsFile(file) ) return Json.emptyObject;
-	auto text = stripUTF8Bom(cast(string)readFile(file));
+	auto text = readText(file);
 	return parseJsonString(text, file.toNativeString());
 }
 
@@ -145,21 +146,9 @@ void atomicWriteJsonFile(NativePath path, Json json)
 	moveFile(tmppath, path);
 }
 
-deprecated("specify a working directory explicitly")
-void runCommand(string command, string[string] env = null)
-{
-	runCommands((&command)[0 .. 1], env, null);
-}
-
 void runCommand(string command, string[string] env, string workDir)
 {
 	runCommands((&command)[0 .. 1], env, workDir);
-}
-
-deprecated("specify a working directory explicitly")
-void runCommands(in string[] commands, string[string] env = null)
-{
-	runCommands(commands, env, null);
 }
 
 void runCommands(in string[] commands, string[string] env, string workDir)
@@ -207,7 +196,7 @@ version (Have_vibe_d_http)
 
 	Note: Timeouts are only implemented when curl is used (DubUseCurl).
 */
-void download(string url, string filename, uint timeout = 8)
+private void download(string url, string filename, uint timeout = 8)
 {
 	version(DubUseCurl) {
 		auto conn = HTTP();
@@ -226,18 +215,18 @@ void download(string url, string filename, uint timeout = 8)
 	} else assert(false);
 }
 /// ditto
-void download(URL url, NativePath filename, uint timeout = 8)
+private void download(URL url, NativePath filename, uint timeout = 8)
 {
 	download(url.toString(), filename.toNativeString(), timeout);
 }
 /// ditto
-ubyte[] download(string url, uint timeout = 8)
+private ubyte[] download(string url, uint timeout = 8)
 {
 	version(DubUseCurl) {
 		auto conn = HTTP();
 		setupHTTPClient(conn, timeout);
 		logDebug("Getting %s...", url);
-		return cast(ubyte[])get(url, conn);
+		return get!(HTTP, ubyte)(url, conn);
 	} else version (Have_vibe_d_http) {
 		import vibe.inet.urltransfer;
 		import vibe.stream.operations;
@@ -247,7 +236,7 @@ ubyte[] download(string url, uint timeout = 8)
 	} else assert(false);
 }
 /// ditto
-ubyte[] download(URL url, uint timeout = 8)
+private ubyte[] download(URL url, uint timeout = 8)
 {
 	return download(url.toString(), timeout);
 }
@@ -319,13 +308,15 @@ ubyte[] retryDownload(URL url, size_t retryCount = 3, uint timeout = 8)
 			catch(HTTPStatusException e) {
 				if (e.status == 404) throw e;
 				else {
-					logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+					logDebug("Failed to download %s (Attempt %s of %s): %s",
+						url, i + 1, retryCount, e.message);
 					if (i == retryCount - 1) throw e;
 					else continue;
 				}
 			}
 			catch(CurlException e) {
-				logDebug("Failed to download %s (Attempt %s of %s)", url, i + 1, retryCount);
+				logDebug("Failed to download %s (Attempt %s of %s): %s",
+					url, i + 1, retryCount, e.message);
 				continue;
 			}
 		}
@@ -451,7 +442,7 @@ version(DubUseCurl) {
 	}
 }
 
-string stripUTF8Bom(string str)
+private string stripUTF8Bom(string str)
 {
 	if( str.length >= 3 && str[0 .. 3] == [0xEF, 0xBB, 0xBF] )
 		return str[3 ..$];
@@ -607,34 +598,102 @@ string determineModuleName(BuildSettings settings, NativePath file, NativePath b
 
 /**
  * Search for module keyword in D Code
+ * A primitive parser to skip comments and whitespace to get
+ * the module's name from the module declaration.
  */
 string getModuleNameFromContent(string content) {
-	import std.regex;
-	import std.string;
+	import std.ascii: isAlpha, isAlphaNum, isWhite;
+	import std.algorithm: among;
+	import core.exception: RangeError;
 
-	content = content.strip;
-	if (!content.length) return null;
+	enum keyword = "module";
 
-	static bool regex_initialized = false;
-	static Regex!char comments_pattern, module_pattern;
+	size_t i = 0;
+	size_t startIndex = 0, endIndex = 0;
+	auto foundKeyword = false;
 
-	if (!regex_initialized) {
-		comments_pattern = regex(`//[^\r\n]*\r?\n?|/\*.*?\*/|/\+.*\+/`, "gs");
-		module_pattern = regex(`module\s+([\w\.]+)\s*;`, "g");
-		regex_initialized = true;
+	auto ch() {
+		return content[i];
 	}
 
-	content = replaceAll(content, comments_pattern, " ");
-	auto result = matchFirst(content, module_pattern);
+	static bool isIdentChar(in char c) {
+		return !isWhite(c) && c != '/' && c != ';';
+	}
 
-	if (!result.empty) return result[1];
+	try {
+		while(i < content.length) {
+			if(!foundKeyword && ch == keyword[0] && content[i .. i + keyword.length] == keyword) {
+				// -1 because the end of the loop will advance by 1
+				i += keyword.length - 1;
+				foundKeyword = true;
+			}
+			else if(ch == '/') {
+				++i;
+				// line comment?
+				if(ch == '/') {
+					while(ch != '\n')
+						++i;
+				}
+				// block comment?
+				else if(ch == '*') {
+					++i;
+					while(ch != '*' || content[i + 1] != '/')
+						++i;
+					++i; // skip over closing '/'
+				}
+				// nested comment?
+				else if(ch == '+') {
+					++i;
 
-	return null;
+					size_t level = 1;
+
+					while(level > 0) {
+						if(ch == '/') {
+							++i;
+							if(ch == '+') {
+								++i;
+								++level;
+							}
+						}
+						if(ch == '+') {
+							++i;
+							if(ch == '/') {
+								--level;
+							} else continue;
+						}
+						++i;
+					}
+				}
+			}
+			else if(isIdentChar(ch) && foundKeyword) {
+				if(startIndex == 0)
+					startIndex = i;
+				++i; // skip the first char of the name
+				while(isIdentChar(ch)) {
+					++i;
+				}
+				// when we get here, either we're at the end of the module's identifier,
+				// or there are comments afterwards
+				if(endIndex == 0) {
+					endIndex = i;
+				}
+				if(!isIdentChar(ch))
+					return content[startIndex .. endIndex];
+				else continue;
+			} else if(!isIdentChar(ch) && foundKeyword && startIndex != 0) {
+				return content[startIndex .. endIndex];
+			}
+			++i;
+		}
+		return "";
+	} catch(RangeError) {
+		return "";
+	}
 }
 
 unittest {
 	assert(getModuleNameFromContent("") == "");
-	assert(getModuleNameFromContent("module myPackage.myModule;") == "myPackage.myModule");
+	assert(getModuleNameFromContent("module myPackage.myModule;") == "myPackage.myModule", getModuleNameFromContent("module myPackage.myModule;"));
 	assert(getModuleNameFromContent("module \t\n myPackage.myModule \t\r\n;") == "myPackage.myModule");
 	assert(getModuleNameFromContent("// foo\nmodule bar;") == "bar");
 	assert(getModuleNameFromContent("/*\nfoo\n*/\nmodule bar;") == "bar");
@@ -646,11 +705,22 @@ unittest {
 	assert(getModuleNameFromContent("/+ module foo; +/\nmodule bar;") == "bar");
 	assert(getModuleNameFromContent("/+ /+ module foo; +/ +/\nmodule bar;") == "bar");
 	assert(getModuleNameFromContent("// module foo;\nmodule bar; // module foo;") == "bar");
+
 	assert(getModuleNameFromContent("// module foo;\nmodule// module foo;\nbar//module foo;\n;// module foo;") == "bar");
+
 	assert(getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;") == "bar", getModuleNameFromContent("/* module foo; */\nmodule/*module foo;*/bar/*module foo;*/;"));
 	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar;") == "bar");
-	//assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar/++/;") == "bar"); // nested comments require a context-free parser!
+	assert(getModuleNameFromContent("/+ /+ module foo; +/ module foo; +/ module bar/++/;") == "bar");
 	assert(getModuleNameFromContent("/*\nmodule sometest;\n*/\n\nmodule fakemath;\n") == "fakemath");
+	assert(getModuleNameFromContent("module foo_bar;") == "foo_bar");
+	assert(getModuleNameFromContent("module _foo_bar;") == "_foo_bar");
+	assert(getModuleNameFromContent("/++ ++/\nmodule foo;") == "foo");
+	assert(getModuleNameFromContent("module pokémon;") == "pokémon");
+	assert(getModuleNameFromContent("module éclair;") == "éclair");
+	assert(getModuleNameFromContent("/** module foo*/ module bar;") == "bar");
+	assert(getModuleNameFromContent("/* / module foo*/ module bar;") == "bar");
+
+	assert(getModuleNameFromContent("module modules.foo;") == "modules.foo");
 }
 
 /**
@@ -715,4 +785,42 @@ void deepCompareImpl (T) (
 			format("%s: result != expected: %s != %s", path, result, expected),
 			file, line);
 	}
+}
+
+/** Filters a forward range with the given predicate and returns a prefix range.
+
+	This function filters elements in-place, as opposed to returning a new
+	range. This can be particularly useful when working with arrays, as this
+	does not require any memory allocations.
+
+	This function guarantees that `pred` is called exactly once per element and
+	deterministically destroys any elements for which `pred` returns `false`.
+*/
+auto filterInPlace(alias pred, R)(R elems)
+	if (isForwardRange!R)
+{
+	import std.algorithm.mutation : move;
+
+	R telems = elems.save;
+	bool any_removed = false;
+	size_t nret = 0;
+	foreach (ref el; elems.save) {
+		if (pred(el)) {
+			if (any_removed) move(el, telems.front);
+			telems.popFront();
+			nret++;
+		} else any_removed = true;
+	}
+	return elems.takeExactly(nret);
+}
+
+///
+unittest {
+	int[] arr = [1, 2, 3, 4, 5, 6, 7, 8];
+
+	arr = arr.filterInPlace!(e => e % 2 == 0);
+	assert(arr == [2, 4, 6, 8]);
+
+	arr = arr.filterInPlace!(e => e < 5);
+	assert(arr == [2, 4]);
 }

@@ -12,17 +12,17 @@ permissions:
 jobs:
   comment:
     name: PR Info
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: >
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success'
     steps:
     # from https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
     - name: 'Download artifact'
-      uses: actions/github-script@v3.1.0
+      uses: actions/github-script@v7
       with:
         script: |
-          var artifacts = await github.actions.listWorkflowRunArtifacts({
+          var artifacts = await github.rest.actions.listWorkflowRunArtifacts({
             owner: context.repo.owner,
             repo: context.repo.repo,
             run_id: ${{github.event.workflow_run.id }},
@@ -30,7 +30,7 @@ jobs:
           var matchArtifact = artifacts.data.artifacts.filter((artifact) => {
             return artifact.name == "pr"
           })[0];
-          var download = await github.actions.downloadArtifact({
+          var download = await github.rest.actions.downloadArtifact({
             owner: context.repo.owner,
             repo: context.repo.repo,
             artifact_id: matchArtifact.id,
@@ -46,7 +46,7 @@ jobs:
         echo "PR_ID=$PR_ID" >> $GITHUB_ENV
 
     - name: Update GitHub comment
-      uses: marocchino/sticky-pull-request-comment@3d60a5b2dae89d44e0c6ddc69dd7536aec2071cd
+      uses: marocchino/sticky-pull-request-comment@v2.9.0
       with:
         path: ./comment.txt
         number: ${{ env.PR_ID }}

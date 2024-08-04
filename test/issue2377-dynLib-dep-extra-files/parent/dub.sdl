@@ -25,4 +25,5 @@ configuration "exe_dynamic" {
     subConfiguration "dep1" "dynlib"
     dflags "-link-defaultlib-shared" platform="ldc"
     dflags "-defaultlib=libphobos2.so" platform="linux-dmd"
+    lflags "-rpath" "@executable_path" platform="osx"
 }
