@@ -286,6 +286,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 			},
 		);
 		if (d.optional) attribs ~= new Attribute(null, "optional", Value(true));
+		if (d.default_) attribs ~= new Attribute(null, "default", Value(true));
 		auto t = new Tag(null, "dependency", [Value(pack)], attribs);
 		if (d.settings !is typeof(d.settings).init)
 			t.add(d.settings.toSDL());
@@ -695,6 +696,20 @@ authors "foo" "bar"
 dflags "-a" platform="windows"
 lflags "-b" "-c"
 `);
+}
+
+unittest { // test that default is preserved after serialization
+	immutable sdl = `name "optional-deps"
+dependency "foo-bar" version="1.1.2" optional=true default=true`;
+	PackageRecipe rec;
+	parseSDLTest(rec, sdl);
+	with (rec.buildSettings) {
+		assert(dependencies["foo-bar"].optional);
+		assert(dependencies["foo-bar"].default_);
+	}
+	immutable back = toSDL(rec).toSDLDocument();
+	import std.algorithm : canFind;
+	assert(back.canFind("default=true"));
 }
 
 unittest {
