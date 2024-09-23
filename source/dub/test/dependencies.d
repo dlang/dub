@@ -152,6 +152,7 @@ version "0.0.1"`, PackageFormat.sdl);
     dub.upgrade(UpgradeOptions.select);
 
     assert(dub.project.hasAllDependencies(), "project have missing dependencies");
+    assert(dub.project.getDependency("c", true).version_ == Version("0.0.0"));
 }
 
 unittest
@@ -174,4 +175,5 @@ version "0.0.1"`, PackageFormat.sdl);
     dub.upgrade(UpgradeOptions.select);
 
     assert(dub.project.hasAllDependencies(), "project have missing dependencies");
+    assert(dub.project.getDependency("c", true).version_ == Version("0.0.0"));
 }
