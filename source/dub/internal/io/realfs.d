@@ -29,6 +29,12 @@ public final class RealFS : Filesystem {
     }
 
     ///
+    public override void chdir (in NativePath path) scope
+    {
+        std.file.chdir(path.toNativeString());
+    }
+
+    ///
     protected override bool existsDirectory (in NativePath path) const scope
 	{
 		return dub.internal.vibecompat.core.file.existsDirectory(path);

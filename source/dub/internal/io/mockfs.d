@@ -34,6 +34,14 @@ public final class MockFS : Filesystem {
         return this.cwd.path();
     }
 
+    public override void chdir (in NativePath path) scope
+    {
+        auto tmp = this.lookup(path);
+        enforce(tmp !is null, "No such directory: " ~ path.toNativeString());
+        enforce(tmp.isDirectory(), "Cannot chdir into non-directory: " ~ path.toNativeString());
+        this.cwd = tmp;
+    }
+
     ///
     public override bool existsDirectory (in NativePath path) const scope
     {
