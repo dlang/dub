@@ -21,9 +21,12 @@ public final class MockFS : Filesystem {
     private FSEntry cwd;
 
     ///
+    private FSEntry root;
+
+    ///
     public this () scope
     {
-        this.cwd = new FSEntry();
+        this.root = this.cwd = new FSEntry();
     }
 
     public override NativePath getcwd () const scope
@@ -41,7 +44,10 @@ public final class MockFS : Filesystem {
     /// Ditto
     public override void mkdir (in NativePath path) scope
     {
-        this.cwd.mkdir(path);
+        if (path.absolute())
+            this.root.mkdir(path);
+        else
+            this.cwd.mkdir(path);
     }
 
     /// Ditto
@@ -421,9 +427,10 @@ public class FSEntry
     /// Implements `mkdir -p`, returns the created directory
     public FSEntry mkdir (in NativePath path) scope
     {
-        auto relp = this.relativePath(path);
+        assert(!path.absolute() || this.parent is null,
+                `FSEntry.mkdir needs to be called with a relative path`);
         // Check if the child already exists
-        auto segments = relp.bySegment;
+        auto segments = path.bySegment;
         auto child = this.lookup(segments.front.name);
         if (child is null) {
             child = new FSEntry(this, Type.Directory, segments.front.name);
