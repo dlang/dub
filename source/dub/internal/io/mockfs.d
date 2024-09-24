@@ -123,16 +123,64 @@ public final class MockFS : Filesystem {
         return &iterator;
     }
 
-    /// Ditto
-    public override void removeFile (in NativePath path, bool force = false) scope
+    /** Remove a file
+     *
+     * Always error if the target is a directory.
+     * Does not error if the target does not exists
+     * and `force` is set to `true`.
+     *
+     * Params:
+     *   path = Path to the file to remove
+     *   force = Whether to ignore non-existing file,
+     *           default to `false`.
+     */
+    public override void removeFile (in NativePath path, bool force = false)
     {
-        return this.cwd.removeFile(path);
+        import std.algorithm.searching : countUntil;
+
+        assert(!path.empty, "Empty path provided to `removeFile`");
+        enforce(!path.endsWithSlash(),
+            "Cannot remove file with directory path: " ~ path.toNativeString());
+        auto p = this.cwd.getParent(path, force);
+        const idx = p.children.countUntil!(e => e.name == path.head.name());
+        if (idx < 0) {
+            enforce(force,
+                "removeFile: No such file: " ~ path.toNativeString());
+        } else {
+            enforce(p.children[idx].attributes.type == FSEntry.Type.File,
+                "removeFile called on a directory: " ~ path.toNativeString());
+            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
+        }
     }
 
-    ///
+    /** Remove a directory
+     *
+     * Remove an existing empty directory.
+     * If `force` is set to `true`, no error will be thrown
+     * if the directory is empty or non-existing.
+     *
+     * Params:
+     *   path = Path to the directory to remove
+     *   force = Whether to ignore non-existing / non-empty directories,
+     *           default to `false`.
+     */
     public override void removeDir (in NativePath path, bool force = false)
     {
-        this.cwd.removeDir(path, force);
+        import std.algorithm.searching : countUntil;
+
+        assert(!path.empty, "Empty path provided to `removeFile`");
+        auto p = this.cwd.getParent(path, force);
+        const idx = p.children.countUntil!(e => e.name == path.head.name());
+        if (idx < 0) {
+            enforce(force,
+                "removeDir: No such directory: " ~ path.toNativeString());
+        } else {
+            enforce(p.children[idx].attributes.type == FSEntry.Type.Directory,
+                "removeDir called on a file: " ~ path.toNativeString());
+            enforce(force || p.children[idx].children.length == 0,
+                "removeDir called on non-empty directory: " ~ path.toNativeString());
+            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
+        }
     }
 
     /// Ditto
@@ -396,66 +444,6 @@ public class FSEntry
     public bool isDirectory () const scope
     {
         return this.attributes.type == Type.Directory;
-    }
-
-    /** Remove a file
-     *
-     * Always error if the target is a directory.
-     * Does not error if the target does not exists
-     * and `force` is set to `true`.
-     *
-     * Params:
-     *   path = Path to the file to remove
-     *   force = Whether to ignore non-existing file,
-     *           default to `false`.
-     */
-    public void removeFile (in NativePath path, bool force = false)
-    {
-        import std.algorithm.searching : countUntil;
-
-        assert(!path.empty, "Empty path provided to `removeFile`");
-        enforce(!path.endsWithSlash(),
-            "Cannot remove file with directory path: " ~ path.toNativeString());
-        auto p = this.getParent(path, force);
-        const idx = p.children.countUntil!(e => e.name == path.head.name());
-        if (idx < 0) {
-            enforce(force,
-                "removeFile: No such file: " ~ path.toNativeString());
-        } else {
-            enforce(p.children[idx].attributes.type == Type.File,
-                "removeFile called on a directory: " ~ path.toNativeString());
-            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
-        }
-    }
-
-    /** Remove a directory
-     *
-     * Remove an existing empty directory.
-     * If `force` is set to `true`, no error will be thrown
-     * if the directory is empty or non-existing.
-     *
-     * Params:
-     *   path = Path to the directory to remove
-     *   force = Whether to ignore non-existing / non-empty directories,
-     *           default to `false`.
-     */
-    public void removeDir (in NativePath path, bool force = false)
-    {
-        import std.algorithm.searching : countUntil;
-
-        assert(!path.empty, "Empty path provided to `removeFile`");
-        auto p = this.getParent(path, force);
-        const idx = p.children.countUntil!(e => e.name == path.head.name());
-        if (idx < 0) {
-            enforce(force,
-                "removeDir: No such directory: " ~ path.toNativeString());
-        } else {
-            enforce(p.children[idx].attributes.type == Type.Directory,
-                "removeDir called on a file: " ~ path.toNativeString());
-            enforce(force || p.children[idx].children.length == 0,
-                "removeDir called on non-empty directory: " ~ path.toNativeString());
-            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
-        }
     }
 
     /// Implement `std.file.setTimes`
