@@ -26,6 +26,9 @@ public interface Filesystem
     /// Returns: The `path` of this FSEntry
     public abstract NativePath getcwd () const scope;
 
+    /// Change current directory to `path`. Equivalent to `cd` in shell.
+    public abstract void chdir (in NativePath path) scope;
+
     /**
      * Implements `mkdir -p`: Create a directory and every intermediary
      *
