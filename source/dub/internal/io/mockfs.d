@@ -37,7 +37,7 @@ public final class MockFS : Filesystem {
     ///
     public override bool existsDirectory (in NativePath path) const scope
     {
-        auto entry = this.cwd.lookup(path);
+        auto entry = this.lookup(path);
         return entry !is null && entry.isDirectory();
     }
 
@@ -53,7 +53,7 @@ public final class MockFS : Filesystem {
     /// Ditto
     public override bool existsFile (in NativePath path) const scope
     {
-        auto entry = this.cwd.lookup(path);
+        auto entry = this.lookup(path);
         return entry !is null && entry.isFile();
     }
 
@@ -63,7 +63,7 @@ public final class MockFS : Filesystem {
     {
         enforce(!path.endsWithSlash(),
             "Cannot write to directory: " ~ path.toNativeString());
-        if (auto file = this.cwd.lookup(path)) {
+        if (auto file = this.lookup(path)) {
             // If the file already exists, override it
             enforce(file.isFile(),
                 "Trying to write to directory: " ~ path.toNativeString());
@@ -79,7 +79,7 @@ public final class MockFS : Filesystem {
     /// Reads a file, returns the content as `ubyte[]`
     public override ubyte[] readFile (in NativePath path) const scope
     {
-        auto entry = this.cwd.lookup(path);
+        auto entry = this.lookup(path);
         enforce(entry !is null, "No such file: " ~ path.toNativeString());
         enforce(entry.isFile(), "Trying to read a directory");
         // This is a hack to make poisoning a file possible.
@@ -107,7 +107,7 @@ public final class MockFS : Filesystem {
     {
         enforce(this.existsDirectory(path),
             path.toNativeString() ~ " does not exists or is not a directory");
-        auto dir = this.cwd.lookup(path);
+        auto dir = this.lookup(path);
         int iterator(scope int delegate(ref dub.internal.vibecompat.core.file.FileInfo) del) {
             foreach (c; dir.children) {
                 dub.internal.vibecompat.core.file.FileInfo fi;
@@ -193,7 +193,7 @@ public final class MockFS : Filesystem {
     public override void setTimes (in NativePath path, in SysTime accessTime,
         in SysTime modificationTime)
     {
-        auto e = this.cwd.lookup(path);
+        auto e = this.lookup(path);
         enforce(e !is null,
             "setTimes: No such file or directory: " ~ path.toNativeString());
         e.setTimes(accessTime, modificationTime);
@@ -202,7 +202,7 @@ public final class MockFS : Filesystem {
     /// Ditto
     public override void setAttributes (in NativePath path, uint attributes)
     {
-        auto e = this.cwd.lookup(path);
+        auto e = this.lookup(path);
         enforce(e !is null,
             "setAttributes: No such file or directory: " ~ path.toNativeString());
         e.setAttributes(attributes);
@@ -261,16 +261,33 @@ public final class MockFS : Filesystem {
 
         // If we're not in the right `FSEntry`, recurse
         const parentPath = path.parentPath();
-        auto p = this.cwd.lookup(parentPath);
+        auto p = this.lookup(parentPath);
         enforce(silent || p !is null,
             "No such directory: " ~ parentPath.toNativeString());
         enforce(p is null || p.attributes.type == FSEntry.Type.Directory,
             "Parent path is not a directory: " ~ parentPath.toNativeString());
         return p;
     }
+
+    /// Get an arbitrarily nested children node
+    protected inout(FSEntry) lookup(NativePath path) inout return scope
+    {
+        // The following does not work due to `inout` / `const`:
+        // return reduce!((base, segment) => base.lookup(segment))(b, path.bySegment);
+        // So we have to resort to a member function added to `FSEntry`
+        return path.absolute ? this.root.lookup(path) : this.cwd.lookup(path);
+    }
 }
 
-/// The backing logic behind `MockFS`
+/*******************************************************************************
+
+    Represents a node on the filesystem
+
+    This class encapsulates operations which are node specific, such as looking
+    up a child node, adding one, or setting properties.
+
+*******************************************************************************/
+
 public class FSEntry
 {
     /// Type of file system entry
@@ -333,6 +350,8 @@ public class FSEntry
     protected inout(FSEntry) lookup(string name) inout return scope
     {
         assert(!name.canFind('/'));
+        if (name == ".")  return this;
+        if (name == "..") return this.parent;
         foreach (c; this.children)
             if (c.name == name)
                 return c;
@@ -340,26 +359,17 @@ public class FSEntry
     }
 
     /// Get an arbitrarily nested children node
-    protected inout(FSEntry) lookup(NativePath path) inout return scope
+    protected inout(FSEntry) lookup(in NativePath path) inout return scope
     {
-        auto relp = this.relativePath(path);
-        relp.normalize(); // try to get rid of `..`
-        if (relp.empty)
-            return this;
-        auto segments = relp.bySegment;
-        if (auto c = this.lookup(segments.front.name)) {
+        assert(!path.absolute() || this.parent is null,
+                `FSEntry.lookup should not be called with absolute paths`);
+        auto segments = path.bySegment;
+        if (segments.empty) return this;
+        if (auto next = this.lookup(segments.front.name)) {
             segments.popFront();
-            return !segments.empty ? c.lookup(NativePath(segments)) : c;
+            return next.lookup(NativePath(segments));
         }
         return null;
-    }
-
-    /// Returns: A path relative to `this.path`
-    protected NativePath relativePath(NativePath path) const scope
-    {
-        assert(!path.absolute() || path.startsWith(this.path),
-               "Calling relativePath with a differently rooted path");
-        return path.absolute() ? path.relativeTo(this.path) : path;
     }
 
     /*+*************************************************************************
