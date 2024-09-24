@@ -63,7 +63,7 @@ public final class MockFS : Filesystem {
                 "Trying to write to directory: " ~ path.toNativeString());
             file.content = data.dup;
         } else {
-            auto p = this.cwd.getParent(path);
+            auto p = this.getParent(path);
             auto file = new FSEntry(p, FSEntry.Type.File, path.head.name());
             file.content = data.dup;
             p.children ~= file;
@@ -141,7 +141,7 @@ public final class MockFS : Filesystem {
         assert(!path.empty, "Empty path provided to `removeFile`");
         enforce(!path.endsWithSlash(),
             "Cannot remove file with directory path: " ~ path.toNativeString());
-        auto p = this.cwd.getParent(path, force);
+        auto p = this.getParent(path, force);
         const idx = p.children.countUntil!(e => e.name == path.head.name());
         if (idx < 0) {
             enforce(force,
@@ -169,7 +169,7 @@ public final class MockFS : Filesystem {
         import std.algorithm.searching : countUntil;
 
         assert(!path.empty, "Empty path provided to `removeFile`");
-        auto p = this.cwd.getParent(path, force);
+        auto p = this.getParent(path, force);
         const idx = p.children.countUntil!(e => e.name == path.head.name());
         if (idx < 0) {
             enforce(force,
@@ -233,6 +233,34 @@ public final class MockFS : Filesystem {
         }
         addToZip(rootPath, this.cwd);
         return cast(ubyte[]) z.build();
+    }
+
+    /** Get the parent `FSEntry` of a `NativePath`
+     *
+     * If the parent doesn't exist, an `Exception` will be thrown
+     * unless `silent` is provided. If the parent path is a file,
+     * an `Exception` will be thrown regardless of `silent`.
+     *
+     * Params:
+     *   path = The path to look up the parent for
+     *   silent = Whether to error on non-existing parent,
+     *            default to `false`.
+     */
+    protected inout(FSEntry) getParent(NativePath path, bool silent = false)
+        inout return scope
+    {
+        // Relative path in the current directory
+        if (!path.hasParentPath())
+            return this.cwd;
+
+        // If we're not in the right `FSEntry`, recurse
+        const parentPath = path.parentPath();
+        auto p = this.cwd.lookup(parentPath);
+        enforce(silent || p !is null,
+            "No such directory: " ~ parentPath.toNativeString());
+        enforce(p is null || p.attributes.type == FSEntry.Type.Directory,
+            "Parent path is not a directory: " ~ parentPath.toNativeString());
+        return p;
     }
 }
 
@@ -318,34 +346,6 @@ public class FSEntry
             return !segments.empty ? c.lookup(NativePath(segments)) : c;
         }
         return null;
-    }
-
-    /** Get the parent `FSEntry` of a `NativePath`
-     *
-     * If the parent doesn't exist, an `Exception` will be thrown
-     * unless `silent` is provided. If the parent path is a file,
-     * an `Exception` will be thrown regardless of `silent`.
-     *
-     * Params:
-     *   path = The path to look up the parent for
-     *   silent = Whether to error on non-existing parent,
-     *            default to `false`.
-     */
-    protected inout(FSEntry) getParent(NativePath path, bool silent = false)
-        inout return scope
-    {
-        // Relative path in the current directory
-        if (!path.hasParentPath())
-            return this;
-
-        // If we're not in the right `FSEntry`, recurse
-        const parentPath = path.parentPath();
-        auto p = this.lookup(parentPath);
-        enforce(silent || p !is null,
-            "No such directory: " ~ parentPath.toNativeString());
-        enforce(p is null || p.attributes.type == Type.Directory,
-            "Parent path is not a directory: " ~ parentPath.toNativeString());
-        return p;
     }
 
     /// Returns: A path relative to `this.path`
