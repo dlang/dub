@@ -8,7 +8,7 @@ dub test --compiler=${DC} -c library-nonet
 
 export DMD="$(command -v $DMD)"
 
-./build.d -preview=dip1000 -preview=in -w -g -debug
+./build.d -preview=in -w -g -debug
 
 if [ "$COVERAGE" = true ]; then
     # library-nonet fails to build with coverage (Issue 13742)
