@@ -52,7 +52,7 @@ jobs:
       fail-fast: false
       matrix:
         # Latest stable version, update at will
-        os: [ macOS-12, ubuntu-20.04, windows-2019 ]
+        os: [ macOS-13, ubuntu-20.04, windows-2019 ]
         dc:
           # Always test latest as that is what we use to compile on release
           - dmd-latest
