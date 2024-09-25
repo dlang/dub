@@ -446,7 +446,7 @@ public class FSEntry
             indent++;
         // Don't print anything (even a newline) for root
         if (this.parent is null)
-            std.stdio.write('/');
+            std.stdio.write(this.name ? this.name : `/`);
         else
             std.stdio.write('|', '-'.repeat(indent), ' ', this.name, ' ');
 
