@@ -232,9 +232,7 @@ struct URL {
 	}
 
 	URL opBinary(string OP)(NativePath rhs) const if( OP == "~" ) { return URL(m_schema, m_host, m_port, m_path ~ rhs); }
-	URL opBinary(string OP)(PathEntry rhs) const if( OP == "~" ) { return URL(m_schema, m_host, m_port, m_path ~ rhs); }
 	void opOpAssign(string OP)(NativePath rhs) if( OP == "~" ) { m_path ~= rhs; }
-	void opOpAssign(string OP)(PathEntry rhs) if( OP == "~" ) { m_path ~= rhs; }
 
 	/// Tests two URLs for equality using '=='.
 	bool opEquals(ref const URL rhs) const {
@@ -245,13 +243,6 @@ struct URL {
 	}
 	/// ditto
 	bool opEquals(const URL other) const { return opEquals(other); }
-
-	int opCmp(ref const URL rhs) const {
-		if( m_schema != rhs.m_schema ) return m_schema.cmp(rhs.m_schema);
-		if( m_host != rhs.m_host ) return m_host.cmp(rhs.m_host);
-		if( m_path != rhs.m_path ) return m_path.opCmp(rhs.m_path);
-		return true;
-	}
 }
 
 unittest {
