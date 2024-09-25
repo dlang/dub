@@ -522,10 +522,15 @@ unittest {
     // Now we should be
     fs.mkdir(P("foo/bar"));
     fs.chdir(P("foo/bar"));
-    assert(fs.getcwd == root ~ "foo/bar/", fs.getcwd.toNativeString());
+    assert(fs.getcwd == root ~ "foo/bar/");
     // chdir with absolute path
+    import std.stdio;
+    writeln("===== ROOT =====");
+    fs.root.print();
+    writeln("===== CWD =====");
+    fs.cwd.print();
     fs.chdir(root ~ "foo");
-    assert(fs.getcwd == root ~ "foo/", fs.getcwd.toNativeString());
+    assert(fs.getcwd == root ~ "foo/");
     // This still does not exists
     assertThrown(fs.chdir(root ~ "bar"));
     // Test pseudo entries / meta locations
