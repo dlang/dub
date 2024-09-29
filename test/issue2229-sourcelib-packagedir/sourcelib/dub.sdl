@@ -1,0 +1,3 @@
+name "sourcelib"
+targetType "sourceLibrary"
+preBuildCommands "echo 'sourcelib $PACKAGE_DIR' >> package.txt"
