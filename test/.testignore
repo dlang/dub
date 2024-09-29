@@ -1,0 +1,12 @@
+common
+common.sh
+test_registry.d
+win32_default.d
+single-file-sdl-default-name.d
+issue103-single-file-package-json.d
+issue103-single-file-package-w-dep.d
+issue103-single-file-package.d
+issue1505-single-file-package-dynamic-library.d
+issue2051_running_unittests_from_dub_single_file_packages_fails.d
+run-unittest.d
+run-unittest.sh
