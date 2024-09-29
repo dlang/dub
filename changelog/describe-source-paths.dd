@@ -1,0 +1,10 @@
+Added `specified-source-paths` and `specified-c-source-paths` to `dub describe`
+
+- `specified-source-paths` is the `sourcePaths` value from the package recipe + merged with sourceLibraries
+- `specified-c-source-paths` is the same for `cSourcePaths`
+
+This is added to make it possible to determine the source paths for a project to
+pass for example into an auto-complete server or otherwise use them by the IDE.
+
+These are also new fields in the DUB API: `specifiedSourcePaths` and
+`specifiedCSourcePaths` inside the `BuildSettings` struct.
