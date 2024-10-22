@@ -33,8 +33,11 @@ public struct PackageName
 		if (auto idx = fn.indexOf(':'))
 			this.separator = idx > 0 ? idx : fn.length;
 		else // We were given `:foo`
-			assert(0, "Argument to PackageName constructor needs to be " ~
-				"a fully qualified string");
+		{
+			//Use throw so libraries can get that information
+			throw new Exception("Argument to PackageName constructor needs to have " ~
+				"a fully qualified name (Don't use ':' at the start). Received as package name '"~fn~"'');
+		}
 	}
 
 	/// Private constructor to have nothrow / @nogc
