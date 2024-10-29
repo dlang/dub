@@ -582,10 +582,10 @@ class Project {
 			{
 				if (!vspec.repository.empty) {
 					p = m_packageManager.loadSCMPackage(basename, vspec.repository);
-					resolveSubPackage(p, subname, false);
 					enforce(p !is null,
-						"Unable to fetch '%s@%s' using git - does the repository and version exists?".format(
-							dep.name, vspec.repository));
+						"Unable to fetch '%s@%s' using git - does the repository and version exist?".format(
+							basename, vspec.repository));
+					p = resolveSubPackage(p, subname, false);
 				} else if (!vspec.path.empty && is_desired) {
 					NativePath path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
