@@ -98,7 +98,7 @@ version "1.0.0"`, PackageFormat.sdl);
     assert(dub.project.hasAllDependencies(), "project has missing dependencies");
     assert(dub.project.getDependency("b", true), "Missing 'b' dependency");
     assert(dub.project.getDependency("c", true), "Missing 'c' dependency");
-    assert(dub.project.getDependency("c", true), "Missing 'd' dependency");
+    assert(dub.project.getDependency("d", true), "Missing 'd' dependency");
     assert(dub.project.getDependency("no", true) is null, "Returned unexpected dependency");
 }
 
