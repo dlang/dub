@@ -557,14 +557,12 @@ class Project {
 						return resolveSubPackage(tmp, subname, true);
 					},
 					(Repository repo) {
-						auto tmp = m_packageManager.loadSCMPackage(basename, repo);
-						return resolveSubPackage(tmp, subname, true);
+						return m_packageManager.loadSCMPackage(dep.name, repo);
 					},
 					(VersionRange range) {
 						// See `dub.recipe.selection : SelectedDependency.fromYAML`
 						assert(range.isExactVersion());
-						auto tmp = m_packageManager.getPackage(basename, vspec.version_);
-						return resolveSubPackage(tmp, subname, true);
+						return m_packageManager.getPackage(dep.name, vspec.version_);
 					},
 				);
 			} else if (m_dependencies.canFind!(d => PackageName(d.name).main == basename)) {
@@ -581,11 +579,10 @@ class Project {
 			if (p is null)
 			{
 				if (!vspec.repository.empty) {
-					p = m_packageManager.loadSCMPackage(basename, vspec.repository);
+					p = m_packageManager.loadSCMPackage(dep.name, vspec.repository);
 					enforce(p !is null,
 						"Unable to fetch '%s@%s' using git - does the repository and version exist?".format(
-							basename, vspec.repository));
-					p = resolveSubPackage(p, subname, false);
+							dep.name, vspec.repository));
 				} else if (!vspec.path.empty && is_desired) {
 					NativePath path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
