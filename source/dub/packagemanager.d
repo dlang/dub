@@ -510,23 +510,26 @@ class PackageManager {
 
 		// Before doing a git clone, let's see if the package exists locally
 		if (this.fs.existsDirectory(destination)) {
+			bool isMatch(Package p) {
+				return p.name == name.toString() && p.basePackage.path == destination;
+			}
+
 			// It exists, check if we already loaded it.
 			// Either we loaded it on refresh and it's in PlacementLocation.user,
 			// or we just added it and it's in m_internal.
 			foreach (p; this.m_internal.fromPath)
-				if (p.path == destination)
+				if (isMatch(p))
 					return p;
 			if (this.m_repositories.length)
 				foreach (p; this.m_repositories[PlacementLocation.user].fromPath)
-					if (p.path == destination)
+					if (isMatch(p))
 						return p;
 		} else if (!this.gitClone(repo.remote, gitReference, destination))
 			return null;
 
-		Package result = this.load(destination);
-		if (result !is null)
-			this.addPackages(this.m_internal.fromPath, result);
-		return result;
+		Package p = this.load(destination);
+		if (p is null) return null;
+		return this.addPackagesAndResolveSubPackage(this.m_internal.fromPath, p, name);
 	}
 
 	/**
@@ -1293,7 +1296,7 @@ symlink_exit:
 		return serialized;
 	}
 
-	/// Adds the package and scans for sub-packages.
+	/// Adds the package and its sub-packages.
 	protected void addPackages(ref Package[] dst_repos, Package pack)
 	{
 		// Add the main package.
@@ -1322,6 +1325,29 @@ symlink_exit:
 				logDiagnostic("Full error: %s", e.toString().sanitize());
 			}
 		}
+	}
+
+	/// Adds the package and its sub-packages, and returns the added package matching
+	/// the specified name (of the package itself or a sub-package).
+	/// Returns null if the sub-package doesn't exist.
+	private Package addPackagesAndResolveSubPackage(ref Package[] dst_repos, Package pack,
+		in PackageName nameToResolve)
+	in(pack.name == nameToResolve.main.toString(),
+		"nameToResolve must be the added package or one of its sub-packages")
+	{
+		this.addPackages(dst_repos, pack);
+
+		if (nameToResolve.sub.empty)
+			return pack;
+
+		// available sub-packages have been appended
+		foreach_reverse (sp; dst_repos) {
+			if (sp.parentPackage is pack && sp.name == nameToResolve.toString())
+				return sp;
+		}
+
+		logDiagnostic("Sub-package %s not found in parent package", nameToResolve);
+		return null;
 	}
 }
 
@@ -1742,9 +1768,8 @@ package struct Location {
 		enforce(
 			p.version_ == vers,
 			format("Package %s located in %s has a different version than its path: Got %s, expected %s",
-				name, path, p.version_, vers));
-		mgr.addPackages(this.fromPath, p);
-		return p;
+				name.main, path, p.version_, vers));
+		return mgr.addPackagesAndResolveSubPackage(this.fromPath, p, name);
 	}
 
 	/**
