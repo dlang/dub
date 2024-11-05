@@ -557,8 +557,7 @@ class Project {
 						return resolveSubPackage(tmp, subname, true);
 					},
 					(Repository repo) {
-						auto tmp = m_packageManager.loadSCMPackage(basename, repo);
-						return resolveSubPackage(tmp, subname, true);
+						return m_packageManager.loadSCMPackage(dep.name, repo);
 					},
 					(VersionRange range) {
 						// See `dub.recipe.selection : SelectedDependency.fromYAML`
@@ -580,10 +579,9 @@ class Project {
 			if (p is null)
 			{
 				if (!vspec.repository.empty) {
-					p = m_packageManager.loadSCMPackage(basename, vspec.repository);
-					resolveSubPackage(p, subname, false);
+					p = m_packageManager.loadSCMPackage(dep.name, vspec.repository);
 					enforce(p !is null,
-						"Unable to fetch '%s@%s' using git - does the repository and version exists?".format(
+						"Unable to fetch '%s@%s' using git - does the repository and version exist?".format(
 							dep.name, vspec.repository));
 				} else if (!vspec.path.empty && is_desired) {
 					NativePath path = vspec.path;
