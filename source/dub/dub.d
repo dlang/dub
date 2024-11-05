@@ -1970,6 +1970,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		import dub.recipe.json;
 
 		// for sub packages, first try to get them from the base package
+		// FIXME: avoid this, PackageManager.getSubPackage() is costly
 		if (name.main != name) {
 			auto subname = name.sub;
 			auto basepack = getPackage(name.main, dep);
@@ -1985,12 +1986,15 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			return m_rootPackage.basePackage;
 
 		if (!dep.repository.empty) {
+			// note: would handle sub-packages directly
 			auto ret = m_dub.packageManager.loadSCMPackage(name, dep.repository);
 			return ret !is null && dep.matches(ret.version_) ? ret : null;
 		}
 		if (!dep.path.empty) {
 			try {
-				return m_dub.packageManager.getOrLoadPackage(dep.path);
+				// note: would handle sub-packages directly
+				return m_dub.packageManager.getOrLoadPackage(dep.path, NativePath.init, false,
+					StrictMode.Ignore, name);
 			} catch (Exception e) {
 				logDiagnostic("Failed to load path based dependency %s: %s", name, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize);
