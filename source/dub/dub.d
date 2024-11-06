@@ -516,7 +516,7 @@ class Dub {
 	void loadPackage(NativePath path)
 	{
 		auto pack = this.m_packageManager.getOrLoadPackage(
-			path, NativePath.init, false, StrictMode.Warn);
+			path, NativePath.init, PackageName.init, StrictMode.Warn);
 		this.loadPackage(pack);
 	}
 
@@ -1993,8 +1993,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		if (!dep.path.empty) {
 			try {
 				// note: would handle sub-packages directly
-				return m_dub.packageManager.getOrLoadPackage(dep.path, NativePath.init, false,
-					StrictMode.Ignore, name);
+				return m_dub.packageManager.getOrLoadPackage(dep.path, NativePath.init, name);
 			} catch (Exception e) {
 				logDiagnostic("Failed to load path based dependency %s: %s", name, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize);

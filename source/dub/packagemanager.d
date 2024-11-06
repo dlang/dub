@@ -271,8 +271,7 @@ class PackageManager {
 				foreach (ovr; repo.overrides)
 					if (ovr.package_ == name.toString() && ovr.source.matches(ver)) {
 						Package pack = ovr.target.match!(
-							(NativePath path) => getOrLoadPackage(path, NativePath.init, false,
-									StrictMode.Ignore, name),
+							(NativePath path) => getOrLoadPackage(path, NativePath.init, name),
 							(Version	vers) => getPackage(name, vers, false),
 						);
 						if (pack) return pack;
@@ -378,17 +377,14 @@ class PackageManager {
 		Params:
 			path = NativePath to the root directory of the package
 			recipe_path = Optional path to the recipe file of the package
-			allow_sub_packages = Also return an already-loaded sub package if it resides in the given folder.
-			                     Ignored when specifying `name`, as a matching already-loaded sub package is always returned in that case.
+			name = Optional (sub-)package name if known in advance. Required if a sub-package is to be returned.
 			mode = Whether to issue errors, warning, or ignore unknown keys in dub.json
-			name = Optional (sub-)package name if known in advance
 
 		Returns: The packages loaded from the given path
 		Throws: Throws an exception if no package can be loaded
 	*/
 	Package getOrLoadPackage(NativePath path, NativePath recipe_path = NativePath.init,
-		bool allow_sub_packages = false, StrictMode mode = StrictMode.Ignore,
-		PackageName name = PackageName.init)
+		PackageName name = PackageName.init, StrictMode mode = StrictMode.Ignore)
 	{
 		path.endsWithSlash = true;
 		const nameString = name.toString();
@@ -398,7 +394,7 @@ class PackageManager {
 				if (p.name == nameString && (p.path == path || p.basePackage.path == path))
 					return p;
 			} else {
-				if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
+				if (p.path == path && !p.parentPackage)
 					return p;
 			}
 		}
