@@ -739,6 +739,7 @@ class ProjectGenerator
 		parent.addDebugVersions(child.debugVersions);
 		parent.addVersionFilters(child.versionFilters);
 		parent.addDebugVersionFilters(child.debugVersionFilters);
+		// not merging specifiedSourcePaths and specifiedCSourcePaths, since they are not "specified" in this package
 		parent.addImportPaths(child.importPaths);
 		parent.addCImportPaths(child.cImportPaths);
 		parent.addStringImportPaths(child.stringImportPaths);
