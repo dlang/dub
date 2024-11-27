@@ -24,7 +24,7 @@ jobs:
 
     # Compiler to test with
     - name: Prepare compiler
-      uses: dlang-community/setup-dlang@v1
+      uses: dlang-community/setup-dlang@v2
       with:
         compiler: ldc-latest
 
