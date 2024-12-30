@@ -52,7 +52,7 @@ jobs:
       fail-fast: false
       matrix:
         # Latest stable version, update at will
-        os: [ macOS-12, ubuntu-20.04, windows-2019 ]
+        os: [ macOS-13, ubuntu-20.04, windows-2019 ]
         dc:
           # Always test latest as that is what we use to compile on release
           - dmd-latest
@@ -71,6 +71,12 @@ jobs:
           - { dc: ldc-latest, do_test: true }
           - { dc: dmd-master, do_test: true }
           - { dc: ldc-master, do_test: true }
+        exclude:
+          # Error with those versions:
+          # ld: multiple errors: symbol count from symbol table and dynamic symbol table differ in [.../dub.o]; address=0x0 points to section(2) with no content in '[...]/osx/lib/libphobos2.a[3177](config_a68_4c3.o)'
+          - { os: macOS-13, dc: dmd-2.099.1 }
+          - { os: macOS-13, dc: dmd-2.102.2 }
+          - { os: macOS-13, dc: dmd-2.105.3 }
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -79,7 +85,9 @@ jobs:
     - name: '[OSX] Install dependencies'
       if: runner.os == 'macOS'
       run: |
-        brew install pkg-config coreutils
+        # We need to install GNU utils as the test-suite scripts expect it.
+        # Without them we may get slightly different behavior in tests and hard-to-track failures
+        brew install pkg-config coreutils diffutils
         echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig/" >> $GITHUB_ENV
 
     - name: '[Linux] Install dependencies'
